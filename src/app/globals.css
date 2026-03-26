@@ -1,0 +1,452 @@
+/* Tokens de diseño centralizados */
+@import '../estilos/tokens.css';
+
+/* Tailwind CSS 4 */
+@import 'tailwindcss';
+
+/* Safe area insets para PWA en iOS (notch, home indicator) */
+:root {
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+}
+
+/* Fix autofill del browser — forzar colores del tema en dark/light mode */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px var(--superficie-tarjeta) inset !important;
+  -webkit-text-fill-color: var(--texto-primario) !important;
+  caret-color: var(--texto-primario) !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* ============================================
+   Tailwind 4 Theme — Mapea tokens CSS a clases
+   Así podemos usar: bg-superficie-tarjeta, text-texto-primario, etc.
+   ============================================ */
+@theme {
+  /* Colores de texto */
+  --color-texto-primario: var(--texto-primario);
+  --color-texto-secundario: var(--texto-secundario);
+  --color-texto-terciario: var(--texto-terciario);
+  --color-texto-inverso: var(--texto-inverso);
+  --color-texto-marca: var(--texto-marca);
+
+  /* Superficies */
+  --color-superficie-app: var(--superficie-app);
+  --color-superficie-tarjeta: var(--superficie-tarjeta);
+  --color-superficie-elevada: var(--superficie-elevada);
+  --color-superficie-sidebar: var(--superficie-sidebar);
+  --color-superficie-hover: var(--superficie-hover);
+  --color-superficie-activa: var(--superficie-activa);
+  --color-superficie-seleccionada: var(--superficie-seleccionada);
+
+  /* Superficies sólidas para celdas sticky (siempre opacas, incluso en modo cristal) */
+  --color-superficie-anclada: var(--superficie-anclada);
+  --color-superficie-anclada-alterna: var(--superficie-anclada-alterna);
+  --color-superficie-anclada-seleccionada: var(--superficie-anclada-seleccionada);
+
+  /* Bordes */
+  --color-borde-sutil: var(--borde-sutil);
+  --color-borde-fuerte: var(--borde-fuerte);
+  --color-borde-foco: var(--borde-foco);
+
+  /* Insignias */
+  --color-insignia-exito: var(--insignia-exito);
+  --color-insignia-exito-fondo: var(--insignia-exito-fondo);
+  --color-insignia-exito-texto: var(--insignia-exito-texto);
+  --color-insignia-peligro: var(--insignia-peligro);
+  --color-insignia-peligro-fondo: var(--insignia-peligro-fondo);
+  --color-insignia-peligro-texto: var(--insignia-peligro-texto);
+  --color-insignia-advertencia: var(--insignia-advertencia);
+  --color-insignia-advertencia-fondo: var(--insignia-advertencia-fondo);
+  --color-insignia-advertencia-texto: var(--insignia-advertencia-texto);
+  --color-insignia-info: var(--insignia-info);
+  --color-insignia-info-fondo: var(--insignia-info-fondo);
+  --color-insignia-info-texto: var(--insignia-info-texto);
+  --color-insignia-primario: var(--insignia-primario);
+  --color-insignia-primario-fondo: var(--insignia-primario-fondo);
+  --color-insignia-primario-texto: var(--insignia-primario-texto);
+  --color-insignia-neutro: var(--insignia-neutro);
+  --color-insignia-neutro-fondo: var(--insignia-neutro-fondo);
+  --color-insignia-neutro-texto: var(--insignia-neutro-texto);
+  --color-insignia-rosa: var(--insignia-rosa);
+  --color-insignia-rosa-fondo: var(--insignia-rosa-fondo);
+  --color-insignia-rosa-texto: var(--insignia-rosa-texto);
+  --color-insignia-cyan: var(--insignia-cyan);
+  --color-insignia-cyan-fondo: var(--insignia-cyan-fondo);
+  --color-insignia-cyan-texto: var(--insignia-cyan-texto);
+  --color-insignia-violeta: var(--insignia-violeta);
+  --color-insignia-violeta-fondo: var(--insignia-violeta-fondo);
+  --color-insignia-violeta-texto: var(--insignia-violeta-texto);
+  --color-insignia-naranja: var(--insignia-naranja);
+  --color-insignia-naranja-fondo: var(--insignia-naranja-fondo);
+  --color-insignia-naranja-texto: var(--insignia-naranja-texto);
+
+  /* Canales */
+  --color-canal-whatsapp: var(--canal-whatsapp);
+  --color-canal-whatsapp-fondo: var(--canal-whatsapp-fondo);
+  --color-canal-correo: var(--canal-correo);
+  --color-canal-correo-fondo: var(--canal-correo-fondo);
+  --color-canal-interno: var(--canal-interno);
+  --color-canal-interno-fondo: var(--canal-interno-fondo);
+
+  /* Estados */
+  --color-estado-borrador: var(--estado-borrador);
+  --color-estado-borrador-fondo: var(--estado-borrador-fondo);
+  --color-estado-pendiente: var(--estado-pendiente);
+  --color-estado-pendiente-fondo: var(--estado-pendiente-fondo);
+  --color-estado-completado: var(--estado-completado);
+  --color-estado-completado-fondo: var(--estado-completado-fondo);
+  --color-estado-error: var(--estado-error);
+  --color-estado-error-fondo: var(--estado-error-fondo);
+  --color-estado-cancelado: var(--estado-cancelado);
+  --color-estado-cancelado-fondo: var(--estado-cancelado-fondo);
+
+  /* Secciones */
+  --color-seccion-contactos: var(--seccion-contactos);
+  --color-seccion-actividades: var(--seccion-actividades);
+  --color-seccion-documentos: var(--seccion-documentos);
+  --color-seccion-asistencias: var(--seccion-asistencias);
+  --color-seccion-visitas: var(--seccion-visitas);
+  --color-seccion-inbox: var(--seccion-inbox);
+  --color-seccion-productos: var(--seccion-productos);
+  --color-seccion-ordenes: var(--seccion-ordenes);
+  --color-seccion-calendario: var(--seccion-calendario);
+  --color-seccion-auditoria: var(--seccion-auditoria);
+
+  /* Sombras */
+  --shadow-sm: var(--sombra-sm);
+  --shadow-md: var(--sombra-md);
+  --shadow-lg: var(--sombra-lg);
+  --shadow-elevada: var(--sombra-elevada);
+
+  /* Radios */
+  --radius-sm: var(--radio-sm);
+  --radius-md: var(--radio-md);
+  --radius-lg: var(--radio-lg);
+  --radius-xl: var(--radio-xl);
+  --radius-completo: var(--radio-completo);
+
+  /* Fuentes */
+  --font-sans: var(--fuente-sans);
+  --font-mono: var(--fuente-mono);
+
+  /* Tipografía — mapeo a tokens para usar text-xxs, text-xs, text-sm, etc. */
+  --text-xxs: var(--texto-xxs);
+  --text-xs: var(--texto-xs);
+  --text-sm: var(--texto-sm);
+  --text-base: var(--texto-base);
+  --text-md: var(--texto-md);
+  --text-lg: var(--texto-lg);
+  --text-xl: var(--texto-xl);
+  --text-2xl: var(--texto-2xl);
+  --text-3xl: var(--texto-3xl);
+
+  /* Sombras */
+  --shadow-sutil: var(--sombra-sm);
+  --shadow-media: var(--sombra-md);
+  --shadow-fuerte: var(--sombra-lg);
+  --shadow-foco: var(--sombra-foco);
+
+  /* Transiciones — mapeo a tokens para usar duration-rapida, duration-normal, etc. */
+  --transition-duration-rapida: 120ms;
+  --transition-duration-normal: 200ms;
+  --transition-duration-lenta: 300ms;
+
+  /* Animaciones */
+  --animate-spin: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Animación de "dibujar" iconos SVG — se usa en EstadoVacio */
+@keyframes dibujar-trazo {
+  from { stroke-dashoffset: 200; }
+  to { stroke-dashoffset: 0; }
+}
+.icono-dibujar svg path,
+.icono-dibujar svg line,
+.icono-dibujar svg circle,
+.icono-dibujar svg polyline,
+.icono-dibujar svg rect,
+.icono-dibujar svg ellipse {
+  stroke-dasharray: 200;
+  stroke-dashoffset: 200;
+  animation: dibujar-trazo 3s ease-out 0.3s forwards;
+}
+
+/* Animación puff para items del sidebar al ocultar/deshabilitar */
+@keyframes sidebar-puff {
+  0% { transform: scale(1); opacity: 1; filter: blur(0); }
+  100% { transform: scale(0.5); opacity: 0; filter: blur(8px); }
+}
+.sidebar-item-puff {
+  animation: sidebar-puff 400ms ease-out forwards;
+  pointer-events: none;
+}
+
+/* ============================================
+   Estilos globales de Flux by Salix
+   ============================================ */
+html {
+  font-family: var(--fuente-sans);
+  font-feature-settings: 'cv11', 'ss01'; /* Inter alternates — más legible */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.011em; /* Tracking sutil como Linear */
+}
+
+body {
+  background-color: var(--superficie-app);
+  color: var(--texto-primario);
+  font-size: var(--texto-base);
+  line-height: 1.6;
+  min-height: 100dvh;
+}
+
+/* Scrollbar sutil estilo Linear */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--borde-sutil); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--borde-fuerte); }
+
+/* Scrollbar del sidebar — oculta completamente */
+.sidebar-scroll { scrollbar-width: none !important; -ms-overflow-style: none !important; }
+.sidebar-scroll::-webkit-scrollbar { display: none !important; }
+
+/* Ocultar spinners de inputs numéricos */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Checkboxes — respetar dark/light mode con tokens del sistema */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--borde-fuerte);
+  border-radius: 4px;
+  background-color: var(--superficie-tarjeta);
+  cursor: pointer;
+  position: relative;
+  transition: all 150ms ease;
+  flex-shrink: 0;
+}
+input[type="checkbox"]:hover {
+  border-color: var(--texto-marca);
+  background-color: var(--superficie-hover);
+}
+input[type="checkbox"]:checked {
+  background-color: var(--texto-marca);
+  border-color: var(--texto-marca);
+}
+input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 4.5px;
+  width: 5px;
+  height: 9px;
+  border: solid var(--texto-inverso);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* Focus visible — solo para elementos que no manejan su propio focus */
+:focus-visible {
+  outline: 2px solid var(--borde-foco);
+  outline-offset: 2px;
+}
+
+/* Inputs y botones manejan su propio focus, no necesitan el outline global */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+button:focus-visible {
+  outline: none;
+}
+
+/* Selección */
+::selection {
+  background-color: var(--insignia-primario-fondo);
+  color: var(--insignia-primario-texto);
+}
+
+/* Links — solo los que no tienen clase de color explícita */
+a { color: inherit; text-decoration: none; }
+a:hover { text-decoration: none; }
+
+/* ============================================
+   Cristal Mode — fondos + paneles glass
+   data-efecto="cristal" activa blur en paneles
+   data-fondo="aurora|medianoche|ambar" define el gradiente de fondo
+   ============================================ */
+
+/* --- Fondos para modo OSCURO + Cristal --- */
+
+/* Aurora oscuro: violeta + cyan + verde — frío y elegante */
+[data-tema="oscuro"][data-fondo="aurora"] body {
+  background:
+    radial-gradient(ellipse 800px 600px at 10% 15%, rgba(124, 58, 237, 0.35) 0%, transparent 60%),
+    radial-gradient(ellipse 700px 600px at 80% 10%, rgba(8, 145, 178, 0.25) 0%, transparent 60%),
+    radial-gradient(ellipse 600px 700px at 55% 90%, rgba(5, 150, 105, 0.18) 0%, transparent 60%),
+    var(--superficie-app);
+  background-attachment: fixed;
+}
+
+/* Medianoche oscuro: azul profundo + índigo — sobrio */
+[data-tema="oscuro"][data-fondo="medianoche"] body {
+  background:
+    radial-gradient(ellipse 800px 600px at 15% 25%, rgba(37, 99, 235, 0.30) 0%, transparent 60%),
+    radial-gradient(ellipse 700px 500px at 85% 15%, rgba(91, 91, 214, 0.22) 0%, transparent 60%),
+    radial-gradient(ellipse 600px 600px at 60% 85%, rgba(30, 64, 175, 0.18) 0%, transparent 60%),
+    var(--superficie-app);
+  background-attachment: fixed;
+}
+
+/* Ámbar oscuro: naranja + dorado — cálido, marca Flux */
+[data-tema="oscuro"][data-fondo="ambar"] body {
+  background:
+    radial-gradient(ellipse 800px 600px at 5% 20%, rgba(232, 146, 42, 0.30) 0%, transparent 60%),
+    radial-gradient(ellipse 700px 600px at 90% 10%, rgba(217, 119, 6, 0.22) 0%, transparent 60%),
+    radial-gradient(ellipse 600px 700px at 45% 90%, rgba(234, 88, 12, 0.15) 0%, transparent 60%),
+    var(--superficie-app);
+  background-attachment: fixed;
+}
+
+/* --- Fondos para modo CLARO + Cristal --- */
+
+/* Aurora claro: lavanda + turquesa suave */
+[data-tema="claro"][data-fondo="aurora"] body {
+  background:
+    radial-gradient(ellipse 800px 600px at 10% 15%, rgba(124, 58, 237, 0.15) 0%, transparent 60%),
+    radial-gradient(ellipse 700px 600px at 80% 10%, rgba(8, 145, 178, 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 600px 700px at 55% 90%, rgba(5, 150, 105, 0.10) 0%, transparent 60%),
+    var(--superficie-app);
+  background-attachment: fixed;
+}
+
+/* Medianoche claro: azul cielo suave */
+[data-tema="claro"][data-fondo="medianoche"] body {
+  background:
+    radial-gradient(ellipse 800px 600px at 15% 25%, rgba(37, 99, 235, 0.15) 0%, transparent 60%),
+    radial-gradient(ellipse 700px 500px at 85% 15%, rgba(91, 91, 214, 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 600px 600px at 60% 85%, rgba(30, 64, 175, 0.10) 0%, transparent 60%),
+    var(--superficie-app);
+  background-attachment: fixed;
+}
+
+/* Ámbar claro: melocotón + dorado tenue */
+[data-tema="claro"][data-fondo="ambar"] body {
+  background:
+    radial-gradient(ellipse 800px 600px at 5% 20%, rgba(232, 146, 42, 0.15) 0%, transparent 60%),
+    radial-gradient(ellipse 700px 600px at 90% 10%, rgba(217, 119, 6, 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 600px 700px at 45% 90%, rgba(234, 88, 12, 0.08) 0%, transparent 60%),
+    var(--superficie-app);
+  background-attachment: fixed;
+}
+
+/* --- Sistema de capas glass (inspirado en iOS 26 Liquid Glass) ---
+   Cuanto más al frente, más blur + más opaco = más legible.
+   Capa 1: paneles de fondo (sidebar, header, tarjetas)
+   Capa 2: elementos flotantes (modales, sheets, dropdowns)
+   ------------------------------------------------------------ */
+
+/* Capa 1 — Paneles base: blur sutil, translúcidos */
+[data-efecto="cristal"] .cristal-panel {
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+}
+[data-efecto="semi-cristal"] .cristal-panel {
+  backdrop-filter: blur(8px) saturate(1.1);
+  -webkit-backdrop-filter: blur(8px) saturate(1.1);
+}
+
+/* Capa 2 — Elementos flotantes: blur fuerte, más opacos para legibilidad */
+[data-efecto="cristal"] .cristal-elevado,
+[data-efecto="cristal"] .z-50:not(.overlay-modal),
+[data-efecto="cristal"] [class*="z-50"]:not(.overlay-modal) {
+  backdrop-filter: blur(32px) saturate(1.5);
+  -webkit-backdrop-filter: blur(32px) saturate(1.5);
+  background-color: var(--superficie-flotante, var(--superficie-elevada));
+}
+[data-efecto="semi-cristal"] .cristal-elevado,
+[data-efecto="semi-cristal"] .z-50:not(.overlay-modal),
+[data-efecto="semi-cristal"] [class*="z-50"]:not(.overlay-modal) {
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  background-color: var(--superficie-flotante, var(--superficie-elevada));
+}
+
+/* --- Bordes por capa y tema (cristal + semi-cristal) --- */
+[data-efecto="cristal"][data-tema="oscuro"] .cristal-panel,
+[data-efecto="semi-cristal"][data-tema="oscuro"] .cristal-panel {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+[data-efecto="cristal"][data-tema="claro"] .cristal-panel,
+[data-efecto="semi-cristal"][data-tema="claro"] .cristal-panel {
+  border-color: rgba(0, 0, 0, 0.05);
+}
+[data-efecto="cristal"][data-tema="oscuro"] .cristal-elevado,
+[data-efecto="cristal"][data-tema="oscuro"] .z-50:not(.overlay-modal),
+[data-efecto="cristal"][data-tema="oscuro"] [class*="z-50"]:not(.overlay-modal),
+[data-efecto="semi-cristal"][data-tema="oscuro"] .cristal-elevado,
+[data-efecto="semi-cristal"][data-tema="oscuro"] .z-50:not(.overlay-modal),
+[data-efecto="semi-cristal"][data-tema="oscuro"] [class*="z-50"]:not(.overlay-modal) {
+  border-color: rgba(255, 255, 255, 0.10);
+}
+[data-efecto="cristal"][data-tema="claro"] .cristal-elevado,
+[data-efecto="cristal"][data-tema="claro"] .z-50:not(.overlay-modal),
+[data-efecto="cristal"][data-tema="claro"] [class*="z-50"]:not(.overlay-modal),
+[data-efecto="semi-cristal"][data-tema="claro"] .cristal-elevado,
+[data-efecto="semi-cristal"][data-tema="claro"] .z-50:not(.overlay-modal),
+[data-efecto="semi-cristal"][data-tema="claro"] [class*="z-50"]:not(.overlay-modal) {
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Overlay de modales/sheets */
+.overlay-modal {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+[data-efecto="cristal"] .overlay-modal,
+[data-efecto="semi-cristal"] .overlay-modal {
+  background-color: rgba(0, 0, 0, 0.25);
+}
+
+/* Panel flotante (modal, sheet) */
+[data-efecto="cristal"] .cristal-flotante {
+  backdrop-filter: blur(32px) saturate(1.5);
+  -webkit-backdrop-filter: blur(32px) saturate(1.5);
+  background-color: var(--superficie-flotante, var(--superficie-elevada));
+}
+[data-efecto="semi-cristal"] .cristal-flotante {
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  background-color: var(--superficie-flotante, var(--superficie-elevada));
+}
+[data-efecto="cristal"][data-tema="oscuro"] .cristal-flotante,
+[data-efecto="semi-cristal"][data-tema="oscuro"] .cristal-flotante {
+  border-color: rgba(255, 255, 255, 0.10);
+}
+[data-efecto="cristal"][data-tema="claro"] .cristal-flotante,
+[data-efecto="semi-cristal"][data-tema="claro"] .cristal-flotante {
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Borde sutil para cumpleaños del día */
+@keyframes pulso-cumple {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(var(--insignia-advertencia-rgb, 245,158,11), 0.25); }
+  50% { box-shadow: 0 0 0 1px rgba(var(--insignia-advertencia-rgb, 245,158,11), 0.15); }
+}

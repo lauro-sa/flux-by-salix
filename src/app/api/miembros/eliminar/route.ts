@@ -1,0 +1,78 @@
+import { NextResponse, type NextRequest } from 'next/server'
+import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { crearClienteAdmin } from '@/lib/supabase/admin'
+
+/**
+ * DELETE /api/miembros/eliminar — Elimina un miembro de la empresa.
+ * Solo propietario puede hacerlo. No elimina el usuario de auth,
+ * solo lo remueve de la empresa (puede pertenecer a otras).
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await crearClienteServidor()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    }
+
+    const empresaId = user.app_metadata?.empresa_activa_id
+    if (!empresaId) {
+      return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    }
+
+    const admin = crearClienteAdmin()
+
+    // Solo propietario puede eliminar
+    const { data: miembroActual } = await admin
+      .from('miembros')
+      .select('rol')
+      .eq('usuario_id', user.id)
+      .eq('empresa_id', empresaId)
+      .single()
+
+    if (!miembroActual || miembroActual.rol !== 'propietario') {
+      return NextResponse.json({ error: 'Solo el propietario puede eliminar miembros' }, { status: 403 })
+    }
+
+    const { miembro_id } = await request.json()
+
+    // Verificar que el miembro existe y no es el propietario
+    const { data: miembro } = await admin
+      .from('miembros')
+      .select('id, rol, usuario_id')
+      .eq('id', miembro_id)
+      .eq('empresa_id', empresaId)
+      .single()
+
+    if (!miembro) {
+      return NextResponse.json({ error: 'Miembro no encontrado' }, { status: 404 })
+    }
+
+    if (miembro.rol === 'propietario') {
+      return NextResponse.json({ error: 'No se puede eliminar al propietario' }, { status: 403 })
+    }
+
+    // Eliminar relaciones dependientes
+    await admin.from('miembros_sectores').delete().eq('miembro_id', miembro_id)
+    await admin.from('contactos_emergencia').delete().eq('miembro_id', miembro_id)
+    await admin.from('info_bancaria').delete().eq('miembro_id', miembro_id)
+    await admin.from('educacion_usuario').delete().eq('miembro_id', miembro_id)
+    await admin.from('documentos_usuario').delete().eq('miembro_id', miembro_id)
+    await admin.from('pagos_nomina').delete().eq('miembro_id', miembro_id)
+
+    // Eliminar el miembro
+    const { error } = await admin
+      .from('miembros')
+      .delete()
+      .eq('id', miembro_id)
+
+    if (error) {
+      return NextResponse.json({ error: 'Error al eliminar el miembro' }, { status: 500 })
+    }
+
+    return NextResponse.json({ mensaje: 'Miembro eliminado de la empresa' })
+  } catch {
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
+  }
+}

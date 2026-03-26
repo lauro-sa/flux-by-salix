@@ -1,0 +1,596 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  UserPlus, Users, Mail, Copy, Check, Download, Upload,
+  Briefcase, DollarSign, Calendar, UserRoundSearch,
+  Clock, Cake,
+} from 'lucide-react'
+import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
+import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
+import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
+import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { Boton } from '@/componentes/ui/Boton'
+import { Input } from '@/componentes/ui/Input'
+import { Select } from '@/componentes/ui/Select'
+import { Modal } from '@/componentes/ui/Modal'
+import { Avatar } from '@/componentes/ui/Avatar'
+import { Insignia } from '@/componentes/ui/Insignia'
+import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
+import { useAuth } from '@/hooks/useAuth'
+import { useEmpresa } from '@/hooks/useEmpresa'
+import { useRol } from '@/hooks/useRol'
+import { crearClienteNavegador } from '@/lib/supabase/cliente'
+
+/**
+ * Página de gestión de usuarios — /usuarios
+ * Usa PlantillaListado + TablaDinamica como todas las demás páginas de lista.
+ */
+
+interface MiembroTabla {
+  id: string
+  usuario_id: string
+  nombre: string
+  apellido: string
+  avatar_url: string | null
+  correo: string
+  telefono: string
+  rol: string
+  activo: boolean
+  sector: string
+  puesto: string
+  compensacion_tipo: string
+  compensacion_monto: number
+  compensacion_frecuencia: string
+  dias_trabajo: number
+  unido_en: string
+  fecha_nacimiento: string | null
+}
+
+/** Calcula días hasta el próximo cumpleaños (0 = hoy, -1 = no aplica) */
+function diasHastaCumple(fechaNac: string | null): number {
+  if (!fechaNac) return -1
+  const hoy = new Date()
+  const nac = new Date(fechaNac + 'T12:00:00')
+  if (isNaN(nac.getTime())) return -1
+
+  const cumpleEsteAnio = new Date(hoy.getFullYear(), nac.getMonth(), nac.getDate())
+  let diff = Math.floor((cumpleEsteAnio.getTime() - new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()).getTime()) / 86400000)
+
+  // Si ya pasó este año, calcular para el próximo
+  if (diff < 0) {
+    const cumpleProximo = new Date(hoy.getFullYear() + 1, nac.getMonth(), nac.getDate())
+    diff = Math.floor((cumpleProximo.getTime() - new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()).getTime()) / 86400000)
+  }
+
+  return diff
+}
+
+/** Genera texto de cumpleaños: "Cumple hoy", "Cumple mañana", "Cumple el miércoles" */
+function textoCumple(dias: number, fechaNac: string | null): string {
+  if (dias < 0 || !fechaNac) return ''
+  const nac = new Date(fechaNac + 'T12:00:00')
+  const edad = new Date().getFullYear() - nac.getFullYear() + (dias === 0 ? 0 : 0)
+  const edadCumple = dias === 0
+    ? new Date().getFullYear() - nac.getFullYear()
+    : new Date().getFullYear() - nac.getFullYear() + (new Date().getMonth() > nac.getMonth() || (new Date().getMonth() === nac.getMonth() && new Date().getDate() > nac.getDate()) ? 1 : 0)
+
+  if (dias === 0) return `¡Cumple ${edadCumple} hoy!`
+  if (dias === 1) return `Cumple ${edadCumple} mañana`
+
+  const fecha = new Date()
+  fecha.setDate(fecha.getDate() + dias)
+  const diaSemana = fecha.toLocaleDateString('es', { weekday: 'long' })
+  return `Cumple ${edadCumple} el ${diaSemana}`
+}
+
+const ETIQUETA_ROL: Record<string, string> = {
+  propietario: 'Propietario', administrador: 'Admin', gestor: 'Gestor',
+  vendedor: 'Vendedor', supervisor: 'Supervisor', empleado: 'Colaborador', invitado: 'Invitado',
+}
+
+const COLOR_ROL: Record<string, 'primario' | 'violeta' | 'info' | 'naranja' | 'cyan' | 'neutro' | 'advertencia'> = {
+  propietario: 'primario', administrador: 'violeta', gestor: 'info',
+  vendedor: 'naranja', supervisor: 'cyan', empleado: 'neutro', invitado: 'advertencia',
+}
+
+const ROLES_OPCIONES = [
+  { valor: 'administrador', etiqueta: 'Administrador' },
+  { valor: 'gestor', etiqueta: 'Gestor' },
+  { valor: 'vendedor', etiqueta: 'Vendedor' },
+  { valor: 'supervisor', etiqueta: 'Supervisor' },
+  { valor: 'empleado', etiqueta: 'Colaborador' },
+  { valor: 'invitado', etiqueta: 'Invitado' },
+]
+
+function formatearMoneda(monto: number): string {
+  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(monto)
+}
+
+/* ── Columnas de la tabla ── */
+const columnas: ColumnaDinamica<MiembroTabla>[] = [
+  {
+    clave: 'nombre',
+    etiqueta: 'Nombre',
+    ancho: 240,
+    ordenable: true,
+    render: (fila) => {
+      const dias = diasHastaCumple(fila.fecha_nacimiento)
+      const esHoy = dias === 0
+      const esProximo = dias > 0 && dias <= 7
+      return (
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Avatar nombre={`${fila.nombre} ${fila.apellido}`} foto={fila.avatar_url} tamano="sm" />
+            {esHoy && (
+              <div className="absolute -top-1 -right-1 size-4 rounded-full bg-insignia-advertencia flex items-center justify-center">
+                <Cake size={9} className="text-white" />
+              </div>
+            )}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-texto-primario truncate">{fila.nombre} {fila.apellido}</p>
+            {esHoy ? (
+              <motion.p
+                animate={{ opacity: [1, 0.4, 1] }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                className="text-[11px] text-insignia-advertencia font-medium truncate flex items-center gap-1"
+              >
+                <Cake size={10} />
+                {textoCumple(dias, fila.fecha_nacimiento)}
+              </motion.p>
+            ) : esProximo ? (
+              <p className="text-[11px] text-insignia-advertencia/50 truncate flex items-center gap-1">
+                <Cake size={10} />
+                {textoCumple(dias, fila.fecha_nacimiento)}
+              </p>
+            ) : (
+              fila.correo && <p className="text-xs text-texto-terciario truncate">{fila.correo}</p>
+            )}
+          </div>
+        </div>
+      )
+    },
+  },
+  {
+    clave: 'rol',
+    etiqueta: 'Rol',
+    ancho: 130,
+    ordenable: true,
+    filtrable: true,
+    opcionesFiltro: [
+      { valor: 'propietario', etiqueta: 'Propietario' },
+      { valor: 'administrador', etiqueta: 'Admin' },
+      { valor: 'gestor', etiqueta: 'Gestor' },
+      { valor: 'vendedor', etiqueta: 'Vendedor' },
+      { valor: 'supervisor', etiqueta: 'Supervisor' },
+      { valor: 'empleado', etiqueta: 'Colaborador' },
+      { valor: 'invitado', etiqueta: 'Invitado' },
+    ],
+    render: (fila) => (
+      <Insignia color={COLOR_ROL[fila.rol] || 'neutro'} tamano="sm">
+        {ETIQUETA_ROL[fila.rol] || fila.rol}
+      </Insignia>
+    ),
+  },
+  {
+    clave: 'activo',
+    etiqueta: 'Estado',
+    ancho: 100,
+    ordenable: true,
+    filtrable: true,
+    opcionesFiltro: [
+      { valor: 'true', etiqueta: 'Activo' },
+      { valor: 'false', etiqueta: 'Inactivo' },
+    ],
+    render: (fila) => (
+      <Insignia color={fila.activo ? 'exito' : 'advertencia'} tamano="sm">
+        {fila.activo ? 'Activo' : 'Inactivo'}
+      </Insignia>
+    ),
+  },
+  {
+    clave: 'sector',
+    etiqueta: 'Sector',
+    ancho: 140,
+    ordenable: true,
+    render: (fila) => (
+      <span className="text-sm text-texto-secundario">{fila.sector || '—'}</span>
+    ),
+  },
+  {
+    clave: 'puesto',
+    etiqueta: 'Puesto',
+    ancho: 180,
+    ordenable: true,
+    render: (fila) => (
+      <span className="text-sm text-texto-secundario truncate">{fila.puesto || '—'}</span>
+    ),
+  },
+  {
+    clave: 'compensacion_monto',
+    etiqueta: 'Compensación',
+    ancho: 160,
+    ordenable: true,
+    tipo: 'moneda',
+    resumen: 'suma',
+    render: (fila) => {
+      if (!fila.compensacion_monto) return <span className="text-sm text-texto-terciario">—</span>
+      return (
+        <div>
+          <p className="text-sm font-medium text-texto-primario">{formatearMoneda(fila.compensacion_monto)}</p>
+          <p className="text-[10px] text-texto-terciario">
+            {fila.compensacion_tipo === 'por_dia' ? '/día' : '/mes'} · {fila.compensacion_frecuencia}
+          </p>
+        </div>
+      )
+    },
+  },
+  {
+    clave: 'telefono',
+    etiqueta: 'Teléfono',
+    ancho: 150,
+    render: (fila) => (
+      <span className="text-sm text-texto-secundario">{fila.telefono || '—'}</span>
+    ),
+  },
+  {
+    clave: 'unido_en',
+    etiqueta: 'Ingreso',
+    ancho: 120,
+    ordenable: true,
+    render: (fila) => (
+      <span className="text-sm text-texto-terciario">
+        {new Date(fila.unido_en).toLocaleDateString('es', { day: 'numeric', month: 'short', year: '2-digit' })}
+      </span>
+    ),
+  },
+]
+
+export default function PaginaUsuarios() {
+  const router = useRouter()
+  const { usuario } = useAuth()
+  const { empresa } = useEmpresa()
+  const { esPropietario, esAdmin } = useRol()
+  const [supabase] = useState(() => crearClienteNavegador())
+
+  const [miembros, setMiembros] = useState<MiembroTabla[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [busqueda, setBusqueda] = useState('')
+
+  // Modal de invitar
+  const [modalInvitar, setModalInvitar] = useState(false)
+  const [invCorreo, setInvCorreo] = useState('')
+  const [invRol, setInvRol] = useState('empleado')
+  const [invitando, setInvitando] = useState(false)
+  const [invError, setInvError] = useState('')
+  const [linkCopiado, setLinkCopiado] = useState('')
+
+  // Modal de confirmación
+  const [modalActivar, setModalActivar] = useState<{ miembro: MiembroTabla; accion: 'activar' | 'desactivar' } | null>(null)
+  const [procesando, setProcesando] = useState(false)
+
+  const puedeGestionar = esPropietario || esAdmin
+
+  /* ── Cargar miembros con perfiles ── */
+  const cargarDatos = useCallback(async () => {
+    if (!empresa) return
+    setCargando(true)
+
+    // Cargar miembros
+    const { data: miembrosData } = await supabase
+      .from('miembros')
+      .select('id, usuario_id, rol, activo, unido_en, compensacion_tipo, compensacion_monto, compensacion_frecuencia, dias_trabajo, puesto_id')
+      .eq('empresa_id', empresa.id)
+      .order('unido_en', { ascending: true })
+
+    if (!miembrosData || miembrosData.length === 0) {
+      setCargando(false)
+      return
+    }
+
+    // Cargar perfiles
+    const usuarioIds = miembrosData.map(m => m.usuario_id)
+    const { data: perfilesData } = await supabase
+      .from('perfiles')
+      .select('id, nombre, apellido, avatar_url, telefono, correo_empresa, fecha_nacimiento')
+      .in('id', usuarioIds)
+
+    const perfilesMapa = new Map(
+      (perfilesData || []).map(p => [p.id, p])
+    )
+
+    // Cargar sectores de miembros
+    const miembroIds = miembrosData.map(m => m.id)
+    const { data: sectoresData } = await supabase
+      .from('miembros_sectores')
+      .select('miembro_id, sector_id')
+      .in('miembro_id', miembroIds)
+      .eq('es_primario', true)
+
+    // Cargar nombres de sectores
+    let sectoresMapa = new Map<string, string>()
+    if (sectoresData && sectoresData.length > 0) {
+      const sectorIds = [...new Set(sectoresData.map(s => s.sector_id))]
+      const { data: sectoresNombres } = await supabase
+        .from('sectores')
+        .select('id, nombre')
+        .in('id', sectorIds)
+
+      if (sectoresNombres) {
+        sectoresMapa = new Map(sectoresNombres.map(s => [s.id, s.nombre]))
+      }
+    }
+
+    const miembroSectorMapa = new Map(
+      (sectoresData || []).map(s => [s.miembro_id, sectoresMapa.get(s.sector_id) || ''])
+    )
+
+    // Cargar puestos
+    const puestoIds = miembrosData.map(m => m.puesto_id).filter(Boolean)
+    let puestosMapa = new Map<string, string>()
+    if (puestoIds.length > 0) {
+      const { data: puestosData } = await supabase
+        .from('puestos')
+        .select('id, nombre')
+        .in('id', puestoIds)
+      if (puestosData) {
+        puestosMapa = new Map(puestosData.map(p => [p.id, p.nombre]))
+      }
+    }
+
+    // Armar datos completos
+    const resultado: MiembroTabla[] = miembrosData.map(m => {
+      const perfil = perfilesMapa.get(m.usuario_id)
+      return {
+        id: m.id,
+        usuario_id: m.usuario_id,
+        nombre: perfil?.nombre || 'Sin',
+        apellido: perfil?.apellido || 'nombre',
+        avatar_url: perfil?.avatar_url || null,
+        correo: perfil?.correo_empresa || '',
+        telefono: perfil?.telefono || '',
+        rol: m.rol,
+        activo: m.activo,
+        sector: miembroSectorMapa.get(m.id) || '',
+        puesto: m.puesto_id ? (puestosMapa.get(m.puesto_id) || '') : '',
+        compensacion_tipo: m.compensacion_tipo || 'fijo',
+        compensacion_monto: Number(m.compensacion_monto) || 0,
+        compensacion_frecuencia: m.compensacion_frecuencia || 'mensual',
+        dias_trabajo: m.dias_trabajo || 5,
+        unido_en: m.unido_en,
+        fecha_nacimiento: perfil?.fecha_nacimiento || null,
+      }
+    })
+
+    // Cumpleañeros de hoy van primero, luego próximos 7 días, luego el resto
+    resultado.sort((a, b) => {
+      const da = diasHastaCumple(a.fecha_nacimiento)
+      const db = diasHastaCumple(b.fecha_nacimiento)
+      const prioA = da >= 0 && da <= 7 ? da : 999
+      const prioB = db >= 0 && db <= 7 ? db : 999
+      if (prioA !== prioB) return prioA - prioB
+      return 0 // mantener orden original para el resto
+    })
+
+    setMiembros(resultado)
+    setCargando(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresa])
+
+  useEffect(() => { cargarDatos() }, [cargarDatos])
+
+  /* ── Invitar usuario ── */
+  const invitarUsuario = async () => {
+    setInvError('')
+    if (!invCorreo) { setInvError('El correo es obligatorio'); return }
+    setInvitando(true)
+
+    const res = await fetch('/api/invitaciones/crear', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ correo: invCorreo, rol: invRol }),
+    })
+    const datos = await res.json()
+
+    if (!res.ok) {
+      setInvError(datos.error)
+      setInvitando(false)
+      return
+    }
+
+    setLinkCopiado(datos.link)
+    setInvitando(false)
+    setInvCorreo('')
+    setInvRol('empleado')
+    cargarDatos()
+  }
+
+  /* ── Activar/desactivar ── */
+  const manejarActivacion = async () => {
+    if (!modalActivar) return
+    setProcesando(true)
+
+    const res = await fetch('/api/miembros/activar', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        miembro_id: modalActivar.miembro.id,
+        activo: modalActivar.accion === 'activar',
+      }),
+    })
+
+    if (res.ok) cargarDatos()
+    setProcesando(false)
+    setModalActivar(null)
+  }
+
+  /* ── Acciones en lote ── */
+  const accionesLote = puedeGestionar ? [
+    {
+      id: 'desactivar',
+      etiqueta: 'Desactivar seleccionados',
+      icono: <Clock size={14} />,
+      onClick: (ids: Set<string>) => {
+        // TODO: batch desactivar
+      },
+    },
+  ] : []
+
+  return (
+    <PlantillaListado
+      titulo="Usuarios"
+      icono={<Users size={20} />}
+      accionPrincipal={puedeGestionar ? {
+        etiqueta: 'Invitar usuario',
+        icono: <UserPlus size={14} />,
+        onClick: () => { setModalInvitar(true); setLinkCopiado('') },
+      } : undefined}
+      acciones={[
+        { id: 'exportar', etiqueta: 'Exportar', icono: <Download size={14} />, onClick: () => {} },
+      ]}
+      mostrarConfiguracion
+      onConfiguracion={() => router.push('/usuarios/configuracion')}
+    >
+      <TablaDinamica<MiembroTabla>
+        idModulo="usuarios"
+        columnas={columnas}
+        datos={miembros}
+        claveFila={(r) => r.id}
+        vistas={['lista', 'tarjetas']}
+        seleccionables={puedeGestionar}
+        busqueda={busqueda}
+        onBusqueda={setBusqueda}
+        placeholder="Buscar por nombre, correo, rol..."
+        accionesLote={accionesLote}
+        mostrarResumen
+        onClickFila={(fila) => router.push(`/usuarios/${fila.id}`)}
+        renderTarjeta={(fila) => {
+          const dias = diasHastaCumple(fila.fecha_nacimiento)
+          const esCumple = dias >= 0 && dias <= 7
+          return (
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Avatar nombre={`${fila.nombre} ${fila.apellido}`} foto={fila.avatar_url} tamano="md" />
+                  {esCumple && (
+                    <motion.div
+                      animate={dias === 0 ? { scale: [1, 1.2, 1] } : undefined}
+                      transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                      className="absolute -top-1 -right-1 size-5 rounded-full bg-insignia-advertencia flex items-center justify-center"
+                    >
+                      <Cake size={10} className="text-white" />
+                    </motion.div>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-texto-primario truncate">{fila.nombre} {fila.apellido}</p>
+                  {dias === 0 ? (
+                    <motion.p
+                      animate={{ opacity: [1, 0.4, 1] }}
+                      transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                      className="text-[11px] text-insignia-advertencia font-medium truncate flex items-center gap-1"
+                    >
+                      <Cake size={10} />
+                      {textoCumple(dias, fila.fecha_nacimiento)}
+                    </motion.p>
+                  ) : esCumple ? (
+                    <p className="text-[11px] text-insignia-advertencia/50 truncate flex items-center gap-1">
+                      <Cake size={10} />
+                      {textoCumple(dias, fila.fecha_nacimiento)}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-texto-terciario truncate">{fila.correo || 'Sin correo'}</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Insignia color={COLOR_ROL[fila.rol] || 'neutro'} tamano="sm">{ETIQUETA_ROL[fila.rol] || fila.rol}</Insignia>
+                <Insignia color={fila.activo ? 'exito' : 'advertencia'} tamano="sm">{fila.activo ? 'Activo' : 'Inactivo'}</Insignia>
+              </div>
+              {fila.sector && <p className="text-xs text-texto-terciario">{fila.sector}{fila.puesto ? ` · ${fila.puesto}` : ''}</p>}
+              {fila.compensacion_monto > 0 && (
+                <p className="text-sm font-medium text-texto-primario">
+                  {formatearMoneda(fila.compensacion_monto)}
+                  <span className="text-texto-terciario font-normal">
+                    {fila.compensacion_tipo === 'por_dia' ? '/día' : '/mes'}
+                  </span>
+                </p>
+              )}
+            </div>
+          )
+        }}
+        estadoVacio={
+          <EstadoVacio
+            icono={<UserRoundSearch size={52} strokeWidth={1} />}
+            titulo="Sin miembros del equipo"
+            descripcion="Invitá a tu primer miembro para empezar a gestionar el equipo."
+            accion={puedeGestionar ? <Boton icono={<UserPlus size={14} />} onClick={() => setModalInvitar(true)}>Invitar usuario</Boton> : undefined}
+          />
+        }
+      />
+
+      {/* ══════ MODAL INVITAR ══════ */}
+      <Modal abierto={modalInvitar} onCerrar={() => setModalInvitar(false)} titulo="Invitar usuario" tamano="sm">
+        {linkCopiado ? (
+          <div className="flex flex-col gap-4">
+            <div className="text-center">
+              <div className="mx-auto w-12 h-12 rounded-full bg-insignia-exito/10 flex items-center justify-center mb-3">
+                <Check size={24} className="text-insignia-exito" />
+              </div>
+              <p className="text-sm text-texto-primario font-medium mb-1">Invitación creada</p>
+              <p className="text-xs text-texto-terciario">Compartí este link con el usuario</p>
+            </div>
+            <div className="flex gap-2">
+              <Input tipo="text" value={linkCopiado} readOnly compacto />
+              <Boton variante="secundario" tamano="sm" soloIcono icono={<Copy size={14} />} onClick={() => navigator.clipboard.writeText(linkCopiado)} />
+            </div>
+            <Boton variante="primario" anchoCompleto onClick={() => setModalInvitar(false)}>Listo</Boton>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <Input
+              tipo="email"
+              etiqueta="Correo del usuario"
+              placeholder="usuario@correo.com"
+              value={invCorreo}
+              onChange={(e) => setInvCorreo(e.target.value)}
+              icono={<Mail size={16} />}
+            />
+            <Select etiqueta="Rol" opciones={ROLES_OPCIONES} valor={invRol} onChange={(v) => setInvRol(v)} />
+            <AnimatePresence>
+              {invError && (
+                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-sm text-insignia-peligro">
+                  {invError}
+                </motion.p>
+              )}
+            </AnimatePresence>
+            <Boton variante="primario" anchoCompleto cargando={invitando} onClick={invitarUsuario} icono={<UserPlus size={16} />}>
+              Enviar invitación
+            </Boton>
+          </div>
+        )}
+      </Modal>
+
+      {/* ══════ MODAL ACTIVAR/DESACTIVAR ══════ */}
+      {modalActivar && (
+        <ModalConfirmacion
+          abierto={true}
+          onCerrar={() => setModalActivar(null)}
+          onConfirmar={manejarActivacion}
+          titulo={modalActivar.accion === 'activar' ? 'Activar miembro' : 'Desactivar miembro'}
+          descripcion={
+            modalActivar.accion === 'activar'
+              ? 'Este usuario podrá acceder a la empresa y ver los datos según su rol.'
+              : 'Este usuario perderá acceso a la empresa hasta que lo reactives.'
+          }
+          tipo={modalActivar.accion === 'activar' ? 'exito' : 'advertencia'}
+          etiquetaConfirmar={modalActivar.accion === 'activar' ? 'Activar' : 'Desactivar'}
+          cargando={procesando}
+        />
+      )}
+    </PlantillaListado>
+  )
+}

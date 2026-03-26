@@ -1,0 +1,179 @@
+# Flux by Salix — Reglas para Cursor
+
+## Nombre del producto
+- El sistema se llama **Flux** (marca completa: "Flux by Salix")
+- NUNCA usar "CRM", "SalixCRM" ni ninguna referencia a "CRM" en código, UI ni comentarios
+
+## Idioma
+- **Todo en español:** componentes, variables, funciones, archivos, props, tipos, hooks
+- Comentarios en español explicando qué hace cada bloque y dónde se usa
+- Nombres de archivos: snake_case para utilidades, PascalCase para componentes
+
+## Stack
+- **Frontend:** Next.js 15 (App Router) + React 19 + TypeScript estricto
+- **Base de datos:** PostgreSQL via Supabase (RLS multi-tenant con empresa_id)
+- **Auth:** Supabase Auth (JWT con empresa_id, rol, es_superadmin)
+- **ORM:** Drizzle ORM (tipado, SQL-first)
+- **Estilos:** Tailwind CSS 4 + tokens semánticos CSS custom properties
+- **Animaciones:** Framer Motion (transiciones sutiles, nunca exageradas)
+- **Realtime:** Supabase Realtime (WebSockets)
+- **Storage:** Supabase Storage
+- **Imports:** alias `@/*` apuntando a `src/`
+
+## Estructura de carpetas
+```
+src/
+  app/                    # App Router (páginas y API routes)
+    (auth)/               # Grupo: login, registro, recuperar
+    (flux)/               # Grupo: app autenticada
+      contactos/
+      actividades/
+      visitas/
+      documentos/
+      productos/
+      inbox/
+      asistencias/
+      calendario/
+      ordenes/
+      auditoria/
+      configuracion/
+      dashboard/
+    api/                  # API routes
+  componentes/
+    ui/                   # Primitivas reutilizables
+    tablas/               # TablaBase, TablaDinamica, Kanban
+    entidad/              # PlantillaApp, PlantillaDetalle, PlantillaListado, Sidebar, Header, Migajas
+    feedback/             # Toast, EstadoVacio
+  hooks/                  # Hooks reutilizables
+  lib/                    # Utilidades, clientes (supabase, formato, etc.)
+  tipos/                  # Tipos TypeScript globales
+  estilos/                # Tokens, variables CSS, globals
+  db/                     # Schema Drizzle, migraciones
+```
+
+---
+
+## COMPONENTES UI EXISTENTES — USAR ESTOS, NO CREAR NUEVOS
+
+Antes de crear cualquier componente, revisá si ya existe uno que sirva. Estos son los componentes UI disponibles:
+
+### Primitivas (`src/componentes/ui/`)
+- **Boton** — Botón principal con variantes
+- **Input** — Campo de texto con auto-corrección (emails minúscula, nombres capitalizados, teléfonos formateados)
+- **Select** — Selector desplegable
+- **Modal** — Modal base (TODOS los modales deben usar este). Más anchos que altos en PC
+- **ModalConfirmacion** — Modal de confirmación (usa Modal internamente)
+- **Avatar** — Avatar con iniciales y color
+- **Insignia** — Badge/etiqueta con colores semánticos
+- **Pildora** — Píldora de estado/etiqueta
+- **Tabs** — Pestañas
+- **Tarjeta** — Card container
+- **Interruptor** — Toggle switch
+- **Separador** — Línea separadora
+- **Alerta** — Mensajes de alerta
+- **Buscador** — Buscador con debounce
+- **BarraBusqueda** — Barra de búsqueda global
+- **LineaTiempo** — Timeline/chatter
+- **IndicadorGuardado** — Indicador de autoguardado
+- **SelectorColor** — Picker de color
+- **SelectorIcono** — Picker de ícono
+- **SelectorVariables** — Selector de variables dinámicas tipo merge fields
+- **BottomSheet** — Sheet inferior para mobile
+- **CargadorLogo** — Loader con logo
+- **FondoParticulas** — Fondo animado (solo auth)
+- **LogosIA** — Logos de proveedores IA
+
+### Tablas (`src/componentes/tablas/`)
+- **TablaBase** — Tabla reutilizable con ordenamiento, selección, acciones masivas
+- **TablaDinamica** — Tabla con columnas configurables
+- **Kanban** — Vista kanban con drag-and-drop
+
+### Entidad (`src/componentes/entidad/`)
+- **PlantillaApp** — Layout principal de la app (Sidebar + Header + contenido)
+- **PlantillaListado** — Layout de página de listado (título, filtros, tabla/kanban)
+- **PlantillaDetalle** — Layout de detalle de entidad
+- **PlantillaConfiguracion** — Layout de páginas de configuración
+- **Sidebar** — Navegación lateral
+- **Header** — Barra superior
+- **Migajas** — Breadcrumbs con historial completo
+
+### Feedback (`src/componentes/feedback/`)
+- **Toast** — Notificaciones toast
+- **EstadoVacio** — Estado vacío (sin datos)
+
+---
+
+## REGLAS CRÍTICAS DE CÓDIGO
+
+### No duplicar componentes
+- Si algo se repite, se extrae a un componente reutilizable
+- Un cambio en un componente se refleja en todos los lugares donde se usa
+- NO crear componentes específicos si se puede resolver con el reutilizable + props
+- Ejemplo: NO crear `BotonGuardar.tsx` si `Boton` con props ya lo resuelve
+
+### Colores NUNCA hardcodeados
+SIEMPRE usar tokens semánticos via CSS custom properties:
+```
+--texto-primario, --texto-secundario, --texto-terciario, --texto-marca
+--superficie-app, --superficie-tarjeta, --superficie-elevada, --superficie-sidebar
+--borde-sutil, --borde-fuerte
+--insignia-exito, --insignia-peligro, --insignia-advertencia, --insignia-info
+--canal-whatsapp, --canal-correo, --canal-interno
+--estado-borrador, --estado-pendiente, --estado-completado, --estado-error
+```
+NUNCA usar colores directos como `text-gray-500`, `bg-blue-600`, `#ff0000`, etc. Siempre `var(--token)`.
+
+### Autoguardado
+- Sin botón "Guardar" — el autoguardado se activa al salir del campo (onBlur)
+- Selects guardan inmediatamente al cambiar
+- Usar el componente IndicadorGuardado para feedback visual
+
+### Auto-corrección en inputs
+- Emails se convierten a minúscula automáticamente
+- Nombres se capitalizan automáticamente
+- Teléfonos se formatean automáticamente
+- Siglas se detectan y mantienen en mayúscula
+
+### TypeScript estricto
+- `strict: true` en todo el proyecto
+- Tipar todo explícitamente, no usar `any`
+- Tipos globales en `src/tipos/`
+
+### Diseño
+- **Mobile-first:** diseñar primero para móvil, luego expandir
+- **Dark/light mode:** automático por preferencia del sistema + toggle manual
+- **Estilo visual:** plano y limpio, inspirado en Attio/Linear/Notion
+- **Espaciado generoso**, tipografía clara, sin ruido visual
+- **Animaciones:** Framer Motion, sutiles y profesionales, nunca caóticas
+
+### Multi-tenant
+- Toda tabla tiene columna `empresa_id`
+- RLS: `USING (empresa_id = (auth.jwt() ->> 'empresa_id')::uuid)`
+- JWT custom claims: `empresa_id`, `rol`, `es_superadmin`
+- Índices compuestos `(empresa_id, ...)` en toda tabla
+
+### Sin over-engineering
+- Solo lo necesario ahora
+- No crear abstracciones prematuras
+- No agregar features que no se pidieron
+
+---
+
+## DEPENDENCIAS EXISTENTES — NO AGREGAR NUEVAS SIN NECESIDAD
+
+Antes de instalar cualquier paquete, verificá si ya hay algo en el proyecto que lo resuelva. Las dependencias principales son:
+- `next` (App Router), `react`, `typescript`
+- `@supabase/supabase-js`, `@supabase/ssr`
+- `drizzle-orm`, `drizzle-kit`
+- `tailwindcss` v4
+- `framer-motion`
+- `lucide-react` (íconos)
+- `@tiptap/*` (editor rich-text)
+- `ai` + `@ai-sdk/*` (Vercel AI SDK)
+
+NO instalar librerías de componentes (shadcn, radix, chakra, etc.) — los componentes UI son propios.
+
+---
+
+## REFERENCIA COMPLETA
+Ver `CONTEXTO_REBUILD.md` para la especificación detallada de todos los módulos, campos, permisos, y funcionalidad del sistema.

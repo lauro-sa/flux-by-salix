@@ -1,0 +1,36 @@
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
+
+/**
+ * Crea un cliente Supabase para el middleware de Next.js.
+ * Refresca tokens automáticamente y propaga cookies en la respuesta.
+ * Se usa en: src/middleware.ts
+ */
+export async function crearClienteMiddleware(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({ request })
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesParaSetear) {
+          // Setear en el request (para que Server Components las lean)
+          cookiesParaSetear.forEach(({ name, value }) => {
+            request.cookies.set(name, value)
+          })
+          // Crear nueva respuesta con las cookies actualizadas
+          supabaseResponse = NextResponse.next({ request })
+          cookiesParaSetear.forEach(({ name, value, options }) => {
+            supabaseResponse.cookies.set(name, value, options)
+          })
+        },
+      },
+    }
+  )
+
+  return { supabase, response: supabaseResponse }
+}

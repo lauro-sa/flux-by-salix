@@ -1,0 +1,49 @@
+import type { Metadata, Viewport } from 'next'
+import './globals.css'
+import { RegistroSW } from '@/componentes/pwa/RegistroSW'
+
+export const metadata: Metadata = {
+  title: 'Flux by Salix',
+  description: 'Sistema de gestión multi-empresa para PyMEs',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Flux',
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
+  },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: 'cover',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0a0a0f' },
+  ],
+}
+
+export default function LayoutRaiz({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="es" suppressHydrationWarning>
+      <head>
+        <link rel="icon" type="image/svg+xml" href="/iconos/favicon.svg" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/iconos/favicon-32.png" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/iconos/favicon-16.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/iconos/apple-touch-icon.png" />
+      </head>
+      <body>
+        {children}
+        <RegistroSW />
+      </body>
+    </html>
+  )
+}

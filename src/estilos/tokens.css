@@ -1,0 +1,414 @@
+/* ============================================
+   Flux by Salix — Sistema de Tokens de Diseño
+   ============================================
+
+   REGLAS:
+   - NUNCA usar hex/rgb/rgba sueltos en componentes
+   - NUNCA usar text-[Xpx] arbitrarios — usar text-xxs a text-3xl
+   - NUNCA usar shadow-[...] arbitrarios — usar shadow-sm a shadow-elevada
+   - Colores siempre vía tokens: bg-superficie-*, text-texto-*, border-borde-*
+
+   ESCALA DE TIPOGRAFÍA (clases Tailwind):
+     text-xxs  → 10px  — badges, contadores, metadatos mínimos
+     text-xs   → 11px  — labels secundarios, timestamps
+     text-sm   → 13px  — texto de UI principal, botones, inputs, nav
+     text-base → 14px  — cuerpo de texto, párrafos
+     text-md   → 15px  — texto destacado
+     text-lg   → 17px  — títulos de sección (h3)
+     text-xl   → 20px  — títulos de página secundarios (h2)
+     text-2xl  → 24px  — títulos de página principales (h1)
+     text-3xl  → 30px  — héroe / landing
+
+   ESCALA DE SOMBRAS:
+     shadow-sm     → sutil (tarjetas)
+     shadow-md     → media (dropdowns)
+     shadow-lg     → fuerte (modales)
+     shadow-elevada → máxima (sheets flotantes)
+     shadow-foco   → ring de focus (inputs activos)
+
+   ESCALA DE RADIOS:
+     rounded-sm → 6px   — inputs, badges
+     rounded-md → 8px   — tarjetas, botones
+     rounded-lg → 12px  — modales, paneles
+     rounded-xl → 16px  — sheets grandes
+     rounded-full → pill — avatares, píldoras
+
+   TRANSICIONES:
+     duration-rapida → 120ms — hovers, focus
+     duration-normal → 200ms — cambios de estado
+     duration-lenta  → 300ms — modales, paneles
+
+   TAMAÑOS DE ICONOS:
+     size={14} → dentro de texto (badges, labels)
+     size={16} → botones, acciones del header
+     size={18} → navegación del sidebar
+     size={48} → estados vacíos, héroe
+
+   ============================================ */
+
+/* Inter font — la fuente de Attio, Linear, Vercel */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* ---------- LIGHT MODE (default) ---------- */
+:root {
+  /* Texto — grises neutros puros estilo Attio */
+  --texto-primario: #1a1a1a;
+  --texto-secundario: #737373;
+  --texto-terciario: #a3a3a3;
+  --texto-inverso: #ffffff;
+  --texto-marca: #5b5bd6; /* Índigo Attio — se sobreescribe por empresa */
+
+  /* Superficies */
+  --superficie-app: #ffffff;
+  --superficie-tarjeta: #ffffff;
+  --superficie-elevada: #ffffff;
+  --superficie-sidebar: #fafafa;
+  --superficie-hover: #f5f5f5;
+  --superficie-activa: #efefef;
+  --superficie-seleccionada: rgba(91, 91, 214, 0.08);
+
+  /* Bordes — casi invisibles */
+  --borde-sutil: #e5e5e5;
+  --borde-fuerte: #d4d4d4;
+  --borde-foco: #5b5bd6;
+
+  /* Insignias / Badges semánticos */
+  --insignia-exito: #059669;
+  --insignia-exito-fondo: #ecfdf5;
+  --insignia-exito-texto: #065f46;
+  --insignia-peligro: #dc2626;
+  --insignia-peligro-fondo: #fef2f2;
+  --insignia-peligro-texto: #991b1b;
+  --insignia-advertencia: #d97706;
+  --insignia-advertencia-fondo: #fffbeb;
+  --insignia-advertencia-texto: #92400e;
+  --insignia-info: #2563eb;
+  --insignia-info-fondo: #eff6ff;
+  --insignia-info-texto: #1e40af;
+  --insignia-primario: #5b5bd6;
+  --insignia-primario-fondo: rgba(91, 91, 214, 0.08);
+  --insignia-primario-texto: #4343a8;
+  --insignia-neutro: #6b7280;
+  --insignia-neutro-fondo: #f3f4f6;
+  --insignia-neutro-texto: #374151;
+  --insignia-rosa: #db2777;
+  --insignia-rosa-fondo: #fdf2f8;
+  --insignia-rosa-texto: #9d174d;
+  --insignia-cyan: #0891b2;
+  --insignia-cyan-fondo: #ecfeff;
+  --insignia-cyan-texto: #155e75;
+  --insignia-violeta: #7c3aed;
+  --insignia-violeta-fondo: #f5f3ff;
+  --insignia-violeta-texto: #5b21b6;
+  --insignia-naranja: #ea580c;
+  --insignia-naranja-fondo: #fff7ed;
+  --insignia-naranja-texto: #9a3412;
+
+  /* Canales de mensajería */
+  --canal-whatsapp: #25d366;
+  --canal-whatsapp-fondo: #ecfdf5;
+  --canal-correo: #2563eb;
+  --canal-correo-fondo: #eff6ff;
+  --canal-interno: #7c3aed;
+  --canal-interno-fondo: #f5f3ff;
+
+  /* Estados de entidades */
+  --estado-borrador: #9ca3af;
+  --estado-borrador-fondo: #f3f4f6;
+  --estado-pendiente: #d97706;
+  --estado-pendiente-fondo: #fffbeb;
+  --estado-completado: #059669;
+  --estado-completado-fondo: #ecfdf5;
+  --estado-error: #dc2626;
+  --estado-error-fondo: #fef2f2;
+  --estado-cancelado: #6b7280;
+  --estado-cancelado-fondo: #f3f4f6;
+
+  /* Secciones / Módulos */
+  --seccion-contactos: #5b5bd6;
+  --seccion-actividades: #d97706;
+  --seccion-documentos: #2563eb;
+  --seccion-asistencias: #059669;
+  --seccion-visitas: #7c3aed;
+  --seccion-inbox: #0891b2;
+  --seccion-productos: #db2777;
+  --seccion-ordenes: #ea580c;
+  --seccion-calendario: #0d9488;
+  --seccion-auditoria: #6b7280;
+
+  /* Sombras — sutiles, no pesadas */
+  --sombra-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --sombra-md: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --sombra-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --sombra-elevada: 0 16px 48px rgba(0, 0, 0, 0.12);
+  --sombra-foco: 0 0 0 3px var(--insignia-primario-fondo);
+
+  /* Radios — ligeramente más redondeados para look moderno */
+  --radio-sm: 6px;
+  --radio-md: 8px;
+  --radio-lg: 12px;
+  --radio-xl: 16px;
+  --radio-completo: 9999px;
+
+  /* Transiciones */
+  --transicion-rapida: 120ms ease;
+  --transicion-normal: 200ms ease;
+  --transicion-lenta: 300ms ease;
+
+  /* Tipografía — Inter */
+  --fuente-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --fuente-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+
+  /* Tipografía — escala "normal" (default) */
+  --texto-xxs: 0.625rem;   /* 10px */
+  --texto-xs: 0.6875rem;   /* 11px */
+  --texto-sm: 0.8125rem;   /* 13px */
+  --texto-base: 0.875rem;  /* 14px */
+  --texto-md: 0.9375rem;   /* 15px */
+  --texto-lg: 1.0625rem;   /* 17px */
+  --texto-xl: 1.25rem;     /* 20px */
+  --texto-2xl: 1.5rem;     /* 24px */
+  --texto-3xl: 1.875rem;   /* 30px */
+
+  /* Espaciado */
+  --espacio-1: 0.25rem;
+  --espacio-2: 0.5rem;
+  --espacio-3: 0.75rem;
+  --espacio-4: 1rem;
+  --espacio-5: 1.25rem;
+  --espacio-6: 1.5rem;
+  --espacio-8: 2rem;
+  --espacio-10: 2.5rem;
+  --espacio-12: 3rem;
+
+  /* Fondos sólidos para celdas sticky (tablas con scroll horizontal).
+     Siempre opacos, incluso en modo cristal, para evitar que el contenido
+     se vea por detrás de columnas ancladas. */
+  --superficie-anclada: #ffffff;
+  --superficie-anclada-alterna: #f9f9f9;
+  --superficie-anclada-seleccionada: #eeeef8;
+
+  /* Layout */
+  --sidebar-ancho: 240px;
+  --sidebar-ancho-colapsado: 56px;
+  --header-alto: 48px;
+}
+
+/* ---------- DARK MODE ---------- */
+/* Paleta oscura estilo Linear/Attio — no el gris azulado genérico */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+    --texto-primario: #eeeeee;
+    --texto-secundario: #a0a0a0;
+    --texto-terciario: #666666;
+    --texto-inverso: #111111;
+    --texto-marca: #7b7bd8;
+
+    --superficie-app: #111111;
+    --superficie-tarjeta: #191919;
+    --superficie-elevada: #222222;
+    --superficie-sidebar: #111111;
+    --superficie-hover: #1e1e1e;
+    --superficie-activa: #2a2a2a;
+    --superficie-seleccionada: rgba(123, 123, 216, 0.12);
+
+    --borde-sutil: #2a2a2a;
+    --borde-fuerte: #3a3a3a;
+    --borde-foco: #7b7bd8;
+
+    --sombra-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+    --sombra-md: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --sombra-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+    --sombra-elevada: 0 16px 48px rgba(0, 0, 0, 0.5);
+
+    /* Insignias dark — fondos más ricos */
+    --insignia-exito-fondo: rgba(5, 150, 105, 0.15);
+    --insignia-exito-texto: #6ee7b7;
+    --insignia-peligro-fondo: rgba(220, 38, 38, 0.15);
+    --insignia-peligro-texto: #fca5a5;
+    --insignia-advertencia-fondo: rgba(217, 119, 6, 0.15);
+    --insignia-advertencia-texto: #fcd34d;
+    --insignia-info-fondo: rgba(37, 99, 235, 0.15);
+    --insignia-info-texto: #93c5fd;
+    --insignia-primario-fondo: rgba(123, 123, 216, 0.15);
+    --insignia-primario-texto: #a5a5e6;
+    --insignia-neutro-fondo: rgba(107, 114, 128, 0.15);
+    --insignia-neutro-texto: #d1d5db;
+    --insignia-rosa-fondo: rgba(219, 39, 119, 0.15);
+    --insignia-rosa-texto: #f9a8d4;
+    --insignia-cyan-fondo: rgba(8, 145, 178, 0.15);
+    --insignia-cyan-texto: #67e8f9;
+    --insignia-violeta-fondo: rgba(124, 58, 237, 0.15);
+    --insignia-violeta-texto: #c4b5fd;
+    --insignia-naranja-fondo: rgba(234, 88, 12, 0.15);
+    --insignia-naranja-texto: #fdba74;
+
+    --canal-whatsapp-fondo: rgba(37, 211, 102, 0.12);
+    --canal-correo-fondo: rgba(37, 99, 235, 0.12);
+    --canal-interno-fondo: rgba(124, 58, 237, 0.12);
+
+    --estado-borrador-fondo: rgba(107, 114, 128, 0.15);
+    --estado-pendiente-fondo: rgba(217, 119, 6, 0.15);
+    --estado-completado-fondo: rgba(5, 150, 105, 0.15);
+    --estado-error-fondo: rgba(220, 38, 38, 0.15);
+    --estado-cancelado-fondo: rgba(107, 114, 128, 0.15);
+
+    --superficie-anclada: #191919;
+    --superficie-anclada-alterna: #1e1e1e;
+    --superficie-anclada-seleccionada: #1e1e30;
+  }
+}
+
+/* Override manual tema oscuro — mismos colores que media query */
+[data-tema="oscuro"] {
+  --texto-primario: #f0f0f0;
+  --texto-secundario: #a1a1a1;
+  --texto-terciario: #666666;
+  --texto-inverso: #09090b;
+  --texto-marca: #e8922a;
+
+  --superficie-app: #09090b;
+  --superficie-tarjeta: #111113;
+  --superficie-elevada: #18181b;
+  --superficie-sidebar: #09090b;
+  --superficie-hover: #18181b;
+  --superficie-activa: rgba(255, 255, 255, 0.08);
+  --superficie-seleccionada: rgba(232, 146, 42, 0.1);
+
+  --borde-sutil: #1f1f23;
+  --borde-fuerte: rgba(255, 255, 255, 0.12);
+  --borde-foco: #e8922a;
+
+  --sombra-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --sombra-md: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --sombra-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --sombra-elevada: 0 16px 48px rgba(0, 0, 0, 0.5);
+
+  --insignia-exito-fondo: rgba(5, 150, 105, 0.15);
+  --insignia-exito-texto: #6ee7b7;
+  --insignia-peligro-fondo: rgba(220, 38, 38, 0.15);
+  --insignia-peligro-texto: #fca5a5;
+  --insignia-advertencia-fondo: rgba(217, 119, 6, 0.15);
+  --insignia-advertencia-texto: #fcd34d;
+  --insignia-info-fondo: rgba(37, 99, 235, 0.15);
+  --insignia-info-texto: #93c5fd;
+  --insignia-primario-fondo: rgba(232, 146, 42, 0.15);
+  --insignia-primario-texto: #fbbf24;
+  --insignia-neutro-fondo: rgba(107, 114, 128, 0.15);
+  --insignia-neutro-texto: #d1d5db;
+  --insignia-rosa-fondo: rgba(219, 39, 119, 0.15);
+  --insignia-rosa-texto: #f9a8d4;
+  --insignia-cyan-fondo: rgba(8, 145, 178, 0.15);
+  --insignia-cyan-texto: #67e8f9;
+  --insignia-violeta-fondo: rgba(124, 58, 237, 0.15);
+  --insignia-violeta-texto: #c4b5fd;
+  --insignia-naranja-fondo: rgba(234, 88, 12, 0.15);
+  --insignia-naranja-texto: #fdba74;
+
+  --canal-whatsapp-fondo: rgba(37, 211, 102, 0.12);
+  --canal-correo-fondo: rgba(37, 99, 235, 0.12);
+  --canal-interno-fondo: rgba(124, 58, 237, 0.12);
+
+  --estado-borrador-fondo: rgba(107, 114, 128, 0.15);
+  --estado-pendiente-fondo: rgba(217, 119, 6, 0.15);
+  --estado-completado-fondo: rgba(5, 150, 105, 0.15);
+  --estado-error-fondo: rgba(220, 38, 38, 0.15);
+  --estado-cancelado-fondo: rgba(107, 114, 128, 0.15);
+
+  --superficie-anclada: #111113;
+  --superficie-anclada-alterna: #18181b;
+  --superficie-anclada-seleccionada: #1a1a2e;
+}
+
+/* ---------- ESCALA DE TEXTO ---------- */
+/* Compacto: -1px en cada nivel — para pantallas chicas o más densidad */
+[data-escala="compacto"] {
+  --texto-xxs: 0.5625rem;  /* 9px */
+  --texto-xs: 0.625rem;    /* 10px */
+  --texto-sm: 0.75rem;     /* 12px */
+  --texto-base: 0.8125rem; /* 13px */
+  --texto-md: 0.875rem;    /* 14px */
+  --texto-lg: 1rem;        /* 16px */
+  --texto-xl: 1.125rem;    /* 18px */
+  --texto-2xl: 1.375rem;   /* 22px */
+  --texto-3xl: 1.75rem;    /* 28px */
+}
+
+/* Cómodo: +1px en cada nivel — para pantallas grandes o mejor legibilidad */
+[data-escala="comodo"] {
+  --texto-xxs: 0.6875rem;  /* 11px */
+  --texto-xs: 0.75rem;     /* 12px */
+  --texto-sm: 0.875rem;    /* 14px */
+  --texto-base: 0.9375rem; /* 15px */
+  --texto-md: 1rem;        /* 16px */
+  --texto-lg: 1.125rem;    /* 18px */
+  --texto-xl: 1.375rem;    /* 22px */
+  --texto-2xl: 1.625rem;   /* 26px */
+  --texto-3xl: 2rem;       /* 32px */
+}
+
+/* ---------- EFECTO CRISTAL ---------- */
+/* Capa visual independiente del tema — hace superficies translúcidas */
+/* Se combina con data-tema="claro" o data-tema="oscuro" */
+
+/* Semi-cristal + Oscuro: semi-opaco con blur sutil */
+[data-efecto="semi-cristal"][data-tema="oscuro"] {
+  --superficie-tarjeta: rgba(17, 17, 19, 0.80);
+  --superficie-elevada: rgba(24, 24, 27, 0.85);
+  --superficie-flotante: rgba(20, 20, 24, 0.92);
+  --superficie-sidebar: rgba(9, 9, 11, 0.85);
+  --superficie-hover: rgba(255, 255, 255, 0.05);
+  --superficie-activa: rgba(255, 255, 255, 0.08);
+  --borde-sutil: rgba(255, 255, 255, 0.06);
+  --borde-fuerte: rgba(255, 255, 255, 0.12);
+  --cristal-blur: 8px;
+  --cristal-saturacion: 1.1;
+}
+
+/* Semi-cristal + Claro: semi-opaco con blur sutil */
+[data-efecto="semi-cristal"][data-tema="claro"] {
+  --superficie-tarjeta: rgba(255, 255, 255, 0.80);
+  --superficie-elevada: rgba(255, 255, 255, 0.88);
+  --superficie-flotante: rgba(255, 255, 255, 0.92);
+  --superficie-sidebar: rgba(250, 250, 250, 0.85);
+  --superficie-hover: rgba(0, 0, 0, 0.02);
+  --superficie-activa: rgba(0, 0, 0, 0.04);
+  --borde-sutil: rgba(0, 0, 0, 0.04);
+  --borde-fuerte: rgba(0, 0, 0, 0.08);
+  --cristal-blur: 8px;
+  --cristal-saturacion: 1.1;
+}
+
+/* Cristal + Oscuro: superficies oscuras semi-transparentes */
+[data-efecto="cristal"][data-tema="oscuro"] {
+  --superficie-tarjeta: rgba(17, 17, 19, 0.55);
+  --superficie-elevada: rgba(24, 24, 27, 0.65);
+  --superficie-flotante: rgba(20, 20, 24, 0.82);
+  --superficie-sidebar: rgba(9, 9, 11, 0.7);
+  --superficie-hover: rgba(255, 255, 255, 0.06);
+  --superficie-activa: rgba(255, 255, 255, 0.1);
+  --borde-sutil: rgba(255, 255, 255, 0.08);
+  --borde-fuerte: rgba(255, 255, 255, 0.15);
+  --cristal-blur: 14px;
+  --cristal-saturacion: 1.3;
+}
+
+/* Cristal + Claro: superficies blancas semi-transparentes */
+[data-efecto="cristal"][data-tema="claro"] {
+  --superficie-tarjeta: rgba(255, 255, 255, 0.55);
+  --superficie-elevada: rgba(255, 255, 255, 0.7);
+  --superficie-flotante: rgba(255, 255, 255, 0.82);
+  --superficie-sidebar: rgba(250, 250, 250, 0.7);
+  --superficie-hover: rgba(0, 0, 0, 0.03);
+  --superficie-activa: rgba(0, 0, 0, 0.06);
+  --borde-sutil: rgba(0, 0, 0, 0.06);
+  --borde-fuerte: rgba(0, 0, 0, 0.1);
+  --cristal-blur: 14px;
+  --cristal-saturacion: 1.2;
+}
+
+/* Tokens default para cristal (se usan en ambos temas) */
+[data-efecto="cristal"] {
+  --cristal-blur: 14px;
+  --cristal-saturacion: 1.3;
+}
