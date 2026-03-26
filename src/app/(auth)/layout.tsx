@@ -4,6 +4,7 @@ import { ProveedorTema } from '@/hooks/useTema'
 import { ProveedorIdioma } from '@/lib/i18n'
 import { ProveedorToast } from '@/componentes/feedback/Toast'
 import { ProveedorAuth } from '@/hooks/useAuth'
+import { ProveedorEmpresa } from '@/hooks/useEmpresa'
 import { ProveedorPreferencias } from '@/hooks/usePreferencias'
 import { FondoParticulas } from '@/componentes/ui/FondoParticulas'
 import { motion } from 'framer-motion'
@@ -19,6 +20,7 @@ export default function LayoutAuth({ children }: { children: React.ReactNode }) 
   return (
     <ProveedorIdioma>
       <ProveedorAuth>
+        <ProveedorEmpresa>
         <ProveedorPreferencias>
           <ProveedorTema>
             <ProveedorToast>
@@ -120,6 +122,7 @@ export default function LayoutAuth({ children }: { children: React.ReactNode }) 
             </ProveedorToast>
           </ProveedorTema>
         </ProveedorPreferencias>
+        </ProveedorEmpresa>
       </ProveedorAuth>
     </ProveedorIdioma>
   )
