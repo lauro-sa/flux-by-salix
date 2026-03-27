@@ -1,0 +1,438 @@
+/**
+ * Tipos del módulo Inbox de Flux.
+ * Se usa en: inbox (WhatsApp, Email, Interno), configuración, API routes, notificaciones.
+ */
+
+// ─── Módulos activos por empresa ───
+
+export interface ModuloEmpresa {
+  id: string
+  empresa_id: string
+  modulo: string
+  activo: boolean
+  activado_en: string | null
+  desactivado_en: string | null
+  config: Record<string, unknown>
+}
+
+export type ModuloInbox = 'inbox_whatsapp' | 'inbox_correo' | 'inbox_interno'
+
+// ─── Canales de inbox ───
+
+export type TipoCanal = 'whatsapp' | 'correo' | 'interno'
+
+export type ProveedorCanal =
+  | 'meta_api'      // WhatsApp Meta Business API
+  | 'twilio'        // WhatsApp Twilio
+  | 'imap'          // Correo IMAP/SMTP
+  | 'gmail_oauth'   // Correo Gmail OAuth
+  | null             // Interno (sin proveedor externo)
+
+export type EstadoConexion = 'conectado' | 'desconectado' | 'error' | 'reconectando'
+
+export interface CanalInbox {
+  id: string
+  empresa_id: string
+  tipo: TipoCanal
+  nombre: string
+  proveedor: ProveedorCanal
+  activo: boolean
+  config_conexion: Record<string, unknown>
+  estado_conexion: EstadoConexion
+  ultimo_error: string | null
+  ultima_sincronizacion: string | null
+  creado_por: string
+  creado_en: string
+  actualizado_en: string
+}
+
+export interface CanalAgenteAsignado {
+  canal_id: string
+  usuario_id: string
+  rol_canal: 'admin' | 'agente'
+  asignado_en: string
+  // JOINs
+  nombre?: string
+  apellido?: string
+  avatar_url?: string | null
+}
+
+// ─── Config IMAP ───
+
+export interface ConfigIMAP {
+  host: string
+  puerto: number
+  usuario: string
+  password_cifrada: string
+  ssl: boolean
+  smtp_host?: string
+  smtp_puerto?: number
+}
+
+// ─── Config Gmail OAuth ───
+
+export interface ConfigGmailOAuth {
+  email: string
+  refresh_token: string
+  access_token: string
+  token_expira_en: string
+}
+
+// ─── Config WhatsApp Meta API ───
+
+export interface ConfigWhatsAppMeta {
+  phone_number_id: string
+  access_token: string
+  waba_id: string
+  verify_token: string
+  numero_telefono: string
+}
+
+// ─── Config WhatsApp Twilio ───
+
+export interface ConfigWhatsAppTwilio {
+  account_sid: string
+  auth_token: string
+  from_number: string
+}
+
+// ─── Conversaciones ───
+
+export type EstadoConversacion = 'abierta' | 'en_espera' | 'resuelta' | 'spam'
+export type PrioridadConversacion = 'baja' | 'normal' | 'alta' | 'urgente'
+
+export interface Conversacion {
+  id: string
+  empresa_id: string
+  canal_id: string
+  tipo_canal: TipoCanal
+  identificador_externo: string | null
+  hilo_externo_id: string | null
+  contacto_id: string | null
+  contacto_nombre: string | null
+  estado: EstadoConversacion
+  prioridad: PrioridadConversacion
+  asignado_a: string | null
+  asignado_a_nombre: string | null
+  asunto: string | null
+  canal_interno_id: string | null
+  ultimo_mensaje_texto: string | null
+  ultimo_mensaje_en: string | null
+  ultimo_mensaje_es_entrante: boolean
+  mensajes_sin_leer: number
+  primera_respuesta_en: string | null
+  tiempo_sin_respuesta_desde: string | null
+  etiquetas: string[]
+  resumen_ia: string | null
+  sentimiento: string | null
+  idioma_detectado: string | null
+  creado_en: string
+  actualizado_en: string
+  cerrado_en: string | null
+  cerrado_por: string | null
+}
+
+/** Conversación con datos expandidos para la lista */
+export interface ConversacionConDetalles extends Conversacion {
+  canal?: CanalInbox
+  contacto?: {
+    id: string
+    nombre: string
+    apellido: string | null
+    correo: string | null
+    telefono: string | null
+    whatsapp: string | null
+    avatar_url?: string | null
+  } | null
+}
+
+// ─── Mensajes ───
+
+export type TipoContenido =
+  | 'texto'
+  | 'imagen'
+  | 'audio'
+  | 'video'
+  | 'documento'
+  | 'sticker'
+  | 'ubicacion'
+  | 'contacto_compartido'
+  | 'email_html'
+
+export type TipoRemitente = 'contacto' | 'agente' | 'sistema' | 'bot'
+
+export type EstadoMensaje = 'enviado' | 'entregado' | 'leido' | 'fallido' | 'eliminado'
+
+export interface Mensaje {
+  id: string
+  empresa_id: string
+  conversacion_id: string
+  es_entrante: boolean
+  remitente_tipo: TipoRemitente
+  remitente_id: string | null
+  remitente_nombre: string | null
+  tipo_contenido: TipoContenido
+  texto: string | null
+  html: string | null
+
+  // Correo
+  correo_de: string | null
+  correo_para: string[] | null
+  correo_cc: string[] | null
+  correo_cco: string[] | null
+  correo_asunto: string | null
+  correo_message_id: string | null
+  correo_in_reply_to: string | null
+  correo_references: string[] | null
+
+  // WhatsApp
+  wa_message_id: string | null
+  wa_status: string | null
+  wa_tipo_mensaje: string | null
+
+  // Hilos internos
+  respuesta_a_id: string | null
+  hilo_raiz_id: string | null
+  cantidad_respuestas: number
+
+  // Reacciones
+  reacciones: Record<string, string[]>
+
+  metadata: Record<string, unknown>
+  estado: EstadoMensaje
+  error_envio: string | null
+  plantilla_id: string | null
+  creado_en: string
+  editado_en: string | null
+  eliminado_en: string | null
+}
+
+/** Mensaje con adjuntos cargados */
+export interface MensajeConAdjuntos extends Mensaje {
+  adjuntos: MensajeAdjunto[]
+  // Para hilos
+  respuestas?: Mensaje[]
+}
+
+// ─── Adjuntos ───
+
+export interface MensajeAdjunto {
+  id: string
+  mensaje_id: string
+  empresa_id: string
+  nombre_archivo: string
+  tipo_mime: string
+  tamano_bytes: number | null
+  url: string
+  storage_path: string
+  miniatura_url: string | null
+  duracion_segundos: number | null
+  es_sticker: boolean
+  es_animado: boolean
+  creado_en: string
+}
+
+// ─── Canales internos (estilo Slack) ───
+
+export type TipoCanalInterno = 'publico' | 'privado' | 'directo'
+
+export interface CanalInterno {
+  id: string
+  empresa_id: string
+  nombre: string
+  descripcion: string | null
+  tipo: TipoCanalInterno
+  icono: string | null
+  color: string | null
+  participantes_dm: string[] | null
+  archivado: boolean
+  ultimo_mensaje_texto: string | null
+  ultimo_mensaje_en: string | null
+  ultimo_mensaje_por: string | null
+  creado_por: string
+  creado_en: string
+  actualizado_en: string
+}
+
+export interface CanalInternoMiembro {
+  canal_id: string
+  usuario_id: string
+  rol: 'admin' | 'miembro'
+  silenciado: boolean
+  ultimo_leido_en: string | null
+  unido_en: string
+  // JOINs
+  nombre?: string
+  apellido?: string
+  avatar_url?: string | null
+}
+
+// ─── Plantillas de respuesta rápida ───
+
+export interface VariablePlantilla {
+  clave: string
+  etiqueta: string
+  origen: string // 'contacto.nombre', 'empresa.nombre', etc.
+}
+
+export interface PlantillaRespuesta {
+  id: string
+  empresa_id: string
+  nombre: string
+  categoria: string | null
+  canal: TipoCanal | 'todos'
+  asunto: string | null
+  contenido: string
+  contenido_html: string | null
+  variables: VariablePlantilla[]
+  modulos: string[]
+  disponible_para: 'todos' | 'roles' | 'usuarios'
+  roles_permitidos: string[]
+  usuarios_permitidos: string[]
+  activo: boolean
+  orden: number
+  creado_por: string
+  creado_en: string
+  actualizado_en: string
+}
+
+// ─── Asignaciones ───
+
+export type TipoAsignacion = 'manual' | 'automatica' | 'transferencia'
+
+export interface AsignacionInbox {
+  id: string
+  empresa_id: string
+  conversacion_id: string
+  usuario_id: string
+  usuario_nombre: string | null
+  tipo: TipoAsignacion
+  asignado_por: string | null
+  asignado_por_nombre: string | null
+  notas: string | null
+  asignado_en: string
+  desasignado_en: string | null
+}
+
+// ─── Configuración del inbox ───
+
+export interface HorarioAtencion {
+  inicio: string // "09:00"
+  fin: string    // "18:00"
+}
+
+export interface ConfigInbox {
+  empresa_id: string
+  asignacion_automatica: boolean
+  algoritmo_asignacion: 'round_robin' | 'por_carga' | 'manual'
+  sla_primera_respuesta_minutos: number | null
+  sla_resolucion_horas: number | null
+  horario_atencion: Record<string, HorarioAtencion>
+  zona_horaria: string
+  respuesta_fuera_horario: boolean
+  mensaje_fuera_horario: string | null
+  notificar_nuevo_mensaje: boolean
+  notificar_asignacion: boolean
+  notificar_sla_vencido: boolean
+  sonido_notificacion: boolean
+  actualizado_en: string
+}
+
+// ─── Notificaciones ───
+
+export type TipoNotificacion =
+  | 'nuevo_mensaje'
+  | 'asignacion'
+  | 'mencion'
+  | 'sla_vencido'
+  | 'actividad'
+
+export interface Notificacion {
+  id: string
+  empresa_id: string
+  usuario_id: string
+  tipo: TipoNotificacion
+  titulo: string
+  cuerpo: string | null
+  icono: string | null
+  color: string | null
+  url: string | null
+  leida: boolean
+  referencia_tipo: string | null
+  referencia_id: string | null
+  creada_en: string
+}
+
+// ─── Suscripciones push (PWA) ───
+
+export interface SuscripcionPush {
+  id: string
+  usuario_id: string
+  empresa_id: string
+  endpoint: string
+  p256dh: string
+  auth: string
+  user_agent: string | null
+  activa: boolean
+  creada_en: string
+  ultima_notificacion_en: string | null
+}
+
+// ─── Filtros y payloads para API ───
+
+export interface FiltrosConversacion {
+  tipo_canal?: TipoCanal
+  estado?: EstadoConversacion
+  asignado_a?: string | 'sin_asignar'
+  prioridad?: PrioridadConversacion
+  canal_id?: string
+  busqueda?: string
+  etiqueta?: string
+  contacto_id?: string
+}
+
+export interface CrearMensajePayload {
+  conversacion_id: string
+  tipo_contenido: TipoContenido
+  texto?: string
+  html?: string
+  // Correo
+  correo_para?: string[]
+  correo_cc?: string[]
+  correo_cco?: string[]
+  correo_asunto?: string
+  // Plantilla
+  plantilla_id?: string
+  // Hilo interno
+  respuesta_a_id?: string
+}
+
+export interface CrearCanalPayload {
+  tipo: TipoCanal
+  nombre: string
+  proveedor?: ProveedorCanal
+  config_conexion?: Record<string, unknown>
+}
+
+export interface CrearCanalInternoPayload {
+  nombre: string
+  descripcion?: string
+  tipo: TipoCanalInterno
+  icono?: string
+  color?: string
+  miembros?: string[] // usuario_ids
+}
+
+export interface CrearPlantillaPayload {
+  nombre: string
+  categoria?: string
+  canal: TipoCanal | 'todos'
+  asunto?: string
+  contenido: string
+  contenido_html?: string
+  variables?: VariablePlantilla[]
+  modulos?: string[]
+  disponible_para?: 'todos' | 'roles' | 'usuarios'
+  roles_permitidos?: string[]
+  usuarios_permitidos?: string[]
+}

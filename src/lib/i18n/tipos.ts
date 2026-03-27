@@ -243,21 +243,88 @@ export interface Traducciones {
   // Inbox (mensajería omnicanal)
   inbox: {
     titulo: string
-    canales: {
-      whatsapp: string
-      correo: string
-      interno: string
-    }
+    canales: { whatsapp: string; correo: string; interno: string }
     conversaciones: string
     sin_conversaciones: string
     sin_conversaciones_desc: string
+    todas: string
+    abiertas: string
+    en_espera: string
+    resueltas: string
+    spam: string
+    sin_asignar: string
     asignado_a: string
-    archivar: string
-    no_leidos: string
+    asignar: string
+    transferir: string
+    estado: { abierta: string; en_espera: string; resuelta: string; spam: string }
+    prioridad: { baja: string; normal: string; alta: string; urgente: string }
     escribir_mensaje: string
     enviar: string
     adjuntar: string
+    grabar_audio: string
+    detener_grabacion: string
     transcribiendo: string
+    responder: string
+    responder_todos: string
+    reenviar: string
+    marcar_leido: string
+    marcar_no_leido: string
+    archivar: string
+    eliminar: string
+    no_leidos: string
+    de: string
+    para: string
+    cc: string
+    cco: string
+    asunto: string
+    bandeja_compartida: string
+    bandeja_personal: string
+    redactar: string
+    borradores: string
+    enviados: string
+    canales_titulo: string
+    mensajes_directos: string
+    crear_canal: string
+    nuevo_mensaje: string
+    miembros: string
+    agregar_miembro: string
+    hilo: string
+    respuestas_en_hilo: string
+    silenciar: string
+    info_contacto: string
+    historial: string
+    archivos_compartidos: string
+    sin_contacto: string
+    vincular_contacto: string
+    tiempo_respuesta: string
+    sin_responder: string
+    sla_vencido: string
+    plantillas: string
+    usar_plantilla: string
+    sin_plantillas: string
+    config: {
+      titulo: string
+      general: string
+      whatsapp: string
+      correo: string
+      interno: string
+      plantillas_whatsapp: string
+      plantillas_correo: string
+      asignacion: string
+      sla: string
+      notificaciones: string
+      canales_conectados: string
+      agregar_canal: string
+      conectar: string
+      desconectar: string
+      probar_conexion: string
+      estado_conectado: string
+      estado_desconectado: string
+      estado_error: string
+    }
+    notificacion_nuevo: string
+    notificacion_asignacion: string
+    notificacion_mencion: string
   }
 
   // Asistencias y fichaje
@@ -414,6 +481,29 @@ export interface Traducciones {
     usuarios: string
     aplicaciones: string
     documentacion: string
+  }
+
+  // Toolbar flotante de selección de texto
+  toolbar: {
+    copiar: string
+    mejorar_ia: string
+    sugerencias_ia: string
+    reformulando: string
+    error_mejora: string
+    reintentar: string
+    tono: string
+    tonos: {
+      ventas: string
+      tecnico: string
+      formal: string
+      cercano: string
+    }
+    etiquetas: {
+      corregido: string
+      formal: string
+      tecnico: string
+    }
+    min_caracteres: string
   }
 
   // Sidebar — textos propios de la barra lateral
