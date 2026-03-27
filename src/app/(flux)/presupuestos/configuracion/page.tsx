@@ -7,6 +7,7 @@ import {
   Ruler, Clock, Hash, FileText, RotateCcw,
 } from 'lucide-react'
 import { Reorder } from 'framer-motion'
+import ModalCondicionPago from '../_componentes/ModalCondicionPago'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { Impuesto, Moneda, UnidadMedida, CondicionPago } from '@/tipos/presupuesto'
@@ -45,6 +46,10 @@ export default function PaginaConfigPresupuestos() {
   const [cargando, setCargando] = useState(true)
   const [seccionActiva, setSeccionActiva] = useState('impuestos')
   const autoguardadoRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Modal condición de pago
+  const [modalCondicionAbierto, setModalCondicionAbierto] = useState(false)
+  const [condicionEditando, setCondicionEditando] = useState<CondicionPago | null>(null)
 
   // Datos
   const [impuestos, setImpuestos] = useState<Impuesto[]>([])
@@ -244,7 +249,7 @@ export default function PaginaConfigPresupuestos() {
         </div>
       )}
 
-      {/* ─── CONDICIONES DE PAGO (con drag & drop + restablecer) ─── */}
+      {/* ─── CONDICIONES DE PAGO (drag & drop + modal + restablecer) ─── */}
       {seccionActiva === 'condiciones' && (
         <div>
           <div className="flex items-center justify-between mb-1">
@@ -258,7 +263,7 @@ export default function PaginaConfigPresupuestos() {
               Restablecer
             </button>
           </div>
-          <p className="text-sm text-texto-terciario mb-4">Arrastrá para reordenar. El orden se refleja en el selector del presupuesto.</p>
+          <p className="text-sm text-texto-terciario mb-4">Arrastrá para reordenar. Hacé clic para editar.</p>
 
           <Reorder.Group
             axis="y"
@@ -272,85 +277,81 @@ export default function PaginaConfigPresupuestos() {
           >
             {condicionesPago.map((cond, idx) => (
               <Reorder.Item key={cond.id} value={cond.id}>
-                <div className="p-3 bg-superficie-app rounded-lg space-y-2 group">
-                  <div className="flex items-center gap-2">
-                    <div className="cursor-grab opacity-30 group-hover:opacity-60 transition-opacity">
+                <div
+                  className="flex items-center justify-between p-3 bg-superficie-app rounded-lg group cursor-pointer hover:bg-superficie-app/80 transition-colors"
+                  onClick={() => { setCondicionEditando(cond); setModalCondicionAbierto(true) }}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div
+                      className="cursor-grab opacity-30 group-hover:opacity-60 transition-opacity shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <GripVertical size={14} />
                     </div>
-                    <input
-                      type="text" value={cond.label}
-                      onChange={(e) => { const n = [...condicionesPago]; n[idx] = { ...cond, label: e.target.value }; setCondicionesPago(n) }}
-                      onBlur={() => guardarCondiciones(condicionesPago)}
-                      className="flex-1 bg-transparent border-0 outline-none text-sm font-medium text-texto-primario"
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        guardarCondiciones(condicionesPago.map((c, i) => ({ ...c, predeterminado: i === idx })))
+                      }}
+                      className={`size-4 rounded-full border-2 shrink-0 transition-colors ${
+                        cond.predeterminado ? 'border-marca-500 bg-marca-500' : 'border-borde-sutil'
+                      }`}
                     />
-                    <select value={cond.tipo}
-                      onChange={(e) => { const n = [...condicionesPago]; n[idx] = { ...cond, tipo: e.target.value as 'plazo_fijo' | 'hitos' }; guardarCondiciones(n) }}
-                      className="bg-transparent border border-borde-sutil rounded px-2 py-1 text-xs outline-none text-texto-primario">
-                      <option value="plazo_fijo">Plazo fijo</option>
-                      <option value="hitos">Por hitos</option>
-                    </select>
-                    <label className="flex items-center gap-1 text-xs text-texto-terciario cursor-pointer">
-                      <input type="radio" name="cond_default" checked={cond.predeterminado}
-                        onChange={() => guardarCondiciones(condicionesPago.map((c, i) => ({ ...c, predeterminado: i === idx })))} />
-                      Default
-                    </label>
-                    <button onClick={() => guardarCondiciones(condicionesPago.filter((_, i) => i !== idx))}
-                      className="p-1 text-texto-terciario hover:text-estado-error">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-texto-primario truncate">{cond.label}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
+                          cond.tipo === 'hitos'
+                            ? 'bg-marca-500/10 text-texto-marca'
+                            : 'bg-superficie-tarjeta text-texto-terciario'
+                        }`}>
+                          {cond.tipo === 'hitos' ? 'Hitos' : 'Plazo'}
+                        </span>
+                      </div>
+                      <span className="text-xs text-texto-secundario block">
+                        {cond.tipo === 'hitos'
+                          ? (cond.hitos || []).map(h => `${h.porcentaje}% ${h.descripcion}`).join(' + ')
+                          : `${cond.diasVencimiento} días`}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); guardarCondiciones(condicionesPago.filter((_, i) => i !== idx)) }}
+                      className="p-1 text-texto-terciario hover:text-estado-error transition-colors"
+                    >
                       <Trash2 size={14} />
                     </button>
                   </div>
-                  {cond.tipo === 'plazo_fijo' && (
-                    <div className="flex items-center gap-2 text-xs pl-6">
-                      <span className="text-texto-terciario">Días:</span>
-                      <input type="number" value={cond.diasVencimiento}
-                        onChange={(e) => { const n = [...condicionesPago]; n[idx] = { ...cond, diasVencimiento: parseInt(e.target.value) || 0 }; setCondicionesPago(n) }}
-                        onBlur={() => guardarCondiciones(condicionesPago)}
-                        className="w-16 bg-transparent border border-borde-sutil rounded px-2 py-1 text-right font-mono outline-none" />
-                    </div>
-                  )}
-                  {cond.tipo === 'hitos' && (
-                    <div className="pl-6 space-y-1">
-                      {(cond.hitos || []).map((h, hi) => (
-                        <div key={h.id} className="flex items-center gap-2 text-xs">
-                          <input type="text" value={h.descripcion}
-                            onChange={(e) => {
-                              const n = [...condicionesPago]
-                              const hitos = [...(cond.hitos || [])]
-                              hitos[hi] = { ...h, descripcion: e.target.value }
-                              n[idx] = { ...cond, hitos }
-                              setCondicionesPago(n)
-                            }}
-                            onBlur={() => guardarCondiciones(condicionesPago)}
-                            className="flex-1 bg-transparent border-b border-borde-sutil outline-none text-texto-primario py-0.5" />
-                          <input type="number" value={h.porcentaje}
-                            onChange={(e) => {
-                              const n = [...condicionesPago]
-                              const hitos = [...(cond.hitos || [])]
-                              hitos[hi] = { ...h, porcentaje: parseFloat(e.target.value) || 0 }
-                              n[idx] = { ...cond, hitos }
-                              setCondicionesPago(n)
-                            }}
-                            onBlur={() => guardarCondiciones(condicionesPago)}
-                            className="w-14 bg-transparent border border-borde-sutil rounded px-1 py-0.5 text-right font-mono outline-none" />
-                          <span className="text-texto-terciario">%</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </Reorder.Item>
             ))}
           </Reorder.Group>
 
           <button
-            onClick={() => guardarCondiciones([...condicionesPago, {
-              id: `cond-${Date.now()}`, label: 'Nueva condición', tipo: 'plazo_fijo',
-              diasVencimiento: 0, hitos: [], notaPlanPago: '', predeterminado: false,
-            }])}
-            className="flex items-center gap-1 text-sm text-texto-marca hover:underline mt-3"
+            onClick={() => { setCondicionEditando(null); setModalCondicionAbierto(true) }}
+            className="w-full flex items-center justify-center gap-1.5 mt-3 px-3 py-2.5 rounded-lg border border-dashed border-borde-sutil text-sm text-texto-secundario hover:text-texto-primario hover:border-marca-500 transition-colors"
           >
-            <Plus size={14} /> Agregar condición
+            <Plus size={16} /> Agregar condición
           </button>
+
+          {/* Modal crear/editar condición — key fuerza remount al cambiar de condición */}
+          <ModalCondicionPago
+            key={condicionEditando?.id || 'nueva'}
+            abierto={modalCondicionAbierto}
+            onCerrar={() => { setModalCondicionAbierto(false); setCondicionEditando(null) }}
+            condicionEditar={condicionEditando}
+            onGuardar={(condicion) => {
+              if (condicionEditando) {
+                guardarCondiciones(condicionesPago.map(c => c.id === condicionEditando.id ? { ...condicion, predeterminado: c.predeterminado } : c))
+              } else {
+                if (condicionesPago.some(c => c.id === condicion.id)) {
+                  condicion.id = `${condicion.id}_${Date.now()}`
+                }
+                guardarCondiciones([...condicionesPago, condicion])
+              }
+            }}
+          />
         </div>
       )}
 
