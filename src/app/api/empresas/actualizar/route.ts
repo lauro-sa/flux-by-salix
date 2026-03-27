@@ -3,6 +3,34 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
+ * GET /api/empresas/actualizar — Obtener datos completos de la empresa activa.
+ * Accesible por cualquier miembro autenticado.
+ */
+export async function GET() {
+  try {
+    const supabase = await crearClienteServidor()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+    const empresaId = user.app_metadata?.empresa_activa_id
+    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    const admin = crearClienteAdmin()
+    const { data, error } = await admin
+      .from('empresas')
+      .select('*')
+      .eq('id', empresaId)
+      .single()
+
+    if (error || !data) return NextResponse.json({ error: 'Empresa no encontrada' }, { status: 404 })
+
+    return NextResponse.json({ empresa: data })
+  } catch {
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+  }
+}
+
+/**
  * PATCH /api/empresas/actualizar — Actualizar datos de la empresa activa.
  * Solo propietario o administrador.
  */
@@ -32,7 +60,7 @@ export async function PATCH(request: NextRequest) {
     const campos = await request.json()
 
     // Campos permitidos
-    const permitidos = ['nombre', 'slug', 'logo_url', 'pais', 'paises', 'color_marca', 'color_secundario', 'color_terciario', 'ubicacion', 'direccion', 'pagina_web', 'correo', 'telefono', 'moneda', 'formato_fecha', 'formato_hora', 'dia_inicio_semana', 'zona_horaria']
+    const permitidos = ['nombre', 'slug', 'logo_url', 'pais', 'paises', 'color_marca', 'color_secundario', 'color_terciario', 'ubicacion', 'direccion', 'pagina_web', 'correo', 'telefono', 'moneda', 'formato_fecha', 'formato_hora', 'dia_inicio_semana', 'zona_horaria', 'datos_fiscales']
     const actualizar: Record<string, unknown> = {}
     for (const campo of permitidos) {
       if (campo in campos) actualizar[campo] = campos[campo]

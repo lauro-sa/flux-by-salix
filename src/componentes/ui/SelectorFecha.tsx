@@ -86,11 +86,29 @@ function SelectorFecha({
     }
   }, [fechaSeleccionada])
 
-  // Calcular posición del dropdown relativa al trigger
+  // Calcular posición del dropdown relativa al trigger — con detección de bordes
   const actualizarPosicion = useCallback(() => {
     if (!triggerRef.current) return
     const rect = triggerRef.current.getBoundingClientRect()
-    setPosDropdown({ top: rect.bottom + 4, left: rect.left })
+    const anchoCalendario = 288 // w-72 = 18rem = 288px
+    const altoCalendario = 340 // alto aproximado del calendario
+
+    let top = rect.bottom + 4
+    let left = rect.left
+
+    // Si se sale por la derecha, alinear al borde derecho del trigger
+    if (left + anchoCalendario > window.innerWidth - 8) {
+      left = rect.right - anchoCalendario
+    }
+    // Si se sale por la izquierda
+    if (left < 8) left = 8
+
+    // Si se sale por abajo, abrir hacia arriba
+    if (top + altoCalendario > window.innerHeight - 8) {
+      top = rect.top - altoCalendario - 4
+    }
+
+    setPosDropdown({ top, left })
   }, [])
 
   // Cerrar al click afuera + recalcular posición en scroll/resize

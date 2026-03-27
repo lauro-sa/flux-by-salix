@@ -38,7 +38,8 @@ export async function GET(request: NextRequest) {
         *,
         tipo_contacto:tipos_contacto!tipo_contacto_id(id, clave, etiqueta, icono, color),
         responsables:contacto_responsables(usuario_id),
-        direcciones:contacto_direcciones(id, tipo, texto, ciudad, provincia, es_principal)
+        direcciones:contacto_direcciones(id, tipo, texto, ciudad, provincia, es_principal),
+        vinculaciones:contacto_vinculaciones!contacto_vinculaciones_contacto_id_fkey(puesto, vinculado:contactos!contacto_vinculaciones_vinculado_id_fkey(id, nombre, apellido, correo, telefono))
       `, { count: 'exact' })
       .eq('empresa_id', empresaId)
       .eq('en_papelera', en_papelera)
@@ -294,6 +295,7 @@ export async function POST(request: NextRequest) {
       rubro: body.rubro?.trim() || null,
       moneda: body.moneda || null,
       idioma: body.idioma || null,
+      pais_fiscal: body.pais_fiscal || null,
       tipo_identificacion: body.tipo_identificacion || null,
       numero_identificacion: body.numero_identificacion?.trim() || null,
       datos_fiscales: body.datos_fiscales || {},

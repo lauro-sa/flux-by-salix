@@ -2,7 +2,6 @@
 
 import { useState, type ReactNode } from 'react'
 import { motion } from 'framer-motion'
-import { ChevronLeft } from 'lucide-react'
 
 /* ─── Tipos ─── */
 
@@ -15,6 +14,8 @@ interface SeccionConfig {
   insignia?: string
   /** Deshabilitada (gris, no clickeable) */
   deshabilitada?: boolean
+  /** Grupo al que pertenece (se renderiza como separador en el sidebar) */
+  grupo?: string
 }
 
 interface PropiedadesPlantillaConfiguracion {
@@ -66,23 +67,6 @@ function PlantillaConfiguracion({
 
       {/* ═══ CABECERO ═══ */}
       <div className="flex items-center gap-3 shrink-0">
-        {/* Botón volver */}
-        {onVolver && (
-          <button
-            type="button"
-            onClick={onVolver}
-            className="shrink-0 flex items-center gap-1 px-2 h-9 rounded-lg text-sm font-medium text-texto-secundario hover:text-texto-primario hover:bg-superficie-hover cursor-pointer border-none bg-transparent transition-colors"
-          >
-            <ChevronLeft size={16} />
-            <span className="hidden sm:inline">{volverTexto}</span>
-          </button>
-        )}
-
-        {/* Separador */}
-        {onVolver && (
-          <div className="w-px h-6 bg-borde-sutil shrink-0" />
-        )}
-
         <h1 className="text-xl font-bold text-texto-primario">{titulo}</h1>
       </div>
 
@@ -91,45 +75,54 @@ function PlantillaConfiguracion({
 
         {/* ─── Menú lateral (desktop) / Tabs horizontales (mobile) ─── */}
 
-        {/* Desktop: menú lateral */}
+        {/* Desktop: menú lateral con soporte para grupos */}
         <nav className="hidden md:flex flex-col gap-1 w-[220px] shrink-0 overflow-y-auto">
-          {secciones.map((seccion) => {
+          {secciones.map((seccion, i) => {
             const activa = seccion.id === seccionActiva
+            const grupoAnterior = i > 0 ? secciones[i - 1].grupo : null
+            const mostrarGrupo = seccion.grupo && seccion.grupo !== grupoAnterior
+
             return (
-              <button
-                key={seccion.id}
-                type="button"
-                onClick={() => !seccion.deshabilitada && onCambiarSeccion(seccion.id)}
-                disabled={seccion.deshabilitada}
-                className={[
-                  'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-left cursor-pointer border-none transition-colors relative',
-                  activa
-                    ? 'bg-superficie-seleccionada text-texto-marca'
-                    : 'bg-transparent text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario',
-                  seccion.deshabilitada ? 'opacity-40 cursor-not-allowed' : '',
-                ].join(' ')}
-              >
-                {seccion.icono && (
-                  <span className={activa ? 'text-texto-marca' : 'text-texto-terciario'}>
-                    {seccion.icono}
-                  </span>
+              <div key={seccion.id}>
+                {mostrarGrupo && (
+                  <div className={`px-3 pt-3 pb-1.5 text-xxs font-bold uppercase tracking-wider text-texto-terciario ${i > 0 ? 'mt-2' : ''}`}>
+                    {seccion.grupo}
+                  </div>
                 )}
-                <span className="flex-1 truncate">{seccion.etiqueta}</span>
-                {seccion.insignia && (
-                  <span className="text-xxs px-1.5 py-0.5 rounded-full bg-insignia-primario-fondo text-insignia-primario-texto font-medium">
-                    {seccion.insignia}
-                  </span>
-                )}
-                {/* Indicador activo */}
-                {activa && (
-                  <motion.div
-                    layoutId="indicador-config"
-                    className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full"
-                    style={{ backgroundColor: 'var(--texto-marca)' }}
-                    transition={{ type: 'spring', duration: 0.3 }}
-                  />
-                )}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => !seccion.deshabilitada && onCambiarSeccion(seccion.id)}
+                  disabled={seccion.deshabilitada}
+                  className={[
+                    'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-left cursor-pointer border-none transition-colors relative',
+                    activa
+                      ? 'bg-superficie-seleccionada text-texto-marca'
+                      : 'bg-transparent text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario',
+                    seccion.deshabilitada ? 'opacity-40 cursor-not-allowed' : '',
+                  ].join(' ')}
+                >
+                  {seccion.icono && (
+                    <span className={activa ? 'text-texto-marca' : 'text-texto-terciario'}>
+                      {seccion.icono}
+                    </span>
+                  )}
+                  <span className="flex-1 truncate">{seccion.etiqueta}</span>
+                  {seccion.insignia && (
+                    <span className="text-xxs px-1.5 py-0.5 rounded-full bg-insignia-primario-fondo text-insignia-primario-texto font-medium">
+                      {seccion.insignia}
+                    </span>
+                  )}
+                  {/* Indicador activo */}
+                  {activa && (
+                    <motion.div
+                      layoutId="indicador-config"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full"
+                      style={{ backgroundColor: 'var(--texto-marca)' }}
+                      transition={{ type: 'spring', duration: 0.3 }}
+                    />
+                  )}
+                </button>
+              </div>
             )
           })}
         </nav>

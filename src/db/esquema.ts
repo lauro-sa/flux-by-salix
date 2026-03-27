@@ -16,6 +16,7 @@ export const empresas = pgTable('empresas', {
   pais: text('pais'), // país principal (legacy)
   paises: text('paises').array().notNull().default(sql`'{}'`), // países donde opera la empresa
   color_marca: text('color_marca'),
+  datos_fiscales: jsonb('datos_fiscales').notNull().default(sql`'{}'`), // datos fiscales dinámicos según país (cuit, condicion_iva, etc.)
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
 })
 
@@ -168,20 +169,6 @@ export const tipos_relacion = pgTable('tipos_relacion', {
 }, (tabla) => [
   uniqueIndex('tipos_relacion_empresa_clave_idx').on(tabla.empresa_id, tabla.clave),
   index('tipos_relacion_empresa_idx').on(tabla.empresa_id),
-])
-
-// Puestos de vinculación — configurables por empresa (Encargado, Técnico, etc.)
-export const puestos_vinculacion = pgTable('puestos_vinculacion', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
-  etiqueta: text('etiqueta').notNull(),
-  es_predefinido: boolean('es_predefinido').notNull().default(false),
-  activo: boolean('activo').notNull().default(true),
-  orden: integer('orden').notNull().default(0),
-  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
-}, (tabla) => [
-  uniqueIndex('puestos_vinculacion_empresa_etiqueta_idx').on(tabla.empresa_id, tabla.etiqueta),
-  index('puestos_vinculacion_empresa_idx').on(tabla.empresa_id),
 ])
 
 // Campos fiscales por país — tabla global de referencia (sin empresa_id)
@@ -346,3 +333,188 @@ export const secuencias = pgTable('secuencias', {
 }, (tabla) => [
   primaryKey({ columns: [tabla.empresa_id, tabla.entidad] }),
 ])
+
+// ═══════════════════════════════════════════════════════════════
+// SISTEMA DE PRESUPUESTOS
+// ═══════════════════════════════════════════════════════════════
+
+// Presupuestos — cotizaciones comerciales vinculadas a contactos
+export const presupuestos = pgTable('presupuestos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  numero: text('numero').notNull(), // P-0001 (generado por secuencia)
+  estado: text('estado').notNull().default('borrador'), // borrador, enviado, aceptado, rechazado, vencido, cancelado
+
+  // Contacto vinculado (snapshot al crear)
+  contacto_id: uuid('contacto_id').references(() => contactos.id, { onDelete: 'set null' }),
+  contacto_nombre: text('contacto_nombre'),
+  contacto_apellido: text('contacto_apellido'),
+  contacto_tipo: text('contacto_tipo'), // persona, empresa, etc.
+  contacto_identificacion: text('contacto_identificacion'), // CUIT, DNI, etc.
+  contacto_condicion_iva: text('contacto_condicion_iva'),
+  contacto_direccion: text('contacto_direccion'),
+  contacto_correo: text('contacto_correo'),
+  contacto_telefono: text('contacto_telefono'),
+
+  // Dirigido a (persona dentro de empresa, opcional)
+  atencion_contacto_id: uuid('atencion_contacto_id').references(() => contactos.id, { onDelete: 'set null' }),
+  atencion_nombre: text('atencion_nombre'),
+  atencion_correo: text('atencion_correo'),
+  atencion_cargo: text('atencion_cargo'),
+
+  // Referencia interna opcional
+  referencia: text('referencia'),
+
+  // Moneda y condiciones de pago
+  moneda: text('moneda').notNull().default('ARS'),
+  cotizacion_cambio: numeric('cotizacion_cambio').default('1'), // tipo de cambio
+  condicion_pago_id: text('condicion_pago_id'),
+  condicion_pago_label: text('condicion_pago_label'),
+  condicion_pago_tipo: text('condicion_pago_tipo'), // plazo_fijo, hitos
+
+  // Fechas
+  fecha_emision: timestamp('fecha_emision', { withTimezone: true }).defaultNow().notNull(),
+  dias_vencimiento: integer('dias_vencimiento').notNull().default(30),
+  fecha_vencimiento: timestamp('fecha_vencimiento', { withTimezone: true }),
+
+  // Totales (calculados desde líneas)
+  subtotal_neto: numeric('subtotal_neto').notNull().default('0'),
+  total_impuestos: numeric('total_impuestos').notNull().default('0'),
+  descuento_global: numeric('descuento_global').notNull().default('0'), // porcentaje
+  descuento_global_monto: numeric('descuento_global_monto').notNull().default('0'),
+  total_final: numeric('total_final').notNull().default('0'),
+
+  // Columnas visibles en la tabla de líneas (configurable por presupuesto)
+  columnas_lineas: jsonb('columnas_lineas').default(sql`'["producto","descripcion","cantidad","unidad","precio_unitario","descuento","impuesto","subtotal"]'`),
+
+  // Notas y condiciones (HTML rico)
+  notas_html: text('notas_html'),
+  condiciones_html: text('condiciones_html'),
+  nota_plan_pago: text('nota_plan_pago'),
+
+  // PDF
+  pdf_url: text('pdf_url'),
+  pdf_miniatura_url: text('pdf_miniatura_url'),
+  pdf_storage_path: text('pdf_storage_path'),
+  pdf_generado_en: timestamp('pdf_generado_en', { withTimezone: true }),
+
+  // Vinculación con documento origen (para cadena presupuesto → factura)
+  origen_documento_id: uuid('origen_documento_id'),
+  origen_documento_numero: text('origen_documento_numero'),
+
+  // Auditoría
+  creado_por: uuid('creado_por').notNull(),
+  creado_por_nombre: text('creado_por_nombre'),
+  editado_por: uuid('editado_por'),
+  editado_por_nombre: text('editado_por_nombre'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+
+  // Soft delete
+  activo: boolean('activo').notNull().default(true),
+  en_papelera: boolean('en_papelera').notNull().default(false),
+  papelera_en: timestamp('papelera_en', { withTimezone: true }),
+}, (tabla) => [
+  uniqueIndex('presupuestos_empresa_numero_idx').on(tabla.empresa_id, tabla.numero),
+  index('presupuestos_empresa_idx').on(tabla.empresa_id),
+  index('presupuestos_contacto_idx').on(tabla.contacto_id),
+  index('presupuestos_estado_idx').on(tabla.empresa_id, tabla.estado),
+  index('presupuestos_fecha_idx').on(tabla.empresa_id, tabla.fecha_emision),
+])
+
+// Líneas de presupuesto — productos, servicios, secciones, notas, descuentos
+export const lineas_presupuesto = pgTable('lineas_presupuesto', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  presupuesto_id: uuid('presupuesto_id').notNull().references(() => presupuestos.id, { onDelete: 'cascade' }),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+
+  // Tipo de línea: producto (calculable), seccion (separador visual), nota (texto libre), descuento (monto fijo)
+  tipo_linea: text('tipo_linea').notNull().default('producto'), // producto, seccion, nota, descuento
+  orden: integer('orden').notNull().default(0),
+
+  // Datos del producto/servicio (solo tipo_linea = 'producto')
+  codigo_producto: text('codigo_producto'),
+  descripcion: text('descripcion'),
+  descripcion_detalle: text('descripcion_detalle'), // descripción extendida
+  cantidad: numeric('cantidad').default('1'),
+  unidad: text('unidad'), // hs, un, kg, m2, etc.
+  precio_unitario: numeric('precio_unitario').default('0'),
+  descuento: numeric('descuento').default('0'), // porcentaje por línea
+  impuesto_label: text('impuesto_label'), // "IVA 21%"
+  impuesto_porcentaje: numeric('impuesto_porcentaje').default('0'),
+
+  // Calculados
+  subtotal: numeric('subtotal').default('0'), // cantidad * precio * (1 - descuento/100)
+  impuesto_monto: numeric('impuesto_monto').default('0'),
+  total: numeric('total').default('0'),
+
+  // Para tipo_linea = 'descuento' (monto fijo negativo)
+  monto: numeric('monto'),
+
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('lineas_presupuesto_presupuesto_idx').on(tabla.presupuesto_id),
+  index('lineas_presupuesto_empresa_idx').on(tabla.empresa_id),
+  index('lineas_presupuesto_orden_idx').on(tabla.presupuesto_id, tabla.orden),
+])
+
+// Historial de estados de presupuesto
+export const presupuesto_historial = pgTable('presupuesto_historial', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  presupuesto_id: uuid('presupuesto_id').notNull().references(() => presupuestos.id, { onDelete: 'cascade' }),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  estado: text('estado').notNull(),
+  usuario_id: uuid('usuario_id').notNull(),
+  usuario_nombre: text('usuario_nombre'),
+  fecha: timestamp('fecha', { withTimezone: true }).defaultNow().notNull(),
+  notas: text('notas'), // motivo de rechazo, etc.
+}, (tabla) => [
+  index('presupuesto_historial_presupuesto_idx').on(tabla.presupuesto_id),
+])
+
+// Cuotas de pago de presupuesto (para condición tipo 'hitos')
+export const presupuesto_cuotas = pgTable('presupuesto_cuotas', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  presupuesto_id: uuid('presupuesto_id').notNull().references(() => presupuestos.id, { onDelete: 'cascade' }),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  numero: integer('numero').notNull(),
+  descripcion: text('descripcion'),
+  porcentaje: numeric('porcentaje').notNull(),
+  monto: numeric('monto').notNull().default('0'),
+  dias_desde_emision: integer('dias_desde_emision').default(0),
+  estado: text('estado').notNull().default('pendiente'), // pendiente, cobrada
+  fecha_cobro: timestamp('fecha_cobro', { withTimezone: true }),
+  cobrado_por_nombre: text('cobrado_por_nombre'),
+}, (tabla) => [
+  index('presupuesto_cuotas_presupuesto_idx').on(tabla.presupuesto_id),
+])
+
+// Configuración de presupuestos por empresa (JSONB flexible)
+export const config_presupuestos = pgTable('config_presupuestos', {
+  empresa_id: uuid('empresa_id').primaryKey().references(() => empresas.id, { onDelete: 'cascade' }),
+
+  // Impuestos disponibles
+  impuestos: jsonb('impuestos').notNull().default(sql`'[{"id":"iva21","label":"IVA 21%","porcentaje":21,"activo":true},{"id":"iva105","label":"IVA 10.5%","porcentaje":10.5,"activo":true},{"id":"exento","label":"Exento","porcentaje":0,"activo":true}]'`),
+
+  // Monedas disponibles
+  monedas: jsonb('monedas').notNull().default(sql`'[{"id":"ARS","label":"Peso Argentino","simbolo":"$","activo":true},{"id":"USD","label":"Dólar","simbolo":"US$","activo":true},{"id":"EUR","label":"Euro","simbolo":"€","activo":true}]'`),
+  moneda_predeterminada: text('moneda_predeterminada').notNull().default('ARS'),
+
+  // Condiciones de pago
+  condiciones_pago: jsonb('condiciones_pago').notNull().default(sql`'[{"id":"contado","label":"Contado","tipo":"plazo_fijo","diasVencimiento":0,"hitos":[],"notaPlanPago":"Pago al contado","predeterminado":false},{"id":"15dias","label":"15 días","tipo":"plazo_fijo","diasVencimiento":15,"hitos":[],"notaPlanPago":"Pago dentro de 15 días","predeterminado":false},{"id":"30dias","label":"30 días","tipo":"plazo_fijo","diasVencimiento":30,"hitos":[],"notaPlanPago":"Pago dentro de 30 días","predeterminado":true},{"id":"50_50","label":"50% adelanto + 50% al finalizar","tipo":"hitos","diasVencimiento":0,"hitos":[{"id":"h1","porcentaje":50,"descripcion":"Adelanto","diasDesdeEmision":0},{"id":"h2","porcentaje":50,"descripcion":"Al finalizar","diasDesdeEmision":0}],"predeterminado":false}]'`),
+
+  // Días de vencimiento por defecto
+  dias_vencimiento_predeterminado: integer('dias_vencimiento_predeterminado').notNull().default(30),
+
+  // Condiciones y notas por defecto
+  condiciones_predeterminadas: text('condiciones_predeterminadas'),
+  notas_predeterminadas: text('notas_predeterminadas'),
+
+  // Unidades de medida disponibles
+  unidades: jsonb('unidades').notNull().default(sql`'[{"id":"un","label":"Unidad","abreviatura":"un"},{"id":"hs","label":"Hora","abreviatura":"hs"},{"id":"kg","label":"Kilogramo","abreviatura":"kg"},{"id":"m","label":"Metro","abreviatura":"m"},{"id":"m2","label":"Metro cuadrado","abreviatura":"m²"},{"id":"lt","label":"Litro","abreviatura":"lt"},{"id":"gl","label":"Global","abreviatura":"gl"}]'`),
+
+  // Columnas por defecto para la tabla de líneas
+  columnas_lineas_default: jsonb('columnas_lineas_default').default(sql`'["producto","descripcion","cantidad","unidad","precio_unitario","descuento","impuesto","subtotal"]'`),
+
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+})
