@@ -30,12 +30,17 @@ export async function GET(request: NextRequest) {
     }
 
     const { data, error } = await query
-    if (error) throw error
+    if (error) {
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json({ plantillas: [] })
+      }
+      throw error
+    }
 
     return NextResponse.json({ plantillas: data || [] })
   } catch (err) {
     console.error('Error al obtener plantillas:', err)
-    return NextResponse.json({ error: 'Error al obtener plantillas' }, { status: 500 })
+    return NextResponse.json({ plantillas: [] })
   }
 }
 

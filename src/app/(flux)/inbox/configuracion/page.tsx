@@ -19,7 +19,8 @@ import {
   Clock, Bell, Plus, Trash2, Wifi, WifiOff, AlertTriangle,
   Pencil, GripVertical, Shield,
 } from 'lucide-react'
-import type { CanalInbox, PlantillaRespuesta, ConfigInbox } from '@/tipos/inbox'
+import type { CanalInbox, PlantillaRespuesta, ConfigInbox, TipoCanal } from '@/tipos/inbox'
+import { ModalAgregarCanal } from '../_componentes/ModalAgregarCanal'
 
 /**
  * Configuración del Inbox — secciones: General, WhatsApp, Correo, Interno, Plantillas, SLA.
@@ -29,6 +30,9 @@ export default function PaginaConfiguracionInbox() {
   const router = useRouter()
   const [seccionActiva, setSeccionActiva] = useState('general')
   const [cargando, setCargando] = useState(true)
+
+  // Modal agregar canal
+  const [modalCanal, setModalCanal] = useState<{ abierto: boolean; tipo: TipoCanal }>({ abierto: false, tipo: 'whatsapp' })
 
   // Datos
   const [config, setConfig] = useState<ConfigInbox | null>(null)
@@ -144,7 +148,7 @@ export default function PaginaConfiguracionInbox() {
             <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
               Canales de WhatsApp conectados
             </h3>
-            <Boton variante="primario" tamano="sm" icono={<Plus size={14} />}>
+            <Boton variante="primario" tamano="sm" icono={<Plus size={14} />} onClick={() => setModalCanal({ abierto: true, tipo: 'whatsapp' })}>
               Agregar canal
             </Boton>
           </div>
@@ -172,7 +176,7 @@ export default function PaginaConfiguracionInbox() {
             <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
               Bandejas de correo
             </h3>
-            <Boton variante="primario" tamano="sm" icono={<Plus size={14} />}>
+            <Boton variante="primario" tamano="sm" icono={<Plus size={14} />} onClick={() => setModalCanal({ abierto: true, tipo: 'correo' })}>
               Agregar bandeja
             </Boton>
           </div>
@@ -342,6 +346,14 @@ export default function PaginaConfiguracionInbox() {
           </div>
         </div>
       )}
+
+      {/* Modal agregar canal */}
+      <ModalAgregarCanal
+        abierto={modalCanal.abierto}
+        onCerrar={() => setModalCanal({ ...modalCanal, abierto: false })}
+        tipoCanal={modalCanal.tipo}
+        onCanalCreado={cargar}
+      />
     </PlantillaConfiguracion>
   )
 }

@@ -55,11 +55,16 @@ export async function GET(request: NextRequest) {
       .order('ultimo_mensaje_en', { ascending: false, nullsFirst: false })
       .range(desde, desde + por_pagina - 1)
 
-    if (error) throw error
+    if (error) {
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json({ conversaciones: [], total: 0 })
+      }
+      throw error
+    }
     return NextResponse.json({ conversaciones: data || [], total: count || 0 })
   } catch (err) {
     console.error('Error al obtener conversaciones:', err)
-    return NextResponse.json({ error: 'Error al obtener conversaciones' }, { status: 500 })
+    return NextResponse.json({ conversaciones: [], total: 0 })
   }
 }
 

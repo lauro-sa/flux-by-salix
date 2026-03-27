@@ -35,8 +35,9 @@ export async function GET() {
       modulos: modulos || [],
     })
   } catch (err) {
+    // Si las tablas no existen aún, devolver config vacía
     console.error('Error al obtener config inbox:', err)
-    return NextResponse.json({ error: 'Error al obtener configuración' }, { status: 500 })
+    return NextResponse.json({ config: null, modulos: [] })
   }
 }
 

@@ -30,12 +30,18 @@ export async function GET(request: NextRequest) {
     if (tipo) query = query.eq('tipo', tipo)
 
     const { data, error } = await query
-    if (error) throw error
+    if (error) {
+      // Si la tabla no existe aún, devolver vacío
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json({ canales: [] })
+      }
+      throw error
+    }
 
     return NextResponse.json({ canales: data || [] })
   } catch (err) {
     console.error('Error al obtener canales:', err)
-    return NextResponse.json({ error: 'Error al obtener canales' }, { status: 500 })
+    return NextResponse.json({ canales: [] })
   }
 }
 
