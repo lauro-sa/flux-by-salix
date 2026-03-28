@@ -211,14 +211,24 @@ body {
 }
 
 /* Scrollbar sutil estilo Linear */
-::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar { width: 2px; height: 2px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--borde-sutil); border-radius: 9999px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--borde-fuerte); }
+* { scrollbar-width: thin; scrollbar-color: var(--borde-sutil) transparent; }
 
 /* Scrollbar del sidebar — oculta completamente */
 .sidebar-scroll { scrollbar-width: none !important; -ms-overflow-style: none !important; }
 .sidebar-scroll::-webkit-scrollbar { display: none !important; }
+
+/* Scrollbar que aparece solo al hacer hover */
+.scrollbar-auto-oculto::-webkit-scrollbar { width: 2px; }
+.scrollbar-auto-oculto::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-auto-oculto::-webkit-scrollbar-thumb { background: transparent; border-radius: 9999px; }
+.scrollbar-auto-oculto:hover::-webkit-scrollbar-thumb { background: var(--borde-sutil); }
+.scrollbar-auto-oculto:hover::-webkit-scrollbar-thumb:hover { background: var(--borde-fuerte); }
+.scrollbar-auto-oculto { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+.scrollbar-auto-oculto:hover { scrollbar-color: var(--borde-sutil) transparent; }
 
 /* Ocultar spinners de inputs numéricos */
 input[type="number"]::-webkit-inner-spin-button,

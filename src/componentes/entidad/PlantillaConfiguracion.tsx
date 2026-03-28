@@ -63,10 +63,10 @@ function PlantillaConfiguracion({
   className = '',
 }: PropiedadesPlantillaConfiguracion) {
   return (
-    <div className={`flex flex-col h-full gap-6 p-4 md:p-6 ${className}`}>
+    <div className={`flex flex-col h-full max-h-full gap-6 pl-4 pt-4 pb-4 md:pl-6 md:pt-6 md:pb-6 overflow-hidden ${className}`}>
 
       {/* ═══ CABECERO ═══ */}
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="flex items-center gap-3 shrink-0 pr-4 md:pr-6">
         <h1 className="text-xl font-bold text-texto-primario">{titulo}</h1>
       </div>
 
@@ -76,7 +76,7 @@ function PlantillaConfiguracion({
         {/* ─── Menú lateral (desktop) / Tabs horizontales (mobile) ─── */}
 
         {/* Desktop: menú lateral con soporte para grupos */}
-        <nav className="hidden md:flex flex-col gap-1 w-[220px] shrink-0 overflow-y-auto overscroll-contain [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-borde-sutil [&::-webkit-scrollbar-thumb]:rounded-full">
+        <nav className="hidden md:flex flex-col gap-1 w-[220px] shrink-0 overflow-y-auto sidebar-scroll">
           {secciones.map((seccion, i) => {
             const activa = seccion.id === seccionActiva
             const grupoAnterior = i > 0 ? secciones[i - 1].grupo : null
@@ -153,8 +153,8 @@ function PlantillaConfiguracion({
         </div>
 
         {/* ─── Contenido de la sección activa ─── */}
-        <div className="flex-1 min-w-0 overflow-y-auto overscroll-contain scroll-smooth [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-borde-sutil [&::-webkit-scrollbar-thumb]:rounded-full">
-          <div className="max-w-3xl pr-2 pb-6">
+        <div className="flex-1 min-w-0 overflow-y-auto overscroll-contain scroll-smooth scrollbar-auto-oculto">
+          <div className="pb-6 pr-4 md:pr-6">
             <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-6 md:p-8">
               {children}
             </div>

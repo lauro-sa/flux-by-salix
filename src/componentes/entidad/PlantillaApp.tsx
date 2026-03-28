@@ -59,6 +59,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
         />
 
         <main
+          className="scrollbar-auto-oculto"
           style={{
             flex: 1,
             minHeight: 0,

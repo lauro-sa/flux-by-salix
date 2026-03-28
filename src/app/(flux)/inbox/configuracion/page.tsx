@@ -1350,7 +1350,6 @@ function SeccionChatbot() {
 
   const estiloSeccion = { border: '1px solid var(--borde-sutil)' }
   const estiloSelect = { background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }
-  const estiloInput = { color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)', background: 'transparent' }
 
   return (
     <div className="space-y-5">
@@ -1545,12 +1544,11 @@ function SeccionChatbot() {
                   <label className="text-xxs font-medium mb-1 block" style={{ color: 'var(--texto-secundario)' }}>
                     Texto del botón que abre la lista
                   </label>
-                  <input
-                    type="text"
+                  <Input
                     value={config.menu_titulo_lista}
                     onChange={(e) => guardar({ menu_titulo_lista: e.target.value })}
-                    className="w-full text-xs bg-transparent outline-none px-2 py-1.5 rounded"
-                    style={{ color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+                    compacto
+                    formato={null}
                     placeholder="Ver opciones"
                     maxLength={20}
                   />
@@ -1593,13 +1591,13 @@ function SeccionChatbot() {
                             <span className="text-sm flex-shrink-0" style={{ color: 'var(--texto-marca)' }}>
                               {i + 1}️⃣
                             </span>
-                            <input
-                              type="text"
+                            <Input
                               value={op.etiqueta}
                               onChange={(e) => actualizarOpcionMenu(i, 'etiqueta', e.target.value)}
-                              className="flex-1 text-xs font-medium bg-transparent outline-none px-2 py-1 rounded"
-                              style={{ color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+                              compacto
+                              formato={null}
                               placeholder="Texto de la opción"
+                              className="flex-1"
                             />
                             <button onClick={() => eliminarOpcionMenu(i)} className="p-1" style={{ color: 'var(--texto-terciario)' }}>
                               <Trash2 size={12} />
@@ -1625,19 +1623,19 @@ function SeccionChatbot() {
                           {/* Simula un botón de WhatsApp */}
                           <div className="flex items-center gap-2 px-3 py-2.5" style={{ background: 'var(--superficie-hover)' }}>
                             <div
-                              className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
-                              style={{ background: 'var(--texto-marca)', color: '#fff', fontSize: '10px', fontWeight: 700 }}
+                              className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 text-[10px]"
+                              style={{ background: 'var(--texto-marca)', color: '#fff', fontWeight: 700 }}
                             >
                               {i + 1}
                             </div>
-                            <input
-                              type="text"
+                            <Input
                               value={op.etiqueta}
                               onChange={(e) => actualizarOpcionMenu(i, 'etiqueta', e.target.value)}
-                              className="flex-1 text-xs font-semibold bg-transparent outline-none"
-                              style={{ color: 'var(--texto-primario)' }}
+                              compacto
+                              formato={null}
                               placeholder="Texto del botón (máx 20)"
                               maxLength={20}
+                              className="flex-1"
                             />
                             <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>{(op.etiqueta || '').length}/20</span>
                             <button onClick={() => eliminarOpcionMenu(i)} className="p-1" style={{ color: 'var(--texto-terciario)' }}>
@@ -1663,32 +1661,32 @@ function SeccionChatbot() {
                         <div className="px-3 py-2.5 space-y-1.5" style={{ background: 'var(--superficie-hover)' }}>
                           <div className="flex items-center gap-2">
                             <div
-                              className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
-                              style={{ background: 'var(--texto-marca)', color: '#fff', fontSize: '10px', fontWeight: 700 }}
+                              className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 text-[10px]"
+                              style={{ background: 'var(--texto-marca)', color: '#fff', fontWeight: 700 }}
                             >
                               {i + 1}
                             </div>
-                            <input
-                              type="text"
+                            <Input
                               value={op.etiqueta}
                               onChange={(e) => actualizarOpcionMenu(i, 'etiqueta', e.target.value)}
-                              className="flex-1 text-xs font-semibold bg-transparent outline-none"
-                              style={{ color: 'var(--texto-primario)' }}
+                              compacto
+                              formato={null}
                               placeholder="Título de la opción (máx 24)"
                               maxLength={24}
+                              className="flex-1"
                             />
                             <button onClick={() => eliminarOpcionMenu(i)} className="p-1" style={{ color: 'var(--texto-terciario)' }}>
                               <Trash2 size={12} />
                             </button>
                           </div>
-                          <input
-                            type="text"
+                          <Input
                             value={op.descripcion || ''}
                             onChange={(e) => actualizarOpcionMenu(i, 'descripcion', e.target.value)}
-                            className="w-full text-xxs bg-transparent outline-none px-2 py-1 rounded ml-7"
-                            style={{ color: 'var(--texto-terciario)', border: '1px solid var(--borde-sutil)' }}
+                            compacto
+                            formato={null}
                             placeholder="Descripción corta (opcional, máx 72)"
                             maxLength={72}
+                            className="ml-7"
                           />
                         </div>
                         <div className="px-3 py-2" style={{ background: 'var(--superficie-tarjeta)' }}>
@@ -1723,13 +1721,13 @@ function SeccionChatbot() {
             {config.palabras_clave.map((pc, i) => (
               <div key={i} className="p-2.5 rounded-lg space-y-1.5" style={{ background: 'var(--superficie-hover)' }}>
                 <div className="flex items-center gap-2">
-                  <input
-                    type="text"
+                  <Input
                     value={pc.palabras.join(', ')}
                     onChange={(e) => actualizarPalabraClave(i, 'palabras', e.target.value.split(',').map(p => p.trim().toLowerCase()).filter(Boolean))}
-                    className="flex-1 text-xs bg-transparent outline-none px-2 py-1 rounded"
-                    style={{ color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+                    compacto
+                    formato={null}
                     placeholder="Palabras separadas por coma: precio, costo, cuanto"
+                    className="flex-1"
                   />
                   <button onClick={() => eliminarPalabraClave(i)} className="p-1" style={{ color: 'var(--texto-terciario)' }}>
                     <Trash2 size={12} />
@@ -1780,22 +1778,20 @@ function SeccionChatbot() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xxs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>Palabra clave</label>
-              <input
-                type="text"
+              <Input
                 value={config.palabra_transferir}
                 onChange={(e) => guardar({ palabra_transferir: e.target.value.toLowerCase() })}
-                className="w-full text-xs outline-none px-3 py-2 rounded-lg"
-                style={estiloSelect}
+                compacto
+                formato={null}
               />
             </div>
             <div>
               <label className="text-xxs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>Mensaje al transferir</label>
-              <input
-                type="text"
+              <Input
                 value={config.mensaje_transferencia}
                 onChange={(e) => guardar({ mensaje_transferencia: e.target.value })}
-                className="w-full text-xs outline-none px-3 py-2 rounded-lg"
-                style={estiloSelect}
+                compacto
+                formato={null}
               />
             </div>
           </div>
