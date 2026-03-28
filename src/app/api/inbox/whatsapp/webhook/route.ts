@@ -4,7 +4,9 @@ import {
   mapearTipoContenido, extraerTextoMensaje, textoPreviewMensaje,
   extraerMediaId, extraerMimeType, extraerNombreArchivo,
   obtenerUrlMedia, descargarMediaBuffer, verificarFirmaWebhook,
+  enviarTextoWhatsApp,
   type WebhookPayloadMeta, type MensajeEntranteMeta, type EstadoMensajeMeta,
+  type ConfigCuentaWhatsApp,
 } from '@/lib/whatsapp'
 
 export const dynamic = 'force-dynamic'
@@ -158,6 +160,7 @@ async function procesarMensajeEntrante(
   const nombreRemitente = contactoMeta?.profile?.name || telefonoRemitente
 
   // Buscar o crear conversación
+  let esConversacionNueva = false
   let { data: conversacion } = await admin
     .from('conversaciones')
     .select('id, contacto_id')
@@ -171,13 +174,18 @@ async function procesarMensajeEntrante(
 
   if (!conversacion) {
     // Intentar vincular con contacto existente por WhatsApp
-    const { data: contacto } = await admin
+    let { data: contacto } = await admin
       .from('contactos')
       .select('id, nombre, apellido')
       .eq('empresa_id', canal.empresa_id)
       .or(`whatsapp.eq.${telefonoRemitente},telefono.eq.${telefonoRemitente}`)
       .limit(1)
       .single()
+
+    // Si no existe contacto, crear uno provisorio automáticamente
+    if (!contacto) {
+      contacto = await crearContactoProvisorio(admin, canal.empresa_id, nombreRemitente, telefonoRemitente)
+    }
 
     const contactoNombre = contacto
       ? `${contacto.nombre} ${contacto.apellido || ''}`.trim()
@@ -198,6 +206,12 @@ async function procesarMensajeEntrante(
       .single()
 
     conversacion = nuevaConv
+    esConversacionNueva = true
+
+    // Asignación automática de agente a la nueva conversación
+    if (nuevaConv) {
+      await asignarAgenteAutomatico(admin, canal.empresa_id, canal.id, nuevaConv.id)
+    }
   }
 
   if (!conversacion) return
@@ -238,6 +252,83 @@ async function procesarMensajeEntrante(
     })
     .eq('id', conversacion.id)
 
+  // ─── SLA: calcular vencimiento de primera respuesta para conversaciones nuevas ───
+  if (esConversacionNueva) {
+    try {
+      // Obtener config de SLA de la empresa
+      const { data: configInbox } = await admin
+        .from('config_inbox')
+        .select('sla_primera_respuesta_minutos')
+        .eq('empresa_id', canal.empresa_id)
+        .limit(1)
+        .single()
+
+      if (configInbox?.sla_primera_respuesta_minutos) {
+        const ahora = new Date()
+        const venceEn = new Date(ahora.getTime() + configInbox.sla_primera_respuesta_minutos * 60 * 1000)
+        await admin
+          .from('conversaciones')
+          .update({ sla_primera_respuesta_vence_en: venceEn.toISOString() })
+          .eq('id', conversacion.id)
+      }
+    } catch (err) {
+      // Si las columnas no existen aún, falla silenciosamente
+      console.warn('[SLA] Error calculando SLA primera respuesta:', err)
+    }
+  }
+
+  // ─── Respuesta automática fuera de horario ───
+  try {
+    const { data: configInbox } = await admin
+      .from('config_inbox')
+      .select('respuesta_fuera_horario, mensaje_fuera_horario, horario_atencion_inicio, horario_atencion_fin')
+      .eq('empresa_id', canal.empresa_id)
+      .limit(1)
+      .single()
+
+    if (configInbox?.respuesta_fuera_horario && configInbox.mensaje_fuera_horario) {
+      const fueraDeHorario = esFueraDeHorario(
+        configInbox.horario_atencion_inicio,
+        configInbox.horario_atencion_fin,
+      )
+
+      if (fueraDeHorario) {
+        // Verificar que no hayamos enviado ya una respuesta automática en esta conversación
+        // Buscamos cualquier mensaje de tipo 'sistema' (auto-reply ya enviado)
+        const { data: autoReplyExistente } = await admin
+          .from('mensajes')
+          .select('id')
+          .eq('conversacion_id', conversacion.id)
+          .eq('remitente_tipo', 'sistema')
+          .eq('es_entrante', false)
+          .limit(1)
+
+        const yaEnviado = autoReplyExistente && autoReplyExistente.length > 0
+
+        if (!yaEnviado) {
+          const configConexion = canal.config_conexion as unknown as ConfigCuentaWhatsApp
+          await enviarTextoWhatsApp(configConexion, telefonoRemitente, configInbox.mensaje_fuera_horario)
+
+          // Registrar el mensaje automático en la BD
+          await admin
+            .from('mensajes')
+            .insert({
+              empresa_id: canal.empresa_id,
+              conversacion_id: conversacion.id,
+              es_entrante: false,
+              remitente_tipo: 'sistema',
+              remitente_nombre: 'Sistema',
+              tipo_contenido: 'texto',
+              texto: configInbox.mensaje_fuera_horario,
+              estado: 'enviado',
+            })
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[FUERA_HORARIO] Error enviando respuesta automática:', err)
+  }
+
   // Si tiene media, descargar ANTES de terminar (Vercel serverless corta el background)
   const mediaId = extraerMediaId(msg)
   if (mediaId && mensajeInsertado) {
@@ -247,6 +338,190 @@ async function procesarMensajeEntrante(
       console.error('Error descargando media:', err)
     }
   }
+}
+
+// ─── Asignación automática de agente ───
+
+/**
+ * Verifica si la empresa tiene asignación automática habilitada y, de ser así,
+ * selecciona un agente según el algoritmo configurado (round_robin o por_carga)
+ * y actualiza la conversación con el agente asignado.
+ */
+async function asignarAgenteAutomatico(
+  admin: ReturnType<typeof crearAdmin>,
+  empresaId: string,
+  canalId: string,
+  conversacionId: string,
+) {
+  try {
+    // 1. Consultar config_inbox para verificar si la asignación automática está habilitada
+    const { data: config } = await admin
+      .from('config_inbox')
+      .select('asignacion_automatica, algoritmo_asignacion')
+      .eq('empresa_id', empresaId)
+      .limit(1)
+      .single()
+
+    if (!config?.asignacion_automatica) return
+
+    const algoritmo: string = config.algoritmo_asignacion || 'round_robin'
+
+    // 2. Obtener la lista de agentes disponibles para este canal
+    const agentes = await obtenerAgentesDisponibles(admin, empresaId, canalId)
+    if (!agentes || agentes.length === 0) return
+
+    // 3. Seleccionar agente según el algoritmo configurado
+    let agenteSeleccionado: { id: string; nombre: string } | null = null
+
+    if (algoritmo === 'por_carga') {
+      agenteSeleccionado = await seleccionarPorCarga(admin, empresaId, agentes)
+    } else {
+      // round_robin por defecto
+      agenteSeleccionado = await seleccionarRoundRobin(admin, empresaId, agentes)
+    }
+
+    if (!agenteSeleccionado) return
+
+    // 4. Actualizar la conversación con el agente asignado
+    await admin
+      .from('conversaciones')
+      .update({
+        asignado_a: agenteSeleccionado.id,
+        asignado_a_nombre: agenteSeleccionado.nombre,
+      })
+      .eq('id', conversacionId)
+
+    console.log(
+      `[ASIGNACIÓN] Conversación ${conversacionId} asignada a ${agenteSeleccionado.nombre} (${algoritmo})`
+    )
+  } catch (err) {
+    // Si falla la asignación, la conversación queda sin asignar — no es crítico
+    console.error('[ASIGNACIÓN] Error asignando agente automáticamente:', err)
+  }
+}
+
+/**
+ * Obtiene los agentes disponibles para un canal. Primero intenta buscar en
+ * canal_agentes_asignados (agentes específicos del canal), y si no existe
+ * o está vacía, usa todos los usuarios de la empresa como fallback.
+ */
+async function obtenerAgentesDisponibles(
+  admin: ReturnType<typeof crearAdmin>,
+  empresaId: string,
+  canalId: string,
+): Promise<{ id: string; nombre: string }[]> {
+  // Intentar obtener agentes asignados específicamente al canal
+  const { data: agentesCanal, error: errorCanal } = await admin
+    .from('canal_agentes_asignados')
+    .select('usuario_id, usuario_nombre')
+    .eq('canal_id', canalId)
+    .eq('empresa_id', empresaId)
+
+  // Si la tabla existe y tiene registros, usar esos agentes
+  if (!errorCanal && agentesCanal && agentesCanal.length > 0) {
+    return agentesCanal.map((a) => ({
+      id: a.usuario_id,
+      nombre: a.usuario_nombre || 'Agente',
+    }))
+  }
+
+  // Fallback: obtener todos los usuarios de la empresa
+  const { data: usuarios } = await admin
+    .from('usuarios_empresa')
+    .select('usuario_id, nombre, apellido')
+    .eq('empresa_id', empresaId)
+
+  if (!usuarios || usuarios.length === 0) return []
+
+  return usuarios.map((u) => ({
+    id: u.usuario_id,
+    nombre: `${u.nombre || ''} ${u.apellido || ''}`.trim() || 'Agente',
+  }))
+}
+
+/**
+ * Round Robin: selecciona el agente que fue asignado menos recientemente.
+ * Busca la última asignación de cada agente y elige el que lleva más tiempo
+ * sin recibir una conversación, o el que nunca ha sido asignado.
+ */
+async function seleccionarRoundRobin(
+  admin: ReturnType<typeof crearAdmin>,
+  empresaId: string,
+  agentes: { id: string; nombre: string }[],
+): Promise<{ id: string; nombre: string } | null> {
+  if (agentes.length === 0) return null
+
+  // Obtener las últimas asignaciones ordenadas por fecha descendente
+  const idsAgentes = agentes.map((a) => a.id)
+  const { data: ultimasAsignaciones } = await admin
+    .from('conversaciones')
+    .select('asignado_a, creado_en')
+    .eq('empresa_id', empresaId)
+    .in('asignado_a', idsAgentes)
+    .order('creado_en', { ascending: false })
+
+  // Construir mapa: para cada agente, guardar solo su asignación más reciente
+  const ultimaAsignacion = new Map<string, string>()
+  for (const conv of ultimasAsignaciones || []) {
+    if (conv.asignado_a && !ultimaAsignacion.has(conv.asignado_a)) {
+      ultimaAsignacion.set(conv.asignado_a, conv.creado_en)
+    }
+  }
+
+  // Priorizar agentes sin asignaciones previas, luego por fecha más antigua
+  const agentesOrdenados = [...agentes].sort((a, b) => {
+    const fechaA = ultimaAsignacion.get(a.id)
+    const fechaB = ultimaAsignacion.get(b.id)
+
+    // Sin asignación previa va primero
+    if (!fechaA && fechaB) return -1
+    if (fechaA && !fechaB) return 1
+    if (!fechaA && !fechaB) return 0
+
+    // El que tiene la asignación más antigua va primero
+    return fechaA!.localeCompare(fechaB!)
+  })
+
+  return agentesOrdenados[0]
+}
+
+/**
+ * Por carga: selecciona el agente con menos conversaciones abiertas actualmente.
+ * Cuenta conversaciones con estado 'abierta' agrupadas por agente asignado.
+ */
+async function seleccionarPorCarga(
+  admin: ReturnType<typeof crearAdmin>,
+  empresaId: string,
+  agentes: { id: string; nombre: string }[],
+): Promise<{ id: string; nombre: string } | null> {
+  if (agentes.length === 0) return null
+
+  // Obtener todas las conversaciones abiertas asignadas a estos agentes
+  const idsAgentes = agentes.map((a) => a.id)
+  const { data: conversacionesAbiertas } = await admin
+    .from('conversaciones')
+    .select('asignado_a')
+    .eq('empresa_id', empresaId)
+    .eq('estado', 'abierta')
+    .in('asignado_a', idsAgentes)
+
+  // Contar conversaciones por agente (inicializar todos en 0)
+  const conteo = new Map<string, number>()
+  for (const agente of agentes) {
+    conteo.set(agente.id, 0)
+  }
+  for (const conv of conversacionesAbiertas || []) {
+    if (conv.asignado_a) {
+      conteo.set(conv.asignado_a, (conteo.get(conv.asignado_a) || 0) + 1)
+    }
+  }
+
+  // Seleccionar el agente con menor carga
+  const agentesOrdenados = [...agentes].sort((a, b) => {
+    return (conteo.get(a.id) || 0) - (conteo.get(b.id) || 0)
+  })
+
+  return agentesOrdenados[0]
 }
 
 // ─── Descargar media y guardar en Storage ───
@@ -375,4 +650,95 @@ async function procesarEstadoPlantilla(
     })
     .eq('canal', 'whatsapp')
     .ilike('contenido', `%${nombreApi}%`)
+}
+
+// ─── Crear contacto provisorio cuando llega un número desconocido ───
+
+async function crearContactoProvisorio(
+  admin: ReturnType<typeof crearAdmin>,
+  empresaId: string,
+  nombreWhatsApp: string,
+  telefono: string,
+): Promise<{ id: string; nombre: string; apellido: string | null } | null> {
+  try {
+    // Separar nombre y apellido del perfil de WhatsApp
+    const partes = nombreWhatsApp.trim().split(/\s+/)
+    // Limpiar emojis del nombre para el registro
+    const limpiarEmojis = (t: string) => t.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u200d\ufe0f]/gu, '').trim()
+    const nombre = limpiarEmojis(partes[0]) || telefono
+    const apellido = partes.length > 1 ? limpiarEmojis(partes.slice(1).join(' ')) || null : null
+
+    // Buscar tipo de contacto "Persona" para esta empresa (o el primero disponible)
+    const { data: tipos } = await admin
+      .from('tipos_contacto')
+      .select('id, etiqueta')
+      .eq('empresa_id', empresaId)
+      .order('etiqueta')
+
+    // Priorizar "Lead" para contactos provisorios de WhatsApp
+    const tipoPersona = tipos?.find(t => t.etiqueta.toLowerCase() === 'lead')
+      || tipos?.find(t => t.etiqueta.toLowerCase() === 'persona')
+      || tipos?.[0]
+
+    if (!tipoPersona) {
+      console.warn('[PROVISORIO] No hay tipos de contacto configurados para la empresa')
+      return null
+    }
+
+    const { data: nuevoContacto, error } = await admin
+      .from('contactos')
+      .insert({
+        empresa_id: empresaId,
+        nombre,
+        apellido,
+        whatsapp: telefono,
+        telefono,
+        tipo_contacto_id: tipoPersona.id,
+        origen: 'whatsapp',
+        es_provisorio: true,
+        activo: true,
+        codigo: null, // Sin código hasta que un agente lo acepte
+        creado_por: '00000000-0000-0000-0000-000000000000', // Sistema
+      })
+      .select('id, nombre, apellido')
+      .single()
+
+    if (error) {
+      console.error('[PROVISORIO] Error creando contacto:', error)
+      return null
+    }
+
+    console.log(`[PROVISORIO] Contacto creado: ${nombre} ${apellido || ''} (${telefono})`)
+    return nuevoContacto
+  } catch (err) {
+    console.error('[PROVISORIO] Error inesperado:', err)
+    return null
+  }
+}
+
+// ─── Utilidad: verificar si estamos fuera del horario de atención ───
+
+function esFueraDeHorario(
+  horaInicio?: string | null,
+  horaFin?: string | null,
+): boolean {
+  // Si no hay horario configurado, no estamos "fuera de horario"
+  if (!horaInicio || !horaFin) return false
+
+  const ahora = new Date()
+  const horaActual = ahora.getHours() * 60 + ahora.getMinutes() // minutos desde medianoche
+
+  const [inicioH, inicioM] = horaInicio.split(':').map(Number)
+  const [finH, finM] = horaFin.split(':').map(Number)
+
+  const inicioMinutos = inicioH * 60 + inicioM
+  const finMinutos = finH * 60 + finM
+
+  // Si el horario no cruza medianoche (ej: 09:00 - 18:00)
+  if (inicioMinutos <= finMinutos) {
+    return horaActual < inicioMinutos || horaActual >= finMinutos
+  }
+
+  // Si el horario cruza medianoche (ej: 22:00 - 06:00) — fuera = entre fin e inicio
+  return horaActual >= finMinutos && horaActual < inicioMinutos
 }

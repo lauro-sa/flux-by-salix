@@ -17,6 +17,10 @@ interface PropiedadesCompositor {
   onEnviar: (datos: DatosMensaje) => void
   cargando?: boolean
   placeholder?: string
+  /** Texto inyectado externamente (ej. desde PanelIA). Cuando cambia, reemplaza el contenido del textarea */
+  textoInicial?: string
+  /** Incrementar para forzar re-inserción del mismo textoInicial */
+  textoInicialVersion?: number
   // Correo
   mostrarCamposCorreo?: boolean
   asuntoInicial?: string
@@ -54,6 +58,8 @@ export function CompositorMensaje({
   onEnviar,
   cargando = false,
   placeholder,
+  textoInicial,
+  textoInicialVersion,
   mostrarCamposCorreo = false,
   asuntoInicial = '',
   respondiendo = null,
@@ -102,6 +108,17 @@ export function CompositorMensaje({
       if (previewUrl) URL.revokeObjectURL(previewUrl)
     }
   }, [previewUrl])
+
+  // Sincronizar texto inyectado externamente (ej. sugerencia de PanelIA).
+  // textoInicialVersion permite re-insertar el mismo texto si se clickea dos veces.
+  useEffect(() => {
+    if (textoInicial !== undefined && textoInicial !== '') {
+      setTexto(textoInicial)
+      // Ajustar altura del textarea tras insertar el texto
+      setTimeout(ajustarAltura, 0)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [textoInicial, textoInicialVersion, ajustarAltura])
 
   const [convirtiendo, setConvirtiendo] = useState(false)
 

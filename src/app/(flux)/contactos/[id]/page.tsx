@@ -6,6 +6,7 @@ import { useNavegacion } from '@/hooks/useNavegacion'
 import {
   Mail, Phone, Globe, MessageCircle, ChevronLeft,
   Building2, User, Truck, UserPlus, BadgeCheck, Trash2, Plus,
+  UserCheck, Clock,
 } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
@@ -72,6 +73,8 @@ export default function PaginaContactoDetalle() {
   const [guardando, setGuardando] = useState(false)
   const [errorGuardado, setErrorGuardado] = useState('')
   const [modalEliminar, setModalEliminar] = useState(false)
+  const [esProvisorio, setEsProvisorio] = useState(false)
+  const [accionandoProvisorio, setAccionandoProvisorio] = useState(false)
 
   const tipoActivo = tiposContacto.find(t => t.id === tipoContactoId)
   const claveTipo = tipoActivo?.clave || 'persona'
@@ -122,6 +125,7 @@ export default function PaginaContactoDetalle() {
         }
         setMigajaDinamica(pathname, nc || data.codigo || 'Detalle')
         setCodigo(data.codigo || '')
+        setEsProvisorio(data.es_provisorio || false)
         setTipoContactoId(data.tipo_contacto_id || '')
         setAvatarUrl(data.avatar_url || null)
         setDatosFiscales(data.datos_fiscales || {})
@@ -172,6 +176,44 @@ export default function PaginaContactoDetalle() {
       })
       .catch(() => {})
   }, [id])
+
+  // Aceptar contacto provisorio → contacto real con código secuencial
+  const aceptarProvisorio = useCallback(async () => {
+    setAccionandoProvisorio(true)
+    try {
+      const res = await fetch(`/api/contactos/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ es_provisorio: false }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setEsProvisorio(false)
+        if (data.codigo) setCodigo(data.codigo)
+      }
+    } catch (err) {
+      console.error('Error aceptando provisorio:', err)
+    } finally {
+      setAccionandoProvisorio(false)
+    }
+  }, [id])
+
+  // Descartar provisorio → papelera
+  const descartarProvisorio = useCallback(async () => {
+    setAccionandoProvisorio(true)
+    try {
+      const res = await fetch(`/api/contactos/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ en_papelera: true }),
+      })
+      if (res.ok) router.push('/contactos')
+    } catch (err) {
+      console.error('Error descartando provisorio:', err)
+    } finally {
+      setAccionandoProvisorio(false)
+    }
+  }, [id, router])
 
   // Autoguardado genérico
   const guardar = useCallback(async (payload: Record<string, unknown>) => {
@@ -309,6 +351,49 @@ export default function PaginaContactoDetalle() {
               { id: 'eliminar', etiqueta: 'Eliminar contacto', icono: <Trash2 size={14} />, peligro: true, onClick: () => setModalEliminar(true) },
             ]}
           />
+
+          {/* Banner provisorio — aceptar o descartar */}
+          {esProvisorio && (
+            <div
+              className="flex items-center justify-between px-4 py-3 rounded-lg"
+              style={{
+                background: 'var(--insignia-advertencia-fondo)',
+                border: '1px solid var(--insignia-advertencia)',
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <Clock size={16} style={{ color: 'var(--insignia-advertencia)' }} />
+                <div>
+                  <p className="text-sm font-medium" style={{ color: 'var(--texto-primario)' }}>
+                    Contacto provisorio
+                  </p>
+                  <p className="text-xs" style={{ color: 'var(--texto-secundario)' }}>
+                    Llegó por WhatsApp. Aceptalo para asignarle un código o descartalo.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={aceptarProvisorio}
+                  disabled={accionandoProvisorio}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors text-white"
+                  style={{ background: 'var(--insignia-exito)' }}
+                >
+                  <UserCheck size={14} />
+                  Aceptar
+                </button>
+                <button
+                  onClick={descartarProvisorio}
+                  disabled={accionandoProvisorio}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+                  style={{ color: 'var(--insignia-peligro)', background: 'var(--superficie-hover)' }}
+                >
+                  <Trash2 size={14} />
+                  Descartar
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Nombre completo con auto-corrección */}
           <div className="pl-1">

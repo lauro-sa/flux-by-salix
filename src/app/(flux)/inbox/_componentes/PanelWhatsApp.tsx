@@ -9,6 +9,7 @@ import {
   Image, Music,
 } from 'lucide-react'
 import { CompositorMensaje, type DatosMensaje } from './CompositorMensaje'
+import { PanelIA } from './PanelIA'
 import type { MensajeConAdjuntos, MensajeAdjunto, Conversacion } from '@/tipos/inbox'
 
 /**
@@ -174,6 +175,11 @@ export function PanelWhatsApp({
   enviando,
 }: PropiedadesPanelWhatsApp) {
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Texto inyectado desde PanelIA hacia el compositor.
+  // Se usa un contador para que repetir la misma sugerencia también dispare el efecto.
+  const [textoIA, setTextoIA] = useState('')
+  const [contadorTextoIA, setContadorTextoIA] = useState(0)
 
   // Pre-procesar elementos de chat
   const elementos = useMemo(() => prepararElementos(mensajes), [mensajes])
@@ -371,12 +377,27 @@ export function PanelWhatsApp({
         )}
       </div>
 
+      {/* Panel IA — barra colapsable sobre el compositor */}
+      {conversacion && (
+        <PanelIA
+          conversacionId={conversacion.id}
+          onInsertarTexto={(texto) => {
+            setTextoIA(texto)
+            setContadorTextoIA(c => c + 1)
+          }}
+          resumenExistente={conversacion.resumen_ia}
+          sentimientoExistente={conversacion.sentimiento}
+        />
+      )}
+
       {/* Compositor */}
       <CompositorMensaje
         tipoCanal="whatsapp"
         onEnviar={onEnviar}
         cargando={enviando}
         placeholder="Escribir mensaje..."
+        textoInicial={textoIA}
+        textoInicialVersion={contadorTextoIA}
         onAbrirPlantillas={() => {}}
       />
 

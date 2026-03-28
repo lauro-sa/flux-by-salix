@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { Boton } from '@/componentes/ui/Boton'
@@ -8,8 +8,9 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import {
   X, Phone, Mail, MessageCircle, MapPin, Building2, Briefcase,
   ExternalLink, FileText, Image, Play, ChevronDown, ChevronUp,
-  Link2, Download,
+  Link2, Download, UserCheck, Trash2, Clock,
 } from 'lucide-react'
+import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import type { Conversacion, MensajeConAdjuntos } from '@/tipos/inbox'
 import type { MediaVisor } from './PanelWhatsApp'
 
@@ -37,16 +38,126 @@ interface DatosContacto {
   cargo: string | null
   rubro: string | null
   avatar_url: string | null
+  es_provisorio: boolean
+  origen: string | null
   tipo_contacto?: { etiqueta: string; color: string }
   direccion_principal?: string | null
+}
+
+/** Conversación previa del historial del contacto */
+interface ConversacionHistorial {
+  id: string
+  estado: string
+  tipo_canal: string
+  creado_en: string
+  ultimo_mensaje_texto: string | null
 }
 
 type TabMedia = 'fotos' | 'documentos' | 'enlaces'
 
 export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, onAbrirVisor }: PropiedadesPanelInfo) {
   const [contacto, setContacto] = useState<DatosContacto | null>(null)
+  const [historial, setHistorial] = useState<ConversacionHistorial[]>([])
+  const [cargandoHistorial, setCargandoHistorial] = useState(false)
   const [seccionAbierta, setSeccionAbierta] = useState<string>('datos')
   const [tabMedia, setTabMedia] = useState<TabMedia>('fotos')
+
+  // Obtener datos del contacto desde Supabase cuando cambia la conversación
+  useEffect(() => {
+    setContacto(null)
+
+    if (!conversacion?.contacto_id) return
+
+    const obtenerContacto = async () => {
+      const supabase = crearClienteNavegador()
+      const { data, error } = await supabase
+        .from('contactos')
+        .select('id, nombre, apellido, correo, telefono, whatsapp, cargo, rubro, avatar_url, direccion_principal, es_provisorio, origen')
+        .eq('id', conversacion.contacto_id)
+        .single()
+
+      if (error) {
+        console.error('Error al obtener contacto:', error)
+        return
+      }
+
+      if (data) setContacto(data as DatosContacto)
+    }
+
+    obtenerContacto()
+  }, [conversacion?.contacto_id])
+
+  // Obtener historial de conversaciones previas con este contacto
+  useEffect(() => {
+    setHistorial([])
+
+    if (!conversacion?.contacto_id) return
+
+    const obtenerHistorial = async () => {
+      setCargandoHistorial(true)
+      const supabase = crearClienteNavegador()
+      const { data, error } = await supabase
+        .from('conversaciones')
+        .select('id, estado, tipo_canal, creado_en, ultimo_mensaje_texto')
+        .eq('contacto_id', conversacion.contacto_id)
+        .neq('id', conversacion.id)
+        .order('creado_en', { ascending: false })
+        .limit(10)
+
+      setCargandoHistorial(false)
+
+      if (error) {
+        console.error('Error al obtener historial:', error)
+        return
+      }
+
+      if (data) setHistorial(data as ConversacionHistorial[])
+    }
+
+    obtenerHistorial()
+  }, [conversacion?.contacto_id, conversacion?.id])
+
+  const [accionandoProvisorio, setAccionandoProvisorio] = useState(false)
+
+  // Aceptar contacto provisorio → convertir en contacto real
+  const aceptarProvisorio = async () => {
+    if (!contacto?.id) return
+    setAccionandoProvisorio(true)
+    try {
+      const res = await fetch(`/api/contactos/${contacto.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ es_provisorio: false }),
+      })
+      if (res.ok) {
+        setContacto(prev => prev ? { ...prev, es_provisorio: false } : prev)
+      }
+    } catch (err) {
+      console.error('Error aceptando contacto:', err)
+    } finally {
+      setAccionandoProvisorio(false)
+    }
+  }
+
+  // Descartar contacto provisorio → enviar a papelera
+  const descartarProvisorio = async () => {
+    if (!contacto?.id) return
+    setAccionandoProvisorio(true)
+    try {
+      const res = await fetch(`/api/contactos/${contacto.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ en_papelera: true }),
+      })
+      if (res.ok) {
+        setContacto(prev => prev ? { ...prev, es_provisorio: false } : prev)
+      }
+    } catch (err) {
+      console.error('Error descartando contacto:', err)
+    } finally {
+      setAccionandoProvisorio(false)
+    }
+  }
 
   const toggleSeccion = (seccion: string) => {
     setSeccionAbierta(seccionAbierta === seccion ? '' : seccion)
@@ -169,6 +280,41 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
                       {contacto.tipo_contacto.etiqueta}
                     </Insignia>
                   )}
+
+                  {/* Badge provisorio + acciones */}
+                  {contacto?.es_provisorio && (
+                    <div className="mt-2 w-full">
+                      <div
+                        className="flex items-center justify-center gap-1.5 px-2 py-1 rounded-md mb-2"
+                        style={{ background: 'var(--insignia-advertencia-fondo)', color: 'var(--insignia-advertencia-texto)' }}
+                      >
+                        <Clock size={12} />
+                        <span className="text-xs font-medium">Contacto provisorio</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Boton
+                          variante="primario"
+                          tamano="sm"
+                          icono={<UserCheck size={14} />}
+                          onClick={aceptarProvisorio}
+                          disabled={accionandoProvisorio}
+                          className="flex-1"
+                        >
+                          Aceptar
+                        </Boton>
+                        <Boton
+                          variante="fantasma"
+                          tamano="sm"
+                          icono={<Trash2 size={14} />}
+                          onClick={descartarProvisorio}
+                          disabled={accionandoProvisorio}
+                          className="flex-1 text-[var(--insignia-peligro)]"
+                        >
+                          Descartar
+                        </Boton>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Acciones rápidas */}
@@ -231,13 +377,61 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
 
                 {/* Sección: Historial */}
                 <SeccionColapsable
-                  titulo="Historial"
+                  titulo={`Historial${historial.length > 0 ? ` (${historial.length})` : ''}`}
                   abierta={seccionAbierta === 'historial'}
                   onToggle={() => toggleSeccion('historial')}
                 >
-                  <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
-                    Conversaciones anteriores con este contacto aparecerán acá.
-                  </p>
+                  {cargandoHistorial ? (
+                    <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>Cargando historial...</p>
+                  ) : historial.length === 0 ? (
+                    <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
+                      Sin conversaciones anteriores.
+                    </p>
+                  ) : (
+                    <div className="space-y-1">
+                      {historial.map((conv) => {
+                        // Icono según tipo de canal
+                        const iconoCanal = conv.tipo_canal === 'whatsapp'
+                          ? <MessageCircle size={12} style={{ color: 'var(--canal-whatsapp)' }} />
+                          : conv.tipo_canal === 'correo'
+                            ? <Mail size={12} style={{ color: 'var(--canal-correo)' }} />
+                            : <MessageCircle size={12} style={{ color: 'var(--canal-interno)' }} />
+
+                        // Color de insignia según estado
+                        const colorEstado: Record<string, 'exito' | 'advertencia' | 'info' | 'neutro' | 'peligro'> = {
+                          abierta: 'info',
+                          pendiente: 'advertencia',
+                          cerrada: 'neutro',
+                          resuelta: 'exito',
+                          archivada: 'neutro',
+                        }
+
+                        return (
+                          <a
+                            key={conv.id}
+                            href={`/inbox?id=${conv.id}`}
+                            className="flex items-start gap-2 px-2 py-1.5 rounded transition-colors hover:opacity-80"
+                            style={{ background: 'var(--superficie-hover)' }}
+                          >
+                            <span className="mt-0.5 flex-shrink-0">{iconoCanal}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs truncate" style={{ color: 'var(--texto-primario)' }}>
+                                {conv.ultimo_mensaje_texto || 'Sin mensajes'}
+                              </p>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                                  {new Date(conv.creado_en).toLocaleDateString('es', { day: 'numeric', month: 'short', year: '2-digit' })}
+                                </span>
+                                <Insignia color={colorEstado[conv.estado] || 'neutro'} tamano="sm">
+                                  {conv.estado}
+                                </Insignia>
+                              </div>
+                            </div>
+                          </a>
+                        )
+                      })}
+                    </div>
+                  )}
                 </SeccionColapsable>
               </div>
             )}

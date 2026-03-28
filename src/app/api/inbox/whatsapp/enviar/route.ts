@@ -162,17 +162,50 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Actualizar conversación
+    // Actualizar conversación (incluye limpiar tiempo sin respuesta)
+    const ahoraISO = new Date().toISOString()
     await admin
       .from('conversaciones')
       .update({
         ultimo_mensaje_texto: textoConversacion,
-        ultimo_mensaje_en: new Date().toISOString(),
+        ultimo_mensaje_en: ahoraISO,
         ultimo_mensaje_es_entrante: false,
         tiempo_sin_respuesta_desde: null,
-        actualizado_en: new Date().toISOString(),
+        actualizado_en: ahoraISO,
       })
       .eq('id', conversacion_id)
+
+    // ─── SLA: registrar primera respuesta del agente ───
+    try {
+      // Obtener datos SLA de la conversación
+      const { data: convSla } = await admin
+        .from('conversaciones')
+        .select('sla_primera_respuesta_en, sla_primera_respuesta_vence_en')
+        .eq('id', conversacion_id)
+        .single()
+
+      // Solo registrar si es la primera respuesta (sla_primera_respuesta_en aún no tiene valor)
+      if (convSla && !convSla.sla_primera_respuesta_en) {
+        const ahora = new Date()
+        const venceEn = convSla.sla_primera_respuesta_vence_en
+          ? new Date(convSla.sla_primera_respuesta_vence_en)
+          : null
+
+        // Determinar si se cumplió el SLA (respondió antes de que venciera)
+        const slaCumplido = venceEn ? ahora <= venceEn : true
+
+        await admin
+          .from('conversaciones')
+          .update({
+            sla_primera_respuesta_en: ahora.toISOString(),
+            sla_primera_respuesta_cumplido: slaCumplido,
+          })
+          .eq('id', conversacion_id)
+      }
+    } catch (err) {
+      // Si las columnas SLA no existen aún, falla silenciosamente
+      console.warn('[SLA] Error registrando primera respuesta:', err)
+    }
 
     // Recargar mensaje con adjuntos incluidos
     const { data: mensajeCompleto } = await admin

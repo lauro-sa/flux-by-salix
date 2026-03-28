@@ -161,10 +161,23 @@ export async function PATCH(
       actualizar.papelera_en = null
     }
 
-    // Si se aprueba provisorio
+    // Si se aprueba provisorio → generar código secuencial real
     if (actualizar.es_provisorio === false && 'es_provisorio' in campos) {
-      // Al aprobar, generar código si no tiene uno real
-      // (los provisorios creados por IA podrían no tener código)
+      // Verificar si el contacto actual no tiene código
+      const { data: actual } = await admin
+        .from('contactos')
+        .select('codigo')
+        .eq('id', id)
+        .single()
+
+      if (!actual?.codigo) {
+        const { data: codigoData } = await admin
+          .rpc('siguiente_codigo', { p_empresa_id: empresaId, p_entidad: 'contacto' })
+
+        if (codigoData) {
+          actualizar.codigo = codigoData as string
+        }
+      }
     }
 
     const { data, error } = await admin

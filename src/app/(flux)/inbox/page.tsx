@@ -759,81 +759,96 @@ export default function PaginaInbox() {
         {/* ─── CORREO: layout tipo cliente de email (sidebar | lista | contenido) ─── */}
         {tabActivo === 'correo' && (
           <>
-            {/* Sidebar de cuentas + carpetas */}
-            <SidebarCorreo
-              canales={canalesCorreo}
-              canalActivo={canalCorreoActivo}
-              carpetaActiva={carpetaCorreo}
-              colapsado={sidebarCorreoColapsado}
-              onToggleColapsar={toggleSidebarCorreo}
-              onSeleccionarCanal={(id) => {
-                setCanalCorreoActivo(id)
-                setCanalTodas(false)
-                setConversacionSeleccionada(null)
-                setMensajes([])
-              }}
-              onSeleccionarCarpeta={(carpeta) => {
-                setCarpetaCorreo(carpeta)
-                setConversacionSeleccionada(null)
-                setMensajes([])
-              }}
-              onRedactar={() => {
-                setConversacionSeleccionada(null)
-                setMensajes([])
-                setRedactandoNuevo(true)
-              }}
-              contadores={contadoresCorreo}
-              canalTodas={canalTodas}
-              onSeleccionarTodas={() => {
-                setCanalTodas(true)
-                setCanalCorreoActivo('')
-                setConversacionSeleccionada(null)
-                setMensajes([])
-              }}
-            />
-
-            {/* Lista de correos (colapsable) */}
+            {/* Columna 1: Sidebar cuentas + carpetas (con su toggle arriba) */}
             <div
-              className="flex-shrink-0 transition-all duration-200 overflow-hidden"
-              style={{ width: listaCorreoColapsada ? 0 : 320 }}
+              className="flex flex-col flex-shrink-0 transition-all duration-200"
+              style={{
+                width: sidebarCorreoColapsado ? 48 : 224,
+                borderRight: '1px solid var(--borde-sutil)',
+                background: 'var(--superficie-sidebar, var(--superficie-tarjeta))',
+              }}
             >
-              {!listaCorreoColapsada && (
-                <ListaConversaciones
-                  conversaciones={conversaciones}
-                  seleccionada={conversacionSeleccionada?.id || null}
-                  onSeleccionar={seleccionarConversacion}
-                  busqueda={busqueda}
-                  onBusqueda={setBusqueda}
-                  filtroEstado={filtroEstado}
-                  onFiltroEstado={setFiltroEstado}
-                  tipoCanal="correo"
-                  cargando={cargandoConversaciones}
-                  totalNoLeidos={totalNoLeidos}
+              {/* Toggle del sidebar */}
+              <div className="flex items-center justify-center py-1.5 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
+                <button
+                  onClick={toggleSidebarCorreo}
+                  className="p-1.5 rounded-md transition-colors"
+                  style={{ color: 'var(--texto-terciario)' }}
+                >
+                  {sidebarCorreoColapsado ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
+                </button>
+              </div>
+              {/* Contenido del sidebar */}
+              <div className="flex-1 overflow-hidden">
+                <SidebarCorreo
+                  canales={canalesCorreo}
+                  canalActivo={canalCorreoActivo}
+                  carpetaActiva={carpetaCorreo}
+                  colapsado={sidebarCorreoColapsado}
+                  onSeleccionarCanal={(id) => {
+                    setCanalCorreoActivo(id)
+                    setCanalTodas(false)
+                    setConversacionSeleccionada(null)
+                    setMensajes([])
+                  }}
+                  onSeleccionarCarpeta={(carpeta) => {
+                    setCarpetaCorreo(carpeta)
+                    setConversacionSeleccionada(null)
+                    setMensajes([])
+                  }}
+                  onRedactar={() => {
+                    setConversacionSeleccionada(null)
+                    setMensajes([])
+                    setRedactandoNuevo(true)
+                  }}
+                  contadores={contadoresCorreo}
+                  canalTodas={canalTodas}
+                  onSeleccionarTodas={() => {
+                    setCanalTodas(true)
+                    setCanalCorreoActivo('')
+                    setConversacionSeleccionada(null)
+                    setMensajes([])
+                  }}
                 />
+              </div>
+            </div>
+
+            {/* Columna 2: Lista de correos (con su toggle arriba) */}
+            <div
+              className="flex flex-col flex-shrink-0 transition-all duration-200 overflow-hidden"
+              style={{ width: listaCorreoColapsada ? 40 : 320, borderRight: '1px solid var(--borde-sutil)' }}
+            >
+              {/* Toggle de la lista */}
+              <div className="flex items-center justify-center py-1.5 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
+                <button
+                  onClick={toggleListaCorreo}
+                  className="p-1.5 rounded-md transition-colors"
+                  style={{ color: 'var(--texto-terciario)' }}
+                >
+                  {listaCorreoColapsada ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
+                </button>
+              </div>
+              {/* Contenido de la lista */}
+              {!listaCorreoColapsada && (
+                <div className="flex-1 overflow-hidden">
+                  <ListaConversaciones
+                    conversaciones={conversaciones}
+                    seleccionada={conversacionSeleccionada?.id || null}
+                    onSeleccionar={seleccionarConversacion}
+                    busqueda={busqueda}
+                    onBusqueda={setBusqueda}
+                    filtroEstado={filtroEstado}
+                    onFiltroEstado={setFiltroEstado}
+                    tipoCanal="correo"
+                    cargando={cargandoConversaciones}
+                    totalNoLeidos={totalNoLeidos}
+                  />
+                </div>
               )}
             </div>
 
-            {/* Toggle lista + Contenido del correo */}
+            {/* Columna 3: Contenido del correo */}
             <div className="flex-1 flex flex-col min-w-0">
-              {/* Barra con botón toggle lista */}
-              <div
-                className="flex items-center px-2 py-1 flex-shrink-0"
-                style={{ borderBottom: '1px solid var(--borde-sutil)' }}
-              >
-                <button
-                  onClick={toggleListaCorreo}
-                  className="p-1 rounded-md transition-colors"
-                  style={{ color: 'var(--texto-terciario)' }}
-                  title={listaCorreoColapsada ? 'Mostrar lista' : 'Ocultar lista'}
-                >
-                  {listaCorreoColapsada ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
-                </button>
-                {listaCorreoColapsada && conversacionSeleccionada && (
-                  <span className="text-xs ml-2 truncate" style={{ color: 'var(--texto-secundario)' }}>
-                    {conversacionSeleccionada.asunto || conversacionSeleccionada.contacto_nombre || 'Correo'}
-                  </span>
-                )}
-              </div>
 
               {/* Contenido */}
               {redactandoNuevo ? (
