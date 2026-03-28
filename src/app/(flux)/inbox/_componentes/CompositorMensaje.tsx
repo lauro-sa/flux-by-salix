@@ -107,18 +107,20 @@ export function CompositorMensaje({
       try {
         const { convertirAudioAMp3 } = await import('@/lib/convertir-audio')
         const mp3Blob = await convertirAudioAMp3(audioGrabado)
-        const archivoAudio = new globalThis.File(
-          [mp3Blob],
-          `audio_${Date.now()}.mp3`,
-          { type: 'audio/mpeg' }
-        )
         onEnviar({
           texto: '',
           tipo_contenido: 'audio',
-          archivo: archivoAudio,
+          archivo: new globalThis.File([mp3Blob], `audio_${Date.now()}.mp3`, { type: 'audio/mpeg' }),
         })
       } catch (err) {
-        console.error('Error convirtiendo audio:', err)
+        console.warn('Conversión MP3 falló, enviando audio raw:', err)
+        // Fallback: enviar como documento si la conversión falla
+        const ext = audioGrabado.type.includes('mp4') ? '.mp4' : '.webm'
+        onEnviar({
+          texto: '',
+          tipo_contenido: 'audio',
+          archivo: new globalThis.File([audioGrabado], `audio_${Date.now()}${ext}`, { type: audioGrabado.type }),
+        })
       } finally {
         setConvirtiendo(false)
       }

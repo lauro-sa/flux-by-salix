@@ -457,13 +457,17 @@ export default function PaginaInbox() {
         const data = await res.json()
         if (data.mensajes && conversacionIdRef.current === convId) {
           const nuevos = data.mensajes as MensajeConAdjuntos[]
-          const ultimoNuevo = nuevos[nuevos.length - 1]?.id
-          // Solo actualizar si hay cambios
-          if (ultimoNuevo !== ultimoMensajeRef.current || nuevos.some(
-            (m, i) => m.adjuntos.length !== (mensajes[i]?.adjuntos?.length ?? -1)
-          )) {
+          // Deduplicar por ID (el optimistic update puede haber agregado uno que ya viene del server)
+          const ids = new Set<string>()
+          const deduplicados = nuevos.filter(m => {
+            if (ids.has(m.id)) return false
+            ids.add(m.id)
+            return true
+          })
+          const ultimoNuevo = deduplicados[deduplicados.length - 1]?.id
+          if (ultimoNuevo !== ultimoMensajeRef.current || deduplicados.length !== mensajes.length) {
             ultimoMensajeRef.current = ultimoNuevo
-            setMensajes(nuevos)
+            setMensajes(deduplicados)
           }
 
           // Si hay mensajes de media sin adjuntos, pedir reintento de descarga

@@ -9,17 +9,38 @@
 import { Mp3Encoder } from '@breezystack/lamejs'
 
 export async function convertirAudioAMp3(blob: Blob): Promise<Blob> {
+  // Validar que el blob tiene contenido
+  if (blob.size < 100) {
+    throw new Error('Audio demasiado corto o vacío')
+  }
+
   // Decodificar el audio con Web Audio API
   const arrayBuffer = await blob.arrayBuffer()
-  const audioCtx = new AudioContext()
-  const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
-  await audioCtx.close()
+  const audioCtx = new AudioContext({ sampleRate: 44100 })
 
-  // Obtener PCM y mezclar a mono si es estéreo
+  let audioBuffer: AudioBuffer
+  try {
+    audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0))
+  } catch {
+    // Segundo intento: crear un nuevo AudioContext limpio
+    await audioCtx.close()
+    const audioCtx2 = new AudioContext()
+    try {
+      audioBuffer = await audioCtx2.decodeAudioData(arrayBuffer.slice(0))
+      await audioCtx2.close()
+    } catch (err2) {
+      await audioCtx2.close()
+      throw new Error(`Unable to decode audio data: ${err2}`)
+    }
+  }
+
+  if (audioCtx.state !== 'closed') await audioCtx.close()
+
   const sampleRate = audioBuffer.sampleRate
   const izq = audioBuffer.getChannelData(0)
-  let pcm: Float32Array
 
+  // Mezclar a mono si es estéreo
+  let pcm: Float32Array
   if (audioBuffer.numberOfChannels > 1) {
     const der = audioBuffer.getChannelData(1)
     pcm = new Float32Array(izq.length)
@@ -50,5 +71,11 @@ export async function convertirAudioAMp3(blob: Blob): Promise<Blob> {
   const final = encoder.flush()
   if (final.length > 0) partes.push(final)
 
-  return new Blob(partes as BlobPart[], { type: 'audio/mpeg' })
+  const resultado = new Blob(partes as BlobPart[], { type: 'audio/mpeg' })
+
+  if (resultado.size < 100) {
+    throw new Error('MP3 resultante demasiado pequeño')
+  }
+
+  return resultado
 }

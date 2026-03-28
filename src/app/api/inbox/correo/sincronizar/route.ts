@@ -745,10 +745,12 @@ async function ejecutarReglas(
     for (const accion of acciones) {
       switch (accion.tipo) {
         case 'etiquetar':
-          await admin.from('conversacion_etiquetas').insert({
-            conversacion_id: conversacionId,
-            etiqueta_id: accion.valor,
-          }).catch(() => {})
+          try {
+            await admin.from('conversacion_etiquetas').insert({
+              conversacion_id: conversacionId,
+              etiqueta_id: accion.valor,
+            })
+          } catch { /* duplicado ok */ }
           break
 
         case 'asignar':
