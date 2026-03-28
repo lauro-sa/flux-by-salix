@@ -1,14 +1,22 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { crearClienteAdmin } from '@/lib/supabase/admin'
-
-// Webhook debe ser siempre dinámico, nunca cacheado
-export const dynamic = 'force-dynamic'
+import { createClient } from '@supabase/supabase-js'
 import {
-  verificarFirmaWebhook, mapearTipoContenido, extraerTextoMensaje,
+  mapearTipoContenido, extraerTextoMensaje,
   extraerMediaId, extraerMimeType, extraerNombreArchivo,
-  obtenerUrlMedia, descargarMediaBuffer,
+  obtenerUrlMedia, descargarMediaBuffer, verificarFirmaWebhook,
   type WebhookPayloadMeta, type MensajeEntranteMeta, type EstadoMensajeMeta,
 } from '@/lib/whatsapp'
+
+export const dynamic = 'force-dynamic'
+
+// Cliente admin inline — el webhook es público, no pasa por auth
+function crearAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+}
 
 /**
  * GET /api/inbox/whatsapp/webhook — Verificación del webhook de Meta.
@@ -27,7 +35,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Buscar la cuenta que tiene este token de verificación
-    const admin = crearClienteAdmin()
+    const admin = crearAdmin()
     const { data: canales, error } = await admin
       .from('canales_inbox')
       .select('id, config_conexion')
@@ -72,7 +80,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Objeto no soportado' }, { status: 400 })
     }
 
-    const admin = crearClienteAdmin()
+    const admin = crearAdmin()
 
     for (const entry of payload.entry) {
       for (const change of entry.changes) {
@@ -140,7 +148,7 @@ export async function POST(request: NextRequest) {
 // ─── Procesar mensaje entrante ───
 
 async function procesarMensajeEntrante(
-  admin: ReturnType<typeof crearClienteAdmin>,
+  admin: ReturnType<typeof crearAdmin>,
   canal: { id: string; empresa_id: string; config_conexion: unknown },
   msg: MensajeEntranteMeta,
   contactoMeta?: { profile: { name: string }; wa_id: string },
@@ -240,7 +248,7 @@ async function procesarMensajeEntrante(
 // ─── Descargar media y guardar en Storage ───
 
 async function descargarYGuardarMedia(
-  admin: ReturnType<typeof crearClienteAdmin>,
+  admin: ReturnType<typeof crearAdmin>,
   canal: { id: string; empresa_id: string; config_conexion: unknown },
   msg: MensajeEntranteMeta,
   mensajeId: string,
@@ -299,7 +307,7 @@ async function descargarYGuardarMedia(
 // ─── Procesar estado de mensaje (sent/delivered/read) ───
 
 async function procesarEstadoMensaje(
-  admin: ReturnType<typeof crearClienteAdmin>,
+  admin: ReturnType<typeof crearAdmin>,
   canal: { id: string; empresa_id: string },
   estado: EstadoMensajeMeta,
 ) {
@@ -327,7 +335,7 @@ async function procesarEstadoMensaje(
 // ─── Procesar actualización de estado de plantilla ───
 
 async function procesarEstadoPlantilla(
-  admin: ReturnType<typeof crearClienteAdmin>,
+  admin: ReturnType<typeof crearAdmin>,
   value: Record<string, unknown>,
 ) {
   const nombreApi = value.message_template_name as string
