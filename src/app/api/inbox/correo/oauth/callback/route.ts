@@ -89,20 +89,6 @@ export async function GET(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    const configConexion = {
-      email,
-      refresh_token: refreshToken,
-      access_token: accessToken,
-      token_expira_en: tokens.expiry_date
-        ? new Date(tokens.expiry_date).toISOString()
-        : null,
-    }
-
-    const syncCursor = {
-      historyId: perfil.historyId,
-      ultimaSincronizacion: new Date().toISOString(),
-    }
-
     if (canalId) {
       // Actualizar canal existente
       const { error } = await admin
@@ -131,7 +117,7 @@ export async function GET(request: NextRequest) {
           empresa_id: empresaId,
           tipo: 'correo',
           nombre: nombre || email,
-          proveedor: 'gmail_oauth',
+          proveedor,
           activo: true,
           config_conexion: configConexion,
           estado_conexion: 'conectado',

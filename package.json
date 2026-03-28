@@ -13,6 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
@@ -40,7 +41,6 @@
     "googleapis": "^171.4.0",
     "imapflow": "^1.2.18",
     "isomorphic-dompurify": "^3.7.1",
-    "lamejs": "^1.2.1",
     "libphonenumber-js": "^1.12.40",
     "lucide-react": "^1.6.0",
     "mailparser": "^3.9.6",

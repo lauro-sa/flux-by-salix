@@ -1,13 +1,12 @@
 /**
  * Convierte audio grabado (WebM/OGG/MP4) a MP3 en el navegador.
  * Meta WhatsApp API acepta MP3 (audio/mpeg) en todos los casos.
- * Usa lamejs (encoder MP3 puro en JavaScript, sin dependencias nativas).
+ * Usa @breezystack/lamejs (fork compatible con ESM/bundlers modernos).
  *
  * Flujo: Blob de audio → Web Audio API (decode) → lamejs (encode MP3) → Blob MP3
  */
 
-// lamejs necesita import estático — dynamic import rompe sus globals internos
-import lamejs from 'lamejs'
+import { Mp3Encoder } from '@breezystack/lamejs'
 
 export async function convertirAudioAMp3(blob: Blob): Promise<Blob> {
   // Decodificar el audio con Web Audio API
@@ -16,24 +15,22 @@ export async function convertirAudioAMp3(blob: Blob): Promise<Blob> {
   const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
   await audioCtx.close()
 
-  // Obtener PCM data
-  const numCanales = audioBuffer.numberOfChannels
+  // Obtener PCM y mezclar a mono si es estéreo
   const sampleRate = audioBuffer.sampleRate
-  const muestrasIzq = audioBuffer.getChannelData(0)
-
-  // Mezclar a mono si es estéreo
+  const izq = audioBuffer.getChannelData(0)
   let pcm: Float32Array
-  if (numCanales > 1) {
-    const muestrasDer = audioBuffer.getChannelData(1)
-    pcm = new Float32Array(muestrasIzq.length)
-    for (let i = 0; i < muestrasIzq.length; i++) {
-      pcm[i] = (muestrasIzq[i] + muestrasDer[i]) / 2
+
+  if (audioBuffer.numberOfChannels > 1) {
+    const der = audioBuffer.getChannelData(1)
+    pcm = new Float32Array(izq.length)
+    for (let i = 0; i < izq.length; i++) {
+      pcm[i] = (izq[i] + der[i]) / 2
     }
   } else {
-    pcm = muestrasIzq
+    pcm = izq
   }
 
-  // Convertir Float32 (-1 a 1) a Int16 (-32768 a 32767)
+  // Float32 → Int16
   const samples = new Int16Array(pcm.length)
   for (let i = 0; i < pcm.length; i++) {
     const s = Math.max(-1, Math.min(1, pcm[i]))
@@ -41,18 +38,17 @@ export async function convertirAudioAMp3(blob: Blob): Promise<Blob> {
   }
 
   // Encodear a MP3
-  const mp3encoder = new lamejs.Mp3Encoder(1, sampleRate, 128)
-  const bloqueSize = 1152
+  const encoder = new Mp3Encoder(1, sampleRate, 128)
   const partes: Uint8Array[] = []
 
-  for (let i = 0; i < samples.length; i += bloqueSize) {
-    const bloque = samples.subarray(i, i + bloqueSize)
-    const mp3buf = mp3encoder.encodeBuffer(bloque)
+  for (let i = 0; i < samples.length; i += 1152) {
+    const bloque = samples.subarray(i, i + 1152)
+    const mp3buf = encoder.encodeBuffer(bloque)
     if (mp3buf.length > 0) partes.push(mp3buf)
   }
 
-  const mp3Final = mp3encoder.flush()
-  if (mp3Final.length > 0) partes.push(mp3Final)
+  const final = encoder.flush()
+  if (final.length > 0) partes.push(final)
 
   return new Blob(partes as BlobPart[], { type: 'audio/mpeg' })
 }

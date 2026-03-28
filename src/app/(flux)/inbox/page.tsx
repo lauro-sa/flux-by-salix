@@ -337,6 +337,26 @@ export default function PaginaInbox() {
     }
   }, [conversacionSeleccionada, canalCorreoActivo, cargarConversaciones])
 
+  // Programar envío de correo
+  const programarCorreo = useCallback(async (datos: DatosCorreo, enviarEn: string) => {
+    try {
+      await fetch('/api/inbox/correo/programar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          canal_id: canalCorreoActivo,
+          conversacion_id: conversacionSeleccionada?.id || null,
+          ...datos,
+          enviar_en: enviarEn,
+        }),
+      })
+      setRedactandoNuevo(false)
+      // TODO: toast "Correo programado para {fecha}"
+    } catch {
+      // TODO: toast de error
+    }
+  }, [canalCorreoActivo, conversacionSeleccionada])
+
   // Marcar conversación como spam
   const marcarSpam = useCallback(async (conversacionId: string) => {
     try {
@@ -648,6 +668,7 @@ export default function PaginaInbox() {
                 canalSeleccionado={canalCorreoActivo}
                 onCambiarCanal={setCanalCorreoActivo}
                 onEnviar={enviarCorreo}
+                onProgramar={programarCorreo}
                 onCancelar={() => setRedactandoNuevo(false)}
                 cargando={enviando}
                 firma={firmaCorreo}

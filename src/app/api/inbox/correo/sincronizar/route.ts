@@ -438,6 +438,15 @@ async function procesarCorreoEntrante(
     })
     .eq('id', conversacionId)
 
+  // 8. Ejecutar reglas automáticas
+  if (esEntrante) {
+    try {
+      await ejecutarReglas(admin, correo, empresaId, conversacionId)
+    } catch (err) {
+      console.error('Error ejecutando reglas:', err)
+    }
+  }
+
   // Incrementar mensajes_sin_leer si es entrante
   if (esEntrante) {
     const { data: convActual } = await admin
@@ -683,5 +692,90 @@ async function procesarAdjuntos(
     } catch (err) {
       console.error(`Error procesando adjunto ${adj.nombre}:`, err)
     }
+  }
+}
+
+// ─── Ejecutar reglas automáticas ───
+
+async function ejecutarReglas(
+  admin: ReturnType<typeof crearClienteAdmin>,
+  correo: CorreoParsedo,
+  empresaId: string,
+  conversacionId: string,
+): Promise<void> {
+  const { data: reglas } = await admin
+    .from('reglas_correo')
+    .select('*')
+    .eq('empresa_id', empresaId)
+    .eq('activa', true)
+    .order('orden', { ascending: true })
+
+  if (!reglas || reglas.length === 0) return
+
+  for (const regla of reglas) {
+    const condiciones = regla.condiciones as { campo: string; operador: string; valor: string }[]
+    const acciones = regla.acciones as { tipo: string; valor: string }[]
+
+    // Verificar todas las condiciones (AND)
+    const cumple = condiciones.every(cond => {
+      let valor = ''
+      if (cond.campo === 'correo_de') valor = correo.de.toLowerCase()
+      else if (cond.campo === 'asunto') valor = correo.asunto.toLowerCase()
+      else if (cond.campo === 'texto') valor = correo.textoPlano.toLowerCase()
+      else if (cond.campo === 'correo_para') valor = correo.para.join(', ').toLowerCase()
+
+      const buscar = cond.valor.toLowerCase()
+
+      switch (cond.operador) {
+        case 'contiene': return valor.includes(buscar)
+        case 'es': return valor === buscar
+        case 'empieza': return valor.startsWith(buscar)
+        case 'termina': return valor.endsWith(buscar)
+        case 'dominio': {
+          const dominio = valor.split('@')[1]?.split('>')[0] || ''
+          return dominio === buscar
+        }
+        default: return false
+      }
+    })
+
+    if (!cumple) continue
+
+    // Ejecutar acciones
+    for (const accion of acciones) {
+      switch (accion.tipo) {
+        case 'etiquetar':
+          await admin.from('conversacion_etiquetas').insert({
+            conversacion_id: conversacionId,
+            etiqueta_id: accion.valor,
+          }).catch(() => {})
+          break
+
+        case 'asignar':
+          await admin.from('conversaciones').update({
+            asignado_a: accion.valor,
+            actualizado_en: new Date().toISOString(),
+          }).eq('id', conversacionId)
+          break
+
+        case 'marcar_spam':
+          await admin.from('conversaciones').update({
+            estado: 'spam',
+            actualizado_en: new Date().toISOString(),
+          }).eq('id', conversacionId)
+          break
+
+        case 'archivar':
+          await admin.from('conversaciones').update({
+            estado: 'resuelta',
+            cerrado_en: new Date().toISOString(),
+            actualizado_en: new Date().toISOString(),
+          }).eq('id', conversacionId)
+          break
+      }
+    }
+
+    // Solo ejecutar la primera regla que matchea (no cascadear)
+    break
   }
 }

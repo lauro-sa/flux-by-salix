@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Boton } from '@/componentes/ui/Boton'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import {
-  Send, Paperclip, X, Upload,
+  Send, Paperclip, X, Upload, Clock,
   Image, Film, FileText, File, Loader2,
 } from 'lucide-react'
 
@@ -62,6 +62,7 @@ interface PropiedadesCompositorCorreo {
   canalSeleccionado?: string
   onCambiarCanal?: (canalId: string) => void
   onEnviar: (datos: DatosCorreo) => void
+  onProgramar?: (datos: DatosCorreo, enviarEn: string) => void
   onCancelar?: () => void
   onAdjuntar?: (archivos: File[]) => void
   cargando?: boolean
@@ -253,6 +254,7 @@ export function CompositorCorreo({
   canalSeleccionado,
   onCambiarCanal,
   onEnviar,
+  onProgramar,
   onCancelar,
   cargando = false,
   compacto = false,
@@ -270,6 +272,10 @@ export function CompositorCorreo({
   const [adjuntosSubidos, setAdjuntosSubidos] = useState<AdjuntoSubido[]>([])
   const [adjuntosIds, setAdjuntosIds] = useState<string[]>(adjuntosIdsInicial)
   const [subiendoAdjuntos, setSubiendoAdjuntos] = useState(false)
+
+  // Programar envío
+  const [mostrarProgramar, setMostrarProgramar] = useState(false)
+  const [fechaProgramada, setFechaProgramada] = useState('')
 
   // Drag & drop
   const [arrastrando, setArrastrando] = useState(false)
@@ -652,6 +658,66 @@ export function CompositorCorreo({
             </div>
           )}
 
+          {/* Picker de programar envío */}
+          <AnimatePresence>
+            {mostrarProgramar && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="px-3 pb-2 flex items-center gap-2"
+              >
+                <Clock size={14} style={{ color: 'var(--texto-terciario)' }} />
+                <input
+                  type="datetime-local"
+                  value={fechaProgramada}
+                  onChange={(e) => setFechaProgramada(e.target.value)}
+                  min={new Date().toISOString().slice(0, 16)}
+                  className="text-xs bg-transparent outline-none py-1 px-2 rounded"
+                  style={{
+                    color: 'var(--texto-primario)',
+                    border: '1px solid var(--borde-sutil)',
+                  }}
+                />
+                <Boton
+                  variante="primario"
+                  tamano="xs"
+                  disabled={!fechaProgramada || !puedeEnviar}
+                  onClick={() => {
+                    if (!fechaProgramada || !onProgramar) return
+                    const textoPlano = html.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim()
+                    let htmlFinal = html
+                    if (firma) {
+                      htmlFinal += `<br/><div style="border-top: 1px solid #e5e7eb; padding-top: 8px; margin-top: 16px; color: #6b7280; font-size: 13px;">${firma}</div>`
+                    }
+                    onProgramar({
+                      correo_para: para,
+                      correo_cc: cc.length > 0 ? cc : undefined,
+                      correo_cco: cco.length > 0 ? cco : undefined,
+                      correo_asunto: asunto,
+                      texto: textoPlano,
+                      html: htmlFinal,
+                      correo_in_reply_to: inReplyTo,
+                      correo_references: references,
+                      adjuntos_ids: adjuntosIds.length > 0 ? adjuntosIds : undefined,
+                      tipo,
+                    }, new Date(fechaProgramada).toISOString())
+                    setMostrarProgramar(false)
+                    setFechaProgramada('')
+                  }}
+                >
+                  Programar
+                </Boton>
+                <button
+                  onClick={() => { setMostrarProgramar(false); setFechaProgramada('') }}
+                  className="p-1"
+                >
+                  <X size={12} style={{ color: 'var(--texto-terciario)' }} />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Footer: acciones */}
           <div
             className="flex items-center justify-between px-3 py-2"
@@ -668,6 +734,16 @@ export function CompositorCorreo({
               >
                 Enviar
               </Boton>
+              {onProgramar && !compacto && (
+                <Boton
+                  variante="fantasma"
+                  tamano="sm"
+                  icono={<Clock size={14} />}
+                  onClick={() => setMostrarProgramar(!mostrarProgramar)}
+                >
+                  Programar
+                </Boton>
+              )}
               {onCancelar && (
                 <Boton variante="fantasma" tamano="sm" onClick={onCancelar}>
                   Descartar
