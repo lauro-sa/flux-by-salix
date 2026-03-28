@@ -4,7 +4,7 @@ import {
   mapearTipoContenido, extraerTextoMensaje, textoPreviewMensaje,
   extraerMediaId, extraerMimeType, extraerNombreArchivo,
   obtenerUrlMedia, descargarMediaBuffer, verificarFirmaWebhook,
-  enviarTextoWhatsApp,
+  enviarTextoWhatsApp, enviarInteractivoWhatsApp,
   type WebhookPayloadMeta, type MensajeEntranteMeta, type EstadoMensajeMeta,
   type ConfigCuentaWhatsApp,
 } from '@/lib/whatsapp'
@@ -338,7 +338,7 @@ async function procesarMensajeEntrante(
 
   // ─── Chatbot: respuestas automáticas ───
   try {
-    await procesarChatbot(admin, canal, conversacion.id, telefonoRemitente, texto, esConversacionNueva)
+    await procesarChatbot(admin, canal, conversacion.id, telefonoRemitente, texto, esConversacionNueva, msg)
   } catch (err) {
     console.warn('[CHATBOT] Error:', err)
   }
@@ -785,6 +785,7 @@ async function procesarChatbot(
   telefono: string,
   textoCliente: string,
   esConversacionNueva: boolean,
+  msg?: MensajeEntranteMeta,
 ) {
   // 1. Obtener config del chatbot
   const { data: configBot } = await admin
@@ -821,9 +822,29 @@ async function procesarChatbot(
   const configConexion = canal.config_conexion as unknown as ConfigCuentaWhatsApp
   const textoNormalizado = textoCliente.trim().toLowerCase()
 
+  // Obtener nombre del contacto y empresa para variables
+  const { data: convDatos } = await admin
+    .from('conversaciones')
+    .select('contacto_nombre')
+    .eq('id', conversacionId)
+    .single()
+  const { data: empresa } = await admin
+    .from('empresas')
+    .select('nombre')
+    .eq('id', canal.empresa_id)
+    .single()
+
+  // Reemplazar variables en un texto
+  const reemplazarVariables = (texto: string) => {
+    return texto
+      .replace(/\{\{nombre\}\}/gi, convDatos?.contacto_nombre || 'Cliente')
+      .replace(/\{\{empresa\}\}/gi, empresa?.nombre || '')
+  }
+
   // Helper: enviar mensaje del bot y registrarlo en BD
   const enviarRespuestaBot = async (mensaje: string) => {
-    await enviarTextoWhatsApp(configConexion, telefono, mensaje)
+    const mensajeFinal = reemplazarVariables(mensaje)
+    await enviarTextoWhatsApp(configConexion, telefono, mensajeFinal)
     await admin.from('mensajes').insert({
       empresa_id: canal.empresa_id,
       conversacion_id: conversacionId,
@@ -831,9 +852,60 @@ async function procesarChatbot(
       remitente_tipo: 'bot',
       remitente_nombre: 'Chatbot',
       tipo_contenido: 'texto',
-      texto: mensaje,
+      texto: mensajeFinal,
       estado: 'enviado',
     })
+  }
+
+  // Helper: enviar menú como botones interactivos o lista
+  const enviarMenuBot = async () => {
+    const opciones = (configBot.opciones_menu || []) as OpcionMenuBot[]
+    const menuTipo = configBot.menu_tipo || 'botones'
+    const textoMenu = reemplazarVariables(configBot.mensaje_menu || '¿En qué podemos ayudarte?')
+
+    if (opciones.length === 0) {
+      await enviarRespuestaBot(textoMenu)
+      return
+    }
+
+    try {
+      if (menuTipo === 'botones' && opciones.length <= 3) {
+        await enviarInteractivoWhatsApp(configConexion, telefono, 'button', textoMenu, {
+          buttons: opciones.map((op, i) => ({
+            type: 'reply',
+            reply: { id: `opcion_${op.numero || i + 1}`, title: (op.etiqueta || `Opción ${i + 1}`).slice(0, 20) },
+          })),
+        })
+      } else {
+        const tituloLista = configBot.menu_titulo_lista || 'Ver opciones'
+        await enviarInteractivoWhatsApp(configConexion, telefono, 'list', textoMenu, {
+          button: tituloLista.slice(0, 20),
+          sections: [{
+            title: 'Opciones',
+            rows: opciones.map((op, i) => ({
+              id: `opcion_${op.numero || i + 1}`,
+              title: (op.etiqueta || `Opción ${i + 1}`).slice(0, 24),
+              description: ((op as OpcionMenuBot & { descripcion?: string }).descripcion || '').slice(0, 72),
+            })),
+          }],
+        })
+      }
+
+      await admin.from('mensajes').insert({
+        empresa_id: canal.empresa_id,
+        conversacion_id: conversacionId,
+        es_entrante: false,
+        remitente_tipo: 'bot',
+        remitente_nombre: 'Chatbot',
+        tipo_contenido: 'texto',
+        texto: textoMenu + '\n\n' + opciones.map(op => `• ${op.etiqueta}`).join('\n'),
+        estado: 'enviado',
+      })
+    } catch (err) {
+      console.warn('[CHATBOT] Error enviando interactivo, fallback a texto:', err)
+      const textoFallback = textoMenu + '\n\n' + opciones.map((op, i) => `${i + 1}️⃣ ${op.etiqueta}`).join('\n')
+      await enviarRespuestaBot(textoFallback)
+    }
   }
 
   // 4. Transferencia a agente
@@ -895,26 +967,31 @@ async function procesarChatbot(
     if (enviarBienvenida) {
       await enviarRespuestaBot(configBot.mensaje_bienvenida)
 
-      if (configBot.menu_activo && configBot.mensaje_menu) {
-        await enviarRespuestaBot(configBot.mensaje_menu)
+      if (configBot.menu_activo) {
+        await enviarMenuBot()
       }
       return
     }
   }
 
-  // 6. Menú: si escribe "menu" o un número de opción
+  // 6. Menú: si escribe "menu" o selecciona una opción interactiva
   if (configBot.menu_activo) {
     // Si escribe "menu", enviar el menú
     if (textoNormalizado === 'menu' || textoNormalizado === 'menú') {
-      if (configBot.mensaje_menu) {
-        await enviarRespuestaBot(configBot.mensaje_menu)
-      }
+      await enviarMenuBot()
       return
     }
 
-    // Si escribe un número de opción
+    // Si escribe un número, toca un botón o elige de la lista
     const opciones = (configBot.opciones_menu || []) as OpcionMenuBot[]
-    const opcionElegida = opciones.find(op => textoNormalizado === op.numero)
+    // Extraer ID interactivo si el cliente tocó un botón o eligió de la lista
+    const idInteractivo = msg?.interactive?.button_reply?.id || msg?.interactive?.list_reply?.id || ''
+    // Matchear por número, etiqueta exacta, o ID interactivo
+    const opcionElegida = opciones.find((op, i) =>
+      textoNormalizado === op.numero ||
+      textoNormalizado === op.etiqueta.toLowerCase() ||
+      idInteractivo === `opcion_${op.numero || i + 1}`
+    )
     if (opcionElegida) {
       // Si la opción no tiene respuesta, es transferencia a agente
       if (!opcionElegida.respuesta) {

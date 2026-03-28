@@ -1229,6 +1229,7 @@ interface OpcionMenu {
   numero: string
   etiqueta: string
   respuesta: string
+  descripcion?: string // Solo para listas
 }
 
 interface PalabraClave {
@@ -1244,6 +1245,8 @@ interface ConfigChatbot {
   bienvenida_frecuencia: string
   bienvenida_dias_sin_contacto: number
   menu_activo: boolean
+  menu_tipo: 'botones' | 'lista'
+  menu_titulo_lista: string
   mensaje_menu: string
   opciones_menu: OpcionMenu[]
   palabras_clave: PalabraClave[]
@@ -1256,19 +1259,20 @@ interface ConfigChatbot {
 const CHATBOT_DEFAULTS: ConfigChatbot = {
   activo: false,
   bienvenida_activa: true,
-  mensaje_bienvenida: '¡Hola! 👋 Gracias por comunicarte con nosotros.',
+  mensaje_bienvenida: '¡Hola {{nombre}}! 👋 Gracias por comunicarte con nosotros.',
   bienvenida_frecuencia: 'dias_sin_contacto',
   bienvenida_dias_sin_contacto: 30,
   menu_activo: false,
-  mensaje_menu: 'Elegí una opción:\n1️⃣ Información de productos\n2️⃣ Consultar precios\n3️⃣ Horarios de atención\n4️⃣ Hablar con un asesor',
+  menu_tipo: 'botones',
+  menu_titulo_lista: 'Ver opciones',
+  mensaje_menu: '¿En qué podemos ayudarte?',
   opciones_menu: [
-    { numero: '1', etiqueta: 'Productos', respuesta: 'Te envío información de nuestros productos...' },
-    { numero: '2', etiqueta: 'Precios', respuesta: 'Los precios dependen del trabajo. ¿Podrías contarnos qué necesitás?' },
-    { numero: '3', etiqueta: 'Horarios', respuesta: 'Nuestro horario de atención es de Lunes a Viernes de 8:00 a 17:00.' },
-    { numero: '4', etiqueta: 'Asesor', respuesta: '' },
+    { numero: '1', etiqueta: 'Productos', respuesta: 'Te envío información de nuestros productos...', descripcion: 'Info y catálogo' },
+    { numero: '2', etiqueta: 'Precios', respuesta: 'Los precios dependen del trabajo. ¿Podrías contarnos qué necesitás?', descripcion: 'Consultar costos' },
+    { numero: '3', etiqueta: 'Hablar con asesor', respuesta: '', descripcion: 'Te derivamos' },
   ],
   palabras_clave: [],
-  mensaje_defecto: 'No entendí tu mensaje. Escribí *menu* para ver las opciones o esperá que un asesor te atienda.',
+  mensaje_defecto: 'No entendí tu mensaje. Esperá que un asesor te atienda.',
   palabra_transferir: 'asesor',
   mensaje_transferencia: 'Te estoy derivando con un asesor. En breve te van a atender. 🙏',
   modo: 'siempre',
@@ -1428,14 +1432,31 @@ function SeccionChatbot() {
               <EditorWhatsApp
                 valor={config.mensaje_bienvenida}
                 onChange={(v) => guardar({ mensaje_bienvenida: v })}
-                placeholder="¡Hola! 👋 Gracias por comunicarte..."
+                placeholder="¡Hola {{nombre}}! 👋 Gracias por comunicarte..."
                 titulo="Mensaje de bienvenida"
               />
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>Variables:</span>
+                {[
+                  { clave: '{{nombre}}', desc: 'Nombre del contacto' },
+                  { clave: '{{empresa}}', desc: 'Tu empresa' },
+                ].map(v => (
+                  <button
+                    key={v.clave}
+                    onClick={() => guardar({ mensaje_bienvenida: config.mensaje_bienvenida + ` ${v.clave}` })}
+                    className="text-xxs px-1.5 py-0.5 rounded cursor-pointer"
+                    style={{ background: 'var(--superficie-hover)', color: 'var(--texto-marca)' }}
+                    title={v.desc}
+                  >
+                    {v.clave}
+                  </button>
+                ))}
+              </div>
             </>
           )}
         </div>
 
-        {/* ─── Menú principal ─── */}
+        {/* ─── Menú de opciones ─── */}
         <div className="p-4 rounded-lg space-y-3 mb-4" style={{ border: '1px solid var(--borde-sutil)' }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -1444,52 +1465,155 @@ function SeccionChatbot() {
             </div>
             <Interruptor activo={config.menu_activo} onChange={(v) => guardar({ menu_activo: v })} />
           </div>
-          <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-            El cliente escribe un número y recibe la respuesta configurada. Se muestra después de la bienvenida o cuando escribe "menu".
-          </p>
 
           {config.menu_activo && (
             <>
+              {/* Mensaje del menú */}
               <EditorWhatsApp
                 valor={config.mensaje_menu}
                 onChange={(v) => guardar({ mensaje_menu: v })}
-                placeholder="Elegí una opción:&#10;1️⃣ Productos&#10;2️⃣ Precios..."
+                placeholder="¿En qué podemos ayudarte?"
                 titulo="Mensaje del menú"
               />
 
-              <p className="text-xxs font-medium mt-3" style={{ color: 'var(--texto-secundario)' }}>Opciones</p>
-              <div className="space-y-2">
-                {config.opciones_menu.map((op, i) => (
-                  <div key={i} className="flex items-start gap-2 p-2 rounded-lg" style={{ background: 'var(--superficie-hover)' }}>
-                    <span className="text-sm font-bold mt-1 w-6 text-center" style={{ color: 'var(--texto-marca)' }}>
-                      {op.numero}
-                    </span>
-                    <div className="flex-1 space-y-1.5">
-                      <input
-                        type="text"
-                        value={op.etiqueta}
-                        onChange={(e) => actualizarOpcionMenu(i, 'etiqueta', e.target.value)}
-                        className="w-full text-xs bg-transparent outline-none px-2 py-1 rounded"
-                        style={{ color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
-                        placeholder="Nombre de la opción"
-                      />
-                      <EditorWhatsApp
-                        valor={op.respuesta}
-                        onChange={(v) => actualizarOpcionMenu(i, 'respuesta', v)}
-                        placeholder={op.numero === config.palabra_transferir ? '(Transfiere a agente)' : 'Respuesta automática...'}
-                        titulo={`Respuesta opción ${op.numero}`}
-                        alturaMinima={80}
-                      />
-                    </div>
-                    <button onClick={() => eliminarOpcionMenu(i)} className="p-1 mt-1" style={{ color: 'var(--texto-terciario)' }}>
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                ))}
+              {/* Selector Botones vs Lista */}
+              <div>
+                <p className="text-xxs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--texto-terciario)' }}>
+                  Tipo de menú
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      // Si cambia a botones y tiene más de 3, recortar
+                      const opciones = config.opciones_menu.slice(0, 3)
+                      guardar({ menu_tipo: 'botones', opciones_menu: opciones })
+                    }}
+                    className="p-3 rounded-lg text-left transition-all"
+                    style={{
+                      border: `2px solid ${config.menu_tipo === 'botones' ? 'var(--texto-marca)' : 'var(--borde-sutil)'}`,
+                      background: config.menu_tipo === 'botones' ? 'color-mix(in srgb, var(--texto-marca) 8%, transparent)' : 'transparent',
+                    }}
+                  >
+                    <MessageCircle size={16} style={{ color: config.menu_tipo === 'botones' ? 'var(--texto-marca)' : 'var(--texto-terciario)' }} className="mb-1.5" />
+                    <p className="text-xs font-semibold" style={{ color: config.menu_tipo === 'botones' ? 'var(--texto-marca)' : 'var(--texto-primario)' }}>
+                      Botones
+                    </p>
+                    <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                      Hasta 3 — aparecen como botones bajo el mensaje
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => guardar({ menu_tipo: 'lista' })}
+                    className="p-3 rounded-lg text-left transition-all"
+                    style={{
+                      border: `2px solid ${config.menu_tipo === 'lista' ? 'var(--texto-marca)' : 'var(--borde-sutil)'}`,
+                      background: config.menu_tipo === 'lista' ? 'color-mix(in srgb, var(--texto-marca) 8%, transparent)' : 'transparent',
+                    }}
+                  >
+                    <FileText size={16} style={{ color: config.menu_tipo === 'lista' ? 'var(--texto-marca)' : 'var(--texto-terciario)' }} className="mb-1.5" />
+                    <p className="text-xs font-semibold" style={{ color: config.menu_tipo === 'lista' ? 'var(--texto-marca)' : 'var(--texto-primario)' }}>
+                      Lista
+                    </p>
+                    <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                      Hasta 10 — el cliente despliega un menú
+                    </p>
+                  </button>
+                </div>
               </div>
-              <Boton variante="fantasma" tamano="xs" icono={<Plus size={12} />} onClick={agregarOpcionMenu}>
-                Agregar opción
-              </Boton>
+
+              {/* Título del botón de lista (solo si es lista) */}
+              {config.menu_tipo === 'lista' && (
+                <div>
+                  <label className="text-xxs font-medium mb-1 block" style={{ color: 'var(--texto-secundario)' }}>
+                    Texto del botón que abre la lista
+                  </label>
+                  <input
+                    type="text"
+                    value={config.menu_titulo_lista}
+                    onChange={(e) => guardar({ menu_titulo_lista: e.target.value })}
+                    className="w-full text-xs bg-transparent outline-none px-2 py-1.5 rounded"
+                    style={{ color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+                    placeholder="Ver opciones"
+                    maxLength={20}
+                  />
+                </div>
+              )}
+
+              {/* Opciones */}
+              <div className="flex items-center justify-between mt-2">
+                <p className="text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
+                  Opciones {config.opciones_menu.length}/{config.menu_tipo === 'botones' ? 3 : 10}
+                </p>
+                {config.opciones_menu.length < (config.menu_tipo === 'botones' ? 3 : 10) && (
+                  <Boton variante="fantasma" tamano="xs" icono={<Plus size={12} />} onClick={agregarOpcionMenu}>
+                    Agregar opción
+                  </Boton>
+                )}
+              </div>
+
+              {config.opciones_menu.length === 0 ? (
+                <div
+                  className="flex flex-col items-center justify-center py-6 rounded-lg cursor-pointer"
+                  style={{ border: '2px dashed var(--borde-sutil)' }}
+                  onClick={agregarOpcionMenu}
+                >
+                  <Plus size={20} style={{ color: 'var(--texto-terciario)' }} />
+                  <p className="text-xs mt-2" style={{ color: 'var(--texto-terciario)' }}>
+                    Agregá al menos una opción para que el bot funcione
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {config.opciones_menu.map((op, i) => (
+                    <div key={i} className="p-3 rounded-lg" style={{ background: 'var(--superficie-hover)' }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span
+                          className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                          style={{ background: 'var(--texto-marca)', color: '#fff' }}
+                        >
+                          {i + 1}
+                        </span>
+                        <input
+                          type="text"
+                          value={op.etiqueta}
+                          onChange={(e) => actualizarOpcionMenu(i, 'etiqueta', e.target.value)}
+                          className="flex-1 text-xs font-medium bg-transparent outline-none px-2 py-1 rounded"
+                          style={{ color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+                          placeholder="Texto del botón"
+                          maxLength={config.menu_tipo === 'botones' ? 20 : 24}
+                        />
+                        <button onClick={() => eliminarOpcionMenu(i)} className="p-1" style={{ color: 'var(--texto-terciario)' }}>
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+
+                      {/* Descripción (solo listas) */}
+                      {config.menu_tipo === 'lista' && (
+                        <input
+                          type="text"
+                          value={op.descripcion || ''}
+                          onChange={(e) => actualizarOpcionMenu(i, 'descripcion', e.target.value)}
+                          className="w-full text-xxs bg-transparent outline-none px-2 py-1 rounded mb-2 ml-8"
+                          style={{ color: 'var(--texto-terciario)', border: '1px solid var(--borde-sutil)' }}
+                          placeholder="Descripción corta (opcional)"
+                          maxLength={72}
+                        />
+                      )}
+
+                      {/* Respuesta */}
+                      <div className="ml-8">
+                        <EditorWhatsApp
+                          valor={op.respuesta}
+                          onChange={(v) => actualizarOpcionMenu(i, 'respuesta', v)}
+                          placeholder={!op.respuesta ? '(Sin respuesta = transfiere a agente)' : 'Respuesta automática...'}
+                          titulo={`Respuesta: ${op.etiqueta || `Opción ${i + 1}`}`}
+                          alturaMinima={80}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>
