@@ -97,24 +97,31 @@ export function CompositorMensaje({
     }
   }, [previewUrl])
 
+  const [convirtiendo, setConvirtiendo] = useState(false)
+
   // ─── Enviar mensaje ───
-  const handleEnviar = () => {
-    // Enviar audio grabado
+  const handleEnviar = async () => {
+    // Enviar audio grabado — convertir a MP3 para compatibilidad con WhatsApp
     if (audioGrabado) {
-      // Extensión según el MIME real del blob
-      const ext = audioGrabado.type.includes('ogg') ? '.ogg'
-        : audioGrabado.type.includes('mp4') ? '.mp4'
-        : '.webm'
-      const archivoAudio = new globalThis.File(
-        [audioGrabado],
-        `audio_${Date.now()}${ext}`,
-        { type: audioGrabado.type }
-      )
-      onEnviar({
-        texto: '',
-        tipo_contenido: 'audio',
-        archivo: archivoAudio,
-      })
+      setConvirtiendo(true)
+      try {
+        const { convertirAudioAMp3 } = await import('@/lib/convertir-audio')
+        const mp3Blob = await convertirAudioAMp3(audioGrabado)
+        const archivoAudio = new globalThis.File(
+          [mp3Blob],
+          `audio_${Date.now()}.mp3`,
+          { type: 'audio/mpeg' }
+        )
+        onEnviar({
+          texto: '',
+          tipo_contenido: 'audio',
+          archivo: archivoAudio,
+        })
+      } catch (err) {
+        console.error('Error convirtiendo audio:', err)
+      } finally {
+        setConvirtiendo(false)
+      }
       setAudioGrabado(null)
       return
     }
@@ -522,7 +529,7 @@ export function CompositorMensaje({
                 animate={{ scale: 1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={handleEnviar}
-                disabled={cargando}
+                disabled={cargando || convirtiendo}
                 className="p-2 rounded-lg flex-shrink-0 transition-colors"
                 style={{
                   background: 'var(--texto-marca)',

@@ -260,13 +260,11 @@ export default function PaginaInbox() {
       // WhatsApp: enviar vía API de Meta
       if (conversacionSeleccionada.tipo_canal === 'whatsapp') {
         // Mapear tipo_contenido a tipo de Meta
-        // Audio WebM de Chrome se envía como documento (Meta no acepta WebM)
-        const esAudioWebm = datos.tipo_contenido === 'audio' && datos.archivo?.type.includes('webm')
         const tipoMeta: Record<string, string> = {
           texto: 'text',
           imagen: 'image',
           video: 'video',
-          audio: esAudioWebm ? 'document' : 'audio',
+          audio: 'audio',
           documento: 'document',
         }
 

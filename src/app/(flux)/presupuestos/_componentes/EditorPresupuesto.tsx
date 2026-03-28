@@ -178,6 +178,7 @@ export default function EditorPresupuesto({
       setMoneda(pres.moneda || 'ARS')
       setCondicionPagoId(pres.condicion_pago_id || '')
       setDiasVencimiento(pres.dias_vencimiento || 30)
+      if (pres.fecha_emision) setFechaEmision(pres.fecha_emision.split('T')[0])
       setCargando(false)
 
       // Inicializar snapshot para dirty tracking
@@ -618,11 +619,8 @@ export default function EditorPresupuesto({
   // Datos fiscales emisor
   const datosFiscales = (datosEmpresa?.datos_fiscales || {}) as Record<string, string>
 
-  // Fecha de vencimiento de la oferta
+  // Fecha de vencimiento de la oferta — siempre calculada desde emisión + días
   const fechaVenc = (() => {
-    if (modo === 'editar' && presupuesto?.fecha_vencimiento) {
-      return new Date(presupuesto.fecha_vencimiento)
-    }
     const f = new Date(fechaEmision)
     f.setDate(f.getDate() + diasVencimiento)
     return f
@@ -1250,10 +1248,7 @@ export default function EditorPresupuesto({
                               valor={fechaVenc.toISOString().split('T')[0]}
                               onChange={(v) => {
                                 if (!v || bloqueada) return
-                                const emisionStr = modo === 'editar'
-                                  ? (presupuesto?.fecha_emision || '').split('T')[0]
-                                  : fechaEmision
-                                const emision = new Date(emisionStr + 'T00:00:00')
+                                const emision = new Date(fechaEmision + 'T00:00:00')
                                 const venc = new Date(v + 'T00:00:00')
                                 const diff = Math.round((venc.getTime() - emision.getTime()) / (1000 * 60 * 60 * 24))
                                 setDiasVencimiento(Math.max(1, diff))
