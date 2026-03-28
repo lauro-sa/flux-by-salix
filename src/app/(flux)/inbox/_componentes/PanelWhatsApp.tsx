@@ -7,7 +7,7 @@ import {
   Check, CheckCheck, Clock, AlertCircle, Play, Pause,
   Download, FileText, MapPin, User, X, ChevronLeft, ChevronRight,
   Image, Music, StickyNote, Pencil, Trash2, Tag, SmilePlus,
-  FileDown,
+  FileDown, Bot,
 } from 'lucide-react'
 import { ModalEtiquetas } from './ModalEtiquetas'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
@@ -593,6 +593,90 @@ export function PanelWhatsApp({
 
             const tieneReacciones = msg.reacciones && Object.keys(msg.reacciones).length > 0
             const pickerAbierto = pickerMsgId === msg.id
+            const esBot = msg.remitente_tipo === 'bot'
+
+            // ─── Burbuja de bot: estilo diferenciado con icono ───
+            if (esBot) {
+              // Detectar líneas con opciones numeradas (1️⃣, 2️⃣ o "1.", "2.")
+              const lineas = (msg.texto || '').split('\n')
+              const opcionesRegex = /^(\d️⃣|\d+[.)]\s*)/
+              const tieneOpciones = lineas.some(l => opcionesRegex.test(l.trim()))
+
+              return (
+                <motion.div
+                  key={elem.key}
+                  initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  className="flex justify-end"
+                >
+                  <div
+                    className="max-w-[75%] rounded-lg px-3 py-1.5 relative"
+                    style={{
+                      background: 'color-mix(in srgb, var(--texto-marca) 8%, var(--superficie-seleccionada))',
+                      border: '1px solid color-mix(in srgb, var(--texto-marca) 20%, transparent)',
+                      borderTopRightRadius: '4px',
+                      boxShadow: 'var(--sombra-sm)',
+                    }}
+                  >
+                    {/* Header bot */}
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Bot size={10} style={{ color: 'var(--texto-marca)' }} />
+                      <span className="text-xxs font-semibold" style={{ color: 'var(--texto-marca)' }}>
+                        Chatbot
+                      </span>
+                    </div>
+
+                    {/* Contenido: si tiene opciones, renderizar como botones */}
+                    {tieneOpciones ? (
+                      <div className="space-y-1.5">
+                        {lineas.map((linea, li) => {
+                          const trimmed = linea.trim()
+                          if (!trimmed) return null
+                          const esOpcion = opcionesRegex.test(trimmed)
+                          if (esOpcion) {
+                            return (
+                              <div
+                                key={li}
+                                className="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs"
+                                style={{
+                                  background: 'color-mix(in srgb, var(--texto-marca) 10%, transparent)',
+                                  color: 'var(--texto-primario)',
+                                }}
+                              >
+                                <span
+                                  dangerouslySetInnerHTML={{ __html: formatoWhatsApp(trimmed) }}
+                                />
+                              </div>
+                            )
+                          }
+                          return (
+                            <p
+                              key={li}
+                              className="text-sm whitespace-pre-wrap"
+                              style={{ color: 'var(--texto-primario)' }}
+                              dangerouslySetInnerHTML={{ __html: formatoWhatsApp(trimmed) }}
+                            />
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <p
+                        className="text-sm whitespace-pre-wrap"
+                        style={{ color: 'var(--texto-primario)' }}
+                        dangerouslySetInnerHTML={{ __html: formatoWhatsApp(msg.texto || '') }}
+                      />
+                    )}
+
+                    <div className="flex items-center justify-end gap-1 mt-0.5">
+                      <span className="text-[10px]" style={{ color: 'var(--texto-terciario)' }}>
+                        {formatoHora(msg.creado_en)}
+                      </span>
+                      {ICONO_ESTADO[msg.wa_status || msg.estado]}
+                    </div>
+                  </div>
+                </motion.div>
+              )
+            }
 
             return (
               <motion.div
