@@ -869,6 +869,13 @@ async function procesarChatbot(
     }
 
     try {
+      if (menuTipo === 'texto') {
+        // Texto plano numerado
+        const textoCompleto = textoMenu + '\n\n' + opciones.map((op, i) => `${i + 1}️⃣ ${op.etiqueta}`).join('\n')
+        await enviarRespuestaBot(textoCompleto)
+        return
+      }
+
       if (menuTipo === 'botones' && opciones.length <= 3) {
         await enviarInteractivoWhatsApp(configConexion, telefono, 'button', textoMenu, {
           buttons: opciones.map((op, i) => ({

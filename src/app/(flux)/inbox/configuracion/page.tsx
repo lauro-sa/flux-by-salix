@@ -1245,7 +1245,7 @@ interface ConfigChatbot {
   bienvenida_frecuencia: string
   bienvenida_dias_sin_contacto: number
   menu_activo: boolean
-  menu_tipo: 'botones' | 'lista'
+  menu_tipo: 'texto' | 'botones' | 'lista'
   menu_titulo_lista: string
   mensaje_menu: string
   opciones_menu: OpcionMenu[]
@@ -1481,43 +1481,34 @@ function SeccionChatbot() {
                 <p className="text-xxs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--texto-terciario)' }}>
                   Tipo de menú
                 </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => {
-                      // Si cambia a botones y tiene más de 3, recortar
-                      const opciones = config.opciones_menu.slice(0, 3)
-                      guardar({ menu_tipo: 'botones', opciones_menu: opciones })
-                    }}
-                    className="p-3 rounded-lg text-left transition-all"
-                    style={{
-                      border: `2px solid ${config.menu_tipo === 'botones' ? 'var(--texto-marca)' : 'var(--borde-sutil)'}`,
-                      background: config.menu_tipo === 'botones' ? 'color-mix(in srgb, var(--texto-marca) 8%, transparent)' : 'transparent',
-                    }}
-                  >
-                    <MessageCircle size={16} style={{ color: config.menu_tipo === 'botones' ? 'var(--texto-marca)' : 'var(--texto-terciario)' }} className="mb-1.5" />
-                    <p className="text-xs font-semibold" style={{ color: config.menu_tipo === 'botones' ? 'var(--texto-marca)' : 'var(--texto-primario)' }}>
-                      Botones
-                    </p>
-                    <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                      Hasta 3 — aparecen como botones bajo el mensaje
-                    </p>
-                  </button>
-                  <button
-                    onClick={() => guardar({ menu_tipo: 'lista' })}
-                    className="p-3 rounded-lg text-left transition-all"
-                    style={{
-                      border: `2px solid ${config.menu_tipo === 'lista' ? 'var(--texto-marca)' : 'var(--borde-sutil)'}`,
-                      background: config.menu_tipo === 'lista' ? 'color-mix(in srgb, var(--texto-marca) 8%, transparent)' : 'transparent',
-                    }}
-                  >
-                    <FileText size={16} style={{ color: config.menu_tipo === 'lista' ? 'var(--texto-marca)' : 'var(--texto-terciario)' }} className="mb-1.5" />
-                    <p className="text-xs font-semibold" style={{ color: config.menu_tipo === 'lista' ? 'var(--texto-marca)' : 'var(--texto-primario)' }}>
-                      Lista
-                    </p>
-                    <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                      Hasta 10 — el cliente despliega un menú
-                    </p>
-                  </button>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { id: 'texto' as const, icono: <Hash size={16} />, nombre: 'Texto', desc: 'Sin límite — el cliente escribe el número' },
+                    { id: 'botones' as const, icono: <MessageCircle size={16} />, nombre: 'Botones', desc: 'Hasta 3 — botones tocables' },
+                    { id: 'lista' as const, icono: <FileText size={16} />, nombre: 'Lista', desc: 'Hasta 10 — menú desplegable' },
+                  ]).map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => {
+                        if (t.id === 'botones' && config.opciones_menu.length > 3) {
+                          guardar({ menu_tipo: t.id, opciones_menu: config.opciones_menu.slice(0, 3) })
+                        } else {
+                          guardar({ menu_tipo: t.id })
+                        }
+                      }}
+                      className="p-3 rounded-lg text-left transition-all"
+                      style={{
+                        border: `2px solid ${config.menu_tipo === t.id ? 'var(--texto-marca)' : 'var(--borde-sutil)'}`,
+                        background: config.menu_tipo === t.id ? 'color-mix(in srgb, var(--texto-marca) 8%, transparent)' : 'transparent',
+                      }}
+                    >
+                      <div style={{ color: config.menu_tipo === t.id ? 'var(--texto-marca)' : 'var(--texto-terciario)' }} className="mb-1.5">{t.icono}</div>
+                      <p className="text-xs font-semibold" style={{ color: config.menu_tipo === t.id ? 'var(--texto-marca)' : 'var(--texto-primario)' }}>
+                        {t.nombre}
+                      </p>
+                      <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>{t.desc}</p>
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -1542,9 +1533,9 @@ function SeccionChatbot() {
               {/* Opciones */}
               <div className="flex items-center justify-between mt-2">
                 <p className="text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
-                  Opciones {config.opciones_menu.length}/{config.menu_tipo === 'botones' ? 3 : 10}
+                  Opciones {config.opciones_menu.length}/{config.menu_tipo === 'botones' ? 3 : config.menu_tipo === 'lista' ? 10 : '∞'}
                 </p>
-                {config.opciones_menu.length < (config.menu_tipo === 'botones' ? 3 : 10) && (
+                {config.opciones_menu.length < (config.menu_tipo === 'botones' ? 3 : config.menu_tipo === 'lista' ? 10 : 99) && (
                   <Boton variante="fantasma" tamano="xs" icono={<Plus size={12} />} onClick={agregarOpcionMenu}>
                     Agregar opción
                   </Boton>
