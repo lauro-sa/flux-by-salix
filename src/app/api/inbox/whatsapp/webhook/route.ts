@@ -178,6 +178,7 @@ async function procesarMensajeEntrante(
       .from('contactos')
       .select('id, nombre, apellido')
       .eq('empresa_id', canal.empresa_id)
+      .eq('en_papelera', false)
       .or(`whatsapp.eq.${telefonoRemitente},telefono.eq.${telefonoRemitente}`)
       .limit(1)
       .single()
