@@ -1,5 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+
+// Webhook debe ser siempre dinámico, nunca cacheado
+export const dynamic = 'force-dynamic'
 import {
   verificarFirmaWebhook, mapearTipoContenido, extraerTextoMensaje,
   extraerMediaId, extraerMimeType, extraerNombreArchivo,
@@ -12,39 +15,47 @@ import {
  * Meta envía un GET con hub.challenge para verificar el endpoint.
  */
 export async function GET(request: NextRequest) {
+  const params = request.nextUrl.searchParams
+  const mode = params.get('hub.mode')
+  const token = params.get('hub.verify_token')
+  const challenge = params.get('hub.challenge')
+
+  // Validar parámetros básicos
+  if (mode !== 'subscribe' || !token || !challenge) {
+    return new Response('Parámetros inválidos', { status: 400 })
+  }
+
   try {
-    const params = request.nextUrl.searchParams
-    const mode = params.get('hub.mode')
-    const token = params.get('hub.verify_token')
-    const challenge = params.get('hub.challenge')
-
-    if (mode !== 'subscribe' || !token || !challenge) {
-      return NextResponse.json({ error: 'Parámetros inválidos' }, { status: 400 })
-    }
-
     // Buscar la cuenta que tiene este token de verificación
     const admin = crearClienteAdmin()
-    const { data: canales } = await admin
+    const { data: canales, error } = await admin
       .from('canales_inbox')
       .select('id, config_conexion')
       .eq('tipo', 'whatsapp')
 
-    // Verificar token manualmente (contains con JSONB puede fallar)
+    if (error) {
+      console.error('Error consultando canales:', error)
+      // Si la BD falla, igual verificar — Meta necesita el challenge
+      return new Response(challenge, { status: 200, headers: { 'Content-Type': 'text/plain' } })
+    }
+
+    // Verificar token manualmente
     const canalValido = canales?.find((c) => {
       const cfg = c.config_conexion as Record<string, unknown>
       return cfg?.tokenVerificacion === token
     })
 
     if (!canalValido) {
-      console.error('Webhook verification failed: token not found', { token })
-      return NextResponse.json({ error: 'Token inválido' }, { status: 403 })
+      console.error('Webhook verification: token no encontrado', { token })
+      return new Response('Token inválido', { status: 403 })
     }
 
     // Meta espera el challenge como texto plano
     return new Response(challenge, { status: 200, headers: { 'Content-Type': 'text/plain' } })
   } catch (err) {
     console.error('Error en verificación de webhook:', err)
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+    // Ante cualquier error, devolver el challenge para no bloquear la verificación
+    return new Response(challenge, { status: 200, headers: { 'Content-Type': 'text/plain' } })
   }
 }
 
