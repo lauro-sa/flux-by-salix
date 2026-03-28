@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Building2, Globe, Users2, Sparkles, Trash2 } from 'lucide-react'
 import { useRol } from '@/hooks/useRol'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
@@ -15,10 +16,13 @@ import { SeccionPeligro } from './secciones/SeccionPeligro'
  * Página de configuración de empresa.
  * Usa PlantillaConfiguracion con menú lateral en desktop y tabs en mobile.
  * Solo propietario y administrador pueden acceder.
+ * Acepta ?seccion=ia para abrir directo en una sección (ej: link desde config inbox).
  */
 export default function PaginaConfiguracion() {
   const { esPropietario } = useRol()
-  const [seccionActiva, setSeccionActiva] = useState('general')
+  const searchParams = useSearchParams()
+  const seccionInicial = searchParams.get('seccion') || 'general'
+  const [seccionActiva, setSeccionActiva] = useState(seccionInicial)
 
   const secciones: SeccionConfig[] = [
     { id: 'general', etiqueta: 'General', icono: <Building2 size={16} /> },

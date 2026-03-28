@@ -358,6 +358,58 @@ export async function eliminarPlantillaMeta(
   }
 }
 
+/** Enviar indicador "escribiendo..." al cliente */
+export async function enviarTypingWhatsApp(
+  config: ConfigCuentaWhatsApp,
+  telefono: string,
+): Promise<void> {
+  await fetch(`${META_BASE_URL}/${config.phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${config.tokenAcceso}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: telefono,
+      type: 'reaction',
+      status: 'typing',
+    }),
+  }).catch(() => {}) // No fallar si el typing no se envía
+}
+
+/** Enviar reacción con emoji a un mensaje */
+export async function enviarReaccionWhatsApp(
+  config: ConfigCuentaWhatsApp,
+  telefono: string,
+  mensajeId: string,
+  emoji: string,
+): Promise<void> {
+  const res = await fetch(`${META_BASE_URL}/${config.phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${config.tokenAcceso}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: telefono,
+      type: 'reaction',
+      reaction: {
+        message_id: mensajeId,
+        emoji: emoji, // "" (vacío) para quitar reacción
+      },
+    }),
+  })
+
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(`Error al enviar reacción: ${JSON.stringify(error)}`)
+  }
+}
+
 /** Verificar firma HMAC-SHA256 del webhook */
 export async function verificarFirmaWebhook(
   secreto: string,

@@ -3,11 +3,29 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
- * GET /api/inbox/etiquetas — Listar etiquetas de correo de la empresa.
- * POST /api/inbox/etiquetas — Crear nueva etiqueta.
- * PATCH /api/inbox/etiquetas?id=xxx — Actualizar etiqueta.
- * DELETE /api/inbox/etiquetas?id=xxx — Eliminar etiqueta.
+ * Etiquetas del inbox — para clasificar conversaciones de cualquier canal.
+ * Tabla: etiquetas_inbox (antes etiquetas_correo).
+ *
+ * GET    — listar etiquetas de la empresa
+ * POST   — crear etiqueta nueva
+ * PATCH  ?id=xxx — actualizar etiqueta
+ * DELETE ?id=xxx — eliminar etiqueta
+ * PUT    — restablecer etiquetas por defecto
  */
+
+// Etiquetas por defecto que se crean para cada empresa
+const ETIQUETAS_DEFAULT = [
+  { nombre: 'Consulta',        color: '#3b82f6', icono: '❓', orden: 1,  clave: 'consulta' },
+  { nombre: 'Venta',           color: '#22c55e', icono: '💰', orden: 2,  clave: 'venta' },
+  { nombre: 'Soporte',         color: '#f59e0b', icono: '🔧', orden: 3,  clave: 'soporte' },
+  { nombre: 'Reclamo',         color: '#ef4444', icono: '⚠️', orden: 4,  clave: 'reclamo' },
+  { nombre: 'Presupuesto',     color: '#8b5cf6', icono: '📋', orden: 5,  clave: 'presupuesto' },
+  { nombre: 'Postventa',       color: '#06b6d4', icono: '🤝', orden: 6,  clave: 'postventa' },
+  { nombre: 'Urgente',         color: '#dc2626', icono: '🔴', orden: 7,  clave: 'urgente' },
+  { nombre: 'Seguimiento',     color: '#64748b', icono: '📌', orden: 8,  clave: 'seguimiento' },
+  { nombre: 'Info / Catálogo', color: '#0ea5e9', icono: '📄', orden: 9,  clave: 'info' },
+  { nombre: 'Agendamiento',    color: '#a855f7', icono: '📅', orden: 10, clave: 'agendamiento' },
+]
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,8 +36,9 @@ export async function GET(request: NextRequest) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
-    const { data } = await supabase
-      .from('etiquetas_correo')
+    const admin = crearClienteAdmin()
+    const { data } = await admin
+      .from('etiquetas_inbox')
       .select('*')
       .eq('empresa_id', empresaId)
       .order('orden', { ascending: true })
@@ -44,12 +63,13 @@ export async function POST(request: NextRequest) {
 
     const admin = crearClienteAdmin()
     const { data, error } = await admin
-      .from('etiquetas_correo')
+      .from('etiquetas_inbox')
       .insert({
         empresa_id: empresaId,
         nombre: nombre.trim(),
         color: color || '#6b7280',
         icono: icono || null,
+        es_default: false,
       })
       .select()
       .single()
@@ -82,7 +102,7 @@ export async function PATCH(request: NextRequest) {
 
     const admin = crearClienteAdmin()
     const { data, error } = await admin
-      .from('etiquetas_correo')
+      .from('etiquetas_inbox')
       .update(cambios)
       .eq('id', id)
       .eq('empresa_id', empresaId)
@@ -110,12 +130,69 @@ export async function DELETE(request: NextRequest) {
 
     const admin = crearClienteAdmin()
     await admin
-      .from('etiquetas_correo')
+      .from('etiquetas_inbox')
       .delete()
       .eq('id', id)
       .eq('empresa_id', empresaId)
 
     return NextResponse.json({ ok: true })
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: 500 })
+  }
+}
+
+/**
+ * PUT /api/inbox/etiquetas — Restablecer etiquetas por defecto.
+ * Re-inserta las que falten (por clave_default), sin borrar las custom.
+ */
+export async function PUT(request: NextRequest) {
+  try {
+    const supabase = await crearClienteServidor()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+    const empresaId = user.app_metadata?.empresa_activa_id
+    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    const admin = crearClienteAdmin()
+
+    // Ver cuáles defaults ya existen
+    const { data: existentes } = await admin
+      .from('etiquetas_inbox')
+      .select('clave_default')
+      .eq('empresa_id', empresaId)
+      .eq('es_default', true)
+
+    const clavesExistentes = new Set((existentes || []).map(e => e.clave_default))
+
+    // Insertar las que faltan
+    const faltantes = ETIQUETAS_DEFAULT.filter(d => !clavesExistentes.has(d.clave))
+
+    if (faltantes.length > 0) {
+      await admin
+        .from('etiquetas_inbox')
+        .insert(faltantes.map(d => ({
+          empresa_id: empresaId,
+          nombre: d.nombre,
+          color: d.color,
+          icono: d.icono,
+          orden: d.orden,
+          es_default: true,
+          clave_default: d.clave,
+        })))
+    }
+
+    // Devolver lista completa actualizada
+    const { data } = await admin
+      .from('etiquetas_inbox')
+      .select('*')
+      .eq('empresa_id', empresaId)
+      .order('orden', { ascending: true })
+
+    return NextResponse.json({
+      etiquetas: data || [],
+      restauradas: faltantes.length,
+    })
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 })
   }

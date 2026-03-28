@@ -9,7 +9,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import {
   Mail, Hash, Settings, PanelRightOpen, PanelRightClose,
   PanelLeftOpen, PanelLeftClose,
-  Plus, Pen,
+  Plus, Pen, Columns2, Rows2,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { ListaConversaciones } from './_componentes/ListaConversaciones'
@@ -61,6 +61,7 @@ export default function PaginaInbox() {
   const [conversacionSeleccionada, setConversacionSeleccionada] = useState<ConversacionConDetalles | null>(null)
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<EstadoConversacion | 'todas'>('todas')
+  const [filtroEtiqueta, setFiltroEtiqueta] = useState('')
   const [cargandoConversaciones, setCargandoConversaciones] = useState(false)
 
   // Mensajes
@@ -76,6 +77,9 @@ export default function PaginaInbox() {
   // Panel info contacto
   const [panelInfoAbierto, setPanelInfoAbierto] = useState(false)
 
+  // IA habilitada para el inbox
+  const [iaHabilitada, setIaHabilitada] = useState(false)
+
   // Correo: redactar nuevo + canales disponibles + carpeta
   const [redactandoNuevo, setRedactandoNuevo] = useState(false)
   const [canalesCorreo, setCanalesCorreo] = useState<CanalInbox[]>([])
@@ -83,6 +87,18 @@ export default function PaginaInbox() {
   const [carpetaCorreo, setCarpetaCorreo] = useState<CarpetaCorreo>('entrada')
   const [canalTodas, setCanalTodas] = useState(false)
   const [contadoresCorreo, setContadoresCorreo] = useState<Record<string, { entrada: number; spam: number }>>({})
+
+  // Modo de vista: 'columna' (3 paneles) o 'fila' (lista se reemplaza por correo al seleccionar)
+  type ModoVista = 'columna' | 'fila'
+  const [modoVista, setModoVista] = useState<ModoVista>(() => {
+    if (typeof window === 'undefined') return 'columna'
+    return (localStorage.getItem('flux_inbox_modo_vista') as ModoVista) || 'columna'
+  })
+
+  const cambiarModoVista = useCallback((modo: ModoVista) => {
+    setModoVista(modo)
+    localStorage.setItem('flux_inbox_modo_vista', modo)
+  }, [])
 
   // Layout colapsable del correo (persistido en localStorage)
   const [sidebarCorreoColapsado, setSidebarCorreoColapsado] = useState(() => {
@@ -147,6 +163,11 @@ export default function PaginaInbox() {
       try {
         const res = await fetch('/api/inbox/config')
         const data = await res.json()
+        // Config IA del inbox
+        if (data.config?.ia_habilitada !== undefined) {
+          setIaHabilitada(data.config.ia_habilitada)
+        }
+
         if (data.modulos) {
           const activos = new Set<string>(
             data.modulos
@@ -177,6 +198,11 @@ export default function PaginaInbox() {
 
       // Para correo, mapear carpeta a filtros
       if (tabActivo === 'correo') {
+        // Si no hay canal activo y no es "todas", esperar a que se carguen
+        if (!canalTodas && !canalCorreoActivo && canalesCorreo.length === 0) {
+          setCargandoConversaciones(false)
+          return
+        }
         if (!canalTodas && canalCorreoActivo) {
           params.set('canal_id', canalCorreoActivo)
         }
@@ -201,6 +227,7 @@ export default function PaginaInbox() {
       }
 
       if (busquedaRef.current) params.set('busqueda', busquedaRef.current)
+      if (filtroEtiqueta) params.set('etiqueta', filtroEtiqueta)
 
       const res = await fetch(`/api/inbox/conversaciones?${params}`)
       const data = await res.json()
@@ -210,7 +237,7 @@ export default function PaginaInbox() {
     } finally {
       setCargandoConversaciones(false)
     }
-  }, [tabActivo, filtroEstado, carpetaCorreo, canalCorreoActivo, canalTodas])
+  }, [tabActivo, filtroEstado, filtroEtiqueta, carpetaCorreo, canalCorreoActivo, canalTodas, canalesCorreo.length])
 
   useEffect(() => {
     cargarConversaciones()
@@ -315,6 +342,7 @@ export default function PaginaInbox() {
       tipo_contenido: datos.tipo_contenido,
       texto: datos.texto || null,
       html: null,
+      es_nota_interna: datos.es_nota_interna || false,
       correo_de: null, correo_para: null, correo_cc: null, correo_cco: null,
       correo_asunto: null, correo_message_id: null, correo_in_reply_to: null, correo_references: null,
       wa_message_id: null,
@@ -382,6 +410,27 @@ export default function PaginaInbox() {
 
         mediaUrl = urlData.publicUrl
         mediaFilename = datos.archivo.name
+      }
+
+      // Notas internas: no se envían al cliente, van directo a BD
+      if (datos.es_nota_interna) {
+        const res = await fetch('/api/inbox/mensajes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversacion_id: conversacionSeleccionada.id,
+            texto: datos.texto,
+            tipo_contenido: 'texto',
+            es_nota_interna: true,
+          }),
+        })
+        const data = await res.json()
+        if (data.mensaje) {
+          setMensajes(prev => prev.map(m =>
+            m.id === tempId ? { ...data.mensaje, adjuntos: [] } : m
+          ))
+        }
+        return
       }
 
       if (conversacionSeleccionada.tipo_canal === 'whatsapp') {
@@ -664,20 +713,34 @@ export default function PaginaInbox() {
     return () => clearInterval(intervalo)
   }, [conversacionSeleccionada?.id])
 
-  // ─── Polling de lista de conversaciones: cada 5 segundos ───
+  // ─── Polling de lista de conversaciones: cada 10 segundos ───
+  // Usa los MISMOS filtros que cargarConversaciones para no pisar datos
   useEffect(() => {
     const poll = async () => {
       try {
         const params = new URLSearchParams()
         params.set('tipo_canal', tabActivo)
-        if (filtroEstado !== 'todas') params.set('estado', filtroEstado)
+
+        if (tabActivo === 'correo') {
+          if (!canalTodas && canalCorreoActivo) {
+            params.set('canal_id', canalCorreoActivo)
+          }
+          switch (carpetaCorreo) {
+            case 'entrada': params.set('estado', 'abierta'); break
+            case 'enviados': params.set('enviados', 'true'); break
+            case 'spam': params.set('estado', 'spam'); break
+            case 'archivado': params.set('estado', 'resuelta'); break
+          }
+        } else {
+          if (filtroEstado !== 'todas') params.set('estado', filtroEstado)
+        }
+
         if (busquedaRef.current) params.set('busqueda', busquedaRef.current)
 
         const res = await fetch(`/api/inbox/conversaciones?${params}`)
         const data = await res.json()
         if (data.conversaciones) {
           setConversaciones(data.conversaciones)
-          // Actualizar la conversación seleccionada si cambió
           if (conversacionSeleccionada) {
             const actualizada = data.conversaciones.find(
               (c: ConversacionConDetalles) => c.id === conversacionSeleccionada.id
@@ -690,9 +753,9 @@ export default function PaginaInbox() {
       } catch { /* silenciar */ }
     }
 
-    const intervalo = setInterval(poll, 5000)
+    const intervalo = setInterval(poll, 10000)
     return () => clearInterval(intervalo)
-  }, [tabActivo, filtroEstado, conversacionSeleccionada?.id])
+  }, [tabActivo, filtroEstado, carpetaCorreo, canalCorreoActivo, canalTodas, conversacionSeleccionada?.id])
 
   // Extraer firma del canal de correo activo
   const firmaCorreo = useMemo(() => {
@@ -845,82 +908,190 @@ export default function PaginaInbox() {
               </div>
             </div>
 
-            {/* Columna 2: Lista de correos (con su toggle arriba) */}
-            <div
-              className="flex flex-col flex-shrink-0 transition-all duration-200 h-full overflow-hidden"
-              style={{ width: listaCorreoColapsada ? 40 : 320, borderRight: '1px solid var(--borde-sutil)' }}
-            >
-              {/* Toggle de la lista */}
-              <div className="flex items-center justify-center py-1.5 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
-                <button
-                  onClick={toggleListaCorreo}
-                  className="p-1.5 rounded-md transition-colors"
-                  style={{ color: 'var(--texto-terciario)' }}
+            {/* ─── Panel principal: depende del modo de vista ─── */}
+            {modoVista === 'columna' ? (
+              <>
+                {/* MODO COLUMNA: lista | correo (2 paneles separados) */}
+                <div
+                  className="flex flex-col flex-shrink-0 transition-all duration-200 h-full overflow-hidden"
+                  style={{ width: listaCorreoColapsada ? 40 : 320, borderRight: '1px solid var(--borde-sutil)' }}
                 >
-                  {listaCorreoColapsada ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
-                </button>
-              </div>
-              {/* Contenido de la lista */}
-              {!listaCorreoColapsada && (
-                <div className="flex-1 overflow-hidden">
-                  <ListaConversaciones
-                    conversaciones={conversaciones}
-                    seleccionada={conversacionSeleccionada?.id || null}
-                    onSeleccionar={seleccionarConversacion}
-                    busqueda={busqueda}
-                    onBusqueda={setBusqueda}
-                    filtroEstado={filtroEstado}
-                    onFiltroEstado={setFiltroEstado}
-                    tipoCanal="correo"
-                    cargando={cargandoConversaciones}
-                    totalNoLeidos={totalNoLeidos}
-                    onEliminarSeleccion={eliminarMultiples}
-                  />
+                  <div className="flex items-center justify-between px-2 py-1.5 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
+                    <button onClick={toggleListaCorreo} className="p-1 rounded-md" style={{ color: 'var(--texto-terciario)' }}>
+                      {listaCorreoColapsada ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+                    </button>
+                    {/* Selector de vista */}
+                    <div className="flex items-center gap-0.5 rounded-md p-0.5" style={{ background: 'var(--superficie-hover)' }}>
+                      <button
+                        onClick={() => cambiarModoVista('columna')}
+                        className="p-1 rounded"
+                        style={{ color: 'var(--texto-marca)', background: 'var(--superficie-seleccionada)' }}
+                      >
+                        <Columns2 size={12} />
+                      </button>
+                      <button
+                        onClick={() => cambiarModoVista('fila')}
+                        className="p-1 rounded"
+                        style={{ color: 'var(--texto-terciario)' }}
+                      >
+                        <Rows2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+                  {!listaCorreoColapsada && (
+                    <div className="flex-1 overflow-hidden">
+                      <ListaConversaciones
+                        conversaciones={conversaciones}
+                        seleccionada={conversacionSeleccionada?.id || null}
+                        onSeleccionar={seleccionarConversacion}
+                        busqueda={busqueda}
+                        onBusqueda={setBusqueda}
+                        filtroEstado={filtroEstado}
+                        onFiltroEstado={setFiltroEstado}
+                        tipoCanal="correo"
+                        cargando={cargandoConversaciones}
+                        totalNoLeidos={totalNoLeidos}
+                        onEliminarSeleccion={eliminarMultiples}
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            {/* Columna 3: Contenido del correo (única con scroll) */}
-            <div className="flex-1 flex flex-col min-w-0 h-full overflow-x-hidden">
-
-              {/* Contenido */}
-              {redactandoNuevo ? (
-                <div className="flex-1 flex flex-col p-4" style={{ background: 'var(--superficie-app)' }}>
-                <CompositorCorreo
-                  tipo="nuevo"
-                  canalesCorreo={canalesCorreo.map(c => ({
-                    id: c.id,
-                    nombre: c.nombre,
-                    email: (c.config_conexion as { email?: string; usuario?: string })?.email
-                      || (c.config_conexion as { email?: string; usuario?: string })?.usuario
-                      || c.nombre,
-                  }))}
-                  canalSeleccionado={canalCorreoActivo}
-                  onCambiarCanal={setCanalCorreoActivo}
-                  onEnviar={enviarCorreo}
-                  onProgramar={programarCorreo}
-                  onCancelar={() => setRedactandoNuevo(false)}
-                  cargando={enviando}
-                  firma={firmaCorreo}
-                />
-              </div>
+                <div className="flex-1 flex flex-col min-w-0 h-full overflow-x-hidden">
+                  {redactandoNuevo ? (
+                    <div className="flex-1 flex flex-col p-4" style={{ background: 'var(--superficie-app)' }}>
+                      <CompositorCorreo
+                        tipo="nuevo"
+                        canalesCorreo={canalesCorreo.map(c => ({
+                          id: c.id,
+                          nombre: c.nombre,
+                          email: (c.config_conexion as { email?: string; usuario?: string })?.email
+                            || (c.config_conexion as { email?: string; usuario?: string })?.usuario
+                            || c.nombre,
+                        }))}
+                        canalSeleccionado={canalCorreoActivo}
+                        onCambiarCanal={setCanalCorreoActivo}
+                        onEnviar={enviarCorreo}
+                        onProgramar={programarCorreo}
+                        onCancelar={() => setRedactandoNuevo(false)}
+                        cargando={enviando}
+                        firma={firmaCorreo}
+                      />
+                    </div>
+                  ) : (
+                    <PanelCorreo
+                      conversacion={conversacionSeleccionada}
+                      mensajes={mensajes}
+                      onEnviarCorreo={enviarCorreo}
+                      onMarcarSpam={marcarSpam}
+                      onDesmarcarSpam={desmarcarSpam}
+                      onArchivar={archivarConversacion}
+                      onEliminar={eliminarConversacion}
+                      onToggleLeido={toggleLeido}
+                      cargando={cargandoMensajes}
+                      enviando={enviando}
+                      emailCanal={emailCanalActivo}
+                      firma={firmaCorreo}
+                    />
+                  )}
+                </div>
+              </>
             ) : (
-              <PanelCorreo
-                conversacion={conversacionSeleccionada}
-                mensajes={mensajes}
-                onEnviarCorreo={enviarCorreo}
-                onMarcarSpam={marcarSpam}
-                onDesmarcarSpam={desmarcarSpam}
-                onArchivar={archivarConversacion}
-                onEliminar={eliminarConversacion}
-                onToggleLeido={toggleLeido}
-                cargando={cargandoMensajes}
-                enviando={enviando}
-                emailCanal={emailCanalActivo}
-                firma={firmaCorreo}
-              />
+              <>
+                {/* MODO FILA: lista y correo comparten el mismo panel */}
+                <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+                  {/* Barra con selector de vista + botón volver */}
+                  <div className="flex items-center justify-between px-2 py-1.5 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
+                    <div className="flex items-center gap-2">
+                      {(conversacionSeleccionada || redactandoNuevo) && (
+                        <button
+                          onClick={() => { setConversacionSeleccionada(null); setMensajes([]); setRedactandoNuevo(false) }}
+                          className="p-1 rounded-md"
+                          style={{ color: 'var(--texto-terciario)' }}
+                        >
+                          <PanelLeftOpen size={14} />
+                        </button>
+                      )}
+                      {conversacionSeleccionada && (
+                        <span className="text-xs truncate" style={{ color: 'var(--texto-secundario)' }}>
+                          {conversacionSeleccionada.asunto || conversacionSeleccionada.contacto_nombre}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-0.5 rounded-md p-0.5" style={{ background: 'var(--superficie-hover)' }}>
+                      <button
+                        onClick={() => cambiarModoVista('columna')}
+                        className="p-1 rounded"
+                        style={{ color: 'var(--texto-terciario)' }}
+                      >
+                        <Columns2 size={12} />
+                      </button>
+                      <button
+                        onClick={() => cambiarModoVista('fila')}
+                        className="p-1 rounded"
+                        style={{ color: 'var(--texto-marca)', background: 'var(--superficie-seleccionada)' }}
+                      >
+                        <Rows2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Contenido: lista O correo (no ambos) */}
+                  {redactandoNuevo ? (
+                    <div className="flex-1 flex flex-col p-4" style={{ background: 'var(--superficie-app)' }}>
+                      <CompositorCorreo
+                        tipo="nuevo"
+                        canalesCorreo={canalesCorreo.map(c => ({
+                          id: c.id,
+                          nombre: c.nombre,
+                          email: (c.config_conexion as { email?: string; usuario?: string })?.email
+                            || (c.config_conexion as { email?: string; usuario?: string })?.usuario
+                            || c.nombre,
+                        }))}
+                        canalSeleccionado={canalCorreoActivo}
+                        onCambiarCanal={setCanalCorreoActivo}
+                        onEnviar={enviarCorreo}
+                        onProgramar={programarCorreo}
+                        onCancelar={() => setRedactandoNuevo(false)}
+                        cargando={enviando}
+                        firma={firmaCorreo}
+                      />
+                    </div>
+                  ) : conversacionSeleccionada ? (
+                    <PanelCorreo
+                      conversacion={conversacionSeleccionada}
+                      mensajes={mensajes}
+                      onEnviarCorreo={enviarCorreo}
+                      onMarcarSpam={marcarSpam}
+                      onDesmarcarSpam={desmarcarSpam}
+                      onArchivar={archivarConversacion}
+                      onEliminar={eliminarConversacion}
+                      onToggleLeido={toggleLeido}
+                      cargando={cargandoMensajes}
+                      enviando={enviando}
+                      emailCanal={emailCanalActivo}
+                      firma={firmaCorreo}
+                    />
+                  ) : (
+                    <div className="flex-1 overflow-hidden">
+                      <ListaConversaciones
+                        conversaciones={conversaciones}
+                        seleccionada={null}
+                        onSeleccionar={seleccionarConversacion}
+                        busqueda={busqueda}
+                        onBusqueda={setBusqueda}
+                        filtroEstado={filtroEstado}
+                        onFiltroEstado={setFiltroEstado}
+                        tipoCanal="correo"
+                        cargando={cargandoConversaciones}
+                        totalNoLeidos={totalNoLeidos}
+                        onEliminarSeleccion={eliminarMultiples}
+                      />
+                    </div>
+                  )}
+                </div>
+              </>
             )}
-            </div>
           </>
         )}
 
@@ -936,9 +1107,26 @@ export default function PaginaInbox() {
                 onBusqueda={setBusqueda}
                 filtroEstado={filtroEstado}
                 onFiltroEstado={setFiltroEstado}
+                filtroEtiqueta={filtroEtiqueta}
+                onFiltroEtiqueta={setFiltroEtiqueta}
                 tipoCanal="whatsapp"
                 cargando={cargandoConversaciones}
                 totalNoLeidos={totalNoLeidos}
+                onEliminarSeleccion={() => {}}
+                onOperacionMasiva={async (accion, ids) => {
+                  const admin = async (cambios: Record<string, unknown>) => {
+                    await Promise.all(ids.map(id =>
+                      fetch(`/api/inbox/conversaciones/${id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(cambios),
+                      })
+                    ))
+                    cargarConversaciones()
+                  }
+                  if (accion === 'marcar_leido') await admin({ mensajes_sin_leer: 0 })
+                  if (accion === 'cerrar') await admin({ estado: 'resuelta' })
+                }}
               />
             </div>
             <PanelWhatsApp
@@ -946,6 +1134,38 @@ export default function PaginaInbox() {
               mensajes={mensajes}
               onEnviar={enviarMensaje}
               onAbrirVisor={abrirVisor}
+              iaHabilitada={iaHabilitada}
+              onEtiquetasCambiaron={(etiquetas) => {
+                // Actualizar inmediatamente en la UI sin esperar polling
+                setConversacionSeleccionada(prev => prev ? { ...prev, etiquetas } : null)
+                setConversaciones(prev => prev.map(c =>
+                  c.id === conversacionSeleccionada?.id ? { ...c, etiquetas } : c
+                ))
+              }}
+              onEditarNota={async (id, texto) => {
+                // Optimistic update
+                setMensajes(prev => prev.map(m =>
+                  m.id === id ? { ...m, texto, editado_en: new Date().toISOString() } : m
+                ))
+                try {
+                  await fetch(`/api/inbox/mensajes/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ texto }),
+                  })
+                } catch {
+                  // Revertir en caso de error (recargar mensajes)
+                }
+              }}
+              onEliminarNota={async (id) => {
+                // Optimistic: remover de la lista
+                setMensajes(prev => prev.filter(m => m.id !== id))
+                try {
+                  await fetch(`/api/inbox/mensajes/${id}`, { method: 'DELETE' })
+                } catch {
+                  // Revertir en caso de error
+                }
+              }}
               cargando={cargandoMensajes}
               enviando={enviando}
             />

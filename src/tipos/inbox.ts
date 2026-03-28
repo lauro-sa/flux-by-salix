@@ -200,6 +200,9 @@ export interface Mensaje {
   // Reacciones
   reacciones: Record<string, string[]>
 
+  // Notas internas (solo visibles para agentes)
+  es_nota_interna: boolean
+
   metadata: Record<string, unknown>
   estado: EstadoMensaje
   error_envio: string | null
@@ -337,6 +340,11 @@ export interface ConfigInbox {
   notificar_asignacion: boolean
   notificar_sla_vencido: boolean
   sonido_notificacion: boolean
+  // IA por empresa
+  ia_habilitada: boolean
+  ia_proveedor: 'anthropic' | 'openai'
+  ia_api_key_cifrada: string | null
+  ia_modelo: string
   actualizado_en: string
 }
 
@@ -407,6 +415,8 @@ export interface CrearMensajePayload {
   plantilla_id?: string
   // Hilo interno
   respuesta_a_id?: string
+  // Nota interna
+  es_nota_interna?: boolean
 }
 
 export interface CrearCanalPayload {
@@ -441,15 +451,20 @@ export interface CrearPlantillaPayload {
 
 // ─── Etiquetas de correo ───
 
-export interface EtiquetaCorreo {
+export interface EtiquetaInbox {
   id: string
   empresa_id: string
   nombre: string
   color: string
   icono: string | null
   orden: number
+  es_default: boolean
+  clave_default: string | null
   creado_en: string
 }
+
+/** @deprecated Usar EtiquetaInbox */
+export type EtiquetaCorreo = EtiquetaInbox
 
 // ─── Correo programado ───
 

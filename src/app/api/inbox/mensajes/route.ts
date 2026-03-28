@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
     const {
       conversacion_id, tipo_contenido = 'texto', texto, html,
       correo_para, correo_cc, correo_cco, correo_asunto,
-      respuesta_a_id, plantilla_id,
+      respuesta_a_id, plantilla_id, es_nota_interna = false,
     } = body
 
     if (!conversacion_id) {
@@ -140,6 +140,7 @@ export async function POST(request: NextRequest) {
         respuesta_a_id: respuesta_a_id || null,
         hilo_raiz_id,
         plantilla_id: plantilla_id || null,
+        es_nota_interna: es_nota_interna || false,
         estado: 'enviado',
       })
       .select()
@@ -152,18 +153,19 @@ export async function POST(request: NextRequest) {
       await admin.rpc('incrementar_respuestas_hilo', { mensaje_raiz_id: hilo_raiz_id })
     }
 
-    // Actualizar último mensaje de la conversación
-    await admin
-      .from('conversaciones')
-      .update({
-        ultimo_mensaje_texto: texto || `[${tipo_contenido}]`,
-        ultimo_mensaje_en: new Date().toISOString(),
-        ultimo_mensaje_es_entrante: false,
-        actualizado_en: new Date().toISOString(),
-        // Si no tenía primera respuesta, registrarla
-        ...(body.es_primera_respuesta ? { primera_respuesta_en: new Date().toISOString() } : {}),
-      })
-      .eq('id', conversacion_id)
+    // Actualizar último mensaje de la conversación (las notas internas no actualizan el preview)
+    if (!es_nota_interna) {
+      await admin
+        .from('conversaciones')
+        .update({
+          ultimo_mensaje_texto: texto || `[${tipo_contenido}]`,
+          ultimo_mensaje_en: new Date().toISOString(),
+          ultimo_mensaje_es_entrante: false,
+          actualizado_en: new Date().toISOString(),
+          ...(body.es_primera_respuesta ? { primera_respuesta_en: new Date().toISOString() } : {}),
+        })
+        .eq('id', conversacion_id)
+    }
 
     return NextResponse.json({ mensaje }, { status: 201 })
   } catch (err) {

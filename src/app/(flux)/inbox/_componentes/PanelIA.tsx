@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
 import {
   Sparkles, MessageSquare, FileText, Heart,
-  Copy, Check, ChevronDown, ChevronUp, Loader2,
+  Copy, Check, ChevronDown, ChevronUp, Loader2, Send,
 } from 'lucide-react'
 
 /**
@@ -18,6 +18,8 @@ import {
 interface PropiedadesPanelIA {
   conversacionId: string
   onInsertarTexto: (texto: string) => void
+  /** Enviar el texto directamente como mensaje (sin pasar por el compositor) */
+  onEnviarDirecto?: (texto: string) => void
   /** Resumen guardado previamente (de la conversación) */
   resumenExistente?: string | null
   sentimientoExistente?: string | null
@@ -33,12 +35,26 @@ const COLORES_SENTIMIENTO: Record<string, string> = {
 export function PanelIA({
   conversacionId,
   onInsertarTexto,
+  onEnviarDirecto,
   resumenExistente,
   sentimientoExistente,
 }: PropiedadesPanelIA) {
   const [expandido, setExpandido] = useState(false)
   const [cargando, setCargando] = useState(false)
   const [accionActiva, setAccionActiva] = useState<string | null>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  // Cerrar al hacer clic fuera del panel
+  useEffect(() => {
+    if (!expandido) return
+    const manejar = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setExpandido(false)
+      }
+    }
+    document.addEventListener('mousedown', manejar)
+    return () => document.removeEventListener('mousedown', manejar)
+  }, [expandido])
 
   const [sugerencias, setSugerencias] = useState<string[]>([])
   const [resumen, setResumen] = useState<string | null>(resumenExistente || null)
@@ -94,7 +110,7 @@ export function PanelIA({
   }
 
   return (
-    <div style={{ borderTop: '1px solid var(--borde-sutil)' }}>
+    <div ref={panelRef} style={{ borderTop: '1px solid var(--borde-sutil)' }}>
       {/* Barra toggle */}
       <button
         onClick={() => setExpandido(!expandido)}
@@ -113,7 +129,7 @@ export function PanelIA({
             </Insignia>
           )}
         </div>
-        {expandido ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        {expandido ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
       </button>
 
       {/* Panel expandido */}
@@ -187,14 +203,25 @@ export function PanelIA({
                           onClick={(e) => { e.stopPropagation(); copiarSugerencia(sug, i) }}
                           className="p-1 rounded"
                           style={{ color: 'var(--texto-terciario)' }}
+                          title="Copiar"
                         >
                           {copiado === i ? <Check size={10} /> : <Copy size={10} />}
                         </button>
+                        {onEnviarDirecto && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onEnviarDirecto(sug); setExpandido(false) }}
+                            className="p-1 rounded"
+                            style={{ color: 'var(--texto-marca)' }}
+                            title="Enviar directo"
+                          >
+                            <Send size={10} />
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
                   <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                    Click en una sugerencia para insertarla en el compositor
+                    Click para insertar en el compositor · <Send size={8} className="inline" /> para enviar directo
                   </p>
                 </div>
               )}

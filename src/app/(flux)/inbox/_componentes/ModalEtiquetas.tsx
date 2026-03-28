@@ -1,15 +1,16 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Modal } from '@/componentes/ui/Modal'
 import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
 import { SelectorColor } from '@/componentes/ui/SelectorColor'
 import {
-  Plus, Trash2, Tag, Check, X, Pencil, GripVertical,
+  Plus, Trash2, Tag, Check, X, Pencil, GripVertical, RotateCcw,
+  ChevronUp, ChevronDown,
 } from 'lucide-react'
-import type { EtiquetaCorreo } from '@/tipos/inbox'
+import type { EtiquetaInbox } from '@/tipos/inbox'
 
 /**
  * Modal para gestionar etiquetas de correo.
@@ -23,7 +24,7 @@ interface PropiedadesModalEtiquetas {
   conversacionId?: string
   /** Etiquetas ya asignadas a la conversación */
   etiquetasAsignadas?: string[]
-  onCambio?: () => void
+  onCambio?: (etiquetas: string[]) => void
 }
 
 export function ModalEtiquetas({
@@ -33,16 +34,17 @@ export function ModalEtiquetas({
   etiquetasAsignadas = [],
   onCambio,
 }: PropiedadesModalEtiquetas) {
-  const [etiquetas, setEtiquetas] = useState<EtiquetaCorreo[]>([])
+  const [etiquetas, setEtiquetas] = useState<EtiquetaInbox[]>([])
   const [cargando, setCargando] = useState(false)
   const [creando, setCreando] = useState(false)
   const [editando, setEditando] = useState<string | null>(null)
+  const [restaurando, setRestaurando] = useState(false)
 
   // Campos para crear/editar
   const [nombre, setNombre] = useState('')
   const [color, setColor] = useState('#6b7280')
 
-  // Etiquetas activas en esta conversación
+  // Etiquetas activas en esta conversación (por nombre, no por ID)
   const [activas, setActivas] = useState<Set<string>>(new Set(etiquetasAsignadas))
 
   // Cargar etiquetas
@@ -56,12 +58,15 @@ export function ModalEtiquetas({
     setCargando(false)
   }, [])
 
+  // Solo cargar al abrir el modal (no en cada re-render por polling)
+  const prevAbiertoRef = useRef(false)
   useEffect(() => {
-    if (abierto) {
+    if (abierto && !prevAbiertoRef.current) {
       cargar()
       setActivas(new Set(etiquetasAsignadas))
     }
-  }, [abierto, cargar, etiquetasAsignadas.join(',')])
+    prevAbiertoRef.current = abierto
+  }, [abierto])
 
   // Crear etiqueta
   const handleCrear = async () => {
@@ -104,38 +109,62 @@ export function ModalEtiquetas({
     } catch { /* silenciar */ }
   }
 
-  // Toggle etiqueta en conversación
-  const toggleEtiqueta = async (etiquetaId: string) => {
+  // Reordenar etiqueta (mover arriba/abajo)
+  const handleReordenar = async (indice: number, direccion: 'arriba' | 'abajo') => {
+    const nuevo = [...etiquetas]
+    const destino = direccion === 'arriba' ? indice - 1 : indice + 1
+    if (destino < 0 || destino >= nuevo.length) return
+
+    // Swap
+    ;[nuevo[indice], nuevo[destino]] = [nuevo[destino], nuevo[indice]]
+    setEtiquetas(nuevo)
+
+    // Persistir ambos órdenes
+    try {
+      await Promise.all([
+        fetch(`/api/inbox/etiquetas?id=${nuevo[indice].id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orden: indice }),
+        }),
+        fetch(`/api/inbox/etiquetas?id=${nuevo[destino].id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orden: destino }),
+        }),
+      ])
+    } catch { /* silenciar */ }
+  }
+
+  // Toggle etiqueta en conversación — guarda NOMBRES (no IDs) en el array
+  const toggleEtiqueta = async (nombre: string) => {
     if (!conversacionId) return
 
-    const estaActiva = activas.has(etiquetaId)
+    const estaActiva = activas.has(nombre)
     const nuevas = new Set(activas)
 
+    if (estaActiva) {
+      nuevas.delete(nombre)
+    } else {
+      nuevas.add(nombre)
+    }
+
+    // Optimistic update
+    setActivas(nuevas)
+    const arrayNuevas = [...nuevas]
+    onCambio?.(arrayNuevas)
+
     try {
-      if (estaActiva) {
-        // Desasignar
-        await fetch(`/api/inbox/conversaciones/${conversacionId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            etiquetas: [...nuevas].filter(id => id !== etiquetaId),
-          }),
-        })
-        nuevas.delete(etiquetaId)
-      } else {
-        // Asignar
-        nuevas.add(etiquetaId)
-        await fetch(`/api/inbox/conversaciones/${conversacionId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            etiquetas: [...nuevas],
-          }),
-        })
-      }
-      setActivas(nuevas)
-      onCambio?.()
-    } catch { /* silenciar */ }
+      await fetch(`/api/inbox/conversaciones/${conversacionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ etiquetas: arrayNuevas }),
+      })
+    } catch {
+      // Revertir
+      setActivas(activas)
+      onCambio?.([...activas])
+    }
   }
 
   const modoAsignar = !!conversacionId
@@ -158,7 +187,7 @@ export function ModalEtiquetas({
             <Tag size={24} className="mx-auto mb-2" style={{ color: 'var(--texto-terciario)' }} />
             <p className="text-sm" style={{ color: 'var(--texto-secundario)' }}>Sin etiquetas</p>
             <p className="text-xs mt-1" style={{ color: 'var(--texto-terciario)' }}>
-              Creá etiquetas para organizar tus correos.
+              Creá etiquetas para clasificar conversaciones.
             </p>
           </div>
         ) : (
@@ -167,25 +196,25 @@ export function ModalEtiquetas({
               <div
                 key={et.id}
                 className="flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors group"
-                style={{ background: modoAsignar && activas.has(et.id) ? 'var(--superficie-seleccionada)' : 'transparent' }}
+                style={{ background: modoAsignar && activas.has(et.nombre) ? 'var(--superficie-seleccionada)' : 'transparent' }}
               >
                 {modoAsignar ? (
-                  // Modo asignar: checkbox
+                  // Modo asignar: checkbox con cursor pointer y hover
                   <button
-                    onClick={() => toggleEtiqueta(et.id)}
-                    className="flex items-center gap-2 flex-1 text-left"
+                    onClick={() => toggleEtiqueta(et.nombre)}
+                    className="flex items-center gap-2 flex-1 text-left cursor-pointer rounded-md px-1 py-0.5 transition-colors hover:bg-[var(--superficie-hover)]"
                   >
                     <div
                       className="w-3 h-3 rounded-sm flex items-center justify-center"
                       style={{
-                        background: activas.has(et.id) ? et.color : 'transparent',
+                        background: activas.has(et.nombre) ? et.color : 'transparent',
                         border: `2px solid ${et.color}`,
                       }}
                     >
-                      {activas.has(et.id) && <Check size={8} color="#fff" />}
+                      {activas.has(et.nombre) && <Check size={8} color="#fff" />}
                     </div>
                     <span className="text-sm" style={{ color: 'var(--texto-primario)' }}>
-                      {et.nombre}
+                      {et.icono && <span className="mr-1">{et.icono}</span>}{et.nombre}
                     </span>
                   </button>
                 ) : (
@@ -216,9 +245,27 @@ export function ModalEtiquetas({
                     ) : (
                       <>
                         <span className="flex-1 text-sm" style={{ color: 'var(--texto-primario)' }}>
-                          {et.nombre}
+                          {et.icono && <span className="mr-1">{et.icono}</span>}{et.nombre}
                         </span>
                         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {etiquetas.indexOf(et) > 0 && (
+                            <button
+                              onClick={() => handleReordenar(etiquetas.indexOf(et), 'arriba')}
+                              className="p-1 rounded"
+                              title="Mover arriba"
+                            >
+                              <ChevronUp size={10} style={{ color: 'var(--texto-terciario)' }} />
+                            </button>
+                          )}
+                          {etiquetas.indexOf(et) < etiquetas.length - 1 && (
+                            <button
+                              onClick={() => handleReordenar(etiquetas.indexOf(et), 'abajo')}
+                              className="p-1 rounded"
+                              title="Mover abajo"
+                            >
+                              <ChevronDown size={10} style={{ color: 'var(--texto-terciario)' }} />
+                            </button>
+                          )}
                           <button
                             onClick={() => { setEditando(et.id); setNombre(et.nombre); setColor(et.color) }}
                             className="p-1 rounded"
@@ -291,16 +338,37 @@ export function ModalEtiquetas({
           )}
         </AnimatePresence>
 
-        {/* Botón agregar */}
+        {/* Botones: nueva + restablecer */}
         {!creando && (
-          <Boton
-            variante="fantasma"
-            tamano="xs"
-            icono={<Plus size={12} />}
-            onClick={() => { setCreando(true); setNombre(''); setColor('#6b7280') }}
-          >
-            Nueva etiqueta
-          </Boton>
+          <div className="flex items-center justify-between">
+            <Boton
+              variante="fantasma"
+              tamano="xs"
+              icono={<Plus size={12} />}
+              onClick={() => { setCreando(true); setNombre(''); setColor('#6b7280') }}
+            >
+              Nueva etiqueta
+            </Boton>
+            {!modoAsignar && (
+              <Boton
+                variante="fantasma"
+                tamano="xs"
+                icono={<RotateCcw size={12} />}
+                disabled={restaurando}
+                onClick={async () => {
+                  setRestaurando(true)
+                  try {
+                    const res = await fetch('/api/inbox/etiquetas', { method: 'PUT' })
+                    const data = await res.json()
+                    if (data.etiquetas) setEtiquetas(data.etiquetas)
+                  } catch { /* silenciar */ }
+                  setRestaurando(false)
+                }}
+              >
+                {restaurando ? 'Restaurando...' : 'Restablecer'}
+              </Boton>
+            )}
+          </div>
         )}
       </div>
     </Modal>

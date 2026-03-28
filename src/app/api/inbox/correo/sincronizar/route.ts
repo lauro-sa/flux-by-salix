@@ -254,75 +254,87 @@ async function sincronizarIMAP(
   admin: ReturnType<typeof crearClienteAdmin>,
   canal: Record<string, unknown>,
 ): Promise<number> {
-  const { obtenerMensajesIMAP, obtenerEnviadosIMAP } = await import('@/lib/correo-imap')
+  const { obtenerMensajesIMAP } = await import('@/lib/correo-imap')
   const config = canal.config_conexion as ConfigIMAP
-  const cursor = (canal.sync_cursor || {}) as CursorSincronizacion
+  const cursor = (canal.sync_cursor || {}) as CursorSincronizacion & {
+    ultimoUID_sent?: number
+    ultimoUID_junk?: number
+  }
   const empresaId = canal.empresa_id as string
   const canalId = canal.id as string
   const emailCanal = config.usuario
-  // Primera sync: no marcar como sin leer (evita miles de no leídos)
   const esSyncInicial = !cursor.ultimoUID || cursor.ultimoUID === 0
 
   let mensajesNuevos = 0
-  let ultimoUIDProcesado = cursor.ultimoUID || 0
+  let ultimoUIDInbox = cursor.ultimoUID || 0
+  let ultimoUIDSent = cursor.ultimoUID_sent || 0
+  let ultimoUIDJunk = cursor.ultimoUID_junk || 0
 
-  // Inbox
-  try {
-    const resultadoInbox = await obtenerMensajesIMAP(config, {
-      carpeta: 'INBOX',
-      desdeUID: cursor.ultimoUID,
-      limite: 500,
-    })
+  // ─── Carpetas a sincronizar ───
+  const carpetas = [
+    { nombre: 'INBOX', desdeUID: cursor.ultimoUID || 0, estado: 'abierta' as const },
+    { nombre: 'INBOX.Sent', desdeUID: cursor.ultimoUID_sent || 0, estado: 'abierta' as const },
+    { nombre: 'INBOX.Junk', desdeUID: cursor.ultimoUID_junk || 0, estado: 'spam' as const },
+    // Fallbacks por si los nombres son distintos
+    { nombre: 'Sent', desdeUID: cursor.ultimoUID_sent || 0, estado: 'abierta' as const },
+    { nombre: 'Junk', desdeUID: cursor.ultimoUID_junk || 0, estado: 'spam' as const },
+  ]
 
-    for (const correo of resultadoInbox.mensajes) {
-      try {
-        const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal, esSyncInicial)
-        if (procesado) mensajesNuevos++
-      } catch (err) {
-        console.error(`Error procesando correo IMAP:`, err)
+  for (const carpeta of carpetas) {
+    try {
+      const resultado = await obtenerMensajesIMAP(config, {
+        carpeta: carpeta.nombre,
+        desdeUID: carpeta.desdeUID,
+        limite: 500,
+      })
+
+      let procesadosEnBatch = 0
+      for (const correo of resultado.mensajes) {
+        try {
+          const procesado = await procesarCorreoEntrante(
+            admin, correo, empresaId, canalId, emailCanal, esSyncInicial,
+            carpeta.estado === 'spam' ? 'spam' : undefined,
+          )
+          if (procesado) mensajesNuevos++
+          procesadosEnBatch++
+
+          if (procesadosEnBatch % 20 === 0) {
+            await admin.from('canales_inbox').update({
+              sync_cursor: {
+                ultimoUID: ultimoUIDInbox,
+                ultimoUID_sent: ultimoUIDSent,
+                ultimoUID_junk: ultimoUIDJunk,
+                ultimaSincronizacion: new Date().toISOString(),
+              },
+            }).eq('id', canalId)
+          }
+        } catch (err) {
+          console.error(`Error procesando correo ${carpeta.nombre}:`, err)
+        }
       }
-    }
 
-    if (resultadoInbox.ultimoUID > ultimoUIDProcesado) {
-      ultimoUIDProcesado = resultadoInbox.ultimoUID
+      // Actualizar UID por carpeta
+      if (carpeta.nombre === 'INBOX' && resultado.ultimoUID > ultimoUIDInbox) {
+        ultimoUIDInbox = resultado.ultimoUID
+      } else if ((carpeta.nombre === 'INBOX.Sent' || carpeta.nombre === 'Sent') && resultado.ultimoUID > ultimoUIDSent) {
+        ultimoUIDSent = resultado.ultimoUID
+      } else if ((carpeta.nombre === 'INBOX.Junk' || carpeta.nombre === 'Junk') && resultado.ultimoUID > ultimoUIDJunk) {
+        ultimoUIDJunk = resultado.ultimoUID
+      }
+    } catch {
+      // Carpeta puede no existir — ignorar silenciosamente
     }
-  } catch (err) {
-    console.error(`Error fetch INBOX para canal ${canalId}:`, err)
   }
 
-  // Enviados
-  try {
-    const resultadoSent = await obtenerEnviadosIMAP(config, {
-      desdeUID: cursor.ultimoUID,
-      limite: 500,
-    })
-
-    for (const correo of resultadoSent.mensajes) {
-      try {
-        const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal, esSyncInicial)
-        if (procesado) mensajesNuevos++
-      } catch (err) {
-        console.error(`Error procesando enviado IMAP:`, err)
-      }
-    }
-
-    if (resultadoSent.ultimoUID > ultimoUIDProcesado) {
-      ultimoUIDProcesado = resultadoSent.ultimoUID
-    }
-  } catch {
-    // Carpeta de enviados puede no existir en algunos servidores
-  }
-
-  // Siempre guardar cursor (incluso si hubo errores parciales)
-  await admin
-    .from('canales_inbox')
-    .update({
-      sync_cursor: {
-        ultimoUID: ultimoUIDProcesado,
-        ultimaSincronizacion: new Date().toISOString(),
-      },
-    })
-    .eq('id', canalId)
+  // Guardar cursor con UIDs por carpeta
+  await admin.from('canales_inbox').update({
+    sync_cursor: {
+      ultimoUID: ultimoUIDInbox,
+      ultimoUID_sent: ultimoUIDSent,
+      ultimoUID_junk: ultimoUIDJunk,
+      ultimaSincronizacion: new Date().toISOString(),
+    },
+  }).eq('id', canalId)
 
   return mensajesNuevos
 }
@@ -340,6 +352,7 @@ async function procesarCorreoEntrante(
   canalId: string,
   emailCanal: string,
   syncInicial = false,
+  estadoForzado?: 'spam',
 ): Promise<boolean> {
   // 1. Deduplicar por correo_message_id
   if (correo.messageId) {
@@ -388,7 +401,8 @@ async function procesarCorreoEntrante(
   let conversacionId = await buscarConversacionPorHilo(admin, correo, empresaId)
 
   if (!conversacionId) {
-    conversacionId = await crearConversacion(admin, correo, empresaId, canalId, esEntrante, emailCanal, estadoInicial, syncInicial)
+    const estadoConv = estadoForzado || estadoInicial
+    conversacionId = await crearConversacion(admin, correo, empresaId, canalId, esEntrante, emailCanal, estadoConv, syncInicial)
   }
 
   // 4. Buscar/crear contacto si es entrante

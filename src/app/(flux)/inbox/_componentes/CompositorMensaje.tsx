@@ -4,8 +4,10 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Send, Paperclip, Mic, Pause, X, Image, Film, File, FileText, Trash2,
+  StickyNote,
 } from 'lucide-react'
 import type { TipoCanal, TipoContenido } from '@/tipos/inbox'
+import { SelectorRespuestasRapidas } from './SelectorRespuestasRapidas'
 
 /**
  * Compositor de mensajes — barra inferior del chat.
@@ -29,6 +31,13 @@ interface PropiedadesCompositor {
   onCancelarRespuesta?: () => void
   // Plantillas
   onAbrirPlantillas?: () => void
+  // Typing indicator
+  conversacionId?: string
+  // Notas internas
+  /** Si true, muestra el toggle para enviar como nota interna */
+  permitirNotasInternas?: boolean
+  /** Callback cuando se envía nota interna (en vez de onEnviar normal) */
+  onEnviarNotaInterna?: (texto: string) => void
 }
 
 export interface DatosMensaje {
@@ -43,6 +52,8 @@ export interface DatosMensaje {
   html?: string
   // Hilo
   respuesta_a_id?: string
+  // Nota interna (solo visible para agentes)
+  es_nota_interna?: boolean
 }
 
 // Determinar tipo de contenido según MIME del archivo
@@ -65,8 +76,30 @@ export function CompositorMensaje({
   respondiendo = null,
   onCancelarRespuesta,
   onAbrirPlantillas,
+  conversacionId,
+  permitirNotasInternas = false,
+  onEnviarNotaInterna,
 }: PropiedadesCompositor) {
   const [texto, setTexto] = useState('')
+  const [esNotaInterna, setEsNotaInterna] = useState(false)
+
+  // Respuestas rápidas: popup con `/`
+  const [rrVisible, setRrVisible] = useState(false)
+  const [rrFiltro, setRrFiltro] = useState('')
+
+  // Typing indicator — enviar cada 5s máximo mientras escribe
+  const ultimoTypingRef = useRef(0)
+  const enviarTyping = useCallback(() => {
+    if (!conversacionId || tipoCanal !== 'whatsapp' || esNotaInterna) return
+    const ahora = Date.now()
+    if (ahora - ultimoTypingRef.current < 5000) return
+    ultimoTypingRef.current = ahora
+    fetch('/api/inbox/whatsapp/typing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversacion_id: conversacionId }),
+    }).catch(() => {})
+  }, [conversacionId, tipoCanal, esNotaInterna])
   const [archivoSeleccionado, setArchivoSeleccionado] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
@@ -146,6 +179,7 @@ export function CompositorMensaje({
     const datos: DatosMensaje = {
       texto: texto.trim(),
       tipo_contenido: 'texto',
+      es_nota_interna: esNotaInterna || undefined,
     }
 
     if (tipoCanal === 'correo' && mostrarCamposCorreo) {
@@ -524,8 +558,35 @@ export function CompositorMensaje({
         )}
       </AnimatePresence>
 
+      {/* Barra de nota interna activa */}
+      <AnimatePresence>
+        {esNotaInterna && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="px-3 pt-2 flex items-center gap-2"
+          >
+            <div
+              className="flex-1 flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs"
+              style={{
+                background: 'color-mix(in srgb, var(--insignia-advertencia) 12%, transparent)',
+                color: 'var(--insignia-advertencia)',
+              }}
+            >
+              <StickyNote size={12} />
+              <span className="font-medium">Nota interna</span>
+              <span style={{ color: 'var(--texto-terciario)' }}>— solo visible para agentes</span>
+            </div>
+            <button onClick={() => setEsNotaInterna(false)}>
+              <X size={14} style={{ color: 'var(--texto-terciario)' }} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Barra de input */}
-      <div className="flex items-end gap-2 p-3">
+      <div className="flex items-end gap-2 p-3 relative">
         {/* Grabando audio estilo WhatsApp — waveform en vivo */}
         {grabando || convirtiendo ? (
           <div className="flex-1 flex items-center gap-2.5">
@@ -592,6 +653,23 @@ export function CompositorMensaje({
           </div>
         ) : (
           <>
+            {/* Popup de respuestas rápidas */}
+            <SelectorRespuestasRapidas
+              visible={rrVisible}
+              canal={tipoCanal}
+              filtro={rrFiltro}
+              onSeleccionar={(contenido) => {
+                setTexto(contenido)
+                setRrVisible(false)
+                setRrFiltro('')
+                setTimeout(ajustarAltura, 0)
+              }}
+              onCerrar={() => {
+                setRrVisible(false)
+                setRrFiltro('')
+              }}
+            />
+
             {/* Botón adjuntar */}
             <button
               onClick={() => inputArchivosRef.current?.click()}
@@ -621,19 +699,51 @@ export function CompositorMensaje({
               </button>
             )}
 
+            {/* Toggle nota interna */}
+            {permitirNotasInternas && (
+              <button
+                onClick={() => setEsNotaInterna(!esNotaInterna)}
+                className="p-2 rounded-lg transition-colors flex-shrink-0"
+                style={{
+                  color: esNotaInterna ? 'var(--insignia-advertencia)' : 'var(--texto-terciario)',
+                  background: esNotaInterna ? 'color-mix(in srgb, var(--insignia-advertencia) 12%, transparent)' : 'transparent',
+                }}
+                title={esNotaInterna ? 'Cancelar nota interna' : 'Nota interna (solo agentes)'}
+              >
+                <StickyNote size={18} />
+              </button>
+            )}
+
             {/* Textarea */}
             <textarea
               ref={textareaRef}
               value={texto}
               onChange={(e) => {
-                setTexto(e.target.value)
+                const valor = e.target.value
+                setTexto(valor)
                 ajustarAltura()
+                enviarTyping()
+
+                // Detectar `/` al inicio para respuestas rápidas
+                if (valor.startsWith('/')) {
+                  setRrVisible(true)
+                  setRrFiltro(valor.slice(1)) // todo después del `/`
+                } else if (rrVisible) {
+                  setRrVisible(false)
+                  setRrFiltro('')
+                }
               }}
-              onKeyDown={handleKeyDown}
-              placeholder={placeholder || 'Escribir mensaje...'}
+              onKeyDown={(e) => {
+                // Si el selector de RR está visible, no procesar Enter (lo maneja el selector)
+                if (rrVisible && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === 'Escape')) {
+                  return // el SelectorRespuestasRapidas captura estos eventos
+                }
+                handleKeyDown(e)
+              }}
+              placeholder={esNotaInterna ? 'Escribir nota interna...' : (placeholder || 'Escribir mensaje...')}
               rows={1}
               className="flex-1 resize-none text-sm bg-transparent outline-none py-2"
-              style={{ color: 'var(--texto-primario)', maxHeight: 150 }}
+              style={{ color: esNotaInterna ? 'var(--insignia-advertencia)' : 'var(--texto-primario)', maxHeight: 150 }}
             />
 
             {/* Botón grabar audio (solo WhatsApp, cuando no hay texto ni archivo) */}
@@ -648,7 +758,7 @@ export function CompositorMensaje({
               </button>
             )}
 
-            {/* Botón enviar */}
+            {/* Bot��n enviar */}
             {(tieneContenido || audioGrabado) && (
               <motion.button
                 initial={{ scale: 0 }}
@@ -658,12 +768,13 @@ export function CompositorMensaje({
                 disabled={cargando || convirtiendo}
                 className="p-2 rounded-lg flex-shrink-0 transition-colors"
                 style={{
-                  background: 'var(--texto-marca)',
+                  background: esNotaInterna ? 'var(--insignia-advertencia)' : 'var(--texto-marca)',
                   color: '#fff',
                   opacity: cargando ? 0.5 : 1,
                 }}
+                title={esNotaInterna ? 'Enviar nota interna' : 'Enviar mensaje'}
               >
-                <Send size={18} />
+                {esNotaInterna ? <StickyNote size={18} /> : <Send size={18} />}
               </motion.button>
             )}
           </>

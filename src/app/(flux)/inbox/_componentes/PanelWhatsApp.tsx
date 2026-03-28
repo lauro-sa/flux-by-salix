@@ -6,8 +6,9 @@ import { Avatar } from '@/componentes/ui/Avatar'
 import {
   Check, CheckCheck, Clock, AlertCircle, Play, Pause,
   Download, FileText, MapPin, User, X, ChevronLeft, ChevronRight,
-  Image, Music,
+  Image, Music, StickyNote, Pencil, Trash2, Tag, SmilePlus,
 } from 'lucide-react'
+import { ModalEtiquetas } from './ModalEtiquetas'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { CompositorMensaje, type DatosMensaje } from './CompositorMensaje'
 import { PanelIA } from './PanelIA'
@@ -24,6 +25,12 @@ interface PropiedadesPanelWhatsApp {
   mensajes: MensajeConAdjuntos[]
   onEnviar: (datos: DatosMensaje) => void
   onAbrirVisor: (url: string) => void
+  onEditarNota?: (id: string, texto: string) => void
+  onEliminarNota?: (id: string) => void
+  /** Si true, muestra el PanelIA con sugerencias/resumen/sentimiento */
+  iaHabilitada?: boolean
+  /** Callback cuando cambian las etiquetas de la conversación (actualización inmediata) */
+  onEtiquetasCambiaron?: (etiquetas: string[]) => void
   cargando: boolean
   enviando: boolean
 }
@@ -96,6 +103,19 @@ function formatoDuracion(segundos: number): string {
   const min = Math.floor(segundos / 60)
   const seg = Math.floor(segundos % 60)
   return `${min}:${seg.toString().padStart(2, '0')}`
+}
+
+/**
+ * Parsear formato WhatsApp (*negrita*, _cursiva_, ~tachado~, ```código```)
+ * y convertir a HTML para renderizar en las burbujas de Flux.
+ */
+function formatoWhatsApp(texto: string): string {
+  return texto
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>')
+    .replace(/_([^_\n]+)_/g, '<em>$1</em>')
+    .replace(/~([^~\n]+)~/g, '<del>$1</del>')
+    .replace(/```([^`]+)```/g, '<code>$1</code>')
 }
 
 // ─── Interfaz de media para el visor (imágenes + videos) ───
@@ -172,15 +192,54 @@ export function PanelWhatsApp({
   mensajes,
   onEnviar,
   onAbrirVisor,
+  onEditarNota,
+  onEliminarNota,
+  iaHabilitada = false,
+  onEtiquetasCambiaron,
   cargando,
   enviando,
 }: PropiedadesPanelWhatsApp) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Texto inyectado desde PanelIA hacia el compositor.
-  // Se usa un contador para que repetir la misma sugerencia también dispare el efecto.
   const [textoIA, setTextoIA] = useState('')
   const [contadorTextoIA, setContadorTextoIA] = useState(0)
+
+  // Etiquetas de la empresa (para mostrar colores)
+  const [etiquetasEmpresa, setEtiquetasEmpresa] = useState<Record<string, { color: string; icono: string | null }>>({})
+  useEffect(() => {
+    fetch('/api/inbox/etiquetas')
+      .then(res => res.json())
+      .then(data => {
+        const mapa: Record<string, { color: string; icono: string | null }> = {}
+        for (const et of (data.etiquetas || [])) {
+          mapa[et.nombre] = { color: et.color, icono: et.icono }
+        }
+        setEtiquetasEmpresa(mapa)
+      })
+      .catch(() => {})
+  }, [])
+
+  // Edición inline de notas internas
+  const [editandoNotaId, setEditandoNotaId] = useState<string | null>(null)
+  const [textoEditandoNota, setTextoEditandoNota] = useState('')
+
+  // Modal de etiquetas
+  const [modalEtiquetas, setModalEtiquetas] = useState(false)
+  // Etiqueta expandida (muestra X para quitar)
+  const [etiquetaExpandida, setEtiquetaExpandida] = useState<string | null>(null)
+
+  // Reacciones: picker de emojis rápidos
+  const [pickerMsgId, setPickerMsgId] = useState<string | null>(null)
+  const EMOJIS_RAPIDOS = ['👍', '✅', '🙏', '👀', '📌', '⭐']
+
+  // Cerrar picker al hacer clic fuera
+  useEffect(() => {
+    if (!pickerMsgId) return
+    const cerrar = () => setPickerMsgId(null)
+    document.addEventListener('mousedown', cerrar)
+    return () => document.removeEventListener('mousedown', cerrar)
+  }, [pickerMsgId])
 
   // Pre-procesar elementos de chat
   const elementos = useMemo(() => prepararElementos(mensajes), [mensajes])
@@ -236,8 +295,70 @@ export function PanelWhatsApp({
               {conversacion.identificador_externo}
             </p>
           )}
+          {/* Etiquetas asignadas con color — click para expandir X y quitar */}
+          {conversacion.etiquetas && conversacion.etiquetas.length > 0 && (
+            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+              {conversacion.etiquetas.map((et) => {
+                const info = etiquetasEmpresa[et]
+                const colorEt = info?.color || '#6b7280'
+                const expandida = etiquetaExpandida === et
+                return (
+                  <span
+                    key={et}
+                    className="text-xxs px-1.5 py-0.5 rounded-full font-medium cursor-pointer inline-flex items-center gap-1 transition-all"
+                    style={{
+                      background: `color-mix(in srgb, ${colorEt} 15%, transparent)`,
+                      color: colorEt,
+                    }}
+                    onClick={() => setEtiquetaExpandida(expandida ? null : et)}
+                  >
+                    {info?.icono ? `${info.icono} ` : ''}{et}
+                    {expandida && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const nuevas = conversacion.etiquetas.filter(e2 => e2 !== et)
+                          // Actualizar inmediatamente
+                          onEtiquetasCambiaron?.(nuevas)
+                          setEtiquetaExpandida(null)
+                          // Persistir en BD
+                          fetch(`/api/inbox/conversaciones/${conversacion.id}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ etiquetas: nuevas }),
+                          })
+                        }}
+                        className="rounded-full flex items-center justify-center"
+                        style={{ color: colorEt }}
+                      >
+                        <X size={10} />
+                      </button>
+                    )}
+                  </span>
+                )
+              })}
+            </div>
+          )}
         </div>
+        {/* Botón etiquetar */}
+        <button
+          onClick={() => setModalEtiquetas(true)}
+          className="p-2 rounded-lg transition-colors flex-shrink-0"
+          style={{ color: 'var(--texto-terciario)' }}
+          title="Etiquetar conversación"
+        >
+          <Tag size={16} />
+        </button>
       </div>
+
+      {/* Modal de etiquetas */}
+      <ModalEtiquetas
+        abierto={modalEtiquetas}
+        onCerrar={() => setModalEtiquetas(false)}
+        conversacionId={conversacion.id}
+        etiquetasAsignadas={conversacion.etiquetas || []}
+        onCambio={(nuevasEtiquetas) => onEtiquetasCambiaron?.(nuevasEtiquetas)}
+      />
 
       {/* Mensajes */}
       <div
@@ -325,50 +446,255 @@ export function PanelWhatsApp({
             // Burbuja individual
             const msg = elem.mensaje
             const esPropio = !msg.es_entrante
+            const esNota = msg.es_nota_interna
+
+            // Nota interna: burbuja centrada con estilo diferenciado
+            if (esNota) {
+              const editandoEsta = editandoNotaId === msg.id
+              return (
+                <motion.div
+                  key={elem.key}
+                  initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  className="flex justify-center group/nota"
+                >
+                  <div
+                    className="max-w-[85%] rounded-lg px-3 py-2 relative"
+                    style={{
+                      background: 'color-mix(in srgb, var(--insignia-advertencia) 10%, var(--superficie-tarjeta))',
+                      border: '1px dashed color-mix(in srgb, var(--insignia-advertencia) 40%, transparent)',
+                      boxShadow: 'var(--sombra-sm)',
+                    }}
+                  >
+                    {/* Header: icono + nombre + acciones */}
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <StickyNote size={10} style={{ color: 'var(--insignia-advertencia)' }} />
+                      <span className="text-xxs font-semibold" style={{ color: 'var(--insignia-advertencia)' }}>
+                        Nota interna
+                      </span>
+                      {msg.remitente_nombre && (
+                        <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                          — {msg.remitente_nombre}
+                        </span>
+                      )}
+                      {/* Botones editar/eliminar (hover) */}
+                      {(onEditarNota || onEliminarNota) && !editandoEsta && (
+                        <div className="ml-auto flex items-center gap-0.5 opacity-0 group-hover/nota:opacity-100 transition-opacity">
+                          {onEditarNota && (
+                            <button
+                              onClick={() => {
+                                setEditandoNotaId(msg.id)
+                                setTextoEditandoNota(msg.texto || '')
+                              }}
+                              className="p-1 rounded transition-colors"
+                              style={{ color: 'var(--texto-terciario)' }}
+                              title="Editar nota"
+                            >
+                              <Pencil size={10} />
+                            </button>
+                          )}
+                          {onEliminarNota && (
+                            <button
+                              onClick={() => onEliminarNota(msg.id)}
+                              className="p-1 rounded transition-colors"
+                              style={{ color: 'var(--texto-terciario)' }}
+                              title="Eliminar nota"
+                            >
+                              <Trash2 size={10} />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Contenido: texto o editor inline */}
+                    {editandoEsta ? (
+                      <div className="space-y-1.5">
+                        <textarea
+                          value={textoEditandoNota}
+                          onChange={(e) => setTextoEditandoNota(e.target.value)}
+                          className="w-full text-sm bg-transparent outline-none resize-none rounded p-1"
+                          style={{
+                            color: 'var(--texto-secundario)',
+                            border: '1px solid color-mix(in srgb, var(--insignia-advertencia) 40%, transparent)',
+                            minHeight: 40,
+                          }}
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault()
+                              if (textoEditandoNota.trim() && onEditarNota) {
+                                onEditarNota(msg.id, textoEditandoNota.trim())
+                                setEditandoNotaId(null)
+                              }
+                            }
+                            if (e.key === 'Escape') {
+                              setEditandoNotaId(null)
+                            }
+                          }}
+                        />
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => setEditandoNotaId(null)}
+                            className="text-xxs px-2 py-0.5 rounded"
+                            style={{ color: 'var(--texto-terciario)' }}
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (textoEditandoNota.trim() && onEditarNota) {
+                                onEditarNota(msg.id, textoEditandoNota.trim())
+                                setEditandoNotaId(null)
+                              }
+                            }}
+                            className="text-xxs px-2 py-0.5 rounded font-medium"
+                            style={{ color: 'var(--insignia-advertencia)' }}
+                          >
+                            Guardar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--texto-secundario)' }}>
+                        {msg.texto}
+                      </p>
+                    )}
+
+                    {/* Footer: hora + editado */}
+                    <div className="flex items-center justify-end gap-1 mt-1">
+                      {msg.editado_en && (
+                        <span className="text-[10px] italic" style={{ color: 'var(--texto-terciario)' }}>
+                          editada
+                        </span>
+                      )}
+                      <span className="text-[10px]" style={{ color: 'var(--texto-terciario)' }}>
+                        {formatoHora(msg.creado_en)}
+                      </span>
+                    </div>
+                  </div>
+                </motion.div>
+              )
+            }
+
+            const tieneReacciones = msg.reacciones && Object.keys(msg.reacciones).length > 0
+            const pickerAbierto = pickerMsgId === msg.id
+
             return (
               <motion.div
                 key={elem.key}
                 initial={{ opacity: 0, y: 8, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                className={`flex ${esPropio ? 'justify-end' : 'justify-start'}`}
+                className={`flex ${esPropio ? 'justify-end' : 'justify-start'} group/burbuja`}
               >
-                <div
-                  className="max-w-[75%] rounded-lg px-3 py-1.5 relative"
-                  style={{
-                    background: esPropio
-                      ? 'var(--superficie-seleccionada)'
-                      : 'var(--superficie-tarjeta)',
-                    borderTopLeftRadius: esPropio ? undefined : '4px',
-                    borderTopRightRadius: esPropio ? '4px' : undefined,
-                    boxShadow: 'var(--sombra-sm)',
-                  }}
-                >
-                  {!esPropio && msg.remitente_nombre && (
-                    <p className="text-xxs font-semibold mb-0.5" style={{ color: 'var(--canal-whatsapp)' }}>
-                      {msg.remitente_nombre}
-                    </p>
-                  )}
-                  <ContenidoMensaje
-                    mensaje={msg}
-                    onAbrirVisor={onAbrirVisor}
-                    metaHora={
-                      <div className="flex items-center gap-1">
+                <div className="relative max-w-[75%]">
+                  <div
+                    className="rounded-lg px-3 py-1.5 relative"
+                    style={{
+                      background: esPropio
+                        ? 'var(--superficie-seleccionada)'
+                        : 'var(--superficie-tarjeta)',
+                      borderTopLeftRadius: esPropio ? undefined : '4px',
+                      borderTopRightRadius: esPropio ? '4px' : undefined,
+                      boxShadow: 'var(--sombra-sm)',
+                    }}
+                  >
+                    {!esPropio && msg.remitente_nombre && (
+                      <p className="text-xxs font-semibold mb-0.5" style={{ color: 'var(--canal-whatsapp)' }}>
+                        {msg.remitente_nombre}
+                      </p>
+                    )}
+                    <ContenidoMensaje
+                      mensaje={msg}
+                      onAbrirVisor={onAbrirVisor}
+                      metaHora={
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px]" style={{ color: 'var(--texto-terciario)' }}>
+                            {formatoHora(msg.creado_en)}
+                          </span>
+                          {esPropio && ICONO_ESTADO[msg.wa_status || msg.estado]}
+                        </div>
+                      }
+                    />
+                    {/* Hora + estado */}
+                    {msg.tipo_contenido !== 'audio' && (
+                      <div className="flex items-center justify-end gap-1 mt-0.5">
                         <span className="text-[10px]" style={{ color: 'var(--texto-terciario)' }}>
                           {formatoHora(msg.creado_en)}
                         </span>
                         {esPropio && ICONO_ESTADO[msg.wa_status || msg.estado]}
                       </div>
-                    }
-                  />
-                  {/* Hora + estado: para audio va integrada en el reproductor */}
-                  {msg.tipo_contenido !== 'audio' && (
-                    <div className="flex items-center justify-end gap-1 mt-0.5">
-                      <span className="text-[10px]" style={{ color: 'var(--texto-terciario)' }}>
-                        {formatoHora(msg.creado_en)}
-                      </span>
-                      {esPropio && ICONO_ESTADO[msg.wa_status || msg.estado]}
+                    )}
+                  </div>
+
+                  {/* Reacciones visibles debajo de la burbuja */}
+                  {tieneReacciones && (
+                    <div className={`flex gap-0.5 mt-0.5 ${esPropio ? 'justify-end' : 'justify-start'}`}>
+                      {Object.entries(msg.reacciones).map(([emoji, usuarios]) => (
+                        <span
+                          key={emoji}
+                          className="text-xs px-1 py-0.5 rounded-full"
+                          style={{ background: 'var(--superficie-hover)', fontSize: '11px' }}
+                        >
+                          {emoji}{(usuarios as string[]).length > 1 ? ` ${(usuarios as string[]).length}` : ''}
+                        </span>
+                      ))}
                     </div>
                   )}
+
+                  {/* Botón reaccionar (hover) — solo mensajes con wa_message_id */}
+                  {msg.wa_message_id && (
+                    <button
+                      onClick={() => setPickerMsgId(pickerAbierto ? null : msg.id)}
+                      className={`absolute top-0 p-1 rounded-full opacity-0 group-hover/burbuja:opacity-100 transition-opacity ${esPropio ? '-left-1' : '-right-1'}`}
+                      style={{
+                        background: 'var(--superficie-elevada)',
+                        color: 'var(--texto-terciario)',
+                        boxShadow: 'var(--sombra-sm)',
+                      }}
+                    >
+                      <SmilePlus size={12} />
+                    </button>
+                  )}
+
+                  {/* Picker de emojis rápidos */}
+                  <AnimatePresence>
+                    {pickerAbierto && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        className={`absolute -top-8 flex items-center gap-0.5 px-1.5 py-1 rounded-full z-10 ${esPropio ? 'right-0' : 'left-0'}`}
+                        style={{
+                          background: 'var(--superficie-elevada)',
+                          boxShadow: 'var(--sombra-md)',
+                          border: '1px solid var(--borde-sutil)',
+                        }}
+                      >
+                        {EMOJIS_RAPIDOS.map(emoji => (
+                          <button
+                            key={emoji}
+                            onClick={() => {
+                              setPickerMsgId(null)
+                              fetch('/api/inbox/whatsapp/reaccion', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  conversacion_id: conversacion.id,
+                                  mensaje_id: msg.id,
+                                  emoji,
+                                }),
+                              })
+                            }}
+                            className="text-base hover:scale-125 transition-transform cursor-pointer p-0.5"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </motion.div>
             )
@@ -376,13 +702,16 @@ export function PanelWhatsApp({
         )}
       </div>
 
-      {/* Panel IA — barra colapsable sobre el compositor */}
-      {conversacion && (
+      {/* Panel IA — barra colapsable sobre el compositor (solo si la empresa lo habilitó) */}
+      {conversacion && iaHabilitada && (
         <PanelIA
           conversacionId={conversacion.id}
           onInsertarTexto={(texto) => {
             setTextoIA(texto)
             setContadorTextoIA(c => c + 1)
+          }}
+          onEnviarDirecto={(texto) => {
+            onEnviar({ texto, tipo_contenido: 'texto' })
           }}
           resumenExistente={conversacion.resumen_ia}
           sentimientoExistente={conversacion.sentimiento}
@@ -398,6 +727,8 @@ export function PanelWhatsApp({
         textoInicial={textoIA}
         textoInicialVersion={contadorTextoIA}
         onAbrirPlantillas={() => {}}
+        conversacionId={conversacion.id}
+        permitirNotasInternas
       />
 
     </div>
@@ -1002,7 +1333,11 @@ function ContenidoMensaje({
             </button>
           ))}
           {caption && (
-            <p className="text-sm" style={{ color: 'var(--texto-primario)' }}>{caption}</p>
+            <p
+              className="text-sm whitespace-pre-wrap"
+              style={{ color: 'var(--texto-primario)' }}
+              dangerouslySetInnerHTML={{ __html: formatoWhatsApp(caption) }}
+            />
           )}
         </div>
       ) : <MediaCargando tipo="imagen" />
@@ -1107,10 +1442,12 @@ function ContenidoMensaje({
       )
 
     default:
-      return (
-        <p className="text-sm whitespace-pre-wrap break-words" style={{ color: 'var(--texto-primario)' }}>
-          {texto}
-        </p>
-      )
+      return texto ? (
+        <p
+          className="text-sm whitespace-pre-wrap break-words"
+          style={{ color: 'var(--texto-primario)' }}
+          dangerouslySetInnerHTML={{ __html: formatoWhatsApp(texto) }}
+        />
+      ) : null
   }
 }

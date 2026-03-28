@@ -547,10 +547,61 @@ export function extraerEmail(direccion: string): string {
   return match ? match[1].toLowerCase() : direccion.trim().toLowerCase()
 }
 
-/** Extrae solo el nombre de un string tipo "Nombre <email@ejemplo.com>" */
+/** Extrae el nombre de un string tipo "Nombre <email@ejemplo.com>"
+ *  Si el display name es muy corto (1 palabra), intenta armar nombre+apellido desde el email.
+ *  Ej: "Nahuel" <n.sanchez@dom.com> → "Nahuel Sanchez"
+ *  Ej: <juan.perez@dom.com> → "Juan Perez"
+ */
 export function extraerNombreDeEmail(direccion: string): string {
-  const match = direccion.match(/^"?([^"<]+)"?\s*</)
-  return match ? match[1].trim() : extraerEmail(direccion)
+  // 1. Intentar extraer display name
+  const matchNombre = direccion.match(/^"?([^"<]+)"?\s*</)
+  const displayName = matchNombre ? matchNombre[1].trim() : ''
+
+  // 2. Extraer email
+  const email = extraerEmail(direccion)
+  const parteLocal = email.split('@')[0] || ''
+
+  // 3. Si tiene display name con 2+ palabras, usarlo directo
+  if (displayName && displayName.split(/\s+/).length >= 2) {
+    return displayName
+  }
+
+  // 4. Si tiene display name corto (1 palabra), intentar complementar con el email
+  if (displayName) {
+    const nombreDesdeEmail = construirNombreDesdeEmail(parteLocal)
+    const palabrasEmail = nombreDesdeEmail.split(' ')
+
+    // Si el email tiene un apellido que no está en el display name
+    if (palabrasEmail.length >= 2) {
+      const displayLower = displayName.toLowerCase()
+      // Buscar si alguna palabra del email matchea el display name
+      const apellidoCandidato = palabrasEmail.find(p => p.toLowerCase() !== displayLower)
+      if (apellidoCandidato) {
+        return `${displayName} ${apellidoCandidato}`
+      }
+    }
+    return displayName
+  }
+
+  // 5. Sin display name: construir desde el email
+  const nombreConstruido = construirNombreDesdeEmail(parteLocal)
+  return nombreConstruido || email
+}
+
+/** Intenta construir un nombre legible desde la parte local de un email.
+ *  Ej: "n.sanchez" → "N Sanchez", "juan.perez" → "Juan Perez"
+ *  Ej: "jperez" → "Jperez", "info" → "Info"
+ */
+function construirNombreDesdeEmail(parteLocal: string): string {
+  // Separar por puntos, guiones, guiones bajos
+  const partes = parteLocal.split(/[._-]/).filter(Boolean)
+
+  if (partes.length === 0) return ''
+
+  // Capitalizar cada parte
+  return partes
+    .map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+    .join(' ')
 }
 
 /** Normaliza asunto quitando prefijos Re:/Fwd:/Rv: */

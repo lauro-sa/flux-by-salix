@@ -5,10 +5,62 @@ import Anthropic from '@anthropic-ai/sdk'
 
 /**
  * POST /api/inbox/ia — Genera respuestas sugeridas y resúmenes con IA.
- * Usa la API de Claude para analizar conversaciones y sugerir respuestas.
+ * Prioridad de API key: config_inbox de la empresa > env ANTHROPIC_API_KEY (fallback global).
+ * Soporta proveedores: Anthropic (Claude) y OpenAI (GPT).
  *
  * Body: { conversacion_id, accion: 'sugerir_respuesta' | 'resumir' | 'analizar_sentimiento' }
  */
+
+// ─── Helper: llamar a Anthropic ───
+async function llamarAnthropic(apiKey: string, modelo: string, prompt: string, maxTokens: number): Promise<string> {
+  const anthropic = new Anthropic({ apiKey })
+  const respuesta = await anthropic.messages.create({
+    model: modelo,
+    max_tokens: maxTokens,
+    messages: [{ role: 'user', content: prompt }],
+  })
+  return respuesta.content[0].type === 'text' ? respuesta.content[0].text : ''
+}
+
+// ─── Helper: llamar a OpenAI ───
+async function llamarOpenAI(apiKey: string, modelo: string, prompt: string, maxTokens: number): Promise<string> {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: modelo,
+      max_tokens: maxTokens,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(`OpenAI error: ${(err as Record<string, unknown>).error || res.statusText}`)
+  }
+
+  const data = await res.json() as { choices: { message: { content: string } }[] }
+  return data.choices?.[0]?.message?.content || ''
+}
+
+// ─── Helper unificado: enviar prompt al proveedor configurado ───
+async function generarConIA(
+  proveedor: string,
+  apiKey: string,
+  modelo: string,
+  prompt: string,
+  maxTokens: number,
+): Promise<string> {
+  if (proveedor === 'openai') {
+    return llamarOpenAI(apiKey, modelo, prompt, maxTokens)
+  }
+  // Default: Anthropic
+  return llamarAnthropic(apiKey, modelo, prompt, maxTokens)
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await crearClienteServidor()
@@ -24,12 +76,60 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'conversacion_id y accion son requeridos' }, { status: 400 })
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({ error: 'IA no configurada (falta ANTHROPIC_API_KEY)' }, { status: 503 })
+    const admin = crearClienteAdmin()
+
+    // ─── Verificar que la IA está habilitada para el inbox ───
+    const { data: configInbox } = await admin
+      .from('config_inbox')
+      .select('ia_habilitada')
+      .eq('empresa_id', empresaId)
+      .single()
+
+    if (configInbox && !configInbox.ia_habilitada) {
+      return NextResponse.json({
+        error: 'La IA no está habilitada para el inbox. Activala en Configuración del Inbox > General.',
+      }, { status: 403 })
     }
 
-    const admin = crearClienteAdmin()
+    // ─── Obtener config IA de la empresa (tabla config_ia, misma que usa SeccionIA) ───
+    const { data: configIA } = await admin
+      .from('config_ia')
+      .select('habilitado, proveedor_defecto, api_key_anthropic, api_key_openai, api_key_google, api_key_xai, modelo_anthropic, modelo_openai, modelo_google, modelo_xai')
+      .eq('empresa_id', empresaId)
+      .single()
+
+    // Resolver proveedor, API key y modelo: config empresa > env global (fallback)
+    let proveedor = 'anthropic'
+    let apiKey = process.env.ANTHROPIC_API_KEY || ''
+    let modelo = 'claude-haiku-4-5-20251001'
+
+    if (configIA?.habilitado) {
+      const prov = configIA.proveedor_defecto || 'anthropic'
+      const keyMap: Record<string, string> = {
+        anthropic: configIA.api_key_anthropic,
+        openai: configIA.api_key_openai,
+        google: configIA.api_key_google,
+        xai: configIA.api_key_xai,
+      }
+      const modeloMap: Record<string, string> = {
+        anthropic: configIA.modelo_anthropic || 'claude-haiku-4-5-20251001',
+        openai: configIA.modelo_openai || 'gpt-4o-mini',
+        google: configIA.modelo_google || 'gemini-2.0-flash',
+        xai: configIA.modelo_xai || 'grok-3-mini',
+      }
+
+      if (keyMap[prov]) {
+        proveedor = prov
+        apiKey = keyMap[prov]
+        modelo = modeloMap[prov]
+      }
+    }
+
+    if (!apiKey) {
+      return NextResponse.json({
+        error: 'IA no configurada. Configurá tu API key en Configuración > IA.',
+      }, { status: 503 })
+    }
 
     // Obtener conversación y últimos mensajes
     const { data: conversacion } = await admin
@@ -45,10 +145,11 @@ export async function POST(request: NextRequest) {
 
     const { data: mensajes } = await admin
       .from('mensajes')
-      .select('es_entrante, remitente_nombre, texto, correo_asunto, creado_en')
+      .select('es_entrante, remitente_nombre, texto, correo_asunto, es_nota_interna, creado_en')
       .eq('conversacion_id', conversacion_id)
+      .eq('es_nota_interna', false) // Excluir notas internas del contexto IA
       .order('creado_en', { ascending: true })
-      .limit(20) // Últimos 20 mensajes para contexto
+      .limit(20)
 
     if (!mensajes || mensajes.length === 0) {
       return NextResponse.json({ error: 'Sin mensajes en la conversación' }, { status: 400 })
@@ -61,14 +162,12 @@ export async function POST(request: NextRequest) {
       return `[${dir}] ${nombre}: ${m.texto || '(sin texto)'}`
     }).join('\n')
 
-    const anthropic = new Anthropic({ apiKey })
-
     let prompt = ''
     let resultado: Record<string, unknown> = {}
 
     switch (accion) {
       case 'sugerir_respuesta': {
-        prompt = `Eres un asistente de atención al cliente profesional. Analiza esta conversación de correo electrónico y sugiere 3 posibles respuestas cortas y profesionales en ${idioma === 'es' ? 'español' : idioma}.
+        prompt = `Eres un asistente de atención al cliente profesional. Analiza esta conversación y sugiere 3 posibles respuestas cortas y profesionales en ${idioma === 'es' ? 'español' : idioma}.
 
 Asunto: ${conversacion.asunto || '(sin asunto)'}
 Contacto: ${conversacion.contacto_nombre || 'Desconocido'}
@@ -79,13 +178,7 @@ ${hiloTexto}
 Genera exactamente 3 respuestas sugeridas, cada una de 1-3 oraciones. Formato JSON:
 {"sugerencias": ["respuesta 1", "respuesta 2", "respuesta 3"]}`
 
-        const respuesta = await anthropic.messages.create({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 500,
-          messages: [{ role: 'user', content: prompt }],
-        })
-
-        const textoRespuesta = respuesta.content[0].type === 'text' ? respuesta.content[0].text : ''
+        const textoRespuesta = await generarConIA(proveedor, apiKey, modelo, prompt, 500)
         try {
           const jsonMatch = textoRespuesta.match(/\{[\s\S]*\}/)
           resultado = jsonMatch ? JSON.parse(jsonMatch[0]) : { sugerencias: [] }
@@ -96,22 +189,15 @@ Genera exactamente 3 respuestas sugeridas, cada una de 1-3 oraciones. Formato JS
       }
 
       case 'resumir': {
-        prompt = `Resume esta conversación de correo electrónico en 1-2 oraciones en ${idioma === 'es' ? 'español' : idioma}. Sé conciso y directo.
+        prompt = `Resume esta conversación en 1-2 oraciones en ${idioma === 'es' ? 'español' : idioma}. Sé conciso y directo.
 
 Asunto: ${conversacion.asunto || '(sin asunto)'}
 Conversación:
 ${hiloTexto}`
 
-        const respuesta = await anthropic.messages.create({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 200,
-          messages: [{ role: 'user', content: prompt }],
-        })
-
-        const resumen = respuesta.content[0].type === 'text' ? respuesta.content[0].text : ''
+        const resumen = await generarConIA(proveedor, apiKey, modelo, prompt, 200)
         resultado = { resumen }
 
-        // Guardar resumen en la conversación
         await admin
           .from('conversaciones')
           .update({ resumen_ia: resumen })
@@ -125,13 +211,7 @@ ${hiloTexto}`
 Conversación:
 ${hiloTexto}`
 
-        const respuesta = await anthropic.messages.create({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 200,
-          messages: [{ role: 'user', content: prompt }],
-        })
-
-        const textoSent = respuesta.content[0].type === 'text' ? respuesta.content[0].text : ''
+        const textoSent = await generarConIA(proveedor, apiKey, modelo, prompt, 200)
         try {
           const jsonMatch = textoSent.match(/\{[\s\S]*\}/)
           resultado = jsonMatch ? JSON.parse(jsonMatch[0]) : { sentimiento: 'neutro' }
@@ -139,7 +219,6 @@ ${hiloTexto}`
           resultado = { sentimiento: 'neutro' }
         }
 
-        // Guardar sentimiento
         await admin
           .from('conversaciones')
           .update({ sentimiento: (resultado as { sentimiento: string }).sentimiento })

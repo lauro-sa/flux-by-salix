@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useMemo, useEffect, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import { Boton } from '@/componentes/ui/Boton'
 import {
   Inbox, Send as SendIcon, ShieldBan, Archive,
-  ChevronDown, ChevronRight, Mail, Pen,
+  ChevronDown, ChevronRight, Mail, Pen, GripVertical,
 } from 'lucide-react'
 import type { CanalInbox } from '@/tipos/inbox'
 
@@ -48,6 +48,7 @@ const CARPETAS: { clave: CarpetaCorreo; etiqueta: string; icono: React.ReactNode
 ]
 
 const STORAGE_KEY = 'flux_inbox_cuentas_expandidas'
+const STORAGE_ORDEN = 'flux_inbox_cuentas_orden'
 
 export function SidebarCorreo({
   canales,
@@ -62,6 +63,39 @@ export function SidebarCorreo({
   onSeleccionarTodas,
   colapsado = false,
 }: PropiedadesSidebarCorreo) {
+  // Orden personalizado de cuentas (persistido en localStorage)
+  const [ordenCanales, setOrdenCanales] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return canales.map(c => c.id)
+    try {
+      const guardado = localStorage.getItem(STORAGE_ORDEN)
+      if (guardado) return JSON.parse(guardado)
+    } catch { /* fallback */ }
+    return canales.map(c => c.id)
+  })
+
+  // Actualizar orden cuando cambian los canales
+  useEffect(() => {
+    setOrdenCanales(prev => {
+      const idsActuales = new Set(canales.map(c => c.id))
+      // Mantener orden existente, agregar nuevos al final
+      const ordenFiltrado = prev.filter(id => idsActuales.has(id))
+      for (const c of canales) {
+        if (!ordenFiltrado.includes(c.id)) ordenFiltrado.push(c.id)
+      }
+      return ordenFiltrado
+    })
+  }, [canales])
+
+  const canalesOrdenados = useMemo(() => {
+    const mapa = new Map(canales.map(c => [c.id, c]))
+    return ordenCanales.map(id => mapa.get(id)).filter(Boolean) as CanalInbox[]
+  }, [canales, ordenCanales])
+
+  const handleReorder = useCallback((nuevoOrden: string[]) => {
+    setOrdenCanales(nuevoOrden)
+    localStorage.setItem(STORAGE_ORDEN, JSON.stringify(nuevoOrden))
+  }, [])
+
   // Persistir estado expandido de cuentas
   const [cuentasExpandidas, setCuentasExpandidas] = useState<Set<string>>(() => {
     if (typeof window === 'undefined') return new Set(canales.map(c => c.id))
@@ -192,20 +226,22 @@ export function SidebarCorreo({
               </div>
             )}
 
-            {/* Cuentas */}
-            {canales.map((canal) => {
+            {/* Cuentas (reordenables con drag) */}
+            <Reorder.Group axis="y" values={ordenCanales} onReorder={handleReorder} className="space-y-0">
+            {canalesOrdenados.map((canal) => {
               const expandida = cuentasExpandidas.has(canal.id)
               const estaActiva = canalActivo === canal.id && !canalTodas
 
               return (
-                <div key={canal.id} className="mb-1">
+                <Reorder.Item key={canal.id} value={canal.id} className="mb-1 list-none">
                   <button
                     onClick={() => {
                       toggleCuenta(canal.id)
                       onSeleccionarCanal(canal.id)
                     }}
-                    className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs transition-colors"
+                    className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs transition-colors group"
                   >
+                    <GripVertical size={10} className="cursor-grab opacity-0 group-hover:opacity-50 transition-opacity" style={{ color: 'var(--texto-terciario)' }} />
                     {expandida ? (
                       <ChevronDown size={10} style={{ color: 'var(--texto-terciario)' }} />
                     ) : (
@@ -268,9 +304,10 @@ export function SidebarCorreo({
                       </motion.div>
                     )}
                   </AnimatePresence>
-                </div>
+                </Reorder.Item>
               )
             })}
+            </Reorder.Group>
           </>
         )}
       </div>

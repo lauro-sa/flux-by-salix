@@ -55,6 +55,22 @@ export async function GET(request: NextRequest) {
       query = query.eq('asignado_a', asignado_a)
     }
 
+    // Filtro por etiqueta
+    const etiqueta = params.get('etiqueta')
+    if (etiqueta) {
+      query = query.contains('etiquetas', [etiqueta])
+    }
+
+    // Filtro por fecha (desde/hasta)
+    const desde_fecha = params.get('desde_fecha')
+    const hasta_fecha = params.get('hasta_fecha')
+    if (desde_fecha) {
+      query = query.gte('ultimo_mensaje_en', desde_fecha)
+    }
+    if (hasta_fecha) {
+      query = query.lte('ultimo_mensaje_en', hasta_fecha + 'T23:59:59')
+    }
+
     // Búsqueda por nombre de contacto, asunto o cuerpo de mensajes
     if (busqueda) {
       query = query.or(`contacto_nombre.ilike.%${busqueda}%,asunto.ilike.%${busqueda}%,identificador_externo.ilike.%${busqueda}%,ultimo_mensaje_texto.ilike.%${busqueda}%`)

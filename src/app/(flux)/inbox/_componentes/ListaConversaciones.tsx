@@ -9,6 +9,7 @@ import { Pildora } from '@/componentes/ui/Pildora'
 import {
   Mail, Hash, Clock, User, Filter, Trash2,
   ChevronDown, Circle, Square, CheckSquare,
+  Tag, CheckCircle, Eye,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { ConversacionConDetalles, EstadoConversacion, TipoCanal } from '@/tipos/inbox'
@@ -32,6 +33,11 @@ interface PropiedadesListaConversaciones {
   /** Habilita selección múltiple con checkboxes */
   seleccionMultiple?: boolean
   onEliminarSeleccion?: (ids: string[]) => void
+  // Filtros avanzados
+  filtroEtiqueta?: string
+  onFiltroEtiqueta?: (etiqueta: string) => void
+  // Operaciones masivas
+  onOperacionMasiva?: (accion: 'marcar_leido' | 'cerrar' | 'asignar', ids: string[]) => void
 }
 
 // Iconos de canal
@@ -77,6 +83,9 @@ export function ListaConversaciones({
   cargando,
   totalNoLeidos,
   onEliminarSeleccion,
+  filtroEtiqueta,
+  onFiltroEtiqueta,
+  onOperacionMasiva,
 }: PropiedadesListaConversaciones) {
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
@@ -211,7 +220,7 @@ export function ListaConversaciones({
                 <Pildora
                   key={e.clave}
                   activa={filtroEstado === e.clave}
-                  onClick={() => onFiltroEstado(e.clave)}
+                  onClick={() => onFiltroEstado(e.clave as EstadoConversacion | 'todas')}
                 >
                   {e.etiqueta}
                 </Pildora>
@@ -219,7 +228,50 @@ export function ListaConversaciones({
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Filtro de etiqueta activo */}
+        {filtroEtiqueta && (
+          <div className="flex items-center gap-1">
+            <span
+              className="text-xxs px-2 py-0.5 rounded-full inline-flex items-center gap-1 cursor-pointer"
+              style={{ background: 'var(--superficie-hover)', color: 'var(--texto-secundario)' }}
+              onClick={() => onFiltroEtiqueta?.('')}
+            >
+              <Tag size={9} />
+              {filtroEtiqueta}
+              <span style={{ color: 'var(--texto-terciario)' }}>×</span>
+            </span>
+          </div>
+        )}
       </div>
+
+      {/* Barra de operaciones masivas */}
+      <AnimatePresence>
+        {modoSeleccion && seleccionados.size > 0 && onOperacionMasiva && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="flex items-center gap-1 px-3 py-1.5 overflow-hidden"
+            style={{ borderBottom: '1px solid var(--borde-sutil)', background: 'var(--superficie-hover)' }}
+          >
+            <button
+              onClick={() => { onOperacionMasiva('marcar_leido', [...seleccionados]); setSeleccionados(new Set()); setModoSeleccion(false) }}
+              className="text-xxs px-2 py-1 rounded flex items-center gap-1 transition-colors"
+              style={{ color: 'var(--texto-secundario)', background: 'var(--superficie-tarjeta)' }}
+            >
+              <Eye size={10} /> Marcar leído
+            </button>
+            <button
+              onClick={() => { onOperacionMasiva('cerrar', [...seleccionados]); setSeleccionados(new Set()); setModoSeleccion(false) }}
+              className="text-xxs px-2 py-1 rounded flex items-center gap-1 transition-colors"
+              style={{ color: 'var(--texto-secundario)', background: 'var(--superficie-tarjeta)' }}
+            >
+              <CheckCircle size={10} /> Cerrar
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Lista de conversaciones */}
       <div className="flex-1 overflow-y-auto">
@@ -375,6 +427,27 @@ export function ListaConversaciones({
                       >
                         {conv.canal.nombre}
                       </p>
+                    )}
+
+                    {/* Etiquetas de la conversación */}
+                    {conv.etiquetas && conv.etiquetas.length > 0 && (
+                      <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                        {conv.etiquetas.slice(0, 3).map((et) => (
+                          <span
+                            key={et}
+                            className="text-xxs px-1 py-0 rounded cursor-pointer"
+                            style={{ background: 'var(--superficie-hover)', color: 'var(--texto-terciario)' }}
+                            onClick={(e) => { e.stopPropagation(); onFiltroEtiqueta?.(et) }}
+                          >
+                            {et}
+                          </span>
+                        ))}
+                        {conv.etiquetas.length > 3 && (
+                          <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                            +{conv.etiquetas.length - 3}
+                          </span>
+                        )}
+                      </div>
                     )}
 
                     {/* Footer: estado + asignado */}

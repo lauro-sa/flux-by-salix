@@ -13,13 +13,14 @@ import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Tarjeta } from '@/componentes/ui/Tarjeta'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Alerta } from '@/componentes/ui/Alerta'
+import { Modal } from '@/componentes/ui/Modal'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import {
   Settings2, Mail, Hash, FileText, Users,
   Clock, Bell, Plus, Trash2, Wifi, WifiOff, AlertTriangle,
   Pencil, GripVertical, Shield, ChevronDown, RefreshCw, Loader2,
-  Zap, TrendingUp, Tag,
+  Zap, TrendingUp, Tag, Sparkles,
 } from 'lucide-react'
 import type { CanalInbox, PlantillaRespuesta, ConfigInbox, TipoCanal } from '@/tipos/inbox'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
@@ -30,6 +31,7 @@ import { ModalReglas } from '../_componentes/ModalReglas'
 import { PanelMetricas } from '../_componentes/PanelMetricas'
 import { ListaProgramados } from '../_componentes/ListaProgramados'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
+import { useRol } from '@/hooks/useRol'
 
 /**
  * Configuración del Inbox — secciones: General, WhatsApp, Correo, Interno, Plantillas, SLA.
@@ -37,6 +39,8 @@ import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 
 export default function PaginaConfiguracionInbox() {
   const router = useRouter()
+  const { tienePermisoConfig } = useRol()
+  const puedeConfigEmpresa = tienePermisoConfig('config_empresa', 'ver')
   const [seccionActiva, setSeccionActiva] = useState('general')
   const [cargando, setCargando] = useState(true)
 
@@ -94,7 +98,8 @@ export default function PaginaConfiguracionInbox() {
     { id: 'whatsapp', etiqueta: 'WhatsApp', icono: <IconoWhatsApp size={16} /> },
     { id: 'correo', etiqueta: 'Correo electrónico', icono: <Mail size={16} /> },
     { id: 'interno', etiqueta: 'Mensajería interna', icono: <Hash size={16} /> },
-    { id: 'plantillas_wa', etiqueta: 'Plantillas WhatsApp', icono: <FileText size={16} />, grupo: 'Plantillas' },
+    { id: 'respuestas_rapidas', etiqueta: 'Respuestas rápidas', icono: <Zap size={16} />, grupo: 'Plantillas' },
+    { id: 'plantillas_wa', etiqueta: 'Plantillas Meta (WA)', icono: <FileText size={16} />, grupo: 'Plantillas' },
     { id: 'plantillas_correo', etiqueta: 'Plantillas de correo', icono: <FileText size={16} />, grupo: 'Plantillas' },
     { id: 'etiquetas', etiqueta: 'Etiquetas', icono: <Tag size={16} />, grupo: 'Correo avanzado' },
     { id: 'reglas', etiqueta: 'Reglas automáticas', icono: <Zap size={16} />, grupo: 'Correo avanzado' },
@@ -149,6 +154,70 @@ export default function PaginaConfiguracionInbox() {
                 onChange={() => {}}
               />
             </div>
+          </div>
+
+          {/* IA en el inbox */}
+          <div>
+            <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--texto-primario)' }}>
+              Inteligencia Artificial
+            </h3>
+            <div
+              className="flex items-center gap-3 p-4 rounded-lg"
+              style={{ border: '1px solid var(--borde-sutil)' }}
+            >
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: 'color-mix(in srgb, var(--texto-marca) 10%, transparent)' }}
+              >
+                <Sparkles size={18} style={{ color: 'var(--texto-marca)' }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium" style={{ color: 'var(--texto-primario)' }}>
+                  Asistente IA en el inbox
+                </p>
+                <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
+                  Sugerencias de respuesta, resúmenes y análisis de sentimiento en conversaciones.
+                </p>
+              </div>
+              <Interruptor
+                activo={config?.ia_habilitada || false}
+                onChange={(v) => guardarConfig({ ia_habilitada: v })}
+              />
+            </div>
+            <div
+              className="flex items-start gap-2 mt-3 px-3 py-2.5 rounded-lg text-xs"
+              style={{
+                background: 'color-mix(in srgb, var(--insignia-info) 8%, transparent)',
+                color: 'var(--texto-terciario)',
+              }}
+            >
+              <Sparkles size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--insignia-info)' }} />
+              <span>
+                El proveedor y la API key de IA se configuran desde{' '}
+                {puedeConfigEmpresa ? (
+                  <a
+                    href="/configuracion?seccion=ia"
+                    className="font-medium underline underline-offset-2"
+                    style={{ color: 'var(--texto-marca)' }}
+                  >
+                    Configuración de la empresa &gt; IA
+                  </a>
+                ) : (
+                  <strong>Configuración de la empresa &gt; IA</strong>
+                )}
+                . Este switch solo activa o desactiva el uso de IA dentro del inbox.
+                {!puedeConfigEmpresa && (
+                  <span className="block mt-1" style={{ color: 'var(--insignia-advertencia)' }}>
+                    No tenés permisos para acceder a esa configuración. Pedile a un administrador que configure la API key.
+                  </span>
+                )}
+              </span>
+            </div>
+            {config?.ia_habilitada && (
+              <p className="text-xs mt-2 px-1" style={{ color: 'var(--texto-terciario)' }}>
+                Los agentes verán el panel "Asistente IA" en cada conversación para pedir sugerencias, resúmenes y análisis de sentimiento.
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -214,7 +283,15 @@ export default function PaginaConfiguracionInbox() {
         <SeccionMetricasConfig />
       )}
 
-      {/* Plantillas WhatsApp */}
+      {/* Respuestas rápidas */}
+      {seccionActiva === 'respuestas_rapidas' && (
+        <SeccionRespuestasRapidas
+          plantillas={plantillas}
+          onRecargar={cargar}
+        />
+      )}
+
+      {/* Plantillas Meta (WhatsApp) */}
       {seccionActiva === 'plantillas_wa' && (
         <SeccionPlantillas
           canal="whatsapp"
@@ -971,7 +1048,352 @@ function SeccionCorreo({
   )
 }
 
-// Sección de plantillas
+// ─── Sección de respuestas rápidas ───
+// Son atajos de texto con formato que el agente inserta con `/` en el compositor.
+// Separadas de las plantillas de Meta (WhatsApp Business templates).
+function SeccionRespuestasRapidas({
+  plantillas,
+  onRecargar,
+}: {
+  plantillas: PlantillaRespuesta[]
+  onRecargar: () => void
+}) {
+  const [modalAbierto, setModalAbierto] = useState(false)
+  const [editando, setEditando] = useState<PlantillaRespuesta | null>(null)
+  const [eliminando, setEliminando] = useState<PlantillaRespuesta | null>(null)
+  const [guardando, setGuardando] = useState(false)
+
+  // Solo las que NO son plantillas de Meta (canal 'todos' o cualquier canal)
+  const respuestas = plantillas.filter(p => p.activo)
+
+  const guardar = async (datos: { nombre: string; contenido: string; categoria: string; canal: string }) => {
+    setGuardando(true)
+    try {
+      if (editando) {
+        await fetch(`/api/inbox/plantillas/${editando.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(datos),
+        })
+      } else {
+        await fetch('/api/inbox/plantillas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(datos),
+        })
+      }
+      setModalAbierto(false)
+      setEditando(null)
+      onRecargar()
+    } catch {
+      // TODO: toast error
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  const eliminar = async () => {
+    if (!eliminando) return
+    try {
+      await fetch(`/api/inbox/plantillas/${eliminando.id}`, { method: 'DELETE' })
+      setEliminando(null)
+      onRecargar()
+    } catch {
+      // TODO: toast error
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+            Respuestas rápidas
+          </h3>
+          <p className="text-xs mt-1" style={{ color: 'var(--texto-terciario)' }}>
+            Mensajes predefinidos que los agentes pueden insertar escribiendo <code
+              className="px-1 py-0.5 rounded text-xxs"
+              style={{ background: 'var(--superficie-hover)', color: 'var(--texto-marca)' }}
+            >/</code> en el compositor. Soportan formato de texto.
+          </p>
+        </div>
+        <Boton
+          variante="primario"
+          tamano="sm"
+          icono={<Plus size={14} />}
+          onClick={() => { setEditando(null); setModalAbierto(true) }}
+        >
+          Nueva respuesta
+        </Boton>
+      </div>
+
+      {respuestas.length === 0 ? (
+        <EstadoVacio
+          icono={<Zap />}
+          titulo="Sin respuestas rápidas"
+          descripcion="Creá respuestas predefinidas para que los agentes respondan más rápido. Pueden incluir formato (negrita, cursiva, listas, etc.)."
+        />
+      ) : (
+        <div className="space-y-2">
+          {respuestas.map((p) => (
+            <div
+              key={p.id}
+              className="flex items-start gap-3 p-3 rounded-lg group transition-colors"
+              style={{ border: '1px solid var(--borde-sutil)' }}
+            >
+              <div className="flex-shrink-0 mt-0.5">
+                <Zap size={14} style={{ color: 'var(--texto-marca)' }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium" style={{ color: 'var(--texto-primario)' }}>
+                    {p.nombre}
+                  </p>
+                  {p.categoria && <Insignia color="neutro" tamano="sm">{p.categoria}</Insignia>}
+                  <Insignia
+                    color={p.canal === 'todos' ? 'primario' : p.canal === 'whatsapp' ? 'exito' : 'info'}
+                    tamano="sm"
+                  >
+                    {p.canal === 'todos' ? 'Todos' : p.canal === 'whatsapp' ? 'WhatsApp' : 'Correo'}
+                  </Insignia>
+                </div>
+                {/* Preview del contenido con formato */}
+                {p.contenido_html ? (
+                  <div
+                    className="text-xs mt-1 line-clamp-2 prose-sm"
+                    style={{ color: 'var(--texto-terciario)' }}
+                    dangerouslySetInnerHTML={{ __html: p.contenido_html }}
+                  />
+                ) : (
+                  <p className="text-xs mt-1 line-clamp-2" style={{ color: 'var(--texto-terciario)' }}>
+                    {p.contenido}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Boton
+                  variante="fantasma"
+                  tamano="xs"
+                  soloIcono
+                  icono={<Pencil size={12} />}
+                  onClick={() => { setEditando(p); setModalAbierto(true) }}
+                />
+                <Boton
+                  variante="fantasma"
+                  tamano="xs"
+                  soloIcono
+                  icono={<Trash2 size={12} />}
+                  onClick={() => setEliminando(p)}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal crear/editar */}
+      {modalAbierto && (
+        <ModalRespuestaRapida
+          plantilla={editando}
+          onGuardar={guardar}
+          onCerrar={() => { setModalAbierto(false); setEditando(null) }}
+          guardando={guardando}
+        />
+      )}
+
+      {/* Modal confirmar eliminación */}
+      {eliminando && (
+        <ModalConfirmacion
+          abierto={true}
+          onCerrar={() => setEliminando(null)}
+          onConfirmar={eliminar}
+          titulo="¿Eliminar respuesta rápida?"
+          descripcion={`Se eliminará "${eliminando.nombre}". Los agentes ya no podrán usarla.`}
+          tipo="peligro"
+          etiquetaConfirmar="Eliminar"
+        />
+      )}
+    </div>
+  )
+}
+
+// Convertir formato WhatsApp (*negrita*, _cursiva_, ~tachado~) a HTML para preview
+function formatoWhatsAppAHtml(texto: string): string {
+  return texto
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>')
+    .replace(/_([^_\n]+)_/g, '<em>$1</em>')
+    .replace(/~([^~\n]+)~/g, '<del>$1</del>')
+    .replace(/```([^`]+)```/g, '<code>$1</code>')
+    .replace(/\n/g, '<br />')
+}
+
+// Modal para crear/editar respuesta rápida — textarea con preview estilo WhatsApp
+function ModalRespuestaRapida({
+  plantilla,
+  onGuardar,
+  onCerrar,
+  guardando,
+}: {
+  plantilla: PlantillaRespuesta | null
+  onGuardar: (datos: { nombre: string; contenido: string; contenido_html: string; categoria: string; canal: string }) => void
+  onCerrar: () => void
+  guardando: boolean
+}) {
+  const [nombre, setNombre] = useState(plantilla?.nombre || '')
+  const [categoria, setCategoria] = useState(plantilla?.categoria || '')
+  const [canal, setCanal] = useState(plantilla?.canal || 'todos')
+  const [contenido, setContenido] = useState(plantilla?.contenido || '')
+
+  const manejarGuardar = () => {
+    if (!nombre.trim() || !contenido.trim()) return
+    onGuardar({
+      nombre: nombre.trim(),
+      contenido: contenido,
+      contenido_html: formatoWhatsAppAHtml(contenido),
+      categoria: categoria.trim(),
+      canal,
+    })
+  }
+
+  return (
+    <Modal
+      abierto={true}
+      onCerrar={onCerrar}
+      titulo={plantilla ? 'Editar respuesta rápida' : 'Nueva respuesta rápida'}
+      tamano="3xl"
+      acciones={
+        <div className="flex items-center gap-2">
+          <Boton variante="secundario" tamano="sm" onClick={onCerrar}>Cancelar</Boton>
+          <Boton
+            variante="primario"
+            tamano="sm"
+            onClick={manejarGuardar}
+            disabled={guardando || !nombre.trim() || !contenido.trim()}
+          >
+            {guardando ? 'Guardando...' : plantilla ? 'Guardar cambios' : 'Crear respuesta'}
+          </Boton>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        {/* Nombre */}
+        <div>
+          <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--texto-secundario)' }}>
+            Nombre (para buscar con /)
+          </label>
+          <Input
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            placeholder="Ej: Presupuesto enviado, Saludo inicial, Horarios..."
+            compacto
+            formato={null}
+          />
+        </div>
+
+        {/* Categoría + Canal */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--texto-secundario)' }}>
+              Categoría (opcional)
+            </label>
+            <Input
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value)}
+              placeholder="Ej: Ventas, Soporte, Info..."
+              compacto
+              formato={null}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--texto-secundario)' }}>
+              Disponible en
+            </label>
+            <Select
+              valor={canal}
+              onChange={(v: string) => setCanal(v as 'correo' | 'whatsapp' | 'interno' | 'todos')}
+              opciones={[
+                { valor: 'todos', etiqueta: 'Todos los canales' },
+                { valor: 'whatsapp', etiqueta: 'Solo WhatsApp' },
+                { valor: 'correo', etiqueta: 'Solo Correo' },
+              ]}
+            />
+          </div>
+        </div>
+
+        {/* Textarea + Preview lado a lado */}
+        <div>
+          <label className="text-xs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>
+            Mensaje
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            {/* Textarea — pegá o escribí el mensaje */}
+            <div>
+              <textarea
+                value={contenido}
+                onChange={(e) => setContenido(e.target.value)}
+                placeholder={'Pegá o escribí tu mensaje acá...\n\nFormato WhatsApp:\n*negrita*  _cursiva_  ~tachado~'}
+                className="w-full rounded-lg p-3 text-sm resize-none outline-none"
+                style={{
+                  background: 'var(--superficie-app)',
+                  color: 'var(--texto-primario)',
+                  border: '1px solid var(--borde-sutil)',
+                  minHeight: 220,
+                  fontFamily: 'inherit',
+                }}
+                spellCheck={false}
+              />
+              <p className="text-xxs mt-1.5" style={{ color: 'var(--texto-terciario)' }}>
+                Emojis, saltos de línea y formato WhatsApp se conservan al enviar.
+              </p>
+            </div>
+
+            {/* Preview estilo WhatsApp */}
+            <div>
+              <div
+                className="rounded-lg p-3 text-sm overflow-y-auto"
+                style={{
+                  background: 'var(--superficie-hover)',
+                  border: '1px solid var(--borde-sutil)',
+                  minHeight: 220,
+                  maxHeight: 300,
+                }}
+              >
+                {contenido ? (
+                  <div
+                    className="text-sm leading-relaxed"
+                    style={{ color: 'var(--texto-primario)' }}
+                    dangerouslySetInnerHTML={{ __html: formatoWhatsAppAHtml(contenido) }}
+                  />
+                ) : (
+                  <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
+                    Vista previa del mensaje...
+                  </p>
+                )}
+              </div>
+              <p className="text-xxs mt-1.5" style={{ color: 'var(--texto-terciario)' }}>
+                Así se verá en WhatsApp
+              </p>
+            </div>
+          </div>
+
+          {/* Referencia rápida de formato */}
+          <div
+            className="flex items-center gap-4 mt-2 px-2 py-1.5 rounded text-xxs"
+            style={{ background: 'var(--superficie-hover)', color: 'var(--texto-terciario)' }}
+          >
+            <span><strong>*negrita*</strong></span>
+            <span><em>_cursiva_</em></span>
+            <span><del>~tachado~</del></span>
+            <span><code>{'```código```'}</code></span>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// Sección de plantillas (Meta WhatsApp / Correo)
 function SeccionPlantillas({
   canal,
   plantillas,
