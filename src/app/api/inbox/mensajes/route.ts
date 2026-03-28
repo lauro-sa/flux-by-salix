@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     }
 
     const pagina = parseInt(params.get('pagina') || '1')
-    const por_pagina = Math.min(parseInt(params.get('por_pagina') || '50'), 100)
+    const por_pagina = Math.min(parseInt(params.get('por_pagina') || '200'), 500)
     const desde = (pagina - 1) * por_pagina
 
     // Si se pide un hilo específico

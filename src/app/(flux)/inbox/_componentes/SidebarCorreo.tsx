@@ -88,8 +88,8 @@ export function SidebarCorreo({
         background: 'var(--superficie-sidebar, var(--superficie-tarjeta))',
       }}
     >
-      {/* Header: Redactar + Toggle */}
-      <div className={`flex items-center gap-1 ${colapsado ? 'p-1.5 flex-col' : 'p-3'}`}>
+      {/* Header: Redactar */}
+      <div className={`${colapsado ? 'p-1.5 flex flex-col items-center' : 'p-3'}`}>
         {colapsado ? (
           <button
             onClick={onRedactar}
@@ -104,19 +104,10 @@ export function SidebarCorreo({
             tamano="sm"
             icono={<Pen size={14} />}
             onClick={onRedactar}
-            className="flex-1"
+            className="w-full"
           >
             Redactar
           </Boton>
-        )}
-        {onToggleColapsar && (
-          <button
-            onClick={onToggleColapsar}
-            className={`${colapsado ? 'w-9 h-9' : 'w-7 h-7'} rounded-lg flex items-center justify-center transition-colors`}
-            style={{ color: 'var(--texto-terciario)' }}
-          >
-            {colapsado ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
-          </button>
         )}
       </div>
 

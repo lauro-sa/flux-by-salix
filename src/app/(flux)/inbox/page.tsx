@@ -293,7 +293,7 @@ export default function PaginaInbox() {
 
     setCargandoMensajes(true)
     try {
-      const res = await fetch(`/api/inbox/mensajes?conversacion_id=${id}`)
+      const res = await fetch(`/api/inbox/mensajes?conversacion_id=${id}&por_pagina=200`)
       const data = await res.json()
       setMensajes(data.mensajes || [])
     } catch {
@@ -596,7 +596,7 @@ export default function PaginaInbox() {
 
     const poll = async () => {
       try {
-        const res = await fetch(`/api/inbox/mensajes?conversacion_id=${convId}`)
+        const res = await fetch(`/api/inbox/mensajes?conversacion_id=${convId}&por_pagina=200`)
         const data = await res.json()
         if (data.mensajes && conversacionIdRef.current === convId) {
           const nuevos = data.mensajes as MensajeConAdjuntos[]
