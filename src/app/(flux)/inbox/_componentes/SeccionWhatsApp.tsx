@@ -43,7 +43,21 @@ export function SeccionWhatsApp({ canales, onRecargar }: PropiedadesSeccionWhats
   const [cuentaActiva, setCuentaActiva] = useState<string | null>(canalesWA[0]?.id || null)
   const [modoCrear, setModoCrear] = useState(false)
 
+  // Si los canales cambian (después de crear uno nuevo), seleccionar el último
+  useEffect(() => {
+    if (canalesWA.length > 0 && !cuentaActiva && !modoCrear) {
+      setCuentaActiva(canalesWA[canalesWA.length - 1].id)
+    }
+  }, [canales])
+
   const canalActivo = canalesWA.find(c => c.id === cuentaActiva) || null
+
+  // Callback después de crear: recargar canales, cerrar formulario, seleccionar la nueva
+  const handleCuentaCreada = () => {
+    setModoCrear(false)
+    setCuentaActiva(null) // Se auto-selecciona en el useEffect cuando llegan los nuevos canales
+    onRecargar()
+  }
 
   return (
     <div className="space-y-6">
@@ -120,7 +134,7 @@ export function SeccionWhatsApp({ canales, onRecargar }: PropiedadesSeccionWhats
 
         {/* Contenido: formulario de la cuenta */}
         {modoCrear ? (
-          <FormularioNuevaCuenta onCrear={onRecargar} onCancelar={() => setModoCrear(false)} />
+          <FormularioNuevaCuenta onCrear={handleCuentaCreada} onCancelar={() => setModoCrear(false)} />
         ) : canalActivo ? (
           <DetalleCuenta canal={canalActivo} onRecargar={onRecargar} />
         ) : (
