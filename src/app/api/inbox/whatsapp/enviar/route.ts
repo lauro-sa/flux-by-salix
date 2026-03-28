@@ -79,6 +79,24 @@ export async function POST(request: NextRequest) {
 
     let resultado
 
+    // Mapear tipo a formato de Meta (acepta inglés o español)
+    const mapaMetaTipo: Record<string, 'image' | 'video' | 'audio' | 'document'> = {
+      image: 'image', imagen: 'image',
+      video: 'video',
+      audio: 'audio',
+      document: 'document', documento: 'document',
+    }
+    const mapaFluxTipo: Record<string, string> = {
+      image: 'imagen', imagen: 'imagen',
+      video: 'video',
+      audio: 'audio',
+      document: 'documento', documento: 'documento',
+      text: 'texto', texto: 'texto',
+      plantilla: 'texto',
+    }
+    const tipoMeta = mapaMetaTipo[tipo]
+    const tipoFlux = mapaFluxTipo[tipo] || 'texto'
+
     // Enviar según tipo
     if (tipo === 'plantilla' && plantilla_nombre_api) {
       resultado = await enviarPlantillaWhatsApp(
@@ -87,8 +105,7 @@ export async function POST(request: NextRequest) {
         plantilla_idioma || 'es',
         plantilla_componentes,
       )
-    } else if (['imagen', 'video', 'audio', 'documento'].includes(tipo) && media_url) {
-      const tipoMeta = tipo === 'imagen' ? 'image' : tipo === 'documento' ? 'document' : tipo as 'video' | 'audio'
+    } else if (tipoMeta && media_url) {
       resultado = await enviarMediaWhatsApp(
         config, telefono,
         tipoMeta, media_url,
@@ -100,6 +117,14 @@ export async function POST(request: NextRequest) {
 
     const waMessageId = resultado.messages?.[0]?.id
 
+    // Texto para preview (no guardar placeholders como [audio])
+    const textoPreview = tipoFlux === 'texto'
+      ? textoFinal
+      : media_caption || ''
+    const textoConversacion = tipoFlux === 'texto'
+      ? textoFinal
+      : media_caption || `📎 ${tipoFlux.charAt(0).toUpperCase() + tipoFlux.slice(1)}`
+
     // Guardar mensaje en BD
     const { data: mensaje } = await admin
       .from('mensajes')
@@ -110,8 +135,8 @@ export async function POST(request: NextRequest) {
         remitente_tipo: 'agente',
         remitente_id: user.id,
         remitente_nombre: nombreAgente,
-        tipo_contenido: tipo === 'plantilla' ? 'texto' : tipo,
-        texto: textoFinal || `[${tipo}]`,
+        tipo_contenido: tipoFlux,
+        texto: textoPreview,
         wa_message_id: waMessageId,
         wa_status: 'sent',
         estado: 'enviado',
@@ -119,14 +144,31 @@ export async function POST(request: NextRequest) {
       .select()
       .single()
 
+    // Si es media, crear adjunto en BD para que se muestre el reproductor/imagen
+    if (tipoMeta && media_url && mensaje) {
+      await admin.from('mensaje_adjuntos').insert({
+        mensaje_id: mensaje.id,
+        empresa_id: empresaId,
+        nombre_archivo: media_filename || `${tipoFlux}_${Date.now()}`,
+        tipo_mime: tipoMeta === 'image' ? 'image/jpeg'
+          : tipoMeta === 'video' ? 'video/mp4'
+          : tipoMeta === 'audio' ? 'audio/ogg'
+          : 'application/octet-stream',
+        url: media_url,
+        storage_path: '',
+        es_sticker: false,
+        es_animado: false,
+      })
+    }
+
     // Actualizar conversación
     await admin
       .from('conversaciones')
       .update({
-        ultimo_mensaje_texto: textoFinal || `[${tipo}]`,
+        ultimo_mensaje_texto: textoConversacion,
         ultimo_mensaje_en: new Date().toISOString(),
         ultimo_mensaje_es_entrante: false,
-        tiempo_sin_respuesta_desde: null, // agente respondió
+        tiempo_sin_respuesta_desde: null,
         actualizado_en: new Date().toISOString(),
       })
       .eq('id', conversacion_id)
