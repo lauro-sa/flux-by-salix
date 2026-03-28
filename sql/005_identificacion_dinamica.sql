@@ -23,3 +23,17 @@ ALTER TABLE public.empresas
 UPDATE public.empresas
   SET paises = ARRAY[pais]
   WHERE pais IS NOT NULL AND pais != '' AND paises = '{}';
+
+-- 3. Agregar pais_fiscal a contactos (para saber de qué país es el contacto)
+ALTER TABLE public.contactos
+  ADD COLUMN IF NOT EXISTS pais_fiscal text;
+
+-- Inferir país de contactos existentes según tipo_identificacion
+UPDATE public.contactos SET pais_fiscal = 'AR'
+  WHERE tipo_identificacion IN ('cuit', 'dni', 'cuil') AND pais_fiscal IS NULL;
+UPDATE public.contactos SET pais_fiscal = 'MX'
+  WHERE tipo_identificacion IN ('rfc', 'curp') AND pais_fiscal IS NULL;
+UPDATE public.contactos SET pais_fiscal = 'CO'
+  WHERE tipo_identificacion IN ('nit', 'cedula') AND pais_fiscal IS NULL;
+UPDATE public.contactos SET pais_fiscal = 'ES'
+  WHERE tipo_identificacion IN ('cif_nif') AND pais_fiscal IS NULL;

@@ -37,6 +37,14 @@ interface PropiedadesEditorTexto {
   coloresMarca?: string[]
   /** Slot extra para acciones custom en el toolbar (ej: botón IA) */
   accionesExtra?: React.ReactNode
+  /** Si se define, Enter (sin Shift) llama esto en vez de crear párrafo */
+  onEnter?: () => void
+  /** Si se define, Backspace en contenido vacío llama esto */
+  onBackspaceVacio?: () => void
+  /** Callback al recibir foco */
+  onFoco?: () => void
+  /** Enfocar el editor programáticamente (cambiar para triggear) */
+  autoEnfocar?: boolean
 }
 
 // ── Tamaños de texto ─────────────────────────────────────────────────────────
@@ -224,13 +232,17 @@ function EditorTexto({
   style,
   coloresMarca = [],
   accionesExtra,
+  onEnter,
+  onBackspaceVacio,
+  onFoco,
+  autoEnfocar = false,
 }: PropiedadesEditorTexto) {
   const { efecto } = useTema()
   const esCristal = efecto !== 'solido'
   const [panelAbierto, setPanelAbierto] = useState<'color' | 'tamano' | 'link' | null>(null)
   const [tabColor, setTabColor] = useState<'solido' | 'picker'>('solido')
   const [urlLink, setUrlLink] = useState('')
-  const [toolbarPos, setToolbarPos] = useState<{ top: number; left: number } | null>(null)
+  const [toolbarPos, setToolbarPos] = useState<{ top: number; left: number; abreArriba: boolean } | null>(null)
   const [haySeleccion, setHaySeleccion] = useState(false)
   const toolbarRef = useRef<HTMLDivElement>(null)
 
@@ -248,7 +260,7 @@ function EditorTexto({
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       TextStyle, FontSize, Color,
       Highlight.configure({ multicolor: true }),
-      Link.configure({ openOnClick: false, HTMLAttributes: { class: 'text-texto-marca underline cursor-pointer' } }),
+      Link.configure({ openOnClick: false, autolink: false, HTMLAttributes: { class: 'text-texto-marca underline cursor-pointer' } }),
       Placeholder.configure({ placeholder }),
     ],
     content: contenido,
@@ -261,10 +273,19 @@ function EditorTexto({
         if (sel && sel.rangeCount > 0) {
           const rect = sel.getRangeAt(0).getBoundingClientRect()
           if (rect.width > 0) {
-            setToolbarPos({
-              top: Math.max(8, rect.top - 48),
-              left: Math.max(8, Math.min(rect.left + rect.width / 2 - 200, window.innerWidth - 420)),
-            })
+            const alturaToolbar = 44
+            const margen = 8
+            // Detectar si hay espacio arriba; si no, abrir abajo de la selección
+            const hayEspacioArriba = rect.top > alturaToolbar + margen
+            const abreArriba = hayEspacioArriba
+            const top = abreArriba
+              ? Math.max(margen, rect.top - alturaToolbar - margen)
+              : rect.bottom + margen
+            const left = Math.max(margen, Math.min(
+              rect.left + rect.width / 2 - 200,
+              window.innerWidth - 420
+            ))
+            setToolbarPos({ top, left, abreArriba })
             setHaySeleccion(true)
             return
           }
@@ -273,8 +294,51 @@ function EditorTexto({
       setHaySeleccion(false)
       cerrarPaneles()
     },
-    editorProps: { attributes: { class: 'tiptap outline-none min-h-full' } },
+    onFocus: () => onFoco?.(),
+    editorProps: {
+      attributes: { class: 'tiptap outline-none min-h-full' },
+      handleKeyDown: onEnter || onBackspaceVacio ? (_view, evento) => {
+        if (onEnter && evento.key === 'Enter' && !evento.shiftKey) {
+          evento.preventDefault()
+          onEnter()
+          return true
+        }
+        if (onBackspaceVacio && evento.key === 'Backspace') {
+          const contenido = _view.state.doc.textContent
+          if (contenido === '') {
+            evento.preventDefault()
+            onBackspaceVacio()
+            return true
+          }
+        }
+        return false
+      } : undefined,
+    },
   })
+
+  // Cerrar toolbar al hacer clic fuera del editor y del toolbar
+  useEffect(() => {
+    if (!haySeleccion) return
+    const manejar = (e: MouseEvent) => {
+      const target = e.target as Node
+      // No cerrar si hacen clic en el toolbar o sus paneles
+      if (toolbarRef.current?.contains(target)) return
+      // No cerrar si hacen clic dentro del propio editor TipTap
+      if (editor?.view.dom.contains(target)) return
+      setHaySeleccion(false)
+      cerrarPaneles()
+    }
+    document.addEventListener('mousedown', manejar)
+    return () => document.removeEventListener('mousedown', manejar)
+  }, [haySeleccion, editor])
+
+  // Enfocar programáticamente
+  useEffect(() => {
+    if (autoEnfocar && editor && !editor.isFocused) {
+      const t = setTimeout(() => editor.commands.focus('end'), 30)
+      return () => clearTimeout(t)
+    }
+  }, [autoEnfocar, editor])
 
   const aplicarLink = useCallback(() => {
     if (!editor || !urlLink.trim()) return
@@ -517,8 +581,9 @@ function EditorTexto({
 
   // ── Toolbar flotante ───────────────────────────────────────────────────────
 
-  // Posición del sub-dropdown (debajo del toolbar)
-  const subDropdownTop = toolbarPos ? toolbarPos.top + 42 : 0
+  // Posición del sub-dropdown: si el toolbar abre arriba, el panel va arriba del toolbar.
+  // Si el toolbar abre abajo, el panel va debajo del toolbar.
+  const alturaToolbarPx = 42
   const subDropdownLeft = toolbarPos?.left ?? 0
 
   const toolbar = haySeleccion && toolbarPos && createPortal(
@@ -593,21 +658,33 @@ function EditorTexto({
       </motion.div>
 
       {/* Sub-dropdown independiente (tamaños / colores / link) */}
-      {panelAbierto && (
+      {panelAbierto && toolbarPos && (() => {
+        // Decidir si el panel va arriba o abajo del toolbar según el espacio
+        const espacioDebajo = window.innerHeight - (toolbarPos.top + alturaToolbarPx)
+        const alturaEstimadaPanel = panelAbierto === 'color' ? 380 : panelAbierto === 'tamano' ? 260 : 50
+        const panelAbajo = espacioDebajo > alturaEstimadaPanel
+        return (
         <motion.div
-          initial={{ opacity: 0, y: -4 }}
+          initial={{ opacity: 0, y: panelAbajo ? -4 : 4 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -4 }}
+          exit={{ opacity: 0, y: panelAbajo ? -4 : 4 }}
           transition={{ duration: 0.1 }}
-          className="fixed z-[9999] rounded-lg shadow-elevada border border-borde-sutil overflow-hidden"
-          style={{ top: subDropdownTop, left: subDropdownLeft, ...estiloSuperficie }}
+          className="fixed z-[9999] rounded-lg shadow-elevada border border-borde-sutil overflow-hidden max-h-[80vh] overflow-y-auto"
+          style={{
+            ...(panelAbajo
+              ? { top: toolbarPos.top + alturaToolbarPx + 4 }
+              : { bottom: window.innerHeight - toolbarPos.top + 4 }),
+            left: Math.max(8, Math.min(subDropdownLeft, window.innerWidth - 340)),
+            ...estiloSuperficie,
+          }}
           onMouseDown={(e) => e.preventDefault()}
         >
           {renderPanelTamano()}
           {renderPanelColor()}
           {renderPanelLink()}
         </motion.div>
-      )}
+        )
+      })()}
     </AnimatePresence>,
     document.body
   )

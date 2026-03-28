@@ -1,15 +1,17 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useParams, useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { useNavegacion } from '@/hooks/useNavegacion'
 import {
   Mail, Phone, Globe, MessageCircle, ChevronLeft,
   Building2, User, Truck, UserPlus, BadgeCheck, Trash2, Plus,
 } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
-import { Insignia } from '@/componentes/ui/Insignia'
+import { Insignia, type ColorInsignia } from '@/componentes/ui/Insignia'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
+import { Cargador } from '@/componentes/ui/Cargador'
 import { DireccionesContacto, type DireccionConTipo } from '../_componentes/DireccionesContacto'
 import { VinculacionesContacto } from '../_componentes/VinculacionesContacto'
 import { BannerContacto } from '../_componentes/BannerContacto'
@@ -39,6 +41,13 @@ function separarNombreApellido(nombreCompleto: string, esPersona: boolean) {
 export default function PaginaContactoDetalle() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const { setMigajaDinamica } = useNavegacion()
+
+  // Contacto de origen (cuando se navega desde una vinculación)
+  const desdeId = searchParams.get('desde')
+  const desdeNombre = searchParams.get('desde_nombre')
 
   const [nombreCompleto, setNombreCompleto] = useState('')
   const [codigo, setCodigo] = useState('')
@@ -51,6 +60,8 @@ export default function PaginaContactoDetalle() {
   const [tiposContacto, setTiposContacto] = useState<TipoContacto[]>([])
   const [tiposRelacion, setTiposRelacion] = useState<TipoRelacion[]>([])
   const [puestosVinculacion, setPuestosVinculacion] = useState<{ id: string; etiqueta: string }[]>([])
+  const [etiquetasConfig, setEtiquetasConfig] = useState<{ nombre: string; color: string }[]>([])
+  const [rubrosConfig, setRubrosConfig] = useState<{ nombre: string }[]>([])
   const [vinculaciones, setVinculaciones] = useState<unknown[]>([])
   const [vinculacionesInversas, setVinculacionesInversas] = useState<unknown[]>([])
   const [camposFiscalesPais, setCamposFiscalesPais] = useState<CampoFiscalPais[]>([])
@@ -76,20 +87,22 @@ export default function PaginaContactoDetalle() {
     [camposFiscalesPais, claveTipo, paisContacto]
   )
 
-  // Cargar tipos
+  // Cargar tipos + config
   useEffect(() => {
-    fetch('/api/contactos/tipos')
-      .then(r => r.json())
-      .then(data => {
-        if (data.tipos_contacto) setTiposContacto(data.tipos_contacto)
-        if (data.tipos_relacion) setTiposRelacion(data.tipos_relacion)
-        if (data.puestos_vinculacion) setPuestosVinculacion(data.puestos_vinculacion)
-        if (data.campos_fiscales) setCamposFiscalesPais(data.campos_fiscales)
-        if (data.paises?.length) {
-          setPaisesEmpresa(data.paises)
-          // Si hay un solo país, preseleccionarlo
-          if (data.paises.length === 1) setPaisContacto(data.paises[0])
+    Promise.all([
+      fetch('/api/contactos/tipos').then(r => r.json()),
+      fetch('/api/contactos/config').then(r => r.json()),
+    ]).then(([tipos, config]) => {
+        if (tipos.tipos_contacto) setTiposContacto(tipos.tipos_contacto)
+        if (tipos.tipos_relacion) setTiposRelacion(tipos.tipos_relacion)
+        if (tipos.puestos_vinculacion) setPuestosVinculacion(tipos.puestos_vinculacion)
+        if (tipos.campos_fiscales) setCamposFiscalesPais(tipos.campos_fiscales)
+        if (tipos.paises?.length) {
+          setPaisesEmpresa(tipos.paises)
+          if (tipos.paises.length === 1) setPaisContacto(tipos.paises[0])
         }
+        if (config.etiquetas) setEtiquetasConfig(config.etiquetas.filter((e: Record<string, unknown>) => e.activo !== false).map((e: Record<string, unknown>) => ({ nombre: e.nombre as string, color: (e.color as string) || 'neutro' })))
+        if (config.rubros) setRubrosConfig(config.rubros.filter((r: Record<string, unknown>) => r.activo !== false).map((r: Record<string, unknown>) => ({ nombre: r.nombre as string })))
       })
       .catch(() => {})
   }, [])
@@ -101,11 +114,18 @@ export default function PaginaContactoDetalle() {
       .then(r => r.json())
       .then(data => {
         if (!data.id) return
-        setNombreCompleto(combinarNombre(data.nombre || '', data.apellido))
+        const nc = combinarNombre(data.nombre || '', data.apellido)
+        setNombreCompleto(nc)
+        // Registrar migaja del contacto de origen si venimos de una vinculación
+        if (desdeId && desdeNombre) {
+          setMigajaDinamica(`/contactos/${desdeId}`, desdeNombre)
+        }
+        setMigajaDinamica(pathname, nc || data.codigo || 'Detalle')
         setCodigo(data.codigo || '')
         setTipoContactoId(data.tipo_contacto_id || '')
         setAvatarUrl(data.avatar_url || null)
         setDatosFiscales(data.datos_fiscales || {})
+        if (data.pais_fiscal) setPaisContacto(data.pais_fiscal)
         setEtiquetas(data.etiquetas || [])
         setCampos({
           titulo: data.titulo || '', correo: data.correo || '',
@@ -240,7 +260,7 @@ export default function PaginaContactoDetalle() {
   }
 
   if (cargando) {
-    return <div className="flex items-center justify-center h-full"><span className="text-texto-terciario text-sm">Cargando...</span></div>
+    return <Cargador tamano="pagina" />
   }
 
   return (
@@ -250,15 +270,8 @@ export default function PaginaContactoDetalle() {
       <div className="shrink-0 border-b border-borde-sutil">
         <div className="flex items-center justify-between px-4 sm:px-6 py-2">
           <div className="flex items-center gap-2 text-sm min-w-0">
-            <button type="button" onClick={() => router.push('/contactos')}
-              className="flex items-center gap-1 text-texto-secundario hover:text-texto-primario bg-transparent border-none cursor-pointer transition-colors shrink-0">
-              <ChevronLeft size={16} /><span>Contactos</span>
-            </button>
-            <span className="text-texto-terciario">/</span>
-            <span className="font-medium text-texto-primario truncate max-w-48">{nombreCompleto || codigo}</span>
-            {codigo && <span className="text-xs font-mono text-texto-terciario shrink-0">{codigo}</span>}
-            {guardando && <span className="text-xs text-texto-terciario animate-pulse shrink-0">Guardando...</span>}
-            {errorGuardado && <span className="text-xs text-insignia-peligro shrink-0">{errorGuardado}</span>}
+            {guardando && <span className="text-xs text-texto-terciario animate-pulse">Guardando...</span>}
+            {errorGuardado && <span className="text-xs text-insignia-peligro">{errorGuardado}</span>}
           </div>
           <button type="button" onClick={() => setModalEliminar(true)}
             className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro-fondo bg-transparent border-none cursor-pointer transition-colors shrink-0">
@@ -310,22 +323,79 @@ export default function PaginaContactoDetalle() {
             />
           </div>
 
-          {/* Contacto directo */}
-          <section className="space-y-2">
-            <Input variante="plano" tipo="email" icono={<Mail size={16} />}
-              value={campos.correo || ''} onChange={e => setCampos(p => ({ ...p, correo: e.target.value }))}
-              onBlur={() => guardarCampo('correo')} placeholder="Email" formato="email" />
-            <Input variante="plano" tipo="tel" icono={<MessageCircle size={16} />}
-              value={campos.whatsapp || ''} onChange={e => setCampos(p => ({ ...p, whatsapp: e.target.value }))}
-              onBlur={() => guardarCampo('whatsapp')} placeholder="WhatsApp" formato="telefono" />
-            <Input variante="plano" tipo="tel" icono={<Phone size={16} />}
-              value={campos.telefono || ''} onChange={e => setCampos(p => ({ ...p, telefono: e.target.value }))}
-              onBlur={() => guardarCampo('telefono')} placeholder="Teléfono" formato="telefono" />
-            {(claveTipo === 'empresa' || claveTipo === 'proveedor') && (
-              <Input variante="plano" tipo="url" icono={<Globe size={16} />}
-                value={campos.web || ''} onChange={e => setCampos(p => ({ ...p, web: e.target.value }))}
-                onBlur={() => guardarCampo('web')} placeholder="Sitio web" formato="url" />
-            )}
+          {/* Contacto directo + etiquetas/cargo en 2 columnas (60/40) */}
+          <section className="flex flex-col sm:flex-row gap-8">
+            {/* Columna izquierda (60%): datos de comunicación */}
+            <div className="flex-[3] min-w-0 space-y-2">
+              <Input variante="plano" tipo="email" icono={<Mail size={16} />}
+                value={campos.correo || ''} onChange={e => setCampos(p => ({ ...p, correo: e.target.value }))}
+                onBlur={() => guardarCampo('correo')} placeholder="Email" formato="email" />
+              <Input variante="plano" tipo="tel" icono={<MessageCircle size={16} />}
+                value={campos.whatsapp || ''} onChange={e => setCampos(p => ({ ...p, whatsapp: e.target.value }))}
+                onBlur={() => guardarCampo('whatsapp')} placeholder="WhatsApp" formato="telefono" />
+              <Input variante="plano" tipo="tel" icono={<Phone size={16} />}
+                value={campos.telefono || ''} onChange={e => setCampos(p => ({ ...p, telefono: e.target.value }))}
+                onBlur={() => guardarCampo('telefono')} placeholder="Teléfono" formato="telefono" />
+              {(claveTipo === 'empresa' || claveTipo === 'proveedor') && (
+                <Input variante="plano" tipo="url" icono={<Globe size={16} />}
+                  value={campos.web || ''} onChange={e => setCampos(p => ({ ...p, web: e.target.value }))}
+                  onBlur={() => guardarCampo('web')} placeholder="Sitio web" formato="url" />
+              )}
+            </div>
+
+            {/* Columna derecha (40%): cargo/rubro + etiquetas */}
+            <div className="flex-[2] min-w-0 space-y-3">
+              {/* Puesto (persona) — selector con puestos configurados */}
+              {esPersona && (
+                <SelectorConSugerencias
+                  etiqueta="Puesto"
+                  valor={campos.cargo || ''}
+                  opciones={puestosVinculacion.map(p => p.etiqueta)}
+                  tipoConfig="puesto"
+                  onChange={v => { setCampos(p => ({ ...p, cargo: v })); guardar({ cargo: v || null }) }}
+                  placeholder="Buscar o crear puesto..."
+                />
+              )}
+
+              {/* Rubro (empresa/proveedor) — selector con rubros configurados */}
+              {(claveTipo === 'empresa' || claveTipo === 'proveedor') && (
+                <SelectorConSugerencias
+                  etiqueta="Rubro"
+                  valor={campos.rubro || ''}
+                  opciones={rubrosConfig.map(r => r.nombre)}
+                  tipoConfig="rubro"
+                  onChange={v => { setCampos(p => ({ ...p, rubro: v })); guardar({ rubro: v || null }) }}
+                  placeholder="Buscar o crear rubro..."
+                />
+              )}
+
+              {/* Etiquetas — selector con colores */}
+              <SelectorEtiquetas
+                etiquetas={etiquetas}
+                etiquetasConfig={etiquetasConfig}
+                onAgregar={(nombre, color) => {
+                  if (etiquetas.includes(nombre)) return
+                  const nuevas = [...etiquetas, nombre]
+                  setEtiquetas(nuevas)
+                  guardar({ etiquetas: nuevas })
+                  // Si es nueva (no está en config), crearla en config
+                  if (!etiquetasConfig.some(e => e.nombre === nombre)) {
+                    fetch('/api/contactos/config', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ tipo: 'etiqueta', nombre, color }),
+                    }).then(() => {
+                      setEtiquetasConfig(prev => [...prev, { nombre, color }])
+                    })
+                  }
+                }}
+                onQuitar={nombre => {
+                  const nuevas = etiquetas.filter(e => e !== nombre)
+                  setEtiquetas(nuevas)
+                  guardar({ etiquetas: nuevas })
+                }}
+              />
+            </div>
           </section>
 
           {/* Direcciones (múltiples, con tipo) */}
@@ -358,16 +428,19 @@ export default function PaginaContactoDetalle() {
 
           {/* Grid de campos */}
           <section className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
-            {esPersona && (
-              <Fila etiqueta="Cargo">
-                <Input variante="plano" value={campos.cargo || ''} onChange={e => setCampos(p => ({ ...p, cargo: e.target.value }))}
-                  onBlur={() => guardarCampo('cargo')} placeholder="Ej: Director de ventas" formato="nombre_persona" />
-              </Fila>
-            )}
-            {(claveTipo === 'empresa' || claveTipo === 'proveedor') && (
-              <Fila etiqueta="Rubro">
-                <Input variante="plano" value={campos.rubro || ''} onChange={e => setCampos(p => ({ ...p, rubro: e.target.value }))}
-                  onBlur={() => guardarCampo('rubro')} placeholder="Ej: Construcción" formato="nombre_empresa" />
+            {/* País fiscal — solo si la empresa opera en más de un país */}
+            {paisesEmpresa.length > 1 && (
+              <Fila etiqueta="País fiscal">
+                <Select variante="plano"
+                  opciones={paisesEmpresa.map(c => {
+                    const p = PAISES_DISPONIBLES.find(pd => pd.codigo === c)
+                    return { valor: c, etiqueta: p ? `${p.bandera} ${p.nombre}` : c }
+                  })}
+                  valor={paisContacto}
+                  onChange={v => {
+                    setPaisContacto(v)
+                    guardar({ pais_fiscal: v || null })
+                  }} />
               </Fila>
             )}
             {/* Identificación — dinámico por país */}
@@ -447,31 +520,10 @@ export default function PaginaContactoDetalle() {
             vinculaciones={mapearVinculaciones(vinculaciones)}
             vinculacionesInversas={mapearVinculacionesInversas(vinculacionesInversas)}
             tiposRelacion={tiposRelacion}
+            puestosVinculacion={puestosVinculacion}
             onActualizar={recargar}
           />
 
-          {/* Etiquetas */}
-          <section>
-            <h3 className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-3">Etiquetas</h3>
-            <div className="flex items-center gap-2 flex-wrap">
-              {etiquetas.map(e => (
-                <Insignia key={e} color="neutro" removible onRemover={() => quitarEtiqueta(e)}>{e}</Insignia>
-              ))}
-              <div className="flex items-center gap-1">
-                <input type="text" value={nuevaEtiqueta}
-                  onChange={e => setNuevaEtiqueta(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); agregarEtiqueta() } }}
-                  placeholder="Agregar etiqueta..."
-                  className="bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-terciario/50 w-36" />
-                {nuevaEtiqueta.trim() && (
-                  <button type="button" onClick={agregarEtiqueta}
-                    className="text-texto-marca bg-transparent border-none cursor-pointer p-0">
-                    <Plus size={14} />
-                  </button>
-                )}
-              </div>
-            </div>
-          </section>
 
           {/* Notas */}
           <section>
@@ -566,6 +618,281 @@ function Fila({ etiqueta, children }: { etiqueta: string; children: React.ReactN
     <div className="flex items-baseline gap-3">
       <label className="text-sm text-texto-terciario w-28 shrink-0 text-right">{etiqueta}</label>
       <div className="flex-1 min-w-0">{children}</div>
+    </div>
+  )
+}
+
+// ─── Selector con sugerencias (para cargo y rubro) ───
+
+const COLORES_ETIQUETA = [
+  { valor: 'neutro', etiqueta: 'Gris' },
+  { valor: 'primario', etiqueta: 'Índigo' },
+  { valor: 'info', etiqueta: 'Azul' },
+  { valor: 'exito', etiqueta: 'Verde' },
+  { valor: 'advertencia', etiqueta: 'Ámbar' },
+  { valor: 'peligro', etiqueta: 'Rojo' },
+  { valor: 'rosa', etiqueta: 'Rosa' },
+  { valor: 'cyan', etiqueta: 'Cyan' },
+  { valor: 'violeta', etiqueta: 'Violeta' },
+  { valor: 'naranja', etiqueta: 'Naranja' },
+]
+
+function SelectorConSugerencias({
+  etiqueta,
+  valor,
+  opciones,
+  tipoConfig,
+  onChange,
+  placeholder,
+}: {
+  etiqueta: string
+  valor: string
+  opciones: string[]
+  tipoConfig?: string
+  onChange: (v: string) => void
+  placeholder: string
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const [texto, setTexto] = useState(valor)
+  const [locales, setLocales] = useState(opciones)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { setTexto(valor) }, [valor])
+  useEffect(() => { setLocales(opciones) }, [opciones])
+
+  useEffect(() => {
+    if (!abierto) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setAbierto(false)
+        if (texto !== valor) onChange(texto)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [abierto, texto, valor, onChange])
+
+  const filtradas = texto
+    ? locales.filter(o => o.toLowerCase().includes(texto.toLowerCase()) && o !== valor)
+    : locales.filter(o => o !== valor)
+
+  const existeExacto = locales.some(o => o.toLowerCase() === texto.toLowerCase().trim())
+  const mostrarCrear = texto.trim() && !existeExacto && tipoConfig
+
+  function seleccionar(v: string) {
+    onChange(v)
+    setTexto(v)
+    setAbierto(false)
+  }
+
+  function crearYSeleccionar() {
+    const nombre = texto.trim()
+    if (!nombre || !tipoConfig) return
+    fetch('/api/contactos/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tipo: tipoConfig, nombre }),
+    }).catch(() => {})
+    setLocales(prev => [...prev, nombre])
+    seleccionar(nombre)
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <label className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider mb-1 block">{etiqueta}</label>
+      <input
+        type="text"
+        value={texto}
+        onChange={e => { setTexto(e.target.value); setAbierto(true) }}
+        onFocus={() => setAbierto(true)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') {
+            if (mostrarCrear) crearYSeleccionar()
+            else { onChange(texto); setAbierto(false); (e.target as HTMLInputElement).blur() }
+          }
+          if (e.key === 'Escape') { setTexto(valor); setAbierto(false) }
+        }}
+        placeholder={placeholder}
+        className="w-full bg-transparent text-sm text-texto-primario placeholder:text-texto-terciario/50 outline-none py-1 transition-colors"
+        style={{ borderBottom: '1px solid var(--borde-sutil)' }}
+      />
+      {abierto && (filtradas.length > 0 || mostrarCrear) && (
+        <div
+          className="absolute z-20 top-full left-0 right-0 mt-1 rounded-lg border border-borde-sutil shadow-elevada max-h-40 overflow-y-auto"
+          style={{ backgroundColor: 'var(--superficie-elevada)' }}
+          onMouseDown={e => e.preventDefault()}
+        >
+          {filtradas.map(o => (
+            <button key={o} type="button"
+              onClick={() => seleccionar(o)}
+              className="w-full text-left px-3 py-1.5 text-sm text-texto-primario hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors">
+              {o}
+            </button>
+          ))}
+          {mostrarCrear && (
+            <button type="button"
+              onClick={crearYSeleccionar}
+              className="flex items-center gap-1.5 w-full text-left px-3 py-2 text-sm text-texto-marca hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors border-t border-borde-sutil">
+              <Plus size={14} />
+              Crear &quot;{texto.trim()}&quot;
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Selector de etiquetas con colores ───
+
+function SelectorEtiquetas({
+  etiquetas: asignadas,
+  etiquetasConfig,
+  onAgregar,
+  onQuitar,
+}: {
+  etiquetas: string[]
+  etiquetasConfig: { nombre: string; color: string }[]
+  onAgregar: (nombre: string, color: string) => void
+  onQuitar: (nombre: string) => void
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const [texto, setTexto] = useState('')
+  const [colorNueva, setColorNueva] = useState('neutro')
+  const [creando, setCreando] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!abierto) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setAbierto(false); setCreando(false); setTexto('')
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [abierto])
+
+  const disponibles = etiquetasConfig
+    .filter(e => !asignadas.includes(e.nombre))
+    .filter(e => !texto || e.nombre.toLowerCase().includes(texto.toLowerCase()))
+
+  const existeExacta = etiquetasConfig.some(e => e.nombre.toLowerCase() === texto.toLowerCase().trim())
+  const yaAsignada = asignadas.some(e => e.toLowerCase() === texto.toLowerCase().trim())
+  const mostrarCrear = texto.trim() && !existeExacta && !yaAsignada
+
+  function obtenerColor(nombre: string): string {
+    return etiquetasConfig.find(e => e.nombre === nombre)?.color || 'neutro'
+  }
+
+  function seleccionarExistente(nombre: string, color: string) {
+    onAgregar(nombre, color)
+    setTexto('')
+    setAbierto(false)
+    setCreando(false)
+  }
+
+  function iniciarCreacion() {
+    setCreando(true)
+  }
+
+  function confirmarCreacion() {
+    onAgregar(texto.trim(), colorNueva)
+    setTexto('')
+    setCreando(false)
+    setAbierto(false)
+    setColorNueva('neutro')
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <label className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider mb-1.5 block">Etiquetas</label>
+
+      {/* Etiquetas asignadas */}
+      <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+        {asignadas.map(e => (
+          <Insignia key={e} color={obtenerColor(e) as ColorInsignia} removible onRemover={() => onQuitar(e)}>{e}</Insignia>
+        ))}
+      </div>
+
+      {/* Input para buscar/crear */}
+      <input
+        type="text"
+        value={texto}
+        onChange={e => { setTexto(e.target.value); setAbierto(true); setCreando(false) }}
+        onFocus={() => setAbierto(true)}
+        onKeyDown={e => {
+          if (e.key === 'Enter' && texto.trim()) {
+            // Si existe exacta, agregarla; si no, iniciar creación
+            const existente = etiquetasConfig.find(et => et.nombre.toLowerCase() === texto.toLowerCase().trim())
+            if (existente && !asignadas.includes(existente.nombre)) {
+              seleccionarExistente(existente.nombre, existente.color)
+            } else if (!yaAsignada) {
+              iniciarCreacion()
+            }
+          }
+          if (e.key === 'Escape') { setAbierto(false); setCreando(false); setTexto('') }
+        }}
+        placeholder="+ Agregar etiqueta"
+        className="w-full bg-transparent text-xs text-texto-primario placeholder:text-texto-terciario/50 outline-none py-1 transition-colors"
+        style={{ borderBottom: '1px solid var(--borde-sutil)' }}
+      />
+
+      {/* Dropdown */}
+      {abierto && (disponibles.length > 0 || mostrarCrear || creando) && (
+        <div
+          className="absolute z-20 top-full left-0 right-0 mt-1 rounded-lg border border-borde-sutil shadow-elevada max-h-48 overflow-y-auto"
+          style={{ backgroundColor: 'var(--superficie-elevada)' }}
+          onMouseDown={e => e.preventDefault()}
+        >
+          {/* Etiquetas existentes disponibles */}
+          {!creando && disponibles.map(e => (
+            <button key={e.nombre} type="button"
+              onClick={() => seleccionarExistente(e.nombre, e.color)}
+              className="flex items-center gap-2 w-full text-left px-3 py-1.5 text-sm hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors">
+              <span className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: `var(--insignia-${e.color})` }} />
+              <span className="text-texto-primario">{e.nombre}</span>
+            </button>
+          ))}
+
+          {/* Botón crear nueva */}
+          {mostrarCrear && !creando && (
+            <button type="button"
+              onClick={iniciarCreacion}
+              className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-texto-marca hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors border-t border-borde-sutil">
+              <Plus size={14} />
+              Crear &quot;{texto.trim()}&quot;
+            </button>
+          )}
+
+          {/* Selector de color para nueva etiqueta */}
+          {creando && (
+            <div className="p-3 space-y-2.5">
+              <div className="text-xs text-texto-secundario font-medium">Elegí un color para &quot;{texto.trim()}&quot;</div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {COLORES_ETIQUETA.map(c => (
+                  <button key={c.valor} type="button"
+                    onClick={() => setColorNueva(c.valor)}
+                    className={`size-7 rounded-full border-2 transition-all cursor-pointer ${colorNueva === c.valor ? 'border-texto-marca scale-110 ring-2 ring-texto-marca/30' : 'border-transparent hover:scale-105'}`}
+                    style={{ backgroundColor: `var(--insignia-${c.valor})` }}
+                  />
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setCreando(false)}
+                  className="flex-1 px-3 py-1.5 rounded-md text-sm text-texto-secundario border border-borde-sutil bg-transparent cursor-pointer hover:bg-superficie-hover transition-colors">
+                  Cancelar
+                </button>
+                <button type="button" onClick={confirmarCreacion}
+                  className="flex-1 px-3 py-1.5 rounded-md text-sm font-medium text-white border-none cursor-pointer transition-colors"
+                  style={{ backgroundColor: 'var(--texto-marca)' }}>
+                  Crear
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

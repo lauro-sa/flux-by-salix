@@ -185,8 +185,13 @@ export async function PATCH(
 }
 
 /**
- * DELETE /api/presupuestos/[id] — Eliminar presupuesto definitivamente.
- * Solo si está en papelera.
+ * DELETE /api/presupuestos/[id] — Descartar presupuesto.
+ *
+ * Lógica inteligente:
+ * - Si es el ÚLTIMO presupuesto (no hay ninguno con número mayor) →
+ *   eliminar definitivamente + retroceder el contador secuencial.
+ * - Si hay presupuestos con número mayor → no se puede eliminar,
+ *   se marca como cancelado (respuesta con accion: 'cancelado').
  */
 export async function DELETE(
   _request: NextRequest,
@@ -203,10 +208,10 @@ export async function DELETE(
 
     const admin = crearClienteAdmin()
 
-    // Verificar que está en papelera
+    // Obtener el presupuesto
     const { data: presupuesto } = await admin
       .from('presupuestos')
-      .select('id, en_papelera')
+      .select('id, numero, empresa_id')
       .eq('id', id)
       .eq('empresa_id', empresaId)
       .single()
@@ -215,11 +220,60 @@ export async function DELETE(
       return NextResponse.json({ error: 'Presupuesto no encontrado' }, { status: 404 })
     }
 
-    if (!presupuesto.en_papelera) {
-      return NextResponse.json({ error: 'El presupuesto debe estar en papelera para eliminarlo definitivamente' }, { status: 400 })
+    // Verificar si hay presupuestos con número mayor (creados después)
+    const { count: posteriores } = await admin
+      .from('presupuestos')
+      .select('id', { count: 'exact', head: true })
+      .eq('empresa_id', empresaId)
+      .gt('creado_en', (await admin.from('presupuestos').select('creado_en').eq('id', id).single()).data?.creado_en || '')
+      .eq('en_papelera', false)
+
+    if (posteriores && posteriores > 0) {
+      // Hay presupuestos posteriores → cancelar en vez de eliminar
+      await admin
+        .from('presupuestos')
+        .update({ estado: 'cancelado' })
+        .eq('id', id)
+        .eq('empresa_id', empresaId)
+
+      // Registrar en historial
+      await admin.from('presupuesto_historial').insert({
+        presupuesto_id: id,
+        empresa_id: empresaId,
+        estado: 'cancelado',
+        cambiado_por: user.id,
+      })
+
+      return NextResponse.json({
+        ok: true,
+        accion: 'cancelado',
+        mensaje: 'El presupuesto fue cancelado porque hay presupuestos posteriores.',
+      })
     }
 
-    // Eliminar (cascade borra líneas, historial, cuotas)
+    // Es el último → eliminar definitivamente + retroceder contador
+    // Extraer el número secuencial del presupuesto (ej: "P-0005" → 5)
+    const match = presupuesto.numero?.match(/(\d+)$/)
+    if (match) {
+      const numActual = parseInt(match[1], 10)
+      // Solo retroceder si coincide con siguiente - 1
+      const { data: secuencia } = await admin
+        .from('secuencias')
+        .select('siguiente')
+        .eq('empresa_id', empresaId)
+        .eq('entidad', 'presupuesto')
+        .single()
+
+      if (secuencia && secuencia.siguiente === numActual + 1) {
+        await admin
+          .from('secuencias')
+          .update({ siguiente: numActual })
+          .eq('empresa_id', empresaId)
+          .eq('entidad', 'presupuesto')
+      }
+    }
+
+    // Eliminar definitivamente (cascade borra líneas, historial, cuotas)
     const { error } = await admin
       .from('presupuestos')
       .delete()
@@ -231,7 +285,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Error al eliminar' }, { status: 500 })
     }
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, accion: 'eliminado' })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }

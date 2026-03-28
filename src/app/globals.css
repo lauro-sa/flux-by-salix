@@ -450,3 +450,52 @@ a:hover { text-decoration: none; }
   0%, 100% { box-shadow: 0 0 0 1px rgba(var(--insignia-advertencia-rgb, 245,158,11), 0.25); }
   50% { box-shadow: 0 0 0 1px rgba(var(--insignia-advertencia-rgb, 245,158,11), 0.15); }
 }
+
+/* ============================================
+   TipTap Editor — Estilos para EditorTexto
+   ============================================ */
+
+/* Placeholder del editor */
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--texto-terciario);
+  pointer-events: none;
+  height: 0;
+}
+
+/* Contenido del editor — tipografía y espaciado */
+.tiptap {
+  outline: none;
+  line-height: 1.6;
+}
+.tiptap p { margin: 0.25em 0; }
+.tiptap h1 { font-size: var(--texto-xl); font-weight: 700; margin: 0.5em 0 0.25em; line-height: 1.3; }
+.tiptap h2 { font-size: var(--texto-lg); font-weight: 600; margin: 0.4em 0 0.2em; line-height: 1.3; }
+.tiptap h3 { font-size: var(--texto-md); font-weight: 600; margin: 0.3em 0 0.15em; line-height: 1.4; }
+.tiptap ul, .tiptap ol { padding-left: 1.5em; margin: 0.25em 0; }
+.tiptap ul { list-style-type: disc; }
+.tiptap ol { list-style-type: decimal; }
+.tiptap li { margin: 0.1em 0; }
+.tiptap a { color: var(--texto-marca); text-decoration: underline; cursor: pointer; }
+.tiptap a:hover { opacity: 0.8; }
+.tiptap mark { border-radius: 2px; padding: 0 2px; }
+.tiptap blockquote {
+  border-left: 3px solid var(--borde-fuerte);
+  padding-left: 1em;
+  margin: 0.5em 0;
+  color: var(--texto-secundario);
+}
+.tiptap hr {
+  border: none;
+  border-top: 1px solid var(--borde-sutil);
+  margin: 0.75em 0;
+}
+.tiptap span[style*="font-size: 12px"] { font-size: 12px; color: var(--texto-secundario); }
+.tiptap code {
+  background-color: var(--superficie-hover);
+  border-radius: 3px;
+  padding: 0.15em 0.3em;
+  font-size: 0.9em;
+  font-family: var(--fuente-mono);
+}

@@ -281,6 +281,7 @@ export default function PaginaNuevoContacto() {
         web: datos.web || null,
         cargo: datos.cargo || null,
         rubro: datos.rubro || null,
+        pais_fiscal: paisContacto || null,
         tipo_identificacion: datos.tipo_identificacion || null,
         numero_identificacion: datos.numero_identificacion || null,
         datos_fiscales: datos.datos_fiscales,
@@ -343,13 +344,7 @@ export default function PaginaNuevoContacto() {
 
       {/* ═══ CABECERO ═══ */}
       <div className="shrink-0 border-b border-borde-sutil">
-        <div className="flex items-center gap-2 px-4 sm:px-6 py-2 text-sm">
-          <button type="button" onClick={() => router.push('/contactos')}
-            className="flex items-center gap-1 text-texto-secundario hover:text-texto-primario bg-transparent border-none cursor-pointer transition-colors">
-            <ChevronLeft size={16} /><span>Contactos</span>
-          </button>
-          <span className="text-texto-terciario">/</span>
-          <span className="font-medium text-texto-primario">Nuevo contacto</span>
+        <div className="px-4 sm:px-6 py-2">
         </div>
 
         {/* Selector de tipo como pills (solo en creación) */}

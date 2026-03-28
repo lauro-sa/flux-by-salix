@@ -131,7 +131,7 @@ export async function PATCH(
       'moneda', 'idioma', 'zona_horaria', 'limite_credito',
       'plazo_pago_cliente', 'plazo_pago_proveedor',
       'rank_cliente', 'rank_proveedor',
-      'tipo_identificacion', 'numero_identificacion', 'datos_fiscales',
+      'pais_fiscal', 'tipo_identificacion', 'numero_identificacion', 'datos_fiscales',
       'etiquetas', 'notas',
       'activo', 'en_papelera', 'es_provisorio',
     ]

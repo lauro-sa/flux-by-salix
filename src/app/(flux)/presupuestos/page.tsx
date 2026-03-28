@@ -7,7 +7,7 @@ import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import {
   Plus, FileText, User, Hash, Calendar, DollarSign, Tag,
-  Clock, CircleDot, FilePen,
+  Clock, CircleDot, FilePen, Trash2,
 } from 'lucide-react'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Boton } from '@/componentes/ui/Boton'
@@ -61,6 +61,25 @@ export default function PaginaPresupuestos() {
 
   const busquedaRef = useRef(busqueda)
   busquedaRef.current = busqueda
+
+  // Enviar a papelera en lote
+  const enviarAPapeleraLote = useCallback(async (ids: Set<string>) => {
+    try {
+      await Promise.all(
+        Array.from(ids).map(id =>
+          fetch(`/api/presupuestos/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ en_papelera: true }),
+          })
+        )
+      )
+      setPresupuestos(prev => prev.filter(p => !ids.has(p.id)))
+      setTotal(prev => prev - ids.size)
+    } catch (err) {
+      console.error('Error al enviar a papelera:', err)
+    }
+  }, [])
 
   // Fetch de presupuestos
   const fetchPresupuestos = useCallback(async (p: number) => {
@@ -258,6 +277,15 @@ export default function PaginaPresupuestos() {
         onCambiarPagina={setPagina}
         vistas={['lista']}
         seleccionables
+        accionesLote={[
+          {
+            id: 'papelera',
+            etiqueta: 'Eliminar',
+            icono: <Trash2 size={14} />,
+            onClick: enviarAPapeleraLote,
+            peligro: true,
+          },
+        ]}
         busqueda={busqueda}
         onBusqueda={setBusqueda}
         placeholder="Buscar presupuestos..."

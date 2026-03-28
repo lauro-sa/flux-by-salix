@@ -85,8 +85,6 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
     font-weight: 700;
     color: {color_primario};
     margin-bottom: 14px;
-    padding-bottom: 8px;
-    border-bottom: 2px solid {color_primario_25};
   }
 
   /* ── Info documento + cliente ── */

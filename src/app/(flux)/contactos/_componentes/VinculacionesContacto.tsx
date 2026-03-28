@@ -13,6 +13,7 @@ import { Select } from '@/componentes/ui/Select'
 import { Modal } from '@/componentes/ui/Modal'
 import { Boton } from '@/componentes/ui/Boton'
 import { COLOR_TIPO_CONTACTO } from '@/lib/colores_entidad'
+import { CargadorInline } from '@/componentes/ui/Cargador'
 
 // ─── Tipos ───
 
@@ -55,20 +56,20 @@ interface TipoRelacion {
   etiqueta_inversa: string
 }
 
+interface PuestoVinculacion {
+  id: string
+  etiqueta: string
+}
+
 interface Props {
   contactoId: string
   nombreContacto?: string
   vinculaciones: VinculoUI[]
   vinculacionesInversas: VinculoUI[]
   tiposRelacion: TipoRelacion[]
+  puestosVinculacion?: PuestoVinculacion[]
   onActualizar: () => void
 }
-
-// Puestos predefinidos para sugerir
-const PUESTOS_SUGERIDOS = [
-  'Encargado', 'Propietario', 'Administrador', 'Técnico', 'Inquilino',
-  'Empleado', 'Gerente', 'Director', 'Mantenimiento', 'Socio', 'Otro',
-]
 
 // Tipos de contacto que pueden tener hijos (contenedores)
 const TIPOS_CONTENEDOR = ['empresa', 'edificio', 'proveedor']
@@ -91,8 +92,13 @@ export function VinculacionesContacto({
   vinculaciones,
   vinculacionesInversas,
   tiposRelacion,
+  puestosVinculacion = [],
   onActualizar,
 }: Props) {
+  // Puestos sugeridos: usar los de la BD, o fallback hardcodeado
+  const puestosSugeridos = puestosVinculacion.length > 0
+    ? puestosVinculacion.map(p => p.etiqueta)
+    : ['Encargado', 'Propietario', 'Administrador', 'Técnico', 'Inquilino', 'Empleado', 'Gerente', 'Director']
   // ─── Estado del modal de vincular ───
   const [modalVincular, setModalVincular] = useState(false)
   const [busqueda, setBusqueda] = useState('')
@@ -127,6 +133,7 @@ export function VinculacionesContacto({
   const [crearCorreo, setCrearCorreo] = useState('')
   const [crearTelefono, setCrearTelefono] = useState('')
   const [crearPuesto, setCrearPuesto] = useState('')
+  const [crearBidireccional, setCrearBidireccional] = useState(false)
   const [creando, setCreando] = useState(false)
 
   // ─── Recientes (se cargan al abrir el modal sin buscar) ───
@@ -323,9 +330,19 @@ export function VinculacionesContacto({
         }),
       })
       const data = await res.json()
+      if (!res.ok) {
+        console.error('Error al crear contacto:', data)
+        // Si es duplicado, mostrar alerta
+        if (data.error === 'duplicado') {
+          alert(data.mensaje || 'Ya existe un contacto con esos datos')
+        } else {
+          alert(data.error || 'Error al crear contacto')
+        }
+        return
+      }
       if (!data.id) throw new Error('No se pudo crear')
 
-      // Vincularlo
+      // Vincularlo A → B
       await fetch('/api/contactos/vinculaciones', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -337,11 +354,25 @@ export function VinculacionesContacto({
         }),
       })
 
+      // Si es bidireccional, crear también B → A
+      if (crearBidireccional) {
+        await fetch('/api/contactos/vinculaciones', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contacto_id: data.id,
+            vinculado_id: contactoId,
+            puesto: null,
+            recibe_documentos: false,
+          }),
+        })
+      }
+
       cerrarModalVincular()
       onActualizar()
     } catch { /* silenciar */ }
     finally { setCreando(false) }
-  }, [crearNombre, crearTipoClave, crearCorreo, crearTelefono, crearPuesto, contactoId, creando, onActualizar])
+  }, [crearNombre, crearTipoClave, crearCorreo, crearTelefono, crearPuesto, crearBidireccional, contactoId, creando, onActualizar])
 
   // ═══════════════════════════════════════════════════════════════
   // HELPERS
@@ -364,6 +395,7 @@ export function VinculacionesContacto({
     setCrearCorreo('')
     setCrearTelefono('')
     setCrearPuesto('')
+    setCrearBidireccional(false)
   }
 
   /** Abrir modal de edición rápida con los datos de un vínculo */
@@ -453,6 +485,8 @@ export function VinculacionesContacto({
                     editable
                     onDesvincular={() => desvincular(v.vinculado_id)}
                     onClick={() => abrirEdicion(v)}
+                    origenId={contactoId}
+                    origenNombre={nombreContacto}
                   />
                 ))}
               </div>
@@ -477,7 +511,7 @@ export function VinculacionesContacto({
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {vinculacionesInversas.map(v => (
-                  <TarjetaVinculo key={v.id} vinculo={v} editable={false} />
+                  <TarjetaVinculo key={v.id} vinculo={v} editable={false} origenId={contactoId} origenNombre={nombreContacto} />
                 ))}
               </div>
             </div>
@@ -502,19 +536,27 @@ export function VinculacionesContacto({
           {/* ═══ MODO CREAR: formulario inline dentro del mismo modal ═══ */}
           {modoCrear ? (
             <>
-              <Select
-                etiqueta="Tipo de contacto"
-                opciones={TIPOS_CONTACTO_CREAR.map(t => ({ valor: t.clave, etiqueta: t.etiqueta }))}
-                valor={crearTipoClave}
-                onChange={setCrearTipoClave}
-              />
+              <div className="grid grid-cols-2 gap-3">
+                <Select
+                  etiqueta="Tipo de contacto"
+                  opciones={TIPOS_CONTACTO_CREAR.map(t => ({ valor: t.clave, etiqueta: t.etiqueta }))}
+                  valor={crearTipoClave}
+                  onChange={setCrearTipoClave}
+                />
+                <Input
+                  etiqueta="Nombre"
+                  value={crearNombre}
+                  onChange={e => setCrearNombre(e.target.value)}
+                  formato={crearTipoClave === 'persona' ? 'nombre_persona' : 'nombre_empresa'}
+                  autoFocus
+                />
+              </div>
 
-              <Input
-                etiqueta="Nombre"
-                value={crearNombre}
-                onChange={e => setCrearNombre(e.target.value)}
-                formato={crearTipoClave === 'persona' ? 'nombre_persona' : 'nombre_empresa'}
-                autoFocus
+              {/* ── Puesto / Rol — prominente, justo después del nombre ── */}
+              <SelectorPuesto
+                valor={crearPuesto}
+                onChange={setCrearPuesto}
+                puestos={puestosSugeridos}
               />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -534,25 +576,23 @@ export function VinculacionesContacto({
                 />
               </div>
 
-              <div>
-                <label className="text-sm font-medium text-texto-secundario mb-1 block">Puesto / Rol</label>
-                <Input
-                  value={crearPuesto}
-                  onChange={e => setCrearPuesto(e.target.value)}
-                  placeholder="Ej: Encargado, Técnico..."
-                  formato="nombre_persona"
-                />
-                <div className="flex items-center gap-1 flex-wrap mt-1.5">
-                  {PUESTOS_SUGERIDOS.slice(0, 6).map(p => (
-                    <button key={p} type="button" onClick={() => setCrearPuesto(p)}
-                      className={`px-2 py-0.5 text-xs rounded-md border transition-colors cursor-pointer ${crearPuesto === p ? 'bg-superficie-seleccionada text-texto-marca border-transparent' : 'bg-transparent text-texto-terciario border-borde-sutil hover:text-texto-secundario'}`}>
-                      {p}
-                    </button>
-                  ))}
-                </div>
+              {/* Opciones */}
+              <div className="rounded-lg border border-borde-sutil p-3 space-y-2">
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input type="checkbox" checked={crearBidireccional} onChange={e => setCrearBidireccional(e.target.checked)}
+                    className="rounded size-4 accent-texto-marca" />
+                  <div>
+                    <span className="text-sm text-texto-primario font-medium">Vincular en ambas direcciones</span>
+                    <p className="text-[11px] text-texto-terciario mt-0.5">
+                      {crearBidireccional
+                        ? 'Ambos contactos se verán mutuamente en sus relaciones.'
+                        : 'Solo este contacto verá el vínculo.'}
+                    </p>
+                  </div>
+                </label>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-1">
                 <Boton variante="fantasma" onClick={() => setModoCrear(false)}>Volver</Boton>
                 <Boton variante="primario" onClick={crearYVincular} cargando={creando} disabled={!crearNombre.trim()}>
                   Crear y vincular
@@ -577,36 +617,20 @@ export function VinculacionesContacto({
                 </button>
               </div>
 
-              {tiposRelacion.length > 0 && (
-                <Select
-                  etiqueta="Tipo de relación"
-                  opciones={[
-                    { valor: '', etiqueta: 'Sin especificar' },
-                    ...tiposRelacion.map(t => ({ valor: t.id, etiqueta: t.etiqueta })),
-                  ]}
-                  valor={tipoRelacionId}
-                  onChange={setTipoRelacionId}
-                />
-              )}
+              {/* ── Puesto / Rol — prominente, justo después del contacto ── */}
+              <SelectorPuesto
+                valor={puesto}
+                onChange={setPuesto}
+                puestos={puestosSugeridos}
+              />
 
-              <div>
-                <label className="text-sm font-medium text-texto-secundario mb-1 block">Puesto / Rol</label>
-                <Input
-                  value={puesto}
-                  onChange={e => setPuesto(e.target.value)}
-                  placeholder="Ej: Encargado, Técnico, Gerente..."
-                  formato="nombre_persona"
-                />
-                <div className="flex items-center gap-1 flex-wrap mt-1.5">
-                  {PUESTOS_SUGERIDOS.slice(0, 6).map(p => (
-                    <button key={p} type="button" onClick={() => setPuesto(p)}
-                      className={`px-2 py-0.5 text-xs rounded-md border transition-colors cursor-pointer ${puesto === p ? 'bg-superficie-seleccionada text-texto-marca border-transparent' : 'bg-transparent text-texto-terciario border-borde-sutil hover:text-texto-secundario'}`}>
-                      {p}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <SelectorRelacion
+                valor={tipoRelacionId}
+                onChange={setTipoRelacionId}
+                tiposRelacion={tiposRelacion}
+              />
 
+              {/* Opciones */}
               <div className="space-y-2.5 rounded-lg border border-borde-sutil p-3">
                 <label className="flex items-center gap-2.5 cursor-pointer">
                   <input type="checkbox" checked={bidireccional} onChange={e => setBidireccional(e.target.checked)}
@@ -616,7 +640,7 @@ export function VinculacionesContacto({
                     <p className="text-[11px] text-texto-terciario mt-0.5">
                       {bidireccional
                         ? 'Ambos contactos se verán mutuamente en sus relaciones.'
-                        : 'Solo este contacto verá el vínculo. El otro lo verá en "Vinculado en" (solo lectura).'}
+                        : 'Solo este contacto verá el vínculo.'}
                     </p>
                   </div>
                 </label>
@@ -627,7 +651,7 @@ export function VinculacionesContacto({
                 </label>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-1">
                 <Boton variante="fantasma" onClick={() => { setSeleccionado(null); setBusqueda('') }}>Cancelar</Boton>
                 <Boton variante="primario" onClick={vincular} cargando={vinculando}>Vincular</Boton>
               </div>
@@ -658,14 +682,14 @@ export function VinculacionesContacto({
 
               <div className="max-h-72 overflow-y-auto space-y-0.5">
                 {buscando && (
-                  <div className="text-sm text-texto-terciario text-center py-4">Buscando...</div>
+                  <div className="flex justify-center py-4"><CargadorInline /></div>
                 )}
 
                 {/* Sin búsqueda activa: mostrar recientes */}
                 {!buscando && busqueda.length < 2 && (
                   <>
                     {cargandoRecientes && (
-                      <div className="text-sm text-texto-terciario text-center py-4">Cargando...</div>
+                      <div className="flex justify-center py-4"><CargadorInline /></div>
                     )}
                     {!cargandoRecientes && recientes.length > 0 && (
                       <>
@@ -822,23 +846,12 @@ export function VinculacionesContacto({
 
             {/* Campos de la vinculación */}
             <div className="border-t border-borde-sutil pt-3 space-y-3">
-              <div>
-                <label className="text-sm font-medium text-texto-secundario mb-1 block">Puesto / Rol en este contacto</label>
-                <Input
-                  value={edicionPuesto}
-                  onChange={e => setEdicionPuesto(e.target.value)}
-                  placeholder="Ej: Encargado, Técnico..."
-                  formato="nombre_persona"
-                />
-                <div className="flex items-center gap-1 flex-wrap mt-1.5">
-                  {PUESTOS_SUGERIDOS.slice(0, 6).map(p => (
-                    <button key={p} type="button" onClick={() => setEdicionPuesto(p)}
-                      className={`px-2 py-0.5 text-xs rounded-md border transition-colors cursor-pointer ${edicionPuesto === p ? 'bg-superficie-seleccionada text-texto-marca border-transparent' : 'bg-transparent text-texto-terciario border-borde-sutil hover:text-texto-secundario'}`}>
-                      {p}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <SelectorPuesto
+                valor={edicionPuesto}
+                onChange={setEdicionPuesto}
+                puestos={puestosSugeridos}
+                etiqueta="Puesto / Rol en este contacto"
+              />
 
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={edicionRecibeDoc} onChange={e => setEdicionRecibeDoc(e.target.checked)}
@@ -866,6 +879,284 @@ export function VinculacionesContacto({
 // ═══════════════════════════════════════════════════════════════
 // SUBCOMPONENTES
 // ═══════════════════════════════════════════════════════════════
+
+/**
+ * SelectorPuesto — Selector dropdown de puesto/rol.
+ * Muestra puestos configurados, filtra al escribir, y permite crear nuevos
+ * que se guardan en la tabla puestos_contacto via /api/contactos/config.
+ */
+function SelectorPuesto({
+  valor,
+  onChange,
+  puestos,
+  etiqueta = 'Puesto / Rol',
+}: {
+  valor: string
+  onChange: (v: string) => void
+  puestos: string[]
+  etiqueta?: string
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const [texto, setTexto] = useState(valor)
+  const [puestosLocales, setPuestosLocales] = useState(puestos)
+  const ref = useRef<HTMLDivElement>(null)
+
+  // Sincronizar puestos externos
+  useEffect(() => { setPuestosLocales(puestos) }, [puestos])
+  useEffect(() => { setTexto(valor) }, [valor])
+
+  // Cerrar al click fuera
+  useEffect(() => {
+    if (!abierto) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setAbierto(false)
+        if (texto !== valor) onChange(texto)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [abierto, texto, valor, onChange])
+
+  const filtrados = texto
+    ? puestosLocales.filter(p => p.toLowerCase().includes(texto.toLowerCase()) && p !== valor)
+    : puestosLocales.filter(p => p !== valor)
+
+  const existeExacto = puestosLocales.some(p => p.toLowerCase() === texto.toLowerCase().trim())
+  const mostrarCrear = texto.trim() && !existeExacto
+
+  function seleccionar(p: string) {
+    onChange(p)
+    setTexto(p)
+    setAbierto(false)
+  }
+
+  function crearYSeleccionar() {
+    const nombre = texto.trim()
+    if (!nombre) return
+    // Guardar en config
+    fetch('/api/contactos/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tipo: 'puesto', nombre }),
+    }).catch(() => {})
+    // Agregar localmente para que aparezca inmediatamente
+    setPuestosLocales(prev => [...prev, nombre])
+    seleccionar(nombre)
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <label className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-1 block">{etiqueta}</label>
+      <input
+        type="text"
+        value={texto}
+        onChange={e => { setTexto(e.target.value); setAbierto(true) }}
+        onFocus={() => setAbierto(true)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') {
+            if (mostrarCrear) crearYSeleccionar()
+            else { onChange(texto); setAbierto(false) }
+          }
+          if (e.key === 'Escape') { setTexto(valor); setAbierto(false) }
+        }}
+        placeholder="Buscar o crear puesto..."
+        className="w-full bg-transparent text-sm text-texto-primario placeholder:text-texto-terciario/50 outline-none py-1.5 transition-colors"
+        style={{ borderBottom: '1px solid var(--borde-sutil)' }}
+      />
+
+      {abierto && (filtrados.length > 0 || mostrarCrear) && (
+        <div
+          className="absolute z-20 top-full left-0 right-0 mt-1 rounded-lg border border-borde-sutil shadow-elevada max-h-44 overflow-y-auto"
+          style={{ backgroundColor: 'var(--superficie-elevada)' }}
+          onMouseDown={e => e.preventDefault()}
+        >
+          {filtrados.map(p => (
+            <button key={p} type="button"
+              onClick={() => seleccionar(p)}
+              className="w-full text-left px-3 py-1.5 text-sm text-texto-primario hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors">
+              {p}
+            </button>
+          ))}
+          {mostrarCrear && (
+            <button type="button"
+              onClick={crearYSeleccionar}
+              className="flex items-center gap-1.5 w-full text-left px-3 py-2 text-sm text-texto-marca hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors border-t border-borde-sutil">
+              <Plus size={14} />
+              Crear &quot;{texto.trim()}&quot;
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Valor seleccionado como pill (si hay) */}
+      {valor && !abierto && (
+        <div className="flex items-center gap-1 mt-1.5">
+          <span className="px-2.5 py-0.5 text-xs rounded-md font-medium text-white" style={{ backgroundColor: 'var(--texto-marca)' }}>
+            {valor}
+          </span>
+          <button type="button" onClick={() => { onChange(''); setTexto('') }}
+            className="text-texto-terciario hover:text-texto-primario bg-transparent border-none cursor-pointer p-0.5">
+            <X size={12} />
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * SelectorRelacion — Selector dropdown de tipo de relación.
+ * Muestra los tipos configurados, filtra al escribir, permite crear nuevos
+ * que se guardan en tipos_relacion via /api/contactos/config.
+ */
+function SelectorRelacion({
+  valor,
+  onChange,
+  tiposRelacion,
+}: {
+  valor: string
+  onChange: (v: string) => void
+  tiposRelacion: TipoRelacion[]
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const [texto, setTexto] = useState('')
+  const [locales, setLocales] = useState(tiposRelacion)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { setLocales(tiposRelacion) }, [tiposRelacion])
+
+  // Sincronizar texto con el valor seleccionado
+  useEffect(() => {
+    const sel = locales.find(t => t.id === valor)
+    setTexto(sel ? sel.etiqueta : '')
+  }, [valor, locales])
+
+  useEffect(() => {
+    if (!abierto) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setAbierto(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [abierto])
+
+  const filtrados = texto
+    ? locales.filter(t => t.etiqueta.toLowerCase().includes(texto.toLowerCase()))
+    : locales
+
+  const existeExacto = locales.some(t => t.etiqueta.toLowerCase() === texto.toLowerCase().trim())
+  const mostrarCrear = texto.trim() && !existeExacto
+
+  function seleccionar(id: string) {
+    onChange(id)
+    setAbierto(false)
+  }
+
+  function limpiar() {
+    onChange('')
+    setTexto('')
+  }
+
+  async function crearYSeleccionar() {
+    const nombre = texto.trim()
+    if (!nombre) return
+    try {
+      const res = await fetch('/api/contactos/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tipo: 'relacion',
+          nombre,
+          etiqueta_inversa: nombre,
+        }),
+      })
+      const data = await res.json()
+      if (data.id) {
+        const nuevo: TipoRelacion = {
+          id: data.id,
+          clave: nombre.toLowerCase().replace(/\s+/g, '_'),
+          etiqueta: nombre,
+          etiqueta_inversa: nombre,
+        }
+        setLocales(prev => [...prev, nuevo])
+        seleccionar(data.id)
+      }
+    } catch { /* silenciar */ }
+  }
+
+  const seleccionado = locales.find(t => t.id === valor)
+
+  return (
+    <div ref={ref} className="relative">
+      <label className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-1 block">Tipo de relación</label>
+      <input
+        type="text"
+        value={texto}
+        onChange={e => { setTexto(e.target.value); setAbierto(true) }}
+        onFocus={() => { setAbierto(true); if (seleccionado) setTexto('') }}
+        onBlur={() => {
+          // Restaurar texto si no se eligió nada
+          if (!texto.trim() && seleccionado) {
+            setTimeout(() => setTexto(seleccionado.etiqueta), 100)
+          }
+        }}
+        onKeyDown={e => {
+          if (e.key === 'Enter' && mostrarCrear) crearYSeleccionar()
+          if (e.key === 'Escape') { setAbierto(false); setTexto(seleccionado?.etiqueta || '') }
+        }}
+        placeholder="Buscar o crear relación..."
+        className="w-full bg-transparent text-sm text-texto-primario placeholder:text-texto-terciario/50 outline-none py-1.5 transition-colors"
+        style={{ borderBottom: '1px solid var(--borde-sutil)' }}
+      />
+
+      {abierto && (filtrados.length > 0 || mostrarCrear) && (
+        <div
+          className="absolute z-20 top-full left-0 right-0 mt-1 rounded-lg border border-borde-sutil shadow-elevada max-h-44 overflow-y-auto"
+          style={{ backgroundColor: 'var(--superficie-elevada)' }}
+          onMouseDown={e => e.preventDefault()}
+        >
+          {/* Opción para limpiar */}
+          {valor && (
+            <button type="button"
+              onClick={limpiar}
+              className="w-full text-left px-3 py-1.5 text-sm text-texto-terciario hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors italic">
+              Sin especificar
+            </button>
+          )}
+          {filtrados.map(t => (
+            <button key={t.id} type="button"
+              onClick={() => seleccionar(t.id)}
+              className={`w-full text-left px-3 py-1.5 text-sm hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors ${t.id === valor ? 'text-texto-marca font-medium' : 'text-texto-primario'}`}>
+              {t.etiqueta}
+            </button>
+          ))}
+          {mostrarCrear && (
+            <button type="button"
+              onClick={crearYSeleccionar}
+              className="flex items-center gap-1.5 w-full text-left px-3 py-2 text-sm text-texto-marca hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors border-t border-borde-sutil">
+              <Plus size={14} />
+              Crear &quot;{texto.trim()}&quot;
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Pill del valor seleccionado */}
+      {seleccionado && !abierto && (
+        <div className="flex items-center gap-1 mt-1.5">
+          <span className="px-2.5 py-0.5 text-xs rounded-md font-medium border border-borde-sutil text-texto-primario">
+            {seleccionado.etiqueta}
+          </span>
+          <button type="button" onClick={limpiar}
+            className="text-texto-terciario hover:text-texto-primario bg-transparent border-none cursor-pointer p-0.5">
+            <X size={12} />
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 /** Fila de resultado en el buscador jerárquico */
 function FilaBusqueda({
@@ -913,11 +1204,15 @@ function TarjetaVinculo({
   onDesvincular,
   onClick,
   editable = false,
+  origenId,
+  origenNombre,
 }: {
   vinculo: VinculoUI
   onDesvincular?: () => void
   onClick?: () => void
   editable?: boolean
+  origenId?: string
+  origenNombre?: string
 }) {
   const nombre = [vinculo.nombre, vinculo.apellido].filter(Boolean).join(' ')
   const color = (COLOR_TIPO_CONTACTO[vinculo.tipo_clave] || 'neutro') as ColorInsignia
@@ -959,21 +1254,33 @@ function TarjetaVinculo({
         </div>
       </div>
 
-      {/* Datos de contacto en columna */}
-      <div className="space-y-0.5 pl-10">
-        {vinculo.telefono && (
-          <div className="flex items-center gap-1.5 text-xs text-texto-terciario">
-            <Phone size={11} className="shrink-0" /> <span className="truncate">{vinculo.telefono}</span>
-          </div>
-        )}
-        {vinculo.correo && (
-          <div className="flex items-center gap-1.5 text-xs text-texto-terciario">
-            <Mail size={11} className="shrink-0" /> <span className="truncate">{vinculo.correo}</span>
-          </div>
-        )}
-        {!vinculo.telefono && !vinculo.correo && (
-          <div className="text-xs text-texto-terciario">{vinculo.codigo}</div>
-        )}
+      {/* Datos de contacto + botón ir */}
+      <div className="flex items-end gap-2">
+        <div className="flex-1 space-y-0.5 pl-10">
+          {vinculo.telefono && (
+            <div className="flex items-center gap-1.5 text-xs text-texto-terciario">
+              <Phone size={11} className="shrink-0" /> <span className="truncate">{vinculo.telefono}</span>
+            </div>
+          )}
+          {vinculo.correo && (
+            <div className="flex items-center gap-1.5 text-xs text-texto-terciario">
+              <Mail size={11} className="shrink-0" /> <span className="truncate">{vinculo.correo}</span>
+            </div>
+          )}
+          {!vinculo.telefono && !vinculo.correo && (
+            <div className="text-xs text-texto-terciario">{vinculo.codigo}</div>
+          )}
+        </div>
+
+        {/* Botón ir al contacto */}
+        <a
+          href={`/contactos/${vinculo.vinculado_id}${origenId ? `?desde=${origenId}&desde_nombre=${encodeURIComponent(origenNombre || '')}` : ''}`}
+          onClick={e => e.stopPropagation()}
+          className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] text-texto-marca hover:bg-superficie-hover transition-colors shrink-0 ${editable ? 'opacity-0 group-hover:opacity-100' : ''}`}
+        >
+          <ExternalLink size={11} />
+          Ver
+        </a>
       </div>
     </div>
   )

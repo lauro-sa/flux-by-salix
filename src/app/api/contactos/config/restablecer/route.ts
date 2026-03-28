@@ -21,6 +21,16 @@ const PUESTOS_DEFAULT = [
   'Empleado', 'Gerente', 'Director', 'Mantenimiento', 'Socio', 'Consejo',
 ]
 
+const RELACIONES_DEFAULT = [
+  { clave: 'empleado_de', etiqueta: 'Empleado de', etiqueta_inversa: 'Empleador de' },
+  { clave: 'administra', etiqueta: 'Administra', etiqueta_inversa: 'Administrado por' },
+  { clave: 'provee_a', etiqueta: 'Provee a', etiqueta_inversa: 'Proveído por' },
+  { clave: 'propietario_de', etiqueta: 'Propietario de', etiqueta_inversa: 'Propiedad de' },
+  { clave: 'inquilino_de', etiqueta: 'Inquilino de', etiqueta_inversa: 'Alquila a' },
+  { clave: 'socio_de', etiqueta: 'Socio de', etiqueta_inversa: 'Socio de' },
+  { clave: 'contacto_de', etiqueta: 'Contacto de', etiqueta_inversa: 'Contacto de' },
+]
+
 /**
  * POST /api/contactos/config/restablecer — Restablecer etiquetas, rubros y puestos predefinidos.
  * Body: { tipo: 'etiqueta' | 'rubro' | 'puesto' | 'todos' }
@@ -56,6 +66,20 @@ export async function POST(request: Request) {
       for (let i = 0; i < PUESTOS_DEFAULT.length; i++) {
         await admin.from('puestos_contacto')
           .upsert({ empresa_id: empresaId, nombre: PUESTOS_DEFAULT[i], orden: i + 1, activo: true }, { onConflict: 'empresa_id,nombre' })
+      }
+    }
+
+    if (tipo === 'relacion' || tipo === 'todos') {
+      for (const r of RELACIONES_DEFAULT) {
+        await admin.from('tipos_relacion')
+          .upsert({
+            empresa_id: empresaId,
+            clave: r.clave,
+            etiqueta: r.etiqueta,
+            etiqueta_inversa: r.etiqueta_inversa,
+            es_predefinido: true,
+            activo: true,
+          }, { onConflict: 'empresa_id,clave' })
       }
     }
 

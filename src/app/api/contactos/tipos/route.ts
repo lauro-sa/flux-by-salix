@@ -32,8 +32,8 @@ export async function GET(_request: NextRequest) {
         .eq('activo', true)
         .order('etiqueta'),
       admin
-        .from('puestos_vinculacion')
-        .select('*')
+        .from('puestos_contacto')
+        .select('id, nombre, orden')
         .eq('empresa_id', empresaId)
         .eq('activo', true)
         .order('orden'),
@@ -62,7 +62,7 @@ export async function GET(_request: NextRequest) {
     return NextResponse.json({
       tipos_contacto: tiposRes.data || [],
       tipos_relacion: relacionesRes.data || [],
-      puestos_vinculacion: puestosRes.data || [],
+      puestos_vinculacion: (puestosRes.data || []).map((p: { id: string; nombre: string }) => ({ id: p.id, etiqueta: p.nombre })),
       campos_fiscales: camposFiscales,
       paises: paisesArray,
     })

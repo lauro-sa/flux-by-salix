@@ -112,13 +112,14 @@ export function SeccionRegional() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
           <h2 className="text-lg font-semibold text-texto-primario mb-1">Regionalización</h2>
           <p className="text-sm text-texto-terciario">
             Estos ajustes definen cómo se muestran las fechas, precios y horarios en toda la app para todos los miembros.
           </p>
         </div>
+        <div className="shrink-0">
         <IndicadorGuardado estado={estado} puedeDeshacer={puedeDeshacer} onDeshacer={async () => {
           const restaurados = await deshacer()
           if (restaurados) {
@@ -130,6 +131,7 @@ export function SeccionRegional() {
             if ('zona_horaria' in restaurados) setZonaHoraria(restaurados.zona_horaria as string)
           }
         }} />
+        </div>
       </div>
 
       {/* Países donde opera */}

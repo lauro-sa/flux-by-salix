@@ -1,16 +1,19 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { Building2, Globe, Mail, Phone, MapPin, Link as LinkIcon } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { Building2, Globe, Mail, Phone, MapPin, Link as LinkIcon, Receipt } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
+import { Select } from '@/componentes/ui/Select'
 import { BloqueDireccion, type DatosDireccion } from '@/componentes/ui/BloqueDireccion'
-import { formatearTelefono } from '@/lib/formato'
+import { formatearTelefono, aplicarMascara } from '@/lib/formato'
 import { CargadorLogo, type VarianteLogo } from '@/componentes/ui/CargadorLogo'
 import { SelectorColor, extraerColoresDeImagen } from '@/componentes/ui/SelectorColor'
 import { IndicadorGuardado } from '@/componentes/ui/IndicadorGuardado'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useAutoguardado } from '@/hooks/useAutoguardado'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { etiquetaPais } from '@/lib/paises'
+import type { CampoFiscalPais } from '@/tipos/contacto'
 
 /**
  * Sección General — datos básicos de la empresa.
@@ -30,6 +33,26 @@ export function SeccionGeneral() {
   const [logoApaisado, setLogoApaisado] = useState<string | null>(null)
   const [colorMarca, setColorMarca] = useState('#6366f1')
   const [coloresLogo, setColoresLogo] = useState<string[]>([])
+  const [datosFiscales, setDatosFiscales] = useState<Record<string, string>>({})
+  const [camposFiscales, setCamposFiscales] = useState<CampoFiscalPais[]>([])
+  const [paisesEmpresa, setPaisesEmpresa] = useState<string[]>([])
+
+  // Filtrar campos fiscales que aplican a "empresa" (no de identificación personal como DNI)
+  const camposFiscalesEmpresa = useMemo(
+    () => camposFiscales.filter(c => c.aplica_a.includes('empresa')),
+    [camposFiscales]
+  )
+
+  // Agrupar campos por país para renderizado con separador
+  const camposPorPais = useMemo(() => {
+    const mapa = new Map<string, CampoFiscalPais[]>()
+    for (const campo of camposFiscalesEmpresa) {
+      const lista = mapa.get(campo.pais) || []
+      lista.push(campo)
+      mapa.set(campo.pais, lista)
+    }
+    return mapa
+  }, [camposFiscalesEmpresa])
 
   const guardarEnServidor = useCallback(async (datos: Record<string, unknown>) => {
     const res = await fetch('/api/empresas/actualizar', {
@@ -49,7 +72,7 @@ export function SeccionGeneral() {
       const supabase = crearClienteNavegador()
       const { data } = await supabase
         .from('empresas')
-        .select('nombre, slug, ubicacion, direccion, pagina_web, correo, telefono, logo_url, color_marca, color_secundario, color_terciario')
+        .select('nombre, slug, ubicacion, direccion, pagina_web, correo, telefono, logo_url, color_marca, color_secundario, color_terciario, datos_fiscales, paises')
         .eq('id', empresa.id)
         .single()
 
@@ -72,6 +95,22 @@ export function SeccionGeneral() {
         // Extraer colores del logo si existe
         if (data.logo_url) {
           extraerColoresDeImagen(data.logo_url).then(setColoresLogo).catch(() => {})
+        }
+
+        // Datos fiscales
+        const fiscales = (data.datos_fiscales as Record<string, string>) || {}
+        setDatosFiscales(fiscales)
+        const paises = data.paises?.length ? data.paises : []
+        setPaisesEmpresa(paises)
+
+        // Cargar campos fiscales según países configurados
+        if (paises.length > 0) {
+          const { data: campos } = await supabase
+            .from('campos_fiscales_pais')
+            .select('*')
+            .in('pais', paises)
+            .order('orden')
+          if (campos) setCamposFiscales(campos as CampoFiscalPais[])
         }
 
         setSnapshot({
@@ -216,6 +255,78 @@ export function SeccionGeneral() {
           onBlur={() => guardar({ pagina_web: paginaWeb })}
           icono={<LinkIcon size={16} />}
         />
+      </div>
+
+      {/* Datos fiscales — dinámicos según países configurados en Regionalización */}
+      <div>
+        <h2 className="text-lg font-semibold text-texto-primario mb-1">Datos fiscales</h2>
+        <p className="text-sm text-texto-terciario mb-4">
+          {paisesEmpresa.length > 0
+            ? `Identificación fiscal de tu empresa según ${paisesEmpresa.length === 1 ? 'el país configurado' : 'los países configurados'} en Regionalización.`
+            : 'Configurá al menos un país en la sección Regionalización para ver los campos fiscales de tu empresa.'
+          }
+        </p>
+
+        {camposFiscalesEmpresa.length > 0 && (
+          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-6 space-y-5">
+            {Array.from(camposPorPais.entries()).map(([codigoPais, campos]) => (
+              <div key={codigoPais}>
+                {/* Mostrar separador de país solo si hay más de un país */}
+                {paisesEmpresa.length > 1 && (
+                  <div className="flex items-center gap-2 mb-3">
+                    <Receipt size={14} className="text-texto-terciario" />
+                    <span className="text-xs font-semibold text-texto-terciario uppercase tracking-wider">
+                      {etiquetaPais(codigoPais)}
+                    </span>
+                    <div className="flex-1 h-px bg-borde-sutil" />
+                  </div>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {campos.map(campo => (
+                    <div key={campo.clave}>
+                      {campo.tipo_campo === 'select' && campo.opciones ? (
+                        <Select
+                          etiqueta={campo.etiqueta}
+                          opciones={[
+                            { valor: '', etiqueta: 'Seleccionar...' },
+                            ...(campo.opciones as { valor: string; etiqueta: string }[]),
+                          ]}
+                          valor={datosFiscales[campo.clave] || ''}
+                          onChange={(v) => {
+                            setDatosFiscales(prev => {
+                              const nuevos = { ...prev, [campo.clave]: v }
+                              guardarEnServidor({ datos_fiscales: nuevos })
+                              return nuevos
+                            })
+                          }}
+                        />
+                      ) : (
+                        <Input
+                          tipo="text"
+                          etiqueta={campo.etiqueta}
+                          placeholder={campo.mascara?.replace(/#/g, '0') || campo.etiqueta}
+                          value={datosFiscales[campo.clave] || ''}
+                          onChange={(e) => {
+                            const valorNuevo = campo.mascara
+                              ? aplicarMascara(e.target.value, campo.mascara)
+                              : e.target.value
+                            setDatosFiscales(prev => ({ ...prev, [campo.clave]: valorNuevo }))
+                          }}
+                          onBlur={() => {
+                            setDatosFiscales(prev => {
+                              guardarEnServidor({ datos_fiscales: prev })
+                              return prev
+                            })
+                          }}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Logos */}

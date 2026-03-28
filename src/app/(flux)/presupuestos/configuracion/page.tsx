@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Plus, Trash2, GripVertical, Receipt, DollarSign,
@@ -9,6 +9,8 @@ import {
 } from 'lucide-react'
 import { Reorder } from 'framer-motion'
 import ModalCondicionPago from '../_componentes/ModalCondicionPago'
+import EditorNotasPresupuesto from '../_componentes/EditorNotasPresupuesto'
+import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
 import type {
@@ -17,10 +19,14 @@ import type {
   TipoColumnaPie,
 } from '@/tipos/presupuesto'
 import { VARIABLES_NOMBRE_PDF } from '@/tipos/presupuesto'
-import { EMPRESA_MUESTRA, type DatosEmpresa } from '@/lib/pdf/renderizar-html'
+import {
+  renderizarHtml,
+  DATOS_MUESTRA,
+  EMPRESA_MUESTRA,
+  type DatosEmpresa,
+  type ConfigPdf,
+} from '@/lib/pdf/renderizar-html'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
-import { PreviewMembrete, PreviewPiePagina } from '../_componentes/PreviewsPdf'
-import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import SubirImagenPie from '../_componentes/SubirImagenPie'
 
 /**
@@ -197,20 +203,38 @@ export default function PaginaConfigPresupuestos() {
         if (data.datos_empresa_pdf) setDatosEmpresaPdf({ ...DATOS_EMPRESA_PDF_DEFAULT, ...data.datos_empresa_pdf })
         setCargando(false)
 
-        // Cargar logo de empresa para preview del membrete
-        const cargarLogo = async () => {
+        // Cargar empresa + logo para preview
+        const cargarEmpresa = async () => {
           try {
             const supabase = crearClienteNavegador()
             const { data: { user } } = await supabase.auth.getUser()
             const eid = user?.app_metadata?.empresa_activa_id
-            if (eid) {
-              const tipo = data.membrete?.tipo_logo || 'cuadrado'
-              const { data: ld } = supabase.storage.from('logos').getPublicUrl(`${eid}/${tipo}.png`)
-              if (ld?.publicUrl) setLogoUrlPreview(ld.publicUrl)
+            if (!eid) return
+
+            // Logo
+            const tipo = data.membrete?.tipo_logo || 'cuadrado'
+            const { data: ld } = supabase.storage.from('logos').getPublicUrl(`${eid}/${tipo}.png`)
+            if (ld?.publicUrl) setLogoUrlPreview(ld.publicUrl)
+
+            // Datos de empresa
+            const { data: emp } = await supabase.from('empresas').select('*').eq('id', eid).single()
+            if (emp) {
+              setEmpresaPreview({
+                nombre: emp.nombre || '',
+                logo_url: ld?.publicUrl || emp.logo_url || null,
+                datos_fiscales: emp.datos_fiscales || null,
+                pais: emp.pais || 'AR',
+                paises: emp.paises || ['AR'],
+                color_marca: emp.color_marca || '#3b82f6',
+                direccion: emp.ubicacion || '',
+                telefono: emp.telefono || '',
+                correo: emp.correo || '',
+                pagina_web: emp.pagina_web || '',
+              })
             }
           } catch {}
         }
-        cargarLogo()
+        cargarEmpresa()
       })
       .catch(() => setCargando(false))
   }, [])
@@ -252,6 +276,33 @@ export default function PaginaConfigPresupuestos() {
   const guardarPlantillaHtml = (html: string) => { setPlantillaHtml(html); autoguardar({ plantilla_html: html || null }) }
   const guardarPatronNombre = (patron: string) => { setPatronNombrePdf(patron); autoguardar({ patron_nombre_pdf: patron }) }
   const guardarDatosEmpresaPdf = (datos: ConfigDatosEmpresaPdf) => { setDatosEmpresaPdf(datos); autoguardar({ datos_empresa_pdf: datos }) }
+
+  // Preview HTML real de la plantilla para membrete y pie de página
+  const previewContRef = useRef<HTMLDivElement>(null)
+  const [escalaConfig, setEscalaConfig] = useState(0.5)
+
+  useEffect(() => {
+    const el = previewContRef.current
+    if (!el) return
+    const calc = () => setEscalaConfig(Math.min(1, (el.clientWidth - 32) / 794))
+    calc()
+    const obs = new ResizeObserver(calc)
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
+  const htmlPreviewConfig = useMemo(() => {
+    const cfg: ConfigPdf = {
+      membrete, pie_pagina: piePagina, plantilla_html: plantillaHtml || null,
+      patron_nombre_pdf: patronNombrePdf, datos_empresa_pdf: datosEmpresaPdf,
+      monedas: [],
+    }
+    // Usar logoUrlPreview actualizado (cambia al cambiar cuadrado/apaisado)
+    const empresaConLogo = { ...empresaPreview, logo_url: logoUrlPreview || empresaPreview.logo_url }
+    try {
+      return renderizarHtml(DATOS_MUESTRA, empresaConLogo, cfg)
+    } catch { return '' }
+  }, [membrete, piePagina, plantillaHtml, patronNombrePdf, datosEmpresaPdf, empresaPreview, logoUrlPreview])
 
   if (cargando) {
     return <div className="flex items-center justify-center h-64 text-texto-terciario text-sm">Cargando configuración...</div>
@@ -763,20 +814,20 @@ export default function PaginaConfigPresupuestos() {
           <p className="text-sm text-texto-terciario mt-1 mb-5">Se cargan automáticamente al crear un presupuesto nuevo.</p>
           <div className="space-y-4">
             <div>
-              <label className="text-xs text-texto-terciario font-medium mb-1 block">Notas por defecto</label>
-              <textarea value={notasDefault}
-                onChange={(e) => setNotasDefault(e.target.value)}
-                onBlur={() => guardarTextos('notas', notasDefault)}
-                placeholder="Ej: Válido por 30 días..." rows={3}
-                className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-3 text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-marca-500 resize-none" />
+              <EditorNotasPresupuesto
+                valor={notasDefault}
+                onChange={(v) => guardarTextos('notas', v)}
+                placeholder="Ej: Válido por 30 días..."
+                etiqueta="Notas por defecto"
+              />
             </div>
             <div>
-              <label className="text-xs text-texto-terciario font-medium mb-1 block">Condiciones por defecto</label>
-              <textarea value={condicionesDefault}
-                onChange={(e) => setCondicionesDefault(e.target.value)}
-                onBlur={() => guardarTextos('condiciones', condicionesDefault)}
-                placeholder="Ej: Sujeto a disponibilidad..." rows={3}
-                className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-3 text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-marca-500 resize-none" />
+              <EditorNotasPresupuesto
+                valor={condicionesDefault}
+                onChange={(v) => guardarTextos('condiciones', v)}
+                placeholder="Ej: Sujeto a disponibilidad..."
+                etiqueta="Condiciones por defecto"
+              />
             </div>
             <div>
               <label className="text-xs text-texto-terciario font-medium mb-1 block">Días de validez por defecto</label>
@@ -800,13 +851,19 @@ export default function PaginaConfigPresupuestos() {
           </div>
           <p className="text-sm text-texto-terciario mt-1 mb-5">Encabezado con logo y texto para tus PDFs.</p>
 
-          {/* ── VISTA PREVIA DEL MEMBRETE ── */}
+          {/* ── VISTA PREVIA DEL MEMBRETE (HTML real de la plantilla) ── */}
           <div className="mb-5">
-            <PreviewMembrete
-              logoUrl={logoUrlPreview}
-              membrete={membrete}
-              piePagina={piePagina}
-            />
+            <p className="text-[10px] font-semibold text-texto-terciario uppercase tracking-wider mb-2">Vista previa</p>
+            <div ref={previewContRef} className="bg-[#e5e5e5] dark:bg-[#2a2a2a] rounded-lg p-4 flex justify-center">
+              <div style={{ width: Math.floor(794 * escalaConfig), height: Math.floor(400 * escalaConfig), position: 'relative', overflow: 'hidden' }}>
+                <iframe
+                  srcDoc={htmlPreviewConfig}
+                  title="Preview membrete"
+                  className="border-0 bg-white shadow-lg rounded-sm"
+                  style={{ width: 794, height: 400, position: 'absolute', top: 0, left: 0, transformOrigin: 'top left', transform: `scale(${escalaConfig})`, pointerEvents: 'none' }}
+                />
+              </div>
+            </div>
           </div>
 
           <div className="space-y-4">
@@ -1069,13 +1126,28 @@ export default function PaginaConfigPresupuestos() {
           </div>
           <p className="text-sm text-texto-terciario mt-1 mb-5">3 columnas independientes para el pie del PDF.</p>
 
-          {/* ── VISTA PREVIA DEL PIE ── */}
+          {/* ── VISTA PREVIA DEL PIE (HTML real de la plantilla, scroll al fondo) ── */}
           <div className="mb-5">
-            <PreviewPiePagina
-              piePagina={piePagina}
-              logoUrl={logoUrlPreview}
-              membrete={membrete}
-            />
+            <p className="text-[10px] font-semibold text-texto-terciario uppercase tracking-wider mb-2">Vista previa</p>
+            <div className="bg-[#e5e5e5] dark:bg-[#2a2a2a] rounded-lg p-4 flex justify-center">
+              <div style={{ width: Math.floor(794 * escalaConfig), height: Math.floor(200 * escalaConfig), position: 'relative', overflow: 'hidden' }}>
+                <iframe
+                  srcDoc={htmlPreviewConfig}
+                  title="Preview pie"
+                  className="border-0 bg-white shadow-lg rounded-sm"
+                  style={{ width: 794, height: 1123, position: 'absolute', bottom: 0, left: 0, transformOrigin: 'bottom left', transform: `scale(${escalaConfig})`, pointerEvents: 'none' }}
+                  onLoad={(e) => {
+                    // Scroll al fondo para mostrar el pie
+                    try {
+                      const doc = e.currentTarget.contentDocument
+                      if (doc?.documentElement) {
+                        e.currentTarget.style.height = `${doc.documentElement.scrollHeight}px`
+                      }
+                    } catch {}
+                  }}
+                />
+              </div>
+            </div>
           </div>
 
           <div className="space-y-4">

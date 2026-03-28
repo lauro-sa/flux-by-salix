@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import {
-  mapearTipoContenido, extraerTextoMensaje,
+  mapearTipoContenido, extraerTextoMensaje, textoPreviewMensaje,
   extraerMediaId, extraerMimeType, extraerNombreArchivo,
   obtenerUrlMedia, descargarMediaBuffer, verificarFirmaWebhook,
   type WebhookPayloadMeta, type MensajeEntranteMeta, type EstadoMensajeMeta,
@@ -223,11 +223,12 @@ async function procesarMensajeEntrante(
     .select('id')
     .single()
 
-  // Actualizar conversación
+  // Actualizar conversación con preview descriptivo
+  const preview = textoPreviewMensaje(msg)
   await admin
     .from('conversaciones')
     .update({
-      ultimo_mensaje_texto: texto,
+      ultimo_mensaje_texto: preview,
       ultimo_mensaje_en: new Date().toISOString(),
       ultimo_mensaje_es_entrante: true,
       mensajes_sin_leer: 1,

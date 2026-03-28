@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { CargadorSeccion } from '@/componentes/ui/Cargador'
 import {
   Plus, Pencil, Trash2, X, Check, ChevronRight, ChevronDown, Clock,
   Building, Briefcase, Users, UserPlus, Crown, AlertTriangle, RotateCcw,
@@ -628,7 +629,7 @@ export function SeccionEstructura() {
             </div>
 
             {cargando ? (
-              <div className="p-8 text-center text-sm text-texto-terciario">Cargando...</div>
+              <CargadorSeccion />
             ) : arbol.length === 0 ? (
               <div className="p-8 text-center text-sm text-texto-terciario">
                 No hay sectores. Creá el primero para armar tu organigrama.

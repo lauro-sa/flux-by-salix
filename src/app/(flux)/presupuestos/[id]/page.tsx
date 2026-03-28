@@ -11,6 +11,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 import { TablaLineas } from '../_componentes/TablaLineas'
 import { Boton } from '@/componentes/ui/Boton'
+import EditorNotasPresupuesto from '../_componentes/EditorNotasPresupuesto'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Select } from '@/componentes/ui/Select'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
@@ -100,9 +101,6 @@ export default function PaginaDetallePresupuesto() {
   // Vinculaciones para "Dirigido a"
   const [vinculaciones, setVinculaciones] = useState<Vinculacion[]>([])
 
-  // Autoguardado
-  const autoguardadoRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
   // Cargar presupuesto, config y datos empresa
   useEffect(() => {
     Promise.all([
@@ -123,6 +121,18 @@ export default function PaginaDetallePresupuesto() {
       setDiasVencimiento(pres.dias_vencimiento || 30)
       setCargando(false)
 
+      // Inicializar snapshot con valores cargados para dirty tracking
+      guardadoRef.current = {
+        notas_html: pres.notas_html || '',
+        condiciones_html: pres.condiciones_html || '',
+        referencia: pres.referencia || '',
+        moneda: pres.moneda || 'ARS',
+        condicion_pago_id: pres.condicion_pago_id || '',
+        dias_vencimiento: pres.dias_vencimiento || 30,
+        fecha_emision: pres.fecha_emision || '',
+        columnas_lineas: (pres.columnas_lineas as string[]) || conf.columnas_lineas_default || [],
+      }
+
       // Breadcrumb
       nav.setMigajaDinamica(`/presupuestos/${id}`, pres.numero || 'Detalle')
 
@@ -137,25 +147,38 @@ export default function PaginaDetallePresupuesto() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
-  // Autoguardar
+  // Snapshot del último estado guardado — para comparar y no guardar si no cambió nada
+  const guardadoRef = useRef<Record<string, unknown>>({})
+
+  // Autoguardar — solo persiste si el valor realmente cambió
   const autoguardar = useCallback((campos: Record<string, unknown>) => {
-    if (autoguardadoRef.current) clearTimeout(autoguardadoRef.current)
-    autoguardadoRef.current = setTimeout(async () => {
-      setGuardando(true)
-      try {
-        const res = await fetch(`/api/presupuestos/${id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(campos),
-        })
+    // Filtrar campos que realmente cambiaron vs último guardado
+    const cambios: Record<string, unknown> = {}
+    for (const [clave, valor] of Object.entries(campos)) {
+      const anterior = guardadoRef.current[clave]
+      if (JSON.stringify(valor) !== JSON.stringify(anterior)) {
+        cambios[clave] = valor
+      }
+    }
+    if (Object.keys(cambios).length === 0) return
+
+    // Actualizar snapshot
+    Object.assign(guardadoRef.current, cambios)
+
+    setGuardando(true)
+    fetch(`/api/presupuestos/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cambios),
+    })
+      .then(async (res) => {
         if (res.ok) {
           const data = await res.json()
           setPresupuesto(prev => prev ? { ...prev, ...data } : null)
         }
-      } catch { /* silenciar */ } finally {
-        setGuardando(false)
-      }
-    }, 1000)
+      })
+      .catch(() => {})
+      .finally(() => setGuardando(false))
   }, [id])
 
   // Cambiar estado
@@ -199,44 +222,36 @@ export default function PaginaDetallePresupuesto() {
   }, [id, config])
 
   const editarLinea = useCallback((lineaId: string, campo: string, valor: string) => {
-    setLineas(prev => prev.map(l => {
-      if (l.id !== lineaId) return l
-      const act = { ...l, [campo]: valor }
-      if (act.tipo_linea === 'producto') {
-        const cant = parseFloat(act.cantidad || '1')
-        const precio = parseFloat(act.precio_unitario || '0')
-        const desc = parseFloat(act.descuento || '0')
-        const impPct = parseFloat(act.impuesto_porcentaje || '0')
-        const sub = cant * precio * (1 - desc / 100)
-        act.subtotal = sub.toFixed(2)
-        act.impuesto_monto = (sub * impPct / 100).toFixed(2)
-        act.total = (sub + sub * impPct / 100).toFixed(2)
-      }
-      return act
-    }))
-
-    if (autoguardadoRef.current) clearTimeout(autoguardadoRef.current)
-    autoguardadoRef.current = setTimeout(async () => {
-      const linea = lineas.find(l => l.id === lineaId)
-      if (!linea) return
-      const act = { ...linea, [campo]: valor }
-      if (act.tipo_linea === 'producto') {
-        const cant = parseFloat(act.cantidad || '1')
-        const precio = parseFloat(act.precio_unitario || '0')
-        const desc = parseFloat(act.descuento || '0')
-        const impPct = parseFloat(act.impuesto_porcentaje || '0')
-        const sub = cant * precio * (1 - desc / 100)
-        act.subtotal = sub.toFixed(2)
-        act.impuesto_monto = (sub * impPct / 100).toFixed(2)
-      }
-      await fetch(`/api/presupuestos/${id}/lineas`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...act, id: lineaId }),
+    setLineas(prev => {
+      const nuevas = prev.map(l => {
+        if (l.id !== lineaId) return l
+        const act = { ...l, [campo]: valor }
+        if (act.tipo_linea === 'producto') {
+          const cant = parseFloat(act.cantidad || '1')
+          const precio = parseFloat(act.precio_unitario || '0')
+          const desc = parseFloat(act.descuento || '0')
+          const impPct = parseFloat(act.impuesto_porcentaje || '0')
+          const sub = cant * precio * (1 - desc / 100)
+          act.subtotal = sub.toFixed(2)
+          act.impuesto_monto = (sub * impPct / 100).toFixed(2)
+          act.total = (sub + sub * impPct / 100).toFixed(2)
+        }
+        return act
       })
-      recargarTotales()
-    }, 800)
-  }, [id, lineas])
+
+      // Persistir la línea actualizada (ya viene del blur de la celda)
+      const lineaActualizada = nuevas.find(l => l.id === lineaId)
+      if (lineaActualizada) {
+        fetch(`/api/presupuestos/${id}/lineas`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...lineaActualizada, id: lineaId }),
+        }).then(() => recargarTotales()).catch(() => {})
+      }
+
+      return nuevas
+    })
+  }, [id])
 
   const eliminarLinea = useCallback(async (lineaId: string) => {
     setLineas(prev => prev.filter(l => l.id !== lineaId))
@@ -295,29 +310,49 @@ export default function PaginaDetallePresupuesto() {
     return () => document.removeEventListener('mousedown', cerrar)
   }, [])
 
-  // TODO: Implementar envío de presupuesto por email con PDF adjunto
-  const handleEnviar = () => { /* pendiente: integrar envío email */ }
-  // TODO: Implementar envío como factura proforma
+  // Enviar presupuesto — cambia estado a enviado (TODO: integrar envío email con PDF)
+  const handleEnviar = async () => {
+    await cambiarEstado('enviado')
+  }
+  // TODO: Implementar envío como factura proforma (mismo email con label diferente)
   const handleEnviarProforma = () => { /* pendiente: integrar proforma */ }
   // TODO: Implementar generación de PDF e impresión
   const handleImprimir = () => { /* pendiente: integrar PDF */ }
   // TODO: Implementar vista previa del portal público del cliente
   const handleVistaPrevia = () => { /* pendiente: integrar portal */ }
 
-  // Papelera
-  const enviarAPapelera = async () => {
-    await fetch(`/api/presupuestos/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ en_papelera: true }),
-    })
-    router.push('/presupuestos')
+  // Descartar/eliminar presupuesto
+  const descartarPresupuesto = async () => {
+    try {
+      const res = await fetch(`/api/presupuestos/${id}`, { method: 'DELETE' })
+      const data = await res.json()
+
+      if (data.accion === 'cancelado') {
+        // No se pudo eliminar — hay presupuestos posteriores, se canceló
+        setPresupuesto(prev => prev ? { ...prev, estado: 'cancelado' } : null)
+        return
+      }
+
+      // Eliminado definitivamente
+      router.push('/presupuestos')
+    } catch (err) {
+      console.error('Error al descartar presupuesto:', err)
+    }
   }
 
   if (cargando || !presupuesto || !config) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-texto-terciario text-sm">Cargando presupuesto...</div>
+      <div className="w-full max-w-[1200px] mx-auto px-4 py-6">
+        <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil overflow-hidden">
+          <div className="px-6 pt-5 pb-4 border-b border-borde-sutil animate-pulse">
+            <div className="h-8 w-48 bg-superficie-app rounded-lg mb-3" />
+            <div className="h-5 w-32 bg-superficie-app rounded-lg" />
+          </div>
+          <div className="px-6 py-8 space-y-4 animate-pulse">
+            <div className="h-4 w-64 bg-superficie-app rounded" />
+            <div className="h-4 w-40 bg-superficie-app rounded" />
+          </div>
+        </div>
       </div>
     )
   }
@@ -364,9 +399,9 @@ export default function PaginaDetallePresupuesto() {
                 <Cloud size={16} />
               </button>
               <button
-                onClick={() => router.push('/presupuestos')}
-                className="size-7 rounded-full flex items-center justify-center text-texto-terciario hover:bg-superficie-app transition-colors"
-                title="Volver al listado"
+                onClick={descartarPresupuesto}
+                className="size-7 rounded-full flex items-center justify-center text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro/10 transition-colors"
+                title="Eliminar presupuesto"
               >
                 <X size={16} />
               </button>
@@ -386,7 +421,6 @@ export default function PaginaDetallePresupuesto() {
             <div className="ml-auto">
               <BarraEstadoPresupuesto
                 estadoActual={presupuesto.estado as EstadoPresupuesto}
-                onCambiarEstado={cambiarEstado}
               />
             </div>
           </div>
@@ -755,7 +789,8 @@ export default function PaginaDetallePresupuesto() {
                   <input
                     type="text"
                     value={referencia}
-                    onChange={(e) => { setReferencia(e.target.value); autoguardar({ referencia: e.target.value }) }}
+                    onChange={(e) => setReferencia(e.target.value)}
+                    onBlur={() => autoguardar({ referencia })}
                     placeholder="Orden de compra, PO..."
                     className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-2 text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-marca-500 transition-colors"
                   />
@@ -828,30 +863,28 @@ export default function PaginaDetallePresupuesto() {
           </div>
         </div>
 
-        {/* ─── NOTAS y CONDICIONES ─── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 border-t border-borde-sutil">
-          <div className="px-6 py-4 border-b md:border-b-0 md:border-r border-borde-sutil">
-            <span className="text-[11px] text-texto-terciario font-medium uppercase tracking-wider block mb-2">Notas</span>
-            <textarea
-              value={notasHtml}
-              onChange={(e) => { setNotasHtml(e.target.value); autoguardar({ notas_html: e.target.value }) }}
-              placeholder="Notas visibles en el presupuesto..."
-              rows={3}
-              readOnly={!esEditable}
-              className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-3 text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-marca-500 transition-colors resize-none"
-            />
-          </div>
-          <div className="px-6 py-4">
-            <span className="text-[11px] text-texto-terciario font-medium uppercase tracking-wider block mb-2">Condiciones / Términos</span>
-            <textarea
-              value={condicionesHtml}
-              onChange={(e) => { setCondicionesHtml(e.target.value); autoguardar({ condiciones_html: e.target.value }) }}
-              placeholder="Condiciones y términos..."
-              rows={3}
-              readOnly={!esEditable}
-              className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-3 text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-marca-500 transition-colors resize-none"
-            />
-          </div>
+        {/* ─── NOTAS ─── */}
+        <div className="border-t border-borde-sutil px-6 py-4">
+          <EditorNotasPresupuesto
+            valor={notasHtml}
+            onChange={(v) => setNotasHtml(v)}
+            onBlur={() => autoguardar({ notas_html: notasHtml })}
+            placeholder="Escribe una nota..."
+            soloLectura={!esEditable}
+            etiqueta="Notas"
+          />
+        </div>
+
+        {/* ─── CONDICIONES / TÉRMINOS ─── */}
+        <div className="border-t border-borde-sutil px-6 py-4">
+          <EditorNotasPresupuesto
+            valor={condicionesHtml}
+            onChange={(v) => setCondicionesHtml(v)}
+            onBlur={() => autoguardar({ condiciones_html: condicionesHtml })}
+            placeholder="Escribe una condición..."
+            soloLectura={!esEditable}
+            etiqueta="Condiciones / Términos"
+          />
         </div>
 
         {/* ─── HISTORIAL ─── */}

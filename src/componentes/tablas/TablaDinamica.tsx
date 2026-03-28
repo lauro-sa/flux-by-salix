@@ -7,7 +7,7 @@ import {
   GripVertical, Pin, PinOff, Columns3, RotateCcw, Eye, EyeOff,
   SlidersHorizontal, Bookmark, BookmarkPlus, MoreHorizontal, ArrowUpDown,
   List, LayoutGrid, Rows3, Minus, Plus, ChevronsLeft, ChevronsRight,
-  AlignJustify, StretchHorizontal, Star,
+  AlignJustify, AlignLeft, AlignCenter, AlignRight, StretchHorizontal, Star,
 } from 'lucide-react'
 import { usePreferencias, type ConfigTabla } from '@/hooks/usePreferencias'
 import {
@@ -43,6 +43,10 @@ interface ColumnaDinamica<T> {
   obtenerValor?: (fila: T) => string | number | Date | boolean
   resumen?: TipoCalculo
   alineacion?: 'left' | 'center' | 'right'
+  /** Icono para mostrar en el panel de configuración de columnas */
+  icono?: ReactNode
+  /** Grupo visual para el panel de configuración de columnas (ej: 'Identidad', 'Contacto', 'Fiscal') */
+  grupo?: string
   /** Si true, esta columna genera un filtro automático en la barra de la tabla */
   filtrable?: boolean
   /** Tipo de filtro a generar: seleccion (default), multiple, o fecha */
@@ -97,6 +101,10 @@ interface PropiedadesTablaDinamica<T> {
 
   /* Paginación */
   registrosPorPagina?: number
+  /** Página actual (para paginación server-side) */
+  paginaExterna?: number
+  /** Callback al cambiar página (para paginación server-side) */
+  onCambiarPagina?: (pagina: number) => void
 
   /* Selección */
   seleccionables?: boolean
@@ -132,7 +140,7 @@ interface PropiedadesTablaDinamica<T> {
    Constantes
    ════════════════════════════════════════════ */
 
-const ANCHO_MINIMO_COLUMNA = 80
+const ANCHO_MINIMO_COLUMNA = 50
 const ANCHO_DEFAULT_COLUMNA = 150
 const REGISTROS_POR_PAGINA_DEFAULT = 50
 
@@ -183,15 +191,94 @@ function calcularResumen(valores: number[], tipo: TipoCalculo): string {
    Sub-componente: Panel de columnas
    ════════════════════════════════════════════ */
 
+/** Contenido interno de una fila de columna (checkbox, icono, nombre, pin, alineación) */
+function ContenidoFilaColumna<T>({ clave, mapaColumnas, columnasVisibles, columnasAncladas, alineacionColumnas,
+  onToggleColumna, onToggleAnclar, onCambiarAlineacion, arrastrable = false }: {
+  clave: string
+  mapaColumnas: Map<string, ColumnaDinamica<T>>
+  columnasVisibles: string[]
+  columnasAncladas: string[]
+  alineacionColumnas: Record<string, 'left' | 'center' | 'right'>
+  onToggleColumna: (clave: string) => void
+  onToggleAnclar: (clave: string) => void
+  onCambiarAlineacion: (clave: string, al: 'left' | 'center' | 'right') => void
+  arrastrable?: boolean
+}) {
+  const col = mapaColumnas.get(clave)
+  if (!col) return null
+  const visible = columnasVisibles.includes(clave)
+  const anclada = columnasAncladas.includes(clave)
+  const alineacion = alineacionColumnas[clave] || col.alineacion || 'left'
+
+  const contenido = (
+    <>
+      {arrastrable && <GripVertical size={14} className="text-texto-terciario opacity-40 shrink-0" />}
+      <button type="button" onClick={() => onToggleColumna(clave)}
+        className="shrink-0 size-5 inline-flex items-center justify-center rounded border border-borde-sutil cursor-pointer bg-transparent transition-colors"
+        style={visible ? { backgroundColor: 'var(--texto-marca)', borderColor: 'var(--texto-marca)' } : {}}>
+        {visible && <Check size={10} className="text-texto-inverso" />}
+      </button>
+      {col.icono && <span className={`shrink-0 ${visible ? 'text-texto-terciario' : 'text-texto-terciario/40'}`}>{col.icono}</span>}
+      <span className={`flex-1 text-sm truncate ${visible ? 'text-texto-primario' : 'text-texto-terciario line-through'}`}>
+        {col.etiqueta}
+      </span>
+      {visible && (
+        <>
+          <button type="button" onClick={() => onToggleAnclar(clave)}
+            className={`shrink-0 size-6 inline-flex items-center justify-center rounded cursor-pointer border-none bg-transparent transition-colors ${
+              anclada ? 'text-texto-marca' : 'text-texto-terciario'
+            }`} title={anclada ? 'Desanclar' : 'Anclar columna'}>
+            {anclada ? <PinOff size={12} /> : <Pin size={12} />}
+          </button>
+          <div className="shrink-0 flex items-center rounded-md border border-borde-sutil overflow-hidden">
+            {([
+              { val: 'left' as const, icono: <AlignLeft size={10} />, titulo: 'Izquierda' },
+              { val: 'center' as const, icono: <AlignCenter size={10} />, titulo: 'Centro' },
+              { val: 'right' as const, icono: <AlignRight size={10} />, titulo: 'Derecha' },
+            ]).map(({ val, icono, titulo }) => (
+              <button key={val} type="button" onClick={() => onCambiarAlineacion(clave, val)}
+                className={`size-6 inline-flex items-center justify-center cursor-pointer border-none transition-colors ${
+                  alineacion === val ? 'bg-texto-marca text-texto-inverso' : 'bg-transparent text-texto-terciario hover:bg-superficie-hover'
+                }`} title={titulo}>
+                {icono}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </>
+  )
+
+  if (arrastrable) {
+    return (
+      <Reorder.Item value={clave}
+        className="flex items-center gap-1.5 px-2 py-1.5 rounded-md hover:bg-superficie-hover cursor-grab active:cursor-grabbing">
+        {contenido}
+      </Reorder.Item>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md hover:bg-superficie-hover">
+      {contenido}
+    </div>
+  )
+}
+
 interface PropsPanelColumnas<T> {
   columnas: ColumnaDinamica<T>[]
   columnasVisibles: string[]
   ordenColumnas: string[]
   columnasAncladas: string[]
+  alineacionColumnas: Record<string, 'left' | 'center' | 'right'>
   opcionesVisuales: OpcionesVisuales
   onToggleColumna: (clave: string) => void
   onReordenar: (nuevo: string[]) => void
   onToggleAnclar: (clave: string) => void
+  onCambiarAlineacion: (clave: string, alineacion: 'left' | 'center' | 'right') => void
+  onMostrarTodas: () => void
+  onOcultarTodas: () => void
+  onAlinearTodas: (alineacion: 'left' | 'center' | 'right') => void
   onCambiarOpcionVisual: (opcion: keyof OpcionesVisuales) => void
   onRestablecer: () => void
   onAjustarAnchosAuto: () => void
@@ -203,10 +290,15 @@ function PanelColumnas<T>({
   columnasVisibles,
   ordenColumnas,
   columnasAncladas,
+  alineacionColumnas,
   opcionesVisuales,
   onToggleColumna,
   onReordenar,
   onToggleAnclar,
+  onCambiarAlineacion,
+  onMostrarTodas,
+  onOcultarTodas,
+  onAlinearTodas,
   onCambiarOpcionVisual,
   onRestablecer,
   onAjustarAnchosAuto,
@@ -219,13 +311,38 @@ function PanelColumnas<T>({
     return m
   }, [columnas])
 
+  /* Agrupar columnas por grupo (mantener orden del usuario dentro de cada grupo) */
+  const gruposOrdenados = useMemo(() => {
+    const grupos: { nombre: string; claves: string[] }[] = []
+    const grupoMap = new Map<string, string[]>()
+    const orden: string[] = [] // orden de aparición de grupos
+
+    for (const clave of ordenColumnas) {
+      const col = mapaColumnas.get(clave)
+      if (!col) continue
+      const grupo = col.grupo || ''
+      if (!grupoMap.has(grupo)) {
+        grupoMap.set(grupo, [])
+        orden.push(grupo)
+      }
+      grupoMap.get(grupo)!.push(clave)
+    }
+
+    for (const nombre of orden) {
+      grupos.push({ nombre, claves: grupoMap.get(nombre)! })
+    }
+    return grupos
+  }, [ordenColumnas, mapaColumnas])
+
+  const tieneGrupos = gruposOrdenados.some(g => g.nombre !== '')
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 20 }}
       transition={{ type: 'spring', duration: 0.25 }}
-      className="fixed top-0 right-0 h-full w-[320px] bg-superficie-elevada border-l border-borde-sutil shadow-2xl z-50 overflow-hidden"
+      className="fixed top-0 right-0 h-full w-[320px] bg-superficie-elevada border-l border-borde-sutil shadow-2xl z-50 overflow-hidden flex flex-col"
     >
       <div className="flex items-center justify-between px-4 py-3 border-b border-borde-sutil shrink-0">
         <span className="text-sm font-semibold text-texto-primario">Configurar columnas</span>
@@ -238,55 +355,103 @@ function PanelColumnas<T>({
         </button>
       </div>
 
+      {/* Acciones masivas: seleccionar todas + alinear todas */}
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-borde-sutil shrink-0">
+        {/* Toggle todas */}
+        {(() => {
+          const todasVisibles = ordenColumnas.every(c => columnasVisibles.includes(c))
+          const algunaVisible = ordenColumnas.some(c => columnasVisibles.includes(c))
+          return (
+            <button type="button"
+              onClick={todasVisibles ? onOcultarTodas : onMostrarTodas}
+              className="shrink-0 size-5 inline-flex items-center justify-center rounded border border-borde-sutil cursor-pointer bg-transparent transition-colors"
+              style={todasVisibles ? { backgroundColor: 'var(--texto-marca)', borderColor: 'var(--texto-marca)' }
+                : algunaVisible ? { borderColor: 'var(--texto-marca)' } : {}}
+              title={todasVisibles ? 'Ocultar todas' : 'Mostrar todas'}
+            >
+              {todasVisibles && <Check size={10} className="text-texto-inverso" />}
+              {!todasVisibles && algunaVisible && <Minus size={8} className="text-texto-marca" />}
+            </button>
+          )
+        })()}
+        <span className="text-xs text-texto-secundario flex-1">
+          {columnasVisibles.length} de {ordenColumnas.length}
+        </span>
+
+        {/* Alinear todas */}
+        <div className="shrink-0 flex items-center rounded-md border border-borde-sutil overflow-hidden">
+          {([
+            { val: 'left' as const, icono: <AlignLeft size={10} />, titulo: 'Todas a la izquierda' },
+            { val: 'center' as const, icono: <AlignCenter size={10} />, titulo: 'Todas al centro' },
+            { val: 'right' as const, icono: <AlignRight size={10} />, titulo: 'Todas a la derecha' },
+          ]).map(({ val, icono, titulo }) => (
+            <button key={val} type="button"
+              onClick={() => onAlinearTodas(val)}
+              className="size-6 inline-flex items-center justify-center cursor-pointer border-none bg-transparent text-texto-terciario hover:bg-superficie-hover transition-colors"
+              title={titulo}>
+              {icono}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-1">
-        {/* Lista reordenable de columnas */}
-        <Reorder.Group axis="y" values={ordenColumnas} onReorder={onReordenar} className="flex flex-col gap-0.5">
-          {ordenColumnas.map((clave) => {
+        {/* Columnas VISIBLES — reordenables libremente sin grupos */}
+        {ordenColumnas.filter(c => columnasVisibles.includes(c)).length > 0 && (
+          <>
+          <div className="px-2 pb-1">
+            <span className="text-[10px] font-semibold text-texto-terciario uppercase tracking-wider">Columnas visibles</span>
+          </div>
+          <Reorder.Group axis="y" values={ordenColumnas} onReorder={onReordenar} className="flex flex-col gap-0.5">
+            {ordenColumnas.filter(c => columnasVisibles.includes(c)).map((clave) => (
+              <ContenidoFilaColumna key={clave} clave={clave} mapaColumnas={mapaColumnas} columnasVisibles={columnasVisibles}
+                columnasAncladas={columnasAncladas} alineacionColumnas={alineacionColumnas}
+                onToggleColumna={onToggleColumna} onToggleAnclar={onToggleAnclar} onCambiarAlineacion={onCambiarAlineacion} arrastrable />
+            ))}
+          </Reorder.Group>
+          </>
+        )}
+
+        {/* Columnas OCULTAS — agrupadas por sección para encontrarlas fácil */}
+        {(() => {
+          const ocultas = ordenColumnas.filter(c => !columnasVisibles.includes(c))
+          if (ocultas.length === 0) return null
+
+          // Agrupar ocultas por grupo
+          const gruposOcultos: { nombre: string; claves: string[] }[] = []
+          const mapaGrupos = new Map<string, string[]>()
+          const ordenGrupos: string[] = []
+          for (const clave of ocultas) {
             const col = mapaColumnas.get(clave)
-            if (!col) return null
-            const visible = columnasVisibles.includes(clave)
-            const anclada = columnasAncladas.includes(clave)
+            if (!col) continue
+            const grupo = col.grupo || 'Otras'
+            if (!mapaGrupos.has(grupo)) { mapaGrupos.set(grupo, []); ordenGrupos.push(grupo) }
+            mapaGrupos.get(grupo)!.push(clave)
+          }
+          for (const nombre of ordenGrupos) gruposOcultos.push({ nombre, claves: mapaGrupos.get(nombre)! })
 
-            return (
-              <Reorder.Item
-                key={clave}
-                value={clave}
-                className="flex items-center gap-1.5 px-2 py-1.5 rounded-md hover:bg-superficie-hover group cursor-grab active:cursor-grabbing"
-              >
-                <GripVertical size={14} className="text-texto-terciario opacity-0 group-hover:opacity-100 shrink-0 transition-opacity" />
-
-                {/* Toggle visibilidad */}
-                <button
-                  type="button"
-                  onClick={() => onToggleColumna(clave)}
-                  className="shrink-0 size-5 inline-flex items-center justify-center rounded border border-borde-sutil cursor-pointer bg-transparent transition-colors"
-                  style={visible ? { backgroundColor: 'var(--texto-marca)', borderColor: 'var(--texto-marca)' } : {}}
-                >
-                  {visible && <Check size={10} className="text-texto-inverso" />}
-                </button>
-
-                {/* Nombre */}
-                <span className={`flex-1 text-sm truncate ${visible ? 'text-texto-primario' : 'text-texto-terciario line-through'}`}>
-                  {col.etiqueta}
-                </span>
-
-                {/* Pin */}
-                <button
-                  type="button"
-                  onClick={() => onToggleAnclar(clave)}
-                  className={`shrink-0 size-6 inline-flex items-center justify-center rounded cursor-pointer border-none bg-transparent transition-colors ${
-                    anclada
-                      ? 'text-texto-marca'
-                      : 'text-texto-terciario opacity-0 group-hover:opacity-100'
-                  }`}
-                  title={anclada ? 'Desanclar' : 'Anclar columna'}
-                >
-                  {anclada ? <PinOff size={12} /> : <Pin size={12} />}
-                </button>
-              </Reorder.Item>
-            )
-          })}
-        </Reorder.Group>
+          return (
+            <div className="mt-3 pt-3 border-t border-borde-sutil flex flex-col gap-0.5">
+              <div className="px-2 pb-1">
+                <span className="text-[10px] font-semibold text-texto-terciario uppercase tracking-wider">Disponibles</span>
+              </div>
+              {gruposOcultos.map((grupo) => (
+                <div key={grupo.nombre}>
+                  {tieneGrupos && (
+                    <div className="px-2 pt-2 pb-0.5">
+                      <span className="text-[10px] text-texto-terciario/60 uppercase tracking-wider">{grupo.nombre}</span>
+                    </div>
+                  )}
+                  {grupo.claves.map((clave) => (
+                    <ContenidoFilaColumna key={clave} clave={clave} mapaColumnas={mapaColumnas} columnasVisibles={columnasVisibles}
+                      columnasAncladas={columnasAncladas} alineacionColumnas={alineacionColumnas}
+                      onToggleColumna={onToggleColumna} onToggleAnclar={onToggleAnclar} onCambiarAlineacion={onCambiarAlineacion} />
+                  ))}
+                </div>
+              ))}
+            </div>
+          )
+        })()}
       </div>
 
       {/* Separador */}
@@ -953,6 +1118,135 @@ function PieResumen<T>({
  * Se usa en: contactos, actividades, productos, documentos, órdenes, auditoría, etc.
  * Cada página define qué vistas están disponibles y el usuario puede alternar entre ellas.
  */
+// ── Barra flotante de acciones masivas — arrastrable arriba/abajo ──
+function BarraAccionesLote({
+  seleccionados,
+  accionesLote,
+  onLimpiarSeleccion,
+  preferencias,
+  guardarPreferencias,
+}: {
+  seleccionados: Set<string>
+  accionesLote: AccionLote[]
+  onLimpiarSeleccion: () => void
+  preferencias: { config_tablas: Record<string, unknown> }
+  guardarPreferencias: (cambios: Record<string, unknown>) => void
+}) {
+  const posGuardada = ((preferencias.config_tablas?.['__global'] as Record<string, string> | undefined)?.barraAccionesPosicion || 'abajo') as 'arriba' | 'abajo'
+  const [posicion, setPosicion] = useState<'arriba' | 'abajo'>(posGuardada)
+  const [arrastrando, setArrastrando] = useState(false)
+  const [sidebarAncho, setSidebarAncho] = useState(0)
+  const barraRef = useRef<HTMLDivElement>(null)
+
+  // Detectar ancho real del sidebar (dinámico: expandido/colapsado/mobile)
+  useEffect(() => {
+    const detectar = () => {
+      const sidebar = document.querySelector('aside')
+      setSidebarAncho(sidebar ? sidebar.getBoundingClientRect().width : 0)
+    }
+    detectar()
+    const obs = new ResizeObserver(detectar)
+    const sidebar = document.querySelector('aside')
+    if (sidebar) obs.observe(sidebar)
+    window.addEventListener('resize', detectar)
+    return () => { obs.disconnect(); window.removeEventListener('resize', detectar) }
+  }, [])
+
+  // Sincronizar con preferencias guardadas
+  useEffect(() => { setPosicion(posGuardada) }, [posGuardada])
+
+  const guardarPosicion = useCallback((pos: 'arriba' | 'abajo') => {
+    setPosicion(pos)
+    const globalActual = (preferencias.config_tablas?.['__global'] || {}) as Record<string, string>
+    guardarPreferencias({
+      config_tablas: {
+        ...preferencias.config_tablas,
+        __global: { ...globalActual, barraAccionesPosicion: pos },
+      },
+    })
+  }, [preferencias.config_tablas, guardarPreferencias])
+
+  const visible = seleccionados.size > 0 && accionesLote.length > 0
+  const esArriba = posicion === 'arriba'
+
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          ref={barraRef}
+          key="barra-acciones-lote"
+          drag="y"
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={0.5}
+          onDragStart={() => setArrastrando(true)}
+          onDragEnd={(_, info) => {
+            setArrastrando(false)
+            // Si arrastraron más de 80px, cambiar posición
+            if (esArriba && info.offset.y > 80) guardarPosicion('abajo')
+            else if (!esArriba && info.offset.y < -80) guardarPosicion('arriba')
+          }}
+          initial={{ opacity: 0, y: esArriba ? -20 : 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: esArriba ? -20 : 20 }}
+          transition={arrastrando ? { duration: 0 } : { duration: 0.15, ease: 'easeOut' }}
+          className={[
+            'fixed z-[100] flex items-center gap-2.5 pl-1.5 pr-4 py-2 rounded-xl shadow-elevada border border-borde-sutil group/barra select-none',
+            esArriba ? 'top-20' : 'bottom-6',
+          ].join(' ')}
+          style={{
+            backgroundColor: 'var(--superficie-elevada)',
+            touchAction: 'none',
+            left: sidebarAncho + (window.innerWidth - sidebarAncho) / 2,
+            transform: 'translateX(-50%)',
+          }}
+        >
+          {/* Drag handle */}
+          <div className="flex items-center justify-center w-6 h-8 rounded-lg text-texto-terciario/0 group-hover/barra:text-texto-terciario hover:!text-texto-secundario hover:!bg-superficie-hover transition-all cursor-grab active:cursor-grabbing shrink-0 touch-none">
+            <GripVertical size={14} />
+          </div>
+
+          {/* Conteo */}
+          <span className="text-sm font-semibold text-texto-primario tabular-nums">
+            {seleccionados.size} seleccionado{seleccionados.size !== 1 ? 's' : ''}
+          </span>
+
+          <div className="w-px h-5 bg-borde-sutil" />
+
+          {/* Acciones */}
+          {accionesLote.map((accion) => (
+            <button
+              key={accion.id}
+              type="button"
+              onClick={() => { accion.onClick(seleccionados); onLimpiarSeleccion() }}
+              className={[
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer',
+                accion.peligro
+                  ? 'text-insignia-peligro hover:bg-insignia-peligro/10'
+                  : 'text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario',
+              ].join(' ')}
+            >
+              {accion.icono}
+              {accion.etiqueta}
+            </button>
+          ))}
+
+          <div className="w-px h-5 bg-borde-sutil" />
+
+          {/* Deseleccionar */}
+          <button
+            type="button"
+            onClick={onLimpiarSeleccion}
+            className="flex items-center justify-center size-7 rounded-md text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover transition-colors cursor-pointer"
+            title="Deseleccionar todo"
+          >
+            <X size={14} />
+          </button>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
 function TablaDinamica<T>({
   columnas,
   datos,
@@ -962,6 +1256,8 @@ function TablaDinamica<T>({
   vistaInicial,
   renderTarjeta,
   registrosPorPagina = REGISTROS_POR_PAGINA_DEFAULT,
+  paginaExterna,
+  onCambiarPagina: onCambiarPaginaExterna,
   seleccionables = false,
   busqueda: busquedaExterna,
   onBusqueda,
@@ -1059,13 +1355,21 @@ function TablaDinamica<T>({
   } = useVistasGuardadas(idModulo)
 
   /* ── Estado de columnas (inicializa desde config guardada si existe) ── */
+  /* Si hay config guardada, se merge con las columnas actuales del código para que
+     columnas nuevas aparezcan automáticamente (al final, visibles por defecto) */
   const columnasIniciales = useMemo(() => columnas.map((c) => c.clave), [columnas])
-  const [columnasVisibles, setColumnasVisibles] = useState<string[]>(
-    configGuardada?.columnasVisibles || columnasIniciales
-  )
-  const [ordenColumnas, setOrdenColumnas] = useState<string[]>(
-    configGuardada?.ordenColumnas || columnasIniciales
-  )
+  const [columnasVisibles, setColumnasVisibles] = useState<string[]>(() => {
+    if (!configGuardada?.columnasVisibles) return columnasIniciales
+    // Respetar exactamente lo que el usuario guardó (sin agregar nuevas como visibles)
+    return configGuardada.columnasVisibles.filter(c => columnasIniciales.includes(c))
+  })
+  const [ordenColumnas, setOrdenColumnas] = useState<string[]>(() => {
+    if (!configGuardada?.ordenColumnas) return columnasIniciales
+    const guardadas = configGuardada.ordenColumnas
+    // Columnas nuevas van al orden (para que aparezcan en "Disponibles") pero no visibles
+    const nuevas = columnasIniciales.filter(c => !guardadas.includes(c))
+    return [...guardadas.filter(c => columnasIniciales.includes(c)), ...nuevas]
+  })
   const [columnasAncladas, setColumnasAncladas] = useState<string[]>(
     configGuardada?.columnasAncladas || []
   )
@@ -1073,6 +1377,11 @@ function TablaDinamica<T>({
     const m: Record<string, number> = {}
     columnas.forEach((c) => { m[c.clave] = c.ancho || ANCHO_DEFAULT_COLUMNA })
     return configGuardada?.anchoColumnas ? { ...m, ...configGuardada.anchoColumnas } : m
+  })
+  const [alineacionColumnas, setAlineacionColumnas] = useState<Record<string, 'left' | 'center' | 'right'>>(() => {
+    const m: Record<string, 'left' | 'center' | 'right'> = {}
+    columnas.forEach((c) => { if (c.alineacion) m[c.clave] = c.alineacion })
+    return configGuardada?.alineacionColumnas ? { ...m, ...(configGuardada.alineacionColumnas as Record<string, 'left' | 'center' | 'right'>) } : m
   })
 
   /* ── Estado de ordenamiento ── */
@@ -1092,7 +1401,13 @@ function TablaDinamica<T>({
   const [menuAccionesAbierto, setMenuAccionesAbierto] = useState(false)
 
   /* ── Estado de paginación ── */
-  const [paginaActual, setPaginaActual] = useState(1)
+  const [paginaInterna, setPaginaInterna] = useState(1)
+  const esServerSide = paginaExterna !== undefined && onCambiarPaginaExterna !== undefined
+  const paginaActual = esServerSide ? paginaExterna : paginaInterna
+  const setPaginaActual = useCallback((p: number) => {
+    if (esServerSide) onCambiarPaginaExterna!(p)
+    else setPaginaInterna(p)
+  }, [esServerSide, onCambiarPaginaExterna])
 
   /* ── Estado de resize ── */
   const [columnaRedimensionando, setColumnaRedimensionando] = useState<string | null>(null)
@@ -1214,10 +1529,10 @@ function TablaDinamica<T>({
     setSeleccionados(new Set())
   }, [datos])
 
-  /* ── Reset página cuando cambia búsqueda/filtros ── */
+  /* ── Reset página cuando cambia búsqueda/filtros (solo client-side) ── */
   useEffect(() => {
-    setPaginaActual(1)
-  }, [busquedaInterna, filtros])
+    if (!esServerSide) setPaginaInterna(1)
+  }, [busquedaInterna, filtros, esServerSide])
 
   /* ── Cerrar paneles al click fuera ── */
   useEffect(() => {
@@ -1248,6 +1563,9 @@ function TablaDinamica<T>({
 
     const manejarUp = () => {
       setColumnaRedimensionando(null)
+      // Bloquear el click de ordenamiento que se dispara justo después del mouseup
+      resizeRecienTerminadoRef.current = true
+      setTimeout(() => { resizeRecienTerminadoRef.current = false }, 50)
     }
 
     document.addEventListener('mousemove', manejarMove)
@@ -1280,10 +1598,18 @@ function TablaDinamica<T>({
     if (!cfg) { configCargadaRef.current = true; return }
 
     configCargadaRef.current = true
-    if (cfg.columnasVisibles?.length) setColumnasVisibles(cfg.columnasVisibles)
-    if (cfg.ordenColumnas?.length) setOrdenColumnas(cfg.ordenColumnas)
+    // Visibles: respetar exactamente lo guardado (no agregar nuevas como visibles)
+    if (cfg.columnasVisibles?.length) {
+      setColumnasVisibles(cfg.columnasVisibles.filter(c => columnasIniciales.includes(c)))
+    }
+    // Orden: agregar columnas nuevas al final (aparecen en "Disponibles" del panel)
+    if (cfg.ordenColumnas?.length) {
+      const nuevas = columnasIniciales.filter(c => !cfg.ordenColumnas!.includes(c))
+      setOrdenColumnas([...cfg.ordenColumnas.filter(c => columnasIniciales.includes(c)), ...nuevas])
+    }
     if (cfg.columnasAncladas) setColumnasAncladas(cfg.columnasAncladas)
     if (cfg.anchoColumnas) setAnchoColumnas(prev => ({ ...prev, ...cfg.anchoColumnas }))
+    if (cfg.alineacionColumnas) setAlineacionColumnas(prev => ({ ...prev, ...(cfg.alineacionColumnas as Record<string, 'left' | 'center' | 'right'>) }))
     if (cfg.tipoVista) setVistaActual(cfg.tipoVista as TipoVista)
     if (cfg.opcionesVisuales) setOpcionesVisuales(prev => ({ ...prev, ...cfg.opcionesVisuales as Partial<OpcionesVisuales> }))
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1308,12 +1634,13 @@ function TablaDinamica<T>({
         ordenColumnas,
         columnasAncladas,
         anchoColumnas,
+        alineacionColumnas,
         tipoVista: vistaActual,
         opcionesVisuales: opcionesVisuales as unknown as Record<string, boolean>,
       })
     }, 800)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columnasVisibles, ordenColumnas, columnasAncladas, anchoColumnas, vistaActual, opcionesVisuales, idModulo])
+  }, [columnasVisibles, ordenColumnas, columnasAncladas, anchoColumnas, alineacionColumnas, vistaActual, opcionesVisuales, idModulo])
 
   /* ── Handlers de columnas ── */
   const toggleColumna = (clave: string) => {
@@ -1346,10 +1673,34 @@ function TablaDinamica<T>({
     })
   }
 
+  const cambiarAlineacion = useCallback((clave: string, alineacion: 'left' | 'center' | 'right') => {
+    setAlineacionColumnas(prev => ({ ...prev, [clave]: alineacion }))
+  }, [])
+
+  const mostrarTodasColumnas = useCallback(() => {
+    setColumnasVisibles(columnasIniciales)
+  }, [columnasIniciales])
+
+  const ocultarTodasColumnas = useCallback(() => {
+    // Dejar visible solo la primera columna
+    setColumnasVisibles([columnasIniciales[0]])
+  }, [columnasIniciales])
+
+  const alinearTodasColumnas = useCallback((alineacion: 'left' | 'center' | 'right') => {
+    const nuevo: Record<string, 'left' | 'center' | 'right'> = {}
+    columnas.forEach(c => { nuevo[c.clave] = alineacion })
+    setAlineacionColumnas(nuevo)
+  }, [columnas])
+
   const restablecerColumnas = () => {
     setColumnasVisibles(columnasIniciales)
     setOrdenColumnas(columnasIniciales)
     setColumnasAncladas([])
+    setAlineacionColumnas(() => {
+      const m: Record<string, 'left' | 'center' | 'right'> = {}
+      columnas.forEach((c) => { if (c.alineacion) m[c.clave] = c.alineacion })
+      return m
+    })
     setAnchoColumnas(() => {
       const m: Record<string, number> = {}
       columnas.forEach((c) => { m[c.clave] = c.ancho || ANCHO_DEFAULT_COLUMNA })
@@ -1359,74 +1710,57 @@ function TablaDinamica<T>({
   }
 
   const ajustarAnchosAuto = () => {
-    /* Mide el contenido real de cada columna (header + celdas) usando las celdas del DOM.
-       Toma el ancho más grande entre el header y todas las celdas visibles de esa columna.
-       Si no puede medir (ej: vista tarjetas), reparte equitativamente. */
-    const tabla = contenedorRef.current?.querySelector('table')
+    /* Misma técnica que el viejo SalixCRM: quitar restricciones de width en th/td,
+       medir offsetWidth real, restaurar y aplicar los anchos medidos. */
+    const tabla = contenedorRef.current?.querySelector('table') as HTMLTableElement | null
     if (!tabla) return
 
     const nuevosAnchos: Record<string, number> = {}
-    const anchoDisponible = contenedorRef.current?.clientWidth || 1000
-    const paddingCelda = 32 /* px-4 = 16px * 2 */
-    let anchoTotalMedido = seleccionables ? 44 : 0
+    const colsRender = columnasRenderizar
+    const startIdx = (seleccionables ? 1 : 0)
 
-    columnasVisibles.forEach((clave) => {
-      const col = columnas.find((c) => c.clave === clave)
-      if (!col) return
+    /* Guardar estilos originales */
+    const origLayout = tabla.style.tableLayout
+    const origWidth = tabla.style.width
+    const ths = Array.from(tabla.querySelectorAll('thead tr th')) as HTMLElement[]
+    const origThStyles = ths.map(th => ({ width: th.style.width, minWidth: th.style.minWidth, maxWidth: th.style.maxWidth }))
 
-      /* Medir header: buscar el th con el texto de la etiqueta */
-      let anchoMaximo = 0
+    const colTds = colsRender.map((_, i) => {
+      const colIdx = startIdx + i + 1
+      return Array.from(tabla.querySelectorAll(`tbody tr td:nth-child(${colIdx})`))
+    })
+    const origTdStyles = colTds.map(tds =>
+      tds.map(td => ({ width: (td as HTMLElement).style.width, minWidth: (td as HTMLElement).style.minWidth, maxWidth: (td as HTMLElement).style.maxWidth }))
+    )
 
-      /* Recorrer todas las celdas de esta columna en la tabla */
-      const indiceColumna = columnasRenderizar.findIndex((c) => c.clave === clave)
-      if (indiceColumna === -1) return
+    /* Quitar restricciones */
+    tabla.style.tableLayout = 'auto'
+    tabla.style.width = 'auto'
+    ths.forEach(th => { th.style.width = 'auto'; th.style.minWidth = 'auto'; th.style.maxWidth = 'none' })
+    colTds.forEach(tds => tds.forEach(td => { (td as HTMLElement).style.width = 'auto'; (td as HTMLElement).style.minWidth = 'auto'; (td as HTMLElement).style.maxWidth = 'none' }))
 
-      const indiceTd = indiceColumna + (seleccionables ? 1 : 0)
+    /* Forzar reflow */
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    tabla.offsetWidth
 
-      /* Header */
-      const th = tabla.querySelector(`thead tr th:nth-child(${indiceTd + 1})`)
-      if (th) {
-        /* Medir el contenido interno del header (sin padding ni handle de resize) */
-        const contenidoHeader = th.querySelector('div')
-        if (contenidoHeader) {
-          anchoMaximo = Math.max(anchoMaximo, contenidoHeader.scrollWidth)
-        }
-      }
-
-      /* Body — medir cada celda */
-      const celdas = tabla.querySelectorAll(`tbody tr td:nth-child(${indiceTd + 1})`)
-      celdas.forEach((td) => {
-        /* scrollWidth del contenido hijo directo o del td mismo */
-        const primerHijo = td.firstElementChild
-        const anchoContenido = primerHijo ? primerHijo.scrollWidth : td.scrollWidth
-        anchoMaximo = Math.max(anchoMaximo, anchoContenido)
-      })
-
-      /* Agregar padding + margen de seguridad */
-      const anchoFinal = Math.max(
-        col.anchoMinimo || ANCHO_MINIMO_COLUMNA,
-        anchoMaximo + paddingCelda + 8 /* 8px extra de respiro */
-      )
-
-      nuevosAnchos[clave] = anchoFinal
-      anchoTotalMedido += anchoFinal
+    /* Medir: max(offsetWidth del th, max offsetWidth de tds) + margen */
+    colsRender.forEach((col, i) => {
+      const th = ths[startIdx + i]
+      const anchoTh = th ? th.offsetWidth : 0
+      const anchoMaxTd = colTds[i].reduce((max, td) => Math.max(max, (td as HTMLElement).offsetWidth), 0)
+      nuevosAnchos[col.clave] = Math.max(anchoTh, anchoMaxTd) + 12
     })
 
-    /* Si el total medido es menor que el espacio disponible, expandir proporcionalmente */
-    if (anchoTotalMedido < anchoDisponible) {
-      const sobrante = anchoDisponible - anchoTotalMedido
-      const numCols = columnasVisibles.length
-      columnasVisibles.forEach((clave) => {
-        if (nuevosAnchos[clave]) {
-          nuevosAnchos[clave] += Math.floor(sobrante / numCols)
-        }
-      })
-    }
+    /* Restaurar inmediatamente */
+    tabla.style.tableLayout = origLayout
+    tabla.style.width = origWidth
+    ths.forEach((th, i) => Object.assign(th.style, origThStyles[i]))
+    colTds.forEach((tds, i) => tds.forEach((td, j) => Object.assign((td as HTMLElement).style, origTdStyles[i][j])))
 
     /* Columnas no visibles mantienen su ancho */
     columnas.forEach((c) => {
       if (!nuevosAnchos[c.clave]) {
-        nuevosAnchos[c.clave] = c.ancho || ANCHO_DEFAULT_COLUMNA
+        nuevosAnchos[c.clave] = anchoColumnas[c.clave] || c.ancho || ANCHO_DEFAULT_COLUMNA
       }
     })
 
@@ -1464,6 +1798,7 @@ function TablaDinamica<T>({
   }
 
   /* ── Iniciar resize ── */
+  const resizeRecienTerminadoRef = useRef(false)
   const iniciarResize = (clave: string, e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -1544,7 +1879,9 @@ function TablaDinamica<T>({
   const totalPaginas = Math.max(1, Math.ceil(totalRegistros / registrosPorPagina))
   const registroInicio = (paginaActual - 1) * registrosPorPagina + 1
   const registroFin = Math.min(paginaActual * registrosPorPagina, totalRegistros)
-  const datosPaginados = datosOrdenados.slice((paginaActual - 1) * registrosPorPagina, paginaActual * registrosPorPagina)
+  const datosPaginados = esServerSide
+    ? datosOrdenados // datos ya vienen paginados del servidor
+    : datosOrdenados.slice((paginaActual - 1) * registrosPorPagina, paginaActual * registrosPorPagina)
 
   /* Columnas visibles en orden */
   const columnasRenderizar = useMemo(() => {
@@ -1570,6 +1907,15 @@ function TablaDinamica<T>({
   }
 
   const todoSeleccionado = datosPaginados.length > 0 && seleccionados.size === datosPaginados.length
+
+  /* Ancho total de la tabla = checkbox + suma de columnas visibles */
+  const anchoTotalTabla = useMemo(() => {
+    let total = seleccionables ? 44 : 0
+    for (const col of columnasRenderizar) {
+      total += anchoColumnas[col.clave] || col.ancho || ANCHO_DEFAULT_COLUMNA
+    }
+    return total
+  }, [columnasRenderizar, anchoColumnas, seleccionables])
 
   /* ── Calcular offset left para columnas ancladas ── */
   const offsetAncladas = useMemo(() => {
@@ -1821,54 +2167,7 @@ function TablaDinamica<T>({
           </div>
         )}
 
-        {/* Acciones en lote (aparece cuando hay selección) */}
-        <AnimatePresence>
-          {seleccionados.size > 0 && accionesLote.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="relative shrink-0"
-            >
-              <button
-                type="button"
-                onClick={() => setMenuAccionesAbierto(!menuAccionesAbierto)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-borde-sutil bg-superficie-tarjeta text-sm font-medium text-texto-primario hover:bg-superficie-hover cursor-pointer transition-colors"
-              >
-                <MoreHorizontal size={14} />
-                Acciones
-              </button>
-
-              <AnimatePresence>
-                {menuAccionesAbierto && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    className="absolute top-full right-0 mt-1 min-w-[180px] bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-50 overflow-hidden"
-                  >
-                    {accionesLote.map((accion) => (
-                      <button
-                        key={accion.id}
-                        type="button"
-                        onClick={() => { accion.onClick(seleccionados); setMenuAccionesAbierto(false) }}
-                        className={[
-                          'flex items-center gap-2 w-full px-3 py-2 text-sm text-left border-none cursor-pointer transition-colors',
-                          accion.peligro
-                            ? 'text-insignia-peligro-texto bg-transparent hover:bg-insignia-peligro-fondo'
-                            : 'text-texto-primario bg-transparent hover:bg-superficie-hover',
-                        ].join(' ')}
-                      >
-                        {accion.icono}
-                        {accion.etiqueta}
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Placeholder — barra flotante inferior reemplaza este espacio */}
 
         {/* Panel de columnas (sidebar derecho fijo) */}
         <div ref={panelColumnasRef}>
@@ -1888,10 +2187,15 @@ function TablaDinamica<T>({
                 columnasVisibles={columnasVisibles}
                 ordenColumnas={ordenColumnas}
                 columnasAncladas={columnasAncladas}
+                alineacionColumnas={alineacionColumnas}
                 opcionesVisuales={opcionesVisuales}
                 onToggleColumna={toggleColumna}
                 onReordenar={setOrdenColumnas}
                 onToggleAnclar={toggleAnclar}
+                onCambiarAlineacion={cambiarAlineacion}
+                onMostrarTodas={mostrarTodasColumnas}
+                onOcultarTodas={ocultarTodasColumnas}
+                onAlinearTodas={alinearTodasColumnas}
                 onCambiarOpcionVisual={cambiarOpcionVisual}
                 onRestablecer={restablecerColumnas}
                 onAjustarAnchosAuto={ajustarAnchosAuto}
@@ -1922,7 +2226,7 @@ function TablaDinamica<T>({
               transition={{ duration: 0.15 }}
               className="flex-1 min-h-0 overflow-auto overscroll-contain"
             >
-              <table className="w-full border-collapse text-sm" style={{ minWidth: 'max-content' }}>
+              <table className="border-collapse text-sm" style={{ tableLayout: 'fixed', width: anchoTotalTabla, minWidth: anchoTotalTabla }}>
                 {/* Header */}
                 <thead>
                   <tr className="border-b border-borde-fuerte sticky top-0 z-20" style={{ background: 'var(--superficie-activa)' }}>
@@ -1956,10 +2260,10 @@ function TablaDinamica<T>({
                           style={{
                             width: ancho,
                             minWidth: col.anchoMinimo || ANCHO_MINIMO_COLUMNA,
-                            textAlign: col.alineacion,
+                            textAlign: alineacionColumnas[col.clave] || col.alineacion,
                             ...(anclada ? { left: offsetAncladas[col.clave], background: 'var(--superficie-activa)' } : {}),
                           }}
-                          onClick={() => col.ordenable !== false && toggleOrden(col.clave)}
+                          onClick={() => { if (resizeRecienTerminadoRef.current) return; col.ordenable !== false && toggleOrden(col.clave) }}
                         >
                           <div className="flex items-center gap-1">
                             <span className="truncate">{col.etiqueta}</span>
@@ -1980,7 +2284,7 @@ function TablaDinamica<T>({
                           {/* Handle de resize */}
                           <div
                             onMouseDown={(e) => iniciarResize(col.clave, e)}
-                            className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-texto-marca/30 active:bg-texto-marca/50 transition-colors"
+                            style={{ position: 'absolute', top: 0, right: 0, width: 6, height: '100%', cursor: 'col-resize' }}
                           />
                         </th>
                       )
@@ -2057,7 +2361,7 @@ function TablaDinamica<T>({
                                 style={{
                                   width: ancho,
                                   minWidth: col.anchoMinimo || ANCHO_MINIMO_COLUMNA,
-                                  textAlign: col.alineacion,
+                                  textAlign: alineacionColumnas[col.clave] || col.alineacion,
                                   ...(anclada ? { left: offsetAncladas[col.clave], background: fondoStickyFila } : {}),
                                 }}
                               >
@@ -2161,6 +2465,15 @@ function TablaDinamica<T>({
         )}
 
       </div>
+
+      {/* ── Barra flotante de acciones masivas (arrastrable, estilo Attio) ── */}
+      <BarraAccionesLote
+        seleccionados={seleccionados}
+        accionesLote={accionesLote}
+        onLimpiarSeleccion={() => setSeleccionados(new Set())}
+        preferencias={preferencias}
+        guardarPreferencias={guardarPreferencias}
+      />
     </div>
   )
 }

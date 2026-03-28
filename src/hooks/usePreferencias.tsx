@@ -17,8 +17,11 @@ interface ConfigTabla {
   ordenColumnas?: string[]
   columnasAncladas?: string[]
   anchoColumnas?: Record<string, number>
+  alineacionColumnas?: Record<string, string>
   tipoVista?: string
   opcionesVisuales?: Record<string, boolean>
+  /** Posición de la barra de acciones masivas: arriba o abajo */
+  barraAccionesPosicion?: string
 }
 
 interface Preferencias {

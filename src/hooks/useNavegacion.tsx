@@ -35,6 +35,7 @@ const MIGAJAS_MODULOS: Record<string, Migaja> = {
   '/inbox': { etiqueta: 'Inbox', ruta: '/inbox', modulo: 'inbox' },
   '/asistencias': { etiqueta: 'Asistencias', ruta: '/asistencias', modulo: 'asistencias' },
   '/calendario': { etiqueta: 'Calendario', ruta: '/calendario', modulo: 'calendario' },
+  '/presupuestos': { etiqueta: 'Presupuestos', ruta: '/presupuestos', modulo: 'presupuestos' },
   '/ordenes': { etiqueta: 'Órdenes', ruta: '/ordenes', modulo: 'ordenes' },
   '/auditoria': { etiqueta: 'Auditoría', ruta: '/auditoria', modulo: 'auditoria' },
   '/usuarios': { etiqueta: 'Usuarios', ruta: '/usuarios', modulo: 'usuarios' },
@@ -60,7 +61,7 @@ const ContextoNavegacionInterno = createContext<ContextoNavegacion | null>(null)
  * /contactos/123/editar → [Inicio, Contactos, Detalle, Editar]
  */
 function generarMigajas(pathname: string, extras?: Migaja[]): Migaja[] {
-  const migajas: Migaja[] = [{ etiqueta: 'Inicio', ruta: '/dashboard', modulo: 'dashboard' }]
+  const migajas: Migaja[] = []
 
   if (pathname === '/dashboard' || pathname === '/') return migajas
 
@@ -84,14 +85,24 @@ function generarMigajas(pathname: string, extras?: Migaja[]): Migaja[] {
 
   // Agregar migajas extra (para detalle dinámico: nombre del contacto, etc.)
   if (extras) {
-    // Reemplazar la última migaja genérica por la extra con nombre real
+    const reemplazos: Migaja[] = []
+    const intermedias: Migaja[] = []
+
     for (const extra of extras) {
       const idx = migajas.findIndex(m => m.ruta === extra.ruta)
       if (idx >= 0) {
+        // Reemplazar migaja existente (ej: UUID → nombre real)
         migajas[idx] = extra
+        reemplazos.push(extra)
       } else {
-        migajas.push(extra)
+        // Migaja intermedia (ej: contacto de origen antes del actual)
+        intermedias.push(extra)
       }
+    }
+
+    // Insertar intermedias antes de la última migaja (el detalle actual)
+    if (intermedias.length > 0 && migajas.length > 1) {
+      migajas.splice(migajas.length - 1, 0, ...intermedias)
     }
   }
 
@@ -116,6 +127,7 @@ function ProveedorNavegacion({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const historialRef = useRef<string[]>([])
   const [migajasDinamicas, setMigajasDinamicasState] = useState<Record<string, string>>({})
+  const pathnameAnteriorRef = useRef(pathname)
 
   // Agregar al historial cuando cambia la ruta
   if (
@@ -125,9 +137,35 @@ function ProveedorNavegacion({ children }: { children: ReactNode }) {
     historialRef.current = [...historialRef.current.slice(-19), pathname]
   }
 
-  // Filtrar migajas dinámicas: solo las que son prefijo de la ruta actual
+  // Limpiar migajas dinámicas intermedias cuando se navega a otra página
+  // (mantener solo la del pathname actual)
+  if (pathnameAnteriorRef.current !== pathname) {
+    pathnameAnteriorRef.current = pathname
+    const desdeParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('desde') : null
+    // Si no tiene ?desde, limpiar todas las migajas que no sean la ruta actual
+    if (!desdeParam) {
+      const claves = Object.keys(migajasDinamicas)
+      const aLimpiar = claves.filter(ruta => ruta !== pathname && !pathname.startsWith(ruta))
+      if (aLimpiar.length > 0) {
+        setMigajasDinamicasState(prev => {
+          const nuevo = { ...prev }
+          for (const ruta of aLimpiar) delete nuevo[ruta]
+          return nuevo
+        })
+      }
+    }
+  }
+
+  // Filtrar migajas dinámicas para la ruta actual
+  const desdeActual = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('desde') : null
   const extras: Migaja[] = Object.entries(migajasDinamicas)
-    .filter(([ruta]) => pathname.startsWith(ruta) || pathname === ruta)
+    .filter(([ruta]) => {
+      if (pathname === ruta) return true           // Es la ruta actual
+      if (pathname.startsWith(ruta)) return true   // Es prefijo (subrutas)
+      // Solo incluir intermedias si hay ?desde (navegación entre vinculados)
+      if (desdeActual && ruta.includes(desdeActual)) return true
+      return false
+    })
     .map(([ruta, etiqueta]) => ({ ruta, etiqueta }))
   const migajas = generarMigajas(pathname, extras.length > 0 ? extras : undefined)
 

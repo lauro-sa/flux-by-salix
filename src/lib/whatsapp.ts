@@ -399,20 +399,38 @@ export function mapearTipoContenido(tipoMeta: string): string {
   return mapa[tipoMeta] || 'texto'
 }
 
-/** Extraer texto del mensaje según su tipo */
+/** Extraer texto/caption del mensaje (solo contenido real, sin placeholders) */
 export function extraerTextoMensaje(msg: MensajeEntranteMeta): string {
   switch (msg.type) {
     case 'text': return msg.text?.body || ''
-    case 'image': return msg.image?.caption || '[Imagen]'
-    case 'video': return msg.video?.caption || '[Video]'
-    case 'audio': return '[Audio]'
-    case 'document': return msg.document?.caption || `[Documento: ${msg.document?.filename || ''}]`
-    case 'sticker': return '[Sticker]'
-    case 'location': return `[Ubicación: ${msg.location?.name || msg.location?.address || ''}]`
+    case 'image': return msg.image?.caption || ''
+    case 'video': return msg.video?.caption || ''
+    case 'audio': return ''
+    case 'document': return msg.document?.caption || ''
+    case 'sticker': return ''
+    case 'location': return msg.location?.name || msg.location?.address || ''
     case 'interactive':
       return msg.interactive?.button_reply?.title
         || msg.interactive?.list_reply?.title
-        || '[Respuesta interactiva]'
+        || ''
+    default: return ''
+  }
+}
+
+/** Texto descriptivo para preview en lista de conversaciones */
+export function textoPreviewMensaje(msg: MensajeEntranteMeta): string {
+  switch (msg.type) {
+    case 'text': return msg.text?.body || ''
+    case 'image': return msg.image?.caption || '📷 Imagen'
+    case 'video': return msg.video?.caption || '🎬 Video'
+    case 'audio': return '🎤 Audio'
+    case 'document': return msg.document?.caption || `📄 ${msg.document?.filename || 'Documento'}`
+    case 'sticker': return '🏷️ Sticker'
+    case 'location': return `📍 ${msg.location?.name || 'Ubicación'}`
+    case 'interactive':
+      return msg.interactive?.button_reply?.title
+        || msg.interactive?.list_reply?.title
+        || 'Respuesta'
     default: return ''
   }
 }
@@ -429,27 +447,46 @@ export function extraerMediaId(msg: MensajeEntranteMeta): string | null {
   }
 }
 
-/** Extraer mime_type del adjunto */
+/** Extraer mime_type del adjunto (sin parámetros como "; codecs=opus") */
 export function extraerMimeType(msg: MensajeEntranteMeta): string {
+  let mime: string
   switch (msg.type) {
-    case 'image': return msg.image?.mime_type || 'image/jpeg'
-    case 'video': return msg.video?.mime_type || 'video/mp4'
-    case 'audio': return msg.audio?.mime_type || 'audio/ogg'
-    case 'document': return msg.document?.mime_type || 'application/pdf'
-    case 'sticker': return msg.sticker?.mime_type || 'image/webp'
-    default: return 'application/octet-stream'
+    case 'image': mime = msg.image?.mime_type || 'image/jpeg'; break
+    case 'video': mime = msg.video?.mime_type || 'video/mp4'; break
+    case 'audio': mime = msg.audio?.mime_type || 'audio/ogg'; break
+    case 'document': mime = msg.document?.mime_type || 'application/pdf'; break
+    case 'sticker': mime = msg.sticker?.mime_type || 'image/webp'; break
+    default: mime = 'application/octet-stream'
   }
+  // Quitar parámetros: "audio/ogg; codecs=opus" → "audio/ogg"
+  return mime.split(';')[0].trim()
+}
+
+/** Sanitizar nombre de archivo para Storage (quitar caracteres problemáticos) */
+function sanitizarNombreArchivo(nombre: string): string {
+  return nombre
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Quitar acentos
+    .replace(/[^a-zA-Z0-9._-]/g, '_') // Solo alfanuméricos, punto, guion, guion bajo
+    .replace(/_+/g, '_') // Colapsar guiones bajos múltiples
+    .replace(/^_|_$/g, '') // Quitar guiones bajos al inicio/final
+    .slice(0, 100) // Limitar largo
 }
 
 /** Extraer nombre de archivo */
 export function extraerNombreArchivo(msg: MensajeEntranteMeta): string {
-  if (msg.type === 'document' && msg.document?.filename) return msg.document.filename
+  // Para documentos, usar filename original pero sanitizado
+  if (msg.type === 'document' && msg.document?.filename) {
+    return sanitizarNombreArchivo(msg.document.filename)
+  }
   const extensiones: Record<string, string> = {
     'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp',
-    'video/mp4': '.mp4', 'audio/ogg': '.ogg', 'audio/mpeg': '.mp3',
+    'video/mp4': '.mp4', 'video/3gpp': '.3gp',
+    'audio/ogg': '.ogg', 'audio/mpeg': '.mp3', 'audio/aac': '.aac', 'audio/amr': '.amr',
     'application/pdf': '.pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
   }
   const mime = extraerMimeType(msg)
   const ext = extensiones[mime] || ''
-  return `${msg.type}_${msg.id}${ext}`
+  return `${msg.type}_${msg.id.replace(/[^a-zA-Z0-9]/g, '')}${ext}`
 }

@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  /* ── Reset y base ──────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  @page {
+    size: A4;
+    margin: 18mm 15mm 32mm 15mm;
+  }
+  body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 9.5pt;
+    color: #1a1a1a;
+    line-height: 1.45;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── Membrete ──────────────────────────────────────────────────── */
+  .membrete {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 6px;
+  }
+  .membrete-izquierda { flex-direction: row; }
+  .membrete-derecha { flex-direction: row-reverse; }
+  .membrete-centro { flex-direction: column; align-items: center; text-align: center; }
+  .membrete-logo {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .membrete-centro .membrete-logo { align-items: center; }
+  .membrete-derecha .membrete-logo { align-items: flex-end; }
+  .membrete-centro .membrete-contenido { width: 100%; }
+  .membrete-logo img {
+    max-height: 70px;
+    object-fit: contain;
+  }
+  .membrete-contenido {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.25;
+    font-weight: 400;
+  }
+  .membrete-contenido p { margin: 1px 0; }
+  /* Headings del editor Tiptap en membrete: peso normal para que solo <strong> sea bold */
+  .membrete-contenido h1 { font-size: 1.25em; font-weight: normal; margin: 0 0 2px; }
+  .membrete-contenido h2 { font-size: 1.1em; font-weight: normal; margin: 0 0 2px; }
+  .membrete-contenido h3 { font-size: 1em; font-weight: normal; margin: 0 0 1px; }
+  .membrete-contenido h4 { font-size: 0.85em; font-weight: normal; margin: 0 0 1px; }
+  .membrete-contenido h5 { font-size: 0.75em; font-weight: normal; margin: 0 0 1px; }
+  .membrete-separador {
+    border: none;
+    border-top: 1px solid #d1d5db;
+    margin: 8px 0 12px;
+  }
+
+  /* ── Datos fiscales ────────────────────────────────────────────── */
+  .datos-fiscales {
+    font-size: 8pt;
+    color: #4b5563;
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
+  .datos-fiscales strong { color: #1a1a1a; }
+
+  /* ── Titulo documento ──────────────────────────────────────────── */
+  .titulo-doc {
+    font-size: 16pt;
+    font-weight: 700;
+    color: rgb({{colorPrimarioRgb}});
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid rgba({{colorPrimarioRgb}}, 0.25);
+  }
+
+  /* ── Info documento + cliente ───────────────────────────────────── */
+  .info-grid {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 18px;
+  }
+  .info-col { flex: 1; }
+  .info-col dt { font-size: 7.5pt; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 6px; }
+  .info-col dd { font-size: 9pt; color: #1f2937; margin: 1px 0 0; word-wrap: break-word; overflow-wrap: break-word; }
+  .info-col dd.nombre-contacto { font-size: 10.5pt; font-weight: 600; }
+
+  /* ── Tabla de lineas ───────────────────────────────────────────── */
+  .tabla-lineas {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+    font-size: 8.5pt;
+  }
+  .tabla-lineas thead th {
+    background: rgba({{colorPrimarioRgb}}, 0.08);
+    color: #4b5563;
+    font-size: 7pt;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 7px 8px;
+    border-bottom: 1.5px solid rgba({{colorPrimarioRgb}}, 0.2);
+    text-align: left;
+  }
+  .tabla-lineas thead th.num { text-align: right; }
+  .tabla-lineas tbody td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #e5e7eb;
+    vertical-align: top;
+  }
+  .tabla-lineas tbody td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .tabla-lineas tbody tr { page-break-inside: avoid; }
+
+  .linea-seccion td {
+    font-weight: 600;
+    background: rgba({{colorPrimarioRgb}}, 0.05);
+    color: #374151;
+    padding-top: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba({{colorPrimarioRgb}}, 0.15);
+  }
+  .linea-nota td {
+    font-style: italic;
+    color: #6b7280;
+    font-size: 8pt;
+    border-bottom: none;
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+  .desc-detalle {
+    display: block;
+    font-size: 7.5pt;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+
+  /* ── Totales ───────────────────────────────────────────────────── */
+  .bloque-totales {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 18px;
+  }
+  .tabla-totales {
+    width: 260px;
+    border-collapse: collapse;
+    font-size: 9pt;
+  }
+  .tabla-totales td { padding: 4px 8px; }
+  .tabla-totales .label { text-align: left; color: #4b5563; }
+  .tabla-totales .valor { text-align: right; color: #1f2937; font-variant-numeric: tabular-nums; }
+  .tabla-totales .descuento .valor { color: #dc2626; }
+  .tabla-totales .total-final td {
+    font-size: 11pt;
+    font-weight: 700;
+    color: rgb({{colorPrimarioRgb}});
+    padding-top: 8px;
+    border-top: 2px solid rgb({{colorPrimarioRgb}});
+  }
+
+  /* ── Cuotas de pago ────────────────────────────────────────────── */
+  .seccion-cuotas { margin-bottom: 16px; }
+  .seccion-cuotas h3 {
+    font-size: 9pt;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 6px;
+  }
+  .tabla-cuotas {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8.5pt;
+  }
+  .tabla-cuotas th {
+    background: #f9fafb;
+    font-size: 7pt;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+    padding: 5px 8px;
+    text-align: left;
+    border-bottom: 1px solid #d1d5db;
+  }
+  .tabla-cuotas td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; }
+
+  /* ── Notas y condiciones ───────────────────────────────────────── */
+  .seccion-notas { margin-bottom: 14px; page-break-inside: avoid; }
+  .seccion-notas h3 {
+    font-size: 9pt;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 4px;
+    padding-bottom: 3px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  /* ── HTML rico de TipTap ───────────────────────────────────────── */
+  .contenido-rico { font-size: 8.5pt; color: #374151; line-height: 1.5; }
+  .contenido-rico p { margin: 2px 0; }
+  .contenido-rico strong, .contenido-rico b { font-weight: 700 !important; }
+  .contenido-rico em { font-style: italic; }
+  .contenido-rico u { text-decoration: underline; }
+  .contenido-rico a { color: #2563eb; text-decoration: underline; }
+  .contenido-rico ul { padding-left: 18px; list-style: disc; }
+  .contenido-rico ol { padding-left: 18px; list-style: decimal; }
+  .contenido-rico li { margin: 1px 0; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════ MEMBRETE ════════════════ -->
+{{#if tieneMembrete}}
+<div class="membrete membrete-{{membrete.posicionLogo}}"{{#if (eq membrete.posicionLogo "centro")}} style="text-align:center;"{{/if}}>
+  <div class="membrete-logo"{{#unless (eq membrete.posicionLogo "centro")}} style="width: {{membrete.anchoLogo}}%;"{{/unless}}>
+    <!-- Logo imagen -->
+    {{#if membrete.mostrarLogo}}
+      {{#if logoBase64}}
+        <img src="{{logoBase64}}" alt="Logo" style="max-width:100%; max-height:80px;" />
+      {{else if logoUrl}}
+        <img src="{{logoUrl}}" alt="Logo" style="max-width:100%; max-height:80px;" onerror="this.style.display='none'" />
+      {{/if}}
+    {{/if}}
+    <!-- Texto logo (siempre si existe, tanto con logo como sin él) -->
+    {{#if membrete.textoLogo}}
+      <div style="font-size: {{membrete.tamanoTextoLogo}}px; font-weight: 700; color: #111827; line-height: 1.2;{{#if membrete.mostrarLogo}} margin-top: 4px;{{/if}}">
+        {{{membrete.textoLogo}}}
+      </div>
+    {{/if}}
+    {{#if membrete.subtituloLogo}}
+      <div style="font-size: {{membrete.tamanoSubtitulo}}px; color: #6b7280; margin-top: 2px;">
+        {{{membrete.subtituloLogo}}}
+      </div>
+    {{/if}}
+  </div>
+  {{#if membrete.contenidoHTML}}
+    <div class="membrete-contenido contenido-rico" style="font-size: {{membrete.tamanoTexto}}px; text-align: {{alineacionTextoCSS}};">
+      {{{membrete.contenidoHTML}}}
+    </div>
+  {{/if}}
+</div>
+{{#if membrete.lineaSeparadora}}
+  <hr class="membrete-separador" />
+{{/if}}
+{{/if}}
+
+<!-- ════════════════ DATOS FISCALES (solo si no hay membrete con contenidoHTML) ════════════════ -->
+{{#unless ocultarDatosFiscales}}
+{{#if tieneDatosFiscales}}
+<div class="datos-fiscales">
+  {{#if visibleRazonSocial}}<strong>{{datosFiscales.razonSocial}}</strong><br>{{/if}}
+  {{#if visibleCuit}}CUIT: {{datosFiscales.cuit}} &nbsp; {{/if}}
+  {{#if visibleCondicionIVA}}{{datosFiscales.condicionIVA}} &nbsp; {{/if}}
+  {{#if visibleIngresosBrutos}}IIBB: {{datosFiscales.ingresosBrutos}} &nbsp; {{/if}}
+  {{#if visibleDomicilioFiscal}}<br>{{datosFiscales.domicilioFiscal}}{{/if}}
+  {{#if visibleCiudad}} - {{datosFiscales.ciudad}}{{/if}}
+  {{#if visibleTelefono}}<br>Tel: {{datosFiscales.telefono}}{{/if}}
+  {{#if visibleCorreo}} | {{datosFiscales.correo}}{{/if}}
+</div>
+{{/if}}
+{{/unless}}
+
+<!-- ════════════════ TITULO ════════════════ -->
+<div class="titulo-doc">
+  {{etiquetaTipo}} {{documento.numero}}
+</div>
+
+<!-- ════════════════ CLIENTE + INFO ════════════════ -->
+<div class="info-grid">
+  <!-- Columna izquierda: Cliente -->
+  <div class="info-col">
+    <dl>
+      <!-- Con empresa padre: empresa arriba, persona como contacto -->
+      {{#if documento.facturarANombre}}
+        <dd class="nombre-contacto" style="margin-top: 0;">{{documento.facturarANombre}}</dd>
+        {{#if contactoNombreCompleto}}
+          <dt>Contacto</dt>
+          <dd>{{contactoNombreCompleto}}</dd>
+        {{/if}}
+        {{#if documento.facturarACuit}}
+          <dt>CUIT</dt>
+          <dd>{{documento.facturarACuit}}</dd>
+        {{/if}}
+        {{#if facturarACondicionIVALabel}}
+          <dt>Cond. IVA</dt>
+          <dd>{{facturarACondicionIVALabel}}</dd>
+        {{/if}}
+      <!-- Con edificio padre: edificio arriba, persona como contacto -->
+      {{else if documento.dirigidoANombre}}
+        <dd class="nombre-contacto" style="margin-top: 0;">{{documento.dirigidoANombre}}</dd>
+        {{#if contactoNombreCompleto}}
+          <dt>Contacto</dt>
+          <dd>{{contactoNombreCompleto}}</dd>
+        {{/if}}
+        {{#if documento.contactoCuit}}
+          <dt>CUIT</dt>
+          <dd>{{documento.contactoCuit}}</dd>
+        {{/if}}
+        {{#if contactoCondicionIVALabel}}
+          <dt>Cond. IVA</dt>
+          <dd>{{contactoCondicionIVALabel}}</dd>
+        {{/if}}
+      <!-- Sin padre: mostrar contacto directo -->
+      {{else}}
+        {{#if contactoNombreCompleto}}
+          <dd class="nombre-contacto" style="margin-top: 0;">{{contactoNombreCompleto}}</dd>
+        {{/if}}
+        {{#if documento.contactoCuit}}
+          <dt>CUIT</dt>
+          <dd>{{documento.contactoCuit}}</dd>
+        {{/if}}
+        {{#if contactoCondicionIVALabel}}
+          <dt>Cond. IVA</dt>
+          <dd>{{contactoCondicionIVALabel}}</dd>
+        {{/if}}
+      {{/if}}
+      <!-- Dirección: del contacto o del edificio -->
+      {{#if documento.contactoDireccion}}
+        <dt>Dirección{{#if contactoDireccionTipoLabel}} <span style="font-weight:normal; color:#9ca3af; font-size:0.85em;">({{contactoDireccionTipoLabel}})</span>{{/if}}</dt>
+        <dd>{{documento.contactoDireccion}}</dd>
+      {{else if documento.dirigidoADireccion}}
+        <dt>Dirección</dt>
+        <dd>{{documento.dirigidoADireccion}}</dd>
+      {{/if}}
+      {{#if documento.contactoCorreo}}
+        <dt>Correo</dt>
+        <dd>{{documento.contactoCorreo}}</dd>
+      {{/if}}
+      {{#if documento.contactoTelefono}}
+        <dt>Teléfono</dt>
+        <dd>{{documento.contactoTelefono}}</dd>
+      {{else if documento.contactoWhatsapp}}
+        <dt>Teléfono</dt>
+        <dd>{{documento.contactoWhatsapp}}</dd>
+      {{/if}}
+      <!-- Atención: vinculado destinatario -->
+      {{#if documento.atencionNombre}}
+      <div style="margin-top: 6px; padding: 5px 8px; border-left: 2px solid rgba({{colorPrimarioRgb}}, 0.6); background: rgba(0,0,0,0.015); border-radius: 0 3px 3px 0;">
+        <div style="font-size: 7pt; text-transform: uppercase; letter-spacing: 0.05em; color: #9ca3af;">Atención</div>
+        <div style="font-size: 9pt; font-weight: 600; color: #1f2937;">{{documento.atencionNombre}}{{#if documento.atencionCargo}} <span style="font-weight: 400; font-size: 0.85em; color: #6b7280;">({{documento.atencionCargo}})</span>{{/if}}</div>
+        {{#if documento.atencionCorreo}}<div style="font-size: 8pt; color: #6b7280;">{{documento.atencionCorreo}}</div>{{/if}}
+        {{#if documento.atencionTelefono}}<div style="font-size: 8pt; color: #6b7280;">{{documento.atencionTelefono}}</div>{{else if documento.atencionWhatsapp}}<div style="font-size: 8pt; color: #6b7280;">{{documento.atencionWhatsapp}}</div>{{/if}}
+      </div>
+      {{/if}}
+    </dl>
+  </div>
+  <!-- Columna derecha: Fechas y datos del documento -->
+  <div class="info-col" style="text-align: right;">
+    <dl style="text-align: right;">
+      <dt>Fecha de emisión</dt>
+      <dd>{{fechaEmision}}</dd>
+      {{#if fechaVencimiento}}
+        <dt>Vencimiento</dt>
+        <dd>{{fechaVencimiento}}</dd>
+      {{/if}}
+      {{#if documento.condicionPagoLabel}}
+        <dt>Condición de pago</dt>
+        <dd>{{documento.condicionPagoLabel}}</dd>
+      {{/if}}
+      {{#if documento.moneda}}
+        <dt>Moneda</dt>
+        <dd>{{documento.moneda}}</dd>
+      {{/if}}
+      {{#if documento.origenDocumentoNumero}}
+        <dt>Origen</dt>
+        <dd>{{documento.origenDocumentoNumero}}</dd>
+      {{/if}}
+    </dl>
+  </div>
+</div>
+
+<!-- ════════════════ TABLA DE LINEAS ════════════════ -->
+<table class="tabla-lineas">
+  <thead>
+    <tr>
+      <th style="width:7%;">Cod.</th>
+      <th style="width:33%;">Descripción</th>
+      <th class="num" style="width:7%;">Cant.</th>
+      <th style="width:7%;">Unid.</th>
+      <th class="num" style="width:12%;">Precio Unit.</th>
+      <th class="num" style="width:7%;">Dto.</th>
+      <th style="width:11%;">Impuesto</th>
+      <th class="num" style="width:14%;">Subtotal</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#each lineas}}
+      {{#if (eq tipoLinea "seccion")}}
+        <tr class="linea-seccion"><td colspan="8">{{descripcion}}</td></tr>
+      {{else if (eq tipoLinea "nota")}}
+        <tr class="linea-nota"><td colspan="8">{{descripcion}}</td></tr>
+      {{else if (eq tipoLinea "descuento")}}
+        <tr class="linea-nota"><td colspan="8">Descuento: {{porcentaje}}%</td></tr>
+      {{else}}
+        <tr>
+          <td>{{codigoProducto}}</td>
+          <td>
+            {{descripcion}}
+            {{#if descripcionDetalle}}<span class="desc-detalle">{{descripcionDetalle}}</span>{{/if}}
+          </td>
+          <td class="num">{{formatNumero cantidad}}</td>
+          <td>{{unidad}}</td>
+          <td class="num">{{formatMoneda precioUnitario}}</td>
+          <td class="num">{{#if descuento}}{{descuento}}%{{/if}}</td>
+          <td>{{impuestoLabel}}</td>
+          <td class="num">{{formatMoneda subtotal}}</td>
+        </tr>
+      {{/if}}
+    {{else}}
+      <tr><td colspan="8" style="text-align:center; color:#9ca3af; padding:20px;">Sin ítems</td></tr>
+    {{/each}}
+  </tbody>
+</table>
+
+<!-- ════════════════ TOTALES ════════════════ -->
+<div class="bloque-totales">
+  <table class="tabla-totales">
+    <tr>
+      <td class="label">Subtotal neto</td>
+      <td class="valor">{{formatMoneda documento.subtotalNeto}}</td>
+    </tr>
+    {{#each desgloseIVA}}
+      <tr>
+        <td class="label">{{label}}</td>
+        <td class="valor">{{formatMoneda monto}}</td>
+      </tr>
+    {{/each}}
+    {{#if tieneDescuento}}
+      <tr class="descuento">
+        <td class="label">Descuento ({{documento.descuentoGlobal}}%)</td>
+        <td class="valor">-{{formatMoneda documento.descuentoGlobalMonto}}</td>
+      </tr>
+    {{/if}}
+    <tr class="total-final">
+      <td class="label">TOTAL</td>
+      <td class="valor">{{simbolo}} {{formatMonedaSinSimbolo documento.totalFinal}}</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ════════════════ CUOTAS DE PAGO ════════════════ -->
+{{#if tieneCuotas}}
+<div class="seccion-cuotas">
+  <h3>Plan de Pagos</h3>
+  <table class="tabla-cuotas">
+    <thead>
+      <tr>
+        <th>Descripción</th>
+        <th style="width:12%; text-align:right;">%</th>
+        <th style="width:18%; text-align:right;">Monto</th>
+        <th style="width:14%;">Estado</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each documento.cuotasPago}}
+        <tr>
+          <td>{{descripcion}}</td>
+          <td style="text-align:right;">{{porcentaje}}%</td>
+          <td style="text-align:right;">{{formatMoneda monto}}</td>
+          <td>{{#if (eq estado "cobrada")}}Cobrada{{else}}Pendiente{{/if}}</td>
+        </tr>
+      {{/each}}
+    </tbody>
+  </table>
+</div>
+{{/if}}
+
+<!-- ════════════════ NOTAS ════════════════ -->
+{{#if documento.notasHTML}}
+<div class="seccion-notas">
+  <h3>Notas</h3>
+  <div class="contenido-rico">{{{documento.notasHTML}}}</div>
+</div>
+{{/if}}
+
+<!-- ════════════════ CONDICIONES ════════════════ -->
+{{#if documento.condicionesHTML}}
+<div class="seccion-notas">
+  <h3>Términos y Condiciones</h3>
+  <div class="contenido-rico">{{{documento.condicionesHTML}}}</div>
+</div>
+{{/if}}
+
+</body>
+</html>

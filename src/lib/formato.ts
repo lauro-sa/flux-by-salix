@@ -132,6 +132,30 @@ export function aplicarFormato(valor: string, formato: TipoFormato): string {
   }
 }
 
+/**
+ * Aplica una máscara de formato a un valor numérico.
+ * La máscara usa '#' para dígitos y cualquier otro carácter como separador.
+ * Ejemplo: aplicarMascara('20123456789', '##-########-#') → '20-12345678-9'
+ */
+export function aplicarMascara(valor: string, mascara: string): string {
+  // Extraer solo dígitos del valor
+  const digitos = valor.replace(/\D/g, '')
+  let resultado = ''
+  let idxDigito = 0
+
+  for (let i = 0; i < mascara.length && idxDigito < digitos.length; i++) {
+    if (mascara[i] === '#') {
+      resultado += digitos[idxDigito]
+      idxDigito++
+    } else {
+      resultado += mascara[i]
+      // Si el usuario está escribiendo y el próximo carácter de la máscara es separador, agregarlo automáticamente
+    }
+  }
+
+  return resultado
+}
+
 /** Detecta automáticamente el formato según el tipo de input HTML */
 export function detectarFormato(tipoInput: string): TipoFormato | null {
   switch (tipoInput) {

@@ -41,3 +41,4 @@ next-env.d.ts
 
 # mcp (contiene tokens)
 .mcp.json
+firebase-debug.log

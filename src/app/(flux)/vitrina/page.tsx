@@ -28,6 +28,8 @@ import { Kanban } from '@/componentes/tablas/Kanban'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica, FiltroTabla, AccionLote } from '@/componentes/tablas/TablaDinamica'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { EditorTexto } from '@/componentes/ui/EditorTexto'
+import { useColoresEmpresa } from '@/hooks/useColoresEmpresa'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useTema, type Tema, type Efecto, type FondoCristal, type EscalaTexto } from '@/hooks/useTema'
 import { ALargeSmall } from 'lucide-react'
@@ -476,6 +478,34 @@ function SeccionTablaDinamica({ mostrar }: { mostrar: (tipo: 'exito' | 'error' |
         )}
       />
       </div>
+    </Seccion>
+  )
+}
+
+function SeccionEditorTexto() {
+  const [html, setHtml] = useState('')
+  const { colores } = useColoresEmpresa()
+
+  return (
+    <Seccion titulo="Editor de Texto">
+      <p className="text-sm text-texto-secundario mb-3">
+        Seleccioná texto para ver el toolbar de formateo: negrita, itálica, tamaños, colores, alineación, listas y links.
+      </p>
+      <EditorTexto
+        contenido="<p>Este es un <strong>editor de texto enriquecido</strong> con toolbar flotante. Seleccioná cualquier parte del texto para ver las opciones de formateo.</p><p>Podés aplicar <em>itálica</em>, <u>subrayado</u>, cambiar el <span style='color: #3b82f6'>color del texto</span>, agregar <mark style='background-color: #fef08a'>resaltado</mark>, crear listas y mucho más.</p><h2>Títulos</h2><p>También soporta encabezados H1, H2 y H3 para organizar el contenido.</p><ul><li>Listas con viñetas</li><li>Numeradas</li></ul><p>Y <a href='https://fluxsalix.com'>enlaces</a> también.</p>"
+        onChange={setHtml}
+        placeholder="Escribí algo..."
+        coloresMarca={colores}
+        alturaMinima={200}
+      />
+      {html && (
+        <details className="mt-3">
+          <summary className="text-xxs text-texto-terciario cursor-pointer">Ver HTML generado</summary>
+          <pre className="mt-2 p-3 rounded-md bg-superficie-hover text-xxs text-texto-secundario overflow-x-auto max-h-32">
+            {html}
+          </pre>
+        </details>
+      )}
     </Seccion>
   )
 }
@@ -940,6 +970,9 @@ export default function PaginaVitrina() {
         <Separador etiqueta="O continuar con" />
         <Separador etiqueta="Sección 3" />
       </Seccion>
+
+      {/* EDITOR DE TEXTO */}
+      <SeccionEditorTexto />
 
       {/* TOKENS DE COLOR */}
       <Seccion titulo="Tokens de color">

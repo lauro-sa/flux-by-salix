@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { CargadorSeccion } from '@/componentes/ui/Cargador'
 import {
   Sparkles, MessageSquare, Wand2, Eye, EyeOff, RotateCcw, Maximize2, Minimize2,
   Check, Shield, Zap, CheckCircle,
@@ -170,7 +171,7 @@ export function SeccionIA() {
     return '•••• •••• •••• ' + key.slice(-4)
   }
 
-  if (cargando) return <div className="p-8 text-center text-sm text-texto-terciario">Cargando...</div>
+  if (cargando) return <CargadorSeccion />
 
   return (
     <div className="space-y-6">

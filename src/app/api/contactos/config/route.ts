@@ -16,16 +16,21 @@ export async function GET() {
 
     const admin = crearClienteAdmin()
 
-    const [etiquetasRes, rubrosRes, puestosRes] = await Promise.all([
+    const [etiquetasRes, rubrosRes, puestosRes, relacionesRes] = await Promise.all([
       admin.from('etiquetas_contacto').select('*').eq('empresa_id', empresaId).order('orden'),
       admin.from('rubros_contacto').select('*').eq('empresa_id', empresaId).order('orden'),
       admin.from('puestos_contacto').select('*').eq('empresa_id', empresaId).order('orden'),
+      admin.from('tipos_relacion').select('*').eq('empresa_id', empresaId).order('etiqueta'),
     ])
 
     return NextResponse.json({
       etiquetas: etiquetasRes.data || [],
       rubros: rubrosRes.data || [],
       puestos: puestosRes.data || [],
+      relaciones: (relacionesRes.data || []).map((r: Record<string, unknown>) => ({
+        id: r.id, nombre: r.etiqueta, activo: r.activo, orden: 0,
+        etiqueta_inversa: r.etiqueta_inversa, es_predefinido: r.es_predefinido,
+      })),
     })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
@@ -51,6 +56,25 @@ export async function POST(request: NextRequest) {
     if (!nombre?.trim()) return NextResponse.json({ error: 'Nombre obligatorio' }, { status: 400 })
 
     const admin = crearClienteAdmin()
+
+    // Tipos de relación tienen estructura diferente
+    if (tipo === 'relacion') {
+      const clave = nombre.trim().toLowerCase().replace(/\s+/g, '_')
+      const { data, error } = await admin.from('tipos_relacion').insert({
+        empresa_id: empresaId,
+        clave,
+        etiqueta: nombre.trim(),
+        etiqueta_inversa: body.etiqueta_inversa?.trim() || nombre.trim(),
+        es_predefinido: false,
+      }).select().single()
+
+      if (error) {
+        if (error.code === '23505') return NextResponse.json({ error: 'Ya existe' }, { status: 409 })
+        return NextResponse.json({ error: 'Error al crear' }, { status: 500 })
+      }
+      return NextResponse.json(data, { status: 201 })
+    }
+
     const tabla = tipo === 'etiqueta' ? 'etiquetas_contacto' : tipo === 'rubro' ? 'rubros_contacto' : tipo === 'puesto' ? 'puestos_contacto' : null
 
     if (!tabla) return NextResponse.json({ error: 'Tipo no válido' }, { status: 400 })
@@ -92,12 +116,17 @@ export async function PATCH(request: NextRequest) {
     const { tipo, id } = body
 
     const admin = crearClienteAdmin()
-    const tabla = tipo === 'etiqueta' ? 'etiquetas_contacto' : tipo === 'rubro' ? 'rubros_contacto' : tipo === 'puesto' ? 'puestos_contacto' : null
+    const tabla = tipo === 'etiqueta' ? 'etiquetas_contacto' : tipo === 'rubro' ? 'rubros_contacto' : tipo === 'puesto' ? 'puestos_contacto' : tipo === 'relacion' ? 'tipos_relacion' : null
 
     if (!tabla || !id) return NextResponse.json({ error: 'Tipo e ID obligatorios' }, { status: 400 })
 
     const actualizar: Record<string, unknown> = {}
-    if ('nombre' in body) actualizar.nombre = body.nombre?.trim()
+    if (tipo === 'relacion') {
+      if ('nombre' in body) actualizar.etiqueta = body.nombre?.trim()
+      if ('etiqueta_inversa' in body) actualizar.etiqueta_inversa = body.etiqueta_inversa?.trim()
+    } else {
+      if ('nombre' in body) actualizar.nombre = body.nombre?.trim()
+    }
     if ('color' in body) actualizar.color = body.color
     if ('activo' in body) actualizar.activo = body.activo
     if ('orden' in body) actualizar.orden = body.orden
@@ -129,7 +158,7 @@ export async function DELETE(request: NextRequest) {
     const { tipo, id } = body
 
     const admin = crearClienteAdmin()
-    const tabla = tipo === 'etiqueta' ? 'etiquetas_contacto' : tipo === 'rubro' ? 'rubros_contacto' : tipo === 'puesto' ? 'puestos_contacto' : null
+    const tabla = tipo === 'etiqueta' ? 'etiquetas_contacto' : tipo === 'rubro' ? 'rubros_contacto' : tipo === 'puesto' ? 'puestos_contacto' : tipo === 'relacion' ? 'tipos_relacion' : null
 
     if (!tabla || !id) return NextResponse.json({ error: 'Tipo e ID obligatorios' }, { status: 400 })
 

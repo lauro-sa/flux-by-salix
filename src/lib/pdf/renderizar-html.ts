@@ -6,6 +6,23 @@
  */
 
 import { PLANTILLA_PDF_DEFECTO } from './plantilla-defecto'
+
+// Convierte el valor de notas/condiciones a HTML para el PDF.
+// Soporta: JSON array de HTML strings, HTML suelto, y texto plano legacy.
+function notasAHtml(valor: string | null): string {
+  if (!valor || !valor.trim()) return ''
+  try {
+    const parsed = JSON.parse(valor)
+    if (Array.isArray(parsed)) {
+      return parsed.map((h: string) => `<div>${h}</div>`).join('\n')
+    }
+  } catch { /* no es JSON */ }
+  // HTML suelto o texto plano
+  if (!valor.includes('<')) {
+    return valor.split('\n').filter(l => l.trim()).map(l => `<p>${l}</p>`).join('\n')
+  }
+  return valor
+}
 import type {
   ConfigMembrete,
   ConfigPiePagina,
@@ -292,8 +309,8 @@ export function renderizarHtml(
     descuento_global_porcentaje: presupuesto.descuento_global,
     descuento_global_monto_formateado: formatearNumero(presupuesto.descuento_global_monto),
     total_final_formateado: formatearNumero(presupuesto.total_final),
-    notas_html: presupuesto.notas_html || '',
-    condiciones_html: presupuesto.condiciones_html || '',
+    notas_html: notasAHtml(presupuesto.notas_html),
+    condiciones_html: notasAHtml(presupuesto.condiciones_html),
     tiene_cuotas: presupuesto.cuotas.length > 0,
     mostrar_datos_bancarios: datosEmpPdf?.mostrar_datos_bancarios === true,
     banco: datosEmpPdf?.datos_bancarios?.banco || '',

@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
+import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { Tabs } from '@/componentes/ui/Tabs'
 import { Boton } from '@/componentes/ui/Boton'
 import {
@@ -10,7 +11,7 @@ import {
   Plus, Pen,
 } from 'lucide-react'
 import { ListaConversaciones } from './_componentes/ListaConversaciones'
-import { PanelWhatsApp } from './_componentes/PanelWhatsApp'
+import { PanelWhatsApp, VisorMedia, type MediaVisor } from './_componentes/PanelWhatsApp'
 import { PanelCorreo } from './_componentes/PanelCorreo'
 import { PanelInterno } from './_componentes/PanelInterno'
 import { PanelInfoContacto } from './_componentes/PanelInfoContacto'
@@ -43,6 +44,7 @@ function generarTabs(modulosActivos: Set<string>) {
 
 export default function PaginaInbox() {
   const router = useRouter()
+  const supabase = useMemo(() => crearClienteNavegador(), [])
 
   // Estado global del inbox
   const [tabActivo, setTabActivo] = useState<TipoCanal>('whatsapp')
@@ -69,6 +71,34 @@ export default function PaginaInbox() {
 
   // Panel info contacto
   const [panelInfoAbierto, setPanelInfoAbierto] = useState(false)
+
+  // Visor de media fullscreen (compartido entre PanelWhatsApp y PanelInfoContacto)
+  const [visorAbierto, setVisorAbierto] = useState(false)
+  const [visorIndice, setVisorIndice] = useState(0)
+
+  // Recopilar todos los medios visuales para el visor
+  const todosLosMedias = useMemo<MediaVisor[]>(() => {
+    const medias: MediaVisor[] = []
+    for (const msg of mensajes) {
+      if (msg.tipo_contenido === 'imagen' || msg.tipo_contenido === 'video') {
+        for (const adj of msg.adjuntos) {
+          medias.push({
+            url: adj.url,
+            tipo: msg.tipo_contenido === 'video' ? 'video' : 'imagen',
+            caption: msg.texto && !/^\[(Imagen|Video|Audio|Sticker|Documento|Ubicación|Contacto)/.test(msg.texto) ? msg.texto : null,
+            fecha: msg.creado_en,
+          })
+        }
+      }
+    }
+    return medias
+  }, [mensajes])
+
+  const abrirVisor = useCallback((url: string) => {
+    const idx = todosLosMedias.findIndex(m => m.url === url)
+    setVisorIndice(idx >= 0 ? idx : 0)
+    setVisorAbierto(true)
+  }, [todosLosMedias])
 
   const busquedaRef = useRef(busqueda)
   busquedaRef.current = busqueda
@@ -189,6 +219,73 @@ export default function PaginaInbox() {
     }
   }, [conversacionSeleccionada])
 
+  // ─── Supabase Realtime: mensajes nuevos en la conversación activa ───
+  const conversacionIdRef = useRef<string | null>(null)
+  conversacionIdRef.current = conversacionSeleccionada?.id || null
+
+  // ─── Polling de mensajes: chequear nuevos cada 3 segundos ───
+  // Realtime con RLS + service role inserts no siempre entrega eventos,
+  // así que usamos polling como mecanismo principal y confiable.
+  const ultimoMensajeRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    const convId = conversacionSeleccionada?.id
+    if (!convId) return
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/inbox/mensajes?conversacion_id=${convId}`)
+        const data = await res.json()
+        if (data.mensajes && conversacionIdRef.current === convId) {
+          const nuevos = data.mensajes as MensajeConAdjuntos[]
+          const ultimoNuevo = nuevos[nuevos.length - 1]?.id
+          // Solo actualizar si hay cambios (nuevo mensaje o adjuntos nuevos)
+          if (ultimoNuevo !== ultimoMensajeRef.current || nuevos.some(
+            (m, i) => m.adjuntos.length !== (mensajes[i]?.adjuntos?.length ?? -1)
+          )) {
+            ultimoMensajeRef.current = ultimoNuevo
+            setMensajes(nuevos)
+          }
+        }
+      } catch { /* silenciar */ }
+    }
+
+    // Polling cada 3 segundos
+    const intervalo = setInterval(poll, 3000)
+
+    return () => clearInterval(intervalo)
+  }, [conversacionSeleccionada?.id])
+
+  // ─── Polling de lista de conversaciones: cada 5 segundos ───
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const params = new URLSearchParams()
+        params.set('tipo_canal', tabActivo)
+        if (filtroEstado !== 'todas') params.set('estado', filtroEstado)
+        if (busquedaRef.current) params.set('busqueda', busquedaRef.current)
+
+        const res = await fetch(`/api/inbox/conversaciones?${params}`)
+        const data = await res.json()
+        if (data.conversaciones) {
+          setConversaciones(data.conversaciones)
+          // Actualizar la conversación seleccionada si cambió
+          if (conversacionSeleccionada) {
+            const actualizada = data.conversaciones.find(
+              (c: ConversacionConDetalles) => c.id === conversacionSeleccionada.id
+            )
+            if (actualizada) {
+              setConversacionSeleccionada(actualizada)
+            }
+          }
+        }
+      } catch { /* silenciar */ }
+    }
+
+    const intervalo = setInterval(poll, 5000)
+    return () => clearInterval(intervalo)
+  }, [tabActivo, filtroEstado, conversacionSeleccionada?.id])
+
   const tabs = generarTabs(modulosActivos)
   const totalNoLeidos = conversaciones.reduce((sum, c) => sum + c.mensajes_sin_leer, 0)
 
@@ -291,6 +388,7 @@ export default function PaginaInbox() {
             conversacion={conversacionSeleccionada}
             mensajes={mensajes}
             onEnviar={enviarMensaje}
+            onAbrirVisor={abrirVisor}
             cargando={cargandoMensajes}
             enviando={enviando}
           />
@@ -321,15 +419,26 @@ export default function PaginaInbox() {
           />
         )}
 
-        {/* Panel derecho: info contacto (colapsable) */}
+        {/* Panel derecho: info contacto + galería de medios (colapsable) */}
         {tabActivo !== 'interno' && (
           <PanelInfoContacto
             conversacion={conversacionSeleccionada}
+            mensajes={mensajes}
             abierto={panelInfoAbierto}
             onCerrar={() => setPanelInfoAbierto(false)}
+            onAbrirVisor={abrirVisor}
           />
         )}
       </div>
+
+      {/* Visor de media fullscreen (compartido) */}
+      <VisorMedia
+        medias={todosLosMedias}
+        indice={visorIndice}
+        abierto={visorAbierto}
+        onCerrar={() => setVisorAbierto(false)}
+        onCambiarIndice={setVisorIndice}
+      />
     </div>
   )
 }

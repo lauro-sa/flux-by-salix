@@ -1,16 +1,15 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Cloud, X, Mail, Phone, ExternalLink,
-  Send, Printer, FileCheck, Eye, Receipt,
 } from 'lucide-react'
 import { TablaLineas } from '../_componentes/TablaLineas'
+import EditorNotasPresupuesto from '../_componentes/EditorNotasPresupuesto'
 import SelectorContactoPresupuesto from '../_componentes/SelectorContactoPresupuesto'
 import SelectorPlantilla from '../_componentes/SelectorPlantilla'
 import BarraEstadoPresupuesto from '../_componentes/BarraEstadoPresupuesto'
-import { Boton } from '@/componentes/ui/Boton'
 import { Select } from '@/componentes/ui/Select'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { useEmpresa } from '@/hooks/useEmpresa'
@@ -78,6 +77,10 @@ export default function PaginaNuevoPresupuesto() {
   const [datosEmpresa, setDatosEmpresa] = useState<DatosEmpresa | null>(null)
   const [plantillaId, setPlantillaId] = useState<string | null>(null)
 
+  // Estado post-creación: la página se transforma en editor sin navegar
+  const [presupuestoId, setPresupuestoId] = useState<string | null>(null)
+  const [numeroPresupuesto, setNumeroPresupuesto] = useState<string | null>(null)
+
   // Contacto
   const [contactoId, setContactoId] = useState<string | null>(null)
   const [contactoSeleccionado, setContactoSeleccionado] = useState<ContactoResumido | null>(null)
@@ -131,138 +134,63 @@ export default function PaginaNuevoPresupuesto() {
       .catch(() => {})
   }, [empresa?.id])
 
-  // Seleccionar contacto y cargar vinculaciones
-  const seleccionarContacto = useCallback(async (contacto: ContactoResumido) => {
-    setContactoId(contacto.id)
-    setContactoSeleccionado(contacto)
-    setAtencionId(null)
-    setAtencionSeleccionada(null)
+  // Ref para evitar doble creación
+  const creandoRef = useRef(false)
 
-    // Cargar vinculaciones del contacto para "Dirigido a"
-    try {
-      const res = await fetch(`/api/contactos/${contacto.id}`)
-      const data = await res.json()
-      setVinculaciones(data.vinculaciones || [])
-    } catch {
-      setVinculaciones([])
-    }
-  }, [])
+  // Crear presupuesto — se dispara al seleccionar contacto o con la nubecita
+  // Usa refs para tener siempre los valores actuales sin recrear la función
+  const contactoIdRef = useRef(contactoId)
+  contactoIdRef.current = contactoId
+  const configRef = useRef(config)
+  configRef.current = config
+  const condicionPagoIdRef = useRef(condicionPagoId)
+  condicionPagoIdRef.current = condicionPagoId
+  const monedaRef = useRef(moneda)
+  monedaRef.current = moneda
+  const diasVencimientoRef = useRef(diasVencimiento)
+  diasVencimientoRef.current = diasVencimiento
+  const referenciaRef = useRef(referencia)
+  referenciaRef.current = referencia
+  const notasHtmlRef = useRef(notasHtml)
+  notasHtmlRef.current = notasHtml
+  const condicionesHtmlRef = useRef(condicionesHtml)
+  condicionesHtmlRef.current = condicionesHtml
+  const columnasVisiblesRef = useRef(columnasVisibles)
+  columnasVisiblesRef.current = columnasVisibles
+  const lineasRef = useRef(lineas)
+  lineasRef.current = lineas
 
-  // Limpiar contacto
-  const limpiarContacto = useCallback(() => {
-    setContactoId(null)
-    setContactoSeleccionado(null)
-    setVinculaciones([])
-    setAtencionId(null)
-    setAtencionSeleccionada(null)
-  }, [])
+  const crearPresupuesto = useCallback(async () => {
+    const cId = contactoIdRef.current
+    if (!cId || creandoRef.current) return
+    creandoRef.current = true
 
-  // Seleccionar "Dirigido a"
-  const seleccionarAtencion = useCallback((vinc: Vinculacion) => {
-    setAtencionId(vinc.vinculado.id)
-    setAtencionSeleccionada(vinc.vinculado)
-  }, [])
-
-  // Agregar línea
-  const agregarLinea = useCallback((tipo: TipoLinea) => {
-    const impuestos = (config?.impuestos || []) as Impuesto[]
-    const impDefault = impuestos.find(i => i.activo && i.porcentaje > 0)
-
-    const nuevaLinea: LineaTemporal = {
-      _temp: true,
-      id: `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      tipo_linea: tipo,
-      orden: lineas.length,
-      codigo_producto: null,
-      descripcion: tipo === 'seccion' ? '' : null,
-      descripcion_detalle: null,
-      cantidad: '1',
-      unidad: null,
-      precio_unitario: '0',
-      descuento: '0',
-      impuesto_label: tipo === 'producto' && impDefault ? impDefault.label : null,
-      impuesto_porcentaje: tipo === 'producto' && impDefault ? String(impDefault.porcentaje) : '0',
-      subtotal: '0',
-      impuesto_monto: '0',
-      total: '0',
-      monto: tipo === 'descuento' ? '0' : null,
-    }
-    setLineas(prev => [...prev, nuevaLinea])
-  }, [lineas.length, config])
-
-  // Editar línea con recálculo
-  const editarLinea = useCallback((id: string, campo: string, valor: string) => {
-    setLineas(prev => prev.map(l => {
-      if (l.id !== id) return l
-      const actualizada = { ...l, [campo]: valor }
-
-      if (actualizada.tipo_linea === 'producto') {
-        const cantidad = parseFloat(actualizada.cantidad || '1')
-        const precio = parseFloat(actualizada.precio_unitario || '0')
-        const desc = parseFloat(actualizada.descuento || '0')
-        const impPct = parseFloat(actualizada.impuesto_porcentaje || '0')
-        const subtotal = cantidad * precio * (1 - desc / 100)
-        const impMonto = subtotal * impPct / 100
-        actualizada.subtotal = subtotal.toFixed(2)
-        actualizada.impuesto_monto = impMonto.toFixed(2)
-        actualizada.total = (subtotal + impMonto).toFixed(2)
-      }
-
-      return actualizada
-    }))
-  }, [])
-
-  const eliminarLinea = useCallback((id: string) => {
-    setLineas(prev => prev.filter(l => l.id !== id))
-  }, [])
-
-  const reordenarLineas = useCallback((nuevosIds: string[]) => {
-    setLineas(prev => {
-      const mapa = new Map(prev.map(l => [l.id, l]))
-      return nuevosIds.map((id, idx) => {
-        const linea = mapa.get(id)!
-        return { ...linea, orden: idx }
-      })
-    })
-  }, [])
-
-  // Calcular totales
-  const totales = (() => {
-    let subtotal = 0
-    let impuestos = 0
-    for (const l of lineas) {
-      if (l.tipo_linea === 'producto') {
-        subtotal += parseFloat(l.subtotal || '0')
-        impuestos += parseFloat(l.impuesto_monto || '0')
-      } else if (l.tipo_linea === 'descuento') {
-        subtotal += parseFloat(l.monto || '0')
-      }
-    }
-    return { subtotal, impuestos, total: subtotal + impuestos }
-  })()
-
-  // Guardar
-  const guardar = async () => {
+    // Generar número optimista al instante (el título cambia ya)
+    const cfg = configRef.current
+    const sec = (cfg as unknown as Record<string, unknown>)?.secuencia as { prefijo?: string; siguiente?: number; digitos?: number } | undefined
+    const prefijo = sec?.prefijo || 'P'
+    const siguiente = sec?.siguiente || 1
+    const digitos = sec?.digitos || 4
+    const numeroOptimista = `${prefijo}-${String(siguiente).padStart(digitos, '0')}`
+    setNumeroPresupuesto(numeroOptimista)
     setGuardando(true)
+
     try {
-      const condiciones = (config?.condiciones_pago || []) as CondicionPago[]
-      const condSeleccionada = condiciones.find(c => c.id === condicionPagoId)
+      const conds = (cfg?.condiciones_pago || []) as CondicionPago[]
+      const condSel = conds.find(c => c.id === condicionPagoIdRef.current) || conds.find(c => c.predeterminado)
 
       const payload = {
-        contacto_id: contactoId,
-        atencion_contacto_id: atencionId || undefined,
-        atencion_nombre: atencionSeleccionada ? `${atencionSeleccionada.nombre} ${atencionSeleccionada.apellido || ''}`.trim() : undefined,
-        atencion_correo: atencionSeleccionada?.correo || undefined,
-        moneda,
-        condicion_pago_id: condicionPagoId || undefined,
-        condicion_pago_label: condSeleccionada?.label,
-        condicion_pago_tipo: condSeleccionada?.tipo,
-        dias_vencimiento: condSeleccionada?.tipo === 'plazo_fijo' ? condSeleccionada.diasVencimiento : diasVencimiento,
-        referencia: referencia || undefined,
-        notas_html: notasHtml || undefined,
-        condiciones_html: condicionesHtml || undefined,
-        columnas_lineas: columnasVisibles,
-        lineas: lineas.map(l => ({
+        contacto_id: cId,
+        moneda: monedaRef.current,
+        condicion_pago_id: condSel?.id || condicionPagoIdRef.current || undefined,
+        condicion_pago_label: condSel?.label,
+        condicion_pago_tipo: condSel?.tipo,
+        dias_vencimiento: condSel?.tipo === 'plazo_fijo' ? condSel.diasVencimiento : diasVencimientoRef.current,
+        referencia: referenciaRef.current || undefined,
+        notas_html: notasHtmlRef.current || undefined,
+        condiciones_html: condicionesHtmlRef.current || undefined,
+        columnas_lineas: columnasVisiblesRef.current,
+        lineas: lineasRef.current.filter(l => l.descripcion || l.codigo_producto).map(l => ({
           tipo_linea: l.tipo_linea,
           orden: l.orden,
           codigo_producto: l.codigo_producto,
@@ -284,20 +212,254 @@ export default function PaginaNuevoPresupuesto() {
         body: JSON.stringify(payload),
       })
 
-      if (!res.ok) {
-        const err = await res.json()
-        console.error('Error al crear presupuesto:', err)
-        return
+      if (res.ok) {
+        const presupuesto = await res.json()
+        setPresupuestoId(presupuesto.id)
+        // Corregir número si el servidor dio uno distinto
+        if (presupuesto.numero !== numeroOptimista) {
+          setNumeroPresupuesto(presupuesto.numero)
+        }
+        // Inicializar snapshot con el estado recién creado
+        guardadoRef.current = {
+          notas_html: notasHtmlRef.current || '',
+          condiciones_html: condicionesHtmlRef.current || '',
+          referencia: referenciaRef.current || '',
+          moneda: monedaRef.current,
+          condicion_pago_id: condicionPagoIdRef.current || '',
+          dias_vencimiento: diasVencimientoRef.current,
+          columnas_lineas: columnasVisiblesRef.current,
+        }
+        setGuardando(false)
+        window.history.replaceState(null, '', `/presupuestos/${presupuesto.id}`)
+      } else {
+        const err = await res.json().catch(() => ({}))
+        console.error('Error al crear presupuesto:', res.status, err)
+        setNumeroPresupuesto(null)
+        creandoRef.current = false
+        setGuardando(false)
       }
-
-      const presupuesto = await res.json()
-      router.push(`/presupuestos/${presupuesto.id}`)
     } catch (err) {
-      console.error('Error al guardar:', err)
-    } finally {
+      console.error('Error al crear presupuesto:', err)
+      setNumeroPresupuesto(null)
+      creandoRef.current = false
       setGuardando(false)
     }
-  }
+  }, [router])
+
+  // Seleccionar contacto → cargar datos, vinculaciones y pre-crear presupuesto
+  const seleccionarContacto = useCallback(async (contacto: ContactoResumido) => {
+    setContactoId(contacto.id)
+    setContactoSeleccionado(contacto)
+    setAtencionId(null)
+    setAtencionSeleccionada(null)
+
+    // Actualizar ref inmediatamente para que crearPresupuesto lo vea
+    contactoIdRef.current = contacto.id
+
+    // Cargar vinculaciones del contacto para "Dirigido a"
+    try {
+      const res = await fetch(`/api/contactos/${contacto.id}`)
+      const data = await res.json()
+      setVinculaciones(data.vinculaciones || [])
+    } catch {
+      setVinculaciones([])
+    }
+
+    // Pre-crear presupuesto como borrador inmediatamente
+    // Así no se pierde si el usuario navega atrás o cierra
+    crearPresupuesto()
+  }, [crearPresupuesto])
+
+  // Autoguardado post-creación (PATCH al presupuesto ya creado)
+  const presupuestoIdRef = useRef(presupuestoId)
+  presupuestoIdRef.current = presupuestoId
+
+  // Snapshot del último estado guardado — para comparar y no guardar si no cambió nada
+  const guardadoRef = useRef<Record<string, unknown>>({})
+
+  // Guardar inmediato — para selects, fechas, checkboxes (acciones definitivas)
+  const autoguardar = useCallback((campos: Record<string, unknown>) => {
+    const pid = presupuestoIdRef.current
+    if (!pid) return
+
+    // Filtrar campos que realmente cambiaron vs último guardado
+    const cambios: Record<string, unknown> = {}
+    for (const [clave, valor] of Object.entries(campos)) {
+      const anterior = guardadoRef.current[clave]
+      if (JSON.stringify(valor) !== JSON.stringify(anterior)) {
+        cambios[clave] = valor
+      }
+    }
+    if (Object.keys(cambios).length === 0) return
+
+    // Actualizar snapshot
+    Object.assign(guardadoRef.current, cambios)
+
+    setGuardando(true)
+    fetch(`/api/presupuestos/${pid}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cambios),
+    })
+      .catch(() => {})
+      .finally(() => setGuardando(false))
+  }, [])
+
+  // Descartar/eliminar presupuesto
+  const descartarPresupuesto = useCallback(async () => {
+    const pid = presupuestoIdRef.current
+    if (pid) {
+      try {
+        await fetch(`/api/presupuestos/${pid}`, { method: 'DELETE' })
+      } catch { /* silenciar */ }
+    }
+    router.push('/presupuestos')
+  }, [router])
+
+  // Limpiar contacto
+  const limpiarContacto = useCallback(() => {
+    setContactoId(null)
+    setContactoSeleccionado(null)
+    setVinculaciones([])
+    setAtencionId(null)
+    setAtencionSeleccionada(null)
+  }, [])
+
+  // Seleccionar "Dirigido a"
+  const seleccionarAtencion = useCallback((vinc: Vinculacion) => {
+    setAtencionId(vinc.vinculado.id)
+    setAtencionSeleccionada(vinc.vinculado)
+  }, [])
+
+  // Agregar línea — si ya se creó el presupuesto, persiste en la API
+  const agregarLinea = useCallback(async (tipo: TipoLinea) => {
+    const impuestos = (config?.impuestos || []) as Impuesto[]
+    const impDefault = impuestos.find(i => i.activo && i.porcentaje > 0)
+    const pid = presupuestoIdRef.current
+
+    if (pid) {
+      // Presupuesto ya creado → persistir directamente
+      try {
+        const res = await fetch(`/api/presupuestos/${pid}/lineas`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tipo_linea: tipo,
+            impuesto_label: tipo === 'producto' && impDefault ? impDefault.label : null,
+            impuesto_porcentaje: tipo === 'producto' && impDefault ? String(impDefault.porcentaje) : '0',
+          }),
+        })
+        if (res.ok) {
+          const nuevas = await res.json()
+          setLineas(prev => [...prev, ...(Array.isArray(nuevas) ? nuevas : [nuevas])] as LineaTemporal[])
+        }
+      } catch { /* silenciar */ }
+    } else {
+      // Aún no se creó → línea temporal en memoria
+      const nuevaLinea: LineaTemporal = {
+        _temp: true,
+        id: `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        tipo_linea: tipo,
+        orden: lineas.length,
+        codigo_producto: null,
+        descripcion: tipo === 'seccion' ? '' : null,
+        descripcion_detalle: null,
+        cantidad: '1',
+        unidad: null,
+        precio_unitario: '0',
+        descuento: '0',
+        impuesto_label: tipo === 'producto' && impDefault ? impDefault.label : null,
+        impuesto_porcentaje: tipo === 'producto' && impDefault ? String(impDefault.porcentaje) : '0',
+        subtotal: '0',
+        impuesto_monto: '0',
+        total: '0',
+        monto: tipo === 'descuento' ? '0' : null,
+      }
+      setLineas(prev => [...prev, nuevaLinea])
+    }
+  }, [lineas.length, config])
+
+  // Editar línea con recálculo — si ya se creó el presupuesto, autoguarda
+  const editarLinea = useCallback((id: string, campo: string, valor: string) => {
+    setLineas(prev => prev.map(l => {
+      if (l.id !== id) return l
+      const actualizada = { ...l, [campo]: valor }
+
+      if (actualizada.tipo_linea === 'producto') {
+        const cantidad = parseFloat(actualizada.cantidad || '1')
+        const precio = parseFloat(actualizada.precio_unitario || '0')
+        const desc = parseFloat(actualizada.descuento || '0')
+        const impPct = parseFloat(actualizada.impuesto_porcentaje || '0')
+        const subtotal = cantidad * precio * (1 - desc / 100)
+        const impMonto = subtotal * impPct / 100
+        actualizada.subtotal = subtotal.toFixed(2)
+        actualizada.impuesto_monto = impMonto.toFixed(2)
+        actualizada.total = (subtotal + impMonto).toFixed(2)
+      }
+
+      return actualizada
+    }))
+
+    // Persistir línea en la API (ya viene del blur de la celda, es cambio confirmado)
+    const pid = presupuestoIdRef.current
+    if (pid) {
+      // Leer la línea actualizada del state más reciente via ref
+      setTimeout(async () => {
+        const linea = lineasRef.current.find(l => l.id === id)
+        if (!linea) return
+        await fetch(`/api/presupuestos/${pid}/lineas`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...linea, id }),
+        })
+      }, 0)
+    }
+  }, [])
+
+  const eliminarLinea = useCallback(async (id: string) => {
+    setLineas(prev => prev.filter(l => l.id !== id))
+    const pid = presupuestoIdRef.current
+    if (pid) {
+      await fetch(`/api/presupuestos/${pid}/lineas`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ linea_id: id }),
+      })
+    }
+  }, [])
+
+  const reordenarLineas = useCallback(async (nuevosIds: string[]) => {
+    setLineas(prev => {
+      const mapa = new Map(prev.map(l => [l.id, l]))
+      return nuevosIds.map((id, idx) => {
+        const linea = mapa.get(id)!
+        return { ...linea, orden: idx }
+      })
+    })
+    const pid = presupuestoIdRef.current
+    if (pid) {
+      await fetch(`/api/presupuestos/${pid}/lineas`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reordenar: nuevosIds.map((lid, idx) => ({ id: lid, orden: idx })) }),
+      })
+    }
+  }, [])
+
+  // Calcular totales
+  const totales = (() => {
+    let subtotal = 0
+    let impuestos = 0
+    for (const l of lineas) {
+      if (l.tipo_linea === 'producto') {
+        subtotal += parseFloat(l.subtotal || '0')
+        impuestos += parseFloat(l.impuesto_monto || '0')
+      } else if (l.tipo_linea === 'descuento') {
+        subtotal += parseFloat(l.monto || '0')
+      }
+    }
+    return { subtotal, impuestos, total: subtotal + impuestos }
+  })()
 
   const simbolo = SIMBOLO_MONEDA[moneda] || '$'
   const fmt = (n: number) => `${simbolo} ${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -325,15 +487,6 @@ export default function PaginaNuevoPresupuesto() {
   const paisFiscal = fiscalEmisor ? Object.keys(fiscalEmisor)[0] : null
   const datosFiscalesPais = paisFiscal ? fiscalEmisor?.[paisFiscal] : null
 
-  // TODO: Implementar envío de presupuesto por email con PDF adjunto
-  const handleEnviar = () => { /* pendiente: integrar envío email */ }
-  // TODO: Implementar envío como factura proforma (mismo email pero con label "Factura Proforma")
-  const handleEnviarProforma = () => { /* pendiente: integrar proforma */ }
-  // TODO: Implementar generación de PDF e impresión (Puppeteer o React-PDF)
-  const handleImprimir = () => { /* pendiente: integrar PDF */ }
-  // TODO: Implementar vista previa del portal público del cliente
-  const handleVistaPrevia = () => { /* pendiente: integrar portal */ }
-
   return (
     <div className="w-full max-w-[1200px] mx-auto px-4 py-6 space-y-5">
       {/* ─── Contenedor principal ─── */}
@@ -341,24 +494,40 @@ export default function PaginaNuevoPresupuesto() {
 
         {/* ─── Cabecera: 3 filas como el otro software ─── */}
         <div className="px-6 pt-5 pb-4 border-b border-borde-sutil">
-          {/* Fila 1: Título */}
-          <h1 className="text-2xl sm:text-3xl font-semibold text-texto-secundario mb-2">Nuevo</h1>
+          {/* Fila 1: Título — cambia de "Nuevo" a "P-0005" instantáneamente */}
+          <h1 className="text-2xl sm:text-3xl font-semibold text-texto-primario mb-2">
+            {numeroPresupuesto || 'Nuevo'}
+          </h1>
 
           {/* Fila 2: Iconos izquierda + Barra de estados derecha */}
           <div className="flex items-center gap-3 mb-4">
             <div className="flex items-center gap-1">
+              {/* Nubecita: antes de crear = guardar, después de crear = estado guardado */}
               <button
+                onClick={presupuestoId ? () => autoguardar({}) : crearPresupuesto}
+                disabled={!contactoId || guardando}
                 className={`size-7 rounded-full flex items-center justify-center transition-all ${
-                  guardando ? 'text-texto-marca animate-pulse' : 'text-texto-terciario hover:bg-superficie-app'
+                  guardando
+                    ? 'text-texto-marca animate-pulse'
+                    : presupuestoId
+                      ? 'text-texto-terciario'
+                      : contactoId
+                        ? 'text-texto-terciario hover:text-texto-marca hover:bg-superficie-app cursor-pointer'
+                        : 'text-texto-terciario/30 cursor-not-allowed'
                 }`}
-                title={guardando ? 'Guardando...' : 'Sin guardar aún'}
+                title={guardando ? 'Guardando...' : presupuestoId ? 'Guardado' : contactoId ? 'Guardar presupuesto' : 'Seleccioná un cliente primero'}
               >
                 <Cloud size={16} />
               </button>
+              {/* X: antes de crear = descartar, después de crear = eliminar */}
               <button
-                onClick={() => router.push('/presupuestos')}
-                className="size-7 rounded-full flex items-center justify-center text-texto-terciario hover:bg-superficie-app transition-colors"
-                title="Descartar"
+                onClick={descartarPresupuesto}
+                className={`size-7 rounded-full flex items-center justify-center transition-colors ${
+                  presupuestoId
+                    ? 'text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro/10'
+                    : 'text-texto-terciario hover:bg-superficie-app'
+                }`}
+                title={presupuestoId ? 'Eliminar presupuesto' : 'Descartar'}
               >
                 <X size={16} />
               </button>
@@ -368,49 +537,12 @@ export default function PaginaNuevoPresupuesto() {
             </div>
           </div>
 
-          {/* Fila 3: Botones de acción */}
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <button
-              onClick={handleEnviar}
-              disabled
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-texto-secundario bg-superficie-app border border-borde-sutil hover:bg-superficie-elevada transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Send size={15} />
-              <span className="hidden sm:inline">Enviar</span>
-            </button>
-
-            <button
-              onClick={handleEnviarProforma}
-              disabled
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-texto-secundario bg-superficie-app border border-borde-sutil hover:bg-superficie-elevada transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Receipt size={15} />
-              <span className="hidden sm:inline">Enviar Factura Proforma</span>
-            </button>
-
-            <button
-              onClick={handleImprimir}
-              disabled
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-texto-secundario bg-superficie-app border border-borde-sutil hover:bg-superficie-elevada transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Printer size={15} />
-              <span className="hidden sm:inline">Imprimir</span>
-            </button>
-
-            <Boton onClick={guardar} disabled={guardando}>
-              <FileCheck size={15} />
-              {guardando ? 'Guardando...' : 'Confirmar'}
-            </Boton>
-
-            <button
-              onClick={handleVistaPrevia}
-              disabled
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-texto-secundario bg-superficie-app border border-borde-sutil hover:bg-superficie-elevada transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Eye size={15} />
-              <span className="hidden sm:inline">Vista previa</span>
-            </button>
-          </div>
+          {/* Fila 3: Indicación */}
+          {!contactoId && !presupuestoId && (
+            <p className="text-sm text-texto-terciario">
+              Seleccioná un cliente para crear el presupuesto
+            </p>
+          )}
         </div>
 
         {/* ─── EMISOR ─── */}
@@ -664,7 +796,7 @@ export default function PaginaNuevoPresupuesto() {
                 <div className="w-44">
                   <SelectorFecha
                     valor={fechaEmision}
-                    onChange={(v) => v && setFechaEmision(v)}
+                    onChange={(v) => { if (v) { setFechaEmision(v); autoguardar({ fecha_emision: v }) } }}
                     limpiable={false}
                   />
                 </div>
@@ -682,6 +814,7 @@ export default function PaginaNuevoPresupuesto() {
                       const venc = new Date(v + 'T00:00:00')
                       const diff = Math.round((venc.getTime() - emision.getTime()) / (1000 * 60 * 60 * 24))
                       setDiasVencimiento(Math.max(0, diff))
+                      autoguardar({ dias_vencimiento: Math.max(0, diff) })
                     }}
                     limpiable={false}
                   />
@@ -698,6 +831,12 @@ export default function PaginaNuevoPresupuesto() {
                       setCondicionPagoId(v)
                       const cond = condiciones.find(c => c.id === v)
                       if (cond?.tipo === 'plazo_fijo') setDiasVencimiento(cond.diasVencimiento)
+                      autoguardar({
+                        condicion_pago_id: v || null,
+                        condicion_pago_label: cond?.label || null,
+                        condicion_pago_tipo: cond?.tipo || null,
+                        ...(cond?.tipo === 'plazo_fijo' ? { dias_vencimiento: cond.diasVencimiento } : {}),
+                      })
                     }}
                     opciones={[
                       { valor: '', etiqueta: 'Sin condición' },
@@ -733,6 +872,7 @@ export default function PaginaNuevoPresupuesto() {
                   type="text"
                   value={referencia}
                   onChange={(e) => setReferencia(e.target.value)}
+                  onBlur={() => autoguardar({ referencia })}
                   placeholder="Orden de compra, PO..."
                   className="w-44 bg-transparent border-b border-borde-sutil text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-marca-500 transition-colors py-0.5 text-right"
                 />
@@ -744,7 +884,7 @@ export default function PaginaNuevoPresupuesto() {
                 <div className="w-44">
                   <Select
                     valor={moneda}
-                    onChange={(v) => setMoneda(v)}
+                    onChange={(v) => { setMoneda(v); autoguardar({ moneda: v }) }}
                     opciones={monedas.filter(m => m.activo).map(m => ({
                       valor: m.id,
                       etiqueta: `${m.simbolo} ${m.label}`,
@@ -770,7 +910,7 @@ export default function PaginaNuevoPresupuesto() {
             onEditarLinea={editarLinea}
             onEliminarLinea={eliminarLinea}
             onReordenar={reordenarLineas}
-            onCambiarColumnas={setColumnasVisibles}
+            onCambiarColumnas={(cols) => { setColumnasVisibles(cols); autoguardar({ columnas_lineas: cols }) }}
           />
         </div>
 
@@ -796,32 +936,26 @@ export default function PaginaNuevoPresupuesto() {
           </div>
         </div>
 
-        {/* ─── NOTAS y CONDICIONES ─── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 border-t border-borde-sutil">
-          <div className="px-6 py-4 border-b md:border-b-0 md:border-r border-borde-sutil">
-            <span className="text-[11px] text-texto-terciario font-medium uppercase tracking-wider block mb-2">
-              Notas
-            </span>
-            <textarea
-              value={notasHtml}
-              onChange={(e) => setNotasHtml(e.target.value)}
-              placeholder="Notas visibles en el presupuesto..."
-              rows={3}
-              className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-3 text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-marca-500 transition-colors resize-none"
-            />
-          </div>
-          <div className="px-6 py-4">
-            <span className="text-[11px] text-texto-terciario font-medium uppercase tracking-wider block mb-2">
-              Condiciones / Términos
-            </span>
-            <textarea
-              value={condicionesHtml}
-              onChange={(e) => setCondicionesHtml(e.target.value)}
-              placeholder="Condiciones y términos..."
-              rows={3}
-              className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-3 text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-marca-500 transition-colors resize-none"
-            />
-          </div>
+        {/* ─── NOTAS ─── */}
+        <div className="border-t border-borde-sutil px-6 py-4">
+          <EditorNotasPresupuesto
+            valor={notasHtml}
+            onChange={(v) => setNotasHtml(v)}
+            onBlur={() => autoguardar({ notas_html: notasHtml })}
+            placeholder="Escribe una nota..."
+            etiqueta="Notas"
+          />
+        </div>
+
+        {/* ─── CONDICIONES / TÉRMINOS ─── */}
+        <div className="border-t border-borde-sutil px-6 py-4">
+          <EditorNotasPresupuesto
+            valor={condicionesHtml}
+            onChange={(v) => setCondicionesHtml(v)}
+            onBlur={() => autoguardar({ condiciones_html: condicionesHtml })}
+            placeholder="Escribe una condición..."
+            etiqueta="Condiciones / Términos"
+          />
         </div>
       </div>
     </div>
