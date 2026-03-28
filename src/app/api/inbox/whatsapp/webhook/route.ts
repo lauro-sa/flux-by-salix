@@ -213,6 +213,32 @@ async function procesarMensajeEntrante(
     if (nuevaConv) {
       await asignarAgenteAutomatico(admin, canal.empresa_id, canal.id, nuevaConv.id)
     }
+  } else if (!conversacion.contacto_id) {
+    // Conversación existente sin contacto vinculado (fue eliminado)
+    // → buscar o crear provisorio y vincular
+    let { data: contacto } = await admin
+      .from('contactos')
+      .select('id, nombre, apellido')
+      .eq('empresa_id', canal.empresa_id)
+      .eq('en_papelera', false)
+      .or(`whatsapp.eq.${telefonoRemitente},telefono.eq.${telefonoRemitente}`)
+      .limit(1)
+      .single()
+
+    if (!contacto) {
+      contacto = await crearContactoProvisorio(admin, canal.empresa_id, nombreRemitente, telefonoRemitente)
+    }
+
+    if (contacto) {
+      const contactoNombre = `${contacto.nombre} ${contacto.apellido || ''}`.trim()
+      await admin
+        .from('conversaciones')
+        .update({
+          contacto_id: contacto.id,
+          contacto_nombre: contactoNombre,
+        })
+        .eq('id', conversacion.id)
+    }
   }
 
   if (!conversacion) return
