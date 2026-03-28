@@ -1387,16 +1387,15 @@ function SeccionChatbot() {
           <p className="text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
             Cuándo disparar
           </p>
-          <div className="flex items-center gap-3 flex-wrap">
-            <select
-              value={config.modo}
-              onChange={(e) => guardar({ modo: e.target.value as 'siempre' | 'fuera_horario' })}
-              className="text-xs rounded-lg px-3 py-2"
-              style={estiloSelect}
-            >
-              <option value="siempre">Siempre activo</option>
-              <option value="fuera_horario">Solo fuera de horario</option>
-            </select>
+          <div className="space-y-2">
+            <Select
+              valor={config.modo}
+              onChange={(v) => guardar({ modo: v as 'siempre' | 'fuera_horario' })}
+              opciones={[
+                { valor: 'siempre', etiqueta: 'Siempre activo' },
+                { valor: 'fuera_horario', etiqueta: 'Solo fuera de horario' },
+              ]}
+            />
             <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
               {config.modo === 'siempre' ? 'Responde siempre que no haya un agente atendiendo' : 'Solo responde fuera del horario de atención'}
             </p>
@@ -1421,16 +1420,17 @@ function SeccionChatbot() {
                   Cuándo enviar
                 </label>
                 <div className="flex items-center gap-2">
-                  <select
-                    value={config.bienvenida_frecuencia || 'dias_sin_contacto'}
-                    onChange={(e) => guardar({ bienvenida_frecuencia: e.target.value })}
-                    className="text-xs rounded-lg px-3 py-2 flex-1"
-                    style={estiloSelect}
-                  >
-                    <option value="primera_vez">Solo la primera vez que escribe</option>
-                    <option value="siempre">Siempre que escribe</option>
-                    <option value="dias_sin_contacto">Si no habló en los últimos X días</option>
-                  </select>
+                  <div className="flex-1">
+                    <Select
+                      valor={config.bienvenida_frecuencia || 'dias_sin_contacto'}
+                      onChange={(v) => guardar({ bienvenida_frecuencia: v })}
+                      opciones={[
+                        { valor: 'primera_vez', etiqueta: 'Solo la primera vez que escribe' },
+                        { valor: 'siempre', etiqueta: 'Siempre que escribe' },
+                        { valor: 'dias_sin_contacto', etiqueta: 'Si no habló en los últimos X días' },
+                      ]}
+                    />
+                  </div>
                   {(config.bienvenida_frecuencia || 'dias_sin_contacto') === 'dias_sin_contacto' && (
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <input

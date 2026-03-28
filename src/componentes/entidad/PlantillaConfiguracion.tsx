@@ -76,7 +76,7 @@ function PlantillaConfiguracion({
         {/* ─── Menú lateral (desktop) / Tabs horizontales (mobile) ─── */}
 
         {/* Desktop: menú lateral con soporte para grupos */}
-        <nav className="hidden md:flex flex-col gap-1 w-[220px] shrink-0 overflow-y-auto">
+        <nav className="hidden md:flex flex-col gap-1 w-[220px] shrink-0 overflow-y-auto overscroll-contain [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-borde-sutil [&::-webkit-scrollbar-thumb]:rounded-full">
           {secciones.map((seccion, i) => {
             const activa = seccion.id === seccionActiva
             const grupoAnterior = i > 0 ? secciones[i - 1].grupo : null
@@ -153,9 +153,11 @@ function PlantillaConfiguracion({
         </div>
 
         {/* ─── Contenido de la sección activa ─── */}
-        <div className="flex-1 min-w-0 overflow-y-auto">
-          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-6 md:p-8">
-            {children}
+        <div className="flex-1 min-w-0 overflow-y-auto overscroll-contain scroll-smooth [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-borde-sutil [&::-webkit-scrollbar-thumb]:rounded-full">
+          <div className="max-w-3xl pr-2 pb-6">
+            <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-6 md:p-8">
+              {children}
+            </div>
           </div>
         </div>
       </div>
