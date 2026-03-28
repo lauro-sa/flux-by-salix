@@ -12,31 +12,40 @@ import {
  * Meta envía un GET con hub.challenge para verificar el endpoint.
  */
 export async function GET(request: NextRequest) {
-  const params = request.nextUrl.searchParams
-  const mode = params.get('hub.mode')
-  const token = params.get('hub.verify_token')
-  const challenge = params.get('hub.challenge')
+  try {
+    const params = request.nextUrl.searchParams
+    const mode = params.get('hub.mode')
+    const token = params.get('hub.verify_token')
+    const challenge = params.get('hub.challenge')
 
-  if (mode !== 'subscribe' || !token || !challenge) {
-    return NextResponse.json({ error: 'Parámetros inválidos' }, { status: 400 })
+    if (mode !== 'subscribe' || !token || !challenge) {
+      return NextResponse.json({ error: 'Parámetros inválidos' }, { status: 400 })
+    }
+
+    // Buscar la cuenta que tiene este token de verificación
+    const admin = crearClienteAdmin()
+    const { data: canales } = await admin
+      .from('canales_inbox')
+      .select('id, config_conexion')
+      .eq('tipo', 'whatsapp')
+
+    // Verificar token manualmente (contains con JSONB puede fallar)
+    const canalValido = canales?.find((c) => {
+      const cfg = c.config_conexion as Record<string, unknown>
+      return cfg?.tokenVerificacion === token
+    })
+
+    if (!canalValido) {
+      console.error('Webhook verification failed: token not found', { token })
+      return NextResponse.json({ error: 'Token inválido' }, { status: 403 })
+    }
+
+    // Meta espera el challenge como texto plano
+    return new Response(challenge, { status: 200, headers: { 'Content-Type': 'text/plain' } })
+  } catch (err) {
+    console.error('Error en verificación de webhook:', err)
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
-
-  // Buscar la cuenta que tiene este token de verificación
-  const admin = crearClienteAdmin()
-  const { data: canal } = await admin
-    .from('canales_inbox')
-    .select('id')
-    .eq('tipo', 'whatsapp')
-    .contains('config_conexion', { tokenVerificacion: token })
-    .limit(1)
-    .single()
-
-  if (!canal) {
-    return NextResponse.json({ error: 'Token inválido' }, { status: 403 })
-  }
-
-  // Meta espera el challenge como texto plano
-  return new Response(challenge, { status: 200, headers: { 'Content-Type': 'text/plain' } })
 }
 
 /**
