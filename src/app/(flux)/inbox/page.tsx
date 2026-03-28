@@ -237,16 +237,10 @@ export default function PaginaInbox() {
           .slice(0, 100)
         const path = `inbox/enviados/${conversacionSeleccionada.id}/${Date.now()}_${nombreArchivo}`
 
-        // Para audio WebM, forzar content-type a audio/ogg (Meta acepta OGG pero no WebM)
-        let contentType = datos.archivo.type
-        if (contentType.includes('webm') && datos.tipo_contenido === 'audio') {
-          contentType = 'audio/ogg'
-        }
-
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('adjuntos')
           .upload(path, datos.archivo, {
-            contentType,
+            contentType: datos.archivo.type,
             upsert: true,
           })
 
@@ -266,11 +260,13 @@ export default function PaginaInbox() {
       // WhatsApp: enviar vía API de Meta
       if (conversacionSeleccionada.tipo_canal === 'whatsapp') {
         // Mapear tipo_contenido a tipo de Meta
+        // Audio WebM de Chrome se envía como documento (Meta no acepta WebM)
+        const esAudioWebm = datos.tipo_contenido === 'audio' && datos.archivo?.type.includes('webm')
         const tipoMeta: Record<string, string> = {
           texto: 'text',
           imagen: 'image',
           video: 'video',
-          audio: 'audio',
+          audio: esAudioWebm ? 'document' : 'audio',
           documento: 'document',
         }
 
