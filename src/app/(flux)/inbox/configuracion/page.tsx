@@ -1555,54 +1555,127 @@ function SeccionChatbot() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {config.opciones_menu.map((op, i) => (
-                    <div key={i} className="p-3 rounded-lg" style={{ background: 'var(--superficie-hover)' }}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span
-                          className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                          style={{ background: 'var(--texto-marca)', color: '#fff' }}
-                        >
-                          {i + 1}
-                        </span>
-                        <input
-                          type="text"
-                          value={op.etiqueta}
-                          onChange={(e) => actualizarOpcionMenu(i, 'etiqueta', e.target.value)}
-                          className="flex-1 text-xs font-medium bg-transparent outline-none px-2 py-1 rounded"
-                          style={{ color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
-                          placeholder="Texto del botón"
-                          maxLength={config.menu_tipo === 'botones' ? 20 : 24}
-                        />
-                        <button onClick={() => eliminarOpcionMenu(i)} className="p-1" style={{ color: 'var(--texto-terciario)' }}>
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
+                  {config.opciones_menu.map((op, i) => {
+                    const tipo = config.menu_tipo
 
-                      {/* Descripción (solo listas) */}
-                      {config.menu_tipo === 'lista' && (
-                        <input
-                          type="text"
-                          value={op.descripcion || ''}
-                          onChange={(e) => actualizarOpcionMenu(i, 'descripcion', e.target.value)}
-                          className="w-full text-xxs bg-transparent outline-none px-2 py-1 rounded mb-2 ml-8"
-                          style={{ color: 'var(--texto-terciario)', border: '1px solid var(--borde-sutil)' }}
-                          placeholder="Descripción corta (opcional)"
-                          maxLength={72}
-                        />
-                      )}
+                    // ─── TEXTO NUMERADO ───
+                    if (tipo === 'texto') {
+                      return (
+                        <div key={i} className="p-3 rounded-lg" style={{ background: 'var(--superficie-hover)' }}>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-sm flex-shrink-0" style={{ color: 'var(--texto-marca)' }}>
+                              {i + 1}️⃣
+                            </span>
+                            <input
+                              type="text"
+                              value={op.etiqueta}
+                              onChange={(e) => actualizarOpcionMenu(i, 'etiqueta', e.target.value)}
+                              className="flex-1 text-xs font-medium bg-transparent outline-none px-2 py-1 rounded"
+                              style={{ color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+                              placeholder="Texto de la opción"
+                            />
+                            <button onClick={() => eliminarOpcionMenu(i)} className="p-1" style={{ color: 'var(--texto-terciario)' }}>
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                          <div className="ml-8">
+                            <EditorWhatsApp
+                              valor={op.respuesta}
+                              onChange={(v) => actualizarOpcionMenu(i, 'respuesta', v)}
+                              placeholder={!op.respuesta ? '(Sin respuesta = transfiere a agente)' : 'Respuesta automática...'}
+                              titulo={`Respuesta: ${op.etiqueta || `Opción ${i + 1}`}`}
+                              alturaMinima={80}
+                            />
+                          </div>
+                        </div>
+                      )
+                    }
 
-                      {/* Respuesta */}
-                      <div className="ml-8">
-                        <EditorWhatsApp
-                          valor={op.respuesta}
-                          onChange={(v) => actualizarOpcionMenu(i, 'respuesta', v)}
-                          placeholder={!op.respuesta ? '(Sin respuesta = transfiere a agente)' : 'Respuesta automática...'}
-                          titulo={`Respuesta: ${op.etiqueta || `Opción ${i + 1}`}`}
-                          alturaMinima={80}
-                        />
+                    // ─── BOTONES ───
+                    if (tipo === 'botones') {
+                      return (
+                        <div key={i} className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--borde-sutil)' }}>
+                          {/* Simula un botón de WhatsApp */}
+                          <div className="flex items-center gap-2 px-3 py-2.5" style={{ background: 'var(--superficie-hover)' }}>
+                            <div
+                              className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
+                              style={{ background: 'var(--texto-marca)', color: '#fff', fontSize: '10px', fontWeight: 700 }}
+                            >
+                              {i + 1}
+                            </div>
+                            <input
+                              type="text"
+                              value={op.etiqueta}
+                              onChange={(e) => actualizarOpcionMenu(i, 'etiqueta', e.target.value)}
+                              className="flex-1 text-xs font-semibold bg-transparent outline-none"
+                              style={{ color: 'var(--texto-primario)' }}
+                              placeholder="Texto del botón (máx 20)"
+                              maxLength={20}
+                            />
+                            <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>{(op.etiqueta || '').length}/20</span>
+                            <button onClick={() => eliminarOpcionMenu(i)} className="p-1" style={{ color: 'var(--texto-terciario)' }}>
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                          <div className="px-3 py-2" style={{ background: 'var(--superficie-tarjeta)' }}>
+                            <EditorWhatsApp
+                              valor={op.respuesta}
+                              onChange={(v) => actualizarOpcionMenu(i, 'respuesta', v)}
+                              placeholder={!op.respuesta ? '(Sin respuesta = transfiere a agente)' : 'Respuesta al tocar este botón...'}
+                              titulo={`Respuesta: ${op.etiqueta || `Botón ${i + 1}`}`}
+                              alturaMinima={80}
+                            />
+                          </div>
+                        </div>
+                      )
+                    }
+
+                    // ─── LISTA ───
+                    return (
+                      <div key={i} className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--borde-sutil)' }}>
+                        <div className="px-3 py-2.5 space-y-1.5" style={{ background: 'var(--superficie-hover)' }}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
+                              style={{ background: 'var(--texto-marca)', color: '#fff', fontSize: '10px', fontWeight: 700 }}
+                            >
+                              {i + 1}
+                            </div>
+                            <input
+                              type="text"
+                              value={op.etiqueta}
+                              onChange={(e) => actualizarOpcionMenu(i, 'etiqueta', e.target.value)}
+                              className="flex-1 text-xs font-semibold bg-transparent outline-none"
+                              style={{ color: 'var(--texto-primario)' }}
+                              placeholder="Título de la opción (máx 24)"
+                              maxLength={24}
+                            />
+                            <button onClick={() => eliminarOpcionMenu(i)} className="p-1" style={{ color: 'var(--texto-terciario)' }}>
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                          <input
+                            type="text"
+                            value={op.descripcion || ''}
+                            onChange={(e) => actualizarOpcionMenu(i, 'descripcion', e.target.value)}
+                            className="w-full text-xxs bg-transparent outline-none px-2 py-1 rounded ml-7"
+                            style={{ color: 'var(--texto-terciario)', border: '1px solid var(--borde-sutil)' }}
+                            placeholder="Descripción corta (opcional, máx 72)"
+                            maxLength={72}
+                          />
+                        </div>
+                        <div className="px-3 py-2" style={{ background: 'var(--superficie-tarjeta)' }}>
+                          <EditorWhatsApp
+                            valor={op.respuesta}
+                            onChange={(v) => actualizarOpcionMenu(i, 'respuesta', v)}
+                            placeholder={!op.respuesta ? '(Sin respuesta = transfiere a agente)' : 'Respuesta al elegir esta opción...'}
+                            titulo={`Respuesta: ${op.etiqueta || `Opción ${i + 1}`}`}
+                            alturaMinima={80}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </>
