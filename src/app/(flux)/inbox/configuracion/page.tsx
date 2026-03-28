@@ -17,7 +17,7 @@ import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import {
   Settings2, MessageCircle, Mail, Hash, FileText, Users,
   Clock, Bell, Plus, Trash2, Wifi, WifiOff, AlertTriangle,
-  Pencil, GripVertical, Shield,
+  Pencil, GripVertical, Shield, ChevronDown,
 } from 'lucide-react'
 import type { CanalInbox, PlantillaRespuesta, ConfigInbox, TipoCanal } from '@/tipos/inbox'
 import { ModalAgregarCanal } from '../_componentes/ModalAgregarCanal'
@@ -162,7 +162,7 @@ export default function PaginaConfiguracionInbox() {
           ) : (
             <div className="space-y-3">
               {canalesWhatsApp.map((canal) => (
-                <CanalCard key={canal.id} canal={canal} />
+                <CanalCard key={canal.id} canal={canal} onRecargar={cargar} />
               ))}
             </div>
           )}
@@ -194,7 +194,7 @@ export default function PaginaConfiguracionInbox() {
           ) : (
             <div className="space-y-3">
               {canalesCorreo.map((canal) => (
-                <CanalCard key={canal.id} canal={canal} />
+                <CanalCard key={canal.id} canal={canal} onRecargar={cargar} />
               ))}
             </div>
           )}
@@ -383,51 +383,261 @@ function ModuloToggle({
   )
 }
 
-// Card de canal conectado
-function CanalCard({ canal }: { canal: CanalInbox }) {
+// Card visual de canal conectado — muestra todos los datos de la cuenta
+function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () => void }) {
+  const [expandido, setExpandido] = useState(false)
+  const [cargandoCalidad, setCargandoCalidad] = useState(false)
+  type DatosCalidad = { rating: string; tier: string; status: string }
+  const calidadInicial = (canal.config_conexion as Record<string, unknown>)?.calidadActual as DatosCalidad | undefined
+  const [calidad, setCalidad] = useState<DatosCalidad | null>(calidadInicial || null)
+
   const conectado = canal.estado_conexion === 'conectado'
   const error = canal.estado_conexion === 'error'
+  const config = canal.config_conexion as Record<string, unknown>
+  const esWhatsApp = canal.tipo === 'whatsapp'
+
+  // Colores de calidad
+  const colorCalidad: Record<string, string> = {
+    GREEN: 'exito', YELLOW: 'advertencia', RED: 'peligro',
+  }
+
+  const consultarCalidad = async () => {
+    setCargandoCalidad(true)
+    try {
+      const res = await fetch(`/api/inbox/whatsapp/calidad?canal_id=${canal.id}`)
+      const data = await res.json()
+      if (data.calidad) setCalidad({
+        rating: data.calidad.quality_rating,
+        tier: data.calidad.messaging_limit_tier,
+        status: data.calidad.status,
+      })
+    } catch { /* silenciar */ }
+    setCargandoCalidad(false)
+  }
+
+  // Datos a mostrar según proveedor
+  const datosVisibles: { etiqueta: string; valor: string; sensible?: boolean }[] = []
+
+  if (esWhatsApp && canal.proveedor === 'meta_api') {
+    datosVisibles.push(
+      { etiqueta: 'Número', valor: (config.numeroTelefono || config.numero_telefono || '—') as string },
+      { etiqueta: 'Phone Number ID', valor: (config.phoneNumberId || config.phone_number_id || '—') as string },
+      { etiqueta: 'WABA ID', valor: (config.wabaId || config.waba_id || '—') as string },
+      { etiqueta: 'Access Token', valor: (config.tokenAcceso || config.access_token || '') as string, sensible: true },
+      { etiqueta: 'Webhook Secret', valor: (config.secretoWebhook || '') as string, sensible: true },
+      { etiqueta: 'Webhook Verify Token', valor: (config.tokenVerificacion || '') as string, sensible: true },
+    )
+  } else if (esWhatsApp && canal.proveedor === 'twilio') {
+    datosVisibles.push(
+      { etiqueta: 'Número', valor: (config.from_number || '—') as string },
+      { etiqueta: 'Account SID', valor: (config.account_sid || '—') as string },
+      { etiqueta: 'Auth Token', valor: (config.auth_token || '') as string, sensible: true },
+    )
+  } else if (canal.proveedor === 'imap') {
+    datosVisibles.push(
+      { etiqueta: 'Servidor IMAP', valor: `${config.host || '—'}:${config.puerto || '993'}` },
+      { etiqueta: 'Usuario', valor: (config.usuario || '—') as string },
+      { etiqueta: 'SSL', valor: config.ssl ? 'Sí' : 'No' },
+      { etiqueta: 'SMTP', valor: `${config.smtp_host || config.host || '—'}:${config.smtp_puerto || '587'}` },
+    )
+  } else if (canal.proveedor === 'gmail_oauth') {
+    datosVisibles.push(
+      { etiqueta: 'Correo', valor: (config.email || '—') as string },
+    )
+  }
 
   return (
     <div
-      className="flex items-center gap-3 p-3 rounded-lg"
-      style={{ border: '1px solid var(--borde-sutil)' }}
+      className="rounded-lg overflow-hidden transition-all"
+      style={{
+        border: expandido ? '2px solid var(--texto-marca)' : '1px solid var(--borde-sutil)',
+        background: 'var(--superficie-tarjeta)',
+      }}
     >
-      <div className="flex-shrink-0">
-        {canal.tipo === 'whatsapp' ? (
-          <MessageCircle size={20} style={{ color: 'var(--canal-whatsapp)' }} />
-        ) : (
-          <Mail size={20} style={{ color: 'var(--canal-correo)' }} />
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-medium" style={{ color: 'var(--texto-primario)' }}>
-            {canal.nombre}
-          </p>
-          <Insignia
-            color={conectado ? 'exito' : error ? 'peligro' : 'neutro'}
-            tamano="sm"
-          >
-            {conectado ? 'Conectado' : error ? 'Error' : 'Desconectado'}
-          </Insignia>
+      {/* Header — siempre visible */}
+      <button
+        onClick={() => setExpandido(!expandido)}
+        className="w-full flex items-center gap-3 p-4 text-left"
+      >
+        {/* Icono del canal */}
+        <div
+          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{
+            background: esWhatsApp ? 'rgba(37, 211, 102, 0.1)' : 'rgba(37, 99, 235, 0.1)',
+          }}
+        >
+          {esWhatsApp ? (
+            <MessageCircle size={20} style={{ color: 'var(--canal-whatsapp)' }} />
+          ) : (
+            <Mail size={20} style={{ color: 'var(--canal-correo)' }} />
+          )}
         </div>
-        <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
-          {canal.proveedor === 'imap' && 'IMAP/SMTP'}
-          {canal.proveedor === 'gmail_oauth' && 'Gmail OAuth'}
-          {canal.proveedor === 'meta_api' && 'Meta Business API'}
-          {canal.proveedor === 'twilio' && 'Twilio'}
-        </p>
-        {error && canal.ultimo_error && (
-          <p className="text-xxs mt-1" style={{ color: 'var(--insignia-peligro)' }}>
-            {canal.ultimo_error}
-          </p>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+              {canal.nombre}
+            </p>
+            <Insignia color={conectado ? 'exito' : error ? 'peligro' : 'neutro'} tamano="sm">
+              {conectado ? 'Conectado' : error ? 'Error' : 'Desconectado'}
+            </Insignia>
+            {calidad && (
+              <Insignia color={colorCalidad[calidad.rating] as 'exito' | 'advertencia' | 'peligro'} tamano="sm">
+                {calidad.rating}
+              </Insignia>
+            )}
+          </div>
+          <div className="flex items-center gap-3 mt-0.5">
+            <span className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
+              {canal.proveedor === 'imap' && 'IMAP/SMTP'}
+              {canal.proveedor === 'gmail_oauth' && 'Gmail OAuth'}
+              {canal.proveedor === 'meta_api' && 'Meta Business API'}
+              {canal.proveedor === 'twilio' && 'Twilio'}
+            </span>
+            {esWhatsApp && (
+              <span className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
+                {(config.numeroTelefono || config.numero_telefono || config.from_number || '') as string}
+              </span>
+            )}
+            {!esWhatsApp && (
+              <span className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
+                {(config.usuario || config.email || '') as string}
+              </span>
+            )}
+          </div>
+          {error && canal.ultimo_error && (
+            <p className="text-xxs mt-1" style={{ color: 'var(--insignia-peligro)' }}>
+              {canal.ultimo_error}
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <ChevronDown
+            size={16}
+            style={{
+              color: 'var(--texto-terciario)',
+              transform: expandido ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 200ms',
+            }}
+          />
+        </div>
+      </button>
+
+      {/* Detalle expandido */}
+      <AnimatePresence>
+        {expandido && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4 space-y-3" style={{ borderTop: '1px solid var(--borde-sutil)' }}>
+              {/* Tabla de datos */}
+              <div className="pt-3">
+                <table className="w-full">
+                  <tbody>
+                    {datosVisibles.filter(d => d.valor && d.valor !== '—' || !d.sensible).map((dato) => (
+                      <tr key={dato.etiqueta}>
+                        <td className="py-1.5 pr-4 text-xs font-medium align-top" style={{ color: 'var(--texto-terciario)', width: '40%' }}>
+                          {dato.etiqueta}
+                        </td>
+                        <td className="py-1.5 text-xs align-top" style={{ color: 'var(--texto-primario)' }}>
+                          {dato.sensible ? (
+                            <span className="font-mono text-xxs px-1.5 py-0.5 rounded" style={{ background: 'var(--superficie-hover)' }}>
+                              {dato.valor ? `${dato.valor.substring(0, 8)}${'•'.repeat(20)}` : '—'}
+                            </span>
+                          ) : (
+                            <span className="font-mono text-xxs">{dato.valor}</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Calidad del número (solo WA) */}
+              {esWhatsApp && calidad && (
+                <div
+                  className="flex items-center gap-3 p-3 rounded-lg"
+                  style={{ background: 'var(--superficie-hover)' }}
+                >
+                  <div className="flex-1">
+                    <p className="text-xs font-medium" style={{ color: 'var(--texto-secundario)' }}>
+                      Calidad del número
+                    </p>
+                    <div className="flex items-center gap-3 mt-1">
+                      <div className="flex items-center gap-1.5">
+                        <div
+                          className="w-2.5 h-2.5 rounded-full"
+                          style={{
+                            background: calidad.rating === 'GREEN' ? 'var(--insignia-exito)'
+                              : calidad.rating === 'YELLOW' ? 'var(--insignia-advertencia)'
+                              : 'var(--insignia-peligro)',
+                          }}
+                        />
+                        <span className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>
+                          {calidad.rating}
+                        </span>
+                      </div>
+                      <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                        Tier: {calidad.tier}
+                      </span>
+                      <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                        Estado: {calidad.status}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Webhook URL (solo WA Meta) */}
+              {esWhatsApp && canal.proveedor === 'meta_api' && (
+                <div
+                  className="p-3 rounded-lg"
+                  style={{ background: 'var(--superficie-hover)' }}
+                >
+                  <p className="text-xs font-medium mb-1" style={{ color: 'var(--texto-secundario)' }}>
+                    URL del Webhook (configurar en Meta)
+                  </p>
+                  <code
+                    className="text-xxs font-mono block p-2 rounded"
+                    style={{
+                      background: 'var(--superficie-app)',
+                      color: 'var(--texto-marca)',
+                      wordBreak: 'break-all',
+                    }}
+                  >
+                    {typeof window !== 'undefined' ? `${window.location.origin}/api/inbox/whatsapp/webhook` : '/api/inbox/whatsapp/webhook'}
+                  </code>
+                </div>
+              )}
+
+              {/* Acciones */}
+              <div className="flex items-center gap-2 pt-2">
+                {esWhatsApp && (
+                  <Boton
+                    variante="secundario"
+                    tamano="xs"
+                    onClick={consultarCalidad}
+                    cargando={cargandoCalidad}
+                  >
+                    Consultar calidad
+                  </Boton>
+                )}
+                <Boton variante="fantasma" tamano="xs" icono={<Pencil size={12} />}>
+                  Editar
+                </Boton>
+                <Boton variante="peligro" tamano="xs" icono={<Trash2 size={12} />}>
+                  Eliminar
+                </Boton>
+              </div>
+            </div>
+          </motion.div>
         )}
-      </div>
-      <div className="flex items-center gap-1">
-        <Boton variante="fantasma" tamano="xs" soloIcono icono={<Pencil size={12} />} />
-        <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={12} />} />
-      </div>
+      </AnimatePresence>
     </div>
   )
 }
