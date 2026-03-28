@@ -660,6 +660,12 @@ function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () =
           onCerrar={() => setEditando(false)}
           tipoCanal={canal.tipo as TipoCanal}
           onCanalCreado={() => { setEditando(false); onRecargar?.() }}
+          canalEditar={{
+            id: canal.id,
+            nombre: canal.nombre,
+            proveedor: canal.proveedor,
+            config_conexion: canal.config_conexion as Record<string, unknown>,
+          }}
         />
       )}
     </div>

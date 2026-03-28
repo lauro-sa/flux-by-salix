@@ -22,6 +22,13 @@ interface PropiedadesModal {
   onCerrar: () => void
   tipoCanal: TipoCanal
   onCanalCreado: () => void
+  /** Si se pasa, el modal entra en modo edición con datos precargados */
+  canalEditar?: {
+    id: string
+    nombre: string
+    proveedor: string | null
+    config_conexion: Record<string, unknown>
+  } | null
 }
 
 // Proveedores disponibles por tipo de canal
@@ -35,37 +42,42 @@ const PROVEEDORES_CORREO = [
   { valor: 'gmail_oauth', etiqueta: 'Gmail (Google)', descripcion: 'Conectar cuenta de Gmail directamente' },
 ]
 
-export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado }: PropiedadesModal) {
-  const [paso, setPaso] = useState(1)
+export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado, canalEditar }: PropiedadesModal) {
+  const modoEdicion = !!canalEditar
+  const cfg = canalEditar?.config_conexion || {}
+
+  const [paso, setPaso] = useState(modoEdicion ? 2 : 1) // Si edita, ir directo a paso 2
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
 
-  // Campos
-  const [nombre, setNombre] = useState('')
-  const [proveedor, setProveedor] = useState<ProveedorCanal>(null)
+  // Campos — precargados si es edición
+  const [nombre, setNombre] = useState(canalEditar?.nombre || '')
+  const [proveedor, setProveedor] = useState<ProveedorCanal>(
+    (canalEditar?.proveedor as ProveedorCanal) || null
+  )
 
   // IMAP
-  const [imapHost, setImapHost] = useState('')
-  const [imapPuerto, setImapPuerto] = useState('993')
-  const [imapUsuario, setImapUsuario] = useState('')
-  const [imapPassword, setImapPassword] = useState('')
-  const [imapSSL, setImapSSL] = useState(true)
-  const [smtpHost, setSmtpHost] = useState('')
-  const [smtpPuerto, setSmtpPuerto] = useState('587')
+  const [imapHost, setImapHost] = useState((cfg.host || '') as string)
+  const [imapPuerto, setImapPuerto] = useState(String(cfg.puerto || '993'))
+  const [imapUsuario, setImapUsuario] = useState((cfg.usuario || '') as string)
+  const [imapPassword, setImapPassword] = useState('')  // No precargar contraseñas
+  const [imapSSL, setImapSSL] = useState((cfg.ssl as boolean) ?? true)
+  const [smtpHost, setSmtpHost] = useState((cfg.smtp_host || '') as string)
+  const [smtpPuerto, setSmtpPuerto] = useState(String(cfg.smtp_puerto || '587'))
 
   // WhatsApp Meta
-  const [waPhoneId, setWaPhoneId] = useState('')
-  const [waAccessToken, setWaAccessToken] = useState('')
-  const [waWabaId, setWaWabaId] = useState('')
-  const [waNumero, setWaNumero] = useState('')
+  const [waPhoneId, setWaPhoneId] = useState((cfg.phoneNumberId || cfg.phone_number_id || '') as string)
+  const [waAccessToken, setWaAccessToken] = useState('') // No precargar tokens
+  const [waWabaId, setWaWabaId] = useState((cfg.wabaId || cfg.waba_id || '') as string)
+  const [waNumero, setWaNumero] = useState((cfg.numeroTelefono || cfg.numero_telefono || '') as string)
 
   // WhatsApp Twilio
-  const [twilioSid, setTwilioSid] = useState('')
-  const [twilioToken, setTwilioToken] = useState('')
-  const [twilioNumero, setTwilioNumero] = useState('')
+  const [twilioSid, setTwilioSid] = useState((cfg.account_sid || '') as string)
+  const [twilioToken, setTwilioToken] = useState('') // No precargar tokens
+  const [twilioNumero, setTwilioNumero] = useState((cfg.from_number || '') as string)
 
   // Gmail
-  const [gmailEmail, setGmailEmail] = useState('')
+  const [gmailEmail, setGmailEmail] = useState((cfg.email || '') as string)
 
   const proveedores = tipoCanal === 'whatsapp' ? PROVEEDORES_WA : PROVEEDORES_CORREO
 
@@ -132,20 +144,39 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado 
         }
       }
 
-      const res = await fetch('/api/inbox/canales', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tipo: tipoCanal,
-          nombre: nombre.trim(),
-          proveedor,
-          config_conexion,
-        }),
-      })
+      let res: Response
+
+      if (modoEdicion && canalEditar) {
+        // En edición: solo enviar campos que cambiaron, no pisar tokens existentes si están vacíos
+        const configFinal = { ...cfg }
+        for (const [k, v] of Object.entries(config_conexion)) {
+          if (v !== '' && v !== undefined) configFinal[k] = v
+        }
+
+        res = await fetch(`/api/inbox/canales/${canalEditar.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nombre: nombre.trim(),
+            config_conexion: configFinal,
+          }),
+        })
+      } else {
+        res = await fetch('/api/inbox/canales', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tipo: tipoCanal,
+            nombre: nombre.trim(),
+            proveedor,
+            config_conexion,
+          }),
+        })
+      }
 
       if (!res.ok) {
         const data = await res.json()
-        setError(data.error || 'Error al crear el canal')
+        setError(data.error || (modoEdicion ? 'Error al guardar' : 'Error al crear el canal'))
         return
       }
 
@@ -162,7 +193,10 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado 
     <Modal
       abierto={abierto}
       onCerrar={handleCerrar}
-      titulo={tipoCanal === 'whatsapp' ? 'Agregar canal de WhatsApp' : 'Agregar bandeja de correo'}
+      titulo={modoEdicion
+        ? `Editar ${canalEditar?.nombre || 'canal'}`
+        : tipoCanal === 'whatsapp' ? 'Agregar canal de WhatsApp' : 'Agregar bandeja de correo'
+      }
       tamano="lg"
       acciones={
         <div className="flex items-center gap-2">
@@ -186,7 +220,7 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado 
               cargando={guardando}
               disabled={!nombre.trim()}
             >
-              Conectar
+              {modoEdicion ? 'Guardar cambios' : 'Conectar'}
             </Boton>
           )}
         </div>
