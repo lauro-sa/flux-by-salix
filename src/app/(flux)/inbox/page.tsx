@@ -9,7 +9,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import {
   Mail, Hash, Settings, PanelRightOpen, PanelRightClose,
   PanelLeftOpen, PanelLeftClose,
-  Plus, Pen, Columns2, Rows2,
+  Plus, Pen, Columns2, Rows2, ArrowLeft,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { ListaConversaciones } from './_componentes/ListaConversaciones'
@@ -198,11 +198,7 @@ export default function PaginaInbox() {
 
       // Para correo, mapear carpeta a filtros
       if (tabActivo === 'correo') {
-        // Si no hay canal activo y no es "todas", esperar a que se carguen
-        if (!canalTodas && !canalCorreoActivo && canalesCorreo.length === 0) {
-          setCargandoConversaciones(false)
-          return
-        }
+        // Solo filtrar por canal si hay uno explícitamente seleccionado (no "todas")
         if (!canalTodas && canalCorreoActivo) {
           params.set('canal_id', canalCorreoActivo)
         }
@@ -1006,16 +1002,12 @@ export default function PaginaInbox() {
                       {(conversacionSeleccionada || redactandoNuevo) && (
                         <button
                           onClick={() => { setConversacionSeleccionada(null); setMensajes([]); setRedactandoNuevo(false) }}
-                          className="p-1 rounded-md"
-                          style={{ color: 'var(--texto-terciario)' }}
+                          className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors"
+                          style={{ color: 'var(--texto-secundario)' }}
                         >
-                          <PanelLeftOpen size={14} />
+                          <ArrowLeft size={14} />
+                          <span>Volver</span>
                         </button>
-                      )}
-                      {conversacionSeleccionada && (
-                        <span className="text-xs truncate" style={{ color: 'var(--texto-secundario)' }}>
-                          {conversacionSeleccionada.asunto || conversacionSeleccionada.contacto_nombre}
-                        </span>
                       )}
                     </div>
                     <div className="flex items-center gap-0.5 rounded-md p-0.5" style={{ background: 'var(--superficie-hover)' }}>

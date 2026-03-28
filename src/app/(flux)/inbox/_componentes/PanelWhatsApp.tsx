@@ -7,6 +7,7 @@ import {
   Check, CheckCheck, Clock, AlertCircle, Play, Pause,
   Download, FileText, MapPin, User, X, ChevronLeft, ChevronRight,
   Image, Music, StickyNote, Pencil, Trash2, Tag, SmilePlus,
+  FileDown,
 } from 'lucide-react'
 import { ModalEtiquetas } from './ModalEtiquetas'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
@@ -340,15 +341,28 @@ export function PanelWhatsApp({
             </div>
           )}
         </div>
-        {/* Botón etiquetar */}
-        <button
-          onClick={() => setModalEtiquetas(true)}
-          className="p-2 rounded-lg transition-colors flex-shrink-0"
-          style={{ color: 'var(--texto-terciario)' }}
-          title="Etiquetar conversación"
-        >
-          <Tag size={16} />
-        </button>
+        {/* Acciones del header */}
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          <button
+            onClick={() => setModalEtiquetas(true)}
+            className="p-2 rounded-lg transition-colors"
+            style={{ color: 'var(--texto-terciario)' }}
+            title="Etiquetar conversación"
+          >
+            <Tag size={16} />
+          </button>
+          <button
+            onClick={() => {
+              // Descargar como CSV
+              window.open(`/api/inbox/exportar?conversacion_id=${conversacion.id}&formato=csv`, '_blank')
+            }}
+            className="p-2 rounded-lg transition-colors"
+            style={{ color: 'var(--texto-terciario)' }}
+            title="Exportar conversación"
+          >
+            <FileDown size={16} />
+          </button>
+        </div>
       </div>
 
       {/* Modal de etiquetas */}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { Insignia } from '@/componentes/ui/Insignia'
@@ -8,7 +8,8 @@ import { Buscador } from '@/componentes/ui/Buscador'
 import { Pildora } from '@/componentes/ui/Pildora'
 import {
   Mail, Hash, Clock, User, Filter, Trash2,
-  ChevronDown, Circle, Square, CheckSquare,
+  ChevronDown, ChevronLeft, ChevronRight as ChevronRightIcon,
+  Circle, Square, CheckSquare,
   Tag, CheckCircle, Eye,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
@@ -90,6 +91,16 @@ export function ListaConversaciones({
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
   const [modoSeleccion, setModoSeleccion] = useState(false)
+  const [pagina, setPagina] = useState(1)
+  const POR_PAGINA = 50
+
+  // Resetear página cuando cambian las conversaciones
+  useEffect(() => { setPagina(1) }, [conversaciones.length])
+
+  const totalPaginas = Math.max(1, Math.ceil(conversaciones.length / POR_PAGINA))
+  const conversacionesPaginadas = conversaciones.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA)
+  const desde = (pagina - 1) * POR_PAGINA + 1
+  const hasta = Math.min(pagina * POR_PAGINA, conversaciones.length)
 
   const toggleSeleccion = useCallback((id: string) => {
     setSeleccionados(prev => {
@@ -207,6 +218,36 @@ export function ListaConversaciones({
           placeholder={`Buscar entre ${conversaciones.length} correo${conversaciones.length !== 1 ? 's' : ''}...`}
         />
 
+        {/* Paginador */}
+        {conversaciones.length > POR_PAGINA && (
+          <div className="flex items-center justify-between">
+            <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+              {desde}–{hasta} de {conversaciones.length}
+            </span>
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => setPagina(p => Math.max(1, p - 1))}
+                disabled={pagina === 1}
+                className="p-1 rounded-md transition-colors disabled:opacity-30"
+                style={{ color: 'var(--texto-terciario)' }}
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <span className="text-xxs px-1" style={{ color: 'var(--texto-secundario)' }}>
+                {pagina}/{totalPaginas}
+              </span>
+              <button
+                onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}
+                disabled={pagina === totalPaginas}
+                className="p-1 rounded-md transition-colors disabled:opacity-30"
+                style={{ color: 'var(--texto-terciario)' }}
+              >
+                <ChevronRightIcon size={14} />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Filtros por estado */}
         <AnimatePresence>
           {mostrarFiltros && (
@@ -306,7 +347,7 @@ export function ListaConversaciones({
           </div>
         ) : (
           <AnimatePresence mode="popLayout">
-            {conversaciones.map((conv) => (
+            {conversacionesPaginadas.map((conv) => (
               <motion.button
                 key={conv.id}
                 layout
