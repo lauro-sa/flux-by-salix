@@ -62,6 +62,7 @@ export async function PATCH(
     const camposPermitidos = [
       'estado', 'prioridad', 'asignado_a', 'asignado_a_nombre',
       'contacto_id', 'contacto_nombre', 'asunto', 'etiquetas',
+      'mensajes_sin_leer',
     ]
     const cambios: Record<string, unknown> = { actualizado_en: new Date().toISOString() }
 

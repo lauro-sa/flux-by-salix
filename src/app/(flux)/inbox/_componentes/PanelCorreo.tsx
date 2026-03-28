@@ -6,8 +6,8 @@ import { Avatar } from '@/componentes/ui/Avatar'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
 import {
-  Reply, ReplyAll, Forward, Trash2, Archive, ShieldBan,
-  Paperclip, ChevronDown, ChevronUp, Download,
+  Reply, ReplyAll, Forward, Trash2, Archive, ShieldBan, ShieldCheck,
+  Paperclip, ChevronDown, ChevronUp, Download, MailOpen, Mail as MailIcon,
   FileText, Image, Film,
 } from 'lucide-react'
 import { CompositorCorreo, type DatosCorreo } from './CompositorCorreo'
@@ -25,12 +25,16 @@ interface PropiedadesPanelCorreo {
   mensajes: MensajeConAdjuntos[]
   onEnviarCorreo: (datos: DatosCorreo) => void
   onMarcarSpam?: (conversacionId: string) => void
+  onDesmarcarSpam?: (conversacionId: string) => void
   onArchivar?: (conversacionId: string) => void
   onEliminar?: (conversacionId: string) => void
+  onToggleLeido?: (conversacionId: string, sinLeer: number) => void
   cargando: boolean
   enviando: boolean
   /** Email del canal activo (para filtrar CC en responder a todos) */
   emailCanal?: string
+  /** Firma HTML del canal activo */
+  firma?: string
 }
 
 function formatoFechaCorreo(fecha: string): string {
@@ -80,11 +84,14 @@ export function PanelCorreo({
   mensajes,
   onEnviarCorreo,
   onMarcarSpam,
+  onDesmarcarSpam,
   onArchivar,
   onEliminar,
+  onToggleLeido,
   cargando,
   enviando,
   emailCanal = '',
+  firma,
 }: PropiedadesPanelCorreo) {
   const [respondiendo, setRespondiendo] = useState(false)
   const [tipoRespuesta, setTipoRespuesta] = useState<'responder' | 'responder_todos' | 'reenviar'>('responder')
@@ -214,7 +221,22 @@ export function PanelCorreo({
             <Boton variante="fantasma" tamano="xs" soloIcono icono={<Reply size={14} />} onClick={() => handleResponder('responder')} />
             <Boton variante="fantasma" tamano="xs" soloIcono icono={<ReplyAll size={14} />} onClick={() => handleResponder('responder_todos')} />
             <Boton variante="fantasma" tamano="xs" soloIcono icono={<Forward size={14} />} onClick={() => handleResponder('reenviar')} />
-            {onMarcarSpam && (
+            {/* Leído / No leído */}
+            {onToggleLeido && (
+              <Boton
+                variante="fantasma"
+                tamano="xs"
+                soloIcono
+                icono={conversacion.mensajes_sin_leer > 0 ? <MailOpen size={14} /> : <MailIcon size={14} />}
+                onClick={() => onToggleLeido(conversacion.id, conversacion.mensajes_sin_leer)}
+              />
+            )}
+            {/* Spam / No es spam */}
+            {conversacion.estado === 'spam' && onDesmarcarSpam ? (
+              <Boton variante="fantasma" tamano="xs" icono={<ShieldCheck size={14} />} onClick={() => onDesmarcarSpam(conversacion.id)}>
+                No es spam
+              </Boton>
+            ) : onMarcarSpam && (
               <Boton variante="fantasma" tamano="xs" soloIcono icono={<ShieldBan size={14} />} onClick={() => onMarcarSpam(conversacion.id)} />
             )}
             {onArchivar && (
@@ -448,6 +470,7 @@ export function PanelCorreo({
               onCancelar={() => setRespondiendo(false)}
               cargando={enviando}
               compacto
+              firma={firma}
             />
           </motion.div>
         )}

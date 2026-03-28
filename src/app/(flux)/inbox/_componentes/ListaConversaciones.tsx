@@ -251,6 +251,10 @@ export function ListaConversaciones({
                         fontWeight: conv.mensajes_sin_leer > 0 ? 500 : 400,
                       }}
                     >
+                      {/* Indicador enviado/recibido */}
+                      {conv.ultimo_mensaje_es_entrante === false && (
+                        <span style={{ color: 'var(--texto-terciario)' }}>Tú: </span>
+                      )}
                       {conv.ultimo_mensaje_texto || 'Sin mensajes'}
                     </p>
 

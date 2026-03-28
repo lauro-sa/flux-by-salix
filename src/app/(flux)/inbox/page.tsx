@@ -221,21 +221,63 @@ export default function PaginaInbox() {
     }
   }, [conversaciones])
 
-  // Enviar mensaje (WhatsApp usa API dedicada, interno usa mensajes genérico)
+  // Enviar mensaje (WhatsApp usa API de Meta, interno usa mensajes genérico)
   const enviarMensaje = useCallback(async (datos: DatosMensaje) => {
     if (!conversacionSeleccionada) return
     setEnviando(true)
     try {
+      let mediaUrl: string | undefined
+      let mediaFilename: string | undefined
+
+      // Si hay archivo adjunto, subirlo a Supabase Storage primero
+      if (datos.archivo) {
+        const nombreArchivo = datos.archivo.name
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-zA-Z0-9._-]/g, '_')
+          .slice(0, 100)
+        const path = `inbox/enviados/${conversacionSeleccionada.id}/${Date.now()}_${nombreArchivo}`
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('adjuntos')
+          .upload(path, datos.archivo, {
+            contentType: datos.archivo.type,
+            upsert: true,
+          })
+
+        if (uploadError) {
+          console.error('Error subiendo archivo:', uploadError)
+          return
+        }
+
+        const { data: urlData } = supabase.storage
+          .from('adjuntos')
+          .getPublicUrl(uploadData.path)
+
+        mediaUrl = urlData.publicUrl
+        mediaFilename = datos.archivo.name
+      }
+
       // WhatsApp: enviar vía API de Meta
       if (conversacionSeleccionada.tipo_canal === 'whatsapp') {
+        // Mapear tipo_contenido a tipo de Meta
+        const tipoMeta: Record<string, string> = {
+          texto: 'text',
+          imagen: 'image',
+          video: 'video',
+          audio: 'audio',
+          documento: 'document',
+        }
+
         const res = await fetch('/api/inbox/whatsapp/enviar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             conversacion_id: conversacionSeleccionada.id,
-            telefono: conversacionSeleccionada.identificador_externo,
-            tipo: 'text',
-            texto: datos.texto,
+            tipo: tipoMeta[datos.tipo_contenido] || 'text',
+            texto: datos.texto || undefined,
+            media_url: mediaUrl,
+            media_caption: datos.tipo_contenido !== 'texto' && datos.tipo_contenido !== 'audio' ? datos.texto : undefined,
+            media_filename: mediaFilename,
           }),
         })
         const data = await res.json()
@@ -249,7 +291,8 @@ export default function PaginaInbox() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             conversacion_id: conversacionSeleccionada.id,
-            ...datos,
+            texto: datos.texto,
+            tipo_contenido: datos.tipo_contenido,
           }),
         })
         const data = await res.json()
@@ -257,12 +300,12 @@ export default function PaginaInbox() {
           setMensajes(prev => [...prev, { ...data.mensaje, adjuntos: [] }])
         }
       }
-    } catch {
-      // TODO: toast de error
+    } catch (err) {
+      console.error('Error enviando mensaje:', err)
     } finally {
       setEnviando(false)
     }
-  }, [conversacionSeleccionada])
+  }, [conversacionSeleccionada, supabase])
 
   // Enviar correo (vía API dedicada de correo)
   const enviarCorreo = useCallback(async (datos: DatosCorreo) => {
@@ -307,6 +350,50 @@ export default function PaginaInbox() {
       if (conversacionSeleccionada?.id === conversacionId) {
         setConversacionSeleccionada(null)
         setMensajes([])
+      }
+    } catch {
+      // TODO: toast de error
+    }
+  }, [conversacionSeleccionada])
+
+  // Desmarcar spam (devolver a abierta)
+  const desmarcarSpam = useCallback(async (conversacionId: string) => {
+    try {
+      await fetch(`/api/inbox/conversaciones/${conversacionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: 'abierta' }),
+      })
+      // Si estamos en filtro spam, remover de la lista
+      if (filtroEstado === 'spam') {
+        setConversaciones(prev => prev.filter(c => c.id !== conversacionId))
+      } else {
+        setConversaciones(prev => prev.map(c =>
+          c.id === conversacionId ? { ...c, estado: 'abierta' as const } : c
+        ))
+      }
+      if (conversacionSeleccionada?.id === conversacionId) {
+        setConversacionSeleccionada(prev => prev ? { ...prev, estado: 'abierta' } : prev)
+      }
+    } catch {
+      // TODO: toast de error
+    }
+  }, [conversacionSeleccionada, filtroEstado])
+
+  // Marcar leído/no leído
+  const toggleLeido = useCallback(async (conversacionId: string, sinLeer: number) => {
+    const nuevoValor = sinLeer > 0 ? 0 : 1
+    try {
+      await fetch(`/api/inbox/conversaciones/${conversacionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mensajes_sin_leer: nuevoValor }),
+      })
+      setConversaciones(prev => prev.map(c =>
+        c.id === conversacionId ? { ...c, mensajes_sin_leer: nuevoValor } : c
+      ))
+      if (conversacionSeleccionada?.id === conversacionId) {
+        setConversacionSeleccionada(prev => prev ? { ...prev, mensajes_sin_leer: nuevoValor } : prev)
       }
     } catch {
       // TODO: toast de error
@@ -406,6 +493,22 @@ export default function PaginaInbox() {
     const intervalo = setInterval(poll, 5000)
     return () => clearInterval(intervalo)
   }, [tabActivo, filtroEstado, conversacionSeleccionada?.id])
+
+  // Extraer firma del canal de correo activo
+  const firmaCorreo = useMemo(() => {
+    const canal = canalesCorreo.find(c => c.id === canalCorreoActivo)
+    if (!canal) return undefined
+    const config = canal.config_conexion as Record<string, unknown>
+    return (config?.firma as string) || undefined
+  }, [canalesCorreo, canalCorreoActivo])
+
+  // Extraer email del canal activo
+  const emailCanalActivo = useMemo(() => {
+    const canal = canalesCorreo.find(c => c.id === canalCorreoActivo)
+    if (!canal) return ''
+    const config = canal.config_conexion as { email?: string; usuario?: string }
+    return config?.email || config?.usuario || ''
+  }, [canalesCorreo, canalCorreoActivo])
 
   const tabs = generarTabs(modulosActivos)
   const totalNoLeidos = conversaciones.reduce((sum, c) => sum + c.mensajes_sin_leer, 0)
@@ -547,6 +650,7 @@ export default function PaginaInbox() {
                 onEnviar={enviarCorreo}
                 onCancelar={() => setRedactandoNuevo(false)}
                 cargando={enviando}
+                firma={firmaCorreo}
               />
             </div>
           ) : (
@@ -555,16 +659,13 @@ export default function PaginaInbox() {
               mensajes={mensajes}
               onEnviarCorreo={enviarCorreo}
               onMarcarSpam={marcarSpam}
+              onDesmarcarSpam={desmarcarSpam}
               onArchivar={archivarConversacion}
+              onToggleLeido={toggleLeido}
               cargando={cargandoMensajes}
               enviando={enviando}
-              emailCanal={
-                canalesCorreo.find(c => c.id === canalCorreoActivo)
-                  ? ((canalesCorreo.find(c => c.id === canalCorreoActivo)?.config_conexion as { email?: string; usuario?: string })?.email
-                    || (canalesCorreo.find(c => c.id === canalCorreoActivo)?.config_conexion as { email?: string; usuario?: string })?.usuario
-                    || '')
-                  : ''
-              }
+              emailCanal={emailCanalActivo}
+              firma={firmaCorreo}
             />
           )
         )}

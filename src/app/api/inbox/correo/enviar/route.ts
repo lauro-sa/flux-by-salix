@@ -227,6 +227,15 @@ export async function POST(request: NextRequest) {
       .select()
       .single()
 
+    // Linkear adjuntos subidos al mensaje recién creado
+    if (adjuntos_ids?.length && mensaje?.id) {
+      await admin
+        .from('mensaje_adjuntos')
+        .update({ mensaje_id: mensaje.id })
+        .in('id', adjuntos_ids)
+        .eq('empresa_id', empresaId)
+    }
+
     // Actualizar conversación
     await admin
       .from('conversaciones')

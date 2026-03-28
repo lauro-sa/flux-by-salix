@@ -372,10 +372,8 @@ export default function PaginaDetallePresupuesto() {
   const condSeleccionada = condiciones.find(c => c.id === condicionPagoId)
   const estaCancelado = presupuesto.estado === 'cancelado'
 
-  // Datos fiscales emisor
-  const fiscalEmisor = datosEmpresa?.datos_fiscales as Record<string, Record<string, string>> | null
-  const paisFiscal = fiscalEmisor ? Object.keys(fiscalEmisor)[0] : null
-  const datosFiscalesPais = paisFiscal ? fiscalEmisor?.[paisFiscal] : null
+  // Datos fiscales emisor (objeto plano: { cuit, condicion_iva, ... })
+  const datosFiscales = (datosEmpresa?.datos_fiscales || {}) as Record<string, string>
 
   return (
     <div className="w-full max-w-[1200px] mx-auto px-4 py-6 space-y-5">
@@ -508,21 +506,34 @@ export default function PaginaDetallePresupuesto() {
 
         {/* ─── EMISOR ─── */}
         <div className="px-6 py-4 border-b border-borde-sutil">
-          <span className="text-[11px] text-texto-terciario font-medium uppercase tracking-wider">Emisor</span>
-          <div className="mt-1">
-            <p className="text-sm font-semibold text-texto-primario">
+          <span className="text-[11px] font-bold text-texto-secundario uppercase tracking-wider">Emisor</span>
+          <div className="mt-2 space-y-1">
+            <p className="text-base font-semibold text-texto-primario">
               {datosEmpresa?.nombre || empresa?.nombre || '—'}
             </p>
-            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-texto-secundario mt-0.5">
-              {datosFiscalesPais?.numero_identificacion && (
-                <span>CUIT {datosFiscalesPais.numero_identificacion}</span>
-              )}
-              {datosFiscalesPais?.condicion_iva && (
-                <span>· {datosFiscalesPais.condicion_iva.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
-              )}
-              {datosEmpresa?.telefono && <span>· {datosEmpresa.telefono}</span>}
-              {datosEmpresa?.correo && <span>· {datosEmpresa.correo}</span>}
-            </div>
+            {(datosFiscales.cuit || datosFiscales.condicion_iva) && (
+              <p className="text-xs text-texto-secundario">
+                {datosFiscales.cuit && `CUIT ${datosFiscales.cuit}`}
+                {datosFiscales.cuit && datosFiscales.condicion_iva && ' · '}
+                {datosFiscales.condicion_iva?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              </p>
+            )}
+            {(datosEmpresa?.telefono || datosEmpresa?.correo) && (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                {datosEmpresa?.telefono && (
+                  <span className="text-xs text-texto-secundario flex items-center gap-1">
+                    <Phone size={11} className="text-texto-terciario" />
+                    {datosEmpresa.telefono}
+                  </span>
+                )}
+                {datosEmpresa?.correo && (
+                  <span className="text-xs text-texto-secundario flex items-center gap-1">
+                    <Mail size={11} className="text-texto-terciario" />
+                    {datosEmpresa.correo}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

@@ -21,7 +21,6 @@ interface PropiedadesPanelWhatsApp {
   conversacion: Conversacion | null
   mensajes: MensajeConAdjuntos[]
   onEnviar: (datos: DatosMensaje) => void
-  onAdjuntar?: (archivos: File[]) => void
   onAbrirVisor: (url: string) => void
   cargando: boolean
   enviando: boolean
@@ -164,7 +163,6 @@ export function PanelWhatsApp({
   conversacion,
   mensajes,
   onEnviar,
-  onAdjuntar,
   onAbrirVisor,
   cargando,
   enviando,
@@ -368,7 +366,6 @@ export function PanelWhatsApp({
       <CompositorMensaje
         tipoCanal="whatsapp"
         onEnviar={onEnviar}
-        onAdjuntar={onAdjuntar}
         cargando={enviando}
         placeholder="Escribir mensaje..."
         onAbrirPlantillas={() => {}}

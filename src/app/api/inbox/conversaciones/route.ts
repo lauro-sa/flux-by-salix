@@ -46,9 +46,9 @@ export async function GET(request: NextRequest) {
       query = query.eq('asignado_a', asignado_a)
     }
 
-    // Búsqueda por nombre de contacto o asunto
+    // Búsqueda por nombre de contacto, asunto o cuerpo de mensajes
     if (busqueda) {
-      query = query.or(`contacto_nombre.ilike.%${busqueda}%,asunto.ilike.%${busqueda}%,identificador_externo.ilike.%${busqueda}%`)
+      query = query.or(`contacto_nombre.ilike.%${busqueda}%,asunto.ilike.%${busqueda}%,identificador_externo.ilike.%${busqueda}%,ultimo_mensaje_texto.ilike.%${busqueda}%`)
     }
 
     const { data, count, error } = await query
@@ -61,7 +61,38 @@ export async function GET(request: NextRequest) {
       }
       throw error
     }
-    return NextResponse.json({ conversaciones: data || [], total: count || 0 })
+
+    // Si búsqueda activa y pocos resultados, buscar también en cuerpo de mensajes
+    let resultados = data || []
+    if (busqueda && resultados.length < 5 && tipo_canal === 'correo') {
+      const idsExistentes = new Set(resultados.map(c => c.id))
+      const { data: mensajesMatch } = await admin
+        .from('mensajes')
+        .select('conversacion_id')
+        .eq('empresa_id', empresaId)
+        .or(`texto.ilike.%${busqueda}%,correo_asunto.ilike.%${busqueda}%,correo_de.ilike.%${busqueda}%`)
+        .limit(20)
+
+      if (mensajesMatch && mensajesMatch.length > 0) {
+        const idsConv = [...new Set(
+          mensajesMatch.map(m => m.conversacion_id).filter(id => !idsExistentes.has(id))
+        )]
+        if (idsConv.length > 0) {
+          const { data: convsExtra } = await admin
+            .from('conversaciones')
+            .select(`*, canal:canales_inbox!canal_id(id, nombre, tipo, proveedor)`)
+            .eq('empresa_id', empresaId)
+            .in('id', idsConv.slice(0, 10))
+            .order('ultimo_mensaje_en', { ascending: false, nullsFirst: false })
+
+          if (convsExtra) {
+            resultados = [...resultados, ...convsExtra]
+          }
+        }
+      }
+    }
+
+    return NextResponse.json({ conversaciones: resultados, total: count || resultados.length })
   } catch (err) {
     console.error('Error al obtener conversaciones:', err)
     return NextResponse.json({ conversaciones: [], total: 0 })

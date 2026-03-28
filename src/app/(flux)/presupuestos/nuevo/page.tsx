@@ -502,10 +502,8 @@ export default function PaginaNuevoPresupuesto() {
     return fecha.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })
   }
 
-  // Datos fiscales del emisor
-  const fiscalEmisor = datosEmpresa?.datos_fiscales as Record<string, Record<string, string>> | null
-  const paisFiscal = fiscalEmisor ? Object.keys(fiscalEmisor)[0] : null
-  const datosFiscalesPais = paisFiscal ? fiscalEmisor?.[paisFiscal] : null
+  // Datos fiscales del emisor (objeto plano: { cuit, condicion_iva, ... })
+  const datosFiscales = (datosEmpresa?.datos_fiscales || {}) as Record<string, string>
 
   return (
     <div className="w-full max-w-[1200px] mx-auto px-4 py-6 space-y-5">
@@ -572,11 +570,11 @@ export default function PaginaNuevoPresupuesto() {
             <p className="text-base font-semibold text-texto-primario">
               {datosEmpresa?.nombre || empresa?.nombre || '—'}
             </p>
-            {(datosFiscalesPais?.numero_identificacion || datosFiscalesPais?.condicion_iva) && (
+            {(datosFiscales.cuit || datosFiscales.condicion_iva) && (
               <p className="text-xs text-texto-secundario">
-                {datosFiscalesPais?.numero_identificacion && `CUIT ${datosFiscalesPais.numero_identificacion}`}
-                {datosFiscalesPais?.numero_identificacion && datosFiscalesPais?.condicion_iva && ' · '}
-                {datosFiscalesPais?.condicion_iva?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                {datosFiscales.cuit && `CUIT ${datosFiscales.cuit}`}
+                {datosFiscales.cuit && datosFiscales.condicion_iva && ' · '}
+                {datosFiscales.condicion_iva?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
               </p>
             )}
             {(datosEmpresa?.telefono || datosEmpresa?.correo) && (
@@ -604,7 +602,7 @@ export default function PaginaNuevoPresupuesto() {
           {/* ── Columna izquierda: Cliente + Dirigido a ── */}
           <div className="space-y-3 py-3">
             {/* CLIENTE */}
-            <div className="bg-superficie-app/30 rounded-lg px-3 py-3 -mx-3">
+            <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-lg px-3 py-3 -mx-3">
               <span className="text-[11px] font-bold text-texto-secundario uppercase tracking-wider">
                 Cliente
               </span>
@@ -654,7 +652,7 @@ export default function PaginaNuevoPresupuesto() {
 
             {/* DIRIGIDO A */}
             {contactoSeleccionado && vinculaciones.length > 0 && (
-              <div className="bg-superficie-app/30 rounded-lg px-3 py-3 -mx-3">
+              <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-lg px-3 py-3 -mx-3">
                 <span className="text-[11px] font-bold text-texto-secundario uppercase tracking-wider">
                   Dirigido a
                 </span>
@@ -824,7 +822,7 @@ export default function PaginaNuevoPresupuesto() {
               const etiqueta = "text-xs font-medium text-texto-secundario uppercase tracking-wide"
               const valorAncho = "w-52"
               return (
-                <div className="bg-superficie-app/30 rounded-lg -mx-3 divide-y divide-borde-sutil/50">
+                <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-lg -mx-3 divide-y divide-borde-sutil/50">
                   {/* ── Referencia ── */}
                   <div className="px-3 py-1">
                     <div className={fila}>

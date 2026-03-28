@@ -17,7 +17,7 @@ import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import {
   Settings2, MessageCircle, Mail, Hash, FileText, Users,
   Clock, Bell, Plus, Trash2, Wifi, WifiOff, AlertTriangle,
-  Pencil, GripVertical, Shield, ChevronDown,
+  Pencil, GripVertical, Shield, ChevronDown, RefreshCw, Loader2,
 } from 'lucide-react'
 import type { CanalInbox, PlantillaRespuesta, ConfigInbox, TipoCanal } from '@/tipos/inbox'
 import { ModalAgregarCanal } from '../_componentes/ModalAgregarCanal'
@@ -683,17 +683,59 @@ function SeccionCorreo({
     } as Partial<ConfigInbox>)
   }
 
+  const [sincronizando, setSincronizando] = useState(false)
+  const [resultadoSync, setResultadoSync] = useState<string | null>(null)
+
+  const sincronizarAhora = async () => {
+    setSincronizando(true)
+    setResultadoSync(null)
+    try {
+      const res = await fetch('/api/inbox/correo/sincronizar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const data = await res.json()
+      const total = data.resultados?.reduce((s: number, r: { mensajes_nuevos: number }) => s + r.mensajes_nuevos, 0) || 0
+      setResultadoSync(`Sincronización completa. ${total} correo${total !== 1 ? 's' : ''} nuevo${total !== 1 ? 's' : ''}.`)
+    } catch {
+      setResultadoSync('Error al sincronizar.')
+    } finally {
+      setSincronizando(false)
+      setTimeout(() => setResultadoSync(null), 5000)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Bandejas */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
-          Bandejas de correo
-        </h3>
+        <div className="flex items-center gap-3">
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+            Bandejas de correo
+          </h3>
+          {canalesCorreo.length > 0 && (
+            <Boton
+              variante="secundario"
+              tamano="xs"
+              icono={sincronizando ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+              onClick={sincronizarAhora}
+              disabled={sincronizando}
+            >
+              {sincronizando ? 'Sincronizando...' : 'Sincronizar ahora'}
+            </Boton>
+          )}
+        </div>
         <Boton variante="primario" tamano="sm" icono={<Plus size={14} />} onClick={onAgregarCanal}>
           Agregar bandeja
         </Boton>
       </div>
+
+      {resultadoSync && (
+        <Alerta tipo={resultadoSync.includes('Error') ? 'peligro' : 'exito'} cerrable onCerrar={() => setResultadoSync(null)}>
+          {resultadoSync}
+        </Alerta>
+      )}
 
       <Alerta tipo="info" titulo="Tipos de conexión">
         Podés conectar correos vía IMAP/SMTP (cualquier proveedor) o Gmail OAuth (conexión directa con Google).
