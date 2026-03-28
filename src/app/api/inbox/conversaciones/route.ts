@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
     const asignado_a = params.get('asignado_a') // usuario_id o 'sin_asignar'
     const canal_id = params.get('canal_id')
     const busqueda = params.get('busqueda') || ''
+    const enviados = params.get('enviados') === 'true'
     const pagina = parseInt(params.get('pagina') || '1')
     const por_pagina = Math.min(parseInt(params.get('por_pagina') || '50'), 100)
     const desde = (pagina - 1) * por_pagina
@@ -39,6 +40,11 @@ export async function GET(request: NextRequest) {
     if (tipo_canal) query = query.eq('tipo_canal', tipo_canal)
     if (estado) query = query.eq('estado', estado)
     if (canal_id) query = query.eq('canal_id', canal_id)
+
+    // Filtro enviados: solo conversaciones donde el último mensaje es saliente
+    if (enviados) {
+      query = query.eq('ultimo_mensaje_es_entrante', false)
+    }
 
     if (asignado_a === 'sin_asignar') {
       query = query.is('asignado_a', null)

@@ -178,11 +178,14 @@ export function PanelWhatsApp({
   // Pre-procesar elementos de chat
   const elementos = useMemo(() => prepararElementos(mensajes), [mensajes])
 
-  // Auto-scroll al último mensaje
+  // Auto-scroll al último mensaje (con delay para esperar render completo)
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }
+    const el = scrollRef.current
+    if (!el) return
+    // Intentar inmediato + con delay para imágenes/media que cargan después
+    el.scrollTop = el.scrollHeight
+    const t = setTimeout(() => { el.scrollTop = el.scrollHeight }, 100)
+    return () => clearTimeout(t)
   }, [mensajes])
 
   if (!conversacion) {

@@ -14,6 +14,7 @@ import { ListaConversaciones } from './_componentes/ListaConversaciones'
 import { PanelWhatsApp, VisorMedia, type MediaVisor } from './_componentes/PanelWhatsApp'
 import { PanelCorreo } from './_componentes/PanelCorreo'
 import { CompositorCorreo, type DatosCorreo } from './_componentes/CompositorCorreo'
+import { SidebarCorreo, type CarpetaCorreo } from './_componentes/SidebarCorreo'
 import { PanelInterno } from './_componentes/PanelInterno'
 import { PanelInfoContacto } from './_componentes/PanelInfoContacto'
 import type {
@@ -73,10 +74,13 @@ export default function PaginaInbox() {
   // Panel info contacto
   const [panelInfoAbierto, setPanelInfoAbierto] = useState(false)
 
-  // Correo: redactar nuevo + canales disponibles
+  // Correo: redactar nuevo + canales disponibles + carpeta
   const [redactandoNuevo, setRedactandoNuevo] = useState(false)
   const [canalesCorreo, setCanalesCorreo] = useState<CanalInbox[]>([])
   const [canalCorreoActivo, setCanalCorreoActivo] = useState<string>('')
+  const [carpetaCorreo, setCarpetaCorreo] = useState<CarpetaCorreo>('entrada')
+  const [canalTodas, setCanalTodas] = useState(false)
+  const [contadoresCorreo, setContadoresCorreo] = useState<Record<string, { entrada: number; spam: number }>>({})
 
   // Visor de media fullscreen (compartido entre PanelWhatsApp y PanelInfoContacto)
   const [visorAbierto, setVisorAbierto] = useState(false)
@@ -136,13 +140,38 @@ export default function PaginaInbox() {
     cargarConfig()
   }, [])
 
-  // Cargar conversaciones cuando cambia el tab o filtros
+  // Cargar conversaciones cuando cambia el tab, filtros o carpeta de correo
   const cargarConversaciones = useCallback(async () => {
     setCargandoConversaciones(true)
     try {
       const params = new URLSearchParams()
       params.set('tipo_canal', tabActivo)
-      if (filtroEstado !== 'todas') params.set('estado', filtroEstado)
+
+      // Para correo, mapear carpeta a filtros
+      if (tabActivo === 'correo') {
+        if (!canalTodas && canalCorreoActivo) {
+          params.set('canal_id', canalCorreoActivo)
+        }
+        switch (carpetaCorreo) {
+          case 'entrada':
+            // Entrada: abierta + en_espera (excluye spam y resuelta)
+            params.set('estado', 'abierta')
+            break
+          case 'enviados':
+            // Enviados: filtrar por último mensaje saliente
+            params.set('enviados', 'true')
+            break
+          case 'spam':
+            params.set('estado', 'spam')
+            break
+          case 'archivado':
+            params.set('estado', 'resuelta')
+            break
+        }
+      } else {
+        if (filtroEstado !== 'todas') params.set('estado', filtroEstado)
+      }
+
       if (busquedaRef.current) params.set('busqueda', busquedaRef.current)
 
       const res = await fetch(`/api/inbox/conversaciones?${params}`)
@@ -153,7 +182,7 @@ export default function PaginaInbox() {
     } finally {
       setCargandoConversaciones(false)
     }
-  }, [tabActivo, filtroEstado])
+  }, [tabActivo, filtroEstado, carpetaCorreo, canalCorreoActivo, canalTodas])
 
   useEffect(() => {
     cargarConversaciones()
@@ -167,18 +196,44 @@ export default function PaginaInbox() {
     return () => clearTimeout(timeout)
   }, [busqueda, cargarConversaciones])
 
-  // Cargar canales de correo cuando se activa el tab
+  // Cargar canales de correo y contadores cuando se activa el tab
   useEffect(() => {
     if (tabActivo !== 'correo') return
     const cargar = async () => {
       try {
         const res = await fetch('/api/inbox/canales?tipo=correo')
         const data = await res.json()
-        const canales = data.canales || []
+        const canales = (data.canales || []) as CanalInbox[]
         setCanalesCorreo(canales)
         if (canales.length > 0 && !canalCorreoActivo) {
           setCanalCorreoActivo(canales[0].id)
         }
+        // Si hay una sola cuenta, no mostrar "todas"
+        if (canales.length <= 1) {
+          setCanalTodas(false)
+        }
+
+        // Cargar contadores de no leídos por canal
+        const conteos: Record<string, { entrada: number; spam: number }> = {}
+        for (const canal of canales) {
+          try {
+            const [resEntrada, resSpam] = await Promise.all([
+              fetch(`/api/inbox/conversaciones?tipo_canal=correo&canal_id=${canal.id}&estado=abierta&por_pagina=1`),
+              fetch(`/api/inbox/conversaciones?tipo_canal=correo&canal_id=${canal.id}&estado=spam&por_pagina=1`),
+            ])
+            const [dataEntrada, dataSpam] = await Promise.all([resEntrada.json(), resSpam.json()])
+            // Contar no leídos
+            const noLeidos = (dataEntrada.conversaciones || [])
+              .reduce((s: number, c: { mensajes_sin_leer: number }) => s + c.mensajes_sin_leer, 0)
+            conteos[canal.id] = {
+              entrada: noLeidos,
+              spam: dataSpam.total || 0,
+            }
+          } catch {
+            conteos[canal.id] = { entrada: 0, spam: 0 }
+          }
+        }
+        setContadoresCorreo(conteos)
       } catch {
         // silenciar
       }
@@ -650,21 +705,6 @@ export default function PaginaInbox() {
         />
 
         <div className="flex items-center gap-1">
-          {/* Botón redactar correo nuevo */}
-          {tabActivo === 'correo' && canalesCorreo.length > 0 && (
-            <Boton
-              variante="primario"
-              tamano="xs"
-              icono={<Pen size={14} />}
-              onClick={() => {
-                setConversacionSeleccionada(null)
-                setMensajes([])
-                setRedactandoNuevo(true)
-              }}
-            >
-              Redactar
-            </Boton>
-          )}
           {/* Toggle panel info */}
           <Boton
             variante="fantasma"
@@ -684,74 +724,123 @@ export default function PaginaInbox() {
         </div>
       </div>
 
-      {/* Contenido principal: 3 paneles */}
+      {/* Contenido principal */}
       <div className="flex flex-1 min-h-0">
-        {/* Panel izquierdo: lista de conversaciones (no en tab interno) */}
-        {tabActivo !== 'interno' && (
-          <div className="w-80 flex-shrink-0">
-            <ListaConversaciones
-              conversaciones={conversaciones}
-              seleccionada={conversacionSeleccionada?.id || null}
-              onSeleccionar={seleccionarConversacion}
-              busqueda={busqueda}
-              onBusqueda={setBusqueda}
-              filtroEstado={filtroEstado}
-              onFiltroEstado={setFiltroEstado}
-              tipoCanal={tabActivo}
-              cargando={cargandoConversaciones}
-              totalNoLeidos={totalNoLeidos}
-            />
-          </div>
-        )}
-
-        {/* Panel central: chat/correo/interno */}
-        {tabActivo === 'whatsapp' && (
-          <PanelWhatsApp
-            conversacion={conversacionSeleccionada}
-            mensajes={mensajes}
-            onEnviar={enviarMensaje}
-            onAbrirVisor={abrirVisor}
-            cargando={cargandoMensajes}
-            enviando={enviando}
-          />
-        )}
-
+        {/* ─── CORREO: layout tipo cliente de email (sidebar | lista | contenido) ─── */}
         {tabActivo === 'correo' && (
-          redactandoNuevo ? (
-            <div className="flex-1 flex flex-col p-4" style={{ background: 'var(--superficie-app)' }}>
-              <CompositorCorreo
-                tipo="nuevo"
-                canalesCorreo={canalesCorreo.map(c => ({
-                  id: c.id,
-                  nombre: c.nombre,
-                  email: (c.config_conexion as { email?: string; usuario?: string })?.email
-                    || (c.config_conexion as { email?: string; usuario?: string })?.usuario
-                    || c.nombre,
-                }))}
-                canalSeleccionado={canalCorreoActivo}
-                onCambiarCanal={setCanalCorreoActivo}
-                onEnviar={enviarCorreo}
-                onProgramar={programarCorreo}
-                onCancelar={() => setRedactandoNuevo(false)}
-                cargando={enviando}
-                firma={firmaCorreo}
+          <>
+            {/* Sidebar de cuentas + carpetas */}
+            <SidebarCorreo
+              canales={canalesCorreo}
+              canalActivo={canalCorreoActivo}
+              carpetaActiva={carpetaCorreo}
+              onSeleccionarCanal={(id) => {
+                setCanalCorreoActivo(id)
+                setCanalTodas(false)
+                setConversacionSeleccionada(null)
+                setMensajes([])
+              }}
+              onSeleccionarCarpeta={(carpeta) => {
+                setCarpetaCorreo(carpeta)
+                setConversacionSeleccionada(null)
+                setMensajes([])
+              }}
+              onRedactar={() => {
+                setConversacionSeleccionada(null)
+                setMensajes([])
+                setRedactandoNuevo(true)
+              }}
+              contadores={contadoresCorreo}
+              canalTodas={canalTodas}
+              onSeleccionarTodas={() => {
+                setCanalTodas(true)
+                setCanalCorreoActivo('')
+                setConversacionSeleccionada(null)
+                setMensajes([])
+              }}
+            />
+
+            {/* Lista de correos (panel central-izquierdo) */}
+            <div className="w-80 flex-shrink-0">
+              <ListaConversaciones
+                conversaciones={conversaciones}
+                seleccionada={conversacionSeleccionada?.id || null}
+                onSeleccionar={seleccionarConversacion}
+                busqueda={busqueda}
+                onBusqueda={setBusqueda}
+                filtroEstado={filtroEstado}
+                onFiltroEstado={setFiltroEstado}
+                tipoCanal="correo"
+                cargando={cargandoConversaciones}
+                totalNoLeidos={totalNoLeidos}
               />
             </div>
-          ) : (
-            <PanelCorreo
+
+            {/* Contenido del correo (panel derecho) */}
+            {redactandoNuevo ? (
+              <div className="flex-1 flex flex-col p-4" style={{ background: 'var(--superficie-app)' }}>
+                <CompositorCorreo
+                  tipo="nuevo"
+                  canalesCorreo={canalesCorreo.map(c => ({
+                    id: c.id,
+                    nombre: c.nombre,
+                    email: (c.config_conexion as { email?: string; usuario?: string })?.email
+                      || (c.config_conexion as { email?: string; usuario?: string })?.usuario
+                      || c.nombre,
+                  }))}
+                  canalSeleccionado={canalCorreoActivo}
+                  onCambiarCanal={setCanalCorreoActivo}
+                  onEnviar={enviarCorreo}
+                  onProgramar={programarCorreo}
+                  onCancelar={() => setRedactandoNuevo(false)}
+                  cargando={enviando}
+                  firma={firmaCorreo}
+                />
+              </div>
+            ) : (
+              <PanelCorreo
+                conversacion={conversacionSeleccionada}
+                mensajes={mensajes}
+                onEnviarCorreo={enviarCorreo}
+                onMarcarSpam={marcarSpam}
+                onDesmarcarSpam={desmarcarSpam}
+                onArchivar={archivarConversacion}
+                onToggleLeido={toggleLeido}
+                cargando={cargandoMensajes}
+                enviando={enviando}
+                emailCanal={emailCanalActivo}
+                firma={firmaCorreo}
+              />
+            )}
+          </>
+        )}
+
+        {/* ─── WHATSAPP: layout original (lista | chat | info) ─── */}
+        {tabActivo === 'whatsapp' && (
+          <>
+            <div className="w-80 flex-shrink-0">
+              <ListaConversaciones
+                conversaciones={conversaciones}
+                seleccionada={conversacionSeleccionada?.id || null}
+                onSeleccionar={seleccionarConversacion}
+                busqueda={busqueda}
+                onBusqueda={setBusqueda}
+                filtroEstado={filtroEstado}
+                onFiltroEstado={setFiltroEstado}
+                tipoCanal="whatsapp"
+                cargando={cargandoConversaciones}
+                totalNoLeidos={totalNoLeidos}
+              />
+            </div>
+            <PanelWhatsApp
               conversacion={conversacionSeleccionada}
               mensajes={mensajes}
-              onEnviarCorreo={enviarCorreo}
-              onMarcarSpam={marcarSpam}
-              onDesmarcarSpam={desmarcarSpam}
-              onArchivar={archivarConversacion}
-              onToggleLeido={toggleLeido}
+              onEnviar={enviarMensaje}
+              onAbrirVisor={abrirVisor}
               cargando={cargandoMensajes}
               enviando={enviando}
-              emailCanal={emailCanalActivo}
-              firma={firmaCorreo}
             />
-          )
+          </>
         )}
 
         {tabActivo === 'interno' && (
@@ -769,8 +858,8 @@ export default function PaginaInbox() {
           />
         )}
 
-        {/* Panel derecho: info contacto + galería de medios (colapsable) */}
-        {tabActivo !== 'interno' && (
+        {/* Panel derecho: info contacto + galería de medios (solo WhatsApp) */}
+        {tabActivo === 'whatsapp' && (
           <PanelInfoContacto
             conversacion={conversacionSeleccionada}
             mensajes={mensajes}

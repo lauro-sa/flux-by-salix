@@ -69,7 +69,7 @@ export function CompositorMensaje({
   const [pausado, setPausado] = useState(false)
   const [tiempoGrabacion, setTiempoGrabacion] = useState(0)
   const [audioGrabado, setAudioGrabado] = useState<Blob | null>(null)
-  const [waveformBarras, setWaveformBarras] = useState<number[]>([])
+  const waveformRef = useRef<HTMLDivElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -185,7 +185,7 @@ export function CompositorMensaje({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
       audioChunksRef.current = []
-      setWaveformBarras([])
+      if (waveformRef.current) waveformRef.current.innerHTML = ''
       enviarAlDetenerRef.current = false
 
       // Audio analyser para waveform en vivo
@@ -197,19 +197,29 @@ export function CompositorMensaje({
       audioCtxRef.current = ctx
       analyserRef.current = analyser
 
-      // Capturar waveform cada ~150ms (como WhatsApp, no 60fps)
+      // Capturar waveform con DOM directo (sin React state = sin re-renders)
       const dataArray = new Uint8Array(analyser.frequencyBinCount)
       const capturarWaveform = () => {
-        if (!analyserRef.current) return
+        if (!analyserRef.current || !waveformRef.current) return
         analyserRef.current.getByteFrequencyData(dataArray)
-        // Promedio de las frecuencias de voz (100-3000Hz)
         const inicio = Math.floor(100 / (ctx.sampleRate / analyser.fftSize))
         const fin = Math.floor(3000 / (ctx.sampleRate / analyser.fftSize))
         let suma = 0
         for (let i = inicio; i < fin && i < dataArray.length; i++) suma += dataArray[i]
         const promedio = suma / (fin - inicio)
-        const normalizado = Math.min(1, Math.max(0.05, promedio / 100))
-        setWaveformBarras(prev => [...prev.slice(-60), normalizado])
+        const altura = Math.min(100, Math.max(8, promedio * 1.2))
+
+        // Agregar barra directamente al DOM
+        const barra = document.createElement('div')
+        barra.style.cssText = `width:2.5px;height:${altura}%;border-radius:9px;background:var(--texto-primario);opacity:0.7;flex-shrink:0;transition:height 0.1s`
+        const contenedor = waveformRef.current
+        contenedor.appendChild(barra)
+        // Limitar a 60 barras
+        while (contenedor.childElementCount > 60) {
+          contenedor.removeChild(contenedor.firstChild!)
+        }
+        // Auto-scroll al final
+        contenedor.scrollLeft = contenedor.scrollWidth
       }
       waveformFrameRef.current = window.setInterval(capturarWaveform, 150) as unknown as number
 
@@ -278,20 +288,25 @@ export function CompositorMensaje({
       mediaRecorderRef.current.resume()
       setPausado(false)
       intervalRef.current = setInterval(() => setTiempoGrabacion(t => t + 1), 1000)
-      // Retomar waveform
+      // Retomar waveform con DOM directo
       if (analyserRef.current && audioCtxRef.current) {
         const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount)
         const sampleRate = audioCtxRef.current.sampleRate
         const fftSize = analyserRef.current.fftSize
         const capturar = () => {
-          if (!analyserRef.current) return
+          if (!analyserRef.current || !waveformRef.current) return
           analyserRef.current.getByteFrequencyData(dataArray)
           const inicio = Math.floor(100 / (sampleRate / fftSize))
           const fin = Math.floor(3000 / (sampleRate / fftSize))
           let suma = 0
           for (let i = inicio; i < fin && i < dataArray.length; i++) suma += dataArray[i]
           const promedio = suma / (fin - inicio)
-          setWaveformBarras(prev => [...prev.slice(-60), Math.min(1, Math.max(0.05, promedio / 100))])
+          const altura = Math.min(100, Math.max(8, promedio * 1.2))
+          const barra = document.createElement('div')
+          barra.style.cssText = `width:2.5px;height:${altura}%;border-radius:9px;background:var(--texto-primario);opacity:0.7;flex-shrink:0;transition:height 0.1s`
+          waveformRef.current.appendChild(barra)
+          while (waveformRef.current.childElementCount > 60) waveformRef.current.removeChild(waveformRef.current.firstChild!)
+          waveformRef.current.scrollLeft = waveformRef.current.scrollWidth
         }
         waveformFrameRef.current = window.setInterval(capturar, 150) as unknown as number
       }
@@ -311,7 +326,7 @@ export function CompositorMensaje({
     enviarAlDetenerRef.current = false
     setAudioGrabado(null)
     setTiempoGrabacion(0)
-    setWaveformBarras([])
+    if (waveformRef.current) waveformRef.current.innerHTML = ''
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
     clearInterval(waveformFrameRef.current)
     if (mediaRecorderRef.current?.state === 'recording' || mediaRecorderRef.current?.state === 'paused') {
@@ -350,7 +365,7 @@ export function CompositorMensaje({
     } finally {
       setConvirtiendo(false)
       setAudioGrabado(null)
-      setWaveformBarras([])
+      if (waveformRef.current) waveformRef.current.innerHTML = ''
       setTiempoGrabacion(0)
     }
   }
@@ -512,30 +527,21 @@ export function CompositorMensaje({
               {formatoTiempo(tiempoGrabacion)}
             </span>
 
-            {/* Waveform en vivo */}
-            <div className="flex-1 flex items-center h-8 gap-px overflow-hidden">
-              {waveformBarras.map((altura, i) => (
-                <div
-                  key={i}
-                  className="rounded-full flex-shrink-0"
-                  style={{
-                    width: 2.5,
-                    height: `${Math.max(8, altura * 100)}%`,
-                    background: pausado ? 'var(--texto-terciario)' : 'var(--texto-primario)',
-                    opacity: pausado ? 0.4 : 0.7,
-                  }}
-                />
-              ))}
-              {/* Indicador pulsante si está grabando activamente */}
-              {!pausado && !convirtiendo && (
-                <motion.div
-                  animate={{ opacity: [1, 0.2, 1] }}
-                  transition={{ duration: 1, repeat: Infinity }}
-                  className="w-2 h-2 rounded-full flex-shrink-0 ml-1"
-                  style={{ background: 'var(--insignia-peligro)' }}
-                />
-              )}
-            </div>
+            {/* Waveform en vivo (DOM directo, sin re-renders de React) */}
+            <div
+              ref={waveformRef}
+              className="flex-1 flex items-center h-8 gap-px overflow-hidden"
+              style={{ scrollBehavior: 'smooth' }}
+            />
+            {/* Indicador pulsante si está grabando activamente */}
+            {!pausado && !convirtiendo && (
+              <motion.div
+                animate={{ opacity: [1, 0.2, 1] }}
+                transition={{ duration: 1, repeat: Infinity }}
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ background: 'var(--insignia-peligro)' }}
+              />
+            )}
 
             {/* Pausa / Continuar */}
             <button

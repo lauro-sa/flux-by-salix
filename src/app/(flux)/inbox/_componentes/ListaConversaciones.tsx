@@ -194,22 +194,11 @@ export function ListaConversaciones({
               >
                 <div className="flex items-start gap-2.5">
                   {/* Avatar */}
-                  <div className="relative flex-shrink-0 mt-0.5">
+                  <div className="flex-shrink-0 mt-0.5">
                     <Avatar
                       nombre={conv.contacto_nombre || conv.identificador_externo || '?'}
                       tamano="sm"
                     />
-                    {conv.mensajes_sin_leer > 0 && (
-                      <div
-                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold"
-                        style={{
-                          background: 'var(--insignia-peligro)',
-                          color: '#fff',
-                        }}
-                      >
-                        {conv.mensajes_sin_leer > 9 ? '9+' : conv.mensajes_sin_leer}
-                      </div>
-                    )}
                   </div>
 
                   {/* Contenido */}
@@ -225,11 +214,28 @@ export function ListaConversaciones({
                       >
                         {conv.contacto_nombre || conv.identificador_externo || 'Desconocido'}
                       </span>
-                      {conv.ultimo_mensaje_en && (
-                        <span className="text-xxs flex-shrink-0" style={{ color: 'var(--texto-terciario)' }}>
-                          {tiempoRelativo(conv.ultimo_mensaje_en)}
-                        </span>
-                      )}
+                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                        {conv.ultimo_mensaje_en && (
+                          <span className="text-xxs" style={{
+                            color: conv.mensajes_sin_leer > 0
+                              ? 'var(--insignia-exito)'
+                              : 'var(--texto-terciario)',
+                          }}>
+                            {tiempoRelativo(conv.ultimo_mensaje_en)}
+                          </span>
+                        )}
+                        {conv.mensajes_sin_leer > 0 && (
+                          <span
+                            className="min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center text-[11px] font-bold"
+                            style={{
+                              background: 'var(--insignia-exito)',
+                              color: '#fff',
+                            }}
+                          >
+                            {conv.mensajes_sin_leer > 99 ? '99+' : conv.mensajes_sin_leer}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Asunto (correo) o último mensaje */}
