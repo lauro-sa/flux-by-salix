@@ -8,9 +8,11 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import {
   Reply, ReplyAll, Forward, Trash2, Archive, ShieldBan, ShieldCheck,
   Paperclip, ChevronDown, ChevronUp, Download, MailOpen, Mail as MailIcon,
-  FileText, Image, Film,
+  FileText, Image, Film, Tag,
 } from 'lucide-react'
 import { CompositorCorreo, type DatosCorreo } from './CompositorCorreo'
+import { PanelIA } from './PanelIA'
+import { ModalEtiquetas } from './ModalEtiquetas'
 import DOMPurify from 'isomorphic-dompurify'
 import type { MensajeConAdjuntos, Conversacion } from '@/tipos/inbox'
 

@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Send, Paperclip, Mic, X, Image, Film, File, StopCircle, FileText, Trash2,
+  Send, Paperclip, Mic, Pause, X, Image, Film, File, FileText, Trash2,
 } from 'lucide-react'
 import type { TipoCanal, TipoContenido } from '@/tipos/inbox'
 
@@ -66,12 +66,18 @@ export function CompositorMensaje({
 
   // Grabación de audio
   const [grabando, setGrabando] = useState(false)
+  const [pausado, setPausado] = useState(false)
   const [tiempoGrabacion, setTiempoGrabacion] = useState(0)
   const [audioGrabado, setAudioGrabado] = useState<Blob | null>(null)
+  const [waveformBarras, setWaveformBarras] = useState<number[]>([])
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const analyserRef = useRef<AnalyserNode | null>(null)
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const waveformFrameRef = useRef<number>(0)
+  const enviarAlDetenerRef = useRef(false)
 
   // Campos de correo
   const [correoPara, setCorreoPara] = useState('')
@@ -101,32 +107,7 @@ export function CompositorMensaje({
 
   // ─── Enviar mensaje ───
   const handleEnviar = async () => {
-    // Enviar audio grabado — convertir a MP3 para compatibilidad con WhatsApp
-    if (audioGrabado) {
-      setConvirtiendo(true)
-      try {
-        const { convertirAudioAMp3 } = await import('@/lib/convertir-audio')
-        const mp3Blob = await convertirAudioAMp3(audioGrabado)
-        onEnviar({
-          texto: '',
-          tipo_contenido: 'audio',
-          archivo: new globalThis.File([mp3Blob], `audio_${Date.now()}.mp3`, { type: 'audio/mpeg' }),
-        })
-      } catch (err) {
-        console.warn('Conversión MP3 falló, enviando audio raw:', err)
-        // Fallback: enviar como documento si la conversión falla
-        const ext = audioGrabado.type.includes('mp4') ? '.mp4' : '.webm'
-        onEnviar({
-          texto: '',
-          tipo_contenido: 'audio',
-          archivo: new globalThis.File([audioGrabado], `audio_${Date.now()}${ext}`, { type: audioGrabado.type }),
-        })
-      } finally {
-        setConvirtiendo(false)
-      }
-      setAudioGrabado(null)
-      return
-    }
+    // Audio se envía directamente desde enviarGrabacion() — no llega acá
 
     // Enviar archivo adjunto
     if (archivoSeleccionado) {
@@ -198,78 +179,169 @@ export function CompositorMensaje({
     }
   }
 
-  // ─── Grabación de audio ───
+  // ─── Grabación de audio con waveform en vivo ───
   const iniciarGrabacion = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
       audioChunksRef.current = []
+      setWaveformBarras([])
+      enviarAlDetenerRef.current = false
 
-      // Priorizar OGG/Opus (Firefox), luego MP4/AAC, luego WebM
-      // Meta WhatsApp acepta: audio/ogg, audio/mp4, audio/mpeg, audio/aac
+      // Audio analyser para waveform en vivo
+      const ctx = new AudioContext()
+      const source = ctx.createMediaStreamSource(stream)
+      const analyser = ctx.createAnalyser()
+      analyser.fftSize = 256
+      source.connect(analyser)
+      audioCtxRef.current = ctx
+      analyserRef.current = analyser
+
+      // Capturar waveform
+      const dataArray = new Uint8Array(analyser.frequencyBinCount)
+      const capturarWaveform = () => {
+        if (!analyserRef.current) return
+        analyserRef.current.getByteFrequencyData(dataArray)
+        // Promedio de las frecuencias como altura de la barra
+        const promedio = dataArray.reduce((a, b) => a + b, 0) / dataArray.length
+        const normalizado = Math.min(1, promedio / 128)
+        setWaveformBarras(prev => [...prev.slice(-80), normalizado])
+        waveformFrameRef.current = requestAnimationFrame(capturarWaveform)
+      }
+      waveformFrameRef.current = requestAnimationFrame(capturarWaveform)
+
+      // MediaRecorder
       const mimePreferido =
         MediaRecorder.isTypeSupported('audio/ogg;codecs=opus') ? 'audio/ogg;codecs=opus'
         : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4'
         : 'audio/webm;codecs=opus'
 
       const recorder = new MediaRecorder(stream, { mimeType: mimePreferido })
-      const mimeReal = recorder.mimeType // lo que realmente usa el navegador
+      const mimeReal = recorder.mimeType
 
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data)
       }
 
       recorder.onstop = () => {
-        // Usar el MIME real del recorder para el blob
         const blob = new Blob(audioChunksRef.current, { type: mimeReal })
-        setAudioGrabado(blob)
-        // Liberar micrófono
+        // Limpiar analyser
+        cancelAnimationFrame(waveformFrameRef.current)
+        audioCtxRef.current?.close()
+        audioCtxRef.current = null
+        analyserRef.current = null
         stream.getTracks().forEach(t => t.stop())
         streamRef.current = null
+
+        if (enviarAlDetenerRef.current) {
+          // Envío directo: no mostrar preview, enviar inmediatamente
+          setGrabando(false)
+          setPausado(false)
+          setAudioGrabado(blob)
+          // Trigger envío automático
+          setTimeout(() => enviarAudioDirecto(blob), 50)
+        } else {
+          // Descartado — no guardar
+          setGrabando(false)
+          setPausado(false)
+        }
       }
 
       mediaRecorderRef.current = recorder
-      recorder.start(100) // chunks cada 100ms
+      recorder.start(100)
 
       setGrabando(true)
+      setPausado(false)
       setTiempoGrabacion(0)
       intervalRef.current = setInterval(() => {
         setTiempoGrabacion(t => t + 1)
       }, 1000)
     } catch {
-      // Permiso denegado o sin micrófono
       console.warn('No se pudo acceder al micrófono')
     }
   }
 
-  const detenerGrabacion = () => {
+  const pausarGrabacion = () => {
     if (mediaRecorderRef.current?.state === 'recording') {
-      mediaRecorderRef.current.stop()
+      mediaRecorderRef.current.pause()
+      setPausado(true)
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      cancelAnimationFrame(waveformFrameRef.current)
     }
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current)
-      intervalRef.current = null
-    }
-    setGrabando(false)
   }
 
+  const continuarGrabacion = () => {
+    if (mediaRecorderRef.current?.state === 'paused') {
+      mediaRecorderRef.current.resume()
+      setPausado(false)
+      intervalRef.current = setInterval(() => setTiempoGrabacion(t => t + 1), 1000)
+      // Retomar waveform
+      const dataArray = new Uint8Array(analyserRef.current!.frequencyBinCount)
+      const capturar = () => {
+        if (!analyserRef.current) return
+        analyserRef.current.getByteFrequencyData(dataArray)
+        const promedio = dataArray.reduce((a, b) => a + b, 0) / dataArray.length
+        setWaveformBarras(prev => [...prev.slice(-80), Math.min(1, promedio / 128)])
+        waveformFrameRef.current = requestAnimationFrame(capturar)
+      }
+      waveformFrameRef.current = requestAnimationFrame(capturar)
+    }
+  }
+
+  // Enviar: detiene grabación y envía automáticamente
+  const enviarGrabacion = () => {
+    enviarAlDetenerRef.current = true
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
+    if (mediaRecorderRef.current?.state === 'paused') mediaRecorderRef.current.resume()
+    if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
+  }
+
+  // Descartar: detiene y elimina
   const descartarAudio = () => {
+    enviarAlDetenerRef.current = false
     setAudioGrabado(null)
     setTiempoGrabacion(0)
-    // Si está grabando, cancelar
-    if (grabando) {
-      if (mediaRecorderRef.current?.state === 'recording') {
-        mediaRecorderRef.current.stop()
-      }
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop())
-        streamRef.current = null
-      }
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-        intervalRef.current = null
-      }
-      setGrabando(false)
+    setWaveformBarras([])
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
+    cancelAnimationFrame(waveformFrameRef.current)
+    if (mediaRecorderRef.current?.state === 'recording' || mediaRecorderRef.current?.state === 'paused') {
+      mediaRecorderRef.current.stop()
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop())
+      streamRef.current = null
+    }
+    audioCtxRef.current?.close()
+    audioCtxRef.current = null
+    analyserRef.current = null
+    setGrabando(false)
+    setPausado(false)
+  }
+
+  // Envío directo de audio (sin pasar por preview)
+  const enviarAudioDirecto = async (blob: Blob) => {
+    setConvirtiendo(true)
+    try {
+      const { convertirAudioAMp3 } = await import('@/lib/convertir-audio')
+      const mp3Blob = await convertirAudioAMp3(blob)
+      onEnviar({
+        texto: '',
+        tipo_contenido: 'audio',
+        archivo: new globalThis.File([mp3Blob], `audio_${Date.now()}.mp3`, { type: 'audio/mpeg' }),
+      })
+    } catch {
+      // Fallback: enviar raw
+      const ext = blob.type.includes('mp4') ? '.mp4' : '.webm'
+      onEnviar({
+        texto: '',
+        tipo_contenido: 'audio',
+        archivo: new globalThis.File([blob], `audio_${Date.now()}${ext}`, { type: blob.type }),
+      })
+    } finally {
+      setConvirtiendo(false)
+      setAudioGrabado(null)
+      setWaveformBarras([])
+      setTiempoGrabacion(0)
     }
   }
 
@@ -410,61 +482,80 @@ export function CompositorMensaje({
         )}
       </AnimatePresence>
 
-      {/* Audio grabado (listo para enviar) */}
-      <AnimatePresence>
-        {audioGrabado && !grabando && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="px-3 pt-2"
-          >
-            <div
-              className="flex items-center gap-2 p-2 rounded-lg"
-              style={{ background: 'var(--superficie-hover)' }}
-            >
-              <Mic size={16} style={{ color: 'var(--canal-whatsapp)' }} />
-              <span className="text-xs flex-1" style={{ color: 'var(--texto-primario)' }}>
-                Nota de voz ({formatoTiempo(tiempoGrabacion)})
-              </span>
-              <button onClick={descartarAudio} className="p-1" style={{ color: 'var(--texto-terciario)' }}>
-                <Trash2 size={14} />
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Barra de input */}
       <div className="flex items-end gap-2 p-3">
-        {/* Grabando audio — reemplaza toda la barra */}
-        {grabando ? (
-          <div className="flex-1 flex items-center gap-3">
+        {/* Grabando audio estilo WhatsApp — waveform en vivo */}
+        {grabando || convirtiendo ? (
+          <div className="flex-1 flex items-center gap-2.5">
+            {/* Eliminar */}
             <button
               onClick={descartarAudio}
-              className="p-2 rounded-lg"
+              className="p-2 rounded-lg flex-shrink-0"
               style={{ color: 'var(--texto-terciario)' }}
-              title="Cancelar"
+              title="Descartar"
             >
               <Trash2 size={18} />
             </button>
-            <motion.div
-              animate={{ opacity: [1, 0.3, 1] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-              className="w-2.5 h-2.5 rounded-full"
-              style={{ background: 'var(--insignia-peligro)' }}
-            />
-            <span className="text-sm font-mono flex-1" style={{ color: 'var(--texto-primario)' }}>
+
+            {/* Timer */}
+            <span className="text-sm font-mono w-10 flex-shrink-0" style={{ color: 'var(--texto-primario)' }}>
               {formatoTiempo(tiempoGrabacion)}
             </span>
+
+            {/* Waveform en vivo */}
+            <div className="flex-1 flex items-center h-8 gap-px overflow-hidden">
+              {waveformBarras.map((altura, i) => (
+                <div
+                  key={i}
+                  className="rounded-full flex-shrink-0"
+                  style={{
+                    width: 2.5,
+                    height: `${Math.max(8, altura * 100)}%`,
+                    background: pausado ? 'var(--texto-terciario)' : 'var(--texto-primario)',
+                    opacity: pausado ? 0.4 : 0.7,
+                  }}
+                />
+              ))}
+              {/* Indicador pulsante si está grabando activamente */}
+              {!pausado && !convirtiendo && (
+                <motion.div
+                  animate={{ opacity: [1, 0.2, 1] }}
+                  transition={{ duration: 1, repeat: Infinity }}
+                  className="w-2 h-2 rounded-full flex-shrink-0 ml-1"
+                  style={{ background: 'var(--insignia-peligro)' }}
+                />
+              )}
+            </div>
+
+            {/* Pausa / Continuar */}
             <button
-              onClick={detenerGrabacion}
-              className="p-2 rounded-lg"
-              style={{ background: 'var(--insignia-peligro)', color: '#fff' }}
-              title="Detener grabación"
+              onClick={pausado ? continuarGrabacion : pausarGrabacion}
+              className="p-2 rounded-full flex-shrink-0"
+              style={{
+                border: '2px solid var(--insignia-peligro)',
+                color: 'var(--insignia-peligro)',
+                background: 'transparent',
+              }}
+              title={pausado ? 'Continuar' : 'Pausar'}
             >
-              <StopCircle size={18} />
+              {pausado ? <Mic size={16} /> : <Pause size={16} />}
             </button>
+
+            {/* Enviar */}
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={enviarGrabacion}
+              disabled={convirtiendo}
+              className="p-2.5 rounded-full flex-shrink-0"
+              style={{
+                background: 'var(--canal-whatsapp)',
+                color: '#fff',
+                opacity: convirtiendo ? 0.5 : 1,
+              }}
+              title="Enviar audio"
+            >
+              <Send size={16} />
+            </motion.button>
           </div>
         ) : (
           <>
