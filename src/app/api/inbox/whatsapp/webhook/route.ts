@@ -170,7 +170,7 @@ async function procesarMensajeEntrante(
     .in('estado', ['abierta', 'en_espera'])
     .order('creado_en', { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle()
 
   // Si no hay abierta, buscar la más reciente resuelta y reabrirla
   if (!conversacion) {
@@ -183,7 +183,7 @@ async function procesarMensajeEntrante(
       .eq('estado', 'resuelta')
       .order('creado_en', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
     if (resuelta) {
       // Reabrir la conversación resuelta
