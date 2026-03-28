@@ -25,9 +25,12 @@ const coloresAvatar = [
 ]
 
 function obtenerIniciales(nombre: string): string {
-  const partes = nombre.trim().split(/\s+/)
+  // Eliminar emojis y símbolos especiales para que no aparezcan como "?" en el avatar
+  const limpio = nombre.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u200d\ufe0f]/gu, '').trim()
+  if (!limpio) return nombre.trim().slice(0, 1) || '?'
+  const partes = limpio.split(/\s+/).filter(Boolean)
   if (partes.length >= 2) return (partes[0][0] + partes[1][0]).toUpperCase()
-  return nombre.slice(0, 2).toUpperCase()
+  return limpio.slice(0, 2).toUpperCase()
 }
 
 function obtenerColor(nombre: string): string {

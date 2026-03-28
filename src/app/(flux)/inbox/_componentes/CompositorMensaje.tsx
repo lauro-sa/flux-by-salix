@@ -197,18 +197,21 @@ export function CompositorMensaje({
       audioCtxRef.current = ctx
       analyserRef.current = analyser
 
-      // Capturar waveform
+      // Capturar waveform cada ~150ms (como WhatsApp, no 60fps)
       const dataArray = new Uint8Array(analyser.frequencyBinCount)
       const capturarWaveform = () => {
         if (!analyserRef.current) return
         analyserRef.current.getByteFrequencyData(dataArray)
-        // Promedio de las frecuencias como altura de la barra
-        const promedio = dataArray.reduce((a, b) => a + b, 0) / dataArray.length
-        const normalizado = Math.min(1, promedio / 128)
-        setWaveformBarras(prev => [...prev.slice(-80), normalizado])
-        waveformFrameRef.current = requestAnimationFrame(capturarWaveform)
+        // Promedio de las frecuencias de voz (100-3000Hz)
+        const inicio = Math.floor(100 / (ctx.sampleRate / analyser.fftSize))
+        const fin = Math.floor(3000 / (ctx.sampleRate / analyser.fftSize))
+        let suma = 0
+        for (let i = inicio; i < fin && i < dataArray.length; i++) suma += dataArray[i]
+        const promedio = suma / (fin - inicio)
+        const normalizado = Math.min(1, Math.max(0.05, promedio / 100))
+        setWaveformBarras(prev => [...prev.slice(-60), normalizado])
       }
-      waveformFrameRef.current = requestAnimationFrame(capturarWaveform)
+      waveformFrameRef.current = window.setInterval(capturarWaveform, 150) as unknown as number
 
       // MediaRecorder
       const mimePreferido =
@@ -226,7 +229,7 @@ export function CompositorMensaje({
       recorder.onstop = () => {
         const blob = new Blob(audioChunksRef.current, { type: mimeReal })
         // Limpiar analyser
-        cancelAnimationFrame(waveformFrameRef.current)
+        clearInterval(waveformFrameRef.current)
         audioCtxRef.current?.close()
         audioCtxRef.current = null
         analyserRef.current = null
@@ -266,7 +269,7 @@ export function CompositorMensaje({
       mediaRecorderRef.current.pause()
       setPausado(true)
       if (intervalRef.current) clearInterval(intervalRef.current)
-      cancelAnimationFrame(waveformFrameRef.current)
+      clearInterval(waveformFrameRef.current)
     }
   }
 
@@ -276,15 +279,22 @@ export function CompositorMensaje({
       setPausado(false)
       intervalRef.current = setInterval(() => setTiempoGrabacion(t => t + 1), 1000)
       // Retomar waveform
-      const dataArray = new Uint8Array(analyserRef.current!.frequencyBinCount)
-      const capturar = () => {
-        if (!analyserRef.current) return
-        analyserRef.current.getByteFrequencyData(dataArray)
-        const promedio = dataArray.reduce((a, b) => a + b, 0) / dataArray.length
-        setWaveformBarras(prev => [...prev.slice(-80), Math.min(1, promedio / 128)])
-        waveformFrameRef.current = requestAnimationFrame(capturar)
+      if (analyserRef.current && audioCtxRef.current) {
+        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount)
+        const sampleRate = audioCtxRef.current.sampleRate
+        const fftSize = analyserRef.current.fftSize
+        const capturar = () => {
+          if (!analyserRef.current) return
+          analyserRef.current.getByteFrequencyData(dataArray)
+          const inicio = Math.floor(100 / (sampleRate / fftSize))
+          const fin = Math.floor(3000 / (sampleRate / fftSize))
+          let suma = 0
+          for (let i = inicio; i < fin && i < dataArray.length; i++) suma += dataArray[i]
+          const promedio = suma / (fin - inicio)
+          setWaveformBarras(prev => [...prev.slice(-60), Math.min(1, Math.max(0.05, promedio / 100))])
+        }
+        waveformFrameRef.current = window.setInterval(capturar, 150) as unknown as number
       }
-      waveformFrameRef.current = requestAnimationFrame(capturar)
     }
   }
 
@@ -303,7 +313,7 @@ export function CompositorMensaje({
     setTiempoGrabacion(0)
     setWaveformBarras([])
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
-    cancelAnimationFrame(waveformFrameRef.current)
+    clearInterval(waveformFrameRef.current)
     if (mediaRecorderRef.current?.state === 'recording' || mediaRecorderRef.current?.state === 'paused') {
       mediaRecorderRef.current.stop()
     }

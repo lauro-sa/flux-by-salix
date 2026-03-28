@@ -97,6 +97,8 @@ export function PanelCorreo({
 }: PropiedadesPanelCorreo) {
   const [respondiendo, setRespondiendo] = useState(false)
   const [tipoRespuesta, setTipoRespuesta] = useState<'responder' | 'responder_todos' | 'reenviar'>('responder')
+  const [modalEtiquetas, setModalEtiquetas] = useState(false)
+  const [textoIA, setTextoIA] = useState('')
   const [mensajesExpandidos, setMensajesExpandidos] = useState<Set<string>>(new Set())
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -223,6 +225,8 @@ export function PanelCorreo({
             <Boton variante="fantasma" tamano="xs" soloIcono icono={<Reply size={14} />} onClick={() => handleResponder('responder')} />
             <Boton variante="fantasma" tamano="xs" soloIcono icono={<ReplyAll size={14} />} onClick={() => handleResponder('responder_todos')} />
             <Boton variante="fantasma" tamano="xs" soloIcono icono={<Forward size={14} />} onClick={() => handleResponder('reenviar')} />
+            {/* Etiquetar */}
+            <Boton variante="fantasma" tamano="xs" soloIcono icono={<Tag size={14} />} onClick={() => setModalEtiquetas(true)} />
             {/* Leído / No leído */}
             {onToggleLeido && (
               <Boton
@@ -433,6 +437,19 @@ export function PanelCorreo({
         )}
       </div>
 
+      {/* Panel IA */}
+      {conversacion && !respondiendo && (
+        <PanelIA
+          conversacionId={conversacion.id}
+          onInsertarTexto={(texto) => {
+            setTextoIA(texto)
+            handleResponder('responder')
+          }}
+          resumenExistente={conversacion.resumen_ia}
+          sentimientoExistente={conversacion.sentimiento}
+        />
+      )}
+
       {/* Compositor de respuesta (CompositorCorreo) */}
       <AnimatePresence>
         {respondiendo && contextoRespuesta && (
@@ -493,6 +510,16 @@ export function PanelCorreo({
             Responder...
           </button>
         </div>
+      )}
+
+      {/* Modal de etiquetas */}
+      {conversacion && (
+        <ModalEtiquetas
+          abierto={modalEtiquetas}
+          onCerrar={() => setModalEtiquetas(false)}
+          conversacionId={conversacion.id}
+          etiquetasAsignadas={conversacion.etiquetas || []}
+        />
       )}
     </div>
   )

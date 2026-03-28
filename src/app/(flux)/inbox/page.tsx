@@ -515,18 +515,19 @@ export default function PaginaInbox() {
         const data = await res.json()
         if (data.mensajes && conversacionIdRef.current === convId) {
           const nuevos = data.mensajes as MensajeConAdjuntos[]
-          // Deduplicar por ID (el optimistic update puede haber agregado uno que ya viene del server)
-          const ids = new Set<string>()
-          const deduplicados = nuevos.filter(m => {
-            if (ids.has(m.id)) return false
-            ids.add(m.id)
-            return true
+          // Mergear: mensajes del server + temporales (optimistic) que aún no llegaron
+          setMensajes(prev => {
+            const idsServer = new Set(nuevos.map(m => m.id))
+            // Mantener mensajes temporales que el server aún no conoce
+            const temporales = prev.filter(m => m.id.startsWith('temp-') && !idsServer.has(m.id))
+            const merged = [...nuevos, ...temporales]
+            // Solo actualizar si hay cambios reales
+            if (merged.length === prev.length && merged.every((m, i) =>
+              m.id === prev[i]?.id && m.adjuntos.length === prev[i]?.adjuntos?.length
+            )) return prev
+            ultimoMensajeRef.current = nuevos[nuevos.length - 1]?.id
+            return merged
           })
-          const ultimoNuevo = deduplicados[deduplicados.length - 1]?.id
-          if (ultimoNuevo !== ultimoMensajeRef.current || deduplicados.length !== mensajes.length) {
-            ultimoMensajeRef.current = ultimoNuevo
-            setMensajes(deduplicados)
-          }
 
           // Si hay mensajes de media sin adjuntos, pedir reintento de descarga
           const mediaSinAdjunto = nuevos.some(

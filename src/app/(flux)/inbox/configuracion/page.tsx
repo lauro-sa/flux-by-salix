@@ -19,10 +19,15 @@ import {
   Settings2, MessageCircle, Mail, Hash, FileText, Users,
   Clock, Bell, Plus, Trash2, Wifi, WifiOff, AlertTriangle,
   Pencil, GripVertical, Shield, ChevronDown, RefreshCw, Loader2,
+  Zap, TrendingUp, Tag,
 } from 'lucide-react'
 import type { CanalInbox, PlantillaRespuesta, ConfigInbox, TipoCanal } from '@/tipos/inbox'
 import { ModalAgregarCanal } from '../_componentes/ModalAgregarCanal'
 import { SeccionWhatsApp } from '../_componentes/SeccionWhatsApp'
+import { ModalEtiquetas } from '../_componentes/ModalEtiquetas'
+import { ModalReglas } from '../_componentes/ModalReglas'
+import { PanelMetricas } from '../_componentes/PanelMetricas'
+import { ListaProgramados } from '../_componentes/ListaProgramados'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 
 /**
@@ -90,6 +95,9 @@ export default function PaginaConfiguracionInbox() {
     { id: 'interno', etiqueta: 'Mensajería interna', icono: <Hash size={16} /> },
     { id: 'plantillas_wa', etiqueta: 'Plantillas WhatsApp', icono: <FileText size={16} />, grupo: 'Plantillas' },
     { id: 'plantillas_correo', etiqueta: 'Plantillas de correo', icono: <FileText size={16} />, grupo: 'Plantillas' },
+    { id: 'etiquetas', etiqueta: 'Etiquetas', icono: <Tag size={16} />, grupo: 'Correo avanzado' },
+    { id: 'reglas', etiqueta: 'Reglas automáticas', icono: <Zap size={16} />, grupo: 'Correo avanzado' },
+    { id: 'metricas', etiqueta: 'Métricas', icono: <TrendingUp size={16} />, grupo: 'Correo avanzado' },
     { id: 'asignacion', etiqueta: 'Asignación', icono: <Users size={16} />, grupo: 'Avanzado' },
     { id: 'sla', etiqueta: 'SLA y horarios', icono: <Clock size={16} />, grupo: 'Avanzado' },
     { id: 'notificaciones', etiqueta: 'Notificaciones', icono: <Bell size={16} />, grupo: 'Avanzado' },
@@ -188,6 +196,21 @@ export default function PaginaConfiguracionInbox() {
             />
           </div>
         </div>
+      )}
+
+      {/* Etiquetas */}
+      {seccionActiva === 'etiquetas' && (
+        <SeccionEtiquetasConfig />
+      )}
+
+      {/* Reglas automáticas */}
+      {seccionActiva === 'reglas' && (
+        <SeccionReglasConfig />
+      )}
+
+      {/* Métricas */}
+      {seccionActiva === 'metricas' && (
+        <SeccionMetricasConfig />
       )}
 
       {/* Plantillas WhatsApp */}
@@ -648,6 +671,75 @@ function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () =
           }}
         />
       )}
+    </div>
+  )
+}
+
+// Sección de Etiquetas en config
+function SeccionEtiquetasConfig() {
+  const [modalAbierto, setModalAbierto] = useState(false)
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+            Etiquetas de correo
+          </h3>
+          <p className="text-xs mt-1" style={{ color: 'var(--texto-terciario)' }}>
+            Organizá conversaciones con etiquetas de color. Se pueden asignar manualmente o vía reglas automáticas.
+          </p>
+        </div>
+      </div>
+
+      <Boton variante="primario" tamano="sm" icono={<Tag size={14} />} onClick={() => setModalAbierto(true)}>
+        Gestionar etiquetas
+      </Boton>
+
+      <ModalEtiquetas
+        abierto={modalAbierto}
+        onCerrar={() => setModalAbierto(false)}
+      />
+    </div>
+  )
+}
+
+// Sección de Reglas en config
+function SeccionReglasConfig() {
+  const [modalAbierto, setModalAbierto] = useState(false)
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+          Reglas automáticas
+        </h3>
+        <p className="text-xs mt-1" style={{ color: 'var(--texto-terciario)' }}>
+          Clasificá correos automáticamente según remitente, asunto o contenido. Las reglas se ejecutan al recibir cada correo nuevo.
+        </p>
+      </div>
+
+      <Boton variante="primario" tamano="sm" icono={<Zap size={14} />} onClick={() => setModalAbierto(true)}>
+        Gestionar reglas
+      </Boton>
+
+      <ModalReglas
+        abierto={modalAbierto}
+        onCerrar={() => setModalAbierto(false)}
+      />
+    </div>
+  )
+}
+
+// Sección de Métricas en config
+function SeccionMetricasConfig() {
+  return (
+    <div className="space-y-4">
+      <PanelMetricas />
+
+      <div className="pt-4" style={{ borderTop: '1px solid var(--borde-sutil)' }}>
+        <ListaProgramados />
+      </div>
     </div>
   )
 }
