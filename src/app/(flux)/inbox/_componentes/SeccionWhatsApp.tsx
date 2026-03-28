@@ -217,10 +217,14 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
     : '/api/inbox/whatsapp/webhook'
 
   return (
-    <div className="divide-y" style={{ borderColor: 'var(--borde-sutil)' }}>
-      {/* ─── Stepper de progreso ─── */}
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-3">
+    <div className="space-y-5 p-5">
+
+      {/* ═══ Stepper de progreso ═══ */}
+      <div
+        className="rounded-lg p-5"
+        style={{ border: '1px solid var(--borde-sutil)', background: 'var(--superficie-tarjeta)' }}
+      >
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Pencil size={14} style={{ color: 'var(--texto-secundario)' }} />
             <span className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
@@ -233,14 +237,14 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
         </div>
 
         {/* Stepper visual */}
-        <div className="flex items-center gap-0">
+        <div className="flex items-center">
           {CAMPOS_META.map((campo, i) => {
             const completado = campo.clave === 'nombre' ? !!canal.nombre : !!config[campo.clave]
             return (
               <div key={campo.clave} className="flex items-center flex-1">
-                <div className="flex flex-col items-center gap-1 flex-1">
+                <div className="flex flex-col items-center gap-1.5 flex-1">
                   <div
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold"
                     style={{
                       background: completado ? 'var(--canal-whatsapp)' : 'var(--superficie-hover)',
                       color: completado ? '#fff' : 'var(--texto-terciario)',
@@ -248,16 +252,14 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
                   >
                     {completado ? <Check size={12} /> : i + 1}
                   </div>
-                  <span className="text-[9px] text-center leading-tight" style={{ color: 'var(--texto-terciario)' }}>
+                  <span className="text-[10px] text-center leading-tight" style={{ color: 'var(--texto-terciario)' }}>
                     {campo.etiqueta}
                   </span>
                 </div>
                 {i < CAMPOS_META.length - 1 && (
                   <div
-                    className="h-0.5 flex-1 mx-1 rounded-full mt-[-14px]"
-                    style={{
-                      background: completado ? 'var(--canal-whatsapp)' : 'var(--borde-sutil)',
-                    }}
+                    className="h-0.5 w-full mx-0.5 rounded-full mt-[-16px]"
+                    style={{ background: completado ? 'var(--canal-whatsapp)' : 'var(--borde-sutil)' }}
                   />
                 )}
               </div>
@@ -266,124 +268,118 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
         </div>
       </div>
 
-      {/* ─── Nombre descriptivo ─── */}
-      <CampoConIndicador
-        etiqueta="Nombre descriptivo"
-        completado={!!canal.nombre}
+      {/* ═══ Datos básicos ═══ */}
+      <div
+        className="rounded-lg p-5 space-y-5"
+        style={{ border: '1px solid var(--borde-sutil)', background: 'var(--superficie-tarjeta)' }}
       >
-        <Input
-          defaultValue={canal.nombre}
-          placeholder="WhatsApp Ventas"
-          onBlur={(e) => {
-            if (e.target.value !== canal.nombre) {
-              fetch(`/api/inbox/canales/${canal.id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nombre: e.target.value }),
-              }).then(onRecargar)
-            }
-          }}
-        />
-      </CampoConIndicador>
+        {/* Nombre */}
+        <CampoConIndicador etiqueta="Nombre descriptivo" completado={!!canal.nombre}>
+          <Input
+            defaultValue={canal.nombre}
+            placeholder="WhatsApp Ventas"
+            onBlur={(e) => {
+              if (e.target.value !== canal.nombre) {
+                fetch(`/api/inbox/canales/${canal.id}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ nombre: e.target.value }),
+                }).then(onRecargar)
+              }
+            }}
+          />
+        </CampoConIndicador>
 
-      {/* ─── Tipo de integración ─── */}
-      <div className="p-4">
-        <p className="text-sm font-semibold mb-3" style={{ color: 'var(--texto-primario)' }}>
-          Tipo de integración
-        </p>
-        <div className="grid grid-cols-2 gap-3">
-          <div
-            className="p-3 rounded-lg"
-            style={{
-              border: canal.proveedor === 'meta_api' ? '2px solid var(--canal-whatsapp)' : '1px solid var(--borde-sutil)',
-              background: canal.proveedor === 'meta_api' ? 'rgba(37, 211, 102, 0.05)' : 'transparent',
-            }}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-semibold" style={{ color: 'var(--canal-whatsapp)' }}>
-                Meta Cloud API
-              </span>
-              {canal.proveedor === 'meta_api' && <CheckCircle size={14} style={{ color: 'var(--canal-whatsapp)' }} />}
+        {/* Tipo de integración */}
+        <div>
+          <p className="text-sm font-semibold mb-3" style={{ color: 'var(--texto-primario)' }}>
+            Tipo de integración
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div
+              className="p-4 rounded-lg cursor-pointer"
+              style={{
+                border: canal.proveedor === 'meta_api' ? '2px solid var(--canal-whatsapp)' : '1px solid var(--borde-sutil)',
+                background: canal.proveedor === 'meta_api' ? 'rgba(37, 211, 102, 0.05)' : 'transparent',
+              }}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold" style={{ color: 'var(--canal-whatsapp)' }}>
+                  Meta Cloud API
+                </span>
+                {canal.proveedor === 'meta_api' && <CheckCircle size={14} style={{ color: 'var(--canal-whatsapp)' }} />}
+              </div>
+              <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                Conexión directa con Meta — sin intermediarios ni costos extra
+              </p>
             </div>
-            <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-              Conexión directa con Meta — sin intermediarios ni costos extra
-            </p>
-          </div>
-          <div
-            className="p-3 rounded-lg"
-            style={{
-              border: canal.proveedor === 'twilio' ? '2px solid var(--texto-marca)' : '1px solid var(--borde-sutil)',
-            }}
-          >
-            <span className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>
-              Servicio intermediario
-            </span>
-            <p className="text-xxs mt-1" style={{ color: 'var(--texto-terciario)' }}>
-              WATI, 360dialog, Vonage u otro proveedor compatible
-            </p>
+            <div
+              className="p-4 rounded-lg cursor-pointer"
+              style={{ border: canal.proveedor === 'twilio' ? '2px solid var(--texto-marca)' : '1px solid var(--borde-sutil)' }}
+            >
+              <span className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>
+                Servicio intermediario
+              </span>
+              <p className="text-xxs mt-1" style={{ color: 'var(--texto-terciario)' }}>
+                WATI, 360dialog, Vonage u otro proveedor compatible
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* ─── Número de teléfono ─── */}
-      <CampoConIndicador
-        etiqueta="Número de teléfono de WhatsApp Business"
-        completado={!!(config.numeroTelefono || config.numero_telefono)}
-      >
-        <div className="relative">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2">
-            <Phone size={14} style={{ color: 'var(--texto-terciario)' }} />
-          </div>
+        {/* Número de teléfono */}
+        <CampoConIndicador
+          etiqueta="Número de teléfono de WhatsApp Business"
+          completado={!!(config.numeroTelefono || config.numero_telefono)}
+        >
           <Input
+            icono={<Phone size={14} />}
             defaultValue={(config.numeroTelefono || config.numero_telefono || '') as string}
             placeholder="+54 9 11 5555-1234"
             onBlur={(e) => guardarCampo('numeroTelefono', e.target.value)}
-            className="pl-9"
           />
-        </div>
-      </CampoConIndicador>
+        </CampoConIndicador>
+      </div>
 
-      {/* ─── Sección META CLOUD API ─── */}
+      {/* ═══ Credenciales Meta Cloud API ═══ */}
       {canal.proveedor === 'meta_api' && (
-        <>
-          <div className="p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <Globe size={14} style={{ color: 'var(--canal-whatsapp)' }} />
-              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--canal-whatsapp)' }}>
-                Meta Cloud API
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <CampoAPI
-                etiqueta="Identificador de número de teléfono"
-                ayuda='En Meta: Configuración de la API → "Identificador de número de teléfono"'
-                valor={(config.phoneNumberId || config.phone_number_id || '') as string}
-                completado={!!(config.phoneNumberId || config.phone_number_id)}
-                onGuardar={(v) => guardarCampo('phoneNumberId', v)}
-              />
-              <CampoAPI
-                etiqueta="Identificador de la app"
-                ayuda='En Meta: Configuración → Basic → "Identificador de la app"'
-                valor={(config.idAppMeta || '') as string}
-                completado={!!config.idAppMeta}
-                onGuardar={(v) => guardarCampo('idAppMeta', v)}
-              />
-            </div>
-
-            <div className="mt-4">
-              <CampoAPI
-                etiqueta="WABA ID (cuenta de negocio)"
-                ayuda="En Meta: Business Manager → Configuración → Cuentas → Cuentas de WhatsApp → ID"
-                valor={(config.wabaId || config.waba_id || '') as string}
-                completado={!!(config.wabaId || config.waba_id)}
-                onGuardar={(v) => guardarCampo('wabaId', v)}
-                anchoCompleto
-              />
-            </div>
+        <div
+          className="rounded-lg p-5 space-y-5"
+          style={{ border: '1px solid var(--borde-sutil)', background: 'var(--superficie-tarjeta)' }}
+        >
+          <div className="flex items-center gap-2">
+            <Globe size={14} style={{ color: 'var(--canal-whatsapp)' }} />
+            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--canal-whatsapp)' }}>
+              Meta Cloud API
+            </span>
           </div>
 
-          {/* Token de verificación */}
+          <div className="grid grid-cols-2 gap-5">
+            <CampoAPI
+              etiqueta="Identificador de número de teléfono"
+              ayuda='En Meta: Configuración de la API → "Identificador de número de teléfono"'
+              valor={(config.phoneNumberId || config.phone_number_id || '') as string}
+              completado={!!(config.phoneNumberId || config.phone_number_id)}
+              onGuardar={(v) => guardarCampo('phoneNumberId', v)}
+            />
+            <CampoAPI
+              etiqueta="Identificador de la app"
+              ayuda='En Meta: Configuración → Basic → "Identificador de la app"'
+              valor={(config.idAppMeta || '') as string}
+              completado={!!config.idAppMeta}
+              onGuardar={(v) => guardarCampo('idAppMeta', v)}
+            />
+          </div>
+
+          <CampoAPI
+            etiqueta="WABA ID (cuenta de negocio)"
+            ayuda="En Meta: Business Manager → Configuración → Cuentas → Cuentas de WhatsApp → ID"
+            valor={(config.wabaId || config.waba_id || '') as string}
+            completado={!!(config.wabaId || config.waba_id)}
+            onGuardar={(v) => guardarCampo('wabaId', v)}
+            anchoCompleto
+          />
+
           <CampoConIndicador
             etiqueta="Token de verificación"
             completado={!!config.tokenVerificacion}
@@ -398,7 +394,6 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
             />
           </CampoConIndicador>
 
-          {/* Token de acceso */}
           <CampoConIndicador
             etiqueta="Token de acceso"
             completado={!!config.tokenAcceso}
@@ -414,7 +409,6 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
             />
           </CampoConIndicador>
 
-          {/* Clave secreta */}
           <CampoConIndicador
             etiqueta="Clave secreta de la app"
             completado={!!config.secretoWebhook}
@@ -431,7 +425,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
           </CampoConIndicador>
 
           {/* URL del webhook */}
-          <div className="p-4">
+          <div>
             <p className="text-sm font-semibold mb-1" style={{ color: 'var(--texto-primario)' }}>
               URL de devolución de llamada
             </p>
@@ -439,30 +433,33 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
               En Meta: Configuración → Webhook → copiá y pegá este valor
             </p>
             <div
-              className="flex items-center gap-2 p-2.5 rounded-lg font-mono text-xs"
+              className="flex items-center gap-2 p-3 rounded-lg font-mono text-xs"
               style={{ background: 'var(--superficie-hover)', color: 'var(--texto-marca)' }}
             >
-              <span className="flex-1 truncate">{webhookUrl}</span>
+              <span className="flex-1 break-all">{webhookUrl}</span>
               <button
                 onClick={() => copiarTexto(webhookUrl)}
-                className="p-1.5 rounded transition-colors flex-shrink-0"
-                style={{ color: 'var(--texto-terciario)' }}
+                className="p-1.5 rounded-md transition-colors flex-shrink-0"
+                style={{ color: 'var(--texto-terciario)', background: 'var(--superficie-app)' }}
               >
                 <Copy size={14} />
               </button>
             </div>
           </div>
-        </>
+        </div>
       )}
 
-      {/* ─── Firma de agente ─── */}
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-2">
-          <div>
+      {/* ═══ Firma de agente ═══ */}
+      <div
+        className="rounded-lg p-5"
+        style={{ border: '1px solid var(--borde-sutil)', background: 'var(--superficie-tarjeta)' }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="pr-4">
             <p className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
               Firma de agente
             </p>
-            <p className="text-xxs mt-0.5" style={{ color: 'var(--texto-terciario)' }}>
+            <p className="text-xxs mt-1" style={{ color: 'var(--texto-terciario)' }}>
               Agrega automáticamente el nombre y sector del agente al final de cada mensaje enviado. Similar a una firma de correo.
             </p>
           </div>
@@ -473,40 +470,43 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
         </div>
         {firmaActiva && (
           <div
-            className="mt-3 p-3 rounded-lg"
+            className="mt-4 p-4 rounded-lg"
             style={{ background: 'var(--superficie-hover)' }}
           >
-            <p className="text-xxs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--texto-terciario)' }}>
+            <p className="text-xxs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--texto-terciario)' }}>
               Vista previa — cómo lo ve el cliente
             </p>
             <div
-              className="inline-block px-3 py-2 rounded-lg"
+              className="inline-block px-4 py-3 rounded-lg"
               style={{ background: 'var(--superficie-app)' }}
             >
               <p className="text-xs font-bold" style={{ color: 'var(--texto-primario)' }}>
                 J.G. | Ventas:
               </p>
-              <p className="text-xs" style={{ color: 'var(--texto-primario)' }}>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--texto-primario)' }}>
                 Hola, ¿en qué te puedo ayudar?
               </p>
             </div>
-            <p className="text-xxs mt-2" style={{ color: 'var(--texto-terciario)' }}>
+            <p className="text-xxs mt-3" style={{ color: 'var(--texto-terciario)' }}>
               Las iniciales y sector se agregan automáticamente encima del mensaje. El cliente ve el nombre del agente en negrita.
             </p>
           </div>
         )}
       </div>
 
-      {/* ─── Modo coexistencia ─── */}
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <Smartphone size={14} style={{ color: 'var(--texto-marca)' }} />
+      {/* ═══ Modo coexistencia ═══ */}
+      <div
+        className="rounded-lg p-5"
+        style={{ border: '1px solid var(--borde-sutil)', background: 'var(--superficie-tarjeta)' }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-start gap-3 pr-4">
+            <Smartphone size={16} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--texto-marca)' }} />
             <div>
               <p className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
                 Modo coexistencia
               </p>
-              <p className="text-xxs mt-0.5" style={{ color: 'var(--texto-terciario)' }}>
+              <p className="text-xxs mt-1" style={{ color: 'var(--texto-terciario)' }}>
                 Permite usar este número en la app WhatsApp Business del teléfono <strong>y</strong> en Flux al mismo tiempo. Si lo desactivás, el número solo funcionará a través de Flux.
               </p>
             </div>
@@ -517,21 +517,26 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
           />
         </div>
         {!coexistencia && (
-          <Alerta tipo="info">
-            Con la coexistencia desactivada, este número solo funciona a través de Flux. Ideal para equipos grandes donde se necesita centralizar toda la comunicación en un solo lugar.
-          </Alerta>
+          <div className="mt-4">
+            <Alerta tipo="info">
+              Con la coexistencia desactivada, este número solo funciona a través de Flux. Ideal para equipos grandes donde se necesita centralizar toda la comunicación en un solo lugar.
+            </Alerta>
+          </div>
         )}
       </div>
 
-      {/* ─── FAQs colapsables ─── */}
-      <div>
+      {/* ═══ FAQs ═══ */}
+      <div
+        className="rounded-lg overflow-hidden"
+        style={{ border: '1px solid var(--borde-sutil)', background: 'var(--superficie-tarjeta)' }}
+      >
         <FAQItem
           icono={<HelpCircle size={14} />}
           titulo="¿Cómo obtener mis credenciales de Meta?"
           abierta={faqAbierta === 'credenciales'}
           onToggle={() => setFaqAbierta(faqAbierta === 'credenciales' ? null : 'credenciales')}
         >
-          <ol className="text-xs space-y-2 list-decimal pl-4" style={{ color: 'var(--texto-secundario)' }}>
+          <ol className="text-xs space-y-2.5 list-decimal pl-4" style={{ color: 'var(--texto-secundario)' }}>
             <li>Andá a <strong>developers.facebook.com</strong> y creá una app de tipo "Business"</li>
             <li>Agregá el producto "WhatsApp" a tu app</li>
             <li>En <strong>Configuración de la API</strong> vas a encontrar el Phone Number ID y podés generar un token de acceso permanente</li>
@@ -546,7 +551,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
           abierta={faqAbierta === 'coexistencia'}
           onToggle={() => setFaqAbierta(faqAbierta === 'coexistencia' ? null : 'coexistencia')}
         >
-          <div className="text-xs space-y-2" style={{ color: 'var(--texto-secundario)' }}>
+          <div className="text-xs space-y-2.5" style={{ color: 'var(--texto-secundario)' }}>
             <p>La coexistencia permite que el mismo número funcione en la app WhatsApp Business del teléfono y en Flux al mismo tiempo.</p>
             <p>Para activarla en Meta: Business Manager → Configuración → Cuentas de WhatsApp → tu cuenta → Configuración → Coexistencia → Activar.</p>
             <p><strong>Importante:</strong> Si la desactivás, los mensajes solo se recibirán en Flux y no en el teléfono.</p>
@@ -554,34 +559,39 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
         </FAQItem>
       </div>
 
-      {/* ─── Calidad del número ─── */}
-      <div className="p-4">
+      {/* ═══ Calidad del número ═══ */}
+      <div
+        className="rounded-lg p-5"
+        style={{ border: '1px solid var(--borde-sutil)', background: 'var(--superficie-tarjeta)' }}
+      >
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <BarChart3 size={14} style={{ color: 'var(--texto-secundario)' }} />
+          <div className="flex items-start gap-3">
+            <BarChart3 size={16} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--texto-secundario)' }} />
             <div>
               <p className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
                 Calidad del número
               </p>
               {calidad ? (
-                <div className="flex items-center gap-2 mt-0.5">
-                  <div
-                    className="w-2.5 h-2.5 rounded-full"
-                    style={{
-                      background: calidad.rating === 'GREEN' ? 'var(--insignia-exito)'
-                        : calidad.rating === 'YELLOW' ? 'var(--insignia-advertencia)'
-                        : 'var(--insignia-peligro)',
-                    }}
-                  />
-                  <span className="text-xs font-medium" style={{ color: 'var(--texto-primario)' }}>
-                    {calidad.rating}
-                  </span>
+                <div className="flex items-center gap-3 mt-1">
+                  <div className="flex items-center gap-1.5">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{
+                        background: calidad.rating === 'GREEN' ? 'var(--insignia-exito)'
+                          : calidad.rating === 'YELLOW' ? 'var(--insignia-advertencia)'
+                          : 'var(--insignia-peligro)',
+                      }}
+                    />
+                    <span className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>
+                      {calidad.rating}
+                    </span>
+                  </div>
                   <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
                     Tier: {calidad.tier} · {calidad.status}
                   </span>
                 </div>
               ) : (
-                <p className="text-xxs mt-0.5" style={{ color: 'var(--texto-terciario)' }}>
+                <p className="text-xxs mt-1" style={{ color: 'var(--texto-terciario)' }}>
                   Sin datos de calidad. Tocá "Verificar" para consultar a Meta.
                 </p>
               )}
@@ -599,8 +609,8 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
         </div>
       </div>
 
-      {/* ─── Eliminar ─── */}
-      <div className="p-4">
+      {/* ═══ Eliminar ═══ */}
+      <div className="pt-2">
         <button
           className="flex items-center gap-2 text-xs transition-colors"
           style={{ color: 'var(--insignia-peligro)' }}
