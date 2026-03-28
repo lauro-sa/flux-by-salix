@@ -221,15 +221,62 @@ export default function PaginaInbox() {
     }
   }, [conversaciones])
 
-  // Enviar mensaje (WhatsApp usa API de Meta, interno usa mensajes genérico)
+  // Enviar mensaje con optimistic update (se muestra inmediato, si falla se marca error)
   const enviarMensaje = useCallback(async (datos: DatosMensaje) => {
     if (!conversacionSeleccionada) return
-    setEnviando(true)
+
+    // ─── Optimistic update: mostrar el mensaje INMEDIATAMENTE ───
+    const tempId = `temp-${Date.now()}`
+    const mensajeOptimista: MensajeConAdjuntos = {
+      id: tempId,
+      empresa_id: '',
+      conversacion_id: conversacionSeleccionada.id,
+      es_entrante: false,
+      remitente_tipo: 'agente',
+      remitente_id: null,
+      remitente_nombre: null,
+      tipo_contenido: datos.tipo_contenido,
+      texto: datos.texto || null,
+      html: null,
+      correo_de: null, correo_para: null, correo_cc: null, correo_cco: null,
+      correo_asunto: null, correo_message_id: null, correo_in_reply_to: null, correo_references: null,
+      wa_message_id: null,
+      wa_status: 'sending' as string,
+      wa_tipo_mensaje: null,
+      respuesta_a_id: null, hilo_raiz_id: null, cantidad_respuestas: 0,
+      reacciones: {},
+      metadata: {},
+      estado: 'enviado' as const,
+      error_envio: null,
+      plantilla_id: null,
+      creado_en: new Date().toISOString(),
+      editado_en: null, eliminado_en: null,
+      adjuntos: datos.archivo ? [{
+        id: `temp-adj-${Date.now()}`,
+        mensaje_id: tempId,
+        empresa_id: '',
+        nombre_archivo: datos.archivo.name,
+        tipo_mime: datos.archivo.type,
+        tamano_bytes: datos.archivo.size,
+        url: URL.createObjectURL(datos.archivo),
+        storage_path: '',
+        miniatura_url: null,
+        duracion_segundos: null,
+        es_sticker: false,
+        es_animado: false,
+        creado_en: new Date().toISOString(),
+      }] : [],
+    }
+
+    // Mostrar inmediatamente en la UI
+    setMensajes(prev => [...prev, mensajeOptimista])
+
+    // ─── Enviar en background ───
     try {
       let mediaUrl: string | undefined
       let mediaFilename: string | undefined
 
-      // Si hay archivo adjunto, subirlo a Supabase Storage primero
+      // Subir archivo a Storage si hay
       if (datos.archivo) {
         const nombreArchivo = datos.archivo.name
           .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -245,7 +292,10 @@ export default function PaginaInbox() {
           })
 
         if (uploadError) {
-          console.error('Error subiendo archivo:', uploadError)
+          // Marcar como fallido
+          setMensajes(prev => prev.map(m =>
+            m.id === tempId ? { ...m, wa_status: 'failed', estado: 'fallido' as const } : m
+          ))
           return
         }
 
@@ -257,15 +307,10 @@ export default function PaginaInbox() {
         mediaFilename = datos.archivo.name
       }
 
-      // WhatsApp: enviar vía API de Meta
       if (conversacionSeleccionada.tipo_canal === 'whatsapp') {
-        // Mapear tipo_contenido a tipo de Meta
         const tipoMeta: Record<string, string> = {
-          texto: 'text',
-          imagen: 'image',
-          video: 'video',
-          audio: 'audio',
-          documento: 'document',
+          texto: 'text', imagen: 'image', video: 'video',
+          audio: 'audio', documento: 'document',
         }
 
         const res = await fetch('/api/inbox/whatsapp/enviar', {
@@ -280,12 +325,22 @@ export default function PaginaInbox() {
             media_filename: mediaFilename,
           }),
         })
+
+        if (!res.ok) {
+          setMensajes(prev => prev.map(m =>
+            m.id === tempId ? { ...m, wa_status: 'failed', estado: 'fallido' as const } : m
+          ))
+          return
+        }
+
         const data = await res.json()
         if (data.mensaje) {
-          setMensajes(prev => [...prev, { ...data.mensaje, adjuntos: [] }])
+          // Reemplazar el mensaje temporal por el real del servidor
+          setMensajes(prev => prev.map(m =>
+            m.id === tempId ? { ...data.mensaje, adjuntos: mensajeOptimista.adjuntos } : m
+          ))
         }
       } else {
-        // Interno u otros: solo guardar en BD
         const res = await fetch('/api/inbox/mensajes', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -297,13 +352,16 @@ export default function PaginaInbox() {
         })
         const data = await res.json()
         if (data.mensaje) {
-          setMensajes(prev => [...prev, { ...data.mensaje, adjuntos: [] }])
+          setMensajes(prev => prev.map(m =>
+            m.id === tempId ? { ...data.mensaje, adjuntos: [] } : m
+          ))
         }
       }
-    } catch (err) {
-      console.error('Error enviando mensaje:', err)
-    } finally {
-      setEnviando(false)
+    } catch {
+      // Marcar como fallido en la UI
+      setMensajes(prev => prev.map(m =>
+        m.id === tempId ? { ...m, wa_status: 'failed', estado: 'fallido' as const } : m
+      ))
     }
   }, [conversacionSeleccionada, supabase])
 
