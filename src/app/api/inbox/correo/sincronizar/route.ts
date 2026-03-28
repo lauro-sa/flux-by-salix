@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import {
   listarMensajesGmail,
@@ -42,10 +43,23 @@ export async function POST(request: NextRequest) {
     } else if (empresa_id) {
       query = query.eq('empresa_id', empresa_id)
     } else {
-      // Cron global: verificar secret
+      // Sin canal_id ni empresa_id: puede ser cron (con secret) o usuario autenticado
       const cronSecret = request.headers.get('x-cron-secret')
-      if (cronSecret !== process.env.CRON_SECRET) {
-        return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+      if (cronSecret && cronSecret === process.env.CRON_SECRET) {
+        // Cron global: sincronizar todos
+      } else {
+        // Intentar autenticar como usuario
+        try {
+          const supabase = await crearClienteServidor()
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user?.app_metadata?.empresa_activa_id) {
+            query = query.eq('empresa_id', user.app_metadata.empresa_activa_id)
+          } else {
+            return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+          }
+        } catch {
+          return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+        }
       }
     }
 
@@ -193,12 +207,15 @@ async function sincronizarGmailCompleto(
 
   let mensajesNuevos = 0
 
+  // Sync inicial de Gmail: no marcar como sin leer
+  const esSyncInicialGmail = true
+
   // Procesar inbox
   const resultadoInbox = await listarMensajesGmail(config.refresh_token, queryInbox, undefined, 100)
   for (const msg of resultadoInbox.mensajes) {
     try {
       const correo = await obtenerMensajeCompleto(config.refresh_token, msg.id)
-      const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal)
+      const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal, esSyncInicialGmail)
       if (procesado) mensajesNuevos++
     } catch (err) {
       console.error(`Error procesando mensaje ${msg.id}:`, err)
@@ -210,7 +227,7 @@ async function sincronizarGmailCompleto(
   for (const msg of resultadoSent.mensajes) {
     try {
       const correo = await obtenerMensajeCompleto(config.refresh_token, msg.id)
-      const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal)
+      const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal, esSyncInicialGmail)
       if (procesado) mensajesNuevos++
     } catch (err) {
       console.error(`Error procesando mensaje enviado ${msg.id}:`, err)
@@ -243,51 +260,65 @@ async function sincronizarIMAP(
   const empresaId = canal.empresa_id as string
   const canalId = canal.id as string
   const emailCanal = config.usuario
+  // Primera sync: no marcar como sin leer (evita miles de no leídos)
+  const esSyncInicial = !cursor.ultimoUID || cursor.ultimoUID === 0
 
   let mensajesNuevos = 0
+  let ultimoUIDProcesado = cursor.ultimoUID || 0
 
   // Inbox
-  const resultadoInbox = await obtenerMensajesIMAP(config, {
-    carpeta: 'INBOX',
-    desdeUID: cursor.ultimoUID,
-    limite: 100,
-  })
+  try {
+    const resultadoInbox = await obtenerMensajesIMAP(config, {
+      carpeta: 'INBOX',
+      desdeUID: cursor.ultimoUID,
+      limite: 500,
+    })
 
-  for (const correo of resultadoInbox.mensajes) {
-    try {
-      const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal)
-      if (procesado) mensajesNuevos++
-    } catch (err) {
-      console.error(`Error procesando correo IMAP:`, err)
+    for (const correo of resultadoInbox.mensajes) {
+      try {
+        const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal, esSyncInicial)
+        if (procesado) mensajesNuevos++
+      } catch (err) {
+        console.error(`Error procesando correo IMAP:`, err)
+      }
     }
+
+    if (resultadoInbox.ultimoUID > ultimoUIDProcesado) {
+      ultimoUIDProcesado = resultadoInbox.ultimoUID
+    }
+  } catch (err) {
+    console.error(`Error fetch INBOX para canal ${canalId}:`, err)
   }
 
   // Enviados
   try {
     const resultadoSent = await obtenerEnviadosIMAP(config, {
       desdeUID: cursor.ultimoUID,
-      limite: 100,
+      limite: 500,
     })
 
     for (const correo of resultadoSent.mensajes) {
       try {
-        const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal)
+        const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal, esSyncInicial)
         if (procesado) mensajesNuevos++
       } catch (err) {
         console.error(`Error procesando enviado IMAP:`, err)
       }
     }
+
+    if (resultadoSent.ultimoUID > ultimoUIDProcesado) {
+      ultimoUIDProcesado = resultadoSent.ultimoUID
+    }
   } catch {
     // Carpeta de enviados puede no existir en algunos servidores
   }
 
-  // Actualizar cursor
-  const nuevoUID = Math.max(resultadoInbox.ultimoUID, cursor.ultimoUID || 0)
+  // Siempre guardar cursor (incluso si hubo errores parciales)
   await admin
     .from('canales_inbox')
     .update({
       sync_cursor: {
-        ultimoUID: nuevoUID,
+        ultimoUID: ultimoUIDProcesado,
         ultimaSincronizacion: new Date().toISOString(),
       },
     })
@@ -308,6 +339,7 @@ async function procesarCorreoEntrante(
   empresaId: string,
   canalId: string,
   emailCanal: string,
+  syncInicial = false,
 ): Promise<boolean> {
   // 1. Deduplicar por correo_message_id
   if (correo.messageId) {
@@ -356,7 +388,7 @@ async function procesarCorreoEntrante(
   let conversacionId = await buscarConversacionPorHilo(admin, correo, empresaId)
 
   if (!conversacionId) {
-    conversacionId = await crearConversacion(admin, correo, empresaId, canalId, esEntrante, emailCanal, estadoInicial)
+    conversacionId = await crearConversacion(admin, correo, empresaId, canalId, esEntrante, emailCanal, estadoInicial, syncInicial)
   }
 
   // 4. Buscar/crear contacto si es entrante
@@ -447,8 +479,8 @@ async function procesarCorreoEntrante(
     }
   }
 
-  // Incrementar mensajes_sin_leer si es entrante
-  if (esEntrante) {
+  // Incrementar mensajes_sin_leer si es entrante (no en sync inicial para evitar miles de no leídos)
+  if (esEntrante && !syncInicial) {
     const { data: convActual } = await admin
       .from('conversaciones')
       .select('mensajes_sin_leer, asignado_a')
@@ -554,6 +586,7 @@ async function crearConversacion(
   esEntrante: boolean,
   emailCanal: string,
   estado: 'abierta' | 'spam' = 'abierta',
+  syncInicial = false,
 ): Promise<string> {
   // El identificador externo es la contraparte (no nuestro email)
   const identificadorExterno = esEntrante
@@ -578,7 +611,7 @@ async function crearConversacion(
       estado,
       prioridad: 'normal',
       asunto: asuntoNormalizado || correo.asunto || null,
-      mensajes_sin_leer: esEntrante ? 1 : 0,
+      mensajes_sin_leer: (esEntrante && !syncInicial) ? 1 : 0,
     })
     .select('id')
     .single()

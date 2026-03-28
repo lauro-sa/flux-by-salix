@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { Boton } from '@/componentes/ui/Boton'
@@ -56,23 +56,122 @@ function formatoFechaCorreo(fecha: string): string {
   })
 }
 
-/** Sanitiza HTML de correos para prevenir XSS */
-function sanitizarHtml(html: string): string {
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [
-      'p', 'br', 'b', 'strong', 'i', 'em', 'u', 'a', 'ul', 'ol', 'li',
-      'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code',
-      'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'div', 'span',
-      'hr', 'sup', 'sub', 'font', 'center',
-    ],
-    ALLOWED_ATTR: [
-      'href', 'target', 'rel', 'src', 'alt', 'width', 'height', 'style',
-      'class', 'align', 'valign', 'bgcolor', 'color', 'size', 'face',
-      'colspan', 'rowspan', 'border', 'cellpadding', 'cellspacing',
-    ],
-    ADD_ATTR: ['target'],
-    FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input'],
+/**
+ * Renderiza HTML de correo dentro de un iframe sandboxed.
+ * Preserva estilos originales del correo (tablas, CSS inline, imágenes).
+ * El correo se muestra con su diseño original (generalmente fondo blanco)
+ * dentro de un contenedor con border-radius para integrar con el dark mode.
+ */
+function VisorCorreoHTML({ html }: { html: string }) {
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const [altura, setAltura] = useState(300)
+
+  // Sanitizar: permitir style tags pero bloquear scripts
+  const htmlSeguro = DOMPurify.sanitize(html, {
+    WHOLE_DOCUMENT: true,
+    ADD_TAGS: ['style', 'link', 'meta', 'head', 'body', 'html'],
+    ADD_ATTR: ['target', 'style', 'class', 'bgcolor', 'background', 'color', 'face', 'size',
+               'cellpadding', 'cellspacing', 'border', 'width', 'height', 'align', 'valign'],
+    FORBID_TAGS: ['script', 'object', 'embed', 'form', 'input', 'textarea', 'button'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onmouseout', 'onfocus'],
   })
+
+  // Construir documento completo — NO forzar colores, dejar el diseño original del correo
+  const documentoCompleto = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<base target="_blank">
+<style>
+body {
+  margin: 0;
+  padding: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-x: hidden;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+img {
+  max-width: 100% !important;
+  height: auto !important;
+}
+/* Ocultar imágenes que no cargan (evitar espacios blancos enormes) */
+img[src=""] { display: none !important; }
+img:not([src]) { display: none !important; }
+table { max-width: 100% !important; }
+pre { white-space: pre-wrap; }
+</style>
+</head>
+<body>${htmlSeguro}
+<script>
+// Ocultar imágenes que no cargan (espacios blancos)
+document.querySelectorAll('img').forEach(function(img) {
+  img.onerror = function() {
+    this.style.display = 'none';
+  };
+  // Si ya falló antes de que el listener se agregara
+  if (img.complete && img.naturalHeight === 0 && img.src) {
+    img.style.display = 'none';
+  }
+});
+</script>
+</body>
+</html>`
+
+  const ajustarAltura = useCallback(() => {
+    const iframe = iframeRef.current
+    if (!iframe) return
+    try {
+      const doc = iframe.contentDocument || iframe.contentWindow?.document
+      if (doc?.body) {
+        // Usar scrollHeight del body + un poco de margen
+        const h = Math.max(doc.body.scrollHeight, doc.documentElement?.scrollHeight || 0, 100)
+        setAltura(h + 16)
+      }
+    } catch {
+      // Cross-origin
+    }
+  }, [])
+
+  useEffect(() => {
+    const iframe = iframeRef.current
+    if (!iframe) return
+
+    const handleLoad = () => {
+      ajustarAltura()
+      // Re-check por imágenes que cargan después
+      setTimeout(ajustarAltura, 300)
+      setTimeout(ajustarAltura, 1000)
+      setTimeout(ajustarAltura, 3000)
+    }
+
+    iframe.addEventListener('load', handleLoad)
+    return () => iframe.removeEventListener('load', handleLoad)
+  }, [ajustarAltura])
+
+  return (
+    <div
+      className="rounded-lg overflow-hidden"
+      style={{ border: '1px solid var(--borde-sutil)' }}
+    >
+      <iframe
+        ref={iframeRef}
+        srcDoc={documentoCompleto}
+        sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-scripts"
+        className="w-full border-0 block"
+        style={{
+          height: altura,
+          minHeight: 100,
+          maxHeight: 2000,
+          background: '#ffffff',
+        }}
+        title="Contenido del correo"
+      />
+    </div>
+  )
 }
 
 /** Extrae solo el email de "Nombre <email@dom.com>" */
@@ -338,14 +437,10 @@ export function PanelCorreo({
                           )}
                         </div>
 
-                        {/* Cuerpo (HTML sanitizado) */}
+                        {/* Cuerpo (HTML en iframe aislado) */}
                         <div className="pb-4">
                           {msg.html ? (
-                            <div
-                              className="text-sm prose prose-sm max-w-none correo-contenido"
-                              style={{ color: 'var(--texto-primario)' }}
-                              dangerouslySetInnerHTML={{ __html: sanitizarHtml(msg.html) }}
-                            />
+                            <VisorCorreoHTML html={msg.html} />
                           ) : (
                             <p
                               className="text-sm whitespace-pre-wrap"

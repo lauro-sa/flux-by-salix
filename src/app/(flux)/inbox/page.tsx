@@ -224,7 +224,7 @@ export default function PaginaInbox() {
     return () => clearTimeout(timeout)
   }, [busqueda, cargarConversaciones])
 
-  // Cargar canales de correo y contadores cuando se activa el tab
+  // Cargar canales de correo cuando se activa el tab
   useEffect(() => {
     if (tabActivo !== 'correo') return
     const cargar = async () => {
@@ -236,38 +236,32 @@ export default function PaginaInbox() {
         if (canales.length > 0 && !canalCorreoActivo) {
           setCanalCorreoActivo(canales[0].id)
         }
-        // Si hay una sola cuenta, no mostrar "todas"
         if (canales.length <= 1) {
           setCanalTodas(false)
         }
-
-        // Cargar contadores de no leídos por canal
-        const conteos: Record<string, { entrada: number; spam: number }> = {}
-        for (const canal of canales) {
-          try {
-            const [resEntrada, resSpam] = await Promise.all([
-              fetch(`/api/inbox/conversaciones?tipo_canal=correo&canal_id=${canal.id}&estado=abierta&por_pagina=1`),
-              fetch(`/api/inbox/conversaciones?tipo_canal=correo&canal_id=${canal.id}&estado=spam&por_pagina=1`),
-            ])
-            const [dataEntrada, dataSpam] = await Promise.all([resEntrada.json(), resSpam.json()])
-            // Contar no leídos
-            const noLeidos = (dataEntrada.conversaciones || [])
-              .reduce((s: number, c: { mensajes_sin_leer: number }) => s + c.mensajes_sin_leer, 0)
-            conteos[canal.id] = {
-              entrada: noLeidos,
-              spam: dataSpam.total || 0,
-            }
-          } catch {
-            conteos[canal.id] = { entrada: 0, spam: 0 }
-          }
-        }
-        setContadoresCorreo(conteos)
       } catch {
         // silenciar
       }
     }
     cargar()
   }, [tabActivo])
+
+  // Cargar contadores de no leídos (endpoint dedicado, eficiente)
+  const cargarContadores = useCallback(async () => {
+    try {
+      const res = await fetch('/api/inbox/correo/contadores')
+      const data = await res.json()
+      setContadoresCorreo(data.contadores || {})
+    } catch { /* silenciar */ }
+  }, [])
+
+  useEffect(() => {
+    if (tabActivo !== 'correo') return
+    cargarContadores()
+    // Refrescar contadores cada 30 segundos
+    const intervalo = setInterval(cargarContadores, 30000)
+    return () => clearInterval(intervalo)
+  }, [tabActivo, cargarContadores])
 
   // Cargar canales internos
   useEffect(() => {
@@ -564,6 +558,43 @@ export default function PaginaInbox() {
     }
   }, [conversacionSeleccionada])
 
+  // Eliminar múltiples conversaciones (selección masiva)
+  const eliminarMultiples = useCallback(async (ids: string[]) => {
+    for (const id of ids) {
+      try {
+        await fetch('/api/inbox/correo/eliminar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversacion_id: id }),
+        })
+      } catch { /* continuar con las demás */ }
+    }
+    setConversaciones(prev => prev.filter(c => !ids.includes(c.id)))
+    if (conversacionSeleccionada && ids.includes(conversacionSeleccionada.id)) {
+      setConversacionSeleccionada(null)
+      setMensajes([])
+    }
+    cargarContadores()
+  }, [conversacionSeleccionada, cargarContadores])
+
+  // Eliminar conversación (de Flux + servidor IMAP/Gmail)
+  const eliminarConversacion = useCallback(async (conversacionId: string) => {
+    try {
+      await fetch('/api/inbox/correo/eliminar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversacion_id: conversacionId }),
+      })
+      setConversaciones(prev => prev.filter(c => c.id !== conversacionId))
+      if (conversacionSeleccionada?.id === conversacionId) {
+        setConversacionSeleccionada(null)
+        setMensajes([])
+      }
+    } catch {
+      // TODO: toast de error
+    }
+  }, [conversacionSeleccionada])
+
   // Archivar conversación (marcar como resuelta)
   const archivarConversacion = useCallback(async (conversacionId: string) => {
     try {
@@ -756,13 +787,13 @@ export default function PaginaInbox() {
       </div>
 
       {/* Contenido principal */}
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* ─── CORREO: layout tipo cliente de email (sidebar | lista | contenido) ─── */}
         {tabActivo === 'correo' && (
           <>
             {/* Columna 1: Sidebar cuentas + carpetas (con su toggle arriba) */}
             <div
-              className="flex flex-col flex-shrink-0 transition-all duration-200"
+              className="flex flex-col flex-shrink-0 transition-all duration-200 h-full overflow-hidden"
               style={{
                 width: sidebarCorreoColapsado ? 48 : 224,
                 borderRight: '1px solid var(--borde-sutil)',
@@ -816,7 +847,7 @@ export default function PaginaInbox() {
 
             {/* Columna 2: Lista de correos (con su toggle arriba) */}
             <div
-              className="flex flex-col flex-shrink-0 transition-all duration-200 overflow-hidden"
+              className="flex flex-col flex-shrink-0 transition-all duration-200 h-full overflow-hidden"
               style={{ width: listaCorreoColapsada ? 40 : 320, borderRight: '1px solid var(--borde-sutil)' }}
             >
               {/* Toggle de la lista */}
@@ -843,13 +874,14 @@ export default function PaginaInbox() {
                     tipoCanal="correo"
                     cargando={cargandoConversaciones}
                     totalNoLeidos={totalNoLeidos}
+                    onEliminarSeleccion={eliminarMultiples}
                   />
                 </div>
               )}
             </div>
 
-            {/* Columna 3: Contenido del correo */}
-            <div className="flex-1 flex flex-col min-w-0">
+            {/* Columna 3: Contenido del correo (única con scroll) */}
+            <div className="flex-1 flex flex-col min-w-0 h-full overflow-x-hidden">
 
               {/* Contenido */}
               {redactandoNuevo ? (
@@ -880,6 +912,7 @@ export default function PaginaInbox() {
                 onMarcarSpam={marcarSpam}
                 onDesmarcarSpam={desmarcarSpam}
                 onArchivar={archivarConversacion}
+                onEliminar={eliminarConversacion}
                 onToggleLeido={toggleLeido}
                 cargando={cargandoMensajes}
                 enviando={enviando}

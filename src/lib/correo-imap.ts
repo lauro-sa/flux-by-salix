@@ -73,13 +73,8 @@ export async function obtenerMensajesIMAP(
       if (desdeUID && desdeUID > 0) {
         range = `${desdeUID + 1}:*`
       } else {
-        range = '*'
-      }
-
-      // Buscar mensajes
-      const searchCriteria: Record<string, unknown> = {}
-      if (desdeFecha) {
-        searchCriteria.since = desdeFecha
+        // Primera sync: traer todos los mensajes
+        range = '1:*'
       }
 
       let count = 0
@@ -92,7 +87,7 @@ export async function obtenerMensajesIMAP(
 
         try {
           if (!message.source) continue
-          const parsed = await simpleParser(message.source) as unknown as ParsedMail
+          const parsed = await simpleParser(message.source, { skipTextLinks: true }) as unknown as ParsedMail
           const correo = convertirParseadoACorreo(parsed, message.uid)
           mensajes.push(correo)
           if (message.uid > ultimoUID) ultimoUID = message.uid

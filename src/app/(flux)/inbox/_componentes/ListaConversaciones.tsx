@@ -1,14 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Buscador } from '@/componentes/ui/Buscador'
 import { Pildora } from '@/componentes/ui/Pildora'
 import {
-  Mail, Hash, Clock, User, Filter,
-  ChevronDown, Circle,
+  Mail, Hash, Clock, User, Filter, Trash2,
+  ChevronDown, Circle, Square, CheckSquare,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { ConversacionConDetalles, EstadoConversacion, TipoCanal } from '@/tipos/inbox'
@@ -29,6 +29,9 @@ interface PropiedadesListaConversaciones {
   tipoCanal: TipoCanal
   cargando: boolean
   totalNoLeidos: number
+  /** Habilita selección múltiple con checkboxes */
+  seleccionMultiple?: boolean
+  onEliminarSeleccion?: (ids: string[]) => void
 }
 
 // Iconos de canal
@@ -73,8 +76,35 @@ export function ListaConversaciones({
   tipoCanal,
   cargando,
   totalNoLeidos,
+  onEliminarSeleccion,
 }: PropiedadesListaConversaciones) {
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
+  const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
+  const [modoSeleccion, setModoSeleccion] = useState(false)
+
+  const toggleSeleccion = useCallback((id: string) => {
+    setSeleccionados(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  const seleccionarTodos = useCallback(() => {
+    if (seleccionados.size === conversaciones.length) {
+      setSeleccionados(new Set())
+    } else {
+      setSeleccionados(new Set(conversaciones.map(c => c.id)))
+    }
+  }, [conversaciones, seleccionados.size])
+
+  const handleEliminarSeleccion = useCallback(() => {
+    if (seleccionados.size === 0 || !onEliminarSeleccion) return
+    onEliminarSeleccion([...seleccionados])
+    setSeleccionados(new Set())
+    setModoSeleccion(false)
+  }, [seleccionados, onEliminarSeleccion])
 
   const estados: { clave: EstadoConversacion | 'todas'; etiqueta: string }[] = [
     { clave: 'todas', etiqueta: 'Todas' },
@@ -88,37 +118,84 @@ export function ListaConversaciones({
     <div className="flex flex-col h-full" style={{ borderRight: '1px solid var(--borde-sutil)' }}>
       {/* Header con búsqueda */}
       <div className="p-3 space-y-2" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {ICONO_CANAL[tipoCanal]}
-            <span className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
-              Conversaciones
-            </span>
-            {totalNoLeidos > 0 && (
-              <span
-                className="text-xxs font-medium px-1.5 py-0.5 rounded-full"
-                style={{
-                  background: 'var(--insignia-peligro-fondo)',
-                  color: 'var(--insignia-peligro-texto)',
-                }}
-              >
-                {totalNoLeidos}
+        {/* Barra de selección masiva */}
+        {modoSeleccion ? (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <button onClick={seleccionarTodos} className="p-0.5">
+                {seleccionados.size === conversaciones.length && conversaciones.length > 0
+                  ? <CheckSquare size={14} style={{ color: 'var(--texto-marca)' }} />
+                  : <Square size={14} style={{ color: 'var(--texto-terciario)' }} />
+                }
+              </button>
+              <span className="text-xs" style={{ color: 'var(--texto-secundario)' }}>
+                {seleccionados.size} seleccionado{seleccionados.size !== 1 ? 's' : ''}
               </span>
-            )}
+            </div>
+            <div className="flex items-center gap-1">
+              {seleccionados.size > 0 && onEliminarSeleccion && (
+                <button
+                  onClick={handleEliminarSeleccion}
+                  className="p-1 rounded-md transition-colors"
+                  style={{ color: 'var(--insignia-peligro)' }}
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+              <button
+                onClick={() => { setModoSeleccion(false); setSeleccionados(new Set()) }}
+                className="text-xxs px-2 py-0.5 rounded"
+                style={{ color: 'var(--texto-terciario)' }}
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
-          <button
-            onClick={() => setMostrarFiltros(!mostrarFiltros)}
-            className="p-1 rounded-md transition-colors"
-            style={{ color: 'var(--texto-terciario)' }}
-          >
-            <Filter size={14} />
-          </button>
-        </div>
+        ) : (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {ICONO_CANAL[tipoCanal]}
+              <span className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+                Conversaciones
+              </span>
+              {totalNoLeidos > 0 && (
+                <span
+                  className="text-xxs font-medium px-1.5 py-0.5 rounded-full"
+                  style={{
+                    background: 'var(--insignia-peligro-fondo)',
+                    color: 'var(--insignia-peligro-texto)',
+                  }}
+                >
+                  {totalNoLeidos}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              {onEliminarSeleccion && (
+                <button
+                  onClick={() => setModoSeleccion(true)}
+                  className="p-1 rounded-md transition-colors"
+                  style={{ color: 'var(--texto-terciario)' }}
+                  title="Seleccionar"
+                >
+                  <CheckSquare size={14} />
+                </button>
+              )}
+              <button
+                onClick={() => setMostrarFiltros(!mostrarFiltros)}
+                className="p-1 rounded-md transition-colors"
+                style={{ color: 'var(--texto-terciario)' }}
+              >
+                <Filter size={14} />
+              </button>
+            </div>
+          </div>
+        )}
 
         <Buscador
           valor={busqueda}
           onChange={onBusqueda}
-          placeholder="Buscar conversación..."
+          placeholder={`Buscar entre ${conversaciones.length} correo${conversaciones.length !== 1 ? 's' : ''}...`}
         />
 
         {/* Filtros por estado */}
@@ -194,13 +271,27 @@ export function ListaConversaciones({
                 }}
               >
                 <div className="flex items-start gap-2.5">
+                  {/* Checkbox en modo selección */}
+                  {modoSeleccion && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleSeleccion(conv.id) }}
+                      className="flex-shrink-0 mt-1.5"
+                    >
+                      {seleccionados.has(conv.id)
+                        ? <CheckSquare size={16} style={{ color: 'var(--texto-marca)' }} />
+                        : <Square size={16} style={{ color: 'var(--texto-terciario)' }} />
+                      }
+                    </button>
+                  )}
                   {/* Avatar */}
+                  {!modoSeleccion && (
                   <div className="flex-shrink-0 mt-0.5">
                     <Avatar
                       nombre={conv.contacto_nombre || conv.identificador_externo || '?'}
                       tamano="sm"
                     />
                   </div>
+                  )}
 
                   {/* Contenido */}
                   <div className="flex-1 min-w-0">

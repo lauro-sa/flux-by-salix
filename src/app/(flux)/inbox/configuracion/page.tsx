@@ -823,19 +823,37 @@ function SeccionCorreo({
     setSincronizando(true)
     setResultadoSync(null)
     try {
-      const res = await fetch('/api/inbox/correo/sincronizar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      })
-      const data = await res.json()
-      const total = data.resultados?.reduce((s: number, r: { mensajes_nuevos: number }) => s + r.mensajes_nuevos, 0) || 0
-      setResultadoSync(`Sincronización completa. ${total} correo${total !== 1 ? 's' : ''} nuevo${total !== 1 ? 's' : ''}.`)
+      // Sincronizar cada canal en paralelo (evita timeout)
+      const resultados = await Promise.allSettled(
+        canalesCorreo.map(canal =>
+          fetch('/api/inbox/correo/sincronizar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ canal_id: canal.id }),
+          }).then(r => r.json())
+        )
+      )
+
+      let totalNuevos = 0
+      let errores = 0
+      for (const r of resultados) {
+        if (r.status === 'fulfilled' && r.value.resultados) {
+          totalNuevos += r.value.resultados.reduce((s: number, x: { mensajes_nuevos: number }) => s + x.mensajes_nuevos, 0)
+        } else {
+          errores++
+        }
+      }
+
+      if (errores > 0) {
+        setResultadoSync(`${totalNuevos} correo${totalNuevos !== 1 ? 's' : ''} nuevo${totalNuevos !== 1 ? 's' : ''}. ${errores} canal${errores !== 1 ? 'es' : ''} con error.`)
+      } else {
+        setResultadoSync(`Sincronización completa. ${totalNuevos} correo${totalNuevos !== 1 ? 's' : ''} nuevo${totalNuevos !== 1 ? 's' : ''}.`)
+      }
     } catch {
       setResultadoSync('Error al sincronizar.')
     } finally {
       setSincronizando(false)
-      setTimeout(() => setResultadoSync(null), 5000)
+      setTimeout(() => setResultadoSync(null), 8000)
     }
   }
 
