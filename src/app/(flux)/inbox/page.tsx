@@ -237,10 +237,16 @@ export default function PaginaInbox() {
           .slice(0, 100)
         const path = `inbox/enviados/${conversacionSeleccionada.id}/${Date.now()}_${nombreArchivo}`
 
+        // Para audio WebM, forzar content-type a audio/ogg (Meta acepta OGG pero no WebM)
+        let contentType = datos.archivo.type
+        if (contentType.includes('webm') && datos.tipo_contenido === 'audio') {
+          contentType = 'audio/ogg'
+        }
+
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('adjuntos')
           .upload(path, datos.archivo, {
-            contentType: datos.archivo.type,
+            contentType,
             upsert: true,
           })
 

@@ -27,11 +27,16 @@ interface PropiedadesPanelWhatsApp {
 }
 
 // Iconos de estado de entrega
+// Soporta claves en español (estado) e inglés (wa_status de Meta)
 const ICONO_ESTADO: Record<string, React.ReactNode> = {
   enviado: <Check size={12} style={{ color: 'var(--texto-terciario)' }} />,
+  sent: <Check size={12} style={{ color: 'var(--texto-terciario)' }} />,
   entregado: <CheckCheck size={12} style={{ color: 'var(--texto-terciario)' }} />,
+  delivered: <CheckCheck size={12} style={{ color: 'var(--texto-terciario)' }} />,
   leido: <CheckCheck size={12} style={{ color: '#53bdeb' }} />,
+  read: <CheckCheck size={12} style={{ color: '#53bdeb' }} />,
   fallido: <AlertCircle size={12} style={{ color: 'var(--insignia-peligro)' }} />,
+  failed: <AlertCircle size={12} style={{ color: 'var(--insignia-peligro)' }} />,
 }
 
 function formatoHora(fecha: string): string {

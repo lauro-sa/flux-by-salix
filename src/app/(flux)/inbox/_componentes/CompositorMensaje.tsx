@@ -101,7 +101,15 @@ export function CompositorMensaje({
   const handleEnviar = () => {
     // Enviar audio grabado
     if (audioGrabado) {
-      const archivoAudio = new globalThis.File([audioGrabado], `audio_${Date.now()}.ogg`, { type: 'audio/ogg' })
+      // Extensión según el MIME real del blob
+      const ext = audioGrabado.type.includes('ogg') ? '.ogg'
+        : audioGrabado.type.includes('mp4') ? '.mp4'
+        : '.webm'
+      const archivoAudio = new globalThis.File(
+        [audioGrabado],
+        `audio_${Date.now()}${ext}`,
+        { type: audioGrabado.type }
+      )
       onEnviar({
         texto: '',
         tipo_contenido: 'audio',
@@ -188,18 +196,23 @@ export function CompositorMensaje({
       streamRef.current = stream
       audioChunksRef.current = []
 
-      const recorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-          ? 'audio/webm;codecs=opus'
-          : 'audio/webm',
-      })
+      // Priorizar OGG/Opus (Firefox), luego MP4/AAC, luego WebM
+      // Meta WhatsApp acepta: audio/ogg, audio/mp4, audio/mpeg, audio/aac
+      const mimePreferido =
+        MediaRecorder.isTypeSupported('audio/ogg;codecs=opus') ? 'audio/ogg;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4'
+        : 'audio/webm;codecs=opus'
+
+      const recorder = new MediaRecorder(stream, { mimeType: mimePreferido })
+      const mimeReal = recorder.mimeType // lo que realmente usa el navegador
 
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data)
       }
 
       recorder.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/ogg' })
+        // Usar el MIME real del recorder para el blob
+        const blob = new Blob(audioChunksRef.current, { type: mimeReal })
         setAudioGrabado(blob)
         // Liberar micrófono
         stream.getTracks().forEach(t => t.stop())
