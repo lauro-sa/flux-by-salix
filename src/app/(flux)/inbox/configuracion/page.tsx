@@ -22,6 +22,7 @@ import {
 import type { CanalInbox, PlantillaRespuesta, ConfigInbox, TipoCanal } from '@/tipos/inbox'
 import { ModalAgregarCanal } from '../_componentes/ModalAgregarCanal'
 import { SeccionWhatsApp } from '../_componentes/SeccionWhatsApp'
+import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 
 /**
  * Configuración del Inbox — secciones: General, WhatsApp, Correo, Interno, Plantillas, SLA.
@@ -365,9 +366,22 @@ function ModuloToggle({
 function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () => void }) {
   const [expandido, setExpandido] = useState(false)
   const [cargandoCalidad, setCargandoCalidad] = useState(false)
+  const [modalEliminar, setModalEliminar] = useState(false)
+  const [eliminando, setEliminando] = useState(false)
+  const [editando, setEditando] = useState(false)
   type DatosCalidad = { rating: string; tier: string; status: string }
   const calidadInicial = (canal.config_conexion as Record<string, unknown>)?.calidadActual as DatosCalidad | undefined
   const [calidad, setCalidad] = useState<DatosCalidad | null>(calidadInicial || null)
+
+  const handleEliminar = async () => {
+    setEliminando(true)
+    try {
+      await fetch(`/api/inbox/canales/${canal.id}`, { method: 'DELETE' })
+      setModalEliminar(false)
+      onRecargar?.()
+    } catch { /* silenciar */ }
+    setEliminando(false)
+  }
 
   const conectado = canal.estado_conexion === 'conectado'
   const error = canal.estado_conexion === 'error'
@@ -605,10 +619,20 @@ function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () =
                     Consultar calidad
                   </Boton>
                 )}
-                <Boton variante="fantasma" tamano="xs" icono={<Pencil size={12} />}>
+                <Boton
+                  variante="fantasma"
+                  tamano="xs"
+                  icono={<Pencil size={12} />}
+                  onClick={() => setEditando(true)}
+                >
                   Editar
                 </Boton>
-                <Boton variante="peligro" tamano="xs" icono={<Trash2 size={12} />}>
+                <Boton
+                  variante="peligro"
+                  tamano="xs"
+                  icono={<Trash2 size={12} />}
+                  onClick={() => setModalEliminar(true)}
+                >
                   Eliminar
                 </Boton>
               </div>
@@ -616,6 +640,28 @@ function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () =
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Modal confirmar eliminación */}
+      <ModalConfirmacion
+        abierto={modalEliminar}
+        onCerrar={() => setModalEliminar(false)}
+        onConfirmar={handleEliminar}
+        titulo={`Eliminar ${canal.nombre}`}
+        descripcion={`¿Estás seguro de que querés eliminar la conexión "${canal.nombre}"? Esta acción no se puede deshacer. Se perderán todas las conversaciones y mensajes asociados a este canal.`}
+        tipo="peligro"
+        etiquetaConfirmar="Sí, eliminar"
+        cargando={eliminando}
+      />
+
+      {/* Modal editar canal */}
+      {editando && (
+        <ModalAgregarCanal
+          abierto={editando}
+          onCerrar={() => setEditando(false)}
+          tipoCanal={canal.tipo as TipoCanal}
+          onCanalCreado={() => { setEditando(false); onRecargar?.() }}
+        />
+      )}
     </div>
   )
 }
