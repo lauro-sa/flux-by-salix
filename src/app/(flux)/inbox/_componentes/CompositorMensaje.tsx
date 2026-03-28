@@ -87,19 +87,6 @@ export function CompositorMensaje({
   const [rrVisible, setRrVisible] = useState(false)
   const [rrFiltro, setRrFiltro] = useState('')
 
-  // Typing indicator — enviar cada 5s máximo mientras escribe
-  const ultimoTypingRef = useRef(0)
-  const enviarTyping = useCallback(() => {
-    if (!conversacionId || tipoCanal !== 'whatsapp' || esNotaInterna) return
-    const ahora = Date.now()
-    if (ahora - ultimoTypingRef.current < 5000) return
-    ultimoTypingRef.current = ahora
-    fetch('/api/inbox/whatsapp/typing', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ conversacion_id: conversacionId }),
-    }).catch(() => {})
-  }, [conversacionId, tipoCanal, esNotaInterna])
   const [archivoSeleccionado, setArchivoSeleccionado] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
@@ -722,7 +709,6 @@ export function CompositorMensaje({
                 const valor = e.target.value
                 setTexto(valor)
                 ajustarAltura()
-                enviarTyping()
 
                 // Detectar `/` al inicio para respuestas rápidas
                 if (valor.startsWith('/')) {

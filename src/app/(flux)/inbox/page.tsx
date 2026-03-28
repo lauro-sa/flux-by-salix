@@ -860,7 +860,7 @@ export default function PaginaInbox() {
               }}
             >
               {/* Toggle del sidebar */}
-              <div className="flex items-center justify-center py-1.5 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
+              <div className="flex items-center justify-center h-9 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
                 <button
                   onClick={toggleSidebarCorreo}
                   className="p-1.5 rounded-md transition-colors"
@@ -912,7 +912,7 @@ export default function PaginaInbox() {
                   className="flex flex-col flex-shrink-0 transition-all duration-200 h-full overflow-hidden"
                   style={{ width: listaCorreoColapsada ? 40 : 320, borderRight: '1px solid var(--borde-sutil)' }}
                 >
-                  <div className="flex items-center justify-between px-2 py-1.5 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
+                  <div className="flex items-center justify-between px-2 h-9 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
                     <button onClick={toggleListaCorreo} className="p-1 rounded-md" style={{ color: 'var(--texto-terciario)' }}>
                       {listaCorreoColapsada ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
                     </button>
@@ -997,7 +997,7 @@ export default function PaginaInbox() {
                 {/* MODO FILA: lista y correo comparten el mismo panel */}
                 <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
                   {/* Barra con selector de vista + botón volver */}
-                  <div className="flex items-center justify-between px-2 py-1.5 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
+                  <div className="flex items-center justify-between px-2 h-9 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
                     <div className="flex items-center gap-2">
                       {(conversacionSeleccionada || redactandoNuevo) && (
                         <button
@@ -1117,6 +1117,7 @@ export default function PaginaInbox() {
                     cargarConversaciones()
                   }
                   if (accion === 'marcar_leido') await admin({ mensajes_sin_leer: 0 })
+                  if (accion === 'marcar_no_leido') await admin({ mensajes_sin_leer: 1 })
                   if (accion === 'cerrar') await admin({ estado: 'resuelta' })
                 }}
               />

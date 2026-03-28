@@ -10,7 +10,7 @@ import {
   Mail, Hash, Clock, User, Filter, Trash2,
   ChevronDown, ChevronLeft, ChevronRight as ChevronRightIcon,
   Circle, Square, CheckSquare,
-  Tag, CheckCircle, Eye,
+  Tag, CheckCircle, Eye, EyeOff,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { ConversacionConDetalles, EstadoConversacion, TipoCanal } from '@/tipos/inbox'
@@ -38,7 +38,7 @@ interface PropiedadesListaConversaciones {
   filtroEtiqueta?: string
   onFiltroEtiqueta?: (etiqueta: string) => void
   // Operaciones masivas
-  onOperacionMasiva?: (accion: 'marcar_leido' | 'cerrar' | 'asignar', ids: string[]) => void
+  onOperacionMasiva?: (accion: 'marcar_leido' | 'marcar_no_leido' | 'cerrar' | 'asignar', ids: string[]) => void
 }
 
 // Iconos de canal
@@ -302,6 +302,13 @@ export function ListaConversaciones({
               style={{ color: 'var(--texto-secundario)', background: 'var(--superficie-tarjeta)' }}
             >
               <Eye size={10} /> Marcar leído
+            </button>
+            <button
+              onClick={() => { onOperacionMasiva('marcar_no_leido', [...seleccionados]); setSeleccionados(new Set()); setModoSeleccion(false) }}
+              className="text-xxs px-2 py-1 rounded flex items-center gap-1 transition-colors"
+              style={{ color: 'var(--texto-secundario)', background: 'var(--superficie-tarjeta)' }}
+            >
+              <EyeOff size={10} /> No leído
             </button>
             <button
               onClick={() => { onOperacionMasiva('cerrar', [...seleccionados]); setSeleccionados(new Set()); setModoSeleccion(false) }}

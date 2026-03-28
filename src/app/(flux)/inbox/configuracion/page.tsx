@@ -20,7 +20,7 @@ import {
   Settings2, Mail, Hash, FileText, Users,
   Clock, Bell, Plus, Trash2, Wifi, WifiOff, AlertTriangle,
   Pencil, GripVertical, Shield, ChevronDown, RefreshCw, Loader2,
-  Zap, TrendingUp, Tag, Sparkles,
+  Zap, TrendingUp, Tag, Sparkles, Bot, MessageCircle,
 } from 'lucide-react'
 import type { CanalInbox, PlantillaRespuesta, ConfigInbox, TipoCanal } from '@/tipos/inbox'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
@@ -98,6 +98,7 @@ export default function PaginaConfiguracionInbox() {
     { id: 'whatsapp', etiqueta: 'WhatsApp', icono: <IconoWhatsApp size={16} /> },
     { id: 'correo', etiqueta: 'Correo electrónico', icono: <Mail size={16} /> },
     { id: 'interno', etiqueta: 'Mensajería interna', icono: <Hash size={16} /> },
+    { id: 'chatbot', etiqueta: 'Chatbot', icono: <Bot size={16} />, grupo: 'Automatización' },
     { id: 'respuestas_rapidas', etiqueta: 'Respuestas rápidas', icono: <Zap size={16} />, grupo: 'Plantillas' },
     { id: 'plantillas_wa', etiqueta: 'Plantillas Meta (WA)', icono: <FileText size={16} />, grupo: 'Plantillas' },
     { id: 'plantillas_correo', etiqueta: 'Plantillas de correo', icono: <FileText size={16} />, grupo: 'Plantillas' },
@@ -281,6 +282,11 @@ export default function PaginaConfiguracionInbox() {
       {/* Métricas */}
       {seccionActiva === 'metricas' && (
         <SeccionMetricasConfig />
+      )}
+
+      {/* Chatbot */}
+      {seccionActiva === 'chatbot' && (
+        <SeccionChatbot />
       )}
 
       {/* Respuestas rápidas */}
@@ -1213,6 +1219,342 @@ function SeccionRespuestasRapidas({
           etiquetaConfirmar="Eliminar"
         />
       )}
+    </div>
+  )
+}
+
+// ─── Sección Chatbot ───
+
+interface OpcionMenu {
+  numero: string
+  etiqueta: string
+  respuesta: string
+}
+
+interface PalabraClave {
+  palabras: string[]
+  respuesta: string
+  exacta: boolean
+}
+
+interface ConfigChatbot {
+  activo: boolean
+  bienvenida_activa: boolean
+  mensaje_bienvenida: string
+  menu_activo: boolean
+  mensaje_menu: string
+  opciones_menu: OpcionMenu[]
+  palabras_clave: PalabraClave[]
+  mensaje_defecto: string
+  palabra_transferir: string
+  mensaje_transferencia: string
+  modo: 'siempre' | 'fuera_horario'
+}
+
+const CHATBOT_DEFAULTS: ConfigChatbot = {
+  activo: false,
+  bienvenida_activa: true,
+  mensaje_bienvenida: '¡Hola! 👋 Gracias por comunicarte con nosotros.',
+  menu_activo: false,
+  mensaje_menu: 'Elegí una opción:\n1️⃣ Información de productos\n2️⃣ Consultar precios\n3️⃣ Horarios de atención\n4️⃣ Hablar con un asesor',
+  opciones_menu: [
+    { numero: '1', etiqueta: 'Productos', respuesta: 'Te envío información de nuestros productos...' },
+    { numero: '2', etiqueta: 'Precios', respuesta: 'Los precios dependen del trabajo. ¿Podrías contarnos qué necesitás?' },
+    { numero: '3', etiqueta: 'Horarios', respuesta: 'Nuestro horario de atención es de Lunes a Viernes de 8:00 a 17:00.' },
+    { numero: '4', etiqueta: 'Asesor', respuesta: '' },
+  ],
+  palabras_clave: [],
+  mensaje_defecto: 'No entendí tu mensaje. Escribí *menu* para ver las opciones o esperá que un asesor te atienda.',
+  palabra_transferir: 'asesor',
+  mensaje_transferencia: 'Te estoy derivando con un asesor. En breve te van a atender. 🙏',
+  modo: 'siempre',
+}
+
+function SeccionChatbot() {
+  const [config, setConfig] = useState<ConfigChatbot>(CHATBOT_DEFAULTS)
+  const [cargando, setCargando] = useState(true)
+  const [guardando, setGuardando] = useState(false)
+
+  // Cargar config
+  useEffect(() => {
+    fetch('/api/inbox/chatbot')
+      .then(r => r.json())
+      .then(d => { if (d.config) setConfig({ ...CHATBOT_DEFAULTS, ...d.config }) })
+      .catch(() => {})
+      .finally(() => setCargando(false))
+  }, [])
+
+  // Guardar
+  const guardar = async (cambios: Partial<ConfigChatbot>) => {
+    const nueva = { ...config, ...cambios }
+    setConfig(nueva)
+    setGuardando(true)
+    try {
+      await fetch('/api/inbox/chatbot', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nueva),
+      })
+    } catch { /* silenciar */ }
+    setGuardando(false)
+  }
+
+  // Agregar palabra clave
+  const agregarPalabraClave = () => {
+    guardar({
+      palabras_clave: [...config.palabras_clave, { palabras: [''], respuesta: '', exacta: false }],
+    })
+  }
+
+  // Actualizar palabra clave
+  const actualizarPalabraClave = (indice: number, campo: keyof PalabraClave, valor: unknown) => {
+    const nuevas = [...config.palabras_clave]
+    nuevas[indice] = { ...nuevas[indice], [campo]: valor }
+    guardar({ palabras_clave: nuevas })
+  }
+
+  // Eliminar palabra clave
+  const eliminarPalabraClave = (indice: number) => {
+    guardar({ palabras_clave: config.palabras_clave.filter((_, i) => i !== indice) })
+  }
+
+  // Agregar opción de menú
+  const agregarOpcionMenu = () => {
+    const siguiente = String(config.opciones_menu.length + 1)
+    guardar({
+      opciones_menu: [...config.opciones_menu, { numero: siguiente, etiqueta: '', respuesta: '' }],
+    })
+  }
+
+  // Actualizar opción de menú
+  const actualizarOpcionMenu = (indice: number, campo: keyof OpcionMenu, valor: string) => {
+    const nuevas = [...config.opciones_menu]
+    nuevas[indice] = { ...nuevas[indice], [campo]: valor }
+    guardar({ opciones_menu: nuevas })
+  }
+
+  // Eliminar opción de menú
+  const eliminarOpcionMenu = (indice: number) => {
+    guardar({ opciones_menu: config.opciones_menu.filter((_, i) => i !== indice) })
+  }
+
+  if (cargando) return <div className="py-8 text-center text-sm" style={{ color: 'var(--texto-terciario)' }}>Cargando...</div>
+
+  return (
+    <div className="space-y-6">
+      {/* Header + toggle principal */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>Chatbot de WhatsApp</h3>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--texto-terciario)' }}>
+            Respuestas automáticas para clientes. Sin código.
+          </p>
+        </div>
+        <Interruptor activo={config.activo} onChange={(v) => guardar({ activo: v })} />
+      </div>
+
+      {guardando && (
+        <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>Guardando...</p>
+      )}
+
+      <div className={!config.activo ? 'opacity-40 pointer-events-none' : ''}>
+        {/* Modo */}
+        <div
+          className="flex items-center gap-3 p-3 rounded-lg mb-4"
+          style={{ border: '1px solid var(--borde-sutil)' }}
+        >
+          <Bot size={16} style={{ color: 'var(--texto-marca)' }} />
+          <div className="flex-1">
+            <p className="text-xs font-medium" style={{ color: 'var(--texto-primario)' }}>Modo del bot</p>
+            <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+              {config.modo === 'siempre' ? 'Responde siempre que no haya un agente atendiendo' : 'Solo responde fuera del horario de atención'}
+            </p>
+          </div>
+          <select
+            value={config.modo}
+            onChange={(e) => guardar({ modo: e.target.value as 'siempre' | 'fuera_horario' })}
+            className="text-xs rounded-lg px-2 py-1"
+            style={{ background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+          >
+            <option value="siempre">Siempre activo</option>
+            <option value="fuera_horario">Solo fuera de horario</option>
+          </select>
+        </div>
+
+        {/* ─── Bienvenida ─── */}
+        <div className="p-4 rounded-lg space-y-3 mb-4" style={{ border: '1px solid var(--borde-sutil)' }}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MessageCircle size={14} style={{ color: 'var(--canal-whatsapp)' }} />
+              <span className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>Mensaje de bienvenida</span>
+            </div>
+            <Interruptor activo={config.bienvenida_activa} onChange={(v) => guardar({ bienvenida_activa: v })} />
+          </div>
+          <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+            Se envía automáticamente cuando un número nuevo escribe por primera vez.
+          </p>
+          {config.bienvenida_activa && (
+            <textarea
+              value={config.mensaje_bienvenida}
+              onChange={(e) => guardar({ mensaje_bienvenida: e.target.value })}
+              className="w-full rounded-lg p-2.5 text-sm resize-none outline-none"
+              style={{ background: 'var(--superficie-app)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)', minHeight: 80 }}
+              placeholder="¡Hola! 👋 Gracias por comunicarte..."
+            />
+          )}
+        </div>
+
+        {/* ─── Menú principal ─── */}
+        <div className="p-4 rounded-lg space-y-3 mb-4" style={{ border: '1px solid var(--borde-sutil)' }}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">📋</span>
+              <span className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>Menú de opciones</span>
+            </div>
+            <Interruptor activo={config.menu_activo} onChange={(v) => guardar({ menu_activo: v })} />
+          </div>
+          <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+            El cliente escribe un número y recibe la respuesta configurada. Se muestra después de la bienvenida o cuando escribe "menu".
+          </p>
+
+          {config.menu_activo && (
+            <>
+              <textarea
+                value={config.mensaje_menu}
+                onChange={(e) => guardar({ mensaje_menu: e.target.value })}
+                className="w-full rounded-lg p-2.5 text-sm resize-none outline-none"
+                style={{ background: 'var(--superficie-app)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)', minHeight: 80 }}
+                placeholder="Elegí una opción:&#10;1️⃣ Productos&#10;2️⃣ Precios..."
+              />
+
+              <p className="text-xxs font-medium mt-3" style={{ color: 'var(--texto-secundario)' }}>Opciones</p>
+              <div className="space-y-2">
+                {config.opciones_menu.map((op, i) => (
+                  <div key={i} className="flex items-start gap-2 p-2 rounded-lg" style={{ background: 'var(--superficie-hover)' }}>
+                    <span className="text-sm font-bold mt-1 w-6 text-center" style={{ color: 'var(--texto-marca)' }}>
+                      {op.numero}
+                    </span>
+                    <div className="flex-1 space-y-1.5">
+                      <input
+                        type="text"
+                        value={op.etiqueta}
+                        onChange={(e) => actualizarOpcionMenu(i, 'etiqueta', e.target.value)}
+                        className="w-full text-xs bg-transparent outline-none px-2 py-1 rounded"
+                        style={{ color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+                        placeholder="Nombre de la opción"
+                      />
+                      <textarea
+                        value={op.respuesta}
+                        onChange={(e) => actualizarOpcionMenu(i, 'respuesta', e.target.value)}
+                        className="w-full text-xs bg-transparent outline-none px-2 py-1 rounded resize-none"
+                        style={{ color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)', minHeight: 50 }}
+                        placeholder={op.numero === config.palabra_transferir ? '(Transfiere a agente)' : 'Respuesta automática...'}
+                      />
+                    </div>
+                    <button onClick={() => eliminarOpcionMenu(i)} className="p-1 mt-1" style={{ color: 'var(--texto-terciario)' }}>
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <Boton variante="fantasma" tamano="xs" icono={<Plus size={12} />} onClick={agregarOpcionMenu}>
+                Agregar opción
+              </Boton>
+            </>
+          )}
+        </div>
+
+        {/* ─── Palabras clave ─── */}
+        <div className="p-4 rounded-lg space-y-3 mb-4" style={{ border: '1px solid var(--borde-sutil)' }}>
+          <div className="flex items-center gap-2">
+            <span className="text-sm">🔑</span>
+            <span className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>Respuestas por palabra clave</span>
+          </div>
+          <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+            Si el mensaje del cliente contiene alguna de estas palabras, el bot responde automáticamente.
+          </p>
+
+          <div className="space-y-2">
+            {config.palabras_clave.map((pc, i) => (
+              <div key={i} className="p-2.5 rounded-lg space-y-1.5" style={{ background: 'var(--superficie-hover)' }}>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={pc.palabras.join(', ')}
+                    onChange={(e) => actualizarPalabraClave(i, 'palabras', e.target.value.split(',').map(p => p.trim().toLowerCase()).filter(Boolean))}
+                    className="flex-1 text-xs bg-transparent outline-none px-2 py-1 rounded"
+                    style={{ color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+                    placeholder="Palabras separadas por coma: precio, costo, cuanto"
+                  />
+                  <button onClick={() => eliminarPalabraClave(i)} className="p-1" style={{ color: 'var(--texto-terciario)' }}>
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+                <textarea
+                  value={pc.respuesta}
+                  onChange={(e) => actualizarPalabraClave(i, 'respuesta', e.target.value)}
+                  className="w-full text-xs bg-transparent outline-none px-2 py-1 rounded resize-none"
+                  style={{ color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)', minHeight: 50 }}
+                  placeholder="Respuesta automática cuando detecta estas palabras..."
+                />
+              </div>
+            ))}
+          </div>
+          <Boton variante="fantasma" tamano="xs" icono={<Plus size={12} />} onClick={agregarPalabraClave}>
+            Agregar palabra clave
+          </Boton>
+        </div>
+
+        {/* ─── Mensaje por defecto ─── */}
+        <div className="p-4 rounded-lg space-y-3 mb-4" style={{ border: '1px solid var(--borde-sutil)' }}>
+          <div className="flex items-center gap-2">
+            <span className="text-sm">❓</span>
+            <span className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>Mensaje por defecto</span>
+          </div>
+          <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+            Se envía cuando el bot no entiende el mensaje del cliente.
+          </p>
+          <textarea
+            value={config.mensaje_defecto}
+            onChange={(e) => guardar({ mensaje_defecto: e.target.value })}
+            className="w-full rounded-lg p-2.5 text-sm resize-none outline-none"
+            style={{ background: 'var(--superficie-app)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)', minHeight: 60 }}
+          />
+        </div>
+
+        {/* ─── Transferencia a agente ─── */}
+        <div className="p-4 rounded-lg space-y-3" style={{ border: '1px solid var(--borde-sutil)' }}>
+          <div className="flex items-center gap-2">
+            <span className="text-sm">🙋</span>
+            <span className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>Transferir a agente</span>
+          </div>
+          <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+            Cuando el cliente escribe esta palabra, el bot deja de responder y un agente toma la conversación.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xxs mb-1 block" style={{ color: 'var(--texto-terciario)' }}>Palabra clave</label>
+              <input
+                type="text"
+                value={config.palabra_transferir}
+                onChange={(e) => guardar({ palabra_transferir: e.target.value.toLowerCase() })}
+                className="w-full text-xs bg-transparent outline-none px-2 py-1.5 rounded"
+                style={{ color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+              />
+            </div>
+            <div>
+              <label className="text-xxs mb-1 block" style={{ color: 'var(--texto-terciario)' }}>Mensaje al transferir</label>
+              <input
+                type="text"
+                value={config.mensaje_transferencia}
+                onChange={(e) => guardar({ mensaje_transferencia: e.target.value })}
+                className="w-full text-xs bg-transparent outline-none px-2 py-1.5 rounded"
+                style={{ color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

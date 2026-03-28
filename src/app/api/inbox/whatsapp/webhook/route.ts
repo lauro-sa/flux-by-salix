@@ -304,56 +304,11 @@ async function procesarMensajeEntrante(
     }
   }
 
-  // ─── Respuesta automática fuera de horario ───
+  // ─── Chatbot: respuestas automáticas ───
   try {
-    const { data: configInbox } = await admin
-      .from('config_inbox')
-      .select('respuesta_fuera_horario, mensaje_fuera_horario, horario_atencion_inicio, horario_atencion_fin')
-      .eq('empresa_id', canal.empresa_id)
-      .limit(1)
-      .single()
-
-    if (configInbox?.respuesta_fuera_horario && configInbox.mensaje_fuera_horario) {
-      const fueraDeHorario = esFueraDeHorario(
-        configInbox.horario_atencion_inicio,
-        configInbox.horario_atencion_fin,
-      )
-
-      if (fueraDeHorario) {
-        // Verificar que no hayamos enviado ya una respuesta automática en esta conversación
-        // Buscamos cualquier mensaje de tipo 'sistema' (auto-reply ya enviado)
-        const { data: autoReplyExistente } = await admin
-          .from('mensajes')
-          .select('id')
-          .eq('conversacion_id', conversacion.id)
-          .eq('remitente_tipo', 'sistema')
-          .eq('es_entrante', false)
-          .limit(1)
-
-        const yaEnviado = autoReplyExistente && autoReplyExistente.length > 0
-
-        if (!yaEnviado) {
-          const configConexion = canal.config_conexion as unknown as ConfigCuentaWhatsApp
-          await enviarTextoWhatsApp(configConexion, telefonoRemitente, configInbox.mensaje_fuera_horario)
-
-          // Registrar el mensaje automático en la BD
-          await admin
-            .from('mensajes')
-            .insert({
-              empresa_id: canal.empresa_id,
-              conversacion_id: conversacion.id,
-              es_entrante: false,
-              remitente_tipo: 'sistema',
-              remitente_nombre: 'Sistema',
-              tipo_contenido: 'texto',
-              texto: configInbox.mensaje_fuera_horario,
-              estado: 'enviado',
-            })
-        }
-      }
-    }
+    await procesarChatbot(admin, canal, conversacion.id, telefonoRemitente, texto, esConversacionNueva)
   } catch (err) {
-    console.warn('[FUERA_HORARIO] Error enviando respuesta automática:', err)
+    console.warn('[CHATBOT] Error:', err)
   }
 
   // Si tiene media, descargar ANTES de terminar (Vercel serverless corta el background)
@@ -768,4 +723,155 @@ function esFueraDeHorario(
 
   // Si el horario cruza medianoche (ej: 22:00 - 06:00) — fuera = entre fin e inicio
   return horaActual >= finMinutos && horaActual < inicioMinutos
+}
+
+// ─── Chatbot: respuestas automáticas ───
+
+interface OpcionMenuBot {
+  numero: string
+  etiqueta: string
+  respuesta: string
+}
+
+interface PalabraClaveBot {
+  palabras: string[]
+  respuesta: string
+  exacta: boolean
+}
+
+/**
+ * Procesa la lógica del chatbot: bienvenida, menú, palabras clave, transferencia.
+ * Solo responde si:
+ * - El chatbot está activo para la empresa
+ * - La conversación tiene chatbot_activo = true (no fue transferida a agente)
+ * - Si modo = 'fuera_horario', solo responde fuera de horario
+ */
+async function procesarChatbot(
+  admin: ReturnType<typeof crearAdmin>,
+  canal: { id: string; empresa_id: string; config_conexion: unknown },
+  conversacionId: string,
+  telefono: string,
+  textoCliente: string,
+  esConversacionNueva: boolean,
+) {
+  // 1. Obtener config del chatbot
+  const { data: configBot } = await admin
+    .from('config_chatbot')
+    .select('*')
+    .eq('empresa_id', canal.empresa_id)
+    .single()
+
+  if (!configBot?.activo) return
+
+  // 2. Verificar si la conversación tiene el bot activo
+  const { data: conv } = await admin
+    .from('conversaciones')
+    .select('chatbot_activo')
+    .eq('id', conversacionId)
+    .single()
+
+  if (!conv?.chatbot_activo) return
+
+  // 3. Si modo fuera_horario, verificar horario
+  if (configBot.modo === 'fuera_horario') {
+    const { data: configInbox } = await admin
+      .from('config_inbox')
+      .select('horario_atencion_inicio, horario_atencion_fin')
+      .eq('empresa_id', canal.empresa_id)
+      .single()
+
+    if (configInbox) {
+      const fuera = esFueraDeHorario(configInbox.horario_atencion_inicio, configInbox.horario_atencion_fin)
+      if (!fuera) return // En horario → no responde el bot
+    }
+  }
+
+  const configConexion = canal.config_conexion as unknown as ConfigCuentaWhatsApp
+  const textoNormalizado = textoCliente.trim().toLowerCase()
+
+  // Helper: enviar mensaje del bot y registrarlo en BD
+  const enviarRespuestaBot = async (mensaje: string) => {
+    await enviarTextoWhatsApp(configConexion, telefono, mensaje)
+    await admin.from('mensajes').insert({
+      empresa_id: canal.empresa_id,
+      conversacion_id: conversacionId,
+      es_entrante: false,
+      remitente_tipo: 'bot',
+      remitente_nombre: 'Chatbot',
+      tipo_contenido: 'texto',
+      texto: mensaje,
+      estado: 'enviado',
+    })
+  }
+
+  // 4. Transferencia a agente
+  if (configBot.palabra_transferir && textoNormalizado.includes(configBot.palabra_transferir.toLowerCase())) {
+    // Desactivar bot en esta conversación
+    await admin.from('conversaciones').update({ chatbot_activo: false }).eq('id', conversacionId)
+
+    if (configBot.mensaje_transferencia) {
+      await enviarRespuestaBot(configBot.mensaje_transferencia)
+    }
+
+    // Asignar agente automáticamente
+    await asignarAgenteAutomatico(admin, canal.empresa_id, canal.id, conversacionId)
+    return
+  }
+
+  // 5. Bienvenida (solo conversación nueva)
+  if (esConversacionNueva && configBot.bienvenida_activa && configBot.mensaje_bienvenida) {
+    await enviarRespuestaBot(configBot.mensaje_bienvenida)
+
+    // Si hay menú, enviarlo después de la bienvenida
+    if (configBot.menu_activo && configBot.mensaje_menu) {
+      await enviarRespuestaBot(configBot.mensaje_menu)
+    }
+    return
+  }
+
+  // 6. Menú: si escribe "menu" o un número de opción
+  if (configBot.menu_activo) {
+    // Si escribe "menu", enviar el menú
+    if (textoNormalizado === 'menu' || textoNormalizado === 'menú') {
+      if (configBot.mensaje_menu) {
+        await enviarRespuestaBot(configBot.mensaje_menu)
+      }
+      return
+    }
+
+    // Si escribe un número de opción
+    const opciones = (configBot.opciones_menu || []) as OpcionMenuBot[]
+    const opcionElegida = opciones.find(op => textoNormalizado === op.numero)
+    if (opcionElegida) {
+      // Si la opción no tiene respuesta, es transferencia a agente
+      if (!opcionElegida.respuesta) {
+        await admin.from('conversaciones').update({ chatbot_activo: false }).eq('id', conversacionId)
+        if (configBot.mensaje_transferencia) {
+          await enviarRespuestaBot(configBot.mensaje_transferencia)
+        }
+        await asignarAgenteAutomatico(admin, canal.empresa_id, canal.id, conversacionId)
+        return
+      }
+      await enviarRespuestaBot(opcionElegida.respuesta)
+      return
+    }
+  }
+
+  // 7. Palabras clave
+  const palabrasClave = (configBot.palabras_clave || []) as PalabraClaveBot[]
+  for (const pc of palabrasClave) {
+    const match = pc.exacta
+      ? pc.palabras.some(p => textoNormalizado === p.toLowerCase())
+      : pc.palabras.some(p => textoNormalizado.includes(p.toLowerCase()))
+
+    if (match && pc.respuesta) {
+      await enviarRespuestaBot(pc.respuesta)
+      return
+    }
+  }
+
+  // 8. Mensaje por defecto
+  if (configBot.mensaje_defecto) {
+    await enviarRespuestaBot(configBot.mensaje_defecto)
+  }
 }
