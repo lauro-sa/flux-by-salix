@@ -9,11 +9,12 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import { Alerta } from '@/componentes/ui/Alerta'
 import { Avatar } from '@/componentes/ui/Avatar'
 import {
-  MessageCircle, Plus, Zap, Settings, Check, Eye, EyeOff,
+  Plus, Zap, Settings, Check, Eye, EyeOff,
   Copy, Phone, Shield, Smartphone, ChevronDown, ChevronUp,
   BarChart3, Trash2, HelpCircle, Users, Bell, RefreshCw,
   CircleDot, Pencil, Globe, Link2, CheckCircle,
 } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { CanalInbox } from '@/tipos/inbox'
 
 /**
@@ -156,7 +157,7 @@ export function SeccionWhatsApp({ canales, onRecargar }: PropiedadesSeccionWhats
           <DetalleCuenta canal={canalActivo} onRecargar={onRecargar} />
         ) : (
           <div className="p-8 text-center">
-            <MessageCircle size={32} style={{ color: 'var(--texto-terciario)', margin: '0 auto 12px' }} />
+            <IconoWhatsApp size={32} style={{ color: 'var(--texto-terciario)', margin: '0 auto 12px' }} />
             <p className="text-sm" style={{ color: 'var(--texto-secundario)' }}>
               Seleccioná una cuenta o creá una nueva
             </p>

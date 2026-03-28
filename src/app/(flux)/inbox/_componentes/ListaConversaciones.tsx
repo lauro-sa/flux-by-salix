@@ -7,9 +7,10 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import { Buscador } from '@/componentes/ui/Buscador'
 import { Pildora } from '@/componentes/ui/Pildora'
 import {
-  MessageCircle, Mail, Hash, Clock, User, Filter,
+  Mail, Hash, Clock, User, Filter,
   ChevronDown, Circle,
 } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { ConversacionConDetalles, EstadoConversacion, TipoCanal } from '@/tipos/inbox'
 
 /**
@@ -32,7 +33,7 @@ interface PropiedadesListaConversaciones {
 
 // Iconos de canal
 const ICONO_CANAL: Record<TipoCanal, React.ReactNode> = {
-  whatsapp: <MessageCircle size={14} />,
+  whatsapp: <IconoWhatsApp size={14} />,
   correo: <Mail size={14} />,
   interno: <Hash size={14} />,
 }

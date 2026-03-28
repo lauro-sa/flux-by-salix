@@ -8,8 +8,9 @@ import { Select } from '@/componentes/ui/Select'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Alerta } from '@/componentes/ui/Alerta'
 import {
-  MessageCircle, Mail, Smartphone, Globe, Lock,
+  Mail, Smartphone, Globe, Lock,
 } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { TipoCanal, ProveedorCanal } from '@/tipos/inbox'
 
 /**
@@ -285,7 +286,7 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado,
                     style={{ background: 'var(--superficie-hover)' }}
                   >
                     {tipoCanal === 'whatsapp' ? (
-                      <MessageCircle size={20} style={{ color: 'var(--canal-whatsapp)' }} />
+                      <IconoWhatsApp size={20} style={{ color: 'var(--canal-whatsapp)' }} />
                     ) : p.valor === 'gmail_oauth' ? (
                       <Globe size={20} style={{ color: '#4285F4' }} />
                     ) : (

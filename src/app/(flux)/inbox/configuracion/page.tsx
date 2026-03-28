@@ -16,12 +16,13 @@ import { Alerta } from '@/componentes/ui/Alerta'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import {
-  Settings2, MessageCircle, Mail, Hash, FileText, Users,
+  Settings2, Mail, Hash, FileText, Users,
   Clock, Bell, Plus, Trash2, Wifi, WifiOff, AlertTriangle,
   Pencil, GripVertical, Shield, ChevronDown, RefreshCw, Loader2,
   Zap, TrendingUp, Tag,
 } from 'lucide-react'
 import type { CanalInbox, PlantillaRespuesta, ConfigInbox, TipoCanal } from '@/tipos/inbox'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { ModalAgregarCanal } from '../_componentes/ModalAgregarCanal'
 import { SeccionWhatsApp } from '../_componentes/SeccionWhatsApp'
 import { ModalEtiquetas } from '../_componentes/ModalEtiquetas'
@@ -90,7 +91,7 @@ export default function PaginaConfiguracionInbox() {
 
   const secciones: SeccionConfig[] = [
     { id: 'general', etiqueta: 'General', icono: <Settings2 size={16} /> },
-    { id: 'whatsapp', etiqueta: 'WhatsApp', icono: <MessageCircle size={16} /> },
+    { id: 'whatsapp', etiqueta: 'WhatsApp', icono: <IconoWhatsApp size={16} /> },
     { id: 'correo', etiqueta: 'Correo electrónico', icono: <Mail size={16} /> },
     { id: 'interno', etiqueta: 'Mensajería interna', icono: <Hash size={16} /> },
     { id: 'plantillas_wa', etiqueta: 'Plantillas WhatsApp', icono: <FileText size={16} />, grupo: 'Plantillas' },
@@ -127,7 +128,7 @@ export default function PaginaConfiguracionInbox() {
             </p>
             <div className="space-y-3">
               <ModuloToggle
-                icono={<MessageCircle size={18} style={{ color: 'var(--canal-whatsapp)' }} />}
+                icono={<IconoWhatsApp size={18} style={{ color: 'var(--canal-whatsapp)' }} />}
                 nombre="WhatsApp"
                 descripcion="Chat en tiempo real con clientes vía WhatsApp Business"
                 activo={true}
@@ -462,7 +463,7 @@ function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () =
           }}
         >
           {esWhatsApp ? (
-            <MessageCircle size={20} style={{ color: 'var(--canal-whatsapp)' }} />
+            <IconoWhatsApp size={20} style={{ color: 'var(--canal-whatsapp)' }} />
           ) : (
             <Mail size={20} style={{ color: 'var(--canal-correo)' }} />
           )}

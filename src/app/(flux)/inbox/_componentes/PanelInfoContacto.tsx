@@ -6,10 +6,11 @@ import { Avatar } from '@/componentes/ui/Avatar'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
 import {
-  X, Phone, Mail, MessageCircle, MapPin, Building2, Briefcase,
+  X, Phone, Mail, Hash, MapPin, Building2, Briefcase,
   ExternalLink, FileText, Image, Play, ChevronDown, ChevronUp,
   Link2, Download, UserCheck, Trash2, Clock,
 } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import type { Conversacion, MensajeConAdjuntos } from '@/tipos/inbox'
 import type { MediaVisor } from './PanelWhatsApp'
@@ -325,7 +326,7 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
                       style={{ background: 'var(--superficie-hover)', color: 'var(--canal-whatsapp)' }}
                       title="WhatsApp"
                     >
-                      <MessageCircle size={16} />
+                      <IconoWhatsApp size={16} />
                     </button>
                   )}
                   {contacto?.telefono && (
@@ -365,7 +366,7 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
                   <div className="space-y-2">
                     {contacto?.correo && <DatoContacto icono={<Mail size={12} />} valor={contacto.correo} />}
                     {contacto?.telefono && <DatoContacto icono={<Phone size={12} />} valor={contacto.telefono} />}
-                    {contacto?.whatsapp && <DatoContacto icono={<MessageCircle size={12} />} valor={contacto.whatsapp} />}
+                    {contacto?.whatsapp && <DatoContacto icono={<IconoWhatsApp size={12} />} valor={contacto.whatsapp} />}
                     {contacto?.rubro && <DatoContacto icono={<Building2 size={12} />} valor={contacto.rubro} />}
                     {contacto?.cargo && <DatoContacto icono={<Briefcase size={12} />} valor={contacto.cargo} />}
                     {contacto?.direccion_principal && <DatoContacto icono={<MapPin size={12} />} valor={contacto.direccion_principal} />}
@@ -392,10 +393,10 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
                       {historial.map((conv) => {
                         // Icono según tipo de canal
                         const iconoCanal = conv.tipo_canal === 'whatsapp'
-                          ? <MessageCircle size={12} style={{ color: 'var(--canal-whatsapp)' }} />
+                          ? <IconoWhatsApp size={12} style={{ color: 'var(--canal-whatsapp)' }} />
                           : conv.tipo_canal === 'correo'
                             ? <Mail size={12} style={{ color: 'var(--canal-correo)' }} />
-                            : <MessageCircle size={12} style={{ color: 'var(--canal-interno)' }} />
+                            : <Hash size={12} style={{ color: 'var(--canal-interno)' }} />
 
                         // Color de insignia según estado
                         const colorEstado: Record<string, 'exito' | 'advertencia' | 'info' | 'neutro' | 'peligro'> = {

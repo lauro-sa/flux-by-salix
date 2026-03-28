@@ -80,14 +80,7 @@ export function SidebarCorreo({
   }, [contadores])
 
   return (
-    <div
-      className="flex flex-col h-full flex-shrink-0 transition-all duration-200"
-      style={{
-        width: colapsado ? 48 : 224,
-        borderRight: '1px solid var(--borde-sutil)',
-        background: 'var(--superficie-sidebar, var(--superficie-tarjeta))',
-      }}
-    >
+    <div className="flex flex-col h-full">
       {/* Header: Redactar */}
       <div className={`${colapsado ? 'p-1.5 flex flex-col items-center' : 'p-3'}`}>
         {colapsado ? (

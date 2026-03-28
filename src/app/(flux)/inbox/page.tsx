@@ -7,10 +7,11 @@ import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { Tabs } from '@/componentes/ui/Tabs'
 import { Boton } from '@/componentes/ui/Boton'
 import {
-  MessageCircle, Mail, Hash, Settings, PanelRightOpen, PanelRightClose,
+  Mail, Hash, Settings, PanelRightOpen, PanelRightClose,
   PanelLeftOpen, PanelLeftClose,
   Plus, Pen,
 } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { ListaConversaciones } from './_componentes/ListaConversaciones'
 import { PanelWhatsApp, VisorMedia, type MediaVisor } from './_componentes/PanelWhatsApp'
 import { PanelCorreo } from './_componentes/PanelCorreo'
@@ -34,7 +35,7 @@ import type { DatosMensaje } from './_componentes/CompositorMensaje'
 function generarTabs(modulosActivos: Set<string>) {
   const tabs = []
   if (modulosActivos.has('inbox_whatsapp')) {
-    tabs.push({ clave: 'whatsapp', etiqueta: 'WhatsApp', icono: <MessageCircle size={14} /> })
+    tabs.push({ clave: 'whatsapp', etiqueta: 'WhatsApp', icono: <IconoWhatsApp size={14} /> })
   }
   if (modulosActivos.has('inbox_correo')) {
     tabs.push({ clave: 'correo', etiqueta: 'Correo', icono: <Mail size={14} /> })
