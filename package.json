@@ -45,7 +45,6 @@
     "mailparser": "^3.9.6",
     "next": "^16.2.1",
     "nodemailer": "^8.0.4",
-    "pdfjs-dist": "^5.5.207",
     "postcss": "^8.5.8",
     "postgres": "^3.4.8",
     "puppeteer-core": "^24.40.0",

@@ -325,11 +325,38 @@ async function procesarCorreoEntrante(
   const emailRemitente = extraerEmail(correo.de)
   const esEntrante = emailRemitente.toLowerCase() !== emailCanal.toLowerCase()
 
+  // 2.5. Verificar listas de permitidos/bloqueados (solo entrantes)
+  let estadoInicial: 'abierta' | 'spam' = 'abierta'
+  if (esEntrante) {
+    const { data: configInbox } = await admin
+      .from('config_inbox')
+      .select('correo_lista_permitidos, correo_lista_bloqueados')
+      .eq('empresa_id', empresaId)
+      .maybeSingle()
+
+    if (configInbox) {
+      const permitidos = (configInbox.correo_lista_permitidos || []) as string[]
+      const bloqueados = (configInbox.correo_lista_bloqueados || []) as string[]
+      const dominio = emailRemitente.split('@')[1] || ''
+
+      const estaBloqueado = bloqueados.some(b =>
+        b.startsWith('@') ? dominio === b.slice(1).toLowerCase() : emailRemitente === b.toLowerCase()
+      )
+      const estaPermitido = permitidos.some(p =>
+        p.startsWith('@') ? dominio === p.slice(1).toLowerCase() : emailRemitente === p.toLowerCase()
+      )
+
+      if (estaBloqueado && !estaPermitido) {
+        estadoInicial = 'spam'
+      }
+    }
+  }
+
   // 3. Encontrar o crear conversación
   let conversacionId = await buscarConversacionPorHilo(admin, correo, empresaId)
 
   if (!conversacionId) {
-    conversacionId = await crearConversacion(admin, correo, empresaId, canalId, esEntrante, emailCanal)
+    conversacionId = await crearConversacion(admin, correo, empresaId, canalId, esEntrante, emailCanal, estadoInicial)
   }
 
   // 4. Buscar/crear contacto si es entrante
@@ -415,7 +442,7 @@ async function procesarCorreoEntrante(
   if (esEntrante) {
     const { data: convActual } = await admin
       .from('conversaciones')
-      .select('mensajes_sin_leer')
+      .select('mensajes_sin_leer, asignado_a')
       .eq('id', conversacionId)
       .single()
 
@@ -424,6 +451,26 @@ async function procesarCorreoEntrante(
         .from('conversaciones')
         .update({ mensajes_sin_leer: (convActual.mensajes_sin_leer || 0) + 1 })
         .eq('id', conversacionId)
+
+      // Crear notificación para el agente asignado (si existe)
+      if (convActual.asignado_a) {
+        try {
+          await admin.from('notificaciones').insert({
+            empresa_id: empresaId,
+            usuario_id: convActual.asignado_a,
+            tipo: 'nuevo_mensaje',
+            titulo: `Nuevo correo de ${contactoNombre}`,
+            cuerpo: previewTexto.slice(0, 100) || correo.asunto,
+            icono: 'mail',
+            color: 'var(--canal-correo)',
+            url: `/inbox?conv=${conversacionId}`,
+            referencia_tipo: 'conversacion',
+            referencia_id: conversacionId,
+          })
+        } catch {
+          // Silenciar si falla la notificación
+        }
+      }
     }
   }
 
@@ -497,6 +544,7 @@ async function crearConversacion(
   canalId: string,
   esEntrante: boolean,
   emailCanal: string,
+  estado: 'abierta' | 'spam' = 'abierta',
 ): Promise<string> {
   // El identificador externo es la contraparte (no nuestro email)
   const identificadorExterno = esEntrante
@@ -518,7 +566,7 @@ async function crearConversacion(
       identificador_externo: identificadorExterno,
       hilo_externo_id: correo.messageId || correo.threadId || null,
       contacto_nombre: contactoNombre || identificadorExterno,
-      estado: 'abierta',
+      estado,
       prioridad: 'normal',
       asunto: asuntoNormalizado || correo.asunto || null,
       mensajes_sin_leer: esEntrante ? 1 : 0,

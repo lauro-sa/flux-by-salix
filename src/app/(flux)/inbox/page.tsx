@@ -221,22 +221,41 @@ export default function PaginaInbox() {
     }
   }, [conversaciones])
 
-  // Enviar mensaje
+  // Enviar mensaje (WhatsApp usa API dedicada, interno usa mensajes genérico)
   const enviarMensaje = useCallback(async (datos: DatosMensaje) => {
     if (!conversacionSeleccionada) return
     setEnviando(true)
     try {
-      const res = await fetch('/api/inbox/mensajes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          conversacion_id: conversacionSeleccionada.id,
-          ...datos,
-        }),
-      })
-      const data = await res.json()
-      if (data.mensaje) {
-        setMensajes(prev => [...prev, { ...data.mensaje, adjuntos: [] }])
+      // WhatsApp: enviar vía API de Meta
+      if (conversacionSeleccionada.tipo_canal === 'whatsapp') {
+        const res = await fetch('/api/inbox/whatsapp/enviar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversacion_id: conversacionSeleccionada.id,
+            telefono: conversacionSeleccionada.identificador_externo,
+            tipo: 'text',
+            texto: datos.texto,
+          }),
+        })
+        const data = await res.json()
+        if (data.mensaje) {
+          setMensajes(prev => [...prev, { ...data.mensaje, adjuntos: [] }])
+        }
+      } else {
+        // Interno u otros: solo guardar en BD
+        const res = await fetch('/api/inbox/mensajes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversacion_id: conversacionSeleccionada.id,
+            ...datos,
+          }),
+        })
+        const data = await res.json()
+        if (data.mensaje) {
+          setMensajes(prev => [...prev, { ...data.mensaje, adjuntos: [] }])
+        }
       }
     } catch {
       // TODO: toast de error
@@ -284,6 +303,24 @@ export default function PaginaInbox() {
         body: JSON.stringify({ estado: 'spam' }),
       })
       // Remover de la lista si no estamos filtrando por spam
+      setConversaciones(prev => prev.filter(c => c.id !== conversacionId))
+      if (conversacionSeleccionada?.id === conversacionId) {
+        setConversacionSeleccionada(null)
+        setMensajes([])
+      }
+    } catch {
+      // TODO: toast de error
+    }
+  }, [conversacionSeleccionada])
+
+  // Archivar conversación (marcar como resuelta)
+  const archivarConversacion = useCallback(async (conversacionId: string) => {
+    try {
+      await fetch(`/api/inbox/conversaciones/${conversacionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: 'resuelta' }),
+      })
       setConversaciones(prev => prev.filter(c => c.id !== conversacionId))
       if (conversacionSeleccionada?.id === conversacionId) {
         setConversacionSeleccionada(null)
@@ -518,6 +555,7 @@ export default function PaginaInbox() {
               mensajes={mensajes}
               onEnviarCorreo={enviarCorreo}
               onMarcarSpam={marcarSpam}
+              onArchivar={archivarConversacion}
               cargando={cargandoMensajes}
               enviando={enviando}
               emailCanal={

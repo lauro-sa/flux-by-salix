@@ -30,28 +30,16 @@ export async function POST(request: NextRequest) {
       firma_texto,
     } = body
 
-    if (!conversacion_id || !canal_id) {
-      return NextResponse.json({ error: 'conversacion_id y canal_id son requeridos' }, { status: 400 })
+    if (!conversacion_id) {
+      return NextResponse.json({ error: 'conversacion_id es requerido' }, { status: 400 })
     }
 
     const admin = crearClienteAdmin()
 
-    // Obtener canal y config
-    const { data: canal } = await admin
-      .from('canales_inbox')
-      .select('id, config_conexion')
-      .eq('id', canal_id)
-      .eq('empresa_id', empresaId)
-      .single()
-
-    if (!canal) return NextResponse.json({ error: 'Canal no encontrado' }, { status: 404 })
-
-    const config = canal.config_conexion as unknown as ConfigCuentaWhatsApp
-
-    // Obtener conversación para el teléfono del contacto
+    // Obtener conversación para el teléfono y canal_id
     const { data: conversacion } = await admin
       .from('conversaciones')
-      .select('identificador_externo')
+      .select('identificador_externo, canal_id')
       .eq('id', conversacion_id)
       .single()
 
@@ -60,6 +48,19 @@ export async function POST(request: NextRequest) {
     }
 
     const telefono = conversacion.identificador_externo
+    const canalIdFinal = canal_id || conversacion.canal_id
+
+    // Obtener canal y config
+    const { data: canal } = await admin
+      .from('canales_inbox')
+      .select('id, config_conexion')
+      .eq('id', canalIdFinal)
+      .eq('empresa_id', empresaId)
+      .single()
+
+    if (!canal) return NextResponse.json({ error: 'Canal no encontrado' }, { status: 404 })
+
+    const config = canal.config_conexion as unknown as ConfigCuentaWhatsApp
 
     // Obtener nombre del agente
     const { data: perfil } = await admin

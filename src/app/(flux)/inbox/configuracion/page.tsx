@@ -150,34 +150,13 @@ export default function PaginaConfiguracionInbox() {
 
       {/* Correo */}
       {seccionActiva === 'correo' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
-              Bandejas de correo
-            </h3>
-            <Boton variante="primario" tamano="sm" icono={<Plus size={14} />} onClick={() => setModalCanal({ abierto: true, tipo: 'correo' })}>
-              Agregar bandeja
-            </Boton>
-          </div>
-
-          <Alerta tipo="info" titulo="Tipos de conexión">
-            Podés conectar correos vía IMAP/SMTP (cualquier proveedor) o Gmail OAuth (conexión directa con Google).
-          </Alerta>
-
-          {canalesCorreo.length === 0 ? (
-            <EstadoVacio
-              icono={<Mail />}
-              titulo="Sin bandejas de correo"
-              descripcion="Conectá una bandeja de correo compartida (ventas@, info@) o personal."
-            />
-          ) : (
-            <div className="space-y-3">
-              {canalesCorreo.map((canal) => (
-                <CanalCard key={canal.id} canal={canal} onRecargar={cargar} />
-              ))}
-            </div>
-          )}
-        </div>
+        <SeccionCorreo
+          canalesCorreo={canalesCorreo}
+          config={config}
+          onAgregarCanal={() => setModalCanal({ abierto: true, tipo: 'correo' })}
+          onRecargar={cargar}
+          onGuardarConfig={guardarConfig}
+        />
       )}
 
       {/* Interno */}
@@ -668,6 +647,163 @@ function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () =
           }}
         />
       )}
+    </div>
+  )
+}
+
+// Sección de Correo — bandejas, firma, listas permitidos/bloqueados
+function SeccionCorreo({
+  canalesCorreo,
+  config,
+  onAgregarCanal,
+  onRecargar,
+  onGuardarConfig,
+}: {
+  canalesCorreo: CanalInbox[]
+  config: ConfigInbox | null
+  onAgregarCanal: () => void
+  onRecargar: () => void
+  onGuardarConfig: (cambios: Partial<ConfigInbox>) => void
+}) {
+  const configAny = config as unknown as Record<string, unknown> | null
+  const [listaPermitidos, setListaPermitidos] = useState(
+    ((configAny?.correo_lista_permitidos as string[]) || []).join('\n')
+  )
+  const [listaBloqueados, setListaBloqueados] = useState(
+    ((configAny?.correo_lista_bloqueados as string[]) || []).join('\n')
+  )
+
+  const guardarListas = () => {
+    const permitidos = listaPermitidos.split('\n').map(l => l.trim()).filter(Boolean)
+    const bloqueados = listaBloqueados.split('\n').map(l => l.trim()).filter(Boolean)
+    onGuardarConfig({
+      ...config,
+      correo_lista_permitidos: permitidos,
+      correo_lista_bloqueados: bloqueados,
+    } as Partial<ConfigInbox>)
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Bandejas */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+          Bandejas de correo
+        </h3>
+        <Boton variante="primario" tamano="sm" icono={<Plus size={14} />} onClick={onAgregarCanal}>
+          Agregar bandeja
+        </Boton>
+      </div>
+
+      <Alerta tipo="info" titulo="Tipos de conexión">
+        Podés conectar correos vía IMAP/SMTP (cualquier proveedor) o Gmail OAuth (conexión directa con Google).
+      </Alerta>
+
+      {canalesCorreo.length === 0 ? (
+        <EstadoVacio
+          icono={<Mail />}
+          titulo="Sin bandejas de correo"
+          descripcion="Conectá una bandeja de correo compartida (ventas@, info@) o personal."
+        />
+      ) : (
+        <div className="space-y-3">
+          {canalesCorreo.map((canal) => (
+            <CanalCard key={canal.id} canal={canal} onRecargar={onRecargar} />
+          ))}
+        </div>
+      )}
+
+      {/* Firma de correo */}
+      <div className="pt-4" style={{ borderTop: '1px solid var(--borde-sutil)' }}>
+        <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--texto-primario)' }}>
+          Firma de correo
+        </h3>
+        <p className="text-xs mb-3" style={{ color: 'var(--texto-terciario)' }}>
+          Se incluye al final de cada correo enviado. Podés usar HTML básico.
+        </p>
+        {canalesCorreo.map((canal) => {
+          const configCanal = canal.config_conexion as Record<string, unknown>
+          const firmaActual = (configCanal.firma || '') as string
+
+          return (
+            <div key={canal.id} className="mb-4">
+              <label className="text-xs font-medium block mb-1" style={{ color: 'var(--texto-secundario)' }}>
+                {canal.nombre}
+              </label>
+              <textarea
+                defaultValue={firmaActual}
+                onBlur={async (e) => {
+                  const nuevaFirma = e.target.value
+                  await fetch(`/api/inbox/canales/${canal.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      config_conexion: { ...configCanal, firma: nuevaFirma },
+                    }),
+                  })
+                }}
+                rows={3}
+                className="w-full text-xs rounded-lg p-2.5 resize-none outline-none"
+                style={{
+                  background: 'var(--superficie-hover)',
+                  color: 'var(--texto-primario)',
+                  border: '1px solid var(--borde-sutil)',
+                }}
+                placeholder="Ej: Juan Pérez — Ventas — Mi Empresa S.A."
+              />
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Listas de permitidos/bloqueados */}
+      <div className="pt-4" style={{ borderTop: '1px solid var(--borde-sutil)' }}>
+        <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--texto-primario)' }}>
+          Filtro anti-spam
+        </h3>
+        <p className="text-xs mb-3" style={{ color: 'var(--texto-terciario)' }}>
+          Emails o dominios (uno por línea). Los permitidos nunca se marcan como spam. Los bloqueados se auto-clasifican como spam.
+        </p>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-medium block mb-1" style={{ color: 'var(--insignia-exito)' }}>
+              Permitidos
+            </label>
+            <textarea
+              value={listaPermitidos}
+              onChange={(e) => setListaPermitidos(e.target.value)}
+              onBlur={guardarListas}
+              rows={5}
+              className="w-full text-xs rounded-lg p-2.5 resize-none outline-none font-mono"
+              style={{
+                background: 'var(--superficie-hover)',
+                color: 'var(--texto-primario)',
+                border: '1px solid var(--borde-sutil)',
+              }}
+              placeholder="cliente@empresa.com&#10;@socio.com"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium block mb-1" style={{ color: 'var(--insignia-peligro)' }}>
+              Bloqueados
+            </label>
+            <textarea
+              value={listaBloqueados}
+              onChange={(e) => setListaBloqueados(e.target.value)}
+              onBlur={guardarListas}
+              rows={5}
+              className="w-full text-xs rounded-lg p-2.5 resize-none outline-none font-mono"
+              style={{
+                background: 'var(--superficie-hover)',
+                color: 'var(--texto-primario)',
+                border: '1px solid var(--borde-sutil)',
+              }}
+              placeholder="spam@dominio.com&#10;@marketing-masivo.com"
+            />
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

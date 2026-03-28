@@ -336,13 +336,27 @@ export function PanelWhatsApp({
                       {msg.remitente_nombre}
                     </p>
                   )}
-                  <ContenidoMensaje mensaje={msg} onAbrirVisor={onAbrirVisor} />
-                  <div className="flex items-center justify-end gap-1 mt-0.5">
-                    <span className="text-[10px]" style={{ color: 'var(--texto-terciario)' }}>
-                      {formatoHora(msg.creado_en)}
-                    </span>
-                    {esPropio && ICONO_ESTADO[msg.wa_status || msg.estado]}
-                  </div>
+                  <ContenidoMensaje
+                    mensaje={msg}
+                    onAbrirVisor={onAbrirVisor}
+                    metaHora={
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px]" style={{ color: 'var(--texto-terciario)' }}>
+                          {formatoHora(msg.creado_en)}
+                        </span>
+                        {esPropio && ICONO_ESTADO[msg.wa_status || msg.estado]}
+                      </div>
+                    }
+                  />
+                  {/* Hora + estado: para audio va integrada en el reproductor */}
+                  {msg.tipo_contenido !== 'audio' && (
+                    <div className="flex items-center justify-end gap-1 mt-0.5">
+                      <span className="text-[10px]" style={{ color: 'var(--texto-terciario)' }}>
+                        {formatoHora(msg.creado_en)}
+                      </span>
+                      {esPropio && ICONO_ESTADO[msg.wa_status || msg.estado]}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )
@@ -555,7 +569,7 @@ export function VisorMedia({
 // Safari no soporta OGG/Opus, así que usamos Web Audio API como fallback
 // ═══════════════════════════════════════════════════
 
-function ReproductorAudio({ adjunto }: { adjunto: MensajeAdjunto }) {
+function ReproductorAudio({ adjunto, children }: { adjunto: MensajeAdjunto; children?: React.ReactNode }) {
   const audioRef = useRef<HTMLAudioElement>(null)
   const [reproduciendo, setReproduciendo] = useState(false)
   const [progreso, setProgreso] = useState(0)
@@ -570,11 +584,16 @@ function ReproductorAudio({ adjunto }: { adjunto: MensajeAdjunto }) {
     soportaOgg.current = audio.canPlayType('audio/ogg; codecs=opus') !== ''
   }, [])
 
+  // Barras estilo WhatsApp: finas, centradas, con variación orgánica
   const barras = useRef(
-    Array.from({ length: 28 }, (_, i) => {
-      const base = Math.sin(i * 0.7) * 0.4 + 0.5
-      const variacion = Math.sin(i * 2.3) * 0.2
-      return Math.max(0.15, Math.min(1, base + variacion))
+    Array.from({ length: 63 }, (_, i) => {
+      // Hash pseudo-random estable por índice
+      const h = Math.sin(i * 12.9898 + 78.233) * 43758.5453
+      const rand = h - Math.floor(h)
+      // Variación rápida (detalle) + envelope suave
+      const detalle = rand * 0.7
+      const envelope = 0.3 + 0.7 * Math.sin((i / 62) * Math.PI) // sube y baja
+      return Math.max(0.08, Math.min(1, detalle * envelope + 0.15))
     })
   ).current
 
@@ -699,7 +718,7 @@ function ReproductorAudio({ adjunto }: { adjunto: MensajeAdjunto }) {
   }
 
   return (
-    <div className="flex items-center gap-2 min-w-[220px] max-w-[280px]">
+    <div className="flex items-center gap-2.5 min-w-[240px] max-w-[320px]">
       {/* Audio nativo (solo se usa si el navegador soporta OGG) */}
       <audio
         ref={audioRef}
@@ -728,33 +747,82 @@ function ReproductorAudio({ adjunto }: { adjunto: MensajeAdjunto }) {
       />
       <button
         onClick={toggleReproducir}
-        className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
-        style={{ background: 'var(--texto-marca)', color: '#fff' }}
+        className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
+        style={{ background: 'var(--superficie-hover)', color: 'var(--texto-secundario)' }}
       >
-        {reproduciendo ? <Pause size={14} /> : <Play size={14} className="ml-0.5" />}
+        {reproduciendo ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
       </button>
-      <div className="flex-1 flex flex-col gap-1">
-        <div className="flex items-end gap-px h-6 cursor-pointer" onClick={manejarClick}>
-          {barras.map((altura, i) => {
-            const activa = (i / barras.length) <= progreso
-            return (
-              <div
-                key={i}
-                className="flex-1 rounded-full transition-colors"
-                style={{
-                  height: `${altura * 100}%`,
-                  minWidth: 2,
-                  background: activa ? 'var(--texto-marca)' : 'var(--borde-sutil)',
-                }}
-              />
-            )
-          })}
+      <div className="flex-1 flex flex-col gap-0.5">
+        {/* Waveform centrada (barras arriba y abajo) + circulito de progreso */}
+        <div
+          className="relative flex items-center h-9 cursor-pointer"
+          onClick={manejarClick}
+          onMouseDown={(e) => {
+            // Drag del circulito
+            const contenedor = e.currentTarget
+            const mover = (ev: MouseEvent) => {
+              const rect = contenedor.getBoundingClientRect()
+              const x = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width))
+              if (soportaOgg.current && audioRef.current?.duration) {
+                audioRef.current.currentTime = x * audioRef.current.duration
+              } else if (bufferRef.current) {
+                offsetRef.current = x * bufferRef.current.duration
+                setProgreso(x)
+                setTiempoActual(x * bufferRef.current.duration)
+              }
+            }
+            const soltar = () => {
+              document.removeEventListener('mousemove', mover)
+              document.removeEventListener('mouseup', soltar)
+            }
+            document.addEventListener('mousemove', mover)
+            document.addEventListener('mouseup', soltar)
+          }}
+        >
+          {/* Waveform centrada — barras verticales simétricas */}
+          <div className="flex items-center w-full h-full">
+            {barras.map((altura, i) => {
+              const activa = (i / barras.length) <= progreso
+              return (
+                <div
+                  key={i}
+                  className="flex-1"
+                  style={{
+                    height: `${altura * 90}%`,
+                    minWidth: 2,
+                    marginInline: '0.5px',
+                    borderRadius: 1,
+                    background: activa
+                      ? 'var(--texto-marca)'
+                      : 'var(--texto-terciario)',
+                    opacity: activa ? 1 : 0.35,
+                  }}
+                />
+              )
+            })}
+          </div>
+          {/* Punto indicador de posición */}
+          <div
+            className="absolute top-1/2 -translate-y-1/2 rounded-full pointer-events-none"
+            style={{
+              width: 8,
+              height: 8,
+              left: `calc(${progreso * 100}% - 4px)`,
+              background: 'var(--texto-marca)',
+              opacity: progreso > 0 || reproduciendo ? 1 : 0,
+              transition: 'opacity 0.15s',
+            }}
+          />
         </div>
-        <span className="text-[10px]" style={{ color: 'var(--texto-terciario)' }}>
-          {reproduciendo || tiempoActual > 0
-            ? formatoDuracion(tiempoActual)
-            : duracion > 0 ? formatoDuracion(duracion) : '0:00'}
-        </span>
+        {/* Duración — la hora y estado se inyectan desde la burbuja padre via children */}
+        <div className="flex items-center justify-between">
+          <span className="text-[10px]" style={{ color: 'var(--texto-terciario)' }}>
+            {reproduciendo || tiempoActual > 0
+              ? formatoDuracion(tiempoActual)
+              : duracion > 0 ? formatoDuracion(duracion) : '0:00'}
+          </span>
+          {children}
+        </div>
       </div>
     </div>
   )
@@ -850,54 +918,6 @@ function GrillaImagenes({
   )
 }
 
-// ═══════════════════════════════════════════════════
-// MINIATURA DE PDF (renderiza primera página)
-// ═══════════════════════════════════════════════════
-
-function MiniaturaPdf({ url }: { url: string }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [cargado, setCargado] = useState(false)
-
-  useEffect(() => {
-    let cancelado = false
-    const renderizar = async () => {
-      try {
-        const pdfjsLib = await import('pdfjs-dist')
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
-
-        const pdf = await pdfjsLib.getDocument(url).promise
-        const pagina = await pdf.getPage(1)
-        const viewport = pagina.getViewport({ scale: 0.5 })
-
-        const canvas = canvasRef.current
-        if (!canvas || cancelado) return
-
-        canvas.width = viewport.width
-        canvas.height = viewport.height
-
-        const ctx = canvas.getContext('2d')
-        if (!ctx) return
-
-        await pagina.render({ canvasContext: ctx, viewport, canvas } as never).promise
-        if (!cancelado) setCargado(true)
-      } catch {
-        // Si falla el render, no mostrar miniatura
-      }
-    }
-    renderizar()
-    return () => { cancelado = true }
-  }, [url])
-
-  if (!cargado) return null
-
-  return (
-    <canvas
-      ref={canvasRef}
-      className="rounded-md max-w-full mb-1"
-      style={{ maxHeight: 160, border: '1px solid var(--borde-sutil)' }}
-    />
-  )
-}
 
 // Placeholder para media que aún no tiene adjunto (descargando)
 const ICONO_MEDIA: Record<string, { icono: React.ReactNode; texto: string }> = {
@@ -932,9 +952,11 @@ function MediaCargando({ tipo }: { tipo: string }) {
 function ContenidoMensaje({
   mensaje,
   onAbrirVisor,
+  metaHora,
 }: {
   mensaje: MensajeConAdjuntos
   onAbrirVisor: (url: string) => void
+  metaHora?: React.ReactNode
 }) {
   const { tipo_contenido, texto, adjuntos } = mensaje
   const caption = textoVisible(texto)
@@ -960,7 +982,7 @@ function ContenidoMensaje({
       ) : <MediaCargando tipo="imagen" />
 
     case 'audio':
-      if (adjuntos[0]) return <ReproductorAudio adjunto={adjuntos[0]} />
+      if (adjuntos[0]) return <ReproductorAudio adjunto={adjuntos[0]}>{metaHora}</ReproductorAudio>
       // Audio sin adjunto: mostrar placeholder descriptivo
       if (texto) {
         return (
@@ -984,38 +1006,31 @@ function ContenidoMensaje({
       if (adjuntos.length > 0) {
         return (
           <div className="space-y-1">
-            {adjuntos.map((adj) => {
-              const esPdf = adj.tipo_mime === 'application/pdf' || adj.nombre_archivo.endsWith('.pdf')
-              return (
-                <a
-                  key={adj.id}
-                  href={adj.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block rounded overflow-hidden"
-                  style={{ background: 'var(--superficie-hover)' }}
-                >
-                  {/* Miniatura de PDF */}
-                  {esPdf && <MiniaturaPdf url={adj.url} />}
-                  <div className="flex items-center gap-2 px-2 py-1.5">
-                    <FileText size={16} style={{ color: 'var(--texto-marca)' }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate" style={{ color: 'var(--texto-primario)' }}>
-                        {adj.nombre_archivo}
-                      </p>
-                      {adj.tamano_bytes && (
-                        <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                          {adj.tamano_bytes > 1048576
-                            ? `${(adj.tamano_bytes / 1048576).toFixed(1)} MB`
-                            : `${(adj.tamano_bytes / 1024).toFixed(0)} KB`}
-                        </p>
-                      )}
-                    </div>
-                    <Download size={14} style={{ color: 'var(--texto-terciario)' }} />
-                  </div>
-                </a>
-              )
-            })}
+            {adjuntos.map((adj) => (
+              <a
+                key={adj.id}
+                href={adj.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-2 py-1.5 rounded"
+                style={{ background: 'var(--superficie-hover)' }}
+              >
+                <FileText size={16} style={{ color: 'var(--texto-marca)' }} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium truncate" style={{ color: 'var(--texto-primario)' }}>
+                    {adj.nombre_archivo}
+                  </p>
+                  {adj.tamano_bytes && (
+                    <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                      {adj.tamano_bytes > 1048576
+                        ? `${(adj.tamano_bytes / 1048576).toFixed(1)} MB`
+                        : `${(adj.tamano_bytes / 1024).toFixed(0)} KB`}
+                    </p>
+                  )}
+                </div>
+                <Download size={14} style={{ color: 'var(--texto-terciario)' }} />
+              </a>
+            ))}
             {caption && (
               <p className="text-sm" style={{ color: 'var(--texto-primario)' }}>{caption}</p>
             )}

@@ -5,17 +5,35 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Boton } from '@/componentes/ui/Boton'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import {
-  Send, Paperclip, X, ChevronDown, ChevronUp,
-  Image, Film, FileText, File, Trash2, Minus,
+  Send, Paperclip, X, Upload,
+  Image, Film, FileText, File, Loader2,
 } from 'lucide-react'
 
 /**
  * Compositor de correo rico — UI dedicada para redactar emails.
- * Usa EditorTexto (TipTap) para cuerpo HTML, chips para destinatarios, CCO toggle.
+ * Features: chips con autocomplete de contactos, CC/CCO toggle, TipTap,
+ * upload real de adjuntos, drag & drop, firma configurable, deshacer envío.
  * Se usa en: PanelCorreo (responder/reenviar) y page.tsx (correo nuevo).
  */
 
 // ─── Tipos ───
+
+/** Adjunto ya subido a Storage */
+interface AdjuntoSubido {
+  id: string
+  nombre_archivo: string
+  tipo_mime: string
+  tamano_bytes: number
+  url: string
+  miniatura_url: string | null
+}
+
+/** Resultado de autocomplete de contactos */
+interface ContactoSugerido {
+  id: string
+  nombre: string
+  correo: string
+}
 
 export interface DatosCorreo {
   correo_para: string[]
@@ -31,9 +49,7 @@ export interface DatosCorreo {
 }
 
 interface PropiedadesCompositorCorreo {
-  /** Tipo de acción */
   tipo: 'nuevo' | 'responder' | 'responder_todos' | 'reenviar'
-  /** Datos pre-llenados */
   paraInicial?: string[]
   ccInicial?: string[]
   ccoInicial?: string[]
@@ -42,42 +58,38 @@ interface PropiedadesCompositorCorreo {
   inReplyTo?: string
   references?: string[]
   adjuntosIdsInicial?: string[]
-  /** Canales de correo disponibles para selector "De:" */
   canalesCorreo?: { id: string; nombre: string; email: string }[]
   canalSeleccionado?: string
   onCambiarCanal?: (canalId: string) => void
-  /** Callbacks */
   onEnviar: (datos: DatosCorreo) => void
   onCancelar?: () => void
   onAdjuntar?: (archivos: File[]) => void
   cargando?: boolean
-  /** Modo compacto (inline en PanelCorreo) vs completo (correo nuevo) */
   compacto?: boolean
+  /** Firma HTML a incluir al final del correo */
+  firma?: string
 }
 
-// ─── Componente de Chip de email ───
+// ─── Chip de email ───
 
-function ChipEmail({ email, onRemover }: { email: string; onRemover: () => void }) {
+function ChipEmail({ email, nombre, onRemover }: { email: string; nombre?: string; onRemover: () => void }) {
   return (
     <span
-      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs max-w-[200px]"
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs max-w-[220px]"
       style={{
         background: 'var(--superficie-hover)',
         color: 'var(--texto-secundario)',
       }}
     >
-      <span className="truncate">{email}</span>
-      <button
-        onClick={onRemover}
-        className="flex-shrink-0 hover:opacity-70"
-      >
+      <span className="truncate">{nombre ? `${nombre} <${email}>` : email}</span>
+      <button onClick={onRemover} className="flex-shrink-0 hover:opacity-70">
         <X size={10} />
       </button>
     </span>
   )
 }
 
-// ─── Input de emails con chips ───
+// ─── Input de emails con chips + autocomplete ───
 
 function InputEmailChips({
   etiqueta,
@@ -91,7 +103,10 @@ function InputEmailChips({
   placeholder?: string
 }) {
   const [inputValor, setInputValor] = useState('')
+  const [sugerencias, setSugerencias] = useState<ContactoSugerido[]>([])
+  const [mostrarSugerencias, setMostrarSugerencias] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const agregarEmail = useCallback((valor: string) => {
     const email = valor.trim().toLowerCase()
@@ -99,7 +114,35 @@ function InputEmailChips({
       onChange([...emails, email])
     }
     setInputValor('')
+    setSugerencias([])
+    setMostrarSugerencias(false)
   }, [emails, onChange])
+
+  // Autocomplete con debounce
+  useEffect(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    if (inputValor.length < 2) {
+      setSugerencias([])
+      setMostrarSugerencias(false)
+      return
+    }
+
+    timeoutRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/contactos/buscar?q=${encodeURIComponent(inputValor)}`)
+        const data = await res.json()
+        const filtrados = (data.contactos || []).filter(
+          (c: ContactoSugerido) => c.correo && !emails.includes(c.correo.toLowerCase())
+        )
+        setSugerencias(filtrados)
+        setMostrarSugerencias(filtrados.length > 0)
+      } catch {
+        setSugerencias([])
+      }
+    }, 250)
+
+    return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current) }
+  }, [inputValor, emails])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.key === 'Enter' || e.key === ',' || e.key === 'Tab') && inputValor.trim()) {
@@ -109,44 +152,86 @@ function InputEmailChips({
     if (e.key === 'Backspace' && !inputValor && emails.length > 0) {
       onChange(emails.slice(0, -1))
     }
-  }
-
-  const handleBlur = () => {
-    if (inputValor.trim()) {
-      agregarEmail(inputValor)
+    if (e.key === 'Escape') {
+      setMostrarSugerencias(false)
     }
   }
 
+  const handleBlur = () => {
+    // Delay para permitir click en sugerencia
+    setTimeout(() => {
+      if (inputValor.trim()) agregarEmail(inputValor)
+      setMostrarSugerencias(false)
+    }, 200)
+  }
+
   return (
-    <div className="flex items-start gap-2 min-h-[32px]">
+    <div className="flex items-start gap-2 min-h-[32px] relative">
       <span
         className="text-xs w-10 flex-shrink-0 pt-1.5 text-right"
         style={{ color: 'var(--texto-terciario)' }}
       >
         {etiqueta}
       </span>
-      <div
-        className="flex-1 flex flex-wrap items-center gap-1 min-h-[28px] cursor-text"
-        onClick={() => inputRef.current?.focus()}
-      >
-        {emails.map((email, i) => (
-          <ChipEmail
-            key={`${email}-${i}`}
-            email={email}
-            onRemover={() => onChange(emails.filter((_, j) => j !== i))}
+      <div className="flex-1 relative">
+        <div
+          className="flex flex-wrap items-center gap-1 min-h-[28px] cursor-text"
+          onClick={() => inputRef.current?.focus()}
+        >
+          {emails.map((email, i) => (
+            <ChipEmail
+              key={`${email}-${i}`}
+              email={email}
+              onRemover={() => onChange(emails.filter((_, j) => j !== i))}
+            />
+          ))}
+          <input
+            ref={inputRef}
+            type="text"
+            value={inputValor}
+            onChange={(e) => setInputValor(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={handleBlur}
+            onFocus={() => { if (sugerencias.length > 0) setMostrarSugerencias(true) }}
+            className="flex-1 min-w-[120px] text-xs bg-transparent outline-none py-1"
+            style={{ color: 'var(--texto-primario)' }}
+            placeholder={emails.length === 0 ? (placeholder || 'correo@ejemplo.com') : ''}
           />
-        ))}
-        <input
-          ref={inputRef}
-          type="email"
-          value={inputValor}
-          onChange={(e) => setInputValor(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onBlur={handleBlur}
-          className="flex-1 min-w-[120px] text-xs bg-transparent outline-none py-1"
-          style={{ color: 'var(--texto-primario)' }}
-          placeholder={emails.length === 0 ? (placeholder || 'correo@ejemplo.com') : ''}
-        />
+        </div>
+
+        {/* Dropdown de sugerencias */}
+        <AnimatePresence>
+          {mostrarSugerencias && sugerencias.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              className="absolute left-0 right-0 z-50 mt-1 py-1 rounded-lg shadow-lg max-h-[160px] overflow-y-auto"
+              style={{
+                background: 'var(--superficie-elevada)',
+                border: '1px solid var(--borde-sutil)',
+              }}
+            >
+              {sugerencias.map((s) => (
+                <button
+                  key={s.id}
+                  className="w-full text-left px-3 py-1.5 text-xs transition-colors hover:bg-[var(--superficie-hover)]"
+                  onMouseDown={(e) => {
+                    e.preventDefault() // Prevenir blur
+                    agregarEmail(s.correo)
+                  }}
+                >
+                  <span className="font-medium" style={{ color: 'var(--texto-primario)' }}>
+                    {s.nombre}
+                  </span>
+                  <span className="ml-2" style={{ color: 'var(--texto-terciario)' }}>
+                    {s.correo}
+                  </span>
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   )
@@ -169,9 +254,9 @@ export function CompositorCorreo({
   onCambiarCanal,
   onEnviar,
   onCancelar,
-  onAdjuntar,
   cargando = false,
   compacto = false,
+  firma,
 }: PropiedadesCompositorCorreo) {
   const [para, setPara] = useState<string[]>(paraInicial)
   const [cc, setCC] = useState<string[]>(ccInicial)
@@ -180,12 +265,24 @@ export function CompositorCorreo({
   const [html, setHtml] = useState(htmlInicial)
   const [mostrarCC, setMostrarCC] = useState(ccInicial.length > 0)
   const [mostrarCCO, setMostrarCCO] = useState(ccoInicial.length > 0)
-  const [archivos, setArchivos] = useState<File[]>([])
-  const [adjuntosIds] = useState<string[]>(adjuntosIdsInicial)
+
+  // Adjuntos: archivos subidos con IDs
+  const [adjuntosSubidos, setAdjuntosSubidos] = useState<AdjuntoSubido[]>([])
+  const [adjuntosIds, setAdjuntosIds] = useState<string[]>(adjuntosIdsInicial)
+  const [subiendoAdjuntos, setSubiendoAdjuntos] = useState(false)
+
+  // Drag & drop
+  const [arrastrando, setArrastrando] = useState(false)
+  const dropRef = useRef<HTMLDivElement>(null)
+
+  // Deshacer envío
+  const [envioPendiente, setEnvioPendiente] = useState<DatosCorreo | null>(null)
+  const [timerDeshacer, setTimerDeshacer] = useState(5)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const inputArchivosRef = useRef<HTMLInputElement>(null)
 
-  // Actualizar si cambian los props (ej: cambiar de conversación)
+  // Actualizar si cambian los props
   useEffect(() => {
     setPara(paraInicial)
     setCC(ccInicial)
@@ -194,7 +291,85 @@ export function CompositorCorreo({
     setHtml(htmlInicial)
   }, [paraInicial.join(','), ccInicial.join(','), asuntoInicial])
 
-  const handleEnviar = useCallback(() => {
+  // Limpiar timer al desmontar
+  useEffect(() => {
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [])
+
+  // ─── Subida de adjuntos ───
+
+  const subirArchivos = useCallback(async (archivos: File[]) => {
+    if (archivos.length === 0) return
+    setSubiendoAdjuntos(true)
+
+    try {
+      const formData = new FormData()
+      for (const archivo of archivos) {
+        formData.append('archivos', archivo)
+      }
+
+      const res = await fetch('/api/inbox/correo/adjuntos', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        const nuevos: AdjuntoSubido[] = data.adjuntos || []
+        setAdjuntosSubidos(prev => [...prev, ...nuevos])
+        setAdjuntosIds(prev => [...prev, ...nuevos.map((a: AdjuntoSubido) => a.id)])
+      }
+    } catch (err) {
+      console.error('Error subiendo adjuntos:', err)
+    } finally {
+      setSubiendoAdjuntos(false)
+    }
+  }, [])
+
+  const handleArchivos = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nuevos = Array.from(e.target.files || [])
+    if (nuevos.length > 0) subirArchivos(nuevos)
+    e.target.value = ''
+  }
+
+  const removerAdjunto = (id: string) => {
+    setAdjuntosSubidos(prev => prev.filter(a => a.id !== id))
+    setAdjuntosIds(prev => prev.filter(aid => aid !== id))
+  }
+
+  // ─── Drag & drop ───
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setArrastrando(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    // Solo salir si realmente dejó el área
+    const rect = dropRef.current?.getBoundingClientRect()
+    if (rect) {
+      const { clientX, clientY } = e
+      if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+        setArrastrando(false)
+      }
+    }
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setArrastrando(false)
+
+    const archivos = Array.from(e.dataTransfer.files)
+    if (archivos.length > 0) subirArchivos(archivos)
+  }, [subirArchivos])
+
+  // ─── Enviar con deshacer ───
+
+  const prepararEnvio = useCallback(() => {
     if (para.length === 0 || cargando) return
 
     // Extraer texto plano del HTML
@@ -208,252 +383,310 @@ export function CompositorCorreo({
       .replace(/&gt;/g, '>')
       .trim()
 
-    onEnviar({
+    // Agregar firma al HTML si existe
+    let htmlFinal = html
+    if (firma) {
+      htmlFinal += `<br/><div style="border-top: 1px solid #e5e7eb; padding-top: 8px; margin-top: 16px; color: #6b7280; font-size: 13px;">${firma}</div>`
+    }
+
+    const datos: DatosCorreo = {
       correo_para: para,
       correo_cc: cc.length > 0 ? cc : undefined,
       correo_cco: cco.length > 0 ? cco : undefined,
       correo_asunto: asunto,
       texto: textoPlano,
-      html,
+      html: htmlFinal,
       correo_in_reply_to: inReplyTo,
       correo_references: references,
       adjuntos_ids: adjuntosIds.length > 0 ? adjuntosIds : undefined,
       tipo,
-    })
-  }, [para, cc, cco, asunto, html, inReplyTo, references, adjuntosIds, tipo, cargando, onEnviar])
-
-  const handleArchivos = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const nuevos = Array.from(e.target.files || [])
-    if (nuevos.length > 0) {
-      setArchivos(prev => [...prev, ...nuevos])
-      onAdjuntar?.(nuevos)
     }
-    e.target.value = ''
-  }
 
-  const puedeEnviar = para.length > 0 && !cargando
+    // Iniciar timer de deshacer (5 segundos)
+    setEnvioPendiente(datos)
+    setTimerDeshacer(5)
+
+    timerRef.current = setInterval(() => {
+      setTimerDeshacer(prev => {
+        if (prev <= 1) {
+          // Tiempo agotado: enviar
+          if (timerRef.current) clearInterval(timerRef.current)
+          timerRef.current = null
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }, [para, cc, cco, asunto, html, inReplyTo, references, adjuntosIds, tipo, cargando, firma])
+
+  // Cuando timer llega a 0, enviar
+  useEffect(() => {
+    if (timerDeshacer === 0 && envioPendiente) {
+      onEnviar(envioPendiente)
+      setEnvioPendiente(null)
+    }
+  }, [timerDeshacer, envioPendiente, onEnviar])
+
+  const deshacerEnvio = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current)
+    timerRef.current = null
+    setEnvioPendiente(null)
+    setTimerDeshacer(5)
+  }, [])
+
+  const puedeEnviar = para.length > 0 && !cargando && !subiendoAdjuntos && !envioPendiente
 
   return (
     <div
-      className="flex flex-col"
+      ref={dropRef}
+      className="flex flex-col relative"
       style={{
         background: 'var(--superficie-tarjeta)',
         borderTop: compacto ? '1px solid var(--borde-sutil)' : undefined,
         borderRadius: compacto ? 0 : '8px',
         border: compacto ? undefined : '1px solid var(--borde-sutil)',
       }}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
-      {/* Header con campos de email */}
-      <div
-        className="px-3 pt-3 pb-1 space-y-1"
-        style={{ borderBottom: '1px solid var(--borde-sutil)' }}
-      >
-        {/* Selector De: (solo si hay múltiples canales) */}
-        {canalesCorreo.length > 1 && (
-          <div className="flex items-center gap-2">
-            <span
-              className="text-xs w-10 flex-shrink-0 text-right"
-              style={{ color: 'var(--texto-terciario)' }}
-            >
-              De:
-            </span>
-            <select
-              value={canalSeleccionado || ''}
-              onChange={(e) => onCambiarCanal?.(e.target.value)}
-              className="text-xs bg-transparent outline-none cursor-pointer py-1"
-              style={{ color: 'var(--texto-primario)' }}
-            >
-              {canalesCorreo.map(c => (
-                <option key={c.id} value={c.id}>{c.nombre} ({c.email})</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Para */}
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <InputEmailChips
-              etiqueta="Para:"
-              emails={para}
-              onChange={setPara}
-              placeholder="destinatario@correo.com"
-            />
-          </div>
-          {/* Toggle CC/CCO */}
-          <div className="flex items-center gap-1 flex-shrink-0 pt-1">
-            {!mostrarCC && (
-              <button
-                onClick={() => setMostrarCC(true)}
-                className="text-xxs px-1.5 py-0.5 rounded transition-colors"
-                style={{ color: 'var(--texto-terciario)' }}
-              >
-                CC
-              </button>
-            )}
-            {!mostrarCCO && (
-              <button
-                onClick={() => setMostrarCCO(true)}
-                className="text-xxs px-1.5 py-0.5 rounded transition-colors"
-                style={{ color: 'var(--texto-terciario)' }}
-              >
-                CCO
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* CC */}
-        <AnimatePresence>
-          {mostrarCC && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-            >
-              <InputEmailChips
-                etiqueta="CC:"
-                emails={cc}
-                onChange={setCC}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* CCO */}
-        <AnimatePresence>
-          {mostrarCCO && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-            >
-              <InputEmailChips
-                etiqueta="CCO:"
-                emails={cco}
-                onChange={setCCO}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Asunto */}
-        <div className="flex items-center gap-2">
-          <span
-            className="text-xs w-10 flex-shrink-0 text-right"
-            style={{ color: 'var(--texto-terciario)' }}
-          >
-            Asunto:
-          </span>
-          <input
-            type="text"
-            value={asunto}
-            onChange={(e) => setAsunto(e.target.value)}
-            className="flex-1 text-xs bg-transparent outline-none py-1 font-medium"
-            style={{ color: 'var(--texto-primario)' }}
-            placeholder="Asunto del correo"
-          />
-        </div>
-      </div>
-
-      {/* Cuerpo del correo (TipTap) */}
-      <div className="px-3 py-2" style={{ minHeight: compacto ? 120 : 200 }}>
-        <EditorTexto
-          contenido={htmlInicial}
-          onChange={setHtml}
-          placeholder="Escribí tu mensaje..."
-          alturaMinima={compacto ? 100 : 180}
-          accionesExtra={
-            <button
-              onClick={() => inputArchivosRef.current?.click()}
-              className="p-1 rounded transition-colors"
-              style={{ color: 'var(--texto-terciario)' }}
-              title="Adjuntar archivo"
-            >
-              <Paperclip size={14} />
-            </button>
-          }
-        />
-        <input
-          ref={inputArchivosRef}
-          type="file"
-          multiple
-          onChange={handleArchivos}
-          className="hidden"
-          accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar"
-        />
-      </div>
-
-      {/* Archivos adjuntos */}
+      {/* Overlay de drag & drop */}
       <AnimatePresence>
-        {archivos.length > 0 && (
+        {arrastrando && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="px-3 pb-2 flex flex-wrap gap-1.5"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-50 flex items-center justify-center rounded-lg"
+            style={{
+              background: 'rgba(var(--texto-marca-rgb, 37, 99, 235), 0.08)',
+              border: '2px dashed var(--texto-marca)',
+            }}
           >
-            {archivos.map((archivo, i) => (
-              <div
-                key={`${archivo.name}-${i}`}
-                className="flex items-center gap-1.5 px-2 py-1 rounded text-xs"
-                style={{
-                  background: 'var(--superficie-hover)',
-                  color: 'var(--texto-secundario)',
-                }}
-              >
-                <ArchivoIcono tipo={archivo.type} />
-                <span className="max-w-[120px] truncate">{archivo.name}</span>
-                <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                  {formatoTamano(archivo.size)}
-                </span>
-                <button onClick={() => setArchivos(prev => prev.filter((_, j) => j !== i))}>
-                  <X size={10} />
-                </button>
-              </div>
-            ))}
+            <div className="flex flex-col items-center gap-2">
+              <Upload size={24} style={{ color: 'var(--texto-marca)' }} />
+              <span className="text-sm font-medium" style={{ color: 'var(--texto-marca)' }}>
+                Soltar archivos aquí
+              </span>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Footer: acciones */}
-      <div
-        className="flex items-center justify-between px-3 py-2"
-        style={{ borderTop: '1px solid var(--borde-sutil)' }}
-      >
-        <div className="flex items-center gap-2">
-          <Boton
-            variante="primario"
-            tamano="sm"
-            icono={<Send size={14} />}
-            onClick={handleEnviar}
-            cargando={cargando}
-            disabled={!puedeEnviar}
+      {/* Banner de deshacer envío */}
+      <AnimatePresence>
+        {envioPendiente && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="flex items-center justify-between px-4 py-2.5"
+            style={{ background: 'var(--texto-marca)', color: '#fff' }}
           >
-            Enviar
-          </Boton>
-          {onCancelar && (
-            <Boton
-              variante="fantasma"
-              tamano="sm"
-              onClick={onCancelar}
+            <span className="text-sm">
+              Enviando en {timerDeshacer}s...
+            </span>
+            <button
+              onClick={deshacerEnvio}
+              className="text-sm font-semibold underline"
             >
-              Descartar
-            </Boton>
-          )}
-        </div>
+              Deshacer
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => inputArchivosRef.current?.click()}
-            className="p-1.5 rounded-lg transition-colors"
-            style={{ color: 'var(--texto-terciario)' }}
-            title="Adjuntar archivo"
+      {/* Header con campos de email */}
+      {!envioPendiente && (
+        <>
+          <div
+            className="px-3 pt-3 pb-1 space-y-1"
+            style={{ borderBottom: '1px solid var(--borde-sutil)' }}
           >
-            <Paperclip size={16} />
-          </button>
-        </div>
-      </div>
+            {/* Selector De: (solo si hay múltiples canales) */}
+            {canalesCorreo.length > 1 && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs w-10 flex-shrink-0 text-right" style={{ color: 'var(--texto-terciario)' }}>
+                  De:
+                </span>
+                <select
+                  value={canalSeleccionado || ''}
+                  onChange={(e) => onCambiarCanal?.(e.target.value)}
+                  className="text-xs bg-transparent outline-none cursor-pointer py-1"
+                  style={{ color: 'var(--texto-primario)' }}
+                >
+                  {canalesCorreo.map(c => (
+                    <option key={c.id} value={c.id}>{c.nombre} ({c.email})</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Para */}
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <InputEmailChips etiqueta="Para:" emails={para} onChange={setPara} placeholder="destinatario@correo.com" />
+              </div>
+              <div className="flex items-center gap-1 flex-shrink-0 pt-1">
+                {!mostrarCC && (
+                  <button onClick={() => setMostrarCC(true)} className="text-xxs px-1.5 py-0.5 rounded transition-colors" style={{ color: 'var(--texto-terciario)' }}>CC</button>
+                )}
+                {!mostrarCCO && (
+                  <button onClick={() => setMostrarCCO(true)} className="text-xxs px-1.5 py-0.5 rounded transition-colors" style={{ color: 'var(--texto-terciario)' }}>CCO</button>
+                )}
+              </div>
+            </div>
+
+            {/* CC */}
+            <AnimatePresence>
+              {mostrarCC && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
+                  <InputEmailChips etiqueta="CC:" emails={cc} onChange={setCC} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* CCO */}
+            <AnimatePresence>
+              {mostrarCCO && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
+                  <InputEmailChips etiqueta="CCO:" emails={cco} onChange={setCCO} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Asunto */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs w-10 flex-shrink-0 text-right" style={{ color: 'var(--texto-terciario)' }}>Asunto:</span>
+              <input
+                type="text"
+                value={asunto}
+                onChange={(e) => setAsunto(e.target.value)}
+                className="flex-1 text-xs bg-transparent outline-none py-1 font-medium"
+                style={{ color: 'var(--texto-primario)' }}
+                placeholder="Asunto del correo"
+              />
+            </div>
+          </div>
+
+          {/* Cuerpo del correo (TipTap) */}
+          <div className="px-3 py-2" style={{ minHeight: compacto ? 120 : 200 }}>
+            <EditorTexto
+              contenido={htmlInicial}
+              onChange={setHtml}
+              placeholder="Escribí tu mensaje..."
+              alturaMinima={compacto ? 100 : 180}
+              accionesExtra={
+                <button
+                  onClick={() => inputArchivosRef.current?.click()}
+                  className="p-1 rounded transition-colors"
+                  style={{ color: 'var(--texto-terciario)' }}
+                >
+                  <Paperclip size={14} />
+                </button>
+              }
+            />
+            <input
+              ref={inputArchivosRef}
+              type="file"
+              multiple
+              onChange={handleArchivos}
+              className="hidden"
+              accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar"
+            />
+          </div>
+
+          {/* Adjuntos subidos */}
+          <AnimatePresence>
+            {(adjuntosSubidos.length > 0 || subiendoAdjuntos) && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="px-3 pb-2 flex flex-wrap gap-1.5"
+              >
+                {adjuntosSubidos.map((adj) => (
+                  <div
+                    key={adj.id}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded text-xs"
+                    style={{ background: 'var(--superficie-hover)', color: 'var(--texto-secundario)' }}
+                  >
+                    {adj.miniatura_url ? (
+                      <img src={adj.miniatura_url} alt="" className="w-5 h-5 rounded object-cover" />
+                    ) : (
+                      <ArchivoIcono tipo={adj.tipo_mime} />
+                    )}
+                    <span className="max-w-[120px] truncate">{adj.nombre_archivo}</span>
+                    <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                      {formatoTamano(adj.tamano_bytes)}
+                    </span>
+                    <button onClick={() => removerAdjunto(adj.id)}>
+                      <X size={10} />
+                    </button>
+                  </div>
+                ))}
+                {subiendoAdjuntos && (
+                  <div
+                    className="flex items-center gap-1.5 px-2 py-1 rounded text-xs"
+                    style={{ background: 'var(--superficie-hover)', color: 'var(--texto-terciario)' }}
+                  >
+                    <Loader2 size={12} className="animate-spin" />
+                    <span>Subiendo...</span>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Firma preview */}
+          {firma && (
+            <div
+              className="px-3 pb-2 text-xs"
+              style={{ color: 'var(--texto-terciario)' }}
+            >
+              <div
+                className="pt-2 mt-1"
+                style={{ borderTop: '1px solid var(--borde-sutil)' }}
+                dangerouslySetInnerHTML={{ __html: firma }}
+              />
+            </div>
+          )}
+
+          {/* Footer: acciones */}
+          <div
+            className="flex items-center justify-between px-3 py-2"
+            style={{ borderTop: '1px solid var(--borde-sutil)' }}
+          >
+            <div className="flex items-center gap-2">
+              <Boton
+                variante="primario"
+                tamano="sm"
+                icono={<Send size={14} />}
+                onClick={prepararEnvio}
+                cargando={cargando}
+                disabled={!puedeEnviar}
+              >
+                Enviar
+              </Boton>
+              {onCancelar && (
+                <Boton variante="fantasma" tamano="sm" onClick={onCancelar}>
+                  Descartar
+                </Boton>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => inputArchivosRef.current?.click()}
+                className="p-1.5 rounded-lg transition-colors"
+                style={{ color: 'var(--texto-terciario)' }}
+              >
+                <Paperclip size={16} />
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

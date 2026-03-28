@@ -568,8 +568,8 @@ export default function PaginaNuevoPresupuesto() {
         {/* ─── EMISOR ─── */}
         <div className="px-6 py-3">
           <span className="text-[11px] font-bold text-texto-secundario uppercase tracking-wider">Emisor</span>
-          <div className="mt-1.5 space-y-0.5">
-            <p className="text-sm font-semibold text-texto-primario">
+          <div className="mt-2 space-y-1">
+            <p className="text-base font-semibold text-texto-primario">
               {datosEmpresa?.nombre || empresa?.nombre || '—'}
             </p>
             {(datosFiscalesPais?.numero_identificacion || datosFiscalesPais?.condicion_iva) && (
@@ -580,11 +580,20 @@ export default function PaginaNuevoPresupuesto() {
               </p>
             )}
             {(datosEmpresa?.telefono || datosEmpresa?.correo) && (
-              <p className="text-xs text-texto-secundario">
-                {datosEmpresa.telefono}
-                {datosEmpresa.telefono && datosEmpresa.correo && ' · '}
-                {datosEmpresa.correo}
-              </p>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                {datosEmpresa?.telefono && (
+                  <span className="text-xs text-texto-secundario flex items-center gap-1">
+                    <Phone size={11} className="text-texto-terciario" />
+                    {datosEmpresa.telefono}
+                  </span>
+                )}
+                {datosEmpresa?.correo && (
+                  <span className="text-xs text-texto-secundario flex items-center gap-1">
+                    <Mail size={11} className="text-texto-terciario" />
+                    {datosEmpresa.correo}
+                  </span>
+                )}
+              </div>
             )}
           </div>
         </div>
