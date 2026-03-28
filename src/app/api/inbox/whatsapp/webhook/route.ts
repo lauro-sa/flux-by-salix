@@ -850,15 +850,56 @@ async function procesarChatbot(
     return
   }
 
-  // 5. Bienvenida (solo conversación nueva)
-  if (esConversacionNueva && configBot.bienvenida_activa && configBot.mensaje_bienvenida) {
-    await enviarRespuestaBot(configBot.mensaje_bienvenida)
+  // 5. Bienvenida — según frecuencia configurada
+  if (configBot.bienvenida_activa && configBot.mensaje_bienvenida) {
+    const frecuencia = configBot.bienvenida_frecuencia || 'dias_sin_contacto'
+    let enviarBienvenida = false
 
-    // Si hay menú, enviarlo después de la bienvenida
-    if (configBot.menu_activo && configBot.mensaje_menu) {
-      await enviarRespuestaBot(configBot.mensaje_menu)
+    if (frecuencia === 'siempre') {
+      // Siempre que escribe, verificar que no sea un mensaje seguido (evitar spam)
+      const { data: ultimoBot } = await admin
+        .from('mensajes')
+        .select('creado_en')
+        .eq('conversacion_id', conversacionId)
+        .eq('remitente_tipo', 'bot')
+        .order('creado_en', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      // Solo enviar si no hubo mensaje del bot en los últimos 5 minutos
+      if (!ultimoBot || Date.now() - new Date(ultimoBot.creado_en).getTime() > 5 * 60 * 1000) {
+        enviarBienvenida = true
+      }
+    } else if (frecuencia === 'primera_vez') {
+      enviarBienvenida = esConversacionNueva
+    } else {
+      // dias_sin_contacto: enviar si la conversación es nueva O si el último mensaje tiene más de X días
+      if (esConversacionNueva) {
+        enviarBienvenida = true
+      } else {
+        const dias = configBot.bienvenida_dias_sin_contacto || 30
+        const { data: ultimoMsg } = await admin
+          .from('mensajes')
+          .select('creado_en')
+          .eq('conversacion_id', conversacionId)
+          .order('creado_en', { ascending: false })
+          .range(1, 1) // Saltear el mensaje actual (recién insertado)
+          .maybeSingle()
+
+        if (!ultimoMsg || Date.now() - new Date(ultimoMsg.creado_en).getTime() > dias * 24 * 60 * 60 * 1000) {
+          enviarBienvenida = true
+        }
+      }
     }
-    return
+
+    if (enviarBienvenida) {
+      await enviarRespuestaBot(configBot.mensaje_bienvenida)
+
+      if (configBot.menu_activo && configBot.mensaje_menu) {
+        await enviarRespuestaBot(configBot.mensaje_menu)
+      }
+      return
+    }
   }
 
   // 6. Menú: si escribe "menu" o un número de opción

@@ -1241,6 +1241,8 @@ interface ConfigChatbot {
   activo: boolean
   bienvenida_activa: boolean
   mensaje_bienvenida: string
+  bienvenida_frecuencia: string
+  bienvenida_dias_sin_contacto: number
   menu_activo: boolean
   mensaje_menu: string
   opciones_menu: OpcionMenu[]
@@ -1255,6 +1257,8 @@ const CHATBOT_DEFAULTS: ConfigChatbot = {
   activo: false,
   bienvenida_activa: true,
   mensaje_bienvenida: '¡Hola! 👋 Gracias por comunicarte con nosotros.',
+  bienvenida_frecuencia: 'dias_sin_contacto',
+  bienvenida_dias_sin_contacto: 30,
   menu_activo: false,
   mensaje_menu: 'Elegí una opción:\n1️⃣ Información de productos\n2️⃣ Consultar precios\n3️⃣ Horarios de atención\n4️⃣ Hablar con un asesor',
   opciones_menu: [
@@ -1390,17 +1394,45 @@ function SeccionChatbot() {
             </div>
             <Interruptor activo={config.bienvenida_activa} onChange={(v) => guardar({ bienvenida_activa: v })} />
           </div>
-          <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-            Se envía automáticamente cuando un número nuevo escribe por primera vez.
-          </p>
           {config.bienvenida_activa && (
-            <textarea
-              value={config.mensaje_bienvenida}
-              onChange={(e) => guardar({ mensaje_bienvenida: e.target.value })}
-              className="w-full rounded-lg p-2.5 text-sm resize-none outline-none"
-              style={{ background: 'var(--superficie-app)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)', minHeight: 80 }}
-              placeholder="¡Hola! 👋 Gracias por comunicarte..."
-            />
+            <>
+              {/* Frecuencia */}
+              <div className="flex items-center gap-3">
+                <select
+                  value={config.bienvenida_frecuencia || 'dias_sin_contacto'}
+                  onChange={(e) => guardar({ bienvenida_frecuencia: e.target.value })}
+                  className="text-xs rounded-lg px-2 py-1.5 flex-1"
+                  style={{ background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+                >
+                  <option value="primera_vez">Solo la primera vez que escribe</option>
+                  <option value="siempre">Siempre que escribe</option>
+                  <option value="dias_sin_contacto">Si no habló en los últimos X días</option>
+                </select>
+                {(config.bienvenida_frecuencia || 'dias_sin_contacto') === 'dias_sin_contacto' && (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={config.bienvenida_dias_sin_contacto || 30}
+                      onChange={(e) => guardar({ bienvenida_dias_sin_contacto: parseInt(e.target.value) || 30 })}
+                      className="w-14 text-xs text-center rounded-lg px-2 py-1.5"
+                      style={{ background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+                    />
+                    <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>días</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Mensaje */}
+              <textarea
+                value={config.mensaje_bienvenida}
+                onChange={(e) => guardar({ mensaje_bienvenida: e.target.value })}
+                className="w-full rounded-lg p-2.5 text-sm resize-none outline-none"
+                style={{ background: 'var(--superficie-app)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)', minHeight: 80 }}
+                placeholder="¡Hola! 👋 Gracias por comunicarte..."
+              />
+            </>
           )}
         </div>
 
