@@ -159,18 +159,47 @@ async function procesarMensajeEntrante(
   const telefonoRemitente = msg.from
   const nombreRemitente = contactoMeta?.profile?.name || telefonoRemitente
 
-  // Buscar o crear conversación
+  // Buscar conversación existente (abierta o en espera)
   let esConversacionNueva = false
   let { data: conversacion } = await admin
     .from('conversaciones')
-    .select('id, contacto_id')
+    .select('id, contacto_id, estado')
     .eq('empresa_id', canal.empresa_id)
     .eq('canal_id', canal.id)
     .eq('identificador_externo', telefonoRemitente)
-    .neq('estado', 'resuelta')
+    .in('estado', ['abierta', 'en_espera'])
     .order('creado_en', { ascending: false })
     .limit(1)
     .single()
+
+  // Si no hay abierta, buscar la más reciente resuelta y reabrirla
+  if (!conversacion) {
+    const { data: resuelta } = await admin
+      .from('conversaciones')
+      .select('id, contacto_id, estado')
+      .eq('empresa_id', canal.empresa_id)
+      .eq('canal_id', canal.id)
+      .eq('identificador_externo', telefonoRemitente)
+      .eq('estado', 'resuelta')
+      .order('creado_en', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (resuelta) {
+      // Reabrir la conversación resuelta
+      await admin
+        .from('conversaciones')
+        .update({
+          estado: 'abierta',
+          cerrado_en: null,
+          cerrado_por: null,
+          chatbot_activo: true,
+          actualizado_en: new Date().toISOString(),
+        })
+        .eq('id', resuelta.id)
+      conversacion = resuelta
+    }
+  }
 
   if (!conversacion) {
     // Intentar vincular con contacto existente por WhatsApp
@@ -203,7 +232,7 @@ async function procesarMensajeEntrante(
         contacto_nombre: contactoNombre,
         estado: 'abierta',
       })
-      .select('id, contacto_id')
+      .select('id, contacto_id, estado')
       .single()
 
     conversacion = nuevaConv
