@@ -91,7 +91,8 @@ export async function obtenerMensajesIMAP(
         if (count >= limite) break
 
         try {
-          const parsed = await simpleParser(message.source)
+          if (!message.source) continue
+          const parsed = await simpleParser(message.source) as unknown as ParsedMail
           const correo = convertirParseadoACorreo(parsed, message.uid)
           mensajes.push(correo)
           if (message.uid > ultimoUID) ultimoUID = message.uid
@@ -200,7 +201,8 @@ export async function descargarAdjuntoIMAP(
         uid: true,
         source: true,
       })) {
-        const parsed = await simpleParser(message.source)
+        if (!message.source) throw new Error('Mensaje sin source')
+        const parsed = await simpleParser(message.source) as unknown as ParsedMail
         const adj = parsed.attachments[indiceAdjunto]
         if (!adj) throw new Error(`Adjunto ${indiceAdjunto} no encontrado`)
 

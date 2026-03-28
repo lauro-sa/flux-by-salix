@@ -1,4 +1,12 @@
 {
+  "functions": {
+    "src/app/api/inbox/whatsapp/webhook/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/inbox/correo/sincronizar/route.ts": {
+      "maxDuration": 60
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/sincronizar-correo",

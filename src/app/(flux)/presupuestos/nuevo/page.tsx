@@ -105,7 +105,7 @@ export default function PaginaNuevoPresupuesto() {
     'producto', 'descripcion', 'cantidad', 'unidad', 'precio_unitario', 'descuento', 'impuesto', 'subtotal',
   ])
 
-  // Cargar config y datos empresa al montar
+  // Cargar config al montar
   useEffect(() => {
     fetch('/api/presupuestos/config')
       .then(r => r.json())
@@ -115,7 +115,6 @@ export default function PaginaNuevoPresupuesto() {
         if (data.notas_predeterminadas) setNotasHtml(data.notas_predeterminadas)
         if (data.condiciones_predeterminadas) setCondicionesHtml(data.condiciones_predeterminadas)
         if (data.columnas_lineas_default) setColumnasVisibles(data.columnas_lineas_default as string[])
-        // Días de validez de la oferta — independiente de la condición de pago
         if (data.dias_vencimiento_predeterminado != null) setDiasVencimiento(data.dias_vencimiento_predeterminado)
         const condiciones = (data.condiciones_pago || []) as CondicionPago[]
         const defecto = condiciones.find(c => c.predeterminado)
@@ -123,6 +122,27 @@ export default function PaginaNuevoPresupuesto() {
       })
       .catch(() => {})
   }, [])
+
+  // Aplicar plantilla predeterminada del usuario (cuando config y usuario estén listos)
+  const plantillaAplicadaRef = useRef(false)
+  useEffect(() => {
+    if (!config || !usuario?.id || plantillaAplicadaRef.current) return
+    const preds = (config.plantillas_predeterminadas || {}) as Record<string, string>
+    const tplId = preds[usuario.id]
+    if (!tplId) return
+    const plantillas = (config.plantillas || []) as Array<{ id: string; [k: string]: unknown }>
+    const tpl = plantillas.find(p => p.id === tplId)
+    if (!tpl) return
+
+    plantillaAplicadaRef.current = true
+    setPlantillaId(tpl.id)
+    if (tpl.moneda) setMoneda(tpl.moneda as string)
+    if (tpl.condicion_pago_id) setCondicionPagoId(tpl.condicion_pago_id as string)
+    if (tpl.dias_vencimiento != null) setDiasVencimiento(tpl.dias_vencimiento as number)
+    if (tpl.lineas) setLineas(tpl.lineas as LineaTemporal[])
+    if (tpl.notas_html) setNotasHtml(tpl.notas_html as string)
+    if (tpl.condiciones_html) setCondicionesHtml(tpl.condiciones_html as string)
+  }, [config, usuario?.id])
 
   // Cargar datos de la empresa emisora
   useEffect(() => {
@@ -802,24 +822,52 @@ export default function PaginaNuevoPresupuesto() {
                 </div>
               </div>
 
-              {/* Vencimiento */}
-              <div className="flex items-center justify-between py-2">
-                <span className="text-xs font-medium text-texto-secundario uppercase tracking-wide">Vencimiento</span>
-                <div className="w-44">
-                  <SelectorFecha
-                    valor={fechaVenc.toISOString().split('T')[0]}
-                    onChange={(v) => {
-                      if (!v) return
-                      const emision = new Date(fechaEmision + 'T00:00:00')
-                      const venc = new Date(v + 'T00:00:00')
-                      const diff = Math.round((venc.getTime() - emision.getTime()) / (1000 * 60 * 60 * 24))
-                      setDiasVencimiento(Math.max(0, diff))
-                      autoguardar({ dias_vencimiento: Math.max(0, diff) })
-                    }}
-                    limpiable={false}
-                  />
-                </div>
-              </div>
+              {/* Vencimiento — días + fecha, bloqueado si el admin lo configuró */}
+              {(() => {
+                const bloqueada = !!(config as Record<string, unknown> | null)?.validez_bloqueada
+                return (
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-texto-secundario uppercase tracking-wide">Vencimiento</span>
+                      {!bloqueada && (
+                        <span className="text-xs text-texto-terciario tabular-nums">({diasVencimiento} días)</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {!bloqueada && (
+                        <input
+                          type="number"
+                          min={1}
+                          value={diasVencimiento}
+                          onChange={(e) => {
+                            const dias = Math.max(1, parseInt(e.target.value) || 1)
+                            setDiasVencimiento(dias)
+                          }}
+                          onBlur={() => autoguardar({ dias_vencimiento: diasVencimiento })}
+                          onFocus={(e) => e.target.select()}
+                          className="w-16 bg-transparent border border-borde-sutil rounded-lg px-2 py-1.5 text-xs font-mono text-texto-primario text-center outline-none focus:border-marca-500 transition-colors"
+                          title="Días de validez"
+                        />
+                      )}
+                      <div className="w-36">
+                        <SelectorFecha
+                          valor={fechaVenc.toISOString().split('T')[0]}
+                          onChange={(v) => {
+                            if (!v || bloqueada) return
+                            const emision = new Date(fechaEmision + 'T00:00:00')
+                            const venc = new Date(v + 'T00:00:00')
+                            const diff = Math.round((venc.getTime() - emision.getTime()) / (1000 * 60 * 60 * 24))
+                            setDiasVencimiento(Math.max(1, diff))
+                            autoguardar({ dias_vencimiento: Math.max(1, diff) })
+                          }}
+                          limpiable={false}
+                          disabled={bloqueada}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
 
               {/* Términos de pago */}
               <div className="flex items-center justify-between py-2">

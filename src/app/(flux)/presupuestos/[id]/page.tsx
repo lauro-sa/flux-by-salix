@@ -709,30 +709,58 @@ export default function PaginaDetallePresupuesto() {
                 </div>
               </div>
 
-              {/* Fecha vencimiento */}
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-texto-terciario font-medium uppercase tracking-wide shrink-0">Vencimiento</span>
-                <div className="w-48">
-                  {esEditable ? (
-                    <SelectorFecha
-                      valor={presupuesto.fecha_vencimiento?.split('T')[0] || ''}
-                      onChange={(v) => {
-                        if (!v) return
-                        const emision = new Date((presupuesto.fecha_emision || '').split('T')[0] + 'T00:00:00')
-                        const venc = new Date(v + 'T00:00:00')
-                        const diff = Math.round((venc.getTime() - emision.getTime()) / (1000 * 60 * 60 * 24))
-                        setDiasVencimiento(Math.max(0, diff))
-                        autoguardar({ dias_vencimiento: Math.max(0, diff) })
-                      }}
-                      limpiable={false}
-                    />
-                  ) : (
-                    <span className={`text-sm ${presupuesto.fecha_vencimiento && new Date(presupuesto.fecha_vencimiento) < new Date() ? 'text-estado-error font-medium' : 'text-texto-primario'}`}>
-                      {presupuesto.fecha_vencimiento ? formatoFecha(presupuesto.fecha_vencimiento) : '—'}
-                    </span>
-                  )}
-                </div>
-              </div>
+              {/* Fecha vencimiento — días + fecha */}
+              {(() => {
+                const bloqueada = !!(config as unknown as Record<string, unknown> | null)?.validez_bloqueada
+                return (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-texto-terciario font-medium uppercase tracking-wide shrink-0">Vencimiento</span>
+                      {esEditable && !bloqueada && (
+                        <span className="text-xs text-texto-terciario tabular-nums">({diasVencimiento} días)</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {esEditable && !bloqueada && (
+                        <input
+                          type="number"
+                          min={1}
+                          value={diasVencimiento}
+                          onChange={(e) => {
+                            const dias = Math.max(1, parseInt(e.target.value) || 1)
+                            setDiasVencimiento(dias)
+                          }}
+                          onBlur={() => autoguardar({ dias_vencimiento: diasVencimiento })}
+                          onFocus={(e) => e.target.select()}
+                          className="w-16 bg-transparent border border-borde-sutil rounded-lg px-2 py-1.5 text-xs font-mono text-texto-primario text-center outline-none focus:border-marca-500 transition-colors"
+                          title="Días de validez"
+                        />
+                      )}
+                      <div className="w-36">
+                        {esEditable ? (
+                          <SelectorFecha
+                            valor={presupuesto.fecha_vencimiento?.split('T')[0] || ''}
+                            onChange={(v) => {
+                              if (!v || bloqueada) return
+                              const emision = new Date((presupuesto.fecha_emision || '').split('T')[0] + 'T00:00:00')
+                              const venc = new Date(v + 'T00:00:00')
+                              const diff = Math.round((venc.getTime() - emision.getTime()) / (1000 * 60 * 60 * 24))
+                              setDiasVencimiento(Math.max(1, diff))
+                              autoguardar({ dias_vencimiento: Math.max(1, diff) })
+                            }}
+                            limpiable={false}
+                            disabled={bloqueada}
+                          />
+                        ) : (
+                          <span className={`text-sm ${presupuesto.fecha_vencimiento && new Date(presupuesto.fecha_vencimiento) < new Date() ? 'text-estado-error font-medium' : 'text-texto-primario'}`}>
+                            {presupuesto.fecha_vencimiento ? formatoFecha(presupuesto.fecha_vencimiento) : '—'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
 
               <div className="border-t border-borde-sutil" />
 

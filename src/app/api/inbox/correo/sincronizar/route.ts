@@ -406,31 +406,25 @@ async function procesarCorreoEntrante(
       ultimo_mensaje_texto: previewTexto.slice(0, 200) || correo.asunto,
       ultimo_mensaje_en: correo.fecha,
       ultimo_mensaje_es_entrante: esEntrante,
-      mensajes_sin_leer: esEntrante
-        ? admin.rpc ? 0 : 0 // Incrementar si es entrante
-        : undefined,
+      // mensajes_sin_leer se incrementa abajo por separado
       actualizado_en: new Date().toISOString(),
     })
     .eq('id', conversacionId)
 
   // Incrementar mensajes_sin_leer si es entrante
   if (esEntrante) {
-    await admin.rpc('incrementar_sin_leer', { conv_id: conversacionId }).catch(() => {
-      // Si no existe la función RPC, hacerlo manualmente
-      admin
+    const { data: convActual } = await admin
+      .from('conversaciones')
+      .select('mensajes_sin_leer')
+      .eq('id', conversacionId)
+      .single()
+
+    if (convActual) {
+      await admin
         .from('conversaciones')
-        .select('mensajes_sin_leer')
+        .update({ mensajes_sin_leer: (convActual.mensajes_sin_leer || 0) + 1 })
         .eq('id', conversacionId)
-        .single()
-        .then(({ data }) => {
-          if (data) {
-            admin
-              .from('conversaciones')
-              .update({ mensajes_sin_leer: (data.mensajes_sin_leer || 0) + 1 })
-              .eq('id', conversacionId)
-          }
-        })
-    })
+    }
   }
 
   return true

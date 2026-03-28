@@ -140,6 +140,7 @@ export default function PaginaConfigPresupuestos() {
   const [unidades, setUnidades] = useState<UnidadMedida[]>([])
   const [condicionesPago, setCondicionesPago] = useState<CondicionPago[]>([])
   const [diasVencimiento, setDiasVencimiento] = useState(30)
+  const [validezBloqueada, setValidezBloqueada] = useState(false)
   const [condicionesDefault, setCondicionesDefault] = useState('')
   const [notasDefault, setNotasDefault] = useState('')
   const [prefijo, setPrefijo] = useState('P')
@@ -151,6 +152,20 @@ export default function PaginaConfigPresupuestos() {
     { tipo: 'separador', valor: '-' },
     { tipo: 'secuencial' },
   ])
+
+  // Preview del número según la numeración configurada
+  const previewNumero = useMemo(() => {
+    const hoy = new Date()
+    return componentesNum.map(c => {
+      if (c.tipo === 'prefijo') return prefijo || 'P'
+      if (c.tipo === 'separador') return c.valor || '-'
+      if (c.tipo === 'secuencial') return String(siguiente).padStart(digitos, '0')
+      if (c.tipo === 'anio') return c.formato === 'largo' ? String(hoy.getFullYear()) : String(hoy.getFullYear()).slice(-2)
+      if (c.tipo === 'mes') return String(hoy.getMonth() + 1).padStart(2, '0')
+      if (c.tipo === 'dia') return String(hoy.getDate()).padStart(2, '0')
+      return ''
+    }).join('')
+  }, [componentesNum, prefijo, siguiente, digitos])
 
   // Configuración PDF
   const [membrete, setMembrete] = useState<ConfigMembrete>(MEMBRETE_DEFAULT)
@@ -188,6 +203,7 @@ export default function PaginaConfigPresupuestos() {
         setUnidades((data.unidades as UnidadMedida[]) || [])
         setCondicionesPago((data.condiciones_pago as CondicionPago[]) || [])
         setDiasVencimiento(data.dias_vencimiento_predeterminado || 30)
+        setValidezBloqueada(data.validez_bloqueada || false)
         setCondicionesDefault(data.condiciones_predeterminadas || '')
         setNotasDefault(data.notas_predeterminadas || '')
         if (data.secuencia) {
@@ -548,19 +564,7 @@ export default function PaginaConfigPresupuestos() {
 
       {/* ─── NUMERACIÓN ─── */}
       {seccionActiva === 'numeracion' && (() => {
-        // Generar preview del número
         const hoy = new Date()
-        const previewPartes = componentesNum.map(c => {
-          if (c.tipo === 'prefijo') return prefijo || 'P'
-          if (c.tipo === 'separador') return c.valor || '-'
-          if (c.tipo === 'secuencial') return String(siguiente).padStart(digitos, '0')
-          if (c.tipo === 'anio') return c.formato === 'largo' ? String(hoy.getFullYear()) : String(hoy.getFullYear()).slice(-2)
-          if (c.tipo === 'mes') return String(hoy.getMonth() + 1).padStart(2, '0')
-          if (c.tipo === 'dia') return String(hoy.getDate()).padStart(2, '0')
-          return ''
-        })
-        const previewNumero = previewPartes.join('')
-
         // Qué componentes de fecha ya están
         const tieneAnio = componentesNum.some(c => c.tipo === 'anio')
         const tieneMes = componentesNum.some(c => c.tipo === 'mes')
@@ -817,15 +821,36 @@ export default function PaginaConfigPresupuestos() {
             <div>
               <label className="text-[11px] text-texto-terciario font-medium uppercase tracking-wider mb-1.5 block">Días de validez</label>
               <p className="text-xs text-texto-terciario mb-2">Cuántos días desde la emisión es válida la oferta.</p>
-              <input
-                type="number"
-                min={1}
-                value={diasVencimiento}
-                onChange={(e) => setDiasVencimiento(parseInt(e.target.value) || 1)}
-                onBlur={() => guardarTextos('dias', diasVencimiento)}
-                onFocus={(e) => e.target.select()}
-                className="w-24 bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm font-mono text-texto-primario outline-none focus:border-marca-500 transition-colors"
-              />
+              <div className="flex items-center gap-4">
+                <input
+                  type="number"
+                  min={1}
+                  value={diasVencimiento}
+                  onChange={(e) => setDiasVencimiento(parseInt(e.target.value) || 1)}
+                  onBlur={() => guardarTextos('dias', diasVencimiento)}
+                  onFocus={(e) => e.target.select()}
+                  className="w-24 bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm font-mono text-texto-primario outline-none focus:border-marca-500 transition-colors"
+                />
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={validezBloqueada}
+                    onClick={() => {
+                      const nuevo = !validezBloqueada
+                      setValidezBloqueada(nuevo)
+                      autoguardar({ validez_bloqueada: nuevo })
+                    }}
+                    className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ${validezBloqueada ? 'bg-texto-marca' : 'bg-superficie-app border border-borde-sutil'}`}
+                  >
+                    <span className={`pointer-events-none inline-block size-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${validezBloqueada ? 'translate-x-[17px]' : 'translate-x-0.5'} mt-0.5`} />
+                  </button>
+                  <span className="text-xs text-texto-secundario">Bloquear</span>
+                </label>
+              </div>
+              {validezBloqueada && (
+                <p className="text-xs text-insignia-advertencia mt-2">Los vendedores no podrán cambiar la fecha de vencimiento al crear presupuestos.</p>
+              )}
             </div>
 
             <div className="border-t border-borde-sutil" />
@@ -1461,9 +1486,9 @@ export default function PaginaConfigPresupuestos() {
               <span className="text-xs text-texto-terciario font-medium block mb-2">Vista previa</span>
               <p className="text-sm font-mono text-texto-primario">
                 {patronNombrePdf
-                  .replace('{numero}', 'P-0001')
+                  .replace('{numero}', previewNumero)
                   .replace('{contacto_nombre}', 'Juan Pérez')
-                  .replace('{fecha}', '27-03-2026')
+                  .replace('{fecha}', new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-'))
                   .replace('{tipo}', 'Presupuesto')
                   .replace('{referencia}', 'REF-001')
                 }.pdf

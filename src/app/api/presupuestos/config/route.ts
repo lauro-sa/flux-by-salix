@@ -72,7 +72,7 @@ export async function PATCH(request: NextRequest) {
 
     const camposPermitidos = [
       'impuestos', 'monedas', 'moneda_predeterminada',
-      'condiciones_pago', 'dias_vencimiento_predeterminado',
+      'condiciones_pago', 'dias_vencimiento_predeterminado', 'validez_bloqueada',
       'condiciones_predeterminadas', 'notas_predeterminadas',
       'unidades', 'columnas_lineas_default',
       'plantillas', 'plantillas_predeterminadas',

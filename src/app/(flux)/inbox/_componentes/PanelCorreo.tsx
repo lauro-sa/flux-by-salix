@@ -211,17 +211,17 @@ export function PanelCorreo({
             </div>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
-            <Boton variante="fantasma" tamano="xs" soloIcono icono={<Reply size={14} />} onClick={() => handleResponder('responder')} title="Responder" />
-            <Boton variante="fantasma" tamano="xs" soloIcono icono={<ReplyAll size={14} />} onClick={() => handleResponder('responder_todos')} title="Responder a todos" />
-            <Boton variante="fantasma" tamano="xs" soloIcono icono={<Forward size={14} />} onClick={() => handleResponder('reenviar')} title="Reenviar" />
+            <Boton variante="fantasma" tamano="xs" soloIcono icono={<Reply size={14} />} onClick={() => handleResponder('responder')} />
+            <Boton variante="fantasma" tamano="xs" soloIcono icono={<ReplyAll size={14} />} onClick={() => handleResponder('responder_todos')} />
+            <Boton variante="fantasma" tamano="xs" soloIcono icono={<Forward size={14} />} onClick={() => handleResponder('reenviar')} />
             {onMarcarSpam && (
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<ShieldBan size={14} />} onClick={() => onMarcarSpam(conversacion.id)} title="Marcar como spam" />
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<ShieldBan size={14} />} onClick={() => onMarcarSpam(conversacion.id)} />
             )}
             {onArchivar && (
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<Archive size={14} />} onClick={() => onArchivar(conversacion.id)} title="Archivar" />
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<Archive size={14} />} onClick={() => onArchivar(conversacion.id)} />
             )}
             {onEliminar && (
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={() => onEliminar(conversacion.id)} title="Eliminar" />
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={() => onEliminar(conversacion.id)} />
             )}
           </div>
         </div>

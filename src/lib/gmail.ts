@@ -170,18 +170,8 @@ function decodificarBase64Url(data: string): string {
 }
 
 /** Extrae el cuerpo (text/plain y text/html) de un mensaje de Gmail */
-function extraerCuerpo(payload: {
-  mimeType?: string
-  body?: { data?: string; size?: number }
-  parts?: Array<{
-    mimeType?: string
-    body?: { data?: string; size?: number }
-    parts?: Array<{
-      mimeType?: string
-      body?: { data?: string; size?: number }
-    }>
-  }>
-}): { textoPlano: string; html: string } {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extraerCuerpo(payload: any): { textoPlano: string; html: string } {
   let textoPlano = ''
   let html = ''
 
@@ -217,21 +207,12 @@ function extraerCuerpo(payload: {
 }
 
 /** Extrae metadata de adjuntos de un mensaje de Gmail */
-function extraerAdjuntos(payload: {
-  parts?: Array<{
-    filename?: string
-    mimeType?: string
-    body?: { attachmentId?: string; size?: number }
-    parts?: Array<{
-      filename?: string
-      mimeType?: string
-      body?: { attachmentId?: string; size?: number }
-    }>
-  }>
-}): AdjuntoCorreoParsedo[] {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extraerAdjuntos(payload: any): AdjuntoCorreoParsedo[] {
   const adjuntos: AdjuntoCorreoParsedo[] = []
 
-  function procesarPartes(parts: typeof payload.parts) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function procesarPartes(parts: any[]) {
     if (!parts) return
     for (const part of parts) {
       if (part.body?.attachmentId && part.filename) {
@@ -264,9 +245,11 @@ export async function obtenerMensajeCompleto(
     format: 'full',
   })
 
-  const headers = parsearCabeceras(data.payload?.headers || [])
-  const { textoPlano, html } = extraerCuerpo(data.payload || {})
-  const adjuntos = extraerAdjuntos(data.payload || {})
+  // Cast para manejar null vs undefined de la API de Google
+  const rawHeaders = (data.payload?.headers || []) as { name?: string; value?: string }[]
+  const headers = parsearCabeceras(rawHeaders)
+  const { textoPlano, html } = extraerCuerpo(data.payload as Record<string, unknown> || {})
+  const adjuntos = extraerAdjuntos(data.payload as Record<string, unknown> || {})
 
   // Parsear References (puede ser un string con múltiples IDs separados por espacio)
   const referencesRaw = headers['references'] || ''

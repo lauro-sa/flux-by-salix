@@ -433,7 +433,7 @@ export const VARIABLES_PLANTILLA_PDF = [
 
 // Variables para el patrón de nombre del archivo PDF
 export const VARIABLES_NOMBRE_PDF = [
-  { variable: '{numero}', descripcion: 'Número del documento (ej: P-0001)' },
+  { variable: '{numero}', descripcion: 'Número del documento' },
   { variable: '{contacto_nombre}', descripcion: 'Nombre del contacto' },
   { variable: '{fecha}', descripcion: 'Fecha de emisión (dd-mm-yyyy)' },
   { variable: '{tipo}', descripcion: 'Tipo de documento (Presupuesto)' },
