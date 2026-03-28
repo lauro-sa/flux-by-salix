@@ -6,6 +6,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import {
   Inbox, Send as SendIcon, FileText, ShieldBan, Trash2, Archive,
   ChevronDown, ChevronRight, Mail, Pen, Plus,
+  PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react'
 import type { CanalInbox } from '@/tipos/inbox'
 
@@ -32,6 +33,9 @@ interface PropiedadesSidebarCorreo {
   mostrarTodas?: boolean
   canalTodas?: boolean
   onSeleccionarTodas?: () => void
+  /** Modo colapsado: solo iconos */
+  colapsado?: boolean
+  onToggleColapsar?: () => void
 }
 
 // ─── Carpetas con iconos ───
@@ -54,6 +58,8 @@ export function SidebarCorreo({
   mostrarTodas = true,
   canalTodas = false,
   onSeleccionarTodas,
+  colapsado = false,
+  onToggleColapsar,
 }: PropiedadesSidebarCorreo) {
   const [cuentasExpandidas, setCuentasExpandidas] = useState<Set<string>>(
     new Set(canales.map(c => c.id))
@@ -75,27 +81,70 @@ export function SidebarCorreo({
 
   return (
     <div
-      className="flex flex-col h-full w-56 flex-shrink-0"
+      className="flex flex-col h-full flex-shrink-0 transition-all duration-200"
       style={{
+        width: colapsado ? 48 : 224,
         borderRight: '1px solid var(--borde-sutil)',
         background: 'var(--superficie-sidebar, var(--superficie-tarjeta))',
       }}
     >
-      {/* Botón Redactar */}
-      <div className="p-3">
-        <Boton
-          variante="primario"
-          tamano="sm"
-          icono={<Pen size={14} />}
-          onClick={onRedactar}
-          className="w-full"
-        >
-          Redactar
-        </Boton>
+      {/* Header: Redactar + Toggle */}
+      <div className={`flex items-center gap-1 ${colapsado ? 'p-1.5 flex-col' : 'p-3'}`}>
+        {colapsado ? (
+          <button
+            onClick={onRedactar}
+            className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
+            style={{ background: 'var(--texto-marca)', color: '#fff' }}
+          >
+            <Pen size={16} />
+          </button>
+        ) : (
+          <Boton
+            variante="primario"
+            tamano="sm"
+            icono={<Pen size={14} />}
+            onClick={onRedactar}
+            className="flex-1"
+          >
+            Redactar
+          </Boton>
+        )}
+        {onToggleColapsar && (
+          <button
+            onClick={onToggleColapsar}
+            className={`${colapsado ? 'w-9 h-9' : 'w-7 h-7'} rounded-lg flex items-center justify-center transition-colors`}
+            style={{ color: 'var(--texto-terciario)' }}
+          >
+            {colapsado ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+          </button>
+        )}
       </div>
 
       {/* Lista de cuentas + carpetas */}
-      <div className="flex-1 overflow-y-auto px-1.5 pb-3">
+      <div className={`flex-1 overflow-y-auto ${colapsado ? 'px-1' : 'px-1.5'} pb-3`}>
+        {/* Modo colapsado: solo iconos de carpetas */}
+        {colapsado ? (
+          <div className="space-y-0.5">
+            {CARPETAS.map((carpeta) => {
+              const activa = carpetaActiva === carpeta.clave
+              return (
+                <button
+                  key={carpeta.clave}
+                  onClick={() => onSeleccionarCarpeta(carpeta.clave)}
+                  className="w-full flex items-center justify-center w-9 h-9 mx-auto rounded-lg transition-colors"
+                  style={{
+                    color: activa ? 'var(--texto-marca)' : 'var(--texto-terciario)',
+                    background: activa ? 'var(--superficie-seleccionada)' : 'transparent',
+                  }}
+                  title={carpeta.etiqueta}
+                >
+                  {carpeta.icono}
+                </button>
+              )
+            })}
+          </div>
+        ) : (
+        <>
         {/* Todas las cuentas */}
         {mostrarTodas && canales.length > 1 && (
           <div className="mb-2">
@@ -217,6 +266,8 @@ export function SidebarCorreo({
             </div>
           )
         })}
+        </>
+        )}
       </div>
     </div>
   )

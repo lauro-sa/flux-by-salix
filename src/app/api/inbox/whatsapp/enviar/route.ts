@@ -146,14 +146,15 @@ export async function POST(request: NextRequest) {
 
     // Si es media, crear adjunto en BD para que se muestre el reproductor/imagen
     if (tipoMeta && media_url && mensaje) {
+      const mimeParaAdjunto = tipoMeta === 'image' ? 'image/jpeg'
+        : tipoMeta === 'video' ? 'video/mp4'
+        : tipoMeta === 'audio' ? 'audio/mpeg'
+        : 'application/octet-stream'
       await admin.from('mensaje_adjuntos').insert({
         mensaje_id: mensaje.id,
         empresa_id: empresaId,
         nombre_archivo: media_filename || `${tipoFlux}_${Date.now()}`,
-        tipo_mime: tipoMeta === 'image' ? 'image/jpeg'
-          : tipoMeta === 'video' ? 'video/mp4'
-          : tipoMeta === 'audio' ? 'audio/ogg'
-          : 'application/octet-stream',
+        tipo_mime: mimeParaAdjunto,
         url: media_url,
         storage_path: '',
         es_sticker: false,
@@ -173,7 +174,14 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', conversacion_id)
 
-    return NextResponse.json({ mensaje, wa_message_id: waMessageId }, { status: 201 })
+    // Recargar mensaje con adjuntos incluidos
+    const { data: mensajeCompleto } = await admin
+      .from('mensajes')
+      .select('*, adjuntos:mensaje_adjuntos(*)')
+      .eq('id', mensaje.id)
+      .single()
+
+    return NextResponse.json({ mensaje: mensajeCompleto || mensaje, wa_message_id: waMessageId }, { status: 201 })
   } catch (err) {
     console.error('Error al enviar WhatsApp:', err)
     return NextResponse.json({ error: `Error al enviar: ${(err as Error).message}` }, { status: 500 })

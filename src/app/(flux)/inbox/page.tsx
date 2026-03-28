@@ -8,6 +8,7 @@ import { Tabs } from '@/componentes/ui/Tabs'
 import { Boton } from '@/componentes/ui/Boton'
 import {
   MessageCircle, Mail, Hash, Settings, PanelRightOpen, PanelRightClose,
+  PanelLeftOpen, PanelLeftClose,
   Plus, Pen,
 } from 'lucide-react'
 import { ListaConversaciones } from './_componentes/ListaConversaciones'
@@ -81,6 +82,32 @@ export default function PaginaInbox() {
   const [carpetaCorreo, setCarpetaCorreo] = useState<CarpetaCorreo>('entrada')
   const [canalTodas, setCanalTodas] = useState(false)
   const [contadoresCorreo, setContadoresCorreo] = useState<Record<string, { entrada: number; spam: number }>>({})
+
+  // Layout colapsable del correo (persistido en localStorage)
+  const [sidebarCorreoColapsado, setSidebarCorreoColapsado] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return localStorage.getItem('flux_inbox_sidebar_colapsado') === 'true'
+  })
+  const [listaCorreoColapsada, setListaCorreoColapsada] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return localStorage.getItem('flux_inbox_lista_colapsada') === 'true'
+  })
+
+  const toggleSidebarCorreo = useCallback(() => {
+    setSidebarCorreoColapsado(prev => {
+      const nuevo = !prev
+      localStorage.setItem('flux_inbox_sidebar_colapsado', String(nuevo))
+      return nuevo
+    })
+  }, [])
+
+  const toggleListaCorreo = useCallback(() => {
+    setListaCorreoColapsada(prev => {
+      const nuevo = !prev
+      localStorage.setItem('flux_inbox_lista_colapsada', String(nuevo))
+      return nuevo
+    })
+  }, [])
 
   // Visor de media fullscreen (compartido entre PanelWhatsApp y PanelInfoContacto)
   const [visorAbierto, setVisorAbierto] = useState(false)
@@ -392,7 +419,10 @@ export default function PaginaInbox() {
         if (data.mensaje) {
           // Reemplazar el mensaje temporal por el real del servidor
           setMensajes(prev => prev.map(m =>
-            m.id === tempId ? { ...data.mensaje, adjuntos: mensajeOptimista.adjuntos } : m
+            m.id === tempId ? {
+              ...data.mensaje,
+              adjuntos: data.mensaje.adjuntos?.length > 0 ? data.mensaje.adjuntos : mensajeOptimista.adjuntos,
+            } : m
           ))
         }
       } else {
@@ -734,6 +764,8 @@ export default function PaginaInbox() {
               canales={canalesCorreo}
               canalActivo={canalCorreoActivo}
               carpetaActiva={carpetaCorreo}
+              colapsado={sidebarCorreoColapsado}
+              onToggleColapsar={toggleSidebarCorreo}
               onSeleccionarCanal={(id) => {
                 setCanalCorreoActivo(id)
                 setCanalTodas(false)
@@ -760,25 +792,52 @@ export default function PaginaInbox() {
               }}
             />
 
-            {/* Lista de correos (panel central-izquierdo) */}
-            <div className="w-80 flex-shrink-0">
-              <ListaConversaciones
-                conversaciones={conversaciones}
-                seleccionada={conversacionSeleccionada?.id || null}
-                onSeleccionar={seleccionarConversacion}
-                busqueda={busqueda}
-                onBusqueda={setBusqueda}
-                filtroEstado={filtroEstado}
-                onFiltroEstado={setFiltroEstado}
-                tipoCanal="correo"
-                cargando={cargandoConversaciones}
-                totalNoLeidos={totalNoLeidos}
-              />
+            {/* Lista de correos (colapsable) */}
+            <div
+              className="flex-shrink-0 transition-all duration-200 overflow-hidden"
+              style={{ width: listaCorreoColapsada ? 0 : 320 }}
+            >
+              {!listaCorreoColapsada && (
+                <ListaConversaciones
+                  conversaciones={conversaciones}
+                  seleccionada={conversacionSeleccionada?.id || null}
+                  onSeleccionar={seleccionarConversacion}
+                  busqueda={busqueda}
+                  onBusqueda={setBusqueda}
+                  filtroEstado={filtroEstado}
+                  onFiltroEstado={setFiltroEstado}
+                  tipoCanal="correo"
+                  cargando={cargandoConversaciones}
+                  totalNoLeidos={totalNoLeidos}
+                />
+              )}
             </div>
 
-            {/* Contenido del correo (panel derecho) */}
-            {redactandoNuevo ? (
-              <div className="flex-1 flex flex-col p-4" style={{ background: 'var(--superficie-app)' }}>
+            {/* Toggle lista + Contenido del correo */}
+            <div className="flex-1 flex flex-col min-w-0">
+              {/* Barra con botón toggle lista */}
+              <div
+                className="flex items-center px-2 py-1 flex-shrink-0"
+                style={{ borderBottom: '1px solid var(--borde-sutil)' }}
+              >
+                <button
+                  onClick={toggleListaCorreo}
+                  className="p-1 rounded-md transition-colors"
+                  style={{ color: 'var(--texto-terciario)' }}
+                  title={listaCorreoColapsada ? 'Mostrar lista' : 'Ocultar lista'}
+                >
+                  {listaCorreoColapsada ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+                </button>
+                {listaCorreoColapsada && conversacionSeleccionada && (
+                  <span className="text-xs ml-2 truncate" style={{ color: 'var(--texto-secundario)' }}>
+                    {conversacionSeleccionada.asunto || conversacionSeleccionada.contacto_nombre || 'Correo'}
+                  </span>
+                )}
+              </div>
+
+              {/* Contenido */}
+              {redactandoNuevo ? (
+                <div className="flex-1 flex flex-col p-4" style={{ background: 'var(--superficie-app)' }}>
                 <CompositorCorreo
                   tipo="nuevo"
                   canalesCorreo={canalesCorreo.map(c => ({
@@ -812,6 +871,7 @@ export default function PaginaInbox() {
                 firma={firmaCorreo}
               />
             )}
+            </div>
           </>
         )}
 
