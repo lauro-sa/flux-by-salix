@@ -40,6 +40,8 @@ export async function GET(request: NextRequest) {
     if (tipo_canal) query = query.eq('tipo_canal', tipo_canal)
     if (estado) query = query.eq('estado', estado)
     if (canal_id) query = query.eq('canal_id', canal_id)
+    const contacto_id = params.get('contacto_id')
+    if (contacto_id) query = query.eq('contacto_id', contacto_id)
 
     // Filtro enviados: solo conversaciones donde el último mensaje es saliente
     if (enviados) {

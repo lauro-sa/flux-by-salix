@@ -11,7 +11,6 @@ import {
   Link2, Download, UserCheck, Trash2, Clock,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
-import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import type { Conversacion, MensajeConAdjuntos } from '@/tipos/inbox'
 import type { MediaVisor } from './PanelWhatsApp'
 
@@ -63,26 +62,21 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
   const [seccionAbierta, setSeccionAbierta] = useState<string>('datos')
   const [tabMedia, setTabMedia] = useState<TabMedia>('fotos')
 
-  // Obtener datos del contacto desde Supabase cuando cambia la conversación
+  // Obtener datos del contacto via API route (bypasa RLS)
   useEffect(() => {
     setContacto(null)
 
     if (!conversacion?.contacto_id) return
 
     const obtenerContacto = async () => {
-      const supabase = crearClienteNavegador()
-      const { data, error } = await supabase
-        .from('contactos')
-        .select('id, nombre, apellido, correo, telefono, whatsapp, cargo, rubro, avatar_url, direccion_principal, es_provisorio, origen')
-        .eq('id', conversacion.contacto_id)
-        .single()
-
-      if (error) {
-        console.error('Error al obtener contacto:', error)
-        return
+      try {
+        const res = await fetch(`/api/contactos/${conversacion.contacto_id}`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (data?.id) setContacto(data as DatosContacto)
+      } catch (err) {
+        console.error('Error al obtener contacto:', err)
       }
-
-      if (data) setContacto(data as DatosContacto)
     }
 
     obtenerContacto()
@@ -96,23 +90,18 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
 
     const obtenerHistorial = async () => {
       setCargandoHistorial(true)
-      const supabase = crearClienteNavegador()
-      const { data, error } = await supabase
-        .from('conversaciones')
-        .select('id, estado, tipo_canal, creado_en, ultimo_mensaje_texto')
-        .eq('contacto_id', conversacion.contacto_id)
-        .neq('id', conversacion.id)
-        .order('creado_en', { ascending: false })
-        .limit(10)
-
-      setCargandoHistorial(false)
-
-      if (error) {
-        console.error('Error al obtener historial:', error)
-        return
+      try {
+        const res = await fetch(`/api/inbox/conversaciones?contacto_id=${conversacion.contacto_id}&por_pagina=10`)
+        if (!res.ok) { setCargandoHistorial(false); return }
+        const data = await res.json()
+        const convs = (data.conversaciones || [])
+          .filter((c: ConversacionHistorial) => c.id !== conversacion.id)
+        setHistorial(convs as ConversacionHistorial[])
+      } catch (err) {
+        console.error('Error al obtener historial:', err)
+      } finally {
+        setCargandoHistorial(false)
       }
-
-      if (data) setHistorial(data as ConversacionHistorial[])
     }
 
     obtenerHistorial()
