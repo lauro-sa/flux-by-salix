@@ -314,12 +314,21 @@ export default function PaginaInbox() {
         if (data.mensajes && conversacionIdRef.current === convId) {
           const nuevos = data.mensajes as MensajeConAdjuntos[]
           const ultimoNuevo = nuevos[nuevos.length - 1]?.id
-          // Solo actualizar si hay cambios (nuevo mensaje o adjuntos nuevos)
+          // Solo actualizar si hay cambios
           if (ultimoNuevo !== ultimoMensajeRef.current || nuevos.some(
             (m, i) => m.adjuntos.length !== (mensajes[i]?.adjuntos?.length ?? -1)
           )) {
             ultimoMensajeRef.current = ultimoNuevo
             setMensajes(nuevos)
+          }
+
+          // Si hay mensajes de media sin adjuntos, pedir reintento de descarga
+          const mediaSinAdjunto = nuevos.some(
+            m => ['imagen', 'audio', 'video', 'documento', 'sticker'].includes(m.tipo_contenido)
+              && m.adjuntos.length === 0
+          )
+          if (mediaSinAdjunto) {
+            fetch('/api/inbox/whatsapp/media-pendiente', { method: 'POST' }).catch(() => {})
           }
         }
       } catch { /* silenciar */ }

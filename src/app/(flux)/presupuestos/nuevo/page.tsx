@@ -808,138 +808,131 @@ export default function PaginaNuevoPresupuesto() {
               </div>
             </div>
 
-            {/* Bloque fechas + condición pago */}
-            <div className="bg-superficie-app/30 rounded-lg px-3 py-1 -mx-3">
-              {/* Fecha */}
-              <div className="flex items-center justify-between py-2">
-                <span className="text-xs font-medium text-texto-secundario uppercase tracking-wide">Fecha</span>
-                <div className="w-44">
-                  <SelectorFecha
-                    valor={fechaEmision}
-                    onChange={(v) => { if (v) { setFechaEmision(v); autoguardar({ fecha_emision: v }) } }}
-                    limpiable={false}
-                  />
-                </div>
-              </div>
-
-              {/* Vencimiento — días + fecha, bloqueado si el admin lo configuró */}
-              {(() => {
-                const bloqueada = !!(config as Record<string, unknown> | null)?.validez_bloqueada
-                return (
-                  <div className="flex items-center justify-between py-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-texto-secundario uppercase tracking-wide">Vencimiento</span>
-                      {!bloqueada && (
-                        <span className="text-xs text-texto-terciario tabular-nums">({diasVencimiento} días)</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {!bloqueada && (
-                        <input
-                          type="number"
-                          min={1}
-                          value={diasVencimiento}
-                          onChange={(e) => {
-                            const dias = Math.max(1, parseInt(e.target.value) || 1)
-                            setDiasVencimiento(dias)
-                          }}
-                          onBlur={() => autoguardar({ dias_vencimiento: diasVencimiento })}
-                          onFocus={(e) => e.target.select()}
-                          className="w-16 bg-transparent border border-borde-sutil rounded-lg px-2 py-1.5 text-xs font-mono text-texto-primario text-center outline-none focus:border-marca-500 transition-colors"
-                          title="Días de validez"
-                        />
-                      )}
-                      <div className="w-36">
+            {/* Datos del presupuesto — agrupados por concepto */}
+            {(() => {
+              const bloqueada = !!(config as Record<string, unknown> | null)?.validez_bloqueada
+              const fila = "flex items-center justify-between py-2.5"
+              const etiqueta = "text-xs font-medium text-texto-secundario uppercase tracking-wide"
+              const valorAncho = "w-52"
+              return (
+                <div className="bg-superficie-app/30 rounded-lg -mx-3 divide-y divide-borde-sutil/50">
+                  {/* ── Fechas ── */}
+                  <div className="px-3 py-1">
+                    <div className={fila}>
+                      <span className={etiqueta}>Emisión</span>
+                      <div className={valorAncho}>
                         <SelectorFecha
-                          valor={fechaVenc.toISOString().split('T')[0]}
-                          onChange={(v) => {
-                            if (!v || bloqueada) return
-                            const emision = new Date(fechaEmision + 'T00:00:00')
-                            const venc = new Date(v + 'T00:00:00')
-                            const diff = Math.round((venc.getTime() - emision.getTime()) / (1000 * 60 * 60 * 24))
-                            setDiasVencimiento(Math.max(1, diff))
-                            autoguardar({ dias_vencimiento: Math.max(1, diff) })
-                          }}
+                          valor={fechaEmision}
+                          onChange={(v) => { if (v) { setFechaEmision(v); autoguardar({ fecha_emision: v }) } }}
                           limpiable={false}
-                          disabled={bloqueada}
+                        />
+                      </div>
+                    </div>
+                    <div className={fila}>
+                      <span className={etiqueta}>Validez</span>
+                      <div className={`${valorAncho} flex items-center gap-1.5`}>
+                        {!bloqueada && (
+                          <input
+                            type="number"
+                            min={1}
+                            value={diasVencimiento}
+                            onChange={(e) => setDiasVencimiento(Math.max(1, parseInt(e.target.value) || 1))}
+                            onBlur={() => autoguardar({ dias_vencimiento: diasVencimiento })}
+                            onFocus={(e) => e.target.select()}
+                            className="w-14 shrink-0 bg-transparent border border-borde-sutil rounded-lg px-1 py-1.5 text-xs font-mono text-texto-primario text-center outline-none focus:border-marca-500 transition-colors"
+                            title="Días de validez"
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <SelectorFecha
+                            valor={fechaVenc.toISOString().split('T')[0]}
+                            onChange={(v) => {
+                              if (!v || bloqueada) return
+                              const emision = new Date(fechaEmision + 'T00:00:00')
+                              const venc = new Date(v + 'T00:00:00')
+                              const diff = Math.round((venc.getTime() - emision.getTime()) / (1000 * 60 * 60 * 24))
+                              setDiasVencimiento(Math.max(1, diff))
+                              autoguardar({ dias_vencimiento: Math.max(1, diff) })
+                            }}
+                            limpiable={false}
+                            disabled={bloqueada}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── Pago + Moneda ── */}
+                  <div className="px-3 py-1">
+                    <div className={fila}>
+                      <span className={etiqueta}>Pago</span>
+                      <div className={valorAncho}>
+                        <Select
+                          valor={condicionPagoId}
+                          onChange={(v) => {
+                            setCondicionPagoId(v)
+                            const cond = condiciones.find(c => c.id === v)
+                            autoguardar({
+                              condicion_pago_id: v || null,
+                              condicion_pago_label: cond?.label || null,
+                              condicion_pago_tipo: cond?.tipo || null,
+                            })
+                          }}
+                          opciones={[
+                            { valor: '', etiqueta: 'Sin condición' },
+                            ...condiciones.map(c => ({ valor: c.id, etiqueta: c.label })),
+                          ]}
+                          variante="plano"
+                        />
+                      </div>
+                    </div>
+                    {/* Desglose cuotas (hitos) inline */}
+                    {condSeleccionada?.tipo === 'hitos' && condSeleccionada.hitos.length > 0 && (
+                      <div className="pb-2 space-y-1">
+                        {condSeleccionada.hitos.map(h => (
+                          <div key={h.id} className="flex items-center justify-between text-xs pl-1">
+                            <span className="text-texto-terciario">{h.descripcion}</span>
+                            <div className="flex items-center gap-3">
+                              <span className="text-texto-terciario">{h.porcentaje}%</span>
+                              <span className="text-texto-primario font-mono tabular-nums">{fmt(totales.total * h.porcentaje / 100)}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className={fila}>
+                      <span className={etiqueta}>Moneda</span>
+                      <div className={valorAncho}>
+                        <Select
+                          valor={moneda}
+                          onChange={(v) => { setMoneda(v); autoguardar({ moneda: v }) }}
+                          opciones={monedas.filter(m => m.activo).map(m => ({
+                            valor: m.id,
+                            etiqueta: `${m.simbolo} ${m.label}`,
+                          }))}
+                          variante="plano"
                         />
                       </div>
                     </div>
                   </div>
-                )
-              })()}
 
-              {/* Términos de pago */}
-              <div className="flex items-center justify-between py-2">
-                <span className="text-xs font-medium text-texto-secundario uppercase tracking-wide shrink-0">Términos de pago</span>
-                <div className="w-44">
-                  <Select
-                    valor={condicionPagoId}
-                    onChange={(v) => {
-                      setCondicionPagoId(v)
-                      const cond = condiciones.find(c => c.id === v)
-                      autoguardar({
-                        condicion_pago_id: v || null,
-                        condicion_pago_label: cond?.label || null,
-                        condicion_pago_tipo: cond?.tipo || null,
-                      })
-                    }}
-                    opciones={[
-                      { valor: '', etiqueta: 'Sin condición' },
-                      ...condiciones.map(c => ({ valor: c.id, etiqueta: c.label })),
-                    ]}
-                    variante="plano"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Desglose cuotas (hitos) */}
-            {condSeleccionada?.tipo === 'hitos' && condSeleccionada.hitos.length > 0 && (
-              <div className="bg-superficie-app/30 rounded-lg px-3 py-2 -mx-3 mt-1 space-y-1.5">
-                {condSeleccionada.hitos.map(h => (
-                  <div key={h.id} className="flex items-center justify-between text-xs">
-                    <span className="text-texto-secundario">{h.descripcion}</span>
-                    <div className="flex items-center gap-3">
-                      <span className="text-texto-terciario">{h.porcentaje}%</span>
-                      <span className="text-texto-primario font-mono tabular-nums">{fmt(totales.total * h.porcentaje / 100)}</span>
+                  {/* ── Referencia ── */}
+                  <div className="px-3 py-1">
+                    <div className={fila}>
+                      <span className={etiqueta}>Referencia</span>
+                      <input
+                        type="text"
+                        value={referencia}
+                        onChange={(e) => setReferencia(e.target.value)}
+                        onBlur={() => autoguardar({ referencia })}
+                        placeholder="PO, orden de compra..."
+                        className={`${valorAncho} bg-transparent border-b border-borde-sutil text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-marca-500 transition-colors py-0.5 text-right`}
+                      />
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-
-            {/* Bloque referencia + moneda */}
-            <div className="bg-superficie-app/30 rounded-lg px-3 py-1 -mx-3 mt-3">
-              {/* Referencia */}
-              <div className="flex items-center justify-between py-2">
-                <span className="text-xs font-medium text-texto-secundario uppercase tracking-wide">Referencia</span>
-                <input
-                  type="text"
-                  value={referencia}
-                  onChange={(e) => setReferencia(e.target.value)}
-                  onBlur={() => autoguardar({ referencia })}
-                  placeholder="Orden de compra, PO..."
-                  className="w-44 bg-transparent border-b border-borde-sutil text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-marca-500 transition-colors py-0.5 text-right"
-                />
-              </div>
-
-              {/* Moneda */}
-              <div className="flex items-center justify-between py-2">
-                <span className="text-xs font-medium text-texto-secundario uppercase tracking-wide">Moneda</span>
-                <div className="w-44">
-                  <Select
-                    valor={moneda}
-                    onChange={(v) => { setMoneda(v); autoguardar({ moneda: v }) }}
-                    opciones={monedas.filter(m => m.activo).map(m => ({
-                      valor: m.id,
-                      etiqueta: `${m.simbolo} ${m.label}`,
-                    }))}
-                    variante="plano"
-                  />
                 </div>
-              </div>
-            </div>
+              )
+            })()}
           </div>
         </div>
 
