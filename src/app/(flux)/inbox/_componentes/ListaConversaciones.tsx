@@ -215,6 +215,17 @@ export function ListaConversaciones({
                       >
                         {conv.contacto_nombre || conv.identificador_externo || 'Desconocido'}
                       </span>
+                      {conv.contacto?.es_provisorio && (
+                        <span
+                          className="text-[9px] font-medium px-1 py-0.5 rounded flex-shrink-0"
+                          style={{
+                            background: 'var(--insignia-advertencia-fondo)',
+                            color: 'var(--insignia-advertencia-texto)',
+                          }}
+                        >
+                          Lead
+                        </span>
+                      )}
                       <div className="flex flex-col items-end gap-1 flex-shrink-0">
                         {conv.ultimo_mensaje_en && (
                           <span className="text-xxs" style={{

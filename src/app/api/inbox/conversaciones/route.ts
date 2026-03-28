@@ -32,7 +32,8 @@ export async function GET(request: NextRequest) {
       .from('conversaciones')
       .select(`
         *,
-        canal:canales_inbox!canal_id(id, nombre, tipo, proveedor)
+        canal:canales_inbox!canal_id(id, nombre, tipo, proveedor),
+        contacto:contactos!contacto_id(id, es_provisorio)
       `, { count: 'exact' })
       .eq('empresa_id', empresaId)
 

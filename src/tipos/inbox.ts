@@ -138,12 +138,13 @@ export interface ConversacionConDetalles extends Conversacion {
   canal?: CanalInbox
   contacto?: {
     id: string
-    nombre: string
-    apellido: string | null
-    correo: string | null
-    telefono: string | null
-    whatsapp: string | null
+    nombre?: string
+    apellido?: string | null
+    correo?: string | null
+    telefono?: string | null
+    whatsapp?: string | null
     avatar_url?: string | null
+    es_provisorio?: boolean
   } | null
 }
 
