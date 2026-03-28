@@ -236,12 +236,14 @@ async function procesarMensajeEntrante(
     })
     .eq('id', conversacion.id)
 
-  // Si tiene media, descargar en background
+  // Si tiene media, descargar ANTES de terminar (Vercel serverless corta el background)
   const mediaId = extraerMediaId(msg)
   if (mediaId && mensajeInsertado) {
-    descargarYGuardarMedia(admin, canal, msg, mensajeInsertado.id).catch(err => {
+    try {
+      await descargarYGuardarMedia(admin, canal, msg, mensajeInsertado.id)
+    } catch (err) {
       console.error('Error descargando media:', err)
-    })
+    }
   }
 }
 
