@@ -801,7 +801,7 @@ function FAQItem({
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="px-4 pb-4">{children}</div>
+            <div className="px-4 pt-3 pb-5">{children}</div>
           </motion.div>
         )}
       </AnimatePresence>
