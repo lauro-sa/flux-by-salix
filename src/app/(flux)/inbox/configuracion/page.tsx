@@ -51,6 +51,11 @@ export default function PaginaConfiguracionInbox() {
   const [config, setConfig] = useState<ConfigInbox | null>(null)
   const [canales, setCanales] = useState<CanalInbox[]>([])
   const [plantillas, setPlantillas] = useState<PlantillaRespuesta[]>([])
+  const [modulos, setModulos] = useState<Record<string, boolean>>({
+    inbox_whatsapp: true,
+    inbox_correo: true,
+    inbox_interno: true,
+  })
 
   // Cargar configuración
   const cargar = useCallback(async () => {
@@ -70,10 +75,34 @@ export default function PaginaConfiguracionInbox() {
       setConfig(dataConfig.config)
       setCanales(dataCanales.canales || [])
       setPlantillas(dataPlantillas.plantillas || [])
+
+      // Cargar estado de módulos
+      if (dataConfig.modulos) {
+        const map: Record<string, boolean> = {}
+        for (const m of dataConfig.modulos) {
+          map[m.modulo] = m.activo
+        }
+        setModulos(prev => ({ ...prev, ...map }))
+      }
     } catch {
       // silenciar
     } finally {
       setCargando(false)
+    }
+  }, [])
+
+  // Toggle módulo activo/inactivo
+  const toggleModulo = useCallback(async (modulo: string, activo: boolean) => {
+    setModulos(prev => ({ ...prev, [modulo]: activo }))
+    try {
+      await fetch('/api/inbox/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modulo, activo }),
+      })
+    } catch {
+      // Revertir
+      setModulos(prev => ({ ...prev, [modulo]: !activo }))
     }
   }, [])
 
@@ -137,22 +166,22 @@ export default function PaginaConfiguracionInbox() {
                 icono={<IconoWhatsApp size={18} style={{ color: 'var(--canal-whatsapp)' }} />}
                 nombre="WhatsApp"
                 descripcion="Chat en tiempo real con clientes vía WhatsApp Business"
-                activo={true}
-                onChange={() => {}}
+                activo={modulos.inbox_whatsapp}
+                onChange={(v) => toggleModulo('inbox_whatsapp', v)}
               />
               <ModuloToggle
                 icono={<Mail size={18} style={{ color: 'var(--canal-correo)' }} />}
                 nombre="Correo electrónico"
                 descripcion="Bandejas compartidas y personales con soporte IMAP/Gmail"
-                activo={true}
-                onChange={() => {}}
+                activo={modulos.inbox_correo}
+                onChange={(v) => toggleModulo('inbox_correo', v)}
               />
               <ModuloToggle
                 icono={<Hash size={18} style={{ color: 'var(--canal-interno)' }} />}
                 nombre="Mensajería interna"
                 descripcion="Canales y mensajes directos entre agentes"
-                activo={true}
-                onChange={() => {}}
+                activo={modulos.inbox_interno}
+                onChange={(v) => toggleModulo('inbox_interno', v)}
               />
             </div>
           </div>

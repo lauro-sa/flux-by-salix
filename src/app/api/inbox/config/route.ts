@@ -56,6 +56,25 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const admin = crearClienteAdmin()
 
+    // Toggle de módulo (inbox_whatsapp, inbox_correo, inbox_interno)
+    if (body.modulo && body.activo !== undefined) {
+      const { error } = await admin
+        .from('modulos_empresa')
+        .update({
+          activo: body.activo,
+          ...(body.activo
+            ? { activado_en: new Date().toISOString(), desactivado_en: null }
+            : { desactivado_en: new Date().toISOString() }
+          ),
+        })
+        .eq('empresa_id', empresaId)
+        .eq('modulo', body.modulo)
+
+      if (error) throw error
+      return NextResponse.json({ ok: true })
+    }
+
+    // Config general del inbox
     const { data, error } = await admin
       .from('config_inbox')
       .upsert({
