@@ -384,31 +384,37 @@ export default function PaginaConfiguracionInbox() {
 
       {/* Notificaciones */}
       {seccionActiva === 'notificaciones' && (
-        <div className="space-y-6">
-          <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
-            Notificaciones del inbox
-          </h3>
-          <div className="space-y-3">
-            <Interruptor
-              activo={config?.notificar_nuevo_mensaje ?? true}
-              onChange={(v) => guardarConfig({ notificar_nuevo_mensaje: v })}
-              etiqueta="Notificar cuando llega un mensaje nuevo"
-            />
-            <Interruptor
-              activo={config?.notificar_asignacion ?? true}
-              onChange={(v) => guardarConfig({ notificar_asignacion: v })}
-              etiqueta="Notificar cuando te asignan una conversación"
-            />
-            <Interruptor
-              activo={config?.notificar_sla_vencido ?? true}
-              onChange={(v) => guardarConfig({ notificar_sla_vencido: v })}
-              etiqueta="Notificar cuando se vence el SLA de una conversación"
-            />
-            <Interruptor
-              activo={config?.sonido_notificacion ?? true}
-              onChange={(v) => guardarConfig({ sonido_notificacion: v })}
-              etiqueta="Sonido de notificación"
-            />
+        <div className="space-y-5">
+          <div>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+              Notificaciones del inbox
+            </h3>
+            <p className="text-xs mt-1" style={{ color: 'var(--texto-terciario)' }}>
+              Configurá qué notificaciones recibís cuando trabajás en el inbox.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {[
+              { campo: 'notificar_nuevo_mensaje', etiqueta: 'Mensaje nuevo', desc: 'Cuando llega un mensaje de un cliente' },
+              { campo: 'notificar_asignacion', etiqueta: 'Asignación', desc: 'Cuando te asignan una conversación' },
+              { campo: 'notificar_sla_vencido', etiqueta: 'SLA vencido', desc: 'Cuando se vence el tiempo de respuesta' },
+              { campo: 'sonido_notificacion', etiqueta: 'Sonido', desc: 'Reproducir sonido con cada notificación' },
+            ].map(n => (
+              <div
+                key={n.campo}
+                className="flex items-center justify-between gap-3 p-3 rounded-xl"
+                style={{ border: '1px solid var(--borde-sutil)' }}
+              >
+                <div className="min-w-0">
+                  <p className="text-xs font-medium" style={{ color: 'var(--texto-primario)' }}>{n.etiqueta}</p>
+                  <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>{n.desc}</p>
+                </div>
+                <Interruptor
+                  activo={(config as unknown as Record<string, boolean>)?.[n.campo] ?? true}
+                  onChange={(v) => guardarConfig({ [n.campo]: v })}
+                />
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -761,28 +767,22 @@ function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () =
 
 // Sección de Etiquetas en config
 function SeccionEtiquetasConfig() {
-  const [modalAbierto, setModalAbierto] = useState(false)
-
+  // Mostrar ModalEtiquetas inline — siempre abierto en modo gestión
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
-            Etiquetas de correo
-          </h3>
-          <p className="text-xs mt-1" style={{ color: 'var(--texto-terciario)' }}>
-            Organizá conversaciones con etiquetas de color. Se pueden asignar manualmente o vía reglas automáticas.
-          </p>
-        </div>
+    <div className="space-y-5">
+      <div>
+        <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+          Etiquetas del inbox
+        </h3>
+        <p className="text-xs mt-1" style={{ color: 'var(--texto-terciario)' }}>
+          Organizá conversaciones con etiquetas de color. Se pueden asignar manualmente desde cada conversación o vía reglas automáticas.
+        </p>
       </div>
 
-      <Boton variante="primario" tamano="sm" icono={<Tag size={14} />} onClick={() => setModalAbierto(true)}>
-        Gestionar etiquetas
-      </Boton>
-
       <ModalEtiquetas
-        abierto={modalAbierto}
-        onCerrar={() => setModalAbierto(false)}
+        abierto={true}
+        onCerrar={() => {}}
+        inline
       />
     </div>
   )

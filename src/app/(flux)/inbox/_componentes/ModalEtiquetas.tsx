@@ -25,6 +25,8 @@ interface PropiedadesModalEtiquetas {
   /** Etiquetas ya asignadas a la conversación */
   etiquetasAsignadas?: string[]
   onCambio?: (etiquetas: string[]) => void
+  /** Si true, renderiza sin wrapper de Modal (para embeber en config) */
+  inline?: boolean
 }
 
 export function ModalEtiquetas({
@@ -33,6 +35,7 @@ export function ModalEtiquetas({
   conversacionId,
   etiquetasAsignadas = [],
   onCambio,
+  inline = false,
 }: PropiedadesModalEtiquetas) {
   const [etiquetas, setEtiquetas] = useState<EtiquetaInbox[]>([])
   const [cargando, setCargando] = useState(false)
@@ -169,13 +172,7 @@ export function ModalEtiquetas({
 
   const modoAsignar = !!conversacionId
 
-  return (
-    <Modal
-      abierto={abierto}
-      onCerrar={onCerrar}
-      titulo={modoAsignar ? 'Etiquetar conversación' : 'Gestionar etiquetas'}
-      tamano="sm"
-    >
+  const contenido = (
       <div className="space-y-3">
         {/* Lista de etiquetas */}
         {cargando ? (
@@ -371,6 +368,18 @@ export function ModalEtiquetas({
           </div>
         )}
       </div>
+  )
+
+  if (inline) return contenido
+
+  return (
+    <Modal
+      abierto={abierto}
+      onCerrar={onCerrar}
+      titulo={modoAsignar ? 'Etiquetar conversación' : 'Gestionar etiquetas'}
+      tamano="sm"
+    >
+      {contenido}
     </Modal>
   )
 }

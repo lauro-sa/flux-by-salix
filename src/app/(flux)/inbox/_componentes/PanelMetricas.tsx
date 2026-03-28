@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
+import { Select } from '@/componentes/ui/Select'
 import {
   MessageSquare, Send, CheckCircle, TrendingUp,
   Clock, ArrowUp, ArrowDown, Minus, User, Inbox,
@@ -92,16 +93,17 @@ export function PanelMetricas({ tipoCanal }: PropiedadesPanelMetricas = {}) {
         <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
           Métricas {tipoCanal === 'whatsapp' ? 'WhatsApp' : tipoCanal === 'correo' ? 'Correo' : 'del inbox'}
         </h3>
-        <select
-          value={periodo}
-          onChange={(e) => setPeriodo(e.target.value)}
-          className="text-xs rounded-lg px-2 py-1"
-          style={{ background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
-        >
-          <option value="7">Últimos 7 días</option>
-          <option value="30">Últimos 30 días</option>
-          <option value="90">Últimos 90 días</option>
-        </select>
+        <div className="w-44">
+          <Select
+            valor={periodo}
+            onChange={setPeriodo}
+            opciones={[
+              { valor: '7', etiqueta: 'Últimos 7 días' },
+              { valor: '30', etiqueta: 'Últimos 30 días' },
+              { valor: '90', etiqueta: 'Últimos 90 días' },
+            ]}
+          />
+        </div>
       </div>
 
       {/* Grid de tarjetas de volumen */}
