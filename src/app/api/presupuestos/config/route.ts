@@ -76,6 +76,9 @@ export async function PATCH(request: NextRequest) {
       'condiciones_predeterminadas', 'notas_predeterminadas',
       'unidades', 'columnas_lineas_default',
       'plantillas', 'plantillas_predeterminadas',
+      // Configuración PDF
+      'membrete', 'pie_pagina', 'plantilla_html',
+      'patron_nombre_pdf', 'datos_empresa_pdf',
     ]
 
     const actualizacion: Record<string, unknown> = {

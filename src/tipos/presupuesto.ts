@@ -123,6 +123,8 @@ export interface Presupuesto {
   // PDF
   pdf_url: string | null
   pdf_miniatura_url: string | null
+  pdf_storage_path: string | null
+  pdf_generado_en: string | null
 
   // Vinculación
   origen_documento_id: string | null
@@ -332,7 +334,111 @@ export interface ConfigPresupuestos {
   columnas_lineas_default: string[]
   plantillas: PlantillaPresupuesto[]
   plantillas_predeterminadas: Record<string, string>
+  // Configuración PDF
+  membrete: ConfigMembrete | null
+  pie_pagina: ConfigPiePagina | null
+  plantilla_html: string | null
+  patron_nombre_pdf: string | null
+  datos_empresa_pdf: ConfigDatosEmpresaPdf | null
 }
+
+// ─── Configuración de membrete (encabezado del PDF) ───
+
+export interface ConfigMembrete {
+  mostrar_logo: boolean
+  tipo_logo: 'cuadrado' | 'apaisado'
+  posicion_logo: 'izquierda' | 'centro' | 'derecha'
+  ancho_logo: number
+  texto_logo: string
+  tamano_texto_logo: number
+  subtitulo_logo: string
+  tamano_subtitulo: number
+  contenido_html: string
+  alineacion_texto: 'izquierda' | 'centro' | 'derecha'
+  tamano_texto: number
+  linea_separadora: boolean
+  grosor_linea: number
+  color_linea: 'gris' | 'marca'
+}
+
+// ─── Configuración de pie de página del PDF ───
+
+export type TipoColumnaPie = 'vacio' | 'texto' | 'numeracion' | 'imagen'
+
+export interface ColumnaPie {
+  tipo: TipoColumnaPie
+  texto?: string
+  tamano_texto?: number
+  imagen_url?: string
+  texto_imagen?: string
+  posicion_texto?: 'arriba' | 'abajo'
+  alineacion_texto?: 'izquierda' | 'centro' | 'derecha'
+}
+
+export interface ConfigPiePagina {
+  linea_superior: boolean
+  grosor_linea: number
+  color_linea: 'gris' | 'marca'
+  tamano_texto: number
+  columnas: {
+    izquierda: ColumnaPie
+    centro: ColumnaPie
+    derecha: ColumnaPie
+  }
+}
+
+// ─── Datos de empresa visibles en el PDF ───
+
+export interface DatosBancarios {
+  banco: string
+  titular: string
+  cbu: string
+  alias: string
+}
+
+export interface ConfigDatosEmpresaPdf {
+  mostrar_razon_social: boolean
+  mostrar_identificacion: boolean
+  mostrar_condicion_fiscal: boolean
+  mostrar_direccion: boolean
+  mostrar_telefono: boolean
+  mostrar_correo: boolean
+  mostrar_pagina_web: boolean
+  mostrar_datos_bancarios: boolean
+  datos_bancarios: DatosBancarios
+}
+
+// ─── Variables disponibles para la plantilla PDF ───
+
+export const VARIABLES_PLANTILLA_PDF = [
+  // Documento
+  '{numero}', '{tipo_documento}', '{fecha_emision}', '{fecha_vencimiento}',
+  '{moneda_simbolo}', '{moneda_codigo}', '{referencia}', '{estado}',
+  '{condicion_pago}', '{nota_plan_pago}',
+  // Contacto
+  '{contacto_nombre}', '{contacto_identificacion}', '{contacto_condicion_fiscal}',
+  '{contacto_direccion}', '{contacto_correo}', '{contacto_telefono}',
+  // Dirigido a
+  '{atencion_nombre}', '{atencion_cargo}', '{atencion_correo}',
+  // Totales
+  '{subtotal_neto}', '{total_impuestos}', '{descuento_global_porcentaje}',
+  '{descuento_global_monto}', '{total_final}',
+  // Empresa
+  '{empresa_nombre}', '{empresa_identificacion}', '{empresa_condicion_fiscal}',
+  '{empresa_direccion}', '{empresa_telefono}', '{empresa_correo}',
+  '{empresa_pagina_web}', '{empresa_logo_url}',
+  // Bancarios
+  '{banco}', '{banco_titular}', '{banco_cbu}', '{banco_alias}',
+] as const
+
+// Variables para el patrón de nombre del archivo PDF
+export const VARIABLES_NOMBRE_PDF = [
+  { variable: '{numero}', descripcion: 'Número del documento (ej: P-0001)' },
+  { variable: '{contacto_nombre}', descripcion: 'Nombre del contacto' },
+  { variable: '{fecha}', descripcion: 'Fecha de emisión (dd-mm-yyyy)' },
+  { variable: '{tipo}', descripcion: 'Tipo de documento (Presupuesto)' },
+  { variable: '{referencia}', descripcion: 'Referencia interna' },
+] as const
 
 // ─── Columnas configurables de la tabla de líneas ───
 

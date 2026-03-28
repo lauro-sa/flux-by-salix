@@ -1,0 +1,223 @@
+/**
+ * Generador de PDF para presupuestos (servidor).
+ * Usa el renderizado compartido de renderizar-html.ts,
+ * convierte a PDF con Puppeteer, y sube a Supabase Storage.
+ * Se usa en: /api/presupuestos/[id]/pdf
+ */
+
+import type { SupabaseClient } from '@supabase/supabase-js'
+import {
+  renderizarHtml,
+  generarNombreArchivo,
+  type DatosPresupuestoPdf,
+  type DatosEmpresa,
+  type ConfigPdf,
+} from './renderizar-html'
+import type { LineaPresupuesto, CuotaPago } from '@/tipos/presupuesto'
+
+// Re-exportar para que la API route siga importando desde aquí
+export { renderizarHtml, generarNombreArchivo }
+
+interface ResultadoPdf {
+  url: string
+  storage_path: string
+  nombre_archivo: string
+  tamano: number
+}
+
+// ─── Conversión HTML a PDF con Puppeteer ───
+
+async function htmlAPdf(html: string): Promise<Buffer> {
+  let browser
+  try {
+    const chromium = (await import('@sparticuz/chromium')).default
+    const puppeteer = await import('puppeteer-core')
+    browser = await puppeteer.default.launch({
+      args: chromium.args,
+      defaultViewport: { width: 1280, height: 720 },
+      executablePath: await chromium.executablePath(),
+      headless: true,
+    })
+  } catch {
+    try {
+      const puppeteer = await import('puppeteer-core')
+      const rutasChrome = [
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        '/usr/bin/google-chrome',
+        '/usr/bin/chromium-browser',
+        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      ]
+      let executablePath = ''
+      const { existsSync } = await import('fs')
+      for (const ruta of rutasChrome) {
+        if (existsSync(ruta)) { executablePath = ruta; break }
+      }
+      if (!executablePath) {
+        throw new Error('No se encontró Chrome/Chromium instalado.')
+      }
+      browser = await puppeteer.default.launch({
+        executablePath,
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      })
+    } catch (err) {
+      throw new Error(`No se pudo iniciar el navegador: ${err instanceof Error ? err.message : 'Error desconocido'}`)
+    }
+  }
+
+  try {
+    const pagina = await browser.newPage()
+    await pagina.setContent(html, { waitUntil: 'networkidle0' })
+    const pdfBuffer = await pagina.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '20mm', bottom: '25mm', left: '18mm', right: '18mm' },
+      displayHeaderFooter: false,
+      preferCSSPageSize: false,
+    })
+    return Buffer.from(pdfBuffer)
+  } finally {
+    await browser.close()
+  }
+}
+
+// ─── Subida a Supabase Storage ───
+
+async function subirAStorage(
+  admin: SupabaseClient,
+  empresaId: string,
+  presupuestoId: string,
+  pdfBuffer: Buffer,
+  congelado: boolean,
+): Promise<{ url: string; storagePath: string }> {
+  const carpeta = congelado ? 'congelados' : 'presupuestos'
+  const timestamp = congelado ? `_${Date.now()}` : ''
+  const storagePath = `${empresaId}/${carpeta}/${presupuestoId}${timestamp}.pdf`
+
+  if (!congelado) {
+    await admin.storage.from('documentos-pdf').remove([storagePath]).catch(() => {})
+  }
+
+  const { error } = await admin.storage
+    .from('documentos-pdf')
+    .upload(storagePath, pdfBuffer, {
+      contentType: 'application/pdf',
+      upsert: !congelado,
+      cacheControl: '3600',
+    })
+
+  if (error) throw new Error(`Error al subir PDF a Storage: ${error.message}`)
+
+  const { data: urlData } = admin.storage.from('documentos-pdf').getPublicUrl(storagePath)
+  return { url: urlData.publicUrl, storagePath }
+}
+
+// ─── Función principal ───
+
+export async function generarPdfPresupuesto(
+  admin: SupabaseClient,
+  presupuestoId: string,
+  empresaId: string,
+  opciones: { congelado?: boolean; forzar?: boolean } = {}
+): Promise<ResultadoPdf> {
+  const { congelado = false, forzar = false } = opciones
+
+  // 1. Obtener presupuesto
+  const { data: presupuesto, error: errPres } = await admin
+    .from('presupuestos').select('*')
+    .eq('id', presupuestoId).eq('empresa_id', empresaId).single()
+
+  if (errPres || !presupuesto) throw new Error('Presupuesto no encontrado')
+
+  // 2. Verificar si necesita regeneración
+  if (!congelado && !forzar && presupuesto.pdf_url && presupuesto.pdf_generado_en) {
+    const pdfGeneradoEn = new Date(presupuesto.pdf_generado_en).getTime()
+    const actualizadoEn = new Date(presupuesto.actualizado_en).getTime()
+    if (pdfGeneradoEn >= actualizadoEn) {
+      return { url: presupuesto.pdf_url, storage_path: presupuesto.pdf_storage_path || '', nombre_archivo: '', tamano: 0 }
+    }
+  }
+
+  // 3. Obtener líneas, cuotas, config y empresa
+  const [{ data: lineas }, { data: cuotas }, { data: config }, { data: empresa }] = await Promise.all([
+    admin.from('lineas_presupuesto').select('*').eq('presupuesto_id', presupuestoId).order('orden'),
+    admin.from('presupuesto_cuotas').select('*').eq('presupuesto_id', presupuestoId).order('numero'),
+    admin.from('config_presupuestos').select('*').eq('empresa_id', empresaId).single(),
+    admin.from('empresas').select('*').eq('id', empresaId).single(),
+  ])
+
+  if (!empresa) throw new Error('Empresa no encontrada')
+
+  // 4. Logo — elegir cuadrado o apaisado según config
+  const tipoLogo = config?.membrete?.tipo_logo || 'cuadrado'
+  let logoUrl = empresa.logo_url || ''
+  try {
+    const rutaLogo = `${empresaId}/${tipoLogo}.png`
+    const { data: logoData } = admin.storage.from('logos').getPublicUrl(rutaLogo)
+    if (logoData?.publicUrl) logoUrl = logoData.publicUrl
+  } catch { /* usar URL original */ }
+
+  // 5. Renderizar HTML
+  const obtenerSimbolo = (monedaId: string) => {
+    const m = (config?.monedas || []).find((m: { id: string; simbolo: string }) => m.id === monedaId)
+    return m?.simbolo || '$'
+  }
+
+  const datosPresupuesto: DatosPresupuestoPdf = {
+    numero: presupuesto.numero, estado: presupuesto.estado,
+    fecha_emision: presupuesto.fecha_emision, fecha_vencimiento: presupuesto.fecha_vencimiento,
+    moneda: presupuesto.moneda, moneda_simbolo: obtenerSimbolo(presupuesto.moneda),
+    referencia: presupuesto.referencia, condicion_pago_label: presupuesto.condicion_pago_label,
+    nota_plan_pago: presupuesto.nota_plan_pago,
+    contacto_nombre: presupuesto.contacto_nombre, contacto_apellido: presupuesto.contacto_apellido,
+    contacto_identificacion: presupuesto.contacto_identificacion, contacto_condicion_iva: presupuesto.contacto_condicion_iva,
+    contacto_direccion: presupuesto.contacto_direccion, contacto_correo: presupuesto.contacto_correo,
+    contacto_telefono: presupuesto.contacto_telefono,
+    atencion_nombre: presupuesto.atencion_nombre, atencion_cargo: presupuesto.atencion_cargo,
+    atencion_correo: presupuesto.atencion_correo,
+    subtotal_neto: presupuesto.subtotal_neto, total_impuestos: presupuesto.total_impuestos,
+    descuento_global: presupuesto.descuento_global, descuento_global_monto: presupuesto.descuento_global_monto,
+    total_final: presupuesto.total_final,
+    notas_html: presupuesto.notas_html, condiciones_html: presupuesto.condiciones_html,
+    lineas: (lineas || []) as unknown as LineaPresupuesto[],
+    cuotas: (cuotas || []) as unknown as CuotaPago[],
+  }
+
+  const datosEmpresa: DatosEmpresa = {
+    nombre: empresa.nombre, logo_url: logoUrl,
+    datos_fiscales: empresa.datos_fiscales, pais: empresa.pais, paises: empresa.paises || [],
+    color_marca: empresa.color_marca || null,
+    direccion: empresa.ubicacion || '', telefono: empresa.telefono || '',
+    correo: empresa.correo || '', pagina_web: empresa.pagina_web || '',
+  }
+
+  const configPdf: ConfigPdf = {
+    membrete: config?.membrete || null, pie_pagina: config?.pie_pagina || null,
+    plantilla_html: config?.plantilla_html || null, patron_nombre_pdf: config?.patron_nombre_pdf || null,
+    datos_empresa_pdf: config?.datos_empresa_pdf || null, monedas: config?.monedas || [],
+  }
+
+  const html = renderizarHtml(datosPresupuesto, datosEmpresa, configPdf)
+
+  // 6. Convertir y subir
+  const pdfBuffer = await htmlAPdf(html)
+  const nombreArchivo = generarNombreArchivo(config?.patron_nombre_pdf, {
+    numero: presupuesto.numero, contacto_nombre: presupuesto.contacto_nombre,
+    contacto_apellido: presupuesto.contacto_apellido, fecha_emision: presupuesto.fecha_emision,
+    referencia: presupuesto.referencia,
+  })
+
+  const { url, storagePath } = await subirAStorage(admin, empresaId, presupuestoId, pdfBuffer, congelado)
+
+  // 7. Actualizar presupuesto si no es congelado
+  if (!congelado) {
+    if (presupuesto.pdf_storage_path && presupuesto.pdf_storage_path !== storagePath) {
+      await admin.storage.from('documentos-pdf').remove([presupuesto.pdf_storage_path]).catch(() => {})
+    }
+    await admin.from('presupuestos').update({
+      pdf_url: url, pdf_storage_path: storagePath, pdf_generado_en: new Date().toISOString(),
+    }).eq('id', presupuestoId)
+  }
+
+  return { url, storage_path: storagePath, nombre_archivo: nombreArchivo, tamano: pdfBuffer.length }
+}
