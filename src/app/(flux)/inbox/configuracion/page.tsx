@@ -1684,27 +1684,63 @@ function EditorWhatsApp({
             </div>
             <div>
               <label className="text-xxs font-medium mb-1.5 block" style={{ color: 'var(--texto-terciario)' }}>
-                Así se ve en WhatsApp
+                Así lo ve el cliente
               </label>
+              {/* Simulación de chat WhatsApp */}
               <div
-                className="rounded-lg p-3 text-sm overflow-y-auto"
+                className="rounded-xl overflow-hidden"
                 style={{
-                  background: 'var(--superficie-hover)',
-                  border: '1px solid var(--borde-sutil)',
-                  minHeight: alturaMinima,
+                  background: '#0b141a',
+                  backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'24\' height=\'24\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Ccircle cx=\'2\' cy=\'2\' r=\'0.8\' fill=\'%23ffffff08\'/%3E%3C/svg%3E")',
+                  minHeight: alturaMinima + 40,
+                  border: '1px solid #1f2c34',
                 }}
               >
-                {valor ? (
-                  <div
-                    className="text-sm leading-relaxed"
-                    style={{ color: 'var(--texto-primario)' }}
-                    dangerouslySetInnerHTML={{ __html: formatoWhatsAppAHtml(valor) }}
-                  />
-                ) : (
-                  <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
-                    Vista previa...
-                  </p>
-                )}
+                {/* Header WhatsApp */}
+                <div
+                  className="flex items-center gap-2 px-3 py-2"
+                  style={{ background: '#1f2c34' }}
+                >
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: '#2a3942' }}>
+                    <span className="text-xs" style={{ color: '#8696a0' }}>Tu</span>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium" style={{ color: '#e9edef' }}>Tu empresa</p>
+                    <p className="text-xxs" style={{ color: '#8696a0' }}>en línea</p>
+                  </div>
+                </div>
+
+                {/* Área de chat */}
+                <div className="px-4 py-3 flex justify-end" style={{ minHeight: alturaMinima - 20 }}>
+                  {valor ? (
+                    <div
+                      className="relative max-w-[85%] rounded-lg px-3 py-1.5"
+                      style={{
+                        background: '#005c4b',
+                        borderTopRightRadius: '4px',
+                      }}
+                    >
+                      <div
+                        className="text-sm leading-relaxed whitespace-pre-wrap"
+                        style={{ color: '#e9edef' }}
+                        dangerouslySetInnerHTML={{ __html: formatoWhatsAppAHtml(valor) }}
+                      />
+                      <div className="flex items-center justify-end gap-1 mt-0.5">
+                        <span className="text-[10px]" style={{ color: '#ffffff99' }}>
+                          {new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        <svg width="16" height="11" viewBox="0 0 16 11" fill="none">
+                          <path d="M11.071 0.929L4.5 7.5L1.429 4.429" stroke="#53bdeb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M14.071 0.929L7.5 7.5L6.5 6.5" stroke="#53bdeb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs self-center" style={{ color: '#8696a0' }}>
+                      Escribí un mensaje para ver la preview...
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
