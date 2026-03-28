@@ -80,6 +80,7 @@ export function ListaConversaciones({
     { clave: 'abierta', etiqueta: 'Abiertas' },
     { clave: 'en_espera', etiqueta: 'En espera' },
     { clave: 'resuelta', etiqueta: 'Resueltas' },
+    { clave: 'spam', etiqueta: 'Spam' },
   ]
 
   return (
@@ -252,6 +253,16 @@ export function ListaConversaciones({
                     >
                       {conv.ultimo_mensaje_texto || 'Sin mensajes'}
                     </p>
+
+                    {/* Etiqueta de cuenta de correo */}
+                    {tipoCanal === 'correo' && conv.canal?.nombre && (
+                      <p
+                        className="text-xxs truncate mt-0.5"
+                        style={{ color: 'var(--canal-correo)' }}
+                      >
+                        {conv.canal.nombre}
+                      </p>
+                    )}
 
                     {/* Footer: estado + asignado */}
                     <div className="flex items-center gap-2 mt-1">

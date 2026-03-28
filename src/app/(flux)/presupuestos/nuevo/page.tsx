@@ -112,10 +112,11 @@ export default function PaginaNuevoPresupuesto() {
       .then(data => {
         setConfig(data)
         if (data.moneda_predeterminada) setMoneda(data.moneda_predeterminada)
-        if (data.dias_vencimiento_predeterminado) setDiasVencimiento(data.dias_vencimiento_predeterminado)
         if (data.notas_predeterminadas) setNotasHtml(data.notas_predeterminadas)
         if (data.condiciones_predeterminadas) setCondicionesHtml(data.condiciones_predeterminadas)
         if (data.columnas_lineas_default) setColumnasVisibles(data.columnas_lineas_default as string[])
+        // Días de validez de la oferta — independiente de la condición de pago
+        if (data.dias_vencimiento_predeterminado != null) setDiasVencimiento(data.dias_vencimiento_predeterminado)
         const condiciones = (data.condiciones_pago || []) as CondicionPago[]
         const defecto = condiciones.find(c => c.predeterminado)
         if (defecto) setCondicionPagoId(defecto.id)
@@ -469,11 +470,10 @@ export default function PaginaNuevoPresupuesto() {
   const unidadesList = (config?.unidades || []) as UnidadMedida[]
   const condSeleccionada = condiciones.find(c => c.id === condicionPagoId)
 
-  // Fecha vencimiento calculada
+  // Fecha de vencimiento de la oferta (validez del presupuesto, no del pago)
   const fechaVenc = (() => {
     const f = new Date(fechaEmision)
-    const dias = condSeleccionada?.tipo === 'plazo_fijo' ? condSeleccionada.diasVencimiento : diasVencimiento
-    f.setDate(f.getDate() + dias)
+    f.setDate(f.getDate() + diasVencimiento)
     return f
   })()
 
@@ -830,12 +830,10 @@ export default function PaginaNuevoPresupuesto() {
                     onChange={(v) => {
                       setCondicionPagoId(v)
                       const cond = condiciones.find(c => c.id === v)
-                      if (cond?.tipo === 'plazo_fijo') setDiasVencimiento(cond.diasVencimiento)
                       autoguardar({
                         condicion_pago_id: v || null,
                         condicion_pago_label: cond?.label || null,
                         condicion_pago_tipo: cond?.tipo || null,
-                        ...(cond?.tipo === 'plazo_fijo' ? { dias_vencimiento: cond.diasVencimiento } : {}),
                       })
                     }}
                     opciones={[

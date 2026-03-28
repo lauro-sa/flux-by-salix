@@ -169,7 +169,7 @@ export default function PaginaConfigPresupuestos() {
     { id: 'unidades', etiqueta: 'Unidades de medida', icono: <Ruler size={16} />, grupo: 'Financiero' },
     { id: 'condiciones', etiqueta: 'Condiciones de pago', icono: <Clock size={16} />, grupo: 'Financiero' },
     { id: 'numeracion', etiqueta: 'Numeración', icono: <Hash size={16} />, grupo: 'Documento' },
-    { id: 'textos', etiqueta: 'Textos por defecto', icono: <FileText size={16} />, grupo: 'Documento' },
+    { id: 'textos', etiqueta: 'Valores por defecto', icono: <FileText size={16} />, grupo: 'Documento' },
     { id: 'membrete', etiqueta: 'Membrete', icono: <Image size={16} />, grupo: 'PDF' },
     { id: 'pie_pagina', etiqueta: 'Pie de página', icono: <PanelBottom size={16} />, grupo: 'PDF' },
     { id: 'plantilla_pdf', etiqueta: 'Plantilla PDF', icono: <Code2 size={16} />, grupo: 'PDF' },
@@ -810,31 +810,44 @@ export default function PaginaConfigPresupuestos() {
       {/* ─── TEXTOS DEFAULT ─── */}
       {seccionActiva === 'textos' && (
         <div>
-          <h3 className="text-lg font-semibold text-texto-primario">Textos por defecto</h3>
+          <h3 className="text-lg font-semibold text-texto-primario">Valores por defecto</h3>
           <p className="text-sm text-texto-terciario mt-1 mb-5">Se cargan automáticamente al crear un presupuesto nuevo.</p>
-          <div className="space-y-4">
+          <div className="space-y-6">
+            {/* Días de validez */}
+            <div>
+              <label className="text-[11px] text-texto-terciario font-medium uppercase tracking-wider mb-1.5 block">Días de validez</label>
+              <p className="text-xs text-texto-terciario mb-2">Cuántos días desde la emisión es válida la oferta.</p>
+              <input
+                type="number"
+                min={1}
+                value={diasVencimiento}
+                onChange={(e) => setDiasVencimiento(parseInt(e.target.value) || 1)}
+                onBlur={() => guardarTextos('dias', diasVencimiento)}
+                onFocus={(e) => e.target.select()}
+                className="w-24 bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm font-mono text-texto-primario outline-none focus:border-marca-500 transition-colors"
+              />
+            </div>
+
+            <div className="border-t border-borde-sutil" />
+
+            {/* Notas por defecto */}
             <div>
               <EditorNotasPresupuesto
                 valor={notasDefault}
                 onChange={(v) => guardarTextos('notas', v)}
-                placeholder="Ej: Válido por 30 días..."
+                placeholder="Ej: Sujeto a disponibilidad de stock..."
                 etiqueta="Notas por defecto"
               />
             </div>
+
+            {/* Condiciones por defecto */}
             <div>
               <EditorNotasPresupuesto
                 valor={condicionesDefault}
                 onChange={(v) => guardarTextos('condiciones', v)}
-                placeholder="Ej: Sujeto a disponibilidad..."
+                placeholder="Ej: Los precios no incluyen IVA..."
                 etiqueta="Condiciones por defecto"
               />
-            </div>
-            <div>
-              <label className="text-xs text-texto-terciario font-medium mb-1 block">Días de validez por defecto</label>
-              <input type="number" value={diasVencimiento}
-                onChange={(e) => setDiasVencimiento(parseInt(e.target.value) || 30)}
-                onBlur={() => guardarTextos('dias', diasVencimiento)}
-                className="w-24 bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm font-mono outline-none" />
             </div>
           </div>
         </div>

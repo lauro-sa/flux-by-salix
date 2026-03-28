@@ -13,11 +13,12 @@ import {
 import { ListaConversaciones } from './_componentes/ListaConversaciones'
 import { PanelWhatsApp, VisorMedia, type MediaVisor } from './_componentes/PanelWhatsApp'
 import { PanelCorreo } from './_componentes/PanelCorreo'
+import { CompositorCorreo, type DatosCorreo } from './_componentes/CompositorCorreo'
 import { PanelInterno } from './_componentes/PanelInterno'
 import { PanelInfoContacto } from './_componentes/PanelInfoContacto'
 import type {
   TipoCanal, EstadoConversacion, ConversacionConDetalles,
-  MensajeConAdjuntos, CanalInterno, ModuloEmpresa,
+  MensajeConAdjuntos, CanalInterno, CanalInbox, ModuloEmpresa,
 } from '@/tipos/inbox'
 import type { DatosMensaje } from './_componentes/CompositorMensaje'
 
@@ -71,6 +72,11 @@ export default function PaginaInbox() {
 
   // Panel info contacto
   const [panelInfoAbierto, setPanelInfoAbierto] = useState(false)
+
+  // Correo: redactar nuevo + canales disponibles
+  const [redactandoNuevo, setRedactandoNuevo] = useState(false)
+  const [canalesCorreo, setCanalesCorreo] = useState<CanalInbox[]>([])
+  const [canalCorreoActivo, setCanalCorreoActivo] = useState<string>('')
 
   // Visor de media fullscreen (compartido entre PanelWhatsApp y PanelInfoContacto)
   const [visorAbierto, setVisorAbierto] = useState(false)
@@ -161,6 +167,25 @@ export default function PaginaInbox() {
     return () => clearTimeout(timeout)
   }, [busqueda, cargarConversaciones])
 
+  // Cargar canales de correo cuando se activa el tab
+  useEffect(() => {
+    if (tabActivo !== 'correo') return
+    const cargar = async () => {
+      try {
+        const res = await fetch('/api/inbox/canales?tipo=correo')
+        const data = await res.json()
+        const canales = data.canales || []
+        setCanalesCorreo(canales)
+        if (canales.length > 0 && !canalCorreoActivo) {
+          setCanalCorreoActivo(canales[0].id)
+        }
+      } catch {
+        // silenciar
+      }
+    }
+    cargar()
+  }, [tabActivo])
+
   // Cargar canales internos
   useEffect(() => {
     if (tabActivo !== 'interno') return
@@ -179,6 +204,7 @@ export default function PaginaInbox() {
 
   // Seleccionar conversación y cargar mensajes
   const seleccionarConversacion = useCallback(async (id: string) => {
+    setRedactandoNuevo(false)
     const conv = conversaciones.find(c => c.id === id) || null
     setConversacionSeleccionada(conv)
     if (!conv) return
@@ -216,6 +242,55 @@ export default function PaginaInbox() {
       // TODO: toast de error
     } finally {
       setEnviando(false)
+    }
+  }, [conversacionSeleccionada])
+
+  // Enviar correo (vía API dedicada de correo)
+  const enviarCorreo = useCallback(async (datos: DatosCorreo) => {
+    setEnviando(true)
+    try {
+      const res = await fetch('/api/inbox/correo/enviar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversacion_id: conversacionSeleccionada?.id || null,
+          canal_id: canalCorreoActivo,
+          ...datos,
+        }),
+      })
+      const data = await res.json()
+      if (data.mensaje) {
+        // Si era correo nuevo, seleccionar la conversación creada
+        if (!conversacionSeleccionada && data.conversacion_id) {
+          setRedactandoNuevo(false)
+          cargarConversaciones()
+        } else {
+          setMensajes(prev => [...prev, { ...data.mensaje, adjuntos: [] }])
+        }
+      }
+    } catch {
+      // TODO: toast de error
+    } finally {
+      setEnviando(false)
+    }
+  }, [conversacionSeleccionada, canalCorreoActivo, cargarConversaciones])
+
+  // Marcar conversación como spam
+  const marcarSpam = useCallback(async (conversacionId: string) => {
+    try {
+      await fetch(`/api/inbox/conversaciones/${conversacionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: 'spam' }),
+      })
+      // Remover de la lista si no estamos filtrando por spam
+      setConversaciones(prev => prev.filter(c => c.id !== conversacionId))
+      if (conversacionSeleccionada?.id === conversacionId) {
+        setConversacionSeleccionada(null)
+        setMensajes([])
+      }
+    } catch {
+      // TODO: toast de error
     }
   }, [conversacionSeleccionada])
 
@@ -343,6 +418,21 @@ export default function PaginaInbox() {
         />
 
         <div className="flex items-center gap-1">
+          {/* Botón redactar correo nuevo */}
+          {tabActivo === 'correo' && canalesCorreo.length > 0 && (
+            <Boton
+              variante="primario"
+              tamano="xs"
+              icono={<Pen size={14} />}
+              onClick={() => {
+                setConversacionSeleccionada(null)
+                setMensajes([])
+                setRedactandoNuevo(true)
+              }}
+            >
+              Redactar
+            </Boton>
+          )}
           {/* Toggle panel info */}
           <Boton
             variante="fantasma"
@@ -395,13 +485,41 @@ export default function PaginaInbox() {
         )}
 
         {tabActivo === 'correo' && (
-          <PanelCorreo
-            conversacion={conversacionSeleccionada}
-            mensajes={mensajes}
-            onEnviar={enviarMensaje}
-            cargando={cargandoMensajes}
-            enviando={enviando}
-          />
+          redactandoNuevo ? (
+            <div className="flex-1 flex flex-col p-4" style={{ background: 'var(--superficie-app)' }}>
+              <CompositorCorreo
+                tipo="nuevo"
+                canalesCorreo={canalesCorreo.map(c => ({
+                  id: c.id,
+                  nombre: c.nombre,
+                  email: (c.config_conexion as { email?: string; usuario?: string })?.email
+                    || (c.config_conexion as { email?: string; usuario?: string })?.usuario
+                    || c.nombre,
+                }))}
+                canalSeleccionado={canalCorreoActivo}
+                onCambiarCanal={setCanalCorreoActivo}
+                onEnviar={enviarCorreo}
+                onCancelar={() => setRedactandoNuevo(false)}
+                cargando={enviando}
+              />
+            </div>
+          ) : (
+            <PanelCorreo
+              conversacion={conversacionSeleccionada}
+              mensajes={mensajes}
+              onEnviarCorreo={enviarCorreo}
+              onMarcarSpam={marcarSpam}
+              cargando={cargandoMensajes}
+              enviando={enviando}
+              emailCanal={
+                canalesCorreo.find(c => c.id === canalCorreoActivo)
+                  ? ((canalesCorreo.find(c => c.id === canalCorreoActivo)?.config_conexion as { email?: string; usuario?: string })?.email
+                    || (canalesCorreo.find(c => c.id === canalCorreoActivo)?.config_conexion as { email?: string; usuario?: string })?.usuario
+                    || '')
+                  : ''
+              }
+            />
+          )
         )}
 
         {tabActivo === 'interno' && (

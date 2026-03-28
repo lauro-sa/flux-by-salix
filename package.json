@@ -38,9 +38,13 @@
     "exceljs": "^4.4.0",
     "framer-motion": "^12.38.0",
     "googleapis": "^171.4.0",
+    "imapflow": "^1.2.18",
+    "isomorphic-dompurify": "^3.7.1",
     "libphonenumber-js": "^1.12.40",
     "lucide-react": "^1.6.0",
+    "mailparser": "^3.9.6",
     "next": "^16.2.1",
+    "nodemailer": "^8.0.4",
     "postcss": "^8.5.8",
     "postgres": "^3.4.8",
     "puppeteer-core": "^24.40.0",
@@ -52,6 +56,8 @@
     "typescript": "^6.0.2"
   },
   "devDependencies": {
+    "@types/mailparser": "^3.4.6",
+    "@types/nodemailer": "^7.0.11",
     "drizzle-kit": "^0.31.10",
     "sharp": "^0.34.5"
   }

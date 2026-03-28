@@ -110,6 +110,33 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado,
       return
     }
 
+    // Gmail OAuth: iniciar flujo de autorización en vez de guardar directo
+    if (proveedor === 'gmail_oauth') {
+      setGuardando(true)
+      setError('')
+      try {
+        const res = await fetch('/api/inbox/correo/oauth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            canal_id: modoEdicion ? canalEditar?.id : null,
+            nombre: nombre.trim() || gmailEmail,
+          }),
+        })
+        const data = await res.json()
+        if (data.url) {
+          window.location.href = data.url
+        } else {
+          setError(data.error || 'Error al iniciar conexión con Google')
+        }
+      } catch {
+        setError('Error de conexión. Verificá tu red.')
+      } finally {
+        setGuardando(false)
+      }
+      return
+    }
+
     setGuardando(true)
     setError('')
 
@@ -127,8 +154,6 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado,
           smtp_host: smtpHost || imapHost,
           smtp_puerto: parseInt(smtpPuerto),
         }
-      } else if (proveedor === 'gmail_oauth') {
-        config_conexion = { email: gmailEmail }
       } else if (proveedor === 'meta_api') {
         config_conexion = {
           phone_number_id: waPhoneId,

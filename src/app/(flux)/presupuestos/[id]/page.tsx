@@ -748,7 +748,6 @@ export default function PaginaDetallePresupuesto() {
                       condicion_pago_id: v,
                       condicion_pago_label: cond?.label,
                       condicion_pago_tipo: cond?.tipo,
-                      dias_vencimiento: cond?.tipo === 'plazo_fijo' ? cond.diasVencimiento : diasVencimiento,
                     })
                   }}
                   opciones={[
