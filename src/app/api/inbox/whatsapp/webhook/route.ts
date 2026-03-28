@@ -262,11 +262,16 @@ async function descargarYGuardarMedia(
   if (!tokenAcceso) return
 
   try {
+    console.log(`[MEDIA] Descargando ${msg.type} mediaId=${mediaId}`)
     // Obtener URL temporal de Meta
     const mediaInfo = await obtenerUrlMedia(mediaId, tokenAcceso)
+    console.log(`[MEDIA] URL obtenida, size=${mediaInfo.file_size}`)
 
     // Descargar el archivo
     const { buffer, contentType } = await descargarMediaBuffer(mediaInfo.url, tokenAcceso)
+
+    // Convertir ArrayBuffer a Uint8Array (compatible con Supabase Storage en edge)
+    const bytes = new Uint8Array(buffer)
 
     // Subir a Supabase Storage
     const nombreArchivo = extraerNombreArchivo(msg)
@@ -274,15 +279,16 @@ async function descargarYGuardarMedia(
 
     const { error: uploadError } = await admin.storage
       .from('adjuntos')
-      .upload(storagePath, buffer, {
+      .upload(storagePath, bytes, {
         contentType,
         upsert: true,
       })
 
     if (uploadError) {
-      console.error('Error subiendo a Storage:', uploadError)
+      console.error('[MEDIA] Error subiendo a Storage:', JSON.stringify(uploadError))
       return
     }
+    console.log(`[MEDIA] Subido OK: ${storagePath}`)
 
     // Obtener URL pública
     const { data: urlData } = admin.storage
