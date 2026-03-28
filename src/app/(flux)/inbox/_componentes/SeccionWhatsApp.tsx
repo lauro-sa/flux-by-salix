@@ -38,6 +38,23 @@ const CAMPOS_META = [
   { clave: 'secretoWebhook', etiqueta: 'Clave secreta' },
 ]
 
+// Formatear teléfono para mostrar bonito (+54 9 11 2715-49993)
+function formatearTelefono(tel: string): string {
+  if (!tel) return ''
+  const limpio = tel.replace(/\D/g, '')
+  // Argentina: +54 9 XX XXXX-XXXX
+  if (limpio.startsWith('54') && limpio.length >= 12) {
+    const codigo = limpio.slice(2, 3) === '9' ? limpio.slice(3, 5) : limpio.slice(2, 4)
+    const resto = limpio.slice(limpio.length - 8)
+    return `+54 9 ${codigo} ${resto.slice(0, 4)}-${resto.slice(4)}`
+  }
+  // Genérico: agrupar de a 4
+  if (limpio.length > 4) {
+    return '+' + limpio.replace(/(\d{2})(\d{2,4})(\d{4})(\d+)?/, '$1 $2 $3-$4').replace(/-$/, '')
+  }
+  return tel
+}
+
 export function SeccionWhatsApp({ canales, onRecargar }: PropiedadesSeccionWhatsApp) {
   const canalesWA = canales.filter(c => c.tipo === 'whatsapp')
   const [cuentaActiva, setCuentaActiva] = useState<string | null>(canalesWA[0]?.id || null)
@@ -236,35 +253,37 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
           </Insignia>
         </div>
 
-        {/* Stepper visual */}
-        <div className="flex items-center">
-          {CAMPOS_META.map((campo, i) => {
-            const completado = campo.clave === 'nombre' ? !!canal.nombre : !!config[campo.clave]
-            return (
-              <div key={campo.clave} className="flex items-center flex-1">
-                <div className="flex flex-col items-center gap-1.5 flex-1">
-                  <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold"
-                    style={{
-                      background: completado ? 'var(--canal-whatsapp)' : 'var(--superficie-hover)',
-                      color: completado ? '#fff' : 'var(--texto-terciario)',
-                    }}
-                  >
-                    {completado ? <Check size={12} /> : i + 1}
+        {/* Stepper visual — scroll horizontal en pantallas chicas */}
+        <div className="overflow-x-auto">
+          <div className="flex items-center min-w-[500px]">
+            {CAMPOS_META.map((campo, i) => {
+              const completado = campo.clave === 'nombre' ? !!canal.nombre : !!config[campo.clave]
+              return (
+                <div key={campo.clave} className="flex items-center flex-1">
+                  <div className="flex flex-col items-center gap-1 flex-shrink-0" style={{ minWidth: 48 }}>
+                    <div
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                      style={{
+                        background: completado ? 'var(--insignia-exito)' : 'var(--superficie-hover)',
+                        color: completado ? '#fff' : 'var(--texto-terciario)',
+                      }}
+                    >
+                      {completado ? <Check size={10} /> : i + 1}
+                    </div>
+                    <span className="text-[10px] text-center leading-tight whitespace-nowrap" style={{ color: 'var(--texto-terciario)' }}>
+                      {campo.etiqueta}
+                    </span>
                   </div>
-                  <span className="text-[10px] text-center leading-tight" style={{ color: 'var(--texto-terciario)' }}>
-                    {campo.etiqueta}
-                  </span>
+                  {i < CAMPOS_META.length - 1 && (
+                    <div
+                      className="h-0.5 flex-1 mx-1 rounded-full mt-[-16px]"
+                      style={{ background: completado ? 'var(--insignia-exito)' : 'var(--borde-sutil)', minWidth: 16 }}
+                    />
+                  )}
                 </div>
-                {i < CAMPOS_META.length - 1 && (
-                  <div
-                    className="h-0.5 w-full mx-0.5 rounded-full mt-[-16px]"
-                    style={{ background: completado ? 'var(--canal-whatsapp)' : 'var(--borde-sutil)' }}
-                  />
-                )}
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
       </div>
 
@@ -299,15 +318,15 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
             <div
               className="p-4 rounded-lg cursor-pointer"
               style={{
-                border: canal.proveedor === 'meta_api' ? '2px solid var(--canal-whatsapp)' : '1px solid var(--borde-sutil)',
-                background: canal.proveedor === 'meta_api' ? 'rgba(37, 211, 102, 0.05)' : 'transparent',
+                border: canal.proveedor === 'meta_api' ? '2px solid var(--insignia-exito)' : '1px solid var(--borde-sutil)',
+                background: canal.proveedor === 'meta_api' ? 'var(--insignia-exito-fondo)' : 'transparent',
               }}
             >
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-semibold" style={{ color: 'var(--canal-whatsapp)' }}>
+                <span className="text-xs font-semibold" style={{ color: 'var(--insignia-exito)' }}>
                   Meta Cloud API
                 </span>
-                {canal.proveedor === 'meta_api' && <CheckCircle size={14} style={{ color: 'var(--canal-whatsapp)' }} />}
+                {canal.proveedor === 'meta_api' && <CheckCircle size={14} style={{ color: 'var(--insignia-exito)' }} />}
               </div>
               <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
                 Conexión directa con Meta — sin intermediarios ni costos extra
@@ -333,6 +352,8 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
           completado={!!(config.numeroTelefono || config.numero_telefono)}
         >
           <Input
+            tipo="tel"
+            formato="telefono"
             icono={<Phone size={14} />}
             defaultValue={(config.numeroTelefono || config.numero_telefono || '') as string}
             placeholder="+54 9 11 5555-1234"
@@ -348,13 +369,13 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
           style={{ border: '1px solid var(--borde-sutil)', background: 'var(--superficie-tarjeta)' }}
         >
           <div className="flex items-center gap-2">
-            <Globe size={14} style={{ color: 'var(--canal-whatsapp)' }} />
-            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--canal-whatsapp)' }}>
+            <Globe size={14} style={{ color: 'var(--insignia-exito)' }} />
+            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--insignia-exito)' }}>
               Meta Cloud API
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <CampoAPI
               etiqueta="Identificador de número de teléfono"
               ayuda='En Meta: Configuración de la API → "Identificador de número de teléfono"'
@@ -706,9 +727,9 @@ function CampoConIndicador({
         <p className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
           {etiqueta}
         </p>
-        {completado && <CheckCircle size={14} style={{ color: 'var(--canal-whatsapp)' }} />}
+        {completado && <CheckCircle size={14} style={{ color: 'var(--insignia-exito)' }} />}
         {extra && (
-          <span className="text-xxs" style={{ color: 'var(--canal-whatsapp)' }}>
+          <span className="text-xxs" style={{ color: 'var(--insignia-exito)' }}>
             {extra}
           </span>
         )}
@@ -735,7 +756,7 @@ function CampoAPI({
         <p className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>
           {etiqueta}
         </p>
-        {completado && <CheckCircle size={12} style={{ color: 'var(--canal-whatsapp)' }} />}
+        {completado && <CheckCircle size={12} style={{ color: 'var(--insignia-exito)' }} />}
       </div>
       <p className="text-xxs mb-1.5" style={{ color: 'var(--texto-terciario)' }}>
         {ayuda}
