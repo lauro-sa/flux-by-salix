@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import type { CanalInbox, PlantillaRespuesta, ConfigInbox, TipoCanal } from '@/tipos/inbox'
 import { ModalAgregarCanal } from '../_componentes/ModalAgregarCanal'
+import { SeccionWhatsApp } from '../_componentes/SeccionWhatsApp'
 
 /**
  * Configuración del Inbox — secciones: General, WhatsApp, Correo, Interno, Plantillas, SLA.
@@ -141,32 +142,9 @@ export default function PaginaConfiguracionInbox() {
         </div>
       )}
 
-      {/* WhatsApp */}
+      {/* WhatsApp — sección completa con stepper, formulario guiado, firma, coexistencia, FAQs */}
       {seccionActiva === 'whatsapp' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
-              Canales de WhatsApp conectados
-            </h3>
-            <Boton variante="primario" tamano="sm" icono={<Plus size={14} />} onClick={() => setModalCanal({ abierto: true, tipo: 'whatsapp' })}>
-              Agregar canal
-            </Boton>
-          </div>
-
-          {canalesWhatsApp.length === 0 ? (
-            <EstadoVacio
-              icono={<MessageCircle />}
-              titulo="Sin canales WhatsApp"
-              descripcion="Conectá un número de WhatsApp Business para empezar a recibir mensajes."
-            />
-          ) : (
-            <div className="space-y-3">
-              {canalesWhatsApp.map((canal) => (
-                <CanalCard key={canal.id} canal={canal} onRecargar={cargar} />
-              ))}
-            </div>
-          )}
-        </div>
+        <SeccionWhatsApp canales={canales} onRecargar={cargar} />
       )}
 
       {/* Correo */}
