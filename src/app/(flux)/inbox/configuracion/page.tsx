@@ -1425,12 +1425,11 @@ function SeccionChatbot() {
               </div>
 
               {/* Mensaje */}
-              <textarea
-                value={config.mensaje_bienvenida}
-                onChange={(e) => guardar({ mensaje_bienvenida: e.target.value })}
-                className="w-full rounded-lg p-2.5 text-sm resize-none outline-none"
-                style={{ background: 'var(--superficie-app)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)', minHeight: 80 }}
+              <EditorWhatsApp
+                valor={config.mensaje_bienvenida}
+                onChange={(v) => guardar({ mensaje_bienvenida: v })}
                 placeholder="¡Hola! 👋 Gracias por comunicarte..."
+                titulo="Mensaje de bienvenida"
               />
             </>
           )}
@@ -1451,12 +1450,11 @@ function SeccionChatbot() {
 
           {config.menu_activo && (
             <>
-              <textarea
-                value={config.mensaje_menu}
-                onChange={(e) => guardar({ mensaje_menu: e.target.value })}
-                className="w-full rounded-lg p-2.5 text-sm resize-none outline-none"
-                style={{ background: 'var(--superficie-app)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)', minHeight: 80 }}
+              <EditorWhatsApp
+                valor={config.mensaje_menu}
+                onChange={(v) => guardar({ mensaje_menu: v })}
                 placeholder="Elegí una opción:&#10;1️⃣ Productos&#10;2️⃣ Precios..."
+                titulo="Mensaje del menú"
               />
 
               <p className="text-xxs font-medium mt-3" style={{ color: 'var(--texto-secundario)' }}>Opciones</p>
@@ -1475,12 +1473,12 @@ function SeccionChatbot() {
                         style={{ color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
                         placeholder="Nombre de la opción"
                       />
-                      <textarea
-                        value={op.respuesta}
-                        onChange={(e) => actualizarOpcionMenu(i, 'respuesta', e.target.value)}
-                        className="w-full text-xs bg-transparent outline-none px-2 py-1 rounded resize-none"
-                        style={{ color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)', minHeight: 50 }}
+                      <EditorWhatsApp
+                        valor={op.respuesta}
+                        onChange={(v) => actualizarOpcionMenu(i, 'respuesta', v)}
                         placeholder={op.numero === config.palabra_transferir ? '(Transfiere a agente)' : 'Respuesta automática...'}
+                        titulo={`Respuesta opción ${op.numero}`}
+                        alturaMinima={80}
                       />
                     </div>
                     <button onClick={() => eliminarOpcionMenu(i)} className="p-1 mt-1" style={{ color: 'var(--texto-terciario)' }}>
@@ -1522,12 +1520,12 @@ function SeccionChatbot() {
                     <Trash2 size={12} />
                   </button>
                 </div>
-                <textarea
-                  value={pc.respuesta}
-                  onChange={(e) => actualizarPalabraClave(i, 'respuesta', e.target.value)}
-                  className="w-full text-xs bg-transparent outline-none px-2 py-1 rounded resize-none"
-                  style={{ color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)', minHeight: 50 }}
+                <EditorWhatsApp
+                  valor={pc.respuesta}
+                  onChange={(v) => actualizarPalabraClave(i, 'respuesta', v)}
                   placeholder="Respuesta automática cuando detecta estas palabras..."
+                  titulo="Respuesta por palabra clave"
+                  alturaMinima={80}
                 />
               </div>
             ))}
@@ -1546,11 +1544,12 @@ function SeccionChatbot() {
           <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
             Se envía cuando el bot no entiende el mensaje del cliente.
           </p>
-          <textarea
-            value={config.mensaje_defecto}
-            onChange={(e) => guardar({ mensaje_defecto: e.target.value })}
-            className="w-full rounded-lg p-2.5 text-sm resize-none outline-none"
-            style={{ background: 'var(--superficie-app)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)', minHeight: 60 }}
+          <EditorWhatsApp
+            valor={config.mensaje_defecto}
+            onChange={(v) => guardar({ mensaje_defecto: v })}
+            placeholder="No entendí tu mensaje..."
+            titulo="Mensaje por defecto"
+            alturaMinima={80}
           />
         </div>
 
@@ -1600,6 +1599,119 @@ function formatoWhatsAppAHtml(texto: string): string {
     .replace(/~([^~\n]+)~/g, '<del>$1</del>')
     .replace(/```([^`]+)```/g, '<code>$1</code>')
     .replace(/\n/g, '<br />')
+}
+
+// Editor de texto WhatsApp con preview — reutilizable en respuestas rápidas, chatbot, etc.
+function EditorWhatsApp({
+  valor,
+  onChange,
+  placeholder,
+  alturaMinima = 120,
+  titulo,
+}: {
+  valor: string
+  onChange: (v: string) => void
+  placeholder?: string
+  alturaMinima?: number
+  titulo?: string
+}) {
+  const [modalAbierto, setModalAbierto] = useState(false)
+
+  return (
+    <>
+      {/* Vista compacta — click para abrir modal */}
+      <div
+        className="rounded-lg p-2.5 cursor-pointer transition-colors group"
+        style={{ background: 'var(--superficie-app)', border: '1px solid var(--borde-sutil)' }}
+        onClick={() => setModalAbierto(true)}
+      >
+        {valor ? (
+          <div
+            className="text-sm line-clamp-3"
+            style={{ color: 'var(--texto-primario)' }}
+            dangerouslySetInnerHTML={{ __html: formatoWhatsAppAHtml(valor) }}
+          />
+        ) : (
+          <p className="text-sm" style={{ color: 'var(--texto-terciario)' }}>
+            {placeholder || 'Tocá para editar...'}
+          </p>
+        )}
+        <p className="text-xxs mt-1 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--texto-terciario)' }}>
+          Tocá para editar con preview
+        </p>
+      </div>
+
+      {/* Modal con textarea + preview lado a lado */}
+      {modalAbierto && (
+        <Modal
+          abierto={true}
+          onCerrar={() => setModalAbierto(false)}
+          titulo={titulo || 'Editar mensaje'}
+          tamano="3xl"
+          acciones={
+            <Boton variante="primario" tamano="sm" onClick={() => setModalAbierto(false)}>
+              Listo
+            </Boton>
+          }
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xxs font-medium mb-1.5 block" style={{ color: 'var(--texto-terciario)' }}>
+                Mensaje (formato WhatsApp)
+              </label>
+              <textarea
+                value={valor}
+                onChange={(e) => onChange(e.target.value)}
+                placeholder={placeholder || 'Escribí tu mensaje...'}
+                className="w-full rounded-lg p-3 text-sm resize-none outline-none"
+                style={{
+                  background: 'var(--superficie-app)',
+                  color: 'var(--texto-primario)',
+                  border: '1px solid var(--borde-sutil)',
+                  minHeight: alturaMinima,
+                }}
+                autoFocus
+                spellCheck={false}
+              />
+              <div
+                className="flex items-center gap-4 mt-2 px-2 py-1.5 rounded text-xxs"
+                style={{ background: 'var(--superficie-hover)', color: 'var(--texto-terciario)' }}
+              >
+                <span><strong>*negrita*</strong></span>
+                <span><em>_cursiva_</em></span>
+                <span><del>~tachado~</del></span>
+              </div>
+            </div>
+            <div>
+              <label className="text-xxs font-medium mb-1.5 block" style={{ color: 'var(--texto-terciario)' }}>
+                Así se ve en WhatsApp
+              </label>
+              <div
+                className="rounded-lg p-3 text-sm overflow-y-auto"
+                style={{
+                  background: 'var(--superficie-hover)',
+                  border: '1px solid var(--borde-sutil)',
+                  minHeight: alturaMinima,
+                }}
+              >
+                {valor ? (
+                  <div
+                    className="text-sm leading-relaxed"
+                    style={{ color: 'var(--texto-primario)' }}
+                    dangerouslySetInnerHTML={{ __html: formatoWhatsAppAHtml(valor) }}
+                  />
+                ) : (
+                  <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
+                    Vista previa...
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </>
+  )
 }
 
 // Modal para crear/editar respuesta rápida — textarea con preview estilo WhatsApp
