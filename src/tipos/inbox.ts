@@ -22,11 +22,12 @@ export type ModuloInbox = 'inbox_whatsapp' | 'inbox_correo' | 'inbox_interno'
 export type TipoCanal = 'whatsapp' | 'correo' | 'interno'
 
 export type ProveedorCanal =
-  | 'meta_api'      // WhatsApp Meta Business API
-  | 'twilio'        // WhatsApp Twilio
-  | 'imap'          // Correo IMAP/SMTP
-  | 'gmail_oauth'   // Correo Gmail OAuth
-  | null             // Interno (sin proveedor externo)
+  | 'meta_api'        // WhatsApp Meta Business API
+  | 'twilio'          // WhatsApp Twilio
+  | 'imap'            // Correo IMAP/SMTP
+  | 'gmail_oauth'     // Correo Gmail OAuth
+  | 'outlook_oauth'   // Correo Microsoft 365 / Outlook
+  | null               // Interno (sin proveedor externo)
 
 export type EstadoConexion = 'conectado' | 'desconectado' | 'error' | 'reconectando'
 
@@ -435,4 +436,93 @@ export interface CrearPlantillaPayload {
   disponible_para?: 'todos' | 'roles' | 'usuarios'
   roles_permitidos?: string[]
   usuarios_permitidos?: string[]
+}
+
+// ─── Etiquetas de correo ───
+
+export interface EtiquetaCorreo {
+  id: string
+  empresa_id: string
+  nombre: string
+  color: string
+  icono: string | null
+  orden: number
+  creado_en: string
+}
+
+// ─── Correo programado ───
+
+export type EstadoProgramado = 'pendiente' | 'enviado' | 'cancelado' | 'error'
+
+export interface CorreoProgramado {
+  id: string
+  empresa_id: string
+  canal_id: string
+  conversacion_id: string | null
+  creado_por: string
+  correo_para: string[]
+  correo_cc: string[] | null
+  correo_cco: string[] | null
+  correo_asunto: string
+  texto: string | null
+  html: string | null
+  correo_in_reply_to: string | null
+  correo_references: string[] | null
+  adjuntos_ids: string[] | null
+  enviar_en: string
+  estado: EstadoProgramado
+  enviado_en: string | null
+  error: string | null
+  creado_en: string
+}
+
+// ─── Reglas automáticas de correo ───
+
+export interface CondicionRegla {
+  campo: 'correo_de' | 'asunto' | 'texto' | 'correo_para'
+  operador: 'contiene' | 'es' | 'empieza' | 'termina' | 'dominio'
+  valor: string
+}
+
+export interface AccionRegla {
+  tipo: 'etiquetar' | 'asignar' | 'marcar_spam' | 'archivar' | 'responder'
+  valor: string // etiqueta_id, usuario_id, o texto de respuesta
+}
+
+export interface ReglaCorreo {
+  id: string
+  empresa_id: string
+  nombre: string
+  activa: boolean
+  orden: number
+  condiciones: CondicionRegla[]
+  acciones: AccionRegla[]
+  creado_por: string | null
+  creado_en: string
+  actualizado_en: string
+}
+
+// ─── Métricas de correo ───
+
+export interface MetricaCorreo {
+  id: string
+  empresa_id: string
+  canal_id: string | null
+  fecha: string
+  correos_recibidos: number
+  correos_enviados: number
+  conversaciones_nuevas: number
+  conversaciones_resueltas: number
+  correos_spam: number
+  tiempo_primera_respuesta_promedio: number | null
+  tiempo_resolucion_promedio: number | null
+}
+
+// ─── Config Outlook OAuth ───
+
+export interface ConfigOutlookOAuth {
+  email: string
+  refresh_token: string
+  access_token: string
+  token_expira_en: string
 }

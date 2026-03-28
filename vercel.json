@@ -11,6 +11,14 @@
     {
       "path": "/api/cron/sincronizar-correo",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/limpiar-adjuntos",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/enviar-programados",
+      "schedule": "* * * * *"
     }
   ]
 }

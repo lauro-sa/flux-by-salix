@@ -5,9 +5,14 @@ import {
   obtenerEmailGmail,
   obtenerPerfilGmail,
 } from '@/lib/gmail'
+import {
+  intercambiarCodigoOutlook,
+  obtenerEmailOutlook,
+} from '@/lib/outlook'
+import type { ConfigOutlookOAuth } from '@/tipos/inbox'
 
 /**
- * GET /api/inbox/correo/oauth/callback — Callback de OAuth de Gmail.
+ * GET /api/inbox/correo/oauth/callback — Callback de OAuth de Gmail/Outlook.
  * Google redirige acá después de que el usuario autoriza.
  * Intercambia código → tokens, crea/actualiza canal de correo, guarda config.
  */
@@ -32,24 +37,55 @@ export async function GET(request: NextRequest) {
     let userId: string
     let canalId: string | null
     let nombre: string
+    let proveedor: 'gmail_oauth' | 'outlook_oauth'
     try {
       const decoded = JSON.parse(Buffer.from(estado, 'base64').toString())
       empresaId = decoded.empresaId
       userId = decoded.userId
       canalId = decoded.canalId || null
       nombre = decoded.nombre || 'Gmail'
+      proveedor = decoded.proveedor || 'gmail_oauth'
     } catch {
       return NextResponse.redirect(new URL('/inbox/configuracion?correo=error', request.url))
     }
 
-    // Intercambiar código por tokens
-    const tokens = await intercambiarCodigoGmail(codigo)
-    const accessToken = tokens.access_token!
-    const refreshToken = tokens.refresh_token!
+    let email: string
+    let configConexion: Record<string, unknown>
+    let syncCursor: Record<string, unknown>
 
-    // Obtener email y historyId para sync
-    const email = await obtenerEmailGmail(accessToken)
-    const perfil = await obtenerPerfilGmail(refreshToken)
+    if (proveedor === 'outlook_oauth') {
+      // Microsoft OAuth
+      const tokens = await intercambiarCodigoOutlook(codigo)
+      const outlookConfig: ConfigOutlookOAuth = {
+        email: '',
+        refresh_token: tokens.refresh_token,
+        access_token: tokens.access_token,
+        token_expira_en: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+      }
+      email = await obtenerEmailOutlook(outlookConfig)
+      outlookConfig.email = email
+      configConexion = outlookConfig as unknown as Record<string, unknown>
+      syncCursor = { ultimaSincronizacion: new Date().toISOString() }
+    } else {
+      // Gmail OAuth
+      const tokens = await intercambiarCodigoGmail(codigo)
+      const accessToken = tokens.access_token!
+      const refreshToken = tokens.refresh_token!
+      email = await obtenerEmailGmail(accessToken)
+      const perfil = await obtenerPerfilGmail(refreshToken)
+      configConexion = {
+        email,
+        refresh_token: refreshToken,
+        access_token: accessToken,
+        token_expira_en: tokens.expiry_date
+          ? new Date(tokens.expiry_date).toISOString()
+          : null,
+      }
+      syncCursor = {
+        historyId: perfil.historyId,
+        ultimaSincronizacion: new Date().toISOString(),
+      }
+    }
 
     const admin = crearClienteAdmin()
 

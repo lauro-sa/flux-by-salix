@@ -166,9 +166,9 @@ function InputEmailChips({
   }
 
   return (
-    <div className="flex items-start gap-2 min-h-[32px] relative">
+    <div className="flex items-start gap-1.5 sm:gap-2 min-h-[32px] relative">
       <span
-        className="text-xs w-10 flex-shrink-0 pt-1.5 text-right"
+        className="text-xs w-8 sm:w-10 flex-shrink-0 pt-1.5 text-right"
         style={{ color: 'var(--texto-terciario)' }}
       >
         {etiqueta}
@@ -506,7 +506,7 @@ export function CompositorCorreo({
             {/* Selector De: (solo si hay múltiples canales) */}
             {canalesCorreo.length > 1 && (
               <div className="flex items-center gap-2">
-                <span className="text-xs w-10 flex-shrink-0 text-right" style={{ color: 'var(--texto-terciario)' }}>
+                <span className="text-xs w-8 sm:w-10 flex-shrink-0 text-right" style={{ color: 'var(--texto-terciario)' }}>
                   De:
                 </span>
                 <select
@@ -556,8 +556,8 @@ export function CompositorCorreo({
             </AnimatePresence>
 
             {/* Asunto */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs w-10 flex-shrink-0 text-right" style={{ color: 'var(--texto-terciario)' }}>Asunto:</span>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span className="text-xs w-8 sm:w-10 flex-shrink-0 text-right" style={{ color: 'var(--texto-terciario)' }}>Asunto:</span>
               <input
                 type="text"
                 value={asunto}

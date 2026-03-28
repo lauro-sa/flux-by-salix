@@ -38,8 +38,9 @@ const PROVEEDORES_WA = [
 ]
 
 const PROVEEDORES_CORREO = [
-  { valor: 'imap', etiqueta: 'IMAP/SMTP', descripcion: 'Cualquier servidor de correo (Outlook, Yahoo, propio)' },
   { valor: 'gmail_oauth', etiqueta: 'Gmail (Google)', descripcion: 'Conectar cuenta de Gmail directamente' },
+  { valor: 'outlook_oauth', etiqueta: 'Outlook / Microsoft 365', descripcion: 'Conectar cuenta de Outlook, Hotmail o Microsoft 365' },
+  { valor: 'imap', etiqueta: 'IMAP/SMTP', descripcion: 'Cualquier servidor de correo (Yahoo, propio, etc.)' },
 ]
 
 export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado, canalEditar }: PropiedadesModal) {
@@ -110,8 +111,8 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado,
       return
     }
 
-    // Gmail OAuth: iniciar flujo de autorización en vez de guardar directo
-    if (proveedor === 'gmail_oauth') {
+    // Gmail/Outlook OAuth: iniciar flujo de autorización en vez de guardar directo
+    if (proveedor === 'gmail_oauth' || proveedor === 'outlook_oauth') {
       setGuardando(true)
       setError('')
       try {

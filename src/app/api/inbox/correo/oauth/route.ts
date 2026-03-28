@@ -1,10 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { generarUrlAutorizacionGmail } from '@/lib/gmail'
+import { generarUrlAutorizacionOutlook } from '@/lib/outlook'
 
 /**
- * POST /api/inbox/correo/oauth — Inicia el flujo OAuth de Gmail.
- * Genera la URL de autorización de Google y la retorna para redirect.
+ * POST /api/inbox/correo/oauth — Inicia el flujo OAuth de Gmail o Microsoft.
+ * Genera la URL de autorización y la retorna para redirect.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -16,21 +17,28 @@ export async function POST(request: NextRequest) {
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
     const body = await request.json()
-    const { canal_id, nombre } = body
+    const { canal_id, nombre, proveedor } = body
 
-    // Codificar estado para el callback (empresa_id, user_id, canal_id)
+    // Codificar estado para el callback
     const estado = Buffer.from(JSON.stringify({
       empresaId,
       userId: user.id,
       canalId: canal_id || null,
-      nombre: nombre || 'Gmail',
+      nombre: nombre || (proveedor === 'outlook_oauth' ? 'Outlook' : 'Gmail'),
+      proveedor: proveedor || 'gmail_oauth',
     })).toString('base64')
 
-    const url = generarUrlAutorizacionGmail(estado)
+    let url: string
+
+    if (proveedor === 'outlook_oauth') {
+      url = generarUrlAutorizacionOutlook(estado)
+    } else {
+      url = generarUrlAutorizacionGmail(estado)
+    }
 
     return NextResponse.json({ url })
   } catch (err) {
-    console.error('Error iniciando OAuth Gmail:', err)
+    console.error('Error iniciando OAuth correo:', err)
     return NextResponse.json({ error: 'Error al iniciar conexión' }, { status: 500 })
   }
 }

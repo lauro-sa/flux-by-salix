@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
 import { Boton } from '@/componentes/ui/Boton'
+import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import { Interruptor } from '@/componentes/ui/Interruptor'
@@ -651,6 +652,45 @@ function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () =
   )
 }
 
+// Editor de firma HTML por canal (con autoguardado)
+function EditorFirmaCanal({ canal }: { canal: CanalInbox }) {
+  const configCanal = canal.config_conexion as Record<string, unknown>
+  const firmaActual = (configCanal.firma || '') as string
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const guardarFirma = useCallback((html: string) => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    timeoutRef.current = setTimeout(async () => {
+      await fetch(`/api/inbox/canales/${canal.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          config_conexion: { ...configCanal, firma: html },
+        }),
+      })
+    }, 1000)
+  }, [canal.id, configCanal])
+
+  return (
+    <div className="mb-4">
+      <label className="text-xs font-medium block mb-1" style={{ color: 'var(--texto-secundario)' }}>
+        {canal.nombre}
+      </label>
+      <div
+        className="rounded-lg overflow-hidden"
+        style={{ border: '1px solid var(--borde-sutil)' }}
+      >
+        <EditorTexto
+          contenido={firmaActual}
+          onChange={guardarFirma}
+          placeholder="Ej: Juan Pérez — Ventas — Mi Empresa S.A."
+          alturaMinima={80}
+        />
+      </div>
+    </div>
+  )
+}
+
 // Sección de Correo — bandejas, firma, listas permitidos/bloqueados
 function SeccionCorreo({
   canalesCorreo,
@@ -763,39 +803,9 @@ function SeccionCorreo({
         <p className="text-xs mb-3" style={{ color: 'var(--texto-terciario)' }}>
           Se incluye al final de cada correo enviado. Podés usar HTML básico.
         </p>
-        {canalesCorreo.map((canal) => {
-          const configCanal = canal.config_conexion as Record<string, unknown>
-          const firmaActual = (configCanal.firma || '') as string
-
-          return (
-            <div key={canal.id} className="mb-4">
-              <label className="text-xs font-medium block mb-1" style={{ color: 'var(--texto-secundario)' }}>
-                {canal.nombre}
-              </label>
-              <textarea
-                defaultValue={firmaActual}
-                onBlur={async (e) => {
-                  const nuevaFirma = e.target.value
-                  await fetch(`/api/inbox/canales/${canal.id}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      config_conexion: { ...configCanal, firma: nuevaFirma },
-                    }),
-                  })
-                }}
-                rows={3}
-                className="w-full text-xs rounded-lg p-2.5 resize-none outline-none"
-                style={{
-                  background: 'var(--superficie-hover)',
-                  color: 'var(--texto-primario)',
-                  border: '1px solid var(--borde-sutil)',
-                }}
-                placeholder="Ej: Juan Pérez — Ventas — Mi Empresa S.A."
-              />
-            </div>
-          )
-        })}
+        {canalesCorreo.map((canal) => (
+          <EditorFirmaCanal key={canal.id} canal={canal} />
+        ))}
       </div>
 
       {/* Listas de permitidos/bloqueados */}
