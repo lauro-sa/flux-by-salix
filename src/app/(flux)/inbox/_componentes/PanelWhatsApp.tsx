@@ -8,6 +8,7 @@ import {
   Download, FileText, MapPin, User, X, ChevronLeft, ChevronRight,
   Image, Music,
 } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { CompositorMensaje, type DatosMensaje } from './CompositorMensaje'
 import { PanelIA } from './PanelIA'
 import type { MensajeConAdjuntos, MensajeAdjunto, Conversacion } from '@/tipos/inbox'
@@ -202,9 +203,7 @@ export function PanelWhatsApp({
             className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
             style={{ background: 'var(--superficie-hover)' }}
           >
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--canal-whatsapp)' }}>
-              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-            </svg>
+            <IconoWhatsApp size={32} style={{ color: 'var(--canal-whatsapp)' }} />
           </div>
           <p className="text-sm" style={{ color: 'var(--texto-secundario)' }}>
             Seleccioná una conversación
