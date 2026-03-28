@@ -1348,49 +1348,63 @@ function SeccionChatbot() {
 
   if (cargando) return <div className="py-8 text-center text-sm" style={{ color: 'var(--texto-terciario)' }}>Cargando...</div>
 
+  const estiloSeccion = { border: '1px solid var(--borde-sutil)' }
+  const estiloSelect = { background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }
+  const estiloInput = { color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)', background: 'transparent' }
+
   return (
-    <div className="space-y-6">
-      {/* Header + toggle principal */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>Chatbot de WhatsApp</h3>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--texto-terciario)' }}>
-            Respuestas automáticas para clientes. Sin código.
-          </p>
+    <div className="space-y-5">
+      {/* ═══ Header + toggle ═══ */}
+      <div
+        className="flex items-center justify-between p-4 rounded-xl"
+        style={estiloSeccion}
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'color-mix(in srgb, var(--texto-marca) 10%, transparent)' }}>
+            <Bot size={20} style={{ color: 'var(--texto-marca)' }} />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+              Chatbot de WhatsApp
+              {config.activo && (
+                <span className="ml-2 text-xxs font-medium px-1.5 py-0.5 rounded-full" style={{ background: 'color-mix(in srgb, var(--insignia-exito) 15%, transparent)', color: 'var(--insignia-exito)' }}>
+                  activo
+                </span>
+              )}
+            </h3>
+            <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
+              Respuestas automáticas para clientes. Sin código.
+            </p>
+          </div>
         </div>
         <Interruptor activo={config.activo} onChange={(v) => guardar({ activo: v })} />
       </div>
 
-      {guardando && (
-        <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>Guardando...</p>
-      )}
+      <div className={`space-y-4 ${!config.activo ? 'opacity-40 pointer-events-none' : ''}`}>
 
-      <div className={!config.activo ? 'opacity-40 pointer-events-none' : ''}>
-        {/* Modo */}
-        <div
-          className="flex items-center gap-3 p-3 rounded-lg mb-4"
-          style={{ border: '1px solid var(--borde-sutil)' }}
-        >
-          <Bot size={16} style={{ color: 'var(--texto-marca)' }} />
-          <div className="flex-1">
-            <p className="text-xs font-medium" style={{ color: 'var(--texto-primario)' }}>Modo del bot</p>
+        {/* ═══ Cuándo disparar ═══ */}
+        <div className="p-4 rounded-xl space-y-3" style={estiloSeccion}>
+          <p className="text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
+            Cuándo disparar
+          </p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <select
+              value={config.modo}
+              onChange={(e) => guardar({ modo: e.target.value as 'siempre' | 'fuera_horario' })}
+              className="text-xs rounded-lg px-3 py-2"
+              style={estiloSelect}
+            >
+              <option value="siempre">Siempre activo</option>
+              <option value="fuera_horario">Solo fuera de horario</option>
+            </select>
             <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
               {config.modo === 'siempre' ? 'Responde siempre que no haya un agente atendiendo' : 'Solo responde fuera del horario de atención'}
             </p>
           </div>
-          <select
-            value={config.modo}
-            onChange={(e) => guardar({ modo: e.target.value as 'siempre' | 'fuera_horario' })}
-            className="text-xs rounded-lg px-2 py-1"
-            style={{ background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
-          >
-            <option value="siempre">Siempre activo</option>
-            <option value="fuera_horario">Solo fuera de horario</option>
-          </select>
         </div>
 
-        {/* ─── Bienvenida ─── */}
-        <div className="p-4 rounded-lg space-y-3 mb-4" style={{ border: '1px solid var(--borde-sutil)' }}>
+        {/* ═══ Mensaje de bienvenida ═══ */}
+        <div className="p-4 rounded-xl space-y-3" style={estiloSeccion}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <MessageCircle size={14} style={{ color: 'var(--canal-whatsapp)' }} />
@@ -1398,43 +1412,56 @@ function SeccionChatbot() {
             </div>
             <Interruptor activo={config.bienvenida_activa} onChange={(v) => guardar({ bienvenida_activa: v })} />
           </div>
+
           {config.bienvenida_activa && (
-            <>
+            <div className="space-y-3 pt-1">
               {/* Frecuencia */}
-              <div className="flex items-center gap-3">
-                <select
-                  value={config.bienvenida_frecuencia || 'dias_sin_contacto'}
-                  onChange={(e) => guardar({ bienvenida_frecuencia: e.target.value })}
-                  className="text-xs rounded-lg px-2 py-1.5 flex-1"
-                  style={{ background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
-                >
-                  <option value="primera_vez">Solo la primera vez que escribe</option>
-                  <option value="siempre">Siempre que escribe</option>
-                  <option value="dias_sin_contacto">Si no habló en los últimos X días</option>
-                </select>
-                {(config.bienvenida_frecuencia || 'dias_sin_contacto') === 'dias_sin_contacto' && (
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="number"
-                      min={1}
-                      max={365}
-                      value={config.bienvenida_dias_sin_contacto || 30}
-                      onChange={(e) => guardar({ bienvenida_dias_sin_contacto: parseInt(e.target.value) || 30 })}
-                      className="w-14 text-xs text-center rounded-lg px-2 py-1.5"
-                      style={{ background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
-                    />
-                    <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>días</span>
-                  </div>
-                )}
+              <div>
+                <label className="text-xxs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>
+                  Cuándo enviar
+                </label>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={config.bienvenida_frecuencia || 'dias_sin_contacto'}
+                    onChange={(e) => guardar({ bienvenida_frecuencia: e.target.value })}
+                    className="text-xs rounded-lg px-3 py-2 flex-1"
+                    style={estiloSelect}
+                  >
+                    <option value="primera_vez">Solo la primera vez que escribe</option>
+                    <option value="siempre">Siempre que escribe</option>
+                    <option value="dias_sin_contacto">Si no habló en los últimos X días</option>
+                  </select>
+                  {(config.bienvenida_frecuencia || 'dias_sin_contacto') === 'dias_sin_contacto' && (
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <input
+                        type="number"
+                        min={1}
+                        max={365}
+                        value={config.bienvenida_dias_sin_contacto || 30}
+                        onChange={(e) => guardar({ bienvenida_dias_sin_contacto: parseInt(e.target.value) || 30 })}
+                        className="w-16 text-xs text-center rounded-lg px-2 py-2"
+                        style={estiloSelect}
+                      />
+                      <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>días</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Mensaje */}
-              <EditorWhatsApp
-                valor={config.mensaje_bienvenida}
-                onChange={(v) => guardar({ mensaje_bienvenida: v })}
-                placeholder="¡Hola {{nombre}}! 👋 Gracias por comunicarte..."
-                titulo="Mensaje de bienvenida"
-              />
+              <div>
+                <label className="text-xxs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>
+                  Texto del mensaje
+                </label>
+                <EditorWhatsApp
+                  valor={config.mensaje_bienvenida}
+                  onChange={(v) => guardar({ mensaje_bienvenida: v })}
+                  placeholder="¡Hola {{nombre}}! 👋 Gracias por comunicarte..."
+                  titulo="Mensaje de bienvenida"
+                />
+              </div>
+
+              {/* Variables */}
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>Variables:</span>
                 {[
@@ -1444,7 +1471,7 @@ function SeccionChatbot() {
                   <button
                     key={v.clave}
                     onClick={() => guardar({ mensaje_bienvenida: config.mensaje_bienvenida + ` ${v.clave}` })}
-                    className="text-xxs px-1.5 py-0.5 rounded cursor-pointer"
+                    className="text-xxs px-1.5 py-0.5 rounded cursor-pointer transition-colors"
                     style={{ background: 'var(--superficie-hover)', color: 'var(--texto-marca)' }}
                     title={v.desc}
                   >
@@ -1452,12 +1479,12 @@ function SeccionChatbot() {
                   </button>
                 ))}
               </div>
-            </>
+            </div>
           )}
         </div>
 
-        {/* ─── Menú de opciones ─── */}
-        <div className="p-4 rounded-lg space-y-3 mb-4" style={{ border: '1px solid var(--borde-sutil)' }}>
+        {/* ═══ Menú de opciones ═══ */}
+        <div className="p-4 rounded-xl space-y-3" style={estiloSeccion}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-sm">📋</span>
@@ -1683,7 +1710,7 @@ function SeccionChatbot() {
         </div>
 
         {/* ─── Palabras clave ─── */}
-        <div className="p-4 rounded-lg space-y-3 mb-4" style={{ border: '1px solid var(--borde-sutil)' }}>
+        <div className="p-4 rounded-xl space-y-3" style={estiloSeccion}>
           <div className="flex items-center gap-2">
             <span className="text-sm">🔑</span>
             <span className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>Respuestas por palabra clave</span>
@@ -1724,7 +1751,7 @@ function SeccionChatbot() {
         </div>
 
         {/* ─── Mensaje por defecto ─── */}
-        <div className="p-4 rounded-lg space-y-3 mb-4" style={{ border: '1px solid var(--borde-sutil)' }}>
+        <div className="p-4 rounded-xl space-y-3" style={estiloSeccion}>
           <div className="flex items-center gap-2">
             <span className="text-sm">❓</span>
             <span className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>Mensaje por defecto</span>
@@ -1742,7 +1769,7 @@ function SeccionChatbot() {
         </div>
 
         {/* ─── Transferencia a agente ─── */}
-        <div className="p-4 rounded-lg space-y-3" style={{ border: '1px solid var(--borde-sutil)' }}>
+        <div className="p-4 rounded-xl space-y-3" style={estiloSeccion}>
           <div className="flex items-center gap-2">
             <span className="text-sm">🙋</span>
             <span className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>Transferir a agente</span>
@@ -1752,23 +1779,23 @@ function SeccionChatbot() {
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xxs mb-1 block" style={{ color: 'var(--texto-terciario)' }}>Palabra clave</label>
+              <label className="text-xxs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>Palabra clave</label>
               <input
                 type="text"
                 value={config.palabra_transferir}
                 onChange={(e) => guardar({ palabra_transferir: e.target.value.toLowerCase() })}
-                className="w-full text-xs bg-transparent outline-none px-2 py-1.5 rounded"
-                style={{ color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+                className="w-full text-xs outline-none px-3 py-2 rounded-lg"
+                style={estiloSelect}
               />
             </div>
             <div>
-              <label className="text-xxs mb-1 block" style={{ color: 'var(--texto-terciario)' }}>Mensaje al transferir</label>
+              <label className="text-xxs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>Mensaje al transferir</label>
               <input
                 type="text"
                 value={config.mensaje_transferencia}
                 onChange={(e) => guardar({ mensaje_transferencia: e.target.value })}
-                className="w-full text-xs bg-transparent outline-none px-2 py-1.5 rounded"
-                style={{ color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+                className="w-full text-xs outline-none px-3 py-2 rounded-lg"
+                style={estiloSelect}
               />
             </div>
           </div>
