@@ -1,17 +1,13 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, Star, Save, Trash2, X } from 'lucide-react'
+import { ChevronDown, Star, Plus, Save, Trash2, Check } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 /**
- * SelectorPlantilla — Dropdown para cargar/guardar plantillas de presupuesto.
- *
- * - Lista plantillas con estrella para predeterminada
- * - Guardar como nueva plantilla
- * - Guardar cambios en plantilla existente
- * - Fijar/quitar predeterminada (por usuario)
- * - Eliminar (solo creador o admin)
+ * SelectorPlantilla — Menú para gestionar plantillas de presupuesto.
+ * Estilo integrado tipo menú contextual: las plantillas y acciones
+ * fluyen como un solo listado.
  */
 
 interface Plantilla {
@@ -54,10 +50,12 @@ export default function SelectorPlantilla({
   onLimpiar,
 }: PropiedadesSelectorPlantilla) {
   const [abierto, setAbierto] = useState(false)
-  const [modalGuardar, setModalGuardar] = useState(false)
+  const [creando, setCreando] = useState(false)
   const [nombreNueva, setNombreNueva] = useState('')
   const [guardando, setGuardando] = useState(false)
+  const [eliminando, setEliminando] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const plantillaCargada = plantillaActual
     ? plantillas.find(p => p.id === plantillaActual)
@@ -66,173 +64,219 @@ export default function SelectorPlantilla({
   useEffect(() => {
     if (!abierto) return
     const cerrar = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setAbierto(false)
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setAbierto(false)
+        setCreando(false)
+        setEliminando(null)
+      }
     }
     document.addEventListener('mousedown', cerrar)
     return () => document.removeEventListener('mousedown', cerrar)
   }, [abierto])
+
+  // Autofocus al input cuando se activa el modo creación
+  useEffect(() => {
+    if (creando) setTimeout(() => inputRef.current?.focus(), 50)
+  }, [creando])
 
   const handleGuardarComo = async () => {
     if (!nombreNueva.trim()) return
     setGuardando(true)
     await onGuardarComo(nombreNueva.trim())
     setGuardando(false)
-    setModalGuardar(false)
+    setCreando(false)
     setNombreNueva('')
   }
 
+  const itemClase = "flex items-center gap-2.5 w-full px-3 py-2 text-left text-sm transition-colors rounded-md"
+
   return (
-    <div ref={ref} className="relative inline-flex items-center gap-1.5">
-      {/* Botón trigger */}
+    <div ref={ref} className="relative inline-flex items-center">
+      {/* Trigger */}
       <button
-        onClick={() => setAbierto(!abierto)}
-        className="flex items-center gap-1 text-sm text-texto-primario hover:text-texto-marca transition-colors"
+        onClick={() => { setAbierto(!abierto); setCreando(false); setEliminando(null) }}
+        className="flex items-center gap-1.5 text-sm text-texto-primario hover:text-texto-marca transition-colors"
       >
         <span className="truncate max-w-[160px]">
           {plantillaCargada?.nombre || 'Sin plantilla'}
         </span>
-        <ChevronDown size={14} className={`text-texto-terciario transition-transform ${abierto ? 'rotate-180' : ''}`} />
+        <ChevronDown size={14} className={`text-texto-terciario transition-transform duration-200 ${abierto ? 'rotate-180' : ''}`} />
       </button>
 
-      {/* Dropdown */}
+      {/* Menú */}
       <AnimatePresence>
         {abierto && (
           <motion.div
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            className="absolute right-0 top-full mt-2 w-72 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-xl z-50 overflow-hidden"
+            transition={{ duration: 0.15 }}
+            className="absolute right-0 top-full mt-1.5 w-72 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-xl z-50 py-1.5"
           >
-            {/* Acciones */}
-            <div className="p-2 border-b border-borde-sutil flex gap-1">
-              <button
-                onClick={() => { setAbierto(false); setModalGuardar(true) }}
-                className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs text-texto-secundario hover:bg-superficie-tarjeta rounded transition-colors"
-              >
-                <Save size={12} />
-                Guardar como
-              </button>
-              {plantillaCargada && (
-                <button
-                  onClick={async () => { await onGuardarCambios(); setAbierto(false) }}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs text-texto-marca hover:bg-marca-500/10 rounded transition-colors"
-                >
-                  <Save size={12} />
-                  Guardar cambios
-                </button>
-              )}
-              {plantillaCargada && (
-                <button
-                  onClick={() => { onLimpiar(); setAbierto(false) }}
-                  className="px-2 py-1.5 text-xs text-texto-terciario hover:text-estado-error hover:bg-estado-error/10 rounded transition-colors"
-                  title="Quitar plantilla"
-                >
-                  <X size={12} />
-                </button>
-              )}
-            </div>
-
-            {/* Lista de plantillas */}
-            <div className="max-h-[240px] overflow-y-auto py-1">
-              {plantillas.length === 0 ? (
-                <p className="text-xs text-texto-terciario px-3 py-4 text-center">
-                  No hay plantillas guardadas
-                </p>
-              ) : (
-                plantillas.map(p => {
+            {/* ── Plantillas guardadas ── */}
+            {plantillas.length > 0 && (
+              <div className="px-1.5 mb-1">
+                {plantillas.map(p => {
                   const esActual = p.id === plantillaActual
                   const esPredeterminada = p.id === predeterminadaId
                   const esMia = p.creado_por === usuarioId
 
                   return (
-                    <div
-                      key={p.id}
-                      className={`flex items-center gap-2 px-3 py-2 hover:bg-superficie-tarjeta transition-colors ${esActual ? 'bg-marca-500/5' : ''}`}
-                    >
-                      {/* Estrella predeterminada */}
-                      <button
-                        onClick={() => onTogglePredeterminada(p.id)}
-                        className={`shrink-0 transition-colors ${esPredeterminada ? 'text-insignia-advertencia' : 'text-texto-terciario/30 hover:text-insignia-advertencia/60'}`}
-                        title={esPredeterminada ? 'Quitar predeterminada' : 'Fijar como predeterminada'}
-                      >
-                        <Star size={14} fill={esPredeterminada ? 'currentColor' : 'none'} />
-                      </button>
-
-                      {/* Nombre clickeable */}
+                    <div key={p.id} className="group flex items-center">
                       <button
                         onClick={() => { onCargar(p); setAbierto(false) }}
-                        className="flex-1 text-left text-sm text-texto-primario truncate"
+                        className={`${itemClase} flex-1 min-w-0 ${esActual ? 'bg-marca-500/8 text-texto-marca' : 'text-texto-primario hover:bg-superficie-tarjeta'}`}
                       >
-                        {p.nombre}
+                        {/* Check o estrella */}
+                        {esActual ? (
+                          <Check size={14} className="shrink-0 text-texto-marca" />
+                        ) : esPredeterminada ? (
+                          <Star size={14} className="shrink-0 text-insignia-advertencia" fill="currentColor" />
+                        ) : (
+                          <span className="w-3.5 shrink-0" />
+                        )}
+                        <span className="truncate">{p.nombre}</span>
                       </button>
 
-                      {/* Eliminar (solo creador) */}
-                      {esMia && (
+                      {/* Acciones siempre visibles */}
+                      <div className="shrink-0 flex items-center gap-0.5 pr-1.5">
                         <button
-                          onClick={() => onEliminar(p.id)}
-                          className="shrink-0 text-texto-terciario/30 hover:text-estado-error transition-colors"
-                          title="Eliminar plantilla"
+                          onClick={(e) => { e.stopPropagation(); onTogglePredeterminada(p.id) }}
+                          className={`size-6 flex items-center justify-center rounded-md transition-colors ${esPredeterminada ? 'text-insignia-advertencia' : 'text-texto-terciario/30 hover:text-insignia-advertencia'}`}
+                          title={esPredeterminada ? 'Quitar predeterminada' : 'Fijar como predeterminada'}
                         >
-                          <Trash2 size={13} />
+                          <Star size={12} fill={esPredeterminada ? 'currentColor' : 'none'} />
                         </button>
-                      )}
+                        {esMia && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setEliminando(p.id) }}
+                            className="size-6 flex items-center justify-center rounded-md text-texto-terciario/30 hover:text-estado-error transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )
-                })
+                })}
+              </div>
+            )}
+
+            {plantillas.length > 0 && <div className="border-t border-borde-sutil/50 my-1" />}
+
+            {/* ── Acciones ── */}
+            <div className="px-1.5">
+              {/* Guardar cambios (solo si hay plantilla cargada) */}
+              {plantillaCargada && (
+                <button
+                  onClick={async () => { await onGuardarCambios(); setAbierto(false) }}
+                  className={`${itemClase} text-texto-secundario hover:bg-superficie-tarjeta`}
+                >
+                  <Save size={14} className="shrink-0 text-texto-terciario" />
+                  <span>Actualizar &ldquo;{plantillaCargada.nombre}&rdquo;</span>
+                </button>
+              )}
+
+              {/* Guardar como nueva */}
+              {creando ? (
+                <div className="px-3 py-2">
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={nombreNueva}
+                      onChange={(e) => setNombreNueva(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleGuardarComo()
+                        if (e.key === 'Escape') { setCreando(false); setNombreNueva('') }
+                      }}
+                      placeholder="Nombre de la plantilla"
+                      className="flex-1 min-w-0 bg-superficie-app border border-borde-sutil rounded-lg px-2.5 py-1.5 text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-marca-500 transition-colors"
+                    />
+                    <button
+                      onClick={handleGuardarComo}
+                      disabled={!nombreNueva.trim() || guardando}
+                      className="shrink-0 px-3 py-1.5 text-xs font-medium bg-marca-500 text-white rounded-lg hover:bg-marca-600 transition-colors disabled:opacity-40"
+                    >
+                      {guardando ? '...' : 'Guardar'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setCreando(true)}
+                  className={`${itemClase} text-texto-secundario hover:bg-superficie-tarjeta`}
+                >
+                  <Plus size={14} className="shrink-0 text-texto-terciario" />
+                  <span>Guardar como nueva plantilla</span>
+                </button>
+              )}
+
+              {/* Quitar plantilla */}
+              {plantillaCargada && (
+                <button
+                  onClick={() => { onLimpiar(); setAbierto(false) }}
+                  className={`${itemClase} text-texto-terciario hover:bg-superficie-tarjeta`}
+                >
+                  <span className="w-3.5 shrink-0" />
+                  <span>Sin plantilla</span>
+                </button>
               )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Modal guardar como */}
+      {/* Modal confirmación eliminar */}
       <AnimatePresence>
-        {modalGuardar && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-            onClick={() => setModalGuardar(false)}
-          >
+        {eliminando && (() => {
+          const plantillaEliminar = plantillas.find(p => p.id === eliminando)
+          if (!plantillaEliminar) return null
+          return (
             <motion.div
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.95 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-superficie-elevada border border-borde-sutil rounded-xl shadow-2xl w-full max-w-sm p-5"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+              onClick={() => setEliminando(null)}
             >
-              <h3 className="text-sm font-semibold text-texto-primario mb-3">Guardar como plantilla</h3>
-              <p className="text-xs text-texto-terciario mb-3">
-                Se guardarán las líneas, condiciones de pago, moneda, notas y descuento actuales.
-              </p>
-              <input
-                type="text"
-                value={nombreNueva}
-                onChange={(e) => setNombreNueva(e.target.value)}
-                placeholder="Ej: Presupuesto Portones"
-                autoFocus
-                className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-marca-500 transition-colors mb-4"
-                onKeyDown={(e) => { if (e.key === 'Enter') handleGuardarComo() }}
-              />
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => { setModalGuardar(false); setNombreNueva('') }}
-                  className="px-3 py-1.5 text-sm text-texto-secundario hover:bg-superficie-tarjeta rounded-lg transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleGuardarComo}
-                  disabled={!nombreNueva.trim() || guardando}
-                  className="px-3 py-1.5 text-sm bg-marca-500 text-white rounded-lg hover:bg-marca-600 transition-colors disabled:opacity-50"
-                >
-                  {guardando ? 'Guardando...' : 'Guardar'}
-                </button>
-              </div>
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-superficie-elevada border border-borde-sutil rounded-xl shadow-2xl w-full max-w-sm p-5"
+              >
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="size-9 rounded-full bg-estado-error/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <Trash2 size={16} className="text-estado-error" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-texto-primario mb-1">Eliminar plantilla</h3>
+                    <p className="text-xs text-texto-terciario">
+                      La plantilla &ldquo;{plantillaEliminar.nombre}&rdquo; se eliminará permanentemente. Esta acción no se puede deshacer.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => setEliminando(null)}
+                    className="px-3 py-1.5 text-sm text-texto-secundario hover:bg-superficie-tarjeta rounded-lg transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={async () => { await onEliminar(eliminando); setEliminando(null) }}
+                    className="px-4 py-1.5 text-sm font-medium bg-estado-error text-white rounded-lg hover:brightness-110 transition-all"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
+          )
+        })()}
       </AnimatePresence>
     </div>
   )

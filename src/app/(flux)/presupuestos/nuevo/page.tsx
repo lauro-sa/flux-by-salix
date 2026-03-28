@@ -816,6 +816,21 @@ export default function PaginaNuevoPresupuesto() {
               const valorAncho = "w-52"
               return (
                 <div className="bg-superficie-app/30 rounded-lg -mx-3 divide-y divide-borde-sutil/50">
+                  {/* ── Referencia ── */}
+                  <div className="px-3 py-1">
+                    <div className={fila}>
+                      <span className={etiqueta}>Referencia</span>
+                      <input
+                        type="text"
+                        value={referencia}
+                        onChange={(e) => setReferencia(e.target.value)}
+                        onBlur={() => autoguardar({ referencia })}
+                        placeholder="PO, orden de compra..."
+                        className={`${valorAncho} bg-transparent border-b border-borde-sutil text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-marca-500 transition-colors py-0.5 text-right`}
+                      />
+                    </div>
+                  </div>
+
                   {/* ── Fechas ── */}
                   <div className="px-3 py-1">
                     <div className={fila}>
@@ -830,7 +845,7 @@ export default function PaginaNuevoPresupuesto() {
                     </div>
                     <div className={fila}>
                       <span className={etiqueta}>Validez</span>
-                      <div className={`${valorAncho} flex items-center gap-1.5`}>
+                      <div className="flex items-center gap-3">
                         {!bloqueada && (
                           <input
                             type="number"
@@ -839,11 +854,11 @@ export default function PaginaNuevoPresupuesto() {
                             onChange={(e) => setDiasVencimiento(Math.max(1, parseInt(e.target.value) || 1))}
                             onBlur={() => autoguardar({ dias_vencimiento: diasVencimiento })}
                             onFocus={(e) => e.target.select()}
-                            className="w-14 shrink-0 bg-transparent border border-borde-sutil rounded-lg px-1 py-1.5 text-xs font-mono text-texto-primario text-center outline-none focus:border-marca-500 transition-colors"
+                            className="w-14 bg-superficie-tarjeta border border-borde-fuerte rounded-md px-1 py-2 text-sm font-mono text-texto-primario text-center outline-none focus:border-borde-foco focus:shadow-foco transition-all"
                             title="Días de validez"
                           />
                         )}
-                        <div className="flex-1 min-w-0">
+                        <div className={valorAncho}>
                           <SelectorFecha
                             valor={fechaVenc.toISOString().split('T')[0]}
                             onChange={(v) => {
@@ -862,10 +877,10 @@ export default function PaginaNuevoPresupuesto() {
                     </div>
                   </div>
 
-                  {/* ── Pago + Moneda ── */}
+                  {/* ── Condiciones de pago + Moneda ── */}
                   <div className="px-3 py-1">
                     <div className={fila}>
-                      <span className={etiqueta}>Pago</span>
+                      <span className={etiqueta}>Condiciones de pago</span>
                       <div className={valorAncho}>
                         <Select
                           valor={condicionPagoId}
@@ -916,20 +931,6 @@ export default function PaginaNuevoPresupuesto() {
                     </div>
                   </div>
 
-                  {/* ── Referencia ── */}
-                  <div className="px-3 py-1">
-                    <div className={fila}>
-                      <span className={etiqueta}>Referencia</span>
-                      <input
-                        type="text"
-                        value={referencia}
-                        onChange={(e) => setReferencia(e.target.value)}
-                        onBlur={() => autoguardar({ referencia })}
-                        placeholder="PO, orden de compra..."
-                        className={`${valorAncho} bg-transparent border-b border-borde-sutil text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-marca-500 transition-colors py-0.5 text-right`}
-                      />
-                    </div>
-                  </div>
                 </div>
               )
             })()}

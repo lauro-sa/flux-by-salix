@@ -552,6 +552,7 @@ export function VisorMedia({
 
 // ═══════════════════════════════════════════════════
 // REPRODUCTOR DE AUDIO (estilo WhatsApp)
+// Safari no soporta OGG/Opus, así que usamos Web Audio API como fallback
 // ═══════════════════════════════════════════════════
 
 function ReproductorAudio({ adjunto }: { adjunto: MensajeAdjunto }) {
@@ -560,6 +561,14 @@ function ReproductorAudio({ adjunto }: { adjunto: MensajeAdjunto }) {
   const [progreso, setProgreso] = useState(0)
   const [duracion, setDuracion] = useState(adjunto.duracion_segundos || 0)
   const [tiempoActual, setTiempoActual] = useState(0)
+  const [error, setError] = useState(false)
+
+  // Detectar si el navegador soporta OGG
+  const soportaOgg = useRef<boolean | null>(null)
+  useEffect(() => {
+    const audio = document.createElement('audio')
+    soportaOgg.current = audio.canPlayType('audio/ogg; codecs=opus') !== ''
+  }, [])
 
   const barras = useRef(
     Array.from({ length: 28 }, (_, i) => {
@@ -569,45 +578,153 @@ function ReproductorAudio({ adjunto }: { adjunto: MensajeAdjunto }) {
     })
   ).current
 
-  const toggleReproducir = useCallback(() => {
-    const audio = audioRef.current
-    if (!audio) return
-    if (reproduciendo) audio.pause()
-    else audio.play()
+  // Fallback: Web Audio API para navegadores que no soportan OGG nativo
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const sourceRef = useRef<AudioBufferSourceNode | null>(null)
+  const bufferRef = useRef<AudioBuffer | null>(null)
+  const startTimeRef = useRef(0)
+  const offsetRef = useRef(0)
+
+  const decodificarConWebAudio = useCallback(async () => {
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new AudioContext()
+      }
+      const ctx = audioCtxRef.current
+      const response = await fetch(adjunto.url)
+      const arrayBuffer = await response.arrayBuffer()
+      bufferRef.current = await ctx.decodeAudioData(arrayBuffer)
+      setDuracion(bufferRef.current.duration)
+    } catch {
+      setError(true)
+    }
+  }, [adjunto.url])
+
+  const reproducirWebAudio = useCallback(() => {
+    if (!audioCtxRef.current || !bufferRef.current) return
+    const ctx = audioCtxRef.current
+    if (ctx.state === 'suspended') ctx.resume()
+
+    const source = ctx.createBufferSource()
+    source.buffer = bufferRef.current
+    source.connect(ctx.destination)
+    source.start(0, offsetRef.current)
+    sourceRef.current = source
+    startTimeRef.current = ctx.currentTime - offsetRef.current
+    setReproduciendo(true)
+
+    source.onended = () => {
+      setReproduciendo(false)
+      setProgreso(0)
+      setTiempoActual(0)
+      offsetRef.current = 0
+    }
+  }, [])
+
+  const pausarWebAudio = useCallback(() => {
+    if (sourceRef.current && audioCtxRef.current) {
+      offsetRef.current = audioCtxRef.current.currentTime - startTimeRef.current
+      sourceRef.current.stop()
+      sourceRef.current = null
+      setReproduciendo(false)
+    }
+  }, [])
+
+  // Timer para actualizar progreso en modo Web Audio
+  useEffect(() => {
+    if (!reproduciendo || !audioCtxRef.current || soportaOgg.current !== false) return
+    const intervalo = setInterval(() => {
+      if (!audioCtxRef.current || !bufferRef.current) return
+      const actual = audioCtxRef.current.currentTime - startTimeRef.current
+      setTiempoActual(actual)
+      setProgreso(actual / bufferRef.current.duration)
+    }, 100)
+    return () => clearInterval(intervalo)
   }, [reproduciendo])
 
-  const manejarTimeUpdate = useCallback(() => {
-    const audio = audioRef.current
-    if (!audio || !audio.duration) return
-    setTiempoActual(audio.currentTime)
-    setProgreso(audio.currentTime / audio.duration)
-  }, [])
+  // Cargar audio con Web Audio API si no soporta OGG
+  useEffect(() => {
+    if (soportaOgg.current === false) {
+      decodificarConWebAudio()
+    }
+  }, [soportaOgg.current, decodificarConWebAudio])
 
-  const manejarLoadedMetadata = useCallback(() => {
-    const audio = audioRef.current
-    if (!audio) return
-    if (audio.duration && isFinite(audio.duration)) setDuracion(audio.duration)
-  }, [])
+  const toggleReproducir = useCallback(() => {
+    // Modo nativo
+    if (soportaOgg.current) {
+      const audio = audioRef.current
+      if (!audio) return
+      if (reproduciendo) audio.pause()
+      else audio.play().catch(() => setError(true))
+      return
+    }
+    // Modo Web Audio (fallback para Safari)
+    if (reproduciendo) pausarWebAudio()
+    else reproducirWebAudio()
+  }, [reproduciendo, reproducirWebAudio, pausarWebAudio])
 
   const manejarClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const audio = audioRef.current
-    if (!audio || !audio.duration) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    const x = (e.clientX - rect.left) / rect.width
-    audio.currentTime = x * audio.duration
-  }, [])
+    if (soportaOgg.current) {
+      const audio = audioRef.current
+      if (!audio || !audio.duration) return
+      const rect = e.currentTarget.getBoundingClientRect()
+      const x = (e.clientX - rect.left) / rect.width
+      audio.currentTime = x * audio.duration
+    } else if (bufferRef.current) {
+      const rect = e.currentTarget.getBoundingClientRect()
+      const x = (e.clientX - rect.left) / rect.width
+      offsetRef.current = x * bufferRef.current.duration
+      if (reproduciendo) {
+        pausarWebAudio()
+        reproducirWebAudio()
+      }
+    }
+  }, [reproduciendo, pausarWebAudio, reproducirWebAudio])
+
+  // Si hay error y no se puede reproducir, mostrar link de descarga
+  if (error) {
+    return (
+      <a
+        href={adjunto.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 min-w-[200px] px-2 py-1.5 rounded"
+        style={{ background: 'var(--superficie-hover)' }}
+      >
+        <Music size={16} style={{ color: 'var(--canal-whatsapp)' }} />
+        <span className="text-xs" style={{ color: 'var(--texto-primario)' }}>Nota de voz</span>
+        <Download size={14} style={{ color: 'var(--texto-terciario)' }} />
+      </a>
+    )
+  }
 
   return (
     <div className="flex items-center gap-2 min-w-[220px] max-w-[280px]">
+      {/* Audio nativo (solo se usa si el navegador soporta OGG) */}
       <audio
         ref={audioRef}
         src={adjunto.url}
         preload="metadata"
-        onTimeUpdate={manejarTimeUpdate}
-        onLoadedMetadata={manejarLoadedMetadata}
+        onTimeUpdate={() => {
+          const audio = audioRef.current
+          if (!audio || !audio.duration) return
+          setTiempoActual(audio.currentTime)
+          setProgreso(audio.currentTime / audio.duration)
+        }}
+        onLoadedMetadata={() => {
+          const audio = audioRef.current
+          if (audio?.duration && isFinite(audio.duration)) setDuracion(audio.duration)
+        }}
         onPlay={() => setReproduciendo(true)}
         onPause={() => setReproduciendo(false)}
         onEnded={() => { setReproduciendo(false); setProgreso(0); setTiempoActual(0) }}
+        onError={() => {
+          if (soportaOgg.current) {
+            // Intentar con Web Audio API como fallback
+            soportaOgg.current = false
+            decodificarConWebAudio()
+          }
+        }}
       />
       <button
         onClick={toggleReproducir}
@@ -733,6 +850,55 @@ function GrillaImagenes({
   )
 }
 
+// ═══════════════════════════════════════════════════
+// MINIATURA DE PDF (renderiza primera página)
+// ═══════════════════════════════════════════════════
+
+function MiniaturaPdf({ url }: { url: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [cargado, setCargado] = useState(false)
+
+  useEffect(() => {
+    let cancelado = false
+    const renderizar = async () => {
+      try {
+        const pdfjsLib = await import('pdfjs-dist')
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+
+        const pdf = await pdfjsLib.getDocument(url).promise
+        const pagina = await pdf.getPage(1)
+        const viewport = pagina.getViewport({ scale: 0.5 })
+
+        const canvas = canvasRef.current
+        if (!canvas || cancelado) return
+
+        canvas.width = viewport.width
+        canvas.height = viewport.height
+
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return
+
+        await pagina.render({ canvasContext: ctx, viewport, canvas } as never).promise
+        if (!cancelado) setCargado(true)
+      } catch {
+        // Si falla el render, no mostrar miniatura
+      }
+    }
+    renderizar()
+    return () => { cancelado = true }
+  }, [url])
+
+  if (!cargado) return null
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="rounded-md max-w-full mb-1"
+      style={{ maxHeight: 160, border: '1px solid var(--borde-sutil)' }}
+    />
+  )
+}
+
 // Placeholder para media que aún no tiene adjunto (descargando)
 const ICONO_MEDIA: Record<string, { icono: React.ReactNode; texto: string }> = {
   imagen: { icono: <Image size={18} />, texto: 'Cargando imagen...' },
@@ -818,31 +984,38 @@ function ContenidoMensaje({
       if (adjuntos.length > 0) {
         return (
           <div className="space-y-1">
-            {adjuntos.map((adj) => (
-              <a
-                key={adj.id}
-                href={adj.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 px-2 py-1.5 rounded"
-                style={{ background: 'var(--superficie-hover)' }}
-              >
-                <FileText size={16} style={{ color: 'var(--texto-marca)' }} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium truncate" style={{ color: 'var(--texto-primario)' }}>
-                    {adj.nombre_archivo}
-                  </p>
-                  {adj.tamano_bytes && (
-                    <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                      {adj.tamano_bytes > 1048576
-                        ? `${(adj.tamano_bytes / 1048576).toFixed(1)} MB`
-                        : `${(adj.tamano_bytes / 1024).toFixed(0)} KB`}
-                    </p>
-                  )}
-                </div>
-                <Download size={14} style={{ color: 'var(--texto-terciario)' }} />
-              </a>
-            ))}
+            {adjuntos.map((adj) => {
+              const esPdf = adj.tipo_mime === 'application/pdf' || adj.nombre_archivo.endsWith('.pdf')
+              return (
+                <a
+                  key={adj.id}
+                  href={adj.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded overflow-hidden"
+                  style={{ background: 'var(--superficie-hover)' }}
+                >
+                  {/* Miniatura de PDF */}
+                  {esPdf && <MiniaturaPdf url={adj.url} />}
+                  <div className="flex items-center gap-2 px-2 py-1.5">
+                    <FileText size={16} style={{ color: 'var(--texto-marca)' }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate" style={{ color: 'var(--texto-primario)' }}>
+                        {adj.nombre_archivo}
+                      </p>
+                      {adj.tamano_bytes && (
+                        <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                          {adj.tamano_bytes > 1048576
+                            ? `${(adj.tamano_bytes / 1048576).toFixed(1)} MB`
+                            : `${(adj.tamano_bytes / 1024).toFixed(0)} KB`}
+                        </p>
+                      )}
+                    </div>
+                    <Download size={14} style={{ color: 'var(--texto-terciario)' }} />
+                  </div>
+                </a>
+              )
+            })}
             {caption && (
               <p className="text-sm" style={{ color: 'var(--texto-primario)' }}>{caption}</p>
             )}
