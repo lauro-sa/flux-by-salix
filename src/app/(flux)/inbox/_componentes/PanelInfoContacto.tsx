@@ -71,7 +71,15 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
     const obtenerContacto = async () => {
       try {
         const res = await fetch(`/api/contactos/${conversacion.contacto_id}`)
-        if (!res.ok) return
+        if (!res.ok) {
+          // Contacto fue eliminado — desvincular la conversación
+          await fetch(`/api/inbox/conversaciones/${conversacion.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contacto_id: null }),
+          }).catch(() => {})
+          return
+        }
         const data = await res.json()
         if (data?.id) setContacto(data as DatosContacto)
       } catch (err) {
