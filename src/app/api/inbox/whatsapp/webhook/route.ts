@@ -174,7 +174,8 @@ async function procesarMensajeEntrante(
 
   // Si no hay abierta, buscar la más reciente resuelta y reabrirla
   if (!conversacion) {
-    const { data: resuelta } = await admin
+    console.log('[WEBHOOK v2] No hay conversación abierta, buscando resuelta para reabrir...')
+    const { data: resuelta, error: errResuelta } = await admin
       .from('conversaciones')
       .select('id, contacto_id, estado')
       .eq('empresa_id', canal.empresa_id)
@@ -184,6 +185,8 @@ async function procesarMensajeEntrante(
       .order('creado_en', { ascending: false })
       .limit(1)
       .maybeSingle()
+
+    console.log('[WEBHOOK v2] Resuelta encontrada:', resuelta?.id, 'Error:', errResuelta?.message)
 
     if (resuelta) {
       // Reabrir la conversación resuelta
