@@ -25,6 +25,8 @@ export default function PaginaConfiguracionUsuarios() {
   return (
     <PlantillaConfiguracion
       titulo="Configuración de Usuarios"
+      descripcion="Roles, permisos y políticas de seguridad de tu equipo."
+      iconoHeader={<Shield size={22} style={{ color: 'var(--texto-marca)' }} />}
       volverTexto="Usuarios"
       onVolver={() => router.push('/usuarios')}
       secciones={secciones}

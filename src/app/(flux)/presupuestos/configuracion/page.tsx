@@ -327,6 +327,10 @@ export default function PaginaConfigPresupuestos() {
   return (
     <PlantillaConfiguracion
       titulo="Configuración de presupuestos"
+      descripcion="Impuestos, monedas, condiciones de pago y formato de PDF."
+      iconoHeader={<Receipt size={22} style={{ color: 'var(--texto-marca)' }} />}
+      volverTexto="Presupuestos"
+      onVolver={() => router.push('/presupuestos')}
       secciones={secciones}
       seccionActiva={seccionActiva}
       onCambiarSeccion={setSeccionActiva}

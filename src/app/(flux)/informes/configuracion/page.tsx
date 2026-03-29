@@ -25,6 +25,8 @@ export default function PaginaConfiguracionInformes() {
   return (
     <PlantillaConfiguracion
       titulo="Configuración de Informes"
+      descripcion="Plantillas, programación y formatos de exportación de informes."
+      iconoHeader={<FileText size={22} style={{ color: 'var(--texto-marca)' }} />}
       volverTexto="Informes"
       onVolver={() => router.push('/informes')}
       secciones={secciones}

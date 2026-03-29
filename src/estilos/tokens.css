@@ -189,9 +189,9 @@
   --superficie-anclada-seleccionada: #eeeef8;
 
   /* Layout */
-  --sidebar-ancho: 240px;
+  --sidebar-ancho: 280px;
   --sidebar-ancho-colapsado: 56px;
-  --header-alto: 48px;
+  --header-alto: 54px;
 }
 
 /* ---------- DARK MODE ---------- */

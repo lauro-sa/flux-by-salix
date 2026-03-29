@@ -25,6 +25,8 @@ export default function PaginaConfiguracionOrdenes() {
   return (
     <PlantillaConfiguracion
       titulo="Configuración de Órdenes"
+      descripcion="Numeración, estados, flujos de trabajo y métodos de pago."
+      iconoHeader={<GitBranch size={22} style={{ color: 'var(--texto-marca)' }} />}
       volverTexto="Órdenes"
       onVolver={() => router.push('/ordenes')}
       secciones={secciones}

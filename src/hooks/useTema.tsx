@@ -53,6 +53,18 @@ function aplicarAtributos(temaActivo: TemaActivo, efecto: Efecto, fondo: FondoCr
   } else {
     html.setAttribute('data-escala', escala)
   }
+
+  // Actualizar meta theme-color para la barra de estado del navegador/iOS
+  const color = getComputedStyle(html).getPropertyValue('--superficie-app').trim()
+  if (color) {
+    let meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null
+    if (!meta) {
+      meta = document.createElement('meta')
+      meta.name = 'theme-color'
+      document.head.appendChild(meta)
+    }
+    meta.content = color
+  }
 }
 
 function ProveedorTema({ children }: { children: ReactNode }) {

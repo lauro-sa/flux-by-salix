@@ -25,6 +25,8 @@ export default function PaginaConfiguracionCalendario() {
   return (
     <PlantillaConfiguracion
       titulo="Configuración de Calendario"
+      descripcion="Sincronización, vistas predeterminadas y días no laborables."
+      iconoHeader={<CalendarOff size={22} style={{ color: 'var(--texto-marca)' }} />}
       volverTexto="Calendario"
       onVolver={() => router.push('/calendario')}
       secciones={secciones}

@@ -25,6 +25,8 @@ export default function PaginaConfiguracionDocumentos() {
   return (
     <PlantillaConfiguracion
       titulo="Configuración de Documentos"
+      descripcion="Tipos de documento, carpetas y políticas de almacenamiento."
+      iconoHeader={<FileText size={22} style={{ color: 'var(--texto-marca)' }} />}
       volverTexto="Documentos"
       onVolver={() => router.push('/documentos')}
       secciones={secciones}

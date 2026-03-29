@@ -25,6 +25,8 @@ export default function PaginaConfiguracionActividades() {
   return (
     <PlantillaConfiguracion
       titulo="Configuración de Actividades"
+      descripcion="Tipos de actividad, notificaciones, etiquetas y automatizaciones."
+      iconoHeader={<Zap size={22} style={{ color: 'var(--texto-marca)' }} />}
       volverTexto="Actividades"
       onVolver={() => router.push('/actividades')}
       secciones={secciones}

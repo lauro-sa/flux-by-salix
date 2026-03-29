@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { Building2, Globe, Users2, Sparkles, Trash2 } from 'lucide-react'
 import { useRol } from '@/hooks/useRol'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
@@ -19,6 +19,7 @@ import { SeccionPeligro } from './secciones/SeccionPeligro'
  * Acepta ?seccion=ia para abrir directo en una sección (ej: link desde config inbox).
  */
 export default function PaginaConfiguracion() {
+  const router = useRouter()
   const { esPropietario } = useRol()
   const searchParams = useSearchParams()
   const seccionInicial = searchParams.get('seccion') || 'general'
@@ -39,6 +40,10 @@ export default function PaginaConfiguracion() {
   return (
     <PlantillaConfiguracion
       titulo="Configuración"
+      descripcion="Ajustes generales de tu empresa, estructura, regionalización e inteligencia artificial."
+      iconoHeader={<Building2 size={22} style={{ color: 'var(--texto-marca)' }} />}
+      volverTexto="Inicio"
+      onVolver={() => router.push('/')}
       secciones={secciones}
       seccionActiva={seccionActiva}
       onCambiarSeccion={setSeccionActiva}

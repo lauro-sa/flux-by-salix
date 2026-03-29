@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useTema } from '@/hooks/useTema'
 import { useTraduccion } from '@/lib/i18n'
 import { Migajas } from './Migajas'
-import { Menu, Moon, Sun, Monitor, Check, Globe } from 'lucide-react'
+import { PanelLeft, Moon, Sun, Monitor, Check, Globe } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { useAuth } from '@/hooks/useAuth'
@@ -54,20 +54,20 @@ function Header({ onAbrirMenuMobil, migajasExtras }: PropiedadesHeader) {
   }, [idiomaAbierto])
 
   return (
-    <header className="h-[var(--header-alto)] flex items-center justify-between px-4 bg-superficie-tarjeta/80 backdrop-blur-sm border-b border-borde-sutil sticky top-0 z-20 gap-4 cristal-panel" style={{ paddingTop: 'var(--safe-area-top)' }}>
+    <header className="h-[var(--header-alto)] flex items-center justify-between px-4 bg-superficie-app md:bg-superficie-tarjeta/80 md:backdrop-blur-sm border-b-0 md:border-b md:border-borde-sutil sticky top-0 z-20 gap-4 md:cristal-panel" style={{ paddingTop: 'var(--safe-area-top)' }}>
       {/* Izquierda */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <button
           onClick={onAbrirMenuMobil}
-          className="md:hidden flex items-center justify-center size-11 rounded-md bg-transparent border-none text-texto-terciario cursor-pointer hover:bg-superficie-hover shrink-0"
+          className="md:hidden flex items-center justify-center size-10 rounded-lg bg-transparent border-none text-texto-secundario cursor-pointer hover:bg-superficie-hover shrink-0"
         >
-          <Menu size={18} />
+          <PanelLeft size={22} />
         </button>
         <Migajas extras={migajasExtras} />
       </div>
 
       {/* Derecha */}
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="flex items-center gap-1.5 shrink-0">
         {/* Selector de idioma */}
         <div ref={idiomaRef} className="relative">
           <button
@@ -75,7 +75,7 @@ function Header({ onAbrirMenuMobil, migajasExtras }: PropiedadesHeader) {
             className="flex items-center justify-center size-10 rounded-md bg-transparent border-none text-texto-terciario cursor-pointer hover:bg-superficie-hover transition-colors duration-100"
             title="Cambiar idioma"
           >
-            <Globe size={16} />
+            <Globe size={18} />
           </button>
           <AnimatePresence>
             {idiomaAbierto && (
@@ -124,12 +124,12 @@ function Header({ onAbrirMenuMobil, migajasExtras }: PropiedadesHeader) {
           title={tema === 'sistema' ? 'Sistema' : tema === 'claro' ? 'Claro' : 'Oscuro'}
           className="flex items-center justify-center size-10 rounded-md bg-transparent border-none text-texto-terciario cursor-pointer hover:bg-superficie-hover transition-colors duration-100"
         >
-          {tema === 'sistema' ? <Monitor size={16} /> : tema === 'claro' ? <Sun size={16} /> : <Moon size={16} />}
+          {tema === 'sistema' ? <Monitor size={18} /> : tema === 'claro' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
 
         {/* Avatar */}
         <div className="ml-1">
-          <Avatar nombre={nombreUsuario} tamano="xs" />
+          <Avatar nombre={nombreUsuario} tamano="sm" />
         </div>
       </div>
     </header>

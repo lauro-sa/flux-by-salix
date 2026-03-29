@@ -1,8 +1,8 @@
 'use client'
 
-import { useRef, useEffect, useCallback, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 /* ─── Tipos ─── */
 
@@ -22,6 +22,12 @@ interface SeccionConfig {
 interface PropiedadesPlantillaConfiguracion {
   /** Título de la configuración (ej: "Configuración de Contactos") */
   titulo: string
+
+  /** Descripción corta para el header mobile (ej: "Canales, plantillas y automatización") */
+  descripcion?: string
+
+  /** Icono grande para el header mobile */
+  iconoHeader?: ReactNode
 
   /** Texto del botón de volver (ej: "Contactos") */
   volverTexto?: string
@@ -51,10 +57,12 @@ interface PropiedadesPlantillaConfiguracion {
  * Estructura:
  * - Cabecero: Volver + título
  * - Desktop: Menú lateral izquierdo + contenido derecho
- * - Mobile: Tabs horizontales scrolleables con grupos + contenido debajo
+ * - Mobile: Drill-down estilo iOS (header info → lista agrupada en tarjetas → contenido)
  */
 function PlantillaConfiguracion({
   titulo,
+  descripcion,
+  iconoHeader,
   volverTexto = 'Volver',
   onVolver,
   secciones,
@@ -63,20 +71,11 @@ function PlantillaConfiguracion({
   children,
   className = '',
 }: PropiedadesPlantillaConfiguracion) {
-  /* ─── Auto-scroll del tab activo en mobile ─── */
-  const refTabsMobile = useRef<HTMLDivElement>(null)
+  /* ─── Mobile: drill-down state ─── */
+  const [mobileVistaContenido, setMobileVistaContenido] = useState(false)
 
-  const scrollAlTabActivo = useCallback(() => {
-    if (!refTabsMobile.current) return
-    const tabActivo = refTabsMobile.current.querySelector('[data-activo="true"]') as HTMLElement | null
-    if (!tabActivo) return
-    tabActivo.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
-  }, [])
-
-  useEffect(() => { scrollAlTabActivo() }, [seccionActiva, scrollAlTabActivo])
-
-  /* ─── Agrupar secciones para mobile ─── */
-  const gruposMobile = secciones.reduce<{ grupo: string | null; items: SeccionConfig[] }[]>((acc, seccion) => {
+  /* ─── Agrupar secciones ─── */
+  const grupos = secciones.reduce<{ grupo: string | null; items: SeccionConfig[] }[]>((acc, seccion) => {
     const grupoActual = seccion.grupo || null
     const ultimo = acc[acc.length - 1]
     if (ultimo && ultimo.grupo === grupoActual) {
@@ -87,22 +86,40 @@ function PlantillaConfiguracion({
     return acc
   }, [])
 
+  const seleccionarSeccionMobile = (id: string) => {
+    onCambiarSeccion(id)
+    setMobileVistaContenido(true)
+  }
+
+  const volverAListaMobile = () => {
+    setMobileVistaContenido(false)
+  }
+
+  const seccionActivaData = secciones.find(s => s.id === seccionActiva)
+
   return (
     <div className={`flex flex-col h-full max-h-full gap-4 md:gap-6 pl-4 pt-4 pb-4 md:pl-6 md:pt-6 md:pb-6 overflow-hidden ${className}`}>
 
       {/* ═══ CABECERO ═══ */}
-      <div className="flex items-center gap-3 shrink-0 pr-4 md:pr-6">
-        {onVolver && (
+      <div className="flex items-center gap-2 shrink-0 pr-4 md:pr-6">
+        {/* Mobile: botón volver contextual */}
+        {(onVolver || mobileVistaContenido) && (
           <button
             type="button"
-            onClick={onVolver}
-            className="flex items-center gap-1 text-sm font-medium text-texto-secundario hover:text-texto-primario transition-colors cursor-pointer bg-transparent border-none -ml-1 px-1.5 py-1 rounded-lg hover:bg-superficie-hover"
+            onClick={mobileVistaContenido ? volverAListaMobile : onVolver}
+            className="md:hidden flex items-center gap-1 text-sm font-medium text-texto-secundario hover:text-texto-primario transition-colors cursor-pointer bg-transparent border-none -ml-1 px-1.5 py-1 rounded-lg hover:bg-superficie-hover"
           >
             <ChevronLeft size={16} />
-            <span className="hidden sm:inline">{volverTexto}</span>
           </button>
         )}
-        <h1 className="text-xl font-bold text-texto-primario">{titulo}</h1>
+
+        {/* Título desktop */}
+        <h1 className="hidden md:block text-xl font-bold text-texto-primario">{titulo}</h1>
+
+        {/* Título mobile: contextual */}
+        <h1 className="md:hidden text-lg font-bold text-texto-primario">
+          {mobileVistaContenido ? seccionActivaData?.etiqueta : titulo}
+        </h1>
       </div>
 
       {/* ═══ CONTENIDO ═══ */}
@@ -145,7 +162,6 @@ function PlantillaConfiguracion({
                       {seccion.insignia}
                     </span>
                   )}
-                  {/* Indicador activo */}
                   {activa && (
                     <motion.div
                       layoutId="indicador-config"
@@ -160,45 +176,108 @@ function PlantillaConfiguracion({
           })}
         </nav>
 
-        {/* ─── Mobile: tabs horizontales con grupos y auto-scroll ─── */}
-        <div
-          ref={refTabsMobile}
-          className="md:hidden flex items-center gap-1.5 overflow-x-auto pb-1 shrink-0 -mx-1 px-1 sidebar-scroll"
-        >
-          {gruposMobile.map((grupo, gi) => (
-            <div key={grupo.grupo || `sin-grupo-${gi}`} className="flex items-center gap-1 shrink-0">
-              {/* Separador visual entre grupos */}
-              {gi > 0 && (
-                <div className="w-px h-4 bg-borde-sutil mx-1 shrink-0" />
-              )}
-              {grupo.items.map((seccion) => {
-                const activa = seccion.id === seccionActiva
-                return (
-                  <button
-                    key={seccion.id}
-                    type="button"
-                    data-activo={activa}
-                    onClick={() => !seccion.deshabilitada && onCambiarSeccion(seccion.id)}
-                    disabled={seccion.deshabilitada}
-                    className={[
-                      'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap cursor-pointer border transition-colors shrink-0',
-                      activa
-                        ? 'border-texto-marca bg-insignia-primario-fondo text-texto-marca'
-                        : 'border-transparent text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover',
-                      seccion.deshabilitada ? 'opacity-40 cursor-not-allowed' : '',
-                    ].join(' ')}
-                  >
-                    {seccion.icono}
-                    {seccion.etiqueta}
-                  </button>
-                )
-              })}
-            </div>
-          ))}
+        {/* ─── Mobile: drill-down estilo iOS ─── */}
+        <div className="md:hidden flex-1 min-h-0 overflow-hidden">
+          <AnimatePresence mode="wait" initial={false}>
+            {!mobileVistaContenido ? (
+              /* ── Lista de secciones con header informativo y grupos en tarjetas ── */
+              <motion.div
+                key="lista-secciones"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+                className="h-full overflow-y-auto pr-4 sidebar-scroll"
+              >
+                <div className="pb-6 space-y-5">
+
+                  {/* Header informativo */}
+                  {(iconoHeader || descripcion) && (
+                    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
+                      {iconoHeader && (
+                        <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-3" style={{ background: 'color-mix(in srgb, var(--texto-marca) 10%, transparent)' }}>
+                          {iconoHeader}
+                        </div>
+                      )}
+                      <h2 className="text-base font-bold text-texto-primario mb-1">{titulo}</h2>
+                      {descripcion && (
+                        <p className="text-xs text-texto-terciario leading-relaxed">{descripcion}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Grupos de secciones en tarjetas */}
+                  {grupos.map((grupo, gi) => (
+                    <div key={grupo.grupo || `sin-grupo-${gi}`}>
+                      {grupo.grupo && (
+                        <p className="px-1 pb-1.5 text-xxs font-bold uppercase tracking-wider text-texto-terciario">
+                          {grupo.grupo}
+                        </p>
+                      )}
+                      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
+                        {grupo.items.map((seccion, si) => {
+                          const activa = seccion.id === seccionActiva
+                          return (
+                            <div key={seccion.id}>
+                            {/* Divisor indentado estilo iOS entre items */}
+                            {si > 0 && (
+                              <div className="ml-11 border-t border-borde-sutil" />
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => !seccion.deshabilitada && seleccionarSeccionMobile(seccion.id)}
+                              disabled={seccion.deshabilitada}
+                              className={[
+                                'w-full flex items-center gap-3 px-4 py-3.5 text-sm font-medium text-left cursor-pointer border-none transition-colors',
+                                activa
+                                  ? 'text-texto-marca'
+                                  : 'text-texto-primario active:bg-superficie-hover',
+                                seccion.deshabilitada ? 'opacity-40 cursor-not-allowed' : '',
+                              ].join(' ')}
+                            >
+                              {seccion.icono && (
+                                <span className={activa ? 'text-texto-marca' : 'text-texto-terciario'}>
+                                  {seccion.icono}
+                                </span>
+                              )}
+                              <span className="flex-1 truncate">{seccion.etiqueta}</span>
+                              {seccion.insignia && (
+                                <span className="text-xxs px-1.5 py-0.5 rounded-full bg-insignia-primario-fondo text-insignia-primario-texto font-medium">
+                                  {seccion.insignia}
+                                </span>
+                              )}
+                              <ChevronRight size={14} className="text-texto-terciario shrink-0" />
+                            </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            ) : (
+              /* ── Contenido de la sección ── */
+              <motion.div
+                key="contenido-seccion"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+                className="h-full overflow-y-auto pr-4 scrollbar-auto-oculto"
+              >
+                <div className="pb-6">
+                  <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
+                    {children}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-        {/* ─── Contenido de la sección activa con animación ─── */}
-        <div className="flex-1 min-w-0 overflow-y-auto overscroll-contain scroll-smooth scrollbar-auto-oculto">
+        {/* ─── Desktop: contenido de la sección activa con animación ─── */}
+        <div className="hidden md:block flex-1 min-w-0 overflow-y-auto overscroll-contain scroll-smooth scrollbar-auto-oculto">
           <div className="pb-6 pr-4 md:pr-6">
             <AnimatePresence mode="wait">
               <motion.div

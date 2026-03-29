@@ -55,29 +55,29 @@ interface Empresa {
 /** Genera items de navegación traducidos */
 function crearItemsNav(t: (c: string) => string): ItemNav[] {
   return [
-    { id: 'inbox', etiqueta: t('navegacion.inbox'), icono: <Mail size={18} strokeWidth={1.75} />, ruta: '/inbox', badge: 2, seccion: 'principal', modulo: 'inbox_interno' },
-    { id: 'contactos', etiqueta: t('navegacion.contactos'), icono: <Users size={18} strokeWidth={1.75} />, ruta: '/contactos', seccion: 'principal', modulo: 'contactos' },
-    { id: 'actividades', etiqueta: t('navegacion.actividades'), icono: <Zap size={18} strokeWidth={1.75} />, ruta: '/actividades', badge: 9, seccion: 'principal', modulo: 'actividades' },
-    { id: 'calendario', etiqueta: t('navegacion.calendario'), icono: <Calendar size={18} strokeWidth={1.75} />, ruta: '/calendario', seccion: 'principal', modulo: 'calendario' },
-    { id: 'visitas', etiqueta: t('navegacion.visitas'), icono: <MapPin size={18} strokeWidth={1.75} />, ruta: '/visitas', seccion: 'principal', modulo: 'visitas' },
-    { id: 'recorrido', etiqueta: t('navegacion.recorrido'), icono: <Route size={18} strokeWidth={1.75} />, ruta: '/recorrido', seccion: 'principal', modulo: 'recorrido' },
-    { id: 'productos', etiqueta: t('navegacion.productos'), icono: <Package size={18} strokeWidth={1.75} />, ruta: '/productos', seccion: 'documentos', modulo: 'productos' },
-    { id: 'presupuestos', etiqueta: t('navegacion.presupuestos'), icono: <FileText size={18} strokeWidth={1.75} />, ruta: '/presupuestos', seccion: 'documentos', modulo: 'presupuestos' },
-    { id: 'informes', etiqueta: t('navegacion.informes'), icono: <FileBarChart size={18} strokeWidth={1.75} />, ruta: '/informes', seccion: 'documentos', modulo: 'informes' },
-    { id: 'ordenes', etiqueta: t('navegacion.ordenes'), icono: <Wrench size={18} strokeWidth={1.75} />, ruta: '/ordenes', seccion: 'documentos', modulo: 'ordenes_trabajo' },
-    { id: 'asistencias', etiqueta: t('navegacion.asistencias'), icono: <Clock size={18} strokeWidth={1.75} />, ruta: '/asistencias', seccion: 'admin', modulo: 'asistencias' },
-    { id: 'auditoria', etiqueta: t('navegacion.auditoria'), icono: <Shield size={18} strokeWidth={1.75} />, ruta: '/auditoria', seccion: 'admin', modulo: 'auditoria' },
-    { id: 'papelera', etiqueta: t('navegacion.papelera'), icono: <Trash2 size={18} strokeWidth={1.75} />, ruta: '/papelera', seccion: 'otros' },
+    { id: 'inbox', etiqueta: t('navegacion.inbox'), icono: <Mail size={20} strokeWidth={1.75} />, ruta: '/inbox', badge: 2, seccion: 'principal', modulo: 'inbox_interno' },
+    { id: 'contactos', etiqueta: t('navegacion.contactos'), icono: <Users size={20} strokeWidth={1.75} />, ruta: '/contactos', seccion: 'principal', modulo: 'contactos' },
+    { id: 'actividades', etiqueta: t('navegacion.actividades'), icono: <Zap size={20} strokeWidth={1.75} />, ruta: '/actividades', badge: 9, seccion: 'principal', modulo: 'actividades' },
+    { id: 'calendario', etiqueta: t('navegacion.calendario'), icono: <Calendar size={20} strokeWidth={1.75} />, ruta: '/calendario', seccion: 'principal', modulo: 'calendario' },
+    { id: 'visitas', etiqueta: t('navegacion.visitas'), icono: <MapPin size={20} strokeWidth={1.75} />, ruta: '/visitas', seccion: 'principal', modulo: 'visitas' },
+    { id: 'recorrido', etiqueta: t('navegacion.recorrido'), icono: <Route size={20} strokeWidth={1.75} />, ruta: '/recorrido', seccion: 'principal', modulo: 'recorrido' },
+    { id: 'productos', etiqueta: t('navegacion.productos'), icono: <Package size={20} strokeWidth={1.75} />, ruta: '/productos', seccion: 'documentos', modulo: 'productos' },
+    { id: 'presupuestos', etiqueta: t('navegacion.presupuestos'), icono: <FileText size={20} strokeWidth={1.75} />, ruta: '/presupuestos', seccion: 'documentos', modulo: 'presupuestos' },
+    { id: 'informes', etiqueta: t('navegacion.informes'), icono: <FileBarChart size={20} strokeWidth={1.75} />, ruta: '/informes', seccion: 'documentos', modulo: 'informes' },
+    { id: 'ordenes', etiqueta: t('navegacion.ordenes'), icono: <Wrench size={20} strokeWidth={1.75} />, ruta: '/ordenes', seccion: 'documentos', modulo: 'ordenes_trabajo' },
+    { id: 'asistencias', etiqueta: t('navegacion.asistencias'), icono: <Clock size={20} strokeWidth={1.75} />, ruta: '/asistencias', seccion: 'admin', modulo: 'asistencias' },
+    { id: 'auditoria', etiqueta: t('navegacion.auditoria'), icono: <Shield size={20} strokeWidth={1.75} />, ruta: '/auditoria', seccion: 'admin', modulo: 'auditoria' },
+    { id: 'papelera', etiqueta: t('navegacion.papelera'), icono: <Trash2 size={20} strokeWidth={1.75} />, ruta: '/papelera', seccion: 'otros' },
   ]
 }
 
 function crearItemsEmpresa(t: (c: string) => string): ItemNav[] {
   return [
-    { id: 'empresa', etiqueta: t('empresa.titulo'), icono: <Building2 size={18} strokeWidth={1.75} />, ruta: '/configuracion', fijo: true, seccion: 'otros', modulo: 'empresa' },
-    { id: 'usuarios', etiqueta: t('navegacion.usuarios'), icono: <UserCog size={18} strokeWidth={1.75} />, ruta: '/usuarios', fijo: true, seccion: 'otros', modulo: 'usuarios' },
-    { id: 'aplicaciones', etiqueta: t('navegacion.aplicaciones'), icono: <LayoutGrid size={18} strokeWidth={1.75} />, ruta: '/aplicaciones', fijo: true, seccion: 'otros' },
-    { id: 'documentacion', etiqueta: t('navegacion.documentacion'), icono: <BookOpen size={18} strokeWidth={1.75} />, ruta: '/documentacion', fijo: true, seccion: 'otros' },
-    { id: 'vitrina', etiqueta: t('navegacion.vitrina'), icono: <Zap size={18} strokeWidth={1.75} />, ruta: '/vitrina', fijo: true, seccion: 'otros' },
+    { id: 'empresa', etiqueta: t('empresa.titulo'), icono: <Building2 size={20} strokeWidth={1.75} />, ruta: '/configuracion', fijo: true, seccion: 'otros', modulo: 'empresa' },
+    { id: 'usuarios', etiqueta: t('navegacion.usuarios'), icono: <UserCog size={20} strokeWidth={1.75} />, ruta: '/usuarios', fijo: true, seccion: 'otros', modulo: 'usuarios' },
+    { id: 'aplicaciones', etiqueta: t('navegacion.aplicaciones'), icono: <LayoutGrid size={20} strokeWidth={1.75} />, ruta: '/aplicaciones', fijo: true, seccion: 'otros' },
+    { id: 'documentacion', etiqueta: t('navegacion.documentacion'), icono: <BookOpen size={20} strokeWidth={1.75} />, ruta: '/documentacion', fijo: true, seccion: 'otros' },
+    { id: 'vitrina', etiqueta: t('navegacion.vitrina'), icono: <Zap size={20} strokeWidth={1.75} />, ruta: '/vitrina', fijo: true, seccion: 'otros' },
   ]
 }
 
@@ -326,7 +326,7 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
           style={{ color: activo ? 'var(--texto-primario)' : 'var(--texto-secundario)' }}
           className={[
             'flex items-center rounded-md text-sm font-medium cursor-pointer transition-all duration-100 relative select-none',
-            colapsado ? 'justify-center p-2' : 'px-1.5 py-2 pr-7',
+            colapsado ? 'justify-center p-2' : 'px-2 py-2.5 pr-7',
             activo ? 'font-semibold bg-superficie-activa' : 'hover:bg-superficie-hover',
           ].join(' ')}
         >
@@ -394,8 +394,8 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
     const items = obtenerItemsOrdenados(seccionId)
     if (items.length === 0) return null
     return (
-      <div key={seccionId} className="mt-3 first:mt-0">
-        {!colapsado && <div className="px-1.5 mb-1 text-xxs font-semibold text-texto-secundario/60 uppercase tracking-wider">{etiqueta}</div>}
+      <div key={seccionId} className="mt-4 first:mt-0">
+        {!colapsado && <div className="px-2 mb-1.5 text-xxs font-semibold text-texto-secundario/60 uppercase tracking-wider">{etiqueta}</div>}
         {colapsado && <div className="h-px bg-borde-sutil mx-2 my-1" />}
         <DndContext id={`sidebar-dnd-${seccionId}`} sensors={sensors} collisionDetection={closestCenter} onDragEnd={manejarDragEnd(seccionId)}>
           <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
@@ -411,12 +411,12 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
   const contenido = (
     <div className="flex flex-col h-full w-full overflow-hidden">
       {/* Switcher empresa */}
-      <div ref={empresaRef} className="relative px-3 pt-3 pb-1 shrink-0">
-        <div className={['flex items-center gap-2.5 w-full rounded-md', colapsado ? 'justify-center p-2' : 'px-2 py-2'].join(' ')}>
+      <div ref={empresaRef} className="relative px-3 pt-3 pb-2 shrink-0">
+        <div className={['flex items-center gap-3 w-full rounded-md', colapsado ? 'justify-center p-2' : 'px-2 py-2'].join(' ')}>
           {/* Logo — siempre toggle sidebar */}
           <button
             onClick={onToggle}
-            className="size-7 rounded-md bg-texto-marca flex items-center justify-center text-white font-bold text-xs shrink-0 border-none cursor-pointer hover:opacity-80 transition-opacity"
+            className="size-8 rounded-lg bg-texto-marca flex items-center justify-center text-white font-bold text-sm shrink-0 border-none cursor-pointer hover:opacity-80 transition-opacity"
           >
             {inicialEmpresa}
           </button>
@@ -459,7 +459,7 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
       {/* Navegación */}
       <nav className="flex-1 overflow-y-auto pb-2 px-1.5 sidebar-scroll">
         {/* Inicio — siempre primero, sin sección */}
-        {renderItemFijo({ id: 'inicio', etiqueta: t('navegacion.inicio'), icono: <LayoutDashboard size={18} strokeWidth={1.75} />, ruta: '/dashboard', fijo: true, seccion: 'principal' })}
+        {renderItemFijo({ id: 'inicio', etiqueta: t('navegacion.inicio'), icono: <LayoutDashboard size={20} strokeWidth={1.75} />, ruta: '/dashboard', fijo: true, seccion: 'principal' })}
 
         {/* Secciones reordenables */}
         {SECCIONES.map(s => renderSeccion(s.id, s.etiqueta))}
@@ -535,7 +535,7 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
 
         {/* Sección EMPRESA — fija al final */}
         <div className="mt-4">
-          {!colapsado && <div className="px-1.5 mb-1 text-xxs font-semibold text-texto-secundario/60 uppercase tracking-wider">{t('sidebar.secciones.empresa')}</div>}
+          {!colapsado && <div className="px-2 mb-1.5 text-xxs font-semibold text-texto-secundario/60 uppercase tracking-wider">{t('sidebar.secciones.empresa')}</div>}
           {colapsado && <div className="h-px bg-borde-sutil mx-2 my-1" />}
           <div className="flex flex-col gap-px">
             {ITEMS_EMPRESA.map(i => renderItemFijo(i))}
@@ -543,25 +543,9 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
         </div>
       </nav>
 
-      {/* Banner de plan */}
-      {!colapsado && (
-        <div className="mx-1.5 mb-2 px-3 py-2.5 rounded-lg bg-superficie-hover shrink-0">
-          <div className="flex items-center gap-2">
-            <Zap size={16} className="text-texto-marca shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-texto-primario">{t('sidebar.plan_gratuito')}</div>
-            </div>
-            <span className="text-xs text-texto-terciario">60%</span>
-          </div>
-          <div className="mt-1.5 h-1 rounded-full bg-borde-sutil overflow-hidden">
-            <div className="h-full rounded-full bg-texto-marca" style={{ width: '60%' }} />
-          </div>
-        </div>
-      )}
-
       {/* Perfil */}
-      <div ref={perfilRef} className="relative px-1.5 pb-2 pt-1 border-t border-borde-sutil shrink-0">
-        <button onClick={() => setPerfilAbierto(!perfilAbierto)} className={['flex items-center gap-2.5 w-full rounded-md border-none cursor-pointer transition-colors hover:bg-superficie-hover bg-transparent', colapsado ? 'justify-center p-2' : 'px-2 py-2'].join(' ')}>
+      <div ref={perfilRef} className="relative px-2 pb-2 pt-2 border-t border-borde-sutil shrink-0">
+        <button onClick={() => setPerfilAbierto(!perfilAbierto)} className={['flex items-center gap-3 w-full rounded-lg border-none cursor-pointer transition-colors hover:bg-superficie-hover bg-transparent', colapsado ? 'justify-center p-2' : 'px-2 py-2.5'].join(' ')}>
           <div className="relative shrink-0">
             <Avatar nombre={nombreUsuario} tamano="sm" />
             <span className={`absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-superficie-sidebar ${estado === 'online' ? 'bg-insignia-exito' : estado === 'ausente' ? 'bg-insignia-advertencia' : 'bg-insignia-peligro'}`} />
@@ -607,7 +591,7 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
       <AnimatePresence>
         {mobilAbierto && (<>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onCerrarMobil} className="fixed inset-0 bg-black/40 z-[39]" />
-          <motion.aside initial={{ x: -260 }} animate={{ x: 0 }} exit={{ x: -260 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }} className="fixed top-0 left-0 h-dvh bg-superficie-sidebar border-r border-borde-sutil z-40 cristal-panel" style={{ width: 'var(--sidebar-ancho)' }} {...swipeProps}>
+          <motion.aside initial={{ x: -300 }} animate={{ x: 0 }} exit={{ x: -300 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }} className="fixed top-0 left-0 h-dvh bg-superficie-sidebar border-r border-borde-sutil z-40 cristal-panel" style={{ width: 'var(--sidebar-ancho)' }} {...swipeProps}>
             {contenido}
           </motion.aside>
         </>)}

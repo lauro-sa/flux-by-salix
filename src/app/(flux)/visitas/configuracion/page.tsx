@@ -25,6 +25,8 @@ export default function PaginaConfiguracionVisitas() {
   return (
     <PlantillaConfiguracion
       titulo="Configuración de Visitas"
+      descripcion="Tipos de visita, formularios y configuración de recorridos."
+      iconoHeader={<MapPin size={22} style={{ color: 'var(--texto-marca)' }} />}
       volverTexto="Visitas"
       onVolver={() => router.push('/visitas')}
       secciones={secciones}

@@ -25,6 +25,8 @@ export default function PaginaConfiguracionAsistencias() {
   return (
     <PlantillaConfiguracion
       titulo="Configuración de Asistencias"
+      descripcion="Horarios, tolerancias, alertas y reglas de asistencia."
+      iconoHeader={<CalendarCheck size={22} style={{ color: 'var(--texto-marca)' }} />}
       volverTexto="Asistencias"
       onVolver={() => router.push('/asistencias')}
       secciones={secciones}

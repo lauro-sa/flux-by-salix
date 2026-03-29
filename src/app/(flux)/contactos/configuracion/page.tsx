@@ -113,6 +113,8 @@ export default function PaginaConfiguracionContactos() {
   return (
     <PlantillaConfiguracion
       titulo="Configuración de Contactos"
+      descripcion="Etiquetas, puestos, rubros, relaciones y copias de seguridad de tus contactos."
+      iconoHeader={<UserCheck size={22} style={{ color: 'var(--texto-marca)' }} />}
       volverTexto="Contactos"
       onVolver={() => router.push('/contactos')}
       secciones={secciones}

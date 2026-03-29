@@ -34,28 +34,8 @@ function Migajas({ extras }: PropiedadesMigajas) {
 
   return (
     <>
-      {/* Mobile: botón volver + página actual */}
+      {/* Mobile: solo el nombre de la página actual (la navegación la manejan las plantillas) */}
       <div className="migajas-mobile" style={{ display: 'none' }}>
-        {puedeVolver && (
-          <button
-            onClick={volverAtras}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--espacio-1)',
-              padding: 'var(--espacio-1) var(--espacio-2)',
-              borderRadius: 'var(--radio-md)',
-              border: 'none',
-              background: 'transparent',
-              color: 'var(--texto-secundario)',
-              cursor: 'pointer',
-              fontSize: 'var(--texto-sm)',
-            }}
-          >
-            <ChevronLeft size={16} />
-            {migajas.length > 2 ? migajas[migajas.length - 2].etiqueta : 'Volver'}
-          </button>
-        )}
         <span style={{ fontSize: 'var(--texto-sm)', fontWeight: 600, color: 'var(--texto-primario)' }}>
           {migajas[migajas.length - 1].etiqueta}
         </span>

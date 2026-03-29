@@ -25,6 +25,8 @@ export default function PaginaConfiguracionProductos() {
   return (
     <PlantillaConfiguracion
       titulo="Configuración de Productos"
+      descripcion="Categorías, etiquetas, precios y unidades de medida de tus productos."
+      iconoHeader={<Layers size={22} style={{ color: 'var(--texto-marca)' }} />}
       volverTexto="Productos"
       onVolver={() => router.push('/productos')}
       secciones={secciones}
