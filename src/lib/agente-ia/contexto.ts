@@ -14,6 +14,10 @@ export interface DatosContacto {
   email: string | null
   telefono: string | null
   etiquetas: string[]
+  notas: string | null
+  cargo: string | null
+  es_provisorio: boolean
+  direcciones: { tipo: string; calle: string; barrio: string; ciudad: string; provincia: string; texto: string }[]
 }
 
 export interface MensajeContexto {
@@ -79,21 +83,47 @@ export async function obtenerContextoCompleto(params: {
       email: conv.contacto_correo || null,
       telefono: null,
       etiquetas: [],
+      notas: null,
+      cargo: null,
+      es_provisorio: false,
+      direcciones: [],
     }
 
-    // Obtener datos completos del contacto (teléfono, empresa, etiquetas)
+    // Obtener datos completos del contacto
     if (conv.contacto_id) {
       const { data: contactoBD } = await admin
         .from('contactos')
-        .select('telefono, empresa, etiquetas, email')
+        .select('nombre, apellido, telefono, empresa, etiquetas, email, notas, cargo, es_provisorio')
         .eq('id', conv.contacto_id)
         .single()
 
       if (contactoBD) {
+        const nombreCompleto = [contactoBD.nombre, contactoBD.apellido].filter(Boolean).join(' ')
+        if (nombreCompleto) contacto.nombre = nombreCompleto
         contacto.telefono = contactoBD.telefono || null
         contacto.empresa = contactoBD.empresa || null
         contacto.email = contacto.email || contactoBD.email || null
         contacto.etiquetas = contactoBD.etiquetas || []
+        contacto.notas = contactoBD.notas || null
+        contacto.cargo = contactoBD.cargo || null
+        contacto.es_provisorio = contactoBD.es_provisorio || false
+      }
+
+      // Obtener direcciones del contacto
+      const { data: direcciones } = await admin
+        .from('contacto_direcciones')
+        .select('tipo, calle, barrio, ciudad, provincia, texto')
+        .eq('contacto_id', conv.contacto_id)
+
+      if (direcciones && direcciones.length > 0) {
+        contacto.direcciones = direcciones.map(d => ({
+          tipo: d.tipo || 'principal',
+          calle: d.calle || '',
+          barrio: d.barrio || '',
+          ciudad: d.ciudad || '',
+          provincia: d.provincia || '',
+          texto: d.texto || '',
+        }))
       }
     }
   }
@@ -225,9 +255,15 @@ export function construirPrompts(ctx: ContextoPipeline): PromptsAgente {
     ? [
         `- Nombre: ${contacto.nombre}`,
         contacto.empresa ? `- Empresa: ${contacto.empresa}` : null,
+        contacto.cargo ? `- Cargo: ${contacto.cargo}` : null,
         contacto.email ? `- Email: ${contacto.email}` : null,
         contacto.telefono ? `- Teléfono: ${contacto.telefono}` : null,
         contacto.etiquetas.length > 0 ? `- Etiquetas: ${contacto.etiquetas.join(', ')}` : null,
+        contacto.notas ? `- Notas: ${contacto.notas}` : null,
+        contacto.es_provisorio ? '- CONTACTO PROVISORIO (creado automáticamente, puede faltar info)' : null,
+        contacto.direcciones.length > 0
+          ? `- Direcciones registradas:\n${contacto.direcciones.map(d => `  · ${d.tipo}: ${d.texto || [d.calle, d.barrio, d.ciudad, d.provincia].filter(Boolean).join(', ')}`).join('\n')}`
+          : '- Sin dirección registrada',
       ].filter(Boolean).join('\n')
     : '- Sin datos del contacto'
 
@@ -348,6 +384,12 @@ ${conocimiento ? `=== BASE DE CONOCIMIENTO ===\n${conocimiento}` : ''}
 
 === DATOS DEL CONTACTO ACTUAL ===
 ${datosContacto}
+
+=== REGLA: USAR DATOS EXISTENTES ===
+- Si el contacto YA tiene datos registrados (nombre, dirección, empresa, etc.), NO vuelvas a preguntar esos datos. Usá la info que ya tenemos.
+- Si tiene dirección registrada, confirmá: "Tengo registrada esta dirección: [dirección]. ¿El trabajo es ahí o en otro lado?"
+- Si es un contacto provisorio (creado automáticamente), puede que le falte info. Pedí lo que falte.
+- Si el cliente dice que quiere un trabajo en OTRA dirección distinta a la registrada, aceptar y pedir la nueva dirección.
 
 === REGLAS DE NEGOCIO ===
 - Si no sabés algo, NO digas "no puedo" ni "lamentablemente". Redirigí la conversación naturalmente
