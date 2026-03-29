@@ -1022,9 +1022,23 @@ async function procesarChatbot(
       idInteractivo === `opcion_${op.numero || i + 1}`
     )
     if (opcionElegida) {
-      // Si la opción no tiene respuesta, es transferencia a agente
+      // Si la opción no tiene respuesta, desactivar chatbot y dejar que el agente IA o humano responda
       if (!opcionElegida.respuesta) {
         await admin.from('conversaciones').update({ chatbot_activo: false }).eq('id', conversacionId)
+
+        // Si hay agente IA activo, dejar que él responda (no enviar mensaje de transferencia)
+        const { data: configAgenteMenu } = await admin
+          .from('config_agente_ia')
+          .select('activo')
+          .eq('empresa_id', canal.empresa_id)
+          .single()
+
+        if (configAgenteMenu?.activo) {
+          // El agente IA toma el control — no enviar nada
+          return
+        }
+
+        // Sin agente IA: transferir a humano como antes
         if (configBot.mensaje_transferencia) {
           await enviarRespuestaBot(configBot.mensaje_transferencia)
         }
@@ -1049,7 +1063,24 @@ async function procesarChatbot(
     }
   }
 
-  // 8. Mensaje por defecto
+  // 8. Mensaje por defecto — solo si NO hay agente IA activo
+  // Si el agente IA está configurado, se queda callado y deja que el agente responda
+  const { data: configAgente } = await admin
+    .from('config_agente_ia')
+    .select('activo')
+    .eq('empresa_id', canal.empresa_id)
+    .single()
+
+  if (configAgente?.activo) {
+    // El agente IA se encarga — desactivar chatbot para esta conversación
+    await admin
+      .from('conversaciones')
+      .update({ chatbot_activo: false })
+      .eq('id', conversacionId)
+    return
+  }
+
+  // Sin agente IA: enviar mensaje por defecto del chatbot
   if (configBot.mensaje_defecto) {
     await enviarRespuestaBot(configBot.mensaje_defecto)
   }
