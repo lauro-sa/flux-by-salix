@@ -462,7 +462,7 @@ RESPONDÉ EXCLUSIVAMENTE con JSON válido (sin texto adicional):
   // Info adicional pre-procesada (ej: dirección validada por Google)
   const infoExtra: string[] = []
   if (ctx.resultados_previos.direccion_validada) {
-    infoExtra.push(`[SISTEMA: La dirección "${ctx.mensajes.filter(m => m.es_entrante).at(-1)?.texto}" fue validada por Google Maps como: ${ctx.resultados_previos.direccion_validada}${ctx.resultados_previos.direccion_barrio ? `, barrio ${ctx.resultados_previos.direccion_barrio}` : ''}${ctx.resultados_previos.direccion_ciudad ? `, ${ctx.resultados_previos.direccion_ciudad}` : ''}. Usá esta dirección formateada para confirmar con el cliente.]`)
+    infoExtra.push(`[SISTEMA: La dirección completa es: ${ctx.resultados_previos.direccion_validada}${ctx.resultados_previos.direccion_barrio ? `, barrio ${ctx.resultados_previos.direccion_barrio}` : ''}${ctx.resultados_previos.direccion_ciudad ? `, ${ctx.resultados_previos.direccion_ciudad}` : ''}. Confirmá esta dirección con el cliente de forma natural, sin mencionar Google ni ningún sistema. Ejemplo: "¿La dirección sería Av. Directorio 1835, Flores, CABA?"]`)
   }
 
   const extra = infoExtra.length > 0 ? `\n\n${infoExtra.join('\n')}` : ''
