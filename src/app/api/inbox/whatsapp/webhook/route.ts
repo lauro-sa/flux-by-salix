@@ -612,6 +612,52 @@ async function seleccionarPorCarga(
   return agentesOrdenados[0]
 }
 
+// ─── Transcribir audio con Whisper (OpenAI) ───
+
+async function transcribirAudio(
+  buffer: ArrayBuffer,
+  empresaId: string,
+  admin: ReturnType<typeof crearAdmin>,
+): Promise<string | null> {
+  // Obtener API key de OpenAI (de la config de la empresa o env)
+  let apiKey = process.env.OPENAI_API_KEY || ''
+
+  if (!apiKey) {
+    const { data: configIA } = await admin
+      .from('config_ia')
+      .select('api_key_openai')
+      .eq('empresa_id', empresaId)
+      .single()
+    apiKey = configIA?.api_key_openai || ''
+  }
+
+  if (!apiKey) {
+    console.warn('[AUDIO] Sin API key de OpenAI para transcripción')
+    return null
+  }
+
+  // Whisper acepta ogg/opus directamente
+  const blob = new Blob([buffer], { type: 'audio/ogg' })
+  const formData = new FormData()
+  formData.append('file', blob, 'audio.ogg')
+  formData.append('model', 'whisper-1')
+  formData.append('language', 'es')
+
+  const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${apiKey}` },
+    body: formData,
+  })
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Whisper error ${res.status}: ${err}`)
+  }
+
+  const data = await res.json() as { text: string }
+  return data.text?.trim() || null
+}
+
 // ─── Descargar media y guardar en Storage ───
 
 async function descargarYGuardarMedia(
@@ -634,6 +680,23 @@ async function descargarYGuardarMedia(
 
     // Descargar el archivo
     const { buffer, contentType } = await descargarMediaBuffer(mediaInfo.url, tokenAcceso)
+
+    // ─── Transcripción de audio con Whisper ───
+    if (msg.type === 'audio') {
+      try {
+        const transcripcion = await transcribirAudio(buffer, canal.empresa_id, admin)
+        if (transcripcion) {
+          // Guardar la transcripción como texto del mensaje
+          await admin
+            .from('mensajes')
+            .update({ texto: transcripcion })
+            .eq('id', mensajeId)
+          console.log(`[AUDIO] Transcripción OK: "${transcripcion.slice(0, 100)}..."`)
+        }
+      } catch (err) {
+        console.warn('[AUDIO] Error transcribiendo:', err)
+      }
+    }
 
     // Convertir ArrayBuffer a Uint8Array (compatible con Supabase Storage en edge)
     const bytes = new Uint8Array(buffer)
