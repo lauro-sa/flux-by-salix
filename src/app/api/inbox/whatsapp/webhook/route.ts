@@ -355,15 +355,14 @@ async function procesarMensajeEntrante(
         .single()
 
       if (convActualizada?.agente_ia_activo) {
-        // Ejecutar sin await para no bloquear la respuesta al webhook de Meta
         const { ejecutarPipelineAgente } = await import('@/lib/agente-ia/pipeline')
-        ejecutarPipelineAgente({
+        await ejecutarPipelineAgente({
           admin,
           empresa_id: canal.empresa_id,
           conversacion_id: conversacion.id,
           mensaje_id: mensajeInsertado.id,
           canal_id: canal.id,
-        }).catch(err => console.error('[AGENTE_IA] Error en pipeline:', err))
+        })
       }
     } catch (err) {
       console.warn('[AGENTE_IA] Error:', err)
