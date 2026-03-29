@@ -684,11 +684,11 @@ export function PanelWhatsApp({
                       boxShadow: 'var(--sombra-sm)',
                     }}
                   >
-                    {/* Header bot */}
+                    {/* Header bot — mostrar nombre real (Chatbot o nombre del agente IA) */}
                     <div className="flex items-center gap-1.5 mb-1">
                       <Bot size={10} style={{ color: 'var(--texto-marca)' }} />
                       <span className="text-xxs font-semibold" style={{ color: 'var(--texto-marca)' }}>
-                        Chatbot
+                        {msg.remitente_nombre || 'Chatbot'}
                       </span>
                     </div>
 
