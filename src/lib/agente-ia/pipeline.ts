@@ -42,23 +42,33 @@ export async function ejecutarPipelineAgente(params: {
     return { acciones_ejecutadas: [], escalado: false }
   }
 
-  // 2.5. Delay inteligente: esperar y verificar si llegaron más mensajes
-  // Si el usuario sigue escribiendo, abortar — el último mensaje triggerará el pipeline con todo el contexto
-  const delayMs = Math.max((config.delay_segundos || 3) * 1000, 3000) // mínimo 3 segundos
-  await new Promise(resolve => setTimeout(resolve, delayMs))
+  // 2.5. Delay inteligente con doble verificación
+  // Espera inicial (configurable, mínimo 8 seg) para dar tiempo a que el usuario termine de escribir
+  // Después verifica si llegaron mensajes nuevos. Si llegaron, aborta.
+  // Si no llegaron, espera un poco más y verifica de nuevo (por si estaba tipeando lento).
+  const delayInicial = Math.max((config.delay_segundos || 8) * 1000, 8000)
+  await new Promise(resolve => setTimeout(resolve, delayInicial))
 
-  // Verificar si nuestro mensaje sigue siendo el último del cliente
-  const { data: ultimoMensaje } = await admin
-    .from('mensajes')
-    .select('id')
-    .eq('conversacion_id', conversacion_id)
-    .eq('es_entrante', true)
-    .order('creado_en', { ascending: false })
-    .limit(1)
-    .single()
+  // Primera verificación: ¿llegaron mensajes nuevos?
+  const verificarSigoSiendoUltimo = async (): Promise<boolean> => {
+    const { data: ultimo } = await admin
+      .from('mensajes')
+      .select('id')
+      .eq('conversacion_id', conversacion_id)
+      .eq('es_entrante', true)
+      .order('creado_en', { ascending: false })
+      .limit(1)
+      .single()
+    return !ultimo || ultimo.id === mensaje_id
+  }
 
-  if (ultimoMensaje && ultimoMensaje.id !== mensaje_id) {
-    // Llegó un mensaje más nuevo — abortar, ese mensaje ejecutará su propio pipeline
+  if (!await verificarSigoSiendoUltimo()) {
+    return { acciones_ejecutadas: [], escalado: false }
+  }
+
+  // Segunda verificación después de 5 seg más (atrapa al que escribe lento)
+  await new Promise(resolve => setTimeout(resolve, 5000))
+  if (!await verificarSigoSiendoUltimo()) {
     return { acciones_ejecutadas: [], escalado: false }
   }
 
