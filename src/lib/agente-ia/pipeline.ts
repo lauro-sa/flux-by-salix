@@ -72,14 +72,14 @@ export async function ejecutarPipelineAgente(params: {
     return { acciones_ejecutadas: [], escalado: false }
   }
 
-  // Verificar que no hayamos respondido en los últimos 10 segundos (evitar respuestas duplicadas)
+  // Verificar que no hayamos respondido en los últimos 25 segundos (evitar respuestas duplicadas)
   const { data: respuestaReciente } = await admin
     .from('mensajes')
     .select('id')
     .eq('conversacion_id', conversacion_id)
     .eq('es_entrante', false)
     .eq('remitente_tipo', 'bot')
-    .gte('creado_en', new Date(Date.now() - 10000).toISOString())
+    .gte('creado_en', new Date(Date.now() - 25000).toISOString())
     .limit(1)
     .maybeSingle()
 
