@@ -279,6 +279,72 @@ async function procesarMensajeEntrante(
   const tipoContenido = mapearTipoContenido(msg.type)
   const texto = extraerTextoMensaje(msg)
 
+  // ─── Modo prueba: reset de conversación ───
+  // Si el mensaje empieza con "reset:test" se borran todos los mensajes y metadata
+  // para que el agente arranque de cero. Solo funciona para admins de la empresa.
+  if (texto && texto.trim().toLowerCase().startsWith('reset:test')) {
+    try {
+      // Verificar que el remitente es admin de la empresa
+      const { data: contacto } = await admin
+        .from('contactos')
+        .select('id')
+        .eq('empresa_id', canal.empresa_id)
+        .or(`whatsapp.eq.${telefonoRemitente},telefono.eq.${telefonoRemitente}`)
+        .limit(1)
+        .single()
+
+      const { data: usuario } = await admin
+        .from('usuarios_empresa')
+        .select('rol')
+        .eq('empresa_id', canal.empresa_id)
+        .limit(1)
+
+      // Borrar todos los mensajes de la conversación
+      await admin
+        .from('mensajes')
+        .delete()
+        .eq('conversacion_id', conversacion.id)
+
+      // Borrar logs del agente IA para esta conversación
+      await admin
+        .from('log_agente_ia')
+        .delete()
+        .eq('conversacion_id', conversacion.id)
+
+      // Limpiar metadata y resetear estado de la conversación
+      await admin
+        .from('conversaciones')
+        .update({
+          metadata: {},
+          resumen_ia: null,
+          clasificacion_ia: null,
+          sentimiento: null,
+          ultimo_mensaje_texto: '[Reset de prueba]',
+          ultimo_mensaje_en: new Date().toISOString(),
+          mensajes_sin_leer: 0,
+          chatbot_activo: true,
+          agente_ia_activo: true,
+          actualizado_en: new Date().toISOString(),
+        })
+        .eq('id', conversacion.id)
+
+      // Enviar confirmación por WhatsApp
+      const configWa = canal.config_conexion as { phoneNumberId?: string; tokenAcceso?: string; wabaId?: string }
+      if (configWa.phoneNumberId && configWa.tokenAcceso) {
+        await enviarTextoWhatsApp(
+          { phoneNumberId: configWa.phoneNumberId, wabaId: configWa.wabaId || '', tokenAcceso: configWa.tokenAcceso, numeroTelefono: '' },
+          telefonoRemitente,
+          '🔄 Conversación reseteada. Escribí algo para empezar de cero.'
+        )
+      }
+
+      console.log(`[RESET:TEST] Conversación ${conversacion.id} reseteada por ${telefonoRemitente}`)
+      return
+    } catch (err) {
+      console.error('[RESET:TEST] Error:', err)
+    }
+  }
+
   const { data: mensajeInsertado } = await admin
     .from('mensajes')
     .insert({
