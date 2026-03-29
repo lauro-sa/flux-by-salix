@@ -42,11 +42,40 @@ export async function ejecutarPipelineAgente(params: {
     return { acciones_ejecutadas: [], escalado: false }
   }
 
-  // 2.5. Delay inteligente con doble verificación
-  // Espera inicial (configurable, mínimo 8 seg) para dar tiempo a que el usuario termine de escribir
-  // Después verifica si llegaron mensajes nuevos. Si llegaron, aborta.
-  // Si no llegaron, espera un poco más y verifica de nuevo (por si estaba tipeando lento).
-  const delayInicial = Math.max((config.delay_segundos || 8) * 1000, 8000)
+  // 2.5. Delay inteligente adaptativo
+  // Mensajes cortos (sí, no, ok, dale, caba, etc.) → delay corto (3+2 seg)
+  // Mensajes medianos → delay normal (8+5 seg)
+  // Audios → delay largo (10+5 seg, la transcripción tarda)
+
+  // Obtener el texto del mensaje actual para evaluar el delay
+  const { data: mensajeActual } = await admin
+    .from('mensajes')
+    .select('texto, tipo_contenido')
+    .eq('id', mensaje_id)
+    .single()
+
+  const textoMsg = mensajeActual?.texto || ''
+  const esAudio = mensajeActual?.tipo_contenido === 'audio'
+  const esMuyCorto = textoMsg.length <= 20 && !esAudio
+  const esRespuestaSimple = /^(si|sí|no|ok|dale|listo|bueno|caba|capital|provincia|particular|empresa|edificio|consorcio)$/i.test(textoMsg.trim())
+
+  let delayInicial: number
+  let delaySegundo: number
+
+  if (esRespuestaSimple || esMuyCorto) {
+    // Respuesta corta: el cliente no va a seguir escribiendo
+    delayInicial = 3000
+    delaySegundo = 2000
+  } else if (esAudio) {
+    // Audio: esperar más por si manda otro
+    delayInicial = 10000
+    delaySegundo = 5000
+  } else {
+    // Normal
+    delayInicial = Math.max((config.delay_segundos || 8) * 1000, 6000)
+    delaySegundo = 5000
+  }
+
   await new Promise(resolve => setTimeout(resolve, delayInicial))
 
   // Primera verificación: ¿llegaron mensajes nuevos?
@@ -66,8 +95,8 @@ export async function ejecutarPipelineAgente(params: {
     return { acciones_ejecutadas: [], escalado: false }
   }
 
-  // Segunda verificación después de 5 seg más (atrapa al que escribe lento)
-  await new Promise(resolve => setTimeout(resolve, 5000))
+  // Segunda verificación
+  await new Promise(resolve => setTimeout(resolve, delaySegundo))
   if (!await verificarSigoSiendoUltimo()) {
     return { acciones_ejecutadas: [], escalado: false }
   }
