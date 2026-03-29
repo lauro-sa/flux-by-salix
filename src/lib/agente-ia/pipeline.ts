@@ -440,14 +440,14 @@ async function enviarMensajeBot(
     .single()
 
   if (canal?.tipo === 'whatsapp' && conv?.contacto_telefono) {
-    const config = canal.config_conexion as { phone_number_id?: string; token_acceso?: string }
-    if (config.phone_number_id && config.token_acceso) {
+    const configWa = canal.config_conexion as { phoneNumberId?: string; tokenAcceso?: string; wabaId?: string }
+    if (configWa.phoneNumberId && configWa.tokenAcceso) {
       const { enviarTextoWhatsApp } = await import('@/lib/whatsapp')
       await enviarTextoWhatsApp(
         {
-          phoneNumberId: config.phone_number_id,
-          wabaId: '',
-          tokenAcceso: config.token_acceso,
+          phoneNumberId: configWa.phoneNumberId,
+          wabaId: configWa.wabaId || '',
+          tokenAcceso: configWa.tokenAcceso,
           numeroTelefono: '',
         },
         conv.contacto_telefono,
