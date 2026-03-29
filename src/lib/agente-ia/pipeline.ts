@@ -163,6 +163,49 @@ export async function ejecutarPipelineAgente(params: {
     }
   }
 
+  // 4.6. Validar dirección con Google Places si el LLM capturó una nueva
+  if (respuestaLLM.datos_capturados?.direccion) {
+    try {
+      const { validarDireccion } = await import('./validar-direccion')
+      const direccionRaw = respuestaLLM.datos_capturados.direccion
+      const validada = await validarDireccion(direccionRaw)
+
+      if (validada && validada.textoCompleto) {
+        // Guardar dirección validada en metadata
+        const { data: convDir } = await admin
+          .from('conversaciones')
+          .select('metadata')
+          .eq('id', conversacion_id)
+          .single()
+
+        const metaDir = (convDir?.metadata as Record<string, unknown>) || {}
+        const datosDir = (metaDir.datos_capturados as Record<string, unknown>) || {}
+        datosDir.direccion_validada = validada.textoCompleto
+        datosDir.barrio = validada.barrio || datosDir.barrio
+        datosDir.ciudad = validada.ciudad || datosDir.ciudad
+        datosDir.coordenadas = validada.coordenadas
+        metaDir.datos_capturados = datosDir
+
+        await admin
+          .from('conversaciones')
+          .update({ metadata: metaDir })
+          .eq('id', conversacion_id)
+
+        // Si la dirección validada es diferente a lo que dijo el cliente,
+        // modificar la respuesta para que confirme la dirección correcta
+        if (validada.textoCompleto.toLowerCase() !== direccionRaw.toLowerCase()) {
+          const confirmacion = `\n\n¿La dirección sería ${validada.textoCompleto}?`
+          // Solo agregar si la respuesta no menciona ya la dirección validada
+          if (!respuestaLLM.respuesta.includes(validada.textoCompleto)) {
+            respuestaLLM.respuesta = respuestaLLM.respuesta.replace(/\?$/, '.') + confirmacion
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[AGENTE_IA] Error validando dirección:', err)
+    }
+  }
+
   // 5. Procesar respuesta y ejecutar acciones
   const accionesEjecutadas: AccionAgente[] = []
   let escalado = false
