@@ -200,6 +200,7 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.011em; /* Tracking sutil como Linear */
+  background-color: var(--superficie-app);
 }
 
 body {

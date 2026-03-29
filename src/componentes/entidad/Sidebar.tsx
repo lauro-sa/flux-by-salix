@@ -218,7 +218,7 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
     const nuevo = new Set(ocultos)
     nuevo.delete(id)
     setOcultos(nuevo)
-    localStorage.setItem('flux_sidebar_ocultos', JSON.stringify([...nuevo]))
+    guardarPreferencia({ sidebar_ocultos: [...nuevo] })
   }
 
   const restaurarDeshabilitado = (id: string) => {
@@ -227,7 +227,7 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
     const nuevo = new Set(deshabilitados)
     nuevo.delete(id)
     setDeshabilitados(nuevo)
-    localStorage.setItem('flux_sidebar_deshabilitados', JSON.stringify([...nuevo]))
+    guardarPreferencia({ sidebar_deshabilitados: [...nuevo] })
   }
 
   const manejarDragEnd = (seccionId: string) => (event: DragEndEvent) => {
@@ -590,8 +590,8 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
       </aside>
       <AnimatePresence>
         {mobilAbierto && (<>
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onCerrarMobil} className="fixed inset-0 bg-black/40 z-[39]" />
-          <motion.aside initial={{ x: -300 }} animate={{ x: 0 }} exit={{ x: -300 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }} className="fixed top-0 left-0 h-dvh bg-superficie-sidebar border-r border-borde-sutil z-40 cristal-panel" style={{ width: 'var(--sidebar-ancho)' }} {...swipeProps}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onCerrarMobil} className="fixed inset-0 bg-black/40 z-[45]" />
+          <motion.aside initial={{ x: -300 }} animate={{ x: 0 }} exit={{ x: -300 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }} className="fixed top-0 left-0 h-dvh bg-superficie-sidebar border-r border-borde-sutil z-[46] cristal-panel" style={{ width: 'var(--sidebar-ancho)', paddingTop: 'var(--safe-area-top)' }} {...swipeProps}>
             {contenido}
           </motion.aside>
         </>)}

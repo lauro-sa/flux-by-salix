@@ -342,7 +342,7 @@ function PanelColumnas<T>({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 20 }}
       transition={{ type: 'spring', duration: 0.25 }}
-      className="fixed top-0 right-0 h-full w-[320px] bg-superficie-elevada border-l border-borde-sutil shadow-2xl z-50 overflow-hidden flex flex-col"
+      className="fixed top-0 right-0 h-full w-[320px] bg-superficie-app border-l border-borde-sutil shadow-2xl z-50 overflow-hidden flex flex-col"
     >
       <div className="flex items-center justify-between px-4 py-3 border-b border-borde-sutil shrink-0">
         <span className="text-sm font-semibold text-texto-primario">Configurar columnas</span>
@@ -1294,6 +1294,26 @@ function TablaDinamica<T>({
     (configGuardada?.tipoVista as TipoVista) || vistaInicial || vistas[0] || 'lista'
   )
 
+  /* En móvil (≤ 768px), forzar tarjetas si está disponible; en desktop restaurar preferencia */
+  const vistaManualRef = useRef(false)
+  useEffect(() => {
+    if (!vistas.includes('tarjetas') || vistas.length < 2) return
+    const mq = window.matchMedia('(max-width: 768px)')
+    const manejar = (e: MediaQueryListEvent | MediaQueryList) => {
+      if (e.matches) {
+        vistaManualRef.current = false
+        setVistaActual('tarjetas')
+      } else if (!vistaManualRef.current) {
+        const guardada = configGuardada?.tipoVista as TipoVista | undefined
+        setVistaActual(guardada || vistaInicial || 'lista')
+      }
+    }
+    manejar(mq)
+    mq.addEventListener('change', manejar)
+    return () => mq.removeEventListener('change', manejar)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vistas])
+
   /* ── Estado de búsqueda ── */
   const [busquedaInterna, setBusquedaInterna] = useState(busquedaExterna || '')
   const [valorInput, setValorInput] = useState(busquedaExterna || '')
@@ -2152,7 +2172,7 @@ function TablaDinamica<T>({
               <button
                 key={v}
                 type="button"
-                onClick={() => setVistaActual(v)}
+                onClick={() => { vistaManualRef.current = true; setVistaActual(v) }}
                 className={[
                   'size-8 inline-flex items-center justify-center cursor-pointer border-none transition-colors',
                   v === vistaActual
@@ -2208,7 +2228,7 @@ function TablaDinamica<T>({
       </div>
 
       {/* ═══ CONTENIDO — header fijo, filas scrollean, footer fijo abajo ═══ */}
-      <div className="flex-1 min-h-0 flex flex-col bg-superficie-tarjeta border-t border-borde-sutil">
+      <div className={`flex-1 min-h-0 flex flex-col border-t border-borde-sutil ${vistaActual === 'tarjetas' ? 'max-sm:bg-transparent bg-superficie-tarjeta' : 'bg-superficie-tarjeta'}`}>
         {/* Estado vacío */}
         {datos.length === 0 && estadoVacio ? (
           <div className="flex-1 min-h-0 flex items-center justify-center">
@@ -2224,9 +2244,9 @@ function TablaDinamica<T>({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="flex-1 min-h-0 overflow-auto overscroll-contain"
+              className="flex-1 min-h-0 overflow-auto overscroll-contain bg-superficie-tarjeta"
             >
-              <table className="border-collapse text-sm" style={{ tableLayout: 'fixed', width: anchoTotalTabla, minWidth: anchoTotalTabla }}>
+              <table className="border-collapse text-sm" style={{ tableLayout: 'fixed', width: anchoTotalTabla, minWidth: anchoTotalTabla, backgroundColor: 'var(--superficie-tarjeta)' }}>
                 {/* Header */}
                 <thead>
                   <tr className="border-b border-borde-fuerte sticky top-0 z-20" style={{ background: 'var(--superficie-activa)' }}>
@@ -2402,7 +2422,7 @@ function TablaDinamica<T>({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="flex-1 min-h-0 overflow-auto p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 content-start"
+              className="flex-1 min-h-0 overflow-auto px-2 sm:p-4 pt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3 content-start"
             >
               {datosPaginados.length === 0 ? (
                 <div className="col-span-full text-center py-16 text-texto-terciario text-sm">
@@ -2421,7 +2441,7 @@ function TablaDinamica<T>({
                         'relative rounded-lg border p-3 transition-all duration-150 cursor-pointer',
                         estaSeleccionado
                           ? 'border-texto-marca bg-superficie-seleccionada'
-                          : 'border-borde-sutil bg-superficie-tarjeta hover:border-borde-fuerte hover:shadow-sm',
+                          : 'border-borde-sutil bg-superficie-tarjeta hover:border-borde-fuerte sm:hover:shadow-sm',
                       ].join(' ')}
                       onClick={() => onClickFila?.(fila)}
                     >

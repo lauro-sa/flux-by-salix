@@ -275,7 +275,33 @@ export default function PaginaPresupuestos() {
         registrosPorPagina={POR_PAGINA}
         paginaExterna={pagina}
         onCambiarPagina={setPagina}
-        vistas={['lista']}
+        vistas={['lista', 'tarjetas']}
+        renderTarjeta={(fila) => {
+          const nombre = fila.contacto_nombre
+            ? `${fila.contacto_nombre}${fila.contacto_apellido ? ` ${fila.contacto_apellido}` : ''}`
+            : null
+          const vencido = fila.fecha_vencimiento && new Date(fila.fecha_vencimiento) < new Date() && fila.estado === 'enviado'
+          return (
+            <div className="flex flex-col gap-2 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-sm font-medium text-texto-primario">{fila.numero}</span>
+                <Insignia color={COLOR_ESTADO_DOCUMENTO[fila.estado] || 'neutro'}>
+                  {ETIQUETAS_ESTADO[fila.estado] || fila.estado}
+                </Insignia>
+              </div>
+              {nombre && <div className="text-sm text-texto-primario truncate">{nombre}</div>}
+              {fila.referencia && <div className="text-xs text-texto-terciario truncate">{fila.referencia}</div>}
+              <div className="flex items-center justify-between gap-2 mt-1">
+                <span className="font-mono text-sm font-semibold text-texto-primario">
+                  {formatoMoneda(fila.total_final, fila.moneda)}
+                </span>
+                <span className={`text-xs ${vencido ? 'text-estado-error font-medium' : 'text-texto-terciario'}`}>
+                  {formatoFecha(fila.fecha_emision)}
+                </span>
+              </div>
+            </div>
+          )
+        }}
         seleccionables
         accionesLote={[
           {

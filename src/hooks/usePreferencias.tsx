@@ -33,6 +33,8 @@ interface Preferencias {
   sidebar_ocultos: string[] | null
   sidebar_deshabilitados: string[] | null
   sidebar_colapsado: boolean
+  /** Estado del sidebar por sección: { "/inbox": true, "/contactos": false } (true = colapsado) */
+  sidebar_secciones: Record<string, boolean>
   /** Config de tablas por módulo: { usuarios: {...}, contactos: {...} } */
   config_tablas: Record<string, ConfigTabla>
 }
@@ -52,6 +54,7 @@ const DEFAULTS: Preferencias = {
   sidebar_ocultos: null,
   sidebar_deshabilitados: null,
   sidebar_colapsado: false,
+  sidebar_secciones: {},
   config_tablas: {},
 }
 
@@ -118,6 +121,7 @@ function ProveedorPreferencias({ children }: { children: ReactNode }) {
               sidebar_ocultos: datos.sidebar_ocultos || null,
               sidebar_deshabilitados: datos.sidebar_deshabilitados || null,
               sidebar_colapsado: datos.sidebar_colapsado ?? false,
+              sidebar_secciones: datos.sidebar_secciones || {},
               config_tablas: datos.config_tablas || {},
             }
             setPreferencias(prefs)
