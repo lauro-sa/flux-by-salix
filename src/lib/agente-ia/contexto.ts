@@ -20,6 +20,7 @@ export interface MensajeContexto {
   es_entrante: boolean
   remitente_nombre: string | null
   texto: string | null
+  tipo_contenido: string | null
   creado_en: string
 }
 
@@ -57,7 +58,7 @@ export async function obtenerContextoCompleto(params: {
   // Obtener mensajes recientes (últimos 30)
   const { data: mensajes } = await admin
     .from('mensajes')
-    .select('es_entrante, remitente_nombre, texto, creado_en')
+    .select('es_entrante, remitente_nombre, texto, tipo_contenido, creado_en')
     .eq('conversacion_id', conversacion_id)
     .eq('es_nota_interna', false)
     .order('creado_en', { ascending: false })
@@ -306,6 +307,7 @@ ${config.respuesta_si_bot ? `Si te preguntan si sos persona o bot: "${config.res
 - NUNCA repitas una pregunta que ya hiciste y el cliente ignoró. Si la ignoró, avanzá con otra cosa
 - Presentate UNA SOLA VEZ al inicio. Después nunca más digas tu nombre ni de dónde sos
 - Revisá si ya te presentaste en mensajes anteriores. Si hay mensajes previos tuyos, NO te presentes
+- Si en el historial ves "[Envió una foto]" o "[Envió un video]", el cliente YA mandó foto/video. NO vuelvas a pedir. Agradecé y avanzá con el siguiente paso
 
 === REGLA #4: UNA PREGUNTA POR MENSAJE ===
 - Hacé UNA sola pregunta por mensaje. Nunca dos o tres juntas
@@ -395,7 +397,22 @@ RESPONDÉ EXCLUSIVAMENTE con JSON válido (sin texto adicional):
     .map(m => {
       const rol = m.es_entrante ? 'Cliente' : 'Agente'
       const nombre = m.remitente_nombre || rol
-      return `[${rol}] ${nombre}: ${m.texto || '(sin texto)'}`
+      // Indicar tipo de media para que el LLM sepa que mandaron foto/video/audio
+      const tipoMedia: Record<string, string> = {
+        imagen: '[Envió una foto]',
+        video: '[Envió un video]',
+        audio: '[Envió un audio]',
+        documento: '[Envió un documento]',
+        sticker: '[Envió un sticker]',
+        ubicacion: '[Envió una ubicación]',
+      }
+      const indicadorMedia = m.tipo_contenido && m.tipo_contenido !== 'texto'
+        ? tipoMedia[m.tipo_contenido] || `[Envió ${m.tipo_contenido}]`
+        : ''
+      const contenido = m.texto
+        ? (indicadorMedia ? `${indicadorMedia} ${m.texto}` : m.texto)
+        : (indicadorMedia || '(sin texto)')
+      return `[${rol}] ${nombre}: ${contenido}`
     })
     .join('\n')
 
