@@ -384,10 +384,32 @@ async function procesarMensajeEntrante(
     }
   }
 
+  // ─── Media: descargar y transcribir ANTES del chatbot/agente IA ───
+  // Así cuando el agente IA procese, ya tiene la transcripción del audio como texto
+  const mediaId = extraerMediaId(msg)
+  if (mediaId && mensajeInsertado) {
+    try {
+      await descargarYGuardarMedia(admin, canal, msg, mensajeInsertado.id)
+    } catch (err) {
+      console.error('Error descargando media:', err)
+    }
+  }
+
   // ─── Chatbot: respuestas automáticas ───
+  // Releer el texto del mensaje por si fue actualizado por la transcripción de audio
+  let textoFinal = texto
+  if (msg.type === 'audio' && mensajeInsertado) {
+    const { data: msgActualizado } = await admin
+      .from('mensajes')
+      .select('texto')
+      .eq('id', mensajeInsertado.id)
+      .single()
+    textoFinal = msgActualizado?.texto || texto
+  }
+
   let chatbotRespondio = false
   try {
-    chatbotRespondio = await procesarChatbot(admin, canal, conversacion.id, telefonoRemitente, texto, esConversacionNueva, msg)
+    chatbotRespondio = await procesarChatbot(admin, canal, conversacion.id, telefonoRemitente, textoFinal, esConversacionNueva, msg)
   } catch (err) {
     console.warn('[CHATBOT] Error:', err)
   }
@@ -414,16 +436,6 @@ async function procesarMensajeEntrante(
       }
     } catch (err) {
       console.warn('[AGENTE_IA] Error:', err)
-    }
-  }
-
-  // Si tiene media, descargar ANTES de terminar (Vercel serverless corta el background)
-  const mediaId = extraerMediaId(msg)
-  if (mediaId && mensajeInsertado) {
-    try {
-      await descargarYGuardarMedia(admin, canal, msg, mensajeInsertado.id)
-    } catch (err) {
-      console.error('Error descargando media:', err)
     }
   }
 }
