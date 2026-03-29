@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Sparkles, Brain, MessageSquare, BookOpen, AlertTriangle, Activity, Plus, Pencil, Trash2, X, Maximize2, Globe, FileUp, Loader2 } from 'lucide-react'
+import { Sparkles, Brain, MessageSquare, BookOpen, AlertTriangle, Activity, Plus, Pencil, Trash2, X, Maximize2, Globe, FileUp, Loader2, Building2, GitBranch, ChevronUp, ChevronDown, GripVertical } from 'lucide-react'
 import { Interruptor, Select, Input, Boton, Modal, Insignia } from '@/componentes/ui'
-import type { ConfigAgenteIA, EntradaBaseConocimiento, LogAgenteIA } from '@/tipos/inbox'
+import type { ConfigAgenteIA, EntradaBaseConocimiento, LogAgenteIA, TipoContactoConfig, PasoFlujoConfig, EjemploConversacionConfig } from '@/tipos/inbox'
 
 /**
  * SeccionAgenteIA — UI de configuración del Agente IA dentro de inbox/configuracion.
@@ -46,12 +46,30 @@ const CONFIG_DEFAULTS: ConfigAgenteIA = {
   acciones_habilitadas: [],
   total_mensajes_enviados: 0,
   total_escalamientos: 0,
+  zona_cobertura: '',
+  sitio_web: '',
+  horario_atencion: '',
+  correo_empresa: '',
+  servicios_si: '',
+  servicios_no: '',
+  tipos_contacto: [],
+  flujo_conversacion: [],
+  reglas_agenda: '',
+  info_precios: '',
+  situaciones_especiales: '',
+  ejemplos_conversacion: [],
+  respuesta_si_bot: '',
+  vocabulario_natural: '',
+  ultimo_analisis_conversaciones: null,
+  total_conversaciones_analizadas: 0,
 }
 
 // ─── Tabs ───
 
 const TABS = [
   { id: 'general', etiqueta: 'General', icono: <Sparkles size={14} /> },
+  { id: 'negocio', etiqueta: 'Negocio', icono: <Building2 size={14} /> },
+  { id: 'flujo', etiqueta: 'Flujo', icono: <GitBranch size={14} /> },
   { id: 'capacidades', etiqueta: 'Capacidades', icono: <Brain size={14} /> },
   { id: 'respuestas', etiqueta: 'Respuestas', icono: <MessageSquare size={14} /> },
   { id: 'conocimiento', etiqueta: 'Conocimiento', icono: <BookOpen size={14} /> },
@@ -192,6 +210,8 @@ export default function SeccionAgenteIA() {
       {/* ═══ Contenido deshabilitado si inactivo ═══ */}
       <div className={`space-y-4 ${!config.activo ? 'opacity-40 pointer-events-none' : ''}`}>
         {tabActiva === 'general' && <TabGeneral config={config} guardar={guardar} canales={canales} />}
+        {tabActiva === 'negocio' && <TabNegocio config={config} guardar={guardar} />}
+        {tabActiva === 'flujo' && <TabFlujo config={config} guardar={guardar} />}
         {tabActiva === 'capacidades' && <TabCapacidades config={config} guardar={guardar} />}
         {tabActiva === 'respuestas' && <TabRespuestas config={config} guardar={guardar} />}
         {tabActiva === 'conocimiento' && <TabConocimiento config={config} guardar={guardar} />}
@@ -346,17 +366,25 @@ function TabGeneral({ config, guardar, canales }: TabProps & { canales: CanalSim
           placeholder="Vale, Valen..."
           ayuda="Opcional. Si el cliente lo llama por apodo, el agente lo reconoce."
         />
+        <Input
+          etiqueta="Si preguntan si sos bot"
+          value={config.respuesta_si_bot}
+          onChange={(e) => guardar({ respuesta_si_bot: e.target.value })}
+          placeholder={`Soy ${config.nombre || 'el asistente'}, de la empresa. ¿En qué te puedo ayudar?`}
+          ayuda="Qué responde si le preguntan si es un bot o una IA. Dejá vacío para respuesta automática."
+        />
         <TextareaExpandible
           etiqueta="Personalidad"
           valor={config.personalidad}
           onChange={(v) => guardar({ personalidad: v })}
-          placeholder="Sos un asistente profesional de ventas. Siempre amable y resolutivo..."
+          placeholder="Profesional pero cercana. Directa, no da vueltas. Segura, nunca dice 'creo que'. Humana, no parece chatbot."
         />
         <TextareaExpandible
-          etiqueta="Instrucciones del negocio"
-          valor={config.instrucciones}
-          onChange={(v) => guardar({ instrucciones: v })}
-          placeholder="Horario: L-V 9-18hs. No ofrecer descuentos mayores al 15%. Derivar temas legales..."
+          etiqueta="Palabras que usa naturalmente"
+          valor={config.vocabulario_natural}
+          onChange={(v) => guardar({ vocabulario_natural: v })}
+          placeholder="Perfecto, Genial, Dale, Listo, Claro que sí, Sin problema, Entendido"
+          lineasPreview={2}
         />
       </div>
 
@@ -425,6 +453,403 @@ function TabGeneral({ config, guardar, canales }: TabProps & { canales: CanalSim
           placeholder="0"
         />
       </div>
+    </>
+  )
+}
+
+// ═══════════════════════════════════════════════
+// Tab: Negocio
+// ═══════════════════════════════════════════════
+
+function TabNegocio({ config, guardar }: TabProps) {
+  return (
+    <>
+      {/* Datos de la empresa */}
+      <div className="p-4 rounded-xl space-y-3" style={estiloSeccion}>
+        <p className="text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
+          Datos de la empresa
+        </p>
+        <Input
+          etiqueta="Zona de cobertura"
+          value={config.zona_cobertura}
+          onChange={(e) => guardar({ zona_cobertura: e.target.value })}
+          placeholder="CABA y Gran Buenos Aires"
+        />
+        <Input
+          etiqueta="Sitio web"
+          value={config.sitio_web}
+          onChange={(e) => guardar({ sitio_web: e.target.value })}
+          placeholder="www.miempresa.com"
+        />
+        <Input
+          etiqueta="Correo de contacto"
+          value={config.correo_empresa}
+          onChange={(e) => guardar({ correo_empresa: e.target.value })}
+          placeholder="info@miempresa.com"
+        />
+        <Input
+          etiqueta="Horario de atención"
+          value={config.horario_atencion}
+          onChange={(e) => guardar({ horario_atencion: e.target.value })}
+          placeholder="Lunes a Viernes de 9 a 18hs"
+        />
+      </div>
+
+      {/* Servicios */}
+      <div className="p-4 rounded-xl space-y-3" style={estiloSeccion}>
+        <p className="text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
+          Servicios
+        </p>
+        <TextareaExpandible
+          etiqueta="¿Qué servicios ofrecen?"
+          valor={config.servicios_si}
+          onChange={(v) => guardar({ servicios_si: v })}
+          placeholder="Reparación y mantenimiento de portones&#10;Automatización de portones&#10;Herrería de obra en general"
+          lineasPreview={4}
+        />
+        <TextareaExpandible
+          etiqueta="¿Qué NO hacen?"
+          valor={config.servicios_no}
+          onChange={(v) => guardar({ servicios_no: v })}
+          placeholder="Reparaciones de autos&#10;Carpintería de madera&#10;Trabajos fuera de la zona de cobertura"
+          lineasPreview={3}
+        />
+      </div>
+
+      {/* Precios y otros */}
+      <div className="p-4 rounded-xl space-y-3" style={estiloSeccion}>
+        <p className="text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
+          Información adicional
+        </p>
+        <TextareaExpandible
+          etiqueta="Precios de referencia"
+          valor={config.info_precios}
+          onChange={(v) => guardar({ info_precios: v })}
+          placeholder="Trabajo operativo base: $150.000&#10;Solo informar si el cliente pregunta"
+          lineasPreview={3}
+        />
+        <TextareaExpandible
+          etiqueta="Instrucciones específicas"
+          valor={config.instrucciones}
+          onChange={(v) => guardar({ instrucciones: v })}
+          placeholder="Los presupuestos se envían por correo en 24 a 72hs. Las visitas son sin cargo. Pagos: Mercado Pago o transferencia."
+        />
+        <TextareaExpandible
+          etiqueta="Situaciones especiales"
+          valor={config.situaciones_especiales}
+          onChange={(v) => guardar({ situaciones_especiales: v })}
+          placeholder="Cliente enojado: primero reconocer la situación, después dar info. Nunca minimizar.&#10;Si menciona abogado/demanda → escalar."
+          lineasPreview={3}
+        />
+      </div>
+    </>
+  )
+}
+
+// ═══════════════════════════════════════════════
+// Tab: Flujo
+// ═══════════════════════════════════════════════
+
+function TabFlujo({ config, guardar }: TabProps) {
+  // ── Flujo de conversación ──
+  const flujo = Array.isArray(config.flujo_conversacion) ? config.flujo_conversacion : []
+
+  const agregarPaso = () => {
+    const nuevo: PasoFlujoConfig = {
+      paso: flujo.length + 1,
+      titulo: '',
+      descripcion: '',
+      condicion_avance: '',
+    }
+    guardar({ flujo_conversacion: [...flujo, nuevo] })
+  }
+
+  const actualizarPaso = (indice: number, cambios: Partial<PasoFlujoConfig>) => {
+    const nuevos = flujo.map((p, i) => i === indice ? { ...p, ...cambios } : p)
+    guardar({ flujo_conversacion: nuevos })
+  }
+
+  const eliminarPaso = (indice: number) => {
+    const nuevos = flujo.filter((_, i) => i !== indice).map((p, i) => ({ ...p, paso: i + 1 }))
+    guardar({ flujo_conversacion: nuevos })
+  }
+
+  const moverPaso = (indice: number, direccion: 'arriba' | 'abajo') => {
+    const destino = direccion === 'arriba' ? indice - 1 : indice + 1
+    if (destino < 0 || destino >= flujo.length) return
+    const nuevos = [...flujo]
+    ;[nuevos[indice], nuevos[destino]] = [nuevos[destino], nuevos[indice]]
+    guardar({ flujo_conversacion: nuevos.map((p, i) => ({ ...p, paso: i + 1 })) })
+  }
+
+  // ── Tipos de contacto ──
+  const tipos = Array.isArray(config.tipos_contacto) ? config.tipos_contacto : []
+  const [modalTipoAbierto, setModalTipoAbierto] = useState(false)
+  const [tipoEditando, setTipoEditando] = useState<Partial<TipoContactoConfig> & { indice?: number } | null>(null)
+
+  const guardarTipo = () => {
+    if (!tipoEditando?.tipo || !tipoEditando?.nombre) return
+    const tipoNuevo: TipoContactoConfig = {
+      tipo: tipoEditando.tipo,
+      nombre: tipoEditando.nombre,
+      icono: tipoEditando.icono || '',
+      formulario: tipoEditando.formulario || '',
+      instrucciones: tipoEditando.instrucciones || '',
+    }
+    if (tipoEditando.indice !== undefined) {
+      const nuevos = tipos.map((t, i) => i === tipoEditando.indice ? tipoNuevo : t)
+      guardar({ tipos_contacto: nuevos })
+    } else {
+      guardar({ tipos_contacto: [...tipos, tipoNuevo] })
+    }
+    setModalTipoAbierto(false)
+    setTipoEditando(null)
+  }
+
+  const eliminarTipo = (indice: number) => {
+    guardar({ tipos_contacto: tipos.filter((_, i) => i !== indice) })
+  }
+
+  return (
+    <>
+      {/* Flujo de conversación */}
+      <div className="p-4 rounded-xl space-y-3" style={estiloSeccion}>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
+              Flujo de conversación
+            </p>
+            <p className="text-xxs mt-1" style={{ color: 'var(--texto-terciario)' }}>
+              Pasos que sigue el agente cuando un cliente consulta.
+            </p>
+          </div>
+          <Boton tamano="xs" variante="secundario" icono={<Plus size={14} />} onClick={agregarPaso}>
+            Paso
+          </Boton>
+        </div>
+
+        {flujo.length === 0 && (
+          <div className="text-center py-6">
+            <GitBranch size={24} className="mx-auto mb-2" style={{ color: 'var(--texto-terciario)' }} />
+            <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
+              Sin flujo configurado. El agente responderá de forma libre.
+            </p>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {flujo.map((paso, i) => (
+            <div
+              key={i}
+              className="p-3 rounded-lg space-y-2"
+              style={{ border: '1px solid var(--borde-sutil)', background: 'var(--superficie-hover)' }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xxs font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--superficie-tarjeta)', color: 'var(--texto-marca)' }}>
+                    {paso.paso}
+                  </span>
+                  <input
+                    value={paso.titulo}
+                    onChange={(e) => actualizarPaso(i, { titulo: e.target.value })}
+                    placeholder="Título del paso"
+                    className="text-xs font-medium bg-transparent border-none outline-none flex-1"
+                    style={{ color: 'var(--texto-primario)' }}
+                  />
+                </div>
+                <div className="flex items-center gap-0.5">
+                  <button
+                    onClick={() => moverPaso(i, 'arriba')}
+                    disabled={i === 0}
+                    className="p-1 rounded cursor-pointer disabled:opacity-30"
+                    style={{ color: 'var(--texto-terciario)' }}
+                  >
+                    <ChevronUp size={14} />
+                  </button>
+                  <button
+                    onClick={() => moverPaso(i, 'abajo')}
+                    disabled={i === flujo.length - 1}
+                    className="p-1 rounded cursor-pointer disabled:opacity-30"
+                    style={{ color: 'var(--texto-terciario)' }}
+                  >
+                    <ChevronDown size={14} />
+                  </button>
+                  <button
+                    onClick={() => eliminarPaso(i)}
+                    className="p-1 rounded cursor-pointer"
+                    style={{ color: 'var(--insignia-peligro)' }}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+              <textarea
+                value={paso.descripcion}
+                onChange={(e) => actualizarPaso(i, { descripcion: e.target.value })}
+                placeholder="Qué hacer en este paso..."
+                rows={2}
+                className="w-full text-xs rounded-lg px-3 py-2 resize-none"
+                style={{ background: 'var(--superficie-tarjeta)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+              />
+              <input
+                value={paso.condicion_avance}
+                onChange={(e) => actualizarPaso(i, { condicion_avance: e.target.value })}
+                placeholder="Avanzar cuando..."
+                className="w-full text-xxs rounded-lg px-3 py-1.5"
+                style={{ background: 'var(--superficie-tarjeta)', color: 'var(--texto-terciario)', border: '1px solid var(--borde-sutil)' }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Tipos de contacto */}
+      <div className="p-4 rounded-xl space-y-3" style={estiloSeccion}>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
+              Tipos de contacto
+            </p>
+            <p className="text-xxs mt-1" style={{ color: 'var(--texto-terciario)' }}>
+              Cada tipo puede tener su propio formulario de datos.
+            </p>
+          </div>
+          <Boton
+            tamano="xs"
+            variante="secundario"
+            icono={<Plus size={14} />}
+            onClick={() => { setTipoEditando({ tipo: '', nombre: '', icono: '', formulario: '', instrucciones: '' }); setModalTipoAbierto(true) }}
+          >
+            Tipo
+          </Boton>
+        </div>
+
+        {tipos.length === 0 && (
+          <p className="text-xs text-center py-4" style={{ color: 'var(--texto-terciario)' }}>
+            Sin tipos configurados. El agente no diferenciará entre tipos de cliente.
+          </p>
+        )}
+
+        {tipos.map((tipo, i) => (
+          <div
+            key={i}
+            className="flex items-center justify-between py-2.5 px-3 rounded-lg"
+            style={{ background: 'var(--superficie-hover)' }}
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-sm">{tipo.icono || '👤'}</span>
+              <div className="min-w-0">
+                <p className="text-xs font-medium" style={{ color: 'var(--texto-primario)' }}>{tipo.nombre}</p>
+                <p className="text-xxs truncate" style={{ color: 'var(--texto-terciario)' }}>
+                  {tipo.instrucciones || tipo.tipo}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 ml-2">
+              <button
+                onClick={() => { setTipoEditando({ ...tipo, indice: i }); setModalTipoAbierto(true) }}
+                className="p-1.5 rounded cursor-pointer"
+                style={{ color: 'var(--texto-terciario)' }}
+              >
+                <Pencil size={14} />
+              </button>
+              <button
+                onClick={() => eliminarTipo(i)}
+                className="p-1.5 rounded cursor-pointer"
+                style={{ color: 'var(--insignia-peligro)' }}
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Reglas de agenda */}
+      <div className="p-4 rounded-xl space-y-3" style={estiloSeccion}>
+        <p className="text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
+          Reglas de agenda
+        </p>
+        <TextareaExpandible
+          etiqueta="¿Cuándo y cómo agendan visitas o reuniones?"
+          valor={config.reglas_agenda}
+          onChange={(v) => guardar({ reglas_agenda: v })}
+          placeholder="Visitas: martes y jueves, 11 a 16hs.&#10;Si es lunes/martes → proponer jueves.&#10;Nunca proponer el mismo día."
+          lineasPreview={4}
+        />
+      </div>
+
+      {/* Modal crear/editar tipo de contacto */}
+      <Modal abierto={modalTipoAbierto} onCerrar={() => { setModalTipoAbierto(false); setTipoEditando(null) }}>
+        <div className="space-y-4 p-1">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+              {tipoEditando?.indice !== undefined ? 'Editar tipo de contacto' : 'Nuevo tipo de contacto'}
+            </h3>
+            <button onClick={() => setModalTipoAbierto(false)} className="cursor-pointer" style={{ color: 'var(--texto-terciario)' }}>
+              <X size={18} />
+            </button>
+          </div>
+          <div className="flex gap-3">
+            <div className="w-16">
+              <Input
+                etiqueta="Icono"
+                value={tipoEditando?.icono || ''}
+                onChange={(e) => setTipoEditando(prev => prev ? { ...prev, icono: e.target.value } : prev)}
+                placeholder="🏠"
+              />
+            </div>
+            <div className="flex-1">
+              <Input
+                etiqueta="Nombre"
+                value={tipoEditando?.nombre || ''}
+                onChange={(e) => setTipoEditando(prev => prev ? { ...prev, nombre: e.target.value } : prev)}
+                placeholder="Particular"
+              />
+            </div>
+          </div>
+          <Input
+            etiqueta="Identificador"
+            value={tipoEditando?.tipo || ''}
+            onChange={(e) => setTipoEditando(prev => prev ? { ...prev, tipo: e.target.value } : prev)}
+            placeholder="particular"
+            ayuda="Valor interno (sin espacios, en minúscula)"
+          />
+          <div>
+            <label className="text-xxs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>
+              Instrucciones
+            </label>
+            <textarea
+              value={tipoEditando?.instrucciones || ''}
+              onChange={(e) => setTipoEditando(prev => prev ? { ...prev, instrucciones: e.target.value } : prev)}
+              placeholder="Persona física, uso residencial. Factura B."
+              rows={2}
+              className="w-full text-xs rounded-lg px-3 py-2 resize-none"
+              style={{ background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+            />
+          </div>
+          <div>
+            <label className="text-xxs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>
+              Formulario de datos
+            </label>
+            <textarea
+              value={tipoEditando?.formulario || ''}
+              onChange={(e) => setTipoEditando(prev => prev ? { ...prev, formulario: e.target.value } : prev)}
+              placeholder={"📊 Para elaborar el presupuesto, completá:\n\n👤 DATOS PERSONALES\n• Nombre y apellido:\n• Teléfono:\n• Email:\n\n📍 DIRECCIÓN\n• Dirección del trabajo:"}
+              rows={10}
+              className="w-full text-xs rounded-lg px-3 py-2 resize-none"
+              style={{ background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+            />
+            <p className="text-xxs mt-1" style={{ color: 'var(--texto-terciario)' }}>
+              Este template se envía al cliente cuando el agente necesita recopilar datos.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Boton variante="secundario" tamano="sm" onClick={() => setModalTipoAbierto(false)}>Cancelar</Boton>
+            <Boton variante="primario" tamano="sm" onClick={guardarTipo}>Guardar</Boton>
+          </div>
+        </div>
+      </Modal>
     </>
   )
 }
@@ -552,6 +977,444 @@ function TabRespuestas({ config, guardar }: TabProps) {
           onChange={(e) => guardar({ max_mensajes_auto: parseInt(e.target.value) || 5 })}
         />
       </div>
+
+      {/* Ejemplos de conversación */}
+      <TabEjemplos config={config} guardar={guardar} />
+
+      {/* Entrenar desde conversaciones */}
+      <SeccionEntrenar config={config} guardar={guardar} />
+    </>
+  )
+}
+
+// ═══════════════════════════════════════════════
+// Sub-tab: Entrenar al agente desde conversaciones
+// ═══════════════════════════════════════════════
+
+function SeccionEntrenar({ config, guardar }: TabProps) {
+  const [analizando, setAnalizando] = useState(false)
+  const [periodoDias, setPeriodoDias] = useState(60)
+  const [resultado, setResultado] = useState<Record<string, unknown> | null>(null)
+  const [error, setError] = useState('')
+  const [subiendoArchivo, setSubiendoArchivo] = useState(false)
+  const [seleccionados, setSeleccionados] = useState<Record<string, boolean>>({})
+
+  const analizarDesdeBD = async () => {
+    setAnalizando(true)
+    setError('')
+    setResultado(null)
+    try {
+      const res = await fetch('/api/inbox/agente-ia/analizar-conversaciones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ periodo_dias: periodoDias }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setResultado(data.analisis)
+      // Preseleccionar todo
+      const sel: Record<string, boolean> = {}
+      for (const key of Object.keys(data.analisis)) sel[key] = true
+      setSeleccionados(sel)
+    } catch (err) {
+      setError(String(err instanceof Error ? err.message : 'Error al analizar'))
+    }
+    setAnalizando(false)
+  }
+
+  const analizarDesdeArchivo = async (archivo: File) => {
+    setSubiendoArchivo(true)
+    setError('')
+    setResultado(null)
+    try {
+      const formData = new FormData()
+      formData.append('archivo', archivo)
+      const res = await fetch('/api/inbox/agente-ia/analizar-conversaciones', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setResultado(data.analisis)
+      const sel: Record<string, boolean> = {}
+      for (const key of Object.keys(data.analisis)) sel[key] = true
+      setSeleccionados(sel)
+    } catch (err) {
+      setError(String(err instanceof Error ? err.message : 'Error al analizar'))
+    }
+    setSubiendoArchivo(false)
+  }
+
+  const aplicarResultados = () => {
+    if (!resultado) return
+    const cambios: Partial<typeof config> = {}
+
+    if (seleccionados.ejemplos_sugeridos && Array.isArray(resultado.ejemplos_sugeridos)) {
+      const existentes = Array.isArray(config.ejemplos_conversacion) ? config.ejemplos_conversacion : []
+      cambios.ejemplos_conversacion = [...existentes, ...(resultado.ejemplos_sugeridos as typeof config.ejemplos_conversacion)]
+    }
+    if (seleccionados.vocabulario_detectado && resultado.vocabulario_detectado) {
+      cambios.vocabulario_natural = config.vocabulario_natural
+        ? `${config.vocabulario_natural}, ${resultado.vocabulario_detectado}`
+        : String(resultado.vocabulario_detectado)
+    }
+    if (seleccionados.flujo_detectado && Array.isArray(resultado.flujo_detectado) && resultado.flujo_detectado.length > 0) {
+      cambios.flujo_conversacion = resultado.flujo_detectado as typeof config.flujo_conversacion
+    }
+    if (seleccionados.servicios_si && resultado.servicios_si) {
+      cambios.servicios_si = config.servicios_si
+        ? `${config.servicios_si}\n${resultado.servicios_si}`
+        : String(resultado.servicios_si)
+    }
+    if (seleccionados.servicios_no && resultado.servicios_no) {
+      cambios.servicios_no = config.servicios_no
+        ? `${config.servicios_no}\n${resultado.servicios_no}`
+        : String(resultado.servicios_no)
+    }
+    if (seleccionados.tipos_contacto_detectados && Array.isArray(resultado.tipos_contacto_detectados)) {
+      const existentes = Array.isArray(config.tipos_contacto) ? config.tipos_contacto : []
+      cambios.tipos_contacto = [...existentes, ...(resultado.tipos_contacto_detectados as typeof config.tipos_contacto)]
+    }
+    if (seleccionados.situaciones_especiales && resultado.situaciones_especiales) {
+      cambios.situaciones_especiales = config.situaciones_especiales
+        ? `${config.situaciones_especiales}\n${resultado.situaciones_especiales}`
+        : String(resultado.situaciones_especiales)
+    }
+    if (seleccionados.reglas_agenda && resultado.reglas_agenda) {
+      cambios.reglas_agenda = String(resultado.reglas_agenda)
+    }
+    if (seleccionados.info_precios && resultado.info_precios) {
+      cambios.info_precios = String(resultado.info_precios)
+    }
+    if (seleccionados.tono_detectado && resultado.tono_detectado) {
+      cambios.personalidad = config.personalidad
+        ? `${config.personalidad}\n${resultado.tono_detectado}`
+        : String(resultado.tono_detectado)
+    }
+
+    guardar(cambios)
+    setResultado(null)
+  }
+
+  const toggleSeleccion = (key: string) => {
+    setSeleccionados(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  const etiquetasResultado: Record<string, string> = {
+    ejemplos_sugeridos: 'Ejemplos de conversación',
+    vocabulario_detectado: 'Vocabulario natural',
+    flujo_detectado: 'Flujo de conversación',
+    servicios_si: 'Servicios que ofrecen',
+    servicios_no: 'Servicios que NO hacen',
+    tipos_contacto_detectados: 'Tipos de contacto',
+    tono_detectado: 'Tono detectado',
+    situaciones_especiales: 'Situaciones especiales',
+    reglas_agenda: 'Reglas de agenda',
+    info_precios: 'Precios de referencia',
+  }
+
+  return (
+    <div className="p-4 rounded-xl space-y-3" style={estiloSeccion}>
+      <p className="text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
+        Entrenar al agente con conversaciones reales
+      </p>
+      <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+        Analizamos conversaciones para extraer ejemplos, vocabulario, flujos y más.
+      </p>
+
+      {!resultado && (
+        <>
+          {/* Desde Flux */}
+          <div className="p-3 rounded-lg space-y-2" style={{ border: '1px solid var(--borde-sutil)' }}>
+            <p className="text-xs font-medium" style={{ color: 'var(--texto-primario)' }}>Desde conversaciones en Flux</p>
+            <div className="flex items-center gap-2">
+              <select
+                value={periodoDias}
+                onChange={(e) => setPeriodoDias(Number(e.target.value))}
+                className="text-xs rounded-lg px-2 py-1.5"
+                style={{ background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+              >
+                <option value={7}>Últimos 7 días</option>
+                <option value={30}>Últimos 30 días</option>
+                <option value={60}>Últimos 60 días</option>
+                <option value={90}>Últimos 90 días</option>
+                <option value={365}>Todo</option>
+              </select>
+              <Boton tamano="sm" variante="primario" onClick={analizarDesdeBD} cargando={analizando} disabled={analizando}>
+                Analizar
+              </Boton>
+            </div>
+          </div>
+
+          {/* Desde archivo */}
+          <div className="p-3 rounded-lg space-y-2" style={{ border: '1px solid var(--borde-sutil)' }}>
+            <p className="text-xs font-medium" style={{ color: 'var(--texto-primario)' }}>Importar historial anterior</p>
+            <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+              Subí archivos .txt exportados de WhatsApp (podés subir varios).
+            </p>
+            <label
+              className="flex items-center justify-center gap-2 p-3 rounded-lg cursor-pointer transition-colors text-xs font-medium"
+              style={{ border: '2px dashed var(--borde-sutil)', color: 'var(--texto-terciario)' }}
+            >
+              {subiendoArchivo ? (
+                <><Loader2 size={14} className="animate-spin" /> Analizando...</>
+              ) : (
+                <><FileUp size={14} /> Elegir archivo .txt</>
+              )}
+              <input
+                type="file"
+                accept=".txt"
+                className="hidden"
+                onChange={(e) => {
+                  const archivo = e.target.files?.[0]
+                  if (archivo) analizarDesdeArchivo(archivo)
+                  e.target.value = ''
+                }}
+                disabled={subiendoArchivo}
+              />
+            </label>
+          </div>
+
+          {config.ultimo_analisis_conversaciones && (
+            <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+              Último análisis: {new Date(config.ultimo_analisis_conversaciones).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </p>
+          )}
+        </>
+      )}
+
+      {/* Resultados del análisis */}
+      {resultado && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium" style={{ color: 'var(--texto-primario)' }}>
+            Resultados del análisis
+          </p>
+          <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+            Seleccioná lo que querés aplicar a la configuración del agente.
+          </p>
+
+          {Object.entries(etiquetasResultado).map(([key, label]) => {
+            const valor = resultado[key]
+            if (!valor || (Array.isArray(valor) && valor.length === 0)) return null
+            const preview = typeof valor === 'string'
+              ? valor.slice(0, 100)
+              : Array.isArray(valor)
+                ? `${valor.length} items`
+                : ''
+
+            return (
+              <label
+                key={key}
+                className="flex items-start gap-2 p-2 rounded-lg cursor-pointer transition-colors"
+                style={{ background: seleccionados[key] ? 'var(--superficie-hover)' : 'transparent' }}
+              >
+                <input
+                  type="checkbox"
+                  checked={!!seleccionados[key]}
+                  onChange={() => toggleSeleccion(key)}
+                  className="mt-0.5"
+                  style={{ accentColor: 'var(--texto-marca)' }}
+                />
+                <div className="min-w-0">
+                  <p className="text-xs font-medium" style={{ color: 'var(--texto-primario)' }}>{label}</p>
+                  <p className="text-xxs truncate" style={{ color: 'var(--texto-terciario)' }}>{preview}</p>
+                </div>
+              </label>
+            )
+          })}
+
+          <div className="flex gap-2 pt-2">
+            <Boton variante="secundario" tamano="sm" onClick={() => setResultado(null)}>Cancelar</Boton>
+            <Boton variante="primario" tamano="sm" onClick={aplicarResultados}>Aplicar seleccionados</Boton>
+          </div>
+
+          <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+            Solo completa campos vacíos. No sobreescribe lo que ya tenés configurado.
+          </p>
+        </div>
+      )}
+
+      {error && <p className="text-xs" style={{ color: 'var(--insignia-peligro)' }}>{error}</p>}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════
+// Sub-tab: Ejemplos de conversación (few-shot)
+// ═══════════════════════════════════════════════
+
+function TabEjemplos({ config, guardar }: TabProps) {
+  const ejemplos = Array.isArray(config.ejemplos_conversacion) ? config.ejemplos_conversacion : []
+  const [modalAbierto, setModalAbierto] = useState(false)
+  const [editando, setEditando] = useState<{
+    titulo: string
+    mensajes: { rol: 'cliente' | 'agente'; texto: string }[]
+    indice?: number
+  } | null>(null)
+
+  const abrirNuevo = () => {
+    setEditando({ titulo: '', mensajes: [{ rol: 'cliente', texto: '' }, { rol: 'agente', texto: '' }] })
+    setModalAbierto(true)
+  }
+
+  const abrirEditar = (indice: number) => {
+    setEditando({ ...ejemplos[indice], indice })
+    setModalAbierto(true)
+  }
+
+  const guardarEjemplo = () => {
+    if (!editando?.titulo || !editando.mensajes.some(m => m.texto)) return
+    const ejemplo: EjemploConversacionConfig = {
+      titulo: editando.titulo,
+      mensajes: editando.mensajes.filter(m => m.texto.trim()),
+    }
+    if (editando.indice !== undefined) {
+      const nuevos = ejemplos.map((e, i) => i === editando.indice ? ejemplo : e)
+      guardar({ ejemplos_conversacion: nuevos })
+    } else {
+      guardar({ ejemplos_conversacion: [...ejemplos, ejemplo] })
+    }
+    setModalAbierto(false)
+    setEditando(null)
+  }
+
+  const eliminarEjemplo = (indice: number) => {
+    guardar({ ejemplos_conversacion: ejemplos.filter((_, i) => i !== indice) })
+  }
+
+  const agregarMensaje = () => {
+    if (!editando) return
+    const ultimoRol = editando.mensajes.at(-1)?.rol || 'agente'
+    setEditando({
+      ...editando,
+      mensajes: [...editando.mensajes, { rol: ultimoRol === 'cliente' ? 'agente' : 'cliente', texto: '' }],
+    })
+  }
+
+  const actualizarMensaje = (indice: number, cambios: Partial<{ rol: 'cliente' | 'agente'; texto: string }>) => {
+    if (!editando) return
+    setEditando({
+      ...editando,
+      mensajes: editando.mensajes.map((m, i) => i === indice ? { ...m, ...cambios } : m),
+    })
+  }
+
+  const eliminarMensaje = (indice: number) => {
+    if (!editando) return
+    setEditando({
+      ...editando,
+      mensajes: editando.mensajes.filter((_, i) => i !== indice),
+    })
+  }
+
+  return (
+    <>
+      <div className="p-4 rounded-xl space-y-3" style={estiloSeccion}>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
+              Ejemplos de conversación
+            </p>
+            <p className="text-xxs mt-1" style={{ color: 'var(--texto-terciario)' }}>
+              Ejemplos reales de cómo querés que responda el agente. Mejora mucho la calidad.
+            </p>
+          </div>
+          <Boton tamano="xs" variante="secundario" icono={<Plus size={14} />} onClick={abrirNuevo}>
+            Ejemplo
+          </Boton>
+        </div>
+
+        {ejemplos.length === 0 && (
+          <div className="text-center py-6">
+            <MessageSquare size={24} className="mx-auto mb-2" style={{ color: 'var(--texto-terciario)' }} />
+            <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
+              Sin ejemplos todavía. Agregá conversaciones de referencia.
+            </p>
+          </div>
+        )}
+
+        {ejemplos.map((ej, i) => (
+          <div
+            key={i}
+            className="p-3 rounded-lg space-y-1.5"
+            style={{ background: 'var(--superficie-hover)' }}
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium" style={{ color: 'var(--texto-primario)' }}>{ej.titulo}</p>
+              <div className="flex items-center gap-1">
+                <button onClick={() => abrirEditar(i)} className="p-1 rounded cursor-pointer" style={{ color: 'var(--texto-terciario)' }}>
+                  <Pencil size={14} />
+                </button>
+                <button onClick={() => eliminarEjemplo(i)} className="p-1 rounded cursor-pointer" style={{ color: 'var(--insignia-peligro)' }}>
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+            {ej.mensajes.slice(0, 3).map((m, j) => (
+              <p key={j} className="text-xxs truncate" style={{ color: m.rol === 'cliente' ? 'var(--texto-secundario)' : 'var(--texto-marca)' }}>
+                {m.rol === 'cliente' ? 'Cliente' : 'Agente'}: {m.texto}
+              </p>
+            ))}
+            {ej.mensajes.length > 3 && (
+              <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>+{ej.mensajes.length - 3} mensajes más</p>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Modal crear/editar ejemplo */}
+      <Modal abierto={modalAbierto} onCerrar={() => { setModalAbierto(false); setEditando(null) }}>
+        <div className="space-y-4 p-1">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+              {editando?.indice !== undefined ? 'Editar ejemplo' : 'Nuevo ejemplo de conversación'}
+            </h3>
+            <button onClick={() => setModalAbierto(false)} className="cursor-pointer" style={{ color: 'var(--texto-terciario)' }}>
+              <X size={18} />
+            </button>
+          </div>
+          <Input
+            etiqueta="Título del ejemplo"
+            value={editando?.titulo || ''}
+            onChange={(e) => setEditando(prev => prev ? { ...prev, titulo: e.target.value } : prev)}
+            placeholder="Consulta simple, particular"
+          />
+          <div className="space-y-2">
+            <p className="text-xxs font-medium" style={{ color: 'var(--texto-secundario)' }}>Mensajes</p>
+            {(editando?.mensajes || []).map((m, i) => (
+              <div key={i} className="flex gap-2 items-start">
+                <select
+                  value={m.rol}
+                  onChange={(e) => actualizarMensaje(i, { rol: e.target.value as 'cliente' | 'agente' })}
+                  className="text-xxs rounded-lg px-2 py-2 shrink-0"
+                  style={{ background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)', width: 80 }}
+                >
+                  <option value="cliente">Cliente</option>
+                  <option value="agente">Agente</option>
+                </select>
+                <textarea
+                  value={m.texto}
+                  onChange={(e) => actualizarMensaje(i, { texto: e.target.value })}
+                  placeholder={m.rol === 'cliente' ? 'Mensaje del cliente...' : 'Respuesta del agente...'}
+                  rows={2}
+                  className="flex-1 text-xs rounded-lg px-3 py-2 resize-none"
+                  style={{ background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+                />
+                <button onClick={() => eliminarMensaje(i)} className="p-1.5 rounded cursor-pointer shrink-0 mt-1" style={{ color: 'var(--insignia-peligro)' }}>
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+            <Boton tamano="xs" variante="fantasma" icono={<Plus size={14} />} onClick={agregarMensaje}>
+              Agregar mensaje
+            </Boton>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Boton variante="secundario" tamano="sm" onClick={() => setModalAbierto(false)}>Cancelar</Boton>
+            <Boton variante="primario" tamano="sm" onClick={guardarEjemplo}>Guardar</Boton>
+          </div>
+        </div>
+      </Modal>
     </>
   )
 }

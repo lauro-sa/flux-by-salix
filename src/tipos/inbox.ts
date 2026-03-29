@@ -588,6 +588,49 @@ export interface ConfigAgenteIA {
   acciones_habilitadas: AccionNodo[]
   total_mensajes_enviados: number
   total_escalamientos: number
+  // Campos v2: configuración estructurada por empresa
+  zona_cobertura: string
+  sitio_web: string
+  horario_atencion: string
+  correo_empresa: string
+  servicios_si: string
+  servicios_no: string
+  tipos_contacto: TipoContactoConfig[]
+  flujo_conversacion: PasoFlujoConfig[]
+  reglas_agenda: string
+  info_precios: string
+  situaciones_especiales: string
+  ejemplos_conversacion: EjemploConversacionConfig[]
+  respuesta_si_bot: string
+  vocabulario_natural: string
+  ultimo_analisis_conversaciones: string | null
+  total_conversaciones_analizadas: number
+}
+
+// ─── Tipos de contacto configurables por empresa ───
+
+export interface TipoContactoConfig {
+  tipo: string
+  nombre: string
+  icono: string
+  formulario: string
+  instrucciones: string
+}
+
+// ─── Pasos del flujo de conversación ───
+
+export interface PasoFlujoConfig {
+  paso: number
+  titulo: string
+  descripcion: string
+  condicion_avance: string
+}
+
+// ─── Ejemplos de conversación (few-shot) ───
+
+export interface EjemploConversacionConfig {
+  titulo: string
+  mensajes: { rol: 'cliente' | 'agente'; texto: string }[]
 }
 
 export interface AccionNodo {

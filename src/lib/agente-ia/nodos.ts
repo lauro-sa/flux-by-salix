@@ -25,6 +25,8 @@ export interface NodoAgenteIA {
 
 export interface RespuestaLLM {
   respuesta: string
+  tipo_contacto: string
+  fase_conversacion: string
   clasificacion: {
     intencion: string
     tema: string
@@ -37,6 +39,16 @@ export interface RespuestaLLM {
   }
   debe_escalar: boolean
   razon_escalamiento: string | null
+  datos_capturados: {
+    nombre: string | null
+    zona: string | null
+    tipo_trabajo: string | null
+    tiene_fotos: boolean
+    tipo_facturacion: string | null
+    direccion: string | null
+    email: string | null
+    telefono: string | null
+  } | null
   etiquetas_sugeridas: string[]
   acciones_sugeridas: { tipo: string; datos: Record<string, unknown> }[]
 }

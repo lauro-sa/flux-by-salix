@@ -51,6 +51,11 @@ export async function PUT(request: NextRequest) {
       'puede_etiquetar', 'modo_respuesta', 'tono', 'largo_respuesta', 'firmar_como',
       'usar_base_conocimiento', 'escalar_si_negativo', 'escalar_si_no_sabe',
       'escalar_palabras', 'mensaje_escalamiento', 'acciones_habilitadas',
+      // Campos v2: configuración estructurada
+      'zona_cobertura', 'sitio_web', 'horario_atencion', 'correo_empresa',
+      'servicios_si', 'servicios_no', 'tipos_contacto', 'flujo_conversacion',
+      'reglas_agenda', 'info_precios', 'situaciones_especiales',
+      'ejemplos_conversacion', 'respuesta_si_bot', 'vocabulario_natural',
     ]
 
     const datosFiltrados: Record<string, unknown> = {}

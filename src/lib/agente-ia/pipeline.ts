@@ -111,6 +111,43 @@ export async function ejecutarPipelineAgente(params: {
     return { acciones_ejecutadas: [], escalado: false }
   }
 
+  // 4.5. Guardar metadata enriquecida del LLM en la conversación
+  if (respuestaLLM.tipo_contacto || respuestaLLM.fase_conversacion || respuestaLLM.datos_capturados) {
+    try {
+      // Leer metadata previa para merge acumulativo de datos_capturados
+      const { data: convActual } = await admin
+        .from('conversaciones')
+        .select('metadata')
+        .eq('id', conversacion_id)
+        .single()
+
+      const metadataPrev = (convActual?.metadata as Record<string, unknown>) || {}
+      const metadataIA: Record<string, unknown> = { ...metadataPrev }
+
+      if (respuestaLLM.tipo_contacto && respuestaLLM.tipo_contacto !== 'desconocido') {
+        metadataIA.tipo_contacto = respuestaLLM.tipo_contacto
+      }
+      if (respuestaLLM.fase_conversacion) {
+        metadataIA.fase_conversacion = respuestaLLM.fase_conversacion
+      }
+      if (respuestaLLM.datos_capturados) {
+        const datosPrev = (metadataPrev.datos_capturados as Record<string, unknown>) || {}
+        const datosNuevos = { ...datosPrev }
+        for (const [k, v] of Object.entries(respuestaLLM.datos_capturados)) {
+          if (v !== null && v !== false && v !== '') datosNuevos[k] = v
+        }
+        metadataIA.datos_capturados = datosNuevos
+      }
+
+      await admin
+        .from('conversaciones')
+        .update({ metadata: metadataIA })
+        .eq('id', conversacion_id)
+    } catch (err) {
+      console.warn('[AGENTE_IA] Error guardando metadata enriquecida:', err)
+    }
+  }
+
   // 5. Procesar respuesta y ejecutar acciones
   const accionesEjecutadas: AccionAgente[] = []
   let escalado = false
@@ -428,10 +465,13 @@ function extraerJSON(texto: string): string | null {
 
 const RESPUESTA_FALLBACK: RespuestaLLM = {
   respuesta: '',
+  tipo_contacto: 'desconocido',
+  fase_conversacion: 'identificacion',
   clasificacion: { intencion: 'consulta', tema: 'general', urgencia: 'baja', confianza: 50 },
   sentimiento: { valor: 'neutro', confianza: 50 },
   debe_escalar: false,
   razon_escalamiento: null,
+  datos_capturados: null,
   etiquetas_sugeridas: [],
   acciones_sugeridas: [],
 }
@@ -450,10 +490,13 @@ function parsearRespuestaLLM(texto: string): RespuestaLLM {
     }
     return {
       respuesta: parsed.respuesta,
+      tipo_contacto: parsed.tipo_contacto ?? 'desconocido',
+      fase_conversacion: parsed.fase_conversacion ?? 'identificacion',
       clasificacion: parsed.clasificacion ?? RESPUESTA_FALLBACK.clasificacion,
       sentimiento: parsed.sentimiento ?? RESPUESTA_FALLBACK.sentimiento,
       debe_escalar: parsed.debe_escalar ?? false,
       razon_escalamiento: parsed.razon_escalamiento ?? null,
+      datos_capturados: parsed.datos_capturados ?? null,
       etiquetas_sugeridas: Array.isArray(parsed.etiquetas_sugeridas) ? parsed.etiquetas_sugeridas : [],
       acciones_sugeridas: Array.isArray(parsed.acciones_sugeridas) ? parsed.acciones_sugeridas : [],
     }

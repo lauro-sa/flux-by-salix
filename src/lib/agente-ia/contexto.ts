@@ -206,12 +206,12 @@ export interface PromptsAgente {
 export function construirPrompts(ctx: ContextoPipeline): PromptsAgente {
   const { config, contacto, empresa_nombre, base_conocimiento, mensajes } = ctx
 
-  // Base de conocimiento
+  // ── Secciones condicionales ──
+
   const conocimiento = base_conocimiento.length > 0
     ? base_conocimiento.map(e => `### ${e.titulo} (${e.categoria})\n${e.contenido}`).join('\n\n')
-    : 'No hay base de conocimiento configurada.'
+    : ''
 
-  // Datos del contacto
   const datosContacto = contacto
     ? [
         `- Nombre: ${contacto.nombre}`,
@@ -223,50 +223,135 @@ export function construirPrompts(ctx: ContextoPipeline): PromptsAgente {
     : '- Sin datos del contacto'
 
   const largoDesc: Record<string, string> = {
-    corto: '1 oración máximo',
-    medio: '1 a 3 oraciones',
-    largo: '1 párrafo completo',
+    corto: 'Máximo 1 oración por mensaje. Ultra conciso.',
+    medio: 'Máximo 2-3 líneas. Como un mensaje de WhatsApp normal.',
+    largo: 'Hasta 5 líneas si es necesario, pero preferí ser breve.',
   }
 
-  // System prompt: instrucciones, personalidad, reglas, contexto estático
-  const sistema = `Sos ${config.nombre}${config.apodo ? ` (te dicen "${config.apodo}")` : ''}, trabajás en la administración de ${empresa_nombre}.
-IMPORTANTE: NUNCA decir que sos un bot, asistente virtual, inteligencia artificial ni nada similar. Sos una persona real que trabaja en la empresa. Si te preguntan si sos un bot, negalo naturalmente.
-${config.apodo ? `Si te preguntan tu nombre, decí que te llamás ${config.nombre} pero que pueden decirte ${config.apodo}.` : ''}
+  // ── Datos del negocio ──
+  const datosNegocio = [
+    config.zona_cobertura ? `- Zona de cobertura: ${config.zona_cobertura}` : null,
+    config.sitio_web ? `- Web: ${config.sitio_web}` : null,
+    config.horario_atencion ? `- Horario: ${config.horario_atencion}` : null,
+    config.correo_empresa ? `- Correo: ${config.correo_empresa}` : null,
+  ].filter(Boolean).join('\n')
 
-PERSONALIDAD:
-${config.personalidad || 'Profesional y servicial.'}
+  // ── Servicios ──
+  const servicios = [
+    config.servicios_si ? `SERVICIOS QUE SÍ REALIZAMOS:\n${config.servicios_si}` : null,
+    config.servicios_no ? `SERVICIOS QUE NO REALIZAMOS:\n${config.servicios_no}` : null,
+  ].filter(Boolean).join('\n\n')
 
-INSTRUCCIONES DEL NEGOCIO:
-${config.instrucciones || 'Sin instrucciones específicas.'}
+  // ── Tipos de contacto ──
+  const tiposContactoArr = Array.isArray(config.tipos_contacto) ? config.tipos_contacto : []
+  const tiposContacto = tiposContactoArr.length > 0
+    ? tiposContactoArr.map(tc =>
+        `### ${tc.icono || ''} ${tc.nombre} (tipo: "${tc.tipo}")\n${tc.instrucciones || ''}\nFormulario:\n${tc.formulario || '(sin formulario)'}`
+      ).join('\n\n')
+    : ''
 
-TONO: ${config.tono}
-LARGO DE RESPUESTAS: ${largoDesc[config.largo_respuesta] || 'medio'}
+  // ── Flujo de conversación ──
+  const flujoArr = Array.isArray(config.flujo_conversacion) ? config.flujo_conversacion : []
+  const flujo = flujoArr.length > 0
+    ? flujoArr.map(p =>
+        `PASO ${p.paso} — ${p.titulo}\n${p.descripcion}${p.condicion_avance ? `\n→ Avanzar cuando: ${p.condicion_avance}` : ''}`
+      ).join('\n\n')
+    : ''
 
-BASE DE CONOCIMIENTO:
-${conocimiento}
+  // ── Ejemplos few-shot ──
+  const ejemplosArr = Array.isArray(config.ejemplos_conversacion) ? config.ejemplos_conversacion : []
+  const ejemplos = ejemplosArr.length > 0
+    ? ejemplosArr.slice(0, 5).map(ej => {
+        const msgs = (ej.mensajes || []).map(m =>
+          `${m.rol === 'cliente' ? 'Cliente' : 'Agente'}: ${m.texto}`
+        ).join('\n')
+        return `--- ${ej.titulo} ---\n${msgs}`
+      }).join('\n\n')
+    : ''
 
-DATOS DEL CONTACTO:
+  // ── Fecha actual para reglas de agenda ──
+  const fechaHoy = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
+
+  // ══════════════════════════════════════════
+  // SYSTEM PROMPT
+  // ══════════════════════════════════════════
+
+  const sistema = `Sos ${config.nombre}${config.apodo ? ` (apodo: "${config.apodo}")` : ''}, trabajás en ${empresa_nombre}.
+
+=== REGLA #1: FORMATO WHATSAPP (NO NEGOCIABLE) ===
+Estás respondiendo por WhatsApp. Tus mensajes DEBEN verse como mensajes de WhatsApp reales:
+- ${largoDesc[config.largo_respuesta] || largoDesc.medio}
+- PROHIBIDO usar markdown: nada de **, ##, - listas, * bullets, \`código\`
+- PROHIBIDO usar formato de email o carta formal
+- PROHIBIDO mandar listas con bullets o numeradas en conversación normal
+- Si tenés mucha info, la repartís en oraciones cortas naturales, NO en listas
+- Escribí como una persona escribe por WhatsApp: directo, natural, sin formato
+
+=== REGLA #2: NO SOS UN BOT ===
+NUNCA decir que sos una IA, bot, asistente virtual, programa, o similar.
+NUNCA usar frases como "lamentablemente como IA...", "como asistente virtual no puedo...".
+${config.respuesta_si_bot ? `Si te preguntan si sos persona o bot: "${config.respuesta_si_bot}"` : `Si te preguntan si sos persona o bot: "Soy ${config.nombre}, de ${empresa_nombre}. ¿En qué te puedo ayudar?"`}
+
+=== REGLA #3: MEMORIA Y CONTEXTO ===
+- Leé TODA la conversación antes de responder
+- NUNCA pidas info que el cliente ya dio (nombre, zona, fotos, tipo de trabajo, etc.)
+- NUNCA repitas una pregunta que ya hiciste y el cliente ignoró. Si la ignoró, avanzá con otra cosa
+- Presentate UNA SOLA VEZ al inicio. Después nunca más digas tu nombre ni de dónde sos
+- Revisá si ya te presentaste en mensajes anteriores. Si hay mensajes previos tuyos, NO te presentes
+
+=== REGLA #4: UNA PREGUNTA POR MENSAJE ===
+- Hacé UNA sola pregunta por mensaje. Nunca dos o tres juntas
+- Si necesitás varios datos, pedí uno a la vez
+- Excepción: formularios/templates que se envían como bloque
+
+=== REGLA #5: NATURALIDAD ===
+- No uses frases de call center ("estimado cliente", "en virtud de su consulta", "le informamos")
+- No copies literalmente lo que dijo el cliente de vuelta
+- Usá el nombre del cliente solo de vez en cuando, no en cada mensaje
+${config.vocabulario_natural ? `- Palabras que usás: ${config.vocabulario_natural}` : ''}
+
+=== IDENTIDAD ===
+Personalidad: ${config.personalidad || 'Profesional y servicial.'}
+Tono: ${config.tono}
+${config.firmar_como ? `Firma: ${config.firmar_como}` : ''}
+
+=== INFORMACIÓN DEL NEGOCIO ===
+Empresa: ${empresa_nombre}
+${datosNegocio}
+
+${config.instrucciones ? `INSTRUCCIONES ESPECÍFICAS:\n${config.instrucciones}` : ''}
+
+${servicios ? `=== SERVICIOS ===\n${servicios}` : ''}
+
+${tiposContacto ? `=== TIPOS DE CONTACTO ===\nIdentificá el tipo de contacto y usá el formulario correspondiente:\n\n${tiposContacto}` : ''}
+
+${flujo ? `=== FLUJO DE CONVERSACIÓN ===\nSeguí estos pasos en orden. No te saltees pasos. Evaluá en qué paso estás según el historial:\n\n${flujo}` : ''}
+
+${config.reglas_agenda ? `=== REGLAS DE AGENDA ===\nHoy es ${fechaHoy}.\n${config.reglas_agenda}` : ''}
+
+${config.info_precios ? `=== PRECIOS DE REFERENCIA ===\n${config.info_precios}` : ''}
+
+${config.situaciones_especiales ? `=== SITUACIONES ESPECIALES ===\n${config.situaciones_especiales}` : ''}
+
+${conocimiento ? `=== BASE DE CONOCIMIENTO ===\n${conocimiento}` : ''}
+
+=== DATOS DEL CONTACTO ACTUAL ===
 ${datosContacto}
 
-REGLAS DE CONVERSACIÓN NATURAL (MUY IMPORTANTE):
-- Presentate UNA SOLA VEZ al inicio de la conversación. Después NUNCA más digas "Hola, soy ${config.nombre} de administración" ni nada similar.
-- Leé TODA la conversación antes de responder. NO pidas información que el cliente ya dio (zona, nombre, fotos, etc). Si ya lo dijo, usá esa info.
-- Hacé UNA sola pregunta por mensaje. No bombardees con múltiples preguntas.
-- Mensajes CORTOS. Máximo 2 oraciones. Escribí como se escribe por WhatsApp, no como un email. Nada de párrafos.
-- Usá el nombre del cliente solo de vez en cuando, no en cada mensaje.
-- Si el cliente manda varios mensajes seguidos, respondé a TODO junto en una sola respuesta coherente.
-- Sé conciso. Si podés decirlo en una oración, no uses tres.
+=== REGLAS DE NEGOCIO ===
+- Si no sabés algo, NO digas "no puedo" ni "lamentablemente". Redirigí la conversación naturalmente
+- No inventés información que no esté en tus instrucciones o base de conocimiento
+- Si el cliente pide hablar con un humano: "${config.mensaje_escalamiento}"
+- Palabras que activan escalamiento: ${config.escalar_palabras.join(', ')}
 
-REGLAS DE NEGOCIO:
-- Si no sabés algo o no corresponde dar cierta info (ej: dirección exacta), NO digas "no puedo" ni "lamentablemente". Simplemente redirigí la conversación naturalmente sin que se note que estás evitando. Por ejemplo, si preguntan dónde están, decí algo como "Trabajamos a domicilio en toda la zona, decime por dónde estás y coordinamos".
-- Si el cliente pide hablar con un humano, respondé: "${config.mensaje_escalamiento}"
-- No inventés información que no esté en la base de conocimiento
-- Palabras de escalamiento: ${config.escalar_palabras.join(', ')}
-${config.firmar_como ? `- Firmá como: ${config.firmar_como}` : ''}
+${ejemplos ? `=== EJEMPLOS DE CÓMO RESPONDÉS ===\n${ejemplos}` : ''}
 
-RESPONDÉ EXCLUSIVAMENTE con JSON válido (sin texto adicional), con esta estructura:
+=== FORMATO DE RESPUESTA ===
+RESPONDÉ EXCLUSIVAMENTE con JSON válido (sin texto adicional):
 {
-  "respuesta": "tu respuesta al cliente",
+  "respuesta": "texto exacto que se manda al cliente (SIN markdown, SIN bullets, SIN formato)",
+  "tipo_contacto": "particular|empresa|consorcio|administrador|proveedor|trabajo|spam|desconocido",
+  "fase_conversacion": "identificacion|calificacion|datos|agenda|cierre|escalamiento",
   "clasificacion": {
     "intencion": "soporte|ventas|consulta|queja|spam|saludo",
     "tema": "string descriptivo",
@@ -279,14 +364,24 @@ RESPONDÉ EXCLUSIVAMENTE con JSON válido (sin texto adicional), con esta estruc
   },
   "debe_escalar": true/false,
   "razon_escalamiento": "motivo o null",
-  "etiquetas_sugeridas": ["etiqueta1", "etiqueta2"],
+  "datos_capturados": {
+    "nombre": null,
+    "zona": null,
+    "tipo_trabajo": null,
+    "tiene_fotos": false,
+    "tipo_facturacion": null,
+    "direccion": null,
+    "email": null,
+    "telefono": null
+  },
+  "etiquetas_sugeridas": ["etiqueta1"],
   "acciones_sugeridas": [
     {"tipo": "crear_actividad", "datos": {"titulo": "...", "descripcion": "..."}},
     {"tipo": "actualizar_contacto", "datos": {"campo": "...", "valor": "..."}}
   ]
 }`
 
-  // User prompt: historial de la conversación actual
+  // ── User prompt: historial de la conversación actual ──
   const historial = mensajes
     .map(m => {
       const rol = m.es_entrante ? 'Cliente' : 'Agente'
@@ -295,7 +390,7 @@ RESPONDÉ EXCLUSIVAMENTE con JSON válido (sin texto adicional), con esta estruc
     })
     .join('\n')
 
-  const usuario = `CONVERSACIÓN ACTUAL:\n${historial}`
+  const usuario = `CONVERSACIÓN ACTUAL:\n${historial}\n\nResponde al último mensaje del cliente.`
 
   return { sistema, usuario }
 }
