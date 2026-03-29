@@ -91,6 +91,14 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) throw error
+
+    // Generar embedding en background
+    if (data?.id) {
+      import('@/lib/agente-ia/embeddings').then(({ actualizarEmbedding }) => {
+        actualizarEmbedding(admin, empresaId, data.id, `${tituloFinal}\n\n${contenido}`).catch(() => {})
+      }).catch(() => {})
+    }
+
     return NextResponse.json({ entrada: data, caracteres: contenido.length })
   } catch (err) {
     console.error('Error al importar contenido:', err)

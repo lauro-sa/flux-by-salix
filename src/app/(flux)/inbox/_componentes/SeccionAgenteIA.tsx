@@ -140,12 +140,12 @@ export default function SeccionAgenteIA() {
       </div>
 
       {/* ═══ Tabs ═══ */}
-      <div className="flex gap-1 overflow-x-auto pb-1">
+      <div className="flex flex-wrap gap-1">
         {TABS.map(tab => (
           <button
             key={tab.id}
             onClick={() => setTabActiva(tab.id)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer"
             style={{
               background: tabActiva === tab.id ? 'var(--superficie-hover)' : 'transparent',
               color: tabActiva === tab.id ? 'var(--texto-primario)' : 'var(--texto-terciario)',
@@ -212,35 +212,33 @@ function TextareaExpandible({ etiqueta, valor, onChange, placeholder, lineasPrev
         </label>
         <div
           onClick={() => setModalAbierto(true)}
-          className="w-full text-xs rounded-lg px-3 py-2 cursor-pointer transition-colors group relative"
+          className="w-full text-xs rounded-lg px-3 py-2 cursor-pointer transition-colors group relative overflow-hidden"
           style={{
             background: 'var(--superficie-hover)',
             color: valor ? 'var(--texto-primario)' : 'var(--texto-terciario)',
             border: '1px solid var(--borde-sutil)',
             minHeight: 60,
+            maxHeight: tieneMore ? 120 : undefined,
           }}
         >
-          <div className="whitespace-pre-wrap line-clamp-4">
+          <div className="whitespace-pre-wrap" style={{ paddingBottom: tieneMore ? 28 : 0 }}>
             {valor || placeholder || 'Hacé clic para editar...'}
           </div>
           {tieneMore && (
             <div
-              className="absolute bottom-0 left-0 right-0 h-8 rounded-b-lg flex items-end justify-center pb-1"
+              className="absolute bottom-0 left-0 right-0 rounded-b-lg flex items-end justify-center"
               style={{
-                background: 'linear-gradient(transparent, var(--superficie-hover))',
+                height: 36,
+                paddingBottom: 6,
+                background: 'linear-gradient(transparent, var(--superficie-hover) 60%)',
               }}
             >
-              <span className="text-xxs font-medium" style={{ color: 'var(--texto-marca)' }}>
-                Ver todo
+              <span className="text-xxs font-medium flex items-center gap-1" style={{ color: 'var(--texto-marca)' }}>
+                <Maximize2 size={10} />
+                Editar
               </span>
             </div>
           )}
-          <button
-            className="absolute top-2 right-2 p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
-            style={{ background: 'var(--superficie-elevada)', color: 'var(--texto-terciario)' }}
-          >
-            <Maximize2 size={12} />
-          </button>
         </div>
       </div>
 
@@ -596,20 +594,16 @@ function TabConocimiento({ config, guardar }: TabProps) {
     setImportandoCargando(false)
   }
 
-  // Importar desde archivo (PDF o texto)
+  // Importar desde archivo (PDF, TXT, MD, CSV, JSON)
   const importarDesdeArchivo = async (archivo: File) => {
     setImportandoArchivo(true)
     setImportandoError('')
     try {
-      const texto = await archivo.text()
-      const res = await fetch('/api/inbox/agente-ia/base-conocimiento/importar', {
+      const formData = new FormData()
+      formData.append('archivo', archivo)
+      const res = await fetch('/api/inbox/agente-ia/base-conocimiento/importar-archivo', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tipo: 'texto',
-          texto,
-          titulo: archivo.name.replace(/\.[^.]+$/, ''),
-        }),
+        body: formData,
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -865,7 +859,7 @@ function TabConocimiento({ config, guardar }: TabProps) {
               <p className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>Desde un archivo</p>
             </div>
             <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-              Subí un archivo de texto (.txt, .md, .csv) y lo cargamos como entrada.
+              Subí un PDF, TXT, MD, CSV o JSON y extraemos el contenido.
             </p>
             <label
               className="flex items-center justify-center gap-2 p-3 rounded-lg cursor-pointer transition-colors text-xs font-medium"
@@ -881,7 +875,7 @@ function TabConocimiento({ config, guardar }: TabProps) {
               )}
               <input
                 type="file"
-                accept=".txt,.md,.csv,.json"
+                accept=".pdf,.txt,.md,.csv,.json"
                 className="hidden"
                 onChange={(e) => {
                   const archivo = e.target.files?.[0]

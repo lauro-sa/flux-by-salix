@@ -93,16 +93,44 @@ export async function obtenerContextoCompleto(params: {
   }
 
   // Base de conocimiento (solo activas)
+  // Si hay embeddings, busca semánticamente las más relevantes al último mensaje
   let baseConocimiento: EntradaBaseConocimiento[] = []
   if (config.usar_base_conocimiento) {
-    const { data } = await admin
-      .from('base_conocimiento_ia')
-      .select('id, empresa_id, titulo, contenido, categoria, etiquetas, activo')
-      .eq('empresa_id', empresa_id)
-      .eq('activo', true)
-      .limit(20)
+    const ultimoMensaje = mensajes?.filter((m: { es_entrante: boolean }) => m.es_entrante)?.at(-1)
+    const textoConsulta = (ultimoMensaje as { texto?: string })?.texto || ''
 
-    baseConocimiento = (data || []) as EntradaBaseConocimiento[]
+    // Intentar búsqueda semántica si hay texto
+    if (textoConsulta) {
+      try {
+        const { buscarConocimientoSimilar } = await import('./embeddings')
+        const resultados = await buscarConocimientoSimilar(admin, empresa_id, textoConsulta, 5)
+        if (resultados.length > 0) {
+          baseConocimiento = resultados.map(r => ({
+            id: r.id,
+            empresa_id,
+            titulo: r.titulo,
+            contenido: r.contenido,
+            categoria: r.categoria,
+            etiquetas: [],
+            activo: true,
+          }))
+        }
+      } catch {
+        // Si falla la búsqueda semántica, no pasa nada — usa fallback
+      }
+    }
+
+    // Fallback: traer todas las activas si no hubo resultados semánticos
+    if (baseConocimiento.length === 0) {
+      const { data } = await admin
+        .from('base_conocimiento_ia')
+        .select('id, empresa_id, titulo, contenido, categoria, etiquetas, activo')
+        .eq('empresa_id', empresa_id)
+        .eq('activo', true)
+        .limit(20)
+
+      baseConocimiento = (data || []) as EntradaBaseConocimiento[]
+    }
   }
 
   // Config IA (proveedor, API key, modelo)
