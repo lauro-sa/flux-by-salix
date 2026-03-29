@@ -62,33 +62,37 @@ export async function obtenerContextoCompleto(params: {
     .order('creado_en', { ascending: false })
     .limit(30)
 
-  // Obtener datos del contacto desde la conversación
+  // Obtener datos del contacto desde la conversación + tabla contactos
   const { data: conv } = await admin
     .from('conversaciones')
-    .select('contacto_nombre, contacto_telefono, contacto_email')
+    .select('contacto_nombre, contacto_correo, contacto_id')
     .eq('id', conversacion_id)
     .single()
 
-  const contacto: DatosContacto | null = conv ? {
-    nombre: conv.contacto_nombre || 'Cliente',
-    empresa: null,
-    email: conv.contacto_email || null,
-    telefono: conv.contacto_telefono || null,
-    etiquetas: [],
-  } : null
+  let contacto: DatosContacto | null = null
+  if (conv) {
+    contacto = {
+      nombre: conv.contacto_nombre || 'Cliente',
+      empresa: null,
+      email: conv.contacto_correo || null,
+      telefono: null,
+      etiquetas: [],
+    }
 
-  // Si hay contacto con teléfono, buscar etiquetas en la tabla contactos
-  if (contacto?.telefono) {
-    const { data: contactoBD } = await admin
-      .from('contactos')
-      .select('empresa, etiquetas')
-      .eq('empresa_id', empresa_id)
-      .eq('telefono', contacto.telefono)
-      .single()
+    // Obtener datos completos del contacto (teléfono, empresa, etiquetas)
+    if (conv.contacto_id) {
+      const { data: contactoBD } = await admin
+        .from('contactos')
+        .select('telefono, empresa, etiquetas, email')
+        .eq('id', conv.contacto_id)
+        .single()
 
-    if (contactoBD) {
-      contacto.empresa = contactoBD.empresa || null
-      contacto.etiquetas = contactoBD.etiquetas || []
+      if (contactoBD) {
+        contacto.telefono = contactoBD.telefono || null
+        contacto.empresa = contactoBD.empresa || null
+        contacto.email = contacto.email || contactoBD.email || null
+        contacto.etiquetas = contactoBD.etiquetas || []
+      }
     }
   }
 
@@ -96,7 +100,8 @@ export async function obtenerContextoCompleto(params: {
   // Si hay embeddings, busca semánticamente las más relevantes al último mensaje
   let baseConocimiento: EntradaBaseConocimiento[] = []
   if (config.usar_base_conocimiento) {
-    const ultimoMensaje = mensajes?.filter((m: { es_entrante: boolean }) => m.es_entrante)?.at(-1)
+    // mensajes vienen ordenados DESC — .at(0) es el más reciente
+    const ultimoMensaje = mensajes?.filter((m: { es_entrante: boolean }) => m.es_entrante)?.at(0)
     const textoConsulta = (ultimoMensaje as { texto?: string })?.texto || ''
 
     // Intentar búsqueda semántica si hay texto
@@ -191,19 +196,15 @@ async function obtenerConfigIA(admin: SupabaseClient, empresaId: string): Promis
   return { proveedor, apiKey, modelo }
 }
 
-// ─── Construir system prompt dinámico ───
+// ─── Construir prompts separados (system + user) ───
 
-export function construirSystemPrompt(ctx: ContextoPipeline): string {
+export interface PromptsAgente {
+  sistema: string
+  usuario: string
+}
+
+export function construirPrompts(ctx: ContextoPipeline): PromptsAgente {
   const { config, contacto, empresa_nombre, base_conocimiento, mensajes } = ctx
-
-  // Historial de mensajes
-  const historial = mensajes
-    .map(m => {
-      const rol = m.es_entrante ? 'Cliente' : 'Agente'
-      const nombre = m.remitente_nombre || rol
-      return `[${rol}] ${nombre}: ${m.texto || '(sin texto)'}`
-    })
-    .join('\n')
 
   // Base de conocimiento
   const conocimiento = base_conocimiento.length > 0
@@ -227,7 +228,8 @@ export function construirSystemPrompt(ctx: ContextoPipeline): string {
     largo: '1 párrafo completo',
   }
 
-  return `Sos ${config.nombre}${config.apodo ? ` (te dicen "${config.apodo}")` : ''}, trabajás en la administración de ${empresa_nombre}.
+  // System prompt: instrucciones, personalidad, reglas, contexto estático
+  const sistema = `Sos ${config.nombre}${config.apodo ? ` (te dicen "${config.apodo}")` : ''}, trabajás en la administración de ${empresa_nombre}.
 IMPORTANTE: NUNCA decir que sos un bot, asistente virtual, inteligencia artificial ni nada similar. Sos una persona real que trabaja en la empresa. Si te preguntan si sos un bot, negalo naturalmente.
 ${config.apodo ? `Si te preguntan tu nombre, decí que te llamás ${config.nombre} pero que pueden decirte ${config.apodo}.` : ''}
 
@@ -253,10 +255,7 @@ REGLAS:
 - Palabras de escalamiento: ${config.escalar_palabras.join(', ')}
 ${config.firmar_como ? `- Firmá como: ${config.firmar_como}` : ''}
 
-CONVERSACIÓN ACTUAL:
-${historial}
-
-RESPONDÉ EXCLUSIVAMENTE con este JSON (sin texto adicional):
+RESPONDÉ EXCLUSIVAMENTE con JSON válido (sin texto adicional), con esta estructura:
 {
   "respuesta": "tu respuesta al cliente",
   "clasificacion": {
@@ -277,4 +276,17 @@ RESPONDÉ EXCLUSIVAMENTE con este JSON (sin texto adicional):
     {"tipo": "actualizar_contacto", "datos": {"campo": "...", "valor": "..."}}
   ]
 }`
+
+  // User prompt: historial de la conversación actual
+  const historial = mensajes
+    .map(m => {
+      const rol = m.es_entrante ? 'Cliente' : 'Agente'
+      const nombre = m.remitente_nombre || rol
+      return `[${rol}] ${nombre}: ${m.texto || '(sin texto)'}`
+    })
+    .join('\n')
+
+  const usuario = `CONVERSACIÓN ACTUAL:\n${historial}`
+
+  return { sistema, usuario }
 }

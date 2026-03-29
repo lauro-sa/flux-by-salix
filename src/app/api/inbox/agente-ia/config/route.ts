@@ -75,7 +75,7 @@ export async function PUT(request: NextRequest) {
         empresa_id: empresaId,
         ...datosFiltrados,
         actualizado_en: new Date().toISOString(),
-      })
+      }, { onConflict: 'empresa_id' })
       .select()
       .single()
 

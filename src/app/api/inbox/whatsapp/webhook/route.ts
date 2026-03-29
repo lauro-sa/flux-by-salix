@@ -337,32 +337,37 @@ async function procesarMensajeEntrante(
   }
 
   // ─── Chatbot: respuestas automáticas ───
+  let chatbotRespondio = false
   try {
-    await procesarChatbot(admin, canal, conversacion.id, telefonoRemitente, texto, esConversacionNueva, msg)
+    chatbotRespondio = await procesarChatbot(admin, canal, conversacion.id, telefonoRemitente, texto, esConversacionNueva, msg)
   } catch (err) {
     console.warn('[CHATBOT] Error:', err)
   }
 
   // ─── Agente IA: procesamiento inteligente (post-chatbot) ───
-  try {
-    const { data: convActualizada } = await admin
-      .from('conversaciones')
-      .select('chatbot_activo, agente_ia_activo')
-      .eq('id', conversacion.id)
-      .single()
+  // Solo ejecutar si el chatbot NO respondió al cliente (evitar doble respuesta)
+  if (!chatbotRespondio && mensajeInsertado) {
+    try {
+      const { data: convActualizada } = await admin
+        .from('conversaciones')
+        .select('agente_ia_activo')
+        .eq('id', conversacion.id)
+        .single()
 
-    if (convActualizada?.agente_ia_activo && mensajeInsertado) {
-      const { ejecutarPipelineAgente } = await import('@/lib/agente-ia/pipeline')
-      await ejecutarPipelineAgente({
-        admin,
-        empresa_id: canal.empresa_id,
-        conversacion_id: conversacion.id,
-        mensaje_id: mensajeInsertado.id,
-        canal_id: canal.id,
-      })
+      if (convActualizada?.agente_ia_activo) {
+        // Ejecutar sin await para no bloquear la respuesta al webhook de Meta
+        const { ejecutarPipelineAgente } = await import('@/lib/agente-ia/pipeline')
+        ejecutarPipelineAgente({
+          admin,
+          empresa_id: canal.empresa_id,
+          conversacion_id: conversacion.id,
+          mensaje_id: mensajeInsertado.id,
+          canal_id: canal.id,
+        }).catch(err => console.error('[AGENTE_IA] Error en pipeline:', err))
+      }
+    } catch (err) {
+      console.warn('[AGENTE_IA] Error:', err)
     }
-  } catch (err) {
-    console.warn('[AGENTE_IA] Error:', err)
   }
 
   // Si tiene media, descargar ANTES de terminar (Vercel serverless corta el background)
@@ -795,6 +800,7 @@ interface PalabraClaveBot {
 
 /**
  * Procesa la lógica del chatbot: bienvenida, menú, palabras clave, transferencia.
+ * Retorna true si el chatbot respondió al cliente (para evitar doble respuesta con agente IA).
  * Solo responde si:
  * - El chatbot está activo para la empresa
  * - La conversación tiene chatbot_activo = true (no fue transferida a agente)
@@ -808,7 +814,7 @@ async function procesarChatbot(
   textoCliente: string,
   esConversacionNueva: boolean,
   msg?: MensajeEntranteMeta,
-) {
+): Promise<boolean> {
   // 1. Obtener config del chatbot
   const { data: configBot } = await admin
     .from('config_chatbot')
@@ -816,7 +822,7 @@ async function procesarChatbot(
     .eq('empresa_id', canal.empresa_id)
     .single()
 
-  if (!configBot?.activo) return
+  if (!configBot?.activo) return false
 
   // 2. Verificar si la conversación tiene el bot activo
   const { data: conv } = await admin
@@ -825,7 +831,7 @@ async function procesarChatbot(
     .eq('id', conversacionId)
     .single()
 
-  if (!conv?.chatbot_activo) return
+  if (!conv?.chatbot_activo) return false
 
   // 3. Si modo fuera_horario, verificar horario
   if (configBot.modo === 'fuera_horario') {
@@ -837,7 +843,7 @@ async function procesarChatbot(
 
     if (configInbox) {
       const fuera = esFueraDeHorario(configInbox.horario_atencion_inicio, configInbox.horario_atencion_fin)
-      if (!fuera) return // En horario → no responde el bot
+      if (!fuera) return false // En horario → no responde el bot
     }
   }
 
@@ -948,7 +954,7 @@ async function procesarChatbot(
 
     // Asignar agente automáticamente
     await asignarAgenteAutomatico(admin, canal.empresa_id, canal.id, conversacionId)
-    return
+    return true
   }
 
   // 5. Bienvenida — según frecuencia configurada
@@ -999,7 +1005,7 @@ async function procesarChatbot(
       if (configBot.menu_activo) {
         await enviarMenuBot()
       }
-      return
+      return true
     }
   }
 
@@ -1008,7 +1014,7 @@ async function procesarChatbot(
     // Si escribe "menu", enviar el menú
     if (textoNormalizado === 'menu' || textoNormalizado === 'menú') {
       await enviarMenuBot()
-      return
+      return true
     }
 
     // Si escribe un número, toca un botón o elige de la lista
@@ -1035,7 +1041,7 @@ async function procesarChatbot(
 
         if (configAgenteMenu?.activo) {
           // El agente IA toma el control — no enviar nada
-          return
+          return false
         }
 
         // Sin agente IA: transferir a humano como antes
@@ -1043,10 +1049,10 @@ async function procesarChatbot(
           await enviarRespuestaBot(configBot.mensaje_transferencia)
         }
         await asignarAgenteAutomatico(admin, canal.empresa_id, canal.id, conversacionId)
-        return
+        return true
       }
       await enviarRespuestaBot(opcionElegida.respuesta)
-      return
+      return true
     }
   }
 
@@ -1059,7 +1065,7 @@ async function procesarChatbot(
 
     if (match && pc.respuesta) {
       await enviarRespuestaBot(pc.respuesta)
-      return
+      return true
     }
   }
 
@@ -1077,11 +1083,14 @@ async function procesarChatbot(
       .from('conversaciones')
       .update({ chatbot_activo: false })
       .eq('id', conversacionId)
-    return
+    return false
   }
 
   // Sin agente IA: enviar mensaje por defecto del chatbot
   if (configBot.mensaje_defecto) {
     await enviarRespuestaBot(configBot.mensaje_defecto)
+    return true
   }
+
+  return false
 }

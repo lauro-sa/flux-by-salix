@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Sparkles, Brain, MessageSquare, BookOpen, AlertTriangle, Activity, Plus, Pencil, Trash2, X, Maximize2, Globe, FileUp, Loader2 } from 'lucide-react'
 import { Interruptor, Select, Input, Boton, Modal, Insignia } from '@/componentes/ui'
 import type { ConfigAgenteIA, EntradaBaseConocimiento, LogAgenteIA } from '@/tipos/inbox'
@@ -90,23 +90,49 @@ export default function SeccionAgenteIA() {
       .finally(() => setCargando(false))
   }, [])
 
-  // Guardar (autoguardado al cambiar) — usa setter funcional para evitar stale closures
-  const guardar = useCallback(async (cambios: Partial<ConfigAgenteIA>) => {
-    let nueva: ConfigAgenteIA = CONFIG_DEFAULTS
-    setConfig(prev => {
-      nueva = { ...prev, ...cambios }
-      return nueva
-    })
-    // Pequeño delay para que el setState se procese
-    await new Promise(r => setTimeout(r, 0))
+  // Guardar al servidor — envía PUT con debounce para texto
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const configRef = useRef<ConfigAgenteIA>(config)
+
+  // Mantener ref sincronizada con el estado
+  useEffect(() => { configRef.current = config }, [config])
+
+  const enviarAlServidor = useCallback(async (datos: ConfigAgenteIA) => {
     try {
-      await fetch('/api/inbox/agente-ia/config', {
+      const res = await fetch('/api/inbox/agente-ia/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(nueva),
+        body: JSON.stringify(datos),
       })
-    } catch { /* silenciar */ }
+      if (!res.ok) console.error('[AGENTE_IA] Error guardando config:', res.status)
+    } catch (err) {
+      console.error('[AGENTE_IA] Error de red:', err)
+    }
   }, [])
+
+  const guardar = useCallback((cambios: Partial<ConfigAgenteIA>) => {
+    setConfig(prev => {
+      const nueva = { ...prev, ...cambios }
+      configRef.current = nueva
+      return nueva
+    })
+
+    // Debounce: esperar 500ms antes de enviar (acumula cambios rápidos como tipeo)
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => {
+      enviarAlServidor(configRef.current)
+    }, 500)
+  }, [enviarAlServidor])
+
+  // Flush al desmontar (guardar cambios pendientes)
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        enviarAlServidor(configRef.current)
+      }
+    }
+  }, [enviarAlServidor])
 
   if (cargando) {
     return <div className="py-8 text-center text-sm" style={{ color: 'var(--texto-terciario)' }}>Cargando...</div>

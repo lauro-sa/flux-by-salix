@@ -252,44 +252,58 @@ export const nodoEnrutar: NodoAgenteIA = {
 
       if (agentes.length === 0) return { exito: true, datos: { sin_agentes: true } }
 
-      // Seleccionar agente según algoritmo
+      // Seleccionar agente según algoritmo (una sola query en vez de N)
       let seleccionado: { id: string; nombre: string } | null = null
+      const idsAgentes = agentes.map(a => a.id)
 
       if (algoritmo === 'por_carga') {
-        // Elegir el agente con menos conversaciones abiertas
+        // Una sola query: contar conversaciones abiertas por agente
+        const { data: cargas } = await admin
+          .from('conversaciones')
+          .select('asignado_a')
+          .eq('empresa_id', ctx.empresa_id)
+          .eq('estado', 'abierta')
+          .in('asignado_a', idsAgentes)
+
+        // Contar por agente
+        const conteo = new Map<string, number>()
+        for (const a of agentes) conteo.set(a.id, 0)
+        for (const c of cargas || []) {
+          conteo.set(c.asignado_a, (conteo.get(c.asignado_a) || 0) + 1)
+        }
+
+        // Elegir el de menor carga
         let menorCarga = Infinity
         for (const agente of agentes) {
-          const { count } = await admin
-            .from('conversaciones')
-            .select('id', { count: 'exact', head: true })
-            .eq('empresa_id', ctx.empresa_id)
-            .eq('asignado_a', agente.id)
-            .eq('estado', 'abierta')
-
-          if ((count || 0) < menorCarga) {
-            menorCarga = count || 0
+          const carga = conteo.get(agente.id) || 0
+          if (carga < menorCarga) {
+            menorCarga = carga
             seleccionado = agente
           }
         }
       } else {
-        // Round robin: agente menos recientemente asignado
-        let masAntiguo: string | null = null
+        // Round robin: una sola query para obtener la última asignación de cada agente
+        const { data: ultimasConvs } = await admin
+          .from('conversaciones')
+          .select('asignado_a, actualizado_en')
+          .eq('empresa_id', ctx.empresa_id)
+          .in('asignado_a', idsAgentes)
+          .order('actualizado_en', { ascending: false })
+
+        // Para cada agente, tomar la fecha más reciente
+        const ultimaAsignacion = new Map<string, string>()
+        for (const c of ultimasConvs || []) {
+          if (!ultimaAsignacion.has(c.asignado_a)) {
+            ultimaAsignacion.set(c.asignado_a, c.actualizado_en)
+          }
+        }
+
+        // Elegir el que fue asignado hace más tiempo (o nunca)
         let fechaMasAntigua = new Date().toISOString()
-
         for (const agente of agentes) {
-          const { data: ultima } = await admin
-            .from('conversaciones')
-            .select('actualizado_en')
-            .eq('empresa_id', ctx.empresa_id)
-            .eq('asignado_a', agente.id)
-            .order('actualizado_en', { ascending: false })
-            .limit(1)
-            .single()
-
-          const fecha = ultima?.actualizado_en || '1970-01-01'
+          const fecha = ultimaAsignacion.get(agente.id) || '1970-01-01'
           if (fecha < fechaMasAntigua) {
             fechaMasAntigua = fecha
-            masAntiguo = agente.id
             seleccionado = agente
           }
         }
@@ -323,17 +337,36 @@ export const nodoResumir: NodoAgenteIA = {
     try {
       if (ctx.mensajes.length < 3) return { exito: true, datos: { pocos_mensajes: true } }
 
-      // Construir resumen a partir de los mensajes (sin llamada extra al LLM)
-      // Toma los últimos mensajes del cliente y genera un resumen simple
+      // Construir resumen estructurado usando datos del LLM ya procesados
+      const clasificacion = ctx.resultados_previos.clasificacion as RespuestaLLM['clasificacion'] | undefined
+      const sentimiento = ctx.resultados_previos.sentimiento as RespuestaLLM['sentimiento'] | undefined
+
+      // Tomar últimos mensajes del cliente como contexto
       const mensajesCliente = ctx.mensajes
         .filter(m => m.es_entrante && m.texto)
         .slice(-5)
-        .map(m => m.texto)
-        .join(' | ')
+        .map(m => m.texto!.trim())
 
-      const resumen = mensajesCliente.length > 200
-        ? mensajesCliente.slice(0, 200) + '...'
-        : mensajesCliente
+      // Armar resumen con estructura: [intención] tema — último mensaje del cliente
+      const partes: string[] = []
+
+      if (clasificacion) {
+        partes.push(`[${clasificacion.intencion}] ${clasificacion.tema}`)
+        if (clasificacion.urgencia !== 'baja') partes.push(`(urgencia: ${clasificacion.urgencia})`)
+      }
+
+      if (sentimiento && sentimiento.valor !== 'neutro') {
+        partes.push(`— sentimiento: ${sentimiento.valor}`)
+      }
+
+      // Agregar último mensaje como contexto
+      const ultimoMsg = mensajesCliente.at(-1)
+      if (ultimoMsg) {
+        const fragmento = ultimoMsg.length > 120 ? ultimoMsg.slice(0, 120) + '...' : ultimoMsg
+        partes.push(`| "${fragmento}"`)
+      }
+
+      const resumen = partes.join(' ') || mensajesCliente.join(' | ').slice(0, 200)
 
       if (resumen) {
         await admin

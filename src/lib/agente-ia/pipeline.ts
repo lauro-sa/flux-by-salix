@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ConfigAgenteIA, ResultadoPipelineAgente, AccionAgente } from '@/tipos/inbox'
-import { obtenerContextoCompleto, construirSystemPrompt } from './contexto'
+import { obtenerContextoCompleto, construirPrompts } from './contexto'
 import {
   nodoEtiquetar,
   nodoClasificar,
@@ -57,8 +57,8 @@ export async function ejecutarPipelineAgente(params: {
     return { acciones_ejecutadas: [], escalado: false }
   }
 
-  // 4. Construir prompt y llamar al LLM
-  const systemPrompt = construirSystemPrompt(contexto)
+  // 4. Construir prompts separados (system + user) y llamar al LLM
+  const { sistema, usuario } = construirPrompts(contexto)
   let respuestaLLM: RespuestaLLM
   let tokensEntrada = 0
   let tokensSalida = 0
@@ -68,7 +68,8 @@ export async function ejecutarPipelineAgente(params: {
       contexto.config_ia.proveedor,
       contexto.config_ia.apiKey,
       contexto.config_ia.modelo,
-      systemPrompt,
+      sistema,
+      usuario,
     )
     respuestaLLM = resultado.respuesta
     tokensEntrada = resultado.tokensEntrada
@@ -77,7 +78,7 @@ export async function ejecutarPipelineAgente(params: {
     console.error('[AGENTE_IA] Error LLM:', err)
     await loggear(admin, {
       empresa_id, conversacion_id, mensaje_id,
-      accion: 'responder', entrada: { prompt: systemPrompt },
+      accion: 'responder', entrada: { prompt_usuario: usuario.slice(0, 500) },
       salida: {}, exito: false, error: String(err),
       proveedor: contexto.config_ia.proveedor, modelo: contexto.config_ia.modelo,
       tokensEntrada: 0, tokensSalida: 0, latenciaMs: Date.now() - inicio,
@@ -155,7 +156,7 @@ export async function ejecutarPipelineAgente(params: {
   await loggear(admin, {
     empresa_id, conversacion_id, mensaje_id,
     accion: escalado ? 'escalar' : 'responder',
-    entrada: { prompt: systemPrompt.slice(0, 500) },
+    entrada: { prompt_usuario: usuario.slice(0, 500) },
     salida: respuestaLLM as unknown as Record<string, unknown>,
     exito: true, error: null,
     proveedor: contexto.config_ia.proveedor, modelo: contexto.config_ia.modelo,
@@ -220,16 +221,31 @@ async function verificarDebeActuar(
   }
 
   if (config.modo_activacion === 'fuera_horario') {
-    // Verificar si estamos fuera del horario de atención
+    // Verificar si estamos fuera del horario de atención (usando zona horaria de la empresa)
     const { data: configInbox } = await admin
       .from('config_inbox')
-      .select('horario_atencion_inicio, horario_atencion_fin')
+      .select('horario_atencion_inicio, horario_atencion_fin, zona_horaria')
       .eq('empresa_id', config.empresa_id)
       .single()
 
     if (configInbox) {
-      const ahora = new Date()
-      const horaActual = ahora.getHours() * 100 + ahora.getMinutes()
+      // Usar zona horaria de la empresa, fallback a America/Argentina/Buenos_Aires
+      const zonaHoraria = configInbox.zona_horaria || 'America/Argentina/Buenos_Aires'
+      let horaActual: number
+      try {
+        const ahora = new Date()
+        const formato = new Intl.DateTimeFormat('en-US', {
+          timeZone: zonaHoraria,
+          hour: 'numeric', minute: 'numeric', hour12: false,
+        })
+        const partes = formato.format(ahora).split(':')
+        horaActual = parseInt(partes[0]) * 100 + parseInt(partes[1])
+      } catch {
+        // Si la zona horaria es inválida, usar hora del servidor
+        const ahora = new Date()
+        horaActual = ahora.getHours() * 100 + ahora.getMinutes()
+      }
+
       const inicio = parseInt(configInbox.horario_atencion_inicio?.replace(':', '') || '900')
       const fin = parseInt(configInbox.horario_atencion_fin?.replace(':', '') || '1800')
 
@@ -248,15 +264,28 @@ async function verificarDebeActuar(
     if (convCompleta?.asignado_a) return false
   }
 
-  // Verificar max_mensajes_auto (contar respuestas del agente IA en esta conversación)
+  // Verificar max_mensajes_auto (contar respuestas del agente IA en esta sesión)
+  // Solo contar desde la última reapertura/creación de la conversación
   if (config.max_mensajes_auto > 0) {
-    const { count } = await admin
+    const { data: convDatos } = await admin
+      .from('conversaciones')
+      .select('actualizado_en')
+      .eq('id', conversacionId)
+      .single()
+
+    let query = admin
       .from('log_agente_ia')
       .select('id', { count: 'exact', head: true })
       .eq('conversacion_id', conversacionId)
       .eq('accion', 'responder')
       .eq('exito', true)
 
+    // Si hay fecha de última reapertura, solo contar desde ahí
+    if (convDatos?.actualizado_en) {
+      query = query.gte('creado_en', convDatos.actualizado_en)
+    }
+
+    const { count } = await query
     if ((count || 0) >= config.max_mensajes_auto) return false
   }
 
@@ -269,24 +298,27 @@ async function llamarLLM(
   proveedor: string,
   apiKey: string,
   modelo: string,
-  prompt: string,
+  sistema: string,
+  usuario: string,
 ): Promise<{ respuesta: RespuestaLLM; tokensEntrada: number; tokensSalida: number }> {
   if (proveedor === 'openai') {
-    return llamarOpenAI(apiKey, modelo, prompt)
+    return llamarOpenAI(apiKey, modelo, sistema, usuario)
   }
-  return llamarAnthropic(apiKey, modelo, prompt)
+  return llamarAnthropic(apiKey, modelo, sistema, usuario)
 }
 
 async function llamarAnthropic(
   apiKey: string,
   modelo: string,
-  prompt: string,
+  sistema: string,
+  usuario: string,
 ): Promise<{ respuesta: RespuestaLLM; tokensEntrada: number; tokensSalida: number }> {
   const anthropic = new Anthropic({ apiKey })
   const resultado = await anthropic.messages.create({
     model: modelo,
     max_tokens: 1024,
-    messages: [{ role: 'user', content: prompt }],
+    system: sistema,
+    messages: [{ role: 'user', content: usuario }],
   })
 
   const texto = resultado.content[0].type === 'text' ? resultado.content[0].text : ''
@@ -302,7 +334,8 @@ async function llamarAnthropic(
 async function llamarOpenAI(
   apiKey: string,
   modelo: string,
-  prompt: string,
+  sistema: string,
+  usuario: string,
 ): Promise<{ respuesta: RespuestaLLM; tokensEntrada: number; tokensSalida: number }> {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -313,7 +346,10 @@ async function llamarOpenAI(
     body: JSON.stringify({
       model: modelo,
       max_tokens: 1024,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [
+        { role: 'system', content: sistema },
+        { role: 'user', content: usuario },
+      ],
     }),
   })
 
@@ -336,35 +372,68 @@ async function llamarOpenAI(
   }
 }
 
+// ─── Extraer primer JSON balanceado del texto ───
+
+function extraerJSON(texto: string): string | null {
+  // Limpiar bloques de markdown (```json ... ```)
+  const limpio = texto.replace(/```(?:json)?\s*/g, '').replace(/```/g, '')
+  const inicio = limpio.indexOf('{')
+  if (inicio === -1) return null
+
+  let profundidad = 0
+  let enString = false
+  let escape = false
+
+  for (let i = inicio; i < limpio.length; i++) {
+    const c = limpio[i]
+    if (escape) { escape = false; continue }
+    if (c === '\\') { escape = true; continue }
+    if (c === '"') { enString = !enString; continue }
+    if (enString) continue
+    if (c === '{') profundidad++
+    if (c === '}') {
+      profundidad--
+      if (profundidad === 0) return limpio.slice(inicio, i + 1)
+    }
+  }
+  return null
+}
+
 // ─── Parsear respuesta JSON del LLM ───
 
+const RESPUESTA_FALLBACK: RespuestaLLM = {
+  respuesta: '',
+  clasificacion: { intencion: 'consulta', tema: 'general', urgencia: 'baja', confianza: 50 },
+  sentimiento: { valor: 'neutro', confianza: 50 },
+  debe_escalar: false,
+  razon_escalamiento: null,
+  etiquetas_sugeridas: [],
+  acciones_sugeridas: [],
+}
+
 function parsearRespuestaLLM(texto: string): RespuestaLLM {
-  // Intentar extraer JSON del texto (a veces viene con markdown)
-  const jsonMatch = texto.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) {
-    return {
-      respuesta: texto,
-      clasificacion: { intencion: 'consulta', tema: 'general', urgencia: 'baja', confianza: 50 },
-      sentimiento: { valor: 'neutro', confianza: 50 },
-      debe_escalar: false,
-      razon_escalamiento: null,
-      etiquetas_sugeridas: [],
-      acciones_sugeridas: [],
-    }
+  const jsonStr = extraerJSON(texto)
+  if (!jsonStr) {
+    return { ...RESPUESTA_FALLBACK, respuesta: texto }
   }
 
   try {
-    return JSON.parse(jsonMatch[0]) as RespuestaLLM
-  } catch {
-    return {
-      respuesta: texto,
-      clasificacion: { intencion: 'consulta', tema: 'general', urgencia: 'baja', confianza: 50 },
-      sentimiento: { valor: 'neutro', confianza: 50 },
-      debe_escalar: false,
-      razon_escalamiento: null,
-      etiquetas_sugeridas: [],
-      acciones_sugeridas: [],
+    const parsed = JSON.parse(jsonStr) as Partial<RespuestaLLM>
+    // Validar que tenga al menos el campo respuesta
+    if (typeof parsed.respuesta !== 'string') {
+      return { ...RESPUESTA_FALLBACK, respuesta: texto }
     }
+    return {
+      respuesta: parsed.respuesta,
+      clasificacion: parsed.clasificacion ?? RESPUESTA_FALLBACK.clasificacion,
+      sentimiento: parsed.sentimiento ?? RESPUESTA_FALLBACK.sentimiento,
+      debe_escalar: parsed.debe_escalar ?? false,
+      razon_escalamiento: parsed.razon_escalamiento ?? null,
+      etiquetas_sugeridas: Array.isArray(parsed.etiquetas_sugeridas) ? parsed.etiquetas_sugeridas : [],
+      acciones_sugeridas: Array.isArray(parsed.acciones_sugeridas) ? parsed.acciones_sugeridas : [],
+    }
+  } catch {
+    return { ...RESPUESTA_FALLBACK, respuesta: texto }
   }
 }
 
@@ -388,31 +457,39 @@ async function procesarRespuesta(
       empresa_id: empresaId,
       canal_id: canalId,
       es_entrante: false,
-      tipo_contenido: 'text',
+      tipo_contenido: 'texto',
       texto: textoRespuesta,
       es_nota_interna: true,
-      remitente_nombre: `🤖 ${config.nombre} (sugerencia)`,
-      metadata: { tipo: 'sugerencia_ia', estado: 'pendiente' },
+      remitente_tipo: 'agente_ia',
+      remitente_nombre: config.nombre,
+      metadata: { tipo: 'sugerencia_ia', estado: 'pendiente', nombre_agente: config.nombre },
     })
   } else if (config.modo_respuesta === 'borrador') {
-    // Guardar como borrador
+    // Guardar como borrador para que el agente humano lo edite y envíe
     await admin.from('mensajes').insert({
       conversacion_id: conversacionId,
       empresa_id: empresaId,
       canal_id: canalId,
       es_entrante: false,
-      tipo_contenido: 'text',
+      tipo_contenido: 'texto',
       texto: textoRespuesta,
       es_nota_interna: true,
-      remitente_nombre: `🤖 ${config.nombre} (borrador)`,
-      metadata: { tipo: 'borrador_ia' },
+      remitente_tipo: 'agente_ia',
+      remitente_nombre: config.nombre,
+      metadata: { tipo: 'borrador_ia', nombre_agente: config.nombre },
     })
   }
 
-  // Incrementar contador
+  // Incrementar contador (leer valor actual para evitar race condition)
+  const { data: configActual } = await admin
+    .from('config_agente_ia')
+    .select('total_mensajes_enviados')
+    .eq('empresa_id', empresaId)
+    .single()
+
   await admin
     .from('config_agente_ia')
-    .update({ total_mensajes_enviados: (config.total_mensajes_enviados || 0) + 1 })
+    .update({ total_mensajes_enviados: (configActual?.total_mensajes_enviados || 0) + 1 })
     .eq('empresa_id', empresaId)
 }
 
@@ -432,40 +509,57 @@ async function enviarMensajeBot(
     .eq('id', canalId)
     .single()
 
-  // Obtener teléfono del contacto
+  // Obtener teléfono del contacto (via contacto_id → contactos.telefono)
   const { data: conv } = await admin
     .from('conversaciones')
-    .select('contacto_telefono')
+    .select('contacto_id')
     .eq('id', conversacionId)
     .single()
 
-  if (canal?.tipo === 'whatsapp' && conv?.contacto_telefono) {
+  let telefonoContacto: string | null = null
+  if (conv?.contacto_id) {
+    const { data: contacto } = await admin
+      .from('contactos')
+      .select('telefono')
+      .eq('id', conv.contacto_id)
+      .single()
+    telefonoContacto = contacto?.telefono || null
+  }
+
+  let enviadoPorWhatsApp = false
+  if (canal?.tipo === 'whatsapp' && telefonoContacto) {
     const configWa = canal.config_conexion as { phoneNumberId?: string; tokenAcceso?: string; wabaId?: string }
     if (configWa.phoneNumberId && configWa.tokenAcceso) {
-      const { enviarTextoWhatsApp } = await import('@/lib/whatsapp')
-      await enviarTextoWhatsApp(
-        {
-          phoneNumberId: configWa.phoneNumberId,
-          wabaId: configWa.wabaId || '',
-          tokenAcceso: configWa.tokenAcceso,
-          numeroTelefono: '',
-        },
-        conv.contacto_telefono,
-        texto,
-      )
+      try {
+        const { enviarTextoWhatsApp } = await import('@/lib/whatsapp')
+        await enviarTextoWhatsApp(
+          {
+            phoneNumberId: configWa.phoneNumberId,
+            wabaId: configWa.wabaId || '',
+            tokenAcceso: configWa.tokenAcceso,
+            numeroTelefono: '',
+          },
+          telefonoContacto,
+          texto,
+        )
+        enviadoPorWhatsApp = true
+      } catch (err) {
+        console.error('[AGENTE_IA] Error enviando WhatsApp:', err)
+      }
     }
   }
 
-  // Guardar mensaje en BD
+  // Guardar mensaje en BD (marcar estado según si se envió o no)
   await admin.from('mensajes').insert({
     conversacion_id: conversacionId,
     empresa_id: empresaId,
     canal_id: canalId,
     es_entrante: false,
-    tipo_contenido: 'text',
+    tipo_contenido: 'texto',
     texto,
     remitente_tipo: 'bot',
     remitente_nombre: 'Agente IA',
+    estado: enviadoPorWhatsApp ? 'enviado' : 'error',
   })
 }
 
