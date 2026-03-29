@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Sparkles, Brain, MessageSquare, BookOpen, AlertTriangle, Activity, Plus, Pencil, Trash2, X } from 'lucide-react'
+import { Sparkles, Brain, MessageSquare, BookOpen, AlertTriangle, Activity, Plus, Pencil, Trash2, X, Maximize2, Globe, FileUp, Loader2 } from 'lucide-react'
 import { Interruptor, Select, Input, Boton, Modal, Insignia } from '@/componentes/ui'
 import type { ConfigAgenteIA, EntradaBaseConocimiento, LogAgenteIA } from '@/tipos/inbox'
 
@@ -179,6 +179,110 @@ interface TabProps {
 
 const estiloSeccion = { border: '1px solid var(--borde-sutil)' }
 
+// ─── Textarea expandible: preview + modal grande ───
+
+function TextareaExpandible({ etiqueta, valor, onChange, placeholder, lineasPreview = 3 }: {
+  etiqueta: string
+  valor: string
+  onChange: (valor: string) => void
+  placeholder?: string
+  lineasPreview?: number
+}) {
+  const [modalAbierto, setModalAbierto] = useState(false)
+  const [valorLocal, setValorLocal] = useState(valor)
+
+  // Sincronizar cuando cambia desde afuera
+  useEffect(() => { setValorLocal(valor) }, [valor])
+
+  const guardarYCerrar = () => {
+    onChange(valorLocal)
+    setModalAbierto(false)
+  }
+
+  // Preview: primeras N líneas truncadas
+  const lineas = valor.split('\n')
+  const preview = lineas.slice(0, lineasPreview).join('\n')
+  const tieneMore = lineas.length > lineasPreview || valor.length > 200
+
+  return (
+    <>
+      <div>
+        <label className="text-xxs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>
+          {etiqueta}
+        </label>
+        <div
+          onClick={() => setModalAbierto(true)}
+          className="w-full text-xs rounded-lg px-3 py-2 cursor-pointer transition-colors group relative"
+          style={{
+            background: 'var(--superficie-hover)',
+            color: valor ? 'var(--texto-primario)' : 'var(--texto-terciario)',
+            border: '1px solid var(--borde-sutil)',
+            minHeight: 60,
+          }}
+        >
+          <div className="whitespace-pre-wrap line-clamp-4">
+            {valor || placeholder || 'Hacé clic para editar...'}
+          </div>
+          {tieneMore && (
+            <div
+              className="absolute bottom-0 left-0 right-0 h-8 rounded-b-lg flex items-end justify-center pb-1"
+              style={{
+                background: 'linear-gradient(transparent, var(--superficie-hover))',
+              }}
+            >
+              <span className="text-xxs font-medium" style={{ color: 'var(--texto-marca)' }}>
+                Ver todo
+              </span>
+            </div>
+          )}
+          <button
+            className="absolute top-2 right-2 p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ background: 'var(--superficie-elevada)', color: 'var(--texto-terciario)' }}
+          >
+            <Maximize2 size={12} />
+          </button>
+        </div>
+      </div>
+
+      <Modal abierto={modalAbierto} onCerrar={() => setModalAbierto(false)}>
+        <div className="space-y-4 p-1">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+              {etiqueta}
+            </h3>
+            <button onClick={() => setModalAbierto(false)} className="cursor-pointer" style={{ color: 'var(--texto-terciario)' }}>
+              <X size={18} />
+            </button>
+          </div>
+          <textarea
+            value={valorLocal}
+            onChange={(e) => setValorLocal(e.target.value)}
+            placeholder={placeholder}
+            rows={18}
+            autoFocus
+            className="w-full text-sm rounded-lg px-4 py-3 resize-none leading-relaxed"
+            style={{
+              background: 'var(--superficie-hover)',
+              color: 'var(--texto-primario)',
+              border: '1px solid var(--borde-sutil)',
+              minHeight: 400,
+            }}
+          />
+          <div className="flex items-center justify-between">
+            <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+              {valorLocal.length} caracteres · {valorLocal.split('\n').length} líneas
+            </span>
+            <div className="flex gap-2">
+              <Boton variante="secundario" tamano="sm" onClick={() => setModalAbierto(false)}>Cancelar</Boton>
+              <Boton variante="primario" tamano="sm" onClick={guardarYCerrar}>Guardar</Boton>
+            </div>
+          </div>
+        </div>
+      </Modal>
+    </>
+  )
+}
+
 // ═══════════════════════════════════════════════
 // Tab: General
 // ═══════════════════════════════════════════════
@@ -205,40 +309,18 @@ function TabGeneral({ config, guardar, canales }: TabProps & { canales: CanalSim
           onChange={(e) => guardar({ nombre: e.target.value })}
           placeholder="Asistente Flux"
         />
-        <div>
-          <label className="text-xxs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>
-            Personalidad
-          </label>
-          <textarea
-            value={config.personalidad}
-            onChange={(e) => guardar({ personalidad: e.target.value })}
-            placeholder="Sos un asistente profesional de ventas. Siempre amable y resolutivo..."
-            rows={3}
-            className="w-full text-xs rounded-lg px-3 py-2 resize-none"
-            style={{
-              background: 'var(--superficie-hover)',
-              color: 'var(--texto-primario)',
-              border: '1px solid var(--borde-sutil)',
-            }}
-          />
-        </div>
-        <div>
-          <label className="text-xxs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>
-            Instrucciones del negocio
-          </label>
-          <textarea
-            value={config.instrucciones}
-            onChange={(e) => guardar({ instrucciones: e.target.value })}
-            placeholder="Horario: L-V 9-18hs. No ofrecer descuentos mayores al 15%. Derivar temas legales..."
-            rows={4}
-            className="w-full text-xs rounded-lg px-3 py-2 resize-none"
-            style={{
-              background: 'var(--superficie-hover)',
-              color: 'var(--texto-primario)',
-              border: '1px solid var(--borde-sutil)',
-            }}
-          />
-        </div>
+        <TextareaExpandible
+          etiqueta="Personalidad"
+          valor={config.personalidad}
+          onChange={(v) => guardar({ personalidad: v })}
+          placeholder="Sos un asistente profesional de ventas. Siempre amable y resolutivo..."
+        />
+        <TextareaExpandible
+          etiqueta="Instrucciones del negocio"
+          valor={config.instrucciones}
+          onChange={(v) => guardar({ instrucciones: v })}
+          placeholder="Horario: L-V 9-18hs. No ofrecer descuentos mayores al 15%. Derivar temas legales..."
+        />
       </div>
 
       {/* Canales donde opera */}
@@ -446,6 +528,11 @@ function TabConocimiento({ config, guardar }: TabProps) {
   const [cargando, setCargando] = useState(true)
   const [modalAbierto, setModalAbierto] = useState(false)
   const [entradaEditando, setEntradaEditando] = useState<Partial<EntradaBaseConocimiento> | null>(null)
+  const [modalImportarAbierto, setModalImportarAbierto] = useState(false)
+  const [importandoUrl, setImportandoUrl] = useState('')
+  const [importandoCargando, setImportandoCargando] = useState(false)
+  const [importandoError, setImportandoError] = useState('')
+  const [importandoArchivo, setImportandoArchivo] = useState(false)
 
   // Cargar entradas
   useEffect(() => {
@@ -485,6 +572,57 @@ function TabConocimiento({ config, guardar }: TabProps) {
     setEntradas(prev => prev.filter(e => e.id !== id))
   }
 
+  // Importar desde URL
+  const importarDesdeUrl = async () => {
+    if (!importandoUrl.trim()) return
+    setImportandoCargando(true)
+    setImportandoError('')
+    try {
+      const res = await fetch('/api/inbox/agente-ia/base-conocimiento/importar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo: 'url', url: importandoUrl.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      if (data.entrada) {
+        setEntradas(prev => [data.entrada, ...prev])
+        setImportandoUrl('')
+        setModalImportarAbierto(false)
+      }
+    } catch (err) {
+      setImportandoError(String(err instanceof Error ? err.message : 'Error al importar'))
+    }
+    setImportandoCargando(false)
+  }
+
+  // Importar desde archivo (PDF o texto)
+  const importarDesdeArchivo = async (archivo: File) => {
+    setImportandoArchivo(true)
+    setImportandoError('')
+    try {
+      const texto = await archivo.text()
+      const res = await fetch('/api/inbox/agente-ia/base-conocimiento/importar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tipo: 'texto',
+          texto,
+          titulo: archivo.name.replace(/\.[^.]+$/, ''),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      if (data.entrada) {
+        setEntradas(prev => [data.entrada, ...prev])
+        setModalImportarAbierto(false)
+      }
+    } catch (err) {
+      setImportandoError(String(err instanceof Error ? err.message : 'Error al importar archivo'))
+    }
+    setImportandoArchivo(false)
+  }
+
   const CATEGORIAS = [
     { valor: 'general', etiqueta: 'General' },
     { valor: 'soporte', etiqueta: 'Soporte' },
@@ -512,17 +650,27 @@ function TabConocimiento({ config, guardar }: TabProps) {
           <p className="text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
             Entradas ({entradas.length})
           </p>
-          <Boton
-            tamano="xs"
-            variante="secundario"
-            icono={<Plus size={14} />}
-            onClick={() => {
-              setEntradaEditando({ titulo: '', contenido: '', categoria: 'general', etiquetas: [], activo: true })
-              setModalAbierto(true)
-            }}
-          >
-            Agregar
-          </Boton>
+          <div className="flex gap-1.5">
+            <Boton
+              tamano="xs"
+              variante="fantasma"
+              icono={<Globe size={14} />}
+              onClick={() => { setImportandoUrl(''); setImportandoError(''); setModalImportarAbierto(true) }}
+            >
+              Importar
+            </Boton>
+            <Boton
+              tamano="xs"
+              variante="secundario"
+              icono={<Plus size={14} />}
+              onClick={() => {
+                setEntradaEditando({ titulo: '', contenido: '', categoria: 'general', etiquetas: [], activo: true })
+                setModalAbierto(true)
+              }}
+            >
+              Agregar
+            </Boton>
+          </div>
         </div>
 
         {cargando && <p className="text-xs text-center py-4" style={{ color: 'var(--texto-terciario)' }}>Cargando...</p>}
@@ -666,6 +814,91 @@ function TabConocimiento({ config, guardar }: TabProps) {
             <Boton variante="secundario" tamano="sm" onClick={() => setModalAbierto(false)}>Cancelar</Boton>
             <Boton variante="primario" tamano="sm" onClick={guardarEntrada}>Guardar</Boton>
           </div>
+        </div>
+      </Modal>
+
+      {/* Modal importar desde URL o archivo */}
+      <Modal abierto={modalImportarAbierto} onCerrar={() => setModalImportarAbierto(false)}>
+        <div className="space-y-4 p-1">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+              Importar conocimiento
+            </h3>
+            <button onClick={() => setModalImportarAbierto(false)} className="cursor-pointer" style={{ color: 'var(--texto-terciario)' }}>
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Desde URL */}
+          <div className="p-4 rounded-xl space-y-3" style={{ border: '1px solid var(--borde-sutil)' }}>
+            <div className="flex items-center gap-2">
+              <Globe size={16} style={{ color: 'var(--texto-marca)' }} />
+              <p className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>Desde una página web</p>
+            </div>
+            <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+              Pegá la URL y extraemos el contenido automáticamente.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                value={importandoUrl}
+                onChange={(e) => setImportandoUrl(e.target.value)}
+                placeholder="https://www.ejemplo.com/info"
+                compacto
+                onKeyDown={(e) => e.key === 'Enter' && importarDesdeUrl()}
+              />
+              <Boton
+                variante="primario"
+                tamano="sm"
+                onClick={importarDesdeUrl}
+                cargando={importandoCargando}
+                disabled={importandoCargando || !importandoUrl.trim()}
+              >
+                Importar
+              </Boton>
+            </div>
+          </div>
+
+          {/* Desde archivo */}
+          <div className="p-4 rounded-xl space-y-3" style={{ border: '1px solid var(--borde-sutil)' }}>
+            <div className="flex items-center gap-2">
+              <FileUp size={16} style={{ color: 'var(--texto-marca)' }} />
+              <p className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>Desde un archivo</p>
+            </div>
+            <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+              Subí un archivo de texto (.txt, .md, .csv) y lo cargamos como entrada.
+            </p>
+            <label
+              className="flex items-center justify-center gap-2 p-3 rounded-lg cursor-pointer transition-colors text-xs font-medium"
+              style={{
+                border: '2px dashed var(--borde-sutil)',
+                color: 'var(--texto-terciario)',
+              }}
+            >
+              {importandoArchivo ? (
+                <><Loader2 size={14} className="animate-spin" /> Procesando...</>
+              ) : (
+                <><FileUp size={14} /> Elegir archivo</>
+              )}
+              <input
+                type="file"
+                accept=".txt,.md,.csv,.json"
+                className="hidden"
+                onChange={(e) => {
+                  const archivo = e.target.files?.[0]
+                  if (archivo) importarDesdeArchivo(archivo)
+                  e.target.value = ''
+                }}
+                disabled={importandoArchivo}
+              />
+            </label>
+          </div>
+
+          {/* Error */}
+          {importandoError && (
+            <p className="text-xs px-2" style={{ color: 'var(--insignia-peligro)' }}>
+              {importandoError}
+            </p>
+          )}
         </div>
       </Modal>
     </>
