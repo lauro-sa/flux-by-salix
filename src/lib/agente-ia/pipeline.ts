@@ -42,9 +42,24 @@ export async function ejecutarPipelineAgente(params: {
     return { acciones_ejecutadas: [], escalado: false }
   }
 
-  // 2.5. Delay configurable antes de responder
-  if (config.delay_segundos > 0) {
-    await new Promise(resolve => setTimeout(resolve, config.delay_segundos * 1000))
+  // 2.5. Delay inteligente: esperar y verificar si llegaron más mensajes
+  // Si el usuario sigue escribiendo, abortar — el último mensaje triggerará el pipeline con todo el contexto
+  const delayMs = Math.max((config.delay_segundos || 3) * 1000, 3000) // mínimo 3 segundos
+  await new Promise(resolve => setTimeout(resolve, delayMs))
+
+  // Verificar si nuestro mensaje sigue siendo el último del cliente
+  const { data: ultimoMensaje } = await admin
+    .from('mensajes')
+    .select('id')
+    .eq('conversacion_id', conversacion_id)
+    .eq('es_entrante', true)
+    .order('creado_en', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (ultimoMensaje && ultimoMensaje.id !== mensaje_id) {
+    // Llegó un mensaje más nuevo — abortar, ese mensaje ejecutará su propio pipeline
+    return { acciones_ejecutadas: [], escalado: false }
   }
 
   // 3. Obtener contexto completo
