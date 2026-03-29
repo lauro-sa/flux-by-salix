@@ -84,8 +84,21 @@ export async function validarDireccion(textoRaw: string): Promise<DireccionValid
     }
 
     const calleCompleta = numero ? `${calle} ${numero}` : calle
-    const partes = [calleCompleta, barrio, ciudad].filter(Boolean)
-    const textoCompleto = partes.join(', ')
+
+    // Usar formattedAddress de Google pero limpiarlo (quitar país y código postal)
+    let textoCompleto = ''
+    if (datosDetalle.formattedAddress) {
+      // Google devuelve "Av. Córdoba 1535, C1055 AAF, Buenos Aires, Argentina"
+      // Queremos: "Av. Córdoba 1535, Recoleta, CABA"
+      textoCompleto = [calleCompleta, barrio, ciudad].filter(Boolean).join(', ')
+      // Si la calle de Google es más completa (ej: "Avenida" vs "Av."), usar la de Google
+      const formattedParts = datosDetalle.formattedAddress.split(',').map((p: string) => p.trim())
+      if (formattedParts[0] && formattedParts[0].length > calleCompleta.length) {
+        textoCompleto = [formattedParts[0], barrio, ciudad].filter(Boolean).join(', ')
+      }
+    } else {
+      textoCompleto = [calleCompleta, barrio, ciudad].filter(Boolean).join(', ')
+    }
 
     const coordenadas = datosDetalle.location
       ? { lat: datosDetalle.location.latitude, lng: datosDetalle.location.longitude }
