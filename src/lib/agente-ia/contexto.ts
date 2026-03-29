@@ -459,7 +459,14 @@ RESPONDÉ EXCLUSIVAMENTE con JSON válido (sin texto adicional):
     })
     .join('\n')
 
-  const usuario = `CONVERSACIÓN ACTUAL:\n${historial}\n\nResponde al último mensaje del cliente.`
+  // Info adicional pre-procesada (ej: dirección validada por Google)
+  const infoExtra: string[] = []
+  if (ctx.resultados_previos.direccion_validada) {
+    infoExtra.push(`[SISTEMA: La dirección "${ctx.mensajes.filter(m => m.es_entrante).at(-1)?.texto}" fue validada por Google Maps como: ${ctx.resultados_previos.direccion_validada}${ctx.resultados_previos.direccion_barrio ? `, barrio ${ctx.resultados_previos.direccion_barrio}` : ''}${ctx.resultados_previos.direccion_ciudad ? `, ${ctx.resultados_previos.direccion_ciudad}` : ''}. Usá esta dirección formateada para confirmar con el cliente.]`)
+  }
+
+  const extra = infoExtra.length > 0 ? `\n\n${infoExtra.join('\n')}` : ''
+  const usuario = `CONVERSACIÓN ACTUAL:\n${historial}${extra}\n\nResponde al último mensaje del cliente.`
 
   return { sistema, usuario }
 }

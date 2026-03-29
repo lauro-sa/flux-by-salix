@@ -97,6 +97,31 @@ export async function ejecutarPipelineAgente(params: {
     return { acciones_ejecutadas: [], escalado: false }
   }
 
+  // 3.5. Pre-validar dirección si el último mensaje del cliente parece una dirección
+  // Así el LLM recibe la dirección formateada de Google en el contexto
+  try {
+    const ultimoMensajeCliente = contexto.mensajes
+      .filter(m => m.es_entrante && m.texto)
+      .at(-1)?.texto || ''
+
+    // Detectar si parece una dirección (tiene números y texto, o palabras clave)
+    const pareceDir = /\d{2,5}/.test(ultimoMensajeCliente) &&
+      ultimoMensajeCliente.length >= 5 && ultimoMensajeCliente.length <= 100
+
+    if (pareceDir) {
+      const { validarDireccion } = await import('./validar-direccion')
+      const validada = await validarDireccion(ultimoMensajeCliente)
+      if (validada?.textoCompleto) {
+        // Agregar al contexto para que el LLM la use
+        contexto.resultados_previos.direccion_validada = validada.textoCompleto
+        contexto.resultados_previos.direccion_barrio = validada.barrio
+        contexto.resultados_previos.direccion_ciudad = validada.ciudad
+      }
+    }
+  } catch {
+    // Si falla la validación, no pasa nada
+  }
+
   // 4. Construir prompts separados (system + user) y llamar al LLM
   const { sistema, usuario } = construirPrompts(contexto)
   let respuestaLLM: RespuestaLLM
@@ -163,46 +188,28 @@ export async function ejecutarPipelineAgente(params: {
     }
   }
 
-  // 4.6. Validar dirección con Google Places si el LLM capturó una nueva
-  if (respuestaLLM.datos_capturados?.direccion) {
+  // 4.6. Guardar dirección validada en metadata si la hay
+  if (respuestaLLM.datos_capturados?.direccion && contexto.resultados_previos.direccion_validada) {
     try {
-      const { validarDireccion } = await import('./validar-direccion')
-      const direccionRaw = respuestaLLM.datos_capturados.direccion
-      const validada = await validarDireccion(direccionRaw)
+      const { data: convDir } = await admin
+        .from('conversaciones')
+        .select('metadata')
+        .eq('id', conversacion_id)
+        .single()
 
-      if (validada && validada.textoCompleto) {
-        // Guardar dirección validada en metadata
-        const { data: convDir } = await admin
-          .from('conversaciones')
-          .select('metadata')
-          .eq('id', conversacion_id)
-          .single()
+      const metaDir = (convDir?.metadata as Record<string, unknown>) || {}
+      const datosDir = (metaDir.datos_capturados as Record<string, unknown>) || {}
+      datosDir.direccion_validada = contexto.resultados_previos.direccion_validada
+      datosDir.barrio = contexto.resultados_previos.direccion_barrio || datosDir.barrio
+      datosDir.ciudad = contexto.resultados_previos.direccion_ciudad || datosDir.ciudad
+      metaDir.datos_capturados = datosDir
 
-        const metaDir = (convDir?.metadata as Record<string, unknown>) || {}
-        const datosDir = (metaDir.datos_capturados as Record<string, unknown>) || {}
-        datosDir.direccion_validada = validada.textoCompleto
-        datosDir.barrio = validada.barrio || datosDir.barrio
-        datosDir.ciudad = validada.ciudad || datosDir.ciudad
-        datosDir.coordenadas = validada.coordenadas
-        metaDir.datos_capturados = datosDir
-
-        await admin
-          .from('conversaciones')
-          .update({ metadata: metaDir })
-          .eq('id', conversacion_id)
-
-        // Si la dirección validada es diferente a lo que dijo el cliente,
-        // modificar la respuesta para que confirme la dirección correcta
-        if (validada.textoCompleto.toLowerCase() !== direccionRaw.toLowerCase()) {
-          const confirmacion = `\n\n¿La dirección sería ${validada.textoCompleto}?`
-          // Solo agregar si la respuesta no menciona ya la dirección validada
-          if (!respuestaLLM.respuesta.includes(validada.textoCompleto)) {
-            respuestaLLM.respuesta = respuestaLLM.respuesta.replace(/\?$/, '.') + confirmacion
-          }
-        }
-      }
+      await admin
+        .from('conversaciones')
+        .update({ metadata: metaDir })
+        .eq('id', conversacion_id)
     } catch (err) {
-      console.warn('[AGENTE_IA] Error validando dirección:', err)
+      console.warn('[AGENTE_IA] Error guardando dirección validada:', err)
     }
   }
 
