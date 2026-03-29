@@ -280,35 +280,52 @@ async function procesarMensajeEntrante(
   const texto = extraerTextoMensaje(msg)
 
   // ─── Modo prueba: reset de conversación ───
-  // Si el mensaje empieza con "reset:test" se borra la conversación completa.
-  // El siguiente mensaje del contacto crea una conversación nueva de cero.
+  // Borra conversación + contacto provisorio + todas las conversaciones del número.
+  // El siguiente mensaje crea todo de cero como si fuera un cliente nuevo.
   if (texto && texto.trim().toLowerCase().startsWith('reset:test')) {
     try {
-      const convId = conversacion.id
+      // Buscar TODAS las conversaciones de este número en esta empresa
+      const { data: todasConvs } = await admin
+        .from('conversaciones')
+        .select('id, contacto_id')
+        .eq('empresa_id', canal.empresa_id)
+        .eq('identificador_externo', telefonoRemitente)
 
-      // Borrar logs del agente IA (tienen FK a mensajes)
-      await admin
-        .from('log_agente_ia')
-        .delete()
-        .eq('conversacion_id', convId)
+      const convIds = (todasConvs || []).map(c => c.id)
+      const contactoIds = [...new Set((todasConvs || []).map(c => c.contacto_id).filter(Boolean))]
+
+      // Borrar logs del agente IA
+      for (const id of convIds) {
+        await admin.from('log_agente_ia').delete().eq('conversacion_id', id)
+      }
 
       // Borrar mensajes
-      await admin
-        .from('mensajes')
-        .delete()
-        .eq('conversacion_id', convId)
+      for (const id of convIds) {
+        await admin.from('mensajes').delete().eq('conversacion_id', id)
+      }
 
-      // Borrar etiquetas de la conversación
-      await admin
-        .from('conversacion_etiquetas')
-        .delete()
-        .eq('conversacion_id', convId)
+      // Borrar etiquetas de conversaciones
+      for (const id of convIds) {
+        await admin.from('conversacion_etiquetas').delete().eq('conversacion_id', id)
+      }
 
-      // Borrar la conversación entera
-      await admin
-        .from('conversaciones')
-        .delete()
-        .eq('id', convId)
+      // Borrar todas las conversaciones
+      for (const id of convIds) {
+        await admin.from('conversaciones').delete().eq('id', id)
+      }
+
+      // Borrar contactos provisorios vinculados (solo los provisorios, no los reales)
+      for (const contactoId of contactoIds) {
+        // Borrar direcciones del contacto
+        await admin.from('contacto_direcciones').delete().eq('contacto_id', contactoId)
+
+        // Borrar el contacto solo si es provisorio
+        await admin
+          .from('contactos')
+          .delete()
+          .eq('id', contactoId)
+          .eq('es_provisorio', true)
+      }
 
       // Enviar confirmación por WhatsApp
       const configWa = canal.config_conexion as { phoneNumberId?: string; tokenAcceso?: string; wabaId?: string }
@@ -316,11 +333,11 @@ async function procesarMensajeEntrante(
         await enviarTextoWhatsApp(
           { phoneNumberId: configWa.phoneNumberId, wabaId: configWa.wabaId || '', tokenAcceso: configWa.tokenAcceso, numeroTelefono: '' },
           telefonoRemitente,
-          'Conversación borrada. Escribí algo para empezar de cero.'
+          'Todo borrado. Escribí algo para empezar de cero.'
         )
       }
 
-      console.log(`[RESET:TEST] Conversación ${convId} eliminada por ${telefonoRemitente}`)
+      console.log(`[RESET:TEST] ${convIds.length} conversaciones y ${contactoIds.length} contactos eliminados para ${telefonoRemitente}`)
       return
     } catch (err) {
       console.error('[RESET:TEST] Error:', err)
