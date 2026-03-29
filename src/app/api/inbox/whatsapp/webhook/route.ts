@@ -280,53 +280,35 @@ async function procesarMensajeEntrante(
   const texto = extraerTextoMensaje(msg)
 
   // ─── Modo prueba: reset de conversación ───
-  // Si el mensaje empieza con "reset:test" se borran todos los mensajes y metadata
-  // para que el agente arranque de cero. Solo funciona para admins de la empresa.
+  // Si el mensaje empieza con "reset:test" se borra la conversación completa.
+  // El siguiente mensaje del contacto crea una conversación nueva de cero.
   if (texto && texto.trim().toLowerCase().startsWith('reset:test')) {
     try {
-      // Verificar que el remitente es admin de la empresa
-      const { data: contacto } = await admin
-        .from('contactos')
-        .select('id')
-        .eq('empresa_id', canal.empresa_id)
-        .or(`whatsapp.eq.${telefonoRemitente},telefono.eq.${telefonoRemitente}`)
-        .limit(1)
-        .single()
+      const convId = conversacion.id
 
-      const { data: usuario } = await admin
-        .from('usuarios_empresa')
-        .select('rol')
-        .eq('empresa_id', canal.empresa_id)
-        .limit(1)
-
-      // Borrar todos los mensajes de la conversación
-      await admin
-        .from('mensajes')
-        .delete()
-        .eq('conversacion_id', conversacion.id)
-
-      // Borrar logs del agente IA para esta conversación
+      // Borrar logs del agente IA (tienen FK a mensajes)
       await admin
         .from('log_agente_ia')
         .delete()
-        .eq('conversacion_id', conversacion.id)
+        .eq('conversacion_id', convId)
 
-      // Limpiar metadata y resetear estado de la conversación
+      // Borrar mensajes
+      await admin
+        .from('mensajes')
+        .delete()
+        .eq('conversacion_id', convId)
+
+      // Borrar etiquetas de la conversación
+      await admin
+        .from('conversacion_etiquetas')
+        .delete()
+        .eq('conversacion_id', convId)
+
+      // Borrar la conversación entera
       await admin
         .from('conversaciones')
-        .update({
-          metadata: {},
-          resumen_ia: null,
-          clasificacion_ia: null,
-          sentimiento: null,
-          ultimo_mensaje_texto: '[Reset de prueba]',
-          ultimo_mensaje_en: new Date().toISOString(),
-          mensajes_sin_leer: 0,
-          chatbot_activo: true,
-          agente_ia_activo: true,
-          actualizado_en: new Date().toISOString(),
-        })
-        .eq('id', conversacion.id)
+        .delete()
+        .eq('id', convId)
 
       // Enviar confirmación por WhatsApp
       const configWa = canal.config_conexion as { phoneNumberId?: string; tokenAcceso?: string; wabaId?: string }
@@ -334,11 +316,11 @@ async function procesarMensajeEntrante(
         await enviarTextoWhatsApp(
           { phoneNumberId: configWa.phoneNumberId, wabaId: configWa.wabaId || '', tokenAcceso: configWa.tokenAcceso, numeroTelefono: '' },
           telefonoRemitente,
-          '🔄 Conversación reseteada. Escribí algo para empezar de cero.'
+          'Conversación borrada. Escribí algo para empezar de cero.'
         )
       }
 
-      console.log(`[RESET:TEST] Conversación ${conversacion.id} reseteada por ${telefonoRemitente}`)
+      console.log(`[RESET:TEST] Conversación ${convId} eliminada por ${telefonoRemitente}`)
       return
     } catch (err) {
       console.error('[RESET:TEST] Error:', err)
