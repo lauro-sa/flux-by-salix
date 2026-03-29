@@ -219,6 +219,97 @@ export async function ejecutarPipelineAgente(params: {
     }
   }
 
+  // 4.7. Actualizar contacto con datos capturados (dirección, nombre, notas)
+  if (respuestaLLM.datos_capturados) {
+    try {
+      const { data: convContacto } = await admin
+        .from('conversaciones')
+        .select('contacto_id')
+        .eq('id', conversacion_id)
+        .single()
+
+      if (convContacto?.contacto_id) {
+        const datos = respuestaLLM.datos_capturados
+        const contactoId = convContacto.contacto_id
+
+        // Actualizar nombre si lo capturó
+        if (datos.nombre) {
+          const partes = datos.nombre.split(' ')
+          const nombre = partes[0]
+          const apellido = partes.slice(1).join(' ') || null
+          await admin
+            .from('contactos')
+            .update({
+              nombre,
+              ...(apellido ? { apellido } : {}),
+              actualizado_en: new Date().toISOString(),
+            })
+            .eq('id', contactoId)
+        }
+
+        // Guardar/actualizar dirección validada en contacto_direcciones
+        const direccionTexto = (contexto.resultados_previos.direccion_validada as string)
+          || datos.direccion
+        if (direccionTexto) {
+          // Ver si ya tiene una dirección principal
+          const { data: dirExistente } = await admin
+            .from('contacto_direcciones')
+            .select('id')
+            .eq('contacto_id', contactoId)
+            .eq('es_principal', true)
+            .maybeSingle()
+
+          const datosDir = {
+            contacto_id: contactoId,
+            tipo: 'principal',
+            calle: direccionTexto,
+            barrio: (contexto.resultados_previos.direccion_barrio as string) || datos.zona || '',
+            ciudad: (contexto.resultados_previos.direccion_ciudad as string) || '',
+            provincia: '',
+            texto: direccionTexto,
+            es_principal: true,
+          }
+
+          if (dirExistente) {
+            await admin
+              .from('contacto_direcciones')
+              .update(datosDir)
+              .eq('id', dirExistente.id)
+          } else {
+            await admin
+              .from('contacto_direcciones')
+              .insert(datosDir)
+          }
+        }
+
+        // Actualizar notas del contacto con resumen del trabajo
+        if (datos.tipo_trabajo) {
+          const { data: contactoActual } = await admin
+            .from('contactos')
+            .select('notas')
+            .eq('id', contactoId)
+            .single()
+
+          const fecha = new Date().toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })
+          const notaNueva = `[${fecha}] Consulta: ${datos.tipo_trabajo}${datos.direccion ? ` en ${datos.direccion}` : ''}`
+          const notasExistentes = contactoActual?.notas || ''
+          // No duplicar si ya tiene la misma nota
+          if (!notasExistentes.includes(datos.tipo_trabajo)) {
+            await admin
+              .from('contactos')
+              .update({
+                notas: notasExistentes ? `${notasExistentes}\n${notaNueva}` : notaNueva,
+                actualizado_en: new Date().toISOString(),
+              })
+              .eq('id', contactoId)
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[AGENTE_IA] Error actualizando contacto:', err)
+    }
+  }
+
   // 5. Procesar respuesta y ejecutar acciones
   const accionesEjecutadas: AccionAgente[] = []
   let escalado = false
