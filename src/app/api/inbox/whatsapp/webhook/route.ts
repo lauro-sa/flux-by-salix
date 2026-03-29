@@ -333,7 +333,7 @@ async function procesarMensajeEntrante(
         await enviarTextoWhatsApp(
           { phoneNumberId: configWa.phoneNumberId, wabaId: configWa.wabaId || '', tokenAcceso: configWa.tokenAcceso, numeroTelefono: '' },
           telefonoRemitente,
-          'Todo borrado. Escribí algo para empezar de cero.'
+          '🔄✅ *Reset completo*\n\n🗑️ Conversaciones borradas\n🗑️ Contacto provisorio eliminado\n🗑️ Direcciones y logs borrados\n\n💬 Escribí algo para empezar de cero.'
         )
       }
 
