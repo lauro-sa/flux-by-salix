@@ -97,29 +97,35 @@ export async function ejecutarPipelineAgente(params: {
     return { acciones_ejecutadas: [], escalado: false }
   }
 
-  // 3.5. Pre-validar dirección si el último mensaje del cliente parece una dirección
-  // Así el LLM recibe la dirección formateada de Google en el contexto
+  // 3.5. Pre-validar dirección con Google Places
+  // Busca en los últimos mensajes del cliente si alguno parece una dirección
   try {
-    const ultimoMensajeCliente = contexto.mensajes
+    const mensajesCliente = contexto.mensajes
       .filter(m => m.es_entrante && m.texto)
-      .at(-1)?.texto || ''
+      .slice(-5)
 
-    // Detectar si parece una dirección (tiene números y texto, o palabras clave)
-    const pareceDir = /\d{2,5}/.test(ultimoMensajeCliente) &&
-      ultimoMensajeCliente.length >= 5 && ultimoMensajeCliente.length <= 100
+    for (const msg of mensajesCliente.reverse()) {
+      const texto = msg.texto || ''
+      // Detectar si parece dirección: tiene un número de calle (2-5 dígitos)
+      const pareceDir = /\d{2,5}/.test(texto) &&
+        texto.length >= 5 && texto.length <= 150 &&
+        // Excluir mensajes que son claramente otra cosa
+        !/\$|pesos|hora|día|lunes|martes|miércoles|jueves|viernes/i.test(texto)
 
-    if (pareceDir) {
-      const { validarDireccion } = await import('./validar-direccion')
-      const validada = await validarDireccion(ultimoMensajeCliente)
-      if (validada?.textoCompleto) {
-        // Agregar al contexto para que el LLM la use
-        contexto.resultados_previos.direccion_validada = validada.textoCompleto
-        contexto.resultados_previos.direccion_barrio = validada.barrio
-        contexto.resultados_previos.direccion_ciudad = validada.ciudad
+      if (pareceDir) {
+        const { validarDireccion } = await import('./validar-direccion')
+        const validada = await validarDireccion(texto)
+        if (validada?.textoCompleto && validada.calle) {
+          contexto.resultados_previos.direccion_validada = validada.textoCompleto
+          contexto.resultados_previos.direccion_barrio = validada.barrio
+          contexto.resultados_previos.direccion_ciudad = validada.ciudad
+          console.log(`[AGENTE_IA] Dirección validada: "${texto}" → "${validada.textoCompleto}"`)
+          break
+        }
       }
     }
-  } catch {
-    // Si falla la validación, no pasa nada
+  } catch (err) {
+    console.warn('[AGENTE_IA] Error pre-validando dirección:', err)
   }
 
   // 4. Construir prompts separados (system + user) y llamar al LLM
