@@ -39,6 +39,7 @@ export interface ContextoPipeline {
   config: ConfigAgenteIA
   config_ia: ConfigIA
   empresa_nombre: string
+  etiquetas_disponibles: string[]
   resultados_previos: Record<string, unknown>
 }
 
@@ -148,6 +149,12 @@ export async function obtenerContextoCompleto(params: {
     .eq('id', empresa_id)
     .single()
 
+  // Etiquetas disponibles de la empresa (para que el LLM solo sugiera las que existen)
+  const { data: etiquetasDisponibles } = await admin
+    .from('etiquetas_inbox')
+    .select('nombre')
+    .eq('empresa_id', empresa_id)
+
   return {
     empresa_id,
     conversacion_id,
@@ -158,6 +165,7 @@ export async function obtenerContextoCompleto(params: {
     config,
     config_ia: configIA,
     empresa_nombre: empresa?.nombre || 'la empresa',
+    etiquetas_disponibles: (etiquetasDisponibles || []).map(e => e.nombre),
     resultados_previos: {},
   }
 }
@@ -204,7 +212,7 @@ export interface PromptsAgente {
 }
 
 export function construirPrompts(ctx: ContextoPipeline): PromptsAgente {
-  const { config, contacto, empresa_nombre, base_conocimiento, mensajes } = ctx
+  const { config, contacto, empresa_nombre, base_conocimiento, mensajes, etiquetas_disponibles } = ctx
 
   // ── Secciones condicionales ──
 
@@ -343,6 +351,7 @@ ${datosContacto}
 - No inventés información que no esté en tus instrucciones o base de conocimiento
 - Si el cliente pide hablar con un humano: "${config.mensaje_escalamiento}"
 - Palabras que activan escalamiento: ${config.escalar_palabras.join(', ')}
+${etiquetas_disponibles.length > 0 ? `- ETIQUETAS: Solo podés usar estas etiquetas (NO inventes nuevas): ${etiquetas_disponibles.join(', ')}` : '- No hay etiquetas configuradas, dejá etiquetas_sugeridas vacío'}
 
 ${ejemplos ? `=== EJEMPLOS DE CÓMO RESPONDÉS ===\n${ejemplos}` : ''}
 
@@ -374,7 +383,7 @@ RESPONDÉ EXCLUSIVAMENTE con JSON válido (sin texto adicional):
     "email": null,
     "telefono": null
   },
-  "etiquetas_sugeridas": ["etiqueta1"],
+  "etiquetas_sugeridas": [],
   "acciones_sugeridas": [
     {"tipo": "crear_actividad", "datos": {"titulo": "...", "descripcion": "..."}},
     {"tipo": "actualizar_contacto", "datos": {"campo": "...", "valor": "..."}}

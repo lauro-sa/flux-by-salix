@@ -62,6 +62,29 @@ export const nodoEtiquetar: NodoAgenteIA = {
       const etiquetas = (datos.etiquetas_sugeridas as string[]) || []
       if (etiquetas.length === 0) return { exito: true }
 
+      // Obtener etiquetas permitidas de la empresa (solo usar las que existen)
+      const { data: etiquetasPermitidas } = await admin
+        .from('etiquetas_inbox')
+        .select('nombre')
+        .eq('empresa_id', ctx.empresa_id)
+
+      const nombresPermitidos = new Set(
+        (etiquetasPermitidas || []).map(e => e.nombre.toLowerCase())
+      )
+
+      // Filtrar: solo las que coincidan (case-insensitive) con etiquetas existentes
+      const etiquetasFiltradas = etiquetas.filter(et =>
+        nombresPermitidos.has(et.toLowerCase())
+      ).map(et => {
+        // Usar el nombre exacto de la BD (con mayúsculas correctas)
+        const original = (etiquetasPermitidas || []).find(
+          p => p.nombre.toLowerCase() === et.toLowerCase()
+        )
+        return original?.nombre || et
+      })
+
+      if (etiquetasFiltradas.length === 0) return { exito: true, datos: { filtradas: etiquetas } }
+
       // Obtener etiquetas actuales
       const { data: conv } = await admin
         .from('conversaciones')
@@ -70,7 +93,7 @@ export const nodoEtiquetar: NodoAgenteIA = {
         .single()
 
       const actuales: string[] = conv?.etiquetas || []
-      const nuevas = [...new Set([...actuales, ...etiquetas])]
+      const nuevas = [...new Set([...actuales, ...etiquetasFiltradas])]
 
       await admin
         .from('conversaciones')
