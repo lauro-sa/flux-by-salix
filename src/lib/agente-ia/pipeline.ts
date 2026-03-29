@@ -114,9 +114,27 @@ export async function ejecutarPipelineAgente(params: {
 
       if (pareceDir) {
         // Limpiar prefijos conversacionales antes de buscar en Google
-        const textoLimpio = texto
-          .replace(/^(es en|estoy en|queda en|está en|es|la dirección es|dirección|en)\s+/i, '')
+        let textoLimpio = texto
+          .replace(/^(es en|estoy en|queda en|está en|es por|es|la dirección es|dirección|en)\s+/i, '')
           .trim()
+
+        // Buscar contexto de zona/ciudad en mensajes previos para mejorar la búsqueda
+        const mensajesPrevios = contexto.mensajes
+          .filter(m => m.es_entrante && m.texto)
+          .map(m => m.texto!.toLowerCase())
+        const mencionaCaba = mensajesPrevios.some(t =>
+          /\bcaba\b|capital federal|ciudad autónoma|buenos aires ciudad/i.test(t)
+        )
+        const mencionaProvincia = mensajesPrevios.some(t =>
+          /\bprovincia\b|gran buenos aires|gba|conurbano/i.test(t)
+        )
+
+        // Agregar contexto geográfico a la búsqueda
+        if (mencionaCaba && !/caba|capital|buenos aires/i.test(textoLimpio)) {
+          textoLimpio = `${textoLimpio}, CABA`
+        } else if (mencionaProvincia && !/provincia|buenos aires/i.test(textoLimpio)) {
+          textoLimpio = `${textoLimpio}, Buenos Aires`
+        }
 
         console.log(`[AGENTE_IA] Intentando validar dirección: "${texto}" → limpio: "${textoLimpio}"`)
 
