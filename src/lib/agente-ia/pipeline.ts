@@ -113,14 +113,23 @@ export async function ejecutarPipelineAgente(params: {
         !/\$|pesos|hora|día|lunes|martes|miércoles|jueves|viernes/i.test(texto)
 
       if (pareceDir) {
+        // Limpiar prefijos conversacionales antes de buscar en Google
+        const textoLimpio = texto
+          .replace(/^(es en|estoy en|queda en|está en|es|la dirección es|dirección|en)\s+/i, '')
+          .trim()
+
+        console.log(`[AGENTE_IA] Intentando validar dirección: "${texto}" → limpio: "${textoLimpio}"`)
+
         const { validarDireccion } = await import('./validar-direccion')
-        const validada = await validarDireccion(texto)
+        const validada = await validarDireccion(textoLimpio)
         if (validada?.textoCompleto && validada.calle) {
           contexto.resultados_previos.direccion_validada = validada.textoCompleto
           contexto.resultados_previos.direccion_barrio = validada.barrio
           contexto.resultados_previos.direccion_ciudad = validada.ciudad
-          console.log(`[AGENTE_IA] Dirección validada: "${texto}" → "${validada.textoCompleto}"`)
+          console.log(`[AGENTE_IA] Dirección validada OK: "${textoLimpio}" → "${validada.textoCompleto}"`)
           break
+        } else {
+          console.log(`[AGENTE_IA] Google no validó: "${textoLimpio}"`)
         }
       }
     }
