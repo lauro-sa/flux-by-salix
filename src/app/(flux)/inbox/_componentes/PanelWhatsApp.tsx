@@ -7,7 +7,7 @@ import {
   Check, CheckCheck, Clock, AlertCircle, Play, Pause,
   Download, FileText, MapPin, User, X, ChevronLeft, ChevronRight,
   Image, Music, StickyNote, Pencil, Trash2, Tag, SmilePlus,
-  FileDown, Bot,
+  FileDown, Bot, Sparkles,
 } from 'lucide-react'
 import { ModalEtiquetas } from './ModalEtiquetas'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
@@ -465,6 +465,72 @@ export function PanelWhatsApp({
             // Nota interna: burbuja centrada con estilo diferenciado
             if (esNota) {
               const editandoEsta = editandoNotaId === msg.id
+              const esSugerenciaIA = msg.metadata?.tipo === 'sugerencia_ia'
+              const esBorradorIA = msg.metadata?.tipo === 'borrador_ia'
+
+              // Sugerencia IA: estilo especial con botones aprobar/rechazar
+              if (esSugerenciaIA || esBorradorIA) {
+                return (
+                  <motion.div
+                    key={elem.key}
+                    initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    className="flex justify-center"
+                  >
+                    <div
+                      className="max-w-[85%] rounded-lg px-3 py-2 relative"
+                      style={{
+                        background: 'color-mix(in srgb, var(--texto-marca) 8%, var(--superficie-tarjeta))',
+                        border: '1px dashed color-mix(in srgb, var(--texto-marca) 40%, transparent)',
+                        boxShadow: 'var(--sombra-sm)',
+                      }}
+                    >
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Sparkles size={10} style={{ color: 'var(--texto-marca)' }} />
+                        <span className="text-xxs font-semibold" style={{ color: 'var(--texto-marca)' }}>
+                          {esSugerenciaIA ? 'Sugerencia IA' : 'Borrador IA'}
+                        </span>
+                        <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                          — {msg.remitente_nombre}
+                        </span>
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap mb-2" style={{ color: 'var(--texto-secundario)' }}>
+                        {msg.texto}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => onEnviar({ texto: msg.texto || '', tipo_contenido: 'texto' })}
+                          className="text-xxs font-medium px-2.5 py-1 rounded-md cursor-pointer transition-colors"
+                          style={{
+                            background: 'color-mix(in srgb, var(--insignia-exito) 15%, transparent)',
+                            color: 'var(--insignia-exito)',
+                          }}
+                        >
+                          Aprobar y enviar
+                        </button>
+                        {onEliminarNota && (
+                          <button
+                            onClick={() => onEliminarNota(msg.id)}
+                            className="text-xxs font-medium px-2.5 py-1 rounded-md cursor-pointer transition-colors"
+                            style={{
+                              background: 'color-mix(in srgb, var(--insignia-peligro) 10%, transparent)',
+                              color: 'var(--insignia-peligro)',
+                            }}
+                          >
+                            Descartar
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-end mt-1">
+                        <span className="text-[10px]" style={{ color: 'var(--texto-terciario)' }}>
+                          {formatoHora(msg.creado_en)}
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )
+              }
+
               return (
                 <motion.div
                   key={elem.key}

@@ -13,6 +13,7 @@ import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Tarjeta } from '@/componentes/ui/Tarjeta'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Alerta } from '@/componentes/ui/Alerta'
+import SeccionAgenteIA from '@/app/(flux)/inbox/_componentes/SeccionAgenteIA'
 import { Modal } from '@/componentes/ui/Modal'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
@@ -128,6 +129,7 @@ export default function PaginaConfiguracionInbox() {
     { id: 'correo', etiqueta: 'Correo electrónico', icono: <Mail size={16} /> },
     { id: 'interno', etiqueta: 'Mensajería interna', icono: <Hash size={16} /> },
     { id: 'chatbot', etiqueta: 'Chatbot', icono: <Bot size={16} />, grupo: 'Automatización' },
+    { id: 'agente_ia', etiqueta: 'Agente IA', icono: <Sparkles size={16} />, grupo: 'Automatización' },
     { id: 'respuestas_rapidas', etiqueta: 'Respuestas rápidas', icono: <Zap size={16} />, grupo: 'Plantillas' },
     { id: 'plantillas_wa', etiqueta: 'Plantillas Meta (WA)', icono: <FileText size={16} />, grupo: 'Plantillas' },
     { id: 'plantillas_correo', etiqueta: 'Plantillas de correo', icono: <FileText size={16} />, grupo: 'Plantillas' },
@@ -145,6 +147,8 @@ export default function PaginaConfiguracionInbox() {
   return (
     <PlantillaConfiguracion
       titulo="Configuración de Inbox"
+      descripcion="Canales de comunicación, plantillas, automatización y reglas de tu bandeja de entrada."
+      iconoHeader={<MessageCircle size={22} style={{ color: 'var(--texto-marca)' }} />}
       volverTexto="Inbox"
       onVolver={() => router.push('/inbox')}
       secciones={secciones}
@@ -316,6 +320,11 @@ export default function PaginaConfiguracionInbox() {
       {/* Chatbot */}
       {seccionActiva === 'chatbot' && (
         <SeccionChatbot />
+      )}
+
+      {/* Agente IA */}
+      {seccionActiva === 'agente_ia' && (
+        <SeccionAgenteIA />
       )}
 
       {/* Respuestas rápidas */}

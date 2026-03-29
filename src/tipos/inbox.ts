@@ -542,3 +542,101 @@ export interface ConfigOutlookOAuth {
   access_token: string
   token_expira_en: string
 }
+
+// ─── Agente IA ───
+
+export type ModoActivacionAgente = 'siempre' | 'despues_chatbot' | 'fuera_horario' | 'sin_asignar'
+export type ModoRespuestaAgente = 'automatico' | 'sugerir' | 'borrador'
+export type TonoAgente = 'profesional' | 'amigable' | 'formal' | 'casual'
+export type LargoRespuesta = 'corto' | 'medio' | 'largo'
+
+export type AccionAgente =
+  | 'responder' | 'clasificar' | 'enrutar' | 'resumir'
+  | 'sentimiento' | 'etiquetar' | 'escalar'
+  | 'crear_actividad' | 'actualizar_contacto'
+
+export interface ConfigAgenteIA {
+  id: string
+  empresa_id: string
+  activo: boolean
+  nombre: string
+  personalidad: string
+  instrucciones: string
+  idioma: string
+  canales_activos: string[]
+  modo_activacion: ModoActivacionAgente
+  delay_segundos: number
+  max_mensajes_auto: number
+  puede_responder: boolean
+  puede_clasificar: boolean
+  puede_enrutar: boolean
+  puede_resumir: boolean
+  puede_sentimiento: boolean
+  puede_crear_actividad: boolean
+  puede_actualizar_contacto: boolean
+  puede_etiquetar: boolean
+  modo_respuesta: ModoRespuestaAgente
+  tono: TonoAgente
+  largo_respuesta: LargoRespuesta
+  firmar_como: string
+  usar_base_conocimiento: boolean
+  escalar_si_negativo: boolean
+  escalar_si_no_sabe: boolean
+  escalar_palabras: string[]
+  mensaje_escalamiento: string
+  acciones_habilitadas: AccionNodo[]
+  total_mensajes_enviados: number
+  total_escalamientos: number
+}
+
+export interface AccionNodo {
+  id: string
+  tipo: AccionAgente
+  config?: Record<string, unknown>
+  activo?: boolean
+}
+
+export interface EntradaBaseConocimiento {
+  id: string
+  empresa_id: string
+  titulo: string
+  contenido: string
+  categoria: string
+  etiquetas: string[]
+  activo: boolean
+}
+
+export interface LogAgenteIA {
+  id: string
+  empresa_id: string
+  conversacion_id: string
+  mensaje_id: string | null
+  accion: AccionAgente
+  entrada: Record<string, unknown>
+  salida: Record<string, unknown>
+  exito: boolean
+  error: string | null
+  proveedor: string
+  modelo: string
+  tokens_entrada: number
+  tokens_salida: number
+  latencia_ms: number
+  creado_en: string
+}
+
+export interface ClasificacionIA {
+  intencion: string
+  tema: string
+  urgencia: 'baja' | 'media' | 'alta' | 'critica'
+  confianza: number
+  idioma_detectado?: string
+}
+
+export interface ResultadoPipelineAgente {
+  clasificacion?: ClasificacionIA
+  sentimiento?: { valor: string; confianza: number }
+  respuesta?: { texto: string; fuentes?: string[] }
+  acciones_ejecutadas: AccionAgente[]
+  escalado: boolean
+  razon_escalamiento?: string
+}

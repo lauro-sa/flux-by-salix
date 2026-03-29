@@ -343,6 +343,28 @@ async function procesarMensajeEntrante(
     console.warn('[CHATBOT] Error:', err)
   }
 
+  // ─── Agente IA: procesamiento inteligente (post-chatbot) ───
+  try {
+    const { data: convActualizada } = await admin
+      .from('conversaciones')
+      .select('chatbot_activo, agente_ia_activo')
+      .eq('id', conversacion.id)
+      .single()
+
+    if (convActualizada?.agente_ia_activo && mensajeInsertado) {
+      const { ejecutarPipelineAgente } = await import('@/lib/agente-ia/pipeline')
+      await ejecutarPipelineAgente({
+        admin,
+        empresa_id: canal.empresa_id,
+        conversacion_id: conversacion.id,
+        mensaje_id: mensajeInsertado.id,
+        canal_id: canal.id,
+      })
+    }
+  } catch (err) {
+    console.warn('[AGENTE_IA] Error:', err)
+  }
+
   // Si tiene media, descargar ANTES de terminar (Vercel serverless corta el background)
   const mediaId = extraerMediaId(msg)
   if (mediaId && mensajeInsertado) {
