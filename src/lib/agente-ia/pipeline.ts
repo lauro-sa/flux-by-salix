@@ -72,19 +72,33 @@ export async function ejecutarPipelineAgente(params: {
     return { acciones_ejecutadas: [], escalado: false }
   }
 
-  // Verificar que no hayamos respondido en los últimos 25 segundos (evitar respuestas duplicadas)
+  // Verificar que no hayamos respondido en los últimos 5 segundos (evitar respuestas duplicadas)
+  // Solo bloquea si NO hubo mensajes entrantes nuevos después de nuestra respuesta
   const { data: respuestaReciente } = await admin
     .from('mensajes')
-    .select('id')
+    .select('id, creado_en')
     .eq('conversacion_id', conversacion_id)
     .eq('es_entrante', false)
     .eq('remitente_tipo', 'bot')
-    .gte('creado_en', new Date(Date.now() - 25000).toISOString())
+    .gte('creado_en', new Date(Date.now() - 5000).toISOString())
     .limit(1)
     .maybeSingle()
 
   if (respuestaReciente) {
-    return { acciones_ejecutadas: [], escalado: false }
+    // Verificar si llegaron mensajes entrantes DESPUÉS de nuestra última respuesta
+    const { data: mensajeNuevo } = await admin
+      .from('mensajes')
+      .select('id')
+      .eq('conversacion_id', conversacion_id)
+      .eq('es_entrante', true)
+      .gt('creado_en', respuestaReciente.creado_en)
+      .limit(1)
+      .maybeSingle()
+
+    // Si NO hay mensajes nuevos del cliente después de nuestra respuesta, es duplicado
+    if (!mensajeNuevo) {
+      return { acciones_ejecutadas: [], escalado: false }
+    }
   }
 
   // 3. Obtener contexto completo
