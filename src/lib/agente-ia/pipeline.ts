@@ -575,7 +575,7 @@ async function enviarMensajeBot(
   }
 
   // Guardar mensaje en BD (marcar estado según si se envió o no)
-  await admin.from('mensajes').insert({
+  const { error: errorInsert } = await admin.from('mensajes').insert({
     conversacion_id: conversacionId,
     empresa_id: empresaId,
     canal_id: canalId,
@@ -586,6 +586,22 @@ async function enviarMensajeBot(
     remitente_nombre: 'Agente IA',
     estado: enviadoPorWhatsApp ? 'enviado' : 'error',
   })
+
+  if (errorInsert) {
+    console.error('[AGENTE_IA] Error guardando mensaje en BD:', errorInsert)
+    // Reintentar sin canal_id por si es un FK inválido
+    const { error: errorRetry } = await admin.from('mensajes').insert({
+      conversacion_id: conversacionId,
+      empresa_id: empresaId,
+      es_entrante: false,
+      tipo_contenido: 'texto',
+      texto,
+      remitente_tipo: 'bot',
+      remitente_nombre: 'Agente IA',
+      estado: enviadoPorWhatsApp ? 'enviado' : 'error',
+    })
+    if (errorRetry) console.error('[AGENTE_IA] Error en retry sin canal_id:', errorRetry)
+  }
 }
 
 // ─── Loggear en log_agente_ia ───
