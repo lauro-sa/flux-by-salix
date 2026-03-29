@@ -90,10 +90,15 @@ export default function SeccionAgenteIA() {
       .finally(() => setCargando(false))
   }, [])
 
-  // Guardar (autoguardado al cambiar)
+  // Guardar (autoguardado al cambiar) — usa setter funcional para evitar stale closures
   const guardar = useCallback(async (cambios: Partial<ConfigAgenteIA>) => {
-    const nueva = { ...config, ...cambios }
-    setConfig(nueva)
+    let nueva: ConfigAgenteIA = CONFIG_DEFAULTS
+    setConfig(prev => {
+      nueva = { ...prev, ...cambios }
+      return nueva
+    })
+    // Pequeño delay para que el setState se procese
+    await new Promise(r => setTimeout(r, 0))
     try {
       await fetch('/api/inbox/agente-ia/config', {
         method: 'PUT',
@@ -101,7 +106,7 @@ export default function SeccionAgenteIA() {
         body: JSON.stringify(nueva),
       })
     } catch { /* silenciar */ }
-  }, [config])
+  }, [])
 
   if (cargando) {
     return <div className="py-8 text-center text-sm" style={{ color: 'var(--texto-terciario)' }}>Cargando...</div>
