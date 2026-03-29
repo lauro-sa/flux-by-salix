@@ -18,6 +18,7 @@ const CONFIG_DEFAULTS: ConfigAgenteIA = {
   empresa_id: '',
   activo: false,
   nombre: 'Asistente Flux',
+  apodo: '',
   personalidad: '',
   instrucciones: '',
   idioma: 'es',
@@ -305,7 +306,14 @@ function TabGeneral({ config, guardar, canales }: TabProps & { canales: CanalSim
           etiqueta="Nombre del agente"
           value={config.nombre}
           onChange={(e) => guardar({ nombre: e.target.value })}
-          placeholder="Asistente Flux"
+          placeholder="Valentina"
+        />
+        <Input
+          etiqueta="Apodo (cómo le dicen)"
+          value={config.apodo}
+          onChange={(e) => guardar({ apodo: e.target.value })}
+          placeholder="Vale, Valen..."
+          ayuda="Opcional. Si el cliente lo llama por apodo, el agente lo reconoce."
         />
         <TextareaExpandible
           etiqueta="Personalidad"

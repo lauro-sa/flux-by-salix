@@ -227,7 +227,8 @@ export function construirSystemPrompt(ctx: ContextoPipeline): string {
     largo: '1 párrafo completo',
   }
 
-  return `Eres ${config.nombre}, asistente virtual de ${empresa_nombre}.
+  return `Eres ${config.nombre}${config.apodo ? ` (te dicen "${config.apodo}")` : ''}, asistente virtual de ${empresa_nombre}.
+${config.apodo ? `Si te preguntan tu nombre, decí que te llamás ${config.nombre} pero que pueden decirte ${config.apodo}. Podés presentarte naturalmente.` : ''}
 
 PERSONALIDAD:
 ${config.personalidad || 'Profesional y servicial.'}

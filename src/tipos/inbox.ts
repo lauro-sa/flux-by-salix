@@ -560,6 +560,7 @@ export interface ConfigAgenteIA {
   empresa_id: string
   activo: boolean
   nombre: string
+  apodo: string
   personalidad: string
   instrucciones: string
   idioma: string

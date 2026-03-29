@@ -44,7 +44,7 @@ export async function PUT(request: NextRequest) {
 
     // Validar y sanitizar campos
     const camposPermitidos = [
-      'activo', 'nombre', 'personalidad', 'instrucciones', 'idioma',
+      'activo', 'nombre', 'apodo', 'personalidad', 'instrucciones', 'idioma',
       'canales_activos', 'modo_activacion', 'delay_segundos', 'max_mensajes_auto',
       'puede_responder', 'puede_clasificar', 'puede_enrutar', 'puede_resumir',
       'puede_sentimiento', 'puede_crear_actividad', 'puede_actualizar_contacto',
