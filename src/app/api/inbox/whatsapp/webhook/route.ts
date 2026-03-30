@@ -344,6 +344,21 @@ async function procesarMensajeEntrante(
     }
   }
 
+  // ─── Deduplicar: verificar si este mensaje de WhatsApp ya fue procesado ───
+  if (msg.id) {
+    const { data: yaExiste } = await admin
+      .from('mensajes')
+      .select('id')
+      .eq('wa_message_id', msg.id)
+      .limit(1)
+      .maybeSingle()
+
+    if (yaExiste) {
+      console.log(`[WEBHOOK] Mensaje duplicado ignorado: wa_message_id=${msg.id}`)
+      return
+    }
+  }
+
   const { data: mensajeInsertado } = await admin
     .from('mensajes')
     .insert({
