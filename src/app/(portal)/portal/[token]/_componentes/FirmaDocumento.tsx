@@ -14,7 +14,7 @@ type ModoFirma = 'auto' | 'dibujar' | 'subir'
 
 interface Props {
   nombrePredeterminado: string
-  onFirmar: (datos: { base64: string | null; nombre: string; modo: ModoFirma }) => void
+  onFirmar: (datos: { base64: string | null; nombre: string; modo: ModoFirma }) => void | Promise<void>
   onCancelar: () => void
 }
 

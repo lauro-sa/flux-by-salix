@@ -3,7 +3,8 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
  * GET /api/portal/[token] — Endpoint público (sin auth).
- * Retorna todos los datos del presupuesto para el portal del cliente.
+ * Retorna todos los datos del presupuesto para el portal del cliente,
+ * incluyendo estado persistido, firma, comprobantes y cuotas.
  * Se usa en: página pública /portal/[token]
  */
 export async function GET(
@@ -14,7 +15,7 @@ export async function GET(
     const { token } = await params
     const admin = crearClienteAdmin()
 
-    // 1. Buscar token
+    // 1. Buscar token con todos los campos nuevos
     const { data: portalToken } = await admin
       .from('portal_tokens')
       .select('*')
@@ -31,12 +32,16 @@ export async function GET(
       return NextResponse.json({ error: 'Enlace expirado' }, { status: 410 })
     }
 
-    // 3. Registrar vista (incrementar contador, marcar primera vista)
+    // 3. Registrar vista (incrementar contador, marcar primera vista, estado → visto)
     const actualizacionVista: Record<string, unknown> = {
       veces_visto: (portalToken.veces_visto || 0) + 1,
     }
     if (!portalToken.visto_en) {
       actualizacionVista.visto_en = new Date().toISOString()
+    }
+    // Solo transicionar a 'visto' si está en 'pendiente'
+    if ((portalToken.estado_cliente || 'pendiente') === 'pendiente') {
+      actualizacionVista.estado_cliente = 'visto'
     }
     admin.from('portal_tokens').update(actualizacionVista).eq('id', portalToken.id).then(() => {})
 
@@ -80,8 +85,19 @@ export async function GET(
       }
     }
 
-    // 7. Armar respuesta
+    // 7. Estado del portal (usar el estado persistido, fallback a calculado)
+    const estadoCliente = portalToken.estado_cliente || (portalToken.visto_en ? 'visto' : 'pendiente')
+
+    // 8. Firma (si existe)
+    const firma = portalToken.firma_nombre ? {
+      url: portalToken.firma_url || null,
+      nombre: portalToken.firma_nombre,
+      modo: portalToken.firma_modo || null,
+    } : null
+
+    // 9. Armar respuesta
     return NextResponse.json({
+      token_id: portalToken.id,
       presupuesto: {
         id: presupuesto.id,
         numero: presupuesto.numero,
@@ -91,6 +107,7 @@ export async function GET(
         moneda: presupuesto.moneda,
         referencia: presupuesto.referencia,
         condicion_pago_label: presupuesto.condicion_pago_label,
+        condicion_pago_tipo: presupuesto.condicion_pago_tipo,
         nota_plan_pago: presupuesto.nota_plan_pago,
         contacto_nombre: presupuesto.contacto_nombre,
         contacto_apellido: presupuesto.contacto_apellido,
@@ -131,6 +148,14 @@ export async function GET(
       },
       datos_bancarios: datosBancarios,
       moneda_simbolo: monedaSimb,
+      // Estado persistido del portal
+      estado_cliente: estadoCliente,
+      firma,
+      aceptado_en: portalToken.aceptado_en || null,
+      rechazado_en: portalToken.rechazado_en || null,
+      motivo_rechazo: portalToken.motivo_rechazo || null,
+      mensajes: portalToken.mensajes || [],
+      comprobantes: portalToken.comprobantes || [],
     })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

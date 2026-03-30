@@ -751,6 +751,41 @@ function SeccionFiltroPanel({ filtro }: { filtro: FiltroTabla }) {
   return null
 }
 
+/** Botón inline para guardar la vista actual */
+function GuardarVistaInline({ onGuardar }: { onGuardar: (nombre: string) => void }) {
+  const [creando, setCreando] = useState(false)
+  const [nombre, setNombre] = useState('')
+  const { t } = useTraduccion()
+
+  if (!creando) {
+    return (
+      <button type="button" onClick={() => setCreando(true)}
+        className="flex items-center gap-1.5 text-[13px] text-texto-marca font-medium cursor-pointer border-none bg-transparent p-0 text-left hover:underline mt-1">
+        <BookmarkPlus size={13} />
+        Guardar actual
+      </button>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 mt-1">
+      <input type="text" autoFocus value={nombre}
+        onChange={(e) => setNombre(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && nombre.trim()) { onGuardar(nombre.trim()); setNombre(''); setCreando(false) }
+          if (e.key === 'Escape') { setNombre(''); setCreando(false) }
+        }}
+        placeholder="Nombre..."
+        className="flex-1 px-2 py-1 rounded-lg border border-borde-foco bg-superficie-tarjeta text-xs text-texto-primario placeholder:text-texto-terciario outline-none" />
+      <button type="button" disabled={!nombre.trim()}
+        onClick={() => { if (nombre.trim()) { onGuardar(nombre.trim()); setNombre(''); setCreando(false) } }}
+        className="text-xs font-medium text-texto-marca cursor-pointer border-none bg-transparent disabled:opacity-40">
+        {t('comun.guardar')}
+      </button>
+    </div>
+  )
+}
+
 /** Sección de vistas guardadas — se renderiza inline dentro del panel de filtros */
 function PanelVistasGuardadas({
   vistasGuardadas,
@@ -1387,9 +1422,30 @@ function TablaDinamica<T>({
   const [busquedaInterna, setBusquedaInterna] = useState(busquedaExterna || '')
   const [valorInput, setValorInput] = useState(busquedaExterna || '')
   const inputRef = useRef<HTMLInputElement>(null)
+  const medidorRef = useRef<HTMLSpanElement>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const [inputEnfocado, setInputEnfocado] = useState(false)
   const [inputDesbordando, setInputDesbordando] = useState(false)
+  const [anchoBuscador, setAnchoBuscador] = useState(0)
+
+  // Medir ancho del texto para expandir el buscador progresivamente
+  const anchoBaseRef = useRef(0)
+  useEffect(() => {
+    if (!medidorRef.current) return
+    // Calcular ancho base una sola vez (con el placeholder)
+    if (anchoBaseRef.current === 0) {
+      medidorRef.current.textContent = placeholder || 'Buscar...'
+      anchoBaseRef.current = medidorRef.current.offsetWidth + 180
+    }
+    // Si hay texto, medir y usar el mayor entre base y texto
+    if (valorInput) {
+      medidorRef.current.textContent = valorInput
+      const anchoTexto = medidorRef.current.offsetWidth + 180
+      setAnchoBuscador(Math.max(anchoBaseRef.current, anchoTexto))
+    } else {
+      setAnchoBuscador(anchoBaseRef.current)
+    }
+  }, [valorInput, placeholder])
 
   /* ── Estado de selección ── */
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
@@ -2049,7 +2105,9 @@ function TablaDinamica<T>({
       <div className="flex items-center gap-2 pb-4 px-4 sm:px-6 relative z-30 shrink-0">
 
         {/* Buscador — ancho se adapta al contenido, máximo 70% del toolbar */}
-        <div className="min-w-0 relative" style={{ width: 'fit-content', maxWidth: '70%' }}>
+        <div className="min-w-0 relative transition-all duration-200" style={{ maxWidth: '700px', width: panelFiltrosAbierto ? '700px' : anchoBuscador > 0 ? anchoBuscador : undefined }}>
+          {/* Span oculto para medir ancho real del texto */}
+          <span ref={medidorRef} className="invisible absolute whitespace-pre text-sm" style={{ pointerEvents: 'none' }} />
           <div className={[
             'flex items-center gap-1.5 px-3 h-9 rounded-lg border bg-superficie-tarjeta transition-all duration-200',
             inputEnfocado ? 'border-borde-foco shadow-foco' : 'border-borde-sutil hover:border-borde-fuerte',
@@ -2081,7 +2139,7 @@ function TablaDinamica<T>({
                 }
               }}
               placeholder={placeholderDinamico}
-              className="w-52 sm:w-72 shrink min-w-0 bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-terciario"
+              className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-terciario"
             />
 
             {/* Detector de vistas */}
@@ -2201,63 +2259,107 @@ function TablaDinamica<T>({
                     className="absolute top-full left-0 right-0 mt-2 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg z-50 overflow-hidden"
                   >
                     <div className="max-h-[460px] overflow-y-auto">
-                      {/* Encabezado */}
-                      <div className="px-4 pt-3 pb-1 flex items-center justify-between">
-                        <span className="text-xs font-semibold text-texto-secundario flex items-center gap-1.5">
-                          <SlidersHorizontal size={13} />
-                          Filtros y ordenamiento
-                        </span>
-                        {numFiltrosActivos > 0 && (
-                          <button type="button" onClick={limpiarTodo}
-                            className="text-[11px] text-insignia-peligro-texto bg-insignia-peligro-fondo px-2 py-0.5 rounded-full cursor-pointer border-none font-medium">
-                            Limpiar ({numFiltrosActivos})
-                          </button>
+                      {/* Layout 3 columnas: Filtros | Orden | Favoritos */}
+                      <div className="flex divide-x divide-borde-sutil">
+
+                        {/* ── Columna 1: Filtros ── */}
+                        {todosLosFiltros.length > 0 && (
+                          <div className="flex-1 p-4 flex flex-col gap-4 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-texto-secundario uppercase tracking-wider flex items-center gap-1.5">
+                                <SlidersHorizontal size={12} />
+                                Filtros
+                              </span>
+                              {numFiltrosActivos > 0 && (
+                                <button type="button" onClick={limpiarTodo}
+                                  className="text-[11px] text-insignia-peligro-texto bg-insignia-peligro-fondo px-2 py-0.5 rounded-full cursor-pointer border-none font-medium">
+                                  Limpiar ({numFiltrosActivos})
+                                </button>
+                              )}
+                            </div>
+                            <div className="flex flex-col gap-4">
+                              {todosLosFiltros.map(filtro => (
+                                <SeccionFiltroPanel key={filtro.id} filtro={filtro} />
+                              ))}
+                            </div>
+                          </div>
                         )}
-                      </div>
 
-                      {/* Filtros en grilla */}
-                      {todosLosFiltros.length > 0 && (
-                        <div className="px-4 py-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          {todosLosFiltros.map(filtro => (
-                            <SeccionFiltroPanel key={filtro.id} filtro={filtro} />
-                          ))}
-
-                          {/* Orden — ocupa una columna */}
-                          {opcionesOrden && opcionesOrden.length > 0 && (
-                            <div className="flex flex-col gap-1.5">
-                              <span className="text-[10px] font-semibold text-texto-terciario uppercase tracking-wider">Orden</span>
+                        {/* ── Columna 2: Orden ── */}
+                        {opcionesOrden && opcionesOrden.length > 0 && (
+                          <div className="flex-1 p-4 flex flex-col gap-3 min-w-0">
+                            <span className="text-[11px] font-bold text-texto-secundario uppercase tracking-wider flex items-center gap-1.5">
+                              <ArrowUpDown size={12} />
+                              Orden
+                            </span>
+                            <div className="flex flex-col gap-0.5">
                               {opcionesOrden.map(op => {
                                 const activo = ordenamiento.length > 0 && ordenamiento[0].clave === op.clave && ordenamiento[0].direccion === op.direccion
                                 return (
                                   <button key={`${op.clave}-${op.direccion}`} type="button"
                                     onClick={() => setOrdenamiento([{ clave: op.clave, direccion: op.direccion }])}
                                     className={[
-                                      'flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[13px] text-left cursor-pointer border-none transition-colors',
+                                      'flex items-center gap-2 px-2.5 py-2 rounded-lg text-[13px] text-left cursor-pointer border-none transition-colors',
                                       activo ? 'bg-superficie-seleccionada text-texto-marca font-medium' : 'bg-transparent text-texto-primario hover:bg-superficie-hover',
                                     ].join(' ')}>
-                                    <ArrowUpDown size={13} className={activo ? 'text-texto-marca' : 'text-texto-terciario'} />
+                                    <ArrowUpDown size={12} className={activo ? 'text-texto-marca' : 'text-texto-terciario'} />
                                     <span className="flex-1">{op.etiqueta}</span>
                                     {activo && <Check size={13} className="text-texto-marca" />}
                                   </button>
                                 )
                               })}
                             </div>
-                          )}
-                        </div>
-                      )}
+                          </div>
+                        )}
 
-                      {/* Vistas guardadas */}
-                      {idModulo && (
-                        <PanelVistasGuardadas
-                          vistasGuardadas={vistasGuardadas}
-                          detector={detector}
-                          onAplicarVista={manejarAplicarVista}
-                          onGuardarVista={idModulo ? manejarGuardarVista : undefined}
-                          onEliminarVista={idModulo ? manejarEliminarVista : undefined}
-                          onSobrescribirVista={idModulo ? manejarSobrescribirVista : undefined}
-                          onMarcarPredefinida={idModulo ? manejarMarcarPredefinida : undefined}
-                        />
-                      )}
+                        {/* ── Columna 3: Favoritos / Vistas ── */}
+                        {idModulo && (
+                          <div className="flex-1 p-4 flex flex-col gap-3 min-w-0">
+                            <span className="text-[11px] font-bold text-texto-secundario uppercase tracking-wider flex items-center gap-1.5">
+                              <Star size={12} />
+                              Favoritos
+                            </span>
+
+                            {/* Vistas guardadas */}
+                            {vistasGuardadas && vistasGuardadas.length > 0 ? (
+                              <div className="flex flex-col gap-0.5">
+                                {vistasGuardadas.map((v) => {
+                                  const esActiva = detector?.vistaActiva?.id === v.id
+                                  return (
+                                    <div key={v.id}
+                                      className="group flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-superficie-hover transition-colors"
+                                      onClick={() => manejarAplicarVista(v.id)}>
+                                      <Bookmark size={13} className={esActiva ? 'text-texto-marca fill-current' : 'text-texto-terciario'} />
+                                      <span className={`flex-1 text-[13px] truncate ${esActiva ? 'font-semibold text-texto-marca' : 'text-texto-primario'}`}>{v.nombre}</span>
+                                      {v.predefinida && <Star size={11} className="text-texto-marca fill-current shrink-0" />}
+                                      {esActiva && <Check size={13} className="text-texto-marca shrink-0" />}
+                                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all shrink-0">
+                                        {manejarMarcarPredefinida && !v.predefinida && (
+                                          <button type="button" onClick={(e) => { e.stopPropagation(); manejarMarcarPredefinida(v.id) }}
+                                            className="size-5 inline-flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario hover:text-texto-marca transition-colors"
+                                            title="Marcar como predefinida"><Star size={11} /></button>
+                                        )}
+                                        {manejarEliminarVista && (
+                                          <button type="button" onClick={(e) => { e.stopPropagation(); manejarEliminarVista(v.id) }}
+                                            className="size-5 inline-flex items-center justify-center rounded-md hover:bg-insignia-peligro-fondo cursor-pointer border-none bg-transparent text-texto-terciario hover:text-insignia-peligro-texto transition-colors"
+                                            title="Eliminar"><X size={11} /></button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-texto-terciario">Sin vistas guardadas</p>
+                            )}
+
+                            {/* Guardar actual */}
+                            {manejarGuardarVista && detector?.tipo !== 'default' && (
+                              <GuardarVistaInline onGuardar={manejarGuardarVista} />
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </motion.div>
                 </div>

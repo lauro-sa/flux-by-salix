@@ -23,7 +23,7 @@ export default function PortalExpirado() {
           {t('portal.expirado')}
         </h1>
         <p className="text-sm text-texto-secundario leading-relaxed">
-          Este enlace ha expirado o no es válido. Si necesitás acceder al documento, contactá a la empresa que te lo envió para solicitar un nuevo enlace.
+          {t('portal.expirado_descripcion')}
         </p>
       </div>
     </div>

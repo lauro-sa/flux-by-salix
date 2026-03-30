@@ -11,6 +11,7 @@ import {
   Mail, Smartphone, Globe, Lock,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
+import { useTraduccion } from '@/lib/i18n'
 import type { TipoCanal, ProveedorCanal } from '@/tipos/inbox'
 
 /**
@@ -45,6 +46,7 @@ const PROVEEDORES_CORREO = [
 ]
 
 export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado, canalEditar }: PropiedadesModal) {
+  const { t } = useTraduccion()
   const modoEdicion = !!canalEditar
   const cfg = canalEditar?.config_conexion || {}
 
@@ -311,7 +313,7 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado,
         {paso === 2 && (
           <div className="space-y-4">
             <Input
-              etiqueta="Nombre del canal"
+              etiqueta={t('inbox.nombre_canal')}
               placeholder={tipoCanal === 'whatsapp' ? 'WhatsApp Ventas' : 'ventas@miempresa.com'}
               defaultValue={nombre}
               onBlur={(e) => setNombre(e.target.value)}

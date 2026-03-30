@@ -95,16 +95,7 @@ const ContextoPreferenciasInterno = createContext<ContextoPreferencias | null>(n
 
 function ProveedorPreferencias({ children }: { children: ReactNode }) {
   const { usuario } = useAuth()
-  const [preferencias, setPreferencias] = useState<Preferencias>(() => {
-    // Leer localStorage de forma sincrónica para evitar flash visual
-    if (typeof window !== 'undefined') {
-      try {
-        const local = localStorage.getItem(CLAVE_PREFS_LOCAL)
-        if (local) return { ...DEFAULTS, ...JSON.parse(local) }
-      } catch { /* ignorar */ }
-    }
-    return DEFAULTS
-  })
+  const [preferencias, setPreferencias] = useState<Preferencias>(DEFAULTS)
   const [cargando, setCargando] = useState(true)
   const dispositivoIdRef = useRef<string>('ssr')
   const guardarTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -114,12 +105,9 @@ function ProveedorPreferencias({ children }: { children: ReactNode }) {
     const dispositivoId = obtenerDispositivoId()
     dispositivoIdRef.current = dispositivoId
 
-    // Marcar como cargando en cada ejecución para que los consumidores
-    // esperen a la fuente de datos definitiva (API > localStorage)
     setCargando(true)
 
     const cargar = async () => {
-      // Si hay usuario, la fuente autoritativa es la BD
       if (usuario) {
         // Pre-cargar localStorage como cache optimista mientras se consulta la API
         try {

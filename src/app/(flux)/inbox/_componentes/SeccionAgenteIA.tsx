@@ -340,6 +340,7 @@ function TextareaExpandible({ etiqueta, valor, onChange, placeholder, lineasPrev
 // ═══════════════════════════════════════════════
 
 function TabGeneral({ config, guardar, canales }: TabProps & { canales: CanalSimple[] }) {
+  const { t } = useTraduccion()
   const toggleCanal = (canalId: string) => {
     const activos = config.canales_activos || []
     const nuevos = activos.includes(canalId)
@@ -464,6 +465,7 @@ function TabGeneral({ config, guardar, canales }: TabProps & { canales: CanalSim
 // ═══════════════════════════════════════════════
 
 function TabNegocio({ config, guardar }: TabProps) {
+  const { t } = useTraduccion()
   return (
     <>
       {/* Datos de la empresa */}
@@ -553,6 +555,7 @@ function TabNegocio({ config, guardar }: TabProps) {
 // ═══════════════════════════════════════════════
 
 function TabFlujo({ config, guardar }: TabProps) {
+  const { t } = useTraduccion()
   // ── Flujo de conversación ──
   const flujo = Array.isArray(config.flujo_conversacion) ? config.flujo_conversacion : []
 
@@ -902,6 +905,7 @@ function TabCapacidades({ config, guardar }: TabProps) {
 // ═══════════════════════════════════════════════
 
 function TabRespuestas({ config, guardar }: TabProps) {
+  const { t } = useTraduccion()
   return (
     <>
       {/* Modo de respuesta */}
@@ -1246,6 +1250,7 @@ function SeccionEntrenar({ config, guardar }: TabProps) {
 // ═══════════════════════════════════════════════
 
 function TabEjemplos({ config, guardar }: TabProps) {
+  const { t } = useTraduccion()
   const ejemplos = Array.isArray(config.ejemplos_conversacion) ? config.ejemplos_conversacion : []
   const [modalAbierto, setModalAbierto] = useState(false)
   const [editando, setEditando] = useState<{
@@ -1426,6 +1431,7 @@ function TabEjemplos({ config, guardar }: TabProps) {
 // ═══════════════════════════════════════════════
 
 function TabConocimiento({ config, guardar }: TabProps) {
+  const { t } = useTraduccion()
   const [entradas, setEntradas] = useState<EntradaBaseConocimiento[]>([])
   const [cargando, setCargando] = useState(true)
   const [modalAbierto, setModalAbierto] = useState(false)

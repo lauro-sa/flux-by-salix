@@ -12,6 +12,7 @@ import { Alerta } from '@/componentes/ui/Alerta'
 import {
   Plus, Trash2, Zap, X, ChevronDown, ChevronUp, Pencil,
 } from 'lucide-react'
+import { useTraduccion } from '@/lib/i18n'
 import type { ReglaCorreo, CondicionRegla, AccionRegla } from '@/tipos/inbox'
 
 /**
@@ -47,6 +48,7 @@ const TIPOS_ACCION = [
 ]
 
 export function ModalReglas({ abierto, onCerrar }: PropiedadesModalReglas) {
+  const { t } = useTraduccion()
   const [reglas, setReglas] = useState<ReglaCorreo[]>([])
   const [cargando, setCargando] = useState(false)
   const [editando, setEditando] = useState<ReglaCorreo | null>(null)
@@ -168,13 +170,13 @@ export function ModalReglas({ abierto, onCerrar }: PropiedadesModalReglas) {
         /* ─── Formulario de edición ─── */
         <div className="space-y-4">
           <Input
-            etiqueta="Nombre de la regla"
+            etiqueta={t('inbox.nombre_regla')}
             placeholder="Ej: Spam de marketing"
             defaultValue={nombre}
             onChange={(e) => setNombre(e.target.value)}
           />
 
-          <Interruptor activo={activa} onChange={setActiva} etiqueta="Regla activa" />
+          <Interruptor activo={activa} onChange={setActiva} etiqueta={t('inbox.regla_activa')} />
 
           {/* Condiciones */}
           <div>

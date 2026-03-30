@@ -717,7 +717,7 @@ export function SeccionEstructura() {
           {/* Selector de sector */}
           <div className="flex items-center gap-3">
             <Select
-              etiqueta="Horario de"
+              etiqueta={t('configuracion.estructura.horario_de')}
               opciones={[
                 { valor: '__general__', etiqueta: 'General (toda la empresa)' },
                 ...sectores.map(s => ({ valor: s.id, etiqueta: s.nombre })),
@@ -861,14 +861,14 @@ export function SeccionEstructura() {
           </div>
 
           <Select
-            etiqueta="Sector padre"
+            etiqueta={t('configuracion.estructura.sector_padre')}
             opciones={opcionesPadre}
             valor={formPadreId || '__ninguno__'}
             onChange={(v) => setFormPadreId(v === '__ninguno__' ? null : v)}
           />
 
           <Select
-            etiqueta="Jefe del sector"
+            etiqueta={t('configuracion.estructura.jefe_sector')}
             opciones={opcionesJefe}
             valor={formJefeId || '__ninguno__'}
             onChange={(v) => setFormJefeId(v === '__ninguno__' ? null : v)}

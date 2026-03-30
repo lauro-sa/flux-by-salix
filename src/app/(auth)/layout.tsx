@@ -8,7 +8,7 @@ import { ProveedorEmpresa } from '@/hooks/useEmpresa'
 import { ProveedorPreferencias } from '@/hooks/usePreferencias'
 import { FondoParticulas } from '@/componentes/ui/FondoParticulas'
 import { motion } from 'framer-motion'
-import { Zap } from 'lucide-react'
+import { LogoSalix } from '@/componentes/marca'
 
 /**
  * Contenido interno del layout de auth.
@@ -28,20 +28,9 @@ function ContenidoLayoutAuth({ children }: { children: React.ReactNode }) {
         {/* Contenido del panel sobre las partículas */}
         <div className="relative z-10 flex flex-col justify-between p-12 xl:p-16 w-full pointer-events-none">
           {/* Logo */}
-          <motion.div
-            initial={{ opacity: 0, x: -12 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-            className="flex items-center gap-3"
-          >
-            <div className="w-10 h-10 rounded-xl bg-texto-marca flex items-center justify-center">
-              <Zap size={20} className="text-white" fill="white" />
-            </div>
-            <div>
-              <span className="text-lg font-bold text-texto-primario tracking-tight">Flux</span>
-              <span className="text-sm text-texto-terciario ml-1.5">by Salix</span>
-            </div>
-          </motion.div>
+          <div>
+            <LogoSalix layout="completo" tamano={40} animacion="ensamble" hover={false} tap={false} />
+          </div>
 
           {/* Texto central */}
           <motion.div
@@ -79,20 +68,9 @@ function ContenidoLayoutAuth({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Logo mobile */}
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="lg:hidden flex items-center gap-2.5 mb-10 relative z-10"
-        >
-          <div className="w-9 h-9 rounded-xl bg-texto-marca flex items-center justify-center">
-            <Zap size={18} className="text-white" fill="white" />
-          </div>
-          <div>
-            <span className="text-lg font-bold text-texto-primario tracking-tight">Flux</span>
-            <span className="text-sm text-texto-terciario ml-1.5">by Salix</span>
-          </div>
-        </motion.div>
+        <div className="lg:hidden mb-10 relative z-10">
+          <LogoSalix layout="completo" tamano={36} animacion="entrada" hover={false} tap={false} />
+        </div>
 
         {/* Card del formulario */}
         <motion.div

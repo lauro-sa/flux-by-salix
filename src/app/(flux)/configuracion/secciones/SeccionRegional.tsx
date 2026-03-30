@@ -6,6 +6,7 @@ import { Select } from '@/componentes/ui/Select'
 import { IndicadorGuardado } from '@/componentes/ui/IndicadorGuardado'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useAutoguardado } from '@/hooks/useAutoguardado'
+import { useTraduccion } from '@/lib/i18n'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { PAISES_DISPONIBLES } from '@/lib/paises'
 
@@ -57,6 +58,7 @@ const ZONAS_HORARIAS = [
 ]
 
 export function SeccionRegional() {
+  const { t } = useTraduccion()
   const { empresa } = useEmpresa()
   const supabase = crearClienteNavegador()
 
@@ -227,7 +229,7 @@ export function SeccionRegional() {
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
-          <Select etiqueta="Fecha" opciones={FORMATOS_FECHA} valor={formatoFecha} onChange={(v) => { setFormatoFecha(v); guardarInmediato({ formato_fecha: v }) }} />
+          <Select etiqueta={t('comun.fecha')} opciones={FORMATOS_FECHA} valor={formatoFecha} onChange={(v) => { setFormatoFecha(v); guardarInmediato({ formato_fecha: v }) }} />
           <Select etiqueta="Hora" opciones={FORMATOS_HORA} valor={formatoHora} onChange={(v) => { setFormatoHora(v); guardarInmediato({ formato_hora: v }) }} />
         </div>
       </div>

@@ -2,21 +2,21 @@
 
 /**
  * VistaPortal — Componente principal del portal público de presupuestos.
- * Flujo: info → acciones → aceptar → scroll a firma → post-firma muestra banco + comprobante.
- * Basado en PaginaPortalDocumento.jsx del sistema anterior.
+ * Flujo: info → acciones → firma → post-firma: cuotas/pago + comprobantes.
+ * Estado persistido via API (no se pierde al refrescar).
  * Se usa en: /portal/[token]/page.tsx
  */
 
-import { useState, useRef, useEffect } from 'react'
-import { Copy, Check, Upload, FileText } from 'lucide-react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTraduccion } from '@/lib/i18n'
-import type { DatosPortal } from '@/tipos/portal'
+import type { DatosPortal, EstadoPortal, ComprobantePortal } from '@/tipos/portal'
 import CabeceraPortal from './CabeceraPortal'
 import InfoDocumento from './InfoDocumento'
 import AccionesPortal from './AccionesPortal'
 import FirmaDocumento from './FirmaDocumento'
 import DetalleLineas from './DetalleLineas'
 import SeccionNotas from './SeccionNotas'
+import SeccionCuotas from './SeccionCuotas'
 import PiePortal from './PiePortal'
 
 interface Props {
@@ -27,20 +27,28 @@ export default function VistaPortal({ datos }: Props) {
   const { t } = useTraduccion()
   const { presupuesto, empresa, vendedor, datos_bancarios, moneda_simbolo } = datos
 
+  // Estado persistido (inicializado desde el servidor)
+  const [estadoCliente, setEstadoCliente] = useState<EstadoPortal>(datos.estado_cliente || 'visto')
+  const [firmaNombre, setFirmaNombre] = useState<string | null>(datos.firma?.nombre || null)
+  const [firmaUrl, setFirmaUrl] = useState<string | null>(datos.firma?.url || null)
+  const [motivoRechazo, setMotivoRechazo] = useState<string | null>(datos.motivo_rechazo || null)
+  const [comprobantes, setComprobantes] = useState<ComprobantePortal[]>(datos.comprobantes || [])
+
+  // Estado de UI
   const [mostrarFirma, setMostrarFirma] = useState(false)
-  const [aceptado, setAceptado] = useState(false)
-  const [rechazado, setRechazado] = useState(false)
-  const [firmaNombre, setFirmaNombre] = useState<string | null>(null)
-  const [firmaBase64, setFirmaBase64] = useState<string | null>(null)
-  const [cbuCopiado, setCbuCopiado] = useState(false)
-  const [aliasCopiado, setAliasCopiado] = useState(false)
-  const [comprobantes, setComprobantes] = useState<{ nombre: string; base64: string }[]>([])
+  const [cargando, setCargando] = useState(false)
+  const [cargandoComprobante, setCargandoComprobante] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const firmaRef = useRef<HTMLDivElement>(null)
   const pagoRef = useRef<HTMLDivElement>(null)
 
+  const colorMarca = empresa.color_marca || '#6366f1'
   const nombreContacto = [presupuesto.contacto_nombre, presupuesto.contacto_apellido]
     .filter(Boolean).join(' ') || ''
+
+  // Extraer el token de la URL para las llamadas API
+  const token = typeof window !== 'undefined' ? window.location.pathname.split('/portal/')[1] : ''
 
   // Scroll a firma al aceptar
   useEffect(() => {
@@ -51,46 +59,107 @@ export default function VistaPortal({ datos }: Props) {
 
   // Scroll a pago después de firmar
   useEffect(() => {
-    if (aceptado && pagoRef.current) {
+    if (estadoCliente === 'aceptado' && pagoRef.current && !mostrarFirma) {
       setTimeout(() => pagoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300)
     }
-  }, [aceptado])
+  }, [estadoCliente, mostrarFirma])
+
+  // Limpiar error después de 5s
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [error])
+
+  // ── Acciones con persistencia ──
+
+  const ejecutarAccion = useCallback(async (body: Record<string, unknown>) => {
+    setCargando(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/portal/${token}/acciones`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) throw new Error()
+      return await res.json()
+    } catch {
+      setError(t('portal.error_accion'))
+      return null
+    } finally {
+      setCargando(false)
+    }
+  }, [token, t])
 
   const handleAceptar = () => {
     setMostrarFirma(true)
   }
 
-  const handleFirmar = (datosF: { base64: string | null; nombre: string }) => {
-    // TODO: enviar firma al backend
-    setFirmaNombre(datosF.nombre)
-    setFirmaBase64(datosF.base64)
-    setAceptado(true)
-    setMostrarFirma(false)
-  }
-
-  const handleRechazar = () => {
-    // TODO: enviar rechazo al backend
-    setRechazado(true)
-  }
-
-  const copiarAlPortapapeles = (texto: string, tipo: 'cbu' | 'alias') => {
-    navigator.clipboard.writeText(texto)
-    if (tipo === 'cbu') { setCbuCopiado(true); setTimeout(() => setCbuCopiado(false), 2000) }
-    else { setAliasCopiado(true); setTimeout(() => setAliasCopiado(false), 2000) }
-  }
-
-  const subirComprobante = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (file.size > 10 * 1024 * 1024) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      setComprobantes(prev => [...prev, { nombre: file.name, base64: reader.result as string }])
-      // TODO: enviar comprobante al backend
+  const handleFirmar = async (datosF: { base64: string | null; nombre: string; modo: string }) => {
+    const resultado = await ejecutarAccion({
+      accion: 'aceptar',
+      firma_base64: datosF.base64,
+      firma_nombre: datosF.nombre,
+      firma_modo: datosF.modo,
+    })
+    if (resultado?.ok) {
+      setEstadoCliente('aceptado')
+      setFirmaNombre(datosF.nombre)
+      setFirmaUrl(resultado.firma_url || datosF.base64)
+      setMostrarFirma(false)
     }
-    reader.readAsDataURL(file)
-    e.target.value = ''
   }
+
+  const handleRechazar = async (motivo: string) => {
+    const resultado = await ejecutarAccion({
+      accion: 'rechazar',
+      motivo,
+    })
+    if (resultado?.ok) {
+      setEstadoCliente('rechazado')
+      setMotivoRechazo(motivo || null)
+    }
+  }
+
+  const handleCancelar = async () => {
+    const resultado = await ejecutarAccion({ accion: 'cancelar' })
+    if (resultado?.ok) {
+      setEstadoCliente('visto')
+      setFirmaNombre(null)
+      setFirmaUrl(null)
+    }
+  }
+
+  const handleSubirComprobante = async (datosComp: {
+    archivo_base64: string
+    nombre_archivo: string
+    tipo_archivo: string
+    cuota_id: string | null
+    monto: string | null
+  }) => {
+    setCargandoComprobante(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/portal/${token}/acciones`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'comprobante', ...datosComp }),
+      })
+      if (!res.ok) throw new Error()
+      const resultado = await res.json()
+      if (resultado?.comprobante) {
+        setComprobantes(prev => [...prev, resultado.comprobante])
+      }
+    } catch {
+      setError(t('portal.error_accion'))
+    } finally {
+      setCargandoComprobante(false)
+    }
+  }
+
+  const puedeAccionar = estadoCliente === 'visto' || estadoCliente === 'pendiente'
 
   return (
     <div>
@@ -99,23 +168,41 @@ export default function VistaPortal({ datos }: Props) {
 
       {/* Contenido principal */}
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {/* Info del documento */}
-        <InfoDocumento presupuesto={presupuesto} />
+        {/* Error toast */}
+        {error && (
+          <div className="rounded-xl bg-estado-error/10 border border-estado-error/20 px-4 py-3 text-sm text-estado-error text-center">
+            {error}
+          </div>
+        )}
 
-        {/* Acciones: PDF, WhatsApp, llamar, aceptar/rechazar */}
+        {/* Info del documento (con total prominente, referencia, vendedor) */}
+        <InfoDocumento
+          presupuesto={presupuesto}
+          vendedorNombre={vendedor.nombre}
+          monedaSimbolo={moneda_simbolo}
+          estadoCliente={estadoCliente}
+          colorMarca={colorMarca}
+        />
+
+        {/* Acciones: PDF, WhatsApp, llamar, aceptar/rechazar/cancelar */}
         <AccionesPortal
           pdfUrl={presupuesto.pdf_url}
           vendedorTelefono={vendedor.telefono}
           presupuestoNumero={presupuesto.numero}
           contactoNombre={nombreContacto}
+          estadoCliente={estadoCliente}
+          colorMarca={colorMarca}
+          firmaNombre={firmaNombre}
+          firmaUrl={firmaUrl}
+          motivoRechazo={motivoRechazo}
           onAceptar={handleAceptar}
           onRechazar={handleRechazar}
-          aceptado={aceptado}
-          rechazado={rechazado}
+          onCancelar={handleCancelar}
+          cargando={cargando}
         />
 
         {/* Panel de firma (se despliega al aceptar, con scroll automático) */}
-        {mostrarFirma && (
+        {mostrarFirma && puedeAccionar && (
           <div ref={firmaRef}>
             <FirmaDocumento
               nombrePredeterminado={presupuesto.atencion_nombre || nombreContacto}
@@ -125,117 +212,25 @@ export default function VistaPortal({ datos }: Props) {
           </div>
         )}
 
-        {/* Banner de aceptado con firma */}
-        {aceptado && firmaNombre && (
-          <div className="rounded-xl bg-insignia-exito/10 border border-insignia-exito/20 p-4">
-            <div className="flex items-start gap-3">
-              <div className="size-8 rounded-full bg-insignia-exito/20 flex items-center justify-center shrink-0 mt-0.5">
-                <Check size={16} className="text-insignia-exito" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-insignia-exito">{t('portal.presupuesto')} {t('portal.aceptado').toLowerCase()}</p>
-                <p className="text-xs text-texto-secundario mt-1">{t('portal.firmado_por')} {firmaNombre}</p>
-                {firmaBase64 && (
-                  <img src={firmaBase64} alt="Firma" className="max-h-[60px] mt-2 opacity-70" />
-                )}
-              </div>
-            </div>
+        {/* ── Sección de pagos (se muestra después de aceptar) ── */}
+        {estadoCliente === 'aceptado' && (datos_bancarios || presupuesto.cuotas.length > 0) && (
+          <div ref={pagoRef}>
+            <SeccionCuotas
+              cuotas={presupuesto.cuotas}
+              comprobantes={comprobantes}
+              datosBancarios={datos_bancarios}
+              monedaSimbolo={moneda_simbolo}
+              totalFinal={presupuesto.total_final}
+              colorMarca={colorMarca}
+              onSubirComprobante={handleSubirComprobante}
+              cargandoComprobante={cargandoComprobante}
+            />
           </div>
         )}
 
-        {/* ── Sección de pago (se muestra después de aceptar) ── */}
-        {aceptado && datos_bancarios && (
-          <div ref={pagoRef} className="space-y-4">
-            <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil overflow-hidden">
-              <div className="px-5 py-4 border-b border-borde-sutil">
-                <h3 className="text-base font-semibold text-texto-primario">{t('portal.datos_transferencia')}</h3>
-                <p className="text-sm text-texto-terciario mt-0.5">Realizá la transferencia y adjuntá el comprobante</p>
-              </div>
-
-              <div className="p-5 space-y-3">
-                {datos_bancarios.banco && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-texto-terciario">Banco</span>
-                    <span className="text-texto-primario font-medium">{datos_bancarios.banco}</span>
-                  </div>
-                )}
-                {datos_bancarios.titular && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-texto-terciario">Titular</span>
-                    <span className="text-texto-primario font-medium">{datos_bancarios.titular}</span>
-                  </div>
-                )}
-                {datos_bancarios.cbu && (
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-texto-terciario">CBU</span>
-                    <button
-                      onClick={() => copiarAlPortapapeles(datos_bancarios!.cbu, 'cbu')}
-                      className="flex items-center gap-1.5 font-mono text-marca-500 font-medium hover:text-marca-600 transition-colors"
-                    >
-                      {datos_bancarios.cbu}
-                      {cbuCopiado ? <Check size={14} className="text-insignia-exito" /> : <Copy size={14} />}
-                    </button>
-                  </div>
-                )}
-                {datos_bancarios.alias && (
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-texto-terciario">Alias</span>
-                    <button
-                      onClick={() => copiarAlPortapapeles(datos_bancarios!.alias, 'alias')}
-                      className="flex items-center gap-1.5 font-mono text-marca-500 font-medium hover:text-marca-600 transition-colors"
-                    >
-                      {datos_bancarios.alias}
-                      {aliasCopiado ? <Check size={14} className="text-insignia-exito" /> : <Copy size={14} />}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Subir comprobante */}
-              <div className="px-5 py-4 border-t border-borde-sutil space-y-3">
-                <p className="text-sm font-medium text-texto-secundario">Comprobante de transferencia</p>
-
-                {comprobantes.length > 0 && (
-                  <div className="space-y-2">
-                    {comprobantes.map((c, i) => (
-                      <div key={i} className="flex items-center gap-2 text-sm text-texto-secundario bg-superficie-app rounded-lg px-3 py-2">
-                        <FileText size={14} className="text-insignia-exito shrink-0" />
-                        <span className="truncate flex-1">{c.nombre}</span>
-                        <Check size={14} className="text-insignia-exito shrink-0" />
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <label className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-borde-fuerte cursor-pointer hover:border-marca-500 hover:bg-marca-500/5 transition-colors text-sm text-texto-terciario">
-                  <Upload size={16} />
-                  {comprobantes.length > 0 ? 'Adjuntar otro comprobante' : 'Adjuntar comprobante'}
-                  <input type="file" accept="image/*,.pdf" onChange={subirComprobante} className="hidden" />
-                </label>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Datos bancarios sin aceptar (solo lectura, si no hay flujo de firma) */}
-        {!aceptado && datos_bancarios && (
-          <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil p-4 space-y-2 text-sm">
-            <h3 className="text-xs text-texto-terciario uppercase tracking-wider font-medium mb-2">
-              {t('portal.datos_transferencia')}
-            </h3>
-            {datos_bancarios.banco && (
-              <div className="flex justify-between"><span className="text-texto-terciario">Banco</span><span className="text-texto-primario font-medium">{datos_bancarios.banco}</span></div>
-            )}
-            {datos_bancarios.titular && (
-              <div className="flex justify-between"><span className="text-texto-terciario">Titular</span><span className="text-texto-primario font-medium">{datos_bancarios.titular}</span></div>
-            )}
-            {datos_bancarios.cbu && (
-              <div className="flex justify-between"><span className="text-texto-terciario">CBU</span><span className="font-mono text-texto-primario">{datos_bancarios.cbu}</span></div>
-            )}
-            {datos_bancarios.alias && (
-              <div className="flex justify-between"><span className="text-texto-terciario">Alias</span><span className="font-mono text-texto-primario">{datos_bancarios.alias}</span></div>
-            )}
-          </div>
+        {/* Datos bancarios read-only (antes de aceptar, si hay datos) */}
+        {estadoCliente !== 'aceptado' && datos_bancarios && (
+          <DatosBancariosReadonly datos={datos_bancarios} />
         )}
 
         {/* Detalle de líneas */}
@@ -260,6 +255,41 @@ export default function VistaPortal({ datos }: Props) {
 
       {/* Footer */}
       <PiePortal empresa={empresa} />
+    </div>
+  )
+}
+
+// ── Datos bancarios en modo lectura (antes de aceptar) ──
+function DatosBancariosReadonly({ datos }: { datos: { banco: string; titular: string; cbu: string; alias: string } }) {
+  return (
+    <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil p-4 space-y-2 text-sm">
+      <h3 className="text-xs text-texto-terciario uppercase tracking-wider font-medium mb-2">
+        Datos para transferencia
+      </h3>
+      {datos.banco && (
+        <div className="flex justify-between">
+          <span className="text-texto-terciario">Banco</span>
+          <span className="text-texto-primario font-medium">{datos.banco}</span>
+        </div>
+      )}
+      {datos.titular && (
+        <div className="flex justify-between">
+          <span className="text-texto-terciario">Titular</span>
+          <span className="text-texto-primario font-medium">{datos.titular}</span>
+        </div>
+      )}
+      {datos.cbu && (
+        <div className="flex justify-between">
+          <span className="text-texto-terciario">CBU</span>
+          <span className="font-mono text-texto-primario">{datos.cbu}</span>
+        </div>
+      )}
+      {datos.alias && (
+        <div className="flex justify-between">
+          <span className="text-texto-terciario">Alias</span>
+          <span className="font-mono text-texto-primario">{datos.alias}</span>
+        </div>
+      )}
     </div>
   )
 }

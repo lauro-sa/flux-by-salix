@@ -2,40 +2,48 @@
 
 /**
  * CabeceraPortal — Header del portal público.
- * 3 columnas: logo empresa + info empresa | logo Flux by Salix
+ * Logo empresa 64px + info + color de marca como acento.
  * Se usa en: VistaPortal
  */
 
 import Image from 'next/image'
+import { LogoSalix } from '@/componentes/marca'
 
 interface Props {
   empresa: {
     nombre: string
     logo_url: string | null
+    color_marca: string | null
     descripcion: string | null
     telefono: string | null
     correo: string | null
+    ubicacion: string | null
   }
 }
 
 export default function CabeceraPortal({ empresa }: Props) {
+  const colorMarca = empresa.color_marca || '#6366f1'
+
   return (
-    <header className="border-b border-borde-sutil bg-superficie-tarjeta">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-start justify-between gap-4">
+    <header
+      className="border-b border-borde-sutil bg-superficie-tarjeta"
+      style={{ borderBottomColor: `${colorMarca}20` }}
+    >
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-5 flex items-start justify-between gap-4">
         {/* Izquierda: logo + info empresa */}
-        <div className="flex items-start gap-3 min-w-0">
+        <div className="flex items-start gap-4 min-w-0">
           {empresa.logo_url && (
             <Image
               src={empresa.logo_url}
               alt={empresa.nombre}
-              width={48}
-              height={48}
-              className="size-12 rounded-lg object-contain shrink-0"
+              width={64}
+              height={64}
+              className="size-16 rounded-xl object-contain shrink-0"
               unoptimized
             />
           )}
           <div className="min-w-0">
-            <h1 className="text-base font-semibold text-texto-primario truncate">
+            <h1 className="text-lg font-bold text-texto-primario truncate">
               {empresa.nombre}
             </h1>
             {empresa.descripcion && (
@@ -43,7 +51,12 @@ export default function CabeceraPortal({ empresa }: Props) {
                 {empresa.descripcion}
               </p>
             )}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5">
+              {empresa.ubicacion && (
+                <span className="text-xs text-texto-secundario">
+                  {empresa.ubicacion}
+                </span>
+              )}
               {empresa.telefono && (
                 <a href={`tel:${empresa.telefono}`} className="text-xs text-texto-secundario hover:text-texto-primario transition-colors">
                   {empresa.telefono}
@@ -59,18 +72,8 @@ export default function CabeceraPortal({ empresa }: Props) {
         </div>
 
         {/* Derecha: logo Flux by Salix */}
-        <div className="shrink-0 flex flex-col items-end gap-1 opacity-40">
-          <Image
-            src="/iconos/favicon.svg"
-            alt="Flux by Salix"
-            width={24}
-            height={24}
-            className="size-6"
-            unoptimized
-          />
-          <span className="text-xxs text-texto-terciario whitespace-nowrap">
-            Flux by Salix
-          </span>
+        <div className="shrink-0 opacity-50">
+          <LogoSalix layout="horizontal" tamano={20} hover={false} tap={false} />
         </div>
       </div>
     </header>

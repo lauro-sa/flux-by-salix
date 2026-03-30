@@ -944,7 +944,9 @@ export interface Traducciones {
     firma_placeholder: string
     aceptado: string
     rechazado: string
+    cancelado: string
     pendiente: string
+    visto: string
     expirado: string
     emitido: string
     vencimiento: string
@@ -967,6 +969,8 @@ export interface Traducciones {
     cantidad: string
     precio_unitario: string
     descuento_linea: string
+    referencia: string
+    vendedor: string
     firma_modo_auto: string
     firma_modo_dibujar: string
     firma_modo_subir: string
@@ -983,6 +987,40 @@ export interface Traducciones {
     confirmar_rechazo: string
     generado_con_flux: string
     firmado_por: string
+    // Cuotas de pago
+    cuotas_pago: string
+    adelanto: string
+    pago_final: string
+    cuota: string
+    pago_total: string
+    cobrada: string
+    seleccione_pago: string
+    monto_transferir: string
+    // Comprobantes
+    comprobante: string
+    adjuntar_comprobante: string
+    adjuntar_otro: string
+    instrucciones_pago: string
+    comprobante_enviado: string
+    comprobante_pendiente: string
+    comprobante_confirmado: string
+    comprobante_rechazado: string
+    // Acciones
+    cancelar_aceptacion: string
+    confirmar_cancelar: string
+    motivo_rechazo: string
+    motivo_placeholder: string
+    aceptando: string
+    rechazando: string
+    enviando: string
+    error_accion: string
+    // Estados
+    estado_pendiente: string
+    estado_visto: string
+    estado_aceptado: string
+    estado_rechazado: string
+    // Expirado
+    expirado_descripcion: string
   }
 
   // Página de documentos genérica (notas de crédito, recibos, remitos)

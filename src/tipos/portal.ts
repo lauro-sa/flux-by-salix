@@ -5,6 +5,9 @@
 
 import type { LineaPresupuesto, CuotaPago } from './presupuesto'
 
+// ─── Estado del cliente en el portal ───────────────────────────────────────
+export type EstadoPortal = 'pendiente' | 'visto' | 'aceptado' | 'rechazado' | 'cancelado'
+
 // ─── Token de acceso ────────────────────────────────────────────────────────
 
 export interface TokenPortal {
@@ -18,11 +21,46 @@ export interface TokenPortal {
   visto_en: string | null
   veces_visto: number
   activo: boolean
+  // Campos de acción del cliente
+  estado_cliente: EstadoPortal
+  firma_url: string | null
+  firma_nombre: string | null
+  firma_modo: string | null
+  firma_metadata: Record<string, unknown> | null
+  aceptado_en: string | null
+  rechazado_en: string | null
+  motivo_rechazo: string | null
+  mensajes: MensajePortal[]
+  comprobantes: ComprobantePortal[]
+}
+
+// ─── Mensaje del chat del portal ────────────────────────────────────────────
+
+export interface MensajePortal {
+  id: string
+  autor: 'cliente' | 'vendedor'
+  autor_nombre: string
+  contenido: string
+  creado_en: string
+}
+
+// ─── Comprobante de pago ────────────────────────────────────────────────────
+
+export interface ComprobantePortal {
+  id: string
+  url: string
+  nombre_archivo: string
+  tipo: string // 'image/jpeg', 'application/pdf', etc.
+  cuota_id: string | null // null = pago total
+  monto: string | null
+  creado_en: string
+  estado: 'pendiente' | 'confirmado' | 'rechazado'
 }
 
 // ─── Datos que recibe la página pública del portal ──────────────────────────
 
 export interface DatosPortal {
+  token_id: string
   presupuesto: {
     id: string
     numero: string
@@ -32,6 +70,7 @@ export interface DatosPortal {
     moneda: string
     referencia: string | null
     condicion_pago_label: string | null
+    condicion_pago_tipo: string | null
     nota_plan_pago: string | null
     // Contacto
     contacto_nombre: string | null
@@ -82,4 +121,16 @@ export interface DatosPortal {
     alias: string
   } | null
   moneda_simbolo: string
+  // Estado del portal (persistido)
+  estado_cliente: EstadoPortal
+  firma: {
+    url: string | null
+    nombre: string | null
+    modo: string | null
+  } | null
+  aceptado_en: string | null
+  rechazado_en: string | null
+  motivo_rechazo: string | null
+  mensajes: MensajePortal[]
+  comprobantes: ComprobantePortal[]
 }

@@ -112,9 +112,6 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
   const { tienePermiso, esPropietario } = useRol()
   const { tieneModulo } = useModulos()
 
-  // Deshabilitar transición en el primer render para evitar flash
-  const [montado, setMontado] = useState(false)
-  useEffect(() => { const t = setTimeout(() => setMontado(true), 100); return () => clearTimeout(t) }, [])
 
   // Filtrar ítems por permisos Y módulos instalados
   const filtrarItems = (items: ItemNav[]): ItemNav[] => {
@@ -148,7 +145,7 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
   const nombreUsuario = usuario?.user_metadata?.nombre && usuario?.user_metadata?.apellido
     ? `${usuario.user_metadata.nombre} ${usuario.user_metadata.apellido}`
     : usuario?.email?.split('@')[0] || 'Usuario'
-  const nombreEmpresa = empresa?.nombre || 'Flux'
+  const nombreEmpresa = empresa?.nombre || 'Mi empresa'
   const inicialEmpresa = nombreEmpresa[0]?.toUpperCase() || 'F'
   const logoEmpresa = empresa?.logo_url || null
 
@@ -607,7 +604,7 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
 
   return (
     <>
-      <aside className={`hidden md:block fixed top-0 left-0 h-dvh border-r border-borde-sutil bg-superficie-sidebar z-30 cristal-panel overflow-hidden sidebar-scroll ${montado ? 'transition-[width] duration-200' : ''}`} style={{ width: colapsado ? 'var(--sidebar-ancho-colapsado)' : 'var(--sidebar-ancho)' }}>
+      <aside className="hidden md:block fixed top-0 left-0 h-dvh border-r border-borde-sutil bg-superficie-sidebar z-30 transition-[width] duration-200 cristal-panel overflow-hidden sidebar-scroll" style={{ width: colapsado ? 'var(--sidebar-ancho-colapsado)' : 'var(--sidebar-ancho)' }}>
         {contenido}
       </aside>
       <AnimatePresence>

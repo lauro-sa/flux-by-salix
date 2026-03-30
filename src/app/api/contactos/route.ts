@@ -24,6 +24,8 @@ export async function GET(request: NextRequest) {
     const etiqueta = params.get('etiqueta')
     const responsable_id = params.get('responsable_id')
     const vinculado_de = params.get('vinculado_de')
+    const origen_filtro = params.get('origen_filtro')
+    const condicion_iva = params.get('condicion_iva')
     const orden_campo = params.get('orden_campo') || 'creado_en'
     const orden_dir = params.get('orden_dir') === 'asc' ? true : false
     const pagina = parseInt(params.get('pagina') || '1')
@@ -77,6 +79,16 @@ export async function GET(request: NextRequest) {
       if (contactoIds) {
         query = query.in('id', contactoIds.map(r => r.contacto_id))
       }
+    }
+
+    // Filtro por origen
+    if (origen_filtro) {
+      query = query.eq('origen', origen_filtro)
+    }
+
+    // Filtro por condición IVA (dentro de datos_fiscales jsonb)
+    if (condicion_iva) {
+      query = query.eq('datos_fiscales->>condicion_iva', condicion_iva)
     }
 
     // Filtro por vinculaciones (directas e inversas)

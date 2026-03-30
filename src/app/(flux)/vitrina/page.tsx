@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
 import { Insignia } from '@/componentes/ui/Insignia'
@@ -30,6 +30,8 @@ import type { ColumnaDinamica, FiltroTabla, AccionLote } from '@/componentes/tab
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import { useColoresEmpresa } from '@/hooks/useColoresEmpresa'
+import { LogoSalix, SplashSalix, IconoSalix } from '@/componentes/marca'
+import type { VarianteIcono } from '@/componentes/marca'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useTema, type Tema, type Efecto, type FondoCristal, type EscalaTexto } from '@/hooks/useTema'
 import { ALargeSmall } from 'lucide-react'
@@ -510,6 +512,128 @@ function SeccionEditorTexto() {
   )
 }
 
+function SeccionMarca() {
+  const [animacion, setAnimacion] = useState<VarianteIcono>('estatico')
+  const [mostrarSplash, setMostrarSplash] = useState(false)
+  const [keyReset, setKeyReset] = useState(0)
+
+  const reproducir = (v: VarianteIcono) => {
+    setAnimacion('estatico')
+    setKeyReset(k => k + 1)
+    setTimeout(() => setAnimacion(v), 50)
+  }
+
+  return (
+    <Seccion titulo="Marca / Logo">
+      {/* Layouts — todos con hover+tap activo por defecto */}
+      <div>
+        <Etiqueta>Layouts — pasá el mouse por encima</Etiqueta>
+        <div className="flex flex-wrap items-end gap-8">
+          <div className="flex flex-col items-center gap-2">
+            <LogoSalix layout="icono" tamano={36} />
+            <span className="text-xxs text-texto-terciario">icono</span>
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <LogoSalix layout="horizontal" tamano={32} />
+            <span className="text-xxs text-texto-terciario">horizontal</span>
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <LogoSalix layout="completo" tamano={36} />
+            <span className="text-xxs text-texto-terciario">completo</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Tamaños — todos con hover */}
+      <div>
+        <Etiqueta>Tamaños — hover en cada uno</Etiqueta>
+        <Fila>
+          {[16, 24, 32, 48, 64].map(t => (
+            <div key={t} className="flex flex-col items-center gap-1">
+              <IconoSalix tamano={t} hover tap />
+              <span className="text-xxs text-texto-terciario">{t}px</span>
+            </div>
+          ))}
+        </Fila>
+      </div>
+
+      {/* Entrada automática con ensamble */}
+      <div>
+        <Etiqueta>Entrada automática al cargar (ensamble + hover)</Etiqueta>
+        <div className="flex items-center justify-center py-8 rounded-lg" style={{ backgroundColor: 'var(--superficie-hover)' }}>
+          <LogoSalix layout="completo" tamano={52} animacion="ensamble" escalaTexto={1.2} />
+        </div>
+      </div>
+
+      {/* Otros productos */}
+      <div>
+        <Etiqueta>Otros productos (misma marca)</Etiqueta>
+        <div className="flex flex-wrap items-center gap-6">
+          <LogoSalix layout="horizontal" tamano={26} producto="flux" />
+          <LogoSalix layout="horizontal" tamano={26} producto="envíos" />
+          <LogoSalix layout="horizontal" tamano={26} producto="canchas" />
+          <LogoSalix layout="horizontal" tamano={26} producto="pedidos" />
+        </div>
+      </div>
+
+      {/* Animaciones bajo demanda */}
+      <Separador etiqueta="Animaciones bajo demanda" />
+      <div>
+        <Etiqueta>Reproducir animaciones de entrada</Etiqueta>
+        <div className="flex flex-col items-center gap-6 py-6 rounded-lg" style={{ backgroundColor: 'var(--superficie-hover)' }}>
+          <div key={keyReset}>
+            <LogoSalix layout="completo" tamano={48} animacion={animacion} escalaTexto={1.1} hover={false} tap={false} />
+          </div>
+          <Fila>
+            <Boton tamano="sm" variante={animacion === 'entrada' ? 'primario' : 'secundario'} onClick={() => reproducir('entrada')}>Entrada</Boton>
+            <Boton tamano="sm" variante={animacion === 'ensamble' ? 'primario' : 'secundario'} onClick={() => reproducir('ensamble')}>Ensamble</Boton>
+            <Boton tamano="sm" variante={animacion === 'pulso' ? 'primario' : 'secundario'} onClick={() => reproducir('pulso')}>Pulso</Boton>
+          </Fila>
+        </div>
+      </div>
+
+      {/* Splash */}
+      <div>
+        <Etiqueta>Splash Screen (pantalla de carga)</Etiqueta>
+        <div className="flex gap-4">
+          <Boton tamano="sm" onClick={() => setMostrarSplash(true)}>Ver Splash completo</Boton>
+          <span className="text-xxs text-texto-terciario self-center">Se cierra solo después de 3s</span>
+        </div>
+        {mostrarSplash && (
+          <>
+            <SplashSalix producto="flux" />
+            <AutoCerrarSplash onCerrar={() => setMostrarSplash(false)} />
+          </>
+        )}
+        <Separador etiqueta="Splash inline" />
+        <SplashSalix producto="flux" inline tamano={36} />
+      </div>
+
+      {/* Sobre fondos */}
+      <div>
+        <Etiqueta>Sobre fondos</Etiqueta>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="flex items-center justify-center py-6 rounded-lg bg-white">
+            <LogoSalix layout="horizontal" tamano={28} color="#111111" />
+          </div>
+          <div className="flex items-center justify-center py-6 rounded-lg bg-[#111111]">
+            <LogoSalix layout="horizontal" tamano={28} color="#ffffff" />
+          </div>
+        </div>
+      </div>
+    </Seccion>
+  )
+}
+
+/** Cierra el splash después de 3 segundos */
+function AutoCerrarSplash({ onCerrar }: { onCerrar: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onCerrar, 3000)
+    return () => clearTimeout(t)
+  }, [onCerrar])
+  return null
+}
+
 export default function PaginaVitrina() {
   const { mostrar } = useToast()
   const [modalAbierto, setModalAbierto] = useState(false)
@@ -973,6 +1097,9 @@ export default function PaginaVitrina() {
 
       {/* EDITOR DE TEXTO */}
       <SeccionEditorTexto />
+
+      {/* MARCA / LOGO */}
+      <SeccionMarca />
 
       {/* TOKENS DE COLOR */}
       <Seccion titulo="Tokens de color">

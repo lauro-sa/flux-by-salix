@@ -178,6 +178,7 @@ export function SeccionWhatsApp({ canales, onRecargar }: PropiedadesSeccionWhats
 // ═══════════════════════════════════════
 
 function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: () => void }) {
+  const { t } = useTraduccion()
   const config = canal.config_conexion as Record<string, unknown>
   const [guardando, setGuardando] = useState(false)
   const [calidad, setCalidad] = useState<{ rating: string; tier: string; status: string } | null>(
@@ -405,7 +406,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
           />
 
           <CampoConIndicador
-            etiqueta="Token de verificación"
+            etiqueta={t('configuracion.whatsapp.token_verificacion')}
             completado={!!config.tokenVerificacion}
             ayuda='En Meta: Configuración → Webhook → "Token de verificación" — inventás vos este valor y lo pegás en ambos lados'
           >
@@ -419,7 +420,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
           </CampoConIndicador>
 
           <CampoConIndicador
-            etiqueta="Token de acceso"
+            etiqueta={t('configuracion.whatsapp.token_acceso')}
             completado={!!config.tokenAcceso}
             extra={config.tokenAcceso ? '(ya guardado — dejá en blanco para no cambiar)' : undefined}
             ayuda='En Meta: Configuración de la API → "Generar token de acceso"'
@@ -434,7 +435,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
           </CampoConIndicador>
 
           <CampoConIndicador
-            etiqueta="Clave secreta de la app"
+            etiqueta={t('configuracion.whatsapp.clave_secreta')}
             completado={!!config.secretoWebhook}
             extra={config.secretoWebhook ? '(ya guardada)' : undefined}
             ayuda='En Meta: Configuración → Basic → "Clave secreta de la app" → Mostrar'
@@ -652,6 +653,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
 // ═══════════════════════════════════════
 
 function FormularioNuevaCuenta({ onCrear, onCancelar }: { onCrear: () => void; onCancelar: () => void }) {
+  const { t } = useTraduccion()
   const [nombre, setNombre] = useState('')
   const [numero, setNumero] = useState('')
   const [proveedor, setProveedor] = useState<'meta_api' | 'twilio'>('meta_api')
@@ -691,13 +693,13 @@ function FormularioNuevaCuenta({ onCrear, onCancelar }: { onCrear: () => void; o
       {error && <Alerta tipo="peligro" cerrable onCerrar={() => setError('')}>{error}</Alerta>}
 
       <Input
-        etiqueta="Nombre de la cuenta"
+        etiqueta={t('configuracion.whatsapp.nombre_cuenta')}
         placeholder="WhatsApp Ventas"
         defaultValue={nombre}
         onChange={(e) => setNombre(e.target.value)}
       />
       <Input
-        etiqueta="Número de teléfono"
+        etiqueta={t('configuracion.whatsapp.numero_telefono')}
         placeholder="+54 9 11 5555-1234"
         defaultValue={numero}
         onChange={(e) => setNumero(e.target.value)}

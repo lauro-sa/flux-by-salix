@@ -77,6 +77,13 @@ export default function PaginaContactos() {
   const [pagina, setPagina] = useState(1)
   const [nombreFiltro, setNombreFiltro] = useState<string | null>(null)
 
+  // Filtros server-side
+  const [filtroTipo, setFiltroTipo] = useState('')
+  const [filtroOrigen, setFiltroOrigen] = useState('')
+  const [filtroIva, setFiltroIva] = useState('')
+  const filtrosRef = useRef({ tipo: '', origen: '', iva: '' })
+  filtrosRef.current = { tipo: filtroTipo, origen: filtroOrigen, iva: filtroIva }
+
   // Ref para tener siempre el valor actual de busqueda sin re-crear callbacks
   const busquedaRef = useRef(busqueda)
   busquedaRef.current = busqueda
@@ -122,6 +129,9 @@ export default function PaginaContactos() {
       const b = busquedaRef.current
       if (b) params.set('busqueda', b)
       if (vinculadoDe) params.set('vinculado_de', vinculadoDe)
+      if (filtrosRef.current.tipo) params.set('tipo', filtrosRef.current.tipo)
+      if (filtrosRef.current.origen) params.set('origen_filtro', filtrosRef.current.origen)
+      if (filtrosRef.current.iva) params.set('condicion_iva', filtrosRef.current.iva)
       params.set('pagina', String(p))
       params.set('por_pagina', String(POR_PAGINA))
 
@@ -153,6 +163,14 @@ export default function PaginaContactos() {
   useEffect(() => {
     fetchContactos(pagina)
   }, [pagina, fetchContactos])
+
+  // Re-fetch al cambiar filtros (reset a página 1)
+  useEffect(() => {
+    if (!montadoRef.current) return
+    if (pagina === 1) fetchContactos(1)
+    else setPagina(1)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroTipo, filtroOrigen, filtroIva])
 
   // Recargar al cambiar búsqueda (con debounce, reseteando a página 1)
   const montadoRef = useRef(false)
@@ -235,8 +253,6 @@ export default function PaginaContactos() {
     },
     {
       clave: 'tipo', etiqueta: t('comun.tipo'), ancho: 120, ordenable: true, grupo: t('comun.identidad'), icono: <Tag size={I} />,
-      filtrable: true, tipoFiltro: 'pills',
-      opcionesFiltro: tiposContacto.map(t => ({ valor: t.clave, etiqueta: t.etiqueta })),
       obtenerValor: (fila) => fila.tipo_contacto?.clave || '',
       render: (fila) => {
         const tipo = fila.tipo_contacto
@@ -362,7 +378,6 @@ export default function PaginaContactos() {
     /* ── Fiscal ── */
     {
       clave: 'condicion_iva', etiqueta: t('contactos.condicion_iva'), ancho: 140, grupo: t('comun.fiscal'), icono: <Receipt size={I} />,
-      filtrable: true,
       opcionesFiltro: [
         { valor: 'responsable_inscripto', etiqueta: t('contactos.iva_resp_inscripto') },
         { valor: 'monotributista', etiqueta: t('contactos.iva_monotributista') },
@@ -410,7 +425,6 @@ export default function PaginaContactos() {
     },
     {
       clave: 'origen', etiqueta: t('comun.origen'), ancho: 110, grupo: t('comun.metadata'), icono: <Compass size={I} />,
-      filtrable: true,
       opcionesFiltro: [
         { valor: 'manual', etiqueta: t('contactos.origen_manual') },
         { valor: 'importacion', etiqueta: t('contactos.origen_importacion') },
@@ -547,6 +561,35 @@ export default function PaginaContactos() {
         busqueda={busqueda}
         onBusqueda={setBusqueda}
         placeholder={t('contactos.buscar_placeholder')}
+        filtros={[
+          {
+            id: 'tipo', etiqueta: 'Tipo', tipo: 'pills' as const,
+            valor: filtroTipo, onChange: (v) => setFiltroTipo(v as string),
+            opciones: tiposContacto.map(t => ({ valor: t.clave, etiqueta: t.etiqueta })),
+          },
+          {
+            id: 'origen', etiqueta: 'Origen', tipo: 'seleccion' as const,
+            valor: filtroOrigen, onChange: (v) => setFiltroOrigen(v as string),
+            opciones: [
+              { valor: 'manual', etiqueta: 'Manual' },
+              { valor: 'importacion', etiqueta: 'Importación' },
+              { valor: 'ia_captador', etiqueta: 'IA Captador' },
+              { valor: 'usuario', etiqueta: 'Usuario' },
+            ],
+          },
+          {
+            id: 'condicion_iva', etiqueta: 'Cond. IVA', tipo: 'seleccion' as const,
+            valor: filtroIva, onChange: (v) => setFiltroIva(v as string),
+            opciones: [
+              { valor: 'responsable_inscripto', etiqueta: 'Resp. Inscripto' },
+              { valor: 'monotributista', etiqueta: 'Monotributista' },
+              { valor: 'exento', etiqueta: 'Exento' },
+              { valor: 'consumidor_final', etiqueta: 'Cons. Final' },
+              { valor: 'no_responsable', etiqueta: 'No Responsable' },
+            ],
+          },
+        ]}
+        onLimpiarFiltros={() => { setFiltroTipo(''); setFiltroOrigen(''); setFiltroIva('') }}
         idModulo="contactos"
         columnasVisiblesDefault={COLUMNAS_VISIBLES_DEFAULT}
         opcionesOrden={[

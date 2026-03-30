@@ -30,20 +30,41 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const [{ data: presupuesto }, { data: empresa }] = await Promise.all([
-    admin.from('presupuestos').select('numero').eq('id', portalToken.presupuesto_id).single(),
-    admin.from('empresas').select('nombre').eq('id', portalToken.empresa_id).single(),
+    admin.from('presupuestos').select('numero, total_final').eq('id', portalToken.presupuesto_id).single(),
+    admin.from('empresas').select('nombre, logo_url, descripcion').eq('id', portalToken.empresa_id).single(),
   ])
 
   const titulo = presupuesto && empresa
     ? `Presupuesto ${presupuesto.numero} — ${empresa.nombre}`
     : 'Presupuesto — Flux by Salix'
 
-  return { title: titulo }
+  const descripcion = presupuesto && empresa
+    ? `${empresa.nombre} te envió un presupuesto para tu revisión.`
+    : 'Revisá y aceptá tu presupuesto online.'
+
+  return {
+    title: titulo,
+    description: descripcion,
+    openGraph: {
+      title: titulo,
+      description: descripcion,
+      type: 'website',
+      siteName: 'Flux by Salix',
+      ...(empresa?.logo_url ? {
+        images: [{ url: empresa.logo_url, width: 200, height: 200, alt: empresa.nombre }],
+      } : {}),
+    },
+    twitter: {
+      card: 'summary',
+      title: titulo,
+      description: descripcion,
+      ...(empresa?.logo_url ? { images: [empresa.logo_url] } : {}),
+    },
+  }
 }
 
 async function obtenerDatosPortal(token: string): Promise<DatosPortal | null> {
   try {
-    // Usar API interna via fetch absoluto para reutilizar la lógica
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const res = await fetch(`${baseUrl}/api/portal/${token}`, { cache: 'no-store' })
     if (!res.ok) return null

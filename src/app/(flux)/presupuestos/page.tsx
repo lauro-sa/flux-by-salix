@@ -80,6 +80,12 @@ export default function PaginaPresupuestos() {
   const [pagina, setPagina] = useState(1)
   const [nombreFiltro, setNombreFiltro] = useState<string | null>(null)
 
+  // Filtros server-side
+  const [filtroEstado, setFiltroEstado] = useState('')
+  const [filtroMoneda, setFiltroMoneda] = useState('')
+  const filtrosPresRef = useRef({ estado: '', moneda: '' })
+  filtrosPresRef.current = { estado: filtroEstado, moneda: filtroMoneda }
+
   const busquedaRef = useRef(busqueda)
   busquedaRef.current = busqueda
 
@@ -128,6 +134,8 @@ export default function PaginaPresupuestos() {
       const b = busquedaRef.current
       if (b) params.set('busqueda', b)
       if (contactoIdFiltro) params.set('contacto_id', contactoIdFiltro)
+      if (filtrosPresRef.current.estado) params.set('estado', filtrosPresRef.current.estado)
+      if (filtrosPresRef.current.moneda) params.set('moneda', filtrosPresRef.current.moneda)
       params.set('pagina', String(p))
       params.set('por_pagina', String(POR_PAGINA))
 
@@ -174,6 +182,14 @@ export default function PaginaPresupuestos() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda])
 
+  // Re-fetch al cambiar filtros (reset a página 1)
+  useEffect(() => {
+    if (!montadoRef.current) return
+    if (pagina === 1) fetchPresupuestos(1)
+    else setPagina(1)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroEstado, filtroMoneda])
+
   // Helpers de formato
   const formatoIdentificacion = (num: string) => {
     const limpio = num.replace(/\D/g, '')
@@ -211,7 +227,6 @@ export default function PaginaPresupuestos() {
     },
     {
       clave: 'estado', etiqueta: t('documentos.estado'), ancho: 130, ordenable: true, grupo: 'Identidad', icono: <CircleDot size={I} />,
-      filtrable: true, tipoFiltro: 'pills',
       opcionesFiltro: Object.entries(ETIQUETAS_ESTADO).map(([valor, etiqueta]) => ({ valor, etiqueta })),
       render: (fila) => (
         <Insignia color={COLOR_ESTADO_DOCUMENTO[fila.estado] || 'neutro'}>
@@ -303,7 +318,6 @@ export default function PaginaPresupuestos() {
     },
     {
       clave: 'moneda', etiqueta: t('documentos.moneda'), ancho: 80, grupo: 'Montos', icono: <DollarSign size={I} />,
-      filtrable: true, tipoFiltro: 'pills',
       opcionesFiltro: [
         { valor: 'ARS', etiqueta: 'ARS' },
         { valor: 'USD', etiqueta: 'USD' },
@@ -469,6 +483,23 @@ export default function PaginaPresupuestos() {
         busqueda={busqueda}
         onBusqueda={setBusqueda}
         placeholder="Buscar presupuestos..."
+        filtros={[
+          {
+            id: 'estado', etiqueta: 'Estado', tipo: 'pills' as const,
+            valor: filtroEstado, onChange: (v) => setFiltroEstado(v as string),
+            opciones: Object.entries(ETIQUETAS_ESTADO).map(([valor, etiqueta]) => ({ valor, etiqueta })),
+          },
+          {
+            id: 'moneda', etiqueta: 'Moneda', tipo: 'pills' as const,
+            valor: filtroMoneda, onChange: (v) => setFiltroMoneda(v as string),
+            opciones: [
+              { valor: 'ARS', etiqueta: 'ARS' },
+              { valor: 'USD', etiqueta: 'USD' },
+              { valor: 'EUR', etiqueta: 'EUR' },
+            ],
+          },
+        ]}
+        onLimpiarFiltros={() => { setFiltroEstado(''); setFiltroMoneda('') }}
         idModulo="presupuestos"
         opcionesOrden={[
           { etiqueta: t('comun.mas_recientes'), clave: 'numero', direccion: 'desc' },

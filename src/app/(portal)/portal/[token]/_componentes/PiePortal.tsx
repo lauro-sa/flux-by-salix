@@ -7,6 +7,7 @@
 
 import Image from 'next/image'
 import { useTraduccion } from '@/lib/i18n'
+import { IconoSalix } from '@/componentes/marca'
 
 interface Props {
   empresa: {
@@ -67,14 +68,7 @@ export default function PiePortal({ empresa }: Props) {
 
         {/* Branding Flux */}
         <div className="flex items-center justify-center gap-1.5 pt-2 opacity-30">
-          <Image
-            src="/iconos/favicon.svg"
-            alt=""
-            width={12}
-            height={12}
-            className="size-3"
-            unoptimized
-          />
+          <IconoSalix tamano={12} />
           <span className="text-xxs text-texto-terciario">
             {t('portal.generado_con_flux')}
           </span>

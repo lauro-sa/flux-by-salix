@@ -4,10 +4,14 @@ import { useState, useRef, useEffect } from 'react'
 import { useTema } from '@/hooks/useTema'
 import { useTraduccion } from '@/lib/i18n'
 import { Migajas } from './Migajas'
-import { PanelLeft, PanelLeftClose, Moon, Sun, Monitor, Check, Globe, ChevronsLeft, ChevronsRight, RotateCcw } from 'lucide-react'
+import {
+  PanelLeft, PanelLeftClose, Moon, Sun, Monitor, Check, Globe,
+  ChevronsLeft, ChevronsRight, RotateCcw, Headphones, Settings,
+  ChevronRight,
+} from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Avatar } from '@/componentes/ui/Avatar'
 import { useAuth } from '@/hooks/useAuth'
+import { IconoSalix } from '@/componentes/marca'
 import type { Migaja } from '@/hooks/useNavegacion'
 
 const BANDERAS: Record<string, string> = {
@@ -16,10 +20,16 @@ const BANDERAS: Record<string, string> = {
   pt: '🇧🇷',
 }
 
+const TEMAS = [
+  { clave: 'sistema', icono: Monitor, etiqueta: 'Sistema' },
+  { clave: 'claro', icono: Sun, etiqueta: 'Claro' },
+  { clave: 'oscuro', icono: Moon, etiqueta: 'Oscuro' },
+] as const
+
 /**
  * Header — Barra superior compacta estilo Linear.
- * Desktop: botón sidebar + migajas + acciones.
- * Mobile: botón drawer + título + acciones.
+ * Desktop: botón sidebar + migajas + logo Salix (abre menú central).
+ * Mobile: botón drawer + título + logo Salix.
  */
 
 interface PropiedadesHeader {
@@ -49,24 +59,24 @@ function Header({
 
   const nombreUsuario = usuario?.user_metadata?.nombre && usuario?.user_metadata?.apellido
     ? `${usuario.user_metadata.nombre} ${usuario.user_metadata.apellido}`
-    : usuario?.email?.split('@')[0] || 'U'
+    : usuario?.email?.split('@')[0] || 'Usuario'
 
-  const [idiomaAbierto, setIdiomaAbierto] = useState(false)
+  const [menuAbierto, setMenuAbierto] = useState(false)
   const [sidebarMenuAbierto, setSidebarMenuAbierto] = useState(false)
-  const idiomaRef = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const sidebarMenuRef = useRef<HTMLDivElement>(null)
   const esCristal = efecto !== 'solido'
 
-  // Cerrar dropdowns al click fuera
+  /* Cerrar dropdowns al click fuera */
   useEffect(() => {
-    if (!idiomaAbierto && !sidebarMenuAbierto) return
+    if (!menuAbierto && !sidebarMenuAbierto) return
     const handler = (e: MouseEvent) => {
-      if (idiomaAbierto && idiomaRef.current && !idiomaRef.current.contains(e.target as Node)) setIdiomaAbierto(false)
+      if (menuAbierto && menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuAbierto(false)
       if (sidebarMenuAbierto && sidebarMenuRef.current && !sidebarMenuRef.current.contains(e.target as Node)) setSidebarMenuAbierto(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [idiomaAbierto, sidebarMenuAbierto])
+  }, [menuAbierto, sidebarMenuAbierto])
 
   const nombreSeccion = seccionActual.replace('/', '') || 'inicio'
 
@@ -112,12 +122,10 @@ function Header({
                 className="absolute left-0 top-full mt-1.5 border border-borde-sutil rounded-xl shadow-lg overflow-hidden min-w-[220px] py-1 z-50"
                 style={estiloPopover}
               >
-                {/* Estado actual */}
                 <div className="px-3 py-2 text-xxs font-semibold text-texto-terciario uppercase tracking-wider">
                   Menú lateral
                 </div>
 
-                {/* Toggle esta sección */}
                 <button
                   onClick={() => { onToggleSidebar(); setSidebarMenuAbierto(false) }}
                   className="flex items-center gap-2.5 w-full px-3 py-2 text-sm border-none cursor-pointer transition-colors bg-transparent text-texto-primario hover:bg-superficie-hover text-left"
@@ -128,7 +136,6 @@ function Header({
 
                 <div className="h-px bg-borde-sutil my-1 mx-2" />
 
-                {/* Aplicar a todas */}
                 <button
                   onClick={() => { onAplicarATodas(true); setSidebarMenuAbierto(false) }}
                   className="flex items-center gap-2.5 w-full px-3 py-2 text-sm border-none cursor-pointer transition-colors bg-transparent text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario text-left"
@@ -144,7 +151,6 @@ function Header({
                   <span>Expandir en todas</span>
                 </button>
 
-                {/* Limpiar preferencia de esta sección */}
                 {tienePreferenciaSeccion && (
                   <>
                     <div className="h-px bg-borde-sutil my-1 mx-2" />
@@ -165,33 +171,99 @@ function Header({
         <Migajas extras={migajasExtras} />
       </div>
 
-      {/* Derecha */}
-      <div className="flex items-center gap-1.5 shrink-0">
-        {/* Selector de idioma */}
-        <div ref={idiomaRef} className="relative">
-          <button
-            onClick={() => setIdiomaAbierto(!idiomaAbierto)}
-            className="flex items-center justify-center size-10 rounded-md bg-transparent border-none text-texto-terciario cursor-pointer hover:bg-superficie-hover transition-colors duration-100"
-            title="Cambiar idioma"
-          >
-            <Globe size={18} />
-          </button>
-          <AnimatePresence>
-            {idiomaAbierto && (
-              <motion.div
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.12 }}
-                className="absolute right-0 top-full mt-1.5 border border-borde-sutil rounded-lg shadow-lg overflow-hidden min-w-[160px]"
-                style={estiloPopover}
-              >
+      {/* Derecha — Logo Salix que abre menú central */}
+      <div ref={menuRef} className="relative shrink-0">
+        <button
+          onClick={() => setMenuAbierto(!menuAbierto)}
+          className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border-none cursor-pointer transition-colors duration-200 bg-transparent text-texto-terciario hover:bg-superficie-hover hover:text-texto-primario active:scale-95"
+        >
+          <IconoSalix tamano={22} hover tap />
+          <span className="hidden sm:inline text-sm font-medium text-current">Flux</span>
+        </button>
+
+        {/* ── Menú Salix ── */}
+        <AnimatePresence>
+          {menuAbierto && (
+            <motion.div
+              initial={{ opacity: 0, y: -6, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.97 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+              className="absolute right-0 top-full mt-2 border border-borde-sutil rounded-2xl shadow-elevada overflow-hidden w-[280px] z-50"
+              style={estiloPopover}
+            >
+              {/* Cabecera del menú — Logo + info */}
+              <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+                <div className="size-11 rounded-xl bg-superficie-hover flex items-center justify-center shrink-0">
+                  <IconoSalix tamano={26} />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-semibold text-texto-primario">Flux <span className="font-normal text-texto-terciario">by Salix</span></span>
+                  <span className="text-xxs text-texto-terciario truncate">Gestión de clientes y equipos</span>
+                </div>
+              </div>
+
+              {/* Info de versión y soporte */}
+              <div className="px-4 pb-3 flex flex-col gap-1.5">
+                <div className="flex items-center gap-2 text-xxs text-texto-terciario">
+                  <Settings size={13} className="shrink-0" />
+                  <span>Versión 1.0 — En desarrollo activo</span>
+                </div>
+                <div className="flex items-center gap-2 text-xxs text-texto-terciario">
+                  <Headphones size={13} className="shrink-0" />
+                  <span>Soporte disponible de Lunes a Viernes</span>
+                </div>
+              </div>
+
+              {/* Botón contactar soporte */}
+              <div className="px-4 pb-3">
+                <button
+                  onClick={() => { setMenuAbierto(false); window.open('https://wa.me/5493515555555', '_blank') }}
+                  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border-none cursor-pointer text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: 'var(--texto-marca)' }}
+                >
+                  <Headphones size={16} />
+                  Contactar soporte
+                </button>
+              </div>
+
+              <div className="h-px bg-borde-sutil" />
+
+              {/* Apariencia — tema */}
+              <div className="px-4 py-3">
+                <span className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider">Apariencia</span>
+                <div className="flex items-center gap-1 mt-2 p-1 rounded-lg" style={{ backgroundColor: 'var(--superficie-hover)' }}>
+                  {TEMAS.map(({ clave, icono: Icono, etiqueta }) => (
+                    <button
+                      key={clave}
+                      onClick={() => cambiarTema(clave)}
+                      className={[
+                        'flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border-none cursor-pointer text-xs font-medium transition-all duration-150',
+                        tema === clave
+                          ? 'bg-superficie-tarjeta text-texto-primario shadow-sm'
+                          : 'bg-transparent text-texto-terciario hover:text-texto-secundario',
+                      ].join(' ')}
+                    >
+                      <Icono size={14} />
+                      <span className="hidden xs:inline">{etiqueta}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="h-px bg-borde-sutil" />
+
+              {/* Idioma */}
+              <div className="py-1">
+                <div className="px-4 py-2">
+                  <span className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider">Idioma</span>
+                </div>
                 {idiomasDisponibles.map((i) => (
                   <button
                     key={i.codigo}
-                    onClick={() => { cambiarIdioma(i.codigo as 'es' | 'en' | 'pt'); setIdiomaAbierto(false) }}
+                    onClick={() => { cambiarIdioma(i.codigo as 'es' | 'en' | 'pt') }}
                     className={[
-                      'flex items-center gap-2.5 w-full px-3 py-2 text-sm border-none cursor-pointer transition-colors duration-100',
+                      'flex items-center gap-2.5 w-full px-4 py-2 text-sm border-none cursor-pointer transition-colors duration-100',
                       idioma === i.codigo
                         ? 'bg-superficie-seleccionada text-texto-marca font-medium'
                         : 'bg-transparent text-texto-primario hover:bg-superficie-hover',
@@ -202,28 +274,24 @@ function Header({
                     {idioma === i.codigo && <Check size={14} className="text-texto-marca shrink-0" />}
                   </button>
                 ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+              </div>
 
-        {/* Tema: click rota sistema → claro → oscuro → sistema... */}
-        <button
-          onClick={() => {
-            const orden = ['sistema', 'claro', 'oscuro'] as const
-            const siguiente = orden[(orden.indexOf(tema as typeof orden[number]) + 1) % orden.length]
-            cambiarTema(siguiente)
-          }}
-          title={tema === 'sistema' ? 'Sistema' : tema === 'claro' ? 'Claro' : 'Oscuro'}
-          className="flex items-center justify-center size-10 rounded-md bg-transparent border-none text-texto-terciario cursor-pointer hover:bg-superficie-hover transition-colors duration-100"
-        >
-          {tema === 'sistema' ? <Monitor size={18} /> : tema === 'claro' ? <Sun size={18} /> : <Moon size={18} />}
-        </button>
+              <div className="h-px bg-borde-sutil" />
 
-        {/* Avatar */}
-        <div className="ml-1">
-          <Avatar nombre={nombreUsuario} tamano="sm" />
-        </div>
+              {/* Usuario */}
+              <div className="px-4 py-3 flex items-center gap-2.5">
+                <div className="size-8 rounded-full bg-texto-marca flex items-center justify-center text-white text-xs font-bold shrink-0">
+                  {nombreUsuario[0]?.toUpperCase()}
+                </div>
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="text-sm font-medium text-texto-primario truncate">{nombreUsuario}</span>
+                  <span className="text-xxs text-texto-terciario truncate">{usuario?.email}</span>
+                </div>
+                <ChevronRight size={14} className="text-texto-terciario shrink-0" />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </header>
   )
