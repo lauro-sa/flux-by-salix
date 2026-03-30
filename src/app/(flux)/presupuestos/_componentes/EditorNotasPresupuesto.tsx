@@ -178,11 +178,20 @@ export default function EditorNotasPresupuesto({
     }
   }, [valor])
 
+  // Emitir cambios al padre fuera del ciclo de render (evita setState durante render)
+  const emitirPendienteRef = useRef<ItemNota[] | null>(null)
+  useEffect(() => {
+    if (emitirPendienteRef.current !== null) {
+      const serializado = serializarItems(emitirPendienteRef.current)
+      emitirPendienteRef.current = null
+      valorExternoRef.current = serializado
+      onChange(serializado)
+    }
+  })
+
   const emitir = useCallback((nuevos: ItemNota[]) => {
-    const serializado = serializarItems(nuevos)
-    valorExternoRef.current = serializado
-    onChange(serializado)
-  }, [onChange])
+    emitirPendienteRef.current = nuevos
+  }, [])
 
   const cambiarHtml = useCallback((id: string, html: string) => {
     setItems(prev => {

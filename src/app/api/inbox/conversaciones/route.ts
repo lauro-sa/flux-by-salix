@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const busqueda = params.get('busqueda') || ''
     const enviados = params.get('enviados') === 'true'
     const pagina = parseInt(params.get('pagina') || '1')
-    const por_pagina = Math.min(parseInt(params.get('por_pagina') || '50'), 100)
+    const por_pagina = Math.min(parseInt(params.get('por_pagina') || '500'), 500)
     const desde = (pagina - 1) * por_pagina
 
     const admin = crearClienteAdmin()

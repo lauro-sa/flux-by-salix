@@ -1,11 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { vincularOCrearContactoEquipo } from '@/lib/contactos/contacto-equipo'
 
 /**
  * POST /api/empresas/crear — Crear empresa nueva (onboarding).
  * Crea la empresa, el miembro propietario (activo=true),
- * y setea empresa_activa_id en el JWT del usuario.
+ * crea contacto tipo "equipo", y setea empresa_activa_id en el JWT.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Crear miembro propietario (activo = true, el propietario siempre está activo)
-    const { error: errorMiembro } = await admin
+    const { data: miembro, error: errorMiembro } = await admin
       .from('miembros')
       .insert({
         usuario_id: user.id,
@@ -70,10 +71,21 @@ export async function POST(request: NextRequest) {
         rol: 'propietario',
         activo: true,
       })
+      .select('id')
+      .single()
 
-    if (errorMiembro) {
+    if (errorMiembro || !miembro) {
       return NextResponse.json({ error: 'Error al crear membresía' }, { status: 500 })
     }
+
+    // Crear contacto tipo "equipo" para el propietario
+    await vincularOCrearContactoEquipo(admin, {
+      miembroId: miembro.id,
+      empresaId: empresa.id,
+      correo: user.email || '',
+      nombre: user.user_metadata?.nombre_completo || user.email?.split('@')[0] || '',
+      usuarioId: user.id,
+    })
 
     // Setear empresa activa en app_metadata para que el JWT hook la use
     await admin.auth.admin.updateUserById(user.id, {

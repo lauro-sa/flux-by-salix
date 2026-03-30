@@ -7,6 +7,7 @@ import { ProveedorToast } from '@/componentes/feedback/Toast'
 import { ProveedorAuth } from '@/hooks/useAuth'
 import { ProveedorPreferencias } from '@/hooks/usePreferencias'
 import { ProveedorEmpresa } from '@/hooks/useEmpresa'
+import { ProveedorModulos } from '@/hooks/useModulos'
 import { PlantillaApp } from '@/componentes/entidad/PlantillaApp'
 
 /**
@@ -20,6 +21,7 @@ export default function LayoutFlux({ children }: { children: React.ReactNode }) 
         <ProveedorPreferencias>
           <ProveedorTema>
             <ProveedorEmpresa>
+            <ProveedorModulos>
             <ProveedorNavegacion>
               <ProveedorToast>
                 <PlantillaApp>
@@ -27,6 +29,7 @@ export default function LayoutFlux({ children }: { children: React.ReactNode }) 
                 </PlantillaApp>
               </ProveedorToast>
             </ProveedorNavegacion>
+            </ProveedorModulos>
             </ProveedorEmpresa>
           </ProveedorTema>
         </ProveedorPreferencias>

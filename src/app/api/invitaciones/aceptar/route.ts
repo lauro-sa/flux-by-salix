@@ -1,11 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { vincularOCrearContactoEquipo } from '@/lib/contactos/contacto-equipo'
 
 /**
  * POST /api/invitaciones/aceptar — Aceptar una invitación.
  * Valida el token, crea el miembro con activo=false,
- * y marca la invitación como usada.
+ * crea/vincula un contacto tipo "equipo", y marca la invitación como usada.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Crear miembro con activo=false (espera activación del admin)
-    const { error: errorMiembro } = await admin
+    const { data: miembro, error: errorMiembro } = await admin
       .from('miembros')
       .insert({
         usuario_id: user.id,
@@ -64,10 +65,21 @@ export async function POST(request: NextRequest) {
         rol: invitacion.rol,
         activo: false,
       })
+      .select('id')
+      .single()
 
-    if (errorMiembro) {
+    if (errorMiembro || !miembro) {
       return NextResponse.json({ error: 'Error al unirse a la empresa' }, { status: 500 })
     }
+
+    // Crear o vincular contacto tipo "equipo" para este miembro
+    await vincularOCrearContactoEquipo(admin, {
+      miembroId: miembro.id,
+      empresaId: invitacion.empresa_id,
+      correo: invitacion.correo || user.email || '',
+      nombre: user.user_metadata?.nombre_completo || user.email?.split('@')[0] || '',
+      usuarioId: user.id,
+    })
 
     // Marcar invitación como usada
     await admin

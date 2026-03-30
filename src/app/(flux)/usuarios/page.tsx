@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   UserPlus, Users, Mail, Copy, Check, Download, Upload,
   Briefcase, DollarSign, Calendar, UserRoundSearch,
-  Clock, Cake,
+  Clock, Cake, Phone,
 } from 'lucide-react'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -37,14 +37,23 @@ interface MiembroTabla {
   avatar_url: string | null
   correo: string
   telefono: string
+  telefono_empresa: string
   rol: string
   activo: boolean
   sector: string
   puesto: string
+  numero_empleado: number | null
+  documento_numero: string
+  genero: string
+  domicilio: string
   compensacion_tipo: string
   compensacion_monto: number
   compensacion_frecuencia: string
   dias_trabajo: number
+  horario_tipo: string
+  horario_flexible: boolean
+  turno: string
+  metodo_fichaje: string
   unido_en: string
   fecha_nacimiento: string | null
 }
@@ -109,13 +118,55 @@ function formatearMoneda(monto: number): string {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(monto)
 }
 
-/* ── Columnas de la tabla ── */
+const ETIQUETA_FRECUENCIA: Record<string, string> = {
+  mensual: '/mes',
+  quincenal: '/quincena',
+  semanal: '/semana',
+  eventual: '',
+}
+
+function etiquetaCompensacion(tipo: string, frecuencia: string): string {
+  if (tipo === 'por_dia') return '/día'
+  if (tipo === 'por_hora') return '/hora'
+  return ETIQUETA_FRECUENCIA[frecuencia] || '/mes'
+}
+
+const ETIQUETA_HORARIO: Record<string, string> = {
+  lunes_viernes: 'L-V',
+  lunes_sabado: 'L-S',
+  todos: 'L-D',
+  custom: 'Personalizado',
+}
+
+const ETIQUETA_FICHAJE: Record<string, string> = {
+  kiosco: 'Kiosco',
+  automatico: 'Automático',
+  manual: 'Manual',
+}
+
+function formatearIngreso(fecha: string | null): string | null {
+  if (!fecha) return null
+  const d = new Date(fecha)
+  if (isNaN(d.getTime())) return null
+  return `Desde ${d.toLocaleDateString('es-AR', { month: 'short', year: 'numeric' })}`
+}
+
+/* ── Columnas de la tabla ──
+   Orden lógico: identidad → rol/estado → organización → contacto → compensación → fechas
+   Visibles por defecto: nombre, rol, estado, sector, puesto, correo (las más usadas)
+   Ocultas por defecto: teléfono, compensación, días trabajo, ingreso, cumpleaños (disponibles para activar) */
+
+/** Columnas visibles por defecto (el usuario puede cambiarlas y se persisten) */
+const COLUMNAS_VISIBLES_DEFAULT = ['nombre', 'rol', 'activo', 'sector', 'puesto', 'correo']
+
 const columnas: ColumnaDinamica<MiembroTabla>[] = [
+  /* ── Identidad ── */
   {
     clave: 'nombre',
     etiqueta: 'Nombre',
     ancho: 240,
     ordenable: true,
+    grupo: 'Identidad',
     render: (fila) => {
       const dias = diasHastaCumple(fila.fecha_nacimiento)
       const esHoy = dias === 0
@@ -123,7 +174,7 @@ const columnas: ColumnaDinamica<MiembroTabla>[] = [
       return (
         <div className="flex items-center gap-3">
           <div className="relative">
-            <Avatar nombre={`${fila.nombre} ${fila.apellido}`} foto={fila.avatar_url} tamano="sm" />
+            <Avatar nombre={`${fila.nombre} ${fila.apellido}`} tamano="sm" />
             {esHoy && (
               <div className="absolute -top-1 -right-1 size-4 rounded-full bg-insignia-advertencia flex items-center justify-center">
                 <Cake size={9} className="text-white" />
@@ -154,11 +205,14 @@ const columnas: ColumnaDinamica<MiembroTabla>[] = [
       )
     },
   },
+
+  /* ── Rol y estado ── */
   {
     clave: 'rol',
     etiqueta: 'Rol',
     ancho: 130,
     ordenable: true,
+    grupo: 'Rol y estado',
     filtrable: true,
     opcionesFiltro: [
       { valor: 'propietario', etiqueta: 'Propietario' },
@@ -180,6 +234,7 @@ const columnas: ColumnaDinamica<MiembroTabla>[] = [
     etiqueta: 'Estado',
     ancho: 100,
     ordenable: true,
+    grupo: 'Rol y estado',
     filtrable: true,
     opcionesFiltro: [
       { valor: 'true', etiqueta: 'Activo' },
@@ -191,11 +246,25 @@ const columnas: ColumnaDinamica<MiembroTabla>[] = [
       </Insignia>
     ),
   },
+
+  /* ── Organización ── */
+  {
+    clave: 'numero_empleado',
+    etiqueta: 'N° empleado',
+    ancho: 110,
+    ordenable: true,
+    tipo: 'numero',
+    grupo: 'Organización',
+    render: (fila) => (
+      <span className="text-sm text-texto-secundario">{fila.numero_empleado != null ? `#${fila.numero_empleado}` : '—'}</span>
+    ),
+  },
   {
     clave: 'sector',
     etiqueta: 'Sector',
     ancho: 140,
     ordenable: true,
+    grupo: 'Organización',
     render: (fila) => (
       <span className="text-sm text-texto-secundario">{fila.sector || '—'}</span>
     ),
@@ -205,10 +274,79 @@ const columnas: ColumnaDinamica<MiembroTabla>[] = [
     etiqueta: 'Puesto',
     ancho: 180,
     ordenable: true,
+    grupo: 'Organización',
     render: (fila) => (
       <span className="text-sm text-texto-secundario truncate">{fila.puesto || '—'}</span>
     ),
   },
+
+  /* ── Contacto ── */
+  {
+    clave: 'correo',
+    etiqueta: 'Correo',
+    ancho: 220,
+    ordenable: true,
+    grupo: 'Contacto',
+    render: (fila) => (
+      <span className="text-sm text-texto-secundario truncate">{fila.correo || '—'}</span>
+    ),
+  },
+  {
+    clave: 'telefono',
+    etiqueta: 'Teléfono personal',
+    ancho: 150,
+    grupo: 'Contacto',
+    render: (fila) => (
+      <span className="text-sm text-texto-secundario">{fila.telefono || '—'}</span>
+    ),
+  },
+  {
+    clave: 'telefono_empresa',
+    etiqueta: 'Teléfono laboral',
+    ancho: 150,
+    grupo: 'Contacto',
+    render: (fila) => (
+      <span className="text-sm text-texto-secundario">{fila.telefono_empresa || '—'}</span>
+    ),
+  },
+  {
+    clave: 'documento_numero',
+    etiqueta: 'Documento',
+    ancho: 140,
+    ordenable: true,
+    grupo: 'Contacto',
+    render: (fila) => (
+      <span className="text-sm text-texto-secundario">{fila.documento_numero || '—'}</span>
+    ),
+  },
+  {
+    clave: 'domicilio',
+    etiqueta: 'Domicilio',
+    ancho: 200,
+    grupo: 'Contacto',
+    render: (fila) => (
+      <span className="text-sm text-texto-secundario truncate">{fila.domicilio || '—'}</span>
+    ),
+  },
+  {
+    clave: 'genero',
+    etiqueta: 'Género',
+    ancho: 100,
+    ordenable: true,
+    grupo: 'Contacto',
+    filtrable: true,
+    opcionesFiltro: [
+      { valor: 'masculino', etiqueta: 'Masculino' },
+      { valor: 'femenino', etiqueta: 'Femenino' },
+      { valor: 'otro', etiqueta: 'Otro' },
+    ],
+    render: (fila) => {
+      const etiquetas: Record<string, string> = { masculino: 'Masculino', femenino: 'Femenino', otro: 'Otro' }
+      return <span className="text-sm text-texto-secundario">{etiquetas[fila.genero] || '—'}</span>
+    },
+  },
+
+  /* ── Compensación ── */
   {
     clave: 'compensacion_monto',
     etiqueta: 'Compensación',
@@ -216,36 +354,116 @@ const columnas: ColumnaDinamica<MiembroTabla>[] = [
     ordenable: true,
     tipo: 'moneda',
     resumen: 'suma',
+    grupo: 'Compensación',
     render: (fila) => {
       if (!fila.compensacion_monto) return <span className="text-sm text-texto-terciario">—</span>
       return (
         <div>
           <p className="text-sm font-medium text-texto-primario">{formatearMoneda(fila.compensacion_monto)}</p>
           <p className="text-[10px] text-texto-terciario">
-            {fila.compensacion_tipo === 'por_dia' ? '/día' : '/mes'} · {fila.compensacion_frecuencia}
+            {etiquetaCompensacion(fila.compensacion_tipo, fila.compensacion_frecuencia)} · {fila.compensacion_frecuencia}
           </p>
         </div>
       )
     },
   },
   {
-    clave: 'telefono',
-    etiqueta: 'Teléfono',
-    ancho: 150,
+    clave: 'dias_trabajo',
+    etiqueta: 'Días/semana',
+    ancho: 110,
+    ordenable: true,
+    tipo: 'numero',
+    resumen: 'promedio',
+    grupo: 'Compensación',
     render: (fila) => (
-      <span className="text-sm text-texto-secundario">{fila.telefono || '—'}</span>
+      <span className="text-sm text-texto-secundario">{fila.dias_trabajo ? `${fila.dias_trabajo} días` : '—'}</span>
+    ),
+  },
+
+  /* ── Horario ── */
+  {
+    clave: 'horario_tipo',
+    etiqueta: 'Horario',
+    ancho: 130,
+    ordenable: true,
+    grupo: 'Horario',
+    filtrable: true,
+    opcionesFiltro: [
+      { valor: 'lunes_viernes', etiqueta: 'L-V' },
+      { valor: 'lunes_sabado', etiqueta: 'L-S' },
+      { valor: 'todos', etiqueta: 'L-D' },
+      { valor: 'custom', etiqueta: 'Personalizado' },
+    ],
+    render: (fila) => (
+      <span className="text-sm text-texto-secundario">{ETIQUETA_HORARIO[fila.horario_tipo] || '—'}</span>
     ),
   },
   {
-    clave: 'unido_en',
-    etiqueta: 'Ingreso',
+    clave: 'horario_flexible',
+    etiqueta: 'Flexible',
+    ancho: 100,
+    grupo: 'Horario',
+    render: (fila) => (
+      <Insignia color={fila.horario_flexible ? 'exito' : 'neutro'} tamano="sm">
+        {fila.horario_flexible ? 'Sí' : 'No'}
+      </Insignia>
+    ),
+  },
+  {
+    clave: 'turno',
+    etiqueta: 'Turno',
     ancho: 120,
     ordenable: true,
+    grupo: 'Horario',
+    render: (fila) => (
+      <span className="text-sm text-texto-secundario">{fila.turno || '—'}</span>
+    ),
+  },
+  {
+    clave: 'metodo_fichaje',
+    etiqueta: 'Fichaje',
+    ancho: 120,
+    ordenable: true,
+    grupo: 'Horario',
+    filtrable: true,
+    opcionesFiltro: [
+      { valor: 'kiosco', etiqueta: 'Kiosco' },
+      { valor: 'automatico', etiqueta: 'Automático' },
+      { valor: 'manual', etiqueta: 'Manual' },
+    ],
+    render: (fila) => (
+      <span className="text-sm text-texto-secundario">{ETIQUETA_FICHAJE[fila.metodo_fichaje] || '—'}</span>
+    ),
+  },
+
+  /* ── Fechas ── */
+  {
+    clave: 'unido_en',
+    etiqueta: 'Ingreso',
+    ancho: 130,
+    ordenable: true,
+    grupo: 'Fechas',
     render: (fila) => (
       <span className="text-sm text-texto-terciario">
-        {new Date(fila.unido_en).toLocaleDateString('es', { day: 'numeric', month: 'short', year: '2-digit' })}
+        {fila.unido_en ? new Date(fila.unido_en).toLocaleDateString('es', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'}
       </span>
     ),
+  },
+  {
+    clave: 'fecha_nacimiento',
+    etiqueta: 'Cumpleaños',
+    ancho: 130,
+    ordenable: true,
+    grupo: 'Fechas',
+    render: (fila) => {
+      if (!fila.fecha_nacimiento) return <span className="text-sm text-texto-terciario">—</span>
+      const dias = diasHastaCumple(fila.fecha_nacimiento)
+      const fecha = new Date(fila.fecha_nacimiento + 'T12:00:00')
+      const texto = fecha.toLocaleDateString('es', { day: 'numeric', month: 'short' })
+      if (dias === 0) return <span className="text-sm text-insignia-advertencia font-medium flex items-center gap-1"><Cake size={12} /> ¡Hoy!</span>
+      if (dias > 0 && dias <= 7) return <span className="text-sm text-insignia-advertencia/60 flex items-center gap-1"><Cake size={12} /> {texto} ({dias}d)</span>
+      return <span className="text-sm text-texto-terciario">{texto}</span>
+    },
   },
 ]
 
@@ -282,7 +500,7 @@ export default function PaginaUsuarios() {
     // Cargar miembros
     const { data: miembrosData } = await supabase
       .from('miembros')
-      .select('id, usuario_id, rol, activo, unido_en, compensacion_tipo, compensacion_monto, compensacion_frecuencia, dias_trabajo, puesto_id')
+      .select('id, usuario_id, rol, activo, unido_en, compensacion_tipo, compensacion_monto, compensacion_frecuencia, dias_trabajo, puesto_id, numero_empleado, horario_tipo, horario_flexible, turno, metodo_fichaje')
       .eq('empresa_id', empresa.id)
       .order('unido_en', { ascending: true })
 
@@ -295,7 +513,7 @@ export default function PaginaUsuarios() {
     const usuarioIds = miembrosData.map(m => m.usuario_id)
     const { data: perfilesData } = await supabase
       .from('perfiles')
-      .select('id, nombre, apellido, avatar_url, telefono, correo_empresa, fecha_nacimiento')
+      .select('id, nombre, apellido, avatar_url, telefono, telefono_empresa, correo_empresa, fecha_nacimiento, documento_numero, genero, domicilio')
       .in('id', usuarioIds)
 
     const perfilesMapa = new Map(
@@ -352,14 +570,23 @@ export default function PaginaUsuarios() {
         avatar_url: perfil?.avatar_url || null,
         correo: perfil?.correo_empresa || '',
         telefono: perfil?.telefono || '',
+        telefono_empresa: perfil?.telefono_empresa || '',
         rol: m.rol,
         activo: m.activo,
         sector: miembroSectorMapa.get(m.id) || '',
         puesto: m.puesto_id ? (puestosMapa.get(m.puesto_id) || '') : '',
+        numero_empleado: m.numero_empleado ?? null,
+        documento_numero: perfil?.documento_numero || '',
+        genero: perfil?.genero || '',
+        domicilio: perfil?.domicilio || '',
         compensacion_tipo: m.compensacion_tipo || 'fijo',
         compensacion_monto: Number(m.compensacion_monto) || 0,
         compensacion_frecuencia: m.compensacion_frecuencia || 'mensual',
         dias_trabajo: m.dias_trabajo || 5,
+        horario_tipo: m.horario_tipo || '',
+        horario_flexible: m.horario_flexible ?? false,
+        turno: m.turno || '',
+        metodo_fichaje: m.metodo_fichaje || '',
         unido_en: m.unido_en,
         fecha_nacimiento: perfil?.fecha_nacimiento || null,
       }
@@ -457,6 +684,7 @@ export default function PaginaUsuarios() {
       <TablaDinamica<MiembroTabla>
         idModulo="usuarios"
         columnas={columnas}
+        columnasVisiblesDefault={COLUMNAS_VISIBLES_DEFAULT}
         datos={miembros}
         claveFila={(r) => r.id}
         vistas={['lista', 'tarjetas']}
@@ -470,10 +698,13 @@ export default function PaginaUsuarios() {
         renderTarjeta={(fila) => {
           const dias = diasHastaCumple(fila.fecha_nacimiento)
           const esCumple = dias >= 0 && dias <= 7
+          const ingreso = formatearIngreso(fila.unido_en)
+          const tieneDetalle = fila.telefono || fila.compensacion_monto > 0 || ingreso
           return (
-            <div className="p-4 space-y-3">
+            <div className="p-4 flex flex-col gap-3">
+              {/* ── Identidad ── */}
               <div className="flex items-center gap-3">
-                <div className="relative">
+                <div className="relative shrink-0">
                   <Avatar nombre={`${fila.nombre} ${fila.apellido}`} foto={fila.avatar_url} tamano="md" />
                   {esCumple && (
                     <motion.div
@@ -487,37 +718,60 @@ export default function PaginaUsuarios() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-texto-primario truncate">{fila.nombre} {fila.apellido}</p>
-                  {dias === 0 ? (
-                    <motion.p
-                      animate={{ opacity: [1, 0.4, 1] }}
-                      transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                      className="text-[11px] text-insignia-advertencia font-medium truncate flex items-center gap-1"
-                    >
-                      <Cake size={10} />
-                      {textoCumple(dias, fila.fecha_nacimiento)}
-                    </motion.p>
-                  ) : esCumple ? (
-                    <p className="text-[11px] text-insignia-advertencia/50 truncate flex items-center gap-1">
-                      <Cake size={10} />
-                      {textoCumple(dias, fila.fecha_nacimiento)}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-texto-terciario truncate">{fila.correo || 'Sin correo'}</p>
+                  <p className="text-xs text-texto-terciario truncate">{fila.correo || 'Sin correo'}</p>
+                  {esCumple && (
+                    dias === 0 ? (
+                      <motion.p
+                        animate={{ opacity: [1, 0.4, 1] }}
+                        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                        className="text-[11px] text-insignia-advertencia font-medium truncate flex items-center gap-1 mt-0.5"
+                      >
+                        <Cake size={10} />
+                        {textoCumple(dias, fila.fecha_nacimiento)}
+                      </motion.p>
+                    ) : (
+                      <p className="text-[11px] text-insignia-advertencia/50 truncate flex items-center gap-1 mt-0.5">
+                        <Cake size={10} />
+                        {textoCumple(dias, fila.fecha_nacimiento)}
+                      </p>
+                    )
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Insignia color={COLOR_ROL[fila.rol] || 'neutro'} tamano="sm">{ETIQUETA_ROL[fila.rol] || fila.rol}</Insignia>
-                <Insignia color={fila.activo ? 'exito' : 'advertencia'} tamano="sm">{fila.activo ? 'Activo' : 'Inactivo'}</Insignia>
+
+              {/* ── Contexto laboral ── */}
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Insignia color={COLOR_ROL[fila.rol] || 'neutro'} tamano="sm">{ETIQUETA_ROL[fila.rol] || fila.rol}</Insignia>
+                  <Insignia color={fila.activo ? 'exito' : 'advertencia'} tamano="sm">{fila.activo ? 'Activo' : 'Inactivo'}</Insignia>
+                </div>
+                {fila.sector && <p className="text-xs text-texto-terciario truncate">{fila.sector}{fila.puesto ? ` · ${fila.puesto}` : ''}</p>}
               </div>
-              {fila.sector && <p className="text-xs text-texto-terciario">{fila.sector}{fila.puesto ? ` · ${fila.puesto}` : ''}</p>}
-              {fila.compensacion_monto > 0 && (
-                <p className="text-sm font-medium text-texto-primario">
-                  {formatearMoneda(fila.compensacion_monto)}
-                  <span className="text-texto-terciario font-normal">
-                    {fila.compensacion_tipo === 'por_dia' ? '/día' : '/mes'}
-                  </span>
-                </p>
+
+              {/* ── Detalle (separador visual + datos compactos) ── */}
+              {tieneDetalle && (
+                <div className="border-t border-borde-sutil pt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-texto-terciario">
+                  {fila.compensacion_monto > 0 && (
+                    <span className="text-xs font-medium text-texto-primario">
+                      {formatearMoneda(fila.compensacion_monto)}
+                      <span className="text-texto-terciario font-normal">
+                        {etiquetaCompensacion(fila.compensacion_tipo, fila.compensacion_frecuencia)}
+                      </span>
+                    </span>
+                  )}
+                  {fila.telefono && (
+                    <span className="flex items-center gap-1">
+                      <Phone size={10} className="shrink-0" />
+                      {fila.telefono}
+                    </span>
+                  )}
+                  {ingreso && (
+                    <span className="flex items-center gap-1">
+                      <Calendar size={10} className="shrink-0" />
+                      {ingreso}
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           )

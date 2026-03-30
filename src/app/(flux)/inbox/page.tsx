@@ -607,11 +607,17 @@ export default function PaginaInbox() {
   const eliminarMultiples = useCallback(async (ids: string[]) => {
     for (const id of ids) {
       try {
-        await fetch('/api/inbox/correo/eliminar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ conversacion_id: id }),
-        })
+        if (tabActivo === 'correo') {
+          // Para correo: eliminar también del servidor IMAP/Gmail
+          await fetch('/api/inbox/correo/eliminar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ conversacion_id: id }),
+          })
+        } else {
+          // Para WhatsApp/interno: eliminar solo de Flux
+          await fetch(`/api/inbox/conversaciones/${id}`, { method: 'DELETE' })
+        }
       } catch { /* continuar con las demás */ }
     }
     setConversaciones(prev => prev.filter(c => !ids.includes(c.id)))
@@ -620,7 +626,7 @@ export default function PaginaInbox() {
       setMensajes([])
     }
     cargarContadores()
-  }, [conversacionSeleccionada, cargarContadores])
+  }, [conversacionSeleccionada, cargarContadores, tabActivo])
 
   // Eliminar conversación (de Flux + servidor IMAP/Gmail)
   const eliminarConversacion = useCallback(async (conversacionId: string) => {
@@ -826,14 +832,16 @@ export default function PaginaInbox() {
         />
 
         <div className="flex items-center gap-1">
-          {/* Toggle panel info */}
-          <Boton
-            variante="fantasma"
-            tamano="xs"
-            soloIcono
-            icono={panelInfoAbierto ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
-            onClick={() => setPanelInfoAbierto(!panelInfoAbierto)}
-          />
+          {/* Toggle panel info (solo WhatsApp tiene panel lateral de info) */}
+          {tabActivo === 'whatsapp' && (
+            <Boton
+              variante="fantasma"
+              tamano="xs"
+              soloIcono
+              icono={panelInfoAbierto ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
+              onClick={() => setPanelInfoAbierto(!panelInfoAbierto)}
+            />
+          )}
           {/* Configuración */}
           <Boton
             variante="fantasma"
@@ -1104,7 +1112,7 @@ export default function PaginaInbox() {
                 tipoCanal="whatsapp"
                 cargando={cargandoConversaciones}
                 totalNoLeidos={totalNoLeidos}
-                onEliminarSeleccion={() => {}}
+                onEliminarSeleccion={eliminarMultiples}
                 onOperacionMasiva={async (accion, ids) => {
                   const admin = async (cambios: Record<string, unknown>) => {
                     await Promise.all(ids.map(id =>

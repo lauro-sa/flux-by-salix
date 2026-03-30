@@ -109,3 +109,55 @@ export async function PATCH(
     return NextResponse.json({ error: 'Error al actualizar conversación' }, { status: 500 })
   }
 }
+
+/**
+ * DELETE /api/inbox/conversaciones/[id] — Eliminar conversación y sus mensajes.
+ * Elimina de la BD (mensajes + conversación). No toca servidores externos (IMAP/Gmail).
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const supabase = await crearClienteServidor()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+    const empresaId = user.app_metadata?.empresa_activa_id
+    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    const admin = crearClienteAdmin()
+
+    // Verificar que la conversación pertenece a la empresa
+    const { data: conv } = await admin
+      .from('conversaciones')
+      .select('id')
+      .eq('id', id)
+      .eq('empresa_id', empresaId)
+      .single()
+
+    if (!conv) {
+      return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 })
+    }
+
+    // Eliminar mensajes de la conversación
+    await admin
+      .from('mensajes')
+      .delete()
+      .eq('conversacion_id', id)
+
+    // Eliminar la conversación
+    const { error } = await admin
+      .from('conversaciones')
+      .delete()
+      .eq('id', id)
+      .eq('empresa_id', empresaId)
+
+    if (error) throw error
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    console.error('Error al eliminar conversación:', err)
+    return NextResponse.json({ error: 'Error al eliminar conversación' }, { status: 500 })
+  }
+}

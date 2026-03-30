@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     const en_papelera = params.get('en_papelera') === 'true'
     const etiqueta = params.get('etiqueta')
     const responsable_id = params.get('responsable_id')
+    const vinculado_de = params.get('vinculado_de')
     const orden_campo = params.get('orden_campo') || 'creado_en'
     const orden_dir = params.get('orden_dir') === 'asc' ? true : false
     const pagina = parseInt(params.get('pagina') || '1')
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
         *,
         tipo_contacto:tipos_contacto!tipo_contacto_id(id, clave, etiqueta, icono, color),
         responsables:contacto_responsables(usuario_id),
-        direcciones:contacto_direcciones(id, tipo, texto, ciudad, provincia, es_principal),
+        direcciones:contacto_direcciones(id, tipo, calle, texto, ciudad, provincia, es_principal),
         vinculaciones:contacto_vinculaciones!contacto_vinculaciones_contacto_id_fkey(puesto, vinculado:contactos!contacto_vinculaciones_vinculado_id_fkey(id, nombre, apellido, correo, telefono))
       `, { count: 'exact' })
       .eq('empresa_id', empresaId)
@@ -75,6 +76,24 @@ export async function GET(request: NextRequest) {
         .eq('usuario_id', responsable_id)
       if (contactoIds) {
         query = query.in('id', contactoIds.map(r => r.contacto_id))
+      }
+    }
+
+    // Filtro por vinculaciones (directas e inversas)
+    if (vinculado_de) {
+      const [{ data: directas }, { data: inversas }] = await Promise.all([
+        admin.from('contacto_vinculaciones').select('vinculado_id').eq('empresa_id', empresaId).eq('contacto_id', vinculado_de),
+        admin.from('contacto_vinculaciones').select('contacto_id').eq('empresa_id', empresaId).eq('vinculado_id', vinculado_de),
+      ])
+      const ids = [
+        ...(directas || []).map(v => v.vinculado_id),
+        ...(inversas || []).map(v => v.contacto_id),
+      ]
+      if (ids.length > 0) {
+        query = query.in('id', ids)
+      } else {
+        // Sin vinculaciones → devolver vacío
+        return NextResponse.json({ contactos: [], total: 0 })
       }
     }
 

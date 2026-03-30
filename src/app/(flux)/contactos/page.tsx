@@ -1,16 +1,17 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useNavegacion } from '@/hooks/useNavegacion'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import {
   UserPlus, Download, Upload, Users, UserRoundSearch, Building2, Building, Truck,
   User, Tag, Hash, CreditCard, Link2, Mail, Phone, MessageCircle, Briefcase, Factory,
-  Globe, MapPin, Tags, StickyNote, Calendar, UserCheck, Receipt, GraduationCap,
+  Globe, MapPin, Tags, StickyNote, Calendar, Receipt, GraduationCap,
   Languages, Clock, Coins, Landmark, FileText, Star, Compass, ShieldCheck,
-  Activity, FileBox, History, Trash2,
+  Trash2, X,
 } from 'lucide-react'
 import { ModalImportar } from './_componentes/ModalImportar'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
@@ -53,7 +54,7 @@ interface FilaContacto {
   creado_en: string
   actualizado_en: string
   tipo_contacto: Pick<TipoContacto, 'id' | 'clave' | 'etiqueta' | 'icono' | 'color'>
-  direcciones: { id: string; texto: string | null; ciudad: string | null; provincia: string | null; es_principal: boolean }[]
+  direcciones: { id: string; calle: string | null; texto: string | null; ciudad: string | null; provincia: string | null; es_principal: boolean }[]
   responsables: { usuario_id: string }[]
   vinculaciones: { vinculado: { id: string; nombre: string; apellido: string | null } }[]
 }
@@ -62,6 +63,9 @@ const POR_PAGINA = 50
 
 export default function PaginaContactos() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const vinculadoDe = searchParams.get('vinculado_de')
+  const origenUrl = searchParams.get('origen')
   const [busqueda, setBusqueda] = useState('')
   const [contactos, setContactos] = useState<FilaContacto[]>([])
   const [tiposContacto, setTiposContacto] = useState<TipoContacto[]>([])
@@ -69,10 +73,29 @@ export default function PaginaContactos() {
   const [cargando, setCargando] = useState(true)
   const [total, setTotal] = useState(0)
   const [pagina, setPagina] = useState(1)
+  const [nombreFiltro, setNombreFiltro] = useState<string | null>(null)
 
   // Ref para tener siempre el valor actual de busqueda sin re-crear callbacks
   const busquedaRef = useRef(busqueda)
   busquedaRef.current = busqueda
+
+  const pathname = usePathname()
+  const { setMigajaDinamica } = useNavegacion()
+
+  // Resolver nombre del contacto filtrado + migaja
+  useEffect(() => {
+    if (!vinculadoDe) { setNombreFiltro(null); return }
+    fetch(`/api/contactos/${vinculadoDe}`)
+      .then(r => r.json())
+      .then(d => {
+        const nombre = d.nombre ? `${d.nombre}${d.apellido ? ` ${d.apellido}` : ''}` : null
+        setNombreFiltro(nombre)
+        if (nombre && origenUrl) {
+          setMigajaDinamica(origenUrl, nombre)
+        }
+      })
+      .catch(() => {})
+  }, [vinculadoDe, origenUrl, setMigajaDinamica])
 
   // Eliminar contactos en lote
   const eliminarContactosLote = useCallback(async (ids: Set<string>) => {
@@ -96,6 +119,7 @@ export default function PaginaContactos() {
       const params = new URLSearchParams()
       const b = busquedaRef.current
       if (b) params.set('busqueda', b)
+      if (vinculadoDe) params.set('vinculado_de', vinculadoDe)
       params.set('pagina', String(p))
       params.set('por_pagina', String(POR_PAGINA))
 
@@ -111,7 +135,7 @@ export default function PaginaContactos() {
     } finally {
       setCargando(false)
     }
-  }, [])
+  }, [vinculadoDe])
 
   // Cargar tipos (solo una vez)
   const cargaInicialRef = useRef(false)
@@ -161,19 +185,30 @@ export default function PaginaContactos() {
   }
   const formatoFecha = (iso: string) => new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
 
-  // 31 columnas — paridad con el viejo SalixCRM
-  // El usuario oculta/muestra desde el panel de columnas de TablaDinamica
-  const I = 12 // tamaño iconos columnas
+  /** Columnas visibles por defecto — las esenciales para el día a día */
+  const COLUMNAS_VISIBLES_DEFAULT = ['codigo', 'nombre', 'correo', 'whatsapp', 'ubicacion', 'etiquetas']
+
+  /* ── Columnas de la tabla ──
+     Orden lógico: identidad → contacto → laboral → comercial → fiscal → metadata
+     Visibles por defecto: las más usadas en el día a día
+     Columnas TODO (sin datos aún) eliminadas — se agregan cuando el módulo exista */
+  const I = 12
   const columnas: ColumnaDinamica<FilaContacto>[] = [
-    // ── IDENTIDAD ──
+
+    /* ── Identidad ── */
     {
-      clave: 'nombre', etiqueta: 'Contacto', ancho: 250, ordenable: true, grupo: 'Identidad', icono: <User size={I} />,
+      clave: 'codigo', etiqueta: 'Código', ancho: 90, ordenable: true, grupo: 'Identidad', icono: <Hash size={I} />,
+      render: (fila) => <span className="text-xs font-mono text-texto-terciario">{fila.codigo}</span>,
+    },
+    {
+      clave: 'nombre', etiqueta: 'Contacto', ancho: 260, ordenable: true, grupo: 'Identidad', icono: <User size={I} />,
       render: (fila) => {
         const clave = fila.tipo_contacto?.clave || 'persona'
         const color = COLOR_TIPO_CONTACTO[clave] || 'primario'
         const esPersona = ['persona', 'lead', 'equipo'].includes(clave)
         const nombreCompleto = `${fila.nombre}${fila.apellido ? ` ${fila.apellido}` : ''}`
         const iniciales = nombreCompleto.split(/\s+/).filter(Boolean).map((p, i, arr) => i === 0 || i === arr.length - 1 ? p[0] : '').filter(Boolean).join('').toUpperCase().slice(0, 2)
+        const tipo = fila.tipo_contacto
         return (
           <div className="flex items-center gap-2.5">
             <div className="size-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
@@ -182,13 +217,20 @@ export default function PaginaContactos() {
             </div>
             <div className="min-w-0">
               <div className="font-medium text-texto-primario truncate">{nombreCompleto}</div>
-              {fila.cargo && <div className="text-xs text-texto-terciario truncate">{fila.cargo}</div>}
+              <div className="flex items-center gap-1.5 mt-0.5">
+                {tipo && (
+                  <span className="inline-flex items-center rounded-full px-1.5 py-px text-[10px] font-medium whitespace-nowrap"
+                    style={{ backgroundColor: `var(--insignia-${color}-fondo)`, color: `var(--insignia-${color}-texto)` }}>
+                    {tipo.etiqueta}
+                  </span>
+                )}
+                {fila.cargo && <span className="text-[11px] text-texto-terciario truncate">{fila.cargo}</span>}
+              </div>
             </div>
           </div>
         )
       },
     },
-    // 2. Tipo
     {
       clave: 'tipo', etiqueta: 'Tipo', ancho: 120, ordenable: true, grupo: 'Identidad', icono: <Tag size={I} />,
       filtrable: true, tipoFiltro: 'multiple',
@@ -200,22 +242,25 @@ export default function PaginaContactos() {
         return <Insignia color={(COLOR_TIPO_CONTACTO[tipo.clave] || 'neutro') as ColorInsignia}>{tipo.etiqueta}</Insignia>
       },
     },
-    // 3. Código
     {
-      clave: 'codigo', etiqueta: 'Código', ancho: 100, ordenable: true, grupo: 'Identidad', icono: <Hash size={I} />,
-      render: (fila) => <span className="text-xs font-mono text-texto-terciario">{fila.codigo}</span>,
+      clave: 'titulo', etiqueta: 'Título', ancho: 80, grupo: 'Identidad', icono: <GraduationCap size={I} />,
+      render: (fila) => fila.titulo ? <span className="text-texto-secundario text-xs">{fila.titulo}</span> : null,
     },
-    // 4. Identificación (CUIT/DNI)
     {
       clave: 'identificacion', etiqueta: 'Identificación', ancho: 160, grupo: 'Identidad', icono: <CreditCard size={I} />,
       render: (fila) => {
         const num = fila.numero_identificacion || fila.datos_fiscales?.cuit || fila.datos_fiscales?.dni
         if (!num) return null
-        const tipo = fila.tipo_identificacion?.toUpperCase() || ''
-        return <span className="text-texto-secundario text-xs">{tipo ? `${tipo}: ` : ''}{num}</span>
+        const limpio = num.replace(/\D/g, '')
+        const tipo = fila.tipo_identificacion?.toUpperCase() || (limpio.length === 11 ? 'CUIT' : limpio.length >= 7 && limpio.length <= 8 ? 'DNI' : '')
+        return (
+          <div className="min-w-0">
+            <div className="font-mono text-xs text-texto-secundario">{num}</div>
+            {tipo && <div className="text-[10px] text-texto-terciario">{tipo}</div>}
+          </div>
+        )
       },
     },
-    // 5. Vinculado a
     {
       clave: 'vinculado_a', etiqueta: 'Vinculado a', ancho: 180, grupo: 'Identidad', icono: <Link2 size={I} />,
       render: (fila) => {
@@ -230,46 +275,128 @@ export default function PaginaContactos() {
         )
       },
     },
-    // 6. Email
+
+    /* ── Contacto ── */
     {
       clave: 'correo', etiqueta: 'Email', ancho: 220, ordenable: true, grupo: 'Contacto', icono: <Mail size={I} />,
       render: (fila) => fila.correo ? <span className="text-texto-secundario truncate">{fila.correo}</span> : null,
     },
-    // 7. Teléfono
     {
       clave: 'telefono', etiqueta: 'Teléfono', ancho: 150, grupo: 'Contacto', icono: <Phone size={I} />,
       render: (fila) => fila.telefono ? <span className="text-texto-secundario">{fila.telefono}</span> : null,
     },
-    // 8. WhatsApp
     {
       clave: 'whatsapp', etiqueta: 'WhatsApp', ancho: 150, grupo: 'Contacto', icono: <MessageCircle size={I} />,
       render: (fila) => fila.whatsapp ? <span className="text-texto-secundario">{fila.whatsapp}</span> : null,
     },
-    // 9. Cargo
-    {
-      clave: 'cargo', etiqueta: 'Cargo', ancho: 160, ordenable: true, grupo: 'Laboral', icono: <Briefcase size={I} />,
-      render: (fila) => fila.cargo ? <span className="text-texto-secundario truncate">{fila.cargo}</span> : null,
-    },
-    // 10. Rubro
-    {
-      clave: 'rubro', etiqueta: 'Rubro', ancho: 160, ordenable: true, grupo: 'Laboral', icono: <Factory size={I} />,
-      render: (fila) => fila.rubro ? <span className="text-texto-secundario truncate">{fila.rubro}</span> : null,
-    },
-    // 11. Web
-    {
-      clave: 'web', etiqueta: 'Web', ancho: 180, grupo: 'Contacto', icono: <Globe size={I} />,
-      render: (fila) => fila.web ? <span className="text-texto-secundario truncate text-xs">{fila.web}</span> : null,
-    },
-    // 12. Dirección
     {
       clave: 'ubicacion', etiqueta: 'Dirección', ancho: 200, grupo: 'Contacto', icono: <MapPin size={I} />,
       render: (fila) => {
         const dir = fila.direcciones?.find(d => d.es_principal) || fila.direcciones?.[0]
-        const texto = dir?.ciudad || dir?.texto
-        return texto ? <span className="text-texto-terciario truncate">{texto}</span> : null
+        if (!dir) return null
+        const calle = dir.calle || dir.texto
+        return calle ? (
+          <div className="min-w-0">
+            <span className="text-texto-secundario truncate block">{calle}</span>
+            {dir.ciudad && <span className="text-texto-terciario text-xs truncate block">{dir.ciudad}{dir.provincia ? `, ${dir.provincia}` : ''}</span>}
+          </div>
+        ) : null
       },
     },
-    // 13. Etiquetas
+    {
+      clave: 'web', etiqueta: 'Web', ancho: 180, grupo: 'Contacto', icono: <Globe size={I} />,
+      render: (fila) => fila.web ? <span className="text-texto-secundario truncate text-xs">{fila.web}</span> : null,
+    },
+
+    /* ── Laboral ── */
+    {
+      clave: 'cargo', etiqueta: 'Cargo', ancho: 160, ordenable: true, grupo: 'Laboral', icono: <Briefcase size={I} />,
+      render: (fila) => fila.cargo ? <span className="text-texto-secundario truncate">{fila.cargo}</span> : null,
+    },
+    {
+      clave: 'rubro', etiqueta: 'Rubro', ancho: 160, ordenable: true, grupo: 'Laboral', icono: <Factory size={I} />,
+      render: (fila) => fila.rubro ? <span className="text-texto-secundario truncate">{fila.rubro}</span> : null,
+    },
+
+    /* ── Comercial ── */
+    {
+      clave: 'moneda', etiqueta: 'Moneda', ancho: 80, grupo: 'Comercial', icono: <Coins size={I} />,
+      render: (fila) => fila.moneda ? <span className="text-texto-terciario text-xs font-mono">{fila.moneda}</span> : null,
+    },
+    {
+      clave: 'limite_credito', etiqueta: 'Lím. Crédito', ancho: 130, tipo: 'moneda', grupo: 'Comercial', icono: <Landmark size={I} />,
+      alineacion: 'right', resumen: 'suma',
+      render: (fila) => fila.limite_credito && Number(fila.limite_credito) > 0
+        ? <span className="text-texto-secundario text-xs font-mono">{Number(fila.limite_credito).toLocaleString('es-AR')}</span>
+        : null,
+    },
+    {
+      clave: 'plazo_pago_cliente', etiqueta: 'Plazo Cliente', ancho: 120, grupo: 'Comercial', icono: <Calendar size={I} />,
+      render: (fila) => fila.plazo_pago_cliente ? <span className="text-texto-secundario text-xs">{fila.plazo_pago_cliente}</span> : null,
+    },
+    {
+      clave: 'plazo_pago_proveedor', etiqueta: 'Plazo Proveedor', ancho: 130, grupo: 'Comercial', icono: <Calendar size={I} />,
+      render: (fila) => fila.plazo_pago_proveedor ? <span className="text-texto-secundario text-xs">{fila.plazo_pago_proveedor}</span> : null,
+    },
+    {
+      clave: 'rank_cliente', etiqueta: 'Rank Cliente', ancho: 110, tipo: 'numero', grupo: 'Comercial', icono: <Star size={I} />,
+      alineacion: 'center', resumen: 'promedio',
+      render: (fila) => fila.rank_cliente ? <span className="text-texto-secundario text-xs">{fila.rank_cliente}</span> : null,
+    },
+    {
+      clave: 'rank_proveedor', etiqueta: 'Rank Proveedor', ancho: 120, tipo: 'numero', grupo: 'Comercial', icono: <Star size={I} />,
+      alineacion: 'center', resumen: 'promedio',
+      render: (fila) => fila.rank_proveedor ? <span className="text-texto-secundario text-xs">{fila.rank_proveedor}</span> : null,
+    },
+    {
+      clave: 'idioma', etiqueta: 'Idioma', ancho: 80, grupo: 'Comercial', icono: <Languages size={I} />,
+      render: (fila) => fila.idioma ? <span className="text-texto-terciario text-xs">{fila.idioma.toUpperCase()}</span> : null,
+    },
+    {
+      clave: 'zona_horaria', etiqueta: 'Zona Horaria', ancho: 140, grupo: 'Comercial', icono: <Clock size={I} />,
+      render: (fila) => fila.zona_horaria ? <span className="text-texto-terciario text-xs">{fila.zona_horaria}</span> : null,
+    },
+
+    /* ── Fiscal ── */
+    {
+      clave: 'condicion_iva', etiqueta: 'Cond. IVA', ancho: 140, grupo: 'Fiscal', icono: <Receipt size={I} />,
+      filtrable: true,
+      opcionesFiltro: [
+        { valor: 'responsable_inscripto', etiqueta: 'Resp. Inscripto' },
+        { valor: 'monotributista', etiqueta: 'Monotributista' },
+        { valor: 'exento', etiqueta: 'Exento' },
+        { valor: 'consumidor_final', etiqueta: 'Consumidor Final' },
+        { valor: 'no_responsable', etiqueta: 'No Responsable' },
+      ],
+      obtenerValor: (fila) => fila.datos_fiscales?.condicion_iva || '',
+      render: (fila) => {
+        const c = fila.datos_fiscales?.condicion_iva
+        return c ? <span className="text-texto-secundario text-xs">{ETIQUETAS_IVA[c] || c}</span> : null
+      },
+    },
+    {
+      clave: 'posicion_fiscal', etiqueta: 'Pos. Fiscal', ancho: 120, grupo: 'Fiscal', icono: <ShieldCheck size={I} />,
+      render: (fila) => {
+        const pf = fila.datos_fiscales?.posicion_fiscal
+        return pf ? <span className="text-texto-secundario text-xs">{pf}</span> : null
+      },
+    },
+    {
+      clave: 'tipo_iibb', etiqueta: 'Tipo IIBB', ancho: 120, grupo: 'Fiscal', icono: <FileText size={I} />,
+      render: (fila) => {
+        const t = fila.datos_fiscales?.tipo_iibb
+        return t ? <span className="text-texto-secundario text-xs">{t}</span> : null
+      },
+    },
+    {
+      clave: 'numero_iibb', etiqueta: 'Nro. IIBB', ancho: 130, grupo: 'Fiscal', icono: <Hash size={I} />,
+      render: (fila) => {
+        const n = fila.datos_fiscales?.numero_iibb
+        return n ? <span className="text-texto-secundario text-xs font-mono">{n}</span> : null
+      },
+    },
+
+    /* ── Metadata ── */
     {
       clave: 'etiquetas', etiqueta: 'Etiquetas', ancho: 200, grupo: 'Metadata', icono: <Tags size={I} />,
       render: (fila) => fila.etiquetas?.length > 0 ? (
@@ -279,134 +406,24 @@ export default function PaginaContactos() {
         </div>
       ) : null,
     },
-    // 14. Notas
+    {
+      clave: 'origen', etiqueta: 'Origen', ancho: 110, grupo: 'Metadata', icono: <Compass size={I} />,
+      filtrable: true,
+      opcionesFiltro: [
+        { valor: 'manual', etiqueta: 'Manual' },
+        { valor: 'importacion', etiqueta: 'Importación' },
+        { valor: 'ia_captador', etiqueta: 'IA Captador' },
+        { valor: 'usuario', etiqueta: 'Usuario' },
+      ],
+      render: (fila) => <span className="text-texto-terciario text-xs">{ETIQUETAS_ORIGEN[fila.origen] || fila.origen}</span>,
+    },
     {
       clave: 'notas', etiqueta: 'Notas', ancho: 200, grupo: 'Metadata', icono: <StickyNote size={I} />,
       render: (fila) => fila.notas ? <span className="text-texto-terciario text-xs truncate">{fila.notas.slice(0, 80)}</span> : null,
     },
-    // 15. Creación
     {
       clave: 'creado_en', etiqueta: 'Creación', ancho: 120, ordenable: true, tipo: 'fecha', grupo: 'Metadata', icono: <Calendar size={I} />,
       render: (fila) => <span className="text-texto-terciario text-xs">{formatoFecha(fila.creado_en)}</span>,
-    },
-    // 16. Creado por
-    {
-      clave: 'creado_por', etiqueta: 'Creado por', ancho: 120, grupo: 'Metadata', icono: <UserCheck size={I} />,
-      render: () => null, // TODO: resolver nombre del usuario desde creado_por UUID
-    },
-    // 17. Cond. IVA
-    {
-      clave: 'condicion_iva', etiqueta: 'Cond. IVA', ancho: 140, grupo: 'Fiscal', icono: <Receipt size={I} />,
-      render: (fila) => {
-        const c = fila.datos_fiscales?.condicion_iva
-        return c ? <span className="text-texto-secundario text-xs">{ETIQUETAS_IVA[c] || c}</span> : null
-      },
-    },
-    // 18. Título (Sr., Dra., Ing.)
-    {
-      clave: 'titulo', etiqueta: 'Título', ancho: 80, grupo: 'Identidad', icono: <GraduationCap size={I} />,
-      render: (fila) => fila.titulo ? <span className="text-texto-secundario text-xs">{fila.titulo}</span> : null,
-    },
-    // 19. Idioma
-    {
-      clave: 'idioma', etiqueta: 'Idioma', ancho: 80, grupo: 'Comercial', icono: <Languages size={I} />,
-      render: (fila) => fila.idioma ? <span className="text-texto-terciario text-xs">{fila.idioma.toUpperCase()}</span> : null,
-    },
-    // 20. Zona Horaria
-    {
-      clave: 'zona_horaria', etiqueta: 'Zona Horaria', ancho: 140, grupo: 'Comercial', icono: <Clock size={I} />,
-      render: (fila) => fila.zona_horaria ? <span className="text-texto-terciario text-xs">{fila.zona_horaria}</span> : null,
-    },
-    // 21. Moneda
-    {
-      clave: 'moneda', etiqueta: 'Moneda', ancho: 80, grupo: 'Comercial', icono: <Coins size={I} />,
-      render: (fila) => fila.moneda ? <span className="text-texto-terciario text-xs font-mono">{fila.moneda}</span> : null,
-    },
-    // 22. Lím. Crédito
-    {
-      clave: 'limite_credito', etiqueta: 'Lím. Crédito', ancho: 130, tipo: 'moneda', grupo: 'Comercial', icono: <Landmark size={I} />,
-      alineacion: 'right',
-      render: (fila) => fila.limite_credito && Number(fila.limite_credito) > 0
-        ? <span className="text-texto-secundario text-xs font-mono">{Number(fila.limite_credito).toLocaleString('es-AR')}</span>
-        : null,
-    },
-    // 23. Plazo Cliente
-    {
-      clave: 'plazo_pago_cliente', etiqueta: 'Plazo Cliente', ancho: 120, grupo: 'Comercial', icono: <Calendar size={I} />,
-      render: (fila) => fila.plazo_pago_cliente ? <span className="text-texto-secundario text-xs">{fila.plazo_pago_cliente}</span> : null,
-    },
-    // 24. Plazo Proveedor
-    {
-      clave: 'plazo_pago_proveedor', etiqueta: 'Plazo Proveedor', ancho: 130, grupo: 'Comercial', icono: <Calendar size={I} />,
-      render: (fila) => fila.plazo_pago_proveedor ? <span className="text-texto-secundario text-xs">{fila.plazo_pago_proveedor}</span> : null,
-    },
-    // 25. Pos. Fiscal
-    {
-      clave: 'posicion_fiscal', etiqueta: 'Pos. Fiscal', ancho: 120, grupo: 'Fiscal', icono: <ShieldCheck size={I} />,
-      render: (fila) => {
-        const pf = fila.datos_fiscales?.posicion_fiscal
-        return pf ? <span className="text-texto-secundario text-xs">{pf}</span> : null
-      },
-    },
-    // 26. Tipo IIBB
-    {
-      clave: 'tipo_iibb', etiqueta: 'Tipo IIBB', ancho: 120, grupo: 'Fiscal', icono: <FileText size={I} />,
-      render: (fila) => {
-        const t = fila.datos_fiscales?.tipo_iibb
-        return t ? <span className="text-texto-secundario text-xs">{t}</span> : null
-      },
-    },
-    // 27. Nro. IIBB
-    {
-      clave: 'numero_iibb', etiqueta: 'Nro. IIBB', ancho: 130, grupo: 'Fiscal', icono: <Hash size={I} />,
-      render: (fila) => {
-        const n = fila.datos_fiscales?.numero_iibb
-        return n ? <span className="text-texto-secundario text-xs font-mono">{n}</span> : null
-      },
-    },
-    // 28. Rank Cliente
-    {
-      clave: 'rank_cliente', etiqueta: 'Rank Cliente', ancho: 110, tipo: 'numero', grupo: 'Comercial', icono: <Star size={I} />,
-      alineacion: 'center',
-      render: (fila) => fila.rank_cliente ? <span className="text-texto-secundario text-xs">{fila.rank_cliente}</span> : null,
-    },
-    // 29. Rank Proveedor
-    {
-      clave: 'rank_proveedor', etiqueta: 'Rank Proveedor', ancho: 120, tipo: 'numero', grupo: 'Comercial', icono: <Star size={I} />,
-      alineacion: 'center',
-      render: (fila) => fila.rank_proveedor ? <span className="text-texto-secundario text-xs">{fila.rank_proveedor}</span> : null,
-    },
-    // 30. Origen
-    {
-      clave: 'origen', etiqueta: 'Origen', ancho: 110, grupo: 'Metadata', icono: <Compass size={I} />,
-      render: (fila) => <span className="text-texto-terciario text-xs">{ETIQUETAS_ORIGEN[fila.origen] || fila.origen}</span>,
-    },
-    // 31. Asignado (primer responsable)
-    {
-      clave: 'asignado', etiqueta: 'Asignado', ancho: 120, grupo: 'Metadata', icono: <UserCheck size={I} />,
-      render: () => null, // TODO: resolver nombre del usuario desde responsables[0].usuario_id
-    },
-    // 32. Etapa (pipeline)
-    {
-      clave: 'etapa', etiqueta: 'Etapa', ancho: 120, grupo: 'Comercial', icono: <Activity size={I} />,
-      render: () => null, // TODO: implementar cuando exista el pipeline
-    },
-    // 33. Sector
-    {
-      clave: 'sector', etiqueta: 'Sector', ancho: 140, grupo: 'Laboral', icono: <Factory size={I} />,
-      render: () => null, // TODO: campo no existe aún en el esquema
-    },
-    // 34. Actividades (conteo de pendientes)
-    {
-      clave: 'actividades', etiqueta: 'Actividades', ancho: 110, tipo: 'numero', grupo: 'Relaciones', icono: <Activity size={I} />,
-      alineacion: 'center',
-      render: () => null, // TODO: implementar cuando exista el módulo de actividades
-    },
-    // 35. Documentos (conteo)
-    {
-      clave: 'documentos', etiqueta: 'Documentos', ancho: 110, tipo: 'numero', grupo: 'Relaciones', icono: <FileBox size={I} />,
-      alineacion: 'center',
-      render: () => null, // TODO: implementar cuando exista el módulo de documentos
     },
   ]
 
@@ -415,29 +432,57 @@ export default function PaginaContactos() {
     const tipo = fila.tipo_contacto
     const color = tipo ? (COLOR_TIPO_CONTACTO[tipo.clave] || 'neutro') as ColorInsignia : 'neutro'
     const nombreCompleto = `${fila.nombre}${fila.apellido ? ` ${fila.apellido}` : ''}`
+    const dir = fila.direcciones?.find(d => d.es_principal) || fila.direcciones?.[0]
+    const ubicacion = dir?.calle || dir?.texto
+    const tieneDetalle = fila.telefono || fila.whatsapp || ubicacion
 
     return (
-      <div className="flex flex-col gap-2 p-3">
+      <div className="p-4 flex flex-col gap-3">
+        {/* ── Identidad ── */}
         <div className="flex items-center gap-2.5">
           <Avatar nombre={nombreCompleto} tamano="md" />
           <div className="min-w-0 flex-1">
             <div className="font-medium text-texto-primario truncate">{nombreCompleto}</div>
-            {fila.cargo && <div className="text-xs text-texto-terciario truncate">{fila.cargo}</div>}
+            <div className="text-xs text-texto-terciario truncate">{fila.correo || 'Sin correo'}</div>
           </div>
-          {tipo && <Insignia color={color}>{tipo.etiqueta}</Insignia>}
         </div>
-        <div className="flex flex-col gap-0.5 text-sm text-texto-secundario">
-          {fila.correo && <span className="truncate">{fila.correo}</span>}
-          {(fila.telefono || fila.whatsapp) && <span>{fila.telefono || fila.whatsapp}</span>}
+
+        {/* ── Tipo + Cargo ── */}
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            {tipo && <Insignia color={color} tamano="sm">{tipo.etiqueta}</Insignia>}
+            {fila.codigo && <span className="text-[11px] text-texto-terciario font-mono">{fila.codigo}</span>}
+          </div>
+          {fila.cargo && <p className="text-xs text-texto-terciario truncate">{fila.cargo}{fila.rubro ? ` · ${fila.rubro}` : ''}</p>}
         </div>
+
+        {/* ── Etiquetas ── */}
         {fila.etiquetas?.length > 0 && (
           <div className="flex items-center gap-1 flex-wrap">
             {fila.etiquetas.slice(0, 3).map(e => (
-              <Insignia key={e} color="neutro">{e}</Insignia>
+              <Insignia key={e} color="neutro" tamano="sm">{e}</Insignia>
             ))}
+            {fila.etiquetas.length > 3 && <span className="text-[11px] text-texto-terciario">+{fila.etiquetas.length - 3}</span>}
           </div>
         )}
-        <div className="text-xs text-texto-terciario font-mono">{fila.codigo}</div>
+
+        {/* ── Detalle ── */}
+        {tieneDetalle && (
+          <div className="border-t border-borde-sutil pt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-texto-terciario">
+            {(fila.telefono || fila.whatsapp) && (
+              <span className="flex items-center gap-1">
+                <Phone size={10} className="shrink-0" />
+                {fila.telefono || fila.whatsapp}
+              </span>
+            )}
+            {ubicacion && (
+              <span className="flex items-center gap-1">
+                <MapPin size={10} className="shrink-0" />
+                {ubicacion}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     )
   }
@@ -469,6 +514,16 @@ export default function PaginaContactos() {
       onConfiguracion={() => router.push('/contactos/configuracion')}
     >
       <TablaDinamica
+        chipFiltro={vinculadoDe && nombreFiltro ? (
+          <button
+            type="button"
+            onClick={() => router.replace('/contactos')}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-superficie-elevada text-texto-primario border border-borde-sutil hover:border-borde-fuerte transition-colors cursor-pointer shrink-0"
+          >
+            {nombreFiltro}
+            <X size={10} className="text-texto-terciario" />
+          </button>
+        ) : undefined}
         columnas={columnas}
         datos={contactos}
         claveFila={(r) => r.id}
@@ -491,7 +546,12 @@ export default function PaginaContactos() {
         onBusqueda={setBusqueda}
         placeholder="Buscar contactos..."
         idModulo="contactos"
-        onClickFila={(fila) => router.push(`/contactos/${fila.id}`)}
+        columnasVisiblesDefault={COLUMNAS_VISIBLES_DEFAULT}
+        onClickFila={(fila) => {
+          // Guardar IDs de la lista actual para navegación anterior/siguiente
+          try { sessionStorage.setItem('contactos_lista_ids', JSON.stringify(contactos.map(c => c.id))) } catch {}
+          router.push(`/contactos/${fila.id}`)
+        }}
         renderTarjeta={renderizarTarjeta}
         mostrarResumen
         estadoVacio={

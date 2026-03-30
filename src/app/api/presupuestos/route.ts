@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const fecha_desde = params.get('fecha_desde')
     const fecha_hasta = params.get('fecha_hasta')
     const en_papelera = params.get('en_papelera') === 'true'
-    const orden_campo = params.get('orden_campo') || 'creado_en'
+    const orden_campo = params.get('orden_campo') || 'numero'
     const orden_dir = params.get('orden_dir') === 'asc' ? true : false
     const pagina = parseInt(params.get('pagina') || '1')
     const por_pagina = Math.min(parseInt(params.get('por_pagina') || '50'), 100)
@@ -47,9 +47,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Filtro por contacto
+    // Filtro por contacto (como cliente principal O como "dirigido a")
     if (contacto_id) {
-      query = query.eq('contacto_id', contacto_id)
+      query = query.or(`contacto_id.eq.${contacto_id},atencion_contacto_id.eq.${contacto_id}`)
     }
 
     // Filtro por moneda

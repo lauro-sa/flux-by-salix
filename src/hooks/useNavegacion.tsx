@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useCallback, useRef, useState, type ReactNode } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 
 /**
  * Sistema de navegación con migajas (breadcrumbs) e historial contextual.
@@ -100,9 +100,24 @@ function generarMigajas(pathname: string, extras?: Migaja[]): Migaja[] {
       }
     }
 
-    // Insertar intermedias antes de la última migaja (el detalle actual)
-    if (intermedias.length > 0 && migajas.length > 1) {
-      migajas.splice(migajas.length - 1, 0, ...intermedias)
+    // Insertar intermedias antes de la página actual (última migaja)
+    if (intermedias.length > 0) {
+      // Para cada intermedia, agregar su módulo padre si no está ya en las migajas
+      // Ej: intermedia /contactos/uuid → agregar "Contactos" (/contactos) si no está
+      const conPadres: Migaja[] = []
+      for (const inter of intermedias) {
+        const segmentos = inter.ruta.split('/').filter(Boolean)
+        if (segmentos.length > 0) {
+          const rutaPadre = `/${segmentos[0]}`
+          const padreExiste = migajas.some(m => m.ruta === rutaPadre)
+          if (!padreExiste && MIGAJAS_MODULOS[rutaPadre]) {
+            conPadres.push(MIGAJAS_MODULOS[rutaPadre])
+          }
+        }
+        conPadres.push(inter)
+      }
+      // Insertar antes de la última migaja (la página actual)
+      migajas.splice(migajas.length > 0 ? migajas.length - 1 : 0, 0, ...conPadres)
     }
   }
 
@@ -125,9 +140,13 @@ function formatearSegmento(segmento: string): string {
 
 function ProveedorNavegacion({ children }: { children: ReactNode }) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const historialRef = useRef<string[]>([])
   const [migajasDinamicas, setMigajasDinamicasState] = useState<Record<string, string>>({})
   const pathnameAnteriorRef = useRef(pathname)
+
+  // Parámetros de contexto de navegación (reactivos via useSearchParams)
+  const origenActual = searchParams.get('origen') || searchParams.get('desde') || null
 
   // Agregar al historial cuando cambia la ruta
   if (
@@ -141,9 +160,8 @@ function ProveedorNavegacion({ children }: { children: ReactNode }) {
   // (mantener solo la del pathname actual)
   if (pathnameAnteriorRef.current !== pathname) {
     pathnameAnteriorRef.current = pathname
-    const desdeParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('desde') : null
-    // Si no tiene ?desde, limpiar todas las migajas que no sean la ruta actual
-    if (!desdeParam) {
+    // Si no tiene ?desde ni ?origen, limpiar migajas que no sean la ruta actual
+    if (!origenActual) {
       const claves = Object.keys(migajasDinamicas)
       const aLimpiar = claves.filter(ruta => ruta !== pathname && !pathname.startsWith(ruta))
       if (aLimpiar.length > 0) {
@@ -155,15 +173,12 @@ function ProveedorNavegacion({ children }: { children: ReactNode }) {
       }
     }
   }
-
-  // Filtrar migajas dinámicas para la ruta actual
-  const desdeActual = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('desde') : null
   const extras: Migaja[] = Object.entries(migajasDinamicas)
     .filter(([ruta]) => {
       if (pathname === ruta) return true           // Es la ruta actual
       if (pathname.startsWith(ruta)) return true   // Es prefijo (subrutas)
-      // Solo incluir intermedias si hay ?desde (navegación entre vinculados)
-      if (desdeActual && ruta.includes(desdeActual)) return true
+      // Incluir intermedias si hay contexto de navegación (desde/origen)
+      if (origenActual && ruta === origenActual) return true
       return false
     })
     .map(([ruta, etiqueta]) => ({ ruta, etiqueta }))

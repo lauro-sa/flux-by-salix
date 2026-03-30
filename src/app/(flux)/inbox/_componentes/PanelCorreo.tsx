@@ -297,7 +297,7 @@ export function PanelCorreo({
   }
 
   return (
-    <div className="flex-1 flex flex-col" style={{ background: 'var(--superficie-app)' }}>
+    <div className="flex-1 flex flex-col min-h-0" style={{ background: 'var(--superficie-app)' }}>
       {/* Header: asunto + acciones */}
       <div
         className="px-4 py-3"

@@ -1,0 +1,139 @@
+'use client'
+
+import { useState, useEffect, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
+import {
+  Users, CalendarCheck, FileText, Receipt, ClipboardList,
+  MessageSquare, ChevronLeft, ChevronRight,
+} from 'lucide-react'
+
+// ─── Tipos ───
+
+interface KPIs {
+  vinculaciones: number
+  presupuestos: { total: number; monto: number }
+  conversaciones: number
+  visitas: number
+  actividades: number
+  facturas: { total: number; monto: number }
+  ordenes: number
+}
+
+interface ItemKPI {
+  clave: string
+  etiqueta: string
+  icono: typeof Users
+  total: number
+  ruta: string
+}
+
+// ─── Componente ───
+
+export function BarraKPIs({ contactoId }: { contactoId: string }) {
+  const router = useRouter()
+  const [kpis, setKpis] = useState<KPIs | null>(null)
+
+  // Navegación anterior/siguiente — usa la lista de IDs guardada en sessionStorage
+  const vecinos = useMemo(() => {
+    try {
+      const raw = sessionStorage.getItem('contactos_lista_ids')
+      if (!raw) return { anterior: null, siguiente: null }
+      const ids: string[] = JSON.parse(raw)
+      const idx = ids.indexOf(contactoId)
+      if (idx === -1) return { anterior: null, siguiente: null }
+      return {
+        anterior: idx > 0 ? ids[idx - 1] : null,
+        siguiente: idx < ids.length - 1 ? ids[idx + 1] : null,
+      }
+    } catch { return { anterior: null, siguiente: null } }
+  }, [contactoId])
+
+  // Cargar KPIs
+  useEffect(() => {
+    setKpis(null)
+    fetch(`/api/contactos/${contactoId}/kpis`)
+      .then(r => r.json())
+      .then(setKpis)
+      .catch(() => {})
+  }, [contactoId])
+
+  // Items con datos reales o ceros mientras carga
+  const k = kpis || { vinculaciones: 0, presupuestos: { total: 0, monto: 0 }, conversaciones: 0, visitas: 0, actividades: 0, facturas: { total: 0, monto: 0 }, ordenes: 0 }
+  const cargandoKpis = !kpis
+
+  const items: ItemKPI[] = [
+    { clave: 'vinculaciones', etiqueta: 'Contactos', icono: Users, total: k.vinculaciones, ruta: `/contactos?vinculado_de=${contactoId}&origen=${encodeURIComponent(`/contactos/${contactoId}`)}` },
+    { clave: 'presupuestos', etiqueta: 'Presupuestos', icono: FileText, total: k.presupuestos.total, ruta: `/presupuestos?contacto_id=${contactoId}&origen=${encodeURIComponent(`/contactos/${contactoId}`)}` },
+    { clave: 'conversaciones', etiqueta: 'Mensajes', icono: MessageSquare, total: k.conversaciones, ruta: `/inbox?contacto_id=${contactoId}` },
+    { clave: 'facturas', etiqueta: 'Facturas', icono: Receipt, total: k.facturas.total, ruta: '' },
+    { clave: 'visitas', etiqueta: 'Visitas', icono: CalendarCheck, total: k.visitas, ruta: '' },
+    { clave: 'actividades', etiqueta: 'Actividades', icono: ClipboardList, total: k.actividades, ruta: '' },
+    { clave: 'ordenes', etiqueta: 'Órdenes', icono: ClipboardList, total: k.ordenes, ruta: '' },
+  ]
+
+  return (
+    <div className="relative flex items-center justify-center gap-1.5">
+      {/* Flecha izquierda — contacto anterior */}
+      <button
+        type="button"
+        onClick={() => vecinos.anterior && router.push(`/contactos/${vecinos.anterior}?nav=1`)}
+        disabled={!vecinos.anterior}
+        title={vecinos.anterior ? 'Contacto anterior' : undefined}
+        className={[
+          'shrink-0 flex items-center justify-center size-7 rounded-lg bg-transparent border border-borde-sutil transition-colors',
+          vecinos.anterior
+            ? 'text-texto-terciario hover:text-texto-primario hover:border-borde-fuerte cursor-pointer'
+            : 'text-texto-terciario/30 cursor-default border-borde-sutil/50',
+        ].join(' ')}
+      >
+        <ChevronLeft size={16} />
+      </button>
+
+      {/* KPIs */}
+      <div className={`flex items-stretch gap-0 overflow-x-auto rounded-xl border border-borde-sutil bg-superficie-tarjeta transition-opacity duration-200 ${cargandoKpis ? 'opacity-40' : ''}`} style={{ scrollbarWidth: 'none' }}>
+        {items.map((item, i) => {
+          const Icono = item.icono
+          const tieneRuta = !!item.ruta
+          const tieneValor = item.total > 0
+          return (
+            <button
+              key={item.clave}
+              type="button"
+              onClick={() => tieneRuta && router.push(item.ruta)}
+              disabled={!tieneRuta}
+              className={[
+                'flex flex-col items-center justify-center gap-1 px-4 py-2 transition-colors',
+                i > 0 ? 'border-l border-borde-sutil' : '',
+                tieneRuta && tieneValor ? 'cursor-pointer hover:bg-superficie-hover' : 'cursor-default',
+                'bg-transparent border-none',
+                !tieneValor ? 'opacity-35' : '',
+              ].join(' ')}
+            >
+              <div className="flex items-center gap-1.5">
+                <Icono size={13} className={tieneValor ? 'text-texto-secundario' : 'text-texto-terciario'} />
+                <span className="text-[11px] text-texto-terciario whitespace-nowrap">{item.etiqueta}</span>
+              </div>
+              <span className={`text-lg font-bold ${tieneValor ? 'text-texto-primario' : 'text-texto-terciario'}`}>{item.total}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Flecha derecha — contacto siguiente */}
+      <button
+        type="button"
+        onClick={() => vecinos.siguiente && router.push(`/contactos/${vecinos.siguiente}?nav=1`)}
+        disabled={!vecinos.siguiente}
+        title={vecinos.siguiente ? 'Contacto siguiente' : undefined}
+        className={[
+          'shrink-0 flex items-center justify-center size-7 rounded-lg bg-transparent border border-borde-sutil transition-colors',
+          vecinos.siguiente
+            ? 'text-texto-terciario hover:text-texto-primario hover:border-borde-fuerte cursor-pointer'
+            : 'text-texto-terciario/30 cursor-default border-borde-sutil/50',
+        ].join(' ')}
+      >
+        <ChevronRight size={16} />
+      </button>
+    </div>
+  )
+}

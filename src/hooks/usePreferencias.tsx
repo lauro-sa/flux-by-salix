@@ -105,9 +105,19 @@ function ProveedorPreferencias({ children }: { children: ReactNode }) {
     const dispositivoId = obtenerDispositivoId()
     dispositivoIdRef.current = dispositivoId
 
+    // Marcar como cargando en cada ejecución para que los consumidores
+    // esperen a la fuente de datos definitiva (API > localStorage)
+    setCargando(true)
+
     const cargar = async () => {
-      // Si hay usuario, intentar cargar de BD
+      // Si hay usuario, la fuente autoritativa es la BD
       if (usuario) {
+        // Pre-cargar localStorage como cache optimista mientras se consulta la API
+        try {
+          const local = localStorage.getItem(CLAVE_PREFS_LOCAL)
+          if (local) setPreferencias({ ...DEFAULTS, ...JSON.parse(local) })
+        } catch { /* ignorar */ }
+
         try {
           const res = await fetch(`/api/preferencias?dispositivo_id=${dispositivoId}`)
           if (res.ok) {
@@ -125,17 +135,19 @@ function ProveedorPreferencias({ children }: { children: ReactNode }) {
               config_tablas: datos.config_tablas || {},
             }
             setPreferencias(prefs)
-            // Sincronizar a localStorage como cache
             localStorage.setItem(CLAVE_PREFS_LOCAL, JSON.stringify(prefs))
             setCargando(false)
             return
           }
         } catch {
-          // Fallback a localStorage
+          // API falló — el localStorage ya se pre-cargó arriba
         }
+
+        setCargando(false)
+        return
       }
 
-      // Sin usuario o error → cargar de localStorage
+      // Sin usuario → cargar de localStorage
       try {
         const local = localStorage.getItem(CLAVE_PREFS_LOCAL)
         if (local) {
@@ -167,13 +179,24 @@ function ProveedorPreferencias({ children }: { children: ReactNode }) {
       guardarTimeoutRef.current = setTimeout(() => {
         if (!usuario) return
 
+        // Solo enviar columnas que existen en la tabla preferencias_usuario
+        const payload: Record<string, unknown> = {
+          dispositivo_id: dispositivoIdRef.current,
+          tema: nuevas.tema,
+          efecto: nuevas.efecto,
+          fondo_cristal: nuevas.fondo_cristal,
+          escala: nuevas.escala,
+          sidebar_orden: nuevas.sidebar_orden,
+          sidebar_ocultos: nuevas.sidebar_ocultos,
+          sidebar_deshabilitados: nuevas.sidebar_deshabilitados,
+          sidebar_colapsado: nuevas.sidebar_colapsado,
+          config_tablas: nuevas.config_tablas,
+        }
+
         fetch('/api/preferencias', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            dispositivo_id: dispositivoIdRef.current,
-            ...nuevas,
-          }),
+          body: JSON.stringify(payload),
         }).catch(() => {
           // Silencioso — el localStorage tiene la copia
         })

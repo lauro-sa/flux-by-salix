@@ -67,11 +67,14 @@ async function htmlAPdf(html: string): Promise<Buffer> {
 
   try {
     const pagina = await browser.newPage()
-    await pagina.setContent(html, { waitUntil: 'networkidle0' })
+    // Normalizar márgenes: anular los de la plantilla guardada y aplicar valores correctos
+    const cssMargen = '<style>@page{margin:0!important}body{padding:10mm 13mm 14mm 13mm!important;margin:0!important}</style>'
+    const htmlLimpio = html.replace('</head>', `${cssMargen}\n</head>`)
+    await pagina.setContent(htmlLimpio, { waitUntil: 'networkidle0' })
     const pdfBuffer = await pagina.pdf({
       format: 'A4',
       printBackground: true,
-      margin: { top: '20mm', bottom: '25mm', left: '18mm', right: '18mm' },
+      margin: { top: '0', bottom: '0', left: '0', right: '0' },
       displayHeaderFooter: false,
       preferCSSPageSize: false,
     })
@@ -103,13 +106,15 @@ async function subirAStorage(
     .upload(storagePath, pdfBuffer, {
       contentType: 'application/pdf',
       upsert: !congelado,
-      cacheControl: '3600',
+      cacheControl: 'no-cache, no-store, must-revalidate',
     })
 
   if (error) throw new Error(`Error al subir PDF a Storage: ${error.message}`)
 
   const { data: urlData } = admin.storage.from('documentos-pdf').getPublicUrl(storagePath)
-  return { url: urlData.publicUrl, storagePath }
+  // Agregar timestamp para romper caché del navegador/CDN
+  const urlConCacheBuster = `${urlData.publicUrl}?t=${Date.now()}`
+  return { url: urlConCacheBuster, storagePath }
 }
 
 // ─── Función principal ───
@@ -134,7 +139,10 @@ export async function generarPdfPresupuesto(
     const pdfGeneradoEn = new Date(presupuesto.pdf_generado_en).getTime()
     const actualizadoEn = new Date(presupuesto.actualizado_en).getTime()
     if (pdfGeneradoEn >= actualizadoEn) {
-      return { url: presupuesto.pdf_url, storage_path: presupuesto.pdf_storage_path || '', nombre_archivo: '', tamano: 0 }
+      // Agregar cache buster a la URL existente
+      const urlBase = presupuesto.pdf_url.split('?')[0]
+      const urlFresca = `${urlBase}?t=${Date.now()}`
+      return { url: urlFresca, storage_path: presupuesto.pdf_storage_path || '', nombre_archivo: '', tamano: 0 }
     }
   }
 

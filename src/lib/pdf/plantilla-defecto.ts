@@ -14,14 +14,14 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   @page {
     size: A4;
-    margin: 18mm 15mm 15mm 15mm;
+    margin: 0;
   }
   body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
     font-size: 9.5pt;
     color: #1a1a1a;
     line-height: 1.45;
-    padding: 18mm 15mm 15mm 15mm;
+    padding: 0;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
     color-scheme: light;

@@ -51,15 +51,17 @@ export const COLOR_ESTADO_VISITA: Record<string, ColorInsignia> = {
 // ─── Estados de documento ───
 
 export const COLOR_ESTADO_DOCUMENTO: Record<string, ColorInsignia> = {
-  borrador:   'neutro',
-  confirmado: 'info',
-  enviado:    'violeta',
-  aceptado:   'exito',
-  rechazado:  'peligro',
-  pagado:     'exito',
-  vencido:    'naranja',
-  cancelado:  'neutro',
-  archivado:  'neutro',
+  borrador:            'neutro',
+  enviado:             'violeta',
+  confirmado_cliente:  'info',
+  orden_venta:         'exito',
+  confirmado:          'info',
+  aceptado:            'exito',
+  rechazado:           'peligro',
+  pagado:              'exito',
+  vencido:             'naranja',
+  cancelado:           'neutro',
+  archivado:           'neutro',
 }
 
 // ─── Estados de orden de trabajo ───

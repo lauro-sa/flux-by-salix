@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation'
 import {
   Cloud, X, Mail, Phone, ExternalLink,
   Send, Printer, FileCheck, Eye, Receipt, Ban, RotateCcw,
-  Lock, Info, RefreshCw, History,
+  Lock, Info, RefreshCw, History, Loader2,
 } from 'lucide-react'
 import { TablaLineas } from './TablaLineas'
 import EditorNotasPresupuesto from './EditorNotasPresupuesto'
@@ -326,6 +326,16 @@ export default function EditorPresupuesto({
 
   // ─── Autoguardado con dirty tracking ────────────────────────────────────
 
+  // Set de promesas pendientes para esperar antes de generar PDF
+  const promesasPendientesRef = useRef<Set<Promise<void>>>(new Set())
+  const registrarPromesa = useCallback((p: Promise<void>) => {
+    promesasPendientesRef.current.add(p)
+    p.finally(() => promesasPendientesRef.current.delete(p))
+  }, [])
+  const esperarGuardados = useCallback(() => {
+    return Promise.all(Array.from(promesasPendientesRef.current))
+  }, [])
+
   const autoguardar = useCallback((campos: Record<string, unknown>) => {
     const pid = presupuestoIdRef.current
     if (!pid) return
@@ -344,7 +354,7 @@ export default function EditorPresupuesto({
     Object.assign(guardadoRef.current, cambios)
 
     setGuardando(true)
-    fetch(`/api/presupuestos/${pid}`, {
+    const promesa = fetch(`/api/presupuestos/${pid}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(cambios),
@@ -357,6 +367,7 @@ export default function EditorPresupuesto({
       })
       .catch(() => {})
       .finally(() => setGuardando(false))
+    registrarPromesa(promesa)
   }, [modo])
 
   // ─── Cambiar estado (solo modo editar) ──────────────────────────────────
@@ -510,11 +521,12 @@ export default function EditorPresupuesto({
       if (pid) {
         const lineaActualizada = nuevas.find(l => l.id === lineaId)
         if (lineaActualizada) {
-          fetch(`/api/presupuestos/${pid}/lineas`, {
+          const p = fetch(`/api/presupuestos/${pid}/lineas`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...lineaActualizada, id: lineaId }),
           }).then(() => { if (modo === 'editar') recargarTotales() }).catch(() => {})
+          registrarPromesa(p)
         }
       }
 
@@ -566,12 +578,82 @@ export default function EditorPresupuesto({
     } catch { /* silenciar */ }
   }, [])
 
+  // ─── Guardar todo el estado actual (para PDF y acciones críticas) ────────
+
+  const guardarTodo = useCallback(async () => {
+    const pid = presupuestoIdRef.current
+    if (!pid) return
+    // Esperar guardados en curso
+    await esperarGuardados()
+    // Solo guardar campos que realmente cambiaron vs último guardado
+    const camposActuales: Record<string, unknown> = {
+      notas_html: notasHtml,
+      condiciones_html: condicionesHtml,
+      referencia,
+      moneda,
+      condicion_pago_id: condicionPagoId,
+      dias_vencimiento: diasVencimiento,
+      fecha_emision: fechaEmision,
+      columnas_lineas: columnasVisibles,
+    }
+    const cambios: Record<string, unknown> = {}
+    for (const [clave, valor] of Object.entries(camposActuales)) {
+      if (JSON.stringify(valor) !== JSON.stringify(guardadoRef.current[clave])) {
+        cambios[clave] = valor
+      }
+    }
+    if (Object.keys(cambios).length === 0) return // Sin cambios reales
+    Object.assign(guardadoRef.current, cambios)
+    await fetch(`/api/presupuestos/${pid}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cambios),
+    }).catch(() => {})
+  }, [esperarGuardados, notasHtml, condicionesHtml, referencia, moneda, condicionPagoId, diasVencimiento, fechaEmision, columnasVisibles])
+
   // ─── Acciones de estado (modo editar) ───────────────────────────────────
 
   const handleEnviar = async () => { await cambiarEstado('enviado') }
   const handleEnviarProforma = () => { /* pendiente: integrar proforma */ }
-  const handleImprimir = () => { /* pendiente: integrar PDF */ }
-  const handleVistaPrevia = () => { /* pendiente: integrar portal */ }
+  const [generandoPdf, setGenerandoPdf] = useState(false)
+  const handleImprimir = async () => {
+    if (!idPresupuesto || generandoPdf) return
+    setGenerandoPdf(true)
+    try {
+      // Guardar TODO el estado actual antes de generar PDF
+      await guardarTodo()
+      // forzar: false → si no hubo cambios desde la última generación, devuelve el existente
+      const res = await fetch(`/api/presupuestos/${idPresupuesto}/pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vista_previa: true, forzar: false }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        alert(err.error || 'Error al generar el PDF')
+        return
+      }
+      const { url } = await res.json()
+      if (url) window.open(url, '_blank')
+    } catch {
+      alert('Error al generar el PDF')
+    } finally {
+      setGenerandoPdf(false)
+    }
+  }
+  const handleVistaPrevia = async () => {
+    const pid = idPresupuesto
+    if (!pid) return
+    try {
+      const res = await fetch(`/api/presupuestos/${pid}/portal`, { method: 'POST' })
+      if (!res.ok) return
+      const data = await res.json()
+      if (data.url) {
+        await navigator.clipboard.writeText(data.url).catch(() => {})
+        window.open(data.url, '_blank')
+      }
+    } catch { /* silenciar */ }
+  }
 
   // ─── Cálculos derivados ─────────────────────────────────────────────────
 
@@ -707,8 +789,8 @@ export default function EditorPresupuesto({
               >
                 <X size={16} />
               </button>
-              {/* Info y RefreshCw solo en modo editar */}
-              {modo === 'editar' && (
+              {/* Info y RefreshCw en modo editar o post-creación */}
+              {(modo === 'editar' || presupuestoIdCreado) && (
                 <>
                   <button
                     className="size-7 rounded-full flex items-center justify-center text-texto-terciario hover:bg-superficie-app transition-colors"
@@ -717,10 +799,32 @@ export default function EditorPresupuesto({
                     <Info size={16} />
                   </button>
                   <button
-                    className="size-7 rounded-full flex items-center justify-center text-texto-terciario hover:bg-superficie-app transition-colors"
+                    onClick={async () => {
+                      if (!idPresupuesto || generandoPdf) return
+                      setGenerandoPdf(true)
+                      try {
+                        // Guardar TODO el estado actual antes de regenerar
+                        await guardarTodo()
+                        const res = await fetch(`/api/presupuestos/${idPresupuesto}/pdf`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ forzar: true }),
+                        })
+                        if (!res.ok) {
+                          const err = await res.json().catch(() => ({}))
+                          alert(err.error || 'Error al regenerar el PDF')
+                        }
+                      } catch {
+                        alert('Error al regenerar el PDF')
+                      } finally {
+                        setGenerandoPdf(false)
+                      }
+                    }}
+                    disabled={generandoPdf}
+                    className={`size-7 rounded-full flex items-center justify-center text-texto-terciario hover:bg-superficie-app transition-colors ${generandoPdf ? 'opacity-40 cursor-not-allowed' : ''}`}
                     title="Regenerar PDF"
                   >
-                    <RefreshCw size={16} />
+                    <RefreshCw size={16} className={generandoPdf ? 'animate-spin' : ''} />
                   </button>
                 </>
               )}
@@ -730,13 +834,13 @@ export default function EditorPresupuesto({
             </div>
           </div>
 
-          {/* Fila 3: Botones de acción (solo modo editar) o indicación (modo crear sin contacto) */}
-          {modo === 'editar' && (
+          {/* Fila 3: Botones de acción (modo editar o post-creación) */}
+          {(modo === 'editar' || presupuestoIdCreado) && (
             <div className="flex items-center gap-2 flex-wrap">
               {(() => {
                 // Botón base reutilizable
-                const BotonAccion = ({ onClick, icono: Icono, label, variante = 'default', disabled = false }: {
-                  onClick: () => void; icono: typeof Send; label: string; variante?: string; disabled?: boolean
+                const BotonAccion = ({ onClick, icono: Icono, label, variante = 'default', disabled = false, animarIcono = false }: {
+                  onClick: () => void; icono: typeof Send; label: string; variante?: string; disabled?: boolean; animarIcono?: boolean
                 }) => (
                   <button
                     onClick={onClick}
@@ -749,7 +853,7 @@ export default function EditorPresupuesto({
                           : 'text-texto-secundario bg-superficie-app border border-borde-sutil hover:bg-superficie-elevada disabled:opacity-40 disabled:cursor-not-allowed'
                     }`}
                   >
-                    <Icono size={15} />
+                    <Icono size={15} className={animarIcono ? 'animate-spin' : ''} />
                     <span className="hidden sm:inline">{label}</span>
                   </button>
                 )
@@ -769,7 +873,7 @@ export default function EditorPresupuesto({
                     {esEnviado ? (
                       <>
                         {siguienteEstado && <BotonAccion onClick={() => cambiarEstado(siguienteEstado)} icono={FileCheck} label="Confirmar" variante="primario" />}
-                        <BotonAccion onClick={handleImprimir} icono={Printer} label="Imprimir" />
+                        <BotonAccion onClick={handleImprimir} icono={generandoPdf ? Loader2 : Printer} label={generandoPdf ? 'Generando...' : 'Imprimir'} disabled={generandoPdf} animarIcono={generandoPdf} />
                         <BotonAccion onClick={handleEnviarProforma} icono={Receipt} label="Enviar Factura Proforma" />
                         <BotonAccion onClick={handleEnviar} icono={Send} label="Enviar" />
                         <BotonAccion onClick={handleVistaPrevia} icono={Eye} label="Vista previa" />
@@ -779,7 +883,7 @@ export default function EditorPresupuesto({
                       <>
                         <BotonAccion onClick={handleEnviar} icono={Send} label="Enviar" />
                         <BotonAccion onClick={handleEnviarProforma} icono={Receipt} label="Enviar Factura Proforma" />
-                        <BotonAccion onClick={handleImprimir} icono={Printer} label="Imprimir" />
+                        <BotonAccion onClick={handleImprimir} icono={generandoPdf ? Loader2 : Printer} label={generandoPdf ? 'Generando...' : 'Imprimir'} disabled={generandoPdf} animarIcono={generandoPdf} />
                         {siguienteEstado && <BotonAccion onClick={() => cambiarEstado(siguienteEstado)} icono={FileCheck} label="Confirmar" variante="primario" />}
                         <BotonAccion onClick={handleVistaPrevia} icono={Eye} label="Vista previa" />
                         {!estaCancelado && estadosPosibles.includes('cancelado') && (

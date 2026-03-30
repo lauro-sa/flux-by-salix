@@ -13,6 +13,7 @@ import { IndicadorGuardado } from '@/componentes/ui/IndicadorGuardado'
 import { Modal } from '@/componentes/ui/Modal'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { useEmpresa } from '@/hooks/useEmpresa'
+import { useModulos } from '@/hooks/useModulos'
 import { useAutoguardado } from '@/hooks/useAutoguardado'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 
@@ -120,9 +121,15 @@ const DEFAULTS: ConfigIA = {
 
 type SubSeccion = 'salix-ia' | 'asistente-general' | 'asistente-creacion'
 
+const SLUGS_IA = ['agente_ia', 'salix_ia', 'chatbot_inbox', 'automatizaciones']
+
 export function SeccionIA() {
   const { empresa } = useEmpresa()
+  const { modulos, cargando: cargandoModulos, tieneModulo } = useModulos()
   const supabase = crearClienteNavegador()
+
+  // Verificar si hay al menos un módulo de IA instalado
+  const tieneAlgunModuloIA = SLUGS_IA.some(slug => tieneModulo(slug))
 
   const [config, setConfig] = useState<ConfigIA>(DEFAULTS)
   const [cargando, setCargando] = useState(true)
@@ -171,7 +178,39 @@ export function SeccionIA() {
     return '•••• •••• •••• ' + key.slice(-4)
   }
 
-  if (cargando) return <CargadorSeccion />
+  if (cargando || cargandoModulos) return <CargadorSeccion />
+
+  // Si no tiene ningún módulo de IA → mostrar estado bloqueado
+  if (!tieneAlgunModuloIA) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-lg font-semibold text-texto-primario mb-1">Inteligencia Artificial</h2>
+          <p className="text-sm text-texto-terciario">Configurá los proveedores de IA y los asistentes de tu empresa.</p>
+        </div>
+
+        <div className="flex flex-col items-center text-center py-12 px-6 bg-superficie-tarjeta border border-borde-sutil rounded-xl">
+          <div className="w-16 h-16 rounded-2xl bg-superficie-elevada flex items-center justify-center mb-4">
+            <Sparkles size={28} strokeWidth={1.5} className="text-texto-terciario" />
+          </div>
+          <h3 className="text-base font-semibold text-texto-primario mb-2">
+            No tenés módulos de IA instalados
+          </h3>
+          <p className="text-sm text-texto-secundario max-w-md mb-6">
+            Para configurar la inteligencia artificial, primero instalá al menos un módulo de IA desde la tienda de aplicaciones: Salix IA, Agente IA, Chatbot Inbox o Automatizaciones.
+          </p>
+          <a
+            href="/aplicaciones"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white no-underline transition-colors"
+            style={{ backgroundColor: 'var(--texto-marca)' }}
+          >
+            <Sparkles size={16} />
+            Ir a Aplicaciones
+          </a>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

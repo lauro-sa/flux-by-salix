@@ -76,6 +76,29 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
   const anchoSidebar = sidebarColapsado ? 'var(--sidebar-ancho-colapsado)' : 'var(--sidebar-ancho)'
   const fondoWrapper = efecto !== 'solido' ? 'transparent' : 'var(--superficie-app)'
 
+  // Rutas que se renderizan a pantalla completa (sin sidebar ni header)
+  const esPantallaCompleta = pathname === '/aplicaciones'
+
+  if (esPantallaCompleta) {
+    return (
+      <div style={{ height: '100dvh', backgroundColor: fondoWrapper, overflow: 'hidden' }}>
+        <main
+          className="scrollbar-auto-oculto"
+          style={{
+            height: '100dvh',
+            display: 'flex',
+            flexDirection: 'column',
+            width: '100%',
+            overflowY: 'auto',
+            backgroundColor: 'var(--superficie-app)',
+          }}
+        >
+          {children}
+        </main>
+      </div>
+    )
+  }
+
   return (
     <div style={{ height: '100dvh', backgroundColor: fondoWrapper, overflow: 'hidden' }}>
       <Sidebar

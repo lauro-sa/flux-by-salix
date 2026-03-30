@@ -373,15 +373,17 @@ export function ListaConversaciones({
                 <div className="flex items-start gap-2.5">
                   {/* Checkbox en modo selección */}
                   {modoSeleccion && (
-                    <button
+                    <div
+                      role="checkbox"
+                      aria-checked={seleccionados.has(conv.id)}
                       onClick={(e) => { e.stopPropagation(); toggleSeleccion(conv.id) }}
-                      className="flex-shrink-0 mt-1.5"
+                      className="flex-shrink-0 mt-1.5 cursor-pointer"
                     >
                       {seleccionados.has(conv.id)
                         ? <CheckSquare size={16} style={{ color: 'var(--texto-marca)' }} />
                         : <Square size={16} style={{ color: 'var(--texto-terciario)' }} />
                       }
-                    </button>
+                    </div>
                   )}
                   {/* Avatar */}
                   {!modoSeleccion && (

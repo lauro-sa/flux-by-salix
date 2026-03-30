@@ -23,6 +23,7 @@ export function SeccionGeneral() {
   const { empresa } = useEmpresa()
 
   const [nombre, setNombre] = useState('')
+  const [descripcionEmpresa, setDescripcionEmpresa] = useState('')
   const [slug, setSlug] = useState('')
   const [ubicacion, setUbicacion] = useState('')
   const [direccionEmpresa, setDireccionEmpresa] = useState<Record<string, unknown> | null>(null)
@@ -123,6 +124,16 @@ export function SeccionGeneral() {
         })
       }
 
+      // Cargar descripcion por separado (campo puede no existir si la migración no se aplicó)
+      try {
+        const { data: descData } = await supabase
+          .from('empresas')
+          .select('descripcion')
+          .eq('id', empresa.id)
+          .single()
+        if (descData) setDescripcionEmpresa((descData as Record<string, unknown>).descripcion as string || '')
+      } catch { /* columna puede no existir aún */ }
+
       const { data: urlApaisado } = supabase.storage
         .from('logos')
         .getPublicUrl(`${empresa.id}/apaisado.png`)
@@ -213,6 +224,15 @@ export function SeccionGeneral() {
             ayuda={slug ? `${slug}.fluxsalix.com` : undefined}
           />
         </div>
+
+        <Input
+          tipo="text"
+          etiqueta="Descripción de la empresa"
+          value={descripcionEmpresa}
+          onChange={(e) => setDescripcionEmpresa(e.target.value)}
+          onBlur={() => guardar({ descripcion: descripcionEmpresa })}
+          placeholder="Ej: Metalúrgica - herrería de obra"
+        />
 
         <BloqueDireccion
           etiqueta="Ubicación de la empresa"

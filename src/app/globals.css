@@ -4,6 +4,11 @@
 /* Tailwind CSS 4 */
 @import 'tailwindcss';
 
+/* PWA: desactivar elastic scroll / pull-to-refresh del navegador */
+html, body {
+  overscroll-behavior: none;
+}
+
 /* Safe area insets para PWA en iOS (notch, home indicator) */
 :root {
   --safe-area-top: env(safe-area-inset-top, 0px);

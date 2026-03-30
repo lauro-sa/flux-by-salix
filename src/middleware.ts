@@ -27,6 +27,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Portal público — sin auth
+  if (pathname.startsWith('/portal')) {
+    return NextResponse.next()
+  }
+
   // Crear cliente Supabase y refrescar sesión
   const { supabase, response } = await crearClienteMiddleware(request)
   const { data: { user } } = await supabase.auth.getUser()

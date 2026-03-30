@@ -9,6 +9,8 @@ export type { Invitacion } from './invitacion'
 export type { Modulo, ModuloOperacional, ModuloDocumento, ModuloComunicacion, ModuloAdmin, ModuloConfig, Accion, PermisosMapa } from './permisos'
 export { CATEGORIAS_MODULOS, ACCIONES_POR_MODULO, ETIQUETAS_MODULO, ETIQUETAS_ACCION } from './permisos'
 export type { PermisoAuditoria } from './permisos_auditoria'
+export type { ModuloCatalogo, ModuloInstalado, ModuloConEstado, Suscripcion, CategoriaModulo, TierModulo } from './modulos'
+export { RUTAS_POR_MODULO, MODULO_POR_RUTA } from './modulos'
 export type {
   TipoContacto, TipoContactoPredefinido,
   TipoRelacion, TipoRelacionPredefinido,

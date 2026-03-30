@@ -16,6 +16,7 @@ export const empresas = pgTable('empresas', {
   pais: text('pais'), // país principal (legacy)
   paises: text('paises').array().notNull().default(sql`'{}'`), // países donde opera la empresa
   color_marca: text('color_marca'),
+  descripcion: text('descripcion'),
   datos_fiscales: jsonb('datos_fiscales').notNull().default(sql`'{}'`), // datos fiscales dinámicos según país (cuit, condicion_iva, etc.)
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
 })
@@ -518,3 +519,86 @@ export const config_presupuestos = pgTable('config_presupuestos', {
 
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
 })
+
+// ═══════════════════════════════════════════════════════════════
+// SISTEMA DE MÓDULOS / APLICACIONES
+// ═══════════════════════════════════════════════════════════════
+
+// Catálogo maestro de módulos disponibles en Flux (tabla global, sin RLS)
+export const catalogo_modulos = pgTable('catalogo_modulos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  slug: text('slug').notNull().unique(),
+  nombre: text('nombre').notNull(),
+  descripcion: text('descripcion').notNull().default(''),
+  icono: text('icono').notNull().default('box'),
+  categoria: text('categoria').notNull().default('operacional'), // base, operacional, documentos, comunicacion, admin, premium
+  es_base: boolean('es_base').notNull().default(false),
+  requiere: text('requiere').array().notNull().default(sql`'{}'`),
+  orden: integer('orden').notNull().default(0),
+  precio_mensual_usd: numeric('precio_mensual_usd').default('0'),
+  precio_anual_usd: numeric('precio_anual_usd').default('0'),
+  tier: text('tier').notNull().default('free'), // free, starter, pro, enterprise
+  version: text('version').notNull().default('1.0.0'),
+  destacado: boolean('destacado').notNull().default(false),
+  visible: boolean('visible').notNull().default(true),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+})
+
+// Módulos instalados por empresa
+export const modulos_empresa = pgTable('modulos_empresa', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  modulo: text('modulo').notNull(), // slug del catálogo
+  activo: boolean('activo').notNull().default(true),
+  activado_en: timestamp('activado_en', { withTimezone: true }).defaultNow(),
+  desactivado_en: timestamp('desactivado_en', { withTimezone: true }),
+  config: jsonb('config').notNull().default(sql`'{}'`),
+  catalogo_modulo_id: uuid('catalogo_modulo_id').references(() => catalogo_modulos.id),
+  instalado_por: uuid('instalado_por'),
+  version: text('version').default('1.0.0'),
+  purga_programada_en: timestamp('purga_programada_en', { withTimezone: true }),
+  purgado: boolean('purgado').notNull().default(false),
+  notificacion_purga_enviada: boolean('notificacion_purga_enviada').notNull().default(false),
+}, (tabla) => [
+  uniqueIndex('modulos_empresa_unico_idx').on(tabla.empresa_id, tabla.modulo),
+  index('modulos_empresa_empresa_idx').on(tabla.empresa_id),
+])
+
+// Suscripciones por empresa (preparada para Stripe)
+export const suscripciones = pgTable('suscripciones', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  plan: text('plan').notNull().default('free'), // free, starter, pro, enterprise
+  estado: text('estado').notNull().default('activa'), // activa, trial, vencida, cancelada
+  stripe_customer_id: text('stripe_customer_id'),
+  stripe_subscription_id: text('stripe_subscription_id'),
+  inicio_en: timestamp('inicio_en', { withTimezone: true }).defaultNow().notNull(),
+  vence_en: timestamp('vence_en', { withTimezone: true }),
+  trial_hasta: timestamp('trial_hasta', { withTimezone: true }),
+  cancelado_en: timestamp('cancelado_en', { withTimezone: true }),
+  limite_usuarios: integer('limite_usuarios'),
+  limite_contactos: integer('limite_contactos'),
+  limite_storage_mb: integer('limite_storage_mb'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  uniqueIndex('suscripciones_empresa_unica_idx').on(tabla.empresa_id),
+])
+
+// Portal — tokens de acceso público para que clientes vean presupuestos sin auth
+export const portal_tokens = pgTable('portal_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  token: text('token').notNull().unique(),
+  presupuesto_id: uuid('presupuesto_id').notNull().references(() => presupuestos.id, { onDelete: 'cascade' }),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  creado_por: uuid('creado_por').notNull(),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  expira_en: timestamp('expira_en', { withTimezone: true }).notNull(),
+  visto_en: timestamp('visto_en', { withTimezone: true }),
+  veces_visto: integer('veces_visto').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+}, (tabla) => [
+  index('portal_tokens_token_idx').on(tabla.token),
+  index('portal_tokens_presupuesto_idx').on(tabla.presupuesto_id),
+  index('portal_tokens_empresa_idx').on(tabla.empresa_id),
+])

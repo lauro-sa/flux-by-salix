@@ -133,6 +133,12 @@ interface PropiedadesTablaDinamica<T> {
   /** ID del módulo para persistir config por usuario+dispositivo (ej: 'usuarios', 'contactos') */
   idModulo?: string
 
+  /** Columnas visibles por defecto (claves). Si no se pasa, todas las columnas son visibles. */
+  columnasVisiblesDefault?: string[]
+
+  /** Chip de filtro activo — se muestra dentro de la barra de búsqueda */
+  chipFiltro?: ReactNode
+
   className?: string
 }
 
@@ -170,19 +176,22 @@ function compararValores(a: unknown, b: unknown, direccion: DireccionOrden): num
 }
 
 /** Formatea un número para mostrar */
-function formatearNumero(n: number): string {
+function formatearNumero(n: number, tipoDato?: TipoDato): string {
+  if (tipoDato === 'moneda') {
+    return `$ ${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  }
   return n.toLocaleString('es-AR', { maximumFractionDigits: 2 })
 }
 
 /** Calcula un resumen sobre un arreglo de valores numéricos */
-function calcularResumen(valores: number[], tipo: TipoCalculo): string {
+function calcularResumen(valores: number[], tipo: TipoCalculo, tipoDato?: TipoDato): string {
   if (valores.length === 0) return '—'
   switch (tipo) {
     case 'conteo': return formatearNumero(valores.length)
-    case 'suma': return formatearNumero(valores.reduce((a, b) => a + b, 0))
-    case 'promedio': return formatearNumero(valores.reduce((a, b) => a + b, 0) / valores.length)
-    case 'min': return formatearNumero(Math.min(...valores))
-    case 'max': return formatearNumero(Math.max(...valores))
+    case 'suma': return formatearNumero(valores.reduce((a, b) => a + b, 0), tipoDato)
+    case 'promedio': return formatearNumero(valores.reduce((a, b) => a + b, 0) / valores.length, tipoDato)
+    case 'min': return formatearNumero(Math.min(...valores), tipoDato)
+    case 'max': return formatearNumero(Math.max(...valores), tipoDato)
     default: return '—'
   }
 }
@@ -953,7 +962,7 @@ function PieResumenFila<T>({
 
         const tipoCalculo: TipoCalculo = overrides[clave]
           || col.resumen
-          || (col.tipo === 'numero' || col.tipo === 'moneda' ? 'suma' : 'conteo')
+          || (col.tipo === 'numero' || col.tipo === 'moneda' ? 'suma' : 'ninguno')
 
         let contenido: ReactNode = null
         if (tipoCalculo !== 'ninguno') {
@@ -973,7 +982,7 @@ function PieResumenFila<T>({
 
           const valorCalculado = tipoCalculo === 'conteo'
             ? datos.length
-            : calcularResumen(valores, tipoCalculo)
+            : calcularResumen(valores, tipoCalculo, col.tipo)
 
           contenido = (
             <div className="flex flex-col">
@@ -1053,7 +1062,7 @@ function PieResumen<T>({
           // Determinar tipo de cálculo: override > definido en columna > default
           const tipoCalculo: TipoCalculo = overrides[clave]
             || col.resumen
-            || (col.tipo === 'numero' || col.tipo === 'moneda' ? 'suma' : 'conteo')
+            || (col.tipo === 'numero' || col.tipo === 'moneda' ? 'suma' : 'ninguno')
 
           // Calcular
           let contenido: ReactNode = null
@@ -1074,7 +1083,7 @@ function PieResumen<T>({
 
             const valorCalculado = tipoCalculo === 'conteo'
               ? datos.length
-              : calcularResumen(valores, tipoCalculo)
+              : calcularResumen(valores, tipoCalculo, col.tipo)
 
             contenido = (
               <div className="flex flex-col">
@@ -1269,6 +1278,8 @@ function TablaDinamica<T>({
   mostrarResumen = false,
   estadoVacio,
   idModulo,
+  columnasVisiblesDefault,
+  chipFiltro,
   className = '',
 }: PropiedadesTablaDinamica<T>) {
 
@@ -1294,19 +1305,19 @@ function TablaDinamica<T>({
     (configGuardada?.tipoVista as TipoVista) || vistaInicial || vistas[0] || 'lista'
   )
 
-  /* En móvil (≤ 768px), forzar tarjetas si está disponible; en desktop restaurar preferencia */
+
+  /* En móvil (≤ 768px), forzar tarjetas si está disponible */
   const vistaManualRef = useRef(false)
   useEffect(() => {
     if (!vistas.includes('tarjetas') || vistas.length < 2) return
     const mq = window.matchMedia('(max-width: 768px)')
     const manejar = (e: MediaQueryListEvent | MediaQueryList) => {
       if (e.matches) {
+        // Móvil → forzar tarjetas
         vistaManualRef.current = false
         setVistaActual('tarjetas')
-      } else if (!vistaManualRef.current) {
-        const guardada = configGuardada?.tipoVista as TipoVista | undefined
-        setVistaActual(guardada || vistaInicial || 'lista')
       }
+      // Desktop → no tocar, el efecto de restaurar config ya se encarga
     }
     manejar(mq)
     mq.addEventListener('change', manejar)
@@ -1378,8 +1389,9 @@ function TablaDinamica<T>({
   /* Si hay config guardada, se merge con las columnas actuales del código para que
      columnas nuevas aparezcan automáticamente (al final, visibles por defecto) */
   const columnasIniciales = useMemo(() => columnas.map((c) => c.clave), [columnas])
+  const columnasDefaultResueltas = columnasVisiblesDefault?.filter(c => columnasIniciales.includes(c)) || columnasIniciales
   const [columnasVisibles, setColumnasVisibles] = useState<string[]>(() => {
-    if (!configGuardada?.columnasVisibles) return columnasIniciales
+    if (!configGuardada?.columnasVisibles) return columnasDefaultResueltas
     // Respetar exactamente lo que el usuario guardó (sin agregar nuevas como visibles)
     return configGuardada.columnasVisibles.filter(c => columnasIniciales.includes(c))
   })
@@ -1613,7 +1625,13 @@ function TablaDinamica<T>({
 
   /* ── Restaurar config guardada cuando las preferencias terminan de cargar ── */
   useEffect(() => {
-    if (cargandoPrefs || configCargadaRef.current || !idModulo) return
+    // Si vuelve a cargar (ej: auth resuelve y re-fetch de API), resetear flags
+    if (cargandoPrefs) {
+      configCargadaRef.current = false
+      yaInicializado.current = false
+      return
+    }
+    if (configCargadaRef.current || !idModulo) return
     const cfg = preferencias.config_tablas?.[idModulo]
     if (!cfg) { configCargadaRef.current = true; return }
 
@@ -1633,7 +1651,7 @@ function TablaDinamica<T>({
     if (cfg.tipoVista) setVistaActual(cfg.tipoVista as TipoVista)
     if (cfg.opcionesVisuales) setOpcionesVisuales(prev => ({ ...prev, ...cfg.opcionesVisuales as Partial<OpcionesVisuales> }))
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cargandoPrefs, idModulo])
+  }, [cargandoPrefs, idModulo, preferencias.config_tablas])
 
   /* ── Persistir config de tabla al cambiar (debounced) ── */
   const persistirRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -1713,7 +1731,7 @@ function TablaDinamica<T>({
   }, [columnas])
 
   const restablecerColumnas = () => {
-    setColumnasVisibles(columnasIniciales)
+    setColumnasVisibles(columnasDefaultResueltas)
     setOrdenColumnas(columnasIniciales)
     setColumnasAncladas([])
     setAlineacionColumnas(() => {
@@ -1977,6 +1995,9 @@ function TablaDinamica<T>({
           ].join(' ')}>
             {/* Lupa */}
             <Search size={15} className="text-texto-terciario shrink-0" />
+
+            {/* Chip de filtro activo */}
+            {chipFiltro}
 
             {/* Input */}
             <input
