@@ -5,6 +5,8 @@
  * Se usa en: VistaPortal
  */
 
+import { useTraduccion } from '@/lib/i18n'
+
 interface Props {
   notasHtml: string | null
   condicionesHtml: string | null
@@ -26,6 +28,7 @@ function parsearNotas(valor: string | null): string[] {
 }
 
 export default function SeccionNotas({ notasHtml, condicionesHtml }: Props) {
+  const { t } = useTraduccion()
   const notas = parsearNotas(notasHtml)
   const condiciones = parsearNotas(condicionesHtml)
 
@@ -35,8 +38,8 @@ export default function SeccionNotas({ notasHtml, condicionesHtml }: Props) {
     <div className="space-y-4">
       {notas.length > 0 && (
         <div>
-          <h3 className="text-[11px] text-texto-terciario uppercase tracking-wider font-medium mb-2">
-            Notas
+          <h3 className="text-xs text-texto-terciario uppercase tracking-wider font-medium mb-2">
+            {t('portal.notas')}
           </h3>
           <div className="space-y-1">
             {notas.map((html, i) => (
@@ -52,8 +55,8 @@ export default function SeccionNotas({ notasHtml, condicionesHtml }: Props) {
 
       {condiciones.length > 0 && (
         <div>
-          <h3 className="text-[11px] text-texto-terciario uppercase tracking-wider font-medium mb-2">
-            T&eacute;rminos y condiciones
+          <h3 className="text-xs text-texto-terciario uppercase tracking-wider font-medium mb-2">
+            {t('portal.condiciones')}
           </h3>
           <div className="space-y-1">
             {condiciones.map((html, i) => (

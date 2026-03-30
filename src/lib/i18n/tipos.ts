@@ -47,6 +47,69 @@ export interface Traducciones {
     exito_guardado: string
     confirmar_eliminar: string
     confirmar_eliminar_desc: string
+    nombre_completo: string
+    notas: string
+    descripcion: string
+    estado: string
+    activo: string
+    inactivo: string
+    copiar: string
+    descargar: string
+    subir: string
+    restablecer: string
+    agregar: string
+    quitar: string
+    ver: string
+    enviar: string
+    guardar_cambios: string
+    sin_datos: string
+    opcional: string
+    requerido: string
+    nombre: string
+    aplicar: string
+    listo: string
+    pendiente: string
+    nuevo: string
+    fecha: string
+    tipo: string
+    color: string
+    icono: string
+    proximamente: string
+    proximamente_desc: string
+    limpiar: string
+    codigo: string
+    contacto: string
+    responsable: string
+    referencia: string
+    web: string
+    cargo: string
+    rubro: string
+    moneda_label: string
+    idioma: string
+    zona_horaria: string
+    ubicacion: string
+    genero: string
+    domicilio: string
+    documento: string
+    creacion: string
+    creado_por: string
+    mas_recientes: string
+    mas_antiguos: string
+    nombre_az: string
+    nombre_za: string
+    sin_correo: string
+    en_progreso: string
+    identidad: string
+    metadata: string
+    laboral: string
+    comercial: string
+    fiscal: string
+    auditoria_grupo: string
+    pago_grupo: string
+    origen: string
+    fechas: string
+    manual: string
+    importacion: string
   }
 
   // Autenticación
@@ -66,6 +129,51 @@ export interface Traducciones {
     no_tienes_cuenta: string
     ya_tienes_cuenta: string
     bienvenido: string
+    nombre: string
+    apellido: string
+    placeholder_nombre: string
+    placeholder_apellido: string
+    placeholder_contrasena_minimo: string
+    placeholder_repetir_contrasena: string
+    error_contrasena_minimo: string
+    error_contrasena_no_coinciden: string
+    error_verificacion: string
+    crear_cuenta: string
+    crear_cuenta_desc: string
+    revisa_tu_correo: string
+    recuperar_desc: string
+    volver_login: string
+    enviar_enlace_desc: string
+    enviar_enlace: string
+    contrasena_actualizada: string
+    redirigiendo_login: string
+    nueva_contrasena_titulo: string
+    nueva_contrasena_desc: string
+    actualizar_contrasena: string
+    email_reenviado: string
+    reenviar_verificacion: string
+    esperando_verificacion: string
+    esperando_activacion: string
+    esperando_activacion_desc: string
+    layout_titulo_1: string
+    layout_titulo_2: string
+    layout_desc: string
+  }
+
+  // Invitación
+  invitacion: {
+    error_sin_token: string
+    error_no_valida: string
+    validando: string
+    no_valida_titulo: string
+    ir_login: string
+    te_uniste_a: string
+    activacion_pendiente: string
+    invitacion_a: string
+    te_invitaron_como: string
+    unirse_a: string
+    login_y_unirse: string
+    crear_cuenta_y_unirse: string
   }
 
   // Multi-empresa
@@ -129,6 +237,41 @@ export interface Traducciones {
       tarjetas: string
       kanban: string
     }
+    nombre_completo: string
+    datos_fiscales: string
+    razon_social: string
+    condicion_iva: string
+    vinculaciones: string
+    nueva_vinculacion: string
+    tipo_relacion: string
+    duplicado_detectado: string
+    crear_igual: string
+    provisorio: string
+    guardando: string
+    relaciones: string
+    titulo_campo: string
+    identificacion: string
+    vinculado_a: string
+    posicion_fiscal: string
+    tipo_iibb: string
+    nro_iibb: string
+    limite_credito: string
+    plazo_cliente: string
+    plazo_proveedor: string
+    rank_cliente: string
+    rank_proveedor: string
+    pais_fiscal: string
+    puesto_rol: string
+    iva_resp_inscripto: string
+    iva_monotributista: string
+    iva_exento: string
+    iva_cons_final: string
+    iva_no_responsable: string
+    origen_manual: string
+    origen_importacion: string
+    origen_ia: string
+    origen_usuario: string
+    descripcion_vacia: string
   }
 
   // Actividades
@@ -156,6 +299,15 @@ export interface Traducciones {
     vinculos: string
     sin_actividades: string
     sin_actividades_desc: string
+    crear_primera: string
+    config_titulo: string
+    config_desc: string
+    tipos_actividad: string
+    tipo_llamada: string
+    tipo_reunion: string
+    tipo_correo: string
+    tipo_tarea: string
+    tipo_visita: string
   }
 
   // Visitas
@@ -180,6 +332,10 @@ export interface Traducciones {
     fotos: string
     sin_visitas: string
     sin_visitas_desc: string
+    vendedor: string
+    estados_visita: {
+      en_curso: string
+    }
   }
 
   // Documentos (presupuestos, facturas, informes)
@@ -221,6 +377,33 @@ export interface Traducciones {
     descargar_pdf: string
     sin_documentos: string
     sin_documentos_desc: string
+    condiciones_pago: string
+    plazo_validez: string
+    agregar_linea: string
+    eliminar_linea: string
+    vista_previa: string
+    imprimir: string
+    duplicar: string
+    convertir_factura: string
+    historial_estados: string
+    restablecer_borrador: string
+    nuevo_presupuesto: string
+    email_cliente: string
+    telefono_cliente: string
+    cuit_dni: string
+    condicion_iva_cliente: string
+    direccion_cliente: string
+    dirigido_a: string
+    emision: string
+    plazo_dias: string
+    doc_origen: string
+    notas_defecto: string
+    condiciones_defecto: string
+    tipo_condicion: string
+    total_mayor: string
+    total_menor: string
+    cliente_az: string
+    cliente_za: string
   }
 
   // Productos
@@ -238,6 +421,17 @@ export interface Traducciones {
     activo: string
     sin_productos: string
     sin_productos_desc: string
+    categorias_prod: {
+      insumos: string
+      servicios: string
+      equipos: string
+      repuestos: string
+    }
+    estados_prod: {
+      activo: string
+      inactivo: string
+      agotado: string
+    }
   }
 
   // Inbox (mensajería omnicanal)
@@ -325,6 +519,20 @@ export interface Traducciones {
     notificacion_nuevo: string
     notificacion_asignacion: string
     notificacion_mencion: string
+    nota_interna: string
+    escribir_nota: string
+    etiquetar: string
+    exportar_conversacion: string
+    copiar_mensaje: string
+    reaccionar: string
+    mencionar: string
+    deshacer_envio: string
+    no_es_spam: string
+    sin_asunto: string
+    seleccionar_correo: string
+    nombre_canal: string
+    nombre_regla: string
+    regla_activa: string
   }
 
   // Asistencias y fichaje
@@ -367,6 +575,11 @@ export interface Traducciones {
     dia: string
     evento_nuevo: string
     sin_eventos: string
+    config_titulo: string
+    config_desc: string
+    sincronizacion: string
+    festivos: string
+    disponibilidad: string
   }
 
   // Órdenes de trabajo
@@ -378,6 +591,24 @@ export interface Traducciones {
     asignados: string
     sin_ordenes: string
     sin_ordenes_desc: string
+    numero: string
+    titulo_campo: string
+    cliente: string
+    prioridades: {
+      baja: string
+      media: string
+      alta: string
+      urgente: string
+    }
+    estados_orden: {
+      abierta: string
+      en_progreso: string
+      esperando: string
+      completada: string
+      cancelada: string
+    }
+    asignado: string
+    fecha: string
   }
 
   // Auditoría
@@ -409,6 +640,29 @@ export interface Traducciones {
       mensajes_sin_leer: string
     }
     metricas: string
+    saludos: {
+      buenos_dias: string
+      buenas_tardes: string
+      buenas_noches: string
+    }
+    accesos_rapidos: string
+    actividad_reciente: string
+    recientes: string
+    por_estado: string
+    borradores: string
+    sin_leer: string
+    ver_todo: string
+    mensajes_30d: string
+    recibidos: string
+    ir_al_inbox: string
+    inbox_ultimos_30d: string
+    label_recibidos: string
+    label_enviados: string
+    label_resueltas: string
+    label_tiempo_resp: string
+    sla_cumplido: string
+    por_agente: string
+    sin_datos_inbox: string
   }
 
   // Configuración (secciones)
@@ -448,6 +702,78 @@ export interface Traducciones {
         mensual: string
       }
       vista_previa: string
+    }
+    estructura: {
+      titulo: string
+      descripcion: string
+      sectores: string
+      puestos: string
+      agregar_sector: string
+      agregar_puesto: string
+      nombre_sector: string
+      nombre_puesto: string
+      sector_padre: string
+      jefe_sector: string
+      horario_de: string
+    }
+    regional: {
+      titulo: string
+      zona_horaria: string
+      moneda: string
+      formato_fecha: string
+      separador_miles: string
+      separador_decimal: string
+    }
+    ia: {
+      titulo: string
+      proveedor: string
+      modelo: string
+      api_key: string
+      prompt_sistema: string
+      guardar_key: string
+      guardar_prompt: string
+      probar: string
+      probando: string
+    }
+    agente_ia: {
+      nombre_agente: string
+      apodo: string
+      si_preguntan_bot: string
+      personalidad: string
+      palabras_naturales: string
+      modo_activacion: string
+      esperar_segundos: string
+      zona_cobertura: string
+      sitio_web: string
+      correo_contacto: string
+      horario_atencion: string
+      servicios: string
+      no_hacen: string
+      precios_referencia: string
+      instrucciones: string
+      situaciones_especiales: string
+      agendar_visitas: string
+      icono: string
+      nombre: string
+      identificador: string
+      tono: string
+      largo_respuestas: string
+      firma: string
+      max_respuestas: string
+      titulo_ejemplo: string
+      titulo_campo: string
+      categoria: string
+    }
+    whatsapp: {
+      nombre_descriptivo: string
+      numero_telefono: string
+      phone_id: string
+      app_id: string
+      waba_id: string
+      token_verificacion: string
+      token_acceso: string
+      clave_secreta: string
+      nombre_cuenta: string
     }
   }
 
@@ -521,5 +847,170 @@ export interface Traducciones {
     deshabilitar: string
     desinstalar: string
     plan_gratuito: string
+  }
+
+  // Usuarios
+  usuarios: {
+    titulo: string
+    nuevo: string
+    nombre: string
+    apellido: string
+    correo: string
+    telefono: string
+    rol: string
+    estado: string
+    activo: string
+    inactivo: string
+    ultimo_acceso: string
+    fecha_alta: string
+    invitar_usuario: string
+    eliminar_usuario: string
+    resetear_contrasena: string
+    datos_personales: string
+    datos_laborales: string
+    puesto: string
+    departamento: string
+    fecha_ingreso: string
+    fecha_nacimiento: string
+    compensacion: string
+    salario: string
+    moneda: string
+    banco: string
+    cbu: string
+    alias_bancario: string
+    observaciones: string
+    permisos: string
+    sin_usuarios: string
+    sin_usuarios_desc: string
+    num_empleado: string
+    sector: string
+    telefono_personal: string
+    telefono_laboral: string
+    dias_semana: string
+    horario: string
+    turno: string
+    fichaje: string
+    ingreso: string
+    cumpleanos: string
+    flexible: string
+    lv: string
+    ls: string
+    ld: string
+    personalizado: string
+    desactivar_seleccionados: string
+  }
+
+  // Aplicaciones (módulos instalables)
+  aplicaciones: {
+    titulo: string
+    instaladas: string
+    disponibles: string
+    instalar: string
+    desinstalar: string
+    instalando: string
+    desinstalando: string
+    instalado: string
+    no_instalado: string
+    requiere_plan: string
+    confirmar_desinstalar: string
+    confirmar_desinstalar_desc: string
+    buscar_placeholder: string
+    categorias: {
+      todas: string
+      base: string
+      operacional: string
+      documentos: string
+      comunicacion: string
+      admin: string
+      premium: string
+      proximamente: string
+      ventas: string
+      operaciones: string
+      finanzas: string
+      rrhh: string
+      inteligencia: string
+    }
+  }
+
+  // Portal (presupuestos compartidos con clientes)
+  portal: {
+    titulo: string
+    presupuesto: string
+    aceptar: string
+    rechazar: string
+    firma: string
+    firmar: string
+    nombre_firmante: string
+    firma_placeholder: string
+    aceptado: string
+    rechazado: string
+    pendiente: string
+    expirado: string
+    emitido: string
+    vencimiento: string
+    subtotal_neto: string
+    impuestos: string
+    descuento: string
+    total: string
+    notas: string
+    condiciones: string
+    compartir: string
+    copiar_enlace: string
+    enviar_whatsapp: string
+    enviar_correo: string
+    enlace_copiado: string
+    datos_transferencia: string
+    pago: string
+    para: string
+    dirigido_a: string
+    detalle: string
+    cantidad: string
+    precio_unitario: string
+    descuento_linea: string
+    firma_modo_auto: string
+    firma_modo_dibujar: string
+    firma_modo_subir: string
+    firma_instruccion: string
+    firma_escriba_nombre: string
+    firma_dibuje_aqui: string
+    limpiar: string
+    firma_quitar_imagen: string
+    firma_seleccione_imagen: string
+    firma_formatos: string
+    whatsapp_mensaje: string
+    ver_detalle: string
+    llamar: string
+    confirmar_rechazo: string
+    generado_con_flux: string
+    firmado_por: string
+  }
+
+  // Página de documentos genérica (notas de crédito, recibos, remitos)
+  documentos_page: {
+    tipos_doc: {
+      nota_credito: string
+      recibo: string
+      remito: string
+    }
+    contacto: string
+    monto: string
+    estados_doc: {
+      anulado: string
+    }
+    fecha: string
+    vencimiento: string
+  }
+
+  // Página de asistencias (tabla de registros)
+  asistencias_page: {
+    empleado: string
+    horas: string
+    estados_asist: {
+      presente: string
+      tardanza: string
+      ausente: string
+      justificado: string
+    }
+    ubicacion: string
   }
 }

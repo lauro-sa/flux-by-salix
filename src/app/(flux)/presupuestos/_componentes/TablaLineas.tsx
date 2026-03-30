@@ -164,7 +164,7 @@ function TablaLineas({
       </div>
 
       {/* ─── Encabezado de columnas ─── */}
-      <div className="flex items-center gap-1 px-1 py-2 border-b-2 border-borde-sutil text-[11px] text-texto-terciario font-medium uppercase tracking-wider">
+      <div className="flex items-center gap-1 px-1 py-2 border-b-2 border-borde-sutil text-xs text-texto-terciario font-medium uppercase tracking-wider">
         {!soloLectura && <div className="w-6" />}
         {columnasVisibles.map(col => {
           if (!ETIQUETA_COLUMNA[col]) return <div key={col} className={ANCHO_COLUMNA[col] || 'w-[100px]'} />
@@ -306,7 +306,7 @@ function FilaProducto({
                   valor={linea.codigo_producto || ''}
                   placeholder="Código"
                   soloLectura={soloLectura}
-                  className="font-mono text-[10px] text-texto-terciario"
+                  className="font-mono text-xxs text-texto-terciario"
                   onChange={(v) => onEditar(linea.id, 'codigo_producto', v)}
                 />
                 <CampoTexto

@@ -11,6 +11,8 @@ import {
   ChevronUp, ChevronDown,
 } from 'lucide-react'
 import type { EtiquetaInbox } from '@/tipos/inbox'
+import { COLOR_ETIQUETA_DEFECTO } from '@/lib/colores_entidad'
+import { useTraduccion } from '@/lib/i18n'
 
 /**
  * Modal para gestionar etiquetas de correo.
@@ -37,6 +39,7 @@ export function ModalEtiquetas({
   onCambio,
   inline = false,
 }: PropiedadesModalEtiquetas) {
+  const { t } = useTraduccion()
   const [etiquetas, setEtiquetas] = useState<EtiquetaInbox[]>([])
   const [cargando, setCargando] = useState(false)
   const [creando, setCreando] = useState(false)
@@ -45,7 +48,7 @@ export function ModalEtiquetas({
 
   // Campos para crear/editar
   const [nombre, setNombre] = useState('')
-  const [color, setColor] = useState('#6b7280')
+  const [color, setColor] = useState(COLOR_ETIQUETA_DEFECTO)
 
   // Etiquetas activas en esta conversación (por nombre, no por ID)
   const [activas, setActivas] = useState<Set<string>>(new Set(etiquetasAsignadas))
@@ -82,7 +85,7 @@ export function ModalEtiquetas({
       })
       if (res.ok) {
         setNombre('')
-        setColor('#6b7280')
+        setColor(COLOR_ETIQUETA_DEFECTO)
         setCreando(false)
         cargar()
       }
@@ -208,7 +211,7 @@ export function ModalEtiquetas({
                         border: `2px solid ${et.color}`,
                       }}
                     >
-                      {activas.has(et.nombre) && <Check size={8} color="#fff" />}
+                      {activas.has(et.nombre) && <Check size={8} color="var(--texto-inverso)" />}
                     </div>
                     <span className="text-sm" style={{ color: 'var(--texto-primario)' }}>
                       {et.icono && <span className="mr-1">{et.icono}</span>}{et.nombre}
@@ -325,10 +328,10 @@ export function ModalEtiquetas({
               </div>
               <div className="flex items-center gap-2">
                 <Boton variante="primario" tamano="xs" onClick={handleCrear} disabled={!nombre.trim()}>
-                  Crear
+                  {t('comun.crear')}
                 </Boton>
-                <Boton variante="fantasma" tamano="xs" onClick={() => { setCreando(false); setNombre(''); setColor('#6b7280') }}>
-                  Cancelar
+                <Boton variante="fantasma" tamano="xs" onClick={() => { setCreando(false); setNombre(''); setColor(COLOR_ETIQUETA_DEFECTO) }}>
+                  {t('comun.cancelar')}
                 </Boton>
               </div>
             </motion.div>
@@ -342,7 +345,7 @@ export function ModalEtiquetas({
               variante="fantasma"
               tamano="xs"
               icono={<Plus size={12} />}
-              onClick={() => { setCreando(true); setNombre(''); setColor('#6b7280') }}
+              onClick={() => { setCreando(true); setNombre(''); setColor(COLOR_ETIQUETA_DEFECTO) }}
             >
               Nueva etiqueta
             </Boton>
@@ -376,7 +379,7 @@ export function ModalEtiquetas({
     <Modal
       abierto={abierto}
       onCerrar={onCerrar}
-      titulo={modoAsignar ? 'Etiquetar conversación' : 'Gestionar etiquetas'}
+      titulo={modoAsignar ? t('inbox.etiquetar') : t('inbox.etiquetar')}
       tamano="sm"
     >
       {contenido}

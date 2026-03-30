@@ -7,6 +7,7 @@ import {
   StickyNote,
 } from 'lucide-react'
 import type { TipoCanal, TipoContenido } from '@/tipos/inbox'
+import { useTraduccion } from '@/lib/i18n'
 import { SelectorRespuestasRapidas } from './SelectorRespuestasRapidas'
 
 /**
@@ -80,6 +81,7 @@ export function CompositorMensaje({
   permitirNotasInternas = false,
   onEnviarNotaInterna,
 }: PropiedadesCompositor) {
+  const { t } = useTraduccion()
   const [texto, setTexto] = useState('')
   const [esNotaInterna, setEsNotaInterna] = useState(false)
 
@@ -457,7 +459,7 @@ export function CompositorMensaje({
       {tipoCanal === 'correo' && mostrarCamposCorreo && (
         <div className="px-3 pt-2 space-y-1.5">
           <div className="flex items-center gap-2">
-            <span className="text-xs w-10" style={{ color: 'var(--texto-terciario)' }}>Para:</span>
+            <span className="text-xs w-10" style={{ color: 'var(--texto-terciario)' }}>{t('inbox.para')}:</span>
             <input
               type="text"
               value={correoPara}
@@ -468,7 +470,7 @@ export function CompositorMensaje({
             />
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs w-10" style={{ color: 'var(--texto-terciario)' }}>CC:</span>
+            <span className="text-xs w-10" style={{ color: 'var(--texto-terciario)' }}>{t('inbox.cc')}:</span>
             <input
               type="text"
               value={correoCC}
@@ -479,7 +481,7 @@ export function CompositorMensaje({
             />
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs w-10" style={{ color: 'var(--texto-terciario)' }}>Asunto:</span>
+            <span className="text-xs w-10" style={{ color: 'var(--texto-terciario)' }}>{t('inbox.asunto')}:</span>
             <input
               type="text"
               value={correoAsunto}
@@ -562,7 +564,7 @@ export function CompositorMensaje({
               }}
             >
               <StickyNote size={12} />
-              <span className="font-medium">Nota interna</span>
+              <span className="font-medium">{t('inbox.nota_interna')}</span>
               <span style={{ color: 'var(--texto-terciario)' }}>— solo visible para agentes</span>
             </div>
             <button onClick={() => setEsNotaInterna(false)}>
@@ -630,10 +632,10 @@ export function CompositorMensaje({
               className="p-2.5 rounded-full flex-shrink-0"
               style={{
                 background: 'var(--canal-whatsapp)',
-                color: '#fff',
+                color: 'var(--texto-inverso)',
                 opacity: convirtiendo ? 0.5 : 1,
               }}
-              title="Enviar audio"
+              title={t('inbox.enviar')}
             >
               <Send size={16} />
             </motion.button>
@@ -662,7 +664,7 @@ export function CompositorMensaje({
               onClick={() => inputArchivosRef.current?.click()}
               className="p-2 rounded-lg transition-colors flex-shrink-0"
               style={{ color: 'var(--texto-terciario)' }}
-              title="Adjuntar archivo"
+              title={t('inbox.adjuntar')}
             >
               <Paperclip size={18} />
             </button>
@@ -695,7 +697,7 @@ export function CompositorMensaje({
                   color: esNotaInterna ? 'var(--insignia-advertencia)' : 'var(--texto-terciario)',
                   background: esNotaInterna ? 'color-mix(in srgb, var(--insignia-advertencia) 12%, transparent)' : 'transparent',
                 }}
-                title={esNotaInterna ? 'Cancelar nota interna' : 'Nota interna (solo agentes)'}
+                title={esNotaInterna ? t('comun.cancelar') : t('inbox.nota_interna')}
               >
                 <StickyNote size={18} />
               </button>
@@ -738,7 +740,7 @@ export function CompositorMensaje({
                 onClick={iniciarGrabacion}
                 className="p-2 rounded-lg transition-colors flex-shrink-0"
                 style={{ color: 'var(--texto-terciario)' }}
-                title="Grabar nota de voz"
+                title={t('inbox.grabar_audio')}
               >
                 <Mic size={18} />
               </button>
@@ -755,10 +757,10 @@ export function CompositorMensaje({
                 className="p-2 rounded-lg flex-shrink-0 transition-colors"
                 style={{
                   background: esNotaInterna ? 'var(--insignia-advertencia)' : 'var(--texto-marca)',
-                  color: '#fff',
+                  color: 'var(--texto-inverso)',
                   opacity: cargando ? 0.5 : 1,
                 }}
-                title={esNotaInterna ? 'Enviar nota interna' : 'Enviar mensaje'}
+                title={esNotaInterna ? t('inbox.nota_interna') : t('inbox.enviar')}
               >
                 {esNotaInterna ? <StickyNote size={18} /> : <Send size={18} />}
               </motion.button>

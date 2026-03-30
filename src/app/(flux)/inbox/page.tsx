@@ -23,6 +23,7 @@ import type {
   TipoCanal, EstadoConversacion, ConversacionConDetalles,
   MensajeConAdjuntos, CanalInterno, CanalInbox, ModuloEmpresa,
 } from '@/tipos/inbox'
+import { useTraduccion } from '@/lib/i18n'
 import type { DatosMensaje } from './_componentes/CompositorMensaje'
 
 /**
@@ -32,21 +33,22 @@ import type { DatosMensaje } from './_componentes/CompositorMensaje'
  */
 
 // Tabs del inbox según módulos activos
-function generarTabs(modulosActivos: Set<string>) {
+function generarTabs(modulosActivos: Set<string>, t: (clave: string) => string) {
   const tabs = []
   if (modulosActivos.has('inbox_whatsapp')) {
-    tabs.push({ clave: 'whatsapp', etiqueta: 'WhatsApp', icono: <IconoWhatsApp size={14} /> })
+    tabs.push({ clave: 'whatsapp', etiqueta: t('inbox.canales.whatsapp'), icono: <IconoWhatsApp size={14} /> })
   }
   if (modulosActivos.has('inbox_correo')) {
-    tabs.push({ clave: 'correo', etiqueta: 'Correo', icono: <Mail size={14} /> })
+    tabs.push({ clave: 'correo', etiqueta: t('inbox.canales.correo'), icono: <Mail size={14} /> })
   }
   if (modulosActivos.has('inbox_interno')) {
-    tabs.push({ clave: 'interno', etiqueta: 'Interno', icono: <Hash size={14} /> })
+    tabs.push({ clave: 'interno', etiqueta: t('inbox.canales.interno'), icono: <Hash size={14} /> })
   }
   return tabs
 }
 
 export default function PaginaInbox() {
+  const { t } = useTraduccion()
   const router = useRouter()
   const supabase = useMemo(() => crearClienteNavegador(), [])
 
@@ -775,7 +777,7 @@ export default function PaginaInbox() {
     return config?.email || config?.usuario || ''
   }, [canalesCorreo, canalCorreoActivo])
 
-  const tabs = generarTabs(modulosActivos)
+  const tabs = generarTabs(modulosActivos, t)
   const totalNoLeidos = conversaciones.reduce((sum, c) => sum + c.mensajes_sin_leer, 0)
 
   // Si no hay módulos activos
@@ -1014,7 +1016,7 @@ export default function PaginaInbox() {
                           style={{ color: 'var(--texto-secundario)' }}
                         >
                           <ArrowLeft size={14} />
-                          <span>Volver</span>
+                          <span>{t('comun.volver')}</span>
                         </button>
                       )}
                     </div>

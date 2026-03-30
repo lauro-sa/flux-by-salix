@@ -97,15 +97,31 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Búsqueda full-text
+    // Búsqueda full-text + direcciones
     if (busqueda.trim()) {
-      // Usar ILIKE para búsquedas cortas, textSearch para más largas
+      // Buscar en direcciones (calle, ciudad, provincia) para obtener IDs de contactos
+      const { data: dirMatches } = await admin
+        .from('contacto_direcciones')
+        .select('contacto_id')
+        .or(`calle.ilike.%${busqueda}%,ciudad.ilike.%${busqueda}%,provincia.ilike.%${busqueda}%,barrio.ilike.%${busqueda}%,texto.ilike.%${busqueda}%`)
+
+      const idsDirecciones = [...new Set((dirMatches || []).map(d => d.contacto_id))]
+
       if (busqueda.length <= 2) {
-        query = query.or(`nombre.ilike.%${busqueda}%,apellido.ilike.%${busqueda}%,correo.ilike.%${busqueda}%,codigo.ilike.%${busqueda}%,telefono.ilike.%${busqueda}%`)
+        const filtroTexto = `nombre.ilike.%${busqueda}%,apellido.ilike.%${busqueda}%,correo.ilike.%${busqueda}%,codigo.ilike.%${busqueda}%,telefono.ilike.%${busqueda}%`
+        if (idsDirecciones.length > 0) {
+          query = query.or(`${filtroTexto},id.in.(${idsDirecciones.join(',')})`)
+        } else {
+          query = query.or(filtroTexto)
+        }
       } else {
-        // Convertir a formato tsquery: "maría garcía" → "maría & garcía"
         const terminos = busqueda.trim().split(/\s+/).map(t => `${t}:*`).join(' & ')
-        query = query.textSearch('busqueda', terminos, { config: 'spanish' })
+        if (idsDirecciones.length > 0) {
+          // Combinar full-text con IDs de direcciones
+          query = query.or(`busqueda.fts(spanish).${terminos},id.in.(${idsDirecciones.join(',')})`)
+        } else {
+          query = query.textSearch('busqueda', terminos, { config: 'spanish' })
+        }
       }
     }
 

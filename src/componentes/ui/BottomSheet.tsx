@@ -39,7 +39,7 @@ function BottomSheet({ abierto, onCerrar, titulo, children, acciones, altura = '
   return createPortal(
     <AnimatePresence>
       {abierto && (
-        <div className="fixed inset-0" style={{ zIndex: 50 }}>
+        <div className="fixed inset-0" style={{ zIndex: 'var(--z-modal)' as unknown as number }}>
           {/* Overlay */}
           <motion.div
             initial={{ opacity: 0 }}

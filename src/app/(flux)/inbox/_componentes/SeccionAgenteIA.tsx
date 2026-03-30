@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Sparkles, Brain, MessageSquare, BookOpen, AlertTriangle, Activity, Plus, Pencil, Trash2, X, Maximize2, Globe, FileUp, Loader2, Building2, GitBranch, ChevronUp, ChevronDown } from 'lucide-react'
 import { Interruptor, Select, Input, Boton, Modal, Insignia } from '@/componentes/ui'
+import { useTraduccion } from '@/lib/i18n'
 import type { ConfigAgenteIA, EntradaBaseConocimiento, LogAgenteIA, TipoContactoConfig, PasoFlujoConfig, EjemploConversacionConfig } from '@/tipos/inbox'
 
 /**
@@ -87,6 +88,7 @@ interface CanalSimple {
 }
 
 export default function SeccionAgenteIA() {
+  const { t } = useTraduccion()
   const [config, setConfig] = useState<ConfigAgenteIA>(CONFIG_DEFAULTS)
   const [cargando, setCargando] = useState(true)
   const [tabActiva, setTabActiva] = useState('general')
@@ -354,33 +356,33 @@ function TabGeneral({ config, guardar, canales }: TabProps & { canales: CanalSim
           Identidad del agente
         </p>
         <Input
-          etiqueta="Nombre del agente"
+          etiqueta={t('configuracion.agente_ia.nombre_agente')}
           value={config.nombre}
           onChange={(e) => guardar({ nombre: e.target.value })}
           placeholder="Valentina"
         />
         <Input
-          etiqueta="Apodo (cómo le dicen)"
+          etiqueta={t('configuracion.agente_ia.apodo')}
           value={config.apodo}
           onChange={(e) => guardar({ apodo: e.target.value })}
           placeholder="Vale, Valen..."
           ayuda="Opcional. Si el cliente lo llama por apodo, el agente lo reconoce."
         />
         <Input
-          etiqueta="Si preguntan si sos bot"
+          etiqueta={t('configuracion.agente_ia.si_preguntan_bot')}
           value={config.respuesta_si_bot}
           onChange={(e) => guardar({ respuesta_si_bot: e.target.value })}
           placeholder={`Soy ${config.nombre || 'el asistente'}, de la empresa. ¿En qué te puedo ayudar?`}
           ayuda="Qué responde si le preguntan si es un bot o una IA. Dejá vacío para respuesta automática."
         />
         <TextareaExpandible
-          etiqueta="Personalidad"
+          etiqueta={t('configuracion.agente_ia.personalidad')}
           valor={config.personalidad}
           onChange={(v) => guardar({ personalidad: v })}
           placeholder="Profesional pero cercana. Directa, no da vueltas. Segura, nunca dice 'creo que'. Humana, no parece chatbot."
         />
         <TextareaExpandible
-          etiqueta="Palabras que usa naturalmente"
+          etiqueta={t('configuracion.agente_ia.palabras_naturales')}
           valor={config.vocabulario_natural}
           onChange={(v) => guardar({ vocabulario_natural: v })}
           placeholder="Perfecto, Genial, Dale, Listo, Claro que sí, Sin problema, Entendido"
@@ -429,7 +431,7 @@ function TabGeneral({ config, guardar, canales }: TabProps & { canales: CanalSim
           Cuándo actuar
         </p>
         <Select
-          etiqueta="Modo de activación"
+          etiqueta={t('configuracion.agente_ia.modo_activacion')}
           valor={config.modo_activacion}
           onChange={(v) => guardar({ modo_activacion: v as ConfigAgenteIA['modo_activacion'] })}
           opciones={[
@@ -446,7 +448,7 @@ function TabGeneral({ config, guardar, canales }: TabProps & { canales: CanalSim
           {config.modo_activacion === 'sin_asignar' && 'Solo responde si la conversación no tiene agente humano asignado.'}
         </p>
         <Input
-          etiqueta="Esperar antes de responder (segundos)"
+          etiqueta={t('configuracion.agente_ia.esperar_segundos')}
           tipo="number"
           value={String(config.delay_segundos)}
           onChange={(e) => guardar({ delay_segundos: parseInt(e.target.value) || 0 })}
@@ -470,25 +472,25 @@ function TabNegocio({ config, guardar }: TabProps) {
           Datos de la empresa
         </p>
         <Input
-          etiqueta="Zona de cobertura"
+          etiqueta={t('configuracion.agente_ia.zona_cobertura')}
           value={config.zona_cobertura}
           onChange={(e) => guardar({ zona_cobertura: e.target.value })}
           placeholder="CABA y Gran Buenos Aires"
         />
         <Input
-          etiqueta="Sitio web"
+          etiqueta={t('configuracion.agente_ia.sitio_web')}
           value={config.sitio_web}
           onChange={(e) => guardar({ sitio_web: e.target.value })}
           placeholder="www.miempresa.com"
         />
         <Input
-          etiqueta="Correo de contacto"
+          etiqueta={t('configuracion.agente_ia.correo_contacto')}
           value={config.correo_empresa}
           onChange={(e) => guardar({ correo_empresa: e.target.value })}
           placeholder="info@miempresa.com"
         />
         <Input
-          etiqueta="Horario de atención"
+          etiqueta={t('configuracion.agente_ia.horario_atencion')}
           value={config.horario_atencion}
           onChange={(e) => guardar({ horario_atencion: e.target.value })}
           placeholder="Lunes a Viernes de 9 a 18hs"
@@ -501,14 +503,14 @@ function TabNegocio({ config, guardar }: TabProps) {
           Servicios
         </p>
         <TextareaExpandible
-          etiqueta="¿Qué servicios ofrecen?"
+          etiqueta={t('configuracion.agente_ia.servicios')}
           valor={config.servicios_si}
           onChange={(v) => guardar({ servicios_si: v })}
           placeholder="Reparación y mantenimiento de portones&#10;Automatización de portones&#10;Herrería de obra en general"
           lineasPreview={4}
         />
         <TextareaExpandible
-          etiqueta="¿Qué NO hacen?"
+          etiqueta={t('configuracion.agente_ia.no_hacen')}
           valor={config.servicios_no}
           onChange={(v) => guardar({ servicios_no: v })}
           placeholder="Reparaciones de autos&#10;Carpintería de madera&#10;Trabajos fuera de la zona de cobertura"
@@ -522,20 +524,20 @@ function TabNegocio({ config, guardar }: TabProps) {
           Información adicional
         </p>
         <TextareaExpandible
-          etiqueta="Precios de referencia"
+          etiqueta={t('configuracion.agente_ia.precios_referencia')}
           valor={config.info_precios}
           onChange={(v) => guardar({ info_precios: v })}
           placeholder="Trabajo operativo base: $150.000&#10;Solo informar si el cliente pregunta"
           lineasPreview={3}
         />
         <TextareaExpandible
-          etiqueta="Instrucciones específicas"
+          etiqueta={t('configuracion.agente_ia.instrucciones')}
           valor={config.instrucciones}
           onChange={(v) => guardar({ instrucciones: v })}
           placeholder="Los presupuestos se envían por correo en 24 a 72hs. Las visitas son sin cargo. Pagos: Mercado Pago o transferencia."
         />
         <TextareaExpandible
-          etiqueta="Situaciones especiales"
+          etiqueta={t('configuracion.agente_ia.situaciones_especiales')}
           valor={config.situaciones_especiales}
           onChange={(v) => guardar({ situaciones_especiales: v })}
           placeholder="Cliente enojado: primero reconocer la situación, después dar info. Nunca minimizar.&#10;Si menciona abogado/demanda → escalar."
@@ -771,7 +773,7 @@ function TabFlujo({ config, guardar }: TabProps) {
           Reglas de agenda
         </p>
         <TextareaExpandible
-          etiqueta="¿Cuándo y cómo agendan visitas o reuniones?"
+          etiqueta={t('configuracion.agente_ia.agendar_visitas')}
           valor={config.reglas_agenda}
           onChange={(v) => guardar({ reglas_agenda: v })}
           placeholder="Visitas: martes y jueves, 11 a 16hs.&#10;Si es lunes/martes → proponer jueves.&#10;Nunca proponer el mismo día."
@@ -793,7 +795,7 @@ function TabFlujo({ config, guardar }: TabProps) {
           <div className="flex gap-3">
             <div className="w-16">
               <Input
-                etiqueta="Icono"
+                etiqueta={t('configuracion.agente_ia.icono')}
                 value={tipoEditando?.icono || ''}
                 onChange={(e) => setTipoEditando(prev => prev ? { ...prev, icono: e.target.value } : prev)}
                 placeholder="🏠"
@@ -801,7 +803,7 @@ function TabFlujo({ config, guardar }: TabProps) {
             </div>
             <div className="flex-1">
               <Input
-                etiqueta="Nombre"
+                etiqueta={t('configuracion.agente_ia.nombre')}
                 value={tipoEditando?.nombre || ''}
                 onChange={(e) => setTipoEditando(prev => prev ? { ...prev, nombre: e.target.value } : prev)}
                 placeholder="Particular"
@@ -809,7 +811,7 @@ function TabFlujo({ config, guardar }: TabProps) {
             </div>
           </div>
           <Input
-            etiqueta="Identificador"
+            etiqueta={t('configuracion.agente_ia.identificador')}
             value={tipoEditando?.tipo || ''}
             onChange={(e) => setTipoEditando(prev => prev ? { ...prev, tipo: e.target.value } : prev)}
             placeholder="particular"
@@ -944,7 +946,7 @@ function TabRespuestas({ config, guardar }: TabProps) {
           Estilo de escritura
         </p>
         <Select
-          etiqueta="Tono"
+          etiqueta={t('configuracion.agente_ia.tono')}
           valor={config.tono}
           onChange={(v) => guardar({ tono: v as ConfigAgenteIA['tono'] })}
           opciones={[
@@ -955,7 +957,7 @@ function TabRespuestas({ config, guardar }: TabProps) {
           ]}
         />
         <Select
-          etiqueta="Largo de respuestas"
+          etiqueta={t('configuracion.agente_ia.largo_respuestas')}
           valor={config.largo_respuesta}
           onChange={(v) => guardar({ largo_respuesta: v as ConfigAgenteIA['largo_respuesta'] })}
           opciones={[
@@ -965,13 +967,13 @@ function TabRespuestas({ config, guardar }: TabProps) {
           ]}
         />
         <Input
-          etiqueta="Firma"
+          etiqueta={t('configuracion.agente_ia.firma')}
           value={config.firmar_como}
           onChange={(e) => guardar({ firmar_como: e.target.value })}
           placeholder="— Equipo de Soporte"
         />
         <Input
-          etiqueta="Máx. respuestas seguidas sin humano"
+          etiqueta={t('configuracion.agente_ia.max_respuestas')}
           tipo="number"
           value={String(config.max_mensajes_auto)}
           onChange={(e) => guardar({ max_mensajes_auto: parseInt(e.target.value) || 5 })}
@@ -1374,7 +1376,7 @@ function TabEjemplos({ config, guardar }: TabProps) {
             </button>
           </div>
           <Input
-            etiqueta="Título del ejemplo"
+            etiqueta={t('configuracion.agente_ia.titulo_ejemplo')}
             value={editando?.titulo || ''}
             onChange={(e) => setEditando(prev => prev ? { ...prev, titulo: e.target.value } : prev)}
             placeholder="Consulta simple, particular"
@@ -1627,13 +1629,13 @@ function TabConocimiento({ config, guardar }: TabProps) {
             </button>
           </div>
           <Input
-            etiqueta="Título"
+            etiqueta={t('configuracion.agente_ia.titulo_campo')}
             value={entradaEditando?.titulo || ''}
             onChange={(e) => setEntradaEditando(prev => prev ? { ...prev, titulo: e.target.value } : prev)}
             placeholder="Política de devoluciones"
           />
           <Select
-            etiqueta="Categoría"
+            etiqueta={t('configuracion.agente_ia.categoria')}
             valor={entradaEditando?.categoria || 'general'}
             onChange={(v) => setEntradaEditando(prev => prev ? { ...prev, categoria: v } : prev)}
             opciones={CATEGORIAS}

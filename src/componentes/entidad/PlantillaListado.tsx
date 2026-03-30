@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MoreHorizontal, Settings, X } from 'lucide-react'
+import { useTraduccion } from '@/lib/i18n'
 
 /* ─── Tipos ─── */
 
@@ -66,6 +67,7 @@ function PlantillaListado({
   className = '',
 }: PropiedadesPlantillaListado) {
   const [menuAbierto, setMenuAbierto] = useState(false)
+  const { t } = useTraduccion()
 
   return (
     <div className={`flex flex-col h-full ${className}`}>
@@ -114,7 +116,7 @@ function PlantillaListado({
                   onClick={() => setMenuAbierto(!menuAbierto)}
                   className="flex items-center gap-1.5 px-3 h-10 sm:h-9 rounded-lg border border-borde-sutil bg-transparent text-sm font-medium text-texto-secundario hover:bg-superficie-hover cursor-pointer transition-colors"
                 >
-                  Acciones
+                  {t('comun.acciones')}
                   <MoreHorizontal size={14} className="text-texto-terciario" />
                 </button>
 

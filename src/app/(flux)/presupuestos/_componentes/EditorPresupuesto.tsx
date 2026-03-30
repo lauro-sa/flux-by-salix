@@ -25,6 +25,7 @@ import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { COLOR_ESTADO_DOCUMENTO } from '@/lib/colores_entidad'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useAuth } from '@/hooks/useAuth'
+import { useTraduccion } from '@/lib/i18n'
 import type {
   PresupuestoConLineas, LineaPresupuesto, TipoLinea,
   Impuesto, UnidadMedida, CondicionPago, ConfigPresupuestos,
@@ -58,6 +59,7 @@ export default function EditorPresupuesto({
   onTituloCargado,
 }: PropsEditorPresupuesto) {
   const router = useRouter()
+  const { t } = useTraduccion()
   const { empresa } = useEmpresa()
   const { usuario } = useAuth()
 
@@ -862,7 +864,7 @@ export default function EditorPresupuesto({
 
                 if (estaCancelado) {
                   return (
-                    <BotonAccion onClick={() => cambiarEstado('borrador')} icono={RotateCcw} label="Restablecer como Borrador" />
+                    <BotonAccion onClick={() => cambiarEstado('borrador')} icono={RotateCcw} label={t('documentos.restablecer_borrador')} />
                   )
                 }
 
@@ -872,22 +874,22 @@ export default function EditorPresupuesto({
                   <>
                     {esEnviado ? (
                       <>
-                        {siguienteEstado && <BotonAccion onClick={() => cambiarEstado(siguienteEstado)} icono={FileCheck} label="Confirmar" variante="primario" />}
-                        <BotonAccion onClick={handleImprimir} icono={generandoPdf ? Loader2 : Printer} label={generandoPdf ? 'Generando...' : 'Imprimir'} disabled={generandoPdf} animarIcono={generandoPdf} />
+                        {siguienteEstado && <BotonAccion onClick={() => cambiarEstado(siguienteEstado)} icono={FileCheck} label={t('comun.confirmar')} variante="primario" />}
+                        <BotonAccion onClick={handleImprimir} icono={generandoPdf ? Loader2 : Printer} label={generandoPdf ? 'Generando...' : t('documentos.imprimir')} disabled={generandoPdf} animarIcono={generandoPdf} />
                         <BotonAccion onClick={handleEnviarProforma} icono={Receipt} label="Enviar Factura Proforma" />
-                        <BotonAccion onClick={handleEnviar} icono={Send} label="Enviar" />
-                        <BotonAccion onClick={handleVistaPrevia} icono={Eye} label="Vista previa" />
-                        <BotonAccion onClick={() => cambiarEstado('cancelado')} icono={Ban} label="Cancelar" variante="peligro" />
+                        <BotonAccion onClick={handleEnviar} icono={Send} label={t('documentos.enviar')} />
+                        <BotonAccion onClick={handleVistaPrevia} icono={Eye} label={t('documentos.vista_previa')} />
+                        <BotonAccion onClick={() => cambiarEstado('cancelado')} icono={Ban} label={t('comun.cancelar')} variante="peligro" />
                       </>
                     ) : (
                       <>
-                        <BotonAccion onClick={handleEnviar} icono={Send} label="Enviar" />
+                        <BotonAccion onClick={handleEnviar} icono={Send} label={t('documentos.enviar')} />
                         <BotonAccion onClick={handleEnviarProforma} icono={Receipt} label="Enviar Factura Proforma" />
-                        <BotonAccion onClick={handleImprimir} icono={generandoPdf ? Loader2 : Printer} label={generandoPdf ? 'Generando...' : 'Imprimir'} disabled={generandoPdf} animarIcono={generandoPdf} />
-                        {siguienteEstado && <BotonAccion onClick={() => cambiarEstado(siguienteEstado)} icono={FileCheck} label="Confirmar" variante="primario" />}
-                        <BotonAccion onClick={handleVistaPrevia} icono={Eye} label="Vista previa" />
+                        <BotonAccion onClick={handleImprimir} icono={generandoPdf ? Loader2 : Printer} label={generandoPdf ? 'Generando...' : t('documentos.imprimir')} disabled={generandoPdf} animarIcono={generandoPdf} />
+                        {siguienteEstado && <BotonAccion onClick={() => cambiarEstado(siguienteEstado)} icono={FileCheck} label={t('comun.confirmar')} variante="primario" />}
+                        <BotonAccion onClick={handleVistaPrevia} icono={Eye} label={t('documentos.vista_previa')} />
                         {!estaCancelado && estadosPosibles.includes('cancelado') && (
-                          <BotonAccion onClick={() => cambiarEstado('cancelado')} icono={Ban} label="Cancelar" variante="peligro" />
+                          <BotonAccion onClick={() => cambiarEstado('cancelado')} icono={Ban} label={t('comun.cancelar')} variante="peligro" />
                         )}
                       </>
                     )}
@@ -925,7 +927,7 @@ export default function EditorPresupuesto({
 
         {/* ─── EMISOR ─── */}
         <div className="px-6 py-3">
-          <span className="text-[11px] font-bold text-texto-secundario uppercase tracking-wider">Emisor</span>
+          <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider">Emisor</span>
           <div className="mt-2 space-y-1">
             <p className="text-base font-semibold text-texto-primario">
               {datosEmpresa?.nombre || empresa?.nombre || '—'}
@@ -963,8 +965,8 @@ export default function EditorPresupuesto({
           <div className="space-y-3 py-3">
             {/* CLIENTE */}
             <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-lg px-3 py-3 -mx-3">
-              <span className="text-[11px] font-bold text-texto-secundario uppercase tracking-wider">
-                Cliente
+              <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider">
+                {t('documentos.cliente')}
               </span>
               <div className="mt-1.5">
                 {modo === 'crear' ? (
@@ -1049,7 +1051,7 @@ export default function EditorPresupuesto({
             {/* DIRIGIDO A */}
             {modo === 'crear' && contactoSeleccionado && vinculaciones.length > 0 && (
               <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-lg px-3 py-3 -mx-3">
-                <span className="text-[11px] font-bold text-texto-secundario uppercase tracking-wider">
+                <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider">
                   Dirigido a
                 </span>
 
@@ -1089,7 +1091,7 @@ export default function EditorPresupuesto({
                         </button>
                       </div>
                     </div>
-                    <p className="text-[10px] text-texto-terciario mt-2">
+                    <p className="text-xxs text-texto-terciario mt-2">
                       Aparecera como &quot;Atencion:&quot; en el PDF del documento
                     </p>
                   </div>
@@ -1119,7 +1121,7 @@ export default function EditorPresupuesto({
             {/* DIRIGIDO A — modo editar */}
             {modo === 'editar' && presupuesto?.atencion_nombre && (
               <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-lg px-3 py-3 -mx-3">
-                <span className="text-[11px] font-bold text-texto-secundario uppercase tracking-wider">
+                <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider">
                   Dirigido a
                 </span>
                 <div className="mt-1.5 space-y-0.5">
@@ -1130,7 +1132,7 @@ export default function EditorPresupuesto({
                   {presupuesto.atencion_cargo && (
                     <p className="text-xs text-texto-terciario">{presupuesto.atencion_cargo}</p>
                   )}
-                  <p className="text-[10px] text-texto-terciario mt-1">Aparecera como &quot;Atencion:&quot; en el PDF del documento</p>
+                  <p className="text-xxs text-texto-terciario mt-1">Aparecera como &quot;Atencion:&quot; en el PDF del documento</p>
                 </div>
               </div>
             )}
@@ -1138,10 +1140,10 @@ export default function EditorPresupuesto({
             {/* DIRIGIDO A — modo editar, vinculaciones disponibles, sin selección previa */}
             {modo === 'editar' && !presupuesto?.atencion_nombre && vinculaciones.length > 0 && esEditable && (
               <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-lg px-3 py-3 -mx-3">
-                <span className="text-[11px] font-bold text-texto-secundario uppercase tracking-wider">
+                <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider">
                   Dirigido a
                 </span>
-                <p className="text-[10px] text-texto-terciario mt-0.5 mb-2">Aparecera como &quot;Atencion:&quot; en el PDF del documento</p>
+                <p className="text-xxs text-texto-terciario mt-0.5 mb-2">Aparecera como &quot;Atencion:&quot; en el PDF del documento</p>
                 <div className="space-y-1">
                   {vinculaciones.map(v => (
                     <button
@@ -1185,7 +1187,7 @@ export default function EditorPresupuesto({
             <div className={`grid gap-4 py-2 mb-2 ${modo === 'crear' ? 'grid-cols-2' : 'grid-cols-1'}`}>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-texto-secundario uppercase tracking-wide shrink-0">Tipo:</span>
-                <span className="text-sm text-texto-primario">Presupuesto</span>
+                <span className="text-sm text-texto-primario">{t('documentos.tipos.presupuesto')}</span>
               </div>
               {modo === 'crear' && (
                 <div className="flex items-center gap-2 min-w-0">
@@ -1374,7 +1376,7 @@ export default function EditorPresupuesto({
                   {/* ── Condiciones de pago + Moneda ── */}
                   <div className="px-3 py-1">
                     <div className={fila}>
-                      <span className={etiqueta}>Condiciones de pago</span>
+                      <span className={etiqueta}>{t('documentos.condiciones_pago')}</span>
                       <div className={valorAncho}>
                         {esEditable ? (
                           <Select
@@ -1416,7 +1418,7 @@ export default function EditorPresupuesto({
                       </div>
                     )}
                     <div className={fila}>
-                      <span className={etiqueta}>Moneda</span>
+                      <span className={etiqueta}>{t('documentos.moneda')}</span>
                       <div className={valorAncho}>
                         {esEditable ? (
                           <Select
@@ -1465,17 +1467,17 @@ export default function EditorPresupuesto({
           <div className="flex justify-end">
             <div className="w-full max-w-xs space-y-1.5">
               <div className="flex justify-between text-sm">
-                <span className="text-texto-secundario">Subtotal</span>
+                <span className="text-texto-secundario">{t('documentos.subtotal')}</span>
                 <span className="font-mono text-texto-primario">{fmt(totales.subtotal)}</span>
               </div>
               {totales.impuestos !== 0 && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-texto-secundario">Impuestos</span>
+                  <span className="text-texto-secundario">{t('documentos.impuesto')}</span>
                   <span className="font-mono text-texto-primario">{fmt(totales.impuestos)}</span>
                 </div>
               )}
               <div className="border-t border-borde-sutil pt-2 flex justify-between text-base font-bold">
-                <span className="text-texto-primario">Total</span>
+                <span className="text-texto-primario">{t('documentos.total')}</span>
                 <span className="font-mono text-texto-marca">{fmt(totales.total)}</span>
               </div>
             </div>
@@ -1490,7 +1492,7 @@ export default function EditorPresupuesto({
             onBlur={() => autoguardar({ notas_html: notasHtml })}
             placeholder="Escribe una nota..."
             soloLectura={!esEditable}
-            etiqueta="Notas"
+            etiqueta={t('documentos.notas')}
           />
         </div>
 
@@ -1502,14 +1504,14 @@ export default function EditorPresupuesto({
             onBlur={() => autoguardar({ condiciones_html: condicionesHtml })}
             placeholder="Escribe una condicion..."
             soloLectura={!esEditable}
-            etiqueta="Condiciones / Terminos"
+            etiqueta={t('documentos.terminos')}
           />
         </div>
 
         {/* ─── HISTORIAL (solo modo editar) ─── */}
         {modo === 'editar' && presupuesto?.historial && presupuesto.historial.length > 0 && (
           <div className="px-6 py-4 border-t border-borde-sutil">
-            <span className="text-[11px] text-texto-terciario font-medium uppercase tracking-wider flex items-center gap-1 mb-3">
+            <span className="text-xs text-texto-terciario font-medium uppercase tracking-wider flex items-center gap-1 mb-3">
               <History size={12} /> Historial
             </span>
             <div className="space-y-2">

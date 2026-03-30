@@ -6,6 +6,7 @@ import {
   Users, CalendarCheck, FileText, Receipt, ClipboardList,
   MessageSquare, ChevronLeft, ChevronRight,
 } from 'lucide-react'
+import { useTraduccion } from '@/lib/i18n'
 
 // ─── Tipos ───
 
@@ -30,6 +31,7 @@ interface ItemKPI {
 // ─── Componente ───
 
 export function BarraKPIs({ contactoId }: { contactoId: string }) {
+  const { t } = useTraduccion()
   const router = useRouter()
   const [kpis, setKpis] = useState<KPIs | null>(null)
 
@@ -62,12 +64,12 @@ export function BarraKPIs({ contactoId }: { contactoId: string }) {
   const cargandoKpis = !kpis
 
   const items: ItemKPI[] = [
-    { clave: 'vinculaciones', etiqueta: 'Contactos', icono: Users, total: k.vinculaciones, ruta: `/contactos?vinculado_de=${contactoId}&origen=${encodeURIComponent(`/contactos/${contactoId}`)}` },
-    { clave: 'presupuestos', etiqueta: 'Presupuestos', icono: FileText, total: k.presupuestos.total, ruta: `/presupuestos?contacto_id=${contactoId}&origen=${encodeURIComponent(`/contactos/${contactoId}`)}` },
+    { clave: 'vinculaciones', etiqueta: t('contactos.titulo'), icono: Users, total: k.vinculaciones, ruta: `/contactos?vinculado_de=${contactoId}&origen=${encodeURIComponent(`/contactos/${contactoId}`)}` },
+    { clave: 'presupuestos', etiqueta: t('navegacion.presupuestos'), icono: FileText, total: k.presupuestos.total, ruta: `/presupuestos?contacto_id=${contactoId}&origen=${encodeURIComponent(`/contactos/${contactoId}`)}` },
     { clave: 'conversaciones', etiqueta: 'Mensajes', icono: MessageSquare, total: k.conversaciones, ruta: `/inbox?contacto_id=${contactoId}` },
     { clave: 'facturas', etiqueta: 'Facturas', icono: Receipt, total: k.facturas.total, ruta: '' },
-    { clave: 'visitas', etiqueta: 'Visitas', icono: CalendarCheck, total: k.visitas, ruta: '' },
-    { clave: 'actividades', etiqueta: 'Actividades', icono: ClipboardList, total: k.actividades, ruta: '' },
+    { clave: 'visitas', etiqueta: t('visitas.titulo'), icono: CalendarCheck, total: k.visitas, ruta: '' },
+    { clave: 'actividades', etiqueta: t('actividades.titulo'), icono: ClipboardList, total: k.actividades, ruta: '' },
     { clave: 'ordenes', etiqueta: 'Órdenes', icono: ClipboardList, total: k.ordenes, ruta: '' },
   ]
 
@@ -111,7 +113,7 @@ export function BarraKPIs({ contactoId }: { contactoId: string }) {
             >
               <div className="flex items-center gap-1.5">
                 <Icono size={13} className={tieneValor ? 'text-texto-secundario' : 'text-texto-terciario'} />
-                <span className="text-[11px] text-texto-terciario whitespace-nowrap">{item.etiqueta}</span>
+                <span className="text-xs text-texto-terciario whitespace-nowrap">{item.etiqueta}</span>
               </div>
               <span className={`text-lg font-bold ${tieneValor ? 'text-texto-primario' : 'text-texto-terciario'}`}>{item.total}</span>
             </button>

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { COLOR_ETIQUETA_DEFECTO } from '@/lib/colores_entidad'
 
 /**
  * Etiquetas del inbox — para clasificar conversaciones de cualquier canal.
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
       .insert({
         empresa_id: empresaId,
         nombre: nombre.trim(),
-        color: color || '#6b7280',
+        color: color || COLOR_ETIQUETA_DEFECTO,
         icono: icono || null,
         es_default: false,
       })

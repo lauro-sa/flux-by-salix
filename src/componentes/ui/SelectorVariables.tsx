@@ -198,7 +198,7 @@ function SelectorVariables({
         <span className="text-xs text-texto-terciario shrink-0">{mostrarEntidad}</span>
       )}
       {variable.origen === 'calculado' && (
-        <span className="text-[10px] text-texto-terciario bg-superficie-hover px-1 rounded">calc</span>
+        <span className="text-xxs text-texto-terciario bg-superficie-hover px-1 rounded">calc</span>
       )}
     </button>
   )
@@ -350,7 +350,7 @@ function SelectorVariables({
                       return (
                         <div key={grupo.clave}>
                           {gruposEntidadActiva.length > 1 && (
-                            <div className="px-3 py-1 text-[10px] font-semibold text-texto-terciario uppercase tracking-wider">
+                            <div className="px-3 py-1 text-xxs font-semibold text-texto-terciario uppercase tracking-wider">
                               {grupo.etiqueta}
                             </div>
                           )}
@@ -370,7 +370,7 @@ function SelectorVariables({
             </div>
 
             {/* Footer con ayuda */}
-            <div className="flex items-center gap-3 px-3 py-1.5 border-t border-borde-sutil text-[10px] text-texto-terciario">
+            <div className="flex items-center gap-3 px-3 py-1.5 border-t border-borde-sutil text-xxs text-texto-terciario">
               <span className="flex items-center gap-1">
                 <kbd className="px-1 py-0.5 rounded bg-superficie-hover text-texto-terciario font-mono">↑↓</kbd>
                 navegar

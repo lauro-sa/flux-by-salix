@@ -13,6 +13,7 @@ import { Select } from '@/componentes/ui/Select'
 import { Modal } from '@/componentes/ui/Modal'
 import { Boton } from '@/componentes/ui/Boton'
 import { COLOR_TIPO_CONTACTO } from '@/lib/colores_entidad'
+import { useTraduccion } from '@/lib/i18n'
 import { CargadorInline } from '@/componentes/ui/Cargador'
 
 // ─── Tipos ───
@@ -95,6 +96,7 @@ export function VinculacionesContacto({
   puestosVinculacion = [],
   onActualizar,
 }: Props) {
+  const { t } = useTraduccion()
   // Puestos sugeridos: usar los de la BD, o fallback hardcodeado
   const puestosSugeridos = puestosVinculacion.length > 0
     ? puestosVinculacion.map(p => p.etiqueta)
@@ -470,10 +472,10 @@ export function VinculacionesContacto({
           {vinculaciones.length > 0 && (
             <div className="space-y-2">
               <div>
-                <div className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider">
+                <div className="text-xs font-semibold text-texto-terciario uppercase tracking-wider">
                   Contactos vinculados
                 </div>
-                <p className="text-[11px] text-texto-terciario mt-0.5">
+                <p className="text-xs text-texto-terciario mt-0.5">
                   Vinculados a {nombreDisplay}. Tocá para editar o desvincular.
                 </p>
               </div>
@@ -502,10 +504,10 @@ export function VinculacionesContacto({
           {vinculacionesInversas.length > 0 && (
             <div className="space-y-2">
               <div>
-                <div className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider">
+                <div className="text-xs font-semibold text-texto-terciario uppercase tracking-wider">
                   Vinculado en
                 </div>
-                <p className="text-[11px] text-texto-terciario mt-0.5">
+                <p className="text-xs text-texto-terciario mt-0.5">
                   Donde {nombreDisplay} aparece como vinculado. Para desvincular, entrá al contacto de origen.
                 </p>
               </div>
@@ -538,13 +540,13 @@ export function VinculacionesContacto({
             <>
               <div className="grid grid-cols-2 gap-3">
                 <Select
-                  etiqueta="Tipo de contacto"
-                  opciones={TIPOS_CONTACTO_CREAR.map(t => ({ valor: t.clave, etiqueta: t.etiqueta }))}
+                  etiqueta={t('comun.tipo')}
+                  opciones={TIPOS_CONTACTO_CREAR.map(tc => ({ valor: tc.clave, etiqueta: tc.etiqueta }))}
                   valor={crearTipoClave}
                   onChange={setCrearTipoClave}
                 />
                 <Input
-                  etiqueta="Nombre"
+                  etiqueta={t('comun.nombre')}
                   value={crearNombre}
                   onChange={e => setCrearNombre(e.target.value)}
                   formato={crearTipoClave === 'persona' ? 'nombre_persona' : 'nombre_empresa'}
@@ -561,14 +563,14 @@ export function VinculacionesContacto({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input
-                  etiqueta="Correo"
+                  etiqueta={t('contactos.correo')}
                   tipo="email"
                   value={crearCorreo}
                   onChange={e => setCrearCorreo(e.target.value)}
                   formato="email"
                 />
                 <Input
-                  etiqueta="Teléfono"
+                  etiqueta={t('contactos.telefono')}
                   tipo="tel"
                   value={crearTelefono}
                   onChange={e => setCrearTelefono(e.target.value)}
@@ -583,7 +585,7 @@ export function VinculacionesContacto({
                     className="rounded size-4 accent-texto-marca" />
                   <div>
                     <span className="text-sm text-texto-primario font-medium">Vincular en ambas direcciones</span>
-                    <p className="text-[11px] text-texto-terciario mt-0.5">
+                    <p className="text-xs text-texto-terciario mt-0.5">
                       {crearBidireccional
                         ? 'Ambos contactos se verán mutuamente en sus relaciones.'
                         : 'Solo este contacto verá el vínculo.'}
@@ -637,7 +639,7 @@ export function VinculacionesContacto({
                     className="rounded size-4 accent-texto-marca" />
                   <div>
                     <span className="text-sm text-texto-primario font-medium">Vincular en ambas direcciones</span>
-                    <p className="text-[11px] text-texto-terciario mt-0.5">
+                    <p className="text-xs text-texto-terciario mt-0.5">
                       {bidireccional
                         ? 'Ambos contactos se verán mutuamente en sus relaciones.'
                         : 'Solo este contacto verá el vínculo.'}
@@ -693,7 +695,7 @@ export function VinculacionesContacto({
                     )}
                     {!cargandoRecientes && recientes.length > 0 && (
                       <>
-                        <div className="text-[10px] text-texto-terciario uppercase tracking-wider px-3 py-1">Recientes</div>
+                        <div className="text-xxs text-texto-terciario uppercase tracking-wider px-3 py-1">Recientes</div>
                         {recientes.map(c => (
                           <div key={c.id} className="flex items-center">
                             <div className="w-6" />
@@ -816,27 +818,27 @@ export function VinculacionesContacto({
             {/* Campos editables del contacto */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input
-                etiqueta="Nombre completo"
+                etiqueta={t('comun.nombre_completo')}
                 value={edicionNombre}
                 onChange={e => setEdicionNombre(e.target.value)}
                 formato="nombre_persona"
               />
               <Input
-                etiqueta="Correo"
+                etiqueta={t('contactos.correo')}
                 tipo="email"
                 value={edicionCorreo}
                 onChange={e => setEdicionCorreo(e.target.value)}
                 formato="email"
               />
               <Input
-                etiqueta="Teléfono"
+                etiqueta={t('contactos.telefono')}
                 tipo="tel"
                 value={edicionTelefono}
                 onChange={e => setEdicionTelefono(e.target.value)}
                 formato="telefono"
               />
               <Input
-                etiqueta="WhatsApp"
+                etiqueta={t('contactos.whatsapp')}
                 tipo="tel"
                 value={edicionWhatsapp}
                 onChange={e => setEdicionWhatsapp(e.target.value)}
@@ -850,7 +852,7 @@ export function VinculacionesContacto({
                 valor={edicionPuesto}
                 onChange={setEdicionPuesto}
                 puestos={puestosSugeridos}
-                etiqueta="Puesto / Rol en este contacto"
+                etiqueta={t('contactos.puesto_rol')}
               />
 
               <label className="flex items-center gap-2 cursor-pointer">
@@ -1246,7 +1248,7 @@ function TarjetaVinculo({
           <div className="flex items-center gap-1.5 mt-0.5">
             <Insignia color={color}>{vinculo.tipo_etiqueta}</Insignia>
             {vinculo.puesto && (
-              <span className="text-[11px] text-texto-terciario bg-superficie-hover px-1.5 py-0.5 rounded">
+              <span className="text-xs text-texto-terciario bg-superficie-hover px-1.5 py-0.5 rounded">
                 {vinculo.puesto}
               </span>
             )}
@@ -1276,7 +1278,7 @@ function TarjetaVinculo({
         <a
           href={`/contactos/${vinculo.vinculado_id}${origenId ? `?desde=${origenId}&desde_nombre=${encodeURIComponent(origenNombre || '')}` : ''}`}
           onClick={e => e.stopPropagation()}
-          className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] text-texto-marca hover:bg-superficie-hover transition-colors shrink-0 ${editable ? 'opacity-0 group-hover:opacity-100' : ''}`}
+          className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs text-texto-marca hover:bg-superficie-hover transition-colors shrink-0 ${editable ? 'opacity-0 group-hover:opacity-100' : ''}`}
         >
           <ExternalLink size={11} />
           Ver

@@ -16,6 +16,8 @@ import {
   type ConfigPdf,
 } from '@/lib/pdf/renderizar-html'
 import { PLANTILLA_PDF_DEFECTO } from '@/lib/pdf/plantilla-defecto'
+import { A4_ANCHO, A4_ALTO } from '@/lib/pdf/constantes'
+import { COLOR_MARCA_DEFECTO } from '@/lib/colores_entidad'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import type {
   ConfigMembrete, ConfigPiePagina, ConfigDatosEmpresaPdf,
@@ -148,7 +150,7 @@ export default function EditorPlantillaPdf() {
   const previewContainerRef = useRef<HTMLDivElement>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [escalaPreview, setEscalaPreview] = useState(0.5)
-  const [alturaIframe, setAlturaIframe] = useState(1123) // A4 a 96dpi
+  const [alturaIframe, setAlturaIframe] = useState(A4_ALTO) // A4 a 96dpi
   // En mobile se alterna entre editor y preview, en desktop se ven los dos
 
   // ─── Escalar preview proporcionalmente al contenedor ───
@@ -160,8 +162,8 @@ export default function EditorPlantillaPdf() {
     const calcularEscala = () => {
       const anchoDisponible = contenedor.clientWidth - 48
       const altoDisponible = contenedor.clientHeight - 48
-      const escalaAncho = anchoDisponible / 794
-      const escalaAlto = altoDisponible / 1123
+      const escalaAncho = anchoDisponible / A4_ANCHO
+      const escalaAlto = altoDisponible / A4_ALTO
       setEscalaPreview(Math.min(1, escalaAncho, escalaAlto))
     }
 
@@ -221,7 +223,7 @@ export default function EditorPlantillaPdf() {
                 datos_fiscales: emp.datos_fiscales || null,
                 pais: emp.pais || 'AR',
                 paises: emp.paises || ['AR'],
-                color_marca: emp.color_marca || '#3b82f6',
+                color_marca: emp.color_marca || COLOR_MARCA_DEFECTO,
                 direccion: emp.ubicacion || '',
                 telefono: emp.telefono || '',
                 correo: emp.correo || '',
@@ -402,7 +404,7 @@ export default function EditorPlantillaPdf() {
           </button>
           <div className="min-w-0">
             <h1 className="text-sm font-semibold text-texto-primario truncate">Editor de plantilla PDF</h1>
-            <p className="text-[11px] text-texto-terciario truncate">
+            <p className="text-xs text-texto-terciario truncate">
               {guardando ? 'Guardando...' : guardado ? 'Guardado' : 'Sin guardar'}
               {codigo === '' && ' · Usando plantilla por defecto'}
             </p>
@@ -411,7 +413,7 @@ export default function EditorPlantillaPdf() {
 
         {/* Centro: selector de presupuesto */}
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-texto-terciario hidden sm:block">Previsualizar con:</span>
+          <span className="text-xs text-texto-terciario hidden sm:block">Previsualizar con:</span>
           <div className="relative">
             <select
               value={presupuestoSeleccionado}
@@ -427,7 +429,7 @@ export default function EditorPlantillaPdf() {
             </select>
             <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-texto-terciario pointer-events-none" />
           </div>
-          {cargandoPresupuesto && <span className="text-[11px] text-texto-terciario">Cargando...</span>}
+          {cargandoPresupuesto && <span className="text-xs text-texto-terciario">Cargando...</span>}
         </div>
 
         {/* Derecha: acciones */}
@@ -477,8 +479,8 @@ export default function EditorPlantillaPdf() {
         {panelVariables && (
           <div className="hidden sm:flex flex-col w-[220px] border-r border-borde-sutil bg-superficie-tarjeta overflow-y-auto shrink-0">
             <div className="px-3 py-2.5 border-b border-borde-sutil">
-              <p className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider">Variables</p>
-              <p className="text-[10px] text-texto-terciario mt-0.5">Clic para insertar en el editor</p>
+              <p className="text-xs font-semibold text-texto-terciario uppercase tracking-wider">Variables</p>
+              <p className="text-xxs text-texto-terciario mt-0.5">Clic para insertar en el editor</p>
             </div>
             <div className="flex-1 overflow-y-auto">
               {GRUPOS_VARIABLES.map(({ grupo, icono: Icono, variables }) => (
@@ -500,8 +502,8 @@ export default function EditorPlantillaPdf() {
                           className="w-full text-left px-3 py-1 hover:bg-marca-500/5 transition-colors group"
                           title={`Insertar ${v}`}
                         >
-                          <code className="text-[10px] font-mono text-texto-marca group-hover:text-marca-600 block truncate">{v}</code>
-                          <span className="text-[9px] text-texto-terciario block">{desc}</span>
+                          <code className="text-xxs font-mono text-texto-marca group-hover:text-marca-600 block truncate">{v}</code>
+                          <span className="text-xxs text-texto-terciario block">{desc}</span>
                         </button>
                       ))}
                     </div>
@@ -516,8 +518,8 @@ export default function EditorPlantillaPdf() {
         <div className={`flex-1 flex flex-col min-w-0 ${vistaActiva !== 'editor' ? 'hidden sm:flex' : 'flex'}`}>
           <div className="flex items-center gap-2 px-3 py-1.5 border-b border-borde-sutil bg-superficie-app/50 shrink-0">
             <Code size={13} className="text-texto-terciario" />
-            <span className="text-[11px] font-medium text-texto-terciario">HTML</span>
-            <span className="text-[10px] text-texto-terciario ml-auto">
+            <span className="text-xs font-medium text-texto-terciario">HTML</span>
+            <span className="text-xxs text-texto-terciario ml-auto">
               {codigoEfectivo.length} caracteres{!codigo && ' · por defecto'}
             </span>
           </div>
@@ -540,8 +542,8 @@ export default function EditorPlantillaPdf() {
         <div className={`flex-1 flex flex-col min-w-0 bg-[#e5e5e5] dark:bg-[#2a2a2a] ${vistaActiva !== 'preview' ? 'hidden sm:flex' : 'flex'}`}>
           <div className="flex items-center gap-2 px-3 py-1.5 border-b border-borde-sutil bg-superficie-app/50 shrink-0">
             <Eye size={13} className="text-texto-terciario" />
-            <span className="text-[11px] font-medium text-texto-terciario">Vista previa</span>
-            <span className="text-[10px] text-texto-terciario ml-auto">
+            <span className="text-xs font-medium text-texto-terciario">Vista previa</span>
+            <span className="text-xxs text-texto-terciario ml-auto">
               {Math.round(escalaPreview * 100)}%
               {presupuestoSeleccionado && ` · ${presupuestos.find(p => p.id === presupuestoSeleccionado)?.numero}`}
             </span>
@@ -550,7 +552,7 @@ export default function EditorPlantillaPdf() {
             <div className="flex justify-center py-6 px-4">
               <div
                 style={{
-                  width: Math.floor(794 * escalaPreview),
+                  width: Math.floor(A4_ANCHO * escalaPreview),
                   height: Math.floor(alturaIframe * escalaPreview),
                   position: 'relative',
                   overflow: 'hidden',
@@ -562,7 +564,7 @@ export default function EditorPlantillaPdf() {
                   title="Vista previa PDF"
                   className="border-0 bg-white shadow-2xl rounded-sm"
                   style={{
-                    width: 794,
+                    width: A4_ANCHO,
                     height: alturaIframe,
                     position: 'absolute',
                     top: 0,
@@ -574,7 +576,7 @@ export default function EditorPlantillaPdf() {
                     try {
                       const doc = e.currentTarget.contentDocument
                       if (doc?.body) {
-                        const h = Math.max(1123, doc.documentElement.scrollHeight)
+                        const h = Math.max(A4_ALTO, doc.documentElement.scrollHeight)
                         setAlturaIframe(h)
                       }
                     } catch {}

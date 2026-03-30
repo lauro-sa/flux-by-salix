@@ -229,7 +229,7 @@ function PillMobile({
         style={{ backgroundColor: `rgba(${rgb}, 0.75)` }}
       >
         {ETIQUETAS_ESTADO[estadoActual] || estadoActual}
-        {!esTerminal && <span className="text-[10px] opacity-70">{idxEfectivo + 1}/{FLUJO_ESTADO.length}</span>}
+        {!esTerminal && <span className="text-xxs opacity-70">{idxEfectivo + 1}/{FLUJO_ESTADO.length}</span>}
         {tieneTransiciones && <ChevronDown size={14} className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />}
       </button>
 

@@ -206,7 +206,7 @@ function MatrizCategoria({
                             className="flex flex-col items-center gap-0.5 w-full bg-transparent border-none cursor-pointer p-1 rounded hover:bg-superficie-hover transition-colors group"
                             title={`${todosActivos ? 'Desmarcar' : 'Marcar'} "${ETIQUETAS_ACCION[accion]}" en todos los modulos`}
                           >
-                            <span className="text-[10px] leading-tight font-medium text-texto-terciario group-hover:text-texto-primario transition-colors">
+                            <span className="text-xxs leading-tight font-medium text-texto-terciario group-hover:text-texto-primario transition-colors">
                               {ETIQUETAS_ACCION[accion]}
                             </span>
                             {/* Barra de progreso de la columna */}
@@ -224,7 +224,7 @@ function MatrizCategoria({
                       )
                     })}
                     <th className="px-2 py-2 font-medium text-texto-terciario text-center whitespace-nowrap min-w-[80px]">
-                      <span className="text-[10px]">Rapido</span>
+                      <span className="text-xxs">Rapido</span>
                     </th>
                   </tr>
                 </thead>
@@ -269,7 +269,7 @@ function MatrizCategoria({
                               type="button"
                               onClick={() => onTodoModulo(modulo)}
                               className={[
-                                'px-1.5 py-0.5 rounded text-[10px] font-medium border-none cursor-pointer transition-colors',
+                                'px-1.5 py-0.5 rounded text-xxs font-medium border-none cursor-pointer transition-colors',
                                 todoActivo
                                   ? 'bg-insignia-exito/20 text-insignia-exito'
                                   : 'bg-superficie-hover text-texto-terciario hover:text-texto-primario',
@@ -281,7 +281,7 @@ function MatrizCategoria({
                               type="button"
                               onClick={() => onNadaModulo(modulo)}
                               className={[
-                                'px-1.5 py-0.5 rounded text-[10px] font-medium border-none cursor-pointer transition-colors',
+                                'px-1.5 py-0.5 rounded text-xxs font-medium border-none cursor-pointer transition-colors',
                                 accionesActivas.length === 0
                                   ? 'bg-insignia-peligro/20 text-insignia-peligro'
                                   : 'bg-superficie-hover text-texto-terciario hover:text-texto-primario',

@@ -188,6 +188,11 @@
   --superficie-anclada-alterna: #f9f9f9;
   --superficie-anclada-seleccionada: #eeeef8;
 
+  /* Z-Index */
+  --z-dropdown: 40;
+  --z-modal: 50;
+  --z-popover: 9999;
+
   /* Layout */
   --sidebar-ancho: 240px;
   --sidebar-ancho-colapsado: 56px;
@@ -201,7 +206,7 @@
     --texto-primario: #eeeeee;
     --texto-secundario: #a0a0a0;
     --texto-terciario: #666666;
-    --texto-inverso: #111111;
+    --texto-inverso: #ffffff;
     --texto-marca: #7b7bd8;
 
     --superficie-app: #111111;
@@ -264,7 +269,7 @@
   --texto-primario: #f0f0f0;
   --texto-secundario: #a1a1a1;
   --texto-terciario: #666666;
-  --texto-inverso: #09090b;
+  --texto-inverso: #ffffff;
   --texto-marca: #e8922a;
 
   --superficie-app: #09090b;

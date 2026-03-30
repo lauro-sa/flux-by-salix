@@ -13,6 +13,7 @@ import {
 import { CompositorCorreo, type DatosCorreo } from './CompositorCorreo'
 import { PanelIA } from './PanelIA'
 import { ModalEtiquetas } from './ModalEtiquetas'
+import { useTraduccion } from '@/lib/i18n'
 import DOMPurify from 'isomorphic-dompurify'
 import type { MensajeConAdjuntos, Conversacion } from '@/tipos/inbox'
 
@@ -194,6 +195,7 @@ export function PanelCorreo({
   emailCanal = '',
   firma,
 }: PropiedadesPanelCorreo) {
+  const { t } = useTraduccion()
   const [respondiendo, setRespondiendo] = useState(false)
   const [tipoRespuesta, setTipoRespuesta] = useState<'responder' | 'responder_todos' | 'reenviar'>('responder')
   const [modalEtiquetas, setModalEtiquetas] = useState(false)
@@ -289,7 +291,7 @@ export function PanelCorreo({
             </svg>
           </div>
           <p className="text-sm" style={{ color: 'var(--texto-secundario)' }}>
-            Seleccioná un correo para leer
+            {t('inbox.seleccionar_correo')}
           </p>
         </div>
       </div>
@@ -309,7 +311,7 @@ export function PanelCorreo({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-base font-semibold" style={{ color: 'var(--texto-primario)' }}>
-              {conversacion.asunto || '(Sin asunto)'}
+              {conversacion.asunto || `(${t('inbox.sin_asunto')})`}
             </h2>
             <div className="flex items-center gap-2 mt-1">
               <Insignia color="neutro" tamano="sm">
@@ -339,7 +341,7 @@ export function PanelCorreo({
             {/* Spam / No es spam */}
             {conversacion.estado === 'spam' && onDesmarcarSpam ? (
               <Boton variante="fantasma" tamano="xs" icono={<ShieldCheck size={14} />} onClick={() => onDesmarcarSpam(conversacion.id)}>
-                No es spam
+                {t('inbox.no_es_spam')}
               </Boton>
             ) : onMarcarSpam && (
               <Boton variante="fantasma" tamano="xs" soloIcono icono={<ShieldBan size={14} />} onClick={() => onMarcarSpam(conversacion.id)} />
@@ -392,7 +394,7 @@ export function PanelCorreo({
                           {msg.remitente_nombre || msg.correo_de}
                         </span>
                         {!msg.es_entrante && (
-                          <Insignia color="neutro" tamano="sm">Enviado</Insignia>
+                          <Insignia color="neutro" tamano="sm">{t('inbox.enviados')}</Insignia>
                         )}
                         <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
                           {formatoFechaCorreo(msg.creado_en)}
@@ -430,10 +432,10 @@ export function PanelCorreo({
                       >
                         {/* Destinatarios */}
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-3 text-xs" style={{ color: 'var(--texto-terciario)' }}>
-                          <span>De: {msg.correo_de || 'Desconocido'}</span>
-                          <span>Para: {msg.correo_para?.join(', ') || 'Desconocido'}</span>
+                          <span>{t('inbox.de')}: {msg.correo_de || 'Desconocido'}</span>
+                          <span>{t('inbox.para')}: {msg.correo_para?.join(', ') || 'Desconocido'}</span>
                           {msg.correo_cc && msg.correo_cc.length > 0 && (
-                            <span>CC: {msg.correo_cc.join(', ')}</span>
+                            <span>{t('inbox.cc')}: {msg.correo_cc.join(', ')}</span>
                           )}
                         </div>
 
@@ -503,7 +505,7 @@ export function PanelCorreo({
                             icono={<Reply size={12} />}
                             onClick={() => handleResponder('responder')}
                           >
-                            Responder
+                            {t('inbox.responder')}
                           </Boton>
                           <Boton
                             variante="fantasma"
@@ -511,7 +513,7 @@ export function PanelCorreo({
                             icono={<ReplyAll size={12} />}
                             onClick={() => handleResponder('responder_todos')}
                           >
-                            Responder a todos
+                            {t('inbox.responder_todos')}
                           </Boton>
                           <Boton
                             variante="fantasma"
@@ -519,7 +521,7 @@ export function PanelCorreo({
                             icono={<Forward size={12} />}
                             onClick={() => handleResponder('reenviar')}
                           >
-                            Reenviar
+                            {t('inbox.reenviar')}
                           </Boton>
                         </div>
                       </motion.div>
@@ -602,7 +604,7 @@ export function PanelCorreo({
             }}
           >
             <Reply size={14} />
-            Responder...
+            {t('inbox.responder')}...
           </button>
         </div>
       )}

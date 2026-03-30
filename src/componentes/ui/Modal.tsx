@@ -56,7 +56,7 @@ function Modal({ abierto, onCerrar, titulo, tamano = 'lg', children, acciones }:
   return createPortal(
     <AnimatePresence>
       {abierto && (
-        <div className="fixed inset-0" style={{ zIndex: 50 }}>
+        <div className="fixed inset-0" style={{ zIndex: 'var(--z-modal)' as unknown as number }}>
           {/* Overlay */}
           <motion.div
             initial={{ opacity: 0 }}

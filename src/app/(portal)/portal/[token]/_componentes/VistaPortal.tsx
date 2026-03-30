@@ -9,6 +9,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { Copy, Check, Upload, FileText } from 'lucide-react'
+import { useTraduccion } from '@/lib/i18n'
 import type { DatosPortal } from '@/tipos/portal'
 import CabeceraPortal from './CabeceraPortal'
 import InfoDocumento from './InfoDocumento'
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export default function VistaPortal({ datos }: Props) {
+  const { t } = useTraduccion()
   const { presupuesto, empresa, vendedor, datos_bancarios, moneda_simbolo } = datos
 
   const [mostrarFirma, setMostrarFirma] = useState(false)
@@ -131,8 +133,8 @@ export default function VistaPortal({ datos }: Props) {
                 <Check size={16} className="text-insignia-exito" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-insignia-exito">Presupuesto aceptado</p>
-                <p className="text-xs text-texto-secundario mt-1">Firmado por {firmaNombre}</p>
+                <p className="text-sm font-medium text-insignia-exito">{t('portal.presupuesto')} {t('portal.aceptado').toLowerCase()}</p>
+                <p className="text-xs text-texto-secundario mt-1">{t('portal.firmado_por')} {firmaNombre}</p>
                 {firmaBase64 && (
                   <img src={firmaBase64} alt="Firma" className="max-h-[60px] mt-2 opacity-70" />
                 )}
@@ -146,7 +148,7 @@ export default function VistaPortal({ datos }: Props) {
           <div ref={pagoRef} className="space-y-4">
             <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil overflow-hidden">
               <div className="px-5 py-4 border-b border-borde-sutil">
-                <h3 className="text-base font-semibold text-texto-primario">Datos para transferencia</h3>
+                <h3 className="text-base font-semibold text-texto-primario">{t('portal.datos_transferencia')}</h3>
                 <p className="text-sm text-texto-terciario mt-0.5">Realizá la transferencia y adjuntá el comprobante</p>
               </div>
 
@@ -218,8 +220,8 @@ export default function VistaPortal({ datos }: Props) {
         {/* Datos bancarios sin aceptar (solo lectura, si no hay flujo de firma) */}
         {!aceptado && datos_bancarios && (
           <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil p-4 space-y-2 text-sm">
-            <h3 className="text-[11px] text-texto-terciario uppercase tracking-wider font-medium mb-2">
-              Datos para transferencia
+            <h3 className="text-xs text-texto-terciario uppercase tracking-wider font-medium mb-2">
+              {t('portal.datos_transferencia')}
             </h3>
             {datos_bancarios.banco && (
               <div className="flex justify-between"><span className="text-texto-terciario">Banco</span><span className="text-texto-primario font-medium">{datos_bancarios.banco}</span></div>

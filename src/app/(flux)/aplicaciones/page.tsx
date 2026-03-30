@@ -16,6 +16,7 @@ import { Modal } from '@/componentes/ui/Modal'
 import { useModulos } from '@/hooks/useModulos'
 import { useRol } from '@/hooks/useRol'
 import { useToast } from '@/componentes/feedback/Toast'
+import { useTraduccion } from '@/lib/i18n'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { ModuloConEstado, CategoriaModulo } from '@/tipos'
 
@@ -41,11 +42,7 @@ const ICONOS_CATEGORIA: Record<string, LucideIcon> = {
   proximamente: Rocket,
 }
 
-const ETIQUETAS_CATEGORIA: Record<CategoriaModulo, string> = {
-  base: 'Base', operacional: 'Operacional', documentos: 'Documentos',
-  comunicacion: 'Comunicación', admin: 'Administración',
-  premium: 'Inteligencia Artificial', proximamente: 'Próximamente',
-}
+// Las etiquetas de categoría se resuelven con t() en el componente
 
 const ORDEN_CATEGORIAS: CategoriaModulo[] = ['premium', 'base', 'operacional', 'documentos', 'comunicacion', 'admin', 'proximamente']
 
@@ -102,7 +99,7 @@ function TarjetaModulo({ modulo, onClick }: { modulo: ModuloConEstado; onClick: 
       <div className="relative">
         {/* Badge ADD-ON */}
         {esPremium && !estaActivo && (
-          <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-10 px-1.5 py-px rounded text-[7px] font-bold uppercase tracking-wider bg-texto-marca/20 text-texto-marca border border-texto-marca/25">
+          <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-10 px-1.5 py-px rounded text-xxs font-bold uppercase tracking-wider bg-texto-marca/20 text-texto-marca border border-texto-marca/25">
             add-on
           </div>
         )}
@@ -146,13 +143,13 @@ function TarjetaModulo({ modulo, onClick }: { modulo: ModuloConEstado; onClick: 
 
       {/* Pronto */}
       {esProximamente && (
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-texto-terciario/40 -mt-1">
+        <span className="text-xxs font-semibold uppercase tracking-wider text-texto-terciario/40 -mt-1">
           Pronto
         </span>
       )}
 
       {desactivadoConPurga && (
-        <span className="text-[10px] text-insignia-advertencia -mt-1">{modulo.dias_restantes_purga}d</span>
+        <span className="text-xxs text-insignia-advertencia -mt-1">{modulo.dias_restantes_purga}d</span>
       )}
     </motion.button>
   )
@@ -170,6 +167,7 @@ function ModalModulo({
   puedeGestionar: boolean; confettiActivo: boolean
 }) {
   const [cargando, setCargando] = useState(false)
+  const { t } = useTraduccion()
   if (!modulo) return null
 
   const Icono = ICONOS_MODULO[modulo.icono] || LayoutGrid
@@ -185,9 +183,9 @@ function ModalModulo({
       return <Boton variante="secundario" tamano="md" icono={<Lock size={16} />} disabled>Próximamente</Boton>
     }
     if (estaActivo) {
-      return <Boton variante="peligro" tamano="md" icono={<Trash2 size={16} />} onClick={manejarDesinstalar} cargando={cargando} disabled={!puedeGestionar}>Desinstalar</Boton>
+      return <Boton variante="peligro" tamano="md" icono={<Trash2 size={16} />} onClick={manejarDesinstalar} cargando={cargando} disabled={!puedeGestionar}>{t('aplicaciones.desinstalar')}</Boton>
     }
-    return <Boton variante="primario" tamano="md" icono={<Download size={16} />} onClick={manejarInstalar} cargando={cargando} disabled={!puedeGestionar}>{desactivadoConPurga ? 'Reinstalar' : 'Instalar'}</Boton>
+    return <Boton variante="primario" tamano="md" icono={<Download size={16} />} onClick={manejarInstalar} cargando={cargando} disabled={!puedeGestionar}>{desactivadoConPurga ? 'Reinstalar' : t('aplicaciones.instalar')}</Boton>
   }
 
   return (
@@ -198,7 +196,7 @@ function ModalModulo({
       tamano="md"
       acciones={
         <div className="flex items-center gap-3 w-full">
-          <Boton variante="secundario" tamano="md" onClick={onCerrar}>Cerrar</Boton>
+          <Boton variante="secundario" tamano="md" onClick={onCerrar}>{t('comun.cerrar')}</Boton>
           {accion()}
         </div>
       }
@@ -223,7 +221,7 @@ function ModalModulo({
             <div className="flex items-center gap-2 mt-1">
               {estaActivo && (
                 <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-insignia-exito bg-insignia-exito/10 px-2 py-0.5 rounded-full">
-                  <Check size={11} /> Instalado
+                  <Check size={11} /> {t('aplicaciones.instalado')}
                 </span>
               )}
               {modulo.es_base && (
@@ -265,7 +263,7 @@ function ModalModulo({
         )}
 
         {!puedeGestionar && !modulo.es_base && (
-          <p className="text-[11px] text-texto-terciario">Solo el propietario o administrador puede gestionar módulos.</p>
+          <p className="text-xs text-texto-terciario">Solo el propietario o administrador puede gestionar módulos.</p>
         )}
       </div>
     </Modal>
@@ -278,6 +276,7 @@ function ModalModulo({
 
 export default function PaginaAplicaciones() {
   const router = useRouter()
+  const { t } = useTraduccion()
   const { modulos, cargando, instalar, desinstalar } = useModulos()
   const { esPropietario, esAdmin } = useRol()
   const { mostrar } = useToast()
@@ -328,9 +327,9 @@ export default function PaginaAplicaciones() {
           className="flex items-center gap-2 text-sm text-texto-terciario hover:text-texto-primario transition-colors bg-transparent border-none cursor-pointer mb-5"
         >
           <ArrowLeft size={16} />
-          Volver
+          {t('comun.volver')}
         </button>
-        <h1 className="text-2xl font-bold text-texto-primario">Aplicaciones</h1>
+        <h1 className="text-2xl font-bold text-texto-primario">{t('aplicaciones.titulo')}</h1>
         <p className="text-sm text-texto-secundario mt-1">
           Instalá y gestioná los módulos de tu espacio de trabajo
         </p>
@@ -351,10 +350,10 @@ export default function PaginaAplicaciones() {
                 {/* Header categoría */}
                 <div className="flex items-center gap-2 mb-3.5">
                   <IconoCat size={14} strokeWidth={2} className={categoria === 'premium' ? 'text-texto-marca' : 'text-texto-terciario'} />
-                  <h2 className={`text-[11px] font-bold uppercase tracking-[0.15em] ${
+                  <h2 className={`text-xs font-bold uppercase tracking-[0.15em] ${
                     categoria === 'premium' ? 'text-texto-marca' : 'text-texto-terciario'
                   }`}>
-                    {ETIQUETAS_CATEGORIA[categoria]}
+                    {t(`aplicaciones.categorias.${categoria}`)}
                   </h2>
                   <div className="flex-1 h-px bg-borde-sutil" />
                 </div>

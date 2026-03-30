@@ -33,6 +33,7 @@ import { PanelMetricas } from '../_componentes/PanelMetricas'
 import { ListaProgramados } from '../_componentes/ListaProgramados'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { useRol } from '@/hooks/useRol'
+import { useTraduccion } from '@/lib/i18n'
 
 /**
  * Configuración del Inbox — secciones: General, WhatsApp, Correo, Interno, Plantillas, SLA.
@@ -40,6 +41,7 @@ import { useRol } from '@/hooks/useRol'
 
 export default function PaginaConfiguracionInbox() {
   const router = useRouter()
+  const { t } = useTraduccion()
   const { tienePermisoConfig } = useRol()
   const puedeConfigEmpresa = tienePermisoConfig('config_empresa', 'ver')
   const [seccionActiva, setSeccionActiva] = useState('general')
@@ -124,21 +126,21 @@ export default function PaginaConfiguracionInbox() {
   }, [])
 
   const secciones: SeccionConfig[] = [
-    { id: 'general', etiqueta: 'General', icono: <Settings2 size={16} /> },
-    { id: 'whatsapp', etiqueta: 'WhatsApp', icono: <IconoWhatsApp size={16} /> },
-    { id: 'correo', etiqueta: 'Correo electrónico', icono: <Mail size={16} /> },
-    { id: 'interno', etiqueta: 'Mensajería interna', icono: <Hash size={16} /> },
+    { id: 'general', etiqueta: t('inbox.config.general'), icono: <Settings2 size={16} /> },
+    { id: 'whatsapp', etiqueta: t('inbox.canales.whatsapp'), icono: <IconoWhatsApp size={16} /> },
+    { id: 'correo', etiqueta: t('inbox.config.correo'), icono: <Mail size={16} /> },
+    { id: 'interno', etiqueta: t('inbox.config.interno'), icono: <Hash size={16} /> },
     { id: 'chatbot', etiqueta: 'Chatbot', icono: <Bot size={16} />, grupo: 'Automatización' },
     { id: 'agente_ia', etiqueta: 'Agente IA', icono: <Sparkles size={16} />, grupo: 'Automatización' },
-    { id: 'respuestas_rapidas', etiqueta: 'Respuestas rápidas', icono: <Zap size={16} />, grupo: 'Plantillas' },
-    { id: 'plantillas_wa', etiqueta: 'Plantillas Meta (WA)', icono: <FileText size={16} />, grupo: 'Plantillas' },
-    { id: 'plantillas_correo', etiqueta: 'Plantillas de correo', icono: <FileText size={16} />, grupo: 'Plantillas' },
-    { id: 'etiquetas', etiqueta: 'Etiquetas', icono: <Tag size={16} />, grupo: 'Correo avanzado' },
+    { id: 'respuestas_rapidas', etiqueta: 'Respuestas rápidas', icono: <Zap size={16} />, grupo: t('inbox.plantillas') },
+    { id: 'plantillas_wa', etiqueta: t('inbox.config.plantillas_whatsapp'), icono: <FileText size={16} />, grupo: t('inbox.plantillas') },
+    { id: 'plantillas_correo', etiqueta: t('inbox.config.plantillas_correo'), icono: <FileText size={16} />, grupo: t('inbox.plantillas') },
+    { id: 'etiquetas', etiqueta: t('inbox.etiquetar'), icono: <Tag size={16} />, grupo: 'Correo avanzado' },
     { id: 'reglas', etiqueta: 'Reglas automáticas', icono: <Zap size={16} />, grupo: 'Correo avanzado' },
     { id: 'metricas', etiqueta: 'Métricas', icono: <TrendingUp size={16} />, grupo: 'Correo avanzado' },
-    { id: 'asignacion', etiqueta: 'Asignación', icono: <Users size={16} />, grupo: 'Avanzado' },
-    { id: 'sla', etiqueta: 'SLA y horarios', icono: <Clock size={16} />, grupo: 'Avanzado' },
-    { id: 'notificaciones', etiqueta: 'Notificaciones', icono: <Bell size={16} />, grupo: 'Avanzado' },
+    { id: 'asignacion', etiqueta: t('inbox.config.asignacion'), icono: <Users size={16} />, grupo: 'Avanzado' },
+    { id: 'sla', etiqueta: t('inbox.config.sla'), icono: <Clock size={16} />, grupo: 'Avanzado' },
+    { id: 'notificaciones', etiqueta: t('inbox.config.notificaciones'), icono: <Bell size={16} />, grupo: 'Avanzado' },
   ]
 
   const canalesWhatsApp = canales.filter(c => c.tipo === 'whatsapp')
@@ -146,10 +148,10 @@ export default function PaginaConfiguracionInbox() {
 
   return (
     <PlantillaConfiguracion
-      titulo="Configuración de Inbox"
+      titulo={t('inbox.config.titulo')}
       descripcion="Canales de comunicación, plantillas, automatización y reglas de tu bandeja de entrada."
       iconoHeader={<MessageCircle size={22} style={{ color: 'var(--texto-marca)' }} />}
-      volverTexto="Inbox"
+      volverTexto={t('inbox.titulo')}
       onVolver={() => router.push('/inbox')}
       secciones={secciones}
       seccionActiva={seccionActiva}
@@ -168,21 +170,21 @@ export default function PaginaConfiguracionInbox() {
             <div className="space-y-3">
               <ModuloToggle
                 icono={<IconoWhatsApp size={18} style={{ color: 'var(--canal-whatsapp)' }} />}
-                nombre="WhatsApp"
+                nombre={t('inbox.canales.whatsapp')}
                 descripcion="Chat en tiempo real con clientes vía WhatsApp Business"
                 activo={modulos.inbox_whatsapp}
                 onChange={(v) => toggleModulo('inbox_whatsapp', v)}
               />
               <ModuloToggle
                 icono={<Mail size={18} style={{ color: 'var(--canal-correo)' }} />}
-                nombre="Correo electrónico"
+                nombre={t('inbox.config.correo')}
                 descripcion="Bandejas compartidas y personales con soporte IMAP/Gmail"
                 activo={modulos.inbox_correo}
                 onChange={(v) => toggleModulo('inbox_correo', v)}
               />
               <ModuloToggle
                 icono={<Hash size={18} style={{ color: 'var(--canal-interno)' }} />}
-                nombre="Mensajería interna"
+                nombre={t('inbox.config.interno')}
                 descripcion="Canales y mensajes directos entre agentes"
                 activo={modulos.inbox_interno}
                 onChange={(v) => toggleModulo('inbox_interno', v)}
@@ -276,7 +278,7 @@ export default function PaginaConfiguracionInbox() {
       {seccionActiva === 'interno' && (
         <div className="space-y-6">
           <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
-            Mensajería interna
+            {t('inbox.config.interno')}
           </h3>
           <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
             Los canales internos se crean y administran directamente desde la pestaña Interno del Inbox.
@@ -357,7 +359,7 @@ export default function PaginaConfiguracionInbox() {
       {seccionActiva === 'asignacion' && (
         <div className="space-y-6">
           <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
-            Reglas de asignación
+            {t('inbox.config.asignacion')}
           </h3>
           <div className="space-y-4">
             <Interruptor
@@ -384,7 +386,7 @@ export default function PaginaConfiguracionInbox() {
       {seccionActiva === 'sla' && (
         <div className="space-y-6">
           <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
-            SLA y tiempos de respuesta
+            {t('inbox.config.sla')}
           </h3>
           <div className="grid grid-cols-2 gap-4">
             <Input
@@ -425,7 +427,7 @@ export default function PaginaConfiguracionInbox() {
         <div className="space-y-5">
           <div>
             <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
-              Notificaciones del inbox
+              {t('inbox.config.notificaciones')}
             </h3>
             <p className="text-xs mt-1" style={{ color: 'var(--texto-terciario)' }}>
               Configurá qué notificaciones recibís cuando trabajás en el inbox.
@@ -495,6 +497,7 @@ function ModuloToggle({
 
 // Card visual de canal conectado — muestra todos los datos de la cuenta
 function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () => void }) {
+  const { t } = useTraduccion()
   const [expandido, setExpandido] = useState(false)
   const [cargandoCalidad, setCargandoCalidad] = useState(false)
   const [modalEliminar, setModalEliminar] = useState(false)
@@ -602,7 +605,7 @@ function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () =
               {canal.nombre}
             </p>
             <Insignia color={conectado ? 'exito' : error ? 'peligro' : 'neutro'} tamano="sm">
-              {conectado ? 'Conectado' : error ? 'Error' : 'Desconectado'}
+              {conectado ? t('inbox.config.estado_conectado') : error ? t('inbox.config.estado_error') : t('inbox.config.estado_desconectado')}
             </Insignia>
             {calidad && (
               <Insignia color={colorCalidad[calidad.rating] as 'exito' | 'advertencia' | 'peligro'} tamano="sm">
@@ -756,7 +759,7 @@ function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () =
                   icono={<Pencil size={12} />}
                   onClick={() => setEditando(true)}
                 >
-                  Editar
+                  {t('comun.editar')}
                 </Boton>
                 <Boton
                   variante="peligro"
@@ -764,7 +767,7 @@ function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () =
                   icono={<Trash2 size={12} />}
                   onClick={() => setModalEliminar(true)}
                 >
-                  Eliminar
+                  {t('comun.eliminar')}
                 </Boton>
               </div>
             </div>
@@ -777,7 +780,7 @@ function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () =
         abierto={modalEliminar}
         onCerrar={() => setModalEliminar(false)}
         onConfirmar={handleEliminar}
-        titulo={`Eliminar ${canal.nombre}`}
+        titulo={`${t('comun.eliminar')} ${canal.nombre}`}
         descripcion={`¿Estás seguro de que querés eliminar la conexión "${canal.nombre}"? Esta acción no se puede deshacer. Se perderán todas las conversaciones y mensajes asociados a este canal.`}
         tipo="peligro"
         etiquetaConfirmar="Sí, eliminar"
@@ -805,12 +808,13 @@ function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () =
 
 // Sección de Etiquetas en config
 function SeccionEtiquetasConfig() {
+  const { t } = useTraduccion()
   // Mostrar ModalEtiquetas inline — siempre abierto en modo gestión
   return (
     <div className="space-y-5">
       <div>
         <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
-          Etiquetas del inbox
+          {t('inbox.etiquetar')}
         </h3>
         <p className="text-xs mt-1" style={{ color: 'var(--texto-terciario)' }}>
           Organizá conversaciones con etiquetas de color. Se pueden asignar manualmente desde cada conversación o vía reglas automáticas.
@@ -919,6 +923,7 @@ function SeccionCorreo({
   onRecargar: () => void
   onGuardarConfig: (cambios: Partial<ConfigInbox>) => void
 }) {
+  const { t } = useTraduccion()
   const configAny = config as unknown as Record<string, unknown> | null
   const [listaPermitidos, setListaPermitidos] = useState(
     ((configAny?.correo_lista_permitidos as string[]) || []).join('\n')
@@ -1102,6 +1107,7 @@ function SeccionRespuestasRapidas({
   plantillas: PlantillaRespuesta[]
   onRecargar: () => void
 }) {
+  const { t } = useTraduccion()
   const [modalAbierto, setModalAbierto] = useState(false)
   const [editando, setEditando] = useState<PlantillaRespuesta | null>(null)
   const [eliminando, setEliminando] = useState<PlantillaRespuesta | null>(null)
@@ -1198,7 +1204,7 @@ function SeccionRespuestasRapidas({
                     color={p.canal === 'todos' ? 'primario' : p.canal === 'whatsapp' ? 'exito' : 'info'}
                     tamano="sm"
                   >
-                    {p.canal === 'todos' ? 'Todos' : p.canal === 'whatsapp' ? 'WhatsApp' : 'Correo'}
+                    {p.canal === 'todos' ? t('comun.todos') : p.canal === 'whatsapp' ? t('inbox.canales.whatsapp') : t('inbox.canales.correo')}
                   </Insignia>
                 </div>
                 {/* Preview del contenido con formato */}
@@ -1254,7 +1260,7 @@ function SeccionRespuestasRapidas({
           titulo="¿Eliminar respuesta rápida?"
           descripcion={`Se eliminará "${eliminando.nombre}". Los agentes ya no podrán usarla.`}
           tipo="peligro"
-          etiquetaConfirmar="Eliminar"
+          etiquetaConfirmar={t('comun.eliminar')}
         />
       )}
     </div>
@@ -1317,6 +1323,7 @@ const CHATBOT_DEFAULTS: ConfigChatbot = {
 }
 
 function SeccionChatbot() {
+  const { t } = useTraduccion()
   const [config, setConfig] = useState<ConfigChatbot>(CHATBOT_DEFAULTS)
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
@@ -1384,7 +1391,7 @@ function SeccionChatbot() {
     guardar({ opciones_menu: config.opciones_menu.filter((_, i) => i !== indice) })
   }
 
-  if (cargando) return <div className="py-8 text-center text-sm" style={{ color: 'var(--texto-terciario)' }}>Cargando...</div>
+  if (cargando) return <div className="py-8 text-center text-sm" style={{ color: 'var(--texto-terciario)' }}>{t('comun.cargando')}</div>
 
   const estiloSeccion = { border: '1px solid var(--borde-sutil)' }
   const estiloSelect = { background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }
@@ -1661,8 +1668,8 @@ function SeccionChatbot() {
                           {/* Simula un botón de WhatsApp */}
                           <div className="flex items-center gap-2 px-3 py-2.5" style={{ background: 'var(--superficie-hover)' }}>
                             <div
-                              className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 text-[10px]"
-                              style={{ background: 'var(--texto-marca)', color: '#fff', fontWeight: 700 }}
+                              className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 text-xxs font-bold"
+                              style={{ background: 'var(--texto-marca)', color: 'var(--texto-inverso)' }}
                             >
                               {i + 1}
                             </div>
@@ -1699,8 +1706,8 @@ function SeccionChatbot() {
                         <div className="px-3 py-2.5 space-y-1.5" style={{ background: 'var(--superficie-hover)' }}>
                           <div className="flex items-center gap-2">
                             <div
-                              className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 text-[10px]"
-                              style={{ background: 'var(--texto-marca)', color: '#fff', fontWeight: 700 }}
+                              className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 text-xxs font-bold"
+                              style={{ background: 'var(--texto-marca)', color: 'var(--texto-inverso)' }}
                             >
                               {i + 1}
                             </div>
@@ -1864,6 +1871,7 @@ function EditorWhatsApp({
   alturaMinima?: number
   titulo?: string
 }) {
+  const { t } = useTraduccion()
   const [modalAbierto, setModalAbierto] = useState(false)
 
   return (
@@ -1899,7 +1907,7 @@ function EditorWhatsApp({
           tamano="3xl"
           acciones={
             <Boton variante="primario" tamano="sm" onClick={() => setModalAbierto(false)}>
-              Listo
+              {t('comun.listo')}
             </Boton>
           }
         >
@@ -1975,7 +1983,7 @@ function EditorWhatsApp({
                         dangerouslySetInnerHTML={{ __html: formatoWhatsAppAHtml(valor) }}
                       />
                       <div className="flex items-center justify-end gap-1 mt-0.5">
-                        <span className="text-[10px]" style={{ color: '#ffffff99' }}>
+                        <span className="text-xxs" style={{ color: '#ffffff99' }}>
                           {new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
                         </span>
                         <svg width="16" height="11" viewBox="0 0 16 11" fill="none">
@@ -2011,6 +2019,7 @@ function ModalRespuestaRapida({
   onCerrar: () => void
   guardando: boolean
 }) {
+  const { t } = useTraduccion()
   const [nombre, setNombre] = useState(plantilla?.nombre || '')
   const [categoria, setCategoria] = useState(plantilla?.categoria || '')
   const [canal, setCanal] = useState(plantilla?.canal || 'todos')
@@ -2035,14 +2044,14 @@ function ModalRespuestaRapida({
       tamano="3xl"
       acciones={
         <div className="flex items-center gap-2">
-          <Boton variante="secundario" tamano="sm" onClick={onCerrar}>Cancelar</Boton>
+          <Boton variante="secundario" tamano="sm" onClick={onCerrar}>{t('comun.cancelar')}</Boton>
           <Boton
             variante="primario"
             tamano="sm"
             onClick={manejarGuardar}
             disabled={guardando || !nombre.trim() || !contenido.trim()}
           >
-            {guardando ? 'Guardando...' : plantilla ? 'Guardar cambios' : 'Crear respuesta'}
+            {guardando ? t('contactos.guardando') : plantilla ? t('comun.guardar_cambios') : 'Crear respuesta'}
           </Boton>
         </div>
       }
@@ -2084,9 +2093,9 @@ function ModalRespuestaRapida({
               valor={canal}
               onChange={(v: string) => setCanal(v as 'correo' | 'whatsapp' | 'interno' | 'todos')}
               opciones={[
-                { valor: 'todos', etiqueta: 'Todos los canales' },
-                { valor: 'whatsapp', etiqueta: 'Solo WhatsApp' },
-                { valor: 'correo', etiqueta: 'Solo Correo' },
+                { valor: 'todos', etiqueta: `${t('comun.todos')} los canales` },
+                { valor: 'whatsapp', etiqueta: `Solo ${t('inbox.canales.whatsapp')}` },
+                { valor: 'correo', etiqueta: `Solo ${t('inbox.canales.correo')}` },
               ]}
             />
           </div>
@@ -2174,11 +2183,12 @@ function SeccionPlantillas({
   plantillas: PlantillaRespuesta[]
   onRecargar: () => void
 }) {
+  const { t } = useTraduccion()
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
-          Plantillas de {canal === 'whatsapp' ? 'WhatsApp' : 'correo'}
+          {canal === 'whatsapp' ? t('inbox.config.plantillas_whatsapp') : t('inbox.config.plantillas_correo')}
         </h3>
         <Boton variante="primario" tamano="sm" icono={<Plus size={14} />}>
           Nueva plantilla

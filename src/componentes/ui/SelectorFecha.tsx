@@ -224,7 +224,7 @@ function SelectorFecha({
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.12 }}
               className="fixed w-[280px] bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden"
-              style={{ top: posDropdown.top, left: posDropdown.left, zIndex: 9999 }}
+              style={{ top: posDropdown.top, left: posDropdown.left, zIndex: 'var(--z-popover)' as unknown as number }}
             >
               {/* ── VISTA DÍAS ── */}
               {vista === 'dias' && (
@@ -249,7 +249,7 @@ function SelectorFecha({
                   {/* Encabezados de día */}
                   <div className="grid grid-cols-7 mb-1">
                     {fmt.diasSemanaCortos.map((d, i) => (
-                      <div key={i} className="h-7 flex items-center justify-center text-[10px] font-semibold text-texto-terciario/60">
+                      <div key={i} className="h-7 flex items-center justify-center text-xxs font-semibold text-texto-terciario/60">
                         {d}
                       </div>
                     ))}

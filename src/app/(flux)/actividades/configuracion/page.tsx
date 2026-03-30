@@ -6,6 +6,7 @@ import { Settings2, Bell, Tag, Zap } from 'lucide-react'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { useTraduccion } from '@/lib/i18n'
 
 /**
  * Página de configuración de Actividades.
@@ -14,20 +15,21 @@ import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 export default function PaginaConfiguracionActividades() {
   const router = useRouter()
   const [seccionActiva, setSeccionActiva] = useState('general')
+  const { t } = useTraduccion()
 
   const secciones: SeccionConfig[] = [
     { id: 'general', etiqueta: 'General', icono: <Settings2 size={16} /> },
-    { id: 'tipos', etiqueta: 'Tipos de actividad', icono: <Tag size={16} />, deshabilitada: true },
+    { id: 'tipos', etiqueta: t('actividades.tipos_actividad'), icono: <Tag size={16} />, deshabilitada: true },
     { id: 'notificaciones', etiqueta: 'Notificaciones', icono: <Bell size={16} />, deshabilitada: true },
     { id: 'automatizaciones', etiqueta: 'Automatizaciones', icono: <Zap size={16} />, deshabilitada: true },
   ]
 
   return (
     <PlantillaConfiguracion
-      titulo="Configuración de Actividades"
-      descripcion="Tipos de actividad, notificaciones, etiquetas y automatizaciones."
+      titulo={t('actividades.config_titulo')}
+      descripcion={t('actividades.config_desc')}
       iconoHeader={<Zap size={22} style={{ color: 'var(--texto-marca)' }} />}
-      volverTexto="Actividades"
+      volverTexto={t('actividades.titulo')}
       onVolver={() => router.push('/actividades')}
       secciones={secciones}
       seccionActiva={seccionActiva}
@@ -35,8 +37,8 @@ export default function PaginaConfiguracionActividades() {
     >
       <EstadoVacio
         icono={<Settings2 />}
-        titulo="Próximamente"
-        descripcion="Acá podrás configurar tipos de actividad, notificaciones automáticas y reglas de automatización."
+        titulo={t('comun.proximamente')}
+        descripcion={t('comun.proximamente_desc')}
       />
     </PlantillaConfiguracion>
   )

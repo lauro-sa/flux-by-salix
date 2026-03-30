@@ -95,7 +95,16 @@ const ContextoPreferenciasInterno = createContext<ContextoPreferencias | null>(n
 
 function ProveedorPreferencias({ children }: { children: ReactNode }) {
   const { usuario } = useAuth()
-  const [preferencias, setPreferencias] = useState<Preferencias>(DEFAULTS)
+  const [preferencias, setPreferencias] = useState<Preferencias>(() => {
+    // Leer localStorage de forma sincrónica para evitar flash visual
+    if (typeof window !== 'undefined') {
+      try {
+        const local = localStorage.getItem(CLAVE_PREFS_LOCAL)
+        if (local) return { ...DEFAULTS, ...JSON.parse(local) }
+      } catch { /* ignorar */ }
+    }
+    return DEFAULTS
+  })
   const [cargando, setCargando] = useState(true)
   const dispositivoIdRef = useRef<string>('ssr')
   const guardarTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -190,6 +199,7 @@ function ProveedorPreferencias({ children }: { children: ReactNode }) {
           sidebar_ocultos: nuevas.sidebar_ocultos,
           sidebar_deshabilitados: nuevas.sidebar_deshabilitados,
           sidebar_colapsado: nuevas.sidebar_colapsado,
+          sidebar_secciones: nuevas.sidebar_secciones,
           config_tablas: nuevas.config_tablas,
         }
 

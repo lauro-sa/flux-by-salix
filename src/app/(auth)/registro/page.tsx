@@ -34,12 +34,12 @@ export default function PaginaRegistro() {
 
     // Validaciones
     if (contrasena.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres')
+      setError(t('auth.error_contrasena_minimo'))
       return
     }
 
     if (contrasena !== contrasenaConfirmar) {
-      setError('Las contraseñas no coinciden')
+      setError(t('auth.error_contrasena_no_coinciden'))
       return
     }
 
@@ -59,10 +59,10 @@ export default function PaginaRegistro() {
   return (
     <div>
       <h2 className="text-lg font-semibold text-texto-primario mb-1">
-        Crear cuenta
+        {t('auth.crear_cuenta')}
       </h2>
       <p className="text-sm text-texto-terciario mb-6">
-        Empezá a usar Flux en minutos
+        {t('auth.crear_cuenta_desc')}
       </p>
 
       <form onSubmit={manejarEnvio} className="flex flex-col gap-4">
@@ -70,8 +70,8 @@ export default function PaginaRegistro() {
         <div className="grid grid-cols-2 gap-3">
           <Input
             tipo="text"
-            etiqueta="Nombre"
-            placeholder="Juan"
+            etiqueta={t('auth.nombre')}
+            placeholder={t('auth.placeholder_nombre')}
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             icono={<User size={18} />}
@@ -80,8 +80,8 @@ export default function PaginaRegistro() {
           />
           <Input
             tipo="text"
-            etiqueta="Apellido"
-            placeholder="Pérez"
+            etiqueta={t('auth.apellido')}
+            placeholder={t('auth.placeholder_apellido')}
             value={apellido}
             onChange={(e) => setApellido(e.target.value)}
             required
@@ -103,7 +103,7 @@ export default function PaginaRegistro() {
         <Input
           tipo="password"
           etiqueta={t('auth.contrasena')}
-          placeholder="Mínimo 8 caracteres"
+          placeholder={t('auth.placeholder_contrasena_minimo')}
           value={contrasena}
           onChange={(e) => setContrasena(e.target.value)}
           icono={<Lock size={18} />}
@@ -114,7 +114,7 @@ export default function PaginaRegistro() {
         <Input
           tipo="password"
           etiqueta={t('auth.contrasena_confirmar')}
-          placeholder="Repetí la contraseña"
+          placeholder={t('auth.placeholder_repetir_contrasena')}
           value={contrasenaConfirmar}
           onChange={(e) => setContrasenaConfirmar(e.target.value)}
           icono={<Lock size={18} />}

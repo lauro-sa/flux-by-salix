@@ -86,7 +86,7 @@ export default function PaginaOnboarding() {
         {t('empresa.crear_empresa')}
       </h2>
       <p className="text-sm text-texto-terciario mb-6">
-        Configurá tu empresa para empezar a usar Flux
+        {t('auth.crear_cuenta_desc')}
       </p>
 
       <form onSubmit={manejarEnvio} className="flex flex-col gap-4">
@@ -140,7 +140,7 @@ export default function PaginaOnboarding() {
           cargando={cargando}
           iconoDerecho={<ArrowRight size={16} />}
         >
-          Crear empresa
+          {t('empresa.crear_empresa')}
         </Boton>
       </form>
     </div>

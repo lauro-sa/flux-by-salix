@@ -8,14 +8,9 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Pen, Pencil, Upload, Trash2, Check } from 'lucide-react'
+import { useTraduccion } from '@/lib/i18n'
 
-const MODOS = [
-  { id: 'auto', label: 'Automática', icono: Pen },
-  { id: 'dibujar', label: 'Dibujar', icono: Pencil },
-  { id: 'subir', label: 'Subir', icono: Upload },
-] as const
-
-type ModoFirma = typeof MODOS[number]['id']
+type ModoFirma = 'auto' | 'dibujar' | 'subir'
 
 interface Props {
   nombrePredeterminado: string
@@ -24,6 +19,14 @@ interface Props {
 }
 
 export default function FirmaDocumento({ nombrePredeterminado, onFirmar, onCancelar }: Props) {
+  const { t } = useTraduccion()
+
+  const MODOS = [
+    { id: 'auto' as const, label: t('portal.firma_modo_auto'), icono: Pen },
+    { id: 'dibujar' as const, label: t('portal.firma_modo_dibujar'), icono: Pencil },
+    { id: 'subir' as const, label: t('portal.firma_modo_subir'), icono: Upload },
+  ]
+
   const [modo, setModo] = useState<ModoFirma>('auto')
   const [nombre, setNombre] = useState(nombrePredeterminado)
   const [firmaAutoBase64, setFirmaAutoBase64] = useState<string | null>(null)
@@ -131,8 +134,8 @@ export default function FirmaDocumento({ nombrePredeterminado, onFirmar, onCance
     <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil overflow-hidden">
       {/* Título */}
       <div className="px-5 py-4 border-b border-borde-sutil">
-        <h3 className="text-lg font-semibold text-texto-primario">Firma del documento</h3>
-        <p className="text-sm text-texto-terciario mt-1">Firme para confirmar su aceptación</p>
+        <h3 className="text-lg font-semibold text-texto-primario">{t('portal.firma')}</h3>
+        <p className="text-sm text-texto-terciario mt-1">{t('portal.firma_instruccion')}</p>
       </div>
 
       {/* Tabs */}
@@ -161,12 +164,12 @@ export default function FirmaDocumento({ nombrePredeterminado, onFirmar, onCance
         {modo === 'auto' && (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-texto-secundario mb-1.5">Nombre completo</label>
+              <label className="block text-sm font-medium text-texto-secundario mb-1.5">{t('portal.nombre_firmante')}</label>
               <input
                 type="text"
                 value={nombre}
                 onChange={e => setNombre(e.target.value)}
-                placeholder="Escriba su nombre completo"
+                placeholder={t('portal.firma_placeholder')}
                 className="w-full px-4 py-2.5 rounded-lg border border-borde-sutil bg-superficie-app text-texto-primario placeholder:text-texto-terciario focus:ring-2 focus:ring-marca-500/30 focus:border-marca-500 outline-none transition"
               />
             </div>
@@ -174,7 +177,7 @@ export default function FirmaDocumento({ nombrePredeterminado, onFirmar, onCance
               {firmaAutoBase64 ? (
                 <img src={firmaAutoBase64} alt="Firma" className="max-h-[100px] max-w-full" />
               ) : (
-                <span className="text-texto-terciario text-sm">Escriba su nombre para generar la firma</span>
+                <span className="text-texto-terciario text-sm">{t('portal.firma_escriba_nombre')}</span>
               )}
             </div>
           </div>
@@ -198,7 +201,7 @@ export default function FirmaDocumento({ nombrePredeterminado, onFirmar, onCance
                 onTouchEnd={terminarTrazo}
               />
               <p className="absolute bottom-2 left-0 right-0 text-center text-xs text-texto-terciario pointer-events-none">
-                Dibuje su firma aquí
+                {t('portal.firma_dibuje_aqui')}
               </p>
             </div>
             <button
@@ -206,7 +209,7 @@ export default function FirmaDocumento({ nombrePredeterminado, onFirmar, onCance
               className="text-sm text-texto-terciario hover:text-estado-error flex items-center gap-1 transition-colors"
             >
               <Trash2 size={14} />
-              Limpiar
+              {t('portal.limpiar')}
             </button>
           </div>
         )}
@@ -223,14 +226,14 @@ export default function FirmaDocumento({ nombrePredeterminado, onFirmar, onCance
                   className="text-sm text-texto-terciario hover:text-estado-error flex items-center gap-1 transition-colors"
                 >
                   <Trash2 size={14} />
-                  Quitar imagen
+                  {t('portal.firma_quitar_imagen')}
                 </button>
               </div>
             ) : (
               <label className="flex flex-col items-center justify-center gap-3 p-8 rounded-lg border-2 border-dashed border-borde-fuerte cursor-pointer hover:border-marca-500 hover:bg-marca-500/5 transition-colors">
                 <Upload size={28} className="text-texto-terciario" />
-                <span className="text-sm text-texto-terciario">Seleccione una imagen de su firma</span>
-                <span className="text-xs text-texto-terciario">PNG, JPG — máximo 5 MB</span>
+                <span className="text-sm text-texto-terciario">{t('portal.firma_seleccione_imagen')}</span>
+                <span className="text-xs text-texto-terciario">{t('portal.firma_formatos')}</span>
                 <input type="file" accept="image/*" onChange={handleArchivo} className="hidden" />
               </label>
             )}
@@ -241,7 +244,7 @@ export default function FirmaDocumento({ nombrePredeterminado, onFirmar, onCance
       {/* Acciones */}
       <div className="px-5 py-4 border-t border-borde-sutil flex items-center justify-end gap-3">
         <button onClick={onCancelar} className="px-4 py-2 text-sm font-medium text-texto-terciario hover:text-texto-primario transition-colors">
-          Cancelar
+          {t('comun.cancelar')}
         </button>
         <button
           onClick={handleConfirmar}
@@ -249,7 +252,7 @@ export default function FirmaDocumento({ nombrePredeterminado, onFirmar, onCance
           className="px-5 py-2.5 text-sm font-semibold text-white bg-insignia-exito hover:bg-insignia-exito/90 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2"
         >
           <Check size={16} />
-          Firmar y aceptar
+          {t('portal.firmar')}
         </button>
       </div>
     </div>

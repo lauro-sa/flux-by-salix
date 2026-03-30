@@ -15,6 +15,7 @@ import {
   CircleDot, Pencil, Globe, Link2, CheckCircle,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
+import { useTraduccion } from '@/lib/i18n'
 import type { CanalInbox } from '@/tipos/inbox'
 
 /**
@@ -57,6 +58,7 @@ function formatearTelefono(tel: string): string {
 }
 
 export function SeccionWhatsApp({ canales, onRecargar }: PropiedadesSeccionWhatsApp) {
+  const { t } = useTraduccion()
   const canalesWA = canales.filter(c => c.tipo === 'whatsapp')
   const [cuentaActiva, setCuentaActiva] = useState<string | null>(canalesWA[0]?.id || null)
   const [modoCrear, setModoCrear] = useState(false)
@@ -263,7 +265,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
                 <div key={campo.clave} className="flex items-center flex-1">
                   <div className="flex flex-col items-center gap-1 flex-shrink-0" style={{ minWidth: 48 }}>
                     <div
-                      className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-xxs font-bold flex-shrink-0"
                       style={{
                         background: completado ? 'var(--insignia-exito)' : 'var(--superficie-hover)',
                         color: completado ? '#fff' : 'var(--texto-terciario)',
@@ -271,7 +273,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
                     >
                       {completado ? <Check size={10} /> : i + 1}
                     </div>
-                    <span className="text-[10px] text-center leading-tight whitespace-nowrap" style={{ color: 'var(--texto-terciario)' }}>
+                    <span className="text-xxs text-center leading-tight whitespace-nowrap" style={{ color: 'var(--texto-terciario)' }}>
                       {campo.etiqueta}
                     </span>
                   </div>
@@ -294,7 +296,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
         style={{ border: '1px solid var(--borde-sutil)', background: 'var(--superficie-tarjeta)' }}
       >
         {/* Nombre */}
-        <CampoConIndicador etiqueta="Nombre descriptivo" completado={!!canal.nombre}>
+        <CampoConIndicador etiqueta={t('configuracion.whatsapp.nombre_descriptivo')} completado={!!canal.nombre}>
           <Input
             defaultValue={canal.nombre}
             placeholder="WhatsApp Ventas"
@@ -349,7 +351,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
 
         {/* Número de teléfono */}
         <CampoConIndicador
-          etiqueta="Número de teléfono de WhatsApp Business"
+          etiqueta={t('configuracion.whatsapp.numero_telefono')}
           completado={!!(config.numeroTelefono || config.numero_telefono)}
         >
           <Input
@@ -378,14 +380,14 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <CampoAPI
-              etiqueta="Identificador de número de teléfono"
+              etiqueta={t('configuracion.whatsapp.phone_id')}
               ayuda='En Meta: Configuración de la API → "Identificador de número de teléfono"'
               valor={(config.phoneNumberId || config.phone_number_id || '') as string}
               completado={!!(config.phoneNumberId || config.phone_number_id)}
               onGuardar={(v) => guardarCampo('phoneNumberId', v)}
             />
             <CampoAPI
-              etiqueta="Identificador de la app"
+              etiqueta={t('configuracion.whatsapp.app_id')}
               ayuda='En Meta: Configuración → Basic → "Identificador de la app"'
               valor={(config.idAppMeta || '') as string}
               completado={!!config.idAppMeta}
@@ -394,7 +396,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
           </div>
 
           <CampoAPI
-            etiqueta="WABA ID (cuenta de negocio)"
+            etiqueta={t('configuracion.whatsapp.waba_id')}
             ayuda="En Meta: Business Manager → Configuración → Cuentas → Cuentas de WhatsApp → ID"
             valor={(config.wabaId || config.waba_id || '') as string}
             completado={!!(config.wabaId || config.waba_id)}

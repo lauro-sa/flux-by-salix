@@ -36,7 +36,7 @@ function Migajas({ extras }: PropiedadesMigajas) {
     <>
       {/* Mobile: solo el nombre de la página actual (la navegación la manejan las plantillas) */}
       <div className="migajas-mobile" style={{ display: 'none' }}>
-        <span style={{ fontSize: 'var(--texto-sm)', fontWeight: 600, color: 'var(--texto-primario)' }}>
+        <span className="font-semibold" style={{ fontSize: 'var(--texto-sm)', color: 'var(--texto-primario)' }}>
           {migajas[migajas.length - 1].etiqueta}
         </span>
       </div>
@@ -62,7 +62,7 @@ function Migajas({ extras }: PropiedadesMigajas) {
                 <ChevronRight size={14} style={{ color: 'var(--texto-terciario)' }} />
               )}
               {esUltima ? (
-                <span style={{ color: 'var(--texto-primario)', fontWeight: 500 }}>
+                <span className="font-medium" style={{ color: 'var(--texto-primario)' }}>
                   {migaja.etiqueta}
                 </span>
               ) : (

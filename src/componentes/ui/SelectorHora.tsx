@@ -206,7 +206,7 @@ function SelectorHora({
 
               {/* Horas rápidas */}
               <div className="border-t border-borde-sutil p-2">
-                <p className="text-[10px] text-texto-terciario uppercase font-semibold px-1 mb-1.5">Rápido</p>
+                <p className="text-xxs text-texto-terciario uppercase font-semibold px-1 mb-1.5">Rápido</p>
                 <div className="grid grid-cols-4 gap-1">
                   {horasRapidas.map(({ h, m }) => (
                     <button

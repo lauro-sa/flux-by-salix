@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useNavegacion } from '@/hooks/useNavegacion'
+import { useTraduccion } from '@/lib/i18n'
 import {
   Mail, Phone, Globe, MessageCircle, ChevronLeft,
   Building2, Building, User, Truck, UserPlus, BadgeCheck, Trash2, Plus, X,
@@ -80,6 +81,7 @@ function separarNombreApellido(nombreCompleto: string, esPersona: boolean) {
 // ═══════════════════════════════════════════════════════════════
 
 export default function PaginaContacto() {
+  const { t } = useTraduccion()
   const { id } = useParams<{ id: string }>()
   const esNuevo = id === 'nuevo'
   const router = useRouter()
@@ -567,13 +569,13 @@ export default function PaginaContacto() {
       <div className="shrink-0 border-b border-borde-sutil">
         <div className="flex items-center justify-between px-4 sm:px-6 py-2">
           <div className="flex items-center gap-2 text-sm min-w-0">
-            {guardando && <span className="text-xs text-texto-terciario animate-pulse">{esNuevo ? 'Creando contacto...' : 'Guardando...'}</span>}
+            {guardando && <span className="text-xs text-texto-terciario animate-pulse">{esNuevo ? 'Creando contacto...' : t('contactos.guardando')}</span>}
             {errorGuardado && <span className="text-xs text-insignia-peligro">{errorGuardado}</span>}
           </div>
           {!esNuevo && (
             <button type="button" onClick={() => setModalEliminar(true)}
               className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro-fondo bg-transparent border-none cursor-pointer transition-colors shrink-0">
-              <Trash2 size={14} /><span className="hidden sm:inline">Eliminar</span>
+              <Trash2 size={14} /><span className="hidden sm:inline">{t('comun.eliminar')}</span>
             </button>
           )}
         </div>
@@ -669,7 +671,7 @@ export default function PaginaContacto() {
               value={nombreCompleto}
               onChange={e => setNombreCompleto(e.target.value)}
               onBlur={onBlurNombre}
-              placeholder="Nombre completo"
+              placeholder={t('contactos.nombre_completo')}
               autoFocus={esNuevo}
               formato={esPersona ? 'nombre_persona' : 'nombre_empresa'}
               className="[&_input]:text-2xl [&_input]:font-bold"
@@ -683,15 +685,15 @@ export default function PaginaContacto() {
               <Input variante="plano" tipo="email" icono={<Mail size={16} />}
                 value={campos.correo || ''}
                 onChange={e => { setCampos(p => ({ ...p, correo: e.target.value })); if (esNuevo) setErrores(p => ({ ...p, correo: undefined })) }}
-                onBlur={() => onBlurCampo('correo')} placeholder="Email" formato="email" error={esNuevo ? errores.correo : undefined} />
+                onBlur={() => onBlurCampo('correo')} placeholder={t('contactos.correo')} formato="email" error={esNuevo ? errores.correo : undefined} />
               <Input variante="plano" tipo="tel" icono={<MessageCircle size={16} />}
                 value={campos.whatsapp || ''}
                 onChange={e => { setCampos(p => ({ ...p, whatsapp: e.target.value })); if (esNuevo) setErrores(p => ({ ...p, whatsapp: undefined })) }}
-                onBlur={() => onBlurCampo('whatsapp')} placeholder="WhatsApp" formato="telefono" error={esNuevo ? errores.whatsapp : undefined} />
+                onBlur={() => onBlurCampo('whatsapp')} placeholder={t('contactos.whatsapp')} formato="telefono" error={esNuevo ? errores.whatsapp : undefined} />
               <Input variante="plano" tipo="tel" icono={<Phone size={16} />}
                 value={campos.telefono || ''}
                 onChange={e => { setCampos(p => ({ ...p, telefono: e.target.value })); if (esNuevo) setErrores(p => ({ ...p, telefono: undefined })) }}
-                onBlur={() => onBlurCampo('telefono')} placeholder="Teléfono" formato="telefono" error={esNuevo ? errores.telefono : undefined} />
+                onBlur={() => onBlurCampo('telefono')} placeholder={t('contactos.telefono')} formato="telefono" error={esNuevo ? errores.telefono : undefined} />
               {(claveTipo === 'empresa' || claveTipo === 'proveedor') && (
                 <Input variante="plano" tipo="url" icono={<Globe size={16} />}
                   value={campos.web || ''} onChange={e => setCampos(p => ({ ...p, web: e.target.value }))}
@@ -703,7 +705,7 @@ export default function PaginaContacto() {
             <div className="flex-[2] min-w-0 space-y-3">
               {esPersona && (
                 <SelectorConSugerencias
-                  etiqueta="Puesto"
+                  etiqueta={t('comun.cargo')}
                   valor={campos.cargo || ''}
                   opciones={puestosVinculacion.map(p => p.etiqueta)}
                   tipoConfig="puesto"
@@ -713,7 +715,7 @@ export default function PaginaContacto() {
               )}
               {(claveTipo === 'empresa' || claveTipo === 'proveedor') && (
                 <SelectorConSugerencias
-                  etiqueta="Rubro"
+                  etiqueta={t('comun.rubro')}
                   valor={campos.rubro || ''}
                   opciones={rubrosConfig.map(r => r.nombre)}
                   tipoConfig="rubro"
@@ -757,7 +759,7 @@ export default function PaginaContacto() {
           {/* Grid de campos */}
           <section className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
             {paisesEmpresa.length > 1 && (
-              <Fila etiqueta="País fiscal">
+              <Fila etiqueta={t('contactos.pais_fiscal')}>
                 <Select variante="plano"
                   opciones={paisesEmpresa.map(c => {
                     const p = PAISES_DISPONIBLES.find(pd => pd.codigo === c)
@@ -768,7 +770,7 @@ export default function PaginaContacto() {
               </Fila>
             )}
             {camposIdentificacion.length > 0 && (
-              <Fila etiqueta="Identificación">
+              <Fila etiqueta={t('contactos.identificacion')}>
                 <div className="flex items-center gap-2">
                   {camposIdentificacion.length > 1 ? (
                     <div className="w-28 shrink-0">
@@ -786,28 +788,28 @@ export default function PaginaContacto() {
                 </div>
               </Fila>
             )}
-            <Fila etiqueta="Título">
+            <Fila etiqueta={t('contactos.titulo_campo')}>
               <Select variante="plano" valor={campos.titulo || ''} onChange={v => guardarSelect('titulo', v)}
                 opciones={[{ valor: '', etiqueta: '—' }, { valor: 'Sr.', etiqueta: 'Sr.' }, { valor: 'Sra.', etiqueta: 'Sra.' }, { valor: 'Dr.', etiqueta: 'Dr.' }, { valor: 'Dra.', etiqueta: 'Dra.' }, { valor: 'Ing.', etiqueta: 'Ing.' }, { valor: 'Lic.', etiqueta: 'Lic.' }, { valor: 'Arq.', etiqueta: 'Arq.' }, { valor: 'Cr.', etiqueta: 'Cr.' }]} />
             </Fila>
-            <Fila etiqueta="Idioma">
+            <Fila etiqueta={t('comun.idioma')}>
               <Select variante="plano" valor={campos.idioma || 'es'} onChange={v => guardarSelect('idioma', v)}
                 opciones={[{ valor: 'es', etiqueta: 'Español' }, { valor: 'en', etiqueta: 'English' }, { valor: 'pt', etiqueta: 'Português' }]} />
             </Fila>
-            <Fila etiqueta="Moneda">
+            <Fila etiqueta={t('comun.moneda_label')}>
               <Select variante="plano" valor={campos.moneda || 'ARS'} onChange={v => guardarSelect('moneda', v)}
                 opciones={[{ valor: 'ARS', etiqueta: 'Peso argentino (ARS)' }, { valor: 'USD', etiqueta: 'Dólar (USD)' }, { valor: 'EUR', etiqueta: 'Euro (EUR)' }, { valor: 'MXN', etiqueta: 'Peso mexicano (MXN)' }, { valor: 'COP', etiqueta: 'Peso colombiano (COP)' }]} />
             </Fila>
-            <Fila etiqueta="Límite crédito">
+            <Fila etiqueta={t('contactos.limite_credito')}>
               <Input variante="plano" tipo="number" value={campos.limite_credito || ''}
                 onChange={e => setCampos(p => ({ ...p, limite_credito: e.target.value }))}
                 onBlur={() => onBlurCampo('limite_credito')} placeholder="0" />
             </Fila>
-            <Fila etiqueta="Plazo cliente">
+            <Fila etiqueta={t('contactos.plazo_cliente')}>
               <Select variante="plano" valor={campos.plazo_pago_cliente || ''} onChange={v => guardarSelect('plazo_pago_cliente', v)}
                 opciones={[{ valor: '', etiqueta: '—' }, { valor: 'contado', etiqueta: 'Contado' }, { valor: '15_dias', etiqueta: '15 días' }, { valor: '30_dias', etiqueta: '30 días' }, { valor: '60_dias', etiqueta: '60 días' }, { valor: '90_dias', etiqueta: '90 días' }]} />
             </Fila>
-            <Fila etiqueta="Plazo proveedor">
+            <Fila etiqueta={t('contactos.plazo_proveedor')}>
               <Select variante="plano" valor={campos.plazo_pago_proveedor || ''} onChange={v => guardarSelect('plazo_pago_proveedor', v)}
                 opciones={[{ valor: '', etiqueta: '—' }, { valor: 'contado', etiqueta: 'Contado' }, { valor: '15_dias', etiqueta: '15 días' }, { valor: '30_dias', etiqueta: '30 días' }, { valor: '60_dias', etiqueta: '60 días' }, { valor: '90_dias', etiqueta: '90 días' }]} />
             </Fila>
@@ -816,14 +818,14 @@ export default function PaginaContacto() {
           {/* Fiscal dinámico */}
           {camposFiscalesFiltrados.length > 0 && (
             <section>
-              <h3 className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-3">Datos fiscales</h3>
+              <h3 className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-3">{t('contactos.datos_fiscales')}</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
                 {camposFiscalesFiltrados.map(campo => (
                   <Fila key={campo.clave} etiqueta={campo.etiqueta}>
                     {campo.tipo_campo === 'select' && campo.opciones ? (
                       <Select variante="plano" valor={datosFiscales[campo.clave] || ''}
                         onChange={v => guardarFiscal(campo.clave, v)}
-                        opciones={[{ valor: '', etiqueta: 'Seleccionar...' }, ...(campo.opciones as { valor: string; etiqueta: string }[])]} />
+                        opciones={[{ valor: '', etiqueta: `${t('comun.seleccionar')}...` }, ...(campo.opciones as { valor: string; etiqueta: string }[])]} />
                     ) : (
                       <Input variante="plano" value={datosFiscales[campo.clave] || ''}
                         onChange={e => setDatosFiscales(p => ({ ...p, [campo.clave]: e.target.value }))}
@@ -843,7 +845,7 @@ export default function PaginaContacto() {
                 <div className="flex items-center justify-between px-4 py-3 border-b border-borde-sutil" style={{ backgroundColor: 'var(--superficie-tarjeta)' }}>
                   <div className="flex items-center gap-2">
                     <Link2 size={15} className="text-texto-terciario" />
-                    <h3 className="text-sm font-semibold text-texto-primario">Relaciones</h3>
+                    <h3 className="text-sm font-semibold text-texto-primario">{t('contactos.relaciones')}</h3>
                     {vinculacionesPendientes.length > 0 && (
                       <span className="text-xs text-texto-terciario">({vinculacionesPendientes.length})</span>
                     )}
@@ -861,7 +863,7 @@ export default function PaginaContacto() {
                           <Avatar nombre={v.nombre} tamano="sm" />
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-medium text-texto-primario truncate">{v.nombre}</div>
-                            <div className="text-[11px] text-texto-terciario">{v.tipo_etiqueta} · {v.codigo}</div>
+                            <div className="text-xs text-texto-terciario">{v.tipo_etiqueta} · {v.codigo}</div>
                           </div>
                           <button type="button" onClick={() => setVinculacionesPendientes(prev => prev.filter(vp => vp.vinculado_id !== v.vinculado_id))}
                             className="text-texto-terciario hover:text-insignia-peligro bg-transparent border-none cursor-pointer p-1 transition-colors">
@@ -946,7 +948,7 @@ export default function PaginaContacto() {
                   <Avatar nombre={[c.nombre, c.apellido].filter(Boolean).join(' ')} tamano="sm" />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-texto-primario truncate">{c.nombre} {c.apellido}</div>
-                    <div className="text-[11px] text-texto-terciario">{c.tipo_contacto?.etiqueta} · {c.codigo}{c.correo && ` · ${c.correo}`}</div>
+                    <div className="text-xs text-texto-terciario">{c.tipo_contacto?.etiqueta} · {c.codigo}{c.correo && ` · ${c.correo}`}</div>
                   </div>
                 </button>
               ))}
@@ -959,7 +961,7 @@ export default function PaginaContacto() {
       {esNuevo && duplicado && (
         <Modal abierto={!!duplicado} onCerrar={() => { setDuplicado(null); creadoRef.current = false }}>
           <div className="space-y-4 p-1">
-            <h3 className="text-lg font-bold text-texto-primario">Contacto duplicado</h3>
+            <h3 className="text-lg font-bold text-texto-primario">{t('contactos.duplicado_detectado')}</h3>
             <p className="text-sm text-texto-secundario">{duplicado.mensaje}</p>
             <div className="rounded-lg border border-borde-sutil p-3 flex items-center gap-3">
               <div className="size-10 rounded-full bg-insignia-advertencia-fondo text-insignia-advertencia-texto flex items-center justify-center text-sm font-bold">
@@ -971,12 +973,12 @@ export default function PaginaContacto() {
               </div>
             </div>
             <div className="flex items-center gap-2 justify-end pt-2">
-              <Boton onClick={() => { setDuplicado(null); creadoRef.current = false }}>Cancelar</Boton>
+              <Boton onClick={() => { setDuplicado(null); creadoRef.current = false }}>{t('comun.cancelar')}</Boton>
               <Boton onClick={() => router.push(`/contactos/${duplicado.id}`)}>Ir al contacto existente</Boton>
               <Boton onClick={() => {
                 setDuplicado(null); creadoRef.current = false
                 setTimeout(() => { creadoRef.current = true; crearContactoFn() }, 100)
-              }}>Crear de todas formas</Boton>
+              }}>{t('contactos.crear_igual')}</Boton>
             </div>
           </div>
         </Modal>
@@ -991,7 +993,7 @@ export default function PaginaContacto() {
           titulo="Eliminar contacto"
           descripcion={`¿Estás seguro de que querés eliminar a ${nombreCompleto || 'este contacto'}? Se moverá a la papelera.`}
           tipo="peligro"
-          etiquetaConfirmar="Eliminar"
+          etiquetaConfirmar={t('comun.eliminar')}
         />
       )}
     </div>
@@ -1144,7 +1146,7 @@ function SelectorConSugerencias({
 
   return (
     <div ref={ref} className="relative">
-      <label className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider mb-1 block">{etiqueta}</label>
+      <label className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-1 block">{etiqueta}</label>
       <input
         type="text"
         value={texto}
@@ -1251,7 +1253,7 @@ function SelectorEtiquetas({
 
   return (
     <div ref={ref} className="relative">
-      <label className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider mb-1.5 block">Etiquetas</label>
+      <label className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-1.5 block">Etiquetas</label>
 
       <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
         {asignadas.map(e => (

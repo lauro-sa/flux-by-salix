@@ -16,6 +16,7 @@ import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { SelectorIcono, obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import { SelectorHora } from '@/componentes/ui/SelectorHora'
 import { useEmpresa } from '@/hooks/useEmpresa'
+import { useTraduccion } from '@/lib/i18n'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 
 /**
@@ -304,6 +305,7 @@ function NodoSector({ sector, nivel, esUltimo, miembrosPorSector, miembros, asig
 // ==================== COMPONENTE PRINCIPAL ====================
 
 export function SeccionEstructura() {
+  const { t } = useTraduccion()
   const { empresa } = useEmpresa()
   const supabase = crearClienteNavegador()
 
@@ -811,7 +813,7 @@ export function SeccionEstructura() {
         <div className="space-y-4">
           <Input
             tipo="text"
-            etiqueta="Nombre del sector"
+            etiqueta={t('configuracion.estructura.nombre_sector')}
             placeholder="Ej: Ventas, Soporte, RRHH..."
             value={formNombre}
             onChange={(e) => setFormNombre(e.target.value)}
@@ -821,7 +823,7 @@ export function SeccionEstructura() {
 
           {/* Ícono */}
           <SelectorIcono
-            etiqueta="Ícono"
+            etiqueta={t('comun.icono')}
             valor={formIcono}
             onChange={setFormIcono}
           />
@@ -913,7 +915,7 @@ export function SeccionEstructura() {
         <div className="space-y-4">
           <Input
             tipo="text"
-            etiqueta="Nombre del puesto"
+            etiqueta={t('configuracion.estructura.nombre_puesto')}
             placeholder="Ej: Director comercial, Vendedor, Soporte técnico..."
             value={puestoNombre}
             onChange={(e) => setPuestoNombre(e.target.value)}
@@ -922,7 +924,7 @@ export function SeccionEstructura() {
           />
           <Input
             tipo="text"
-            etiqueta="Descripción (opcional)"
+            etiqueta={`${t('comun.descripcion')} (${t('comun.opcional')})`}
             placeholder="Breve descripción del puesto..."
             value={puestoDescripcion}
             onChange={(e) => setPuestoDescripcion(e.target.value)}

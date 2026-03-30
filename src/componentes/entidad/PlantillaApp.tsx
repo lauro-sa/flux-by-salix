@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { usePathname } from 'next/navigation'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
@@ -35,6 +35,8 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
   const { efecto } = useTema()
   const { preferencias, guardar } = usePreferencias()
   const [mobilMenuAbierto, setMobilMenuAbierto] = useState(false)
+  const [montado, setMontado] = useState(false)
+  useEffect(() => { const t = setTimeout(() => setMontado(true), 100); return () => clearTimeout(t) }, [])
 
   const seccion = obtenerSeccion(pathname)
 
@@ -150,6 +152,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
         @media (min-width: 768px) {
           .contenido-principal {
             margin-left: ${anchoSidebar} !important;
+            ${montado ? 'transition: margin-left 0.2s ease;' : ''}
           }
         }
       `}</style>

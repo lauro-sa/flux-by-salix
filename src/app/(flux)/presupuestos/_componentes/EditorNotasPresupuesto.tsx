@@ -250,7 +250,7 @@ export default function EditorNotasPresupuesto({
     return (
       <div>
         {etiqueta && (
-          <span className="text-[11px] text-texto-terciario font-medium uppercase tracking-wider block mb-2">
+          <span className="text-xs text-texto-terciario font-medium uppercase tracking-wider block mb-2">
             {etiqueta}
           </span>
         )}
@@ -279,7 +279,7 @@ export default function EditorNotasPresupuesto({
       }
     }}>
       {etiqueta && (
-        <span className="text-[11px] text-texto-terciario font-medium uppercase tracking-wider block mb-2">
+        <span className="text-xs text-texto-terciario font-medium uppercase tracking-wider block mb-2">
           {etiqueta}
         </span>
       )}

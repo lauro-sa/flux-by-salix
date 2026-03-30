@@ -8,6 +8,7 @@ import {
   ChevronDown, ChevronRight, Mail, Pen, GripVertical,
 } from 'lucide-react'
 import type { CanalInbox } from '@/tipos/inbox'
+import { useTraduccion } from '@/lib/i18n'
 
 /**
  * Sidebar de correo estilo cliente de email.
@@ -40,11 +41,12 @@ interface PropiedadesSidebarCorreo {
   colapsado?: boolean
 }
 
-const CARPETAS: { clave: CarpetaCorreo; etiqueta: string; icono: React.ReactNode }[] = [
-  { clave: 'entrada', etiqueta: 'Entrada', icono: <Inbox size={14} /> },
-  { clave: 'enviados', etiqueta: 'Enviados', icono: <SendIcon size={14} /> },
-  { clave: 'spam', etiqueta: 'No deseado', icono: <ShieldBan size={14} /> },
-  { clave: 'archivado', etiqueta: 'Archivado', icono: <Archive size={14} /> },
+/** Claves i18n se resuelven en render con t() */
+const CARPETAS: { clave: CarpetaCorreo; claveI18n: string; icono: React.ReactNode }[] = [
+  { clave: 'entrada', claveI18n: 'inbox.bandeja_compartida', icono: <Inbox size={14} /> },
+  { clave: 'enviados', claveI18n: 'inbox.enviados', icono: <SendIcon size={14} /> },
+  { clave: 'spam', claveI18n: 'inbox.estado.spam', icono: <ShieldBan size={14} /> },
+  { clave: 'archivado', claveI18n: 'inbox.archivar', icono: <Archive size={14} /> },
 ]
 
 const STORAGE_KEY = 'flux_inbox_cuentas_expandidas'
@@ -63,6 +65,8 @@ export function SidebarCorreo({
   onSeleccionarTodas,
   colapsado = false,
 }: PropiedadesSidebarCorreo) {
+  const { t } = useTraduccion()
+
   // Orden personalizado de cuentas (persistido en localStorage)
   const [ordenCanales, setOrdenCanales] = useState<string[]>(() => {
     if (typeof window === 'undefined') return canales.map(c => c.id)
@@ -168,13 +172,13 @@ export function SidebarCorreo({
           <button
             onClick={onRedactar}
             className="w-9 h-9 rounded-lg flex items-center justify-center"
-            style={{ background: 'var(--texto-marca)', color: '#fff' }}
+            style={{ background: 'var(--texto-marca)', color: 'var(--texto-inverso)' }}
           >
             <Pen size={16} />
           </button>
         ) : (
           <Boton variante="primario" tamano="sm" icono={<Pen size={14} />} onClick={onRedactar} className="w-full">
-            Redactar
+            {t('inbox.redactar')}
           </Boton>
         )}
       </div>
@@ -195,7 +199,7 @@ export function SidebarCorreo({
                     color: activa ? 'var(--texto-marca)' : 'var(--texto-terciario)',
                     background: activa ? 'var(--superficie-seleccionada)' : 'transparent',
                   }}
-                  title={carpeta.etiqueta}
+                  title={t(carpeta.claveI18n)}
                 >
                   {carpeta.icono}
                 </button>
@@ -218,7 +222,7 @@ export function SidebarCorreo({
                   <Mail size={14} />
                   <span className="flex-1 text-left">Todas las cuentas</span>
                   {totales.sinLeer > 0 && (
-                    <span className="text-xxs font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'var(--insignia-peligro)', color: '#fff' }}>
+                    <span className="text-xxs font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'var(--insignia-peligro)', color: 'var(--texto-inverso)' }}>
                       {totales.sinLeer}
                     </span>
                   )}
@@ -281,7 +285,7 @@ export function SidebarCorreo({
                               <span style={{ color: activa ? 'var(--texto-marca)' : 'var(--texto-terciario)' }}>
                                 {carpeta.icono}
                               </span>
-                              <span className="flex-1 text-left">{carpeta.etiqueta}</span>
+                              <span className="flex-1 text-left">{t(carpeta.claveI18n)}</span>
                               {/* Mostrar total de la carpeta + sin leer si hay */}
                               {total > 0 && (
                                 <span

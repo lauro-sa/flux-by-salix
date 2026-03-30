@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useNavegacion } from '@/hooks/useNavegacion'
+import { useTraduccion } from '@/lib/i18n'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -67,6 +68,7 @@ const SIMBOLO_MONEDA: Record<string, string> = {
 }
 
 export default function PaginaPresupuestos() {
+  const { t } = useTraduccion()
   const router = useRouter()
   const searchParams = useSearchParams()
   const contactoIdFiltro = searchParams.get('contacto_id')
@@ -202,14 +204,14 @@ export default function PaginaPresupuestos() {
 
     /* ── Identidad ── */
     {
-      clave: 'numero', etiqueta: 'Número', ancho: 120, ordenable: true, grupo: 'Identidad', icono: <Hash size={I} />,
+      clave: 'numero', etiqueta: t('documentos.numero'), ancho: 120, ordenable: true, grupo: 'Identidad', icono: <Hash size={I} />,
       render: (fila) => (
         <span className="font-mono text-sm text-texto-primario font-medium">{fila.numero}</span>
       ),
     },
     {
-      clave: 'estado', etiqueta: 'Estado', ancho: 130, ordenable: true, grupo: 'Identidad', icono: <CircleDot size={I} />,
-      filtrable: true, tipoFiltro: 'multiple',
+      clave: 'estado', etiqueta: t('documentos.estado'), ancho: 130, ordenable: true, grupo: 'Identidad', icono: <CircleDot size={I} />,
+      filtrable: true, tipoFiltro: 'pills',
       opcionesFiltro: Object.entries(ETIQUETAS_ESTADO).map(([valor, etiqueta]) => ({ valor, etiqueta })),
       render: (fila) => (
         <Insignia color={COLOR_ESTADO_DOCUMENTO[fila.estado] || 'neutro'}>
@@ -218,7 +220,7 @@ export default function PaginaPresupuestos() {
       ),
     },
     {
-      clave: 'referencia', etiqueta: 'Referencia', ancho: 150, ordenable: true, grupo: 'Identidad', icono: <Tag size={I} />,
+      clave: 'referencia', etiqueta: t('comun.referencia'), ancho: 150, ordenable: true, grupo: 'Identidad', icono: <Tag size={I} />,
       render: (fila) => fila.referencia
         ? <span className="text-sm text-texto-secundario">{fila.referencia}</span>
         : null,
@@ -226,63 +228,63 @@ export default function PaginaPresupuestos() {
 
     /* ── Cliente ── */
     {
-      clave: 'contacto', etiqueta: 'Cliente', ancho: 220, grupo: 'Cliente', icono: <User size={I} />,
+      clave: 'contacto', etiqueta: t('documentos.cliente'), ancho: 220, grupo: t('documentos.cliente'), icono: <User size={I} />,
       render: (fila) => {
         if (!fila.contacto_nombre) return <span className="text-texto-terciario text-xs">Sin asignar</span>
         const nombre = `${fila.contacto_nombre}${fila.contacto_apellido ? ` ${fila.contacto_apellido}` : ''}`
         return (
           <div className="min-w-0">
             <div className="text-sm text-texto-primario truncate">{nombre}</div>
-            {fila.atencion_nombre && <div className="text-[11px] text-texto-terciario truncate">At. {fila.atencion_nombre}</div>}
+            {fila.atencion_nombre && <div className="text-xs text-texto-terciario truncate">At. {fila.atencion_nombre}</div>}
           </div>
         )
       },
     },
     {
-      clave: 'contacto_correo', etiqueta: 'Email cliente', ancho: 200, grupo: 'Cliente', icono: <User size={I} />,
+      clave: 'contacto_correo', etiqueta: t('documentos.email_cliente'), ancho: 200, grupo: t('documentos.cliente'), icono: <User size={I} />,
       render: (fila) => fila.contacto_correo
         ? <span className="text-xs text-texto-secundario truncate">{fila.contacto_correo}</span>
         : null,
     },
     {
-      clave: 'contacto_telefono', etiqueta: 'Teléfono cliente', ancho: 140, grupo: 'Cliente', icono: <User size={I} />,
+      clave: 'contacto_telefono', etiqueta: t('documentos.telefono_cliente'), ancho: 140, grupo: t('documentos.cliente'), icono: <User size={I} />,
       render: (fila) => fila.contacto_telefono
         ? <span className="text-xs text-texto-secundario">{fila.contacto_telefono}</span>
         : null,
     },
     {
-      clave: 'contacto_identificacion', etiqueta: 'CUIT/DNI', ancho: 160, grupo: 'Cliente', icono: <Hash size={I} />,
+      clave: 'contacto_identificacion', etiqueta: t('documentos.cuit_dni'), ancho: 160, grupo: t('documentos.cliente'), icono: <Hash size={I} />,
       render: (fila) => {
         if (!fila.contacto_identificacion) return null
         const { tipo } = formatoIdentificacion(fila.contacto_identificacion)
         return (
           <div className="min-w-0">
             <div className="font-mono text-xs text-texto-secundario">{fila.contacto_identificacion}</div>
-            {tipo && <div className="text-[10px] text-texto-terciario">{tipo}</div>}
+            {tipo && <div className="text-xxs text-texto-terciario">{tipo}</div>}
           </div>
         )
       },
     },
     {
-      clave: 'contacto_condicion_iva', etiqueta: 'Cond. IVA', ancho: 140, grupo: 'Cliente', icono: <FileText size={I} />,
+      clave: 'contacto_condicion_iva', etiqueta: t('documentos.condicion_iva_cliente'), ancho: 140, grupo: t('documentos.cliente'), icono: <FileText size={I} />,
       render: (fila) => fila.contacto_condicion_iva
         ? <span className="text-xs text-texto-secundario">{fila.contacto_condicion_iva}</span>
         : null,
     },
     {
-      clave: 'contacto_direccion', etiqueta: 'Dirección cliente', ancho: 200, grupo: 'Cliente', icono: <User size={I} />,
+      clave: 'contacto_direccion', etiqueta: t('documentos.direccion_cliente'), ancho: 200, grupo: t('documentos.cliente'), icono: <User size={I} />,
       render: (fila) => fila.contacto_direccion
         ? <span className="text-xs text-texto-secundario truncate">{fila.contacto_direccion}</span>
         : null,
     },
     {
-      clave: 'atencion_nombre', etiqueta: 'Dirigido a', ancho: 160, grupo: 'Cliente', icono: <User size={I} />,
+      clave: 'atencion_nombre', etiqueta: t('documentos.dirigido_a'), ancho: 160, grupo: t('documentos.cliente'), icono: <User size={I} />,
       render: (fila) => {
         if (!fila.atencion_nombre) return null
         return (
           <div className="min-w-0">
             <div className="text-xs text-texto-secundario truncate">{fila.atencion_nombre}</div>
-            {fila.atencion_cargo && <div className="text-[11px] text-texto-terciario truncate">{fila.atencion_cargo}</div>}
+            {fila.atencion_cargo && <div className="text-xs text-texto-terciario truncate">{fila.atencion_cargo}</div>}
           </div>
         )
       },
@@ -290,7 +292,7 @@ export default function PaginaPresupuestos() {
 
     /* ── Montos ── */
     {
-      clave: 'total_final', etiqueta: 'Total', ancho: 150, ordenable: true, tipo: 'moneda', grupo: 'Montos', icono: <DollarSign size={I} />,
+      clave: 'total_final', etiqueta: t('documentos.total'), ancho: 150, ordenable: true, tipo: 'moneda', grupo: 'Montos', icono: <DollarSign size={I} />,
       alineacion: 'right', resumen: 'suma',
       obtenerValor: (fila) => parseFloat(fila.total_final || '0'),
       render: (fila) => (
@@ -300,8 +302,8 @@ export default function PaginaPresupuestos() {
       ),
     },
     {
-      clave: 'moneda', etiqueta: 'Moneda', ancho: 80, grupo: 'Montos', icono: <DollarSign size={I} />,
-      filtrable: true,
+      clave: 'moneda', etiqueta: t('documentos.moneda'), ancho: 80, grupo: 'Montos', icono: <DollarSign size={I} />,
+      filtrable: true, tipoFiltro: 'pills',
       opcionesFiltro: [
         { valor: 'ARS', etiqueta: 'ARS' },
         { valor: 'USD', etiqueta: 'USD' },
@@ -310,7 +312,7 @@ export default function PaginaPresupuestos() {
       render: (fila) => <span className="font-mono text-xs text-texto-terciario">{fila.moneda}</span>,
     },
     {
-      clave: 'subtotal_neto', etiqueta: 'Subtotal', ancho: 140, tipo: 'moneda', grupo: 'Montos', icono: <DollarSign size={I} />,
+      clave: 'subtotal_neto', etiqueta: t('documentos.subtotal'), ancho: 140, tipo: 'moneda', grupo: 'Montos', icono: <DollarSign size={I} />,
       alineacion: 'right', resumen: 'suma',
       obtenerValor: (fila) => parseFloat(fila.subtotal_neto || '0'),
       render: (fila) => (
@@ -320,7 +322,7 @@ export default function PaginaPresupuestos() {
       ),
     },
     {
-      clave: 'total_impuestos', etiqueta: 'Impuestos', ancho: 130, tipo: 'moneda', grupo: 'Montos', icono: <DollarSign size={I} />,
+      clave: 'total_impuestos', etiqueta: t('documentos.impuesto'), ancho: 130, tipo: 'moneda', grupo: 'Montos', icono: <DollarSign size={I} />,
       alineacion: 'right', resumen: 'suma',
       obtenerValor: (fila) => parseFloat(fila.total_impuestos || '0'),
       render: (fila) => (
@@ -330,7 +332,7 @@ export default function PaginaPresupuestos() {
       ),
     },
     {
-      clave: 'descuento_global', etiqueta: 'Descuento %', ancho: 110, tipo: 'numero', grupo: 'Montos', icono: <DollarSign size={I} />,
+      clave: 'descuento_global', etiqueta: `${t('documentos.descuento')} %`, ancho: 110, tipo: 'numero', grupo: 'Montos', icono: <DollarSign size={I} />,
       alineacion: 'right',
       render: (fila) => {
         const desc = parseFloat(fila.descuento_global || '0')
@@ -340,11 +342,11 @@ export default function PaginaPresupuestos() {
 
     /* ── Fechas ── */
     {
-      clave: 'fecha_emision', etiqueta: 'Emisión', ancho: 130, ordenable: true, tipo: 'fecha', grupo: 'Fechas', icono: <Calendar size={I} />,
+      clave: 'fecha_emision', etiqueta: t('documentos.emision'), ancho: 130, ordenable: true, tipo: 'fecha', grupo: t('comun.fechas'), icono: <Calendar size={I} />,
       render: (fila) => <span className="text-sm text-texto-secundario">{formatoFecha(fila.fecha_emision)}</span>,
     },
     {
-      clave: 'fecha_vencimiento', etiqueta: 'Vencimiento', ancho: 130, ordenable: true, tipo: 'fecha', grupo: 'Fechas', icono: <Clock size={I} />,
+      clave: 'fecha_vencimiento', etiqueta: t('documentos.fecha_vencimiento'), ancho: 130, ordenable: true, tipo: 'fecha', grupo: t('comun.fechas'), icono: <Clock size={I} />,
       render: (fila) => {
         if (!fila.fecha_vencimiento) return null
         const vencido = new Date(fila.fecha_vencimiento) < new Date() && fila.estado === 'enviado'
@@ -356,13 +358,13 @@ export default function PaginaPresupuestos() {
       },
     },
     {
-      clave: 'dias_vencimiento', etiqueta: 'Plazo (días)', ancho: 100, tipo: 'numero', grupo: 'Fechas', icono: <Clock size={I} />,
+      clave: 'dias_vencimiento', etiqueta: t('documentos.plazo_dias'), ancho: 100, tipo: 'numero', grupo: t('comun.fechas'), icono: <Clock size={I} />,
       render: (fila) => <span className="text-xs text-texto-terciario">{fila.dias_vencimiento}d</span>,
     },
 
     /* ── Pago ── */
     {
-      clave: 'condicion_pago', etiqueta: 'Condición de pago', ancho: 180, grupo: 'Pago', icono: <FileText size={I} />,
+      clave: 'condicion_pago', etiqueta: t('documentos.condiciones_pago'), ancho: 180, grupo: t('comun.pago_grupo'), icono: <FileText size={I} />,
       render: (fila) => fila.condicion_pago_label
         ? <span className="text-sm text-texto-secundario">{fila.condicion_pago_label}</span>
         : null,
@@ -370,7 +372,7 @@ export default function PaginaPresupuestos() {
 
     /* ── Origen ── */
     {
-      clave: 'origen_documento_numero', etiqueta: 'Doc. origen', ancho: 130, grupo: 'Origen', icono: <FileText size={I} />,
+      clave: 'origen_documento_numero', etiqueta: t('documentos.doc_origen'), ancho: 130, grupo: t('comun.origen'), icono: <FileText size={I} />,
       render: (fila) => fila.origen_documento_numero
         ? <span className="font-mono text-xs text-texto-secundario">{fila.origen_documento_numero}</span>
         : null,
@@ -378,22 +380,22 @@ export default function PaginaPresupuestos() {
 
     /* ── Auditoría ── */
     {
-      clave: 'creado_por_nombre', etiqueta: 'Creado por', ancho: 150, grupo: 'Auditoría', icono: <User size={I} />,
+      clave: 'creado_por_nombre', etiqueta: t('comun.creado_por'), ancho: 150, grupo: t('comun.auditoria_grupo'), icono: <User size={I} />,
       render: (fila) => fila.creado_por_nombre
         ? <span className="text-sm text-texto-secundario">{fila.creado_por_nombre}</span>
         : null,
     },
     {
-      clave: 'creado_en', etiqueta: 'Creado', ancho: 130, ordenable: true, tipo: 'fecha', grupo: 'Auditoría', icono: <Calendar size={I} />,
+      clave: 'creado_en', etiqueta: t('comun.creacion'), ancho: 130, ordenable: true, tipo: 'fecha', grupo: t('comun.auditoria_grupo'), icono: <Calendar size={I} />,
       render: (fila) => <span className="text-xs text-texto-terciario">{formatoFecha(fila.creado_en)}</span>,
     },
   ]
 
   return (
     <PlantillaListado
-      titulo="Presupuestos"
+      titulo={t('navegacion.presupuestos')}
       icono={<FileText size={20} />}
-      accionPrincipal={{ etiqueta: 'Nuevo presupuesto', icono: <Plus size={14} />, onClick: () => router.push('/presupuestos/nuevo') }}
+      accionPrincipal={{ etiqueta: t('documentos.nuevo_presupuesto'), icono: <Plus size={14} />, onClick: () => router.push('/presupuestos/nuevo') }}
       mostrarConfiguracion
       onConfiguracion={() => router.push('/presupuestos/configuracion')}
     >
@@ -402,7 +404,7 @@ export default function PaginaPresupuestos() {
           <button
             type="button"
             onClick={() => router.replace('/presupuestos')}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-superficie-elevada text-texto-primario border border-borde-sutil hover:border-borde-fuerte transition-colors cursor-pointer shrink-0"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-superficie-elevada text-texto-primario border border-borde-sutil hover:border-borde-fuerte transition-colors cursor-pointer shrink-0"
           >
             {nombreFiltro}
             <X size={10} className="text-texto-terciario" />
@@ -435,7 +437,7 @@ export default function PaginaPresupuestos() {
               {/* ── Cliente + Dirigido a ── */}
               <div className="space-y-0.5">
                 {nombre && <div className="text-sm text-texto-primario truncate">{nombre}</div>}
-                {fila.atencion_nombre && <div className="text-[11px] text-texto-terciario truncate">At. {fila.atencion_nombre}</div>}
+                {fila.atencion_nombre && <div className="text-xs text-texto-terciario truncate">At. {fila.atencion_nombre}</div>}
                 {!nombre && !fila.atencion_nombre && <div className="text-xs text-texto-terciario">Sin cliente</div>}
               </div>
 
@@ -447,7 +449,7 @@ export default function PaginaPresupuestos() {
                 <span className="font-mono text-sm font-semibold text-texto-primario">
                   {formatoMoneda(fila.total_final, fila.moneda)}
                 </span>
-                <span className={`text-[11px] ${vencido ? 'text-estado-error font-medium' : 'text-texto-terciario'}`}>
+                <span className={`text-xs ${vencido ? 'text-estado-error font-medium' : 'text-texto-terciario'}`}>
                   {formatoFecha(fila.fecha_emision)}
                 </span>
               </div>
@@ -458,7 +460,7 @@ export default function PaginaPresupuestos() {
         accionesLote={[
           {
             id: 'papelera',
-            etiqueta: 'Eliminar',
+            etiqueta: t('comun.eliminar'),
             icono: <Trash2 size={14} />,
             onClick: enviarAPapeleraLote,
             peligro: true,
@@ -468,6 +470,14 @@ export default function PaginaPresupuestos() {
         onBusqueda={setBusqueda}
         placeholder="Buscar presupuestos..."
         idModulo="presupuestos"
+        opcionesOrden={[
+          { etiqueta: t('comun.mas_recientes'), clave: 'numero', direccion: 'desc' },
+          { etiqueta: t('comun.mas_antiguos'), clave: 'numero', direccion: 'asc' },
+          { etiqueta: t('documentos.cliente_az'), clave: 'contacto', direccion: 'asc' },
+          { etiqueta: t('documentos.cliente_za'), clave: 'contacto', direccion: 'desc' },
+          { etiqueta: t('documentos.total_mayor'), clave: 'total_final', direccion: 'desc' },
+          { etiqueta: t('documentos.total_menor'), clave: 'total_final', direccion: 'asc' },
+        ]}
         onClickFila={(fila) => router.push(`/presupuestos/${fila.id}`)}
         mostrarResumen
         estadoVacio={

@@ -66,7 +66,7 @@ function ContenidoLogin() {
             className="mb-4 p-3 rounded-lg bg-insignia-peligro/10 border border-insignia-peligro/20 flex items-center gap-2 text-sm text-insignia-peligro"
           >
             <AlertCircle size={16} className="shrink-0" />
-            <span>Hubo un error con la verificación. Intentá de nuevo.</span>
+            <span>{t('auth.error_verificacion')}</span>
           </motion.div>
         )}
       </AnimatePresence>

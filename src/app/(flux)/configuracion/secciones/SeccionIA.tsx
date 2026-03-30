@@ -15,6 +15,7 @@ import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useModulos } from '@/hooks/useModulos'
 import { useAutoguardado } from '@/hooks/useAutoguardado'
+import { useTraduccion } from '@/lib/i18n'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 
 /**
@@ -124,6 +125,7 @@ type SubSeccion = 'salix-ia' | 'asistente-general' | 'asistente-creacion'
 const SLUGS_IA = ['agente_ia', 'salix_ia', 'chatbot_inbox', 'automatizaciones']
 
 export function SeccionIA() {
+  const { t } = useTraduccion()
   const { empresa } = useEmpresa()
   const { modulos, cargando: cargandoModulos, tieneModulo } = useModulos()
   const supabase = crearClienteNavegador()
@@ -205,7 +207,7 @@ export function SeccionIA() {
             style={{ backgroundColor: 'var(--texto-marca)' }}
           >
             <Sparkles size={16} />
-            Ir a Aplicaciones
+            Ir a {t('navegacion.aplicaciones')}
           </a>
         </div>
       </div>
@@ -277,7 +279,7 @@ export function SeccionIA() {
           <div className={!config.habilitado ? 'opacity-40 pointer-events-none select-none' : ''}>
             <div className="flex items-center gap-2 mb-3">
               <CheckCircle size={16} className="text-insignia-exito" />
-              <h3 className="text-sm font-semibold text-texto-primario">Elegí tu proveedor de IA</h3>
+              <h3 className="text-sm font-semibold text-texto-primario">Elegí tu {t('configuracion.ia.proveedor').toLowerCase()} de IA</h3>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -317,7 +319,7 @@ export function SeccionIA() {
             <div className="flex items-center gap-2 mb-3">
               <CheckCircle size={16} className="text-insignia-exito" />
               <h3 className="text-sm font-semibold text-texto-primario">
-                Configurá tu API key de {proveedorActivo.nombre}
+                Configurá tu {t('configuracion.ia.api_key')} de {proveedorActivo.nombre}
               </h3>
             </div>
 
@@ -328,7 +330,7 @@ export function SeccionIA() {
                   <Shield size={16} className="text-insignia-exito" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-texto-primario block">API key configurada</span>
+                  <span className="text-sm font-medium text-texto-primario block">{t('configuracion.ia.api_key')} configurada</span>
                   <span className="text-xs text-texto-terciario font-mono">{enmascararKey(apiKey)}</span>
                 </div>
               </div>
@@ -337,7 +339,7 @@ export function SeccionIA() {
             {/* Input para poner/reemplazar key */}
             <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-4">
               <label className="text-xs font-medium text-texto-secundario block mb-2">
-                {apiKey ? 'Reemplazar API key' : 'Ingresá tu API key'}
+                {apiKey ? `Reemplazar ${t('configuracion.ia.api_key')}` : `Ingresá tu ${t('configuracion.ia.api_key')}`}
               </label>
               <div className="flex gap-2">
                 <div className="flex-1">
@@ -365,7 +367,7 @@ export function SeccionIA() {
                   tamano="sm"
                   onClick={() => act({ [keyField]: config[keyField] })}
                 >
-                  Guardar key
+                  {t('comun.guardar')} key
                 </Boton>
               </div>
               <p className="text-xs text-texto-terciario mt-2">
@@ -378,7 +380,7 @@ export function SeccionIA() {
           <div className={!config.habilitado ? 'opacity-40 pointer-events-none select-none' : ''}>
             <div className="flex items-center gap-2 mb-2">
               <CheckCircle size={16} className="text-insignia-exito" />
-              <h3 className="text-sm font-semibold text-texto-primario">Elegí el modelo</h3>
+              <h3 className="text-sm font-semibold text-texto-primario">Elegí el {t('configuracion.ia.modelo').toLowerCase()}</h3>
             </div>
             <p className="text-xs text-texto-terciario mb-3">
               Para consultas de Salix recomendamos el modelo más rápido y económico — la diferencia en calidad de respuesta es mínima.
@@ -553,6 +555,7 @@ function AsistenteGeneral({ config, onActualizar, guardando }: {
   onActualizar: (cambios: Partial<ConfigIA & { prompt_asistente: string }>) => void
   guardando: string
 }) {
+  const { t } = useTraduccion()
   const [prompt, setPrompt] = useState(config.prompt_asistente || PROMPT_DEFAULT)
   const [modalReset, setModalReset] = useState(false)
   const [expandido, setExpandido] = useState(false)
@@ -583,7 +586,7 @@ function AsistenteGeneral({ config, onActualizar, guardando }: {
             <MessageSquare size={20} className="text-texto-marca" />
           </div>
           <div className="flex-1">
-            <h3 className="text-sm font-semibold text-texto-primario">Prompt del chat flotante</h3>
+            <h3 className="text-sm font-semibold text-texto-primario">{t('configuracion.ia.prompt_sistema')} del chat flotante</h3>
             <p className="text-sm text-texto-terciario mt-1">
               Este prompt configura el <strong>chat flotante interno de Salix IA</strong> — el asistente que aparece dentro de Flux para el equipo de trabajo. Se usa cuando un usuario hace preguntas, pide datos o necesita ayuda desde la app.
             </p>
@@ -639,7 +642,7 @@ function AsistenteGeneral({ config, onActualizar, guardando }: {
           </span>
           {modificado && (
             <Boton variante="primario" tamano="sm" onClick={guardar}>
-              Guardar prompt
+              {t('comun.guardar')} prompt
             </Boton>
           )}
         </div>
@@ -682,7 +685,7 @@ function AsistenteGeneral({ config, onActualizar, guardando }: {
             </Boton>
             {modificado && (
               <Boton variante="primario" tamano="sm" onClick={() => { guardar(); setExpandido(false) }}>
-                Guardar prompt
+                {t('comun.guardar')} prompt
               </Boton>
             )}
           </div>

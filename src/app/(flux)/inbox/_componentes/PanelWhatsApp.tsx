@@ -13,6 +13,8 @@ import { ModalEtiquetas } from './ModalEtiquetas'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { CompositorMensaje, type DatosMensaje } from './CompositorMensaje'
 import { PanelIA } from './PanelIA'
+import { COLOR_ETIQUETA_DEFECTO } from '@/lib/colores_entidad'
+import { useTraduccion } from '@/lib/i18n'
 import type { MensajeConAdjuntos, MensajeAdjunto, Conversacion } from '@/tipos/inbox'
 
 /**
@@ -200,6 +202,7 @@ export function PanelWhatsApp({
   cargando,
   enviando,
 }: PropiedadesPanelWhatsApp) {
+  const { t } = useTraduccion()
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Texto inyectado desde PanelIA hacia el compositor.
@@ -301,7 +304,7 @@ export function PanelWhatsApp({
             <div className="flex items-center gap-1 mt-0.5 flex-wrap">
               {conversacion.etiquetas.map((et) => {
                 const info = etiquetasEmpresa[et]
-                const colorEt = info?.color || '#6b7280'
+                const colorEt = info?.color || COLOR_ETIQUETA_DEFECTO
                 const expandida = etiquetaExpandida === et
                 return (
                   <span
@@ -347,7 +350,7 @@ export function PanelWhatsApp({
             onClick={() => setModalEtiquetas(true)}
             className="p-2 rounded-lg transition-colors"
             style={{ color: 'var(--texto-terciario)' }}
-            title="Etiquetar conversación"
+            title={t('inbox.etiquetar')}
           >
             <Tag size={16} />
           </button>
@@ -358,7 +361,7 @@ export function PanelWhatsApp({
             }}
             className="p-2 rounded-lg transition-colors"
             style={{ color: 'var(--texto-terciario)' }}
-            title="Exportar conversación"
+            title={t('inbox.exportar_conversacion')}
           >
             <FileDown size={16} />
           </button>
@@ -447,7 +450,7 @@ export function PanelWhatsApp({
                     )}
                     <GrillaImagenes imagenes={elem.mensajes} onAbrirVisor={onAbrirVisor} />
                     <div className="flex items-center justify-end gap-1 mt-0.5">
-                      <span className="text-[10px]" style={{ color: 'var(--texto-terciario)' }}>
+                      <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
                         {formatoHora(elem.mensajes[elem.mensajes.length - 1].creado_en)}
                       </span>
                       {esPropio && ICONO_ESTADO[primerMsg.wa_status || primerMsg.estado]}
@@ -522,7 +525,7 @@ export function PanelWhatsApp({
                         )}
                       </div>
                       <div className="flex items-center justify-end mt-1">
-                        <span className="text-[10px]" style={{ color: 'var(--texto-terciario)' }}>
+                        <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
                           {formatoHora(msg.creado_en)}
                         </span>
                       </div>
@@ -568,7 +571,7 @@ export function PanelWhatsApp({
                               }}
                               className="p-1 rounded transition-colors"
                               style={{ color: 'var(--texto-terciario)' }}
-                              title="Editar nota"
+                              title={t('comun.editar')}
                             >
                               <Pencil size={10} />
                             </button>
@@ -578,7 +581,7 @@ export function PanelWhatsApp({
                               onClick={() => onEliminarNota(msg.id)}
                               className="p-1 rounded transition-colors"
                               style={{ color: 'var(--texto-terciario)' }}
-                              title="Eliminar nota"
+                              title={t('comun.eliminar')}
                             >
                               <Trash2 size={10} />
                             </button>
@@ -644,11 +647,11 @@ export function PanelWhatsApp({
                     {/* Footer: hora + editado */}
                     <div className="flex items-center justify-end gap-1 mt-1">
                       {msg.editado_en && (
-                        <span className="text-[10px] italic" style={{ color: 'var(--texto-terciario)' }}>
+                        <span className="text-xxs italic" style={{ color: 'var(--texto-terciario)' }}>
                           editada
                         </span>
                       )}
-                      <span className="text-[10px]" style={{ color: 'var(--texto-terciario)' }}>
+                      <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
                         {formatoHora(msg.creado_en)}
                       </span>
                     </div>
@@ -734,7 +737,7 @@ export function PanelWhatsApp({
                     )}
 
                     <div className="flex items-center justify-end gap-1 mt-0.5">
-                      <span className="text-[10px]" style={{ color: 'var(--texto-terciario)' }}>
+                      <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
                         {formatoHora(msg.creado_en)}
                       </span>
                       {ICONO_ESTADO[msg.wa_status || msg.estado]}
@@ -773,7 +776,7 @@ export function PanelWhatsApp({
                       onAbrirVisor={onAbrirVisor}
                       metaHora={
                         <div className="flex items-center gap-1">
-                          <span className="text-[10px]" style={{ color: 'var(--texto-terciario)' }}>
+                          <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
                             {formatoHora(msg.creado_en)}
                           </span>
                           {esPropio && ICONO_ESTADO[msg.wa_status || msg.estado]}
@@ -783,7 +786,7 @@ export function PanelWhatsApp({
                     {/* Hora + estado */}
                     {msg.tipo_contenido !== 'audio' && (
                       <div className="flex items-center justify-end gap-1 mt-0.5">
-                        <span className="text-[10px]" style={{ color: 'var(--texto-terciario)' }}>
+                        <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
                           {formatoHora(msg.creado_en)}
                         </span>
                         {esPropio && ICONO_ESTADO[msg.wa_status || msg.estado]}
@@ -1337,7 +1340,7 @@ function ReproductorAudio({ adjunto, children }: { adjunto: MensajeAdjunto; chil
         </div>
         {/* Duración — la hora y estado se inyectan desde la burbuja padre via children */}
         <div className="flex items-center justify-between">
-          <span className="text-[10px]" style={{ color: 'var(--texto-terciario)' }}>
+          <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
             {reproduciendo || tiempoActual > 0
               ? formatoDuracion(tiempoActual)
               : duracion > 0 ? formatoDuracion(duracion) : '0:00'}

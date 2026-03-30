@@ -6,6 +6,7 @@
  */
 
 import Image from 'next/image'
+import { useTraduccion } from '@/lib/i18n'
 
 interface Props {
   empresa: {
@@ -19,6 +20,8 @@ interface Props {
 }
 
 export default function PiePortal({ empresa }: Props) {
+  const { t } = useTraduccion()
+
   return (
     <footer className="border-t border-borde-sutil mt-8">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-4">
@@ -72,8 +75,8 @@ export default function PiePortal({ empresa }: Props) {
             className="size-3"
             unoptimized
           />
-          <span className="text-[10px] text-texto-terciario">
-            Generado con Flux by Salix
+          <span className="text-xxs text-texto-terciario">
+            {t('portal.generado_con_flux')}
           </span>
         </div>
       </div>

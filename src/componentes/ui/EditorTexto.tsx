@@ -482,7 +482,7 @@ function EditorTexto({
           <div className="p-2">
             {/* Mini sección: color Flux + colores de marca/logo */}
             <div className="mb-2 pb-2 border-b border-borde-sutil">
-              <span className="text-[9px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block">Tu marca</span>
+              <span className="text-xxs font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block">Tu marca</span>
               <div className="flex items-center gap-1.5">
                 {/* Color de Flux siempre */}
                 <button

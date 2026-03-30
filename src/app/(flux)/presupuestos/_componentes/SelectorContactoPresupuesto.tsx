@@ -141,7 +141,7 @@ export default function SelectorContactoPresupuesto({
                 {contacto.nombre} {contacto.apellido || ''}
               </span>
               {contacto.tipo_contacto && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-superficie-tarjeta border border-borde-sutil text-texto-terciario">
+                <span className="text-xxs px-1.5 py-0.5 rounded bg-superficie-tarjeta border border-borde-sutil text-texto-terciario">
                   {contacto.tipo_contacto.etiqueta}
                 </span>
               )}
@@ -236,7 +236,7 @@ export default function SelectorContactoPresupuesto({
             {/* Título de sección */}
             {tituloLista && (
               <div className="px-4 pt-3 pb-1.5">
-                <span className="text-[11px] font-bold text-texto-terciario uppercase tracking-wider">
+                <span className="text-xs font-bold text-texto-terciario uppercase tracking-wider">
                   {tituloLista}
                 </span>
               </div>
@@ -275,7 +275,7 @@ export default function SelectorContactoPresupuesto({
                             {c.nombre} {c.apellido || ''}
                           </span>
                           {c.tipo_contacto && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-superficie-app border border-borde-sutil text-texto-terciario">
+                            <span className="text-xxs px-1.5 py-0.5 rounded bg-superficie-app border border-borde-sutil text-texto-terciario">
                               {c.tipo_contacto.etiqueta}
                             </span>
                           )}
@@ -317,7 +317,7 @@ export default function SelectorContactoPresupuesto({
                                 {v.vinculado.nombre} {v.vinculado.apellido || ''}
                               </span>
                               {v.puesto && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-superficie-app border border-borde-sutil text-texto-terciario">
+                                <span className="text-xxs px-1.5 py-0.5 rounded bg-superficie-app border border-borde-sutil text-texto-terciario">
                                   {v.puesto}
                                 </span>
                               )}

@@ -52,15 +52,15 @@ export default function PaginaRecuperar() {
         </motion.div>
 
         <h2 className="text-lg font-semibold text-texto-primario mb-2">
-          Revisá tu correo
+          {t('auth.revisa_tu_correo')}
         </h2>
         <p className="text-sm text-texto-terciario mb-6">
-          Si el correo existe, recibirás un enlace para restablecer tu contraseña.
+          {t('auth.recuperar_desc')}
         </p>
 
         <Link href="/login">
           <Boton variante="secundario" anchoCompleto icono={<ArrowLeft size={16} />}>
-            Volver al inicio de sesión
+            {t('auth.volver_login')}
           </Boton>
         </Link>
       </div>
@@ -73,7 +73,7 @@ export default function PaginaRecuperar() {
         {t('auth.recuperar_contrasena')}
       </h2>
       <p className="text-sm text-texto-terciario mb-6">
-        Te enviaremos un enlace para restablecer tu contraseña
+        {t('auth.enviar_enlace_desc')}
       </p>
 
       <form onSubmit={manejarEnvio} className="flex flex-col gap-4">
@@ -109,7 +109,7 @@ export default function PaginaRecuperar() {
           cargando={cargando}
           iconoDerecho={<ArrowRight size={16} />}
         >
-          Enviar enlace
+          {t('auth.enviar_enlace')}
         </Boton>
       </form>
 

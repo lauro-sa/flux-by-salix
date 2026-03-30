@@ -6,6 +6,7 @@
  */
 
 import { PLANTILLA_PDF_DEFECTO } from './plantilla-defecto'
+import { COLOR_MARCA_DEFECTO } from '@/lib/colores_entidad'
 
 // Convierte el valor de notas/condiciones a HTML para el PDF.
 // Soporta: JSON array de HTML strings, HTML suelto, y texto plano legacy.
@@ -201,7 +202,7 @@ function hexARgb(hex: string): string {
 }
 
 function generarVariablesColor(colorMarca: string | null | undefined): Record<string, string> {
-  const color = colorMarca || '#3b82f6' // azul por defecto
+  const color = colorMarca || COLOR_MARCA_DEFECTO
   const rgb = hexARgb(color)
   return {
     color_primario: `rgb(${rgb})`,

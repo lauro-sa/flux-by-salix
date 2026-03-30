@@ -30,12 +30,12 @@ export default function PaginaRestablecer() {
     setError('')
 
     if (contrasena.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres')
+      setError(t('auth.error_contrasena_minimo'))
       return
     }
 
     if (contrasena !== contrasenaConfirmar) {
-      setError('Las contraseñas no coinciden')
+      setError(t('auth.error_contrasena_no_coinciden'))
       return
     }
 
@@ -66,10 +66,10 @@ export default function PaginaRestablecer() {
         </motion.div>
 
         <h2 className="text-lg font-semibold text-texto-primario mb-2">
-          Contraseña actualizada
+          {t('auth.contrasena_actualizada')}
         </h2>
         <p className="text-sm text-texto-terciario">
-          Redirigiendo al inicio de sesión...
+          {t('auth.redirigiendo_login')}
         </p>
       </div>
     )
@@ -78,17 +78,17 @@ export default function PaginaRestablecer() {
   return (
     <div>
       <h2 className="text-lg font-semibold text-texto-primario mb-1">
-        Nueva contraseña
+        {t('auth.nueva_contrasena_titulo')}
       </h2>
       <p className="text-sm text-texto-terciario mb-6">
-        Elegí una contraseña segura para tu cuenta
+        {t('auth.nueva_contrasena_desc')}
       </p>
 
       <form onSubmit={manejarEnvio} className="flex flex-col gap-4">
         <Input
           tipo="password"
           etiqueta={t('auth.contrasena_nueva')}
-          placeholder="Mínimo 8 caracteres"
+          placeholder={t('auth.placeholder_contrasena_minimo')}
           value={contrasena}
           onChange={(e) => setContrasena(e.target.value)}
           icono={<Lock size={18} />}
@@ -99,7 +99,7 @@ export default function PaginaRestablecer() {
         <Input
           tipo="password"
           etiqueta={t('auth.contrasena_confirmar')}
-          placeholder="Repetí la contraseña"
+          placeholder={t('auth.placeholder_repetir_contrasena')}
           value={contrasenaConfirmar}
           onChange={(e) => setContrasenaConfirmar(e.target.value)}
           icono={<Lock size={18} />}
@@ -128,7 +128,7 @@ export default function PaginaRestablecer() {
           cargando={cargando}
           iconoDerecho={<ArrowRight size={16} />}
         >
-          Actualizar contraseña
+          {t('auth.actualizar_contrasena')}
         </Boton>
       </form>
     </div>

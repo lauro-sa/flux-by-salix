@@ -68,7 +68,7 @@ export default function CabeceraPortal({ empresa }: Props) {
             className="size-6"
             unoptimized
           />
-          <span className="text-[9px] text-texto-terciario whitespace-nowrap">
+          <span className="text-xxs text-texto-terciario whitespace-nowrap">
             Flux by Salix
           </span>
         </div>

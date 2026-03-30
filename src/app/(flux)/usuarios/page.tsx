@@ -22,6 +22,7 @@ import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { useAuth } from '@/hooks/useAuth'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useRol } from '@/hooks/useRol'
+import { useTraduccion } from '@/lib/i18n'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 
 /**
@@ -95,9 +96,12 @@ function textoCumple(dias: number, fechaNac: string | null): string {
   return `Cumple ${edadCumple} el ${diaSemana}`
 }
 
-const ETIQUETA_ROL: Record<string, string> = {
-  propietario: 'Propietario', administrador: 'Admin', gestor: 'Gestor',
-  vendedor: 'Vendedor', supervisor: 'Supervisor', empleado: 'Colaborador', invitado: 'Invitado',
+/** Genera mapa de etiquetas de rol usando traducciones */
+function crearEtiquetaRol(t: (clave: string) => string): Record<string, string> {
+  return {
+    propietario: t('empresa.roles.propietario'), administrador: t('empresa.roles.administrador'), gestor: t('empresa.roles.gestor'),
+    vendedor: t('empresa.roles.vendedor'), supervisor: t('empresa.roles.supervisor'), empleado: t('empresa.roles.empleado'), invitado: t('empresa.roles.invitado'),
+  }
 }
 
 const COLOR_ROL: Record<string, 'primario' | 'violeta' | 'info' | 'naranja' | 'cyan' | 'neutro' | 'advertencia'> = {
@@ -105,14 +109,17 @@ const COLOR_ROL: Record<string, 'primario' | 'violeta' | 'info' | 'naranja' | 'c
   vendedor: 'naranja', supervisor: 'cyan', empleado: 'neutro', invitado: 'advertencia',
 }
 
-const ROLES_OPCIONES = [
-  { valor: 'administrador', etiqueta: 'Administrador' },
-  { valor: 'gestor', etiqueta: 'Gestor' },
-  { valor: 'vendedor', etiqueta: 'Vendedor' },
-  { valor: 'supervisor', etiqueta: 'Supervisor' },
-  { valor: 'empleado', etiqueta: 'Colaborador' },
-  { valor: 'invitado', etiqueta: 'Invitado' },
-]
+/** Genera opciones de rol para el select de invitar usando traducciones */
+function crearRolesOpciones(t: (clave: string) => string) {
+  return [
+    { valor: 'administrador', etiqueta: t('empresa.roles.administrador') },
+    { valor: 'gestor', etiqueta: t('empresa.roles.gestor') },
+    { valor: 'vendedor', etiqueta: t('empresa.roles.vendedor') },
+    { valor: 'supervisor', etiqueta: t('empresa.roles.supervisor') },
+    { valor: 'empleado', etiqueta: t('empresa.roles.empleado') },
+    { valor: 'invitado', etiqueta: t('empresa.roles.invitado') },
+  ]
+}
 
 function formatearMoneda(monto: number): string {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(monto)
@@ -131,17 +138,23 @@ function etiquetaCompensacion(tipo: string, frecuencia: string): string {
   return ETIQUETA_FRECUENCIA[frecuencia] || '/mes'
 }
 
-const ETIQUETA_HORARIO: Record<string, string> = {
-  lunes_viernes: 'L-V',
-  lunes_sabado: 'L-S',
-  todos: 'L-D',
-  custom: 'Personalizado',
+/** Genera mapa de etiquetas de horario usando traducciones */
+function crearEtiquetaHorario(t: (clave: string) => string): Record<string, string> {
+  return {
+    lunes_viernes: t('usuarios.lv'),
+    lunes_sabado: t('usuarios.ls'),
+    todos: t('usuarios.ld'),
+    custom: t('usuarios.personalizado'),
+  }
 }
 
-const ETIQUETA_FICHAJE: Record<string, string> = {
-  kiosco: 'Kiosco',
-  automatico: 'Automático',
-  manual: 'Manual',
+/** Genera mapa de etiquetas de fichaje usando traducciones */
+function crearEtiquetaFichaje(t: (clave: string) => string): Record<string, string> {
+  return {
+    kiosco: t('asistencias.metodos.kiosco'),
+    automatico: t('asistencias.metodos.automatico'),
+    manual: t('comun.manual'),
+  }
 }
 
 function formatearIngreso(fecha: string | null): string | null {
@@ -159,14 +172,20 @@ function formatearIngreso(fecha: string | null): string | null {
 /** Columnas visibles por defecto (el usuario puede cambiarlas y se persisten) */
 const COLUMNAS_VISIBLES_DEFAULT = ['nombre', 'rol', 'activo', 'sector', 'puesto', 'correo']
 
-const columnas: ColumnaDinamica<MiembroTabla>[] = [
+/** Genera columnas de la tabla con traducciones */
+function crearColumnas(t: (clave: string) => string): ColumnaDinamica<MiembroTabla>[] {
+  const ETIQUETA_ROL = crearEtiquetaRol(t)
+  const ETIQUETA_HORARIO = crearEtiquetaHorario(t)
+  const ETIQUETA_FICHAJE = crearEtiquetaFichaje(t)
+
+  return [
   /* ── Identidad ── */
   {
     clave: 'nombre',
-    etiqueta: 'Nombre',
+    etiqueta: t('comun.nombre'),
     ancho: 240,
     ordenable: true,
-    grupo: 'Identidad',
+    grupo: t('comun.identidad'),
     render: (fila) => {
       const dias = diasHastaCumple(fila.fecha_nacimiento)
       const esHoy = dias === 0
@@ -187,13 +206,13 @@ const columnas: ColumnaDinamica<MiembroTabla>[] = [
               <motion.p
                 animate={{ opacity: [1, 0.4, 1] }}
                 transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                className="text-[11px] text-insignia-advertencia font-medium truncate flex items-center gap-1"
+                className="text-xs text-insignia-advertencia font-medium truncate flex items-center gap-1"
               >
                 <Cake size={10} />
                 {textoCumple(dias, fila.fecha_nacimiento)}
               </motion.p>
             ) : esProximo ? (
-              <p className="text-[11px] text-insignia-advertencia/50 truncate flex items-center gap-1">
+              <p className="text-xs text-insignia-advertencia/50 truncate flex items-center gap-1">
                 <Cake size={10} />
                 {textoCumple(dias, fila.fecha_nacimiento)}
               </p>
@@ -209,19 +228,20 @@ const columnas: ColumnaDinamica<MiembroTabla>[] = [
   /* ── Rol y estado ── */
   {
     clave: 'rol',
-    etiqueta: 'Rol',
+    etiqueta: t('usuarios.rol'),
     ancho: 130,
     ordenable: true,
-    grupo: 'Rol y estado',
+    grupo: t('usuarios.rol') + ' y ' + t('comun.estado').toLowerCase(),
     filtrable: true,
+    tipoFiltro: 'pills',
     opcionesFiltro: [
-      { valor: 'propietario', etiqueta: 'Propietario' },
-      { valor: 'administrador', etiqueta: 'Admin' },
-      { valor: 'gestor', etiqueta: 'Gestor' },
-      { valor: 'vendedor', etiqueta: 'Vendedor' },
-      { valor: 'supervisor', etiqueta: 'Supervisor' },
-      { valor: 'empleado', etiqueta: 'Colaborador' },
-      { valor: 'invitado', etiqueta: 'Invitado' },
+      { valor: 'propietario', etiqueta: t('empresa.roles.propietario') },
+      { valor: 'administrador', etiqueta: t('empresa.roles.administrador') },
+      { valor: 'gestor', etiqueta: t('empresa.roles.gestor') },
+      { valor: 'vendedor', etiqueta: t('empresa.roles.vendedor') },
+      { valor: 'supervisor', etiqueta: t('empresa.roles.supervisor') },
+      { valor: 'empleado', etiqueta: t('empresa.roles.empleado') },
+      { valor: 'invitado', etiqueta: t('empresa.roles.invitado') },
     ],
     render: (fila) => (
       <Insignia color={COLOR_ROL[fila.rol] || 'neutro'} tamano="sm">
@@ -231,18 +251,18 @@ const columnas: ColumnaDinamica<MiembroTabla>[] = [
   },
   {
     clave: 'activo',
-    etiqueta: 'Estado',
+    etiqueta: t('comun.estado'),
     ancho: 100,
     ordenable: true,
-    grupo: 'Rol y estado',
+    grupo: t('usuarios.rol') + ' y ' + t('comun.estado').toLowerCase(),
     filtrable: true,
     opcionesFiltro: [
-      { valor: 'true', etiqueta: 'Activo' },
-      { valor: 'false', etiqueta: 'Inactivo' },
+      { valor: 'true', etiqueta: t('comun.activo') },
+      { valor: 'false', etiqueta: t('comun.inactivo') },
     ],
     render: (fila) => (
       <Insignia color={fila.activo ? 'exito' : 'advertencia'} tamano="sm">
-        {fila.activo ? 'Activo' : 'Inactivo'}
+        {fila.activo ? t('comun.activo') : t('comun.inactivo')}
       </Insignia>
     ),
   },
@@ -250,31 +270,31 @@ const columnas: ColumnaDinamica<MiembroTabla>[] = [
   /* ── Organización ── */
   {
     clave: 'numero_empleado',
-    etiqueta: 'N° empleado',
+    etiqueta: t('usuarios.num_empleado'),
     ancho: 110,
     ordenable: true,
     tipo: 'numero',
-    grupo: 'Organización',
+    grupo: t('comun.laboral'),
     render: (fila) => (
       <span className="text-sm text-texto-secundario">{fila.numero_empleado != null ? `#${fila.numero_empleado}` : '—'}</span>
     ),
   },
   {
     clave: 'sector',
-    etiqueta: 'Sector',
+    etiqueta: t('usuarios.sector'),
     ancho: 140,
     ordenable: true,
-    grupo: 'Organización',
+    grupo: t('comun.laboral'),
     render: (fila) => (
       <span className="text-sm text-texto-secundario">{fila.sector || '—'}</span>
     ),
   },
   {
     clave: 'puesto',
-    etiqueta: 'Puesto',
+    etiqueta: t('usuarios.puesto'),
     ancho: 180,
     ordenable: true,
-    grupo: 'Organización',
+    grupo: t('comun.laboral'),
     render: (fila) => (
       <span className="text-sm text-texto-secundario truncate">{fila.puesto || '—'}</span>
     ),
@@ -283,63 +303,57 @@ const columnas: ColumnaDinamica<MiembroTabla>[] = [
   /* ── Contacto ── */
   {
     clave: 'correo',
-    etiqueta: 'Correo',
+    etiqueta: t('usuarios.correo'),
     ancho: 220,
     ordenable: true,
-    grupo: 'Contacto',
+    grupo: t('comun.contacto'),
     render: (fila) => (
       <span className="text-sm text-texto-secundario truncate">{fila.correo || '—'}</span>
     ),
   },
   {
     clave: 'telefono',
-    etiqueta: 'Teléfono personal',
+    etiqueta: t('usuarios.telefono_personal'),
     ancho: 150,
-    grupo: 'Contacto',
+    grupo: t('comun.contacto'),
     render: (fila) => (
       <span className="text-sm text-texto-secundario">{fila.telefono || '—'}</span>
     ),
   },
   {
     clave: 'telefono_empresa',
-    etiqueta: 'Teléfono laboral',
+    etiqueta: t('usuarios.telefono_laboral'),
     ancho: 150,
-    grupo: 'Contacto',
+    grupo: t('comun.contacto'),
     render: (fila) => (
       <span className="text-sm text-texto-secundario">{fila.telefono_empresa || '—'}</span>
     ),
   },
   {
     clave: 'documento_numero',
-    etiqueta: 'Documento',
+    etiqueta: t('comun.documento'),
     ancho: 140,
     ordenable: true,
-    grupo: 'Contacto',
+    grupo: t('comun.contacto'),
     render: (fila) => (
       <span className="text-sm text-texto-secundario">{fila.documento_numero || '—'}</span>
     ),
   },
   {
     clave: 'domicilio',
-    etiqueta: 'Domicilio',
+    etiqueta: t('comun.domicilio'),
     ancho: 200,
-    grupo: 'Contacto',
+    grupo: t('comun.contacto'),
     render: (fila) => (
       <span className="text-sm text-texto-secundario truncate">{fila.domicilio || '—'}</span>
     ),
   },
   {
     clave: 'genero',
-    etiqueta: 'Género',
+    etiqueta: t('comun.genero'),
     ancho: 100,
     ordenable: true,
-    grupo: 'Contacto',
-    filtrable: true,
-    opcionesFiltro: [
-      { valor: 'masculino', etiqueta: 'Masculino' },
-      { valor: 'femenino', etiqueta: 'Femenino' },
-      { valor: 'otro', etiqueta: 'Otro' },
-    ],
+    grupo: t('comun.contacto'),
     render: (fila) => {
       const etiquetas: Record<string, string> = { masculino: 'Masculino', femenino: 'Femenino', otro: 'Otro' }
       return <span className="text-sm text-texto-secundario">{etiquetas[fila.genero] || '—'}</span>
@@ -349,18 +363,18 @@ const columnas: ColumnaDinamica<MiembroTabla>[] = [
   /* ── Compensación ── */
   {
     clave: 'compensacion_monto',
-    etiqueta: 'Compensación',
+    etiqueta: t('usuarios.compensacion'),
     ancho: 160,
     ordenable: true,
     tipo: 'moneda',
     resumen: 'suma',
-    grupo: 'Compensación',
+    grupo: t('usuarios.compensacion'),
     render: (fila) => {
       if (!fila.compensacion_monto) return <span className="text-sm text-texto-terciario">—</span>
       return (
         <div>
           <p className="text-sm font-medium text-texto-primario">{formatearMoneda(fila.compensacion_monto)}</p>
-          <p className="text-[10px] text-texto-terciario">
+          <p className="text-xxs text-texto-terciario">
             {etiquetaCompensacion(fila.compensacion_tipo, fila.compensacion_frecuencia)} · {fila.compensacion_frecuencia}
           </p>
         </div>
@@ -369,12 +383,12 @@ const columnas: ColumnaDinamica<MiembroTabla>[] = [
   },
   {
     clave: 'dias_trabajo',
-    etiqueta: 'Días/semana',
+    etiqueta: t('usuarios.dias_semana'),
     ancho: 110,
     ordenable: true,
     tipo: 'numero',
     resumen: 'promedio',
-    grupo: 'Compensación',
+    grupo: t('usuarios.compensacion'),
     render: (fila) => (
       <span className="text-sm text-texto-secundario">{fila.dias_trabajo ? `${fila.dias_trabajo} días` : '—'}</span>
     ),
@@ -383,16 +397,16 @@ const columnas: ColumnaDinamica<MiembroTabla>[] = [
   /* ── Horario ── */
   {
     clave: 'horario_tipo',
-    etiqueta: 'Horario',
+    etiqueta: t('usuarios.horario'),
     ancho: 130,
     ordenable: true,
-    grupo: 'Horario',
+    grupo: t('usuarios.horario'),
     filtrable: true,
     opcionesFiltro: [
-      { valor: 'lunes_viernes', etiqueta: 'L-V' },
-      { valor: 'lunes_sabado', etiqueta: 'L-S' },
-      { valor: 'todos', etiqueta: 'L-D' },
-      { valor: 'custom', etiqueta: 'Personalizado' },
+      { valor: 'lunes_viernes', etiqueta: t('usuarios.lv') },
+      { valor: 'lunes_sabado', etiqueta: t('usuarios.ls') },
+      { valor: 'todos', etiqueta: t('usuarios.ld') },
+      { valor: 'custom', etiqueta: t('usuarios.personalizado') },
     ],
     render: (fila) => (
       <span className="text-sm text-texto-secundario">{ETIQUETA_HORARIO[fila.horario_tipo] || '—'}</span>
@@ -400,9 +414,9 @@ const columnas: ColumnaDinamica<MiembroTabla>[] = [
   },
   {
     clave: 'horario_flexible',
-    etiqueta: 'Flexible',
+    etiqueta: t('usuarios.flexible'),
     ancho: 100,
-    grupo: 'Horario',
+    grupo: t('usuarios.horario'),
     render: (fila) => (
       <Insignia color={fila.horario_flexible ? 'exito' : 'neutro'} tamano="sm">
         {fila.horario_flexible ? 'Sí' : 'No'}
@@ -411,25 +425,25 @@ const columnas: ColumnaDinamica<MiembroTabla>[] = [
   },
   {
     clave: 'turno',
-    etiqueta: 'Turno',
+    etiqueta: t('usuarios.turno'),
     ancho: 120,
     ordenable: true,
-    grupo: 'Horario',
+    grupo: t('usuarios.horario'),
     render: (fila) => (
       <span className="text-sm text-texto-secundario">{fila.turno || '—'}</span>
     ),
   },
   {
     clave: 'metodo_fichaje',
-    etiqueta: 'Fichaje',
+    etiqueta: t('usuarios.fichaje'),
     ancho: 120,
     ordenable: true,
-    grupo: 'Horario',
+    grupo: t('usuarios.horario'),
     filtrable: true,
     opcionesFiltro: [
-      { valor: 'kiosco', etiqueta: 'Kiosco' },
-      { valor: 'automatico', etiqueta: 'Automático' },
-      { valor: 'manual', etiqueta: 'Manual' },
+      { valor: 'kiosco', etiqueta: t('asistencias.metodos.kiosco') },
+      { valor: 'automatico', etiqueta: t('asistencias.metodos.automatico') },
+      { valor: 'manual', etiqueta: t('comun.manual') },
     ],
     render: (fila) => (
       <span className="text-sm text-texto-secundario">{ETIQUETA_FICHAJE[fila.metodo_fichaje] || '—'}</span>
@@ -439,10 +453,10 @@ const columnas: ColumnaDinamica<MiembroTabla>[] = [
   /* ── Fechas ── */
   {
     clave: 'unido_en',
-    etiqueta: 'Ingreso',
+    etiqueta: t('usuarios.ingreso'),
     ancho: 130,
     ordenable: true,
-    grupo: 'Fechas',
+    grupo: t('comun.fechas'),
     render: (fila) => (
       <span className="text-sm text-texto-terciario">
         {fila.unido_en ? new Date(fila.unido_en).toLocaleDateString('es', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'}
@@ -451,10 +465,10 @@ const columnas: ColumnaDinamica<MiembroTabla>[] = [
   },
   {
     clave: 'fecha_nacimiento',
-    etiqueta: 'Cumpleaños',
+    etiqueta: t('usuarios.cumpleanos'),
     ancho: 130,
     ordenable: true,
-    grupo: 'Fechas',
+    grupo: t('comun.fechas'),
     render: (fila) => {
       if (!fila.fecha_nacimiento) return <span className="text-sm text-texto-terciario">—</span>
       const dias = diasHastaCumple(fila.fecha_nacimiento)
@@ -466,13 +480,20 @@ const columnas: ColumnaDinamica<MiembroTabla>[] = [
     },
   },
 ]
+}
 
 export default function PaginaUsuarios() {
+  const { t } = useTraduccion()
   const router = useRouter()
   const { usuario } = useAuth()
   const { empresa } = useEmpresa()
   const { esPropietario, esAdmin } = useRol()
   const [supabase] = useState(() => crearClienteNavegador())
+
+  // Columnas y opciones con traducciones (se recalculan si cambia el idioma)
+  const columnas = crearColumnas(t)
+  const ETIQUETA_ROL = crearEtiquetaRol(t)
+  const ROLES_OPCIONES = crearRolesOpciones(t)
 
   const [miembros, setMiembros] = useState<MiembroTabla[]>([])
   const [cargando, setCargando] = useState(true)
@@ -658,7 +679,7 @@ export default function PaginaUsuarios() {
   const accionesLote = puedeGestionar ? [
     {
       id: 'desactivar',
-      etiqueta: 'Desactivar seleccionados',
+      etiqueta: t('usuarios.desactivar_seleccionados'),
       icono: <Clock size={14} />,
       onClick: (ids: Set<string>) => {
         // TODO: batch desactivar
@@ -668,15 +689,15 @@ export default function PaginaUsuarios() {
 
   return (
     <PlantillaListado
-      titulo="Usuarios"
+      titulo={t('navegacion.usuarios')}
       icono={<Users size={20} />}
       accionPrincipal={puedeGestionar ? {
-        etiqueta: 'Invitar usuario',
+        etiqueta: t('empresa.invitar'),
         icono: <UserPlus size={14} />,
         onClick: () => { setModalInvitar(true); setLinkCopiado('') },
       } : undefined}
       acciones={[
-        { id: 'exportar', etiqueta: 'Exportar', icono: <Download size={14} />, onClick: () => {} },
+        { id: 'exportar', etiqueta: t('comun.exportar'), icono: <Download size={14} />, onClick: () => {} },
       ]}
       mostrarConfiguracion
       onConfiguracion={() => router.push('/usuarios/configuracion')}
@@ -685,13 +706,19 @@ export default function PaginaUsuarios() {
         idModulo="usuarios"
         columnas={columnas}
         columnasVisiblesDefault={COLUMNAS_VISIBLES_DEFAULT}
+        opcionesOrden={[
+          { etiqueta: t('comun.mas_recientes'), clave: 'unido_en', direccion: 'desc' },
+          { etiqueta: t('comun.mas_antiguos'), clave: 'unido_en', direccion: 'asc' },
+          { etiqueta: t('comun.nombre_az'), clave: 'nombre', direccion: 'asc' },
+          { etiqueta: t('comun.nombre_za'), clave: 'nombre', direccion: 'desc' },
+        ]}
         datos={miembros}
         claveFila={(r) => r.id}
         vistas={['lista', 'tarjetas']}
         seleccionables={puedeGestionar}
         busqueda={busqueda}
         onBusqueda={setBusqueda}
-        placeholder="Buscar por nombre, correo, rol..."
+        placeholder={`${t('comun.buscar')} por nombre, correo, rol...`}
         accionesLote={accionesLote}
         mostrarResumen
         onClickFila={(fila) => router.push(`/usuarios/${fila.id}`)}
@@ -724,13 +751,13 @@ export default function PaginaUsuarios() {
                       <motion.p
                         animate={{ opacity: [1, 0.4, 1] }}
                         transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                        className="text-[11px] text-insignia-advertencia font-medium truncate flex items-center gap-1 mt-0.5"
+                        className="text-xs text-insignia-advertencia font-medium truncate flex items-center gap-1 mt-0.5"
                       >
                         <Cake size={10} />
                         {textoCumple(dias, fila.fecha_nacimiento)}
                       </motion.p>
                     ) : (
-                      <p className="text-[11px] text-insignia-advertencia/50 truncate flex items-center gap-1 mt-0.5">
+                      <p className="text-xs text-insignia-advertencia/50 truncate flex items-center gap-1 mt-0.5">
                         <Cake size={10} />
                         {textoCumple(dias, fila.fecha_nacimiento)}
                       </p>
@@ -743,14 +770,14 @@ export default function PaginaUsuarios() {
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2 flex-wrap">
                   <Insignia color={COLOR_ROL[fila.rol] || 'neutro'} tamano="sm">{ETIQUETA_ROL[fila.rol] || fila.rol}</Insignia>
-                  <Insignia color={fila.activo ? 'exito' : 'advertencia'} tamano="sm">{fila.activo ? 'Activo' : 'Inactivo'}</Insignia>
+                  <Insignia color={fila.activo ? 'exito' : 'advertencia'} tamano="sm">{fila.activo ? t('comun.activo') : t('comun.inactivo')}</Insignia>
                 </div>
                 {fila.sector && <p className="text-xs text-texto-terciario truncate">{fila.sector}{fila.puesto ? ` · ${fila.puesto}` : ''}</p>}
               </div>
 
               {/* ── Detalle (separador visual + datos compactos) ── */}
               {tieneDetalle && (
-                <div className="border-t border-borde-sutil pt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-texto-terciario">
+                <div className="border-t border-borde-sutil pt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-texto-terciario">
                   {fila.compensacion_monto > 0 && (
                     <span className="text-xs font-medium text-texto-primario">
                       {formatearMoneda(fila.compensacion_monto)}
@@ -787,7 +814,7 @@ export default function PaginaUsuarios() {
       />
 
       {/* ══════ MODAL INVITAR ══════ */}
-      <Modal abierto={modalInvitar} onCerrar={() => setModalInvitar(false)} titulo="Invitar usuario" tamano="sm">
+      <Modal abierto={modalInvitar} onCerrar={() => setModalInvitar(false)} titulo={t('empresa.invitar')} tamano="sm">
         {linkCopiado ? (
           <div className="flex flex-col gap-4">
             <div className="text-center">

@@ -31,6 +31,7 @@ import { useEmpresa } from '@/hooks/useEmpresa'
 import { useRol, PERMISOS_POR_ROL } from '@/hooks/useRol'
 import { useAutoguardado } from '@/hooks/useAutoguardado'
 import { useNavegacion } from '@/hooks/useNavegacion'
+import { useTraduccion } from '@/lib/i18n'
 import { useFormato } from '@/hooks/useFormato'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import type { Rol, Modulo, PermisosMapa, Miembro, Perfil, CompensacionTipo, CompensacionFrecuencia, HorarioTipo, MetodoFichaje } from '@/tipos'
@@ -376,7 +377,7 @@ function MiniCalendario({ anio, mes, asistencias, diasLaborales, diasSemanaCorto
       <div className="grid grid-cols-7 gap-px">
         {/* Encabezados de día */}
         {diasSemanaCortos.map((d, i) => (
-          <div key={i} className="h-7 flex items-center justify-center text-[10px] font-semibold text-texto-terciario/60 uppercase">
+          <div key={i} className="h-7 flex items-center justify-center text-xxs font-semibold text-texto-terciario/60 uppercase">
             {d}
           </div>
         ))}
@@ -391,7 +392,7 @@ function MiniCalendario({ anio, mes, asistencias, diasLaborales, diasSemanaCorto
           const hoyEs = esHoy(dia)
 
           // Determinar estilo
-          let clase = 'h-7 w-full flex items-center justify-center text-[11px] rounded-full transition-colors '
+          let clase = 'h-7 w-full flex items-center justify-center text-xs rounded-full transition-colors '
 
           if (hoyEs) {
             clase += 'font-bold text-texto-marca ring-[1.5px] ring-inset ring-texto-marca'
@@ -420,7 +421,7 @@ function MiniCalendario({ anio, mes, asistencias, diasLaborales, diasSemanaCorto
         {ESTADOS_ASISTENCIA.map(l => (
           <div key={l.etiqueta} className="flex items-center gap-1.5">
             <div className={`size-2 rounded-full ${l.color}`} />
-            <span className="text-[10px] text-texto-terciario">{l.etiqueta}</span>
+            <span className="text-xxs text-texto-terciario">{l.etiqueta}</span>
           </div>
         ))}
       </div>
@@ -439,6 +440,7 @@ export default function PaginaPerfilUsuario() {
   const { usuario: usuarioActual } = useAuth()
   const { empresa } = useEmpresa()
   const { setMigajaDinamica } = useNavegacion()
+  const { t } = useTraduccion()
   const { esPropietario, esAdmin } = useRol()
   const fmt = useFormato()
   const [supabase] = useState(() => crearClienteNavegador())
@@ -1345,7 +1347,7 @@ export default function PaginaPerfilUsuario() {
                 {/* Panel de compensación + datos */}
                 <div className="space-y-4">
                   {/* Compensación resumen */}
-                  <Tarjeta titulo="Compensación">
+                  <Tarjeta titulo={t('usuarios.compensacion')}>
                     <div className="space-y-3">
                       <div className="flex items-center gap-2">
                         <Insignia color={compensacionTipo === 'por_dia' ? 'info' : compensacionTipo === 'por_hora' ? 'cyan' : 'primario'}>
@@ -1396,7 +1398,7 @@ export default function PaginaPerfilUsuario() {
                             <p className="text-xs text-texto-terciario">A pagar</p>
                             <p className="text-xl font-bold text-insignia-exito">{fmt.moneda(montoPagar)}</p>
                             {compensacionTipo === 'por_dia' && (
-                              <p className="text-[11px] text-texto-terciario">{fmt.moneda(compensacionMonto)} × {statsPeriodo.trabajados} días</p>
+                              <p className="text-xs text-texto-terciario">{fmt.moneda(compensacionMonto)} × {statsPeriodo.trabajados} días</p>
                             )}
                           </div>
                         </div>
@@ -1440,7 +1442,7 @@ export default function PaginaPerfilUsuario() {
               </div>
 
               {/* Resumen de permisos */}
-              <Tarjeta titulo="Permisos" subtitulo={`Rol base: ${ETIQUETA_ROL[rolActual]}`}
+              <Tarjeta titulo={t('usuarios.permisos')} subtitulo={`Rol base: ${ETIQUETA_ROL[rolActual]}`}
                 acciones={
                   <Boton variante="fantasma" tamano="xs" onClick={() => setTab('permisos')} iconoDerecho={<ChevronRight size={14} />}>
                     Ver detalle
@@ -1555,7 +1557,7 @@ export default function PaginaPerfilUsuario() {
                         document.getElementById('seccion-documentos')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                       }, 400)
                     }}
-                    className="text-[11px] text-texto-marca hover:underline bg-transparent border-none cursor-pointer flex items-center gap-1"
+                    className="text-xs text-texto-marca hover:underline bg-transparent border-none cursor-pointer flex items-center gap-1"
                   >
                     Ver todo <ChevronRight size={12} />
                   </button>
@@ -1570,7 +1572,7 @@ export default function PaginaPerfilUsuario() {
                       const imgUrl = previewLocal?.url || (doc?.url as string | undefined) || null
                       return (
                         <div key={tipo}>
-                          <p className="text-[9px] text-texto-terciario/60 uppercase tracking-wide font-semibold text-center mb-1">{titulo}</p>
+                          <p className="text-xxs text-texto-terciario/60 uppercase tracking-wide font-semibold text-center mb-1">{titulo}</p>
                           <div
                             className={`rounded-md overflow-hidden ${imgUrl ? 'cursor-pointer hover:opacity-80' : 'bg-superficie-hover/30'}`}
                             onClick={() => imgUrl && setDocPreview({ titulo: tipo, url: imgUrl })}
@@ -1580,7 +1582,7 @@ export default function PaginaPerfilUsuario() {
                             ) : (
                               <div className="w-full h-20 flex flex-col items-center justify-center gap-1">
                                 <Upload size={14} className="text-texto-terciario/25" />
-                                <span className="text-[9px] text-texto-terciario/30">Sin cargar</span>
+                                <span className="text-xxs text-texto-terciario/30">Sin cargar</span>
                               </div>
                             )}
                           </div>
@@ -1601,13 +1603,13 @@ export default function PaginaPerfilUsuario() {
 
               {/* ── 1. DATOS PERSONALES ── */}
               <section>
-                <SeccionEncabezado icono={<User size={15} />} titulo="Datos personales" />
+                <SeccionEncabezado icono={<User size={15} />} titulo={t('usuarios.datos_personales')} />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Input tipo="text" formato="nombre_persona" etiqueta="Nombre" value={perfil.nombre || ''} onChange={(e) => setPerfil(p => p ? { ...p, nombre: e.target.value } : null)} onBlur={() => autoGuardarPerfil({ nombre: perfil.nombre })} disabled={!puedeEditar} />
-                  <Input tipo="text" formato="nombre_persona" etiqueta="Apellido" value={perfil.apellido || ''} onChange={(e) => setPerfil(p => p ? { ...p, apellido: e.target.value } : null)} onBlur={() => autoGuardarPerfil({ apellido: perfil.apellido })} disabled={!puedeEditar} />
+                  <Input tipo="text" formato="nombre_persona" etiqueta={t('usuarios.nombre')} value={perfil.nombre || ''} onChange={(e) => setPerfil(p => p ? { ...p, nombre: e.target.value } : null)} onBlur={() => autoGuardarPerfil({ nombre: perfil.nombre })} disabled={!puedeEditar} />
+                  <Input tipo="text" formato="nombre_persona" etiqueta={t('usuarios.apellido')} value={perfil.apellido || ''} onChange={(e) => setPerfil(p => p ? { ...p, apellido: e.target.value } : null)} onBlur={() => autoGuardarPerfil({ apellido: perfil.apellido })} disabled={!puedeEditar} />
                   <div>
                     <SelectorFecha
-                      etiqueta="Fecha de nacimiento"
+                      etiqueta={t('usuarios.fecha_nacimiento')}
                       valor={perfil.fecha_nacimiento || null}
                       onChange={(v) => {
                         setPerfil(p => p ? { ...p, fecha_nacimiento: v } : null)
@@ -1667,12 +1669,12 @@ export default function PaginaPerfilUsuario() {
 
               {/* ── 3. DATOS LABORALES ── */}
               <section>
-                <SeccionEncabezado icono={<Briefcase size={15} />} titulo="Datos laborales" />
+                <SeccionEncabezado icono={<Briefcase size={15} />} titulo={t('usuarios.datos_laborales')} />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {puedeEditar ? (
-                    <Select etiqueta="Rol" opciones={ROLES_OPCIONES} valor={rolActual} onChange={(v) => { setMiembro(prev => prev ? { ...prev, rol: v as Rol } : null); guardarMiembroInmediato({ rol: v }) }} />
+                    <Select etiqueta={t('usuarios.rol')} opciones={ROLES_OPCIONES} valor={rolActual} onChange={(v) => { setMiembro(prev => prev ? { ...prev, rol: v as Rol } : null); guardarMiembroInmediato({ rol: v }) }} />
                   ) : (
-                    <Input tipo="text" etiqueta="Rol" value={ETIQUETA_ROL[rolActual] || rolActual} disabled />
+                    <Input tipo="text" etiqueta={t('usuarios.rol')} value={ETIQUETA_ROL[rolActual] || rolActual} disabled />
                   )}
                   <Select
                     etiqueta="Sector"
@@ -1681,7 +1683,7 @@ export default function PaginaPerfilUsuario() {
                     onChange={(v) => guardarSector(v)}
                   />
                   <Select
-                    etiqueta="Puesto"
+                    etiqueta={t('usuarios.puesto')}
                     opciones={[{ valor: '', etiqueta: 'Sin puesto' }, ...puestos.map(p => ({ valor: p.id, etiqueta: p.nombre }))]}
                     valor={miembro.puesto_id || ''}
                     onChange={(v) => guardarPuesto(v)}
@@ -1857,7 +1859,7 @@ export default function PaginaPerfilUsuario() {
                             className="w-28 aspect-[3/4] rounded-lg border-2 border-dashed border-borde-fuerte flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:bg-superficie-hover/30 hover:border-texto-marca/30 transition-all"
                           >
                             <Camera size={20} className="text-texto-terciario" />
-                            <span className="text-[10px] text-texto-terciario">Subir foto</span>
+                            <span className="text-xxs text-texto-terciario">Subir foto</span>
                           </label>
                         )}
                       </div>
@@ -1898,9 +1900,9 @@ export default function PaginaPerfilUsuario() {
                 <SeccionEncabezado icono={<CreditCard size={15} />} titulo="Información bancaria" />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Select etiqueta="Tipo de cuenta" opciones={[{ valor: '', etiqueta: 'No especificado' }, { valor: 'cbu', etiqueta: 'CBU — Cuenta bancaria' }, { valor: 'cvu', etiqueta: 'CVU — Cuenta virtual' }]} valor={(infoBancaria?.tipo_cuenta as string) || ''} onChange={(v) => guardarInfoBancaria('tipo_cuenta', v)} />
-                  <Input tipo="text" formato="nombre_empresa" etiqueta="Banco" value={(infoBancaria?.banco as string) || ''} onChange={(e) => setInfoBancaria(p => ({ ...p, banco: e.target.value }))} onBlur={(e) => guardarInfoBancaria('banco', e.target.value)} placeholder="Banco Nación, Mercado Pago..." disabled={!puedeEditar} />
-                  <Input tipo="text" etiqueta="CBU / CVU" value={(infoBancaria?.numero_cuenta as string) || ''} onChange={(e) => setInfoBancaria(p => ({ ...p, numero_cuenta: e.target.value }))} onBlur={(e) => guardarInfoBancaria('numero_cuenta', e.target.value)} placeholder="Número de cuenta" formato={null} disabled={!puedeEditar} />
-                  <Input tipo="text" etiqueta="Alias" value={(infoBancaria?.alias as string) || ''} onChange={(e) => setInfoBancaria(p => ({ ...p, alias: e.target.value }))} onBlur={(e) => guardarInfoBancaria('alias', e.target.value)} placeholder="mi.alias.mp" formato="minusculas" disabled={!puedeEditar} />
+                  <Input tipo="text" formato="nombre_empresa" etiqueta={t('usuarios.banco')} value={(infoBancaria?.banco as string) || ''} onChange={(e) => setInfoBancaria(p => ({ ...p, banco: e.target.value }))} onBlur={(e) => guardarInfoBancaria('banco', e.target.value)} placeholder="Banco Nación, Mercado Pago..." disabled={!puedeEditar} />
+                  <Input tipo="text" etiqueta={t('usuarios.cbu')} value={(infoBancaria?.numero_cuenta as string) || ''} onChange={(e) => setInfoBancaria(p => ({ ...p, numero_cuenta: e.target.value }))} onBlur={(e) => guardarInfoBancaria('numero_cuenta', e.target.value)} placeholder="Número de cuenta" formato={null} disabled={!puedeEditar} />
+                  <Input tipo="text" etiqueta={t('usuarios.alias_bancario')} value={(infoBancaria?.alias as string) || ''} onChange={(e) => setInfoBancaria(p => ({ ...p, alias: e.target.value }))} onBlur={(e) => guardarInfoBancaria('alias', e.target.value)} placeholder="mi.alias.mp" formato="minusculas" disabled={!puedeEditar} />
                 </div>
               </section>
 
@@ -1972,9 +1974,9 @@ export default function PaginaPerfilUsuario() {
                         {/* Pie: nombre + acción */}
                         <div className="px-2 py-2 flex items-center justify-between gap-1 bg-superficie-tarjeta/50">
                           <div className="min-w-0 flex-1">
-                            <p className="text-[11px] text-texto-terciario text-center truncate">{doc}</p>
+                            <p className="text-xs text-texto-terciario text-center truncate">{doc}</p>
                             {(previewLocal || docExistente) && (
-                              <p className="text-[9px] text-insignia-exito text-center truncate">{previewLocal?.nombre || (docExistente?.nombre_archivo as string)}</p>
+                              <p className="text-xxs text-insignia-exito text-center truncate">{previewLocal?.nombre || (docExistente?.nombre_archivo as string)}</p>
                             )}
                           </div>
                           {imgUrl && (
@@ -1999,7 +2001,7 @@ export default function PaginaPerfilUsuario() {
 
               {/* ── COMPENSACIÓN — acordeón: click para expandir, click afuera para cerrar ── */}
               <div ref={compensacionRef}>
-                <Tarjeta titulo="Compensación" acciones={puedeEditar && !compensacionAbierta ? <Boton variante="fantasma" tamano="xs" icono={<Pencil size={13} />} onClick={() => setCompensacionAbierta(true)}>Editar</Boton> : undefined}>
+                <Tarjeta titulo={t('usuarios.compensacion')} acciones={puedeEditar && !compensacionAbierta ? <Boton variante="fantasma" tamano="xs" icono={<Pencil size={13} />} onClick={() => setCompensacionAbierta(true)}>Editar</Boton> : undefined}>
                   <AnimatePresence mode="wait">
                     {!compensacionAbierta ? (
                       /* ── RESUMEN COMPACTO ── */
@@ -2194,7 +2196,7 @@ export default function PaginaPerfilUsuario() {
                                 }`}
                               >
                                 <span className="text-sm font-bold">{d.etiqueta}</span>
-                                <span className="text-[10px] text-texto-terciario mt-0.5">{d.sub}</span>
+                                <span className="text-xxs text-texto-terciario mt-0.5">{d.sub}</span>
                               </button>
                             ))}
                           </div>
@@ -2225,15 +2227,15 @@ export default function PaginaPerfilUsuario() {
                       <p className="text-2xl font-bold text-texto-primario">
                         {statsPeriodo.trabajados}<span className="text-sm font-normal text-texto-terciario">/{statsPeriodo.habiles}</span>
                       </p>
-                      <p className="text-[11px] text-texto-terciario uppercase">Trabajados</p>
+                      <p className="text-xs text-texto-terciario uppercase">Trabajados</p>
                     </div>
                     <div className="text-center">
                       <p className="text-2xl font-bold text-insignia-peligro">{statsPeriodo.ausentes}</p>
-                      <p className="text-[11px] text-texto-terciario uppercase">Ausencias</p>
+                      <p className="text-xs text-texto-terciario uppercase">Ausencias</p>
                     </div>
                     <div className="text-center">
                       <p className="text-2xl font-bold text-insignia-advertencia">{statsPeriodo.tardanzas}</p>
-                      <p className="text-[11px] text-texto-terciario uppercase">Tardanzas</p>
+                      <p className="text-xs text-texto-terciario uppercase">Tardanzas</p>
                     </div>
                   </div>
 
@@ -2241,7 +2243,7 @@ export default function PaginaPerfilUsuario() {
                     <p className="text-xs text-texto-terciario">A pagar</p>
                     <p className="text-2xl font-bold text-insignia-exito">{fmt.moneda(montoPagar)}</p>
                     {compensacionTipo === 'por_dia' && (
-                      <p className="text-[11px] text-texto-terciario">{fmt.moneda(compensacionMonto)} × {statsPeriodo.trabajados} días</p>
+                      <p className="text-xs text-texto-terciario">{fmt.moneda(compensacionMonto)} × {statsPeriodo.trabajados} días</p>
                     )}
                   </div>
                 </div>
@@ -2289,16 +2291,16 @@ export default function PaginaPerfilUsuario() {
                         <div className="text-right shrink-0">
                           <p className="text-sm font-bold text-insignia-exito">{fmt.moneda(pago.monto_abonado as number)}</p>
                           {(pago.monto_sugerido as number) && (pago.monto_abonado as number) !== (pago.monto_sugerido as number) && (
-                            <p className="text-[10px] text-texto-terciario line-through">{fmt.moneda(pago.monto_sugerido as number)}</p>
+                            <p className="text-xxs text-texto-terciario line-through">{fmt.moneda(pago.monto_sugerido as number)}</p>
                           )}
                         </div>
 
                         {/* Fecha registro + acciones */}
                         <div className="text-right shrink-0">
-                          <p className="text-[11px] text-texto-terciario">
+                          <p className="text-xs text-texto-terciario">
                             {fmt.fecha(pago.creado_en as string, { corta: true })}
                           </p>
-                          <p className="text-[10px] text-texto-terciario">{pago.creado_por_nombre as string}</p>
+                          <p className="text-xxs text-texto-terciario">{pago.creado_por_nombre as string}</p>
                         </div>
 
                         {/* Eliminar */}
@@ -2443,28 +2445,28 @@ export default function PaginaPerfilUsuario() {
                           <div>
                             <p className="text-2xl font-black text-texto-primario">{statsPeriodo.habiles}</p>
                             <div className="h-px bg-borde-sutil my-1.5" />
-                            <p className="text-[10px] text-texto-terciario uppercase font-semibold">Hábiles</p>
+                            <p className="text-xxs text-texto-terciario uppercase font-semibold">Hábiles</p>
                           </div>
                           <div>
                             <p className="text-2xl font-black text-insignia-exito">{statsPeriodo.trabajados}</p>
                             <div className="h-px bg-insignia-exito/30 my-1.5" />
-                            <p className="text-[10px] text-texto-terciario uppercase font-semibold">Trabajados</p>
+                            <p className="text-xxs text-texto-terciario uppercase font-semibold">Trabajados</p>
                           </div>
                           <div>
                             <p className="text-2xl font-black text-insignia-peligro">{statsPeriodo.ausentes}</p>
                             <div className="h-px bg-insignia-peligro/30 my-1.5" />
-                            <p className="text-[10px] text-texto-terciario uppercase font-semibold">Ausencias</p>
+                            <p className="text-xxs text-texto-terciario uppercase font-semibold">Ausencias</p>
                           </div>
                           <div>
                             <p className="text-2xl font-black text-insignia-advertencia">{statsPeriodo.tardanzas}</p>
                             <div className="h-px bg-insignia-advertencia/30 my-1.5" />
-                            <p className="text-[10px] text-texto-terciario uppercase font-semibold">Tardanzas</p>
+                            <p className="text-xxs text-texto-terciario uppercase font-semibold">Tardanzas</p>
                           </div>
                         </div>
 
                         <div className="border-t border-borde-sutil pt-3 flex items-center justify-between">
                           <div>
-                            <p className="text-[10px] text-texto-terciario uppercase font-semibold">Monto sugerido</p>
+                            <p className="text-xxs text-texto-terciario uppercase font-semibold">Monto sugerido</p>
                             <p className="text-xs text-texto-terciario">
                               {compensacionTipo === 'por_dia'
                                 ? `${fmt.moneda(compensacionMonto)} × ${statsPeriodo.trabajados} días`
@@ -2520,7 +2522,7 @@ export default function PaginaPerfilUsuario() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-texto-primario truncate">{archivoComprobante.name}</p>
-                          <p className="text-[10px] text-texto-terciario">{(archivoComprobante.size / 1024).toFixed(0)} KB</p>
+                          <p className="text-xxs text-texto-terciario">{(archivoComprobante.size / 1024).toFixed(0)} KB</p>
                         </div>
                         <Boton
                           variante="fantasma"
@@ -2541,7 +2543,7 @@ export default function PaginaPerfilUsuario() {
                       >
                         <FileUp size={20} className="text-texto-terciario" />
                         <span className="text-sm font-medium text-texto-secundario">Subir recibo o comprobante</span>
-                        <span className="text-[10px] text-texto-terciario/60">PDF, JPG o PNG</span>
+                        <span className="text-xxs text-texto-terciario/60">PDF, JPG o PNG</span>
                       </div>
                     )}
                   </div>
@@ -2688,7 +2690,7 @@ export default function PaginaPerfilUsuario() {
         abierto={modalConfirmarEliminar}
         onCerrar={() => setModalConfirmarEliminar(false)}
         onConfirmar={() => ejecutarAccion('eliminar')}
-        titulo="Eliminar usuario"
+        titulo={t('usuarios.eliminar_usuario')}
         descripcion={`¿Estás seguro de que querés eliminar a ${nombreCompleto} de la empresa? Esta acción no se puede deshacer. Se borrarán todos sus datos, pagos y documentos.`}
         tipo="peligro"
         etiquetaConfirmar="Eliminar"

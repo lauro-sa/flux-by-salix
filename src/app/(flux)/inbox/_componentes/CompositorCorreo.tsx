@@ -8,6 +8,7 @@ import {
   Send, Paperclip, X, Upload, Clock,
   Image, Film, FileText, File, Loader2,
 } from 'lucide-react'
+import { useTraduccion } from '@/lib/i18n'
 
 /**
  * Compositor de correo rico — UI dedicada para redactar emails.
@@ -260,6 +261,7 @@ export function CompositorCorreo({
   compacto = false,
   firma,
 }: PropiedadesCompositorCorreo) {
+  const { t } = useTraduccion()
   const [para, setPara] = useState<string[]>(paraInicial)
   const [cc, setCC] = useState<string[]>(ccInicial)
   const [cco, setCCO] = useState<string[]>(ccoInicial)
@@ -487,16 +489,16 @@ export function CompositorCorreo({
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             className="flex items-center justify-between px-4 py-2.5"
-            style={{ background: 'var(--texto-marca)', color: '#fff' }}
+            style={{ background: 'var(--texto-marca)', color: 'var(--texto-inverso)' }}
           >
             <span className="text-sm">
-              Enviando en {timerDeshacer}s...
+              {t('inbox.enviar')} {timerDeshacer}s...
             </span>
             <button
               onClick={deshacerEnvio}
               className="text-sm font-semibold underline"
             >
-              Deshacer
+              {t('inbox.deshacer_envio')}
             </button>
           </motion.div>
         )}
@@ -513,7 +515,7 @@ export function CompositorCorreo({
             {canalesCorreo.length > 1 && (
               <div className="flex items-center gap-2">
                 <span className="text-xs w-8 sm:w-10 flex-shrink-0 text-right" style={{ color: 'var(--texto-terciario)' }}>
-                  De:
+                  {t('inbox.de')}:
                 </span>
                 <select
                   value={canalSeleccionado || ''}
@@ -531,7 +533,7 @@ export function CompositorCorreo({
             {/* Para */}
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <InputEmailChips etiqueta="Para:" emails={para} onChange={setPara} placeholder="destinatario@correo.com" />
+                <InputEmailChips etiqueta={`${t('inbox.para')}:`} emails={para} onChange={setPara} placeholder="destinatario@correo.com" />
               </div>
               <div className="flex items-center gap-1 flex-shrink-0 pt-1">
                 {!mostrarCC && (
@@ -547,7 +549,7 @@ export function CompositorCorreo({
             <AnimatePresence>
               {mostrarCC && (
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
-                  <InputEmailChips etiqueta="CC:" emails={cc} onChange={setCC} />
+                  <InputEmailChips etiqueta={`${t('inbox.cc')}:`} emails={cc} onChange={setCC} />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -556,14 +558,14 @@ export function CompositorCorreo({
             <AnimatePresence>
               {mostrarCCO && (
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
-                  <InputEmailChips etiqueta="CCO:" emails={cco} onChange={setCCO} />
+                  <InputEmailChips etiqueta={`${t('inbox.cco')}:`} emails={cco} onChange={setCCO} />
                 </motion.div>
               )}
             </AnimatePresence>
 
             {/* Asunto */}
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <span className="text-xs w-8 sm:w-10 flex-shrink-0 text-right" style={{ color: 'var(--texto-terciario)' }}>Asunto:</span>
+              <span className="text-xs w-8 sm:w-10 flex-shrink-0 text-right" style={{ color: 'var(--texto-terciario)' }}>{t('inbox.asunto')}:</span>
               <input
                 type="text"
                 value={asunto}
@@ -732,7 +734,7 @@ export function CompositorCorreo({
                 cargando={cargando}
                 disabled={!puedeEnviar}
               >
-                Enviar
+                {t('inbox.enviar')}
               </Boton>
               {onProgramar && !compacto && (
                 <Boton

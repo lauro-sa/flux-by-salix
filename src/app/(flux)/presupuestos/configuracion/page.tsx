@@ -8,11 +8,13 @@ import {
   Image, PanelBottom, Code2, FileType,
 } from 'lucide-react'
 import { Reorder } from 'framer-motion'
+import { A4_ANCHO, A4_ALTO } from '@/lib/pdf/constantes'
 import ModalCondicionPago from '../_componentes/ModalCondicionPago'
 import EditorNotasPresupuesto from '../_componentes/EditorNotasPresupuesto'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
+import { COLOR_MARCA_DEFECTO } from '@/lib/colores_entidad'
 import type {
   Impuesto, Moneda, UnidadMedida, CondicionPago,
   ConfigMembrete, ConfigPiePagina, ConfigDatosEmpresaPdf,
@@ -27,6 +29,7 @@ import {
   type ConfigPdf,
 } from '@/lib/pdf/renderizar-html'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { useTraduccion } from '@/lib/i18n'
 import SubirImagenPie from '../_componentes/SubirImagenPie'
 
 /**
@@ -125,6 +128,7 @@ const DATOS_EMPRESA_PDF_DEFAULT: ConfigDatosEmpresaPdf = {
 
 export default function PaginaConfigPresupuestos() {
   const router = useRouter()
+  const { t } = useTraduccion()
   const [cargando, setCargando] = useState(true)
   const [seccionActiva, setSeccionActiva] = useState('impuestos')
   const autoguardadoRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -182,7 +186,7 @@ export default function PaginaConfigPresupuestos() {
     { id: 'impuestos', etiqueta: 'Impuestos', icono: <Receipt size={16} />, grupo: 'Financiero' },
     { id: 'monedas', etiqueta: 'Monedas', icono: <DollarSign size={16} />, grupo: 'Financiero' },
     { id: 'unidades', etiqueta: 'Unidades de medida', icono: <Ruler size={16} />, grupo: 'Financiero' },
-    { id: 'condiciones', etiqueta: 'Condiciones de pago', icono: <Clock size={16} />, grupo: 'Financiero' },
+    { id: 'condiciones', etiqueta: t('documentos.condiciones_pago'), icono: <Clock size={16} />, grupo: 'Financiero' },
     { id: 'numeracion', etiqueta: 'Numeración', icono: <Hash size={16} />, grupo: 'Documento' },
     { id: 'textos', etiqueta: 'Valores por defecto', icono: <FileText size={16} />, grupo: 'Documento' },
     { id: 'membrete', etiqueta: 'Membrete', icono: <Image size={16} />, grupo: 'PDF' },
@@ -241,7 +245,7 @@ export default function PaginaConfigPresupuestos() {
                 datos_fiscales: emp.datos_fiscales || null,
                 pais: emp.pais || 'AR',
                 paises: emp.paises || ['AR'],
-                color_marca: emp.color_marca || '#3b82f6',
+                color_marca: emp.color_marca || COLOR_MARCA_DEFECTO,
                 direccion: emp.ubicacion || '',
                 telefono: emp.telefono || '',
                 correo: emp.correo || '',
@@ -300,7 +304,7 @@ export default function PaginaConfigPresupuestos() {
   useEffect(() => {
     const el = previewContRef.current
     if (!el) return
-    const calc = () => setEscalaConfig(Math.min(1, (el.clientWidth - 32) / 794))
+    const calc = () => setEscalaConfig(Math.min(1, (el.clientWidth - 32) / A4_ANCHO))
     calc()
     const obs = new ResizeObserver(calc)
     obs.observe(el)
@@ -464,7 +468,7 @@ export default function PaginaConfigPresupuestos() {
       {seccionActiva === 'condiciones' && (
         <div>
           <div className="flex items-center justify-between mb-1">
-            <h3 className="text-lg font-semibold text-texto-primario">Condiciones de pago</h3>
+            <h3 className="text-lg font-semibold text-texto-primario">{t('documentos.condiciones_pago')}</h3>
             <button
               onClick={() => guardarCondiciones(CONDICIONES_PAGO_DEFAULT)}
               className="flex items-center gap-1 text-xs text-texto-terciario hover:text-texto-marca transition-colors"
@@ -511,7 +515,7 @@ export default function PaginaConfigPresupuestos() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-texto-primario truncate">{cond.label}</span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
+                        <span className={`text-xxs px-1.5 py-0.5 rounded shrink-0 ${
                           cond.tipo === 'hitos'
                             ? 'bg-[var(--texto-marca)]/10 text-texto-marca'
                             : 'bg-superficie-tarjeta text-texto-terciario'
@@ -638,7 +642,7 @@ export default function PaginaConfigPresupuestos() {
             <div className="space-y-6">
               {/* Vista previa */}
               <div>
-                <span className="text-xs text-texto-terciario font-medium block mb-1">Vista previa</span>
+                <span className="text-xs text-texto-terciario font-medium block mb-1">{t('documentos.vista_previa')}</span>
                 <div className="text-2xl font-mono font-semibold text-texto-primario px-5 py-3 rounded-xl bg-superficie-app inline-block">
                   {previewNumero}
                 </div>
@@ -658,7 +662,7 @@ export default function PaginaConfigPresupuestos() {
               <div className="p-4 rounded-xl border border-borde-sutil space-y-3">
                 <div>
                   <span className="text-xs text-texto-terciario font-medium block">Estructura del número</span>
-                  <p className="text-[11px] text-texto-terciario mt-0.5">Movés, quitás o agregás bloques. Los separadores son editables.</p>
+                  <p className="text-xs text-texto-terciario mt-0.5">Movés, quitás o agregás bloques. Los separadores son editables.</p>
                 </div>
 
                 {/* Bloques */}
@@ -683,7 +687,7 @@ export default function PaginaConfigPresupuestos() {
                             onBlur={() => guardarNumeracion({ componentes: componentesNum })}
                             className="w-5 text-center text-base font-mono bg-transparent outline-none"
                           />
-                          <span className="text-[10px] opacity-40 uppercase">sep</span>
+                          <span className="text-xxs opacity-40 uppercase">sep</span>
                           {puedeDer && (
                             <button onClick={() => moverComponente(i, 1)} className="text-texto-terciario/40 hover:text-texto-secundario transition-colors text-sm">›</button>
                           )}
@@ -705,7 +709,7 @@ export default function PaginaConfigPresupuestos() {
                           <button onClick={() => moverComponente(i, -1)} className="text-current opacity-30 hover:opacity-80 transition-opacity text-sm">‹</button>
                         )}
                         <span className="font-mono font-bold text-base">{valor}</span>
-                        <span className="text-[10px] opacity-40 uppercase">{ETIQUETA_BLOQUE[comp.tipo]}</span>
+                        <span className="text-xxs opacity-40 uppercase">{ETIQUETA_BLOQUE[comp.tipo]}</span>
                         {comp.tipo === 'anio' && (
                           <button
                             onClick={() => {
@@ -750,7 +754,7 @@ export default function PaginaConfigPresupuestos() {
               {/* Dígitos */}
               <div>
                 <label className="text-xs text-texto-terciario font-medium block mb-1">Dígitos del secuencial</label>
-                <p className="text-[11px] text-texto-terciario mb-2">Cantidad de dígitos con ceros a la izquierda</p>
+                <p className="text-xs text-texto-terciario mb-2">Cantidad de dígitos con ceros a la izquierda</p>
                 <div className="flex gap-1.5">
                   {[3, 4, 5, 6].map(d => (
                     <button
@@ -771,7 +775,7 @@ export default function PaginaConfigPresupuestos() {
               {/* Reinicio */}
               <div>
                 <label className="text-xs text-texto-terciario font-medium block mb-1">Reinicio del secuencial</label>
-                <p className="text-[11px] text-texto-terciario mb-2">Cuándo vuelve a empezar la numeración desde 1</p>
+                <p className="text-xs text-texto-terciario mb-2">Cuándo vuelve a empezar la numeración desde 1</p>
                 <div className="flex gap-1.5">
                   {([
                     { value: 'nunca' as const, label: 'Nunca' },
@@ -792,7 +796,7 @@ export default function PaginaConfigPresupuestos() {
                   ))}
                 </div>
                 {reinicio !== 'nunca' && (
-                  <p className="text-[11px] text-texto-terciario flex items-center gap-1.5 mt-2">
+                  <p className="text-xs text-texto-terciario flex items-center gap-1.5 mt-2">
                     ℹ {reinicio === 'anual' ? 'El secuencial vuelve a 0001 cada 1 de enero.' : 'El secuencial vuelve a 0001 cada primer día del mes.'}
                   </p>
                 )}
@@ -801,7 +805,7 @@ export default function PaginaConfigPresupuestos() {
               {/* Próximo número */}
               <div className="p-4 rounded-xl border border-borde-sutil">
                 <label className="text-xs text-texto-terciario font-medium block mb-1">Próximo número</label>
-                <p className="text-[11px] text-texto-terciario mb-2">El siguiente número secuencial que se asignará</p>
+                <p className="text-xs text-texto-terciario mb-2">El siguiente número secuencial que se asignará</p>
                 <div className="flex items-center gap-3">
                   <input type="number" value={siguiente} min={1}
                     onChange={(e) => setSiguiente(parseInt(e.target.value) || 1)}
@@ -823,7 +827,7 @@ export default function PaginaConfigPresupuestos() {
           <div className="space-y-6">
             {/* Días de validez */}
             <div>
-              <label className="text-[11px] text-texto-terciario font-medium uppercase tracking-wider mb-1.5 block">Días de validez</label>
+              <label className="text-xs text-texto-terciario font-medium uppercase tracking-wider mb-1.5 block">Días de validez</label>
               <p className="text-xs text-texto-terciario mb-2">Cuántos días desde la emisión es válida la oferta.</p>
               <div className="flex items-center gap-4">
                 <input
@@ -865,7 +869,7 @@ export default function PaginaConfigPresupuestos() {
                 valor={notasDefault}
                 onChange={(v) => guardarTextos('notas', v)}
                 placeholder="Ej: Sujeto a disponibilidad de stock..."
-                etiqueta="Notas por defecto"
+                etiqueta={t('documentos.notas_defecto')}
               />
             </div>
 
@@ -875,7 +879,7 @@ export default function PaginaConfigPresupuestos() {
                 valor={condicionesDefault}
                 onChange={(v) => guardarTextos('condiciones', v)}
                 placeholder="Ej: Los precios no incluyen IVA..."
-                etiqueta="Condiciones por defecto"
+                etiqueta={t('documentos.condiciones_defecto')}
               />
             </div>
           </div>
@@ -895,14 +899,14 @@ export default function PaginaConfigPresupuestos() {
 
           {/* ── VISTA PREVIA DEL MEMBRETE (HTML real de la plantilla) ── */}
           <div className="mb-5">
-            <p className="text-[10px] font-semibold text-texto-terciario uppercase tracking-wider mb-2">Vista previa</p>
+            <p className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider mb-2">{t('documentos.vista_previa')}</p>
             <div ref={previewContRef} className="bg-[#e5e5e5] dark:bg-[#2a2a2a] rounded-lg p-4 flex justify-center">
-              <div style={{ width: Math.floor(794 * escalaConfig), height: Math.floor(400 * escalaConfig), position: 'relative', overflow: 'hidden' }}>
+              <div style={{ width: Math.floor(A4_ANCHO * escalaConfig), height: Math.floor(400 * escalaConfig), position: 'relative', overflow: 'hidden' }}>
                 <iframe
                   srcDoc={htmlPreviewConfig}
                   title="Preview membrete"
                   className="border-0 bg-white shadow-lg rounded-sm"
-                  style={{ width: 794, height: 400, position: 'absolute', top: 0, left: 0, transformOrigin: 'top left', transform: `scale(${escalaConfig})`, pointerEvents: 'none' }}
+                  style={{ width: A4_ANCHO, height: 400, position: 'absolute', top: 0, left: 0, transformOrigin: 'top left', transform: `scale(${escalaConfig})`, pointerEvents: 'none' }}
                 />
               </div>
             </div>
@@ -962,7 +966,7 @@ export default function PaginaConfigPresupuestos() {
               {/* Posición y ancho: siempre visibles */}
               <div className="flex gap-4 pt-2">
                 <div className="flex-1">
-                  <label className="text-[10px] text-texto-terciario font-medium uppercase tracking-wide block mb-2">Posición</label>
+                  <label className="text-xxs text-texto-terciario font-medium uppercase tracking-wide block mb-2">Posición</label>
                   <div className="flex gap-1.5">
                     {([
                       { valor: 'izquierda' as const, etiqueta: 'Izq.' },
@@ -988,7 +992,7 @@ export default function PaginaConfigPresupuestos() {
                   const max = esCuadrado ? 35 : 50
                   return (
                     <div className="flex-1">
-                      <label className="text-[10px] text-texto-terciario font-medium uppercase tracking-wide block mb-2">
+                      <label className="text-xxs text-texto-terciario font-medium uppercase tracking-wide block mb-2">
                         Ancho: {Math.round(membrete.ancho_logo * 5.95)}px <span className="opacity-50">({membrete.ancho_logo}%)</span>
                       </label>
                       <div className="pt-1">
@@ -997,7 +1001,7 @@ export default function PaginaConfigPresupuestos() {
                           onMouseUp={() => guardarMembrete(membrete)}
                           onTouchEnd={() => guardarMembrete(membrete)}
                           className="w-full accent-[var(--texto-marca)]" />
-                        <div className="flex justify-between text-[9px] text-texto-terciario mt-0.5">
+                        <div className="flex justify-between text-xxs text-texto-terciario mt-0.5">
                           <span>Chico</span><span>Grande</span>
                         </div>
                       </div>
@@ -1009,7 +1013,7 @@ export default function PaginaConfigPresupuestos() {
               {/* Texto y subtítulo: solo cuando NO se muestra el logo imagen */}
               {!membrete.mostrar_logo && (
                 <div className="space-y-4 pt-2">
-                  <p className="text-[11px] text-texto-terciario">En lugar del logo, mostrá un texto principal y subtítulo.</p>
+                  <p className="text-xs text-texto-terciario">En lugar del logo, mostrá un texto principal y subtítulo.</p>
 
                   {/* Texto principal */}
                   <div className="space-y-2">
@@ -1020,7 +1024,7 @@ export default function PaginaConfigPresupuestos() {
                       placeholder="Razón social o nombre de la empresa"
                       className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-[var(--texto-marca)]" />
                     <div>
-                      <span className="text-[10px] font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Tamaño</span>
+                      <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Tamaño</span>
                       <div className="flex gap-1">
                         {[28, 32, 36, 40, 44].map(t => (
                           <button key={t}
@@ -1047,7 +1051,7 @@ export default function PaginaConfigPresupuestos() {
                       className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-[var(--texto-marca)]" />
                     {membrete.subtitulo_logo && (
                       <div>
-                        <span className="text-[10px] font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Tamaño del subtítulo</span>
+                        <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Tamaño del subtítulo</span>
                         <div className="flex gap-1">
                           {[8, 9, 10, 11, 12, 14].map(t => (
                             <button key={t}
@@ -1069,7 +1073,7 @@ export default function PaginaConfigPresupuestos() {
 
               {/* Alineación del texto */}
               <div>
-                <span className="text-[10px] font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Alineación del texto</span>
+                <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Alineación del texto</span>
                 <div className="flex gap-1">
                   {([
                     { valor: 'izquierda' as const, etiqueta: 'Izq.' },
@@ -1104,7 +1108,7 @@ export default function PaginaConfigPresupuestos() {
               {membrete.linea_separadora && (
                 <div className="space-y-3 pt-1">
                   <div>
-                    <span className="text-[10px] font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">
+                    <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">
                       Grosor: {membrete.grosor_linea || 1}px
                     </span>
                     <div className="flex gap-1">
@@ -1122,7 +1126,7 @@ export default function PaginaConfigPresupuestos() {
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-texto-terciario uppercase tracking-wider">Color de marca</span>
+                    <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider">Color de marca</span>
                     <button
                       onClick={() => guardarMembrete({ ...membrete, color_linea: membrete.color_linea === 'marca' ? 'gris' : 'marca' })}
                       className={`w-10 h-[22px] rounded-full relative transition-colors ${membrete.color_linea === 'marca' ? 'bg-[var(--texto-marca)]' : 'bg-white/20 dark:bg-white/15'}`}
@@ -1149,7 +1153,7 @@ export default function PaginaConfigPresupuestos() {
                 alturaMinima={100}
               />
             </div>
-            <p className="text-[11px] text-texto-terciario px-1">
+            <p className="text-xs text-texto-terciario px-1">
               Seleccioná texto para acceder al menú de formato: negrita, color, tamaño, enlaces
             </p>
 
@@ -1170,14 +1174,14 @@ export default function PaginaConfigPresupuestos() {
 
           {/* ── VISTA PREVIA DEL PIE (HTML real de la plantilla, scroll al fondo) ── */}
           <div className="mb-5">
-            <p className="text-[10px] font-semibold text-texto-terciario uppercase tracking-wider mb-2">Vista previa</p>
+            <p className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider mb-2">{t('documentos.vista_previa')}</p>
             <div className="bg-[#e5e5e5] dark:bg-[#2a2a2a] rounded-lg p-4 flex justify-center">
-              <div style={{ width: Math.floor(794 * escalaConfig), height: Math.floor(200 * escalaConfig), position: 'relative', overflow: 'hidden' }}>
+              <div style={{ width: Math.floor(A4_ANCHO * escalaConfig), height: Math.floor(200 * escalaConfig), position: 'relative', overflow: 'hidden' }}>
                 <iframe
                   srcDoc={htmlPreviewConfig}
                   title="Preview pie"
                   className="border-0 bg-white shadow-lg rounded-sm"
-                  style={{ width: 794, height: 1123, position: 'absolute', bottom: 0, left: 0, transformOrigin: 'bottom left', transform: `scale(${escalaConfig})`, pointerEvents: 'none' }}
+                  style={{ width: A4_ANCHO, height: A4_ALTO, position: 'absolute', bottom: 0, left: 0, transformOrigin: 'bottom left', transform: `scale(${escalaConfig})`, pointerEvents: 'none' }}
                   onLoad={(e) => {
                     // Scroll al fondo para mostrar el pie
                     try {
@@ -1208,7 +1212,7 @@ export default function PaginaConfigPresupuestos() {
               {piePagina.linea_superior && (
                 <div className="space-y-3 pt-1">
                   <div>
-                    <span className="text-[10px] font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">
+                    <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">
                       Grosor: {piePagina.grosor_linea || 1}px
                     </span>
                     <div className="flex gap-1">
@@ -1226,7 +1230,7 @@ export default function PaginaConfigPresupuestos() {
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-texto-terciario uppercase tracking-wider">Color de marca</span>
+                    <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider">Color de marca</span>
                     <button
                       onClick={() => guardarPiePagina({ ...piePagina, color_linea: piePagina.color_linea === 'marca' ? 'gris' : 'marca' })}
                       className={`w-10 h-[22px] rounded-full relative transition-colors ${piePagina.color_linea === 'marca' ? 'bg-[var(--texto-marca)]' : 'bg-white/20 dark:bg-white/15'}`}
@@ -1238,7 +1242,7 @@ export default function PaginaConfigPresupuestos() {
               )}
 
               <div>
-                <span className="text-[10px] font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">
+                <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">
                   Tamaño del texto: {piePagina.tamano_texto}px
                 </span>
                 <div className="flex gap-1">
@@ -1282,7 +1286,7 @@ export default function PaginaConfigPresupuestos() {
 
                   {/* Tipo de contenido */}
                   <div>
-                    <span className="text-[10px] font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Tipo</span>
+                    <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Tipo</span>
                     <div className="flex gap-1">
                       {([
                         { valor: 'vacio' as TipoColumnaPie, etiqueta: 'Vacío' },
@@ -1306,8 +1310,8 @@ export default function PaginaConfigPresupuestos() {
                   {/* Texto rico */}
                   {columna.tipo === 'texto' && (
                     <div>
-                      <span className="text-[10px] font-bold text-texto-terciario uppercase tracking-wider block mb-0.5">Texto</span>
-                      <p className="text-[10px] text-texto-terciario mb-1.5">Seleccioná texto para cambiar tamaño, color, negrita y más</p>
+                      <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider block mb-0.5">Texto</span>
+                      <p className="text-xxs text-texto-terciario mb-1.5">Seleccioná texto para cambiar tamaño, color, negrita y más</p>
                       <div className="rounded-lg border border-borde-sutil overflow-hidden">
                         <EditorTexto
                           contenido={columna.texto || ''}
@@ -1332,7 +1336,7 @@ export default function PaginaConfigPresupuestos() {
                   {columna.tipo === 'imagen' && (
                     <div className="space-y-3">
                       <div>
-                        <span className="text-[10px] font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Imagen (QR, firma, logo)</span>
+                        <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Imagen (QR, firma, logo)</span>
                         <SubirImagenPie
                           urlActual={columna.imagen_url || null}
                           onSubir={async (blob) => {
@@ -1357,7 +1361,7 @@ export default function PaginaConfigPresupuestos() {
                         />
                       </div>
                       <div>
-                        <span className="text-[10px] font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Texto acompañante (opcional)</span>
+                        <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Texto acompañante (opcional)</span>
                         <input type="text" value={columna.texto_imagen || ''}
                           onChange={(e) => setColumnaLocal({ texto_imagen: e.target.value })}
                           onBlur={() => guardarPiePagina(piePagina)}
@@ -1367,7 +1371,7 @@ export default function PaginaConfigPresupuestos() {
                       {columna.texto_imagen && (
                         <>
                           <div>
-                            <span className="text-[10px] font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Posición del texto</span>
+                            <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Posición del texto</span>
                             <div className="flex gap-1">
                               {([
                                 { valor: 'arriba' as const, etiqueta: 'Arriba' },
@@ -1386,7 +1390,7 @@ export default function PaginaConfigPresupuestos() {
                             </div>
                           </div>
                           <div>
-                            <span className="text-[10px] font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Alineación del texto</span>
+                            <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Alineación del texto</span>
                             <div className="flex gap-1">
                               {([
                                 { valor: 'izquierda' as const, etiqueta: 'Izq.' },
@@ -1412,12 +1416,12 @@ export default function PaginaConfigPresupuestos() {
 
                   {/* Numeración */}
                   {columna.tipo === 'numeracion' && (
-                    <p className="text-[11px] text-texto-terciario">Se mostrará &quot;Página X de Y&quot; automáticamente.</p>
+                    <p className="text-xs text-texto-terciario">Se mostrará &quot;Página X de Y&quot; automáticamente.</p>
                   )}
 
                   {/* Vacío */}
                   {columna.tipo === 'vacio' && (
-                    <p className="text-[11px] text-texto-terciario">Esta columna no muestra contenido.</p>
+                    <p className="text-xs text-texto-terciario">Esta columna no muestra contenido.</p>
                   )}
                 </div>
               )
@@ -1456,7 +1460,7 @@ export default function PaginaConfigPresupuestos() {
               </span>
             </button>
 
-            <p className="text-[11px] text-texto-terciario">
+            <p className="text-xs text-texto-terciario">
               {plantillaHtml ? 'Estás usando una plantilla personalizada.' : 'Estás usando la plantilla por defecto del sistema.'}
               {plantillaHtml && (
                 <button onClick={() => guardarPlantillaHtml('')} className="ml-2 text-texto-marca hover:underline">
@@ -1487,7 +1491,7 @@ export default function PaginaConfigPresupuestos() {
 
             {/* Vista previa */}
             <div className="p-4 rounded-xl bg-superficie-app">
-              <span className="text-xs text-texto-terciario font-medium block mb-2">Vista previa</span>
+              <span className="text-xs text-texto-terciario font-medium block mb-2">{t('documentos.vista_previa')}</span>
               <p className="text-sm font-mono text-texto-primario">
                 {patronNombrePdf
                   .replace('{numero}', previewNumero)
@@ -1575,7 +1579,7 @@ export default function PaginaConfigPresupuestos() {
                 <Package size={15} />
                 Desactivar módulo
               </button>
-              <p className="text-[11px] text-texto-terciario mt-2">
+              <p className="text-xs text-texto-terciario mt-2">
                 Esta acción no elimina datos. Podés reactivar el módulo en cualquier momento.
               </p>
             </div>

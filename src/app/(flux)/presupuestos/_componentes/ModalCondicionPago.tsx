@@ -6,6 +6,7 @@ import { Modal } from '@/componentes/ui/Modal'
 import { Boton } from '@/componentes/ui/Boton'
 import { Select } from '@/componentes/ui/Select'
 import type { CondicionPago } from '@/tipos/presupuesto'
+import { useTraduccion } from '@/lib/i18n'
 
 /**
  * ModalCondicionPago — Modal para crear/editar una condición de pago.
@@ -41,6 +42,7 @@ interface PropiedadesModal {
 const fmtMonto = (v: number) => `$ ${v.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 export default function ModalCondicionPago({ abierto, onCerrar, onGuardar, condicionEditar }: PropiedadesModal) {
+  const { t } = useTraduccion()
   const esEdicion = !!condicionEditar
   const [form, setForm] = useState<FormularioCondicion>({ ...FORM_VACIO })
 
@@ -156,14 +158,14 @@ export default function ModalCondicionPago({ abierto, onCerrar, onGuardar, condi
               placeholder="Se genera automáticamente..."
               className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-marca-500 transition-colors"
             />
-            <p className="text-[11px] text-texto-terciario mt-1">
+            <p className="text-xs text-texto-terciario mt-1">
               {nombreManual ? 'Nombre personalizado' : 'Se genera automáticamente según la configuración'}
             </p>
           </div>
 
           {/* Tipo */}
           <Select
-            etiqueta="Tipo de condición"
+            etiqueta={t('documentos.tipo_condicion')}
             valor={form.tipo}
             onChange={(v) => setForm(p => ({ ...p, tipo: v as 'plazo_fijo' | 'hitos', hitos: v === 'plazo_fijo' ? [] : p.hitos }))}
             opciones={[
@@ -171,7 +173,7 @@ export default function ModalCondicionPago({ abierto, onCerrar, onGuardar, condi
               { valor: 'hitos', etiqueta: 'Por hitos (porcentajes)' },
             ]}
           />
-          <p className="text-[11px] text-texto-terciario -mt-3">
+          <p className="text-xs text-texto-terciario -mt-3">
             {form.tipo === 'plazo_fijo'
               ? 'El total vence X días después de la fecha de emisión'
               : 'Divide el pago en cuotas con porcentaje y plazo individual'}
@@ -193,14 +195,14 @@ export default function ModalCondicionPago({ abierto, onCerrar, onGuardar, condi
               {/* Cuotas de pago */}
               <div>
                 <p className="text-sm font-semibold text-texto-primario mb-0.5">Cuotas de pago</p>
-                <p className="text-[11px] text-texto-terciario mb-4">Cada cuota define qué porcentaje del total se paga y a cuántos días de la emisión vence</p>
+                <p className="text-xs text-texto-terciario mb-4">Cada cuota define qué porcentaje del total se paga y a cuántos días de la emisión vence</p>
 
                 {/* Encabezado de columnas */}
                 {form.hitos.length > 0 && (
                   <div className="grid grid-cols-[1fr_90px_90px_28px] gap-3 px-3 mb-1.5">
-                    <span className="text-[10px] text-texto-terciario font-medium uppercase tracking-wider">Descripción</span>
-                    <span className="text-[10px] text-texto-terciario font-medium uppercase tracking-wider text-right">%</span>
-                    <span className="text-[10px] text-texto-terciario font-medium uppercase tracking-wider text-right">Días</span>
+                    <span className="text-xxs text-texto-terciario font-medium uppercase tracking-wider">Descripción</span>
+                    <span className="text-xxs text-texto-terciario font-medium uppercase tracking-wider text-right">%</span>
+                    <span className="text-xxs text-texto-terciario font-medium uppercase tracking-wider text-right">Días</span>
                     <span />
                   </div>
                 )}
@@ -256,7 +258,7 @@ export default function ModalCondicionPago({ abierto, onCerrar, onGuardar, condi
                   placeholder="Ej: recargo 10% con tarjeta, solo transferencia..."
                   className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-marca-500 transition-colors"
                 />
-                <p className="text-[11px] text-texto-terciario mt-1">Aparece debajo del plan de pagos en presupuestos, portal y PDF</p>
+                <p className="text-xs text-texto-terciario mt-1">Aparece debajo del plan de pagos en presupuestos, portal y PDF</p>
               </div>
             </>
           )}
@@ -266,7 +268,7 @@ export default function ModalCondicionPago({ abierto, onCerrar, onGuardar, condi
         <div className="bg-superficie-app/50 rounded-xl p-5 space-y-4 self-start sticky top-0">
           <div className="flex items-center gap-2">
             <Eye size={14} className="text-texto-terciario" />
-            <span className="text-[11px] font-bold text-texto-terciario uppercase tracking-wider">Vista previa</span>
+            <span className="text-xs font-bold text-texto-terciario uppercase tracking-wider">Vista previa</span>
           </div>
 
           <div className="flex items-baseline gap-2 text-sm">

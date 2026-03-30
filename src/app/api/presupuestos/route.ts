@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
     // Búsqueda full-text
     if (busqueda.trim()) {
       if (busqueda.length <= 2) {
-        query = query.or(`numero.ilike.%${busqueda}%,contacto_nombre.ilike.%${busqueda}%,contacto_apellido.ilike.%${busqueda}%,referencia.ilike.%${busqueda}%`)
+        query = query.or(`numero.ilike.%${busqueda}%,contacto_nombre.ilike.%${busqueda}%,contacto_apellido.ilike.%${busqueda}%,atencion_nombre.ilike.%${busqueda}%,referencia.ilike.%${busqueda}%`)
       } else {
         const terminos = busqueda.trim().split(/\s+/).map(t => `${t}:*`).join(' & ')
         query = query.textSearch('busqueda', terminos, { config: 'spanish' })

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useNavegacion } from '@/hooks/useNavegacion'
+import { useTraduccion } from '@/lib/i18n'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -62,6 +63,7 @@ interface FilaContacto {
 const POR_PAGINA = 50
 
 export default function PaginaContactos() {
+  const { t } = useTraduccion()
   const router = useRouter()
   const searchParams = useSearchParams()
   const vinculadoDe = searchParams.get('vinculado_de')
@@ -197,11 +199,11 @@ export default function PaginaContactos() {
 
     /* ── Identidad ── */
     {
-      clave: 'codigo', etiqueta: 'Código', ancho: 90, ordenable: true, grupo: 'Identidad', icono: <Hash size={I} />,
+      clave: 'codigo', etiqueta: t('comun.codigo'), ancho: 90, ordenable: true, grupo: t('comun.identidad'), icono: <Hash size={I} />,
       render: (fila) => <span className="text-xs font-mono text-texto-terciario">{fila.codigo}</span>,
     },
     {
-      clave: 'nombre', etiqueta: 'Contacto', ancho: 260, ordenable: true, grupo: 'Identidad', icono: <User size={I} />,
+      clave: 'nombre', etiqueta: t('comun.contacto'), ancho: 260, ordenable: true, grupo: t('comun.identidad'), icono: <User size={I} />,
       render: (fila) => {
         const clave = fila.tipo_contacto?.clave || 'persona'
         const color = COLOR_TIPO_CONTACTO[clave] || 'primario'
@@ -219,12 +221,12 @@ export default function PaginaContactos() {
               <div className="font-medium text-texto-primario truncate">{nombreCompleto}</div>
               <div className="flex items-center gap-1.5 mt-0.5">
                 {tipo && (
-                  <span className="inline-flex items-center rounded-full px-1.5 py-px text-[10px] font-medium whitespace-nowrap"
+                  <span className="inline-flex items-center rounded-full px-1.5 py-px text-xxs font-medium whitespace-nowrap"
                     style={{ backgroundColor: `var(--insignia-${color}-fondo)`, color: `var(--insignia-${color}-texto)` }}>
                     {tipo.etiqueta}
                   </span>
                 )}
-                {fila.cargo && <span className="text-[11px] text-texto-terciario truncate">{fila.cargo}</span>}
+                {fila.cargo && <span className="text-xs text-texto-terciario truncate">{fila.cargo}</span>}
               </div>
             </div>
           </div>
@@ -232,8 +234,8 @@ export default function PaginaContactos() {
       },
     },
     {
-      clave: 'tipo', etiqueta: 'Tipo', ancho: 120, ordenable: true, grupo: 'Identidad', icono: <Tag size={I} />,
-      filtrable: true, tipoFiltro: 'multiple',
+      clave: 'tipo', etiqueta: t('comun.tipo'), ancho: 120, ordenable: true, grupo: t('comun.identidad'), icono: <Tag size={I} />,
+      filtrable: true, tipoFiltro: 'pills',
       opcionesFiltro: tiposContacto.map(t => ({ valor: t.clave, etiqueta: t.etiqueta })),
       obtenerValor: (fila) => fila.tipo_contacto?.clave || '',
       render: (fila) => {
@@ -243,11 +245,11 @@ export default function PaginaContactos() {
       },
     },
     {
-      clave: 'titulo', etiqueta: 'Título', ancho: 80, grupo: 'Identidad', icono: <GraduationCap size={I} />,
+      clave: 'titulo', etiqueta: t('contactos.titulo_campo'), ancho: 80, grupo: t('comun.identidad'), icono: <GraduationCap size={I} />,
       render: (fila) => fila.titulo ? <span className="text-texto-secundario text-xs">{fila.titulo}</span> : null,
     },
     {
-      clave: 'identificacion', etiqueta: 'Identificación', ancho: 160, grupo: 'Identidad', icono: <CreditCard size={I} />,
+      clave: 'identificacion', etiqueta: t('contactos.identificacion'), ancho: 160, grupo: t('comun.identidad'), icono: <CreditCard size={I} />,
       render: (fila) => {
         const num = fila.numero_identificacion || fila.datos_fiscales?.cuit || fila.datos_fiscales?.dni
         if (!num) return null
@@ -256,13 +258,13 @@ export default function PaginaContactos() {
         return (
           <div className="min-w-0">
             <div className="font-mono text-xs text-texto-secundario">{num}</div>
-            {tipo && <div className="text-[10px] text-texto-terciario">{tipo}</div>}
+            {tipo && <div className="text-xxs text-texto-terciario">{tipo}</div>}
           </div>
         )
       },
     },
     {
-      clave: 'vinculado_a', etiqueta: 'Vinculado a', ancho: 180, grupo: 'Identidad', icono: <Link2 size={I} />,
+      clave: 'vinculado_a', etiqueta: t('contactos.vinculado_a'), ancho: 180, grupo: t('comun.identidad'), icono: <Link2 size={I} />,
       render: (fila) => {
         const vinc = fila.vinculaciones?.[0]?.vinculado
         if (!vinc) return null
@@ -278,19 +280,19 @@ export default function PaginaContactos() {
 
     /* ── Contacto ── */
     {
-      clave: 'correo', etiqueta: 'Email', ancho: 220, ordenable: true, grupo: 'Contacto', icono: <Mail size={I} />,
+      clave: 'correo', etiqueta: t('contactos.correo'), ancho: 220, ordenable: true, grupo: t('comun.contacto'), icono: <Mail size={I} />,
       render: (fila) => fila.correo ? <span className="text-texto-secundario truncate">{fila.correo}</span> : null,
     },
     {
-      clave: 'telefono', etiqueta: 'Teléfono', ancho: 150, grupo: 'Contacto', icono: <Phone size={I} />,
+      clave: 'telefono', etiqueta: t('contactos.telefono'), ancho: 150, grupo: t('comun.contacto'), icono: <Phone size={I} />,
       render: (fila) => fila.telefono ? <span className="text-texto-secundario">{fila.telefono}</span> : null,
     },
     {
-      clave: 'whatsapp', etiqueta: 'WhatsApp', ancho: 150, grupo: 'Contacto', icono: <MessageCircle size={I} />,
+      clave: 'whatsapp', etiqueta: t('contactos.whatsapp'), ancho: 150, grupo: t('comun.contacto'), icono: <MessageCircle size={I} />,
       render: (fila) => fila.whatsapp ? <span className="text-texto-secundario">{fila.whatsapp}</span> : null,
     },
     {
-      clave: 'ubicacion', etiqueta: 'Dirección', ancho: 200, grupo: 'Contacto', icono: <MapPin size={I} />,
+      clave: 'ubicacion', etiqueta: t('contactos.direccion'), ancho: 200, grupo: t('comun.contacto'), icono: <MapPin size={I} />,
       render: (fila) => {
         const dir = fila.direcciones?.find(d => d.es_principal) || fila.direcciones?.[0]
         if (!dir) return null
@@ -304,69 +306,69 @@ export default function PaginaContactos() {
       },
     },
     {
-      clave: 'web', etiqueta: 'Web', ancho: 180, grupo: 'Contacto', icono: <Globe size={I} />,
+      clave: 'web', etiqueta: t('comun.web'), ancho: 180, grupo: t('comun.contacto'), icono: <Globe size={I} />,
       render: (fila) => fila.web ? <span className="text-texto-secundario truncate text-xs">{fila.web}</span> : null,
     },
 
     /* ── Laboral ── */
     {
-      clave: 'cargo', etiqueta: 'Cargo', ancho: 160, ordenable: true, grupo: 'Laboral', icono: <Briefcase size={I} />,
+      clave: 'cargo', etiqueta: t('comun.cargo'), ancho: 160, ordenable: true, grupo: t('comun.laboral'), icono: <Briefcase size={I} />,
       render: (fila) => fila.cargo ? <span className="text-texto-secundario truncate">{fila.cargo}</span> : null,
     },
     {
-      clave: 'rubro', etiqueta: 'Rubro', ancho: 160, ordenable: true, grupo: 'Laboral', icono: <Factory size={I} />,
+      clave: 'rubro', etiqueta: t('comun.rubro'), ancho: 160, ordenable: true, grupo: t('comun.laboral'), icono: <Factory size={I} />,
       render: (fila) => fila.rubro ? <span className="text-texto-secundario truncate">{fila.rubro}</span> : null,
     },
 
     /* ── Comercial ── */
     {
-      clave: 'moneda', etiqueta: 'Moneda', ancho: 80, grupo: 'Comercial', icono: <Coins size={I} />,
+      clave: 'moneda', etiqueta: t('comun.moneda_label'), ancho: 80, grupo: t('comun.comercial'), icono: <Coins size={I} />,
       render: (fila) => fila.moneda ? <span className="text-texto-terciario text-xs font-mono">{fila.moneda}</span> : null,
     },
     {
-      clave: 'limite_credito', etiqueta: 'Lím. Crédito', ancho: 130, tipo: 'moneda', grupo: 'Comercial', icono: <Landmark size={I} />,
+      clave: 'limite_credito', etiqueta: t('contactos.limite_credito'), ancho: 130, tipo: 'moneda', grupo: t('comun.comercial'), icono: <Landmark size={I} />,
       alineacion: 'right', resumen: 'suma',
       render: (fila) => fila.limite_credito && Number(fila.limite_credito) > 0
         ? <span className="text-texto-secundario text-xs font-mono">{Number(fila.limite_credito).toLocaleString('es-AR')}</span>
         : null,
     },
     {
-      clave: 'plazo_pago_cliente', etiqueta: 'Plazo Cliente', ancho: 120, grupo: 'Comercial', icono: <Calendar size={I} />,
+      clave: 'plazo_pago_cliente', etiqueta: t('contactos.plazo_cliente'), ancho: 120, grupo: t('comun.comercial'), icono: <Calendar size={I} />,
       render: (fila) => fila.plazo_pago_cliente ? <span className="text-texto-secundario text-xs">{fila.plazo_pago_cliente}</span> : null,
     },
     {
-      clave: 'plazo_pago_proveedor', etiqueta: 'Plazo Proveedor', ancho: 130, grupo: 'Comercial', icono: <Calendar size={I} />,
+      clave: 'plazo_pago_proveedor', etiqueta: t('contactos.plazo_proveedor'), ancho: 130, grupo: t('comun.comercial'), icono: <Calendar size={I} />,
       render: (fila) => fila.plazo_pago_proveedor ? <span className="text-texto-secundario text-xs">{fila.plazo_pago_proveedor}</span> : null,
     },
     {
-      clave: 'rank_cliente', etiqueta: 'Rank Cliente', ancho: 110, tipo: 'numero', grupo: 'Comercial', icono: <Star size={I} />,
+      clave: 'rank_cliente', etiqueta: t('contactos.rank_cliente'), ancho: 110, tipo: 'numero', grupo: t('comun.comercial'), icono: <Star size={I} />,
       alineacion: 'center', resumen: 'promedio',
       render: (fila) => fila.rank_cliente ? <span className="text-texto-secundario text-xs">{fila.rank_cliente}</span> : null,
     },
     {
-      clave: 'rank_proveedor', etiqueta: 'Rank Proveedor', ancho: 120, tipo: 'numero', grupo: 'Comercial', icono: <Star size={I} />,
+      clave: 'rank_proveedor', etiqueta: t('contactos.rank_proveedor'), ancho: 120, tipo: 'numero', grupo: t('comun.comercial'), icono: <Star size={I} />,
       alineacion: 'center', resumen: 'promedio',
       render: (fila) => fila.rank_proveedor ? <span className="text-texto-secundario text-xs">{fila.rank_proveedor}</span> : null,
     },
     {
-      clave: 'idioma', etiqueta: 'Idioma', ancho: 80, grupo: 'Comercial', icono: <Languages size={I} />,
+      clave: 'idioma', etiqueta: t('comun.idioma'), ancho: 80, grupo: t('comun.comercial'), icono: <Languages size={I} />,
       render: (fila) => fila.idioma ? <span className="text-texto-terciario text-xs">{fila.idioma.toUpperCase()}</span> : null,
     },
     {
-      clave: 'zona_horaria', etiqueta: 'Zona Horaria', ancho: 140, grupo: 'Comercial', icono: <Clock size={I} />,
+      clave: 'zona_horaria', etiqueta: t('comun.zona_horaria'), ancho: 140, grupo: t('comun.comercial'), icono: <Clock size={I} />,
       render: (fila) => fila.zona_horaria ? <span className="text-texto-terciario text-xs">{fila.zona_horaria}</span> : null,
     },
 
     /* ── Fiscal ── */
     {
-      clave: 'condicion_iva', etiqueta: 'Cond. IVA', ancho: 140, grupo: 'Fiscal', icono: <Receipt size={I} />,
+      clave: 'condicion_iva', etiqueta: t('contactos.condicion_iva'), ancho: 140, grupo: t('comun.fiscal'), icono: <Receipt size={I} />,
       filtrable: true,
       opcionesFiltro: [
-        { valor: 'responsable_inscripto', etiqueta: 'Resp. Inscripto' },
-        { valor: 'monotributista', etiqueta: 'Monotributista' },
-        { valor: 'exento', etiqueta: 'Exento' },
-        { valor: 'consumidor_final', etiqueta: 'Consumidor Final' },
-        { valor: 'no_responsable', etiqueta: 'No Responsable' },
+        { valor: 'responsable_inscripto', etiqueta: t('contactos.iva_resp_inscripto') },
+        { valor: 'monotributista', etiqueta: t('contactos.iva_monotributista') },
+        { valor: 'exento', etiqueta: t('contactos.iva_exento') },
+        { valor: 'consumidor_final', etiqueta: t('contactos.iva_cons_final') },
+        { valor: 'no_responsable', etiqueta: t('contactos.iva_no_responsable') },
       ],
       obtenerValor: (fila) => fila.datos_fiscales?.condicion_iva || '',
       render: (fila) => {
@@ -375,21 +377,21 @@ export default function PaginaContactos() {
       },
     },
     {
-      clave: 'posicion_fiscal', etiqueta: 'Pos. Fiscal', ancho: 120, grupo: 'Fiscal', icono: <ShieldCheck size={I} />,
+      clave: 'posicion_fiscal', etiqueta: t('contactos.posicion_fiscal'), ancho: 120, grupo: t('comun.fiscal'), icono: <ShieldCheck size={I} />,
       render: (fila) => {
         const pf = fila.datos_fiscales?.posicion_fiscal
         return pf ? <span className="text-texto-secundario text-xs">{pf}</span> : null
       },
     },
     {
-      clave: 'tipo_iibb', etiqueta: 'Tipo IIBB', ancho: 120, grupo: 'Fiscal', icono: <FileText size={I} />,
+      clave: 'tipo_iibb', etiqueta: t('contactos.tipo_iibb'), ancho: 120, grupo: t('comun.fiscal'), icono: <FileText size={I} />,
       render: (fila) => {
         const t = fila.datos_fiscales?.tipo_iibb
         return t ? <span className="text-texto-secundario text-xs">{t}</span> : null
       },
     },
     {
-      clave: 'numero_iibb', etiqueta: 'Nro. IIBB', ancho: 130, grupo: 'Fiscal', icono: <Hash size={I} />,
+      clave: 'numero_iibb', etiqueta: t('contactos.nro_iibb'), ancho: 130, grupo: t('comun.fiscal'), icono: <Hash size={I} />,
       render: (fila) => {
         const n = fila.datos_fiscales?.numero_iibb
         return n ? <span className="text-texto-secundario text-xs font-mono">{n}</span> : null
@@ -398,7 +400,7 @@ export default function PaginaContactos() {
 
     /* ── Metadata ── */
     {
-      clave: 'etiquetas', etiqueta: 'Etiquetas', ancho: 200, grupo: 'Metadata', icono: <Tags size={I} />,
+      clave: 'etiquetas', etiqueta: t('contactos.etiquetas'), ancho: 200, grupo: t('comun.metadata'), icono: <Tags size={I} />,
       render: (fila) => fila.etiquetas?.length > 0 ? (
         <div className="flex items-center gap-1 flex-wrap">
           {fila.etiquetas.slice(0, 2).map(e => <Insignia key={e} color="neutro">{e}</Insignia>)}
@@ -407,22 +409,22 @@ export default function PaginaContactos() {
       ) : null,
     },
     {
-      clave: 'origen', etiqueta: 'Origen', ancho: 110, grupo: 'Metadata', icono: <Compass size={I} />,
+      clave: 'origen', etiqueta: t('comun.origen'), ancho: 110, grupo: t('comun.metadata'), icono: <Compass size={I} />,
       filtrable: true,
       opcionesFiltro: [
-        { valor: 'manual', etiqueta: 'Manual' },
-        { valor: 'importacion', etiqueta: 'Importación' },
-        { valor: 'ia_captador', etiqueta: 'IA Captador' },
-        { valor: 'usuario', etiqueta: 'Usuario' },
+        { valor: 'manual', etiqueta: t('contactos.origen_manual') },
+        { valor: 'importacion', etiqueta: t('contactos.origen_importacion') },
+        { valor: 'ia_captador', etiqueta: t('contactos.origen_ia') },
+        { valor: 'usuario', etiqueta: t('contactos.origen_usuario') },
       ],
       render: (fila) => <span className="text-texto-terciario text-xs">{ETIQUETAS_ORIGEN[fila.origen] || fila.origen}</span>,
     },
     {
-      clave: 'notas', etiqueta: 'Notas', ancho: 200, grupo: 'Metadata', icono: <StickyNote size={I} />,
+      clave: 'notas', etiqueta: t('comun.notas'), ancho: 200, grupo: t('comun.metadata'), icono: <StickyNote size={I} />,
       render: (fila) => fila.notas ? <span className="text-texto-terciario text-xs truncate">{fila.notas.slice(0, 80)}</span> : null,
     },
     {
-      clave: 'creado_en', etiqueta: 'Creación', ancho: 120, ordenable: true, tipo: 'fecha', grupo: 'Metadata', icono: <Calendar size={I} />,
+      clave: 'creado_en', etiqueta: t('comun.creacion'), ancho: 120, ordenable: true, tipo: 'fecha', grupo: t('comun.metadata'), icono: <Calendar size={I} />,
       render: (fila) => <span className="text-texto-terciario text-xs">{formatoFecha(fila.creado_en)}</span>,
     },
   ]
@@ -443,7 +445,7 @@ export default function PaginaContactos() {
           <Avatar nombre={nombreCompleto} tamano="md" />
           <div className="min-w-0 flex-1">
             <div className="font-medium text-texto-primario truncate">{nombreCompleto}</div>
-            <div className="text-xs text-texto-terciario truncate">{fila.correo || 'Sin correo'}</div>
+            <div className="text-xs text-texto-terciario truncate">{fila.correo || t('comun.sin_correo')}</div>
           </div>
         </div>
 
@@ -451,7 +453,7 @@ export default function PaginaContactos() {
         <div className="space-y-1.5">
           <div className="flex items-center gap-2 flex-wrap">
             {tipo && <Insignia color={color} tamano="sm">{tipo.etiqueta}</Insignia>}
-            {fila.codigo && <span className="text-[11px] text-texto-terciario font-mono">{fila.codigo}</span>}
+            {fila.codigo && <span className="text-xs text-texto-terciario font-mono">{fila.codigo}</span>}
           </div>
           {fila.cargo && <p className="text-xs text-texto-terciario truncate">{fila.cargo}{fila.rubro ? ` · ${fila.rubro}` : ''}</p>}
         </div>
@@ -462,13 +464,13 @@ export default function PaginaContactos() {
             {fila.etiquetas.slice(0, 3).map(e => (
               <Insignia key={e} color="neutro" tamano="sm">{e}</Insignia>
             ))}
-            {fila.etiquetas.length > 3 && <span className="text-[11px] text-texto-terciario">+{fila.etiquetas.length - 3}</span>}
+            {fila.etiquetas.length > 3 && <span className="text-xs text-texto-terciario">+{fila.etiquetas.length - 3}</span>}
           </div>
         )}
 
         {/* ── Detalle ── */}
         {tieneDetalle && (
-          <div className="border-t border-borde-sutil pt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-texto-terciario">
+          <div className="border-t border-borde-sutil pt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-texto-terciario">
             {(fila.telefono || fila.whatsapp) && (
               <span className="flex items-center gap-1">
                 <Phone size={10} className="shrink-0" />
@@ -490,16 +492,16 @@ export default function PaginaContactos() {
   return (
     <>
     <PlantillaListado
-      titulo="Contactos"
+      titulo={t('contactos.titulo')}
       icono={<Users size={20} />}
       accionPrincipal={{
-        etiqueta: 'Nuevo contacto',
+        etiqueta: t('contactos.nuevo'),
         icono: <UserPlus size={14} />,
         onClick: () => router.push('/contactos/nuevo'),
       }}
       acciones={[
-        { id: 'importar', etiqueta: 'Importar', icono: <Upload size={14} />, onClick: () => setModalImportar(true) },
-        { id: 'exportar', etiqueta: 'Exportar Excel', icono: <Download size={14} />, onClick: async () => {
+        { id: 'importar', etiqueta: t('comun.importar'), icono: <Upload size={14} />, onClick: () => setModalImportar(true) },
+        { id: 'exportar', etiqueta: t('comun.exportar'), icono: <Download size={14} />, onClick: async () => {
           const res = await fetch('/api/contactos/exportar')
           if (!res.ok) return
           const blob = await res.blob()
@@ -518,7 +520,7 @@ export default function PaginaContactos() {
           <button
             type="button"
             onClick={() => router.replace('/contactos')}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-superficie-elevada text-texto-primario border border-borde-sutil hover:border-borde-fuerte transition-colors cursor-pointer shrink-0"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-superficie-elevada text-texto-primario border border-borde-sutil hover:border-borde-fuerte transition-colors cursor-pointer shrink-0"
           >
             {nombreFiltro}
             <X size={10} className="text-texto-terciario" />
@@ -536,7 +538,7 @@ export default function PaginaContactos() {
         accionesLote={[
           {
             id: 'eliminar',
-            etiqueta: 'Eliminar',
+            etiqueta: t('comun.eliminar'),
             icono: <Trash2 size={14} />,
             onClick: eliminarContactosLote,
             peligro: true,
@@ -544,9 +546,15 @@ export default function PaginaContactos() {
         ]}
         busqueda={busqueda}
         onBusqueda={setBusqueda}
-        placeholder="Buscar contactos..."
+        placeholder={t('contactos.buscar_placeholder')}
         idModulo="contactos"
         columnasVisiblesDefault={COLUMNAS_VISIBLES_DEFAULT}
+        opcionesOrden={[
+          { etiqueta: t('comun.mas_recientes'), clave: 'creado_en', direccion: 'desc' },
+          { etiqueta: t('comun.mas_antiguos'), clave: 'creado_en', direccion: 'asc' },
+          { etiqueta: t('comun.nombre_az'), clave: 'nombre', direccion: 'asc' },
+          { etiqueta: t('comun.nombre_za'), clave: 'nombre', direccion: 'desc' },
+        ]}
         onClickFila={(fila) => {
           // Guardar IDs de la lista actual para navegación anterior/siguiente
           try { sessionStorage.setItem('contactos_lista_ids', JSON.stringify(contactos.map(c => c.id))) } catch {}
@@ -558,7 +566,7 @@ export default function PaginaContactos() {
           <EstadoVacio
             icono={<UserRoundSearch size={52} strokeWidth={1} />}
             titulo="Por acá se está muy solo..."
-            descripcion="Tu directorio está esperando su primer contacto. Dale vida sumando clientes, prospectos o proveedores."
+            descripcion={t('contactos.descripcion_vacia')}
             accion={
               <Boton onClick={() => router.push('/contactos/nuevo')}>
                 Sumar primer contacto

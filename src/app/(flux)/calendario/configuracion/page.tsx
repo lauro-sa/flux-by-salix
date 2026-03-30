@@ -6,6 +6,7 @@ import { Settings2, RefreshCw, CalendarOff, Eye } from 'lucide-react'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { useTraduccion } from '@/lib/i18n'
 
 /**
  * Página de configuración de Calendario.
@@ -14,20 +15,21 @@ import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 export default function PaginaConfiguracionCalendario() {
   const router = useRouter()
   const [seccionActiva, setSeccionActiva] = useState('general')
+  const { t } = useTraduccion()
 
   const secciones: SeccionConfig[] = [
     { id: 'general', etiqueta: 'General', icono: <Settings2 size={16} /> },
-    { id: 'sincronizacion', etiqueta: 'Sincronización', icono: <RefreshCw size={16} />, deshabilitada: true },
-    { id: 'festivos', etiqueta: 'Festivos', icono: <CalendarOff size={16} />, deshabilitada: true },
-    { id: 'disponibilidad', etiqueta: 'Disponibilidad', icono: <Eye size={16} />, deshabilitada: true },
+    { id: 'sincronizacion', etiqueta: t('calendario.sincronizacion'), icono: <RefreshCw size={16} />, deshabilitada: true },
+    { id: 'festivos', etiqueta: t('calendario.festivos'), icono: <CalendarOff size={16} />, deshabilitada: true },
+    { id: 'disponibilidad', etiqueta: t('calendario.disponibilidad'), icono: <Eye size={16} />, deshabilitada: true },
   ]
 
   return (
     <PlantillaConfiguracion
-      titulo="Configuración de Calendario"
-      descripcion="Sincronización, vistas predeterminadas y días no laborables."
+      titulo={t('calendario.config_titulo')}
+      descripcion={t('calendario.config_desc')}
       iconoHeader={<CalendarOff size={22} style={{ color: 'var(--texto-marca)' }} />}
-      volverTexto="Calendario"
+      volverTexto={t('calendario.titulo')}
       onVolver={() => router.push('/calendario')}
       secciones={secciones}
       seccionActiva={seccionActiva}
@@ -35,8 +37,8 @@ export default function PaginaConfiguracionCalendario() {
     >
       <EstadoVacio
         icono={<Settings2 />}
-        titulo="Próximamente"
-        descripcion="Acá podrás configurar sincronización con calendarios externos, días festivos y reglas de disponibilidad."
+        titulo={t('comun.proximamente')}
+        descripcion={t('comun.proximamente_desc')}
       />
     </PlantillaConfiguracion>
   )

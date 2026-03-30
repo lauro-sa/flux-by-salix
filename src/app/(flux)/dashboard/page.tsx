@@ -55,11 +55,11 @@ interface MetricasInbox {
 
 // ─── Helpers ───
 
-function obtenerSaludo(): string {
+function obtenerClaveSaludo(): string {
   const hora = new Date().getHours()
-  if (hora < 12) return 'Buenos días'
-  if (hora < 19) return 'Buenas tardes'
-  return 'Buenas noches'
+  if (hora < 12) return 'dashboard.saludos.buenos_dias'
+  if (hora < 19) return 'dashboard.saludos.buenas_tardes'
+  return 'dashboard.saludos.buenas_noches'
 }
 
 function obtenerNombreUsuario(usuario: { user_metadata?: Record<string, string> } | null): string {
@@ -104,7 +104,7 @@ export default function PaginaDashboard() {
   const [metricas, setMetricas] = useState<MetricasInbox | null>(null)
   const [cargando, setCargando] = useState(true)
 
-  const saludo = useMemo(() => obtenerSaludo(), [])
+  const claveSaludo = useMemo(() => obtenerClaveSaludo(), [])
   const nombre = useMemo(() => obtenerNombreUsuario(usuario), [usuario])
 
   // Cargar datos
@@ -149,7 +149,7 @@ export default function PaginaDashboard() {
       {/* ─── Saludo ─── */}
       <motion.div variants={itemVariantes}>
         <h1 className="text-2xl font-bold text-texto-primario">
-          {saludo}{nombre ? `, ${nombre}` : ''}
+          {t(claveSaludo)}{nombre ? `, ${nombre}` : ''}
         </h1>
         <p className="text-sm text-texto-terciario mt-1">
           {empresa ? (empresa as Record<string, unknown>).nombre as string : 'Flux by Salix'}
@@ -159,42 +159,42 @@ export default function PaginaDashboard() {
       {/* ─── Tarjetas de métricas principales ─── */}
       <motion.div variants={itemVariantes} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <TarjetaMetrica
-          titulo="Contactos"
+          titulo={t('contactos.titulo')}
           valor={datos?.contactos.total ?? 0}
           icono={<Users size={20} strokeWidth={1.5} />}
           color="primario"
           onClick={() => router.push('/contactos')}
         />
         <TarjetaMetrica
-          titulo="Presupuestos"
+          titulo={t('navegacion.presupuestos')}
           valor={datos?.presupuestos.total ?? 0}
           icono={<FileText size={20} strokeWidth={1.5} />}
           color="info"
-          detalle={datos?.presupuestos.por_estado.borrador ? `${datos.presupuestos.por_estado.borrador} borradores` : undefined}
+          detalle={datos?.presupuestos.por_estado.borrador ? `${datos.presupuestos.por_estado.borrador} ${t('dashboard.borradores')}` : undefined}
           onClick={() => router.push('/presupuestos')}
         />
         <TarjetaMetrica
-          titulo="Conversaciones"
+          titulo={t('inbox.conversaciones')}
           valor={datos?.conversaciones.abiertas ?? 0}
           icono={<MessageSquare size={20} strokeWidth={1.5} />}
           color="exito"
-          detalle={datos?.conversaciones.sin_leer ? `${datos.conversaciones.sin_leer} sin leer` : undefined}
+          detalle={datos?.conversaciones.sin_leer ? `${datos.conversaciones.sin_leer} ${t('dashboard.sin_leer')}` : undefined}
           onClick={() => router.push('/inbox')}
         />
         <TarjetaMetrica
-          titulo="Mensajes (30d)"
+          titulo={t('dashboard.mensajes_30d')}
           valor={(metricas?.resumen.mensajes_recibidos ?? 0) + (metricas?.resumen.mensajes_enviados ?? 0)}
           icono={<Mail size={20} strokeWidth={1.5} />}
           color="violeta"
-          detalle={metricas?.resumen.mensajes_recibidos ? `${metricas.resumen.mensajes_recibidos} recibidos` : undefined}
+          detalle={metricas?.resumen.mensajes_recibidos ? `${metricas.resumen.mensajes_recibidos} ${t('dashboard.recibidos').toLowerCase()}` : undefined}
         />
       </motion.div>
 
       {/* ─── Accesos rápidos ─── */}
       <motion.div variants={itemVariantes} className="flex flex-wrap gap-2">
-        <BotonRapido etiqueta="Nuevo contacto" icono={<Users size={15} />} onClick={() => router.push('/contactos/nuevo')} />
-        <BotonRapido etiqueta="Nuevo presupuesto" icono={<FileText size={15} />} onClick={() => router.push('/presupuestos/nuevo')} />
-        <BotonRapido etiqueta="Ir al inbox" icono={<MessageSquare size={15} />} onClick={() => router.push('/inbox')} />
+        <BotonRapido etiqueta={t('contactos.nuevo')} icono={<Users size={15} />} onClick={() => router.push('/contactos/nuevo')} />
+        <BotonRapido etiqueta={t('documentos.tipos.presupuesto')} icono={<FileText size={15} />} onClick={() => router.push('/presupuestos/nuevo')} />
+        <BotonRapido etiqueta={t('dashboard.ir_al_inbox')} icono={<MessageSquare size={15} />} onClick={() => router.push('/inbox')} />
       </motion.div>
 
       {/* ─── Grid de paneles ─── */}
@@ -203,13 +203,13 @@ export default function PaginaDashboard() {
         {/* ─── Contactos recientes (columna izquierda) ─── */}
         <motion.div variants={itemVariantes}>
           <Tarjeta
-            titulo="Contactos recientes"
+            titulo={`${t('contactos.titulo')} ${t('dashboard.recientes')}`}
             acciones={
               <button
                 onClick={() => router.push('/contactos')}
                 className="text-xs text-texto-terciario hover:text-texto-primario transition-colors flex items-center gap-1"
               >
-                Ver todos <ArrowRight size={12} />
+                {t('dashboard.ver_todo')} <ArrowRight size={12} />
               </button>
             }
           >
@@ -239,7 +239,7 @@ export default function PaginaDashboard() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-texto-terciario py-4 text-center">Sin contactos aún</p>
+              <p className="text-sm text-texto-terciario py-4 text-center">{t('contactos.sin_contactos')}</p>
             )}
           </Tarjeta>
         </motion.div>
@@ -247,13 +247,13 @@ export default function PaginaDashboard() {
         {/* ─── Métricas del inbox (columna central) ─── */}
         <motion.div variants={itemVariantes}>
           <Tarjeta
-            titulo="Inbox — últimos 30 días"
+            titulo={t('dashboard.inbox_ultimos_30d')}
             acciones={
               <button
                 onClick={() => router.push('/inbox')}
                 className="text-xs text-texto-terciario hover:text-texto-primario transition-colors flex items-center gap-1"
               >
-                Ver todo <ArrowRight size={12} />
+                {t('dashboard.ver_todo')} <ArrowRight size={12} />
               </button>
             }
           >
@@ -261,22 +261,22 @@ export default function PaginaDashboard() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <MiniMetrica
-                    etiqueta="Recibidos"
+                    etiqueta={t('dashboard.label_recibidos')}
                     valor={metricas.resumen.mensajes_recibidos}
                     icono={<InboxIcon size={14} />}
                   />
                   <MiniMetrica
-                    etiqueta="Enviados"
+                    etiqueta={t('dashboard.label_enviados')}
                     valor={metricas.resumen.mensajes_enviados}
                     icono={<Send size={14} />}
                   />
                   <MiniMetrica
-                    etiqueta="Resueltas"
+                    etiqueta={t('dashboard.label_resueltas')}
                     valor={metricas.resumen.conversaciones_resueltas}
                     icono={<CheckCircle2 size={14} />}
                   />
                   <MiniMetrica
-                    etiqueta="Tiempo resp."
+                    etiqueta={t('dashboard.label_tiempo_resp')}
                     valor={`${metricas.resumen.tiempo_respuesta_promedio_min}m`}
                     icono={<Clock size={14} />}
                   />
@@ -285,7 +285,7 @@ export default function PaginaDashboard() {
                 {/* Barra de SLA */}
                 <div>
                   <div className="flex items-center justify-between text-xs mb-1.5">
-                    <span className="text-texto-secundario">SLA cumplido</span>
+                    <span className="text-texto-secundario">{t('dashboard.sla_cumplido')}</span>
                     <span className={`font-semibold ${metricas.resumen.sla_cumplido_pct >= 80 ? 'text-insignia-exito-texto' : metricas.resumen.sla_cumplido_pct >= 50 ? 'text-insignia-advertencia-texto' : 'text-insignia-peligro-texto'}`}>
                       {metricas.resumen.sla_cumplido_pct}%
                     </span>
@@ -303,7 +303,7 @@ export default function PaginaDashboard() {
                 {/* Agentes */}
                 {metricas.por_agente.length > 0 && (
                   <div className="pt-2 border-t border-borde-sutil">
-                    <p className="text-xs text-texto-terciario mb-2">Por agente</p>
+                    <p className="text-xs text-texto-terciario mb-2">{t('dashboard.por_agente')}</p>
                     <div className="space-y-1.5">
                       {metricas.por_agente.slice(0, 3).map(agente => (
                         <div key={agente.nombre} className="flex items-center justify-between text-xs">
@@ -323,7 +323,7 @@ export default function PaginaDashboard() {
                 )}
               </div>
             ) : (
-              <p className="text-sm text-texto-terciario">Sin datos de inbox disponibles</p>
+              <p className="text-sm text-texto-terciario">{t('dashboard.sin_datos_inbox')}</p>
             )}
           </Tarjeta>
         </motion.div>
@@ -331,13 +331,13 @@ export default function PaginaDashboard() {
         {/* ─── Presupuestos recientes ─── */}
         <motion.div variants={itemVariantes}>
           <Tarjeta
-            titulo="Presupuestos recientes"
+            titulo={`${t('navegacion.presupuestos')} ${t('dashboard.recientes')}`}
             acciones={
               <button
                 onClick={() => router.push('/presupuestos')}
                 className="text-xs text-texto-terciario hover:text-texto-primario transition-colors flex items-center gap-1"
               >
-                Ver todos <ArrowRight size={12} />
+                {t('dashboard.ver_todo')} <ArrowRight size={12} />
               </button>
             }
           >
@@ -370,14 +370,14 @@ export default function PaginaDashboard() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-texto-terciario py-4 text-center">Sin presupuestos aún</p>
+              <p className="text-sm text-texto-terciario py-4 text-center">{t('documentos.sin_documentos')}</p>
             )}
           </Tarjeta>
         </motion.div>
 
         {/* ─── Resumen de presupuestos por estado ─── */}
         <motion.div variants={itemVariantes}>
-          <Tarjeta titulo="Presupuestos por estado">
+          <Tarjeta titulo={`${t('navegacion.presupuestos')} ${t('dashboard.por_estado')}`}>
             {datos?.presupuestos.por_estado && Object.keys(datos.presupuestos.por_estado).length > 0 ? (
               <div className="space-y-2.5">
                 {Object.entries(datos.presupuestos.por_estado)
@@ -409,7 +409,7 @@ export default function PaginaDashboard() {
                   })}
               </div>
             ) : (
-              <p className="text-sm text-texto-terciario py-4 text-center">Sin presupuestos aún</p>
+              <p className="text-sm text-texto-terciario py-4 text-center">{t('documentos.sin_documentos')}</p>
             )}
           </Tarjeta>
         </motion.div>

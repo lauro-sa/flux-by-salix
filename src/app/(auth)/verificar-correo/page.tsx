@@ -85,7 +85,7 @@ export default function PaginaVerificarCorreo() {
           className="mb-4 p-3 rounded-lg bg-insignia-exito/10 border border-insignia-exito/20 flex items-center justify-center gap-2 text-sm text-insignia-exito"
         >
           <CheckCircle size={16} />
-          <span>Email reenviado</span>
+          <span>{t('auth.email_reenviado')}</span>
         </motion.div>
       )}
 
@@ -96,7 +96,7 @@ export default function PaginaVerificarCorreo() {
         onClick={reenviarVerificacion}
         icono={<RefreshCw size={16} />}
       >
-        Reenviar verificación
+        {t('auth.reenviar_verificacion')}
       </Boton>
 
       {/* Indicador de espera */}
@@ -106,7 +106,7 @@ export default function PaginaVerificarCorreo() {
           transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
           className="w-3 h-3 border border-texto-terciario border-t-transparent rounded-full"
         />
-        <span>Esperando verificación...</span>
+        <span>{t('auth.esperando_verificacion')}</span>
       </div>
     </div>
   )

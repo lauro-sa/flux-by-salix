@@ -169,7 +169,7 @@ export function BannerContacto({
             WebkitBackdropFilter: avatarUrl ? undefined : 'blur(20px) saturate(1.8)',
             border: '3px solid rgba(255, 255, 255, 0.18)',
             color: 'rgba(255, 255, 255, 0.9)',
-            boxShadow: '0 6px 20px rgba(0, 0, 0, 0.2)',
+            boxShadow: 'var(--sombra-lg)',
             overflow: 'hidden',
           }}
         >

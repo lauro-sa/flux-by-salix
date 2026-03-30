@@ -11,8 +11,10 @@ import { SelectorColor, extraerColoresDeImagen } from '@/componentes/ui/Selector
 import { IndicadorGuardado } from '@/componentes/ui/IndicadorGuardado'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useAutoguardado } from '@/hooks/useAutoguardado'
+import { useTraduccion } from '@/lib/i18n'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { etiquetaPais } from '@/lib/paises'
+import { COLOR_MARCA_DEFECTO } from '@/lib/colores_entidad'
 import type { CampoFiscalPais } from '@/tipos/contacto'
 
 /**
@@ -20,6 +22,7 @@ import type { CampoFiscalPais } from '@/tipos/contacto'
  * Autoguardado al salir de cada campo. Sin botón guardar.
  */
 export function SeccionGeneral() {
+  const { t } = useTraduccion()
   const { empresa } = useEmpresa()
 
   const [nombre, setNombre] = useState('')
@@ -91,7 +94,7 @@ export function SeccionGeneral() {
           guardarEnServidor({ telefono: telFormateado })
         }
         setLogoCuadrado(data.logo_url || null)
-        setColorMarca(data.color_marca || '#6366f1')
+        setColorMarca(data.color_marca || COLOR_MARCA_DEFECTO)
 
         // Extraer colores del logo si existe
         if (data.logo_url) {
@@ -207,7 +210,7 @@ export function SeccionGeneral() {
           <Input
             tipo="text"
             formato="nombre_empresa"
-            etiqueta="Nombre de la empresa"
+            etiqueta={t('empresa.nombre')}
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             onBlur={() => nombre && guardar({ nombre })}
@@ -216,7 +219,7 @@ export function SeccionGeneral() {
           <Input
             tipo="text"
             formato="slug"
-            etiqueta="Subdominio"
+            etiqueta={t('empresa.slug')}
             value={slug}
             onChange={(e) => setSlug(e.target.value)}
             onBlur={() => slug && guardar({ slug })}
@@ -227,7 +230,7 @@ export function SeccionGeneral() {
 
         <Input
           tipo="text"
-          etiqueta="Descripción de la empresa"
+          etiqueta={t('empresa.descripcion')}
           value={descripcionEmpresa}
           onChange={(e) => setDescripcionEmpresa(e.target.value)}
           onBlur={() => guardar({ descripcion: descripcionEmpresa })}
@@ -235,7 +238,7 @@ export function SeccionGeneral() {
         />
 
         <BloqueDireccion
-          etiqueta="Ubicación de la empresa"
+          etiqueta={t('comun.ubicacion')}
           valorInicial={direccionEmpresa as Partial<DatosDireccion> | null}
           alCambiar={(dir) => {
             setUbicacion(dir.textoCompleto)
@@ -248,7 +251,7 @@ export function SeccionGeneral() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             tipo="email"
-            etiqueta="Correo de la empresa"
+            etiqueta={t('empresa.correo_contacto')}
             placeholder="info@miempresa.com"
             value={correo}
             onChange={(e) => setCorreo(e.target.value)}
@@ -257,7 +260,7 @@ export function SeccionGeneral() {
           />
           <Input
             tipo="tel"
-            etiqueta="Teléfono"
+            etiqueta={t('empresa.telefono')}
             placeholder="+54 11 1234-5678"
             value={telefono}
             onChange={(e) => setTelefono(e.target.value)}
@@ -268,7 +271,7 @@ export function SeccionGeneral() {
 
         <Input
           tipo="url"
-          etiqueta="Página web"
+          etiqueta={t('comun.web')}
           placeholder="https://miempresa.com"
           value={paginaWeb}
           onChange={(e) => setPaginaWeb(e.target.value)}

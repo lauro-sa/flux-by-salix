@@ -4,14 +4,18 @@
  * Se usa en: /portal/[token]
  */
 
+import { ProveedorIdioma } from '@/lib/i18n'
+
 export default function LayoutPortal({
   children,
 }: {
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-dvh bg-superficie-app text-texto-primario">
-      {children}
-    </div>
+    <ProveedorIdioma>
+      <div className="min-h-dvh bg-superficie-app text-texto-primario">
+        {children}
+      </div>
+    </ProveedorIdioma>
   )
 }

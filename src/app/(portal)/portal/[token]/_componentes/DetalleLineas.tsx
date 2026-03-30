@@ -9,6 +9,7 @@
 import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { formatearNumero } from '@/lib/pdf/renderizar-html'
+import { useTraduccion } from '@/lib/i18n'
 import type { LineaPresupuesto } from '@/tipos/presupuesto'
 
 interface Props {
@@ -30,6 +31,7 @@ export default function DetalleLineas({
   descuentoGlobalMonto,
   totalFinal,
 }: Props) {
+  const { t } = useTraduccion()
   const lineasProducto = lineas.filter(l => l.tipo_linea === 'producto')
   const soloUna = lineasProducto.length === 1
   const [expandida, setExpandida] = useState<string | null>(soloUna ? lineasProducto[0]?.id : null)
@@ -40,8 +42,8 @@ export default function DetalleLineas({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-[11px] text-texto-terciario uppercase tracking-wider font-medium">
-        Detalle
+      <h3 className="text-xs text-texto-terciario uppercase tracking-wider font-medium">
+        {t('portal.detalle')}
       </h3>
 
       <div className="border border-borde-sutil rounded-xl overflow-hidden divide-y divide-borde-sutil">
@@ -67,7 +69,7 @@ export default function DetalleLineas({
           if (linea.tipo_linea === 'descuento') {
             return (
               <div key={linea.id} className="px-4 py-2.5 flex justify-between items-center">
-                <span className="text-sm text-estado-error">{linea.descripcion || 'Descuento'}</span>
+                <span className="text-sm text-estado-error">{linea.descripcion || t('portal.descuento')}</span>
                 <span className="text-sm font-mono text-estado-error">
                   -{simbolo} {formatearNumero(linea.monto || '0')}
                 </span>
@@ -110,10 +112,10 @@ export default function DetalleLineas({
                     </p>
                   )}
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-texto-terciario">
-                    <span>Cantidad: {formatearNumero(linea.cantidad)} {linea.unidad || 'un'}</span>
-                    <span>Precio unit.: {simbolo} {formatearNumero(linea.precio_unitario)}</span>
+                    <span>{t('portal.cantidad')}: {formatearNumero(linea.cantidad)} {linea.unidad || 'un'}</span>
+                    <span>{t('portal.precio_unitario')}: {simbolo} {formatearNumero(linea.precio_unitario)}</span>
                     {parseFloat(linea.descuento) > 0 && (
-                      <span>Descuento: {linea.descuento}%</span>
+                      <span>{t('portal.descuento_linea')}: {linea.descuento}%</span>
                     )}
                     {linea.impuesto_label && (
                       <span>{linea.impuesto_label}</span>
@@ -129,23 +131,23 @@ export default function DetalleLineas({
       {/* Totales */}
       <div className="space-y-1.5 pt-2">
         <div className="flex justify-between text-sm">
-          <span className="text-texto-secundario">Subtotal neto</span>
+          <span className="text-texto-secundario">{t('portal.subtotal_neto')}</span>
           <span className="font-mono text-texto-primario">{simbolo} {formatearNumero(subtotalNeto)}</span>
         </div>
         {parseFloat(totalImpuestos) > 0 && (
           <div className="flex justify-between text-sm">
-            <span className="text-texto-secundario">Impuestos</span>
+            <span className="text-texto-secundario">{t('portal.impuestos')}</span>
             <span className="font-mono text-texto-primario">{simbolo} {formatearNumero(totalImpuestos)}</span>
           </div>
         )}
         {parseFloat(descuentoGlobal) > 0 && (
           <div className="flex justify-between text-sm">
-            <span className="text-texto-secundario">Descuento ({descuentoGlobal}%)</span>
+            <span className="text-texto-secundario">{t('portal.descuento')} ({descuentoGlobal}%)</span>
             <span className="font-mono text-estado-error">-{simbolo} {formatearNumero(descuentoGlobalMonto)}</span>
           </div>
         )}
         <div className="flex justify-between text-base font-bold border-t border-borde-sutil pt-2 mt-2">
-          <span className="text-texto-primario">Total</span>
+          <span className="text-texto-primario">{t('portal.total')}</span>
           <span className="font-mono text-marca-500">{simbolo} {formatearNumero(totalFinal)}</span>
         </div>
       </div>

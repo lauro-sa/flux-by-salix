@@ -13,6 +13,7 @@ import {
   Tag, CheckCircle, Eye, EyeOff,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
+import { useTraduccion } from '@/lib/i18n'
 import type { ConversacionConDetalles, EstadoConversacion, TipoCanal } from '@/tipos/inbox'
 
 /**
@@ -88,6 +89,7 @@ export function ListaConversaciones({
   onFiltroEtiqueta,
   onOperacionMasiva,
 }: PropiedadesListaConversaciones) {
+  const { t } = useTraduccion()
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
   const [modoSeleccion, setModoSeleccion] = useState(false)
@@ -127,11 +129,11 @@ export function ListaConversaciones({
   }, [seleccionados, onEliminarSeleccion])
 
   const estados: { clave: EstadoConversacion | 'todas'; etiqueta: string }[] = [
-    { clave: 'todas', etiqueta: 'Todas' },
-    { clave: 'abierta', etiqueta: 'Abiertas' },
-    { clave: 'en_espera', etiqueta: 'En espera' },
-    { clave: 'resuelta', etiqueta: 'Resueltas' },
-    { clave: 'spam', etiqueta: 'Spam' },
+    { clave: 'todas', etiqueta: t('inbox.todas') },
+    { clave: 'abierta', etiqueta: t('inbox.abiertas') },
+    { clave: 'en_espera', etiqueta: t('inbox.en_espera') },
+    { clave: 'resuelta', etiqueta: t('inbox.resueltas') },
+    { clave: 'spam', etiqueta: t('inbox.spam') },
   ]
 
   return (
@@ -167,7 +169,7 @@ export function ListaConversaciones({
                 className="text-xxs px-2 py-0.5 rounded"
                 style={{ color: 'var(--texto-terciario)' }}
               >
-                Cancelar
+                {t('comun.cancelar')}
               </button>
             </div>
           </div>
@@ -176,7 +178,7 @@ export function ListaConversaciones({
             <div className="flex items-center gap-2">
               {ICONO_CANAL[tipoCanal]}
               <span className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
-                Conversaciones
+                {t('inbox.conversaciones')}
               </span>
               {totalNoLeidos > 0 && (
                 <span
@@ -301,14 +303,14 @@ export function ListaConversaciones({
               className="text-xxs px-2 py-1 rounded flex items-center gap-1 transition-colors"
               style={{ color: 'var(--texto-secundario)', background: 'var(--superficie-tarjeta)' }}
             >
-              <Eye size={10} /> Marcar leído
+              <Eye size={10} /> {t('inbox.marcar_leido')}
             </button>
             <button
               onClick={() => { onOperacionMasiva('marcar_no_leido', [...seleccionados]); setSeleccionados(new Set()); setModoSeleccion(false) }}
               className="text-xxs px-2 py-1 rounded flex items-center gap-1 transition-colors"
               style={{ color: 'var(--texto-secundario)', background: 'var(--superficie-tarjeta)' }}
             >
-              <EyeOff size={10} /> No leído
+              <EyeOff size={10} /> {t('inbox.marcar_no_leido')}
             </button>
             <button
               onClick={() => { onOperacionMasiva('cerrar', [...seleccionados]); setSeleccionados(new Set()); setModoSeleccion(false) }}
@@ -346,10 +348,10 @@ export function ListaConversaciones({
               {ICONO_CANAL[tipoCanal]}
             </div>
             <p className="text-sm" style={{ color: 'var(--texto-secundario)' }}>
-              Sin conversaciones
+              {t('inbox.sin_conversaciones')}
             </p>
             <p className="text-xs mt-1" style={{ color: 'var(--texto-terciario)' }}>
-              No hay conversaciones activas en este canal.
+              {t('inbox.sin_conversaciones_desc')}
             </p>
           </div>
         ) : (
@@ -410,7 +412,7 @@ export function ListaConversaciones({
                       </span>
                       {conv.contacto?.es_provisorio && (
                         <span
-                          className="text-[9px] font-medium px-1 py-0.5 rounded flex-shrink-0"
+                          className="text-xxs font-medium px-1 py-0.5 rounded flex-shrink-0"
                           style={{
                             background: 'var(--insignia-advertencia-fondo)',
                             color: 'var(--insignia-advertencia-texto)',
@@ -431,10 +433,10 @@ export function ListaConversaciones({
                         )}
                         {conv.mensajes_sin_leer > 0 && (
                           <span
-                            className="min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center text-[11px] font-bold"
+                            className="min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center text-xs font-bold"
                             style={{
                               background: 'var(--insignia-exito)',
-                              color: '#fff',
+                              color: 'var(--texto-inverso)',
                             }}
                           >
                             {conv.mensajes_sin_leer > 99 ? '99+' : conv.mensajes_sin_leer}

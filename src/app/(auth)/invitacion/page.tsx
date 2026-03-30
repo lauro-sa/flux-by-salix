@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import { Users, ArrowRight, AlertCircle, Building2, Loader2 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { useAuth } from '@/hooks/useAuth'
+import { useTraduccion } from '@/lib/i18n'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import Link from 'next/link'
 
@@ -24,6 +25,7 @@ interface DatosInvitacion {
 }
 
 function ContenidoInvitacion() {
+  const { t } = useTraduccion()
   const { usuario, cargando: cargandoAuth } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -38,7 +40,7 @@ function ContenidoInvitacion() {
   // Validar token al cargar
   useEffect(() => {
     if (!token) {
-      setError('No se proporcionó un token de invitación')
+      setError(t('invitacion.error_sin_token'))
       setCargando(false)
       return
     }
@@ -54,7 +56,7 @@ function ContenidoInvitacion() {
         .single()
 
       if (err || !data) {
-        setError('Invitación no válida o expirada')
+        setError(t('invitacion.error_no_valida'))
         setCargando(false)
         return
       }
@@ -101,7 +103,7 @@ function ContenidoInvitacion() {
     return (
       <div className="flex flex-col items-center justify-center py-8">
         <Loader2 size={24} className="animate-spin text-texto-marca mb-4" />
-        <p className="text-sm text-texto-terciario">Validando invitación...</p>
+        <p className="text-sm text-texto-terciario">{t('invitacion.validando')}</p>
       </div>
     )
   }
@@ -114,12 +116,12 @@ function ContenidoInvitacion() {
           <AlertCircle size={28} className="text-insignia-peligro" />
         </div>
         <h2 className="text-lg font-semibold text-texto-primario mb-2">
-          Invitación no válida
+          {t('invitacion.no_valida_titulo')}
         </h2>
         <p className="text-sm text-texto-terciario mb-6">{error}</p>
         <Link href="/login">
           <Boton variante="secundario" anchoCompleto>
-            Ir al inicio de sesión
+            {t('invitacion.ir_login')}
           </Boton>
         </Link>
       </div>
@@ -138,10 +140,10 @@ function ContenidoInvitacion() {
           <Users size={28} className="text-insignia-exito" />
         </motion.div>
         <h2 className="text-lg font-semibold text-texto-primario mb-2">
-          Te uniste a {invitacion?.empresa_nombre}
+          {t('invitacion.te_uniste_a')} {invitacion?.empresa_nombre}
         </h2>
         <p className="text-sm text-texto-terciario">
-          Un administrador debe activar tu cuenta. Redirigiendo...
+          {t('invitacion.activacion_pendiente')}
         </p>
       </div>
     )
@@ -159,10 +161,10 @@ function ContenidoInvitacion() {
       </motion.div>
 
       <h2 className="text-lg font-semibold text-texto-primario mb-2">
-        Invitación a {invitacion?.empresa_nombre}
+        {t('invitacion.invitacion_a')} {invitacion?.empresa_nombre}
       </h2>
       <p className="text-sm text-texto-terciario mb-6">
-        Te invitaron como <span className="font-medium text-texto-secundario capitalize">{invitacion?.rol}</span>
+        {t('invitacion.te_invitaron_como')} <span className="font-medium text-texto-secundario capitalize">{invitacion?.rol}</span>
       </p>
 
       {error && (
@@ -180,18 +182,18 @@ function ContenidoInvitacion() {
           onClick={aceptarInvitacion}
           iconoDerecho={<ArrowRight size={16} />}
         >
-          Unirse a {invitacion?.empresa_nombre}
+          {t('invitacion.unirse_a')} {invitacion?.empresa_nombre}
         </Boton>
       ) : (
         <div className="flex flex-col gap-3">
           <Link href={`/login?next=/invitacion?token=${token}`}>
             <Boton variante="primario" anchoCompleto iconoDerecho={<ArrowRight size={16} />}>
-              Iniciar sesión y unirse
+              {t('invitacion.login_y_unirse')}
             </Boton>
           </Link>
           <Link href={`/registro?next=/invitacion?token=${token}`}>
             <Boton variante="secundario" anchoCompleto>
-              Crear cuenta y unirse
+              {t('invitacion.crear_cuenta_y_unirse')}
             </Boton>
           </Link>
         </div>

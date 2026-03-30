@@ -5,7 +5,10 @@
  * Se usa en: /portal/[token] cuando no se encuentran datos.
  */
 
+import { useTraduccion } from '@/lib/i18n'
+
 export default function PortalExpirado() {
+  const { t } = useTraduccion()
   return (
     <div className="min-h-dvh flex items-center justify-center bg-superficie-app px-4">
       <div className="text-center max-w-sm">
@@ -17,7 +20,7 @@ export default function PortalExpirado() {
           </svg>
         </div>
         <h1 className="text-xl font-semibold text-texto-primario mb-2">
-          Enlace no disponible
+          {t('portal.expirado')}
         </h1>
         <p className="text-sm text-texto-secundario leading-relaxed">
           Este enlace ha expirado o no es válido. Si necesitás acceder al documento, contactá a la empresa que te lo envió para solicitar un nuevo enlace.

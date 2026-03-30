@@ -9,6 +9,14 @@
 
 import type { ColorInsignia } from '@/componentes/ui/Insignia'
 
+// ─── Colores por defecto ───
+
+/** Color marca Índigo de Flux — fallback cuando la empresa no tiene color_marca configurado */
+export const COLOR_MARCA_DEFECTO = '#5b5bd6'
+
+/** Color gris neutro — fallback para etiquetas sin color asignado */
+export const COLOR_ETIQUETA_DEFECTO = '#6b7280'
+
 // ─── Tipos de contacto ───
 
 export const COLOR_TIPO_CONTACTO: Record<string, ColorInsignia> = {
