@@ -9,10 +9,18 @@ const ASSETS_ESTATICOS = [
   '/offline',
 ]
 
-// Instalación — cachear assets estáticos
+// Instalación — cachear assets estáticos (sin fallar si alguno no carga)
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_ESTATICOS))
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.allSettled(
+        ASSETS_ESTATICOS.map((url) =>
+          fetch(url).then((res) => {
+            if (res.ok) return cache.put(url, res)
+          }).catch(() => {})
+        )
+      )
+    )
   )
   self.skipWaiting()
 })
