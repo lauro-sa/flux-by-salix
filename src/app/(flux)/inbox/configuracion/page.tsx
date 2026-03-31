@@ -13,6 +13,7 @@ import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Tarjeta } from '@/componentes/ui/Tarjeta'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Alerta } from '@/componentes/ui/Alerta'
+import { CargadorSeccion } from '@/componentes/ui/Cargador'
 import SeccionAgenteIA from '@/app/(flux)/inbox/_componentes/SeccionAgenteIA'
 import { Modal } from '@/componentes/ui/Modal'
 import { Avatar } from '@/componentes/ui/Avatar'
@@ -1391,7 +1392,7 @@ function SeccionChatbot() {
     guardar({ opciones_menu: config.opciones_menu.filter((_, i) => i !== indice) })
   }
 
-  if (cargando) return <div className="py-8 text-center text-sm" style={{ color: 'var(--texto-terciario)' }}>{t('comun.cargando')}</div>
+  if (cargando) return <CargadorSeccion />
 
   const estiloSeccion = { border: '1px solid var(--borde-sutil)' }
   const estiloSelect = { background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }

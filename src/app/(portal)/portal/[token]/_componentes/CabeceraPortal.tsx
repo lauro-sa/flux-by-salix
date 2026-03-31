@@ -59,10 +59,15 @@ export default function CabeceraPortal({ empresa }: Props) {
             </div>
           </div>
 
-          {/* Derecha: LogoSalix animado */}
-          <div className="shrink-0 opacity-60">
-            <LogoSalix layout="horizontal" animacion="ensamble" tamano={22} hover tap={false} />
-          </div>
+          {/* Derecha: LogoSalix animado — enlaza a salixweb.com */}
+          <a
+            href="https://www.salixweb.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 opacity-60 hover:opacity-90 transition-opacity"
+          >
+            <LogoSalix layout="horizontal" animacion="pulso" tamano={22} hover tap={false} />
+          </a>
         </div>
       </div>
     </div>

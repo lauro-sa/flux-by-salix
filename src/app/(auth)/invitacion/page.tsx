@@ -3,8 +3,9 @@
 import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Users, ArrowRight, AlertCircle, Building2, Loader2 } from 'lucide-react'
+import { Users, ArrowRight, AlertCircle, Building2 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { CargadorSeccion } from '@/componentes/ui/Cargador'
 import { useAuth } from '@/hooks/useAuth'
 import { useTraduccion } from '@/lib/i18n'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
@@ -100,12 +101,7 @@ function ContenidoInvitacion() {
 
   // Estado de carga
   if (cargando || cargandoAuth) {
-    return (
-      <div className="flex flex-col items-center justify-center py-8">
-        <Loader2 size={24} className="animate-spin text-texto-marca mb-4" />
-        <p className="text-sm text-texto-terciario">{t('invitacion.validando')}</p>
-      </div>
-    )
+    return <CargadorSeccion texto={t('invitacion.validando')} />
   }
 
   // Error
@@ -204,12 +200,7 @@ function ContenidoInvitacion() {
 
 export default function PaginaInvitacion() {
   return (
-    <Suspense fallback={
-      <div className="flex flex-col items-center justify-center py-8">
-        <Loader2 size={24} className="animate-spin text-texto-marca mb-4" />
-        <p className="text-sm text-texto-terciario">Cargando...</p>
-      </div>
-    }>
+    <Suspense fallback={<CargadorSeccion />}>
       <ContenidoInvitacion />
     </Suspense>
   )

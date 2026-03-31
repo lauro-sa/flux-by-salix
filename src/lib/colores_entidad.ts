@@ -126,6 +126,13 @@ export const COLOR_ESTADO_EVENTO: Record<string, ColorInsignia> = {
   cancelado:  'neutro',
 }
 
+// ─── Tipos de producto/servicio ───
+
+export const COLOR_TIPO_PRODUCTO: Record<string, ColorInsignia> = {
+  producto: 'info',
+  servicio: 'exito',
+}
+
 // ─── Helper genérico ───
 
 /**

@@ -31,6 +31,7 @@ export const perfiles = pgTable('perfiles', {
   telefono: text('telefono'),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+  contacto_emergencia: jsonb('contacto_emergencia'),
 })
 
 // Miembros — relación usuario↔empresa con rol y estado de activación
@@ -658,7 +659,7 @@ export const productos = pgTable('productos', {
   empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
   codigo: text('codigo').notNull(),
   nombre: text('nombre').notNull(),
-  tipo: text('tipo').notNull().default('producto'), // 'producto' | 'servicio'
+  tipo: text('tipo').notNull().default('servicio'), // 'servicio' | 'producto' (default: servicio)
 
   // Categorización
   categoria: text('categoria'),
@@ -701,6 +702,15 @@ export const productos = pgTable('productos', {
   editado_por_nombre: text('editado_por_nombre'),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+
+  // Origen: 'manual' = usuario, 'asistente_salix' = creado por IA
+  origen: text('origen').notNull().default('manual'),
+
+  // Conteo de uso (actualizado automáticamente por triggers SQL)
+  veces_presupuestado: integer('veces_presupuestado').notNull().default(0),
+  veces_vendido: integer('veces_vendido').notNull().default(0),
+  presupuestado_anual: jsonb('presupuestado_anual').notNull().default(sql`'{}'`),
+  vendido_anual: jsonb('vendido_anual').notNull().default(sql`'{}'`),
 }, (tabla) => [
   uniqueIndex('productos_empresa_codigo_idx').on(tabla.empresa_id, tabla.codigo),
   index('productos_empresa_idx').on(tabla.empresa_id),
@@ -724,7 +734,7 @@ export const config_productos = pgTable('config_productos', {
   prefijos: jsonb('prefijos').notNull().default(sql`'[{"id":"producto","prefijo":"PRD","label":"Producto","siguiente":1},{"id":"servicio","prefijo":"SRV","label":"Servicio","siguiente":1}]'`),
 
   // Categorías de desglose de costos
-  categorias_costo: jsonb('categorias_costo').notNull().default(sql`'[{"id":"mano_obra","label":"Mano de obra"},{"id":"materiales","label":"Materiales"},{"id":"flete","label":"Flete"},{"id":"otros","label":"Otros"}]'`),
+  categorias_costo: jsonb('categorias_costo').notNull().default(sql`'[{"id":"mano_obra","label":"Mano de obra"},{"id":"materiales","label":"Materiales"},{"id":"horas_hombre","label":"Horas hombre"},{"id":"movilidad","label":"Movilidad"},{"id":"flete","label":"Flete"},{"id":"seguros","label":"Seguros"},{"id":"repuestos","label":"Repuestos"},{"id":"traslado","label":"Traslado"}]'`),
 
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
 })

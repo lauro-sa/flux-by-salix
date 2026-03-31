@@ -1,6 +1,60 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { useState, useEffect } from 'react'
+import { motion, type Variants } from 'framer-motion'
+import { PIEZAS_ICONO } from '@/componentes/marca'
+
+/** Duración del ciclo en segundos — logo y barra usan el mismo */
+const CICLO = 1.8
+
+/** Variantes de entrada sincronizadas con la barra */
+const variantesCargador: Variants = {
+  oculto: { opacity: 0, scale: 0.3 },
+  visible: (anillo: number) => ({
+    opacity: 1,
+    scale: 1,
+    transition: {
+      type: 'spring',
+      stiffness: 300,
+      damping: 20,
+      delay: anillo * (CICLO / 8),
+    },
+  }),
+}
+
+/** Logo con ripple sincronizado al ciclo de la barra */
+function CargadorLogoLoop({ tamano }: { tamano: number }) {
+  const [key, setKey] = useState(0)
+
+  useEffect(() => {
+    const intervalo = setInterval(() => setKey(k => k + 1), CICLO * 1000)
+    return () => clearInterval(intervalo)
+  }, [])
+
+  return (
+    <motion.svg
+      key={key}
+      viewBox="0 0 24 24"
+      width={tamano}
+      height={tamano}
+      xmlns="http://www.w3.org/2000/svg"
+      role="img"
+      aria-label="Salix"
+      initial="oculto"
+      animate="visible"
+    >
+      {PIEZAS_ICONO.map(pieza => (
+        <motion.path
+          key={pieza.id}
+          d={pieza.d}
+          fill="currentColor"
+          variants={variantesCargador}
+          custom={pieza.anillo}
+        />
+      ))}
+    </motion.svg>
+  )
+}
 
 type TamanoCargador = 'sm' | 'md' | 'lg' | 'pagina'
 
@@ -79,7 +133,60 @@ function Cargador({ tamano = 'md', texto, className = '' }: PropiedadesCargador)
   if (esPagina) {
     return (
       <div className="flex items-center justify-center h-full min-h-[200px] w-full">
-        {contenido}
+        <div className="flex flex-col items-center">
+          {/* Logo: ripple en loop */}
+          <CargadorLogoLoop tamano={48} />
+
+          {/* Nombre del producto */}
+          <motion.span
+            className="mt-6 text-lg font-semibold tracking-[0.25em] uppercase"
+            style={{ color: 'var(--texto-secundario)', fontFamily: 'var(--fuente-sans)' }}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.5 }}
+          >
+            Flux
+          </motion.span>
+
+          {/* Tagline */}
+          <motion.span
+            className="mt-3 text-xxs tracking-[0.12em] uppercase"
+            style={{ color: 'var(--texto-terciario)', fontFamily: 'var(--fuente-sans)' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.5 }}
+            transition={{ delay: 0.5, duration: 0.5 }}
+          >
+            The operating system for your business
+          </motion.span>
+
+          {/* Barra de progreso — sincronizada con el ciclo del logo */}
+          <motion.div
+            className="mt-2.5 w-full rounded-full overflow-hidden"
+            style={{ height: 2, backgroundColor: 'var(--borde-sutil)' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
+          >
+            <motion.div
+              className="h-full rounded-full"
+              style={{ backgroundColor: 'var(--texto-marca)', width: '30%' }}
+              animate={{ x: ['-30%', '340%'] }}
+              transition={{ duration: CICLO, repeat: Infinity, ease: [0.4, 0, 0.2, 1] }}
+            />
+          </motion.div>
+
+          {/* Texto opcional */}
+          {texto && (
+            <motion.span
+              className="mt-4 text-xxs text-texto-terciario"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              transition={{ delay: 0.7 }}
+            >
+              {texto}
+            </motion.span>
+          )}
+        </div>
       </div>
     )
   }

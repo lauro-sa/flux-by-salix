@@ -102,6 +102,7 @@ interface ConfigIA {
   temperatura: number
   max_tokens: number
   modulos_accesibles: string[]
+  prompt_asistente_presupuestos: string
 }
 
 const DEFAULTS: ConfigIA = {
@@ -118,6 +119,7 @@ const DEFAULTS: ConfigIA = {
   temperatura: 0.7,
   max_tokens: 4096,
   modulos_accesibles: ['contactos', 'actividades', 'visitas', 'productos', 'presupuestos', 'facturas', 'ordenes_trabajo'],
+  prompt_asistente_presupuestos: '',
 }
 
 type SubSeccion = 'salix-ia' | 'asistente-general' | 'asistente-creacion'
@@ -498,21 +500,62 @@ export function SeccionIA() {
         <AsistenteGeneral config={config} onActualizar={act} guardando={estado} />
       )}
 
-      {/* ==================== ASISTENTE DE CREACIÓN ==================== */}
+      {/* ==================== ASISTENTE DE CREACIÓN (PRESUPUESTOS) ==================== */}
       {subSeccion === 'asistente-creacion' && (
         <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-6">
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center gap-3 mb-5">
             <div className="w-10 h-10 rounded-xl bg-insignia-info/10 flex items-center justify-center">
               <Wand2 size={20} className="text-insignia-info" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-texto-primario">Asistente de creación</h3>
-              <p className="text-xs text-texto-terciario">Ayuda a crear productos, contactos, visitas, etc.</p>
+              <h3 className="text-sm font-semibold text-texto-primario">Asistente Salix para presupuestos</h3>
+              <p className="text-xs text-texto-terciario">Configurá cómo la IA analiza descripciones de trabajo y propone líneas de presupuesto.</p>
             </div>
           </div>
-          <div className="p-6 rounded-lg bg-superficie-hover/50 border border-borde-sutil">
-            <p className="text-sm text-texto-terciario text-center py-4">
-              Próximamente — Configurá cómo la IA asiste en la creación de registros.
+
+          {/* Instrucciones generales (solo lectura) */}
+          <div className="rounded-xl bg-superficie-hover/50 border border-borde-sutil p-4 mb-5">
+            <p className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-2">Comportamiento general (automático)</p>
+            <ul className="text-xs text-texto-terciario space-y-1.5 list-disc pl-4">
+              <li>Lee la descripción del trabajo y la desglosa en servicios/productos individuales</li>
+              <li>Busca coincidencias exactas en el catálogo de productos de tu empresa</li>
+              <li>Si no encuentra match exacto, propone crear un servicio nuevo con código y categoría</li>
+              <li>Muestra sugerencias del catálogo que podrían coincidir para que elijas manualmente</li>
+              <li>Redacta cada descripción de forma profesional, clara y técnica</li>
+              <li>Respeta la nomenclatura de códigos existente de tu empresa</li>
+            </ul>
+          </div>
+
+          {/* Prompt personalizado */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <label className="text-sm font-medium text-texto-secundario">Instrucciones personalizadas</label>
+                <p className="text-xs text-texto-terciario mt-0.5">
+                  Agregá contexto de tu empresa: rubro, tipos de trabajo, terminología, aclaraciones.
+                </p>
+              </div>
+              <Boton
+                variante="fantasma"
+                tamano="xs"
+                icono={<RotateCcw size={12} />}
+                onClick={() => {
+                  act({ prompt_asistente_presupuestos: PROMPT_PRESUPUESTOS_DEFAULT })
+                }}
+              >
+                Restablecer
+              </Boton>
+            </div>
+            <textarea
+              value={config.prompt_asistente_presupuestos || PROMPT_PRESUPUESTOS_DEFAULT}
+              onChange={(e) => setConfig(prev => ({ ...prev, prompt_asistente_presupuestos: e.target.value }))}
+              onBlur={() => act({ prompt_asistente_presupuestos: config.prompt_asistente_presupuestos })}
+              rows={10}
+              placeholder="Ej: Somos una empresa de herrería y reparación de portones. Un portón NO es lo mismo que una puerta peatonal..."
+              className="w-full px-4 py-3 rounded-xl border border-borde-sutil bg-superficie-app text-sm text-texto-primario font-mono placeholder:text-texto-terciario/40 resize-y focus:outline-none focus:ring-2 focus:ring-texto-marca/30 focus:border-texto-marca transition-colors"
+            />
+            <p className="text-xxs text-texto-terciario mt-1.5">
+              Este texto se envía junto con la descripción del trabajo. Usalo para aclarar terminología, reglas de tu negocio, o cualquier instrucción que la IA deba tener en cuenta.
             </p>
           </div>
         </div>
@@ -520,6 +563,10 @@ export function SeccionIA() {
     </div>
   )
 }
+
+// ==================== PROMPT DEFAULT ASISTENTE PRESUPUESTOS ====================
+
+const PROMPT_PRESUPUESTOS_DEFAULT = ''
 
 // ==================== PROMPT DEFAULT ====================
 

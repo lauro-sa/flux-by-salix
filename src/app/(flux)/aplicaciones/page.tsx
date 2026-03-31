@@ -47,32 +47,49 @@ const ICONOS_CATEGORIA: Record<string, LucideIcon> = {
 const ORDEN_CATEGORIAS: CategoriaModulo[] = ['premium', 'base', 'operacional', 'documentos', 'comunicacion', 'admin', 'proximamente']
 
 // ═══════════════════════════════════════════════════
-// Confetti
+// EfectoActivacion
 // ═══════════════════════════════════════════════════
 
-function Confetti({ activo }: { activo: boolean }) {
-  if (!activo) return null
-  const particulas = Array.from({ length: 28 }, (_, i) => {
-    const angulo = (i / 28) * 360
-    const distancia = 70 + Math.random() * 100
-    const tamano = 5 + Math.random() * 7
-    const colores = ['var(--texto-marca)', 'var(--insignia-exito)', 'var(--insignia-advertencia)', 'var(--insignia-info)', '#f472b6', '#a78bfa']
-    return (
-      <motion.div
-        key={i}
-        initial={{ opacity: 1, scale: 1, x: 0, y: 0 }}
-        animate={{ opacity: 0, scale: 0, x: Math.cos((angulo * Math.PI) / 180) * distancia, y: Math.sin((angulo * Math.PI) / 180) * distancia }}
-        transition={{ duration: 0.8, delay: Math.random() * 0.15, ease: 'easeOut' }}
-        style={{
-          position: 'absolute', width: tamano, height: tamano,
-          borderRadius: Math.random() > 0.5 ? '50%' : '2px',
-          backgroundColor: colores[i % colores.length],
-          top: '50%', left: '50%', marginTop: -tamano / 2, marginLeft: -tamano / 2,
-        }}
-      />
-    )
-  })
-  return <div className="pointer-events-none absolute inset-0 z-50">{particulas}</div>
+/** Overlay fullscreen: anillos expansivos desde el centro de la pantalla tras instalar */
+function EfectoActivacion({ activo }: { activo: boolean }) {
+  return (
+    <AnimatePresence>
+      {activo && (
+        <div className="fixed inset-0 pointer-events-none flex items-center justify-center" style={{ zIndex: 9999 }}>
+          {/* Anillos que se expanden */}
+          {[0, 0.12, 0.24].map((delay, i) => (
+            <motion.div
+              key={`anillo-${i}`}
+              className="absolute rounded-2xl border-2 border-texto-marca"
+              initial={{ width: 80, height: 60, opacity: 0.5, borderRadius: 12 }}
+              animate={{ width: 800, height: 600, opacity: 0, borderRadius: 400 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1, delay, ease: [0.22, 1, 0.36, 1] }}
+            />
+          ))}
+
+          {/* Destello central */}
+          <motion.div
+            className="absolute rounded-full bg-texto-marca"
+            initial={{ width: 8, height: 8, opacity: 0.8 }}
+            animate={{ width: 40, height: 40, opacity: 0 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          />
+
+          {/* Check de confirmación */}
+          <motion.div
+            className="absolute flex items-center justify-center w-14 h-14 rounded-full bg-insignia-exito"
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: [0, 1.2, 1], opacity: [0, 1, 1] }}
+            exit={{ scale: 0, opacity: 0 }}
+            transition={{ duration: 0.4, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <Check size={28} className="text-white" strokeWidth={3} />
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  )
 }
 
 // ═══════════════════════════════════════════════════
@@ -160,13 +177,14 @@ function TarjetaModulo({ modulo, onClick }: { modulo: ModuloConEstado; onClick: 
 // ═══════════════════════════════════════════════════
 
 function ModalModulo({
-  modulo, abierto, onCerrar, onInstalar, onDesinstalar, puedeGestionar, confettiActivo,
+  modulo, abierto, onCerrar, onInstalar, onDesinstalar, puedeGestionar,
 }: {
   modulo: ModuloConEstado | null; abierto: boolean; onCerrar: () => void
   onInstalar: (slug: string) => void; onDesinstalar: (slug: string) => void
-  puedeGestionar: boolean; confettiActivo: boolean
+  puedeGestionar: boolean
 }) {
   const [cargando, setCargando] = useState(false)
+  const [recienDesinstalado, setRecienDesinstalado] = useState(false)
   const { t } = useTraduccion()
   if (!modulo) return null
 
@@ -175,11 +193,19 @@ function ModalModulo({
   const desactivadoConPurga = modulo.instalado && !modulo.activo && modulo.dias_restantes_purga !== null
 
   const manejarInstalar = async () => { setCargando(true); await onInstalar(modulo.slug); setCargando(false) }
-  const manejarDesinstalar = async () => { setCargando(true); await onDesinstalar(modulo.slug); setCargando(false) }
+  const manejarDesinstalar = async () => {
+    setCargando(true)
+    await onDesinstalar(modulo.slug)
+    setCargando(false)
+    setRecienDesinstalado(true)
+  }
+
+  /** Módulos que aún no están listos para instalarse */
+  const SLUGS_PROXIMAMENTE = ['automatizaciones']
 
   const accion = () => {
     if (modulo.es_base) return null
-    if (modulo.precio_mensual_usd > 0 && !estaActivo) {
+    if (SLUGS_PROXIMAMENTE.includes(modulo.slug) && !estaActivo) {
       return <Boton variante="secundario" tamano="md" icono={<Lock size={16} />} disabled>Próximamente</Boton>
     }
     if (estaActivo) {
@@ -188,42 +214,69 @@ function ModalModulo({
     return <Boton variante="primario" tamano="md" icono={<Download size={16} />} onClick={manejarInstalar} cargando={cargando} disabled={!puedeGestionar}>{desactivadoConPurga ? 'Reinstalar' : t('aplicaciones.instalar')}</Boton>
   }
 
+  /* Estado visual del ícono del módulo */
+  const claseIcono = recienDesinstalado || desactivadoConPurga
+    ? 'bg-insignia-advertencia/8 text-insignia-advertencia border border-insignia-advertencia/20'
+    : estaActivo
+      ? 'bg-texto-marca/10 text-texto-marca'
+      : 'bg-superficie-elevada text-texto-terciario'
+
   return (
     <Modal
       abierto={abierto}
-      onCerrar={onCerrar}
+      onCerrar={() => { onCerrar(); setRecienDesinstalado(false) }}
       titulo={modulo.nombre}
       tamano="md"
       acciones={
         <div className="flex items-center gap-3 w-full">
-          <Boton variante="secundario" tamano="md" onClick={onCerrar}>{t('comun.cerrar')}</Boton>
+          <Boton variante="secundario" tamano="md" onClick={() => { onCerrar(); setRecienDesinstalado(false) }}>{t('comun.cerrar')}</Boton>
           {accion()}
         </div>
       }
     >
       <div className="flex flex-col gap-5 relative">
-        <Confetti activo={confettiActivo} />
-
         {/* Header: ícono + nombre + badge */}
         <div className="flex items-center gap-4">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', damping: 15 }}
-            className={`shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center ${
-              estaActivo ? 'bg-texto-marca/10 text-texto-marca' : 'bg-superficie-elevada text-texto-terciario'
-            }`}
+            animate={recienDesinstalado
+              ? { scale: [1, 0.85, 1], opacity: 1 }
+              : { scale: 1, opacity: 1 }
+            }
+            transition={recienDesinstalado
+              ? { duration: 0.4, ease: [0.22, 1, 0.36, 1] }
+              : { type: 'spring', damping: 15 }
+            }
+            className={`shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center transition-colors duration-500 ${claseIcono}`}
           >
             <Icono size={32} strokeWidth={1.5} />
           </motion.div>
           <div>
             <h3 className="text-lg font-semibold text-texto-primario">{modulo.nombre}</h3>
             <div className="flex items-center gap-2 mt-1">
-              {estaActivo && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-insignia-exito bg-insignia-exito/10 px-2 py-0.5 rounded-full">
-                  <Check size={11} /> {t('aplicaciones.instalado')}
-                </span>
-              )}
+              <AnimatePresence mode="wait">
+                {estaActivo && !recienDesinstalado && (
+                  <motion.span
+                    key="instalado"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-insignia-exito bg-insignia-exito/10 px-2 py-0.5 rounded-full"
+                  >
+                    <Check size={11} /> {t('aplicaciones.instalado')}
+                  </motion.span>
+                )}
+                {(recienDesinstalado || desactivadoConPurga) && (
+                  <motion.span
+                    key="desinstalado"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-insignia-advertencia bg-insignia-advertencia/10 px-2 py-0.5 rounded-full"
+                  >
+                    <AlertTriangle size={11} /> Desinstalado
+                  </motion.span>
+                )}
+              </AnimatePresence>
               {modulo.es_base && (
                 <span className="text-xs text-texto-terciario bg-superficie-elevada px-2 py-0.5 rounded-full">Incluido</span>
               )}
@@ -234,33 +287,53 @@ function ModalModulo({
           </div>
         </div>
 
-        {/* Descripción */}
-        <p className="text-sm text-texto-primario font-medium">{modulo.descripcion}</p>
+        {/* Descripción — se atenúa al desinstalar */}
+        <motion.p
+          animate={{ opacity: recienDesinstalado ? 0.4 : 1 }}
+          transition={{ duration: 0.4 }}
+          className="text-sm text-texto-primario font-medium"
+        >
+          {modulo.descripcion}
+        </motion.p>
 
-        {/* Features con checks */}
+        {/* Features con checks — se atenúan al desinstalar */}
         {modulo.features && modulo.features.length > 0 && (
-          <div className="rounded-xl border border-borde-sutil p-4 flex flex-col gap-3">
+          <motion.div
+            animate={{ opacity: recienDesinstalado ? 0.3 : 1 }}
+            transition={{ duration: 0.5 }}
+            className="rounded-xl border border-borde-sutil p-4 flex flex-col gap-3"
+          >
             {modulo.features.map((feature, i) => (
               <div key={i} className="flex items-start gap-3">
                 <CheckCircle2 size={18} className="text-texto-marca shrink-0 mt-0.5" strokeWidth={1.5} />
                 <p className="text-sm text-texto-secundario leading-relaxed">{feature}</p>
               </div>
             ))}
-          </div>
+          </motion.div>
         )}
 
-        {/* Alerta de purga */}
-        {desactivadoConPurga && (
-          <div className="flex items-start gap-2.5 p-3 rounded-lg bg-insignia-advertencia/10 border border-insignia-advertencia/20">
-            <AlertTriangle size={16} className="text-insignia-advertencia shrink-0 mt-0.5" />
-            <div>
-              <p className="text-xs font-medium text-insignia-advertencia">Datos en período de gracia</p>
-              <p className="text-xs text-texto-secundario mt-0.5">
-                Tenés {modulo.dias_restantes_purga} días para reinstalar antes de que se eliminen los datos.
-              </p>
-            </div>
-          </div>
-        )}
+        {/* Alerta de purga — aparece al desinstalar */}
+        <AnimatePresence>
+          {(desactivadoConPurga || recienDesinstalado) && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="flex items-start gap-2.5 p-3 rounded-lg bg-insignia-advertencia/10 border border-insignia-advertencia/20">
+                <AlertTriangle size={16} className="text-insignia-advertencia shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-medium text-insignia-advertencia">Datos en período de gracia</p>
+                  <p className="text-xs text-texto-secundario mt-0.5">
+                    Tenés {modulo.dias_restantes_purga ?? 30} días para reinstalar antes de que se eliminen los datos.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {!puedeGestionar && !modulo.es_base && (
           <p className="text-xs text-texto-terciario">Solo el propietario o administrador puede gestionar módulos.</p>
@@ -282,7 +355,7 @@ export default function PaginaAplicaciones() {
   const { mostrar } = useToast()
 
   const [moduloSeleccionado, setModuloSeleccionado] = useState<ModuloConEstado | null>(null)
-  const [confettiActivo, setConfettiActivo] = useState(false)
+  const [activacionExitosa, setEfectoActivacionActivo] = useState(false)
   const puedeGestionar = esPropietario || esAdmin
 
   const modulosPorCategoria = useMemo(() => {
@@ -299,12 +372,14 @@ export default function PaginaAplicaciones() {
     if (resultado.error) {
       mostrar('error', resultado.error)
     } else {
-      mostrar('exito', 'Módulo instalado correctamente')
-      setConfettiActivo(true)
-      setTimeout(() => setConfettiActivo(false), 1000)
+      /* Cerrar modal primero — se achica con su animación exit */
+      setModuloSeleccionado(null)
+      /* Disparar anillos desde el centro */
       setTimeout(() => {
-        setModuloSeleccionado(prev => prev ? { ...prev, instalado: true, activo: true, purga_programada_en: null, dias_restantes_purga: null } : null)
+        setEfectoActivacionActivo(true)
+        setTimeout(() => setEfectoActivacionActivo(false), 1400)
       }, 100)
+      mostrar('exito', 'Módulo instalado correctamente')
     }
   }
 
@@ -381,12 +456,14 @@ export default function PaginaAplicaciones() {
       <ModalModulo
         modulo={moduloSeleccionado}
         abierto={!!moduloSeleccionado}
-        onCerrar={() => { setModuloSeleccionado(null); setConfettiActivo(false) }}
+        onCerrar={() => setModuloSeleccionado(null)}
         onInstalar={manejarInstalar}
         onDesinstalar={manejarDesinstalar}
         puedeGestionar={puedeGestionar}
-        confettiActivo={confettiActivo}
       />
+
+      {/* Efecto de activación — fuera del modal, fullscreen */}
+      <EfectoActivacion activo={activacionExitosa} />
     </div>
   )
 }

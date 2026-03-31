@@ -13,6 +13,7 @@ import {
   LogOut, UserX, Power, Mail as MailIcon, Nfc, Cake,
 } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
+import { InputMoneda } from '@/componentes/ui/InputMoneda'
 import { Select } from '@/componentes/ui/Select'
 import { Boton } from '@/componentes/ui/Boton'
 import { Avatar } from '@/componentes/ui/Avatar'
@@ -2110,14 +2111,14 @@ export default function PaginaPerfilUsuario() {
                             {compensacionTipo === 'por_dia' ? '¿Cuánto gana por día trabajado?' : '¿Cuánto gana por período completo?'}
                           </p>
                           <div className="max-w-sm">
-                            <Input
-                              tipo="number"
+                            <InputMoneda
                               value={String(miembro?.compensacion_monto || '')}
-                              onChange={(e) => setMiembro(p => p ? { ...p, compensacion_monto: parseFloat(e.target.value) || null } : null)}
-                              onBlur={(e) => guardarMiembroInmediato({ compensacion_monto: parseFloat(e.target.value) || null })}
-                              icono={<DollarSign size={16} />}
-                              formato={null}
-                              placeholder="40000"
+                              onChange={(v) => {
+                                setMiembro(p => p ? { ...p, compensacion_monto: parseFloat(v) || null } : null)
+                                guardarMiembroInmediato({ compensacion_monto: parseFloat(v) || null })
+                              }}
+                              moneda="ARS"
+                              placeholder="40.000"
                             />
                           </div>
                           {compensacionTipo !== 'fijo' && compensacionMonto > 0 && (

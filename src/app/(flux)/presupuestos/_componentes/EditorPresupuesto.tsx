@@ -12,8 +12,10 @@ import {
   Cloud, X, Mail, Phone, ExternalLink,
   Send, Printer, FileCheck, Eye, Receipt, Ban, RotateCcw,
   Lock, Info, RefreshCw, History, Loader2, CheckCircle2, FileText,
+  Sparkles,
 } from 'lucide-react'
 import { TablaLineas } from './TablaLineas'
+import { PanelAsistenteIA, type LineaPropuestaIA } from './PanelAsistenteIA'
 import EditorNotasPresupuesto from './EditorNotasPresupuesto'
 import SelectorContactoPresupuesto from './SelectorContactoPresupuesto'
 import SelectorPlantilla from './SelectorPlantilla'
@@ -80,6 +82,9 @@ export default function EditorPresupuesto({
 
   // Plantilla (solo modo crear)
   const [plantillaId, setPlantillaId] = useState<string | null>(null)
+
+  // Asistente IA
+  const [panelIA, setPanelIA] = useState(false)
 
   // ID efectivo del presupuesto (creado o prop)
   const idPresupuesto = modo === 'editar' ? presupuestoIdProp! : presupuestoIdCreado
@@ -500,6 +505,93 @@ export default function EditorPresupuesto({
       setLineas(prev => [...prev, nuevaLinea])
     }
   }, [lineas.length, config, modo])
+
+  // ─── Asistente IA: aplicar líneas propuestas ───
+  const aplicarLineasIA = useCallback(async (lineasIA: LineaPropuestaIA[]) => {
+    const impuestos = (config?.impuestos || []) as Impuesto[]
+    const pid = presupuestoIdRef.current
+
+    for (const lineaIA of lineasIA) {
+      // Buscar impuesto por id
+      const imp = lineaIA.impuesto_id ? impuestos.find(i => i.id === lineaIA.impuesto_id) : null
+      const impDefault = impuestos.find(i => i.activo && i.porcentaje > 0)
+      const impFinal = imp || impDefault
+
+      if (pid) {
+        // Presupuesto ya creado — persistir directamente
+        try {
+          const res = await fetch(`/api/presupuestos/${pid}/lineas`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tipo_linea: 'producto',
+              codigo_producto: lineaIA.referencia_interna || lineaIA.codigo || null,
+              descripcion: lineaIA.nombre,
+              descripcion_detalle: lineaIA.descripcion_editada || lineaIA.descripcion_venta || null,
+              cantidad: '1',
+              unidad: lineaIA.unidad || null,
+              precio_unitario: '0',
+              impuesto_label: impFinal ? impFinal.label : null,
+              impuesto_porcentaje: impFinal ? String(impFinal.porcentaje) : '0',
+            }),
+          })
+          if (res.ok) {
+            const nuevas = await res.json()
+            setLineas(prev => [...prev, ...(Array.isArray(nuevas) ? nuevas : [nuevas])])
+          }
+        } catch { /* silenciar */ }
+      } else {
+        // Línea temporal en memoria
+        const nuevaLinea: LineaTemporal = {
+          _temp: true,
+          id: `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          tipo_linea: 'producto',
+          orden: lineas.length,
+          codigo_producto: lineaIA.referencia_interna || lineaIA.codigo || null,
+          descripcion: lineaIA.nombre,
+          descripcion_detalle: lineaIA.descripcion_editada || lineaIA.descripcion_venta || null,
+          cantidad: '1',
+          unidad: lineaIA.unidad || null,
+          precio_unitario: '0',
+          descuento: '0',
+          impuesto_label: impFinal ? impFinal.label : null,
+          impuesto_porcentaje: impFinal ? String(impFinal.porcentaje) : '0',
+          subtotal: '0',
+          impuesto_monto: '0',
+          total: '0',
+          monto: null,
+        }
+        setLineas(prev => [...prev, nuevaLinea])
+      }
+    }
+
+    if (pid && modo === 'editar') recargarTotales()
+  }, [config, lineas.length, modo])
+
+  // ─── Asistente IA: crear servicio nuevo en catálogo ───
+  const crearServicioDesdeIA = useCallback(async (linea: LineaPropuestaIA): Promise<{ codigo: string; id: string } | null> => {
+    try {
+      const res = await fetch('/api/productos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: linea.nombre,
+          tipo: 'servicio',
+          categoria: linea.categoria_sugerida || null,
+          referencia_interna: linea.codigo || null,
+          descripcion_venta: linea.descripcion_editada || linea.descripcion_venta || null,
+          unidad: linea.unidad || 'unidad',
+          puede_venderse: true,
+          origen: 'asistente_salix',
+        }),
+      })
+      if (res.ok) {
+        const producto = await res.json()
+        return { codigo: producto.codigo, id: producto.id }
+      }
+    } catch { /* silenciar */ }
+    return null
+  }, [])
 
   const editarLinea = useCallback((lineaId: string, campo: string, valor: string) => {
     setLineas(prev => {
@@ -1464,6 +1556,20 @@ export default function EditorPresupuesto({
 
         {/* ─── TABLA DE LINEAS ─── */}
         <div className="px-6 py-4">
+          {/* Botón Asistente IA */}
+          {esEditable && (
+            <div className="flex justify-end mb-3">
+              <Boton
+                variante="secundario"
+                tamano="sm"
+                icono={<Sparkles size={14} />}
+                onClick={() => setPanelIA(true)}
+              >
+                Asistente Salix
+              </Boton>
+            </div>
+          )}
+
           <TablaLineas
             lineas={lineas as unknown as LineaPresupuesto[]}
             columnasVisibles={columnasVisibles}
@@ -1576,6 +1682,14 @@ export default function EditorPresupuesto({
           entidadId={idPresupuesto}
         />
       )}
+
+      {/* ─── Panel Asistente IA ─── */}
+      <PanelAsistenteIA
+        abierto={panelIA}
+        onCerrar={() => setPanelIA(false)}
+        onAplicarLineas={aplicarLineasIA}
+        onCrearServicio={crearServicioDesdeIA}
+      />
     </div>
   )
 }

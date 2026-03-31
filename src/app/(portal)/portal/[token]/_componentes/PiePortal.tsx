@@ -76,9 +76,17 @@ export default function PiePortal({ empresa }: Props) {
         )}
       </div>
 
-      {/* LogoSalix centrado */}
-      <div className="flex justify-center opacity-50">
-        <LogoSalix layout="horizontal" animacion="ensamble" tamano={18} hover tap={false} />
+      {/* "Con tecnología de Salix" — enlaza a salixweb.com */}
+      <div className="flex justify-center">
+        <a
+          href="https://www.salixweb.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 opacity-50 hover:opacity-80 transition-opacity"
+        >
+          <span className="text-xs text-texto-terciario">Con tecnología de</span>
+          <LogoSalix layout="horizontal" animacion="pulso" tamano={16} hover={false} tap={false} />
+        </a>
       </div>
     </footer>
   )

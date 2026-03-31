@@ -5,7 +5,9 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 /**
  * POST /api/auth/registro — Crear cuenta nueva.
  * Crea el usuario en Supabase Auth y el perfil en la tabla perfiles.
- * Envía email de verificación automáticamente.
+ * Auto-vincula con miembros pre-cargados si encuentra un contacto de equipo
+ * con el mismo correo (importados de otra BD).
+ * También acepta invitaciones pendientes automáticamente.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -45,24 +47,155 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No se pudo crear el usuario' }, { status: 500 })
     }
 
-    // Crear perfil con el service role (bypass RLS)
     const admin = crearClienteAdmin()
+    const userId = data.user.id
+    const correoNormalizado = correo.toLowerCase().trim()
+
+    // Crear perfil con el service role (bypass RLS)
     const { error: errorPerfil } = await admin
       .from('perfiles')
-      .insert({
-        id: data.user.id,
-        nombre,
-        apellido,
-      })
+      .insert({ id: userId, nombre, apellido })
 
     if (errorPerfil) {
       console.error('Error creando perfil:', errorPerfil)
-      // No fallamos — el usuario se creó, el perfil se puede recrear después
+    }
+
+    // ── Auto-vinculación: buscar contactos de equipo con este correo ──
+    // Si el admin pre-cargó usuarios (ej: migración), existirán como contactos
+    // tipo "equipo" sin miembro_id. Los vinculamos automáticamente.
+    let autoVinculados = 0
+
+    const { data: contactosEquipo } = await admin
+      .from('contactos')
+      .select('id, empresa_id, nombre, apellido')
+      .eq('correo', correoNormalizado)
+      .is('miembro_id', null)
+      .eq('en_papelera', false)
+
+    if (contactosEquipo && contactosEquipo.length > 0) {
+      for (const contacto of contactosEquipo) {
+        // Verificar que el contacto sea tipo "equipo"
+        const { data: tipoEquipo } = await admin
+          .from('tipos_contacto')
+          .select('id')
+          .eq('empresa_id', contacto.empresa_id)
+          .eq('clave', 'equipo')
+          .single()
+
+        if (!tipoEquipo) continue
+
+        const { data: esEquipo } = await admin
+          .from('contactos')
+          .select('id')
+          .eq('id', contacto.id)
+          .eq('tipo_contacto_id', tipoEquipo.id)
+          .single()
+
+        if (!esEquipo) continue
+
+        // Verificar que no sea ya miembro de esta empresa
+        const { data: yaEsMiembro } = await admin
+          .from('miembros')
+          .select('id')
+          .eq('usuario_id', userId)
+          .eq('empresa_id', contacto.empresa_id)
+          .maybeSingle()
+
+        if (yaEsMiembro) continue
+
+        // Crear miembro (activo=false, espera activación del admin)
+        const { data: nuevoMiembro } = await admin
+          .from('miembros')
+          .insert({
+            usuario_id: userId,
+            empresa_id: contacto.empresa_id,
+            rol: 'empleado',
+            activo: false,
+          })
+          .select('id')
+          .single()
+
+        if (nuevoMiembro) {
+          // Vincular el contacto existente con el nuevo miembro
+          await admin
+            .from('contactos')
+            .update({ miembro_id: nuevoMiembro.id })
+            .eq('id', contacto.id)
+
+          // Completar perfil con datos del contacto si el perfil está vacío
+          if (contacto.nombre && !nombre) {
+            await admin
+              .from('perfiles')
+              .update({ nombre: contacto.nombre, apellido: contacto.apellido || '' })
+              .eq('id', userId)
+          }
+
+          autoVinculados++
+        }
+      }
+    }
+
+    // ── Auto-aceptar invitaciones pendientes con este correo ──
+    const { data: invitaciones } = await admin
+      .from('invitaciones')
+      .select('id, empresa_id, rol')
+      .eq('correo', correoNormalizado)
+      .eq('usado', false)
+      .gt('expira_en', new Date().toISOString())
+
+    if (invitaciones && invitaciones.length > 0) {
+      for (const inv of invitaciones) {
+        // Verificar que no sea ya miembro
+        const { data: yaEsMiembro } = await admin
+          .from('miembros')
+          .select('id')
+          .eq('usuario_id', userId)
+          .eq('empresa_id', inv.empresa_id)
+          .maybeSingle()
+
+        if (yaEsMiembro) {
+          // Ya vinculado por contacto de equipo, solo marcar invitación usada
+          await admin.from('invitaciones').update({ usado: true }).eq('id', inv.id)
+          continue
+        }
+
+        // Crear miembro
+        const { data: nuevoMiembro } = await admin
+          .from('miembros')
+          .insert({
+            usuario_id: userId,
+            empresa_id: inv.empresa_id,
+            rol: inv.rol,
+            activo: false,
+          })
+          .select('id')
+          .single()
+
+        if (nuevoMiembro) {
+          // Vincular o crear contacto de equipo
+          const { vincularOCrearContactoEquipo } = await import('@/lib/contactos/contacto-equipo')
+          await vincularOCrearContactoEquipo(admin, {
+            miembroId: nuevoMiembro.id,
+            empresaId: inv.empresa_id,
+            correo: correoNormalizado,
+            nombre: `${nombre} ${apellido}`,
+            usuarioId: userId,
+          })
+
+          autoVinculados++
+        }
+
+        // Marcar invitación como usada
+        await admin.from('invitaciones').update({ usado: true }).eq('id', inv.id)
+      }
     }
 
     return NextResponse.json({
-      usuario: { id: data.user.id, correo: data.user.email },
-      mensaje: 'Cuenta creada. Revisá tu correo para verificar.',
+      usuario: { id: userId, correo: data.user.email },
+      mensaje: autoVinculados > 0
+        ? `Cuenta creada y vinculada a ${autoVinculados} empresa${autoVinculados > 1 ? 's' : ''}. Un administrador debe activar tu cuenta.`
+        : 'Cuenta creada. Revisá tu correo para verificar.',
+      auto_vinculado: autoVinculados > 0,
     })
   } catch {
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })

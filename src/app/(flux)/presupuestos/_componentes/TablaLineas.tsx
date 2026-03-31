@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import type { LineaPresupuesto, TipoLinea, Impuesto, UnidadMedida } from '@/tipos/presupuesto'
 import { COLUMNAS_LINEA_DISPONIBLES } from '@/tipos/presupuesto'
+import { BuscadorProducto } from '@/componentes/entidad/BuscadorProducto'
 
 /**
  * TablaLineas — Editor de líneas del presupuesto.
@@ -301,22 +302,26 @@ function FilaProducto({
         {columnasVisibles.map(col => (
           <div key={col} className={`${ANCHO_COLUMNA[col] || 'w-[100px]'} px-1`}>
             {col === 'producto' && (
-              <div>
-                <CampoTexto
-                  valor={linea.codigo_producto || ''}
-                  placeholder="Código"
-                  soloLectura={soloLectura}
-                  className="font-mono text-xxs text-texto-terciario"
-                  onChange={(v) => onEditar(linea.id, 'codigo_producto', v)}
-                />
-                <CampoTexto
-                  valor={linea.descripcion || ''}
-                  placeholder="Producto / Servicio"
-                  soloLectura={soloLectura}
-                  className="font-semibold text-sm"
-                  onChange={(v) => onEditar(linea.id, 'descripcion', v)}
-                />
-              </div>
+              <BuscadorProducto
+                valor={linea.descripcion || ''}
+                codigo={linea.codigo_producto || ''}
+                soloLectura={soloLectura}
+                onChange={(v) => onEditar(linea.id, 'descripcion', v)}
+                onSeleccionar={(producto) => {
+                  onEditar(linea.id, 'codigo_producto', producto.codigo)
+                  onEditar(linea.id, 'descripcion', producto.nombre)
+                  if (producto.precio_unitario) onEditar(linea.id, 'precio_unitario', producto.precio_unitario)
+                  if (producto.unidad) onEditar(linea.id, 'unidad', producto.unidad)
+                  if (producto.descripcion_venta) onEditar(linea.id, 'descripcion_detalle', producto.descripcion_venta)
+                  if (producto.impuesto_id) {
+                    const imp = impuestos.find(i => i.id === producto.impuesto_id)
+                    if (imp) {
+                      onEditar(linea.id, 'impuesto_porcentaje', String(imp.porcentaje))
+                      onEditar(linea.id, 'impuesto_label', imp.label)
+                    }
+                  }
+                }}
+              />
             )}
             {col === 'descripcion' && (
               <div />
@@ -342,6 +347,7 @@ function FilaProducto({
                 valor={linea.precio_unitario}
                 soloLectura={soloLectura}
                 className="text-right"
+                esMoneda
                 onChange={(v) => onEditar(linea.id, 'precio_unitario', v)}
               />
             )}
@@ -530,6 +536,7 @@ function FilaDescuento({
           valor={linea.monto ? String(Math.abs(parseFloat(linea.monto))) : '0'}
           soloLectura={soloLectura}
           className="text-right text-estado-error"
+          esMoneda
           onChange={(v) => onEditar(linea.id, 'monto', `-${v}`)}
         />
       </div>
@@ -588,30 +595,47 @@ function CampoNumero({
   soloLectura,
   className = '',
   sufijo,
+  esMoneda,
   onChange,
 }: {
   valor: string
   soloLectura: boolean
   className?: string
   sufijo?: string
+  /** Si true, muestra el valor formateado ($ 150.000,00) cuando no está enfocado */
+  esMoneda?: boolean
   onChange: (valor: string) => void
 }) {
   const [local, setLocal] = useState(valor)
+  const [enfocado, setEnfocado] = useState(false)
 
   useEffect(() => { setLocal(valor) }, [valor])
 
-  if (soloLectura) {
-    return <span className={`text-sm font-mono ${className}`}>{valor}{sufijo}</span>
+  const formatear = (v: string) => {
+    const num = parseFloat(v)
+    if (isNaN(num) || num === 0) return v
+    return num.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   }
+
+  if (soloLectura) {
+    const mostrar = esMoneda ? formatear(valor) : valor
+    return <span className={`text-sm font-mono ${className}`}>{mostrar}{sufijo}</span>
+  }
+
+  const valorMostrar = esMoneda && !enfocado ? formatear(local) : local
 
   return (
     <div className={`flex items-center ${className}`}>
       <input
-        type="number"
+        type={enfocado ? 'number' : (esMoneda ? 'text' : 'number')}
         step="any"
-        value={local}
+        value={valorMostrar}
         onChange={(e) => setLocal(e.target.value)}
-        onBlur={() => { if (local !== valor) onChange(local) }}
+        onFocus={() => setEnfocado(true)}
+        onBlur={() => {
+          setEnfocado(false)
+          if (local !== valor) onChange(local)
+        }}
         className="w-full bg-transparent border-0 outline-none text-sm font-mono text-right placeholder:text-texto-terciario/50 focus:bg-superficie-tarjeta focus:rounded px-1 py-0.5 -mx-1 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
       {sufijo && <span className="text-xs text-texto-terciario ml-0.5">{sufijo}</span>}
@@ -642,8 +666,8 @@ function CampoSelect({
       className="w-full bg-transparent border-0 outline-none text-sm cursor-pointer focus:bg-superficie-tarjeta focus:rounded px-0.5 py-0.5 transition-colors text-texto-primario"
     >
       <option value="">—</option>
-      {opciones.map(op => (
-        <option key={op.valor} value={op.valor}>{op.etiqueta}</option>
+      {opciones.map((op, i) => (
+        <option key={`${op.valor}-${i}`} value={op.valor}>{op.etiqueta}</option>
       ))}
     </select>
   )

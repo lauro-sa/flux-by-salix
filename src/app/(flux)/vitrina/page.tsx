@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Boton } from '@/componentes/ui/Boton'
+import { Cargador, CargadorSeccion } from '@/componentes/ui/Cargador'
 import { Input } from '@/componentes/ui/Input'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Modal } from '@/componentes/ui/Modal'
@@ -1097,6 +1098,35 @@ export default function PaginaVitrina() {
 
       {/* EDITOR DE TEXTO */}
       <SeccionEditorTexto />
+
+      {/* CARGADORES */}
+      <Seccion titulo="Cargadores">
+        <div>
+          <Etiqueta>Inline (sm / md / lg)</Etiqueta>
+          <Fila>
+            <div className="flex flex-col items-center gap-1">
+              <Cargador tamano="sm" />
+              <span className="text-xxs text-texto-terciario">sm</span>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <Cargador tamano="md" />
+              <span className="text-xxs text-texto-terciario">md</span>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <Cargador tamano="lg" />
+              <span className="text-xxs text-texto-terciario">lg</span>
+            </div>
+          </Fila>
+        </div>
+        <Separador etiqueta="Cargador de página (con logo Salix)" />
+        <div className="rounded-xl border border-borde-sutil overflow-hidden" style={{ backgroundColor: 'var(--superficie-app)' }}>
+          <Cargador tamano="pagina" texto="Cargando..." />
+        </div>
+        <div>
+          <Etiqueta>Sección</Etiqueta>
+          <CargadorSeccion texto="Cargando contactos..." />
+        </div>
+      </Seccion>
 
       {/* MARCA / LOGO */}
       <SeccionMarca />

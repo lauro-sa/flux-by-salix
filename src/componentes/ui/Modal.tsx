@@ -74,8 +74,8 @@ function Modal({ abierto, onCerrar, titulo, tamano = 'lg', children, acciones }:
             <motion.div
               initial={{ opacity: 0, scale: 0.96, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 10 }}
-              transition={{ duration: 0.15 }}
+              exit={{ opacity: 0, scale: 0.85, y: 0 }}
+              transition={{ duration: 0.18, exit: { duration: 0.25, ease: [0.4, 0, 1, 1] } }}
               className={`rounded-lg shadow-elevada w-full ${clasesAncho[tamano]} max-h-[85vh] flex flex-col pointer-events-auto border border-borde-sutil`}
               style={esCristal ? {
                 backgroundColor: 'var(--superficie-flotante)',

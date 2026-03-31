@@ -204,15 +204,16 @@ export default function IconoSalix({
             fill={color || 'currentColor'}
             variants={variants}
             custom={obtenerCustom(pieza)}
-            animate={{
-              ...(estadoAnimar ? {} : {}),
-              translateX: desplazamiento.x,
-              translateY: desplazamiento.y,
-            }}
-            transition={{
-              translateX: { type: 'spring', stiffness: 300, damping: 20 },
-              translateY: { type: 'spring', stiffness: 300, damping: 20 },
-            }}
+            {...(hovered ? {
+              animate: {
+                translateX: desplazamiento.x,
+                translateY: desplazamiento.y,
+              },
+              transition: {
+                translateX: { type: 'spring', stiffness: 300, damping: 20 },
+                translateY: { type: 'spring', stiffness: 300, damping: 20 },
+              },
+            } : {})}
           />
         )
       })}

@@ -425,10 +425,10 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
           {/* Logo — siempre toggle sidebar */}
           <button
             onClick={onToggle}
-            className={`size-9 rounded-lg flex items-center justify-center text-white font-bold text-sm shrink-0 border-none cursor-pointer hover:opacity-80 transition-opacity ${logoEmpresa ? '' : 'bg-texto-marca'}`}
+            className={`size-10 rounded-lg flex items-center justify-center text-white font-bold text-base shrink-0 border-none cursor-pointer hover:opacity-80 transition-opacity ${logoEmpresa ? '' : 'bg-texto-marca'}`}
           >
             {logoEmpresa ? (
-              <img src={logoEmpresa} alt={nombreEmpresa} className="size-9 rounded-lg object-cover" />
+              <img src={logoEmpresa} alt={nombreEmpresa} className="size-10 rounded-lg object-cover" />
             ) : (
               inicialEmpresa
             )}
@@ -437,10 +437,11 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
           {!colapsado && (
             <button
               onClick={() => setEmpresaAbierto(!empresaAbierto)}
-              className="flex items-center gap-2 flex-1 min-w-0 bg-transparent border-none cursor-pointer rounded-md hover:bg-superficie-hover pl-1 pr-2.5 py-1.5 transition-colors"
+              className="flex items-center gap-2 flex-1 min-w-0 bg-transparent border-none cursor-pointer rounded-lg hover:bg-superficie-hover px-2.5 py-2 transition-colors"
             >
               <div className="flex-1 text-left min-w-0">
-                <div className="text-sm font-semibold text-texto-primario truncate">{nombreEmpresa}</div>
+                <div className="text-[15px] font-semibold text-texto-primario truncate">{nombreEmpresa}</div>
+                <div className="text-[10px] text-texto-terciario truncate leading-tight">Flux by Salix</div>
               </div>
               <ChevronDown size={14} className={`text-texto-terciario transition-transform ${empresaAbierto ? 'rotate-180' : ''}`} />
             </button>
@@ -591,8 +592,7 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
                 </button>
               ))}
               <div className="h-px bg-borde-sutil my-1" />
-              <Link href="/configuracion" onClick={() => setPerfilAbierto(false)} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-texto-secundario no-underline hover:bg-superficie-hover"><Building2 size={13} /> {t('empresa.titulo')}</Link>
-              <Link href="/usuarios" onClick={() => setPerfilAbierto(false)} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-texto-secundario no-underline hover:bg-superficie-hover"><UserCog size={13} /> Usuarios</Link>
+              <Link href="/mi-cuenta" onClick={() => setPerfilAbierto(false)} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-texto-secundario no-underline hover:bg-superficie-hover"><UserCog size={13} /> Mi cuenta</Link>
               <div className="h-px bg-borde-sutil my-1" />
               <button onClick={() => { setPerfilAbierto(false); setModalCerrarSesion(true) }} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-insignia-peligro bg-transparent border-none cursor-pointer hover:bg-insignia-peligro-fondo text-left"><LogOut size={13} /> {t('auth.cerrar_sesion')}</button>
             </motion.div>
