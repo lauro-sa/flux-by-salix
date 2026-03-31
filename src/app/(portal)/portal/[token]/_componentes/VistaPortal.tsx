@@ -17,6 +17,8 @@ import FirmaDocumento from './FirmaDocumento'
 import DetalleLineas from './DetalleLineas'
 import SeccionNotas from './SeccionNotas'
 import SeccionCuotas from './SeccionCuotas'
+import LineaTiempoPortal from './LineaTiempoPortal'
+import MiniChat from './MiniChat'
 import PiePortal from './PiePortal'
 
 interface Props {
@@ -33,6 +35,9 @@ export default function VistaPortal({ datos }: Props) {
   const [firmaUrl, setFirmaUrl] = useState<string | null>(datos.firma?.url || null)
   const [motivoRechazo, setMotivoRechazo] = useState<string | null>(datos.motivo_rechazo || null)
   const [comprobantes, setComprobantes] = useState<ComprobantePortal[]>(datos.comprobantes || [])
+  const [mensajes, setMensajes] = useState(datos.mensajes || [])
+  const [cuotas, setCuotas] = useState(presupuesto.cuotas)
+  const [estadoPresupuesto, setEstadoPresupuesto] = useState(presupuesto.estado)
 
   // Estado de UI
   const [mostrarFirma, setMostrarFirma] = useState(false)
@@ -63,6 +68,24 @@ export default function VistaPortal({ datos }: Props) {
       setTimeout(() => pagoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300)
     }
   }, [estadoCliente, mostrarFirma])
+
+  // Polling: recargar mensajes, comprobantes, cuotas y estado cada 15s
+  useEffect(() => {
+    if (!token) return
+    const intervalo = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/portal/${token}`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.mensajes) setMensajes(data.mensajes)
+          if (data.comprobantes) setComprobantes(data.comprobantes)
+          if (data.presupuesto?.cuotas) setCuotas(data.presupuesto.cuotas)
+          if (data.presupuesto?.estado) setEstadoPresupuesto(data.presupuesto.estado)
+        }
+      } catch { /* silencioso */ }
+    }, 15000)
+    return () => clearInterval(intervalo)
+  }, [token])
 
   // Limpiar error después de 5s
   useEffect(() => {
@@ -175,19 +198,29 @@ export default function VistaPortal({ datos }: Props) {
           </div>
         )}
 
-        {/* Info del documento (con total prominente, referencia, vendedor) */}
+        {/* Info del documento */}
         <InfoDocumento
           presupuesto={presupuesto}
           vendedorNombre={vendedor.nombre}
-          monedaSimbolo={moneda_simbolo}
           estadoCliente={estadoCliente}
           colorMarca={colorMarca}
+        />
+
+        {/* Línea de tiempo — progreso del presupuesto */}
+        <LineaTiempoPortal
+          estadoCliente={estadoCliente}
+          cuotas={cuotas}
+          comprobantes={comprobantes}
+          monedaSimbolo={moneda_simbolo}
+          totalFinal={presupuesto.total_final}
+          colorMarca={colorMarca}
+          estadoPresupuesto={estadoPresupuesto}
         />
 
         {/* Acciones: PDF, WhatsApp, llamar, aceptar/rechazar/cancelar */}
         <AccionesPortal
           pdfUrl={presupuesto.pdf_url}
-          vendedorTelefono={vendedor.telefono}
+          empresaTelefono={empresa.telefono}
           presupuestoNumero={presupuesto.numero}
           contactoNombre={nombreContacto}
           estadoCliente={estadoCliente}
@@ -212,11 +245,11 @@ export default function VistaPortal({ datos }: Props) {
           </div>
         )}
 
-        {/* ── Sección de pagos (se muestra después de aceptar) ── */}
-        {estadoCliente === 'aceptado' && (datos_bancarios || presupuesto.cuotas.length > 0) && (
+        {/* ── Sección de pagos (solo después de aceptar) ── */}
+        {estadoCliente === 'aceptado' && (
           <div ref={pagoRef}>
             <SeccionCuotas
-              cuotas={presupuesto.cuotas}
+              cuotas={cuotas}
               comprobantes={comprobantes}
               datosBancarios={datos_bancarios}
               monedaSimbolo={moneda_simbolo}
@@ -228,10 +261,14 @@ export default function VistaPortal({ datos }: Props) {
           </div>
         )}
 
-        {/* Datos bancarios read-only (antes de aceptar, si hay datos) */}
-        {estadoCliente !== 'aceptado' && datos_bancarios && (
-          <DatosBancariosReadonly datos={datos_bancarios} />
-        )}
+        {/* Mini chat cliente-vendedor */}
+        <MiniChat
+          mensajes={mensajes}
+          nombreCliente={nombreContacto || 'Cliente'}
+          colorMarca={colorMarca}
+          token={token}
+          onMensajeEnviado={(msg) => setMensajes(prev => [...prev, msg])}
+        />
 
         {/* Detalle de líneas */}
         {presupuesto.lineas.length > 0 && (
@@ -259,37 +296,3 @@ export default function VistaPortal({ datos }: Props) {
   )
 }
 
-// ── Datos bancarios en modo lectura (antes de aceptar) ──
-function DatosBancariosReadonly({ datos }: { datos: { banco: string; titular: string; cbu: string; alias: string } }) {
-  return (
-    <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil p-4 space-y-2 text-sm">
-      <h3 className="text-xs text-texto-terciario uppercase tracking-wider font-medium mb-2">
-        Datos para transferencia
-      </h3>
-      {datos.banco && (
-        <div className="flex justify-between">
-          <span className="text-texto-terciario">Banco</span>
-          <span className="text-texto-primario font-medium">{datos.banco}</span>
-        </div>
-      )}
-      {datos.titular && (
-        <div className="flex justify-between">
-          <span className="text-texto-terciario">Titular</span>
-          <span className="text-texto-primario font-medium">{datos.titular}</span>
-        </div>
-      )}
-      {datos.cbu && (
-        <div className="flex justify-between">
-          <span className="text-texto-terciario">CBU</span>
-          <span className="font-mono text-texto-primario">{datos.cbu}</span>
-        </div>
-      )}
-      {datos.alias && (
-        <div className="flex justify-between">
-          <span className="text-texto-terciario">Alias</span>
-          <span className="font-mono text-texto-primario">{datos.alias}</span>
-        </div>
-      )}
-    </div>
-  )
-}

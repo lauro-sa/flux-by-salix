@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { registrarCambioEstado } from '@/lib/chatter'
 
 /**
  * GET /api/presupuestos/[id] — Obtener detalle completo de un presupuesto.
@@ -153,6 +154,18 @@ export async function PATCH(
       }
     }
 
+    // Obtener estado anterior (para chatter)
+    let estadoAnterior: string | null = null
+    if (body.estado) {
+      const { data: actual } = await admin
+        .from('presupuestos')
+        .select('estado')
+        .eq('id', id)
+        .eq('empresa_id', empresaId)
+        .single()
+      estadoAnterior = actual?.estado || null
+    }
+
     const { data: actualizado, error } = await admin
       .from('presupuestos')
       .update(actualizacion)
@@ -166,7 +179,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Error al actualizar' }, { status: 500 })
     }
 
-    // Si cambió el estado, registrar en historial
+    // Si cambió el estado, registrar en historial + chatter
     if (body.estado) {
       await admin.from('presupuesto_historial').insert({
         presupuesto_id: id,
@@ -176,6 +189,19 @@ export async function PATCH(
         usuario_nombre: nombreUsuario,
         notas: body.notas_estado || null,
       })
+
+      // Registrar en chatter
+      if (estadoAnterior && estadoAnterior !== body.estado) {
+        await registrarCambioEstado({
+          empresaId,
+          presupuestoId: id,
+          estadoAnterior,
+          estadoNuevo: body.estado,
+          usuarioId: user.id,
+          usuarioNombre: nombreUsuario || 'Usuario',
+          notas: body.notas_estado,
+        })
+      }
     }
 
     return NextResponse.json(actualizado)

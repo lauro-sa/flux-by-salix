@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { registrarChatter } from '@/lib/chatter'
 import crypto from 'crypto'
 
 /**
@@ -79,6 +80,25 @@ export async function POST(
     }
 
     const url = `${process.env.NEXT_PUBLIC_APP_URL || ''}/portal/${nuevoToken}`
+
+    // Registrar en chatter
+    const { data: perfil } = await admin
+      .from('perfiles')
+      .select('nombre, apellido')
+      .eq('id', user.id)
+      .single()
+    const nombreAutor = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : 'Usuario'
+
+    await registrarChatter({
+      empresaId,
+      entidadTipo: 'presupuesto',
+      entidadId: presupuestoId,
+      contenido: 'Generó enlace del portal para el cliente',
+      autorId: user.id,
+      autorNombre: nombreAutor,
+      metadata: { accion: 'portal_enviado', token: nuevoToken },
+    })
+
     return NextResponse.json({
       token: nuevoToken,
       url,

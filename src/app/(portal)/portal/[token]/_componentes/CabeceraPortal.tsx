@@ -2,7 +2,8 @@
 
 /**
  * CabeceraPortal — Header del portal público.
- * Logo empresa 64px + info + color de marca como acento.
+ * Tarjeta con logo empresa grande + datos dinámicos + LogoSalix animado.
+ * Los datos (nombre, descripción, teléfono, correo) vienen de la config de la empresa.
  * Se usa en: VistaPortal
  */
 
@@ -22,60 +23,48 @@ interface Props {
 }
 
 export default function CabeceraPortal({ empresa }: Props) {
-  const colorMarca = empresa.color_marca || '#6366f1'
-
   return (
-    <header
-      className="border-b border-borde-sutil bg-superficie-tarjeta"
-      style={{ borderBottomColor: `${colorMarca}20` }}
-    >
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-5 flex items-start justify-between gap-4">
-        {/* Izquierda: logo + info empresa */}
-        <div className="flex items-start gap-4 min-w-0">
-          {empresa.logo_url && (
-            <Image
-              src={empresa.logo_url}
-              alt={empresa.nombre}
-              width={64}
-              height={64}
-              className="size-16 rounded-xl object-contain shrink-0"
-              unoptimized
-            />
-          )}
-          <div className="min-w-0">
-            <h1 className="text-lg font-bold text-texto-primario truncate">
-              {empresa.nombre}
-            </h1>
-            {empresa.descripcion && (
-              <p className="text-xs text-texto-terciario mt-0.5 line-clamp-2">
-                {empresa.descripcion}
-              </p>
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-6">
+      <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil p-5 sm:p-6">
+        <div className="flex items-start justify-between gap-4">
+          {/* Izquierda: logo + info empresa */}
+          <div className="flex items-start gap-4 min-w-0">
+            {empresa.logo_url && (
+              <Image
+                src={empresa.logo_url}
+                alt={empresa.nombre}
+                width={80}
+                height={80}
+                className="size-16 sm:size-20 rounded-xl object-contain shrink-0"
+                unoptimized
+              />
             )}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5">
-              {empresa.ubicacion && (
-                <span className="text-xs text-texto-secundario">
-                  {empresa.ubicacion}
-                </span>
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-texto-primario truncate">
+                {empresa.nombre}
+              </h1>
+              {empresa.descripcion && (
+                <p className="text-sm text-texto-terciario mt-0.5 line-clamp-2">
+                  {empresa.descripcion}
+                </p>
               )}
-              {empresa.telefono && (
-                <a href={`tel:${empresa.telefono}`} className="text-xs text-texto-secundario hover:text-texto-primario transition-colors">
-                  {empresa.telefono}
-                </a>
-              )}
-              {empresa.correo && (
-                <a href={`mailto:${empresa.correo}`} className="text-xs text-texto-secundario hover:text-texto-primario transition-colors">
-                  {empresa.correo}
-                </a>
-              )}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 mt-1.5 text-sm text-texto-secundario">
+                {empresa.telefono && (
+                  <span>{empresa.telefono}</span>
+                )}
+                {empresa.correo && (
+                  <span>{empresa.correo}</span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Derecha: logo Flux by Salix */}
-        <div className="shrink-0 opacity-50">
-          <LogoSalix layout="horizontal" tamano={20} hover={false} tap={false} />
+          {/* Derecha: LogoSalix animado */}
+          <div className="shrink-0 opacity-60">
+            <LogoSalix layout="horizontal" animacion="ensamble" tamano={22} hover tap={false} />
+          </div>
         </div>
       </div>
-    </header>
+    </div>
   )
 }

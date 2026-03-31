@@ -1019,6 +1019,24 @@ export interface Traducciones {
     estado_visto: string
     estado_aceptado: string
     estado_rechazado: string
+    // Timeline
+    timeline_enviado: string
+    timeline_revisado: string
+    timeline_aceptar_firmar: string
+    timeline_aceptar_instruccion: string
+    timeline_aceptado: string
+    timeline_firmado_digital: string
+    timeline_pago_confirmado: string
+    timeline_comprobante_revision: string
+    timeline_pendiente_pago: string
+    timeline_orden_confirmada: string
+    timeline_orden_trabajo: string
+    timeline_pagos_completos: string
+    timeline_confirma_pagos: string
+    // Chat
+    chat_titulo: string
+    chat_vacio: string
+    chat_placeholder: string
     // Expirado
     expirado_descripcion: string
   }

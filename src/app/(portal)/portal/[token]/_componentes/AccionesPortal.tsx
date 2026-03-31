@@ -14,7 +14,7 @@ import type { EstadoPortal } from '@/tipos/portal'
 
 interface Props {
   pdfUrl: string | null
-  vendedorTelefono: string | null
+  empresaTelefono: string | null
   presupuestoNumero: string
   contactoNombre: string
   estadoCliente: EstadoPortal
@@ -30,7 +30,7 @@ interface Props {
 
 export default function AccionesPortal({
   pdfUrl,
-  vendedorTelefono,
+  empresaTelefono,
   presupuestoNumero,
   contactoNombre,
   estadoCliente,
@@ -52,8 +52,8 @@ export default function AccionesPortal({
   const mensajeWa = encodeURIComponent(
     `${t('portal.whatsapp_mensaje')} ${presupuestoNumero}. Soy ${contactoNombre}.`
   )
-  const linkWa = vendedorTelefono
-    ? `https://wa.me/${vendedorTelefono.replace(/\D/g, '')}?text=${mensajeWa}`
+  const linkWa = empresaTelefono
+    ? `https://wa.me/${empresaTelefono.replace(/\D/g, '')}?text=${mensajeWa}`
     : null
 
   // ── Estado: Aceptado ──
@@ -81,7 +81,7 @@ export default function AccionesPortal({
         </div>
 
         {/* Botones de contacto + PDF (siempre visibles) */}
-        <BotonesContacto pdfUrl={pdfUrl} linkWa={linkWa} vendedorTelefono={vendedorTelefono} colorMarca={colorMarca} t={t} />
+        <BotonesContacto pdfUrl={pdfUrl} linkWa={linkWa} empresaTelefono={empresaTelefono} colorMarca={colorMarca} t={t} />
 
         {/* Cancelar aceptación */}
         {!mostrarCancelar ? (
@@ -133,7 +133,7 @@ export default function AccionesPortal({
             </div>
           </div>
         </div>
-        <BotonesContacto pdfUrl={pdfUrl} linkWa={linkWa} vendedorTelefono={vendedorTelefono} colorMarca={colorMarca} t={t} />
+        <BotonesContacto pdfUrl={pdfUrl} linkWa={linkWa} empresaTelefono={empresaTelefono} colorMarca={colorMarca} t={t} />
       </div>
     )
   }
@@ -142,26 +142,28 @@ export default function AccionesPortal({
   return (
     <div className="space-y-3">
       {/* Ver PDF (prominente, con color empresa) */}
-      <BotonesContacto pdfUrl={pdfUrl} linkWa={linkWa} vendedorTelefono={vendedorTelefono} colorMarca={colorMarca} t={t} />
+      <BotonesContacto pdfUrl={pdfUrl} linkWa={linkWa} empresaTelefono={empresaTelefono} colorMarca={colorMarca} t={t} />
 
-      {/* Aceptar / Rechazar */}
+      {/* Aceptar y firmar / Rechazar — dentro de tarjeta */}
       {!mostrarRechazo ? (
-        <div className="flex gap-2 pt-1">
-          <button
-            onClick={onAceptar}
-            disabled={cargando}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold text-white transition-colors disabled:opacity-50"
-            style={{ backgroundColor: colorMarca }}
-          >
-            {cargando ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-            {t('portal.aceptar')} {t('portal.presupuesto').toLowerCase()}
-          </button>
-          <button
-            onClick={() => setMostrarRechazo(true)}
-            className="px-3 py-3 rounded-xl text-xs text-texto-terciario hover:text-estado-error hover:bg-estado-error/5 transition-colors"
-          >
-            {t('portal.rechazar')}
-          </button>
+        <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil p-4">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={onAceptar}
+              disabled={cargando}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-insignia-exito hover:bg-insignia-exito/90 disabled:opacity-50 transition-colors"
+            >
+              {cargando ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+              Aceptar y firmar
+            </button>
+            <button
+              onClick={() => setMostrarRechazo(true)}
+              className="flex items-center gap-1.5 text-sm font-medium text-estado-error hover:text-estado-error/80 transition-colors"
+            >
+              <X size={15} />
+              {t('portal.rechazar')}
+            </button>
+          </div>
         </div>
       ) : (
         <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil p-4 space-y-3">
@@ -173,20 +175,20 @@ export default function AccionesPortal({
             rows={3}
             className="w-full px-3 py-2 rounded-lg border border-borde-sutil bg-superficie-app text-sm text-texto-primario placeholder:text-texto-terciario focus:ring-2 focus:ring-estado-error/30 focus:border-estado-error outline-none resize-none transition"
           />
-          <div className="flex gap-2 justify-end">
-            <button
-              onClick={() => { setMostrarRechazo(false); setMotivo('') }}
-              className="px-3 py-2 text-sm text-texto-terciario hover:text-texto-primario transition-colors"
-            >
-              {t('comun.cancelar')}
-            </button>
+          <div className="flex items-center gap-3">
             <button
               onClick={() => onRechazar(motivo)}
               disabled={cargando}
-              className="px-4 py-2 text-sm font-medium text-white bg-estado-error rounded-lg hover:bg-estado-error/90 disabled:opacity-50 transition-colors flex items-center gap-2"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-estado-error hover:bg-estado-error/90 disabled:opacity-50 transition-colors"
             >
               {cargando ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
               {t('portal.confirmar_rechazo')}
+            </button>
+            <button
+              onClick={() => { setMostrarRechazo(false); setMotivo('') }}
+              className="text-sm text-texto-terciario hover:text-texto-primario transition-colors"
+            >
+              {t('comun.cancelar')}
             </button>
           </div>
         </div>
@@ -197,45 +199,47 @@ export default function AccionesPortal({
 
 // ── Botones de contacto reutilizables ──
 function BotonesContacto({
-  pdfUrl, linkWa, vendedorTelefono, colorMarca, t,
+  pdfUrl, linkWa, empresaTelefono, colorMarca, t,
 }: {
   pdfUrl: string | null
   linkWa: string | null
-  vendedorTelefono: string | null
+  empresaTelefono: string | null
   colorMarca: string
   t: (key: string) => string
 }) {
   return (
     <>
+      {/* Ver PDF — prominente, color marca */}
       {pdfUrl && (
         <a
           href={pdfUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
+          className="flex items-center justify-center gap-2 w-full px-4 py-3.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
           style={{ backgroundColor: colorMarca }}
         >
           <FileText size={18} />
           {t('portal.ver_detalle')}
         </a>
       )}
-      <div className="flex gap-2">
+      {/* WhatsApp + Llamar — estilo outlined/sutil */}
+      <div className="flex gap-3">
         {linkWa && (
           <a
             href={linkWa}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-colors"
-            style={{ backgroundColor: '#25D366' }}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors border"
+            style={{ borderColor: '#25D366', color: '#25D366', backgroundColor: 'rgba(37, 211, 102, 0.08)' }}
           >
-            <IconoWhatsApp size={16} />
-            WhatsApp
+            <IconoWhatsApp size={18} />
+            Escribir por WhatsApp
           </a>
         )}
-        {vendedorTelefono && (
+        {empresaTelefono && (
           <a
-            href={`tel:${vendedorTelefono}`}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-superficie-elevada border border-borde-sutil text-sm font-medium text-texto-primario hover:bg-superficie-app transition-colors"
+            href={`tel:${empresaTelefono}`}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-borde-fuerte text-sm font-medium text-texto-primario hover:bg-superficie-elevada transition-colors"
           >
             <Phone size={16} />
             {t('portal.llamar')}

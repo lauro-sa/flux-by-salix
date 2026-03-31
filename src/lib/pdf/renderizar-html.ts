@@ -297,7 +297,18 @@ export function renderizarHtml(
     empresa_pagina_web: (datosEmpPdf?.mostrar_pagina_web === true) ? (empresa.pagina_web || '') : '',
     contacto_nombre: nombreContacto,
     contacto_identificacion: presupuesto.contacto_identificacion || '',
-    contacto_condicion_fiscal: presupuesto.contacto_condicion_iva || '',
+    contacto_identificacion_label: empresaIdentificacionLabel,
+    contacto_condicion_fiscal: (() => {
+      const val = presupuesto.contacto_condicion_iva || ''
+      const mapeo: Record<string, string> = {
+        'responsable_inscripto': 'Resp. Inscripto',
+        'monotributista': 'Monotributista',
+        'exento': 'Exento',
+        'consumidor_final': 'Consumidor Final',
+        'sujeto_no_categorizado': 'Sujeto No Categorizado',
+      }
+      return mapeo[val] || val
+    })(),
     contacto_direccion: presupuesto.contacto_direccion || '',
     contacto_correo: presupuesto.contacto_correo || '',
     contacto_telefono: presupuesto.contacto_telefono || '',
@@ -313,7 +324,12 @@ export function renderizarHtml(
     notas_html: notasAHtml(presupuesto.notas_html),
     condiciones_html: notasAHtml(presupuesto.condiciones_html),
     tiene_cuotas: presupuesto.cuotas.length > 0,
-    mostrar_datos_bancarios: datosEmpPdf?.mostrar_datos_bancarios === true,
+    mostrar_datos_bancarios: datosEmpPdf?.mostrar_datos_bancarios === true && !!(
+      datosEmpPdf?.datos_bancarios?.banco ||
+      datosEmpPdf?.datos_bancarios?.titular ||
+      datosEmpPdf?.datos_bancarios?.cbu ||
+      datosEmpPdf?.datos_bancarios?.alias
+    ),
     banco: datosEmpPdf?.datos_bancarios?.banco || '',
     banco_titular: datosEmpPdf?.datos_bancarios?.titular || '',
     banco_cbu: datosEmpPdf?.datos_bancarios?.cbu || '',

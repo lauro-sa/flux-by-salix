@@ -68,7 +68,7 @@ async function htmlAPdf(html: string): Promise<Buffer> {
   try {
     const pagina = await browser.newPage()
     // Normalizar márgenes: anular los de la plantilla guardada y aplicar valores correctos
-    const cssMargen = '<style>@page{margin:0!important}body{padding:10mm 13mm 14mm 13mm!important;margin:0!important}</style>'
+    const cssMargen = '<style>@page{margin:0!important}body{padding:10mm 13mm 25mm 13mm!important;margin:0!important}</style>'
     const htmlLimpio = html.replace('</head>', `${cssMargen}\n</head>`)
     await pagina.setContent(htmlLimpio, { waitUntil: 'networkidle0' })
     const pdfBuffer = await pagina.pdf({

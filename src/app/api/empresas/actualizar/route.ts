@@ -60,7 +60,7 @@ export async function PATCH(request: NextRequest) {
     const campos = await request.json()
 
     // Campos permitidos
-    const permitidos = ['nombre', 'descripcion', 'slug', 'logo_url', 'pais', 'paises', 'color_marca', 'color_secundario', 'color_terciario', 'ubicacion', 'direccion', 'pagina_web', 'correo', 'telefono', 'moneda', 'formato_fecha', 'formato_hora', 'dia_inicio_semana', 'zona_horaria', 'datos_fiscales']
+    const permitidos = ['nombre', 'descripcion', 'slug', 'logo_url', 'pais', 'paises', 'color_marca', 'color_secundario', 'color_terciario', 'ubicacion', 'direccion', 'pagina_web', 'correo', 'telefono', 'moneda', 'formato_fecha', 'formato_hora', 'dia_inicio_semana', 'zona_horaria', 'datos_fiscales', 'datos_bancarios']
     const actualizar: Record<string, unknown> = {}
     for (const campo of permitidos) {
       if (campo in campos) actualizar[campo] = campos[campo]

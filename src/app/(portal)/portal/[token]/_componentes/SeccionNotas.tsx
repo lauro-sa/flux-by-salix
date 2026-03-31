@@ -1,7 +1,9 @@
 'use client'
 
 /**
- * SeccionNotas — Notas y condiciones del presupuesto (HTML renderizado).
+ * SeccionNotas — Notas y condiciones del presupuesto.
+ * Estilo idéntico al editor de presupuestos: label uppercase afuera,
+ * contenido dentro de tarjeta con estilos HTML preservados.
  * Se usa en: VistaPortal
  */
 
@@ -35,17 +37,18 @@ export default function SeccionNotas({ notasHtml, condicionesHtml }: Props) {
   if (notas.length === 0 && condiciones.length === 0) return null
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* ── Notas ── */}
       {notas.length > 0 && (
         <div>
           <h3 className="text-xs text-texto-terciario uppercase tracking-wider font-medium mb-2">
             {t('portal.notas')}
           </h3>
-          <div className="space-y-1">
+          <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil px-5 py-4 space-y-2">
             {notas.map((html, i) => (
               <div
                 key={i}
-                className="text-sm text-texto-secundario leading-relaxed [&_p]:my-0.5 [&_strong]:text-texto-primario [&_a]:text-marca-500 [&_a]:underline"
+                className="text-sm text-texto-secundario leading-relaxed portal-html"
                 dangerouslySetInnerHTML={{ __html: html }}
               />
             ))}
@@ -53,22 +56,35 @@ export default function SeccionNotas({ notasHtml, condicionesHtml }: Props) {
         </div>
       )}
 
+      {/* ── Términos y Condiciones ── */}
       {condiciones.length > 0 && (
         <div>
           <h3 className="text-xs text-texto-terciario uppercase tracking-wider font-medium mb-2">
-            {t('portal.condiciones')}
+            Términos y condiciones
           </h3>
-          <div className="space-y-1">
+          <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil px-5 py-4 space-y-2">
             {condiciones.map((html, i) => (
               <div
                 key={i}
-                className="text-sm text-texto-secundario leading-relaxed [&_p]:my-0.5 [&_strong]:text-texto-primario [&_a]:text-marca-500 [&_a]:underline"
+                className="text-sm text-texto-secundario leading-relaxed portal-html"
                 dangerouslySetInnerHTML={{ __html: html }}
               />
             ))}
           </div>
         </div>
       )}
+
+      {/* Estilos para el HTML renderizado — preserva colores inline del editor */}
+      <style jsx global>{`
+        .portal-html p { margin: 0.35rem 0; }
+        .portal-html strong, .portal-html b { font-weight: 600; }
+        .portal-html em, .portal-html i { font-style: italic; }
+        .portal-html a { color: var(--marca-500); text-decoration: underline; }
+        .portal-html ul { list-style-type: disc; padding-left: 1.5rem; margin: 0.35rem 0; }
+        .portal-html ol { list-style-type: decimal; padding-left: 1.5rem; margin: 0.35rem 0; }
+        .portal-html li { margin: 0.25rem 0; }
+        .portal-html li::marker { color: var(--texto-primario); }
+      `}</style>
     </div>
   )
 }

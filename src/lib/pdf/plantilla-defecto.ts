@@ -268,21 +268,18 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
   .datos-bancarios .val { color: #1f2937; }
 
   /* ── Pie de página ── */
+  .pie-wrapper {
+    position: fixed;
+    bottom: 8mm;
+    left: 13mm;
+    right: 13mm;
+  }
   .pie-pagina {
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-size: 8pt;
     color: #9ca3af;
-  }
-  @media print {
-    .pie-pagina {
-      position: fixed;
-      bottom: 0;
-      left: 15mm;
-      right: 15mm;
-      margin-top: 0;
-    }
   }
   .pie-col { flex: 1; }
   .pie-col.centro { text-align: center; }
@@ -328,8 +325,9 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
 {{/if}}
 
 <!-- ═══════ TÍTULO ═══════ -->
-<div class="titulo-doc">
-  {tipo_documento} {numero}
+<div style="margin-bottom: 14px;">
+  <div style="font-size: 7.5pt; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.05em;">{tipo_documento}</div>
+  <div class="titulo-doc" style="margin-bottom: 0;">{numero}</div>
 </div>
 
 <!-- ═══════ CLIENTE + INFO ═══════ -->
@@ -341,15 +339,11 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
       <dd class="nombre-contacto" style="margin-top: 0;">{contacto_nombre}</dd>
       {{/if}}
       {{#if contacto_identificacion}}
-        <dt>Identificación</dt>
-        <dd>{contacto_identificacion}</dd>
-      {{/if}}
-      {{#if contacto_condicion_fiscal}}
-        <dt>Cond. fiscal</dt>
-        <dd>{contacto_condicion_fiscal}</dd>
+        <dt>{contacto_identificacion_label}</dt>
+        <dd>{contacto_identificacion}{{#if contacto_condicion_fiscal}} · {contacto_condicion_fiscal}{{/if}}</dd>
       {{/if}}
       {{#if contacto_direccion}}
-        <dt>Dirección</dt>
+        <dt>Domicilio (principal)</dt>
         <dd>{contacto_direccion}</dd>
       {{/if}}
       {{#if contacto_correo}}
@@ -383,12 +377,6 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
         <dt>Condición de pago</dt>
         <dd>{condicion_pago}</dd>
       {{/if}}
-      <dt>Moneda</dt>
-      <dd>{moneda_codigo} ({moneda_simbolo})</dd>
-      {{#if referencia}}
-        <dt>Referencia</dt>
-        <dd>{referencia}</dd>
-      {{/if}}
     </dl>
   </div>
 </div>
@@ -397,31 +385,30 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
 <table class="tabla-lineas">
   <thead>
     <tr>
-      <th style="width:7%;">Cod.</th>
-      <th style="width:33%;">Descripción</th>
+      <th style="width:40%;">Descripción</th>
       <th class="num" style="width:7%;">Cant.</th>
       <th style="width:7%;">Unid.</th>
-      <th class="num" style="width:12%;">Precio Unit.</th>
+      <th class="num" style="width:13%;">Precio Unit.</th>
       <th class="num" style="width:7%;">Dto.</th>
       <th style="width:11%;">Impuesto</th>
-      <th class="num" style="width:14%;">Subtotal</th>
+      <th class="num" style="width:14%;">Importe</th>
     </tr>
   </thead>
   <tbody>
     {{#each lineas}}
       {{#if es_seccion}}
-        <tr class="linea-seccion"><td colspan="8">{descripcion}</td></tr>
+        <tr class="linea-seccion"><td colspan="7">{descripcion}</td></tr>
       {{/if}}
       {{#if es_nota}}
-        <tr class="linea-nota"><td colspan="8">{descripcion}</td></tr>
+        <tr class="linea-nota"><td colspan="7">{descripcion}</td></tr>
       {{/if}}
       {{#if es_descuento}}
-        <tr class="linea-nota"><td colspan="8">Descuento: {descripcion} -{moneda_simbolo} {monto_formateado}</td></tr>
+        <tr class="linea-nota"><td colspan="7">Descuento: {descripcion} -{moneda_simbolo} {monto_formateado}</td></tr>
       {{/if}}
       {{#if es_producto}}
         <tr>
-          <td>{codigo_producto}</td>
           <td>
+            {{#if codigo_producto}}<div style="font-size: 7pt; color: #9ca3af;">{codigo_producto}</div>{{/if}}
             {descripcion}
             {{#if descripcion_detalle}}<span class="desc-detalle">{descripcion_detalle}</span>{{/if}}
           </td>
@@ -522,11 +509,11 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
 
 <!-- ═══════ PIE DE PÁGINA ═══════ -->
 {{#if mostrar_pie}}
-<div style="margin-top: 30px;">
+<div class="pie-wrapper">
   {{#if pie_linea_superior}}
-  <div class="pie-linea" style="border-top-width: {pie_grosor_linea}px; border-top-style: solid; border-top-color: {pie_color_linea}; margin-bottom: 8px;"></div>
+  <div style="border-top-width: {pie_grosor_linea}px; border-top-style: solid; border-top-color: {pie_color_linea}; margin-bottom: 6px;"></div>
   {{/if}}
-  <div class="pie-pagina" style="font-size: {pie_tamano_texto}px;">
+  <div class="pie-pagina" style="font-size: {pie_tamano_texto}px; position: static;">
     <div class="pie-col">{pie_izquierda}</div>
     <div class="pie-col centro">{pie_centro}</div>
     <div class="pie-col derecha">{pie_derecha}</div>

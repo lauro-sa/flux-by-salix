@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation'
 import {
   Cloud, X, Mail, Phone, ExternalLink,
   Send, Printer, FileCheck, Eye, Receipt, Ban, RotateCcw,
-  Lock, Info, RefreshCw, History, Loader2,
+  Lock, Info, RefreshCw, History, Loader2, CheckCircle2, FileText,
 } from 'lucide-react'
 import { TablaLineas } from './TablaLineas'
 import EditorNotasPresupuesto from './EditorNotasPresupuesto'
@@ -26,6 +26,7 @@ import { COLOR_ESTADO_DOCUMENTO } from '@/lib/colores_entidad'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useAuth } from '@/hooks/useAuth'
 import { useTraduccion } from '@/lib/i18n'
+import { PanelChatter } from '@/componentes/entidad/PanelChatter'
 import type {
   PresupuestoConLineas, LineaPresupuesto, TipoLinea,
   Impuesto, UnidadMedida, CondicionPago, ConfigPresupuestos,
@@ -615,7 +616,24 @@ export default function EditorPresupuesto({
 
   // ─── Acciones de estado (modo editar) ───────────────────────────────────
 
-  const handleEnviar = async () => { await cambiarEstado('enviado') }
+  const handleEnviar = async () => {
+    if (idPresupuesto) {
+      // Guardar todo antes de enviar
+      await guardarTodo()
+    }
+    await cambiarEstado('enviado')
+    if (idPresupuesto) {
+      // Generar PDF + token del portal en paralelo (fire-and-forget)
+      Promise.all([
+        fetch(`/api/presupuestos/${idPresupuesto}/pdf`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ forzar: false }),
+        }),
+        fetch(`/api/presupuestos/${idPresupuesto}/portal`, { method: 'POST' }),
+      ]).catch(() => {})
+    }
+  }
   const handleEnviarProforma = () => { /* pendiente: integrar proforma */ }
   const [generandoPdf, setGenerandoPdf] = useState(false)
   const handleImprimir = async () => {
@@ -1530,6 +1548,34 @@ export default function EditorPresupuesto({
           </div>
         )}
       </div>
+
+      {/* ─── Certificado de aceptación (si existe) ─── */}
+      {modo === 'editar' && presupuesto?.pdf_firmado_url && (
+        <div className="flex items-center gap-3 px-5 py-3.5 bg-insignia-exito/5 border border-insignia-exito/20 rounded-xl">
+          <CheckCircle2 size={18} className="text-insignia-exito shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-texto-primario">Presupuesto aceptado por el cliente</p>
+            <p className="text-xs text-texto-terciario">Certificado de aceptación digital con firma</p>
+          </div>
+          <a
+            href={presupuesto.pdf_firmado_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-xs font-medium text-insignia-exito hover:underline shrink-0"
+          >
+            <FileText size={14} />
+            Ver certificado
+          </a>
+        </div>
+      )}
+
+      {/* ─── Panel de actividad (Chatter) ─── */}
+      {modo === 'editar' && idPresupuesto && (
+        <PanelChatter
+          entidadTipo="presupuesto"
+          entidadId={idPresupuesto}
+        />
+      )}
     </div>
   )
 }

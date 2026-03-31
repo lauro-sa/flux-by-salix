@@ -21,6 +21,7 @@ interface Props {
   datosBancarios: {
     banco: string
     titular: string
+    numero_cuenta: string
     cbu: string
     alias: string
   } | null
@@ -210,7 +211,7 @@ export default function SeccionCuotas({
       )}
 
       {/* ── Monto a transferir (prominente) ── */}
-      {(tieneCuotas ? (cuotaSeleccionada !== undefined) : true) && cuotasPendientes.length > 0 && (
+      {(tieneCuotas ? (cuotaSeleccionada !== undefined) : true) && (cuotasPendientes.length > 0 || !tieneCuotas) && (
         <div className="px-5 py-4 border-b border-borde-sutil text-center">
           <p className="text-xs text-texto-terciario uppercase tracking-wider mb-1">{t('portal.monto_transferir')}</p>
           <p className="text-2xl font-bold" style={{ color: colorMarca }}>
@@ -227,6 +228,9 @@ export default function SeccionCuotas({
           )}
           {datosBancarios.titular && (
             <FilaBancaria label="Titular" valor={datosBancarios.titular} />
+          )}
+          {datosBancarios.numero_cuenta && (
+            <FilaBancaria label="Nº Cuenta" valor={datosBancarios.numero_cuenta} />
           )}
           {datosBancarios.cbu && (
             <FilaBancaria

@@ -18,6 +18,7 @@ export const empresas = pgTable('empresas', {
   color_marca: text('color_marca'),
   descripcion: text('descripcion'),
   datos_fiscales: jsonb('datos_fiscales').notNull().default(sql`'{}'`), // datos fiscales dinámicos según país (cuit, condicion_iva, etc.)
+  datos_bancarios: jsonb('datos_bancarios').notNull().default(sql`'{}'`), // {banco, titular, numero_cuenta, cbu, alias}
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
 })
 
@@ -398,6 +399,9 @@ export const presupuestos = pgTable('presupuestos', {
   pdf_miniatura_url: text('pdf_miniatura_url'),
   pdf_storage_path: text('pdf_storage_path'),
   pdf_generado_en: timestamp('pdf_generado_en', { withTimezone: true }),
+  // PDF firmado (certificado de aceptación)
+  pdf_firmado_url: text('pdf_firmado_url'),
+  pdf_firmado_storage_path: text('pdf_firmado_storage_path'),
 
   // Vinculación con documento origen (para cadena presupuesto → factura)
   origen_documento_id: uuid('origen_documento_id'),
@@ -597,8 +601,130 @@ export const portal_tokens = pgTable('portal_tokens', {
   visto_en: timestamp('visto_en', { withTimezone: true }),
   veces_visto: integer('veces_visto').notNull().default(0),
   activo: boolean('activo').notNull().default(true),
+  // PDF firmado (certificado de aceptación)
+  pdf_firmado_url: text('pdf_firmado_url'),
+  pdf_firmado_storage_path: text('pdf_firmado_storage_path'),
 }, (tabla) => [
   index('portal_tokens_token_idx').on(tabla.token),
   index('portal_tokens_presupuesto_idx').on(tabla.presupuesto_id),
   index('portal_tokens_empresa_idx').on(tabla.empresa_id),
 ])
+
+// ═══════════════════════════════════════════════════════════════
+// CHATTER — Mensajes y eventos vinculados a cualquier entidad
+// ═══════════════════════════════════════════════════════════════
+
+export const chatter = pgTable('chatter', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+
+  // Vínculo polimórfico
+  entidad_tipo: text('entidad_tipo').notNull(), // 'presupuesto', 'contacto', 'orden', etc.
+  entidad_id: uuid('entidad_id').notNull(),
+
+  // Tipo de entrada
+  tipo: text('tipo').notNull().default('mensaje'), // 'mensaje' | 'sistema' | 'nota_interna'
+
+  // Contenido
+  contenido: text('contenido').notNull(),
+
+  // Autor
+  autor_id: text('autor_id'), // uuid o 'portal', 'sistema', 'ia'
+  autor_nombre: text('autor_nombre').notNull(),
+  autor_avatar_url: text('autor_avatar_url'),
+
+  // Adjuntos [{url, nombre, tipo, tamano}]
+  adjuntos: jsonb('adjuntos').notNull().default(sql`'[]'`),
+
+  // Metadata flexible {accion, detalles, ...}
+  metadata: jsonb('metadata').notNull().default(sql`'{}'`),
+
+  // Timestamps
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  editado_en: timestamp('editado_en', { withTimezone: true }),
+}, (tabla) => [
+  index('chatter_entidad_idx').on(tabla.entidad_tipo, tabla.entidad_id),
+  index('chatter_empresa_idx').on(tabla.empresa_id),
+  index('chatter_fecha_idx').on(tabla.entidad_tipo, tabla.entidad_id, tabla.creado_en),
+])
+
+// ═══════════════════════════════════════════════════════════════
+// SISTEMA DE PRODUCTOS Y SERVICIOS
+// ═══════════════════════════════════════════════════════════════
+
+// Productos — catálogo de productos y servicios por empresa
+export const productos = pgTable('productos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  codigo: text('codigo').notNull(),
+  nombre: text('nombre').notNull(),
+  tipo: text('tipo').notNull().default('producto'), // 'producto' | 'servicio'
+
+  // Categorización
+  categoria: text('categoria'),
+  favorito: boolean('favorito').notNull().default(false),
+  referencia_interna: text('referencia_interna'),
+  codigo_barras: text('codigo_barras'),
+  imagen_url: text('imagen_url'),
+
+  // Precios e impuestos
+  precio_unitario: numeric('precio_unitario'),
+  moneda: text('moneda'),
+  costo: numeric('costo'),
+  desglose_costos: jsonb('desglose_costos').notNull().default(sql`'[]'`),
+  impuesto_id: text('impuesto_id'),
+  impuesto_compra_id: text('impuesto_compra_id'),
+  unidad: text('unidad').notNull().default('unidad'),
+
+  // Descripciones
+  descripcion: text('descripcion'),
+  descripcion_venta: text('descripcion_venta'),
+  notas_internas: text('notas_internas'),
+
+  // Logística (solo tipo = 'producto')
+  peso: numeric('peso'),
+  volumen: numeric('volumen'),
+
+  // Capacidades
+  puede_venderse: boolean('puede_venderse').notNull().default(true),
+  puede_comprarse: boolean('puede_comprarse').notNull().default(false),
+  activo: boolean('activo').notNull().default(true),
+
+  // Soft delete
+  en_papelera: boolean('en_papelera').notNull().default(false),
+  papelera_en: timestamp('papelera_en', { withTimezone: true }),
+
+  // Auditoría
+  creado_por: uuid('creado_por').notNull(),
+  creado_por_nombre: text('creado_por_nombre'),
+  editado_por: uuid('editado_por'),
+  editado_por_nombre: text('editado_por_nombre'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  uniqueIndex('productos_empresa_codigo_idx').on(tabla.empresa_id, tabla.codigo),
+  index('productos_empresa_idx').on(tabla.empresa_id),
+  index('productos_tipo_idx').on(tabla.empresa_id, tabla.tipo),
+  index('productos_categoria_idx').on(tabla.empresa_id, tabla.categoria),
+  index('productos_activo_idx').on(tabla.empresa_id, tabla.activo),
+  index('productos_papelera_idx').on(tabla.empresa_id, tabla.en_papelera),
+])
+
+// Configuración de productos por empresa (JSONB flexible)
+export const config_productos = pgTable('config_productos', {
+  empresa_id: uuid('empresa_id').primaryKey().references(() => empresas.id, { onDelete: 'cascade' }),
+
+  // Categorías de producto/servicio
+  categorias: jsonb('categorias').notNull().default(sql`'[{"id":"general","label":"General"},{"id":"tecnologia","label":"Tecnología"},{"id":"limpieza","label":"Limpieza"},{"id":"mantenimiento","label":"Mantenimiento"},{"id":"consultoria","label":"Consultoría"},{"id":"insumos","label":"Insumos"}]'`),
+
+  // Unidades de medida
+  unidades: jsonb('unidades').notNull().default(sql`'[{"id":"unidad","label":"Unidad","abreviatura":"un"},{"id":"hora","label":"Hora","abreviatura":"hs"},{"id":"servicio","label":"Servicio","abreviatura":"srv"},{"id":"metro","label":"Metro","abreviatura":"m"},{"id":"kg","label":"Kilogramo","abreviatura":"kg"},{"id":"litro","label":"Litro","abreviatura":"lt"},{"id":"dia","label":"Día","abreviatura":"día"},{"id":"mes","label":"Mes","abreviatura":"mes"},{"id":"global","label":"Global","abreviatura":"gl"},{"id":"m2","label":"Metro cuadrado","abreviatura":"m²"}]'`),
+
+  // Prefijos de código (cada uno con su secuencia independiente)
+  prefijos: jsonb('prefijos').notNull().default(sql`'[{"id":"producto","prefijo":"PRD","label":"Producto","siguiente":1},{"id":"servicio","prefijo":"SRV","label":"Servicio","siguiente":1}]'`),
+
+  // Categorías de desglose de costos
+  categorias_costo: jsonb('categorias_costo').notNull().default(sql`'[{"id":"mano_obra","label":"Mano de obra"},{"id":"materiales","label":"Materiales"},{"id":"flete","label":"Flete"},{"id":"otros","label":"Otros"}]'`),
+
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+})

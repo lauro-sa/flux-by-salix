@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { registrarChatter } from '@/lib/chatter'
 
 /**
  * GET /api/presupuestos — Listar presupuestos de la empresa activa.
@@ -220,6 +221,17 @@ export async function POST(request: NextRequest) {
       estado: 'borrador',
       usuario_id: user.id,
       usuario_nombre: nombreUsuario,
+    })
+
+    // Registrar creación en chatter
+    await registrarChatter({
+      empresaId,
+      entidadTipo: 'presupuesto',
+      entidadId: presupuesto.id,
+      contenido: `Creó el presupuesto ${presupuesto.numero}`,
+      autorId: user.id,
+      autorNombre: nombreUsuario || 'Usuario',
+      metadata: { accion: 'creado' },
     })
 
     // Crear líneas iniciales si se proporcionaron

@@ -125,6 +125,9 @@ export interface Presupuesto {
   pdf_miniatura_url: string | null
   pdf_storage_path: string | null
   pdf_generado_en: string | null
+  // PDF firmado (certificado de aceptación)
+  pdf_firmado_url: string | null
+  pdf_firmado_storage_path: string | null
 
   // Vinculación
   origen_documento_id: string | null
@@ -392,6 +395,7 @@ export interface ConfigPiePagina {
 export interface DatosBancarios {
   banco: string
   titular: string
+  numero_cuenta: string
   cbu: string
   alias: string
 }
@@ -406,6 +410,7 @@ export interface ConfigDatosEmpresaPdf {
   mostrar_pagina_web: boolean
   mostrar_datos_bancarios: boolean
   datos_bancarios: DatosBancarios
+  usar_datos_empresa?: boolean // true = hereda datos bancarios de config empresa
 }
 
 // ─── Variables disponibles para la plantilla PDF ───

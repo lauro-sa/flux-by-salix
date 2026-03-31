@@ -43,10 +43,9 @@ export async function GET(
     if ((portalToken.estado_cliente || 'pendiente') === 'pendiente') {
       actualizacionVista.estado_cliente = 'visto'
     }
-    admin.from('portal_tokens').update(actualizacionVista).eq('id', portalToken.id).then(() => {})
-
-    // 4. Fetch en paralelo: presupuesto, líneas, cuotas, empresa, config, vendedor
+    // 4. Fetch en paralelo + update vista (todo junto, sin fire-and-forget)
     const [
+      ,
       { data: presupuesto },
       { data: lineas },
       { data: cuotas },
@@ -54,10 +53,11 @@ export async function GET(
       { data: config },
       { data: vendedor },
     ] = await Promise.all([
+      admin.from('portal_tokens').update(actualizacionVista).eq('id', portalToken.id),
       admin.from('presupuestos').select('*').eq('id', portalToken.presupuesto_id).single(),
       admin.from('lineas_presupuesto').select('*').eq('presupuesto_id', portalToken.presupuesto_id).order('orden'),
       admin.from('presupuesto_cuotas').select('*').eq('presupuesto_id', portalToken.presupuesto_id).order('numero'),
-      admin.from('empresas').select('id, nombre, slug, logo_url, color_marca, descripcion, telefono, correo, pagina_web, ubicacion, datos_fiscales').eq('id', portalToken.empresa_id).single(),
+      admin.from('empresas').select('id, nombre, slug, logo_url, color_marca, descripcion, telefono, correo, pagina_web, ubicacion, datos_fiscales, datos_bancarios').eq('id', portalToken.empresa_id).single(),
       admin.from('config_presupuestos').select('datos_empresa_pdf, monedas').eq('empresa_id', portalToken.empresa_id).single(),
       admin.from('perfiles').select('nombre, apellido, correo, telefono').eq('id', portalToken.creado_por).single(),
     ])
@@ -70,17 +70,33 @@ export async function GET(
     const monedas = (config?.monedas || []) as { id: string; simbolo: string }[]
     const monedaSimb = monedas.find(m => m.id === presupuesto.moneda)?.simbolo || '$'
 
-    // 6. Datos bancarios (de config empresa PDF)
+    // 6. Datos bancarios (herencia: empresa → config presupuestos si override)
     const datosEmpPdf = config?.datos_empresa_pdf as Record<string, unknown> | null
     let datosBancarios = null
-    if (datosEmpPdf?.mostrar_datos_bancarios && datosEmpPdf.datos_bancarios) {
-      const db = datosEmpPdf.datos_bancarios as Record<string, string>
-      if (db.banco || db.cbu || db.alias) {
-        datosBancarios = {
-          banco: db.banco || '',
-          titular: db.titular || '',
-          cbu: db.cbu || '',
-          alias: db.alias || '',
+    if (datosEmpPdf?.mostrar_datos_bancarios) {
+      // Si usar_datos_empresa !== false, leer de empresa.datos_bancarios
+      if (datosEmpPdf.usar_datos_empresa !== false) {
+        const bancEmp = (empresa as Record<string, unknown>).datos_bancarios as Record<string, string> | null
+        if (bancEmp && (bancEmp.banco || bancEmp.cbu || bancEmp.alias)) {
+          datosBancarios = {
+            banco: bancEmp.banco || '',
+            titular: bancEmp.titular || '',
+            numero_cuenta: bancEmp.numero_cuenta || '',
+            cbu: bancEmp.cbu || '',
+            alias: bancEmp.alias || '',
+          }
+        }
+      } else if (datosEmpPdf.datos_bancarios) {
+        // Override: usar datos específicos de config presupuestos
+        const db = datosEmpPdf.datos_bancarios as Record<string, string>
+        if (db.banco || db.cbu || db.alias) {
+          datosBancarios = {
+            banco: db.banco || '',
+            titular: db.titular || '',
+            numero_cuenta: db.numero_cuenta || '',
+            cbu: db.cbu || '',
+            alias: db.alias || '',
+          }
         }
       }
     }

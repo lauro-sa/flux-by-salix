@@ -117,6 +117,7 @@ export interface DatosPortal {
   datos_bancarios: {
     banco: string
     titular: string
+    numero_cuenta: string
     cbu: string
     alias: string
   } | null

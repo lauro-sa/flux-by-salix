@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Building2, Globe, Mail, Phone, MapPin, Link as LinkIcon, Receipt } from 'lucide-react'
+import { Building2, Globe, Mail, Phone, MapPin, Link as LinkIcon, Receipt, Landmark } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import { BloqueDireccion, type DatosDireccion } from '@/componentes/ui/BloqueDireccion'
@@ -40,6 +40,9 @@ export function SeccionGeneral() {
   const [datosFiscales, setDatosFiscales] = useState<Record<string, string>>({})
   const [camposFiscales, setCamposFiscales] = useState<CampoFiscalPais[]>([])
   const [paisesEmpresa, setPaisesEmpresa] = useState<string[]>([])
+  const [datosBancarios, setDatosBancarios] = useState<{
+    banco: string; titular: string; numero_cuenta: string; cbu: string; alias: string
+  }>({ banco: '', titular: '', numero_cuenta: '', cbu: '', alias: '' })
 
   // Filtrar campos fiscales que aplican a "empresa" (no de identificación personal como DNI)
   const camposFiscalesEmpresa = useMemo(
@@ -76,7 +79,7 @@ export function SeccionGeneral() {
       const supabase = crearClienteNavegador()
       const { data } = await supabase
         .from('empresas')
-        .select('nombre, slug, ubicacion, direccion, pagina_web, correo, telefono, logo_url, color_marca, color_secundario, color_terciario, datos_fiscales, paises')
+        .select('nombre, slug, ubicacion, direccion, pagina_web, correo, telefono, logo_url, color_marca, color_secundario, color_terciario, datos_fiscales, datos_bancarios, paises')
         .eq('id', empresa.id)
         .single()
 
@@ -100,6 +103,16 @@ export function SeccionGeneral() {
         if (data.logo_url) {
           extraerColoresDeImagen(data.logo_url).then(setColoresLogo).catch(() => {})
         }
+
+        // Datos bancarios
+        const bancarios = (data.datos_bancarios as { banco: string; titular: string; numero_cuenta: string; cbu: string; alias: string }) || {}
+        setDatosBancarios({
+          banco: bancarios.banco || '',
+          titular: bancarios.titular || '',
+          numero_cuenta: bancarios.numero_cuenta || '',
+          cbu: bancarios.cbu || '',
+          alias: bancarios.alias || '',
+        })
 
         // Datos fiscales
         const fiscales = (data.datos_fiscales as Record<string, string>) || {}
@@ -350,6 +363,62 @@ export function SeccionGeneral() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Datos bancarios */}
+      <div>
+        <h2 className="text-lg font-semibold text-texto-primario mb-1">Datos bancarios</h2>
+        <p className="text-sm text-texto-terciario mb-4">
+          Cuenta bancaria principal de tu empresa. Se usa como base en presupuestos y portal de clientes.
+        </p>
+
+        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-6 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              tipo="text"
+              etiqueta="Banco"
+              placeholder="Ej: Santander, Galicia, BBVA"
+              value={datosBancarios.banco}
+              onChange={(e) => setDatosBancarios(prev => ({ ...prev, banco: e.target.value }))}
+              onBlur={() => guardarEnServidor({ datos_bancarios: datosBancarios })}
+              icono={<Landmark size={16} />}
+            />
+            <Input
+              tipo="text"
+              etiqueta="Titular"
+              placeholder="Razón social o nombre del titular"
+              value={datosBancarios.titular}
+              onChange={(e) => setDatosBancarios(prev => ({ ...prev, titular: e.target.value }))}
+              onBlur={() => guardarEnServidor({ datos_bancarios: datosBancarios })}
+            />
+          </div>
+          <Input
+            tipo="text"
+            etiqueta="Número de cuenta"
+            placeholder="Ej: 500-066601/3"
+            value={datosBancarios.numero_cuenta}
+            onChange={(e) => setDatosBancarios(prev => ({ ...prev, numero_cuenta: e.target.value }))}
+            onBlur={() => guardarEnServidor({ datos_bancarios: datosBancarios })}
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              tipo="text"
+              etiqueta="CBU"
+              placeholder="22 dígitos"
+              value={datosBancarios.cbu}
+              onChange={(e) => setDatosBancarios(prev => ({ ...prev, cbu: e.target.value }))}
+              onBlur={() => guardarEnServidor({ datos_bancarios: datosBancarios })}
+            />
+            <Input
+              tipo="text"
+              etiqueta="Alias"
+              placeholder="Ej: miempresa.pagos"
+              value={datosBancarios.alias}
+              onChange={(e) => setDatosBancarios(prev => ({ ...prev, alias: e.target.value }))}
+              onBlur={() => guardarEnServidor({ datos_bancarios: datosBancarios })}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Logos */}

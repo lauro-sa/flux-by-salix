@@ -1,12 +1,14 @@
+import { cache } from 'react'
 import type { Metadata } from 'next'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { generarPdfPresupuesto } from '@/lib/pdf/generar-pdf'
 import VistaPortal from './_componentes/VistaPortal'
 import PortalExpirado from './_componentes/PortalExpirado'
 import type { DatosPortal } from '@/tipos/portal'
 
 /**
  * Página pública del portal de presupuestos.
- * Server component que fetch data y pasa a VistaPortal.
+ * Usa cache() de React para deduplicar queries entre generateMetadata y el page.
  * Se usa en: /portal/[token] (público, sin auth)
  */
 
@@ -14,33 +16,181 @@ interface Props {
   params: Promise<{ token: string }>
 }
 
+// ── Función cacheada: una sola ejecución por request ──────────────────────
+const obtenerDatosPortal = cache(async (token: string): Promise<DatosPortal | null> => {
+  try {
+    const admin = crearClienteAdmin()
+
+    // 1. Buscar token activo
+    const { data: portalToken } = await admin
+      .from('portal_tokens')
+      .select('*')
+      .eq('token', token)
+      .eq('activo', true)
+      .single()
+
+    if (!portalToken) return null
+
+    // 2. Verificar expiración
+    if (new Date(portalToken.expira_en).getTime() < Date.now()) return null
+
+    // 3. Preparar update de vista
+    const actualizacionVista: Record<string, unknown> = {
+      veces_visto: (portalToken.veces_visto || 0) + 1,
+    }
+    if (!portalToken.visto_en) {
+      actualizacionVista.visto_en = new Date().toISOString()
+    }
+    if ((portalToken.estado_cliente || 'pendiente') === 'pendiente') {
+      actualizacionVista.estado_cliente = 'visto'
+    }
+
+    // 4. Todo en paralelo: update vista + 6 fetches
+    const [
+      ,
+      { data: presupuesto },
+      { data: lineas },
+      { data: cuotas },
+      { data: empresa },
+      { data: config },
+      { data: vendedor },
+    ] = await Promise.all([
+      admin.from('portal_tokens').update(actualizacionVista).eq('id', portalToken.id),
+      admin.from('presupuestos').select('*').eq('id', portalToken.presupuesto_id).single(),
+      admin.from('lineas_presupuesto').select('*').eq('presupuesto_id', portalToken.presupuesto_id).order('orden'),
+      admin.from('presupuesto_cuotas').select('*').eq('presupuesto_id', portalToken.presupuesto_id).order('numero'),
+      admin.from('empresas').select('id, nombre, slug, logo_url, color_marca, descripcion, telefono, correo, pagina_web, ubicacion, datos_fiscales, datos_bancarios').eq('id', portalToken.empresa_id).single(),
+      admin.from('config_presupuestos').select('datos_empresa_pdf, monedas').eq('empresa_id', portalToken.empresa_id).single(),
+      admin.from('perfiles').select('nombre, apellido, correo, telefono').eq('id', portalToken.creado_por).single(),
+    ])
+
+    if (!presupuesto || !empresa) return null
+
+    // 5. Auto-generar PDF si falta o está desactualizado
+    let pdfUrl = presupuesto.pdf_url
+    const pdfDesactualizado = !pdfUrl
+      || !presupuesto.pdf_generado_en
+      || new Date(presupuesto.pdf_generado_en).getTime() < new Date(presupuesto.actualizado_en).getTime()
+
+    if (pdfDesactualizado) {
+      try {
+        const resultado = await generarPdfPresupuesto(admin, presupuesto.id, portalToken.empresa_id, {
+          congelado: false,
+          forzar: false,
+        })
+        pdfUrl = resultado.url
+      } catch {
+        // Si falla la generación, el portal se muestra igual sin botón de PDF
+      }
+    }
+
+    // 6. Símbolo de moneda
+    const monedas = (config?.monedas || []) as { id: string; simbolo: string }[]
+    const monedaSimb = monedas.find(m => m.id === presupuesto.moneda)?.simbolo || '$'
+
+    // 6. Datos bancarios (herencia: empresa → config presupuestos si override)
+    const datosEmpPdf = config?.datos_empresa_pdf as Record<string, unknown> | null
+    let datosBancarios = null
+    if (datosEmpPdf?.mostrar_datos_bancarios) {
+      if (datosEmpPdf.usar_datos_empresa !== false) {
+        // Herencia: leer de empresa.datos_bancarios
+        const bancEmp = (empresa as Record<string, unknown>).datos_bancarios as Record<string, string> | null
+        if (bancEmp && (bancEmp.banco || bancEmp.cbu || bancEmp.alias)) {
+          datosBancarios = { banco: bancEmp.banco || '', titular: bancEmp.titular || '', numero_cuenta: bancEmp.numero_cuenta || '', cbu: bancEmp.cbu || '', alias: bancEmp.alias || '' }
+        }
+      } else if (datosEmpPdf.datos_bancarios) {
+        // Override: usar datos específicos de config presupuestos
+        const db = datosEmpPdf.datos_bancarios as Record<string, string>
+        if (db.banco || db.cbu || db.alias) {
+          datosBancarios = { banco: db.banco || '', titular: db.titular || '', numero_cuenta: db.numero_cuenta || '', cbu: db.cbu || '', alias: db.alias || '' }
+        }
+      }
+    }
+
+    // 7. Estado y firma
+    const estadoCliente = portalToken.estado_cliente || (portalToken.visto_en ? 'visto' : 'pendiente')
+    const firma = portalToken.firma_nombre ? {
+      url: portalToken.firma_url || null,
+      nombre: portalToken.firma_nombre,
+      modo: portalToken.firma_modo || null,
+    } : null
+
+    return {
+      token_id: portalToken.id,
+      presupuesto: {
+        id: presupuesto.id,
+        numero: presupuesto.numero,
+        estado: presupuesto.estado,
+        fecha_emision: presupuesto.fecha_emision,
+        fecha_vencimiento: presupuesto.fecha_vencimiento,
+        moneda: presupuesto.moneda,
+        referencia: presupuesto.referencia,
+        condicion_pago_label: presupuesto.condicion_pago_label,
+        condicion_pago_tipo: presupuesto.condicion_pago_tipo,
+        nota_plan_pago: presupuesto.nota_plan_pago,
+        contacto_nombre: presupuesto.contacto_nombre,
+        contacto_apellido: presupuesto.contacto_apellido,
+        contacto_identificacion: presupuesto.contacto_identificacion,
+        contacto_condicion_iva: presupuesto.contacto_condicion_iva,
+        contacto_direccion: presupuesto.contacto_direccion,
+        contacto_correo: presupuesto.contacto_correo,
+        contacto_telefono: presupuesto.contacto_telefono,
+        atencion_nombre: presupuesto.atencion_nombre,
+        atencion_cargo: presupuesto.atencion_cargo,
+        atencion_correo: presupuesto.atencion_correo,
+        subtotal_neto: presupuesto.subtotal_neto,
+        total_impuestos: presupuesto.total_impuestos,
+        descuento_global: presupuesto.descuento_global,
+        descuento_global_monto: presupuesto.descuento_global_monto,
+        total_final: presupuesto.total_final,
+        notas_html: presupuesto.notas_html,
+        condiciones_html: presupuesto.condiciones_html,
+        pdf_url: pdfUrl,
+        lineas: lineas || [],
+        cuotas: cuotas || [],
+      },
+      empresa: {
+        nombre: empresa.nombre,
+        logo_url: empresa.logo_url,
+        color_marca: empresa.color_marca,
+        descripcion: empresa.descripcion || null,
+        telefono: empresa.telefono || null,
+        correo: empresa.correo || null,
+        pagina_web: empresa.pagina_web || null,
+        ubicacion: empresa.ubicacion || null,
+        datos_fiscales: empresa.datos_fiscales || null,
+      },
+      vendedor: {
+        nombre: vendedor ? [vendedor.nombre, vendedor.apellido].filter(Boolean).join(' ') : 'Sin asignar',
+        correo: vendedor?.correo || null,
+        telefono: vendedor?.telefono || null,
+      },
+      datos_bancarios: datosBancarios,
+      moneda_simbolo: monedaSimb,
+      estado_cliente: estadoCliente,
+      firma,
+      aceptado_en: portalToken.aceptado_en || null,
+      rechazado_en: portalToken.rechazado_en || null,
+      motivo_rechazo: portalToken.motivo_rechazo || null,
+      mensajes: portalToken.mensajes || [],
+      comprobantes: portalToken.comprobantes || [],
+    }
+  } catch {
+    return null
+  }
+})
+
+// ── Metadata (usa la misma función cacheada) ──────────────────────────────
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { token } = await params
-  const admin = crearClienteAdmin()
+  const datos = await obtenerDatosPortal(token)
 
-  const { data: portalToken } = await admin
-    .from('portal_tokens')
-    .select('presupuesto_id, empresa_id')
-    .eq('token', token)
-    .eq('activo', true)
-    .single()
-
-  if (!portalToken) {
+  if (!datos) {
     return { title: 'Enlace no válido — Flux by Salix' }
   }
 
-  const [{ data: presupuesto }, { data: empresa }] = await Promise.all([
-    admin.from('presupuestos').select('numero, total_final').eq('id', portalToken.presupuesto_id).single(),
-    admin.from('empresas').select('nombre, logo_url, descripcion').eq('id', portalToken.empresa_id).single(),
-  ])
-
-  const titulo = presupuesto && empresa
-    ? `Presupuesto ${presupuesto.numero} — ${empresa.nombre}`
-    : 'Presupuesto — Flux by Salix'
-
-  const descripcion = presupuesto && empresa
-    ? `${empresa.nombre} te envió un presupuesto para tu revisión.`
-    : 'Revisá y aceptá tu presupuesto online.'
+  const titulo = `Presupuesto ${datos.presupuesto.numero} — ${datos.empresa.nombre}`
+  const descripcion = `${datos.empresa.nombre} te envió un presupuesto para tu revisión.`
 
   return {
     title: titulo,
@@ -50,30 +200,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: descripcion,
       type: 'website',
       siteName: 'Flux by Salix',
-      ...(empresa?.logo_url ? {
-        images: [{ url: empresa.logo_url, width: 200, height: 200, alt: empresa.nombre }],
+      ...(datos.empresa.logo_url ? {
+        images: [{ url: datos.empresa.logo_url, width: 200, height: 200, alt: datos.empresa.nombre }],
       } : {}),
     },
     twitter: {
       card: 'summary',
       title: titulo,
       description: descripcion,
-      ...(empresa?.logo_url ? { images: [empresa.logo_url] } : {}),
+      ...(datos.empresa.logo_url ? { images: [datos.empresa.logo_url] } : {}),
     },
   }
 }
 
-async function obtenerDatosPortal(token: string): Promise<DatosPortal | null> {
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    const res = await fetch(`${baseUrl}/api/portal/${token}`, { cache: 'no-store' })
-    if (!res.ok) return null
-    return await res.json()
-  } catch {
-    return null
-  }
-}
-
+// ── Página ────────────────────────────────────────────────────────────────
 export default async function PaginaPortal({ params }: Props) {
   const { token } = await params
   const datos = await obtenerDatosPortal(token)

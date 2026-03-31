@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Plus, Trash2, GripVertical, Receipt, DollarSign,
   Ruler, Clock, Hash, FileText, RotateCcw, Package,
-  Image, PanelBottom, Code2, FileType,
+  Image, PanelBottom, Code2, FileType, Landmark,
 } from 'lucide-react'
 import { Reorder } from 'framer-motion'
 import { A4_ANCHO, A4_ALTO } from '@/lib/pdf/constantes'
@@ -123,7 +123,8 @@ const DATOS_EMPRESA_PDF_DEFAULT: ConfigDatosEmpresaPdf = {
   mostrar_correo: true,
   mostrar_pagina_web: false,
   mostrar_datos_bancarios: false,
-  datos_bancarios: { banco: '', titular: '', cbu: '', alias: '' },
+  datos_bancarios: { banco: '', titular: '', numero_cuenta: '', cbu: '', alias: '' },
+  usar_datos_empresa: true,
 }
 
 export default function PaginaConfigPresupuestos() {
@@ -181,6 +182,10 @@ export default function PaginaConfigPresupuestos() {
   // Datos de empresa para preview del membrete
   const [empresaPreview, setEmpresaPreview] = useState<DatosEmpresa>(EMPRESA_MUESTRA)
   const [logoUrlPreview, setLogoUrlPreview] = useState<string | null>(null)
+  // Datos bancarios de empresa (fuente de verdad para herencia)
+  const [datosBancariosEmpresa, setDatosBancariosEmpresa] = useState<{
+    banco: string; titular: string; numero_cuenta: string; cbu: string; alias: string
+  }>({ banco: '', titular: '', numero_cuenta: '', cbu: '', alias: '' })
 
   const secciones: SeccionConfig[] = [
     { id: 'impuestos', etiqueta: 'Impuestos', icono: <Receipt size={16} />, grupo: 'Financiero' },
@@ -193,6 +198,7 @@ export default function PaginaConfigPresupuestos() {
     { id: 'pie_pagina', etiqueta: 'Pie de página', icono: <PanelBottom size={16} />, grupo: 'PDF' },
     { id: 'plantilla_pdf', etiqueta: 'Plantilla PDF', icono: <Code2 size={16} />, grupo: 'PDF' },
     { id: 'nombre_pdf', etiqueta: 'Nombre del archivo', icono: <FileType size={16} />, grupo: 'PDF' },
+    { id: 'datos_bancarios', etiqueta: 'Datos bancarios', icono: <Landmark size={16} />, grupo: 'Portal' },
     { id: 'modulo', etiqueta: 'Módulo', icono: <Package size={16} />, grupo: 'Sistema' },
   ]
 
@@ -250,6 +256,15 @@ export default function PaginaConfigPresupuestos() {
                 telefono: emp.telefono || '',
                 correo: emp.correo || '',
                 pagina_web: emp.pagina_web || '',
+              })
+              // Cargar datos bancarios de empresa para herencia
+              const bancEmp = (emp.datos_bancarios || {}) as Record<string, string>
+              setDatosBancariosEmpresa({
+                banco: bancEmp.banco || '',
+                titular: bancEmp.titular || '',
+                numero_cuenta: bancEmp.numero_cuenta || '',
+                cbu: bancEmp.cbu || '',
+                alias: bancEmp.alias || '',
               })
             }
           } catch {}
@@ -1524,6 +1539,170 @@ export default function PaginaConfigPresupuestos() {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── DATOS BANCARIOS (PORTAL) ─── */}
+      {seccionActiva === 'datos_bancarios' && (
+        <div>
+          <h3 className="text-lg font-semibold text-texto-primario">Datos bancarios para presupuestos</h3>
+          <p className="text-sm text-texto-terciario mt-1 mb-5">
+            Estos datos se muestran en el portal cuando el cliente acepta un presupuesto y necesita realizar el pago.
+            Por defecto se usan los datos cargados en Configuración &gt; Empresa.
+          </p>
+
+          {/* Toggle: usar datos de empresa o personalizar */}
+          <div className="p-4 rounded-xl border border-borde-sutil mb-5">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={datosEmpresaPdf.usar_datos_empresa !== false}
+                onChange={(e) => {
+                  const nuevo = { ...datosEmpresaPdf, usar_datos_empresa: e.target.checked }
+                  if (e.target.checked) {
+                    // Al activar herencia, copiar datos de empresa
+                    nuevo.datos_bancarios = { ...datosBancariosEmpresa }
+                  }
+                  guardarDatosEmpresaPdf(nuevo)
+                }}
+                className="mt-0.5 rounded"
+              />
+              <div>
+                <p className="text-sm font-medium text-texto-primario">Usar datos de la empresa</p>
+                <p className="text-xs text-texto-terciario">
+                  Heredar automáticamente los datos bancarios de Configuración &gt; Empresa. Desactivá esta opción si querés usar una cuenta distinta para presupuestos.
+                </p>
+              </div>
+            </label>
+          </div>
+
+          {/* Preview de datos de empresa (cuando hereda) */}
+          {datosEmpresaPdf.usar_datos_empresa !== false && (
+            <div className="p-4 rounded-xl bg-superficie-app border border-borde-sutil mb-5">
+              <p className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-3">
+                Datos heredados de la empresa
+              </p>
+              {datosBancariosEmpresa.banco || datosBancariosEmpresa.cbu ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                  {datosBancariosEmpresa.banco && (
+                    <div><span className="text-texto-terciario">Banco:</span> <span className="text-texto-primario">{datosBancariosEmpresa.banco}</span></div>
+                  )}
+                  {datosBancariosEmpresa.titular && (
+                    <div><span className="text-texto-terciario">Titular:</span> <span className="text-texto-primario">{datosBancariosEmpresa.titular}</span></div>
+                  )}
+                  {datosBancariosEmpresa.numero_cuenta && (
+                    <div><span className="text-texto-terciario">Nº Cuenta:</span> <span className="text-texto-primario font-mono">{datosBancariosEmpresa.numero_cuenta}</span></div>
+                  )}
+                  {datosBancariosEmpresa.cbu && (
+                    <div><span className="text-texto-terciario">CBU:</span> <span className="text-texto-primario font-mono">{datosBancariosEmpresa.cbu}</span></div>
+                  )}
+                  {datosBancariosEmpresa.alias && (
+                    <div><span className="text-texto-terciario">Alias:</span> <span className="text-texto-primario font-mono">{datosBancariosEmpresa.alias}</span></div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-texto-terciario">
+                  No hay datos bancarios cargados en la empresa. Podés cargarlos en{' '}
+                  <button onClick={() => router.push('/configuracion')} className="text-texto-marca hover:underline">
+                    Configuración &gt; Empresa
+                  </button>.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Formulario de override (cuando no hereda) */}
+          {datosEmpresaPdf.usar_datos_empresa === false && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-texto-secundario mb-1">Banco</label>
+                  <input
+                    type="text"
+                    value={datosEmpresaPdf.datos_bancarios?.banco || ''}
+                    onChange={(e) => guardarDatosEmpresaPdf({
+                      ...datosEmpresaPdf,
+                      datos_bancarios: { ...datosEmpresaPdf.datos_bancarios, banco: e.target.value },
+                    })}
+                    placeholder="Ej: Santander, Galicia"
+                    className="w-full bg-superficie-app border border-borde-sutil rounded-lg px-3 py-2 text-sm text-texto-primario outline-none focus:border-texto-marca transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-texto-secundario mb-1">Titular</label>
+                  <input
+                    type="text"
+                    value={datosEmpresaPdf.datos_bancarios?.titular || ''}
+                    onChange={(e) => guardarDatosEmpresaPdf({
+                      ...datosEmpresaPdf,
+                      datos_bancarios: { ...datosEmpresaPdf.datos_bancarios, titular: e.target.value },
+                    })}
+                    placeholder="Razón social o nombre"
+                    className="w-full bg-superficie-app border border-borde-sutil rounded-lg px-3 py-2 text-sm text-texto-primario outline-none focus:border-texto-marca transition-colors"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-texto-secundario mb-1">Número de cuenta</label>
+                <input
+                  type="text"
+                  value={datosEmpresaPdf.datos_bancarios?.numero_cuenta || ''}
+                  onChange={(e) => guardarDatosEmpresaPdf({
+                    ...datosEmpresaPdf,
+                    datos_bancarios: { ...datosEmpresaPdf.datos_bancarios, numero_cuenta: e.target.value },
+                  })}
+                  placeholder="Ej: 500-066601/3"
+                  className="w-full bg-superficie-app border border-borde-sutil rounded-lg px-3 py-2 text-sm text-texto-primario outline-none focus:border-texto-marca transition-colors"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-texto-secundario mb-1">CBU</label>
+                  <input
+                    type="text"
+                    value={datosEmpresaPdf.datos_bancarios?.cbu || ''}
+                    onChange={(e) => guardarDatosEmpresaPdf({
+                      ...datosEmpresaPdf,
+                      datos_bancarios: { ...datosEmpresaPdf.datos_bancarios, cbu: e.target.value },
+                    })}
+                    placeholder="22 dígitos"
+                    className="w-full bg-superficie-app border border-borde-sutil rounded-lg px-3 py-2 text-sm font-mono text-texto-primario outline-none focus:border-texto-marca transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-texto-secundario mb-1">Alias</label>
+                  <input
+                    type="text"
+                    value={datosEmpresaPdf.datos_bancarios?.alias || ''}
+                    onChange={(e) => guardarDatosEmpresaPdf({
+                      ...datosEmpresaPdf,
+                      datos_bancarios: { ...datosEmpresaPdf.datos_bancarios, alias: e.target.value },
+                    })}
+                    placeholder="Ej: miempresa.pagos"
+                    className="w-full bg-superficie-app border border-borde-sutil rounded-lg px-3 py-2 text-sm font-mono text-texto-primario outline-none focus:border-texto-marca transition-colors"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Toggle mostrar en portal/PDF */}
+          <div className="mt-5 p-4 rounded-xl border border-borde-sutil">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={datosEmpresaPdf.mostrar_datos_bancarios}
+                onChange={(e) => guardarDatosEmpresaPdf({ ...datosEmpresaPdf, mostrar_datos_bancarios: e.target.checked })}
+                className="mt-0.5 rounded"
+              />
+              <div>
+                <p className="text-sm font-medium text-texto-primario">Mostrar datos bancarios en portal y PDF</p>
+                <p className="text-xs text-texto-terciario">
+                  Si está activado, los datos bancarios aparecen en el portal del cliente y en el pie del PDF del presupuesto.
+                </p>
+              </div>
+            </label>
           </div>
         </div>
       )}
