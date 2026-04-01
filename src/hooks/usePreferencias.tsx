@@ -22,6 +22,8 @@ interface ConfigTabla {
   opcionesVisuales?: Record<string, boolean>
   /** Posición de la barra de acciones masivas: arriba o abajo */
   barraAccionesPosicion?: string
+  /** Permite campos extra para configs especiales (ej: __inbox_correo) */
+  [clave: string]: unknown
 }
 
 interface Preferencias {
