@@ -238,7 +238,7 @@ export default function PaginaInbox() {
     } finally {
       setCargandoConversaciones(false)
     }
-  }, [construirParamsConversaciones, canalesCorreo.length])
+  }, [construirParamsConversaciones])
 
   useEffect(() => {
     cargarConversaciones()
@@ -914,6 +914,9 @@ export default function PaginaInbox() {
             setConversacionSeleccionada(null)
             setMensajes([])
             setSoloNoLeidos(false)
+            paginaMensajesRef.current = 1
+            setHayMasAnteriores(false)
+            setCargandoAnteriores(false)
           }}
         />
 
