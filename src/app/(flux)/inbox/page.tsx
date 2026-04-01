@@ -195,42 +195,36 @@ export default function PaginaInbox() {
     cargarConfig()
   }, [])
 
+  // Helper: construir params de filtro para conversaciones (DRY — usado en carga y polling)
+  const construirParamsConversaciones = useCallback(() => {
+    const params = new URLSearchParams()
+    params.set('tipo_canal', tabActivo)
+
+    if (tabActivo === 'correo') {
+      if (!canalTodas && canalCorreoActivo) {
+        params.set('canal_id', canalCorreoActivo)
+      }
+      switch (carpetaCorreo) {
+        case 'entrada': params.set('estado', 'abierta'); break
+        case 'enviados': params.set('enviados', 'true'); break
+        case 'spam': params.set('estado', 'spam'); break
+        case 'archivado': params.set('estado', 'resuelta'); break
+      }
+    } else {
+      if (filtroEstado !== 'todas') params.set('estado', filtroEstado)
+    }
+
+    if (busquedaRef.current) params.set('busqueda', busquedaRef.current)
+    if (filtroEtiqueta) params.set('etiqueta', filtroEtiqueta)
+    if (soloNoLeidos) params.set('no_leidos', 'true')
+    return params
+  }, [tabActivo, filtroEstado, filtroEtiqueta, soloNoLeidos, carpetaCorreo, canalCorreoActivo, canalTodas])
+
   // Cargar conversaciones cuando cambia el tab, filtros o carpeta de correo
   const cargarConversaciones = useCallback(async () => {
     setCargandoConversaciones(true)
     try {
-      const params = new URLSearchParams()
-      params.set('tipo_canal', tabActivo)
-
-      // Para correo, mapear carpeta a filtros
-      if (tabActivo === 'correo') {
-        // Solo filtrar por canal si hay uno explícitamente seleccionado (no "todas")
-        if (!canalTodas && canalCorreoActivo) {
-          params.set('canal_id', canalCorreoActivo)
-        }
-        switch (carpetaCorreo) {
-          case 'entrada':
-            // Entrada: abierta + en_espera (excluye spam y resuelta)
-            params.set('estado', 'abierta')
-            break
-          case 'enviados':
-            // Enviados: filtrar por último mensaje saliente
-            params.set('enviados', 'true')
-            break
-          case 'spam':
-            params.set('estado', 'spam')
-            break
-          case 'archivado':
-            params.set('estado', 'resuelta')
-            break
-        }
-      } else {
-        if (filtroEstado !== 'todas') params.set('estado', filtroEstado)
-      }
-
-      if (busquedaRef.current) params.set('busqueda', busquedaRef.current)
-      if (filtroEtiqueta) params.set('etiqueta', filtroEtiqueta)
-      if (soloNoLeidos) params.set('no_leidos', 'true')
+      const params = construirParamsConversaciones()
 
       const res = await fetch(`/api/inbox/conversaciones?${params}`)
       const data = await res.json()
@@ -240,7 +234,7 @@ export default function PaginaInbox() {
     } finally {
       setCargandoConversaciones(false)
     }
-  }, [tabActivo, filtroEstado, filtroEtiqueta, soloNoLeidos, carpetaCorreo, canalCorreoActivo, canalTodas, canalesCorreo.length])
+  }, [construirParamsConversaciones, canalesCorreo.length])
 
   useEffect(() => {
     cargarConversaciones()
@@ -263,7 +257,9 @@ export default function PaginaInbox() {
         const data = await res.json()
         const canales = (data.canales || []) as CanalInbox[]
         setCanalesCorreo(canales)
-        if (canales.length > 0 && !canalCorreoActivo) {
+        // Validar que el canal activo siga existiendo; si no, seleccionar el primero
+        const idsCanales = new Set(canales.map(c => c.id))
+        if (canales.length > 0 && (!canalCorreoActivo || !idsCanales.has(canalCorreoActivo))) {
           setCanalCorreoActivo(canales[0].id)
         }
         if (canales.length <= 1) {
@@ -294,8 +290,10 @@ export default function PaginaInbox() {
   }, [tabActivo, cargarContadores])
 
   // Sincronizar correos manualmente (llama al endpoint que trae correos nuevos de Gmail/IMAP)
+  const sincronizandoRef = useRef(false)
   const sincronizarCorreos = useCallback(async () => {
-    if (sincronizando) return
+    if (sincronizandoRef.current) return
+    sincronizandoRef.current = true
     setSincronizando(true)
     try {
       const res = await fetch('/api/inbox/correo/sincronizar', { method: 'POST' })
@@ -306,16 +304,15 @@ export default function PaginaInbox() {
     } catch {
       // silenciar
     } finally {
+      sincronizandoRef.current = false
       setSincronizando(false)
     }
-  }, [sincronizando, cargarConversaciones, cargarContadores])
+  }, [cargarConversaciones, cargarContadores])
 
-  // Auto-sincronizar correos cada 30 segundos (reemplaza el cron de Vercel en plan gratis)
+  // Auto-sincronizar correos cada 30 segundos
   useEffect(() => {
     if (tabActivo !== 'correo') return
-    const intervalo = setInterval(() => {
-      sincronizarCorreos()
-    }, 30000)
+    const intervalo = setInterval(sincronizarCorreos, 30000)
     return () => clearInterval(intervalo)
   }, [tabActivo, sincronizarCorreos])
 
@@ -710,11 +707,19 @@ export default function PaginaInbox() {
     const convId = conversacionSeleccionada?.id
     if (!convId) return
 
+    let cancelado = false
+    const abortController = new AbortController()
+
     const poll = async () => {
       try {
-        const res = await fetch(`/api/inbox/mensajes?conversacion_id=${convId}&por_pagina=200`)
+        const res = await fetch(
+          `/api/inbox/mensajes?conversacion_id=${convId}&por_pagina=200`,
+          { signal: abortController.signal }
+        )
         const data = await res.json()
-        if (data.mensajes && conversacionIdRef.current === convId) {
+        // Verificar que la conversación no cambió mientras esperábamos la respuesta
+        if (cancelado || conversacionIdRef.current !== convId) return
+        if (data.mensajes) {
           const nuevos = data.mensajes as MensajeConAdjuntos[]
           // Mergear: mensajes del server + temporales (optimistic) que aún no llegaron
           setMensajes(prev => {
@@ -739,41 +744,36 @@ export default function PaginaInbox() {
             fetch('/api/inbox/whatsapp/media-pendiente', { method: 'POST' }).catch(() => {})
           }
         }
-      } catch { /* silenciar */ }
+      } catch {
+        // Ignorar errores de abort y otros
+      }
     }
 
     // Polling cada 3 segundos
     const intervalo = setInterval(poll, 3000)
 
-    return () => clearInterval(intervalo)
+    return () => {
+      cancelado = true
+      abortController.abort()
+      clearInterval(intervalo)
+    }
   }, [conversacionSeleccionada?.id])
 
   // ─── Polling de lista de conversaciones: cada 10 segundos ───
-  // Usa los MISMOS filtros que cargarConversaciones para no pisar datos
+  // Usa los MISMOS filtros que cargarConversaciones para no pisar datos.
+  // Solo hace polling si la pestaña está visible (ahorra batería y ancho de banda).
   useEffect(() => {
+    let cancelado = false
+    const abortController = new AbortController()
+
     const poll = async () => {
+      // No hacer polling si la pestaña está oculta
+      if (document.hidden || cancelado) return
       try {
-        const params = new URLSearchParams()
-        params.set('tipo_canal', tabActivo)
-
-        if (tabActivo === 'correo') {
-          if (!canalTodas && canalCorreoActivo) {
-            params.set('canal_id', canalCorreoActivo)
-          }
-          switch (carpetaCorreo) {
-            case 'entrada': params.set('estado', 'abierta'); break
-            case 'enviados': params.set('enviados', 'true'); break
-            case 'spam': params.set('estado', 'spam'); break
-            case 'archivado': params.set('estado', 'resuelta'); break
-          }
-        } else {
-          if (filtroEstado !== 'todas') params.set('estado', filtroEstado)
-        }
-
-        if (busquedaRef.current) params.set('busqueda', busquedaRef.current)
-
-        const res = await fetch(`/api/inbox/conversaciones?${params}`)
+        const params = construirParamsConversaciones()
+        const res = await fetch(`/api/inbox/conversaciones?${params}`, { signal: abortController.signal })
         const data = await res.json()
+        if (cancelado) return
         if (data.conversaciones) {
           setConversaciones(data.conversaciones)
           if (conversacionSeleccionada) {
@@ -789,8 +789,12 @@ export default function PaginaInbox() {
     }
 
     const intervalo = setInterval(poll, 10000)
-    return () => clearInterval(intervalo)
-  }, [tabActivo, filtroEstado, carpetaCorreo, canalCorreoActivo, canalTodas, conversacionSeleccionada?.id])
+    return () => {
+      cancelado = true
+      abortController.abort()
+      clearInterval(intervalo)
+    }
+  }, [construirParamsConversaciones, conversacionSeleccionada?.id])
 
   // Extraer firma del canal de correo activo
   const firmaCorreo = useMemo(() => {

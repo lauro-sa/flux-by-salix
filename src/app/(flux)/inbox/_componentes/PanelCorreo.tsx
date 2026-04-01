@@ -78,6 +78,7 @@ function VisorCorreoHTML({ html }: { html: string }) {
   })
 
   // Construir documento completo — NO forzar colores, dejar el diseño original del correo
+  // Sin scripts (sandbox no permite allow-scripts por seguridad)
   const documentoCompleto = `<!DOCTYPE html>
 <html>
 <head>
@@ -99,27 +100,14 @@ img {
   max-width: 100% !important;
   height: auto !important;
 }
-/* Ocultar imágenes que no cargan (evitar espacios blancos enormes) */
+/* Ocultar imágenes rotas o sin src (evitar espacios blancos) */
 img[src=""] { display: none !important; }
 img:not([src]) { display: none !important; }
 table { max-width: 100% !important; }
 pre { white-space: pre-wrap; }
 </style>
 </head>
-<body>${htmlSeguro}
-<script>
-// Ocultar imágenes que no cargan (espacios blancos)
-document.querySelectorAll('img').forEach(function(img) {
-  img.onerror = function() {
-    this.style.display = 'none';
-  };
-  // Si ya falló antes de que el listener se agregara
-  if (img.complete && img.naturalHeight === 0 && img.src) {
-    img.style.display = 'none';
-  }
-});
-</script>
-</body>
+<body>${htmlSeguro}</body>
 </html>`
 
   const ajustarAltura = useCallback(() => {
@@ -161,13 +149,13 @@ document.querySelectorAll('img').forEach(function(img) {
       <iframe
         ref={iframeRef}
         srcDoc={documentoCompleto}
-        sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-scripts"
+        sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
         className="w-full border-0 block"
         style={{
           height: altura,
           minHeight: 100,
           maxHeight: 2000,
-          background: '#ffffff',
+          background: 'var(--superficie-tarjeta, #ffffff)',
         }}
         title="Contenido del correo"
       />

@@ -113,7 +113,9 @@ function InputEmailChips({
 
   const agregarEmail = useCallback((valor: string) => {
     const email = valor.trim().toLowerCase()
-    if (email && !emails.includes(email)) {
+    // Validar formato de email básico
+    const emailValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    if (email && emailValido && !emails.includes(email)) {
       onChange([...emails, email])
     }
     setInputValor('')
@@ -307,8 +309,19 @@ export function CompositorCorreo({
 
   // ─── Subida de adjuntos ───
 
+  const MAX_ADJUNTO_MB = 25
   const subirArchivos = useCallback(async (archivos: File[]) => {
     if (archivos.length === 0) return
+
+    // Validar tamaño de archivos
+    const maxBytes = MAX_ADJUNTO_MB * 1024 * 1024
+    const archivosGrandes = archivos.filter(a => a.size > maxBytes)
+    if (archivosGrandes.length > 0) {
+      alert(`Archivos demasiado grandes (máx ${MAX_ADJUNTO_MB}MB): ${archivosGrandes.map(a => a.name).join(', ')}`)
+      archivos = archivos.filter(a => a.size <= maxBytes)
+      if (archivos.length === 0) return
+    }
+
     setSubiendoAdjuntos(true)
 
     try {

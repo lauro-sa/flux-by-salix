@@ -383,6 +383,23 @@ export function CompositorMensaje({
     setPausado(false)
   }
 
+  // Cleanup al desmontar: liberar micrófono, cerrar AudioContext, limpiar intervalos
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      clearInterval(waveformFrameRef.current)
+      if (mediaRecorderRef.current?.state === 'recording' || mediaRecorderRef.current?.state === 'paused') {
+        mediaRecorderRef.current.stop()
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop())
+        streamRef.current = null
+      }
+      audioCtxRef.current?.close()
+      audioCtxRef.current = null
+    }
+  }, [])
+
   // Envío directo de audio (sin pasar por preview)
   const enviarAudioDirecto = async (blob: Blob) => {
     setConvirtiendo(true)

@@ -267,7 +267,7 @@ export function SidebarCorreo({
                     }}
                     className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs transition-colors group"
                   >
-                    <GripVertical size={10} className="cursor-grab opacity-0 group-hover:opacity-50 transition-opacity" style={{ color: 'var(--texto-terciario)' }} />
+                    <GripVertical size={10} className="cursor-grab opacity-30 sm:opacity-0 group-hover:opacity-50 transition-opacity" style={{ color: 'var(--texto-terciario)' }} />
                     {expandida ? (
                       <ChevronDown size={10} style={{ color: 'var(--texto-terciario)' }} />
                     ) : (

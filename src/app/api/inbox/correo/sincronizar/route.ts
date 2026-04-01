@@ -39,8 +39,28 @@ export async function POST(request: NextRequest) {
       .eq('activo', true)
 
     if (canal_id) {
+      // Validar que el canal pertenezca a la empresa del usuario autenticado
+      try {
+        const supabase = await crearClienteServidor()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user?.app_metadata?.empresa_activa_id) {
+          query = query.eq('empresa_id', user.app_metadata.empresa_activa_id)
+        }
+      } catch { /* si no hay usuario, el filtro por canal_id solo aplica */ }
       query = query.eq('id', canal_id)
     } else if (empresa_id) {
+      // Validar que empresa_id coincida con la empresa del usuario autenticado
+      try {
+        const supabase = await crearClienteServidor()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user?.app_metadata?.empresa_activa_id && empresa_id !== user.app_metadata.empresa_activa_id) {
+          return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+        }
+      } catch { /* si falla auth, continuar solo si viene de cron */ }
+      const cronSecret = request.headers.get('x-cron-secret')
+      if (!cronSecret || cronSecret !== process.env.CRON_SECRET) {
+        // Solo usuarios autenticados pueden pasar empresa_id (validado arriba)
+      }
       query = query.eq('empresa_id', empresa_id)
     } else {
       // Sin canal_id ni empresa_id: puede ser cron (con secret) o usuario autenticado

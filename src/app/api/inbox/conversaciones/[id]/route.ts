@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+
+const ESTADOS_VALIDOS = ['abierta', 'en_espera', 'resuelta', 'spam'] as const
 
 /**
  * GET /api/inbox/conversaciones/[id] — Detalle de una conversación.
@@ -59,6 +62,17 @@ export async function PATCH(
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
     const body = await request.json()
+
+    // Validar estado si se envía
+    if (body.estado !== undefined && !ESTADOS_VALIDOS.includes(body.estado)) {
+      return NextResponse.json({ error: `Estado inválido. Permitidos: ${ESTADOS_VALIDOS.join(', ')}` }, { status: 400 })
+    }
+
+    // Validar mensajes_sin_leer si se envía
+    if (body.mensajes_sin_leer !== undefined && (typeof body.mensajes_sin_leer !== 'number' || body.mensajes_sin_leer < 0)) {
+      return NextResponse.json({ error: 'mensajes_sin_leer debe ser un número >= 0' }, { status: 400 })
+    }
+
     const camposPermitidos = [
       'estado', 'prioridad', 'asignado_a', 'asignado_a_nombre',
       'contacto_id', 'contacto_nombre', 'asunto', 'etiquetas',
@@ -126,6 +140,12 @@ export async function DELETE(
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    // Verificar permiso de eliminar
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'inbox_correo', 'eliminar')
+    if (!permitido) {
+      return NextResponse.json({ error: 'Sin permiso para eliminar conversaciones' }, { status: 403 })
+    }
 
     const admin = crearClienteAdmin()
 

@@ -101,8 +101,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Búsqueda por nombre de contacto, asunto o cuerpo de mensajes
+    // Escapar caracteres especiales de ILIKE para prevenir inyección de wildcards
+    const busquedaEscapada = busqueda ? busqueda.replace(/[\\%_]/g, '\\$&') : ''
     if (busqueda) {
-      query = query.or(`contacto_nombre.ilike.%${busqueda}%,asunto.ilike.%${busqueda}%,identificador_externo.ilike.%${busqueda}%,ultimo_mensaje_texto.ilike.%${busqueda}%`)
+      query = query.or(`contacto_nombre.ilike.%${busquedaEscapada}%,asunto.ilike.%${busquedaEscapada}%,identificador_externo.ilike.%${busquedaEscapada}%,ultimo_mensaje_texto.ilike.%${busquedaEscapada}%`)
     }
 
     const { data, count, error } = await query
@@ -124,7 +126,7 @@ export async function GET(request: NextRequest) {
         .from('mensajes')
         .select('conversacion_id')
         .eq('empresa_id', empresaId)
-        .or(`texto.ilike.%${busqueda}%,correo_asunto.ilike.%${busqueda}%,correo_de.ilike.%${busqueda}%`)
+        .or(`texto.ilike.%${busquedaEscapada}%,correo_asunto.ilike.%${busquedaEscapada}%,correo_de.ilike.%${busquedaEscapada}%`)
         .limit(20)
 
       if (mensajesMatch && mensajesMatch.length > 0) {
@@ -188,6 +190,18 @@ export async function POST(request: NextRequest) {
     }
 
     const admin = crearClienteAdmin()
+
+    // Verificar que el canal pertenezca a la empresa
+    const { data: canalVerif } = await admin
+      .from('canales_inbox')
+      .select('id')
+      .eq('id', canal_id)
+      .eq('empresa_id', empresaId)
+      .maybeSingle()
+
+    if (!canalVerif) {
+      return NextResponse.json({ error: 'Canal no encontrado en esta empresa' }, { status: 404 })
+    }
 
     const { data, error } = await admin
       .from('conversaciones')

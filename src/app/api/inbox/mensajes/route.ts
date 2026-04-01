@@ -30,6 +30,18 @@ export async function GET(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
+    // Verificar que la conversación pertenezca a la empresa del usuario
+    const { data: convVerif } = await admin
+      .from('conversaciones')
+      .select('id')
+      .eq('id', conversacion_id)
+      .eq('empresa_id', empresaId)
+      .maybeSingle()
+
+    if (!convVerif) {
+      return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 })
+    }
+
     let query = admin
       .from('mensajes')
       .select(`
