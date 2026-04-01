@@ -29,6 +29,7 @@ interface PropiedadesSelectorPlantilla {
   plantillaActual: string | null
   predeterminadaId: string | null
   usuarioId: string
+  puedeEliminarTodas?: boolean
   onCargar: (plantilla: Plantilla) => void
   onGuardarComo: (nombre: string) => Promise<void>
   onGuardarCambios: () => Promise<void>
@@ -42,6 +43,7 @@ export default function SelectorPlantilla({
   plantillaActual,
   predeterminadaId,
   usuarioId,
+  puedeEliminarTodas = false,
   onCargar,
   onGuardarComo,
   onGuardarCambios,
@@ -147,7 +149,7 @@ export default function SelectorPlantilla({
                         >
                           <Star size={12} fill={esPredeterminada ? 'currentColor' : 'none'} />
                         </button>
-                        {esMia && (
+                        {(esMia || puedeEliminarTodas) && (
                           <button
                             onClick={(e) => { e.stopPropagation(); setEliminando(p.id) }}
                             className="size-6 flex items-center justify-center rounded-md text-texto-terciario/30 hover:text-estado-error transition-colors"
