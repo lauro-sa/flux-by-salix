@@ -20,7 +20,7 @@ import { LineaTiempo } from '@/componentes/ui/LineaTiempo'
 import {
   UserCircle, BarChart3, CalendarDays, PlusCircle, ArrowRight,
   FileEdit, FileText, ClipboardList, Users,
-  Sun, Moon, Gem, Monitor, Download, Trash2, Mail, Tag,
+  Download, Trash2, Mail, Tag,
 } from 'lucide-react'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica, FiltroTabla, AccionLote } from '@/componentes/tablas/TablaDinamica'
@@ -39,7 +39,6 @@ import {
 } from 'lucide-react'
 import { useModoConcentracion } from '@/hooks/useModoConcentracion'
 import { useTema, type Tema, type Efecto, type FondoCristal, type EscalaTexto } from '@/hooks/useTema'
-import { ALargeSmall } from 'lucide-react'
 
 /* Vitrina de Componentes — Flux by Salix */
 
@@ -1157,13 +1156,101 @@ export default function PaginaVitrina() {
         <p className="text-texto-secundario text-sm mt-1">Sistema de diseño de Flux by Salix — todos los componentes reutilizables</p>
       </div>
 
-      {/* SELECTOR DE APARIENCIA */}
-      <Seccion titulo="Apariencia">
+      {/* Indice de navegacion */}
+      <nav className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-5 cristal-panel">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-4 text-sm">
+          <div>
+            <h3 className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-2">Fundamentos</h3>
+            <ul className="space-y-1">
+              <li><a href="#apariencia" className="text-texto-secundario hover:text-texto-marca transition-colors">Apariencia</a></li>
+              <li><a href="#tokens" className="text-texto-secundario hover:text-texto-marca transition-colors">Tokens de color</a></li>
+              <li><a href="#marca" className="text-texto-secundario hover:text-texto-marca transition-colors">Marca / Logo</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-2">Entrada</h3>
+            <ul className="space-y-1">
+              <li><a href="#boton" className="text-texto-secundario hover:text-texto-marca transition-colors">Boton</a></li>
+              <li><a href="#input" className="text-texto-secundario hover:text-texto-marca transition-colors">Input y Buscador</a></li>
+              <li><a href="#select" className="text-texto-secundario hover:text-texto-marca transition-colors">Select</a></li>
+              <li><a href="#interruptor" className="text-texto-secundario hover:text-texto-marca transition-colors">Interruptor</a></li>
+              <li><a href="#editor" className="text-texto-secundario hover:text-texto-marca transition-colors">Editor de Texto</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-2">Datos</h3>
+            <ul className="space-y-1">
+              <li><a href="#insignias" className="text-texto-secundario hover:text-texto-marca transition-colors">Insignias y Pildoras</a></li>
+              <li><a href="#avatar" className="text-texto-secundario hover:text-texto-marca transition-colors">Avatar</a></li>
+              <li><a href="#tarjeta" className="text-texto-secundario hover:text-texto-marca transition-colors">Tarjeta</a></li>
+              <li><a href="#tabla" className="text-texto-secundario hover:text-texto-marca transition-colors">Tabla Dinamica</a></li>
+              <li><a href="#timeline" className="text-texto-secundario hover:text-texto-marca transition-colors">Linea de tiempo</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-2">Feedback</h3>
+            <ul className="space-y-1">
+              <li><a href="#alertas" className="text-texto-secundario hover:text-texto-marca transition-colors">Alertas</a></li>
+              <li><a href="#toasts" className="text-texto-secundario hover:text-texto-marca transition-colors">Toasts</a></li>
+              <li><a href="#notificaciones" className="text-texto-secundario hover:text-texto-marca transition-colors">Notificaciones</a></li>
+              <li><a href="#vacio" className="text-texto-secundario hover:text-texto-marca transition-colors">Estado vacio</a></li>
+              <li><a href="#cargadores" className="text-texto-secundario hover:text-texto-marca transition-colors">Cargadores</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-2">Navegacion</h3>
+            <ul className="space-y-1">
+              <li><a href="#tabs" className="text-texto-secundario hover:text-texto-marca transition-colors">Tabs</a></li>
+              <li><a href="#popover" className="text-texto-secundario hover:text-texto-marca transition-colors">Popover</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-2">Superposiciones</h3>
+            <ul className="space-y-1">
+              <li><a href="#modal" className="text-texto-secundario hover:text-texto-marca transition-colors">Modal y BottomSheet</a></li>
+              <li><a href="#enviar-doc" className="text-texto-secundario hover:text-texto-marca transition-colors">Modal Enviar Documento</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-2">Utilidades</h3>
+            <ul className="space-y-1">
+              <li><a href="#separador" className="text-texto-secundario hover:text-texto-marca transition-colors">Separador</a></li>
+            </ul>
+          </div>
+        </div>
+      </nav>
+
+      {/* ═══ FUNDAMENTOS ═══ */}
+      <Seccion id="apariencia" titulo="Apariencia">
         <SelectorApariencia />
       </Seccion>
 
-      {/* BOTONES */}
-      <Seccion titulo="Boton">
+      <Seccion id="tokens" titulo="Tokens de color">
+        <div>
+          <Etiqueta>Modulos</Etiqueta>
+          <Fila>
+            {['contactos','actividades','documentos','asistencias','visitas','inbox','productos','ordenes','calendario','auditoria'].map(m => (
+              <div key={m} className="flex items-center gap-2 text-sm">
+                <div className="size-3 rounded-full" style={{ backgroundColor: `var(--seccion-${m})` }} />
+                {m}
+              </div>
+            ))}
+          </Fila>
+        </div>
+        <div>
+          <Etiqueta>Canales</Etiqueta>
+          <Fila>
+            <span className="px-3 py-1.5 rounded-md bg-canal-whatsapp-fondo text-canal-whatsapp text-sm font-medium">WhatsApp</span>
+            <span className="px-3 py-1.5 rounded-md bg-canal-correo-fondo text-canal-correo text-sm font-medium">Correo</span>
+            <span className="px-3 py-1.5 rounded-md bg-canal-interno-fondo text-canal-interno text-sm font-medium">Interno</span>
+          </Fila>
+        </div>
+      </Seccion>
+
+      <SeccionMarca id="marca" />
+
+      {/* ═══ ENTRADA ═══ */}
+      <Seccion id="boton" titulo="Boton">
         <div>
           <Etiqueta>Variantes</Etiqueta>
           <Fila>
@@ -1194,8 +1281,7 @@ export default function PaginaVitrina() {
         </div>
       </Seccion>
 
-      {/* INPUT + BUSCADOR */}
-      <Seccion titulo="Input y Buscador">
+      <Seccion id="input" titulo="Input y Buscador">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input etiqueta="Nombre" placeholder="Juan Pérez" />
           <Input etiqueta="Correo" tipo="email" placeholder="juan@empresa.com" />
@@ -1209,8 +1295,7 @@ export default function PaginaVitrina() {
         {busqueda && <p className="text-xs text-texto-terciario">Buscando: &quot;{busqueda}&quot;</p>}
       </Seccion>
 
-      {/* SELECT */}
-      <Seccion titulo="Select">
+      <Seccion id="select" titulo="Select">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Select
             etiqueta="Tipo de contacto"
@@ -1237,23 +1322,18 @@ export default function PaginaVitrina() {
         </div>
       </Seccion>
 
-      {/* TABS */}
-      <Seccion titulo="Tabs">
-        <Tabs
-          tabs={[
-            { clave: 'todos', etiqueta: 'Todos', contador: 42 },
-            { clave: 'clientes', etiqueta: 'Clientes', contador: 18 },
-            { clave: 'prospectos', etiqueta: 'Prospectos', contador: 12 },
-            { clave: 'proveedores', etiqueta: 'Proveedores', contador: 7 },
-          ]}
-          activo={tabActivo}
-          onChange={setTabActivo}
-        />
-        <p className="text-sm text-texto-secundario">Tab activo: <strong>{tabActivo}</strong></p>
+      <Seccion id="interruptor" titulo="Interruptor">
+        <div className="flex flex-col gap-3">
+          <Interruptor activo={interruptor1} onChange={setInterruptor1} etiqueta="Notificaciones push" />
+          <Interruptor activo={interruptor2} onChange={setInterruptor2} etiqueta="Modo oscuro" />
+          <Interruptor activo={false} onChange={() => {}} etiqueta="Deshabilitado" deshabilitado />
+        </div>
       </Seccion>
 
-      {/* INSIGNIAS + PÍLDORAS */}
-      <Seccion titulo="Insignias y Píldoras">
+      <SeccionEditorTexto id="editor" />
+
+      {/* ═══ DATOS ═══ */}
+      <Seccion id="insignias" titulo="Insignias y Píldoras">
         <div>
           <Etiqueta>Insignias (badges estáticos)</Etiqueta>
           <Fila>
@@ -1288,8 +1368,7 @@ export default function PaginaVitrina() {
         </div>
       </Seccion>
 
-      {/* AVATARES */}
-      <Seccion titulo="Avatar">
+      <Seccion id="avatar" titulo="Avatar">
         <div>
           <Etiqueta>Tamaños con iniciales</Etiqueta>
           <Fila>
@@ -1310,27 +1389,7 @@ export default function PaginaVitrina() {
         </div>
       </Seccion>
 
-      {/* ALERTAS */}
-      <Seccion titulo="Alertas">
-        <Alerta tipo="exito" titulo="Contacto guardado">Los datos se actualizaron correctamente.</Alerta>
-        <Alerta tipo="peligro" titulo="Error de conexión">No se pudo conectar con el servidor. Intentá de nuevo.</Alerta>
-        <Alerta tipo="advertencia">El presupuesto PRE-2026-00042 vence mañana.</Alerta>
-        <Alerta tipo="info" cerrable onCerrar={() => mostrar('info', 'Alerta cerrada')}>
-          Hay 3 mensajes sin leer en tu inbox.
-        </Alerta>
-      </Seccion>
-
-      {/* INTERRUPTORES */}
-      <Seccion titulo="Interruptor">
-        <div className="flex flex-col gap-3">
-          <Interruptor activo={interruptor1} onChange={setInterruptor1} etiqueta="Notificaciones push" />
-          <Interruptor activo={interruptor2} onChange={setInterruptor2} etiqueta="Modo oscuro" />
-          <Interruptor activo={false} onChange={() => {}} etiqueta="Deshabilitado" deshabilitado />
-        </div>
-      </Seccion>
-
-      {/* TARJETAS */}
-      <Seccion titulo="Tarjeta">
+      <Seccion id="tarjeta" titulo="Tarjeta">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <Tarjeta titulo="Contactos nuevos" subtitulo="Este mes" onClick={() => mostrar('info', 'Click en tarjeta')}>
             <p className="text-2xl font-bold text-texto-primario">24</p>
@@ -1347,61 +1406,23 @@ export default function PaginaVitrina() {
         </div>
       </Seccion>
 
-      {/* TABLA DINÁMICA */}
-      <SeccionTablaDinamica mostrar={mostrar} />
+      <SeccionTablaDinamica id="tabla" mostrar={mostrar} />
 
-      {/* LÍNEA DE TIEMPO */}
-      <Seccion titulo="Línea de tiempo">
+      <Seccion id="timeline" titulo="Línea de tiempo">
         <LineaTiempo items={itemsTimeline} />
       </Seccion>
 
-      {/* MODALES */}
-      <Seccion titulo="Modal y BottomSheet">
-        <Fila>
-          <Boton onClick={() => setModalAbierto(true)}>Abrir modal</Boton>
-          <Boton variante="secundario" onClick={() => setSheetAbierto(true)}>Abrir BottomSheet</Boton>
-        </Fila>
-
-        <Modal
-          abierto={modalAbierto}
-          onCerrar={() => setModalAbierto(false)}
-          titulo="Nuevo contacto"
-          acciones={<>
-            <Boton variante="secundario" onClick={() => setModalAbierto(false)}>Cancelar</Boton>
-            <Boton onClick={() => { setModalAbierto(false); mostrar('exito', 'Contacto guardado') }}>Guardar</Boton>
-          </>}
-        >
-          <div className="flex flex-col gap-4">
-            <Input etiqueta="Nombre" placeholder="Nombre del contacto" />
-            <Input etiqueta="Correo" tipo="email" placeholder="correo@empresa.com" />
-            <Select etiqueta="Tipo" opciones={[
-              { valor: 'cliente', etiqueta: 'Cliente' },
-              { valor: 'prospecto', etiqueta: 'Prospecto' },
-            ]} valor="" onChange={() => {}} />
-          </div>
-        </Modal>
-
-        <BottomSheet
-          abierto={sheetAbierto}
-          onCerrar={() => setSheetAbierto(false)}
-          titulo="Filtros"
-          acciones={<>
-            <Boton variante="secundario" anchoCompleto onClick={() => setSheetAbierto(false)}>Limpiar</Boton>
-            <Boton anchoCompleto onClick={() => { setSheetAbierto(false); mostrar('exito', 'Filtros aplicados') }}>Aplicar</Boton>
-          </>}
-        >
-          <div className="flex flex-col gap-4">
-            <Select etiqueta="Tipo" opciones={[
-              { valor: 'cliente', etiqueta: 'Cliente' },
-              { valor: 'prospecto', etiqueta: 'Prospecto' },
-            ]} valor="" onChange={() => {}} />
-            <Interruptor activo={true} onChange={() => {}} etiqueta="Solo activos" />
-          </div>
-        </BottomSheet>
+      {/* ═══ FEEDBACK ═══ */}
+      <Seccion id="alertas" titulo="Alertas">
+        <Alerta tipo="exito" titulo="Contacto guardado">Los datos se actualizaron correctamente.</Alerta>
+        <Alerta tipo="peligro" titulo="Error de conexión">No se pudo conectar con el servidor. Intentá de nuevo.</Alerta>
+        <Alerta tipo="advertencia">El presupuesto PRE-2026-00042 vence mañana.</Alerta>
+        <Alerta tipo="info" cerrable onCerrar={() => mostrar('info', 'Alerta cerrada')}>
+          Hay 3 mensajes sin leer en tu inbox.
+        </Alerta>
       </Seccion>
 
-      {/* TOASTS */}
-      <Seccion titulo="Toasts y alertas flotantes">
+      <Seccion id="toasts" titulo="Toasts y alertas flotantes">
         <div>
           <Etiqueta>Toasts del sistema — aparecen abajo a la derecha con sonido, barra de progreso, auto-descarte en 4s</Etiqueta>
           <Fila>
@@ -1498,8 +1519,9 @@ export default function PaginaVitrina() {
         </div>
       </Seccion>
 
-      {/* ESTADO VACÍO */}
-      <Seccion titulo="Estado vacío">
+      <SeccionNotificacionesVitrina id="notificaciones" mostrar={mostrar} />
+
+      <Seccion id="vacio" titulo="Estado vacío">
         <EstadoVacio
           icono={<Users size={48} strokeWidth={1.2} />}
           titulo="Por acá se está muy solo..."
@@ -1508,18 +1530,7 @@ export default function PaginaVitrina() {
         />
       </Seccion>
 
-      {/* SEPARADORES */}
-      <Seccion titulo="Separador">
-        <Separador />
-        <Separador etiqueta="O continuar con" />
-        <Separador etiqueta="Sección 3" />
-      </Seccion>
-
-      {/* EDITOR DE TEXTO */}
-      <SeccionEditorTexto />
-
-      {/* CARGADORES */}
-      <Seccion titulo="Cargadores">
+      <Seccion id="cargadores" titulo="Cargadores">
         <div>
           <Etiqueta>Inline (sm / md / lg)</Etiqueta>
           <Fila>
@@ -1547,14 +1558,22 @@ export default function PaginaVitrina() {
         </div>
       </Seccion>
 
-      {/* MARCA / LOGO */}
-      <SeccionMarca />
+      {/* ═══ NAVEGACIÓN ═══ */}
+      <Seccion id="tabs" titulo="Tabs">
+        <Tabs
+          tabs={[
+            { clave: 'todos', etiqueta: 'Todos', contador: 42 },
+            { clave: 'clientes', etiqueta: 'Clientes', contador: 18 },
+            { clave: 'prospectos', etiqueta: 'Prospectos', contador: 12 },
+            { clave: 'proveedores', etiqueta: 'Proveedores', contador: 7 },
+          ]}
+          activo={tabActivo}
+          onChange={setTabActivo}
+        />
+        <p className="text-sm text-texto-secundario">Tab activo: <strong>{tabActivo}</strong></p>
+      </Seccion>
 
-      {/* MODAL ENVIAR DOCUMENTO */}
-      <SeccionModalEnviarDocumento />
-
-      {/* POPOVER */}
-      <Seccion titulo="Popover">
+      <Seccion id="popover" titulo="Popover">
         <div>
           <Etiqueta>Alineación y posición</Etiqueta>
           <Fila>
@@ -1615,30 +1634,58 @@ export default function PaginaVitrina() {
         </div>
       </Seccion>
 
-      {/* PANEL DE NOTIFICACIONES */}
-      <SeccionNotificacionesVitrina mostrar={mostrar} />
+      {/* ═══ SUPERPOSICIONES ═══ */}
+      <Seccion id="modal" titulo="Modal y BottomSheet">
+        <Fila>
+          <Boton onClick={() => setModalAbierto(true)}>Abrir modal</Boton>
+          <Boton variante="secundario" onClick={() => setSheetAbierto(true)}>Abrir BottomSheet</Boton>
+        </Fila>
 
-      {/* TOKENS DE COLOR */}
-      <Seccion titulo="Tokens de color">
-        <div>
-          <Etiqueta>Módulos</Etiqueta>
-          <Fila>
-            {['contactos','actividades','documentos','asistencias','visitas','inbox','productos','ordenes','calendario','auditoria'].map(m => (
-              <div key={m} className="flex items-center gap-2 text-sm">
-                <div className="size-3 rounded-full" style={{ backgroundColor: `var(--seccion-${m})` }} />
-                {m}
-              </div>
-            ))}
-          </Fila>
-        </div>
-        <div>
-          <Etiqueta>Canales</Etiqueta>
-          <Fila>
-            <span className="px-3 py-1.5 rounded-md bg-canal-whatsapp-fondo text-canal-whatsapp text-sm font-medium">WhatsApp</span>
-            <span className="px-3 py-1.5 rounded-md bg-canal-correo-fondo text-canal-correo text-sm font-medium">Correo</span>
-            <span className="px-3 py-1.5 rounded-md bg-canal-interno-fondo text-canal-interno text-sm font-medium">Interno</span>
-          </Fila>
-        </div>
+        <Modal
+          abierto={modalAbierto}
+          onCerrar={() => setModalAbierto(false)}
+          titulo="Nuevo contacto"
+          acciones={<>
+            <Boton variante="secundario" onClick={() => setModalAbierto(false)}>Cancelar</Boton>
+            <Boton onClick={() => { setModalAbierto(false); mostrar('exito', 'Contacto guardado') }}>Guardar</Boton>
+          </>}
+        >
+          <div className="flex flex-col gap-4">
+            <Input etiqueta="Nombre" placeholder="Nombre del contacto" />
+            <Input etiqueta="Correo" tipo="email" placeholder="correo@empresa.com" />
+            <Select etiqueta="Tipo" opciones={[
+              { valor: 'cliente', etiqueta: 'Cliente' },
+              { valor: 'prospecto', etiqueta: 'Prospecto' },
+            ]} valor="" onChange={() => {}} />
+          </div>
+        </Modal>
+
+        <BottomSheet
+          abierto={sheetAbierto}
+          onCerrar={() => setSheetAbierto(false)}
+          titulo="Filtros"
+          acciones={<>
+            <Boton variante="secundario" anchoCompleto onClick={() => setSheetAbierto(false)}>Limpiar</Boton>
+            <Boton anchoCompleto onClick={() => { setSheetAbierto(false); mostrar('exito', 'Filtros aplicados') }}>Aplicar</Boton>
+          </>}
+        >
+          <div className="flex flex-col gap-4">
+            <Select etiqueta="Tipo" opciones={[
+              { valor: 'cliente', etiqueta: 'Cliente' },
+              { valor: 'prospecto', etiqueta: 'Prospecto' },
+            ]} valor="" onChange={() => {}} />
+            <Interruptor activo={true} onChange={() => {}} etiqueta="Solo activos" />
+          </div>
+        </BottomSheet>
+      </Seccion>
+
+      <SeccionModalEnviarDocumento id="enviar-doc" />
+
+      {/* ═══ UTILIDADES ═══ */}
+      <Seccion id="separador" titulo="Separador">
+        <Separador />
+        <Separador etiqueta="O continuar con" />
+        <Separador etiqueta="Sección 3" />
       </Seccion>
     </div>
   )
