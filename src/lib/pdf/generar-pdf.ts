@@ -27,7 +27,7 @@ interface ResultadoPdf {
 
 // ─── Conversión HTML a PDF con Puppeteer ───
 
-async function htmlAPdf(html: string): Promise<Buffer> {
+async function htmlAPdf(html: string): Promise<{ pdf: Buffer; miniatura: Buffer | null }> {
   let browser
   try {
     const chromium = (await import('@sparticuz/chromium-min')).default
@@ -81,7 +81,19 @@ async function htmlAPdf(html: string): Promise<Buffer> {
       displayHeaderFooter: false,
       preferCSSPageSize: false,
     })
-    return Buffer.from(pdfBuffer)
+
+    // Generar miniatura (screenshot de la primera página)
+    let miniaturaBuffer: Buffer | null = null
+    try {
+      await pagina.setViewport({ width: 794, height: 1123 }) // A4 a 96dpi
+      miniaturaBuffer = Buffer.from(await pagina.screenshot({
+        type: 'webp',
+        quality: 80,
+        clip: { x: 0, y: 0, width: 794, height: 1123 },
+      }))
+    } catch { /* si falla la miniatura, no bloquear el PDF */ }
+
+    return { pdf: Buffer.from(pdfBuffer), miniatura: miniaturaBuffer }
   } finally {
     await browser.close()
   }
@@ -211,7 +223,7 @@ export async function generarPdfPresupuesto(
   const html = renderizarHtml(datosPresupuesto, datosEmpresa, configPdf)
 
   // 6. Convertir y subir
-  const pdfBuffer = await htmlAPdf(html)
+  const { pdf: pdfBuffer, miniatura: miniaturaBuffer } = await htmlAPdf(html)
   const nombreArchivo = generarNombreArchivo(config?.patron_nombre_pdf, {
     numero: presupuesto.numero, contacto_nombre: presupuesto.contacto_nombre,
     contacto_apellido: presupuesto.contacto_apellido, fecha_emision: presupuesto.fecha_emision,
@@ -220,14 +232,34 @@ export async function generarPdfPresupuesto(
 
   const { url, storagePath } = await subirAStorage(admin, empresaId, presupuestoId, pdfBuffer, congelado)
 
+  // 6b. Subir miniatura
+  let miniaturaUrl: string | null = null
+  if (miniaturaBuffer && !congelado) {
+    const miniaturaPath = `${empresaId}/miniaturas/${presupuestoId}.webp`
+    await admin.storage.from('documentos-pdf').remove([miniaturaPath]).catch(() => {})
+    const { error: errMini } = await admin.storage
+      .from('documentos-pdf')
+      .upload(miniaturaPath, miniaturaBuffer, {
+        contentType: 'image/webp',
+        upsert: true,
+        cacheControl: 'no-cache, no-store, must-revalidate',
+      })
+    if (!errMini) {
+      const { data: miniUrl } = admin.storage.from('documentos-pdf').getPublicUrl(miniaturaPath)
+      miniaturaUrl = `${miniUrl.publicUrl}?t=${Date.now()}`
+    }
+  }
+
   // 7. Actualizar presupuesto si no es congelado
   if (!congelado) {
     if (presupuesto.pdf_storage_path && presupuesto.pdf_storage_path !== storagePath) {
       await admin.storage.from('documentos-pdf').remove([presupuesto.pdf_storage_path]).catch(() => {})
     }
-    await admin.from('presupuestos').update({
+    const actualizacion: Record<string, unknown> = {
       pdf_url: url, pdf_storage_path: storagePath, pdf_generado_en: new Date().toISOString(),
-    }).eq('id', presupuestoId)
+    }
+    if (miniaturaUrl) actualizacion.pdf_miniatura_url = miniaturaUrl
+    await admin.from('presupuestos').update(actualizacion).eq('id', presupuestoId)
   }
 
   return { url, storage_path: storagePath, nombre_archivo: nombreArchivo, tamano: pdfBuffer.length }
