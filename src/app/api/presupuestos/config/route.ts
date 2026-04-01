@@ -122,6 +122,8 @@ export async function PATCH(request: NextRequest) {
           prefijo: body.secuencia.prefijo || 'P',
           digitos: body.secuencia.digitos || 4,
           ...(body.secuencia.siguiente ? { siguiente: body.secuencia.siguiente } : {}),
+          ...(body.secuencia.componentes ? { componentes: body.secuencia.componentes } : {}),
+          ...(body.secuencia.reinicio ? { reinicio: body.secuencia.reinicio } : {}),
         })
     }
 

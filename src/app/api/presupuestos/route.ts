@@ -224,20 +224,42 @@ export async function POST(request: NextRequest) {
       creado_por_nombre: nombreUsuario,
     }
 
-    const { data: presupuesto, error: insertError } = await admin
-      .from('presupuestos')
-      .insert(nuevoPresupuesto)
-      .select('*')
-      .single()
+    let presupuesto: Record<string, unknown> | null = null
 
-    if (insertError) {
+    // Intentar insertar — si falla por número duplicado, reintentar con el siguiente
+    for (let intento = 0; intento < 3; intento++) {
+      const { data, error: insertError } = await admin
+        .from('presupuestos')
+        .insert(nuevoPresupuesto)
+        .select('*')
+        .single()
+
+      if (!insertError && data) {
+        presupuesto = data
+        break
+      }
+
+      // Número duplicado: generar otro y reintentar
+      if (insertError?.code === '23505' && insertError.message?.includes('numero')) {
+        const { data: nuevoNumero } = await admin
+          .rpc('siguiente_codigo', { p_empresa_id: empresaId, p_entidad: 'presupuesto' })
+        if (nuevoNumero) {
+          nuevoPresupuesto.numero = nuevoNumero as string
+          continue
+        }
+      }
+
       console.error('Error al crear presupuesto:', insertError)
       return NextResponse.json({ error: 'Error al crear presupuesto' }, { status: 500 })
     }
 
+    if (!presupuesto) {
+      return NextResponse.json({ error: 'No se pudo crear el presupuesto después de reintentos' }, { status: 500 })
+    }
+
     // Registrar estado inicial en historial
     await admin.from('presupuesto_historial').insert({
-      presupuesto_id: presupuesto.id,
+      presupuesto_id: presupuesto.id as string,
       empresa_id: empresaId,
       estado: 'borrador',
       usuario_id: user.id,
@@ -248,7 +270,7 @@ export async function POST(request: NextRequest) {
     await registrarChatter({
       empresaId,
       entidadTipo: 'presupuesto',
-      entidadId: presupuesto.id,
+      entidadId: presupuesto.id as string,
       contenido: `Creó el presupuesto ${presupuesto.numero}`,
       autorId: user.id,
       autorNombre: nombreUsuario || 'Usuario',

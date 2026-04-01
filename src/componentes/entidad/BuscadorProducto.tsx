@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search, Package, Wrench, Plus } from 'lucide-react'
 import { COLOR_TIPO_PRODUCTO } from '@/lib/colores_entidad'
@@ -119,11 +120,48 @@ export function BuscadorProducto({
     }
   }, [abierto, resultados, indiceActivo, manejarSeleccion])
 
+  // Posición del dropdown (portal)
+  const [posDropdown, setPosDropdown] = useState<{ top: number; left: number; width: number; haciaArriba: boolean } | null>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const DROPDOWN_MAX_H = 240
+
+  const calcularPosicion = useCallback(() => {
+    if (!contenedorRef.current) return
+    const rect = contenedorRef.current.getBoundingClientRect()
+    const espacioAbajo = window.innerHeight - rect.bottom
+    const espacioArriba = rect.top
+    const haciaArriba = espacioAbajo < DROPDOWN_MAX_H + 8 && espacioArriba > espacioAbajo
+
+    setPosDropdown({
+      top: haciaArriba ? rect.top : rect.bottom + 4,
+      left: rect.left,
+      width: Math.max(rect.width, 320),
+      haciaArriba,
+    })
+  }, [])
+
+  // Recalcular posición al abrir y al hacer scroll/resize
+  useEffect(() => {
+    if (!abierto) return
+    calcularPosicion()
+    const recalc = () => calcularPosicion()
+    window.addEventListener('scroll', recalc, true)
+    window.addEventListener('resize', recalc)
+    return () => {
+      window.removeEventListener('scroll', recalc, true)
+      window.removeEventListener('resize', recalc)
+    }
+  }, [abierto, calcularPosicion])
+
   // Cerrar al hacer click fuera
   useEffect(() => {
     if (!abierto) return
     const handler = (e: MouseEvent) => {
-      if (contenedorRef.current && !contenedorRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      if (
+        contenedorRef.current && !contenedorRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
         setAbierto(false)
       }
     }
@@ -177,69 +215,78 @@ export function BuscadorProducto({
         )}
       </div>
 
-      {/* Dropdown de resultados */}
-      <AnimatePresence>
-        {abierto && resultados.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.15 }}
-            className="absolute left-0 right-0 top-full mt-1 z-50 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-xl overflow-hidden"
-            style={{ minWidth: '320px' }}
-          >
-            <div className="max-h-[240px] overflow-y-auto py-1">
-              {resultados.map((producto, i) => {
-                const color = COLOR_TIPO_PRODUCTO[producto.tipo] || 'neutro'
-                const precioStr = producto.precio_unitario && parseFloat(producto.precio_unitario) > 0
-                  ? `$ ${parseFloat(producto.precio_unitario).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
-                  : null
+      {/* Dropdown de resultados — portal para escapar overflow de la tabla */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {abierto && resultados.length > 0 && posDropdown && (
+            <motion.div
+              ref={dropdownRef}
+              initial={{ opacity: 0, y: posDropdown.haciaArriba ? 4 : -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: posDropdown.haciaArriba ? 4 : -4 }}
+              transition={{ duration: 0.15 }}
+              className="fixed z-[9999] bg-superficie-elevada border border-borde-sutil rounded-xl shadow-xl overflow-hidden"
+              style={{
+                top: posDropdown.haciaArriba ? undefined : posDropdown.top,
+                bottom: posDropdown.haciaArriba ? window.innerHeight - posDropdown.top + 4 : undefined,
+                left: posDropdown.left,
+                width: posDropdown.width,
+              }}
+            >
+              <div className="max-h-[240px] overflow-y-auto py-1">
+                {resultados.map((producto, i) => {
+                  const color = COLOR_TIPO_PRODUCTO[producto.tipo] || 'neutro'
+                  const precioStr = producto.precio_unitario && parseFloat(producto.precio_unitario) > 0
+                    ? `$ ${parseFloat(producto.precio_unitario).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+                    : null
 
-                return (
-                  <button
-                    key={producto.id}
-                    type="button"
-                    onClick={() => manejarSeleccion(producto)}
-                    onMouseEnter={() => setIndiceActivo(i)}
-                    className={`w-full text-left px-3 py-2 flex items-center gap-3 transition-colors ${
-                      i === indiceActivo ? 'bg-superficie-app' : 'hover:bg-superficie-app/50'
-                    }`}
-                  >
-                    {/* Icono tipo */}
-                    <div
-                      className="size-7 rounded-md flex items-center justify-center shrink-0"
-                      style={{ backgroundColor: `var(--insignia-${color}-fondo)`, color: `var(--insignia-${color}-texto)` }}
+                  return (
+                    <button
+                      key={producto.id}
+                      type="button"
+                      onClick={() => manejarSeleccion(producto)}
+                      onMouseEnter={() => setIndiceActivo(i)}
+                      className={`w-full text-left px-3 py-2 flex items-center gap-3 transition-colors ${
+                        i === indiceActivo ? 'bg-superficie-app' : 'hover:bg-superficie-app/50'
+                      }`}
                     >
-                      {producto.tipo === 'servicio' ? <Wrench size={13} /> : <Package size={13} />}
-                    </div>
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-texto-primario truncate">{producto.nombre}</div>
-                      <div className="flex items-center gap-2 text-xxs text-texto-terciario">
-                        <span className="font-mono">{producto.codigo}</span>
-                        {producto.categoria && (
-                          <>
-                            <span>·</span>
-                            <span>{producto.categoria}</span>
-                          </>
-                        )}
-                        <span>·</span>
-                        <span>{producto.unidad}</span>
+                      {/* Icono tipo */}
+                      <div
+                        className="size-7 rounded-md flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: `var(--insignia-${color}-fondo)`, color: `var(--insignia-${color}-texto)` }}
+                      >
+                        {producto.tipo === 'servicio' ? <Wrench size={13} /> : <Package size={13} />}
                       </div>
-                    </div>
 
-                    {/* Precio */}
-                    {precioStr && (
-                      <span className="text-sm font-mono font-medium text-texto-primario shrink-0">{precioStr}</span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-texto-primario truncate">{producto.nombre}</div>
+                        <div className="flex items-center gap-2 text-xxs text-texto-terciario">
+                          <span className="font-mono">{producto.codigo}</span>
+                          {producto.categoria && (
+                            <>
+                              <span>·</span>
+                              <span>{producto.categoria}</span>
+                            </>
+                          )}
+                          <span>·</span>
+                          <span>{producto.unidad}</span>
+                        </div>
+                      </div>
+
+                      {/* Precio */}
+                      {precioStr && (
+                        <span className="text-sm font-mono font-medium text-texto-primario shrink-0">{precioStr}</span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   )
 }

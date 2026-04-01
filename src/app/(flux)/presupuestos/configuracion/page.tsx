@@ -220,6 +220,10 @@ export default function PaginaConfigPresupuestos() {
           setPrefijo(data.secuencia.prefijo || 'P')
           setDigitos(data.secuencia.digitos || 4)
           setSiguiente(data.secuencia.siguiente || 1)
+          if (data.secuencia.reinicio) setReinicio(data.secuencia.reinicio)
+          if (data.secuencia.componentes?.length) {
+            setComponentesNum(data.secuencia.componentes)
+          }
         }
         // Configuración PDF
         if (data.membrete) setMembrete({ ...MEMBRETE_DEFAULT, ...data.membrete })

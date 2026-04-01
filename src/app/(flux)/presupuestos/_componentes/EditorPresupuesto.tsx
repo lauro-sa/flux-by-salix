@@ -22,6 +22,7 @@ const PanelAsistenteIA = dynamic(() => import('./PanelAsistenteIA').then(m => m.
 import EditorNotasPresupuesto from './EditorNotasPresupuesto'
 import SelectorContactoPresupuesto from './SelectorContactoPresupuesto'
 import SelectorPlantilla from './SelectorPlantilla'
+import { useRol } from '@/hooks/useRol'
 import BarraEstadoPresupuesto from './BarraEstadoPresupuesto'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
@@ -73,6 +74,7 @@ export default function EditorPresupuesto({
   const { t } = useTraduccion()
   const { empresa } = useEmpresa()
   const { usuario } = useAuth()
+  const { esPropietario, esAdmin } = useRol()
   const { programarEnvio } = useEnvioPendiente()
 
   // ─── Estado compartido ──────────────────────────────────────────────────
@@ -1505,21 +1507,69 @@ export default function EditorPresupuesto({
               </div>
             )}
 
-            {/* DIRIGIDO A — modo editar */}
+            {/* DIRIGIDO A — modo editar, con selección previa */}
             {modo === 'editar' && presupuesto?.atencion_nombre && (
               <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-lg px-3 py-3 -mx-3">
                 <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider">
                   Dirigido a
                 </span>
-                <div className="mt-1.5 space-y-0.5">
-                  <p className="text-sm font-semibold text-texto-primario">{presupuesto.atencion_nombre}</p>
-                  {presupuesto.atencion_correo && (
-                    <p className="text-xs text-texto-secundario flex items-center gap-1"><Mail size={12} /> {presupuesto.atencion_correo}</p>
-                  )}
-                  {presupuesto.atencion_cargo && (
-                    <p className="text-xs text-texto-terciario">{presupuesto.atencion_cargo}</p>
-                  )}
-                  <p className="text-xxs text-texto-terciario mt-1">Aparecera como &quot;Atencion:&quot; en el PDF del documento</p>
+                <div className="mt-1.5">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-texto-primario">{presupuesto.atencion_nombre}</p>
+                      {(atencionSeleccionada?.correo || presupuesto.atencion_correo) && (
+                        <p className="text-xs text-texto-secundario flex items-center gap-1.5">
+                          <Mail size={13} className="text-texto-terciario shrink-0" />
+                          {atencionSeleccionada?.correo || presupuesto.atencion_correo}
+                        </p>
+                      )}
+                      {atencionSeleccionada?.telefono && (
+                        <p className="text-xs text-texto-secundario flex items-center gap-1.5">
+                          <Phone size={13} className="text-texto-terciario shrink-0" />
+                          {atencionSeleccionada.telefono}
+                        </p>
+                      )}
+                      {presupuesto.atencion_cargo && (
+                        <p className="text-xs text-texto-terciario">{presupuesto.atencion_cargo}</p>
+                      )}
+                    </div>
+                    {esEditable && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        {vinculaciones.length > 0 && (
+                          <button
+                            onClick={() => {
+                              autoguardar({
+                                atencion_contacto_id: null as unknown as string,
+                                atencion_nombre: '',
+                                atencion_correo: '',
+                              })
+                              setPresupuesto(prev => prev ? {
+                                ...prev,
+                                atencion_contacto_id: null,
+                                atencion_nombre: null,
+                                atencion_correo: null,
+                              } : null)
+                              setAtencionId(null)
+                              setAtencionSeleccionada(null)
+                            }}
+                            className="text-xs px-2 py-0.5 rounded text-texto-terciario hover:text-texto-marca hover:bg-marca-500/10 transition-colors"
+                          >
+                            Cambiar
+                          </button>
+                        )}
+                        {presupuesto.atencion_contacto_id && (
+                          <button
+                            onClick={() => router.push(`/contactos/${presupuesto.atencion_contacto_id}`)}
+                            className="size-6 rounded flex items-center justify-center text-texto-terciario hover:text-texto-marca hover:bg-marca-500/10 transition-colors"
+                            title="Ver ficha del contacto"
+                          >
+                            <ExternalLink size={13} />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xxs text-texto-terciario mt-2">Aparecera como &quot;Atencion:&quot; en el PDF del documento</p>
                 </div>
               </div>
             )}
@@ -1547,6 +1597,8 @@ export default function EditorPresupuesto({
                           atencion_nombre: `${v.vinculado.nombre} ${v.vinculado.apellido || ''}`.trim(),
                           atencion_correo: v.vinculado.correo,
                         } : null)
+                        setAtencionId(v.vinculado.id)
+                        setAtencionSeleccionada(v.vinculado)
                       }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-left rounded-lg hover:bg-superficie-app transition-colors border border-transparent hover:border-borde-sutil"
                     >
@@ -1584,6 +1636,7 @@ export default function EditorPresupuesto({
                     plantillaActual={plantillaId}
                     predeterminadaId={((config?.plantillas_predeterminadas || {}) as Record<string, string>)[usuario?.id || ''] || null}
                     usuarioId={usuario?.id || ''}
+                    puedeEliminarTodas={esPropietario || esAdmin}
                     onCargar={(tpl) => {
                       setPlantillaId(tpl.id)
                       if (tpl.moneda) setMoneda(tpl.moneda)
