@@ -10,7 +10,7 @@ import { LogoAnthropic, LogoOpenAI, LogoGoogle, LogoXAI } from '@/componentes/ui
 import { Input } from '@/componentes/ui/Input'
 import { Boton } from '@/componentes/ui/Boton'
 import { IndicadorGuardado } from '@/componentes/ui/IndicadorGuardado'
-import { Modal } from '@/componentes/ui/Modal'
+import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useModulos } from '@/hooks/useModulos'

@@ -12,7 +12,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
-import { Modal } from '@/componentes/ui/Modal'
+import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { useModulos } from '@/hooks/useModulos'
 import { useRol } from '@/hooks/useRol'
 import { useToast } from '@/componentes/feedback/Toast'

@@ -16,7 +16,7 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import { Alerta } from '@/componentes/ui/Alerta'
 import { CargadorSeccion } from '@/componentes/ui/Cargador'
 import SeccionAgenteIA from '@/app/(flux)/inbox/_componentes/SeccionAgenteIA'
-import { Modal } from '@/componentes/ui/Modal'
+import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import {

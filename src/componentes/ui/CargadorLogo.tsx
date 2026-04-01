@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Modal } from './Modal'
+import { ModalAdaptable as Modal } from './ModalAdaptable'
 import { Boton } from './Boton'
 import { Upload, Trash2, Square, RectangleHorizontal, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
 

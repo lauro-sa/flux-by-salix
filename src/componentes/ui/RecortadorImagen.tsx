@@ -5,7 +5,7 @@ import Cropper from 'react-easy-crop'
 import type { Area } from 'react-easy-crop'
 import { ZoomIn, ZoomOut, RotateCcw, Check, ImagePlus } from 'lucide-react'
 import { Boton } from './Boton'
-import { Modal } from './Modal'
+import { ModalAdaptable as Modal } from './ModalAdaptable'
 
 /**
  * RecortadorImagen — Modal con crop, zoom y rotación.

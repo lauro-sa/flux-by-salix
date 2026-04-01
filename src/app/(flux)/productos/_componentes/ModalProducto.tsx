@@ -6,7 +6,7 @@ import {
   FileText, DollarSign, Scale, MessageSquare,
   Plus, Trash2, BarChart3, Info,
 } from 'lucide-react'
-import { Modal } from '@/componentes/ui/Modal'
+import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Tabs } from '@/componentes/ui/Tabs'
 import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'

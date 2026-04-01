@@ -6,7 +6,7 @@ import { Plus, Pencil, GripVertical, Check, RotateCcw, Pipette } from 'lucide-re
 import { SelectorIcono, obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Boton } from '@/componentes/ui/Boton'
-import { Modal } from '@/componentes/ui/Modal'
+import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { Input } from '@/componentes/ui/Input'
 import { CargadorSeccion } from '@/componentes/ui/Cargador'

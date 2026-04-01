@@ -5,13 +5,13 @@ import {
   AlarmClock, Plus, Clock, CheckCircle2, Circle, Trash2,
   Repeat, Bell, Maximize2, Eye, CalendarDays, X,
 } from 'lucide-react'
-import { Popover } from '@/componentes/ui/Popover'
+import { PopoverAdaptable as Popover } from '@/componentes/ui/PopoverAdaptable'
 import { Tabs } from '@/componentes/ui/Tabs'
 import { Boton } from '@/componentes/ui/Boton'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { SelectorHora } from '@/componentes/ui/SelectorHora'
-import { Modal } from '@/componentes/ui/Modal'
+import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { SelectorRecurrencia, textoRecurrencia, RECURRENCIA_DEFAULT, type ConfigRecurrencia } from '@/componentes/ui/SelectorRecurrencia'
 import { sonidos } from '@/hooks/useSonido'
 import { useToast } from '@/componentes/feedback/Toast'
@@ -470,6 +470,7 @@ function RecordatoriosHeader() {
         alineacion="fin"
         ancho={400}
         offset={10}
+        tituloMovil="Recordatorios"
         contenido={contenido}
       >
         <button

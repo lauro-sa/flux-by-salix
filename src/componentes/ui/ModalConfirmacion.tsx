@@ -1,7 +1,7 @@
 'use client'
 
 import { type ReactNode } from 'react'
-import { Modal } from './Modal'
+import { ModalAdaptable as Modal } from './ModalAdaptable'
 import { Boton } from './Boton'
 import { AlertTriangle, Info, AlertCircle, CheckCircle } from 'lucide-react'
 

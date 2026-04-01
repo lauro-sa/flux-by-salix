@@ -8,7 +8,7 @@ import {
   CalendarClock, UserPlus, Eye, PartyPopper,
   Megaphone, FileCheck, Mail,
 } from 'lucide-react'
-import { Popover } from '@/componentes/ui/Popover'
+import { PopoverAdaptable as Popover } from '@/componentes/ui/PopoverAdaptable'
 import { PanelNotificaciones, type ItemNotificacion } from '@/componentes/ui/PanelNotificaciones'
 import {
   useNotificaciones,
@@ -196,6 +196,7 @@ function NotificacionesHeader() {
             alineacion="fin"
             ancho={400}
             offset={10}
+            tituloMovil={config.titulo}
             contenido={
               <PanelNotificaciones
                 titulo={config.titulo}

@@ -101,6 +101,7 @@ export default function EditorPresupuesto({
   const [canalesCorreo, setCanalesCorreo] = useState<CanalCorreoEmpresa[]>([])
   const [plantillasCorreo, setPlantillasCorreo] = useState<import('@/componentes/entidad/ModalEnviarDocumento').PlantillaCorreo[]>([])
   const [enviandoCorreo, setEnviandoCorreo] = useState(false)
+  const [urlPortalReal, setUrlPortalReal] = useState<string | null>(null)
   const [snapshotCorreo, setSnapshotCorreo] = useState<import('@/componentes/entidad/ModalEnviarDocumento').SnapshotCorreo | null>(null)
 
   // ID efectivo del presupuesto (creado o prop)
@@ -247,6 +248,11 @@ export default function EditorPresupuesto({
           })
           .catch(() => {})
       }
+      // Cargar URL del portal si existe
+      fetch(`/api/presupuestos/${presupuestoIdProp}/portal`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data?.url) setUrlPortalReal(data.url) })
+        .catch(() => {})
     }).catch(() => setCargando(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modo, presupuestoIdProp])
@@ -844,7 +850,10 @@ export default function EditorPresupuesto({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ forzar: false }),
           }),
-          fetch(`/api/presupuestos/${idPresupuesto}/portal`, { method: 'POST' }),
+          fetch(`/api/presupuestos/${idPresupuesto}/portal`, { method: 'POST' })
+            .then(r => r.json())
+            .then(data => { if (data.url) setUrlPortalReal(data.url) })
+            .catch(() => {}),
         ]).catch(() => {})
       })
     }
@@ -870,15 +879,12 @@ export default function EditorPresupuesto({
     const numDoc = numeroPresupuesto || presupuesto?.numero || ''
     const etiqueta = t('documentos.tipos.presupuesto')
 
-    // URL base — en producción usa NEXT_PUBLIC_APP_URL, en dev usa window.location.origin
-    const urlBase = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
-
     // Construir HTML final con CTA portal (si tildado) + pie empresa + dark mode
     const htmlFinal = construirHtmlCorreoDocumento({
       htmlCuerpo: datos.html,
       incluirPortal: datos.incluir_enlace_portal,
-      portal: idPresupuesto ? {
-        url: `${urlBase}/portal/presupuestos/${idPresupuesto}`,
+      portal: urlPortalReal ? {
+        url: urlPortalReal,
         etiquetaTipo: etiqueta,
         tituloDocumento: `${etiqueta} ${numDoc}`,
         nombreContacto: nombreContactoCorreo,
@@ -2014,7 +2020,7 @@ export default function EditorPresupuesto({
             miniatura_url: presupuesto.pdf_miniatura_url,
           } : null
         }
-        urlPortal={idPresupuesto ? `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/portal/presupuestos/${idPresupuesto}` : null}
+        urlPortal={urlPortalReal}
         enviando={enviandoCorreo}
         tipoDocumento={t('documentos.tipos.presupuesto')}
         onGuardarBorrador={handleGuardarBorrador}
