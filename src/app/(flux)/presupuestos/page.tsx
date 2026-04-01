@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useNavegacion } from '@/hooks/useNavegacion'
+import { useRol } from '@/hooks/useRol'
 import { useTraduccion } from '@/lib/i18n'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -69,6 +70,7 @@ const SIMBOLO_MONEDA: Record<string, string> = {
 
 export default function PaginaPresupuestos() {
   const { t } = useTraduccion()
+  const { tienePermiso } = useRol()
   const router = useRouter()
   const searchParams = useSearchParams()
   const contactoIdFiltro = searchParams.get('contacto_id')
@@ -403,7 +405,7 @@ export default function PaginaPresupuestos() {
     <PlantillaListado
       titulo={t('navegacion.presupuestos')}
       icono={<FileText size={20} />}
-      accionPrincipal={{ etiqueta: t('documentos.nuevo_presupuesto'), icono: <Plus size={14} />, onClick: () => router.push('/presupuestos/nuevo') }}
+      accionPrincipal={tienePermiso('presupuestos', 'crear') ? { etiqueta: t('documentos.nuevo_presupuesto'), icono: <Plus size={14} />, onClick: () => router.push('/presupuestos/nuevo') } : undefined}
       mostrarConfiguracion
       onConfiguracion={() => router.push('/presupuestos/configuracion')}
     >
@@ -465,7 +467,7 @@ export default function PaginaPresupuestos() {
           )
         }}
         seleccionables
-        accionesLote={[
+        accionesLote={tienePermiso('presupuestos', 'eliminar') ? [
           {
             id: 'papelera',
             etiqueta: t('comun.eliminar'),
@@ -473,7 +475,7 @@ export default function PaginaPresupuestos() {
             onClick: enviarAPapeleraLote,
             peligro: true,
           },
-        ]}
+        ] : []}
         busqueda={busqueda}
         onBusqueda={setBusqueda}
         placeholder="Buscar presupuestos..."

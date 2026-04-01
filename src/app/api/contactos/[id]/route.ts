@@ -125,6 +125,12 @@ export async function PATCH(
     if (!permitido) return NextResponse.json({ error: 'Sin permiso para editar contactos' }, { status: 403 })
 
     const campos = await request.json()
+
+    // Si se envía a papelera, verificar permiso de eliminar además de editar
+    if (campos.en_papelera === true) {
+      const { permitido: puedeEliminar } = await obtenerYVerificarPermiso(user.id, empresaId, 'contactos', 'eliminar')
+      if (!puedeEliminar) return NextResponse.json({ error: 'Sin permiso para eliminar contactos' }, { status: 403 })
+    }
     const admin = crearClienteAdmin()
 
     // Campos editables

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useNavegacion } from '@/hooks/useNavegacion'
+import { useRol } from '@/hooks/useRol'
 import { useTraduccion } from '@/lib/i18n'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -64,6 +65,7 @@ const POR_PAGINA = 50
 
 export default function PaginaContactos() {
   const { t } = useTraduccion()
+  const { tienePermiso } = useRol()
   const router = useRouter()
   const searchParams = useSearchParams()
   const vinculadoDe = searchParams.get('vinculado_de')
@@ -511,14 +513,14 @@ export default function PaginaContactos() {
     <PlantillaListado
       titulo={t('contactos.titulo')}
       icono={<Users size={20} />}
-      accionPrincipal={{
+      accionPrincipal={tienePermiso('contactos', 'crear') ? {
         etiqueta: t('contactos.nuevo'),
         icono: <UserPlus size={14} />,
         onClick: () => router.push('/contactos/nuevo'),
-      }}
+      } : undefined}
       acciones={[
-        { id: 'importar', etiqueta: t('comun.importar'), icono: <Upload size={14} />, onClick: () => setModalImportar(true) },
-        { id: 'exportar', etiqueta: t('comun.exportar'), icono: <Download size={14} />, onClick: async () => {
+        ...(tienePermiso('contactos', 'crear') ? [{ id: 'importar', etiqueta: t('comun.importar'), icono: <Upload size={14} />, onClick: () => setModalImportar(true) }] : []),
+        ...(tienePermiso('contactos', 'ver_todos') ? [{ id: 'exportar', etiqueta: t('comun.exportar'), icono: <Download size={14} />, onClick: async () => {
           const res = await fetch('/api/contactos/exportar')
           if (!res.ok) return
           const blob = await res.blob()
@@ -527,7 +529,7 @@ export default function PaginaContactos() {
           a.download = `contactos_${new Date().toISOString().slice(0, 10)}.xlsx`
           a.click()
           URL.revokeObjectURL(a.href)
-        }},
+        }}] : []),
       ]}
       mostrarConfiguracion
       onConfiguracion={() => router.push('/contactos/configuracion')}
@@ -552,7 +554,7 @@ export default function PaginaContactos() {
         onCambiarPagina={setPagina}
         vistas={['lista', 'tarjetas']}
         seleccionables
-        accionesLote={[
+        accionesLote={tienePermiso('contactos', 'eliminar') ? [
           {
             id: 'eliminar',
             etiqueta: t('comun.eliminar'),
@@ -560,7 +562,7 @@ export default function PaginaContactos() {
             onClick: eliminarContactosLote,
             peligro: true,
           },
-        ]}
+        ] : []}
         busqueda={busqueda}
         onBusqueda={setBusqueda}
         placeholder={t('contactos.buscar_placeholder')}

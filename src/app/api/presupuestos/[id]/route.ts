@@ -86,6 +86,12 @@ export async function PATCH(
     if (!permitido) return NextResponse.json({ error: 'Sin permiso para editar presupuestos' }, { status: 403 })
 
     const body = await request.json()
+
+    // Si se envía a papelera, verificar permiso de eliminar además de editar
+    if (body.en_papelera === true) {
+      const { permitido: puedeEliminar } = await obtenerYVerificarPermiso(user.id, empresaId, 'presupuestos', 'eliminar')
+      if (!puedeEliminar) return NextResponse.json({ error: 'Sin permiso para eliminar presupuestos' }, { status: 403 })
+    }
     const admin = crearClienteAdmin()
 
     // Obtener nombre del usuario
