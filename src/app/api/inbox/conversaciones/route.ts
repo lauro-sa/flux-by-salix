@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 
 /**
  * GET /api/inbox/conversaciones — Listar conversaciones con filtros.
@@ -15,8 +16,30 @@ export async function GET(request: NextRequest) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
+    // Verificar permisos: determinar módulo según tipo_canal del query param
     const params = request.nextUrl.searchParams
     const tipo_canal = params.get('tipo_canal') // 'whatsapp', 'correo', 'interno'
+
+    // Mapear tipo_canal al módulo de permisos correspondiente
+    const moduloPorCanal = {
+      whatsapp: 'inbox_whatsapp',
+      correo: 'inbox_correo',
+      interno: 'inbox_interno',
+    } as const
+    const moduloPermiso = tipo_canal
+      ? moduloPorCanal[tipo_canal as keyof typeof moduloPorCanal]
+      : null
+
+    // Si hay tipo_canal específico, verificar permiso de ese módulo
+    if (moduloPermiso) {
+      const { permitido: verTodos } = await obtenerYVerificarPermiso(user.id, empresaId, moduloPermiso, 'ver_todos')
+      if (!verTodos) {
+        const { permitido: verPropio } = await obtenerYVerificarPermiso(user.id, empresaId, moduloPermiso, 'ver_propio')
+        if (!verPropio) {
+          return NextResponse.json({ error: 'Sin permiso para ver conversaciones de este canal' }, { status: 403 })
+        }
+      }
+    }
     const estado = params.get('estado') // 'abierta', 'en_espera', 'resuelta', 'spam'
     const asignado_a = params.get('asignado_a') // usuario_id o 'sin_asignar'
     const canal_id = params.get('canal_id')
@@ -142,6 +165,20 @@ export async function POST(request: NextRequest) {
 
     if (!canal_id || !tipo_canal) {
       return NextResponse.json({ error: 'canal_id y tipo_canal son requeridos' }, { status: 400 })
+    }
+
+    // Verificar permiso de enviar en el módulo correspondiente al canal
+    const moduloPorCanal = {
+      whatsapp: 'inbox_whatsapp',
+      correo: 'inbox_correo',
+      interno: 'inbox_interno',
+    } as const
+    const moduloPermiso = moduloPorCanal[tipo_canal as keyof typeof moduloPorCanal]
+    if (moduloPermiso) {
+      const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, moduloPermiso, 'enviar')
+      if (!permitido) {
+        return NextResponse.json({ error: 'Sin permiso para crear conversaciones en este canal' }, { status: 403 })
+      }
     }
 
     const admin = crearClienteAdmin()

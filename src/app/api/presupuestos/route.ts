@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
-import { sanitizarBusqueda } from '@/lib/validaciones'
+import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import { registrarError } from '@/lib/logger'
 
@@ -18,6 +18,15 @@ export async function GET(request: NextRequest) {
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    // Verificar permisos de visibilidad: ver_todos > ver_propio > 403
+    const { permitido: verTodos } = await obtenerYVerificarPermiso(user.id, empresaId, 'presupuestos', 'ver_todos')
+    let soloPropio = false
+    if (!verTodos) {
+      const { permitido: verPropio } = await obtenerYVerificarPermiso(user.id, empresaId, 'presupuestos', 'ver_propio')
+      if (!verPropio) return NextResponse.json({ error: 'Sin permiso para ver presupuestos' }, { status: 403 })
+      soloPropio = true
+    }
 
     const params = request.nextUrl.searchParams
     const busqueda = sanitizarBusqueda(params.get('busqueda') || '')
@@ -40,6 +49,11 @@ export async function GET(request: NextRequest) {
       .select('*', { count: 'exact' })
       .eq('empresa_id', empresaId)
       .eq('en_papelera', en_papelera)
+
+    // Si solo tiene ver_propio, filtrar por presupuestos creados por él
+    if (soloPropio) {
+      query = query.eq('creado_por', user.id)
+    }
 
     // Filtro por estado (puede ser múltiple separado por comas)
     if (estado) {
@@ -69,13 +83,14 @@ export async function GET(request: NextRequest) {
       query = query.lte('fecha_emision', fecha_hasta)
     }
 
-    // Búsqueda full-text
+    // Búsqueda full-text (normalizada sin acentos)
     if (busqueda.trim()) {
+      const busquedaNorm = normalizarAcentos(busqueda)
       if (busqueda.length <= 2) {
-        query = query.or(`numero.ilike.%${busqueda}%,contacto_nombre.ilike.%${busqueda}%,contacto_apellido.ilike.%${busqueda}%,atencion_nombre.ilike.%${busqueda}%,referencia.ilike.%${busqueda}%`)
+        query = query.or(`numero.ilike.%${busquedaNorm}%,contacto_nombre.ilike.%${busquedaNorm}%,contacto_apellido.ilike.%${busquedaNorm}%,atencion_nombre.ilike.%${busquedaNorm}%,referencia.ilike.%${busquedaNorm}%`)
       } else {
-        const terminos = busqueda.trim().split(/\s+/).map(t => `${t}:*`).join(' & ')
-        query = query.textSearch('busqueda', terminos, { config: 'spanish' })
+        const terminos = busquedaNorm.trim().split(/\s+/).map(t => `${t}:*`).join(' & ')
+        query = query.textSearch('busqueda', terminos, { config: 'spanish_unaccent' })
       }
     }
 

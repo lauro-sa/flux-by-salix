@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import { cifrar } from '@/lib/cifrado'
 
 /**
@@ -15,6 +16,12 @@ export async function GET(request: NextRequest) {
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    // Verificar permiso de ver configuración del inbox (canales son parte de config)
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'config_inbox', 'ver')
+    if (!permitido) {
+      return NextResponse.json({ error: 'Sin permiso para ver canales' }, { status: 403 })
+    }
 
     const tipo = request.nextUrl.searchParams.get('tipo')
     const admin = crearClienteAdmin()
@@ -58,6 +65,12 @@ export async function POST(request: NextRequest) {
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    // Verificar permiso de editar configuración del inbox (crear canales requiere editar)
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'config_inbox', 'editar')
+    if (!permitido) {
+      return NextResponse.json({ error: 'Sin permiso para crear canales' }, { status: 403 })
+    }
 
     const body = await request.json()
     const { tipo, nombre, proveedor, config_conexion, agentes } = body

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import {
   enviarCorreoGmail,
   extraerEmail,
@@ -22,6 +23,12 @@ export async function POST(request: NextRequest) {
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    // Verificar permiso de enviar correos
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'inbox_correo', 'enviar')
+    if (!permitido) {
+      return NextResponse.json({ error: 'Sin permiso para enviar correos' }, { status: 403 })
+    }
 
     const body = await request.json()
     const {

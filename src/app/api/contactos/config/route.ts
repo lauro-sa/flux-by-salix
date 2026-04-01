@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 
 /**
  * GET /api/contactos/config — Obtener etiquetas, rubros y puestos configurados.
@@ -13,6 +14,10 @@ export async function GET() {
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    // Verificar permiso de lectura en config de contactos
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'config_contactos', 'ver')
+    if (!permitido) return NextResponse.json({ error: 'Sin permisos para ver configuración de contactos' }, { status: 403 })
 
     const admin = crearClienteAdmin()
 
@@ -49,6 +54,10 @@ export async function POST(request: NextRequest) {
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    // Verificar permiso de edición en config de contactos
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'config_contactos', 'editar')
+    if (!permitido) return NextResponse.json({ error: 'Sin permisos para editar configuración de contactos' }, { status: 403 })
 
     const body = await request.json()
     const { tipo, nombre, color, activo } = body
@@ -112,6 +121,10 @@ export async function PATCH(request: NextRequest) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
+    // Verificar permiso de edición en config de contactos
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'config_contactos', 'editar')
+    if (!permitido) return NextResponse.json({ error: 'Sin permisos para editar configuración de contactos' }, { status: 403 })
+
     const body = await request.json()
     const { tipo, id } = body
 
@@ -153,6 +166,10 @@ export async function DELETE(request: NextRequest) {
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    // Verificar permiso de edición en config de contactos
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'config_contactos', 'editar')
+    if (!permitido) return NextResponse.json({ error: 'Sin permisos para editar configuración de contactos' }, { status: 403 })
 
     const body = await request.json()
     const { tipo, id } = body

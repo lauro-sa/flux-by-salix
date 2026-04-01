@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-import { esEmailValido, esTelefonoValido, esUrlValida, esIdentificacionValida, sanitizarBusqueda } from '@/lib/validaciones'
+import { esEmailValido, esTelefonoValido, esUrlValida, esIdentificacionValida, sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import { registrarError } from '@/lib/logger'
 
@@ -18,6 +18,15 @@ export async function GET(request: NextRequest) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
+    // Verificar permisos de visibilidad: ver_todos > ver_propio > 403
+    const { permitido: verTodos } = await obtenerYVerificarPermiso(user.id, empresaId, 'contactos', 'ver_todos')
+    let soloPropio = false
+    if (!verTodos) {
+      const { permitido: verPropio } = await obtenerYVerificarPermiso(user.id, empresaId, 'contactos', 'ver_propio')
+      if (!verPropio) return NextResponse.json({ error: 'Sin permiso para ver contactos' }, { status: 403 })
+      soloPropio = true
+    }
+
     const params = request.nextUrl.searchParams
     const busqueda = sanitizarBusqueda(params.get('busqueda') || '')
     const tipo = params.get('tipo') // clave del tipo de contacto
@@ -28,7 +37,7 @@ export async function GET(request: NextRequest) {
     const vinculado_de = params.get('vinculado_de')
     const origen_filtro = params.get('origen_filtro')
     const condicion_iva = params.get('condicion_iva')
-    const orden_campo = params.get('orden_campo') || 'creado_en'
+    const orden_campo = params.get('orden_campo') || 'codigo'
     const orden_dir = params.get('orden_dir') === 'asc' ? true : false
     const pagina = parseInt(params.get('pagina') || '1')
     const por_pagina = Math.min(parseInt(params.get('por_pagina') || '50'), 100)
@@ -48,6 +57,21 @@ export async function GET(request: NextRequest) {
       `, { count: 'exact' })
       .eq('empresa_id', empresaId)
       .eq('en_papelera', en_papelera)
+
+    // Si solo tiene ver_propio, filtrar por contactos creados por él o asignados como responsable
+    if (soloPropio) {
+      const { data: responsableIds } = await admin
+        .from('contacto_responsables')
+        .select('contacto_id')
+        .eq('usuario_id', user.id)
+      const idsResponsable = (responsableIds || []).map(r => r.contacto_id)
+
+      if (idsResponsable.length > 0) {
+        query = query.or(`creado_por.eq.${user.id},id.in.(${idsResponsable.join(',')})`)
+      } else {
+        query = query.eq('creado_por', user.id)
+      }
+    }
 
     // Filtro por tipo (buscamos por clave del tipo)
     if (tipo) {
@@ -111,30 +135,31 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Búsqueda full-text + direcciones
+    // Búsqueda full-text + direcciones (normalizada sin acentos)
     if (busqueda.trim()) {
+      const busquedaNorm = normalizarAcentos(busqueda)
+
       // Buscar en direcciones (calle, ciudad, provincia) para obtener IDs de contactos
       const { data: dirMatches } = await admin
         .from('contacto_direcciones')
         .select('contacto_id')
-        .or(`calle.ilike.%${busqueda}%,ciudad.ilike.%${busqueda}%,provincia.ilike.%${busqueda}%,barrio.ilike.%${busqueda}%,texto.ilike.%${busqueda}%`)
+        .or(`calle.ilike.%${busquedaNorm}%,ciudad.ilike.%${busquedaNorm}%,provincia.ilike.%${busquedaNorm}%,barrio.ilike.%${busquedaNorm}%,texto.ilike.%${busquedaNorm}%`)
 
       const idsDirecciones = [...new Set((dirMatches || []).map(d => d.contacto_id))]
 
       if (busqueda.length <= 2) {
-        const filtroTexto = `nombre.ilike.%${busqueda}%,apellido.ilike.%${busqueda}%,correo.ilike.%${busqueda}%,codigo.ilike.%${busqueda}%,telefono.ilike.%${busqueda}%`
+        const filtroTexto = `nombre.ilike.%${busquedaNorm}%,apellido.ilike.%${busquedaNorm}%,correo.ilike.%${busquedaNorm}%,codigo.ilike.%${busquedaNorm}%,telefono.ilike.%${busquedaNorm}%`
         if (idsDirecciones.length > 0) {
           query = query.or(`${filtroTexto},id.in.(${idsDirecciones.join(',')})`)
         } else {
           query = query.or(filtroTexto)
         }
       } else {
-        const terminos = busqueda.trim().split(/\s+/).map(t => `${t}:*`).join(' & ')
+        const terminos = busquedaNorm.trim().split(/\s+/).map(t => `${t}:*`).join(' & ')
         if (idsDirecciones.length > 0) {
-          // Combinar full-text con IDs de direcciones
-          query = query.or(`busqueda.fts(spanish).${terminos},id.in.(${idsDirecciones.join(',')})`)
+          query = query.or(`busqueda.fts(spanish_unaccent).${terminos},id.in.(${idsDirecciones.join(',')})`)
         } else {
-          query = query.textSearch('busqueda', terminos, { config: 'spanish' })
+          query = query.textSearch('busqueda', terminos, { config: 'spanish_unaccent' })
         }
       }
     }
@@ -202,7 +227,7 @@ export async function POST(request: NextRequest) {
 
     const { data: tipoExiste } = await admin
       .from('tipos_contacto')
-      .select('id')
+      .select('id, clave')
       .eq('id', tipoContactoId)
       .eq('empresa_id', empresaId)
       .single()
@@ -216,15 +241,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'El nombre es obligatorio' }, { status: 400 })
     }
 
-    // Validar al menos un dato de contacto (se puede saltar con es_provisorio)
+    // Validar al menos un dato de contacto (edificios necesitan nombre + dirección)
+    const esEdificio = tipoExiste.clave === 'edificio'
+    const tieneDireccion = !!(body.direccion?.calle?.trim() || body.direcciones?.some((d: { calle?: string }) => d.calle?.trim()))
     const tieneDatoContacto = !!(
       body.correo?.trim() ||
       body.telefono?.trim() ||
       body.whatsapp?.trim() ||
-      body.direccion?.calle?.trim() ||
-      body.direcciones?.some((d: { calle?: string }) => d.calle?.trim())
+      tieneDireccion
     )
-    if (!tieneDatoContacto && !body.es_provisorio) {
+    if (esEdificio && !tieneDireccion && !body.es_provisorio) {
+      return NextResponse.json({ error: 'Se requiere al menos una dirección para un edificio' }, { status: 400 })
+    }
+    if (!esEdificio && !tieneDatoContacto && !body.es_provisorio) {
       return NextResponse.json({ error: 'Se requiere al menos un email, teléfono, WhatsApp o dirección' }, { status: 400 })
     }
 

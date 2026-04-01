@@ -15,6 +15,7 @@ import {
 import { Input } from '@/componentes/ui/Input'
 import { InputMoneda } from '@/componentes/ui/InputMoneda'
 import { Select } from '@/componentes/ui/Select'
+import { SelectCreable } from '@/componentes/ui/SelectCreable'
 import { Boton } from '@/componentes/ui/Boton'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { Insignia } from '@/componentes/ui/Insignia'
@@ -64,13 +65,13 @@ const MODULOS_PREVIEW = [
 ]
 
 const ROLES_OPCIONES = [
-  { valor: 'propietario', etiqueta: 'Propietario' },
-  { valor: 'administrador', etiqueta: 'Administrador' },
-  { valor: 'gestor', etiqueta: 'Gestor' },
-  { valor: 'vendedor', etiqueta: 'Vendedor' },
-  { valor: 'supervisor', etiqueta: 'Supervisor' },
-  { valor: 'empleado', etiqueta: 'Colaborador' },
-  { valor: 'invitado', etiqueta: 'Invitado' },
+  { valor: 'propietario', etiqueta: 'Propietario', descripcion: 'Acceso total a la empresa, configuración y usuarios' },
+  { valor: 'administrador', etiqueta: 'Administrador', descripcion: 'Todo lo operacional + usuarios, sin editar empresa ni configuración' },
+  { valor: 'gestor', etiqueta: 'Gestor', descripcion: 'Contactos, presupuestos, actividades, visitas, inbox y productos' },
+  { valor: 'vendedor', etiqueta: 'Vendedor', descripcion: 'Solo sus propios contactos, presupuestos, actividades e inbox' },
+  { valor: 'supervisor', etiqueta: 'Supervisor', descripcion: 'Ve todo pero no puede eliminar — ideal para coordinadores' },
+  { valor: 'empleado', etiqueta: 'Colaborador', descripcion: 'Solo asistencias, calendario propio e inbox interno' },
+  { valor: 'invitado', etiqueta: 'Invitado', descripcion: 'Sin permisos por defecto — se asignan manualmente' },
 ]
 
 const ETIQUETA_ROL: Record<string, string> = {
@@ -464,6 +465,7 @@ export default function PaginaPerfilUsuario() {
   const [puestos, setPuestos] = useState<{ id: string; nombre: string }[]>([])
   const [sectorActualId, setSectorActualId] = useState<string>('')
   const [infoBancaria, setInfoBancaria] = useState<Record<string, unknown> | null>(null)
+  const [bancosEmpresa, setBancosEmpresa] = useState<{ id: string; nombre: string }[]>([])
 
   /* ── Estado kiosco ── */
   const [pinVisible, setPinVisible] = useState(false)
@@ -504,6 +506,10 @@ export default function PaginaPerfilUsuario() {
   // Recortador de imagen
   const [recortador, setRecortador] = useState<{ imagen: string; tipo: 'avatar' | 'kiosco' } | null>(null)
 
+  /* ── Refs para setSnapshot (usados en cargarDatos antes de que se definan los hooks) ── */
+  const setSnapshotPerfilRef = useRef<(d: Record<string, unknown>) => void>(() => {})
+  const setSnapshotMiembroRef = useRef<(d: Record<string, unknown>) => void>(() => {})
+
   /* ── Carga de datos ── */
   const cargarDatos = useCallback(async () => {
     if (!empresa) return
@@ -518,6 +524,7 @@ export default function PaginaPerfilUsuario() {
 
     if (miembroData) {
       setMiembro(miembroData)
+      setSnapshotMiembroRef.current(miembroData as unknown as Record<string, unknown>)
 
       const { data: perfilData } = await supabase
         .from('perfiles')
@@ -525,7 +532,10 @@ export default function PaginaPerfilUsuario() {
         .eq('id', miembroData.usuario_id)
         .single()
 
-      if (perfilData) setPerfil(perfilData)
+      if (perfilData) {
+        setPerfil(perfilData)
+        setSnapshotPerfilRef.current(perfilData as unknown as Record<string, unknown>)
+      }
 
       // Sectores de la empresa
       const { data: sectoresData } = await supabase
@@ -545,14 +555,12 @@ export default function PaginaPerfilUsuario() {
         .order('orden')
       if (puestosData) setPuestos(puestosData)
 
-      // Sector actual del miembro
-      const { data: miembroSectorData } = await supabase
-        .from('miembros_sectores')
-        .select('sector_id')
-        .eq('miembro_id', miembroId)
-        .eq('es_primario', true)
-        .single()
-      if (miembroSectorData) setSectorActualId(miembroSectorData.sector_id)
+      // Sector actual del miembro (vía API para evitar 406 de PostgREST)
+      const sectorRes = await fetch(`/api/miembros/${miembroId}/sector`)
+      if (sectorRes.ok) {
+        const sectorData = await sectorRes.json()
+        if (sectorData?.sector_id) setSectorActualId(sectorData.sector_id)
+      }
 
       // Info bancaria
       const { data: bancariaData } = await supabase
@@ -562,13 +570,15 @@ export default function PaginaPerfilUsuario() {
         .maybeSingle()
       if (bancariaData) setInfoBancaria(bancariaData)
 
-      // Contacto de emergencia
-      const { data: emergenciaData } = await supabase
-        .from('contactos_emergencia')
-        .select('*')
-        .eq('miembro_id', miembroId)
-        .single()
-      if (emergenciaData) setContactoEmergencia(emergenciaData)
+      // Catálogo de bancos de la empresa
+      fetch('/api/bancos').then(r => r.ok ? r.json() : []).then(setBancosEmpresa).catch(() => {})
+
+      // Contacto de emergencia (vía API para evitar 406 de PostgREST)
+      const emergenciaRes = await fetch(`/api/miembros/${miembroId}/emergencia`)
+      if (emergenciaRes.ok) {
+        const emergenciaData = await emergenciaRes.json()
+        if (emergenciaData) setContactoEmergencia(emergenciaData)
+      }
 
       // Documentos del usuario
       const { data: docsData } = await supabase
@@ -607,16 +617,19 @@ export default function PaginaPerfilUsuario() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [miembro, miembroId])
 
-  const { estado: estadoPerfil, guardar: autoGuardarPerfil, setSnapshot: setSnapshotPerfil } = useAutoguardado({ onGuardar: guardarPerfil })
+  const { estado: estadoPerfil, guardar: autoGuardarPerfil, setSnapshot: setSnapshotPerfil, flush: flushPerfil } = useAutoguardado({ onGuardar: guardarPerfil })
   const { estado: estadoMiembro, guardarInmediato: guardarMiembroInmediato, setSnapshot: setSnapshotMiembro } = useAutoguardado({ onGuardar: guardarMiembro })
 
-  useEffect(() => {
-    if (perfil) setSnapshotPerfil(perfil as unknown as Record<string, unknown>)
-  }, [perfil, setSnapshotPerfil])
+  // Conectar refs para que cargarDatos pueda setear snapshots
+  setSnapshotPerfilRef.current = setSnapshotPerfil
+  setSnapshotMiembroRef.current = setSnapshotMiembro
 
+  // Flush datos pendientes al salir de la página
+  const flushPerfilRef = useRef(flushPerfil)
+  flushPerfilRef.current = flushPerfil
   useEffect(() => {
-    if (miembro) setSnapshotMiembro(miembro as unknown as Record<string, unknown>)
-  }, [miembro, setSnapshotMiembro])
+    return () => { flushPerfilRef.current() }
+  }, [])
 
   const puedeEditar = esPropietario || esAdmin
 
@@ -624,15 +637,11 @@ export default function PaginaPerfilUsuario() {
   const guardarSector = useCallback(async (sectorId: string) => {
     if (!empresa) return
     setSectorActualId(sectorId)
-    // Borrar asignación actual y crear nueva
-    await supabase.from('miembros_sectores').delete().eq('miembro_id', miembroId)
-    if (sectorId) {
-      await supabase.from('miembros_sectores').insert({
-        miembro_id: miembroId,
-        sector_id: sectorId,
-        es_primario: true,
-      })
-    }
+    await fetch(`/api/miembros/${miembroId}/sector`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sector_id: sectorId || null }),
+    })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresa, miembroId])
 
@@ -663,14 +672,19 @@ export default function PaginaPerfilUsuario() {
   const guardarEmergencia = useCallback(async (campo: string, valor: string | Record<string, unknown>) => {
     const datos = { ...contactoEmergencia, [campo]: valor || null }
     setContactoEmergencia(datos)
-    if (contactoEmergencia?.id) {
-      await supabase.from('contactos_emergencia').update({ [campo]: valor || null }).eq('id', contactoEmergencia.id)
-    } else {
-      const { data } = await supabase.from('contactos_emergencia').insert({
-        miembro_id: miembroId,
-        nombre: campo === 'nombre' ? valor : '',
-        [campo]: valor || null,
-      }).select().single()
+    const res = await fetch(`/api/miembros/${miembroId}/emergencia`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: contactoEmergencia?.id || null,
+        ...(contactoEmergencia?.id
+          ? { [campo]: valor || null }
+          : { nombre: campo === 'nombre' ? valor : '', [campo]: valor || null }
+        ),
+      }),
+    })
+    if (res.ok) {
+      const data = await res.json()
       if (data) setContactoEmergencia(data)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1532,10 +1546,12 @@ export default function PaginaPerfilUsuario() {
                           {contactoEmergencia.telefono as string}
                         </div>
                       )}
-                      {(contactoEmergencia.direccion as string) && (
+                      {contactoEmergencia.direccion && (
                         <div className="flex items-center gap-2 text-sm text-texto-secundario pl-12">
                           <MapPin size={12} className="text-texto-terciario" />
-                          {contactoEmergencia.direccion as string}
+                          {typeof contactoEmergencia.direccion === 'string'
+                            ? contactoEmergencia.direccion
+                            : (contactoEmergencia.direccion as Record<string, unknown>)?.textoCompleto as string || ''}
                         </div>
                       )}
                     </div>
@@ -1884,7 +1900,13 @@ export default function PaginaPerfilUsuario() {
                   <div className="sm:col-span-2">
                     <BloqueDireccion
                       etiqueta="Dirección"
-                      valorInicial={typeof contactoEmergencia?.direccion === 'object' ? contactoEmergencia.direccion as Partial<DatosDireccion> | null : contactoEmergencia?.direccion ? { textoCompleto: contactoEmergencia.direccion as string, calle: contactoEmergencia.direccion as string } : null}
+                      valorInicial={(() => {
+                        const dir = contactoEmergencia?.direccion
+                        if (!dir) return null
+                        if (typeof dir === 'object') return dir as Partial<DatosDireccion>
+                        // La columna es text — parsear JSON string
+                        try { return JSON.parse(dir as string) as Partial<DatosDireccion> } catch { return { textoCompleto: dir as string, calle: dir as string } }
+                      })()}
                       paises={['AR']}
                       alCambiar={(dir) => {
                         setContactoEmergencia(p => ({ ...p, direccion: dir }))
@@ -1901,7 +1923,24 @@ export default function PaginaPerfilUsuario() {
                 <SeccionEncabezado icono={<CreditCard size={15} />} titulo="Información bancaria" />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Select etiqueta="Tipo de cuenta" opciones={[{ valor: '', etiqueta: 'No especificado' }, { valor: 'cbu', etiqueta: 'CBU — Cuenta bancaria' }, { valor: 'cvu', etiqueta: 'CVU — Cuenta virtual' }]} valor={(infoBancaria?.tipo_cuenta as string) || ''} onChange={(v) => guardarInfoBancaria('tipo_cuenta', v)} />
-                  <Input tipo="text" formato="nombre_empresa" etiqueta={t('usuarios.banco')} value={(infoBancaria?.banco as string) || ''} onChange={(e) => setInfoBancaria(p => ({ ...p, banco: e.target.value }))} onBlur={(e) => guardarInfoBancaria('banco', e.target.value)} placeholder="Banco Nación, Mercado Pago..." disabled={!puedeEditar} />
+                  <SelectCreable
+                    etiqueta={t('usuarios.banco')}
+                    placeholder="Buscar banco..."
+                    opciones={bancosEmpresa.map(b => ({ valor: b.nombre, etiqueta: b.nombre }))}
+                    valor={(infoBancaria?.banco as string) || ''}
+                    onChange={(v) => { setInfoBancaria(p => ({ ...p, banco: v })); guardarInfoBancaria('banco', v) }}
+                    onCrear={async (nombre) => {
+                      const res = await fetch('/api/bancos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre }) })
+                      if (!res.ok) return false
+                      const banco = await res.json()
+                      setBancosEmpresa(prev => {
+                        if (prev.some(b => b.id === banco.id)) return prev
+                        return [...prev, banco].sort((a, b) => a.nombre.localeCompare(b.nombre))
+                      })
+                      return banco.nombre // Devuelve nombre formateado (capitalizado) del servidor
+                    }}
+                    textoCrear="Crear banco"
+                  />
                   <Input tipo="text" etiqueta={t('usuarios.cbu')} value={(infoBancaria?.numero_cuenta as string) || ''} onChange={(e) => setInfoBancaria(p => ({ ...p, numero_cuenta: e.target.value }))} onBlur={(e) => guardarInfoBancaria('numero_cuenta', e.target.value)} placeholder="Número de cuenta" formato={null} disabled={!puedeEditar} />
                   <Input tipo="text" etiqueta={t('usuarios.alias_bancario')} value={(infoBancaria?.alias as string) || ''} onChange={(e) => setInfoBancaria(p => ({ ...p, alias: e.target.value }))} onBlur={(e) => guardarInfoBancaria('alias', e.target.value)} placeholder="mi.alias.mp" formato="minusculas" disabled={!puedeEditar} />
                 </div>

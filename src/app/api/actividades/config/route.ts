@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 
 /**
  * GET /api/actividades/config — Obtener configuración completa de actividades.
@@ -14,6 +15,10 @@ export async function GET() {
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    // Verificar permiso de lectura en config de actividades
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'config_actividades', 'ver')
+    if (!permitido) return NextResponse.json({ error: 'Sin permisos para ver configuración de actividades' }, { status: 403 })
 
     const admin = crearClienteAdmin()
 
@@ -47,19 +52,11 @@ export async function PUT(request: NextRequest) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
+    // Verificar permiso de edición en config de actividades
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'config_actividades', 'editar')
+    if (!permitido) return NextResponse.json({ error: 'Sin permisos para editar configuración de actividades' }, { status: 403 })
+
     const admin = crearClienteAdmin()
-
-    // Verificar rol admin+
-    const { data: miembro } = await admin
-      .from('miembros')
-      .select('rol')
-      .eq('usuario_id', user.id)
-      .eq('empresa_id', empresaId)
-      .single()
-
-    if (!miembro || !['propietario', 'administrador'].includes(miembro.rol)) {
-      return NextResponse.json({ error: 'Sin permisos' }, { status: 403 })
-    }
 
     const body = await request.json()
     const { accion, datos } = body

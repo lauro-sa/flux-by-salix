@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 
 /**
  * GET /api/presupuestos/config — Obtener configuración de presupuestos de la empresa.
@@ -14,6 +15,10 @@ export async function GET() {
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    // Verificar permiso de lectura en config de presupuestos
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'config_presupuestos', 'ver')
+    if (!permitido) return NextResponse.json({ error: 'Sin permisos para ver configuración de presupuestos' }, { status: 403 })
 
     const admin = crearClienteAdmin()
 
@@ -66,6 +71,10 @@ export async function PATCH(request: NextRequest) {
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    // Verificar permiso de edición en config de presupuestos
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'config_presupuestos', 'editar')
+    if (!permitido) return NextResponse.json({ error: 'Sin permisos para editar configuración de presupuestos' }, { status: 403 })
 
     const body = await request.json()
     const admin = crearClienteAdmin()

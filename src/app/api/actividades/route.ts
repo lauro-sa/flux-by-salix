@@ -18,6 +18,15 @@ export async function GET(request: NextRequest) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
+    // Verificar permisos de visibilidad: ver_todos > ver_propio > 403
+    const { permitido: verTodos } = await obtenerYVerificarPermiso(user.id, empresaId, 'actividades', 'ver_todos')
+    let soloPropio = false
+    if (!verTodos) {
+      const { permitido: verPropio } = await obtenerYVerificarPermiso(user.id, empresaId, 'actividades', 'ver_propio')
+      if (!verPropio) return NextResponse.json({ error: 'Sin permiso para ver actividades' }, { status: 403 })
+      soloPropio = true
+    }
+
     const params = request.nextUrl.searchParams
     const busqueda = params.get('busqueda') || ''
     const estado = params.get('estado')
@@ -41,6 +50,11 @@ export async function GET(request: NextRequest) {
       .select('*', { count: 'exact' })
       .eq('empresa_id', empresaId)
       .eq('en_papelera', en_papelera)
+
+    // Si solo tiene ver_propio, forzar filtro por creador o asignado a él
+    if (soloPropio) {
+      query = query.or(`creado_por.eq.${user.id},asignado_a.eq.${user.id}`)
+    }
 
     // Vista: mias = asignadas a mí, enviadas = creadas por mí
     if (vista === 'mias') {

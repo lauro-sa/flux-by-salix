@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
-import { sanitizarBusqueda } from '@/lib/validaciones'
+import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 
 /**
@@ -17,6 +17,10 @@ export async function GET(request: NextRequest) {
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    // Productos son compartidos — solo verificar que tenga permiso 'ver'
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'productos', 'ver')
+    if (!permitido) return NextResponse.json({ error: 'Sin permiso para ver productos' }, { status: 403 })
 
     const params = request.nextUrl.searchParams
     const busqueda = sanitizarBusqueda(params.get('busqueda') || '')
@@ -50,13 +54,14 @@ export async function GET(request: NextRequest) {
     if (puede_comprarse) query = query.eq('puede_comprarse', puede_comprarse === 'true')
     if (favorito === 'true') query = query.eq('favorito', true)
 
-    // Búsqueda full-text
+    // Búsqueda full-text (normalizada sin acentos)
     if (busqueda.trim()) {
+      const busquedaNorm = normalizarAcentos(busqueda)
       if (busqueda.length <= 2) {
-        query = query.or(`codigo.ilike.%${busqueda}%,nombre.ilike.%${busqueda}%,referencia_interna.ilike.%${busqueda}%,codigo_barras.ilike.%${busqueda}%`)
+        query = query.or(`codigo.ilike.%${busquedaNorm}%,nombre.ilike.%${busquedaNorm}%,referencia_interna.ilike.%${busquedaNorm}%,codigo_barras.ilike.%${busquedaNorm}%`)
       } else {
-        const terminos = busqueda.trim().split(/\s+/).map(t => `${t}:*`).join(' & ')
-        query = query.textSearch('busqueda', terminos, { config: 'spanish' })
+        const terminos = busquedaNorm.trim().split(/\s+/).map(t => `${t}:*`).join(' & ')
+        query = query.textSearch('busqueda', terminos, { config: 'spanish_unaccent' })
       }
     }
 
