@@ -448,7 +448,7 @@ export default function PaginaInbox() {
       conversacion_id: conversacionSeleccionada.id,
       es_entrante: false,
       remitente_tipo: 'agente',
-      remitente_id: null,
+      remitente_id: usuarioId || null,
       remitente_nombre: null,
       tipo_contenido: datos.tipo_contenido,
       texto: datos.texto || null,
