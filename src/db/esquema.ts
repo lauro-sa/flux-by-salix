@@ -986,7 +986,7 @@ export const canal_agentes = pgTable('canal_agentes', {
 export const conversaciones = pgTable('conversaciones', {
   id: uuid('id').primaryKey().defaultRandom(),
   empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
-  canal_id: uuid('canal_id').notNull().references(() => canales_inbox.id),
+  canal_id: uuid('canal_id').references(() => canales_inbox.id), // nullable para canales internos
   tipo_canal: text('tipo_canal').notNull(), // 'correo', 'whatsapp', etc.
   identificador_externo: text('identificador_externo'), // email, teléfono WA
   hilo_externo_id: text('hilo_externo_id'), // thread ID externo

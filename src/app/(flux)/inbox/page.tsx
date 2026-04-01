@@ -336,6 +336,37 @@ export default function PaginaInbox() {
     cargar()
   }, [tabActivo])
 
+  // Cuando se selecciona un canal interno, buscar/crear conversación y cargar mensajes
+  useEffect(() => {
+    if (tabActivo !== 'interno' || !canalInternoSeleccionado) return
+
+    const cargar = async () => {
+      setCargandoMensajes(true)
+      paginaMensajesRef.current = 1
+      try {
+        // Asegurar que existe una conversación para este canal interno
+        const res = await fetch(`/api/inbox/internos/${canalInternoSeleccionado.id}/conversacion`, {
+          method: 'POST',
+        })
+        const data = await res.json()
+        if (data.conversacion) {
+          setConversacionSeleccionada(data.conversacion)
+          // Cargar mensajes de esa conversación
+          const resMsgs = await fetch(`/api/inbox/mensajes?conversacion_id=${data.conversacion.id}&por_pagina=200`)
+          const dataMsgs = await resMsgs.json()
+          const msgs = dataMsgs.mensajes || []
+          setMensajes(msgs)
+          setHayMasAnteriores((dataMsgs.total || 0) > msgs.length)
+        }
+      } catch {
+        setMensajes([])
+      } finally {
+        setCargandoMensajes(false)
+      }
+    }
+    cargar()
+  }, [tabActivo, canalInternoSeleccionado?.id])
+
   // Seleccionar conversación y cargar mensajes
   const seleccionarConversacion = useCallback(async (id: string) => {
     setRedactandoNuevo(false)
