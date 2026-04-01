@@ -1,15 +1,17 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Modal } from '@/componentes/ui/Modal'
 import { Boton } from '@/componentes/ui/Boton'
 import { Avatar } from '@/componentes/ui/Avatar'
-import { Hash, Lock, Users, MessageCircle, X, Building2, Search } from 'lucide-react'
+import { Hash, Lock, Users, X, Building2, Search, MessageCircle } from 'lucide-react'
 import { useToast } from '@/componentes/feedback/Toast'
+import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import type { TipoCanalInterno } from '@/tipos/inbox'
 
 /**
  * Modal para crear canal, grupo o DM interno.
+ * Carga usuarios directamente de Supabase (miembros + perfiles).
  * Soporta selección de miembros individuales y por sector.
  */
 
@@ -30,12 +32,19 @@ interface SectorBuscable {
   id: string
   nombre: string
   color: string
-  cantidadMiembros: number
 }
+
+const TIPOS_CANAL: { clave: TipoCanalInterno; etiqueta: string; icono: React.ReactNode; desc: string }[] = [
+  { clave: 'directo', etiqueta: 'Mensaje directo', icono: <MessageCircle size={14} />, desc: '1 a 1 con alguien' },
+  { clave: 'grupo', etiqueta: 'Grupo', icono: <Users size={14} />, desc: 'Cualquiera puede salir' },
+  { clave: 'publico', etiqueta: 'Canal público', icono: <Hash size={14} />, desc: 'Visible para todos' },
+  { clave: 'privado', etiqueta: 'Canal privado', icono: <Lock size={14} />, desc: 'Solo invitados' },
+]
 
 export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: PropiedadesModal) {
   const { mostrar } = useToast()
-  const [tipo, setTipo] = useState<TipoCanalInterno>('grupo')
+  const supabase = useMemo(() => crearClienteNavegador(), [])
+  const [tipo, setTipo] = useState<TipoCanalInterno>('directo')
   const [nombre, setNombre] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [busqueda, setBusqueda] = useState('')
@@ -45,6 +54,7 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
   const [sectores, setSectores] = useState<SectorBuscable[]>([])
   const [cargando, setCargando] = useState(false)
   const [creando, setCreando] = useState(false)
+  const [usuarioActualId, setUsuarioActualId] = useState('')
 
   // Cargar usuarios y sectores al abrir
   useEffect(() => {
@@ -52,40 +62,61 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
     const cargar = async () => {
       setCargando(true)
       try {
-        const [resUsuarios, resSectores] = await Promise.all([
-          fetch('/api/miembros?activo=true'),
-          fetch('/api/configuracion/estructura'),
-        ])
-        const dataUsuarios = await resUsuarios.json()
-        const dataSectores = await resSectores.json()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+        setUsuarioActualId(user.id)
+        const empresaId = user.app_metadata?.empresa_activa_id
+        if (!empresaId) return
 
-        setUsuarios(
-          (dataUsuarios.miembros || []).map((m: Record<string, unknown>) => ({
-            id: m.usuario_id as string,
-            nombre: m.nombre as string || '',
-            apellido: m.apellido as string || '',
-            avatar_url: m.avatar_url as string | null,
-          }))
-        )
+        // Cargar miembros activos
+        const { data: miembros } = await supabase
+          .from('miembros')
+          .select('usuario_id')
+          .eq('empresa_id', empresaId)
+          .eq('activo', true)
+
+        if (miembros && miembros.length > 0) {
+          const ids = miembros.map(m => m.usuario_id).filter(id => id !== user.id)
+          const { data: perfiles } = await supabase
+            .from('perfiles')
+            .select('id, nombre, apellido, avatar_url')
+            .in('id', ids)
+
+          setUsuarios(
+            (perfiles || []).map(p => ({
+              id: p.id,
+              nombre: p.nombre || '',
+              apellido: p.apellido || '',
+              avatar_url: p.avatar_url,
+            }))
+          )
+        }
+
+        // Cargar sectores
+        const { data: sectoresData } = await supabase
+          .from('sectores')
+          .select('id, nombre, color')
+          .eq('empresa_id', empresaId)
+          .eq('activo', true)
+          .order('orden')
 
         setSectores(
-          (dataSectores.sectores || []).map((s: Record<string, unknown>) => ({
-            id: s.id as string,
-            nombre: s.nombre as string,
-            color: s.color as string || '#6366f1',
-            cantidadMiembros: 0,
+          (sectoresData || []).map(s => ({
+            id: s.id,
+            nombre: s.nombre,
+            color: s.color || '#6366f1',
           }))
         )
       } catch { /* silenciar */ }
       setCargando(false)
     }
     cargar()
-  }, [abierto])
+  }, [abierto, supabase])
 
   // Reset al cerrar
   useEffect(() => {
     if (!abierto) {
-      setTipo('grupo')
+      setTipo('directo')
       setNombre('')
       setDescripcion('')
       setBusqueda('')
@@ -95,11 +126,18 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
   }, [abierto])
 
   const toggleMiembro = useCallback((usuario: UsuarioBuscable) => {
+    if (tipo === 'directo') {
+      // DM: solo un usuario
+      setMiembrosSeleccionados(prev =>
+        prev.some(m => m.id === usuario.id) ? [] : [usuario]
+      )
+      return
+    }
     setMiembrosSeleccionados(prev => {
       const existe = prev.some(m => m.id === usuario.id)
       return existe ? prev.filter(m => m.id !== usuario.id) : [...prev, usuario]
     })
-  }, [])
+  }, [tipo])
 
   const toggleSector = useCallback((sector: SectorBuscable) => {
     setSectoresSeleccionados(prev => {
@@ -119,22 +157,27 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
     : sectores
 
   const crear = async () => {
-    if (!nombre.trim() && tipo !== 'directo') {
+    if (tipo !== 'directo' && !nombre.trim()) {
       mostrar('error', 'El nombre es requerido')
       return
     }
     if (miembrosSeleccionados.length === 0 && sectoresSeleccionados.length === 0) {
-      mostrar('error', 'Seleccioná al menos un miembro o sector')
+      mostrar('error', 'Seleccioná al menos un miembro')
       return
     }
 
     setCreando(true)
     try {
+      // Para DM: usar el nombre del otro usuario
+      const nombreFinal = tipo === 'directo'
+        ? `${miembrosSeleccionados[0]?.nombre} ${miembrosSeleccionados[0]?.apellido}`.trim()
+        : nombre.trim()
+
       const res = await fetch('/api/inbox/internos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          nombre: nombre.trim(),
+          nombre: nombreFinal,
           descripcion: descripcion.trim() || undefined,
           tipo,
           miembros: miembrosSeleccionados.map(m => m.id),
@@ -143,7 +186,8 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
       })
 
       if (res.ok) {
-        mostrar('exito', tipo === 'grupo' ? 'Grupo creado' : 'Canal creado')
+        const tipoLabel = tipo === 'directo' ? 'Conversación iniciada' : tipo === 'grupo' ? 'Grupo creado' : 'Canal creado'
+        mostrar('exito', tipoLabel)
         onCreado()
         onCerrar()
       } else {
@@ -156,24 +200,27 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
     setCreando(false)
   }
 
-  const TIPOS_CANAL: { clave: TipoCanalInterno; etiqueta: string; icono: React.ReactNode; desc: string }[] = [
-    { clave: 'grupo', etiqueta: 'Grupo', icono: <Users size={14} />, desc: 'Cualquiera puede salir' },
-    { clave: 'publico', etiqueta: 'Canal público', icono: <Hash size={14} />, desc: 'Visible para todos (admin)' },
-    { clave: 'privado', etiqueta: 'Canal privado', icono: <Lock size={14} />, desc: 'Solo invitados (admin)' },
-  ]
+  const esDM = tipo === 'directo'
 
   return (
-    <Modal abierto={abierto} onCerrar={onCerrar} titulo="Crear canal o grupo" tamano="md">
+    <Modal abierto={abierto} onCerrar={onCerrar} titulo={esDM ? 'Nuevo mensaje' : 'Crear canal o grupo'} tamano="md">
       <div className="space-y-4">
         {/* Selector de tipo */}
         <div>
           <label className="text-xs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>Tipo</label>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {TIPOS_CANAL.map(t => (
               <button
                 key={t.clave}
-                onClick={() => setTipo(t.clave)}
-                className="flex-1 flex flex-col items-center gap-1 p-3 rounded-lg text-xs transition-colors"
+                onClick={() => {
+                  setTipo(t.clave)
+                  if (t.clave === 'directo') {
+                    // Limpiar selección múltiple al cambiar a DM
+                    setMiembrosSeleccionados(prev => prev.slice(0, 1))
+                    setSectoresSeleccionados([])
+                  }
+                }}
+                className="flex items-center gap-2 p-2.5 rounded-lg text-xs transition-colors text-left"
                 style={{
                   border: tipo === t.clave ? '2px solid var(--texto-marca)' : '1px solid var(--borde-sutil)',
                   background: tipo === t.clave ? 'var(--superficie-seleccionada)' : 'var(--superficie-tarjeta)',
@@ -181,43 +228,47 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
                 }}
               >
                 {t.icono}
-                <span className="font-medium">{t.etiqueta}</span>
-                <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>{t.desc}</span>
+                <div>
+                  <span className="font-medium">{t.etiqueta}</span>
+                  <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>{t.desc}</p>
+                </div>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Nombre y descripción */}
-        <div className="space-y-2">
-          <div>
-            <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--texto-secundario)' }}>Nombre</label>
-            <input
-              value={nombre}
-              onChange={e => setNombre(e.target.value)}
-              placeholder={tipo === 'grupo' ? 'Nombre del grupo' : 'Nombre del canal'}
-              className="w-full px-3 py-2 rounded-lg text-sm"
-              style={{ background: 'var(--superficie-app)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
-            />
-          </div>
-          {tipo !== 'grupo' && (
+        {/* Nombre y descripción (no para DM) */}
+        {!esDM && (
+          <div className="space-y-2">
             <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--texto-secundario)' }}>Descripción</label>
+              <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--texto-secundario)' }}>Nombre</label>
               <input
-                value={descripcion}
-                onChange={e => setDescripcion(e.target.value)}
-                placeholder="Descripción (opcional)"
+                value={nombre}
+                onChange={e => setNombre(e.target.value)}
+                placeholder={tipo === 'grupo' ? 'Nombre del grupo' : 'Nombre del canal'}
                 className="w-full px-3 py-2 rounded-lg text-sm"
                 style={{ background: 'var(--superficie-app)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
               />
             </div>
-          )}
-        </div>
+            {(tipo === 'publico' || tipo === 'privado') && (
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--texto-secundario)' }}>Descripción</label>
+                <input
+                  value={descripcion}
+                  onChange={e => setDescripcion(e.target.value)}
+                  placeholder="Descripción (opcional)"
+                  className="w-full px-3 py-2 rounded-lg text-sm"
+                  style={{ background: 'var(--superficie-app)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Buscador de miembros */}
         <div>
           <label className="text-xs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>
-            Miembros
+            {esDM ? '¿Con quién querés hablar?' : 'Miembros'}
           </label>
 
           {/* Chips de seleccionados */}
@@ -253,18 +304,19 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
               type="text"
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
-              placeholder="Buscar personas o sectores..."
+              placeholder="Buscar personas..."
               className="w-full pl-8 pr-3 py-2 rounded-lg text-sm"
               style={{
                 background: 'var(--superficie-app)',
                 color: 'var(--texto-primario)',
                 border: '1px solid var(--borde-sutil)',
               }}
+              autoFocus
             />
           </div>
 
-          {/* Lista de sectores */}
-          {sectoresFiltrados.length > 0 && (
+          {/* Lista de sectores (no para DM) */}
+          {!esDM && sectoresFiltrados.length > 0 && (
             <div className="mb-2">
               <p className="text-xxs font-semibold uppercase px-1 mb-1" style={{ color: 'var(--texto-terciario)' }}>Sectores</p>
               <div className="max-h-24 overflow-y-auto space-y-0.5">
@@ -280,7 +332,7 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
                         color: sel ? 'var(--texto-marca)' : 'var(--texto-secundario)',
                       }}
                     >
-                      <div className="w-3 h-3 rounded-sm" style={{ background: s.color }} />
+                      <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: s.color }} />
                       <span className="flex-1 text-left">{s.nombre}</span>
                       {sel && <span style={{ color: 'var(--texto-marca)' }}>✓</span>}
                     </button>
@@ -293,11 +345,13 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
           {/* Lista de usuarios */}
           <div>
             <p className="text-xxs font-semibold uppercase px-1 mb-1" style={{ color: 'var(--texto-terciario)' }}>Personas</p>
-            <div className="max-h-40 overflow-y-auto space-y-0.5">
+            <div className="max-h-48 overflow-y-auto space-y-0.5">
               {cargando ? (
                 <p className="text-xs px-2 py-4 text-center" style={{ color: 'var(--texto-terciario)' }}>Cargando...</p>
               ) : usuariosFiltrados.length === 0 ? (
-                <p className="text-xs px-2 py-4 text-center" style={{ color: 'var(--texto-terciario)' }}>Sin resultados</p>
+                <p className="text-xs px-2 py-4 text-center" style={{ color: 'var(--texto-terciario)' }}>
+                  {busqueda ? 'Sin resultados' : 'No hay usuarios disponibles'}
+                </p>
               ) : (
                 usuariosFiltrados.map(u => {
                   const sel = miembrosSeleccionados.some(m => m.id === u.id)
@@ -326,7 +380,7 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
         <div className="flex justify-end gap-2 pt-2">
           <Boton variante="fantasma" tamano="sm" onClick={onCerrar}>Cancelar</Boton>
           <Boton variante="primario" tamano="sm" onClick={crear} cargando={creando}>
-            Crear {tipo === 'grupo' ? 'grupo' : 'canal'}
+            {esDM ? 'Iniciar conversación' : `Crear ${tipo === 'grupo' ? 'grupo' : 'canal'}`}
           </Boton>
         </div>
       </div>
