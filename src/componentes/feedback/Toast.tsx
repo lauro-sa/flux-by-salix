@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback, createContext, useContext, useRef, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, X, AlertTriangle, Info, Loader2 } from 'lucide-react'
+import { Check, X, AlertTriangle, Info } from 'lucide-react'
+import { sonidos } from '@/hooks/useSonido'
 
 type TipoToast = 'exito' | 'error' | 'advertencia' | 'info'
 
@@ -62,10 +63,13 @@ function ProveedorToast({ children }: { children: ReactNode }) {
   const mostrar = useCallback((tipo: TipoToast, mensaje: string, duracion = 4000) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
     setToasts((prev) => {
-      // Máximo 5 visibles — los más viejos se descartan
       const nuevos = [...prev, { id, tipo, mensaje, duracion, creado: Date.now() }]
       return nuevos.slice(-5)
     })
+    // Sonido sutil según tipo
+    if (tipo === 'exito') sonidos.pop()
+    else if (tipo === 'error') sonidos.error()
+    else if (tipo === 'advertencia' || tipo === 'info') sonidos.click()
   }, [])
 
   const remover = useCallback((id: string) => {

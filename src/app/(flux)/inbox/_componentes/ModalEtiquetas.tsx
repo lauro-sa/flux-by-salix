@@ -13,6 +13,7 @@ import {
 import type { EtiquetaInbox } from '@/tipos/inbox'
 import { COLOR_ETIQUETA_DEFECTO } from '@/lib/colores_entidad'
 import { useTraduccion } from '@/lib/i18n'
+import { useToast } from '@/componentes/feedback/Toast'
 
 /**
  * Modal para gestionar etiquetas de correo.
@@ -40,6 +41,7 @@ export function ModalEtiquetas({
   inline = false,
 }: PropiedadesModalEtiquetas) {
   const { t } = useTraduccion()
+  const { mostrar } = useToast()
   const [etiquetas, setEtiquetas] = useState<EtiquetaInbox[]>([])
   const [cargando, setCargando] = useState(false)
   const [creando, setCreando] = useState(false)
@@ -60,7 +62,7 @@ export function ModalEtiquetas({
       const res = await fetch('/api/inbox/etiquetas')
       const data = await res.json()
       setEtiquetas(data.etiquetas || [])
-    } catch { /* silenciar */ }
+    } catch { mostrar('error', 'Error al cargar etiquetas') }
     setCargando(false)
   }, [])
 
@@ -88,8 +90,9 @@ export function ModalEtiquetas({
         setColor(COLOR_ETIQUETA_DEFECTO)
         setCreando(false)
         cargar()
+        mostrar('exito', 'Etiqueta creada')
       }
-    } catch { /* silenciar */ }
+    } catch { mostrar('error', 'Error al crear etiqueta') }
   }
 
   // Editar etiqueta
@@ -104,7 +107,8 @@ export function ModalEtiquetas({
       setEditando(null)
       setNombre('')
       cargar()
-    } catch { /* silenciar */ }
+      mostrar('exito', 'Etiqueta actualizada')
+    } catch { mostrar('error', 'Error al editar etiqueta') }
   }
 
   // Eliminar etiqueta
@@ -112,7 +116,8 @@ export function ModalEtiquetas({
     try {
       await fetch(`/api/inbox/etiquetas?id=${id}`, { method: 'DELETE' })
       cargar()
-    } catch { /* silenciar */ }
+      mostrar('exito', 'Etiqueta eliminada')
+    } catch { mostrar('error', 'Error al eliminar etiqueta') }
   }
 
   // Reordenar etiqueta (mover arriba/abajo)
@@ -139,7 +144,7 @@ export function ModalEtiquetas({
           body: JSON.stringify({ orden: destino }),
         }),
       ])
-    } catch { /* silenciar */ }
+    } catch { mostrar('error', 'Error al reordenar') }
   }
 
   // Toggle etiqueta en conversación — guarda NOMBRES (no IDs) en el array
@@ -170,6 +175,7 @@ export function ModalEtiquetas({
       // Revertir
       setActivas(activas)
       onCambio?.([...activas])
+      mostrar('error', 'Error al asignar etiqueta')
     }
   }
 
@@ -360,8 +366,11 @@ export function ModalEtiquetas({
                   try {
                     const res = await fetch('/api/inbox/etiquetas', { method: 'PUT' })
                     const data = await res.json()
-                    if (data.etiquetas) setEtiquetas(data.etiquetas)
-                  } catch { /* silenciar */ }
+                    if (data.etiquetas) {
+                      setEtiquetas(data.etiquetas)
+                      mostrar('exito', 'Etiquetas restablecidas')
+                    }
+                  } catch { mostrar('error', 'Error al restablecer') }
                   setRestaurando(false)
                 }}
               >

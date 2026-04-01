@@ -63,6 +63,7 @@ const POR_PAGINA = 50
 
 export default function PaginaActividades() {
   const router = useRouter()
+  const { mostrar } = useToast()
   const [busqueda, setBusqueda] = useState('')
   const [actividades, setActividades] = useState<Actividad[]>([])
   const [tipos, setTipos] = useState<TipoActividad[]>([])
@@ -170,42 +171,64 @@ export default function PaginaActividades() {
 
   // Acciones
   const crearActividad = async (datos: Record<string, unknown>) => {
-    const res = await fetch('/api/actividades', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(datos),
-    })
-    if (!res.ok) throw new Error('Error al crear')
-    cargarActividades(pagina)
+    try {
+      const res = await fetch('/api/actividades', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos),
+      })
+      if (!res.ok) throw new Error('Error al crear')
+      mostrar('exito', 'Actividad creada')
+      cargarActividades(pagina)
+    } catch {
+      mostrar('error', 'Error al crear la actividad')
+    }
   }
 
   const editarActividad = async (datos: Record<string, unknown>) => {
-    const { id, ...campos } = datos
-    const res = await fetch(`/api/actividades/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(campos),
-    })
-    if (!res.ok) throw new Error('Error al editar')
-    cargarActividades(pagina)
+    try {
+      const { id, ...campos } = datos
+      const res = await fetch(`/api/actividades/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(campos),
+      })
+      if (!res.ok) throw new Error('Error al editar')
+      mostrar('exito', 'Actividad actualizada')
+      cargarActividades(pagina)
+    } catch {
+      mostrar('error', 'Error al guardar la actividad')
+    }
   }
 
   const completarActividad = async (id: string) => {
-    await fetch(`/api/actividades/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accion: 'completar' }),
-    })
-    cargarActividades(pagina)
+    try {
+      const res = await fetch(`/api/actividades/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'completar' }),
+      })
+      if (!res.ok) throw new Error()
+      mostrar('exito', 'Actividad completada')
+      cargarActividades(pagina)
+    } catch {
+      mostrar('error', 'Error al completar la actividad')
+    }
   }
 
   const posponerActividad = async (id: string, dias: number) => {
-    await fetch(`/api/actividades/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accion: 'posponer', dias }),
-    })
-    cargarActividades(pagina)
+    try {
+      const res = await fetch(`/api/actividades/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'posponer', dias }),
+      })
+      if (!res.ok) throw new Error()
+      mostrar('info', `Actividad pospuesta ${dias} día${dias > 1 ? 's' : ''}`)
+      cargarActividades(pagina)
+    } catch {
+      mostrar('error', 'Error al posponer la actividad')
+    }
   }
 
   /** Acción inteligente por tipo — presupuestar abre /presupuestos/nuevo con contacto */

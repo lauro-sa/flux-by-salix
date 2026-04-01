@@ -1589,7 +1589,7 @@ export default function PaginaVitrina() {
       {/* TOASTS */}
       <Seccion titulo="Toasts y alertas flotantes">
         <div>
-          <Etiqueta>Toasts del sistema — aparecen desde la derecha, se auto-descartan en 4s</Etiqueta>
+          <Etiqueta>Toasts del sistema — aparecen abajo a la derecha con sonido, barra de progreso, auto-descarte en 4s</Etiqueta>
           <Fila>
             <Boton variante="exito" onClick={() => mostrar('exito', 'Contacto guardado correctamente')}>Éxito</Boton>
             <Boton variante="peligro" onClick={() => mostrar('error', 'Error al guardar el contacto')}>Error</Boton>

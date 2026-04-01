@@ -13,6 +13,7 @@ import {
   Plus, Trash2, Zap, X, ChevronDown, ChevronUp, Pencil,
 } from 'lucide-react'
 import { useTraduccion } from '@/lib/i18n'
+import { useToast } from '@/componentes/feedback/Toast'
 import type { ReglaCorreo, CondicionRegla, AccionRegla } from '@/tipos/inbox'
 
 /**
@@ -49,6 +50,7 @@ const TIPOS_ACCION = [
 
 export function ModalReglas({ abierto, onCerrar }: PropiedadesModalReglas) {
   const { t } = useTraduccion()
+  const { mostrar } = useToast()
   const [reglas, setReglas] = useState<ReglaCorreo[]>([])
   const [cargando, setCargando] = useState(false)
   const [editando, setEditando] = useState<ReglaCorreo | null>(null)
@@ -66,7 +68,7 @@ export function ModalReglas({ abierto, onCerrar }: PropiedadesModalReglas) {
       const res = await fetch('/api/inbox/reglas')
       const data = await res.json()
       setReglas(data.reglas || [])
-    } catch { /* silenciar */ }
+    } catch { mostrar('error', 'Error al cargar reglas') }
     setCargando(false)
   }, [])
 
@@ -119,21 +121,27 @@ export function ModalReglas({ abierto, onCerrar }: PropiedadesModalReglas) {
       }
       cancelarEdicion()
       cargar()
-    } catch { /* silenciar */ }
+      mostrar('exito', editando?.id ? 'Regla actualizada' : 'Regla creada')
+    } catch { mostrar('error', 'Error al guardar la regla') }
   }
 
   const eliminar = async (id: string) => {
-    await fetch(`/api/inbox/reglas?id=${id}`, { method: 'DELETE' })
-    cargar()
+    try {
+      await fetch(`/api/inbox/reglas?id=${id}`, { method: 'DELETE' })
+      cargar()
+      mostrar('exito', 'Regla eliminada')
+    } catch { mostrar('error', 'Error al eliminar la regla') }
   }
 
   const toggleActiva = async (regla: ReglaCorreo) => {
-    await fetch(`/api/inbox/reglas?id=${regla.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ activa: !regla.activa }),
-    })
-    cargar()
+    try {
+      await fetch(`/api/inbox/reglas?id=${regla.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activa: !regla.activa }),
+      })
+      cargar()
+    } catch { mostrar('error', 'Error al cambiar estado de la regla') }
   }
 
   // Helpers para condiciones/acciones

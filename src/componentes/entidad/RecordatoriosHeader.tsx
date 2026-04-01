@@ -141,8 +141,9 @@ function RecordatoriosHeader() {
         setMostrarNota(false)
         setTab('activos')
         cargar()
+        mostrar('exito', 'Recordatorio creado')
       }
-    } catch { mostrar('error', 'Error al procesar recordatorio') }
+    } catch { mostrar('error', 'Error al crear recordatorio') }
     setCreando(false)
   }
 
@@ -155,7 +156,8 @@ function RecordatoriosHeader() {
         body: JSON.stringify({ id, completado }),
       })
       cargar()
-    } catch { mostrar('error', 'Error al procesar recordatorio') }
+      mostrar('exito', completado ? 'Recordatorio completado' : 'Recordatorio reactivado')
+    } catch { mostrar('error', 'Error al actualizar recordatorio') }
   }
 
   /* Eliminar — con confirmación si es recurrente */
@@ -178,7 +180,8 @@ function RecordatoriosHeader() {
         body: JSON.stringify({ id }),
       })
       cargar()
-    } catch { mostrar('error', 'Error al procesar recordatorio') }
+      mostrar('exito', 'Recordatorio eliminado')
+    } catch { mostrar('error', 'Error al eliminar recordatorio') }
     setConfirmarEliminar(null)
   }
 

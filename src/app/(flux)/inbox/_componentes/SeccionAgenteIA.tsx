@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { Sparkles, Brain, MessageSquare, BookOpen, AlertTriangle, Activity, Plus, Pencil, Trash2, X, Maximize2, Globe, FileUp, Loader2, Building2, GitBranch, ChevronUp, ChevronDown } from 'lucide-react'
 import { Interruptor, Select, Input, Boton, Modal, Insignia } from '@/componentes/ui'
 import { useTraduccion } from '@/lib/i18n'
+import { useToast } from '@/componentes/feedback/Toast'
 import type { ConfigAgenteIA, EntradaBaseConocimiento, LogAgenteIA, TipoContactoConfig, PasoFlujoConfig, EjemploConversacionConfig } from '@/tipos/inbox'
 
 /**
@@ -89,6 +90,7 @@ interface CanalSimple {
 
 export default function SeccionAgenteIA() {
   const { t } = useTraduccion()
+  const { mostrar: mostrarToast } = useToast()
   const [config, setConfig] = useState<ConfigAgenteIA>(CONFIG_DEFAULTS)
   const [cargando, setCargando] = useState(true)
   const [tabActiva, setTabActiva] = useState('general')
@@ -124,9 +126,12 @@ export default function SeccionAgenteIA() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(datos),
       })
-      if (!res.ok) console.error('[AGENTE_IA] Error guardando config:', res.status)
-    } catch (err) {
-      console.error('[AGENTE_IA] Error de red:', err)
+      if (!res.ok) {
+        console.error('[AGENTE_IA] Error guardando config:', res.status)
+        mostrarToast('error', 'Error al guardar configuración del agente')
+      }
+    } catch {
+      mostrarToast('error', 'Error de red al guardar configuración')
     }
   }, [])
 
@@ -1436,6 +1441,7 @@ function TabEjemplos({ config, guardar }: TabProps) {
 
 function TabConocimiento({ config, guardar }: TabProps) {
   const { t } = useTraduccion()
+  const { mostrar: mostrarToast } = useToast()
   const [entradas, setEntradas] = useState<EntradaBaseConocimiento[]>([])
   const [cargando, setCargando] = useState(true)
   const [modalAbierto, setModalAbierto] = useState(false)
@@ -1462,26 +1468,36 @@ function TabConocimiento({ config, guardar }: TabProps) {
       ? `/api/inbox/agente-ia/base-conocimiento/${entradaEditando.id}`
       : '/api/inbox/agente-ia/base-conocimiento'
 
-    const res = await fetch(url, {
-      method: esEdicion ? 'PUT' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(entradaEditando),
-    })
-    const data = await res.json()
-    if (data.entrada) {
-      if (esEdicion) {
-        setEntradas(prev => prev.map(e => e.id === data.entrada.id ? data.entrada : e))
-      } else {
-        setEntradas(prev => [data.entrada, ...prev])
+    try {
+      const res = await fetch(url, {
+        method: esEdicion ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entradaEditando),
+      })
+      const data = await res.json()
+      if (data.entrada) {
+        if (esEdicion) {
+          setEntradas(prev => prev.map(e => e.id === data.entrada.id ? data.entrada : e))
+        } else {
+          setEntradas(prev => [data.entrada, ...prev])
+        }
+        mostrarToast('exito', esEdicion ? 'Entrada actualizada' : 'Entrada creada')
       }
+      setModalAbierto(false)
+      setEntradaEditando(null)
+    } catch {
+      mostrarToast('error', 'Error al guardar entrada')
     }
-    setModalAbierto(false)
-    setEntradaEditando(null)
   }
 
   const eliminarEntrada = async (id: string) => {
-    await fetch(`/api/inbox/agente-ia/base-conocimiento/${id}`, { method: 'DELETE' })
-    setEntradas(prev => prev.filter(e => e.id !== id))
+    try {
+      await fetch(`/api/inbox/agente-ia/base-conocimiento/${id}`, { method: 'DELETE' })
+      setEntradas(prev => prev.filter(e => e.id !== id))
+      mostrarToast('exito', 'Entrada eliminada')
+    } catch {
+      mostrarToast('error', 'Error al eliminar entrada')
+    }
   }
 
   // Importar desde URL

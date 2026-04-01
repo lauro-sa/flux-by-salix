@@ -276,13 +276,18 @@ export function VinculacionesContacto({
 
   /** Desvincular un contacto */
   const desvincular = useCallback(async (vinculadoId: string) => {
-    await fetch('/api/contactos/vinculaciones', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contacto_id: contactoId, vinculado_id: vinculadoId }),
-    })
-    onActualizar()
-  }, [contactoId, onActualizar])
+    try {
+      await fetch('/api/contactos/vinculaciones', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contacto_id: contactoId, vinculado_id: vinculadoId }),
+      })
+      onActualizar()
+      mostrar('exito', 'Vinculación eliminada')
+    } catch {
+      mostrar('error', 'Error al desvincular')
+    }
+  }, [contactoId, onActualizar, mostrar])
 
   /** Guardar cambios desde el modal de edición rápida */
   const guardarEdicion = useCallback(async () => {
@@ -321,8 +326,10 @@ export function VinculacionesContacto({
       setModalEdicion(false)
       setVinculoEditando(null)
       onActualizar()
-    } catch { /* silenciar */ }
-    finally { setGuardandoEdicion(false) }
+      mostrar('exito', 'Contacto actualizado')
+    } catch {
+      mostrar('error', 'Error al guardar los cambios')
+    } finally { setGuardandoEdicion(false) }
   }, [vinculoEditando, edicionNombre, edicionCorreo, edicionTelefono, edicionWhatsapp, edicionPuesto, edicionRecibeDoc, contactoId, guardandoEdicion, onActualizar])
 
   /** Crear contacto nuevo y vincularlo en un solo paso */
@@ -351,9 +358,9 @@ export function VinculacionesContacto({
         console.error('Error al crear contacto:', data)
         // Si es duplicado, mostrar alerta
         if (data.error === 'duplicado') {
-          alert(data.mensaje || 'Ya existe un contacto con esos datos')
+          mostrar('advertencia', data.mensaje || 'Ya existe un contacto con esos datos')
         } else {
-          alert(data.error || 'Error al crear contacto')
+          mostrar('error', data.error || 'Error al crear contacto')
         }
         return
       }
@@ -389,8 +396,10 @@ export function VinculacionesContacto({
 
       cerrarModalVincular()
       onActualizar()
-    } catch { /* silenciar */ }
-    finally { setCreando(false) }
+      mostrar('exito', 'Contacto creado y vinculado')
+    } catch {
+      mostrar('error', 'Error al crear el contacto')
+    } finally { setCreando(false) }
   }, [crearNombre, crearTipoClave, crearCorreo, crearTelefono, crearPuesto, crearCargo, crearRubro, crearTipoRelacionId, crearEtiquetas, crearBidireccional, contactoId, creando, onActualizar])
 
   // ═══════════════════════════════════════════════════════════════
