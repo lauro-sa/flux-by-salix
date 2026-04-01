@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Lock, Smartphone, Monitor, Tablet, Globe, Trash2, AlertTriangle } from 'lucide-react'
+import { Lock, Smartphone, Monitor, Tablet, Globe, Trash2, AlertTriangle, LogOut } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
+import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { useAuth } from '@/hooks/useAuth'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { useRouter } from 'next/navigation'
 
 /**
  * SeccionSeguridad — cambiar contraseña y dispositivos activos.
@@ -16,6 +18,7 @@ interface Dispositivo {
   nombre: string
   tipo: 'desktop' | 'mobile' | 'tablet' | 'desconocido'
   navegador: string
+  creadoEn: string
   ultimaActividad: string
   actual: boolean
 }
@@ -51,8 +54,11 @@ function parsearUserAgent(ua: string): { tipo: Dispositivo['tipo']; nombre: stri
   return { tipo, nombre: `${so} — ${navegador}`, navegador }
 }
 
+type ModalCerrar = null | 'individual' | 'todas' | 'todas_menos_actual'
+
 export function SeccionSeguridad() {
   const { restablecerContrasena } = useAuth()
+  const router = useRouter()
 
   /* Estado de cambio de contraseña */
   const [contrasenaActual, setContrasenaActual] = useState('')
@@ -66,6 +72,14 @@ export function SeccionSeguridad() {
   const [dispositivos, setDispositivos] = useState<Dispositivo[]>([])
   const [cargandoDispositivos, setCargandoDispositivos] = useState(true)
 
+  /* Modal de confirmación para cerrar sesiones */
+  const [modalCerrar, setModalCerrar] = useState<ModalCerrar>(null)
+  const [dispositivoSeleccionado, setDispositivoSeleccionado] = useState<string | null>(null)
+  const [cerrandoSesion, setCerrandoSesion] = useState(false)
+
+  /* ID de la sesión actual (extraído del JWT) */
+  const [idSesionActual, setIdSesionActual] = useState<string | null>(null)
+
   /* Cargar dispositivos activos */
   useEffect(() => {
     const cargar = async () => {
@@ -77,43 +91,59 @@ export function SeccionSeguridad() {
         const res = await fetch('/api/auth/sesiones')
         if (res.ok) {
           const sesiones = await res.json()
-          const mapeados: Dispositivo[] = (sesiones as Array<{ id: string; user_agent?: string; updated_at?: string; current?: boolean }>).map((s) => {
+          const mapeados: Dispositivo[] = (sesiones as Array<{
+            id: string
+            user_agent?: string
+            updated_at?: string
+            created_at?: string
+            current?: boolean
+          }>).map((s) => {
             const info = parsearUserAgent(s.user_agent || '')
             return {
               id: s.id,
               nombre: info.nombre,
               tipo: info.tipo,
               navegador: info.navegador,
+              creadoEn: s.created_at || new Date().toISOString(),
               ultimaActividad: s.updated_at || new Date().toISOString(),
               actual: s.current || false,
             }
           })
+
+          /* Sesión actual siempre arriba */
+          mapeados.sort((a, b) => {
+            if (a.actual) return -1
+            if (b.actual) return 1
+            return new Date(b.ultimaActividad).getTime() - new Date(a.ultimaActividad).getTime()
+          })
+
           setDispositivos(mapeados)
+
+          const sesionActual = mapeados.find(d => d.actual)
+          if (sesionActual) setIdSesionActual(sesionActual.id)
         } else {
-          const info = parsearUserAgent(navigator.userAgent)
-          setDispositivos([{
-            id: 'actual',
-            nombre: info.nombre,
-            tipo: info.tipo,
-            navegador: info.navegador,
-            ultimaActividad: new Date().toISOString(),
-            actual: true,
-          }])
+          crearFallbackActual()
         }
       } catch {
-        const info = parsearUserAgent(navigator.userAgent)
-        setDispositivos([{
-          id: 'actual',
-          nombre: info.nombre,
-          tipo: info.tipo,
-          navegador: info.navegador,
-          ultimaActividad: new Date().toISOString(),
-          actual: true,
-        }])
+        crearFallbackActual()
       } finally {
         setCargandoDispositivos(false)
       }
     }
+
+    const crearFallbackActual = () => {
+      const info = parsearUserAgent(navigator.userAgent)
+      setDispositivos([{
+        id: 'actual',
+        nombre: info.nombre,
+        tipo: info.tipo,
+        navegador: info.navegador,
+        creadoEn: new Date().toISOString(),
+        ultimaActividad: new Date().toISOString(),
+        actual: true,
+      }])
+    }
+
     cargar()
   }, [])
 
@@ -150,27 +180,141 @@ export function SeccionSeguridad() {
     }
   }, [contrasenaNueva, contrasenaConfirmar, restablecerContrasena])
 
-  /* Cerrar sesión en otro dispositivo */
-  const cerrarSesionDispositivo = useCallback(async (dispositivoId: string) => {
-    try {
-      const res = await fetch('/api/auth/sesiones/cerrar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: dispositivoId }),
-      })
-      if (res.ok) {
-        setDispositivos(prev => prev.filter(d => d.id !== dispositivoId))
-      }
-    } catch { /* silenciar */ }
-  }, [])
+  /* Abrir modal para cerrar sesión individual */
+  const abrirModalIndividual = (dispositivoId: string) => {
+    setDispositivoSeleccionado(dispositivoId)
+    const dispositivo = dispositivos.find(d => d.id === dispositivoId)
+    setModalCerrar(dispositivo?.actual ? 'individual' : 'individual')
+    setModalCerrar('individual')
+  }
 
-  const formatearFecha = (iso: string) => {
+  /* Confirmar cierre de sesión */
+  const confirmarCerrarSesion = useCallback(async () => {
+    setCerrandoSesion(true)
     try {
+      if (modalCerrar === 'individual' && dispositivoSeleccionado) {
+        const esActual = dispositivos.find(d => d.id === dispositivoSeleccionado)?.actual
+
+        const res = await fetch('/api/auth/sesiones/cerrar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: dispositivoSeleccionado }),
+        })
+
+        if (res.ok) {
+          if (esActual) {
+            router.push('/login')
+            return
+          }
+          setDispositivos(prev => prev.filter(d => d.id !== dispositivoSeleccionado))
+        }
+      } else if (modalCerrar === 'todas') {
+        const res = await fetch('/api/auth/sesiones/cerrar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ todas: true }),
+        })
+
+        if (res.ok) {
+          router.push('/login')
+          return
+        }
+      } else if (modalCerrar === 'todas_menos_actual') {
+        const res = await fetch('/api/auth/sesiones/cerrar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            todas: true,
+            excepto_actual: true,
+            session_id_actual: idSesionActual,
+          }),
+        })
+
+        if (res.ok) {
+          setDispositivos(prev => prev.filter(d => d.actual))
+        }
+      }
+    } catch { /* silenciar */ } finally {
+      setCerrandoSesion(false)
+      setModalCerrar(null)
+      setDispositivoSeleccionado(null)
+    }
+  }, [modalCerrar, dispositivoSeleccionado, dispositivos, idSesionActual, router])
+
+  const formatearFechaRelativa = (iso: string) => {
+    try {
+      const fecha = new Date(iso)
+      const ahora = new Date()
+      const diffMs = ahora.getTime() - fecha.getTime()
+      const diffMin = Math.floor(diffMs / 60000)
+      const diffHoras = Math.floor(diffMs / 3600000)
+      const diffDias = Math.floor(diffMs / 86400000)
+
+      if (diffMin < 1) return 'Ahora'
+      if (diffMin < 60) return `Hace ${diffMin} min`
+      if (diffHoras < 24) return `Hace ${diffHoras}h`
+
+      const esHoy = fecha.toDateString() === ahora.toDateString()
+      if (esHoy) return `Hoy, ${fecha.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}`
+
+      const ayer = new Date(ahora)
+      ayer.setDate(ayer.getDate() - 1)
+      if (fecha.toDateString() === ayer.toDateString()) {
+        return `Ayer, ${fecha.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}`
+      }
+
+      if (diffDias < 7) return `Hace ${diffDias} días`
+
       return new Intl.DateTimeFormat('es', {
-        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-      }).format(new Date(iso))
+        day: 'numeric', month: 'short', year: fecha.getFullYear() !== ahora.getFullYear() ? 'numeric' : undefined,
+      }).format(fecha)
     } catch { return iso }
   }
+
+  const formatearFechaCorta = (iso: string) => {
+    try {
+      const fecha = new Date(iso)
+      const ahora = new Date()
+      return new Intl.DateTimeFormat('es', {
+        day: 'numeric', month: 'short', year: fecha.getFullYear() !== ahora.getFullYear() ? 'numeric' : undefined,
+        hour: '2-digit', minute: '2-digit',
+      }).format(fecha)
+    } catch { return iso }
+  }
+
+  /* Textos del modal según el tipo de cierre */
+  const obtenerTextoModal = () => {
+    if (modalCerrar === 'individual') {
+      const dispositivo = dispositivos.find(d => d.id === dispositivoSeleccionado)
+      if (dispositivo?.actual) {
+        return {
+          titulo: 'Cerrar tu sesión actual',
+          descripcion: 'Se cerrará la sesión en este navegador y vas a tener que volver a iniciar sesión.',
+          etiqueta: 'Cerrar sesión',
+        }
+      }
+      return {
+        titulo: 'Cerrar sesión en dispositivo',
+        descripcion: `Se cerrará la sesión en "${dispositivo?.nombre}". Ese dispositivo deberá volver a iniciar sesión.`,
+        etiqueta: 'Cerrar sesión',
+      }
+    }
+    if (modalCerrar === 'todas') {
+      return {
+        titulo: 'Cerrar todas las sesiones',
+        descripcion: 'Se cerrarán todas las sesiones, incluyendo la de este navegador. Vas a tener que volver a iniciar sesión.',
+        etiqueta: 'Cerrar todas',
+      }
+    }
+    return {
+      titulo: 'Cerrar otras sesiones',
+      descripcion: 'Se cerrarán todas las sesiones excepto la de este navegador.',
+      etiqueta: 'Cerrar otras',
+    }
+  }
+
+  const textoModal = obtenerTextoModal()
+  const sesionesOtras = dispositivos.filter(d => !d.actual).length
 
   return (
     <div className="space-y-6">
@@ -232,10 +376,15 @@ export function SeccionSeguridad() {
 
       {/* Dispositivos activos */}
       <div>
-        <h3 className="text-sm font-semibold text-texto-secundario mb-3">Dispositivos activos</h3>
-        <p className="text-xs text-texto-terciario mb-3">
-          Máximo 4 dispositivos simultáneos. Al iniciar sesión en un 5° dispositivo, se cerrará automáticamente la sesión más antigua.
-        </p>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="text-sm font-semibold text-texto-secundario">Dispositivos activos</h3>
+            <p className="text-xs text-texto-terciario mt-0.5">
+              Máximo 4 dispositivos simultáneos. Al iniciar sesión en un 5°, se cerrará la sesión más antigua.
+            </p>
+          </div>
+        </div>
+
         <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
           {cargandoDispositivos ? (
             <div className="p-5 text-sm text-texto-terciario">Cargando dispositivos...</div>
@@ -257,26 +406,63 @@ export function SeccionSeguridad() {
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-texto-terciario mt-0.5">
-                      Última actividad: {formatearFecha(d.ultimaActividad)}
+                    <div className="mt-0.5 space-y-0.5">
+                      <div className="text-xs text-texto-secundario">Última vez: {formatearFechaCorta(d.ultimaActividad)}</div>
+                      <div className="text-[11px] text-texto-terciario/70">Primera vez: {formatearFechaCorta(d.creadoEn)}</div>
                     </div>
                   </div>
-                  {!d.actual && (
-                    <button
-                      type="button"
-                      onClick={() => cerrarSesionDispositivo(d.id)}
-                      className="shrink-0 p-1.5 rounded-lg text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro-fondo transition-colors bg-transparent border-none cursor-pointer"
-                      title="Cerrar sesión en este dispositivo"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => abrirModalIndividual(d.id)}
+                    className="shrink-0 p-1.5 rounded-lg text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro/10 transition-colors bg-transparent border-none cursor-pointer"
+                    title={d.actual ? 'Cerrar esta sesión' : 'Cerrar sesión en este dispositivo'}
+                  >
+                    <LogOut size={14} />
+                  </button>
                 </div>
               ))}
             </div>
           )}
         </div>
+
+        {/* Botones de cierre masivo */}
+        {!cargandoDispositivos && dispositivos.length > 1 && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            {sesionesOtras > 0 && (
+              <button
+                type="button"
+                onClick={() => setModalCerrar('todas_menos_actual')}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium text-texto-secundario bg-superficie-tarjeta border border-borde-sutil hover:border-borde-fuerte transition-colors cursor-pointer"
+              >
+                Cerrar todas menos esta
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setModalCerrar('todas')}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-insignia-peligro bg-insignia-peligro/10 border border-insignia-peligro/20 hover:bg-insignia-peligro/15 transition-colors cursor-pointer"
+            >
+              Cerrar todas las sesiones
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Modal de confirmación */}
+      <ModalConfirmacion
+        abierto={modalCerrar !== null}
+        onCerrar={() => {
+          setModalCerrar(null)
+          setDispositivoSeleccionado(null)
+        }}
+        onConfirmar={confirmarCerrarSesion}
+        titulo={textoModal.titulo}
+        descripcion={textoModal.descripcion}
+        tipo={modalCerrar === 'todas_menos_actual' ? 'advertencia' : 'peligro'}
+        etiquetaConfirmar={textoModal.etiqueta}
+        cargando={cerrandoSesion}
+        icono={<LogOut size={24} />}
+      />
     </div>
   )
 }
