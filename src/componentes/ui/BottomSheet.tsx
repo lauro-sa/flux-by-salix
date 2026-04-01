@@ -4,11 +4,10 @@
  * BottomSheet — Panel que sube desde abajo, diseñado para móvil.
  *
  * Features:
- * - Swipe-to-dismiss: arrastrás hacia abajo y cierra
+ * - Swipe-to-dismiss: arrastrás hacia abajo y cierra (solo si scroll está arriba)
  * - Safe areas: respeta notch, Dynamic Island y home indicator (iOS + Android)
  * - Mínimo 75% del viewport para que siempre haya espacio cómodo
  * - Scroll interno en el contenido, no en el sheet entero
- * - Selectores/dropdowns se abren POR FUERA del sheet (overflow visible en el panel)
  * - Teclado virtual: se ajusta automáticamente en iOS y Android
  * - Modo cristal: blur cuando está activo
  *
@@ -16,7 +15,7 @@
  * Para desktop usar Modal.tsx.
  */
 
-import { useEffect, useCallback, useRef, type ReactNode } from 'react'
+import { useEffect, useCallback, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence, useMotionValue, useTransform, type PanInfo } from 'framer-motion'
 import { useTema } from '@/hooks/useTema'
@@ -66,14 +65,25 @@ function BottomSheet({
   const { efecto } = useTema()
   const esCristal = efecto !== 'solido'
   const panelRef = useRef<HTMLDivElement>(null)
+  const contenidoRef = useRef<HTMLDivElement>(null)
   const y = useMotionValue(0)
-  const overlayOpacity = useTransform(y, [0, 300], [1, 0])
+  const overlayOpacity = useTransform(y, [0, 300], [1, 0.15])
+
+  /* ── Detectar si el contenido está scrolleado arriba (para permitir drag) ── */
+  const [puedeArrastrar, setPuedeArrastrar] = useState(true)
+
+  const manejarScrollContenido = useCallback(() => {
+    if (contenidoRef.current) {
+      setPuedeArrastrar(contenidoRef.current.scrollTop <= 0)
+    }
+  }, [])
 
   /* ── Bloquear scroll del body ── */
   useEffect(() => {
     if (abierto) {
       document.body.style.overflow = 'hidden'
       y.set(0)
+      setPuedeArrastrar(true)
     }
     return () => { document.body.style.overflow = '' }
   }, [abierto, y])
@@ -97,7 +107,7 @@ function BottomSheet({
       if (!panelRef.current) return
       const alturaVP = vv.height
       const alturaVentana = window.innerHeight
-      const tecladoAbierto = alturaVentana - alturaVP > 100
+      const tecladoAbierto = alturaVentana - alturaVP > 50
 
       if (tecladoAbierto) {
         panelRef.current.style.maxHeight = `${alturaVP - 20}px`
@@ -112,16 +122,16 @@ function BottomSheet({
     return () => vv.removeEventListener('resize', manejarResize)
   }, [abierto])
 
-  /* ── Swipe-to-dismiss ── */
+  /* ── Swipe-to-dismiss — solo si el scroll del contenido está arriba ── */
   const manejarDragEnd = useCallback((_: unknown, info: PanInfo) => {
+    if (!puedeArrastrar) return
+
     const { offset, velocity } = info
 
     if (offset.y > UMBRAL_CIERRE || velocity.y > VELOCIDAD_CIERRE) {
-      // Cerrar con animación
       onCerrar()
     }
-    // Si no se cierra, Framer Motion lo rebotea al origen por dragConstraints
-  }, [onCerrar])
+  }, [onCerrar, puedeArrastrar])
 
   if (typeof window === 'undefined') return null
 
@@ -162,22 +172,27 @@ function BottomSheet({
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 32, stiffness: 350, mass: 0.8 }}
-              drag="y"
-              dragConstraints={{ top: 0, bottom: 0 }}
-              dragElastic={{ top: 0.05, bottom: 0.4 }}
+              drag={puedeArrastrar ? 'y' : false}
+              dragElastic={0}
               dragMomentum={false}
               onDragEnd={manejarDragEnd}
               style={estiloPanel}
               className={[
                 'w-full rounded-t-2xl flex flex-col pointer-events-auto',
                 'border border-b-0 border-borde-sutil shadow-elevada',
-                /* overflow visible para que selectores/dropdowns se abran por fuera */
-                'overflow-visible',
+                'overflow-hidden',
               ].join(' ')}
               onClick={(e) => e.stopPropagation()}
             >
               {/* ── Drag handle — zona de agarre ── */}
-              <div className="flex justify-center pt-2.5 pb-1 shrink-0 cursor-grab active:cursor-grabbing touch-none">
+              <div
+                className="flex justify-center pb-1 shrink-0 cursor-grab active:cursor-grabbing select-none"
+                style={{
+                  paddingTop: 'max(0.625rem, env(safe-area-inset-top, 0.625rem))',
+                  touchAction: 'none',
+                  WebkitUserSelect: 'none',
+                }}
+              >
                 <div className="w-9 h-[5px] rounded-full bg-borde-fuerte/60" />
               </div>
 
@@ -190,6 +205,8 @@ function BottomSheet({
 
               {/* ── Contenido con scroll interno ── */}
               <div
+                ref={contenidoRef}
+                onScroll={manejarScrollContenido}
                 className={[
                   'flex-1 overflow-y-auto overscroll-contain min-h-0',
                   sinPadding ? '' : 'px-5 py-4',
@@ -203,7 +220,7 @@ function BottomSheet({
               {acciones && (
                 <div
                   className="flex gap-3 px-5 pt-3 border-t border-borde-sutil shrink-0"
-                  style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0.75rem)' }}
+                  style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.75rem)' }}
                 >
                   {acciones}
                 </div>
@@ -213,7 +230,7 @@ function BottomSheet({
               {!acciones && (
                 <div
                   className="shrink-0"
-                  style={{ height: 'max(env(safe-area-inset-bottom, 0px), 0.5rem)' }}
+                  style={{ height: 'max(env(safe-area-inset-bottom), 0.5rem)' }}
                 />
               )}
             </motion.div>

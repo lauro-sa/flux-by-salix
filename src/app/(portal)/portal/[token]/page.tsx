@@ -35,16 +35,18 @@ const obtenerDatosPortal = cache(async (token: string): Promise<DatosPortal | nu
     // 2. Verificar expiración
     if (new Date(portalToken.expira_en).getTime() < Date.now()) return null
 
-    // 3. Preparar update de vista
+    // 3. Preparar update de vista (siempre incrementar contador)
+    const esPrimeraVista = !portalToken.visto_en
+    const ahora = new Date().toISOString()
+
+    // Update básico: contador + estado (NO incluye visto_en para primera vista)
     const actualizacionVista: Record<string, unknown> = {
       veces_visto: (portalToken.veces_visto || 0) + 1,
-    }
-    if (!portalToken.visto_en) {
-      actualizacionVista.visto_en = new Date().toISOString()
     }
     if ((portalToken.estado_cliente || 'pendiente') === 'pendiente') {
       actualizacionVista.estado_cliente = 'visto'
     }
+    // visto_en se maneja por separado con update atómico para evitar race conditions
 
     // 4. Todo en paralelo: update vista + 6 fetches
     const [
@@ -56,10 +58,23 @@ const obtenerDatosPortal = cache(async (token: string): Promise<DatosPortal | nu
       { data: config },
       { data: vendedor },
     ] = await Promise.all([
-      admin.from('portal_tokens').update(actualizacionVista).eq('id', portalToken.id).then(async () => {
-        // Notificar al creador la primera vez que el cliente ve el portal
-        if (!portalToken.visto_en) {
+      (async () => {
+        // Siempre actualizar contador y estado
+        await admin.from('portal_tokens').update(actualizacionVista).eq('id', portalToken.id)
+
+        // Primera vista: update atómico con .is('visto_en', null) para evitar duplicados
+        if (esPrimeraVista) {
           try {
+            const { data: filaActualizada } = await admin
+              .from('portal_tokens')
+              .update({ visto_en: ahora })
+              .eq('id', portalToken.id)
+              .is('visto_en', null)
+              .select('id')
+
+            // Si no actualizó nada, otro request ya marcó visto_en — no duplicar notificación
+            if (!filaActualizada?.length) return
+
             const { data: pres } = await admin
               .from('presupuestos')
               .select('numero, contacto_nombre')
@@ -78,7 +93,7 @@ const obtenerDatosPortal = cache(async (token: string): Promise<DatosPortal | nu
             })
           } catch { /* no bloquear renderizado */ }
         }
-      }),
+      })(),
       admin.from('presupuestos').select('*').eq('id', portalToken.presupuesto_id).single(),
       admin.from('lineas_presupuesto').select('*').eq('presupuesto_id', portalToken.presupuesto_id).order('orden'),
       admin.from('presupuesto_cuotas').select('*').eq('presupuesto_id', portalToken.presupuesto_id).order('numero'),
