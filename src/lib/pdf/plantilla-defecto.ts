@@ -387,10 +387,10 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
     <tr>
       <th>Descripción</th>
       {{#if col_cantidad}}<th class="num">Cant.</th>{{/if}}
-      {{#if col_unidad}}<th>Unid.</th>{{/if}}
-      {{#if col_precio_unitario}}<th class="num">Precio Unit.</th>{{/if}}
-      {{#if col_descuento}}<th class="num">Dto.</th>{{/if}}
-      {{#if col_impuesto}}<th>Impuesto</th>{{/if}}
+      {{#if col_unidad}}<th>U. Medida</th>{{/if}}
+      {{#if col_precio_unitario}}<th class="num">Precio unit.</th>{{/if}}
+      {{#if col_descuento}}<th class="num">% Bonif.</th>{{/if}}
+      {{#if col_impuesto}}<th>Impuestos</th>{{/if}}
       <th class="num">Importe</th>
     </tr>
   </thead>

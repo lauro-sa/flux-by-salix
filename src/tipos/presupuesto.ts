@@ -455,14 +455,14 @@ export interface ColumnaLinea {
 }
 
 export const COLUMNAS_LINEA_DISPONIBLES: ColumnaLinea[] = [
-  { id: 'producto', label: 'Código', visible: true, requerida: false },
+  { id: 'producto', label: 'Producto', visible: true, requerida: false },
   { id: 'descripcion', label: 'Descripción', visible: true, requerida: true },
-  { id: 'cantidad', label: 'Cantidad', visible: true, requerida: false },
-  { id: 'unidad', label: 'Unidad', visible: true, requerida: false },
+  { id: 'cantidad', label: 'Cant.', visible: true, requerida: false },
+  { id: 'unidad', label: 'U. Medida', visible: true, requerida: false },
   { id: 'precio_unitario', label: 'Precio unit.', visible: true, requerida: false },
-  { id: 'descuento', label: 'Dto. %', visible: true, requerida: false },
-  { id: 'impuesto', label: 'Impuesto', visible: true, requerida: false },
-  { id: 'subtotal', label: 'Subtotal', visible: true, requerida: true },
+  { id: 'descuento', label: '% Bonif.', visible: true, requerida: false },
+  { id: 'impuesto', label: 'Impuestos', visible: true, requerida: false },
+  { id: 'subtotal', label: 'Importe', visible: true, requerida: true },
 ]
 
 // ─── Filtros para listado ───

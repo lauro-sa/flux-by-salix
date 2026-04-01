@@ -62,16 +62,10 @@ const ANCHO_COLUMNA: Record<string, string> = {
   subtotal: 'w-[110px] shrink-0',
 }
 
-const ETIQUETA_COLUMNA: Record<string, string> = {
-  producto: 'Producto',
-  descripcion: '',
-  cantidad: 'Cant.',
-  unidad: 'U. Medida',
-  precio_unitario: 'Precio unit.',
-  descuento: '% Bonif.',
-  impuesto: 'Impuestos',
-  subtotal: 'Importe',
-}
+// Etiquetas derivadas de COLUMNAS_LINEA_DISPONIBLES para consistencia
+const ETIQUETA_COLUMNA: Record<string, string> = Object.fromEntries(
+  COLUMNAS_LINEA_DISPONIBLES.map(c => [c.id, c.label])
+)
 
 function TablaLineas({
   lineas,
@@ -133,30 +127,61 @@ function TablaLineas({
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
-                  className="absolute right-0 top-full mt-1 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg py-1 z-20 min-w-[200px]"
+                  className="absolute right-0 top-full mt-1 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg py-2 z-20 min-w-[220px]"
                 >
-                  {COLUMNAS_LINEA_DISPONIBLES.map((col) => {
-                    const visible = columnasVisibles.includes(col.id)
-                    return (
-                      <button
-                        key={col.id}
-                        onClick={() => {
-                          if (col.requerida) return
-                          const nuevas = visible
-                            ? columnasVisibles.filter(c => c !== col.id)
-                            : [...columnasVisibles, col.id]
-                          onCambiarColumnas(nuevas)
-                        }}
-                        disabled={col.requerida}
-                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left transition-colors ${
-                          col.requerida ? 'opacity-50 cursor-not-allowed' : 'hover:bg-superficie-tarjeta'
-                        }`}
-                      >
-                        {visible ? <Eye size={14} className="text-texto-marca" /> : <EyeOff size={14} className="text-texto-terciario" />}
-                        {col.label}
-                      </button>
-                    )
-                  })}
+                  {/* Columnas visibles — reordenables */}
+                  <div className="px-3 pb-1 mb-1 border-b border-borde-sutil">
+                    <span className="text-[10px] text-texto-terciario uppercase tracking-wider">Visibles</span>
+                  </div>
+                  <Reorder.Group
+                    axis="y"
+                    values={columnasVisibles}
+                    onReorder={onCambiarColumnas}
+                    className="px-1"
+                  >
+                    {columnasVisibles.map((colId) => {
+                      const col = COLUMNAS_LINEA_DISPONIBLES.find(c => c.id === colId)
+                      if (!col) return null
+                      return (
+                        <Reorder.Item
+                          key={colId}
+                          value={colId}
+                          className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-grab active:cursor-grabbing hover:bg-superficie-tarjeta"
+                        >
+                          {!col.requerida && <GripVertical size={12} className="text-texto-terciario shrink-0" />}
+                          {col.requerida && <div className="w-3 shrink-0" />}
+                          <span className="flex-1 text-texto-primario">{col.label}</span>
+                          {!col.requerida && (
+                            <button
+                              onClick={() => onCambiarColumnas(columnasVisibles.filter(c => c !== colId))}
+                              className="text-texto-terciario hover:text-insignia-peligro bg-transparent border-none cursor-pointer p-0"
+                            >
+                              <EyeOff size={12} />
+                            </button>
+                          )}
+                        </Reorder.Item>
+                      )
+                    })}
+                  </Reorder.Group>
+
+                  {/* Columnas ocultas */}
+                  {COLUMNAS_LINEA_DISPONIBLES.filter(c => !columnasVisibles.includes(c.id) && !c.requerida).length > 0 && (
+                    <>
+                      <div className="px-3 pt-2 pb-1 mt-1 border-t border-borde-sutil">
+                        <span className="text-[10px] text-texto-terciario uppercase tracking-wider">Ocultas</span>
+                      </div>
+                      {COLUMNAS_LINEA_DISPONIBLES.filter(c => !columnasVisibles.includes(c.id) && !c.requerida).map((col) => (
+                        <button
+                          key={col.id}
+                          onClick={() => onCambiarColumnas([...columnasVisibles, col.id])}
+                          className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left text-texto-terciario hover:text-texto-primario hover:bg-superficie-tarjeta transition-colors cursor-pointer"
+                        >
+                          <Eye size={12} />
+                          {col.label}
+                        </button>
+                      ))}
+                    </>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
