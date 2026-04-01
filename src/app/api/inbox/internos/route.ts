@@ -65,14 +65,46 @@ export async function GET() {
       }
     }
 
-    // Inyectar silenciado a cada canal
-    const inyectarSilenciado = (canales: typeof publicos) =>
-      (canales || []).map(c => ({ ...c, silenciado: membresiaMap.get(c.id)?.silenciado ?? false }))
+    // Para DMs: resolver el nombre del OTRO participante
+    const dmCanales = privados?.filter(c => c.tipo === 'directo') || []
+    const otrosIds = new Set<string>()
+    for (const dm of dmCanales) {
+      const participantes = (dm.participantes_dm || []) as string[]
+      for (const pid of participantes) {
+        if (pid !== user.id) otrosIds.add(pid)
+      }
+    }
+
+    let perfilesMap = new Map<string, { nombre: string; apellido: string }>()
+    if (otrosIds.size > 0) {
+      const { data: perfiles } = await admin
+        .from('perfiles')
+        .select('id, nombre, apellido')
+        .in('id', [...otrosIds])
+      for (const p of perfiles || []) {
+        perfilesMap.set(p.id, { nombre: p.nombre || '', apellido: p.apellido || '' })
+      }
+    }
+
+    // Inyectar silenciado + nombre correcto para DMs
+    const inyectarExtras = (canales: typeof publicos) =>
+      (canales || []).map(c => {
+        const extras: Record<string, unknown> = { silenciado: membresiaMap.get(c.id)?.silenciado ?? false }
+        // Para DMs: mostrar el nombre del OTRO participante
+        if (c.tipo === 'directo' && c.participantes_dm) {
+          const otroId = (c.participantes_dm as string[]).find(pid => pid !== user.id)
+          if (otroId && perfilesMap.has(otroId)) {
+            const perfil = perfilesMap.get(otroId)!
+            extras.nombre = `${perfil.nombre} ${perfil.apellido}`.trim()
+          }
+        }
+        return { ...c, ...extras }
+      })
 
     return NextResponse.json({
-      canales: inyectarSilenciado(publicos),
-      grupos: inyectarSilenciado(grupos),
-      privados: inyectarSilenciado(privados),
+      canales: inyectarExtras(publicos),
+      grupos: inyectarExtras(grupos),
+      privados: inyectarExtras(privados),
     })
   } catch (err) {
     console.error('Error al obtener canales internos:', err)
