@@ -136,12 +136,25 @@ function useAutoguardado({ onGuardar, debounce = 800 }: OpcionesAutoguardado) {
     return valoresRestaurados
   }, [onGuardar, limpiarEstado])
 
+  /** Fuerza el guardado inmediato de datos pendientes en el debounce */
+  const flush = useCallback(async () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+    const datos = { ...datosAcumulados.current }
+    if (Object.keys(datos).length === 0) return
+    datosAcumulados.current = {}
+    await onGuardar(datos)
+    snapshotRef.current = { ...snapshotRef.current, ...datos }
+  }, [onGuardar])
+
   /** Setea el snapshot inicial (valores cargados del servidor) */
   const setSnapshot = useCallback((datos: Record<string, unknown>) => {
     snapshotRef.current = { ...datos }
   }, [])
 
-  return { estado, puedeDeshacer, guardar, guardarInmediato, deshacer, setSnapshot }
+  return { estado, puedeDeshacer, guardar, guardarInmediato, deshacer, setSnapshot, flush }
 }
 
 export { useAutoguardado, type EstadoGuardado }
