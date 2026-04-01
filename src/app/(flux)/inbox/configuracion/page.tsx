@@ -634,6 +634,11 @@ function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () =
                 {(config.usuario || config.email || '') as string}
               </span>
             )}
+            {!esWhatsApp && canal.modulos_disponibles && canal.modulos_disponibles.length > 0 && (
+              <span className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
+                · {canal.modulos_disponibles.join(', ')}
+              </span>
+            )}
           </div>
           {error && canal.ultimo_error && (
             <p className="text-xxs mt-1" style={{ color: 'var(--insignia-peligro)' }}>
@@ -803,6 +808,7 @@ function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () =
             nombre: canal.nombre,
             proveedor: canal.proveedor,
             config_conexion: canal.config_conexion as Record<string, unknown>,
+            modulos_disponibles: canal.modulos_disponibles || [],
           }}
         />
       )}

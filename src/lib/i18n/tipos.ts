@@ -819,6 +819,7 @@ export interface Traducciones {
     usuarios: string
     aplicaciones: string
     documentacion: string
+    marketing: string
   }
 
   // Toolbar flotante de selección de texto
@@ -858,6 +859,7 @@ export interface Traducciones {
     ocultar: string
     deshabilitar: string
     desinstalar: string
+    auto_ocultar: string
     plan_gratuito: string
   }
 
@@ -1051,6 +1053,12 @@ export interface Traducciones {
     chat_placeholder: string
     // Expirado
     expirado_descripcion: string
+  }
+
+  // Marketing
+  marketing: {
+    titulo: string
+    descripcion: string
   }
 
   // Página de documentos genérica (notas de crédito, recibos, remitos)

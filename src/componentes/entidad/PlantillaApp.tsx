@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
 
 import { usePathname } from 'next/navigation'
 import { Sidebar } from './Sidebar'
@@ -17,8 +17,9 @@ import type { ReactNode } from 'react'
  * Se usa como wrapper de todas las páginas autenticadas.
  *
  * El estado del sidebar (colapsado/expandido) se resuelve así:
- * 1. Si hay preferencia para la sección actual → se usa esa
- * 2. Si no → se usa la preferencia global (sidebar_colapsado)
+ * 1. Si sidebar_auto_ocultar está activo → siempre colapsado (se expande al hover)
+ * 2. Si hay preferencia para la sección actual → se usa esa
+ * 3. Si no → se usa la preferencia global (sidebar_colapsado)
  */
 
 interface PropiedadesPlantilla {
@@ -40,15 +41,40 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
 
   const seccion = obtenerSeccion(pathname)
 
+  /* Modo auto-ocultar: sidebar colapsado por defecto, se expande al hover */
+  const autoOcultar = preferencias.sidebar_auto_ocultar
+  const [hoverExpandido, setHoverExpandido] = useState(false)
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const onSidebarMouseEnter = useCallback(() => {
+    if (!autoOcultar) return
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
+    setHoverExpandido(true)
+  }, [autoOcultar])
+
+  const onSidebarMouseLeave = useCallback(() => {
+    if (!autoOcultar) return
+    // Delay breve para evitar parpadeo al mover entre sidebar y contenido
+    hoverTimeoutRef.current = setTimeout(() => setHoverExpandido(false), 300)
+  }, [autoOcultar])
+
   /* Resolver si el sidebar está colapsado para la sección actual */
   const sidebarColapsado = useMemo(() => {
+    // Auto-ocultar anula todo: colapsado salvo hover
+    if (autoOcultar) return !hoverExpandido
     const porSeccion = preferencias.sidebar_secciones?.[seccion]
     if (porSeccion !== undefined) return porSeccion
     return preferencias.sidebar_colapsado
-  }, [preferencias.sidebar_secciones, preferencias.sidebar_colapsado, seccion])
+  }, [autoOcultar, hoverExpandido, preferencias.sidebar_secciones, preferencias.sidebar_colapsado, seccion])
 
   /* Toggle sidebar: guarda como preferencia de la sección actual */
   const toggleSidebar = useCallback(() => {
+    // Si estamos en auto-ocultar, el toggle lo desactiva
+    if (autoOcultar) {
+      guardar({ sidebar_auto_ocultar: false })
+      setHoverExpandido(false)
+      return
+    }
     const nuevo = !sidebarColapsado
     guardar({
       sidebar_secciones: {
@@ -56,13 +82,21 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
         [seccion]: nuevo,
       },
     })
-  }, [sidebarColapsado, seccion, preferencias.sidebar_secciones, guardar])
+  }, [autoOcultar, sidebarColapsado, seccion, preferencias.sidebar_secciones, guardar])
+
+  /* Activar/desactivar auto-ocultar */
+  const toggleAutoOcultar = useCallback(() => {
+    const nuevo = !autoOcultar
+    guardar({ sidebar_auto_ocultar: nuevo })
+    if (nuevo) setHoverExpandido(false)
+  }, [autoOcultar, guardar])
 
   /* Colapsar/expandir todas las secciones */
   const aplicarATodas = useCallback((colapsado: boolean) => {
     guardar({
       sidebar_colapsado: colapsado,
       sidebar_secciones: {},
+      sidebar_auto_ocultar: false,
     })
   }, [guardar])
 
@@ -75,7 +109,10 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
 
   const tienePreferenciaSeccion = preferencias.sidebar_secciones?.[seccion] !== undefined
 
-  const anchoSidebar = sidebarColapsado ? 'var(--sidebar-ancho-colapsado)' : 'var(--sidebar-ancho)'
+  /* En auto-ocultar: margen fijo para la barra minimizada (mismo ancho colapsado) */
+  const anchoSidebarReal = autoOcultar
+    ? 'var(--sidebar-ancho-colapsado)'
+    : (sidebarColapsado ? 'var(--sidebar-ancho-colapsado)' : 'var(--sidebar-ancho)')
   const fondoWrapper = efecto !== 'solido' ? 'transparent' : 'var(--superficie-app)'
 
   // Rutas que se renderizan a pantalla completa (sin sidebar ni header)
@@ -108,12 +145,15 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
         onToggle={toggleSidebar}
         mobilAbierto={mobilMenuAbierto}
         onCerrarMobil={() => setMobilMenuAbierto(false)}
+        autoOcultar={autoOcultar}
+        hoverExpandido={hoverExpandido}
+        onMouseEnter={onSidebarMouseEnter}
+        onMouseLeave={onSidebarMouseLeave}
       />
 
       <div
         className="contenido-principal"
         style={{
-          marginLeft: 0,
           height: '100dvh',
           display: 'flex',
           flexDirection: 'column',
@@ -128,6 +168,8 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
           tienePreferenciaSeccion={tienePreferenciaSeccion}
           onAplicarATodas={aplicarATodas}
           onLimpiarSeccion={limpiarSeccion}
+          autoOcultar={autoOcultar}
+          onToggleAutoOcultar={toggleAutoOcultar}
           migajasExtras={migajasExtras}
         />
 
@@ -149,10 +191,11 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
         </main>
       </div>
 
-      <style>{`
+      <style suppressHydrationWarning>{`
         @media (min-width: 768px) {
           .contenido-principal {
-            margin-left: ${anchoSidebar} !important;
+            margin-left: ${anchoSidebarReal} !important;
+            transition: margin-left 200ms ease !important;
           }
         }
       `}</style>

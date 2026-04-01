@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
         sidebar_ocultos: null,
         sidebar_deshabilitados: null,
         sidebar_colapsado: false,
+        sidebar_auto_ocultar: false,
         config_tablas: {},
       })
     }

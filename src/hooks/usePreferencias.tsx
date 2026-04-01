@@ -35,6 +35,8 @@ interface Preferencias {
   sidebar_ocultos: string[] | null
   sidebar_deshabilitados: string[] | null
   sidebar_colapsado: boolean
+  /** Modo auto-ocultar: sidebar siempre colapsado, se expande al hover. Anula sidebar_secciones */
+  sidebar_auto_ocultar: boolean
   /** Estado del sidebar por sección: { "/inbox": true, "/contactos": false } (true = colapsado) */
   sidebar_secciones: Record<string, boolean>
   /** Config de tablas por módulo: { usuarios: {...}, contactos: {...} } */
@@ -56,6 +58,7 @@ const DEFAULTS: Preferencias = {
   sidebar_ocultos: null,
   sidebar_deshabilitados: null,
   sidebar_colapsado: false,
+  sidebar_auto_ocultar: false,
   sidebar_secciones: {},
   config_tablas: {},
 }
@@ -101,6 +104,10 @@ function ProveedorPreferencias({ children }: { children: ReactNode }) {
   const [cargando, setCargando] = useState(true)
   const dispositivoIdRef = useRef<string>('ssr')
   const guardarTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** Ref con los últimos cambios pendientes para flush antes de cerrar */
+  const cambiosPendientesRef = useRef<Record<string, unknown> | null>(null)
+  const usuarioRef = useRef(usuario)
+  usuarioRef.current = usuario
 
   // Cargar preferencias al montar o cuando cambia el usuario
   useEffect(() => {
@@ -130,6 +137,7 @@ function ProveedorPreferencias({ children }: { children: ReactNode }) {
               sidebar_ocultos: datos.sidebar_ocultos || null,
               sidebar_deshabilitados: datos.sidebar_deshabilitados || null,
               sidebar_colapsado: datos.sidebar_colapsado ?? false,
+              sidebar_auto_ocultar: datos.sidebar_auto_ocultar ?? false,
               sidebar_secciones: datos.sidebar_secciones || {},
               config_tablas: datos.config_tablas || {},
             }
@@ -162,7 +170,48 @@ function ProveedorPreferencias({ children }: { children: ReactNode }) {
     cargar()
   }, [usuario])
 
-  // Guardar preferencias (debounced 500ms)
+  /** Construye el payload para enviar a la API */
+  const construirPayload = useCallback((prefs: Preferencias): Record<string, unknown> => ({
+    dispositivo_id: dispositivoIdRef.current,
+    tema: prefs.tema,
+    efecto: prefs.efecto,
+    fondo_cristal: prefs.fondo_cristal,
+    escala: prefs.escala,
+    sidebar_orden: prefs.sidebar_orden,
+    sidebar_ocultos: prefs.sidebar_ocultos,
+    sidebar_deshabilitados: prefs.sidebar_deshabilitados,
+    sidebar_colapsado: prefs.sidebar_colapsado,
+    sidebar_auto_ocultar: prefs.sidebar_auto_ocultar,
+    sidebar_secciones: prefs.sidebar_secciones,
+    config_tablas: prefs.config_tablas,
+  }), [])
+
+  /** Envía los cambios pendientes a la BD inmediatamente (sin debounce) */
+  const flushPendientes = useCallback(() => {
+    if (!cambiosPendientesRef.current || !usuarioRef.current) return
+    const payload = cambiosPendientesRef.current
+    cambiosPendientesRef.current = null
+    if (guardarTimeoutRef.current) {
+      clearTimeout(guardarTimeoutRef.current)
+      guardarTimeoutRef.current = null
+    }
+    // sendBeacon es más confiable que fetch en beforeunload
+    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' })
+    navigator.sendBeacon('/api/preferencias', blob)
+  }, [])
+
+  // Flush antes de cerrar la pestaña o navegar fuera
+  useEffect(() => {
+    const handler = () => flushPendientes()
+    window.addEventListener('beforeunload', handler)
+    return () => {
+      window.removeEventListener('beforeunload', handler)
+      // También flush al desmontar el provider (navegación SPA)
+      flushPendientes()
+    }
+  }, [flushPendientes])
+
+  // Guardar preferencias (debounced 500ms con flush seguro)
   const guardar = useCallback((cambios: Partial<Preferencias>) => {
     setPreferencias(prev => {
       const nuevas = { ...prev, ...cambios }
@@ -170,28 +219,19 @@ function ProveedorPreferencias({ children }: { children: ReactNode }) {
       // Guardar en localStorage inmediatamente (cache local)
       localStorage.setItem(CLAVE_PREFS_LOCAL, JSON.stringify(nuevas))
 
+      const payload = construirPayload(nuevas)
+
+      // Guardar referencia de cambios pendientes para flush
+      cambiosPendientesRef.current = payload
+
       // Debounce el guardado en BD
       if (guardarTimeoutRef.current) {
         clearTimeout(guardarTimeoutRef.current)
       }
 
       guardarTimeoutRef.current = setTimeout(() => {
-        if (!usuario) return
-
-        // Solo enviar columnas que existen en la tabla preferencias_usuario
-        const payload: Record<string, unknown> = {
-          dispositivo_id: dispositivoIdRef.current,
-          tema: nuevas.tema,
-          efecto: nuevas.efecto,
-          fondo_cristal: nuevas.fondo_cristal,
-          escala: nuevas.escala,
-          sidebar_orden: nuevas.sidebar_orden,
-          sidebar_ocultos: nuevas.sidebar_ocultos,
-          sidebar_deshabilitados: nuevas.sidebar_deshabilitados,
-          sidebar_colapsado: nuevas.sidebar_colapsado,
-          sidebar_secciones: nuevas.sidebar_secciones,
-          config_tablas: nuevas.config_tablas,
-        }
+        if (!usuarioRef.current) return
+        cambiosPendientesRef.current = null
 
         fetch('/api/preferencias', {
           method: 'POST',
@@ -204,7 +244,7 @@ function ProveedorPreferencias({ children }: { children: ReactNode }) {
 
       return nuevas
     })
-  }, [usuario])
+  }, [construirPayload])
 
   return (
     <ContextoPreferenciasInterno.Provider value={{ preferencias, cargando, guardar }}>

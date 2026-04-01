@@ -38,6 +38,7 @@ const MIGAJAS_MODULOS: Record<string, Migaja> = {
   '/presupuestos': { etiqueta: 'Presupuestos', ruta: '/presupuestos', modulo: 'presupuestos' },
   '/ordenes': { etiqueta: 'Órdenes', ruta: '/ordenes', modulo: 'ordenes' },
   '/auditoria': { etiqueta: 'Auditoría', ruta: '/auditoria', modulo: 'auditoria' },
+  '/marketing': { etiqueta: 'Marketing', ruta: '/marketing', modulo: 'marketing' },
   '/usuarios': { etiqueta: 'Usuarios', ruta: '/usuarios', modulo: 'usuarios' },
   '/configuracion': { etiqueta: 'Configuración', ruta: '/configuracion', modulo: 'configuracion' },
   '/vitrina': { etiqueta: 'Vitrina', ruta: '/vitrina', modulo: 'vitrina' },

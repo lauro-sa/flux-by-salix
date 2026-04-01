@@ -29,6 +29,7 @@ import {
   Circle, MinusCircle, BellOff, MoreHorizontal, Check,
   Plus, Route, Receipt, FileBarChart, Wrench,
   GripVertical, Zap, BookOpen, LayoutDashboard, Eye, Power,
+  Megaphone,
 } from 'lucide-react'
 
 /**
@@ -70,6 +71,7 @@ function crearItemsNav(t: (c: string) => string): ItemNav[] {
     { id: 'presupuestos', etiqueta: t('navegacion.presupuestos'), icono: <FileText size={20} strokeWidth={1.75} />, ruta: '/presupuestos', seccion: 'documentos', modulo: 'presupuestos', moduloCatalogo: 'presupuestos' },
     { id: 'informes', etiqueta: t('navegacion.informes'), icono: <FileBarChart size={20} strokeWidth={1.75} />, ruta: '/informes', seccion: 'documentos', modulo: 'informes', moduloCatalogo: 'informes' },
     { id: 'ordenes', etiqueta: t('navegacion.ordenes'), icono: <Wrench size={20} strokeWidth={1.75} />, ruta: '/ordenes', seccion: 'documentos', modulo: 'ordenes_trabajo', moduloCatalogo: 'ordenes_trabajo' },
+    { id: 'marketing', etiqueta: t('navegacion.marketing'), icono: <Megaphone size={20} strokeWidth={1.75} />, ruta: '/marketing', seccion: 'principal', moduloCatalogo: 'marketing' },
     { id: 'asistencias', etiqueta: t('navegacion.asistencias'), icono: <Clock size={20} strokeWidth={1.75} />, ruta: '/asistencias', seccion: 'admin', modulo: 'asistencias', moduloCatalogo: 'asistencias' },
     { id: 'auditoria', etiqueta: t('navegacion.auditoria'), icono: <Shield size={20} strokeWidth={1.75} />, ruta: '/auditoria', seccion: 'admin', modulo: 'auditoria', moduloCatalogo: 'auditoria' },
     { id: 'papelera', etiqueta: t('navegacion.papelera'), icono: <Trash2 size={20} strokeWidth={1.75} />, ruta: '/papelera', seccion: 'otros' },
@@ -102,9 +104,15 @@ interface PropiedadesSidebar {
   onToggle: () => void
   mobilAbierto: boolean
   onCerrarMobil: () => void
+  /** Modo auto-ocultar activo (sidebar colapsado, se expande al hover) */
+  autoOcultar?: boolean
+  /** Sidebar expandido temporalmente por hover en modo auto-ocultar */
+  hoverExpandido?: boolean
+  onMouseEnter?: () => void
+  onMouseLeave?: () => void
 }
 
-function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: PropiedadesSidebar) {
+function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil, autoOcultar, hoverExpandido, onMouseEnter, onMouseLeave }: PropiedadesSidebar) {
   const pathname = usePathname()
   const { t } = useTraduccion()
   const router = useRouter()
@@ -345,14 +353,14 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
           style={{ color: activo ? 'var(--texto-primario)' : 'var(--texto-secundario)' }}
           className={[
             'flex items-center rounded-md text-sm font-medium cursor-pointer transition-all duration-100 relative select-none',
-            colapsado ? 'justify-center p-2' : 'px-2 py-2.5 pr-7',
+            colapsado ? 'justify-center p-2.5 mx-auto aspect-square w-10' : 'px-2 py-2.5 pr-7',
             activo ? 'font-semibold bg-superficie-activa' : 'hover:bg-superficie-hover',
           ].join(' ')}
         >
           {/* Zona izquierda: badge / grip */}
           {esSortable && !colapsado && (
             <span className="shrink-0 w-5 h-5 flex items-center justify-center mr-1.5 rounded-full" {...attributes} {...listeners} onClick={(e) => e.stopPropagation()}>
-              {item.badge && item.badge > 0 ? (<>
+              {item.badge != null && item.badge > 0 ? (<>
                 <span className="group-hover:hidden flex items-center justify-center"><span className="size-2 rounded-full bg-texto-marca" /></span>
                 <span className="hidden group-hover:flex items-center justify-center cursor-grab text-texto-terciario/50">{GripIcon}</span>
               </>) : (
@@ -361,10 +369,10 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
             </span>
           )}
 
-          <span className="shrink-0 flex mr-2.5">{item.icono}</span>
+          <span className={`shrink-0 flex ${colapsado ? '' : 'mr-2.5'}`}>{item.icono}</span>
           {!colapsado && <span className="flex-1 truncate">{item.etiqueta}</span>}
 
-          {colapsado && item.badge && item.badge > 0 && (
+          {colapsado && item.badge != null && item.badge > 0 && (
             <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-texto-marca" />
           )}
           {colapsado && (
@@ -413,9 +421,9 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
     const items = obtenerItemsOrdenados(seccionId)
     if (items.length === 0) return null
     return (
-      <div key={seccionId} className="mt-4 first:mt-0">
+      <div key={seccionId} className={`${colapsado ? 'mt-1.5' : 'mt-4'} first:mt-0`}>
         {!colapsado && <div className="px-2 mb-1.5 text-xxs font-semibold text-texto-secundario/60 uppercase tracking-wider">{etiqueta}</div>}
-        {colapsado && <div className="h-px bg-borde-sutil mx-2 my-1" />}
+        {colapsado && <div className="h-px bg-borde-sutil mx-3 my-1" />}
         <DndContext id={`sidebar-dnd-${seccionId}`} sensors={sensors} collisionDetection={closestCenter} onDragEnd={manejarDragEnd(seccionId)}>
           <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
             <div className="flex flex-col gap-px">
@@ -567,7 +575,6 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
       {/* Sección EMPRESA — fija abajo, fuera del scroll */}
       <div className="shrink-0 px-1.5 pt-2 pb-1 border-t border-borde-sutil">
         {!colapsado && <div className="px-2 mb-1.5 text-xxs font-semibold text-texto-secundario/60 uppercase tracking-wider">{t('sidebar.secciones.empresa')}</div>}
-        {colapsado && <div className="h-px bg-borde-sutil mx-2 my-1" />}
         <div className="flex flex-col gap-px">
           {ITEMS_EMPRESA.map(i => renderItemFijo(i))}
         </div>
@@ -614,9 +621,30 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
 
   return (
     <>
-      <aside className="hidden md:block fixed top-0 left-0 h-dvh border-r border-borde-sutil bg-superficie-sidebar z-30 transition-[width] duration-200 cristal-panel overflow-hidden sidebar-scroll" style={{ width: colapsado ? 'var(--sidebar-ancho-colapsado)' : 'var(--sidebar-ancho)' }}>
-        {contenido}
-      </aside>
+      {/* Modo normal (sin auto-ocultar) */}
+      {!autoOcultar && (
+        <aside
+          className="hidden md:block fixed top-0 left-0 h-dvh border-r border-borde-sutil bg-superficie-sidebar z-30 transition-[width] duration-200 cristal-panel overflow-hidden sidebar-scroll"
+          style={{ width: colapsado ? 'var(--sidebar-ancho-colapsado)' : 'var(--sidebar-ancho)' }}
+        >
+          {contenido}
+        </aside>
+      )}
+
+      {/* Modo auto-ocultar: barra minimizada + expansión al hover */}
+      {autoOcultar && (
+        <aside
+          className="hidden md:flex fixed top-0 left-0 h-dvh bg-superficie-sidebar z-50 cristal-panel overflow-hidden sidebar-scroll transition-[width,box-shadow] duration-200 ease-out border-r border-borde-sutil"
+          style={{
+            width: hoverExpandido ? 'var(--sidebar-ancho)' : 'var(--sidebar-ancho-colapsado)',
+            boxShadow: hoverExpandido ? '4px 0 24px rgba(0,0,0,0.25)' : 'none',
+          }}
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
+        >
+          {contenido}
+        </aside>
+      )}
       <AnimatePresence>
         {mobilAbierto && (<>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onCerrarMobil} className="fixed inset-0 bg-black/40 z-[45]" />

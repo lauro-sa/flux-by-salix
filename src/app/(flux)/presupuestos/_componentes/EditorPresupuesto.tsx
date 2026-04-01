@@ -102,6 +102,7 @@ export default function EditorPresupuesto({
   const [modalEnviarAbierto, setModalEnviarAbierto] = useState(false)
   const [canalesCorreo, setCanalesCorreo] = useState<CanalCorreoEmpresa[]>([])
   const [plantillasCorreo, setPlantillasCorreo] = useState<import('@/componentes/entidad/ModalEnviarDocumento').PlantillaCorreo[]>([])
+  const [plantillaCorreoPredeterminadaId, setPlantillaCorreoPredeterminadaId] = useState<string | null>(null)
   const [enviandoCorreo, setEnviandoCorreo] = useState(false)
   const [urlPortalReal, setUrlPortalReal] = useState<string | null>(null)
   const [snapshotCorreo, setSnapshotCorreo] = useState<import('@/componentes/entidad/ModalEnviarDocumento').SnapshotCorreo | null>(null)
@@ -291,7 +292,7 @@ export default function EditorPresupuesto({
 
   // ─── Cargar canales de correo y plantillas de la empresa ─────────────────
   useEffect(() => {
-    fetch('/api/inbox/canales?tipo=correo')
+    fetch('/api/inbox/canales?tipo=correo&modulo=presupuestos')
       .then(r => r.json())
       .then(data => {
         const canales = (data.canales || [])
@@ -307,11 +308,12 @@ export default function EditorPresupuesto({
       })
       .catch(() => {})
 
-    // Cargar plantillas de correo
+    // Cargar plantillas de correo y detectar predeterminada
     fetch('/api/inbox/plantillas?canal=correo')
       .then(r => r.json())
       .then(data => {
-        const pls = (data.plantillas || []).map((p: { id: string; nombre: string; asunto: string; contenido_html: string; canal_id?: string }) => ({
+        const todas = data.plantillas || []
+        const pls = todas.map((p: { id: string; nombre: string; asunto: string; contenido_html: string; canal_id?: string }) => ({
           id: p.id,
           nombre: p.nombre,
           asunto: p.asunto || '',
@@ -319,6 +321,12 @@ export default function EditorPresupuesto({
           canal_id: p.canal_id || null,
         }))
         setPlantillasCorreo(pls)
+        // Detectar plantilla predeterminada (tiene _es_por_defecto en variables y modulo presupuestos)
+        const pred = todas.find((p: { variables?: { clave: string }[]; modulos?: string[] }) =>
+          (p.variables || []).some(v => v.clave === '_es_por_defecto') &&
+          (p.modulos || []).includes('presupuestos')
+        )
+        if (pred) setPlantillaCorreoPredeterminadaId(pred.id)
       })
       .catch(() => {})
   }, [])
@@ -2071,6 +2079,39 @@ export default function EditorPresupuesto({
         onGuardarBorrador={handleGuardarBorrador}
         onGuardarPlantilla={handleGuardarPlantilla}
         snapshotRestaurar={snapshotCorreo}
+        plantillaPredeterminadaId={plantillaCorreoPredeterminadaId}
+        onCambiarPredeterminada={(esPropietario || esAdmin) ? async (tplId) => {
+          // Guardar/quitar _es_por_defecto via PATCH a la plantilla
+          if (tplId) {
+            // Quitar predeterminada anterior si existe
+            if (plantillaCorreoPredeterminadaId && plantillaCorreoPredeterminadaId !== tplId) {
+              await fetch(`/api/inbox/plantillas/${plantillaCorreoPredeterminadaId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ variables: [] }),
+              })
+            }
+            // Marcar nueva predeterminada
+            await fetch(`/api/inbox/plantillas/${tplId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                variables: [{ clave: '_es_por_defecto', etiqueta: 'Por defecto', origen: 'metadata' }],
+              }),
+            })
+            setPlantillaCorreoPredeterminadaId(tplId)
+          } else {
+            // Quitar predeterminada
+            if (plantillaCorreoPredeterminadaId) {
+              await fetch(`/api/inbox/plantillas/${plantillaCorreoPredeterminadaId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ variables: [] }),
+              })
+            }
+            setPlantillaCorreoPredeterminadaId(null)
+          }
+        } : undefined}
         contextoVariables={{
           contacto: {
             nombre: contactoSeleccionado?.nombre || presupuesto?.contacto_nombre || '',

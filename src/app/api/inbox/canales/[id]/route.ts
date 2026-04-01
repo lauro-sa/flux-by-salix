@@ -19,7 +19,7 @@ export async function PATCH(
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
     const body = await request.json()
-    const camposPermitidos = ['nombre', 'activo', 'config_conexion', 'estado_conexion', 'ultimo_error']
+    const camposPermitidos = ['nombre', 'activo', 'config_conexion', 'estado_conexion', 'ultimo_error', 'modulos_disponibles']
     const cambios: Record<string, unknown> = { actualizado_en: new Date().toISOString() }
 
     for (const campo of camposPermitidos) {

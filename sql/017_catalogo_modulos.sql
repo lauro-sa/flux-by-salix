@@ -100,7 +100,8 @@ ON CONFLICT (slug) DO NOTHING;
 -- Módulos PREMIUM
 INSERT INTO catalogo_modulos (slug, nombre, descripcion, icono, categoria, es_base, orden, tier, precio_mensual_usd) VALUES
   ('inteligencia_artificial', 'Inteligencia Artificial', 'Agente IA que responde mensajes, agenda visitas y gestiona contactos automáticamente.', 'brain', 'premium', false, 30, 'pro', 29),
-  ('portal_clientes', 'Portal de clientes', 'Portal web donde tus clientes ven presupuestos, aceptan y firman online.', 'globe', 'premium', false, 31, 'pro', 19)
+  ('portal_clientes', 'Portal de clientes', 'Portal web donde tus clientes ven presupuestos, aceptan y firman online.', 'globe', 'premium', false, 31, 'pro', 19),
+  ('marketing', 'Marketing', 'Campañas de correo y WhatsApp masivos, tracking web con pixel de seguimiento y analíticas.', 'megaphone', 'comunicacion', false, 20, 'pro', 39)
 ON CONFLICT (slug) DO NOTHING;
 
 -- 5. Función helper: instalar módulos base automáticamente al crear empresa

@@ -807,6 +807,7 @@ export const en: Traducciones = {
     usuarios: 'Users',
     aplicaciones: 'Apps',
     documentacion: 'Docs',
+    marketing: 'Marketing',
   },
 
   toolbar: {
@@ -844,6 +845,7 @@ export const en: Traducciones = {
     ocultar: 'Hide',
     deshabilitar: 'Disable',
     desinstalar: 'Uninstall',
+    auto_ocultar: 'Auto-hide',
     plan_gratuito: 'Free plan',
   },
 
@@ -1029,6 +1031,12 @@ export const en: Traducciones = {
     chat_vacio: 'Send a message if you have any questions.',
     chat_placeholder: 'Write your question...',
     expirado_descripcion: 'This link has expired or is invalid. If you need to access the document, contact the company that sent it to request a new link.',
+  },
+
+  // Marketing
+  marketing: {
+    titulo: 'Marketing',
+    descripcion: 'Email and WhatsApp campaigns, web tracking and analytics. Fully integrated with your contacts.',
   },
 
   documentos_page: {

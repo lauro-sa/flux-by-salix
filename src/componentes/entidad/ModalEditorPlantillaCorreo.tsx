@@ -1057,15 +1057,6 @@ export function ModalEditorPlantillaCorreo({
               </div>
             )}
 
-            {/* Por defecto */}
-            {modulos.length > 0 && (
-              <Interruptor
-                activo={esPorDefecto}
-                onChange={setEsPorDefecto}
-                etiqueta={`Usar como plantilla por defecto al enviar ${modulos.map(m => OPCIONES_DISPONIBLE.find(o => o.valor === m)?.etiqueta?.toLowerCase() || m).join(', ')}`}
-              />
-            )}
-
             {/* Contenido visual */}
             <div>
               <label className="text-xs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>Contenido</label>

@@ -8,7 +8,7 @@ import { Select } from '@/componentes/ui/Select'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Alerta } from '@/componentes/ui/Alerta'
 import {
-  Mail, Smartphone, Globe, Lock,
+  Mail, Smartphone, Globe, Lock, Box,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { useTraduccion } from '@/lib/i18n'
@@ -30,6 +30,7 @@ interface PropiedadesModal {
     nombre: string
     proveedor: string | null
     config_conexion: Record<string, unknown>
+    modulos_disponibles?: string[]
   } | null
 }
 
@@ -43,6 +44,16 @@ const PROVEEDORES_CORREO = [
   { valor: 'gmail_oauth', etiqueta: 'Gmail (Google)', descripcion: 'Conectar cuenta de Gmail directamente' },
   { valor: 'outlook_oauth', etiqueta: 'Outlook / Microsoft 365', descripcion: 'Conectar cuenta de Outlook, Hotmail o Microsoft 365' },
   { valor: 'imap', etiqueta: 'IMAP/SMTP', descripcion: 'Cualquier servidor de correo (Yahoo, propio, etc.)' },
+]
+
+// Módulos que pueden enviar correo (se muestran como opciones de disponibilidad)
+const MODULOS_CORREO = [
+  { slug: 'inbox', nombre: 'Inbox' },
+  { slug: 'contactos', nombre: 'Contactos' },
+  { slug: 'presupuestos', nombre: 'Presupuestos' },
+  { slug: 'ordenes_trabajo', nombre: 'Órdenes de trabajo' },
+  { slug: 'informes', nombre: 'Informes' },
+  { slug: 'marketing', nombre: 'Marketing' },
 ]
 
 export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado, canalEditar }: PropiedadesModal) {
@@ -83,6 +94,11 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado,
   // Gmail
   const [gmailEmail, setGmailEmail] = useState((cfg.email || '') as string)
 
+  // Módulos disponibles (vacío = todos)
+  const [modulosDisponibles, setModulosDisponibles] = useState<string[]>(
+    canalEditar?.modulos_disponibles || []
+  )
+
   const proveedores = tipoCanal === 'whatsapp' ? PROVEEDORES_WA : PROVEEDORES_CORREO
 
   const resetear = () => {
@@ -101,6 +117,7 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado,
     setTwilioToken('')
     setTwilioNumero('')
     setGmailEmail('')
+    setModulosDisponibles([])
   }
 
   const handleCerrar = () => {
@@ -188,6 +205,7 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado,
           body: JSON.stringify({
             nombre: nombre.trim(),
             config_conexion: configFinal,
+            modulos_disponibles: modulosDisponibles,
           }),
         })
       } else {
@@ -199,6 +217,7 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado,
             nombre: nombre.trim(),
             proveedor,
             config_conexion,
+            modulos_disponibles: modulosDisponibles,
           }),
         })
       }
@@ -460,6 +479,66 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado,
                   onChange={(e) => setTwilioToken(e.target.value)}
                 />
               </>
+            )}
+
+            {/* Módulos disponibles (solo correo) */}
+            {tipoCanal === 'correo' && (
+              <div
+                className="pt-3 mt-1"
+                style={{ borderTop: '1px solid var(--borde-sutil)' }}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Box size={14} style={{ color: 'var(--texto-terciario)' }} />
+                  <p className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>
+                    Disponible en módulos
+                  </p>
+                </div>
+                <p className="text-xs mb-3" style={{ color: 'var(--texto-terciario)' }}>
+                  Elegí en qué módulos aparece esta bandeja al enviar correos. Si no seleccionás ninguno, estará disponible en todos.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {MODULOS_CORREO.map((mod) => {
+                    const activo = modulosDisponibles.includes(mod.slug)
+                    return (
+                      <button
+                        key={mod.slug}
+                        type="button"
+                        onClick={() => {
+                          setModulosDisponibles(prev =>
+                            activo
+                              ? prev.filter(m => m !== mod.slug)
+                              : [...prev, mod.slug]
+                          )
+                        }}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-left transition-colors"
+                        style={{
+                          border: activo
+                            ? '2px solid var(--texto-marca)'
+                            : '1px solid var(--borde-sutil)',
+                          background: activo
+                            ? 'var(--superficie-seleccionada)'
+                            : 'transparent',
+                          color: activo
+                            ? 'var(--texto-marca)'
+                            : 'var(--texto-secundario)',
+                        }}
+                      >
+                        <div
+                          className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0 text-[10px]"
+                          style={{
+                            background: activo ? 'var(--texto-marca)' : 'transparent',
+                            border: activo ? 'none' : '1.5px solid var(--borde-fuerte)',
+                            color: activo ? '#fff' : 'transparent',
+                          }}
+                        >
+                          {activo && '✓'}
+                        </div>
+                        {mod.nombre}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             )}
           </div>
         )}

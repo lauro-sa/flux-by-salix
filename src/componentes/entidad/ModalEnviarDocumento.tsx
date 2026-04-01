@@ -18,7 +18,7 @@ import { SelectorHora } from '@/componentes/ui/SelectorHora'
 import {
   Send, X, Paperclip, FileText, Image, Film, File, Loader2,
   ChevronDown, Link2, Upload, Sun, Coffee, Moon, Calendar,
-  SendHorizonal, Braces, BookmarkPlus, Save,
+  SendHorizonal, Braces, BookmarkPlus, Save, Star,
 } from 'lucide-react'
 import { SelectorVariables } from '@/componentes/ui/SelectorVariables'
 import { crearNodoVariable } from '@/componentes/ui/ExtensionVariableChip'
@@ -138,6 +138,10 @@ interface PropiedadesModalEnviarDocumento {
   contextoVariables?: Record<string, Record<string, unknown>>
   /** Snapshot para restaurar al deshacer envío (si se pasa, se usa en vez de los defaults) */
   snapshotRestaurar?: SnapshotCorreo | null
+  /** ID de la plantilla marcada como predeterminada para este tipo de documento */
+  plantillaPredeterminadaId?: string | null
+  /** Callback para cambiar la plantilla predeterminada (solo admins). Si no se pasa, no se muestra el botón */
+  onCambiarPredeterminada?: (plantillaId: string | null) => void | Promise<void>
 }
 
 // ─── Helpers ───
@@ -580,6 +584,8 @@ export function ModalEnviarDocumento({
   onGuardarPlantilla,
   contextoVariables,
   snapshotRestaurar,
+  plantillaPredeterminadaId,
+  onCambiarPredeterminada,
 }: PropiedadesModalEnviarDocumento) {
   const { t } = useTraduccion()
 
@@ -682,6 +688,26 @@ export function ModalEnviarDocumento({
       return (valor !== undefined && valor !== null && valor !== '') ? String(valor) : ''
     })
   }, [contextoVariables])
+
+  // ─── Auto-aplicar plantilla predeterminada al abrir (si hay editor y no es snapshot) ───
+  const predeterminadaAplicadaRef = useRef(false)
+  useEffect(() => {
+    if (!abierto) { predeterminadaAplicadaRef.current = false; return }
+    if (snapshotRestaurar || predeterminadaAplicadaRef.current) return
+    if (!editorListo || !plantillaPredeterminadaId) return
+    const pl = plantillas.find(p => p.id === plantillaPredeterminadaId)
+    if (!pl) return
+    predeterminadaAplicadaRef.current = true
+    setPlantillaId(pl.id)
+    if (pl.asunto) setAsunto(resolverVariables(pl.asunto))
+    if (pl.contenido_html) {
+      const htmlResuelto = resolverVariables(pl.contenido_html)
+      setHtml(htmlResuelto)
+      const editor = editorRef.current
+      if (editor) editor.commands.setContent(htmlResuelto)
+    }
+    if (pl.canal_id) setCanalId(pl.canal_id)
+  }, [abierto, editorListo, plantillaPredeterminadaId, plantillas, snapshotRestaurar, resolverVariables])
 
   // ─── Aplicar plantilla ───
   const aplicarPlantilla = useCallback((id: string) => {
@@ -1105,17 +1131,42 @@ export function ModalEnviarDocumento({
             <div className="flex items-center gap-2">
               <FileText size={15} style={{ color: 'var(--texto-terciario)' }} />
               {plantillas.length > 0 ? (
-                <select
-                  value={plantillaId}
-                  onChange={(e) => aplicarPlantilla(e.target.value)}
-                  className="text-sm bg-transparent outline-none cursor-pointer"
-                  style={{ color: 'var(--texto-primario)' }}
-                >
-                  <option value="">Sin plantilla</option>
-                  {plantillas.map(p => (
-                    <option key={p.id} value={p.id}>{p.nombre}</option>
-                  ))}
-                </select>
+                <>
+                  <select
+                    value={plantillaId}
+                    onChange={(e) => aplicarPlantilla(e.target.value)}
+                    className="text-sm bg-transparent outline-none cursor-pointer"
+                    style={{ color: 'var(--texto-primario)' }}
+                  >
+                    <option value="">Sin plantilla</option>
+                    {plantillas.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.nombre}{p.id === plantillaPredeterminadaId ? ' ★' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {onCambiarPredeterminada && plantillaId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onCambiarPredeterminada(
+                          plantillaId === plantillaPredeterminadaId ? null : plantillaId
+                        )
+                      }}
+                      className="p-1 rounded transition-colors hover:scale-110"
+                      title={plantillaId === plantillaPredeterminadaId
+                        ? 'Quitar como predeterminada'
+                        : 'Usar como predeterminada para este tipo de documento'
+                      }
+                      style={{ color: plantillaId === plantillaPredeterminadaId ? 'var(--insignia-advertencia)' : 'var(--texto-terciario)' }}
+                    >
+                      <Star
+                        size={14}
+                        fill={plantillaId === plantillaPredeterminadaId ? 'currentColor' : 'none'}
+                      />
+                    </button>
+                  )}
+                </>
               ) : (
                 <span className="text-sm" style={{ color: 'var(--texto-terciario)' }}>Sin plantillas configuradas</span>
               )}

@@ -7,7 +7,7 @@ import { Migajas } from './Migajas'
 import {
   PanelLeft, PanelLeftClose, Moon, Sun, Monitor, Check, Globe,
   ChevronsLeft, ChevronsRight, RotateCcw, Headphones, Settings,
-  ChevronRight, BellOff, BellRing,
+  ChevronRight, BellOff, BellRing, PanelLeftDashed,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/hooks/useAuth'
@@ -42,6 +42,8 @@ interface PropiedadesHeader {
   tienePreferenciaSeccion: boolean
   onAplicarATodas: (colapsado: boolean) => void
   onLimpiarSeccion: () => void
+  autoOcultar: boolean
+  onToggleAutoOcultar: () => void
   migajasExtras?: Migaja[]
 }
 
@@ -53,6 +55,8 @@ function Header({
   tienePreferenciaSeccion,
   onAplicarATodas,
   onLimpiarSeccion,
+  autoOcultar,
+  onToggleAutoOcultar,
   migajasExtras,
 }: PropiedadesHeader) {
   const { tema, temaActivo, efecto, cambiarTema } = useTema()
@@ -129,15 +133,27 @@ function Header({
                   Menú lateral
                 </div>
 
+                {/* Auto-ocultar */}
                 <button
-                  onClick={() => { onToggleSidebar(); setSidebarMenuAbierto(false) }}
-                  className="flex items-center gap-2.5 w-full px-3 py-2 text-sm border-none cursor-pointer transition-colors bg-transparent text-texto-primario hover:bg-superficie-hover text-left"
+                  onClick={() => { onToggleAutoOcultar(); setSidebarMenuAbierto(false) }}
+                  className={`flex items-center gap-2.5 w-full px-3 py-2 text-sm border-none cursor-pointer transition-colors bg-transparent hover:bg-superficie-hover text-left ${autoOcultar ? 'text-texto-marca' : 'text-texto-primario'}`}
                 >
-                  {sidebarColapsado ? <PanelLeft size={15} /> : <PanelLeftClose size={15} />}
-                  <span>{sidebarColapsado ? 'Expandir' : 'Colapsar'} en <strong className="capitalize">{nombreSeccion}</strong></span>
+                  <PanelLeftDashed size={15} />
+                  <span className="flex-1">Auto-ocultar</span>
+                  {autoOcultar && <Check size={14} className="text-texto-marca shrink-0" />}
                 </button>
 
                 <div className="h-px bg-borde-sutil my-1 mx-2" />
+
+                {!autoOcultar && (
+                  <button
+                    onClick={() => { onToggleSidebar(); setSidebarMenuAbierto(false) }}
+                    className="flex items-center gap-2.5 w-full px-3 py-2 text-sm border-none cursor-pointer transition-colors bg-transparent text-texto-primario hover:bg-superficie-hover text-left"
+                  >
+                    {sidebarColapsado ? <PanelLeft size={15} /> : <PanelLeftClose size={15} />}
+                    <span>{sidebarColapsado ? 'Expandir' : 'Colapsar'} en <strong className="capitalize">{nombreSeccion}</strong></span>
+                  </button>
+                )}
 
                 <button
                   onClick={() => { onAplicarATodas(true); setSidebarMenuAbierto(false) }}
@@ -154,7 +170,7 @@ function Header({
                   <span>Expandir en todas</span>
                 </button>
 
-                {tienePreferenciaSeccion && (
+                {tienePreferenciaSeccion && !autoOcultar && (
                   <>
                     <div className="h-px bg-borde-sutil my-1 mx-2" />
                     <button

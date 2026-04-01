@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
     }
 
     const tipo = request.nextUrl.searchParams.get('tipo')
+    const modulo = request.nextUrl.searchParams.get('modulo')
     const admin = crearClienteAdmin()
 
     let query = admin
@@ -46,7 +47,16 @@ export async function GET(request: NextRequest) {
       throw error
     }
 
-    return NextResponse.json({ canales: data || [] })
+    // Filtrar por módulo: si modulos_disponibles está vacío = disponible en todos
+    let canales = data || []
+    if (modulo) {
+      canales = canales.filter((c: { modulos_disponibles?: string[] }) => {
+        const mods = c.modulos_disponibles || []
+        return mods.length === 0 || mods.includes(modulo)
+      })
+    }
+
+    return NextResponse.json({ canales })
   } catch (err) {
     console.error('Error al obtener canales:', err)
     return NextResponse.json({ canales: [] })
@@ -73,7 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tipo, nombre, proveedor, config_conexion, agentes } = body
+    const { tipo, nombre, proveedor, config_conexion, agentes, modulos_disponibles } = body
 
     // Cifrar password IMAP si existe
     if (config_conexion?.password_cifrada && typeof config_conexion.password_cifrada === 'string') {
@@ -108,6 +118,7 @@ export async function POST(request: NextRequest) {
         nombre,
         proveedor: proveedor || null,
         config_conexion: config_conexion || {},
+        modulos_disponibles: Array.isArray(modulos_disponibles) ? modulos_disponibles : [],
         creado_por: user.id,
       })
       .select()
