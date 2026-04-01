@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import type { CanalInbox } from '@/tipos/inbox'
 import { useTraduccion } from '@/lib/i18n'
+import { usePreferencias } from '@/hooks/usePreferencias'
 
 /**
  * Sidebar de correo estilo cliente de email.
@@ -49,8 +50,7 @@ const CARPETAS: { clave: CarpetaCorreo; claveI18n: string; icono: React.ReactNod
   { clave: 'archivado', claveI18n: 'inbox.archivar', icono: <Archive size={14} /> },
 ]
 
-const STORAGE_KEY = 'flux_inbox_cuentas_expandidas'
-const STORAGE_ORDEN = 'flux_inbox_cuentas_orden'
+const CLAVE_CONFIG_INBOX = '__inbox_correo'
 
 export function SidebarCorreo({
   canales,
@@ -66,16 +66,25 @@ export function SidebarCorreo({
   colapsado = false,
 }: PropiedadesSidebarCorreo) {
   const { t } = useTraduccion()
+  const { preferencias, guardar: guardarPreferencia } = usePreferencias()
 
-  // Orden personalizado de cuentas (persistido en localStorage)
+  // Leer config de inbox desde preferencias (BD)
+  const configInbox = (preferencias.config_tablas?.[CLAVE_CONFIG_INBOX] || {}) as {
+    orden_cuentas?: string[]
+    cuentas_expandidas?: string[]
+  }
+
+  // Orden personalizado de cuentas (persistido en BD via preferencias)
   const [ordenCanales, setOrdenCanales] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return canales.map(c => c.id)
-    try {
-      const guardado = localStorage.getItem(STORAGE_ORDEN)
-      if (guardado) return JSON.parse(guardado)
-    } catch { /* fallback */ }
-    return canales.map(c => c.id)
+    return configInbox.orden_cuentas || canales.map(c => c.id)
   })
+
+  // Sincronizar con preferencias cuando se cargan desde BD
+  useEffect(() => {
+    if (configInbox.orden_cuentas?.length) {
+      setOrdenCanales(configInbox.orden_cuentas)
+    }
+  }, [JSON.stringify(configInbox.orden_cuentas)])
 
   // Actualizar orden cuando cambian los canales
   useEffect(() => {
@@ -95,20 +104,33 @@ export function SidebarCorreo({
     return ordenCanales.map(id => mapa.get(id)).filter(Boolean) as CanalInbox[]
   }, [canales, ordenCanales])
 
+  /** Guarda la config del inbox en preferencias (BD + localStorage) */
+  const guardarConfigInbox = useCallback((cambios: Partial<typeof configInbox>) => {
+    const nuevaConfig = { ...configInbox, ...cambios }
+    guardarPreferencia({
+      config_tablas: {
+        ...preferencias.config_tablas,
+        [CLAVE_CONFIG_INBOX]: nuevaConfig,
+      },
+    })
+  }, [configInbox, preferencias.config_tablas, guardarPreferencia])
+
   const handleReorder = useCallback((nuevoOrden: string[]) => {
     setOrdenCanales(nuevoOrden)
-    localStorage.setItem(STORAGE_ORDEN, JSON.stringify(nuevoOrden))
-  }, [])
+    guardarConfigInbox({ orden_cuentas: nuevoOrden })
+  }, [guardarConfigInbox])
 
-  // Persistir estado expandido de cuentas
+  // Estado expandido de cuentas (persistido en BD via preferencias)
   const [cuentasExpandidas, setCuentasExpandidas] = useState<Set<string>>(() => {
-    if (typeof window === 'undefined') return new Set(canales.map(c => c.id))
-    try {
-      const guardado = localStorage.getItem(STORAGE_KEY)
-      if (guardado) return new Set(JSON.parse(guardado))
-    } catch { /* fallback */ }
-    return new Set(canales.map(c => c.id))
+    return new Set(configInbox.cuentas_expandidas || canales.map(c => c.id))
   })
+
+  // Sincronizar con preferencias cuando se cargan desde BD
+  useEffect(() => {
+    if (configInbox.cuentas_expandidas) {
+      setCuentasExpandidas(new Set(configInbox.cuentas_expandidas))
+    }
+  }, [JSON.stringify(configInbox.cuentas_expandidas)])
 
   // Agregar canales nuevos al set
   useEffect(() => {
@@ -130,10 +152,10 @@ export function SidebarCorreo({
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
-      localStorage.setItem(STORAGE_KEY, JSON.stringify([...next]))
+      guardarConfigInbox({ cuentas_expandidas: [...next] })
       return next
     })
-  }, [])
+  }, [guardarConfigInbox])
 
   // Totales
   const totales = useMemo(() => {

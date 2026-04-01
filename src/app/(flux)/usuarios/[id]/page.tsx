@@ -1930,14 +1930,16 @@ export default function PaginaPerfilUsuario() {
                     valor={(infoBancaria?.banco as string) || ''}
                     onChange={(v) => { setInfoBancaria(p => ({ ...p, banco: v })); guardarInfoBancaria('banco', v) }}
                     onCrear={async (nombre) => {
+                      try {
                       const res = await fetch('/api/bancos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre }) })
-                      if (!res.ok) return false
+                      if (!res.ok) { console.error('Error creando banco:', res.status, await res.text()); return false }
                       const banco = await res.json()
                       setBancosEmpresa(prev => {
                         if (prev.some(b => b.id === banco.id)) return prev
                         return [...prev, banco].sort((a, b) => a.nombre.localeCompare(b.nombre))
                       })
                       return banco.nombre // Devuelve nombre formateado (capitalizado) del servidor
+                      } catch (err) { console.error('Error en onCrear banco:', err); return false }
                     }}
                     textoCrear="Crear banco"
                   />
