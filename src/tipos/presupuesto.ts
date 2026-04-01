@@ -455,7 +455,7 @@ export interface ColumnaLinea {
 }
 
 export const COLUMNAS_LINEA_DISPONIBLES: ColumnaLinea[] = [
-  { id: 'producto', label: 'Producto', visible: true, requerida: false },
+  { id: 'producto', label: 'Código', visible: true, requerida: false },
   { id: 'descripcion', label: 'Descripción', visible: true, requerida: true },
   { id: 'cantidad', label: 'Cant.', visible: true, requerida: false },
   { id: 'unidad', label: 'U. Medida', visible: true, requerida: false },

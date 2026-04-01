@@ -62,10 +62,17 @@ const ANCHO_COLUMNA: Record<string, string> = {
   subtotal: 'w-[110px] shrink-0',
 }
 
-// Etiquetas derivadas de COLUMNAS_LINEA_DISPONIBLES para consistencia
-const ETIQUETA_COLUMNA: Record<string, string> = Object.fromEntries(
-  COLUMNAS_LINEA_DISPONIBLES.map(c => [c.id, c.label])
-)
+// Etiquetas del header de la tabla (pueden diferir del popover para mejor contexto)
+const ETIQUETA_COLUMNA: Record<string, string> = {
+  producto: 'Producto',
+  descripcion: '',
+  cantidad: 'Cant.',
+  unidad: 'U. Medida',
+  precio_unitario: 'Precio unit.',
+  descuento: '% Bonif.',
+  impuesto: 'Impuestos',
+  subtotal: 'Importe',
+}
 
 function TablaLineas({
   lineas,
@@ -104,9 +111,9 @@ function TablaLineas({
   const idsLineas = lineas.map(l => l.id)
 
   return (
-    <div className="w-full min-w-0 overflow-x-auto">
+    <div className="w-full min-w-0">
       {/* ─── Barra superior: config columnas ─── */}
-      <div className="flex items-center justify-between mb-2 px-1">
+      <div className="flex items-center justify-between mb-2 px-1 relative z-30">
         <span className="text-xs text-texto-terciario font-medium uppercase tracking-wide">
           Líneas del presupuesto
         </span>
@@ -189,6 +196,7 @@ function TablaLineas({
         )}
       </div>
 
+      <div className="overflow-x-auto">
       {/* ─── Encabezado de columnas ─── */}
       <div className="flex items-center gap-1 px-1 py-2 border-b-2 border-borde-sutil text-xs text-texto-terciario font-medium uppercase tracking-wider">
         {!soloLectura && <div className="w-6" />}
@@ -258,6 +266,7 @@ function TablaLineas({
           ))}
         </AnimatePresence>
       </Reorder.Group>
+      </div>
 
       {/* ─── Botones agregar línea (inline) ─── */}
       {!soloLectura && (
