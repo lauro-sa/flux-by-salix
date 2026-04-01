@@ -170,18 +170,24 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    console.log('[POST /api/contactos] Inicio')
     const supabase = await crearClienteServidor()
+    console.log('[POST /api/contactos] Cliente servidor OK')
     const { data: { user } } = await supabase.auth.getUser()
+    console.log('[POST /api/contactos] getUser OK, user:', !!user)
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
     // Verificar permiso de crear contactos
+    console.log('[POST /api/contactos] Verificando permiso para', user.id, empresaId)
     const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'contactos', 'crear')
+    console.log('[POST /api/contactos] Permiso:', permitido)
     if (!permitido) return NextResponse.json({ error: 'Sin permiso para crear contactos' }, { status: 403 })
 
     const body = await request.json()
+    console.log('[POST /api/contactos] Body OK, tipo:', body.tipo_contacto_id)
     const admin = crearClienteAdmin()
 
     // Validar tipo de contacto (acepta tipo_contacto_id o tipo_contacto_clave)
