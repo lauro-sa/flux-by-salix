@@ -932,6 +932,7 @@ export const canales_inbox = pgTable('canales_inbox', {
   ultimo_error: text('ultimo_error'),
   ultima_sincronizacion: timestamp('ultima_sincronizacion', { withTimezone: true }),
   sync_cursor: jsonb('sync_cursor').default(sql`'{}'`),
+  modulos_disponibles: text('modulos_disponibles').array().notNull().default(sql`'{}'`),
   creado_por: uuid('creado_por').notNull(),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
@@ -1074,6 +1075,16 @@ export const mensajes = pgTable('mensajes', {
   index('mensajes_empresa_idx').on(tabla.empresa_id),
   index('mensajes_conversacion_idx').on(tabla.conversacion_id),
   index('mensajes_fecha_idx').on(tabla.conversacion_id, tabla.creado_en),
+])
+
+// Lecturas de mensajes (read receipts estilo WhatsApp)
+export const mensaje_lecturas = pgTable('mensaje_lecturas', {
+  mensaje_id: uuid('mensaje_id').notNull().references(() => mensajes.id, { onDelete: 'cascade' }),
+  usuario_id: uuid('usuario_id').notNull(),
+  leido_en: timestamp('leido_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('mensaje_lecturas_mensaje_idx').on(tabla.mensaje_id),
+  index('mensaje_lecturas_usuario_idx').on(tabla.usuario_id),
 ])
 
 // Adjuntos de mensajes
@@ -1588,6 +1599,7 @@ export const preferencias_usuario = pgTable('preferencias_usuario', {
   sidebar_ocultos: jsonb('sidebar_ocultos'),
   sidebar_deshabilitados: jsonb('sidebar_deshabilitados'),
   sidebar_colapsado: boolean('sidebar_colapsado').notNull().default(false),
+  sidebar_auto_ocultar: boolean('sidebar_auto_ocultar').notNull().default(false),
   sidebar_secciones: jsonb('sidebar_secciones').default(sql`'{}'`),
   // Tablas
   config_tablas: jsonb('config_tablas').default(sql`'{}'`),

@@ -27,6 +27,15 @@ export async function GET() {
 
     const admin = crearClienteAdmin()
 
+    // Obtener membresías del usuario (para filtrar canales y obtener silenciado)
+    const { data: membresias } = await admin
+      .from('canal_interno_miembros')
+      .select('canal_id, silenciado')
+      .eq('usuario_id', user.id)
+
+    const membresiaMap = new Map((membresias || []).map(m => [m.canal_id, m]))
+    const membresiaIds = (membresias || []).map(m => m.canal_id)
+
     // Canales públicos de la empresa
     const { data: publicos } = await admin
       .from('canales_internos')
@@ -36,29 +45,34 @@ export async function GET() {
       .eq('archivado', false)
       .order('nombre')
 
-    // Canales donde el usuario es miembro (privados + DMs)
-    const { data: membresiaIds } = await admin
-      .from('canal_interno_miembros')
-      .select('canal_id')
-      .eq('usuario_id', user.id)
-
+    // Canales donde el usuario es miembro (privados + grupos + DMs)
     let privados: typeof publicos = []
-    if (membresiaIds && membresiaIds.length > 0) {
+    let grupos: typeof publicos = []
+    if (membresiaIds.length > 0) {
       const { data } = await admin
         .from('canales_internos')
         .select('*')
         .eq('empresa_id', empresaId)
-        .in('id', membresiaIds.map(m => m.canal_id))
+        .in('id', membresiaIds)
         .neq('tipo', 'publico')
         .eq('archivado', false)
         .order('ultimo_mensaje_en', { ascending: false, nullsFirst: false })
 
-      privados = data || []
+      // Separar grupos de privados/DMs
+      for (const canal of data || []) {
+        if (canal.tipo === 'grupo') grupos.push(canal)
+        else privados.push(canal)
+      }
     }
 
+    // Inyectar silenciado a cada canal
+    const inyectarSilenciado = (canales: typeof publicos) =>
+      (canales || []).map(c => ({ ...c, silenciado: membresiaMap.get(c.id)?.silenciado ?? false }))
+
     return NextResponse.json({
-      canales: publicos || [],
-      privados: privados || [],
+      canales: inyectarSilenciado(publicos),
+      grupos: inyectarSilenciado(grupos),
+      privados: inyectarSilenciado(privados),
     })
   } catch (err) {
     console.error('Error al obtener canales internos:', err)
@@ -85,7 +99,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { nombre, descripcion, tipo = 'publico', icono, color, miembros = [] } = body
+    const { nombre, descripcion, tipo = 'publico', icono, color, miembros = [], sector_ids = [] } = body
 
     if (!nombre) {
       return NextResponse.json({ error: 'nombre es requerido' }, { status: 400 })
@@ -131,10 +145,34 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error
 
-    // Agregar creador como admin del canal
+    // Expandir sectores a usuario_ids
+    let todosLosIds = new Set<string>(miembros)
+    if (sector_ids.length > 0) {
+      const { data: miembrosSector } = await admin
+        .from('miembros_sectores')
+        .select('miembro_id')
+        .in('sector_id', sector_ids)
+
+      if (miembrosSector && miembrosSector.length > 0) {
+        const { data: miembrosEmpresa } = await admin
+          .from('miembros')
+          .select('usuario_id')
+          .in('id', miembrosSector.map(ms => ms.miembro_id))
+          .eq('empresa_id', empresaId)
+          .eq('activo', true)
+
+        for (const m of miembrosEmpresa || []) {
+          todosLosIds.add(m.usuario_id)
+        }
+      }
+    }
+    // Quitar al creador del set (se agrega como admin aparte)
+    todosLosIds.delete(user.id)
+
+    // Agregar creador como admin + miembros
     const miembrosData = [
       { canal_id: canal.id, usuario_id: user.id, rol: 'admin' },
-      ...(miembros || []).map((uid: string) => ({
+      ...[...todosLosIds].map((uid: string) => ({
         canal_id: canal.id,
         usuario_id: uid,
         rol: 'miembro',

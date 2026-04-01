@@ -193,14 +193,16 @@ export async function POST(request: NextRequest) {
           // Canal interno: notificar a los miembros del canal (excepto el remitente)
           const { data: miembrosCanal } = await admin
             .from('canal_interno_miembros')
-            .select('usuario_id')
-            .eq('canal_interno_id', conv.canal_interno_id)
+            .select('usuario_id, silenciado')
+            .eq('canal_id', conv.canal_interno_id)
             .neq('usuario_id', user.id)
 
-          if (miembrosCanal && miembrosCanal.length > 0) {
+          // Filtrar miembros silenciados — no reciben notificaciones
+          const miembrosActivos = (miembrosCanal || []).filter(m => !m.silenciado)
+          if (miembrosActivos.length > 0) {
             const { crearNotificacionesBatch } = await import('@/lib/notificaciones')
             await crearNotificacionesBatch(
-              miembrosCanal.map((m) => ({
+              miembrosActivos.map((m) => ({
                 empresaId,
                 usuarioId: m.usuario_id,
                 tipo: 'mensaje_interno',

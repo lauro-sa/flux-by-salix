@@ -42,6 +42,7 @@ export interface CanalInbox {
   estado_conexion: EstadoConexion
   ultimo_error: string | null
   ultima_sincronizacion: string | null
+  modulos_disponibles: string[]
   creado_por: string
   creado_en: string
   actualizado_en: string
@@ -239,7 +240,7 @@ export interface MensajeAdjunto {
 
 // ─── Canales internos (estilo Slack) ───
 
-export type TipoCanalInterno = 'publico' | 'privado' | 'directo'
+export type TipoCanalInterno = 'publico' | 'privado' | 'directo' | 'grupo'
 
 export interface CanalInterno {
   id: string
@@ -257,6 +258,17 @@ export interface CanalInterno {
   creado_por: string
   creado_en: string
   actualizado_en: string
+  /** Estado de silenciado para el usuario actual (viene del JOIN con canal_interno_miembros) */
+  silenciado?: boolean
+}
+
+/** Lectura de un mensaje (read receipt) */
+export interface MensajeLectura {
+  mensaje_id: string
+  usuario_id: string
+  nombre?: string
+  apellido?: string
+  leido_en: string
 }
 
 export interface CanalInternoMiembro {
@@ -433,6 +445,7 @@ export interface CrearCanalInternoPayload {
   icono?: string
   color?: string
   miembros?: string[] // usuario_ids
+  sector_ids?: string[] // se expanden a usuario_ids al crear
 }
 
 export interface CrearPlantillaPayload {
