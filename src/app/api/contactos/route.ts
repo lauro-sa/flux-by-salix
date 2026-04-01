@@ -158,7 +158,8 @@ export async function GET(request: NextRequest) {
       por_pagina,
       total_paginas: Math.ceil((count || 0) / por_pagina),
     })
-  } catch {
+  } catch (err) {
+    registrarError(err, { ruta: '/api/contactos', accion: 'listar' })
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }
@@ -419,7 +420,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(contacto, { status: 201 })
-  } catch {
+  } catch (err) {
+    registrarError(err, { ruta: '/api/contactos', accion: 'crear' })
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }

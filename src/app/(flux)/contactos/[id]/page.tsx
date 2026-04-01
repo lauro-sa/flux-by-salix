@@ -498,10 +498,10 @@ export default function PaginaContacto() {
       }
 
       setErrorGuardado(nuevo.error || 'Error al crear el contacto')
-      creadoRef.current = false
+      // Solo permitir reintento en errores de validación (400), no en 500/403
+      if (res.status < 500 && res.status !== 403) creadoRef.current = false
     } catch {
       setErrorGuardado('Error de conexión')
-      creadoRef.current = false
     } finally { setGuardando(false) }
   }, [guardando, nombreCompleto, esPersona, tipoContactoId, campos, datosFiscales, paisContacto, etiquetas, direcciones, vinculacionesPendientes, router])
 
@@ -652,12 +652,12 @@ export default function PaginaContacto() {
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button onClick={aceptarProvisorio} disabled={accionandoProvisorio}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors text-white"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors text-white cursor-pointer"
                   style={{ background: 'var(--insignia-exito)' }}>
                   <UserCheck size={14} />Aceptar
                 </button>
                 <button onClick={descartarProvisorio} disabled={accionandoProvisorio}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer"
                   style={{ color: 'var(--insignia-peligro)', background: 'var(--superficie-hover)' }}>
                   <Trash2 size={14} />Descartar
                 </button>
