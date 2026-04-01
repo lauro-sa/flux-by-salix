@@ -724,6 +724,7 @@ export function CompositorMensaje({
             <textarea
               ref={textareaRef}
               value={texto}
+              maxLength={tipoCanal === 'whatsapp' ? 4096 : undefined}
               onChange={(e) => {
                 const valor = e.target.value
                 setTexto(valor)

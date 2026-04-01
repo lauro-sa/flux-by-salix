@@ -13,6 +13,7 @@ import {
   Plus, Pen, Columns2, Rows2, ArrowLeft, RefreshCw,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
+import { ErrorBoundary } from '@/componentes/feedback/ErrorBoundary'
 import { ListaConversaciones } from './_componentes/ListaConversaciones'
 import { PanelWhatsApp, VisorMedia, type MediaVisor } from './_componentes/PanelWhatsApp'
 import { PanelCorreo } from './_componentes/PanelCorreo'
@@ -73,6 +74,9 @@ export default function PaginaInbox() {
   const [mensajes, setMensajes] = useState<MensajeConAdjuntos[]>([])
   const [cargandoMensajes, setCargandoMensajes] = useState(false)
   const [enviando, setEnviando] = useState(false)
+  const [hayMasAnteriores, setHayMasAnteriores] = useState(false)
+  const [cargandoAnteriores, setCargandoAnteriores] = useState(false)
+  const paginaMensajesRef = useRef(1)
 
   // Canales internos
   const [canalesPublicos, setCanalesPublicos] = useState<CanalInterno[]>([])
@@ -340,16 +344,51 @@ export default function PaginaInbox() {
     if (!conv) return
 
     setCargandoMensajes(true)
+    paginaMensajesRef.current = 1
     try {
-      const res = await fetch(`/api/inbox/mensajes?conversacion_id=${id}&por_pagina=200`)
+      const POR_PAGINA = 200
+      const res = await fetch(`/api/inbox/mensajes?conversacion_id=${id}&por_pagina=${POR_PAGINA}`)
       const data = await res.json()
-      setMensajes(data.mensajes || [])
+      const msgs = data.mensajes || []
+      setMensajes(msgs)
+      setHayMasAnteriores((data.total || 0) > msgs.length)
     } catch {
       setMensajes([])
+      setHayMasAnteriores(false)
     } finally {
       setCargandoMensajes(false)
     }
   }, [conversaciones])
+
+  // Cargar mensajes anteriores (scroll infinito)
+  const cargarMensajesAnteriores = useCallback(async () => {
+    const convId = conversacionSeleccionada?.id
+    if (!convId || cargandoAnteriores || !hayMasAnteriores) return
+
+    setCargandoAnteriores(true)
+    try {
+      const POR_PAGINA = 200
+      const pagina = paginaMensajesRef.current + 1
+      const res = await fetch(`/api/inbox/mensajes?conversacion_id=${convId}&por_pagina=${POR_PAGINA}&pagina=${pagina}`)
+      const data = await res.json()
+      if (conversacionIdRef.current !== convId) return
+
+      const anteriores = (data.mensajes || []) as MensajeConAdjuntos[]
+      if (anteriores.length > 0) {
+        paginaMensajesRef.current = pagina
+        setMensajes(prev => {
+          const idsExistentes = new Set(prev.map(m => m.id))
+          const nuevos = anteriores.filter(m => !idsExistentes.has(m.id))
+          return [...nuevos, ...prev]
+        })
+      }
+      setHayMasAnteriores(anteriores.length >= POR_PAGINA)
+    } catch {
+      // silenciar
+    } finally {
+      setCargandoAnteriores(false)
+    }
+  }, [conversacionSeleccionada?.id, cargandoAnteriores, hayMasAnteriores])
 
   // Enviar mensaje con optimistic update (se muestra inmediato, si falla se marca error)
   const enviarMensaje = useCallback(async (datos: DatosMensaje) => {
@@ -542,6 +581,7 @@ export default function PaginaInbox() {
         } else {
           setMensajes(prev => [...prev, { ...data.mensaje, adjuntos: [] }])
         }
+        mostrar('exito', 'Correo enviado')
       }
     } catch {
       mostrar('error', 'Error al enviar el correo')
@@ -584,10 +624,11 @@ export default function PaginaInbox() {
         setConversacionSeleccionada(null)
         setMensajes([])
       }
+      mostrar('info', 'Marcado como spam')
     } catch {
-      mostrar('error', 'Ocurrió un error')
+      mostrar('error', 'Error al marcar como spam')
     }
-  }, [conversacionSeleccionada])
+  }, [conversacionSeleccionada, mostrar])
 
   // Desmarcar spam (devolver a abierta)
   const desmarcarSpam = useCallback(async (conversacionId: string) => {
@@ -608,10 +649,11 @@ export default function PaginaInbox() {
       if (conversacionSeleccionada?.id === conversacionId) {
         setConversacionSeleccionada(prev => prev ? { ...prev, estado: 'abierta' } : prev)
       }
+      mostrar('exito', 'Restaurado de spam')
     } catch {
-      mostrar('error', 'Ocurrió un error')
+      mostrar('error', 'Error al restaurar de spam')
     }
-  }, [conversacionSeleccionada, filtroEstado])
+  }, [conversacionSeleccionada, filtroEstado, mostrar])
 
   // Marcar leído/no leído
   const toggleLeido = useCallback(async (conversacionId: string, sinLeer: number) => {
@@ -629,26 +671,25 @@ export default function PaginaInbox() {
         setConversacionSeleccionada(prev => prev ? { ...prev, mensajes_sin_leer: nuevoValor } : prev)
       }
     } catch {
-      mostrar('error', 'Ocurrió un error')
+      mostrar('error', 'Error al cambiar estado de lectura')
     }
-  }, [conversacionSeleccionada])
+  }, [conversacionSeleccionada, mostrar])
 
   // Eliminar múltiples conversaciones (selección masiva)
   const eliminarMultiples = useCallback(async (ids: string[]) => {
+    let errores = 0
     for (const id of ids) {
       try {
         if (tabActivo === 'correo') {
-          // Para correo: eliminar también del servidor IMAP/Gmail
           await fetch('/api/inbox/correo/eliminar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ conversacion_id: id }),
           })
         } else {
-          // Para WhatsApp/interno: eliminar solo de Flux
           await fetch(`/api/inbox/conversaciones/${id}`, { method: 'DELETE' })
         }
-      } catch { /* continuar con las demás */ }
+      } catch { errores++ }
     }
     setConversaciones(prev => prev.filter(c => !ids.includes(c.id)))
     if (conversacionSeleccionada && ids.includes(conversacionSeleccionada.id)) {
@@ -656,7 +697,12 @@ export default function PaginaInbox() {
       setMensajes([])
     }
     cargarContadores()
-  }, [conversacionSeleccionada, cargarContadores, tabActivo])
+    if (errores > 0) {
+      mostrar('advertencia', `${ids.length - errores} de ${ids.length} eliminadas (${errores} fallaron)`)
+    } else {
+      mostrar('exito', `${ids.length} conversación${ids.length > 1 ? 'es' : ''} eliminada${ids.length > 1 ? 's' : ''}`)
+    }
+  }, [conversacionSeleccionada, cargarContadores, tabActivo, mostrar])
 
   // Eliminar conversación (de Flux + servidor IMAP/Gmail)
   const eliminarConversacion = useCallback(async (conversacionId: string) => {
@@ -671,10 +717,11 @@ export default function PaginaInbox() {
         setConversacionSeleccionada(null)
         setMensajes([])
       }
+      mostrar('exito', 'Conversación eliminada')
     } catch {
-      mostrar('error', 'Ocurrió un error')
+      mostrar('error', 'Error al eliminar la conversación')
     }
-  }, [conversacionSeleccionada])
+  }, [conversacionSeleccionada, mostrar])
 
   // Archivar conversación (marcar como resuelta)
   const archivarConversacion = useCallback(async (conversacionId: string) => {
@@ -689,10 +736,11 @@ export default function PaginaInbox() {
         setConversacionSeleccionada(null)
         setMensajes([])
       }
+      mostrar('exito', 'Conversación archivada')
     } catch {
-      mostrar('error', 'Ocurrió un error')
+      mostrar('error', 'Error al archivar')
     }
-  }, [conversacionSeleccionada])
+  }, [conversacionSeleccionada, mostrar])
 
   // ─── Supabase Realtime: mensajes nuevos en la conversación activa ───
   const conversacionIdRef = useRef<string | null>(null)
@@ -1036,7 +1084,7 @@ export default function PaginaInbox() {
                       />
                     </div>
                   ) : (
-                    <PanelCorreo
+                    <ErrorBoundary mensaje="Error en el panel de correo"><PanelCorreo
                       conversacion={conversacionSeleccionada}
                       mensajes={mensajes}
                       onEnviarCorreo={enviarCorreo}
@@ -1049,7 +1097,7 @@ export default function PaginaInbox() {
                       enviando={enviando}
                       emailCanal={emailCanalActivo}
                       firma={firmaCorreo}
-                    />
+                    /></ErrorBoundary>
                   )}
                 </div>
               </>
@@ -1111,7 +1159,7 @@ export default function PaginaInbox() {
                       />
                     </div>
                   ) : conversacionSeleccionada ? (
-                    <PanelCorreo
+                    <ErrorBoundary mensaje="Error en el panel de correo"><PanelCorreo
                       conversacion={conversacionSeleccionada}
                       mensajes={mensajes}
                       onEnviarCorreo={enviarCorreo}
@@ -1124,7 +1172,7 @@ export default function PaginaInbox() {
                       enviando={enviando}
                       emailCanal={emailCanalActivo}
                       firma={firmaCorreo}
-                    />
+                    /></ErrorBoundary>
                   ) : (
                     <div className="flex-1 overflow-hidden">
                       <ListaConversaciones
@@ -1187,6 +1235,7 @@ export default function PaginaInbox() {
                 }}
               />
             </div>
+            <ErrorBoundary mensaje="Error en el panel de WhatsApp">
             <PanelWhatsApp
               conversacion={conversacionSeleccionada}
               mensajes={mensajes}
@@ -1226,7 +1275,11 @@ export default function PaginaInbox() {
               }}
               cargando={cargandoMensajes}
               enviando={enviando}
+              onCargarAnteriores={cargarMensajesAnteriores}
+              hayMasAnteriores={hayMasAnteriores}
+              cargandoAnteriores={cargandoAnteriores}
             />
+            </ErrorBoundary>
           </>
         )}
 

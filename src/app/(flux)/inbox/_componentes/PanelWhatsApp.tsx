@@ -36,6 +36,12 @@ interface PropiedadesPanelWhatsApp {
   onEtiquetasCambiaron?: (etiquetas: string[]) => void
   cargando: boolean
   enviando: boolean
+  /** Callback para cargar mensajes anteriores (scroll infinito) */
+  onCargarAnteriores?: () => void
+  /** Si hay más mensajes anteriores para cargar */
+  hayMasAnteriores?: boolean
+  /** Si se están cargando mensajes anteriores */
+  cargandoAnteriores?: boolean
 }
 
 // Iconos de estado de entrega
@@ -201,6 +207,9 @@ export function PanelWhatsApp({
   onEtiquetasCambiaron,
   cargando,
   enviando,
+  onCargarAnteriores,
+  hayMasAnteriores = false,
+  cargandoAnteriores = false,
 }: PropiedadesPanelWhatsApp) {
   const { t } = useTraduccion()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -248,15 +257,39 @@ export function PanelWhatsApp({
   // Pre-procesar elementos de chat
   const elementos = useMemo(() => prepararElementos(mensajes), [mensajes])
 
-  // Auto-scroll al último mensaje (con delay para esperar render completo)
+  // Trackear si el usuario está cerca del fondo (para auto-scroll inteligente)
+  const estaCercaDelFondoRef = useRef(true)
+
+  // Auto-scroll al último mensaje, pero solo si estaba cerca del fondo
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    // Intentar inmediato + con delay para imágenes/media que cargan después
-    el.scrollTop = el.scrollHeight
-    const t = setTimeout(() => { el.scrollTop = el.scrollHeight }, 100)
-    return () => clearTimeout(t)
+    if (estaCercaDelFondoRef.current) {
+      el.scrollTop = el.scrollHeight
+      const t = setTimeout(() => { el.scrollTop = el.scrollHeight }, 100)
+      return () => clearTimeout(t)
+    }
   }, [mensajes])
+
+  // Detectar scroll: si llega al tope → cargar anteriores, trackear posición
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    // Trackear si está cerca del fondo (dentro de 150px)
+    estaCercaDelFondoRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150
+    // Si llega al tope, cargar anteriores
+    if (el.scrollTop < 50 && hayMasAnteriores && !cargandoAnteriores && onCargarAnteriores) {
+      const scrollHeightAntes = el.scrollHeight
+      onCargarAnteriores()
+      // Preservar posición de scroll después de insertar mensajes arriba
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const diff = el.scrollHeight - scrollHeightAntes
+          if (diff > 0) el.scrollTop = diff
+        })
+      })
+    }
+  }, [hayMasAnteriores, cargandoAnteriores, onCargarAnteriores])
 
   if (!conversacion) {
     return (
@@ -380,12 +413,29 @@ export function PanelWhatsApp({
       {/* Mensajes */}
       <div
         ref={scrollRef}
+        onScroll={handleScroll}
         className="flex-1 overflow-y-auto px-4 py-3 space-y-1 relative"
         style={{
           backgroundImage: 'radial-gradient(circle at 25% 25%, var(--superficie-hover) 1px, transparent 1px)',
           backgroundSize: '24px 24px',
         }}
       >
+        {/* Indicador de carga de mensajes anteriores */}
+        {cargandoAnteriores && (
+          <div className="flex justify-center py-2">
+            <div className="flex gap-1">
+              {[0, 1, 2].map((i) => (
+                <motion.div
+                  key={i}
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ background: 'var(--texto-terciario)' }}
+                  animate={{ opacity: [0.3, 1, 0.3] }}
+                  transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
         {cargando ? (
           <div className="flex items-center justify-center h-full">
             <div className="flex gap-1">
