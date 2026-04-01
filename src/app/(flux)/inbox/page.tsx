@@ -20,6 +20,7 @@ import { PanelCorreo } from './_componentes/PanelCorreo'
 import { CompositorCorreo, type DatosCorreo } from './_componentes/CompositorCorreo'
 import { SidebarCorreo, type CarpetaCorreo } from './_componentes/SidebarCorreo'
 import { PanelInterno } from './_componentes/PanelInterno'
+import { ModalCrearCanalInterno } from './_componentes/ModalCrearCanalInterno'
 import { PanelInfoContacto } from './_componentes/PanelInfoContacto'
 import type {
   TipoCanal, EstadoConversacion, ConversacionConDetalles,
@@ -81,7 +82,10 @@ export default function PaginaInbox() {
   // Canales internos
   const [canalesPublicos, setCanalesPublicos] = useState<CanalInterno[]>([])
   const [canalesPrivados, setCanalesPrivados] = useState<CanalInterno[]>([])
+  const [canalesGrupos, setCanalesGrupos] = useState<CanalInterno[]>([])
   const [canalInternoSeleccionado, setCanalInternoSeleccionado] = useState<CanalInterno | null>(null)
+  const [modalCrearInterno, setModalCrearInterno] = useState(false)
+  const [usuarioId, setUsuarioId] = useState<string>('')
 
   // Panel info contacto
   const [panelInfoAbierto, setPanelInfoAbierto] = useState(false)
@@ -320,21 +324,30 @@ export default function PaginaInbox() {
     return () => clearInterval(intervalo)
   }, [tabActivo, sincronizarCorreos])
 
+  // Obtener userId del usuario autenticado
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setUsuarioId(data.user.id)
+    })
+  }, [supabase])
+
   // Cargar canales internos
+  const cargarCanalesInternos = useCallback(async () => {
+    try {
+      const res = await fetch('/api/inbox/internos')
+      const data = await res.json()
+      setCanalesPublicos(data.canales || [])
+      setCanalesGrupos(data.grupos || [])
+      setCanalesPrivados(data.privados || [])
+    } catch {
+      // silenciar
+    }
+  }, [])
+
   useEffect(() => {
     if (tabActivo !== 'interno') return
-    const cargar = async () => {
-      try {
-        const res = await fetch('/api/inbox/internos')
-        const data = await res.json()
-        setCanalesPublicos(data.canales || [])
-        setCanalesPrivados(data.privados || [])
-      } catch {
-        // silenciar
-      }
-    }
-    cargar()
-  }, [tabActivo])
+    cargarCanalesInternos()
+  }, [tabActivo, cargarCanalesInternos])
 
   // Cuando se selecciona un canal interno, buscar/crear conversación y cargar mensajes
   useEffect(() => {
@@ -1318,18 +1331,29 @@ export default function PaginaInbox() {
         )}
 
         {tabActivo === 'interno' && (
-          <PanelInterno
-            conversacion={conversacionSeleccionada}
-            mensajes={mensajes}
-            canalesPublicos={canalesPublicos}
-            canalesPrivados={canalesPrivados}
-            canalSeleccionado={canalInternoSeleccionado}
-            onSeleccionarCanal={setCanalInternoSeleccionado}
-            onCrearCanal={() => mostrar('info', 'Crear canales desde Configuración > Interno')}
-            onEnviar={enviarMensaje}
-            cargando={cargandoMensajes}
-            enviando={enviando}
-          />
+          <>
+            <ErrorBoundary mensaje="Error en mensajería interna">
+              <PanelInterno
+                conversacion={conversacionSeleccionada}
+                mensajes={mensajes}
+                canalesPublicos={canalesPublicos}
+                canalesPrivados={canalesPrivados}
+                canalesGrupos={canalesGrupos}
+                canalSeleccionado={canalInternoSeleccionado}
+                onSeleccionarCanal={setCanalInternoSeleccionado}
+                onCrearCanal={() => setModalCrearInterno(true)}
+                onEnviar={enviarMensaje}
+                cargando={cargandoMensajes}
+                enviando={enviando}
+                usuarioId={usuarioId}
+              />
+            </ErrorBoundary>
+            <ModalCrearCanalInterno
+              abierto={modalCrearInterno}
+              onCerrar={() => setModalCrearInterno(false)}
+              onCreado={cargarCanalesInternos}
+            />
+          </>
         )}
 
         {/* Panel derecho: info contacto + galería de medios (solo WhatsApp) */}

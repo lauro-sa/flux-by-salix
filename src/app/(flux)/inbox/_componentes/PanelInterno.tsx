@@ -1,20 +1,22 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { Boton } from '@/componentes/ui/Boton'
-import { Insignia } from '@/componentes/ui/Insignia'
 import {
   Hash, Lock, MessageSquare, Plus, ChevronRight,
-  Users, Settings, Smile, AtSign, Reply,
+  Users, Settings, Smile, AtSign, Reply, X,
+  BellOff, Bell, LogOut, Check, CheckCheck,
+  MoreHorizontal, UserPlus, Pencil, Archive,
 } from 'lucide-react'
 import { CompositorMensaje, type DatosMensaje } from './CompositorMensaje'
+import { useTraduccion } from '@/lib/i18n'
 import type { MensajeConAdjuntos, CanalInterno, Conversacion } from '@/tipos/inbox'
 
 /**
  * Panel de mensajería interna — estilo Slack.
- * Muestra: canales (públicos/privados), DMs, mensajes con hilos.
+ * Muestra: canales, grupos, DMs. Soporta silenciar, salir, read receipts.
  */
 
 interface PropiedadesPanelInterno {
@@ -22,12 +24,15 @@ interface PropiedadesPanelInterno {
   mensajes: MensajeConAdjuntos[]
   canalesPublicos: CanalInterno[]
   canalesPrivados: CanalInterno[]
+  canalesGrupos?: CanalInterno[]
   canalSeleccionado: CanalInterno | null
   onSeleccionarCanal: (canal: CanalInterno) => void
   onCrearCanal: () => void
   onEnviar: (datos: DatosMensaje) => void
   cargando: boolean
   enviando: boolean
+  /** ID del usuario actual para read receipts */
+  usuarioId?: string
 }
 
 function formatoHoraInterno(fecha: string): string {
@@ -44,16 +49,20 @@ export function PanelInterno({
   mensajes,
   canalesPublicos,
   canalesPrivados,
+  canalesGrupos = [],
   canalSeleccionado,
   onSeleccionarCanal,
   onCrearCanal,
   onEnviar,
   cargando,
   enviando,
+  usuarioId,
 }: PropiedadesPanelInterno) {
+  const { t } = useTraduccion()
   const [respondiendo, setRespondiendo] = useState<{ id: string; texto: string; autor: string } | null>(null)
   const [hiloAbierto, setHiloAbierto] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [menuCanal, setMenuCanal] = useState(false)
 
   // Auto-scroll
   useEffect(() => {
@@ -61,6 +70,53 @@ export function PanelInterno({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [mensajes])
+
+  // Cerrar menú al click fuera
+  useEffect(() => {
+    if (!menuCanal) return
+    const cerrar = () => setMenuCanal(false)
+    document.addEventListener('mousedown', cerrar)
+    return () => document.removeEventListener('mousedown', cerrar)
+  }, [menuCanal])
+
+  // Silenciar canal
+  const toggleSilenciar = useCallback(async () => {
+    if (!canalSeleccionado) return
+    try {
+      const res = await fetch(`/api/inbox/internos/${canalSeleccionado.id}/silenciar`, { method: 'POST' })
+      const data = await res.json()
+      if (data.silenciado !== undefined) {
+        // Forzar re-render del canal en la sidebar
+        onSeleccionarCanal({ ...canalSeleccionado, silenciado: data.silenciado })
+      }
+    } catch { /* silenciar */ }
+    setMenuCanal(false)
+  }, [canalSeleccionado, onSeleccionarCanal])
+
+  // Salir del grupo
+  const salirDelGrupo = useCallback(async () => {
+    if (!canalSeleccionado || canalSeleccionado.tipo !== 'grupo') return
+    if (!confirm('¿Querés salir de este grupo?')) return
+    try {
+      await fetch(`/api/inbox/internos/${canalSeleccionado.id}/miembros`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      // Recargar — el padre debería refrescar los canales
+      window.location.reload()
+    } catch { /* silenciar */ }
+  }, [canalSeleccionado])
+
+  // Marcar como leído al seleccionar canal
+  useEffect(() => {
+    if (!canalSeleccionado) return
+    fetch(`/api/inbox/internos/${canalSeleccionado.id}/lecturas`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    }).catch(() => {})
+  }, [canalSeleccionado?.id])
 
   return (
     <div className="flex-1 flex" style={{ background: 'var(--superficie-app)' }}>
@@ -81,12 +137,13 @@ export function PanelInterno({
             onClick={onCrearCanal}
             className="p-1 rounded transition-colors"
             style={{ color: 'var(--texto-terciario)' }}
+            aria-label="Crear canal o grupo"
           >
             <Plus size={16} />
           </button>
         </div>
 
-        {/* Canales públicos */}
+        {/* Canales (públicos + privados) */}
         <div className="px-2 pt-3">
           <p className="text-xxs font-semibold uppercase tracking-wider px-2 mb-1" style={{ color: 'var(--texto-terciario)' }}>
             Canales
@@ -99,15 +156,40 @@ export function PanelInterno({
               onClick={() => onSeleccionarCanal(canal)}
             />
           ))}
+          {canalesPrivados.filter(c => c.tipo === 'privado').map((canal) => (
+            <CanalItem
+              key={canal.id}
+              canal={canal}
+              seleccionado={canalSeleccionado?.id === canal.id}
+              onClick={() => onSeleccionarCanal(canal)}
+            />
+          ))}
         </div>
 
-        {/* Canales privados + DMs */}
-        {canalesPrivados.length > 0 && (
+        {/* Grupos */}
+        {canalesGrupos.length > 0 && (
+          <div className="px-2 pt-3">
+            <p className="text-xxs font-semibold uppercase tracking-wider px-2 mb-1" style={{ color: 'var(--texto-terciario)' }}>
+              Grupos
+            </p>
+            {canalesGrupos.map((canal) => (
+              <CanalItem
+                key={canal.id}
+                canal={canal}
+                seleccionado={canalSeleccionado?.id === canal.id}
+                onClick={() => onSeleccionarCanal(canal)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Mensajes directos */}
+        {canalesPrivados.filter(c => c.tipo === 'directo').length > 0 && (
           <div className="px-2 pt-3">
             <p className="text-xxs font-semibold uppercase tracking-wider px-2 mb-1" style={{ color: 'var(--texto-terciario)' }}>
               Mensajes directos
             </p>
-            {canalesPrivados.map((canal) => (
+            {canalesPrivados.filter(c => c.tipo === 'directo').map((canal) => (
               <CanalItem
                 key={canal.id}
                 canal={canal}
@@ -131,7 +213,7 @@ export function PanelInterno({
                 <Hash size={32} style={{ color: 'var(--canal-interno)' }} />
               </div>
               <p className="text-sm" style={{ color: 'var(--texto-secundario)' }}>
-                Seleccioná un canal o conversación
+                {t('inbox.seleccionar_conversacion')}
               </p>
             </div>
           </div>
@@ -149,28 +231,68 @@ export function PanelInterno({
                 <Hash size={18} style={{ color: 'var(--canal-interno)' }} />
               ) : canalSeleccionado.tipo === 'privado' ? (
                 <Lock size={18} style={{ color: 'var(--canal-interno)' }} />
+              ) : canalSeleccionado.tipo === 'grupo' ? (
+                <Users size={18} style={{ color: 'var(--canal-interno)' }} />
               ) : (
                 <Avatar nombre={canalSeleccionado.nombre} tamano="xs" />
               )}
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
-                  {canalSeleccionado.tipo === 'directo'
-                    ? canalSeleccionado.nombre
-                    : `#${canalSeleccionado.nombre}`}
-                </h3>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+                    {canalSeleccionado.tipo === 'directo'
+                      ? canalSeleccionado.nombre
+                      : `#${canalSeleccionado.nombre}`}
+                  </h3>
+                  {canalSeleccionado.silenciado && (
+                    <BellOff size={12} style={{ color: 'var(--texto-terciario)' }} />
+                  )}
+                </div>
                 {canalSeleccionado.descripcion && (
                   <p className="text-xxs truncate" style={{ color: 'var(--texto-terciario)' }}>
                     {canalSeleccionado.descripcion}
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-1">
-                <button className="p-1.5 rounded transition-colors" style={{ color: 'var(--texto-terciario)' }}>
-                  <Users size={16} />
+              {/* Menú de acciones del canal */}
+              <div className="relative">
+                <button
+                  onClick={() => setMenuCanal(prev => !prev)}
+                  className="p-1.5 rounded transition-colors"
+                  style={{ color: 'var(--texto-terciario)' }}
+                  aria-label="Opciones del canal"
+                >
+                  <MoreHorizontal size={16} />
                 </button>
-                <button className="p-1.5 rounded transition-colors" style={{ color: 'var(--texto-terciario)' }}>
-                  <Settings size={16} />
-                </button>
+                <AnimatePresence>
+                  {menuCanal && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="absolute right-0 top-full mt-1 z-50 rounded-lg py-1 min-w-[180px]"
+                      style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
+                      onMouseDown={e => e.stopPropagation()}
+                    >
+                      <button
+                        onClick={toggleSilenciar}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors"
+                        style={{ color: 'var(--texto-secundario)' }}
+                      >
+                        {canalSeleccionado.silenciado ? <Bell size={12} /> : <BellOff size={12} />}
+                        {canalSeleccionado.silenciado ? 'Activar notificaciones' : 'Silenciar'}
+                      </button>
+                      {canalSeleccionado.tipo === 'grupo' && (
+                        <button
+                          onClick={salirDelGrupo}
+                          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors"
+                          style={{ color: 'var(--insignia-peligro)' }}
+                        >
+                          <LogOut size={12} /> Salir del grupo
+                        </button>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
 
@@ -190,12 +312,19 @@ export function PanelInterno({
                     ))}
                   </div>
                 </div>
+              ) : mensajes.length === 0 ? (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
+                    No hay mensajes todavía. Enviá el primero.
+                  </p>
+                </div>
               ) : (
                 <div className="space-y-4">
                   {mensajes.map((msg) => (
                     <MensajeInterno
                       key={msg.id}
                       mensaje={msg}
+                      esPropio={msg.remitente_id === usuarioId}
                       onResponder={() => setRespondiendo({
                         id: msg.id,
                         texto: msg.texto || '',
@@ -240,10 +369,11 @@ export function PanelInterno({
               </span>
               <button
                 onClick={() => setHiloAbierto(null)}
-                className="text-xs"
+                className="p-1 rounded transition-colors"
                 style={{ color: 'var(--texto-terciario)' }}
+                aria-label="Cerrar hilo"
               >
-                Cerrar
+                <X size={14} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-3">
@@ -289,31 +419,54 @@ function CanalItem({
         <Hash size={14} style={{ color: 'var(--texto-terciario)' }} />
       ) : canal.tipo === 'privado' ? (
         <Lock size={14} style={{ color: 'var(--texto-terciario)' }} />
+      ) : canal.tipo === 'grupo' ? (
+        <Users size={14} style={{ color: 'var(--texto-terciario)' }} />
       ) : (
         <Avatar nombre={canal.nombre} tamano="xs" />
       )}
       <span className="truncate flex-1 text-left">{canal.nombre}</span>
+      {canal.silenciado && (
+        <BellOff size={10} style={{ color: 'var(--texto-terciario)' }} />
+      )}
     </button>
   )
 }
 
-// Mensaje individual estilo Slack
+// Mensaje individual estilo Slack con read receipts
 function MensajeInterno({
   mensaje,
+  esPropio = false,
   onResponder,
   onAbrirHilo,
 }: {
   mensaje: MensajeConAdjuntos
+  esPropio?: boolean
   onResponder: () => void
   onAbrirHilo: () => void
 }) {
   const [mostrarAcciones, setMostrarAcciones] = useState(false)
+  const [lecturas, setLecturas] = useState<{ leido_por: { nombre: string; leido_en: string }[]; sin_leer: { nombre: string }[] } | null>(null)
+  const [mostrarLecturas, setMostrarLecturas] = useState(false)
+
+  // Cargar lecturas al hacer click (lazy load)
+  const cargarLecturas = useCallback(async () => {
+    if (lecturas) {
+      setMostrarLecturas(prev => !prev)
+      return
+    }
+    try {
+      const res = await fetch(`/api/inbox/mensajes/${mensaje.id}/lecturas`)
+      const data = await res.json()
+      setLecturas(data)
+      setMostrarLecturas(true)
+    } catch { /* silenciar */ }
+  }, [mensaje.id, lecturas])
 
   return (
     <div
       className="group flex gap-2.5 px-1 py-0.5 rounded-md transition-colors relative"
       onMouseEnter={() => setMostrarAcciones(true)}
-      onMouseLeave={() => setMostrarAcciones(false)}
+      onMouseLeave={() => { setMostrarAcciones(false); setMostrarLecturas(false) }}
       style={{ background: mostrarAcciones ? 'var(--superficie-hover)' : 'transparent' }}
     >
       <Avatar nombre={mensaje.remitente_nombre || '?'} tamano="sm" />
@@ -326,6 +479,17 @@ function MensajeInterno({
           <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
             {formatoHoraInterno(mensaje.creado_en)}
           </span>
+          {/* Read receipt indicator (solo en mensajes propios) */}
+          {esPropio && (
+            <button
+              onClick={cargarLecturas}
+              className="flex items-center gap-0.5 text-xxs transition-colors relative"
+              style={{ color: 'var(--texto-terciario)' }}
+              title="Ver quién leyó"
+            >
+              <CheckCheck size={12} />
+            </button>
+          )}
         </div>
 
         {/* Texto */}
@@ -367,6 +531,48 @@ function MensajeInterno({
           </div>
         )}
 
+        {/* Popover de lecturas */}
+        <AnimatePresence>
+          {mostrarLecturas && lecturas && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              className="mt-1 rounded-lg p-2 text-xs"
+              style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+            >
+              {lecturas.leido_por.length > 0 && (
+                <div className="mb-1.5">
+                  <p className="font-semibold mb-0.5" style={{ color: 'var(--texto-secundario)' }}>
+                    Visto por
+                  </p>
+                  {lecturas.leido_por.map((l, i) => (
+                    <div key={i} className="flex items-center justify-between gap-3 py-0.5">
+                      <span style={{ color: 'var(--texto-primario)' }}>{l.nombre}</span>
+                      <span style={{ color: 'var(--texto-terciario)' }}>{formatoHoraInterno(l.leido_en)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {lecturas.sin_leer.length > 0 && (
+                <div>
+                  <p className="font-semibold mb-0.5" style={{ color: 'var(--texto-terciario)' }}>
+                    Sin leer
+                  </p>
+                  {lecturas.sin_leer.map((l, i) => (
+                    <div key={i} className="py-0.5" style={{ color: 'var(--texto-terciario)' }}>
+                      {l.nombre}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {lecturas.leido_por.length === 0 && lecturas.sin_leer.length === 0 && (
+                <p style={{ color: 'var(--texto-terciario)' }}>Sin información de lectura</p>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Reacciones */}
         {mensaje.reacciones && Object.keys(mensaje.reacciones).length > 0 && (
           <div className="flex gap-1 mt-1.5">
@@ -379,7 +585,7 @@ function MensajeInterno({
                   border: '1px solid var(--borde-sutil)',
                 }}
               >
-                {emoji} <span style={{ color: 'var(--texto-secundario)' }}>{usuarios.length}</span>
+                {emoji} <span style={{ color: 'var(--texto-secundario)' }}>{(usuarios as string[]).length}</span>
               </button>
             ))}
           </div>
@@ -413,7 +619,7 @@ function MensajeInterno({
               border: '1px solid var(--borde-sutil)',
             }}
           >
-            <button className="p-1 rounded transition-colors" style={{ color: 'var(--texto-terciario)' }} title="Reaccionar">
+            <button className="p-1 rounded transition-colors" style={{ color: 'var(--texto-terciario)' }} title="Reaccionar" aria-label="Reaccionar">
               <Smile size={14} />
             </button>
             <button
@@ -421,11 +627,9 @@ function MensajeInterno({
               className="p-1 rounded transition-colors"
               style={{ color: 'var(--texto-terciario)' }}
               title="Responder en hilo"
+              aria-label="Responder en hilo"
             >
               <MessageSquare size={14} />
-            </button>
-            <button className="p-1 rounded transition-colors" style={{ color: 'var(--texto-terciario)' }} title="Mencionar">
-              <AtSign size={14} />
             </button>
           </motion.div>
         )}
