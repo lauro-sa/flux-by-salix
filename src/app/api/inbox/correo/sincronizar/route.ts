@@ -163,7 +163,7 @@ async function sincronizarGmail(
       // Si historyId expiró, hacer sync completo
       const errorMsg = (err as Error).message
       if (errorMsg.includes('404') || errorMsg.includes('historyId')) {
-        console.log(`historyId expirado para canal ${canalId}, haciendo sync completo`)
+        console.info(`historyId expirado para canal ${canalId}, haciendo sync completo`)
         return await sincronizarGmailCompleto(admin, canal)
       }
       throw err
@@ -254,11 +254,13 @@ async function sincronizarIMAP(
   admin: ReturnType<typeof crearClienteAdmin>,
   canal: Record<string, unknown>,
 ): Promise<number> {
-  const { obtenerMensajesIMAP } = await import('@/lib/correo-imap')
+  const { obtenerMensajesIMAP, detectarCarpetasIMAP } = await import('@/lib/correo-imap')
   const config = canal.config_conexion as ConfigIMAP
   const cursor = (canal.sync_cursor || {}) as CursorSincronizacion & {
     ultimoUID_sent?: number
     ultimoUID_junk?: number
+    carpeta_sent?: string
+    carpeta_junk?: string
   }
   const empresaId = canal.empresa_id as string
   const canalId = canal.id as string
@@ -270,15 +272,30 @@ async function sincronizarIMAP(
   let ultimoUIDSent = cursor.ultimoUID_sent || 0
   let ultimoUIDJunk = cursor.ultimoUID_junk || 0
 
-  // ─── Carpetas a sincronizar ───
-  const carpetas = [
-    { nombre: 'INBOX', desdeUID: cursor.ultimoUID || 0, estado: 'abierta' as const },
-    { nombre: 'INBOX.Sent', desdeUID: cursor.ultimoUID_sent || 0, estado: 'abierta' as const },
-    { nombre: 'INBOX.Junk', desdeUID: cursor.ultimoUID_junk || 0, estado: 'spam' as const },
-    // Fallbacks por si los nombres son distintos
-    { nombre: 'Sent', desdeUID: cursor.ultimoUID_sent || 0, estado: 'abierta' as const },
-    { nombre: 'Junk', desdeUID: cursor.ultimoUID_junk || 0, estado: 'spam' as const },
+  // Detectar carpetas reales del servidor (solo si no las tenemos en cache)
+  let carpetaSent = cursor.carpeta_sent || null
+  let carpetaJunk = cursor.carpeta_junk || null
+  if (!carpetaSent && !carpetaJunk) {
+    try {
+      const detectadas = await detectarCarpetasIMAP(config)
+      carpetaSent = detectadas.sent
+      carpetaJunk = detectadas.junk
+      console.info(`[IMAP ${emailCanal}] Carpetas detectadas — sent: ${carpetaSent}, junk: ${carpetaJunk}`)
+    } catch (err) {
+      console.error(`[IMAP ${emailCanal}] Error detectando carpetas:`, err)
+    }
+  }
+
+  // Carpetas a sincronizar (solo las que existen)
+  const carpetas: { nombre: string; tipo: 'inbox' | 'sent' | 'junk'; desdeUID: number; estado: 'abierta' | 'spam' }[] = [
+    { nombre: 'INBOX', tipo: 'inbox', desdeUID: ultimoUIDInbox, estado: 'abierta' },
   ]
+  if (carpetaSent) {
+    carpetas.push({ nombre: carpetaSent, tipo: 'sent', desdeUID: ultimoUIDSent, estado: 'abierta' })
+  }
+  if (carpetaJunk) {
+    carpetas.push({ nombre: carpetaJunk, tipo: 'junk', desdeUID: ultimoUIDJunk, estado: 'spam' })
+  }
 
   for (const carpeta of carpetas) {
     try {
@@ -288,7 +305,8 @@ async function sincronizarIMAP(
         limite: 500,
       })
 
-      let procesadosEnBatch = 0
+      console.info(`[IMAP ${emailCanal}] ${carpeta.nombre}: ${resultado.mensajes.length} mensajes nuevos (UID desde ${carpeta.desdeUID}, último UID: ${resultado.ultimoUID})`)
+
       for (const correo of resultado.mensajes) {
         try {
           const procesado = await procesarCorreoEntrante(
@@ -296,42 +314,34 @@ async function sincronizarIMAP(
             carpeta.estado === 'spam' ? 'spam' : undefined,
           )
           if (procesado) mensajesNuevos++
-          procesadosEnBatch++
-
-          if (procesadosEnBatch % 20 === 0) {
-            await admin.from('canales_inbox').update({
-              sync_cursor: {
-                ultimoUID: ultimoUIDInbox,
-                ultimoUID_sent: ultimoUIDSent,
-                ultimoUID_junk: ultimoUIDJunk,
-                ultimaSincronizacion: new Date().toISOString(),
-              },
-            }).eq('id', canalId)
-          }
         } catch (err) {
           console.error(`Error procesando correo ${carpeta.nombre}:`, err)
         }
       }
 
-      // Actualizar UID por carpeta
-      if (carpeta.nombre === 'INBOX' && resultado.ultimoUID > ultimoUIDInbox) {
+      // Actualizar UID por tipo de carpeta
+      if (carpeta.tipo === 'inbox' && resultado.ultimoUID > ultimoUIDInbox) {
         ultimoUIDInbox = resultado.ultimoUID
-      } else if ((carpeta.nombre === 'INBOX.Sent' || carpeta.nombre === 'Sent') && resultado.ultimoUID > ultimoUIDSent) {
+      } else if (carpeta.tipo === 'sent' && resultado.ultimoUID > ultimoUIDSent) {
         ultimoUIDSent = resultado.ultimoUID
-      } else if ((carpeta.nombre === 'INBOX.Junk' || carpeta.nombre === 'Junk') && resultado.ultimoUID > ultimoUIDJunk) {
+      } else if (carpeta.tipo === 'junk' && resultado.ultimoUID > ultimoUIDJunk) {
         ultimoUIDJunk = resultado.ultimoUID
       }
-    } catch {
-      // Carpeta puede no existir — ignorar silenciosamente
+    } catch (err) {
+      // Solo silenciar si no es INBOX (carpeta principal siempre debe existir)
+      if (carpeta.tipo === 'inbox') throw err
+      console.warn(`[IMAP ${emailCanal}] Carpeta ${carpeta.nombre} no accesible:`, (err as Error).message)
     }
   }
 
-  // Guardar cursor con UIDs por carpeta
+  // Guardar cursor con UIDs por carpeta + nombres detectados
   await admin.from('canales_inbox').update({
     sync_cursor: {
       ultimoUID: ultimoUIDInbox,
       ultimoUID_sent: ultimoUIDSent,
       ultimoUID_junk: ultimoUIDJunk,
+      carpeta_sent: carpetaSent,
+      carpeta_junk: carpetaJunk,
       ultimaSincronizacion: new Date().toISOString(),
     },
   }).eq('id', canalId)
@@ -507,20 +517,21 @@ async function procesarCorreoEntrante(
         .update({ mensajes_sin_leer: (convActual.mensajes_sin_leer || 0) + 1 })
         .eq('id', conversacionId)
 
-      // Crear notificación para el agente asignado (si existe)
+      // Crear notificación para el agente asignado (con anti-duplicación)
       if (convActual.asignado_a) {
         try {
-          await admin.from('notificaciones').insert({
-            empresa_id: empresaId,
-            usuario_id: convActual.asignado_a,
-            tipo: 'nuevo_mensaje',
-            titulo: `Nuevo correo de ${contactoNombre}`,
-            cuerpo: previewTexto.slice(0, 100) || correo.asunto,
-            icono: 'mail',
+          const { crearNotificacion } = await import('@/lib/notificaciones')
+          await crearNotificacion({
+            empresaId,
+            usuarioId: convActual.asignado_a,
+            tipo: 'mensaje_correo',
+            titulo: `📩 Nuevo correo de ${contactoNombre}`,
+            cuerpo: previewTexto.slice(0, 120) || correo.asunto,
+            icono: 'Mail',
             color: 'var(--canal-correo)',
             url: `/inbox?conv=${conversacionId}`,
-            referencia_tipo: 'conversacion',
-            referencia_id: conversacionId,
+            referenciaTipo: 'conversacion',
+            referenciaId: conversacionId,
           })
         } catch {
           // Silenciar si falla la notificación
@@ -666,9 +677,11 @@ async function procesarAdjuntos(
           correo.gmailId,
           adj.attachmentId,
         )
+      } else if (adj.contenido) {
+        // IMAP: el contenido viene incluido en el adjunto parseado por mailparser
+        buffer = adj.contenido
       } else {
-        // Para IMAP, el contenido ya fue descargado durante el parsing
-        // Los adjuntos IMAP necesitan ser descargados por separado
+        console.warn(`Adjunto ${adj.nombre} sin contenido (proveedor: ${canal.proveedor})`)
         continue
       }
 

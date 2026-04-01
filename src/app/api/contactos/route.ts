@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-import { esEmailValido, esTelefonoValido, esUrlValida, esIdentificacionValida } from '@/lib/validaciones'
+import { esEmailValido, esTelefonoValido, esUrlValida, esIdentificacionValida, sanitizarBusqueda } from '@/lib/validaciones'
+import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { registrarError } from '@/lib/logger'
 
 /**
  * GET /api/contactos — Listar contactos de la empresa activa.
@@ -17,7 +19,7 @@ export async function GET(request: NextRequest) {
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
     const params = request.nextUrl.searchParams
-    const busqueda = params.get('busqueda') || ''
+    const busqueda = sanitizarBusqueda(params.get('busqueda') || '')
     const tipo = params.get('tipo') // clave del tipo de contacto
     const activo = params.get('activo')
     const en_papelera = params.get('en_papelera') === 'true'
@@ -145,7 +147,7 @@ export async function GET(request: NextRequest) {
     const { data, error, count } = await query
 
     if (error) {
-      console.error('Error al listar contactos:', error)
+      registrarError(error, { ruta: '/api/contactos', accion: 'listar', empresaId })
       return NextResponse.json({ error: 'Error al obtener contactos' }, { status: 500 })
     }
 
@@ -173,6 +175,10 @@ export async function POST(request: NextRequest) {
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    // Verificar permiso de crear contactos
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'contactos', 'crear')
+    if (!permitido) return NextResponse.json({ error: 'Sin permiso para crear contactos' }, { status: 403 })
 
     const body = await request.json()
     const admin = crearClienteAdmin()

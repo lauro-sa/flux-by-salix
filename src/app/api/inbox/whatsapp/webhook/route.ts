@@ -174,7 +174,7 @@ async function procesarMensajeEntrante(
 
   // Si no hay abierta, buscar la más reciente resuelta y reabrirla
   if (!conversacion) {
-    console.log('[WEBHOOK v2] No hay conversación abierta, buscando resuelta para reabrir...')
+    console.info('[WEBHOOK v2] No hay conversación abierta, buscando resuelta para reabrir...')
     const { data: resuelta, error: errResuelta } = await admin
       .from('conversaciones')
       .select('id, contacto_id, estado')
@@ -186,7 +186,7 @@ async function procesarMensajeEntrante(
       .limit(1)
       .maybeSingle()
 
-    console.log('[WEBHOOK v2] Resuelta encontrada:', resuelta?.id, 'Error:', errResuelta?.message)
+    console.info('[WEBHOOK v2] Resuelta encontrada:', resuelta?.id, 'Error:', errResuelta?.message)
 
     if (resuelta) {
       // Reabrir la conversación resuelta
@@ -337,7 +337,7 @@ async function procesarMensajeEntrante(
         )
       }
 
-      console.log(`[RESET:TEST] ${convIds.length} conversaciones y ${contactoIds.length} contactos eliminados para ${telefonoRemitente}`)
+      console.info(`[RESET:TEST] ${convIds.length} conversaciones y ${contactoIds.length} contactos eliminados para ${telefonoRemitente}`)
       return
     } catch (err) {
       console.error('[RESET:TEST] Error:', err)
@@ -354,7 +354,7 @@ async function procesarMensajeEntrante(
       .maybeSingle()
 
     if (yaExiste) {
-      console.log(`[WEBHOOK] Mensaje duplicado ignorado: wa_message_id=${msg.id}`)
+      console.info(`[WEBHOOK] Mensaje duplicado ignorado: wa_message_id=${msg.id}`)
       return
     }
   }
@@ -425,6 +425,35 @@ async function procesarMensajeEntrante(
     } catch (err) {
       console.error('Error descargando media:', err)
     }
+  }
+
+  // ─── Notificación al agente asignado ───
+  try {
+    const { data: convActual } = await admin
+      .from('conversaciones')
+      .select('asignado_a, contacto_nombre')
+      .eq('id', conversacion.id)
+      .single()
+
+    if (convActual?.asignado_a) {
+      const { crearNotificacion } = await import('@/lib/notificaciones')
+      const contactoNombre = convActual.contacto_nombre || nombreRemitente
+      const preview = textoPreviewMensaje(msg)
+      await crearNotificacion({
+        empresaId: canal.empresa_id,
+        usuarioId: convActual.asignado_a,
+        tipo: 'mensaje_whatsapp',
+        titulo: `💬 Mensaje de ${contactoNombre}`,
+        cuerpo: preview.slice(0, 120),
+        icono: 'MessageSquare',
+        color: 'var(--canal-whatsapp)',
+        url: `/inbox?conv=${conversacion.id}`,
+        referenciaTipo: 'conversacion',
+        referenciaId: conversacion.id,
+      })
+    }
+  } catch (err) {
+    console.warn('[NOTIFICACION] Error creando notificación WhatsApp:', err)
   }
 
   // ─── Chatbot: respuestas automáticas ───
@@ -523,7 +552,7 @@ async function asignarAgenteAutomatico(
       })
       .eq('id', conversacionId)
 
-    console.log(
+    console.info(
       `[ASIGNACIÓN] Conversación ${conversacionId} asignada a ${agenteSeleccionado.nombre} (${algoritmo})`
     )
   } catch (err) {
@@ -717,10 +746,10 @@ async function descargarYGuardarMedia(
   if (!tokenAcceso) return
 
   try {
-    console.log(`[MEDIA] Descargando ${msg.type} mediaId=${mediaId}`)
+    console.info(`[MEDIA] Descargando ${msg.type} mediaId=${mediaId}`)
     // Obtener URL temporal de Meta
     const mediaInfo = await obtenerUrlMedia(mediaId, tokenAcceso)
-    console.log(`[MEDIA] URL obtenida, size=${mediaInfo.file_size}`)
+    console.info(`[MEDIA] URL obtenida, size=${mediaInfo.file_size}`)
 
     // Descargar el archivo
     const { buffer, contentType } = await descargarMediaBuffer(mediaInfo.url, tokenAcceso)
@@ -735,7 +764,7 @@ async function descargarYGuardarMedia(
             .from('mensajes')
             .update({ texto: transcripcion })
             .eq('id', mensajeId)
-          console.log(`[AUDIO] Transcripción OK: "${transcripcion.slice(0, 100)}..."`)
+          console.info(`[AUDIO] Transcripción OK: "${transcripcion.slice(0, 100)}..."`)
         }
       } catch (err) {
         console.warn('[AUDIO] Error transcribiendo:', err)
@@ -760,7 +789,7 @@ async function descargarYGuardarMedia(
       console.error('[MEDIA] Error subiendo a Storage:', JSON.stringify(uploadError))
       return
     }
-    console.log(`[MEDIA] Subido OK: ${storagePath}`)
+    console.info(`[MEDIA] Subido OK: ${storagePath}`)
 
     // Obtener URL pública
     const { data: urlData } = admin.storage
@@ -903,7 +932,7 @@ async function crearContactoProvisorio(
       return null
     }
 
-    console.log(`[PROVISORIO] Contacto creado: ${nombre} ${apellido || ''} (${telefono})`)
+    console.info(`[PROVISORIO] Contacto creado: ${nombre} ${apellido || ''} (${telefono})`)
     return nuevoContacto
   } catch (err) {
     console.error('[PROVISORIO] Error inesperado:', err)

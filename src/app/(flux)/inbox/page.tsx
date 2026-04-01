@@ -4,12 +4,13 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { useToast } from '@/componentes/feedback/Toast'
 import { Tabs } from '@/componentes/ui/Tabs'
 import { Boton } from '@/componentes/ui/Boton'
 import {
   Mail, Hash, Settings, PanelRightOpen, PanelRightClose,
   PanelLeftOpen, PanelLeftClose,
-  Plus, Pen, Columns2, Rows2, ArrowLeft,
+  Plus, Pen, Columns2, Rows2, ArrowLeft, RefreshCw,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { ListaConversaciones } from './_componentes/ListaConversaciones'
@@ -50,6 +51,7 @@ function generarTabs(modulosActivos: Set<string>, t: (clave: string) => string) 
 export default function PaginaInbox() {
   const { t } = useTraduccion()
   const router = useRouter()
+  const { mostrar } = useToast()
   const supabase = useMemo(() => crearClienteNavegador(), [])
 
   // Estado global del inbox
@@ -89,6 +91,7 @@ export default function PaginaInbox() {
   const [carpetaCorreo, setCarpetaCorreo] = useState<CarpetaCorreo>('entrada')
   const [canalTodas, setCanalTodas] = useState(false)
   const [contadoresCorreo, setContadoresCorreo] = useState<Record<string, { entrada: number; spam: number }>>({})
+  const [sincronizando, setSincronizando] = useState(false)
 
   // Modo de vista: 'columna' (3 paneles) o 'fila' (lista se reemplaza por correo al seleccionar)
   type ModoVista = 'columna' | 'fila'
@@ -287,6 +290,32 @@ export default function PaginaInbox() {
     const intervalo = setInterval(cargarContadores, 30000)
     return () => clearInterval(intervalo)
   }, [tabActivo, cargarContadores])
+
+  // Sincronizar correos manualmente (llama al endpoint que trae correos nuevos de Gmail/IMAP)
+  const sincronizarCorreos = useCallback(async () => {
+    if (sincronizando) return
+    setSincronizando(true)
+    try {
+      const res = await fetch('/api/inbox/correo/sincronizar', { method: 'POST' })
+      const data = await res.json()
+      // Refrescar lista y contadores después de sincronizar
+      await Promise.all([cargarConversaciones(), cargarContadores()])
+      return data
+    } catch {
+      // silenciar
+    } finally {
+      setSincronizando(false)
+    }
+  }, [sincronizando, cargarConversaciones, cargarContadores])
+
+  // Auto-sincronizar correos cada 30 segundos (reemplaza el cron de Vercel en plan gratis)
+  useEffect(() => {
+    if (tabActivo !== 'correo') return
+    const intervalo = setInterval(() => {
+      sincronizarCorreos()
+    }, 30000)
+    return () => clearInterval(intervalo)
+  }, [tabActivo, sincronizarCorreos])
 
   // Cargar canales internos
   useEffect(() => {
@@ -516,11 +545,11 @@ export default function PaginaInbox() {
         }
       }
     } catch {
-      // TODO: toast de error
+      mostrar('error', 'Error al enviar el correo')
     } finally {
       setEnviando(false)
     }
-  }, [conversacionSeleccionada, canalCorreoActivo, cargarConversaciones])
+  }, [conversacionSeleccionada, canalCorreoActivo, cargarConversaciones, mostrar])
 
   // Programar envío de correo
   const programarCorreo = useCallback(async (datos: DatosCorreo, enviarEn: string) => {
@@ -536,11 +565,11 @@ export default function PaginaInbox() {
         }),
       })
       setRedactandoNuevo(false)
-      // TODO: toast "Correo programado para {fecha}"
+      mostrar('exito', 'Correo programado correctamente')
     } catch {
-      // TODO: toast de error
+      mostrar('error', 'Error al programar el correo')
     }
-  }, [canalCorreoActivo, conversacionSeleccionada])
+  }, [canalCorreoActivo, conversacionSeleccionada, mostrar])
 
   // Marcar conversación como spam
   const marcarSpam = useCallback(async (conversacionId: string) => {
@@ -557,7 +586,7 @@ export default function PaginaInbox() {
         setMensajes([])
       }
     } catch {
-      // TODO: toast de error
+      mostrar('error', 'Ocurrió un error')
     }
   }, [conversacionSeleccionada])
 
@@ -581,7 +610,7 @@ export default function PaginaInbox() {
         setConversacionSeleccionada(prev => prev ? { ...prev, estado: 'abierta' } : prev)
       }
     } catch {
-      // TODO: toast de error
+      mostrar('error', 'Ocurrió un error')
     }
   }, [conversacionSeleccionada, filtroEstado])
 
@@ -601,7 +630,7 @@ export default function PaginaInbox() {
         setConversacionSeleccionada(prev => prev ? { ...prev, mensajes_sin_leer: nuevoValor } : prev)
       }
     } catch {
-      // TODO: toast de error
+      mostrar('error', 'Ocurrió un error')
     }
   }, [conversacionSeleccionada])
 
@@ -644,7 +673,7 @@ export default function PaginaInbox() {
         setMensajes([])
       }
     } catch {
-      // TODO: toast de error
+      mostrar('error', 'Ocurrió un error')
     }
   }, [conversacionSeleccionada])
 
@@ -662,7 +691,7 @@ export default function PaginaInbox() {
         setMensajes([])
       }
     } catch {
-      // TODO: toast de error
+      mostrar('error', 'Ocurrió un error')
     }
   }, [conversacionSeleccionada])
 
@@ -843,6 +872,19 @@ export default function PaginaInbox() {
               icono={panelInfoAbierto ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
               onClick={() => setPanelInfoAbierto(!panelInfoAbierto)}
             />
+          )}
+          {/* Sincronizar correos manualmente */}
+          {tabActivo === 'correo' && (
+            <span title={sincronizando ? 'Sincronizando...' : 'Sincronizar correos'}>
+              <Boton
+                variante="fantasma"
+                tamano="xs"
+                soloIcono
+                icono={<RefreshCw size={16} className={sincronizando ? 'animate-spin' : ''} />}
+                onClick={sincronizarCorreos}
+                disabled={sincronizando}
+              />
+            </span>
           )}
           {/* Configuración */}
           <Boton
@@ -1183,7 +1225,7 @@ export default function PaginaInbox() {
             canalesPrivados={canalesPrivados}
             canalSeleccionado={canalInternoSeleccionado}
             onSeleccionarCanal={setCanalInternoSeleccionado}
-            onCrearCanal={() => {}} // TODO: modal crear canal
+            onCrearCanal={() => mostrar('info', 'Crear canales desde Configuración > Interno')}
             onEnviar={enviarMensaje}
             cargando={cargandoMensajes}
             enviando={enviando}

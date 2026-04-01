@@ -220,7 +220,13 @@ export function SeccionIA() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-texto-primario mb-1">Inteligencia Artificial</h2>
+          <div className="flex items-center gap-2.5 mb-1">
+            <h2 className="text-lg font-semibold text-texto-primario">Inteligencia Artificial</h2>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-texto-marca/10 text-texto-marca">
+              <Sparkles size={10} />
+              Salix IA
+            </span>
+          </div>
           <p className="text-sm text-texto-terciario">Configurá los proveedores de IA y los asistentes de tu empresa.</p>
         </div>
         <IndicadorGuardado estado={estado} />
@@ -508,8 +514,8 @@ export function SeccionIA() {
               <Wand2 size={20} className="text-insignia-info" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-texto-primario">Asistente Salix para presupuestos</h3>
-              <p className="text-xs text-texto-terciario">Configurá cómo la IA analiza descripciones de trabajo y propone líneas de presupuesto.</p>
+              <h3 className="text-sm font-semibold text-texto-primario">Salix IA — Presupuestos</h3>
+              <p className="text-xs text-texto-terciario">Configurá cómo Salix IA analiza descripciones de trabajo y propone líneas de presupuesto.</p>
             </div>
           </div>
 

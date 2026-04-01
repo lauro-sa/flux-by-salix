@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
+import { sanitizarBusqueda } from '@/lib/validaciones'
+import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 
 /**
  * GET /api/productos — Listar productos/servicios de la empresa activa.
@@ -17,7 +19,7 @@ export async function GET(request: NextRequest) {
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
     const params = request.nextUrl.searchParams
-    const busqueda = params.get('busqueda') || ''
+    const busqueda = sanitizarBusqueda(params.get('busqueda') || '')
     const tipo = params.get('tipo')
     const categoria = params.get('categoria')
     const activo = params.get('activo')
@@ -38,6 +40,7 @@ export async function GET(request: NextRequest) {
       .select('*', { count: 'exact' })
       .eq('empresa_id', empresaId)
       .eq('en_papelera', en_papelera)
+      .eq('es_provisorio', false)
 
     // Filtros
     if (tipo) query = query.eq('tipo', tipo)
@@ -93,6 +96,9 @@ export async function POST(request: NextRequest) {
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'productos', 'crear')
+    if (!permitido) return NextResponse.json({ error: 'Sin permiso para crear productos' }, { status: 403 })
 
     const body = await request.json()
     const admin = crearClienteAdmin()
@@ -177,6 +183,7 @@ export async function POST(request: NextRequest) {
       creado_por: user.id,
       creado_por_nombre: nombreCreador,
       origen: body.origen || 'manual',
+      es_provisorio: body.es_provisorio || false,
     }
 
     const { data, error } = await admin

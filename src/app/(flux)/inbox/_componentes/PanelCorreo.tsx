@@ -439,18 +439,38 @@ export function PanelCorreo({
                           )}
                         </div>
 
-                        {/* Cuerpo (HTML en iframe aislado) */}
+                        {/* Cuerpo (HTML en iframe aislado, o mensaje vacío) */}
                         <div className="pb-4">
-                          {msg.html ? (
-                            <VisorCorreoHTML html={msg.html} />
-                          ) : (
-                            <p
-                              className="text-sm whitespace-pre-wrap"
-                              style={{ color: 'var(--texto-primario)' }}
-                            >
-                              {msg.texto}
-                            </p>
-                          )}
+                          {(() => {
+                            // Detectar si el cuerpo está vacío (solo tags HTML sin texto real)
+                            const htmlLimpio = msg.html?.replace(/<[^>]*>/g, '').replace(/\s+/g, '').trim()
+                            const textoLimpio = msg.texto?.replace(/\s+/g, '').trim()
+                            const cuerpoVacio = !htmlLimpio && !textoLimpio
+
+                            if (cuerpoVacio) {
+                              return msg.adjuntos.length > 0 ? (
+                                <p className="text-sm py-3 italic" style={{ color: 'var(--texto-terciario)' }}>
+                                  <Paperclip size={14} className="inline mr-1.5 -mt-0.5" />
+                                  Este correo no tiene texto, solo adjunto{msg.adjuntos.length > 1 ? 's' : ''}
+                                </p>
+                              ) : (
+                                <p className="text-sm py-3 italic" style={{ color: 'var(--texto-terciario)' }}>
+                                  (Sin contenido)
+                                </p>
+                              )
+                            }
+
+                            return msg.html ? (
+                              <VisorCorreoHTML html={msg.html} />
+                            ) : (
+                              <p
+                                className="text-sm whitespace-pre-wrap"
+                                style={{ color: 'var(--texto-primario)' }}
+                              >
+                                {msg.texto}
+                              </p>
+                            )
+                          })()}
                         </div>
 
                         {/* Adjuntos con miniaturas */}

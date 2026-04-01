@@ -14,8 +14,11 @@ import {
   Lock, Info, RefreshCw, History, Loader2, CheckCircle2, FileText,
   Sparkles,
 } from 'lucide-react'
+import { ModalEnviarDocumento, type CanalCorreoEmpresa, type AdjuntoDocumento, type DatosEnvioDocumento, type DatosBorradorCorreo, type DatosPlantillaCorreo } from '@/componentes/entidad/ModalEnviarDocumento'
 import { TablaLineas } from './TablaLineas'
-import { PanelAsistenteIA, type LineaPropuestaIA } from './PanelAsistenteIA'
+import dynamic from 'next/dynamic'
+import type { LineaPropuestaIA } from './PanelAsistenteIA'
+const PanelAsistenteIA = dynamic(() => import('./PanelAsistenteIA').then(m => m.PanelAsistenteIA), { ssr: false })
 import EditorNotasPresupuesto from './EditorNotasPresupuesto'
 import SelectorContactoPresupuesto from './SelectorContactoPresupuesto'
 import SelectorPlantilla from './SelectorPlantilla'
@@ -46,6 +49,8 @@ interface PropsEditorPresupuesto {
   modo: 'crear' | 'editar'
   /** Requerido si modo === 'editar' */
   presupuestoId?: string
+  /** Contacto a precargar al crear (viene de actividades u otros módulos) */
+  contactoIdInicial?: string
   /** Callback cuando se crea el presupuesto (modo crear) */
   onCreado?: (id: string, numero: string) => void
   /** Callback cuando se descarta/elimina */
@@ -57,6 +62,7 @@ interface PropsEditorPresupuesto {
 export default function EditorPresupuesto({
   modo,
   presupuestoId: presupuestoIdProp,
+  contactoIdInicial,
   onCreado,
   onDescartado,
   onTituloCargado,
@@ -85,6 +91,12 @@ export default function EditorPresupuesto({
 
   // Asistente IA
   const [panelIA, setPanelIA] = useState(false)
+  const [productosProvisionales, setProductosProvisionales] = useState<string[]>([])
+
+  // Modal enviar documento por correo
+  const [modalEnviarAbierto, setModalEnviarAbierto] = useState(false)
+  const [canalesCorreo, setCanalesCorreo] = useState<CanalCorreoEmpresa[]>([])
+  const [enviandoCorreo, setEnviandoCorreo] = useState(false)
 
   // ID efectivo del presupuesto (creado o prop)
   const idPresupuesto = modo === 'editar' ? presupuestoIdProp! : presupuestoIdCreado
@@ -211,9 +223,78 @@ export default function EditorPresupuesto({
           .then(data => setVinculaciones(data.vinculaciones || []))
           .catch(() => {})
       }
+      // Cargar datos completos del "dirigido a" si existe
+      if (pres.atencion_contacto_id) {
+        setAtencionId(pres.atencion_contacto_id)
+        fetch(`/api/contactos/${pres.atencion_contacto_id}`)
+          .then(r => r.json())
+          .then(data => {
+            if (data?.id) {
+              setAtencionSeleccionada({
+                id: data.id,
+                nombre: data.nombre,
+                apellido: data.apellido,
+                correo: data.correo,
+                telefono: data.telefono,
+                tipo_contacto: data.tipo_contacto,
+              })
+            }
+          })
+          .catch(() => {})
+      }
     }).catch(() => setCargando(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modo, presupuestoIdProp])
+
+  // ─── Precargar contacto si viene de actividades u otro módulo ────────────
+  useEffect(() => {
+    if (modo !== 'crear' || !contactoIdInicial || contactoId) return
+    fetch(`/api/contactos/${contactoIdInicial}`)
+      .then(r => { if (r.ok) return r.json(); throw new Error() })
+      .then(data => {
+        setContactoId(data.id)
+        setContactoSeleccionado({
+          id: data.id,
+          nombre: data.nombre,
+          apellido: data.apellido,
+          correo: data.correo,
+          telefono: data.telefono,
+          codigo: data.codigo || '',
+          tipo_contacto: data.tipo_contacto || null,
+          numero_identificacion: data.numero_identificacion || null,
+          datos_fiscales: data.datos_fiscales || null,
+          condicion_iva: data.datos_fiscales?.condicion_iva || null,
+          direcciones: data.direcciones || [],
+        })
+        // Cargar vinculaciones del contacto
+        fetch(`/api/contactos/vinculaciones?contacto_id=${data.id}`)
+          .then(r => r.json())
+          .then(v => setVinculaciones(v.vinculaciones || []))
+          .catch(() => {})
+      })
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contactoIdInicial])
+
+  // ─── Cargar canales de correo de la empresa ───────────────────────────────
+  useEffect(() => {
+    fetch('/api/inbox/canales?tipo=correo')
+      .then(r => r.json())
+      .then(data => {
+        const canales = (data.canales || [])
+          .filter((c: { activo: boolean }) => c.activo)
+          .map((c: { id: string; nombre: string; proveedor: string; config_conexion: Record<string, string> }) => ({
+            id: c.id,
+            nombre: c.nombre,
+            email: c.config_conexion?.email || c.config_conexion?.usuario || c.nombre,
+            predeterminado: false,
+          }))
+        // Marcar el primero como predeterminado si no hay ninguno
+        if (canales.length > 0) canales[0].predeterminado = true
+        setCanalesCorreo(canales)
+      })
+      .catch(() => {})
+  }, [])
 
   // ─── Refs para valores actuales (evita recrear callbacks) ───────────────
 
@@ -315,6 +396,18 @@ export default function EditorPresupuesto({
         }
         setGuardando(false)
         // Notificar al padre y cambiar URL sin navegar
+        // Confirmar productos provisorios creados por IA
+        if (productosProvisionales.length > 0) {
+          Promise.all(productosProvisionales.map(id =>
+            fetch(`/api/productos/${id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ es_provisorio: false }),
+            })
+          )).catch(() => {})
+          setProductosProvisionales([])
+        }
+
         onCreado?.(presupuestoCreado.id, presupuestoCreado.numero)
         window.history.replaceState(null, '', `/presupuestos/${presupuestoCreado.id}`)
       } else {
@@ -414,9 +507,17 @@ export default function EditorPresupuesto({
         }
       } catch { /* silenciar */ }
     }
+    // Eliminar productos provisorios que creó la IA
+    if (productosProvisionales.length > 0) {
+      Promise.all(productosProvisionales.map(id =>
+        fetch(`/api/productos/${id}`, { method: 'DELETE' })
+      )).catch(() => {})
+      setProductosProvisionales([])
+    }
+
     onDescartado?.()
     router.push('/presupuestos')
-  }, [modo, router, onDescartado])
+  }, [modo, router, onDescartado, productosProvisionales])
 
   // ─── Contacto: seleccionar y limpiar (modo crear) ──────────────────────
 
@@ -583,10 +684,12 @@ export default function EditorPresupuesto({
           unidad: linea.unidad || 'unidad',
           puede_venderse: true,
           origen: 'asistente_salix',
+          es_provisorio: true,
         }),
       })
       if (res.ok) {
         const producto = await res.json()
+        setProductosProvisionales(prev => [...prev, producto.id])
         return { codigo: producto.codigo, id: producto.id }
       }
     } catch { /* silenciar */ }
@@ -708,24 +811,96 @@ export default function EditorPresupuesto({
 
   // ─── Acciones de estado (modo editar) ───────────────────────────────────
 
-  const handleEnviar = async () => {
+  const handleEnviar = () => {
+    // Abrir modal inmediatamente — sin esperar guardado ni PDF
+    setModalEnviarAbierto(true)
+    // Guardar + generar PDF y portal en background para que estén listos al enviar
     if (idPresupuesto) {
-      // Guardar todo antes de enviar
-      await guardarTodo()
-    }
-    await cambiarEstado('enviado')
-    if (idPresupuesto) {
-      // Generar PDF + token del portal en paralelo (fire-and-forget)
-      Promise.all([
-        fetch(`/api/presupuestos/${idPresupuesto}/pdf`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ forzar: false }),
-        }),
-        fetch(`/api/presupuestos/${idPresupuesto}/portal`, { method: 'POST' }),
-      ]).catch(() => {})
+      guardarTodo().then(() => {
+        Promise.all([
+          fetch(`/api/presupuestos/${idPresupuesto}/pdf`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ forzar: false }),
+          }),
+          fetch(`/api/presupuestos/${idPresupuesto}/portal`, { method: 'POST' }),
+        ]).catch(() => {})
+      })
     }
   }
+
+  // Callback real de envío de correo desde el modal
+  const handleEnviarCorreo = useCallback(async (datos: DatosEnvioDocumento) => {
+    setEnviandoCorreo(true)
+    try {
+      // Cambiar estado a enviado si aún no lo está
+      const estadoActual = presupuesto?.estado || 'borrador'
+      if (estadoActual === 'borrador') {
+        await cambiarEstado('enviado')
+      }
+
+      // Enviar el correo via API del inbox
+      const res = await fetch('/api/inbox/correo/enviar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          canal_id: datos.canal_id,
+          correo_para: datos.correo_para,
+          correo_cc: datos.correo_cc.length > 0 ? datos.correo_cc : undefined,
+          correo_cco: datos.correo_cco.length > 0 ? datos.correo_cco : undefined,
+          correo_asunto: datos.asunto,
+          texto: datos.texto,
+          html: datos.html,
+          adjuntos_ids: datos.adjuntos_ids.length > 0 ? datos.adjuntos_ids : undefined,
+          tipo: 'nuevo',
+          programado_para: datos.programado_para,
+        }),
+      })
+
+      if (res.ok) {
+        setModalEnviarAbierto(false)
+      } else {
+        const err = await res.json().catch(() => ({}))
+        console.error('Error al enviar correo:', err)
+      }
+    } catch (err) {
+      console.error('Error al enviar correo:', err)
+    } finally {
+      setEnviandoCorreo(false)
+    }
+  }, [presupuesto?.estado, cambiarEstado])
+  // Guardar borrador de correo (cerrar modal sin enviar)
+  const handleGuardarBorrador = useCallback(async (datos: DatosBorradorCorreo) => {
+    // Por ahora guardamos en localStorage; a futuro puede ir a la BD
+    if (idPresupuesto) {
+      try {
+        localStorage.setItem(`borrador_correo_${idPresupuesto}`, JSON.stringify(datos))
+      } catch { /* silenciar */ }
+    }
+    setModalEnviarAbierto(false)
+  }, [idPresupuesto])
+
+  // Guardar como plantilla de correo
+  const handleGuardarPlantilla = useCallback(async (datos: DatosPlantillaCorreo) => {
+    try {
+      await fetch('/api/inbox/plantillas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: datos.nombre,
+          canal: 'correo',
+          asunto: datos.asunto,
+          contenido: datos.contenido_html.replace(/<[^>]+>/g, '').trim(),
+          contenido_html: datos.contenido_html,
+          modulos: ['presupuestos'],
+          disponible_para: 'todos',
+        }),
+      })
+    } catch (err) {
+      console.error('Error al guardar plantilla:', err)
+    }
+  }, [])
+
   const handleEnviarProforma = () => { /* pendiente: integrar proforma */ }
   const [generandoPdf, setGenerandoPdf] = useState(false)
   const handleImprimir = async () => {
@@ -1565,7 +1740,7 @@ export default function EditorPresupuesto({
                 icono={<Sparkles size={14} />}
                 onClick={() => setPanelIA(true)}
               >
-                Asistente Salix
+                Salix IA
               </Boton>
             </div>
           )}
@@ -1689,6 +1864,97 @@ export default function EditorPresupuesto({
         onCerrar={() => setPanelIA(false)}
         onAplicarLineas={aplicarLineasIA}
         onCrearServicio={crearServicioDesdeIA}
+      />
+
+      {/* ─── Modal enviar documento por correo ─── */}
+      <ModalEnviarDocumento
+        abierto={modalEnviarAbierto}
+        onCerrar={() => setModalEnviarAbierto(false)}
+        onEnviar={handleEnviarCorreo}
+        canales={canalesCorreo}
+        correosDestinatario={
+          // Prioridad: 1) dirigido a (estado local), 2) dirigido a (snapshot presupuesto),
+          // 3) contacto seleccionado, 4) contacto snapshot presupuesto
+          atencionSeleccionada?.correo
+            ? [atencionSeleccionada.correo]
+            : presupuesto?.atencion_correo
+              ? [presupuesto.atencion_correo]
+              : contactoSeleccionado?.correo
+                ? [contactoSeleccionado.correo]
+                : presupuesto?.contacto_correo
+                  ? [presupuesto.contacto_correo]
+                  : []
+        }
+        nombreDestinatario={
+          atencionSeleccionada
+            ? `${atencionSeleccionada.nombre} ${atencionSeleccionada.apellido || ''}`.trim()
+            : presupuesto?.atencion_nombre
+              ? presupuesto.atencion_nombre
+              : contactoSeleccionado
+                ? `${contactoSeleccionado.nombre} ${contactoSeleccionado.apellido || ''}`.trim()
+                : presupuesto?.contacto_nombre
+                  ? `${presupuesto.contacto_nombre} ${presupuesto.contacto_apellido || ''}`.trim()
+                  : ''
+        }
+        asuntoPredeterminado={`${t('documentos.tipos.presupuesto')} ${numeroPresupuesto || presupuesto?.numero || ''}`}
+        adjuntoDocumento={
+          presupuesto?.pdf_url ? {
+            id: presupuesto.id,
+            nombre_archivo: `${presupuesto.numero || 'Presupuesto'}.pdf`,
+            tipo_mime: 'application/pdf',
+            tamano_bytes: 0,
+            url: presupuesto.pdf_url,
+            miniatura_url: presupuesto.pdf_miniatura_url,
+          } : null
+        }
+        urlPortal={idPresupuesto ? `${window.location.origin}/portal/presupuestos/${idPresupuesto}` : null}
+        enviando={enviandoCorreo}
+        tipoDocumento={t('documentos.tipos.presupuesto')}
+        onGuardarBorrador={handleGuardarBorrador}
+        onGuardarPlantilla={handleGuardarPlantilla}
+        contextoVariables={{
+          contacto: {
+            nombre: contactoSeleccionado?.nombre || presupuesto?.contacto_nombre || '',
+            apellido: contactoSeleccionado?.apellido || presupuesto?.contacto_apellido || '',
+            nombre_completo: `${contactoSeleccionado?.nombre || presupuesto?.contacto_nombre || ''} ${contactoSeleccionado?.apellido || presupuesto?.contacto_apellido || ''}`.trim(),
+            correo: contactoSeleccionado?.correo || presupuesto?.contacto_correo || '',
+            telefono: contactoSeleccionado?.telefono || presupuesto?.contacto_telefono || '',
+            tipo: contactoSeleccionado?.tipo_contacto?.etiqueta || presupuesto?.contacto_tipo || '',
+            numero_identificacion: contactoSeleccionado?.numero_identificacion || presupuesto?.contacto_identificacion || '',
+            condicion_iva: contactoSeleccionado?.condicion_iva || presupuesto?.contacto_condicion_iva || '',
+            direccion_completa: contactoSeleccionado?.direcciones?.[0]?.texto || presupuesto?.contacto_direccion || '',
+          },
+          presupuesto: {
+            numero: presupuesto?.numero || numeroPresupuesto || '',
+            estado: presupuesto?.estado || 'borrador',
+            moneda: presupuesto?.moneda || moneda,
+            total_neto: presupuesto?.subtotal_neto || '',
+            total_impuestos: presupuesto?.total_impuestos || '',
+            total_con_iva: presupuesto?.total_final || '',
+            fecha_emision: presupuesto?.fecha_emision || fechaEmision,
+            fecha_vencimiento: presupuesto?.fecha_vencimiento || '',
+            referencia: presupuesto?.referencia || referencia,
+            contacto_nombre: contactoSeleccionado?.nombre || presupuesto?.contacto_nombre || '',
+            contacto_correo: contactoSeleccionado?.correo || presupuesto?.contacto_correo || '',
+          },
+          empresa: {
+            nombre: datosEmpresa?.nombre || '',
+            correo_contacto: datosEmpresa?.correo || '',
+            telefono: datosEmpresa?.telefono || '',
+          },
+          dirigido_a: {
+            nombre: atencionSeleccionada?.nombre || presupuesto?.atencion_nombre || '',
+            apellido: atencionSeleccionada?.apellido || '',
+            nombre_completo: atencionSeleccionada
+              ? `${atencionSeleccionada.nombre} ${atencionSeleccionada.apellido || ''}`.trim()
+              : presupuesto?.atencion_nombre || '',
+            correo: atencionSeleccionada?.correo || presupuesto?.atencion_correo || '',
+            telefono: atencionSeleccionada?.telefono || '',
+            cargo: presupuesto?.atencion_cargo || '',
+            // Los demás campos (whatsapp, cuit, dirección) se cargarán si ampliamos Vinculacion
+            empresa_nombre: contactoSeleccionado?.nombre || presupuesto?.contacto_nombre || '',
+          },
+        }}
       />
     </div>
   )

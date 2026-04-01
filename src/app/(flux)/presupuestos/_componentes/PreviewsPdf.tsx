@@ -10,7 +10,14 @@
 import { useState, useRef, useEffect } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import DOMPurify from 'isomorphic-dompurify'
 import type { ConfigMembrete, ConfigPiePagina } from '@/tipos/presupuesto'
+
+// Opciones de sanitización para HTML del membrete/pie de página
+const OPCIONES_SANITIZACION = {
+  FORBID_TAGS: ['script', 'object', 'embed', 'form', 'input', 'textarea', 'button', 'iframe'],
+  FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus'],
+}
 
 // Ancho real del contenido del PDF (A4 210mm - 15mm*2 márgenes = 180mm ≈ 510px a 72dpi)
 const ANCHO_PDF = 510
@@ -69,14 +76,14 @@ function EncabezadoMiniatura({
           <div
             className={`font-bold text-slate-800 leading-none whitespace-nowrap [&_strong]:font-black [&_p]:my-0`}
             style={{ fontSize: `${membrete.tamano_texto_logo || 28}px` }}
-            dangerouslySetInnerHTML={{ __html: membrete.texto_logo }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(membrete.texto_logo, OPCIONES_SANITIZACION) }}
           />
         )}
         {tieneSubtitulo && (
           <div
             className={`text-slate-500 leading-tight [&_p]:my-0`}
             style={{ fontSize: `${membrete.tamano_subtitulo || 10}px`, marginTop: '2px' }}
-            dangerouslySetInnerHTML={{ __html: membrete.subtitulo_logo }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(membrete.subtitulo_logo, OPCIONES_SANITIZACION) }}
           />
         )}
       </div>
@@ -87,7 +94,7 @@ function EncabezadoMiniatura({
     <div
       className={`flex-1 min-w-0 text-slate-700 ${alineacionCSS} [&_p]:my-0.5 [&_strong]:font-bold [&_a]:text-blue-600 [&_a]:underline [&_h1]:font-bold [&_h1]:text-lg [&_h2]:font-semibold [&_h2]:text-base [&_h3]:font-medium [&_h3]:text-sm`}
       style={{ lineHeight: 1.3, fontSize: '10px' }}
-      dangerouslySetInnerHTML={{ __html: membrete.contenido_html }}
+      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(membrete.contenido_html, OPCIONES_SANITIZACION) }}
     />
   ) : (
     <div className={`flex-1 min-w-0 ${alineacionCSS}`}>
@@ -191,7 +198,7 @@ function PiePaginaMiniatura({ piePagina }: { piePagina: ConfigPiePagina | null }
     if (col.tipo === 'texto') {
       const tieneTexto = col.texto && col.texto !== '<p></p>' && col.texto.replace(/<[^>]*>/g, '').trim()
       return tieneTexto
-        ? <span className="[&_p]:my-0 [&_strong]:font-bold [&_*]:!text-inherit" style={{ fontSize: `${tamCol}px` }} dangerouslySetInnerHTML={{ __html: col.texto! }} />
+        ? <span className="[&_p]:my-0 [&_strong]:font-bold [&_*]:!text-inherit" style={{ fontSize: `${tamCol}px` }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(col.texto!, OPCIONES_SANITIZACION) }} />
         : null
     }
     if (col.tipo === 'numeracion') return <span>Página 1 de 2</span>
@@ -306,7 +313,7 @@ export function PreviewPiePagina({
       return (
         <div className={`flex flex-col ${clsAlineacion} [&_p]:my-0 [&_strong]:font-bold`} style={{ fontSize: `${tamCol}px` }}>
           {tieneTexto
-            ? <span dangerouslySetInnerHTML={{ __html: col.texto! }} />
+            ? <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(col.texto!, OPCIONES_SANITIZACION) }} />
             : <span className="text-texto-terciario italic">Texto...</span>}
         </div>
       )

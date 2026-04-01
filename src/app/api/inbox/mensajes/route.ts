@@ -167,6 +167,47 @@ export async function POST(request: NextRequest) {
         .eq('id', conversacion_id)
     }
 
+    // ─── Notificación para mensajes internos ───
+    // Notificar a los miembros del canal que no son el remitente
+    if (!es_nota_interna) {
+      try {
+        const { data: conv } = await admin
+          .from('conversaciones')
+          .select('tipo_canal, canal_interno_id, asignado_a, contacto_nombre')
+          .eq('id', conversacion_id)
+          .single()
+
+        if (conv?.tipo_canal === 'interno' && conv.canal_interno_id) {
+          // Canal interno: notificar a los miembros del canal (excepto el remitente)
+          const { data: miembrosCanal } = await admin
+            .from('canal_interno_miembros')
+            .select('usuario_id')
+            .eq('canal_interno_id', conv.canal_interno_id)
+            .neq('usuario_id', user.id)
+
+          if (miembrosCanal && miembrosCanal.length > 0) {
+            const { crearNotificacionesBatch } = await import('@/lib/notificaciones')
+            await crearNotificacionesBatch(
+              miembrosCanal.map((m) => ({
+                empresaId,
+                usuarioId: m.usuario_id,
+                tipo: 'mensaje_interno',
+                titulo: `💬 ${nombreRemitente} en ${conv.contacto_nombre || 'canal interno'}`,
+                cuerpo: (texto || '').slice(0, 120),
+                icono: 'MessageSquare',
+                color: 'var(--canal-interno)',
+                url: `/inbox?conv=${conversacion_id}`,
+                referenciaTipo: 'conversacion',
+                referenciaId: conversacion_id,
+              }))
+            )
+          }
+        }
+      } catch {
+        // No bloquear el envío del mensaje
+      }
+    }
+
     return NextResponse.json({ mensaje }, { status: 201 })
   } catch (err) {
     console.error('Error al enviar mensaje:', err)

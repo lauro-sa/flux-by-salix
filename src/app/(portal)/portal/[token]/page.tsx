@@ -1,6 +1,7 @@
 import { cache } from 'react'
 import type { Metadata } from 'next'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { crearNotificacion } from '@/lib/notificaciones'
 import { generarPdfPresupuesto } from '@/lib/pdf/generar-pdf'
 import VistaPortal from './_componentes/VistaPortal'
 import PortalExpirado from './_componentes/PortalExpirado'
@@ -55,7 +56,29 @@ const obtenerDatosPortal = cache(async (token: string): Promise<DatosPortal | nu
       { data: config },
       { data: vendedor },
     ] = await Promise.all([
-      admin.from('portal_tokens').update(actualizacionVista).eq('id', portalToken.id),
+      admin.from('portal_tokens').update(actualizacionVista).eq('id', portalToken.id).then(async () => {
+        // Notificar al creador la primera vez que el cliente ve el portal
+        if (!portalToken.visto_en) {
+          try {
+            const { data: pres } = await admin
+              .from('presupuestos')
+              .select('numero, contacto_nombre')
+              .eq('id', portalToken.presupuesto_id)
+              .single()
+            await crearNotificacion({
+              empresaId: portalToken.empresa_id,
+              usuarioId: portalToken.creado_por,
+              tipo: 'portal_vista',
+              titulo: pres ? `👁️ ${pres.contacto_nombre} abrió el presupuesto #${pres.numero}` : '👁️ El cliente abrió el presupuesto',
+              icono: 'Eye',
+              color: 'var(--insignia-info-texto)',
+              url: '/presupuestos',
+              referenciaTipo: 'presupuesto',
+              referenciaId: portalToken.presupuesto_id,
+            })
+          } catch { /* no bloquear renderizado */ }
+        }
+      }),
       admin.from('presupuestos').select('*').eq('id', portalToken.presupuesto_id).single(),
       admin.from('lineas_presupuesto').select('*').eq('presupuesto_id', portalToken.presupuesto_id).order('orden'),
       admin.from('presupuesto_cuotas').select('*').eq('presupuesto_id', portalToken.presupuesto_id).order('numero'),

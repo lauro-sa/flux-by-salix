@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { verificarRateLimit, obtenerIp } from '@/lib/rate-limit'
 
 /**
  * GET /api/portal/[token] — Endpoint público (sin auth).
@@ -13,6 +14,11 @@ export async function GET(
 ) {
   try {
     const { token } = await params
+
+    // Rate limit: 30 requests por minuto por IP
+    const ip = obtenerIp(_request)
+    const { permitido } = verificarRateLimit(`portal:${ip}`, { maximo: 30, ventanaSegundos: 60 })
+    if (!permitido) return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429 })
     const admin = crearClienteAdmin()
 
     // 1. Buscar token con todos los campos nuevos

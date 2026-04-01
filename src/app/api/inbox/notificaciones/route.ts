@@ -91,3 +91,37 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Error al marcar notificaciones' }, { status: 500 })
   }
 }
+
+/**
+ * DELETE /api/inbox/notificaciones — Descartar (eliminar) notificaciones.
+ * Body: { ids: string[] }
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await crearClienteServidor()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+    const empresaId = user.app_metadata?.empresa_activa_id
+    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    const body = await request.json()
+    if (!body.ids || !Array.isArray(body.ids) || body.ids.length === 0) {
+      return NextResponse.json({ error: 'Se requiere un array de ids' }, { status: 400 })
+    }
+
+    const admin = crearClienteAdmin()
+
+    await admin
+      .from('notificaciones')
+      .delete()
+      .eq('empresa_id', empresaId)
+      .eq('usuario_id', user.id)
+      .in('id', body.ids)
+
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    console.error('Error al eliminar notificaciones:', err)
+    return NextResponse.json({ error: 'Error al eliminar notificaciones' }, { status: 500 })
+  }
+}

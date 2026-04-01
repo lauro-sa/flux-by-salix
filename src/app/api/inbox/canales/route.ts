@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { cifrar } from '@/lib/cifrado'
 
 /**
  * GET /api/inbox/canales — Listar canales de la empresa.
@@ -60,6 +61,11 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const { tipo, nombre, proveedor, config_conexion, agentes } = body
+
+    // Cifrar password IMAP si existe
+    if (config_conexion?.password_cifrada && typeof config_conexion.password_cifrada === 'string') {
+      config_conexion.password_cifrada = cifrar(config_conexion.password_cifrada)
+    }
 
     if (!tipo || !nombre) {
       return NextResponse.json({ error: 'tipo y nombre son requeridos' }, { status: 400 })

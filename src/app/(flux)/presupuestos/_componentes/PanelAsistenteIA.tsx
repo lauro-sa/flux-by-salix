@@ -62,9 +62,9 @@ interface PropsPanelAsistenteIA {
 }
 
 export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearServicio }: PropsPanelAsistenteIA) {
-  const [modoIA, setModoIA] = useState<'simple' | 'detallado'>(() => {
+  const [modoIA, setModoIA] = useState<'simple' | 'paquete' | 'detallado'>(() => {
     if (typeof window !== 'undefined') {
-      return (localStorage.getItem('flux_asistente_modo') as 'simple' | 'detallado') || 'detallado'
+      return (localStorage.getItem('flux_asistente_modo') as 'simple' | 'paquete' | 'detallado') || 'detallado'
     }
     return 'detallado'
   })
@@ -222,7 +222,7 @@ export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearSe
                 <Sparkles size={16} className="text-texto-marca" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-texto-primario">Asistente Salix</h3>
+                <h3 className="text-sm font-bold text-texto-primario">Salix IA</h3>
                 <p className="text-xxs text-texto-terciario">Describí el trabajo y armamos el presupuesto</p>
               </div>
             </div>
@@ -240,21 +240,26 @@ export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearSe
             />
             {/* Selector de modo */}
             <div className="flex items-center gap-1 p-0.5 rounded-lg bg-superficie-app border border-borde-sutil mt-3">
-              <button
-                type="button"
-                onClick={() => { setModoIA('simple'); localStorage.setItem('flux_asistente_modo', 'simple') }}
-                className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all text-center ${modoIA === 'simple' ? 'bg-superficie-elevada shadow-sm text-texto-primario' : 'text-texto-terciario hover:text-texto-secundario'}`}
-              >
-                Simple — un solo servicio
-              </button>
-              <button
-                type="button"
-                onClick={() => { setModoIA('detallado'); localStorage.setItem('flux_asistente_modo', 'detallado') }}
-                className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all text-center ${modoIA === 'detallado' ? 'bg-superficie-elevada shadow-sm text-texto-primario' : 'text-texto-terciario hover:text-texto-secundario'}`}
-              >
-                Detallado — desglosar servicios
-              </button>
+              {([
+                { id: 'simple' as const, label: 'Redactar' },
+                { id: 'paquete' as const, label: 'Crear' },
+                { id: 'detallado' as const, label: 'Desglosar' },
+              ]).map(m => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => { setModoIA(m.id); localStorage.setItem('flux_asistente_modo', m.id) }}
+                  className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all text-center ${modoIA === m.id ? 'bg-superficie-elevada shadow-sm text-texto-primario' : 'text-texto-terciario hover:text-texto-secundario'}`}
+                >
+                  {m.label}
+                </button>
+              ))}
             </div>
+            <p className="text-xxs text-texto-terciario mt-1.5 text-center leading-relaxed">
+              {modoIA === 'simple' && 'Redacta un párrafo profesional. No crea ni guarda nada en el catálogo.'}
+              {modoIA === 'paquete' && 'Crea un servicio o producto con nombre y código propio. Queda guardado en el catálogo para reutilizar.'}
+              {modoIA === 'detallado' && 'Identifica varios servicios y productos, matchea con el catálogo. Los nuevos se pueden crear y quedan guardados.'}
+            </p>
 
             {/* Botón centrado → se transforma en barra de progreso */}
             <AnimatePresence mode="wait">
@@ -293,7 +298,9 @@ export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearSe
                           ][Math.min(etapaCarga, 5)]}
                         </motion.p>
                         <p className="text-xxs text-texto-terciario mt-1">
-                          {modoIA === 'simple' ? 'Generando un párrafo profesional' : 'Desglosando en servicios individuales'}
+                          {modoIA === 'simple' && 'Generando un párrafo profesional'}
+                          {modoIA === 'paquete' && 'Creando servicio reutilizable con nombre propio'}
+                          {modoIA === 'detallado' && 'Desglosando en servicios individuales'}
                         </p>
                       </div>
                       <div className="w-full h-1.5 rounded-full bg-superficie-elevada overflow-hidden">
@@ -334,10 +341,12 @@ export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearSe
                     >
                       <div className="flex items-center justify-center gap-2.5">
                         <Sparkles size={18} className="text-texto-marca group-hover:scale-110 transition-transform" />
-                        <span className="text-sm font-semibold text-texto-marca">Analizar con Salix</span>
+                        <span className="text-sm font-semibold text-texto-marca">Analizar con Salix IA</span>
                       </div>
                       <p className="text-xxs text-texto-terciario mt-1">
-                        {modoIA === 'simple' ? 'Redactar en un párrafo profesional' : 'Desglosar en servicios del catálogo'}
+                        {modoIA === 'simple' && 'Redactar en un párrafo profesional'}
+                        {modoIA === 'paquete' && 'Crear un servicio reutilizable'}
+                        {modoIA === 'detallado' && 'Desglosar en servicios del catálogo'}
                       </p>
                     </button>
                   )}

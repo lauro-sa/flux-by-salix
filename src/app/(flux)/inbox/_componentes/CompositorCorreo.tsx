@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import DOMPurify from 'isomorphic-dompurify'
 import { Boton } from '@/componentes/ui/Boton'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import {
@@ -655,7 +656,7 @@ export function CompositorCorreo({
               <div
                 className="pt-2 mt-1"
                 style={{ borderTop: '1px solid var(--borde-sutil)' }}
-                dangerouslySetInnerHTML={{ __html: firma }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(firma, { FORBID_TAGS: ['script', 'object', 'embed', 'form', 'iframe'], FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus'] }) }}
               />
             </div>
           )}

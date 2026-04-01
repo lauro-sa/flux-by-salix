@@ -6,7 +6,8 @@ import { ProveedorToast } from '@/componentes/feedback/Toast'
 import { ProveedorAuth } from '@/hooks/useAuth'
 import { ProveedorEmpresa } from '@/hooks/useEmpresa'
 import { ProveedorPreferencias } from '@/hooks/usePreferencias'
-import { FondoParticulas } from '@/componentes/ui/FondoParticulas'
+import dynamic from 'next/dynamic'
+const FondoParticulas = dynamic(() => import('@/componentes/ui/FondoParticulas').then(m => m.FondoParticulas), { ssr: false })
 import { motion } from 'framer-motion'
 import { LogoSalix } from '@/componentes/marca'
 

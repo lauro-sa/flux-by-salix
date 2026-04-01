@@ -1751,8 +1751,7 @@ export default function PaginaConfigPresupuestos() {
               <button
                 className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm text-estado-error border border-estado-error/20 hover:bg-estado-error/10 transition-colors"
                 onClick={() => {
-                  // TODO: Implementar desactivación de módulo
-                  // Marcar modulo como inactivo en BD, ocultar del sidebar
+                  // Fase futura: desactivación de módulo con purga programada
                 }}
               >
                 <Package size={15} />

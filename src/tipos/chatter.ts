@@ -20,6 +20,9 @@ export type AccionSistema =
   | 'pago_rechazado'
   | 'pdf_generado'
   | 'campo_editado'
+  | 'actividad_creada'
+  | 'actividad_completada'
+  | 'actividad_reactivada'
 
 // ─── Adjunto ───
 export interface AdjuntoChatter {
@@ -42,6 +45,10 @@ export interface MetadataChatter {
   firma_nombre?: string
   firma_ip?: string
   firma_modo?: string
+  // Para actividades
+  actividad_id?: string
+  tipo_actividad?: string
+  titulo?: string
   // Para comprobantes
   cuota_id?: string
   descripcion_pago?: string

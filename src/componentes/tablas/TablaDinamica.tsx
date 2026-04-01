@@ -1429,13 +1429,15 @@ function TablaDinamica<T>({
   const [anchoBuscador, setAnchoBuscador] = useState(0)
 
   // Medir ancho del texto para expandir el buscador progresivamente
+  // Mínimo generoso en desktop, en móvil se adapta via max-width: 100%
+  const ANCHO_MINIMO_BUSCADOR = 520
   const anchoBaseRef = useRef(0)
   useEffect(() => {
     if (!medidorRef.current) return
     // Calcular ancho base una sola vez (con el placeholder)
     if (anchoBaseRef.current === 0) {
       medidorRef.current.textContent = placeholder || 'Buscar...'
-      anchoBaseRef.current = medidorRef.current.offsetWidth + 180
+      anchoBaseRef.current = Math.max(medidorRef.current.offsetWidth + 180, ANCHO_MINIMO_BUSCADOR)
     }
     // Si hay texto, medir y usar el mayor entre base y texto
     if (valorInput) {
@@ -2105,7 +2107,7 @@ function TablaDinamica<T>({
       <div className="flex items-center gap-2 pb-4 px-4 sm:px-6 relative z-30 shrink-0">
 
         {/* Buscador — ancho se adapta al contenido, máximo 70% del toolbar */}
-        <div className="min-w-0 relative transition-all duration-200" style={{ maxWidth: '700px', width: panelFiltrosAbierto ? '700px' : anchoBuscador > 0 ? anchoBuscador : undefined }}>
+        <div className="min-w-0 max-w-full relative transition-all duration-200" style={{ maxWidth: '700px', width: panelFiltrosAbierto ? '700px' : anchoBuscador > 0 ? anchoBuscador : undefined }}>
           {/* Span oculto para medir ancho real del texto */}
           <span ref={medidorRef} className="invisible absolute whitespace-pre text-sm" style={{ pointerEvents: 'none' }} />
           <div className={[
@@ -2176,9 +2178,9 @@ function TablaDinamica<T>({
               )}
             </AnimatePresence>
 
-            {/* Pills de filtros activos */}
+            {/* Pills de filtros activos — se ocultan cuando hay una vista activa para no duplicar info */}
             <AnimatePresence mode="popLayout">
-              {todosLosFiltros
+              {detector.tipo !== 'vista_activa' && todosLosFiltros
                 .filter((f) => (Array.isArray(f.valor) ? f.valor.length > 0 : f.valor !== ''))
                 .map((f) => {
                   const valorTexto = Array.isArray(f.valor)

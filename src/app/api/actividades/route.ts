@@ -1,0 +1,256 @@
+import { NextResponse, type NextRequest } from 'next/server'
+import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { registrarChatter } from '@/lib/chatter'
+import { crearNotificacion } from '@/lib/notificaciones'
+import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+
+/**
+ * GET /api/actividades — Listar actividades de la empresa activa.
+ * Soporta: búsqueda, filtros por estado/tipo/asignado/fecha/vista, paginación, ordenamiento.
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = await crearClienteServidor()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+    const empresaId = user.app_metadata?.empresa_activa_id
+    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    const params = request.nextUrl.searchParams
+    const busqueda = params.get('busqueda') || ''
+    const estado = params.get('estado')
+    const tipo = params.get('tipo')
+    const prioridad = params.get('prioridad')
+    const asignado_a = params.get('asignado_a')
+    const vista = params.get('vista') || 'todas' // 'todas' | 'mias' | 'enviadas'
+    const fecha = params.get('fecha') // 'hoy' | 'semana' | 'vencidas' | 'sin_fecha' | 'futuras'
+    const contacto_id = params.get('contacto_id') // filtrar por vínculo a contacto
+    const en_papelera = params.get('en_papelera') === 'true'
+    const orden_campo = params.get('orden_campo') || 'creado_en'
+    const orden_dir = params.get('orden_dir') === 'asc'
+    const pagina = parseInt(params.get('pagina') || '1')
+    const por_pagina = Math.min(parseInt(params.get('por_pagina') || '50'), 100)
+    const desde = (pagina - 1) * por_pagina
+
+    const admin = crearClienteAdmin()
+
+    let query = admin
+      .from('actividades')
+      .select('*', { count: 'exact' })
+      .eq('empresa_id', empresaId)
+      .eq('en_papelera', en_papelera)
+
+    // Vista: mias = asignadas a mí, enviadas = creadas por mí
+    if (vista === 'mias') {
+      query = query.eq('asignado_a', user.id)
+    } else if (vista === 'enviadas') {
+      query = query.eq('creado_por', user.id)
+    }
+
+    // Filtro por estado
+    if (estado) {
+      const estados = estado.split(',')
+      query = estados.length === 1 ? query.eq('estado_clave', estados[0]) : query.in('estado_clave', estados)
+    }
+
+    // Filtro por tipo
+    if (tipo) {
+      const tipos = tipo.split(',')
+      query = tipos.length === 1 ? query.eq('tipo_clave', tipos[0]) : query.in('tipo_clave', tipos)
+    }
+
+    // Filtro por prioridad
+    if (prioridad) {
+      query = query.eq('prioridad', prioridad)
+    }
+
+    // Filtro por asignado
+    if (asignado_a) {
+      query = query.eq('asignado_a', asignado_a)
+    }
+
+    // Filtro por contacto vinculado
+    if (contacto_id) {
+      query = query.contains('vinculo_ids', [contacto_id])
+    }
+
+    // Filtro por fecha
+    if (fecha) {
+      const ahora = new Date()
+      const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())
+      const manana = new Date(hoy); manana.setDate(manana.getDate() + 1)
+      const finSemana = new Date(hoy); finSemana.setDate(finSemana.getDate() + 7)
+
+      switch (fecha) {
+        case 'hoy':
+          query = query.gte('fecha_vencimiento', hoy.toISOString()).lt('fecha_vencimiento', manana.toISOString())
+          break
+        case 'semana':
+          query = query.gte('fecha_vencimiento', hoy.toISOString()).lt('fecha_vencimiento', finSemana.toISOString())
+          break
+        case 'vencidas':
+          query = query.lt('fecha_vencimiento', hoy.toISOString()).in('estado_clave', ['pendiente', 'vencida'])
+          break
+        case 'sin_fecha':
+          query = query.is('fecha_vencimiento', null)
+          break
+        case 'futuras':
+          query = query.gte('fecha_vencimiento', manana.toISOString())
+          break
+      }
+    }
+
+    // Búsqueda
+    if (busqueda.trim()) {
+      query = query.or(`titulo.ilike.%${busqueda}%,asignado_nombre.ilike.%${busqueda}%`)
+    }
+
+    // Ordenamiento y paginación
+    query = query
+      .order(orden_campo, { ascending: orden_dir })
+      .range(desde, desde + por_pagina - 1)
+
+    const { data, count, error } = await query
+
+    if (error) {
+      console.error('Error al listar actividades:', error)
+      return NextResponse.json({ error: 'Error al listar actividades' }, { status: 500 })
+    }
+
+    return NextResponse.json({
+      actividades: data || [],
+      total: count || 0,
+      pagina,
+      por_pagina,
+    })
+  } catch {
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+  }
+}
+
+/**
+ * POST /api/actividades — Crear una actividad nueva.
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = await crearClienteServidor()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+    const empresaId = user.app_metadata?.empresa_activa_id
+    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'actividades', 'crear')
+    if (!permitido) return NextResponse.json({ error: 'Sin permiso para crear actividades' }, { status: 403 })
+
+    const admin = crearClienteAdmin()
+    const body = await request.json()
+
+    if (!body.titulo?.trim()) {
+      return NextResponse.json({ error: 'El título es obligatorio' }, { status: 400 })
+    }
+    if (!body.tipo_id) {
+      return NextResponse.json({ error: 'El tipo es obligatorio' }, { status: 400 })
+    }
+
+    // Obtener tipo para snapshot de clave
+    const { data: tipo } = await admin
+      .from('tipos_actividad')
+      .select('clave')
+      .eq('id', body.tipo_id)
+      .single()
+
+    if (!tipo) return NextResponse.json({ error: 'Tipo no encontrado' }, { status: 404 })
+
+    // Obtener estado default (pendiente)
+    const { data: estadoDefault } = await admin
+      .from('estados_actividad')
+      .select('id, clave')
+      .eq('empresa_id', empresaId)
+      .eq('clave', 'pendiente')
+      .single()
+
+    if (!estadoDefault) return NextResponse.json({ error: 'Estado pendiente no encontrado' }, { status: 500 })
+
+    // Obtener nombre del creador
+    const { data: perfil } = await admin
+      .from('perfiles')
+      .select('nombre, apellido')
+      .eq('id', user.id)
+      .single()
+
+    const nombreCreador = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : 'Usuario'
+
+    // Vínculos
+    const vinculos = Array.isArray(body.vinculos) ? body.vinculos : []
+    const vinculoIds = vinculos.map((v: { id: string }) => v.id)
+
+    const { data, error } = await admin
+      .from('actividades')
+      .insert({
+        empresa_id: empresaId,
+        titulo: body.titulo.trim(),
+        descripcion: body.descripcion || null,
+        tipo_id: body.tipo_id,
+        tipo_clave: tipo.clave,
+        estado_id: body.estado_id || estadoDefault.id,
+        estado_clave: body.estado_clave || estadoDefault.clave,
+        prioridad: body.prioridad || 'normal',
+        fecha_vencimiento: body.fecha_vencimiento || null,
+        asignado_a: body.asignado_a || null,
+        asignado_nombre: body.asignado_nombre || null,
+        checklist: body.checklist || [],
+        vinculos,
+        vinculo_ids: vinculoIds,
+        creado_por: user.id,
+        creado_por_nombre: nombreCreador,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error al crear actividad:', error)
+      return NextResponse.json({ error: 'Error al crear actividad' }, { status: 500 })
+    }
+
+    // Registrar en chatter de cada entidad vinculada
+    for (const vinculo of vinculos) {
+      registrarChatter({
+        empresaId,
+        entidadTipo: vinculo.tipo,
+        entidadId: vinculo.id,
+        contenido: `Nueva actividad: ${body.titulo.trim()}`,
+        autorId: user.id,
+        autorNombre: nombreCreador,
+        metadata: {
+          accion: 'actividad_creada',
+          actividad_id: data.id,
+          tipo_actividad: tipo.clave,
+          titulo: body.titulo.trim(),
+        },
+      })
+    }
+
+    // Notificar al asignado (si es otro usuario)
+    if (data.asignado_a && data.asignado_a !== user.id) {
+      crearNotificacion({
+        empresaId,
+        usuarioId: data.asignado_a,
+        tipo: 'actividad_asignada',
+        titulo: `📋 ${nombreCreador} te asignó una actividad`,
+        cuerpo: data.titulo,
+        icono: 'ClipboardList',
+        color: '#3b82f6',
+        url: '/actividades',
+        referenciaTipo: 'actividad',
+        referenciaId: data.id,
+      })
+    }
+
+    return NextResponse.json(data, { status: 201 })
+  } catch {
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+  }
+}

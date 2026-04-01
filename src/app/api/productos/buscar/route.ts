@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { sanitizarBusqueda } from '@/lib/validaciones'
 
 /**
  * GET /api/productos/buscar?q=texto — Búsqueda rápida de productos para autocompletado.
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
-    const q = request.nextUrl.searchParams.get('q') || ''
+    const q = sanitizarBusqueda(request.nextUrl.searchParams.get('q') || '')
     const admin = crearClienteAdmin()
 
     let query = admin
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest) {
       .eq('activo', true)
       .eq('en_papelera', false)
       .eq('puede_venderse', true)
+      .eq('es_provisorio', false)
       .limit(8)
 
     if (q.trim()) {

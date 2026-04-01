@@ -14,6 +14,8 @@ interface PropiedadesModal {
   tamano?: TamanoModal
   children: ReactNode
   acciones?: ReactNode
+  /** Quita el padding y scroll del contenedor de children para layouts personalizados */
+  sinPadding?: boolean
 }
 
 const clasesAncho: Record<TamanoModal, string> = {
@@ -32,7 +34,7 @@ const clasesAncho: Record<TamanoModal, string> = {
  * Más anchos que altos en PC. Responsive en mobile.
  * En modo cristal: panel con backdrop-filter blur.
  */
-function Modal({ abierto, onCerrar, titulo, tamano = 'lg', children, acciones }: PropiedadesModal) {
+function Modal({ abierto, onCerrar, titulo, tamano = 'lg', children, acciones, sinPadding }: PropiedadesModal) {
   const { efecto } = useTema()
   const esCristal = efecto !== 'solido'
 
@@ -76,6 +78,9 @@ function Modal({ abierto, onCerrar, titulo, tamano = 'lg', children, acciones }:
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.85, y: 0 }}
               transition={{ duration: 0.18 }}
+              role="dialog"
+              aria-modal="true"
+              aria-label={titulo || 'Modal'}
               className={`rounded-lg shadow-elevada w-full ${clasesAncho[tamano]} max-h-[85vh] flex flex-col pointer-events-auto border border-borde-sutil`}
               style={esCristal ? {
                 backgroundColor: 'var(--superficie-flotante)',
@@ -89,12 +94,12 @@ function Modal({ abierto, onCerrar, titulo, tamano = 'lg', children, acciones }:
             {titulo && (
               <div className="flex items-center justify-between px-6 py-4 border-b border-borde-sutil shrink-0">
                 <h2 className="text-lg font-semibold text-texto-primario">{titulo}</h2>
-                <button onClick={onCerrar} className="flex items-center justify-center size-10 rounded-md bg-transparent border-none text-texto-terciario cursor-pointer hover:bg-superficie-hover text-lg">
+                <button onClick={onCerrar} aria-label="Cerrar" className="flex items-center justify-center size-10 rounded-md bg-transparent border-none text-texto-terciario cursor-pointer hover:bg-superficie-hover text-lg">
                   ×
                 </button>
               </div>
             )}
-            <div className="px-6 py-6 flex-1 overflow-y-auto">{children}</div>
+            <div className={sinPadding ? 'flex-1 overflow-y-auto' : 'px-6 py-6 flex-1 overflow-y-auto'}>{children}</div>
             {acciones && (
               <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-borde-sutil shrink-0">
                 {acciones}

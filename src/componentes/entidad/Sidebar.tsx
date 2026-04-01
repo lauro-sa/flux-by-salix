@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
@@ -18,6 +19,7 @@ import { useEmpresa } from '@/hooks/useEmpresa'
 import { usePreferencias } from '@/hooks/usePreferencias'
 import { useRol } from '@/hooks/useRol'
 import { useModulos } from '@/hooks/useModulos'
+import { useNotificaciones } from '@/hooks/useNotificaciones'
 import type { Modulo } from '@/tipos'
 import {
   Home, Users, CheckSquare, MapPin, FileText, Package,
@@ -58,9 +60,9 @@ interface Empresa {
 /** Genera items de navegación traducidos */
 function crearItemsNav(t: (c: string) => string): ItemNav[] {
   return [
-    { id: 'inbox', etiqueta: t('navegacion.inbox'), icono: <Mail size={20} strokeWidth={1.75} />, ruta: '/inbox', badge: 2, seccion: 'principal', modulo: 'inbox_interno', moduloCatalogo: 'inbox' },
+    { id: 'inbox', etiqueta: t('navegacion.inbox'), icono: <Mail size={20} strokeWidth={1.75} />, ruta: '/inbox', seccion: 'principal', modulo: 'inbox_interno', moduloCatalogo: 'inbox' },
     { id: 'contactos', etiqueta: t('navegacion.contactos'), icono: <Users size={20} strokeWidth={1.75} />, ruta: '/contactos', seccion: 'principal', modulo: 'contactos', moduloCatalogo: 'contactos' },
-    { id: 'actividades', etiqueta: t('navegacion.actividades'), icono: <Zap size={20} strokeWidth={1.75} />, ruta: '/actividades', badge: 9, seccion: 'principal', modulo: 'actividades', moduloCatalogo: 'actividades' },
+    { id: 'actividades', etiqueta: t('navegacion.actividades'), icono: <Zap size={20} strokeWidth={1.75} />, ruta: '/actividades', seccion: 'principal', modulo: 'actividades', moduloCatalogo: 'actividades' },
     { id: 'calendario', etiqueta: t('navegacion.calendario'), icono: <Calendar size={20} strokeWidth={1.75} />, ruta: '/calendario', seccion: 'principal', modulo: 'calendario', moduloCatalogo: 'calendario' },
     { id: 'visitas', etiqueta: t('navegacion.visitas'), icono: <MapPin size={20} strokeWidth={1.75} />, ruta: '/visitas', seccion: 'principal', modulo: 'visitas', moduloCatalogo: 'visitas' },
     { id: 'recorrido', etiqueta: t('navegacion.recorrido'), icono: <Route size={20} strokeWidth={1.75} />, ruta: '/recorrido', seccion: 'principal', modulo: 'recorrido', moduloCatalogo: 'recorrido' },
@@ -111,7 +113,13 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
   const { preferencias, guardar: guardarPreferencia } = usePreferencias()
   const { tienePermiso, esPropietario } = useRol()
   const { tieneModulo } = useModulos()
+  const { noLeidasPorCategoria } = useNotificaciones({ deshabilitado: false })
 
+  // Badges dinámicos basados en notificaciones reales
+  const badgesReales: Record<string, number> = {
+    inbox: noLeidasPorCategoria('inbox'),
+    actividades: noLeidasPorCategoria('actividades'),
+  }
 
   // Filtrar ítems por permisos Y módulos instalados
   const filtrarItems = (items: ItemNav[]): ItemNav[] => {
@@ -127,7 +135,9 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
     })
   }
 
-  const ITEMS_NAV = filtrarItems(crearItemsNav(t))
+  const ITEMS_NAV = filtrarItems(crearItemsNav(t)).map(item =>
+    badgesReales[item.id] !== undefined ? { ...item, badge: badgesReales[item.id] } : item
+  )
   const ITEMS_EMPRESA = filtrarItems(crearItemsEmpresa(t))
   const SECCIONES = crearSecciones(t)
 
@@ -343,7 +353,7 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
           {esSortable && !colapsado && (
             <span className="shrink-0 w-5 h-5 flex items-center justify-center mr-1.5 rounded-full" {...attributes} {...listeners} onClick={(e) => e.stopPropagation()}>
               {item.badge && item.badge > 0 ? (<>
-                <span className="group-hover:hidden min-w-[20px] h-[20px] flex items-center justify-center rounded-full bg-texto-marca text-texto-inverso text-xxs font-bold">{item.badge > 9 ? '9+' : item.badge}</span>
+                <span className="group-hover:hidden flex items-center justify-center"><span className="size-2 rounded-full bg-texto-marca" /></span>
                 <span className="hidden group-hover:flex items-center justify-center cursor-grab text-texto-terciario/50">{GripIcon}</span>
               </>) : (
                 <span className="hidden group-hover:flex items-center justify-center cursor-grab text-texto-terciario/40">{GripIcon}</span>
@@ -355,7 +365,7 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
           {!colapsado && <span className="flex-1 truncate">{item.etiqueta}</span>}
 
           {colapsado && item.badge && item.badge > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] flex items-center justify-center px-0.5 rounded-full bg-texto-marca text-texto-inverso text-xxs font-bold">{item.badge > 9 ? '9+' : item.badge}</span>
+            <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-texto-marca" />
           )}
           {colapsado && (
             <div className="absolute left-full ml-2 px-2.5 py-1.5 rounded-md bg-superficie-elevada border border-borde-sutil shadow-md text-sm text-texto-primario whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">{item.etiqueta}</div>
@@ -428,7 +438,7 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
             className={`size-10 rounded-lg flex items-center justify-center text-white font-bold text-base shrink-0 border-none cursor-pointer hover:opacity-80 transition-opacity ${logoEmpresa ? '' : 'bg-texto-marca'}`}
           >
             {logoEmpresa ? (
-              <img src={logoEmpresa} alt={nombreEmpresa} className="size-10 rounded-lg object-cover" />
+              <Image src={logoEmpresa} alt={nombreEmpresa} width={40} height={40} className="size-10 rounded-lg object-cover" />
             ) : (
               inicialEmpresa
             )}
@@ -455,7 +465,7 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
                 <button key={emp.id} onClick={async () => { if (emp.id !== empresa?.id) { await cambiarEmpresa(emp.id); window.location.reload() } setEmpresaAbierto(false) }} className="flex items-center gap-2.5 w-full px-3 py-2 text-left border-none cursor-pointer bg-transparent hover:bg-superficie-hover">
                   <div className={`size-7 rounded-md flex items-center justify-center text-white font-bold text-xs shrink-0 ${!emp.logo_url ? (emp.id === empresa?.id ? 'bg-texto-marca' : 'bg-texto-terciario') : ''}`}>
                     {emp.logo_url ? (
-                      <img src={emp.logo_url} alt={emp.nombre} className="size-7 rounded-md object-cover" />
+                      <Image src={emp.logo_url} alt={emp.nombre} width={28} height={28} className="size-7 rounded-md object-cover" />
                     ) : (
                       emp.nombre[0]
                     )}

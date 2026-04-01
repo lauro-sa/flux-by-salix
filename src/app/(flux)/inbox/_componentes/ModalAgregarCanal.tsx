@@ -153,7 +153,7 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado,
           host: imapHost,
           puerto: parseInt(imapPuerto),
           usuario: imapUsuario,
-          password_cifrada: imapPassword, // TODO: cifrar en servidor
+          password_cifrada: imapPassword, // Se cifra server-side en /api/inbox/canales
           ssl: imapSSL,
           smtp_host: smtpHost || imapHost,
           smtp_puerto: parseInt(smtpPuerto),

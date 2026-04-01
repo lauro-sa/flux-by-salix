@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
+import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 
 /**
  * GET /api/productos/[id] — Obtener detalle de un producto/servicio.
@@ -53,6 +54,9 @@ export async function PATCH(
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'productos', 'editar')
+    if (!permitido) return NextResponse.json({ error: 'Sin permiso para editar productos' }, { status: 403 })
 
     const body = await request.json()
     const admin = crearClienteAdmin()
@@ -134,6 +138,9 @@ export async function DELETE(
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'productos', 'eliminar')
+    if (!permitido) return NextResponse.json({ error: 'Sin permiso para eliminar productos' }, { status: 403 })
 
     const admin = crearClienteAdmin()
 

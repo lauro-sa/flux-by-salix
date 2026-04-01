@@ -1,12 +1,24 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Bell, Camera, Mic, MapPin, RefreshCw, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
+import {
+  Bell, Camera, Mic, MapPin, RefreshCw, CheckCircle2, XCircle, AlertCircle,
+  Volume2, VolumeX, MessagesSquare, Zap, Smartphone,
+} from 'lucide-react'
+import { Interruptor } from '@/componentes/ui/Interruptor'
+import { sonidos } from '@/hooks/useSonido'
+import {
+  leerPrefs, guardarPrefs, PREFS_DEFAULT,
+  type PrefsNotificacion,
+} from '@/hooks/useNotificaciones'
+import { usePushNotificaciones } from '@/hooks/usePushNotificaciones'
 
 /**
- * SeccionNotificaciones — permisos de PWA y notificaciones push.
- * Permite al usuario ver el estado de cada permiso y re-solicitarlos si fueron denegados.
- * Permisos: notificaciones push, cámara, micrófono, ubicación.
+ * SeccionNotificaciones — permisos PWA + configuración de sonidos por categoría.
+ * Permite al usuario:
+ *   1. Ver/gestionar permisos del dispositivo (push, cámara, micro, ubicación)
+ *   2. Configurar sonidos de notificación por categoría (inbox, actividades, sistema)
+ * Se usa en: Mi Cuenta > Notificaciones
  */
 
 type EstadoPermiso = 'granted' | 'denied' | 'prompt' | 'no_soportado'
@@ -40,6 +52,17 @@ function etiquetaEstado(estado: EstadoPermiso): string {
 export function SeccionNotificaciones() {
   const [permisos, setPermisos] = useState<Permiso[]>([])
   const [solicitando, setSolicitando] = useState<string | null>(null)
+  const [prefs, setPrefs] = useState<PrefsNotificacion>(PREFS_DEFAULT)
+  const push = usePushNotificaciones()
+
+  /* Cargar preferencias */
+  useEffect(() => { setPrefs(leerPrefs()) }, [])
+
+  const actualizarPref = (campo: keyof PrefsNotificacion, valor: boolean) => {
+    const nuevas = { ...prefs, [campo]: valor }
+    setPrefs(nuevas)
+    guardarPrefs(nuevas)
+  }
 
   /* Verificar estado de cada permiso */
   const verificarPermisos = useCallback(async () => {
@@ -134,6 +157,7 @@ export function SeccionNotificaciones() {
   }, [])
 
   useEffect(() => { verificarPermisos() }, [verificarPermisos])
+  useEffect(() => { push.verificar() }, [push.verificar])
 
   /* Solicitar/re-solicitar un permiso */
   const solicitarPermiso = useCallback(async (permisoId: string) => {
@@ -166,7 +190,6 @@ export function SeccionNotificaciones() {
       }
     } catch { /* error silenciado */ }
 
-    /* Re-verificar estado después de solicitar */
     await verificarPermisos()
     setSolicitando(null)
   }, [verificarPermisos])
@@ -176,11 +199,115 @@ export function SeccionNotificaciones() {
       <div>
         <h2 className="text-lg font-semibold text-texto-primario mb-1">Notificaciones y permisos</h2>
         <p className="text-sm text-texto-terciario">
-          Gestioná los permisos que Flux necesita para funcionar correctamente en tu dispositivo.
+          Configurá cómo y cuándo recibís notificaciones, y gestioná los permisos de tu dispositivo.
         </p>
       </div>
 
+      {/* ── Sonidos de notificación ── */}
       <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-borde-sutil">
+          <div className="flex items-center gap-2 mb-1">
+            <Volume2 size={18} className="text-texto-terciario" />
+            <h3 className="text-sm font-semibold text-texto-primario">Sonidos</h3>
+          </div>
+          <p className="text-xs text-texto-terciario">Sonido al recibir una notificación nueva. Se silencia automáticamente con el modo concentración.</p>
+        </div>
+        <div className="divide-y divide-borde-sutil">
+          {/* Sonido global */}
+          <div className="flex items-center justify-between px-5 py-4">
+            <div className="flex items-center gap-3">
+              {prefs.sonidoGlobal ? <Volume2 size={18} className="text-texto-secundario" /> : <VolumeX size={18} className="text-texto-terciario" />}
+              <div>
+                <span className="text-sm font-medium text-texto-primario">Sonido global</span>
+                <p className="text-xs text-texto-terciario">Activa o desactiva todos los sonidos de notificación</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {prefs.sonidoGlobal && (
+                <button
+                  onClick={() => sonidos.notificacion()}
+                  className="px-2.5 py-1 rounded-lg text-xxs font-medium bg-superficie-hover text-texto-terciario hover:text-texto-secundario border-none cursor-pointer transition-colors"
+                >
+                  Probar
+                </button>
+              )}
+              <Interruptor activo={prefs.sonidoGlobal} onChange={(v) => actualizarPref('sonidoGlobal', v)} />
+            </div>
+          </div>
+
+          {/* Por categoría — solo si el global está activo */}
+          {prefs.sonidoGlobal && (
+            <>
+              <div className="flex items-center justify-between px-5 py-3.5 pl-12">
+                <div className="flex items-center gap-3">
+                  <MessagesSquare size={16} className="text-texto-terciario" />
+                  <span className="text-sm text-texto-primario">Inbox</span>
+                  <span className="text-xxs text-texto-terciario">(correos, WhatsApp, internos)</span>
+                </div>
+                <Interruptor activo={prefs.sonidoInbox} onChange={(v) => actualizarPref('sonidoInbox', v)} />
+              </div>
+              <div className="flex items-center justify-between px-5 py-3.5 pl-12">
+                <div className="flex items-center gap-3">
+                  <Zap size={16} className="text-texto-terciario" />
+                  <span className="text-sm text-texto-primario">Actividades</span>
+                  <span className="text-xxs text-texto-terciario">(asignaciones, vencimientos)</span>
+                </div>
+                <Interruptor activo={prefs.sonidoActividades} onChange={(v) => actualizarPref('sonidoActividades', v)} />
+              </div>
+              <div className="flex items-center justify-between px-5 py-3.5 pl-12">
+                <div className="flex items-center gap-3">
+                  <Bell size={16} className="text-texto-terciario" />
+                  <span className="text-sm text-texto-primario">Sistema</span>
+                  <span className="text-xxs text-texto-terciario">(portal, cumpleaños, anuncios)</span>
+                </div>
+                <Interruptor activo={prefs.sonidoSistema} onChange={(v) => actualizarPref('sonidoSistema', v)} />
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── Push Notifications ── */}
+      {push.soportado && (
+        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-borde-sutil">
+            <div className="flex items-center gap-2 mb-1">
+              <Smartphone size={18} className="text-texto-terciario" />
+              <h3 className="text-sm font-semibold text-texto-primario">Notificaciones push</h3>
+            </div>
+            <p className="text-xs text-texto-terciario">Recibí alertas en tu dispositivo aunque la app esté en segundo plano o cerrada.</p>
+          </div>
+          <div className="flex items-center justify-between px-5 py-4">
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-medium text-texto-primario">
+                {push.suscrito ? 'Push activadas' : 'Push desactivadas'}
+              </span>
+              <p className="text-xs text-texto-terciario mt-0.5">
+                {push.permiso === 'denied'
+                  ? 'Permiso denegado. Restablecelo desde los ajustes del navegador.'
+                  : push.suscrito
+                    ? 'Recibirás notificaciones push en este dispositivo.'
+                    : 'Activá para recibir alertas de mensajes, actividades y recordatorios.'}
+              </p>
+            </div>
+            <Interruptor
+              activo={push.suscrito}
+              deshabilitado={push.cargando || push.permiso === 'denied'}
+              onChange={async (v) => {
+                if (v) await push.suscribir()
+                else await push.desuscribir()
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── Permisos del dispositivo ── */}
+      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-borde-sutil">
+          <h3 className="text-sm font-semibold text-texto-primario mb-0.5">Permisos del dispositivo</h3>
+          <p className="text-xs text-texto-terciario">Permisos que Flux necesita para funcionar correctamente en este dispositivo.</p>
+        </div>
         <div className="divide-y divide-borde-sutil">
           {permisos.map((p) => (
             <div key={p.id} className="flex items-start gap-4 px-5 py-4">
@@ -200,7 +327,6 @@ export function SeccionNotificaciones() {
                 </div>
                 <p className="text-xs text-texto-terciario leading-relaxed">{p.descripcion}</p>
 
-                {/* Botón para solicitar permiso si está denegado o sin decidir */}
                 {p.estado === 'denied' && (
                   <div className="mt-2">
                     <p className="text-xs text-insignia-advertencia mb-1.5">

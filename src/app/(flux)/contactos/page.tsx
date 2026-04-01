@@ -88,6 +88,8 @@ export default function PaginaContactos() {
   const busquedaRef = useRef(busqueda)
   busquedaRef.current = busqueda
 
+  const fetchIdRef = useRef(0)
+
   const pathname = usePathname()
   const { setMigajaDinamica } = useNavegacion()
 
@@ -123,6 +125,7 @@ export default function PaginaContactos() {
 
   // Fetch de contactos — función estable
   const fetchContactos = useCallback(async (p: number) => {
+    const id = ++fetchIdRef.current
     setCargando(true)
     try {
       const params = new URLSearchParams()
@@ -138,14 +141,14 @@ export default function PaginaContactos() {
       const res = await fetch(`/api/contactos?${params}`)
       const data = await res.json()
 
-      if (data.contactos) {
+      if (data.contactos && fetchIdRef.current === id) {
         setContactos(data.contactos)
         setTotal(data.total)
       }
     } catch {
       // silenciar
     } finally {
-      setCargando(false)
+      if (fetchIdRef.current === id) setCargando(false)
     }
   }, [vinculadoDe])
 

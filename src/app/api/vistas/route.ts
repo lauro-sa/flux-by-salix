@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     if (!modulo) return NextResponse.json({ error: 'modulo requerido' }, { status: 400 })
 
     /* Obtener empresa_id del JWT */
-    const empresaId = user.app_metadata?.empresa_id
+    const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json([], { status: 200 })
 
     const admin = crearClienteAdmin()
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'modulo, nombre y estado requeridos' }, { status: 400 })
     }
 
-    const empresaId = user.app_metadata?.empresa_id
+    const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa' }, { status: 400 })
 
     const admin = crearClienteAdmin()

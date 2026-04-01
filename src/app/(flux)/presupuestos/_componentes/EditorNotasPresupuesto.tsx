@@ -3,7 +3,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { Reorder, useDragControls, AnimatePresence } from 'framer-motion'
 import { GripVertical, Plus, X } from 'lucide-react'
-import { EditorTexto } from '@/componentes/ui/EditorTexto'
+import dynamic from 'next/dynamic'
+const EditorTexto = dynamic(() => import('@/componentes/ui/EditorTexto').then(m => m.EditorTexto), { ssr: false })
 
 /**
  * EditorNotasPresupuesto — Lista de notas/condiciones reordenables con formato rico.

@@ -1,5 +1,7 @@
 'use client'
 
+import Image from 'next/image'
+
 type TamanoAvatar = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 
 interface PropiedadesAvatar {
@@ -47,10 +49,13 @@ function Avatar({ nombre, foto, tamano = 'md', enLinea, className = '' }: Propie
   return (
     <div className={`relative inline-flex shrink-0 ${className}`}>
       {foto ? (
-        <img
+        <Image
           src={foto}
           alt={nombre}
+          width={tamano === 'xs' ? 24 : tamano === 'sm' ? 32 : tamano === 'md' ? 40 : tamano === 'lg' ? 48 : 64}
+          height={tamano === 'xs' ? 24 : tamano === 'sm' ? 32 : tamano === 'md' ? 40 : tamano === 'lg' ? 48 : 64}
           className={`${clasesTamano[tamano]} rounded-full object-cover`}
+          unoptimized={foto.startsWith('data:')}
         />
       ) : (
         <div className={`${clasesTamano[tamano]} ${obtenerColor(nombre)} rounded-full flex items-center justify-center text-white font-semibold`}>

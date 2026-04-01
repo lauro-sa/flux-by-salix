@@ -57,7 +57,17 @@ function FondoParticulas({ className = '' }: PropiedadesFondoParticulas) {
   const fantasmasRef = useRef<CursorFantasma[]>([])
   const animFrameRef = useRef<number>(0)
   const dimensionesRef = useRef({ ancho: 0, alto: 0 })
+  const prefiereReducir = useRef(false)
   const { temaActivo } = useTema()
+
+  // Respetar prefers-reduced-motion: no animar si el usuario lo prefiere
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    prefiereReducir.current = mq.matches
+    const handler = (e: MediaQueryListEvent) => { prefiereReducir.current = e.matches }
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
 
   const inicializarPuntos = useCallback((ancho: number, alto: number) => {
     const puntos: Punto[] = []
@@ -289,6 +299,21 @@ function FondoParticulas({ className = '' }: PropiedadesFondoParticulas) {
     canvas.addEventListener('mouseleave', manejarMouseSalir)
 
     const animar = () => {
+      if (prefiereReducir.current) {
+        // Solo dibujar puntos estáticos una vez, sin animación
+        const rect = contenedor.getBoundingClientRect()
+        const esOscuro = document.documentElement.getAttribute('data-tema') === 'oscuro' ||
+          (window.matchMedia('(prefers-color-scheme: dark)').matches && !document.documentElement.getAttribute('data-tema'))
+        const color = esOscuro ? '255, 255, 255' : '0, 0, 0'
+        ctx.clearRect(0, 0, rect.width, rect.height)
+        for (const p of puntosRef.current) {
+          ctx.beginPath()
+          ctx.arc(p.xOriginal, p.yOriginal, RADIO_BASE, 0, Math.PI * 2)
+          ctx.fillStyle = `rgba(${color}, ${OPACIDAD_BASE})`
+          ctx.fill()
+        }
+        return
+      }
       const rect = contenedor.getBoundingClientRect()
       dibujar(ctx, rect.width, rect.height)
       animFrameRef.current = requestAnimationFrame(animar)

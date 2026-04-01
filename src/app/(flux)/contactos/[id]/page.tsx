@@ -19,6 +19,7 @@ import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { Cargador } from '@/componentes/ui/Cargador'
 import { DireccionesContacto, type DireccionConTipo } from '../_componentes/DireccionesContacto'
 import { VinculacionesContacto } from '../_componentes/VinculacionesContacto'
+import { SeccionActividadesContacto } from '../_componentes/SeccionActividadesContacto'
 import { BannerContacto } from '../_componentes/BannerContacto'
 import { BarraKPIs } from '../_componentes/BarraKPIs'
 import { COLOR_TIPO_CONTACTO } from '@/lib/colores_entidad'
@@ -890,6 +891,14 @@ export default function PaginaContacto() {
               tiposRelacion={tiposRelacion}
               puestosVinculacion={puestosVinculacion}
               onActualizar={recargar}
+            />
+          )}
+
+          {/* Actividades vinculadas */}
+          {!esNuevo && (
+            <SeccionActividadesContacto
+              contactoId={id}
+              contactoNombre={nombreCompleto}
             />
           )}
 

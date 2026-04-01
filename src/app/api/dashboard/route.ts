@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { registrarError } from '@/lib/logger'
 
 /**
  * GET /api/dashboard — Estadísticas generales para la página de inicio.
@@ -26,6 +27,8 @@ export async function GET() {
       resMensajesSinLeer,
       resPresupuestosRecientes,
       resContactosRecientes,
+      resActividadesPendientes,
+      resActividadesTotal,
     ] = await Promise.all([
       // Total de contactos
       admin
@@ -68,6 +71,24 @@ export async function GET() {
         .eq('empresa_id', empresaId)
         .order('creado_en', { ascending: false })
         .limit(5),
+
+      // Actividades pendientes (para el usuario actual)
+      admin
+        .from('actividades')
+        .select('id, titulo, tipo_clave, estado_clave, prioridad, fecha_vencimiento, asignado_nombre')
+        .eq('empresa_id', empresaId)
+        .eq('en_papelera', false)
+        .in('estado_clave', ['pendiente', 'vencida'])
+        .order('fecha_vencimiento', { ascending: true, nullsFirst: false })
+        .limit(8),
+
+      // Total actividades pendientes
+      admin
+        .from('actividades')
+        .select('id', { count: 'exact', head: true })
+        .eq('empresa_id', empresaId)
+        .eq('en_papelera', false)
+        .in('estado_clave', ['pendiente', 'vencida']),
     ])
 
     // Procesar presupuestos por estado
@@ -97,9 +118,13 @@ export async function GET() {
         por_canal: conversacionesPorCanal,
         sin_leer: resMensajesSinLeer.count || 0,
       },
+      actividades: {
+        pendientes: resActividadesPendientes.data || [],
+        total_pendientes: resActividadesTotal.count || 0,
+      },
     })
   } catch (err) {
-    console.error('Error obteniendo dashboard:', err)
+    registrarError(err, { ruta: '/api/dashboard', accion: 'obtener' })
     return NextResponse.json({ error: (err as Error).message }, { status: 500 })
   }
 }

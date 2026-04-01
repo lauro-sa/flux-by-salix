@@ -7,11 +7,13 @@ import { Migajas } from './Migajas'
 import {
   PanelLeft, PanelLeftClose, Moon, Sun, Monitor, Check, Globe,
   ChevronsLeft, ChevronsRight, RotateCcw, Headphones, Settings,
-  ChevronRight,
+  ChevronRight, BellOff, BellRing,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/hooks/useAuth'
 import { IconoSalix } from '@/componentes/marca'
+import { NotificacionesHeader } from './NotificacionesHeader'
+import { useModoConcentracion } from '@/hooks/useModoConcentracion'
 import type { Migaja } from '@/hooks/useNavegacion'
 
 const BANDERAS: Record<string, string> = {
@@ -56,6 +58,7 @@ function Header({
   const { tema, temaActivo, efecto, cambiarTema } = useTema()
   const { t, idioma, cambiarIdioma, idiomasDisponibles } = useTraduccion()
   const { usuario } = useAuth()
+  const modoConcentracion = useModoConcentracion()
 
   const nombreUsuario = usuario?.user_metadata?.nombre && usuario?.user_metadata?.apellido
     ? `${usuario.user_metadata.nombre} ${usuario.user_metadata.apellido}`
@@ -171,6 +174,9 @@ function Header({
         <Migajas extras={migajasExtras} />
       </div>
 
+      {/* Centro-derecha — Notificaciones (3 íconos) */}
+      <NotificacionesHeader />
+
       {/* Derecha — Logo Salix que abre menú central */}
       <div ref={menuRef} className="relative shrink-0">
         <button
@@ -229,6 +235,32 @@ function Header({
 
               <div className="h-px bg-borde-sutil" />
 
+              {/* Modo concentración — cicla: 30min → 1h → 4h → mañana → off */}
+              <div className="px-4 py-3">
+                <span className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider">Notificaciones</span>
+                <button
+                  onClick={() => modoConcentracion.ciclar()}
+                  className={[
+                    'flex items-center gap-2.5 w-full mt-2 px-3 py-2.5 rounded-xl border cursor-pointer transition-all text-left',
+                    modoConcentracion.activo
+                      ? 'bg-insignia-advertencia-fondo/50 border-insignia-advertencia-texto/20 text-insignia-advertencia-texto'
+                      : 'bg-superficie-hover border-borde-sutil text-texto-secundario hover:text-texto-primario hover:border-borde-fuerte',
+                  ].join(' ')}
+                >
+                  {modoConcentracion.activo ? <BellOff size={16} /> : <BellRing size={16} />}
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <span className="text-xs font-medium">
+                      {modoConcentracion.activo ? modoConcentracion.textoEstado() : 'Silenciar notificaciones'}
+                    </span>
+                    <span className="text-xxs opacity-70">
+                      {modoConcentracion.textoSiguiente()}
+                    </span>
+                  </div>
+                </button>
+              </div>
+
+              <div className="h-px bg-borde-sutil" />
+
               {/* Apariencia — tema */}
               <div className="px-4 py-3">
                 <span className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider">Apariencia</span>
@@ -253,41 +285,26 @@ function Header({
 
               <div className="h-px bg-borde-sutil" />
 
-              {/* Idioma */}
-              <div className="py-1">
-                <div className="px-4 py-2">
-                  <span className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider">Idioma</span>
+              {/* Idioma — compacto tipo pill igual que tema */}
+              <div className="px-4 py-3">
+                <span className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider">Idioma</span>
+                <div className="flex items-center gap-1 mt-2 p-1 rounded-lg" style={{ backgroundColor: 'var(--superficie-hover)' }}>
+                  {idiomasDisponibles.map((i) => (
+                    <button
+                      key={i.codigo}
+                      onClick={() => { cambiarIdioma(i.codigo as 'es' | 'en' | 'pt') }}
+                      className={[
+                        'flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border-none cursor-pointer text-xs font-medium transition-all duration-150',
+                        idioma === i.codigo
+                          ? 'bg-superficie-tarjeta text-texto-primario shadow-sm'
+                          : 'bg-transparent text-texto-terciario hover:text-texto-secundario',
+                      ].join(' ')}
+                    >
+                      <span className="text-sm leading-none">{BANDERAS[i.codigo]}</span>
+                      <span>{i.codigo.toUpperCase()}</span>
+                    </button>
+                  ))}
                 </div>
-                {idiomasDisponibles.map((i) => (
-                  <button
-                    key={i.codigo}
-                    onClick={() => { cambiarIdioma(i.codigo as 'es' | 'en' | 'pt') }}
-                    className={[
-                      'flex items-center gap-2.5 w-full px-4 py-2 text-sm border-none cursor-pointer transition-colors duration-100',
-                      idioma === i.codigo
-                        ? 'bg-superficie-seleccionada text-texto-marca font-medium'
-                        : 'bg-transparent text-texto-primario hover:bg-superficie-hover',
-                    ].join(' ')}
-                  >
-                    <span className="text-base leading-none">{BANDERAS[i.codigo]}</span>
-                    <span className="flex-1 text-left">{i.nombre}</span>
-                    {idioma === i.codigo && <Check size={14} className="text-texto-marca shrink-0" />}
-                  </button>
-                ))}
-              </div>
-
-              <div className="h-px bg-borde-sutil" />
-
-              {/* Usuario */}
-              <div className="px-4 py-3 flex items-center gap-2.5">
-                <div className="size-8 rounded-full bg-texto-marca flex items-center justify-center text-white text-xs font-bold shrink-0">
-                  {nombreUsuario[0]?.toUpperCase()}
-                </div>
-                <div className="flex flex-col min-w-0 flex-1">
-                  <span className="text-sm font-medium text-texto-primario truncate">{nombreUsuario}</span>
-                  <span className="text-xxs text-texto-terciario truncate">{usuario?.email}</span>
-                </div>
-                <ChevronRight size={14} className="text-texto-terciario shrink-0" />
               </div>
             </motion.div>
           )}

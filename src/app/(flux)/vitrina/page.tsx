@@ -30,10 +30,18 @@ import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica, FiltroTabla, AccionLote } from '@/componentes/tablas/TablaDinamica'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
+import { ModalEnviarDocumento } from '@/componentes/entidad/ModalEnviarDocumento'
 import { useColoresEmpresa } from '@/hooks/useColoresEmpresa'
 import { LogoSalix, SplashSalix, IconoSalix } from '@/componentes/marca'
 import type { VarianteIcono } from '@/componentes/marca'
 import { useToast } from '@/componentes/feedback/Toast'
+import { Popover } from '@/componentes/ui/Popover'
+import { PanelNotificaciones, type ItemNotificacion } from '@/componentes/ui/PanelNotificaciones'
+import {
+  ClipboardCheck, Bell, MessageSquare, Eye, PartyPopper, UserPlus, CalendarClock,
+  BellOff, BellRing, AlertTriangle, FileCheck, Megaphone, AtSign, AlarmClock, Zap,
+} from 'lucide-react'
+import { useModoConcentracion } from '@/hooks/useModoConcentracion'
 import { useTema, type Tema, type Efecto, type FondoCristal, type EscalaTexto } from '@/hooks/useTema'
 import { ALargeSmall } from 'lucide-react'
 
@@ -509,6 +517,515 @@ function SeccionEditorTexto() {
           </pre>
         </details>
       )}
+    </Seccion>
+  )
+}
+
+function SeccionModalEnviarDocumento() {
+  const [abierto, setAbierto] = useState(false)
+
+  const canalesDemo = [
+    { id: '1', nombre: 'Ventas', email: 'ventas@miempresa.com', predeterminado: true },
+    { id: '2', nombre: 'Info', email: 'info@miempresa.com' },
+    { id: '3', nombre: 'Soporte', email: 'soporte@miempresa.com' },
+  ]
+
+  const plantillasDemo = [
+    { id: '1', nombre: 'Presupuesto estándar', asunto: 'Presupuesto #{numero}', contenido_html: '<p>Estimado/a <strong>{nombre}</strong>,</p><p>Adjunto encontrará el presupuesto solicitado.</p><p>Quedamos a disposición para cualquier consulta.</p><p>Saludos cordiales.</p>' },
+    { id: '2', nombre: 'Seguimiento', asunto: 'Seguimiento - Presupuesto #{numero}', contenido_html: '<p>Hola <strong>{nombre}</strong>,</p><p>Le escribimos para dar seguimiento al presupuesto enviado.</p><p>¿Tiene alguna pregunta o comentario?</p>' },
+  ]
+
+  const adjuntoDemo = {
+    id: 'pdf-1',
+    nombre_archivo: 'P-00042.pdf',
+    tipo_mime: 'application/pdf',
+    tamano_bytes: 245000,
+    url: '#',
+    miniatura_url: null,
+    es_documento_principal: true,
+  }
+
+  return (
+    <Seccion titulo="Modal Enviar Documento">
+      <div>
+        <Etiqueta>Modal completo para envío de documentos por correo</Etiqueta>
+        <p className="text-xs mb-3" style={{ color: 'var(--texto-terciario)' }}>
+          Incluye: selector de canal remitente, destinatarios con autocomplete, CC/CCO colapsables, asunto con variables,
+          plantillas de correo, editor rico con inserción de variables, adjuntos, enlace al portal, programación de envío,
+          guardar como borrador y guardar como plantilla.
+        </p>
+        <Boton variante="primario" tamano="sm" icono={<Mail size={14} />} onClick={() => setAbierto(true)}>
+          Abrir modal de envío
+        </Boton>
+      </div>
+      <ModalEnviarDocumento
+        abierto={abierto}
+        onCerrar={() => setAbierto(false)}
+        onEnviar={async (datos) => {
+          console.log('Datos de envío:', datos)
+          await new Promise(r => setTimeout(r, 1500))
+          setAbierto(false)
+        }}
+        canales={canalesDemo}
+        plantillas={plantillasDemo}
+        correosDestinatario={['cliente@ejemplo.com']}
+        nombreDestinatario="Juan Pérez"
+        asuntoPredeterminado="Presupuesto #P-00042"
+        adjuntoDocumento={adjuntoDemo}
+        urlPortal="https://app.fluxsalix.com/portal/presupuestos/abc123"
+        tipoDocumento="Presupuesto"
+        onGuardarBorrador={(datos) => { console.log('Borrador guardado:', datos) }}
+        onGuardarPlantilla={(datos) => { console.log('Plantilla guardada:', datos) }}
+      />
+    </Seccion>
+  )
+}
+
+/* ── Datos demo para PanelNotificaciones ── */
+/* ── Catálogo completo de tipos de notificación ── */
+const catalogoTipos = [
+  // INBOX
+  { categoria: 'Inbox', tipo: 'mensaje_whatsapp', icono: <MessageSquare size={13} />, iconoNotif: iconoNotifPeq(MessageSquare, 'var(--canal-whatsapp)'), titulo: '💬 Mensaje de Juan Pérez', descripcion: '¿Tienen stock del modelo XR-500?' },
+  { categoria: 'Inbox', tipo: 'mensaje_correo', icono: <Mail size={13} />, iconoNotif: iconoNotifPeq(Mail, 'var(--canal-correo)'), titulo: '📩 Nuevo correo de María López', descripcion: 'Re: Presupuesto #142 — Confirmamos el pedido' },
+  { categoria: 'Inbox', tipo: 'mensaje_interno', icono: <MessageSquare size={13} />, iconoNotif: iconoNotifPeq(MessageSquare, 'var(--canal-interno)'), titulo: '💬 Pedro Martínez en #ventas', descripcion: 'Revisá el presupuesto de GlobalTrade' },
+  { categoria: 'Inbox', tipo: 'mencion', icono: <AtSign size={13} />, iconoNotif: iconoNotifPeq(AtSign, 'var(--texto-marca)'), titulo: '💬 Ana García te mencionó', descripcion: '@sal ¿podés aprobar este descuento del 15%?' },
+  // ACTIVIDADES
+  { categoria: 'Actividades', tipo: 'actividad_asignada', icono: <Zap size={13} />, iconoNotif: iconoNotifPeq(UserPlus, 'var(--texto-marca)'), titulo: '📋 Carlos Ruiz te asignó una actividad', descripcion: 'Llamar a TechCorp para seguimiento' },
+  { categoria: 'Actividades', tipo: 'actividad_pronto_vence', icono: <Zap size={13} />, iconoNotif: iconoNotifPeq(CalendarClock, 'var(--insignia-advertencia-texto)'), titulo: '⏰ Actividad vence hoy', descripcion: 'Enviar catálogo a DataVision' },
+  { categoria: 'Actividades', tipo: 'actividad_vencida', icono: <Zap size={13} />, iconoNotif: iconoNotifPeq(AlertTriangle, 'var(--insignia-peligro-texto)'), titulo: '🚨 Actividad vencida', descripcion: 'Propuesta técnica para MegaIndustrial — venció ayer' },
+  { categoria: 'Actividades', tipo: 'recordatorio', icono: <Zap size={13} />, iconoNotif: iconoNotifPeq(AlarmClock, 'var(--texto-marca)'), titulo: '🔔 Llamar a Juan Pérez', descripcion: 'Confirmar disponibilidad para la reunión del viernes' },
+  // SISTEMA
+  { categoria: 'Sistema', tipo: 'portal_vista', icono: <Bell size={13} />, iconoNotif: iconoNotifPeq(Eye, 'var(--insignia-info-texto)'), titulo: '👁️ María López abrió el presupuesto #142', descripcion: 'Primera visita al portal' },
+  { categoria: 'Sistema', tipo: 'portal_aceptado', icono: <Bell size={13} />, iconoNotif: iconoNotifPeq(FileCheck, 'var(--insignia-exito-texto)'), titulo: '✅ Roberto Torres aceptó el presupuesto', descripcion: 'Presupuesto #089 — $45.000 USD' },
+  { categoria: 'Sistema', tipo: 'portal_rechazado', icono: <Bell size={13} />, iconoNotif: iconoNotifPeq(AlertTriangle, 'var(--insignia-peligro-texto)'), titulo: '❌ El cliente rechazó el presupuesto', descripcion: 'Presupuesto #076 — precio fuera de presupuesto' },
+  { categoria: 'Sistema', tipo: 'portal_cancelado', icono: <Bell size={13} />, iconoNotif: iconoNotifPeq(AlertTriangle, 'var(--insignia-advertencia-texto)'), titulo: '⚠️ El cliente canceló la aceptación', descripcion: 'Presupuesto #089 — Roberto Torres revirtió su firma' },
+  { categoria: 'Sistema', tipo: 'comprobante', icono: <Bell size={13} />, iconoNotif: iconoNotifPeq(FileCheck, 'var(--insignia-info-texto)'), titulo: '🧾 El cliente subió un comprobante de pago', descripcion: 'comprobante_marzo.pdf — $22.500' },
+  { categoria: 'Sistema', tipo: 'cumpleanios_colega', icono: <Bell size={13} />, iconoNotif: iconoNotifPeq(PartyPopper, 'var(--insignia-rosa-texto)'), titulo: '🎂 Hoy cumple años Carlos Ruiz', descripcion: '¡No olvides saludarlo!' },
+  { categoria: 'Sistema', tipo: 'cumpleanios_propio', icono: <Bell size={13} />, iconoNotif: iconoNotifPeq(PartyPopper, 'var(--insignia-rosa-texto)'), titulo: '🎂 ¡Feliz cumpleaños!', descripcion: '¡Todo el equipo te desea un excelente día!' },
+  { categoria: 'Sistema', tipo: 'anuncio', icono: <Bell size={13} />, iconoNotif: iconoNotifPeq(Megaphone, 'var(--insignia-violeta-texto)'), titulo: '📢 Nuevo módulo disponible: Calendario', descripcion: 'Activalo desde Configuración → Módulos' },
+]
+
+function iconoNotifPeq(Icono: typeof Mail, color: string) {
+  return (
+    <div
+      className="size-6 rounded-md flex items-center justify-center shrink-0"
+      style={{ backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)` }}
+    >
+      <Icono size={12} style={{ color }} />
+    </div>
+  )
+}
+
+/* ── Toasts del sistema (las barras laterales exito/error/etc) ── */
+const toastsSistemaDemo: { id: string; tipo: 'exito' | 'error' | 'advertencia' | 'info'; etiqueta: string; mensaje: string }[] = [
+  { id: 'ts1', tipo: 'exito', etiqueta: 'Éxito', mensaje: 'Contacto guardado correctamente' },
+  { id: 'ts2', tipo: 'exito', etiqueta: 'Éxito', mensaje: 'Presupuesto #142 enviado al cliente' },
+  { id: 'ts3', tipo: 'exito', etiqueta: 'Éxito', mensaje: 'Actividad completada' },
+  { id: 'ts4', tipo: 'exito', etiqueta: 'Éxito', mensaje: 'Todas las notificaciones marcadas como leídas' },
+  { id: 'ts5', tipo: 'error', etiqueta: 'Error', mensaje: 'Error al guardar el contacto' },
+  { id: 'ts6', tipo: 'error', etiqueta: 'Error', mensaje: 'No se pudo enviar el correo. Verificá tu conexión' },
+  { id: 'ts7', tipo: 'error', etiqueta: 'Error', mensaje: 'Error al sincronizar bandeja de entrada' },
+  { id: 'ts8', tipo: 'advertencia', etiqueta: 'Advertencia', mensaje: 'El presupuesto PRE-2026-00042 vence mañana' },
+  { id: 'ts9', tipo: 'advertencia', etiqueta: 'Advertencia', mensaje: 'Tenés 3 actividades vencidas sin completar' },
+  { id: 'ts10', tipo: 'advertencia', etiqueta: 'Advertencia', mensaje: 'El archivo supera el límite de 10 MB' },
+  { id: 'ts11', tipo: 'info', etiqueta: 'Info', mensaje: 'Nuevo mensaje de Juan Pérez en inbox' },
+  { id: 'ts12', tipo: 'info', etiqueta: 'Info', mensaje: 'Sincronización de correo completada — 5 mensajes nuevos' },
+  { id: 'ts13', tipo: 'info', etiqueta: 'Info', mensaje: 'Notificación descartada' },
+]
+
+/* ── Toasts de notificación en tiempo real (tarjetas flotantes) ── */
+const toastsNotifDemo = [
+  { id: 'tn1', etiqueta: 'WhatsApp', color: 'var(--canal-whatsapp)', iconoComp: <MessageSquare size={18} style={{ color: 'var(--canal-whatsapp)' }} />, titulo: 'Mensaje de Juan Pérez', descripcion: '¿Tienen stock del modelo XR-500? Necesito 20 unidades' },
+  { id: 'tn2', etiqueta: 'Correo', color: 'var(--canal-correo)', iconoComp: <Mail size={18} style={{ color: 'var(--canal-correo)' }} />, titulo: 'Nuevo correo de María López', descripcion: 'Re: Presupuesto #142 — Perfecto, confirmamos el pedido' },
+  { id: 'tn3', etiqueta: 'Portal', color: 'var(--insignia-info-texto)', iconoComp: <Eye size={18} style={{ color: 'var(--insignia-info-texto)' }} />, titulo: 'María López abrió el presupuesto #142', descripcion: 'Primera visita al portal — hace 5 minutos' },
+  { id: 'tn3b', etiqueta: 'Aceptado', color: 'var(--insignia-exito-texto)', iconoComp: <FileCheck size={18} style={{ color: 'var(--insignia-exito-texto)' }} />, titulo: 'Roberto Torres aceptó el presupuesto', descripcion: 'Presupuesto #089 — $45.000 USD' },
+  { id: 'tn4', etiqueta: 'Rechazado', color: 'var(--insignia-peligro-texto)', iconoComp: <AlertTriangle size={18} style={{ color: 'var(--insignia-peligro-texto)' }} />, titulo: 'El cliente rechazó el presupuesto', descripcion: 'Presupuesto #076 — precio fuera de presupuesto' },
+  { id: 'tn5', etiqueta: 'Vencimiento', color: 'var(--insignia-advertencia-texto)', iconoComp: <CalendarClock size={18} style={{ color: 'var(--insignia-advertencia-texto)' }} />, titulo: 'Actividad vence hoy', descripcion: 'Enviar catálogo actualizado a DataVision' },
+  { id: 'tn6', etiqueta: 'Recordatorio', color: 'var(--texto-marca)', iconoComp: <AlarmClock size={18} style={{ color: 'var(--texto-marca)' }} />, titulo: 'Llamar a Juan Pérez', descripcion: 'Confirmar disponibilidad para la reunión del viernes' },
+  { id: 'tn7', etiqueta: 'Actividad', color: 'var(--texto-marca)', iconoComp: <UserPlus size={18} style={{ color: 'var(--texto-marca)' }} />, titulo: 'Carlos Ruiz te asignó una actividad', descripcion: 'Llamar a TechCorp para seguimiento del presupuesto' },
+]
+
+/* ── Push notifications demo (nativas del SO) ── */
+const pushDemo = [
+  { id: 'p1', titulo: '💬 Mensaje de Juan Pérez', cuerpo: '¿Tienen stock del modelo XR-500? Necesito 20 unidades', tiempo: 'ahora' },
+  { id: 'p1b', titulo: '👁️ María López abrió el presupuesto #142', cuerpo: 'Primera visita al portal', tiempo: 'hace 1 min' },
+  { id: 'p2', titulo: '✅ Roberto Torres aceptó el presupuesto', cuerpo: 'Presupuesto #089 — $45.000 USD', tiempo: 'hace 2 min' },
+  { id: 'p3', titulo: '⏰ Actividad vence hoy', cuerpo: 'Enviar catálogo actualizado a DataVision', tiempo: 'hace 15 min' },
+  { id: 'p4', titulo: '🔔 Llamar a Juan Pérez', cuerpo: 'Confirmar disponibilidad para la reunión del viernes', tiempo: 'hace 30 min' },
+  { id: 'p5', titulo: '🎂 Hoy cumple años Carlos Ruiz', cuerpo: '¡No olvides saludarlo!', tiempo: '9:00' },
+]
+
+/* ── Helper para íconos de notificación ── */
+function iconoNotif(Icono: typeof Mail, color: string) {
+  return (
+    <div
+      className="size-8 rounded-lg flex items-center justify-center shrink-0"
+      style={{ backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)` }}
+    >
+      <Icono size={16} style={{ color }} />
+    </div>
+  )
+}
+
+/* ── Datos demo: INBOX (correos, WhatsApp, internos, menciones) ── */
+const notificacionesDemo: ItemNotificacion[] = [
+  {
+    id: 'i-wa1',
+    icono: iconoNotif(MessageSquare, 'var(--canal-whatsapp)'),
+    titulo: '💬 Mensaje de Juan Pérez',
+    descripcion: '¿Tienen stock del modelo XR-500? Necesito 20 unidades',
+    tiempo: 'hace 2 min',
+    leida: false,
+  },
+  {
+    id: 'i-correo1',
+    icono: iconoNotif(Mail, 'var(--canal-correo)'),
+    titulo: '📩 Nuevo correo de María López',
+    descripcion: 'Re: Presupuesto #142 — Perfecto, confirmamos el pedido',
+    tiempo: 'hace 15 min',
+    leida: false,
+  },
+  {
+    id: 'i-interno1',
+    icono: iconoNotif(MessageSquare, 'var(--canal-interno)'),
+    titulo: '💬 Pedro Martínez en #ventas',
+    descripcion: 'Revisá el presupuesto de GlobalTrade cuando puedas',
+    tiempo: 'hace 1h',
+    leida: false,
+  },
+  {
+    id: 'i-mencion1',
+    icono: iconoNotif(AtSign, 'var(--texto-marca)'),
+    titulo: '💬 Ana García te mencionó',
+    descripcion: '@sal ¿podés aprobar este descuento del 15%?',
+    tiempo: 'hace 2h',
+    leida: true,
+  },
+  {
+    id: 'i-wa2',
+    icono: iconoNotif(MessageSquare, 'var(--canal-whatsapp)'),
+    titulo: 'Mensaje de Roberto Torres',
+    descripcion: 'Buenas, quería consultar por los plazos de entrega',
+    tiempo: 'hace 3h',
+    leida: true,
+  },
+]
+
+/* ── Datos demo: ACTIVIDADES (asignaciones, vencimientos, recordatorios) ── */
+const actividadesDemo: ItemNotificacion[] = [
+  {
+    id: 'a-asignada1',
+    icono: iconoNotif(UserPlus, 'var(--texto-marca)'),
+    titulo: '📋 Carlos Ruiz te asignó una actividad',
+    descripcion: 'Llamar a TechCorp para seguimiento del presupuesto',
+    tiempo: 'hace 30 min',
+    leida: false,
+  },
+  {
+    id: 'a-pronto1',
+    icono: iconoNotif(CalendarClock, 'var(--insignia-advertencia-texto)'),
+    titulo: '⏰ Actividad vence hoy',
+    descripcion: 'Enviar catálogo actualizado a DataVision',
+    tiempo: 'hace 1h',
+    leida: false,
+  },
+  {
+    id: 'a-vencida1',
+    icono: iconoNotif(AlertTriangle, 'var(--insignia-peligro-texto)'),
+    titulo: '🚨 Actividad vencida',
+    descripcion: 'Preparar propuesta técnica para MegaIndustrial — venció ayer',
+    tiempo: 'hace 1d',
+    leida: false,
+  },
+  {
+    id: 'a-recordatorio1',
+    icono: iconoNotif(AlarmClock, 'var(--texto-marca)'),
+    titulo: '🔔 Llamar a Juan Pérez',
+    descripcion: 'Confirmar disponibilidad para la reunión del viernes',
+    tiempo: 'hace 15 min',
+    leida: true,
+  },
+]
+
+/* ── Datos demo: SISTEMA (portal, cumpleaños, anuncios) ── */
+const sistemaDemo: ItemNotificacion[] = [
+  {
+    id: 's-vista1',
+    icono: iconoNotif(Eye, 'var(--insignia-info-texto)'),
+    titulo: '👁️ María López abrió el presupuesto #142',
+    descripcion: 'Primera visita al portal — hace 5 minutos',
+    tiempo: 'hace 5 min',
+    leida: false,
+  },
+  {
+    id: 's-aceptado1',
+    icono: iconoNotif(FileCheck, 'var(--insignia-exito-texto)'),
+    titulo: '✅ Roberto Torres aceptó el presupuesto',
+    descripcion: 'Presupuesto #089 — $45.000 USD',
+    tiempo: 'hace 20 min',
+    leida: false,
+  },
+  {
+    id: 's-rechazado1',
+    icono: iconoNotif(AlertTriangle, 'var(--insignia-peligro-texto)'),
+    titulo: '❌ El cliente rechazó el presupuesto',
+    descripcion: 'Presupuesto #076 — Motivo: precio fuera de presupuesto',
+    tiempo: 'hace 2h',
+    leida: false,
+  },
+  {
+    id: 's-cancelado1',
+    icono: iconoNotif(AlertTriangle, 'var(--insignia-advertencia-texto)'),
+    titulo: '⚠️ El cliente canceló la aceptación',
+    descripcion: 'Presupuesto #089 — Roberto Torres revirtió su firma',
+    tiempo: 'hace 3h',
+    leida: true,
+  },
+  {
+    id: 's-comprobante1',
+    icono: iconoNotif(FileCheck, 'var(--insignia-info-texto)'),
+    titulo: '🧾 El cliente subió un comprobante de pago',
+    descripcion: 'comprobante_marzo.pdf — $22.500',
+    tiempo: 'hace 4h',
+    leida: true,
+  },
+  {
+    id: 's-cumple1',
+    icono: iconoNotif(PartyPopper, 'var(--insignia-rosa-texto)'),
+    titulo: 'Hoy cumple años Carlos Ruiz',
+    descripcion: '¡No olvides saludarlo!',
+    tiempo: '9:00',
+    leida: true,
+  },
+  {
+    id: 's-cumple-propio',
+    icono: iconoNotif(PartyPopper, 'var(--insignia-rosa-texto)'),
+    titulo: '¡Feliz cumpleaños!',
+    descripcion: '¡Todo el equipo te desea un excelente día!',
+    tiempo: '9:00',
+    leida: true,
+  },
+  {
+    id: 's-anuncio1',
+    icono: iconoNotif(Megaphone, 'var(--insignia-violeta-texto)'),
+    titulo: '📢 Nuevo módulo disponible: Calendario',
+    descripcion: 'Activalo desde Configuración → Módulos',
+    tiempo: 'ayer',
+    leida: true,
+  },
+]
+
+function SeccionModoConcentracion() {
+  const { activo, textoEstado, textoSiguiente, ciclar, desactivar } = useModoConcentracion()
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <Etiqueta>Ciclo rápido (como aparece en el menú Flux)</Etiqueta>
+        <div className="flex items-center gap-3 mt-2 p-4 rounded-xl bg-superficie-hover">
+          <button
+            onClick={ciclar}
+            className={[
+              'flex items-center gap-2.5 flex-1 px-3 py-2.5 rounded-xl border cursor-pointer transition-all text-left',
+              activo
+                ? 'bg-insignia-advertencia-fondo/50 border-insignia-advertencia-texto/20 text-insignia-advertencia-texto'
+                : 'bg-superficie-tarjeta border-borde-sutil text-texto-secundario hover:text-texto-primario hover:border-borde-fuerte',
+            ].join(' ')}
+          >
+            {activo ? <BellOff size={16} /> : <BellRing size={16} />}
+            <div className="flex flex-col flex-1 min-w-0">
+              <span className="text-xs font-medium">
+                {activo ? textoEstado() : 'Silenciar notificaciones'}
+              </span>
+              <span className="text-xxs opacity-70">{textoSiguiente()}</span>
+            </div>
+          </button>
+          {activo && (
+            <button
+              onClick={desactivar}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-transparent border border-borde-sutil text-texto-secundario hover:bg-superficie-hover cursor-pointer transition-colors shrink-0"
+            >
+              <BellRing size={13} />
+              Desactivar
+            </button>
+          )}
+        </div>
+      </div>
+      <p className="text-xs text-texto-terciario">
+        Cada click cicla: 30 min → 1h → 4h → hasta mañana → desactivar.
+        Los íconos del header se atenúan y los badges cambian de color. Persiste en localStorage.
+      </p>
+    </div>
+  )
+}
+
+function SeccionNotificacionesVitrina({ mostrar }: { mostrar: (tipo: 'exito' | 'error' | 'advertencia' | 'info', mensaje: string) => void }) {
+  const [itemsInbox, setItemsInbox] = useState(notificacionesDemo)
+  const [itemsActividades, setItemsActividades] = useState(actividadesDemo)
+  const [itemsSistema, setItemsSistema] = useState(sistemaDemo)
+
+  const marcarLeidas = (items: ItemNotificacion[], setItems: (items: ItemNotificacion[]) => void) => {
+    setItems(items.map((i) => ({ ...i, leida: true })))
+    mostrar('exito', 'Todas marcadas como leídas')
+  }
+
+  const descartarItem = (id: string, items: ItemNotificacion[], setItems: (items: ItemNotificacion[]) => void) => {
+    setItems(items.filter((i) => i.id !== id))
+    mostrar('info', 'Notificación descartada')
+  }
+
+  return (
+    <Seccion titulo="Panel de Notificaciones">
+      <div>
+        <Etiqueta>3 paneles como aparecen en el header (dentro de Popovers)</Etiqueta>
+        <div className="flex flex-wrap gap-3 mt-3">
+          <Popover
+            alineacion="inicio"
+            ancho={400}
+            contenido={
+              <PanelNotificaciones
+                titulo="Inbox"
+                iconoTitulo={<Mail size={16} className="text-texto-terciario" />}
+                items={itemsInbox}
+                noLeidas={itemsInbox.filter((i) => !i.leida).length}
+                onMarcarTodasLeidas={() => marcarLeidas(itemsInbox, setItemsInbox)}
+                onDescartar={(id) => descartarItem(id, itemsInbox, setItemsInbox)}
+                textoVacio="Sin mensajes nuevos"
+                iconoVacio={<Mail size={32} strokeWidth={1.2} className="text-texto-terciario/40" />}
+                pie={
+                  <button className="flex items-center justify-center gap-1.5 w-full py-1 text-xs font-medium text-texto-marca hover:text-texto-primario bg-transparent border-none cursor-pointer transition-colors">
+                    Ver todo en Inbox →
+                  </button>
+                }
+              />
+            }
+          >
+            <Boton variante="secundario" tamano="sm">
+              <Mail size={16} />
+              Inbox (con {itemsInbox.filter((i) => !i.leida).length} nuevas)
+            </Boton>
+          </Popover>
+
+          <Popover
+            alineacion="centro"
+            ancho={400}
+            contenido={
+              <PanelNotificaciones
+                titulo="Actividades"
+                iconoTitulo={<ClipboardCheck size={16} className="text-texto-terciario" />}
+                items={itemsActividades}
+                noLeidas={itemsActividades.filter((i) => !i.leida).length}
+                onMarcarTodasLeidas={() => marcarLeidas(itemsActividades, setItemsActividades)}
+                onDescartar={(id) => descartarItem(id, itemsActividades, setItemsActividades)}
+                textoVacio="Sin actividades pendientes"
+                iconoVacio={<ClipboardCheck size={32} strokeWidth={1.2} className="text-texto-terciario/40" />}
+                pie={
+                  <button className="flex items-center justify-center gap-1.5 w-full py-1 text-xs font-medium text-texto-marca hover:text-texto-primario bg-transparent border-none cursor-pointer transition-colors">
+                    Ver todas las actividades →
+                  </button>
+                }
+              />
+            }
+          >
+            <Boton variante="secundario" tamano="sm">
+              <ClipboardCheck size={16} />
+              Actividades (con {itemsActividades.filter((i) => !i.leida).length} nuevas)
+            </Boton>
+          </Popover>
+
+          <Popover
+            alineacion="fin"
+            ancho={400}
+            contenido={
+              <PanelNotificaciones
+                titulo="Notificaciones"
+                iconoTitulo={<Bell size={16} className="text-texto-terciario" />}
+                items={itemsSistema}
+                noLeidas={itemsSistema.filter((i) => !i.leida).length}
+                onMarcarTodasLeidas={() => marcarLeidas(itemsSistema, setItemsSistema)}
+                onDescartar={(id) => descartarItem(id, itemsSistema, setItemsSistema)}
+                textoVacio="Sin notificaciones"
+                iconoVacio={<Bell size={32} strokeWidth={1.2} className="text-texto-terciario/40" />}
+                pie={
+                  <button className="flex items-center justify-center gap-1.5 w-full py-1 text-xs font-medium text-texto-marca hover:text-texto-primario bg-transparent border-none cursor-pointer transition-colors">
+                    Ver configuración →
+                  </button>
+                }
+              />
+            }
+          >
+            <Boton variante="secundario" tamano="sm">
+              <Bell size={16} />
+              Sistema (con {itemsSistema.filter((i) => !i.leida).length} nuevas)
+            </Boton>
+          </Popover>
+        </div>
+      </div>
+
+      <Separador etiqueta="Catálogo de tipos de notificación" />
+      <div>
+        <Etiqueta>Todos los tipos que existen en el sistema, organizados por categoría</Etiqueta>
+        <div className="mt-3 border border-borde-sutil rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-superficie-hover text-texto-terciario text-xs text-left">
+                <th className="px-4 py-2.5 font-medium">Categoría</th>
+                <th className="px-4 py-2.5 font-medium">Tipo</th>
+                <th className="px-4 py-2.5 font-medium">Título de ejemplo</th>
+                <th className="px-4 py-2.5 font-medium">Descripción de ejemplo</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-borde-sutil">
+              {catalogoTipos.map((tipo) => (
+                <tr key={tipo.tipo} className="hover:bg-superficie-hover/50 transition-colors">
+                  <td className="px-4 py-2.5">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-texto-terciario">
+                      {tipo.icono}
+                      {tipo.categoria}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <code className="text-xs px-1.5 py-0.5 rounded bg-superficie-hover text-texto-secundario">{tipo.tipo}</code>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-2">
+                      {tipo.iconoNotif}
+                      <span className="text-sm text-texto-primario">{tipo.titulo}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-2.5 text-xs text-texto-terciario max-w-[300px] truncate">{tipo.descripcion}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <Separador etiqueta="Panel en estado vacío" />
+      <div className="border border-borde-sutil rounded-2xl overflow-hidden max-w-[400px]">
+        <PanelNotificaciones
+          titulo="Inbox"
+          iconoTitulo={<Mail size={16} className="text-texto-terciario" />}
+          items={[]}
+          noLeidas={0}
+          textoVacio="Sin mensajes nuevos"
+          iconoVacio={<Mail size={32} strokeWidth={1.2} className="text-texto-terciario/40" />}
+        />
+      </div>
+
+      <Separador etiqueta="Panel cargando" />
+      <div className="border border-borde-sutil rounded-2xl overflow-hidden max-w-[400px]">
+        <PanelNotificaciones
+          titulo="Actividades"
+          iconoTitulo={<ClipboardCheck size={16} className="text-texto-terciario" />}
+          items={[]}
+          noLeidas={0}
+          cargando
+        />
+      </div>
+
+      <Separador etiqueta="Modo concentración (No molestar)" />
+      <SeccionModoConcentracion />
     </Seccion>
   )
 }
@@ -1070,13 +1587,101 @@ export default function PaginaVitrina() {
       </Seccion>
 
       {/* TOASTS */}
-      <Seccion titulo="Toast (notificaciones)">
-        <Fila>
-          <Boton variante="exito" onClick={() => mostrar('exito', 'Contacto guardado correctamente')}>Éxito</Boton>
-          <Boton variante="peligro" onClick={() => mostrar('error', 'Error al guardar el contacto')}>Error</Boton>
-          <Boton variante="advertencia" onClick={() => mostrar('advertencia', 'El presupuesto vence mañana')}>Advertencia</Boton>
-          <Boton variante="secundario" onClick={() => mostrar('info', 'Nuevo mensaje en inbox')}>Info</Boton>
-        </Fila>
+      <Seccion titulo="Toasts y alertas flotantes">
+        <div>
+          <Etiqueta>Toasts del sistema — aparecen desde la derecha, se auto-descartan en 4s</Etiqueta>
+          <Fila>
+            <Boton variante="exito" onClick={() => mostrar('exito', 'Contacto guardado correctamente')}>Éxito</Boton>
+            <Boton variante="peligro" onClick={() => mostrar('error', 'Error al guardar el contacto')}>Error</Boton>
+            <Boton variante="advertencia" onClick={() => mostrar('advertencia', 'El presupuesto PRE-2026-00042 vence mañana')}>Advertencia</Boton>
+            <Boton variante="secundario" onClick={() => mostrar('info', 'Nuevo mensaje de Juan Pérez en inbox')}>Info</Boton>
+          </Fila>
+        </div>
+
+        <Separador etiqueta="Textos reales por tipo" />
+        <div>
+          <Etiqueta>Ejemplos de cada variante con textos del sistema real</Etiqueta>
+          <div className="flex flex-col gap-2 mt-3 max-w-[420px]">
+            {toastsSistemaDemo.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => mostrar(t.tipo, t.mensaje)}
+                className="flex items-center gap-3 w-full text-left px-4 py-3 rounded-xl border border-borde-sutil hover:bg-superficie-hover bg-superficie-tarjeta cursor-pointer transition-colors"
+              >
+                <span className={`shrink-0 size-2 rounded-full ${t.tipo === 'exito' ? 'bg-insignia-exito' : t.tipo === 'error' ? 'bg-insignia-peligro' : t.tipo === 'advertencia' ? 'bg-insignia-advertencia' : 'bg-insignia-info'}`} />
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs font-medium text-texto-secundario">{t.etiqueta}</span>
+                  <p className="text-sm text-texto-primario truncate">{t.mensaje}</p>
+                </div>
+                <span className="text-xxs text-texto-terciario shrink-0">Click para probar →</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <Separador etiqueta="Toasts de notificación en tiempo real" />
+        <div>
+          <Etiqueta>Tarjetas flotantes que aparecen arriba a la derecha al recibir una notificación — se auto-descartan en 8s, máximo 3 visibles</Etiqueta>
+          <div className="mt-3 flex flex-col gap-3 max-w-[380px]">
+            {toastsNotifDemo.map((t) => (
+              <div
+                key={t.id}
+                className="border border-borde-sutil rounded-2xl overflow-hidden shadow-sm"
+                style={{ backgroundColor: 'var(--superficie-elevada)' }}
+              >
+                <div className="flex items-start gap-3 p-4">
+                  <div
+                    className="size-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: `color-mix(in srgb, ${t.color} 12%, transparent)` }}
+                  >
+                    {t.iconoComp}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold" style={{ color: t.color }}>{t.etiqueta}</span>
+                      <span className="text-xxs text-texto-terciario">Ahora</span>
+                    </div>
+                    <p className="text-sm font-medium text-texto-primario mt-0.5 truncate">{t.titulo}</p>
+                    <p className="text-xs text-texto-terciario mt-0.5 line-clamp-2">{t.descripcion}</p>
+                  </div>
+                </div>
+                <div className="flex border-t border-borde-sutil">
+                  <span className="flex-1 py-2.5 text-xs font-medium text-texto-terciario text-center cursor-default">Descartar</span>
+                  <div className="w-px bg-borde-sutil" />
+                  <span className="flex-1 py-2.5 text-xs font-medium text-texto-marca text-center cursor-default">Ver</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <Separador etiqueta="Push Notifications (nativas del SO)" />
+        <div>
+          <Etiqueta>Así se ven las notificaciones push en el sistema operativo — requieren permiso + suscripción en Mi Cuenta</Etiqueta>
+          <div className="mt-3 flex flex-col gap-3 max-w-[420px]">
+            {pushDemo.map((p) => (
+              <div
+                key={p.id}
+                className="flex items-start gap-3 px-4 py-3 rounded-xl border border-borde-sutil bg-superficie-tarjeta"
+              >
+                <div className="size-10 rounded-lg bg-texto-marca/10 flex items-center justify-center shrink-0">
+                  <img src="/icons/icon-72x72.png" alt="Flux" className="size-6 rounded" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-texto-primario">Flux</span>
+                    <span className="text-xxs text-texto-terciario">{p.tiempo}</span>
+                  </div>
+                  <p className="text-sm font-medium text-texto-primario mt-0.5">{p.titulo}</p>
+                  <p className="text-xs text-texto-terciario mt-0.5">{p.cuerpo}</p>
+                </div>
+              </div>
+            ))}
+            <p className="text-xs text-texto-terciario mt-1">
+              Las push se envían automáticamente al crear cualquier notificación. El usuario las activa desde Mi Cuenta → Notificaciones push.
+            </p>
+          </div>
+        </div>
       </Seccion>
 
       {/* ESTADO VACÍO */}
@@ -1130,6 +1735,74 @@ export default function PaginaVitrina() {
 
       {/* MARCA / LOGO */}
       <SeccionMarca />
+
+      {/* MODAL ENVIAR DOCUMENTO */}
+      <SeccionModalEnviarDocumento />
+
+      {/* POPOVER */}
+      <Seccion titulo="Popover">
+        <div>
+          <Etiqueta>Alineación y posición</Etiqueta>
+          <Fila>
+            <Popover
+              alineacion="inicio"
+              ancho={260}
+              contenido={
+                <div className="p-4 flex flex-col gap-2">
+                  <p className="text-sm font-semibold text-texto-primario">Popover inicio</p>
+                  <p className="text-xs text-texto-terciario">Se alinea al inicio (izquierda) del trigger. Cierra con Escape o click fuera.</p>
+                </div>
+              }
+            >
+              <Boton variante="secundario" tamano="sm">Inicio</Boton>
+            </Popover>
+            <Popover
+              alineacion="centro"
+              ancho={260}
+              contenido={
+                <div className="p-4 flex flex-col gap-2">
+                  <p className="text-sm font-semibold text-texto-primario">Popover centro</p>
+                  <p className="text-xs text-texto-terciario">Se centra respecto al trigger. Soporta modo cristal.</p>
+                </div>
+              }
+            >
+              <Boton variante="secundario" tamano="sm">Centro</Boton>
+            </Popover>
+            <Popover
+              alineacion="fin"
+              ancho={260}
+              contenido={
+                <div className="p-4 flex flex-col gap-2">
+                  <p className="text-sm font-semibold text-texto-primario">Popover fin</p>
+                  <p className="text-xs text-texto-terciario">Se alinea al final (derecha) del trigger. Es el más común para menús.</p>
+                </div>
+              }
+            >
+              <Boton variante="secundario" tamano="sm">Fin (default)</Boton>
+            </Popover>
+          </Fila>
+        </div>
+        <div>
+          <Etiqueta>Anchos personalizados</Etiqueta>
+          <Fila>
+            <Popover
+              ancho={200}
+              contenido={<div className="p-4 text-sm text-texto-primario">200px de ancho</div>}
+            >
+              <Boton variante="fantasma" tamano="sm">Angosto (200)</Boton>
+            </Popover>
+            <Popover
+              ancho={450}
+              contenido={<div className="p-4 text-sm text-texto-primario">450px de ancho — ideal para paneles de notificaciones</div>}
+            >
+              <Boton variante="fantasma" tamano="sm">Ancho (450)</Boton>
+            </Popover>
+          </Fila>
+        </div>
+      </Seccion>
+
+      {/* PANEL DE NOTIFICACIONES */}
+      <SeccionNotificacionesVitrina mostrar={mostrar} />
 
       {/* TOKENS DE COLOR */}
       <Seccion titulo="Tokens de color">

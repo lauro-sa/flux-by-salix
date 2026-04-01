@@ -89,6 +89,8 @@ export default function PaginaPresupuestos() {
   const busquedaRef = useRef(busqueda)
   busquedaRef.current = busqueda
 
+  const fetchIdRef = useRef(0)
+
   const pathname = usePathname()
   const { setMigajaDinamica } = useNavegacion()
 
@@ -128,6 +130,7 @@ export default function PaginaPresupuestos() {
 
   // Fetch de presupuestos
   const fetchPresupuestos = useCallback(async (p: number) => {
+    const id = ++fetchIdRef.current
     setCargando(true)
     try {
       const params = new URLSearchParams()
@@ -142,32 +145,31 @@ export default function PaginaPresupuestos() {
       const res = await fetch(`/api/presupuestos?${params}`)
       const data = await res.json()
 
-      if (data.presupuestos) {
+      if (data.presupuestos && fetchIdRef.current === id) {
         setPresupuestos(data.presupuestos)
         setTotal(data.total)
       }
     } catch {
       // silenciar
     } finally {
-      setCargando(false)
+      if (fetchIdRef.current === id) setCargando(false)
     }
   }, [contactoIdFiltro])
 
-  // Cargar al montar
-  const cargaInicialRef = useRef(false)
-  useEffect(() => {
-    if (cargaInicialRef.current) return
-    cargaInicialRef.current = true
-    fetchPresupuestos(1)
-  }, [fetchPresupuestos])
-
   // Cargar al cambiar página
   useEffect(() => {
-    if (!cargaInicialRef.current) return
     fetchPresupuestos(pagina)
   }, [pagina, fetchPresupuestos])
 
-  // Recargar al cambiar búsqueda (debounce 300ms)
+  // Re-fetch al cambiar filtros (reset a página 1)
+  useEffect(() => {
+    if (!montadoRef.current) return
+    if (pagina === 1) fetchPresupuestos(1)
+    else setPagina(1)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroEstado, filtroMoneda])
+
+  // Recargar al cambiar búsqueda (con debounce, reseteando a página 1)
   const montadoRef = useRef(false)
   useEffect(() => {
     if (!montadoRef.current) { montadoRef.current = true; return }
@@ -181,14 +183,6 @@ export default function PaginaPresupuestos() {
     return () => clearTimeout(timeout)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda])
-
-  // Re-fetch al cambiar filtros (reset a página 1)
-  useEffect(() => {
-    if (!montadoRef.current) return
-    if (pagina === 1) fetchPresupuestos(1)
-    else setPagina(1)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroEstado, filtroMoneda])
 
   // Helpers de formato
   const formatoIdentificacion = (num: string) => {

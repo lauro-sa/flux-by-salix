@@ -681,8 +681,15 @@ export default function PaginaUsuarios() {
       id: 'desactivar',
       etiqueta: t('usuarios.desactivar_seleccionados'),
       icono: <Clock size={14} />,
-      onClick: (ids: Set<string>) => {
-        // TODO: batch desactivar
+      onClick: async (ids: Set<string>) => {
+        for (const id of ids) {
+          await fetch(`/api/miembros/activar`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ miembro_id: id, activo: false }),
+          })
+        }
+        cargarDatos()
       },
     },
   ] : []

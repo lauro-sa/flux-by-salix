@@ -38,6 +38,10 @@ interface DatosDashboard {
     por_canal: Record<string, number>
     sin_leer: number
   }
+  actividades?: {
+    pendientes: Array<{ id: string; titulo: string; tipo_clave: string; estado_clave: string; prioridad: string; fecha_vencimiento: string | null; asignado_nombre: string | null }>
+    total_pendientes: number
+  }
 }
 
 interface MetricasInbox {
@@ -413,6 +417,53 @@ export default function PaginaDashboard() {
             )}
           </Tarjeta>
         </motion.div>
+
+        {/* ─── Actividades pendientes ─── */}
+        {datos?.actividades && datos.actividades.pendientes.length > 0 && (
+          <motion.div variants={itemVariantes}>
+            <Tarjeta
+              titulo={`Actividades pendientes (${datos.actividades.total_pendientes})`}
+              acciones={
+                <button
+                  onClick={() => router.push('/actividades')}
+                  className="text-xs text-texto-terciario hover:text-texto-primario transition-colors flex items-center gap-1"
+                >
+                  {t('dashboard.ver_todo')} <ArrowRight size={12} />
+                </button>
+              }
+            >
+              <div className="space-y-1">
+                {datos.actividades.pendientes.map(act => {
+                  const vencida = act.fecha_vencimiento && new Date(act.fecha_vencimiento) < new Date()
+                  return (
+                    <div
+                      key={act.id}
+                      className="flex items-center justify-between py-2 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors"
+                      onClick={() => router.push('/actividades')}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-texto-primario truncate">{act.titulo}</span>
+                          {act.prioridad === 'alta' && (
+                            <Insignia color="peligro">Alta</Insignia>
+                          )}
+                        </div>
+                        {act.asignado_nombre && (
+                          <p className="text-xs text-texto-terciario truncate mt-0.5">{act.asignado_nombre}</p>
+                        )}
+                      </div>
+                      {act.fecha_vencimiento && (
+                        <span className={`text-xs shrink-0 ml-2 ${vencida ? 'text-insignia-peligro-texto font-semibold' : 'text-texto-terciario'}`}>
+                          {new Date(act.fecha_vencimiento).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </Tarjeta>
+          </motion.div>
+        )}
       </div>
     </motion.div>
   )

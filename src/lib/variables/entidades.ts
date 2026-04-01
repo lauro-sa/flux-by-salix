@@ -58,7 +58,7 @@
 
 import { createElement } from 'react'
 import {
-  User, Building2, FileText, Package, CalendarDays,
+  User, UserCheck, Building2, FileText, Package, CalendarDays,
   MapPin, MessageSquare, Clock, Briefcase, Receipt,
   BarChart3, Settings, Globe,
 } from 'lucide-react'
@@ -183,6 +183,42 @@ registrarEntidad({
     { clave: 'contacto_nombre', etiqueta: 'Nombre del cliente', tipo_dato: 'texto', origen: 'relacion', grupo: 'relacion' },
     { clave: 'contacto_correo', etiqueta: 'Correo del cliente', tipo_dato: 'email', origen: 'relacion', grupo: 'relacion' },
     { clave: 'contacto_telefono', etiqueta: 'Teléfono del cliente', tipo_dato: 'telefono', origen: 'relacion', grupo: 'relacion' },
+  ],
+})
+
+// ─────────────────────────────────────────────────────
+// DIRIGIDO A — Contacto vinculado / persona de atención en documentos
+// Tiene todas las variables de un contacto + cargo
+// ─────────────────────────────────────────────────────
+registrarEntidad({
+  clave: 'dirigido_a',
+  etiqueta: 'Dirigido a',
+  icono: icono(UserCheck),
+  variables: [
+    // Básico
+    { clave: 'nombre', etiqueta: 'Nombre', tipo_dato: 'texto', origen: 'relacion', grupo: 'basico' },
+    { clave: 'apellido', etiqueta: 'Apellido', tipo_dato: 'texto', origen: 'relacion', grupo: 'basico' },
+    { clave: 'nombre_completo', etiqueta: 'Nombre completo', tipo_dato: 'texto', origen: 'calculado', grupo: 'basico',
+      calcular: (d) => [d.nombre, d.apellido].filter(Boolean).join(' ') },
+    { clave: 'cargo', etiqueta: 'Cargo / Puesto', tipo_dato: 'texto', origen: 'relacion', grupo: 'basico' },
+
+    // Contacto
+    { clave: 'correo', etiqueta: 'Correo electrónico', tipo_dato: 'email', origen: 'relacion', grupo: 'contacto' },
+    { clave: 'telefono', etiqueta: 'Teléfono', tipo_dato: 'telefono', origen: 'relacion', grupo: 'contacto' },
+    { clave: 'whatsapp', etiqueta: 'WhatsApp', tipo_dato: 'telefono', origen: 'relacion', grupo: 'contacto' },
+
+    // Identificación
+    { clave: 'cuit', etiqueta: 'CUIT', tipo_dato: 'texto', origen: 'relacion', grupo: 'detalles' },
+    { clave: 'dni', etiqueta: 'DNI', tipo_dato: 'texto', origen: 'relacion', grupo: 'detalles' },
+
+    // Ubicación
+    { clave: 'direccion_completa', etiqueta: 'Dirección completa', tipo_dato: 'texto', origen: 'calculado', grupo: 'ubicacion',
+      calcular: (d) => [d.calle, d.numero, d.piso, d.barrio, d.ciudad, d.provincia, d.codigo_postal].filter(Boolean).join(', ') },
+    { clave: 'ciudad', etiqueta: 'Ciudad', tipo_dato: 'texto', origen: 'relacion', grupo: 'ubicacion' },
+    { clave: 'provincia', etiqueta: 'Provincia', tipo_dato: 'texto', origen: 'relacion', grupo: 'ubicacion' },
+
+    // Relación
+    { clave: 'empresa_nombre', etiqueta: 'Empresa vinculada', tipo_dato: 'texto', origen: 'relacion', grupo: 'relacion' },
   ],
 })
 

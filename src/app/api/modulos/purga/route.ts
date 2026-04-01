@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
   }
 
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       desactivado_en: m.desactivado_en,
     }))
 
-    console.log(`[PURGA] ${resumen.length} módulos purgados:`, JSON.stringify(resumen))
+    console.info(`[PURGA] ${resumen.length} módulos purgados:`, JSON.stringify(resumen))
 
     return NextResponse.json({
       purgados: resumen.length,

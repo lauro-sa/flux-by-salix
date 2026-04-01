@@ -75,6 +75,8 @@ export default function PaginaProductos() {
   const busquedaRef = useRef(busqueda)
   busquedaRef.current = busqueda
 
+  const fetchIdRef = useRef(0)
+
   // Modal
   const [modalAbierto, setModalAbierto] = useState(false)
   const [productoEditar, setProductoEditar] = useState<Producto | null>(null)
@@ -113,6 +115,7 @@ export default function PaginaProductos() {
 
   // ─── Fetch productos ───
   const fetchProductos = useCallback(async (p: number) => {
+    const id = ++fetchIdRef.current
     setCargando(true)
     try {
       const params = new URLSearchParams()
@@ -126,14 +129,14 @@ export default function PaginaProductos() {
       const res = await fetch(`/api/productos?${params}`)
       const data = await res.json()
 
-      if (data.productos) {
+      if (data.productos && fetchIdRef.current === id) {
         setProductos(data.productos)
         setTotal(data.total)
       }
     } catch {
       // silenciar
     } finally {
-      setCargando(false)
+      if (fetchIdRef.current === id) setCargando(false)
     }
   }, [])
 

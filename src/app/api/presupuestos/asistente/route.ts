@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     const esSimple = modo === 'simple'
+    const esPaquete = modo === 'paquete'
     const admin = crearClienteAdmin()
 
     // Obtener API key de la config de IA de la empresa
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
     let catalogoTexto = ''
     let categoriasTexto = ''
 
-    if (!esSimple) {
+    if (!esSimple || esPaquete) {
       const { data: configData } = await admin
         .from('config_productos')
         .select('categorias')
@@ -177,13 +178,52 @@ Respondé SOLO con un JSON object (no array), sin texto adicional ni markdown:
 
 El campo "sugerencias" son servicios del catálogo que se parecen a lo que el usuario describió pero NO coinciden exactamente. Siempre incluí al menos las 3 coincidencias más cercanas del catálogo para cada línea nueva. "para_linea" es el índice (0-based) de la línea a la que se refiere la sugerencia.`
 
+    const promptPaquete = `Sos el Asistente Salix, un asistente de presupuestos integrado en Flux by Salix.
+${promptPersonalizado ? `\nINSTRUCCIONES DE LA EMPRESA:\n${promptPersonalizado}\n` : ''}
+CATÁLOGO DE SERVICIOS/PRODUCTOS DISPONIBLES:
+${catalogoTexto}
+
+CATEGORÍAS DISPONIBLES: ${categoriasTexto}
+
+CÓDIGOS YA USADOS (no repetir): ${codigosExistentes}
+
+DESCRIPCIÓN DEL TRABAJO:
+"${descripcion}"
+
+MODO PAQUETE: Creá UN SOLO servicio que englobe todo el trabajo descrito. NO desglosar en servicios separados.
+
+INSTRUCCIONES:
+1. Analizá la descripción completa del trabajo
+2. Creá UN servicio nuevo con nombre descriptivo y específico (NO usar "Servicio" genérico)
+3. El nombre debe describir el trabajo completo (ej: "Reubicación de motor corredizo de piso a riel superior")
+4. Sugerí un código coherente con la nomenclatura existente y que NO se repita
+5. Sugerí una categoría apropiada
+6. Redactá la descripcion_venta como un párrafo profesional que detalle todo lo que incluye el trabajo
+7. Buscá en el catálogo si ya existe un servicio similar — si existe, usalo en vez de crear uno nuevo
+
+Respondé SOLO con un JSON object, sin texto adicional ni markdown:
+{
+  "lineas": [
+    {
+      "codigo_catalogo": "código si existe en catálogo, null si es nuevo",
+      "nombre": "nombre descriptivo del paquete de trabajo",
+      "descripcion_venta": "párrafo profesional describiendo TODO el trabajo incluido",
+      "unidad": "unidad",
+      "es_nuevo": true,
+      "codigo_sugerido": "código sugerido coherente con la nomenclatura",
+      "categoria_sugerida": "id de categoría"
+    }
+  ],
+  "sugerencias": []
+}`
+
     // Llamar a Claude
     const anthropic = new Anthropic({ apiKey })
 
     const respuesta = await anthropic.messages.create({
       model: modelo,
       max_tokens: 2000,
-      messages: [{ role: 'user', content: esSimple ? promptSimple : promptDetallado }],
+      messages: [{ role: 'user', content: esSimple ? promptSimple : esPaquete ? promptPaquete : promptDetallado }],
     })
 
     // Parsear respuesta

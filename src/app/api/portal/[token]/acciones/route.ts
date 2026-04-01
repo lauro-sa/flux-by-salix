@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
+import { crearNotificacion } from '@/lib/notificaciones'
 import { generarPdfFirmado } from '@/lib/pdf/generar-pdf-firmado'
+import { verificarRateLimit, obtenerIp } from '@/lib/rate-limit'
 
 /**
  * POST /api/portal/[token]/acciones — Acciones del cliente en el portal.
@@ -14,6 +16,12 @@ export async function POST(
 ) {
   try {
     const { token } = await params
+
+    // Rate limit: 10 acciones por minuto por IP
+    const ip = obtenerIp(request)
+    const { permitido } = verificarRateLimit(`portal-accion:${ip}`, { maximo: 10, ventanaSegundos: 60 })
+    if (!permitido) return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429 })
+
     const body = await request.json()
     const { accion } = body as { accion: string }
     const admin = crearClienteAdmin()
@@ -174,6 +182,27 @@ export async function POST(
           },
         })
 
+        // Notificar al creador del presupuesto
+        try {
+          const { data: presInfo } = await admin
+            .from('presupuestos')
+            .select('numero, contacto_nombre')
+            .eq('id', portalToken.presupuesto_id)
+            .single()
+          await crearNotificacion({
+            empresaId: portalToken.empresa_id,
+            usuarioId: portalToken.creado_por,
+            tipo: 'portal_aceptado',
+            titulo: `✅ ${firma_nombre} aceptó el presupuesto`,
+            cuerpo: presInfo ? `Presupuesto #${presInfo.numero} — ${presInfo.contacto_nombre}` : undefined,
+            icono: 'FileCheck',
+            color: 'var(--insignia-exito-texto)',
+            url: `/presupuestos`,
+            referenciaTipo: 'presupuesto',
+            referenciaId: portalToken.presupuesto_id,
+          })
+        } catch { /* no bloquear */ }
+
         return NextResponse.json({
           ok: true,
           firma_url: firmaUrl,
@@ -232,6 +261,29 @@ export async function POST(
           },
         })
 
+        // Notificar al creador del presupuesto
+        try {
+          const { data: presInfo } = await admin
+            .from('presupuestos')
+            .select('numero, contacto_nombre')
+            .eq('id', portalToken.presupuesto_id)
+            .single()
+          await crearNotificacion({
+            empresaId: portalToken.empresa_id,
+            usuarioId: portalToken.creado_por,
+            tipo: 'portal_rechazado',
+            titulo: '❌ El cliente rechazó el presupuesto',
+            cuerpo: presInfo
+              ? `Presupuesto #${presInfo.numero}${motivo ? ` — ${motivo}` : ''}`
+              : motivo || undefined,
+            icono: 'AlertTriangle',
+            color: 'var(--insignia-peligro-texto)',
+            url: `/presupuestos`,
+            referenciaTipo: 'presupuesto',
+            referenciaId: portalToken.presupuesto_id,
+          })
+        } catch { /* no bloquear */ }
+
         return NextResponse.json({ ok: true, estado_cliente: 'rechazado' })
       }
 
@@ -263,6 +315,27 @@ export async function POST(
           .from('presupuestos')
           .update({ estado: 'enviado' })
           .eq('id', portalToken.presupuesto_id)
+
+        // Notificar al creador del presupuesto
+        try {
+          const { data: presInfo } = await admin
+            .from('presupuestos')
+            .select('numero, contacto_nombre')
+            .eq('id', portalToken.presupuesto_id)
+            .single()
+          await crearNotificacion({
+            empresaId: portalToken.empresa_id,
+            usuarioId: portalToken.creado_por,
+            tipo: 'portal_cancelado',
+            titulo: '⚠️ El cliente canceló la aceptación',
+            cuerpo: presInfo ? `Presupuesto #${presInfo.numero} — ${presInfo.contacto_nombre}` : undefined,
+            icono: 'AlertTriangle',
+            color: 'var(--insignia-advertencia-texto)',
+            url: `/presupuestos`,
+            referenciaTipo: 'presupuesto',
+            referenciaId: portalToken.presupuesto_id,
+          })
+        } catch { /* no bloquear */ }
 
         return NextResponse.json({ ok: true, estado_cliente: 'visto' })
       }
@@ -340,6 +413,22 @@ export async function POST(
             detalles: { comprobante_id: nuevoComprobante.id },
           },
         })
+
+        // Notificar al creador del presupuesto
+        try {
+          await crearNotificacion({
+            empresaId: portalToken.empresa_id,
+            usuarioId: portalToken.creado_por,
+            tipo: 'portal_aceptado',
+            titulo: '🧾 El cliente subió un comprobante de pago',
+            cuerpo: `${nombre_archivo}${monto ? ` — $${monto}` : ''}`,
+            icono: 'FileCheck',
+            color: 'var(--insignia-info-texto)',
+            url: `/presupuestos`,
+            referenciaTipo: 'presupuesto',
+            referenciaId: portalToken.presupuesto_id,
+          })
+        } catch { /* no bloquear */ }
 
         return NextResponse.json({ ok: true, comprobante: nuevoComprobante })
       }

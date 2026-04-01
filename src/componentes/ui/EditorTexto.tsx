@@ -6,11 +6,40 @@ import StarterKit from '@tiptap/starter-kit'
 import { Underline } from '@tiptap/extension-underline'
 import { TextAlign } from '@tiptap/extension-text-align'
 import { TextStyle } from '@tiptap/extension-text-style'
-import { FontSize } from '@tiptap/extension-text-style'
 import { Color } from '@tiptap/extension-color'
+import { Extension } from '@tiptap/core'
+
+// Extensión custom de fontSize inline (mark via TextStyle, no global attribute)
+const FontSizeInline = Extension.create({
+  name: 'fontSizeInline',
+  addGlobalAttributes() {
+    return [{
+      types: ['textStyle'],
+      attributes: {
+        fontSize: {
+          default: null,
+          parseHTML: el => (el as HTMLElement).style.fontSize || null,
+          renderHTML: attrs => {
+            if (!attrs.fontSize) return {}
+            return { style: `font-size: ${attrs.fontSize}` }
+          },
+        },
+      },
+    }]
+  },
+  addCommands() {
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setFontSize: (size: string) => ({ commands }: any) => commands.setMark('textStyle', { fontSize: size }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      unsetFontSize: () => ({ commands }: any) => commands.unsetMark('textStyle'),
+    }
+  },
+})
 import { Highlight } from '@tiptap/extension-highlight'
 import { Link } from '@tiptap/extension-link'
 import { Placeholder } from '@tiptap/extension-placeholder'
+import { VariableChip } from '@/componentes/ui/ExtensionVariableChip'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -45,18 +74,23 @@ interface PropiedadesEditorTexto {
   onFoco?: () => void
   /** Enfocar el editor programáticamente (cambiar para triggear) */
   autoEnfocar?: boolean
+  /** Callback con la instancia del editor TipTap para control externo (insertar contenido, etc.) */
+  onEditorListo?: (editor: ReturnType<typeof useEditor>) => void
+  /** Si se pasa, habilita la extensión VariableChip para renderizar variables como chips inline */
+  habilitarVariables?: boolean
 }
 
 // ── Tamaños de texto ─────────────────────────────────────────────────────────
 
 const TAMANOS_TEXTO = [
-  { id: 'titulo', etiqueta: 'Título', nivel: 1 as const, tipo: 'heading', px: null },
-  { id: 'subtitulo', etiqueta: 'Subtítulo', nivel: 2 as const, tipo: 'heading', px: null },
-  { id: 'encabezado', etiqueta: 'Encabezado', nivel: 3 as const, tipo: 'heading', px: null },
-  { id: 'normal', etiqueta: 'Normal', nivel: null, tipo: 'paragraph', px: null },
-  { id: 'pequeno', etiqueta: 'Pequeño', nivel: null, tipo: 'fontSize', px: '12px' },
-  { id: 'diminuto', etiqueta: 'Diminuto', nivel: null, tipo: 'fontSize', px: '10px' },
-  { id: 'micro', etiqueta: 'Micro', nivel: null, tipo: 'fontSize', px: '8px' },
+  { id: 'titulo', etiqueta: 'Título', tipo: 'fontSize', px: '24px' },
+  { id: 'subtitulo', etiqueta: 'Subtítulo', tipo: 'fontSize', px: '20px' },
+  { id: 'encabezado', etiqueta: 'Encabezado', tipo: 'fontSize', px: '18px' },
+  { id: 'grande', etiqueta: 'Grande', tipo: 'fontSize', px: '16px' },
+  { id: 'normal', etiqueta: 'Normal', tipo: 'reset', px: null },
+  { id: 'pequeno', etiqueta: 'Pequeño', tipo: 'fontSize', px: '12px' },
+  { id: 'diminuto', etiqueta: 'Diminuto', tipo: 'fontSize', px: '10px' },
+  { id: 'micro', etiqueta: 'Micro', tipo: 'fontSize', px: '8px' },
 ]
 
 // ── Grilla de colores — 8 columnas, organizada por tono (claro→oscuro) ───────
@@ -236,17 +270,44 @@ function EditorTexto({
   onBackspaceVacio,
   onFoco,
   autoEnfocar = false,
+  onEditorListo,
+  habilitarVariables = false,
 }: PropiedadesEditorTexto) {
   const { efecto } = useTema()
   const esCristal = efecto !== 'solido'
   const [panelAbierto, setPanelAbierto] = useState<'color' | 'tamano' | 'link' | null>(null)
+  const panelAbiertoRef = useRef(panelAbierto)
+  panelAbiertoRef.current = panelAbierto
   const [tabColor, setTabColor] = useState<'solido' | 'picker'>('solido')
   const [urlLink, setUrlLink] = useState('')
   const [toolbarPos, setToolbarPos] = useState<{ top: number; left: number; abreArriba: boolean } | null>(null)
   const [haySeleccion, setHaySeleccion] = useState(false)
   const toolbarRef = useRef<HTMLDivElement>(null)
+  // Guardar selección cuando se abre un panel para poder restaurarla
+  const seleccionGuardadaRef = useRef<{ from: number; to: number } | null>(null)
 
-  const cerrarPaneles = () => { setPanelAbierto(null); setTabColor('solido') }
+  const cerrarPaneles = () => { setPanelAbierto(null); setTabColor('solido'); seleccionGuardadaRef.current = null }
+  const abrirPanel = (panel: 'color' | 'tamano' | 'link') => {
+    if (panelAbierto === panel) { cerrarPaneles(); return }
+    // Guardar selección actual antes de abrir el panel
+    if (editor) {
+      const { from, to } = editor.state.selection
+      seleccionGuardadaRef.current = { from, to }
+    }
+    setPanelAbierto(panel)
+    if (panel === 'color') setTabColor('solido')
+  }
+  /** Restaurar selección guardada antes de ejecutar un comando */
+  const restaurarSeleccion = () => {
+    if (editor && seleccionGuardadaRef.current) {
+      const { from, to } = seleccionGuardadaRef.current
+      editor.commands.setTextSelection({ from, to })
+    }
+  }
+  const ejecutarConSeleccion = (fn: () => void) => {
+    restaurarSeleccion()
+    fn()
+  }
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -258,10 +319,11 @@ function EditorTexto({
       }),
       Underline,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      TextStyle, FontSize, Color,
+      TextStyle, FontSizeInline, Color,
       Highlight.configure({ multicolor: true }),
       Link.configure({ openOnClick: false, autolink: false, HTMLAttributes: { class: 'text-texto-marca underline cursor-pointer' } }),
       Placeholder.configure({ placeholder }),
+      ...(habilitarVariables ? [VariableChip] : []),
     ],
     content: contenido,
     editable: !soloLectura,
@@ -296,7 +358,7 @@ function EditorTexto({
     },
     onFocus: () => onFoco?.(),
     editorProps: {
-      attributes: { class: 'tiptap outline-none min-h-full' },
+      attributes: { class: 'tiptap outline-none h-full' },
       handleKeyDown: onEnter || onBackspaceVacio ? (_view, evento) => {
         if (onEnter && evento.key === 'Enter' && !evento.shiftKey) {
           evento.preventDefault()
@@ -316,13 +378,21 @@ function EditorTexto({
     },
   })
 
+  // Emitir instancia del editor al padre si lo necesita
+  useEffect(() => {
+    if (editor && onEditorListo) onEditorListo(editor)
+  }, [editor, onEditorListo])
+
   // Cerrar toolbar al hacer clic fuera del editor y del toolbar
   useEffect(() => {
-    if (!haySeleccion) return
+    if (!haySeleccion && !panelAbierto) return
     const manejar = (e: MouseEvent) => {
       const target = e.target as Node
       // No cerrar si hacen clic en el toolbar o sus paneles
       if (toolbarRef.current?.contains(target)) return
+      // No cerrar si hacen clic en el panel flotante (portal)
+      const panelEl = document.querySelector('[data-panel-editor]')
+      if (panelEl?.contains(target)) return
       // No cerrar si hacen clic dentro del propio editor TipTap
       if (editor?.view.dom.contains(target)) return
       setHaySeleccion(false)
@@ -330,7 +400,7 @@ function EditorTexto({
     }
     document.addEventListener('mousedown', manejar)
     return () => document.removeEventListener('mousedown', manejar)
-  }, [haySeleccion, editor])
+  }, [haySeleccion, panelAbierto, editor])
 
   // Enfocar programáticamente
   useEffect(() => {
@@ -374,9 +444,8 @@ function EditorTexto({
   const Sep = () => <div className="w-px h-4 bg-borde-sutil mx-0.5 shrink-0" />
 
   const tamanoActivo = TAMANOS_TEXTO.find(t => {
-    if (t.tipo === 'heading') return editor.isActive('heading', { level: t.nivel })
     if (t.tipo === 'fontSize') return editor.isActive('textStyle', { fontSize: t.px })
-    return t.tipo === 'paragraph' && !editor.isActive('heading') && !editor.getAttributes('textStyle').fontSize
+    return t.tipo === 'reset' && !editor.getAttributes('textStyle').fontSize
   })
 
   const colorTextoActual = editor.getAttributes('textStyle').color || null
@@ -384,9 +453,8 @@ function EditorTexto({
 
   // ── Panel de tamaños ───────────────────────────────────────────────────────
 
-  // Tamaños en px para mostrar al usuario
   const pxPorTamano: Record<string, string> = {
-    titulo: '24px', subtitulo: '20px', encabezado: '17px', normal: '14px',
+    titulo: '24px', subtitulo: '20px', encabezado: '18px', grande: '16px', normal: '14px (base)',
     pequeno: '12px', diminuto: '10px', micro: '8px',
   }
 
@@ -400,19 +468,22 @@ function EditorTexto({
             <button
               key={t.id} type="button" onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
-                if (t.tipo === 'heading' && t.nivel) editor.chain().focus().unsetFontSize().toggleHeading({ level: t.nivel }).run()
-                else if (t.tipo === 'fontSize' && t.px) editor.chain().focus().clearNodes().setFontSize(t.px).run()
-                else editor.chain().focus().clearNodes().unsetFontSize().run()
+                const sel = seleccionGuardadaRef.current
+                if (sel && editor) editor.commands.setTextSelection({ from: sel.from, to: sel.to })
+                if (t.tipo === 'fontSize' && t.px) {
+                  // Inline — solo afecta el texto seleccionado
+                  editor.chain().focus().setMark('textStyle', { fontSize: t.px }).run()
+                } else {
+                  // Normal — quitar fontSize
+                  editor.chain().focus().unsetMark('textStyle').run()
+                }
                 setPanelAbierto(null)
               }}
               className={['w-full text-left px-3 py-1.5 transition-colors cursor-pointer flex items-center justify-between gap-4',
                 activo ? 'bg-texto-marca/10 text-texto-marca' : 'text-texto-primario hover:bg-superficie-hover',
               ].join(' ')}
             >
-              <span className={
-                t.nivel === 1 ? 'text-lg font-bold' : t.nivel === 2 ? 'text-base font-semibold' :
-                t.nivel === 3 ? 'text-sm font-semibold' : t.tipo === 'fontSize' ? 'text-xs text-texto-secundario' : 'text-sm'
-              }>{t.etiqueta}</span>
+              <span style={{ fontSize: t.px || '14px', fontWeight: t.px && parseInt(t.px) >= 18 ? 600 : 400 }}>{t.etiqueta}</span>
               <span className="text-xxs text-texto-terciario font-mono">{pxPorTamano[t.id]}</span>
             </button>
           )
@@ -428,14 +499,24 @@ function EditorTexto({
     { id: 'picker', etiqueta: 'Personalizado' },
   ]
 
-  // Aplicar color: texto o fondo según qué tiene activo
+  // Aplicar color: restaurar selección en la misma cadena de comandos
   const aplicarColor = (color: string) => {
-    editor.chain().focus().setColor(color).run()
+    if (editor && seleccionGuardadaRef.current) {
+      const { from, to } = seleccionGuardadaRef.current
+      editor.chain().focus().setTextSelection({ from, to }).setColor(color).run()
+    } else if (editor) {
+      editor.chain().focus().setColor(color).run()
+    }
     cerrarPaneles()
   }
 
   const quitarColor = () => {
-    editor.chain().focus().unsetColor().unsetHighlight().run()
+    if (editor && seleccionGuardadaRef.current) {
+      const { from, to } = seleccionGuardadaRef.current
+      editor.chain().focus().setTextSelection({ from, to }).unsetColor().unsetHighlight().run()
+    } else if (editor) {
+      editor.chain().focus().unsetColor().unsetHighlight().run()
+    }
     cerrarPaneles()
   }
 
@@ -586,10 +667,11 @@ function EditorTexto({
   const alturaToolbarPx = 42
   const subDropdownLeft = toolbarPos?.left ?? 0
 
-  const toolbar = haySeleccion && toolbarPos && createPortal(
+  const toolbar = (haySeleccion || panelAbierto) && toolbarPos && createPortal(
     <AnimatePresence>
       {/* Barra principal del toolbar */}
       <motion.div
+        key="toolbar-principal"
         ref={toolbarRef}
         initial={{ opacity: 0, y: 6, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -603,7 +685,7 @@ function EditorTexto({
           {/* Tamaño */}
           <button
             type="button" onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setPanelAbierto(panelAbierto === 'tamano' ? null : 'tamano')}
+            onClick={() => abrirPanel('tamano')}
             className={['flex items-center gap-0.5 px-2 h-7 rounded-md text-xs font-medium transition-all cursor-pointer min-w-[80px]',
               panelAbierto === 'tamano' ? 'bg-texto-marca/15 text-texto-marca' : 'text-texto-secundario hover:text-texto-primario hover:bg-superficie-hover',
             ].join(' ')} title="Tamaño de texto"
@@ -635,7 +717,7 @@ function EditorTexto({
           {/* Color */}
           <button
             type="button" onMouseDown={(e) => e.preventDefault()}
-            onClick={() => { setPanelAbierto(panelAbierto === 'color' ? null : 'color'); setTabColor('solido') }}
+            onClick={() => abrirPanel('color')}
             className={['flex flex-col items-center justify-center size-7 rounded-md transition-all duration-100 cursor-pointer',
               panelAbierto === 'color' ? 'bg-texto-marca/15 text-texto-marca' : 'text-texto-secundario hover:text-texto-primario hover:bg-superficie-hover',
             ].join(' ')} title="Colores"
@@ -648,7 +730,7 @@ function EditorTexto({
 
           {editor.isActive('link')
             ? <Btn onClick={quitarLink} titulo="Quitar enlace"><Unlink size={14} /></Btn>
-            : <Btn onClick={() => setPanelAbierto(panelAbierto === 'link' ? null : 'link')} activo={panelAbierto === 'link'} titulo="Enlace"><LinkIcon size={14} /></Btn>
+            : <Btn onClick={() => abrirPanel('link')} activo={panelAbierto === 'link'} titulo="Enlace"><LinkIcon size={14} /></Btn>
           }
 
           <Btn onClick={() => { editor.chain().focus().clearNodes().unsetAllMarks().run(); cerrarPaneles() }} titulo="Limpiar formato"><Type size={14} /></Btn>
@@ -665,10 +747,12 @@ function EditorTexto({
         const panelAbajo = espacioDebajo > alturaEstimadaPanel
         return (
         <motion.div
+          key="toolbar-panel"
           initial={{ opacity: 0, y: panelAbajo ? -4 : 4 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: panelAbajo ? -4 : 4 }}
           transition={{ duration: 0.1 }}
+          data-panel-editor="true"
           className="fixed z-[9999] rounded-lg shadow-elevada border border-borde-sutil overflow-hidden max-h-[80vh] overflow-y-auto"
           style={{
             ...(panelAbajo
@@ -696,7 +780,7 @@ function EditorTexto({
       style={style}
     >
       {toolbar}
-      <EditorContent editor={editor} className="px-4 py-3 text-sm" style={{ minHeight: alturaMinima }} />
+      <EditorContent editor={editor} className="px-4 py-3 text-sm flex flex-col flex-1 [&>div]:flex-1 [&>div>div]:flex-1" style={{ minHeight: alturaMinima }} />
     </div>
   )
 }

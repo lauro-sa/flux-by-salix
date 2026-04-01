@@ -5,6 +5,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { usePathname } from 'next/navigation'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
+import { ToastNotificacion } from '@/componentes/feedback/ToastNotificacion'
 import { useTema } from '@/hooks/useTema'
 import { usePreferencias } from '@/hooks/usePreferencias'
 import type { Migaja } from '@/hooks/useNavegacion'
@@ -129,6 +130,8 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
           onLimpiarSeccion={limpiarSeccion}
           migajasExtras={migajasExtras}
         />
+
+        <ToastNotificacion />
 
         <main
           className="scrollbar-auto-oculto"

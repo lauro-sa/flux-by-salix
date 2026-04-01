@@ -98,6 +98,11 @@ export function validarCamposContacto(datos: {
   return errores
 }
 
+/** Sanitiza input de búsqueda: solo permite caracteres seguros para FTS e ilike */
+export function sanitizarBusqueda(input: string): string {
+  return input.replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ0-9\s.@\-_]/g, '').trim()
+}
+
 /** Retorna true si no hay errores */
 export function sinErrores(errores: ErroresContacto): boolean {
   return Object.keys(errores).length === 0

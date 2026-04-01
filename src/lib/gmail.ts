@@ -45,6 +45,7 @@ export interface AdjuntoCorreoParsedo {
   nombre: string           // Filename
   tipoMime: string         // MIME type
   tamano: number           // Size in bytes
+  contenido?: Buffer       // Contenido raw (disponible en IMAP, no en Gmail)
 }
 
 export interface CursorSincronizacion {
@@ -175,34 +176,25 @@ function extraerCuerpo(payload: any): { textoPlano: string; html: string } {
   let textoPlano = ''
   let html = ''
 
-  // Caso simple: body directo
-  if (payload.mimeType === 'text/plain' && payload.body?.data) {
-    textoPlano = decodificarBase64Url(payload.body.data)
-  } else if (payload.mimeType === 'text/html' && payload.body?.data) {
-    html = decodificarBase64Url(payload.body.data)
-  }
+  // Recorrer recursivamente toda la estructura MIME
+  // (los correos con adjuntos pueden tener 3+ niveles: mixed → related → alternative → text/html)
+  function recorrer(parte: any) {
+    if (!parte) return
 
-  // Caso multipart: recorrer partes
-  if (payload.parts) {
-    for (const part of payload.parts) {
-      if (part.mimeType === 'text/plain' && part.body?.data) {
-        textoPlano = decodificarBase64Url(part.body.data)
-      } else if (part.mimeType === 'text/html' && part.body?.data) {
-        html = decodificarBase64Url(part.body.data)
-      }
-      // Multipart anidado (ej: multipart/alternative dentro de multipart/mixed)
-      if (part.parts) {
-        for (const subPart of part.parts) {
-          if (subPart.mimeType === 'text/plain' && subPart.body?.data) {
-            textoPlano = decodificarBase64Url(subPart.body.data)
-          } else if (subPart.mimeType === 'text/html' && subPart.body?.data) {
-            html = decodificarBase64Url(subPart.body.data)
-          }
-        }
+    if (parte.mimeType === 'text/plain' && parte.body?.data) {
+      textoPlano = decodificarBase64Url(parte.body.data)
+    } else if (parte.mimeType === 'text/html' && parte.body?.data) {
+      html = decodificarBase64Url(parte.body.data)
+    }
+
+    if (parte.parts) {
+      for (const sub of parte.parts) {
+        recorrer(sub)
       }
     }
   }
 
+  recorrer(payload)
   return { textoPlano, html }
 }
 

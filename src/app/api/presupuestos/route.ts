@@ -2,6 +2,9 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
+import { sanitizarBusqueda } from '@/lib/validaciones'
+import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { registrarError } from '@/lib/logger'
 
 /**
  * GET /api/presupuestos — Listar presupuestos de la empresa activa.
@@ -17,7 +20,7 @@ export async function GET(request: NextRequest) {
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
     const params = request.nextUrl.searchParams
-    const busqueda = params.get('busqueda') || ''
+    const busqueda = sanitizarBusqueda(params.get('busqueda') || '')
     const estado = params.get('estado')
     const contacto_id = params.get('contacto_id')
     const moneda = params.get('moneda')
@@ -84,7 +87,7 @@ export async function GET(request: NextRequest) {
     const { data, error, count } = await query
 
     if (error) {
-      console.error('Error al listar presupuestos:', error)
+      registrarError(error, { ruta: '/api/presupuestos', accion: 'listar', empresaId })
       return NextResponse.json({ error: 'Error al obtener presupuestos' }, { status: 500 })
     }
 
@@ -112,6 +115,9 @@ export async function POST(request: NextRequest) {
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'presupuestos', 'crear')
+    if (!permitido) return NextResponse.json({ error: 'Sin permiso para crear presupuestos' }, { status: 403 })
 
     const body = await request.json()
     const admin = crearClienteAdmin()

@@ -8,6 +8,7 @@
 
 import { ImapFlow } from 'imapflow'
 import nodemailer from 'nodemailer'
+import { descifrar } from '@/lib/cifrado'
 import { simpleParser, type ParsedMail } from 'mailparser'
 import type { ConfigIMAP } from '@/tipos/inbox'
 import type { CorreoParsedo, AdjuntoCorreoParsedo } from './gmail'
@@ -22,7 +23,7 @@ export async function conectarIMAP(config: ConfigIMAP): Promise<ImapFlow> {
     secure: config.ssl,
     auth: {
       user: config.usuario,
-      pass: config.password_cifrada,
+      pass: descifrar(config.password_cifrada),
     },
     logger: false,
   })
@@ -57,7 +58,6 @@ export async function obtenerMensajesIMAP(
   const {
     carpeta = 'INBOX',
     desdeUID,
-    desdeFecha,
     limite = 50,
   } = opciones
 
@@ -68,20 +68,16 @@ export async function obtenerMensajesIMAP(
   try {
     const lock = await cliente.getMailboxLock(carpeta)
     try {
-      // Construir rango de búsqueda
-      let range: string
-      if (desdeUID && desdeUID > 0) {
-        range = `${desdeUID + 1}:*`
-      } else {
-        // Primera sync: traer todos los mensajes
-        range = '1:*'
-      }
+      // Usar objeto { uid: "..." } para que ImapFlow interprete como rango de UIDs (no secuencia)
+      const range = (desdeUID && desdeUID > 0)
+        ? { uid: `${desdeUID + 1}:*` }
+        : { uid: '1:*' }
 
       let count = 0
       for await (const message of cliente.fetch(range, {
         uid: true,
         envelope: true,
-        source: true, // Raw message para parsear con mailparser
+        source: true,
       })) {
         if (count >= limite) break
 
@@ -106,31 +102,54 @@ export async function obtenerMensajesIMAP(
   return { mensajes, ultimoUID }
 }
 
-/** Obtiene mensajes de la carpeta Enviados */
-export async function obtenerEnviadosIMAP(
+/** Detecta las carpetas reales del servidor IMAP (Sent, Junk, etc.) */
+export async function detectarCarpetasIMAP(
   config: ConfigIMAP,
-  opciones: Omit<OpcionesFetchIMAP, 'carpeta'> = {},
-): Promise<{ mensajes: CorreoParsedo[]; ultimoUID: number }> {
-  // Los nombres de carpeta de enviados varían según proveedor
-  const carpetasEnviados = ['Sent', 'INBOX.Sent', 'Sent Items', 'Sent Messages', '[Gmail]/Sent Mail']
-
+): Promise<{ sent: string | null; junk: string | null; inbox: string }> {
   const cliente = await conectarIMAP(config)
-  let carpetaEnviados = 'Sent'
+  let sent: string | null = null
+  let junk: string | null = null
 
   try {
-    // Detectar carpeta de enviados
     const mailboxes = await cliente.list()
     for (const mb of mailboxes) {
-      if (mb.specialUse === '\\Sent' || carpetasEnviados.includes(mb.path)) {
-        carpetaEnviados = mb.path
-        break
+      // Detectar por specialUse (estándar RFC 6154)
+      if (mb.specialUse === '\\Sent' && !sent) sent = mb.path
+      if (mb.specialUse === '\\Junk' && !junk) junk = mb.path
+      if (mb.specialUse === '\\Trash' && !junk) junk = mb.path
+    }
+
+    // Fallback por nombre si specialUse no está soportado
+    if (!sent || !junk) {
+      const nombres = mailboxes.map(mb => mb.path)
+      if (!sent) {
+        sent = nombres.find(n =>
+          /^(sent|enviados|inbox\.sent|sent items|sent messages|\[gmail\]\/sent mail)$/i.test(n)
+        ) || null
+      }
+      if (!junk) {
+        junk = nombres.find(n =>
+          /^(junk|spam|inbox\.junk|bulk mail|\[gmail\]\/spam)$/i.test(n)
+        ) || null
       }
     }
   } finally {
     await desconectarIMAP(cliente)
   }
 
-  return obtenerMensajesIMAP(config, { ...opciones, carpeta: carpetaEnviados })
+  return { sent, junk, inbox: 'INBOX' }
+}
+
+/** Obtiene mensajes de la carpeta Enviados */
+export async function obtenerEnviadosIMAP(
+  config: ConfigIMAP,
+  opciones: Omit<OpcionesFetchIMAP, 'carpeta'> = {},
+): Promise<{ mensajes: CorreoParsedo[]; ultimoUID: number }> {
+  const carpetas = await detectarCarpetasIMAP(config)
+  if (!carpetas.sent) {
+    return { mensajes: [], ultimoUID: opciones.desdeUID || 0 }
+  }
+  return obtenerMensajesIMAP(config, { ...opciones, carpeta: carpetas.sent })
 }
 
 // ─── Convertir parsed mail a tipo interno ───
@@ -144,13 +163,13 @@ function convertirParseadoACorreo(parsed: ParsedMail, uid: number): CorreoParsed
       ? [referencesRaw]
       : []
 
-  // Extraer adjuntos
+  // Extraer adjuntos (IMAP incluye el contenido directamente en el parsed)
   const adjuntos: AdjuntoCorreoParsedo[] = (parsed.attachments || []).map((adj, i) => ({
     attachmentId: `imap_${uid}_${i}`,
     nombre: adj.filename || `adjunto_${i}`,
     tipoMime: adj.contentType || 'application/octet-stream',
     tamano: adj.size || 0,
-    // El contenido raw está en adj.content (Buffer) — se usará al descargar
+    contenido: adj.content,
   }))
 
   return {
@@ -227,7 +246,7 @@ function crearTransportadorSMTP(config: ConfigIMAP) {
     secure: (config.smtp_puerto || 587) === 465,
     auth: {
       user: config.usuario,
-      pass: config.password_cifrada,
+      pass: descifrar(config.password_cifrada),
     },
   })
 }

@@ -59,9 +59,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generar token y fecha de expiración (7 días)
+    // Generar token y fecha de expiración (48 horas)
     const token = crypto.randomUUID()
-    const expiraEn = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+    const expiraEn = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
 
     // Obtener slug de la empresa para el link
     const { data: empresa } = await admin

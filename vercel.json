@@ -10,7 +10,7 @@
   "crons": [
     {
       "path": "/api/cron/sincronizar-correo",
-      "schedule": "0 6 * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/limpiar-adjuntos",
@@ -18,7 +18,23 @@
     },
     {
       "path": "/api/cron/enviar-programados",
-      "schedule": "0 7 * * *"
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/actividades-vencimientos",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/recordatorios",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/cumpleanios",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/limpiar-notificaciones",
+      "schedule": "0 5 * * *"
     }
   ]
 }

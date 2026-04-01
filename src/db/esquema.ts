@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, boolean, timestamp, jsonb, uniqueIndex, index, numeric, integer, date, doublePrecision, check, primaryKey } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, text, boolean, timestamp, jsonb, uniqueIndex, index, numeric, integer, date, doublePrecision, check, primaryKey, time, bigint } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 
 /**
@@ -32,6 +32,7 @@ export const perfiles = pgTable('perfiles', {
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
   contacto_emergencia: jsonb('contacto_emergencia'),
+  fecha_nacimiento: date('fecha_nacimiento'),
 })
 
 // Miembros — relación usuario↔empresa con rol y estado de activación
@@ -705,6 +706,8 @@ export const productos = pgTable('productos', {
 
   // Origen: 'manual' = usuario, 'asistente_salix' = creado por IA
   origen: text('origen').notNull().default('manual'),
+  // Provisorio: creado por IA, se confirma al guardar el presupuesto
+  es_provisorio: boolean('es_provisorio').notNull().default(false),
 
   // Conteo de uso (actualizado automáticamente por triggers SQL)
   veces_presupuestado: integer('veces_presupuestado').notNull().default(0),
@@ -718,6 +721,120 @@ export const productos = pgTable('productos', {
   index('productos_categoria_idx').on(tabla.empresa_id, tabla.categoria),
   index('productos_activo_idx').on(tabla.empresa_id, tabla.activo),
   index('productos_papelera_idx').on(tabla.empresa_id, tabla.en_papelera),
+])
+
+// ═══════════════════════════════════════════════════════════════
+// SISTEMA DE ACTIVIDADES
+// ═══════════════════════════════════════════════════════════════
+
+// Tipos de actividad — configurables por empresa (Llamada, Reunión, Tarea, Visita, etc.)
+export const tipos_actividad = pgTable('tipos_actividad', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  clave: text('clave').notNull(), // 'llamada', 'reunion', 'tarea', etc.
+  etiqueta: text('etiqueta').notNull(), // 'Llamada', 'Reunión', etc.
+  icono: text('icono').notNull().default('Activity'), // nombre del ícono Lucide
+  color: text('color').notNull().default('#5b5bd6'), // hex color
+  // Módulos donde está disponible este tipo de actividad
+  modulos_disponibles: text('modulos_disponibles').array().notNull().default(sql`'{"contactos"}'`),
+  // Vencimiento por defecto en días (0 = sin vencimiento)
+  dias_vencimiento: integer('dias_vencimiento').notNull().default(1),
+  // Campos habilitados para este tipo
+  campo_fecha: boolean('campo_fecha').notNull().default(true),
+  campo_descripcion: boolean('campo_descripcion').notNull().default(true),
+  campo_responsable: boolean('campo_responsable').notNull().default(true),
+  campo_prioridad: boolean('campo_prioridad').notNull().default(false),
+  campo_checklist: boolean('campo_checklist').notNull().default(false),
+  // Orden, estado, predefinido
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  es_predefinido: boolean('es_predefinido').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  uniqueIndex('tipos_actividad_empresa_clave_idx').on(tabla.empresa_id, tabla.clave),
+  index('tipos_actividad_empresa_idx').on(tabla.empresa_id),
+])
+
+// Estados de actividad — configurables por empresa (Pendiente, Completada, etc.)
+export const estados_actividad = pgTable('estados_actividad', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  clave: text('clave').notNull(), // 'pendiente', 'completada', etc.
+  etiqueta: text('etiqueta').notNull(),
+  icono: text('icono').notNull().default('Circle'),
+  color: text('color').notNull().default('#6b7280'),
+  // Grupo de comportamiento: activo (visible en chatter), completado (timeline), cancelado (terminal)
+  grupo: text('grupo').notNull().default('activo'), // 'activo' | 'completado' | 'cancelado'
+  orden: integer('orden').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  es_predefinido: boolean('es_predefinido').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  uniqueIndex('estados_actividad_empresa_clave_idx').on(tabla.empresa_id, tabla.clave),
+  index('estados_actividad_empresa_idx').on(tabla.empresa_id),
+])
+
+// Configuración de posposición — presets por empresa
+export const config_actividades = pgTable('config_actividades', {
+  empresa_id: uuid('empresa_id').primaryKey().references(() => empresas.id, { onDelete: 'cascade' }),
+  // Presets de posposición [{id, etiqueta, dias}]
+  presets_posposicion: jsonb('presets_posposicion').notNull().default(sql`'[{"id":"1d","etiqueta":"1 día","dias":1},{"id":"3d","etiqueta":"3 días","dias":3},{"id":"1s","etiqueta":"1 semana","dias":7},{"id":"2s","etiqueta":"2 semanas","dias":14}]'`),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+})
+
+// Actividades — tareas, llamadas, reuniones, etc. vinculadas a entidades
+export const actividades = pgTable('actividades', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+
+  // Contenido
+  titulo: text('titulo').notNull(),
+  descripcion: text('descripcion'),
+
+  // Tipo y estado (FK a tablas configurables)
+  tipo_id: uuid('tipo_id').notNull().references(() => tipos_actividad.id),
+  tipo_clave: text('tipo_clave').notNull(), // snapshot para queries rápidas
+  estado_id: uuid('estado_id').notNull().references(() => estados_actividad.id),
+  estado_clave: text('estado_clave').notNull().default('pendiente'),
+
+  // Prioridad
+  prioridad: text('prioridad').notNull().default('normal'), // 'baja' | 'normal' | 'alta'
+
+  // Fechas
+  fecha_vencimiento: timestamp('fecha_vencimiento', { withTimezone: true }),
+  fecha_completada: timestamp('fecha_completada', { withTimezone: true }),
+
+  // Responsable (miembro del equipo asignado)
+  asignado_a: uuid('asignado_a'), // usuario_id
+  asignado_nombre: text('asignado_nombre'),
+
+  // Checklist [{id, texto, completado}]
+  checklist: jsonb('checklist').notNull().default(sql`'[]'`),
+
+  // Vínculos a entidades [{tipo, id, nombre}]
+  vinculos: jsonb('vinculos').notNull().default(sql`'[]'`),
+  // Array de IDs para queries con array-contains
+  vinculo_ids: text('vinculo_ids').array().notNull().default(sql`'{}'`),
+
+  // Auditoría
+  creado_por: uuid('creado_por').notNull(),
+  creado_por_nombre: text('creado_por_nombre'),
+  editado_por: uuid('editado_por'),
+  editado_por_nombre: text('editado_por_nombre'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+
+  // Soft delete
+  en_papelera: boolean('en_papelera').notNull().default(false),
+  papelera_en: timestamp('papelera_en', { withTimezone: true }),
+}, (tabla) => [
+  index('actividades_empresa_idx').on(tabla.empresa_id),
+  index('actividades_tipo_idx').on(tabla.empresa_id, tabla.tipo_clave),
+  index('actividades_estado_idx').on(tabla.empresa_id, tabla.estado_clave),
+  index('actividades_asignado_idx').on(tabla.empresa_id, tabla.asignado_a),
+  index('actividades_vencimiento_idx').on(tabla.empresa_id, tabla.fecha_vencimiento),
+  index('actividades_creado_por_idx').on(tabla.empresa_id, tabla.creado_por),
+  index('actividades_papelera_idx').on(tabla.empresa_id, tabla.en_papelera),
 ])
 
 // Configuración de productos por empresa (JSONB flexible)
@@ -738,3 +855,779 @@ export const config_productos = pgTable('config_productos', {
 
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
 })
+
+// Notificaciones — notificaciones in-app por usuario
+export const notificaciones = pgTable('notificaciones', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  usuario_id: uuid('usuario_id').notNull(),
+  tipo: text('tipo').notNull(), // 'nuevo_mensaje', 'asignacion', 'mencion', 'sla_vencido', 'actividad', 'portal_vista', etc.
+  titulo: text('titulo').notNull(),
+  cuerpo: text('cuerpo'),
+  icono: text('icono'), // nombre de ícono lucide
+  color: text('color'), // color semántico
+  url: text('url'), // ruta para navegar al abrir
+  leida: boolean('leida').notNull().default(false),
+  referencia_tipo: text('referencia_tipo'), // 'conversacion', 'mensaje', 'contacto', 'actividad', 'presupuesto', etc.
+  referencia_id: uuid('referencia_id'),
+  creada_en: timestamp('creada_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('idx_notificaciones_usuario').on(tabla.usuario_id, tabla.empresa_id, tabla.leida, tabla.creada_en),
+  index('idx_notificaciones_empresa').on(tabla.empresa_id),
+])
+
+// Recordatorios — recordatorios personales de cada usuario
+export const recordatorios = pgTable('recordatorios', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  creado_por: uuid('creado_por').notNull(), // usuario que lo creó
+  asignado_a: uuid('asignado_a').notNull(), // usuario al que va dirigido (puede ser él mismo u otro)
+  titulo: text('titulo').notNull(),
+  descripcion: text('descripcion'),
+  fecha: date('fecha').notNull(), // fecha del recordatorio
+  hora: text('hora'), // null = todo el día, "14:30" = hora específica
+  repetir: text('repetir').notNull().default('ninguno'), // 'ninguno' | 'diario' | 'semanal' | 'mensual' | 'anual' | 'personalizado'
+  recurrencia: jsonb('recurrencia'), // Config avanzada: { diasSemana?: number[], diaMes?: number, semanaDelMes?: number, cadaMeses?: number }
+  alerta_modal: boolean('alerta_modal').notNull().default(false), // true = abre modal al momento, false = solo notificación en campana
+  completado: boolean('completado').notNull().default(false),
+  completado_en: timestamp('completado_en', { withTimezone: true }),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('idx_recordatorios_usuario').on(tabla.asignado_a, tabla.empresa_id, tabla.completado, tabla.fecha),
+  index('idx_recordatorios_empresa').on(tabla.empresa_id),
+])
+
+// Suscripciones Push — para notificaciones PWA en segundo plano
+export const suscripcionesPush = pgTable('suscripciones_push', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  usuario_id: uuid('usuario_id').notNull(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  endpoint: text('endpoint').notNull(),
+  p256dh: text('p256dh').notNull(),
+  auth: text('auth').notNull(),
+  user_agent: text('user_agent'),
+  activa: boolean('activa').notNull().default(true),
+  creada_en: timestamp('creada_en', { withTimezone: true }).defaultNow().notNull(),
+  ultima_notificacion_en: timestamp('ultima_notificacion_en', { withTimezone: true }),
+}, (tabla) => [
+  index('idx_suscripciones_push_usuario').on(tabla.usuario_id, tabla.empresa_id),
+])
+
+// ═══════════════════════════════════════════════════════════════
+// INBOX / MENSAJERÍA
+// ═══════════════════════════════════════════════════════════════
+
+// Canales de inbox — conexiones de correo, WhatsApp, etc.
+export const canales_inbox = pgTable('canales_inbox', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  tipo: text('tipo').notNull(), // 'correo', 'whatsapp', etc.
+  nombre: text('nombre').notNull(),
+  proveedor: text('proveedor'), // 'gmail', 'imap', 'meta', etc.
+  activo: boolean('activo').notNull().default(true),
+  config_conexion: jsonb('config_conexion').notNull().default(sql`'{}'`),
+  estado_conexion: text('estado_conexion').notNull().default('desconectado'),
+  ultimo_error: text('ultimo_error'),
+  ultima_sincronizacion: timestamp('ultima_sincronizacion', { withTimezone: true }),
+  sync_cursor: jsonb('sync_cursor').default(sql`'{}'`),
+  creado_por: uuid('creado_por').notNull(),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('canales_inbox_empresa_idx').on(tabla.empresa_id),
+])
+
+// Canales internos — chat de equipo (públicos, privados, DMs)
+export const canales_internos = pgTable('canales_internos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  nombre: text('nombre').notNull(),
+  descripcion: text('descripcion'),
+  tipo: text('tipo').notNull().default('publico'), // 'publico' | 'privado' | 'dm'
+  icono: text('icono'),
+  color: text('color'),
+  participantes_dm: uuid('participantes_dm').array(), // solo para tipo = 'dm'
+  archivado: boolean('archivado').notNull().default(false),
+  ultimo_mensaje_texto: text('ultimo_mensaje_texto'),
+  ultimo_mensaje_en: timestamp('ultimo_mensaje_en', { withTimezone: true }),
+  ultimo_mensaje_por: text('ultimo_mensaje_por'),
+  creado_por: uuid('creado_por').notNull(),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('canales_internos_empresa_idx').on(tabla.empresa_id),
+])
+
+// Miembros de canales internos
+export const canal_interno_miembros = pgTable('canal_interno_miembros', {
+  canal_id: uuid('canal_id').notNull().references(() => canales_internos.id, { onDelete: 'cascade' }),
+  usuario_id: uuid('usuario_id').notNull(),
+  rol: text('rol').notNull().default('miembro'),
+  silenciado: boolean('silenciado').notNull().default(false),
+  ultimo_leido_en: timestamp('ultimo_leido_en', { withTimezone: true }),
+  unido_en: timestamp('unido_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  primaryKey({ columns: [tabla.canal_id, tabla.usuario_id] }),
+])
+
+// Agentes asignados a canales de inbox
+export const canal_agentes = pgTable('canal_agentes', {
+  canal_id: uuid('canal_id').notNull().references(() => canales_inbox.id, { onDelete: 'cascade' }),
+  usuario_id: uuid('usuario_id').notNull(),
+  rol_canal: text('rol_canal').notNull().default('agente'),
+  asignado_en: timestamp('asignado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  primaryKey({ columns: [tabla.canal_id, tabla.usuario_id] }),
+])
+
+// Conversaciones — hilos de comunicación con contactos externos
+export const conversaciones = pgTable('conversaciones', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  canal_id: uuid('canal_id').notNull().references(() => canales_inbox.id),
+  tipo_canal: text('tipo_canal').notNull(), // 'correo', 'whatsapp', etc.
+  identificador_externo: text('identificador_externo'), // email, teléfono WA
+  hilo_externo_id: text('hilo_externo_id'), // thread ID externo
+  contacto_id: uuid('contacto_id').references(() => contactos.id, { onDelete: 'set null' }),
+  contacto_nombre: text('contacto_nombre'),
+  estado: text('estado').notNull().default('abierta'), // 'abierta', 'cerrada', 'archivada'
+  prioridad: text('prioridad').notNull().default('normal'),
+  asignado_a: uuid('asignado_a'),
+  asignado_a_nombre: text('asignado_a_nombre'),
+  asunto: text('asunto'),
+  canal_interno_id: uuid('canal_interno_id').references(() => canales_internos.id, { onDelete: 'set null' }),
+  // Cache del último mensaje
+  ultimo_mensaje_texto: text('ultimo_mensaje_texto'),
+  ultimo_mensaje_en: timestamp('ultimo_mensaje_en', { withTimezone: true }),
+  ultimo_mensaje_es_entrante: boolean('ultimo_mensaje_es_entrante').default(true),
+  mensajes_sin_leer: integer('mensajes_sin_leer').notNull().default(0),
+  // Métricas de respuesta
+  primera_respuesta_en: timestamp('primera_respuesta_en', { withTimezone: true }),
+  tiempo_sin_respuesta_desde: timestamp('tiempo_sin_respuesta_desde', { withTimezone: true }),
+  // Etiquetas (array nativo)
+  etiquetas: text('etiquetas').array().default(sql`'{}'`),
+  // IA
+  resumen_ia: text('resumen_ia'),
+  sentimiento: text('sentimiento'),
+  idioma_detectado: text('idioma_detectado'),
+  chatbot_activo: boolean('chatbot_activo').notNull().default(true),
+  agente_ia_activo: boolean('agente_ia_activo').default(true),
+  clasificacion_ia: jsonb('clasificacion_ia'),
+  metadata: jsonb('metadata').default(sql`'{}'`),
+  // Timestamps
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+  cerrado_en: timestamp('cerrado_en', { withTimezone: true }),
+  cerrado_por: uuid('cerrado_por'),
+}, (tabla) => [
+  index('conversaciones_empresa_idx').on(tabla.empresa_id),
+  index('conversaciones_canal_idx').on(tabla.canal_id),
+  index('conversaciones_contacto_idx').on(tabla.contacto_id),
+  index('conversaciones_estado_idx').on(tabla.empresa_id, tabla.estado),
+  index('conversaciones_asignado_idx').on(tabla.empresa_id, tabla.asignado_a),
+  index('conversaciones_ultimo_mensaje_idx').on(tabla.empresa_id, tabla.ultimo_mensaje_en),
+])
+
+// Mensajes — contenido de cada conversación
+export const mensajes = pgTable('mensajes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  conversacion_id: uuid('conversacion_id').notNull().references(() => conversaciones.id, { onDelete: 'cascade' }),
+  es_entrante: boolean('es_entrante').notNull().default(true),
+  remitente_tipo: text('remitente_tipo').notNull().default('contacto'), // 'contacto', 'agente', 'sistema', 'ia'
+  remitente_id: uuid('remitente_id'),
+  remitente_nombre: text('remitente_nombre'),
+  tipo_contenido: text('tipo_contenido').notNull().default('texto'), // 'texto', 'imagen', 'audio', 'documento', 'video', 'sticker'
+  texto: text('texto'),
+  html: text('html'),
+  // Campos específicos de correo
+  correo_de: text('correo_de'),
+  correo_para: text('correo_para').array(),
+  correo_cc: text('correo_cc').array(),
+  correo_cco: text('correo_cco').array(),
+  correo_asunto: text('correo_asunto'),
+  correo_message_id: text('correo_message_id'),
+  correo_in_reply_to: text('correo_in_reply_to'),
+  correo_references: text('correo_references').array(),
+  // Campos específicos de WhatsApp
+  wa_message_id: text('wa_message_id'),
+  wa_status: text('wa_status'),
+  wa_tipo_mensaje: text('wa_tipo_mensaje'),
+  // Hilos y respuestas
+  respuesta_a_id: uuid('respuesta_a_id'),
+  hilo_raiz_id: uuid('hilo_raiz_id'),
+  cantidad_respuestas: integer('cantidad_respuestas').notNull().default(0),
+  reacciones: jsonb('reacciones').default(sql`'{}'`),
+  metadata: jsonb('metadata').default(sql`'{}'`),
+  // Estado
+  estado: text('estado').notNull().default('enviado'),
+  error_envio: text('error_envio'),
+  es_nota_interna: boolean('es_nota_interna').notNull().default(false),
+  plantilla_id: uuid('plantilla_id'),
+  // Timestamps
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  editado_en: timestamp('editado_en', { withTimezone: true }),
+  eliminado_en: timestamp('eliminado_en', { withTimezone: true }),
+}, (tabla) => [
+  index('mensajes_empresa_idx').on(tabla.empresa_id),
+  index('mensajes_conversacion_idx').on(tabla.conversacion_id),
+  index('mensajes_fecha_idx').on(tabla.conversacion_id, tabla.creado_en),
+])
+
+// Adjuntos de mensajes
+export const mensaje_adjuntos = pgTable('mensaje_adjuntos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  mensaje_id: uuid('mensaje_id').references(() => mensajes.id, { onDelete: 'cascade' }),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  nombre_archivo: text('nombre_archivo').notNull(),
+  tipo_mime: text('tipo_mime').notNull(),
+  tamano_bytes: bigint('tamano_bytes', { mode: 'number' }),
+  url: text('url').notNull(),
+  storage_path: text('storage_path').notNull(),
+  miniatura_url: text('miniatura_url'),
+  duracion_segundos: integer('duracion_segundos'),
+  es_sticker: boolean('es_sticker').default(false),
+  es_animado: boolean('es_animado').default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('mensaje_adjuntos_mensaje_idx').on(tabla.mensaje_id),
+  index('mensaje_adjuntos_empresa_idx').on(tabla.empresa_id),
+])
+
+// Asignaciones de inbox — historial de asignación de conversaciones
+export const asignaciones_inbox = pgTable('asignaciones_inbox', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  conversacion_id: uuid('conversacion_id').notNull().references(() => conversaciones.id, { onDelete: 'cascade' }),
+  usuario_id: uuid('usuario_id').notNull(),
+  usuario_nombre: text('usuario_nombre'),
+  tipo: text('tipo').notNull().default('manual'), // 'manual', 'automatica', 'round_robin'
+  asignado_por: uuid('asignado_por'),
+  asignado_por_nombre: text('asignado_por_nombre'),
+  notas: text('notas'),
+  asignado_en: timestamp('asignado_en', { withTimezone: true }).defaultNow().notNull(),
+  desasignado_en: timestamp('desasignado_en', { withTimezone: true }),
+}, (tabla) => [
+  index('asignaciones_inbox_empresa_idx').on(tabla.empresa_id),
+  index('asignaciones_inbox_conversacion_idx').on(tabla.conversacion_id),
+])
+
+// Etiquetas de inbox — etiquetas para clasificar conversaciones
+export const etiquetas_inbox = pgTable('etiquetas_inbox', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  nombre: text('nombre').notNull(),
+  color: text('color').notNull().default('#6b7280'),
+  icono: text('icono'),
+  orden: integer('orden').default(0),
+  es_default: boolean('es_default').notNull().default(false),
+  clave_default: text('clave_default'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('etiquetas_inbox_empresa_idx').on(tabla.empresa_id),
+])
+
+// Relación conversación↔etiqueta
+export const conversacion_etiquetas = pgTable('conversacion_etiquetas', {
+  conversacion_id: uuid('conversacion_id').notNull().references(() => conversaciones.id, { onDelete: 'cascade' }),
+  etiqueta_id: uuid('etiqueta_id').notNull().references(() => etiquetas_inbox.id, { onDelete: 'cascade' }),
+  asignado_en: timestamp('asignado_en', { withTimezone: true }).defaultNow().notNull(),
+  asignado_por: uuid('asignado_por'),
+}, (tabla) => [
+  primaryKey({ columns: [tabla.conversacion_id, tabla.etiqueta_id] }),
+])
+
+// Configuración global de inbox por empresa
+export const config_inbox = pgTable('config_inbox', {
+  empresa_id: uuid('empresa_id').primaryKey().references(() => empresas.id, { onDelete: 'cascade' }),
+  // Asignación automática
+  asignacion_automatica: boolean('asignacion_automatica').notNull().default(false),
+  algoritmo_asignacion: text('algoritmo_asignacion').notNull().default('round_robin'),
+  // SLA
+  sla_primera_respuesta_minutos: integer('sla_primera_respuesta_minutos').default(60),
+  sla_resolucion_horas: integer('sla_resolucion_horas').default(24),
+  // Horario de atención
+  horario_atencion: jsonb('horario_atencion'),
+  zona_horaria: text('zona_horaria').default('America/Argentina/Buenos_Aires'),
+  respuesta_fuera_horario: boolean('respuesta_fuera_horario').notNull().default(false),
+  mensaje_fuera_horario: text('mensaje_fuera_horario'),
+  // Notificaciones
+  notificar_nuevo_mensaje: boolean('notificar_nuevo_mensaje').notNull().default(true),
+  notificar_asignacion: boolean('notificar_asignacion').notNull().default(true),
+  notificar_sla_vencido: boolean('notificar_sla_vencido').notNull().default(true),
+  sonido_notificacion: boolean('sonido_notificacion').notNull().default(true),
+  // Listas de correo
+  correo_lista_permitidos: text('correo_lista_permitidos').array().default(sql`'{}'`),
+  correo_lista_bloqueados: text('correo_lista_bloqueados').array().default(sql`'{}'`),
+  // IA inline
+  ia_proveedor: text('ia_proveedor').default('anthropic'),
+  ia_api_key_cifrada: text('ia_api_key_cifrada'),
+  ia_modelo: text('ia_modelo').default('claude-haiku-4-5-20251001'),
+  ia_habilitada: boolean('ia_habilitada').notNull().default(false),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+})
+
+// Correos programados — envío diferido
+export const correos_programados = pgTable('correos_programados', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  canal_id: uuid('canal_id').notNull().references(() => canales_inbox.id),
+  conversacion_id: uuid('conversacion_id').references(() => conversaciones.id, { onDelete: 'set null' }),
+  creado_por: uuid('creado_por').notNull(),
+  correo_para: text('correo_para').array().notNull(),
+  correo_cc: text('correo_cc').array(),
+  correo_cco: text('correo_cco').array(),
+  correo_asunto: text('correo_asunto').notNull(),
+  texto: text('texto'),
+  html: text('html'),
+  correo_in_reply_to: text('correo_in_reply_to'),
+  correo_references: text('correo_references').array(),
+  adjuntos_ids: uuid('adjuntos_ids').array(),
+  enviar_en: timestamp('enviar_en', { withTimezone: true }).notNull(),
+  estado: text('estado').notNull().default('pendiente'), // 'pendiente', 'enviado', 'error', 'cancelado'
+  enviado_en: timestamp('enviado_en', { withTimezone: true }),
+  error: text('error'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('correos_programados_empresa_idx').on(tabla.empresa_id),
+  index('correos_programados_estado_idx').on(tabla.estado, tabla.enviar_en),
+])
+
+// Plantillas de respuesta rápida
+export const plantillas_respuesta = pgTable('plantillas_respuesta', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  nombre: text('nombre').notNull(),
+  categoria: text('categoria'),
+  canal: text('canal').notNull(), // 'correo', 'whatsapp', 'todos'
+  asunto: text('asunto'),
+  contenido: text('contenido').notNull(),
+  contenido_html: text('contenido_html'),
+  variables: jsonb('variables').default(sql`'[]'`),
+  modulos: text('modulos').array().default(sql`'{}'`),
+  // Permisos de acceso
+  disponible_para: text('disponible_para').notNull().default('todos'), // 'todos', 'roles', 'usuarios'
+  roles_permitidos: text('roles_permitidos').array().default(sql`'{}'`),
+  usuarios_permitidos: uuid('usuarios_permitidos').array().default(sql`'{}'`),
+  activo: boolean('activo').notNull().default(true),
+  orden: integer('orden').notNull().default(0),
+  creado_por: uuid('creado_por').notNull(),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('plantillas_respuesta_empresa_idx').on(tabla.empresa_id),
+])
+
+// Reglas de correo — automatización de inbox
+export const reglas_correo = pgTable('reglas_correo', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  nombre: text('nombre').notNull(),
+  activa: boolean('activa').default(true),
+  orden: integer('orden').default(0),
+  condiciones: jsonb('condiciones').notNull().default(sql`'[]'`),
+  acciones: jsonb('acciones').notNull().default(sql`'[]'`),
+  creado_por: uuid('creado_por'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('reglas_correo_empresa_idx').on(tabla.empresa_id),
+])
+
+// Métricas de correo — estadísticas diarias por canal
+export const metricas_correo = pgTable('metricas_correo', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  canal_id: uuid('canal_id').references(() => canales_inbox.id, { onDelete: 'set null' }),
+  fecha: date('fecha').notNull(),
+  correos_recibidos: integer('correos_recibidos').default(0),
+  correos_enviados: integer('correos_enviados').default(0),
+  conversaciones_nuevas: integer('conversaciones_nuevas').default(0),
+  conversaciones_resueltas: integer('conversaciones_resueltas').default(0),
+  correos_spam: integer('correos_spam').default(0),
+  tiempo_primera_respuesta_promedio: numeric('tiempo_primera_respuesta_promedio'),
+  tiempo_resolucion_promedio: numeric('tiempo_resolucion_promedio'),
+}, (tabla) => [
+  index('metricas_correo_empresa_idx').on(tabla.empresa_id),
+  index('metricas_correo_fecha_idx').on(tabla.empresa_id, tabla.fecha),
+])
+
+// ═══════════════════════════════════════════════════════════════
+// INTELIGENCIA ARTIFICIAL
+// ═══════════════════════════════════════════════════════════════
+
+// Configuración global de IA por empresa
+export const config_ia = pgTable('config_ia', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  habilitado: boolean('habilitado').notNull().default(false),
+  proveedor_defecto: text('proveedor_defecto').notNull().default('anthropic'),
+  // API keys por proveedor
+  api_key_anthropic: text('api_key_anthropic'),
+  api_key_openai: text('api_key_openai'),
+  api_key_google: text('api_key_google'),
+  api_key_xai: text('api_key_xai'),
+  // Modelos por proveedor
+  modelo_anthropic: text('modelo_anthropic').notNull().default('claude-sonnet-4-20250514'),
+  modelo_openai: text('modelo_openai').notNull().default('gpt-4o'),
+  modelo_google: text('modelo_google').notNull().default('gemini-2.0-flash'),
+  modelo_xai: text('modelo_xai').notNull().default('grok-3'),
+  // Parámetros
+  temperatura: numeric('temperatura').notNull().default('0.7'),
+  max_tokens: integer('max_tokens').notNull().default(4096),
+  modulos_accesibles: text('modulos_accesibles').array().notNull().default(sql`ARRAY['contactos','actividades','visitas','productos','presupuestos','facturas','ordenes_trabajo']`),
+  // Prompts custom
+  prompt_asistente: text('prompt_asistente'),
+  prompt_asistente_presupuestos: text('prompt_asistente_presupuestos'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('config_ia_empresa_idx').on(tabla.empresa_id),
+])
+
+// Configuración del agente IA conversacional por empresa
+export const config_agente_ia = pgTable('config_agente_ia', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  activo: boolean('activo').default(false),
+  nombre: text('nombre').default('Asistente Flux'),
+  apodo: text('apodo').default(''),
+  personalidad: text('personalidad').default(''),
+  instrucciones: text('instrucciones').default(''),
+  idioma: text('idioma').default('es'),
+  // Canales y activación
+  canales_activos: text('canales_activos').array().default(sql`'{}'`),
+  modo_activacion: text('modo_activacion').default('despues_chatbot'),
+  delay_segundos: integer('delay_segundos').default(0),
+  max_mensajes_auto: integer('max_mensajes_auto').default(5),
+  // Capacidades
+  puede_responder: boolean('puede_responder').default(true),
+  puede_clasificar: boolean('puede_clasificar').default(true),
+  puede_enrutar: boolean('puede_enrutar').default(false),
+  puede_resumir: boolean('puede_resumir').default(true),
+  puede_sentimiento: boolean('puede_sentimiento').default(true),
+  puede_crear_actividad: boolean('puede_crear_actividad').default(false),
+  puede_actualizar_contacto: boolean('puede_actualizar_contacto').default(false),
+  puede_etiquetar: boolean('puede_etiquetar').default(true),
+  // Estilo de respuesta
+  modo_respuesta: text('modo_respuesta').default('sugerir'), // 'sugerir', 'auto'
+  tono: text('tono').default('profesional'),
+  largo_respuesta: text('largo_respuesta').default('medio'),
+  firmar_como: text('firmar_como').default(''),
+  // Base de conocimiento
+  usar_base_conocimiento: boolean('usar_base_conocimiento').default(false),
+  // Escalamiento
+  escalar_si_negativo: boolean('escalar_si_negativo').default(true),
+  escalar_si_no_sabe: boolean('escalar_si_no_sabe').default(true),
+  escalar_palabras: text('escalar_palabras').array().default(sql`ARRAY['hablar con persona','agente','humano','gerente']`),
+  mensaje_escalamiento: text('mensaje_escalamiento').default('Te voy a comunicar con un agente. Un momento por favor.'),
+  // Acciones y métricas
+  acciones_habilitadas: jsonb('acciones_habilitadas').default(sql`'[]'`),
+  total_mensajes_enviados: integer('total_mensajes_enviados').default(0),
+  total_escalamientos: integer('total_escalamientos').default(0),
+  // Contexto de negocio
+  zona_cobertura: text('zona_cobertura').default(''),
+  sitio_web: text('sitio_web').default(''),
+  horario_atencion: text('horario_atencion').default(''),
+  correo_empresa: text('correo_empresa').default(''),
+  servicios_si: text('servicios_si').default(''),
+  servicios_no: text('servicios_no').default(''),
+  tipos_contacto: jsonb('tipos_contacto').default(sql`'[]'`),
+  flujo_conversacion: jsonb('flujo_conversacion').default(sql`'[]'`),
+  reglas_agenda: text('reglas_agenda').default(''),
+  info_precios: text('info_precios').default(''),
+  situaciones_especiales: text('situaciones_especiales').default(''),
+  ejemplos_conversacion: jsonb('ejemplos_conversacion').default(sql`'[]'`),
+  respuesta_si_bot: text('respuesta_si_bot').default(''),
+  vocabulario_natural: text('vocabulario_natural').default(''),
+  // Análisis
+  ultimo_analisis_conversaciones: timestamp('ultimo_analisis_conversaciones', { withTimezone: true }),
+  total_conversaciones_analizadas: integer('total_conversaciones_analizadas').default(0),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow(),
+}, (tabla) => [
+  index('config_agente_ia_empresa_idx').on(tabla.empresa_id),
+])
+
+// Configuración del chatbot (respuestas automáticas simples) por empresa
+export const config_chatbot = pgTable('config_chatbot', {
+  empresa_id: uuid('empresa_id').primaryKey().references(() => empresas.id, { onDelete: 'cascade' }),
+  activo: boolean('activo').notNull().default(false),
+  // Bienvenida
+  bienvenida_activa: boolean('bienvenida_activa').notNull().default(true),
+  mensaje_bienvenida: text('mensaje_bienvenida').notNull().default('¡Hola! 👋 Gracias por comunicarte con nosotros.'),
+  bienvenida_frecuencia: text('bienvenida_frecuencia').notNull().default('dias_sin_contacto'),
+  bienvenida_dias_sin_contacto: integer('bienvenida_dias_sin_contacto').notNull().default(30),
+  // Menú interactivo
+  menu_activo: boolean('menu_activo').notNull().default(false),
+  mensaje_menu: text('mensaje_menu'),
+  opciones_menu: jsonb('opciones_menu').notNull().default(sql`'[]'`),
+  menu_tipo: text('menu_tipo').notNull().default('botones'), // 'botones', 'lista'
+  menu_titulo_lista: text('menu_titulo_lista').default('Elegí una opción'),
+  // Palabras clave y respuestas
+  palabras_clave: jsonb('palabras_clave').notNull().default(sql`'[]'`),
+  mensaje_defecto: text('mensaje_defecto'),
+  // Transferencia a agente
+  palabra_transferir: text('palabra_transferir').default('asesor'),
+  mensaje_transferencia: text('mensaje_transferencia'),
+  // Modo de activación
+  modo: text('modo').notNull().default('siempre'), // 'siempre', 'fuera_horario', 'manual'
+  // Variables disponibles para plantillas
+  variables_disponibles: jsonb('variables_disponibles').notNull().default(sql`'[{"clave":"nombre","etiqueta":"Nombre del contacto"},{"clave":"empresa","etiqueta":"Nombre de tu empresa"}]'`),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+})
+
+// Base de conocimiento para IA — artículos y FAQ
+export const base_conocimiento_ia = pgTable('base_conocimiento_ia', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  titulo: text('titulo').notNull(),
+  contenido: text('contenido').notNull(),
+  categoria: text('categoria').default('general'),
+  etiquetas: text('etiquetas').array().default(sql`'{}'`),
+  activo: boolean('activo').default(true),
+  // Nota: columna 'embedding' es tipo vector, se omite en Drizzle (gestionada por pgvector directamente)
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow(),
+}, (tabla) => [
+  index('base_conocimiento_ia_empresa_idx').on(tabla.empresa_id),
+])
+
+// Log del agente IA — registro de acciones y uso de tokens
+export const log_agente_ia = pgTable('log_agente_ia', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  conversacion_id: uuid('conversacion_id').notNull().references(() => conversaciones.id, { onDelete: 'cascade' }),
+  mensaje_id: uuid('mensaje_id'),
+  accion: text('accion').notNull(),
+  entrada: jsonb('entrada'),
+  salida: jsonb('salida'),
+  exito: boolean('exito').default(true),
+  error: text('error'),
+  proveedor: text('proveedor'),
+  modelo: text('modelo'),
+  tokens_entrada: integer('tokens_entrada').default(0),
+  tokens_salida: integer('tokens_salida').default(0),
+  latencia_ms: integer('latencia_ms').default(0),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow(),
+}, (tabla) => [
+  index('log_agente_ia_empresa_idx').on(tabla.empresa_id),
+  index('log_agente_ia_conversacion_idx').on(tabla.conversacion_id),
+])
+
+// ═══════════════════════════════════════════════════════════════
+// RRHH / ESTRUCTURA ORGANIZACIONAL
+// ═══════════════════════════════════════════════════════════════
+
+// Asistencias — registros de entrada/salida por miembro
+export const asistencias = pgTable('asistencias', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  miembro_id: uuid('miembro_id').notNull().references(() => miembros.id, { onDelete: 'cascade' }),
+  fecha: date('fecha').notNull(),
+  hora_entrada: timestamp('hora_entrada', { withTimezone: true }),
+  hora_salida: timestamp('hora_salida', { withTimezone: true }),
+  estado: text('estado').notNull().default('presente'), // 'presente', 'ausente', 'tardanza', 'justificado'
+  ubicacion_entrada: jsonb('ubicacion_entrada'),
+  ubicacion_salida: jsonb('ubicacion_salida'),
+  notas: text('notas'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('asistencias_empresa_idx').on(tabla.empresa_id),
+  index('asistencias_miembro_idx').on(tabla.miembro_id),
+  index('asistencias_fecha_idx').on(tabla.empresa_id, tabla.miembro_id, tabla.fecha),
+])
+
+// Sectores — departamentos / áreas de la empresa
+export const sectores = pgTable('sectores', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  nombre: text('nombre').notNull(),
+  color: text('color').notNull().default('#6366f1'),
+  icono: text('icono').notNull().default('Building'),
+  activo: boolean('activo').notNull().default(true),
+  orden: integer('orden').notNull().default(0),
+  padre_id: uuid('padre_id'), // auto-referencia para sub-sectores
+  jefe_id: uuid('jefe_id'), // miembro_id del jefe del sector
+  es_predefinido: boolean('es_predefinido').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('sectores_empresa_idx').on(tabla.empresa_id),
+])
+
+// Relación miembro↔sector (un miembro puede pertenecer a varios sectores)
+export const miembros_sectores = pgTable('miembros_sectores', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  miembro_id: uuid('miembro_id').notNull().references(() => miembros.id, { onDelete: 'cascade' }),
+  sector_id: uuid('sector_id').notNull().references(() => sectores.id, { onDelete: 'cascade' }),
+  es_primario: boolean('es_primario').notNull().default(false),
+}, (tabla) => [
+  index('miembros_sectores_miembro_idx').on(tabla.miembro_id),
+  index('miembros_sectores_sector_idx').on(tabla.sector_id),
+])
+
+// Horarios — franjas horarias por sector y día de semana
+export const horarios = pgTable('horarios', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  sector_id: uuid('sector_id').references(() => sectores.id, { onDelete: 'cascade' }),
+  dia_semana: integer('dia_semana').notNull(), // 0=domingo, 1=lunes, ..., 6=sábado
+  hora_inicio: time('hora_inicio').notNull().default('09:00:00'),
+  hora_fin: time('hora_fin').notNull().default('18:00:00'),
+  activo: boolean('activo').notNull().default(true),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('horarios_empresa_idx').on(tabla.empresa_id),
+  index('horarios_sector_idx').on(tabla.sector_id),
+])
+
+// Puestos — cargos / roles de trabajo por empresa
+export const puestos = pgTable('puestos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  nombre: text('nombre').notNull(),
+  descripcion: text('descripcion'),
+  color: text('color').notNull().default('#6366f1'),
+  icono: text('icono').notNull().default('Briefcase'),
+  activo: boolean('activo').notNull().default(true),
+  orden: integer('orden').notNull().default(0),
+  sector_ids: uuid('sector_ids').array().default(sql`'{}'`),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('puestos_empresa_idx').on(tabla.empresa_id),
+])
+
+// Puestos de contacto — cargos posibles para contactos (diferente a puestos de equipo)
+export const puestos_contacto = pgTable('puestos_contacto', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  nombre: text('nombre').notNull(),
+  activo: boolean('activo').notNull().default(true),
+  orden: integer('orden').notNull().default(0),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('puestos_contacto_empresa_idx').on(tabla.empresa_id),
+])
+
+// Contactos de emergencia de miembros
+export const contactos_emergencia = pgTable('contactos_emergencia', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  miembro_id: uuid('miembro_id').notNull().references(() => miembros.id, { onDelete: 'cascade' }),
+  nombre: text('nombre').notNull(),
+  relacion: text('relacion'),
+  telefono: text('telefono'),
+  direccion: text('direccion'),
+}, (tabla) => [
+  index('contactos_emergencia_miembro_idx').on(tabla.miembro_id),
+])
+
+// Documentos de usuario — archivos vinculados a un miembro (DNI, contrato, etc.)
+export const documentos_usuario = pgTable('documentos_usuario', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  miembro_id: uuid('miembro_id').notNull().references(() => miembros.id, { onDelete: 'cascade' }),
+  tipo: text('tipo').notNull(), // 'dni', 'contrato', 'titulo', etc.
+  nombre_archivo: text('nombre_archivo').notNull().default(''),
+  url: text('url').notNull(),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('documentos_usuario_miembro_idx').on(tabla.miembro_id),
+])
+
+// Educación de usuario — formación académica
+export const educacion_usuario = pgTable('educacion_usuario', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  miembro_id: uuid('miembro_id').notNull().references(() => miembros.id, { onDelete: 'cascade' }),
+  tipo: text('tipo').notNull(), // 'universitario', 'terciario', 'curso', etc.
+  institucion: text('institucion').notNull(),
+  titulo: text('titulo'),
+  desde: date('desde'),
+  hasta: date('hasta'),
+  en_curso: boolean('en_curso').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('educacion_usuario_miembro_idx').on(tabla.miembro_id),
+])
+
+// Información bancaria de miembros
+export const info_bancaria = pgTable('info_bancaria', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  miembro_id: uuid('miembro_id').notNull().references(() => miembros.id, { onDelete: 'cascade' }),
+  tipo_cuenta: text('tipo_cuenta'),
+  banco: text('banco'),
+  numero_cuenta: text('numero_cuenta'),
+  alias: text('alias'),
+}, (tabla) => [
+  index('info_bancaria_miembro_idx').on(tabla.miembro_id),
+])
+
+// Preferencias de usuario — tema, sidebar, etc. por dispositivo
+export const preferencias_usuario = pgTable('preferencias_usuario', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  usuario_id: uuid('usuario_id').notNull(),
+  dispositivo_id: text('dispositivo_id').notNull(),
+  // Apariencia
+  tema: text('tema').notNull().default('sistema'), // 'claro', 'oscuro', 'sistema'
+  efecto: text('efecto').notNull().default('solido'),
+  fondo_cristal: text('fondo_cristal').notNull().default('aurora'),
+  escala: text('escala').notNull().default('normal'),
+  // Sidebar
+  sidebar_orden: jsonb('sidebar_orden'),
+  sidebar_ocultos: jsonb('sidebar_ocultos'),
+  sidebar_deshabilitados: jsonb('sidebar_deshabilitados'),
+  sidebar_colapsado: boolean('sidebar_colapsado').notNull().default(false),
+  sidebar_secciones: jsonb('sidebar_secciones').default(sql`'{}'`),
+  // Tablas
+  config_tablas: jsonb('config_tablas').default(sql`'{}'`),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  uniqueIndex('preferencias_usuario_dispositivo_idx').on(tabla.usuario_id, tabla.dispositivo_id),
+])
+
+// Rubros de contacto — clasificación de industria/rubro configurable por empresa
+export const rubros_contacto = pgTable('rubros_contacto', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  nombre: text('nombre').notNull(),
+  activo: boolean('activo').notNull().default(true),
+  orden: integer('orden').notNull().default(0),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('rubros_contacto_empresa_idx').on(tabla.empresa_id),
+])
+
+// Etiquetas de contacto — tags configurables por empresa
+export const etiquetas_contacto = pgTable('etiquetas_contacto', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  nombre: text('nombre').notNull(),
+  color: text('color').notNull().default('neutro'),
+  activa: boolean('activa').notNull().default(true),
+  orden: integer('orden').notNull().default(0),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('etiquetas_contacto_empresa_idx').on(tabla.empresa_id),
+])
+
+// Configuración de Google Drive — sincronización de datos con Sheets
+export const configuracion_google_drive = pgTable('configuracion_google_drive', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  conectado: boolean('conectado').notNull().default(false),
+  email: text('email'),
+  refresh_token: text('refresh_token'),
+  access_token: text('access_token'),
+  token_expira_en: timestamp('token_expira_en', { withTimezone: true }),
+  frecuencia_horas: integer('frecuencia_horas').notNull().default(24),
+  modulos_activos: text('modulos_activos').array().notNull().default(sql`ARRAY['contactos']`),
+  folder_id: text('folder_id'),
+  hojas: jsonb('hojas').notNull().default(sql`'{}'`),
+  ultima_sync: timestamp('ultima_sync', { withTimezone: true }),
+  ultimo_error: text('ultimo_error'),
+  resumen: jsonb('resumen').notNull().default(sql`'{}'`),
+  conectado_por: uuid('conectado_por'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('configuracion_google_drive_empresa_idx').on(tabla.empresa_id),
+])

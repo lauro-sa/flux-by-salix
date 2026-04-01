@@ -11,7 +11,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Send, MessageSquare, Clock, CheckCircle2, XCircle,
   Eye, FileText, ArrowRightLeft, Globe, CreditCard,
-  Loader2, StickyNote, Check, X, Reply,
+  Loader2, StickyNote, Check, X, Reply, ClipboardList, RotateCcw,
 } from 'lucide-react'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { useTraduccion } from '@/lib/i18n'
@@ -30,6 +30,9 @@ const ICONOS_ACCION: Record<AccionSistema, { icono: React.ReactNode; color: stri
   pago_rechazado: { icono: <XCircle size={14} />, color: 'bg-insignia-peligro/10 text-insignia-peligro' },
   pdf_generado: { icono: <FileText size={14} />, color: 'bg-texto-terciario/10 text-texto-terciario' },
   campo_editado: { icono: <Clock size={14} />, color: 'bg-texto-terciario/10 text-texto-terciario' },
+  actividad_creada: { icono: <ClipboardList size={14} />, color: 'bg-insignia-info/10 text-insignia-info' },
+  actividad_completada: { icono: <CheckCircle2 size={14} />, color: 'bg-insignia-exito/10 text-insignia-exito' },
+  actividad_reactivada: { icono: <RotateCcw size={14} />, color: 'bg-insignia-advertencia/10 text-insignia-advertencia' },
 }
 
 // ─── Props ───

@@ -119,7 +119,7 @@ export function PanelIA({
       >
         <div className="flex items-center gap-1.5">
           <Sparkles size={12} style={{ color: 'var(--texto-marca)' }} />
-          <span className="font-medium">Asistente IA</span>
+          <span className="font-medium">Salix IA</span>
           {sentimiento && (
             <Insignia
               color={COLORES_SENTIMIENTO[sentimiento.sentimiento] as 'exito' | 'neutro' | 'peligro' | 'advertencia' || 'neutro'}

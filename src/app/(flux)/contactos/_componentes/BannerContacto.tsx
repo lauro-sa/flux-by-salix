@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import Image from 'next/image'
 import { motion } from 'framer-motion'
 import {
   Building2, Building, User, Truck, UserPlus, BadgeCheck, ChevronDown, MoreVertical,
@@ -174,7 +175,7 @@ export function BannerContacto({
           }}
         >
           {avatarUrl ? (
-            <img src={avatarUrl} alt={nombre} className="w-full h-full object-cover" />
+            <Image src={avatarUrl} alt={nombre} width={72} height={72} className="w-full h-full object-cover" unoptimized={avatarUrl.startsWith('data:')} />
           ) : contenidoAvatar ? (
             contenidoAvatar
           ) : (
