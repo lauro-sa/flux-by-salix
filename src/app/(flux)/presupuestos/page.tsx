@@ -199,7 +199,11 @@ export default function PaginaPresupuestos() {
     }
     return { tipo: '', formateado: num }
   }
-  const formatoFecha = (iso: string) => new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
+  const formatoFecha = (iso: string) => {
+    const fecha = new Date(iso)
+    const esEsteAno = fecha.getFullYear() === new Date().getFullYear()
+    return fecha.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', ...(esEsteAno ? {} : { year: 'numeric' }) })
+  }
   const formatoMoneda = (valor: string, moneda: string) => {
     const num = parseFloat(valor || '0')
     const simbolo = SIMBOLO_MONEDA[moneda] || '$'
