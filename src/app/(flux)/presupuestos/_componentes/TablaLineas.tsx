@@ -50,16 +50,16 @@ const ETIQUETA_TIPO: Record<TipoLinea, string> = {
   descuento: 'Descuento',
 }
 
-// Anchos por columna — flex para producto, fijo para numéricos
+// Anchos por columna — flex para producto, min-width para numéricos
 const ANCHO_COLUMNA: Record<string, string> = {
   producto: 'flex-1 min-w-[120px]',
   descripcion: 'hidden',
-  cantidad: 'w-[60px] shrink-0',
-  unidad: 'w-[70px] shrink-0',
-  precio_unitario: 'w-[100px] shrink-0',
-  descuento: 'w-[60px] shrink-0',
-  impuesto: 'w-[100px] shrink-0',
-  subtotal: 'w-[110px] shrink-0',
+  cantidad: 'min-w-[55px] shrink-0',
+  unidad: 'min-w-[65px] shrink-0',
+  precio_unitario: 'min-w-[130px] shrink-0',
+  descuento: 'min-w-[55px] shrink-0',
+  impuesto: 'min-w-[95px] shrink-0',
+  subtotal: 'min-w-[145px] shrink-0',
 }
 
 // Etiquetas del header de la tabla (pueden diferir del popover para mejor contexto)
