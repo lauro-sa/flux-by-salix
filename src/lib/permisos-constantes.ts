@@ -29,25 +29,25 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
     inbox_whatsapp: ['ver_todos', 'enviar'],
     inbox_correo: ['ver_todos', 'enviar'],
     inbox_interno: ['ver_todos', 'enviar'],
-    // Administracion — restringido
-    usuarios: ['ver', 'aprobar', 'editar'], // SIN invitar ni eliminar
-    empresa: ['ver'], // SIN editar
-    configuracion: ['ver'], // SIN editar
+    // Administracion — acceso total (solo eliminar empresa queda para propietario)
+    usuarios: ['ver', 'aprobar', 'editar', 'invitar', 'eliminar'],
+    empresa: ['ver', 'editar'],
+    configuracion: ['ver', 'editar'],
     auditoria: ['ver'],
-    // Config — solo ver
-    config_empresa: ['ver'],
-    config_contactos: ['ver'],
-    config_visitas: ['ver'],
-    config_actividades: ['ver'],
-    config_calendario: ['ver'],
-    config_presupuestos: ['ver'],
-    config_facturas: ['ver'],
-    config_informes: ['ver'],
-    config_ordenes_trabajo: ['ver'],
-    config_usuarios: ['ver'],
-    config_asistencias: ['ver'],
-    config_productos: ['ver'],
-    config_inbox: ['ver'],
+    // Config — acceso total
+    config_empresa: ['ver', 'editar'],
+    config_contactos: ['ver', 'editar'],
+    config_visitas: ['ver', 'editar'],
+    config_actividades: ['ver', 'editar'],
+    config_calendario: ['ver', 'editar'],
+    config_presupuestos: ['ver', 'editar'],
+    config_facturas: ['ver', 'editar'],
+    config_informes: ['ver', 'editar'],
+    config_ordenes_trabajo: ['ver', 'editar'],
+    config_usuarios: ['ver', 'editar'],
+    config_asistencias: ['ver', 'editar'],
+    config_productos: ['ver', 'editar'],
+    config_inbox: ['ver', 'editar'],
   },
 
   gestor: {
@@ -102,9 +102,7 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
   },
 }
 
-// Módulos que el administrador NO tiene acceso completo
+// Restricciones del admin — solo acciones destructivas a nivel empresa
 export const RESTRICCIONES_ADMIN: Partial<Record<Modulo, Accion[]>> = {
-  usuarios: ['invitar', 'eliminar'],
-  empresa: ['editar'],
-  configuracion: ['editar'],
+  // Solo el propietario puede eliminar la empresa
 }

@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    // Solo propietario
+    // Propietario o administrador pueden forzar contraseñas
     const { data: miembroActual } = await admin
       .from('miembros')
       .select('rol')
@@ -30,8 +30,8 @@ export async function POST(request: NextRequest) {
       .eq('empresa_id', empresaId)
       .single()
 
-    if (!miembroActual || miembroActual.rol !== 'propietario') {
-      return NextResponse.json({ error: 'Solo el propietario puede forzar contraseñas' }, { status: 403 })
+    if (!miembroActual || !['propietario', 'administrador'].includes(miembroActual.rol)) {
+      return NextResponse.json({ error: 'Sin permisos para forzar contraseñas' }, { status: 403 })
     }
 
     const { miembro_id, nueva_password } = await request.json()

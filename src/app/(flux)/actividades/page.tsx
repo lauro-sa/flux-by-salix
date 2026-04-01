@@ -18,6 +18,7 @@ import type { Actividad, Miembro, Vinculo } from './_componentes/ModalActividad'
 import type { TipoActividad } from './configuracion/secciones/SeccionTipos'
 import type { EstadoActividad } from './configuracion/secciones/SeccionEstados'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { useToast } from '@/componentes/feedback/Toast'
 
 /**
  * Página principal de Actividades.

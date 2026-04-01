@@ -1,37 +1,71 @@
 'use client'
 
-import { useEffect, useState, useCallback, createContext, useContext, type ReactNode } from 'react'
+import { useEffect, useState, useCallback, createContext, useContext, useRef, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react'
+import { Check, X, AlertTriangle, Info, Loader2 } from 'lucide-react'
 
 type TipoToast = 'exito' | 'error' | 'advertencia' | 'info'
 
-interface DatosToast { id: string; tipo: TipoToast; mensaje: string; duracion?: number }
-interface ContextoToast { mostrar: (tipo: TipoToast, mensaje: string, duracion?: number) => void }
+interface DatosToast {
+  id: string
+  tipo: TipoToast
+  mensaje: string
+  duracion: number
+  creado: number
+}
+
+interface ContextoToast {
+  mostrar: (tipo: TipoToast, mensaje: string, duracion?: number) => void
+}
 
 const ContextoToastInterno = createContext<ContextoToast | null>(null)
 
-const clasesToast: Record<TipoToast, string> = {
-  exito: 'bg-insignia-exito-fondo text-insignia-exito-texto border-l-insignia-exito',
-  error: 'bg-insignia-peligro-fondo text-insignia-peligro-texto border-l-insignia-peligro',
-  advertencia: 'bg-insignia-advertencia-fondo text-insignia-advertencia-texto border-l-insignia-advertencia',
-  info: 'bg-insignia-info-fondo text-insignia-info-texto border-l-insignia-info',
+/* ─── Configuración por tipo ─── */
+
+const CONFIG_TIPO: Record<TipoToast, {
+  icono: typeof Check
+  colorIcono: string
+  fondoIcono: string
+  barra: string
+}> = {
+  exito: {
+    icono: Check,
+    colorIcono: 'var(--insignia-exito-texto)',
+    fondoIcono: 'color-mix(in srgb, var(--insignia-exito-texto) 12%, transparent)',
+    barra: 'var(--insignia-exito-texto)',
+  },
+  error: {
+    icono: X,
+    colorIcono: 'var(--insignia-peligro-texto)',
+    fondoIcono: 'color-mix(in srgb, var(--insignia-peligro-texto) 12%, transparent)',
+    barra: 'var(--insignia-peligro-texto)',
+  },
+  advertencia: {
+    icono: AlertTriangle,
+    colorIcono: 'var(--insignia-advertencia-texto)',
+    fondoIcono: 'color-mix(in srgb, var(--insignia-advertencia-texto) 12%, transparent)',
+    barra: 'var(--insignia-advertencia-texto)',
+  },
+  info: {
+    icono: Info,
+    colorIcono: 'var(--insignia-info-texto)',
+    fondoIcono: 'color-mix(in srgb, var(--insignia-info-texto) 12%, transparent)',
+    barra: 'var(--insignia-info-texto)',
+  },
 }
 
-const iconosToast: Record<TipoToast, ReactNode> = {
-  exito: <CheckCircle size={16} />,
-  error: <XCircle size={16} />,
-  advertencia: <AlertTriangle size={16} />,
-  info: <Info size={16} />,
-}
+/* ─── Proveedor ─── */
 
 function ProveedorToast({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<DatosToast[]>([])
-  const [pausados, setPausados] = useState<Set<string>>(new Set())
 
   const mostrar = useCallback((tipo: TipoToast, mensaje: string, duracion = 4000) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
-    setToasts((prev) => [...prev, { id, tipo, mensaje, duracion }])
+    setToasts((prev) => {
+      // Máximo 5 visibles — los más viejos se descartan
+      const nuevos = [...prev, { id, tipo, mensaje, duracion, creado: Date.now() }]
+      return nuevos.slice(-5)
+    })
   }, [])
 
   const remover = useCallback((id: string) => {
@@ -41,14 +75,10 @@ function ProveedorToast({ children }: { children: ReactNode }) {
   return (
     <ContextoToastInterno.Provider value={{ mostrar }}>
       {children}
-      <div className="fixed top-4 right-4 flex flex-col gap-2 z-[100] pointer-events-none">
-        <AnimatePresence>
+      <div className="fixed bottom-6 right-6 flex flex-col-reverse gap-2.5 z-[10001] pointer-events-none max-sm:bottom-[calc(var(--safe-area-bottom,0px)+16px)] max-sm:right-4 max-sm:left-4">
+        <AnimatePresence mode="popLayout">
           {toasts.map((toast) => (
-            <ToastItem key={toast.id} toast={toast} onRemover={() => remover(toast.id)}
-              pausado={pausados.has(toast.id)}
-              onPausar={() => setPausados((p) => new Set(p).add(toast.id))}
-              onReanudar={() => setPausados((p) => { const n = new Set(p); n.delete(toast.id); return n })}
-            />
+            <ToastItem key={toast.id} toast={toast} onRemover={() => remover(toast.id)} />
           ))}
         </AnimatePresence>
       </div>
@@ -56,33 +86,79 @@ function ProveedorToast({ children }: { children: ReactNode }) {
   )
 }
 
-function ToastItem({ toast, onRemover, pausado, onPausar, onReanudar }: {
-  toast: DatosToast; onRemover: () => void; pausado: boolean; onPausar: () => void; onReanudar: () => void
-}) {
+/* ─── Toast individual ─── */
+
+function ToastItem({ toast, onRemover }: { toast: DatosToast; onRemover: () => void }) {
+  const [pausado, setPausado] = useState(false)
+  const restanteRef = useRef(toast.duracion)
+  const inicioRef = useRef(Date.now())
+
   useEffect(() => {
     if (pausado) return
-    const timer = setTimeout(onRemover, toast.duracion || 4000)
-    return () => clearTimeout(timer)
-  }, [toast.duracion, onRemover, pausado])
+    inicioRef.current = Date.now()
+    const timer = setTimeout(onRemover, restanteRef.current)
+    return () => {
+      // Guardar cuánto tiempo falta al pausar
+      restanteRef.current = Math.max(0, restanteRef.current - (Date.now() - inicioRef.current))
+      clearTimeout(timer)
+    }
+  }, [onRemover, pausado])
+
+  const { icono: Icono, colorIcono, fondoIcono, barra } = CONFIG_TIPO[toast.tipo]
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: 50, scale: 0.95 }}
-      animate={{ opacity: 1, x: 0, scale: 1 }}
-      exit={{ opacity: 0, x: 50, scale: 0.95 }}
-      transition={{ duration: 0.2 }}
-      onMouseEnter={onPausar}
-      onMouseLeave={onReanudar}
-      className={`flex items-center gap-3 px-4 py-3 rounded-md border-l-[3px] shadow-md text-sm font-medium pointer-events-auto max-w-[380px] ${clasesToast[toast.tipo]}`}
+      layout
+      initial={{ opacity: 0, y: 24, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 8, scale: 0.96, transition: { duration: 0.15 } }}
+      transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+      onMouseEnter={() => setPausado(true)}
+      onMouseLeave={() => setPausado(false)}
+      className="pointer-events-auto"
     >
-      <span className="shrink-0">{iconosToast[toast.tipo]}</span>
-      <span className="flex-1">{toast.mensaje}</span>
-      <button onClick={onRemover} className="bg-transparent border-none text-current cursor-pointer opacity-60 hover:opacity-100 p-0">
-        <X size={14} />
-      </button>
+      <div
+        className="relative flex items-center gap-3 pl-4 pr-3 py-3 rounded-xl border border-borde-sutil shadow-elevada overflow-hidden max-w-[400px] max-sm:max-w-none backdrop-blur-sm"
+        style={{ backgroundColor: 'var(--superficie-elevada)' }}
+      >
+        {/* Barra de progreso inferior */}
+        <motion.div
+          className="absolute bottom-0 left-0 h-[2px] origin-left"
+          style={{ backgroundColor: barra }}
+          initial={{ scaleX: 1 }}
+          animate={{ scaleX: pausado ? undefined : 0 }}
+          transition={pausado ? { duration: 0 } : {
+            duration: restanteRef.current / 1000,
+            ease: 'linear',
+          }}
+        />
+
+        {/* Ícono con fondo */}
+        <div
+          className="size-7 rounded-lg flex items-center justify-center shrink-0"
+          style={{ backgroundColor: fondoIcono }}
+        >
+          <Icono size={14} strokeWidth={2.5} style={{ color: colorIcono }} />
+        </div>
+
+        {/* Mensaje */}
+        <span className="flex-1 text-sm text-texto-primario font-medium leading-snug">
+          {toast.mensaje}
+        </span>
+
+        {/* Botón cerrar */}
+        <button
+          onClick={onRemover}
+          className="shrink-0 flex items-center justify-center size-6 rounded-md bg-transparent hover:bg-superficie-hover border-none cursor-pointer text-texto-terciario hover:text-texto-secundario transition-colors"
+        >
+          <X size={14} />
+        </button>
+      </div>
     </motion.div>
   )
 }
+
+/* ─── Hook ─── */
 
 function useToast() {
   const ctx = useContext(ContextoToastInterno)

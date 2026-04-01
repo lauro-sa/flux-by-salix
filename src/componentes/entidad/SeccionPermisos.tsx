@@ -312,7 +312,7 @@ function SeccionPermisos({
   onGuardar,
   onRevocar,
 }: PropiedadesSeccionPermisos) {
-  const { esPropietario } = useRol()
+  const { esPropietario, esAdmin } = useRol()
 
   // Estado local de permisos (editables)
   const [permisos, setPermisos] = useState<PermisosMapa>(() => {
@@ -487,8 +487,8 @@ function SeccionPermisos({
     }
   }, [onRevocar, motivoRevocacion])
 
-  // No mostrar si no es propietario o si el miembro es propietario
-  if (!esPropietario || rol === 'propietario') return null
+  // No mostrar si no es propietario ni admin, o si el miembro es propietario
+  if ((!esPropietario && !esAdmin) || rol === 'propietario') return null
 
   return (
     <section className="space-y-5">
@@ -534,6 +534,7 @@ function SeccionPermisos({
             <Boton variante="fantasma" tamano="xs" onClick={() => aplicarPreset('lectura')}>Solo lectura</Boton>
             <Boton variante="fantasma" tamano="xs" onClick={() => aplicarPreset('nada')}>Sin acceso</Boton>
           </div>
+
         </div>
       </div>
 

@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * DELETE /api/bancos — Elimina un banco por ID.
+ * DELETE /api/bancos — Elimina un banco y limpia info_bancaria de quienes lo usaban.
  * Body: { id: string }
  */
 export async function DELETE(request: NextRequest) {
@@ -92,6 +92,24 @@ export async function DELETE(request: NextRequest) {
     if (!id) return NextResponse.json({ error: 'ID requerido' }, { status: 400 })
 
     const admin = crearClienteAdmin()
+
+    // Obtener nombre antes de eliminar para limpiar info_bancaria
+    const { data: banco } = await admin
+      .from('bancos')
+      .select('nombre')
+      .eq('id', id)
+      .eq('empresa_id', empresaId)
+      .single()
+
+    if (!banco) return NextResponse.json({ error: 'Banco no encontrado' }, { status: 404 })
+
+    // Limpiar el campo banco en todos los info_bancaria que lo usaban
+    await admin
+      .from('info_bancaria')
+      .update({ banco: null })
+      .ilike('banco', banco.nombre)
+
+    // Eliminar el banco del catálogo
     const { error } = await admin
       .from('bancos')
       .delete()
@@ -106,7 +124,7 @@ export async function DELETE(request: NextRequest) {
 }
 
 /**
- * PATCH /api/bancos — Renombra un banco.
+ * PATCH /api/bancos — Renombra un banco y actualiza info_bancaria de quienes lo usaban.
  * Body: { id: string, nombre: string }
  */
 export async function PATCH(request: NextRequest) {
@@ -119,19 +137,42 @@ export async function PATCH(request: NextRequest) {
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
     const body = await request.json()
-    const { id, nombre } = body
-    if (!id || !nombre?.trim()) return NextResponse.json({ error: 'ID y nombre requeridos' }, { status: 400 })
+    const { id, nombre: nombreRaw } = body
+    if (!id || !nombreRaw?.trim()) return NextResponse.json({ error: 'ID y nombre requeridos' }, { status: 400 })
+
+    const nombre = nombreRaw.trim().replace(/\b\w/g, (c: string) => c.toUpperCase())
 
     const admin = crearClienteAdmin()
+
+    // Obtener nombre anterior para actualizar info_bancaria
+    const { data: bancoAnterior } = await admin
+      .from('bancos')
+      .select('nombre')
+      .eq('id', id)
+      .eq('empresa_id', empresaId)
+      .single()
+
+    if (!bancoAnterior) return NextResponse.json({ error: 'Banco no encontrado' }, { status: 404 })
+
+    // Renombrar en el catálogo
     const { data, error } = await admin
       .from('bancos')
-      .update({ nombre: nombre.trim() })
+      .update({ nombre })
       .eq('id', id)
       .eq('empresa_id', empresaId)
       .select('id, nombre')
       .single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Actualizar en todos los info_bancaria que usaban el nombre anterior
+    if (bancoAnterior.nombre !== nombre) {
+      await admin
+        .from('info_bancaria')
+        .update({ banco: nombre })
+        .ilike('banco', bancoAnterior.nombre)
+    }
+
     return NextResponse.json(data)
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

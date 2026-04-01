@@ -1278,7 +1278,7 @@ export default function PaginaPerfilUsuario() {
                       {miembro.activo ? 'Desactivar usuario' : 'Reactivar usuario'}
                     </ItemMenu>
 
-                    {esPropietario && (
+                    {(esPropietario || esAdmin) && (
                       <ItemMenu icono={<Trash2 size={15} />} variante="peligro" onClick={() => { setMenuAcciones(false); setModalConfirmarEliminar(true) }}>Eliminar usuario</ItemMenu>
                     )}
                   </motion.div>
@@ -1931,15 +1931,40 @@ export default function PaginaPerfilUsuario() {
                     onChange={(v) => { setInfoBancaria(p => ({ ...p, banco: v })); guardarInfoBancaria('banco', v) }}
                     onCrear={async (nombre) => {
                       try {
-                      const res = await fetch('/api/bancos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre }) })
-                      if (!res.ok) { console.error('Error creando banco:', res.status, await res.text()); return false }
-                      const banco = await res.json()
-                      setBancosEmpresa(prev => {
-                        if (prev.some(b => b.id === banco.id)) return prev
-                        return [...prev, banco].sort((a, b) => a.nombre.localeCompare(b.nombre))
-                      })
-                      return banco.nombre // Devuelve nombre formateado (capitalizado) del servidor
-                      } catch (err) { console.error('Error en onCrear banco:', err); return false }
+                        const res = await fetch('/api/bancos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre }) })
+                        if (!res.ok) return false
+                        const banco = await res.json()
+                        setBancosEmpresa(prev => {
+                          if (prev.some(b => b.id === banco.id)) return prev
+                          return [...prev, banco].sort((a, b) => a.nombre.localeCompare(b.nombre))
+                        })
+                        return banco.nombre
+                      } catch { return false }
+                    }}
+                    onEditar={async (valorActual, nuevoNombre) => {
+                      try {
+                        const banco = bancosEmpresa.find(b => b.nombre === valorActual)
+                        if (!banco) return false
+                        const res = await fetch('/api/bancos', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: banco.id, nombre: nuevoNombre }) })
+                        if (!res.ok) return false
+                        const actualizado = await res.json()
+                        setBancosEmpresa(prev => prev.map(b => b.id === banco.id ? actualizado : b).sort((a, b) => a.nombre.localeCompare(b.nombre)))
+                        // Si este usuario tenía ese banco, actualizar localmente
+                        if ((infoBancaria?.banco as string) === valorActual) setInfoBancaria(p => ({ ...p, banco: actualizado.nombre }))
+                        return actualizado.nombre
+                      } catch { return false }
+                    }}
+                    onEliminar={async (valorBanco) => {
+                      try {
+                        const banco = bancosEmpresa.find(b => b.nombre === valorBanco)
+                        if (!banco) return false
+                        const res = await fetch('/api/bancos', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: banco.id }) })
+                        if (!res.ok) return false
+                        setBancosEmpresa(prev => prev.filter(b => b.id !== banco.id))
+                        // Si este usuario tenía ese banco, limpiar
+                        if ((infoBancaria?.banco as string) === valorBanco) setInfoBancaria(p => ({ ...p, banco: null }))
+                        return true
+                      } catch { return false }
                     }}
                     textoCrear="Crear banco"
                   />
@@ -2346,7 +2371,7 @@ export default function PaginaPerfilUsuario() {
                         </div>
 
                         {/* Eliminar */}
-                        {esPropietario && (
+                        {(esPropietario || esAdmin) && (
                           <Boton
                             variante="fantasma"
                             tamano="xs"

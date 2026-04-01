@@ -28,7 +28,7 @@ export async function POST(
 
     const admin = crearClienteAdmin()
 
-    // Solo propietario
+    // Propietario o administrador pueden revocar permisos
     const { data: miembroActual } = await admin
       .from('miembros')
       .select('rol')
@@ -36,8 +36,8 @@ export async function POST(
       .eq('empresa_id', empresaId)
       .single()
 
-    if (!miembroActual || miembroActual.rol !== 'propietario') {
-      return NextResponse.json({ error: 'Solo el propietario puede revocar permisos' }, { status: 403 })
+    if (!miembroActual || !['propietario', 'administrador'].includes(miembroActual.rol)) {
+      return NextResponse.json({ error: 'Sin permisos para revocar permisos' }, { status: 403 })
     }
 
     const body = await request.json()

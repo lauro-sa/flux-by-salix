@@ -15,6 +15,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { COLOR_TIPO_CONTACTO } from '@/lib/colores_entidad'
 import { useTraduccion } from '@/lib/i18n'
 import { CargadorInline } from '@/componentes/ui/Cargador'
+import { useToast } from '@/componentes/feedback/Toast'
 
 // ─── Tipos ───
 
@@ -69,6 +70,8 @@ interface Props {
   vinculacionesInversas: VinculoUI[]
   tiposRelacion: TipoRelacion[]
   puestosVinculacion?: PuestoVinculacion[]
+  etiquetasConfig?: { nombre: string; color: string }[]
+  rubrosConfig?: { nombre: string }[]
   onActualizar: () => void
 }
 
@@ -94,9 +97,12 @@ export function VinculacionesContacto({
   vinculacionesInversas,
   tiposRelacion,
   puestosVinculacion = [],
+  etiquetasConfig = [],
+  rubrosConfig = [],
   onActualizar,
 }: Props) {
   const { t } = useTraduccion()
+  const { mostrar } = useToast()
   // Puestos sugeridos: usar los de la BD, o fallback hardcodeado
   const puestosSugeridos = puestosVinculacion.length > 0
     ? puestosVinculacion.map(p => p.etiqueta)
@@ -135,6 +141,10 @@ export function VinculacionesContacto({
   const [crearCorreo, setCrearCorreo] = useState('')
   const [crearTelefono, setCrearTelefono] = useState('')
   const [crearPuesto, setCrearPuesto] = useState('')
+  const [crearCargo, setCrearCargo] = useState('')
+  const [crearRubro, setCrearRubro] = useState('')
+  const [crearTipoRelacionId, setCrearTipoRelacionId] = useState('')
+  const [crearEtiquetas, setCrearEtiquetas] = useState<string[]>([])
   const [crearBidireccional, setCrearBidireccional] = useState(false)
   const [creando, setCreando] = useState(false)
 
@@ -258,8 +268,10 @@ export function VinculacionesContacto({
 
       cerrarModalVincular()
       onActualizar()
-    } catch { /* silenciar */ }
-    finally { setVinculando(false) }
+      mostrar('exito', 'Contacto vinculado correctamente')
+    } catch {
+      mostrar('error', 'Error al vincular el contacto')
+    } finally { setVinculando(false) }
   }, [seleccionado, contactoId, tipoRelacionId, puesto, recibeDocumentos, bidireccional, vinculando, onActualizar])
 
   /** Desvincular un contacto */
@@ -328,6 +340,9 @@ export function VinculacionesContacto({
           tipo_contacto_clave: crearTipoClave,
           correo: crearCorreo || null,
           telefono: crearTelefono || null,
+          cargo: crearCargo || null,
+          rubro: crearRubro || null,
+          etiquetas: crearEtiquetas.length > 0 ? crearEtiquetas : [],
           es_provisorio: !tieneDato,
         }),
       })
@@ -351,6 +366,7 @@ export function VinculacionesContacto({
         body: JSON.stringify({
           contacto_id: contactoId,
           vinculado_id: data.id,
+          tipo_relacion_id: crearTipoRelacionId || null,
           puesto: crearPuesto || null,
           recibe_documentos: false,
         }),
@@ -364,6 +380,7 @@ export function VinculacionesContacto({
           body: JSON.stringify({
             contacto_id: data.id,
             vinculado_id: contactoId,
+            tipo_relacion_id: crearTipoRelacionId || null,
             puesto: null,
             recibe_documentos: false,
           }),
@@ -374,7 +391,7 @@ export function VinculacionesContacto({
       onActualizar()
     } catch { /* silenciar */ }
     finally { setCreando(false) }
-  }, [crearNombre, crearTipoClave, crearCorreo, crearTelefono, crearPuesto, crearBidireccional, contactoId, creando, onActualizar])
+  }, [crearNombre, crearTipoClave, crearCorreo, crearTelefono, crearPuesto, crearCargo, crearRubro, crearTipoRelacionId, crearEtiquetas, crearBidireccional, contactoId, creando, onActualizar])
 
   // ═══════════════════════════════════════════════════════════════
   // HELPERS
@@ -397,6 +414,10 @@ export function VinculacionesContacto({
     setCrearCorreo('')
     setCrearTelefono('')
     setCrearPuesto('')
+    setCrearCargo('')
+    setCrearRubro('')
+    setCrearTipoRelacionId('')
+    setCrearEtiquetas([])
     setCrearBidireccional(false)
   }
 
@@ -554,7 +575,30 @@ export function VinculacionesContacto({
                 />
               </div>
 
-              {/* ── Puesto / Rol — prominente, justo después del nombre ── */}
+              {/* ── Cargo (persona) o Rubro (empresa/proveedor) — del contacto ── */}
+              {['persona', 'lead', 'equipo'].includes(crearTipoClave) && (
+                <SelectorPuesto
+                  valor={crearCargo}
+                  onChange={setCrearCargo}
+                  puestos={puestosSugeridos}
+                  etiqueta={t('comun.cargo')}
+                />
+              )}
+              {['empresa', 'proveedor'].includes(crearTipoClave) && (
+                <SelectorPuesto
+                  valor={crearRubro}
+                  onChange={setCrearRubro}
+                  puestos={rubrosConfig.map(r => r.nombre)}
+                  etiqueta={t('comun.rubro')}
+                />
+              )}
+
+              {/* ── Tipo de relación + Puesto/Rol — de la vinculación ── */}
+              <SelectorRelacion
+                valor={crearTipoRelacionId}
+                onChange={setCrearTipoRelacionId}
+                tiposRelacion={tiposRelacion}
+              />
               <SelectorPuesto
                 valor={crearPuesto}
                 onChange={setCrearPuesto}
@@ -577,6 +621,34 @@ export function VinculacionesContacto({
                   formato="telefono"
                 />
               </div>
+
+              {/* Etiquetas */}
+              {etiquetasConfig.length > 0 && (
+                <div>
+                  <label className="text-xs font-medium text-texto-secundario mb-1.5 block">Etiquetas</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {etiquetasConfig.map(e => {
+                      const activa = crearEtiquetas.includes(e.nombre)
+                      return (
+                        <button
+                          key={e.nombre}
+                          type="button"
+                          onClick={() => setCrearEtiquetas(prev =>
+                            activa ? prev.filter(n => n !== e.nombre) : [...prev, e.nombre]
+                          )}
+                          className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+                            activa
+                              ? 'bg-texto-marca/20 text-texto-marca ring-1 ring-texto-marca/30'
+                              : 'bg-superficie-elevada text-texto-secundario hover:text-texto-primario'
+                          }`}
+                        >
+                          {e.nombre}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Opciones */}
               <div className="rounded-lg border border-borde-sutil p-3 space-y-2">

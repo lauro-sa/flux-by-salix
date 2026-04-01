@@ -31,7 +31,7 @@ export async function PUT(
 
     const admin = crearClienteAdmin()
 
-    // Solo propietario puede editar permisos
+    // Propietario o administrador pueden editar permisos
     const { data: miembroActual } = await admin
       .from('miembros')
       .select('rol')
@@ -39,8 +39,8 @@ export async function PUT(
       .eq('empresa_id', empresaId)
       .single()
 
-    if (!miembroActual || miembroActual.rol !== 'propietario') {
-      return NextResponse.json({ error: 'Solo el propietario puede editar permisos' }, { status: 403 })
+    if (!miembroActual || !['propietario', 'administrador'].includes(miembroActual.rol)) {
+      return NextResponse.json({ error: 'Sin permisos para editar permisos de miembros' }, { status: 403 })
     }
 
     const body = await request.json()

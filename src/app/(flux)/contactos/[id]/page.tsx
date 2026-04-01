@@ -548,6 +548,13 @@ export default function PaginaContacto() {
     }
   }, [esNuevo, esEdificio, nombreCompleto, id])
 
+  // Auto-crear edificios cuando se carga la dirección (nombre se genera automáticamente)
+  useEffect(() => {
+    if (esNuevo && esEdificio && puedeGuardar) {
+      intentarCrear()
+    }
+  }, [esNuevo, esEdificio, puedeGuardar, intentarCrear])
+
   // País fiscal
   const onCambiarPais = useCallback((valor: string) => {
     if (esNuevo) {
@@ -891,6 +898,8 @@ export default function PaginaContacto() {
               vinculacionesInversas={mapearVinculacionesInversas(vinculacionesInversas)}
               tiposRelacion={tiposRelacion}
               puestosVinculacion={puestosVinculacion}
+              etiquetasConfig={etiquetasConfig}
+              rubrosConfig={rubrosConfig}
               onActualizar={recargar}
             />
           )}

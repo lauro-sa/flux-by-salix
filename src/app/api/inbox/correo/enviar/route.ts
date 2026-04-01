@@ -328,6 +328,7 @@ export async function POST(request: NextRequest) {
     }, { status: 201 })
   } catch (err) {
     console.error('Error al enviar correo:', err)
+    console.error('Stack:', (err as Error).stack)
     return NextResponse.json({ error: `Error al enviar: ${(err as Error).message}` }, { status: 500 })
   }
 }

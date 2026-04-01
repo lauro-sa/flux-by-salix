@@ -23,7 +23,7 @@ export async function DELETE(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    // Solo propietario puede eliminar
+    // Propietario o administrador pueden eliminar miembros
     const { data: miembroActual } = await admin
       .from('miembros')
       .select('rol')
@@ -31,8 +31,8 @@ export async function DELETE(request: NextRequest) {
       .eq('empresa_id', empresaId)
       .single()
 
-    if (!miembroActual || miembroActual.rol !== 'propietario') {
-      return NextResponse.json({ error: 'Solo el propietario puede eliminar miembros' }, { status: 403 })
+    if (!miembroActual || !['propietario', 'administrador'].includes(miembroActual.rol)) {
+      return NextResponse.json({ error: 'Sin permisos para eliminar miembros' }, { status: 403 })
     }
 
     const { miembro_id } = await request.json()
@@ -51,6 +51,11 @@ export async function DELETE(request: NextRequest) {
 
     if (miembro.rol === 'propietario') {
       return NextResponse.json({ error: 'No se puede eliminar al propietario' }, { status: 403 })
+    }
+
+    // Un administrador no puede eliminar a otro administrador
+    if (miembroActual.rol === 'administrador' && miembro.rol === 'administrador') {
+      return NextResponse.json({ error: 'Un administrador no puede eliminar a otro administrador' }, { status: 403 })
     }
 
     // Eliminar relaciones dependientes
