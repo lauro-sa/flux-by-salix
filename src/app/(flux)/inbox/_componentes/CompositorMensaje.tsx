@@ -465,7 +465,7 @@ export function CompositorMensaje({
               </span>
               <span className="ml-1">{respondiendo.texto}</span>
             </div>
-            <button onClick={onCancelarRespuesta}>
+            <button onClick={onCancelarRespuesta} aria-label="Cancelar respuesta">
               <X size={14} style={{ color: 'var(--texto-terciario)' }} />
             </button>
           </motion.div>
@@ -582,7 +582,7 @@ export function CompositorMensaje({
             >
               <StickyNote size={12} />
               <span className="font-medium">{t('inbox.nota_interna')}</span>
-              <span style={{ color: 'var(--texto-terciario)' }}>— solo visible para agentes</span>
+              <span style={{ color: 'var(--texto-terciario)' }}>{t('inbox.solo_visible_agentes')}</span>
             </div>
             <button onClick={() => setEsNotaInterna(false)}>
               <X size={14} style={{ color: 'var(--texto-terciario)' }} />
@@ -746,7 +746,7 @@ export function CompositorMensaje({
                 }
                 handleKeyDown(e)
               }}
-              placeholder={esNotaInterna ? 'Escribir nota interna...' : (placeholder || 'Escribir mensaje...')}
+              placeholder={esNotaInterna ? t('inbox.placeholder_nota_interna') : (placeholder || t('inbox.escribir_mensaje'))}
               rows={1}
               className="flex-1 resize-none text-sm bg-transparent outline-none py-2"
               style={{ color: esNotaInterna ? 'var(--insignia-advertencia)' : 'var(--texto-primario)', maxHeight: 150 }}

@@ -530,6 +530,18 @@ export interface Traducciones {
     no_es_spam: string
     sin_asunto: string
     seleccionar_correo: string
+    fecha_hoy: string
+    fecha_ayer: string
+    seleccionar_conversacion: string
+    sugerencia_ia: string
+    borrador_ia: string
+    aprobar_enviar: string
+    editada: string
+    solo_visible_agentes: string
+    placeholder_nota_interna: string
+    error_acceso_microfono: string
+    pausar_grabacion: string
+    continuar_grabacion: string
     nombre_canal: string
     nombre_regla: string
     regla_activa: string

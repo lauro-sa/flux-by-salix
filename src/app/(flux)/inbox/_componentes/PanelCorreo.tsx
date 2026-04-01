@@ -8,7 +8,7 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import {
   Reply, ReplyAll, Forward, Trash2, Archive, ShieldBan, ShieldCheck,
   Paperclip, ChevronDown, ChevronUp, Download, MailOpen, Mail as MailIcon,
-  FileText, Image, Film, Tag,
+  FileText, Image, Film, Tag, MoreHorizontal,
 } from 'lucide-react'
 import { CompositorCorreo, type DatosCorreo } from './CompositorCorreo'
 import { PanelIA } from './PanelIA'
@@ -187,6 +187,16 @@ export function PanelCorreo({
   const [respondiendo, setRespondiendo] = useState(false)
   const [tipoRespuesta, setTipoRespuesta] = useState<'responder' | 'responder_todos' | 'reenviar'>('responder')
   const [modalEtiquetas, setModalEtiquetas] = useState(false)
+  const [menuOverflow, setMenuOverflow] = useState(false)
+
+  // Cerrar menú overflow al hacer click fuera
+  useEffect(() => {
+    if (!menuOverflow) return
+    const cerrar = () => setMenuOverflow(false)
+    document.addEventListener('mousedown', cerrar)
+    return () => document.removeEventListener('mousedown', cerrar)
+  }, [menuOverflow])
+
   const [textoIA, setTextoIA] = useState('')
   const [mensajesExpandidos, setMensajesExpandidos] = useState<Set<string>>(new Set())
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -311,35 +321,80 @@ export function PanelCorreo({
             </div>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
+            {/* Acciones principales — siempre visibles */}
             <Boton variante="fantasma" tamano="xs" soloIcono icono={<Reply size={14} />} onClick={() => handleResponder('responder')} />
             <Boton variante="fantasma" tamano="xs" soloIcono icono={<ReplyAll size={14} />} onClick={() => handleResponder('responder_todos')} />
             <Boton variante="fantasma" tamano="xs" soloIcono icono={<Forward size={14} />} onClick={() => handleResponder('reenviar')} />
-            {/* Etiquetar */}
-            <Boton variante="fantasma" tamano="xs" soloIcono icono={<Tag size={14} />} onClick={() => setModalEtiquetas(true)} />
-            {/* Leído / No leído */}
-            {onToggleLeido && (
-              <Boton
-                variante="fantasma"
-                tamano="xs"
-                soloIcono
-                icono={conversacion.mensajes_sin_leer > 0 ? <MailOpen size={14} /> : <MailIcon size={14} />}
-                onClick={() => onToggleLeido(conversacion.id, conversacion.mensajes_sin_leer)}
-              />
-            )}
-            {/* Spam / No es spam */}
-            {conversacion.estado === 'spam' && onDesmarcarSpam ? (
-              <Boton variante="fantasma" tamano="xs" icono={<ShieldCheck size={14} />} onClick={() => onDesmarcarSpam(conversacion.id)}>
-                {t('inbox.no_es_spam')}
-              </Boton>
-            ) : onMarcarSpam && (
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<ShieldBan size={14} />} onClick={() => onMarcarSpam(conversacion.id)} />
-            )}
-            {onArchivar && (
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<Archive size={14} />} onClick={() => onArchivar(conversacion.id)} />
-            )}
-            {onEliminar && (
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={() => onEliminar(conversacion.id)} />
-            )}
+            {/* Acciones secundarias — visibles en desktop, ocultas en móvil */}
+            <div className="hidden sm:flex items-center gap-1">
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<Tag size={14} />} onClick={() => setModalEtiquetas(true)} />
+              {onToggleLeido && (
+                <Boton
+                  variante="fantasma"
+                  tamano="xs"
+                  soloIcono
+                  icono={conversacion.mensajes_sin_leer > 0 ? <MailOpen size={14} /> : <MailIcon size={14} />}
+                  onClick={() => onToggleLeido(conversacion.id, conversacion.mensajes_sin_leer)}
+                />
+              )}
+              {conversacion.estado === 'spam' && onDesmarcarSpam ? (
+                <Boton variante="fantasma" tamano="xs" icono={<ShieldCheck size={14} />} onClick={() => onDesmarcarSpam(conversacion.id)}>
+                  {t('inbox.no_es_spam')}
+                </Boton>
+              ) : onMarcarSpam && (
+                <Boton variante="fantasma" tamano="xs" soloIcono icono={<ShieldBan size={14} />} onClick={() => onMarcarSpam(conversacion.id)} />
+              )}
+              {onArchivar && (
+                <Boton variante="fantasma" tamano="xs" soloIcono icono={<Archive size={14} />} onClick={() => onArchivar(conversacion.id)} />
+              )}
+              {onEliminar && (
+                <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={() => onEliminar(conversacion.id)} />
+              )}
+            </div>
+            {/* Menú overflow en móvil */}
+            <div className="relative sm:hidden">
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<MoreHorizontal size={14} />} onClick={() => setMenuOverflow(prev => !prev)} />
+              <AnimatePresence>
+                {menuOverflow && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="absolute right-0 top-full mt-1 z-50 rounded-lg py-1 min-w-[160px]"
+                    style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
+                  >
+                    <button className="w-full flex items-center gap-2 px-3 py-1.5 text-xs" style={{ color: 'var(--texto-secundario)' }} onClick={() => { setModalEtiquetas(true); setMenuOverflow(false) }}>
+                      <Tag size={12} /> {t('inbox.etiquetar')}
+                    </button>
+                    {onToggleLeido && (
+                      <button className="w-full flex items-center gap-2 px-3 py-1.5 text-xs" style={{ color: 'var(--texto-secundario)' }} onClick={() => { onToggleLeido(conversacion.id, conversacion.mensajes_sin_leer); setMenuOverflow(false) }}>
+                        {conversacion.mensajes_sin_leer > 0 ? <MailOpen size={12} /> : <MailIcon size={12} />}
+                        {conversacion.mensajes_sin_leer > 0 ? t('inbox.marcar_leido') : t('inbox.marcar_no_leido')}
+                      </button>
+                    )}
+                    {conversacion.estado === 'spam' && onDesmarcarSpam ? (
+                      <button className="w-full flex items-center gap-2 px-3 py-1.5 text-xs" style={{ color: 'var(--texto-secundario)' }} onClick={() => { onDesmarcarSpam(conversacion.id); setMenuOverflow(false) }}>
+                        <ShieldCheck size={12} /> {t('inbox.no_es_spam')}
+                      </button>
+                    ) : onMarcarSpam && (
+                      <button className="w-full flex items-center gap-2 px-3 py-1.5 text-xs" style={{ color: 'var(--texto-secundario)' }} onClick={() => { onMarcarSpam(conversacion.id); setMenuOverflow(false) }}>
+                        <ShieldBan size={12} /> Spam
+                      </button>
+                    )}
+                    {onArchivar && (
+                      <button className="w-full flex items-center gap-2 px-3 py-1.5 text-xs" style={{ color: 'var(--texto-secundario)' }} onClick={() => { onArchivar(conversacion.id); setMenuOverflow(false) }}>
+                        <Archive size={12} /> {t('inbox.archivar')}
+                      </button>
+                    )}
+                    {onEliminar && (
+                      <button className="w-full flex items-center gap-2 px-3 py-1.5 text-xs" style={{ color: 'var(--insignia-peligro)' }} onClick={() => { onEliminar(conversacion.id); setMenuOverflow(false) }}>
+                        <Trash2 size={12} /> {t('comun.eliminar')}
+                      </button>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       </div>

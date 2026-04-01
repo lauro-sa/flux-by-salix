@@ -63,7 +63,7 @@ function formatoHora(fecha: string): string {
 }
 
 // Etiqueta de día estilo WhatsApp: Hoy, Ayer, Lunes..Domingo, o fecha completa
-function etiquetaDia(fecha: Date): string {
+function etiquetaDia(fecha: Date, labels?: { hoy: string; ayer: string }): string {
   const hoy = new Date()
   const ayer = new Date()
   ayer.setDate(ayer.getDate() - 1)
@@ -73,8 +73,8 @@ function etiquetaDia(fecha: Date): string {
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate()
 
-  if (mismoDia(fecha, hoy)) return 'Hoy'
-  if (mismoDia(fecha, ayer)) return 'Ayer'
+  if (mismoDia(fecha, hoy)) return labels?.hoy ?? 'Hoy'
+  if (mismoDia(fecha, ayer)) return labels?.ayer ?? 'Ayer'
 
   const hace7Dias = new Date()
   hace7Dias.setDate(hace7Dias.getDate() - 6)
@@ -302,7 +302,7 @@ export function PanelWhatsApp({
             <IconoWhatsApp size={32} style={{ color: 'var(--canal-whatsapp)' }} />
           </div>
           <p className="text-sm" style={{ color: 'var(--texto-secundario)' }}>
-            Seleccioná una conversación
+            {t('inbox.seleccionar_conversacion')}
           </p>
         </div>
       </div>
@@ -466,7 +466,7 @@ export function PanelWhatsApp({
                       color: 'var(--texto-terciario)',
                     }}
                   >
-                    {etiquetaDia(elem.fecha)}
+                    {etiquetaDia(elem.fecha, { hoy: t('inbox.fecha_hoy'), ayer: t('inbox.fecha_ayer') })}
                   </span>
                 </div>
               )
@@ -698,7 +698,7 @@ export function PanelWhatsApp({
                     <div className="flex items-center justify-end gap-1 mt-1">
                       {msg.editado_en && (
                         <span className="text-xxs italic" style={{ color: 'var(--texto-terciario)' }}>
-                          editada
+                          {t('inbox.editada')}
                         </span>
                       )}
                       <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>

@@ -149,7 +149,7 @@ export function ListaConversaciones({
         {modoSeleccion ? (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <button onClick={seleccionarTodos} className="p-0.5">
+              <button onClick={seleccionarTodos} className="p-0.5" aria-label="Seleccionar todos">
                 {seleccionados.size === conversaciones.length && conversaciones.length > 0
                   ? <CheckSquare size={14} style={{ color: 'var(--texto-marca)' }} />
                   : <Square size={14} style={{ color: 'var(--texto-terciario)' }} />
@@ -165,6 +165,7 @@ export function ListaConversaciones({
                   onClick={handleEliminarSeleccion}
                   className="p-1 rounded-md transition-colors"
                   style={{ color: 'var(--insignia-peligro)' }}
+                  aria-label="Eliminar seleccionados"
                 >
                   <Trash2 size={14} />
                 </button>
@@ -252,6 +253,7 @@ export function ListaConversaciones({
                 disabled={pagina === 1}
                 className="p-1 rounded-md transition-colors disabled:opacity-30"
                 style={{ color: 'var(--texto-terciario)' }}
+                aria-label="Página anterior"
               >
                 <ChevronLeft size={14} />
               </button>
@@ -263,6 +265,7 @@ export function ListaConversaciones({
                 disabled={pagina === totalPaginas}
                 className="p-1 rounded-md transition-colors disabled:opacity-30"
                 style={{ color: 'var(--texto-terciario)' }}
+                aria-label="Página siguiente"
               >
                 <ChevronRightIcon size={14} />
               </button>
