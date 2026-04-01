@@ -38,6 +38,29 @@ interface PropiedadesPanelInterno {
   onRecargarCanales?: () => void
 }
 
+/** Etiqueta de fecha estilo WhatsApp: Hoy, Ayer, día de la semana, o fecha completa */
+function etiquetaDiaInterno(fecha: Date): string {
+  const hoy = new Date()
+  const ayer = new Date()
+  ayer.setDate(ayer.getDate() - 1)
+
+  const mismoDia = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+
+  if (mismoDia(fecha, hoy)) return 'Hoy'
+  if (mismoDia(fecha, ayer)) return 'Ayer'
+
+  const hace7Dias = new Date()
+  hace7Dias.setDate(hace7Dias.getDate() - 6)
+  hace7Dias.setHours(0, 0, 0, 0)
+
+  if (fecha >= hace7Dias) {
+    return fecha.toLocaleDateString('es', { weekday: 'long' }).replace(/^\w/, c => c.toUpperCase())
+  }
+
+  return fecha.toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
 function formatoHoraInterno(fecha: string): string {
   const d = new Date(fecha)
   const hoy = new Date()
@@ -137,7 +160,7 @@ export function PanelInterno({
     <div className="flex-1 flex" style={{ background: 'var(--superficie-app)' }}>
       {/* Sidebar de canales */}
       <div
-        className="w-56 flex-shrink-0 flex flex-col h-full overflow-y-auto"
+        className="w-80 flex-shrink-0 flex flex-col h-full overflow-y-auto"
         style={{
           borderRight: '1px solid var(--borde-sutil)',
           background: 'var(--superficie-sidebar)',
@@ -334,21 +357,42 @@ export function PanelInterno({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {mensajes.map((msg) => (
-                    <MensajeInterno
-                      key={msg.id}
-                      mensaje={msg}
-                      esPropio={msg.remitente_id === usuarioId}
-                      esDM={canalSeleccionado?.tipo === 'directo'}
-                      onResponder={() => setRespondiendo({
-                        id: msg.id,
-                        texto: msg.texto || '',
-                        autor: msg.remitente_nombre || 'Desconocido',
-                      })}
-                      onAbrirHilo={() => setHiloAbierto(msg.id)}
-                    />
-                  ))}
+                <div className="space-y-3">
+                  {mensajes.map((msg, idx) => {
+                    // Separador de fecha entre mensajes de días distintos
+                    const fechaActual = new Date(msg.creado_en)
+                    const fechaAnterior = idx > 0 ? new Date(mensajes[idx - 1].creado_en) : null
+                    const mostrarSeparador = !fechaAnterior || fechaActual.toDateString() !== fechaAnterior.toDateString()
+
+                    return (
+                      <div key={msg.id}>
+                        {mostrarSeparador && (
+                          <div className="flex justify-center my-3">
+                            <span
+                              className="text-xxs font-medium px-3 py-1 rounded-full"
+                              style={{
+                                background: 'var(--superficie-elevada)',
+                                color: 'var(--texto-terciario)',
+                              }}
+                            >
+                              {etiquetaDiaInterno(fechaActual)}
+                            </span>
+                          </div>
+                        )}
+                        <MensajeInterno
+                          mensaje={msg}
+                          esPropio={msg.remitente_id === usuarioId}
+                          esDM={canalSeleccionado?.tipo === 'directo'}
+                          onResponder={() => setRespondiendo({
+                            id: msg.id,
+                            texto: msg.texto || '',
+                            autor: msg.remitente_nombre || 'Desconocido',
+                          })}
+                          onAbrirHilo={() => setHiloAbierto(msg.id)}
+                        />
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
