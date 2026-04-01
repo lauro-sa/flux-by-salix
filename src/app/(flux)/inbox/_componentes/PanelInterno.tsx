@@ -107,34 +107,36 @@ export function PanelInterno({
     return () => document.removeEventListener('mousedown', cerrar)
   }, [menuCanal])
 
-  // Silenciar canal
-  const toggleSilenciar = useCallback(async () => {
-    if (!canalSeleccionado) return
+  // Silenciar canal (genérico — funciona desde header y sidebar)
+  const silenciarCanal = useCallback(async (canal: CanalInterno) => {
     try {
-      const res = await fetch(`/api/inbox/internos/${canalSeleccionado.id}/silenciar`, { method: 'POST' })
+      const res = await fetch(`/api/inbox/internos/${canal.id}/silenciar`, { method: 'POST' })
       const data = await res.json()
       if (data.silenciado !== undefined) {
-        onSeleccionarCanal({ ...canalSeleccionado, silenciado: data.silenciado })
+        if (canalSeleccionado?.id === canal.id) {
+          onSeleccionarCanal({ ...canal, silenciado: data.silenciado })
+        }
+        onRecargarCanales?.()
         mostrar('exito', data.silenciado ? 'Canal silenciado' : 'Notificaciones activadas')
       }
     } catch {
       mostrar('error', 'Error al cambiar silencio')
     }
     setMenuCanal(false)
-  }, [canalSeleccionado, onSeleccionarCanal, mostrar])
+  }, [canalSeleccionado, onSeleccionarCanal, mostrar, onRecargarCanales])
 
   // Salir del grupo
-  const salirDelGrupo = useCallback(async () => {
-    if (!canalSeleccionado || canalSeleccionado.tipo !== 'grupo') return
-    if (!confirm('¿Querés salir de este grupo?')) return
+  const salirDelGrupo = useCallback(async (canal: CanalInterno) => {
+    if (canal.tipo !== 'grupo') return
+    if (!confirm(`¿Querés salir de ${canal.nombre}?`)) return
     try {
-      const res = await fetch(`/api/inbox/internos/${canalSeleccionado.id}/miembros`, {
+      const res = await fetch(`/api/inbox/internos/${canal.id}/miembros`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       })
       if (res.ok) {
-        mostrar('exito', `Saliste de ${canalSeleccionado.nombre}`)
+        mostrar('exito', `Saliste de ${canal.nombre}`)
         onRecargarCanales?.()
       } else {
         const data = await res.json()
@@ -143,8 +145,24 @@ export function PanelInterno({
     } catch {
       mostrar('error', 'Error de conexión')
     }
-    setMenuCanal(false)
-  }, [canalSeleccionado, mostrar, onRecargarCanales])
+  }, [mostrar, onRecargarCanales])
+
+  // Archivar canal
+  const archivarCanal = useCallback(async (canal: CanalInterno) => {
+    if (!confirm(`¿Archivar "${canal.nombre}"?`)) return
+    try {
+      const res = await fetch(`/api/inbox/internos/${canal.id}`, { method: 'DELETE' })
+      if (res.ok) {
+        mostrar('exito', `"${canal.nombre}" archivado`)
+        onRecargarCanales?.()
+      } else {
+        const data = await res.json()
+        mostrar('error', data.error || 'Error al archivar')
+      }
+    } catch {
+      mostrar('error', 'Error de conexión')
+    }
+  }, [mostrar, onRecargarCanales])
 
   // Marcar como leído al seleccionar canal
   useEffect(() => {
@@ -192,6 +210,8 @@ export function PanelInterno({
               canal={canal}
               seleccionado={canalSeleccionado?.id === canal.id}
               onClick={() => onSeleccionarCanal(canal)}
+              onSilenciar={() => silenciarCanal(canal)}
+              onEliminar={() => archivarCanal(canal)}
             />
           ))}
           {canalesPrivados.filter(c => c.tipo === 'privado').map((canal) => (
@@ -200,6 +220,8 @@ export function PanelInterno({
               canal={canal}
               seleccionado={canalSeleccionado?.id === canal.id}
               onClick={() => onSeleccionarCanal(canal)}
+              onSilenciar={() => silenciarCanal(canal)}
+              onEliminar={() => archivarCanal(canal)}
             />
           ))}
         </div>
@@ -216,6 +238,9 @@ export function PanelInterno({
                 canal={canal}
                 seleccionado={canalSeleccionado?.id === canal.id}
                 onClick={() => onSeleccionarCanal(canal)}
+                onSilenciar={() => silenciarCanal(canal)}
+                onSalir={() => salirDelGrupo(canal)}
+                onEliminar={() => archivarCanal(canal)}
               />
             ))}
           </div>
@@ -233,6 +258,7 @@ export function PanelInterno({
                 canal={canal}
                 seleccionado={canalSeleccionado?.id === canal.id}
                 onClick={() => onSeleccionarCanal(canal)}
+                onSilenciar={() => silenciarCanal(canal)}
               />
             ))}
           </div>
@@ -312,7 +338,7 @@ export function PanelInterno({
                       onMouseDown={e => e.stopPropagation()}
                     >
                       <button
-                        onClick={toggleSilenciar}
+                        onClick={() => silenciarCanal(canalSeleccionado)}
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors"
                         style={{ color: 'var(--texto-secundario)' }}
                       >
@@ -321,7 +347,7 @@ export function PanelInterno({
                       </button>
                       {canalSeleccionado.tipo === 'grupo' && (
                         <button
-                          onClick={salirDelGrupo}
+                          onClick={() => salirDelGrupo(canalSeleccionado)}
                           className="w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors"
                           style={{ color: 'var(--insignia-peligro)' }}
                         >
@@ -456,39 +482,108 @@ export function PanelInterno({
   )
 }
 
-// Item de canal en la sidebar
+// Item de canal en la sidebar con menú contextual
 function CanalItem({
   canal,
   seleccionado,
   onClick,
+  onSilenciar,
+  onEliminar,
+  onSalir,
 }: {
   canal: CanalInterno
   seleccionado: boolean
   onClick: () => void
+  onSilenciar?: () => void
+  onEliminar?: () => void
+  onSalir?: () => void
 }) {
+  const [menu, setMenu] = useState(false)
+
+  // Cerrar menú al click fuera
+  useEffect(() => {
+    if (!menu) return
+    const cerrar = () => setMenu(false)
+    document.addEventListener('mousedown', cerrar)
+    return () => document.removeEventListener('mousedown', cerrar)
+  }, [menu])
+
   return (
-    <button
-      onClick={onClick}
-      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors"
-      style={{
-        background: seleccionado ? 'var(--superficie-seleccionada)' : 'transparent',
-        color: seleccionado ? 'var(--texto-primario)' : 'var(--texto-secundario)',
-      }}
-    >
-      {canal.tipo === 'publico' ? (
-        <Hash size={14} style={{ color: 'var(--texto-terciario)' }} />
-      ) : canal.tipo === 'privado' ? (
-        <Lock size={14} style={{ color: 'var(--texto-terciario)' }} />
-      ) : canal.tipo === 'grupo' ? (
-        <Users size={14} style={{ color: 'var(--texto-terciario)' }} />
-      ) : (
-        <Avatar nombre={canal.nombre} tamano="xs" />
-      )}
-      <span className="truncate flex-1 text-left">{canal.nombre}</span>
-      {canal.silenciado && (
-        <BellOff size={10} style={{ color: 'var(--texto-terciario)' }} />
-      )}
-    </button>
+    <div className="relative group">
+      <button
+        onClick={onClick}
+        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors"
+        style={{
+          background: seleccionado ? 'var(--superficie-seleccionada)' : 'transparent',
+          color: seleccionado ? 'var(--texto-primario)' : 'var(--texto-secundario)',
+        }}
+      >
+        {canal.tipo === 'publico' ? (
+          <Hash size={14} style={{ color: 'var(--texto-terciario)' }} />
+        ) : canal.tipo === 'privado' ? (
+          <Lock size={14} style={{ color: 'var(--texto-terciario)' }} />
+        ) : canal.tipo === 'grupo' ? (
+          <Users size={14} style={{ color: 'var(--texto-terciario)' }} />
+        ) : (
+          <Avatar nombre={canal.nombre} tamano="xs" />
+        )}
+        <span className="truncate flex-1 text-left">{canal.nombre}</span>
+        {canal.silenciado && (
+          <BellOff size={10} className="flex-shrink-0" style={{ color: 'var(--texto-terciario)' }} />
+        )}
+        {/* Tres puntos — visible en hover */}
+        <span
+          className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded"
+          onClick={(e) => { e.stopPropagation(); setMenu(prev => !prev) }}
+          style={{ color: 'var(--texto-terciario)' }}
+        >
+          <MoreHorizontal size={12} />
+        </span>
+      </button>
+
+      {/* Menú contextual */}
+      <AnimatePresence>
+        {menu && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="absolute right-1 top-full z-50 rounded-lg py-1 min-w-[160px]"
+            style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            {onSilenciar && (
+              <button
+                onClick={() => { onSilenciar(); setMenu(false) }}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors"
+                style={{ color: 'var(--texto-secundario)' }}
+              >
+                {canal.silenciado ? <Bell size={12} /> : <BellOff size={12} />}
+                {canal.silenciado ? 'Activar notificaciones' : 'Silenciar'}
+              </button>
+            )}
+            {onSalir && canal.tipo === 'grupo' && (
+              <button
+                onClick={() => { onSalir(); setMenu(false) }}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors"
+                style={{ color: 'var(--insignia-peligro)' }}
+              >
+                <LogOut size={12} /> Salir del grupo
+              </button>
+            )}
+            {onEliminar && canal.tipo !== 'directo' && (
+              <button
+                onClick={() => { onEliminar(); setMenu(false) }}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors"
+                style={{ color: 'var(--insignia-peligro)' }}
+              >
+                <Archive size={12} /> Archivar
+              </button>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   )
 }
 
