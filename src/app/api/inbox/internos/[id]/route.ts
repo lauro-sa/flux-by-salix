@@ -94,11 +94,8 @@ export async function DELETE(
       .maybeSingle()
 
     if (!canal) return NextResponse.json({ error: 'Canal no encontrado' }, { status: 404 })
-    if (canal.tipo === 'directo') {
-      return NextResponse.json({ error: 'Los mensajes directos no se pueden eliminar' }, { status: 400 })
-    }
 
-    // Canales: solo admin del canal. Grupos: solo creador.
+    // Verificar permisos según tipo
     const { data: miembro } = await admin
       .from('canal_interno_miembros')
       .select('rol')
@@ -107,6 +104,7 @@ export async function DELETE(
       .maybeSingle()
 
     const puedeEliminar =
+      canal.tipo === 'directo' || // DMs: cualquier participante puede archivar
       (canal.tipo === 'grupo' && canal.creado_por === user.id) ||
       (['publico', 'privado'].includes(canal.tipo) && miembro?.rol === 'admin')
 

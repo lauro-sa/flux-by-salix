@@ -164,6 +164,19 @@ export function PanelInterno({
     }
   }, [mostrar, onRecargarCanales])
 
+  // Reaccionar a un mensaje (toggle)
+  const reaccionar = useCallback(async (mensajeId: string, emoji: string) => {
+    // Optimistic update local
+    // El polling traerá el estado real del server en 3 segundos
+    try {
+      await fetch(`/api/inbox/mensajes/${mensajeId}/reaccion`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emoji }),
+      })
+    } catch { /* silenciar */ }
+  }, [])
+
   // Marcar como leído al seleccionar canal
   useEffect(() => {
     if (!canalSeleccionado) return
@@ -259,6 +272,7 @@ export function PanelInterno({
                 seleccionado={canalSeleccionado?.id === canal.id}
                 onClick={() => onSeleccionarCanal(canal)}
                 onSilenciar={() => silenciarCanal(canal)}
+                onEliminar={() => archivarCanal(canal)}
               />
             ))}
           </div>
@@ -415,6 +429,7 @@ export function PanelInterno({
                             autor: msg.remitente_nombre || 'Desconocido',
                           })}
                           onAbrirHilo={() => setHiloAbierto(msg.id)}
+                          onReaccionar={reaccionar}
                         />
                       </div>
                     )
@@ -571,13 +586,13 @@ function CanalItem({
                 <LogOut size={12} /> Salir del grupo
               </button>
             )}
-            {onEliminar && canal.tipo !== 'directo' && (
+            {onEliminar && (
               <button
                 onClick={() => { onEliminar(); setMenu(false) }}
                 className="w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors"
                 style={{ color: 'var(--insignia-peligro)' }}
               >
-                <Archive size={12} /> Archivar
+                <Archive size={12} /> {canal.tipo === 'directo' ? 'Eliminar chat' : 'Archivar'}
               </button>
             )}
           </motion.div>
@@ -587,6 +602,8 @@ function CanalItem({
   )
 }
 
+const EMOJIS_RAPIDOS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
+
 // Mensaje individual — estilo Slack para canales/grupos, estilo chat para DMs
 function MensajeInterno({
   mensaje,
@@ -594,14 +611,17 @@ function MensajeInterno({
   esDM = false,
   onResponder,
   onAbrirHilo,
+  onReaccionar,
 }: {
   mensaje: MensajeConAdjuntos
   esPropio?: boolean
   esDM?: boolean
   onResponder: () => void
   onAbrirHilo: () => void
+  onReaccionar?: (mensajeId: string, emoji: string) => void
 }) {
   const [mostrarAcciones, setMostrarAcciones] = useState(false)
+  const [mostrarEmojis, setMostrarEmojis] = useState(false)
   const [lecturas, setLecturas] = useState<{ leido_por: { nombre: string; leido_en: string }[]; sin_leer: { nombre: string }[] } | null>(null)
   const [mostrarLecturas, setMostrarLecturas] = useState(false)
 
@@ -690,6 +710,45 @@ function MensajeInterno({
             )}
           </AnimatePresence>
         </div>
+
+        {/* Reacciones visibles */}
+        {mensaje.reacciones && Object.keys(mensaje.reacciones).length > 0 && (
+          <div className={`flex gap-1 mt-1 ${esPropio ? 'justify-end' : ''}`}>
+            {Object.entries(mensaje.reacciones).map(([emoji, usuarios]) => (
+              <button
+                key={emoji}
+                onClick={() => onReaccionar?.(mensaje.id, emoji)}
+                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs"
+                style={{ background: 'var(--superficie-hover)', border: '1px solid var(--borde-sutil)' }}
+              >
+                {emoji} <span style={{ color: 'var(--texto-secundario)' }}>{(usuarios as string[]).length}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Picker de emojis rápidos en hover */}
+        <AnimatePresence>
+          {mostrarAcciones && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className={`absolute ${esPropio ? 'right-0' : 'left-0'} -top-4 flex items-center gap-0.5 px-1 py-0.5 rounded-full`}
+              style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+            >
+              {EMOJIS_RAPIDOS.map(e => (
+                <button
+                  key={e}
+                  onClick={() => { onReaccionar?.(mensaje.id, e); setMostrarAcciones(false) }}
+                  className="text-sm hover:scale-125 transition-transform px-0.5"
+                >
+                  {e}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     )
   }
@@ -852,7 +911,13 @@ function MensajeInterno({
               border: '1px solid var(--borde-sutil)',
             }}
           >
-            <button className="p-1 rounded transition-colors" style={{ color: 'var(--texto-terciario)' }} title="Reaccionar" aria-label="Reaccionar">
+            <button
+              onClick={() => setMostrarEmojis(prev => !prev)}
+              className="p-1 rounded transition-colors"
+              style={{ color: 'var(--texto-terciario)' }}
+              title="Reaccionar"
+              aria-label="Reaccionar"
+            >
               <Smile size={14} />
             </button>
             <button
@@ -864,6 +929,28 @@ function MensajeInterno({
             >
               <MessageSquare size={14} />
             </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* Picker de emojis rápidos (modo Slack) */}
+      <AnimatePresence>
+        {mostrarEmojis && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="absolute right-2 -top-8 flex items-center gap-0.5 px-1.5 py-1 rounded-full z-50"
+            style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+          >
+            {EMOJIS_RAPIDOS.map(e => (
+              <button
+                key={e}
+                onClick={() => { onReaccionar?.(mensaje.id, e); setMostrarEmojis(false); setMostrarAcciones(false) }}
+                className="text-sm hover:scale-125 transition-transform px-0.5"
+              >
+                {e}
+              </button>
+            ))}
           </motion.div>
         )}
       </AnimatePresence>
