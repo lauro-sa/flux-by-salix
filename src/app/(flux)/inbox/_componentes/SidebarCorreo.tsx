@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import { Boton } from '@/componentes/ui/Boton'
 import {
@@ -73,6 +73,8 @@ export function SidebarCorreo({
     orden_cuentas?: string[]
     cuentas_expandidas?: string[]
   }
+  // Ref para evitar que el effect de canales sobreescriba el orden de BD
+  const ordenCargadoDeBDRef = useRef(false)
 
   // Orden personalizado de cuentas (persistido en BD via preferencias)
   const [ordenCanales, setOrdenCanales] = useState<string[]>(() => {
@@ -82,15 +84,23 @@ export function SidebarCorreo({
   // Sincronizar con preferencias cuando se cargan desde BD
   useEffect(() => {
     if (configInbox.orden_cuentas?.length) {
-      setOrdenCanales(configInbox.orden_cuentas)
+      ordenCargadoDeBDRef.current = true
+      // Mergear: mantener orden de BD, agregar canales nuevos al final
+      const idsGuardados = new Set(configInbox.orden_cuentas)
+      const idsActuales = new Set(canales.map(c => c.id))
+      const ordenFinal = configInbox.orden_cuentas.filter(id => idsActuales.has(id))
+      for (const c of canales) {
+        if (!idsGuardados.has(c.id)) ordenFinal.push(c.id)
+      }
+      setOrdenCanales(ordenFinal)
     }
-  }, [JSON.stringify(configInbox.orden_cuentas)])
+  }, [JSON.stringify(configInbox.orden_cuentas), canales])
 
-  // Actualizar orden cuando cambian los canales
+  // Actualizar orden cuando cambian los canales (solo si BD no cargó todavía)
   useEffect(() => {
+    if (ordenCargadoDeBDRef.current) return
     setOrdenCanales(prev => {
       const idsActuales = new Set(canales.map(c => c.id))
-      // Mantener orden existente, agregar nuevos al final
       const ordenFiltrado = prev.filter(id => idsActuales.has(id))
       for (const c of canales) {
         if (!ordenFiltrado.includes(c.id)) ordenFiltrado.push(c.id)
@@ -105,15 +115,17 @@ export function SidebarCorreo({
   }, [canales, ordenCanales])
 
   /** Guarda la config del inbox en preferencias (BD + localStorage) */
-  const guardarConfigInbox = useCallback((cambios: Partial<typeof configInbox>) => {
-    const nuevaConfig = { ...configInbox, ...cambios }
+  const guardarConfigInbox = useCallback((cambios: Record<string, unknown>) => {
     guardarPreferencia({
       config_tablas: {
         ...preferencias.config_tablas,
-        [CLAVE_CONFIG_INBOX]: nuevaConfig as Record<string, unknown>,
+        [CLAVE_CONFIG_INBOX]: {
+          ...configInbox,
+          ...cambios,
+        },
       },
     })
-  }, [configInbox, preferencias.config_tablas, guardarPreferencia])
+  }, [JSON.stringify(configInbox), preferencias.config_tablas, guardarPreferencia])
 
   const handleReorder = useCallback((nuevoOrden: string[]) => {
     setOrdenCanales(nuevoOrden)
@@ -132,7 +144,7 @@ export function SidebarCorreo({
     }
   }, [JSON.stringify(configInbox.cuentas_expandidas)])
 
-  // Agregar canales nuevos al set
+  // Agregar canales nuevos al set de expandidos
   useEffect(() => {
     setCuentasExpandidas(prev => {
       const next = new Set(prev)
