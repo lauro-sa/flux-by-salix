@@ -98,12 +98,14 @@ export async function generarPdfFirmado(
 async function htmlCertificadoAPdf(html: string): Promise<Buffer> {
   let browser
   try {
-    const chromium = (await import('@sparticuz/chromium')).default
+    const chromium = (await import('@sparticuz/chromium-min')).default
     const puppeteer = await import('puppeteer-core')
     browser = await puppeteer.default.launch({
       args: chromium.args,
       defaultViewport: { width: 1280, height: 720 },
-      executablePath: await chromium.executablePath(),
+      executablePath: await chromium.executablePath(
+        'https://github.com/nichochar/chromium-for-vercel/releases/download/v143.0.0/chromium-v143.0.0-pack.tar'
+      ),
       headless: true,
     })
   } catch {

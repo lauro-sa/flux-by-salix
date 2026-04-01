@@ -30,15 +30,18 @@ interface ResultadoPdf {
 async function htmlAPdf(html: string): Promise<Buffer> {
   let browser
   try {
-    const chromium = (await import('@sparticuz/chromium')).default
+    const chromium = (await import('@sparticuz/chromium-min')).default
     const puppeteer = await import('puppeteer-core')
     browser = await puppeteer.default.launch({
       args: chromium.args,
       defaultViewport: { width: 1280, height: 720 },
-      executablePath: await chromium.executablePath(),
+      executablePath: await chromium.executablePath(
+        'https://github.com/nichochar/chromium-for-vercel/releases/download/v143.0.0/chromium-v143.0.0-pack.tar'
+      ),
       headless: true,
     })
-  } catch {
+  } catch (errChromiumMin) {
+    // Fallback: buscar Chrome local (desarrollo)
     try {
       const puppeteer = await import('puppeteer-core')
       const rutasChrome = [
@@ -53,7 +56,7 @@ async function htmlAPdf(html: string): Promise<Buffer> {
         if (existsSync(ruta)) { executablePath = ruta; break }
       }
       if (!executablePath) {
-        throw new Error('No se encontró Chrome/Chromium instalado.')
+        throw new Error(`No se encontró Chrome/Chromium. Error original: ${errChromiumMin instanceof Error ? errChromiumMin.message : 'desconocido'}`)
       }
       browser = await puppeteer.default.launch({
         executablePath,
