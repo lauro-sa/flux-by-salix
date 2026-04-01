@@ -110,7 +110,7 @@ export function SidebarCorreo({
     guardarPreferencia({
       config_tablas: {
         ...preferencias.config_tablas,
-        [CLAVE_CONFIG_INBOX]: nuevaConfig,
+        [CLAVE_CONFIG_INBOX]: nuevaConfig as Record<string, unknown>,
       },
     })
   }, [configInbox, preferencias.config_tablas, guardarPreferencia])
