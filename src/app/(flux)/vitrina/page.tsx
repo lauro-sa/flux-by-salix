@@ -17,15 +17,11 @@ import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Separador } from '@/componentes/ui/Separador'
 import { Buscador } from '@/componentes/ui/Buscador'
 import { LineaTiempo } from '@/componentes/ui/LineaTiempo'
-import { BarraBusqueda } from '@/componentes/ui/BarraBusqueda'
-import type { Filtro, PillGrupo, Plantilla, OpcionVista } from '@/componentes/ui/BarraBusqueda'
 import {
   UserCircle, BarChart3, CalendarDays, PlusCircle, ArrowRight,
-  FileEdit, FileText, ClipboardList, List, LayoutGrid, Columns3, Users,
+  FileEdit, FileText, ClipboardList, Users,
   Sun, Moon, Gem, Monitor, Download, Trash2, Mail, Tag,
 } from 'lucide-react'
-import { TablaBase } from '@/componentes/tablas/TablaBase'
-import { Kanban } from '@/componentes/tablas/Kanban'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica, FiltroTabla, AccionLote } from '@/componentes/tablas/TablaDinamica'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
@@ -46,15 +42,6 @@ import { useTema, type Tema, type Efecto, type FondoCristal, type EscalaTexto } 
 import { ALargeSmall } from 'lucide-react'
 
 /* Vitrina de Componentes — Flux by Salix */
-
-// Datos de ejemplo
-const contactosEjemplo = [
-  { id: '1', nombre: 'Juan Pérez', correo: 'juan@empresa.com', tipo: 'Cliente', etapa: 'Negociación' },
-  { id: '2', nombre: 'María López', correo: 'maria@corp.com', tipo: 'Prospecto', etapa: 'Contactado' },
-  { id: '3', nombre: 'Carlos Ruiz', correo: 'carlos@demo.com', tipo: 'Proveedor', etapa: 'Nuevo' },
-  { id: '4', nombre: 'Ana García', correo: 'ana@tech.io', tipo: 'Cliente', etapa: 'Cerrado' },
-  { id: '5', nombre: 'Pedro Martínez', correo: 'pedro@saas.com', tipo: 'Prospecto', etapa: 'Nuevo' },
-]
 
 /* Datos extendidos para la TablaDinamica */
 interface ContactoDemo {
@@ -85,13 +72,6 @@ const contactosExtendidos: ContactoDemo[] = [
   { id: '12', nombre: 'Florencia Díaz', correo: 'flor@media.com', tipo: 'Prospecto', etapa: 'Nuevo', telefono: '+54 11 6543-2109', empresa: 'MediaPulse', valorEstimado: 7200, ultimoContacto: '2026-03-16', ciudad: 'Buenos Aires' },
 ]
 
-const columnasKanban = [
-  { id: 'Nuevo', titulo: 'Nuevo', color: 'var(--insignia-info)' },
-  { id: 'Contactado', titulo: 'Contactado', color: 'var(--insignia-advertencia)' },
-  { id: 'Negociación', titulo: 'Negociación', color: 'var(--insignia-primario)' },
-  { id: 'Cerrado', titulo: 'Cerrado', color: 'var(--insignia-exito)' },
-]
-
 const itemsTimeline = [
   { id: '1', titulo: 'Contacto creado', descripcion: 'Juan Pérez fue registrado como cliente', fecha: 'Hace 2h', icono: <PlusCircle size={14} />, color: 'bg-insignia-exito-fondo text-insignia-exito-texto' },
   { id: '2', titulo: 'Etapa cambiada', descripcion: 'Nuevo → Contactado', fecha: 'Hace 1h', icono: <ArrowRight size={14} />, color: 'bg-insignia-info-fondo text-insignia-info-texto' },
@@ -99,9 +79,9 @@ const itemsTimeline = [
   { id: '4', titulo: 'Presupuesto enviado', descripcion: 'PRE-2026-00042 por $15,000', fecha: 'Hace 10min', icono: <FileText size={14} />, color: 'bg-insignia-primario-fondo text-insignia-primario-texto' },
 ]
 
-function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+function Seccion({ id, titulo, children }: { id?: string; titulo: string; children: React.ReactNode }) {
   return (
-    <section className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-5 flex flex-col gap-4 cristal-panel">
+    <section id={id} className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-5 flex flex-col gap-4 cristal-panel scroll-mt-20">
       <h2 className="text-lg font-semibold text-texto-primario pb-2 border-b border-borde-sutil">{titulo}</h2>
       {children}
     </section>
@@ -305,7 +285,7 @@ function SelectorApariencia() {
 }
 
 /** Sección de la Tabla Dinámica — separada para organizar el estado */
-function SeccionTablaDinamica({ mostrar }: { mostrar: (tipo: 'exito' | 'error' | 'advertencia' | 'info', mensaje: string) => void }) {
+function SeccionTablaDinamica({ id, mostrar }: { id?: string; mostrar: (tipo: 'exito' | 'error' | 'advertencia' | 'info', mensaje: string) => void }) {
   const [busquedaTD, setBusquedaTD] = useState('')
   const [filtroTipoTD, setFiltroTipoTD] = useState('')
   const [filtroEtapaTD, setFiltroEtapaTD] = useState<string[]>([])
@@ -443,7 +423,7 @@ function SeccionTablaDinamica({ mostrar }: { mostrar: (tipo: 'exito' | 'error' |
   })
 
   return (
-    <Seccion titulo="Tabla Dinámica">
+    <Seccion id={id} titulo="Tabla Dinámica">
       <p className="text-sm text-texto-secundario -mt-2 mb-2">
         Componente central con múltiples vistas, filtros, columnas configurables, paginación, ordenamiento, selección y más.
       </p>
@@ -493,12 +473,12 @@ function SeccionTablaDinamica({ mostrar }: { mostrar: (tipo: 'exito' | 'error' |
   )
 }
 
-function SeccionEditorTexto() {
+function SeccionEditorTexto({ id }: { id?: string }) {
   const [html, setHtml] = useState('')
   const { colores } = useColoresEmpresa()
 
   return (
-    <Seccion titulo="Editor de Texto">
+    <Seccion id={id} titulo="Editor de Texto">
       <p className="text-sm text-texto-secundario mb-3">
         Seleccioná texto para ver el toolbar de formateo: negrita, itálica, tamaños, colores, alineación, listas y links.
       </p>
@@ -521,7 +501,7 @@ function SeccionEditorTexto() {
   )
 }
 
-function SeccionModalEnviarDocumento() {
+function SeccionModalEnviarDocumento({ id }: { id?: string }) {
   const [abierto, setAbierto] = useState(false)
 
   const canalesDemo = [
@@ -546,7 +526,7 @@ function SeccionModalEnviarDocumento() {
   }
 
   return (
-    <Seccion titulo="Modal Enviar Documento">
+    <Seccion id={id} titulo="Modal Enviar Documento">
       <div>
         <Etiqueta>Modal completo para envío de documentos por correo</Etiqueta>
         <p className="text-xs mb-3" style={{ color: 'var(--texto-terciario)' }}>
@@ -859,7 +839,7 @@ function SeccionModoConcentracion() {
   )
 }
 
-function SeccionNotificacionesVitrina({ mostrar }: { mostrar: (tipo: 'exito' | 'error' | 'advertencia' | 'info', mensaje: string) => void }) {
+function SeccionNotificacionesVitrina({ id, mostrar }: { id?: string; mostrar: (tipo: 'exito' | 'error' | 'advertencia' | 'info', mensaje: string) => void }) {
   const [itemsInbox, setItemsInbox] = useState(notificacionesDemo)
   const [itemsActividades, setItemsActividades] = useState(actividadesDemo)
   const [itemsSistema, setItemsSistema] = useState(sistemaDemo)
@@ -875,7 +855,7 @@ function SeccionNotificacionesVitrina({ mostrar }: { mostrar: (tipo: 'exito' | '
   }
 
   return (
-    <Seccion titulo="Panel de Notificaciones">
+    <Seccion id={id} titulo="Panel de Notificaciones">
       <div>
         <Etiqueta>3 paneles como aparecen en el header (dentro de Popovers)</Etiqueta>
         <div className="flex flex-wrap gap-3 mt-3">
@@ -1030,7 +1010,7 @@ function SeccionNotificacionesVitrina({ mostrar }: { mostrar: (tipo: 'exito' | '
   )
 }
 
-function SeccionMarca() {
+function SeccionMarca({ id }: { id?: string }) {
   const [animacion, setAnimacion] = useState<VarianteIcono>('estatico')
   const [mostrarSplash, setMostrarSplash] = useState(false)
   const [keyReset, setKeyReset] = useState(0)
@@ -1042,7 +1022,7 @@ function SeccionMarca() {
   }
 
   return (
-    <Seccion titulo="Marca / Logo">
+    <Seccion id={id} titulo="Marca / Logo">
       {/* Layouts — todos con hover+tap activo por defecto */}
       <div>
         <Etiqueta>Layouts — pasá el mouse por encima</Etiqueta>
@@ -1161,79 +1141,7 @@ export default function PaginaVitrina() {
   const [interruptor1, setInterruptor1] = useState(true)
   const [interruptor2, setInterruptor2] = useState(false)
   const [busqueda, setBusqueda] = useState('')
-  const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
   const [pildorasActivas, setPildorasActivas] = useState(new Set(['cliente']))
-
-  /* Estado BarraBusqueda */
-  const [barraBusqueda, setBarraBusqueda] = useState('')
-  const [filtroTipo, setFiltroTipo] = useState('')
-  const [filtroEtapa, setFiltroEtapa] = useState<string[]>([])
-  const [filtroFecha, setFiltroFecha] = useState('')
-  const [pillTipo, setPillTipo] = useState('todos')
-  const [vistaActiva, setVistaActiva] = useState('lista')
-  const [plantillasGuardadas, setPlantillasGuardadas] = useState<Plantilla[]>([
-    { id: 'default', nombre: 'Todos los contactos', predefinida: true },
-    { id: 'clientes-activos', nombre: 'Clientes activos', predefinida: false },
-  ])
-  const [plantillaActiva, setPlantillaActiva] = useState('')
-
-  const filtrosDemo: Filtro[] = [
-    {
-      id: 'tipo',
-      etiqueta: 'Tipo',
-      icono: <UserCircle size={14} />,
-      tipo: 'seleccion',
-      valor: filtroTipo,
-      onChange: (v) => setFiltroTipo(v as string),
-      opciones: [
-        { valor: 'cliente', etiqueta: 'Cliente' },
-        { valor: 'prospecto', etiqueta: 'Prospecto' },
-        { valor: 'proveedor', etiqueta: 'Proveedor' },
-      ],
-    },
-    {
-      id: 'etapa',
-      etiqueta: 'Etapa',
-      icono: <BarChart3 size={14} />,
-      tipo: 'multiple',
-      valor: filtroEtapa,
-      onChange: (v) => setFiltroEtapa(v as string[]),
-      opciones: [
-        { valor: 'nuevo', etiqueta: 'Nuevo' },
-        { valor: 'contactado', etiqueta: 'Contactado' },
-        { valor: 'negociacion', etiqueta: 'Negociación' },
-        { valor: 'cerrado', etiqueta: 'Cerrado' },
-      ],
-    },
-    {
-      id: 'fecha',
-      etiqueta: 'Fecha de creación',
-      icono: <CalendarDays size={14} />,
-      tipo: 'fecha',
-      valor: filtroFecha,
-      onChange: (v) => setFiltroFecha(v as string),
-    },
-  ]
-
-  const pillsGruposDemo: PillGrupo[] = [
-    {
-      id: 'tipo-rapido',
-      etiqueta: 'Tipo',
-      opciones: [
-        { id: 'todos', etiqueta: 'Todos', conteo: 42 },
-        { id: 'clientes', etiqueta: 'Clientes', conteo: 18 },
-        { id: 'prospectos', etiqueta: 'Prospectos', conteo: 12 },
-      ],
-      activo: pillTipo,
-      onChange: setPillTipo,
-    },
-  ]
-
-  const opcionesVistaDemo: OpcionVista[] = [
-    { id: 'lista', etiqueta: 'Lista', icono: <List size={14} /> },
-    { id: 'tarjetas', etiqueta: 'Tarjetas', icono: <LayoutGrid size={14} /> },
-    { id: 'kanban', etiqueta: 'Kanban', icono: <Columns3 size={14} /> },
-  ]
 
   const togglePildora = (p: string) => {
     const nuevo = new Set(pildorasActivas)
@@ -1439,102 +1347,8 @@ export default function PaginaVitrina() {
         </div>
       </Seccion>
 
-      {/* BARRA DE BÚSQUEDA AVANZADA */}
-      <Seccion titulo="Barra de Búsqueda">
-        <div>
-          <Etiqueta>Completa con filtros, vistas y favoritos</Etiqueta>
-          <div className="mt-2">
-            <BarraBusqueda
-              busqueda={barraBusqueda}
-              onBusqueda={setBarraBusqueda}
-              placeholder="Buscar contactos..."
-              contadorResultados={234}
-              filtros={filtrosDemo}
-              onLimpiarFiltros={() => {
-                setFiltroTipo('')
-                setFiltroEtapa([])
-                setFiltroFecha('')
-              }}
-              pillsGrupos={pillsGruposDemo}
-              plantillas={plantillasGuardadas}
-              plantillaActivaId={plantillaActiva}
-              onAplicarPlantilla={setPlantillaActiva}
-              onGuardarNuevaPlantilla={(nombre) => {
-                setPlantillasGuardadas([...plantillasGuardadas, { id: Date.now().toString(), nombre, predefinida: false }])
-                mostrar('exito', `Vista "${nombre}" guardada`)
-              }}
-              onEliminarPlantilla={(id) => {
-                setPlantillasGuardadas(plantillasGuardadas.filter((p) => p.id !== id))
-                if (plantillaActiva === id) setPlantillaActiva('')
-                mostrar('info', 'Vista eliminada')
-              }}
-              vistaActual={vistaActiva}
-              opcionesVista={opcionesVistaDemo}
-              onCambiarVista={setVistaActiva}
-              mostrarBotonColumnas
-              onAbrirColumnas={() => mostrar('info', 'Abrir selector de columnas')}
-            />
-          </div>
-          {(barraBusqueda || filtroTipo || filtroEtapa.length > 0 || filtroFecha) && (
-            <p className="text-xs text-texto-terciario mt-2">
-              Busqueda: &quot;{barraBusqueda}&quot; | Tipo: {filtroTipo || '—'} | Etapas: {filtroEtapa.length > 0 ? filtroEtapa.join(', ') : '—'} | Fecha: {filtroFecha || '—'} | Vista: {vistaActiva}
-            </p>
-          )}
-        </div>
-        <Separador etiqueta="Solo búsqueda (mínima)" />
-        <BarraBusqueda
-          busqueda={busqueda}
-          onBusqueda={setBusqueda}
-          placeholder="Búsqueda simple sin filtros..."
-        />
-      </Seccion>
-
       {/* TABLA DINÁMICA */}
       <SeccionTablaDinamica mostrar={mostrar} />
-
-      {/* TABLA */}
-      <Seccion titulo="Tabla (base)">
-        <TablaBase
-          columnas={[
-            { clave: 'nombre', etiqueta: 'Nombre', render: (c) => (
-              <div className="flex items-center gap-2">
-                <Avatar nombre={c.nombre} tamano="xs" />
-                <span className="font-medium">{c.nombre}</span>
-              </div>
-            )},
-            { clave: 'correo', etiqueta: 'Correo' },
-            { clave: 'tipo', etiqueta: 'Tipo', render: (c) => <Insignia color={c.tipo === 'Cliente' ? 'exito' : c.tipo === 'Prospecto' ? 'info' : 'neutro'}>{c.tipo}</Insignia> },
-            { clave: 'etapa', etiqueta: 'Etapa' },
-          ]}
-          datos={contactosEjemplo}
-          claveFila={(c) => c.id}
-          seleccionables
-          seleccionados={seleccionados}
-          onSeleccionar={setSeleccionados}
-          onClickFila={(c) => mostrar('info', `Click en ${c.nombre}`)}
-        />
-      </Seccion>
-
-      {/* KANBAN */}
-      <Seccion titulo="Kanban">
-        <Kanban
-          columnas={columnasKanban}
-          items={contactosEjemplo}
-          obtenerColumna={(c) => c.etapa}
-          claveItem={(c) => c.id}
-          renderItem={(c) => (
-            <Tarjeta compacta onClick={() => mostrar('info', c.nombre)}>
-              <div className="flex items-center gap-2">
-                <Avatar nombre={c.nombre} tamano="sm" />
-                <div>
-                  <p className="text-sm font-medium text-texto-primario">{c.nombre}</p>
-                  <p className="text-xs text-texto-terciario">{c.correo}</p>
-                </div>
-              </div>
-            </Tarjeta>
-          )}
-        />
-      </Seccion>
 
       {/* LÍNEA DE TIEMPO */}
       <Seccion titulo="Línea de tiempo">
