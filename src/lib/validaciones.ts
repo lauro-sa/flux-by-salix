@@ -103,6 +103,11 @@ export function sanitizarBusqueda(input: string): string {
   return input.replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ0-9\s.@\-_]/g, '').trim()
 }
 
+/** Quita acentos/diacríticos de un texto para búsquedas ILIKE insensibles a acentos */
+export function normalizarAcentos(texto: string): string {
+  return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
 /** Retorna true si no hay errores */
 export function sinErrores(errores: ErroresContacto): boolean {
   return Object.keys(errores).length === 0
