@@ -85,7 +85,7 @@ function ChipEmail({ email, nombre, onRemover }: { email: string; nombre?: strin
       }}
     >
       <span className="truncate">{nombre ? `${nombre} <${email}>` : email}</span>
-      <button onClick={onRemover} className="flex-shrink-0 hover:opacity-70">
+      <button onClick={onRemover} className="flex-shrink-0 hover:opacity-70" aria-label={`Eliminar ${email}`}>
         <X size={10} />
       </button>
     </span>
@@ -642,7 +642,7 @@ export function CompositorCorreo({
                     <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
                       {formatoTamano(adj.tamano_bytes)}
                     </span>
-                    <button onClick={() => removerAdjunto(adj.id)}>
+                    <button onClick={() => removerAdjunto(adj.id)} aria-label={`Quitar ${adj.nombre_archivo}`}>
                       <X size={10} />
                     </button>
                   </div>
@@ -727,6 +727,7 @@ export function CompositorCorreo({
                 <button
                   onClick={() => { setMostrarProgramar(false); setFechaProgramada('') }}
                   className="p-1"
+                  aria-label="Cerrar programador"
                 >
                   <X size={12} style={{ color: 'var(--texto-terciario)' }} />
                 </button>
@@ -772,6 +773,7 @@ export function CompositorCorreo({
                 onClick={() => inputArchivosRef.current?.click()}
                 className="p-1.5 rounded-lg transition-colors"
                 style={{ color: 'var(--texto-terciario)' }}
+                aria-label="Adjuntar archivo"
               >
                 <Paperclip size={16} />
               </button>
