@@ -192,7 +192,7 @@ export default function SelectorPlantilla({
                         if (e.key === 'Escape') { setCreando(false); setNombreNueva('') }
                       }}
                       placeholder="Nombre de la plantilla"
-                      className="flex-1 min-w-0 bg-superficie-app border border-borde-sutil rounded-lg px-2.5 py-1.5 text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-marca-500 transition-colors"
+                      className="flex-1 min-w-0 bg-superficie-app border border-borde-sutil rounded-lg px-2.5 py-1.5 text-sm text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-marca-500 transition-colors"
                     />
                     <button
                       onClick={handleGuardarComo}

@@ -9,15 +9,17 @@
    - Colores siempre vía tokens: bg-superficie-*, text-texto-*, border-borde-*
 
    ESCALA DE TIPOGRAFÍA (clases Tailwind):
-     text-xxs  → 10px  — badges, contadores, metadatos mínimos
-     text-xs   → 11px  — labels secundarios, timestamps
-     text-sm   → 13px  — texto de UI principal, botones, inputs, nav
-     text-base → 14px  — cuerpo de texto, párrafos
-     text-md   → 15px  — texto destacado
-     text-lg   → 17px  — títulos de sección (h3)
-     text-xl   → 20px  — títulos de página secundarios (h2)
-     text-2xl  → 24px  — títulos de página principales (h1)
-     text-3xl  → 30px  — héroe / landing
+                Desktop   Móvil
+     text-xxs  → 10px    12px  — badges, contadores, metadatos mínimos
+     text-xs   → 11px    13px  — labels secundarios, timestamps
+     text-sm   → 13px    15px  — texto de UI principal, botones, inputs, nav
+     text-base → 14px    17px  — cuerpo de texto, párrafos
+     text-md   → 15px    18px  — texto destacado
+     text-lg   → 17px    20px  — títulos de sección (h3)
+     text-xl   → 20px    23px  — títulos de página secundarios (h2)
+     text-2xl  → 24px    27px  — títulos de página principales (h1)
+     text-3xl  → 30px    33px  — héroe / landing
+     Móvil se activa con: @media (pointer: coarse), (max-width: 768px)
 
    ESCALA DE SOMBRAS:
      shadow-sm     → sutil (tarjetas)
@@ -51,20 +53,21 @@
 
 /* ---------- LIGHT MODE (default) ---------- */
 :root {
-  /* Texto — grises neutros puros estilo Attio */
-  --texto-primario: #1a1a1a;
-  --texto-secundario: #737373;
-  --texto-terciario: #a3a3a3;
+  /* Texto — estilo iOS HIG con alpha para adaptarse a cualquier superficie */
+  --texto-primario: #0a0a0a;
+  --texto-secundario: rgba(60, 60, 67, 0.65);
+  --texto-terciario: rgba(60, 60, 67, 0.38);
+  --texto-placeholder: rgba(60, 60, 67, 0.30);
   --texto-inverso: #ffffff;
   --texto-marca: #5b5bd6; /* Índigo Attio — se sobreescribe por empresa */
 
-  /* Superficies */
-  --superficie-app: #ffffff;
+  /* Superficies — Desktop (macOS): ventana gris con cards blancas encima */
+  --superficie-app: #f6f6f6;
   --superficie-tarjeta: #ffffff;
   --superficie-elevada: #ffffff;
-  --superficie-sidebar: #fafafa;
-  --superficie-hover: #f5f5f5;
-  --superficie-activa: #efefef;
+  --superficie-sidebar: #ececec;
+  --superficie-hover: rgba(0, 0, 0, 0.04);
+  --superficie-activa: rgba(0, 0, 0, 0.07);
   --superficie-seleccionada: rgba(91, 91, 214, 0.08);
 
   /* Bordes — casi invisibles */
@@ -185,8 +188,8 @@
      Siempre opacos, incluso en modo cristal, para evitar que el contenido
      se vea por detrás de columnas ancladas. */
   --superficie-anclada: #ffffff;
-  --superficie-anclada-alterna: #f9f9f9;
-  --superficie-anclada-seleccionada: #eeeef8;
+  --superficie-anclada-alterna: #f6f6f6;
+  --superficie-anclada-seleccionada: #eaeaf4;
 
   /* Z-Index */
   --z-dropdown: 40;
@@ -203,18 +206,20 @@
 /* Paleta oscura estilo Linear/Attio — no el gris azulado genérico */
 @media (prefers-color-scheme: dark) {
   :root:not([data-tema="claro"]) {
-    --texto-primario: #eeeeee;
-    --texto-secundario: #a0a0a0;
-    --texto-terciario: #666666;
+    --texto-primario: #f5f5f5;
+    --texto-secundario: rgba(235, 235, 245, 0.65);
+    --texto-terciario: rgba(235, 235, 245, 0.38);
+    --texto-placeholder: rgba(235, 235, 245, 0.28);
     --texto-inverso: #ffffff;
     --texto-marca: #7b7bd8;
 
-    --superficie-app: #111111;
-    --superficie-tarjeta: #191919;
-    --superficie-elevada: #222222;
+    /* Superficies — Desktop dark: oscuro profundo con saltos amplios */
+    --superficie-app: #141414;
+    --superficie-tarjeta: #1e1e1e;
+    --superficie-elevada: #2a2a2a;
     --superficie-sidebar: #111111;
-    --superficie-hover: #1e1e1e;
-    --superficie-activa: #2a2a2a;
+    --superficie-hover: rgba(255, 255, 255, 0.06);
+    --superficie-activa: rgba(255, 255, 255, 0.10);
     --superficie-seleccionada: rgba(123, 123, 216, 0.12);
 
     --borde-sutil: #2a2a2a;
@@ -258,30 +263,32 @@
     --estado-error-fondo: rgba(220, 38, 38, 0.15);
     --estado-cancelado-fondo: rgba(107, 114, 128, 0.15);
 
-    --superficie-anclada: #191919;
-    --superficie-anclada-alterna: #1e1e1e;
+    --superficie-anclada: #1e1e1e;
+    --superficie-anclada-alterna: #262626;
     --superficie-anclada-seleccionada: #1e1e30;
   }
 }
 
 /* Override manual tema oscuro — mismos colores que media query */
 [data-tema="oscuro"] {
-  --texto-primario: #f0f0f0;
-  --texto-secundario: #a1a1a1;
-  --texto-terciario: #666666;
+  --texto-primario: #f5f5f5;
+  --texto-secundario: rgba(235, 235, 245, 0.65);
+  --texto-terciario: rgba(235, 235, 245, 0.38);
+  --texto-placeholder: rgba(235, 235, 245, 0.28);
   --texto-inverso: #ffffff;
   --texto-marca: #e8922a;
 
-  --superficie-app: #09090b;
-  --superficie-tarjeta: #111113;
-  --superficie-elevada: #18181b;
-  --superficie-sidebar: #09090b;
-  --superficie-hover: #18181b;
-  --superficie-activa: rgba(255, 255, 255, 0.08);
-  --superficie-seleccionada: rgba(232, 146, 42, 0.1);
+  /* Superficies — Desktop dark: oscuro profundo con saltos amplios */
+  --superficie-app: #141414;
+  --superficie-tarjeta: #1e1e1e;
+  --superficie-elevada: #2a2a2a;
+  --superficie-sidebar: #111111;
+  --superficie-hover: rgba(255, 255, 255, 0.06);
+  --superficie-activa: rgba(255, 255, 255, 0.10);
+  --superficie-seleccionada: rgba(232, 146, 42, 0.10);
 
-  --borde-sutil: #1f1f23;
-  --borde-fuerte: rgba(255, 255, 255, 0.12);
+  --borde-sutil: #2a2a2a;
+  --borde-fuerte: #3a3a3a;
   --borde-foco: #e8922a;
 
   --sombra-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
@@ -320,9 +327,9 @@
   --estado-error-fondo: rgba(220, 38, 38, 0.15);
   --estado-cancelado-fondo: rgba(107, 114, 128, 0.15);
 
-  --superficie-anclada: #111113;
-  --superficie-anclada-alterna: #18181b;
-  --superficie-anclada-seleccionada: #1a1a2e;
+  --superficie-anclada: #1e1e1e;
+  --superficie-anclada-alterna: #262626;
+  --superficie-anclada-seleccionada: #1e1e30;
 }
 
 /* ---------- ESCALA DE TEXTO ---------- */
@@ -350,6 +357,95 @@
   --texto-xl: 1.375rem;    /* 22px */
   --texto-2xl: 1.625rem;   /* 26px */
   --texto-3xl: 2rem;       /* 32px */
+}
+
+/* ---------- ESCALADO MÓVIL ---------- */
+/* En dispositivos táctiles / pantallas chicas, tipografía y superficies
+   cambian a estilo iOS: texto más grande + app blanca con cards grisáceas.
+   Como @theme usa var(), todo se propaga automáticamente. */
+@media (pointer: coarse), (max-width: 768px) {
+  :root {
+    /* Superficies — Mobile light (iOS): app blanca, cards gris-azulado */
+    --superficie-app: #ffffff;
+    --superficie-tarjeta: #f2f2f7;
+    --superficie-elevada: #ffffff;
+    --superficie-sidebar: #f2f2f7;
+    --superficie-hover: rgba(0, 0, 0, 0.04);
+    --superficie-activa: rgba(0, 0, 0, 0.07);
+    --superficie-anclada: #f2f2f7;
+    --superficie-anclada-alterna: #e8e8ed;
+
+    /* Tipografía — sube ~2-3px para legibilidad y targets de toque */
+    --texto-xxs: 0.75rem;     /* 12px (era 10px) */
+    --texto-xs: 0.8125rem;    /* 13px (era 11px) */
+    --texto-sm: 0.9375rem;    /* 15px (era 13px) */
+    --texto-base: 1.0625rem;  /* 17px (era 14px) */
+    --texto-md: 1.125rem;     /* 18px (era 15px) */
+    --texto-lg: 1.25rem;      /* 20px (era 17px) */
+    --texto-xl: 1.4375rem;    /* 23px (era 20px) */
+    --texto-2xl: 1.6875rem;   /* 27px (era 24px) */
+    --texto-3xl: 2.0625rem;   /* 33px (era 30px) */
+  }
+
+  /* Compacto en móvil: base móvil -1px */
+  [data-escala="compacto"] {
+    --texto-xxs: 0.6875rem;   /* 11px */
+    --texto-xs: 0.75rem;      /* 12px */
+    --texto-sm: 0.875rem;     /* 14px */
+    --texto-base: 1rem;       /* 16px */
+    --texto-md: 1.0625rem;    /* 17px */
+    --texto-lg: 1.1875rem;    /* 19px */
+    --texto-xl: 1.375rem;     /* 22px */
+    --texto-2xl: 1.625rem;    /* 26px */
+    --texto-3xl: 1.9375rem;   /* 31px */
+  }
+
+  /* Cómodo en móvil: base móvil +1px */
+  [data-escala="comodo"] {
+    --texto-xxs: 0.8125rem;   /* 13px */
+    --texto-xs: 0.875rem;     /* 14px */
+    --texto-sm: 1rem;         /* 16px */
+    --texto-base: 1.125rem;   /* 18px */
+    --texto-md: 1.1875rem;    /* 19px */
+    --texto-lg: 1.3125rem;    /* 21px */
+    --texto-xl: 1.5rem;       /* 24px */
+    --texto-2xl: 1.75rem;     /* 28px */
+    --texto-3xl: 2.125rem;    /* 34px */
+  }
+}
+
+/* ---------- SUPERFICIES MÓVIL DARK (iOS) ---------- */
+/* Negro puro como base, con #1c1c1e y #2c2c2e — patrón iOS exacto */
+
+/* Dark mobile — por preferencia de sistema */
+@media (prefers-color-scheme: dark) and (pointer: coarse),
+       (prefers-color-scheme: dark) and (max-width: 768px) {
+  :root:not([data-tema="claro"]) {
+    --superficie-app: #000000;
+    --superficie-tarjeta: #1c1c1e;
+    --superficie-elevada: #2c2c2e;
+    --superficie-sidebar: #000000;
+    --superficie-anclada: #1c1c1e;
+    --superficie-anclada-alterna: #2c2c2e;
+
+    --borde-sutil: #2c2c2e;
+    --borde-fuerte: #3a3a3c;
+  }
+}
+
+/* Dark mobile — por toggle manual */
+@media (pointer: coarse), (max-width: 768px) {
+  [data-tema="oscuro"] {
+    --superficie-app: #000000;
+    --superficie-tarjeta: #1c1c1e;
+    --superficie-elevada: #2c2c2e;
+    --superficie-sidebar: #000000;
+    --superficie-anclada: #1c1c1e;
+    --superficie-anclada-alterna: #2c2c2e;
+
+    --borde-sutil: #2c2c2e;
+    --borde-fuerte: #3a3a3c;
+  }
 }
 
 /* ---------- EFECTO CRISTAL ---------- */

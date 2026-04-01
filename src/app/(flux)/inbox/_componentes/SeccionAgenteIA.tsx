@@ -174,7 +174,7 @@ export default function SeccionAgenteIA() {
           <div>
             <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--texto-primario)' }}>
               Agente IA
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-texto-marca/10 text-texto-marca">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xxs font-semibold bg-texto-marca/10 text-texto-marca">
                 <Sparkles size={10} />
                 Salix IA
               </span>

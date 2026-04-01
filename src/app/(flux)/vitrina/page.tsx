@@ -1134,7 +1134,7 @@ function SeccionMarca() {
           <div className="flex items-center justify-center py-6 rounded-lg bg-white">
             <LogoSalix layout="horizontal" tamano={28} color="#111111" />
           </div>
-          <div className="flex items-center justify-center py-6 rounded-lg bg-[#111111]">
+          <div className="flex items-center justify-center py-6 rounded-lg bg-superficie-app">
             <LogoSalix layout="horizontal" tamano={28} color="#ffffff" />
           </div>
         </div>

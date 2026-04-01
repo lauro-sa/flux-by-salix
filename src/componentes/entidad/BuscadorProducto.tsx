@@ -168,7 +168,7 @@ export function BuscadorProducto({
             if (busqueda.trim() && resultados.length > 0) setAbierto(true)
           }}
           placeholder={placeholder}
-          className="w-full bg-transparent border-none outline-none text-sm font-semibold text-texto-primario placeholder:text-texto-terciario/40 py-0.5"
+          className="w-full bg-transparent border-none outline-none text-sm font-semibold text-texto-primario placeholder:text-texto-placeholder py-0.5"
         />
         {cargando && (
           <div className="absolute right-0 top-1/2 -translate-y-1/2">

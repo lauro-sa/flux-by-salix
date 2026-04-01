@@ -224,7 +224,7 @@ function FilaActividadCompacta({
           {actividad.titulo}
         </p>
         {actividad.fecha_vencimiento && (
-          <p className={`text-[11px] ${vencida ? 'text-insignia-peligro-texto font-medium' : 'text-texto-terciario'}`}>
+          <p className={`text-xs ${vencida ? 'text-insignia-peligro-texto font-medium' : 'text-texto-terciario'}`}>
             {new Date(actividad.fecha_vencimiento).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
             {vencida && ' — vencida'}
           </p>

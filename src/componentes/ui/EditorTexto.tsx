@@ -649,7 +649,7 @@ function EditorTexto({
           type="url" value={urlLink} onChange={(e) => setUrlLink(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') aplicarLink() }}
           placeholder="https://..."
-          className="flex-1 text-xs bg-transparent text-texto-primario placeholder:text-texto-terciario outline-none min-w-0"
+          className="flex-1 text-xs bg-transparent text-texto-primario placeholder:text-texto-placeholder outline-none min-w-0"
           autoFocus
         />
         <button type="button" onClick={aplicarLink} disabled={!urlLink.trim()} onMouseDown={(e) => e.preventDefault()}

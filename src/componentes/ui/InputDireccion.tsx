@@ -174,7 +174,7 @@ export function InputDireccion({
           placeholder={placeholder}
           disabled={deshabilitado}
           autoComplete="off"
-          className="flex-1 border-none outline-none bg-transparent text-texto-primario text-sm font-[inherit] leading-normal w-full placeholder:text-texto-terciario"
+          className="flex-1 border-none outline-none bg-transparent text-texto-primario text-sm font-[inherit] leading-normal w-full placeholder:text-texto-placeholder"
         />
 
         {/* Botón limpiar */}

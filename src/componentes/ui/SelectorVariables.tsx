@@ -389,7 +389,7 @@ function SelectorVariables({
                 onChange={(e) => setBusqueda(e.target.value)}
                 onKeyDown={manejarTeclado}
                 placeholder={entidadActiva ? 'Filtrar...' : 'Buscar variable...'}
-                className="flex-1 bg-transparent border-none outline-none text-sm placeholder:text-texto-terciario"
+                className="flex-1 bg-transparent border-none outline-none text-sm placeholder:text-texto-placeholder"
                 style={{ color: 'var(--texto-primario)' }}
               />
 

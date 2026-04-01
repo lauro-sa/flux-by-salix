@@ -73,10 +73,10 @@ export function InputMoneda({ etiqueta, value, onChange, moneda, placeholder = '
           disabled={disabled}
           step="0.01"
           min="0"
-          className="flex-1 bg-transparent border-none outline-none text-sm text-texto-primario py-2.5 pr-3 font-mono placeholder:text-texto-terciario/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          className="flex-1 bg-transparent border-none outline-none text-sm text-texto-primario py-2.5 pr-3 font-mono placeholder:text-texto-placeholder [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />
       </div>
-      {ayuda && <p className="text-[11px] text-texto-terciario mt-1">{ayuda}</p>}
+      {ayuda && <p className="text-xs text-texto-terciario mt-1">{ayuda}</p>}
     </div>
   )
 }

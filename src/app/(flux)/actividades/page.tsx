@@ -362,7 +362,7 @@ export default function PaginaActividades() {
         if (!estado) return null
         const IconoE = obtenerIcono(estado.icono)
         return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: estado.color }}>
+          <span className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: estado.color }}>
             {IconoE && <IconoE size={12} />}
             {estado.etiqueta}
           </span>
@@ -431,7 +431,7 @@ export default function PaginaActividades() {
             </span>
           </div>
           {estado && (
-            <span className="text-[10px] font-medium" style={{ color: estado.color }}>
+            <span className="text-xxs font-medium" style={{ color: estado.color }}>
               {estado.etiqueta}
             </span>
           )}
@@ -458,7 +458,7 @@ export default function PaginaActividades() {
           {/* Responsable */}
           {fila.asignado_nombre && (
             <div className="flex items-center gap-1.5">
-              <div className="size-5 rounded-full bg-superficie-hover flex items-center justify-center text-[9px] font-bold text-texto-terciario shrink-0">
+              <div className="size-5 rounded-full bg-superficie-hover flex items-center justify-center text-xxs font-bold text-texto-terciario shrink-0">
                 {fila.asignado_nombre.charAt(0).toUpperCase()}
               </div>
               <span className="text-xs text-texto-terciario">{fila.asignado_nombre}</span>
@@ -469,7 +469,7 @@ export default function PaginaActividades() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               {fila.fecha_vencimiento && (
-                <span className={`text-[11px] font-medium ${vencida ? 'text-insignia-peligro-texto' : 'text-texto-terciario'}`}>
+                <span className={`text-xs font-medium ${vencida ? 'text-insignia-peligro-texto' : 'text-texto-terciario'}`}>
                   {fechaCorta(fila.fecha_vencimiento)}
                 </span>
               )}

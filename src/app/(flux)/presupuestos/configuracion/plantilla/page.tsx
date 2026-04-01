@@ -529,7 +529,7 @@ export default function EditorPlantillaPdf() {
               value={codigoEfectivo}
               onChange={(e) => manejarCambio(e.target.value)}
               spellCheck={false}
-              className="absolute inset-0 w-full h-full p-4 bg-[#1e1e2e] text-[#cdd6f4] font-mono text-[12px] leading-[1.7] outline-none resize-none selection:bg-marca-500/30 tab-size-2"
+              className="absolute inset-0 w-full h-full p-4 bg-[#1e1e2e] text-[#cdd6f4] font-mono text-xs leading-[1.7] outline-none resize-none selection:bg-marca-500/30 tab-size-2"
               style={{ tabSize: 2 }}
             />
           </div>

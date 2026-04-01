@@ -47,7 +47,7 @@ function Buscador({ valor: valorExterno, onChange, placeholder = 'Buscar...', de
         onChange={(e) => manejarCambio(e.target.value)}
         placeholder={placeholder}
         autoFocus={autoFocus}
-        className="w-full pl-9 pr-8 py-2 rounded-md border border-borde-sutil bg-superficie-tarjeta text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-borde-foco focus:shadow-foco transition-all duration-150"
+        className="w-full pl-9 pr-8 py-2 rounded-md border border-borde-sutil bg-superficie-tarjeta text-sm text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-borde-foco focus:shadow-foco transition-all duration-150"
       />
       {valorInterno && (
         <button onClick={limpiar} className="absolute right-2 flex items-center justify-center size-5 rounded-full bg-transparent border-none text-texto-terciario cursor-pointer hover:text-texto-secundario">

@@ -4,9 +4,10 @@ import { useState, useCallback } from 'react'
 import {
   Mail, Phone, CreditCard, Briefcase, Heart,
   Pencil, X, Building, Calendar, Cake, MapPin,
-  DollarSign, CalendarDays, User,
+  DollarSign, CalendarDays, User, MessageSquare, Check,
 } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
+import { FORMATOS_NOMBRE_REMITENTE, type FormatoNombreRemitente } from '@/lib/nombre-remitente'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Tarjeta } from '@/componentes/ui/Tarjeta'
@@ -292,6 +293,43 @@ export function SeccionPerfil() {
           </div>
           {guardandoTel && <span className="text-xs text-texto-terciario pb-2.5">Guardando...</span>}
           {telGuardado && <span className="text-xs text-insignia-exito pb-2.5">Guardado</span>}
+        </div>
+      </Tarjeta>
+
+      {/* ══════════════════════════════════════
+          NOMBRE EN COMUNICACIONES
+         ══════════════════════════════════════ */}
+      <Tarjeta titulo="Nombre en comunicaciones" subtitulo="Cómo aparece tu nombre al enviar correos, WhatsApp, etc.">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {FORMATOS_NOMBRE_REMITENTE.map((fmt) => {
+            const ejemplo = fmt.ejemplo({ nombre: ctx.nombre, apellido: ctx.apellido, sector: ctx.sectorNombre || undefined })
+            const activo = ctx.formatoNombreRemitente === fmt.valor
+            return (
+              <button
+                key={fmt.valor}
+                type="button"
+                onClick={async () => {
+                  ctx.setFormatoNombreRemitente(fmt.valor)
+                  await ctx.guardarFormatoNombre(fmt.valor)
+                }}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                  activo
+                    ? 'border-texto-marca bg-texto-marca/5'
+                    : 'border-borde-sutil hover:border-borde-fuerte hover:bg-superficie-elevada'
+                }`}
+              >
+                <div className="size-8 rounded-lg bg-superficie-elevada flex items-center justify-center shrink-0">
+                  {activo ? <Check size={14} className="text-texto-marca" /> : <MessageSquare size={14} className="text-texto-terciario" />}
+                </div>
+                <div className="min-w-0">
+                  <span className={`text-sm font-medium truncate block ${activo ? 'text-texto-marca' : 'text-texto-primario'}`}>
+                    {ejemplo}
+                  </span>
+                  <span className="text-xxs text-texto-terciario">{fmt.descripcion}</span>
+                </div>
+              </button>
+            )
+          })}
         </div>
       </Tarjeta>
 

@@ -145,10 +145,10 @@ function SeccionEstados({ estados, cargando, onActualizar, onAccionAPI }: Propie
           return (
             <div key={g.valor}>
               <div className="px-5 py-1.5 bg-superficie-hover/40">
-                <span className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider">
+                <span className="text-xs font-semibold text-texto-terciario uppercase tracking-wider">
                   {g.etiqueta}
                 </span>
-                <span className="text-[10px] text-texto-terciario ml-2">— {g.descripcion}</span>
+                <span className="text-xxs text-texto-terciario ml-2">— {g.descripcion}</span>
               </div>
               <Reorder.Group
                 axis="y"

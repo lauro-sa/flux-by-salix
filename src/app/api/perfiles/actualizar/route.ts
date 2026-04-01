@@ -55,7 +55,7 @@ export async function PATCH(request: NextRequest) {
       'fecha_nacimiento', 'genero', 'domicilio', 'direccion',
       'documento_tipo', 'documento_numero',
       'correo', 'correo_empresa', 'telefono_empresa', 'firma_correo',
-      'contacto_emergencia',
+      'contacto_emergencia', 'formato_nombre_remitente',
     ]
     const actualizar: Record<string, unknown> = {}
     for (const campo of permitidos) {

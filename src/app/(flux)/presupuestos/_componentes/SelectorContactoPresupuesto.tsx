@@ -214,7 +214,7 @@ export default function SelectorContactoPresupuesto({
           onChange={(e) => { setBusqueda(e.target.value); setAbierto(true) }}
           onFocus={() => setAbierto(true)}
           placeholder="Escribí para encontrar un contacto..."
-          className="flex-1 bg-transparent py-2.5 text-sm text-texto-primario placeholder:text-texto-terciario outline-none"
+          className="flex-1 bg-transparent py-2.5 text-sm text-texto-primario placeholder:text-texto-placeholder outline-none"
         />
         <button
           onClick={() => { setAbierto(!abierto); if (!abierto) refInput.current?.focus() }}

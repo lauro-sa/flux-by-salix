@@ -405,7 +405,7 @@ function FilaProducto({
               placeholder="Detalle adicional (opcional)"
               onChange={(e) => onEditar(linea.id, 'descripcion_detalle', e.target.value)}
               rows={linea.descripcion_detalle ? Math.min(Math.ceil((linea.descripcion_detalle.length || 0) / 60), 6) : 1}
-              className="w-full max-w-lg bg-transparent outline-none text-xs text-texto-secundario placeholder:text-texto-terciario/40 resize-none leading-relaxed"
+              className="w-full max-w-lg bg-transparent outline-none text-xs text-texto-secundario placeholder:text-texto-placeholder resize-none leading-relaxed"
             />
           )}
         </div>
@@ -585,7 +585,7 @@ function CampoTexto({
       placeholder={placeholder}
       onChange={(e) => setLocal(e.target.value)}
       onBlur={() => { if (local !== valor) onChange(local) }}
-      className={`w-full bg-transparent border-0 outline-none text-sm placeholder:text-texto-terciario/50 focus:bg-superficie-tarjeta focus:rounded px-1 py-0.5 -mx-1 transition-colors ${className}`}
+      className={`w-full bg-transparent border-0 outline-none text-sm placeholder:text-texto-placeholder focus:bg-superficie-tarjeta focus:rounded px-1 py-0.5 -mx-1 transition-colors ${className}`}
     />
   )
 }
@@ -636,7 +636,7 @@ function CampoNumero({
           setEnfocado(false)
           if (local !== valor) onChange(local)
         }}
-        className="w-full bg-transparent border-0 outline-none text-sm font-mono text-right placeholder:text-texto-terciario/50 focus:bg-superficie-tarjeta focus:rounded px-1 py-0.5 -mx-1 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        className="w-full bg-transparent border-0 outline-none text-sm font-mono text-right placeholder:text-texto-placeholder focus:bg-superficie-tarjeta focus:rounded px-1 py-0.5 -mx-1 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
       {sufijo && <span className="text-xs text-texto-terciario ml-0.5">{sufijo}</span>}
     </div>

@@ -236,7 +236,7 @@ export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearSe
               onChange={e => setDescripcion(e.target.value)}
               placeholder="Describí el trabajo a presupuestar...&#10;&#10;Ej: Fui a un edificio en Palermo, portón curvo corredizo grande. Hay que cambiar los rolletes inferiores, reparar el carro superior, ajustar y nivelar. Traslado con andamios."
               rows={5}
-              className="w-full px-3 py-2.5 rounded-xl border border-borde-sutil bg-superficie-app text-sm text-texto-primario placeholder:text-texto-terciario/50 resize-none focus:outline-none focus:ring-2 focus:ring-texto-marca/30 focus:border-texto-marca transition-colors"
+              className="w-full px-3 py-2.5 rounded-xl border border-borde-sutil bg-superficie-app text-sm text-texto-primario placeholder:text-texto-placeholder resize-none focus:outline-none focus:ring-2 focus:ring-texto-marca/30 focus:border-texto-marca transition-colors"
             />
             {/* Selector de modo */}
             <div className="flex items-center gap-1 p-0.5 rounded-lg bg-superficie-app border border-borde-sutil mt-3">

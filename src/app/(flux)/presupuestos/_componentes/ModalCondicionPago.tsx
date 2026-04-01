@@ -156,7 +156,7 @@ export default function ModalCondicionPago({ abierto, onCerrar, onGuardar, condi
               value={form.label}
               onChange={(e) => { setForm(p => ({ ...p, label: e.target.value })); setNombreManual(true) }}
               placeholder="Se genera automáticamente..."
-              className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-marca-500 transition-colors"
+              className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-marca-500 transition-colors"
             />
             <p className="text-xs text-texto-terciario mt-1">
               {nombreManual ? 'Nombre personalizado' : 'Se genera automáticamente según la configuración'}
@@ -256,7 +256,7 @@ export default function ModalCondicionPago({ abierto, onCerrar, onGuardar, condi
                   value={form.notaPlanPago}
                   onChange={(e) => setForm(p => ({ ...p, notaPlanPago: e.target.value }))}
                   placeholder="Ej: recargo 10% con tarjeta, solo transferencia..."
-                  className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-marca-500 transition-colors"
+                  className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-marca-500 transition-colors"
                 />
                 <p className="text-xs text-texto-terciario mt-1">Aparece debajo del plan de pagos en presupuestos, portal y PDF</p>
               </div>

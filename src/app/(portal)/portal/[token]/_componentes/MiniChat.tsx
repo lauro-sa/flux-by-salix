@@ -79,7 +79,7 @@ export default function MiniChat({ mensajes, nombreCliente, colorMarca, token, o
             {t('portal.chat_titulo') || 'Mensajes'}
           </span>
           {mensajes.length > 0 && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{
+            <span className="text-xxs px-1.5 py-0.5 rounded-full font-medium" style={{
               backgroundColor: `${colorMarca}15`,
               color: colorMarca,
             }}>
@@ -116,12 +116,12 @@ export default function MiniChat({ mensajes, nombreCliente, colorMarca, token, o
                     style={esCliente ? { backgroundColor: colorMarca } : undefined}
                   >
                     {!esCliente && (
-                      <span className="text-[10px] font-semibold text-texto-terciario block mb-0.5">
+                      <span className="text-xxs font-semibold text-texto-terciario block mb-0.5">
                         {msg.autor_nombre}
                       </span>
                     )}
                     <p className="text-sm whitespace-pre-wrap">{msg.contenido}</p>
-                    <span className={`text-[10px] block mt-0.5 ${esCliente ? 'text-white/60' : 'text-texto-terciario'}`}>
+                    <span className={`text-xxs block mt-0.5 ${esCliente ? 'text-white/60' : 'text-texto-terciario'}`}>
                       {fechaCorta(msg.creado_en)}
                     </span>
                   </div>

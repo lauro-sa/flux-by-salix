@@ -237,7 +237,7 @@ function NotificacionesHeader() {
                   ].join(' ')} />
                 ) : (
                   <span className={[
-                    'absolute -top-0.5 -right-1 flex items-center justify-center min-w-[14px] h-3.5 px-0.5 rounded-full text-[9px] font-bold leading-none',
+                    'absolute -top-0.5 -right-1 flex items-center justify-center min-w-[14px] h-3.5 px-0.5 rounded-full text-xxs font-bold leading-none',
                     silenciada
                       ? 'bg-texto-terciario/20 text-texto-terciario'
                       : 'bg-texto-marca text-white',

@@ -7,6 +7,7 @@ import {
   type OpcionesMensajeRFC2822,
 } from '@/lib/gmail'
 import type { ConfigIMAP } from '@/tipos/inbox'
+import { generarNombreRemitente } from '@/lib/nombre-remitente'
 
 /**
  * POST /api/inbox/correo/enviar — Enviar correo electrónico.
@@ -36,6 +37,8 @@ export async function POST(request: NextRequest) {
       correo_references,
       adjuntos_ids,
       tipo = 'nuevo', // 'nuevo' | 'responder' | 'responder_todos' | 'reenviar'
+      pdf_url,       // URL directa de un PDF a adjuntar (ej: presupuesto)
+      pdf_nombre,    // Nombre del archivo PDF
     } = body
 
     if (!canal_id) {
@@ -57,14 +60,43 @@ export async function POST(request: NextRequest) {
 
     if (!canal) return NextResponse.json({ error: 'Canal no encontrado' }, { status: 404 })
 
-    // Obtener nombre del agente
+    // Obtener nombre del agente con formato personalizado
     const { data: perfil } = await admin
       .from('perfiles')
-      .select('nombre, apellido')
+      .select('nombre, apellido, formato_nombre_remitente')
       .eq('id', user.id)
       .single()
 
-    const nombreAgente = perfil ? `${perfil.nombre} ${perfil.apellido || ''}`.trim() : 'Agente'
+    // Obtener sector del agente
+    let sectorNombre: string | null = null
+    const { data: miembro } = await admin
+      .from('miembros')
+      .select('id')
+      .eq('usuario_id', user.id)
+      .eq('empresa_id', empresaId)
+      .single()
+    if (miembro) {
+      const { data: ms } = await admin
+        .from('miembros_sectores')
+        .select('sector_id')
+        .eq('miembro_id', miembro.id)
+        .eq('es_primario', true)
+        .single()
+      if (ms) {
+        const { data: sector } = await admin
+          .from('sectores')
+          .select('nombre')
+          .eq('id', ms.sector_id)
+          .single()
+        if (sector) sectorNombre = sector.nombre
+      }
+    }
+
+    const nombreAgente = perfil
+      ? generarNombreRemitente(perfil.formato_nombre_remitente, {
+          nombre: perfil.nombre, apellido: perfil.apellido, sector: sectorNombre,
+        })
+      : 'Agente'
 
     // Determinar email remitente
     let emailRemitente = ''
@@ -104,6 +136,40 @@ export async function POST(request: NextRequest) {
             console.error(`Error descargando adjunto ${adj.id} para reenvío`)
           }
         }
+      }
+    }
+
+    // Adjuntar PDF directo (ej: PDF del presupuesto desde Storage)
+    if (pdf_url) {
+      try {
+        // Extraer storage_path de la URL de Supabase
+        const match = (pdf_url as string).match(/\/storage\/v1\/object\/(?:public|sign)\/([^?]+)/)
+        if (match) {
+          const bucket = match[1].split('/')[0]
+          const path = match[1].split('/').slice(1).join('/')
+          const { data: pdfData, error: pdfError } = await admin.storage
+            .from(bucket)
+            .download(path)
+          if (!pdfError && pdfData) {
+            adjuntosParaEnvio.push({
+              nombre: (pdf_nombre as string) || 'documento.pdf',
+              tipoMime: 'application/pdf',
+              contenido: Buffer.from(await pdfData.arrayBuffer()),
+            })
+          }
+        } else {
+          // URL externa — descargar directo
+          const res = await fetch(pdf_url as string)
+          if (res.ok) {
+            adjuntosParaEnvio.push({
+              nombre: (pdf_nombre as string) || 'documento.pdf',
+              tipoMime: 'application/pdf',
+              contenido: Buffer.from(await res.arrayBuffer()),
+            })
+          }
+        }
+      } catch {
+        console.error('Error descargando PDF para adjuntar')
       }
     }
 

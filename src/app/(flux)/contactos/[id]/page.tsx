@@ -908,7 +908,7 @@ export default function PaginaContacto() {
             <textarea value={campos.notas || ''} onChange={e => setCampos(p => ({ ...p, notas: e.target.value }))}
               placeholder="Notas internas sobre este contacto..."
               rows={3}
-              className="w-full bg-transparent outline-none text-sm text-texto-primario placeholder:text-texto-terciario/40 resize-y rounded-lg p-3 transition-colors"
+              className="w-full bg-transparent outline-none text-sm text-texto-primario placeholder:text-texto-placeholder resize-y rounded-lg p-3 transition-colors"
               style={{ border: '1px solid var(--borde-sutil)' }}
               onFocus={e => { e.currentTarget.style.borderColor = 'var(--borde-foco)' }}
               onBlur={e => { e.currentTarget.style.borderColor = 'var(--borde-sutil)'; onBlurCampo('notas') }}
@@ -1169,7 +1169,7 @@ function SelectorConSugerencias({
           if (e.key === 'Escape') { setTexto(valor); setAbierto(false) }
         }}
         placeholder={placeholder}
-        className="w-full bg-transparent text-sm text-texto-primario placeholder:text-texto-terciario/50 outline-none py-1 transition-colors"
+        className="w-full bg-transparent text-sm text-texto-primario placeholder:text-texto-placeholder outline-none py-1 transition-colors"
         style={{ borderBottom: '1px solid var(--borde-sutil)' }}
       />
       {abierto && (filtradas.length > 0 || mostrarCrear) && (
@@ -1287,7 +1287,7 @@ function SelectorEtiquetas({
           if (e.key === 'Escape') { setAbierto(false); setCreando(false); setTexto('') }
         }}
         placeholder="+ Agregar etiqueta"
-        className="w-full bg-transparent text-xs text-texto-primario placeholder:text-texto-terciario/50 outline-none py-1 transition-colors"
+        className="w-full bg-transparent text-xs text-texto-primario placeholder:text-texto-placeholder outline-none py-1 transition-colors"
         style={{ borderBottom: '1px solid var(--borde-sutil)' }}
       />
 

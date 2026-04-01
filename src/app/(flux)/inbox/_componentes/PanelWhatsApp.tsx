@@ -46,8 +46,8 @@ const ICONO_ESTADO: Record<string, React.ReactNode> = {
   sent: <Check size={12} style={{ color: 'var(--texto-terciario)' }} />,
   entregado: <CheckCheck size={12} style={{ color: 'var(--texto-terciario)' }} />,
   delivered: <CheckCheck size={12} style={{ color: 'var(--texto-terciario)' }} />,
-  leido: <CheckCheck size={12} style={{ color: '#53bdeb' }} />,
-  read: <CheckCheck size={12} style={{ color: '#53bdeb' }} />,
+  leido: <CheckCheck size={12} style={{ color: 'var(--canal-whatsapp)' }} />,
+  read: <CheckCheck size={12} style={{ color: 'var(--canal-whatsapp)' }} />,
   fallido: <AlertCircle size={12} style={{ color: 'var(--insignia-peligro)' }} />,
   failed: <AlertCircle size={12} style={{ color: 'var(--insignia-peligro)' }} />,
 }
@@ -801,7 +801,7 @@ export function PanelWhatsApp({
                         <span
                           key={emoji}
                           className="text-xs px-1 py-0.5 rounded-full"
-                          style={{ background: 'var(--superficie-hover)', fontSize: '11px' }}
+                          style={{ background: 'var(--superficie-hover)', fontSize: 'var(--texto-xs)' }}
                         >
                           {emoji}{(usuarios as string[]).length > 1 ? ` ${(usuarios as string[]).length}` : ''}
                         </span>

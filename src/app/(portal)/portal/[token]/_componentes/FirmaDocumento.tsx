@@ -170,7 +170,7 @@ export default function FirmaDocumento({ nombrePredeterminado, onFirmar, onCance
                 value={nombre}
                 onChange={e => setNombre(e.target.value)}
                 placeholder={t('portal.firma_placeholder')}
-                className="w-full px-4 py-2.5 rounded-lg border border-borde-sutil bg-superficie-app text-texto-primario placeholder:text-texto-terciario focus:ring-2 focus:ring-marca-500/30 focus:border-marca-500 outline-none transition"
+                className="w-full px-4 py-2.5 rounded-lg border border-borde-sutil bg-superficie-app text-texto-primario placeholder:text-texto-placeholder focus:ring-2 focus:ring-marca-500/30 focus:border-marca-500 outline-none transition"
               />
             </div>
             <div className="bg-superficie-app rounded-lg border border-dashed border-borde-fuerte p-6 flex items-center justify-center min-h-[120px]">

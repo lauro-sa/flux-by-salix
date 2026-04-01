@@ -28,6 +28,8 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import { Select } from '@/componentes/ui/Select'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { COLOR_ESTADO_DOCUMENTO } from '@/lib/colores_entidad'
+import { construirHtmlCorreoDocumento } from '@/lib/plantilla-correo-documento'
+import { useEnvioPendiente } from '@/hooks/useEnvioPendiente'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useAuth } from '@/hooks/useAuth'
 import { useTraduccion } from '@/lib/i18n'
@@ -71,6 +73,7 @@ export default function EditorPresupuesto({
   const { t } = useTraduccion()
   const { empresa } = useEmpresa()
   const { usuario } = useAuth()
+  const { programarEnvio } = useEnvioPendiente()
 
   // ─── Estado compartido ──────────────────────────────────────────────────
 
@@ -96,7 +99,9 @@ export default function EditorPresupuesto({
   // Modal enviar documento por correo
   const [modalEnviarAbierto, setModalEnviarAbierto] = useState(false)
   const [canalesCorreo, setCanalesCorreo] = useState<CanalCorreoEmpresa[]>([])
+  const [plantillasCorreo, setPlantillasCorreo] = useState<import('@/componentes/entidad/ModalEnviarDocumento').PlantillaCorreo[]>([])
   const [enviandoCorreo, setEnviandoCorreo] = useState(false)
+  const [snapshotCorreo, setSnapshotCorreo] = useState<import('@/componentes/entidad/ModalEnviarDocumento').SnapshotCorreo | null>(null)
 
   // ID efectivo del presupuesto (creado o prop)
   const idPresupuesto = modo === 'editar' ? presupuestoIdProp! : presupuestoIdCreado
@@ -276,7 +281,7 @@ export default function EditorPresupuesto({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contactoIdInicial])
 
-  // ─── Cargar canales de correo de la empresa ───────────────────────────────
+  // ─── Cargar canales de correo y plantillas de la empresa ─────────────────
   useEffect(() => {
     fetch('/api/inbox/canales?tipo=correo')
       .then(r => r.json())
@@ -289,9 +294,23 @@ export default function EditorPresupuesto({
             email: c.config_conexion?.email || c.config_conexion?.usuario || c.nombre,
             predeterminado: false,
           }))
-        // Marcar el primero como predeterminado si no hay ninguno
         if (canales.length > 0) canales[0].predeterminado = true
         setCanalesCorreo(canales)
+      })
+      .catch(() => {})
+
+    // Cargar plantillas de correo
+    fetch('/api/inbox/plantillas?canal=correo')
+      .then(r => r.json())
+      .then(data => {
+        const pls = (data.plantillas || []).map((p: { id: string; nombre: string; asunto: string; contenido_html: string; canal_id?: string }) => ({
+          id: p.id,
+          nombre: p.nombre,
+          asunto: p.asunto || '',
+          contenido_html: p.contenido_html || '',
+          canal_id: p.canal_id || null,
+        }))
+        setPlantillasCorreo(pls)
       })
       .catch(() => {})
   }, [])
@@ -812,6 +831,8 @@ export default function EditorPresupuesto({
   // ─── Acciones de estado (modo editar) ───────────────────────────────────
 
   const handleEnviar = () => {
+    // Limpiar snapshot previo (apertura normal, no deshacer)
+    setSnapshotCorreo(null)
     // Abrir modal inmediatamente — sin esperar guardado ni PDF
     setModalEnviarAbierto(true)
     // Guardar + generar PDF y portal en background para que estén listos al enviar
@@ -829,46 +850,109 @@ export default function EditorPresupuesto({
     }
   }
 
-  // Callback real de envío de correo desde el modal
+  // Callback de envío de correo desde el modal — usa envío diferido con countdown
   const handleEnviarCorreo = useCallback(async (datos: DatosEnvioDocumento) => {
-    setEnviandoCorreo(true)
-    try {
-      // Cambiar estado a enviado si aún no lo está
-      const estadoActual = presupuesto?.estado || 'borrador'
-      if (estadoActual === 'borrador') {
-        await cambiarEstado('enviado')
-      }
+    // Cambiar estado a enviado si aún no lo está (esto sí es inmediato)
+    const estadoActual = presupuesto?.estado || 'borrador'
+    if (estadoActual === 'borrador') {
+      await cambiarEstado('enviado')
+    }
 
-      // Enviar el correo via API del inbox
+    // Nombre del contacto para el CTA y pie
+    const nombreContactoCorreo = atencionSeleccionada
+      ? `${atencionSeleccionada.nombre} ${atencionSeleccionada.apellido || ''}`.trim()
+      : contactoSeleccionado
+        ? `${contactoSeleccionado.nombre} ${contactoSeleccionado.apellido || ''}`.trim()
+        : presupuesto?.contacto_nombre
+          ? `${presupuesto.contacto_nombre} ${presupuesto.contacto_apellido || ''}`.trim()
+          : ''
+
+    const numDoc = numeroPresupuesto || presupuesto?.numero || ''
+    const etiqueta = t('documentos.tipos.presupuesto')
+
+    // URL base — en producción usa NEXT_PUBLIC_APP_URL, en dev usa window.location.origin
+    const urlBase = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+
+    // Construir HTML final con CTA portal (si tildado) + pie empresa + dark mode
+    const htmlFinal = construirHtmlCorreoDocumento({
+      htmlCuerpo: datos.html,
+      incluirPortal: datos.incluir_enlace_portal,
+      portal: idPresupuesto ? {
+        url: `${urlBase}/portal/presupuestos/${idPresupuesto}`,
+        etiquetaTipo: etiqueta,
+        tituloDocumento: `${etiqueta} ${numDoc}`,
+        nombreContacto: nombreContactoCorreo,
+      } : undefined,
+      colorMarca: empresa?.color_marca || null,
+      empresa: {
+        nombre: datosEmpresa?.nombre || empresa?.nombre || '',
+        telefono: datosEmpresa?.telefono || null,
+        correo: datosEmpresa?.correo || null,
+      },
+    })
+
+    // Si es programado, enviar directo (no tiene sentido el countdown)
+    if (datos.programado_para) {
       const res = await fetch('/api/inbox/correo/enviar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          canal_id: datos.canal_id,
-          correo_para: datos.correo_para,
+          canal_id: datos.canal_id, correo_para: datos.correo_para,
           correo_cc: datos.correo_cc.length > 0 ? datos.correo_cc : undefined,
           correo_cco: datos.correo_cco.length > 0 ? datos.correo_cco : undefined,
-          correo_asunto: datos.asunto,
-          texto: datos.texto,
-          html: datos.html,
+          correo_asunto: datos.asunto, texto: datos.texto, html: htmlFinal,
           adjuntos_ids: datos.adjuntos_ids.length > 0 ? datos.adjuntos_ids : undefined,
-          tipo: 'nuevo',
-          programado_para: datos.programado_para,
+          pdf_url: presupuesto?.pdf_url || undefined,
+          pdf_nombre: presupuesto?.numero ? `${presupuesto.numero}.pdf` : undefined,
+          tipo: 'nuevo', programado_para: datos.programado_para,
         }),
       })
-
-      if (res.ok) {
-        setModalEnviarAbierto(false)
-      } else {
-        const err = await res.json().catch(() => ({}))
-        console.error('Error al enviar correo:', err)
-      }
-    } catch (err) {
-      console.error('Error al enviar correo:', err)
-    } finally {
-      setEnviandoCorreo(false)
+      if (res.ok) setModalEnviarAbierto(false)
+      return
     }
-  }, [presupuesto?.estado, cambiarEstado])
+
+    // Cerrar modal inmediatamente — el toast de countdown toma el control
+    setModalEnviarAbierto(false)
+
+    // Función de envío real (se ejecuta cuando termina el countdown o se clickea "Enviar ya")
+    const enviarFn = async () => {
+      await fetch('/api/inbox/correo/enviar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          canal_id: datos.canal_id, correo_para: datos.correo_para,
+          correo_cc: datos.correo_cc.length > 0 ? datos.correo_cc : undefined,
+          correo_cco: datos.correo_cco.length > 0 ? datos.correo_cco : undefined,
+          correo_asunto: datos.asunto, texto: datos.texto, html: htmlFinal,
+          adjuntos_ids: datos.adjuntos_ids.length > 0 ? datos.adjuntos_ids : undefined,
+          pdf_url: presupuesto?.pdf_url || undefined,
+          pdf_nombre: presupuesto?.numero ? `${presupuesto.numero}.pdf` : undefined,
+          tipo: 'nuevo',
+        }),
+      })
+    }
+
+    // Guardar snapshot del estado del modal para poder restaurar al deshacer
+    const snapshot = datos._snapshot || null
+    setSnapshotCorreo(snapshot)
+
+    // Descripción para el toast
+    const descripcionToast = `Para: ${datos.correo_para[0]} — ${datos.asunto || '(Sin asunto)'}`
+
+    // Programar con countdown de 30 segundos
+    programarEnvio(enviarFn, {
+      descripcion: descripcionToast,
+      onDeshacer: () => {
+        // Restaurar snapshot y reabrir el modal
+        setSnapshotCorreo(snapshot)
+        setModalEnviarAbierto(true)
+        // Revertir estado si lo cambiamos
+        if (estadoActual === 'borrador') {
+          cambiarEstado('borrador').catch(() => {})
+        }
+      },
+    })
+  }, [presupuesto?.estado, presupuesto?.numero, presupuesto?.contacto_nombre, presupuesto?.contacto_apellido, cambiarEstado, atencionSeleccionada, contactoSeleccionado, numeroPresupuesto, idPresupuesto, empresa?.color_marca, empresa?.nombre, datosEmpresa, t, programarEnvio])
   // Guardar borrador de correo (cerrar modal sin enviar)
   const handleGuardarBorrador = useCallback(async (datos: DatosBorradorCorreo) => {
     // Por ahora guardamos en localStorage; a futuro puede ir a la BD
@@ -1325,6 +1409,18 @@ export default function EditorPresupuesto({
                             .then(data => setVinculaciones(data.vinculaciones || []))
                             .catch(() => {})
                         }
+                      } else {
+                        // Limpiar contacto del presupuesto
+                        const res = await fetch(`/api/presupuestos/${idPresupuesto}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ contacto_id: null }),
+                        })
+                        if (res.ok) {
+                          const act = await res.json()
+                          setPresupuesto(prev => prev ? { ...prev, ...act } : null)
+                          setVinculaciones([])
+                        }
                       }
                     }}
                     soloLectura={!esEditable}
@@ -1588,7 +1684,7 @@ export default function EditorPresupuesto({
                           onChange={(e) => setReferencia(e.target.value)}
                           onBlur={() => autoguardar({ referencia })}
                           placeholder="PO, orden de compra..."
-                          className={`${valorAncho} bg-transparent border-b border-borde-sutil text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-marca-500 transition-colors py-0.5 text-right`}
+                          className={`${valorAncho} bg-transparent border-b border-borde-sutil text-sm text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-marca-500 transition-colors py-0.5 text-right`}
                         />
                       ) : (
                         <span className="text-sm text-texto-primario">{referencia || '—'}</span>
@@ -1872,6 +1968,7 @@ export default function EditorPresupuesto({
         onCerrar={() => setModalEnviarAbierto(false)}
         onEnviar={handleEnviarCorreo}
         canales={canalesCorreo}
+        plantillas={plantillasCorreo}
         correosDestinatario={
           // Prioridad: 1) dirigido a (estado local), 2) dirigido a (snapshot presupuesto),
           // 3) contacto seleccionado, 4) contacto snapshot presupuesto
@@ -1896,7 +1993,17 @@ export default function EditorPresupuesto({
                   ? `${presupuesto.contacto_nombre} ${presupuesto.contacto_apellido || ''}`.trim()
                   : ''
         }
-        asuntoPredeterminado={`${t('documentos.tipos.presupuesto')} ${numeroPresupuesto || presupuesto?.numero || ''}`}
+        asuntoPredeterminado={(() => {
+          const num = numeroPresupuesto || presupuesto?.numero || ''
+          const nombreDest = atencionSeleccionada
+            ? `${atencionSeleccionada.nombre} ${atencionSeleccionada.apellido || ''}`.trim()
+            : contactoSeleccionado
+              ? `${contactoSeleccionado.nombre} ${contactoSeleccionado.apellido || ''}`.trim()
+              : presupuesto?.contacto_nombre
+                ? `${presupuesto.contacto_nombre} ${presupuesto.contacto_apellido || ''}`.trim()
+                : ''
+          return nombreDest ? `${num} - ${nombreDest}` : `${t('documentos.tipos.presupuesto')} ${num}`
+        })()}
         adjuntoDocumento={
           presupuesto?.pdf_url ? {
             id: presupuesto.id,
@@ -1907,11 +2014,12 @@ export default function EditorPresupuesto({
             miniatura_url: presupuesto.pdf_miniatura_url,
           } : null
         }
-        urlPortal={idPresupuesto ? `${window.location.origin}/portal/presupuestos/${idPresupuesto}` : null}
+        urlPortal={idPresupuesto ? `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/portal/presupuestos/${idPresupuesto}` : null}
         enviando={enviandoCorreo}
         tipoDocumento={t('documentos.tipos.presupuesto')}
         onGuardarBorrador={handleGuardarBorrador}
         onGuardarPlantilla={handleGuardarPlantilla}
+        snapshotRestaurar={snapshotCorreo}
         contextoVariables={{
           contacto: {
             nombre: contactoSeleccionado?.nombre || presupuesto?.contacto_nombre || '',

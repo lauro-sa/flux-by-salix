@@ -222,7 +222,7 @@ export function SeccionIA() {
         <div>
           <div className="flex items-center gap-2.5 mb-1">
             <h2 className="text-lg font-semibold text-texto-primario">Inteligencia Artificial</h2>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-texto-marca/10 text-texto-marca">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xxs font-semibold bg-texto-marca/10 text-texto-marca">
               <Sparkles size={10} />
               Salix IA
             </span>
@@ -558,7 +558,7 @@ export function SeccionIA() {
               onBlur={() => act({ prompt_asistente_presupuestos: config.prompt_asistente_presupuestos })}
               rows={10}
               placeholder="Ej: Somos una empresa de herrería y reparación de portones. Un portón NO es lo mismo que una puerta peatonal..."
-              className="w-full px-4 py-3 rounded-xl border border-borde-sutil bg-superficie-app text-sm text-texto-primario font-mono placeholder:text-texto-terciario/40 resize-y focus:outline-none focus:ring-2 focus:ring-texto-marca/30 focus:border-texto-marca transition-colors"
+              className="w-full px-4 py-3 rounded-xl border border-borde-sutil bg-superficie-app text-sm text-texto-primario font-mono placeholder:text-texto-placeholder resize-y focus:outline-none focus:ring-2 focus:ring-texto-marca/30 focus:border-texto-marca transition-colors"
             />
             <p className="text-xxs text-texto-terciario mt-1.5">
               Este texto se envía junto con la descripción del trabajo. Usalo para aclarar terminología, reglas de tu negocio, o cualquier instrucción que la IA deba tener en cuenta.
@@ -685,7 +685,7 @@ function AsistenteGeneral({ config, onActualizar, guardando }: {
           onChange={(e) => setPrompt(e.target.value)}
           onBlur={guardar}
           placeholder="Escribí las instrucciones para el asistente..."
-          className="w-full min-h-[400px] p-5 bg-transparent text-texto-primario text-sm leading-relaxed font-mono resize-y border-none outline-none placeholder:text-texto-terciario"
+          className="w-full min-h-[400px] p-5 bg-transparent text-texto-primario text-sm leading-relaxed font-mono resize-y border-none outline-none placeholder:text-texto-placeholder"
           spellCheck={false}
         />
 
@@ -748,7 +748,7 @@ function AsistenteGeneral({ config, onActualizar, guardando }: {
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="Escribí las instrucciones para el asistente..."
-          className="w-full h-[70vh] p-4 bg-superficie-app text-texto-primario text-sm leading-relaxed font-mono resize-none border border-borde-sutil rounded-lg outline-none focus:border-borde-foco placeholder:text-texto-terciario"
+          className="w-full h-[70vh] p-4 bg-superficie-app text-texto-primario text-sm leading-relaxed font-mono resize-none border border-borde-sutil rounded-lg outline-none focus:border-borde-foco placeholder:text-texto-placeholder"
           spellCheck={false}
           autoFocus
         />

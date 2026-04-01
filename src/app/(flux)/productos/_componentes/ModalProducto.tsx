@@ -272,7 +272,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
                   value={nombre}
                   onChange={e => setNombre(e.target.value)}
                   placeholder={`Nombre del ${etiquetaTipo}`}
-                  className="flex-1 text-xl font-bold bg-transparent border-none outline-none text-texto-primario placeholder:text-texto-terciario/40"
+                  className="flex-1 text-xl font-bold bg-transparent border-none outline-none text-texto-primario placeholder:text-texto-placeholder"
                   autoFocus
                 />
               </div>
@@ -349,7 +349,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-0">
                 {/* Columna izquierda — Información */}
                 <div>
-                  <span className="text-[10px] font-bold text-texto-terciario uppercase tracking-wider">Información</span>
+                  <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider">Información</span>
                   <div className="mt-3 space-y-4">
                     <SelectCreable
                       etiqueta="Categoría"
@@ -382,7 +382,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
 
                 {/* Columna derecha — Precios */}
                 <div>
-                  <span className="text-[10px] font-bold text-texto-terciario uppercase tracking-wider">Precios</span>
+                  <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider">Precios</span>
                   <div className="mt-3 space-y-4">
                     <InputMoneda
                       etiqueta="Precio venta"
@@ -414,7 +414,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
                         onChange={setImpuestoId}
                       />
                       {precioConImpuesto > 0 && (
-                        <p className="text-[11px] text-texto-terciario mt-1">
+                        <p className="text-xs text-texto-terciario mt-1">
                           = {moneda ? ({'ARS':'$','USD':'US$','EUR':'€'}[moneda] || moneda) : '$'} {precioConImpuesto.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} imp. incluidos
                         </p>
                       )}
@@ -440,7 +440,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
 
                     {/* Margen */}
                     <div className="flex items-center justify-between py-2">
-                      <span className="text-[10px] font-bold text-texto-terciario uppercase tracking-wider">Margen</span>
+                      <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider">Margen</span>
                       <span className={`text-sm font-bold ${precio > 0 && costoEfectivo > 0 ? (margenPositivo ? 'text-green-600' : 'text-red-500') : 'text-texto-terciario'}`}>
                         {margenDisplay}
                       </span>
@@ -452,7 +452,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
               {/* Nota informativa */}
               <div className="flex items-start gap-2.5 mt-6 pt-4 border-t border-borde-sutil">
                 <Info size={14} className="text-texto-terciario shrink-0 mt-0.5" />
-                <p className="text-[11px] leading-relaxed text-texto-terciario">
+                <p className="text-xs leading-relaxed text-texto-terciario">
                   Las categorías, prefijos de código, unidades de medida y categorías de costo se gestionan
                   desde <span className="font-semibold text-texto-secundario">Configuración</span> en la página de Productos.
                   Los impuestos y monedas se configuran desde <span className="font-semibold text-texto-secundario">Configuración</span> en Presupuestos.

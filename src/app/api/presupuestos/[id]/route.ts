@@ -130,6 +130,18 @@ export async function PATCH(
       actualizacion.papelera_en = null
     }
 
+    // Si se limpia el contacto, limpiar todos los campos de snapshot
+    if (body.contacto_id === null) {
+      actualizacion.contacto_nombre = null
+      actualizacion.contacto_apellido = null
+      actualizacion.contacto_tipo = null
+      actualizacion.contacto_identificacion = null
+      actualizacion.contacto_condicion_iva = null
+      actualizacion.contacto_direccion = null
+      actualizacion.contacto_correo = null
+      actualizacion.contacto_telefono = null
+    }
+
     // Si cambia contacto_id, hacer snapshot del nuevo contacto
     if (body.contacto_id && !body.contacto_nombre) {
       const { data: contacto } = await admin

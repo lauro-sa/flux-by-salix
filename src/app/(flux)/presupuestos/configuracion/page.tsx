@@ -598,7 +598,7 @@ export default function PaginaConfigPresupuestos() {
           secuencial: 'bg-[var(--texto-marca)]/15 text-texto-marca border-marca-500/30',
           anio: 'bg-insignia-advertencia/15 text-insignia-advertencia border-insignia-advertencia/30',
           mes: 'bg-insignia-exito/15 text-insignia-exito border-insignia-exito/30',
-          dia: 'bg-[#8b5cf6]/15 text-[#8b5cf6] border-[#8b5cf6]/30',
+          dia: 'bg-insignia-violeta/15 text-insignia-violeta border-insignia-violeta/30',
           separador: 'bg-superficie-app text-texto-terciario border-borde-sutil',
         }
 
@@ -915,7 +915,7 @@ export default function PaginaConfigPresupuestos() {
           {/* ── VISTA PREVIA DEL MEMBRETE (HTML real de la plantilla) ── */}
           <div className="mb-5">
             <p className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider mb-2">{t('documentos.vista_previa')}</p>
-            <div ref={previewContRef} className="bg-[#e5e5e5] dark:bg-[#2a2a2a] rounded-lg p-4 flex justify-center">
+            <div ref={previewContRef} className="bg-superficie-hover rounded-lg p-4 flex justify-center">
               <div style={{ width: Math.floor(A4_ANCHO * escalaConfig), height: Math.floor(400 * escalaConfig), position: 'relative', overflow: 'hidden' }}>
                 <iframe
                   srcDoc={htmlPreviewConfig}
@@ -1037,7 +1037,7 @@ export default function PaginaConfigPresupuestos() {
                       onChange={(e) => setMembrete({ ...membrete, texto_logo: e.target.value })}
                       onBlur={() => guardarMembrete(membrete)}
                       placeholder="Razón social o nombre de la empresa"
-                      className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-[var(--texto-marca)]" />
+                      className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-[var(--texto-marca)]" />
                     <div>
                       <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Tamaño</span>
                       <div className="flex gap-1">
@@ -1063,7 +1063,7 @@ export default function PaginaConfigPresupuestos() {
                       onChange={(e) => setMembrete({ ...membrete, subtitulo_logo: e.target.value })}
                       onBlur={() => guardarMembrete(membrete)}
                       placeholder="Ej: Soluciones eléctricas industriales"
-                      className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-[var(--texto-marca)]" />
+                      className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-[var(--texto-marca)]" />
                     {membrete.subtitulo_logo && (
                       <div>
                         <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Tamaño del subtítulo</span>
@@ -1190,7 +1190,7 @@ export default function PaginaConfigPresupuestos() {
           {/* ── VISTA PREVIA DEL PIE (HTML real de la plantilla, scroll al fondo) ── */}
           <div className="mb-5">
             <p className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider mb-2">{t('documentos.vista_previa')}</p>
-            <div className="bg-[#e5e5e5] dark:bg-[#2a2a2a] rounded-lg p-4 flex justify-center">
+            <div className="bg-superficie-hover rounded-lg p-4 flex justify-center">
               <div style={{ width: Math.floor(A4_ANCHO * escalaConfig), height: Math.floor(200 * escalaConfig), position: 'relative', overflow: 'hidden' }}>
                 <iframe
                   srcDoc={htmlPreviewConfig}
@@ -1381,7 +1381,7 @@ export default function PaginaConfigPresupuestos() {
                           onChange={(e) => setColumnaLocal({ texto_imagen: e.target.value })}
                           onBlur={() => guardarPiePagina(piePagina)}
                           placeholder="Ej: Escaneame, www.miempresa.com"
-                          className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm text-texto-primario placeholder:text-texto-terciario outline-none focus:border-[var(--texto-marca)]" />
+                          className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-[var(--texto-marca)]" />
                       </div>
                       {columna.texto_imagen && (
                         <>

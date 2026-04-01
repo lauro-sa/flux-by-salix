@@ -612,7 +612,7 @@ function SeccionPermisos({
               value={motivoRevocacion}
               onChange={(e) => setMotivoRevocacion(e.target.value)}
               placeholder="Ej: Salida de la empresa, conducta inapropiada..."
-              className="w-full px-3 py-2 text-sm rounded-md border border-borde-fuerte bg-superficie-tarjeta text-texto-primario placeholder:text-texto-terciario outline-none focus:border-texto-marca transition-colors"
+              className="w-full px-3 py-2 text-sm rounded-md border border-borde-fuerte bg-superficie-tarjeta text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-texto-marca transition-colors"
             />
             {motivoRevocacion.length > 0 && motivoRevocacion.trim().length < 5 && (
               <p className="text-xs mt-1" style={{ color: 'var(--insignia-peligro)' }}>Minimo 5 caracteres</p>

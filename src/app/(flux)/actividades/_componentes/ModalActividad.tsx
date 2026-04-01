@@ -325,7 +325,7 @@ function ModalActividad({
               onChange={(e) => setDescripcion(e.target.value)}
               placeholder="Detalles adicionales..."
               rows={3}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-borde-fuerte bg-superficie-tarjeta text-texto-primario placeholder:text-texto-terciario outline-none focus:border-texto-marca resize-none"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-borde-fuerte bg-superficie-tarjeta text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-texto-marca resize-none"
             />
           </div>
         )}
@@ -546,7 +546,7 @@ function SeccionVinculos({ vinculos, onChange }: { vinculos: Vinculo[]; onChange
             onChange={(e) => setBusqueda(e.target.value)}
             onFocus={() => setFoco(true)}
             placeholder={TIPOS_VINCULO.find(t => t.clave === tabActivo)?.placeholder || 'Buscar...'}
-            className="flex-1 bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-terciario"
+            className="flex-1 bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-placeholder"
           />
         </div>
 
@@ -585,7 +585,7 @@ function SeccionVinculos({ vinculos, onChange }: { vinculos: Vinculo[]; onChange
               {/* Lista */}
               <div className="max-h-52 overflow-y-auto">
                 {esRecientes && listaVisible.length > 0 && (
-                  <p className="px-4 py-1.5 text-[10px] font-semibold text-texto-terciario uppercase tracking-wider">Recientes</p>
+                  <p className="px-4 py-1.5 text-xxs font-semibold text-texto-terciario uppercase tracking-wider">Recientes</p>
                 )}
                 {cargando && listaVisible.length === 0 ? (
                   <p className="text-xs text-texto-terciario text-center py-4">Buscando...</p>
@@ -706,7 +706,7 @@ function SeccionChecklist({ checklist, onChange }: { checklist: ItemChecklist[];
                   {item.fecha ? (
                     <button
                       onClick={() => editarItem(item.id, { fecha: null })}
-                      className={`text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 cursor-pointer border-none transition-colors ${
+                      className={`text-xxs px-1.5 py-0.5 rounded flex items-center gap-1 cursor-pointer border-none transition-colors ${
                         fechaVencida
                           ? 'bg-insignia-peligro-fondo text-insignia-peligro-texto'
                           : item.completado
@@ -726,7 +726,7 @@ function SeccionChecklist({ checklist, onChange }: { checklist: ItemChecklist[];
                         onChange={(e) => { if (e.target.value) editarItem(item.id, { fecha: e.target.value }) }}
                         className="sr-only"
                       />
-                      <span className="text-[10px] text-texto-terciario/60 hover:text-texto-terciario cursor-pointer flex items-center gap-0.5">
+                      <span className="text-xxs text-texto-terciario/60 hover:text-texto-terciario cursor-pointer flex items-center gap-0.5">
                         <Clock size={9} />
                         Fecha
                       </span>
@@ -754,7 +754,7 @@ function SeccionChecklist({ checklist, onChange }: { checklist: ItemChecklist[];
           onChange={(e) => setNuevoTexto(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && agregar()}
           placeholder="Agregar item..."
-          className="flex-1 bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-terciario py-1"
+          className="flex-1 bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-placeholder py-1"
         />
       </div>
     </div>

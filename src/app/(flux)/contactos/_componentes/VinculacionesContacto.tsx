@@ -963,7 +963,7 @@ function SelectorPuesto({
           if (e.key === 'Escape') { setTexto(valor); setAbierto(false) }
         }}
         placeholder="Buscar o crear puesto..."
-        className="w-full bg-transparent text-sm text-texto-primario placeholder:text-texto-terciario/50 outline-none py-1.5 transition-colors"
+        className="w-full bg-transparent text-sm text-texto-primario placeholder:text-texto-placeholder outline-none py-1.5 transition-colors"
         style={{ borderBottom: '1px solid var(--borde-sutil)' }}
       />
 
@@ -1108,7 +1108,7 @@ function SelectorRelacion({
           if (e.key === 'Escape') { setAbierto(false); setTexto(seleccionado?.etiqueta || '') }
         }}
         placeholder="Buscar o crear relación..."
-        className="w-full bg-transparent text-sm text-texto-primario placeholder:text-texto-terciario/50 outline-none py-1.5 transition-colors"
+        className="w-full bg-transparent text-sm text-texto-primario placeholder:text-texto-placeholder outline-none py-1.5 transition-colors"
         style={{ borderBottom: '1px solid var(--borde-sutil)' }}
       />
 

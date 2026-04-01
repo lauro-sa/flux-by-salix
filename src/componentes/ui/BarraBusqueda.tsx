@@ -203,7 +203,7 @@ function PanelFiltros({
                         value={busquedaOpciones[filtro.id] || ''}
                         onChange={(e) => setBusquedaOpciones({ ...busquedaOpciones, [filtro.id]: e.target.value })}
                         placeholder="Buscar..."
-                        className="mb-1 px-2 py-1 rounded border border-borde-sutil bg-superficie-tarjeta text-xs text-texto-primario placeholder:text-texto-terciario outline-none focus:border-borde-foco"
+                        className="mb-1 px-2 py-1 rounded border border-borde-sutil bg-superficie-tarjeta text-xs text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-borde-foco"
                       />
                     )}
                     <div className="max-h-40 overflow-y-auto flex flex-col">
@@ -250,7 +250,7 @@ function PanelFiltros({
                         value={busquedaOpciones[filtro.id] || ''}
                         onChange={(e) => setBusquedaOpciones({ ...busquedaOpciones, [filtro.id]: e.target.value })}
                         placeholder="Buscar..."
-                        className="mb-1 px-2 py-1 rounded border border-borde-sutil bg-superficie-tarjeta text-xs text-texto-primario placeholder:text-texto-terciario outline-none focus:border-borde-foco"
+                        className="mb-1 px-2 py-1 rounded border border-borde-sutil bg-superficie-tarjeta text-xs text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-borde-foco"
                       />
                     )}
                     <div className="max-h-40 overflow-y-auto flex flex-col">
@@ -378,7 +378,7 @@ function PanelFiltros({
                     }
                   }}
                   placeholder="Nombre de la vista..."
-                  className="flex-1 px-2 py-1 rounded border border-borde-foco bg-superficie-tarjeta text-xs text-texto-primario placeholder:text-texto-terciario outline-none"
+                  className="flex-1 px-2 py-1 rounded border border-borde-foco bg-superficie-tarjeta text-xs text-texto-primario placeholder:text-texto-placeholder outline-none"
                 />
                 <button
                   type="button"
@@ -526,7 +526,7 @@ function BarraBusqueda({
           onBlur={() => setEnfocado(false)}
           onKeyDown={manejarKeyDown}
           placeholder={placeholderDinamico}
-          className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-terciario md:text-sm text-md"
+          className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-placeholder md:text-sm text-md"
         />
 
         {/* Pills de filtros activos */}

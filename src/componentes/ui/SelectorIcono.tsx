@@ -301,7 +301,7 @@ function SelectorIcono({ valor, onChange, etiqueta, tamano = 18 }: PropiedadesSe
                     placeholder="Buscar ícono..."
                     value={busqueda}
                     onChange={(e) => setBusqueda(e.target.value)}
-                    className="flex-1 bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-terciario"
+                    className="flex-1 bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-placeholder"
                     autoFocus
                   />
                 </div>

@@ -265,7 +265,7 @@ function ModalTipoActividad({ abierto, tipo, modulosDisponibles, guardando, onGu
               <div className="space-y-3">
                 {Object.entries(grupos).map(([grupo, mods]) => (
                   <div key={grupo}>
-                    <p className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider mb-1.5">{grupo}</p>
+                    <p className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-1.5">{grupo}</p>
                     <div className="flex flex-wrap gap-1.5">
                       {mods.map(mod => {
                         const activo = modulos.includes(mod.clave)
@@ -273,7 +273,7 @@ function ModalTipoActividad({ abierto, tipo, modulosDisponibles, guardando, onGu
                           <button
                             key={mod.clave}
                             onClick={() => toggleModulo(mod.clave)}
-                            className={`px-3 py-1.5 rounded-full text-[13px] font-medium transition-all cursor-pointer border ${
+                            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer border ${
                               activo
                                 ? 'bg-texto-marca/10 text-texto-marca border-texto-marca/30'
                                 : 'bg-superficie-hover text-texto-terciario border-transparent hover:text-texto-secundario'

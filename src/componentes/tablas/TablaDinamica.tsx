@@ -561,7 +561,7 @@ function DropdownFiltro({ filtro, onCerrar }: { filtro: FiltroTabla; onCerrar: (
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
                 placeholder="Buscar..."
-                className="w-full px-2.5 py-1.5 rounded-lg border border-borde-sutil bg-superficie-tarjeta text-xs text-texto-primario placeholder:text-texto-terciario outline-none focus:border-borde-foco"
+                className="w-full px-2.5 py-1.5 rounded-lg border border-borde-sutil bg-superficie-tarjeta text-xs text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-borde-foco"
               />
             </div>
           )}
@@ -584,7 +584,7 @@ function DropdownFiltro({ filtro, onCerrar }: { filtro: FiltroTabla; onCerrar: (
                     }
                   }}
                   className={[
-                    'flex items-center gap-2 px-2.5 py-1.5 text-[13px] text-left rounded-lg cursor-pointer transition-colors border-none',
+                    'flex items-center gap-2 px-2.5 py-1.5 text-sm text-left rounded-lg cursor-pointer transition-colors border-none',
                     seleccionado
                       ? 'bg-superficie-seleccionada text-texto-marca font-medium'
                       : 'bg-transparent text-texto-primario hover:bg-superficie-hover',
@@ -651,7 +651,7 @@ function SeccionFiltroPanel({ filtro }: { filtro: FiltroTabla }) {
     const valorActual = typeof filtro.valor === 'string' ? filtro.valor : ''
     return (
       <div className="flex flex-col gap-1.5">
-        <span className="text-[10px] font-semibold text-texto-terciario uppercase tracking-wider">{filtro.etiqueta}</span>
+        <span className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider">{filtro.etiqueta}</span>
         <div className="flex flex-wrap gap-1.5">
           <button type="button" onClick={() => filtro.onChange('')}
             className={[
@@ -681,12 +681,12 @@ function SeccionFiltroPanel({ filtro }: { filtro: FiltroTabla }) {
     const valoresActuales = Array.isArray(filtro.valor) ? filtro.valor : []
     return (
       <div className="flex flex-col gap-1.5">
-        <span className="text-[10px] font-semibold text-texto-terciario uppercase tracking-wider">{filtro.etiqueta}</span>
+        <span className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider">{filtro.etiqueta}</span>
         {/* "Todos" como primera opción */}
         <button type="button"
           onClick={() => filtro.onChange(filtro.tipo === 'multiple' ? [] : '')}
           className={[
-            'flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[13px] text-left cursor-pointer border-none transition-colors',
+            'flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm text-left cursor-pointer border-none transition-colors',
             (filtro.tipo === 'multiple' ? valoresActuales.length === 0 : !valorActual)
               ? 'bg-superficie-seleccionada text-texto-marca font-medium'
               : 'bg-transparent text-texto-primario hover:bg-superficie-hover',
@@ -709,7 +709,7 @@ function SeccionFiltroPanel({ filtro }: { filtro: FiltroTabla }) {
                 }
               }}
               className={[
-                'flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[13px] text-left cursor-pointer border-none transition-colors',
+                'flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm text-left cursor-pointer border-none transition-colors',
                 sel ? 'bg-superficie-seleccionada text-texto-marca font-medium' : 'bg-transparent text-texto-primario hover:bg-superficie-hover',
               ].join(' ')}>
               {filtro.tipo === 'multiple' ? (
@@ -732,7 +732,7 @@ function SeccionFiltroPanel({ filtro }: { filtro: FiltroTabla }) {
   if (filtro.tipo === 'fecha') {
     return (
       <div className="flex flex-col gap-1.5">
-        <span className="text-[10px] font-semibold text-texto-terciario uppercase tracking-wider">{filtro.etiqueta}</span>
+        <span className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider">{filtro.etiqueta}</span>
         <div className="flex items-center gap-2">
           <input type="date" value={typeof filtro.valor === 'string' ? filtro.valor : ''}
             onChange={(e) => filtro.onChange(e.target.value)}
@@ -760,7 +760,7 @@ function GuardarVistaInline({ onGuardar }: { onGuardar: (nombre: string) => void
   if (!creando) {
     return (
       <button type="button" onClick={() => setCreando(true)}
-        className="flex items-center gap-1.5 text-[13px] text-texto-marca font-medium cursor-pointer border-none bg-transparent p-0 text-left hover:underline mt-1">
+        className="flex items-center gap-1.5 text-sm text-texto-marca font-medium cursor-pointer border-none bg-transparent p-0 text-left hover:underline mt-1">
         <BookmarkPlus size={13} />
         Guardar actual
       </button>
@@ -776,7 +776,7 @@ function GuardarVistaInline({ onGuardar }: { onGuardar: (nombre: string) => void
           if (e.key === 'Escape') { setNombre(''); setCreando(false) }
         }}
         placeholder="Nombre..."
-        className="flex-1 px-2 py-1 rounded-lg border border-borde-foco bg-superficie-tarjeta text-xs text-texto-primario placeholder:text-texto-terciario outline-none" />
+        className="flex-1 px-2 py-1 rounded-lg border border-borde-foco bg-superficie-tarjeta text-xs text-texto-primario placeholder:text-texto-placeholder outline-none" />
       <button type="button" disabled={!nombre.trim()}
         onClick={() => { if (nombre.trim()) { onGuardar(nombre.trim()); setNombre(''); setCreando(false) } }}
         className="text-xs font-medium text-texto-marca cursor-pointer border-none bg-transparent disabled:opacity-40">
@@ -816,7 +816,7 @@ function PanelVistasGuardadas({
       {/* Vistas guardadas */}
       {vistasGuardadas && vistasGuardadas.length > 0 && (
         <div className="flex flex-col gap-1">
-          <span className="text-[10px] font-semibold text-texto-terciario uppercase tracking-wider">Vistas guardadas</span>
+          <span className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider">Vistas guardadas</span>
           {vistasGuardadas.map((v) => {
             const esActiva = detector?.vistaActiva?.id === v.id
             return (
@@ -824,7 +824,7 @@ function PanelVistasGuardadas({
                 className="group flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-superficie-hover transition-colors"
                 onClick={() => onAplicarVista?.(v.id)}>
                 <Bookmark size={13} className={esActiva ? 'text-texto-marca fill-current' : 'text-texto-terciario'} />
-                <span className={`flex-1 text-[13px] ${esActiva ? 'font-semibold text-texto-marca' : 'text-texto-primario'}`}>{v.nombre}</span>
+                <span className={`flex-1 text-sm ${esActiva ? 'font-semibold text-texto-marca' : 'text-texto-primario'}`}>{v.nombre}</span>
                 {v.predefinida && <Star size={11} className="text-texto-marca fill-current shrink-0" />}
                 {esActiva && <Check size={13} className="text-texto-marca" />}
                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
@@ -848,11 +848,11 @@ function PanelVistasGuardadas({
       {/* Sobrescribir */}
       {detector?.tipo === 'sin_guardar' && vistasGuardadas && vistasGuardadas.length > 0 && onSobrescribirVista && (
         <div className="flex flex-col gap-1">
-          <span className="text-[10px] text-texto-terciario">Sobrescribir:</span>
+          <span className="text-xxs text-texto-terciario">Sobrescribir:</span>
           <div className="flex flex-wrap gap-1">
             {vistasGuardadas.map((v) => (
               <button key={v.id} type="button" onClick={() => onSobrescribirVista(v.id)}
-                className="text-[11px] px-2 py-0.5 rounded-md border border-borde-sutil bg-superficie-tarjeta text-texto-secundario hover:bg-superficie-hover cursor-pointer transition-colors">
+                className="text-xs px-2 py-0.5 rounded-md border border-borde-sutil bg-superficie-tarjeta text-texto-secundario hover:bg-superficie-hover cursor-pointer transition-colors">
                 {v.nombre}
               </button>
             ))}
@@ -865,7 +865,7 @@ function PanelVistasGuardadas({
         <div className="flex flex-col gap-1.5">
           {!creandoVista ? (
             <button type="button" onClick={() => setCreandoVista(true)}
-              className="flex items-center gap-1.5 text-[13px] text-texto-marca font-medium cursor-pointer border-none bg-transparent p-0 text-left hover:underline">
+              className="flex items-center gap-1.5 text-sm text-texto-marca font-medium cursor-pointer border-none bg-transparent p-0 text-left hover:underline">
               <BookmarkPlus size={13} />
               Guardar vista
             </button>
@@ -878,7 +878,7 @@ function PanelVistasGuardadas({
                   if (e.key === 'Escape') { setNombreNueva(''); setCreandoVista(false) }
                 }}
                 placeholder="Nombre..."
-                className="flex-1 px-2 py-1 rounded-lg border border-borde-foco bg-superficie-tarjeta text-xs text-texto-primario placeholder:text-texto-terciario outline-none" />
+                className="flex-1 px-2 py-1 rounded-lg border border-borde-foco bg-superficie-tarjeta text-xs text-texto-primario placeholder:text-texto-placeholder outline-none" />
               <button type="button" disabled={!nombreNueva.trim()}
                 onClick={() => { if (nombreNueva.trim()) { onGuardarVista(nombreNueva.trim()); setNombreNueva(''); setCreandoVista(false) } }}
                 className="text-xs font-medium text-texto-marca cursor-pointer border-none bg-transparent disabled:opacity-40">
@@ -1042,7 +1042,7 @@ function PieResumenFila<T>({
   return (
     <tr className="border-t-2 border-borde-fuerte">
       {/* Celda del checkbox */}
-      {seleccionables && <td className="w-10 min-w-10 px-2.5 py-2 sticky left-0 z-10" style={{ background: 'var(--superficie-activa)' }} />}
+      {seleccionables && <td className="w-10 min-w-10 px-2.5 py-2 sticky left-0 z-10" style={{ background: 'var(--superficie-anclada-alterna)' }} />}
 
       {columnasVisibles.map((clave) => {
         const col = columnas.find((c) => c.clave === clave)
@@ -1097,7 +1097,7 @@ function PieResumenFila<T>({
               width: ancho,
               minWidth: col.anchoMinimo || ANCHO_MINIMO_COLUMNA,
               textAlign: col.alineacion || 'left',
-              ...(anclada ? { left: offsetAncladas[clave], background: 'var(--superficie-activa)' } : {}),
+              ...(anclada ? { left: offsetAncladas[clave], background: 'var(--superficie-anclada-alterna)' } : {}),
             }}
             title="Click para cambiar cálculo"
           >
@@ -2141,7 +2141,7 @@ function TablaDinamica<T>({
                 }
               }}
               placeholder={placeholderDinamico}
-              className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-terciario"
+              className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-placeholder"
             />
 
             {/* Detector de vistas */}
@@ -2268,13 +2268,13 @@ function TablaDinamica<T>({
                         {todosLosFiltros.length > 0 && (
                           <div className="flex-1 p-4 flex flex-col gap-4 min-w-0">
                             <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-bold text-texto-secundario uppercase tracking-wider flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider flex items-center gap-1.5">
                                 <SlidersHorizontal size={12} />
                                 Filtros
                               </span>
                               {numFiltrosActivos > 0 && (
                                 <button type="button" onClick={limpiarTodo}
-                                  className="text-[11px] text-insignia-peligro-texto bg-insignia-peligro-fondo px-2 py-0.5 rounded-full cursor-pointer border-none font-medium">
+                                  className="text-xs text-insignia-peligro-texto bg-insignia-peligro-fondo px-2 py-0.5 rounded-full cursor-pointer border-none font-medium">
                                   Limpiar ({numFiltrosActivos})
                                 </button>
                               )}
@@ -2290,7 +2290,7 @@ function TablaDinamica<T>({
                         {/* ── Columna 2: Orden ── */}
                         {opcionesOrden && opcionesOrden.length > 0 && (
                           <div className="flex-1 p-4 flex flex-col gap-3 min-w-0">
-                            <span className="text-[11px] font-bold text-texto-secundario uppercase tracking-wider flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider flex items-center gap-1.5">
                               <ArrowUpDown size={12} />
                               Orden
                             </span>
@@ -2301,7 +2301,7 @@ function TablaDinamica<T>({
                                   <button key={`${op.clave}-${op.direccion}`} type="button"
                                     onClick={() => setOrdenamiento([{ clave: op.clave, direccion: op.direccion }])}
                                     className={[
-                                      'flex items-center gap-2 px-2.5 py-2 rounded-lg text-[13px] text-left cursor-pointer border-none transition-colors',
+                                      'flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm text-left cursor-pointer border-none transition-colors',
                                       activo ? 'bg-superficie-seleccionada text-texto-marca font-medium' : 'bg-transparent text-texto-primario hover:bg-superficie-hover',
                                     ].join(' ')}>
                                     <ArrowUpDown size={12} className={activo ? 'text-texto-marca' : 'text-texto-terciario'} />
@@ -2317,7 +2317,7 @@ function TablaDinamica<T>({
                         {/* ── Columna 3: Favoritos / Vistas ── */}
                         {idModulo && (
                           <div className="flex-1 p-4 flex flex-col gap-3 min-w-0">
-                            <span className="text-[11px] font-bold text-texto-secundario uppercase tracking-wider flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider flex items-center gap-1.5">
                               <Star size={12} />
                               Favoritos
                             </span>
@@ -2332,7 +2332,7 @@ function TablaDinamica<T>({
                                       className="group flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-superficie-hover transition-colors"
                                       onClick={() => manejarAplicarVista(v.id)}>
                                       <Bookmark size={13} className={esActiva ? 'text-texto-marca fill-current' : 'text-texto-terciario'} />
-                                      <span className={`flex-1 text-[13px] truncate ${esActiva ? 'font-semibold text-texto-marca' : 'text-texto-primario'}`}>{v.nombre}</span>
+                                      <span className={`flex-1 text-sm truncate ${esActiva ? 'font-semibold text-texto-marca' : 'text-texto-primario'}`}>{v.nombre}</span>
                                       {v.predefinida && <Star size={11} className="text-texto-marca fill-current shrink-0" />}
                                       {esActiva && <Check size={13} className="text-texto-marca shrink-0" />}
                                       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all shrink-0">
@@ -2491,10 +2491,10 @@ function TablaDinamica<T>({
               <table className="border-collapse text-sm" style={{ tableLayout: 'fixed', width: '100%', minWidth: anchoTotalTabla, backgroundColor: 'var(--superficie-tarjeta)' }}>
                 {/* Header */}
                 <thead>
-                  <tr className="border-b border-borde-fuerte sticky top-0 z-20" style={{ background: 'var(--superficie-activa)' }}>
+                  <tr className="border-b border-borde-fuerte sticky top-0 z-20" style={{ background: 'var(--superficie-anclada-alterna)' }}>
                     {/* Checkbox header */}
                     {seleccionables && (
-                      <th className="w-10 min-w-10 px-2.5 py-2.5 text-center sticky left-0 z-30" style={{ background: 'var(--superficie-activa)' }}>
+                      <th className="w-10 min-w-10 px-2.5 py-2.5 text-center sticky left-0 z-30" style={{ background: 'var(--superficie-anclada-alterna)' }}>
                         <input
                           type="checkbox"
                           checked={todoSeleccionado}
@@ -2523,7 +2523,7 @@ function TablaDinamica<T>({
                             width: ancho,
                             minWidth: col.anchoMinimo || ANCHO_MINIMO_COLUMNA,
                             textAlign: alineacionColumnas[col.clave] || col.alineacion,
-                            ...(anclada ? { left: offsetAncladas[col.clave], background: 'var(--superficie-activa)' } : {}),
+                            ...(anclada ? { left: offsetAncladas[col.clave], background: 'var(--superficie-anclada-alterna)' } : {}),
                           }}
                           onClick={() => { if (resizeRecienTerminadoRef.current) return; col.ordenable !== false && toggleOrden(col.clave) }}
                         >
@@ -2640,7 +2640,7 @@ function TablaDinamica<T>({
                 </tbody>
                 {/* Footer de cálculos — sticky abajo dentro de la tabla */}
                 {mostrarResumen && datos.length > 0 && (
-                  <tfoot className="sticky bottom-0 z-20" style={{ background: 'var(--superficie-activa)' }}>
+                  <tfoot className="sticky bottom-0 z-20" style={{ background: 'var(--superficie-anclada-alterna)' }}>
                     <PieResumenFila
                       columnas={columnas}
                       datos={datosOrdenados}

@@ -450,8 +450,8 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil }: Propiedad
               className="flex items-center gap-2 flex-1 min-w-0 bg-transparent border-none cursor-pointer rounded-lg hover:bg-superficie-hover px-2.5 py-2 transition-colors"
             >
               <div className="flex-1 text-left min-w-0">
-                <div className="text-[15px] font-semibold text-texto-primario truncate">{nombreEmpresa}</div>
-                <div className="text-[10px] text-texto-terciario truncate leading-tight">Flux by Salix</div>
+                <div className="text-md font-semibold text-texto-primario truncate">{nombreEmpresa}</div>
+                <div className="text-xxs text-texto-terciario truncate leading-tight">Flux by Salix</div>
               </div>
               <ChevronDown size={14} className={`text-texto-terciario transition-transform ${empresaAbierto ? 'rotate-180' : ''}`} />
             </button>

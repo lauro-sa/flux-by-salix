@@ -33,6 +33,7 @@ export const perfiles = pgTable('perfiles', {
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
   contacto_emergencia: jsonb('contacto_emergencia'),
   fecha_nacimiento: date('fecha_nacimiento'),
+  formato_nombre_remitente: text('formato_nombre_remitente').default('nombre_inicial_sector'),
 })
 
 // Miembros — relación usuario↔empresa con rol y estado de activación

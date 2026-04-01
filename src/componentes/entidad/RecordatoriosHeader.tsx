@@ -224,7 +224,7 @@ function RecordatoriosHeader() {
               onChange={(e) => setTitulo(e.target.value)}
               placeholder="¿Qué necesitas recordar?"
               autoFocus
-              className="w-full px-3 py-2.5 rounded-lg border border-borde-sutil bg-superficie-app text-sm font-medium text-texto-primario placeholder:text-texto-terciario placeholder:font-normal focus:outline-none focus:border-texto-marca transition-colors"
+              className="w-full px-3 py-2.5 rounded-lg border border-borde-sutil bg-superficie-app text-sm font-medium text-texto-primario placeholder:text-texto-placeholder placeholder:font-normal focus:outline-none focus:border-texto-marca transition-colors"
               onKeyDown={(e) => { if (e.key === 'Enter' && titulo.trim()) crear() }}
             />
 
@@ -317,7 +317,7 @@ function RecordatoriosHeader() {
                     placeholder="Notas adicionales..."
                     rows={2}
                     autoFocus
-                    className="w-full px-3 py-2 rounded-lg border border-borde-sutil bg-superficie-app text-xs text-texto-primario placeholder:text-texto-terciario resize-none focus:outline-none focus:border-texto-marca transition-colors"
+                    className="w-full px-3 py-2 rounded-lg border border-borde-sutil bg-superficie-app text-xs text-texto-primario placeholder:text-texto-placeholder resize-none focus:outline-none focus:border-texto-marca transition-colors"
                   />
                 </motion.div>
               )}

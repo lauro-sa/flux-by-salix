@@ -250,7 +250,7 @@ function FilaTipo({
           {tipo.modulos_disponibles.map(mod => (
             <span
               key={mod}
-              className="text-[11px] px-2 py-0.5 rounded-full bg-superficie-hover text-texto-terciario capitalize"
+              className="text-xs px-2 py-0.5 rounded-full bg-superficie-hover text-texto-terciario capitalize"
             >
               {mod}
             </span>

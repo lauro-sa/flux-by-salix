@@ -323,7 +323,7 @@ function EntradaItem({
                   href={adj.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-[11px] text-texto-marca hover:underline bg-superficie-app px-2 py-0.5 rounded"
+                  className="flex items-center gap-1 text-xs text-texto-marca hover:underline bg-superficie-app px-2 py-0.5 rounded"
                 >
                   <FileText size={10} />
                   {adj.nombre}
@@ -337,7 +337,7 @@ function EntradaItem({
               <button
                 onClick={() => handleAccion('confirmar')}
                 disabled={accionando}
-                className="flex items-center gap-1 text-[11px] font-medium text-insignia-exito bg-insignia-exito/10 hover:bg-insignia-exito/20 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
+                className="flex items-center gap-1 text-xs font-medium text-insignia-exito bg-insignia-exito/10 hover:bg-insignia-exito/20 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
               >
                 {accionando ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                 Confirmar pago
@@ -345,14 +345,14 @@ function EntradaItem({
               <button
                 onClick={() => handleAccion('rechazar')}
                 disabled={accionando}
-                className="flex items-center gap-1 text-[11px] font-medium text-insignia-peligro bg-insignia-peligro/10 hover:bg-insignia-peligro/20 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
+                className="flex items-center gap-1 text-xs font-medium text-insignia-peligro bg-insignia-peligro/10 hover:bg-insignia-peligro/20 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
               >
                 <X size={12} />
                 Rechazar
               </button>
             </div>
           )}
-          <span className="text-[10px] text-texto-terciario">{fechaRelativa(entrada.creado_en)}</span>
+          <span className="text-xxs text-texto-terciario">{fechaRelativa(entrada.creado_en)}</span>
         </div>
       </div>
     )
@@ -373,16 +373,16 @@ function EntradaItem({
         <div className="flex items-baseline gap-2">
           <span className="text-xs font-semibold text-texto-primario">{entrada.autor_nombre}</span>
           {esNotaInterna && (
-            <span className="text-[10px] text-insignia-advertencia flex items-center gap-0.5">
+            <span className="text-xxs text-insignia-advertencia flex items-center gap-0.5">
               <StickyNote size={10} /> Nota interna
             </span>
           )}
           {esMensajePortal && (
-            <span className="text-[10px] text-texto-marca flex items-center gap-0.5">
+            <span className="text-xxs text-texto-marca flex items-center gap-0.5">
               <Globe size={10} /> Portal
             </span>
           )}
-          <span className="text-[10px] text-texto-terciario ml-auto shrink-0">{fechaRelativa(entrada.creado_en)}</span>
+          <span className="text-xxs text-texto-terciario ml-auto shrink-0">{fechaRelativa(entrada.creado_en)}</span>
         </div>
         <p className="text-sm text-texto-secundario mt-0.5 whitespace-pre-wrap">{entrada.contenido}</p>
         {/* Adjuntos */}

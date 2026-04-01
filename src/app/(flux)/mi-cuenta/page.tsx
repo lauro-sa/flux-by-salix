@@ -45,11 +45,15 @@ export interface DatosMiCuenta {
   emergencia: { nombre: string; telefono: string; relacion: string }
   /* Auth */
   correoAcceso: string
+  /* Formato nombre remitente */
+  formatoNombreRemitente: string
   /* Métodos */
   setTelefono: (v: string) => void
   setEmergencia: (v: { nombre: string; telefono: string; relacion: string }) => void
+  setFormatoNombreRemitente: (v: string) => void
   guardarTelefono: (tel: string) => Promise<boolean>
   guardarEmergencia: (datos: { nombre: string; telefono: string; relacion: string }) => Promise<boolean>
+  guardarFormatoNombre: (formato: string) => Promise<boolean>
   cargando: boolean
 }
 
@@ -92,6 +96,7 @@ export default function PaginaMiCuenta() {
   const [compensacionFrecuencia, setCompensacionFrecuencia] = useState('')
   const [diasTrabajo, setDiasTrabajo] = useState(5)
   const [emergencia, setEmergencia] = useState({ nombre: '', telefono: '', relacion: '' })
+  const [formatoNombreRemitente, setFormatoNombreRemitente] = useState('nombre_inicial_sector')
 
   /* Carga única de datos */
   useEffect(() => {
@@ -104,7 +109,7 @@ export default function PaginaMiCuenta() {
       /* Perfil */
       const { data: perfil } = await supabase
         .from('perfiles')
-        .select('nombre, apellido, avatar_url, telefono, correo_empresa, telefono_empresa, documento_numero, fecha_nacimiento, domicilio')
+        .select('nombre, apellido, avatar_url, telefono, correo_empresa, telefono_empresa, documento_numero, fecha_nacimiento, domicilio, formato_nombre_remitente')
         .eq('id', usuario.id)
         .single()
 
@@ -118,6 +123,7 @@ export default function PaginaMiCuenta() {
         setDocumentoNumero(perfil.documento_numero || '')
         setFechaNacimiento(perfil.fecha_nacimiento || null)
         setDomicilio(perfil.domicilio || null)
+        setFormatoNombreRemitente(perfil.formato_nombre_remitente || 'nombre_inicial_sector')
       }
 
       /* Miembro */
@@ -199,6 +205,16 @@ export default function PaginaMiCuenta() {
     return false
   }, [miembroId])
 
+  const guardarFormatoNombre = useCallback(async (formato: string) => {
+    if (!usuario) return false
+    const res = await fetch('/api/perfiles/actualizar', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ perfil_id: usuario.id, formato_nombre_remitente: formato }),
+    })
+    return res.ok
+  }, [usuario])
+
   const secciones: SeccionConfig[] = [
     { id: 'perfil', etiqueta: 'Perfil', icono: <User size={16} /> },
     { id: 'seguridad', etiqueta: 'Seguridad', icono: <Shield size={16} /> },
@@ -212,8 +228,9 @@ export default function PaginaMiCuenta() {
     rol, miembroId, puestoNombre, sectorNombre, unidoEn, numeroEmpleado,
     compensacionTipo, compensacionMonto, compensacionFrecuencia, diasTrabajo,
     emergencia, correoAcceso: usuario?.email || '',
-    setTelefono, setEmergencia,
-    guardarTelefono, guardarEmergencia: guardarEmergenciaFn,
+    formatoNombreRemitente,
+    setTelefono, setEmergencia, setFormatoNombreRemitente,
+    guardarTelefono, guardarEmergencia: guardarEmergenciaFn, guardarFormatoNombre,
     cargando,
   }
 

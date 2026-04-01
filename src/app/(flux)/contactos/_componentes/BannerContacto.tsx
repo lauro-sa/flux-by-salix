@@ -163,7 +163,7 @@ export function BannerContacto({
           style={{
             width: 80,
             height: 80,
-            fontSize: 28,
+            fontSize: 'var(--texto-2xl)',
             letterSpacing: 1,
             backgroundColor: avatarUrl ? 'transparent' : `color-mix(in srgb, ${colores[0]} 55%, transparent)`,
             backdropFilter: avatarUrl ? undefined : 'blur(20px) saturate(1.8)',

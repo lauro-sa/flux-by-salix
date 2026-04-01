@@ -244,7 +244,7 @@ export function PreviewMembrete({
 
   return (
     <div>
-      <p className="text-[10px] font-semibold text-texto-terciario uppercase tracking-wider mb-2">Vista previa</p>
+      <p className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider mb-2">Vista previa</p>
       <div ref={contenedorRef}>
         <div className="flex justify-center" style={{ height: expandido ? `${(ANCHO_PDF * (297 / 210)) * escala}px` : 'auto' }}>
           <motion.div
@@ -277,7 +277,7 @@ export function PreviewMembrete({
       <button
         type="button"
         onClick={() => setExpandido(e => !e)}
-        className="w-full mt-2 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium text-texto-terciario hover:bg-superficie-app transition-colors"
+        className="w-full mt-2 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium text-texto-terciario hover:bg-superficie-app transition-colors"
       >
         <ChevronDown size={14} className={`transition-transform duration-300 ${expandido ? 'rotate-180' : ''}`} />
         {expandido ? 'Comprimir' : 'Ver hoja completa'}
@@ -350,7 +350,7 @@ export function PreviewPiePagina({
 
   return (
     <div>
-      <p className="text-[10px] font-semibold text-texto-terciario uppercase tracking-wider mb-2">Vista previa</p>
+      <p className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider mb-2">Vista previa</p>
       <div ref={contenedorRef}>
         <div className="flex justify-center" style={{ height: expandido ? `${(ANCHO_PDF * (297 / 210)) * escala}px` : 'auto' }}>
           <motion.div
@@ -383,7 +383,7 @@ export function PreviewPiePagina({
       <button
         type="button"
         onClick={() => setExpandido(e => !e)}
-        className="w-full mt-2 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium text-texto-terciario hover:bg-superficie-app transition-colors"
+        className="w-full mt-2 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium text-texto-terciario hover:bg-superficie-app transition-colors"
       >
         <ChevronDown size={14} className={`transition-transform duration-300 ${expandido ? 'rotate-180' : ''}`} />
         {expandido ? 'Comprimir' : 'Ver hoja completa'}

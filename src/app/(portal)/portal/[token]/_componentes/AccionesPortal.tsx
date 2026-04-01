@@ -173,7 +173,7 @@ export default function AccionesPortal({
             onChange={e => setMotivo(e.target.value)}
             placeholder={t('portal.motivo_placeholder')}
             rows={3}
-            className="w-full px-3 py-2 rounded-lg border border-borde-sutil bg-superficie-app text-sm text-texto-primario placeholder:text-texto-terciario focus:ring-2 focus:ring-estado-error/30 focus:border-estado-error outline-none resize-none transition"
+            className="w-full px-3 py-2 rounded-lg border border-borde-sutil bg-superficie-app text-sm text-texto-primario placeholder:text-texto-placeholder focus:ring-2 focus:ring-estado-error/30 focus:border-estado-error outline-none resize-none transition"
           />
           <div className="flex items-center gap-3">
             <button
@@ -230,7 +230,7 @@ function BotonesContacto({
             target="_blank"
             rel="noopener noreferrer"
             className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors border"
-            style={{ borderColor: '#25D366', color: '#25D366', backgroundColor: 'rgba(37, 211, 102, 0.08)' }}
+            style={{ borderColor: 'var(--canal-whatsapp)', color: 'var(--canal-whatsapp)', backgroundColor: 'var(--canal-whatsapp-fondo)' }}
           >
             <IconoWhatsApp size={18} />
             Escribir por WhatsApp

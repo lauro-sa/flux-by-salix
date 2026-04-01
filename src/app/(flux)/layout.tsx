@@ -4,6 +4,7 @@ import { ProveedorTema } from '@/hooks/useTema'
 import { ProveedorNavegacion } from '@/hooks/useNavegacion'
 import { ProveedorIdioma } from '@/lib/i18n'
 import { ProveedorToast } from '@/componentes/feedback/Toast'
+import { ProveedorEnvioPendiente } from '@/hooks/useEnvioPendiente'
 import { ProveedorAuth } from '@/hooks/useAuth'
 import { ProveedorPreferencias } from '@/hooks/usePreferencias'
 import { ProveedorEmpresa } from '@/hooks/useEmpresa'
@@ -24,9 +25,11 @@ export default function LayoutFlux({ children }: { children: React.ReactNode }) 
             <ProveedorModulos>
             <ProveedorNavegacion>
               <ProveedorToast>
+              <ProveedorEnvioPendiente>
                 <PlantillaApp>
                   {children}
                 </PlantillaApp>
+              </ProveedorEnvioPendiente>
               </ProveedorToast>
             </ProveedorNavegacion>
             </ProveedorModulos>

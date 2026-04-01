@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Building2, Globe, Mail, Phone, MapPin, Link as LinkIcon, Receipt, Landmark } from 'lucide-react'
+import { Building2, Globe, Mail, Phone, MapPin, Link as LinkIcon, Receipt, Landmark, Lock, LockOpen } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import { BloqueDireccion, type DatosDireccion } from '@/componentes/ui/BloqueDireccion'
@@ -28,6 +28,7 @@ export function SeccionGeneral() {
   const [nombre, setNombre] = useState('')
   const [descripcionEmpresa, setDescripcionEmpresa] = useState('')
   const [slug, setSlug] = useState('')
+  const [slugBloqueado, setSlugBloqueado] = useState(true)
   const [ubicacion, setUbicacion] = useState('')
   const [direccionEmpresa, setDireccionEmpresa] = useState<Record<string, unknown> | null>(null)
   const [paginaWeb, setPaginaWeb] = useState('')
@@ -229,16 +230,30 @@ export function SeccionGeneral() {
             onBlur={() => nombre && guardar({ nombre })}
             icono={<Building2 size={16} />}
           />
-          <Input
-            tipo="text"
-            formato="slug"
-            etiqueta={t('empresa.slug')}
-            value={slug}
-            onChange={(e) => setSlug(e.target.value)}
-            onBlur={() => slug && guardar({ slug })}
-            icono={<Globe size={16} />}
-            ayuda={slug ? `${slug}.fluxsalix.com` : undefined}
-          />
+          <div className="relative">
+            <Input
+              tipo="text"
+              formato="slug"
+              etiqueta={t('empresa.slug')}
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              onBlur={() => { slug && guardar({ slug }); setSlugBloqueado(true) }}
+              readOnly={slugBloqueado}
+              icono={<Globe size={16} />}
+              iconoDerecho={
+                <button
+                  type="button"
+                  onClick={() => setSlugBloqueado(prev => !prev)}
+                  className="p-0.5 rounded hover:bg-superficie-elevada transition-colors text-texto-terciario hover:text-texto-primario"
+                  title={slugBloqueado ? 'Desbloquear para editar' : 'Bloquear subdominio'}
+                >
+                  {slugBloqueado ? <Lock size={14} /> : <LockOpen size={14} />}
+                </button>
+              }
+              ayuda={slug ? `${slug}.fluxsalix.com · Próximamente — reservá tu subdominio` : 'Reservá el nombre de tu empresa para tu futuro subdominio'}
+              className={slugBloqueado ? 'opacity-70' : ''}
+            />
+          </div>
         </div>
 
         <Input

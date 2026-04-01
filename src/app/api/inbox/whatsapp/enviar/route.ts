@@ -5,6 +5,7 @@ import {
   enviarTextoWhatsApp, enviarMediaWhatsApp, enviarPlantillaWhatsApp,
   type ConfigCuentaWhatsApp,
 } from '@/lib/whatsapp'
+import { generarNombreRemitente } from '@/lib/nombre-remitente'
 
 /**
  * POST /api/inbox/whatsapp/enviar — Enviar mensaje de WhatsApp.
@@ -62,14 +63,33 @@ export async function POST(request: NextRequest) {
 
     const config = canal.config_conexion as unknown as ConfigCuentaWhatsApp
 
-    // Obtener nombre del agente
+    // Obtener nombre del agente con formato personalizado
     const { data: perfil } = await admin
       .from('perfiles')
-      .select('nombre, apellido')
+      .select('nombre, apellido, formato_nombre_remitente')
       .eq('id', user.id)
       .single()
 
-    const nombreAgente = perfil ? `${perfil.nombre} ${perfil.apellido || ''}`.trim() : 'Agente'
+    let sectorNombre: string | null = null
+    const { data: miembro } = await admin
+      .from('miembros').select('id')
+      .eq('usuario_id', user.id).eq('empresa_id', empresaId).single()
+    if (miembro) {
+      const { data: ms } = await admin
+        .from('miembros_sectores').select('sector_id')
+        .eq('miembro_id', miembro.id).eq('es_primario', true).single()
+      if (ms) {
+        const { data: sector } = await admin
+          .from('sectores').select('nombre').eq('id', ms.sector_id).single()
+        if (sector) sectorNombre = sector.nombre
+      }
+    }
+
+    const nombreAgente = perfil
+      ? generarNombreRemitente(perfil.formato_nombre_remitente, {
+          nombre: perfil.nombre, apellido: perfil.apellido, sector: sectorNombre,
+        })
+      : 'Agente'
 
     // Agregar firma si está configurada
     let textoFinal = texto || ''

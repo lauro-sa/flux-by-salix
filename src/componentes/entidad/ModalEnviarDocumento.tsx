@@ -70,6 +70,8 @@ export interface DatosEnvioDocumento {
   incluir_enlace_portal: boolean
   /** Si es programado, la fecha ISO */
   programado_para?: string
+  /** Snapshot del estado del modal para restaurar al deshacer — uso interno */
+  _snapshot?: SnapshotCorreo
 }
 
 interface ContactoSugerido {
@@ -98,6 +100,22 @@ export interface DatosPlantillaCorreo {
   canal_id?: string
 }
 
+/** Snapshot completo del estado del modal para restaurar al deshacer envío */
+export interface SnapshotCorreo {
+  canal_id: string
+  para: string[]
+  cc: string[]
+  cco: string[]
+  mostrarCC: boolean
+  mostrarCCO: boolean
+  asunto: string
+  html: string
+  plantilla_id: string
+  incluir_pdf: boolean
+  incluir_enlace_portal: boolean
+  adjuntos: AdjuntoDocumento[]
+}
+
 interface PropiedadesModalEnviarDocumento {
   abierto: boolean
   onCerrar: () => void
@@ -118,6 +136,8 @@ interface PropiedadesModalEnviarDocumento {
   onGuardarPlantilla?: (datos: DatosPlantillaCorreo) => void | Promise<void>
   /** Datos reales para preview de variables (contacto, presupuesto, empresa, etc.) */
   contextoVariables?: Record<string, Record<string, unknown>>
+  /** Snapshot para restaurar al deshacer envío (si se pasa, se usa en vez de los defaults) */
+  snapshotRestaurar?: SnapshotCorreo | null
 }
 
 // ─── Helpers ───
@@ -559,6 +579,7 @@ export function ModalEnviarDocumento({
   onGuardarBorrador,
   onGuardarPlantilla,
   contextoVariables,
+  snapshotRestaurar,
 }: PropiedadesModalEnviarDocumento) {
   const { t } = useTraduccion()
 
@@ -607,29 +628,45 @@ export function ModalEnviarDocumento({
   const [arrastrando, setArrastrando] = useState(false)
   const dropRef = useRef<HTMLDivElement>(null)
 
-  // Resetear estado al abrir
+  // Resetear estado al abrir — si hay snapshot (deshacer envío), restaurar todo
   useEffect(() => {
     if (abierto) {
-      const canalDef = canales.find(c => c.predeterminado) || canales[0]
-      setCanalId(canalDef?.id || '')
-      setPara(correosDestinatario)
-      setCC([])
-      setCCO([])
-      setMostrarCC(false)
-      setMostrarCCO(false)
-      setAsunto(asuntoPredeterminado)
-      setHtml(htmlInicial)
-      setPlantillaId('')
-      setAdjuntos([])
-      setIncluirPdf(!!adjuntoDocumento)
-      setIncluirEnlacePortal(!!urlPortal)
+      if (snapshotRestaurar) {
+        // Restaurar desde snapshot (deshacer envío)
+        setCanalId(snapshotRestaurar.canal_id)
+        setPara(snapshotRestaurar.para)
+        setCC(snapshotRestaurar.cc)
+        setCCO(snapshotRestaurar.cco)
+        setMostrarCC(snapshotRestaurar.mostrarCC)
+        setMostrarCCO(snapshotRestaurar.mostrarCCO)
+        setAsunto(snapshotRestaurar.asunto)
+        setHtml(snapshotRestaurar.html)
+        setPlantillaId(snapshotRestaurar.plantilla_id)
+        setAdjuntos(snapshotRestaurar.adjuntos)
+        setIncluirPdf(snapshotRestaurar.incluir_pdf)
+        setIncluirEnlacePortal(snapshotRestaurar.incluir_enlace_portal)
+      } else {
+        // Reset normal (nuevo envío)
+        const canalDef = canales.find(c => c.predeterminado) || canales[0]
+        setCanalId(canalDef?.id || '')
+        setPara(correosDestinatario)
+        setCC([])
+        setCCO([])
+        setMostrarCC(false)
+        setMostrarCCO(false)
+        setAsunto(asuntoPredeterminado)
+        setHtml(htmlInicial)
+        setPlantillaId('')
+        setAdjuntos([])
+        setIncluirPdf(!!adjuntoDocumento)
+        setIncluirEnlacePortal(!!urlPortal)
+      }
       setMostrarProgramar(false)
       setMostrarCanales(false)
       setCursorEditorPos(null)
       editorConFoco.current = false
       setEditorListo(false)
     } else {
-      // Limpiar al cerrar
       setCursorEditorPos(null)
       editorConFoco.current = false
     }
@@ -637,16 +674,30 @@ export function ModalEnviarDocumento({
 
   const canalActivo = canales.find(c => c.id === canalId) || canales[0]
 
+  // ─── Resolver variables {{entidad.campo}} con datos reales del contexto ───
+  const resolverVariables = useCallback((texto: string): string => {
+    if (!contextoVariables || !texto) return texto
+    return texto.replace(/\{\{(\w+)\.(\w+)\}\}/g, (_match, entidad: string, campo: string) => {
+      const valor = contextoVariables[entidad]?.[campo]
+      return (valor !== undefined && valor !== null && valor !== '') ? String(valor) : ''
+    })
+  }, [contextoVariables])
+
   // ─── Aplicar plantilla ───
   const aplicarPlantilla = useCallback((id: string) => {
     setPlantillaId(id)
     const pl = plantillas.find(p => p.id === id)
     if (pl) {
-      if (pl.asunto) setAsunto(pl.asunto)
-      if (pl.contenido_html) setHtml(pl.contenido_html)
+      if (pl.asunto) setAsunto(resolverVariables(pl.asunto))
+      if (pl.contenido_html) {
+        const htmlResuelto = resolverVariables(pl.contenido_html)
+        setHtml(htmlResuelto)
+        const editor = editorRef.current
+        if (editor) editor.commands.setContent(htmlResuelto)
+      }
       if (pl.canal_id) setCanalId(pl.canal_id)
     }
-  }, [plantillas])
+  }, [plantillas, resolverVariables])
 
   // ─── Insertar variable en asunto ───
   const insertarVariableAsunto = useCallback((variable: string) => {
@@ -823,8 +874,15 @@ export function ModalEnviarDocumento({
       canal_id: canalId, correo_para: para, correo_cc: cc, correo_cco: cco,
       asunto, html, texto: textoPlano, adjuntos_ids: todosAdjuntosIds,
       incluir_enlace_portal: incluirEnlacePortal, programado_para: programadoPara,
+      _snapshot: {
+        canal_id: canalId, para, cc, cco,
+        mostrarCC: mostrarCC, mostrarCCO: mostrarCCO,
+        asunto, html, plantilla_id: plantillaId,
+        incluir_pdf: incluirPdf, incluir_enlace_portal: incluirEnlacePortal,
+        adjuntos,
+      },
     }
-  }, [para, cc, cco, asunto, html, canalId, incluirPdf, adjuntoDocumento, adjuntos, incluirEnlacePortal])
+  }, [para, cc, cco, asunto, html, canalId, incluirPdf, adjuntoDocumento, adjuntos, incluirEnlacePortal, mostrarCC, mostrarCCO, plantillaId])
 
   const handleEnviar = useCallback(async () => {
     const datos = construirDatos()
@@ -1073,7 +1131,7 @@ export function ModalEnviarDocumento({
         {/* ══════════ CUERPO CON SCROLL ══════════ */}
         <div className="flex-1 overflow-y-auto px-6 py-4" style={{ minHeight: 200 }}>
           <EditorTexto
-            contenido={htmlInicial}
+            contenido={snapshotRestaurar ? snapshotRestaurar.html : htmlInicial}
             onChange={setHtml}
             placeholder="Escribí tu mensaje..."
             alturaMinima={280}

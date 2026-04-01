@@ -48,6 +48,7 @@ input:-webkit-autofill:active {
   --color-texto-secundario: var(--texto-secundario);
   --color-texto-terciario: var(--texto-terciario);
   --color-texto-inverso: var(--texto-inverso);
+  --color-texto-placeholder: var(--texto-placeholder);
   --color-texto-marca: var(--texto-marca);
 
   /* Superficies */

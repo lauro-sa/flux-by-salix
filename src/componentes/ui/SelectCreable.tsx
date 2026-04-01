@@ -137,7 +137,7 @@ export function SelectCreable({
                     if (e.key === 'Escape') { setAbierto(false); setBusqueda('') }
                   }}
                   placeholder="Buscar o crear..."
-                  className="w-full bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-terciario" />
+                  className="w-full bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-placeholder" />
               </div>
 
               {/* Opciones */}

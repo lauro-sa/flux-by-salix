@@ -118,7 +118,7 @@ const Input = forwardRef<HTMLInputElement, PropiedadesInput>(
             onFocus={(e) => { setEnfocado(true); rest.onFocus?.(e) }}
             onBlur={manejarBlur}
             onChange={manejarCambio}
-            className="flex-1 border-none outline-none bg-transparent text-texto-primario text-sm font-[inherit] leading-normal w-full placeholder:text-texto-terciario"
+            className="flex-1 border-none outline-none bg-transparent text-texto-primario text-sm font-[inherit] leading-normal w-full placeholder:text-texto-placeholder"
             {...rest}
           />
           {iconoDerechoFinal && <span className="text-texto-terciario shrink-0 flex items-center">{iconoDerechoFinal}</span>}

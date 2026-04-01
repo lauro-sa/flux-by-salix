@@ -82,7 +82,7 @@ const obtenerDatosPortal = cache(async (token: string): Promise<DatosPortal | nu
       admin.from('presupuestos').select('*').eq('id', portalToken.presupuesto_id).single(),
       admin.from('lineas_presupuesto').select('*').eq('presupuesto_id', portalToken.presupuesto_id).order('orden'),
       admin.from('presupuesto_cuotas').select('*').eq('presupuesto_id', portalToken.presupuesto_id).order('numero'),
-      admin.from('empresas').select('id, nombre, slug, logo_url, color_marca, descripcion, telefono, correo, pagina_web, ubicacion, datos_fiscales, datos_bancarios').eq('id', portalToken.empresa_id).single(),
+      admin.from('empresas').select('id, nombre, slug, logo_url, color_marca, descripcion, telefono, correo, pagina_web, ubicacion, direccion, datos_fiscales, datos_bancarios').eq('id', portalToken.empresa_id).single(),
       admin.from('config_presupuestos').select('datos_empresa_pdf, monedas').eq('empresa_id', portalToken.empresa_id).single(),
       admin.from('perfiles').select('nombre, apellido, correo, telefono').eq('id', portalToken.creado_por).single(),
     ])
@@ -180,7 +180,14 @@ const obtenerDatosPortal = cache(async (token: string): Promise<DatosPortal | nu
         telefono: empresa.telefono || null,
         correo: empresa.correo || null,
         pagina_web: empresa.pagina_web || null,
-        ubicacion: empresa.ubicacion || null,
+        ubicacion: (() => {
+          // Solo mostrar ciudad y país al cliente — nunca la dirección completa
+          const dir = empresa.direccion as { ciudad?: string; pais?: string } | null
+          if (dir?.ciudad || dir?.pais) {
+            return [dir.ciudad, dir.pais].filter(Boolean).join(', ')
+          }
+          return null
+        })(),
         datos_fiscales: empresa.datos_fiscales || null,
       },
       vendedor: {
