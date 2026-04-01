@@ -1036,16 +1036,8 @@ export default function EditorPresupuesto({
 
   // ─── Cálculos derivados ─────────────────────────────────────────────────
 
-  // Totales: en modo editar vienen del servidor, en modo crear se calculan localmente
+  // Totales: siempre se calculan desde las líneas para reflejar cambios en tiempo real
   const totales = (() => {
-    if (modo === 'editar' && presupuesto) {
-      return {
-        subtotal: parseFloat(presupuesto.subtotal_neto || '0'),
-        impuestos: parseFloat(presupuesto.total_impuestos || '0'),
-        total: parseFloat(presupuesto.total_final || '0'),
-      }
-    }
-    // Modo crear: cálculo local
     let subtotal = 0
     let impuestos = 0
     for (const l of lineas) {

@@ -12,6 +12,7 @@ import { Insignia, type ColorInsignia } from '@/componentes/ui/Insignia'
 import { Boton } from '@/componentes/ui/Boton'
 import { CargadorSeccion } from '@/componentes/ui/Cargador'
 import { Interruptor } from '@/componentes/ui/Interruptor'
+import { ModalRestablecer } from '@/componentes/ui/ModalRestablecer'
 
 // Colores disponibles para etiquetas
 const COLORES_ETIQUETA: { valor: string; etiqueta: string }[] = [
@@ -100,15 +101,22 @@ export default function PaginaConfiguracionContactos() {
     cargar()
   }, [cargar])
 
-  // Restablecer predefinidos
-  const restablecer = useCallback(async (tipo: string) => {
-    await fetch('/api/contactos/config/restablecer', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tipo }),
-    })
-    cargar()
-  }, [cargar])
+  // Modal de restablecer inteligente
+  const [modalRestablecer, setModalRestablecer] = useState<{ abierto: boolean; tipo: string; etiqueta: string }>({
+    abierto: false,
+    tipo: '',
+    etiqueta: '',
+  })
+
+  const abrirRestablecer = useCallback((tipo: string) => {
+    const etiquetas: Record<string, string> = {
+      etiqueta: 'etiquetas',
+      rubro: 'rubros',
+      puesto: 'puestos',
+      relacion: 'relaciones',
+    }
+    setModalRestablecer({ abierto: true, tipo, etiqueta: etiquetas[tipo] || tipo })
+  }, [])
 
   return (
     <PlantillaConfiguracion
@@ -137,7 +145,7 @@ export default function PaginaConfiguracionContactos() {
               onRename={(id, nombre) => actualizar('etiqueta', id, { nombre })}
               onChangeColor={(id, color) => actualizar('etiqueta', id, { color })}
               onDelete={(id) => eliminar('etiqueta', id)}
-              onRestablecer={() => restablecer('etiqueta')}
+              onRestablecer={() => abrirRestablecer('etiqueta')}
             />
           )}
           {seccionActiva === 'puestos' && (
@@ -151,7 +159,7 @@ export default function PaginaConfiguracionContactos() {
                 onToggle={(id, activo) => actualizar('puesto', id, { activo })}
                 onRename={(id, nombre) => actualizar('puesto', id, { nombre })}
                 onDelete={(id) => eliminar('puesto', id)}
-                onRestablecer={() => restablecer('puesto')}
+                onRestablecer={() => abrirRestablecer('puesto')}
               />
               <div className="border-t border-borde-sutil" />
               <SeccionLista
@@ -163,7 +171,7 @@ export default function PaginaConfiguracionContactos() {
                 onToggle={(id, activo) => actualizar('rubro', id, { activo })}
                 onRename={(id, nombre) => actualizar('rubro', id, { nombre })}
                 onDelete={(id) => eliminar('rubro', id)}
-                onRestablecer={() => restablecer('rubro')}
+                onRestablecer={() => abrirRestablecer('rubro')}
               />
             </div>
           )}
@@ -177,7 +185,7 @@ export default function PaginaConfiguracionContactos() {
               onToggle={(id, activo) => actualizar('relacion', id, { activo })}
               onRename={(id, nombre) => actualizar('relacion', id, { nombre })}
               onDelete={(id) => eliminar('relacion', id)}
-              onRestablecer={() => restablecer('relacion')}
+              onRestablecer={() => abrirRestablecer('relacion')}
             />
           )}
           {seccionActiva === 'copias' && (
@@ -188,6 +196,13 @@ export default function PaginaConfiguracionContactos() {
           )}
         </>
       )}
+      <ModalRestablecer
+        abierto={modalRestablecer.abierto}
+        onCerrar={() => setModalRestablecer(prev => ({ ...prev, abierto: false }))}
+        tipo={modalRestablecer.tipo}
+        etiquetaTipo={modalRestablecer.etiqueta}
+        onRestablecido={cargar}
+      />
     </PlantillaConfiguracion>
   )
 }
