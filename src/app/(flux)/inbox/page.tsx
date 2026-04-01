@@ -13,6 +13,7 @@ import {
   Plus, Pen, Columns2, Rows2, ArrowLeft, RefreshCw,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
+import { sonidos } from '@/hooks/useSonido'
 import { ErrorBoundary } from '@/componentes/feedback/ErrorBoundary'
 import { ListaConversaciones } from './_componentes/ListaConversaciones'
 import { PanelWhatsApp, VisorMedia, type MediaVisor } from './_componentes/PanelWhatsApp'
@@ -820,13 +821,34 @@ export default function PaginaInbox() {
           setMensajes(prev => {
             const idsServer = new Set(nuevos.map(m => m.id))
             // Mantener mensajes temporales que el server aún no conoce
-            const temporales = prev.filter(m => m.id.startsWith('temp-') && !idsServer.has(m.id))
+            // Un temp se considera "conocido" si un mensaje del server tiene el mismo texto
+            // y fue creado en los últimos 10 segundos (evita duplicados por timing)
+            const temporales = prev.filter(m => {
+              if (!m.id.startsWith('temp-')) return false
+              if (idsServer.has(m.id)) return false
+              // Si hay un mensaje del server con el mismo texto reciente, el temp ya no es necesario
+              const duplicadoEnServer = nuevos.some(n =>
+                n.texto === m.texto &&
+                n.remitente_id === m.remitente_id &&
+                Math.abs(new Date(n.creado_en).getTime() - new Date(m.creado_en).getTime()) < 15000
+              )
+              return !duplicadoEnServer
+            })
             const merged = [...nuevos, ...temporales]
             // Solo actualizar si hay cambios reales
             if (merged.length === prev.length && merged.every((m, i) =>
               m.id === prev[i]?.id && m.adjuntos.length === prev[i]?.adjuntos?.length
             )) return prev
-            ultimoMensajeRef.current = nuevos[nuevos.length - 1]?.id
+            // Sonar si hay mensajes nuevos entrantes que no teníamos
+            const ultimoAnterior = ultimoMensajeRef.current
+            const ultimoNuevo = nuevos[nuevos.length - 1]?.id
+            if (ultimoAnterior && ultimoNuevo && ultimoAnterior !== ultimoNuevo) {
+              const mensajeNuevo = nuevos[nuevos.length - 1]
+              if (mensajeNuevo?.es_entrante || (mensajeNuevo?.remitente_id && !mensajeNuevo.id.startsWith('temp-'))) {
+                sonidos.notificacion()
+              }
+            }
+            ultimoMensajeRef.current = ultimoNuevo
             return merged
           })
 
@@ -844,7 +866,8 @@ export default function PaginaInbox() {
       }
     }
 
-    // Polling cada 3 segundos
+    // Ejecutar poll inmediatamente + cada 3 segundos
+    poll()
     const intervalo = setInterval(poll, 3000)
 
     return () => {
