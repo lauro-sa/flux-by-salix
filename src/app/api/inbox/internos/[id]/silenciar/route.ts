@@ -15,9 +15,22 @@ export async function POST(
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
+    const empresaId = user.app_metadata?.empresa_activa_id
+    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
     const admin = crearClienteAdmin()
 
-    // Obtener estado actual
+    // Verificar que el canal pertenece a la empresa
+    const { data: canal } = await admin
+      .from('canales_internos')
+      .select('id')
+      .eq('id', id)
+      .eq('empresa_id', empresaId)
+      .maybeSingle()
+
+    if (!canal) return NextResponse.json({ error: 'Canal no encontrado' }, { status: 404 })
+
+    // Obtener estado actual de silenciado
     const { data: miembro } = await admin
       .from('canal_interno_miembros')
       .select('silenciado')

@@ -142,13 +142,19 @@ export async function POST(request: NextRequest) {
     // Para DMs, verificar si ya existe entre estos dos usuarios
     if (tipo === 'directo' && miembros.length === 1) {
       const participantes = [user.id, miembros[0]].sort()
-      const { data: existente } = await admin
+      // Buscar DM existente que contenga AMBOS participantes
+      const { data: candidatos } = await admin
         .from('canales_internos')
         .select('*')
         .eq('empresa_id', empresaId)
         .eq('tipo', 'directo')
         .contains('participantes_dm', participantes)
-        .single()
+
+      // Verificar igualdad exacta (contains solo chequea inclusión)
+      const existente = (candidatos || []).find(c => {
+        const dm = ((c.participantes_dm || []) as string[]).sort()
+        return dm.length === participantes.length && dm.every((v, i) => v === participantes[i])
+      })
 
       if (existente) {
         return NextResponse.json({ canal: existente })

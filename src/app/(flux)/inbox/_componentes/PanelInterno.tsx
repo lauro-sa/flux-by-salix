@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { CompositorMensaje, type DatosMensaje } from './CompositorMensaje'
 import { useTraduccion } from '@/lib/i18n'
+import { useToast } from '@/componentes/feedback/Toast'
 import type { MensajeConAdjuntos, CanalInterno, Conversacion } from '@/tipos/inbox'
 
 /**
@@ -33,6 +34,8 @@ interface PropiedadesPanelInterno {
   enviando: boolean
   /** ID del usuario actual para read receipts */
   usuarioId?: string
+  /** Callback para recargar la lista de canales (ej. al salir de un grupo) */
+  onRecargarCanales?: () => void
 }
 
 function formatoHoraInterno(fecha: string): string {
@@ -57,8 +60,10 @@ export function PanelInterno({
   cargando,
   enviando,
   usuarioId,
+  onRecargarCanales,
 }: PropiedadesPanelInterno) {
   const { t } = useTraduccion()
+  const { mostrar } = useToast()
   const [respondiendo, setRespondiendo] = useState<{ id: string; texto: string; autor: string } | null>(null)
   const [hiloAbierto, setHiloAbierto] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -86,27 +91,37 @@ export function PanelInterno({
       const res = await fetch(`/api/inbox/internos/${canalSeleccionado.id}/silenciar`, { method: 'POST' })
       const data = await res.json()
       if (data.silenciado !== undefined) {
-        // Forzar re-render del canal en la sidebar
         onSeleccionarCanal({ ...canalSeleccionado, silenciado: data.silenciado })
+        mostrar('exito', data.silenciado ? 'Canal silenciado' : 'Notificaciones activadas')
       }
-    } catch { /* silenciar */ }
+    } catch {
+      mostrar('error', 'Error al cambiar silencio')
+    }
     setMenuCanal(false)
-  }, [canalSeleccionado, onSeleccionarCanal])
+  }, [canalSeleccionado, onSeleccionarCanal, mostrar])
 
   // Salir del grupo
   const salirDelGrupo = useCallback(async () => {
     if (!canalSeleccionado || canalSeleccionado.tipo !== 'grupo') return
     if (!confirm('¿Querés salir de este grupo?')) return
     try {
-      await fetch(`/api/inbox/internos/${canalSeleccionado.id}/miembros`, {
+      const res = await fetch(`/api/inbox/internos/${canalSeleccionado.id}/miembros`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       })
-      // Recargar — el padre debería refrescar los canales
-      window.location.reload()
-    } catch { /* silenciar */ }
-  }, [canalSeleccionado])
+      if (res.ok) {
+        mostrar('exito', `Saliste de ${canalSeleccionado.nombre}`)
+        onRecargarCanales?.()
+      } else {
+        const data = await res.json()
+        mostrar('error', data.error || 'Error al salir del grupo')
+      }
+    } catch {
+      mostrar('error', 'Error de conexión')
+    }
+    setMenuCanal(false)
+  }, [canalSeleccionado, mostrar, onRecargarCanales])
 
   // Marcar como leído al seleccionar canal
   useEffect(() => {

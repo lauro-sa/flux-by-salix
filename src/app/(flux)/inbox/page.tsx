@@ -437,6 +437,7 @@ export default function PaginaInbox() {
   // Enviar mensaje con optimistic update (se muestra inmediato, si falla se marca error)
   const enviarMensaje = useCallback(async (datos: DatosMensaje) => {
     if (!conversacionSeleccionada) return
+    setEnviando(true)
 
     // ─── Optimistic update: mostrar el mensaje INMEDIATAMENTE ───
     const tempId = `temp-${Date.now()}`
@@ -600,6 +601,8 @@ export default function PaginaInbox() {
       setMensajes(prev => prev.map(m =>
         m.id === tempId ? { ...m, wa_status: 'failed', estado: 'fallido' as const } : m
       ))
+    } finally {
+      setEnviando(false)
     }
   }, [conversacionSeleccionada, supabase])
 
@@ -1346,6 +1349,7 @@ export default function PaginaInbox() {
                 cargando={cargandoMensajes}
                 enviando={enviando}
                 usuarioId={usuarioId}
+                onRecargarCanales={cargarCanalesInternos}
               />
             </ErrorBoundary>
             <ModalCrearCanalInterno
