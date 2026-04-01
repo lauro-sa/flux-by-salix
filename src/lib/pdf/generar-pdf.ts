@@ -204,6 +204,7 @@ export async function generarPdfPresupuesto(
     notas_html: presupuesto.notas_html, condiciones_html: presupuesto.condiciones_html,
     lineas: (lineas || []) as unknown as LineaPresupuesto[],
     cuotas: (cuotas || []) as unknown as CuotaPago[],
+    columnas_lineas: presupuesto.columnas_lineas || undefined,
   }
 
   const datosEmpresa: DatosEmpresa = {

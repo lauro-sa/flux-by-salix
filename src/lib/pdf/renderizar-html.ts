@@ -63,6 +63,7 @@ export interface DatosPresupuestoPdf {
   condiciones_html: string | null
   lineas: LineaPresupuesto[]
   cuotas: CuotaPago[]
+  columnas_lineas?: string[]
 }
 
 export interface DatosEmpresa {
@@ -217,6 +218,13 @@ function generarVariablesColor(colorMarca: string | null | undefined): Record<st
 
 // ─── Renderizado principal ───
 
+const COLUMNAS_TODAS = ['producto', 'descripcion', 'cantidad', 'unidad', 'precio_unitario', 'descuento', 'impuesto', 'subtotal']
+
+function calcularColspan(columnas: string[]): number {
+  // descripcion y subtotal siempre están, el resto es opcional
+  return columnas.filter(c => COLUMNAS_TODAS.includes(c)).length
+}
+
 export function renderizarHtml(
   presupuesto: DatosPresupuestoPdf,
   empresa: DatosEmpresa,
@@ -334,6 +342,17 @@ export function renderizarHtml(
     banco_titular: datosEmpPdf?.datos_bancarios?.titular || '',
     banco_cbu: datosEmpPdf?.datos_bancarios?.cbu || '',
     banco_alias: datosEmpPdf?.datos_bancarios?.alias || '',
+    // Columnas visibles en tabla de líneas
+    col_producto: (presupuesto.columnas_lineas || COLUMNAS_TODAS).includes('producto'),
+    col_descripcion: true, // siempre visible
+    col_cantidad: (presupuesto.columnas_lineas || COLUMNAS_TODAS).includes('cantidad'),
+    col_unidad: (presupuesto.columnas_lineas || COLUMNAS_TODAS).includes('unidad'),
+    col_precio_unitario: (presupuesto.columnas_lineas || COLUMNAS_TODAS).includes('precio_unitario'),
+    col_descuento: (presupuesto.columnas_lineas || COLUMNAS_TODAS).includes('descuento'),
+    col_impuesto: (presupuesto.columnas_lineas || COLUMNAS_TODAS).includes('impuesto'),
+    col_subtotal: true, // siempre visible
+    // Cantidad de columnas visibles para colspan
+    colspan_total: String(calcularColspan(presupuesto.columnas_lineas || COLUMNAS_TODAS)),
     mostrar_pie: !!pie,
     pie_linea_superior: pie?.linea_superior ?? true,
     pie_grosor_linea: String(pie?.grosor_linea || 1),
@@ -344,6 +363,9 @@ export function renderizarHtml(
     pie_centro: renderizarColumnaPie(pie?.columnas?.centro, pie?.tamano_texto),
     pie_derecha: renderizarColumnaPie(pie?.columnas?.derecha, pie?.tamano_texto),
   }
+
+  const cols = presupuesto.columnas_lineas || COLUMNAS_TODAS
+  const colspanTotal = String(calcularColspan(cols))
 
   const lineasLoop = presupuesto.lineas
     .sort((a, b) => a.orden - b.orden)
@@ -364,6 +386,14 @@ export function renderizarHtml(
       subtotal_formateado: formatearNumero(linea.subtotal),
       monto_formateado: formatearNumero(linea.monto || '0'),
       moneda_simbolo: simbolo,
+      // Columnas visibles (para condicionales dentro del loop)
+      col_producto: cols.includes('producto'),
+      col_cantidad: cols.includes('cantidad'),
+      col_unidad: cols.includes('unidad'),
+      col_precio_unitario: cols.includes('precio_unitario'),
+      col_descuento: cols.includes('descuento'),
+      col_impuesto: cols.includes('impuesto'),
+      colspan_total: colspanTotal,
     }))
 
   const impuestosLoop = desgloseImp.map(imp => ({

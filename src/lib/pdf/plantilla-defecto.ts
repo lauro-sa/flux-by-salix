@@ -385,25 +385,25 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
 <table class="tabla-lineas">
   <thead>
     <tr>
-      <th style="width:40%;">Descripción</th>
-      <th class="num" style="width:7%;">Cant.</th>
-      <th style="width:7%;">Unid.</th>
-      <th class="num" style="width:13%;">Precio Unit.</th>
-      <th class="num" style="width:7%;">Dto.</th>
-      <th style="width:11%;">Impuesto</th>
-      <th class="num" style="width:14%;">Importe</th>
+      <th>Descripción</th>
+      {{#if col_cantidad}}<th class="num">Cant.</th>{{/if}}
+      {{#if col_unidad}}<th>Unid.</th>{{/if}}
+      {{#if col_precio_unitario}}<th class="num">Precio Unit.</th>{{/if}}
+      {{#if col_descuento}}<th class="num">Dto.</th>{{/if}}
+      {{#if col_impuesto}}<th>Impuesto</th>{{/if}}
+      <th class="num">Importe</th>
     </tr>
   </thead>
   <tbody>
     {{#each lineas}}
       {{#if es_seccion}}
-        <tr class="linea-seccion"><td colspan="7">{descripcion}</td></tr>
+        <tr class="linea-seccion"><td colspan="{colspan_total}">{descripcion}</td></tr>
       {{/if}}
       {{#if es_nota}}
-        <tr class="linea-nota"><td colspan="7">{descripcion}</td></tr>
+        <tr class="linea-nota"><td colspan="{colspan_total}">{descripcion}</td></tr>
       {{/if}}
       {{#if es_descuento}}
-        <tr class="linea-nota"><td colspan="7">Descuento: {descripcion} -{moneda_simbolo} {monto_formateado}</td></tr>
+        <tr class="linea-nota"><td colspan="{colspan_total}">Descuento: {descripcion} -{moneda_simbolo} {monto_formateado}</td></tr>
       {{/if}}
       {{#if es_producto}}
         <tr>
@@ -412,11 +412,11 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
             {descripcion}
             {{#if descripcion_detalle}}<span class="desc-detalle">{descripcion_detalle}</span>{{/if}}
           </td>
-          <td class="num">{cantidad}</td>
-          <td>{unidad}</td>
-          <td class="num">{moneda_simbolo} {precio_unitario_formateado}</td>
-          <td class="num">{{#if tiene_descuento}}{descuento}%{{/if}}</td>
-          <td>{impuesto_label}</td>
+          {{#if col_cantidad}}<td class="num">{cantidad}</td>{{/if}}
+          {{#if col_unidad}}<td>{unidad}</td>{{/if}}
+          {{#if col_precio_unitario}}<td class="num">{moneda_simbolo} {precio_unitario_formateado}</td>{{/if}}
+          {{#if col_descuento}}<td class="num">{{#if tiene_descuento}}{descuento}%{{/if}}</td>{{/if}}
+          {{#if col_impuesto}}<td>{impuesto_label}</td>{{/if}}
           <td class="num">{moneda_simbolo} {subtotal_formateado}</td>
         </tr>
       {{/if}}
