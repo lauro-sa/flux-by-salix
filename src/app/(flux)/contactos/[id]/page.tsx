@@ -406,11 +406,12 @@ export default function PaginaContacto() {
     setDatosFiscales({})
   }, [camposFiscalesPais, claveTipo])
 
-  // Validación y auto-crear
+  // Validación y auto-crear (edificios necesitan nombre + dirección)
   const tieneNombre = nombreCompleto.trim().length > 0
-  const tieneDatoContacto = !!(
+  const tieneDireccion = direcciones.some(d => d.datos.calle.trim())
+  const tieneDatoContacto = (esEdificio && tieneDireccion) || !!(
     campos.correo?.trim() || campos.telefono?.trim() || campos.whatsapp?.trim() ||
-    direcciones.some(d => d.datos.calle.trim())
+    tieneDireccion
   )
   const puedeGuardar = esNuevo && tieneNombre && tieneDatoContacto && !!tipoContactoId && !guardando
 

@@ -1546,12 +1546,12 @@ export default function PaginaPerfilUsuario() {
                           {contactoEmergencia.telefono as string}
                         </div>
                       )}
-                      {contactoEmergencia.direccion && (
+                      {!!contactoEmergencia.direccion && (
                         <div className="flex items-center gap-2 text-sm text-texto-secundario pl-12">
                           <MapPin size={12} className="text-texto-terciario" />
                           {typeof contactoEmergencia.direccion === 'string'
                             ? contactoEmergencia.direccion
-                            : (contactoEmergencia.direccion as Record<string, unknown>)?.textoCompleto as string || ''}
+                            : String((contactoEmergencia.direccion as Record<string, unknown>)?.textoCompleto ?? '')}
                         </div>
                       )}
                     </div>

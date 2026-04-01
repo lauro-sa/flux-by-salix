@@ -541,13 +541,10 @@ export default function PaginaUsuarios() {
       (perfilesData || []).map(p => [p.id, p])
     )
 
-    // Cargar sectores de miembros
+    // Cargar sectores de miembros (vía API para evitar 406 de PostgREST)
     const miembroIds = miembrosData.map(m => m.id)
-    const { data: sectoresData } = await supabase
-      .from('miembros_sectores')
-      .select('miembro_id, sector_id')
-      .in('miembro_id', miembroIds)
-      .eq('es_primario', true)
+    const sectoresRes = await fetch(`/api/miembros-sectores?miembro_ids=${miembroIds.join(',')}&es_primario=true`)
+    const sectoresData: { miembro_id: string; sector_id: string }[] = sectoresRes.ok ? await sectoresRes.json() : []
 
     // Cargar nombres de sectores
     let sectoresMapa = new Map<string, string>()

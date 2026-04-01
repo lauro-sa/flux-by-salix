@@ -7,11 +7,72 @@ import { ChevronLeft, ChevronRight, Calendar, ChevronsLeft, ChevronsRight } from
 import { useFormato } from '@/hooks/useFormato'
 
 /**
- * SelectorFecha — DatePicker con calendario desplegable.
- * Muestra la fecha en el formato de la empresa (DD/MM/YYYY).
+ * SelectorFecha — DatePicker con calendario desplegable + input escribible.
+ * Permite escribir la fecha con autoformateo según config de empresa (DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD).
+ * También se puede seleccionar desde el calendario desplegable.
  * Guarda en formato ISO (YYYY-MM-DD) para la BD.
  * Se usa en: formularios, filtros de fecha, perfil de usuario.
  */
+
+/** Obtiene el separador y orden de segmentos según el formato de la empresa */
+function obtenerConfigFormato(formatoFecha: string) {
+  switch (formatoFecha) {
+    case 'MM/DD/YYYY': return { separador: '/', orden: ['MM', 'DD', 'YYYY'] as const, placeholder: 'MM/DD/AAAA' }
+    case 'YYYY-MM-DD': return { separador: '-', orden: ['YYYY', 'MM', 'DD'] as const, placeholder: 'AAAA-MM-DD' }
+    case 'DD/MM/YYYY':
+    default: return { separador: '/', orden: ['DD', 'MM', 'YYYY'] as const, placeholder: 'DD/MM/AAAA' }
+  }
+}
+
+/** Aplica máscara de fecha mientras el usuario escribe */
+function aplicarMascaraFecha(textoRaw: string, separador: string): string {
+  const soloDigitos = textoRaw.replace(/\D/g, '').slice(0, 8)
+  if (soloDigitos.length <= 2) return soloDigitos
+  if (soloDigitos.length <= 4) return soloDigitos.slice(0, 2) + separador + soloDigitos.slice(2)
+  return soloDigitos.slice(0, 2) + separador + soloDigitos.slice(2, 4) + separador + soloDigitos.slice(4)
+}
+
+/** Máscara especial para YYYY-MM-DD (año primero) */
+function aplicarMascaraFechaISO(textoRaw: string): string {
+  const soloDigitos = textoRaw.replace(/\D/g, '').slice(0, 8)
+  if (soloDigitos.length <= 4) return soloDigitos
+  if (soloDigitos.length <= 6) return soloDigitos.slice(0, 4) + '-' + soloDigitos.slice(4)
+  return soloDigitos.slice(0, 4) + '-' + soloDigitos.slice(4, 6) + '-' + soloDigitos.slice(6)
+}
+
+/** Parsea texto con formato a fecha ISO, retorna null si inválida */
+function parsearTextoAISO(texto: string, orden: readonly string[]): string | null {
+  const soloDigitos = texto.replace(/\D/g, '')
+  if (soloDigitos.length !== 8) return null
+
+  let dia: string, mes: string, anio: string
+
+  if (orden[0] === 'YYYY') {
+    anio = soloDigitos.slice(0, 4)
+    mes = soloDigitos.slice(4, 6)
+    dia = soloDigitos.slice(6, 8)
+  } else if (orden[0] === 'MM') {
+    mes = soloDigitos.slice(0, 2)
+    dia = soloDigitos.slice(2, 4)
+    anio = soloDigitos.slice(4, 8)
+  } else {
+    dia = soloDigitos.slice(0, 2)
+    mes = soloDigitos.slice(2, 4)
+    anio = soloDigitos.slice(4, 8)
+  }
+
+  const d = parseInt(dia, 10)
+  const m = parseInt(mes, 10)
+  const a = parseInt(anio, 10)
+
+  if (m < 1 || m > 12 || d < 1 || d > 31 || a < 1900 || a > 2100) return null
+
+  // Validar día real del mes
+  const fechaPrueba = new Date(a, m - 1, d)
+  if (fechaPrueba.getFullYear() !== a || fechaPrueba.getMonth() !== m - 1 || fechaPrueba.getDate() !== d) return null
+
+  return `${anio}-${mes}-${dia}`
+}
 
 interface PropiedadesSelectorFecha {
   /** Valor en formato ISO: YYYY-MM-DD */
@@ -40,7 +101,7 @@ function SelectorFecha({
   valor,
   onChange,
   etiqueta,
-  placeholder = 'Seleccionar fecha',
+  placeholder,
   error,
   disabled = false,
   limpiable = true,
@@ -52,8 +113,26 @@ function SelectorFecha({
   const [abierto, setAbierto] = useState(false)
   const [vista, setVista] = useState<'dias' | 'meses' | 'anios'>('dias')
   const ref = useRef<HTMLDivElement>(null)
-  const triggerRef = useRef<HTMLButtonElement>(null)
+  const triggerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const [posDropdown, setPosDropdown] = useState({ top: 0, left: 0 })
+
+  // Config de formato según empresa
+  const formatoFecha = useMemo(() => {
+    // Extraer formato de empresa — useFormato expone lo necesario
+    // Detectamos el formato actual comparando la salida
+    const prueba = fmt.fecha(new Date(2026, 0, 15)) // 15/01/2026 o 01/15/2026 o 2026-01-15
+    if (prueba.startsWith('2026')) return 'YYYY-MM-DD'
+    if (prueba.startsWith('01')) return 'MM/DD/YYYY'
+    return 'DD/MM/YYYY'
+  }, [fmt])
+
+  const configFmt = useMemo(() => obtenerConfigFormato(formatoFecha), [formatoFecha])
+  const placeholderReal = placeholder || configFmt.placeholder
+
+  // Estado del texto del input (lo que el usuario escribe)
+  const [textoInput, setTextoInput] = useState('')
+  const [editando, setEditando] = useState(false)
 
   // Fecha seleccionada parseada
   const fechaSeleccionada = useMemo(() => {
@@ -61,6 +140,13 @@ function SelectorFecha({
     const d = new Date(valor + 'T12:00:00')
     return isNaN(d.getTime()) ? null : d
   }, [valor])
+
+  // Sincronizar texto del input cuando cambia el valor externamente (y no estamos editando)
+  useEffect(() => {
+    if (!editando) {
+      setTextoInput(fechaSeleccionada ? fmt.fecha(fechaSeleccionada) : '')
+    }
+  }, [fechaSeleccionada, fmt, editando])
 
   // Mes/año que se está mostrando en el calendario
   const [mesVista, setMesVista] = useState(() => {
@@ -158,7 +244,9 @@ function SelectorFecha({
   const seleccionarDia = (dia: number) => {
     const mes = String(mesVista + 1).padStart(2, '0')
     const d = String(dia).padStart(2, '0')
-    onChange(`${anioVista}-${mes}-${d}`)
+    const iso = `${anioVista}-${mes}-${d}`
+    onChange(iso)
+    setEditando(false)
     setAbierto(false)
     setVista('dias')
   }
@@ -173,8 +261,52 @@ function SelectorFecha({
     else setMesVista(m => m + 1)
   }
 
-  // Texto a mostrar en el input
-  const textoMostrar = fechaSeleccionada ? fmt.fecha(fechaSeleccionada) : ''
+  // Manejar escritura en el input
+  const manejarCambioInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value
+    const mascara = formatoFecha === 'YYYY-MM-DD'
+      ? aplicarMascaraFechaISO(raw)
+      : aplicarMascaraFecha(raw, configFmt.separador)
+    setTextoInput(mascara)
+
+    // Si tiene 8 dígitos, intentar parsear y aplicar
+    const iso = parsearTextoAISO(mascara, configFmt.orden)
+    if (iso) {
+      onChange(iso)
+    }
+  }
+
+  const manejarFocoInput = () => {
+    setEditando(true)
+    if (!abierto) setAbierto(true)
+  }
+
+  const manejarBlurInput = () => {
+    setEditando(false)
+    // Si el texto no es una fecha válida completa, revertir al valor actual
+    const iso = parsearTextoAISO(textoInput, configFmt.orden)
+    if (!iso && textoInput.replace(/\D/g, '').length > 0) {
+      // Texto parcial/inválido — revertir
+      setTextoInput(fechaSeleccionada ? fmt.fecha(fechaSeleccionada) : '')
+    }
+  }
+
+  const manejarTeclaInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const iso = parsearTextoAISO(textoInput, configFmt.orden)
+      if (iso) {
+        onChange(iso)
+        setAbierto(false)
+        inputRef.current?.blur()
+      }
+    }
+    if (e.key === 'Escape') {
+      setAbierto(false)
+      setEditando(false)
+      setTextoInput(fechaSeleccionada ? fmt.fecha(fechaSeleccionada) : '')
+      inputRef.current?.blur()
+    }
+  }
 
   return (
     <div className={`flex flex-col w-full ${className}`}>
@@ -184,32 +316,47 @@ function SelectorFecha({
         </label>
       )}
 
-      {/* Input trigger */}
-      <button
+      {/* Input escribible con ícono de calendario */}
+      <div
         ref={triggerRef}
-        type="button"
-        disabled={disabled}
-        onClick={() => { if (!disabled) setAbierto(!abierto) }}
         className={[
-          'flex items-center gap-2 px-3 py-2 rounded-md border text-sm text-left cursor-pointer transition-all w-full',
+          'flex items-center gap-2 px-3 py-2 rounded-md border text-sm transition-all w-full',
           'bg-superficie-tarjeta',
           disabled ? 'opacity-50 cursor-not-allowed' : '',
           error ? 'border-insignia-peligro' : abierto ? 'border-borde-foco shadow-foco' : 'border-borde-fuerte hover:border-borde-foco',
         ].join(' ')}
       >
-        <Calendar size={15} className="text-texto-terciario shrink-0" />
-        <span className={textoMostrar ? 'text-texto-primario flex-1' : 'text-texto-terciario flex-1'}>
-          {textoMostrar || placeholder}
-        </span>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => { if (!disabled) { setAbierto(!abierto); if (!abierto) inputRef.current?.focus() } }}
+          className="shrink-0 bg-transparent border-none cursor-pointer p-0 text-texto-terciario hover:text-texto-secundario transition-colors"
+          tabIndex={-1}
+        >
+          <Calendar size={15} />
+        </button>
+        <input
+          ref={inputRef}
+          type="text"
+          inputMode="numeric"
+          disabled={disabled}
+          value={textoInput}
+          placeholder={placeholderReal}
+          onChange={manejarCambioInput}
+          onFocus={manejarFocoInput}
+          onBlur={manejarBlurInput}
+          onKeyDown={manejarTeclaInput}
+          className="flex-1 bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-terciario tabular-nums"
+        />
         {limpiable && valor && !disabled && (
           <span
-            onClick={(e) => { e.stopPropagation(); onChange(null) }}
-            className="text-texto-terciario hover:text-texto-secundario text-xs"
+            onClick={() => { onChange(null); setTextoInput('') }}
+            className="text-texto-terciario hover:text-texto-secundario text-xs cursor-pointer shrink-0"
           >
             ✕
           </span>
         )}
-      </button>
+      </div>
 
       {error && <span className="text-xs text-insignia-peligro mt-1">{error}</span>}
 

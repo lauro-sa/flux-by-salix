@@ -1,16 +1,37 @@
 {
   "functions": {
     "src/app/api/inbox/whatsapp/webhook/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 120
     },
     "src/app/api/inbox/correo/sincronizar/route.ts": {
+      "maxDuration": 120
+    },
+    "src/app/api/inbox/agente-ia/ejecutar/route.ts": {
+      "maxDuration": 120
+    },
+    "src/app/api/presupuestos/asistente/route.ts": {
+      "maxDuration": 120
+    },
+    "src/app/api/contactos/importar/route.ts": {
+      "maxDuration": 120
+    },
+    "src/app/api/contactos/exportar/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/contactos/backup/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/integraciones/google-drive/sincronizar/route.ts": {
+      "maxDuration": 120
+    },
+    "src/app/api/inbox/agente-ia/base-conocimiento/importar-archivo/route.ts": {
       "maxDuration": 60
     }
   },
   "crons": [
     {
       "path": "/api/cron/sincronizar-correo",
-      "schedule": "0 6 * * *"
+      "schedule": "*/3 * * * *"
     },
     {
       "path": "/api/cron/limpiar-adjuntos",
@@ -18,7 +39,7 @@
     },
     {
       "path": "/api/cron/enviar-programados",
-      "schedule": "0 7 * * *"
+      "schedule": "* * * * *"
     },
     {
       "path": "/api/cron/actividades-vencimientos",
@@ -26,7 +47,7 @@
     },
     {
       "path": "/api/cron/recordatorios",
-      "schedule": "0 8 * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/cumpleanios",

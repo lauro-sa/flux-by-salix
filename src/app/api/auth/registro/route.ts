@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     // Crear perfil con el service role (bypass RLS)
     const { error: errorPerfil } = await admin
       .from('perfiles')
-      .insert({ id: userId, nombre, apellido })
+      .insert({ id: userId, nombre, apellido, correo: correoNormalizado })
 
     if (errorPerfil) {
       console.error('Error creando perfil:', errorPerfil)

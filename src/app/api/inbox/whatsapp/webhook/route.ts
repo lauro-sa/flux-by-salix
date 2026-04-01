@@ -10,7 +10,7 @@ import {
 } from '@/lib/whatsapp'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60 // Necesario para descargar archivos grandes de Meta
+export const maxDuration = 120 // Descargar archivos grandes de Meta + procesar agente IA
 
 // Cliente admin inline — el webhook es público, no pasa por auth
 function crearAdmin() {

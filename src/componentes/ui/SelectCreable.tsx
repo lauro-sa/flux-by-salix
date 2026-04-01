@@ -22,8 +22,8 @@ interface PropiedadesSelectCreable {
   etiqueta?: string
   /** Callback al seleccionar */
   onChange: (valor: string) => void
-  /** Callback al crear nuevo (retorna true si se creó bien) */
-  onCrear?: (nombre: string) => Promise<boolean>
+  /** Callback al crear nuevo. Retorna true/false, o un string con el valor formateado a usar */
+  onCrear?: (nombre: string) => Promise<boolean | string>
   /** Variante visual */
   variante?: 'default' | 'plano'
   /** Texto del botón crear (ej: "Crear etiqueta", "Crear rubro") */
@@ -82,9 +82,11 @@ export function SelectCreable({
   const crearNuevo = useCallback(async () => {
     if (!onCrear || !busqueda.trim() || creando) return
     setCreando(true)
-    const ok = await onCrear(busqueda.trim())
-    if (ok) {
-      onChange(busqueda.trim())
+    const resultado = await onCrear(busqueda.trim())
+    if (resultado) {
+      // Si onCrear devuelve string, usarlo como valor (nombre formateado por el servidor)
+      const valorFinal = typeof resultado === 'string' ? resultado : busqueda.trim()
+      onChange(valorFinal)
       setAbierto(false)
       setBusqueda('')
     }

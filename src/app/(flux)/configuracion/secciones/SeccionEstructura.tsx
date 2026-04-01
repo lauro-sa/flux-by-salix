@@ -345,18 +345,18 @@ export function SeccionEstructura() {
     if (!empresa) return
     setCargando(true)
 
-    const [sectoresRes, puestosRes, miembrosRes, asignacionesRes, horariosRes] = await Promise.all([
+    const [sectoresRes, puestosRes, miembrosRes, horariosRes, asignacionesRes] = await Promise.all([
       supabase.from('sectores').select('*').eq('empresa_id', empresa.id).order('orden'),
       supabase.from('puestos').select('*').eq('empresa_id', empresa.id).order('orden'),
       supabase.from('miembros').select('id, usuario_id, perfiles(nombre, apellido)').eq('empresa_id', empresa.id),
-      supabase.from('miembros_sectores').select('sector_id, miembro_id'),
       supabase.from('horarios').select('*').eq('empresa_id', empresa.id).order('dia_semana'),
+      fetch('/api/miembros-sectores').then(r => r.ok ? r.json() : []),
     ])
 
     setSectores(sectoresRes.data || [])
     setPuestos(puestosRes.data || [])
     setHorarios(horariosRes.data || [])
-    setAsignaciones(asignacionesRes.data || [])
+    setAsignaciones(asignacionesRes || [])
 
     // Mapear miembros con perfiles (query separada porque el join falla)
     if (miembrosRes.data) {
@@ -447,10 +447,12 @@ export function SeccionEstructura() {
       .update({ padre_id: modalEliminar.padre_id })
       .eq('padre_id', modalEliminar.id)
 
-    // Desasignar miembros de este sector
-    await supabase.from('miembros_sectores')
-      .delete()
-      .eq('sector_id', modalEliminar.id)
+    // Desasignar miembros de este sector (vía API)
+    await fetch('/api/miembros-sectores', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sector_id: modalEliminar.id }),
+    })
 
     // Eliminar sector
     await supabase.from('sectores').delete().eq('id', modalEliminar.id)
@@ -974,7 +976,11 @@ export function SeccionEstructura() {
           setGuardando(true)
 
           // Eliminar todos los sectores actuales
-          await supabase.from('miembros_sectores').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+          await fetch('/api/miembros-sectores', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ all: true }),
+          })
           await supabase.from('sectores').delete().eq('empresa_id', empresa.id)
           await supabase.from('puestos').delete().eq('empresa_id', empresa.id)
 

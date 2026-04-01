@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
     const canal_id = params.get('canal_id')
     const busqueda = params.get('busqueda') || ''
     const enviados = params.get('enviados') === 'true'
+    const soloNoLeidos = params.get('no_leidos') === 'true'
     const pagina = parseInt(params.get('pagina') || '1')
     const por_pagina = Math.min(parseInt(params.get('por_pagina') || '500'), 500)
     const desde = (pagina - 1) * por_pagina
@@ -70,6 +71,11 @@ export async function GET(request: NextRequest) {
     // Filtro enviados: solo conversaciones donde el último mensaje es saliente
     if (enviados) {
       query = query.eq('ultimo_mensaje_es_entrante', false)
+    }
+
+    // Filtro no leídos: solo conversaciones con mensajes sin leer
+    if (soloNoLeidos) {
+      query = query.gt('mensajes_sin_leer', 0)
     }
 
     if (asignado_a === 'sin_asignar') {

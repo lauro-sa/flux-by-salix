@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { normalizarAcentos } from '@/lib/validaciones'
 
 /**
  * GET /api/contactos/buscar?q=texto — Búsqueda rápida de contactos por nombre o email.
@@ -21,11 +22,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ contactos: [] })
     }
 
+    const qNorm = normalizarAcentos(q)
     const { data: contactos } = await supabase
       .from('contactos')
       .select('id, nombre, apellido, correo')
       .eq('empresa_id', empresaId)
-      .or(`nombre.ilike.%${q}%,apellido.ilike.%${q}%,correo.ilike.%${q}%`)
+      .or(`nombre.ilike.%${qNorm}%,apellido.ilike.%${qNorm}%,correo.ilike.%${qNorm}%`)
       .not('correo', 'is', null)
       .limit(10)
 

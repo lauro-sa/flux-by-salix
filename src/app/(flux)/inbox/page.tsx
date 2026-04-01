@@ -66,6 +66,7 @@ export default function PaginaInbox() {
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<EstadoConversacion | 'todas'>('todas')
   const [filtroEtiqueta, setFiltroEtiqueta] = useState('')
+  const [soloNoLeidos, setSoloNoLeidos] = useState(false)
   const [cargandoConversaciones, setCargandoConversaciones] = useState(false)
 
   // Mensajes
@@ -229,6 +230,7 @@ export default function PaginaInbox() {
 
       if (busquedaRef.current) params.set('busqueda', busquedaRef.current)
       if (filtroEtiqueta) params.set('etiqueta', filtroEtiqueta)
+      if (soloNoLeidos) params.set('no_leidos', 'true')
 
       const res = await fetch(`/api/inbox/conversaciones?${params}`)
       const data = await res.json()
@@ -238,7 +240,7 @@ export default function PaginaInbox() {
     } finally {
       setCargandoConversaciones(false)
     }
-  }, [tabActivo, filtroEstado, filtroEtiqueta, carpetaCorreo, canalCorreoActivo, canalTodas, canalesCorreo.length])
+  }, [tabActivo, filtroEstado, filtroEtiqueta, soloNoLeidos, carpetaCorreo, canalCorreoActivo, canalTodas, canalesCorreo.length])
 
   useEffect(() => {
     cargarConversaciones()
@@ -859,6 +861,7 @@ export default function PaginaInbox() {
             setTabActivo(clave as TipoCanal)
             setConversacionSeleccionada(null)
             setMensajes([])
+            setSoloNoLeidos(false)
           }}
         />
 
@@ -1000,6 +1003,8 @@ export default function PaginaInbox() {
                         cargando={cargandoConversaciones}
                         totalNoLeidos={totalNoLeidos}
                         onEliminarSeleccion={eliminarMultiples}
+                        soloNoLeidos={soloNoLeidos}
+                        onToggleNoLeidos={() => setSoloNoLeidos(prev => !prev)}
                       />
                     </div>
                   )}
@@ -1130,6 +1135,8 @@ export default function PaginaInbox() {
                         cargando={cargandoConversaciones}
                         totalNoLeidos={totalNoLeidos}
                         onEliminarSeleccion={eliminarMultiples}
+                        soloNoLeidos={soloNoLeidos}
+                        onToggleNoLeidos={() => setSoloNoLeidos(prev => !prev)}
                       />
                     </div>
                   )}
@@ -1157,6 +1164,8 @@ export default function PaginaInbox() {
                 cargando={cargandoConversaciones}
                 totalNoLeidos={totalNoLeidos}
                 onEliminarSeleccion={eliminarMultiples}
+                soloNoLeidos={soloNoLeidos}
+                onToggleNoLeidos={() => setSoloNoLeidos(prev => !prev)}
                 onOperacionMasiva={async (accion, ids) => {
                   const admin = async (cambios: Record<string, unknown>) => {
                     await Promise.all(ids.map(id =>

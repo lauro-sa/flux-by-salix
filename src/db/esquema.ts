@@ -29,6 +29,7 @@ export const perfiles = pgTable('perfiles', {
   apellido: text('apellido').notNull(),
   avatar_url: text('avatar_url'),
   telefono: text('telefono'),
+  correo: text('correo'),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
   contacto_emergencia: jsonb('contacto_emergencia'),
@@ -1548,6 +1549,16 @@ export const educacion_usuario = pgTable('educacion_usuario', {
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
 }, (tabla) => [
   index('educacion_usuario_miembro_idx').on(tabla.miembro_id),
+])
+
+// Catálogo de bancos por empresa — se crean al usarlos y se reutilizan entre miembros
+export const bancos = pgTable('bancos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  nombre: text('nombre').notNull(),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('bancos_empresa_idx').on(tabla.empresa_id),
 ])
 
 // Información bancaria de miembros

@@ -151,22 +151,24 @@ export default function PaginaMiCuenta() {
           if (puesto) setPuestoNombre(puesto.nombre)
         }
 
-        /* Sector */
-        const { data: ms } = await supabase
-          .from('miembros_sectores').select('sector_id')
-          .eq('miembro_id', miembro.id).eq('es_primario', true).single()
-        if (ms) {
-          const { data: sector } = await supabase
-            .from('sectores').select('nombre').eq('id', ms.sector_id).single()
-          if (sector) setSectorNombre(sector.nombre)
+        /* Sector (vía API para evitar 406 de PostgREST) */
+        const sectorRes = await fetch(`/api/miembros/${miembro.id}/sector`)
+        if (sectorRes.ok) {
+          const sectorData = await sectorRes.json()
+          if (sectorData?.sector_id) {
+            const { data: sector } = await supabase
+              .from('sectores').select('nombre').eq('id', sectorData.sector_id).single()
+            if (sector) setSectorNombre(sector.nombre)
+          }
         }
 
-        /* Contacto de emergencia */
-        const { data: ce } = await supabase
-          .from('contactos_emergencia').select('nombre, relacion, telefono')
-          .eq('miembro_id', miembro.id).single()
-        if (ce) {
-          setEmergencia({ nombre: ce.nombre || '', telefono: ce.telefono || '', relacion: ce.relacion || '' })
+        /* Contacto de emergencia (vía API para evitar 406 de PostgREST) */
+        const emergenciaRes = await fetch(`/api/miembros/${miembro.id}/emergencia`)
+        if (emergenciaRes.ok) {
+          const ce = await emergenciaRes.json()
+          if (ce) {
+            setEmergencia({ nombre: ce.nombre || '', telefono: ce.telefono || '', relacion: ce.relacion || '' })
+          }
         }
       }
 
@@ -189,16 +191,12 @@ export default function PaginaMiCuenta() {
 
   const guardarEmergenciaFn = useCallback(async (datos: { nombre: string; telefono: string; relacion: string }) => {
     if (!miembroId) return false
-    const supabase = crearClienteNavegador()
-
-    const { data: existente } = await supabase
-      .from('contactos_emergencia').select('id').eq('miembro_id', miembroId).single()
-
-    const resultado = existente
-      ? await supabase.from('contactos_emergencia').update(datos).eq('miembro_id', miembroId)
-      : await supabase.from('contactos_emergencia').insert({ miembro_id: miembroId, ...datos })
-
-    if (!resultado.error) {
+    const res = await fetch(`/api/miembros/${miembroId}/emergencia`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(datos),
+    })
+    if (res.ok) {
       setEmergencia({ ...datos })
       return true
     }

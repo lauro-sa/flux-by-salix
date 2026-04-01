@@ -40,6 +40,9 @@ interface PropiedadesListaConversaciones {
   onFiltroEtiqueta?: (etiqueta: string) => void
   // Operaciones masivas
   onOperacionMasiva?: (accion: 'marcar_leido' | 'marcar_no_leido' | 'cerrar' | 'asignar', ids: string[]) => void
+  // Filtro no leídos
+  soloNoLeidos?: boolean
+  onToggleNoLeidos?: () => void
 }
 
 // Iconos de canal
@@ -88,6 +91,8 @@ export function ListaConversaciones({
   filtroEtiqueta,
   onFiltroEtiqueta,
   onOperacionMasiva,
+  soloNoLeidos,
+  onToggleNoLeidos,
 }: PropiedadesListaConversaciones) {
   const { t } = useTraduccion()
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
@@ -193,6 +198,21 @@ export function ListaConversaciones({
               )}
             </div>
             <div className="flex items-center gap-1">
+              {onToggleNoLeidos && (
+                <button
+                  onClick={onToggleNoLeidos}
+                  className="px-2 py-0.5 rounded-full text-xxs font-medium transition-colors flex items-center gap-1"
+                  style={{
+                    color: soloNoLeidos ? 'var(--insignia-exito-texto, var(--texto-marca))' : 'var(--texto-terciario)',
+                    background: soloNoLeidos ? 'var(--insignia-exito-fondo, var(--superficie-seleccionada))' : 'transparent',
+                    border: soloNoLeidos ? 'none' : '1px solid var(--borde-sutil)',
+                  }}
+                  title={soloNoLeidos ? 'Mostrar todos' : 'Solo no leídos'}
+                >
+                  <Circle size={8} fill={soloNoLeidos ? 'currentColor' : 'none'} />
+                  No leídos
+                </button>
+              )}
               {onEliminarSeleccion && (
                 <button
                   onClick={() => setModoSeleccion(true)}

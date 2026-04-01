@@ -6,11 +6,48 @@ import { Clock, ChevronUp, ChevronDown } from 'lucide-react'
 import { useFormato } from '@/hooks/useFormato'
 
 /**
- * SelectorHora — TimePicker con selectores de hora y minuto.
+ * SelectorHora — TimePicker con selectores de hora/minuto + input escribible.
+ * Permite escribir la hora con autoformateo (HH:MM para 24h, HH:MM AM/PM para 12h).
  * Respeta el formato de hora de la empresa (12h/24h).
  * Valor interno siempre en formato 24h: "HH:mm".
  * Se usa en: horarios, turnos, configuración laboral.
  */
+
+/** Aplica máscara de hora mientras el usuario escribe */
+function aplicarMascaraHora(textoRaw: string): string {
+  const soloDigitos = textoRaw.replace(/\D/g, '').slice(0, 4)
+  if (soloDigitos.length <= 2) return soloDigitos
+  return soloDigitos.slice(0, 2) + ':' + soloDigitos.slice(2)
+}
+
+/** Parsea texto de hora a formato 24h "HH:mm", retorna null si inválido */
+function parsearTextoAHora24(texto: string, es12h: boolean): string | null {
+  // Extraer dígitos
+  const soloDigitos = texto.replace(/[^0-9]/g, '')
+  if (soloDigitos.length < 3 || soloDigitos.length > 4) return null
+
+  const h = parseInt(soloDigitos.slice(0, soloDigitos.length - 2), 10)
+  const m = parseInt(soloDigitos.slice(-2), 10)
+
+  if (m < 0 || m > 59) return null
+
+  if (es12h) {
+    const textoUpper = texto.toUpperCase()
+    const esAM = textoUpper.includes('A')
+    const esPM = textoUpper.includes('P')
+    if (!esAM && !esPM) return null
+    if (h < 1 || h > 12) return null
+
+    let hora24 = h
+    if (esAM && h === 12) hora24 = 0
+    else if (esPM && h !== 12) hora24 = h + 12
+
+    return `${String(hora24).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  }
+
+  if (h < 0 || h > 23) return null
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
 
 interface PropiedadesSelectorHora {
   /** Valor en formato "HH:mm" (24h) */
@@ -29,7 +66,7 @@ function SelectorHora({
   valor,
   onChange,
   etiqueta,
-  placeholder = 'Seleccionar hora',
+  placeholder,
   error,
   disabled = false,
   pasoMinutos = 5,
@@ -39,6 +76,9 @@ function SelectorHora({
   const es12h = fmt.formatoHora === '12h'
   const [abierto, setAbierto] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const placeholderReal = placeholder || (es12h ? 'HH:MM AM' : 'HH:MM')
 
   // Parsear valor
   const { hora, minuto } = useMemo(() => {
@@ -50,10 +90,22 @@ function SelectorHora({
   const [horaLocal, setHoraLocal] = useState(hora)
   const [minutoLocal, setMinutoLocal] = useState(minuto)
 
+  // Estado del input escribible
+  const [textoInput, setTextoInput] = useState('')
+  const [editando, setEditando] = useState(false)
+
   useEffect(() => {
     setHoraLocal(hora)
     setMinutoLocal(minuto)
   }, [hora, minuto])
+
+  // Sincronizar texto cuando cambia el valor externamente
+  useEffect(() => {
+    if (!editando) {
+      setTextoInput(valor ? formatearHora(hora, minuto) : '')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hora, minuto, valor, editando])
 
   // Cerrar al click afuera
   useEffect(() => {
@@ -105,7 +157,63 @@ function SelectorHora({
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
   }
 
-  const textoMostrar = valor ? formatearHora(hora, minuto) : ''
+  // Manejar escritura en el input
+  const manejarCambioHoraInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let raw = e.target.value
+
+    if (es12h) {
+      // Permitir letras A, M, P al final para AM/PM
+      const letras = raw.replace(/[^AaMmPp]/g, '').toUpperCase()
+      const digitos = raw.replace(/\D/g, '').slice(0, 4)
+      let mascara = ''
+      if (digitos.length <= 2) mascara = digitos
+      else mascara = digitos.slice(0, 2) + ':' + digitos.slice(2)
+
+      // Agregar AM/PM si el usuario está escribiendo las letras
+      if (letras.includes('A')) mascara += ' AM'
+      else if (letras.includes('P')) mascara += ' PM'
+
+      setTextoInput(mascara)
+    } else {
+      setTextoInput(aplicarMascaraHora(raw))
+    }
+
+    // Intentar parsear
+    const hora24 = parsearTextoAHora24(es12h ? raw : aplicarMascaraHora(raw), es12h)
+    if (hora24) {
+      onChange(hora24)
+    }
+  }
+
+  const manejarFocoHoraInput = () => {
+    setEditando(true)
+    if (!abierto) setAbierto(true)
+  }
+
+  const manejarBlurHoraInput = () => {
+    setEditando(false)
+    const hora24 = parsearTextoAHora24(textoInput, es12h)
+    if (!hora24 && textoInput.replace(/\D/g, '').length > 0) {
+      setTextoInput(valor ? formatearHora(hora, minuto) : '')
+    }
+  }
+
+  const manejarTeclaHoraInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const hora24 = parsearTextoAHora24(textoInput, es12h)
+      if (hora24) {
+        onChange(hora24)
+        setAbierto(false)
+        inputRef.current?.blur()
+      }
+    }
+    if (e.key === 'Escape') {
+      setAbierto(false)
+      setEditando(false)
+      setTextoInput(valor ? formatearHora(hora, minuto) : '')
+      inputRef.current?.blur()
+    }
+  }
 
   // Horas rápidas predefinidas
   const horasRapidas = [
@@ -122,23 +230,38 @@ function SelectorHora({
         </label>
       )}
 
-      {/* Input trigger */}
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => { if (!disabled) setAbierto(!abierto) }}
+      {/* Input escribible con ícono de reloj */}
+      <div
         className={[
-          'flex items-center gap-2 px-3 py-2 rounded-md border text-sm text-left cursor-pointer transition-all w-full',
+          'flex items-center gap-2 px-3 py-2 rounded-md border text-sm transition-all w-full',
           'bg-superficie-tarjeta',
           disabled ? 'opacity-50 cursor-not-allowed' : '',
           error ? 'border-insignia-peligro' : abierto ? 'border-borde-foco shadow-foco' : 'border-borde-fuerte hover:border-borde-foco',
         ].join(' ')}
       >
-        <Clock size={15} className="text-texto-terciario shrink-0" />
-        <span className={textoMostrar ? 'text-texto-primario flex-1' : 'text-texto-terciario flex-1'}>
-          {textoMostrar || placeholder}
-        </span>
-      </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => { if (!disabled) { setAbierto(!abierto); if (!abierto) inputRef.current?.focus() } }}
+          className="shrink-0 bg-transparent border-none cursor-pointer p-0 text-texto-terciario hover:text-texto-secundario transition-colors"
+          tabIndex={-1}
+        >
+          <Clock size={15} />
+        </button>
+        <input
+          ref={inputRef}
+          type="text"
+          inputMode={es12h ? 'text' : 'numeric'}
+          disabled={disabled}
+          value={textoInput}
+          placeholder={placeholderReal}
+          onChange={manejarCambioHoraInput}
+          onFocus={manejarFocoHoraInput}
+          onBlur={manejarBlurHoraInput}
+          onKeyDown={manejarTeclaHoraInput}
+          className="flex-1 bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-terciario tabular-nums"
+        />
+      </div>
 
       {error && <span className="text-xs text-insignia-peligro mt-1">{error}</span>}
 

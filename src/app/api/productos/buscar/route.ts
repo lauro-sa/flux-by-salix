@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-import { sanitizarBusqueda } from '@/lib/validaciones'
+import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 
 /**
  * GET /api/productos/buscar?q=texto — Búsqueda rápida de productos para autocompletado.
@@ -30,11 +30,12 @@ export async function GET(request: NextRequest) {
       .limit(8)
 
     if (q.trim()) {
+      const qNorm = normalizarAcentos(q)
       if (q.length <= 2) {
-        query = query.or(`codigo.ilike.%${q}%,nombre.ilike.%${q}%,referencia_interna.ilike.%${q}%`)
+        query = query.or(`codigo.ilike.%${qNorm}%,nombre.ilike.%${qNorm}%,referencia_interna.ilike.%${qNorm}%`)
       } else {
-        const terminos = q.trim().split(/\s+/).map(t => `${t}:*`).join(' & ')
-        query = query.textSearch('busqueda', terminos, { config: 'spanish' })
+        const terminos = qNorm.trim().split(/\s+/).map(t => `${t}:*`).join(' & ')
+        query = query.textSearch('busqueda', terminos, { config: 'spanish_unaccent' })
       }
     }
 

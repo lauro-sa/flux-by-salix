@@ -596,6 +596,8 @@ export default function PaginaContactos() {
         idModulo="contactos"
         columnasVisiblesDefault={COLUMNAS_VISIBLES_DEFAULT}
         opcionesOrden={[
+          { etiqueta: t('comun.codigo') + ' ↓', clave: 'codigo', direccion: 'desc' },
+          { etiqueta: t('comun.codigo') + ' ↑', clave: 'codigo', direccion: 'asc' },
           { etiqueta: t('comun.mas_recientes'), clave: 'creado_en', direccion: 'desc' },
           { etiqueta: t('comun.mas_antiguos'), clave: 'creado_en', direccion: 'asc' },
           { etiqueta: t('comun.nombre_az'), clave: 'nombre', direccion: 'asc' },
