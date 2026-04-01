@@ -340,6 +340,7 @@ export function PanelInterno({
                       key={msg.id}
                       mensaje={msg}
                       esPropio={msg.remitente_id === usuarioId}
+                      esDM={canalSeleccionado?.tipo === 'directo'}
                       onResponder={() => setRespondiendo({
                         id: msg.id,
                         texto: msg.texto || '',
@@ -357,7 +358,7 @@ export function PanelInterno({
               tipoCanal="interno"
               onEnviar={onEnviar}
               cargando={enviando}
-              placeholder={`Mensaje en #${canalSeleccionado.nombre}...`}
+              placeholder={canalSeleccionado.tipo === 'directo' ? `Mensaje a ${canalSeleccionado.nombre}...` : `Mensaje en #${canalSeleccionado.nombre}...`}
               respondiendo={respondiendo}
               onCancelarRespuesta={() => setRespondiendo(null)}
             />
@@ -447,15 +448,17 @@ function CanalItem({
   )
 }
 
-// Mensaje individual estilo Slack con read receipts
+// Mensaje individual — estilo Slack para canales/grupos, estilo chat para DMs
 function MensajeInterno({
   mensaje,
   esPropio = false,
+  esDM = false,
   onResponder,
   onAbrirHilo,
 }: {
   mensaje: MensajeConAdjuntos
   esPropio?: boolean
+  esDM?: boolean
   onResponder: () => void
   onAbrirHilo: () => void
 }) {
@@ -477,6 +480,82 @@ function MensajeInterno({
     } catch { /* silenciar */ }
   }, [mensaje.id, lecturas])
 
+  // ─── Modo DM: burbujas estilo WhatsApp ───
+  if (esDM) {
+    return (
+      <div
+        className={`group flex ${esPropio ? 'justify-end' : 'justify-start'} relative`}
+        onMouseEnter={() => setMostrarAcciones(true)}
+        onMouseLeave={() => { setMostrarAcciones(false); setMostrarLecturas(false) }}
+      >
+        <div
+          className="max-w-[75%] rounded-xl px-3 py-2"
+          style={{
+            background: esPropio ? 'var(--texto-marca)' : 'var(--superficie-elevada)',
+            color: esPropio ? '#fff' : 'var(--texto-primario)',
+            borderBottomRightRadius: esPropio ? 4 : undefined,
+            borderBottomLeftRadius: !esPropio ? 4 : undefined,
+          }}
+        >
+          <p className="text-sm whitespace-pre-wrap break-words">{mensaje.texto}</p>
+
+          {/* Adjuntos */}
+          {mensaje.adjuntos.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-1.5">
+              {mensaje.adjuntos.map((adj) => adj.tipo_mime.startsWith('image/')
+                ? <img key={adj.id} src={adj.url} alt={adj.nombre_archivo} className="rounded-md" style={{ maxWidth: 240, maxHeight: 160 }} />
+                : <a key={adj.id} href={adj.url} target="_blank" rel="noopener noreferrer" className="text-xs underline">📎 {adj.nombre_archivo}</a>
+              )}
+            </div>
+          )}
+
+          <div className={`flex items-center gap-1 mt-0.5 ${esPropio ? 'justify-end' : ''}`}>
+            <span className="text-xxs" style={{ opacity: 0.7 }}>
+              {formatoHoraInterno(mensaje.creado_en)}
+            </span>
+            {esPropio && (
+              <button onClick={cargarLecturas} className="flex items-center" style={{ opacity: 0.7 }} title="Ver quién leyó">
+                <CheckCheck size={12} />
+              </button>
+            )}
+          </div>
+
+          {/* Popover de lecturas */}
+          <AnimatePresence>
+            {mostrarLecturas && lecturas && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                className="mt-1 rounded-lg p-2 text-xs"
+                style={{ background: 'var(--superficie-elevada)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+              >
+                {lecturas.leido_por.length > 0 && (
+                  <div className="mb-1">
+                    <p className="font-semibold mb-0.5" style={{ color: 'var(--texto-secundario)' }}>Visto</p>
+                    {lecturas.leido_por.map((l, i) => (
+                      <div key={i} className="flex justify-between gap-3 py-0.5">
+                        <span>{l.nombre}</span>
+                        <span style={{ color: 'var(--texto-terciario)' }}>{formatoHoraInterno(l.leido_en)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {lecturas.sin_leer.length > 0 && (
+                  <div>
+                    <p className="font-semibold mb-0.5" style={{ color: 'var(--texto-terciario)' }}>Sin leer</p>
+                    {lecturas.sin_leer.map((l, i) => <div key={i} className="py-0.5" style={{ color: 'var(--texto-terciario)' }}>{l.nombre}</div>)}
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    )
+  }
+
+  // ─── Modo canal/grupo: estilo Slack ───
   return (
     <div
       className="group flex gap-2.5 px-1 py-0.5 rounded-md transition-colors relative"
