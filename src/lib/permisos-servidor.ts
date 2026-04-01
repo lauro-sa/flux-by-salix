@@ -1,4 +1,4 @@
-import { PERMISOS_POR_ROL, RESTRICCIONES_ADMIN } from '@/hooks/useRol'
+import { PERMISOS_POR_ROL, RESTRICCIONES_ADMIN } from '@/lib/permisos-constantes'
 import type { Modulo, Accion, PermisosMapa } from '@/tipos/permisos'
 import type { Rol } from '@/tipos/miembro'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
