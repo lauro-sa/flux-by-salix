@@ -53,6 +53,9 @@ export { ToolbarFlotante } from './ToolbarFlotante'
 export { PanelNotificaciones } from './PanelNotificaciones'
 export { BarraProgreso } from './BarraProgreso'
 
+// Flujos multi-paso
+export { Wizard } from './Wizard'
+
 // Decorativos
 export { FondoParticulas } from './FondoParticulas'
 export { LogoAnthropic, LogoOpenAI, LogoGoogle, LogoXAI } from './LogosIA'
