@@ -10,6 +10,7 @@ import {
   ChevronRight, BellOff, BellRing, PanelLeftDashed,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { IconoSalix } from '@/componentes/marca'
 import { NotificacionesHeader } from './NotificacionesHeader'
@@ -99,7 +100,7 @@ function Header({
     <header className="h-[var(--header-alto)] flex items-center justify-between px-4 bg-superficie-app md:bg-superficie-tarjeta/80 md:backdrop-blur-sm border-b-0 md:border-b md:border-borde-sutil sticky top-0 z-40 gap-4 md:cristal-panel" style={{ paddingTop: 'var(--safe-area-top)' }}>
       {/* Izquierda */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
-        {/* Mobile: abrir drawer */}
+        {/* Mobile: abrir menú fullscreen */}
         <button
           onClick={onAbrirMenuMobil}
           className="md:hidden flex items-center justify-center size-10 rounded-lg bg-transparent border-none text-texto-secundario cursor-pointer hover:bg-superficie-hover shrink-0"
@@ -321,6 +322,13 @@ function Header({
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Links secundarios */}
+              <div className="h-px bg-borde-sutil" />
+              <div className="px-4 py-2.5 flex items-center gap-4">
+                <Link href="/documentacion" onClick={() => setMenuAbierto(false)} className="text-xs text-texto-terciario hover:text-texto-secundario no-underline transition-colors">{t('navegacion.documentacion')}</Link>
+                <Link href="/vitrina" onClick={() => setMenuAbierto(false)} className="text-xs text-texto-terciario hover:text-texto-secundario no-underline transition-colors">{t('navegacion.vitrina')}</Link>
               </div>
             </motion.div>
           )}

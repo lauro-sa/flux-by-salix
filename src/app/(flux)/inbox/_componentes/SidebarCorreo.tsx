@@ -329,7 +329,7 @@ export function SidebarCorreo({
                                       ? (carpeta.clave === 'spam' ? 'var(--insignia-advertencia-fondo, rgba(234, 179, 8, 0.15))' : 'var(--insignia-peligro)')
                                       : 'var(--superficie-hover)',
                                     color: sinLeer > 0
-                                      ? (carpeta.clave === 'spam' ? 'var(--insignia-advertencia)' : '#fff')
+                                      ? (carpeta.clave === 'spam' ? 'var(--insignia-advertencia)' : 'var(--texto-inverso)')
                                       : 'var(--texto-terciario)',
                                   }}
                                 >

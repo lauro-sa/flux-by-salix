@@ -313,12 +313,13 @@ export default function EditorPresupuesto({
       .then(r => r.json())
       .then(data => {
         const todas = data.plantillas || []
-        const pls = todas.map((p: { id: string; nombre: string; asunto: string; contenido_html: string; canal_id?: string }) => ({
+        const pls = todas.map((p: { id: string; nombre: string; asunto: string; contenido_html: string; canal_id?: string; creado_por?: string }) => ({
           id: p.id,
           nombre: p.nombre,
           asunto: p.asunto || '',
           contenido_html: p.contenido_html || '',
           canal_id: p.canal_id || null,
+          creado_por: p.creado_por || '',
         }))
         setPlantillasCorreo(pls)
         // Detectar plantilla predeterminada (tiene _es_por_defecto en variables y modulo presupuestos)
@@ -327,6 +328,30 @@ export default function EditorPresupuesto({
           (p.modulos || []).includes('presupuestos')
         )
         if (pred) setPlantillaCorreoPredeterminadaId(pred.id)
+      })
+      .catch(() => {})
+  }, [])
+
+  // ─── Recargar plantillas de correo ───────────────────────────────────────
+  const recargarPlantillasCorreo = useCallback(() => {
+    fetch('/api/inbox/plantillas?canal=correo')
+      .then(r => r.json())
+      .then(data => {
+        const todas = data.plantillas || []
+        const pls = todas.map((p: { id: string; nombre: string; asunto: string; contenido_html: string; canal_id?: string; creado_por?: string }) => ({
+          id: p.id,
+          nombre: p.nombre,
+          asunto: p.asunto || '',
+          contenido_html: p.contenido_html || '',
+          canal_id: p.canal_id || null,
+          creado_por: p.creado_por || '',
+        }))
+        setPlantillasCorreo(pls)
+        const pred = todas.find((p: { variables?: { clave: string }[]; modulos?: string[] }) =>
+          (p.variables || []).some((v: { clave: string }) => v.clave === '_es_por_defecto') &&
+          (p.modulos || []).includes('presupuestos')
+        )
+        setPlantillaCorreoPredeterminadaId(pred ? pred.id : null)
       })
       .catch(() => {})
   }, [])
@@ -2112,6 +2137,39 @@ export default function EditorPresupuesto({
             setPlantillaCorreoPredeterminadaId(null)
           }
         } : undefined}
+        usuarioId={usuario?.id || ''}
+        esAdmin={esPropietario || esAdmin}
+        onGuardarCambiosPlantilla={async (id, datos) => {
+          await fetch(`/api/inbox/plantillas/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              asunto: datos.asunto,
+              contenido_html: datos.contenido_html,
+              contenido: datos.contenido_html.replace(/<[^>]*>/g, ''),
+            }),
+          })
+          recargarPlantillasCorreo()
+        }}
+        onCrearPlantilla={async (nombre, datos) => {
+          await fetch('/api/inbox/plantillas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              nombre,
+              canal: 'correo',
+              asunto: datos.asunto,
+              contenido: datos.contenido_html.replace(/<[^>]*>/g, ''),
+              contenido_html: datos.contenido_html,
+              modulos: ['presupuestos'],
+            }),
+          })
+          recargarPlantillasCorreo()
+        }}
+        onEliminarPlantilla={async (id) => {
+          await fetch(`/api/inbox/plantillas/${id}`, { method: 'DELETE' })
+          recargarPlantillasCorreo()
+        }}
         contextoVariables={{
           contacto: {
             nombre: contactoSeleccionado?.nombre || presupuesto?.contacto_nombre || '',

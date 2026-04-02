@@ -82,10 +82,12 @@ function crearItemsEmpresa(t: (c: string) => string): ItemNav[] {
   return [
     { id: 'empresa', etiqueta: t('empresa.titulo'), icono: <Building2 size={20} strokeWidth={1.75} />, ruta: '/configuracion', fijo: true, seccion: 'otros', modulo: 'empresa' },
     { id: 'usuarios', etiqueta: t('navegacion.usuarios'), icono: <UserCog size={20} strokeWidth={1.75} />, ruta: '/usuarios', fijo: true, seccion: 'otros', modulo: 'usuarios' },
-    { id: 'aplicaciones', etiqueta: t('navegacion.aplicaciones'), icono: <Blocks size={20} strokeWidth={1.75} />, ruta: '/aplicaciones', fijo: true, seccion: 'otros' },
-    { id: 'documentacion', etiqueta: t('navegacion.documentacion'), icono: <BookOpen size={20} strokeWidth={1.75} />, ruta: '/documentacion', fijo: true, seccion: 'otros' },
-    { id: 'vitrina', etiqueta: t('navegacion.vitrina'), icono: <Zap size={20} strokeWidth={1.75} />, ruta: '/vitrina', fijo: true, seccion: 'otros' },
   ]
+}
+
+/** Aplicaciones — separado de empresa, es otro tipo de acción */
+function crearItemAplicaciones(t: (c: string) => string): ItemNav {
+  return { id: 'aplicaciones', etiqueta: t('navegacion.aplicaciones'), icono: <Blocks size={20} strokeWidth={1.75} />, ruta: '/aplicaciones', fijo: true, seccion: 'otros' }
 }
 
 function crearSecciones(t: (c: string) => string) {
@@ -147,6 +149,7 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil, autoOcultar
     badgesReales[item.id] !== undefined ? { ...item, badge: badgesReales[item.id] } : item
   )
   const ITEMS_EMPRESA = filtrarItems(crearItemsEmpresa(t))
+  const ITEM_APLICACIONES = crearItemAplicaciones(t)
   const SECCIONES = crearSecciones(t)
 
   // Modal de cerrar sesión
@@ -353,7 +356,7 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil, autoOcultar
           style={{ color: activo ? 'var(--texto-primario)' : 'var(--texto-secundario)' }}
           className={[
             'flex items-center rounded-md text-sm font-medium cursor-pointer transition-all duration-100 relative select-none',
-            colapsado ? 'justify-center p-2.5 mx-auto aspect-square w-10' : 'px-2 py-2.5 pr-7',
+            colapsado ? 'justify-center py-2.5 mx-auto w-10' : 'px-2 py-2.5 pr-7',
             activo ? 'font-semibold bg-superficie-activa' : 'hover:bg-superficie-hover',
           ].join(' ')}
         >
@@ -370,7 +373,7 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil, autoOcultar
           )}
 
           <span className={`shrink-0 flex ${colapsado ? '' : 'mr-2.5'}`}>{item.icono}</span>
-          {!colapsado && <span className="flex-1 truncate">{item.etiqueta}</span>}
+          {!colapsado && <span className="flex-1 truncate sidebar-texto-fade">{item.etiqueta}</span>}
 
           {colapsado && item.badge != null && item.badge > 0 && (
             <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-texto-marca" />
@@ -421,9 +424,14 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil, autoOcultar
     const items = obtenerItemsOrdenados(seccionId)
     if (items.length === 0) return null
     return (
-      <div key={seccionId} className={`${colapsado ? 'mt-1.5' : 'mt-4'} first:mt-0`}>
-        {!colapsado && <div className="px-2 mb-1.5 text-xxs font-semibold text-texto-secundario/60 uppercase tracking-wider">{etiqueta}</div>}
-        {colapsado && <div className="h-px bg-borde-sutil mx-3 my-1" />}
+      <div key={seccionId} className="mt-4 first:mt-0">
+        {/* Mismo alto en ambos estados: título visible o línea centrada */}
+        <div className="px-2 mb-1.5 text-xxs font-semibold uppercase tracking-wider flex items-center" style={{ minHeight: '1rem' }}>
+          {colapsado
+            ? <div className="h-px bg-borde-sutil w-full" />
+            : <span className="sidebar-texto-fade text-texto-secundario/60">{etiqueta}</span>
+          }
+        </div>
         <DndContext id={`sidebar-dnd-${seccionId}`} sensors={sensors} collisionDetection={closestCenter} onDragEnd={manejarDragEnd(seccionId)}>
           <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
             <div className="flex flex-col gap-px">
@@ -437,9 +445,9 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil, autoOcultar
 
   const contenido = (
     <div className="flex flex-col h-full w-full overflow-hidden">
-      {/* Switcher empresa */}
-      <div ref={empresaRef} className="relative px-3 pt-3 pb-2 shrink-0">
-        <div className={['flex items-center gap-2.5 w-full rounded-md', colapsado ? 'justify-center p-2' : 'px-2 py-2'].join(' ')}>
+      {/* Switcher empresa — altura fija para que los items no salten al expandir/colapsar */}
+      <div ref={empresaRef} className="relative px-3 pt-3 pb-2 shrink-0" style={{ height: 72 }}>
+        <div className="flex items-center gap-2.5 w-full rounded-md px-2">
           {/* Logo — siempre toggle sidebar */}
           <button
             onClick={onToggle}
@@ -455,7 +463,7 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil, autoOcultar
           {!colapsado && (
             <button
               onClick={() => setEmpresaAbierto(!empresaAbierto)}
-              className="flex items-center gap-2 flex-1 min-w-0 bg-transparent border-none cursor-pointer rounded-lg hover:bg-superficie-hover px-2.5 py-2 transition-colors"
+              className="flex items-center gap-2 flex-1 min-w-0 bg-transparent border-none cursor-pointer rounded-lg hover:bg-superficie-hover px-2.5 py-0 transition-colors sidebar-texto-fade"
             >
               <div className="flex-1 text-left min-w-0">
                 <div className="text-md font-semibold text-texto-primario truncate">{nombreEmpresa}</div>
@@ -572,23 +580,33 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil, autoOcultar
 
       </nav>
 
-      {/* Sección EMPRESA — fija abajo, fuera del scroll */}
-      <div className="shrink-0 px-1.5 pt-2 pb-1 border-t border-borde-sutil">
-        {!colapsado && <div className="px-2 mb-1.5 text-xxs font-semibold text-texto-secundario/60 uppercase tracking-wider">{t('sidebar.secciones.empresa')}</div>}
-        <div className="flex flex-col gap-px">
-          {ITEMS_EMPRESA.map(i => renderItemFijo(i))}
-        </div>
+      {/* Sección inferior — fija abajo, fuera del scroll */}
+      <div className="shrink-0 px-1.5 py-1.5 border-t border-borde-sutil">
+        {/* Aplicaciones — separado */}
+        {renderItemFijo(ITEM_APLICACIONES)}
+        {/* Empresa + Usuarios */}
+        {ITEMS_EMPRESA.length > 0 && (
+          <>
+            <div className="px-2 mt-2 mb-1 text-xxs font-semibold uppercase tracking-wider flex items-center" style={{ minHeight: '1rem' }}>
+              {colapsado
+                ? <div className="h-px bg-borde-sutil w-full" />
+                : <span className="sidebar-texto-fade text-texto-secundario/60">{t('sidebar.secciones.empresa')}</span>
+              }
+            </div>
+            {ITEMS_EMPRESA.map(i => renderItemFijo(i))}
+          </>
+        )}
       </div>
 
       {/* Perfil */}
       <div ref={perfilRef} className="relative px-2 pb-2 pt-2 border-t border-borde-sutil shrink-0">
-        <button onClick={() => setPerfilAbierto(!perfilAbierto)} className={['flex items-center gap-3 w-full rounded-lg border-none cursor-pointer transition-colors hover:bg-superficie-hover bg-transparent', colapsado ? 'justify-center p-2' : 'px-2 py-2.5'].join(' ')}>
+        <button onClick={() => setPerfilAbierto(!perfilAbierto)} className="flex items-center gap-3 w-full rounded-lg border-none cursor-pointer transition-colors hover:bg-superficie-hover bg-transparent px-2 py-2.5">
           <div className="relative shrink-0">
             <Avatar nombre={nombreUsuario} tamano="sm" />
             <span className={`absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-superficie-sidebar ${estado === 'online' ? 'bg-insignia-exito' : estado === 'ausente' ? 'bg-insignia-advertencia' : 'bg-insignia-peligro'}`} />
           </div>
           {!colapsado && (
-            <div className="flex-1 text-left min-w-0">
+            <div className="flex-1 text-left min-w-0 sidebar-texto-fade">
               <div className="text-sm font-medium text-texto-primario truncate">{nombreUsuario}</div>
               <div className="text-xxs text-texto-terciario capitalize">{estado === 'no_molestar' ? 'No molestar' : estado}</div>
             </div>
@@ -634,10 +652,13 @@ function Sidebar({ colapsado, onToggle, mobilAbierto, onCerrarMobil, autoOcultar
       {/* Modo auto-ocultar: barra minimizada + expansión al hover */}
       {autoOcultar && (
         <aside
-          className="hidden md:flex fixed top-0 left-0 h-dvh bg-superficie-sidebar z-50 cristal-panel overflow-hidden sidebar-scroll transition-[width,box-shadow] duration-200 ease-out border-r border-borde-sutil"
+          className="hidden md:flex fixed top-0 left-0 h-dvh bg-superficie-sidebar z-50 cristal-panel overflow-hidden sidebar-scroll border-r border-borde-sutil"
           style={{
             width: hoverExpandido ? 'var(--sidebar-ancho)' : 'var(--sidebar-ancho-colapsado)',
             boxShadow: hoverExpandido ? '4px 0 24px rgba(0,0,0,0.25)' : 'none',
+            transition: hoverExpandido
+              ? 'width 400ms cubic-bezier(0.4,0,0.2,1), box-shadow 400ms ease'
+              : 'width 150ms cubic-bezier(0.4,0,0.2,1), box-shadow 150ms ease',
           }}
           onMouseEnter={onMouseEnter}
           onMouseLeave={onMouseLeave}

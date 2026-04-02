@@ -20,6 +20,7 @@ export const empresas = pgTable('empresas', {
   datos_fiscales: jsonb('datos_fiscales').notNull().default(sql`'{}'`), // datos fiscales dinámicos según país (cuit, condicion_iva, etc.)
   datos_bancarios: jsonb('datos_bancarios').notNull().default(sql`'{}'`), // {banco, titular, numero_cuenta, cbu, alias}
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
 })
 
 // Perfiles — datos del usuario, FK a auth.users
@@ -35,6 +36,15 @@ export const perfiles = pgTable('perfiles', {
   contacto_emergencia: jsonb('contacto_emergencia'),
   fecha_nacimiento: date('fecha_nacimiento'),
   formato_nombre_remitente: text('formato_nombre_remitente').default('nombre_inicial_sector'),
+  // Contacto empresa
+  correo_empresa: text('correo_empresa'),
+  telefono_empresa: text('telefono_empresa'),
+  // Personal
+  genero: text('genero'), // 'masculino' | 'femenino' | 'otro'
+  documento_numero: text('documento_numero'),
+  // Dirección
+  domicilio: text('domicilio'),
+  direccion: jsonb('direccion'),
 })
 
 // Miembros — relación usuario↔empresa con rol y estado de activación
@@ -46,7 +56,21 @@ export const miembros = pgTable('miembros', {
   activo: boolean('activo').notNull().default(false),
   permisos_custom: jsonb('permisos_custom'),
   unido_en: timestamp('unido_en', { withTimezone: true }).defaultNow().notNull(),
-  // Compensación / nómina
+  // Laboral
+  numero_empleado: integer('numero_empleado'),
+  puesto_id: uuid('puesto_id'),
+  puesto_nombre: text('puesto_nombre'),
+  sector: text('sector'),
+  // Horario y fichaje
+  horario_tipo: text('horario_tipo'), // 'lunes_viernes' | 'lunes_sabado' | 'todos' | 'custom'
+  horario_flexible: boolean('horario_flexible').notNull().default(false),
+  metodo_fichaje: text('metodo_fichaje'), // 'kiosco' | 'automatico' | 'manual'
+  salix_ia_habilitado: boolean('salix_ia_habilitado').notNull().default(false),
+  // Kiosco
+  kiosco_rfid: text('kiosco_rfid'),
+  kiosco_pin: text('kiosco_pin'),
+  foto_kiosco_url: text('foto_kiosco_url'),
+  // Compensación / n��mina
   compensacion_tipo: text('compensacion_tipo').default('fijo'), // 'fijo' | 'por_dia' | 'por_hora'
   compensacion_monto: numeric('compensacion_monto').default('0'),
   compensacion_frecuencia: text('compensacion_frecuencia').default('mensual'), // 'semanal' | 'quincenal' | 'mensual' | 'eventual'

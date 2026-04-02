@@ -5,6 +5,7 @@ import { useState, useCallback, useMemo, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
+import { MenuMovil } from './MenuMovil'
 import { ToastNotificacion } from '@/componentes/feedback/ToastNotificacion'
 import { useTema } from '@/hooks/useTema'
 import { usePreferencias } from '@/hooks/usePreferencias'
@@ -37,6 +38,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
   const pathname = usePathname()
   const { efecto } = useTema()
   const { preferencias, guardar } = usePreferencias()
+  // Ya no se usa drawer lateral — NavegacionMovil maneja la nav en teléfonos
   const [mobilMenuAbierto, setMobilMenuAbierto] = useState(false)
 
   const seccion = obtenerSeccion(pathname)
@@ -143,8 +145,8 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
       <Sidebar
         colapsado={sidebarColapsado}
         onToggle={toggleSidebar}
-        mobilAbierto={mobilMenuAbierto}
-        onCerrarMobil={() => setMobilMenuAbierto(false)}
+        mobilAbierto={false}
+        onCerrarMobil={() => {}}
         autoOcultar={autoOcultar}
         hoverExpandido={hoverExpandido}
         onMouseEnter={onSidebarMouseEnter}
@@ -190,6 +192,12 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
           {children}
         </main>
       </div>
+
+      {/* Menú fullscreen móvil */}
+      <MenuMovil
+        abierto={mobilMenuAbierto}
+        onCerrar={() => setMobilMenuAbierto(false)}
+      />
 
       <style suppressHydrationWarning>{`
         @media (min-width: 768px) {

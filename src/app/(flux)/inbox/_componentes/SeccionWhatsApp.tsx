@@ -269,7 +269,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
                       className="w-5 h-5 rounded-full flex items-center justify-center text-xxs font-bold flex-shrink-0"
                       style={{
                         background: completado ? 'var(--insignia-exito)' : 'var(--superficie-hover)',
-                        color: completado ? '#fff' : 'var(--texto-terciario)',
+                        color: completado ? 'var(--texto-inverso)' : 'var(--texto-terciario)',
                       }}
                     >
                       {completado ? <Check size={10} /> : i + 1}
@@ -865,7 +865,7 @@ function NotificacionesPush() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
             style={{
               background: modo === opcion.clave ? 'var(--texto-marca)' : 'var(--superficie-hover)',
-              color: modo === opcion.clave ? '#fff' : 'var(--texto-secundario)',
+              color: modo === opcion.clave ? 'var(--texto-inverso)' : 'var(--texto-secundario)',
             }}
           >
             {opcion.icono}

@@ -168,8 +168,8 @@ export function BannerContacto({
             backgroundColor: avatarUrl ? 'transparent' : `color-mix(in srgb, ${colores[0]} 55%, transparent)`,
             backdropFilter: avatarUrl ? undefined : 'blur(20px) saturate(1.8)',
             WebkitBackdropFilter: avatarUrl ? undefined : 'blur(20px) saturate(1.8)',
-            border: '3px solid rgba(255, 255, 255, 0.18)',
-            color: 'rgba(255, 255, 255, 0.9)',
+            border: '3px solid color-mix(in srgb, var(--texto-inverso) 18%, transparent)',
+            color: 'color-mix(in srgb, var(--texto-inverso) 90%, transparent)',
             boxShadow: 'var(--sombra-lg)',
             overflow: 'hidden',
           }}

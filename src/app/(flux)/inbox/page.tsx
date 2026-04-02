@@ -607,6 +607,55 @@ export default function PaginaInbox() {
     }
   }, [conversacionSeleccionada, supabase])
 
+  // Reaccionar a un mensaje (optimistic update + API call)
+  // Compartido entre WhatsApp, Interno y cualquier canal
+  const reaccionarMensaje = useCallback(async (mensajeId: string, emoji: string) => {
+    // Optimistic update inmediato
+    setMensajes(prev => prev.map(m => {
+      if (m.id !== mensajeId) return m
+      const reacciones = { ...(m.reacciones || {}) } as Record<string, string[]>
+      const usuarios = [...(reacciones[emoji] || [])]
+      const yaReacciono = usuarios.includes(usuarioId)
+
+      if (yaReacciono) {
+        reacciones[emoji] = usuarios.filter(uid => uid !== usuarioId)
+        if (reacciones[emoji].length === 0) delete reacciones[emoji]
+      } else {
+        // Quitar reacciones previas del usuario en otros emojis (como WhatsApp)
+        for (const key of Object.keys(reacciones)) {
+          reacciones[key] = reacciones[key].filter(uid => uid !== usuarioId)
+          if (reacciones[key].length === 0) delete reacciones[key]
+        }
+        reacciones[emoji] = [...(reacciones[emoji] || []), usuarioId]
+      }
+
+      return { ...m, reacciones }
+    }))
+
+    // Enviar al server en background
+    try {
+      // Para WhatsApp usar el endpoint dedicado, para internos el genérico
+      const esWhatsApp = conversacionSeleccionada?.tipo_canal === 'whatsapp'
+      if (esWhatsApp) {
+        await fetch('/api/inbox/whatsapp/reaccion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversacion_id: conversacionSeleccionada.id,
+            mensaje_id: mensajeId,
+            emoji: emoji,
+          }),
+        })
+      } else {
+        await fetch(`/api/inbox/mensajes/${mensajeId}/reaccion`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emoji }),
+        })
+      }
+    } catch { /* silenciar — el optimistic update ya se aplicó */ }
+  }, [usuarioId, conversacionSeleccionada])
+
   // Enviar correo (vía API dedicada de correo)
   const enviarCorreo = useCallback(async (datos: DatosCorreo) => {
     setEnviando(true)
@@ -1373,15 +1422,7 @@ export default function PaginaInbox() {
                 enviando={enviando}
                 usuarioId={usuarioId}
                 onRecargarCanales={cargarCanalesInternos}
-                onRefreshMensajes={async () => {
-                  const convId = conversacionSeleccionada?.id
-                  if (!convId) return
-                  try {
-                    const res = await fetch(`/api/inbox/mensajes?conversacion_id=${convId}&por_pagina=200`)
-                    const data = await res.json()
-                    if (data.mensajes) setMensajes(data.mensajes)
-                  } catch { /* silenciar */ }
-                }}
+                onReaccionar={reaccionarMensaje}
               />
             </ErrorBoundary>
             <ModalCrearCanalInterno

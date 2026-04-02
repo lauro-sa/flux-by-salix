@@ -528,7 +528,7 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado,
                           style={{
                             background: activo ? 'var(--texto-marca)' : 'transparent',
                             border: activo ? 'none' : '1.5px solid var(--borde-fuerte)',
-                            color: activo ? '#fff' : 'transparent',
+                            color: activo ? 'var(--texto-inverso)' : 'transparent',
                           }}
                         >
                           {activo && '✓'}

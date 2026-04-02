@@ -1,0 +1,167 @@
+'use client'
+
+/**
+ * PopoverProgramar — Popover para programar el envío de un correo.
+ * Opciones rápidas (mañana 8h, 13h, 20h) + selector custom de fecha y hora.
+ * Se usa en: ModalEnviarDocumento (pie fijo, botón de programar).
+ */
+
+import { useState, useRef, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Sun, Coffee, Moon, Calendar } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
+import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
+import { SelectorHora } from '@/componentes/ui/SelectorHora'
+import { diaSiguienteCorto } from './ayudantes'
+
+interface PropiedadesPopoverProgramar {
+  abierto: boolean
+  onCerrar: () => void
+  onProgramar: (fecha: string) => void
+  disabled?: boolean
+}
+
+export function PopoverProgramar({
+  abierto,
+  onCerrar,
+  onProgramar,
+  disabled,
+}: PropiedadesPopoverProgramar) {
+  const [fechaCustom, setFechaCustom] = useState<string | null>(null)
+  const [horaCustom, setHoraCustom] = useState<string | null>(null)
+  const [mostrarCustom, setMostrarCustom] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  // Cerrar al hacer click fuera
+  useEffect(() => {
+    if (!abierto) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onCerrar()
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [abierto, onCerrar])
+
+  // Resetear al abrir
+  useEffect(() => {
+    if (abierto) { setFechaCustom(null); setHoraCustom(null); setMostrarCustom(false) }
+  }, [abierto])
+
+  const manana = new Date()
+  manana.setDate(manana.getDate() + 1)
+  const dia = diaSiguienteCorto()
+
+  const formatear = (hora: number) => {
+    const d = new Date(manana)
+    d.setHours(hora, 0, 0, 0)
+    return d.toISOString()
+  }
+
+  const puedeConfirmarCustom = fechaCustom && horaCustom
+
+  const confirmarCustom = () => {
+    if (!fechaCustom || !horaCustom) return
+    const [h, m] = horaCustom.split(':').map(Number)
+    const d = new Date(fechaCustom + 'T00:00:00')
+    d.setHours(h, m, 0, 0)
+    onProgramar(d.toISOString())
+    onCerrar()
+  }
+
+  const opciones = [
+    { etiqueta: 'Mañana a la mañana', hora: `${dia}, 08:00`, icono: <Sun size={15} />, valor: formatear(8) },
+    { etiqueta: 'Mañana a la tarde', hora: `${dia}, 13:00`, icono: <Coffee size={15} />, valor: formatear(13) },
+    { etiqueta: 'Mañana a la noche', hora: `${dia}, 20:00`, icono: <Moon size={15} />, valor: formatear(20) },
+  ]
+
+  return (
+    <AnimatePresence>
+      {abierto && (
+        <motion.div
+          ref={ref}
+          initial={{ opacity: 0, y: 8, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 8, scale: 0.96 }}
+          transition={{ duration: 0.15 }}
+          className="absolute bottom-full right-0 mb-2 rounded-xl shadow-elevada overflow-visible z-50"
+          style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)', width: mostrarCustom ? 340 : 280 }}
+        >
+          {/* Título */}
+          <div className="px-4 pt-3 pb-2">
+            <span className="text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
+              Programar envío
+            </span>
+          </div>
+
+          {/* Opciones rápidas */}
+          <div>
+            {opciones.map((op) => (
+              <button
+                key={op.valor}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--superficie-hover)]"
+                onClick={() => { onProgramar(op.valor); onCerrar() }}
+                disabled={disabled}
+              >
+                <span style={{ color: 'var(--texto-terciario)' }}>{op.icono}</span>
+                <span className="flex-1 text-sm" style={{ color: 'var(--texto-primario)' }}>{op.etiqueta}</span>
+                <span className="text-xs" style={{ color: 'var(--texto-terciario)' }}>{op.hora}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Elegir fecha y hora — con SelectorFecha + SelectorHora */}
+          <div style={{ borderTop: '1px solid var(--borde-sutil)' }}>
+            {!mostrarCustom ? (
+              <button
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--superficie-hover)]"
+                onClick={() => setMostrarCustom(true)}
+              >
+                <span style={{ color: 'var(--texto-terciario)' }}><Calendar size={15} /></span>
+                <span className="text-sm" style={{ color: 'var(--texto-primario)' }}>Elegir fecha y hora...</span>
+              </button>
+            ) : (
+              <div className="px-4 py-3 space-y-2.5">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <SelectorFecha
+                      valor={fechaCustom}
+                      onChange={setFechaCustom}
+                      placeholder="Fecha"
+                      limpiable={false}
+                      anioMin={new Date().getFullYear()}
+                      anioMax={new Date().getFullYear() + 1}
+                    />
+                  </div>
+                  <div className="w-[110px]">
+                    <SelectorHora
+                      valor={horaCustom}
+                      onChange={setHoraCustom}
+                      placeholder="Hora"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  <Boton
+                    variante="fantasma"
+                    tamano="xs"
+                    onClick={() => { setMostrarCustom(false); setFechaCustom(null); setHoraCustom(null) }}
+                  >
+                    Cancelar
+                  </Boton>
+                  <Boton
+                    variante="primario"
+                    tamano="xs"
+                    disabled={!puedeConfirmarCustom || disabled}
+                    onClick={confirmarCustom}
+                  >
+                    Programar
+                  </Boton>
+                </div>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
