@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useToast } from '@/componentes/feedback/Toast'
@@ -51,9 +51,18 @@ function generarTabs(modulosActivos: Set<string>, t: (clave: string) => string) 
   return tabs
 }
 
-export default function PaginaInbox() {
+export default function PaginaInboxWrapper() {
+  return (
+    <Suspense fallback={null}>
+      <PaginaInbox />
+    </Suspense>
+  )
+}
+
+function PaginaInbox() {
   const { t } = useTraduccion()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { mostrar } = useToast()
   const supabase = useMemo(() => crearClienteNavegador(), [])
 
@@ -258,22 +267,24 @@ export default function PaginaInbox() {
   }, [cargarConversaciones])
 
   // Abrir conversación desde URL (?conv=xxx) cuando se navega desde una notificación
+  const convParamAnteriorRef = useRef<string | null>(null)
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const convId = params.get('conv')
-    const tabParam = params.get('tab')
+    const convId = searchParams.get('conv')
+    const tabParam = searchParams.get('tab')
 
     // Si solo pide cambiar de tab sin conversación específica
     if (tabParam && !convId) {
       if (tabParam === 'interno' || tabParam === 'correo' || tabParam === 'whatsapp') {
         setTabActivo(tabParam as TipoCanal)
       }
-      // Limpiar params de la URL
       window.history.replaceState({}, '', window.location.pathname)
       return
     }
 
     if (!convId) return
+    // Evitar re-procesar el mismo convId
+    if (convParamAnteriorRef.current === convId) return
+    convParamAnteriorRef.current = convId
 
     // Obtener la conversación por ID y abrirla en el tab correcto
     const abrirDesdeUrl = async () => {
@@ -284,13 +295,14 @@ export default function PaginaInbox() {
         const conv = data.conversacion
         if (!conv) return
 
-        // Determinar el tab correcto según el tipo de canal
-        const tipoCanal = conv.canal?.tipo as TipoCanal | undefined
+        // Determinar el tab correcto usando tipo_canal de la conversación
+        const tipoCanal = (conv.tipo_canal || conv.canal?.tipo) as TipoCanal | undefined
         if (tipoCanal) setTabActivo(tipoCanal)
 
         // Si es canal interno, necesitamos cargar el canal y seleccionarlo
         if (tipoCanal === 'interno' && conv.canal_interno_id) {
           try {
+            await cargarCanalesInternos()
             const resInternos = await fetch('/api/inbox/internos')
             const dataInternos = await resInternos.json()
             const todosCanales = [
@@ -305,7 +317,6 @@ export default function PaginaInbox() {
 
         // Seleccionar la conversación y cargar sus mensajes
         setConversacionSeleccionada(conv)
-        // Marcar notificaciones de esta conversación como leídas
         marcarNotificacionesLeidasDeConversacion(convId)
         setCargandoMensajes(true)
         try {
@@ -320,11 +331,12 @@ export default function PaginaInbox() {
 
         // Limpiar params de la URL sin recargar
         window.history.replaceState({}, '', window.location.pathname)
+        convParamAnteriorRef.current = null
       } catch { /* silenciar */ }
     }
     abrirDesdeUrl()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [searchParams])
 
   // Búsqueda con debounce
   const montadoRef = useRef(false)
