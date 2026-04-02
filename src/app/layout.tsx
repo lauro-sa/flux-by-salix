@@ -36,8 +36,7 @@ export default function LayoutRaiz({
     <html lang="es" suppressHydrationWarning>
       <head>
         <link rel="icon" type="image/svg+xml" href="/iconos/favicon.svg" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/iconos/favicon-32.png" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/iconos/favicon-16.png" />
+        <link rel="icon" href="/iconos/favicon.ico" sizes="48x48" />
         <link rel="apple-touch-icon" sizes="180x180" href="/iconos/apple-touch-icon.png" />
       </head>
       <body>
