@@ -1,6 +1,6 @@
 'use client'
 
-import { type ReactNode } from 'react'
+import { type ReactNode, useState, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, CheckCheck, Trash2 } from 'lucide-react'
 
@@ -31,6 +31,8 @@ export interface ItemNotificacion {
   onClick?: () => void
   /** Datos extra que el consumidor puede usar */
   datos?: Record<string, unknown>
+  /** Sub-items (para grupos expandibles al mantener hover 1.5s) */
+  subItems?: ItemNotificacion[]
 }
 
 interface PropiedadesPanelNotificaciones {
@@ -56,6 +58,124 @@ interface PropiedadesPanelNotificaciones {
   cargando?: boolean
   /** Alto máximo de la lista (con scroll) */
   altoMaximoLista?: string
+}
+
+/* ─── Componente de fila con expansión por hover sostenido ─── */
+
+const HOVER_DELAY_MS = 1500
+
+function FilaNotificacion({ item, onDescartar, expandido }: {
+  item: ItemNotificacion
+  onDescartar?: (id: string) => void
+  expandido: boolean
+}) {
+  const tieneSubItems = item.subItems && item.subItems.length > 1
+
+  return (
+    <div>
+      {/* Fila principal */}
+      <div
+        onClick={item.onClick}
+        className={[
+          'group flex items-start gap-3 px-4 py-3 border-b border-borde-sutil/50 transition-colors relative',
+          item.onClick ? 'cursor-pointer hover:bg-superficie-hover' : '',
+          !item.leida ? 'bg-superficie-seleccionada/30' : '',
+        ].join(' ')}
+      >
+        {!item.leida && (
+          <div className="absolute left-1.5 top-1/2 -translate-y-1/2 size-1.5 rounded-full bg-texto-marca" />
+        )}
+        {item.icono && <div className="shrink-0 mt-0.5">{item.icono}</div>}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <p className={`text-sm truncate ${!item.leida ? 'font-semibold text-texto-primario' : 'font-medium text-texto-secundario'}`}>
+              {item.titulo}
+            </p>
+            {item.tiempo && (
+              <span className="text-xxs text-texto-terciario whitespace-nowrap shrink-0 mt-0.5">{item.tiempo}</span>
+            )}
+          </div>
+          {item.descripcion && (
+            <p className="text-xs text-texto-terciario mt-0.5 line-clamp-2">{item.descripcion}</p>
+          )}
+          {item.insignia && <div className="mt-1.5">{item.insignia}</div>}
+        </div>
+        {onDescartar && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDescartar(item.id) }}
+            className="shrink-0 opacity-0 group-hover:opacity-100 flex items-center justify-center size-7 rounded-lg bg-transparent hover:bg-superficie-hover border-none cursor-pointer text-texto-terciario hover:text-texto-secundario transition-all mt-0.5"
+            title="Descartar"
+          >
+            <Trash2 size={13} />
+          </button>
+        )}
+      </div>
+
+      {/* Sub-items expandidos con CSS transition */}
+      {tieneSubItems && (
+        <div
+          className="overflow-hidden transition-all duration-300 ease-out"
+          style={{ maxHeight: expandido ? `${item.subItems!.length * 52}px` : '0px', opacity: expandido ? 1 : 0 }}
+        >
+          {item.subItems!.map((sub) => (
+            <div
+              key={sub.id}
+              onClick={sub.onClick}
+              className="flex items-start gap-3 pl-11 pr-4 py-2 border-b border-borde-sutil/30 cursor-pointer hover:bg-superficie-hover/50 transition-colors"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-texto-secundario truncate">{sub.titulo}</p>
+                {sub.descripcion && (
+                  <p className="text-xxs text-texto-terciario mt-0.5 truncate">{sub.descripcion}</p>
+                )}
+              </div>
+              {sub.tiempo && (
+                <span className="text-xxs text-texto-terciario shrink-0">{sub.tiempo}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ItemsConExpansion({ items, onDescartar }: { items: ItemNotificacion[]; onDescartar?: (id: string) => void }) {
+  const [expandidoId, setExpandidoId] = useState<string | null>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleMouseEnter = useCallback((itemId: string, tieneSubItems: boolean) => {
+    if (!tieneSubItems) return
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => setExpandidoId(itemId), HOVER_DELAY_MS)
+  }, [])
+
+  const handleMouseLeave = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = null
+    setExpandidoId(null)
+  }, [])
+
+  return (
+    <>
+      {items.map((item) => {
+        const tieneSubItems = !!(item.subItems && item.subItems.length > 1)
+        return (
+          <div
+            key={item.id}
+            onMouseEnter={() => handleMouseEnter(item.id, tieneSubItems)}
+            onMouseLeave={handleMouseLeave}
+          >
+            <FilaNotificacion
+              item={item}
+              onDescartar={onDescartar}
+              expandido={expandidoId === item.id}
+            />
+          </div>
+        )
+      })}
+    </>
+  )
 }
 
 function PanelNotificaciones({
@@ -112,74 +232,7 @@ function PanelNotificaciones({
             <p className="text-sm">{textoVacio}</p>
           </div>
         ) : (
-          <AnimatePresence>
-            {items.map((item, idx) => (
-              <motion.div
-                key={item.id}
-                layout
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, height: 0, marginTop: 0, marginBottom: 0 }}
-                transition={{ duration: 0.2, delay: idx * 0.04 }}
-              >
-                <div
-                  onClick={item.onClick}
-                  className={[
-                    'group flex items-start gap-3 px-4 py-3 border-b border-borde-sutil/50 transition-colors relative',
-                    item.onClick ? 'cursor-pointer hover:bg-superficie-hover' : '',
-                    !item.leida ? 'bg-superficie-seleccionada/30' : '',
-                  ].join(' ')}
-                >
-                  {/* Punto de no leída */}
-                  {!item.leida && (
-                    <div className="absolute left-1.5 top-1/2 -translate-y-1/2 size-1.5 rounded-full bg-texto-marca" />
-                  )}
-
-                  {/* Ícono */}
-                  {item.icono && (
-                    <div className="shrink-0 mt-0.5">
-                      {item.icono}
-                    </div>
-                  )}
-
-                  {/* Contenido */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className={`text-sm truncate ${!item.leida ? 'font-semibold text-texto-primario' : 'font-medium text-texto-secundario'}`}>
-                        {item.titulo}
-                      </p>
-                      {item.tiempo && (
-                        <span className="text-xxs text-texto-terciario whitespace-nowrap shrink-0 mt-0.5">
-                          {item.tiempo}
-                        </span>
-                      )}
-                    </div>
-                    {item.descripcion && (
-                      <p className="text-xs text-texto-terciario mt-0.5 line-clamp-2">
-                        {item.descripcion}
-                      </p>
-                    )}
-                    {item.insignia && (
-                      <div className="mt-1.5">
-                        {item.insignia}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Botón descartar (aparece en hover) */}
-                  {onDescartar && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onDescartar(item.id) }}
-                      className="shrink-0 opacity-0 group-hover:opacity-100 flex items-center justify-center size-7 rounded-lg bg-transparent hover:bg-superficie-hover border-none cursor-pointer text-texto-terciario hover:text-texto-secundario transition-all mt-0.5"
-                      title="Descartar"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  )}
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
+          <ItemsConExpansion items={items} onDescartar={onDescartar} />
         )}
       </div>
 

@@ -97,8 +97,8 @@ function tiempoRelativo(fecha: string): string {
 }
 
 /** Agrupar notificaciones por referencia_id (misma conversación) */
-function agruparNotificaciones(notificaciones: Notificacion[]): { ultima: Notificacion; cantidad: number; ids: string[] }[] {
-  const mapa = new Map<string, { ultima: Notificacion; cantidad: number; ids: string[] }>()
+function agruparNotificaciones(notificaciones: Notificacion[]): { ultima: Notificacion; cantidad: number; ids: string[]; todas: Notificacion[] }[] {
+  const mapa = new Map<string, { ultima: Notificacion; cantidad: number; ids: string[]; todas: Notificacion[] }>()
 
   for (const n of notificaciones) {
     const clave = n.referencia_id || n.id
@@ -106,20 +106,25 @@ function agruparNotificaciones(notificaciones: Notificacion[]): { ultima: Notifi
     if (existente) {
       existente.cantidad += 1
       existente.ids.push(n.id)
-      // Mantener la más reciente como "ultima"
+      existente.todas.push(n)
       if (n.creada_en > existente.ultima.creada_en) {
         existente.ultima = n
       }
-      // Si alguna no fue leída, el grupo no está leído
     } else {
-      mapa.set(clave, { ultima: n, cantidad: 1, ids: [n.id] })
+      mapa.set(clave, { ultima: n, cantidad: 1, ids: [n.id], todas: [n] })
     }
   }
 
   return [...mapa.values()]
 }
 
-function notificacionAItem(n: Notificacion, cantidad: number, ids: string[], onClick?: () => void): ItemNotificacion {
+function notificacionAItem(
+  n: Notificacion,
+  cantidad: number,
+  ids: string[],
+  todas: Notificacion[],
+  onClickItem: (n: Notificacion, ids: string[]) => void,
+): ItemNotificacion {
   const IconoComp = ICONOS_TIPO[n.tipo] || Bell
   const color = COLORES_TIPO[n.tipo] || 'var(--texto-terciario)'
   return {
@@ -148,8 +153,18 @@ function notificacionAItem(n: Notificacion, cantidad: number, ids: string[], onC
       : (n.cuerpo || undefined),
     tiempo: tiempoRelativo(n.creada_en),
     leida: n.leida,
-    onClick,
+    onClick: () => onClickItem(n, ids),
     datos: { ids },
+    subItems: cantidad > 1
+      ? todas.map((sub) => ({
+          id: sub.id,
+          titulo: sub.titulo,
+          descripcion: sub.cuerpo || undefined,
+          tiempo: tiempoRelativo(sub.creada_en),
+          leida: sub.leida,
+          onClick: () => onClickItem(sub, [sub.id]),
+        }))
+      : undefined,
   }
 }
 
@@ -227,7 +242,7 @@ function NotificacionesHeader() {
         const grupos = agruparNotificaciones(items)
         const itemsMapeados: ItemNotificacion[] = grupos
           .slice(0, 20)
-          .map((g) => notificacionAItem(g.ultima, g.cantidad, g.ids, () => handleClickItem(g.ultima, g.ids)))
+          .map((g) => notificacionAItem(g.ultima, g.cantidad, g.ids, g.todas, handleClickItem))
 
         return (
           <Popover
