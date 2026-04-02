@@ -9,6 +9,7 @@
 
 import { useState } from 'react'
 import { ChevronDown, FileText } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 import { formatearNumero } from '@/lib/pdf/renderizar-html'
 import { useTraduccion } from '@/lib/i18n'
 import type { LineaPresupuesto } from '@/tipos/presupuesto'
@@ -85,9 +86,10 @@ export default function DetalleLineas({
           const esExpandida = expandida === linea.id
           return (
             <div key={linea.id}>
-              <button
+              <Boton
+                variante="fantasma"
                 onClick={() => toggleExpandir(linea.id)}
-                className="w-full px-5 py-3.5 flex items-start justify-between gap-3 text-left hover:bg-superficie-app/50 transition-colors"
+                className="!w-full !px-5 !py-3.5 !justify-between !text-left !rounded-none"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
@@ -113,7 +115,7 @@ export default function DetalleLineas({
                     </p>
                   )}
                 </div>
-              </button>
+              </Boton>
 
               {esExpandida && (
                 <div className="px-5 pb-4">

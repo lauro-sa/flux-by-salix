@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Mail, Lock, User, ArrowRight, AlertCircle } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
 import { Boton } from '@/componentes/ui/Boton'
+import { EncabezadoAuth } from '@/componentes/ui/EncabezadoAuth'
 import { useAuth } from '@/hooks/useAuth'
 import { useTraduccion } from '@/lib/i18n'
 import Link from 'next/link'
@@ -58,12 +59,7 @@ export default function PaginaRegistro() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-texto-primario mb-1">
-        {t('auth.crear_cuenta')}
-      </h2>
-      <p className="text-sm text-texto-terciario mb-6">
-        {t('auth.crear_cuenta_desc')}
-      </p>
+      <EncabezadoAuth titulo={t('auth.crear_cuenta')} descripcion={t('auth.crear_cuenta_desc')} />
 
       <form onSubmit={manejarEnvio} className="flex flex-col gap-4">
         {/* Nombre y apellido en fila */}

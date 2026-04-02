@@ -115,7 +115,7 @@ function ItemReordenable({
       exit={{ opacity: 0, y: -4, height: 0 }}
       transition={{ duration: 0.12 }}
     >
-      {/* Drag handle */}
+      {/* Drag handle — usa button nativo porque necesita onPointerDown para el drag */}
       {!soloLectura && (
         <button
           type="button"
@@ -145,14 +145,15 @@ function ItemReordenable({
 
       {/* Botón borrar */}
       {!soloLectura && (
-        <button
-          type="button"
+        <Boton
+          variante="fantasma"
+          tamano="xs"
+          soloIcono
+          icono={<X size={13} />}
+          titulo="Eliminar nota"
           onClick={() => onBorrar(item.id)}
-          className="text-texto-terciario/0 group-hover:text-texto-terciario hover:!text-insignia-peligro transition-colors shrink-0"
-          tabIndex={-1}
-        >
-          <X size={13} />
-        </button>
+          className="text-texto-terciario/0 group-hover:text-texto-terciario shrink-0"
+        />
       )}
     </Reorder.Item>
   )

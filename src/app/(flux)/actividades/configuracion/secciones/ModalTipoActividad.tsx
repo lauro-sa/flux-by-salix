@@ -8,6 +8,7 @@ import { SelectorIcono, obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Trash2, Check, Pipette } from 'lucide-react'
 import type { TipoActividad } from './SeccionTipos'
+import { PALETA_COLORES_TIPO_ACTIVIDAD } from '@/lib/colores_entidad'
 
 /**
  * ModalTipoActividad — Modal para crear o editar un tipo de actividad.
@@ -25,21 +26,8 @@ interface PropiedadesModal {
   onEliminar?: () => void
 }
 
-// Colores predefinidos para tipos de actividad
-const COLORES_TIPO = [
-  { color: '#e5484d', nombre: 'Rojo' },
-  { color: '#f5a623', nombre: 'Naranja' },
-  { color: '#e5a84c', nombre: 'Ámbar' },
-  { color: '#46a758', nombre: 'Verde' },
-  { color: '#0f766e', nombre: 'Esmeralda' },
-  { color: '#7c93c4', nombre: 'Azul claro' },
-  { color: '#3b82f6', nombre: 'Azul' },
-  { color: '#8e4ec6', nombre: 'Violeta' },
-  { color: '#5b5bd6', nombre: 'Índigo' },
-  { color: '#ec4899', nombre: 'Rosa' },
-  { color: '#889096', nombre: 'Gris' },
-  { color: '#1e3a5f', nombre: 'Navy' },
-]
+// Colores predefinidos para tipos de actividad (centralizados en colores_entidad.ts)
+const COLORES_TIPO = PALETA_COLORES_TIPO_ACTIVIDAD
 
 // Campos configurables por tipo
 const CAMPOS_DISPONIBLES = [
@@ -270,17 +258,15 @@ function ModalTipoActividad({ abierto, tipo, modulosDisponibles, guardando, onGu
                       {mods.map(mod => {
                         const activo = modulos.includes(mod.clave)
                         return (
-                          <button
+                          <Boton
                             key={mod.clave}
+                            variante={activo ? 'primario' : 'fantasma'}
+                            tamano="sm"
+                            redondeado
                             onClick={() => toggleModulo(mod.clave)}
-                            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer border ${
-                              activo
-                                ? 'bg-texto-marca/10 text-texto-marca border-texto-marca/30'
-                                : 'bg-superficie-hover text-texto-terciario border-transparent hover:text-texto-secundario'
-                            }`}
                           >
                             {mod.etiqueta}
-                          </button>
+                          </Boton>
                         )
                       })}
                     </div>

@@ -15,6 +15,10 @@ export { Tabs } from './Tabs'
 export { Pildora } from './Pildora'
 export { Interruptor } from './Interruptor'
 export { Separador } from './Separador'
+export { EncabezadoSeccion } from './EncabezadoSeccion'
+export { EncabezadoAuth } from './EncabezadoAuth'
+export { EncabezadoLista } from './EncabezadoLista'
+export { TarjetaMetrica } from './TarjetaMetrica'
 export { TextArea } from './TextArea'
 export { Checkbox } from './Checkbox'
 export { BloqueDireccion } from './BloqueDireccion'
@@ -36,7 +40,6 @@ export { SelectorColor } from './SelectorColor'
 export { SelectorIcono } from './SelectorIcono'
 export { SelectorRecurrencia } from './SelectorRecurrencia'
 export { SelectorVariables } from './SelectorVariables'
-export { SelectorRangoFecha } from './SelectorRangoFecha'
 
 // Búsqueda y filtros
 export { Buscador } from './Buscador'
@@ -51,12 +54,7 @@ export { Cargador } from './Cargador'
 export { CargadorLogo } from './CargadorLogo'
 export { IndicadorGuardado } from './IndicadorGuardado'
 export { LineaTiempo } from './LineaTiempo'
-export { ToolbarFlotante } from './ToolbarFlotante'
 export { PanelNotificaciones } from './PanelNotificaciones'
-export { BarraProgreso } from './BarraProgreso'
-
-// Flujos multi-paso
-export { Wizard } from './Wizard'
 
 // Decorativos
 export { FondoParticulas } from './FondoParticulas'

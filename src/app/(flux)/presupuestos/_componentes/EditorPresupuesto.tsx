@@ -1450,10 +1450,12 @@ export default function EditorPresupuesto({
                 ) : (
                   <div className="mt-1.5 space-y-1">
                     {vinculaciones.map(v => (
-                      <button
+                      <Boton
                         key={v.id}
+                        variante="fantasma"
+                        tamano="sm"
                         onClick={() => seleccionarAtencion(v)}
-                        className="w-full flex items-center gap-2 px-2 py-2 text-left rounded hover:bg-superficie-app transition-colors"
+                        className="w-full text-left px-2 py-2 h-auto"
                       >
                         <div className="flex-1 min-w-0">
                           <div className="text-sm text-texto-primario truncate">
@@ -1463,7 +1465,7 @@ export default function EditorPresupuesto({
                             {v.puesto || v.vinculado.correo || ''}
                           </div>
                         </div>
-                      </button>
+                      </Boton>
                     ))}
                   </div>
                 )}
@@ -1535,8 +1537,10 @@ export default function EditorPresupuesto({
                 <p className="text-xxs text-texto-terciario mt-0.5 mb-2">Aparecera como &quot;Atencion:&quot; en el PDF del documento</p>
                 <div className="space-y-1">
                   {vinculaciones.map(v => (
-                    <button
+                    <Boton
                       key={v.id}
+                      variante="fantasma"
+                      tamano="sm"
                       onClick={() => {
                         autoguardar({
                           atencion_contacto_id: v.vinculado.id,
@@ -1552,7 +1556,7 @@ export default function EditorPresupuesto({
                         setAtencionId(v.vinculado.id)
                         setAtencionSeleccionada(v.vinculado)
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-left rounded-lg hover:bg-superficie-app transition-colors border border-transparent hover:border-borde-sutil"
+                      className="w-full text-left px-3 py-2 h-auto border border-transparent hover:border-borde-sutil"
                     >
                       <div className="size-7 rounded-full bg-superficie-app text-texto-terciario flex items-center justify-center text-xs font-bold">
                         {v.vinculado.nombre[0]}
@@ -1565,7 +1569,7 @@ export default function EditorPresupuesto({
                           {v.puesto || v.vinculado.correo || ''}
                         </div>
                       </div>
-                    </button>
+                    </Boton>
                   ))}
                 </div>
               </div>

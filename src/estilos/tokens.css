@@ -191,6 +191,13 @@
   --superficie-anclada-alterna: #f6f6f6;
   --superficie-anclada-seleccionada: #eaeaf4;
 
+  /* Overlay — para modales y sheets */
+  --overlay-oscuro: rgba(0, 0, 0, 0.5);
+
+  /* Código — para editores de código */
+  --superficie-codigo: #f8f9fa;
+  --texto-codigo: #1e1e2e;
+
   /* Z-Index */
   --z-dropdown: 40;
   --z-modal: 50;
@@ -266,6 +273,10 @@
     --superficie-anclada: #1e1e1e;
     --superficie-anclada-alterna: #262626;
     --superficie-anclada-seleccionada: #1e1e30;
+
+    --overlay-oscuro: rgba(0, 0, 0, 0.6);
+    --superficie-codigo: #1e1e2e;
+    --texto-codigo: #cdd6f4;
   }
 }
 
@@ -330,6 +341,10 @@
   --superficie-anclada: #1e1e1e;
   --superficie-anclada-alterna: #262626;
   --superficie-anclada-seleccionada: #1e1e30;
+
+  --overlay-oscuro: rgba(0, 0, 0, 0.6);
+  --superficie-codigo: #1e1e2e;
+  --texto-codigo: #cdd6f4;
 }
 
 /* ---------- ESCALA DE TEXTO ---------- */

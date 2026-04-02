@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback, type ReactNode } from 'react'
+import { useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTema } from '@/hooks/useTema'
@@ -37,15 +37,39 @@ const clasesAncho: Record<TamanoModal, string> = {
 function Modal({ abierto, onCerrar, titulo, tamano = 'lg', children, acciones, sinPadding }: PropiedadesModal) {
   const { efecto } = useTema()
   const esCristal = efecto !== 'solido'
+  const panelRef = useRef<HTMLDivElement>(null)
 
   const manejarTecla = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Escape') onCerrar()
+    if (e.key === 'Escape') { onCerrar(); return }
+
+    // Focus trap: Tab / Shift+Tab cicla dentro del modal
+    if (e.key === 'Tab' && panelRef.current) {
+      const focusables = panelRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+      if (focusables.length === 0) return
+      const primero = focusables[0]
+      const ultimo = focusables[focusables.length - 1]
+
+      if (e.shiftKey) {
+        if (document.activeElement === primero) { ultimo.focus(); e.preventDefault() }
+      } else {
+        if (document.activeElement === ultimo) { primero.focus(); e.preventDefault() }
+      }
+    }
   }, [onCerrar])
 
   useEffect(() => {
     if (abierto) {
       document.addEventListener('keydown', manejarTecla)
       document.body.style.overflow = 'hidden'
+      // Auto-focus al primer elemento focusable del modal
+      requestAnimationFrame(() => {
+        const primero = panelRef.current?.querySelector<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+        primero?.focus()
+      })
     }
     return () => {
       document.removeEventListener('keydown', manejarTecla)
@@ -74,6 +98,7 @@ function Modal({ abierto, onCerrar, titulo, tamano = 'lg', children, acciones, s
           {/* Panel */}
           <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
             <motion.div
+              ref={panelRef}
               initial={{ opacity: 0, scale: 0.96, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.85, y: 0 }}

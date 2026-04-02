@@ -133,6 +133,70 @@ export const COLOR_TIPO_PRODUCTO: Record<string, ColorInsignia> = {
   servicio: 'exito',
 }
 
+// ─── Paletas hex para defaults/seeds ───
+
+/** Colores hex para etiquetas predefinidas de inbox */
+export const COLORES_ETIQUETA_INBOX: Record<string, string> = {
+  consulta:     '#3b82f6',
+  venta:        '#22c55e',
+  soporte:      '#f59e0b',
+  reclamo:      '#ef4444',
+  presupuesto:  '#8b5cf6',
+  postventa:    '#06b6d4',
+  urgente:      '#dc2626',
+  seguimiento:  '#64748b',
+  info:         '#0ea5e9',
+  agendamiento: '#a855f7',
+}
+
+/** Colores hex para estados de actividad */
+export const COLORES_HEX_ESTADO_ACTIVIDAD: Record<string, string> = {
+  pendiente:  '#f5a623',
+  completada: '#46a758',
+  vencida:    '#e5484d',
+  en_curso:   '#3b82f6',
+}
+
+/** Color hex por defecto para tipos de actividad */
+export const COLOR_TIPO_ACTIVIDAD_DEFECTO = '#5b5bd6'
+
+// ─── Paletas hex para selectores de color (pickers) ───
+
+/** Paleta de colores para estados de actividad (config) */
+export const PALETA_COLORES_ESTADO: string[] = [
+  '#f5a623', '#e5484d', '#46a758', '#3b82f6',
+  '#8e4ec6', '#889096', '#0f766e', '#ec4899',
+]
+
+/** Paleta de colores para tipos de actividad (config) */
+export const PALETA_COLORES_TIPO_ACTIVIDAD: { color: string; nombre: string }[] = [
+  { color: '#e5484d', nombre: 'Rojo' },
+  { color: '#f5a623', nombre: 'Naranja' },
+  { color: '#e5a84c', nombre: 'Ámbar' },
+  { color: '#46a758', nombre: 'Verde' },
+  { color: '#0f766e', nombre: 'Esmeralda' },
+  { color: '#7c93c4', nombre: 'Azul claro' },
+  { color: '#3b82f6', nombre: 'Azul' },
+  { color: '#8e4ec6', nombre: 'Violeta' },
+  { color: '#5b5bd6', nombre: 'Índigo' },
+  { color: '#ec4899', nombre: 'Rosa' },
+  { color: '#889096', nombre: 'Gris' },
+  { color: '#1e3a5f', nombre: 'Navy' },
+]
+
+/** Paleta de colores para sectores del organigrama (config) */
+export const PALETA_COLORES_SECTOR: string[] = [
+  '#ef4444', '#f59e0b', '#10b981', '#06b6d4',
+  '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899',
+  '#737373', '#1e3a5f', '#9f1239', '#15803d',
+]
+
+/** Paleta de colores para etiquetas de inbox (config) */
+export const PALETA_COLORES_ETIQUETA: string[] = [
+  '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6',
+  '#8b5cf6', '#ec4899', '#6b7280', '#0ea5e9', '#14b8a6',
+]
+
 // ─── Helper genérico ───
 
 /**

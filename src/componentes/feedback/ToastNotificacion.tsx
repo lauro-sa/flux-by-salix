@@ -13,6 +13,7 @@ import {
   type CategoriaNotificacion,
 } from '@/hooks/useNotificaciones'
 import { useModoConcentracion } from '@/hooks/useModoConcentracion'
+import { Boton } from '@/componentes/ui/Boton'
 
 /**
  * ToastNotificacion — Tarjetas flotantes agrupadas por conversación.
@@ -109,7 +110,7 @@ function ToastItem({ grupo, onDescartar, onVer }: PropsToastItem) {
       <div className="flex items-start gap-3 p-3.5">
         <div className="relative shrink-0">
           <div
-            className="size-9 rounded-xl flex items-center justify-center"
+            className="size-9 rounded-lg flex items-center justify-center"
             style={{ backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)` }}
           >
             <Icono size={18} style={{ color }} />
@@ -140,12 +141,15 @@ function ToastItem({ grupo, onDescartar, onVer }: PropsToastItem) {
           )}
         </div>
 
-        <button
+        <Boton
+          variante="fantasma"
+          tamano="xs"
+          soloIcono
+          icono={<X size={14} />}
+          titulo="Cerrar"
           onClick={() => onDescartar(grupo.clave)}
-          className="shrink-0 flex items-center justify-center size-6 rounded-md bg-transparent hover:bg-superficie-hover border-none cursor-pointer text-texto-terciario hover:text-texto-secundario transition-colors"
-        >
-          <X size={14} />
-        </button>
+          className="shrink-0"
+        />
       </div>
 
       {/* Lista expandida al hover (solo si hay más de 1 mensaje) */}
@@ -183,21 +187,25 @@ function ToastItem({ grupo, onDescartar, onVer }: PropsToastItem) {
 
       {/* Botones de acción */}
       <div className="flex border-t border-borde-sutil">
-        <button
+        <Boton
+          variante="fantasma"
+          tamano="xs"
           onClick={() => onDescartar(grupo.clave)}
-          className="flex-1 py-2 text-xs font-medium text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors"
+          className="flex-1 rounded-none py-2"
         >
           Descartar
-        </button>
+        </Boton>
         {ultima.url && (
           <>
             <div className="w-px bg-borde-sutil" />
-            <button
+            <Boton
+              variante="fantasma"
+              tamano="xs"
               onClick={() => onVer(ultima)}
-              className="flex-1 py-2 text-xs font-medium text-texto-marca hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors"
+              className="flex-1 rounded-none py-2 text-texto-marca"
             >
               Ver
-            </button>
+            </Boton>
           </>
         )}
       </div>

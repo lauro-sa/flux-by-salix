@@ -2,6 +2,7 @@
 
 import { Plus, Clock, Bell, Eye, X } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { Input } from '@/componentes/ui/Input'
 import { TextArea } from '@/componentes/ui/TextArea'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { SelectorHora } from '@/componentes/ui/SelectorHora'
@@ -38,13 +39,12 @@ function FormularioRecordatorio({ estado }: FormularioRecordatorioProps) {
   return (
     <div className="flex flex-col gap-3">
       {/* 1. Título — sin label, hero element */}
-      <input
-        type="text"
+      <Input
         value={titulo}
         onChange={(e) => setTitulo(e.target.value)}
         placeholder="¿Qué necesitas recordar?"
         autoFocus
-        className="w-full px-3 py-2.5 rounded-lg border border-borde-sutil bg-superficie-app text-sm font-medium text-texto-primario placeholder:text-texto-placeholder placeholder:font-normal focus:outline-none focus:border-texto-marca transition-colors"
+        formato={null}
         onKeyDown={(e) => { if (e.key === 'Enter' && titulo.trim()) crear() }}
       />
 

@@ -247,7 +247,7 @@ export default function PaginaProductos() {
             <div className="min-w-0">
               <div className="font-medium text-texto-primario truncate flex items-center gap-1.5">
                 {fila.nombre}
-                {fila.favorito && <Star size={12} className="text-yellow-500 fill-yellow-500 shrink-0" />}
+                {fila.favorito && <Star size={12} className="text-insignia-advertencia fill-insignia-advertencia shrink-0" />}
               </div>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="inline-flex items-center rounded-full px-1.5 py-px text-xxs font-medium whitespace-nowrap"
@@ -311,7 +311,7 @@ export default function PaginaProductos() {
         if (p <= 0 || c <= 0) return null
         const m = ((p - c) / p) * 100
         return (
-          <span className={`font-mono text-xs font-bold ${m > 0 ? 'text-green-600' : 'text-red-500'}`}>
+          <span className={`font-mono text-xs font-bold ${m > 0 ? 'text-insignia-exito' : 'text-insignia-peligro'}`}>
             {m.toFixed(1)}%
           </span>
         )
@@ -396,7 +396,7 @@ export default function PaginaProductos() {
           <div className="min-w-0 flex-1">
             <div className="font-medium text-texto-primario truncate flex items-center gap-1.5">
               {fila.nombre}
-              {fila.favorito && <Star size={12} className="text-yellow-500 fill-yellow-500 shrink-0" />}
+              {fila.favorito && <Star size={12} className="text-insignia-advertencia fill-insignia-advertencia shrink-0" />}
             </div>
             <div className="text-xs text-texto-terciario font-mono">{fila.codigo}</div>
           </div>
@@ -453,6 +453,8 @@ export default function PaginaProductos() {
               icono: <Trash2 size={14} />,
               onClick: eliminarProductosLote,
               peligro: true,
+              atajo: 'Supr',
+              grupo: 'peligro' as const,
             },
           ]}
           busqueda={busqueda}

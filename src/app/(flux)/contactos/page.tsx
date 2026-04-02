@@ -13,10 +13,11 @@ import {
   User, Tag, Hash, CreditCard, Link2, Mail, Phone, MessageCircle, Briefcase, Factory,
   Globe, MapPin, Tags, StickyNote, Calendar, Receipt, GraduationCap,
   Languages, Clock, Coins, Landmark, FileText, Star, Compass, ShieldCheck,
-  Trash2, X,
+  Trash2, X, UserCheck, Merge, FileDown,
 } from 'lucide-react'
 import { ModalImportar } from './_componentes/ModalImportar'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { useToast } from '@/componentes/feedback/Toast'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia, type ColorInsignia } from '@/componentes/ui/Insignia'
 import { Avatar } from '@/componentes/ui/Avatar'
@@ -110,6 +111,8 @@ export default function PaginaContactos() {
       .catch(() => {})
   }, [vinculadoDe, origenUrl, setMigajaDinamica])
 
+  const { mostrar: mostrarToast } = useToast()
+
   // Eliminar contactos en lote
   const eliminarContactosLote = useCallback(async (ids: Set<string>) => {
     try {
@@ -120,10 +123,62 @@ export default function PaginaContactos() {
       )
       setContactos(prev => prev.filter(c => !ids.has(c.id)))
       setTotal(prev => prev - ids.size)
+      mostrarToast('exito', `${ids.size} contacto${ids.size !== 1 ? 's' : ''} eliminado${ids.size !== 1 ? 's' : ''}`)
     } catch (err) {
       console.error('Error al eliminar contactos:', err)
+      mostrarToast('error', 'Error al eliminar contactos')
     }
-  }, [])
+  }, [mostrarToast])
+
+  // Exportar contactos seleccionados a CSV
+  const exportarContactosCSV = useCallback(async (ids: Set<string>) => {
+    const seleccion = contactos.filter(c => ids.has(c.id))
+    const cabeceras = ['Código', 'Nombre', 'Tipo', 'Correo', 'WhatsApp', 'Teléfono', 'Dirección']
+    const filas = seleccion.map(c => [
+      c.codigo,
+      `${c.nombre}${c.apellido ? ` ${c.apellido}` : ''}`,
+      c.tipo_contacto?.etiqueta || '',
+      c.correo || '',
+      c.whatsapp || '',
+      c.telefono || '',
+      c.direcciones?.[0]?.texto || c.direcciones?.[0]?.calle || '',
+    ])
+    const csv = [cabeceras, ...filas].map(f => f.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `contactos_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    mostrarToast('exito', `${ids.size} contacto${ids.size !== 1 ? 's' : ''} exportado${ids.size !== 1 ? 's' : ''}`)
+  }, [contactos, mostrarToast])
+
+  // Agregar etiqueta en lote
+  const agregarEtiquetaLote = useCallback(async (ids: Set<string>) => {
+    const etiqueta = window.prompt('Nombre de la etiqueta a agregar:')
+    if (!etiqueta?.trim()) return
+    try {
+      await Promise.all(
+        Array.from(ids).map(id =>
+          fetch(`/api/contactos/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agregar_etiqueta: etiqueta.trim() }),
+          })
+        )
+      )
+      // Actualizar localmente
+      setContactos(prev => prev.map(c =>
+        ids.has(c.id) && !c.etiquetas.includes(etiqueta.trim())
+          ? { ...c, etiquetas: [...c.etiquetas, etiqueta.trim()] }
+          : c
+      ))
+      mostrarToast('exito', `Etiqueta "${etiqueta.trim()}" agregada a ${ids.size} contacto${ids.size !== 1 ? 's' : ''}`)
+    } catch {
+      mostrarToast('error', 'Error al agregar etiqueta')
+    }
+  }, [mostrarToast])
 
   // Fetch de contactos — función estable
   const fetchContactos = useCallback(async (p: number) => {
@@ -536,14 +591,15 @@ export default function PaginaContactos() {
     >
       <TablaDinamica
         chipFiltro={vinculadoDe && nombreFiltro ? (
-          <button
-            type="button"
+          <Boton
+            variante="secundario"
+            tamano="xs"
+            redondeado
+            iconoDerecho={<X size={10} />}
             onClick={() => router.replace('/contactos')}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-superficie-elevada text-texto-primario border border-borde-sutil hover:border-borde-fuerte transition-colors cursor-pointer shrink-0"
           >
             {nombreFiltro}
-            <X size={10} className="text-texto-terciario" />
-          </button>
+          </Boton>
         ) : undefined}
         columnas={columnas}
         datos={contactos}
@@ -554,15 +610,32 @@ export default function PaginaContactos() {
         onCambiarPagina={setPagina}
         vistas={['lista', 'tarjetas']}
         seleccionables
-        accionesLote={tienePermiso('contactos', 'eliminar') ? [
+        accionesLote={[
           {
+            id: 'etiqueta',
+            etiqueta: 'Etiquetar',
+            icono: <Tags size={14} />,
+            onClick: agregarEtiquetaLote,
+            atajo: 'E',
+            grupo: 'edicion' as const,
+          },
+          {
+            id: 'exportar',
+            etiqueta: 'Exportar',
+            icono: <FileDown size={14} />,
+            onClick: exportarContactosCSV,
+            grupo: 'exportar' as const,
+          },
+          ...(tienePermiso('contactos', 'eliminar') ? [{
             id: 'eliminar',
             etiqueta: t('comun.eliminar'),
             icono: <Trash2 size={14} />,
             onClick: eliminarContactosLote,
             peligro: true,
-          },
-        ] : []}
+            atajo: 'Supr',
+            grupo: 'peligro' as const,
+          }] : []),
+        ]}
         busqueda={busqueda}
         onBusqueda={setBusqueda}
         placeholder={t('contactos.buscar_placeholder')}

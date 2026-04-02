@@ -10,6 +10,7 @@ import type { LineaPresupuesto, TipoLinea, Impuesto, UnidadMedida } from '@/tipo
 import { COLUMNAS_LINEA_DISPONIBLES } from '@/tipos/presupuesto'
 import { BuscadorProducto } from '@/componentes/entidad/BuscadorProducto'
 import { Boton } from '@/componentes/ui/Boton'
+import { Select } from '@/componentes/ui/Select'
 import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { TextArea } from '@/componentes/ui/TextArea'
 
@@ -157,7 +158,7 @@ function TablaLineas({
                           {col.requerida && <div className="w-3 shrink-0" />}
                           <span className="flex-1 text-texto-primario">{col.label}</span>
                           {!col.requerida && (
-                            <Boton variante="fantasma" tamano="xs" soloIcono icono={<EyeOff size={12} />} onClick={() => onCambiarColumnas(columnasVisibles.filter(c => c !== colId))} className="text-texto-terciario hover:text-insignia-peligro" />
+                            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Ocultar columna" icono={<EyeOff size={12} />} onClick={() => onCambiarColumnas(columnasVisibles.filter(c => c !== colId))} className="text-texto-terciario hover:text-insignia-peligro" />
                           )}
                         </Reorder.Item>
                       )
@@ -400,7 +401,7 @@ function FilaProducto({
         ))}
 
         {!soloLectura && (
-          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={(e) => { e.stopPropagation(); onEliminar(linea.id) }} className="w-8 text-texto-terciario hover:text-estado-error opacity-0 group-hover:opacity-100" />
+          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar línea" icono={<Trash2 size={14} />} onClick={(e) => { e.stopPropagation(); onEliminar(linea.id) }} className="w-8 text-texto-terciario hover:text-estado-error opacity-0 group-hover:opacity-100" />
         )}
       </div>
 
@@ -461,12 +462,7 @@ function FilaSeccion({
         />
       </div>
       {!soloLectura && (
-        <button
-          onClick={() => onEliminar(linea.id)}
-          className="w-8 flex items-center justify-center text-texto-terciario hover:text-estado-error opacity-0 group-hover:opacity-100 transition-all"
-        >
-          <Trash2 size={14} />
-        </button>
+        <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar sección" icono={<Trash2 size={14} />} onClick={() => onEliminar(linea.id)} className="w-8 opacity-0 group-hover:opacity-100" />
       )}
     </div>
   )
@@ -503,12 +499,7 @@ function FilaNota({
         />
       </div>
       {!soloLectura && (
-        <button
-          onClick={() => onEliminar(linea.id)}
-          className="w-8 flex items-center justify-center text-texto-terciario hover:text-estado-error opacity-0 group-hover:opacity-100 transition-all"
-        >
-          <Trash2 size={14} />
-        </button>
+        <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar nota" icono={<Trash2 size={14} />} onClick={() => onEliminar(linea.id)} className="w-8 opacity-0 group-hover:opacity-100" />
       )}
     </div>
   )
@@ -557,12 +548,7 @@ function FilaDescuento({
         />
       </div>
       {!soloLectura && (
-        <button
-          onClick={() => onEliminar(linea.id)}
-          className="w-8 flex items-center justify-center text-texto-terciario hover:text-estado-error opacity-0 group-hover:opacity-100 transition-all"
-        >
-          <Trash2 size={14} />
-        </button>
+        <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar descuento" icono={<Trash2 size={14} />} onClick={() => onEliminar(linea.id)} className="w-8 opacity-0 group-hover:opacity-100" />
       )}
     </div>
   )
@@ -676,16 +662,13 @@ function CampoSelect({
   }
 
   return (
-    <select
-      value={valor}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full bg-transparent border-0 outline-none text-sm cursor-pointer focus:bg-superficie-tarjeta focus:rounded px-0.5 py-0.5 transition-colors text-texto-primario"
-    >
-      <option value="">—</option>
-      {opciones.map((op, i) => (
-        <option key={`${op.valor}-${i}`} value={op.valor}>{op.etiqueta}</option>
-      ))}
-    </select>
+    <Select
+      valor={valor}
+      onChange={onChange}
+      opciones={[{ valor: '', etiqueta: '—' }, ...opciones]}
+      variante="plano"
+      className="w-full text-sm"
+    />
   )
 }
 

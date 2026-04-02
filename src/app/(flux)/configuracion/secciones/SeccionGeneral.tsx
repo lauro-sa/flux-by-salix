@@ -10,6 +10,7 @@ import { formatearTelefono, aplicarMascara } from '@/lib/formato'
 import { CargadorLogo, type VarianteLogo } from '@/componentes/ui/CargadorLogo'
 import { SelectorColor, extraerColoresDeImagen } from '@/componentes/ui/SelectorColor'
 import { IndicadorGuardado } from '@/componentes/ui/IndicadorGuardado'
+import { EncabezadoSeccion } from '@/componentes/ui/EncabezadoSeccion'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useAutoguardado } from '@/hooks/useAutoguardado'
 import { useTraduccion } from '@/lib/i18n'
@@ -202,23 +203,23 @@ export function SeccionGeneral() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-texto-primario mb-1">Información general</h2>
-          <p className="text-sm text-texto-terciario">Datos básicos de tu empresa visibles para todos los miembros.</p>
-        </div>
-        <IndicadorGuardado estado={estado} puedeDeshacer={puedeDeshacer} onDeshacer={async () => {
-          const restaurados = await deshacer()
-          if (restaurados) {
-            if ('nombre' in restaurados) setNombre(restaurados.nombre as string)
-            if ('slug' in restaurados) setSlug(restaurados.slug as string)
-            if ('ubicacion' in restaurados) setUbicacion(restaurados.ubicacion as string)
-            if ('pagina_web' in restaurados) setPaginaWeb(restaurados.pagina_web as string)
-            if ('correo' in restaurados) setCorreo(restaurados.correo as string)
-            if ('telefono' in restaurados) setTelefono(restaurados.telefono as string)
-          }
-        }} />
-      </div>
+      <EncabezadoSeccion
+        titulo="Información general"
+        descripcion="Datos básicos de tu empresa visibles para todos los miembros."
+        accion={
+          <IndicadorGuardado estado={estado} puedeDeshacer={puedeDeshacer} onDeshacer={async () => {
+            const restaurados = await deshacer()
+            if (restaurados) {
+              if ('nombre' in restaurados) setNombre(restaurados.nombre as string)
+              if ('slug' in restaurados) setSlug(restaurados.slug as string)
+              if ('ubicacion' in restaurados) setUbicacion(restaurados.ubicacion as string)
+              if ('pagina_web' in restaurados) setPaginaWeb(restaurados.pagina_web as string)
+              if ('correo' in restaurados) setCorreo(restaurados.correo as string)
+              if ('telefono' in restaurados) setTelefono(restaurados.telefono as string)
+            }
+          }} />
+        }
+      />
 
       <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-6 space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -311,13 +312,16 @@ export function SeccionGeneral() {
 
       {/* Datos fiscales — dinámicos según países configurados en Regionalización */}
       <div>
-        <h2 className="text-lg font-semibold text-texto-primario mb-1">Datos fiscales</h2>
-        <p className="text-sm text-texto-terciario mb-4">
-          {paisesEmpresa.length > 0
-            ? `Identificación fiscal de tu empresa según ${paisesEmpresa.length === 1 ? 'el país configurado' : 'los países configurados'} en Regionalización.`
-            : 'Configurá al menos un país en la sección Regionalización para ver los campos fiscales de tu empresa.'
-          }
-        </p>
+        <div className="mb-4">
+          <EncabezadoSeccion
+            titulo="Datos fiscales"
+            descripcion={
+              paisesEmpresa.length > 0
+                ? `Identificación fiscal de tu empresa según ${paisesEmpresa.length === 1 ? 'el país configurado' : 'los países configurados'} en Regionalización.`
+                : 'Configurá al menos un país en la sección Regionalización para ver los campos fiscales de tu empresa.'
+            }
+          />
+        </div>
 
         {camposFiscalesEmpresa.length > 0 && (
           <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-6 space-y-5">
@@ -383,10 +387,12 @@ export function SeccionGeneral() {
 
       {/* Datos bancarios */}
       <div>
-        <h2 className="text-lg font-semibold text-texto-primario mb-1">Datos bancarios</h2>
-        <p className="text-sm text-texto-terciario mb-4">
-          Cuenta bancaria principal de tu empresa. Se usa como base en presupuestos y portal de clientes.
-        </p>
+        <div className="mb-4">
+          <EncabezadoSeccion
+            titulo="Datos bancarios"
+            descripcion="Cuenta bancaria principal de tu empresa. Se usa como base en presupuestos y portal de clientes."
+          />
+        </div>
 
         <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-6 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -439,10 +445,12 @@ export function SeccionGeneral() {
 
       {/* Logos */}
       <div>
-        <h2 className="text-lg font-semibold text-texto-primario mb-1">Identidad visual</h2>
-        <p className="text-sm text-texto-terciario mb-4">
-          Subí los logos de tu empresa. Se usan en el sidebar, documentos, membretes y comunicaciones.
-        </p>
+        <div className="mb-4">
+          <EncabezadoSeccion
+            titulo="Identidad visual"
+            descripcion="Subí los logos de tu empresa. Se usan en el sidebar, documentos, membretes y comunicaciones."
+          />
+        </div>
 
         <div className="space-y-4">
           <CargadorLogo

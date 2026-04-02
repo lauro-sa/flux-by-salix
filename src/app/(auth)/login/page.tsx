@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
 import { Boton } from '@/componentes/ui/Boton'
+import { EncabezadoAuth } from '@/componentes/ui/EncabezadoAuth'
 import { useAuth } from '@/hooks/useAuth'
 import { useTraduccion } from '@/lib/i18n'
 import Link from 'next/link'
@@ -49,12 +50,7 @@ function ContenidoLogin() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-texto-primario mb-1">
-        {t('auth.iniciar_sesion')}
-      </h2>
-      <p className="text-sm text-texto-terciario mb-6">
-        {t('auth.bienvenido')}
-      </p>
+      <EncabezadoAuth titulo={t('auth.iniciar_sesion')} descripcion={t('auth.bienvenido')} />
 
       {/* Error de callback */}
       <AnimatePresence>

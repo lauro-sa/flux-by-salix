@@ -36,7 +36,7 @@ function PreviewRecordatorio({ previewModal, onCerrarModal, previewToast, onCerr
       >
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
-            <div className="size-10 rounded-xl bg-texto-marca/10 flex items-center justify-center shrink-0">
+            <div className="size-10 rounded-lg bg-texto-marca/10 flex items-center justify-center shrink-0">
               <AlarmClock size={20} className="text-texto-marca" />
             </div>
             <div>
@@ -74,7 +74,7 @@ function PreviewRecordatorio({ previewModal, onCerrarModal, previewToast, onCerr
             style={{ backgroundColor: 'var(--superficie-elevada)', top: 'calc(var(--header-alto) + 12px)' }}
           >
             <div className="flex items-start gap-3 p-4">
-              <div className="size-9 rounded-xl bg-texto-marca/10 flex items-center justify-center shrink-0">
+              <div className="size-9 rounded-lg bg-texto-marca/10 flex items-center justify-center shrink-0">
                 <AlarmClock size={18} className="text-texto-marca" />
               </div>
               <div className="flex-1 min-w-0">

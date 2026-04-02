@@ -443,10 +443,12 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
                   { clave: 'documentos' as TabMedia, etiqueta: 'Docs', cantidad: totalDocs },
                   { clave: 'enlaces' as TabMedia, etiqueta: 'Enlaces', cantidad: totalEnlaces },
                 ].map(tab => (
-                  <button
+                  <Boton
                     key={tab.clave}
+                    variante="fantasma"
+                    tamano="xs"
                     onClick={() => setTabMedia(tab.clave)}
-                    className="flex-1 text-xxs py-1.5 rounded-md transition-colors text-center"
+                    className="flex-1 text-center"
                     style={{
                       background: tabMedia === tab.clave ? 'var(--superficie-hover)' : 'transparent',
                       color: tabMedia === tab.clave ? 'var(--texto-primario)' : 'var(--texto-terciario)',
@@ -454,7 +456,7 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
                     }}
                   >
                     {tab.etiqueta} {tab.cantidad > 0 && <span className="opacity-60">({tab.cantidad})</span>}
-                  </button>
+                  </Boton>
                 ))}
               </div>
 
@@ -466,10 +468,12 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
                   ) : (
                     <div className="grid grid-cols-3 gap-1 rounded-md overflow-hidden">
                       {medios.fotos.map((media, i) => (
-                        <button
+                        <Boton
                           key={`media-${i}`}
+                          variante="fantasma"
+                          tamano="sm"
                           onClick={() => onAbrirVisor?.(media.url)}
-                          className="aspect-square overflow-hidden relative"
+                          className="aspect-square overflow-hidden relative p-0"
                         >
                           {media.tipo === 'video' ? (
                             <>
@@ -492,7 +496,7 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
                               className="w-full h-full object-cover hover:opacity-80 transition-opacity cursor-pointer"
                             />
                           )}
-                        </button>
+                        </Boton>
                       ))}
                     </div>
                   )
@@ -600,14 +604,17 @@ function SeccionColapsable({
 }) {
   return (
     <div style={{ borderTop: '1px solid var(--borde-sutil)' }}>
-      <button
+      <Boton
+        variante="fantasma"
+        tamano="sm"
+        anchoCompleto
         onClick={onToggle}
-        className="w-full flex items-center justify-between py-2 text-xs font-medium"
+        iconoDerecho={abierta ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        className="justify-between py-2 text-xs font-medium"
         style={{ color: 'var(--texto-secundario)' }}
       >
         {titulo}
-        {abierta ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-      </button>
+      </Boton>
       <AnimatePresence>
         {abierta && (
           <motion.div

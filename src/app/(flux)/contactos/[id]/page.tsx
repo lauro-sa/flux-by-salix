@@ -863,7 +863,7 @@ export default function PaginaContacto() {
                             <div className="text-sm font-medium text-texto-primario truncate">{v.nombre}</div>
                             <div className="text-xs text-texto-terciario">{v.tipo_etiqueta} · {v.codigo}</div>
                           </div>
-                          <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={14} />} onClick={() => setVinculacionesPendientes(prev => prev.filter(vp => vp.vinculado_id !== v.vinculado_id))} className="text-texto-terciario hover:text-insignia-peligro" />
+                          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Remover" icono={<X size={14} />} onClick={() => setVinculacionesPendientes(prev => prev.filter(vp => vp.vinculado_id !== v.vinculado_id))} className="text-texto-terciario hover:text-insignia-peligro" />
                         </div>
                       ))}
                     </div>

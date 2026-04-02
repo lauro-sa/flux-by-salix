@@ -60,6 +60,13 @@ input:-webkit-autofill:active {
   --color-superficie-activa: var(--superficie-activa);
   --color-superficie-seleccionada: var(--superficie-seleccionada);
 
+  /* Código — para editores de código */
+  --color-superficie-codigo: var(--superficie-codigo);
+  --color-texto-codigo: var(--texto-codigo);
+
+  /* Overlay — para modales y sheets */
+  --color-overlay-oscuro: var(--overlay-oscuro);
+
   /* Superficies sólidas para celdas sticky (siempre opacas, incluso en modo cristal) */
   --color-superficie-anclada: var(--superficie-anclada);
   --color-superficie-anclada-alterna: var(--superficie-anclada-alterna);

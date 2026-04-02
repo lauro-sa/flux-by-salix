@@ -10,6 +10,7 @@
 
 import { useState } from 'react'
 import { Check, Copy, Upload, FileText, Loader2, CircleDollarSign } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 import { formatearNumero } from '@/lib/pdf/renderizar-html'
 import { useTraduccion } from '@/lib/i18n'
 import type { CuotaPago } from '@/tipos/presupuesto'
@@ -122,11 +123,12 @@ export default function SeccionCuotas({
               const etiqueta = etiquetaCuota(cuota, i)
 
               return (
-                <button
+                <Boton
                   key={cuota.id}
+                  variante="fantasma"
                   onClick={() => !esCobrada && setCuotaSeleccionada(cuota.id)}
                   disabled={esCobrada}
-                  className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all ${
+                  className={`w-full text-left px-4 py-3 border-2 ${
                     esCobrada
                       ? 'border-insignia-exito/30 bg-insignia-exito/5 cursor-default'
                       : esSeleccionada
@@ -172,15 +174,16 @@ export default function SeccionCuotas({
                       )}
                     </div>
                   </div>
-                </button>
+                </Boton>
               )
             })}
 
             {/* Opción pago total (solo si hay más de una cuota y no es una sola al 100%) */}
             {cuotas.length > 1 && (
-              <button
+              <Boton
+                variante="fantasma"
                 onClick={() => setCuotaSeleccionada(null)}
-                className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all ${
+                className={`w-full text-left px-4 py-3 border-2 ${
                   cuotaSeleccionada === null
                     ? 'border-current bg-opacity-5'
                     : 'border-borde-sutil hover:border-borde-fuerte'
@@ -204,7 +207,7 @@ export default function SeccionCuotas({
                     {monedaSimbolo} {formatearNumero(totalFinal)}
                   </span>
                 </div>
-              </button>
+              </Boton>
             )}
           </div>
         </div>
@@ -316,14 +319,16 @@ function FilaBancaria({
     <div className="flex justify-between items-center text-sm">
       <span className="text-texto-terciario">{label}</span>
       {copiable && onCopiar ? (
-        <button
+        <Boton
+          variante="fantasma"
+          tamano="sm"
           onClick={onCopiar}
-          className="flex items-center gap-1.5 font-mono font-medium hover:opacity-80 transition-opacity"
+          className="font-mono font-medium"
           style={{ color: colorMarca }}
         >
           {valor}
           {copiado ? <Check size={14} className="text-insignia-exito" /> : <Copy size={14} />}
-        </button>
+        </Boton>
       ) : (
         <span className="text-texto-primario font-medium">{valor}</span>
       )}

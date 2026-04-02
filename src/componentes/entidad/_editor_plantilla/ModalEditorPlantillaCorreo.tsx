@@ -121,14 +121,14 @@ export function ModalEditorPlantillaCorreo({
                   )}
                 </div>
                 {!contactoBloqueadoPorDoc && (
-                  <button
+                  <Boton
+                    variante="fantasma"
+                    tamano="xs"
                     onClick={() => setContactoPreview(null)}
-                    className="text-xxs px-1.5 py-0.5 rounded transition-colors hover:bg-[var(--superficie-hover)] flex-shrink-0"
-                    style={{ color: 'var(--texto-terciario)' }}
-                    type="button"
+                    className="flex-shrink-0 text-xxs"
                   >
                     Cambiar
-                  </button>
+                  </Boton>
                 )}
                 {contactoBloqueadoPorDoc && (
                   <span className="text-xxs flex-shrink-0" style={{ color: 'var(--texto-terciario)' }}>vía documento</span>
@@ -153,14 +153,14 @@ export function ModalEditorPlantillaCorreo({
                 <p className="text-sm font-medium truncate" style={{ color: 'var(--texto-primario)' }}>{documentoPreview.numero}</p>
                 <p className="text-xxs truncate" style={{ color: 'var(--texto-terciario)' }}>{documentoPreview.estado} · {documentoPreview.contacto_nombre || ''}</p>
               </div>
-              <button
+              <Boton
+                variante="fantasma"
+                tamano="xs"
                 onClick={() => { setDocumentoPreview(null) }}
-                className="text-xxs px-1.5 py-0.5 rounded transition-colors hover:bg-[var(--superficie-hover)] flex-shrink-0"
-                style={{ color: 'var(--texto-terciario)' }}
-                type="button"
+                className="flex-shrink-0 text-xxs"
               >
                 Cambiar
-              </button>
+              </Boton>
             </div>
           ) : (
             <BuscadorDocumentoPreview

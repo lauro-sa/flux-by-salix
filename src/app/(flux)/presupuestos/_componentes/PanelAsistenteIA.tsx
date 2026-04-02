@@ -227,7 +227,7 @@ export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearSe
                 <p className="text-xxs text-texto-terciario">Describí el trabajo y armamos el presupuesto</p>
               </div>
             </div>
-            <Boton variante="fantasma" tamano="sm" soloIcono icono={<X size={16} />} onClick={onCerrar} />
+            <Boton variante="fantasma" tamano="sm" soloIcono titulo="Cerrar" icono={<X size={16} />} onClick={onCerrar} />
           </div>
 
           {/* ── Input de descripción ── */}
@@ -245,14 +245,15 @@ export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearSe
                 { id: 'paquete' as const, label: 'Crear' },
                 { id: 'detallado' as const, label: 'Desglosar' },
               ]).map(m => (
-                <button
+                <Boton
                   key={m.id}
-                  type="button"
+                  variante="fantasma"
+                  tamano="xs"
                   onClick={() => { setModoIA(m.id); localStorage.setItem('flux_asistente_modo', m.id) }}
-                  className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all text-center ${modoIA === m.id ? 'bg-superficie-elevada shadow-sm text-texto-primario' : 'text-texto-terciario hover:text-texto-secundario'}`}
+                  className={`flex-1 text-center ${modoIA === m.id ? 'bg-superficie-elevada shadow-sm text-texto-primario' : 'text-texto-terciario'}`}
                 >
                   {m.label}
-                </button>
+                </Boton>
               ))}
             </div>
             <p className="text-xxs text-texto-terciario mt-1.5 text-center leading-relaxed">
@@ -333,28 +334,29 @@ export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearSe
                       </Boton>
                     </div>
                   ) : (
-                    <button
-                      type="button"
+                    <Boton
+                      variante="secundario"
+                      anchoCompleto
+                      icono={<Sparkles size={18} />}
                       onClick={analizar}
                       disabled={!descripcion.trim()}
-                      className="w-full group relative overflow-hidden rounded-xl border border-texto-marca/30 bg-texto-marca/5 hover:bg-texto-marca/10 disabled:opacity-40 disabled:cursor-not-allowed transition-all py-4"
+                      className="relative overflow-hidden border-texto-marca/30 bg-texto-marca/5 py-4"
                     >
-                      <div className="flex items-center justify-center gap-2.5">
-                        <Sparkles size={18} className="text-texto-marca group-hover:scale-110 transition-transform" />
+                      <div className="flex flex-col items-center">
                         <span className="text-sm font-semibold text-texto-marca">Analizar con Salix IA</span>
+                        <p className="text-xxs text-texto-terciario mt-1">
+                          {modoIA === 'simple' && 'Redactar en un párrafo profesional'}
+                          {modoIA === 'paquete' && 'Crear un servicio reutilizable'}
+                          {modoIA === 'detallado' && 'Desglosar en servicios del catálogo'}
+                        </p>
                       </div>
-                      <p className="text-xxs text-texto-terciario mt-1">
-                        {modoIA === 'simple' && 'Redactar en un párrafo profesional'}
-                        {modoIA === 'paquete' && 'Crear un servicio reutilizable'}
-                        {modoIA === 'detallado' && 'Desglosar en servicios del catálogo'}
-                      </p>
-                    </button>
+                    </Boton>
                   )}
                 </motion.div>
               )}
             </AnimatePresence>
             {error && (
-              <div className="flex items-center gap-2 mt-2 text-xs text-red-500">
+              <div className="flex items-center gap-2 mt-2 text-xs text-insignia-peligro">
                 <AlertCircle size={14} />
                 {error}
               </div>
@@ -393,7 +395,7 @@ export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearSe
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: esRechazada ? 0.4 : 1, y: 0 }}
                         className={`px-5 py-3 transition-colors ${
-                          esAceptada ? 'bg-green-500/5' :
+                          esAceptada ? 'bg-insignia-exito/5' :
                           esRechazada ? 'bg-superficie-app' :
                           'hover:bg-superficie-app/50'
                         }`}
@@ -508,26 +510,29 @@ export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearSe
                   {sugerencias.map((s, sIdx) => {
                     const lineaRelacionada = lineas[s.para_linea]
                     return (
-                      <button
+                      <Boton
                         key={sIdx}
-                        type="button"
+                        variante="fantasma"
+                        tamano="sm"
                         onClick={() => aplicarSugerencia(s)}
-                        className="w-full text-left px-5 py-3 hover:bg-superficie-elevada transition-colors group"
+                        className="w-full text-left px-5 py-3 h-auto group"
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2.5">
-                            <span className="text-xs font-mono text-texto-marca bg-texto-marca/10 px-1.5 py-0.5 rounded">{s.referencia_interna}</span>
-                            <span className="text-sm font-medium text-texto-primario">{s.nombre}</span>
+                        <div className="w-full">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <span className="text-xs font-mono text-texto-marca bg-texto-marca/10 px-1.5 py-0.5 rounded">{s.referencia_interna}</span>
+                              <span className="text-sm font-medium text-texto-primario">{s.nombre}</span>
+                            </div>
+                            <span className="text-xxs font-medium text-texto-marca opacity-0 group-hover:opacity-100 transition-opacity">Usar este →</span>
                           </div>
-                          <span className="text-xxs font-medium text-texto-marca opacity-0 group-hover:opacity-100 transition-opacity">Usar este →</span>
+                          <div className="flex items-center gap-2 mt-1 ml-0.5">
+                            <span className="text-xxs text-texto-terciario">{s.razon}</span>
+                            {lineaRelacionada && (
+                              <span className="text-xxs text-texto-terciario">· reemplaza a: <span className="font-medium">{lineaRelacionada.nombre}</span></span>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 mt-1 ml-0.5">
-                          <span className="text-xxs text-texto-terciario">{s.razon}</span>
-                          {lineaRelacionada && (
-                            <span className="text-xxs text-texto-terciario">· reemplaza a: <span className="font-medium">{lineaRelacionada.nombre}</span></span>
-                          )}
-                        </div>
-                      </button>
+                      </Boton>
                     )
                   })}
                 </div>
@@ -549,7 +554,7 @@ export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearSe
           {aceptadas.length > 0 && (
             <div className="px-5 py-4 border-t border-borde-sutil bg-superficie-app">
               {nuevasSinCrear.length > 0 && (
-                <p className="text-xxs text-yellow-600 mb-2">
+                <p className="text-xxs text-insignia-advertencia mb-2">
                   {nuevasSinCrear.length} servicio{nuevasSinCrear.length > 1 ? 's' : ''} nuevo{nuevasSinCrear.length > 1 ? 's' : ''} — podés crearlos o aplicarlos sin crear
                 </p>
               )}

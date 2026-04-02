@@ -306,17 +306,18 @@ export function SeccionPerfil() {
             const ejemplo = fmt.ejemplo({ nombre: ctx.nombre, apellido: ctx.apellido, sector: ctx.sectorNombre || undefined })
             const activo = ctx.formatoNombreRemitente === fmt.valor
             return (
-              <button
+              <Boton
                 key={fmt.valor}
+                variante={activo ? 'secundario' : 'fantasma'}
                 type="button"
                 onClick={async () => {
                   ctx.setFormatoNombreRemitente(fmt.valor)
                   await ctx.guardarFormatoNombre(fmt.valor)
                 }}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                className={`!justify-start !text-left ${
                   activo
-                    ? 'border-texto-marca bg-texto-marca/5'
-                    : 'border-borde-sutil hover:border-borde-fuerte hover:bg-superficie-elevada'
+                    ? '!border-texto-marca !bg-texto-marca/5'
+                    : '!border-borde-sutil'
                 }`}
               >
                 <div className="size-8 rounded-lg bg-superficie-elevada flex items-center justify-center shrink-0">
@@ -328,7 +329,7 @@ export function SeccionPerfil() {
                   </span>
                   <span className="text-xxs text-texto-terciario">{fmt.descripcion}</span>
                 </div>
-              </button>
+              </Boton>
             )
           })}
         </div>

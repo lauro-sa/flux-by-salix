@@ -7,6 +7,8 @@ import {
   StickyNote,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { Input } from '@/componentes/ui/Input'
+import { TextArea } from '@/componentes/ui/TextArea'
 import type { TipoCanal, TipoContenido } from '@/tipos/inbox'
 import { useTraduccion } from '@/lib/i18n'
 import { SelectorRespuestasRapidas } from './SelectorRespuestasRapidas'
@@ -476,35 +478,40 @@ export function CompositorMensaje({
         <div className="px-3 pt-2 space-y-1.5">
           <div className="flex items-center gap-2">
             <span className="text-xs w-10" style={{ color: 'var(--texto-terciario)' }}>{t('inbox.para')}:</span>
-            <input
-              type="text"
+            <Input
+              tipo="text"
               value={correoPara}
               onChange={(e) => setCorreoPara(e.target.value)}
-              className="flex-1 text-xs bg-transparent outline-none"
-              style={{ color: 'var(--texto-primario)' }}
+              className="flex-1 text-xs"
               placeholder="destinatario@correo.com"
+              variante="plano"
+              compacto
+              formato="email"
             />
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs w-10" style={{ color: 'var(--texto-terciario)' }}>{t('inbox.cc')}:</span>
-            <input
-              type="text"
+            <Input
+              tipo="text"
               value={correoCC}
               onChange={(e) => setCorreoCC(e.target.value)}
-              className="flex-1 text-xs bg-transparent outline-none"
-              style={{ color: 'var(--texto-primario)' }}
+              className="flex-1 text-xs"
               placeholder="cc@correo.com"
+              variante="plano"
+              compacto
+              formato="email"
             />
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs w-10" style={{ color: 'var(--texto-terciario)' }}>{t('inbox.asunto')}:</span>
-            <input
-              type="text"
+            <Input
+              tipo="text"
               value={correoAsunto}
               onChange={(e) => setCorreoAsunto(e.target.value)}
-              className="flex-1 text-xs bg-transparent outline-none font-medium"
-              style={{ color: 'var(--texto-primario)' }}
+              className="flex-1 text-xs font-medium"
               placeholder="Asunto del correo"
+              variante="plano"
+              compacto
             />
           </div>
           <div style={{ borderBottom: '1px solid var(--borde-sutil)' }} />
@@ -551,7 +558,7 @@ export function CompositorMensaje({
                     : `${(archivoSeleccionado.size / 1024).toFixed(0)} KB`}
                 </p>
               </div>
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={14} />} onClick={removerArchivo} />
+              <Boton variante="fantasma" tamano="xs" soloIcono titulo="Remover archivo" icono={<X size={14} />} onClick={removerArchivo} />
             </div>
           </motion.div>
         )}
@@ -577,7 +584,7 @@ export function CompositorMensaje({
               <span className="font-medium">{t('inbox.nota_interna')}</span>
               <span style={{ color: 'var(--texto-terciario)' }}>{t('inbox.solo_visible_agentes')}</span>
             </div>
-            <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={14} />} onClick={() => setEsNotaInterna(false)} />
+            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Cerrar" icono={<X size={14} />} onClick={() => setEsNotaInterna(false)} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -612,18 +619,20 @@ export function CompositorMensaje({
             )}
 
             {/* Pausa / Continuar */}
-            <button
+            <Boton
+              variante="secundario"
+              tamano="sm"
+              soloIcono
+              redondeado
+              icono={pausado ? <Mic size={16} /> : <Pause size={16} />}
               onClick={pausado ? continuarGrabacion : pausarGrabacion}
-              className="p-2 rounded-full flex-shrink-0"
+              titulo={pausado ? 'Continuar' : 'Pausar'}
               style={{
                 border: '2px solid var(--insignia-peligro)',
                 color: 'var(--insignia-peligro)',
                 background: 'transparent',
               }}
-              title={pausado ? 'Continuar' : 'Pausar'}
-            >
-              {pausado ? <Mic size={16} /> : <Pause size={16} />}
-            </button>
+            />
 
             {/* Enviar */}
             <motion.button
@@ -677,21 +686,22 @@ export function CompositorMensaje({
 
             {/* Toggle nota interna */}
             {permitirNotasInternas && (
-              <button
+              <Boton
+                variante="fantasma"
+                tamano="sm"
+                soloIcono
+                icono={<StickyNote size={18} />}
                 onClick={() => setEsNotaInterna(!esNotaInterna)}
-                className="p-2 rounded-lg transition-colors flex-shrink-0"
+                titulo={esNotaInterna ? t('comun.cancelar') : t('inbox.nota_interna')}
                 style={{
                   color: esNotaInterna ? 'var(--insignia-advertencia)' : 'var(--texto-terciario)',
                   background: esNotaInterna ? 'color-mix(in srgb, var(--insignia-advertencia) 12%, transparent)' : 'transparent',
                 }}
-                title={esNotaInterna ? t('comun.cancelar') : t('inbox.nota_interna')}
-              >
-                <StickyNote size={18} />
-              </button>
+              />
             )}
 
             {/* Textarea */}
-            <textarea
+            <TextArea
               ref={textareaRef}
               value={texto}
               maxLength={tipoCanal === 'whatsapp' ? 4096 : undefined}
@@ -718,7 +728,8 @@ export function CompositorMensaje({
               }}
               placeholder={esNotaInterna ? t('inbox.placeholder_nota_interna') : (placeholder || t('inbox.escribir_mensaje'))}
               rows={1}
-              className="flex-1 resize-none text-sm bg-transparent outline-none py-2"
+              variante="transparente"
+              className="flex-1 resize-none text-sm py-2"
               style={{ color: esNotaInterna ? 'var(--insignia-advertencia)' : 'var(--texto-primario)', maxHeight: 150 }}
             />
 

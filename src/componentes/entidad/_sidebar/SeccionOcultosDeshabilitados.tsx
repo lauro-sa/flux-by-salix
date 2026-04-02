@@ -10,6 +10,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, Eye, Power } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 import type { ItemNav } from './tipos'
 
 interface PropiedadesSeccion {
@@ -55,14 +56,16 @@ function SeccionOcultosDeshabilitados({
                       <span className="shrink-0 flex opacity-50 ml-6">{item.icono}</span>
                       <span className="flex-1 truncate text-sm opacity-60">{item.etiqueta}</span>
                     </Link>
-                    <button
-                      onMouseDown={(e) => { e.stopPropagation(); onRestaurarOculto(item.id) }}
-                      className="absolute right-1 top-1/2 -translate-y-1/2 size-5 rounded bg-transparent border-none cursor-pointer opacity-0 group-hover:opacity-70 hover:bg-superficie-hover flex items-center justify-center"
+                    <Boton
+                      variante="fantasma"
+                      tamano="xs"
+                      soloIcono
+                      icono={<Eye size={12} />}
+                      titulo="Mostrar"
+                      onClick={(e) => { e.stopPropagation(); onRestaurarOculto(item.id) }}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-70"
                       style={{ color: 'var(--texto-terciario)' }}
-                      title="Mostrar"
-                    >
-                      <Eye size={12} />
-                    </button>
+                    />
                   </motion.div>
                 ))}
               </motion.div>
@@ -87,14 +90,16 @@ function SeccionOcultosDeshabilitados({
                       <span className="shrink-0 flex opacity-30 ml-6">{item.icono}</span>
                       <span className="flex-1 truncate text-sm opacity-40 line-through">{item.etiqueta}</span>
                     </div>
-                    <button
-                      onMouseDown={(e) => { e.stopPropagation(); onRestaurarDeshabilitado(item.id) }}
-                      className="absolute right-1 top-1/2 -translate-y-1/2 size-5 rounded bg-transparent border-none cursor-pointer opacity-0 group-hover:opacity-70 hover:bg-superficie-hover flex items-center justify-center"
+                    <Boton
+                      variante="fantasma"
+                      tamano="xs"
+                      soloIcono
+                      icono={<Power size={12} />}
+                      titulo="Habilitar"
+                      onClick={(e) => { e.stopPropagation(); onRestaurarDeshabilitado(item.id) }}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-70"
                       style={{ color: 'var(--texto-terciario)' }}
-                      title="Habilitar"
-                    >
-                      <Power size={12} />
-                    </button>
+                    />
                   </motion.div>
                 ))}
               </motion.div>

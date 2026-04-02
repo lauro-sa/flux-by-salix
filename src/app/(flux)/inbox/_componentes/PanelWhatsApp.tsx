@@ -356,25 +356,24 @@ export function PanelWhatsApp({
                   >
                     {info?.icono ? `${info.icono} ` : ''}{et}
                     {expandida && (
-                      <button
+                      <Boton
+                        variante="fantasma"
+                        tamano="xs"
+                        soloIcono
+                        icono={<X size={10} />}
                         onClick={(e) => {
                           e.stopPropagation()
                           const nuevas = conversacion.etiquetas.filter(e2 => e2 !== et)
-                          // Actualizar inmediatamente
                           onEtiquetasCambiaron?.(nuevas)
                           setEtiquetaExpandida(null)
-                          // Persistir en BD
                           fetch(`/api/inbox/conversaciones/${conversacion.id}`, {
                             method: 'PATCH',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ etiquetas: nuevas }),
                           })
                         }}
-                        className="rounded-full flex items-center justify-center"
                         style={{ color: colorEt }}
-                      >
-                        <X size={10} />
-                      </button>
+                      />
                     )}
                   </span>
                 )
@@ -847,17 +846,19 @@ export function PanelWhatsApp({
 
                   {/* Botón reaccionar (hover) — solo mensajes con wa_message_id */}
                   {msg.wa_message_id && (
-                    <button
+                    <Boton
+                      variante="fantasma"
+                      tamano="xs"
+                      soloIcono
+                      icono={<SmilePlus size={12} />}
                       onClick={() => setPickerMsgId(pickerAbierto ? null : msg.id)}
-                      className={`absolute top-0 p-1 rounded-full opacity-0 group-hover/burbuja:opacity-100 transition-opacity ${esPropio ? '-left-1' : '-right-1'}`}
+                      className={`absolute top-0 opacity-0 group-hover/burbuja:opacity-100 ${esPropio ? '-left-1' : '-right-1'}`}
                       style={{
                         background: 'var(--superficie-elevada)',
                         color: 'var(--texto-terciario)',
                         boxShadow: 'var(--sombra-sm)',
                       }}
-                    >
-                      <SmilePlus size={12} />
-                    </button>
+                    />
                   )}
 
                   {/* Picker de emojis rápidos */}
@@ -876,16 +877,18 @@ export function PanelWhatsApp({
                         }}
                       >
                         {EMOJIS_RAPIDOS.map(emoji => (
-                          <button
+                          <Boton
                             key={emoji}
+                            variante="fantasma"
+                            tamano="xs"
                             onClick={() => {
                               setPickerMsgId(null)
                               onReaccionar?.(msg.id, emoji)
                             }}
-                            className="text-base hover:scale-125 transition-transform cursor-pointer p-0.5"
+                            className="text-base hover:scale-125 p-0.5"
                           >
                             {emoji}
-                          </button>
+                          </Boton>
                         ))}
                       </motion.div>
                     )}
@@ -1010,12 +1013,16 @@ export function VisorMedia({
           <div className="flex-1 flex items-center justify-center relative min-h-0 px-16" onClick={e => e.stopPropagation()}>
             {/* Flecha izquierda */}
             {indice > 0 && (
-              <button
+              <Boton
+                variante="fantasma"
+                tamano="sm"
+                soloIcono
+                redondeado
+                icono={<ChevronLeft size={28} className="text-white/70" />}
                 onClick={() => onCambiarIndice(indice - 1)}
-                className="absolute left-4 p-2 rounded-full hover:bg-white/10 transition-colors z-10"
-              >
-                <ChevronLeft size={28} className="text-white/70" />
-              </button>
+                className="absolute left-4 z-10 hover:bg-white/10"
+                titulo="Anterior"
+              />
             )}
 
             <AnimatePresence mode="wait">
@@ -1051,12 +1058,16 @@ export function VisorMedia({
 
             {/* Flecha derecha */}
             {indice < medias.length - 1 && (
-              <button
+              <Boton
+                variante="fantasma"
+                tamano="sm"
+                soloIcono
+                redondeado
+                icono={<ChevronRight size={28} className="text-white/70" />}
                 onClick={() => onCambiarIndice(indice + 1)}
-                className="absolute right-4 p-2 rounded-full hover:bg-white/10 transition-colors z-10"
-              >
-                <ChevronRight size={28} className="text-white/70" />
-              </button>
+                className="absolute right-4 z-10 hover:bg-white/10"
+                titulo="Siguiente"
+              />
             )}
           </div>
 
@@ -1080,28 +1091,31 @@ export function VisorMedia({
               onClick={e => e.stopPropagation()}
             >
               {medias.map((media, i) => (
-                <button
+                <Boton
                   key={media.url}
+                  variante="fantasma"
+                  tamano="xs"
                   onClick={() => onCambiarIndice(i)}
-                  className="flex-shrink-0 rounded overflow-hidden transition-all relative"
+                  className="flex-shrink-0 overflow-hidden relative p-0"
                   style={{
                     width: 48,
                     height: 48,
                     opacity: i === indice ? 1 : 0.4,
                     border: i === indice ? '2px solid white' : '2px solid transparent',
+                    borderRadius: '0.375rem',
                   }}
                 >
                   {media.tipo === 'video' ? (
                     <>
                       <video src={media.url} preload="metadata" className="w-full h-full object-cover" muted />
-                      <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="absolute inset-0 flex items-center justify-center">
                         <Play size={12} className="text-white drop-shadow" />
-                      </div>
+                      </span>
                     </>
                   ) : (
                     <img src={media.url} alt="" className="w-full h-full object-cover" />
                   )}
-                </button>
+                </Boton>
               ))}
             </div>
           )}
@@ -1292,13 +1306,16 @@ function ReproductorAudio({ adjunto, children }: { adjunto: MensajeAdjunto; chil
           }
         }}
       />
-      <button
+      <Boton
+        variante="fantasma"
+        tamano="sm"
+        soloIcono
+        redondeado
+        icono={reproduciendo ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
         onClick={toggleReproducir}
-        className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
+        titulo={reproduciendo ? 'Pausar' : 'Reproducir'}
         style={{ background: 'var(--superficie-hover)', color: 'var(--texto-secundario)' }}
-      >
-        {reproduciendo ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
-      </button>
+      />
       <div className="flex-1 flex flex-col gap-0.5">
         {/* Waveform centrada (barras arriba y abajo) + circulito de progreso */}
         <div
@@ -1390,10 +1407,12 @@ function MiniaturVideo({
 }) {
   return (
     <div className="space-y-1">
-      <button
+      <Boton
+        variante="fantasma"
+        tamano="sm"
         onClick={() => onAbrirVisor(adjunto.url)}
-        className="relative rounded-md overflow-hidden block"
-        style={{ maxWidth: 320 }}
+        className="relative overflow-hidden block p-0"
+        style={{ maxWidth: 320, borderRadius: '0.375rem' }}
       >
         <video
           src={adjunto.url}
@@ -1403,12 +1422,12 @@ function MiniaturVideo({
           className="max-w-full rounded-md"
           style={{ maxHeight: 280 }}
         />
-        <div className="absolute inset-0 flex items-center justify-center cursor-pointer">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <span className="absolute inset-0 flex items-center justify-center cursor-pointer">
+          <span className="w-12 h-12 rounded-full flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <Play size={22} className="text-white ml-0.5" />
-          </div>
-        </div>
-      </button>
+          </span>
+        </span>
+      </Boton>
       {caption && (
         <p className="text-sm" style={{ color: 'var(--texto-primario)' }}>{caption}</p>
       )}
@@ -1438,10 +1457,12 @@ function GrillaImagenes({
           if (!adj) return null
           const spanFull = total === 3 && i === 0
           return (
-            <button
+            <Boton
               key={msg.id}
+              variante="fantasma"
+              tamano="sm"
               onClick={() => onAbrirVisor(adj.url)}
-              className={`relative block overflow-hidden ${spanFull ? 'col-span-2' : ''}`}
+              className={`relative block overflow-hidden p-0 ${spanFull ? 'col-span-2' : ''}`}
             >
               <img
                 src={adj.url}
@@ -1450,11 +1471,11 @@ function GrillaImagenes({
                 style={{ height: spanFull ? 200 : total === 2 ? 180 : 120 }}
               />
               {i === 3 && total > 4 && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                <span className="absolute inset-0 flex items-center justify-center bg-black/40">
                   <span className="text-white text-lg font-bold">+{total - 4}</span>
-                </div>
+                </span>
               )}
-            </button>
+            </Boton>
           )
         })}
       </div>
@@ -1513,14 +1534,14 @@ function ContenidoMensaje({
       return adjuntos.length > 0 ? (
         <div className="space-y-1">
           {adjuntos.map((adj) => (
-            <button key={adj.id} onClick={() => onAbrirVisor(adj.url)} className="block">
+            <Boton key={adj.id} variante="fantasma" tamano="sm" onClick={() => onAbrirVisor(adj.url)} className="block p-0">
               <img
                 src={adj.url}
                 alt={caption || ''}
                 className="rounded-md max-w-full cursor-pointer hover:opacity-90 transition-opacity"
                 style={{ maxHeight: 300 }}
               />
-            </button>
+            </Boton>
           ))}
           {caption && (
             <p

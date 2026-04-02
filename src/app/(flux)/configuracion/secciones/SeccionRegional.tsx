@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { DollarSign, Clock, Calendar, Globe, CalendarDays, MapPin } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 import { Select } from '@/componentes/ui/Select'
 import { IndicadorGuardado } from '@/componentes/ui/IndicadorGuardado'
+import { EncabezadoSeccion } from '@/componentes/ui/EncabezadoSeccion'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useAutoguardado } from '@/hooks/useAutoguardado'
 import { useTraduccion } from '@/lib/i18n'
@@ -114,27 +116,23 @@ export function SeccionRegional() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-texto-primario mb-1">Regionalización</h2>
-          <p className="text-sm text-texto-terciario">
-            Estos ajustes definen cómo se muestran las fechas, precios y horarios en toda la app para todos los miembros.
-          </p>
-        </div>
-        <div className="shrink-0">
-        <IndicadorGuardado estado={estado} puedeDeshacer={puedeDeshacer} onDeshacer={async () => {
-          const restaurados = await deshacer()
-          if (restaurados) {
-            if ('paises' in restaurados) setPaises(restaurados.paises as string[])
-            if ('moneda' in restaurados) setMoneda(restaurados.moneda as string)
-            if ('formato_fecha' in restaurados) setFormatoFecha(restaurados.formato_fecha as string)
-            if ('formato_hora' in restaurados) setFormatoHora(restaurados.formato_hora as string)
-            if ('dia_inicio_semana' in restaurados) setDiaInicio(restaurados.dia_inicio_semana as string)
-            if ('zona_horaria' in restaurados) setZonaHoraria(restaurados.zona_horaria as string)
-          }
-        }} />
-        </div>
-      </div>
+      <EncabezadoSeccion
+        titulo="Regionalización"
+        descripcion="Estos ajustes definen cómo se muestran las fechas, precios y horarios en toda la app para todos los miembros."
+        accion={
+          <IndicadorGuardado estado={estado} puedeDeshacer={puedeDeshacer} onDeshacer={async () => {
+            const restaurados = await deshacer()
+            if (restaurados) {
+              if ('paises' in restaurados) setPaises(restaurados.paises as string[])
+              if ('moneda' in restaurados) setMoneda(restaurados.moneda as string)
+              if ('formato_fecha' in restaurados) setFormatoFecha(restaurados.formato_fecha as string)
+              if ('formato_hora' in restaurados) setFormatoHora(restaurados.formato_hora as string)
+              if ('dia_inicio_semana' in restaurados) setDiaInicio(restaurados.dia_inicio_semana as string)
+              if ('zona_horaria' in restaurados) setZonaHoraria(restaurados.zona_horaria as string)
+            }
+          }} />
+        }
+      />
 
       {/* Países donde opera */}
       <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
@@ -153,22 +151,25 @@ export function SeccionRegional() {
           {PAISES_DISPONIBLES.map(p => {
             const activo = paises.includes(p.codigo)
             return (
-              <button key={p.codigo} type="button"
+              <Boton
+                key={p.codigo}
+                type="button"
+                variante={activo ? 'primario' : 'secundario'}
+                tamano="sm"
                 onClick={() => {
                   const nuevos = activo ? paises.filter(c => c !== p.codigo) : [...paises, p.codigo]
                   setPaises(nuevos)
                   guardarInmediato({ paises: nuevos })
                 }}
-                className={`
-                  px-3 py-1.5 text-sm rounded-lg border transition-all cursor-pointer
-                  ${activo
-                    ? 'bg-texto-marca/10 border-texto-marca/30 text-texto-primario font-medium'
-                    : 'bg-transparent border-borde-sutil text-texto-terciario hover:text-texto-secundario hover:border-borde-fuerte'
-                  }
-                `}>
+                className={
+                  activo
+                    ? '!bg-texto-marca/10 !border-texto-marca/30 !text-texto-primario'
+                    : ''
+                }
+              >
                 <span className="mr-1.5">{p.bandera}</span>
                 {p.nombre}
-              </button>
+              </Boton>
             )
           })}
         </div>

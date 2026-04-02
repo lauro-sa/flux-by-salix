@@ -231,7 +231,7 @@ function FilaTipo({
 
       {/* Icono con fondo de color */}
       <div
-        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+        className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
         style={{ backgroundColor: tipo.color + '18', color: tipo.color }}
       >
         {Icono && <Icono size={20} />}

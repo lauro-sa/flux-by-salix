@@ -1135,14 +1135,14 @@ export default function PaginaPerfilUsuario() {
                 />
                 {/* Overlay: si tiene foto abre recortador con la existente, si no abre file picker */}
                 {perfil.avatar_url ? (
-                  <button
-                    aria-label="Editar foto de perfil"
+                  <Boton
+                    variante="fantasma"
+                    soloIcono
+                    icono={<Camera size={20} className="text-white" />}
+                    titulo="Editar foto de perfil"
                     onClick={() => setRecortador({ imagen: perfil.avatar_url!, tipo: 'avatar' })}
-                    className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer border-none transition-opacity"
-                    style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
-                  >
-                    <Camera size={20} className="text-white" />
-                  </button>
+                    className="absolute inset-0 !rounded-full opacity-0 group-hover:opacity-100 !bg-black/40"
+                  />
                 ) : (
                   <label
                     htmlFor="avatar-upload"
@@ -1155,16 +1155,18 @@ export default function PaginaPerfilUsuario() {
                 )}
                 {/* Botón eliminar foto */}
                 {perfil.avatar_url && (
-                  <button
+                  <Boton
+                    variante="peligro"
+                    tamano="xs"
+                    soloIcono
+                    icono={<X size={10} className="text-white" />}
+                    titulo="Eliminar foto"
                     onClick={async () => {
                       setPerfil(p => p ? { ...p, avatar_url: null } : null)
                       guardarPerfil({ avatar_url: null })
                     }}
-                    className="absolute -bottom-1 -right-1 size-5 rounded-full bg-insignia-peligro flex items-center justify-center cursor-pointer border-2 border-superficie-tarjeta opacity-0 group-hover:opacity-100 transition-opacity"
-                    aria-label="Eliminar foto"
-                  >
-                    <X size={10} className="text-white" />
-                  </button>
+                    className="absolute -bottom-1 -right-1 !size-5 !rounded-full opacity-0 group-hover:opacity-100"
+                  />
                 )}
               </>
             )}
@@ -1802,13 +1804,14 @@ export default function PaginaPerfilUsuario() {
                           disabled={!puedeEditar}
                           compacto
                           iconoDerecho={
-                            <button
-                              type="button"
+                            <Boton
+                              variante="fantasma"
+                              tamano="xs"
+                              soloIcono
+                              icono={pinVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+                              titulo={pinVisible ? 'Ocultar PIN' : 'Mostrar PIN'}
                               onClick={() => setPinVisible(v => !v)}
-                              className="bg-transparent border-none cursor-pointer text-texto-terciario hover:text-texto-secundario transition-colors p-0"
-                            >
-                              {pinVisible ? <EyeOff size={14} /> : <Eye size={14} />}
-                            </button>
+                            />
                           }
                         />
                       </div>
@@ -1853,24 +1856,27 @@ export default function PaginaPerfilUsuario() {
                               alt="Foto kiosco"
                               className="w-28 aspect-[3/4] object-cover rounded-lg border border-borde-sutil"
                             />
-                            <button
+                            <Boton
+                              variante="fantasma"
+                              soloIcono
+                              icono={<Camera size={18} className="text-white" />}
+                              titulo="Editar foto kiosco"
                               onClick={() => setRecortador({ imagen: miembro.foto_kiosco_url!, tipo: 'kiosco' })}
-                              className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer border-none transition-opacity"
-                              style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
-                            >
-                              <Camera size={18} className="text-white" />
-                            </button>
+                              className="absolute inset-0 !rounded-lg opacity-0 group-hover:opacity-100 !bg-black/40"
+                            />
                             {/* Eliminar foto kiosco */}
-                            <button
+                            <Boton
+                              variante="peligro"
+                              tamano="xs"
+                              soloIcono
+                              icono={<X size={10} className="text-white" />}
+                              titulo="Eliminar foto"
                               onClick={async () => {
                                 setMiembro(p => p ? { ...p, foto_kiosco_url: null } : null)
                                 guardarMiembroInmediato({ foto_kiosco_url: null })
                               }}
-                              className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-insignia-peligro flex items-center justify-center cursor-pointer border-2 border-superficie-tarjeta opacity-0 group-hover:opacity-100 transition-opacity"
-                              aria-label="Eliminar foto"
-                            >
-                              <X size={10} className="text-white" />
-                            </button>
+                              className="absolute -top-1.5 -right-1.5 !size-5 !rounded-full opacity-0 group-hover:opacity-100"
+                            />
                           </div>
                         ) : (
                           <label
@@ -2145,30 +2151,33 @@ export default function PaginaPerfilUsuario() {
                               { valor: 'por_dia', titulo: 'Cobra por día', desc: 'Gana un monto por cada día que trabaja. El total depende de cuántos días asista.', icono: <CalendarDays size={20} /> },
                               { valor: 'fijo', titulo: 'Sueldo fijo', desc: 'Cobra un monto fijo por período completo, sin importar los días que asista.', icono: <Landmark size={20} /> },
                             ].map(opcion => (
-                              <button
+                              <Boton
                                 key={opcion.valor}
+                                variante={compensacionTipo === opcion.valor ? 'primario' : 'secundario'}
                                 onClick={() => {
                                   setMiembro(p => p ? { ...p, compensacion_tipo: opcion.valor as CompensacionTipo } : null)
                                   guardarMiembroInmediato({ compensacion_tipo: opcion.valor })
                                 }}
-                                className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left cursor-pointer transition-all bg-transparent ${
+                                className={`!justify-start !text-left ${
                                   compensacionTipo === opcion.valor
-                                    ? 'border-texto-marca bg-texto-marca/5'
-                                    : 'border-borde-sutil hover:border-borde-fuerte'
+                                    ? '!border-texto-marca !bg-texto-marca/5'
+                                    : ''
                                 }`}
                               >
-                                <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${
-                                  compensacionTipo === opcion.valor ? 'bg-texto-marca/15 text-texto-marca' : 'bg-superficie-hover text-texto-terciario'
-                                }`}>
-                                  {opcion.icono}
+                                <div className="flex items-start gap-3">
+                                  <div className={`size-10 rounded-lg flex items-center justify-center shrink-0 ${
+                                    compensacionTipo === opcion.valor ? 'bg-texto-marca/15 text-texto-marca' : 'bg-superficie-hover text-texto-terciario'
+                                  }`}>
+                                    {opcion.icono}
+                                  </div>
+                                  <div>
+                                    <p className={`text-sm font-semibold ${compensacionTipo === opcion.valor ? 'text-texto-marca' : 'text-texto-primario'}`}>
+                                      {opcion.titulo}
+                                    </p>
+                                    <p className="text-xs text-texto-terciario mt-0.5">{opcion.desc}</p>
+                                  </div>
                                 </div>
-                                <div>
-                                  <p className={`text-sm font-semibold ${compensacionTipo === opcion.valor ? 'text-texto-marca' : 'text-texto-primario'}`}>
-                                    {opcion.titulo}
-                                  </p>
-                                  <p className="text-xs text-texto-terciario mt-0.5">{opcion.desc}</p>
-                                </div>
-                              </button>
+                              </Boton>
                             ))}
                           </div>
                         </div>
@@ -2207,21 +2216,23 @@ export default function PaginaPerfilUsuario() {
                               { valor: 'mensual', etiqueta: 'Mensual', icono: <CalendarDays size={14} /> },
                               { valor: 'eventual', etiqueta: 'Eventual', icono: <CalendarDays size={14} /> },
                             ].map(f => (
-                              <button
+                              <Boton
                                 key={f.valor}
+                                variante={compensacionFrecuencia === f.valor ? 'primario' : 'secundario'}
+                                tamano="sm"
+                                icono={f.icono}
                                 onClick={() => {
                                   setMiembro(p => p ? { ...p, compensacion_frecuencia: f.valor as CompensacionFrecuencia } : null)
                                   guardarMiembroInmediato({ compensacion_frecuencia: f.valor })
                                 }}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium cursor-pointer transition-all bg-transparent ${
+                                className={
                                   compensacionFrecuencia === f.valor
-                                    ? 'border-texto-marca bg-texto-marca/10 text-texto-marca'
-                                    : 'border-borde-sutil text-texto-secundario hover:border-borde-fuerte'
-                                }`}
+                                    ? '!border-texto-marca !bg-texto-marca/10 !text-texto-marca'
+                                    : ''
+                                }
                               >
-                                {f.icono}
                                 {f.etiqueta}
-                              </button>
+                              </Boton>
                             ))}
                           </div>
                           {compensacionTipo !== 'fijo' && compensacionMonto > 0 && (
@@ -2252,21 +2263,25 @@ export default function PaginaPerfilUsuario() {
                               { valor: 6, etiqueta: 'L-S', sub: 'Lunes a Sábado' },
                               { valor: 7, etiqueta: '7/7', sub: 'Todos los días' },
                             ].map(d => (
-                              <button
+                              <Boton
                                 key={d.valor}
+                                variante={diasTrabajo === d.valor ? 'primario' : 'secundario'}
+                                tamano="sm"
                                 onClick={() => {
                                   setMiembro(p => p ? { ...p, dias_trabajo: d.valor } : null)
                                   guardarMiembroInmediato({ dias_trabajo: d.valor })
                                 }}
-                                className={`flex flex-col items-center px-3 py-2 rounded-lg border text-center cursor-pointer transition-all min-w-[60px] bg-transparent ${
+                                className={`min-w-[60px] ${
                                   diasTrabajo === d.valor
-                                    ? 'border-texto-marca bg-texto-marca/10 text-texto-marca'
-                                    : 'border-borde-sutil text-texto-secundario hover:border-borde-fuerte'
+                                    ? '!border-texto-marca !bg-texto-marca/10 !text-texto-marca'
+                                    : ''
                                 }`}
                               >
-                                <span className="text-sm font-bold">{d.etiqueta}</span>
-                                <span className="text-xxs text-texto-terciario mt-0.5">{d.sub}</span>
-                              </button>
+                                <div className="flex flex-col items-center">
+                                  <span className="text-sm font-bold">{d.etiqueta}</span>
+                                  <span className="text-xxs text-texto-terciario mt-0.5">{d.sub}</span>
+                                </div>
+                              </Boton>
                             ))}
                           </div>
                         </div>

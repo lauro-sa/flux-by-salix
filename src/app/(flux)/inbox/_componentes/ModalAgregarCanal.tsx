@@ -289,10 +289,13 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado,
             </p>
             <div className="space-y-2">
               {proveedores.map((p) => (
-                <button
+                <Boton
                   key={p.valor}
+                  variante={proveedor === p.valor ? 'primario' : 'secundario'}
+                  tamano="sm"
+                  anchoCompleto
                   onClick={() => setProveedor(p.valor as ProveedorCanal)}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors"
+                  className="text-left"
                   style={{
                     border: proveedor === p.valor
                       ? '2px solid var(--texto-marca)'
@@ -302,27 +305,29 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado,
                       : 'transparent',
                   }}
                 >
-                  <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ background: 'var(--superficie-hover)' }}
-                  >
-                    {tipoCanal === 'whatsapp' ? (
-                      <IconoWhatsApp size={20} style={{ color: 'var(--canal-whatsapp)' }} />
-                    ) : p.valor === 'gmail_oauth' ? (
-                      <Globe size={20} style={{ color: '#4285F4' }} />
-                    ) : (
-                      <Mail size={20} style={{ color: 'var(--canal-correo)' }} />
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium" style={{ color: 'var(--texto-primario)' }}>
-                      {p.etiqueta}
-                    </p>
-                    <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
-                      {p.descripcion}
-                    </p>
-                  </div>
-                </button>
+                  <span className="flex items-center gap-3 w-full">
+                    <span
+                      className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ background: 'var(--superficie-hover)' }}
+                    >
+                      {tipoCanal === 'whatsapp' ? (
+                        <IconoWhatsApp size={20} style={{ color: 'var(--canal-whatsapp)' }} />
+                      ) : p.valor === 'gmail_oauth' ? (
+                        <Globe size={20} style={{ color: '#4285F4' }} />
+                      ) : (
+                        <Mail size={20} style={{ color: 'var(--canal-correo)' }} />
+                      )}
+                    </span>
+                    <span>
+                      <span className="text-sm font-medium block" style={{ color: 'var(--texto-primario)' }}>
+                        {p.etiqueta}
+                      </span>
+                      <span className="text-xs block" style={{ color: 'var(--texto-terciario)' }}>
+                        {p.descripcion}
+                      </span>
+                    </span>
+                  </span>
+                </Boton>
               ))}
             </div>
           </div>
@@ -500,9 +505,11 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado,
                   {MODULOS_CORREO.map((mod) => {
                     const activo = modulosDisponibles.includes(mod.slug)
                     return (
-                      <button
+                      <Boton
                         key={mod.slug}
                         type="button"
+                        variante={activo ? 'primario' : 'secundario'}
+                        tamano="sm"
                         onClick={() => {
                           setModulosDisponibles(prev =>
                             activo
@@ -510,7 +517,7 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado,
                               : [...prev, mod.slug]
                           )
                         }}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-left transition-colors"
+                        className="text-left"
                         style={{
                           border: activo
                             ? '2px solid var(--texto-marca)'
@@ -523,18 +530,20 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado,
                             : 'var(--texto-secundario)',
                         }}
                       >
-                        <div
-                          className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0 text-[10px]"
-                          style={{
-                            background: activo ? 'var(--texto-marca)' : 'transparent',
-                            border: activo ? 'none' : '1.5px solid var(--borde-fuerte)',
-                            color: activo ? 'var(--texto-inverso)' : 'transparent',
-                          }}
-                        >
-                          {activo && '✓'}
-                        </div>
-                        {mod.nombre}
-                      </button>
+                        <span className="flex items-center gap-2 text-xs">
+                          <span
+                            className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0 text-[10px]"
+                            style={{
+                              background: activo ? 'var(--texto-marca)' : 'transparent',
+                              border: activo ? 'none' : '1.5px solid var(--borde-fuerte)',
+                              color: activo ? 'var(--texto-inverso)' : 'transparent',
+                            }}
+                          >
+                            {activo && '✓'}
+                          </span>
+                          {mod.nombre}
+                        </span>
+                      </Boton>
                     )
                   })}
                 </div>

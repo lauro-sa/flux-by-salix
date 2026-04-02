@@ -14,18 +14,20 @@ import { COLOR_ETIQUETA_DEFECTO } from '@/lib/colores_entidad'
  * PUT    — restablecer etiquetas por defecto
  */
 
+import { COLORES_ETIQUETA_INBOX } from '@/lib/colores_entidad'
+
 // Etiquetas por defecto que se crean para cada empresa
 const ETIQUETAS_DEFAULT = [
-  { nombre: 'Consulta',        color: '#3b82f6', icono: '❓', orden: 1,  clave: 'consulta' },
-  { nombre: 'Venta',           color: '#22c55e', icono: '💰', orden: 2,  clave: 'venta' },
-  { nombre: 'Soporte',         color: '#f59e0b', icono: '🔧', orden: 3,  clave: 'soporte' },
-  { nombre: 'Reclamo',         color: '#ef4444', icono: '⚠️', orden: 4,  clave: 'reclamo' },
-  { nombre: 'Presupuesto',     color: '#8b5cf6', icono: '📋', orden: 5,  clave: 'presupuesto' },
-  { nombre: 'Postventa',       color: '#06b6d4', icono: '🤝', orden: 6,  clave: 'postventa' },
-  { nombre: 'Urgente',         color: '#dc2626', icono: '🔴', orden: 7,  clave: 'urgente' },
-  { nombre: 'Seguimiento',     color: '#64748b', icono: '📌', orden: 8,  clave: 'seguimiento' },
-  { nombre: 'Info / Catálogo', color: '#0ea5e9', icono: '📄', orden: 9,  clave: 'info' },
-  { nombre: 'Agendamiento',    color: '#a855f7', icono: '📅', orden: 10, clave: 'agendamiento' },
+  { nombre: 'Consulta',        color: COLORES_ETIQUETA_INBOX.consulta,     icono: '❓', orden: 1,  clave: 'consulta' },
+  { nombre: 'Venta',           color: COLORES_ETIQUETA_INBOX.venta,        icono: '💰', orden: 2,  clave: 'venta' },
+  { nombre: 'Soporte',         color: COLORES_ETIQUETA_INBOX.soporte,      icono: '🔧', orden: 3,  clave: 'soporte' },
+  { nombre: 'Reclamo',         color: COLORES_ETIQUETA_INBOX.reclamo,      icono: '⚠️', orden: 4,  clave: 'reclamo' },
+  { nombre: 'Presupuesto',     color: COLORES_ETIQUETA_INBOX.presupuesto,  icono: '📋', orden: 5,  clave: 'presupuesto' },
+  { nombre: 'Postventa',       color: COLORES_ETIQUETA_INBOX.postventa,    icono: '🤝', orden: 6,  clave: 'postventa' },
+  { nombre: 'Urgente',         color: COLORES_ETIQUETA_INBOX.urgente,      icono: '🔴', orden: 7,  clave: 'urgente' },
+  { nombre: 'Seguimiento',     color: COLORES_ETIQUETA_INBOX.seguimiento,  icono: '📌', orden: 8,  clave: 'seguimiento' },
+  { nombre: 'Info / Catálogo', color: COLORES_ETIQUETA_INBOX.info,         icono: '📄', orden: 9,  clave: 'info' },
+  { nombre: 'Agendamiento',    color: COLORES_ETIQUETA_INBOX.agendamiento, icono: '📅', orden: 10, clave: 'agendamiento' },
 ]
 
 export async function GET(request: NextRequest) {

@@ -77,7 +77,13 @@ export function InputEmailChips({
         {etiqueta}
       </span>
       <div className="flex-1 relative">
-        <div className="flex flex-wrap items-center gap-1 min-h-[32px] cursor-text" onClick={() => inputRef.current?.focus()}>
+        <div
+          role="textbox"
+          tabIndex={0}
+          className="flex flex-wrap items-center gap-1 min-h-[32px] cursor-text"
+          onClick={() => inputRef.current?.focus()}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inputRef.current?.focus() } }}
+        >
           {emails.map((email, i) => (
             <ChipEmail key={`${email}-${i}`} email={email} onRemover={() => onChange(emails.filter((_, j) => j !== i))} />
           ))}

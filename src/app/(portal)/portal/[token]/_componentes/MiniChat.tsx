@@ -8,6 +8,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { Send, MessageCircle, Loader2 } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 import { useTraduccion } from '@/lib/i18n'
 import { TextArea } from '@/componentes/ui/TextArea'
 import type { MensajePortal } from '@/tipos/portal'
@@ -70,9 +71,10 @@ export default function MiniChat({ mensajes, nombreCliente, colorMarca, token, o
   return (
     <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil overflow-hidden">
       {/* Header colapsable */}
-      <button
+      <Boton
+        variante="fantasma"
         onClick={() => setAbierto(!abierto)}
-        className="w-full px-5 py-3.5 flex items-center justify-between hover:bg-superficie-hover/50 transition-colors"
+        className="w-full px-5 py-3.5 flex items-center justify-between"
       >
         <div className="flex items-center gap-2">
           <MessageCircle size={16} style={{ color: colorMarca }} />
@@ -94,7 +96,7 @@ export default function MiniChat({ mensajes, nombreCliente, colorMarca, token, o
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
-      </button>
+      </Boton>
 
       {abierto && (
         <>
@@ -142,14 +144,17 @@ export default function MiniChat({ mensajes, nombreCliente, colorMarca, token, o
                 placeholder={t('portal.chat_placeholder') || 'Escribí tu consulta...'}
                 rows={1}
               />
-              <button
+              <Boton
+                variante="fantasma"
+                tamano="sm"
+                soloIcono
+                redondeado
+                icono={enviando ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                 onClick={enviar}
                 disabled={!texto.trim() || enviando}
-                className="shrink-0 p-2.5 rounded-xl text-white transition-opacity disabled:opacity-40"
+                className="shrink-0 text-white"
                 style={{ backgroundColor: colorMarca }}
-              >
-                {enviando ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-              </button>
+              />
             </div>
           </div>
         </>

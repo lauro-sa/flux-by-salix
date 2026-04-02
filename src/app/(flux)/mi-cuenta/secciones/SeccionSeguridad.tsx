@@ -5,6 +5,7 @@ import { Lock, Smartphone, Monitor, Tablet, Globe, Trash2, AlertTriangle, LogOut
 import { Input } from '@/componentes/ui/Input'
 import { Boton } from '@/componentes/ui/Boton'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
+import { EncabezadoSeccion } from '@/componentes/ui/EncabezadoSeccion'
 import { useAuth } from '@/hooks/useAuth'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useRouter } from 'next/navigation'
@@ -319,10 +320,10 @@ export function SeccionSeguridad() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-texto-primario mb-1">Seguridad</h2>
-        <p className="text-sm text-texto-terciario">Gestioná tu contraseña y dispositivos activos.</p>
-      </div>
+      <EncabezadoSeccion
+        titulo="Seguridad"
+        descripcion="Gestioná tu contraseña y dispositivos activos."
+      />
 
       {/* Cambiar contraseña */}
       <div>

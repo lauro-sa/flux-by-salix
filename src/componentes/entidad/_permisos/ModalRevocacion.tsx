@@ -7,6 +7,7 @@
 
 import { useState, useCallback } from 'react'
 import { Boton } from '@/componentes/ui/Boton'
+import { Input } from '@/componentes/ui/Input'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 
 interface PropiedadesModalRevocacion {
@@ -63,19 +64,14 @@ export function ModalRevocacion({ abierto, onCerrar, onConfirmar }: PropiedadesM
           Queda registrada en auditoria.
         </p>
         <div>
-          <label className="block text-sm font-medium text-texto-primario mb-1.5">
-            Motivo (obligatorio)
-          </label>
-          <input
-            type="text"
+          <Input
+            etiqueta="Motivo (obligatorio)"
             value={motivoRevocacion}
             onChange={(e) => setMotivoRevocacion(e.target.value)}
             placeholder="Ej: Salida de la empresa, conducta inapropiada..."
-            className="w-full px-3 py-2 text-sm rounded-md border border-borde-fuerte bg-superficie-tarjeta text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-texto-marca transition-colors"
+            formato={null}
+            error={motivoRevocacion.length > 0 && motivoRevocacion.trim().length < 5 ? 'Minimo 5 caracteres' : undefined}
           />
-          {motivoRevocacion.length > 0 && motivoRevocacion.trim().length < 5 && (
-            <p className="text-xs mt-1" style={{ color: 'var(--insignia-peligro)' }}>Minimo 5 caracteres</p>
-          )}
         </div>
       </div>
     </Modal>

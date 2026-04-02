@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { Input } from '@/componentes/ui/Input'
+import { Checkbox } from '@/componentes/ui/Checkbox'
 import { Insignia, type ColorInsignia } from '@/componentes/ui/Insignia'
 import { Select } from '@/componentes/ui/Select'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
@@ -634,20 +635,17 @@ export function VinculacionesContacto({
                     {etiquetasConfig.map(e => {
                       const activa = crearEtiquetas.includes(e.nombre)
                       return (
-                        <button
+                        <Boton
                           key={e.nombre}
-                          type="button"
+                          variante={activa ? 'primario' : 'secundario'}
+                          tamano="xs"
+                          redondeado
                           onClick={() => setCrearEtiquetas(prev =>
                             activa ? prev.filter(n => n !== e.nombre) : [...prev, e.nombre]
                           )}
-                          className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
-                            activa
-                              ? 'bg-texto-marca/20 text-texto-marca ring-1 ring-texto-marca/30'
-                              : 'bg-superficie-elevada text-texto-secundario hover:text-texto-primario'
-                          }`}
                         >
                           {e.nombre}
-                        </button>
+                        </Boton>
                       )
                     })}
                   </div>
@@ -656,18 +654,16 @@ export function VinculacionesContacto({
 
               {/* Opciones */}
               <div className="rounded-lg border border-borde-sutil p-3 space-y-2">
-                <label className="flex items-center gap-2.5 cursor-pointer">
-                  <input type="checkbox" checked={crearBidireccional} onChange={e => setCrearBidireccional(e.target.checked)}
-                    className="rounded size-4 accent-texto-marca" />
-                  <div>
-                    <span className="text-sm text-texto-primario font-medium">Vincular en ambas direcciones</span>
-                    <p className="text-xs text-texto-terciario mt-0.5">
-                      {crearBidireccional
-                        ? 'Ambos contactos se verán mutuamente en sus relaciones.'
-                        : 'Solo este contacto verá el vínculo.'}
-                    </p>
-                  </div>
-                </label>
+                <Checkbox
+                  marcado={crearBidireccional}
+                  onChange={setCrearBidireccional}
+                  etiqueta="Vincular en ambas direcciones"
+                />
+                <p className="text-xs text-texto-terciario ml-6">
+                  {crearBidireccional
+                    ? 'Ambos contactos se verán mutuamente en sus relaciones.'
+                    : 'Solo este contacto verá el vínculo.'}
+                </p>
               </div>
 
               <div className="flex justify-end gap-2 pt-1">
@@ -707,23 +703,24 @@ export function VinculacionesContacto({
 
               {/* Opciones */}
               <div className="space-y-2.5 rounded-lg border border-borde-sutil p-3">
-                <label className="flex items-center gap-2.5 cursor-pointer">
-                  <input type="checkbox" checked={bidireccional} onChange={e => setBidireccional(e.target.checked)}
-                    className="rounded size-4 accent-texto-marca" />
-                  <div>
-                    <span className="text-sm text-texto-primario font-medium">Vincular en ambas direcciones</span>
-                    <p className="text-xs text-texto-terciario mt-0.5">
-                      {bidireccional
-                        ? 'Ambos contactos se verán mutuamente en sus relaciones.'
-                        : 'Solo este contacto verá el vínculo.'}
-                    </p>
-                  </div>
-                </label>
-                <label className="flex items-center gap-2.5 cursor-pointer">
-                  <input type="checkbox" checked={recibeDocumentos} onChange={e => setRecibeDocumentos(e.target.checked)}
-                    className="rounded size-4 accent-texto-marca" />
-                  <span className="text-sm text-texto-secundario">Recibe copias de documentos</span>
-                </label>
+                <div>
+                  <Checkbox
+                    marcado={bidireccional}
+                    onChange={setBidireccional}
+                    etiqueta="Vincular en ambas direcciones"
+                  />
+                  <p className="text-xs text-texto-terciario mt-0.5 ml-6">
+                    {bidireccional
+                      ? 'Ambos contactos se verán mutuamente en sus relaciones.'
+                      : 'Solo este contacto verá el vínculo.'}
+                  </p>
+                </div>
+                <Checkbox
+                  marcado={recibeDocumentos}
+                  onChange={setRecibeDocumentos}
+                  etiqueta="Recibe copias de documentos"
+                  className="text-texto-secundario"
+                />
               </div>
 
               <div className="flex justify-end gap-2 pt-1">
@@ -792,10 +789,14 @@ export function VinculacionesContacto({
                     <div key={c.id}>
                       <div className="flex items-center">
                         {esContenedor && hijos.length > 0 ? (
-                          <button type="button" onClick={() => toggleContenedor(c.id)}
-                            className="p-1 bg-transparent border-none cursor-pointer text-texto-terciario hover:text-texto-primario transition-colors shrink-0">
-                            <ChevronRight size={14} className={`transition-transform ${expandido ? 'rotate-90' : ''}`} />
-                          </button>
+                          <Boton
+                            variante="fantasma"
+                            tamano="xs"
+                            soloIcono
+                            icono={<ChevronRight size={14} className={`transition-transform ${expandido ? 'rotate-90' : ''}`} />}
+                            onClick={() => toggleContenedor(c.id)}
+                            titulo="Expandir"
+                          />
                         ) : (
                           <div className="w-6" />
                         )}
@@ -921,11 +922,12 @@ export function VinculacionesContacto({
                 etiqueta={t('contactos.puesto_rol')}
               />
 
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={edicionRecibeDoc} onChange={e => setEdicionRecibeDoc(e.target.checked)}
-                  className="rounded" />
-                <span className="text-sm text-texto-secundario">Recibe copias de documentos</span>
-              </label>
+              <Checkbox
+                marcado={edicionRecibeDoc}
+                onChange={setEdicionRecibeDoc}
+                etiqueta="Recibe copias de documentos"
+                className="text-texto-secundario"
+              />
             </div>
 
             {/* Link a ficha completa */}
@@ -1016,8 +1018,10 @@ function SelectorPuesto({
   return (
     <div ref={ref} className="relative">
       <label className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-1 block">{etiqueta}</label>
-      <input
-        type="text"
+      <Input
+        tipo="text"
+        variante="plano"
+        compacto
         value={texto}
         onChange={e => { setTexto(e.target.value); setAbierto(true) }}
         onFocus={() => setAbierto(true)}
@@ -1029,8 +1033,6 @@ function SelectorPuesto({
           if (e.key === 'Escape') { setTexto(valor); setAbierto(false) }
         }}
         placeholder="Buscar o crear puesto..."
-        className="w-full bg-transparent text-sm text-texto-primario placeholder:text-texto-placeholder outline-none py-1.5 transition-colors"
-        style={{ borderBottom: '1px solid var(--borde-sutil)' }}
       />
 
       {abierto && (filtrados.length > 0 || mostrarCrear) && (
@@ -1063,10 +1065,7 @@ function SelectorPuesto({
           <span className="px-2.5 py-0.5 text-xs rounded-md font-medium text-white" style={{ backgroundColor: 'var(--texto-marca)' }}>
             {valor}
           </span>
-          <button type="button" onClick={() => { onChange(''); setTexto('') }}
-            className="text-texto-terciario hover:text-texto-primario bg-transparent border-none cursor-pointer p-0.5">
-            <X size={12} />
-          </button>
+          <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={12} />} onClick={() => { onChange(''); setTexto('') }} titulo="Quitar puesto" />
         </div>
       )}
     </div>
@@ -1158,8 +1157,10 @@ function SelectorRelacion({
   return (
     <div ref={ref} className="relative">
       <label className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-1 block">Tipo de relación</label>
-      <input
-        type="text"
+      <Input
+        tipo="text"
+        variante="plano"
+        compacto
         value={texto}
         onChange={e => { setTexto(e.target.value); setAbierto(true) }}
         onFocus={() => { setAbierto(true); if (seleccionado) setTexto('') }}
@@ -1174,8 +1175,6 @@ function SelectorRelacion({
           if (e.key === 'Escape') { setAbierto(false); setTexto(seleccionado?.etiqueta || '') }
         }}
         placeholder="Buscar o crear relación..."
-        className="w-full bg-transparent text-sm text-texto-primario placeholder:text-texto-placeholder outline-none py-1.5 transition-colors"
-        style={{ borderBottom: '1px solid var(--borde-sutil)' }}
       />
 
       {abierto && (filtrados.length > 0 || mostrarCrear) && (
@@ -1216,10 +1215,7 @@ function SelectorRelacion({
           <span className="px-2.5 py-0.5 text-xs rounded-md font-medium border border-borde-sutil text-texto-primario">
             {seleccionado.etiqueta}
           </span>
-          <button type="button" onClick={limpiar}
-            className="text-texto-terciario hover:text-texto-primario bg-transparent border-none cursor-pointer p-0.5">
-            <X size={12} />
-          </button>
+          <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={12} />} onClick={limpiar} titulo="Quitar relación" />
         </div>
       )}
     </div>
@@ -1242,23 +1238,27 @@ function FilaBusqueda({
   const color = (COLOR_TIPO_CONTACTO[contacto.tipo_contacto?.clave] || 'neutro') as ColorInsignia
 
   return (
-    <button
-      type="button"
+    <Boton
+      variante="fantasma"
+      tamano="sm"
+      anchoCompleto
       onClick={onSeleccionar}
       disabled={deshabilitado}
-      className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg text-left bg-transparent border-none transition-colors ${deshabilitado ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:bg-superficie-hover'}`}
+      className={deshabilitado ? 'opacity-40' : ''}
     >
-      <Avatar nombre={nombre} tamano="sm" />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-texto-primario truncate">{nombre}</span>
-          <Insignia color={color}>{contacto.tipo_contacto?.etiqueta}</Insignia>
-        </div>
-        <div className="text-xs text-texto-terciario truncate">
-          {subtitulo || contacto.correo || contacto.telefono || contacto.codigo}
+      <div className="flex items-center gap-3 w-full">
+        <Avatar nombre={nombre} tamano="sm" />
+        <div className="flex-1 min-w-0 text-left">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-texto-primario truncate">{nombre}</span>
+            <Insignia color={color}>{contacto.tipo_contacto?.etiqueta}</Insignia>
+          </div>
+          <div className="text-xs text-texto-terciario truncate">
+            {subtitulo || contacto.correo || contacto.telefono || contacto.codigo}
+          </div>
         </div>
       </div>
-    </button>
+    </Boton>
   )
 }
 

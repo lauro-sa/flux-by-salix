@@ -103,7 +103,7 @@ function Header({
       {/* Izquierda */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
         {/* Mobile: abrir menú fullscreen */}
-        <Boton variante="fantasma" tamano="sm" soloIcono icono={<PanelLeft size={22} />} onClick={onAbrirMenuMobil} className="md:hidden shrink-0" />
+        <Boton variante="fantasma" tamano="sm" soloIcono titulo="Abrir menú" icono={<PanelLeft size={22} />} onClick={onAbrirMenuMobil} className="md:hidden shrink-0" />
 
         {/* Desktop: toggle sidebar con popover */}
         <div ref={sidebarMenuRef} className="hidden md:block relative">
@@ -190,13 +190,15 @@ function Header({
 
       {/* Derecha — Logo Salix que abre menú central */}
       <div ref={menuRef} className="relative shrink-0">
-        <button
+        <Boton
+          variante="fantasma"
+          tamano="sm"
           onClick={() => setMenuAbierto(!menuAbierto)}
-          className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border-none cursor-pointer transition-colors duration-200 bg-transparent text-texto-terciario hover:bg-superficie-hover hover:text-texto-primario active:scale-95"
+          className="rounded-xl"
         >
           <IconoSalix tamano={22} hover tap />
           <span className="hidden sm:inline text-sm font-medium text-current">Flux</span>
-        </button>
+        </Boton>
 
         {/* ── Menú Salix ── */}
         <AnimatePresence>
@@ -211,7 +213,7 @@ function Header({
             >
               {/* Cabecera del menú — Logo + info */}
               <div className="flex items-center gap-3 px-4 pt-4 pb-3">
-                <div className="size-11 rounded-xl bg-superficie-hover flex items-center justify-center shrink-0">
+                <div className="size-11 rounded-lg bg-superficie-hover flex items-center justify-center shrink-0">
                   <IconoSalix tamano={26} />
                 </div>
                 <div className="flex flex-col min-w-0">

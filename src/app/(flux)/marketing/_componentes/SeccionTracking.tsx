@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { EncabezadoSeccion } from '@/componentes/ui/EncabezadoSeccion'
 import {
   Code, MousePointerClick, Users, BarChart3,
   Globe, Eye, Timer, Fingerprint, LayoutDashboard, Zap, ShieldCheck,
@@ -78,13 +79,10 @@ const funcionalidades: Funcionalidad[] = [
 function SeccionTracking() {
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h2 className="text-lg font-semibold text-texto-primario mb-1">Tracking Web</h2>
-        <p className="text-sm text-texto-secundario max-w-2xl">
-          Instalá un pixel de seguimiento en tu sitio web y conectá la actividad de tus visitantes
-          con sus fichas de contacto en Flux. Sabé quién visita tu web, qué mira y cuándo vuelve.
-        </p>
-      </div>
+      <EncabezadoSeccion
+        titulo="Tracking Web"
+        descripcion="Instalá un pixel de seguimiento en tu sitio web y conectá la actividad de tus visitantes con sus fichas de contacto en Flux. Sabé quién visita tu web, qué mira y cuándo vuelve."
+      />
 
       {/* Ejemplo de snippet */}
       <div className="rounded-lg bg-superficie-elevada border border-borde-sutil p-4">

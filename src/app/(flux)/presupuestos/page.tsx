@@ -10,9 +10,10 @@ import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import {
   Plus, FileText, User, Hash, Calendar, DollarSign, Tag,
-  Clock, CircleDot, FilePen, Trash2, X,
+  Clock, CircleDot, FilePen, Trash2, X, FileDown, Copy, RefreshCw,
 } from 'lucide-react'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { useToast } from '@/componentes/feedback/Toast'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { COLOR_ESTADO_DOCUMENTO } from '@/lib/colores_entidad'
@@ -111,6 +112,8 @@ export default function PaginaPresupuestos() {
       .catch(() => {})
   }, [contactoIdFiltro, origenUrl, setMigajaDinamica])
 
+  const { mostrar: mostrarToast } = useToast()
+
   // Enviar a papelera en lote
   const enviarAPapeleraLote = useCallback(async (ids: Set<string>) => {
     try {
@@ -125,10 +128,84 @@ export default function PaginaPresupuestos() {
       )
       setPresupuestos(prev => prev.filter(p => !ids.has(p.id)))
       setTotal(prev => prev - ids.size)
+      mostrarToast('exito', `${ids.size} presupuesto${ids.size !== 1 ? 's' : ''} enviado${ids.size !== 1 ? 's' : ''} a papelera`)
     } catch (err) {
       console.error('Error al enviar a papelera:', err)
+      mostrarToast('error', 'Error al enviar a papelera')
     }
-  }, [])
+  }, [mostrarToast])
+
+  // Cambiar estado en lote
+  const cambiarEstadoLote = useCallback(async (ids: Set<string>) => {
+    const estado = window.prompt('Nuevo estado (borrador, enviado, aceptado, rechazado, vencido):')
+    if (!estado?.trim()) return
+    const estadosValidos = ['borrador', 'enviado', 'aceptado', 'rechazado', 'vencido']
+    if (!estadosValidos.includes(estado.trim())) {
+      mostrarToast('error', `Estado inválido. Opciones: ${estadosValidos.join(', ')}`)
+      return
+    }
+    try {
+      await Promise.all(
+        Array.from(ids).map(id =>
+          fetch(`/api/presupuestos/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ estado: estado.trim() }),
+          })
+        )
+      )
+      setPresupuestos(prev => prev.map(p =>
+        ids.has(p.id) ? { ...p, estado: estado.trim() as EstadoPresupuesto } : p
+      ))
+      mostrarToast('exito', `Estado cambiado a "${estado.trim()}" en ${ids.size} presupuesto${ids.size !== 1 ? 's' : ''}`)
+    } catch {
+      mostrarToast('error', 'Error al cambiar estado')
+    }
+  }, [mostrarToast])
+
+  // Duplicar presupuestos en lote
+  const duplicarLote = useCallback(async (ids: Set<string>) => {
+    try {
+      const resultados = await Promise.all(
+        Array.from(ids).map(id =>
+          fetch(`/api/presupuestos/${id}/duplicar`, { method: 'POST' }).then(r => r.json())
+        )
+      )
+      const nuevos = resultados.filter(r => r.id)
+      if (nuevos.length > 0) {
+        mostrarToast('exito', `${nuevos.length} presupuesto${nuevos.length !== 1 ? 's' : ''} duplicado${nuevos.length !== 1 ? 's' : ''}`)
+        // Recargar la lista
+        setPagina(1)
+      }
+    } catch {
+      mostrarToast('error', 'Error al duplicar presupuestos')
+    }
+  }, [mostrarToast])
+
+  // Exportar presupuestos seleccionados a CSV
+  const exportarPresupuestosCSV = useCallback(async (ids: Set<string>) => {
+    const seleccion = presupuestos.filter(p => ids.has(p.id))
+    const cabeceras = ['Número', 'Estado', 'Cliente', 'Referencia', 'Moneda', 'Total', 'Fecha emisión', 'Fecha vencimiento']
+    const filas = seleccion.map(p => [
+      p.numero,
+      ETIQUETAS_ESTADO[p.estado] || p.estado,
+      p.contacto_nombre ? `${p.contacto_nombre}${p.contacto_apellido ? ` ${p.contacto_apellido}` : ''}` : '',
+      p.referencia || '',
+      p.moneda,
+      p.total_final,
+      p.fecha_emision,
+      p.fecha_vencimiento || '',
+    ])
+    const csv = [cabeceras, ...filas].map(f => f.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `presupuestos_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    mostrarToast('exito', `${ids.size} presupuesto${ids.size !== 1 ? 's' : ''} exportado${ids.size !== 1 ? 's' : ''}`)
+  }, [presupuestos, mostrarToast])
 
   // Fetch de presupuestos
   const fetchPresupuestos = useCallback(async (p: number) => {
@@ -415,14 +492,16 @@ export default function PaginaPresupuestos() {
     >
       <TablaDinamica<FilaPresupuesto>
         chipFiltro={contactoIdFiltro && nombreFiltro ? (
-          <button
-            type="button"
+          <Boton
+            variante="secundario"
+            tamano="xs"
+            redondeado
+            iconoDerecho={<X size={10} className="text-texto-terciario" />}
             onClick={() => router.replace('/presupuestos')}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-superficie-elevada text-texto-primario border border-borde-sutil hover:border-borde-fuerte transition-colors cursor-pointer shrink-0"
+            className="shrink-0"
           >
             {nombreFiltro}
-            <X size={10} className="text-texto-terciario" />
-          </button>
+          </Boton>
         ) : undefined}
         columnas={columnas}
         columnasVisiblesDefault={COLUMNAS_VISIBLES_DEFAULT}
@@ -471,15 +550,40 @@ export default function PaginaPresupuestos() {
           )
         }}
         seleccionables
-        accionesLote={tienePermiso('presupuestos', 'eliminar') ? [
+        accionesLote={[
           {
+            id: 'estado',
+            etiqueta: 'Estado',
+            icono: <RefreshCw size={14} />,
+            onClick: cambiarEstadoLote,
+            atajo: 'S',
+            grupo: 'edicion' as const,
+          },
+          {
+            id: 'duplicar',
+            etiqueta: 'Duplicar',
+            icono: <Copy size={14} />,
+            onClick: duplicarLote,
+            atajo: 'D',
+            grupo: 'edicion' as const,
+          },
+          {
+            id: 'exportar',
+            etiqueta: 'Exportar',
+            icono: <FileDown size={14} />,
+            onClick: exportarPresupuestosCSV,
+            grupo: 'exportar' as const,
+          },
+          ...(tienePermiso('presupuestos', 'eliminar') ? [{
             id: 'papelera',
             etiqueta: t('comun.eliminar'),
             icono: <Trash2 size={14} />,
             onClick: enviarAPapeleraLote,
             peligro: true,
-          },
-        ] : []}
+            atajo: 'Supr',
+            grupo: 'peligro' as const,
+          }] : []),
+        ]}
         busqueda={busqueda}
         onBusqueda={setBusqueda}
         placeholder="Buscar presupuestos..."

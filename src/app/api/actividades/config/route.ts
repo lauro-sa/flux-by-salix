@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { COLOR_TIPO_ACTIVIDAD_DEFECTO, COLOR_ETIQUETA_DEFECTO } from '@/lib/colores_entidad'
 
 /**
  * GET /api/actividades/config — Obtener configuración completa de actividades.
@@ -83,7 +84,7 @@ export async function PUT(request: NextRequest) {
             clave: datos.clave.toLowerCase().trim().replace(/\s+/g, '_'),
             etiqueta: datos.etiqueta.trim(),
             icono: datos.icono || 'Activity',
-            color: datos.color || '#5b5bd6',
+            color: datos.color || COLOR_TIPO_ACTIVIDAD_DEFECTO,
             modulos_disponibles: datos.modulos_disponibles || ['contactos'],
             dias_vencimiento: datos.dias_vencimiento ?? 1,
             campo_fecha: datos.campo_fecha ?? true,
@@ -173,7 +174,7 @@ export async function PUT(request: NextRequest) {
             clave: datos.clave.toLowerCase().trim().replace(/\s+/g, '_'),
             etiqueta: datos.etiqueta.trim(),
             icono: datos.icono || 'Circle',
-            color: datos.color || '#6b7280',
+            color: datos.color || COLOR_ETIQUETA_DEFECTO,
             grupo: datos.grupo || 'activo',
             orden: (maxOrdenE?.orden ?? -1) + 1,
             es_predefinido: false,

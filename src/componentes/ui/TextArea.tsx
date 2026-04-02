@@ -50,6 +50,10 @@ const TextArea = forwardRef<HTMLTextAreaElement, PropiedadesTextArea>(
   }, ref) => {
     const [enfocado, setEnfocado] = useState(false)
 
+    // IDs para vinculación ARIA
+    const textareaId = rest.id || rest.name
+    const errorId = textareaId ? `${textareaId}-error` : undefined
+
     const manejarKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (enviarConEnter && e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
@@ -83,6 +87,8 @@ const TextArea = forwardRef<HTMLTextAreaElement, PropiedadesTextArea>(
           {icono && <span className="text-texto-terciario shrink-0 flex items-center pt-0.5">{icono}</span>}
           <textarea
             ref={ref}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error && errorId ? errorId : undefined}
             onFocus={(e) => { setEnfocado(true); onFocus?.(e) }}
             onBlur={(e) => { setEnfocado(false); onBlur?.(e) }}
             onKeyDown={manejarKeyDown}
@@ -95,7 +101,11 @@ const TextArea = forwardRef<HTMLTextAreaElement, PropiedadesTextArea>(
           />
         </div>
         {(error || ayuda) && (
-          <span className={`text-xs ${error ? 'text-insignia-peligro' : 'text-texto-terciario'}`}>
+          <span
+            id={error && errorId ? errorId : undefined}
+            role={error ? 'alert' : undefined}
+            className={`text-xs ${error ? 'text-insignia-peligro' : 'text-texto-terciario'}`}
+          >
             {error || ayuda}
           </span>
         )}

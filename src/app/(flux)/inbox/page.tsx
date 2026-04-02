@@ -1248,7 +1248,7 @@ function PaginaInbox() {
             >
               {/* Toggle del sidebar */}
               <div className="flex items-center justify-center h-9 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
-                <Boton variante="fantasma" tamano="xs" soloIcono icono={sidebarCorreoColapsado ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />} onClick={toggleSidebarCorreo} />
+                <Boton variante="fantasma" tamano="xs" soloIcono titulo="Alternar panel" icono={sidebarCorreoColapsado ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />} onClick={toggleSidebarCorreo} />
               </div>
               {/* Contenido del sidebar */}
               <div className="flex-1 overflow-hidden">
@@ -1294,23 +1294,27 @@ function PaginaInbox() {
                   style={{ width: listaCorreoColapsada ? 40 : 320, borderRight: '1px solid var(--borde-sutil)' }}
                 >
                   <div className="flex items-center justify-between px-2 h-9 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
-                    <Boton variante="fantasma" tamano="xs" soloIcono icono={listaCorreoColapsada ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />} onClick={toggleListaCorreo} />
+                    <Boton variante="fantasma" tamano="xs" soloIcono titulo="Alternar lista" icono={listaCorreoColapsada ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />} onClick={toggleListaCorreo} />
                     {/* Selector de vista */}
                     <div className="flex items-center gap-0.5 rounded-md p-0.5" style={{ background: 'var(--superficie-hover)' }}>
-                      <button
+                      <Boton
+                        variante="fantasma"
+                        tamano="xs"
+                        soloIcono
+                        icono={<Columns2 size={12} />}
                         onClick={() => cambiarModoVista('columna')}
-                        className="p-1 rounded"
+                        titulo="Vista columna"
                         style={{ color: 'var(--texto-marca)', background: 'var(--superficie-seleccionada)' }}
-                      >
-                        <Columns2 size={12} />
-                      </button>
-                      <button
+                      />
+                      <Boton
+                        variante="fantasma"
+                        tamano="xs"
+                        soloIcono
+                        icono={<Rows2 size={12} />}
                         onClick={() => cambiarModoVista('fila')}
-                        className="p-1 rounded"
+                        titulo="Vista fila"
                         style={{ color: 'var(--texto-terciario)' }}
-                      >
-                        <Rows2 size={12} />
-                      </button>
+                      />
                     </div>
                   </div>
                   {!listaCorreoColapsada && (
@@ -1392,20 +1396,24 @@ function PaginaInbox() {
                       )}
                     </div>
                     <div className="flex items-center gap-0.5 rounded-md p-0.5" style={{ background: 'var(--superficie-hover)' }}>
-                      <button
+                      <Boton
+                        variante="fantasma"
+                        tamano="xs"
+                        soloIcono
+                        icono={<Columns2 size={12} />}
                         onClick={() => cambiarModoVista('columna')}
-                        className="p-1 rounded"
+                        titulo="Vista columna"
                         style={{ color: 'var(--texto-terciario)' }}
-                      >
-                        <Columns2 size={12} />
-                      </button>
-                      <button
+                      />
+                      <Boton
+                        variante="fantasma"
+                        tamano="xs"
+                        soloIcono
+                        icono={<Rows2 size={12} />}
                         onClick={() => cambiarModoVista('fila')}
-                        className="p-1 rounded"
+                        titulo="Vista fila"
                         style={{ color: 'var(--texto-marca)', background: 'var(--superficie-seleccionada)' }}
-                      >
-                        <Rows2 size={12} />
-                      </button>
+                      />
                     </div>
                   </div>
 

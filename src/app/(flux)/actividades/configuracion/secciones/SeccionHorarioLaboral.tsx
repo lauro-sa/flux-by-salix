@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { Info, Sparkles } from 'lucide-react'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Boton } from '@/componentes/ui/Boton'
@@ -81,7 +82,7 @@ function SeccionHorarioLaboral({ config, cargando, onAccionAPI }: PropiedadesSec
               <div className="text-xs text-texto-secundario space-y-1.5">
                 <p>Los vencimientos por defecto y las posposiciones saltarán fines de semana no laborales y feriados nacionales.</p>
                 <p>Las actividades sin hora se mostrarán en el calendario abarcando el horario laboral del día.</p>
-                <p>Configurá el horario de atención y el país de feriados en <a href="/configuracion" className="text-texto-marca font-semibold hover:underline">Empresa</a>.</p>
+                <p>Configurá el horario de atención y el país de feriados en <Link href="/configuracion" className="text-texto-marca font-semibold hover:underline">Empresa</Link>.</p>
               </div>
             </div>
           </div>

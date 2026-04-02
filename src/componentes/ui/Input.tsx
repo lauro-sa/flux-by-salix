@@ -65,6 +65,10 @@ const Input = forwardRef<HTMLInputElement, PropiedadesInput>(
     // Si es password, alternar entre text/password con el toggle
     const tipoReal = tipo === 'password' && mostrarContrasena ? 'text' : tipo
 
+    // IDs para vinculación ARIA
+    const inputId = rest.id || rest.name
+    const errorId = inputId ? `${inputId}-error` : undefined
+
     // inputMode para teclados móviles optimizados
     const inputMode = tipo === 'tel' ? 'tel' as const
       : tipo === 'email' ? 'email' as const
@@ -78,6 +82,7 @@ const Input = forwardRef<HTMLInputElement, PropiedadesInput>(
       <button
         type="button"
         tabIndex={-1}
+        aria-label={mostrarContrasena ? 'Ocultar contraseña' : 'Mostrar contraseña'}
         onClick={() => setMostrarContrasena(!mostrarContrasena)}
         className="text-texto-terciario hover:text-texto-secundario transition-colors bg-transparent border-none cursor-pointer p-0 flex items-center"
       >
@@ -113,6 +118,8 @@ const Input = forwardRef<HTMLInputElement, PropiedadesInput>(
             ref={ref}
             type={tipoReal}
             inputMode={inputMode}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error && errorId ? errorId : undefined}
             autoCapitalize={tipo === 'email' || tipo === 'url' ? 'off' : undefined}
             autoCorrect={tipo === 'email' || tipo === 'url' || tipo === 'password' ? 'off' : undefined}
             onFocus={(e) => { setEnfocado(true); rest.onFocus?.(e) }}
@@ -124,7 +131,11 @@ const Input = forwardRef<HTMLInputElement, PropiedadesInput>(
           {iconoDerechoFinal && <span className="text-texto-terciario shrink-0 flex items-center">{iconoDerechoFinal}</span>}
         </div>
         {(error || ayuda) && (
-          <span className={`text-xs ${error ? 'text-insignia-peligro' : 'text-texto-terciario'}`}>
+          <span
+            id={error && errorId ? errorId : undefined}
+            role={error ? 'alert' : undefined}
+            className={`text-xs ${error ? 'text-insignia-peligro' : 'text-texto-terciario'}`}
+          >
             {error || ayuda}
           </span>
         )}

@@ -112,12 +112,16 @@ export function PanelIA({
   return (
     <div ref={panelRef} style={{ borderTop: '1px solid var(--borde-sutil)' }}>
       {/* Barra toggle */}
-      <button
+      <Boton
+        variante="fantasma"
+        tamano="sm"
+        anchoCompleto
         onClick={() => setExpandido(!expandido)}
-        className="w-full flex items-center justify-between px-4 py-2 text-xs transition-colors"
+        iconoDerecho={expandido ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+        className="justify-between px-4 py-2 text-xs"
         style={{ color: 'var(--texto-terciario)' }}
       >
-        <div className="flex items-center gap-1.5">
+        <span className="flex items-center gap-1.5">
           <Sparkles size={12} style={{ color: 'var(--texto-marca)' }} />
           <span className="font-medium">Salix IA</span>
           {sentimiento && (
@@ -128,9 +132,8 @@ export function PanelIA({
               {sentimiento.sentimiento}
             </Insignia>
           )}
-        </div>
-        {expandido ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
-      </button>
+        </span>
+      </Boton>
 
       {/* Panel expandido */}
       <AnimatePresence>

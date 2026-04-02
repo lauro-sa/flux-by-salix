@@ -97,15 +97,16 @@ export default function SelectorPlantilla({
   return (
     <div ref={ref} className="relative inline-flex items-center">
       {/* Trigger */}
-      <button
+      <Boton
+        variante="fantasma"
+        tamano="sm"
+        iconoDerecho={<ChevronDown size={14} className={`text-texto-terciario transition-transform duration-200 ${abierto ? 'rotate-180' : ''}`} />}
         onClick={() => { setAbierto(!abierto); setCreando(false); setEliminando(null) }}
-        className="flex items-center gap-1.5 text-sm text-texto-primario hover:text-texto-marca transition-colors"
       >
         <span className="truncate max-w-[160px]">
           {plantillaCargada?.nombre || 'Sin plantilla'}
         </span>
-        <ChevronDown size={14} className={`text-texto-terciario transition-transform duration-200 ${abierto ? 'rotate-180' : ''}`} />
-      </button>
+      </Boton>
 
       {/* Menú */}
       <AnimatePresence>
@@ -127,9 +128,11 @@ export default function SelectorPlantilla({
 
                   return (
                     <div key={p.id} className="group flex items-center">
-                      <button
+                      <Boton
+                        variante="fantasma"
+                        tamano="sm"
                         onClick={() => { onCargar(p); setAbierto(false) }}
-                        className={`${itemClase} flex-1 min-w-0 ${esActual ? 'bg-marca-500/8 text-texto-marca' : 'text-texto-primario hover:bg-superficie-tarjeta'}`}
+                        className={`${itemClase} flex-1 min-w-0 h-auto ${esActual ? 'bg-marca-500/8 text-texto-marca' : 'text-texto-primario'}`}
                       >
                         {/* Check o estrella */}
                         {esActual ? (
@@ -140,7 +143,7 @@ export default function SelectorPlantilla({
                           <span className="w-3.5 shrink-0" />
                         )}
                         <span className="truncate">{p.nombre}</span>
-                      </button>
+                      </Boton>
 
                       {/* Acciones siempre visibles */}
                       <div className="shrink-0 flex items-center gap-0.5 pr-1.5">

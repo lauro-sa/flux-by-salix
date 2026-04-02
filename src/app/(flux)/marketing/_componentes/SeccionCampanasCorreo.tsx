@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { EncabezadoSeccion } from '@/componentes/ui/EncabezadoSeccion'
 import {
   Palette, Users, BarChart3, Clock,
   Send, Target, FlaskConical, Layers, Sparkles, Eye,
@@ -73,13 +74,10 @@ const funcionalidades: Funcionalidad[] = [
 function SeccionCampanasCorreo() {
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h2 className="text-lg font-semibold text-texto-primario mb-1">Campañas de Correo</h2>
-        <p className="text-sm text-texto-secundario max-w-2xl">
-          Email marketing integrado directamente en Flux. Diseñá, segmentá, enviá y medí campañas
-          de correo sin salir de tu sistema. Todo vinculado a tus contactos y al historial de cada cliente.
-        </p>
-      </div>
+      <EncabezadoSeccion
+        titulo="Campañas de Correo"
+        descripcion="Email marketing integrado directamente en Flux. Diseñá, segmentá, enviá y medí campañas de correo sin salir de tu sistema. Todo vinculado a tus contactos y al historial de cada cliente."
+      />
 
       {/* Grid de funcionalidades */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">

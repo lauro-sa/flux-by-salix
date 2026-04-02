@@ -9,6 +9,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { ChevronDown } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 import { motion, AnimatePresence } from 'framer-motion'
 import DOMPurify from 'isomorphic-dompurify'
 import type { ConfigMembrete, ConfigPiePagina } from '@/tipos/presupuesto'
@@ -74,14 +75,14 @@ function EncabezadoMiniatura({
       <div className={`shrink-0 ${alineacionLogo}`}>
         {tieneTextoLogo && (
           <div
-            className={`font-bold text-slate-800 leading-none whitespace-nowrap [&_strong]:font-black [&_p]:my-0`}
+            className={`font-bold text-texto-primario leading-none whitespace-nowrap [&_strong]:font-black [&_p]:my-0`}
             style={{ fontSize: `${membrete.tamano_texto_logo || 28}px` }}
             dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(membrete.texto_logo, OPCIONES_SANITIZACION) }}
           />
         )}
         {tieneSubtitulo && (
           <div
-            className={`text-slate-500 leading-tight [&_p]:my-0`}
+            className={`text-texto-secundario leading-tight [&_p]:my-0`}
             style={{ fontSize: `${membrete.tamano_subtitulo || 10}px`, marginTop: '2px' }}
             dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(membrete.subtitulo_logo, OPCIONES_SANITIZACION) }}
           />
@@ -92,13 +93,13 @@ function EncabezadoMiniatura({
 
   const bloqueTexto = tieneContenido ? (
     <div
-      className={`flex-1 min-w-0 text-slate-700 ${alineacionCSS} [&_p]:my-0.5 [&_strong]:font-bold [&_a]:text-blue-600 [&_a]:underline [&_h1]:font-bold [&_h1]:text-lg [&_h2]:font-semibold [&_h2]:text-base [&_h3]:font-medium [&_h3]:text-sm`}
+      className={`flex-1 min-w-0 text-texto-primario ${alineacionCSS} [&_p]:my-0.5 [&_strong]:font-bold [&_a]:text-texto-marca [&_a]:underline [&_h1]:font-bold [&_h1]:text-lg [&_h2]:font-semibold [&_h2]:text-base [&_h3]:font-medium [&_h3]:text-sm`}
       style={{ lineHeight: 1.3, fontSize: '10px' }}
       dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(membrete.contenido_html, OPCIONES_SANITIZACION) }}
     />
   ) : (
     <div className={`flex-1 min-w-0 ${alineacionCSS}`}>
-      <p className="text-slate-400 italic" style={{ fontSize: '7px' }}>El membrete aparecerá aquí...</p>
+      <p className="text-texto-terciario italic" style={{ fontSize: '7px' }}>El membrete aparecerá aquí...</p>
     </div>
   )
 
@@ -206,7 +207,7 @@ function PiePaginaMiniatura({ piePagina }: { piePagina: ConfigPiePagina | null }
       const tieneUrl = col.imagen_url && col.imagen_url.trim() && !col.imagen_url.includes('undefined')
       const img = tieneUrl
         ? <img src={col.imagen_url} alt="" className="w-4 h-4 object-contain inline-block" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
-        : <div className="w-4 h-4 border border-dashed border-slate-300 rounded-sm inline-flex items-center justify-center"><span className="text-[3px] text-slate-400">IMG</span></div>
+        : <div className="w-4 h-4 border border-dashed border-borde-sutil rounded-sm inline-flex items-center justify-center"><span className="text-[3px] text-texto-terciario">IMG</span></div>
       const alinTxt = col.alineacion_texto === 'izquierda' ? 'text-left' : col.alineacion_texto === 'derecha' ? 'text-right' : 'text-center'
       const txt = col.texto_imagen ? <span className={`text-[4px] block ${alinTxt}`}>{col.texto_imagen}</span> : null
       const esArriba = col.posicion_texto === 'arriba'
@@ -274,14 +275,16 @@ export function PreviewMembrete({
         </div>
       </div>
 
-      <button
-        type="button"
+      <Boton
+        variante="fantasma"
+        tamano="xs"
+        anchoCompleto
+        icono={<ChevronDown size={14} className={`transition-transform duration-300 ${expandido ? 'rotate-180' : ''}`} />}
         onClick={() => setExpandido(e => !e)}
-        className="w-full mt-2 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium text-texto-terciario hover:bg-superficie-app transition-colors"
+        className="mt-2"
       >
-        <ChevronDown size={14} className={`transition-transform duration-300 ${expandido ? 'rotate-180' : ''}`} />
         {expandido ? 'Comprimir' : 'Ver hoja completa'}
-      </button>
+      </Boton>
     </div>
   )
 }
@@ -380,14 +383,16 @@ export function PreviewPiePagina({
         </div>
       </div>
 
-      <button
-        type="button"
+      <Boton
+        variante="fantasma"
+        tamano="xs"
+        anchoCompleto
+        icono={<ChevronDown size={14} className={`transition-transform duration-300 ${expandido ? 'rotate-180' : ''}`} />}
         onClick={() => setExpandido(e => !e)}
-        className="w-full mt-2 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium text-texto-terciario hover:bg-superficie-app transition-colors"
+        className="mt-2"
       >
-        <ChevronDown size={14} className={`transition-transform duration-300 ${expandido ? 'rotate-180' : ''}`} />
         {expandido ? 'Comprimir' : 'Ver hoja completa'}
-      </button>
+      </Boton>
     </div>
   )
 }

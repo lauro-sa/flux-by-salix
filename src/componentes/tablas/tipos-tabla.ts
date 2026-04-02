@@ -65,6 +65,10 @@ export interface AccionLote {
   icono?: ReactNode
   onClick: (ids: Set<string>) => void
   peligro?: boolean
+  /** Atajo de teclado a mostrar (ej: 'E', 'Del', '⌘D') */
+  atajo?: string
+  /** Grupo visual — acciones del mismo grupo se agrupan juntas con separadores entre grupos */
+  grupo?: 'edicion' | 'organizacion' | 'exportar' | 'peligro'
 }
 
 /** Props principales del componente TablaDinamica */

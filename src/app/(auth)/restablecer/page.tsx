@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Lock, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
 import { Boton } from '@/componentes/ui/Boton'
+import { EncabezadoAuth } from '@/componentes/ui/EncabezadoAuth'
 import { useAuth } from '@/hooks/useAuth'
 import { useTraduccion } from '@/lib/i18n'
 
@@ -77,12 +78,7 @@ export default function PaginaRestablecer() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-texto-primario mb-1">
-        {t('auth.nueva_contrasena_titulo')}
-      </h2>
-      <p className="text-sm text-texto-terciario mb-6">
-        {t('auth.nueva_contrasena_desc')}
-      </p>
+      <EncabezadoAuth titulo={t('auth.nueva_contrasena_titulo')} descripcion={t('auth.nueva_contrasena_desc')} />
 
       <form onSubmit={manejarEnvio} className="flex flex-col gap-4">
         <Input

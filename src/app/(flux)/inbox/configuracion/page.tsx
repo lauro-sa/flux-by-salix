@@ -593,79 +593,84 @@ function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () =
       }}
     >
       {/* Header — siempre visible */}
-      <button
+      <Boton
+        variante="fantasma"
+        tamano="sm"
+        anchoCompleto
         onClick={() => setExpandido(!expandido)}
-        className="w-full flex items-center gap-3 p-4 text-left"
+        className="p-4 text-left"
       >
-        {/* Icono del canal */}
-        <div
-          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{
-            background: esWhatsApp ? 'rgba(37, 211, 102, 0.1)' : 'rgba(37, 99, 235, 0.1)',
-          }}
-        >
-          {esWhatsApp ? (
-            <IconoWhatsApp size={20} style={{ color: 'var(--canal-whatsapp)' }} />
-          ) : (
-            <Mail size={20} style={{ color: 'var(--canal-correo)' }} />
-          )}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
-              {canal.nombre}
-            </p>
-            <Insignia color={conectado ? 'exito' : error ? 'peligro' : 'neutro'} tamano="sm">
-              {conectado ? t('inbox.config.estado_conectado') : error ? t('inbox.config.estado_error') : t('inbox.config.estado_desconectado')}
-            </Insignia>
-            {calidad && (
-              <Insignia color={colorCalidad[calidad.rating] as 'exito' | 'advertencia' | 'peligro'} tamano="sm">
-                {calidad.rating}
-              </Insignia>
-            )}
-          </div>
-          <div className="flex items-center gap-3 mt-0.5">
-            <span className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
-              {canal.proveedor === 'imap' && 'IMAP/SMTP'}
-              {canal.proveedor === 'gmail_oauth' && 'Gmail OAuth'}
-              {canal.proveedor === 'meta_api' && 'Meta Business API'}
-              {canal.proveedor === 'twilio' && 'Twilio'}
-            </span>
-            {esWhatsApp && (
-              <span className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
-                {(config.numeroTelefono || config.numero_telefono || config.from_number || '') as string}
-              </span>
-            )}
-            {!esWhatsApp && (
-              <span className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
-                {(config.usuario || config.email || '') as string}
-              </span>
-            )}
-            {!esWhatsApp && canal.modulos_disponibles && canal.modulos_disponibles.length > 0 && (
-              <span className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
-                · {canal.modulos_disponibles.join(', ')}
-              </span>
-            )}
-          </div>
-          {error && canal.ultimo_error && (
-            <p className="text-xxs mt-1" style={{ color: 'var(--insignia-peligro)' }}>
-              {canal.ultimo_error}
-            </p>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <ChevronDown
-            size={16}
+        <span className="w-full flex items-center gap-3">
+          {/* Icono del canal */}
+          <span
+            className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
             style={{
-              color: 'var(--texto-terciario)',
-              transform: expandido ? 'rotate(180deg)' : 'rotate(0deg)',
-              transition: 'transform 200ms',
+              background: esWhatsApp ? 'rgba(37, 211, 102, 0.1)' : 'rgba(37, 99, 235, 0.1)',
             }}
-          />
-        </div>
-      </button>
+          >
+            {esWhatsApp ? (
+              <IconoWhatsApp size={20} style={{ color: 'var(--canal-whatsapp)' }} />
+            ) : (
+              <Mail size={20} style={{ color: 'var(--canal-correo)' }} />
+            )}
+          </span>
+
+          <span className="flex-1 min-w-0">
+            <span className="flex items-center gap-2">
+              <span className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+                {canal.nombre}
+              </span>
+              <Insignia color={conectado ? 'exito' : error ? 'peligro' : 'neutro'} tamano="sm">
+                {conectado ? t('inbox.config.estado_conectado') : error ? t('inbox.config.estado_error') : t('inbox.config.estado_desconectado')}
+              </Insignia>
+              {calidad && (
+                <Insignia color={colorCalidad[calidad.rating] as 'exito' | 'advertencia' | 'peligro'} tamano="sm">
+                  {calidad.rating}
+                </Insignia>
+              )}
+            </span>
+            <span className="flex items-center gap-3 mt-0.5">
+              <span className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
+                {canal.proveedor === 'imap' && 'IMAP/SMTP'}
+                {canal.proveedor === 'gmail_oauth' && 'Gmail OAuth'}
+                {canal.proveedor === 'meta_api' && 'Meta Business API'}
+                {canal.proveedor === 'twilio' && 'Twilio'}
+              </span>
+              {esWhatsApp && (
+                <span className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
+                  {(config.numeroTelefono || config.numero_telefono || config.from_number || '') as string}
+                </span>
+              )}
+              {!esWhatsApp && (
+                <span className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
+                  {(config.usuario || config.email || '') as string}
+                </span>
+              )}
+              {!esWhatsApp && canal.modulos_disponibles && canal.modulos_disponibles.length > 0 && (
+                <span className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
+                  · {canal.modulos_disponibles.join(', ')}
+                </span>
+              )}
+            </span>
+            {error && canal.ultimo_error && (
+              <span className="text-xxs mt-1 block" style={{ color: 'var(--insignia-peligro)' }}>
+                {canal.ultimo_error}
+              </span>
+            )}
+          </span>
+
+          <span className="flex items-center gap-1 flex-shrink-0">
+            <ChevronDown
+              size={16}
+              style={{
+                color: 'var(--texto-terciario)',
+                transform: expandido ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 200ms',
+              }}
+            />
+          </span>
+        </span>
+      </Boton>
 
       {/* Detalle expandido */}
       <AnimatePresence>
@@ -1523,15 +1528,16 @@ function SeccionChatbot() {
                   { clave: '{{nombre}}', desc: 'Nombre del contacto' },
                   { clave: '{{empresa}}', desc: 'Tu empresa' },
                 ].map(v => (
-                  <button
+                  <Boton
                     key={v.clave}
+                    variante="fantasma"
+                    tamano="xs"
                     onClick={() => guardar({ mensaje_bienvenida: config.mensaje_bienvenida + ` ${v.clave}` })}
-                    className="text-xxs px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                    titulo={v.desc}
                     style={{ background: 'var(--superficie-hover)', color: 'var(--texto-marca)' }}
-                    title={v.desc}
                   >
                     {v.clave}
-                  </button>
+                  </Boton>
                 ))}
               </div>
             </div>
@@ -1569,8 +1575,10 @@ function SeccionChatbot() {
                     { id: 'botones' as const, icono: <MessageCircle size={16} />, nombre: 'Botones', desc: 'Hasta 3 — botones tocables' },
                     { id: 'lista' as const, icono: <FileText size={16} />, nombre: 'Lista', desc: 'Hasta 10 — menú desplegable' },
                   ]).map(t => (
-                    <button
+                    <Boton
                       key={t.id}
+                      variante={config.menu_tipo === t.id ? 'primario' : 'secundario'}
+                      tamano="sm"
                       onClick={() => {
                         if (t.id === 'botones' && config.opciones_menu.length > 3) {
                           guardar({ menu_tipo: t.id, opciones_menu: config.opciones_menu.slice(0, 3) })
@@ -1578,18 +1586,20 @@ function SeccionChatbot() {
                           guardar({ menu_tipo: t.id })
                         }
                       }}
-                      className="p-3 rounded-lg text-left transition-all"
+                      className="p-3 text-left"
                       style={{
                         border: `2px solid ${config.menu_tipo === t.id ? 'var(--texto-marca)' : 'var(--borde-sutil)'}`,
                         background: config.menu_tipo === t.id ? 'color-mix(in srgb, var(--texto-marca) 8%, transparent)' : 'transparent',
                       }}
                     >
-                      <div style={{ color: config.menu_tipo === t.id ? 'var(--texto-marca)' : 'var(--texto-terciario)' }} className="mb-1.5">{t.icono}</div>
-                      <p className="text-xs font-semibold" style={{ color: config.menu_tipo === t.id ? 'var(--texto-marca)' : 'var(--texto-primario)' }}>
-                        {t.nombre}
-                      </p>
-                      <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>{t.desc}</p>
-                    </button>
+                      <span className="block">
+                        <span style={{ color: config.menu_tipo === t.id ? 'var(--texto-marca)' : 'var(--texto-terciario)' }} className="mb-1.5 block">{t.icono}</span>
+                        <span className="text-xs font-semibold block" style={{ color: config.menu_tipo === t.id ? 'var(--texto-marca)' : 'var(--texto-primario)' }}>
+                          {t.nombre}
+                        </span>
+                        <span className="text-xxs block" style={{ color: 'var(--texto-terciario)' }}>{t.desc}</span>
+                      </span>
+                    </Boton>
                   ))}
                 </div>
               </div>
@@ -1655,7 +1665,7 @@ function SeccionChatbot() {
                               placeholder="Texto de la opción"
                               className="flex-1"
                             />
-                            <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={12} />} onClick={() => eliminarOpcionMenu(i)} />
+                            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar" icono={<Trash2 size={12} />} onClick={() => eliminarOpcionMenu(i)} />
                           </div>
                           <div className="ml-8">
                             <EditorWhatsApp
@@ -1692,7 +1702,7 @@ function SeccionChatbot() {
                               className="flex-1"
                             />
                             <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>{(op.etiqueta || '').length}/20</span>
-                            <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={12} />} onClick={() => eliminarOpcionMenu(i)} />
+                            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar" icono={<Trash2 size={12} />} onClick={() => eliminarOpcionMenu(i)} />
                           </div>
                           <div className="px-3 py-2" style={{ background: 'var(--superficie-tarjeta)' }}>
                             <EditorWhatsApp
@@ -1727,7 +1737,7 @@ function SeccionChatbot() {
                               maxLength={24}
                               className="flex-1"
                             />
-                            <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={12} />} onClick={() => eliminarOpcionMenu(i)} />
+                            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar" icono={<Trash2 size={12} />} onClick={() => eliminarOpcionMenu(i)} />
                           </div>
                           <Input
                             value={op.descripcion || ''}
@@ -1779,7 +1789,7 @@ function SeccionChatbot() {
                     placeholder="Palabras separadas por coma: precio, costo, cuanto"
                     className="flex-1"
                   />
-                  <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={12} />} onClick={() => eliminarPalabraClave(i)} />
+                  <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar" icono={<Trash2 size={12} />} onClick={() => eliminarPalabraClave(i)} />
                 </div>
                 <EditorWhatsApp
                   valor={pc.respuesta}

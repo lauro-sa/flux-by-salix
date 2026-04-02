@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { CargadorSeccion } from '@/componentes/ui/Cargador'
+import { EncabezadoSeccion } from '@/componentes/ui/EncabezadoSeccion'
 import {
   Sparkles, MessageSquare, Wand2, Eye, EyeOff, RotateCcw, Maximize2, Minimize2,
   Check, Shield, Zap, CheckCircle,
@@ -189,10 +190,10 @@ export function SeccionIA() {
   if (!tieneAlgunModuloIA) {
     return (
       <div className="space-y-6">
-        <div>
-          <h2 className="text-lg font-semibold text-texto-primario mb-1">Inteligencia Artificial</h2>
-          <p className="text-sm text-texto-terciario">Configurá los proveedores de IA y los asistentes de tu empresa.</p>
-        </div>
+        <EncabezadoSeccion
+          titulo="Inteligencia Artificial"
+          descripcion="Configurá los proveedores de IA y los asistentes de tu empresa."
+        />
 
         <div className="flex flex-col items-center text-center py-12 px-6 bg-superficie-tarjeta border border-borde-sutil rounded-xl">
           <div className="w-16 h-16 rounded-2xl bg-superficie-elevada flex items-center justify-center mb-4">
@@ -240,16 +241,18 @@ export function SeccionIA() {
           { id: 'asistente-general' as const, icono: <MessageSquare size={15} />, etiqueta: 'Asistente General' },
           { id: 'asistente-creacion' as const, icono: <Wand2 size={15} />, etiqueta: 'Asistente de Creación' },
         ]).map(s => (
-          <button
+          <Boton
             key={s.id}
+            variante="fantasma"
+            tamano="sm"
+            icono={s.icono}
             onClick={() => setSubSeccion(s.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors bg-transparent border-none cursor-pointer ${
-              subSeccion === s.id ? 'bg-superficie-tarjeta text-texto-primario shadow-sm' : 'text-texto-terciario hover:text-texto-secundario'
-            }`}
+            className={
+              subSeccion === s.id ? '!bg-superficie-tarjeta !text-texto-primario !shadow-sm' : '!text-texto-terciario'
+            }
           >
-            {s.icono}
             <span className="hidden sm:inline">{s.etiqueta}</span>
-          </button>
+          </Boton>
         ))}
       </div>
 
@@ -271,16 +274,17 @@ export function SeccionIA() {
                   </p>
                 </div>
               </div>
-              <button
+              <Boton
+                variante="fantasma"
                 onClick={() => act({ habilitado: !config.habilitado })}
-                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer border-none shrink-0 ${
-                  config.habilitado ? 'bg-texto-marca' : 'bg-borde-fuerte'
+                className={`relative !w-11 !h-6 !rounded-full !p-0 shrink-0 ${
+                  config.habilitado ? '!bg-texto-marca' : '!bg-borde-fuerte'
                 }`}
               >
                 <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all ${
                   config.habilitado ? 'left-5.5' : 'left-0.5'
                 }`} />
-              </button>
+              </Boton>
             </div>
           </div>
 
@@ -297,27 +301,30 @@ export function SeccionIA() {
                 const tieneKey = !!(config[`api_key_${p.id}` as keyof ConfigIA])
 
                 return (
-                  <button
+                  <Boton
                     key={p.id}
+                    variante={seleccionado ? 'secundario' : 'fantasma'}
                     onClick={() => act({ proveedor_defecto: p.id })}
-                    className={`relative flex items-center gap-3 p-4 rounded-xl border-2 transition-all cursor-pointer text-left bg-superficie-tarjeta ${
-                      seleccionado ? 'border-insignia-exito shadow-sm' : 'border-borde-sutil hover:border-borde-fuerte'
+                    className={`relative !justify-start !text-left ${
+                      seleccionado ? '!border-insignia-exito !shadow-sm' : '!border-borde-sutil'
                     }`}
                   >
-                    {/* Logo SVG oficial */}
-                    <div className="w-10 h-10 rounded-xl bg-superficie-hover flex items-center justify-center shrink-0">
-                      <p.Logo size={22} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className={`text-sm font-semibold block ${seleccionado ? 'text-insignia-exito' : 'text-texto-primario'}`}>
-                        {p.nombre}
-                      </span>
-                      <span className="text-xs text-texto-terciario block truncate">{p.descripcion}</span>
+                    <div className="flex items-center gap-3 w-full">
+                      {/* Logo SVG oficial */}
+                      <div className="w-10 h-10 rounded-xl bg-superficie-hover flex items-center justify-center shrink-0">
+                        <p.Logo size={22} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className={`text-sm font-semibold block ${seleccionado ? 'text-insignia-exito' : 'text-texto-primario'}`}>
+                          {p.nombre}
+                        </span>
+                        <span className="text-xs text-texto-terciario block truncate">{p.descripcion}</span>
+                      </div>
                     </div>
                     {tieneKey && (
                       <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-insignia-exito" />
                     )}
-                  </button>
+                  </Boton>
                 )
               })}
             </div>
@@ -398,18 +405,21 @@ export function SeccionIA() {
               {proveedorActivo.modelos.map(m => {
                 const seleccionado = modeloActual === m.id
                 return (
-                  <button
+                  <Boton
                     key={m.id}
+                    variante={seleccionado ? 'primario' : 'secundario'}
                     onClick={() => act({ [modeloField]: m.id })}
-                    className={`p-3 rounded-xl border-2 text-left transition-all cursor-pointer bg-superficie-tarjeta ${
-                      seleccionado ? 'border-texto-marca' : 'border-borde-sutil hover:border-borde-fuerte'
+                    className={`!text-left !justify-start ${
+                      seleccionado ? '!border-texto-marca' : ''
                     }`}
                   >
-                    <span className={`text-sm font-semibold block ${seleccionado ? 'text-texto-marca' : 'text-texto-primario'}`}>
-                      {m.nombre}
-                    </span>
-                    <span className="text-xs text-texto-terciario">{m.desc}</span>
-                  </button>
+                    <div>
+                      <span className={`text-sm font-semibold block ${seleccionado ? 'text-texto-marca' : 'text-texto-primario'}`}>
+                        {m.nombre}
+                      </span>
+                      <span className="text-xs text-texto-terciario">{m.desc}</span>
+                    </div>
+                  </Boton>
                 )
               })}
             </div>
@@ -472,28 +482,31 @@ export function SeccionIA() {
               {MODULOS_DISPONIBLES.map(mod => {
                 const activo = config.modulos_accesibles.includes(mod.id)
                 return (
-                  <button
+                  <Boton
                     key={mod.id}
+                    variante={activo ? 'primario' : 'secundario'}
                     onClick={() => {
                       const nuevos = activo
                         ? config.modulos_accesibles.filter(m => m !== mod.id)
                         : [...config.modulos_accesibles, mod.id]
                       act({ modulos_accesibles: nuevos })
                     }}
-                    className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer text-left ${
-                      activo ? 'border-texto-marca/30 bg-texto-marca/5' : 'border-borde-sutil bg-transparent hover:bg-superficie-hover/50'
+                    className={`!justify-start !text-left ${
+                      activo ? '!border-texto-marca/30 !bg-texto-marca/5' : ''
                     }`}
                   >
-                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
-                      activo ? 'bg-texto-marca border-texto-marca' : 'bg-transparent border-borde-fuerte'
-                    }`}>
-                      {activo && <Check size={12} className="text-white" />}
+                    <div className="flex items-center gap-3">
+                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+                        activo ? 'bg-texto-marca border-texto-marca' : 'bg-transparent border-borde-fuerte'
+                      }`}>
+                        {activo && <Check size={12} className="text-white" />}
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-texto-primario block">{mod.nombre}</span>
+                        <span className="text-xs text-texto-terciario">{mod.desc}</span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-sm font-medium text-texto-primario block">{mod.nombre}</span>
-                      <span className="text-xs text-texto-terciario">{mod.desc}</span>
-                    </div>
-                  </button>
+                  </Boton>
                 )
               })}
             </div>

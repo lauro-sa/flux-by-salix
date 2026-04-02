@@ -517,36 +517,41 @@ function CanalItem({
 
   return (
     <div className="relative group">
-      <button
+      <Boton
+        variante="fantasma"
+        tamano="sm"
+        anchoCompleto
         onClick={onClick}
-        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors"
+        className="text-sm"
         style={{
           background: seleccionado ? 'var(--superficie-seleccionada)' : 'transparent',
           color: seleccionado ? 'var(--texto-primario)' : 'var(--texto-secundario)',
         }}
       >
-        {canal.tipo === 'publico' ? (
-          <Hash size={14} style={{ color: 'var(--texto-terciario)' }} />
-        ) : canal.tipo === 'privado' ? (
-          <Lock size={14} style={{ color: 'var(--texto-terciario)' }} />
-        ) : canal.tipo === 'grupo' ? (
-          <Users size={14} style={{ color: 'var(--texto-terciario)' }} />
-        ) : (
-          <Avatar nombre={canal.nombre} tamano="xs" />
-        )}
-        <span className="truncate flex-1 text-left">{canal.nombre}</span>
-        {canal.silenciado && (
-          <BellOff size={10} className="flex-shrink-0" style={{ color: 'var(--texto-terciario)' }} />
-        )}
-        {/* Tres puntos — visible en hover */}
-        <span
-          className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded"
-          onClick={(e) => { e.stopPropagation(); setMenu(prev => !prev) }}
-          style={{ color: 'var(--texto-terciario)' }}
-        >
-          <MoreHorizontal size={12} />
+        <span className="flex items-center gap-2 w-full">
+          {canal.tipo === 'publico' ? (
+            <Hash size={14} style={{ color: 'var(--texto-terciario)' }} />
+          ) : canal.tipo === 'privado' ? (
+            <Lock size={14} style={{ color: 'var(--texto-terciario)' }} />
+          ) : canal.tipo === 'grupo' ? (
+            <Users size={14} style={{ color: 'var(--texto-terciario)' }} />
+          ) : (
+            <Avatar nombre={canal.nombre} tamano="xs" />
+          )}
+          <span className="truncate flex-1 text-left">{canal.nombre}</span>
+          {canal.silenciado && (
+            <BellOff size={10} className="flex-shrink-0" style={{ color: 'var(--texto-terciario)' }} />
+          )}
+          {/* Tres puntos — visible en hover */}
+          <span
+            className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded"
+            onClick={(e) => { e.stopPropagation(); setMenu(prev => !prev) }}
+            style={{ color: 'var(--texto-terciario)' }}
+          >
+            <MoreHorizontal size={12} />
+          </span>
         </span>
-      </button>
+      </Boton>
 
       {/* Menú contextual */}
       <AnimatePresence>
@@ -666,9 +671,7 @@ function MensajeInterno({
                 {formatoHoraInterno(mensaje.creado_en)}
               </span>
               {esPropio && (
-                <button onClick={cargarLecturas} className="flex items-center" style={{ opacity: 0.7 }} title="Ver quién leyó">
-                  <CheckCheck size={12} />
-                </button>
+                <Boton variante="fantasma" tamano="xs" soloIcono icono={<CheckCheck size={12} />} onClick={cargarLecturas} titulo="Ver quién leyó" style={{ opacity: 0.7 }} />
               )}
             </div>
           </div>
@@ -690,17 +693,19 @@ function MensajeInterno({
           )}
 
           {/* Botón reaccionar (hover) — igual que WhatsApp */}
-          <button
+          <Boton
+            variante="fantasma"
+            tamano="xs"
+            soloIcono
+            icono={<SmilePlus size={12} />}
             onClick={onTogglePicker}
-            className={`absolute top-0 p-1 rounded-full opacity-0 group-hover/burbuja:opacity-100 transition-opacity ${esPropio ? '-left-1' : '-right-1'}`}
+            className={`absolute top-0 opacity-0 group-hover/burbuja:opacity-100 ${esPropio ? '-left-1' : '-right-1'}`}
             style={{
               background: 'var(--superficie-elevada)',
               color: 'var(--texto-terciario)',
               boxShadow: 'var(--sombra-sm)',
             }}
-          >
-            <SmilePlus size={12} />
-          </button>
+          />
 
           {/* Picker de emojis rápidos */}
           <AnimatePresence>
@@ -718,13 +723,15 @@ function MensajeInterno({
                 }}
               >
                 {EMOJIS_RAPIDOS.map(e => (
-                  <button
+                  <Boton
                     key={e}
+                    variante="fantasma"
+                    tamano="xs"
                     onClick={() => onReaccionar?.(mensaje.id, e)}
-                    className="text-base hover:scale-125 transition-transform cursor-pointer p-0.5"
+                    className="text-base hover:scale-125 p-0.5"
                   >
                     {e}
-                  </button>
+                  </Boton>
                 ))}
               </motion.div>
             )}
@@ -785,14 +792,7 @@ function MensajeInterno({
           </span>
           {/* Read receipt indicator (solo en mensajes propios) */}
           {esPropio && (
-            <button
-              onClick={cargarLecturas}
-              className="flex items-center gap-0.5 text-xxs transition-colors relative"
-              style={{ color: 'var(--texto-terciario)' }}
-              title="Ver quién leyó"
-            >
-              <CheckCheck size={12} />
-            </button>
+            <Boton variante="fantasma" tamano="xs" soloIcono icono={<CheckCheck size={12} />} onClick={cargarLecturas} titulo="Ver quién leyó" style={{ color: 'var(--texto-terciario)' }} />
           )}
         </div>
 
@@ -881,31 +881,35 @@ function MensajeInterno({
         {mensaje.reacciones && Object.keys(mensaje.reacciones).length > 0 && (
           <div className="flex gap-1 mt-1.5">
             {Object.entries(mensaje.reacciones).map(([emoji, usuarios]) => (
-              <button
+              <Boton
                 key={emoji}
-                className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs"
+                variante="secundario"
+                tamano="xs"
+                redondeado
                 style={{
                   background: 'var(--superficie-hover)',
                   border: '1px solid var(--borde-sutil)',
                 }}
               >
                 {emoji} <span style={{ color: 'var(--texto-secundario)' }}>{(usuarios as string[]).length}</span>
-              </button>
+              </Boton>
             ))}
           </div>
         )}
 
         {/* Indicador de hilo */}
         {mensaje.cantidad_respuestas > 0 && (
-          <button
+          <Boton
+            variante="fantasma"
+            tamano="xs"
+            icono={<MessageSquare size={12} />}
+            iconoDerecho={<ChevronRight size={12} />}
             onClick={onAbrirHilo}
-            className="flex items-center gap-1 mt-1 text-xs font-medium transition-colors"
             style={{ color: 'var(--texto-marca)' }}
+            className="mt-1"
           >
-            <MessageSquare size={12} />
             {mensaje.cantidad_respuestas} {mensaje.cantidad_respuestas === 1 ? 'respuesta' : 'respuestas'}
-            <ChevronRight size={12} />
-          </button>
+          </Boton>
         )}
       </div>
 
@@ -940,13 +944,15 @@ function MensajeInterno({
             style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
           >
             {EMOJIS_RAPIDOS.map(e => (
-              <button
+              <Boton
                 key={e}
+                variante="fantasma"
+                tamano="xs"
                 onClick={() => onReaccionar?.(mensaje.id, e)}
-                className="text-sm hover:scale-125 transition-transform px-0.5"
+                className="text-sm hover:scale-125 px-0.5"
               >
                 {e}
-              </button>
+              </Boton>
             ))}
           </motion.div>
         )}

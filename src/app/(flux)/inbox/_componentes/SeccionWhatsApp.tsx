@@ -117,38 +117,46 @@ export function SeccionWhatsApp({ canales, onRecargar }: PropiedadesSeccionWhats
             {canalesWA.map((c) => {
               const activa = c.id === cuentaActiva
               return (
-                <button
+                <Boton
                   key={c.id}
+                  variante={activa ? 'primario' : 'secundario'}
+                  tamano="xs"
+                  redondeado
+                  icono={<CircleDot size={8} style={{ color: c.activo ? 'var(--canal-whatsapp)' : 'var(--texto-terciario)' }} />}
                   onClick={() => { setCuentaActiva(c.id); setModoCrear(false) }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
                   style={{
                     background: activa ? 'var(--superficie-seleccionada)' : 'transparent',
                     border: activa ? '2px solid var(--canal-whatsapp)' : '1px solid var(--borde-sutil)',
                     color: activa ? 'var(--texto-primario)' : 'var(--texto-secundario)',
                   }}
                 >
-                  <CircleDot size={8} style={{ color: c.activo ? 'var(--canal-whatsapp)' : 'var(--texto-terciario)' }} />
                   {c.nombre}
                   {c.activo && <Check size={10} style={{ color: 'var(--canal-whatsapp)' }} />}
-                </button>
+                </Boton>
               )
             })}
-            <button
+            <Boton
+              variante={modoCrear ? 'primario' : 'secundario'}
+              tamano="xs"
+              redondeado
+              icono={<Plus size={12} />}
               onClick={() => { setModoCrear(true); setCuentaActiva(null) }}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs transition-colors"
               style={{
                 border: modoCrear ? '2px solid var(--texto-marca)' : '1px solid var(--borde-sutil)',
                 color: 'var(--texto-secundario)',
               }}
             >
-              <Plus size={12} /> Manual
-            </button>
-            <button
-              className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs transition-colors"
-              style={{ border: '1px solid var(--borde-sutil)', color: 'var(--texto-secundario)' }}
+              Manual
+            </Boton>
+            <Boton
+              variante="secundario"
+              tamano="xs"
+              redondeado
+              icono={<Zap size={12} />}
+              style={{ color: 'var(--texto-secundario)' }}
             >
-              <Zap size={12} /> Meta
-            </button>
+              Meta
+            </Boton>
           </div>
         </div>
 
@@ -779,13 +787,15 @@ function CampoSecreto({
         placeholder={placeholder}
         onBlur={(e) => { if (e.target.value && e.target.value !== valor) onGuardar(e.target.value) }}
       />
-      <button
+      <Boton
+        variante="fantasma"
+        tamano="xs"
+        soloIcono
+        icono={visible ? <EyeOff size={14} /> : <Eye size={14} />}
         onClick={onToggle}
-        className="absolute right-3 top-1/2 -translate-y-1/2 p-1"
-        style={{ color: 'var(--texto-terciario)' }}
-      >
-        {visible ? <EyeOff size={14} /> : <Eye size={14} />}
-      </button>
+        titulo={visible ? 'Ocultar' : 'Mostrar'}
+        className="absolute right-3 top-1/2 -translate-y-1/2"
+      />
     </div>
   )
 }
@@ -797,18 +807,21 @@ function FAQItem({
 }) {
   return (
     <div style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
-      <button
+      <Boton
+        variante="fantasma"
+        tamano="sm"
+        anchoCompleto
+        icono={<span style={{ color: 'var(--texto-terciario)' }}>{icono}</span>}
+        iconoDerecho={abierta ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         onClick={onToggle}
-        className="w-full flex items-center gap-2 p-4 text-sm font-medium transition-colors"
+        className="p-4 text-sm font-medium justify-between"
         style={{
           color: 'var(--texto-primario)',
           background: abierta ? 'var(--superficie-hover)' : 'transparent',
         }}
       >
-        <span style={{ color: 'var(--texto-terciario)' }}>{icono}</span>
         <span className="flex-1 text-left">{titulo}</span>
-        {abierta ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-      </button>
+      </Boton>
       <AnimatePresence>
         {abierta && (
           <motion.div
@@ -849,18 +862,20 @@ function NotificacionesPush() {
           { clave: 'elegir' as const, etiqueta: 'Elegir personas', icono: <Users size={12} /> },
           { clave: 'nadie' as const, etiqueta: 'Nadie', icono: <Bell size={12} /> },
         ].map((opcion) => (
-          <button
+          <Boton
             key={opcion.clave}
+            variante={modo === opcion.clave ? 'primario' : 'fantasma'}
+            tamano="xs"
+            redondeado
+            icono={opcion.icono}
             onClick={() => setModo(opcion.clave)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
             style={{
               background: modo === opcion.clave ? 'var(--texto-marca)' : 'var(--superficie-hover)',
               color: modo === opcion.clave ? 'var(--texto-inverso)' : 'var(--texto-secundario)',
             }}
           >
-            {opcion.icono}
             {opcion.etiqueta}
-          </button>
+          </Boton>
         ))}
       </div>
 

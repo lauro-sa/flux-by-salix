@@ -10,6 +10,7 @@ import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { Input } from '@/componentes/ui/Input'
 import { CargadorSeccion } from '@/componentes/ui/Cargador'
+import { PALETA_COLORES_ESTADO } from '@/lib/colores_entidad'
 
 /**
  * SeccionEstados — Lista de estados de actividad con drag-and-drop, toggle, editar.
@@ -41,10 +42,7 @@ const GRUPOS = [
   { valor: 'cancelado', etiqueta: 'Cancelado', descripcion: 'Estado terminal, sin acciones' },
 ]
 
-const COLORES_ESTADO = [
-  '#f5a623', '#e5484d', '#46a758', '#3b82f6',
-  '#8e4ec6', '#889096', '#0f766e', '#ec4899',
-]
+const COLORES_ESTADO = PALETA_COLORES_ESTADO
 
 function SeccionEstados({ estados, cargando, onActualizar, onAccionAPI }: PropiedadesSeccionEstados) {
   const [orden, setOrden] = useState<EstadoActividad[]>(estados)
@@ -280,23 +278,24 @@ function SeccionEstados({ estados, cargando, onActualizar, onAccionAPI }: Propie
             <label className="text-sm font-medium text-texto-secundario block mb-2">Grupo de comportamiento</label>
             <div className="space-y-1.5">
               {GRUPOS.map(g => (
-                <button
+                <Boton
                   key={g.valor}
+                  variante={grupo === g.valor ? 'secundario' : 'fantasma'}
+                  tamano="sm"
+                  anchoCompleto
                   onClick={() => setGrupo(g.valor)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left cursor-pointer border transition-colors ${
-                    grupo === g.valor
-                      ? 'bg-texto-marca/8 border-texto-marca/25 text-texto-primario'
-                      : 'bg-transparent border-transparent text-texto-secundario hover:bg-superficie-hover'
-                  }`}
+                  className={grupo === g.valor ? 'bg-texto-marca/8 border-texto-marca/25' : ''}
                 >
-                  <div className={`w-2 h-2 rounded-full ${
-                    g.valor === 'activo' ? 'bg-insignia-advertencia' : g.valor === 'completado' ? 'bg-insignia-exito' : 'bg-texto-terciario'
-                  }`} />
-                  <div>
-                    <p className="text-sm font-medium">{g.etiqueta}</p>
-                    <p className="text-xs text-texto-terciario">{g.descripcion}</p>
+                  <div className="flex items-center gap-3 w-full">
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${
+                      g.valor === 'activo' ? 'bg-insignia-advertencia' : g.valor === 'completado' ? 'bg-insignia-exito' : 'bg-texto-terciario'
+                    }`} />
+                    <div className="text-left">
+                      <p className="text-sm font-medium">{g.etiqueta}</p>
+                      <p className="text-xs text-texto-terciario">{g.descripcion}</p>
+                    </div>
                   </div>
-                </button>
+                </Boton>
               ))}
             </div>
           </div>

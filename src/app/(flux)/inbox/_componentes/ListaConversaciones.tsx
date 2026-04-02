@@ -150,12 +150,11 @@ export function ListaConversaciones({
         {modoSeleccion ? (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <button onClick={seleccionarTodos} className="p-0.5" aria-label="Seleccionar todos">
-                {seleccionados.size === conversaciones.length && conversaciones.length > 0
+              <Boton variante="fantasma" tamano="xs" soloIcono onClick={seleccionarTodos} aria-label="Seleccionar todos" icono={
+                seleccionados.size === conversaciones.length && conversaciones.length > 0
                   ? <CheckSquare size={14} style={{ color: 'var(--texto-marca)' }} />
                   : <Square size={14} style={{ color: 'var(--texto-terciario)' }} />
-                }
-              </button>
+              } />
               <span className="text-xs" style={{ color: 'var(--texto-secundario)' }}>
                 {seleccionados.size} seleccionado{seleccionados.size !== 1 ? 's' : ''}
               </span>
@@ -201,19 +200,20 @@ export function ListaConversaciones({
             </div>
             <div className="flex items-center gap-1">
               {onToggleNoLeidos && (
-                <button
+                <Boton
+                  variante={soloNoLeidos ? 'primario' : 'secundario'}
+                  tamano="xs"
+                  icono={<Circle size={8} fill={soloNoLeidos ? 'currentColor' : 'none'} />}
                   onClick={onToggleNoLeidos}
-                  className="px-2 py-0.5 rounded-full text-xxs font-medium transition-colors flex items-center gap-1"
+                  titulo={soloNoLeidos ? 'Mostrar todos' : 'Solo no leídos'}
                   style={{
                     color: soloNoLeidos ? 'var(--insignia-exito-texto, var(--texto-marca))' : 'var(--texto-terciario)',
                     background: soloNoLeidos ? 'var(--insignia-exito-fondo, var(--superficie-seleccionada))' : 'transparent',
                     border: soloNoLeidos ? 'none' : '1px solid var(--borde-sutil)',
                   }}
-                  title={soloNoLeidos ? 'Mostrar todos' : 'Solo no leídos'}
                 >
-                  <Circle size={8} fill={soloNoLeidos ? 'currentColor' : 'none'} />
                   No leídos
-                </button>
+                </Boton>
               )}
               {onEliminarSeleccion && (
                 <Boton

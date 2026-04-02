@@ -18,7 +18,7 @@ export default function NoEncontrado() {
         </p>
         <Link
           href="/dashboard"
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-white transition-colors"
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-medium text-white transition-colors"
           style={{ background: 'var(--marca-500)' }}
         >
           Volver al inicio

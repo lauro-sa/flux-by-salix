@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 import { iniciales, colorAvatar } from './utilidades'
 import type { ContactoResultado } from './tipos'
 
@@ -92,9 +93,14 @@ export function BuscadorContactoPreview({
           style={{ color: 'var(--texto-primario)' }}
         />
         {busqueda && (
-          <button onClick={() => { setBusqueda(''); inputRef.current?.focus() }} type="button" style={{ color: 'var(--texto-terciario)' }}>
-            <X size={14} />
-          </button>
+          <Boton
+            variante="fantasma"
+            tamano="xs"
+            soloIcono
+            icono={<X size={14} />}
+            titulo="Limpiar búsqueda"
+            onClick={() => { setBusqueda(''); inputRef.current?.focus() }}
+          />
         )}
       </div>
 

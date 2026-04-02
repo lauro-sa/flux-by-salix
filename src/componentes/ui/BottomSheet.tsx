@@ -88,13 +88,36 @@ function BottomSheet({
     return () => { document.body.style.overflow = '' }
   }, [abierto, y])
 
-  /* ── Escape para cerrar ── */
+  /* ── Escape para cerrar + focus trap ── */
   const manejarTecla = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Escape') onCerrar()
+    if (e.key === 'Escape') { onCerrar(); return }
+
+    if (e.key === 'Tab' && panelRef.current) {
+      const focusables = panelRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+      if (focusables.length === 0) return
+      const primero = focusables[0]
+      const ultimo = focusables[focusables.length - 1]
+
+      if (e.shiftKey) {
+        if (document.activeElement === primero) { ultimo.focus(); e.preventDefault() }
+      } else {
+        if (document.activeElement === ultimo) { primero.focus(); e.preventDefault() }
+      }
+    }
   }, [onCerrar])
 
   useEffect(() => {
-    if (abierto) document.addEventListener('keydown', manejarTecla)
+    if (abierto) {
+      document.addEventListener('keydown', manejarTecla)
+      requestAnimationFrame(() => {
+        const primero = panelRef.current?.querySelector<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+        primero?.focus()
+      })
+    }
     return () => document.removeEventListener('keydown', manejarTecla)
   }, [abierto, manejarTecla])
 
@@ -177,6 +200,9 @@ function BottomSheet({
               dragMomentum={false}
               onDragEnd={manejarDragEnd}
               style={estiloPanel}
+              role="dialog"
+              aria-modal="true"
+              aria-label={titulo || 'Panel'}
               className={[
                 'w-full rounded-t-2xl flex flex-col pointer-events-auto',
                 'border border-b-0 border-borde-sutil shadow-elevada',

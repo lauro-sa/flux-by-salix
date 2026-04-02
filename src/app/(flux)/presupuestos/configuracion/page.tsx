@@ -393,7 +393,7 @@ export default function PaginaConfigPresupuestos() {
                   etiqueta="Activo"
                   className="text-xs text-texto-terciario"
                 />
-                <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={() => guardarImpuestos(impuestos.filter((_, i) => i !== idx))} className="text-texto-terciario hover:text-estado-error" />
+                <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar impuesto" icono={<Trash2 size={14} />} onClick={() => guardarImpuestos(impuestos.filter((_, i) => i !== idx))} className="text-texto-terciario hover:text-estado-error" />
               </div>
             ))}
             <Boton variante="fantasma" tamano="xs" icono={<Plus size={14} />} onClick={() => guardarImpuestos([...impuestos, { id: `imp-${Date.now()}`, label: 'Nuevo impuesto', porcentaje: 0, activo: true }])}>
@@ -467,7 +467,7 @@ export default function PaginaConfigPresupuestos() {
                   onBlur={() => guardarUnidades(unidades)}
                   formato={null}
                   className="flex-1" />
-                <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={() => guardarUnidades(unidades.filter((_, i) => i !== idx))} className="text-texto-terciario hover:text-estado-error" />
+                <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar unidad" icono={<Trash2 size={14} />} onClick={() => guardarUnidades(unidades.filter((_, i) => i !== idx))} className="text-texto-terciario hover:text-estado-error" />
               </div>
             ))}
             <Boton variante="fantasma" tamano="xs" icono={<Plus size={14} />} onClick={() => guardarUnidades([...unidades, { id: `u-${Date.now()}`, label: 'Nueva unidad', abreviatura: '' }])}>
@@ -537,7 +537,7 @@ export default function PaginaConfigPresupuestos() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={(e) => { e.stopPropagation(); guardarCondiciones(condicionesPago.filter((_, i) => i !== idx)) }} className="text-texto-terciario hover:text-estado-error" />
+                    <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar condición" icono={<Trash2 size={14} />} onClick={(e) => { e.stopPropagation(); guardarCondiciones(condicionesPago.filter((_, i) => i !== idx)) }} className="text-texto-terciario hover:text-estado-error" />
                   </div>
                 </div>
               </Reorder.Item>
@@ -636,7 +636,7 @@ export default function PaginaConfigPresupuestos() {
               {/* Vista previa */}
               <div>
                 <span className="text-xs text-texto-terciario font-medium block mb-1">{t('documentos.vista_previa')}</span>
-                <div className="text-2xl font-mono font-semibold text-texto-primario px-5 py-3 rounded-xl bg-superficie-app inline-block">
+                <div className="text-2xl font-mono font-semibold text-texto-primario px-5 py-3 rounded-lg bg-superficie-app inline-block">
                   {previewNumero}
                 </div>
               </div>
@@ -737,13 +737,16 @@ export default function PaginaConfigPresupuestos() {
                     { tipo: 'mes', label: 'Mes', visible: !tieneMes },
                     { tipo: 'dia', label: 'Día', visible: !tieneDia },
                   ].filter(a => a.visible).map(a => (
-                    <button
+                    <Boton
                       key={a.tipo}
+                      variante="secundario"
+                      tamano="xs"
+                      icono={<Plus size={12} />}
                       onClick={() => agregarComponente(a.tipo)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-borde-sutil text-xs font-medium text-texto-secundario hover:bg-superficie-app hover:border-marca-500/40 transition-colors"
+                      className="border-dashed"
                     >
-                      <Plus size={12} /> {a.label}
-                    </button>
+                      {a.label}
+                    </Boton>
                   ))}
                 </div>
               </div>
@@ -754,17 +757,19 @@ export default function PaginaConfigPresupuestos() {
                 <p className="text-xs text-texto-terciario mb-2">Cantidad de dígitos con ceros a la izquierda</p>
                 <div className="flex gap-1.5">
                   {[3, 4, 5, 6].map(d => (
-                    <button
+                    <Boton
                       key={d}
+                      variante={digitos === d ? 'secundario' : 'fantasma'}
+                      tamano="sm"
                       onClick={() => { setDigitos(d); guardarNumeracion({ digitos: d }) }}
-                      className={`flex-1 max-w-[100px] py-2.5 rounded-lg text-xs font-medium transition-colors border ${
+                      className={`flex-1 max-w-[100px] border ${
                         digitos === d
                           ? 'bg-[var(--texto-marca)]/10 text-texto-marca border-marca-500/30'
-                          : 'text-texto-secundario border-borde-sutil hover:bg-superficie-app'
+                          : 'border-borde-sutil'
                       }`}
                     >
                       {d} ({String(1).padStart(d, '0')})
-                    </button>
+                    </Boton>
                   ))}
                 </div>
               </div>
@@ -779,17 +784,19 @@ export default function PaginaConfigPresupuestos() {
                     { value: 'anual' as const, label: 'Cada año' },
                     { value: 'mensual' as const, label: 'Cada mes' },
                   ]).map(op => (
-                    <button
+                    <Boton
                       key={op.value}
+                      variante={reinicio === op.value ? 'secundario' : 'fantasma'}
+                      tamano="sm"
                       onClick={() => { setReinicio(op.value); guardarNumeracion({ reinicio: op.value }) }}
-                      className={`flex-1 max-w-[120px] py-2.5 rounded-lg text-xs font-medium transition-colors border ${
+                      className={`flex-1 max-w-[120px] border ${
                         reinicio === op.value
                           ? 'bg-[var(--texto-marca)]/10 text-texto-marca border-marca-500/30'
-                          : 'text-texto-secundario border-borde-sutil hover:bg-superficie-app'
+                          : 'border-borde-sutil'
                       }`}
                     >
                       {op.label}
-                    </button>
+                    </Boton>
                   ))}
                 </div>
                 {reinicio !== 'nunca' && (
@@ -932,7 +939,9 @@ export default function PaginaConfigPresupuestos() {
                       { valor: 'cuadrado' as const, etiqueta: 'Cuadrado' },
                       { valor: 'apaisado' as const, etiqueta: 'Apaisado (rectangular)' },
                     ]).map(opt => (
-                      <button key={opt.valor}
+                      <Boton key={opt.valor}
+                        variante={membrete.tipo_logo === opt.valor ? 'secundario' : 'fantasma'}
+                        tamano="sm"
                         onClick={() => {
                           guardarMembrete({ ...membrete, tipo_logo: opt.valor })
                           const actualizarLogo = async () => {
@@ -948,13 +957,13 @@ export default function PaginaConfigPresupuestos() {
                           }
                           actualizarLogo()
                         }}
-                        className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${
+                        className={`flex-1 border ${
                           membrete.tipo_logo === opt.valor
                             ? 'bg-[var(--texto-marca)]/15 text-[var(--texto-marca)] border-[var(--texto-marca)]/30'
-                            : 'text-texto-secundario border-borde-sutil hover:bg-superficie-app'
+                            : 'border-borde-sutil'
                         }`}>
                         {opt.etiqueta}
-                      </button>
+                      </Boton>
                     ))}
                   </div>
                 </div>
@@ -970,15 +979,17 @@ export default function PaginaConfigPresupuestos() {
                       { valor: 'centro' as const, etiqueta: 'Centro' },
                       { valor: 'derecha' as const, etiqueta: 'Der.' },
                     ]).map(opt => (
-                      <button key={opt.valor}
+                      <Boton key={opt.valor}
+                        variante={membrete.posicion_logo === opt.valor ? 'secundario' : 'fantasma'}
+                        tamano="sm"
                         onClick={() => guardarMembrete({ ...membrete, posicion_logo: opt.valor })}
-                        className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${
+                        className={`flex-1 border ${
                           membrete.posicion_logo === opt.valor
                             ? 'bg-[var(--texto-marca)]/15 text-[var(--texto-marca)] border-[var(--texto-marca)]/30'
-                            : 'text-texto-secundario border-borde-sutil hover:bg-superficie-app'
+                            : 'border-borde-sutil'
                         }`}>
                         {opt.etiqueta}
-                      </button>
+                      </Boton>
                     ))}
                   </div>
                 </div>
@@ -1026,15 +1037,17 @@ export default function PaginaConfigPresupuestos() {
                       <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Tamaño</span>
                       <div className="flex gap-1">
                         {[28, 32, 36, 40, 44].map(t => (
-                          <button key={t}
+                          <Boton key={t}
+                            variante={(membrete.tamano_texto_logo || 24) === t ? 'secundario' : 'fantasma'}
+                            tamano="xs"
                             onClick={() => guardarMembrete({ ...membrete, tamano_texto_logo: t })}
-                            className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                            className={`flex-1 border ${
                               (membrete.tamano_texto_logo || 24) === t
                                 ? 'bg-[var(--texto-marca)]/15 text-[var(--texto-marca)] border-[var(--texto-marca)]/30'
-                                : 'text-texto-secundario border-borde-sutil hover:bg-superficie-app'
+                                : 'border-borde-sutil'
                             }`}>
                             {t}
-                          </button>
+                          </Boton>
                         ))}
                       </div>
                     </div>
@@ -1055,15 +1068,17 @@ export default function PaginaConfigPresupuestos() {
                         <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Tamaño del subtítulo</span>
                         <div className="flex gap-1">
                           {[8, 9, 10, 11, 12, 14].map(t => (
-                            <button key={t}
+                            <Boton key={t}
+                              variante={(membrete.tamano_subtitulo || 10) === t ? 'secundario' : 'fantasma'}
+                              tamano="xs"
                               onClick={() => guardarMembrete({ ...membrete, tamano_subtitulo: t })}
-                              className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                              className={`flex-1 border ${
                                 (membrete.tamano_subtitulo || 10) === t
                                   ? 'bg-[var(--texto-marca)]/15 text-[var(--texto-marca)] border-[var(--texto-marca)]/30'
-                                  : 'text-texto-secundario border-borde-sutil hover:bg-superficie-app'
+                                  : 'border-borde-sutil'
                               }`}>
                               {t}
-                            </button>
+                            </Boton>
                           ))}
                         </div>
                       </div>
@@ -1081,15 +1096,17 @@ export default function PaginaConfigPresupuestos() {
                     { valor: 'centro' as const, etiqueta: 'Centro' },
                     { valor: 'derecha' as const, etiqueta: 'Der.' },
                   ]).map(opt => (
-                    <button key={opt.valor}
+                    <Boton key={opt.valor}
+                      variante={membrete.alineacion_texto === opt.valor ? 'secundario' : 'fantasma'}
+                      tamano="xs"
                       onClick={() => guardarMembrete({ ...membrete, alineacion_texto: opt.valor })}
-                      className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                      className={`flex-1 border ${
                         membrete.alineacion_texto === opt.valor
                           ? 'bg-[var(--texto-marca)]/10 text-texto-marca border-marca-500/30'
-                          : 'text-texto-secundario border-borde-sutil hover:bg-superficie-app'
+                          : 'border-borde-sutil'
                       }`}>
                       {opt.etiqueta}
-                    </button>
+                    </Boton>
                   ))}
                 </div>
               </div>
@@ -1114,20 +1131,23 @@ export default function PaginaConfigPresupuestos() {
                     </span>
                     <div className="flex gap-1">
                       {[0.5, 1, 1.5, 2].map(g => (
-                        <button key={g}
+                        <Boton key={g}
+                          variante={(membrete.grosor_linea || 1) === g ? 'secundario' : 'fantasma'}
+                          tamano="xs"
                           onClick={() => guardarMembrete({ ...membrete, grosor_linea: g })}
-                          className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                          className={`flex-1 border ${
                             (membrete.grosor_linea || 1) === g
                               ? 'bg-[var(--texto-marca)]/10 text-texto-marca border-marca-500/30'
-                              : 'text-texto-secundario border-borde-sutil hover:bg-superficie-app'
+                              : 'border-borde-sutil'
                           }`}>
                           {g}
-                        </button>
+                        </Boton>
                       ))}
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider">Color de marca</span>
+                    {/* Toggle switch — usa button nativo por requerir estilos inline con posición absoluta */}
                     <button
                       onClick={() => guardarMembrete({ ...membrete, color_linea: membrete.color_linea === 'marca' ? 'gris' : 'marca' })}
                       className={`w-10 h-[22px] rounded-full relative transition-colors ${membrete.color_linea === 'marca' ? 'bg-[var(--texto-marca)]' : 'bg-white/20 dark:bg-white/15'}`}
@@ -1216,15 +1236,17 @@ export default function PaginaConfigPresupuestos() {
                     </span>
                     <div className="flex gap-1">
                       {[0.5, 1, 1.5, 2].map(g => (
-                        <button key={g}
+                        <Boton key={g}
+                          variante={(piePagina.grosor_linea || 1) === g ? 'secundario' : 'fantasma'}
+                          tamano="xs"
                           onClick={() => guardarPiePagina({ ...piePagina, grosor_linea: g })}
-                          className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                          className={`flex-1 border ${
                             (piePagina.grosor_linea || 1) === g
                               ? 'bg-[var(--texto-marca)]/15 text-[var(--texto-marca)] border-[var(--texto-marca)]/30'
-                              : 'text-texto-secundario border-borde-sutil hover:bg-superficie-app'
+                              : 'border-borde-sutil'
                           }`}>
                           {g}
-                        </button>
+                        </Boton>
                       ))}
                     </div>
                   </div>
@@ -1246,15 +1268,17 @@ export default function PaginaConfigPresupuestos() {
                 </span>
                 <div className="flex gap-1">
                   {[8, 9, 10, 11, 12].map(t => (
-                    <button key={t}
+                    <Boton key={t}
+                      variante={piePagina.tamano_texto === t ? 'secundario' : 'fantasma'}
+                      tamano="xs"
                       onClick={() => guardarPiePagina({ ...piePagina, tamano_texto: t })}
-                      className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                      className={`flex-1 border ${
                         piePagina.tamano_texto === t
                           ? 'bg-[var(--texto-marca)]/15 text-[var(--texto-marca)] border-[var(--texto-marca)]/30'
-                          : 'text-texto-secundario border-borde-sutil hover:bg-superficie-app'
+                          : 'border-borde-sutil'
                       }`}>
                       {t}
-                    </button>
+                    </Boton>
                   ))}
                 </div>
               </div>
@@ -1293,15 +1317,17 @@ export default function PaginaConfigPresupuestos() {
                         { valor: 'numeracion' as TipoColumnaPie, etiqueta: 'Páginas' },
                         { valor: 'imagen' as TipoColumnaPie, etiqueta: 'Imagen' },
                       ]).map(opt => (
-                        <button key={opt.valor}
+                        <Boton key={opt.valor}
+                          variante={columna.tipo === opt.valor ? 'secundario' : 'fantasma'}
+                          tamano="xs"
                           onClick={() => actualizarColumna({ tipo: opt.valor })}
-                          className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                          className={`flex-1 border ${
                             columna.tipo === opt.valor
                               ? 'bg-[var(--texto-marca)]/15 text-[var(--texto-marca)] border-[var(--texto-marca)]/30'
-                              : 'text-texto-secundario border-borde-sutil hover:bg-superficie-app'
+                              : 'border-borde-sutil'
                           }`}>
                           {opt.etiqueta}
-                        </button>
+                        </Boton>
                       ))}
                     </div>
                   </div>
@@ -1378,15 +1404,17 @@ export default function PaginaConfigPresupuestos() {
                                 { valor: 'arriba' as const, etiqueta: 'Arriba' },
                                 { valor: 'abajo' as const, etiqueta: 'Abajo' },
                               ]).map(opt => (
-                                <button key={opt.valor}
+                                <Boton key={opt.valor}
+                                  variante={(columna.posicion_texto || 'abajo') === opt.valor ? 'secundario' : 'fantasma'}
+                                  tamano="xs"
                                   onClick={() => actualizarColumna({ posicion_texto: opt.valor })}
-                                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                                  className={`flex-1 border ${
                                     (columna.posicion_texto || 'abajo') === opt.valor
                                       ? 'bg-[var(--texto-marca)]/15 text-[var(--texto-marca)] border-[var(--texto-marca)]/30'
-                                      : 'text-texto-secundario border-borde-sutil hover:bg-superficie-app'
+                                      : 'border-borde-sutil'
                                   }`}>
                                   {opt.etiqueta}
-                                </button>
+                                </Boton>
                               ))}
                             </div>
                           </div>
@@ -1398,15 +1426,17 @@ export default function PaginaConfigPresupuestos() {
                                 { valor: 'centro' as const, etiqueta: 'Centro' },
                                 { valor: 'derecha' as const, etiqueta: 'Der.' },
                               ]).map(opt => (
-                                <button key={opt.valor}
+                                <Boton key={opt.valor}
+                                  variante={(columna.alineacion_texto || 'centro') === opt.valor ? 'secundario' : 'fantasma'}
+                                  tamano="xs"
                                   onClick={() => actualizarColumna({ alineacion_texto: opt.valor })}
-                                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                                  className={`flex-1 border ${
                                     (columna.alineacion_texto || 'centro') === opt.valor
                                       ? 'bg-[var(--texto-marca)]/15 text-[var(--texto-marca)] border-[var(--texto-marca)]/30'
-                                      : 'text-texto-secundario border-borde-sutil hover:bg-superficie-app'
+                                      : 'border-borde-sutil'
                                   }`}>
                                   {opt.etiqueta}
-                                </button>
+                                </Boton>
                               ))}
                             </div>
                           </div>
@@ -1441,25 +1471,30 @@ export default function PaginaConfigPresupuestos() {
 
           <div className="space-y-5">
             {/* Botón para abrir el editor a pantalla completa */}
-            <button
+            <Boton
+              variante="secundario"
+              tamano="lg"
+              anchoCompleto
               onClick={() => router.push('/presupuestos/configuracion/plantilla')}
-              className="w-full flex items-center justify-between p-5 rounded-xl border border-borde-sutil hover:border-[var(--texto-marca)]/40 hover:bg-[var(--texto-marca)]/5 transition-colors group cursor-pointer"
+              className="p-5 h-auto border-borde-sutil hover:border-[var(--texto-marca)]/40 hover:bg-[var(--texto-marca)]/5 group"
             >
-              <div className="flex items-center gap-4">
-                <div className="size-12 rounded-lg bg-[var(--texto-marca)]/10 flex items-center justify-center group-hover:bg-[var(--texto-marca)]/20 transition-colors">
-                  <Code2 size={22} className="text-texto-marca" />
+              <div className="w-full flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="size-12 rounded-lg bg-[var(--texto-marca)]/10 flex items-center justify-center group-hover:bg-[var(--texto-marca)]/20 transition-colors">
+                    <Code2 size={22} className="text-texto-marca" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-texto-primario">Abrir editor de plantilla</p>
+                    <p className="text-xs text-texto-terciario mt-0.5">
+                      Editor a pantalla completa con vista previa en vivo y datos reales
+                    </p>
+                  </div>
                 </div>
-                <div className="text-left">
-                  <p className="text-sm font-semibold text-texto-primario">Abrir editor de plantilla</p>
-                  <p className="text-xs text-texto-terciario mt-0.5">
-                    Editor a pantalla completa con vista previa en vivo y datos reales
-                  </p>
-                </div>
+                <span className="text-xs text-texto-marca font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                  Abrir →
+                </span>
               </div>
-              <span className="text-xs text-texto-marca font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                Abrir →
-              </span>
-            </button>
+            </Boton>
 
             <p className="text-xs text-texto-terciario">
               {plantillaHtml ? 'Estás usando una plantilla personalizada.' : 'Estás usando la plantilla por defecto del sistema.'}
@@ -1511,16 +1546,18 @@ export default function PaginaConfigPresupuestos() {
               <div className="space-y-1.5">
                 {VARIABLES_NOMBRE_PDF.map(({ variable, descripcion }) => (
                   <div key={variable} className="flex items-center gap-3">
-                    <button
+                    <Boton
+                      variante="secundario"
+                      tamano="xs"
                       onClick={() => {
                         const nuevo = patronNombrePdf + variable
                         setPatronNombrePdf(nuevo)
                         guardarPatronNombre(nuevo)
                       }}
-                      className="text-xs font-mono text-texto-marca bg-[var(--texto-marca)]/5 px-2 py-0.5 rounded border border-marca-500/20 hover:bg-[var(--texto-marca)]/10 transition-colors cursor-pointer"
+                      className="font-mono text-texto-marca bg-[var(--texto-marca)]/5 border-marca-500/20"
                     >
                       {variable}
-                    </button>
+                    </Boton>
                     <span className="text-xs text-texto-terciario">{descripcion}</span>
                   </div>
                 ))}
@@ -1590,9 +1627,9 @@ export default function PaginaConfigPresupuestos() {
               ) : (
                 <p className="text-sm text-texto-terciario">
                   No hay datos bancarios cargados en la empresa. Podés cargarlos en{' '}
-                  <button onClick={() => router.push('/configuracion')} className="text-texto-marca hover:underline">
+                  <Boton variante="fantasma" tamano="xs" onClick={() => router.push('/configuracion')} className="text-texto-marca inline">
                     Configuración &gt; Empresa
-                  </button>.
+                  </Boton>.
                 </p>
               )}
             </div>
@@ -1720,15 +1757,16 @@ export default function PaginaConfigPresupuestos() {
 
             {/* Botón desactivar */}
             <div className="pt-4 border-t border-borde-sutil">
-              <button
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm text-estado-error border border-estado-error/20 hover:bg-estado-error/10 transition-colors"
+              <Boton
+                variante="peligro"
+                tamano="sm"
+                icono={<Package size={15} />}
                 onClick={() => {
                   // Fase futura: desactivación de módulo con purga programada
                 }}
               >
-                <Package size={15} />
                 Desactivar módulo
-              </button>
+              </Boton>
               <p className="text-xs text-texto-terciario mt-2">
                 Esta acción no elimina datos. Podés reactivar el módulo en cualquier momento.
               </p>

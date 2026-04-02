@@ -194,28 +194,24 @@ export function ModalReglas({ abierto, onCerrar }: PropiedadesModalReglas) {
             <div className="space-y-2">
               {condiciones.map((cond, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <select
-                    value={cond.campo}
-                    onChange={(e) => actualizarCondicion(i, { campo: e.target.value as CondicionRegla['campo'] })}
-                    className="text-xs rounded-lg px-2 py-1.5"
-                    style={{ background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
-                  >
-                    {CAMPOS_CONDICION.map(c => <option key={c.valor} value={c.valor}>{c.etiqueta}</option>)}
-                  </select>
-                  <select
-                    value={cond.operador}
-                    onChange={(e) => actualizarCondicion(i, { operador: e.target.value as CondicionRegla['operador'] })}
-                    className="text-xs rounded-lg px-2 py-1.5"
-                    style={{ background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
-                  >
-                    {OPERADORES.map(o => <option key={o.valor} value={o.valor}>{o.etiqueta}</option>)}
-                  </select>
-                  <input
-                    type="text"
+                  <Select
+                    valor={cond.campo}
+                    onChange={(v) => actualizarCondicion(i, { campo: v as CondicionRegla['campo'] })}
+                    opciones={CAMPOS_CONDICION}
+                    className="text-xs"
+                  />
+                  <Select
+                    valor={cond.operador}
+                    onChange={(v) => actualizarCondicion(i, { operador: v as CondicionRegla['operador'] })}
+                    opciones={OPERADORES}
+                    className="text-xs"
+                  />
+                  <Input
                     value={cond.valor}
                     onChange={(e) => actualizarCondicion(i, { valor: e.target.value })}
-                    className="flex-1 text-xs rounded-lg px-2 py-1.5"
-                    style={{ background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+                    compacto
+                    formato={null}
+                    className="flex-1 text-xs"
                     placeholder="Valor..."
                   />
                   {condiciones.length > 1 && (
@@ -237,21 +233,19 @@ export function ModalReglas({ abierto, onCerrar }: PropiedadesModalReglas) {
             <div className="space-y-2">
               {acciones.map((acc, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <select
-                    value={acc.tipo}
-                    onChange={(e) => actualizarAccion(i, { tipo: e.target.value as AccionRegla['tipo'] })}
-                    className="text-xs rounded-lg px-2 py-1.5"
-                    style={{ background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
-                  >
-                    {TIPOS_ACCION.map(t => <option key={t.valor} value={t.valor}>{t.etiqueta}</option>)}
-                  </select>
+                  <Select
+                    valor={acc.tipo}
+                    onChange={(v) => actualizarAccion(i, { tipo: v as AccionRegla['tipo'] })}
+                    opciones={TIPOS_ACCION}
+                    className="text-xs"
+                  />
                   {(acc.tipo === 'etiquetar' || acc.tipo === 'asignar') && (
-                    <input
-                      type="text"
+                    <Input
                       value={acc.valor}
                       onChange={(e) => actualizarAccion(i, { valor: e.target.value })}
-                      className="flex-1 text-xs rounded-lg px-2 py-1.5"
-                      style={{ background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+                      compacto
+                      formato={null}
+                      className="flex-1 text-xs"
                       placeholder={acc.tipo === 'etiquetar' ? 'ID de etiqueta' : 'ID de agente'}
                     />
                   )}

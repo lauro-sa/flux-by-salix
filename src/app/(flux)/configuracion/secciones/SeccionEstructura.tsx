@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CargadorSeccion } from '@/componentes/ui/Cargador'
+import { EncabezadoSeccion } from '@/componentes/ui/EncabezadoSeccion'
 import {
   Plus, Pencil, Trash2, X, Check, ChevronRight, ChevronDown, Clock,
   Building, Briefcase, Users, UserPlus, Crown, AlertTriangle, RotateCcw,
@@ -18,6 +19,7 @@ import { SelectorHora } from '@/componentes/ui/SelectorHora'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useTraduccion } from '@/lib/i18n'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { PALETA_COLORES_SECTOR } from '@/lib/colores_entidad'
 
 /**
  * SeccionEstructura — Gestión de sectores (organigrama jerárquico) y puestos de trabajo.
@@ -65,13 +67,8 @@ interface MiembroSimple {
   apellido: string
 }
 
-// ==================== COLORES PARA SECTORES ====================
-
-const COLORES_SECTOR = [
-  '#ef4444', '#f59e0b', '#10b981', '#06b6d4',
-  '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899',
-  '#737373', '#1e3a5f', '#9f1239', '#15803d',
-]
+// Colores para sectores (centralizados en colores_entidad.ts)
+const COLORES_SECTOR = PALETA_COLORES_SECTOR
 
 // ==================== UTILIDADES DE ÁRBOL ====================
 
@@ -174,16 +171,19 @@ function NodoSector({ sector, nivel, esUltimo, miembrosPorSector, miembros, asig
         style={{ paddingLeft: nivel * 28 + 4 }}
       >
         {/* Botón expandir */}
-        <button
+        <Boton
+          variante="fantasma"
+          tamano="xs"
+          soloIcono
+          titulo="Expandir"
           onClick={() => tieneHijos ? setExpandido(!expandido) : setMostrarPersonas(!mostrarPersonas)}
-          className="w-5 h-5 flex items-center justify-center bg-transparent border-none cursor-pointer text-texto-terciario shrink-0 rounded hover:bg-superficie-hover"
-        >
-          {(tieneHijos || cantidadMiembros > 0) ? (
-            expandido || mostrarPersonas ? <ChevronDown size={13} /> : <ChevronRight size={13} />
-          ) : (
-            <div className="w-1.5 h-1.5 rounded-full bg-borde-fuerte" />
-          )}
-        </button>
+          icono={
+            (tieneHijos || cantidadMiembros > 0)
+              ? (expandido || mostrarPersonas ? <ChevronDown size={13} /> : <ChevronRight size={13} />)
+              : <div className="w-1.5 h-1.5 rounded-full bg-borde-fuerte" />
+          }
+          className="!w-5 !h-5 shrink-0"
+        />
 
         {/* Ícono del sector */}
         {(() => {
@@ -196,19 +196,22 @@ function NodoSector({ sector, nivel, esUltimo, miembrosPorSector, miembros, asig
         })()}
 
         {/* Nombre + info */}
-        <button
+        <Boton
+          variante="fantasma"
           onClick={() => setMostrarPersonas(!mostrarPersonas)}
-          className="flex flex-col text-left bg-transparent border-none cursor-pointer p-0 min-w-0"
+          className="!p-0 min-w-0 !justify-start !text-left"
         >
-          <span className="text-sm font-semibold text-texto-primario truncate hover:text-texto-marca transition-colors">
-            {sector.nombre}
-          </span>
-          <span className="text-xs text-texto-terciario">
-            {cantidadMiembros > 0 && `${cantidadMiembros} miembro${cantidadMiembros > 1 ? 's' : ''}`}
-            {cantidadMiembros > 0 && tieneHijos && ' · '}
-            {tieneHijos && `${(sector.hijos as unknown as Sector[]).length} sub-sector${(sector.hijos as unknown as Sector[]).length > 1 ? 'es' : ''}`}
-          </span>
-        </button>
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold text-texto-primario truncate hover:text-texto-marca transition-colors">
+              {sector.nombre}
+            </span>
+            <span className="text-xs text-texto-terciario">
+              {cantidadMiembros > 0 && `${cantidadMiembros} miembro${cantidadMiembros > 1 ? 's' : ''}`}
+              {cantidadMiembros > 0 && tieneHijos && ' · '}
+              {tieneHijos && `${(sector.hijos as unknown as Sector[]).length} sub-sector${(sector.hijos as unknown as Sector[]).length > 1 ? 'es' : ''}`}
+            </span>
+          </div>
+        </Boton>
 
         {/* Jefe badge */}
         {jefe && (
@@ -223,9 +226,9 @@ function NodoSector({ sector, nivel, esUltimo, miembrosPorSector, miembros, asig
 
         {/* Acciones (hover) */}
         <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Plus size={12} />} onClick={() => onAgregarHijo(sector.id)} />
-          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Pencil size={12} />} onClick={() => onEditar(sector)} />
-          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={12} />} onClick={() => onEliminar(sector)} />
+          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Agregar" icono={<Plus size={12} />} onClick={() => onAgregarHijo(sector.id)} />
+          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Editar" icono={<Pencil size={12} />} onClick={() => onEditar(sector)} />
+          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar" icono={<Trash2 size={12} />} onClick={() => onEliminar(sector)} />
         </div>
       </div>
 
@@ -564,44 +567,42 @@ export function SeccionEstructura() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-texto-primario mb-1">Estructura organizacional</h2>
-        <p className="text-sm text-texto-terciario">
-          Organizá tu empresa en sectores (departamentos) y puestos de trabajo. Los sectores pueden tener jerarquía de árbol.
-        </p>
-      </div>
+      <EncabezadoSeccion
+        titulo="Estructura organizacional"
+        descripcion="Organizá tu empresa en sectores (departamentos) y puestos de trabajo. Los sectores pueden tener jerarquía de árbol."
+      />
 
       {/* Tabs */}
       <div className="flex gap-1 bg-superficie-hover/50 rounded-lg p-1">
-        <button
+        <Boton
+          variante="fantasma"
+          tamano="sm"
+          icono={<Building size={15} />}
           onClick={() => setTab('sectores')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors bg-transparent border-none cursor-pointer ${
-            tab === 'sectores' ? 'bg-superficie-tarjeta text-texto-primario shadow-sm' : 'text-texto-terciario hover:text-texto-secundario'
-          }`}
+          className={tab === 'sectores' ? '!bg-superficie-tarjeta !text-texto-primario !shadow-sm' : '!text-texto-terciario'}
         >
-          <Building size={15} />
           Sectores
           <span className="text-xs bg-superficie-hover px-1.5 py-0.5 rounded-full">{sectores.length}</span>
-        </button>
-        <button
+        </Boton>
+        <Boton
+          variante="fantasma"
+          tamano="sm"
+          icono={<Briefcase size={15} />}
           onClick={() => setTab('puestos')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors bg-transparent border-none cursor-pointer ${
-            tab === 'puestos' ? 'bg-superficie-tarjeta text-texto-primario shadow-sm' : 'text-texto-terciario hover:text-texto-secundario'
-          }`}
+          className={tab === 'puestos' ? '!bg-superficie-tarjeta !text-texto-primario !shadow-sm' : '!text-texto-terciario'}
         >
-          <Briefcase size={15} />
           Puestos
           <span className="text-xs bg-superficie-hover px-1.5 py-0.5 rounded-full">{puestos.length}</span>
-        </button>
-        <button
+        </Boton>
+        <Boton
+          variante="fantasma"
+          tamano="sm"
+          icono={<Clock size={15} />}
           onClick={() => setTab('horarios')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors bg-transparent border-none cursor-pointer ${
-            tab === 'horarios' ? 'bg-superficie-tarjeta text-texto-primario shadow-sm' : 'text-texto-terciario hover:text-texto-secundario'
-          }`}
+          className={tab === 'horarios' ? '!bg-superficie-tarjeta !text-texto-primario !shadow-sm' : '!text-texto-terciario'}
         >
-          <Clock size={15} />
           Horarios
-        </button>
+        </Boton>
       </div>
 
       {/* ==================== TAB SECTORES ==================== */}
@@ -704,7 +705,7 @@ export function SeccionEstructura() {
                     </span>
                   )}
                   <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={12} />} onClick={() => setModalEliminarPuesto(puesto)} />
+                    <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar puesto" icono={<Trash2 size={12} />} onClick={() => setModalEliminarPuesto(puesto)} />
                   </div>
                 </div>
               ))}
@@ -753,14 +754,17 @@ export function SeccionEstructura() {
                 return (
                   <div key={dia.valor} className={`flex items-center gap-4 px-4 py-3 ${!activo ? 'opacity-40' : ''}`}>
                     {/* Toggle día */}
-                    <button
+                    <Boton
+                      variante="fantasma"
+                      tamano="xs"
+                      soloIcono
+                      titulo={activo ? 'Desactivar día' : 'Activar día'}
                       onClick={() => guardarHorario(dia.valor, { activo: !activo, hora_inicio: inicio, hora_fin: fin })}
-                      className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors ${
-                        activo ? 'bg-texto-marca border-texto-marca' : 'bg-transparent border-borde-fuerte'
+                      icono={activo ? <Check size={12} className="text-white" /> : undefined}
+                      className={`!w-5 !h-5 !rounded !border-2 ${
+                        activo ? '!bg-texto-marca !border-texto-marca' : '!bg-transparent !border-borde-fuerte'
                       }`}
-                    >
-                      {activo && <Check size={12} className="text-white" />}
-                    </button>
+                    />
 
                     {/* Nombre del día */}
                     <span className="text-sm font-medium text-texto-primario w-24">{dia.etiqueta}</span>
@@ -835,18 +839,20 @@ export function SeccionEstructura() {
             <label className="text-sm font-medium text-texto-secundario block mb-2">Color</label>
             <div className="flex flex-wrap items-center gap-2">
               {COLORES_SECTOR.map(c => (
-                <button
+                <Boton
                   key={c}
+                  variante="fantasma"
+                  soloIcono
+                  redondeado
+                  icono={formColor === c ? <Check size={14} className="text-white" /> : undefined}
                   onClick={() => setFormColor(c)}
-                  className="w-7 h-7 rounded-lg border-2 cursor-pointer transition-transform hover:scale-110"
+                  className="w-7 h-7"
                   style={{
                     backgroundColor: c,
                     borderColor: formColor === c ? 'white' : 'transparent',
                     boxShadow: formColor === c ? `0 0 0 2px ${c}` : 'none',
                   }}
-                >
-                  {formColor === c && <Check size={14} className="text-white mx-auto" />}
-                </button>
+                />
               ))}
               {/* Cuentagotas / color custom */}
               <div className="relative">
@@ -935,18 +941,20 @@ export function SeccionEstructura() {
             <label className="text-sm font-medium text-texto-secundario block mb-2">Color</label>
             <div className="flex flex-wrap gap-2">
               {COLORES_SECTOR.map(c => (
-                <button
+                <Boton
                   key={c}
+                  variante="fantasma"
+                  soloIcono
+                  redondeado
+                  icono={puestoColor === c ? <Check size={14} className="text-white" /> : undefined}
                   onClick={() => setPuestoColor(c)}
-                  className="w-7 h-7 rounded-lg border-2 cursor-pointer transition-transform hover:scale-110"
+                  className="w-7 h-7"
                   style={{
                     backgroundColor: c,
                     borderColor: puestoColor === c ? 'white' : 'transparent',
                     boxShadow: puestoColor === c ? `0 0 0 2px ${c}` : 'none',
                   }}
-                >
-                  {puestoColor === c && <Check size={14} className="text-white mx-auto" />}
-                </button>
+                />
               ))}
             </div>
           </div>

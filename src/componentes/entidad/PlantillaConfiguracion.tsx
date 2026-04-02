@@ -197,7 +197,7 @@ function PlantillaConfiguracion({
                   {(iconoHeader || descripcion) && (
                     <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
                       {iconoHeader && (
-                        <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-3" style={{ background: 'color-mix(in srgb, var(--texto-marca) 10%, transparent)' }}>
+                        <div className="w-11 h-11 rounded-lg flex items-center justify-center mb-3" style={{ background: 'color-mix(in srgb, var(--texto-marca) 10%, transparent)' }}>
                           {iconoHeader}
                         </div>
                       )}

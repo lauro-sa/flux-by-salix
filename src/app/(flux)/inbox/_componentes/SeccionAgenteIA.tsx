@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Sparkles, Brain, MessageSquare, BookOpen, AlertTriangle, Activity, Plus, Pencil, Trash2, X, Maximize2, Globe, FileUp, Loader2, Building2, GitBranch, ChevronUp, ChevronDown } from 'lucide-react'
-import { Interruptor, Select, Input, Boton, Modal, Insignia } from '@/componentes/ui'
+import { Interruptor, Select, Input, Boton, Modal, Insignia, Checkbox } from '@/componentes/ui'
 import { TextArea } from '@/componentes/ui/TextArea'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
@@ -204,18 +204,19 @@ export default function SeccionAgenteIA() {
       {/* ═══ Tabs ═══ */}
       <div className="flex flex-wrap gap-1">
         {TABS.map(tab => (
-          <button
+          <Boton
             key={tab.id}
+            variante="fantasma"
+            tamano="xs"
+            icono={tab.icono}
             onClick={() => setTabActiva(tab.id)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer"
             style={{
               background: tabActiva === tab.id ? 'var(--superficie-hover)' : 'transparent',
               color: tabActiva === tab.id ? 'var(--texto-primario)' : 'var(--texto-terciario)',
             }}
           >
-            {tab.icono}
             {tab.etiqueta}
-          </button>
+          </Boton>
         ))}
       </div>
 
@@ -404,7 +405,7 @@ function TabGeneral({ config, guardar, canales }: TabProps & { canales: CanalSim
           </p>
           <div className="space-y-2">
             {canales.map(canal => (
-              <label
+              <div
                 key={canal.id}
                 className="flex items-center gap-3 py-1.5 px-2 rounded-lg cursor-pointer transition-colors"
                 style={{
@@ -412,17 +413,15 @@ function TabGeneral({ config, guardar, canales }: TabProps & { canales: CanalSim
                     ? 'var(--superficie-hover)' : 'transparent',
                 }}
               >
-                <input
-                  type="checkbox"
-                  checked={(config.canales_activos || []).includes(canal.id)}
+                <Checkbox
+                  marcado={(config.canales_activos || []).includes(canal.id)}
                   onChange={() => toggleCanal(canal.id)}
-                  style={{ accentColor: 'var(--texto-marca)' }}
                 />
                 <div>
                   <p className="text-xs font-medium" style={{ color: 'var(--texto-primario)' }}>{canal.nombre}</p>
                   <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>{canal.tipo}</p>
                 </div>
-              </label>
+              </div>
             ))}
           </div>
         </div>
@@ -656,12 +655,14 @@ function TabFlujo({ config, guardar }: TabProps) {
                   <span className="text-xxs font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--superficie-tarjeta)', color: 'var(--texto-marca)' }}>
                     {paso.paso}
                   </span>
-                  <input
+                  <Input
                     value={paso.titulo}
                     onChange={(e) => actualizarPaso(i, { titulo: e.target.value })}
                     placeholder="Título del paso"
-                    className="text-xs font-medium bg-transparent border-none outline-none flex-1"
-                    style={{ color: 'var(--texto-primario)' }}
+                    variante="plano"
+                    compacto
+                    formato={null}
+                    className="flex-1 text-xs font-medium"
                   />
                 </div>
                 <div className="flex items-center gap-0.5">
@@ -677,12 +678,13 @@ function TabFlujo({ config, guardar }: TabProps) {
                 rows={2}
                 compacto
               />
-              <input
+              <Input
                 value={paso.condicion_avance}
                 onChange={(e) => actualizarPaso(i, { condicion_avance: e.target.value })}
                 placeholder="Avanzar cuando..."
-                className="w-full text-xxs rounded-lg px-3 py-1.5"
-                style={{ background: 'var(--superficie-tarjeta)', color: 'var(--texto-terciario)', border: '1px solid var(--borde-sutil)' }}
+                compacto
+                formato={null}
+                className="w-full text-xxs"
               />
             </div>
           ))}
@@ -1099,18 +1101,18 @@ function SeccionEntrenar({ config, guardar }: TabProps) {
           <div className="p-3 rounded-lg space-y-2" style={{ border: '1px solid var(--borde-sutil)' }}>
             <p className="text-xs font-medium" style={{ color: 'var(--texto-primario)' }}>Desde conversaciones en Flux</p>
             <div className="flex items-center gap-2">
-              <select
-                value={periodoDias}
-                onChange={(e) => setPeriodoDias(Number(e.target.value))}
-                className="text-xs rounded-lg px-2 py-1.5"
-                style={{ background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
-              >
-                <option value={7}>Últimos 7 días</option>
-                <option value={30}>Últimos 30 días</option>
-                <option value={60}>Últimos 60 días</option>
-                <option value={90}>Últimos 90 días</option>
-                <option value={365}>Todo</option>
-              </select>
+              <Select
+                valor={String(periodoDias)}
+                onChange={(v) => setPeriodoDias(Number(v))}
+                opciones={[
+                  { valor: '7', etiqueta: 'Últimos 7 días' },
+                  { valor: '30', etiqueta: 'Últimos 30 días' },
+                  { valor: '60', etiqueta: 'Últimos 60 días' },
+                  { valor: '90', etiqueta: 'Últimos 90 días' },
+                  { valor: '365', etiqueta: 'Todo' },
+                ]}
+                className="text-xs"
+              />
               <Boton tamano="sm" variante="primario" onClick={analizarDesdeBD} cargando={analizando} disabled={analizando}>
                 Analizar
               </Boton>
@@ -1174,23 +1176,22 @@ function SeccionEntrenar({ config, guardar }: TabProps) {
                 : ''
 
             return (
-              <label
+              <div
                 key={key}
                 className="flex items-start gap-2 p-2 rounded-lg cursor-pointer transition-colors"
                 style={{ background: seleccionados[key] ? 'var(--superficie-hover)' : 'transparent' }}
+                onClick={() => toggleSeleccion(key)}
               >
-                <input
-                  type="checkbox"
-                  checked={!!seleccionados[key]}
+                <Checkbox
+                  marcado={!!seleccionados[key]}
                   onChange={() => toggleSeleccion(key)}
                   className="mt-0.5"
-                  style={{ accentColor: 'var(--texto-marca)' }}
                 />
                 <div className="min-w-0">
                   <p className="text-xs font-medium" style={{ color: 'var(--texto-primario)' }}>{label}</p>
                   <p className="text-xxs truncate" style={{ color: 'var(--texto-terciario)' }}>{preview}</p>
                 </div>
-              </label>
+              </div>
             )
           })}
 
@@ -1349,15 +1350,15 @@ function TabEjemplos({ config, guardar }: TabProps) {
             <p className="text-xxs font-medium" style={{ color: 'var(--texto-secundario)' }}>Mensajes</p>
             {(editando?.mensajes || []).map((m, i) => (
               <div key={i} className="flex gap-2 items-start">
-                <select
-                  value={m.rol}
-                  onChange={(e) => actualizarMensaje(i, { rol: e.target.value as 'cliente' | 'agente' })}
-                  className="text-xxs rounded-lg px-2 py-2 shrink-0"
-                  style={{ background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)', width: 80 }}
-                >
-                  <option value="cliente">Cliente</option>
-                  <option value="agente">Agente</option>
-                </select>
+                <Select
+                  valor={m.rol}
+                  onChange={(v) => actualizarMensaje(i, { rol: v as 'cliente' | 'agente' })}
+                  opciones={[
+                    { valor: 'cliente', etiqueta: 'Cliente' },
+                    { valor: 'agente', etiqueta: 'Agente' },
+                  ]}
+                  className="shrink-0 w-[80px]"
+                />
                 <TextArea
                   value={m.texto}
                   onChange={(e) => actualizarMensaje(i, { texto: e.target.value })}
@@ -1616,15 +1617,10 @@ function TabConocimiento({ config, guardar }: TabProps) {
                   }}
                 >
                   {et}
-                  <button
-                    onClick={() => setEntradaEditando(prev => prev ? {
+                  <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={10} />} onClick={() => setEntradaEditando(prev => prev ? {
                       ...prev,
                       etiquetas: (prev.etiquetas || []).filter((_, idx) => idx !== i),
-                    } : prev)}
-                    className="cursor-pointer hover:opacity-70"
-                  >
-                    <X size={10} />
-                  </button>
+                    } : prev)} />
                 </span>
               ))}
             </div>
@@ -1812,9 +1808,7 @@ function TabEscalamiento({ config, guardar }: TabProps) {
               }}
             >
               {palabra}
-              <button onClick={() => eliminarPalabra(i)} className="cursor-pointer hover:opacity-70">
-                <X size={12} />
-              </button>
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={12} />} onClick={() => eliminarPalabra(i)} />
             </span>
           ))}
         </div>

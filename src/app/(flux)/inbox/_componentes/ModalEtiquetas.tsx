@@ -11,7 +11,7 @@ import {
   ChevronUp, ChevronDown,
 } from 'lucide-react'
 import type { EtiquetaInbox } from '@/tipos/inbox'
-import { COLOR_ETIQUETA_DEFECTO } from '@/lib/colores_entidad'
+import { COLOR_ETIQUETA_DEFECTO, PALETA_COLORES_ETIQUETA } from '@/lib/colores_entidad'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
 
@@ -206,23 +206,27 @@ export function ModalEtiquetas({
               >
                 {modoAsignar ? (
                   // Modo asignar: checkbox con cursor pointer y hover
-                  <button
+                  <Boton
+                    variante="fantasma"
+                    tamano="sm"
                     onClick={() => toggleEtiqueta(et.nombre)}
-                    className="flex items-center gap-2 flex-1 text-left cursor-pointer rounded-md px-1 py-0.5 transition-colors hover:bg-[var(--superficie-hover)]"
+                    className="flex-1 text-left"
                   >
-                    <div
-                      className="w-3 h-3 rounded-sm flex items-center justify-center"
-                      style={{
-                        background: activas.has(et.nombre) ? et.color : 'transparent',
-                        border: `2px solid ${et.color}`,
-                      }}
-                    >
-                      {activas.has(et.nombre) && <Check size={8} color="var(--texto-inverso)" />}
-                    </div>
-                    <span className="text-sm" style={{ color: 'var(--texto-primario)' }}>
-                      {et.icono && <span className="mr-1">{et.icono}</span>}{et.nombre}
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="w-3 h-3 rounded-sm flex items-center justify-center"
+                        style={{
+                          background: activas.has(et.nombre) ? et.color : 'transparent',
+                          border: `2px solid ${et.color}`,
+                        }}
+                      >
+                        {activas.has(et.nombre) && <Check size={8} color="var(--texto-inverso)" />}
+                      </span>
+                      <span className="text-sm" style={{ color: 'var(--texto-primario)' }}>
+                        {et.icono && <span className="mr-1">{et.icono}</span>}{et.nombre}
+                      </span>
                     </span>
-                  </button>
+                  </Boton>
                 ) : (
                   // Modo gestión: editar/eliminar
                   <>
@@ -241,8 +245,8 @@ export function ModalEtiquetas({
                           style={{ color: 'var(--texto-primario)' }}
                           autoFocus
                         />
-                        <Boton variante="fantasma" tamano="xs" soloIcono icono={<Check size={12} />} onClick={() => handleEditar(et.id)} className="text-insignia-exito" />
-                        <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={12} />} onClick={() => { setEditando(null); setNombre('') }} />
+                        <Boton variante="fantasma" tamano="xs" soloIcono titulo="Confirmar" icono={<Check size={12} />} onClick={() => handleEditar(et.id)} className="text-insignia-exito" />
+                        <Boton variante="fantasma" tamano="xs" soloIcono titulo="Cancelar" icono={<X size={12} />} onClick={() => { setEditando(null); setNombre('') }} />
                       </div>
                     ) : (
                       <>
@@ -256,8 +260,8 @@ export function ModalEtiquetas({
                           {etiquetas.indexOf(et) < etiquetas.length - 1 && (
                             <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronDown size={10} />} onClick={() => handleReordenar(etiquetas.indexOf(et), 'abajo')} titulo="Mover abajo" />
                           )}
-                          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Pencil size={10} />} onClick={() => { setEditando(et.id); setNombre(et.nombre); setColor(et.color) }} />
-                          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={10} />} onClick={() => handleEliminar(et.id)} className="text-insignia-peligro" />
+                          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Editar etiqueta" icono={<Pencil size={10} />} onClick={() => { setEditando(et.id); setNombre(et.nombre); setColor(et.color) }} />
+                          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar etiqueta" icono={<Trash2 size={10} />} onClick={() => handleEliminar(et.id)} className="text-insignia-peligro" />
                         </div>
                       </>
                     )}
@@ -295,13 +299,17 @@ export function ModalEtiquetas({
                 />
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#6b7280', '#0ea5e9', '#14b8a6'].map(c => (
-                  <button
+                {PALETA_COLORES_ETIQUETA.map(c => (
+                  <Boton
                     key={c}
+                    variante="fantasma"
+                    tamano="xs"
+                    soloIcono
+                    redondeado
                     onClick={() => setColor(c)}
-                    className="w-5 h-5 rounded-full transition-transform"
+                    titulo={c}
+                    icono={<span className="w-5 h-5 rounded-full block" style={{ background: c }} />}
                     style={{
-                      background: c,
                       transform: color === c ? 'scale(1.3)' : 'scale(1)',
                       outline: color === c ? '2px solid var(--texto-marca)' : 'none',
                       outlineOffset: '2px',

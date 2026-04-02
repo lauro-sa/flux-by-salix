@@ -262,7 +262,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
                   variante="fantasma"
                   tamano="sm"
                   soloIcono
-                  icono={favorito ? <Star size={20} className="text-yellow-500 fill-yellow-500" /> : <StarOff size={20} />}
+                  icono={favorito ? <Star size={20} className="text-insignia-advertencia fill-insignia-advertencia" /> : <StarOff size={20} />}
                   onClick={() => setFavorito(!favorito)}
                 />
                 <input
@@ -282,20 +282,17 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
                     const activo = tipo === t
                     const color = COLOR_TIPO_PRODUCTO[t]
                     return (
-                      <button
+                      <Boton
                         key={t}
-                        type="button"
+                        variante="fantasma"
+                        tamano="xs"
+                        icono={t === 'servicio' ? <Wrench size={14} /> : <Package size={14} />}
                         onClick={() => cambiarTipo(t)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all ${
-                          activo
-                            ? ''
-                            : 'text-texto-terciario hover:bg-superficie-app'
-                        }`}
+                        className={!activo ? 'text-texto-terciario' : ''}
                         style={activo ? { backgroundColor: `var(--insignia-${color}-fondo)`, color: `var(--insignia-${color}-texto)` } : undefined}
                       >
-                        {t === 'servicio' ? <Wrench size={14} /> : <Package size={14} />}
                         {t === 'servicio' ? 'Servicio' : 'Producto'}
-                      </button>
+                      </Boton>
                     )
                   })}
                 </div>
@@ -438,7 +435,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
                     {/* Margen */}
                     <div className="flex items-center justify-between py-2">
                       <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider">Margen</span>
-                      <span className={`text-sm font-bold ${precio > 0 && costoEfectivo > 0 ? (margenPositivo ? 'text-green-600' : 'text-red-500') : 'text-texto-terciario'}`}>
+                      <span className={`text-sm font-bold ${precio > 0 && costoEfectivo > 0 ? (margenPositivo ? 'text-insignia-exito' : 'text-insignia-peligro') : 'text-texto-terciario'}`}>
                         {margenDisplay}
                       </span>
                     </div>

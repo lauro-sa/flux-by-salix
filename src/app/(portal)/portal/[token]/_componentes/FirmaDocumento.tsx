@@ -145,18 +145,20 @@ export default function FirmaDocumento({ nombrePredeterminado, onFirmar, onCance
         {MODOS.map(m => {
           const Icono = m.icono
           return (
-            <button
+            <Boton
               key={m.id}
+              variante="fantasma"
+              tamano="sm"
+              icono={<Icono size={16} />}
               onClick={() => setModo(m.id)}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
+              className={`flex-1 !rounded-none ${
                 modo === m.id
-                  ? 'text-marca-500 border-b-2 border-marca-500 bg-marca-500/5'
-                  : 'text-texto-terciario hover:text-texto-secundario'
+                  ? '!text-marca-500 !border-b-2 !border-marca-500 !bg-marca-500/5'
+                  : '!text-texto-terciario'
               }`}
             >
-              <Icono size={16} />
               <span className="hidden sm:inline">{m.label}</span>
-            </button>
+            </Boton>
           )
         })}
       </div>

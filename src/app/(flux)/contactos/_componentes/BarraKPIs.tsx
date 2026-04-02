@@ -6,6 +6,7 @@ import {
   Users, CalendarCheck, FileText, Receipt, ClipboardList,
   MessageSquare, ChevronLeft, ChevronRight,
 } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 import { useTraduccion } from '@/lib/i18n'
 
 // ─── Tipos ───
@@ -76,20 +77,15 @@ export function BarraKPIs({ contactoId }: { contactoId: string }) {
   return (
     <div className="relative flex items-center justify-center gap-1.5">
       {/* Flecha izquierda — contacto anterior */}
-      <button
-        type="button"
+      <Boton
+        variante="secundario"
+        tamano="xs"
+        soloIcono
+        icono={<ChevronLeft size={16} />}
         onClick={() => vecinos.anterior && router.push(`/contactos/${vecinos.anterior}?nav=1`)}
         disabled={!vecinos.anterior}
-        title={vecinos.anterior ? 'Contacto anterior' : undefined}
-        className={[
-          'shrink-0 flex items-center justify-center size-7 rounded-lg bg-transparent border border-borde-sutil transition-colors',
-          vecinos.anterior
-            ? 'text-texto-terciario hover:text-texto-primario hover:border-borde-fuerte cursor-pointer'
-            : 'text-texto-terciario/30 cursor-default border-borde-sutil/50',
-        ].join(' ')}
-      >
-        <ChevronLeft size={16} />
-      </button>
+        titulo={vecinos.anterior ? 'Contacto anterior' : undefined}
+      />
 
       {/* KPIs */}
       <div className={`flex items-stretch gap-0 overflow-x-auto rounded-xl border border-borde-sutil bg-superficie-tarjeta transition-opacity duration-200 ${cargandoKpis ? 'opacity-40' : ''}`} style={{ scrollbarWidth: 'none' }}>
@@ -122,20 +118,15 @@ export function BarraKPIs({ contactoId }: { contactoId: string }) {
       </div>
 
       {/* Flecha derecha — contacto siguiente */}
-      <button
-        type="button"
+      <Boton
+        variante="secundario"
+        tamano="xs"
+        soloIcono
+        icono={<ChevronRight size={16} />}
         onClick={() => vecinos.siguiente && router.push(`/contactos/${vecinos.siguiente}?nav=1`)}
         disabled={!vecinos.siguiente}
-        title={vecinos.siguiente ? 'Contacto siguiente' : undefined}
-        className={[
-          'shrink-0 flex items-center justify-center size-7 rounded-lg bg-transparent border border-borde-sutil transition-colors',
-          vecinos.siguiente
-            ? 'text-texto-terciario hover:text-texto-primario hover:border-borde-fuerte cursor-pointer'
-            : 'text-texto-terciario/30 cursor-default border-borde-sutil/50',
-        ].join(' ')}
-      >
-        <ChevronRight size={16} />
-      </button>
+        titulo={vecinos.siguiente ? 'Contacto siguiente' : undefined}
+      />
     </div>
   )
 }

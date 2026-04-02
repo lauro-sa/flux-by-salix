@@ -4,11 +4,13 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import DOMPurify from 'isomorphic-dompurify'
 import { Boton } from '@/componentes/ui/Boton'
+import { Select } from '@/componentes/ui/Select'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import {
   Send, Paperclip, X, Upload, Clock,
   Image, Film, FileText, File, Loader2,
 } from 'lucide-react'
+import { Input } from '@/componentes/ui/Input'
 import { useTraduccion } from '@/lib/i18n'
 
 /**
@@ -85,9 +87,7 @@ function ChipEmail({ email, nombre, onRemover }: { email: string; nombre?: strin
       }}
     >
       <span className="truncate">{nombre ? `${nombre} <${email}>` : email}</span>
-      <button onClick={onRemover} className="flex-shrink-0 hover:opacity-70" aria-label={`Eliminar ${email}`}>
-        <X size={10} />
-      </button>
+      <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={10} />} onClick={onRemover} aria-label={`Eliminar ${email}`} />
     </span>
   )
 }
@@ -508,12 +508,14 @@ export function CompositorCorreo({
             <span className="text-sm">
               {t('inbox.enviar')} {timerDeshacer}s...
             </span>
-            <button
+            <Boton
+              variante="fantasma"
+              tamano="sm"
               onClick={deshacerEnvio}
-              className="text-sm font-semibold underline"
+              style={{ color: 'var(--texto-inverso)' }}
             >
               {t('inbox.deshacer_envio')}
-            </button>
+            </Boton>
           </motion.div>
         )}
       </AnimatePresence>
@@ -531,16 +533,16 @@ export function CompositorCorreo({
                 <span className="text-xs w-8 sm:w-10 flex-shrink-0 text-right" style={{ color: 'var(--texto-terciario)' }}>
                   {t('inbox.de')}:
                 </span>
-                <select
-                  value={canalSeleccionado || ''}
-                  onChange={(e) => onCambiarCanal?.(e.target.value)}
-                  className="text-xs bg-transparent outline-none cursor-pointer py-1"
-                  style={{ color: 'var(--texto-primario)' }}
-                >
-                  {canalesCorreo.map(c => (
-                    <option key={c.id} value={c.id}>{c.nombre} ({c.email})</option>
-                  ))}
-                </select>
+                <Select
+                  valor={canalSeleccionado || ''}
+                  onChange={(v) => onCambiarCanal?.(v)}
+                  opciones={canalesCorreo.map(c => ({
+                    valor: c.id,
+                    etiqueta: `${c.nombre} (${c.email})`,
+                  }))}
+                  variante="plano"
+                  className="text-xs"
+                />
               </div>
             )}
 
@@ -551,10 +553,10 @@ export function CompositorCorreo({
               </div>
               <div className="flex items-center gap-1 flex-shrink-0 pt-1">
                 {!mostrarCC && (
-                  <button onClick={() => setMostrarCC(true)} className="text-xxs px-1.5 py-0.5 rounded transition-colors" style={{ color: 'var(--texto-terciario)' }}>CC</button>
+                  <Boton variante="fantasma" tamano="xs" onClick={() => setMostrarCC(true)} style={{ color: 'var(--texto-terciario)' }}>CC</Boton>
                 )}
                 {!mostrarCCO && (
-                  <button onClick={() => setMostrarCCO(true)} className="text-xxs px-1.5 py-0.5 rounded transition-colors" style={{ color: 'var(--texto-terciario)' }}>CCO</button>
+                  <Boton variante="fantasma" tamano="xs" onClick={() => setMostrarCCO(true)} style={{ color: 'var(--texto-terciario)' }}>CCO</Boton>
                 )}
               </div>
             </div>
@@ -580,13 +582,14 @@ export function CompositorCorreo({
             {/* Asunto */}
             <div className="flex items-center gap-1.5 sm:gap-2">
               <span className="text-xs w-8 sm:w-10 flex-shrink-0 text-right" style={{ color: 'var(--texto-terciario)' }}>{t('inbox.asunto')}:</span>
-              <input
-                type="text"
+              <Input
+                tipo="text"
                 value={asunto}
                 onChange={(e) => setAsunto(e.target.value)}
-                className="flex-1 text-xs bg-transparent outline-none py-1 font-medium"
-                style={{ color: 'var(--texto-primario)' }}
+                className="flex-1 text-xs font-medium"
                 placeholder="Asunto del correo"
+                variante="plano"
+                compacto
               />
             </div>
           </div>
@@ -636,9 +639,7 @@ export function CompositorCorreo({
                     <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
                       {formatoTamano(adj.tamano_bytes)}
                     </span>
-                    <button onClick={() => removerAdjunto(adj.id)} aria-label={`Quitar ${adj.nombre_archivo}`}>
-                      <X size={10} />
-                    </button>
+                    <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={10} />} onClick={() => removerAdjunto(adj.id)} aria-label={`Quitar ${adj.nombre_archivo}`} />
                   </div>
                 ))}
                 {subiendoAdjuntos && (

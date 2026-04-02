@@ -20,6 +20,8 @@ import { A4_ANCHO, A4_ALTO } from '@/lib/pdf/constantes'
 import { COLOR_MARCA_DEFECTO } from '@/lib/colores_entidad'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { Boton } from '@/componentes/ui/Boton'
+import { Select } from '@/componentes/ui/Select'
+import { TextArea } from '@/componentes/ui/TextArea'
 import type {
   ConfigMembrete, ConfigPiePagina, ConfigDatosEmpresaPdf,
   LineaPresupuesto, CuotaPago,
@@ -399,7 +401,7 @@ export default function EditorPlantillaPdf() {
       <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-borde-sutil bg-superficie-tarjeta shrink-0">
         {/* Izquierda: volver + título */}
         <div className="flex items-center gap-3 min-w-0">
-          <Boton variante="fantasma" tamano="xs" soloIcono icono={<ArrowLeft size={18} />} onClick={() => router.push('/presupuestos/configuracion')} />
+          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Volver" icono={<ArrowLeft size={18} />} onClick={() => router.push('/presupuestos/configuracion')} />
           <div className="min-w-0">
             <h1 className="text-sm font-semibold text-texto-primario truncate">Editor de plantilla PDF</h1>
             <p className="text-xs text-texto-terciario truncate">
@@ -412,21 +414,18 @@ export default function EditorPlantillaPdf() {
         {/* Centro: selector de presupuesto */}
         <div className="flex items-center gap-2">
           <span className="text-xs text-texto-terciario hidden sm:block">Previsualizar con:</span>
-          <div className="relative">
-            <select
-              value={presupuestoSeleccionado}
-              onChange={(e) => cargarPresupuesto(e.target.value)}
-              className="appearance-none bg-superficie-app border border-borde-sutil rounded-lg pl-3 pr-7 py-1.5 text-xs text-texto-primario outline-none focus:border-marca-500 cursor-pointer min-w-[180px]"
-            >
-              <option value="">Datos de muestra</option>
-              {presupuestos.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.numero} — {[p.contacto_nombre, p.contacto_apellido].filter(Boolean).join(' ') || 'Sin contacto'}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-texto-terciario pointer-events-none" />
-          </div>
+          <Select
+              valor={presupuestoSeleccionado}
+              onChange={(v) => cargarPresupuesto(v)}
+              opciones={[
+                { valor: '', etiqueta: 'Datos de muestra' },
+                ...presupuestos.map(p => ({
+                  valor: p.id,
+                  etiqueta: `${p.numero} — ${[p.contacto_nombre, p.contacto_apellido].filter(Boolean).join(' ') || 'Sin contacto'}`,
+                })),
+              ]}
+              className="min-w-[180px]"
+            />
           {cargandoPresupuesto && <span className="text-xs text-texto-terciario">Cargando...</span>}
         </div>
 
@@ -434,14 +433,10 @@ export default function EditorPlantillaPdf() {
         <div className="flex items-center gap-1.5 shrink-0">
           {/* Toggle mobile: editor / preview */}
           <div className="flex sm:hidden border border-borde-sutil rounded-lg overflow-hidden">
-            <button onClick={() => setVistaActiva('editor')}
-              className={`px-2.5 py-1.5 text-xs ${vistaActiva === 'editor' ? 'bg-marca-500/10 text-texto-marca' : 'text-texto-terciario'}`}>
-              <Code size={14} />
-            </button>
-            <button onClick={() => setVistaActiva('preview')}
-              className={`px-2.5 py-1.5 text-xs ${vistaActiva === 'preview' ? 'bg-marca-500/10 text-texto-marca' : 'text-texto-terciario'}`}>
-              <Eye size={14} />
-            </button>
+            <Boton variante="fantasma" tamano="xs" soloIcono icono={<Code size={14} />} titulo="Editor" onClick={() => setVistaActiva('editor')}
+              className={vistaActiva === 'editor' ? 'bg-marca-500/10 text-texto-marca' : 'text-texto-terciario'} />
+            <Boton variante="fantasma" tamano="xs" soloIcono icono={<Eye size={14} />} titulo="Vista previa" onClick={() => setVistaActiva('preview')}
+              className={vistaActiva === 'preview' ? 'bg-marca-500/10 text-texto-marca' : 'text-texto-terciario'} />
           </div>
 
           <Boton variante={panelVariables ? 'secundario' : 'fantasma'} tamano="xs" icono={<Hash size={13} />} onClick={() => setPanelVariables(!panelVariables)} className={`hidden sm:flex ${panelVariables ? 'bg-marca-500/10 text-texto-marca border-marca-500/30' : ''}`}>
@@ -469,26 +464,33 @@ export default function EditorPlantillaPdf() {
             <div className="flex-1 overflow-y-auto">
               {GRUPOS_VARIABLES.map(({ grupo, icono: Icono, variables }) => (
                 <div key={grupo}>
-                  <button
+                  <Boton
+                    variante="fantasma"
+                    tamano="xs"
+                    anchoCompleto
+                    icono={<Icono size={12} className="text-texto-terciario shrink-0" />}
+                    iconoDerecho={<ChevronDown size={11} className={`text-texto-terciario transition-transform ${grupoAbierto === grupo ? 'rotate-180' : ''}`} />}
                     onClick={() => setGrupoAbierto(grupoAbierto === grupo ? '' : grupo)}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-texto-secundario hover:bg-superficie-app transition-colors"
+                    className="px-3 py-2 text-left text-texto-secundario"
                   >
-                    <Icono size={12} className="text-texto-terciario shrink-0" />
                     <span className="flex-1 text-left">{grupo}</span>
-                    <ChevronDown size={11} className={`text-texto-terciario transition-transform ${grupoAbierto === grupo ? 'rotate-180' : ''}`} />
-                  </button>
+                  </Boton>
                   {grupoAbierto === grupo && (
                     <div className="pb-1">
                       {variables.map(({ var: v, desc }) => (
-                        <button
+                        <Boton
                           key={v}
+                          variante="fantasma"
+                          tamano="xs"
                           onClick={() => insertarVariable(v)}
-                          className="w-full text-left px-3 py-1 hover:bg-marca-500/5 transition-colors group"
-                          title={`Insertar ${v}`}
+                          titulo={`Insertar ${v}`}
+                          className="w-full text-left px-3 py-1 h-auto group"
                         >
-                          <code className="text-xxs font-mono text-texto-marca group-hover:text-marca-600 block truncate">{v}</code>
-                          <span className="text-xxs text-texto-terciario block">{desc}</span>
-                        </button>
+                          <div className="w-full">
+                            <code className="text-xxs font-mono text-texto-marca group-hover:text-marca-600 block truncate">{v}</code>
+                            <span className="text-xxs text-texto-terciario block">{desc}</span>
+                          </div>
+                        </Boton>
                       ))}
                     </div>
                   )}
@@ -508,12 +510,14 @@ export default function EditorPlantillaPdf() {
             </span>
           </div>
           <div className="flex-1 relative overflow-hidden">
-            <textarea
+            <TextArea
               ref={editorRef}
               value={codigoEfectivo}
               onChange={(e) => manejarCambio(e.target.value)}
               spellCheck={false}
-              className="absolute inset-0 w-full h-full p-4 bg-[#1e1e2e] text-[#cdd6f4] font-mono text-xs leading-[1.7] outline-none resize-none selection:bg-marca-500/30 tab-size-2"
+              monoespacio
+              variante="transparente"
+              className="absolute inset-0 w-full h-full p-4 bg-superficie-codigo text-texto-codigo text-xs leading-[1.7] resize-none selection:bg-marca-500/30 tab-size-2"
               style={{ tabSize: 2 }}
             />
           </div>

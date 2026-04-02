@@ -8,6 +8,7 @@
 
 import { useRef, useMemo, useCallback, useEffect } from 'react'
 import { Braces } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 import { SelectorVariables } from '@/componentes/ui/SelectorVariables'
 
 interface PropiedadesAsuntoConVariables {
@@ -122,16 +123,14 @@ export function AsuntoConVariables({
       )}
       {/* Boton { } */}
       <div className="absolute right-2 inset-y-0 flex items-center">
-        <button
+        <Boton
+          variante="fantasma"
+          tamano="xs"
+          soloIcono
+          icono={<Braces size={14} />}
+          titulo="Insertar variable"
           onClick={onToggleVariables}
-          onMouseDown={(e) => e.preventDefault()}
-          className="flex items-center justify-center size-7 rounded transition-colors hover:bg-[var(--superficie-hover)]"
-          style={{ color: 'var(--texto-terciario)' }}
-          type="button"
-          title="Insertar variable"
-        >
-          <Braces size={14} />
-        </button>
+        />
         <SelectorVariables
           abierto={variablesAbierto}
           onCerrar={onCerrarVariables}

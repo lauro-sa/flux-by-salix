@@ -7,6 +7,7 @@ import {
   FLUJO_ESTADO, ESTADOS_TERMINALES, TRANSICIONES_ESTADO,
 } from '@/tipos/presupuesto'
 import { ChevronDown, Check } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 
 /**
  * BarraEstadoPresupuesto — Stepper de chevrones inteligente.
@@ -177,15 +178,16 @@ function BadgeTerminal({
       {abierto && (
         <div className="absolute top-full mt-2 right-0 z-50 min-w-40 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-xl overflow-hidden py-1">
           {transicionesValidas.map(est => (
-            <button
+            <Boton
               key={est}
-              type="button"
+              variante="fantasma"
+              tamano="sm"
               onClick={() => { onCambiarEstado?.(est); setAbierto(false) }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left hover:bg-superficie-tarjeta cursor-pointer transition-colors"
+              className="w-full h-auto px-3 py-2 text-left"
             >
               <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: `rgba(${COLOR_RGB[est]}, 0.8)` }} />
               <span className="text-texto-secundario">{ETIQUETAS_ESTADO[est] || est}</span>
-            </button>
+            </Boton>
           ))}
         </div>
       )}
@@ -244,20 +246,21 @@ function PillMobile({
             const esPasado = esTerminal ? (i < FLUJO_ESTADO.length) : (i < idxEfectivo)
             const esClickeable = !esActual && transicionesValidas.includes(estado)
             return (
-              <button
+              <Boton
                 key={estado}
-                type="button"
+                variante="fantasma"
+                tamano="sm"
                 disabled={!esClickeable}
                 onClick={() => { if (esClickeable) { onCambiarEstado?.(estado); setAbierto(false) } }}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors ${
+                className={`w-full h-auto px-3 py-2 text-left ${
                   esActual ? 'font-semibold' : ''
-                } ${esClickeable ? 'hover:bg-superficie-tarjeta cursor-pointer' : 'opacity-50 cursor-default'}`}
+                } ${!esClickeable ? 'opacity-50 cursor-default' : ''}`}
               >
                 <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: `rgba(${COLOR_RGB[estado]}, ${esActual || esPasado ? 0.8 : 0.25})` }} />
                 <span className={esActual ? 'text-texto-primario' : 'text-texto-secundario'}>{ETIQUETAS_ESTADO[estado] || estado}</span>
                 {esActual && <Check size={14} className="text-texto-marca ml-auto" />}
                 {esPasado && !esActual && <Check size={12} className="text-texto-terciario ml-auto" />}
-              </button>
+              </Boton>
             )
           })}
         </div>

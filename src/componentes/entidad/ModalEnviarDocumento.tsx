@@ -14,6 +14,8 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
+import { Checkbox } from '@/componentes/ui/Checkbox'
+import { Input } from '@/componentes/ui/Input'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import {
   Send, X, Paperclip, FileText, Loader2,
@@ -122,7 +124,7 @@ export function ModalEnviarDocumento({
             <h2 className="text-lg font-semibold" style={{ color: 'var(--texto-primario)' }}>
               Enviar documento
             </h2>
-            <Boton variante="fantasma" tamano="sm" soloIcono icono={<X size={18} />} onClick={onCerrar} />
+            <Boton variante="fantasma" tamano="sm" soloIcono titulo="Cerrar" icono={<X size={18} />} onClick={onCerrar} />
           </div>
 
           {/* Campos del correo */}
@@ -215,15 +217,15 @@ export function ModalEnviarDocumento({
                     <div className="flex-1">
                       <InputEmailChips etiqueta="CC:" emails={estado.cc} onChange={estado.setCC} />
                     </div>
-                    <button
+                    <Boton
+                      variante="fantasma"
+                      tamano="xs"
+                      soloIcono
+                      icono={<X size={13} />}
+                      titulo="Quitar CC"
                       onClick={() => { estado.setMostrarCC(false); estado.setCC([]) }}
-                      className="flex-shrink-0 p-1 mt-1.5 rounded transition-colors hover:bg-[var(--superficie-hover)]"
-                      style={{ color: 'var(--texto-terciario)' }}
-                      type="button"
-                      title="Quitar CC"
-                    >
-                      <X size={13} />
-                    </button>
+                      className="flex-shrink-0 mt-1.5"
+                    />
                   </div>
                 </motion.div>
               )}
@@ -237,15 +239,15 @@ export function ModalEnviarDocumento({
                     <div className="flex-1">
                       <InputEmailChips etiqueta="CCO:" emails={estado.cco} onChange={estado.setCCO} />
                     </div>
-                    <button
+                    <Boton
+                      variante="fantasma"
+                      tamano="xs"
+                      soloIcono
+                      icono={<X size={13} />}
+                      titulo="Quitar CCO"
                       onClick={() => { estado.setMostrarCCO(false); estado.setCCO([]) }}
-                      className="flex-shrink-0 p-1 mt-1.5 rounded transition-colors hover:bg-[var(--superficie-hover)]"
-                      style={{ color: 'var(--texto-terciario)' }}
-                      type="button"
-                      title="Quitar CCO"
-                    >
-                      <X size={13} />
-                    </button>
+                      className="flex-shrink-0 mt-1.5"
+                    />
                   </div>
                 </motion.div>
               )}
@@ -409,17 +411,14 @@ export function ModalEnviarDocumento({
 
             {/* Checkbox portal */}
             {urlPortal && (
-              <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer select-none ml-1" style={{ color: 'var(--texto-secundario)' }}>
-                <input
-                  type="checkbox"
-                  checked={estado.incluirEnlacePortal}
-                  onChange={(e) => estado.setIncluirEnlacePortal(e.target.checked)}
-                  className="rounded"
-                  style={{ accentColor: 'var(--texto-marca)' }}
+              <span className="inline-flex items-center gap-1.5 text-xs select-none ml-1" style={{ color: 'var(--texto-secundario)' }}>
+                <Checkbox
+                  marcado={estado.incluirEnlacePortal}
+                  onChange={estado.setIncluirEnlacePortal}
                 />
                 <Link2 size={13} />
                 Portal
-              </label>
+              </span>
             )}
 
             {/* Adjuntar archivo */}
@@ -488,13 +487,12 @@ export function ModalEnviarDocumento({
                         <span className="text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
                           Guardar como plantilla
                         </span>
-                        <input
-                          type="text"
+                        <Input
                           value={estado.nombrePlantilla}
                           onChange={(e) => estado.setNombrePlantilla(e.target.value)}
-                          className="w-full text-sm bg-transparent outline-none py-1.5 px-2 rounded-md"
-                          style={{ color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
                           placeholder="Nombre de la plantilla"
+                          formato={null}
+                          compacto
                           autoFocus
                           onKeyDown={(e) => { if (e.key === 'Enter') estado.handleGuardarPlantilla() }}
                         />

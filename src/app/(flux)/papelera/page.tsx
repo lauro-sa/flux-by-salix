@@ -229,23 +229,25 @@ export default function PaginaPapelera() {
           {TABS_ENTIDAD.map(tab => {
             const count = contadores[tab.id as keyof typeof contadores]
             return (
-              <button
+              <Boton
                 key={tab.id}
+                variante="fantasma"
+                tamano="sm"
+                icono={tab.icono}
                 onClick={() => setFiltro(tab.id as typeof filtro)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${
+                className={
                   filtro === tab.id
-                    ? 'bg-superficie-elevada text-texto-primario shadow-sm'
-                    : 'text-texto-terciario hover:text-texto-secundario'
-                }`}
+                    ? '!bg-superficie-elevada !text-texto-primario !shadow-sm'
+                    : '!text-texto-terciario'
+                }
               >
-                {tab.icono}
                 {tab.etiqueta}
                 {count > 0 && (
                   <span className="text-xs px-1.5 py-0.5 rounded-full bg-superficie-hover text-texto-terciario">
                     {count}
                   </span>
                 )}
-              </button>
+              </Boton>
             )
           })}
         </div>

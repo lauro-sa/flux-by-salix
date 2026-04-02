@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Boton } from '@/componentes/ui/Boton'
+import { EncabezadoSeccion } from '@/componentes/ui/EncabezadoSeccion'
 import { sonidos } from '@/hooks/useSonido'
 import {
   leerPrefs, guardarPrefs, PREFS_DEFAULT,
@@ -197,12 +198,10 @@ export function SeccionNotificaciones() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-texto-primario mb-1">Notificaciones y permisos</h2>
-        <p className="text-sm text-texto-terciario">
-          Configurá cómo y cuándo recibís notificaciones, y gestioná los permisos de tu dispositivo.
-        </p>
-      </div>
+      <EncabezadoSeccion
+        titulo="Notificaciones y permisos"
+        descripcion="Configurá cómo y cuándo recibís notificaciones, y gestioná los permisos de tu dispositivo."
+      />
 
       {/* ── Sonidos de notificación ── */}
       <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">

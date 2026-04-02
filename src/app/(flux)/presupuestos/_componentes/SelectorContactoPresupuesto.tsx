@@ -205,12 +205,15 @@ export default function SelectorContactoPresupuesto({
           placeholder="Escribí para encontrar un contacto..."
           className="flex-1 bg-transparent py-2.5 text-sm text-texto-primario placeholder:text-texto-placeholder outline-none"
         />
-        <button
+        <Boton
+          variante="fantasma"
+          tamano="xs"
+          soloIcono
+          icono={abierto ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          titulo={abierto ? 'Cerrar' : 'Abrir'}
           onClick={() => { setAbierto(!abierto); if (!abierto) refInput.current?.focus() }}
-          className="p-1 text-texto-terciario"
-        >
-          {abierto ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-        </button>
+          className="p-1"
+        />
       </div>
 
       {/* Dropdown de resultados */}
@@ -244,20 +247,25 @@ export default function SelectorContactoPresupuesto({
                     <div className="flex items-center hover:bg-superficie-tarjeta transition-colors">
                       {/* Flechita expandible */}
                       {tieneHijos ? (
-                        <button
+                        <Boton
+                          variante="fantasma"
+                          tamano="xs"
+                          soloIcono
+                          icono={<ChevronDown size={14} className={`transition-transform duration-200 ${estaExpandido ? 'rotate-180' : ''}`} />}
+                          titulo={estaExpandido ? 'Contraer' : 'Expandir'}
                           onClick={(e) => { e.stopPropagation(); setExpandido(estaExpandido ? null : c.id) }}
-                          className="px-2 py-3 text-texto-terciario hover:text-texto-primario transition-colors shrink-0"
-                        >
-                          <ChevronDown size={14} className={`transition-transform duration-200 ${estaExpandido ? 'rotate-180' : ''}`} />
-                        </button>
+                          className="px-2 py-3 shrink-0"
+                        />
                       ) : (
                         <div className="w-8 shrink-0" />
                       )}
 
                       {/* Contenido clickeable */}
-                      <button
+                      <Boton
+                        variante="fantasma"
+                        tamano="sm"
                         onClick={() => seleccionar(c)}
-                        className="flex-1 text-left pr-4 py-3"
+                        className="flex-1 text-left pr-4 py-3 h-auto"
                       >
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold text-texto-primario">
@@ -281,15 +289,17 @@ export default function SelectorContactoPresupuesto({
                             <span className="text-xs text-insignia-advertencia ml-1">Sin correo</span>
                           )}
                         </div>
-                      </button>
+                      </Boton>
                     </div>
 
                     {/* Hijos expandidos */}
                     {estaExpandido && vinculacionesConPuesto.length > 0 && (
                       <div className="pl-8 border-l-2 border-borde-sutil/50 ml-4 mb-1">
                         {vinculacionesConPuesto.map(v => (
-                          <button
+                          <Boton
                             key={v.vinculado.id}
+                            variante="fantasma"
+                            tamano="sm"
                             onClick={() => {
                               if (onSeleccionarConDirigidoA) {
                                 onSeleccionarConDirigidoA(c, v.vinculado.id)
@@ -299,7 +309,7 @@ export default function SelectorContactoPresupuesto({
                               setAbierto(false)
                               setBusqueda('')
                             }}
-                            className="w-full text-left px-3 py-2 hover:bg-superficie-tarjeta transition-colors rounded"
+                            className="w-full text-left px-3 py-2 h-auto"
                           >
                             <div className="flex items-center gap-2">
                               <span className="text-sm text-texto-primario">
@@ -318,7 +328,7 @@ export default function SelectorContactoPresupuesto({
                                 {v.vinculado.telefono}
                               </div>
                             )}
-                          </button>
+                          </Boton>
                         ))}
                       </div>
                     )}

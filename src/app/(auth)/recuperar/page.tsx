@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Mail, ArrowLeft, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
 import { Boton } from '@/componentes/ui/Boton'
+import { EncabezadoAuth } from '@/componentes/ui/EncabezadoAuth'
 import { useAuth } from '@/hooks/useAuth'
 import { useTraduccion } from '@/lib/i18n'
 import Link from 'next/link'
@@ -69,12 +70,7 @@ export default function PaginaRecuperar() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-texto-primario mb-1">
-        {t('auth.recuperar_contrasena')}
-      </h2>
-      <p className="text-sm text-texto-terciario mb-6">
-        {t('auth.enviar_enlace_desc')}
-      </p>
+      <EncabezadoAuth titulo={t('auth.recuperar_contrasena')} descripcion={t('auth.enviar_enlace_desc')} />
 
       <form onSubmit={manejarEnvio} className="flex flex-col gap-4">
         <Input

@@ -323,12 +323,12 @@ export function PanelCorreo({
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
             {/* Acciones principales — siempre visibles */}
-            <Boton variante="fantasma" tamano="xs" soloIcono icono={<Reply size={14} />} onClick={() => handleResponder('responder')} />
-            <Boton variante="fantasma" tamano="xs" soloIcono icono={<ReplyAll size={14} />} onClick={() => handleResponder('responder_todos')} />
-            <Boton variante="fantasma" tamano="xs" soloIcono icono={<Forward size={14} />} onClick={() => handleResponder('reenviar')} />
+            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Responder" icono={<Reply size={14} />} onClick={() => handleResponder('responder')} />
+            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Responder a todos" icono={<ReplyAll size={14} />} onClick={() => handleResponder('responder_todos')} />
+            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Reenviar" icono={<Forward size={14} />} onClick={() => handleResponder('reenviar')} />
             {/* Acciones secundarias — visibles en desktop, ocultas en móvil */}
             <div className="hidden sm:flex items-center gap-1">
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<Tag size={14} />} onClick={() => setModalEtiquetas(true)} />
+              <Boton variante="fantasma" tamano="xs" soloIcono titulo="Etiquetar" icono={<Tag size={14} />} onClick={() => setModalEtiquetas(true)} />
               {onToggleLeido && (
                 <Boton
                   variante="fantasma"
@@ -343,18 +343,18 @@ export function PanelCorreo({
                   {t('inbox.no_es_spam')}
                 </Boton>
               ) : onMarcarSpam && (
-                <Boton variante="fantasma" tamano="xs" soloIcono icono={<ShieldBan size={14} />} onClick={() => onMarcarSpam(conversacion.id)} />
+                <Boton variante="fantasma" tamano="xs" soloIcono titulo="Marcar como spam" icono={<ShieldBan size={14} />} onClick={() => onMarcarSpam(conversacion.id)} />
               )}
               {onArchivar && (
-                <Boton variante="fantasma" tamano="xs" soloIcono icono={<Archive size={14} />} onClick={() => onArchivar(conversacion.id)} />
+                <Boton variante="fantasma" tamano="xs" soloIcono titulo="Archivar" icono={<Archive size={14} />} onClick={() => onArchivar(conversacion.id)} />
               )}
               {onEliminar && (
-                <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={() => onEliminar(conversacion.id)} />
+                <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar" icono={<Trash2 size={14} />} onClick={() => onEliminar(conversacion.id)} />
               )}
             </div>
             {/* Menú overflow en móvil */}
             <div className="relative sm:hidden">
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<MoreHorizontal size={14} />} onClick={() => setMenuOverflow(prev => !prev)} />
+              <Boton variante="fantasma" tamano="xs" soloIcono titulo="Más opciones" icono={<MoreHorizontal size={14} />} onClick={() => setMenuOverflow(prev => !prev)} />
               <AnimatePresence>
                 {menuOverflow && (
                   <motion.div
@@ -413,46 +413,51 @@ export function PanelCorreo({
               return (
                 <div key={msg.id} className="px-4">
                   {/* Cabecera del mensaje (siempre visible) */}
-                  <button
+                  <Boton
+                    variante="fantasma"
+                    tamano="sm"
+                    anchoCompleto
                     onClick={() => toggleExpandido(msg.id)}
-                    className="w-full flex items-center gap-3 py-3"
+                    className="py-3"
                   >
-                    <Avatar
-                      nombre={msg.remitente_nombre || msg.correo_de || '?'}
-                      tamano="sm"
-                    />
-                    <div className="flex-1 min-w-0 text-left">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium" style={{ color: 'var(--texto-primario)' }}>
-                          {msg.remitente_nombre || msg.correo_de}
+                    <span className="w-full flex items-center gap-3">
+                      <Avatar
+                        nombre={msg.remitente_nombre || msg.correo_de || '?'}
+                        tamano="sm"
+                      />
+                      <span className="flex-1 min-w-0 text-left">
+                        <span className="flex items-center gap-2">
+                          <span className="text-sm font-medium" style={{ color: 'var(--texto-primario)' }}>
+                            {msg.remitente_nombre || msg.correo_de}
+                          </span>
+                          {!msg.es_entrante && (
+                            <Insignia color="neutro" tamano="sm">{t('inbox.enviados')}</Insignia>
+                          )}
+                          <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                            {formatoFechaCorreo(msg.creado_en)}
+                          </span>
                         </span>
-                        {!msg.es_entrante && (
-                          <Insignia color="neutro" tamano="sm">{t('inbox.enviados')}</Insignia>
+                        {!expandido && (
+                          <span className="text-xs truncate block" style={{ color: 'var(--texto-terciario)' }}>
+                            {msg.texto}
+                          </span>
                         )}
-                        <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                          {formatoFechaCorreo(msg.creado_en)}
-                        </span>
-                      </div>
-                      {!expandido && (
-                        <p className="text-xs truncate" style={{ color: 'var(--texto-terciario)' }}>
-                          {msg.texto}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {msg.adjuntos.length > 0 && (
-                        <span className="flex items-center gap-0.5 text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                          <Paperclip size={12} />
-                          {msg.adjuntos.length}
-                        </span>
-                      )}
-                      {expandido ? (
-                        <ChevronUp size={14} style={{ color: 'var(--texto-terciario)' }} />
-                      ) : (
-                        <ChevronDown size={14} style={{ color: 'var(--texto-terciario)' }} />
-                      )}
-                    </div>
-                  </button>
+                      </span>
+                      <span className="flex items-center gap-1 flex-shrink-0">
+                        {msg.adjuntos.length > 0 && (
+                          <span className="flex items-center gap-0.5 text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                            <Paperclip size={12} />
+                            {msg.adjuntos.length}
+                          </span>
+                        )}
+                        {expandido ? (
+                          <ChevronUp size={14} style={{ color: 'var(--texto-terciario)' }} />
+                        ) : (
+                          <ChevronDown size={14} style={{ color: 'var(--texto-terciario)' }} />
+                        )}
+                      </span>
+                    </span>
+                  </Boton>
 
                   {/* Cuerpo del mensaje (expandido) */}
                   <AnimatePresence>
@@ -648,17 +653,19 @@ export function PanelCorreo({
       {/* Botón para abrir compositor si está cerrado */}
       {!respondiendo && conversacion && (
         <div className="p-3" style={{ borderTop: '1px solid var(--borde-sutil)' }}>
-          <button
+          <Boton
+            variante="secundario"
+            tamano="sm"
+            anchoCompleto
+            icono={<Reply size={14} />}
             onClick={() => handleResponder('responder')}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors"
             style={{
               background: 'var(--superficie-hover)',
               color: 'var(--texto-terciario)',
             }}
           >
-            <Reply size={14} />
             {t('inbox.responder')}...
-          </button>
+          </Boton>
         </div>
       )}
 

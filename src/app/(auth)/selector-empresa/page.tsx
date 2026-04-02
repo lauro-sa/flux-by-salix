@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Building2, ArrowRight, Clock, LogOut } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { EncabezadoAuth } from '@/componentes/ui/EncabezadoAuth'
 import { useAuth } from '@/hooks/useAuth'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useTraduccion } from '@/lib/i18n'
@@ -28,12 +29,7 @@ export default function PaginaSelectorEmpresa() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-texto-primario mb-1">
-        {t('empresa.cambiar_empresa')}
-      </h2>
-      <p className="text-sm text-texto-terciario mb-5">
-        Seleccioná la empresa con la que querés trabajar
-      </p>
+      <EncabezadoAuth titulo={t('empresa.cambiar_empresa')} descripcion="Seleccioná la empresa con la que querés trabajar" />
 
       <div className="flex flex-col gap-2">
         {empresas.map((empresa, i) => (

@@ -36,6 +36,7 @@ function Select({ opciones, valor, placeholder = 'Seleccionar...', etiqueta, err
   const [abierto, setAbierto] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const botonRef = useRef<HTMLButtonElement>(null)
+  const errorId = etiqueta ? `select-${etiqueta.toLowerCase().replace(/\s+/g, '-')}-error` : undefined
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [posicion, setPosicion] = useState({ top: 0, left: 0, width: 0 })
 
@@ -89,6 +90,10 @@ function Select({ opciones, valor, placeholder = 'Seleccionar...', etiqueta, err
       <button
         ref={botonRef}
         type="button"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error && errorId ? errorId : undefined}
+        aria-expanded={abierto}
+        aria-haspopup="listbox"
         onClick={() => setAbierto(!abierto)}
         className={[
           'flex items-center justify-between gap-2 text-sm cursor-pointer transition-all duration-150 w-full text-left outline-none',
@@ -161,7 +166,7 @@ function Select({ opciones, valor, placeholder = 'Seleccionar...', etiqueta, err
       )}
 
       </div>
-      {error && <span className="text-xs text-insignia-peligro mt-1">{error}</span>}
+      {error && <span id={errorId} role="alert" className="text-xs text-insignia-peligro mt-1">{error}</span>}
     </div>
   )
 }

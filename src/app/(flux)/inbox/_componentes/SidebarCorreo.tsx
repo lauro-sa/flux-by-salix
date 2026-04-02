@@ -203,7 +203,7 @@ export function SidebarCorreo({
       {/* Redactar */}
       <div className={`${colapsado ? 'p-1.5 flex flex-col items-center' : 'p-3'}`}>
         {colapsado ? (
-          <Boton variante="primario" tamano="sm" soloIcono icono={<Pen size={16} />} onClick={onRedactar} />
+          <Boton variante="primario" tamano="sm" soloIcono titulo="Redactar" icono={<Pen size={16} />} onClick={onRedactar} />
         ) : (
           <Boton variante="primario" tamano="sm" icono={<Pen size={14} />} onClick={onRedactar} className="w-full">
             {t('inbox.redactar')}
@@ -219,18 +219,20 @@ export function SidebarCorreo({
             {CARPETAS.map((carpeta) => {
               const activa = carpetaActiva === carpeta.clave
               return (
-                <button
+                <Boton
                   key={carpeta.clave}
+                  variante="fantasma"
+                  tamano="sm"
+                  soloIcono
+                  icono={carpeta.icono}
                   onClick={() => onSeleccionarCarpeta(carpeta.clave)}
-                  className="flex items-center justify-center w-9 h-9 mx-auto rounded-lg transition-colors"
+                  titulo={t(carpeta.claveI18n)}
                   style={{
                     color: activa ? 'var(--texto-marca)' : 'var(--texto-terciario)',
                     background: activa ? 'var(--superficie-seleccionada)' : 'transparent',
                   }}
-                  title={t(carpeta.claveI18n)}
-                >
-                  {carpeta.icono}
-                </button>
+                  className="mx-auto"
+                />
               )
             })}
           </div>
@@ -239,22 +241,27 @@ export function SidebarCorreo({
             {/* Todas las cuentas */}
             {mostrarTodas && canales.length > 1 && (
               <div className="mb-2">
-                <button
+                <Boton
+                  variante="fantasma"
+                  tamano="sm"
+                  anchoCompleto
+                  icono={<Mail size={14} />}
                   onClick={onSeleccionarTodas}
-                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors"
+                  className="text-xs font-semibold"
                   style={{
                     color: canalTodas ? 'var(--texto-marca)' : 'var(--texto-secundario)',
                     background: canalTodas ? 'var(--superficie-seleccionada)' : 'transparent',
                   }}
                 >
-                  <Mail size={14} />
-                  <span className="flex-1 text-left">Todas las cuentas</span>
-                  {totales.sinLeer > 0 && (
-                    <span className="text-xxs font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'var(--insignia-peligro)', color: 'var(--texto-inverso)' }}>
-                      {totales.sinLeer}
-                    </span>
-                  )}
-                </button>
+                  <span className="flex items-center gap-2 w-full">
+                    <span className="flex-1 text-left">Todas las cuentas</span>
+                    {totales.sinLeer > 0 && (
+                      <span className="text-xxs font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'var(--insignia-peligro)', color: 'var(--texto-inverso)' }}>
+                        {totales.sinLeer}
+                      </span>
+                    )}
+                  </span>
+                </Boton>
               </div>
             )}
 
@@ -266,23 +273,28 @@ export function SidebarCorreo({
 
               return (
                 <Reorder.Item key={canal.id} value={canal.id} className="mb-1 list-none">
-                  <button
+                  <Boton
+                    variante="fantasma"
+                    tamano="sm"
+                    anchoCompleto
                     onClick={() => {
                       toggleCuenta(canal.id)
                       onSeleccionarCanal(canal.id)
                     }}
-                    className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs transition-colors group"
+                    className="text-xs group"
                   >
-                    <GripVertical size={10} className="cursor-grab opacity-30 sm:opacity-0 group-hover:opacity-50 transition-opacity" style={{ color: 'var(--texto-terciario)' }} />
-                    {expandida ? (
-                      <ChevronDown size={10} style={{ color: 'var(--texto-terciario)' }} />
-                    ) : (
-                      <ChevronRight size={10} style={{ color: 'var(--texto-terciario)' }} />
-                    )}
-                    <span className="flex-1 text-left font-semibold truncate text-xxs uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
-                      {canal.nombre}
+                    <span className="flex items-center gap-1.5 w-full">
+                      <GripVertical size={10} className="cursor-grab opacity-30 sm:opacity-0 group-hover:opacity-50 transition-opacity" style={{ color: 'var(--texto-terciario)' }} />
+                      {expandida ? (
+                        <ChevronDown size={10} style={{ color: 'var(--texto-terciario)' }} />
+                      ) : (
+                        <ChevronRight size={10} style={{ color: 'var(--texto-terciario)' }} />
+                      )}
+                      <span className="flex-1 text-left font-semibold truncate text-xxs uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
+                        {canal.nombre}
+                      </span>
                     </span>
-                  </button>
+                  </Boton>
 
                   <AnimatePresence>
                     {expandida && (
@@ -297,40 +309,45 @@ export function SidebarCorreo({
                           const { sinLeer, total } = contarCarpeta(canal.id, carpeta.clave)
 
                           return (
-                            <button
+                            <Boton
                               key={carpeta.clave}
+                              variante="fantasma"
+                              tamano="sm"
+                              anchoCompleto
                               onClick={() => {
                                 onSeleccionarCanal(canal.id)
                                 onSeleccionarCarpeta(carpeta.clave)
                               }}
-                              className="w-full flex items-center gap-2 pl-6 pr-2.5 py-1.5 rounded-md text-xs transition-colors"
+                              className="pl-6 pr-2.5 text-xs"
                               style={{
                                 color: activa ? 'var(--texto-marca)' : 'var(--texto-secundario)',
                                 background: activa ? 'var(--superficie-seleccionada)' : 'transparent',
                                 fontWeight: activa ? 600 : 400,
                               }}
                             >
-                              <span style={{ color: activa ? 'var(--texto-marca)' : 'var(--texto-terciario)' }}>
-                                {carpeta.icono}
-                              </span>
-                              <span className="flex-1 text-left">{t(carpeta.claveI18n)}</span>
-                              {/* Mostrar total de la carpeta + sin leer si hay */}
-                              {total > 0 && (
-                                <span
-                                  className="text-xxs px-1.5 py-0.5 rounded-full font-medium"
-                                  style={{
-                                    background: sinLeer > 0
-                                      ? (carpeta.clave === 'spam' ? 'var(--insignia-advertencia-fondo, rgba(234, 179, 8, 0.15))' : 'var(--insignia-peligro)')
-                                      : 'var(--superficie-hover)',
-                                    color: sinLeer > 0
-                                      ? (carpeta.clave === 'spam' ? 'var(--insignia-advertencia)' : 'var(--texto-inverso)')
-                                      : 'var(--texto-terciario)',
-                                  }}
-                                >
-                                  {sinLeer > 0 ? sinLeer : total}
+                              <span className="flex items-center gap-2 w-full">
+                                <span style={{ color: activa ? 'var(--texto-marca)' : 'var(--texto-terciario)' }}>
+                                  {carpeta.icono}
                                 </span>
-                              )}
-                            </button>
+                                <span className="flex-1 text-left">{t(carpeta.claveI18n)}</span>
+                                {/* Mostrar total de la carpeta + sin leer si hay */}
+                                {total > 0 && (
+                                  <span
+                                    className="text-xxs px-1.5 py-0.5 rounded-full font-medium"
+                                    style={{
+                                      background: sinLeer > 0
+                                        ? (carpeta.clave === 'spam' ? 'var(--insignia-advertencia-fondo, rgba(234, 179, 8, 0.15))' : 'var(--insignia-peligro)')
+                                        : 'var(--superficie-hover)',
+                                      color: sinLeer > 0
+                                        ? (carpeta.clave === 'spam' ? 'var(--insignia-advertencia)' : 'var(--texto-inverso)')
+                                        : 'var(--texto-terciario)',
+                                    }}
+                                  >
+                                    {sinLeer > 0 ? sinLeer : total}
+                                  </span>
+                                )}
+                              </span>
+                            </Boton>
                           )
                         })}
                       </motion.div>

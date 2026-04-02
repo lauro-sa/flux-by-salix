@@ -3,6 +3,7 @@
 import { forwardRef, type ReactNode, type MouseEvent } from 'react'
 import { motion } from 'framer-motion'
 import { Loader2 } from 'lucide-react'
+import { Tooltip } from './Tooltip'
 
 type VarianteBoton = 'primario' | 'secundario' | 'fantasma' | 'peligro' | 'exito' | 'advertencia'
 type TamanoBoton = 'xs' | 'sm' | 'md' | 'lg'
@@ -20,8 +21,13 @@ interface PropiedadesBoton {
   onClick?: (e: MouseEvent<HTMLButtonElement>) => void
   type?: 'button' | 'submit' | 'reset'
   className?: string
+  /** Estilos inline — usar solo cuando se necesitan CSS custom properties dinámicas */
+  style?: React.CSSProperties
   titulo?: string
   redondeado?: boolean
+  'aria-label'?: string
+  /** Texto de tooltip al hover (usa el componente Tooltip). Si soloIcono y titulo están, usa titulo como tooltip automáticamente */
+  tooltip?: string
 }
 
 const clasesVariante: Record<VarianteBoton, string> = {
@@ -50,6 +56,7 @@ const clasesSoloIcono: Record<TamanoBoton, string> = {
 /**
  * Boton — Componente base de botón reutilizable.
  * Se usa en toda la app: formularios, modales, acciones, toolbar, etc.
+ * Si soloIcono + titulo están, envuelve automáticamente con Tooltip.
  */
 const Boton = forwardRef<HTMLButtonElement, PropiedadesBoton>(
   (
@@ -66,8 +73,11 @@ const Boton = forwardRef<HTMLButtonElement, PropiedadesBoton>(
       onClick,
       type = 'button',
       className = '',
+      style,
       titulo,
       redondeado = false,
+      'aria-label': ariaLabel,
+      tooltip,
     },
     ref
   ) => {
@@ -81,16 +91,21 @@ const Boton = forwardRef<HTMLButtonElement, PropiedadesBoton>(
       className,
     ].join(' ')
 
-    return (
+    // Texto de tooltip: explícito > titulo (solo en soloIcono)
+    const textoTooltip = tooltip || (soloIcono && titulo ? titulo : '')
+
+    const boton = (
       <motion.button
         ref={ref}
         type={type}
-        title={titulo}
+        title={!textoTooltip ? titulo : undefined}
+        aria-label={ariaLabel || titulo}
         whileHover={!disabled && !cargando ? { scale: 1.02 } : undefined}
         whileTap={!disabled && !cargando ? { scale: 0.97 } : undefined}
         disabled={disabled || cargando}
         onClick={onClick}
         className={clases}
+        style={style}
       >
         {cargando ? (
           <Loader2 size={16} className="animate-spin" />
@@ -99,6 +114,12 @@ const Boton = forwardRef<HTMLButtonElement, PropiedadesBoton>(
         {!soloIcono && iconoDerecho}
       </motion.button>
     )
+
+    if (textoTooltip) {
+      return <Tooltip contenido={textoTooltip}>{boton}</Tooltip>
+    }
+
+    return boton
   }
 )
 

@@ -136,17 +136,16 @@ export function DireccionesContacto({ direcciones, onChange, paises }: Props) {
 
         {/* Pills de cada dirección */}
         {dirsActuales.map((d, i) => (
-          <button key={d.id} type="button" onClick={() => setTabActiva(i)}
-            className={[
-              'group flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer',
-              i === tabActiva
-                ? 'bg-superficie-seleccionada text-texto-marca border-transparent'
-                : 'bg-transparent text-texto-terciario border-borde-sutil hover:text-texto-secundario hover:border-borde-fuerte',
-            ].join(' ')}
+          <Boton
+            key={d.id}
+            variante={i === tabActiva ? 'primario' : 'secundario'}
+            tamano="xs"
+            redondeado
+            icono={<MapPin size={11} />}
+            onClick={() => setTabActiva(i)}
           >
-            <MapPin size={11} />
-            <span>{etiquetaTipo(d.tipo)}</span>
-          </button>
+            {etiquetaTipo(d.tipo)}
+          </Boton>
         ))}
 
         <Boton variante="fantasma" tamano="xs" soloIcono icono={<Plus size={13} />} onClick={agregar} redondeado />

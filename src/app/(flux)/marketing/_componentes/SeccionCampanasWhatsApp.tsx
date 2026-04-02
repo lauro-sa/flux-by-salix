@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { EncabezadoSeccion } from '@/componentes/ui/EncabezadoSeccion'
 import {
   FileText, Users, BarChart3, Clock, Shield,
   Send, ListChecks, Bot, ImagePlus, Filter,
@@ -73,13 +74,10 @@ const funcionalidades: Funcionalidad[] = [
 function SeccionCampanasWhatsApp() {
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h2 className="text-lg font-semibold text-texto-primario mb-1">Campañas de WhatsApp</h2>
-        <p className="text-sm text-texto-secundario max-w-2xl">
-          Enviá mensajes masivos a tus contactos usando la API oficial de WhatsApp Business.
-          Plantillas aprobadas, seguimiento de entrega y lectura, y respuestas gestionadas por tu equipo o el agente IA.
-        </p>
-      </div>
+      <EncabezadoSeccion
+        titulo="Campañas de WhatsApp"
+        descripcion="Enviá mensajes masivos a tus contactos usando la API oficial de WhatsApp Business. Plantillas aprobadas, seguimiento de entrega y lectura, y respuestas gestionadas por tu equipo o el agente IA."
+      />
 
       {/* Grid de funcionalidades */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">

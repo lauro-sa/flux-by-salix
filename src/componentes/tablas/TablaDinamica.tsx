@@ -910,28 +910,31 @@ function TablaDinamica<T>({
 
             {/* Botón filtros + vistas */}
             {(todosLosFiltros.length > 0 || idModulo) && (
-              <button
-                type="button"
-                onClick={() => { setPanelFiltrosAbierto(!panelFiltrosAbierto); setPanelColumnasAbierto(false) }}
-                className="relative shrink-0 size-7 inline-flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario hover:text-texto-secundario transition-colors"
-                title="Filtros y vistas"
-              >
-                <SlidersHorizontal size={14} />
+              <div className="relative shrink-0">
+                <Boton
+                  variante="fantasma"
+                  tamano="xs"
+                  soloIcono
+                  icono={<SlidersHorizontal size={14} />}
+                  titulo="Filtros y vistas"
+                  onClick={() => { setPanelFiltrosAbierto(!panelFiltrosAbierto); setPanelColumnasAbierto(false) }}
+                />
                 {numFiltrosActivos > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-insignia-peligro" />
                 )}
-              </button>
+              </div>
             )}
 
             {/* Botón columnas — siempre al final derecho */}
-            <button
-              type="button"
+            <Boton
+              variante="fantasma"
+              tamano="xs"
+              soloIcono
+              icono={<Columns3 size={14} />}
+              titulo="Columnas"
               onClick={() => { setPanelColumnasAbierto(!panelColumnasAbierto); setPanelFiltrosAbierto(false) }}
-              className="shrink-0 size-7 inline-flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario hover:text-texto-secundario transition-colors"
-              title="Columnas"
-            >
-              <Columns3 size={14} />
-            </button>
+              className="shrink-0"
+            />
           </div>
 
           {/* Panel de filtros + vistas (desplegable) */}
@@ -1062,14 +1065,15 @@ function TablaDinamica<T>({
         {/* Paginador compacto */}
         {totalPaginas > 1 && (
           <div className="hidden sm:flex items-center gap-0.5 shrink-0 border border-borde-sutil rounded-lg px-1 h-9">
-            <button
-              type="button"
+            <Boton
+              variante="fantasma"
+              tamano="xs"
+              soloIcono
+              icono={<ChevronLeft size={14} />}
+              titulo="Página anterior"
               onClick={() => setPaginaActual(Math.max(1, paginaActual - 1))}
               disabled={paginaActual === 1}
-              className="size-7 inline-flex items-center justify-center rounded hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronLeft size={14} />
-            </button>
+            />
             <button
               type="button"
               onClick={() => {
@@ -1081,14 +1085,15 @@ function TablaDinamica<T>({
             >
               {registroInicio}–{registroFin} / {totalRegistros.toLocaleString('es')}
             </button>
-            <button
-              type="button"
+            <Boton
+              variante="fantasma"
+              tamano="xs"
+              soloIcono
+              icono={<ChevronRight size={14} />}
+              titulo="Página siguiente"
               onClick={() => setPaginaActual(Math.min(totalPaginas, paginaActual + 1))}
               disabled={paginaActual === totalPaginas}
-              className="size-7 inline-flex items-center justify-center rounded hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronRight size={14} />
-            </button>
+            />
           </div>
         )}
 
@@ -1267,7 +1272,12 @@ function TablaDinamica<T>({
                       return (
                         <tr
                           key={id}
+                          role={onClickFila ? 'button' : undefined}
+                          tabIndex={onClickFila ? 0 : undefined}
                           onClick={() => onClickFila?.(fila)}
+                          onKeyDown={onClickFila ? (e) => {
+                            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClickFila(fila) }
+                          } : undefined}
                           className={[
                             'transition-colors duration-100',
                             opcionesVisuales.mostrarDivisores ? 'border-b border-borde-sutil last:border-b-0' : '',
@@ -1278,6 +1288,7 @@ function TablaDinamica<T>({
                               ? 'bg-superficie-anclada-alterna'
                               : '',
                             !estaSeleccionado ? 'hover:bg-superficie-hover' : '',
+                            onClickFila ? 'focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2' : '',
                           ].join(' ')}
                         >
                           {/* Checkbox — siempre sticky con fondo sólido */}

@@ -143,13 +143,15 @@ function SeccionActividadesContacto({ contactoId, contactoNombre }: PropiedadesS
           {/* Completadas (colapsables) */}
           {completadas.length > 0 && (
             <>
-              <button
+              <Boton
+                variante="fantasma"
+                tamano="xs"
+                icono={verCompletadas ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                 onClick={() => setVerCompletadas(!verCompletadas)}
-                className="flex items-center gap-1 text-xs text-texto-terciario cursor-pointer bg-transparent border-none hover:text-texto-secundario transition-colors mt-2 pt-2 border-t border-borde-sutil w-full"
+                className="w-full mt-2 pt-2"
               >
-                {verCompletadas ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                 {completadas.length} completada{completadas.length > 1 ? 's' : ''}
-              </button>
+              </Boton>
               <AnimatePresence>
                 {verCompletadas && completadas.map(act => (
                   <motion.div

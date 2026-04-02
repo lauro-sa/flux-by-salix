@@ -529,12 +529,7 @@ function SeccionVinculos({ vinculos, onChange }: { vinculos: Vinculo[]; onChange
               >
                 <IconoV size={11} className="text-texto-terciario" />
                 {v.nombre}
-                <button
-                  onClick={() => removerVinculo(v.id)}
-                  className="inline-flex items-center justify-center size-4 rounded-full bg-transparent text-texto-terciario cursor-pointer border-none hover:text-texto-primario"
-                >
-                  <X size={10} />
-                </button>
+                <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={10} />} onClick={() => removerVinculo(v.id)} titulo="Quitar vínculo" className="size-4" />
               </span>
             )
           })}
@@ -545,13 +540,15 @@ function SeccionVinculos({ vinculos, onChange }: { vinculos: Vinculo[]; onChange
       <div className="relative">
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-borde-fuerte bg-superficie-tarjeta">
           <Search size={14} className="text-texto-terciario shrink-0" />
-          <input
-            type="text"
+          <Input
+            tipo="text"
+            variante="plano"
+            compacto
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             onFocus={() => setFoco(true)}
             placeholder={TIPOS_VINCULO.find(t => t.clave === tabActivo)?.placeholder || 'Buscar...'}
-            className="flex-1 bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-placeholder"
+            className="flex-1"
           />
         </div>
 
@@ -698,12 +695,14 @@ function SeccionChecklist({ checklist, onChange }: { checklist: ItemChecklist[];
                 {item.completado && <Check size={12} className="text-white" />}
               </button>
               <div className="flex-1 min-w-0">
-                <input
-                  type="text"
+                <Input
+                  tipo="text"
+                  variante="plano"
+                  compacto
                   value={item.texto}
                   onChange={(e) => editarItem(item.id, { texto: e.target.value })}
-                  className={`w-full bg-transparent border-none outline-none text-sm ${
-                    item.completado ? 'text-texto-terciario line-through' : 'text-texto-primario'
+                  className={`w-full ${
+                    item.completado ? 'text-texto-terciario line-through' : ''
                   }`}
                 />
                 {/* Fecha opcional */}
@@ -739,12 +738,15 @@ function SeccionChecklist({ checklist, onChange }: { checklist: ItemChecklist[];
                   )}
                 </div>
               </div>
-              <button
+              <Boton
+                variante="fantasma"
+                tamano="xs"
+                soloIcono
+                icono={<X size={14} />}
                 onClick={() => eliminarItem(item.id)}
-                className="opacity-0 group-hover:opacity-100 text-texto-terciario cursor-pointer bg-transparent border-none hover:text-insignia-peligro-texto transition-opacity mt-0.5"
-              >
-                <X size={14} />
-              </button>
+                titulo="Eliminar item"
+                className="opacity-0 group-hover:opacity-100 mt-0.5"
+              />
             </div>
           )
         })}
@@ -753,13 +755,15 @@ function SeccionChecklist({ checklist, onChange }: { checklist: ItemChecklist[];
       {/* Agregar nuevo item */}
       <div className="flex items-center gap-2 mt-2">
         <Plus size={14} className="text-texto-terciario shrink-0" />
-        <input
-          type="text"
+        <Input
+          tipo="text"
+          variante="plano"
+          compacto
           value={nuevoTexto}
           onChange={(e) => setNuevoTexto(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && agregar()}
           placeholder="Agregar item..."
-          className="flex-1 bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-placeholder py-1"
+          className="flex-1"
         />
       </div>
     </div>

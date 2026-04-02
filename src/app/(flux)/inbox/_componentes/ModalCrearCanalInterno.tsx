@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Modal } from '@/componentes/ui/Modal'
 import { Boton } from '@/componentes/ui/Boton'
 import { Avatar } from '@/componentes/ui/Avatar'
+import { Input } from '@/componentes/ui/Input'
 import { Hash, Lock, Users, X, Building2, Search, MessageCircle } from 'lucide-react'
 import { useToast } from '@/componentes/feedback/Toast'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
@@ -212,8 +213,10 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
           <label className="text-xs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>Tipo</label>
           <div className="grid grid-cols-2 gap-2">
             {TIPOS_CANAL.map(t => (
-              <button
+              <Boton
                 key={t.clave}
+                variante={tipo === t.clave ? 'primario' : 'secundario'}
+                tamano="sm"
                 onClick={() => {
                   setTipo(t.clave)
                   if (t.clave === 'directo') {
@@ -222,19 +225,21 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
                     setSectoresSeleccionados([])
                   }
                 }}
-                className="flex items-center gap-2 p-2.5 rounded-lg text-xs transition-colors text-left"
+                className="text-left"
                 style={{
                   border: tipo === t.clave ? '2px solid var(--texto-marca)' : '1px solid var(--borde-sutil)',
                   background: tipo === t.clave ? 'var(--superficie-seleccionada)' : 'var(--superficie-tarjeta)',
                   color: tipo === t.clave ? 'var(--texto-marca)' : 'var(--texto-secundario)',
                 }}
               >
-                {t.icono}
-                <div>
-                  <span className="font-medium">{t.etiqueta}</span>
-                  <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>{t.desc}</p>
-                </div>
-              </button>
+                <span className="flex items-center gap-2">
+                  {t.icono}
+                  <span>
+                    <span className="font-medium">{t.etiqueta}</span>
+                    <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>{t.desc}</p>
+                  </span>
+                </span>
+              </Boton>
             ))}
           </div>
         </div>
@@ -242,27 +247,21 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
         {/* Nombre y descripción (no para DM) */}
         {!esDM && (
           <div className="space-y-2">
-            <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--texto-secundario)' }}>Nombre</label>
-              <input
-                value={nombre}
-                onChange={e => setNombre(e.target.value)}
-                placeholder={tipo === 'grupo' ? 'Nombre del grupo' : 'Nombre del canal'}
-                className="w-full px-3 py-2 rounded-lg text-sm"
-                style={{ background: 'var(--superficie-app)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
-              />
-            </div>
+            <Input
+              etiqueta="Nombre"
+              value={nombre}
+              onChange={e => setNombre(e.target.value)}
+              placeholder={tipo === 'grupo' ? 'Nombre del grupo' : 'Nombre del canal'}
+              formato={null}
+            />
             {(tipo === 'publico' || tipo === 'privado') && (
-              <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--texto-secundario)' }}>Descripción</label>
-                <input
-                  value={descripcion}
-                  onChange={e => setDescripcion(e.target.value)}
-                  placeholder="Descripción (opcional)"
-                  className="w-full px-3 py-2 rounded-lg text-sm"
-                  style={{ background: 'var(--superficie-app)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
-                />
-              </div>
+              <Input
+                etiqueta="Descripción"
+                value={descripcion}
+                onChange={e => setDescripcion(e.target.value)}
+                placeholder="Descripción (opcional)"
+                formato={null}
+              />
             )}
           </div>
         )}
@@ -283,7 +282,7 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
                   style={{ background: 'var(--insignia-info-fondo)', color: 'var(--insignia-info-texto)' }}
                 >
                   <Building2 size={10} /> {s.nombre}
-                  <button onClick={() => toggleSector(s)} aria-label={`Quitar sector ${s.nombre}`}><X size={10} /></button>
+                  <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={10} />} onClick={() => toggleSector(s)} aria-label={`Quitar sector ${s.nombre}`} />
                 </span>
               ))}
               {miembrosSeleccionados.map(m => (
@@ -293,26 +292,21 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
                   style={{ background: 'var(--superficie-hover)', color: 'var(--texto-secundario)' }}
                 >
                   {m.nombre} {m.apellido}
-                  <button onClick={() => toggleMiembro(m)} aria-label={`Quitar ${m.nombre}`}><X size={10} /></button>
+                  <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={10} />} onClick={() => toggleMiembro(m)} aria-label={`Quitar ${m.nombre}`} />
                 </span>
               ))}
             </div>
           )}
 
           {/* Input de búsqueda */}
-          <div className="relative mb-2">
-            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--texto-terciario)' }} />
-            <input
-              type="text"
+          <div className="mb-2">
+            <Input
+              tipo="search"
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
               placeholder="Buscar personas..."
-              className="w-full pl-8 pr-3 py-2 rounded-lg text-sm"
-              style={{
-                background: 'var(--superficie-app)',
-                color: 'var(--texto-primario)',
-                border: '1px solid var(--borde-sutil)',
-              }}
+              icono={<Search size={14} />}
+              formato={null}
               autoFocus
             />
           </div>
@@ -325,19 +319,23 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
                 {sectoresFiltrados.map(s => {
                   const sel = sectoresSeleccionados.some(ss => ss.id === s.id)
                   return (
-                    <button
+                    <Boton
                       key={s.id}
+                      variante="fantasma"
+                      tamano="sm"
                       onClick={() => toggleSector(s)}
-                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors"
+                      className="w-full"
                       style={{
                         background: sel ? 'var(--superficie-seleccionada)' : 'transparent',
                         color: sel ? 'var(--texto-marca)' : 'var(--texto-secundario)',
                       }}
                     >
-                      <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: s.color }} />
-                      <span className="flex-1 text-left">{s.nombre}</span>
-                      {sel && <span style={{ color: 'var(--texto-marca)' }}>✓</span>}
-                    </button>
+                      <span className="flex items-center gap-2 w-full">
+                        <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: s.color }} />
+                        <span className="flex-1 text-left text-xs">{s.nombre}</span>
+                        {sel && <span style={{ color: 'var(--texto-marca)' }}>✓</span>}
+                      </span>
+                    </Boton>
                   )
                 })}
               </div>
@@ -358,19 +356,23 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
                 usuariosFiltrados.map(u => {
                   const sel = miembrosSeleccionados.some(m => m.id === u.id)
                   return (
-                    <button
+                    <Boton
                       key={u.id}
+                      variante="fantasma"
+                      tamano="sm"
                       onClick={() => toggleMiembro(u)}
-                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors"
+                      className="w-full"
                       style={{
                         background: sel ? 'var(--superficie-seleccionada)' : 'transparent',
                         color: sel ? 'var(--texto-marca)' : 'var(--texto-secundario)',
                       }}
                     >
-                      <Avatar nombre={`${u.nombre} ${u.apellido}`} tamano="xs" />
-                      <span className="flex-1 text-left">{u.nombre} {u.apellido}</span>
-                      {sel && <span style={{ color: 'var(--texto-marca)' }}>✓</span>}
-                    </button>
+                      <span className="flex items-center gap-2 w-full">
+                        <Avatar nombre={`${u.nombre} ${u.apellido}`} tamano="xs" />
+                        <span className="flex-1 text-left text-xs">{u.nombre} {u.apellido}</span>
+                        {sel && <span style={{ color: 'var(--texto-marca)' }}>✓</span>}
+                      </span>
+                    </Boton>
                   )
                 })
               )}
