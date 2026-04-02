@@ -40,7 +40,7 @@ function Tooltip({
   const [posicionFinal, setPosicionFinal] = useState(posicion)
   const refTrigger = useRef<HTMLSpanElement>(null)
   const refTooltip = useRef<HTMLDivElement>(null)
-  const refTimer = useRef<ReturnType<typeof setTimeout>>()
+  const refTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const calcularPosicion = useCallback(() => {
     if (!refTrigger.current || !refTooltip.current) return

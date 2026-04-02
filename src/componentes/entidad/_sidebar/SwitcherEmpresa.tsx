@@ -50,8 +50,8 @@ function SwitcherEmpresa({ colapsado, onToggle }: PropiedadesSwitcherEmpresa) {
   }, [])
 
   return (
-    <div ref={ref} className="relative px-3 pt-3 pb-2 shrink-0" style={{ height: 72 }}>
-      <div className="flex items-center gap-2.5 w-full rounded-md px-2">
+    <div ref={ref} className={`relative py-4 shrink-0 ${colapsado ? 'px-0' : 'px-3'}`} style={{ height: 72 }}>
+      <div className={`flex items-center w-full rounded-md h-10 ${colapsado ? 'justify-center' : 'gap-2.5 px-2'}`}>
         {/* Logo — siempre toggle sidebar */}
         <button
           onClick={onToggle}

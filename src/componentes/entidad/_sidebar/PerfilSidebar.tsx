@@ -1,0 +1,105 @@
+'use client'
+
+/**
+ * PerfilSidebar — Seccion de perfil del usuario en la parte inferior del Sidebar.
+ * Avatar, estado (online/ausente/no molestar), menu con acciones de cuenta y cerrar sesion.
+ */
+
+import { useState, useRef, useEffect } from 'react'
+import Link from 'next/link'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Circle, Check, UserCog, LogOut } from 'lucide-react'
+import { useTraduccion } from '@/lib/i18n'
+import { Avatar } from '@/componentes/ui/Avatar'
+import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
+import { useAuth } from '@/hooks/useAuth'
+
+interface PropiedadesPerfilSidebar {
+  colapsado: boolean
+}
+
+function PerfilSidebar({ colapsado }: PropiedadesPerfilSidebar) {
+  const { t } = useTraduccion()
+  const { usuario, cerrarSesion } = useAuth()
+
+  const [perfilAbierto, setPerfilAbierto] = useState(false)
+  const [estado, setEstado] = useState<'online' | 'ausente' | 'no_molestar'>('online')
+  const [modalCerrarSesion, setModalCerrarSesion] = useState(false)
+  const [cerrandoSesion, setCerrandoSesion] = useState(false)
+  const perfilRef = useRef<HTMLDivElement>(null)
+
+  const nombreUsuario = usuario?.user_metadata?.nombre && usuario?.user_metadata?.apellido
+    ? `${usuario.user_metadata.nombre} ${usuario.user_metadata.apellido}`
+    : usuario?.email?.split('@')[0] || 'Usuario'
+
+  const manejarCerrarSesion = async () => {
+    setCerrandoSesion(true)
+    await cerrarSesion()
+    window.location.href = '/login'
+  }
+
+  // Cerrar perfil al click fuera
+  useEffect(() => {
+    const h = (e: MouseEvent) => {
+      if (perfilRef.current && !perfilRef.current.contains(e.target as HTMLElement)) setPerfilAbierto(false)
+    }
+    document.addEventListener('click', h)
+    return () => document.removeEventListener('click', h)
+  }, [])
+
+  const estados = [
+    { id: 'online', etiqueta: 'Online', color: 'text-insignia-exito' },
+    { id: 'ausente', etiqueta: 'Ausente', color: 'text-insignia-advertencia' },
+    { id: 'no_molestar', etiqueta: 'No molestar', color: 'text-insignia-peligro' },
+  ] as const
+
+  return (
+    <>
+      <div ref={perfilRef} className="relative px-2 pb-2 pt-2 border-t border-borde-sutil shrink-0">
+        <button onClick={() => setPerfilAbierto(!perfilAbierto)} className="flex items-center gap-3 w-full rounded-lg border-none cursor-pointer transition-colors hover:bg-superficie-hover bg-transparent px-2 py-2.5">
+          <div className="relative shrink-0">
+            <Avatar nombre={nombreUsuario} tamano="sm" />
+            <span className={`absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-superficie-sidebar ${estado === 'online' ? 'bg-insignia-exito' : estado === 'ausente' ? 'bg-insignia-advertencia' : 'bg-insignia-peligro'}`} />
+          </div>
+          {!colapsado && (
+            <div className="flex-1 text-left min-w-0 sidebar-texto-fade">
+              <div className="text-sm font-medium text-texto-primario truncate">{nombreUsuario}</div>
+              <div className="text-xxs text-texto-terciario capitalize">{estado === 'no_molestar' ? 'No molestar' : estado}</div>
+            </div>
+          )}
+        </button>
+        <AnimatePresence>
+          {perfilAbierto && (
+            <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} className="absolute left-2.5 right-2.5 bottom-full mb-1 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-50 py-1">
+              <div className="px-3 py-1.5 text-xxs font-semibold text-texto-terciario uppercase tracking-wider">Estado</div>
+              {estados.map(est => (
+                <button key={est.id} onClick={() => { setEstado(est.id); setPerfilAbierto(false) }} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-texto-secundario bg-transparent border-none cursor-pointer hover:bg-superficie-hover text-left">
+                  <Circle size={8} className={`fill-current ${est.color}`} /> {est.etiqueta}
+                  {estado === est.id && <Check size={13} className="ml-auto text-texto-marca" />}
+                </button>
+              ))}
+              <div className="h-px bg-borde-sutil my-1" />
+              <Link href="/mi-cuenta" onClick={() => setPerfilAbierto(false)} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-texto-secundario no-underline hover:bg-superficie-hover"><UserCog size={13} /> Mi cuenta</Link>
+              <div className="h-px bg-borde-sutil my-1" />
+              <button onClick={() => { setPerfilAbierto(false); setModalCerrarSesion(true) }} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-insignia-peligro bg-transparent border-none cursor-pointer hover:bg-insignia-peligro-fondo text-left"><LogOut size={13} /> {t('auth.cerrar_sesion')}</button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Modal de cerrar sesion */}
+      <ModalConfirmacion
+        abierto={modalCerrarSesion}
+        onCerrar={() => setModalCerrarSesion(false)}
+        onConfirmar={manejarCerrarSesion}
+        titulo="¿Cerrar sesión?"
+        descripcion="Vas a salir de tu cuenta. Podés volver a iniciar sesión en cualquier momento."
+        tipo="peligro"
+        etiquetaConfirmar={t('auth.cerrar_sesion')}
+        cargando={cerrandoSesion}
+      />
+    </>
+  )
+}
+
+export { PerfilSidebar }

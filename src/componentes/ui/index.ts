@@ -51,6 +51,7 @@ export { IndicadorGuardado } from './IndicadorGuardado'
 export { LineaTiempo } from './LineaTiempo'
 export { ToolbarFlotante } from './ToolbarFlotante'
 export { PanelNotificaciones } from './PanelNotificaciones'
+export { BarraProgreso } from './BarraProgreso'
 
 // Decorativos
 export { FondoParticulas } from './FondoParticulas'
