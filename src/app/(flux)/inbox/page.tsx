@@ -201,10 +201,13 @@ function PaginaInbox() {
           )
           if (activos.size > 0) {
             setModulosActivos(activos)
-            // Seleccionar primer tab activo
-            if (activos.has('inbox_whatsapp')) setTabActivo('whatsapp')
-            else if (activos.has('inbox_correo')) setTabActivo('correo')
-            else if (activos.has('inbox_interno')) setTabActivo('interno')
+            // Seleccionar primer tab activo, SOLO si no hay navegación desde notificación
+            const urlParams = new URLSearchParams(window.location.search)
+            if (!urlParams.has('conv') && !urlParams.has('tab')) {
+              if (activos.has('inbox_whatsapp')) setTabActivo('whatsapp')
+              else if (activos.has('inbox_correo')) setTabActivo('correo')
+              else if (activos.has('inbox_interno')) setTabActivo('interno')
+            }
           }
         }
       } catch {
