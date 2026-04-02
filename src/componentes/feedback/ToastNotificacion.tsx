@@ -7,6 +7,7 @@ import {
   X, MessageSquare, AtSign, AlertTriangle, CalendarClock, UserPlus,
   Eye, PartyPopper, Megaphone, FileCheck, Mail, Bell, Zap,
 } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 import {
   useNotificaciones,
   type Notificacion,
@@ -16,8 +17,9 @@ import { useModoConcentracion } from '@/hooks/useModoConcentracion'
 
 /**
  * ToastNotificacion — Tarjetas flotantes que aparecen al llegar una notificación en tiempo real.
+ * Agrupa mensajes de la misma conversación para no inundar la pantalla.
  * Se posiciona arriba a la derecha, debajo del header.
- * Máximo 3 visibles, auto-descarta en 8s, botones Descartar/Ver.
+ * Máximo 3 grupos visibles, auto-descarta en 8s, se expande al hover.
  * Se usa en: PlantillaApp (layout principal).
  */
 
@@ -69,7 +71,6 @@ const COLORES_TIPO: Record<string, string> = {
   recordatorio: 'var(--texto-marca)',
 }
 
-/* Etiqueta legible del tipo */
 const ETIQUETAS_TIPO: Record<string, string> = {
   mensaje_whatsapp: 'WhatsApp',
   mensaje_correo: 'Correo',
@@ -90,28 +91,41 @@ const ETIQUETAS_TIPO: Record<string, string> = {
 const MAX_TOASTS = 3
 const DURACION_AUTO_MS = 8000
 
-/* ─── Toast individual ─── */
+/** Grupo de notificaciones de la misma conversación/referencia */
+interface GrupoToast {
+  /** Clave de agrupación (referencia_id o id de la primera) */
+  clave: string
+  /** Notificación más reciente (la que se muestra) */
+  ultima: Notificacion
+  /** Total de notificaciones en el grupo */
+  cantidad: number
+  /** IDs de todas las notificaciones del grupo */
+  ids: string[]
+}
+
+/* ─── Toast individual (ahora con soporte de grupo) ─── */
 
 interface PropsToastItem {
-  notificacion: Notificacion
-  onDescartar: (id: string) => void
+  grupo: GrupoToast
+  onDescartar: (clave: string) => void
   onVer: (n: Notificacion) => void
 }
 
-function ToastItem({ notificacion, onDescartar, onVer }: PropsToastItem) {
+function ToastItem({ grupo, onDescartar, onVer }: PropsToastItem) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [pausado, setPausado] = useState(false)
 
-  const color = COLORES_TIPO[notificacion.tipo] || 'var(--texto-marca)'
-  const Icono = ICONOS_TIPO[notificacion.tipo] || Bell
-  const etiqueta = ETIQUETAS_TIPO[notificacion.tipo] || 'Notificación'
+  const { ultima, cantidad } = grupo
+  const color = COLORES_TIPO[ultima.tipo] || 'var(--texto-marca)'
+  const Icono = ICONOS_TIPO[ultima.tipo] || Bell
+  const etiqueta = ETIQUETAS_TIPO[ultima.tipo] || 'Notificación'
 
   /* Auto-descartar en 8s */
   useEffect(() => {
     if (pausado) return
-    timerRef.current = setTimeout(() => onDescartar(notificacion.id), DURACION_AUTO_MS)
+    timerRef.current = setTimeout(() => onDescartar(grupo.clave), DURACION_AUTO_MS)
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }
-  }, [pausado, notificacion.id, onDescartar])
+  }, [pausado, grupo.clave, onDescartar])
 
   return (
     <motion.div
@@ -126,12 +140,22 @@ function ToastItem({ notificacion, onDescartar, onVer }: PropsToastItem) {
       style={{ backgroundColor: 'var(--superficie-elevada)' }}
     >
       <div className="flex items-start gap-3 p-4">
-        {/* Ícono */}
-        <div
-          className="size-9 rounded-xl flex items-center justify-center shrink-0"
-          style={{ backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)` }}
-        >
-          <Icono size={18} style={{ color }} />
+        {/* Ícono con badge de cantidad */}
+        <div className="relative shrink-0">
+          <div
+            className="size-9 rounded-xl flex items-center justify-center"
+            style={{ backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)` }}
+          >
+            <Icono size={18} style={{ color }} />
+          </div>
+          {cantidad > 1 && (
+            <span
+              className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-xxs font-bold text-white"
+              style={{ backgroundColor: color }}
+            >
+              {cantidad}
+            </span>
+          )}
         </div>
 
         {/* Contenido */}
@@ -140,38 +164,48 @@ function ToastItem({ notificacion, onDescartar, onVer }: PropsToastItem) {
             <span className="text-xs font-semibold" style={{ color }}>{etiqueta}</span>
             <span className="text-xxs text-texto-terciario">Ahora</span>
           </div>
-          <p className="text-sm font-medium text-texto-primario mt-0.5 truncate">{notificacion.titulo}</p>
-          {notificacion.cuerpo && (
-            <p className="text-xs text-texto-terciario mt-0.5 line-clamp-2">{notificacion.cuerpo}</p>
+          <p className="text-sm font-medium text-texto-primario mt-0.5 truncate">{ultima.titulo}</p>
+          {ultima.cuerpo && (
+            <p className="text-xs text-texto-terciario mt-0.5 line-clamp-1">{ultima.cuerpo}</p>
+          )}
+          {cantidad > 1 && (
+            <p className="text-xxs mt-1" style={{ color }}>
+              +{cantidad - 1} mensaje{cantidad > 2 ? 's' : ''} más
+            </p>
           )}
         </div>
 
         {/* Cerrar */}
-        <button
-          onClick={() => onDescartar(notificacion.id)}
-          className="shrink-0 flex items-center justify-center size-6 rounded-md bg-transparent hover:bg-superficie-hover border-none cursor-pointer text-texto-terciario hover:text-texto-secundario transition-colors"
-        >
-          <X size={14} />
-        </button>
+        <Boton
+          variante="fantasma"
+          tamano="xs"
+          soloIcono
+          icono={<X size={14} />}
+          onClick={() => onDescartar(grupo.clave)}
+        />
       </div>
 
       {/* Botones de acción */}
       <div className="flex border-t border-borde-sutil">
-        <button
-          onClick={() => onDescartar(notificacion.id)}
-          className="flex-1 py-2.5 text-xs font-medium text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors"
+        <Boton
+          variante="fantasma"
+          tamano="xs"
+          onClick={() => onDescartar(grupo.clave)}
+          className="flex-1 rounded-none"
         >
           Descartar
-        </button>
-        {notificacion.url && (
+        </Boton>
+        {ultima.url && (
           <>
             <div className="w-px bg-borde-sutil" />
-            <button
-              onClick={() => onVer(notificacion)}
-              className="flex-1 py-2.5 text-xs font-medium text-texto-marca hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors"
+            <Boton
+              variante="fantasma"
+              tamano="xs"
+              onClick={() => onVer(ultima)}
+              className="flex-1 rounded-none text-texto-marca"
             >
               Ver
-            </button>
+            </Boton>
           </>
         )}
       </div>
@@ -184,18 +218,29 @@ function ToastItem({ notificacion, onDescartar, onVer }: PropsToastItem) {
 function ToastNotificacion() {
   const router = useRouter()
   const { estaSilenciada } = useModoConcentracion()
-  const [cola, setCola] = useState<Notificacion[]>([])
+  const [grupos, setGrupos] = useState<GrupoToast[]>([])
 
   /* Callback cuando llega una nueva notificación */
   const handleNueva = useCallback((n: Notificacion) => {
     const categoria = categorizarTipo(n.tipo)
     if (estaSilenciada(categoria)) return
 
-    setCola((prev) => {
-      // No duplicar
-      if (prev.some((t) => t.id === n.id)) return prev
-      // Máximo 3: los nuevos empujan a los viejos
-      const nuevos = [n, ...prev]
+    /* Clave de agrupación: referencia_id (conversación) o id si no tiene */
+    const clave = n.referencia_id || n.id
+
+    setGrupos((prev) => {
+      const existente = prev.find((g) => g.clave === clave)
+      if (existente) {
+        /* Actualizar grupo existente con la nueva notificación */
+        return prev.map((g) =>
+          g.clave === clave
+            ? { ...g, ultima: n, cantidad: g.cantidad + 1, ids: [...g.ids, n.id] }
+            : g
+        )
+      }
+      /* Crear nuevo grupo */
+      const nuevo: GrupoToast = { clave, ultima: n, cantidad: 1, ids: [n.id] }
+      const nuevos = [nuevo, ...prev]
       return nuevos.slice(0, MAX_TOASTS)
     })
   }, [estaSilenciada])
@@ -203,12 +248,13 @@ function ToastNotificacion() {
   /* Conectar con useNotificaciones (solo para recibir onNueva) */
   useNotificaciones({ onNueva: handleNueva, estaSilenciada })
 
-  const descartar = useCallback((id: string) => {
-    setCola((prev) => prev.filter((t) => t.id !== id))
+  const descartar = useCallback((clave: string) => {
+    setGrupos((prev) => prev.filter((g) => g.clave !== clave))
   }, [])
 
   const ver = useCallback((n: Notificacion) => {
-    setCola((prev) => prev.filter((t) => t.id !== n.id))
+    const clave = n.referencia_id || n.id
+    setGrupos((prev) => prev.filter((g) => g.clave !== clave))
     if (n.url) router.push(n.url)
   }, [router])
 
@@ -218,8 +264,8 @@ function ToastNotificacion() {
       style={{ top: 'calc(var(--header-alto, 56px) + 12px)' }}
     >
       <AnimatePresence mode="popLayout">
-        {cola.map((n) => (
-          <ToastItem key={n.id} notificacion={n} onDescartar={descartar} onVer={ver} />
+        {grupos.map((g) => (
+          <ToastItem key={g.clave} grupo={g} onDescartar={descartar} onVer={ver} />
         ))}
       </AnimatePresence>
     </div>

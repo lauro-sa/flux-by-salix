@@ -8,6 +8,7 @@ import {
   CalendarClock, UserPlus, Eye, PartyPopper,
   Megaphone, FileCheck, Mail,
 } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 import { PopoverAdaptable as Popover } from '@/componentes/ui/PopoverAdaptable'
 import { PanelNotificaciones, type ItemNotificacion } from '@/componentes/ui/PanelNotificaciones'
 import {
@@ -95,24 +96,60 @@ function tiempoRelativo(fecha: string): string {
   return new Date(fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
 }
 
-function notificacionAItem(n: Notificacion, onClick?: () => void): ItemNotificacion {
+/** Agrupar notificaciones por referencia_id (misma conversación) */
+function agruparNotificaciones(notificaciones: Notificacion[]): { ultima: Notificacion; cantidad: number; ids: string[] }[] {
+  const mapa = new Map<string, { ultima: Notificacion; cantidad: number; ids: string[] }>()
+
+  for (const n of notificaciones) {
+    const clave = n.referencia_id || n.id
+    const existente = mapa.get(clave)
+    if (existente) {
+      existente.cantidad += 1
+      existente.ids.push(n.id)
+      // Mantener la más reciente como "ultima"
+      if (n.creada_en > existente.ultima.creada_en) {
+        existente.ultima = n
+      }
+      // Si alguna no fue leída, el grupo no está leído
+    } else {
+      mapa.set(clave, { ultima: n, cantidad: 1, ids: [n.id] })
+    }
+  }
+
+  return [...mapa.values()]
+}
+
+function notificacionAItem(n: Notificacion, cantidad: number, ids: string[], onClick?: () => void): ItemNotificacion {
   const IconoComp = ICONOS_TIPO[n.tipo] || Bell
   const color = COLORES_TIPO[n.tipo] || 'var(--texto-terciario)'
   return {
     id: n.id,
     icono: (
-      <div
-        className="size-8 rounded-lg flex items-center justify-center shrink-0"
-        style={{ backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)` }}
-      >
-        <IconoComp size={16} style={{ color }} />
+      <div className="relative shrink-0">
+        <div
+          className="size-8 rounded-lg flex items-center justify-center"
+          style={{ backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)` }}
+        >
+          <IconoComp size={16} style={{ color }} />
+        </div>
+        {cantidad > 1 && (
+          <span
+            className="absolute -top-1 -right-1 flex items-center justify-center min-w-[16px] h-4 px-0.5 rounded-full text-xxs font-bold text-white"
+            style={{ backgroundColor: color }}
+          >
+            {cantidad}
+          </span>
+        )}
       </div>
     ),
     titulo: n.titulo,
-    descripcion: n.cuerpo || undefined,
+    descripcion: cantidad > 1
+      ? `${n.cuerpo || ''} · +${cantidad - 1} más`.replace(/^ · /, '')
+      : (n.cuerpo || undefined),
     tiempo: tiempoRelativo(n.creada_en),
     leida: n.leida,
     onClick,
+    datos: { ids },
   }
 }
 
@@ -170,8 +207,10 @@ function NotificacionesHeader() {
     cargando,
   } = useNotificaciones({ estaSilenciada })
 
-  const handleClickItem = useCallback((n: Notificacion) => {
-    if (!n.leida) marcarLeidas([n.id])
+  const handleClickItem = useCallback((n: Notificacion, idsGrupo?: string[]) => {
+    // Marcar todas las del grupo como leídas
+    const ids = idsGrupo && idsGrupo.length > 0 ? idsGrupo : [n.id]
+    marcarLeidas(ids)
     setPopoverAbierto(null)
     if (n.url) router.push(n.url)
   }, [marcarLeidas, router])
@@ -184,9 +223,11 @@ function NotificacionesHeader() {
         const Icono = config.icono
         const silenciada = estaSilenciada(config.categoria)
 
-        const itemsMapeados: ItemNotificacion[] = items
+        /* Agrupar por conversación/referencia para no mostrar un choclo */
+        const grupos = agruparNotificaciones(items)
+        const itemsMapeados: ItemNotificacion[] = grupos
           .slice(0, 20)
-          .map((n) => notificacionAItem(n, () => handleClickItem(n)))
+          .map((g) => notificacionAItem(g.ultima, g.cantidad, g.ids, () => handleClickItem(g.ultima, g.ids)))
 
         return (
           <Popover
@@ -209,51 +250,48 @@ function NotificacionesHeader() {
                 textoVacio={config.textoVacio}
                 iconoVacio={<Icono size={32} strokeWidth={1.2} className="text-texto-terciario/40" />}
                 pie={
-                  <button
+                  <Boton
+                    variante="fantasma"
+                    tamano="xs"
                     onClick={() => { setPopoverAbierto(null); router.push(config.rutaVerTodo) }}
-                    className="flex items-center justify-center gap-1.5 w-full py-1 text-xs font-medium text-texto-marca hover:text-texto-primario bg-transparent border-none cursor-pointer transition-colors"
+                    className="w-full"
                   >
                     {config.etiquetaVerTodo} →
-                  </button>
+                  </Boton>
                 }
               />
             }
           >
-            <button
-              className={[
-                'relative flex items-center justify-center size-8 rounded-md bg-transparent border-none cursor-pointer transition-colors',
-                silenciada
-                  ? 'text-texto-terciario/30 hover:text-texto-terciario/50'
-                  : 'text-texto-terciario hover:text-texto-secundario',
-              ].join(' ')}
-              title={silenciada ? `${config.titulo} (silenciado)` : config.titulo}
-            >
-              <Icono size={17} strokeWidth={1.75} />
-              {/* Badge con contador — punto si 1-9, número si 10+ */}
+            <span className="relative">
+              <Boton
+                variante="fantasma"
+                tamano="sm"
+                soloIcono
+                icono={<Icono size={17} strokeWidth={1.75} />}
+                titulo={silenciada ? `${config.titulo} (silenciado)` : config.titulo}
+                className={[
+                  'size-8',
+                  silenciada
+                    ? 'text-texto-terciario/30 hover:text-texto-terciario/50'
+                    : 'text-texto-terciario hover:text-texto-secundario',
+                ].join(' ')}
+              />
               {noLeidas > 0 && (
-                noLeidas < 10 ? (
-                  <span className={[
-                    'absolute top-0.5 right-0.5 size-2 rounded-full',
-                    silenciada ? 'bg-texto-terciario/30' : 'bg-texto-marca',
-                  ].join(' ')} />
-                ) : (
-                  <span className={[
-                    'absolute -top-0.5 -right-1 flex items-center justify-center min-w-[14px] h-3.5 px-0.5 rounded-full text-xxs font-bold leading-none',
-                    silenciada
-                      ? 'bg-texto-terciario/20 text-texto-terciario'
-                      : 'bg-texto-marca text-white',
-                  ].join(' ')}>
-                    {noLeidas > 99 ? '99' : noLeidas}
-                  </span>
-                )
+                <span className={[
+                  'absolute -top-0.5 -right-1.5 flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-xxs font-bold leading-none pointer-events-none',
+                  silenciada
+                    ? 'bg-texto-terciario/20 text-texto-terciario'
+                    : 'bg-texto-marca text-white',
+                ].join(' ')}>
+                  {noLeidas > 99 ? '99+' : noLeidas}
+                </span>
               )}
-              {/* Rayita de mute sutil */}
               {silenciada && (
                 <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <span className="block w-4 h-px bg-texto-terciario/40 rotate-45 rounded-full" />
                 </span>
               )}
-            </button>
+            </span>
           </Popover>
         )
       })}
