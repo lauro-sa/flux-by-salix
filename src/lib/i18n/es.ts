@@ -259,6 +259,21 @@ export const es: Traducciones = {
     origen_ia: 'IA',
     origen_usuario: 'Usuario',
     descripcion_vacia: 'Sin descripción',
+    descartar: 'Descartar',
+    enviar_papelera: 'Enviar a la papelera',
+    modal_descartar_titulo_uno: '¿Descartar contacto provisorio?',
+    modal_descartar_titulo_varios: '¿Descartar contactos provisorios?',
+    modal_descartar_desc:
+      'Pasan a la papelera. Podés restaurarlos o eliminarlos definitivamente desde la papelera.',
+    modal_papelera_titulo: '¿Enviar a la papelera?',
+    modal_papelera_desc_uno:
+      'El contacto se moverá a la papelera. Podés restaurarlo o eliminarlo definitivamente desde allí.',
+    modal_papelera_desc_varios:
+      'Los contactos se moverán a la papelera. Podés restaurarlos o eliminarlos definitivamente desde allí.',
+    modal_papelera_mixto_desc:
+      'La selección incluye contactos provisorios y confirmados. Todos pasan a la papelera; descartar un provisorio es la misma acción que en el detalle del contacto.',
+    toast_descartar_uno: 'Contacto provisorio descartado (en la papelera).',
+    toast_descartar_varios: 'Contactos provisorios descartados (en la papelera).',
   },
 
   actividades: {

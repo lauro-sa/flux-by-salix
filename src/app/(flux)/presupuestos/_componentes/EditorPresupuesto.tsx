@@ -25,6 +25,7 @@ import SelectorPlantilla from './SelectorPlantilla'
 import { useRol } from '@/hooks/useRol'
 import BarraEstadoPresupuesto from './BarraEstadoPresupuesto'
 import { Boton } from '@/componentes/ui/Boton'
+import { Input } from '@/componentes/ui/Input'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Select } from '@/componentes/ui/Select'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
@@ -1693,13 +1694,15 @@ export default function EditorPresupuesto({
                     <div className={fila}>
                       <span className={etiqueta}>Referencia</span>
                       {esEditable ? (
-                        <input
-                          type="text"
+                        <Input
                           value={referencia}
                           onChange={(e) => setReferencia(e.target.value)}
                           onBlur={() => autoguardar({ referencia })}
                           placeholder="PO, orden de compra..."
-                          className={`${valorAncho} bg-transparent border-b border-borde-sutil text-sm text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-marca-500 transition-colors py-0.5 text-right`}
+                          formato={null}
+                          variante="plano"
+                          compacto
+                          className={`${valorAncho} text-right`}
                         />
                       ) : (
                         <span className="text-sm text-texto-primario">{referencia || '—'}</span>

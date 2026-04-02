@@ -61,7 +61,8 @@ export interface FiltroTabla {
 /** Acción en lote */
 export interface AccionLote {
   id: string
-  etiqueta: string
+  /** Texto fijo o función según los IDs seleccionados (p. ej. Descartar vs Eliminar) */
+  etiqueta: string | ((ids: Set<string>) => string)
   icono?: ReactNode
   onClick: (ids: Set<string>) => void
   peligro?: boolean

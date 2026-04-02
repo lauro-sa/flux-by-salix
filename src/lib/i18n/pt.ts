@@ -259,6 +259,21 @@ export const pt: Traducciones = {
     origen_ia: 'IA',
     origen_usuario: 'Usuário',
     descripcion_vacia: 'Sem descrição',
+    descartar: 'Descartar',
+    enviar_papelera: 'Enviar para a lixeira',
+    modal_descartar_titulo_uno: 'Descartar contato provisório?',
+    modal_descartar_titulo_varios: 'Descartar contatos provisórios?',
+    modal_descartar_desc:
+      'Vão para a lixeira. Você pode restaurá-los ou excluí-los definitivamente a partir daí.',
+    modal_papelera_titulo: 'Enviar para a lixeira?',
+    modal_papelera_desc_uno:
+      'O contato será movido para a lixeira. Você pode restaurá-lo ou excluí-lo definitivamente a partir daí.',
+    modal_papelera_desc_varios:
+      'Os contatos serão movidos para a lixeira. Você pode restaurá-los ou excluí-los definitivamente a partir daí.',
+    modal_papelera_mixto_desc:
+      'A seleção inclui contatos provisórios e confirmados. Todos vão para a lixeira; descartar um provisório é a mesma ação do detalhe do contato.',
+    toast_descartar_uno: 'Contato provisório descartado (na lixeira).',
+    toast_descartar_varios: 'Contatos provisórios descartados (na lixeira).',
   },
 
   actividades: {

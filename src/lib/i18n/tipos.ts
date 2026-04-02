@@ -272,6 +272,18 @@ export interface Traducciones {
     origen_ia: string
     origen_usuario: string
     descripcion_vacia: string
+    /** Acción en lote: provisorios → descartar; confirmados → eliminar (papelera) */
+    descartar: string
+    enviar_papelera: string
+    modal_descartar_titulo_uno: string
+    modal_descartar_titulo_varios: string
+    modal_descartar_desc: string
+    modal_papelera_titulo: string
+    modal_papelera_desc_uno: string
+    modal_papelera_desc_varios: string
+    modal_papelera_mixto_desc: string
+    toast_descartar_uno: string
+    toast_descartar_varios: string
   }
 
   // Actividades

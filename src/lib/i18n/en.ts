@@ -259,6 +259,21 @@ export const en: Traducciones = {
     origen_ia: 'AI',
     origen_usuario: 'User',
     descripcion_vacia: 'No description',
+    descartar: 'Discard',
+    enviar_papelera: 'Move to trash',
+    modal_descartar_titulo_uno: 'Discard provisional contact?',
+    modal_descartar_titulo_varios: 'Discard provisional contacts?',
+    modal_descartar_desc:
+      'They will be moved to trash. You can restore or permanently delete them from there.',
+    modal_papelera_titulo: 'Move to trash?',
+    modal_papelera_desc_uno:
+      'The contact will be moved to trash. You can restore or permanently delete it from there.',
+    modal_papelera_desc_varios:
+      'The contacts will be moved to trash. You can restore or permanently delete them from there.',
+    modal_papelera_mixto_desc:
+      'Your selection includes provisional and confirmed contacts. All go to trash; discarding a provisional contact matches the action on the contact detail.',
+    toast_descartar_uno: 'Provisional contact discarded (in trash).',
+    toast_descartar_varios: 'Provisional contacts discarded (in trash).',
   },
 
   actividades: {

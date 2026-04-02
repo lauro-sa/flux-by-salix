@@ -379,12 +379,13 @@ export default function PaginaConfigPresupuestos() {
                   formato={null}
                   className="flex-1"
                 />
-                {/* Input crudo: demasiado compacto para componente Input */}
-                <input
-                  type="number" value={imp.porcentaje}
+                <Input
+                  tipo="number" value={imp.porcentaje}
                   onChange={(e) => { const n = [...impuestos]; n[idx] = { ...imp, porcentaje: parseFloat(e.target.value) || 0 }; setImpuestos(n) }}
                   onBlur={() => guardarImpuestos(impuestos)}
-                  className="w-20 bg-transparent border border-borde-sutil rounded px-2 py-1 text-sm text-right font-mono outline-none"
+                  formato={null}
+                  compacto
+                  className="w-20 text-right font-mono"
                 />
                 <span className="text-xs text-texto-terciario">%</span>
                 <Checkbox
@@ -414,16 +415,18 @@ export default function PaginaConfigPresupuestos() {
           <div className="space-y-2">
             {monedas.map((mon, idx) => (
               <div key={mon.id} className="flex items-center gap-3 p-3 bg-superficie-app rounded-lg">
-                {/* Input crudo: demasiado compacto para componente Input */}
-                <input type="text" value={mon.id}
+                <Input value={mon.id}
                   onChange={(e) => { const n = [...monedas]; n[idx] = { ...mon, id: e.target.value.toUpperCase() }; setMonedas(n) }}
                   onBlur={() => guardarMonedas(monedas)}
-                  className="w-16 bg-transparent border border-borde-sutil rounded px-2 py-1 text-sm font-mono outline-none" />
-                {/* Input crudo: demasiado compacto para componente Input */}
-                <input type="text" value={mon.simbolo}
+                  formato={null}
+                  compacto
+                  className="w-16 font-mono" />
+                <Input value={mon.simbolo}
                   onChange={(e) => { const n = [...monedas]; n[idx] = { ...mon, simbolo: e.target.value }; setMonedas(n) }}
                   onBlur={() => guardarMonedas(monedas)}
-                  className="w-12 bg-transparent border border-borde-sutil rounded px-2 py-1 text-sm text-center outline-none" />
+                  formato={null}
+                  compacto
+                  className="w-12 text-center" />
                 <Input variante="plano" value={mon.label}
                   onChange={(e) => { const n = [...monedas]; n[idx] = { ...mon, label: e.target.value }; setMonedas(n) }}
                   onBlur={() => guardarMonedas(monedas)}
@@ -457,11 +460,12 @@ export default function PaginaConfigPresupuestos() {
           <div className="space-y-2">
             {unidades.map((uni, idx) => (
               <div key={uni.id} className="flex items-center gap-3 p-3 bg-superficie-app rounded-lg">
-                {/* Input crudo: demasiado compacto para componente Input */}
-                <input type="text" value={uni.abreviatura}
+                <Input value={uni.abreviatura}
                   onChange={(e) => { const n = [...unidades]; n[idx] = { ...uni, abreviatura: e.target.value }; setUnidades(n) }}
                   onBlur={() => guardarUnidades(unidades)}
-                  className="w-16 bg-transparent border border-borde-sutil rounded px-2 py-1 text-sm font-mono outline-none" />
+                  formato={null}
+                  compacto
+                  className="w-16 font-mono" />
                 <Input variante="plano" value={uni.label}
                   onChange={(e) => { const n = [...unidades]; n[idx] = { ...uni, label: e.target.value }; setUnidades(n) }}
                   onBlur={() => guardarUnidades(unidades)}
@@ -675,14 +679,16 @@ export default function PaginaConfigPresupuestos() {
                           {puedeIzq && (
                             <button onClick={() => moverComponente(i, -1)} className="text-texto-terciario/40 hover:text-texto-secundario transition-colors text-sm">‹</button>
                           )}
-                          {/* Input crudo: demasiado compacto para componente Input */}
-                          <input
-                            type="text" value={comp.valor ?? '-'} maxLength={3}
+                          <Input
+                            value={comp.valor ?? '-'} maxLength={3}
                             onChange={(e) => {
                               const n = [...componentesNum]; n[i] = { ...comp, valor: e.target.value }; setComponentesNum(n)
                             }}
                             onBlur={() => guardarNumeracion({ componentes: componentesNum })}
-                            className="w-5 text-center text-base font-mono bg-transparent outline-none"
+                            formato={null}
+                            variante="plano"
+                            compacto
+                            className="w-5 text-center text-base font-mono"
                           />
                           <span className="text-xxs opacity-40 uppercase">sep</span>
                           {puedeDer && (

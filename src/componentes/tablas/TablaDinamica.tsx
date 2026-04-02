@@ -146,6 +146,16 @@ function TablaDinamica<T>({
   /* ── Estado de selección ── */
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
 
+  /* Si una fila deja de estar en datos (p. ej. enviada a papelera), sacar su ID de la selección */
+  useEffect(() => {
+    const idsValidos = new Set(datos.map((fila) => claveFila(fila)))
+    setSeleccionados((prev) => {
+      if (prev.size === 0) return prev
+      const next = new Set([...prev].filter((id) => idsValidos.has(id)))
+      return next.size === prev.size ? prev : next
+    })
+  }, [datos, claveFila])
+
   /* ── Filtros automáticos (generados desde columnas con filtrable: true) ── */
   const columnasFiltrable = useMemo(
     () => columnas.filter(c => c.filtrable),

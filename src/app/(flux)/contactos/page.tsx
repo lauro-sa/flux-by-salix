@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useNavegacion } from '@/hooks/useNavegacion'
 import { useRol } from '@/hooks/useRol'
@@ -8,6 +8,7 @@ import { useTraduccion } from '@/lib/i18n'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
+import type { AccionLote } from '@/componentes/tablas/tipos-tabla'
 import {
   UserPlus, Download, Upload, Users, UserRoundSearch, Building2, Building, Truck,
   User, Tag, Hash, CreditCard, Link2, Mail, Phone, MessageCircle, Briefcase, Factory,
@@ -18,6 +19,7 @@ import {
 import { ModalImportar } from './_componentes/ModalImportar'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { useToast } from '@/componentes/feedback/Toast'
+import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia, type ColorInsignia } from '@/componentes/ui/Insignia'
 import { Avatar } from '@/componentes/ui/Avatar'
@@ -52,6 +54,8 @@ interface FilaContacto {
   etiquetas: string[]
   notas: string | null
   activo: boolean
+  /** Creado automáticamente (p. ej. WhatsApp) hasta confirmarse — descartar ≠ eliminar definitivo */
+  es_provisorio?: boolean
   origen: string
   creado_por: string
   creado_en: string
@@ -75,6 +79,9 @@ export default function PaginaContactos() {
   const [contactos, setContactos] = useState<FilaContacto[]>([])
   const [tiposContacto, setTiposContacto] = useState<TipoContacto[]>([])
   const [modalImportar, setModalImportar] = useState(false)
+  const [modalPapeleraLote, setModalPapeleraLote] = useState(false)
+  const [idsPapeleraPendientes, setIdsPapeleraPendientes] = useState<Set<string>>(new Set())
+  const [cargandoPapeleraLote, setCargandoPapeleraLote] = useState(false)
   const [cargando, setCargando] = useState(true)
   const [total, setTotal] = useState(0)
   const [pagina, setPagina] = useState(1)
@@ -113,22 +120,56 @@ export default function PaginaContactos() {
 
   const { mostrar: mostrarToast } = useToast()
 
-  // Eliminar contactos en lote
-  const eliminarContactosLote = useCallback(async (ids: Set<string>) => {
+  /** Abre el modal: desde el listado solo se envía a la papelera (DELETE es solo borrado definitivo desde papelera). */
+  const solicitarEnvioPapeleraLote = useCallback((ids: Set<string>) => {
+    if (ids.size === 0) return
+    setIdsPapeleraPendientes(ids)
+    setModalPapeleraLote(true)
+  }, [])
+
+  const ejecutarEnvioPapeleraLote = useCallback(async () => {
+    const ids = idsPapeleraPendientes
+    if (ids.size === 0) return
+    setCargandoPapeleraLote(true)
     try {
-      await Promise.all(
-        Array.from(ids).map(id =>
-          fetch(`/api/contactos/${id}`, { method: 'DELETE' })
-        )
-      )
+      for (const id of ids) {
+        const res = await fetch(`/api/contactos/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ en_papelera: true }),
+        })
+        if (!res.ok) {
+          const cuerpo = await res.json().catch(() => ({})) as { error?: string }
+          throw new Error(cuerpo.error || `Error ${res.status}`)
+        }
+      }
       setContactos(prev => prev.filter(c => !ids.has(c.id)))
       setTotal(prev => prev - ids.size)
-      mostrarToast('exito', `${ids.size} contacto${ids.size !== 1 ? 's' : ''} eliminado${ids.size !== 1 ? 's' : ''}`)
+      const filasOk = [...ids].map(id => contactos.find(c => c.id === id)).filter(Boolean) as FilaContacto[]
+      const todosProv = filasOk.length > 0 && filasOk.every(c => c.es_provisorio === true)
+      if (todosProv) {
+        mostrarToast(
+          'exito',
+          ids.size === 1 ? t('contactos.toast_descartar_uno') : t('contactos.toast_descartar_varios')
+        )
+      } else {
+        mostrarToast(
+          'exito',
+          `${ids.size} contacto${ids.size !== 1 ? 's' : ''} enviado${ids.size !== 1 ? 's' : ''} a la papelera`
+        )
+      }
+      setModalPapeleraLote(false)
+      setIdsPapeleraPendientes(new Set())
     } catch (err) {
-      console.error('Error al eliminar contactos:', err)
-      mostrarToast('error', 'Error al eliminar contactos')
+      console.error('Error al enviar contactos a la papelera:', err)
+      mostrarToast(
+        'error',
+        err instanceof Error ? err.message : 'No se pudo enviar a la papelera'
+      )
+    } finally {
+      setCargandoPapeleraLote(false)
     }
-  }, [mostrarToast])
+  }, [idsPapeleraPendientes, contactos, mostrarToast, t])
 
   // Exportar contactos seleccionados a CSV
   const exportarContactosCSV = useCallback(async (ids: Set<string>) => {
@@ -563,6 +604,71 @@ export default function PaginaContactos() {
     )
   }
 
+  const textosModalPapelera = useMemo(() => {
+    const ids = idsPapeleraPendientes
+    if (ids.size === 0) {
+      return { titulo: '', descripcion: '', confirmar: t('comun.confirmar') }
+    }
+    const filas = [...ids].map(id => contactos.find(c => c.id === id)).filter(Boolean) as FilaContacto[]
+    const todosProv = filas.length > 0 && filas.every(c => c.es_provisorio === true)
+    const ningunoProv = filas.length > 0 && filas.every(c => c.es_provisorio !== true)
+    if (todosProv) {
+      return {
+        titulo: ids.size === 1 ? t('contactos.modal_descartar_titulo_uno') : t('contactos.modal_descartar_titulo_varios'),
+        descripcion: t('contactos.modal_descartar_desc'),
+        confirmar: t('contactos.descartar'),
+      }
+    }
+    if (ningunoProv) {
+      return {
+        titulo: t('contactos.modal_papelera_titulo'),
+        descripcion: ids.size === 1 ? t('contactos.modal_papelera_desc_uno') : t('contactos.modal_papelera_desc_varios'),
+        confirmar: t('contactos.enviar_papelera'),
+      }
+    }
+    return {
+      titulo: t('contactos.modal_papelera_titulo'),
+      descripcion: t('contactos.modal_papelera_mixto_desc'),
+      confirmar: t('contactos.enviar_papelera'),
+    }
+  }, [idsPapeleraPendientes, contactos, t])
+
+  const accionesLoteTabla = useMemo((): AccionLote[] => {
+    const base: AccionLote[] = [
+      {
+        id: 'etiqueta',
+        etiqueta: 'Etiquetar',
+        icono: <Tags size={14} />,
+        onClick: agregarEtiquetaLote,
+        atajo: 'E',
+        grupo: 'edicion',
+      },
+      {
+        id: 'exportar',
+        etiqueta: 'Exportar',
+        icono: <FileDown size={14} />,
+        onClick: exportarContactosCSV,
+        grupo: 'exportar',
+      },
+    ]
+    if (tienePermiso('contactos', 'eliminar')) {
+      base.push({
+        id: 'eliminar',
+        etiqueta: (ids) => {
+          const filas = [...ids].map(id => contactos.find(c => c.id === id)).filter(Boolean) as FilaContacto[]
+          if (filas.length === 0) return t('comun.eliminar')
+          return filas.every(c => c.es_provisorio === true) ? t('contactos.descartar') : t('comun.eliminar')
+        },
+        icono: <Trash2 size={14} />,
+        onClick: solicitarEnvioPapeleraLote,
+        peligro: true,
+        atajo: 'Supr',
+        grupo: 'peligro',
+      })
+    }
+    return base
+  }, [contactos, t, agregarEtiquetaLote, exportarContactosCSV, solicitarEnvioPapeleraLote, tienePermiso])
+
   return (
     <>
     <PlantillaListado
@@ -610,32 +716,7 @@ export default function PaginaContactos() {
         onCambiarPagina={setPagina}
         vistas={['lista', 'tarjetas']}
         seleccionables
-        accionesLote={[
-          {
-            id: 'etiqueta',
-            etiqueta: 'Etiquetar',
-            icono: <Tags size={14} />,
-            onClick: agregarEtiquetaLote,
-            atajo: 'E',
-            grupo: 'edicion' as const,
-          },
-          {
-            id: 'exportar',
-            etiqueta: 'Exportar',
-            icono: <FileDown size={14} />,
-            onClick: exportarContactosCSV,
-            grupo: 'exportar' as const,
-          },
-          ...(tienePermiso('contactos', 'eliminar') ? [{
-            id: 'eliminar',
-            etiqueta: t('comun.eliminar'),
-            icono: <Trash2 size={14} />,
-            onClick: eliminarContactosLote,
-            peligro: true,
-            atajo: 'Supr',
-            grupo: 'peligro' as const,
-          }] : []),
-        ]}
+        accionesLote={accionesLoteTabla}
         busqueda={busqueda}
         onBusqueda={setBusqueda}
         placeholder={t('contactos.buscar_placeholder')}
@@ -705,6 +786,23 @@ export default function PaginaContactos() {
       abierto={modalImportar}
       onCerrar={() => setModalImportar(false)}
       onImportacionCompleta={recargarContactos}
+    />
+
+    <ModalConfirmacion
+      abierto={modalPapeleraLote}
+      onCerrar={() => {
+        if (!cargandoPapeleraLote) {
+          setModalPapeleraLote(false)
+          setIdsPapeleraPendientes(new Set())
+        }
+      }}
+      onConfirmar={ejecutarEnvioPapeleraLote}
+      titulo={textosModalPapelera.titulo}
+      descripcion={textosModalPapelera.descripcion}
+      tipo="advertencia"
+      etiquetaConfirmar={textosModalPapelera.confirmar}
+      etiquetaCancelar={t('comun.cancelar')}
+      cargando={cargandoPapeleraLote}
     />
     </>
   )

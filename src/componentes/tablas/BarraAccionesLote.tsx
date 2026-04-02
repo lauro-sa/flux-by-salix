@@ -160,6 +160,7 @@ export function BarraAccionesLote({
               <BotonAccion
                 key={accion.id}
                 accion={accion}
+                seleccionados={seleccionados}
                 onClick={() => { accion.onClick(seleccionados); if (!accion.peligro) onLimpiarSeleccion() }}
               />
             )
@@ -192,7 +193,15 @@ export function BarraAccionesLote({
 }
 
 /* ── Botón de acción individual ── */
-function BotonAccion({ accion, onClick }: { accion: AccionLote; onClick: () => void }) {
+function BotonAccion({
+  accion,
+  seleccionados,
+  onClick,
+}: {
+  accion: AccionLote
+  seleccionados: Set<string>
+  onClick: () => void
+}) {
   const esPeligro = accion.peligro
 
   return (
@@ -210,10 +219,13 @@ function BotonAccion({ accion, onClick }: { accion: AccionLote; onClick: () => v
         e.currentTarget.style.backgroundColor = 'transparent'
         e.currentTarget.style.color = esPeligro ? 'var(--insignia-peligro)' : 'var(--texto-primario)'
       }}
-      title={accion.atajo ? `${accion.etiqueta} (${accion.atajo})` : accion.etiqueta}
+      title={(() => {
+        const texto = typeof accion.etiqueta === 'function' ? accion.etiqueta(seleccionados) : accion.etiqueta
+        return accion.atajo ? `${texto} (${accion.atajo})` : texto
+      })()}
     >
       {accion.icono && <span className="shrink-0 [&_svg]:size-3.5">{accion.icono}</span>}
-      <span>{accion.etiqueta}</span>
+      <span>{typeof accion.etiqueta === 'function' ? accion.etiqueta(seleccionados) : accion.etiqueta}</span>
       {accion.atajo && <Tecla>{accion.atajo}</Tecla>}
     </button>
   )
