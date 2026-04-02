@@ -8,6 +8,9 @@ import { extraerSlug } from '@/lib/subdominio'
  *   1. Refrescar tokens de Supabase (mantener sesión)
  *   2. Resolver subdominio → empresa
  *   3. Redirigir según estado de autenticación
+ *
+ * Usa getSession() (lectura local del JWT) en lugar de getUser() (llamada de red)
+ * para evitar MIDDLEWARE_INVOCATION_TIMEOUT en Vercel Hobby.
  */
 
 // Rutas de auth (sin sesión)
@@ -17,12 +20,12 @@ const RUTAS_AUTH = ['/login', '/registro', '/recuperar', '/restablecer']
 const RUTAS_TRANSICION = ['/onboarding', '/esperando-activacion', '/selector-empresa', '/verificar-correo', '/invitacion']
 
 // Rutas que se saltan completamente
-const RUTAS_IGNORADAS = ['/_next', '/favicon.ico', '/api/']
+const RUTAS_IGNORADAS = ['/_next', '/favicon.ico', '/api/', '/sw.js', '/manifest.json', '/offline']
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Ignorar assets y APIs
+  // Ignorar assets, APIs y archivos estáticos
   if (RUTAS_IGNORADAS.some(ruta => pathname.startsWith(ruta))) {
     return NextResponse.next()
   }
@@ -34,7 +37,11 @@ export async function middleware(request: NextRequest) {
 
   // Crear cliente Supabase y refrescar sesión
   const { supabase, response } = await crearClienteMiddleware(request)
-  const { data: { user } } = await supabase.auth.getUser()
+
+  // Usar getSession() que lee el JWT localmente (sin llamada de red).
+  // getUser() valida contra el servidor pero causa timeouts en Edge.
+  const { data: { session } } = await supabase.auth.getSession()
+  const user = session?.user ?? null
 
   // Extraer subdominio
   const host = request.headers.get('host') || ''
@@ -95,6 +102,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|manifest\\.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|manifest\\.json|sw\\.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 }
