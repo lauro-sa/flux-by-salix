@@ -24,7 +24,7 @@ export function CeldaPermiso({ activo, disponible, onChange }: PropiedadesCeldaP
         type="button"
         onClick={onChange}
         className={[
-          'inline-flex items-center justify-center size-7 rounded-md border transition-all duration-150 cursor-pointer',
+          'inline-flex items-center justify-center size-7 rounded-md border transition-all duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
           activo
             ? 'bg-texto-marca border-texto-marca text-white'
             : 'bg-transparent border-borde-fuerte text-transparent hover:border-texto-marca/50 hover:bg-texto-marca/5',

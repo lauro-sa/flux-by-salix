@@ -8,6 +8,7 @@ import {
   Image, PanelBottom, Code2, FileType, Landmark,
 } from 'lucide-react'
 import { Reorder } from 'framer-motion'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import { A4_ANCHO, A4_ALTO } from '@/lib/pdf/constantes'
 import ModalCondicionPago from '../_componentes/ModalCondicionPago'
 import EditorNotasPresupuesto from '../_componentes/EditorNotasPresupuesto'
@@ -368,7 +369,7 @@ export default function PaginaConfigPresupuestos() {
             <h3 className="text-lg font-semibold text-texto-primario">Impuestos</h3>
             <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => guardarImpuestos(IMPUESTOS_DEFAULT)}>Restablecer</Boton>
           </div>
-          <p className="text-sm text-texto-terciario mt-1 mb-5">Impuestos disponibles al crear líneas de presupuesto.</p>
+          <p className="text-base text-texto-terciario mt-1 mb-5">Impuestos disponibles al crear líneas de presupuesto.</p>
           <div className="space-y-2">
             {impuestos.map((imp, idx) => (
               <div key={imp.id} className="flex items-center gap-3 p-3 bg-superficie-app rounded-lg">
@@ -411,7 +412,7 @@ export default function PaginaConfigPresupuestos() {
             <h3 className="text-lg font-semibold text-texto-primario">Monedas</h3>
             <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => guardarMonedas(MONEDAS_DEFAULT, 'ARS')}>Restablecer</Boton>
           </div>
-          <p className="text-sm text-texto-terciario mt-1 mb-5">Monedas disponibles para presupuestos.</p>
+          <p className="text-base text-texto-terciario mt-1 mb-5">Monedas disponibles para presupuestos.</p>
           <div className="space-y-2">
             {monedas.map((mon, idx) => (
               <div key={mon.id} className="flex items-center gap-3 p-3 bg-superficie-app rounded-lg">
@@ -456,7 +457,7 @@ export default function PaginaConfigPresupuestos() {
             <h3 className="text-lg font-semibold text-texto-primario">Unidades de medida</h3>
             <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => guardarUnidades(UNIDADES_DEFAULT)}>Restablecer</Boton>
           </div>
-          <p className="text-sm text-texto-terciario mt-1 mb-5">Unidades disponibles para las líneas del presupuesto.</p>
+          <p className="text-base text-texto-terciario mt-1 mb-5">Unidades disponibles para las líneas del presupuesto.</p>
           <div className="space-y-2">
             {unidades.map((uni, idx) => (
               <div key={uni.id} className="flex items-center gap-3 p-3 bg-superficie-app rounded-lg">
@@ -488,7 +489,7 @@ export default function PaginaConfigPresupuestos() {
             <h3 className="text-lg font-semibold text-texto-primario">{t('documentos.condiciones_pago')}</h3>
             <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => guardarCondiciones(CONDICIONES_PAGO_DEFAULT)} titulo="Restablecer condiciones por defecto">Restablecer</Boton>
           </div>
-          <p className="text-sm text-texto-terciario mt-1 mb-5">Arrastrá para reordenar. Hacé clic para editar.</p>
+          <p className="text-base text-texto-terciario mt-1 mb-5">Arrastrá para reordenar. Hacé clic para editar.</p>
 
           <Reorder.Group
             axis="y"
@@ -634,7 +635,7 @@ export default function PaginaConfigPresupuestos() {
                   guardarNumeracion({ prefijo: 'P', digitos: 4, siguiente: 1, reinicio: 'nunca', componentes: defComp })
                 }}>Restablecer</Boton>
             </div>
-            <p className="text-sm text-texto-terciario mb-6">Configurá el formato del número de presupuesto</p>
+            <p className="text-base text-texto-terciario mb-6">Configurá el formato del número de presupuesto</p>
 
             <div className="space-y-6">
               {/* Vista previa */}
@@ -714,14 +715,15 @@ export default function PaginaConfigPresupuestos() {
                         <span className="font-mono font-bold text-base">{valor}</span>
                         <span className="text-xxs opacity-40 uppercase">{ETIQUETA_BLOQUE[comp.tipo]}</span>
                         {comp.tipo === 'anio' && (
+                          <Tooltip contenido={comp.formato === 'largo' ? 'Cambiar a 2 dígitos' : 'Cambiar a 4 dígitos'}>
                           <button
                             onClick={() => {
                               const n = [...componentesNum]; n[i] = { ...comp, formato: comp.formato === 'largo' ? 'corto' : 'largo' }; setComponentesNum(n)
                               guardarNumeracion({ componentes: n })
                             }}
                             className="text-current opacity-40 hover:opacity-80 transition-opacity"
-                            title={comp.formato === 'largo' ? 'Cambiar a 2 dígitos' : 'Cambiar a 4 dígitos'}
                           >⇄</button>
+                          </Tooltip>
                         )}
                         {puedeDer && (
                           <button onClick={() => moverComponente(i, 1)} className="text-current opacity-30 hover:opacity-80 transition-opacity text-sm">›</button>
@@ -834,7 +836,7 @@ export default function PaginaConfigPresupuestos() {
       {seccionActiva === 'textos' && (
         <div>
           <h3 className="text-lg font-semibold text-texto-primario">Valores por defecto</h3>
-          <p className="text-sm text-texto-terciario mt-1 mb-5">Se cargan automáticamente al crear un presupuesto nuevo.</p>
+          <p className="text-base text-texto-terciario mt-1 mb-5">Se cargan automáticamente al crear un presupuesto nuevo.</p>
           <div className="space-y-6">
             {/* Días de validez */}
             <div>
@@ -861,7 +863,7 @@ export default function PaginaConfigPresupuestos() {
                       setValidezBloqueada(nuevo)
                       autoguardar({ validez_bloqueada: nuevo })
                     }}
-                    className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ${validezBloqueada ? 'bg-texto-marca' : 'bg-superficie-app border border-borde-sutil'}`}
+                    className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${validezBloqueada ? 'bg-texto-marca' : 'bg-superficie-app border border-borde-sutil'}`}
                   >
                     <span className={`pointer-events-none inline-block size-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${validezBloqueada ? 'translate-x-[17px]' : 'translate-x-0.5'} mt-0.5`} />
                   </button>
@@ -905,7 +907,7 @@ export default function PaginaConfigPresupuestos() {
             <h3 className="text-lg font-semibold text-texto-primario">Membrete del documento</h3>
             <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => guardarMembrete(MEMBRETE_DEFAULT)}>Restablecer</Boton>
           </div>
-          <p className="text-sm text-texto-terciario mt-1 mb-5">Encabezado con logo y texto para tus PDFs.</p>
+          <p className="text-base text-texto-terciario mt-1 mb-5">Encabezado con logo y texto para tus PDFs.</p>
 
           {/* ── VISTA PREVIA DEL MEMBRETE (HTML real de la plantilla) ── */}
           <div className="mb-5">
@@ -930,7 +932,7 @@ export default function PaginaConfigPresupuestos() {
                 <span className="text-sm font-semibold text-texto-primario">Mostrar logo en el membrete</span>
                 <button
                   onClick={() => guardarMembrete({ ...membrete, mostrar_logo: !membrete.mostrar_logo })}
-                  className={`w-10 h-[22px] rounded-full relative transition-colors ${membrete.mostrar_logo ? 'bg-[var(--texto-marca)]' : 'bg-white/20 dark:bg-white/15'}`}
+                  className={`w-10 h-[22px] rounded-full relative transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${membrete.mostrar_logo ? 'bg-[var(--texto-marca)]' : 'bg-white/20 dark:bg-white/15'}`}
                 >
                   <div className={`absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white shadow transition-transform ${membrete.mostrar_logo ? 'translate-x-[20px]' : 'translate-x-[2px]'}`} />
                 </button>
@@ -1124,7 +1126,7 @@ export default function PaginaConfigPresupuestos() {
                 <span className="text-sm font-semibold text-texto-primario">Mostrar línea separadora bajo el membrete</span>
                 <button
                   onClick={() => guardarMembrete({ ...membrete, linea_separadora: !membrete.linea_separadora })}
-                  className={`w-10 h-[22px] rounded-full relative transition-colors ${membrete.linea_separadora ? 'bg-[var(--texto-marca)]' : 'bg-white/20 dark:bg-white/15'}`}
+                  className={`w-10 h-[22px] rounded-full relative transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${membrete.linea_separadora ? 'bg-[var(--texto-marca)]' : 'bg-white/20 dark:bg-white/15'}`}
                 >
                   <div className={`absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white shadow transition-transform ${membrete.linea_separadora ? 'translate-x-[20px]' : 'translate-x-[2px]'}`} />
                 </button>
@@ -1156,7 +1158,7 @@ export default function PaginaConfigPresupuestos() {
                     {/* Toggle switch — usa button nativo por requerir estilos inline con posición absoluta */}
                     <button
                       onClick={() => guardarMembrete({ ...membrete, color_linea: membrete.color_linea === 'marca' ? 'gris' : 'marca' })}
-                      className={`w-10 h-[22px] rounded-full relative transition-colors ${membrete.color_linea === 'marca' ? 'bg-[var(--texto-marca)]' : 'bg-white/20 dark:bg-white/15'}`}
+                      className={`w-10 h-[22px] rounded-full relative transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${membrete.color_linea === 'marca' ? 'bg-[var(--texto-marca)]' : 'bg-white/20 dark:bg-white/15'}`}
                     >
                       <div className={`absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white shadow transition-transform ${membrete.color_linea === 'marca' ? 'translate-x-[20px]' : 'translate-x-[2px]'}`} />
                     </button>
@@ -1195,7 +1197,7 @@ export default function PaginaConfigPresupuestos() {
             <h3 className="text-lg font-semibold text-texto-primario">Pie de página</h3>
             <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => guardarPiePagina(PIE_PAGINA_DEFAULT)}>Restablecer</Boton>
           </div>
-          <p className="text-sm text-texto-terciario mt-1 mb-5">3 columnas independientes para el pie del PDF.</p>
+          <p className="text-base text-texto-terciario mt-1 mb-5">3 columnas independientes para el pie del PDF.</p>
 
           {/* ── VISTA PREVIA DEL PIE (HTML real de la plantilla, scroll al fondo) ── */}
           <div className="mb-5">
@@ -1228,7 +1230,7 @@ export default function PaginaConfigPresupuestos() {
                 <span className="text-sm font-semibold text-texto-primario">Línea separadora encima del pie</span>
                 <button
                   onClick={() => guardarPiePagina({ ...piePagina, linea_superior: !piePagina.linea_superior })}
-                  className={`w-10 h-[22px] rounded-full relative transition-colors ${piePagina.linea_superior ? 'bg-[var(--texto-marca)]' : 'bg-white/20 dark:bg-white/15'}`}
+                  className={`w-10 h-[22px] rounded-full relative transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${piePagina.linea_superior ? 'bg-[var(--texto-marca)]' : 'bg-white/20 dark:bg-white/15'}`}
                 >
                   <div className={`absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white shadow transition-transform ${piePagina.linea_superior ? 'translate-x-[20px]' : 'translate-x-[2px]'}`} />
                 </button>
@@ -1260,7 +1262,7 @@ export default function PaginaConfigPresupuestos() {
                     <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider">Color de marca</span>
                     <button
                       onClick={() => guardarPiePagina({ ...piePagina, color_linea: piePagina.color_linea === 'marca' ? 'gris' : 'marca' })}
-                      className={`w-10 h-[22px] rounded-full relative transition-colors ${piePagina.color_linea === 'marca' ? 'bg-[var(--texto-marca)]' : 'bg-white/20 dark:bg-white/15'}`}
+                      className={`w-10 h-[22px] rounded-full relative transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${piePagina.color_linea === 'marca' ? 'bg-[var(--texto-marca)]' : 'bg-white/20 dark:bg-white/15'}`}
                     >
                       <div className={`absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white shadow transition-transform ${piePagina.color_linea === 'marca' ? 'translate-x-[20px]' : 'translate-x-[2px]'}`} />
                     </button>
@@ -1471,7 +1473,7 @@ export default function PaginaConfigPresupuestos() {
       {seccionActiva === 'plantilla_pdf' && (
         <div>
           <h3 className="text-lg font-semibold text-texto-primario">Plantilla PDF</h3>
-          <p className="text-sm text-texto-terciario mt-1 mb-5">
+          <p className="text-base text-texto-terciario mt-1 mb-5">
             Personalizá el diseño del PDF con el editor visual.
           </p>
 
@@ -1517,7 +1519,7 @@ export default function PaginaConfigPresupuestos() {
       {seccionActiva === 'nombre_pdf' && (
         <div>
           <h3 className="text-lg font-semibold text-texto-primario">Nombre del archivo PDF</h3>
-          <p className="text-sm text-texto-terciario mt-1 mb-5">Definí el patrón para el nombre del archivo al descargar el PDF.</p>
+          <p className="text-base text-texto-terciario mt-1 mb-5">Definí el patrón para el nombre del archivo al descargar el PDF.</p>
 
           <div className="space-y-5">
             {/* Input del patrón */}
@@ -1577,7 +1579,7 @@ export default function PaginaConfigPresupuestos() {
       {seccionActiva === 'datos_bancarios' && (
         <div>
           <h3 className="text-lg font-semibold text-texto-primario">Datos bancarios para presupuestos</h3>
-          <p className="text-sm text-texto-terciario mt-1 mb-5">
+          <p className="text-base text-texto-terciario mt-1 mb-5">
             Estos datos se muestran en el portal cuando el cliente acepta un presupuesto y necesita realizar el pago.
             Por defecto se usan los datos cargados en Configuración &gt; Empresa.
           </p>
@@ -1726,7 +1728,7 @@ export default function PaginaConfigPresupuestos() {
       {seccionActiva === 'modulo' && (
         <div>
           <h3 className="text-lg font-semibold text-texto-primario">Módulo de Presupuestos</h3>
-          <p className="text-sm text-texto-terciario mb-6">Gestión del módulo dentro de tu empresa</p>
+          <p className="text-base text-texto-terciario mb-6">Gestión del módulo dentro de tu empresa</p>
 
           <div className="space-y-6">
             {/* Estado del módulo */}

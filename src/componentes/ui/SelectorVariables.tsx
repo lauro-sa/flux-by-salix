@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search, X, Braces, ChevronRight, ArrowLeft } from 'lucide-react'
 import { useTema } from '@/hooks/useTema'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import { obtenerEntidades, buscarVariables, obtenerVariablesAgrupadas } from '@/lib/variables/registro'
 import type { DefinicionEntidad, DefinicionVariable, ContextoVariables } from '@/lib/variables/tipos'
 // Side-effect: registra todas las entidades al importar este componente
@@ -315,19 +316,20 @@ function SelectorVariables({
     <div ref={refContenedor} className={`relative inline-block ${className}`}>
       {/* Botón trigger (solo si no se controla externamente) */}
       {abiertoExterno === undefined && (
-        <button
-          type="button"
-          onClick={() => setAbiertoInterno(!abiertoInterno)}
-          title="Insertar variable"
-          className={[
-            'flex items-center justify-center size-8 rounded-md border transition-all duration-150 cursor-pointer',
-            abierto
-              ? 'border-borde-foco bg-superficie-seleccionada text-texto-marca'
-              : 'border-borde-sutil bg-superficie-tarjeta text-texto-terciario hover:text-texto-secundario hover:border-borde-fuerte',
-          ].join(' ')}
-        >
-          <Braces size={16} />
-        </button>
+        <Tooltip contenido="Insertar variable">
+          <button
+            type="button"
+            onClick={() => setAbiertoInterno(!abiertoInterno)}
+            className={[
+              'flex items-center justify-center size-8 rounded-md border transition-all duration-150 cursor-pointer',
+              abierto
+                ? 'border-borde-foco bg-superficie-seleccionada text-texto-marca'
+                : 'border-borde-sutil bg-superficie-tarjeta text-texto-terciario hover:text-texto-secundario hover:border-borde-fuerte',
+            ].join(' ')}
+          >
+            <Braces size={16} />
+          </button>
+        </Tooltip>
       )}
 
       {/* Popover — renderizado en portal para no ser cortado por overflow de padres */}

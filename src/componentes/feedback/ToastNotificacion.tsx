@@ -169,7 +169,7 @@ function ToastItem({ grupo, onDescartar, onVer }: PropsToastItem) {
               <button
                 key={n.id}
                 onClick={() => onVer(n)}
-                className="w-full flex items-start gap-2.5 px-3.5 py-2 text-left hover:bg-superficie-hover transition-colors bg-transparent border-none cursor-pointer"
+                className="w-full flex items-start gap-2.5 px-3.5 py-2 text-left hover:bg-superficie-hover transition-colors bg-transparent border-none cursor-pointer focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
                 style={i < todas.length - 1 ? { borderBottom: '1px solid var(--borde-sutil)' } : undefined}
               >
                 <div className="flex-1 min-w-0">

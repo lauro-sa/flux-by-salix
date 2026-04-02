@@ -1736,14 +1736,16 @@ export default function EditorPresupuesto({
                       <span className={etiqueta}>Validez</span>
                       <div className="flex items-center gap-3">
                         {esEditable && !bloqueada && (
-                          <input
-                            type="number"
+                          <Input
+                            tipo="number"
                             min={1}
                             value={diasVencimiento}
                             onChange={(e) => setDiasVencimiento(Math.max(1, parseInt(e.target.value) || 1))}
                             onBlur={() => autoguardar({ dias_vencimiento: diasVencimiento })}
                             onFocus={(e) => e.target.select()}
-                            className="w-14 bg-superficie-tarjeta border border-borde-fuerte rounded-md px-1 py-2 text-sm font-mono text-texto-primario text-center outline-none focus:border-borde-foco focus:shadow-foco transition-all"
+                            formato={null}
+                            compacto
+                            className="w-14 font-mono text-center"
                             title="Dias de validez"
                           />
                         )}

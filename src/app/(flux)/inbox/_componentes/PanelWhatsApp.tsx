@@ -360,6 +360,7 @@ export function PanelWhatsApp({
                         variante="fantasma"
                         tamano="xs"
                         soloIcono
+                        titulo="Quitar etiqueta"
                         icono={<X size={10} />}
                         onClick={(e) => {
                           e.stopPropagation()
@@ -850,6 +851,7 @@ export function PanelWhatsApp({
                       variante="fantasma"
                       tamano="xs"
                       soloIcono
+                      titulo="Reaccionar"
                       icono={<SmilePlus size={12} />}
                       onClick={() => setPickerMsgId(pickerAbierto ? null : msg.id)}
                       className={`absolute top-0 opacity-0 group-hover/burbuja:opacity-100 ${esPropio ? '-left-1' : '-right-1'}`}
@@ -1005,7 +1007,7 @@ export function VisorMedia({
               >
                 <Download size={18} className="text-white/70" />
               </a>
-              <Boton variante="fantasma" tamano="sm" soloIcono icono={<X size={18} className="text-white/70" />} onClick={onCerrar} className="hover:bg-white/10" />
+              <Boton variante="fantasma" tamano="sm" soloIcono titulo="Cerrar" icono={<X size={18} className="text-white/70" />} onClick={onCerrar} className="hover:bg-white/10" />
             </div>
           </div>
 

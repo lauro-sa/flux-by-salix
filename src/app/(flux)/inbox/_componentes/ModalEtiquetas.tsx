@@ -236,13 +236,14 @@ export function ModalEtiquetas({
                     />
                     {editando === et.id ? (
                       <div className="flex-1 flex items-center gap-1">
-                        <input
-                          type="text"
+                        <Input
                           value={nombre}
                           onChange={(e) => setNombre(e.target.value)}
                           onKeyDown={(e) => e.key === 'Enter' && handleEditar(et.id)}
-                          className="flex-1 text-sm bg-transparent outline-none"
-                          style={{ color: 'var(--texto-primario)' }}
+                          formato={null}
+                          variante="plano"
+                          compacto
+                          className="flex-1"
                           autoFocus
                         />
                         <Boton variante="fantasma" tamano="xs" soloIcono titulo="Confirmar" icono={<Check size={12} />} onClick={() => handleEditar(et.id)} className="text-insignia-exito" />
@@ -287,13 +288,13 @@ export function ModalEtiquetas({
                   className="w-6 h-6 rounded-full flex-shrink-0 cursor-pointer"
                   style={{ background: color }}
                 />
-                <input
-                  type="text"
+                <Input
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleCrear()}
-                  className="flex-1 text-sm bg-transparent outline-none px-2 py-1 rounded"
-                  style={{ color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+                  formato={null}
+                  compacto
+                  className="flex-1"
                   placeholder="Nombre de la etiqueta"
                   autoFocus
                 />

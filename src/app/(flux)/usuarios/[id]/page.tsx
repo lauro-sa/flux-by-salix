@@ -17,10 +17,12 @@ import { InputMoneda } from '@/componentes/ui/InputMoneda'
 import { Select } from '@/componentes/ui/Select'
 import { SelectCreable } from '@/componentes/ui/SelectCreable'
 import { Boton } from '@/componentes/ui/Boton'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Tarjeta } from '@/componentes/ui/Tarjeta'
+import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Tabs } from '@/componentes/ui/Tabs'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
@@ -1255,6 +1257,7 @@ export default function PaginaPerfilUsuario() {
                   variante="secundario"
                   tamano="sm"
                   soloIcono
+                  titulo="Más opciones"
                   icono={<MoreHorizontal size={16} />}
                   onClick={() => setMenuAcciones(!menuAcciones)}
                 />
@@ -2055,9 +2058,11 @@ export default function PaginaPerfilUsuario() {
                             )}
                           </div>
                           {imgUrl && (
-                            <label htmlFor={`doc-${doc}`} className="shrink-0 cursor-pointer text-texto-terciario hover:text-texto-secundario transition-colors" title="Reemplazar">
+                            <Tooltip contenido="Reemplazar">
+                            <label htmlFor={`doc-${doc}`} className="shrink-0 cursor-pointer text-texto-terciario hover:text-texto-secundario transition-colors">
                               <Pencil size={11} />
                             </label>
+                            </Tooltip>
                           )}
                         </div>
                       </div>
@@ -2345,10 +2350,7 @@ export default function PaginaPerfilUsuario() {
                 {cargandoPagos ? (
                   <div className="py-8 text-center text-sm text-texto-terciario">Cargando pagos...</div>
                 ) : pagos.length === 0 ? (
-                  <div className="py-8 text-center">
-                    <Banknote size={32} className="text-texto-terciario/30 mx-auto mb-2" />
-                    <p className="text-sm text-texto-terciario">No hay pagos registrados para este usuario.</p>
-                  </div>
+                  <EstadoVacio icono={<Banknote />} titulo="No hay pagos registrados" descripcion="No hay pagos registrados para este usuario." />
                 ) : (
                   <div className="divide-y divide-borde-sutil">
                     {pagos.map((pago) => (
@@ -2393,6 +2395,7 @@ export default function PaginaPerfilUsuario() {
                             variante="fantasma"
                             tamano="xs"
                             soloIcono
+                            titulo="Eliminar"
                             icono={<Trash2 size={13} />}
                             onClick={() => eliminarPago(pago.id as string)}
                           />
@@ -2448,6 +2451,7 @@ export default function PaginaPerfilUsuario() {
                           variante="secundario"
                           tamano="sm"
                           soloIcono
+                          titulo="Período anterior"
                           icono={<ChevronLeft size={18} />}
                           onClick={() => periodoModal && setPeriodoModal(navegarPeriodo(periodoModal, 'anterior', compensacionFrecuencia))}
                         />
@@ -2463,6 +2467,7 @@ export default function PaginaPerfilUsuario() {
                           variante="secundario"
                           tamano="sm"
                           soloIcono
+                          titulo="Período siguiente"
                           icono={<ChevronRight size={18} />}
                           onClick={() => periodoModal && setPeriodoModal(navegarPeriodo(periodoModal, 'siguiente', compensacionFrecuencia))}
                         />
@@ -2616,6 +2621,7 @@ export default function PaginaPerfilUsuario() {
                           variante="fantasma"
                           tamano="xs"
                           soloIcono
+                          titulo="Eliminar archivo"
                           icono={<X size={14} />}
                           onClick={() => { setArchivoComprobante(null); if (inputComprobanteRef.current) inputComprobanteRef.current.value = '' }}
                         />
@@ -2627,7 +2633,7 @@ export default function PaginaPerfilUsuario() {
                         aria-label="Subir comprobante de pago"
                         onClick={() => inputComprobanteRef.current?.click()}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') inputComprobanteRef.current?.click() }}
-                        className="border-2 border-dashed border-borde-fuerte rounded-xl p-6 flex flex-col items-center justify-center gap-2 hover:bg-superficie-hover/30 hover:border-texto-marca/30 transition-all cursor-pointer"
+                        className="border-2 border-dashed border-borde-fuerte rounded-xl p-6 flex flex-col items-center justify-center gap-2 hover:bg-superficie-hover/30 hover:border-texto-marca/30 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
                       >
                         <FileUp size={20} className="text-texto-terciario" />
                         <span className="text-sm font-medium text-texto-secundario">Subir recibo o comprobante</span>

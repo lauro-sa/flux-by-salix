@@ -55,7 +55,7 @@ export default function PaginaRecuperar() {
         <h2 className="text-lg font-semibold text-texto-primario mb-2">
           {t('auth.revisa_tu_correo')}
         </h2>
-        <p className="text-sm text-texto-terciario mb-6">
+        <p className="text-base text-texto-terciario mb-6">
           {t('auth.recuperar_desc')}
         </p>
 

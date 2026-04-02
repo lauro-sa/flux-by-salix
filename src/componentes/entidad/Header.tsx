@@ -249,7 +249,7 @@ function Header({
                 <button
                   onClick={() => modoConcentracion.ciclar()}
                   className={[
-                    'flex items-center gap-2.5 w-full mt-2 px-3 py-2.5 rounded-xl border cursor-pointer transition-all text-left',
+                    'flex items-center gap-2.5 w-full mt-2 px-3 py-2.5 rounded-xl border cursor-pointer transition-all text-left focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
                     modoConcentracion.activo
                       ? 'bg-insignia-advertencia-fondo/50 border-insignia-advertencia-texto/20 text-insignia-advertencia-texto'
                       : 'bg-superficie-hover border-borde-sutil text-texto-secundario hover:text-texto-primario hover:border-borde-fuerte',
@@ -278,7 +278,7 @@ function Header({
                       key={clave}
                       onClick={() => cambiarTema(clave)}
                       className={[
-                        'flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border-none cursor-pointer text-xs font-medium transition-all duration-150',
+                        'flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border-none cursor-pointer text-xs font-medium transition-all duration-150 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
                         tema === clave
                           ? 'bg-superficie-tarjeta text-texto-primario shadow-sm'
                           : 'bg-transparent text-texto-terciario hover:text-texto-secundario',
@@ -302,7 +302,7 @@ function Header({
                       key={i.codigo}
                       onClick={() => { cambiarIdioma(i.codigo as 'es' | 'en' | 'pt') }}
                       className={[
-                        'flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border-none cursor-pointer text-xs font-medium transition-all duration-150',
+                        'flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border-none cursor-pointer text-xs font-medium transition-all duration-150 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
                         idioma === i.codigo
                           ? 'bg-superficie-tarjeta text-texto-primario shadow-sm'
                           : 'bg-transparent text-texto-terciario hover:text-texto-secundario',

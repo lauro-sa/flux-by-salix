@@ -19,7 +19,7 @@ function EncabezadoSeccion({ titulo, descripcion, accion }: PropiedadesEncabezad
       <div>
         <h2 className="text-lg font-semibold text-texto-primario mb-1">{titulo}</h2>
         {descripcion && (
-          <p className="text-sm text-texto-terciario">{descripcion}</p>
+          <p className="text-base text-texto-terciario">{descripcion}</p>
         )}
       </div>
       {accion && <div className="shrink-0">{accion}</div>}

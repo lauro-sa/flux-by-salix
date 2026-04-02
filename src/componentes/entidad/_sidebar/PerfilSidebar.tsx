@@ -57,7 +57,7 @@ function PerfilSidebar({ colapsado }: PropiedadesPerfilSidebar) {
   return (
     <>
       <div ref={perfilRef} className="relative px-2 pb-2 pt-2 border-t border-borde-sutil shrink-0">
-        <button onClick={() => setPerfilAbierto(!perfilAbierto)} className="flex items-center gap-3 w-full rounded-lg border-none cursor-pointer transition-colors hover:bg-superficie-hover bg-transparent px-2 py-2.5">
+        <button onClick={() => setPerfilAbierto(!perfilAbierto)} className="flex items-center gap-3 w-full rounded-lg border-none cursor-pointer transition-colors hover:bg-superficie-hover bg-transparent px-2 py-2.5 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2">
           <div className="relative shrink-0">
             <Avatar nombre={nombreUsuario} tamano="sm" />
             <span className={`absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-superficie-sidebar ${estado === 'online' ? 'bg-insignia-exito' : estado === 'ausente' ? 'bg-insignia-advertencia' : 'bg-insignia-peligro'}`} />

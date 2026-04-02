@@ -84,7 +84,7 @@ export function MatrizCategoria({
       <button
         type="button"
         onClick={() => setAbierta(!abierta)}
-        className="flex items-center justify-between w-full px-4 py-3 bg-superficie-tarjeta border-none cursor-pointer text-left"
+        className="flex items-center justify-between w-full px-4 py-3 bg-superficie-tarjeta border-none cursor-pointer text-left rounded-t-lg focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
       >
         <div className="flex items-center gap-2">
           {abierta ? <ChevronDown size={16} className="text-texto-terciario" /> : <ChevronRight size={16} className="text-texto-terciario" />}
@@ -129,7 +129,7 @@ export function MatrizCategoria({
                           <button
                             type="button"
                             onClick={() => onToggleColumna(modulos, accion)}
-                            className="flex flex-col items-center gap-0.5 w-full bg-transparent border-none cursor-pointer p-1 rounded hover:bg-superficie-hover transition-colors group"
+                            className="flex flex-col items-center gap-0.5 w-full bg-transparent border-none cursor-pointer p-1 rounded hover:bg-superficie-hover transition-colors group focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
                             title={`${todosActivos ? 'Desmarcar' : 'Marcar'} "${ETIQUETAS_ACCION[accion]}" en todos los modulos`}
                           >
                             <span className="text-xxs leading-tight font-medium text-texto-terciario group-hover:text-texto-primario transition-colors">

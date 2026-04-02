@@ -3,6 +3,7 @@
 import { type ReactNode, useState, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, CheckCheck, Trash2 } from 'lucide-react'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 
 /**
  * PanelNotificaciones — Panel genérico para mostrar listas de notificaciones
@@ -101,13 +102,14 @@ function FilaNotificacion({ item, onDescartar, expandido }: {
           {item.insignia && <div className="mt-1.5">{item.insignia}</div>}
         </div>
         {onDescartar && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onDescartar(item.id) }}
-            className="shrink-0 opacity-0 group-hover:opacity-100 flex items-center justify-center size-7 rounded-lg bg-transparent hover:bg-superficie-hover border-none cursor-pointer text-texto-terciario hover:text-texto-secundario transition-all mt-0.5"
-            title="Descartar"
-          >
-            <Trash2 size={13} />
-          </button>
+          <Tooltip contenido="Descartar">
+            <button
+              onClick={(e) => { e.stopPropagation(); onDescartar(item.id) }}
+              className="shrink-0 opacity-0 group-hover:opacity-100 flex items-center justify-center size-7 rounded-lg bg-transparent hover:bg-superficie-hover border-none cursor-pointer text-texto-terciario hover:text-texto-secundario transition-all mt-0.5"
+            >
+              <Trash2 size={13} />
+            </button>
+          </Tooltip>
         )}
       </div>
 
@@ -206,14 +208,15 @@ function PanelNotificaciones({
           )}
         </div>
         {onMarcarTodasLeidas && noLeidas > 0 && (
-          <button
-            onClick={onMarcarTodasLeidas}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover border-none bg-transparent cursor-pointer transition-colors"
-            title="Marcar todas como leídas"
-          >
-            <CheckCheck size={14} />
-            <span className="hidden sm:inline">Marcar leídas</span>
-          </button>
+          <Tooltip contenido="Marcar todas como leídas">
+            <button
+              onClick={onMarcarTodasLeidas}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover border-none bg-transparent cursor-pointer transition-colors"
+            >
+              <CheckCheck size={14} />
+              <span className="hidden sm:inline">Marcar leídas</span>
+            </button>
+          </Tooltip>
         )}
       </div>
 

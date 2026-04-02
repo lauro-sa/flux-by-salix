@@ -550,7 +550,7 @@ export default function EditorPlantillaPdf() {
                   ref={iframeRef}
                   srcDoc={htmlConMargenes}
                   title="Vista previa PDF"
-                  className="border-0 bg-white shadow-2xl rounded-sm"
+                  className="border-0 bg-white shadow-elevada rounded-sm"
                   style={{
                     width: A4_ANCHO,
                     height: alturaIframe,

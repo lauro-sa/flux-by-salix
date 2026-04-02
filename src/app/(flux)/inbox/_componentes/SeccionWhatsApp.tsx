@@ -470,7 +470,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
               style={{ background: 'var(--superficie-hover)', color: 'var(--texto-marca)' }}
             >
               <span className="flex-1 break-all">{webhookUrl}</span>
-              <Boton variante="secundario" tamano="xs" soloIcono icono={<Copy size={14} />} onClick={() => copiarTexto(webhookUrl)} />
+              <Boton variante="secundario" tamano="xs" soloIcono titulo="Copiar URL" icono={<Copy size={14} />} onClick={() => copiarTexto(webhookUrl)} />
             </div>
           </div>
         </div>

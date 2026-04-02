@@ -109,6 +109,7 @@ function PlantillaConfiguracion({
             variante="fantasma"
             tamano="xs"
             soloIcono
+            titulo="Volver"
             icono={<ChevronLeft size={16} />}
             onClick={mobileVistaContenido ? volverAListaMobile : onVolver}
             className="md:hidden -ml-1"
@@ -146,7 +147,7 @@ function PlantillaConfiguracion({
                   onClick={() => !seccion.deshabilitada && onCambiarSeccion(seccion.id)}
                   disabled={seccion.deshabilitada}
                   className={[
-                    'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-left cursor-pointer border-none transition-colors relative',
+                    'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-left cursor-pointer border-none transition-colors relative focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
                     activa
                       ? 'bg-superficie-seleccionada text-texto-marca'
                       : 'bg-transparent text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario',
@@ -230,7 +231,7 @@ function PlantillaConfiguracion({
                               onClick={() => !seccion.deshabilitada && seleccionarSeccionMobile(seccion.id)}
                               disabled={seccion.deshabilitada}
                               className={[
-                                'w-full flex items-center gap-3 px-4 py-3.5 text-sm font-medium text-left cursor-pointer border-none transition-colors',
+                                'w-full flex items-center gap-3 px-4 py-3.5 text-sm font-medium text-left cursor-pointer border-none transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
                                 activa
                                   ? 'text-texto-marca'
                                   : 'text-texto-primario active:bg-superficie-hover',

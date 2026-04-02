@@ -38,7 +38,7 @@ function SeccionOcultosDeshabilitados({
       {/* Seccion OCULTOS — clickeables, solo no estan en el nav principal */}
       {itemsOcultos.length > 0 && (
         <div className="mt-3">
-          <button onClick={() => setOcultosAbierta(!ocultosAbierta)} className="flex items-center gap-1 w-full px-1.5 mb-1 bg-transparent border-none cursor-pointer text-xxs font-semibold text-texto-terciario/50 uppercase tracking-wider hover:text-texto-terciario transition-colors">
+          <button onClick={() => setOcultosAbierta(!ocultosAbierta)} className="flex items-center gap-1 w-full px-1.5 mb-1 bg-transparent border-none cursor-pointer text-xxs font-semibold text-texto-terciario/50 uppercase tracking-wider hover:text-texto-terciario transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 rounded">
             <ChevronDown size={10} className={`transition-transform ${ocultosAbierta ? '' : '-rotate-90'}`} />
             Ocultos ({itemsOcultos.length})
           </button>
@@ -77,7 +77,7 @@ function SeccionOcultosDeshabilitados({
       {/* Seccion DESHABILITADOS — NO clickeables, tachados */}
       {itemsDeshabilitados.length > 0 && (
         <div className="mt-3">
-          <button onClick={() => setDeshabilitadosAbierta(!deshabilitadosAbierta)} className="flex items-center gap-1 w-full px-1.5 mb-1 bg-transparent border-none cursor-pointer text-xxs font-semibold text-texto-terciario/50 uppercase tracking-wider hover:text-texto-terciario transition-colors">
+          <button onClick={() => setDeshabilitadosAbierta(!deshabilitadosAbierta)} className="flex items-center gap-1 w-full px-1.5 mb-1 bg-transparent border-none cursor-pointer text-xxs font-semibold text-texto-terciario/50 uppercase tracking-wider hover:text-texto-terciario transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 rounded">
             <ChevronDown size={10} className={`transition-transform ${deshabilitadosAbierta ? '' : '-rotate-90'}`} />
             Deshabilitados ({itemsDeshabilitados.length})
           </button>

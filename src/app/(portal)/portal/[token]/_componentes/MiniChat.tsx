@@ -148,6 +148,7 @@ export default function MiniChat({ mensajes, nombreCliente, colorMarca, token, o
                 variante="fantasma"
                 tamano="sm"
                 soloIcono
+                titulo="Enviar"
                 redondeado
                 icono={enviando ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                 onClick={enviar}

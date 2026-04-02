@@ -262,14 +262,17 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
                   variante="fantasma"
                   tamano="sm"
                   soloIcono
+                  titulo="Favorito"
                   icono={favorito ? <Star size={20} className="text-insignia-advertencia fill-insignia-advertencia" /> : <StarOff size={20} />}
                   onClick={() => setFavorito(!favorito)}
                 />
-                <input
+                <Input
                   value={nombre}
                   onChange={e => setNombre(e.target.value)}
                   placeholder={`Nombre del ${etiquetaTipo}`}
-                  className="flex-1 text-xl font-bold bg-transparent border-none outline-none text-texto-primario placeholder:text-texto-placeholder"
+                  formato={null}
+                  variante="plano"
+                  className="flex-1 text-xl font-bold"
                   autoFocus
                 />
               </div>
@@ -565,6 +568,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
                               variante="fantasma"
                               tamano="xs"
                               soloIcono
+                              titulo="Eliminar línea"
                               icono={<Trash2 size={14} />}
                               onClick={() => eliminarLineaCosto(item.id)}
                               className="opacity-0 group-hover:opacity-100 transition-opacity"

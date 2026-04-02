@@ -3,7 +3,15 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useNavegacion, type Migaja } from '@/hooks/useNavegacion'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
+import {
+  Users, MapPin, FileText, Package,
+  Mail, Clock, Calendar, Shield,
+  Wrench, Zap, LayoutDashboard,
+  Megaphone, FileBarChart, Route,
+  UserCog, Building2, Trash2,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 /**
  * Migajas (Breadcrumbs) — Muestra el camino de navegación completo.
@@ -16,6 +24,28 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
  *
  * Acepta migajas extras para páginas dinámicas (ej: nombre del contacto).
  */
+
+/** Mapa de módulo → ícono (mismos que el sidebar) */
+const ICONOS_MODULO: Record<string, LucideIcon> = {
+  dashboard: LayoutDashboard,
+  contactos: Users,
+  actividades: Zap,
+  visitas: MapPin,
+  recorrido: Route,
+  documentos: FileText,
+  productos: Package,
+  presupuestos: FileText,
+  informes: FileBarChart,
+  ordenes: Wrench,
+  inbox: Mail,
+  asistencias: Clock,
+  calendario: Calendar,
+  auditoria: Shield,
+  marketing: Megaphone,
+  configuracion: Building2,
+  usuarios: UserCog,
+  papelera: Trash2,
+}
 
 interface PropiedadesMigajas {
   extras?: Migaja[] // Migajas adicionales (ej: nombre de entidad dinámica)
@@ -30,18 +60,26 @@ function Migajas({ extras }: PropiedadesMigajas) {
     ? obtenerMigajasParaRuta(pathname, extras)
     : migajasBase
 
-  if (migajas.length <= 1) return null
+  if (migajas.length === 0) return null
 
   return (
     <>
-      {/* Mobile: solo el nombre de la página actual (la navegación la manejan las plantillas) */}
+      {/* Mobile: ícono + nombre de la página actual */}
       <div className="migajas-mobile" style={{ display: 'none' }}>
-        <span className="font-semibold" style={{ fontSize: 'var(--texto-sm)', color: 'var(--texto-primario)' }}>
-          {migajas[migajas.length - 1].etiqueta}
-        </span>
+        {(() => {
+          const ultima = migajas[migajas.length - 1]
+          const primera = migajas[0]
+          const Icono = primera?.modulo ? ICONOS_MODULO[primera.modulo] : undefined
+          return (
+            <span className="font-semibold flex items-center gap-1.5" style={{ fontSize: 'var(--texto-sm)', color: 'var(--texto-primario)' }}>
+              {Icono && <Icono size={16} className="text-texto-terciario shrink-0" />}
+              {ultima.etiqueta}
+            </span>
+          )
+        })()}
       </div>
 
-      {/* Desktop: camino completo */}
+      {/* Desktop: camino completo con ícono del módulo */}
       <nav
         className="migajas-desktop"
         aria-label="Breadcrumbs"
@@ -55,12 +93,14 @@ function Migajas({ extras }: PropiedadesMigajas) {
       >
         {migajas.map((migaja, i) => {
           const esUltima = i === migajas.length - 1
+          const Icono = i === 0 && migaja.modulo ? ICONOS_MODULO[migaja.modulo] : undefined
 
           return (
             <span key={migaja.ruta + i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--espacio-1)' }}>
               {i > 0 && (
                 <ChevronRight size={14} style={{ color: 'var(--texto-terciario)' }} />
               )}
+              {Icono && <Icono size={15} className="text-texto-terciario shrink-0" />}
               {esUltima ? (
                 <span className="font-medium" style={{ color: 'var(--texto-primario)' }}>
                   {migaja.etiqueta}

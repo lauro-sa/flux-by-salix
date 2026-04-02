@@ -41,7 +41,7 @@ function GuardaModulo({ slug, nombre, children }: PropiedadesGuardaModulo) {
             <h2 className="text-lg font-semibold text-texto-primario">
               {nombre} no está instalado
             </h2>
-            <p className="text-sm text-texto-secundario mt-1">
+            <p className="text-base text-texto-secundario mt-1">
               Este módulo no está activo en tu empresa. Instalalo desde la tienda de aplicaciones.
             </p>
           </div>

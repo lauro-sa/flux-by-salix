@@ -8,6 +8,7 @@
 
 import { useRef, useCallback } from 'react'
 import { X } from 'lucide-react'
+import { Input } from '@/componentes/ui/Input'
 
 // ─── Parser de segmentos ───
 
@@ -73,12 +74,13 @@ export function InputAsuntoVariables({
   // Si no tiene variables, usar un input normal (más fluido para escribir)
   if (!tieneVariables) {
     return (
-      <input
-        type="text"
+      <Input
         value={valor}
         onChange={(e) => onChange(e.target.value)}
-        className="flex-1 text-sm bg-transparent outline-none py-1.5"
-        style={{ color: 'var(--texto-primario)' }}
+        formato={null}
+        variante="plano"
+        compacto
+        className="flex-1"
         placeholder={placeholder}
       />
     )

@@ -107,7 +107,7 @@ export default function BarraEstadoPresupuesto({ estadoActual, onCambiarEstado }
                       ? `rgba(${rgb}, ${enHover ? 0.18 : 0.10})`
                       : 'transparent',
                 }}
-                className={`relative flex items-center gap-1 py-2 text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
+                className={`relative flex items-center gap-1 py-2 text-xs font-semibold whitespace-nowrap transition-all duration-200 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
                   esActual
                     ? 'text-white'
                     : esPasado
@@ -166,7 +166,7 @@ function BadgeTerminal({
       <button
         type="button"
         onClick={() => esClickeable && setAbierto(v => !v)}
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white transition-all ${
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white transition-all focus-visible:outline-2 focus-visible:outline-white focus-visible:-outline-offset-2 ${
           esClickeable ? 'cursor-pointer active:scale-95' : 'cursor-default'
         }`}
         style={{ backgroundColor: `rgba(${rgb}, 0.75)` }}
@@ -176,7 +176,7 @@ function BadgeTerminal({
       </button>
 
       {abierto && (
-        <div className="absolute top-full mt-2 right-0 z-50 min-w-40 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-xl overflow-hidden py-1">
+        <div className="absolute top-full mt-2 right-0 z-50 min-w-40 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden py-1">
           {transicionesValidas.map(est => (
             <Boton
               key={est}
@@ -240,7 +240,7 @@ function PillMobile({
       </div>
 
       {abierto && (
-        <div className="absolute top-full mt-2 left-0 z-50 min-w-44 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-xl overflow-hidden py-1">
+        <div className="absolute top-full mt-2 left-0 z-50 min-w-44 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden py-1">
           {[...FLUJO_ESTADO, ...(esTerminal ? [estadoActual] : [])].map((estado, i) => {
             const esActual = estado === estadoActual
             const esPasado = esTerminal ? (i < FLUJO_ESTADO.length) : (i < idxEfectivo)

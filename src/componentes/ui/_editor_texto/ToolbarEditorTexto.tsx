@@ -18,6 +18,7 @@ import {
   Palette, Type, ChevronDown,
   X, Check,
 } from 'lucide-react'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import { PickerHSL } from '@/componentes/ui/_editor_texto/PickerHSL'
 import {
   TAMANOS_TEXTO, GRILLA_COLORES, PX_POR_TAMANO,
@@ -43,12 +44,14 @@ function Btn({ activo, onClick, titulo, children }: {
   activo?: boolean; onClick: () => void; titulo: string; children: React.ReactNode
 }) {
   return (
-    <button
-      type="button" onClick={onClick} onMouseDown={(e) => e.preventDefault()}
-      className={['flex items-center justify-center size-7 rounded-md transition-all duration-100 cursor-pointer active:scale-90',
-        activo ? 'bg-texto-marca/15 text-texto-marca' : 'text-texto-secundario hover:text-texto-primario hover:bg-superficie-hover',
-      ].join(' ')} title={titulo}
-    >{children}</button>
+    <Tooltip contenido={titulo}>
+      <button
+        type="button" onClick={onClick} onMouseDown={(e) => e.preventDefault()}
+        className={['flex items-center justify-center size-7 rounded-md transition-all duration-100 cursor-pointer active:scale-90',
+          activo ? 'bg-texto-marca/15 text-texto-marca' : 'text-texto-secundario hover:text-texto-primario hover:bg-superficie-hover',
+        ].join(' ')}
+      >{children}</button>
+    </Tooltip>
   )
 }
 
@@ -263,15 +266,16 @@ export function ToolbarEditorTexto({
             </button>
           ))}
           {/* Borrar color */}
-          <button
-            type="button"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={quitarColor}
-            className="ml-auto mr-2 flex items-center justify-center size-6 rounded-md text-texto-terciario hover:text-insignia-peligro hover:bg-superficie-hover transition-colors cursor-pointer"
-            title="Quitar color"
-          >
-            <X size={14} />
-          </button>
+          <Tooltip contenido="Quitar color">
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={quitarColor}
+              className="ml-auto mr-2 flex items-center justify-center size-6 rounded-md text-texto-terciario hover:text-insignia-peligro hover:bg-superficie-hover transition-colors cursor-pointer"
+            >
+              <X size={14} />
+            </button>
+          </Tooltip>
         </div>
 
         {/* Tab: Solido — grilla + marca */}
@@ -282,34 +286,36 @@ export function ToolbarEditorTexto({
               <span className="text-xxs font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block">Tu marca</span>
               <div className="flex items-center gap-1.5">
                 {/* Color de Flux siempre */}
-                <button
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => aplicarColor('#5b5bd6')}
-                  className={[
-                    'size-[26px] rounded-md transition-all duration-100 cursor-pointer relative shrink-0',
-                    colorTextoActual === '#5b5bd6' ? 'ring-2 ring-texto-marca ring-offset-1' : 'hover:ring-2 hover:ring-borde-fuerte hover:ring-offset-1',
-                  ].join(' ')}
-                  style={{ backgroundColor: '#5b5bd6' }}
-                  title="Flux by Salix"
-                >
-                  {colorTextoActual === '#5b5bd6' && <Check size={10} className="absolute inset-0 m-auto text-white drop-shadow-sm" />}
-                </button>
-                {/* Colores de la empresa (marca + logo) */}
-                {coloresMarca.map((c, i) => (
+                <Tooltip contenido="Flux by Salix">
                   <button
-                    key={i} type="button"
+                    type="button"
                     onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => aplicarColor(c)}
+                    onClick={() => aplicarColor('#5b5bd6')}
                     className={[
                       'size-[26px] rounded-md transition-all duration-100 cursor-pointer relative shrink-0',
-                      colorTextoActual === c ? 'ring-2 ring-texto-marca ring-offset-1' : 'hover:ring-2 hover:ring-borde-fuerte hover:ring-offset-1',
+                      colorTextoActual === '#5b5bd6' ? 'ring-2 ring-texto-marca ring-offset-1' : 'hover:ring-2 hover:ring-borde-fuerte hover:ring-offset-1',
                     ].join(' ')}
-                    style={{ backgroundColor: c }}
-                    title={c}
+                    style={{ backgroundColor: '#5b5bd6' }}
                   >
-                    {colorTextoActual === c && <Check size={10} className="absolute inset-0 m-auto text-white drop-shadow-sm" />}
+                    {colorTextoActual === '#5b5bd6' && <Check size={10} className="absolute inset-0 m-auto text-white drop-shadow-sm" />}
                   </button>
+                </Tooltip>
+                {/* Colores de la empresa (marca + logo) */}
+                {coloresMarca.map((c, i) => (
+                  <Tooltip key={i} contenido={c}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => aplicarColor(c)}
+                      className={[
+                        'size-[26px] rounded-md transition-all duration-100 cursor-pointer relative shrink-0',
+                        colorTextoActual === c ? 'ring-2 ring-texto-marca ring-offset-1' : 'hover:ring-2 hover:ring-borde-fuerte hover:ring-offset-1',
+                      ].join(' ')}
+                      style={{ backgroundColor: c }}
+                    >
+                      {colorTextoActual === c && <Check size={10} className="absolute inset-0 m-auto text-white drop-shadow-sm" />}
+                    </button>
+                  </Tooltip>
                 ))}
               </div>
             </div>
@@ -319,23 +325,23 @@ export function ToolbarEditorTexto({
               {GRILLA_COLORES.map((fila, i) => (
                 <div key={i} className="flex gap-0.5">
                   {fila.map((color, j) => (
-                    <button
-                      key={`${i}-${j}`}
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => aplicarColor(color)}
-                      className={[
-                        'size-[26px] rounded-md transition-all duration-100 cursor-pointer relative',
-                        colorTextoActual === color
-                          ? 'ring-2 ring-texto-marca ring-offset-1'
-                          : 'hover:scale-110 hover:ring-1 hover:ring-borde-fuerte',
-                        color === '#ffffff' ? 'border border-borde-sutil' : '',
-                      ].join(' ')}
-                      style={{ backgroundColor: color }}
-                      title={color}
-                    >
-                      {colorTextoActual === color && <Check size={10} className="absolute inset-0 m-auto text-white drop-shadow-sm" />}
-                    </button>
+                    <Tooltip key={`${i}-${j}`} contenido={color}>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => aplicarColor(color)}
+                        className={[
+                          'size-[26px] rounded-md transition-all duration-100 cursor-pointer relative',
+                          colorTextoActual === color
+                            ? 'ring-2 ring-texto-marca ring-offset-1'
+                            : 'hover:scale-110 hover:ring-1 hover:ring-borde-fuerte',
+                          color === '#ffffff' ? 'border border-borde-sutil' : '',
+                        ].join(' ')}
+                        style={{ backgroundColor: color }}
+                      >
+                        {colorTextoActual === color && <Check size={10} className="absolute inset-0 m-auto text-white drop-shadow-sm" />}
+                      </button>
+                    </Tooltip>
                   ))}
                 </div>
               ))}
@@ -397,16 +403,18 @@ export function ToolbarEditorTexto({
       >
         <div className="flex items-center gap-0.5 px-1.5 py-1">
           {/* Tamano */}
-          <button
-            type="button" onMouseDown={(e) => e.preventDefault()}
-            onClick={() => abrirPanel('tamano')}
-            className={['flex items-center gap-0.5 px-2 h-7 rounded-md text-xs font-medium transition-all cursor-pointer min-w-[80px]',
-              panelAbierto === 'tamano' ? 'bg-texto-marca/15 text-texto-marca' : 'text-texto-secundario hover:text-texto-primario hover:bg-superficie-hover',
-            ].join(' ')} title="Tamano de texto"
-          >
-            <span className="truncate">{tamanoActivo?.etiqueta ?? 'Normal'}</span>
-            <ChevronDown size={12} className="shrink-0" />
-          </button>
+          <Tooltip contenido="Tamano de texto">
+            <button
+              type="button" onMouseDown={(e) => e.preventDefault()}
+              onClick={() => abrirPanel('tamano')}
+              className={['flex items-center gap-0.5 px-2 h-7 rounded-md text-xs font-medium transition-all cursor-pointer min-w-[80px]',
+                panelAbierto === 'tamano' ? 'bg-texto-marca/15 text-texto-marca' : 'text-texto-secundario hover:text-texto-primario hover:bg-superficie-hover',
+              ].join(' ')}
+            >
+              <span className="truncate">{tamanoActivo?.etiqueta ?? 'Normal'}</span>
+              <ChevronDown size={12} className="shrink-0" />
+            </button>
+          </Tooltip>
 
           <Sep />
 
@@ -429,16 +437,18 @@ export function ToolbarEditorTexto({
           <Sep />
 
           {/* Color */}
-          <button
-            type="button" onMouseDown={(e) => e.preventDefault()}
-            onClick={() => abrirPanel('color')}
-            className={['flex flex-col items-center justify-center size-7 rounded-md transition-all duration-100 cursor-pointer',
-              panelAbierto === 'color' ? 'bg-texto-marca/15 text-texto-marca' : 'text-texto-secundario hover:text-texto-primario hover:bg-superficie-hover',
-            ].join(' ')} title="Colores"
-          >
-            <Palette size={13} />
-            <div className="w-3.5 h-1 rounded-full mt-px" style={{ backgroundColor: colorTextoActual || 'var(--texto-primario)' }} />
-          </button>
+          <Tooltip contenido="Colores">
+            <button
+              type="button" onMouseDown={(e) => e.preventDefault()}
+              onClick={() => abrirPanel('color')}
+              className={['flex flex-col items-center justify-center size-7 rounded-md transition-all duration-100 cursor-pointer',
+                panelAbierto === 'color' ? 'bg-texto-marca/15 text-texto-marca' : 'text-texto-secundario hover:text-texto-primario hover:bg-superficie-hover',
+              ].join(' ')}
+            >
+              <Palette size={13} />
+              <div className="w-3.5 h-1 rounded-full mt-px" style={{ backgroundColor: colorTextoActual || 'var(--texto-primario)' }} />
+            </button>
+          </Tooltip>
 
           <Sep />
 

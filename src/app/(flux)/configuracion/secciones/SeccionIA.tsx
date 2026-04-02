@@ -202,7 +202,7 @@ export function SeccionIA() {
           <h3 className="text-base font-semibold text-texto-primario mb-2">
             No tenés módulos de IA instalados
           </h3>
-          <p className="text-sm text-texto-secundario max-w-md mb-6">
+          <p className="text-base text-texto-secundario max-w-md mb-6">
             Para configurar la inteligencia artificial, primero instalá al menos un módulo de IA desde la tienda de aplicaciones: Salix IA, Agente IA, Chatbot Inbox o Automatizaciones.
           </p>
           <a
@@ -229,7 +229,7 @@ export function SeccionIA() {
               Salix IA
             </span>
           </div>
-          <p className="text-sm text-texto-terciario">Configurá los proveedores de IA y los asistentes de tu empresa.</p>
+          <p className="text-base text-texto-terciario">Configurá los proveedores de IA y los asistentes de tu empresa.</p>
         </div>
         <IndicadorGuardado estado={estado} />
       </div>
@@ -371,6 +371,7 @@ export function SeccionIA() {
                         variante="fantasma"
                         tamano="xs"
                         soloIcono
+                        titulo="Mostrar/ocultar clave"
                         icono={keyVisible ? <EyeOff size={14} /> : <Eye size={14} />}
                         onClick={() => setKeyVisible(!keyVisible)}
                       />
@@ -653,7 +654,7 @@ function AsistenteGeneral({ config, onActualizar, guardando }: {
           </div>
           <div className="flex-1">
             <h3 className="text-sm font-semibold text-texto-primario">{t('configuracion.ia.prompt_sistema')} del chat flotante</h3>
-            <p className="text-sm text-texto-terciario mt-1">
+            <p className="text-base text-texto-terciario mt-1">
               Este prompt configura el <strong>chat flotante interno de Salix IA</strong> — el asistente que aparece dentro de Flux para el equipo de trabajo. Se usa cuando un usuario hace preguntas, pide datos o necesita ayuda desde la app.
             </p>
             <p className="text-xs text-texto-terciario mt-2">
@@ -687,6 +688,7 @@ function AsistenteGeneral({ config, onActualizar, guardando }: {
               variante="fantasma"
               tamano="xs"
               soloIcono
+              titulo="Expandir editor"
               icono={<Maximize2 size={13} />}
               onClick={() => setExpandido(true)}
             />

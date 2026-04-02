@@ -230,7 +230,7 @@ export default function ModalCondicionPago({ abierto, onCerrar, onGuardar, condi
                         onChange={(e) => editarHito(h.id, 'diasDesdeEmision', parseInt(e.target.value) || 0)}
                         className="font-mono text-right"
                       />
-                      <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={() => eliminarHito(h.id)} className="text-texto-terciario hover:text-estado-error" />
+                      <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar hito" icono={<Trash2 size={14} />} onClick={() => eliminarHito(h.id)} className="text-texto-terciario hover:text-estado-error" />
                     </div>
                   ))}
                 </div>

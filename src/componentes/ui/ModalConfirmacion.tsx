@@ -70,7 +70,7 @@ function ModalConfirmacion({
 
         {/* Descripción */}
         {descripcion && (
-          <p className="text-sm text-texto-terciario mb-6 leading-relaxed">
+          <p className="text-base text-texto-terciario mb-6 leading-relaxed">
             {descripcion}
           </p>
         )}

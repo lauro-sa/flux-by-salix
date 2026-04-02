@@ -13,6 +13,7 @@ import {
 import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { CompositorMensaje, type DatosMensaje } from './CompositorMensaje'
 import { useTraduccion } from '@/lib/i18n'
+import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { useToast } from '@/componentes/feedback/Toast'
 import type { MensajeConAdjuntos, CanalInterno, Conversacion } from '@/tipos/inbox'
 
@@ -346,8 +347,7 @@ export function PanelInterno({
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.95 }}
-                      className="absolute right-0 top-full mt-1 z-50 rounded-lg py-1 min-w-[180px]"
-                      style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
+                      className="absolute right-0 top-full mt-1 z-50 rounded-lg py-1 min-w-[180px] bg-superficie-elevada border border-borde-sutil shadow-md"
                       onMouseDown={e => e.stopPropagation()}
                     >
                       <OpcionMenu
@@ -389,9 +389,7 @@ export function PanelInterno({
                 </div>
               ) : mensajes.length === 0 ? (
                 <div className="flex items-center justify-center h-full">
-                  <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
-                    No hay mensajes todavía. Enviá el primero.
-                  </p>
+                  <EstadoVacio titulo="No hay mensajes todavía" descripcion="Enviá el primero." />
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -560,8 +558,7 @@ function CanalItem({
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="absolute right-1 top-full z-50 rounded-lg py-1 min-w-[160px]"
-            style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
+            className="absolute right-1 top-full z-50 rounded-lg py-1 min-w-[160px] bg-superficie-elevada border border-borde-sutil shadow-md"
             onMouseDown={e => e.stopPropagation()}
           >
             {onSilenciar && (
@@ -697,6 +694,7 @@ function MensajeInterno({
             variante="fantasma"
             tamano="xs"
             soloIcono
+            titulo="Reaccionar"
             icono={<SmilePlus size={12} />}
             onClick={onTogglePicker}
             className={`absolute top-0 opacity-0 group-hover/burbuja:opacity-100 ${esPropio ? '-left-1' : '-right-1'}`}
@@ -744,8 +742,8 @@ function MensajeInterno({
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
-                className="absolute top-full mt-1 rounded-lg p-2 text-xs z-50 min-w-[140px]"
-                style={{ background: 'var(--superficie-elevada)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', [esPropio ? 'right' : 'left']: 0 }}
+                className="absolute top-full mt-1 rounded-lg p-2 text-xs z-50 min-w-[140px] bg-superficie-elevada text-texto-primario border border-borde-sutil shadow-md"
+                style={{ [esPropio ? 'right' : 'left']: 0 }}
               >
                 {lecturas.leido_por.length > 0 && (
                   <div className="mb-1">
@@ -842,8 +840,7 @@ function MensajeInterno({
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
-              className="mt-1 rounded-lg p-2 text-xs"
-              style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+              className="mt-1 rounded-lg p-2 text-xs bg-superficie-elevada border border-borde-sutil shadow-md"
             >
               {lecturas.leido_por.length > 0 && (
                 <div className="mb-1.5">
@@ -940,8 +937,7 @@ function MensajeInterno({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
             onMouseDown={e => e.stopPropagation()}
-            className="absolute right-2 -top-8 flex items-center gap-0.5 px-1.5 py-1 rounded-full z-50"
-            style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+            className="absolute right-2 -top-8 flex items-center gap-0.5 px-1.5 py-1 rounded-full z-50 bg-superficie-elevada border border-borde-sutil shadow-sm"
           >
             {EMOJIS_RAPIDOS.map(e => (
               <Boton

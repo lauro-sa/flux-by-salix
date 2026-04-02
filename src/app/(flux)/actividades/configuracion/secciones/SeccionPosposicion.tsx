@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, Clock, RotateCcw } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { Input } from '@/componentes/ui/Input'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { CargadorSeccion } from '@/componentes/ui/Cargador'
 
@@ -103,8 +104,8 @@ function SeccionPosposicion({ config, cargando, onAccionAPI }: PropiedadesSeccio
           {presets.map(preset => (
             <div key={preset.id} className="flex items-center gap-4 px-5 py-3.5">
               <Clock size={16} className="text-texto-terciario shrink-0" />
-              <input
-                type="number"
+              <Input
+                tipo="number"
                 min={1}
                 max={365}
                 value={preset.dias}
@@ -112,7 +113,9 @@ function SeccionPosposicion({ config, cargando, onAccionAPI }: PropiedadesSeccio
                   const v = parseInt(e.target.value)
                   if (v > 0) actualizar(preset.id, v)
                 }}
-                className="flex-1 text-center text-sm font-medium bg-superficie-app border border-borde-fuerte rounded-lg px-3 py-2 text-texto-primario outline-none focus:border-texto-marca"
+                formato={null}
+                compacto
+                className="flex-1 text-center font-medium"
               />
               <span className="text-sm text-texto-terciario shrink-0">días →</span>
               <span className="text-xs text-texto-terciario w-16 text-center shrink-0 bg-superficie-hover rounded-md px-2 py-1.5">
@@ -122,6 +125,7 @@ function SeccionPosposicion({ config, cargando, onAccionAPI }: PropiedadesSeccio
                 variante="fantasma"
                 tamano="xs"
                 soloIcono
+                titulo="Eliminar"
                 icono={<Trash2 size={15} />}
                 onClick={() => eliminar(preset.id)}
                 className="shrink-0 hover:text-insignia-peligro-texto"

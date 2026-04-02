@@ -42,7 +42,7 @@ export function BuscadorDocumentoPreview({
         type="button"
         onClick={() => setMostrar(!mostrar)}
         onBlur={() => setTimeout(() => setMostrar(false), 200)}
-        className="w-full flex items-center gap-1.5 py-1.5 text-left"
+        className="w-full flex items-center gap-1.5 py-1.5 text-left focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 rounded"
         style={{ borderBottom: '1.5px solid var(--borde-fuerte)' }}
       >
         <span className="flex-1 text-sm" style={{ color: 'var(--texto-terciario)' }}>Elegir documento...</span>
@@ -61,7 +61,7 @@ export function BuscadorDocumentoPreview({
               {docs.map(d => (
                 <button
                   key={d.id}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-[var(--superficie-hover)]"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-[var(--superficie-hover)] focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
                   onMouseDown={(e) => { e.preventDefault(); onSeleccionar(d); setMostrar(false) }}
                 >
                   <PenLine size={14} style={{ color: 'var(--texto-terciario)' }} className="flex-shrink-0" />

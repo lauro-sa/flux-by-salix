@@ -67,7 +67,7 @@ export default function PaginaVerificarCorreo() {
         {t('auth.verificar_correo')}
       </h2>
 
-      <p className="text-sm text-texto-terciario mb-2">
+      <p className="text-base text-texto-terciario mb-2">
         {t('auth.verificar_correo_desc')}
       </p>
 

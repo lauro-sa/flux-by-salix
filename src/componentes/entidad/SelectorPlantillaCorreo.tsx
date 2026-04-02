@@ -11,6 +11,7 @@ import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, Star, Plus, Save, Trash2, Check, FileText, Building2, User } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Boton } from '@/componentes/ui/Boton'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 
 export interface PlantillaCorreoCompleta {
@@ -109,7 +110,7 @@ export function SelectorPlantillaCorreo({
       <div key={p.id} className="group flex items-center">
         <button
           onClick={() => { onSeleccionar(p.id); setAbierto(false) }}
-          className={`${itemClase} flex-1 min-w-0 ${esActual ? 'bg-marca-500/8 text-texto-marca' : 'text-texto-primario hover:bg-superficie-tarjeta'}`}
+          className={`${itemClase} flex-1 min-w-0 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${esActual ? 'bg-marca-500/8 text-texto-marca' : 'text-texto-primario hover:bg-superficie-tarjeta'}`}
         >
           {esActual ? (
             <Check size={14} className="shrink-0 text-texto-marca" />
@@ -124,26 +125,28 @@ export function SelectorPlantillaCorreo({
         <div className="shrink-0 flex items-center gap-0.5 pr-1.5">
           {/* Estrella predeterminada (solo admins) */}
           {onTogglePredeterminada && esAdmin && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onTogglePredeterminada(esPredeterminada ? null : p.id)
-              }}
-              className={`size-6 flex items-center justify-center rounded-md transition-colors ${esPredeterminada ? 'text-insignia-advertencia' : 'text-texto-terciario/30 hover:text-insignia-advertencia'}`}
-              title={esPredeterminada ? 'Quitar predeterminada' : 'Fijar como predeterminada'}
-            >
-              <Star size={12} fill={esPredeterminada ? 'currentColor' : 'none'} />
-            </button>
+            <Tooltip contenido={esPredeterminada ? 'Quitar predeterminada' : 'Fijar como predeterminada'}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onTogglePredeterminada(esPredeterminada ? null : p.id)
+                }}
+                className={`size-6 flex items-center justify-center rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${esPredeterminada ? 'text-insignia-advertencia' : 'text-texto-terciario/30 hover:text-insignia-advertencia'}`}
+              >
+                <Star size={12} fill={esPredeterminada ? 'currentColor' : 'none'} />
+              </button>
+            </Tooltip>
           )}
           {/* Eliminar */}
           {puedeEliminar && onEliminar && (
-            <button
-              onClick={(e) => { e.stopPropagation(); setEliminando(p.id) }}
-              className="size-6 flex items-center justify-center rounded-md text-texto-terciario/30 hover:text-estado-error transition-colors"
-              title="Eliminar"
-            >
-              <Trash2 size={12} />
-            </button>
+            <Tooltip contenido="Eliminar">
+              <button
+                onClick={(e) => { e.stopPropagation(); setEliminando(p.id) }}
+                className="size-6 flex items-center justify-center rounded-md text-texto-terciario/30 hover:text-estado-error transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
+              >
+                <Trash2 size={12} />
+              </button>
+            </Tooltip>
           )}
         </div>
       </div>
@@ -155,7 +158,7 @@ export function SelectorPlantillaCorreo({
       {/* Trigger */}
       <button
         onClick={() => { setAbierto(!abierto); setCreando(false); setEliminando(null) }}
-        className="flex items-center gap-1.5 text-sm transition-colors cursor-pointer"
+        className="flex items-center gap-1.5 text-sm transition-colors cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
         style={{ color: plantillaCargada ? 'var(--texto-primario)' : 'var(--texto-terciario)' }}
       >
         <FileText size={15} style={{ color: 'var(--texto-terciario)' }} />
@@ -180,11 +183,7 @@ export function SelectorPlantillaCorreo({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15 }}
-            className="absolute left-0 top-full mt-1.5 w-80 rounded-xl shadow-xl z-50 py-1.5"
-            style={{
-              background: 'var(--superficie-elevada)',
-              border: '1px solid var(--borde-sutil)',
-            }}
+            className="absolute left-0 top-full mt-1.5 w-80 rounded-xl shadow-lg z-50 py-1.5 bg-superficie-elevada border border-borde-sutil"
           >
             {plantillas.length === 0 ? (
               <div className="px-4 py-6 text-center">
@@ -326,11 +325,7 @@ export function SelectorPlantillaCorreo({
                 animate={{ scale: 1 }}
                 exit={{ scale: 0.95 }}
                 onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-sm p-5 rounded-xl shadow-2xl"
-                style={{
-                  background: 'var(--superficie-elevada)',
-                  border: '1px solid var(--borde-sutil)',
-                }}
+                className="w-full max-w-sm p-5 rounded-xl shadow-elevada bg-superficie-elevada border border-borde-sutil"
               >
                 <div className="flex items-start gap-3 mb-4">
                   <div

@@ -55,8 +55,8 @@
 :root {
   /* Texto — estilo iOS HIG con alpha para adaptarse a cualquier superficie */
   --texto-primario: #0a0a0a;
-  --texto-secundario: rgba(60, 60, 67, 0.65);
-  --texto-terciario: rgba(60, 60, 67, 0.38);
+  --texto-secundario: rgba(60, 60, 67, 0.73);
+  --texto-terciario: rgba(60, 60, 67, 0.55);
   --texto-placeholder: rgba(60, 60, 67, 0.30);
   --texto-inverso: #ffffff;
   --texto-marca: #5b5bd6; /* Índigo Attio — se sobreescribe por empresa */
@@ -215,7 +215,7 @@
   :root:not([data-tema="claro"]) {
     --texto-primario: #f5f5f5;
     --texto-secundario: rgba(235, 235, 245, 0.65);
-    --texto-terciario: rgba(235, 235, 245, 0.38);
+    --texto-terciario: rgba(235, 235, 245, 0.45);
     --texto-placeholder: rgba(235, 235, 245, 0.28);
     --texto-inverso: #ffffff;
     --texto-marca: #7b7bd8;

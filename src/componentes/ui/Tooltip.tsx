@@ -32,7 +32,7 @@ function Tooltip({
   children,
   contenido,
   posicion = 'arriba',
-  delay = 400,
+  delay = 1200,
   deshabilitado = false,
 }: PropiedadesTooltip) {
   const [visible, setVisible] = useState(false)
@@ -133,7 +133,7 @@ function Tooltip({
               animate={{ opacity: 1, x: 0, y: 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="fixed z-[9999] pointer-events-none px-2.5 py-1.5 rounded-lg text-xs font-medium max-w-64 text-center"
+              className="fixed z-[9999] pointer-events-none px-2.5 py-1.5 rounded-lg text-xs font-medium max-w-64 text-center shadow-md"
               style={{
                 top: coords.top,
                 left: coords.left,

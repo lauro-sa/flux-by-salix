@@ -313,7 +313,7 @@ function TextareaExpandible({ etiqueta, valor, onChange, placeholder, lineasPrev
             <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
               {etiqueta}
             </h3>
-            <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={18} />} onClick={() => setModalAbierto(false)} />
+            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Cerrar" icono={<X size={18} />} onClick={() => setModalAbierto(false)} />
           </div>
           <TextArea
             value={valorLocal}
@@ -666,9 +666,9 @@ function TabFlujo({ config, guardar }: TabProps) {
                   />
                 </div>
                 <div className="flex items-center gap-0.5">
-                  <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronUp size={14} />} onClick={() => moverPaso(i, 'arriba')} disabled={i === 0} />
-                  <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronDown size={14} />} onClick={() => moverPaso(i, 'abajo')} disabled={i === flujo.length - 1} />
-                  <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={() => eliminarPaso(i)} className="text-[var(--insignia-peligro)]" />
+                  <Boton variante="fantasma" tamano="xs" soloIcono titulo="Subir paso" icono={<ChevronUp size={14} />} onClick={() => moverPaso(i, 'arriba')} disabled={i === 0} />
+                  <Boton variante="fantasma" tamano="xs" soloIcono titulo="Bajar paso" icono={<ChevronDown size={14} />} onClick={() => moverPaso(i, 'abajo')} disabled={i === flujo.length - 1} />
+                  <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar paso" icono={<Trash2 size={14} />} onClick={() => eliminarPaso(i)} className="text-[var(--insignia-peligro)]" />
                 </div>
               </div>
               <TextArea
@@ -734,8 +734,8 @@ function TabFlujo({ config, guardar }: TabProps) {
               </div>
             </div>
             <div className="flex items-center gap-1 ml-2">
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<Pencil size={14} />} onClick={() => { setTipoEditando({ ...tipo, indice: i }); setModalTipoAbierto(true) }} />
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={() => eliminarTipo(i)} className="text-[var(--insignia-peligro)]" />
+              <Boton variante="fantasma" tamano="xs" soloIcono titulo="Editar" icono={<Pencil size={14} />} onClick={() => { setTipoEditando({ ...tipo, indice: i }); setModalTipoAbierto(true) }} />
+              <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar" icono={<Trash2 size={14} />} onClick={() => eliminarTipo(i)} className="text-[var(--insignia-peligro)]" />
             </div>
           </div>
         ))}
@@ -762,7 +762,7 @@ function TabFlujo({ config, guardar }: TabProps) {
             <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
               {tipoEditando?.indice !== undefined ? 'Editar tipo de contacto' : 'Nuevo tipo de contacto'}
             </h3>
-            <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={18} />} onClick={() => setModalTipoAbierto(false)} />
+            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Cerrar" icono={<X size={18} />} onClick={() => setModalTipoAbierto(false)} />
           </div>
           <div className="flex gap-3">
             <div className="w-16">
@@ -1315,8 +1315,8 @@ function TabEjemplos({ config, guardar }: TabProps) {
             <div className="flex items-center justify-between">
               <p className="text-xs font-medium" style={{ color: 'var(--texto-primario)' }}>{ej.titulo}</p>
               <div className="flex items-center gap-1">
-                <Boton variante="fantasma" tamano="xs" soloIcono icono={<Pencil size={14} />} onClick={() => abrirEditar(i)} />
-                <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={() => eliminarEjemplo(i)} className="text-[var(--insignia-peligro)]" />
+                <Boton variante="fantasma" tamano="xs" soloIcono titulo="Editar ejemplo" icono={<Pencil size={14} />} onClick={() => abrirEditar(i)} />
+                <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar ejemplo" icono={<Trash2 size={14} />} onClick={() => eliminarEjemplo(i)} className="text-[var(--insignia-peligro)]" />
               </div>
             </div>
             {ej.mensajes.slice(0, 3).map((m, j) => (
@@ -1338,7 +1338,7 @@ function TabEjemplos({ config, guardar }: TabProps) {
             <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
               {editando?.indice !== undefined ? 'Editar ejemplo' : 'Nuevo ejemplo de conversación'}
             </h3>
-            <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={18} />} onClick={() => setModalAbierto(false)} />
+            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Cerrar" icono={<X size={18} />} onClick={() => setModalAbierto(false)} />
           </div>
           <Input
             etiqueta={t('configuracion.agente_ia.titulo_ejemplo')}
@@ -1367,7 +1367,7 @@ function TabEjemplos({ config, guardar }: TabProps) {
                   compacto
                   className="flex-1"
                 />
-                <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={14} />} onClick={() => eliminarMensaje(i)} className="shrink-0 mt-1 text-[var(--insignia-peligro)]" />
+                <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar mensaje" icono={<X size={14} />} onClick={() => eliminarMensaje(i)} className="shrink-0 mt-1 text-[var(--insignia-peligro)]" />
               </div>
             ))}
             <Boton tamano="xs" variante="fantasma" icono={<Plus size={14} />} onClick={agregarMensaje}>
@@ -1573,8 +1573,8 @@ function TabConocimiento({ config, guardar }: TabProps) {
               <Insignia color={entrada.activo ? 'exito' : 'neutro'}>{entrada.categoria}</Insignia>
             </div>
             <div className="flex items-center gap-1 ml-2">
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<Pencil size={14} />} onClick={() => { setEntradaEditando(entrada); setModalAbierto(true) }} />
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={() => eliminarEntrada(entrada.id)} className="text-[var(--insignia-peligro)]" />
+              <Boton variante="fantasma" tamano="xs" soloIcono titulo="Editar" icono={<Pencil size={14} />} onClick={() => { setEntradaEditando(entrada); setModalAbierto(true) }} />
+              <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar" icono={<Trash2 size={14} />} onClick={() => eliminarEntrada(entrada.id)} className="text-[var(--insignia-peligro)]" />
             </div>
           </div>
         ))}
@@ -1587,7 +1587,7 @@ function TabConocimiento({ config, guardar }: TabProps) {
             <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
               {entradaEditando?.id ? 'Editar entrada' : 'Nueva entrada'}
             </h3>
-            <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={18} />} onClick={() => setModalAbierto(false)} />
+            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Cerrar" icono={<X size={18} />} onClick={() => setModalAbierto(false)} />
           </div>
           <Input
             etiqueta={t('configuracion.agente_ia.titulo_campo')}
@@ -1617,21 +1617,18 @@ function TabConocimiento({ config, guardar }: TabProps) {
                   }}
                 >
                   {et}
-                  <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={10} />} onClick={() => setEntradaEditando(prev => prev ? {
+                  <Boton variante="fantasma" tamano="xs" soloIcono titulo="Quitar etiqueta" icono={<X size={10} />} onClick={() => setEntradaEditando(prev => prev ? {
                       ...prev,
                       etiquetas: (prev.etiquetas || []).filter((_, idx) => idx !== i),
                     } : prev)} />
                 </span>
               ))}
             </div>
-            <input
+            <Input
               placeholder="Escribí y presioná Enter..."
-              className="w-full text-xs rounded-lg px-3 py-2"
-              style={{
-                background: 'var(--superficie-hover)',
-                color: 'var(--texto-primario)',
-                border: '1px solid var(--borde-sutil)',
-              }}
+              formato={null}
+              compacto
+              className="w-full"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault()
@@ -1673,7 +1670,7 @@ function TabConocimiento({ config, guardar }: TabProps) {
             <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
               Importar conocimiento
             </h3>
-            <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={18} />} onClick={() => setModalImportarAbierto(false)} />
+            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Cerrar" icono={<X size={18} />} onClick={() => setModalImportarAbierto(false)} />
           </div>
 
           {/* Desde URL */}
@@ -1808,7 +1805,7 @@ function TabEscalamiento({ config, guardar }: TabProps) {
               }}
             >
               {palabra}
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={12} />} onClick={() => eliminarPalabra(i)} />
+              <Boton variante="fantasma" tamano="xs" soloIcono titulo="Quitar palabra" icono={<X size={12} />} onClick={() => eliminarPalabra(i)} />
             </span>
           ))}
         </div>
@@ -1994,7 +1991,7 @@ function TabActividad() {
             <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
               Log completo del agente IA
             </h3>
-            <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={18} />} onClick={() => setModalLogAbierto(false)} />
+            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Cerrar" icono={<X size={18} />} onClick={() => setModalLogAbierto(false)} />
           </div>
 
           {cargandoLog ? (

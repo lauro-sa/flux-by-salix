@@ -137,7 +137,7 @@ export default function FirmaDocumento({ nombrePredeterminado, onFirmar, onCance
       {/* Título */}
       <div className="px-5 py-4 border-b border-borde-sutil">
         <h3 className="text-lg font-semibold text-texto-primario">{t('portal.firma')}</h3>
-        <p className="text-sm text-texto-terciario mt-1">{t('portal.firma_instruccion')}</p>
+        <p className="text-base text-texto-terciario mt-1">{t('portal.firma_instruccion')}</p>
       </div>
 
       {/* Tabs */}

@@ -56,7 +56,7 @@ export default function PaginaEsperandoActivacion() {
         Cuenta pendiente de activación
       </h2>
 
-      <p className="text-sm text-texto-terciario mb-6 leading-relaxed">
+      <p className="text-base text-texto-terciario mb-6 leading-relaxed">
         Un administrador debe activar tu cuenta antes de que puedas acceder.
       </p>
 

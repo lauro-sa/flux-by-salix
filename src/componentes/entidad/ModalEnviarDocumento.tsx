@@ -23,6 +23,7 @@ import {
   SendHorizonal, Braces, BookmarkPlus, Save,
 } from 'lucide-react'
 import { SelectorVariables } from '@/componentes/ui/SelectorVariables'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import { SelectorPlantillaCorreo, type PlantillaCorreoCompleta } from '@/componentes/entidad/SelectorPlantillaCorreo'
 
 import {
@@ -141,7 +142,7 @@ export function ModalEnviarDocumento({
                   ) : (
                     <div className="relative">
                       <button
-                        className="flex items-center gap-1.5 text-sm py-1 transition-colors hover:opacity-80"
+                        className="flex items-center gap-1.5 text-sm py-1 transition-colors hover:opacity-80 rounded focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
                         style={{ color: 'var(--texto-primario)' }}
                         onClick={() => estado.setMostrarCanales(!estado.mostrarCanales)}
                         type="button"
@@ -161,7 +162,7 @@ export function ModalEnviarDocumento({
                             {canales.map(c => (
                               <button
                                 key={c.id}
-                                className="w-full text-left px-3 py-2 text-sm transition-colors hover:bg-[var(--superficie-hover)]"
+                                className="w-full text-left px-3 py-2 text-sm transition-colors hover:bg-[var(--superficie-hover)] focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
                                 style={{ color: c.id === estado.canalId ? 'var(--texto-marca)' : 'var(--texto-primario)' }}
                                 onClick={() => { estado.setCanalId(c.id); estado.setMostrarCanales(false) }}
                               >
@@ -186,7 +187,7 @@ export function ModalEnviarDocumento({
                 {!estado.mostrarCC && (
                   <button
                     onClick={() => estado.setMostrarCC(true)}
-                    className="text-xs px-1.5 py-0.5 rounded transition-colors hover:bg-[var(--superficie-hover)]"
+                    className="text-xs px-1.5 py-0.5 rounded transition-colors hover:bg-[var(--superficie-hover)] focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
                     style={{ color: 'var(--texto-terciario)' }}
                     type="button"
                   >
@@ -198,7 +199,7 @@ export function ModalEnviarDocumento({
                     {!estado.mostrarCC && <span className="text-xs" style={{ color: 'var(--texto-terciario)' }}>/</span>}
                     <button
                       onClick={() => estado.setMostrarCCO(true)}
-                      className="text-xs px-1.5 py-0.5 rounded transition-colors hover:bg-[var(--superficie-hover)]"
+                      className="text-xs px-1.5 py-0.5 rounded transition-colors hover:bg-[var(--superficie-hover)] focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
                       style={{ color: 'var(--texto-terciario)' }}
                       type="button"
                     >
@@ -332,19 +333,20 @@ export function ModalEnviarDocumento({
               zIndex: 99999,
             }}
           >
-            <button
-              onMouseDown={(e) => {
-                e.preventDefault() // No quitar foco del editor
-                e.stopPropagation()
-                estado.setVariablesCuerpoAbierto(true)
-              }}
-              className="flex items-center justify-center size-6 rounded-md transition-all hover:bg-[var(--superficie-hover)] hover:opacity-100"
-              style={{ color: 'var(--texto-terciario)', opacity: 0.35 }}
-              type="button"
-              title="Insertar variable"
-            >
-              <Braces size={13} />
-            </button>
+            <Tooltip contenido="Insertar variable">
+              <button
+                onMouseDown={(e) => {
+                  e.preventDefault() // No quitar foco del editor
+                  e.stopPropagation()
+                  estado.setVariablesCuerpoAbierto(true)
+                }}
+                className="flex items-center justify-center size-6 rounded-md transition-all hover:bg-[var(--superficie-hover)] hover:opacity-100"
+                style={{ color: 'var(--texto-terciario)', opacity: 0.35 }}
+                type="button"
+              >
+                <Braces size={13} />
+              </button>
+            </Tooltip>
           </div>,
           document.body
         )}

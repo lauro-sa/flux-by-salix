@@ -223,7 +223,7 @@ export default function SelectorContactoPresupuesto({
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            className="absolute left-0 right-0 top-full mt-1 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-xl z-40 max-h-[360px] overflow-y-auto"
+            className="absolute left-0 right-0 top-full mt-1 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-40 max-h-[360px] overflow-y-auto"
           >
             {/* Título de sección */}
             {tituloLista && (

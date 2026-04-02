@@ -184,7 +184,7 @@ export function PanelChatter({ entidadTipo, entidadId, className = '' }: PropsPa
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-2 py-1 rounded-md transition-colors capitalize ${
+              className={`px-2 py-1 rounded-md transition-colors capitalize focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
                 tab === t
                   ? 'bg-superficie-hover text-texto-primario font-medium'
                   : 'text-texto-terciario hover:text-texto-secundario'
@@ -228,7 +228,7 @@ export function PanelChatter({ entidadTipo, entidadId, className = '' }: PropsPa
               setModoRespuestaPortal(!modoRespuestaPortal)
               inputRef.current?.focus()
             }}
-            className={`flex items-center gap-1 text-xs transition-colors ${
+            className={`flex items-center gap-1 text-xs transition-colors rounded focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
               modoRespuestaPortal
                 ? 'text-texto-marca font-medium'
                 : 'text-texto-terciario hover:text-texto-secundario'
@@ -256,6 +256,7 @@ export function PanelChatter({ entidadTipo, entidadId, className = '' }: PropsPa
             variante="primario"
             tamano="sm"
             soloIcono
+            titulo="Enviar"
             icono={<Send size={16} />}
             onClick={enviar}
             disabled={!mensaje.trim() || enviando}

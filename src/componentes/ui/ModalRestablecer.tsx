@@ -175,7 +175,7 @@ export function ModalRestablecer({ abierto, onCerrar, tipo, etiquetaTipo, onRest
       ) : preview?.itemsAfectados.length === 0 ? (
         // Sin contactos afectados — restablecer directo
         <div className="space-y-4">
-          <p className="text-sm text-texto-secundario">
+          <p className="text-base text-texto-secundario">
             Ningún contacto tiene {etiquetaTipo} asignados. Se puede restablecer sin afectar datos.
           </p>
           <div className="flex justify-end gap-2">
@@ -189,7 +189,7 @@ export function ModalRestablecer({ abierto, onCerrar, tipo, etiquetaTipo, onRest
         <div className="space-y-4">
           {/* Advertencia */}
           <div className="p-3 rounded-lg bg-insignia-advertencia-fondo/50 border border-insignia-advertencia-fondo">
-            <p className="text-sm text-texto-secundario">
+            <p className="text-base text-texto-secundario">
               Los siguientes {etiquetaTipo} tienen contactos asignados. Elegí qué hacer con cada uno antes de restablecer.
             </p>
           </div>
@@ -228,7 +228,7 @@ export function ModalRestablecer({ abierto, onCerrar, tipo, etiquetaTipo, onRest
                   {/* Encabezado del item */}
                   <div className="flex items-center gap-3 p-3">
                     {/* Botón expandir */}
-                    <Boton variante="fantasma" tamano="xs" soloIcono icono={expandido ? <ChevronDown size={14} /> : <ChevronRight size={14} />} onClick={() => toggleExpandido(clave)} />
+                    <Boton variante="fantasma" tamano="xs" soloIcono titulo="Expandir" icono={expandido ? <ChevronDown size={14} /> : <ChevronRight size={14} />} onClick={() => toggleExpandido(clave)} />
 
                     {/* Nombre y conteo */}
                     <div className="flex-1 min-w-0">

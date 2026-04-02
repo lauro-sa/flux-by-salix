@@ -130,6 +130,9 @@ export interface PropiedadesTablaDinamica<T> {
   /** Opciones de ordenamiento para el panel de filtros (etiqueta + clave + dirección) */
   opcionesOrden?: { etiqueta: string; clave: string; direccion: DireccionOrden }[]
 
+  /** Elemento extra a la derecha de la barra de herramientas (ej: botón de config) */
+  accionDerecha?: ReactNode
+
   className?: string
 }
 

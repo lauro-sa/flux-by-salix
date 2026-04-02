@@ -131,6 +131,7 @@ function SeccionEstados({ estados, cargando, onActualizar, onAccionAPI }: Propie
             variante="fantasma"
             tamano="sm"
             soloIcono
+            titulo="Agregar estado"
             icono={<Plus size={16} />}
             onClick={() => abrirModal()}
           />
@@ -188,6 +189,7 @@ function SeccionEstados({ estados, cargando, onActualizar, onAccionAPI }: Propie
                         variante="fantasma"
                         tamano="xs"
                         soloIcono
+                        titulo="Editar"
                         icono={<Pencil size={13} />}
                         onClick={() => abrirModal(estado)}
                       />
@@ -321,7 +323,7 @@ function SelectorColorDots({ valor, onChange, colores }: { valor: string; onChan
             <button
               key={c}
               onClick={() => onChange(c)}
-              className={`relative size-8 rounded-full transition-all duration-150 cursor-pointer hover:scale-110 ${
+              className={`relative size-8 rounded-full transition-all duration-150 cursor-pointer hover:scale-110 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
                 sel ? 'ring-2 ring-offset-2 ring-texto-marca ring-offset-superficie-tarjeta scale-110' : ''
               }`}
               style={{ backgroundColor: c }}

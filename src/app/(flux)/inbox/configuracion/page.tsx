@@ -1493,14 +1493,15 @@ function SeccionChatbot() {
                   </div>
                   {(config.bienvenida_frecuencia || 'dias_sin_contacto') === 'dias_sin_contacto' && (
                     <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <input
-                        type="number"
+                      <Input
+                        tipo="number"
                         min={1}
                         max={365}
                         value={config.bienvenida_dias_sin_contacto || 30}
                         onChange={(e) => guardar({ bienvenida_dias_sin_contacto: parseInt(e.target.value) || 30 })}
-                        className="w-16 text-xs text-center rounded-lg px-2 py-2"
-                        style={estiloSelect}
+                        formato={null}
+                        compacto
+                        className="w-16 text-center"
                       />
                       <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>días</span>
                     </div>

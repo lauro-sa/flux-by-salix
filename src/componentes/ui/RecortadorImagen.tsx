@@ -164,6 +164,7 @@ function RecortadorImagen({
             variante="fantasma"
             tamano="xs"
             soloIcono
+            titulo="Rotar imagen"
             icono={<RotateCcw size={14} />}
             onClick={() => setRotacion(r => (r - 90) % 360)}
           />

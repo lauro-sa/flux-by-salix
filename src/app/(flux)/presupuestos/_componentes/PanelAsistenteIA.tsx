@@ -214,7 +214,7 @@ export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearSe
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ duration: 0.2 }}
-          className="fixed right-0 top-0 bottom-0 w-[480px] z-40 bg-superficie-elevada border-l border-borde-sutil shadow-2xl flex flex-col"
+          className="fixed right-0 top-0 bottom-0 w-[480px] z-40 bg-superficie-elevada border-l border-borde-sutil shadow-elevada flex flex-col"
         >
           {/* ── Header ── */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-borde-sutil">
@@ -440,12 +440,14 @@ export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearSe
                               <>
                                 <Boton
                                   variante="fantasma" tamano="xs" soloIcono
+                                  titulo="Editar sugerencia"
                                   icono={<Pencil size={13} />}
                                   onClick={() => setEditandoIdx(editando ? null : idx)}
                                   className={editando ? 'text-texto-marca' : ''}
                                 />
                                 <Boton
                                   variante={esAceptada ? 'exito' : 'secundario'} tamano="xs" soloIcono
+                                  titulo="Aceptar"
                                   icono={<Check size={13} />}
                                   onClick={() => actualizarLinea(idx, { estado: esAceptada ? 'pendiente' : 'aceptada' })}
                                 />
@@ -453,6 +455,7 @@ export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearSe
                             )}
                             <Boton
                               variante="fantasma" tamano="xs" soloIcono
+                              titulo={esRechazada ? 'Restaurar' : 'Rechazar'}
                               icono={esRechazada ? <Plus size={13} /> : <Trash2 size={13} />}
                               onClick={() => actualizarLinea(idx, { estado: esRechazada ? 'pendiente' : 'rechazada' })}
                             />

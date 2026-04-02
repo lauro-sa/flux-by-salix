@@ -112,7 +112,7 @@ export function InputEmailChips({
               {sugerencias.map((s) => (
                 <button
                   key={s.id}
-                  className="w-full text-left px-3 py-1.5 text-xs transition-colors hover:bg-[var(--superficie-hover)]"
+                  className="w-full text-left px-3 py-1.5 text-xs transition-colors hover:bg-[var(--superficie-hover)] focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
                   onMouseDown={(e) => { e.preventDefault(); agregarEmail(s.correo) }}
                 >
                   <span className="font-medium" style={{ color: 'var(--texto-primario)' }}>{s.nombre}</span>

@@ -13,6 +13,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { Select } from '@/componentes/ui/Select'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
+import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { SelectorIcono, obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import { SelectorHora } from '@/componentes/ui/SelectorHora'
@@ -636,9 +637,7 @@ export function SeccionEstructura() {
             {cargando ? (
               <CargadorSeccion />
             ) : arbol.length === 0 ? (
-              <div className="p-8 text-center text-sm text-texto-terciario">
-                No hay sectores. Creá el primero para armar tu organigrama.
-              </div>
+              <EstadoVacio titulo="No hay sectores" descripcion="Creá el primero para armar tu organigrama." />
             ) : (
               <div className="py-2">
                 {arbol.map((sector, idx) => (
@@ -685,9 +684,7 @@ export function SeccionEstructura() {
           </div>
 
           {puestos.length === 0 ? (
-            <div className="p-8 text-center text-sm text-texto-terciario">
-              No hay puestos de trabajo. Creá el primero para poder asignarlos a tus colaboradores.
-            </div>
+            <EstadoVacio titulo="No hay puestos de trabajo" descripcion="Creá el primero para poder asignarlos a tus colaboradores." />
           ) : (
             <div className="divide-y divide-borde-sutil">
               {puestos.map(puesto => (

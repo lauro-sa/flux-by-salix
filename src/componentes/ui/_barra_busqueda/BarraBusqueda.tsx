@@ -8,6 +8,7 @@ import { contarFiltrosActivos, generarPlaceholder } from './tipos'
 import { PillFiltroActivo } from './PillFiltroActivo'
 import { PanelFiltros } from './PanelFiltros'
 import { SelectorVistas } from './SelectorVistas'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 
 /**
  * BarraBusqueda — Cápsula de búsqueda avanzada con filtros, pills, vistas y favoritos.
@@ -157,59 +158,63 @@ function BarraBusqueda({
 
         {/* Botón favorito activo */}
         {plantillaActivaId && (
-          <motion.button
-            type="button"
-            whileTap={{ scale: 0.9 }}
-            onClick={() => onAplicarPlantilla?.('')}
-            className="shrink-0 size-7 inline-flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-insignia-advertencia-texto transition-colors"
-            title="Quitar vista guardada"
-          >
-            <Bookmark size={16} fill="currentColor" />
-          </motion.button>
+          <Tooltip contenido="Quitar vista guardada">
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.9 }}
+              onClick={() => onAplicarPlantilla?.('')}
+              className="shrink-0 size-7 inline-flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-insignia-advertencia-texto transition-colors"
+            >
+              <Bookmark size={16} fill="currentColor" />
+            </motion.button>
+          </Tooltip>
         )}
 
         {/* Botón guardar vista (solo si hay filtros sin guardar) */}
         {!plantillaActivaId && hayAlgoActivo && onGuardarNuevaPlantilla && (
-          <motion.button
-            type="button"
-            whileTap={{ scale: 0.9 }}
-            onClick={() => setPanelAbierto(true)}
-            className="shrink-0 size-7 inline-flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario hover:text-texto-secundario transition-colors"
-            title="Guardar vista"
-          >
-            <Bookmark size={16} />
-          </motion.button>
+          <Tooltip contenido="Guardar vista">
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setPanelAbierto(true)}
+              className="shrink-0 size-7 inline-flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario hover:text-texto-secundario transition-colors"
+            >
+              <Bookmark size={16} />
+            </motion.button>
+          </Tooltip>
         )}
 
         {/* Botón filtros */}
         {(filtros.length > 0 || (pillsGrupos && pillsGrupos.length > 0) || (plantillas && plantillas.length > 0)) && (
-          <motion.button
-            type="button"
-            animate={{ rotate: panelAbierto ? 180 : 0 }}
-            transition={{ duration: 0.25 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => setPanelAbierto(!panelAbierto)}
-            className="relative shrink-0 size-7 inline-flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario hover:text-texto-secundario transition-colors"
-            title="Filtros"
-          >
-            <SlidersHorizontal size={16} />
-            {numFiltrosActivos > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-insignia-peligro" />
-            )}
-          </motion.button>
+          <Tooltip contenido="Filtros">
+            <motion.button
+              type="button"
+              animate={{ rotate: panelAbierto ? 180 : 0 }}
+              transition={{ duration: 0.25 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setPanelAbierto(!panelAbierto)}
+              className="relative shrink-0 size-7 inline-flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario hover:text-texto-secundario transition-colors"
+            >
+              <SlidersHorizontal size={16} />
+              {numFiltrosActivos > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-insignia-peligro" />
+              )}
+            </motion.button>
+          </Tooltip>
         )}
 
         {/* Botón columnas (solo desktop) */}
         {mostrarBotonColumnas && onAbrirColumnas && (
-          <motion.button
-            type="button"
-            whileTap={{ scale: 0.9 }}
-            onClick={onAbrirColumnas}
-            className="hidden md:inline-flex shrink-0 size-7 items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario hover:text-texto-secundario transition-colors"
-            title="Columnas"
-          >
-            <Columns2 size={16} />
-          </motion.button>
+          <Tooltip contenido="Columnas">
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.9 }}
+              onClick={onAbrirColumnas}
+              className="hidden md:inline-flex shrink-0 size-7 items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario hover:text-texto-secundario transition-colors"
+            >
+              <Columns2 size={16} />
+            </motion.button>
+          </Tooltip>
         )}
 
         {/* Selector de vistas */}
@@ -225,15 +230,16 @@ function BarraBusqueda({
 
         {/* Botón limpiar todo */}
         {hayAlgoActivo && (
-          <motion.button
-            type="button"
-            whileTap={{ scale: 0.75, rotate: -90 }}
-            onClick={limpiarTodo}
-            className="shrink-0 size-7 inline-flex items-center justify-center rounded-md hover:bg-insignia-peligro-fondo cursor-pointer border-none bg-transparent text-insignia-peligro-texto transition-colors"
-            title="Limpiar todo"
-          >
-            <X size={14} />
-          </motion.button>
+          <Tooltip contenido="Limpiar todo">
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.75, rotate: -90 }}
+              onClick={limpiarTodo}
+              className="shrink-0 size-7 inline-flex items-center justify-center rounded-md hover:bg-insignia-peligro-fondo cursor-pointer border-none bg-transparent text-insignia-peligro-texto transition-colors"
+            >
+              <X size={14} />
+            </motion.button>
+          </Tooltip>
         )}
       </motion.div>
 

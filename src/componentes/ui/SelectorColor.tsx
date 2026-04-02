@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, Pipette, Palette, Sparkles, RotateCcw } from 'lucide-react'
 import { Boton } from './Boton'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import { Input } from './Input'
 
 /**
@@ -301,21 +302,21 @@ function SelectorColor({ valor, onChange, coloresLogo = [] }: PropiedadesSelecto
           </div>
           <div className="flex gap-2">
             {coloresLogo.map((color, i) => (
-              <button
-                key={i}
-                onClick={() => onChange(color)}
-                title={color}
-                className="relative w-8 h-8 rounded-lg border-2 transition-all duration-150 cursor-pointer hover:scale-110"
-                style={{
-                  backgroundColor: color,
-                  borderColor: esSeleccionado(color) ? 'white' : 'transparent',
-                  boxShadow: esSeleccionado(color) ? `0 0 0 2px ${color}` : 'none',
-                }}
-              >
-                {esSeleccionado(color) && (
-                  <Check size={14} className="absolute inset-0 m-auto text-white drop-shadow-sm" />
-                )}
-              </button>
+              <Tooltip key={i} contenido={color}>
+                <button
+                  onClick={() => onChange(color)}
+                  className="relative w-8 h-8 rounded-lg border-2 transition-all duration-150 cursor-pointer hover:scale-110"
+                  style={{
+                    backgroundColor: color,
+                    borderColor: esSeleccionado(color) ? 'white' : 'transparent',
+                    boxShadow: esSeleccionado(color) ? `0 0 0 2px ${color}` : 'none',
+                  }}
+                >
+                  {esSeleccionado(color) && (
+                    <Check size={14} className="absolute inset-0 m-auto text-white drop-shadow-sm" />
+                  )}
+                </button>
+              </Tooltip>
             ))}
           </div>
         </div>
@@ -326,21 +327,21 @@ function SelectorColor({ valor, onChange, coloresLogo = [] }: PropiedadesSelecto
         <p className="text-xs font-medium text-texto-secundario mb-2">Colores corporativos</p>
         <div className="flex flex-wrap gap-2">
           {PRESETS.map(preset => (
-            <button
-              key={preset.color}
-              onClick={() => onChange(preset.color)}
-              title={preset.nombre}
-              className="relative w-8 h-8 rounded-lg border-2 transition-all duration-150 cursor-pointer hover:scale-110"
-              style={{
-                backgroundColor: preset.color,
-                borderColor: esSeleccionado(preset.color) ? 'white' : 'transparent',
-                boxShadow: esSeleccionado(preset.color) ? `0 0 0 2px ${preset.color}` : 'none',
-              }}
-            >
-              {esSeleccionado(preset.color) && (
-                <Check size={14} className="absolute inset-0 m-auto text-white drop-shadow-sm" />
-              )}
-            </button>
+            <Tooltip key={preset.color} contenido={preset.nombre}>
+              <button
+                onClick={() => onChange(preset.color)}
+                className="relative w-8 h-8 rounded-lg border-2 transition-all duration-150 cursor-pointer hover:scale-110"
+                style={{
+                  backgroundColor: preset.color,
+                  borderColor: esSeleccionado(preset.color) ? 'white' : 'transparent',
+                  boxShadow: esSeleccionado(preset.color) ? `0 0 0 2px ${preset.color}` : 'none',
+                }}
+              >
+                {esSeleccionado(preset.color) && (
+                  <Check size={14} className="absolute inset-0 m-auto text-white drop-shadow-sm" />
+                )}
+              </button>
+            </Tooltip>
           ))}
         </div>
       </div>
@@ -365,6 +366,7 @@ function SelectorColor({ valor, onChange, coloresLogo = [] }: PropiedadesSelecto
               variante="secundario"
               tamano="sm"
               soloIcono
+              titulo="Elegir color"
               icono={<Pipette size={14} />}
               onClick={() => setPickerAbierto(!pickerAbierto)}
             />

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Repeat } from 'lucide-react'
 import { Select } from '@/componentes/ui/Select'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import { motion, AnimatePresence } from 'framer-motion'
 
 /**
@@ -136,19 +137,19 @@ function DetalleRecurrencia({
     return (
       <div className="flex gap-1">
         {DIAS_SEMANA.map((d) => (
-          <button
-            key={d.valor}
-            onClick={() => toggleDiaSemana(d.valor)}
-            className={[
-              'size-7 rounded-md text-xxs font-semibold border cursor-pointer transition-all flex items-center justify-center',
-              (valor.diasSemana || []).includes(d.valor)
-                ? 'bg-texto-marca text-white border-texto-marca'
-                : 'bg-transparent border-borde-sutil text-texto-terciario hover:text-texto-secundario',
-            ].join(' ')}
-            title={d.nombre}
-          >
-            {d.etiqueta}
-          </button>
+          <Tooltip key={d.valor} contenido={d.nombre}>
+            <button
+              onClick={() => toggleDiaSemana(d.valor)}
+              className={[
+                'size-7 rounded-md text-xxs font-semibold border cursor-pointer transition-all flex items-center justify-center',
+                (valor.diasSemana || []).includes(d.valor)
+                  ? 'bg-texto-marca text-white border-texto-marca'
+                  : 'bg-transparent border-borde-sutil text-texto-terciario hover:text-texto-secundario',
+              ].join(' ')}
+            >
+              {d.etiqueta}
+            </button>
+          </Tooltip>
         ))}
       </div>
     )

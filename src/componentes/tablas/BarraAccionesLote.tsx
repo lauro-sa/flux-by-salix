@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { GripVertical, X, CheckSquare } from 'lucide-react'
 import type { AccionLote } from '@/componentes/tablas/tipos-tabla'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 
 /* ════════════════════════════════════════════
    Barra flotante de acciones masivas
@@ -169,23 +170,24 @@ export function BarraAccionesLote({
           <Separador />
 
           {/* Deseleccionar con Esc */}
-          <button
-            onClick={onLimpiarSeleccion}
-            className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-xs transition-colors shrink-0 cursor-pointer"
-            style={{ color: 'var(--texto-secundario)' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--superficie-hover)'
-              e.currentTarget.style.color = 'var(--texto-primario)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent'
-              e.currentTarget.style.color = 'var(--texto-secundario)'
-            }}
-            title="Deseleccionar todo (Esc)"
-          >
-            <X size={14} />
-            <Tecla>Esc</Tecla>
-          </button>
+          <Tooltip contenido="Deseleccionar todo (Esc)">
+            <button
+              onClick={onLimpiarSeleccion}
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-xs transition-colors shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-white focus-visible:-outline-offset-2"
+              style={{ color: 'var(--texto-secundario)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--superficie-hover)'
+                e.currentTarget.style.color = 'var(--texto-primario)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent'
+                e.currentTarget.style.color = 'var(--texto-secundario)'
+              }}
+            >
+              <X size={14} />
+              <Tecla>Esc</Tecla>
+            </button>
+          </Tooltip>
         </motion.div>
       )}
     </AnimatePresence>
@@ -203,31 +205,31 @@ function BotonAccion({
   onClick: () => void
 }) {
   const esPeligro = accion.peligro
+  const textoEtiqueta = typeof accion.etiqueta === 'function' ? accion.etiqueta(seleccionados) : accion.etiqueta
+  const textoTooltip = accion.atajo ? `${textoEtiqueta} (${accion.atajo})` : textoEtiqueta
 
   return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[13px] font-medium transition-colors shrink-0 cursor-pointer"
-      style={{
-        color: esPeligro ? 'var(--insignia-peligro)' : 'var(--texto-primario)',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = esPeligro ? 'var(--insignia-peligro-fondo)' : 'var(--superficie-hover)'
-        e.currentTarget.style.color = esPeligro ? 'var(--insignia-peligro-texto)' : 'var(--texto-primario)'
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = 'transparent'
-        e.currentTarget.style.color = esPeligro ? 'var(--insignia-peligro)' : 'var(--texto-primario)'
-      }}
-      title={(() => {
-        const texto = typeof accion.etiqueta === 'function' ? accion.etiqueta(seleccionados) : accion.etiqueta
-        return accion.atajo ? `${texto} (${accion.atajo})` : texto
-      })()}
-    >
-      {accion.icono && <span className="shrink-0 [&_svg]:size-3.5">{accion.icono}</span>}
-      <span>{typeof accion.etiqueta === 'function' ? accion.etiqueta(seleccionados) : accion.etiqueta}</span>
-      {accion.atajo && <Tecla>{accion.atajo}</Tecla>}
-    </button>
+    <Tooltip contenido={textoTooltip}>
+      <button
+        onClick={onClick}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[13px] font-medium transition-colors shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-white focus-visible:-outline-offset-2"
+        style={{
+          color: esPeligro ? 'var(--insignia-peligro)' : 'var(--texto-primario)',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = esPeligro ? 'var(--insignia-peligro-fondo)' : 'var(--superficie-hover)'
+          e.currentTarget.style.color = esPeligro ? 'var(--insignia-peligro-texto)' : 'var(--texto-primario)'
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = 'transparent'
+          e.currentTarget.style.color = esPeligro ? 'var(--insignia-peligro)' : 'var(--texto-primario)'
+        }}
+      >
+        {accion.icono && <span className="shrink-0 [&_svg]:size-3.5">{accion.icono}</span>}
+        <span>{textoEtiqueta}</span>
+        {accion.atajo && <Tecla>{accion.atajo}</Tecla>}
+      </button>
+    </Tooltip>
   )
 }
 

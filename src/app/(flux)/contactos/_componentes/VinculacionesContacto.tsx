@@ -685,7 +685,7 @@ export function VinculacionesContacto({
                   </div>
                   <div className="text-xs text-texto-terciario">{seleccionado.correo || seleccionado.codigo}</div>
                 </div>
-                <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={16} />} onClick={() => setSeleccionado(null)} />
+                <Boton variante="fantasma" tamano="xs" soloIcono titulo="Quitar selección" icono={<X size={16} />} onClick={() => setSeleccionado(null)} />
               </div>
 
               {/* ── Puesto / Rol — prominente, justo después del contacto ── */}

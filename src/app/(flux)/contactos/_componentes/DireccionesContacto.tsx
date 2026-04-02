@@ -148,7 +148,7 @@ export function DireccionesContacto({ direcciones, onChange, paises }: Props) {
           </Boton>
         ))}
 
-        <Boton variante="fantasma" tamano="xs" soloIcono icono={<Plus size={13} />} onClick={agregar} redondeado />
+        <Boton variante="fantasma" tamano="xs" soloIcono titulo="Agregar dirección" icono={<Plus size={13} />} onClick={agregar} redondeado />
       </div>
 
       {/* ── Contenido de la dirección activa ── */}
@@ -173,7 +173,7 @@ export function DireccionesContacto({ direcciones, onChange, paises }: Props) {
                 />
               </div>
               {!esVirtual && (
-                <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={16} />} onClick={() => eliminar(tabActiva)} className="text-texto-terciario hover:text-insignia-peligro" />
+                <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar dirección" icono={<X size={16} />} onClick={() => eliminar(tabActiva)} className="text-texto-terciario hover:text-insignia-peligro" />
               )}
             </div>
 

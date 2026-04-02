@@ -334,6 +334,7 @@ export function PanelCorreo({
                   variante="fantasma"
                   tamano="xs"
                   soloIcono
+                  titulo="Alternar leído"
                   icono={conversacion.mensajes_sin_leer > 0 ? <MailOpen size={14} /> : <MailIcon size={14} />}
                   onClick={() => onToggleLeido(conversacion.id, conversacion.mensajes_sin_leer)}
                 />
@@ -361,8 +362,7 @@ export function PanelCorreo({
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="absolute right-0 top-full mt-1 z-50 rounded-lg py-1 min-w-[160px]"
-                    style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
+                    className="absolute right-0 top-full mt-1 z-50 rounded-lg py-1 min-w-[160px] bg-superficie-elevada border border-borde-sutil shadow-md"
                   >
                     <OpcionMenu icono={<Tag size={12} />} onClick={() => { setModalEtiquetas(true); setMenuOverflow(false) }}>{t('inbox.etiquetar')}</OpcionMenu>
                     {onToggleLeido && (

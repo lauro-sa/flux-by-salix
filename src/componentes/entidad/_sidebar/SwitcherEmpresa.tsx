@@ -56,7 +56,7 @@ function SwitcherEmpresa({ colapsado, onToggle }: PropiedadesSwitcherEmpresa) {
         {/* Logo — siempre toggle sidebar */}
         <button
           onClick={onToggle}
-          className={`size-10 rounded-lg flex items-center justify-center text-white font-bold text-base shrink-0 border-none cursor-pointer hover:opacity-80 transition-opacity ${logoEmpresa ? '' : 'bg-texto-marca'}`}
+          className={`size-10 rounded-lg flex items-center justify-center text-white font-bold text-base shrink-0 border-none cursor-pointer hover:opacity-80 transition-opacity focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${logoEmpresa ? '' : 'bg-texto-marca'}`}
         >
           {logoEmpresa ? (
             <Image src={logoEmpresa} alt={nombreEmpresa} width={40} height={40} className="size-10 rounded-lg object-cover" />
@@ -68,7 +68,7 @@ function SwitcherEmpresa({ colapsado, onToggle }: PropiedadesSwitcherEmpresa) {
         {!colapsado && (
           <button
             onClick={() => setAbierto(!abierto)}
-            className="flex items-center gap-2 flex-1 min-w-0 bg-transparent border-none cursor-pointer rounded-lg hover:bg-superficie-hover px-2.5 py-0 transition-colors sidebar-texto-fade"
+            className="flex items-center gap-2 flex-1 min-w-0 bg-transparent border-none cursor-pointer rounded-lg hover:bg-superficie-hover px-2.5 py-0 transition-colors sidebar-texto-fade focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
           >
             <div className="flex-1 text-left min-w-0">
               <div className="text-md font-semibold text-texto-primario truncate">{nombreEmpresa}</div>
@@ -83,7 +83,7 @@ function SwitcherEmpresa({ colapsado, onToggle }: PropiedadesSwitcherEmpresa) {
           <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} className="absolute left-2.5 right-2.5 top-full mt-1 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-50 py-1">
             <div className="px-3 py-1.5 text-xxs font-semibold text-texto-terciario uppercase tracking-wider">{t('sidebar.empresas')}</div>
             {empresas.map(emp => (
-              <button key={emp.id} onClick={async () => { if (emp.id !== empresa?.id) { await cambiarEmpresa(emp.id); window.location.reload() } setAbierto(false) }} className="flex items-center gap-2.5 w-full px-3 py-2 text-left border-none cursor-pointer bg-transparent hover:bg-superficie-hover">
+              <button key={emp.id} onClick={async () => { if (emp.id !== empresa?.id) { await cambiarEmpresa(emp.id); window.location.reload() } setAbierto(false) }} className="flex items-center gap-2.5 w-full px-3 py-2 text-left border-none cursor-pointer bg-transparent hover:bg-superficie-hover focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 rounded-lg">
                 <div className={`size-7 rounded-md flex items-center justify-center text-white font-bold text-xs shrink-0 ${!emp.logo_url ? (emp.id === empresa?.id ? 'bg-texto-marca' : 'bg-texto-terciario') : ''}`}>
                   {emp.logo_url ? (
                     <Image src={emp.logo_url} alt={emp.nombre} width={28} height={28} className="size-7 rounded-md object-cover" />

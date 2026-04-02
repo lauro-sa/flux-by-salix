@@ -401,7 +401,7 @@ export default function PaginaAplicaciones() {
           {t('comun.volver')}
         </Boton>
         <h1 className="text-2xl font-bold text-texto-primario">{t('aplicaciones.titulo')}</h1>
-        <p className="text-sm text-texto-secundario mt-1">
+        <p className="text-base text-texto-secundario mt-1">
           Instalá y gestioná los módulos de tu espacio de trabajo
         </p>
       </div>

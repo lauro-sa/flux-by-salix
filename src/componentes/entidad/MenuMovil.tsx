@@ -275,7 +275,7 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
                 {/* Avatar + nombre */}
                 <button
                   onClick={() => navegar('/mi-cuenta')}
-                  className="flex items-center gap-3.5 w-full px-3 py-3 rounded-xl bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors text-left active:scale-[0.98]"
+                  className="flex items-center gap-3.5 w-full px-3 py-3 rounded-xl bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors text-left active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
                 >
                   <div className="relative shrink-0">
                     <Avatar nombre={nombreUsuario} tamano="md" />
@@ -299,7 +299,7 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
                       key={est.id}
                       onClick={() => { vibrar(); setEstado(est.id) }}
                       className={[
-                        'flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium cursor-pointer transition-all active:scale-95',
+                        'flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium cursor-pointer transition-all active:scale-95 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
                         estado === est.id
                           ? 'border-texto-marca/30 bg-texto-marca/10 text-texto-marca'
                           : 'border-borde-sutil bg-transparent text-texto-secundario',
@@ -324,7 +324,7 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
                             window.location.reload()
                           }
                         }}
-                        className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors text-left active:scale-[0.98]"
+                        className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors text-left active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
                       >
                         <div className={`size-8 rounded-lg flex items-center justify-center text-white font-bold text-xs shrink-0 ${!emp.logo_url ? (emp.id === empresa?.id ? 'bg-texto-marca' : 'bg-texto-terciario') : ''}`}>
                           {emp.logo_url ? (

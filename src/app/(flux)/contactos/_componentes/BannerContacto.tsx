@@ -128,7 +128,7 @@ export function BannerContacto({
           )}
           {acciones && acciones.length > 0 && (
             <div ref={menuRef} className="relative">
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<MoreVertical size={14} />} onClick={() => setMenuAbierto(!menuAbierto)} className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white/80" />
+              <Boton variante="fantasma" tamano="xs" soloIcono titulo="Más opciones" icono={<MoreVertical size={14} />} onClick={() => setMenuAbierto(!menuAbierto)} className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white/80" />
 
               {menuAbierto && (
                 <div className="absolute top-full right-0 mt-1 py-1 rounded-lg border border-borde-sutil shadow-lg z-50 min-w-40 overflow-hidden"
@@ -150,7 +150,7 @@ export function BannerContacto({
         <button
           type="button"
           onClick={() => onSubirFoto && refInputFoto.current?.click()}
-          className={`rounded-full flex items-center justify-center font-bold border-none ${onSubirFoto ? 'cursor-pointer hover:opacity-90' : 'cursor-default'} transition-opacity`}
+          className={`rounded-full flex items-center justify-center font-bold border-none focus-visible:outline-2 focus-visible:outline-white focus-visible:-outline-offset-2 ${onSubirFoto ? 'cursor-pointer hover:opacity-90' : 'cursor-default'} transition-opacity`}
           title={onSubirFoto ? 'Cambiar foto' : undefined}
           style={{
             width: 80,
@@ -218,7 +218,7 @@ function SelectorTipo({
         type="button"
         onClick={() => puedeEditar && setAbierto(!abierto)}
         className={[
-          'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors border-none',
+          'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors border-none focus-visible:outline-2 focus-visible:outline-white focus-visible:-outline-offset-2',
           'bg-white/10 backdrop-blur-sm text-white/90',
           puedeEditar ? 'cursor-pointer hover:bg-white/20' : 'cursor-default',
         ].join(' ')}

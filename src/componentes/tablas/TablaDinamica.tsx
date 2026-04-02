@@ -9,6 +9,7 @@ import {
   List, LayoutGrid, ArrowUpDown, Pin, Star,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { Checkbox } from '@/componentes/ui/Checkbox'
 import { usePreferencias, type ConfigTabla } from '@/hooks/usePreferencias'
 import { BREAKPOINTS } from '@/lib/breakpoints'
 import {
@@ -25,6 +26,7 @@ import {
   obtenerValorCelda, compararValores,
   ANCHO_MINIMO_COLUMNA, ANCHO_DEFAULT_COLUMNA, REGISTROS_POR_PAGINA_DEFAULT,
 } from '@/componentes/tablas/tipos-tabla'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import { PanelColumnas } from '@/componentes/tablas/PanelColumnas'
 import { SeccionFiltroPanel, GuardarVistaInline } from '@/componentes/tablas/PanelFiltros'
 import { PieResumenFila } from '@/componentes/tablas/PieResumen'
@@ -65,6 +67,7 @@ function TablaDinamica<T>({
   columnasVisiblesDefault,
   chipFiltro,
   opcionesOrden,
+  accionDerecha,
   className = '',
 }: PropiedadesTablaDinamica<T>) {
 
@@ -874,7 +877,6 @@ function TablaDinamica<T>({
                   type="button"
                   onClick={() => { setPanelFiltrosAbierto(true); setPanelColumnasAbierto(false) }}
                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-texto-marca hover:bg-superficie-seleccionada whitespace-nowrap shrink-0 cursor-pointer border border-texto-marca/20 bg-transparent transition-colors"
-                  title="Guardar vista"
                 >
                   <BookmarkPlus size={12} />
                   Guardar vista
@@ -1000,7 +1002,7 @@ function TablaDinamica<T>({
                                   <button key={`${op.clave}-${op.direccion}`} type="button"
                                     onClick={() => setOrdenamiento([{ clave: op.clave, direccion: op.direccion }])}
                                     className={[
-                                      'flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm text-left cursor-pointer border-none transition-colors',
+                                      'flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm text-left cursor-pointer border-none transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
                                       activo ? 'bg-superficie-seleccionada text-texto-marca font-medium' : 'bg-transparent text-texto-primario hover:bg-superficie-hover',
                                     ].join(' ')}>
                                     <ArrowUpDown size={12} className={activo ? 'text-texto-marca' : 'text-texto-terciario'} />
@@ -1036,14 +1038,14 @@ function TablaDinamica<T>({
                                       {esActiva && <Check size={13} className="text-texto-marca shrink-0" />}
                                       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all shrink-0">
                                         {manejarMarcarPredefinida && !v.predefinida && (
-                                          <button type="button" onClick={(e) => { e.stopPropagation(); manejarMarcarPredefinida(v.id) }}
+                                          <Tooltip contenido="Marcar como predefinida"><button type="button" onClick={(e) => { e.stopPropagation(); manejarMarcarPredefinida(v.id) }}
                                             className="size-5 inline-flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario hover:text-texto-marca transition-colors"
-                                            title="Marcar como predefinida"><Star size={11} /></button>
+                                            ><Star size={11} /></button></Tooltip>
                                         )}
                                         {manejarEliminarVista && (
-                                          <button type="button" onClick={(e) => { e.stopPropagation(); manejarEliminarVista(v.id) }}
+                                          <Tooltip contenido="Eliminar"><button type="button" onClick={(e) => { e.stopPropagation(); manejarEliminarVista(v.id) }}
                                             className="size-5 inline-flex items-center justify-center rounded-md hover:bg-insignia-peligro-fondo cursor-pointer border-none bg-transparent text-texto-terciario hover:text-insignia-peligro-texto transition-colors"
-                                            title="Eliminar"><X size={11} /></button>
+                                            ><X size={11} /></button></Tooltip>
                                         )}
                                       </div>
                                     </div>
@@ -1084,17 +1086,18 @@ function TablaDinamica<T>({
               onClick={() => setPaginaActual(Math.max(1, paginaActual - 1))}
               disabled={paginaActual === 1}
             />
-            <button
-              type="button"
-              onClick={() => {
-                if (paginaActual === totalPaginas) setPaginaActual(1)
-                else setPaginaActual(totalPaginas)
-              }}
-              className="px-2 py-0.5 text-xs font-medium text-texto-primario hover:bg-superficie-hover cursor-pointer border-none bg-transparent rounded transition-colors whitespace-nowrap tabular-nums"
-              title={paginaActual === totalPaginas ? 'Ir a la primera página' : 'Ir a la última página'}
-            >
-              {registroInicio}–{registroFin} / {totalRegistros.toLocaleString('es')}
-            </button>
+            <Tooltip contenido={paginaActual === totalPaginas ? 'Ir a la primera página' : 'Ir a la última página'}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (paginaActual === totalPaginas) setPaginaActual(1)
+                  else setPaginaActual(totalPaginas)
+                }}
+                className="px-2 py-0.5 text-xs font-medium text-texto-primario hover:bg-superficie-hover cursor-pointer border-none bg-transparent rounded transition-colors whitespace-nowrap tabular-nums focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
+              >
+                {registroInicio}–{registroFin} / {totalRegistros.toLocaleString('es')}
+              </button>
+            </Tooltip>
             <Boton
               variante="fantasma"
               tamano="xs"
@@ -1109,27 +1112,26 @@ function TablaDinamica<T>({
 
         {/* Switcher de vistas — compacto, sin contenedor */}
         {vistas.length > 1 && (
-          <div className="flex items-center gap-0 shrink-0 border border-borde-sutil rounded-md overflow-hidden">
+          <div className="flex items-center gap-0 shrink-0 outline outline-1 outline-borde-sutil rounded-md overflow-hidden">
             {vistas.map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => { vistaManualRef.current = true; setVistaActual(v) }}
-                className={[
-                  'size-8 inline-flex items-center justify-center cursor-pointer border-none transition-colors',
-                  v === vistaActual
-                    ? 'bg-superficie-hover text-texto-primario'
-                    : 'bg-transparent text-texto-terciario hover:text-texto-secundario',
-                ].join(' ')}
-                title={v.charAt(0).toUpperCase() + v.slice(1)}
-              >
-                {iconosVista[v]}
-              </button>
+              <Tooltip contenido={v.charAt(0).toUpperCase() + v.slice(1)}>
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => { vistaManualRef.current = true; setVistaActual(v) }}
+                  className={[
+                    'size-8 inline-flex items-center justify-center cursor-pointer border-none transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
+                    v === vistaActual
+                      ? 'bg-superficie-hover text-texto-primario'
+                      : 'bg-transparent text-texto-terciario hover:text-texto-secundario',
+                  ].join(' ')}
+                >
+                  {iconosVista[v]}
+                </button>
+              </Tooltip>
             ))}
           </div>
         )}
-
-        {/* Placeholder — barra flotante inferior reemplaza este espacio */}
 
         {/* Panel de columnas (sidebar derecho fijo) */}
         <div ref={panelColumnasRef}>
@@ -1196,11 +1198,9 @@ function TablaDinamica<T>({
                     {/* Checkbox header */}
                     {seleccionables && (
                       <th className="w-10 min-w-10 px-2.5 py-2.5 text-center sticky left-0 z-30" style={{ background: 'var(--superficie-anclada-alterna)' }}>
-                        <input
-                          type="checkbox"
-                          checked={todoSeleccionado}
-                          onChange={toggleTodos}
-                          className="cursor-pointer"
+                        <Checkbox
+                          marcado={todoSeleccionado}
+                          onChange={() => toggleTodos()}
                         />
                       </th>
                     )}
@@ -1303,13 +1303,10 @@ function TablaDinamica<T>({
                         >
                           {/* Checkbox — siempre sticky con fondo sólido */}
                           {seleccionables && (
-                            <td className="w-10 min-w-10 px-2.5 py-2.5 text-center sticky left-0 z-10" style={{ background: fondoStickyFila }}>
-                              <input
-                                type="checkbox"
-                                checked={estaSeleccionado}
+                            <td className="w-10 min-w-10 px-2.5 py-2.5 text-center sticky left-0 z-10" style={{ background: fondoStickyFila }} onClick={(e) => e.stopPropagation()}>
+                              <Checkbox
+                                marcado={estaSeleccionado}
                                 onChange={() => toggleUno(id)}
-                                onClick={(e) => e.stopPropagation()}
-                                className="cursor-pointer"
                               />
                             </td>
                           )}
@@ -1397,13 +1394,10 @@ function TablaDinamica<T>({
                     >
                       {/* Checkbox en tarjeta */}
                       {seleccionables && (
-                        <div className="absolute top-2 right-2">
-                          <input
-                            type="checkbox"
-                            checked={estaSeleccionado}
+                        <div className="absolute top-2 right-2" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            marcado={estaSeleccionado}
                             onChange={() => toggleUno(id)}
-                            onClick={(e) => e.stopPropagation()}
-                            className="cursor-pointer"
                           />
                         </div>
                       )}

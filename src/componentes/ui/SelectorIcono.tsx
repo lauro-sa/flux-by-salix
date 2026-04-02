@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search, ChevronDown } from 'lucide-react'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import * as iconosLucide from 'lucide-react'
 
 /**
@@ -318,19 +319,19 @@ function SelectorIcono({ valor, onChange, etiqueta, tamano = 18 }: PropiedadesSe
                   const seleccionado = valor === nombre
 
                   return (
-                    <button
-                      key={nombre}
-                      onClick={() => { onChange(nombre); setAbierto(false); setExpandido(false); setBusqueda('') }}
-                      title={nombre}
-                      className={[
-                        'w-8 h-8 rounded-md flex items-center justify-center transition-all cursor-pointer border-none',
-                        seleccionado
-                          ? 'bg-texto-marca/20 text-texto-marca ring-1 ring-texto-marca'
-                          : 'bg-transparent text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario',
-                      ].join(' ')}
-                    >
-                      <Icono size={16} />
-                    </button>
+                    <Tooltip key={nombre} contenido={nombre}>
+                      <button
+                        onClick={() => { onChange(nombre); setAbierto(false); setExpandido(false); setBusqueda('') }}
+                        className={[
+                          'w-8 h-8 rounded-md flex items-center justify-center transition-all cursor-pointer border-none',
+                          seleccionado
+                            ? 'bg-texto-marca/20 text-texto-marca ring-1 ring-texto-marca'
+                            : 'bg-transparent text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario',
+                        ].join(' ')}
+                      >
+                        <Icono size={16} />
+                      </button>
+                    </Tooltip>
                   )
                 })}
               </div>

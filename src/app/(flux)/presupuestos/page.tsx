@@ -487,6 +487,9 @@ export default function PaginaPresupuestos() {
       titulo={t('navegacion.presupuestos')}
       icono={<FileText size={20} />}
       accionPrincipal={tienePermiso('presupuestos', 'crear') ? { etiqueta: t('documentos.nuevo_presupuesto'), icono: <Plus size={14} />, onClick: () => router.push('/presupuestos/nuevo') } : undefined}
+      acciones={[
+        { id: 'exportar', etiqueta: 'Exportar', icono: <FileDown size={14} />, onClick: () => {} },
+      ]}
       mostrarConfiguracion
       onConfiguracion={() => router.push('/presupuestos/configuracion')}
     >

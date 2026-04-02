@@ -116,7 +116,7 @@ export default function SelectorPlantilla({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-1.5 w-72 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-xl z-50 py-1.5"
+            className="absolute right-0 top-full mt-1.5 w-72 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg z-50 py-1.5"
           >
             {/* ── Plantillas guardadas ── */}
             {plantillas.length > 0 && (
@@ -225,7 +225,7 @@ export default function SelectorPlantilla({
                 animate={{ scale: 1 }}
                 exit={{ scale: 0.95 }}
                 onClick={(e) => e.stopPropagation()}
-                className="bg-superficie-elevada border border-borde-sutil rounded-xl shadow-2xl w-full max-w-sm p-5"
+                className="bg-superficie-elevada border border-borde-sutil rounded-xl shadow-elevada w-full max-w-sm p-5"
               >
                 <div className="flex items-start gap-3 mb-4">
                   <div className="size-9 rounded-full bg-estado-error/10 flex items-center justify-center shrink-0 mt-0.5">

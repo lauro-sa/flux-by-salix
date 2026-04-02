@@ -180,6 +180,7 @@ export default function PaginaConfiguracionProductos() {
                     variante="fantasma"
                     tamano="sm"
                     soloIcono
+                    titulo="Eliminar"
                     icono={<Trash2 size={14} />}
                     onClick={() => {
                       const nuevas = categorias.filter(c => c.id !== cat.id)
@@ -267,6 +268,7 @@ export default function PaginaConfiguracionProductos() {
                         variante="fantasma"
                         tamano="xs"
                         soloIcono
+                        titulo="Eliminar"
                         icono={<Trash2 size={14} />}
                         onClick={() => {
                           const nuevas = unidades.filter(un => un.id !== u.id)
@@ -395,6 +397,7 @@ export default function PaginaConfiguracionProductos() {
                     variante="fantasma"
                     tamano="sm"
                     soloIcono
+                    titulo="Eliminar"
                     icono={<Trash2 size={14} />}
                     onClick={() => {
                       const nuevas = categoriasCosto.filter(c => c.id !== cat.id)

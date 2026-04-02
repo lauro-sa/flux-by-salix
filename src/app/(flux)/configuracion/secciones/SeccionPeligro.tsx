@@ -41,7 +41,7 @@ export function SeccionPeligro() {
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-semibold text-insignia-peligro mb-1">Zona peligrosa</h2>
-        <p className="text-sm text-texto-terciario">Acciones irreversibles. Procedé con precaución.</p>
+        <p className="text-base text-texto-terciario">Acciones irreversibles. Procedé con precaución.</p>
       </div>
 
       <div className="bg-insignia-peligro/5 border border-insignia-peligro/20 rounded-xl p-6">
@@ -49,7 +49,7 @@ export function SeccionPeligro() {
           <AlertTriangle size={20} className="text-insignia-peligro mt-0.5 shrink-0" />
           <div className="flex-1">
             <h3 className="text-sm font-semibold text-texto-primario mb-1">Eliminar empresa</h3>
-            <p className="text-sm text-texto-terciario mb-4">
+            <p className="text-base text-texto-terciario mb-4">
               Esto eliminará permanentemente <strong>{empresa?.nombre}</strong> y todos sus datos:
               miembros, contactos, actividades, documentos, configuraciones. Esta acción no se puede deshacer.
             </p>

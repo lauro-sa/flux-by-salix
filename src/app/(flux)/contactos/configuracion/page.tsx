@@ -13,6 +13,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { CargadorSeccion } from '@/componentes/ui/Cargador'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { ModalRestablecer } from '@/componentes/ui/ModalRestablecer'
+import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 
 // Colores disponibles para etiquetas
 const COLORES_ETIQUETA: { valor: string; etiqueta: string }[] = [
@@ -344,14 +345,12 @@ function SeccionLista({
             />
 
             {/* Eliminar */}
-            <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={() => onDelete(item.id)} className="opacity-0 group-hover:opacity-100 text-texto-terciario hover:text-insignia-peligro" />
+            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar" icono={<Trash2 size={14} />} onClick={() => onDelete(item.id)} className="opacity-0 group-hover:opacity-100 text-texto-terciario hover:text-insignia-peligro" />
           </div>
         ))}
 
         {items.length === 0 && (
-          <div className="text-sm text-texto-terciario text-center py-6">
-            No hay {tipo}s configurados. Creá el primero arriba.
-          </div>
+          <EstadoVacio titulo={`No hay ${tipo}s configurados`} descripcion="Creá el primero arriba." />
         )}
       </div>
     </div>
@@ -446,7 +445,7 @@ function SeccionDatos() {
             <div className="size-5 rounded-full bg-insignia-info-fondo flex items-center justify-center shrink-0 mt-0.5">
               <span className="text-insignia-info-texto text-xs font-bold">i</span>
             </div>
-            <p className="text-sm text-texto-secundario">
+            <p className="text-base text-texto-secundario">
               El backup JSON incluye todos los contactos y sus datos relacionados (direcciones, vinculaciones, etiquetas). Al importar se crean contactos nuevos sin afectar los existentes, o se actualizan los que coincidan por código.
             </p>
           </div>
@@ -540,7 +539,7 @@ function SeccionDatos() {
             <div className="size-5 rounded-full bg-insignia-info-fondo flex items-center justify-center shrink-0 mt-0.5">
               <span className="text-insignia-info-texto text-xs font-bold">i</span>
             </div>
-            <p className="text-sm text-texto-secundario">
+            <p className="text-base text-texto-secundario">
               Genera un archivo Excel (.xlsx) con encabezados, colores y filtros. Ideal para tener una copia legible de tus datos o compartir con otros sistemas.
             </p>
           </div>
@@ -723,7 +722,7 @@ function SeccionGoogleDrive() {
                 <div className="size-5 rounded-full bg-insignia-info-fondo flex items-center justify-center shrink-0 mt-0.5">
                   <span className="text-insignia-info-texto text-xs font-bold">i</span>
                 </div>
-                <p className="text-sm text-texto-secundario">
+                <p className="text-base text-texto-secundario">
                   Conectá tu cuenta de Google para mantener una copia actualizada de tus contactos en Google Sheets. Se crea una hoja de cálculo automáticamente y se actualiza cada pocas horas. Si el sistema tiene problemas, tus datos están seguros en Google Drive.
                 </p>
               </div>
@@ -735,7 +734,7 @@ function SeccionGoogleDrive() {
                 type="button"
                 onClick={conectar}
                 disabled={conectando}
-                className="w-full flex items-center gap-3 p-4 rounded-xl border border-borde-sutil hover:border-borde-fuerte bg-superficie-tarjeta hover:bg-superficie-hover transition-colors cursor-pointer disabled:opacity-50"
+                className="w-full flex items-center gap-3 p-4 rounded-xl border border-borde-sutil hover:border-borde-fuerte bg-superficie-tarjeta hover:bg-superficie-hover transition-colors cursor-pointer disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
               >
                 {/* Ícono G de Google */}
                 <div className="size-8 rounded-full bg-white flex items-center justify-center shadow-sm border border-borde-sutil shrink-0">

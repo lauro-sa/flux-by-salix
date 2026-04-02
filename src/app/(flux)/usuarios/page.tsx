@@ -830,7 +830,7 @@ export default function PaginaUsuarios() {
             </div>
             <div className="flex gap-2">
               <Input tipo="text" value={linkCopiado} readOnly compacto />
-              <Boton variante="secundario" tamano="sm" soloIcono icono={<Copy size={14} />} onClick={() => navigator.clipboard.writeText(linkCopiado)} />
+              <Boton variante="secundario" tamano="sm" soloIcono titulo="Copiar enlace" icono={<Copy size={14} />} onClick={() => navigator.clipboard.writeText(linkCopiado)} />
             </div>
             <Boton variante="primario" anchoCompleto onClick={() => setModalInvitar(false)}>Listo</Boton>
           </div>

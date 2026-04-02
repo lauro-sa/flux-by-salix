@@ -1204,28 +1204,29 @@ function PaginaInbox() {
               variante="fantasma"
               tamano="xs"
               soloIcono
+              titulo="Alternar panel de info"
               icono={panelInfoAbierto ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
               onClick={() => setPanelInfoAbierto(!panelInfoAbierto)}
             />
           )}
           {/* Sincronizar correos manualmente */}
           {tabActivo === 'correo' && (
-            <span title={sincronizando ? 'Sincronizando...' : 'Sincronizar correos'}>
               <Boton
                 variante="fantasma"
                 tamano="xs"
                 soloIcono
+                titulo={sincronizando ? 'Sincronizando...' : 'Sincronizar correos'}
                 icono={<RefreshCw size={16} className={sincronizando ? 'animate-spin' : ''} />}
                 onClick={sincronizarCorreos}
                 disabled={sincronizando}
               />
-            </span>
           )}
           {/* Configuración */}
           <Boton
             variante="fantasma"
             tamano="xs"
             soloIcono
+            titulo="Configuración"
             icono={<Settings size={16} />}
             onClick={() => router.push('/inbox/configuracion')}
           />

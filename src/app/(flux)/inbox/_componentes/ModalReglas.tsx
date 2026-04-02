@@ -215,7 +215,7 @@ export function ModalReglas({ abierto, onCerrar }: PropiedadesModalReglas) {
                     placeholder="Valor..."
                   />
                   {condiciones.length > 1 && (
-                    <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={12} />} onClick={() => removerCondicion(i)} />
+                    <Boton variante="fantasma" tamano="xs" soloIcono titulo="Quitar condición" icono={<X size={12} />} onClick={() => removerCondicion(i)} />
                   )}
                 </div>
               ))}
@@ -250,7 +250,7 @@ export function ModalReglas({ abierto, onCerrar }: PropiedadesModalReglas) {
                     />
                   )}
                   {acciones.length > 1 && (
-                    <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={12} />} onClick={() => removerAccion(i)} />
+                    <Boton variante="fantasma" tamano="xs" soloIcono titulo="Quitar acción" icono={<X size={12} />} onClick={() => removerAccion(i)} />
                   )}
                 </div>
               ))}
@@ -302,8 +302,8 @@ export function ModalReglas({ abierto, onCerrar }: PropiedadesModalReglas) {
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Boton variante="fantasma" tamano="xs" soloIcono icono={<Pencil size={12} />} onClick={() => iniciarEdicion(regla)} />
-                    <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={12} />} onClick={() => eliminar(regla.id)} className="text-insignia-peligro" />
+                    <Boton variante="fantasma" tamano="xs" soloIcono titulo="Editar regla" icono={<Pencil size={12} />} onClick={() => iniciarEdicion(regla)} />
+                    <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar regla" icono={<Trash2 size={12} />} onClick={() => eliminar(regla.id)} className="text-insignia-peligro" />
                   </div>
                 </div>
               </div>

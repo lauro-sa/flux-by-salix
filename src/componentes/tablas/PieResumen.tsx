@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from 'react'
 import type { ColumnaDinamica, OpcionesVisuales, TipoCalculo } from '@/componentes/tablas/tipos-tabla'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import { obtenerValorCelda, calcularResumen, ANCHO_MINIMO_COLUMNA, ANCHO_DEFAULT_COLUMNA } from '@/componentes/tablas/tipos-tabla'
 
 /* ════════════════════════════════════════════
@@ -99,9 +100,10 @@ export function PieResumenFila<T>({
               textAlign: col.alineacion || 'left',
               ...(anclada ? { left: offsetAncladas[clave], background: 'var(--superficie-anclada-alterna)' } : {}),
             }}
-            title="Click para cambiar cálculo"
           >
-            {contenido}
+            <Tooltip contenido="Click para cambiar cálculo">
+              {contenido}
+            </Tooltip>
           </td>
         )
       })}
@@ -197,9 +199,10 @@ export function PieResumen<T>({
                 opcionesVisuales.bordesColumnas ? 'border-r border-borde-sutil last:border-r-0' : '',
               ].join(' ')}
               style={{ width: ancho, minWidth: col.anchoMinimo || ANCHO_MINIMO_COLUMNA, textAlign: col.alineacion || 'left' }}
-              title="Click para cambiar cálculo"
             >
-              {contenido}
+              <Tooltip contenido="Click para cambiar cálculo">
+                {contenido}
+              </Tooltip>
             </div>
           )
         })}

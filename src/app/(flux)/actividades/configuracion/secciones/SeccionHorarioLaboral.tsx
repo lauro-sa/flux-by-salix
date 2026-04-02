@@ -59,7 +59,7 @@ function SeccionHorarioLaboral({ config, cargando, onAccionAPI }: PropiedadesSec
     <div className="space-y-4">
       <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
         <h3 className="text-base font-semibold text-texto-primario">Horario laboral</h3>
-        <p className="text-sm text-texto-terciario mt-0.5 mb-5">
+        <p className="text-base text-texto-terciario mt-0.5 mb-5">
           Respetar el horario de atención de la empresa al calcular fechas de vencimiento y posposición.
         </p>
 

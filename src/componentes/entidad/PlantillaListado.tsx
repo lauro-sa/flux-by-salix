@@ -55,7 +55,7 @@ interface PropiedadesPlantillaListado {
  * Se usa en: Contactos, Actividades, Productos, Documentos, Órdenes, Visitas, Asistencias, Auditoría.
  *
  * Estructura:
- * - Cabecero: Título + acción principal + menú acciones + engranaje config
+ * - Cabecero: engranaje config + acción principal + menú acciones (título en migajas del navbar)
  * - Contenido: TablaDinamica (con su propia barra de búsqueda/paginador/vistas)
  */
 function PlantillaListado({
@@ -74,20 +74,15 @@ function PlantillaListado({
   return (
     <div className={`flex flex-col h-full ${className}`}>
 
-      {/* ═══ CABECERO ═══ */}
-      <div className="flex flex-col gap-2 shrink-0 px-4 sm:px-6 pt-4 sm:pt-5 pb-3">
+      {/* ═══ CABECERO — Título está en las migajas del navbar ═══ */}
+      <div className="flex flex-col gap-2 shrink-0 px-4 sm:px-6 pt-3 sm:pt-4 pb-4">
 
-        {/* Fila 1: título + config */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-lg font-bold text-texto-primario flex items-center gap-2">
-            {icono && <span className="text-texto-terciario">{icono}</span>}
-            {titulo}
-          </h1>
-
-          {mostrarConfiguracion && onConfiguracion && (
-            <Boton variante="fantasma" tamano="sm" soloIcono icono={<Settings size={16} />} onClick={onConfiguracion} titulo="Configuración" />
-          )}
-        </div>
+        {/* Fila 1: engranaje config (alineado a la derecha, mismo padding que toolbar) */}
+        {mostrarConfiguracion && onConfiguracion && (
+          <div className="flex justify-end">
+            <Boton variante="fantasma" tamano="sm" soloIcono icono={<Settings size={16} />} onClick={onConfiguracion} titulo="Configuración" className="mr-2.5" />
+          </div>
+        )}
 
         {/* Fila 2: acción principal + acciones */}
         {(accionPrincipal || acciones.length > 0) && (

@@ -34,7 +34,7 @@ function EstadoVacio({ icono, titulo, descripcion, accion }: PropiedadesEstadoVa
         </motion.div>
       )}
       <h3 className="text-lg font-semibold text-texto-primario">{titulo}</h3>
-      {descripcion && <p className="text-sm text-texto-terciario max-w-[360px] leading-relaxed">{descripcion}</p>}
+      {descripcion && <p className="text-base text-texto-terciario max-w-[360px] leading-relaxed">{descripcion}</p>}
       {accion && <div className="mt-3">{accion}</div>}
     </motion.div>
   )

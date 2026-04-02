@@ -144,6 +144,7 @@ function SeccionTipos({ tipos, cargando, onActualizar, onAccionAPI }: Propiedade
             variante="fantasma"
             tamano="sm"
             soloIcono
+            titulo="Agregar tipo"
             icono={<Plus size={16} />}
             onClick={() => { setTipoEditando(null); setModalAbierto(true) }}
           />

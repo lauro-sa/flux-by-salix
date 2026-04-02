@@ -7,6 +7,7 @@ import {
   StickyNote,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import { Input } from '@/componentes/ui/Input'
 import { TextArea } from '@/componentes/ui/TextArea'
 import type { TipoCanal, TipoContenido } from '@/tipos/inbox'
@@ -635,6 +636,7 @@ export function CompositorMensaje({
             />
 
             {/* Enviar */}
+            <Tooltip contenido={t('inbox.enviar')}>
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={enviarGrabacion}
@@ -645,10 +647,10 @@ export function CompositorMensaje({
                 color: 'var(--texto-inverso)',
                 opacity: convirtiendo ? 0.5 : 1,
               }}
-              title={t('inbox.enviar')}
             >
               <Send size={16} />
             </motion.button>
+            </Tooltip>
           </div>
         ) : (
           <>
@@ -740,6 +742,7 @@ export function CompositorMensaje({
 
             {/* Bot��n enviar */}
             {(tieneContenido || audioGrabado) && (
+              <Tooltip contenido={esNotaInterna ? t('inbox.nota_interna') : t('inbox.enviar')}>
               <motion.button
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
@@ -752,10 +755,10 @@ export function CompositorMensaje({
                   color: 'var(--texto-inverso)',
                   opacity: cargando ? 0.5 : 1,
                 }}
-                title={esNotaInterna ? t('inbox.nota_interna') : t('inbox.enviar')}
               >
                 {esNotaInterna ? <StickyNote size={18} /> : <Send size={18} />}
               </motion.button>
+              </Tooltip>
             )}
           </>
         )}

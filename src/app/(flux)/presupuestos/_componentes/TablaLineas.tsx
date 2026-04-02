@@ -13,6 +13,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { Select } from '@/componentes/ui/Select'
 import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { TextArea } from '@/componentes/ui/TextArea'
+import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 
 /**
  * TablaLineas — Editor de líneas del presupuesto.
@@ -273,9 +274,7 @@ function TablaLineas({
 
       {/* ─── Sin líneas ─── */}
       {lineas.length === 0 && (
-        <div className="py-8 text-center text-texto-terciario text-sm">
-          Sin líneas. Agregá productos, servicios o texto libre.
-        </div>
+        <EstadoVacio titulo="Sin líneas" descripcion="Agregá productos, servicios o texto libre." />
       )}
     </div>
   )

@@ -7,6 +7,7 @@ import {
   GripVertical, AlignLeft, AlignCenter, AlignRight, StretchHorizontal, Minus,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import type { ColumnaDinamica, OpcionesVisuales } from '@/componentes/tablas/tipos-tabla'
 
 /* ════════════════════════════════════════════
@@ -36,7 +37,7 @@ function ContenidoFilaColumna<T>({ clave, mapaColumnas, columnasVisibles, column
     <>
       {arrastrable && <GripVertical size={14} className="text-texto-terciario opacity-40 shrink-0" />}
       <button type="button" onClick={() => onToggleColumna(clave)}
-        className="shrink-0 size-5 inline-flex items-center justify-center rounded border border-borde-sutil cursor-pointer bg-transparent transition-colors"
+        className="shrink-0 size-5 inline-flex items-center justify-center rounded border border-borde-sutil cursor-pointer bg-transparent transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
         style={visible ? { backgroundColor: 'var(--texto-marca)', borderColor: 'var(--texto-marca)' } : {}}>
         {visible && <Check size={10} className="text-texto-inverso" />}
       </button>
@@ -46,24 +47,28 @@ function ContenidoFilaColumna<T>({ clave, mapaColumnas, columnasVisibles, column
       </span>
       {visible && (
         <>
-          <button type="button" onClick={() => onToggleAnclar(clave)}
-            className={`shrink-0 size-6 inline-flex items-center justify-center rounded cursor-pointer border-none bg-transparent transition-colors ${
-              anclada ? 'text-texto-marca' : 'text-texto-terciario'
-            }`} title={anclada ? 'Desanclar' : 'Anclar columna'}>
-            {anclada ? <PinOff size={12} /> : <Pin size={12} />}
-          </button>
+          <Tooltip contenido={anclada ? 'Desanclar' : 'Anclar columna'}>
+            <button type="button" onClick={() => onToggleAnclar(clave)}
+              className={`shrink-0 size-6 inline-flex items-center justify-center rounded cursor-pointer border-none bg-transparent transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
+                anclada ? 'text-texto-marca' : 'text-texto-terciario'
+              }`}>
+              {anclada ? <PinOff size={12} /> : <Pin size={12} />}
+            </button>
+          </Tooltip>
           <div className="shrink-0 flex items-center rounded-md border border-borde-sutil overflow-hidden">
             {([
               { val: 'left' as const, icono: <AlignLeft size={10} />, titulo: 'Izquierda' },
               { val: 'center' as const, icono: <AlignCenter size={10} />, titulo: 'Centro' },
               { val: 'right' as const, icono: <AlignRight size={10} />, titulo: 'Derecha' },
             ]).map(({ val, icono, titulo }) => (
-              <button key={val} type="button" onClick={() => onCambiarAlineacion(clave, val)}
-                className={`size-6 inline-flex items-center justify-center cursor-pointer border-none transition-colors ${
-                  alineacion === val ? 'bg-texto-marca text-texto-inverso' : 'bg-transparent text-texto-terciario hover:bg-superficie-hover'
-                }`} title={titulo}>
-                {icono}
-              </button>
+              <Tooltip key={val} contenido={titulo}>
+                <button type="button" onClick={() => onCambiarAlineacion(clave, val)}
+                  className={`size-6 inline-flex items-center justify-center cursor-pointer border-none transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
+                    alineacion === val ? 'bg-texto-marca text-texto-inverso' : 'bg-transparent text-texto-terciario hover:bg-superficie-hover'
+                  }`}>
+                  {icono}
+                </button>
+              </Tooltip>
             ))}
           </div>
         </>
@@ -168,7 +173,7 @@ export function PanelColumnas<T>({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 20 }}
       transition={{ type: 'spring', duration: 0.25 }}
-      className="fixed top-0 right-0 h-full w-[320px] bg-superficie-app border-l border-borde-sutil shadow-2xl z-50 overflow-hidden flex flex-col"
+      className="fixed top-0 right-0 h-full w-[320px] bg-superficie-app border-l border-borde-sutil shadow-elevada z-50 overflow-hidden flex flex-col"
     >
       <div className="flex items-center justify-between px-4 py-3 border-b border-borde-sutil shrink-0">
         <span className="text-sm font-semibold text-texto-primario">Configurar columnas</span>
@@ -176,6 +181,7 @@ export function PanelColumnas<T>({
           variante="fantasma"
           tamano="xs"
           soloIcono
+          titulo="Cerrar"
           icono={<X size={16} />}
           onClick={onCerrar}
         />
@@ -188,16 +194,17 @@ export function PanelColumnas<T>({
           const todasVisibles = ordenColumnas.every(c => columnasVisibles.includes(c))
           const algunaVisible = ordenColumnas.some(c => columnasVisibles.includes(c))
           return (
-            <button type="button"
-              onClick={todasVisibles ? onOcultarTodas : onMostrarTodas}
-              className="shrink-0 size-5 inline-flex items-center justify-center rounded border border-borde-sutil cursor-pointer bg-transparent transition-colors"
-              style={todasVisibles ? { backgroundColor: 'var(--texto-marca)', borderColor: 'var(--texto-marca)' }
-                : algunaVisible ? { borderColor: 'var(--texto-marca)' } : {}}
-              title={todasVisibles ? 'Ocultar todas' : 'Mostrar todas'}
-            >
-              {todasVisibles && <Check size={10} className="text-texto-inverso" />}
-              {!todasVisibles && algunaVisible && <Minus size={8} className="text-texto-marca" />}
-            </button>
+            <Tooltip contenido={todasVisibles ? 'Ocultar todas' : 'Mostrar todas'}>
+              <button type="button"
+                onClick={todasVisibles ? onOcultarTodas : onMostrarTodas}
+                className="shrink-0 size-5 inline-flex items-center justify-center rounded border border-borde-sutil cursor-pointer bg-transparent transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
+                style={todasVisibles ? { backgroundColor: 'var(--texto-marca)', borderColor: 'var(--texto-marca)' }
+                  : algunaVisible ? { borderColor: 'var(--texto-marca)' } : {}}
+              >
+                {todasVisibles && <Check size={10} className="text-texto-inverso" />}
+                {!todasVisibles && algunaVisible && <Minus size={8} className="text-texto-marca" />}
+              </button>
+            </Tooltip>
           )
         })()}
         <span className="text-xs text-texto-secundario flex-1">
@@ -211,12 +218,13 @@ export function PanelColumnas<T>({
             { val: 'center' as const, icono: <AlignCenter size={10} />, titulo: 'Todas al centro' },
             { val: 'right' as const, icono: <AlignRight size={10} />, titulo: 'Todas a la derecha' },
           ]).map(({ val, icono, titulo }) => (
-            <button key={val} type="button"
-              onClick={() => onAlinearTodas(val)}
-              className="size-6 inline-flex items-center justify-center cursor-pointer border-none bg-transparent text-texto-terciario hover:bg-superficie-hover transition-colors"
-              title={titulo}>
-              {icono}
-            </button>
+            <Tooltip key={val} contenido={titulo}>
+              <button type="button"
+                onClick={() => onAlinearTodas(val)}
+                className="size-6 inline-flex items-center justify-center cursor-pointer border-none bg-transparent text-texto-terciario hover:bg-superficie-hover transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2">
+                {icono}
+              </button>
+            </Tooltip>
           ))}
         </div>
       </div>

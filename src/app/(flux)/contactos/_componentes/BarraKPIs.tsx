@@ -100,7 +100,7 @@ export function BarraKPIs({ contactoId }: { contactoId: string }) {
               onClick={() => tieneRuta && router.push(item.ruta)}
               disabled={!tieneRuta}
               className={[
-                'flex flex-col items-center justify-center gap-1 px-4 py-2 transition-colors',
+                'flex flex-col items-center justify-center gap-1 px-4 py-2 transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
                 i > 0 ? 'border-l border-borde-sutil' : '',
                 tieneRuta && tieneValor ? 'cursor-pointer hover:bg-superficie-hover' : 'cursor-default',
                 'bg-transparent border-none',

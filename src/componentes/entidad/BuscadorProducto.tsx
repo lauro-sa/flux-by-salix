@@ -225,7 +225,7 @@ export function BuscadorProducto({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: posDropdown.haciaArriba ? 4 : -4 }}
               transition={{ duration: 0.15 }}
-              className="fixed z-[9999] bg-superficie-elevada border border-borde-sutil rounded-xl shadow-xl overflow-hidden"
+              className="fixed z-[9999] bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg overflow-hidden"
               style={{
                 top: posDropdown.haciaArriba ? undefined : posDropdown.top,
                 bottom: posDropdown.haciaArriba ? window.innerHeight - posDropdown.top + 4 : undefined,
@@ -246,7 +246,7 @@ export function BuscadorProducto({
                       type="button"
                       onClick={() => manejarSeleccion(producto)}
                       onMouseEnter={() => setIndiceActivo(i)}
-                      className={`w-full text-left px-3 py-2 flex items-center gap-3 transition-colors ${
+                      className={`w-full text-left px-3 py-2 flex items-center gap-3 transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
                         i === indiceActivo ? 'bg-superficie-app' : 'hover:bg-superficie-app/50'
                       }`}
                     >

@@ -12,6 +12,7 @@ import {
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import { obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import { ModalActividad } from './_componentes/ModalActividad'
 import type { Actividad, Miembro, Vinculo } from './_componentes/ModalActividad'
@@ -271,18 +272,19 @@ export default function PaginaActividades() {
         const esPendiente = fila.estado_clave !== 'completada' && fila.estado_clave !== 'cancelada'
         const estado = estadosPorClave[fila.estado_clave]
         return (
+          <Tooltip contenido={esPendiente ? 'Completar' : estado?.etiqueta}>
           <button
             onClick={(e) => { e.stopPropagation(); if (esPendiente) completarActividad(fila.id) }}
-            className={`size-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+            className={`size-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
               esPendiente
                 ? 'border-borde-fuerte bg-transparent cursor-pointer hover:border-insignia-exito hover:bg-insignia-exito-fondo'
                 : 'border-transparent cursor-default'
             }`}
             style={!esPendiente && estado ? { backgroundColor: estado.color + '20', color: estado.color } : undefined}
-            title={esPendiente ? 'Completar' : estado?.etiqueta}
           >
             {!esPendiente && <CheckCircle size={12} />}
           </button>
+          </Tooltip>
         )
       },
     },

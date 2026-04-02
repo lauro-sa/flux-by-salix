@@ -61,7 +61,7 @@ export function BuscadorContactoPreview({
     return (
       <button
         key={c.id}
-        className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-[var(--superficie-hover)]"
+        className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-[var(--superficie-hover)] focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
         onMouseDown={(e) => { e.preventDefault(); onSeleccionar(c.id); setBusqueda(''); setMostrar(false) }}
       >
         <span

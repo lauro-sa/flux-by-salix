@@ -601,7 +601,7 @@ export default function PaginaContacto() {
                 return (
                   <button key={tipo.id} type="button" onClick={() => cambiarTipo(tipo.id)}
                     className={[
-                      'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-150 border cursor-pointer',
+                      'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-150 border cursor-pointer focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
                       activo ? 'border-transparent' : 'bg-transparent text-texto-secundario border-borde-sutil hover:border-borde-fuerte hover:text-texto-primario',
                     ].join(' ')}
                     style={activo ? { backgroundColor: `var(--insignia-${color}-fondo)`, color: `var(--insignia-${color}-texto)`, borderColor: 'transparent' } : undefined}>
@@ -947,7 +947,7 @@ export default function PaginaContacto() {
                     }])
                     setModalVincular(false); setBusquedaVinculo(''); setResultadosVinculo([])
                   }}
-                  className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors">
+                  className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2">
                   <Avatar nombre={[c.nombre, c.apellido].filter(Boolean).join(' ')} tamano="sm" />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-texto-primario truncate">{c.nombre} {c.apellido}</div>
@@ -1175,14 +1175,14 @@ function SelectorConSugerencias({
           {filtradas.map(o => (
             <button key={o} type="button"
               onClick={() => seleccionar(o)}
-              className="w-full text-left px-3 py-1.5 text-sm text-texto-primario hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors">
+              className="w-full text-left px-3 py-1.5 text-sm text-texto-primario hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2">
               {o}
             </button>
           ))}
           {mostrarCrear && (
             <button type="button"
               onClick={crearYSeleccionar}
-              className="flex items-center gap-1.5 w-full text-left px-3 py-2 text-sm text-texto-marca hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors border-t border-borde-sutil">
+              className="flex items-center gap-1.5 w-full text-left px-3 py-2 text-sm text-texto-marca hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors border-t border-borde-sutil focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2">
               <Plus size={14} />
               Crear &quot;{texto.trim()}&quot;
             </button>
@@ -1294,7 +1294,7 @@ function SelectorEtiquetas({
           {!creando && disponibles.map(e => (
             <button key={e.nombre} type="button"
               onClick={() => seleccionarExistente(e.nombre, e.color)}
-              className="flex items-center gap-2 w-full text-left px-3 py-1.5 text-sm hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors">
+              className="flex items-center gap-2 w-full text-left px-3 py-1.5 text-sm hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2">
               <span className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: `var(--insignia-${e.color})` }} />
               <span className="text-texto-primario">{e.nombre}</span>
             </button>
@@ -1303,7 +1303,7 @@ function SelectorEtiquetas({
           {mostrarCrear && !creando && (
             <button type="button"
               onClick={iniciarCreacion}
-              className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-texto-marca hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors border-t border-borde-sutil">
+              className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-texto-marca hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors border-t border-borde-sutil focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2">
               <Plus size={14} />
               Crear &quot;{texto.trim()}&quot;
             </button>

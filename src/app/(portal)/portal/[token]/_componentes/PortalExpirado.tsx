@@ -22,7 +22,7 @@ export default function PortalExpirado() {
         <h1 className="text-xl font-semibold text-texto-primario mb-2">
           {t('portal.expirado')}
         </h1>
-        <p className="text-sm text-texto-secundario leading-relaxed">
+        <p className="text-base text-texto-secundario leading-relaxed">
           {t('portal.expirado_descripcion')}
         </p>
       </div>

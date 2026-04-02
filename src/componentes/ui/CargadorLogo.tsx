@@ -312,7 +312,7 @@ function CargadorLogo({ variante, urlActual, onSubir, onEliminar }: PropiedadesC
 
           {/* Controles de zoom */}
           <div className="flex items-center gap-3 w-full max-w-xs">
-            <Boton variante="fantasma" tamano="xs" soloIcono icono={<ZoomOut size={14} />} onClick={() => setZoom(prev => Math.max(0.1, prev - 0.1))} />
+            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Alejar" icono={<ZoomOut size={14} />} onClick={() => setZoom(prev => Math.max(0.1, prev - 0.1))} />
             <input
               type="range"
               min={0.1}
@@ -322,8 +322,8 @@ function CargadorLogo({ variante, urlActual, onSubir, onEliminar }: PropiedadesC
               onChange={(e) => setZoom(parseFloat(e.target.value))}
               className="flex-1 h-1.5 rounded-full appearance-none bg-borde-fuerte cursor-pointer"
             />
-            <Boton variante="fantasma" tamano="xs" soloIcono icono={<ZoomIn size={14} />} onClick={() => setZoom(prev => Math.min(5, prev + 0.1))} />
-            <Boton variante="fantasma" tamano="xs" soloIcono icono={<RotateCcw size={14} />} onClick={resetear} />
+            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Acercar" icono={<ZoomIn size={14} />} onClick={() => setZoom(prev => Math.min(5, prev + 0.1))} />
+            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Restablecer zoom" icono={<RotateCcw size={14} />} onClick={resetear} />
           </div>
         </div>
       </Modal>

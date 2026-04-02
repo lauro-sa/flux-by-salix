@@ -40,7 +40,7 @@ function ModalConfirmarEliminar({ recordatorio, onCerrar, onConfirmar }: ModalCo
                 : recordatorio.repetir}
             </strong>.
           </p>
-          <p className="text-sm text-texto-terciario">
+          <p className="text-base text-texto-terciario">
             Se eliminará este recordatorio y no volverá a aparecer. Esta acción no se puede deshacer.
           </p>
         </div>

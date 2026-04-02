@@ -99,6 +99,7 @@ function PreviewRecordatorio({ previewModal, onCerrarModal, previewToast, onCerr
                 variante="fantasma"
                 tamano="xs"
                 soloIcono
+                titulo="Cerrar"
                 icono={<X size={14} />}
                 onClick={onCerrarToast}
               />

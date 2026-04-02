@@ -107,7 +107,7 @@ export default function SeccionCuotas({
           <CircleDollarSign size={18} style={{ color: colorMarca }} />
           {t('portal.datos_transferencia')}
         </h3>
-        <p className="text-sm text-texto-terciario mt-0.5">{t('portal.instrucciones_pago')}</p>
+        <p className="text-base text-texto-terciario mt-0.5">{t('portal.instrucciones_pago')}</p>
       </div>
 
       {/* ── Cuotas seleccionables (solo si hay hitos) ── */}

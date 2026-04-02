@@ -255,7 +255,7 @@ function ModalActividad({
                     <button
                       key={op.dias}
                       onClick={async () => { await onPosponer(actividad.id, op.dias); onCerrar() }}
-                      className="w-full px-3 py-2 text-sm text-left text-texto-primario bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors"
+                      className="w-full px-3 py-2 text-sm text-left text-texto-primario bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
                     >
                       {op.etiqueta}
                     </button>
@@ -297,7 +297,7 @@ function ModalActividad({
                 <button
                   key={tipo.id}
                   onClick={() => manejarCambioTipo(tipo.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer border ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer border focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
                     sel
                       ? 'border-transparent text-white'
                       : 'bg-superficie-hover text-texto-secundario border-transparent hover:text-texto-primario'
@@ -571,7 +571,7 @@ function SeccionVinculos({ vinculos, onChange }: { vinculos: Vinculo[]; onChange
                     <button
                       key={tv.clave}
                       onClick={() => { setTabActivo(tv.clave); setBusqueda('') }}
-                      className={`flex items-center gap-1.5 px-4 py-2 text-xs font-medium transition-colors cursor-pointer border-none ${
+                      className={`flex items-center gap-1.5 px-4 py-2 text-xs font-medium transition-colors cursor-pointer border-none focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
                         activo
                           ? 'text-texto-marca bg-texto-marca/5'
                           : 'text-texto-terciario bg-transparent hover:text-texto-secundario'
@@ -603,7 +603,7 @@ function SeccionVinculos({ vinculos, onChange }: { vinculos: Vinculo[]; onChange
                         key={item.id}
                         onClick={() => agregarVinculo(item)}
                         disabled={yaVinculado}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors border-none ${
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors border-none focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
                           yaVinculado
                             ? 'text-texto-terciario cursor-default bg-transparent'
                             : 'text-texto-primario cursor-pointer bg-transparent hover:bg-superficie-hover'
@@ -686,7 +686,7 @@ function SeccionChecklist({ checklist, onChange }: { checklist: ItemChecklist[];
             <div key={item.id} className="flex items-start gap-2 group py-1">
               <button
                 onClick={() => toggleItem(item.id)}
-                className={`size-5 rounded border-2 flex items-center justify-center shrink-0 cursor-pointer transition-colors mt-0.5 ${
+                className={`size-5 rounded border-2 flex items-center justify-center shrink-0 cursor-pointer transition-colors mt-0.5 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
                   item.completado
                     ? 'bg-texto-marca border-texto-marca'
                     : 'bg-transparent border-borde-fuerte hover:border-texto-marca'

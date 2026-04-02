@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MoreVertical } from 'lucide-react'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import type { OpcionVista } from './tipos'
 
 /* ─── Props ─── */
@@ -32,23 +33,23 @@ function SelectorVistas({
       {/* Desktop: botones separados */}
       <div className="hidden md:flex items-center gap-0.5">
         {opciones.map((v) => (
-          <motion.button
-            key={v.id}
-            type="button"
-            whileTap={{ scale: 0.9 }}
-            onClick={() => onCambiarVista(v.id)}
-            disabled={v.deshabilitada}
-            className={[
-              'shrink-0 size-7 inline-flex items-center justify-center rounded-md cursor-pointer border-none transition-colors',
-              v.id === vistaActual
-                ? 'bg-insignia-primario-fondo text-texto-marca'
-                : 'bg-transparent text-texto-terciario hover:bg-superficie-hover hover:text-texto-secundario',
-              v.deshabilitada ? 'opacity-40 cursor-not-allowed' : '',
-            ].join(' ')}
-            title={v.etiqueta}
-          >
-            {v.icono}
-          </motion.button>
+          <Tooltip key={v.id} contenido={v.etiqueta}>
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.9 }}
+              onClick={() => onCambiarVista(v.id)}
+              disabled={v.deshabilitada}
+              className={[
+                'shrink-0 size-7 inline-flex items-center justify-center rounded-md cursor-pointer border-none transition-colors',
+                v.id === vistaActual
+                  ? 'bg-insignia-primario-fondo text-texto-marca'
+                  : 'bg-transparent text-texto-terciario hover:bg-superficie-hover hover:text-texto-secundario',
+                v.deshabilitada ? 'opacity-40 cursor-not-allowed' : '',
+              ].join(' ')}
+            >
+              {v.icono}
+            </motion.button>
+          </Tooltip>
         ))}
       </div>
 

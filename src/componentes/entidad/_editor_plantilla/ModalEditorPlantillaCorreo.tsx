@@ -17,6 +17,7 @@ import { Tabs } from '@/componentes/ui/Tabs'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import { SelectorVariables } from '@/componentes/ui/SelectorVariables'
 import { Braces, Eye, Save, Code2, PenLine } from 'lucide-react'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import { useTraduccion } from '@/lib/i18n'
 
 import { useEditorPlantilla } from './useEditorPlantilla'
@@ -300,15 +301,16 @@ export function ModalEditorPlantillaCorreo({
             className="fixed pointer-events-auto"
             style={{ top: cursorEditorPos.top - 3, left: cursorEditorPos.left + 24, zIndex: 99999 }}
           >
-            <button
-              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setVariablesCuerpoAbierto(true) }}
-              className="flex items-center justify-center size-6 rounded-md transition-all hover:bg-[var(--superficie-hover)] hover:opacity-100"
-              style={{ color: 'var(--texto-terciario)', opacity: 0.35 }}
-              type="button"
-              title="Insertar variable"
-            >
-              <Braces size={13} />
-            </button>
+            <Tooltip contenido="Insertar variable">
+              <button
+                onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setVariablesCuerpoAbierto(true) }}
+                className="flex items-center justify-center size-6 rounded-md transition-all hover:bg-[var(--superficie-hover)] hover:opacity-100"
+                style={{ color: 'var(--texto-terciario)', opacity: 0.35 }}
+                type="button"
+              >
+                <Braces size={13} />
+              </button>
+            </Tooltip>
           </div>,
           document.body
         )}

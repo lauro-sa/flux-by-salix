@@ -12,6 +12,7 @@ import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import { TextArea } from '@/componentes/ui/TextArea'
 import { SelectorVariables } from '@/componentes/ui/SelectorVariables'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import { OPCIONES_VISIBILIDAD } from './constantes'
 
 interface PropiedadesEditorCodigoHtml {
@@ -123,16 +124,17 @@ export function EditorCodigoHtml({
             style={{ minHeight: 280, tabSize: 2 }}
           />
           <div className="absolute top-2 right-2">
-            <button
-              onClick={onToggleVariablesHtml}
-              onMouseDown={(e) => e.preventDefault()}
-              className="flex items-center justify-center size-7 rounded-md transition-colors hover:bg-[var(--superficie-hover)]"
-              style={{ color: variablesHtmlAbierto ? 'var(--texto-marca)' : 'var(--texto-terciario)' }}
-              type="button"
-              title="Insertar variable"
-            >
-              <Braces size={14} />
-            </button>
+            <Tooltip contenido="Insertar variable">
+              <button
+                onClick={onToggleVariablesHtml}
+                onMouseDown={(e) => e.preventDefault()}
+                className="flex items-center justify-center size-7 rounded-md transition-colors hover:bg-[var(--superficie-hover)] focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
+                style={{ color: variablesHtmlAbierto ? 'var(--texto-marca)' : 'var(--texto-terciario)' }}
+                type="button"
+              >
+                <Braces size={14} />
+              </button>
+            </Tooltip>
             <SelectorVariables
               abierto={variablesHtmlAbierto}
               onCerrar={onCerrarVariablesHtml}
@@ -147,17 +149,17 @@ export function EditorCodigoHtml({
       {/* Referencia rapida HTML — botones con etiqueta visible */}
       <div className="flex flex-wrap items-center gap-1.5 px-1" style={{ color: 'var(--texto-terciario)' }}>
         {ETIQUETAS_HTML.map(({ tag, codigo, desc }) => (
-          <button
-            key={tag}
-            type="button"
-            title={`${desc} — ${tag}`}
-            onClick={() => insertarEtiqueta(tag)}
-            className="flex items-center gap-1 text-xxs px-1.5 py-1 rounded transition-colors hover:bg-[var(--superficie-hover)] hover:text-[var(--texto-primario)]"
-            style={{ border: '1px solid var(--borde-sutil)' }}
-          >
-            <span className="font-mono" style={{ color: 'var(--texto-marca)', opacity: 0.7 }}>{codigo}</span>
-            <span>{desc}</span>
-          </button>
+          <Tooltip key={tag} contenido={`${desc} — ${tag}`}>
+            <button
+              type="button"
+              onClick={() => insertarEtiqueta(tag)}
+              className="flex items-center gap-1 text-xxs px-1.5 py-1 rounded transition-colors hover:bg-[var(--superficie-hover)] hover:text-[var(--texto-primario)] focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
+              style={{ border: '1px solid var(--borde-sutil)' }}
+            >
+              <span className="font-mono" style={{ color: 'var(--texto-marca)', opacity: 0.7 }}>{codigo}</span>
+              <span>{desc}</span>
+            </button>
+          </Tooltip>
         ))}
       </div>
     </div>

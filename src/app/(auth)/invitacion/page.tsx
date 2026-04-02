@@ -159,7 +159,7 @@ function ContenidoInvitacion() {
       <h2 className="text-lg font-semibold text-texto-primario mb-2">
         {t('invitacion.invitacion_a')} {invitacion?.empresa_nombre}
       </h2>
-      <p className="text-sm text-texto-terciario mb-6">
+      <p className="text-base text-texto-terciario mb-6">
         {t('invitacion.te_invitaron_como')} <span className="font-medium text-texto-secundario capitalize">{invitacion?.rol}</span>
       </p>
 

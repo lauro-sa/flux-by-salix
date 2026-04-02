@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { X, Check, BookmarkPlus, Bookmark, Star } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import { Input } from '@/componentes/ui/Input'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { useTraduccion } from '@/lib/i18n'
@@ -76,7 +77,7 @@ export function DropdownFiltro({ filtro, onCerrar }: { filtro: FiltroTabla; onCe
                     }
                   }}
                   className={[
-                    'flex items-center gap-2 px-2.5 py-1.5 text-sm text-left rounded-lg cursor-pointer transition-colors border-none',
+                    'flex items-center gap-2 px-2.5 py-1.5 text-sm text-left rounded-lg cursor-pointer transition-colors border-none focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
                     seleccionado
                       ? 'bg-superficie-seleccionada text-texto-marca font-medium'
                       : 'bg-transparent text-texto-primario hover:bg-superficie-hover',
@@ -150,7 +151,7 @@ export function SeccionFiltroPanel({ filtro }: { filtro: FiltroTabla }) {
         <div className="flex flex-wrap gap-1.5">
           <button type="button" onClick={() => filtro.onChange('')}
             className={[
-              'px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer border-none transition-colors',
+              'px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer border-none transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
               !valorActual ? 'bg-texto-marca text-white' : 'bg-superficie-tarjeta text-texto-secundario hover:bg-superficie-hover',
             ].join(' ')}>
             Todos
@@ -159,7 +160,7 @@ export function SeccionFiltroPanel({ filtro }: { filtro: FiltroTabla }) {
             <button key={op.valor} type="button"
               onClick={() => filtro.onChange(op.valor === valorActual ? '' : op.valor)}
               className={[
-                'px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer border-none transition-colors',
+                'px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer border-none transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
                 op.valor === valorActual ? 'bg-texto-marca text-white' : 'bg-superficie-tarjeta text-texto-secundario hover:bg-superficie-hover',
               ].join(' ')}>
               {op.etiqueta}
@@ -181,7 +182,7 @@ export function SeccionFiltroPanel({ filtro }: { filtro: FiltroTabla }) {
         <button type="button"
           onClick={() => filtro.onChange(filtro.tipo === 'multiple' ? [] : '')}
           className={[
-            'flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm text-left cursor-pointer border-none transition-colors',
+            'flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm text-left cursor-pointer border-none transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
             (filtro.tipo === 'multiple' ? valoresActuales.length === 0 : !valorActual)
               ? 'bg-superficie-seleccionada text-texto-marca font-medium'
               : 'bg-transparent text-texto-primario hover:bg-superficie-hover',
@@ -204,7 +205,7 @@ export function SeccionFiltroPanel({ filtro }: { filtro: FiltroTabla }) {
                 }
               }}
               className={[
-                'flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm text-left cursor-pointer border-none transition-colors',
+                'flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm text-left cursor-pointer border-none transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
                 sel ? 'bg-superficie-seleccionada text-texto-marca font-medium' : 'bg-transparent text-texto-primario hover:bg-superficie-hover',
               ].join(' ')}>
               {filtro.tipo === 'multiple' ? (
@@ -239,6 +240,7 @@ export function SeccionFiltroPanel({ filtro }: { filtro: FiltroTabla }) {
               variante="fantasma"
               tamano="xs"
               soloIcono
+              titulo="Limpiar filtro"
               icono={<X size={13} />}
               onClick={() => filtro.onChange('')}
             />
@@ -349,14 +351,20 @@ export function PanelVistasGuardadas({
                 {esActiva && <Check size={13} className="text-texto-marca" />}
                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
                   {onMarcarPredefinida && !v.predefinida && (
-                    <button type="button" onClick={(e) => { e.stopPropagation(); onMarcarPredefinida(v.id) }}
-                      className="size-5 inline-flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario hover:text-texto-marca transition-colors"
-                      title="Marcar como predefinida"><Star size={11} /></button>
+                    <Tooltip contenido="Marcar como predefinida">
+                      <button type="button" onClick={(e) => { e.stopPropagation(); onMarcarPredefinida(v.id) }}
+                        className="size-5 inline-flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario hover:text-texto-marca transition-colors">
+                        <Star size={11} />
+                      </button>
+                    </Tooltip>
                   )}
                   {onEliminarVista && (
-                    <button type="button" onClick={(e) => { e.stopPropagation(); onEliminarVista(v.id) }}
-                      className="size-5 inline-flex items-center justify-center rounded-md hover:bg-insignia-peligro-fondo cursor-pointer border-none bg-transparent text-texto-terciario hover:text-insignia-peligro-texto transition-colors"
-                      title="Eliminar vista"><X size={11} /></button>
+                    <Tooltip contenido="Eliminar vista">
+                      <button type="button" onClick={(e) => { e.stopPropagation(); onEliminarVista(v.id) }}
+                        className="size-5 inline-flex items-center justify-center rounded-md hover:bg-insignia-peligro-fondo cursor-pointer border-none bg-transparent text-texto-terciario hover:text-insignia-peligro-texto transition-colors">
+                        <X size={11} />
+                      </button>
+                    </Tooltip>
                   )}
                 </div>
               </div>
@@ -372,7 +380,7 @@ export function PanelVistasGuardadas({
           <div className="flex flex-wrap gap-1">
             {vistasGuardadas.map((v) => (
               <button key={v.id} type="button" onClick={() => onSobrescribirVista(v.id)}
-                className="text-xs px-2 py-0.5 rounded-md border border-borde-sutil bg-superficie-tarjeta text-texto-secundario hover:bg-superficie-hover cursor-pointer transition-colors">
+                className="text-xs px-2 py-0.5 rounded-md border border-borde-sutil bg-superficie-tarjeta text-texto-secundario hover:bg-superficie-hover cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2">
                 {v.nombre}
               </button>
             ))}
