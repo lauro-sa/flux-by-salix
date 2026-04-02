@@ -163,6 +163,11 @@ export async function POST(request: NextRequest) {
             .from('canales_internos')
             .update({ archivado: false, actualizado_en: new Date().toISOString() })
             .eq('id', existente.id)
+          // También reabrir la conversación asociada
+          await admin
+            .from('conversaciones')
+            .update({ estado: 'abierta', actualizado_en: new Date().toISOString() })
+            .eq('canal_interno_id', existente.id)
           existente.archivado = false
         }
         return NextResponse.json({ canal: existente })

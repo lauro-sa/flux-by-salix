@@ -1586,11 +1586,17 @@ function PaginaInbox() {
               abierto={modalCrearInterno}
               onCerrar={() => setModalCrearInterno(false)}
               onCreado={async (canalCreado?: CanalInterno) => {
-                await cargarCanalesInternos()
-                // Auto-seleccionar el canal recién creado para abrir la conversación
+                // Agregar canal al estado local inmediatamente para que aparezca en sidebar
                 if (canalCreado) {
+                  const tipo = canalCreado.tipo
+                  if (tipo === 'publico') setCanalesPublicos(prev => [canalCreado, ...prev])
+                  else if (tipo === 'grupo') setCanalesGrupos(prev => [canalCreado, ...prev])
+                  else setCanalesPrivados(prev => [canalCreado, ...prev])
+                  // Auto-seleccionar para abrir la conversación
                   setCanalInternoSeleccionado(canalCreado)
                 }
+                // Sincronizar con BD en background (nombres DM resueltos, etc.)
+                cargarCanalesInternos()
               }}
             />
           </>

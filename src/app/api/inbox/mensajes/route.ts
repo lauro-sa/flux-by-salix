@@ -190,6 +190,16 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (conv?.tipo_canal === 'interno' && conv.canal_interno_id) {
+          // Actualizar ultimo_mensaje en el canal interno (para orden en sidebar)
+          await admin
+            .from('canales_internos')
+            .update({
+              ultimo_mensaje_texto: texto || `[${tipo_contenido}]`,
+              ultimo_mensaje_en: new Date().toISOString(),
+              ultimo_mensaje_por: user.id,
+            })
+            .eq('id', conv.canal_interno_id)
+
           // Canal interno: notificar a los miembros del canal (excepto el remitente)
           const { data: miembrosCanal } = await admin
             .from('canal_interno_miembros')
