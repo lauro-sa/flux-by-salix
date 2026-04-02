@@ -150,7 +150,7 @@ export function ListaConversaciones({
         {modoSeleccion ? (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Boton variante="fantasma" tamano="xs" soloIcono onClick={seleccionarTodos} aria-label="Seleccionar todos" icono={
+              <Boton variante="fantasma" tamano="xs" soloIcono titulo="Seleccionar todos" onClick={seleccionarTodos} aria-label="Seleccionar todos" icono={
                 seleccionados.size === conversaciones.length && conversaciones.length > 0
                   ? <CheckSquare size={14} style={{ color: 'var(--texto-marca)' }} />
                   : <Square size={14} style={{ color: 'var(--texto-terciario)' }} />
@@ -165,6 +165,7 @@ export function ListaConversaciones({
                   variante="fantasma"
                   tamano="xs"
                   soloIcono
+                  titulo="Eliminar"
                   icono={<Trash2 size={14} />}
                   onClick={handleEliminarSeleccion}
                   className="text-[var(--insignia-peligro)]"

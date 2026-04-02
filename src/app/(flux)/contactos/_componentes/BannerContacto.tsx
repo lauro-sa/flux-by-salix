@@ -7,6 +7,7 @@ import {
   Building2, Building, User, Truck, UserPlus, BadgeCheck, ChevronDown, MoreVertical,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { COLOR_TIPO_CONTACTO } from '@/lib/colores_entidad'
 import type { TipoContacto } from '@/tipos'
@@ -147,11 +148,11 @@ export function BannerContacto({
 
       {/* Avatar glass — sobresale del banner, clickeable para subir foto */}
       <div className="absolute -bottom-9 left-5">
+        <Tooltip contenido="Cambiar foto" deshabilitado={!onSubirFoto}>
         <button
           type="button"
           onClick={() => onSubirFoto && refInputFoto.current?.click()}
           className={`rounded-full flex items-center justify-center font-bold border-none focus-visible:outline-2 focus-visible:outline-white focus-visible:-outline-offset-2 ${onSubirFoto ? 'cursor-pointer hover:opacity-90' : 'cursor-default'} transition-opacity`}
-          title={onSubirFoto ? 'Cambiar foto' : undefined}
           style={{
             width: 80,
             height: 80,
@@ -174,6 +175,7 @@ export function BannerContacto({
             <IconoAvatar size={30} />
           )}
         </button>
+        </Tooltip>
         {onSubirFoto && (
           <input ref={refInputFoto} type="file" accept="image/*" className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) onSubirFoto(f); e.target.value = '' }} />

@@ -1241,6 +1241,7 @@ function SeccionRespuestasRapidas({
                   variante="fantasma"
                   tamano="xs"
                   soloIcono
+                  titulo="Editar"
                   icono={<Pencil size={12} />}
                   onClick={() => { setEditando(p); setModalAbierto(true) }}
                 />
@@ -1248,6 +1249,7 @@ function SeccionRespuestasRapidas({
                   variante="fantasma"
                   tamano="xs"
                   soloIcono
+                  titulo="Eliminar"
                   icono={<Trash2 size={12} />}
                   onClick={() => setEliminando(p)}
                 />

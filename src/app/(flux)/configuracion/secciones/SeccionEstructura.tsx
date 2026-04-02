@@ -841,6 +841,7 @@ export function SeccionEstructura() {
                   variante="fantasma"
                   soloIcono
                   redondeado
+                  titulo="Elegir color"
                   icono={formColor === c ? <Check size={14} className="text-white" /> : undefined}
                   onClick={() => setFormColor(c)}
                   className="w-7 h-7"
@@ -943,6 +944,7 @@ export function SeccionEstructura() {
                   variante="fantasma"
                   soloIcono
                   redondeado
+                  titulo="Elegir color"
                   icono={puestoColor === c ? <Check size={14} className="text-white" /> : undefined}
                   onClick={() => setPuestoColor(c)}
                   className="w-7 h-7"

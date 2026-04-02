@@ -87,7 +87,7 @@ function ChipEmail({ email, nombre, onRemover }: { email: string; nombre?: strin
       }}
     >
       <span className="truncate">{nombre ? `${nombre} <${email}>` : email}</span>
-      <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={10} />} onClick={onRemover} aria-label={`Eliminar ${email}`} />
+      <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar" icono={<X size={10} />} onClick={onRemover} aria-label={`Eliminar ${email}`} />
     </span>
   )
 }
@@ -602,7 +602,7 @@ export function CompositorCorreo({
               placeholder="Escribí tu mensaje..."
               alturaMinima={compacto ? 100 : 180}
               accionesExtra={
-                <Boton variante="fantasma" tamano="xs" soloIcono icono={<Paperclip size={14} />} onClick={() => inputArchivosRef.current?.click()} />
+                <Boton variante="fantasma" tamano="xs" soloIcono titulo="Adjuntar archivo" icono={<Paperclip size={14} />} onClick={() => inputArchivosRef.current?.click()} />
               }
             />
             <input
@@ -639,7 +639,7 @@ export function CompositorCorreo({
                     <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
                       {formatoTamano(adj.tamano_bytes)}
                     </span>
-                    <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={10} />} onClick={() => removerAdjunto(adj.id)} aria-label={`Quitar ${adj.nombre_archivo}`} />
+                    <Boton variante="fantasma" tamano="xs" soloIcono titulo="Quitar" icono={<X size={10} />} onClick={() => removerAdjunto(adj.id)} aria-label={`Quitar ${adj.nombre_archivo}`} />
                   </div>
                 ))}
                 {subiendoAdjuntos && (

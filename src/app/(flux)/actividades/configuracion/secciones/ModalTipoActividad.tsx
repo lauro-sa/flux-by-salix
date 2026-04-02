@@ -6,6 +6,7 @@ import { Input } from '@/componentes/ui/Input'
 import { Boton } from '@/componentes/ui/Boton'
 import { SelectorIcono, obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import { Interruptor } from '@/componentes/ui/Interruptor'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import { Trash2, Check, Pipette } from 'lucide-react'
 import type { TipoActividad } from './SeccionTipos'
 import { PALETA_COLORES_TIPO_ACTIVIDAD } from '@/lib/colores_entidad'
@@ -189,10 +190,10 @@ function ModalTipoActividad({ abierto, tipo, modulosDisponibles, guardando, onGu
             {COLORES_TIPO.map(preset => {
               const seleccionado = color.toLowerCase() === preset.color.toLowerCase()
               return (
+                <Tooltip contenido={preset.nombre}>
                 <button
                   key={preset.color}
                   onClick={() => setColor(preset.color)}
-                  title={preset.nombre}
                   className={`relative size-8 rounded-full transition-all duration-150 cursor-pointer hover:scale-110 ${
                     seleccionado ? 'ring-2 ring-offset-2 ring-texto-marca ring-offset-superficie-tarjeta scale-110' : ''
                   }`}
@@ -202,6 +203,7 @@ function ModalTipoActividad({ abierto, tipo, modulosDisponibles, guardando, onGu
                     <Check size={14} className="absolute inset-0 m-auto text-white drop-shadow-sm" />
                   )}
                 </button>
+                </Tooltip>
               )
             })}
 

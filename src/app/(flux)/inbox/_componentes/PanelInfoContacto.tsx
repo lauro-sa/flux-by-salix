@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import {
   X, Phone, Mail, Hash, MapPin, Building2, Briefcase,
   ExternalLink, FileText, Image, Play, ChevronDown, ChevronUp,
@@ -239,6 +240,7 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
                 variante="fantasma"
                 tamano="xs"
                 soloIcono
+                titulo="Cerrar"
                 icono={<X size={16} />}
                 onClick={onCerrar}
               />
@@ -344,14 +346,15 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
                       titulo="Correo"
                     />
                   )}
+                  <Tooltip contenido="Ver contacto completo">
                   <a
                     href={`/contactos/${conversacion.contacto_id}`}
                     className="p-2 rounded-lg transition-colors"
                     style={{ background: 'var(--superficie-hover)', color: 'var(--texto-secundario)' }}
-                    title="Ver contacto completo"
                   >
                     <ExternalLink size={16} />
                   </a>
+                  </Tooltip>
                 </div>
 
                 {/* Sección: Datos */}

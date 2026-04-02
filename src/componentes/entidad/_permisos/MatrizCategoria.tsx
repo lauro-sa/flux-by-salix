@@ -10,6 +10,7 @@ import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { CeldaPermiso } from './CeldaPermiso'
 import type { Modulo, Accion, PermisosMapa } from '@/tipos'
@@ -126,11 +127,11 @@ export function MatrizCategoria({
 
                       return (
                         <th key={accion} className="px-1 py-1 text-center whitespace-nowrap min-w-[60px]">
+                          <Tooltip contenido={`${todosActivos ? 'Desmarcar' : 'Marcar'} "${ETIQUETAS_ACCION[accion]}" en todos los modulos`}>
                           <button
                             type="button"
                             onClick={() => onToggleColumna(modulos, accion)}
                             className="flex flex-col items-center gap-0.5 w-full bg-transparent border-none cursor-pointer p-1 rounded hover:bg-superficie-hover transition-colors group focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
-                            title={`${todosActivos ? 'Desmarcar' : 'Marcar'} "${ETIQUETAS_ACCION[accion]}" en todos los modulos`}
                           >
                             <span className="text-xxs leading-tight font-medium text-texto-terciario group-hover:text-texto-primario transition-colors">
                               {ETIQUETAS_ACCION[accion]}
@@ -146,6 +147,7 @@ export function MatrizCategoria({
                               />
                             </div>
                           </button>
+                          </Tooltip>
                         </th>
                       )
                     })}

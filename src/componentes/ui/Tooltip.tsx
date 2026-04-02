@@ -141,7 +141,11 @@ function Tooltip({
                 color: 'var(--superficie-app)',
               }}
             >
-              {contenido}
+              {contenido.includes('\n')
+              ? contenido.split('\n').map((linea, i) => (
+                <span key={i} className="block">{linea}</span>
+              ))
+              : contenido}
             </motion.div>
           )}
         </AnimatePresence>,

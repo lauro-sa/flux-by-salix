@@ -282,7 +282,7 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
                   style={{ background: 'var(--insignia-info-fondo)', color: 'var(--insignia-info-texto)' }}
                 >
                   <Building2 size={10} /> {s.nombre}
-                  <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={10} />} onClick={() => toggleSector(s)} aria-label={`Quitar sector ${s.nombre}`} />
+                  <Boton variante="fantasma" tamano="xs" soloIcono titulo="Quitar" icono={<X size={10} />} onClick={() => toggleSector(s)} aria-label={`Quitar sector ${s.nombre}`} />
                 </span>
               ))}
               {miembrosSeleccionados.map(m => (
@@ -292,7 +292,7 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
                   style={{ background: 'var(--superficie-hover)', color: 'var(--texto-secundario)' }}
                 >
                   {m.nombre} {m.apellido}
-                  <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={10} />} onClick={() => toggleMiembro(m)} aria-label={`Quitar ${m.nombre}`} />
+                  <Boton variante="fantasma" tamano="xs" soloIcono titulo="Quitar" icono={<X size={10} />} onClick={() => toggleMiembro(m)} aria-label={`Quitar ${m.nombre}`} />
                 </span>
               ))}
             </div>

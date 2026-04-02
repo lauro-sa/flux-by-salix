@@ -111,6 +111,7 @@ export function ListaProgramados() {
                 variante="fantasma"
                 tamano="xs"
                 soloIcono
+                titulo="Cancelar envío"
                 icono={cancelando === prog.id
                   ? <Loader2 size={12} className="animate-spin" />
                   : <X size={12} />

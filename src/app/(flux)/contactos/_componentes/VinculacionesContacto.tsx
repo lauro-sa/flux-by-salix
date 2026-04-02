@@ -1292,7 +1292,7 @@ function TarjetaVinculo({
     >
       {/* Botón desvincular (esquina superior derecha) */}
       {editable && onDesvincular && (
-        <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={13} />} onClick={e => { e.stopPropagation(); onDesvincular() }} className="absolute top-2 right-2 text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro-fondo opacity-0 group-hover:opacity-100" />
+        <Boton variante="fantasma" tamano="xs" soloIcono titulo="Desvincular" icono={<X size={13} />} onClick={e => { e.stopPropagation(); onDesvincular() }} className="absolute top-2 right-2 text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro-fondo opacity-0 group-hover:opacity-100" />
       )}
 
       {/* Fila: avatar + nombre + badges */}

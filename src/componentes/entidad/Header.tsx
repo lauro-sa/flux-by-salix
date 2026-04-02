@@ -113,7 +113,7 @@ function Header({
             soloIcono
             icono={sidebarColapsado ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
             onClick={onToggleSidebar}
-            titulo={sidebarColapsado ? 'Expandir menú lateral' : 'Colapsar menú lateral'}
+            titulo={sidebarColapsado ? 'Expandir menú\nDoble clic: más opciones' : 'Colapsar menú\nDoble clic: más opciones'}
             className="shrink-0"
           />
 

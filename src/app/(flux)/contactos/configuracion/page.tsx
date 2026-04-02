@@ -14,6 +14,7 @@ import { CargadorSeccion } from '@/componentes/ui/Cargador'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { ModalRestablecer } from '@/componentes/ui/ModalRestablecer'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 
 // Colores disponibles para etiquetas
 const COLORES_ETIQUETA: { valor: string; etiqueta: string }[] = [
@@ -271,11 +272,12 @@ function SeccionLista({
         {conColor && (
           <div className="flex items-center gap-1">
             {COLORES_ETIQUETA.map(c => (
+              <Tooltip contenido={c.etiqueta}>
               <button key={c.valor} type="button" onClick={() => setNuevoColor(c.valor)}
-                title={c.etiqueta}
                 className={`size-5 rounded-full border-2 transition-all cursor-pointer ${nuevoColor === c.valor ? 'border-texto-marca scale-110' : 'border-transparent'}`}
                 style={{ backgroundColor: `var(--insignia-${c.valor})` }}
               />
+              </Tooltip>
             ))}
           </div>
         )}
@@ -300,6 +302,7 @@ function SeccionLista({
             {/* Color (solo etiquetas) */}
             {conColor && onChangeColor && (
               <div className="relative">
+                <Tooltip contenido="Cambiar color">
                 <button type="button"
                   className="size-4 rounded-full border border-borde-sutil cursor-pointer"
                   style={{ backgroundColor: `var(--insignia-${item.color || 'neutro'})` }}
@@ -309,8 +312,8 @@ function SeccionLista({
                     const siguiente = COLORES_ETIQUETA[(idx + 1) % COLORES_ETIQUETA.length]
                     onChangeColor(item.id, siguiente.valor)
                   }}
-                  title="Cambiar color"
                 />
+                </Tooltip>
               </div>
             )}
 
