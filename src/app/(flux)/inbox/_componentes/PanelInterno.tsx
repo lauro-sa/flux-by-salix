@@ -8,7 +8,7 @@ import {
   Hash, Lock, MessageSquare, Plus, ChevronRight,
   Users, Settings, Smile, AtSign, Reply, X,
   BellOff, Bell, LogOut, Check, CheckCheck,
-  MoreHorizontal, UserPlus, Pencil, Archive,
+  MoreHorizontal, UserPlus, Pencil, Archive, SmilePlus,
 } from 'lucide-react'
 import { CompositorMensaje, type DatosMensaje } from './CompositorMensaje'
 import { useTraduccion } from '@/lib/i18n'
@@ -91,6 +91,15 @@ export function PanelInterno({
   const [hiloAbierto, setHiloAbierto] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [menuCanal, setMenuCanal] = useState(false)
+  const [pickerMsgId, setPickerMsgId] = useState<string | null>(null)
+
+  // Cerrar picker de emojis al click fuera
+  useEffect(() => {
+    if (!pickerMsgId) return
+    const cerrar = () => setPickerMsgId(null)
+    document.addEventListener('mousedown', cerrar)
+    return () => document.removeEventListener('mousedown', cerrar)
+  }, [pickerMsgId])
 
   // Auto-scroll
   useEffect(() => {
@@ -423,6 +432,8 @@ export function PanelInterno({
                           mensaje={msg}
                           esPropio={msg.remitente_id === usuarioId}
                           esDM={canalSeleccionado?.tipo === 'directo'}
+                          pickerAbierto={pickerMsgId === msg.id}
+                          onTogglePicker={() => setPickerMsgId(pickerMsgId === msg.id ? null : msg.id)}
                           onResponder={() => setRespondiendo({
                             id: msg.id,
                             texto: msg.texto || '',
@@ -609,6 +620,8 @@ function MensajeInterno({
   mensaje,
   esPropio = false,
   esDM = false,
+  pickerAbierto = false,
+  onTogglePicker,
   onResponder,
   onAbrirHilo,
   onReaccionar,
@@ -616,12 +629,13 @@ function MensajeInterno({
   mensaje: MensajeConAdjuntos
   esPropio?: boolean
   esDM?: boolean
+  pickerAbierto?: boolean
+  onTogglePicker?: () => void
   onResponder: () => void
   onAbrirHilo: () => void
   onReaccionar?: (mensajeId: string, emoji: string) => void
 }) {
   const [mostrarAcciones, setMostrarAcciones] = useState(false)
-  const [mostrarEmojis, setMostrarEmojis] = useState(false)
   const [lecturas, setLecturas] = useState<{ leido_por: { nombre: string; leido_en: string }[]; sin_leer: { nombre: string }[] } | null>(null)
   const [mostrarLecturas, setMostrarLecturas] = useState(false)
 
@@ -639,23 +653,16 @@ function MensajeInterno({
     } catch { /* silenciar */ }
   }, [mensaje.id, lecturas])
 
-  // Cerrar picker al click fuera
-  useEffect(() => {
-    if (!mostrarEmojis) return
-    const cerrar = () => setMostrarEmojis(false)
-    document.addEventListener('mousedown', cerrar)
-    return () => document.removeEventListener('mousedown', cerrar)
-  }, [mostrarEmojis])
+  const tieneReacciones = mensaje.reacciones && Object.keys(mensaje.reacciones).length > 0
 
-  // ─── Modo DM: burbujas estilo WhatsApp ───
+  // ─── Modo DM: burbujas estilo WhatsApp (mismo patrón que PanelWhatsApp) ───
   if (esDM) {
     return (
       <div className={`flex flex-col ${esPropio ? 'items-end' : 'items-start'}`}>
-        <div className="relative max-w-[75%]">
+        <div className="relative max-w-[75%] group/burbuja">
           {/* Burbuja */}
           <div
-            className="rounded-xl px-3 py-2 cursor-pointer"
-            onDoubleClick={() => setMostrarEmojis(true)}
+            className="rounded-xl px-3 py-2"
             style={{
               background: esPropio ? 'var(--texto-marca)' : 'var(--superficie-elevada)',
               color: esPropio ? '#fff' : 'var(--texto-primario)',
@@ -687,22 +694,55 @@ function MensajeInterno({
             </div>
           </div>
 
-          {/* Picker de emojis — aparece con doble click */}
+          {/* Reacciones debajo de la burbuja */}
+          {tieneReacciones && (
+            <div className={`flex gap-1 mt-0.5 ${esPropio ? 'justify-end mr-1' : 'ml-1'}`}>
+              {Object.entries(mensaje.reacciones).map(([emoji, usuarios]) => (
+                <span
+                  key={emoji}
+                  className="text-xs px-1 py-0.5 rounded-full cursor-pointer"
+                  style={{ background: 'var(--superficie-hover)' }}
+                  onClick={() => onReaccionar?.(mensaje.id, emoji)}
+                >
+                  {emoji}{(usuarios as string[]).length > 1 ? ` ${(usuarios as string[]).length}` : ''}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Botón reaccionar (hover) — igual que WhatsApp */}
+          <button
+            onClick={onTogglePicker}
+            className={`absolute top-0 p-1 rounded-full opacity-0 group-hover/burbuja:opacity-100 transition-opacity ${esPropio ? '-left-1' : '-right-1'}`}
+            style={{
+              background: 'var(--superficie-elevada)',
+              color: 'var(--texto-terciario)',
+              boxShadow: 'var(--sombra-sm)',
+            }}
+          >
+            <SmilePlus size={12} />
+          </button>
+
+          {/* Picker de emojis rápidos */}
           <AnimatePresence>
-            {mostrarEmojis && (
+            {pickerAbierto && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                className={`absolute ${esPropio ? 'right-0' : 'left-0'} -top-10 flex items-center gap-1 px-2 py-1.5 rounded-full z-50`}
-                style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
                 onMouseDown={e => e.stopPropagation()}
+                className={`absolute -top-8 flex items-center gap-0.5 px-1.5 py-1 rounded-full z-10 ${esPropio ? 'right-0' : 'left-0'}`}
+                style={{
+                  background: 'var(--superficie-elevada)',
+                  boxShadow: 'var(--sombra-md)',
+                  border: '1px solid var(--borde-sutil)',
+                }}
               >
                 {EMOJIS_RAPIDOS.map(e => (
                   <button
                     key={e}
-                    onClick={() => { onReaccionar?.(mensaje.id, e); setMostrarEmojis(false) }}
-                    className="text-base hover:scale-125 transition-transform px-0.5"
+                    onClick={() => onReaccionar?.(mensaje.id, e)}
+                    className="text-base hover:scale-125 transition-transform cursor-pointer p-0.5"
                   >
                     {e}
                   </button>
@@ -718,7 +758,7 @@ function MensajeInterno({
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
-                className="absolute top-full mt-1 rounded-lg p-2 text-xs z-50"
+                className="absolute top-full mt-1 rounded-lg p-2 text-xs z-50 min-w-[140px]"
                 style={{ background: 'var(--superficie-elevada)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', [esPropio ? 'right' : 'left']: 0 }}
               >
                 {lecturas.leido_por.length > 0 && (
@@ -742,22 +782,6 @@ function MensajeInterno({
             )}
           </AnimatePresence>
         </div>
-
-        {/* Reacciones debajo de la burbuja */}
-        {mensaje.reacciones && Object.keys(mensaje.reacciones).length > 0 && (
-          <div className={`flex gap-1 mt-0.5 ${esPropio ? 'mr-1' : 'ml-1'}`}>
-            {Object.entries(mensaje.reacciones).map(([emoji, usuarios]) => (
-              <button
-                key={emoji}
-                onClick={() => onReaccionar?.(mensaje.id, emoji)}
-                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs transition-colors"
-                style={{ background: 'var(--superficie-hover)', border: '1px solid var(--borde-sutil)' }}
-              >
-                {emoji} <span style={{ color: 'var(--texto-secundario)' }}>{(usuarios as string[]).length}</span>
-              </button>
-            ))}
-          </div>
-        )}
       </div>
     )
   }
@@ -921,13 +945,13 @@ function MensajeInterno({
             }}
           >
             <button
-              onClick={() => setMostrarEmojis(prev => !prev)}
+              onClick={onTogglePicker}
               className="p-1 rounded transition-colors"
               style={{ color: 'var(--texto-terciario)' }}
               title="Reaccionar"
               aria-label="Reaccionar"
             >
-              <Smile size={14} />
+              <SmilePlus size={14} />
             </button>
             <button
               onClick={onResponder}
@@ -943,18 +967,19 @@ function MensajeInterno({
       </AnimatePresence>
       {/* Picker de emojis rápidos (modo Slack) */}
       <AnimatePresence>
-        {mostrarEmojis && (
+        {pickerAbierto && (
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
+            onMouseDown={e => e.stopPropagation()}
             className="absolute right-2 -top-8 flex items-center gap-0.5 px-1.5 py-1 rounded-full z-50"
             style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
           >
             {EMOJIS_RAPIDOS.map(e => (
               <button
                 key={e}
-                onClick={() => { onReaccionar?.(mensaje.id, e); setMostrarEmojis(false); setMostrarAcciones(false) }}
+                onClick={() => onReaccionar?.(mensaje.id, e)}
                 className="text-sm hover:scale-125 transition-transform px-0.5"
               >
                 {e}
