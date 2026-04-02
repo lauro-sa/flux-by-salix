@@ -92,14 +92,15 @@ function ToastItem({ grupo, onDescartar, onVer }: PropsToastItem) {
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }
   }, [expandido, grupo.clave, onDescartar, cantidad])
 
+  const esGrupo = cantidad > 1
+
   return (
     <motion.div
-      layout
       initial={{ opacity: 0, y: -20, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -20, scale: 0.95 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
-      onMouseEnter={() => setExpandido(true)}
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+      onMouseEnter={() => esGrupo && setExpandido(true)}
       onMouseLeave={() => setExpandido(false)}
       className="w-[360px] border border-borde-sutil rounded-2xl shadow-elevada overflow-hidden pointer-events-auto"
       style={{ backgroundColor: 'var(--superficie-elevada)' }}
@@ -113,7 +114,7 @@ function ToastItem({ grupo, onDescartar, onVer }: PropsToastItem) {
           >
             <Icono size={18} style={{ color }} />
           </div>
-          {cantidad > 1 && (
+          {esGrupo && (
             <span
               className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-xxs font-bold text-white"
               style={{ backgroundColor: color }}
@@ -129,10 +130,10 @@ function ToastItem({ grupo, onDescartar, onVer }: PropsToastItem) {
             <span className="text-xxs text-texto-terciario">Ahora</span>
           </div>
           <p className="text-sm font-medium text-texto-primario mt-0.5 truncate">{ultima.titulo}</p>
-          {!expandido && ultima.cuerpo && (
+          {ultima.cuerpo && (
             <p className="text-xs text-texto-terciario mt-0.5 truncate">{ultima.cuerpo}</p>
           )}
-          {!expandido && cantidad > 1 && (
+          {!expandido && esGrupo && (
             <p className="text-xxs mt-1 flex items-center gap-1" style={{ color }}>
               <ChevronDown size={10} /> +{cantidad - 1} mensaje{cantidad > 2 ? 's' : ''} más
             </p>
@@ -147,63 +148,59 @@ function ToastItem({ grupo, onDescartar, onVer }: PropsToastItem) {
         </button>
       </div>
 
-      {/* Lista expandida al hover */}
-      <AnimatePresence>
-        {expandido && cantidad > 0 && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
+      {/* Lista expandida al hover (solo si hay más de 1 mensaje) */}
+      {esGrupo && (
+        <div
+          className="border-t border-borde-sutil overflow-hidden transition-all duration-200 ease-out"
+          style={{
+            maxHeight: expandido ? '200px' : '0px',
+            opacity: expandido ? 1 : 0,
+          }}
+        >
+          <div
+            className="max-h-[200px] overflow-y-auto"
+            style={{ scrollbarWidth: 'thin' }}
           >
-            <div
-              className="border-t border-borde-sutil max-h-[200px] overflow-y-auto"
-              style={{ scrollbarWidth: 'thin' }}
-            >
-              {todas.map((n) => (
-                <button
-                  key={n.id}
-                  onClick={() => onVer(n)}
-                  className="w-full flex items-start gap-2.5 px-3.5 py-2 text-left hover:bg-superficie-hover transition-colors bg-transparent border-none cursor-pointer"
-                  style={{ borderBottom: '1px solid var(--borde-sutil)' }}
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-texto-primario truncate">{n.titulo}</p>
-                    {n.cuerpo && (
-                      <p className="text-xxs text-texto-terciario mt-0.5 truncate">{n.cuerpo}</p>
-                    )}
-                  </div>
-                  <span className="text-xxs text-texto-marca shrink-0 mt-0.5">Ver</span>
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Botón descartar (solo si no está expandido, si expandido los items son clickeables) */}
-      {!expandido && (
-        <div className="flex border-t border-borde-sutil">
-          <button
-            onClick={() => onDescartar(grupo.clave)}
-            className="flex-1 py-2 text-xs font-medium text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors"
-          >
-            Descartar
-          </button>
-          {ultima.url && (
-            <>
-              <div className="w-px bg-borde-sutil" />
+            {todas.map((n, i) => (
               <button
-                onClick={() => onVer(ultima)}
-                className="flex-1 py-2 text-xs font-medium text-texto-marca hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors"
+                key={n.id}
+                onClick={() => onVer(n)}
+                className="w-full flex items-start gap-2.5 px-3.5 py-2 text-left hover:bg-superficie-hover transition-colors bg-transparent border-none cursor-pointer"
+                style={i < todas.length - 1 ? { borderBottom: '1px solid var(--borde-sutil)' } : undefined}
               >
-                Ver
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-texto-primario truncate">{n.titulo}</p>
+                  {n.cuerpo && (
+                    <p className="text-xxs text-texto-terciario mt-0.5 truncate">{n.cuerpo}</p>
+                  )}
+                </div>
+                <span className="text-xxs text-texto-marca shrink-0 mt-0.5">Ver</span>
               </button>
-            </>
-          )}
+            ))}
+          </div>
         </div>
       )}
+
+      {/* Botones de acción */}
+      <div className="flex border-t border-borde-sutil">
+        <button
+          onClick={() => onDescartar(grupo.clave)}
+          className="flex-1 py-2 text-xs font-medium text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors"
+        >
+          Descartar
+        </button>
+        {ultima.url && (
+          <>
+            <div className="w-px bg-borde-sutil" />
+            <button
+              onClick={() => onVer(ultima)}
+              className="flex-1 py-2 text-xs font-medium text-texto-marca hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors"
+            >
+              Ver
+            </button>
+          </>
+        )}
+      </div>
     </motion.div>
   )
 }
