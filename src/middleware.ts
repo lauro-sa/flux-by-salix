@@ -27,19 +27,26 @@ export async function middleware(request: NextRequest) {
   // Crear cliente Supabase y refrescar sesión
   const { supabase, response } = await crearClienteMiddleware(request)
 
-  // getUser() valida el token con Supabase y refresca si expiró.
-  // Wrapeamos con timeout para evitar MIDDLEWARE_INVOCATION_TIMEOUT en Vercel.
+  // getUser() valida y refresca el token con Supabase.
+  // Sin esto, las API routes reciben tokens expirados y devuelven 401.
+  // Si falla o tarda demasiado (>5s), usamos getSession() como fallback.
   let user = null
   try {
-    const resultado = await Promise.race([
+    const { data: { user: usuarioValidado } } = await Promise.race([
       supabase.auth.getUser(),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 1200)),
+      new Promise<{ data: { user: null } }>((resolve) =>
+        setTimeout(() => resolve({ data: { user: null } }), 5000)
+      ),
     ])
-    if (resultado && 'data' in resultado) {
-      user = resultado.data.user
-    }
+    user = usuarioValidado
   } catch {
-    // Si falla la validación, tratar como sin sesión
+    // Fallback: leer sesión de cookies (sin validar, pero mejor que nada)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      user = session?.user ?? null
+    } catch {
+      // Sin sesión
+    }
   }
 
   // Extraer subdominio

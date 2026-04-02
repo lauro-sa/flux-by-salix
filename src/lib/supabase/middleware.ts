@@ -7,7 +7,7 @@ import { NextResponse, type NextRequest } from 'next/server'
  * Se usa en: src/middleware.ts
  */
 export async function crearClienteMiddleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request })
+  const supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,8 +22,7 @@ export async function crearClienteMiddleware(request: NextRequest) {
           cookiesParaSetear.forEach(({ name, value }) => {
             request.cookies.set(name, value)
           })
-          // Crear nueva respuesta con las cookies actualizadas
-          supabaseResponse = NextResponse.next({ request })
+          // Setear en la respuesta existente (no recrear para no perder headers)
           cookiesParaSetear.forEach(({ name, value, options }) => {
             supabaseResponse.cookies.set(name, value, options)
           })
