@@ -289,53 +289,85 @@ function PaginaInbox() {
     if (convParamAnteriorRef.current === convId) return
     convParamAnteriorRef.current = convId
 
-    // Obtener la conversación por ID y abrirla en el tab correcto
+    // Abrir conversación por ID — optimizado para mínima latencia
     const abrirDesdeUrl = async () => {
       try {
-        const res = await fetch(`/api/inbox/conversaciones/${convId}`)
-        if (!res.ok) return
-        const data = await res.json()
-        const conv = data.conversacion
+        // Si ya sabemos el tab desde la URL, cambiar inmediatamente (sin esperar fetch)
+        if (tabParam === 'interno' || tabParam === 'correo' || tabParam === 'whatsapp') {
+          setTabActivo(tabParam as TipoCanal)
+        }
+
+        setCargandoMensajes(true)
+
+        // Lanzar todas las peticiones en paralelo
+        const promesas: Promise<unknown>[] = [
+          fetch(`/api/inbox/conversaciones/${convId}`),
+          fetch(`/api/inbox/mensajes?conversacion_id=${convId}&por_pagina=200`),
+        ]
+        // Si es interno, cargar canales en paralelo también
+        if (tabParam === 'interno') {
+          promesas.push(fetch('/api/inbox/internos'))
+        }
+
+        const [resConv, resMsgs, resInternos] = await Promise.all(promesas) as Response[]
+
+        // Procesar conversación
+        const dataConv = await resConv.json()
+        const conv = dataConv.conversacion
         if (!conv) return
 
-        // Determinar el tab correcto usando tipo_canal de la conversación
-        const tipoCanal = (conv.tipo_canal || conv.canal?.tipo) as TipoCanal | undefined
-        if (tipoCanal) setTabActivo(tipoCanal)
+        // Si no teníamos tab de la URL, determinarlo de la conversación
+        if (!tabParam) {
+          const tipoCanal = (conv.tipo_canal || conv.canal?.tipo) as TipoCanal | undefined
+          if (tipoCanal) setTabActivo(tipoCanal)
 
-        // Si es canal interno, necesitamos cargar el canal y seleccionarlo
-        if (tipoCanal === 'interno' && conv.canal_interno_id) {
+          // Si resulta ser interno y no cargamos canales, hacerlo ahora
+          if (tipoCanal === 'interno' && conv.canal_interno_id) {
+            try {
+              const resInt = await fetch('/api/inbox/internos')
+              const dataInt = await resInt.json()
+              const todos = [...(dataInt.canales || []), ...(dataInt.grupos || []), ...(dataInt.privados || [])] as CanalInterno[]
+              const ci = todos.find((c) => c.id === conv.canal_interno_id)
+              if (ci) setCanalInternoSeleccionado(ci)
+              setCanalesPublicos(dataInt.canales || [])
+              setCanalesGrupos(dataInt.grupos || [])
+              setCanalesPrivados(dataInt.privados || [])
+              canalesInternosCargadosRef.current = true
+            } catch { /* silenciar */ }
+          }
+        }
+
+        // Procesar canales internos (si se cargaron en paralelo)
+        if (resInternos && conv.canal_interno_id) {
           try {
-            await cargarCanalesInternos()
-            const resInternos = await fetch('/api/inbox/internos')
-            const dataInternos = await resInternos.json()
-            const todosCanales = [
-              ...(dataInternos.canales || []),
-              ...(dataInternos.grupos || []),
-              ...(dataInternos.privados || []),
-            ] as CanalInterno[]
-            const canalInterno = todosCanales.find((c) => c.id === conv.canal_interno_id)
-            if (canalInterno) setCanalInternoSeleccionado(canalInterno)
+            const dataInt = await resInternos.json()
+            const todos = [...(dataInt.canales || []), ...(dataInt.grupos || []), ...(dataInt.privados || [])] as CanalInterno[]
+            const ci = todos.find((c) => c.id === conv.canal_interno_id)
+            if (ci) setCanalInternoSeleccionado(ci)
+            setCanalesPublicos(dataInt.canales || [])
+            setCanalesGrupos(dataInt.grupos || [])
+            setCanalesPrivados(dataInt.privados || [])
+            canalesInternosCargadosRef.current = true
           } catch { /* silenciar */ }
         }
 
-        // Seleccionar la conversación y cargar sus mensajes
+        // Procesar mensajes
+        const dataMsgs = await resMsgs.json()
+        const msgs = dataMsgs.mensajes || []
         setConversacionSeleccionada(conv)
-        marcarNotificacionesLeidasDeConversacion(convId)
-        setCargandoMensajes(true)
-        try {
-          const resMsgs = await fetch(`/api/inbox/mensajes?conversacion_id=${convId}&por_pagina=200`)
-          const dataMsgs = await resMsgs.json()
-          const msgs = dataMsgs.mensajes || []
-          setMensajes(msgs)
-          setHayMasAnteriores((dataMsgs.total || 0) > msgs.length)
-        } finally {
-          setCargandoMensajes(false)
-        }
+        setMensajes(msgs)
+        setHayMasAnteriores((dataMsgs.total || 0) > msgs.length)
+        setCargandoMensajes(false)
 
-        // Limpiar params de la URL sin recargar
+        // Fire-and-forget: marcar notificaciones como leídas
+        marcarNotificacionesLeidasDeConversacion(convId)
+
+        // Limpiar params de la URL
         window.history.replaceState({}, '', window.location.pathname)
         convParamAnteriorRef.current = null
-      } catch { /* silenciar */ }
+      } catch {
+        setCargandoMensajes(false)
+      }
     }
     abrirDesdeUrl()
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -210,7 +210,7 @@ export async function POST(request: NextRequest) {
                 cuerpo: (texto || '').slice(0, 120),
                 icono: 'MessageSquare',
                 color: 'var(--canal-interno)',
-                url: `/inbox?conv=${conversacion_id}`,
+                url: `/inbox?conv=${conversacion_id}&tab=interno`,
                 referenciaTipo: 'conversacion',
                 referenciaId: conversacion_id,
               }))
