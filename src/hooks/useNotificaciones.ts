@@ -113,6 +113,9 @@ interface OpcionesNotificaciones {
   estaSilenciada?: (categoria: CategoriaNotificacion) => boolean
 }
 
+/* Contador global para generar nombres de canal únicos por instancia */
+let contadorInstancia = 0
+
 function useNotificaciones(opciones: OpcionesNotificaciones = {}) {
   const { deshabilitado = false, onNueva, estaSilenciada } = opciones
 
@@ -121,6 +124,21 @@ function useNotificaciones(opciones: OpcionesNotificaciones = {}) {
   const [error, setError] = useState<string | null>(null)
   const [prefs, setPrefs] = useState<PrefsNotificacion>(PREFS_DEFAULT)
   const canalRef = useRef<RealtimeChannel | null>(null)
+
+  /* Refs para evitar closures stale en el callback de Realtime */
+  const onNuevaRef = useRef(onNueva)
+  onNuevaRef.current = onNueva
+  const estaSilenciadaRef = useRef(estaSilenciada)
+  estaSilenciadaRef.current = estaSilenciada
+  const prefsRef = useRef(prefs)
+  prefsRef.current = prefs
+
+  /* ID único por instancia del hook (para nombre de canal Realtime) */
+  const instanciaIdRef = useRef<number>(0)
+  if (instanciaIdRef.current === 0) {
+    contadorInstancia += 1
+    instanciaIdRef.current = contadorInstancia
+  }
 
   /* Cargar preferencias */
   useEffect(() => { setPrefs(leerPrefs()) }, [])
@@ -134,21 +152,22 @@ function useNotificaciones(opciones: OpcionesNotificaciones = {}) {
     })
   }, [])
 
-  /* Reproducir sonido si corresponde */
+  /* Reproducir sonido si corresponde (usa refs para valores frescos) */
   const reproducirSonido = useCallback((n: Notificacion) => {
-    if (!prefs.sonidoGlobal) return
+    const p = prefsRef.current
+    if (!p.sonidoGlobal) return
     const categoria = categorizarNotificacion(n.tipo)
 
     /* Respetar modo concentración */
-    if (estaSilenciada?.(categoria)) return
+    if (estaSilenciadaRef.current?.(categoria)) return
 
     /* Respetar config por categoría */
-    if (categoria === 'inbox' && !prefs.sonidoInbox) return
-    if (categoria === 'actividades' && !prefs.sonidoActividades) return
-    if (categoria === 'sistema' && !prefs.sonidoSistema) return
+    if (categoria === 'inbox' && !p.sonidoInbox) return
+    if (categoria === 'actividades' && !p.sonidoActividades) return
+    if (categoria === 'sistema' && !p.sonidoSistema) return
 
     sonidos.notificacion()
-  }, [prefs, estaSilenciada])
+  }, [])
 
   /* Obtener notificaciones (fetch inicial) */
   const obtener = useCallback(async () => {
@@ -167,68 +186,103 @@ function useNotificaciones(opciones: OpcionesNotificaciones = {}) {
     }
   }, [deshabilitado, notificaciones.length])
 
+  /* Ref persistente para el ID del usuario actual */
+  const usuarioIdRef = useRef<string | null>(null)
+
   /* Fetch inicial + Supabase Realtime */
   useEffect(() => {
     if (deshabilitado) return
 
-    obtener()
-
-    /* Suscribirse a inserts en la tabla notificaciones */
     const supabase = crearClienteNavegador()
-    const canal = supabase
-      .channel('notificaciones_realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notificaciones',
-        },
-        (payload) => {
-          const nueva = payload.new as Notificacion
-          /* Agregar al inicio de la lista */
-          setNotificaciones((prev) => {
-            /* Anti-duplicación: si ya existe, no agregar */
-            if (prev.some((n) => n.id === nueva.id)) return prev
-            return [nueva, ...prev]
-          })
-          /* Sonido + callback */
-          reproducirSonido(nueva)
-          onNueva?.(nueva)
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'notificaciones',
-        },
-        (payload) => {
-          const actualizada = payload.new as Notificacion
-          setNotificaciones((prev) =>
-            prev.map((n) => n.id === actualizada.id ? actualizada : n)
-          )
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'notificaciones',
-        },
-        (payload) => {
-          const eliminadaId = (payload.old as { id: string }).id
-          setNotificaciones((prev) => prev.filter((n) => n.id !== eliminadaId))
-        }
-      )
-      .subscribe()
 
-    canalRef.current = canal
+    /* Obtener user ID de forma rápida (sesión en cache) + fetch de notificaciones */
+    const inicializar = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        usuarioIdRef.current = session?.user?.id || null
+      } catch { /* silenciar */ }
+
+      /* Si no se pudo obtener de sesión, intentar con getUser */
+      if (!usuarioIdRef.current) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser()
+          usuarioIdRef.current = user?.id || null
+        } catch { /* silenciar */ }
+      }
+
+      await obtener()
+
+      /* Extraer user ID de las notificaciones cargadas como último recurso */
+      if (!usuarioIdRef.current) {
+        setNotificaciones((prev) => {
+          if (prev.length > 0 && prev[0].usuario_id) {
+            usuarioIdRef.current = prev[0].usuario_id
+          }
+          return prev
+        })
+      }
+
+      /* Suscribirse a cambios en la tabla notificaciones */
+      const uid = usuarioIdRef.current
+      const nombreCanal = `notificaciones_realtime_${instanciaIdRef.current}`
+      const canalRT = supabase
+        .channel(nombreCanal)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notificaciones',
+            ...(uid ? { filter: `usuario_id=eq.${uid}` } : {}),
+          },
+          (payload) => {
+            const nueva = payload.new as Notificacion
+            /* Filtrar notificaciones de otros usuarios (seguridad client-side) */
+            if (usuarioIdRef.current && nueva.usuario_id !== usuarioIdRef.current) return
+            setNotificaciones((prev) => {
+              if (prev.some((n) => n.id === nueva.id)) return prev
+              return [nueva, ...prev]
+            })
+            reproducirSonido(nueva)
+            onNuevaRef.current?.(nueva)
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'notificaciones',
+            ...(uid ? { filter: `usuario_id=eq.${uid}` } : {}),
+          },
+          (payload) => {
+            const actualizada = payload.new as Notificacion
+            setNotificaciones((prev) =>
+              prev.map((n) => n.id === actualizada.id ? actualizada : n)
+            )
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'notificaciones',
+          },
+          (payload) => {
+            const eliminadaId = (payload.old as { id: string }).id
+            setNotificaciones((prev) => prev.filter((n) => n.id !== eliminadaId))
+          }
+        )
+        .subscribe()
+
+      canalRef.current = canalRT
+    }
+
+    inicializar()
 
     return () => {
-      canal.unsubscribe()
+      canalRef.current?.unsubscribe()
       canalRef.current = null
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

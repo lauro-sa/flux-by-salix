@@ -59,6 +59,7 @@ export default function PaginaInbox() {
 
   // Estado global del inbox
   const [tabActivo, setTabActivo] = useState<TipoCanal>('whatsapp')
+  const [configCargada, setConfigCargada] = useState(false)
   const [modulosActivos, setModulosActivos] = useState<Set<string>>(
     new Set(['inbox_whatsapp', 'inbox_correo', 'inbox_interno']) // Por defecto todos activos
   )
@@ -172,7 +173,7 @@ export default function PaginaInbox() {
   const busquedaRef = useRef(busqueda)
   busquedaRef.current = busqueda
 
-  // Cargar módulos activos de la empresa
+  // Cargar módulos activos de la empresa (ANTES de cargar conversaciones)
   useEffect(() => {
     const cargarConfig = async () => {
       try {
@@ -199,6 +200,9 @@ export default function PaginaInbox() {
         }
       } catch {
         // Si falla, mantener todos activos por defecto
+      } finally {
+        // Marcar config como cargada para habilitar fetch de conversaciones
+        setConfigCargada(true)
       }
     }
     cargarConfig()
@@ -231,6 +235,10 @@ export default function PaginaInbox() {
 
   // Cargar conversaciones cuando cambia el tab, filtros o carpeta de correo
   const cargarConversaciones = useCallback(async () => {
+    // No cargar hasta que la config esté lista
+    if (!configCargada) return
+    // Para correo, esperar a que haya canal activo (evita doble fetch)
+    if (tabActivo === 'correo' && !canalTodas && !canalCorreoActivo) return
     setCargandoConversaciones(true)
     try {
       const params = construirParamsConversaciones()
@@ -243,23 +251,93 @@ export default function PaginaInbox() {
     } finally {
       setCargandoConversaciones(false)
     }
-  }, [construirParamsConversaciones])
+  }, [construirParamsConversaciones, configCargada, tabActivo, canalCorreoActivo, canalTodas])
 
   useEffect(() => {
     cargarConversaciones()
   }, [cargarConversaciones])
 
+  // Abrir conversación desde URL (?conv=xxx) cuando se navega desde una notificación
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const convId = params.get('conv')
+    const tabParam = params.get('tab')
+
+    // Si solo pide cambiar de tab sin conversación específica
+    if (tabParam && !convId) {
+      if (tabParam === 'interno' || tabParam === 'correo' || tabParam === 'whatsapp') {
+        setTabActivo(tabParam as TipoCanal)
+      }
+      // Limpiar params de la URL
+      window.history.replaceState({}, '', window.location.pathname)
+      return
+    }
+
+    if (!convId) return
+
+    // Obtener la conversación por ID y abrirla en el tab correcto
+    const abrirDesdeUrl = async () => {
+      try {
+        const res = await fetch(`/api/inbox/conversaciones/${convId}`)
+        if (!res.ok) return
+        const data = await res.json()
+        const conv = data.conversacion
+        if (!conv) return
+
+        // Determinar el tab correcto según el tipo de canal
+        const tipoCanal = conv.canal?.tipo as TipoCanal | undefined
+        if (tipoCanal) setTabActivo(tipoCanal)
+
+        // Si es canal interno, necesitamos cargar el canal y seleccionarlo
+        if (tipoCanal === 'interno' && conv.canal_interno_id) {
+          try {
+            const resInternos = await fetch('/api/inbox/internos')
+            const dataInternos = await resInternos.json()
+            const todosCanales = [
+              ...(dataInternos.canales || []),
+              ...(dataInternos.grupos || []),
+              ...(dataInternos.privados || []),
+            ] as CanalInterno[]
+            const canalInterno = todosCanales.find((c) => c.id === conv.canal_interno_id)
+            if (canalInterno) setCanalInternoSeleccionado(canalInterno)
+          } catch { /* silenciar */ }
+        }
+
+        // Seleccionar la conversación y cargar sus mensajes
+        setConversacionSeleccionada(conv)
+        // Marcar notificaciones de esta conversación como leídas
+        marcarNotificacionesLeidasDeConversacion(convId)
+        setCargandoMensajes(true)
+        try {
+          const resMsgs = await fetch(`/api/inbox/mensajes?conversacion_id=${convId}&por_pagina=200`)
+          const dataMsgs = await resMsgs.json()
+          const msgs = dataMsgs.mensajes || []
+          setMensajes(msgs)
+          setHayMasAnteriores((dataMsgs.total || 0) > msgs.length)
+        } finally {
+          setCargandoMensajes(false)
+        }
+
+        // Limpiar params de la URL sin recargar
+        window.history.replaceState({}, '', window.location.pathname)
+      } catch { /* silenciar */ }
+    }
+    abrirDesdeUrl()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Búsqueda con debounce
   const montadoRef = useRef(false)
   useEffect(() => {
     if (!montadoRef.current) { montadoRef.current = true; return }
+    if (!configCargada) return
     const timeout = setTimeout(() => cargarConversaciones(), 300)
     return () => clearTimeout(timeout)
-  }, [busqueda, cargarConversaciones])
+  }, [busqueda, cargarConversaciones, configCargada])
 
-  // Cargar canales de correo cuando se activa el tab
+  // Cargar canales de correo cuando se activa el tab (después de config)
   useEffect(() => {
-    if (tabActivo !== 'correo') return
+    if (tabActivo !== 'correo' || !configCargada) return
     const cargar = async () => {
       try {
         const res = await fetch('/api/inbox/canales?tipo=correo')
@@ -279,7 +357,7 @@ export default function PaginaInbox() {
       }
     }
     cargar()
-  }, [tabActivo])
+  }, [tabActivo, configCargada])
 
   // Cargar contadores de no leídos (endpoint dedicado, eficiente)
   const cargarContadores = useCallback(async () => {
@@ -291,12 +369,12 @@ export default function PaginaInbox() {
   }, [])
 
   useEffect(() => {
-    if (tabActivo !== 'correo') return
+    if (tabActivo !== 'correo' || !configCargada) return
     cargarContadores()
     // Refrescar contadores cada 30 segundos
     const intervalo = setInterval(cargarContadores, 30000)
     return () => clearInterval(intervalo)
-  }, [tabActivo, cargarContadores])
+  }, [tabActivo, cargarContadores, configCargada])
 
   // Sincronizar correos manualmente (llama al endpoint que trae correos nuevos de Gmail/IMAP)
   const sincronizandoRef = useRef(false)
@@ -320,10 +398,10 @@ export default function PaginaInbox() {
 
   // Auto-sincronizar correos cada 30 segundos
   useEffect(() => {
-    if (tabActivo !== 'correo') return
+    if (tabActivo !== 'correo' || !configCargada) return
     const intervalo = setInterval(sincronizarCorreos, 30000)
     return () => clearInterval(intervalo)
-  }, [tabActivo, sincronizarCorreos])
+  }, [tabActivo, sincronizarCorreos, configCargada])
 
   // Obtener userId del usuario autenticado
   useEffect(() => {
@@ -333,6 +411,7 @@ export default function PaginaInbox() {
   }, [supabase])
 
   // Cargar canales internos
+  const canalesInternosCargadosRef = useRef(false)
   const cargarCanalesInternos = useCallback(async () => {
     try {
       const res = await fetch('/api/inbox/internos')
@@ -340,15 +419,29 @@ export default function PaginaInbox() {
       setCanalesPublicos(data.canales || [])
       setCanalesGrupos(data.grupos || [])
       setCanalesPrivados(data.privados || [])
+      canalesInternosCargadosRef.current = true
     } catch {
       // silenciar
     }
   }, [])
 
   useEffect(() => {
-    if (tabActivo !== 'interno') return
+    if (tabActivo !== 'interno' || !configCargada) return
     cargarCanalesInternos()
-  }, [tabActivo, cargarCanalesInternos])
+  }, [tabActivo, cargarCanalesInternos, configCargada])
+
+  // Sincronizar: si el canal seleccionado ya no existe en las listas, deseleccionar
+  useEffect(() => {
+    if (!canalInternoSeleccionado) return
+    if (!canalesInternosCargadosRef.current) return // aún no cargados
+    const todosLosCanales = [...canalesPublicos, ...canalesPrivados, ...canalesGrupos]
+    const existe = todosLosCanales.some(c => c.id === canalInternoSeleccionado.id)
+    if (!existe) {
+      setCanalInternoSeleccionado(null)
+      setConversacionSeleccionada(null)
+      setMensajes([])
+    }
+  }, [canalesPublicos, canalesPrivados, canalesGrupos, canalInternoSeleccionado])
 
   // Cuando se selecciona un canal interno, buscar/crear conversación y cargar mensajes
   useEffect(() => {
@@ -365,6 +458,8 @@ export default function PaginaInbox() {
         const data = await res.json()
         if (data.conversacion) {
           setConversacionSeleccionada(data.conversacion)
+          // Marcar notificaciones de esta conversación como leídas
+          marcarNotificacionesLeidasDeConversacion(data.conversacion.id)
           // Cargar mensajes de esa conversación
           const resMsgs = await fetch(`/api/inbox/mensajes?conversacion_id=${data.conversacion.id}&por_pagina=200`)
           const dataMsgs = await resMsgs.json()
@@ -381,12 +476,24 @@ export default function PaginaInbox() {
     cargar()
   }, [tabActivo, canalInternoSeleccionado?.id])
 
+  // Marcar notificaciones de una conversación como leídas (fire-and-forget)
+  const marcarNotificacionesLeidasDeConversacion = useCallback((conversacionId: string) => {
+    fetch('/api/inbox/notificaciones', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ referencia_id: conversacionId }),
+    }).catch(() => { /* silenciar */ })
+  }, [])
+
   // Seleccionar conversación y cargar mensajes
   const seleccionarConversacion = useCallback(async (id: string) => {
     setRedactandoNuevo(false)
     const conv = conversaciones.find(c => c.id === id) || null
     setConversacionSeleccionada(conv)
     if (!conv) return
+
+    // Marcar notificaciones de esta conversación como leídas
+    marcarNotificacionesLeidasDeConversacion(id)
 
     setCargandoMensajes(true)
     paginaMensajesRef.current = 1
@@ -403,7 +510,7 @@ export default function PaginaInbox() {
     } finally {
       setCargandoMensajes(false)
     }
-  }, [conversaciones])
+  }, [conversaciones, marcarNotificacionesLeidasDeConversacion])
 
   // Cargar mensajes anteriores (scroll infinito)
   const cargarMensajesAnteriores = useCallback(async () => {
@@ -813,6 +920,7 @@ export default function PaginaInbox() {
       if (conversacionSeleccionada?.id === conversacionId) {
         setConversacionSeleccionada(null)
         setMensajes([])
+        setCanalInternoSeleccionado(null)
       }
       mostrar('exito', 'Conversación eliminada')
     } catch {
@@ -832,6 +940,8 @@ export default function PaginaInbox() {
       if (conversacionSeleccionada?.id === conversacionId) {
         setConversacionSeleccionada(null)
         setMensajes([])
+        // Limpiar canal interno seleccionado para cerrar el panel completamente
+        setCanalInternoSeleccionado(null)
       }
       mostrar('exito', 'Conversación archivada')
     } catch {
@@ -930,6 +1040,7 @@ export default function PaginaInbox() {
   // Usa los MISMOS filtros que cargarConversaciones para no pisar datos.
   // Solo hace polling si la pestaña está visible (ahorra batería y ancho de banda).
   useEffect(() => {
+    if (!configCargada) return
     let cancelado = false
     const abortController = new AbortController()
 
@@ -961,7 +1072,7 @@ export default function PaginaInbox() {
       abortController.abort()
       clearInterval(intervalo)
     }
-  }, [construirParamsConversaciones, conversacionSeleccionada?.id])
+  }, [construirParamsConversaciones, conversacionSeleccionada?.id, configCargada])
 
   // Extraer firma del canal de correo activo
   const firmaCorreo = useMemo(() => {
@@ -1416,7 +1527,13 @@ export default function PaginaInbox() {
                 canalesPrivados={canalesPrivados}
                 canalesGrupos={canalesGrupos}
                 canalSeleccionado={canalInternoSeleccionado}
-                onSeleccionarCanal={setCanalInternoSeleccionado}
+                onSeleccionarCanal={(canal) => {
+                  setCanalInternoSeleccionado(canal)
+                  if (!canal) {
+                    setConversacionSeleccionada(null)
+                    setMensajes([])
+                  }
+                }}
                 onCrearCanal={() => setModalCrearInterno(true)}
                 onEnviar={enviarMensaje}
                 cargando={cargandoMensajes}
@@ -1429,7 +1546,13 @@ export default function PaginaInbox() {
             <ModalCrearCanalInterno
               abierto={modalCrearInterno}
               onCerrar={() => setModalCrearInterno(false)}
-              onCreado={cargarCanalesInternos}
+              onCreado={async (canalCreado?: CanalInterno) => {
+                await cargarCanalesInternos()
+                // Auto-seleccionar el canal recién creado para abrir la conversación
+                if (canalCreado) {
+                  setCanalInternoSeleccionado(canalCreado)
+                }
+              }}
             />
           </>
         )}

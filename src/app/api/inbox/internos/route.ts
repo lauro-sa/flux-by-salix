@@ -157,6 +157,14 @@ export async function POST(request: NextRequest) {
       })
 
       if (existente) {
+        // Si el DM estaba archivado, desarchivarlo al reabrir
+        if (existente.archivado) {
+          await admin
+            .from('canales_internos')
+            .update({ archivado: false, actualizado_en: new Date().toISOString() })
+            .eq('id', existente.id)
+          existente.archivado = false
+        }
         return NextResponse.json({ canal: existente })
       }
     }

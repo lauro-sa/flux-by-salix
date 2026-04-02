@@ -28,19 +28,23 @@ export async function GET(request: NextRequest) {
 
     if (solo_no_leidas) query = query.eq('leida', false)
 
-    const { data, count, error } = await query
-      .order('creada_en', { ascending: false })
-      .limit(limite)
+    // Ejecutar ambas queries en paralelo para reducir latencia
+    const [resultado, conteoNoLeidas] = await Promise.all([
+      query
+        .order('creada_en', { ascending: false })
+        .limit(limite),
+      admin
+        .from('notificaciones')
+        .select('*', { count: 'exact', head: true })
+        .eq('empresa_id', empresaId)
+        .eq('usuario_id', user.id)
+        .eq('leida', false),
+    ])
 
+    const { data, count, error } = resultado
     if (error) throw error
 
-    // Contar no leídas
-    const { count: noLeidas } = await admin
-      .from('notificaciones')
-      .select('*', { count: 'exact', head: true })
-      .eq('empresa_id', empresaId)
-      .eq('usuario_id', user.id)
-      .eq('leida', false)
+    const noLeidas = conteoNoLeidas.count
 
     return NextResponse.json({
       notificaciones: data || [],
@@ -75,6 +79,15 @@ export async function PATCH(request: NextRequest) {
         .update({ leida: true })
         .eq('empresa_id', empresaId)
         .eq('usuario_id', user.id)
+        .eq('leida', false)
+    } else if (body.referencia_id) {
+      // Marcar como leídas todas las notificaciones de una referencia (ej. conversación)
+      await admin
+        .from('notificaciones')
+        .update({ leida: true })
+        .eq('empresa_id', empresaId)
+        .eq('usuario_id', user.id)
+        .eq('referencia_id', body.referencia_id)
         .eq('leida', false)
     } else if (body.ids && body.ids.length > 0) {
       await admin

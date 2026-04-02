@@ -27,7 +27,7 @@ interface PropiedadesPanelInterno {
   canalesPrivados: CanalInterno[]
   canalesGrupos?: CanalInterno[]
   canalSeleccionado: CanalInterno | null
-  onSeleccionarCanal: (canal: CanalInterno) => void
+  onSeleccionarCanal: (canal: CanalInterno | null) => void
   onCrearCanal: () => void
   onEnviar: (datos: DatosMensaje) => void
   cargando: boolean
@@ -149,6 +149,9 @@ export function PanelInterno({
       })
       if (res.ok) {
         mostrar('exito', `Saliste de ${canal.nombre}`)
+        if (canalSeleccionado?.id === canal.id) {
+          onSeleccionarCanal(null)
+        }
         onRecargarCanales?.()
       } else {
         const data = await res.json()
@@ -157,7 +160,7 @@ export function PanelInterno({
     } catch {
       mostrar('error', 'Error de conexión')
     }
-  }, [mostrar, onRecargarCanales])
+  }, [mostrar, onRecargarCanales, canalSeleccionado, onSeleccionarCanal])
 
   // Archivar canal
   const archivarCanal = useCallback(async (canal: CanalInterno) => {
@@ -166,6 +169,10 @@ export function PanelInterno({
       const res = await fetch(`/api/inbox/internos/${canal.id}`, { method: 'DELETE' })
       if (res.ok) {
         mostrar('exito', `"${canal.nombre}" archivado`)
+        // Si el canal archivado es el seleccionado, deseleccionar y limpiar chat
+        if (canalSeleccionado?.id === canal.id) {
+          onSeleccionarCanal(null)
+        }
         onRecargarCanales?.()
       } else {
         const data = await res.json()
@@ -174,7 +181,7 @@ export function PanelInterno({
     } catch {
       mostrar('error', 'Error de conexión')
     }
-  }, [mostrar, onRecargarCanales])
+  }, [mostrar, onRecargarCanales, canalSeleccionado, onSeleccionarCanal])
 
   // Reaccionar: usa la función del padre (optimistic update) + cierra picker
   const reaccionar = useCallback((mensajeId: string, emoji: string) => {

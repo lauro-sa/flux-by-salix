@@ -18,7 +18,8 @@ import type { TipoCanalInterno } from '@/tipos/inbox'
 interface PropiedadesModal {
   abierto: boolean
   onCerrar: () => void
-  onCreado: () => void
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onCreado: (canal?: any) => void
 }
 
 interface UsuarioBuscable {
@@ -186,9 +187,10 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
       })
 
       if (res.ok) {
+        const data = await res.json()
         const tipoLabel = tipo === 'directo' ? 'Conversación iniciada' : tipo === 'grupo' ? 'Grupo creado' : 'Canal creado'
         mostrar('exito', tipoLabel)
-        onCreado()
+        onCreado(data.canal || undefined)
         onCerrar()
       } else {
         const data = await res.json()
