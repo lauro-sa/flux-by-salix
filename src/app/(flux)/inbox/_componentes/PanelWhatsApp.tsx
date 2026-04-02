@@ -42,6 +42,8 @@ interface PropiedadesPanelWhatsApp {
   hayMasAnteriores?: boolean
   /** Si se están cargando mensajes anteriores */
   cargandoAnteriores?: boolean
+  /** Callback para reaccionar a un mensaje (optimistic update) */
+  onReaccionar?: (mensajeId: string, emoji: string) => void
 }
 
 // Iconos de estado de entrega
@@ -210,6 +212,7 @@ export function PanelWhatsApp({
   onCargarAnteriores,
   hayMasAnteriores = false,
   cargandoAnteriores = false,
+  onReaccionar,
 }: PropiedadesPanelWhatsApp) {
   const { t } = useTraduccion()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -894,15 +897,7 @@ export function PanelWhatsApp({
                             key={emoji}
                             onClick={() => {
                               setPickerMsgId(null)
-                              fetch('/api/inbox/whatsapp/reaccion', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  conversacion_id: conversacion.id,
-                                  mensaje_id: msg.id,
-                                  emoji,
-                                }),
-                              })
+                              onReaccionar?.(msg.id, emoji)
                             }}
                             className="text-base hover:scale-125 transition-transform cursor-pointer p-0.5"
                           >

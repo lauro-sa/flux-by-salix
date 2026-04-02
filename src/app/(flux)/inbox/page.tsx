@@ -1400,6 +1400,7 @@ export default function PaginaInbox() {
               onCargarAnteriores={cargarMensajesAnteriores}
               hayMasAnteriores={hayMasAnteriores}
               cargandoAnteriores={cargandoAnteriores}
+              onReaccionar={reaccionarMensaje}
             />
             </ErrorBoundary>
           </>
