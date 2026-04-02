@@ -599,13 +599,7 @@ export function CompositorCorreo({
               placeholder="Escribí tu mensaje..."
               alturaMinima={compacto ? 100 : 180}
               accionesExtra={
-                <button
-                  onClick={() => inputArchivosRef.current?.click()}
-                  className="p-1 rounded transition-colors"
-                  style={{ color: 'var(--texto-terciario)' }}
-                >
-                  <Paperclip size={14} />
-                </button>
+                <Boton variante="fantasma" tamano="xs" soloIcono icono={<Paperclip size={14} />} onClick={() => inputArchivosRef.current?.click()} />
               }
             />
             <input
@@ -724,13 +718,7 @@ export function CompositorCorreo({
                 >
                   Programar
                 </Boton>
-                <button
-                  onClick={() => { setMostrarProgramar(false); setFechaProgramada('') }}
-                  className="p-1"
-                  aria-label="Cerrar programador"
-                >
-                  <X size={12} style={{ color: 'var(--texto-terciario)' }} />
-                </button>
+                <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={12} />} onClick={() => { setMostrarProgramar(false); setFechaProgramada('') }} titulo="Cerrar programador" />
               </motion.div>
             )}
           </AnimatePresence>
@@ -769,14 +757,7 @@ export function CompositorCorreo({
             </div>
 
             <div className="flex items-center gap-1">
-              <button
-                onClick={() => inputArchivosRef.current?.click()}
-                className="p-1.5 rounded-lg transition-colors"
-                style={{ color: 'var(--texto-terciario)' }}
-                aria-label="Adjuntar archivo"
-              >
-                <Paperclip size={16} />
-              </button>
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<Paperclip size={16} />} onClick={() => inputArchivosRef.current?.click()} titulo="Adjuntar archivo" />
             </div>
           </div>
         </>

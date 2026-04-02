@@ -6,6 +6,7 @@ import {
   Volume2, VolumeX, MessagesSquare, Zap, Smartphone,
 } from 'lucide-react'
 import { Interruptor } from '@/componentes/ui/Interruptor'
+import { Boton } from '@/componentes/ui/Boton'
 import { sonidos } from '@/hooks/useSonido'
 import {
   leerPrefs, guardarPrefs, PREFS_DEFAULT,
@@ -224,12 +225,9 @@ export function SeccionNotificaciones() {
             </div>
             <div className="flex items-center gap-3">
               {prefs.sonidoGlobal && (
-                <button
-                  onClick={() => sonidos.notificacion()}
-                  className="px-2.5 py-1 rounded-lg text-xxs font-medium bg-superficie-hover text-texto-terciario hover:text-texto-secundario border-none cursor-pointer transition-colors"
-                >
+                <Boton variante="fantasma" tamano="xs" onClick={() => sonidos.notificacion()}>
                   Probar
-                </button>
+                </Boton>
               )}
               <Interruptor activo={prefs.sonidoGlobal} onChange={(v) => actualizarPref('sonidoGlobal', v)} />
             </div>
@@ -332,26 +330,28 @@ export function SeccionNotificaciones() {
                     <p className="text-xs text-insignia-advertencia mb-1.5">
                       Este permiso fue denegado. Para restablecerlo, hacé clic en el candado de la barra de dirección de tu navegador o en los ajustes del sitio.
                     </p>
-                    <button
-                      type="button"
+                    <Boton
+                      variante="secundario"
+                      tamano="sm"
+                      icono={<RefreshCw size={12} className={solicitando === p.id ? 'animate-spin' : ''} />}
                       onClick={() => solicitarPermiso(p.id)}
                       disabled={solicitando === p.id}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-superficie-hover text-texto-secundario border border-borde-sutil cursor-pointer hover:bg-superficie-seleccionada transition-colors disabled:opacity-50"
                     >
-                      <RefreshCw size={12} className={solicitando === p.id ? 'animate-spin' : ''} />
                       Reintentar
-                    </button>
+                    </Boton>
                   </div>
                 )}
                 {p.estado === 'prompt' && (
-                  <button
-                    type="button"
+                  <Boton
+                    variante="primario"
+                    tamano="sm"
                     onClick={() => solicitarPermiso(p.id)}
                     disabled={solicitando === p.id}
-                    className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-texto-marca text-white border-none cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-50"
+                    cargando={solicitando === p.id}
+                    className="mt-2"
                   >
-                    {solicitando === p.id ? 'Solicitando...' : 'Activar'}
-                  </button>
+                    Activar
+                  </Boton>
                 )}
               </div>
             </div>

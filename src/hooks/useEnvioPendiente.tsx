@@ -11,6 +11,7 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Send, Undo2, Loader2, Clock } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 
 const SEGUNDOS_DESHACER = 30
 
@@ -74,20 +75,22 @@ function ToastEnvioPendiente({
           </div>
 
           <div className="flex items-center gap-2 px-4 pb-3">
-            <button
+            <Boton
+              variante="advertencia"
+              tamano="xs"
+              icono={<Undo2 size={13} />}
               onClick={onDeshacer}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-insignia-advertencia/15 text-insignia-advertencia hover:bg-insignia-advertencia/25 transition-colors"
             >
-              <Undo2 size={13} />
               Deshacer
-            </button>
-            <button
+            </Boton>
+            <Boton
+              variante="primario"
+              tamano="xs"
+              icono={<Send size={13} />}
               onClick={onEnviarYa}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-texto-marca/15 text-texto-marca hover:bg-texto-marca/25 transition-colors"
             >
-              <Send size={13} />
               Enviar ya
-            </button>
+            </Boton>
           </div>
 
           {/* Barra de progreso */}

@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { Upload, Trash2, Image } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 
 /**
  * Componente simple para subir una imagen al pie de página del PDF.
@@ -71,31 +72,14 @@ export default function SubirImagenPie({ urlActual, onSubir, onEliminar }: Propi
             <img src={urlActual} alt="Imagen pie" className="w-full h-full object-contain" />
           </div>
           <div className="flex flex-col gap-1.5">
-            <button
-              onClick={() => inputRef.current?.click()}
-              disabled={subiendo}
-              className="flex items-center gap-1.5 text-xs font-medium text-texto-secundario hover:text-texto-primario transition-colors"
-            >
-              <Upload size={13} /> Cambiar
-            </button>
-            <button
-              onClick={async () => { setSubiendo(true); await onEliminar(); setSubiendo(false) }}
-              disabled={subiendo}
-              className="flex items-center gap-1.5 text-xs font-medium text-estado-error/70 hover:text-estado-error transition-colors"
-            >
-              <Trash2 size={13} /> Quitar
-            </button>
+            <Boton variante="fantasma" tamano="xs" icono={<Upload size={13} />} onClick={() => inputRef.current?.click()} disabled={subiendo}>Cambiar</Boton>
+            <Boton variante="fantasma" tamano="xs" icono={<Trash2 size={13} />} onClick={async () => { setSubiendo(true); await onEliminar(); setSubiendo(false) }} disabled={subiendo} className="text-estado-error/70 hover:text-estado-error">Quitar</Boton>
           </div>
         </div>
       ) : (
-        <button
-          onClick={() => inputRef.current?.click()}
-          disabled={subiendo}
-          className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg border border-dashed border-borde-sutil hover:border-[var(--texto-marca)]/40 hover:bg-[var(--texto-marca)]/5 transition-colors text-sm text-texto-terciario"
-        >
-          <Image size={16} />
+        <Boton variante="secundario" tamano="sm" anchoCompleto icono={<Image size={16} />} onClick={() => inputRef.current?.click()} disabled={subiendo} className="border-dashed">
           {subiendo ? 'Subiendo...' : 'Subir imagen (QR, firma, logo)'}
-        </button>
+        </Boton>
       )}
       {error && <p className="text-xs text-estado-error mt-1">{error}</p>}
     </div>

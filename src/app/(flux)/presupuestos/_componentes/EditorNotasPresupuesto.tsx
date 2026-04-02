@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { Reorder, useDragControls, AnimatePresence } from 'framer-motion'
 import { GripVertical, Plus, X } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 import dynamic from 'next/dynamic'
 const EditorTexto = dynamic(() => import('@/componentes/ui/EditorTexto').then(m => m.EditorTexto), { ssr: false })
 
@@ -255,17 +256,12 @@ export default function EditorNotasPresupuesto({
             {etiqueta}
           </span>
         )}
-        <button
-          type="button"
-          onClick={() => {
+        <Boton variante="fantasma" tamano="xs" icono={<Plus size={13} />} onClick={() => {
             setItems([{ id: nuevoId(), html: '<p></p>' }])
             setIndiceFoco(0)
-          }}
-          className="flex items-center gap-1.5 text-xs text-texto-terciario hover:text-texto-secundario transition-colors py-2"
-        >
-          <Plus size={13} />
+          }}>
           Agregar {etiqueta?.toLowerCase() || 'item'}
-        </button>
+        </Boton>
       </div>
     )
   }
@@ -312,14 +308,9 @@ export default function EditorNotasPresupuesto({
 
       {/* Botón agregar */}
       {!soloLectura && (
-        <button
-          type="button"
-          onClick={agregarNuevo}
-          className="flex items-center gap-1 text-xs text-texto-terciario hover:text-texto-secundario transition-colors mt-1.5 py-1.5 px-3 rounded-md hover:bg-superficie-app"
-        >
-          <Plus size={12} />
+        <Boton variante="fantasma" tamano="xs" icono={<Plus size={12} />} onClick={agregarNuevo} className="mt-1.5">
           Agregar
-        </button>
+        </Boton>
       )}
     </div>
   )

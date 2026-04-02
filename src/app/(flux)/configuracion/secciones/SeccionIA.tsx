@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { LogoAnthropic, LogoOpenAI, LogoGoogle, LogoXAI } from '@/componentes/ui/LogosIA'
 import { Input } from '@/componentes/ui/Input'
+import { TextArea } from '@/componentes/ui/TextArea'
 import { Boton } from '@/componentes/ui/Boton'
 import { IndicadorGuardado } from '@/componentes/ui/IndicadorGuardado'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
@@ -359,14 +360,13 @@ export function SeccionIA() {
                     compacto
                     formato={null}
                     iconoDerecho={
-                      <button
-                        type="button"
-                        tabIndex={-1}
+                      <Boton
+                        variante="fantasma"
+                        tamano="xs"
+                        soloIcono
+                        icono={keyVisible ? <EyeOff size={14} /> : <Eye size={14} />}
                         onClick={() => setKeyVisible(!keyVisible)}
-                        className="text-texto-terciario hover:text-texto-secundario bg-transparent border-none cursor-pointer p-0"
-                      >
-                        {keyVisible ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
+                      />
                     }
                   />
                 </div>
@@ -552,13 +552,13 @@ export function SeccionIA() {
                 Restablecer
               </Boton>
             </div>
-            <textarea
+            <TextArea
               value={config.prompt_asistente_presupuestos || PROMPT_PRESUPUESTOS_DEFAULT}
               onChange={(e) => setConfig(prev => ({ ...prev, prompt_asistente_presupuestos: e.target.value }))}
               onBlur={() => act({ prompt_asistente_presupuestos: config.prompt_asistente_presupuestos })}
               rows={10}
               placeholder="Ej: Somos una empresa de herrería y reparación de portones. Un portón NO es lo mismo que una puerta peatonal..."
-              className="w-full px-4 py-3 rounded-xl border border-borde-sutil bg-superficie-app text-sm text-texto-primario font-mono placeholder:text-texto-placeholder resize-y focus:outline-none focus:ring-2 focus:ring-texto-marca/30 focus:border-texto-marca transition-colors"
+              monoespacio
             />
             <p className="text-xxs text-texto-terciario mt-1.5">
               Este texto se envía junto con la descripción del trabajo. Usalo para aclarar terminología, reglas de tu negocio, o cualquier instrucción que la IA deba tener en cuenta.
@@ -680,13 +680,15 @@ function AsistenteGeneral({ config, onActualizar, guardando }: {
           </div>
         </div>
 
-        <textarea
+        <TextArea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onBlur={guardar}
           placeholder="Escribí las instrucciones para el asistente..."
-          className="w-full min-h-[400px] p-5 bg-transparent text-texto-primario text-sm leading-relaxed font-mono resize-y border-none outline-none placeholder:text-texto-placeholder"
+          variante="transparente"
+          monoespacio
           spellCheck={false}
+          style={{ minHeight: '400px' }}
         />
 
         <div className="px-4 py-2.5 border-t border-borde-sutil flex items-center justify-between bg-superficie-hover/30">
@@ -744,13 +746,14 @@ function AsistenteGeneral({ config, onActualizar, guardando }: {
           </div>
         }
       >
-        <textarea
+        <TextArea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="Escribí las instrucciones para el asistente..."
-          className="w-full h-[70vh] p-4 bg-superficie-app text-texto-primario text-sm leading-relaxed font-mono resize-none border border-borde-sutil rounded-lg outline-none focus:border-borde-foco placeholder:text-texto-placeholder"
+          monoespacio
           spellCheck={false}
           autoFocus
+          style={{ height: '70vh' }}
         />
       </Modal>
 

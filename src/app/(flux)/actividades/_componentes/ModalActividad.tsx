@@ -5,6 +5,7 @@ import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Input } from '@/componentes/ui/Input'
 import { Boton } from '@/componentes/ui/Boton'
 import { Select } from '@/componentes/ui/Select'
+import { TextArea } from '@/componentes/ui/TextArea'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import {
@@ -222,23 +223,27 @@ function ModalActividad({
           <div className="flex flex-wrap gap-2">
             {/* Botón Completar */}
             {onCompletar && (
-              <button
+              <Boton
+                variante="exito"
+                tamano="sm"
+                redondeado
+                icono={<CheckCircle size={15} />}
                 onClick={async () => { await onCompletar(actividad.id); onCerrar() }}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium bg-insignia-exito-fondo text-insignia-exito-texto border-none cursor-pointer hover:brightness-95 transition-all"
               >
-                <CheckCircle size={15} />
                 Completar
-              </button>
+              </Boton>
             )}
             {/* Botón Posponer */}
             {onPosponer && (
               <div className="relative group">
-                <button
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium bg-insignia-advertencia-fondo text-insignia-advertencia-texto border-none cursor-pointer hover:brightness-95 transition-all"
+                <Boton
+                  variante="advertencia"
+                  tamano="sm"
+                  redondeado
+                  icono={<Clock size={15} />}
                 >
-                  <Clock size={15} />
                   Posponer
-                </button>
+                </Boton>
                 {/* Dropdown de opciones */}
                 <div className="absolute top-full left-0 mt-1 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden z-50 hidden group-hover:block min-w-[140px]">
                   {[
@@ -266,13 +271,16 @@ function ModalActividad({
               const contacto = (actividad.vinculos as Vinculo[])?.find(v => v.tipo === 'contacto')
               const IconoAccion = accion.icono
               return (
-                <button
+                <Boton
+                  variante="fantasma"
+                  tamano="sm"
+                  redondeado
+                  icono={<IconoAccion size={15} />}
                   onClick={() => { onCerrar(); router.push(accion.ruta(contacto?.id)) }}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium bg-texto-marca/10 text-texto-marca border-none cursor-pointer hover:bg-texto-marca/15 transition-all"
+                  className="bg-texto-marca/10 text-texto-marca hover:bg-texto-marca/15"
                 >
-                  <IconoAccion size={15} />
                   {accion.etiqueta}
-                </button>
+                </Boton>
               )
             })()}
           </div>
@@ -318,16 +326,13 @@ function ModalActividad({
 
         {/* ── Descripción (condicional) ── */}
         {tipoSeleccionado?.campo_descripcion && (
-          <div>
-            <label className="text-sm font-medium text-texto-secundario block mb-1">Descripción</label>
-            <textarea
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
-              placeholder="Detalles adicionales..."
-              rows={3}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-borde-fuerte bg-superficie-tarjeta text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-texto-marca resize-none"
-            />
-          </div>
+          <TextArea
+            etiqueta="Descripción"
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
+            placeholder="Detalles adicionales..."
+            rows={3}
+          />
         )}
 
         {/* ── Fila: Fecha + Prioridad + Responsable ── */}

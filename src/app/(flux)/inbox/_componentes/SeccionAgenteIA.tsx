@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Sparkles, Brain, MessageSquare, BookOpen, AlertTriangle, Activity, Plus, Pencil, Trash2, X, Maximize2, Globe, FileUp, Loader2, Building2, GitBranch, ChevronUp, ChevronDown } from 'lucide-react'
 import { Interruptor, Select, Input, Boton, Modal, Insignia } from '@/componentes/ui'
+import { TextArea } from '@/componentes/ui/TextArea'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
 import type { ConfigAgenteIA, EntradaBaseConocimiento, LogAgenteIA, TipoContactoConfig, PasoFlujoConfig, EjemploConversacionConfig } from '@/tipos/inbox'
@@ -311,23 +312,15 @@ function TextareaExpandible({ etiqueta, valor, onChange, placeholder, lineasPrev
             <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
               {etiqueta}
             </h3>
-            <button onClick={() => setModalAbierto(false)} className="cursor-pointer" style={{ color: 'var(--texto-terciario)' }}>
-              <X size={18} />
-            </button>
+            <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={18} />} onClick={() => setModalAbierto(false)} />
           </div>
-          <textarea
+          <TextArea
             value={valorLocal}
             onChange={(e) => setValorLocal(e.target.value)}
             placeholder={placeholder}
             rows={18}
             autoFocus
-            className="w-full text-sm rounded-lg px-4 py-3 resize-none leading-relaxed"
-            style={{
-              background: 'var(--superficie-hover)',
-              color: 'var(--texto-primario)',
-              border: '1px solid var(--borde-sutil)',
-              minHeight: 400,
-            }}
+            style={{ minHeight: 400 }}
           />
           <div className="flex items-center justify-between">
             <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
@@ -672,38 +665,17 @@ function TabFlujo({ config, guardar }: TabProps) {
                   />
                 </div>
                 <div className="flex items-center gap-0.5">
-                  <button
-                    onClick={() => moverPaso(i, 'arriba')}
-                    disabled={i === 0}
-                    className="p-1 rounded cursor-pointer disabled:opacity-30"
-                    style={{ color: 'var(--texto-terciario)' }}
-                  >
-                    <ChevronUp size={14} />
-                  </button>
-                  <button
-                    onClick={() => moverPaso(i, 'abajo')}
-                    disabled={i === flujo.length - 1}
-                    className="p-1 rounded cursor-pointer disabled:opacity-30"
-                    style={{ color: 'var(--texto-terciario)' }}
-                  >
-                    <ChevronDown size={14} />
-                  </button>
-                  <button
-                    onClick={() => eliminarPaso(i)}
-                    className="p-1 rounded cursor-pointer"
-                    style={{ color: 'var(--insignia-peligro)' }}
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronUp size={14} />} onClick={() => moverPaso(i, 'arriba')} disabled={i === 0} />
+                  <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronDown size={14} />} onClick={() => moverPaso(i, 'abajo')} disabled={i === flujo.length - 1} />
+                  <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={() => eliminarPaso(i)} className="text-[var(--insignia-peligro)]" />
                 </div>
               </div>
-              <textarea
+              <TextArea
                 value={paso.descripcion}
                 onChange={(e) => actualizarPaso(i, { descripcion: e.target.value })}
                 placeholder="Qué hacer en este paso..."
                 rows={2}
-                className="w-full text-xs rounded-lg px-3 py-2 resize-none"
-                style={{ background: 'var(--superficie-tarjeta)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+                compacto
               />
               <input
                 value={paso.condicion_avance}
@@ -760,20 +732,8 @@ function TabFlujo({ config, guardar }: TabProps) {
               </div>
             </div>
             <div className="flex items-center gap-1 ml-2">
-              <button
-                onClick={() => { setTipoEditando({ ...tipo, indice: i }); setModalTipoAbierto(true) }}
-                className="p-1.5 rounded cursor-pointer"
-                style={{ color: 'var(--texto-terciario)' }}
-              >
-                <Pencil size={14} />
-              </button>
-              <button
-                onClick={() => eliminarTipo(i)}
-                className="p-1.5 rounded cursor-pointer"
-                style={{ color: 'var(--insignia-peligro)' }}
-              >
-                <Trash2 size={14} />
-              </button>
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<Pencil size={14} />} onClick={() => { setTipoEditando({ ...tipo, indice: i }); setModalTipoAbierto(true) }} />
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={() => eliminarTipo(i)} className="text-[var(--insignia-peligro)]" />
             </div>
           </div>
         ))}
@@ -800,9 +760,7 @@ function TabFlujo({ config, guardar }: TabProps) {
             <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
               {tipoEditando?.indice !== undefined ? 'Editar tipo de contacto' : 'Nuevo tipo de contacto'}
             </h3>
-            <button onClick={() => setModalTipoAbierto(false)} className="cursor-pointer" style={{ color: 'var(--texto-terciario)' }}>
-              <X size={18} />
-            </button>
+            <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={18} />} onClick={() => setModalTipoAbierto(false)} />
           </div>
           <div className="flex gap-3">
             <div className="w-16">
@@ -833,26 +791,24 @@ function TabFlujo({ config, guardar }: TabProps) {
             <label className="text-xxs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>
               Instrucciones
             </label>
-            <textarea
+            <TextArea
               value={tipoEditando?.instrucciones || ''}
               onChange={(e) => setTipoEditando(prev => prev ? { ...prev, instrucciones: e.target.value } : prev)}
               placeholder="Persona física, uso residencial. Factura B."
               rows={2}
-              className="w-full text-xs rounded-lg px-3 py-2 resize-none"
-              style={{ background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+              compacto
             />
           </div>
           <div>
             <label className="text-xxs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>
               Formulario de datos
             </label>
-            <textarea
+            <TextArea
               value={tipoEditando?.formulario || ''}
               onChange={(e) => setTipoEditando(prev => prev ? { ...prev, formulario: e.target.value } : prev)}
               placeholder={"📊 Para elaborar el presupuesto, completá:\n\n👤 DATOS PERSONALES\n• Nombre y apellido:\n• Teléfono:\n• Email:\n\n📍 DIRECCIÓN\n• Dirección del trabajo:"}
               rows={10}
-              className="w-full text-xs rounded-lg px-3 py-2 resize-none"
-              style={{ background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+              compacto
             />
             <p className="text-xxs mt-1" style={{ color: 'var(--texto-terciario)' }}>
               Este template se envía al cliente cuando el agente necesita recopilar datos.
@@ -1358,12 +1314,8 @@ function TabEjemplos({ config, guardar }: TabProps) {
             <div className="flex items-center justify-between">
               <p className="text-xs font-medium" style={{ color: 'var(--texto-primario)' }}>{ej.titulo}</p>
               <div className="flex items-center gap-1">
-                <button onClick={() => abrirEditar(i)} className="p-1 rounded cursor-pointer" style={{ color: 'var(--texto-terciario)' }}>
-                  <Pencil size={14} />
-                </button>
-                <button onClick={() => eliminarEjemplo(i)} className="p-1 rounded cursor-pointer" style={{ color: 'var(--insignia-peligro)' }}>
-                  <Trash2 size={14} />
-                </button>
+                <Boton variante="fantasma" tamano="xs" soloIcono icono={<Pencil size={14} />} onClick={() => abrirEditar(i)} />
+                <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={() => eliminarEjemplo(i)} className="text-[var(--insignia-peligro)]" />
               </div>
             </div>
             {ej.mensajes.slice(0, 3).map((m, j) => (
@@ -1385,9 +1337,7 @@ function TabEjemplos({ config, guardar }: TabProps) {
             <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
               {editando?.indice !== undefined ? 'Editar ejemplo' : 'Nuevo ejemplo de conversación'}
             </h3>
-            <button onClick={() => setModalAbierto(false)} className="cursor-pointer" style={{ color: 'var(--texto-terciario)' }}>
-              <X size={18} />
-            </button>
+            <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={18} />} onClick={() => setModalAbierto(false)} />
           </div>
           <Input
             etiqueta={t('configuracion.agente_ia.titulo_ejemplo')}
@@ -1408,17 +1358,15 @@ function TabEjemplos({ config, guardar }: TabProps) {
                   <option value="cliente">Cliente</option>
                   <option value="agente">Agente</option>
                 </select>
-                <textarea
+                <TextArea
                   value={m.texto}
                   onChange={(e) => actualizarMensaje(i, { texto: e.target.value })}
                   placeholder={m.rol === 'cliente' ? 'Mensaje del cliente...' : 'Respuesta del agente...'}
                   rows={2}
-                  className="flex-1 text-xs rounded-lg px-3 py-2 resize-none"
-                  style={{ background: 'var(--superficie-hover)', color: 'var(--texto-primario)', border: '1px solid var(--borde-sutil)' }}
+                  compacto
+                  className="flex-1"
                 />
-                <button onClick={() => eliminarMensaje(i)} className="p-1.5 rounded cursor-pointer shrink-0 mt-1" style={{ color: 'var(--insignia-peligro)' }}>
-                  <X size={14} />
-                </button>
+                <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={14} />} onClick={() => eliminarMensaje(i)} className="shrink-0 mt-1 text-[var(--insignia-peligro)]" />
               </div>
             ))}
             <Boton tamano="xs" variante="fantasma" icono={<Plus size={14} />} onClick={agregarMensaje}>
@@ -1624,20 +1572,8 @@ function TabConocimiento({ config, guardar }: TabProps) {
               <Insignia color={entrada.activo ? 'exito' : 'neutro'}>{entrada.categoria}</Insignia>
             </div>
             <div className="flex items-center gap-1 ml-2">
-              <button
-                onClick={() => { setEntradaEditando(entrada); setModalAbierto(true) }}
-                className="p-1.5 rounded-lg transition-colors cursor-pointer"
-                style={{ color: 'var(--texto-terciario)' }}
-              >
-                <Pencil size={14} />
-              </button>
-              <button
-                onClick={() => eliminarEntrada(entrada.id)}
-                className="p-1.5 rounded-lg transition-colors cursor-pointer"
-                style={{ color: 'var(--insignia-peligro)' }}
-              >
-                <Trash2 size={14} />
-              </button>
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<Pencil size={14} />} onClick={() => { setEntradaEditando(entrada); setModalAbierto(true) }} />
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={() => eliminarEntrada(entrada.id)} className="text-[var(--insignia-peligro)]" />
             </div>
           </div>
         ))}
@@ -1650,9 +1586,7 @@ function TabConocimiento({ config, guardar }: TabProps) {
             <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
               {entradaEditando?.id ? 'Editar entrada' : 'Nueva entrada'}
             </h3>
-            <button onClick={() => setModalAbierto(false)} className="cursor-pointer" style={{ color: 'var(--texto-terciario)' }}>
-              <X size={18} />
-            </button>
+            <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={18} />} onClick={() => setModalAbierto(false)} />
           </div>
           <Input
             etiqueta={t('configuracion.agente_ia.titulo_campo')}
@@ -1721,17 +1655,12 @@ function TabConocimiento({ config, guardar }: TabProps) {
             <label className="text-xxs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>
               Contenido
             </label>
-            <textarea
+            <TextArea
               value={entradaEditando?.contenido || ''}
               onChange={(e) => setEntradaEditando(prev => prev ? { ...prev, contenido: e.target.value } : prev)}
               placeholder="Nuestra política de devoluciones permite cambios dentro de los 30 días..."
               rows={8}
-              className="w-full text-xs rounded-lg px-3 py-2 resize-none"
-              style={{
-                background: 'var(--superficie-hover)',
-                color: 'var(--texto-primario)',
-                border: '1px solid var(--borde-sutil)',
-              }}
+              compacto
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -1748,9 +1677,7 @@ function TabConocimiento({ config, guardar }: TabProps) {
             <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
               Importar conocimiento
             </h3>
-            <button onClick={() => setModalImportarAbierto(false)} className="cursor-pointer" style={{ color: 'var(--texto-terciario)' }}>
-              <X size={18} />
-            </button>
+            <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={18} />} onClick={() => setModalImportarAbierto(false)} />
           </div>
 
           {/* Desde URL */}
@@ -1908,16 +1835,11 @@ function TabEscalamiento({ config, guardar }: TabProps) {
         <p className="text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
           Mensaje al escalar
         </p>
-        <textarea
+        <TextArea
           value={config.mensaje_escalamiento}
           onChange={(e) => guardar({ mensaje_escalamiento: e.target.value })}
           rows={2}
-          className="w-full text-xs rounded-lg px-3 py-2 resize-none"
-          style={{
-            background: 'var(--superficie-hover)',
-            color: 'var(--texto-primario)',
-            border: '1px solid var(--borde-sutil)',
-          }}
+          compacto
         />
         <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
           Este mensaje se envía al cliente cuando el agente IA escala a un humano.
@@ -2054,13 +1976,9 @@ function TabActividad() {
             Últimas acciones
           </p>
           {totalLogs > 10 && (
-            <button
-              onClick={abrirLogCompleto}
-              className="text-xxs font-medium cursor-pointer"
-              style={{ color: 'var(--texto-marca)' }}
-            >
+            <Boton variante="fantasma" tamano="xs" onClick={abrirLogCompleto}>
               Ver log completo ({totalLogs})
-            </button>
+            </Boton>
           )}
         </div>
         {logs.length === 0 ? (
@@ -2082,9 +2000,7 @@ function TabActividad() {
             <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
               Log completo del agente IA
             </h3>
-            <button onClick={() => setModalLogAbierto(false)} className="cursor-pointer" style={{ color: 'var(--texto-terciario)' }}>
-              <X size={18} />
-            </button>
+            <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={18} />} onClick={() => setModalLogAbierto(false)} />
           </div>
 
           {cargandoLog ? (

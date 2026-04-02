@@ -6,6 +6,7 @@ import {
   X, Check, Pin, PinOff, RotateCcw,
   GripVertical, AlignLeft, AlignCenter, AlignRight, StretchHorizontal, Minus,
 } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 import type { ColumnaDinamica, OpcionesVisuales } from '@/componentes/tablas/tipos-tabla'
 
 /* ════════════════════════════════════════════
@@ -171,13 +172,13 @@ export function PanelColumnas<T>({
     >
       <div className="flex items-center justify-between px-4 py-3 border-b border-borde-sutil shrink-0">
         <span className="text-sm font-semibold text-texto-primario">Configurar columnas</span>
-        <button
-          type="button"
+        <Boton
+          variante="fantasma"
+          tamano="xs"
+          soloIcono
+          icono={<X size={16} />}
           onClick={onCerrar}
-          className="size-7 inline-flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario"
-        >
-          <X size={16} />
-        </button>
+        />
       </div>
 
       {/* Acciones masivas: seleccionar todas + alinear todas */}
@@ -309,22 +310,24 @@ export function PanelColumnas<T>({
 
       {/* Acciones — fijas abajo del sidebar */}
       <div className="shrink-0 border-t border-borde-sutil p-3 flex flex-col gap-1">
-        <button
-          type="button"
+        <Boton
+          variante="fantasma"
+          tamano="sm"
+          icono={<StretchHorizontal size={14} />}
           onClick={onAjustarAnchosAuto}
-          className="flex items-center gap-2 px-2 py-1.5 text-sm text-texto-primario rounded hover:bg-superficie-hover cursor-pointer border-none bg-transparent w-full text-left transition-colors"
+          className="justify-start"
         >
-          <StretchHorizontal size={14} className="text-texto-terciario" />
           Ajustar anchos automático
-        </button>
-        <button
-          type="button"
+        </Boton>
+        <Boton
+          variante="peligro"
+          tamano="sm"
+          icono={<RotateCcw size={14} />}
           onClick={onRestablecer}
-          className="flex items-center gap-2 px-2 py-1.5 text-sm text-insignia-peligro-texto rounded hover:bg-insignia-peligro-fondo cursor-pointer border-none bg-transparent w-full text-left transition-colors"
+          className="justify-start"
         >
-          <RotateCcw size={14} />
           Restablecer columnas
-        </button>
+        </Boton>
       </div>
     </motion.div>
   )

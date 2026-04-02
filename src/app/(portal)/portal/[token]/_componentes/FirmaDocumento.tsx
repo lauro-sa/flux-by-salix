@@ -8,6 +8,8 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Pen, Pencil, Upload, Trash2, Check } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
+import { Input } from '@/componentes/ui/Input'
 import { useTraduccion } from '@/lib/i18n'
 
 type ModoFirma = 'auto' | 'dibujar' | 'subir'
@@ -163,16 +165,13 @@ export default function FirmaDocumento({ nombrePredeterminado, onFirmar, onCance
       <div className="p-5">
         {modo === 'auto' && (
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-texto-secundario mb-1.5">{t('portal.nombre_firmante')}</label>
-              <input
-                type="text"
-                value={nombre}
-                onChange={e => setNombre(e.target.value)}
-                placeholder={t('portal.firma_placeholder')}
-                className="w-full px-4 py-2.5 rounded-lg border border-borde-sutil bg-superficie-app text-texto-primario placeholder:text-texto-placeholder focus:ring-2 focus:ring-marca-500/30 focus:border-marca-500 outline-none transition"
-              />
-            </div>
+            <Input
+              etiqueta={t('portal.nombre_firmante')}
+              value={nombre}
+              onChange={e => setNombre(e.target.value)}
+              placeholder={t('portal.firma_placeholder')}
+              formato={null}
+            />
             <div className="bg-superficie-app rounded-lg border border-dashed border-borde-fuerte p-6 flex items-center justify-center min-h-[120px]">
               {firmaAutoBase64 ? (
                 <img src={firmaAutoBase64} alt="Firma" className="max-h-[100px] max-w-full" />
@@ -204,13 +203,9 @@ export default function FirmaDocumento({ nombrePredeterminado, onFirmar, onCance
                 {t('portal.firma_dibuje_aqui')}
               </p>
             </div>
-            <button
-              onClick={limpiarCanvas}
-              className="text-sm text-texto-terciario hover:text-estado-error flex items-center gap-1 transition-colors"
-            >
-              <Trash2 size={14} />
+            <Boton variante="fantasma" tamano="sm" icono={<Trash2 size={14} />} onClick={limpiarCanvas}>
               {t('portal.limpiar')}
-            </button>
+            </Boton>
           </div>
         )}
 
@@ -221,13 +216,9 @@ export default function FirmaDocumento({ nombrePredeterminado, onFirmar, onCance
                 <div className="bg-superficie-app rounded-lg border border-borde-sutil p-6 flex items-center justify-center">
                   <img src={archivoBase64} alt="Firma subida" className="max-h-[100px] max-w-full" />
                 </div>
-                <button
-                  onClick={() => setArchivoBase64(null)}
-                  className="text-sm text-texto-terciario hover:text-estado-error flex items-center gap-1 transition-colors"
-                >
-                  <Trash2 size={14} />
+                <Boton variante="fantasma" tamano="sm" icono={<Trash2 size={14} />} onClick={() => setArchivoBase64(null)}>
                   {t('portal.firma_quitar_imagen')}
-                </button>
+                </Boton>
               </div>
             ) : (
               <label className="flex flex-col items-center justify-center gap-3 p-8 rounded-lg border-2 border-dashed border-borde-fuerte cursor-pointer hover:border-marca-500 hover:bg-marca-500/5 transition-colors">
@@ -243,17 +234,12 @@ export default function FirmaDocumento({ nombrePredeterminado, onFirmar, onCance
 
       {/* Acciones */}
       <div className="px-5 py-4 border-t border-borde-sutil flex items-center justify-end gap-3">
-        <button onClick={onCancelar} className="px-4 py-2 text-sm font-medium text-texto-terciario hover:text-texto-primario transition-colors">
+        <Boton variante="fantasma" onClick={onCancelar}>
           {t('comun.cancelar')}
-        </button>
-        <button
-          onClick={handleConfirmar}
-          disabled={!firmaValida}
-          className="px-5 py-2.5 text-sm font-semibold text-white bg-insignia-exito hover:bg-insignia-exito/90 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2"
-        >
-          <Check size={16} />
+        </Boton>
+        <Boton variante="exito" icono={<Check size={16} />} onClick={handleConfirmar} disabled={!firmaValida}>
           {t('portal.firmar')}
-        </button>
+        </Boton>
       </div>
     </div>
   )

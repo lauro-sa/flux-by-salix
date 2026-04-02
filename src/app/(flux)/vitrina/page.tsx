@@ -820,13 +820,9 @@ function SeccionModoConcentracion() {
             </div>
           </button>
           {activo && (
-            <button
-              onClick={desactivar}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-transparent border border-borde-sutil text-texto-secundario hover:bg-superficie-hover cursor-pointer transition-colors shrink-0"
-            >
-              <BellRing size={13} />
+            <Boton variante="secundario" tamano="sm" icono={<BellRing size={13} />} onClick={desactivar} className="shrink-0">
               Desactivar
-            </button>
+            </Boton>
           )}
         </div>
       </div>
@@ -872,9 +868,9 @@ function SeccionNotificacionesVitrina({ id, mostrar }: { id?: string; mostrar: (
                 textoVacio="Sin mensajes nuevos"
                 iconoVacio={<Mail size={32} strokeWidth={1.2} className="text-texto-terciario/40" />}
                 pie={
-                  <button className="flex items-center justify-center gap-1.5 w-full py-1 text-xs font-medium text-texto-marca hover:text-texto-primario bg-transparent border-none cursor-pointer transition-colors">
+                  <Boton variante="fantasma" tamano="xs" anchoCompleto>
                     Ver todo en Inbox →
-                  </button>
+                  </Boton>
                 }
               />
             }
@@ -899,9 +895,9 @@ function SeccionNotificacionesVitrina({ id, mostrar }: { id?: string; mostrar: (
                 textoVacio="Sin actividades pendientes"
                 iconoVacio={<ClipboardCheck size={32} strokeWidth={1.2} className="text-texto-terciario/40" />}
                 pie={
-                  <button className="flex items-center justify-center gap-1.5 w-full py-1 text-xs font-medium text-texto-marca hover:text-texto-primario bg-transparent border-none cursor-pointer transition-colors">
+                  <Boton variante="fantasma" tamano="xs" anchoCompleto>
                     Ver todas las actividades →
-                  </button>
+                  </Boton>
                 }
               />
             }
@@ -926,9 +922,9 @@ function SeccionNotificacionesVitrina({ id, mostrar }: { id?: string; mostrar: (
                 textoVacio="Sin notificaciones"
                 iconoVacio={<Bell size={32} strokeWidth={1.2} className="text-texto-terciario/40" />}
                 pie={
-                  <button className="flex items-center justify-center gap-1.5 w-full py-1 text-xs font-medium text-texto-marca hover:text-texto-primario bg-transparent border-none cursor-pointer transition-colors">
+                  <Boton variante="fantasma" tamano="xs" anchoCompleto>
                     Ver configuración →
-                  </button>
+                  </Boton>
                 }
               />
             }

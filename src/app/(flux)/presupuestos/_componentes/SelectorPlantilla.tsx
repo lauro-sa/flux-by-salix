@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, Star, Plus, Save, Trash2, Check } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
+import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { motion, AnimatePresence } from 'framer-motion'
 
 /**
@@ -142,21 +144,9 @@ export default function SelectorPlantilla({
 
                       {/* Acciones siempre visibles */}
                       <div className="shrink-0 flex items-center gap-0.5 pr-1.5">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onTogglePredeterminada(p.id) }}
-                          className={`size-6 flex items-center justify-center rounded-md transition-colors ${esPredeterminada ? 'text-insignia-advertencia' : 'text-texto-terciario/30 hover:text-insignia-advertencia'}`}
-                          title={esPredeterminada ? 'Quitar predeterminada' : 'Fijar como predeterminada'}
-                        >
-                          <Star size={12} fill={esPredeterminada ? 'currentColor' : 'none'} />
-                        </button>
+                        <Boton variante="fantasma" tamano="xs" soloIcono icono={<Star size={12} fill={esPredeterminada ? 'currentColor' : 'none'} />} onClick={(e) => { e.stopPropagation(); onTogglePredeterminada(p.id) }} titulo={esPredeterminada ? 'Quitar predeterminada' : 'Fijar como predeterminada'} className={esPredeterminada ? 'text-insignia-advertencia' : 'text-texto-terciario/30 hover:text-insignia-advertencia'} />
                         {(esMia || puedeEliminarTodas) && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setEliminando(p.id) }}
-                            className="size-6 flex items-center justify-center rounded-md text-texto-terciario/30 hover:text-estado-error transition-colors"
-                            title="Eliminar"
-                          >
-                            <Trash2 size={12} />
-                          </button>
+                          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={12} />} onClick={(e) => { e.stopPropagation(); setEliminando(p.id) }} titulo="Eliminar" className="text-texto-terciario/30 hover:text-estado-error" />
                         )}
                       </div>
                     </div>
@@ -171,13 +161,9 @@ export default function SelectorPlantilla({
             <div className="px-1.5">
               {/* Guardar cambios (solo si hay plantilla cargada) */}
               {plantillaCargada && (
-                <button
-                  onClick={async () => { await onGuardarCambios(); setAbierto(false) }}
-                  className={`${itemClase} text-texto-secundario hover:bg-superficie-tarjeta`}
-                >
-                  <Save size={14} className="shrink-0 text-texto-terciario" />
-                  <span>Actualizar &ldquo;{plantillaCargada.nombre}&rdquo;</span>
-                </button>
+                <OpcionMenu icono={<Save size={14} />} onClick={async () => { await onGuardarCambios(); setAbierto(false) }}>
+                  Actualizar &ldquo;{plantillaCargada.nombre}&rdquo;
+                </OpcionMenu>
               )}
 
               {/* Guardar como nueva */}
@@ -196,34 +182,22 @@ export default function SelectorPlantilla({
                       placeholder="Nombre de la plantilla"
                       className="flex-1 min-w-0 bg-superficie-app border border-borde-sutil rounded-lg px-2.5 py-1.5 text-sm text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-marca-500 transition-colors"
                     />
-                    <button
-                      onClick={handleGuardarComo}
-                      disabled={!nombreNueva.trim() || guardando}
-                      className="shrink-0 px-3 py-1.5 text-xs font-medium bg-marca-500 text-white rounded-lg hover:bg-marca-600 transition-colors disabled:opacity-40"
-                    >
+                    <Boton variante="primario" tamano="xs" onClick={handleGuardarComo} disabled={!nombreNueva.trim() || guardando}>
                       {guardando ? '...' : 'Guardar'}
-                    </button>
+                    </Boton>
                   </div>
                 </div>
               ) : (
-                <button
-                  onClick={() => setCreando(true)}
-                  className={`${itemClase} text-texto-secundario hover:bg-superficie-tarjeta`}
-                >
-                  <Plus size={14} className="shrink-0 text-texto-terciario" />
-                  <span>Guardar como nueva plantilla</span>
-                </button>
+                <OpcionMenu icono={<Plus size={14} />} onClick={() => setCreando(true)}>
+                  Guardar como nueva plantilla
+                </OpcionMenu>
               )}
 
               {/* Quitar plantilla */}
               {plantillaCargada && (
-                <button
-                  onClick={() => { onLimpiar(); setAbierto(false) }}
-                  className={`${itemClase} text-texto-terciario hover:bg-superficie-tarjeta`}
-                >
-                  <span className="w-3.5 shrink-0" />
-                  <span>Sin plantilla</span>
-                </button>
+                <OpcionMenu onClick={() => { onLimpiar(); setAbierto(false) }}>
+                  Sin plantilla
+                </OpcionMenu>
               )}
             </div>
           </motion.div>
@@ -262,18 +236,8 @@ export default function SelectorPlantilla({
                   </div>
                 </div>
                 <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => setEliminando(null)}
-                    className="px-3 py-1.5 text-sm text-texto-secundario hover:bg-superficie-tarjeta rounded-lg transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={async () => { await onEliminar(eliminando); setEliminando(null) }}
-                    className="px-4 py-1.5 text-sm font-medium bg-estado-error text-white rounded-lg hover:brightness-110 transition-all"
-                  >
-                    Eliminar
-                  </button>
+                  <Boton variante="secundario" tamano="sm" onClick={() => setEliminando(null)}>Cancelar</Boton>
+                  <Boton variante="peligro" tamano="sm" onClick={async () => { await onEliminar(eliminando); setEliminando(null) }}>Eliminar</Boton>
                 </div>
               </motion.div>
             </motion.div>

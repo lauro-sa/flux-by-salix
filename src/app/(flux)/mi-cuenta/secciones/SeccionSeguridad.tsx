@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Lock, Smartphone, Monitor, Tablet, Globe, Trash2, AlertTriangle, LogOut } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
+import { Boton } from '@/componentes/ui/Boton'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { useAuth } from '@/hooks/useAuth'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
@@ -363,14 +364,14 @@ export function SeccionSeguridad() {
             <p className="text-sm text-insignia-exito">Contraseña actualizada correctamente.</p>
           )}
 
-          <button
-            type="button"
+          <Boton
+            variante="primario"
             onClick={manejarCambiarContrasena}
             disabled={guardandoContrasena || !contrasenaNueva || !contrasenaConfirmar}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-texto-marca text-white border-none cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+            cargando={guardandoContrasena}
           >
-            {guardandoContrasena ? 'Guardando...' : 'Actualizar contraseña'}
-          </button>
+            Actualizar contraseña
+          </Boton>
         </div>
       </div>
 
@@ -411,14 +412,15 @@ export function SeccionSeguridad() {
                       <div className="text-[11px] text-texto-terciario/70">Primera vez: {formatearFechaCorta(d.creadoEn)}</div>
                     </div>
                   </div>
-                  <button
-                    type="button"
+                  <Boton
+                    variante="fantasma"
+                    tamano="xs"
+                    soloIcono
+                    icono={<LogOut size={14} />}
                     onClick={() => abrirModalIndividual(d.id)}
-                    className="shrink-0 p-1.5 rounded-lg text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro/10 transition-colors bg-transparent border-none cursor-pointer"
-                    title={d.actual ? 'Cerrar esta sesión' : 'Cerrar sesión en este dispositivo'}
-                  >
-                    <LogOut size={14} />
-                  </button>
+                    titulo={d.actual ? 'Cerrar esta sesión' : 'Cerrar sesión en este dispositivo'}
+                    className="shrink-0 text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro/10"
+                  />
                 </div>
               ))}
             </div>
@@ -429,21 +431,13 @@ export function SeccionSeguridad() {
         {!cargandoDispositivos && dispositivos.length > 1 && (
           <div className="flex flex-wrap gap-2 mt-3">
             {sesionesOtras > 0 && (
-              <button
-                type="button"
-                onClick={() => setModalCerrar('todas_menos_actual')}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium text-texto-secundario bg-superficie-tarjeta border border-borde-sutil hover:border-borde-fuerte transition-colors cursor-pointer"
-              >
+              <Boton variante="secundario" tamano="sm" onClick={() => setModalCerrar('todas_menos_actual')}>
                 Cerrar todas menos esta
-              </button>
+              </Boton>
             )}
-            <button
-              type="button"
-              onClick={() => setModalCerrar('todas')}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium text-insignia-peligro bg-insignia-peligro/10 border border-insignia-peligro/20 hover:bg-insignia-peligro/15 transition-colors cursor-pointer"
-            >
+            <Boton variante="peligro" tamano="sm" onClick={() => setModalCerrar('todas')}>
               Cerrar todas las sesiones
-            </button>
+            </Boton>
           </div>
         )}
       </div>

@@ -1164,50 +1164,16 @@ export default function EditorPresupuesto({
           {/* Fila 2: Iconos izquierda + Barra de estados derecha */}
           <div className="flex items-center gap-3 mb-4">
             <div className="flex items-center gap-1">
-              {/* Nubecita */}
-              <button
-                onClick={modo === 'crear' && !idPresupuesto ? crearPresupuesto : () => autoguardar({})}
-                disabled={modo === 'crear' && (!contactoId || guardando)}
-                className={`size-7 rounded-full flex items-center justify-center transition-all ${
-                  guardando
-                    ? 'text-texto-marca animate-pulse'
-                    : modo === 'crear' && !idPresupuesto
-                      ? contactoId
-                        ? 'text-texto-terciario hover:text-texto-marca hover:bg-superficie-app cursor-pointer'
-                        : 'text-texto-terciario/30 cursor-not-allowed'
-                      : 'text-texto-terciario hover:bg-superficie-app'
-                }`}
-                title={guardando ? 'Guardando...' : idPresupuesto ? 'Guardado' : modo === 'crear' && contactoId ? 'Guardar presupuesto' : 'Selecciona un cliente primero'}
-              >
-                <Cloud size={16} />
-              </button>
-              {/* X: descartar/eliminar */}
-              <button
-                onClick={descartarPresupuesto}
-                className={`size-7 rounded-full flex items-center justify-center transition-colors ${
-                  idPresupuesto
-                    ? 'text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro/10'
-                    : 'text-texto-terciario hover:bg-superficie-app'
-                }`}
-                title={idPresupuesto ? 'Eliminar presupuesto' : 'Descartar'}
-              >
-                <X size={16} />
-              </button>
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<Cloud size={16} />} onClick={modo === 'crear' && !idPresupuesto ? crearPresupuesto : () => autoguardar({})} disabled={modo === 'crear' && (!contactoId || guardando)} titulo={guardando ? 'Guardando...' : idPresupuesto ? 'Guardado' : modo === 'crear' && contactoId ? 'Guardar presupuesto' : 'Selecciona un cliente primero'} className={guardando ? 'text-texto-marca animate-pulse' : ''} />
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={16} />} onClick={descartarPresupuesto} titulo={idPresupuesto ? 'Eliminar presupuesto' : 'Descartar'} className={idPresupuesto ? 'text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro/10' : ''} />
               {/* Info y RefreshCw en modo editar o post-creación */}
               {(modo === 'editar' || presupuestoIdCreado) && (
                 <>
-                  <button
-                    className="size-7 rounded-full flex items-center justify-center text-texto-terciario hover:bg-superficie-app transition-colors"
-                    title="Informacion del documento"
-                  >
-                    <Info size={16} />
-                  </button>
-                  <button
-                    onClick={async () => {
+                  <Boton variante="fantasma" tamano="xs" soloIcono icono={<Info size={16} />} titulo="Informacion del documento" />
+                  <Boton variante="fantasma" tamano="xs" soloIcono icono={<RefreshCw size={16} className={generandoPdf ? 'animate-spin' : ''} />} onClick={async () => {
                       if (!idPresupuesto || generandoPdf) return
                       setGenerandoPdf(true)
                       try {
-                        // Guardar TODO el estado actual antes de regenerar
                         await guardarTodo()
                         const res = await fetch(`/api/presupuestos/${idPresupuesto}/pdf`, {
                           method: 'POST',
@@ -1223,13 +1189,7 @@ export default function EditorPresupuesto({
                       } finally {
                         setGenerandoPdf(false)
                       }
-                    }}
-                    disabled={generandoPdf}
-                    className={`size-7 rounded-full flex items-center justify-center text-texto-terciario hover:bg-superficie-app transition-colors ${generandoPdf ? 'opacity-40 cursor-not-allowed' : ''}`}
-                    title="Regenerar PDF"
-                  >
-                    <RefreshCw size={16} className={generandoPdf ? 'animate-spin' : ''} />
-                  </button>
+                    }} disabled={generandoPdf} titulo="Regenerar PDF" />
                 </>
               )}
             </div>
@@ -1242,24 +1202,18 @@ export default function EditorPresupuesto({
           {(modo === 'editar' || presupuestoIdCreado) && (
             <div className="flex items-center gap-2 flex-wrap">
               {(() => {
-                // Botón base reutilizable
                 const BotonAccion = ({ onClick, icono: Icono, label, variante = 'default', disabled = false, animarIcono = false }: {
                   onClick: () => void; icono: typeof Send; label: string; variante?: string; disabled?: boolean; animarIcono?: boolean
                 }) => (
-                  <button
+                  <Boton
                     onClick={onClick}
                     disabled={disabled}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                      variante === 'primario'
-                        ? 'bg-marca-500 text-white hover:bg-marca-600 disabled:opacity-50'
-                        : variante === 'peligro'
-                          ? 'bg-estado-error/10 text-estado-error border border-estado-error/20 hover:bg-estado-error/20'
-                          : 'text-texto-secundario bg-superficie-app border border-borde-sutil hover:bg-superficie-elevada disabled:opacity-40 disabled:cursor-not-allowed'
-                    }`}
+                    variante={variante === 'primario' ? 'primario' : variante === 'peligro' ? 'peligro' : 'secundario'}
+                    tamano="sm"
+                    icono={<Icono size={15} className={animarIcono ? 'animate-spin' : ''} />}
                   >
-                    <Icono size={15} className={animarIcono ? 'animate-spin' : ''} />
                     <span className="hidden sm:inline">{label}</span>
-                  </button>
+                  </Boton>
                 )
 
                 const esEnviado = estadoActual === 'enviado'
@@ -1317,12 +1271,7 @@ export default function EditorPresupuesto({
               Este documento esta en estado <strong>{ETIQUETAS_ESTADO[estadoActual]}</strong> y no se puede editar.
             </span>
             {estadosPosibles.includes('borrador') && (
-              <button
-                onClick={() => cambiarEstado('borrador')}
-                className="text-sm text-marca-500 hover:underline ml-1"
-              >
-                Volver a Borrador
-              </button>
+              <Boton variante="fantasma" tamano="xs" onClick={() => cambiarEstado('borrador')} className="ml-1">Volver a Borrador</Boton>
             )}
           </div>
         )}
@@ -1490,19 +1439,8 @@ export default function EditorPresupuesto({
                         )}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          onClick={() => { setAtencionId(null); setAtencionSeleccionada(null) }}
-                          className="text-xs px-2 py-0.5 rounded text-texto-terciario hover:text-texto-marca hover:bg-marca-500/10 transition-colors"
-                        >
-                          Cambiar
-                        </button>
-                        <button
-                          onClick={() => router.push(`/contactos/${atencionSeleccionada.id}`)}
-                          className="size-6 rounded flex items-center justify-center text-texto-terciario hover:text-texto-marca hover:bg-marca-500/10 transition-colors"
-                          title="Ver ficha del contacto"
-                        >
-                          <ExternalLink size={13} />
-                        </button>
+                        <Boton variante="fantasma" tamano="xs" onClick={() => { setAtencionId(null); setAtencionSeleccionada(null) }}>Cambiar</Boton>
+                        <Boton variante="fantasma" tamano="xs" soloIcono icono={<ExternalLink size={13} />} onClick={() => router.push(`/contactos/${atencionSeleccionada.id}`)} titulo="Ver ficha del contacto" />
                       </div>
                     </div>
                     <p className="text-xxs text-texto-terciario mt-2">
@@ -1561,8 +1499,7 @@ export default function EditorPresupuesto({
                     {esEditable && (
                       <div className="flex items-center gap-1 shrink-0">
                         {vinculaciones.length > 0 && (
-                          <button
-                            onClick={() => {
+                          <Boton variante="fantasma" tamano="xs" onClick={() => {
                               autoguardar({
                                 atencion_contacto_id: null as unknown as string,
                                 atencion_nombre: '',
@@ -1576,20 +1513,10 @@ export default function EditorPresupuesto({
                               } : null)
                               setAtencionId(null)
                               setAtencionSeleccionada(null)
-                            }}
-                            className="text-xs px-2 py-0.5 rounded text-texto-terciario hover:text-texto-marca hover:bg-marca-500/10 transition-colors"
-                          >
-                            Cambiar
-                          </button>
+                            }}>Cambiar</Boton>
                         )}
                         {presupuesto.atencion_contacto_id && (
-                          <button
-                            onClick={() => router.push(`/contactos/${presupuesto.atencion_contacto_id}`)}
-                            className="size-6 rounded flex items-center justify-center text-texto-terciario hover:text-texto-marca hover:bg-marca-500/10 transition-colors"
-                            title="Ver ficha del contacto"
-                          >
-                            <ExternalLink size={13} />
-                          </button>
+                          <Boton variante="fantasma" tamano="xs" soloIcono icono={<ExternalLink size={13} />} onClick={() => router.push(`/contactos/${presupuesto.atencion_contacto_id}`)} titulo="Ver ficha del contacto" />
                         )}
                       </div>
                     )}

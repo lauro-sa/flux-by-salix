@@ -122,13 +122,7 @@ export function ModalEnviarDocumento({
             <h2 className="text-lg font-semibold" style={{ color: 'var(--texto-primario)' }}>
               Enviar documento
             </h2>
-            <button
-              onClick={onCerrar}
-              className="flex items-center justify-center size-9 rounded-full transition-colors hover:bg-[var(--superficie-hover)]"
-              type="button"
-            >
-              <X size={18} style={{ color: 'var(--texto-terciario)' }} />
-            </button>
+            <Boton variante="fantasma" tamano="sm" soloIcono icono={<X size={18} />} onClick={onCerrar} />
           </div>
 
           {/* Campos del correo */}
@@ -268,15 +262,7 @@ export function ModalEnviarDocumento({
                 onAbrirVariables={() => estado.setVariablesAsuntoAbierto(true)}
               />
               <div className="relative flex-shrink-0">
-                <button
-                  onClick={() => estado.setVariablesAsuntoAbierto(!estado.variablesAsuntoAbierto)}
-                  className="flex items-center justify-center size-7 rounded transition-colors hover:bg-[var(--superficie-hover)]"
-                  style={{ color: 'var(--texto-terciario)' }}
-                  type="button"
-                  title="Insertar variable"
-                >
-                  <Braces size={14} />
-                </button>
+                <Boton variante="fantasma" tamano="xs" soloIcono icono={<Braces size={14} />} onClick={() => estado.setVariablesAsuntoAbierto(!estado.variablesAsuntoAbierto)} titulo="Insertar variable" />
                 <SelectorVariables
                   abierto={estado.variablesAsuntoAbierto}
                   onCerrar={() => estado.setVariablesAsuntoAbierto(false)}
@@ -437,15 +423,9 @@ export function ModalEnviarDocumento({
             )}
 
             {/* Adjuntar archivo */}
-            <button
-              onClick={() => estado.inputArchivosRef.current?.click()}
-              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors hover:bg-[var(--superficie-hover)]"
-              style={{ color: 'var(--texto-terciario)' }}
-              type="button"
-            >
-              <Paperclip size={13} />
+            <Boton variante="fantasma" tamano="xs" icono={<Paperclip size={13} />} onClick={() => estado.inputArchivosRef.current?.click()}>
               Adjuntar archivo
-            </button>
+            </Boton>
             <input
               ref={estado.inputArchivosRef}
               type="file"
@@ -487,37 +467,13 @@ export function ModalEnviarDocumento({
                 onProgramar={estado.handleProgramar}
                 disabled={!estado.puedeEnviar}
               />
-              <button
-                onClick={() => estado.setMostrarProgramar(!estado.mostrarProgramar)}
-                className="flex items-center justify-center size-9 rounded-lg transition-colors hover:bg-[var(--superficie-hover)]"
-                style={{ color: 'var(--texto-terciario)' }}
-                type="button"
-                title="Programar envío"
-              >
-                <SendHorizonal size={18} />
-              </button>
+              <Boton variante="fantasma" tamano="sm" soloIcono icono={<SendHorizonal size={18} />} onClick={() => estado.setMostrarProgramar(!estado.mostrarProgramar)} titulo="Programar envío" />
               {onGuardarBorrador && (
-                <button
-                  onClick={estado.handleGuardarBorrador}
-                  className="flex items-center justify-center size-9 rounded-lg transition-colors hover:bg-[var(--superficie-hover)]"
-                  style={{ color: 'var(--texto-terciario)' }}
-                  type="button"
-                  title="Guardar como borrador"
-                >
-                  <Save size={18} />
-                </button>
+                <Boton variante="fantasma" tamano="sm" soloIcono icono={<Save size={18} />} onClick={estado.handleGuardarBorrador} titulo="Guardar como borrador" />
               )}
               {onGuardarPlantilla && (
                 <div className="relative">
-                  <button
-                    onClick={() => estado.setMostrarGuardarPlantilla(!estado.mostrarGuardarPlantilla)}
-                    className="flex items-center justify-center size-9 rounded-lg transition-colors hover:bg-[var(--superficie-hover)]"
-                    style={{ color: 'var(--texto-terciario)' }}
-                    type="button"
-                    title="Guardar como plantilla"
-                  >
-                    <BookmarkPlus size={18} />
-                  </button>
+                  <Boton variante="fantasma" tamano="sm" soloIcono icono={<BookmarkPlus size={18} />} onClick={() => estado.setMostrarGuardarPlantilla(!estado.mostrarGuardarPlantilla)} titulo="Guardar como plantilla" />
                   {/* Popover para nombre de plantilla */}
                   <AnimatePresence>
                     {estado.mostrarGuardarPlantilla && (

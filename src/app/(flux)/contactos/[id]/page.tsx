@@ -17,6 +17,7 @@ import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { Cargador } from '@/componentes/ui/Cargador'
+import { TextArea } from '@/componentes/ui/TextArea'
 import { DireccionesContacto, type DireccionConTipo } from '../_componentes/DireccionesContacto'
 import { VinculacionesContacto } from '../_componentes/VinculacionesContacto'
 import { SeccionActividadesContacto } from '../_componentes/SeccionActividadesContacto'
@@ -582,10 +583,9 @@ export default function PaginaContacto() {
             {errorGuardado && <span className="text-xs text-insignia-peligro">{errorGuardado}</span>}
           </div>
           {!esNuevo && (
-            <button type="button" onClick={() => setModalEliminar(true)}
-              className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro-fondo bg-transparent border-none cursor-pointer transition-colors shrink-0">
-              <Trash2 size={14} /><span className="hidden sm:inline">{t('comun.eliminar')}</span>
-            </button>
+            <Boton variante="fantasma" tamano="xs" icono={<Trash2 size={14} />} onClick={() => setModalEliminar(true)} className="text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro-fondo">
+              <span className="hidden sm:inline">{t('comun.eliminar')}</span>
+            </Boton>
           )}
         </div>
 
@@ -659,16 +659,8 @@ export default function PaginaContacto() {
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <button onClick={aceptarProvisorio} disabled={accionandoProvisorio}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors text-white cursor-pointer"
-                  style={{ background: 'var(--insignia-exito)' }}>
-                  <UserCheck size={14} />Aceptar
-                </button>
-                <button onClick={descartarProvisorio} disabled={accionandoProvisorio}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer"
-                  style={{ color: 'var(--insignia-peligro)', background: 'var(--superficie-hover)' }}>
-                  <Trash2 size={14} />Descartar
-                </button>
+                <Boton variante="exito" tamano="sm" icono={<UserCheck size={14} />} onClick={aceptarProvisorio} disabled={accionandoProvisorio}>Aceptar</Boton>
+                <Boton variante="peligro" tamano="sm" icono={<Trash2 size={14} />} onClick={descartarProvisorio} disabled={accionandoProvisorio}>Descartar</Boton>
               </div>
             </div>
           )}
@@ -859,10 +851,7 @@ export default function PaginaContacto() {
                       <span className="text-xs text-texto-terciario">({vinculacionesPendientes.length})</span>
                     )}
                   </div>
-                  <button type="button" onClick={() => setModalVincular(true)}
-                    className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-texto-marca hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors">
-                    <Plus size={13} /><span>Vincular</span>
-                  </button>
+                  <Boton variante="fantasma" tamano="xs" icono={<Plus size={13} />} onClick={() => setModalVincular(true)}>Vincular</Boton>
                 </div>
                 <div className="px-4 py-3" style={{ backgroundColor: 'var(--superficie-app)' }}>
                   {vinculacionesPendientes.length > 0 ? (
@@ -874,18 +863,14 @@ export default function PaginaContacto() {
                             <div className="text-sm font-medium text-texto-primario truncate">{v.nombre}</div>
                             <div className="text-xs text-texto-terciario">{v.tipo_etiqueta} · {v.codigo}</div>
                           </div>
-                          <button type="button" onClick={() => setVinculacionesPendientes(prev => prev.filter(vp => vp.vinculado_id !== v.vinculado_id))}
-                            className="text-texto-terciario hover:text-insignia-peligro bg-transparent border-none cursor-pointer p-1 transition-colors">
-                            <X size={14} />
-                          </button>
+                          <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={14} />} onClick={() => setVinculacionesPendientes(prev => prev.filter(vp => vp.vinculado_id !== v.vinculado_id))} className="text-texto-terciario hover:text-insignia-peligro" />
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <button type="button" onClick={() => setModalVincular(true)}
-                      className="w-full py-4 text-sm text-texto-terciario hover:text-texto-marca bg-transparent border border-dashed border-borde-sutil rounded-lg cursor-pointer transition-colors hover:border-borde-fuerte">
+                    <Boton variante="secundario" tamano="sm" anchoCompleto onClick={() => setModalVincular(true)} className="border-dashed">
                       Vincular con empresa, proveedor o persona...
-                    </button>
+                    </Boton>
                   )}
                 </div>
               </div>
@@ -915,13 +900,12 @@ export default function PaginaContacto() {
           {/* Notas */}
           <section>
             <h3 className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-3">Notas</h3>
-            <textarea value={campos.notas || ''} onChange={e => setCampos(p => ({ ...p, notas: e.target.value }))}
+            <TextArea
+              value={campos.notas || ''}
+              onChange={e => setCampos(p => ({ ...p, notas: e.target.value }))}
               placeholder="Notas internas sobre este contacto..."
               rows={3}
-              className="w-full bg-transparent outline-none text-sm text-texto-primario placeholder:text-texto-placeholder resize-y rounded-lg p-3 transition-colors"
-              style={{ border: '1px solid var(--borde-sutil)' }}
-              onFocus={e => { e.currentTarget.style.borderColor = 'var(--borde-foco)' }}
-              onBlur={e => { e.currentTarget.style.borderColor = 'var(--borde-sutil)'; onBlurCampo('notas') }}
+              onBlur={() => onBlurCampo('notas')}
             />
           </section>
 
@@ -1338,15 +1322,8 @@ function SelectorEtiquetas({
                 ))}
               </div>
               <div className="flex gap-2">
-                <button type="button" onClick={() => setCreando(false)}
-                  className="flex-1 px-3 py-1.5 rounded-md text-sm text-texto-secundario border border-borde-sutil bg-transparent cursor-pointer hover:bg-superficie-hover transition-colors">
-                  Cancelar
-                </button>
-                <button type="button" onClick={confirmarCreacion}
-                  className="flex-1 px-3 py-1.5 rounded-md text-sm font-medium text-white border-none cursor-pointer transition-colors"
-                  style={{ backgroundColor: 'var(--texto-marca)' }}>
-                  Crear
-                </button>
+                <Boton variante="secundario" tamano="sm" onClick={() => setCreando(false)} className="flex-1">Cancelar</Boton>
+                <Boton variante="primario" tamano="sm" onClick={confirmarCreacion} className="flex-1">Crear</Boton>
               </div>
             </div>
           )}

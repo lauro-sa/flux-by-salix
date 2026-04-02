@@ -397,13 +397,9 @@ export default function PaginaAplicaciones() {
     <div className="min-h-dvh flex flex-col">
       {/* Header */}
       <div className="shrink-0 w-full max-w-3xl mx-auto px-6 pt-8 pb-2">
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-sm text-texto-terciario hover:text-texto-primario transition-colors bg-transparent border-none cursor-pointer mb-5"
-        >
-          <ArrowLeft size={16} />
+        <Boton variante="fantasma" tamano="sm" icono={<ArrowLeft size={16} />} onClick={() => router.back()} className="mb-5">
           {t('comun.volver')}
-        </button>
+        </Boton>
         <h1 className="text-2xl font-bold text-texto-primario">{t('aplicaciones.titulo')}</h1>
         <p className="text-sm text-texto-secundario mt-1">
           Instalá y gestioná los módulos de tu espacio de trabajo

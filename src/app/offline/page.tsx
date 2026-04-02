@@ -1,4 +1,5 @@
 import { WifiOff } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 
 /**
  * Página offline — Se muestra cuando no hay conexión y el SW no tiene cache.
@@ -14,12 +15,9 @@ export default function PaginaOffline() {
         <p className="text-sm text-texto-secundario mb-6">
           No hay conexión a internet. Verificá tu red e intentá de nuevo.
         </p>
-        <button
-          onClick={() => window.location.reload()}
-          className="px-6 py-3 rounded-lg bg-texto-marca text-white font-medium text-sm cursor-pointer border-none hover:opacity-90 transition-opacity"
-        >
+        <Boton variante="primario" onClick={() => window.location.reload()}>
           Reintentar
-        </button>
+        </Boton>
       </div>
     </div>
   )

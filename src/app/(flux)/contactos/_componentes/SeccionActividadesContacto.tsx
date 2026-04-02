@@ -235,20 +235,10 @@ function FilaActividadCompacta({
       {!completada && (
         <div className="flex items-center gap-0.5 shrink-0">
           {onCompletar && (
-            <button
-              onClick={onCompletar}
-              className="size-6 rounded flex items-center justify-center bg-transparent border-none text-texto-terciario cursor-pointer hover:bg-insignia-exito-fondo hover:text-insignia-exito-texto transition-colors"
-            >
-              <CheckCircle size={14} />
-            </button>
+            <Boton variante="fantasma" tamano="xs" soloIcono icono={<CheckCircle size={14} />} onClick={onCompletar} className="hover:bg-insignia-exito-fondo hover:text-insignia-exito-texto" />
           )}
           {onPosponer && (
-            <button
-              onClick={onPosponer}
-              className="size-6 rounded flex items-center justify-center bg-transparent border-none text-texto-terciario cursor-pointer hover:bg-insignia-advertencia-fondo hover:text-insignia-advertencia-texto transition-colors"
-            >
-              <Clock size={14} />
-            </button>
+            <Boton variante="fantasma" tamano="xs" soloIcono icono={<Clock size={14} />} onClick={onPosponer} className="hover:bg-insignia-advertencia-fondo hover:text-insignia-advertencia-texto" />
           )}
         </div>
       )}

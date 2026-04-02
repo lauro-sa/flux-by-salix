@@ -9,6 +9,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, MessageCircle, Loader2 } from 'lucide-react'
 import { useTraduccion } from '@/lib/i18n'
+import { TextArea } from '@/componentes/ui/TextArea'
 import type { MensajePortal } from '@/tipos/portal'
 
 interface Props {
@@ -133,18 +134,13 @@ export default function MiniChat({ mensajes, nombreCliente, colorMarca, token, o
           {/* Input */}
           <div className="px-4 py-3 border-t border-borde-sutil">
             <div className="flex gap-2 items-end">
-              <textarea
+              <TextArea
                 value={texto}
                 onChange={(e) => setTexto(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    enviar()
-                  }
-                }}
+                enviarConEnter
+                onEnviar={enviar}
                 placeholder={t('portal.chat_placeholder') || 'Escribí tu consulta...'}
                 rows={1}
-                className="flex-1 bg-superficie-app border border-borde-sutil rounded-xl px-3 py-2 text-sm text-texto-primario outline-none focus:border-borde-fuerte transition-colors resize-none"
               />
               <button
                 onClick={enviar}

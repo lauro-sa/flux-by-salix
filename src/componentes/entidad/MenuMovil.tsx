@@ -11,6 +11,7 @@ import { useRol } from '@/hooks/useRol'
 import { useModulos } from '@/hooks/useModulos'
 import { useNotificaciones } from '@/hooks/useNotificaciones'
 import { Avatar } from '@/componentes/ui/Avatar'
+import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import type { Modulo } from '@/tipos'
 import {
@@ -343,14 +344,13 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
                 )}
 
                 {/* Cerrar sesión */}
-                <button
+                <OpcionMenu
+                  icono={<LogOut size={20} strokeWidth={1.7} />}
+                  peligro
                   onClick={() => { onCerrar(); setModalCerrarSesion(true) }}
-                  className="flex items-center gap-3.5 w-full px-3 py-3 rounded-xl bg-transparent border-none cursor-pointer hover:bg-insignia-peligro-fondo transition-colors text-left active:scale-[0.98]"
-                  style={{ color: 'var(--insignia-peligro)' }}
                 >
-                  <LogOut size={20} strokeWidth={1.7} />
-                  <span className="text-[15px] font-medium">{t('auth.cerrar_sesion')}</span>
-                </button>
+                  {t('auth.cerrar_sesion')}
+                </OpcionMenu>
               </motion.div>
             </div>
           </div>

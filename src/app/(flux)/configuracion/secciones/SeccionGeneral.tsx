@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Building2, Globe, Mail, Phone, MapPin, Link as LinkIcon, Receipt, Landmark, Lock, LockOpen } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import { BloqueDireccion, type DatosDireccion } from '@/componentes/ui/BloqueDireccion'
@@ -241,14 +242,14 @@ export function SeccionGeneral() {
               readOnly={slugBloqueado}
               icono={<Globe size={16} />}
               iconoDerecho={
-                <button
-                  type="button"
+                <Boton
+                  variante="fantasma"
+                  tamano="xs"
+                  soloIcono
+                  icono={slugBloqueado ? <Lock size={14} /> : <LockOpen size={14} />}
                   onClick={() => setSlugBloqueado(prev => !prev)}
-                  className="p-0.5 rounded hover:bg-superficie-elevada transition-colors text-texto-terciario hover:text-texto-primario"
-                  title={slugBloqueado ? 'Desbloquear para editar' : 'Bloquear subdominio'}
-                >
-                  {slugBloqueado ? <Lock size={14} /> : <LockOpen size={14} />}
-                </button>
+                  titulo={slugBloqueado ? 'Desbloquear para editar' : 'Bloquear subdominio'}
+                />
               }
               ayuda={slug ? `${slug}.fluxsalix.com · Próximamente — reservá tu subdominio` : 'Reservá el nombre de tu empresa para tu futuro subdominio'}
               className={slugBloqueado ? 'opacity-70' : ''}

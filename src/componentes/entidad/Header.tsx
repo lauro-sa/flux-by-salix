@@ -13,6 +13,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { IconoSalix } from '@/componentes/marca'
+import { Boton } from '@/componentes/ui/Boton'
+import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { NotificacionesHeader } from './NotificacionesHeader'
 import { useModoConcentracion } from '@/hooks/useModoConcentracion'
 import type { Migaja } from '@/hooks/useNavegacion'
@@ -101,23 +103,19 @@ function Header({
       {/* Izquierda */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
         {/* Mobile: abrir menú fullscreen */}
-        <button
-          onClick={onAbrirMenuMobil}
-          className="md:hidden flex items-center justify-center size-10 rounded-lg bg-transparent border-none text-texto-secundario cursor-pointer hover:bg-superficie-hover shrink-0"
-        >
-          <PanelLeft size={22} />
-        </button>
+        <Boton variante="fantasma" tamano="sm" soloIcono icono={<PanelLeft size={22} />} onClick={onAbrirMenuMobil} className="md:hidden shrink-0" />
 
         {/* Desktop: toggle sidebar con popover */}
         <div ref={sidebarMenuRef} className="hidden md:block relative">
-          <button
+          <Boton
+            variante="fantasma"
+            tamano="sm"
+            soloIcono
+            icono={sidebarColapsado ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
             onClick={onToggleSidebar}
-            onContextMenu={(e) => { e.preventDefault(); setSidebarMenuAbierto(!sidebarMenuAbierto) }}
-            className="flex items-center justify-center size-9 rounded-lg bg-transparent border-none text-texto-terciario cursor-pointer hover:bg-superficie-hover hover:text-texto-secundario transition-colors shrink-0"
-            title={sidebarColapsado ? 'Expandir menú lateral' : 'Colapsar menú lateral'}
-          >
-            {sidebarColapsado ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
-          </button>
+            titulo={sidebarColapsado ? 'Expandir menú lateral' : 'Colapsar menú lateral'}
+            className="shrink-0"
+          />
 
           {/* Popover de opciones del sidebar */}
           <AnimatePresence>
@@ -135,52 +133,48 @@ function Header({
                 </div>
 
                 {/* Auto-ocultar */}
-                <button
+                <OpcionMenu
+                  icono={<PanelLeftDashed size={15} />}
+                  activo={autoOcultar}
+                  derecha={autoOcultar ? <Check size={14} className="text-texto-marca" /> : undefined}
                   onClick={() => { onToggleAutoOcultar(); setSidebarMenuAbierto(false) }}
-                  className={`flex items-center gap-2.5 w-full px-3 py-2 text-sm border-none cursor-pointer transition-colors bg-transparent hover:bg-superficie-hover text-left ${autoOcultar ? 'text-texto-marca' : 'text-texto-primario'}`}
                 >
-                  <PanelLeftDashed size={15} />
-                  <span className="flex-1">Auto-ocultar</span>
-                  {autoOcultar && <Check size={14} className="text-texto-marca shrink-0" />}
-                </button>
+                  Auto-ocultar
+                </OpcionMenu>
 
                 <div className="h-px bg-borde-sutil my-1 mx-2" />
 
                 {!autoOcultar && (
-                  <button
+                  <OpcionMenu
+                    icono={sidebarColapsado ? <PanelLeft size={15} /> : <PanelLeftClose size={15} />}
                     onClick={() => { onToggleSidebar(); setSidebarMenuAbierto(false) }}
-                    className="flex items-center gap-2.5 w-full px-3 py-2 text-sm border-none cursor-pointer transition-colors bg-transparent text-texto-primario hover:bg-superficie-hover text-left"
                   >
-                    {sidebarColapsado ? <PanelLeft size={15} /> : <PanelLeftClose size={15} />}
-                    <span>{sidebarColapsado ? 'Expandir' : 'Colapsar'} en <strong className="capitalize">{nombreSeccion}</strong></span>
-                  </button>
+                    {sidebarColapsado ? 'Expandir' : 'Colapsar'} en <strong className="capitalize">{nombreSeccion}</strong>
+                  </OpcionMenu>
                 )}
 
-                <button
+                <OpcionMenu
+                  icono={<ChevronsLeft size={15} />}
                   onClick={() => { onAplicarATodas(true); setSidebarMenuAbierto(false) }}
-                  className="flex items-center gap-2.5 w-full px-3 py-2 text-sm border-none cursor-pointer transition-colors bg-transparent text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario text-left"
                 >
-                  <ChevronsLeft size={15} />
-                  <span>Colapsar en todas</span>
-                </button>
-                <button
+                  Colapsar en todas
+                </OpcionMenu>
+                <OpcionMenu
+                  icono={<ChevronsRight size={15} />}
                   onClick={() => { onAplicarATodas(false); setSidebarMenuAbierto(false) }}
-                  className="flex items-center gap-2.5 w-full px-3 py-2 text-sm border-none cursor-pointer transition-colors bg-transparent text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario text-left"
                 >
-                  <ChevronsRight size={15} />
-                  <span>Expandir en todas</span>
-                </button>
+                  Expandir en todas
+                </OpcionMenu>
 
                 {tienePreferenciaSeccion && !autoOcultar && (
                   <>
                     <div className="h-px bg-borde-sutil my-1 mx-2" />
-                    <button
+                    <OpcionMenu
+                      icono={<RotateCcw size={14} />}
                       onClick={() => { onLimpiarSeccion(); setSidebarMenuAbierto(false) }}
-                      className="flex items-center gap-2.5 w-full px-3 py-2 text-sm border-none cursor-pointer transition-colors bg-transparent text-texto-terciario hover:bg-superficie-hover hover:text-texto-secundario text-left"
                     >
-                      <RotateCcw size={14} />
-                      <span>Restablecer <strong className="capitalize">{nombreSeccion}</strong> al global</span>
-                    </button>
+                      Restablecer <strong className="capitalize">{nombreSeccion}</strong> al global
+                    </OpcionMenu>
                   </>
                 )}
               </motion.div>
@@ -240,14 +234,9 @@ function Header({
 
               {/* Botón contactar soporte */}
               <div className="px-4 pb-3">
-                <button
-                  onClick={() => { setMenuAbierto(false); window.open('https://wa.me/5493515555555', '_blank') }}
-                  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border-none cursor-pointer text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                  style={{ backgroundColor: 'var(--texto-marca)' }}
-                >
-                  <Headphones size={16} />
+                <Boton variante="primario" anchoCompleto icono={<Headphones size={16} />} onClick={() => { setMenuAbierto(false); window.open('https://wa.me/5493515555555', '_blank') }}>
                   Contactar soporte
-                </button>
+                </Boton>
               </div>
 
               <div className="h-px bg-borde-sutil" />

@@ -462,13 +462,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
               style={{ background: 'var(--superficie-hover)', color: 'var(--texto-marca)' }}
             >
               <span className="flex-1 break-all">{webhookUrl}</span>
-              <button
-                onClick={() => copiarTexto(webhookUrl)}
-                className="p-1.5 rounded-md transition-colors flex-shrink-0"
-                style={{ color: 'var(--texto-terciario)', background: 'var(--superficie-app)' }}
-              >
-                <Copy size={14} />
-              </button>
+              <Boton variante="secundario" tamano="xs" soloIcono icono={<Copy size={14} />} onClick={() => copiarTexto(webhookUrl)} />
             </div>
           </div>
         </div>
@@ -636,13 +630,9 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
 
       {/* ═══ Eliminar ═══ */}
       <div className="pt-2">
-        <button
-          className="flex items-center gap-2 text-xs transition-colors"
-          style={{ color: 'var(--insignia-peligro)' }}
-        >
-          <Trash2 size={14} />
+        <Boton variante="peligro" tamano="xs" icono={<Trash2 size={14} />}>
           Eliminar esta conexión
-        </button>
+        </Boton>
       </div>
     </div>
   )

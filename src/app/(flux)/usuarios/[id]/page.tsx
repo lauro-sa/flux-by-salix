@@ -17,6 +17,7 @@ import { InputMoneda } from '@/componentes/ui/InputMoneda'
 import { Select } from '@/componentes/ui/Select'
 import { SelectCreable } from '@/componentes/ui/SelectCreable'
 import { Boton } from '@/componentes/ui/Boton'
+import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Tarjeta } from '@/componentes/ui/Tarjeta'
@@ -295,14 +296,13 @@ function ItemMenu({ icono, children, onClick, variante = 'normal' }: {
     peligro: 'text-insignia-peligro',
   }
   return (
-    <button
-      role="menuitem"
+    <OpcionMenu
+      icono={icono}
+      peligro={variante === 'peligro'}
       onClick={onClick}
-      className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm hover:bg-superficie-hover bg-transparent border-none cursor-pointer text-left transition-colors ${colores[variante]}`}
     >
-      <span className={variante === 'normal' ? 'text-texto-terciario' : ''}>{icono}</span>
       {children}
-    </button>
+    </OpcionMenu>
   )
 }
 
@@ -1567,17 +1567,19 @@ export default function PaginaPerfilUsuario() {
 
                 {/* Documentos — resumen: solo frentes + botón ver todo */}
                 <Tarjeta titulo="Documentos" compacta acciones={
-                  <button
+                  <Boton
+                    variante="fantasma"
+                    tamano="xs"
+                    iconoDerecho={<ChevronRight size={12} />}
                     onClick={() => {
                       setTab('informacion')
                       setTimeout(() => {
                         document.getElementById('seccion-documentos')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                       }, 400)
                     }}
-                    className="text-xs text-texto-marca hover:underline bg-transparent border-none cursor-pointer flex items-center gap-1"
                   >
-                    Ver todo <ChevronRight size={12} />
-                  </button>
+                    Ver todo
+                  </Boton>
                 }>
                   <div className="grid grid-cols-2 gap-2">
                     {[
@@ -2427,12 +2429,13 @@ export default function PaginaPerfilUsuario() {
                     <p className="text-xs text-texto-terciario uppercase tracking-wide font-semibold mb-2">Período a liquidar</p>
                     <div className="bg-superficie-hover/50 rounded-xl border border-borde-sutil p-4">
                       <div className="flex items-center justify-between">
-                        <button
+                        <Boton
+                          variante="secundario"
+                          tamano="sm"
+                          soloIcono
+                          icono={<ChevronLeft size={18} />}
                           onClick={() => periodoModal && setPeriodoModal(navegarPeriodo(periodoModal, 'anterior', compensacionFrecuencia))}
-                          className="size-9 rounded-lg border border-borde-sutil flex items-center justify-center text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario transition-colors bg-transparent cursor-pointer"
-                        >
-                          <ChevronLeft size={18} />
-                        </button>
+                        />
 
                         <div className="text-center">
                           <p className="text-base font-bold text-texto-primario">{periodoModal?.etiqueta}</p>
@@ -2441,22 +2444,25 @@ export default function PaginaPerfilUsuario() {
                           </p>
                         </div>
 
-                        <button
+                        <Boton
+                          variante="secundario"
+                          tamano="sm"
+                          soloIcono
+                          icono={<ChevronRight size={18} />}
                           onClick={() => periodoModal && setPeriodoModal(navegarPeriodo(periodoModal, 'siguiente', compensacionFrecuencia))}
-                          className="size-9 rounded-lg border border-borde-sutil flex items-center justify-center text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario transition-colors bg-transparent cursor-pointer"
-                        >
-                          <ChevronRight size={18} />
-                        </button>
+                        />
                       </div>
 
                       {/* Rango personalizado */}
-                      <button
+                      <Boton
+                        variante="fantasma"
+                        tamano="xs"
+                        icono={<ChevronDown size={12} className={`transition-transform ${rangoPersonalizado ? 'rotate-180' : ''}`} />}
                         onClick={() => setRangoPersonalizado(p => !p)}
-                        className="flex items-center gap-1.5 text-xs text-texto-terciario hover:text-texto-secundario mt-3 mx-auto bg-transparent border-none cursor-pointer transition-colors"
+                        className="mt-3 mx-auto"
                       >
-                        <ChevronDown size={12} className={`transition-transform ${rangoPersonalizado ? 'rotate-180' : ''}`} />
                         Elegir rango personalizado
-                      </button>
+                      </Boton>
 
                       <AnimatePresence>
                         {rangoPersonalizado && (

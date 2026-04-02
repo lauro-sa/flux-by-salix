@@ -186,12 +186,13 @@ function SeccionEstados({ estados, cargando, onActualizar, onAccionAPI }: Propie
                         {estado.etiqueta}
                       </p>
                       <Interruptor activo={estado.activo} onChange={() => toggleActivo(estado)} />
-                      <button
+                      <Boton
+                        variante="fantasma"
+                        tamano="xs"
+                        soloIcono
+                        icono={<Pencil size={13} />}
                         onClick={() => abrirModal(estado)}
-                        className="flex items-center justify-center size-7 rounded-md bg-transparent border-none text-texto-terciario cursor-pointer hover:bg-superficie-hover hover:text-texto-secundario transition-colors"
-                      >
-                        <Pencil size={13} />
-                      </button>
+                      />
                     </Reorder.Item>
                   )
                 })}
@@ -202,13 +203,9 @@ function SeccionEstados({ estados, cargando, onActualizar, onAccionAPI }: Propie
 
         {/* Footer: restablecer */}
         <div className="flex justify-end px-5 py-3 border-t border-borde-sutil bg-superficie-hover/30">
-          <button
-            onClick={() => setConfirmarRestablecer(true)}
-            className="flex items-center gap-1.5 text-xs text-texto-terciario hover:text-texto-secundario transition-colors cursor-pointer bg-transparent border-none"
-          >
-            <RotateCcw size={13} />
+          <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => setConfirmarRestablecer(true)}>
             Restablecer
-          </button>
+          </Boton>
         </div>
       </div>
 

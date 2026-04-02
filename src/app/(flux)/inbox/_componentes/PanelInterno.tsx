@@ -10,6 +10,7 @@ import {
   BellOff, Bell, LogOut, Check, CheckCheck,
   MoreHorizontal, UserPlus, Pencil, Archive, SmilePlus,
 } from 'lucide-react'
+import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { CompositorMensaje, type DatosMensaje } from './CompositorMensaje'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
@@ -214,14 +215,7 @@ export function PanelInterno({
           <span className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
             Mensajería
           </span>
-          <button
-            onClick={onCrearCanal}
-            className="p-1 rounded transition-colors"
-            style={{ color: 'var(--texto-terciario)' }}
-            aria-label="Crear canal o grupo"
-          >
-            <Plus size={16} />
-          </button>
+          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Plus size={16} />} onClick={onCrearCanal} titulo="Crear canal o grupo" />
         </div>
 
         {/* Canales (públicos + privados) */}
@@ -345,14 +339,7 @@ export function PanelInterno({
               </div>
               {/* Menú de acciones del canal */}
               <div className="relative">
-                <button
-                  onClick={() => setMenuCanal(prev => !prev)}
-                  className="p-1.5 rounded transition-colors"
-                  style={{ color: 'var(--texto-terciario)' }}
-                  aria-label="Opciones del canal"
-                >
-                  <MoreHorizontal size={16} />
-                </button>
+                <Boton variante="fantasma" tamano="xs" soloIcono icono={<MoreHorizontal size={16} />} onClick={() => setMenuCanal(prev => !prev)} titulo="Opciones del canal" />
                 <AnimatePresence>
                   {menuCanal && (
                     <motion.div
@@ -363,22 +350,20 @@ export function PanelInterno({
                       style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
                       onMouseDown={e => e.stopPropagation()}
                     >
-                      <button
+                      <OpcionMenu
+                        icono={canalSeleccionado.silenciado ? <Bell size={12} /> : <BellOff size={12} />}
                         onClick={() => silenciarCanal(canalSeleccionado)}
-                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors"
-                        style={{ color: 'var(--texto-secundario)' }}
                       >
-                        {canalSeleccionado.silenciado ? <Bell size={12} /> : <BellOff size={12} />}
                         {canalSeleccionado.silenciado ? 'Activar notificaciones' : 'Silenciar'}
-                      </button>
+                      </OpcionMenu>
                       {canalSeleccionado.tipo === 'grupo' && (
-                        <button
+                        <OpcionMenu
+                          icono={<LogOut size={12} />}
+                          peligro
                           onClick={() => salirDelGrupo(canalSeleccionado)}
-                          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors"
-                          style={{ color: 'var(--insignia-peligro)' }}
                         >
-                          <LogOut size={12} /> Salir del grupo
-                        </button>
+                          Salir del grupo
+                        </OpcionMenu>
                       )}
                     </motion.div>
                   )}
@@ -482,14 +467,7 @@ export function PanelInterno({
               <span className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
                 Hilo
               </span>
-              <button
-                onClick={() => setHiloAbierto(null)}
-                className="p-1 rounded transition-colors"
-                style={{ color: 'var(--texto-terciario)' }}
-                aria-label="Cerrar hilo"
-              >
-                <X size={14} />
-              </button>
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={14} />} onClick={() => setHiloAbierto(null)} titulo="Cerrar hilo" />
             </div>
             <div className="flex-1 overflow-y-auto p-3">
               <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
@@ -582,32 +560,30 @@ function CanalItem({
             onMouseDown={e => e.stopPropagation()}
           >
             {onSilenciar && (
-              <button
+              <OpcionMenu
+                icono={canal.silenciado ? <Bell size={12} /> : <BellOff size={12} />}
                 onClick={() => { onSilenciar(); setMenu(false) }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors"
-                style={{ color: 'var(--texto-secundario)' }}
               >
-                {canal.silenciado ? <Bell size={12} /> : <BellOff size={12} />}
                 {canal.silenciado ? 'Activar notificaciones' : 'Silenciar'}
-              </button>
+              </OpcionMenu>
             )}
             {onSalir && canal.tipo === 'grupo' && (
-              <button
+              <OpcionMenu
+                icono={<LogOut size={12} />}
+                peligro
                 onClick={() => { onSalir(); setMenu(false) }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors"
-                style={{ color: 'var(--insignia-peligro)' }}
               >
-                <LogOut size={12} /> Salir del grupo
-              </button>
+                Salir del grupo
+              </OpcionMenu>
             )}
             {onEliminar && (
-              <button
+              <OpcionMenu
+                icono={<Archive size={12} />}
+                peligro
                 onClick={() => { onEliminar(); setMenu(false) }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors"
-                style={{ color: 'var(--insignia-peligro)' }}
               >
-                <Archive size={12} /> {canal.tipo === 'directo' ? 'Eliminar chat' : 'Archivar'}
-              </button>
+                {canal.tipo === 'directo' ? 'Eliminar chat' : 'Archivar'}
+              </OpcionMenu>
             )}
           </motion.div>
         )}
@@ -947,24 +923,8 @@ function MensajeInterno({
               border: '1px solid var(--borde-sutil)',
             }}
           >
-            <button
-              onClick={onTogglePicker}
-              className="p-1 rounded transition-colors"
-              style={{ color: 'var(--texto-terciario)' }}
-              title="Reaccionar"
-              aria-label="Reaccionar"
-            >
-              <SmilePlus size={14} />
-            </button>
-            <button
-              onClick={onResponder}
-              className="p-1 rounded transition-colors"
-              style={{ color: 'var(--texto-terciario)' }}
-              title="Responder en hilo"
-              aria-label="Responder en hilo"
-            >
-              <MessageSquare size={14} />
-            </button>
+            <Boton variante="fantasma" tamano="xs" soloIcono icono={<SmilePlus size={14} />} onClick={onTogglePicker} titulo="Reaccionar" />
+            <Boton variante="fantasma" tamano="xs" soloIcono icono={<MessageSquare size={14} />} onClick={onResponder} titulo="Responder en hilo" />
           </motion.div>
         )}
       </AnimatePresence>

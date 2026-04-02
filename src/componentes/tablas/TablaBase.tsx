@@ -1,6 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { Checkbox } from '@/componentes/ui/Checkbox'
 
 interface Columna<T> {
   clave: string
@@ -73,7 +74,7 @@ function TablaBase<T>({ columnas, datos, claveFila, seleccionables, seleccionado
           <tr className="border-b border-borde-sutil">
             {seleccionables && (
               <th className="w-10 px-3 py-2.5">
-                <input type="checkbox" checked={todoSeleccionado} onChange={toggleTodos} className="cursor-pointer" />
+                <Checkbox marcado={todoSeleccionado} onChange={() => toggleTodos()} />
               </th>
             )}
             {columnas.map((col) => (
@@ -103,13 +104,9 @@ function TablaBase<T>({ columnas, datos, claveFila, seleccionables, seleccionado
               >
                 {seleccionables && (
                   <td className="w-10 px-3 py-2.5">
-                    <input
-                      type="checkbox"
-                      checked={estaSeleccionado}
-                      onChange={() => toggleUno(id)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="cursor-pointer"
-                    />
+                    <span onClick={(e) => e.stopPropagation()}>
+                      <Checkbox marcado={estaSeleccionado} onChange={() => toggleUno(id)} />
+                    </span>
                   </td>
                 )}
                 {columnas.map((col) => (

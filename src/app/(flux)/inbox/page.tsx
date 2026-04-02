@@ -1248,13 +1248,7 @@ function PaginaInbox() {
             >
               {/* Toggle del sidebar */}
               <div className="flex items-center justify-center h-9 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
-                <button
-                  onClick={toggleSidebarCorreo}
-                  className="p-1.5 rounded-md transition-colors"
-                  style={{ color: 'var(--texto-terciario)' }}
-                >
-                  {sidebarCorreoColapsado ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
-                </button>
+                <Boton variante="fantasma" tamano="xs" soloIcono icono={sidebarCorreoColapsado ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />} onClick={toggleSidebarCorreo} />
               </div>
               {/* Contenido del sidebar */}
               <div className="flex-1 overflow-hidden">
@@ -1300,9 +1294,7 @@ function PaginaInbox() {
                   style={{ width: listaCorreoColapsada ? 40 : 320, borderRight: '1px solid var(--borde-sutil)' }}
                 >
                   <div className="flex items-center justify-between px-2 h-9 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
-                    <button onClick={toggleListaCorreo} className="p-1 rounded-md" style={{ color: 'var(--texto-terciario)' }}>
-                      {listaCorreoColapsada ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
-                    </button>
+                    <Boton variante="fantasma" tamano="xs" soloIcono icono={listaCorreoColapsada ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />} onClick={toggleListaCorreo} />
                     {/* Selector de vista */}
                     <div className="flex items-center gap-0.5 rounded-md p-0.5" style={{ background: 'var(--superficie-hover)' }}>
                       <button
@@ -1389,14 +1381,14 @@ function PaginaInbox() {
                   <div className="flex items-center justify-between px-2 h-9 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
                     <div className="flex items-center gap-2">
                       {(conversacionSeleccionada || redactandoNuevo) && (
-                        <button
+                        <Boton
+                          variante="fantasma"
+                          tamano="xs"
+                          icono={<ArrowLeft size={14} />}
                           onClick={() => { setConversacionSeleccionada(null); setMensajes([]); setRedactandoNuevo(false) }}
-                          className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors"
-                          style={{ color: 'var(--texto-secundario)' }}
                         >
-                          <ArrowLeft size={14} />
-                          <span>{t('comun.volver')}</span>
-                        </button>
+                          {t('comun.volver')}
+                        </Boton>
                       )}
                     </div>
                     <div className="flex items-center gap-0.5 rounded-md p-0.5" style={{ background: 'var(--superficie-hover)' }}>

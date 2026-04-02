@@ -10,6 +10,7 @@ import { useRef, useCallback } from 'react'
 import { Braces } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
+import { TextArea } from '@/componentes/ui/TextArea'
 import { SelectorVariables } from '@/componentes/ui/SelectorVariables'
 import { OPCIONES_VISIBILIDAD } from './constantes'
 
@@ -110,20 +111,16 @@ export function EditorCodigoHtml({
       <div>
         <label className="text-xs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>HTML del correo</label>
         <div className="relative">
-          <textarea
+          <TextArea
             ref={htmlTextareaRef}
             value={htmlCrudo}
             onChange={(e) => onHtmlCrudoChange(e.target.value)}
             placeholder="<p>Hola {{contacto.nombre}},</p>&#10;<p>Adjuntamos el {{presupuesto.numero}}.</p>"
-            className="w-full text-xs font-mono bg-transparent outline-none py-3 px-4 pr-10 rounded-lg resize-none"
-            style={{
-              color: 'var(--texto-primario)',
-              border: '1px solid var(--borde-fuerte)',
-              minHeight: 280,
-              background: 'var(--superficie-app)',
-              tabSize: 2,
-            }}
+            compacto
+            monoespacio
             spellCheck={false}
+            className="pr-10"
+            style={{ minHeight: 280, tabSize: 2 }}
           />
           <div className="absolute top-2 right-2">
             <button

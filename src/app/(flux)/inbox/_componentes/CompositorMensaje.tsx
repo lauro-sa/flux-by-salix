@@ -6,6 +6,7 @@ import {
   Send, Paperclip, Mic, Pause, X, Image, Film, File, FileText, Trash2,
   StickyNote,
 } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 import type { TipoCanal, TipoContenido } from '@/tipos/inbox'
 import { useTraduccion } from '@/lib/i18n'
 import { SelectorRespuestasRapidas } from './SelectorRespuestasRapidas'
@@ -465,9 +466,7 @@ export function CompositorMensaje({
               </span>
               <span className="ml-1">{respondiendo.texto}</span>
             </div>
-            <button onClick={onCancelarRespuesta} aria-label="Cancelar respuesta">
-              <X size={14} style={{ color: 'var(--texto-terciario)' }} />
-            </button>
+            <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={14} />} onClick={onCancelarRespuesta} titulo="Cancelar respuesta" />
           </motion.div>
         )}
       </AnimatePresence>
@@ -552,13 +551,7 @@ export function CompositorMensaje({
                     : `${(archivoSeleccionado.size / 1024).toFixed(0)} KB`}
                 </p>
               </div>
-              <button
-                onClick={removerArchivo}
-                className="p-1 rounded-full"
-                style={{ color: 'var(--texto-terciario)' }}
-              >
-                <X size={14} />
-              </button>
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={14} />} onClick={removerArchivo} />
             </div>
           </motion.div>
         )}
@@ -584,9 +577,7 @@ export function CompositorMensaje({
               <span className="font-medium">{t('inbox.nota_interna')}</span>
               <span style={{ color: 'var(--texto-terciario)' }}>{t('inbox.solo_visible_agentes')}</span>
             </div>
-            <button onClick={() => setEsNotaInterna(false)}>
-              <X size={14} style={{ color: 'var(--texto-terciario)' }} />
-            </button>
+            <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={14} />} onClick={() => setEsNotaInterna(false)} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -597,14 +588,7 @@ export function CompositorMensaje({
         {grabando || convirtiendo ? (
           <div className="flex-1 flex items-center gap-2.5">
             {/* Eliminar */}
-            <button
-              onClick={descartarAudio}
-              className="p-2 rounded-lg flex-shrink-0"
-              style={{ color: 'var(--texto-terciario)' }}
-              title="Descartar"
-            >
-              <Trash2 size={18} />
-            </button>
+            <Boton variante="fantasma" tamano="sm" soloIcono icono={<Trash2 size={18} />} onClick={descartarAudio} titulo="Descartar" />
 
             {/* Timer */}
             <span className="text-sm font-mono w-10 flex-shrink-0" style={{ color: 'var(--texto-primario)' }}>
@@ -677,14 +661,7 @@ export function CompositorMensaje({
             />
 
             {/* Botón adjuntar */}
-            <button
-              onClick={() => inputArchivosRef.current?.click()}
-              className="p-2 rounded-lg transition-colors flex-shrink-0"
-              style={{ color: 'var(--texto-terciario)' }}
-              title={t('inbox.adjuntar')}
-            >
-              <Paperclip size={18} />
-            </button>
+            <Boton variante="fantasma" tamano="sm" soloIcono icono={<Paperclip size={18} />} onClick={() => inputArchivosRef.current?.click()} titulo={t('inbox.adjuntar')} />
             <input
               ref={inputArchivosRef}
               type="file"
@@ -695,14 +672,7 @@ export function CompositorMensaje({
 
             {/* Plantillas */}
             {onAbrirPlantillas && (
-              <button
-                onClick={onAbrirPlantillas}
-                className="p-2 rounded-lg transition-colors flex-shrink-0"
-                style={{ color: 'var(--texto-terciario)' }}
-                title="Plantillas"
-              >
-                <FileText size={18} />
-              </button>
+              <Boton variante="fantasma" tamano="sm" soloIcono icono={<FileText size={18} />} onClick={onAbrirPlantillas} titulo="Plantillas" />
             )}
 
             {/* Toggle nota interna */}
@@ -754,14 +724,7 @@ export function CompositorMensaje({
 
             {/* Botón grabar audio (solo WhatsApp, cuando no hay texto ni archivo) */}
             {tipoCanal === 'whatsapp' && !tieneContenido && (
-              <button
-                onClick={iniciarGrabacion}
-                className="p-2 rounded-lg transition-colors flex-shrink-0"
-                style={{ color: 'var(--texto-terciario)' }}
-                title={t('inbox.grabar_audio')}
-              >
-                <Mic size={18} />
-              </button>
+              <Boton variante="fantasma" tamano="sm" soloIcono icono={<Mic size={18} />} onClick={iniciarGrabacion} titulo={t('inbox.grabar_audio')} />
             )}
 
             {/* Bot��n enviar */}

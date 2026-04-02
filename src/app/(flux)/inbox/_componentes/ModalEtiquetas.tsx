@@ -241,12 +241,8 @@ export function ModalEtiquetas({
                           style={{ color: 'var(--texto-primario)' }}
                           autoFocus
                         />
-                        <button onClick={() => handleEditar(et.id)}>
-                          <Check size={12} style={{ color: 'var(--insignia-exito)' }} />
-                        </button>
-                        <button onClick={() => { setEditando(null); setNombre('') }}>
-                          <X size={12} style={{ color: 'var(--texto-terciario)' }} />
-                        </button>
+                        <Boton variante="fantasma" tamano="xs" soloIcono icono={<Check size={12} />} onClick={() => handleEditar(et.id)} className="text-insignia-exito" />
+                        <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={12} />} onClick={() => { setEditando(null); setNombre('') }} />
                       </div>
                     ) : (
                       <>
@@ -255,32 +251,13 @@ export function ModalEtiquetas({
                         </span>
                         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                           {etiquetas.indexOf(et) > 0 && (
-                            <button
-                              onClick={() => handleReordenar(etiquetas.indexOf(et), 'arriba')}
-                              className="p-1 rounded"
-                              title="Mover arriba"
-                            >
-                              <ChevronUp size={10} style={{ color: 'var(--texto-terciario)' }} />
-                            </button>
+                            <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronUp size={10} />} onClick={() => handleReordenar(etiquetas.indexOf(et), 'arriba')} titulo="Mover arriba" />
                           )}
                           {etiquetas.indexOf(et) < etiquetas.length - 1 && (
-                            <button
-                              onClick={() => handleReordenar(etiquetas.indexOf(et), 'abajo')}
-                              className="p-1 rounded"
-                              title="Mover abajo"
-                            >
-                              <ChevronDown size={10} style={{ color: 'var(--texto-terciario)' }} />
-                            </button>
+                            <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronDown size={10} />} onClick={() => handleReordenar(etiquetas.indexOf(et), 'abajo')} titulo="Mover abajo" />
                           )}
-                          <button
-                            onClick={() => { setEditando(et.id); setNombre(et.nombre); setColor(et.color) }}
-                            className="p-1 rounded"
-                          >
-                            <Pencil size={10} style={{ color: 'var(--texto-terciario)' }} />
-                          </button>
-                          <button onClick={() => handleEliminar(et.id)} className="p-1 rounded">
-                            <Trash2 size={10} style={{ color: 'var(--insignia-peligro)' }} />
-                          </button>
+                          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Pencil size={10} />} onClick={() => { setEditando(et.id); setNombre(et.nombre); setColor(et.color) }} />
+                          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={10} />} onClick={() => handleEliminar(et.id)} className="text-insignia-peligro" />
                         </div>
                       </>
                     )}

@@ -199,23 +199,23 @@ export function PanelIA({
                         {sug}
                       </p>
                       <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
+                        <Boton
+                          variante="fantasma"
+                          tamano="xs"
+                          soloIcono
+                          icono={copiado === i ? <Check size={10} /> : <Copy size={10} />}
                           onClick={(e) => { e.stopPropagation(); copiarSugerencia(sug, i) }}
-                          className="p-1 rounded"
-                          style={{ color: 'var(--texto-terciario)' }}
-                          title="Copiar"
-                        >
-                          {copiado === i ? <Check size={10} /> : <Copy size={10} />}
-                        </button>
+                          titulo="Copiar"
+                        />
                         {onEnviarDirecto && (
-                          <button
+                          <Boton
+                            variante="fantasma"
+                            tamano="xs"
+                            soloIcono
+                            icono={<Send size={10} />}
                             onClick={(e) => { e.stopPropagation(); onEnviarDirecto(sug); setExpandido(false) }}
-                            className="p-1 rounded"
-                            style={{ color: 'var(--texto-marca)' }}
-                            title="Enviar directo"
-                          >
-                            <Send size={10} />
-                          </button>
+                            titulo="Enviar directo"
+                          />
                         )}
                       </div>
                     </div>

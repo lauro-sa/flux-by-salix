@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Trash2, Eye, Check } from 'lucide-react'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
+import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import type { CondicionPago } from '@/tipos/presupuesto'
 import { useTraduccion } from '@/lib/i18n'
@@ -136,9 +137,9 @@ export default function ModalCondicionPago({ abierto, onCerrar, onGuardar, condi
       tamano="3xl"
       acciones={
         <>
-          <button onClick={onCerrar} className="px-4 py-2 text-sm text-texto-secundario hover:bg-superficie-tarjeta rounded-lg transition-colors">
+          <Boton variante="fantasma" onClick={onCerrar}>
             Cancelar
-          </button>
+          </Boton>
           <Boton onClick={guardar} disabled={!puedeGuardar}>
             {esEdicion ? 'Guardar cambios' : 'Agregar'}
           </Boton>
@@ -149,19 +150,14 @@ export default function ModalCondicionPago({ abierto, onCerrar, onGuardar, condi
         {/* ── Formulario ── */}
         <div className="space-y-5">
           {/* Nombre */}
-          <div>
-            <label className="text-xs text-texto-terciario font-medium block mb-1">Nombre</label>
-            <input
-              type="text"
-              value={form.label}
-              onChange={(e) => { setForm(p => ({ ...p, label: e.target.value })); setNombreManual(true) }}
-              placeholder="Se genera automáticamente..."
-              className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-marca-500 transition-colors"
-            />
-            <p className="text-xs text-texto-terciario mt-1">
-              {nombreManual ? 'Nombre personalizado' : 'Se genera automáticamente según la configuración'}
-            </p>
-          </div>
+          <Input
+            etiqueta="Nombre"
+            value={form.label}
+            onChange={(e) => { setForm(p => ({ ...p, label: e.target.value })); setNombreManual(true) }}
+            placeholder="Se genera automáticamente..."
+            ayuda={nombreManual ? 'Nombre personalizado' : 'Se genera automáticamente según la configuración'}
+            formato={null}
+          />
 
           {/* Tipo */}
           <Select
@@ -181,15 +177,15 @@ export default function ModalCondicionPago({ abierto, onCerrar, onGuardar, condi
 
           {/* Campos según tipo */}
           {form.tipo === 'plazo_fijo' ? (
-            <div>
-              <label className="text-xs text-texto-terciario font-medium block mb-1">Días de vencimiento</label>
-              <input
-                type="number" min="0" value={form.diasVencimiento}
-                onChange={(e) => setForm(p => ({ ...p, diasVencimiento: e.target.value }))}
-                placeholder="30"
-                className="w-32 bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm text-texto-primario outline-none focus:border-marca-500 transition-colors"
-              />
-            </div>
+            <Input
+              etiqueta="Días de vencimiento"
+              tipo="number"
+              min="0"
+              value={form.diasVencimiento}
+              onChange={(e) => setForm(p => ({ ...p, diasVencimiento: e.target.value }))}
+              placeholder="30"
+              className="w-32"
+            />
           ) : (
             <>
               {/* Cuotas de pago */}
@@ -210,19 +206,31 @@ export default function ModalCondicionPago({ abierto, onCerrar, onGuardar, condi
                 <div className="space-y-2">
                   {form.hitos.map((h) => (
                     <div key={h.id} className="grid grid-cols-[1fr_90px_90px_28px] gap-3 items-center">
-                      <input type="text" value={h.descripcion}
+                      <Input
+                        compacto
+                        value={h.descripcion}
                         onChange={(e) => editarHito(h.id, 'descripcion', e.target.value)}
                         placeholder="Ej: Adelanto"
-                        className="w-full bg-superficie-app border border-borde-sutil rounded-lg px-3 py-2 text-sm outline-none focus:border-marca-500 text-texto-primario" />
-                      <input type="number" min="1" max="100" value={h.porcentaje}
+                        formato={null}
+                      />
+                      <Input
+                        compacto
+                        tipo="number"
+                        min="1"
+                        max="100"
+                        value={h.porcentaje}
                         onChange={(e) => editarHito(h.id, 'porcentaje', parseFloat(e.target.value) || 0)}
-                        className="w-full bg-superficie-app border border-borde-sutil rounded-lg px-3 py-2 text-sm font-mono text-right outline-none focus:border-marca-500 text-texto-primario" />
-                      <input type="number" min="0" value={h.diasDesdeEmision}
+                        className="font-mono text-right"
+                      />
+                      <Input
+                        compacto
+                        tipo="number"
+                        min="0"
+                        value={h.diasDesdeEmision}
                         onChange={(e) => editarHito(h.id, 'diasDesdeEmision', parseInt(e.target.value) || 0)}
-                        className="w-full bg-superficie-app border border-borde-sutil rounded-lg px-3 py-2 text-sm font-mono text-right outline-none focus:border-marca-500 text-texto-primario" />
-                      <button onClick={() => eliminarHito(h.id)} className="flex items-center justify-center text-texto-terciario hover:text-estado-error transition-colors">
-                        <Trash2 size={14} />
-                      </button>
+                        className="font-mono text-right"
+                      />
+                      <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={() => eliminarHito(h.id)} className="text-texto-terciario hover:text-estado-error" />
                     </div>
                   ))}
                 </div>
@@ -239,27 +247,28 @@ export default function ModalCondicionPago({ abierto, onCerrar, onGuardar, condi
                 )}
 
                 {/* Agregar cuota */}
-                <button
+                <Boton
+                  variante="secundario"
+                  tamano="sm"
+                  anchoCompleto
+                  icono={<Plus size={16} />}
                   onClick={agregarHito}
                   disabled={totalHitos >= 100}
-                  className="w-full flex items-center justify-center gap-1.5 mt-3 px-3 py-2.5 rounded-lg border border-dashed border-borde-sutil text-sm text-texto-secundario hover:text-texto-primario hover:border-marca-500 transition-colors disabled:opacity-30"
+                  className="mt-3 border-dashed"
                 >
-                  <Plus size={16} /> Agregar cuota
-                </button>
+                  Agregar cuota
+                </Boton>
               </div>
 
               {/* Nota adicional */}
-              <div>
-                <label className="text-xs text-texto-terciario font-medium block mb-1">Nota adicional</label>
-                <input
-                  type="text"
-                  value={form.notaPlanPago}
-                  onChange={(e) => setForm(p => ({ ...p, notaPlanPago: e.target.value }))}
-                  placeholder="Ej: recargo 10% con tarjeta, solo transferencia..."
-                  className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-marca-500 transition-colors"
-                />
-                <p className="text-xs text-texto-terciario mt-1">Aparece debajo del plan de pagos en presupuestos, portal y PDF</p>
-              </div>
+              <Input
+                etiqueta="Nota adicional"
+                value={form.notaPlanPago}
+                onChange={(e) => setForm(p => ({ ...p, notaPlanPago: e.target.value }))}
+                placeholder="Ej: recargo 10% con tarjeta, solo transferencia..."
+                ayuda="Aparece debajo del plan de pagos en presupuestos, portal y PDF"
+                formato={null}
+              />
             </>
           )}
         </div>

@@ -15,6 +15,7 @@ import { useTraduccion } from '@/lib/i18n'
 import { Tarjeta } from '@/componentes/ui/Tarjeta'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Cargador } from '@/componentes/ui/Cargador'
+import { Boton } from '@/componentes/ui/Boton'
 
 /**
  * Página de Dashboard — Panel de inicio con resumen de la actividad.
@@ -209,12 +210,9 @@ export default function PaginaDashboard() {
           <Tarjeta
             titulo={`${t('contactos.titulo')} ${t('dashboard.recientes')}`}
             acciones={
-              <button
-                onClick={() => router.push('/contactos')}
-                className="text-xs text-texto-terciario hover:text-texto-primario transition-colors flex items-center gap-1"
-              >
-                {t('dashboard.ver_todo')} <ArrowRight size={12} />
-              </button>
+              <Boton variante="fantasma" tamano="xs" iconoDerecho={<ArrowRight size={12} />} onClick={() => router.push('/contactos')}>
+                {t('dashboard.ver_todo')}
+              </Boton>
             }
           >
             {datos?.contactos.recientes && datos.contactos.recientes.length > 0 ? (
@@ -253,12 +251,9 @@ export default function PaginaDashboard() {
           <Tarjeta
             titulo={t('dashboard.inbox_ultimos_30d')}
             acciones={
-              <button
-                onClick={() => router.push('/inbox')}
-                className="text-xs text-texto-terciario hover:text-texto-primario transition-colors flex items-center gap-1"
-              >
-                {t('dashboard.ver_todo')} <ArrowRight size={12} />
-              </button>
+              <Boton variante="fantasma" tamano="xs" iconoDerecho={<ArrowRight size={12} />} onClick={() => router.push('/inbox')}>
+                {t('dashboard.ver_todo')}
+              </Boton>
             }
           >
             {metricas ? (
@@ -337,12 +332,9 @@ export default function PaginaDashboard() {
           <Tarjeta
             titulo={`${t('navegacion.presupuestos')} ${t('dashboard.recientes')}`}
             acciones={
-              <button
-                onClick={() => router.push('/presupuestos')}
-                className="text-xs text-texto-terciario hover:text-texto-primario transition-colors flex items-center gap-1"
-              >
-                {t('dashboard.ver_todo')} <ArrowRight size={12} />
-              </button>
+              <Boton variante="fantasma" tamano="xs" iconoDerecho={<ArrowRight size={12} />} onClick={() => router.push('/presupuestos')}>
+                {t('dashboard.ver_todo')}
+              </Boton>
             }
           >
             {datos?.presupuestos.recientes && datos.presupuestos.recientes.length > 0 ? (
@@ -424,12 +416,9 @@ export default function PaginaDashboard() {
             <Tarjeta
               titulo={`Actividades pendientes (${datos.actividades.total_pendientes})`}
               acciones={
-                <button
-                  onClick={() => router.push('/actividades')}
-                  className="text-xs text-texto-terciario hover:text-texto-primario transition-colors flex items-center gap-1"
-                >
-                  {t('dashboard.ver_todo')} <ArrowRight size={12} />
-                </button>
+                <Boton variante="fantasma" tamano="xs" iconoDerecho={<ArrowRight size={12} />} onClick={() => router.push('/actividades')}>
+                  {t('dashboard.ver_todo')}
+                </Boton>
               }
             >
               <div className="space-y-1">
@@ -534,12 +523,8 @@ function BotonRapido({
   onClick: () => void
 }) {
   return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-texto-secundario bg-superficie-tarjeta border border-borde-sutil rounded-lg hover:border-borde-fuerte hover:text-texto-primario transition-all duration-150 cursor-pointer"
-    >
-      <Plus size={13} strokeWidth={2} />
+    <Boton variante="secundario" tamano="sm" icono={<Plus size={13} strokeWidth={2} />} onClick={onClick}>
       {etiqueta}
-    </button>
+    </Boton>
   )
 }

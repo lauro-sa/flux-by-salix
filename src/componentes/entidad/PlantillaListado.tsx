@@ -3,6 +3,8 @@
 import { useState, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MoreHorizontal, Settings, X } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
+import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { useTraduccion } from '@/lib/i18n'
 
 /* ─── Tipos ─── */
@@ -83,14 +85,7 @@ function PlantillaListado({
           </h1>
 
           {mostrarConfiguracion && onConfiguracion && (
-            <button
-              type="button"
-              onClick={onConfiguracion}
-              className="size-9 inline-flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer transition-colors text-texto-terciario hover:text-texto-secundario border-none bg-transparent"
-              title="Configuración"
-            >
-              <Settings size={16} />
-            </button>
+            <Boton variante="fantasma" tamano="sm" soloIcono icono={<Settings size={16} />} onClick={onConfiguracion} titulo="Configuración" />
           )}
         </div>
 
@@ -98,27 +93,16 @@ function PlantillaListado({
         {(accionPrincipal || acciones.length > 0) && (
           <div className="flex items-center gap-2">
             {accionPrincipal && (
-              <button
-                type="button"
-                onClick={accionPrincipal.onClick}
-                className="flex items-center justify-center gap-2 px-4 h-10 sm:h-9 rounded-lg text-sm font-semibold text-texto-inverso cursor-pointer border-none transition-colors hover:opacity-90"
-                style={{ backgroundColor: 'var(--texto-marca)' }}
-              >
-                {accionPrincipal.icono}
+              <Boton variante="primario" tamano="md" icono={accionPrincipal.icono} onClick={accionPrincipal.onClick}>
                 {accionPrincipal.etiqueta}
-              </button>
+              </Boton>
             )}
 
             {acciones.length > 0 && (
               <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setMenuAbierto(!menuAbierto)}
-                  className="flex items-center gap-1.5 px-3 h-10 sm:h-9 rounded-lg border border-borde-sutil bg-transparent text-sm font-medium text-texto-secundario hover:bg-superficie-hover cursor-pointer transition-colors"
-                >
+                <Boton variante="secundario" tamano="md" iconoDerecho={<MoreHorizontal size={14} />} onClick={() => setMenuAbierto(!menuAbierto)}>
                   {t('comun.acciones')}
-                  <MoreHorizontal size={14} className="text-texto-terciario" />
-                </button>
+                </Boton>
 
                 <AnimatePresence>
                   {menuAbierto && (
@@ -132,20 +116,14 @@ function PlantillaListado({
                         className="absolute top-full left-0 mt-1 min-w-[180px] bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-50 overflow-hidden"
                       >
                         {acciones.map((accion) => (
-                          <button
+                          <OpcionMenu
                             key={accion.id}
-                            type="button"
+                            icono={accion.icono}
+                            peligro={accion.peligro}
                             onClick={() => { accion.onClick(); setMenuAbierto(false) }}
-                            className={[
-                              'flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left border-none cursor-pointer transition-colors',
-                              accion.peligro
-                                ? 'text-insignia-peligro-texto bg-transparent hover:bg-insignia-peligro-fondo'
-                                : 'text-texto-primario bg-transparent hover:bg-superficie-hover',
-                            ].join(' ')}
                           >
-                            {accion.icono}
                             {accion.etiqueta}
-                          </button>
+                          </OpcionMenu>
                         ))}
                       </motion.div>
                     </>

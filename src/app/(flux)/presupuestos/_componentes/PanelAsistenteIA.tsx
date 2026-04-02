@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
+import { TextArea } from '@/componentes/ui/TextArea'
 import { COLOR_TIPO_PRODUCTO } from '@/lib/colores_entidad'
 
 /**
@@ -231,12 +232,11 @@ export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearSe
 
           {/* ── Input de descripción ── */}
           <div className="px-5 py-4 border-b border-borde-sutil">
-            <textarea
+            <TextArea
               value={descripcion}
               onChange={e => setDescripcion(e.target.value)}
               placeholder="Describí el trabajo a presupuestar...&#10;&#10;Ej: Fui a un edificio en Palermo, portón curvo corredizo grande. Hay que cambiar los rolletes inferiores, reparar el carro superior, ajustar y nivelar. Traslado con andamios."
               rows={5}
-              className="w-full px-3 py-2.5 rounded-xl border border-borde-sutil bg-superficie-app text-sm text-texto-primario placeholder:text-texto-placeholder resize-none focus:outline-none focus:ring-2 focus:ring-texto-marca/30 focus:border-texto-marca transition-colors"
             />
             {/* Selector de modo */}
             <div className="flex items-center gap-1 p-0.5 rounded-lg bg-superficie-app border border-borde-sutil mt-3">
@@ -461,11 +461,11 @@ export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearSe
                         {!esRechazada && (
                           <div className="mt-2 ml-9">
                             {editando ? (
-                              <textarea
+                              <TextArea
                                 value={linea.descripcion_editada ?? linea.descripcion_venta}
                                 onChange={e => actualizarLinea(idx, { descripcion_editada: e.target.value })}
                                 rows={3}
-                                className="w-full px-2.5 py-2 rounded-lg border border-borde-sutil bg-superficie-app text-xs text-texto-primario resize-none focus:outline-none focus:ring-1 focus:ring-texto-marca/30"
+                                compacto
                               />
                             ) : (
                               <p className="text-xs text-texto-terciario leading-relaxed">

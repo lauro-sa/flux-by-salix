@@ -9,6 +9,7 @@ import {
 import { Input } from '@/componentes/ui/Input'
 import { FORMATOS_NOMBRE_REMITENTE, type FormatoNombreRemitente } from '@/lib/nombre-remitente'
 import { Avatar } from '@/componentes/ui/Avatar'
+import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Tarjeta } from '@/componentes/ui/Tarjeta'
 import { useFormato } from '@/hooks/useFormato'
@@ -339,10 +340,9 @@ export function SeccionPerfil() {
       <Tarjeta
         titulo="Contacto de emergencia"
         acciones={!editandoEm ? (
-          <button type="button" onClick={iniciarEdicionEm}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-texto-marca bg-transparent border border-texto-marca/20 cursor-pointer hover:bg-texto-marca/5 transition-colors">
-            <Pencil size={12} /> {ctx.emergencia.nombre ? 'Editar' : 'Agregar'}
-          </button>
+          <Boton variante="secundario" tamano="sm" icono={<Pencil size={12} />} onClick={iniciarEdicionEm}>
+            {ctx.emergencia.nombre ? 'Editar' : 'Agregar'}
+          </Boton>
         ) : undefined}
       >
         {!editandoEm ? (
@@ -378,14 +378,12 @@ export function SeccionPerfil() {
               value={emLocal.telefono} onChange={(e) => setEmLocal(p => ({ ...p, telefono: e.target.value }))}
               icono={<Phone size={16} />} placeholder="+54 11 1234-5678" error={erroresEm.telefono} />
             <div className="flex items-center gap-2 pt-1">
-              <button type="button" onClick={guardarEm} disabled={guardandoEm}
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-texto-marca text-white border-none cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed">
-                {guardandoEm ? 'Guardando...' : 'Guardar'}
-              </button>
-              <button type="button" onClick={cancelarEdicionEm}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-texto-secundario bg-transparent border border-borde-sutil cursor-pointer hover:bg-superficie-hover transition-colors">
-                <X size={14} /> Cancelar
-              </button>
+              <Boton variante="primario" onClick={guardarEm} disabled={guardandoEm} cargando={guardandoEm}>
+                Guardar
+              </Boton>
+              <Boton variante="secundario" icono={<X size={14} />} onClick={cancelarEdicionEm}>
+                Cancelar
+              </Boton>
             </div>
           </div>
         )}

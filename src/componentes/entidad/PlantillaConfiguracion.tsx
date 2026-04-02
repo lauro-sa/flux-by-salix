@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 
 /* ─── Tipos ─── */
 
@@ -104,13 +105,14 @@ function PlantillaConfiguracion({
       <div className="flex items-center gap-2 shrink-0 pr-4 md:pr-6">
         {/* Mobile: botón volver contextual */}
         {(onVolver || mobileVistaContenido) && (
-          <button
-            type="button"
+          <Boton
+            variante="fantasma"
+            tamano="xs"
+            soloIcono
+            icono={<ChevronLeft size={16} />}
             onClick={mobileVistaContenido ? volverAListaMobile : onVolver}
-            className="md:hidden flex items-center gap-1 text-sm font-medium text-texto-secundario hover:text-texto-primario transition-colors cursor-pointer bg-transparent border-none -ml-1 px-1.5 py-1 rounded-lg hover:bg-superficie-hover"
-          >
-            <ChevronLeft size={16} />
-          </button>
+            className="md:hidden -ml-1"
+          />
         )}
 
         {/* Título desktop */}

@@ -9,6 +9,8 @@ import {
   Image, Music, StickyNote, Pencil, Trash2, Tag, SmilePlus,
   FileDown, Bot, Sparkles,
 } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
+import { TextArea } from '@/componentes/ui/TextArea'
 import { ModalEtiquetas } from './ModalEtiquetas'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { CompositorMensaje, type DatosMensaje } from './CompositorMensaje'
@@ -382,25 +384,17 @@ export function PanelWhatsApp({
         </div>
         {/* Acciones del header */}
         <div className="flex items-center gap-0.5 flex-shrink-0">
-          <button
-            onClick={() => setModalEtiquetas(true)}
-            className="p-2 rounded-lg transition-colors"
-            style={{ color: 'var(--texto-terciario)' }}
-            title={t('inbox.etiquetar')}
-          >
-            <Tag size={16} />
-          </button>
-          <button
+          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Tag size={16} />} onClick={() => setModalEtiquetas(true)} titulo={t('inbox.etiquetar')} />
+          <Boton
+            variante="fantasma"
+            tamano="xs"
+            soloIcono
+            icono={<FileDown size={16} />}
             onClick={() => {
-              // Descargar como CSV
               window.open(`/api/inbox/exportar?conversacion_id=${conversacion.id}&formato=csv`, '_blank')
             }}
-            className="p-2 rounded-lg transition-colors"
-            style={{ color: 'var(--texto-terciario)' }}
-            title={t('inbox.exportar_conversacion')}
-          >
-            <FileDown size={16} />
-          </button>
+            titulo={t('inbox.exportar_conversacion')}
+          />
         </div>
       </div>
 
@@ -554,27 +548,21 @@ export function PanelWhatsApp({
                         {msg.texto}
                       </p>
                       <div className="flex items-center gap-2">
-                        <button
+                        <Boton
+                          variante="exito"
+                          tamano="xs"
                           onClick={() => onEnviar({ texto: msg.texto || '', tipo_contenido: 'texto' })}
-                          className="text-xxs font-medium px-2.5 py-1 rounded-md cursor-pointer transition-colors"
-                          style={{
-                            background: 'color-mix(in srgb, var(--insignia-exito) 15%, transparent)',
-                            color: 'var(--insignia-exito)',
-                          }}
                         >
                           Aprobar y enviar
-                        </button>
+                        </Boton>
                         {onEliminarNota && (
-                          <button
+                          <Boton
+                            variante="peligro"
+                            tamano="xs"
                             onClick={() => onEliminarNota(msg.id)}
-                            className="text-xxs font-medium px-2.5 py-1 rounded-md cursor-pointer transition-colors"
-                            style={{
-                              background: 'color-mix(in srgb, var(--insignia-peligro) 10%, transparent)',
-                              color: 'var(--insignia-peligro)',
-                            }}
                           >
                             Descartar
-                          </button>
+                          </Boton>
                         )}
                       </div>
                       <div className="flex items-center justify-end mt-1">
@@ -617,27 +605,27 @@ export function PanelWhatsApp({
                       {(onEditarNota || onEliminarNota) && !editandoEsta && (
                         <div className="ml-auto flex items-center gap-0.5 opacity-0 group-hover/nota:opacity-100 transition-opacity">
                           {onEditarNota && (
-                            <button
+                            <Boton
+                              variante="fantasma"
+                              tamano="xs"
+                              soloIcono
+                              icono={<Pencil size={10} />}
                               onClick={() => {
                                 setEditandoNotaId(msg.id)
                                 setTextoEditandoNota(msg.texto || '')
                               }}
-                              className="p-1 rounded transition-colors"
-                              style={{ color: 'var(--texto-terciario)' }}
-                              title={t('comun.editar')}
-                            >
-                              <Pencil size={10} />
-                            </button>
+                              titulo={t('comun.editar')}
+                            />
                           )}
                           {onEliminarNota && (
-                            <button
+                            <Boton
+                              variante="fantasma"
+                              tamano="xs"
+                              soloIcono
+                              icono={<Trash2 size={10} />}
                               onClick={() => onEliminarNota(msg.id)}
-                              className="p-1 rounded transition-colors"
-                              style={{ color: 'var(--texto-terciario)' }}
-                              title={t('comun.eliminar')}
-                            >
-                              <Trash2 size={10} />
-                            </button>
+                              titulo={t('comun.eliminar')}
+                            />
                           )}
                         </div>
                       )}
@@ -646,16 +634,15 @@ export function PanelWhatsApp({
                     {/* Contenido: texto o editor inline */}
                     {editandoEsta ? (
                       <div className="space-y-1.5">
-                        <textarea
+                        <TextArea
                           value={textoEditandoNota}
                           onChange={(e) => setTextoEditandoNota(e.target.value)}
-                          className="w-full text-sm bg-transparent outline-none resize-none rounded p-1"
+                          variante="transparente"
+                          autoFocus
                           style={{
-                            color: 'var(--texto-secundario)',
                             border: '1px solid color-mix(in srgb, var(--insignia-advertencia) 40%, transparent)',
                             minHeight: 40,
                           }}
-                          autoFocus
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
                               e.preventDefault()
@@ -670,25 +657,21 @@ export function PanelWhatsApp({
                           }}
                         />
                         <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => setEditandoNotaId(null)}
-                            className="text-xxs px-2 py-0.5 rounded"
-                            style={{ color: 'var(--texto-terciario)' }}
-                          >
+                          <Boton variante="fantasma" tamano="xs" onClick={() => setEditandoNotaId(null)}>
                             Cancelar
-                          </button>
-                          <button
+                          </Boton>
+                          <Boton
+                            variante="advertencia"
+                            tamano="xs"
                             onClick={() => {
                               if (textoEditandoNota.trim() && onEditarNota) {
                                 onEditarNota(msg.id, textoEditandoNota.trim())
                                 setEditandoNotaId(null)
                               }
                             }}
-                            className="text-xxs px-2 py-0.5 rounded font-medium"
-                            style={{ color: 'var(--insignia-advertencia)' }}
                           >
                             Guardar
-                          </button>
+                          </Boton>
                         </div>
                       </div>
                     ) : (
@@ -1019,12 +1002,7 @@ export function VisorMedia({
               >
                 <Download size={18} className="text-white/70" />
               </a>
-              <button
-                onClick={onCerrar}
-                className="p-2 rounded-full hover:bg-white/10 transition-colors"
-              >
-                <X size={18} className="text-white/70" />
-              </button>
+              <Boton variante="fantasma" tamano="sm" soloIcono icono={<X size={18} className="text-white/70" />} onClick={onCerrar} className="hover:bg-white/10" />
             </div>
           </div>
 

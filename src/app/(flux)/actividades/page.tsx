@@ -404,22 +404,25 @@ export default function PaginaActividades() {
         return (
           <div className="flex items-center gap-0.5 justify-end">
             {esPendiente && tieneAccionTipo && (
-              <button
+              <Boton
+                variante="fantasma"
+                tamano="xs"
+                soloIcono
+                icono={tipo?.clave === 'presupuestar' ? <FileText size={14} /> : tipo?.clave === 'visita' ? <MapPin size={14} /> : <ClipboardList size={14} />}
                 onClick={(e) => { e.stopPropagation(); ejecutarAccionTipo(fila) }}
-                className="size-7 rounded-md flex items-center justify-center bg-transparent border-none text-texto-terciario cursor-pointer hover:bg-texto-marca/10 hover:text-texto-marca transition-colors"
-                title={`Ir a ${tipo?.etiqueta?.toLowerCase()}`}
-              >
-                {tipo?.clave === 'presupuestar' ? <FileText size={14} /> : tipo?.clave === 'visita' ? <MapPin size={14} /> : <ClipboardList size={14} />}
-              </button>
+                titulo={`Ir a ${tipo?.etiqueta?.toLowerCase()}`}
+              />
             )}
             {esPendiente && (
-              <button
+              <Boton
+                variante="fantasma"
+                tamano="xs"
+                soloIcono
+                icono={<Clock size={14} />}
                 onClick={(e) => { e.stopPropagation(); posponerActividad(fila.id, 1) }}
-                className="size-7 rounded-md flex items-center justify-center bg-transparent border-none text-texto-terciario cursor-pointer hover:bg-insignia-advertencia-fondo hover:text-insignia-advertencia-texto transition-colors"
-                title="Posponer 1 día"
-              >
-                <Clock size={14} />
-              </button>
+                titulo="Posponer 1 día"
+                className="hover:bg-insignia-advertencia-fondo hover:text-insignia-advertencia-texto"
+              />
             )}
           </div>
         )
@@ -503,20 +506,24 @@ export default function PaginaActividades() {
 
             {esPendiente && (
               <div className="flex items-center gap-0.5">
-                <button
+                <Boton
+                  variante="fantasma"
+                  tamano="xs"
+                  soloIcono
+                  icono={<CheckCircle size={15} />}
                   onClick={(e) => { e.stopPropagation(); completarActividad(fila.id) }}
-                  className="size-7 rounded-md flex items-center justify-center bg-transparent border-none text-texto-terciario cursor-pointer hover:bg-insignia-exito-fondo hover:text-insignia-exito-texto transition-colors"
-                  title="Completar"
-                >
-                  <CheckCircle size={15} />
-                </button>
-                <button
+                  titulo="Completar"
+                  className="hover:bg-insignia-exito-fondo hover:text-insignia-exito-texto"
+                />
+                <Boton
+                  variante="fantasma"
+                  tamano="xs"
+                  soloIcono
+                  icono={<Clock size={15} />}
                   onClick={(e) => { e.stopPropagation(); posponerActividad(fila.id, 1) }}
-                  className="size-7 rounded-md flex items-center justify-center bg-transparent border-none text-texto-terciario cursor-pointer hover:bg-insignia-advertencia-fondo hover:text-insignia-advertencia-texto transition-colors"
-                  title="Posponer 1 día"
-                >
-                  <Clock size={15} />
-                </button>
+                  titulo="Posponer 1 día"
+                  className="hover:bg-insignia-advertencia-fondo hover:text-insignia-advertencia-texto"
+                />
               </div>
             )}
           </div>

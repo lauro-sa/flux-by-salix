@@ -95,34 +95,41 @@ function PreviewRecordatorio({ previewModal, onCerrarModal, previewToast, onCerr
                   </div>
                 </div>
               </div>
-              <button
+              <Boton
+                variante="fantasma"
+                tamano="xs"
+                soloIcono
+                icono={<X size={14} />}
                 onClick={onCerrarToast}
-                className="shrink-0 flex items-center justify-center size-6 rounded-md bg-transparent hover:bg-superficie-hover border-none cursor-pointer text-texto-terciario hover:text-texto-secundario transition-colors"
-              >
-                <X size={14} />
-              </button>
+              />
             </div>
             <div className="flex border-t border-borde-sutil">
-              <button
+              <Boton
+                variante="fantasma"
+                tamano="sm"
                 onClick={onCerrarToast}
-                className="flex-1 py-2.5 text-xs font-medium text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors"
+                className="flex-1 rounded-none text-texto-terciario"
               >
                 Descartar
-              </button>
+              </Boton>
               <div className="w-px bg-borde-sutil" />
-              <button
+              <Boton
+                variante="fantasma"
+                tamano="sm"
                 onClick={onCerrarToast}
-                className="flex-1 py-2.5 text-xs font-medium text-texto-secundario hover:text-texto-primario hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors"
+                className="flex-1 rounded-none text-texto-secundario"
               >
                 Posponer
-              </button>
+              </Boton>
               <div className="w-px bg-borde-sutil" />
-              <button
+              <Boton
+                variante="fantasma"
+                tamano="sm"
                 onClick={onCerrarToast}
-                className="flex-1 py-2.5 text-xs font-medium text-texto-marca hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors"
+                className="flex-1 rounded-none text-texto-marca"
               >
                 Completar
-              </button>
+              </Boton>
             </div>
             <div className="px-3 py-1.5 bg-superficie-hover text-center">
               <span className="text-xxs text-texto-terciario italic">Vista previa — así se vería la notificación</span>

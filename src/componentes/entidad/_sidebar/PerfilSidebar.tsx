@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Circle, Check, UserCog, LogOut } from 'lucide-react'
 import { useTraduccion } from '@/lib/i18n'
+import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { useAuth } from '@/hooks/useAuth'
@@ -73,15 +74,20 @@ function PerfilSidebar({ colapsado }: PropiedadesPerfilSidebar) {
             <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} className="absolute left-2.5 right-2.5 bottom-full mb-1 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-50 py-1">
               <div className="px-3 py-1.5 text-xxs font-semibold text-texto-terciario uppercase tracking-wider">Estado</div>
               {estados.map(est => (
-                <button key={est.id} onClick={() => { setEstado(est.id); setPerfilAbierto(false) }} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-texto-secundario bg-transparent border-none cursor-pointer hover:bg-superficie-hover text-left">
-                  <Circle size={8} className={`fill-current ${est.color}`} /> {est.etiqueta}
-                  {estado === est.id && <Check size={13} className="ml-auto text-texto-marca" />}
-                </button>
+                <OpcionMenu
+                  key={est.id}
+                  icono={<Circle size={8} className={`fill-current ${est.color}`} />}
+                  activo={estado === est.id}
+                  derecha={estado === est.id ? <Check size={13} className="text-texto-marca" /> : undefined}
+                  onClick={() => { setEstado(est.id); setPerfilAbierto(false) }}
+                >
+                  {est.etiqueta}
+                </OpcionMenu>
               ))}
               <div className="h-px bg-borde-sutil my-1" />
               <Link href="/mi-cuenta" onClick={() => setPerfilAbierto(false)} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-texto-secundario no-underline hover:bg-superficie-hover"><UserCog size={13} /> Mi cuenta</Link>
               <div className="h-px bg-borde-sutil my-1" />
-              <button onClick={() => { setPerfilAbierto(false); setModalCerrarSesion(true) }} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-insignia-peligro bg-transparent border-none cursor-pointer hover:bg-insignia-peligro-fondo text-left"><LogOut size={13} /> {t('auth.cerrar_sesion')}</button>
+              <OpcionMenu icono={<LogOut size={13} />} peligro onClick={() => { setPerfilAbierto(false); setModalCerrarSesion(true) }}>{t('auth.cerrar_sesion')}</OpcionMenu>
             </motion.div>
           )}
         </AnimatePresence>

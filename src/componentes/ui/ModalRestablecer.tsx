@@ -199,20 +199,12 @@ export function ModalRestablecer({ abierto, onCerrar, tipo, etiquetaTipo, onRest
             <div className="flex items-center gap-3 p-3 rounded-lg border border-borde-sutil bg-superficie-elevada/50">
               <span className="text-xs text-texto-terciario shrink-0">Aplicar a todos:</span>
               <div className="flex gap-2 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => aplicarATodos('__mantener__')}
-                  className="text-xs px-2.5 py-1 rounded-md bg-superficie-tarjeta border border-borde-sutil hover:border-borde-fuerte text-texto-secundario cursor-pointer transition-colors"
-                >
+                <Boton variante="secundario" tamano="xs" onClick={() => aplicarATodos('__mantener__')}>
                   Mantener todos
-                </button>
-                <button
-                  type="button"
-                  onClick={() => aplicarATodos('__eliminar__')}
-                  className="text-xs px-2.5 py-1 rounded-md bg-superficie-tarjeta border border-borde-sutil hover:border-insignia-peligro text-texto-secundario cursor-pointer transition-colors"
-                >
+                </Boton>
+                <Boton variante="secundario" tamano="xs" onClick={() => aplicarATodos('__eliminar__')} className="hover:border-insignia-peligro">
                   Eliminar todos
-                </button>
+                </Boton>
               </div>
             </div>
           )}
@@ -236,13 +228,7 @@ export function ModalRestablecer({ abierto, onCerrar, tipo, etiquetaTipo, onRest
                   {/* Encabezado del item */}
                   <div className="flex items-center gap-3 p-3">
                     {/* Botón expandir */}
-                    <button
-                      type="button"
-                      onClick={() => toggleExpandido(clave)}
-                      className="text-texto-terciario hover:text-texto-primario cursor-pointer bg-transparent border-none p-0"
-                    >
-                      {expandido ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                    </button>
+                    <Boton variante="fantasma" tamano="xs" soloIcono icono={expandido ? <ChevronDown size={14} /> : <ChevronRight size={14} />} onClick={() => toggleExpandido(clave)} />
 
                     {/* Nombre y conteo */}
                     <div className="flex-1 min-w-0">

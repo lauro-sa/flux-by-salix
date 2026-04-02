@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useTraduccion } from '@/lib/i18n'
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 
 /* ════════════════════════════════════════════
    Sub-componente: Paginador de tabla
@@ -59,58 +60,58 @@ export function Paginador({
       {/* Controles */}
       <div className="flex items-center gap-1">
         {/* Primera página */}
-        <button
-          type="button"
+        <Boton
+          variante="fantasma"
+          tamano="xs"
+          soloIcono
+          icono={<ChevronsLeft size={14} />}
           onClick={() => { onCambiarPagina(1); setUltimoClickCentro(false) }}
           disabled={paginaActual === 1}
-          className="size-7 inline-flex items-center justify-center rounded hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          title="Primera página"
-        >
-          <ChevronsLeft size={14} />
-        </button>
+          titulo="Primera página"
+        />
 
         {/* Anterior */}
-        <button
-          type="button"
+        <Boton
+          variante="fantasma"
+          tamano="xs"
+          soloIcono
+          icono={<ChevronLeft size={14} />}
           onClick={irAnterior}
           disabled={paginaActual === 1}
-          className="size-7 inline-flex items-center justify-center rounded hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          title={t('comun.anterior')}
-        >
-          <ChevronLeft size={14} />
-        </button>
+          titulo={t('comun.anterior')}
+        />
 
         {/* Indicador central clickeable */}
-        <button
-          type="button"
+        <Boton
+          variante="fantasma"
+          tamano="xs"
           onClick={clickCentro}
-          className="px-3 py-1 rounded text-xs font-medium text-texto-primario hover:bg-superficie-hover cursor-pointer border-none bg-transparent transition-colors"
-          title={ultimoClickCentro ? 'Ir a la primera página' : 'Ir a la última página'}
+          titulo={ultimoClickCentro ? 'Ir a la primera página' : 'Ir a la última página'}
         >
           {paginaActual} / {totalPaginas}
-        </button>
+        </Boton>
 
         {/* Siguiente */}
-        <button
-          type="button"
+        <Boton
+          variante="fantasma"
+          tamano="xs"
+          soloIcono
+          icono={<ChevronRight size={14} />}
           onClick={irSiguiente}
           disabled={paginaActual === totalPaginas}
-          className="size-7 inline-flex items-center justify-center rounded hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          title={t('comun.siguiente')}
-        >
-          <ChevronRight size={14} />
-        </button>
+          titulo={t('comun.siguiente')}
+        />
 
         {/* Última página */}
-        <button
-          type="button"
+        <Boton
+          variante="fantasma"
+          tamano="xs"
+          soloIcono
+          icono={<ChevronsRight size={14} />}
           onClick={() => { onCambiarPagina(totalPaginas); setUltimoClickCentro(true) }}
           disabled={paginaActual === totalPaginas}
-          className="size-7 inline-flex items-center justify-center rounded hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          title="Última página"
-        >
-          <ChevronsRight size={14} />
-        </button>
+          titulo="Última página"
+        />
       </div>
     </div>
   )

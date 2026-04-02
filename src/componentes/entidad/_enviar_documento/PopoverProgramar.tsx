@@ -10,6 +10,7 @@ import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sun, Coffee, Moon, Calendar } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { SelectorHora } from '@/componentes/ui/SelectorHora'
 import { diaSiguienteCorto } from './ayudantes'
@@ -96,29 +97,27 @@ export function PopoverProgramar({
           {/* Opciones rápidas */}
           <div>
             {opciones.map((op) => (
-              <button
+              <OpcionMenu
                 key={op.valor}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--superficie-hover)]"
+                icono={op.icono}
+                derecha={<span className="text-xs" style={{ color: 'var(--texto-terciario)' }}>{op.hora}</span>}
                 onClick={() => { onProgramar(op.valor); onCerrar() }}
                 disabled={disabled}
               >
-                <span style={{ color: 'var(--texto-terciario)' }}>{op.icono}</span>
-                <span className="flex-1 text-sm" style={{ color: 'var(--texto-primario)' }}>{op.etiqueta}</span>
-                <span className="text-xs" style={{ color: 'var(--texto-terciario)' }}>{op.hora}</span>
-              </button>
+                {op.etiqueta}
+              </OpcionMenu>
             ))}
           </div>
 
           {/* Elegir fecha y hora — con SelectorFecha + SelectorHora */}
           <div style={{ borderTop: '1px solid var(--borde-sutil)' }}>
             {!mostrarCustom ? (
-              <button
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--superficie-hover)]"
+              <OpcionMenu
+                icono={<Calendar size={15} />}
                 onClick={() => setMostrarCustom(true)}
               >
-                <span style={{ color: 'var(--texto-terciario)' }}><Calendar size={15} /></span>
-                <span className="text-sm" style={{ color: 'var(--texto-primario)' }}>Elegir fecha y hora...</span>
-              </button>
+                Elegir fecha y hora...
+              </OpcionMenu>
             ) : (
               <div className="px-4 py-3 space-y-2.5">
                 <div className="flex items-end gap-2">

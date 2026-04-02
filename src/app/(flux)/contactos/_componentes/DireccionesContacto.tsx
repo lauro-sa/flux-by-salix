@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, X, MapPin, Search } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import { InputDireccion } from '@/componentes/ui/InputDireccion'
@@ -148,11 +149,7 @@ export function DireccionesContacto({ direcciones, onChange, paises }: Props) {
           </button>
         ))}
 
-        {/* Botón + para agregar otra dirección */}
-        <button type="button" onClick={agregar}
-          className="flex items-center justify-center size-7 rounded-full border border-borde-sutil text-texto-terciario hover:text-texto-marca hover:border-borde-fuerte bg-transparent cursor-pointer transition-colors">
-          <Plus size={13} />
-        </button>
+        <Boton variante="fantasma" tamano="xs" soloIcono icono={<Plus size={13} />} onClick={agregar} redondeado />
       </div>
 
       {/* ── Contenido de la dirección activa ── */}
@@ -177,10 +174,7 @@ export function DireccionesContacto({ direcciones, onChange, paises }: Props) {
                 />
               </div>
               {!esVirtual && (
-                <button type="button" onClick={() => eliminar(tabActiva)}
-                  className="text-texto-terciario hover:text-insignia-peligro bg-transparent border-none cursor-pointer transition-colors p-1">
-                  <X size={16} />
-                </button>
+                <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={16} />} onClick={() => eliminar(tabActiva)} className="text-texto-terciario hover:text-insignia-peligro" />
               )}
             </div>
 

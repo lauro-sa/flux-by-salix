@@ -2,6 +2,7 @@
 
 import { type ReactNode } from 'react'
 import { ChevronLeft } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 
 /* ─── Tipos ─── */
 
@@ -76,14 +77,15 @@ function PlantillaDetalle({
         <div className="flex items-center gap-3 flex-1 min-w-0">
           {/* Botón volver */}
           {onVolver && (
-            <button
-              type="button"
+            <Boton
+              variante="fantasma"
+              tamano="sm"
+              icono={<ChevronLeft size={16} />}
               onClick={onVolver}
-              className="shrink-0 flex items-center gap-1 px-2 h-9 rounded-lg text-sm font-medium text-texto-secundario hover:text-texto-primario hover:bg-superficie-hover cursor-pointer border-none bg-transparent transition-colors"
+              className="shrink-0"
             >
-              <ChevronLeft size={16} />
               <span className="hidden sm:inline">{volverTexto}</span>
-            </button>
+            </Boton>
           )}
 
           {/* Separador */}
@@ -109,27 +111,17 @@ function PlantillaDetalle({
         {/* Lado derecho: acciones */}
         {acciones.length > 0 && (
           <div className="flex items-center gap-2 shrink-0">
-            {acciones.map((accion) => {
-              const estilos = {
-                primario: 'text-texto-inverso hover:opacity-90',
-                secundario: 'border border-borde-sutil bg-superficie-tarjeta text-texto-primario hover:bg-superficie-hover',
-                peligro: 'bg-insignia-peligro-fondo text-insignia-peligro-texto hover:bg-insignia-peligro/20',
-              }
-              const variante = accion.variante || 'secundario'
-
-              return (
-                <button
-                  key={accion.id}
-                  type="button"
-                  onClick={accion.onClick}
-                  className={`flex items-center gap-1.5 px-3 h-9 rounded-lg text-sm font-medium cursor-pointer border-none transition-colors ${estilos[variante]}`}
-                  style={variante === 'primario' ? { backgroundColor: 'var(--texto-marca)' } : undefined}
-                >
-                  {accion.icono}
-                  <span className="hidden sm:inline">{accion.etiqueta}</span>
-                </button>
-              )
-            })}
+            {acciones.map((accion) => (
+              <Boton
+                key={accion.id}
+                variante={accion.variante || 'secundario'}
+                tamano="sm"
+                icono={accion.icono}
+                onClick={accion.onClick}
+              >
+                <span className="hidden sm:inline">{accion.etiqueta}</span>
+              </Boton>
+            ))}
           </div>
         )}
       </div>

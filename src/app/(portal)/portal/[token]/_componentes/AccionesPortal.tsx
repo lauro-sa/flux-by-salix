@@ -8,6 +8,8 @@
 
 import { useState } from 'react'
 import { FileText, Phone, Check, X, Undo2, Loader2 } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
+import { TextArea } from '@/componentes/ui/TextArea'
 import { useTraduccion } from '@/lib/i18n'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { EstadoPortal } from '@/tipos/portal'
@@ -85,29 +87,18 @@ export default function AccionesPortal({
 
         {/* Cancelar aceptación */}
         {!mostrarCancelar ? (
-          <button
-            onClick={() => setMostrarCancelar(true)}
-            className="w-full text-xs text-texto-terciario hover:text-estado-error py-2 transition-colors flex items-center justify-center gap-1"
-          >
-            <Undo2 size={12} />
+          <Boton variante="fantasma" tamano="xs" anchoCompleto icono={<Undo2 size={12} />} onClick={() => setMostrarCancelar(true)} className="text-texto-terciario hover:text-estado-error">
             {t('portal.cancelar_aceptacion')}
-          </button>
+          </Boton>
         ) : (
           <div className="flex items-center gap-2 justify-center">
             <span className="text-xs text-estado-error">{t('portal.confirmar_cancelar')}</span>
-            <button
-              onClick={() => { onCancelar(); setMostrarCancelar(false) }}
-              disabled={cargando}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-estado-error rounded-lg hover:bg-estado-error/90 disabled:opacity-50 transition-colors"
-            >
-              {cargando ? <Loader2 size={12} className="animate-spin" /> : 'Sí, cancelar'}
-            </button>
-            <button
-              onClick={() => setMostrarCancelar(false)}
-              className="px-3 py-1.5 text-xs text-texto-terciario hover:text-texto-primario transition-colors"
-            >
+            <Boton variante="peligro" tamano="xs" onClick={() => { onCancelar(); setMostrarCancelar(false) }} disabled={cargando} cargando={cargando}>
+              Sí, cancelar
+            </Boton>
+            <Boton variante="fantasma" tamano="xs" onClick={() => setMostrarCancelar(false)}>
               No
-            </button>
+            </Boton>
           </div>
         )}
       </div>
@@ -148,48 +139,30 @@ export default function AccionesPortal({
       {!mostrarRechazo ? (
         <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil p-4">
           <div className="flex items-center justify-between">
-            <button
-              onClick={onAceptar}
-              disabled={cargando}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-insignia-exito hover:bg-insignia-exito/90 disabled:opacity-50 transition-colors"
-            >
-              {cargando ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+            <Boton variante="exito" tamano="md" icono={<Check size={16} />} onClick={onAceptar} disabled={cargando} cargando={cargando}>
               Aceptar y firmar
-            </button>
-            <button
-              onClick={() => setMostrarRechazo(true)}
-              className="flex items-center gap-1.5 text-sm font-medium text-estado-error hover:text-estado-error/80 transition-colors"
-            >
-              <X size={15} />
+            </Boton>
+            <Boton variante="fantasma" tamano="sm" icono={<X size={15} />} onClick={() => setMostrarRechazo(true)} className="text-estado-error hover:text-estado-error/80">
               {t('portal.rechazar')}
-            </button>
+            </Boton>
           </div>
         </div>
       ) : (
         <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil p-4 space-y-3">
           <p className="text-sm font-medium text-texto-primario">{t('portal.motivo_rechazo')}</p>
-          <textarea
+          <TextArea
             value={motivo}
             onChange={e => setMotivo(e.target.value)}
             placeholder={t('portal.motivo_placeholder')}
             rows={3}
-            className="w-full px-3 py-2 rounded-lg border border-borde-sutil bg-superficie-app text-sm text-texto-primario placeholder:text-texto-placeholder focus:ring-2 focus:ring-estado-error/30 focus:border-estado-error outline-none resize-none transition"
           />
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => onRechazar(motivo)}
-              disabled={cargando}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-estado-error hover:bg-estado-error/90 disabled:opacity-50 transition-colors"
-            >
-              {cargando ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
+            <Boton variante="peligro" tamano="md" icono={<X size={14} />} onClick={() => onRechazar(motivo)} disabled={cargando} cargando={cargando}>
               {t('portal.confirmar_rechazo')}
-            </button>
-            <button
-              onClick={() => { setMostrarRechazo(false); setMotivo('') }}
-              className="text-sm text-texto-terciario hover:text-texto-primario transition-colors"
-            >
+            </Boton>
+            <Boton variante="fantasma" tamano="sm" onClick={() => { setMostrarRechazo(false); setMotivo('') }}>
               {t('comun.cancelar')}
-            </button>
+            </Boton>
           </div>
         </div>
       )}

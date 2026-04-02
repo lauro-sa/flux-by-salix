@@ -1,6 +1,8 @@
 'use client'
 
 import { Plus, Clock, Bell, Eye, X } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
+import { TextArea } from '@/componentes/ui/TextArea'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { SelectorHora } from '@/componentes/ui/SelectorHora'
 import { Interruptor } from '@/componentes/ui/Interruptor'
@@ -63,22 +65,25 @@ function FormularioRecordatorio({ estado }: FormularioRecordatorioProps) {
               />
             </div>
           ) : (
-            <button
+            <Boton
+              variante="fantasma"
+              tamano="sm"
+              icono={<Clock size={13} />}
               onClick={() => setUsarHora(true)}
-              className="flex-1 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-superficie-hover text-xs text-texto-terciario hover:text-texto-secundario cursor-pointer border-none transition-colors"
+              className="flex-1"
             >
-              <Clock size={13} />
               Todo el día
-            </button>
+            </Boton>
           )}
           {usarHora && (
-            <button
+            <Boton
+              variante="fantasma"
+              tamano="xs"
+              soloIcono
+              icono={<X size={14} />}
               onClick={() => setUsarHora(false)}
-              className="shrink-0 flex items-center justify-center size-8 rounded-lg bg-transparent hover:bg-superficie-hover border-none cursor-pointer text-texto-terciario hover:text-texto-secundario transition-colors"
-              title="Cambiar a todo el día"
-            >
-              <X size={14} />
-            </button>
+              titulo="Cambiar a todo el día"
+            />
           )}
         </div>
       </div>
@@ -98,7 +103,11 @@ function FormularioRecordatorio({ estado }: FormularioRecordatorioProps) {
           {alertaModal ? 'Notificación + modal' : 'Solo notificación'}
         </span>
         <Interruptor activo={alertaModal} onChange={setAlertaModal} />
-        <button
+        <Boton
+          variante="fantasma"
+          tamano="xs"
+          soloIcono
+          icono={<Eye size={13} />}
           onClick={() => {
             setAbierto(false)
             setTimeout(() => {
@@ -106,36 +115,34 @@ function FormularioRecordatorio({ estado }: FormularioRecordatorioProps) {
               sonidos.notificacion()
             }, 200)
           }}
-          className="shrink-0 flex items-center justify-center size-7 rounded-lg bg-transparent hover:bg-superficie-hover border-none cursor-pointer text-texto-terciario hover:text-texto-secundario transition-colors"
-          title="Vista previa"
-        >
-          <Eye size={13} />
-        </button>
+          titulo="Vista previa"
+        />
       </div>
 
       {/* 5. + Agregar nota — colapsado */}
       <AnimatePresence>
         {!mostrarNota ? (
-          <button
+          <Boton
+            variante="fantasma"
+            tamano="xs"
+            icono={<Plus size={13} />}
             onClick={() => setMostrarNota(true)}
-            className="flex items-center gap-1.5 text-xs text-texto-terciario hover:text-texto-secundario bg-transparent border-none cursor-pointer transition-colors px-1 py-0.5"
           >
-            <Plus size={13} />
             Agregar nota
-          </button>
+          </Boton>
         ) : (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             transition={{ duration: 0.2 }}
           >
-            <textarea
+            <TextArea
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
               placeholder="Notas adicionales..."
               rows={2}
               autoFocus
-              className="w-full px-3 py-2 rounded-lg border border-borde-sutil bg-superficie-app text-xs text-texto-primario placeholder:text-texto-placeholder resize-none focus:outline-none focus:border-texto-marca transition-colors"
+              compacto
             />
           </motion.div>
         )}

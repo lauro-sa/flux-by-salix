@@ -118,12 +118,14 @@ function SeccionPosposicion({ config, cargando, onAccionAPI }: PropiedadesSeccio
               <span className="text-xs text-texto-terciario w-16 text-center shrink-0 bg-superficie-hover rounded-md px-2 py-1.5">
                 {preset.dias < 7 ? `${preset.dias}d` : preset.dias === 7 ? '1 sem' : preset.dias === 14 ? '2 sem' : `${Math.round(preset.dias / 7)}sem`}
               </span>
-              <button
+              <Boton
+                variante="fantasma"
+                tamano="xs"
+                soloIcono
+                icono={<Trash2 size={15} />}
                 onClick={() => eliminar(preset.id)}
-                className="text-texto-terciario cursor-pointer bg-transparent border-none hover:text-insignia-peligro-texto transition-colors shrink-0"
-              >
-                <Trash2 size={15} />
-              </button>
+                className="shrink-0 hover:text-insignia-peligro-texto"
+              />
             </div>
           ))}
 
@@ -134,13 +136,9 @@ function SeccionPosposicion({ config, cargando, onAccionAPI }: PropiedadesSeccio
 
         {/* Footer: restablecer */}
         <div className="flex justify-end px-5 py-3 border-t border-borde-sutil bg-superficie-hover/30">
-          <button
-            onClick={() => setConfirmarRestablecer(true)}
-            className="flex items-center gap-1.5 text-xs text-texto-terciario hover:text-texto-secundario transition-colors cursor-pointer bg-transparent border-none"
-          >
-            <RotateCcw size={13} />
+          <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => setConfirmarRestablecer(true)}>
             Restablecer
-          </button>
+          </Boton>
         </div>
       </div>
 

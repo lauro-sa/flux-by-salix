@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronUp, ChevronDown, ExternalLink, MapPin, Mail, Phone, X } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 import { motion, AnimatePresence } from 'framer-motion'
 
 /**
@@ -161,22 +162,10 @@ export default function SelectorContactoPresupuesto({
           </div>
           <div className="flex items-center gap-1 shrink-0">
             {!soloLectura && (
-              <button
-                onClick={limpiar}
-                className="size-7 rounded flex items-center justify-center text-texto-terciario hover:text-estado-error hover:bg-estado-error/10 transition-colors"
-                title="Cambiar cliente"
-              >
-                <X size={14} />
-              </button>
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={14} />} onClick={limpiar} titulo="Cambiar cliente" className="text-texto-terciario hover:text-estado-error hover:bg-estado-error/10" />
             )}
             {contacto.id && (
-              <button
-                onClick={() => router.push(`/contactos/${contacto.id}`)}
-                className="size-7 rounded flex items-center justify-center text-texto-terciario hover:text-texto-marca hover:bg-marca-500/10 transition-colors"
-                title="Ver ficha del contacto"
-              >
-                <ExternalLink size={14} />
-              </button>
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<ExternalLink size={14} />} onClick={() => router.push(`/contactos/${contacto.id}`)} titulo="Ver ficha del contacto" />
             )}
           </div>
         </div>

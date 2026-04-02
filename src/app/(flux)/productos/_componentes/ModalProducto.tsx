@@ -258,16 +258,13 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
             <div className="flex-1 min-w-0">
               {/* Fila 1: estrella + nombre grande inline */}
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
+                <Boton
+                  variante="fantasma"
+                  tamano="sm"
+                  soloIcono
+                  icono={favorito ? <Star size={20} className="text-yellow-500 fill-yellow-500" /> : <StarOff size={20} />}
                   onClick={() => setFavorito(!favorito)}
-                  className="shrink-0 p-1.5 rounded-lg hover:bg-superficie-app transition-colors"
-                >
-                  {favorito
-                    ? <Star size={20} className="text-yellow-500 fill-yellow-500" />
-                    : <StarOff size={20} className="text-texto-terciario" />
-                  }
-                </button>
+                />
                 <input
                   value={nombre}
                   onChange={e => setNombre(e.target.value)}

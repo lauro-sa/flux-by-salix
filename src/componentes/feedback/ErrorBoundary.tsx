@@ -2,6 +2,7 @@
 
 import { Component, type ReactNode } from 'react'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 
 /**
  * Error Boundary — atrapa errores en componentes hijos sin tumbar toda la app.
@@ -49,17 +50,14 @@ export class ErrorBoundary extends Component<Props, Estado> {
           <p className="text-xs mb-4" style={{ color: 'var(--texto-terciario)' }}>
             {this.state.error?.message || 'Error inesperado'}
           </p>
-          <button
+          <Boton
+            variante="secundario"
+            tamano="sm"
+            icono={<RefreshCw size={12} />}
             onClick={() => this.setState({ tieneError: false, error: null })}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-            style={{
-              background: 'var(--superficie-hover)',
-              color: 'var(--texto-secundario)',
-            }}
           >
-            <RefreshCw size={12} />
             Reintentar
-          </button>
+          </Boton>
         </div>
       )
     }

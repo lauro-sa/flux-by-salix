@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
+import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import {
   Reply, ReplyAll, Forward, Trash2, Archive, ShieldBan, ShieldCheck,
   Paperclip, ChevronDown, ChevronUp, Download, MailOpen, Mail as MailIcon,
@@ -363,33 +364,22 @@ export function PanelCorreo({
                     className="absolute right-0 top-full mt-1 z-50 rounded-lg py-1 min-w-[160px]"
                     style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
                   >
-                    <button className="w-full flex items-center gap-2 px-3 py-1.5 text-xs" style={{ color: 'var(--texto-secundario)' }} onClick={() => { setModalEtiquetas(true); setMenuOverflow(false) }}>
-                      <Tag size={12} /> {t('inbox.etiquetar')}
-                    </button>
+                    <OpcionMenu icono={<Tag size={12} />} onClick={() => { setModalEtiquetas(true); setMenuOverflow(false) }}>{t('inbox.etiquetar')}</OpcionMenu>
                     {onToggleLeido && (
-                      <button className="w-full flex items-center gap-2 px-3 py-1.5 text-xs" style={{ color: 'var(--texto-secundario)' }} onClick={() => { onToggleLeido(conversacion.id, conversacion.mensajes_sin_leer); setMenuOverflow(false) }}>
-                        {conversacion.mensajes_sin_leer > 0 ? <MailOpen size={12} /> : <MailIcon size={12} />}
+                      <OpcionMenu icono={conversacion.mensajes_sin_leer > 0 ? <MailOpen size={12} /> : <MailIcon size={12} />} onClick={() => { onToggleLeido(conversacion.id, conversacion.mensajes_sin_leer); setMenuOverflow(false) }}>
                         {conversacion.mensajes_sin_leer > 0 ? t('inbox.marcar_leido') : t('inbox.marcar_no_leido')}
-                      </button>
+                      </OpcionMenu>
                     )}
                     {conversacion.estado === 'spam' && onDesmarcarSpam ? (
-                      <button className="w-full flex items-center gap-2 px-3 py-1.5 text-xs" style={{ color: 'var(--texto-secundario)' }} onClick={() => { onDesmarcarSpam(conversacion.id); setMenuOverflow(false) }}>
-                        <ShieldCheck size={12} /> {t('inbox.no_es_spam')}
-                      </button>
+                      <OpcionMenu icono={<ShieldCheck size={12} />} onClick={() => { onDesmarcarSpam(conversacion.id); setMenuOverflow(false) }}>{t('inbox.no_es_spam')}</OpcionMenu>
                     ) : onMarcarSpam && (
-                      <button className="w-full flex items-center gap-2 px-3 py-1.5 text-xs" style={{ color: 'var(--texto-secundario)' }} onClick={() => { onMarcarSpam(conversacion.id); setMenuOverflow(false) }}>
-                        <ShieldBan size={12} /> Spam
-                      </button>
+                      <OpcionMenu icono={<ShieldBan size={12} />} onClick={() => { onMarcarSpam(conversacion.id); setMenuOverflow(false) }}>Spam</OpcionMenu>
                     )}
                     {onArchivar && (
-                      <button className="w-full flex items-center gap-2 px-3 py-1.5 text-xs" style={{ color: 'var(--texto-secundario)' }} onClick={() => { onArchivar(conversacion.id); setMenuOverflow(false) }}>
-                        <Archive size={12} /> {t('inbox.archivar')}
-                      </button>
+                      <OpcionMenu icono={<Archive size={12} />} onClick={() => { onArchivar(conversacion.id); setMenuOverflow(false) }}>{t('inbox.archivar')}</OpcionMenu>
                     )}
                     {onEliminar && (
-                      <button className="w-full flex items-center gap-2 px-3 py-1.5 text-xs" style={{ color: 'var(--insignia-peligro)' }} onClick={() => { onEliminar(conversacion.id); setMenuOverflow(false) }}>
-                        <Trash2 size={12} /> {t('comun.eliminar')}
-                      </button>
+                      <OpcionMenu icono={<Trash2 size={12} />} peligro onClick={() => { onEliminar(conversacion.id); setMenuOverflow(false) }}>{t('comun.eliminar')}</OpcionMenu>
                     )}
                   </motion.div>
                 )}

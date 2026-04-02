@@ -14,6 +14,8 @@ import {
   Loader2, StickyNote, Check, X, Reply, ClipboardList, RotateCcw,
 } from 'lucide-react'
 import { Avatar } from '@/componentes/ui/Avatar'
+import { Boton } from '@/componentes/ui/Boton'
+import { TextArea } from '@/componentes/ui/TextArea'
 import { useTraduccion } from '@/lib/i18n'
 import type { EntradaChatter, AccionSistema } from '@/tipos/chatter'
 
@@ -238,34 +240,27 @@ export function PanelChatter({ entidadTipo, entidadId, className = '' }: PropsPa
         )}
 
         <div className="flex gap-2 items-end">
-          <textarea
+          <TextArea
             ref={inputRef}
             value={mensaje}
             onChange={(e) => setMensaje(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                enviar()
-              }
-            }}
+            enviarConEnter
+            onEnviar={enviar}
             placeholder={modoRespuestaPortal
               ? 'Escribí un mensaje para el cliente (se verá en el portal)...'
               : 'Escribí una nota o mensaje...'
             }
             rows={1}
-            className={`flex-1 border rounded-lg px-3 py-2 text-sm text-texto-primario outline-none transition-colors resize-none ${
-              modoRespuestaPortal
-                ? 'bg-texto-marca/5 border-texto-marca/30 focus:border-texto-marca'
-                : 'bg-superficie-app border-borde-sutil focus:border-texto-marca'
-            }`}
           />
-          <button
+          <Boton
+            variante="primario"
+            tamano="sm"
+            soloIcono
+            icono={<Send size={16} />}
             onClick={enviar}
             disabled={!mensaje.trim() || enviando}
-            className="shrink-0 p-2 rounded-lg bg-texto-marca text-white hover:opacity-90 transition-opacity disabled:opacity-40"
-          >
-            {enviando ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-          </button>
+            cargando={enviando}
+          />
         </div>
       </div>
     </div>
@@ -334,22 +329,25 @@ function EntradaItem({
           {/* Botones confirmar/rechazar comprobante */}
           {esComprobante && entidadTipo === 'presupuesto' && comprobanteId && (
             <div className="flex items-center gap-2 mt-2">
-              <button
+              <Boton
+                variante="exito"
+                tamano="xs"
+                icono={<Check size={12} />}
                 onClick={() => handleAccion('confirmar')}
                 disabled={accionando}
-                className="flex items-center gap-1 text-xs font-medium text-insignia-exito bg-insignia-exito/10 hover:bg-insignia-exito/20 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
+                cargando={accionando}
               >
-                {accionando ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                 Confirmar pago
-              </button>
-              <button
+              </Boton>
+              <Boton
+                variante="peligro"
+                tamano="xs"
+                icono={<X size={12} />}
                 onClick={() => handleAccion('rechazar')}
                 disabled={accionando}
-                className="flex items-center gap-1 text-xs font-medium text-insignia-peligro bg-insignia-peligro/10 hover:bg-insignia-peligro/20 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
               >
-                <X size={12} />
                 Rechazar
-              </button>
+              </Boton>
             </div>
           )}
           <span className="text-xxs text-texto-terciario">{fechaRelativa(entrada.creado_en)}</span>

@@ -15,6 +15,8 @@ export { Tabs } from './Tabs'
 export { Pildora } from './Pildora'
 export { Interruptor } from './Interruptor'
 export { Separador } from './Separador'
+export { TextArea } from './TextArea'
+export { Checkbox } from './Checkbox'
 export { BloqueDireccion } from './BloqueDireccion'
 
 // Modales y overlays

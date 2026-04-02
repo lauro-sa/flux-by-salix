@@ -9,6 +9,7 @@ import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, Check, Plus } from 'lucide-react'
+import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { useTraduccion } from '@/lib/i18n'
 import { useAuth } from '@/hooks/useAuth'
 import { useEmpresa } from '@/hooks/useEmpresa'
@@ -98,7 +99,7 @@ function SwitcherEmpresa({ colapsado, onToggle }: PropiedadesSwitcherEmpresa) {
               </button>
             ))}
             <div className="h-px bg-borde-sutil my-1" />
-            <button className="flex items-center gap-2 w-full px-3 py-2 text-sm text-texto-marca bg-transparent border-none cursor-pointer hover:bg-superficie-hover text-left"><Plus size={14} /> {t('sidebar.agregar_empresa')}</button>
+            <OpcionMenu icono={<Plus size={14} />} activo>{t('sidebar.agregar_empresa')}</OpcionMenu>
             <div className="px-3 py-1.5 text-xxs text-texto-terciario">&#x2318; Shift E</div>
           </motion.div>
         )}

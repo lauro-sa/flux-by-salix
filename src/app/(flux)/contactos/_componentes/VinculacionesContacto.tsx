@@ -488,11 +488,7 @@ export function VinculacionesContacto({
               <span className="text-xs text-texto-terciario">({vinculaciones.length + vinculacionesInversas.length})</span>
             )}
           </div>
-          <button type="button" onClick={() => setModalVincular(true)}
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-texto-marca hover:bg-superficie-hover bg-transparent border-none cursor-pointer transition-colors">
-            <Plus size={13} />
-            <span>Vincular</span>
-          </button>
+          <Boton variante="fantasma" tamano="xs" icono={<Plus size={13} />} onClick={() => setModalVincular(true)}>Vincular</Boton>
         </div>
 
         {/* Contenido */}
@@ -551,10 +547,9 @@ export function VinculacionesContacto({
 
           {/* Vacío */}
           {!tieneVinculos && (
-            <button type="button" onClick={() => setModalVincular(true)}
-              className="w-full py-4 text-sm text-texto-terciario hover:text-texto-marca bg-transparent border border-dashed border-borde-sutil rounded-lg cursor-pointer transition-colors hover:border-borde-fuerte">
+            <Boton variante="secundario" tamano="sm" anchoCompleto onClick={() => setModalVincular(true)} className="border-dashed">
               Vincular con empresa, proveedor o persona...
-            </button>
+            </Boton>
           )}
         </div>
       </div>
@@ -694,10 +689,7 @@ export function VinculacionesContacto({
                   </div>
                   <div className="text-xs text-texto-terciario">{seleccionado.correo || seleccionado.codigo}</div>
                 </div>
-                <button type="button" onClick={() => setSeleccionado(null)}
-                  className="text-texto-terciario hover:text-texto-primario bg-transparent border-none cursor-pointer">
-                  <X size={16} />
-                </button>
+                <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={16} />} onClick={() => setSeleccionado(null)} />
               </div>
 
               {/* ── Puesto / Rol — prominente, justo después del contacto ── */}
@@ -750,14 +742,7 @@ export function VinculacionesContacto({
                 icono={<Search size={16} />}
                 iconoDerecho={
                   busqueda.trim().length >= 2 ? (
-                    <button
-                      type="button"
-                      onClick={abrirCrearInline}
-                      className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium text-texto-marca bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors whitespace-nowrap"
-                    >
-                      <Plus size={14} />
-                      Crear
-                    </button>
+                    <Boton variante="fantasma" tamano="xs" icono={<Plus size={14} />} onClick={abrirCrearInline}>Crear</Boton>
                   ) : undefined
                 }
                 autoFocus
@@ -1307,13 +1292,7 @@ function TarjetaVinculo({
     >
       {/* Botón desvincular (esquina superior derecha) */}
       {editable && onDesvincular && (
-        <button
-          type="button"
-          onClick={e => { e.stopPropagation(); onDesvincular() }}
-          className="absolute top-2 right-2 p-1 rounded-md text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro-fondo bg-transparent border-none cursor-pointer transition-colors opacity-0 group-hover:opacity-100"
-        >
-          <X size={13} />
-        </button>
+        <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={13} />} onClick={e => { e.stopPropagation(); onDesvincular() }} className="absolute top-2 right-2 text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro-fondo opacity-0 group-hover:opacity-100" />
       )}
 
       {/* Fila: avatar + nombre + badges */}

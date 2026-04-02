@@ -9,6 +9,9 @@ import {
 import type { LineaPresupuesto, TipoLinea, Impuesto, UnidadMedida } from '@/tipos/presupuesto'
 import { COLUMNAS_LINEA_DISPONIBLES } from '@/tipos/presupuesto'
 import { BuscadorProducto } from '@/componentes/entidad/BuscadorProducto'
+import { Boton } from '@/componentes/ui/Boton'
+import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
+import { TextArea } from '@/componentes/ui/TextArea'
 
 /**
  * TablaLineas — Editor de líneas del presupuesto.
@@ -119,14 +122,9 @@ function TablaLineas({
         </span>
         {!soloLectura && (
           <div className="relative" ref={menuColRef}>
-            <button
-              onClick={() => setMenuColumnasAbierto(!menuColumnasAbierto)}
-              className="flex items-center gap-1 text-xs text-texto-terciario hover:text-texto-secundario transition-colors p-1 rounded"
-              title="Configurar columnas"
-            >
-              <Settings2 size={14} />
+            <Boton variante="fantasma" tamano="xs" icono={<Settings2 size={14} />} onClick={() => setMenuColumnasAbierto(!menuColumnasAbierto)} titulo="Configurar columnas">
               Columnas
-            </button>
+            </Boton>
 
             <AnimatePresence>
               {menuColumnasAbierto && (
@@ -159,12 +157,7 @@ function TablaLineas({
                           {col.requerida && <div className="w-3 shrink-0" />}
                           <span className="flex-1 text-texto-primario">{col.label}</span>
                           {!col.requerida && (
-                            <button
-                              onClick={() => onCambiarColumnas(columnasVisibles.filter(c => c !== colId))}
-                              className="text-texto-terciario hover:text-insignia-peligro bg-transparent border-none cursor-pointer p-0"
-                            >
-                              <EyeOff size={12} />
-                            </button>
+                            <Boton variante="fantasma" tamano="xs" soloIcono icono={<EyeOff size={12} />} onClick={() => onCambiarColumnas(columnasVisibles.filter(c => c !== colId))} className="text-texto-terciario hover:text-insignia-peligro" />
                           )}
                         </Reorder.Item>
                       )
@@ -178,14 +171,9 @@ function TablaLineas({
                         <span className="text-[10px] text-texto-terciario uppercase tracking-wider">Ocultas</span>
                       </div>
                       {COLUMNAS_LINEA_DISPONIBLES.filter(c => !columnasVisibles.includes(c.id) && !c.requerida).map((col) => (
-                        <button
-                          key={col.id}
-                          onClick={() => onCambiarColumnas([...columnasVisibles, col.id])}
-                          className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left text-texto-terciario hover:text-texto-primario hover:bg-superficie-tarjeta transition-colors cursor-pointer"
-                        >
-                          <Eye size={12} />
+                        <OpcionMenu key={col.id} icono={<Eye size={12} />} onClick={() => onCambiarColumnas([...columnasVisibles, col.id])}>
                           {col.label}
-                        </button>
+                        </OpcionMenu>
                       ))}
                     </>
                   )}
@@ -274,12 +262,9 @@ function TablaLineas({
           {(['producto', 'seccion', 'nota', 'descuento'] as TipoLinea[]).map((tipo, idx) => (
             <span key={tipo} className="flex items-center">
               {idx > 0 && <span className="text-texto-terciario/40 mx-1.5">|</span>}
-              <button
-                onClick={() => onAgregarLinea(tipo)}
-                className="text-sm text-texto-marca hover:underline transition-colors"
-              >
+              <Boton variante="fantasma" tamano="xs" onClick={() => onAgregarLinea(tipo)}>
                 {tipo === 'producto' ? 'Agregar producto' : ETIQUETA_TIPO[tipo]}
-              </button>
+              </Boton>
             </span>
           ))}
         </div>
@@ -415,12 +400,7 @@ function FilaProducto({
         ))}
 
         {!soloLectura && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onEliminar(linea.id) }}
-            className="w-8 flex items-center justify-center text-texto-terciario hover:text-estado-error opacity-0 group-hover:opacity-100 transition-all shrink-0"
-          >
-            <Trash2 size={14} />
-          </button>
+          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={(e) => { e.stopPropagation(); onEliminar(linea.id) }} className="w-8 text-texto-terciario hover:text-estado-error opacity-0 group-hover:opacity-100" />
         )}
       </div>
 
@@ -434,12 +414,14 @@ function FilaProducto({
               </p>
             )
           ) : (
-            <textarea
+            <TextArea
               value={linea.descripcion_detalle || ''}
               placeholder="Detalle adicional (opcional)"
               onChange={(e) => onEditar(linea.id, 'descripcion_detalle', e.target.value)}
               rows={linea.descripcion_detalle ? Math.min(Math.ceil((linea.descripcion_detalle.length || 0) / 60), 6) : 1}
-              className="w-full max-w-lg bg-transparent outline-none text-xs text-texto-secundario placeholder:text-texto-placeholder resize-none leading-relaxed"
+              variante="transparente"
+              compacto
+              className="max-w-lg leading-relaxed"
             />
           )}
         </div>

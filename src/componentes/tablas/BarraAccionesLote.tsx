@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { GripVertical, X } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 import type { AccionLote } from '@/componentes/tablas/tipos-tabla'
 
 /* ════════════════════════════════════════════
@@ -105,33 +106,28 @@ export function BarraAccionesLote({
 
           {/* Acciones */}
           {accionesLote.map((accion) => (
-            <button
+            <Boton
               key={accion.id}
-              type="button"
+              variante={accion.peligro ? 'peligro' : 'fantasma'}
+              tamano="sm"
+              icono={accion.icono}
               onClick={() => { accion.onClick(seleccionados); onLimpiarSeleccion() }}
-              className={[
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer',
-                accion.peligro
-                  ? 'text-insignia-peligro hover:bg-insignia-peligro/10'
-                  : 'text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario',
-              ].join(' ')}
             >
-              {accion.icono}
               {accion.etiqueta}
-            </button>
+            </Boton>
           ))}
 
           <div className="w-px h-5 bg-borde-sutil" />
 
           {/* Deseleccionar */}
-          <button
-            type="button"
+          <Boton
+            variante="fantasma"
+            tamano="xs"
+            soloIcono
+            icono={<X size={14} />}
             onClick={onLimpiarSeleccion}
-            className="flex items-center justify-center size-7 rounded-md text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover transition-colors cursor-pointer"
-            title="Deseleccionar todo"
-          >
-            <X size={14} />
-          </button>
+            titulo="Deseleccionar todo"
+          />
         </motion.div>
       )}
     </AnimatePresence>

@@ -30,6 +30,9 @@ import {
 } from '@/lib/pdf/renderizar-html'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useTraduccion } from '@/lib/i18n'
+import { Boton } from '@/componentes/ui/Boton'
+import { Input } from '@/componentes/ui/Input'
+import { Checkbox } from '@/componentes/ui/Checkbox'
 import SubirImagenPie from '../_componentes/SubirImagenPie'
 
 /**
@@ -363,20 +366,20 @@ export default function PaginaConfigPresupuestos() {
         <div>
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-texto-primario">Impuestos</h3>
-            <button onClick={() => guardarImpuestos(IMPUESTOS_DEFAULT)} className="flex items-center gap-1 text-xs text-texto-terciario hover:text-texto-marca transition-colors">
-              <RotateCcw size={13} /> Restablecer
-            </button>
+            <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => guardarImpuestos(IMPUESTOS_DEFAULT)}>Restablecer</Boton>
           </div>
           <p className="text-sm text-texto-terciario mt-1 mb-5">Impuestos disponibles al crear líneas de presupuesto.</p>
           <div className="space-y-2">
             {impuestos.map((imp, idx) => (
               <div key={imp.id} className="flex items-center gap-3 p-3 bg-superficie-app rounded-lg">
-                <input
-                  type="text" value={imp.label}
+                <Input
+                  variante="plano" value={imp.label}
                   onChange={(e) => { const n = [...impuestos]; n[idx] = { ...imp, label: e.target.value }; setImpuestos(n) }}
                   onBlur={() => guardarImpuestos(impuestos)}
-                  className="flex-1 bg-transparent border-0 outline-none text-sm text-texto-primario"
+                  formato={null}
+                  className="flex-1"
                 />
+                {/* Input crudo: demasiado compacto para componente Input */}
                 <input
                   type="number" value={imp.porcentaje}
                   onChange={(e) => { const n = [...impuestos]; n[idx] = { ...imp, porcentaje: parseFloat(e.target.value) || 0 }; setImpuestos(n) }}
@@ -384,23 +387,18 @@ export default function PaginaConfigPresupuestos() {
                   className="w-20 bg-transparent border border-borde-sutil rounded px-2 py-1 text-sm text-right font-mono outline-none"
                 />
                 <span className="text-xs text-texto-terciario">%</span>
-                <label className="flex items-center gap-1 text-xs text-texto-terciario cursor-pointer">
-                  <input type="checkbox" checked={imp.activo}
-                    onChange={(e) => { const n = [...impuestos]; n[idx] = { ...imp, activo: e.target.checked }; guardarImpuestos(n) }}
-                    className="rounded" />
-                  Activo
-                </label>
-                <button onClick={() => guardarImpuestos(impuestos.filter((_, i) => i !== idx))} className="p-1 text-texto-terciario hover:text-estado-error">
-                  <Trash2 size={14} />
-                </button>
+                <Checkbox
+                  marcado={imp.activo}
+                  onChange={(v) => { const n = [...impuestos]; n[idx] = { ...imp, activo: v }; guardarImpuestos(n) }}
+                  etiqueta="Activo"
+                  className="text-xs text-texto-terciario"
+                />
+                <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={() => guardarImpuestos(impuestos.filter((_, i) => i !== idx))} className="text-texto-terciario hover:text-estado-error" />
               </div>
             ))}
-            <button
-              onClick={() => guardarImpuestos([...impuestos, { id: `imp-${Date.now()}`, label: 'Nuevo impuesto', porcentaje: 0, activo: true }])}
-              className="flex items-center gap-1 text-sm text-texto-marca hover:underline"
-            >
-              <Plus size={14} /> Agregar impuesto
-            </button>
+            <Boton variante="fantasma" tamano="xs" icono={<Plus size={14} />} onClick={() => guardarImpuestos([...impuestos, { id: `imp-${Date.now()}`, label: 'Nuevo impuesto', porcentaje: 0, activo: true }])}>
+              Agregar impuesto
+            </Boton>
           </div>
         </div>
       )}
@@ -410,37 +408,38 @@ export default function PaginaConfigPresupuestos() {
         <div>
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-texto-primario">Monedas</h3>
-            <button onClick={() => guardarMonedas(MONEDAS_DEFAULT, 'ARS')} className="flex items-center gap-1 text-xs text-texto-terciario hover:text-texto-marca transition-colors">
-              <RotateCcw size={13} /> Restablecer
-            </button>
+            <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => guardarMonedas(MONEDAS_DEFAULT, 'ARS')}>Restablecer</Boton>
           </div>
           <p className="text-sm text-texto-terciario mt-1 mb-5">Monedas disponibles para presupuestos.</p>
           <div className="space-y-2">
             {monedas.map((mon, idx) => (
               <div key={mon.id} className="flex items-center gap-3 p-3 bg-superficie-app rounded-lg">
+                {/* Input crudo: demasiado compacto para componente Input */}
                 <input type="text" value={mon.id}
                   onChange={(e) => { const n = [...monedas]; n[idx] = { ...mon, id: e.target.value.toUpperCase() }; setMonedas(n) }}
                   onBlur={() => guardarMonedas(monedas)}
                   className="w-16 bg-transparent border border-borde-sutil rounded px-2 py-1 text-sm font-mono outline-none" />
+                {/* Input crudo: demasiado compacto para componente Input */}
                 <input type="text" value={mon.simbolo}
                   onChange={(e) => { const n = [...monedas]; n[idx] = { ...mon, simbolo: e.target.value }; setMonedas(n) }}
                   onBlur={() => guardarMonedas(monedas)}
                   className="w-12 bg-transparent border border-borde-sutil rounded px-2 py-1 text-sm text-center outline-none" />
-                <input type="text" value={mon.label}
+                <Input variante="plano" value={mon.label}
                   onChange={(e) => { const n = [...monedas]; n[idx] = { ...mon, label: e.target.value }; setMonedas(n) }}
                   onBlur={() => guardarMonedas(monedas)}
-                  className="flex-1 bg-transparent border-0 outline-none text-sm text-texto-primario" />
+                  formato={null}
+                  className="flex-1" />
                 <label className="flex items-center gap-1 text-xs text-texto-terciario cursor-pointer">
                   <input type="radio" name="moneda_default" checked={monedaPredeterminada === mon.id}
                     onChange={() => guardarMonedas(monedas, mon.id)} />
                   Default
                 </label>
-                <label className="flex items-center gap-1 text-xs text-texto-terciario cursor-pointer">
-                  <input type="checkbox" checked={mon.activo}
-                    onChange={(e) => { const n = [...monedas]; n[idx] = { ...mon, activo: e.target.checked }; guardarMonedas(n) }}
-                    className="rounded" />
-                  Activo
-                </label>
+                <Checkbox
+                  marcado={mon.activo}
+                  onChange={(v) => { const n = [...monedas]; n[idx] = { ...mon, activo: v }; guardarMonedas(n) }}
+                  etiqueta="Activo"
+                  className="text-xs text-texto-terciario"
+                />
               </div>
             ))}
           </div>
@@ -452,33 +451,28 @@ export default function PaginaConfigPresupuestos() {
         <div>
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-texto-primario">Unidades de medida</h3>
-            <button onClick={() => guardarUnidades(UNIDADES_DEFAULT)} className="flex items-center gap-1 text-xs text-texto-terciario hover:text-texto-marca transition-colors">
-              <RotateCcw size={13} /> Restablecer
-            </button>
+            <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => guardarUnidades(UNIDADES_DEFAULT)}>Restablecer</Boton>
           </div>
           <p className="text-sm text-texto-terciario mt-1 mb-5">Unidades disponibles para las líneas del presupuesto.</p>
           <div className="space-y-2">
             {unidades.map((uni, idx) => (
               <div key={uni.id} className="flex items-center gap-3 p-3 bg-superficie-app rounded-lg">
+                {/* Input crudo: demasiado compacto para componente Input */}
                 <input type="text" value={uni.abreviatura}
                   onChange={(e) => { const n = [...unidades]; n[idx] = { ...uni, abreviatura: e.target.value }; setUnidades(n) }}
                   onBlur={() => guardarUnidades(unidades)}
                   className="w-16 bg-transparent border border-borde-sutil rounded px-2 py-1 text-sm font-mono outline-none" />
-                <input type="text" value={uni.label}
+                <Input variante="plano" value={uni.label}
                   onChange={(e) => { const n = [...unidades]; n[idx] = { ...uni, label: e.target.value }; setUnidades(n) }}
                   onBlur={() => guardarUnidades(unidades)}
-                  className="flex-1 bg-transparent border-0 outline-none text-sm text-texto-primario" />
-                <button onClick={() => guardarUnidades(unidades.filter((_, i) => i !== idx))} className="p-1 text-texto-terciario hover:text-estado-error">
-                  <Trash2 size={14} />
-                </button>
+                  formato={null}
+                  className="flex-1" />
+                <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={() => guardarUnidades(unidades.filter((_, i) => i !== idx))} className="text-texto-terciario hover:text-estado-error" />
               </div>
             ))}
-            <button
-              onClick={() => guardarUnidades([...unidades, { id: `u-${Date.now()}`, label: 'Nueva unidad', abreviatura: '' }])}
-              className="flex items-center gap-1 text-sm text-texto-marca hover:underline"
-            >
-              <Plus size={14} /> Agregar unidad
-            </button>
+            <Boton variante="fantasma" tamano="xs" icono={<Plus size={14} />} onClick={() => guardarUnidades([...unidades, { id: `u-${Date.now()}`, label: 'Nueva unidad', abreviatura: '' }])}>
+              Agregar unidad
+            </Boton>
           </div>
         </div>
       )}
@@ -488,14 +482,7 @@ export default function PaginaConfigPresupuestos() {
         <div>
           <div className="flex items-center justify-between mb-1">
             <h3 className="text-lg font-semibold text-texto-primario">{t('documentos.condiciones_pago')}</h3>
-            <button
-              onClick={() => guardarCondiciones(CONDICIONES_PAGO_DEFAULT)}
-              className="flex items-center gap-1 text-xs text-texto-terciario hover:text-texto-marca transition-colors"
-              title="Restablecer condiciones por defecto"
-            >
-              <RotateCcw size={13} />
-              Restablecer
-            </button>
+            <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => guardarCondiciones(CONDICIONES_PAGO_DEFAULT)} titulo="Restablecer condiciones por defecto">Restablecer</Boton>
           </div>
           <p className="text-sm text-texto-terciario mt-1 mb-5">Arrastrá para reordenar. Hacé clic para editar.</p>
 
@@ -550,24 +537,16 @@ export default function PaginaConfigPresupuestos() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); guardarCondiciones(condicionesPago.filter((_, i) => i !== idx)) }}
-                      className="p-1 text-texto-terciario hover:text-estado-error transition-colors"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={(e) => { e.stopPropagation(); guardarCondiciones(condicionesPago.filter((_, i) => i !== idx)) }} className="text-texto-terciario hover:text-estado-error" />
                   </div>
                 </div>
               </Reorder.Item>
             ))}
           </Reorder.Group>
 
-          <button
-            onClick={() => { setCondicionEditando(null); setModalCondicionAbierto(true) }}
-            className="w-full flex items-center justify-center gap-1.5 mt-3 px-3 py-2.5 rounded-lg border border-dashed border-borde-sutil text-sm text-texto-secundario hover:text-texto-primario hover:border-marca-500 transition-colors"
-          >
-            <Plus size={16} /> Agregar condición
-          </button>
+          <Boton variante="secundario" tamano="sm" anchoCompleto icono={<Plus size={16} />} onClick={() => { setCondicionEditando(null); setModalCondicionAbierto(true) }} className="border-dashed mt-3">
+            Agregar condición
+          </Boton>
 
           {/* Modal crear/editar condición — key fuerza remount al cambiar de condición */}
           <ModalCondicionPago
@@ -644,17 +623,12 @@ export default function PaginaConfigPresupuestos() {
           <div>
             <div className="flex items-center justify-between mb-1">
               <h3 className="text-lg font-semibold text-texto-primario">Numeración</h3>
-              <button
-                onClick={() => {
+              <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => {
                   setPrefijo('P'); setDigitos(4); setSiguiente(1); setReinicio('nunca')
                   const defComp = [{ tipo: 'prefijo' }, { tipo: 'separador', valor: '-' }, { tipo: 'secuencial' }]
                   setComponentesNum(defComp)
                   guardarNumeracion({ prefijo: 'P', digitos: 4, siguiente: 1, reinicio: 'nunca', componentes: defComp })
-                }}
-                className="flex items-center gap-1 text-xs text-texto-terciario hover:text-texto-marca transition-colors"
-              >
-                <RotateCcw size={13} /> Restablecer
-              </button>
+                }}>Restablecer</Boton>
             </div>
             <p className="text-sm text-texto-terciario mb-6">Configurá el formato del número de presupuesto</p>
 
@@ -669,12 +643,15 @@ export default function PaginaConfigPresupuestos() {
 
               {/* Prefijo */}
               <div>
-                <label className="text-xs text-texto-terciario font-medium block mb-1">Prefijo</label>
-                <input type="text" value={prefijo}
+                <Input
+                  etiqueta="Prefijo"
+                  value={prefijo}
                   onChange={(e) => setPrefijo(e.target.value)}
                   onBlur={() => guardarNumeracion({ prefijo })}
                   placeholder="Ej: P, PRES..."
-                  className="w-40 bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm font-mono outline-none focus:border-marca-500" />
+                  formato={null}
+                  className="w-40 font-mono"
+                />
               </div>
 
               {/* Constructor de bloques */}
@@ -698,6 +675,7 @@ export default function PaginaConfigPresupuestos() {
                           {puedeIzq && (
                             <button onClick={() => moverComponente(i, -1)} className="text-texto-terciario/40 hover:text-texto-secundario transition-colors text-sm">‹</button>
                           )}
+                          {/* Input crudo: demasiado compacto para componente Input */}
                           <input
                             type="text" value={comp.valor ?? '-'} maxLength={3}
                             onChange={(e) => {
@@ -826,10 +804,11 @@ export default function PaginaConfigPresupuestos() {
                 <label className="text-xs text-texto-terciario font-medium block mb-1">Próximo número</label>
                 <p className="text-xs text-texto-terciario mb-2">El siguiente número secuencial que se asignará</p>
                 <div className="flex items-center gap-3">
-                  <input type="number" value={siguiente} min={1}
+                  <Input tipo="number" value={siguiente} min={1}
                     onChange={(e) => setSiguiente(parseInt(e.target.value) || 1)}
                     onBlur={() => guardarNumeracion({ siguiente })}
-                    className="w-28 bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm font-mono text-right outline-none focus:border-marca-500" />
+                    formato={null}
+                    className="w-28 font-mono text-right" />
                   <span className="text-xs text-texto-terciario">→ generará <strong className="font-mono text-texto-primario">{previewNumero}</strong></span>
                 </div>
               </div>
@@ -849,14 +828,15 @@ export default function PaginaConfigPresupuestos() {
               <label className="text-xs text-texto-terciario font-medium uppercase tracking-wider mb-1.5 block">Días de validez</label>
               <p className="text-xs text-texto-terciario mb-2">Cuántos días desde la emisión es válida la oferta.</p>
               <div className="flex items-center gap-4">
-                <input
-                  type="number"
+                <Input
+                  tipo="number"
                   min={1}
                   value={diasVencimiento}
                   onChange={(e) => setDiasVencimiento(parseInt(e.target.value) || 1)}
                   onBlur={() => guardarTextos('dias', diasVencimiento)}
                   onFocus={(e) => e.target.select()}
-                  className="w-24 bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm font-mono text-texto-primario outline-none focus:border-marca-500 transition-colors"
+                  formato={null}
+                  className="w-24 font-mono"
                 />
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <button
@@ -910,9 +890,7 @@ export default function PaginaConfigPresupuestos() {
         <div>
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-texto-primario">Membrete del documento</h3>
-            <button onClick={() => guardarMembrete(MEMBRETE_DEFAULT)} className="flex items-center gap-1 text-xs text-texto-terciario hover:text-texto-marca transition-colors">
-              <RotateCcw size={13} /> Restablecer
-            </button>
+            <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => guardarMembrete(MEMBRETE_DEFAULT)}>Restablecer</Boton>
           </div>
           <p className="text-sm text-texto-terciario mt-1 mb-5">Encabezado con logo y texto para tus PDFs.</p>
 
@@ -1036,12 +1014,14 @@ export default function PaginaConfigPresupuestos() {
 
                   {/* Texto principal */}
                   <div className="space-y-2">
-                    <label className="text-xs text-texto-terciario font-medium block">Texto principal</label>
-                    <input type="text" value={membrete.texto_logo || ''}
+                    <Input
+                      etiqueta="Texto principal"
+                      value={membrete.texto_logo || ''}
                       onChange={(e) => setMembrete({ ...membrete, texto_logo: e.target.value })}
                       onBlur={() => guardarMembrete(membrete)}
                       placeholder="Razón social o nombre de la empresa"
-                      className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-[var(--texto-marca)]" />
+                      formato={null}
+                    />
                     <div>
                       <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Tamaño</span>
                       <div className="flex gap-1">
@@ -1062,12 +1042,14 @@ export default function PaginaConfigPresupuestos() {
 
                   {/* Subtítulo */}
                   <div className="space-y-2 pt-2 border-t border-borde-sutil">
-                    <label className="text-xs text-texto-terciario font-medium block">Subtítulo (opcional)</label>
-                    <input type="text" value={membrete.subtitulo_logo || ''}
+                    <Input
+                      etiqueta="Subtítulo (opcional)"
+                      value={membrete.subtitulo_logo || ''}
                       onChange={(e) => setMembrete({ ...membrete, subtitulo_logo: e.target.value })}
                       onBlur={() => guardarMembrete(membrete)}
                       placeholder="Ej: Soluciones eléctricas industriales"
-                      className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-[var(--texto-marca)]" />
+                      formato={null}
+                    />
                     {membrete.subtitulo_logo && (
                       <div>
                         <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Tamaño del subtítulo</span>
@@ -1185,9 +1167,7 @@ export default function PaginaConfigPresupuestos() {
         <div>
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-texto-primario">Pie de página</h3>
-            <button onClick={() => guardarPiePagina(PIE_PAGINA_DEFAULT)} className="flex items-center gap-1 text-xs text-texto-terciario hover:text-texto-marca transition-colors">
-              <RotateCcw size={13} /> Restablecer
-            </button>
+            <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => guardarPiePagina(PIE_PAGINA_DEFAULT)}>Restablecer</Boton>
           </div>
           <p className="text-sm text-texto-terciario mt-1 mb-5">3 columnas independientes para el pie del PDF.</p>
 
@@ -1380,12 +1360,14 @@ export default function PaginaConfigPresupuestos() {
                         />
                       </div>
                       <div>
-                        <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider block mb-1.5">Texto acompañante (opcional)</span>
-                        <input type="text" value={columna.texto_imagen || ''}
+                        <Input
+                          etiqueta="Texto acompañante (opcional)"
+                          value={columna.texto_imagen || ''}
                           onChange={(e) => setColumnaLocal({ texto_imagen: e.target.value })}
                           onBlur={() => guardarPiePagina(piePagina)}
                           placeholder="Ej: Escaneame, www.miempresa.com"
-                          className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-[var(--texto-marca)]" />
+                          formato={null}
+                        />
                       </div>
                       {columna.texto_imagen && (
                         <>
@@ -1482,9 +1464,7 @@ export default function PaginaConfigPresupuestos() {
             <p className="text-xs text-texto-terciario">
               {plantillaHtml ? 'Estás usando una plantilla personalizada.' : 'Estás usando la plantilla por defecto del sistema.'}
               {plantillaHtml && (
-                <button onClick={() => guardarPlantillaHtml('')} className="ml-2 text-texto-marca hover:underline">
-                  Restaurar por defecto
-                </button>
+                <Boton variante="fantasma" tamano="xs" onClick={() => guardarPlantillaHtml('')} className="ml-2">Restaurar por defecto</Boton>
               )}
             </p>
 
@@ -1501,11 +1481,14 @@ export default function PaginaConfigPresupuestos() {
           <div className="space-y-5">
             {/* Input del patrón */}
             <div>
-              <label className="text-xs text-texto-terciario font-medium block mb-1">Patrón del nombre</label>
-              <input type="text" value={patronNombrePdf}
+              <Input
+                etiqueta="Patrón del nombre"
+                value={patronNombrePdf}
                 onChange={(e) => setPatronNombrePdf(e.target.value)}
                 onBlur={() => guardarPatronNombre(patronNombrePdf)}
-                className="w-full bg-superficie-app border border-borde-sutil rounded-lg p-2.5 text-sm text-texto-primario font-mono outline-none focus:border-marca-500" />
+                formato={null}
+                className="font-mono"
+              />
             </div>
 
             {/* Vista previa */}
@@ -1558,19 +1541,18 @@ export default function PaginaConfigPresupuestos() {
 
           {/* Toggle: usar datos de empresa o personalizar */}
           <div className="p-4 rounded-xl border border-borde-sutil mb-5">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={datosEmpresaPdf.usar_datos_empresa !== false}
-                onChange={(e) => {
-                  const nuevo = { ...datosEmpresaPdf, usar_datos_empresa: e.target.checked }
-                  if (e.target.checked) {
+            <div className="flex items-start gap-3">
+              <Checkbox
+                marcado={datosEmpresaPdf.usar_datos_empresa !== false}
+                onChange={(v) => {
+                  const nuevo = { ...datosEmpresaPdf, usar_datos_empresa: v }
+                  if (v) {
                     // Al activar herencia, copiar datos de empresa
                     nuevo.datos_bancarios = { ...datosBancariosEmpresa }
                   }
                   guardarDatosEmpresaPdf(nuevo)
                 }}
-                className="mt-0.5 rounded"
+                className="mt-0.5"
               />
               <div>
                 <p className="text-sm font-medium text-texto-primario">Usar datos de la empresa</p>
@@ -1578,7 +1560,7 @@ export default function PaginaConfigPresupuestos() {
                   Heredar automáticamente los datos bancarios de Configuración &gt; Empresa. Desactivá esta opción si querés usar una cuenta distinta para presupuestos.
                 </p>
               </div>
-            </label>
+            </div>
           </div>
 
           {/* Preview de datos de empresa (cuando hereda) */}
@@ -1620,85 +1602,71 @@ export default function PaginaConfigPresupuestos() {
           {datosEmpresaPdf.usar_datos_empresa === false && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-texto-secundario mb-1">Banco</label>
-                  <input
-                    type="text"
-                    value={datosEmpresaPdf.datos_bancarios?.banco || ''}
-                    onChange={(e) => guardarDatosEmpresaPdf({
-                      ...datosEmpresaPdf,
-                      datos_bancarios: { ...datosEmpresaPdf.datos_bancarios, banco: e.target.value },
-                    })}
-                    placeholder="Ej: Santander, Galicia"
-                    className="w-full bg-superficie-app border border-borde-sutil rounded-lg px-3 py-2 text-sm text-texto-primario outline-none focus:border-texto-marca transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-texto-secundario mb-1">Titular</label>
-                  <input
-                    type="text"
-                    value={datosEmpresaPdf.datos_bancarios?.titular || ''}
-                    onChange={(e) => guardarDatosEmpresaPdf({
-                      ...datosEmpresaPdf,
-                      datos_bancarios: { ...datosEmpresaPdf.datos_bancarios, titular: e.target.value },
-                    })}
-                    placeholder="Razón social o nombre"
-                    className="w-full bg-superficie-app border border-borde-sutil rounded-lg px-3 py-2 text-sm text-texto-primario outline-none focus:border-texto-marca transition-colors"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-texto-secundario mb-1">Número de cuenta</label>
-                <input
-                  type="text"
-                  value={datosEmpresaPdf.datos_bancarios?.numero_cuenta || ''}
+                <Input
+                  etiqueta="Banco"
+                  value={datosEmpresaPdf.datos_bancarios?.banco || ''}
                   onChange={(e) => guardarDatosEmpresaPdf({
                     ...datosEmpresaPdf,
-                    datos_bancarios: { ...datosEmpresaPdf.datos_bancarios, numero_cuenta: e.target.value },
+                    datos_bancarios: { ...datosEmpresaPdf.datos_bancarios, banco: e.target.value },
                   })}
-                  placeholder="Ej: 500-066601/3"
-                  className="w-full bg-superficie-app border border-borde-sutil rounded-lg px-3 py-2 text-sm text-texto-primario outline-none focus:border-texto-marca transition-colors"
+                  placeholder="Ej: Santander, Galicia"
+                  formato={null}
+                />
+                <Input
+                  etiqueta="Titular"
+                  value={datosEmpresaPdf.datos_bancarios?.titular || ''}
+                  onChange={(e) => guardarDatosEmpresaPdf({
+                    ...datosEmpresaPdf,
+                    datos_bancarios: { ...datosEmpresaPdf.datos_bancarios, titular: e.target.value },
+                  })}
+                  placeholder="Razón social o nombre"
+                  formato={null}
                 />
               </div>
+              <Input
+                etiqueta="Número de cuenta"
+                value={datosEmpresaPdf.datos_bancarios?.numero_cuenta || ''}
+                onChange={(e) => guardarDatosEmpresaPdf({
+                  ...datosEmpresaPdf,
+                  datos_bancarios: { ...datosEmpresaPdf.datos_bancarios, numero_cuenta: e.target.value },
+                })}
+                placeholder="Ej: 500-066601/3"
+                formato={null}
+              />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-texto-secundario mb-1">CBU</label>
-                  <input
-                    type="text"
-                    value={datosEmpresaPdf.datos_bancarios?.cbu || ''}
-                    onChange={(e) => guardarDatosEmpresaPdf({
-                      ...datosEmpresaPdf,
-                      datos_bancarios: { ...datosEmpresaPdf.datos_bancarios, cbu: e.target.value },
-                    })}
-                    placeholder="22 dígitos"
-                    className="w-full bg-superficie-app border border-borde-sutil rounded-lg px-3 py-2 text-sm font-mono text-texto-primario outline-none focus:border-texto-marca transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-texto-secundario mb-1">Alias</label>
-                  <input
-                    type="text"
-                    value={datosEmpresaPdf.datos_bancarios?.alias || ''}
-                    onChange={(e) => guardarDatosEmpresaPdf({
-                      ...datosEmpresaPdf,
-                      datos_bancarios: { ...datosEmpresaPdf.datos_bancarios, alias: e.target.value },
-                    })}
-                    placeholder="Ej: miempresa.pagos"
-                    className="w-full bg-superficie-app border border-borde-sutil rounded-lg px-3 py-2 text-sm font-mono text-texto-primario outline-none focus:border-texto-marca transition-colors"
-                  />
-                </div>
+                <Input
+                  etiqueta="CBU"
+                  value={datosEmpresaPdf.datos_bancarios?.cbu || ''}
+                  onChange={(e) => guardarDatosEmpresaPdf({
+                    ...datosEmpresaPdf,
+                    datos_bancarios: { ...datosEmpresaPdf.datos_bancarios, cbu: e.target.value },
+                  })}
+                  placeholder="22 dígitos"
+                  formato={null}
+                  className="font-mono"
+                />
+                <Input
+                  etiqueta="Alias"
+                  value={datosEmpresaPdf.datos_bancarios?.alias || ''}
+                  onChange={(e) => guardarDatosEmpresaPdf({
+                    ...datosEmpresaPdf,
+                    datos_bancarios: { ...datosEmpresaPdf.datos_bancarios, alias: e.target.value },
+                  })}
+                  placeholder="Ej: miempresa.pagos"
+                  formato={null}
+                  className="font-mono"
+                />
               </div>
             </div>
           )}
 
           {/* Toggle mostrar en portal/PDF */}
           <div className="mt-5 p-4 rounded-xl border border-borde-sutil">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={datosEmpresaPdf.mostrar_datos_bancarios}
-                onChange={(e) => guardarDatosEmpresaPdf({ ...datosEmpresaPdf, mostrar_datos_bancarios: e.target.checked })}
-                className="mt-0.5 rounded"
+            <div className="flex items-start gap-3">
+              <Checkbox
+                marcado={datosEmpresaPdf.mostrar_datos_bancarios}
+                onChange={(v) => guardarDatosEmpresaPdf({ ...datosEmpresaPdf, mostrar_datos_bancarios: v })}
+                className="mt-0.5"
               />
               <div>
                 <p className="text-sm font-medium text-texto-primario">Mostrar datos bancarios en portal y PDF</p>
@@ -1706,7 +1674,7 @@ export default function PaginaConfigPresupuestos() {
                   Si está activado, los datos bancarios aparecen en el portal del cliente y en el pie del PDF del presupuesto.
                 </p>
               </div>
-            </label>
+            </div>
           </div>
         </div>
       )}

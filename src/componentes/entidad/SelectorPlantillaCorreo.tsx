@@ -10,6 +10,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, Star, Plus, Save, Trash2, Check, FileText, Building2, User } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Boton } from '@/componentes/ui/Boton'
+import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 
 export interface PlantillaCorreoCompleta {
   id: string
@@ -235,20 +237,18 @@ export function SelectorPlantillaCorreo({
             <div className="px-1.5">
               {/* Guardar cambios a plantilla actual */}
               {plantillaCargada && onGuardarCambios && (plantillaCargada.creado_por === usuarioId || esAdmin) && (
-                <button
+                <OpcionMenu
+                  icono={<Save size={14} />}
                   onClick={async () => {
                     setGuardando(true)
                     await onGuardarCambios(plantillaCargada.id)
                     setGuardando(false)
                     setAbierto(false)
                   }}
-                  className={`${itemClase} hover:bg-superficie-tarjeta`}
-                  style={{ color: 'var(--texto-secundario)' }}
                   disabled={guardando}
                 >
-                  <Save size={14} className="shrink-0" style={{ color: 'var(--texto-terciario)' }} />
-                  <span>Guardar cambios en &ldquo;{plantillaCargada.nombre}&rdquo;</span>
-                </button>
+                  Guardar cambios en &ldquo;{plantillaCargada.nombre}&rdquo;
+                </OpcionMenu>
               )}
 
               {/* Guardar como nueva */}
@@ -273,41 +273,34 @@ export function SelectorPlantillaCorreo({
                           color: 'var(--texto-primario)',
                         }}
                       />
-                      <button
+                      <Boton
+                        variante="primario"
+                        tamano="xs"
                         onClick={handleGuardarComo}
                         disabled={!nombreNueva.trim() || guardando}
-                        className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-40"
-                        style={{
-                          background: 'var(--texto-marca)',
-                          color: '#fff',
-                        }}
+                        cargando={guardando}
                       >
-                        {guardando ? '...' : 'Guardar'}
-                      </button>
+                        Guardar
+                      </Boton>
                     </div>
                   </div>
                 ) : (
-                  <button
+                  <OpcionMenu
+                    icono={<Plus size={14} />}
                     onClick={() => setCreando(true)}
-                    className={`${itemClase} hover:bg-superficie-tarjeta`}
-                    style={{ color: 'var(--texto-secundario)' }}
                   >
-                    <Plus size={14} className="shrink-0" style={{ color: 'var(--texto-terciario)' }} />
-                    <span>Guardar como nueva plantilla</span>
-                  </button>
+                    Guardar como nueva plantilla
+                  </OpcionMenu>
                 )
               )}
 
               {/* Sin plantilla */}
               {plantillaCargada && (
-                <button
+                <OpcionMenu
                   onClick={() => { onLimpiar(); setAbierto(false) }}
-                  className={`${itemClase} hover:bg-superficie-tarjeta`}
-                  style={{ color: 'var(--texto-terciario)' }}
                 >
-                  <span className="w-3.5 shrink-0" />
-                  <span>Sin plantilla</span>
-                </button>
+                  Sin plantilla
+                </OpcionMenu>
               )}
             </div>
           </motion.div>
@@ -356,23 +349,23 @@ export function SelectorPlantillaCorreo({
                   </div>
                 </div>
                 <div className="flex justify-end gap-2">
-                  <button
+                  <Boton
+                    variante="fantasma"
+                    tamano="sm"
                     onClick={() => setEliminando(null)}
-                    className="px-3 py-1.5 text-sm rounded-lg transition-colors"
-                    style={{ color: 'var(--texto-secundario)' }}
                   >
                     Cancelar
-                  </button>
-                  <button
+                  </Boton>
+                  <Boton
+                    variante="peligro"
+                    tamano="sm"
                     onClick={async () => {
                       if (onEliminar) await onEliminar(eliminando)
                       setEliminando(null)
                     }}
-                    className="px-4 py-1.5 text-sm font-medium text-white rounded-lg transition-all"
-                    style={{ background: 'var(--insignia-peligro)' }}
                   >
                     Eliminar
-                  </button>
+                  </Boton>
                 </div>
               </motion.div>
             </motion.div>

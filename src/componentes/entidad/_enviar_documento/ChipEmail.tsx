@@ -19,7 +19,11 @@ export function ChipEmail({ email, onRemover }: PropiedadesChipEmail) {
       style={{ background: 'var(--superficie-hover)', color: 'var(--texto-secundario)' }}
     >
       <span className="truncate">{email}</span>
-      <button onClick={onRemover} className="flex-shrink-0 hover:opacity-70" type="button">
+      <button
+        onClick={onRemover}
+        type="button"
+        className="inline-flex items-center justify-center size-3.5 rounded-full border-none bg-transparent text-current p-0 cursor-pointer hover:bg-black/10 transition-colors shrink-0"
+      >
         <X size={10} />
       </button>
     </span>

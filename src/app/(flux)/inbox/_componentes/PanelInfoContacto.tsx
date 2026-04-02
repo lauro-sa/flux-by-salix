@@ -235,13 +235,13 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
               <span className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
                 Info del contacto
               </span>
-              <button
+              <Boton
+                variante="fantasma"
+                tamano="xs"
+                soloIcono
+                icono={<X size={16} />}
                 onClick={onCerrar}
-                className="p-1 rounded-md transition-colors"
-                style={{ color: 'var(--texto-terciario)' }}
-              >
-                <X size={16} />
-              </button>
+              />
             </div>
 
             {!conversacion?.contacto_id ? (
@@ -318,31 +318,31 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
                 {/* Acciones rápidas */}
                 <div className="flex items-center justify-center gap-2">
                   {conversacion.identificador_externo && (
-                    <button
-                      className="p-2 rounded-lg transition-colors"
-                      style={{ background: 'var(--superficie-hover)', color: 'var(--canal-whatsapp)' }}
-                      title="WhatsApp"
-                    >
-                      <IconoWhatsApp size={16} />
-                    </button>
+                    <Boton
+                      variante="secundario"
+                      tamano="sm"
+                      soloIcono
+                      icono={<IconoWhatsApp size={16} />}
+                      titulo="WhatsApp"
+                    />
                   )}
                   {contacto?.telefono && (
-                    <button
-                      className="p-2 rounded-lg transition-colors"
-                      style={{ background: 'var(--superficie-hover)', color: 'var(--texto-marca)' }}
-                      title="Llamar"
-                    >
-                      <Phone size={16} />
-                    </button>
+                    <Boton
+                      variante="secundario"
+                      tamano="sm"
+                      soloIcono
+                      icono={<Phone size={16} />}
+                      titulo="Llamar"
+                    />
                   )}
                   {contacto?.correo && (
-                    <button
-                      className="p-2 rounded-lg transition-colors"
-                      style={{ background: 'var(--superficie-hover)', color: 'var(--canal-correo)' }}
-                      title="Correo"
-                    >
-                      <Mail size={16} />
-                    </button>
+                    <Boton
+                      variante="secundario"
+                      tamano="sm"
+                      soloIcono
+                      icono={<Mail size={16} />}
+                      titulo="Correo"
+                    />
                   )}
                   <a
                     href={`/contactos/${conversacion.contacto_id}`}

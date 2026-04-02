@@ -8,6 +8,7 @@ import {
   Columns3, SlidersHorizontal, Bookmark, BookmarkPlus,
   List, LayoutGrid, ArrowUpDown, Pin, Star,
 } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 import { usePreferencias, type ConfigTabla } from '@/hooks/usePreferencias'
 import { BREAKPOINTS } from '@/lib/breakpoints'
 import {
@@ -904,14 +905,7 @@ function TablaDinamica<T>({
 
             {/* Limpiar todo */}
             {hayBusquedaOFiltros && (
-              <button
-                type="button"
-                onClick={limpiarTodo}
-                className="shrink-0 size-6 inline-flex items-center justify-center rounded hover:bg-insignia-peligro-fondo cursor-pointer border-none bg-transparent text-insignia-peligro-texto transition-colors"
-                title="Limpiar todo"
-              >
-                <X size={12} />
-              </button>
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={12} />} onClick={limpiarTodo} titulo="Limpiar todo" className="text-insignia-peligro-texto hover:bg-insignia-peligro-fondo" />
             )}
 
             {/* Botón filtros + vistas */}
@@ -966,10 +960,9 @@ function TablaDinamica<T>({
                                 Filtros
                               </span>
                               {numFiltrosActivos > 0 && (
-                                <button type="button" onClick={limpiarTodo}
-                                  className="text-xs text-insignia-peligro-texto bg-insignia-peligro-fondo px-2 py-0.5 rounded-full cursor-pointer border-none font-medium">
+                                <Boton variante="peligro" tamano="xs" redondeado onClick={limpiarTodo}>
                                   Limpiar ({numFiltrosActivos})
-                                </button>
+                                </Boton>
                               )}
                             </div>
                             <div className="flex flex-col gap-4">

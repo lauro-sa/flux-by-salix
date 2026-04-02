@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { MoreHorizontal, MinusCircle, BellOff, Trash2 } from 'lucide-react'
+import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { useTraduccion } from '@/lib/i18n'
 import type { ItemNav } from './tipos'
 import { GripIcon } from './iconos'
@@ -113,10 +114,10 @@ function ItemSortable({
             style={{ top: menuPos.top, left: menuPos.left }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div onClick={() => onOcultar(item.id)} className="flex items-center gap-2 w-full px-3 py-2.5 text-sm cursor-pointer hover:bg-superficie-hover" style={{ color: 'var(--texto-secundario)' }}><MinusCircle size={14} /> {t('sidebar.ocultar')}</div>
-            <div onClick={() => onDeshabilitar(item.id)} className="flex items-center gap-2 w-full px-3 py-2.5 text-sm cursor-pointer hover:bg-superficie-hover" style={{ color: 'var(--texto-secundario)' }}><BellOff size={14} /> {t('sidebar.deshabilitar')}</div>
+            <OpcionMenu icono={<MinusCircle size={14} />} onClick={() => onOcultar(item.id)}>{t('sidebar.ocultar')}</OpcionMenu>
+            <OpcionMenu icono={<BellOff size={14} />} onClick={() => onDeshabilitar(item.id)}>{t('sidebar.deshabilitar')}</OpcionMenu>
             <div className="h-px bg-borde-sutil my-1" />
-            <div className="flex items-center gap-2 w-full px-3 py-2.5 text-sm cursor-pointer hover:bg-insignia-peligro-fondo" style={{ color: 'var(--insignia-peligro)' }}><Trash2 size={14} /> {t('sidebar.desinstalar')}</div>
+            <OpcionMenu icono={<Trash2 size={14} />} peligro onClick={() => {}}>{t('sidebar.desinstalar')}</OpcionMenu>
           </div>
         </div>,
         document.body

@@ -6,6 +6,8 @@ import { motion } from 'framer-motion'
 import {
   Building2, Building, User, Truck, UserPlus, BadgeCheck, ChevronDown, MoreVertical,
 } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
+import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { COLOR_TIPO_CONTACTO } from '@/lib/colores_entidad'
 import type { TipoContacto } from '@/tipos'
 
@@ -126,25 +128,15 @@ export function BannerContacto({
           )}
           {acciones && acciones.length > 0 && (
             <div ref={menuRef} className="relative">
-              <button type="button" onClick={() => setMenuAbierto(!menuAbierto)}
-                className="flex items-center justify-center size-7 rounded-md bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white/80 border-none cursor-pointer transition-colors">
-                <MoreVertical size={14} />
-              </button>
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<MoreVertical size={14} />} onClick={() => setMenuAbierto(!menuAbierto)} className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white/80" />
+
               {menuAbierto && (
                 <div className="absolute top-full right-0 mt-1 py-1 rounded-lg border border-borde-sutil shadow-lg z-50 min-w-40 overflow-hidden"
                   style={{ backgroundColor: 'var(--superficie-elevada)' }}>
                   {acciones.map(acc => (
-                    <button key={acc.id} type="button"
-                      onClick={() => { acc.onClick(); setMenuAbierto(false) }}
-                      className={[
-                        'flex items-center gap-2 w-full px-3 py-1.5 text-sm text-left border-none cursor-pointer transition-colors',
-                        acc.peligro
-                          ? 'bg-transparent text-insignia-peligro hover:bg-insignia-peligro-fondo'
-                          : 'bg-transparent text-texto-primario hover:bg-superficie-hover',
-                      ].join(' ')}>
-                      {acc.icono}
-                      <span>{acc.etiqueta}</span>
-                    </button>
+                    <OpcionMenu key={acc.id} icono={acc.icono} peligro={acc.peligro} onClick={() => { acc.onClick(); setMenuAbierto(false) }}>
+                      {acc.etiqueta}
+                    </OpcionMenu>
                   ))}
                 </div>
               )}
@@ -243,15 +235,9 @@ function SelectorTipo({
             const Ic = ICONOS_TIPO[tipo.clave] || User
             const activo = tipo.id === tipoActivo.id
             return (
-              <button key={tipo.id} type="button"
-                onClick={() => { onCambiar?.(tipo.id); setAbierto(false) }}
-                className={[
-                  'flex items-center gap-2 w-full px-3 py-1.5 text-sm text-left border-none cursor-pointer transition-colors',
-                  activo ? 'bg-superficie-seleccionada text-texto-marca font-medium' : 'bg-transparent text-texto-primario hover:bg-superficie-hover',
-                ].join(' ')}>
-                <Ic size={14} />
-                <span>{tipo.etiqueta}</span>
-              </button>
+              <OpcionMenu key={tipo.id} icono={<Ic size={14} />} activo={activo} onClick={() => { onCambiar?.(tipo.id); setAbierto(false) }}>
+                {tipo.etiqueta}
+              </OpcionMenu>
             )
           })}
         </div>

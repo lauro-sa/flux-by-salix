@@ -3,6 +3,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { X, Check, BookmarkPlus, Bookmark, Star } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
+import { Input } from '@/componentes/ui/Input'
+import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { useTraduccion } from '@/lib/i18n'
 import type { FiltroTabla } from '@/componentes/tablas/tipos-tabla'
 import type { VistaGuardada, EstadoDetector } from '@/hooks/useVistasGuardadas'
@@ -43,13 +46,14 @@ export function DropdownFiltro({ filtro, onCerrar }: { filtro: FiltroTabla; onCe
           {/* Buscador si >6 opciones */}
           {filtro.opciones.length > 6 && (
             <div className="p-2 pb-0">
-              <input
-                type="text"
+              <Input
+                tipo="search"
                 autoFocus
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
                 placeholder="Buscar..."
-                className="w-full px-2.5 py-1.5 rounded-lg border border-borde-sutil bg-superficie-tarjeta text-xs text-texto-primario placeholder:text-texto-placeholder outline-none focus:border-borde-foco"
+                compacto
+                formato={null}
               />
             </div>
           )}
@@ -95,13 +99,14 @@ export function DropdownFiltro({ filtro, onCerrar }: { filtro: FiltroTabla; onCe
           {/* Limpiar para múltiple */}
           {filtro.tipo === 'multiple' && Array.isArray(filtro.valor) && filtro.valor.length > 0 && (
             <div className="border-t border-borde-sutil p-1.5">
-              <button
-                type="button"
+              <Boton
+                variante="fantasma"
+                tamano="xs"
                 onClick={() => { filtro.onChange([]); onCerrar() }}
-                className="w-full text-xs text-texto-terciario hover:text-texto-primario py-1 cursor-pointer border-none bg-transparent transition-colors"
+                anchoCompleto
               >
                 Limpiar selección
-              </button>
+              </Boton>
             </div>
           )}
         </div>
@@ -110,21 +115,19 @@ export function DropdownFiltro({ filtro, onCerrar }: { filtro: FiltroTabla; onCe
       {/* Fecha */}
       {filtro.tipo === 'fecha' && (
         <div className="p-2.5 flex flex-col gap-2">
-          <input
-            type="date"
-            autoFocus
-            value={typeof filtro.valor === 'string' ? filtro.valor : ''}
-            onChange={(e) => { filtro.onChange(e.target.value); if (e.target.value) onCerrar() }}
-            className="w-full px-2.5 py-1.5 rounded-lg border border-borde-sutil bg-superficie-tarjeta text-xs text-texto-primario outline-none focus:border-borde-foco"
+          <SelectorFecha
+            valor={typeof filtro.valor === 'string' ? filtro.valor : null}
+            onChange={(v) => { filtro.onChange(v || ''); if (v) onCerrar() }}
+            limpiable
           />
           {filtro.valor && (
-            <button
-              type="button"
+            <Boton
+              variante="fantasma"
+              tamano="xs"
               onClick={() => { filtro.onChange(''); onCerrar() }}
-              className="text-xs text-texto-terciario hover:text-texto-primario cursor-pointer border-none bg-transparent transition-colors"
             >
               Limpiar
-            </button>
+            </Boton>
           )}
         </div>
       )}
@@ -226,14 +229,19 @@ export function SeccionFiltroPanel({ filtro }: { filtro: FiltroTabla }) {
       <div className="flex flex-col gap-1.5">
         <span className="text-xxs font-semibold text-texto-terciario uppercase tracking-wider">{filtro.etiqueta}</span>
         <div className="flex items-center gap-2">
-          <input type="date" value={typeof filtro.valor === 'string' ? filtro.valor : ''}
-            onChange={(e) => filtro.onChange(e.target.value)}
-            className="flex-1 px-2.5 py-1.5 rounded-lg border border-borde-sutil bg-superficie-tarjeta text-xs text-texto-primario outline-none focus:border-borde-foco" />
+          <SelectorFecha
+            valor={typeof filtro.valor === 'string' ? filtro.valor : null}
+            onChange={(v) => filtro.onChange(v || '')}
+            limpiable
+          />
           {filtro.valor && (
-            <button type="button" onClick={() => filtro.onChange('')}
-              className="size-6 inline-flex items-center justify-center rounded-md hover:bg-superficie-hover cursor-pointer border-none bg-transparent text-texto-terciario">
-              <X size={13} />
-            </button>
+            <Boton
+              variante="fantasma"
+              tamano="xs"
+              soloIcono
+              icono={<X size={13} />}
+              onClick={() => filtro.onChange('')}
+            />
           )}
         </div>
       </div>
@@ -255,29 +263,41 @@ export function GuardarVistaInline({ onGuardar }: { onGuardar: (nombre: string) 
 
   if (!creando) {
     return (
-      <button type="button" onClick={() => setCreando(true)}
-        className="flex items-center gap-1.5 text-sm text-texto-marca font-medium cursor-pointer border-none bg-transparent p-0 text-left hover:underline mt-1">
-        <BookmarkPlus size={13} />
+      <Boton
+        variante="fantasma"
+        tamano="xs"
+        icono={<BookmarkPlus size={13} />}
+        onClick={() => setCreando(true)}
+        className="mt-1 text-texto-marca"
+      >
         Guardar actual
-      </button>
+      </Boton>
     )
   }
 
   return (
     <div className="flex items-center gap-1.5 mt-1">
-      <input type="text" autoFocus value={nombre}
+      <Input autoFocus value={nombre}
         onChange={(e) => setNombre(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && nombre.trim()) { onGuardar(nombre.trim()); setNombre(''); setCreando(false) }
           if (e.key === 'Escape') { setNombre(''); setCreando(false) }
         }}
         placeholder="Nombre..."
-        className="flex-1 px-2 py-1 rounded-lg border border-borde-foco bg-superficie-tarjeta text-xs text-texto-primario placeholder:text-texto-placeholder outline-none" />
-      <button type="button" disabled={!nombre.trim()}
+        compacto
+        variante="plano"
+        className="flex-1"
+        formato={null}
+      />
+      <Boton
+        variante="fantasma"
+        tamano="xs"
+        disabled={!nombre.trim()}
         onClick={() => { if (nombre.trim()) { onGuardar(nombre.trim()); setNombre(''); setCreando(false) } }}
-        className="text-xs font-medium text-texto-marca cursor-pointer border-none bg-transparent disabled:opacity-40">
+        className="text-texto-marca"
+      >
         {t('comun.guardar')}
-      </button>
+      </Boton>
     </div>
   )
 }
@@ -364,26 +384,38 @@ export function PanelVistasGuardadas({
       {onGuardarVista && detector?.tipo !== 'default' && (
         <div className="flex flex-col gap-1.5">
           {!creandoVista ? (
-            <button type="button" onClick={() => setCreandoVista(true)}
-              className="flex items-center gap-1.5 text-sm text-texto-marca font-medium cursor-pointer border-none bg-transparent p-0 text-left hover:underline">
-              <BookmarkPlus size={13} />
+            <Boton
+              variante="fantasma"
+              tamano="xs"
+              icono={<BookmarkPlus size={13} />}
+              onClick={() => setCreandoVista(true)}
+              className="text-texto-marca"
+            >
               Guardar vista
-            </button>
+            </Boton>
           ) : (
             <div className="flex items-center gap-1.5">
-              <input type="text" autoFocus value={nombreNueva}
+              <Input autoFocus value={nombreNueva}
                 onChange={(e) => setNombreNueva(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && nombreNueva.trim()) { onGuardarVista(nombreNueva.trim()); setNombreNueva(''); setCreandoVista(false) }
                   if (e.key === 'Escape') { setNombreNueva(''); setCreandoVista(false) }
                 }}
                 placeholder="Nombre..."
-                className="flex-1 px-2 py-1 rounded-lg border border-borde-foco bg-superficie-tarjeta text-xs text-texto-primario placeholder:text-texto-placeholder outline-none" />
-              <button type="button" disabled={!nombreNueva.trim()}
+                compacto
+                variante="plano"
+                className="flex-1"
+                formato={null}
+              />
+              <Boton
+                variante="fantasma"
+                tamano="xs"
+                disabled={!nombreNueva.trim()}
                 onClick={() => { if (nombreNueva.trim()) { onGuardarVista(nombreNueva.trim()); setNombreNueva(''); setCreandoVista(false) } }}
-                className="text-xs font-medium text-texto-marca cursor-pointer border-none bg-transparent disabled:opacity-40">
+                className="text-texto-marca"
+              >
                 {t('comun.guardar')}
-              </button>
+              </Boton>
             </div>
           )}
         </div>

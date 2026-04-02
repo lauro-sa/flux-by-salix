@@ -94,8 +94,8 @@ function Modal({ abierto, onCerrar, titulo, tamano = 'lg', children, acciones, s
             {titulo && (
               <div className="flex items-center justify-between px-6 py-4 border-b border-borde-sutil shrink-0">
                 <h2 className="text-lg font-semibold text-texto-primario">{titulo}</h2>
-                <button onClick={onCerrar} aria-label="Cerrar" className="flex items-center justify-center size-10 rounded-md bg-transparent border-none text-texto-terciario cursor-pointer hover:bg-superficie-hover text-lg">
-                  ×
+                <button onClick={onCerrar} aria-label="Cerrar" className="flex items-center justify-center size-8 rounded-lg bg-transparent border-none text-texto-terciario cursor-pointer hover:bg-superficie-hover transition-colors">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
               </div>
             )}

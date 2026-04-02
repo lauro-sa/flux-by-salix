@@ -261,10 +261,7 @@ function SeccionLista({
           <p className="text-sm text-texto-terciario mt-1">{descripcion}</p>
         </div>
         {onRestablecer && (
-          <button type="button" onClick={onRestablecer}
-            className="text-xs text-texto-terciario hover:text-texto-marca bg-transparent border border-borde-sutil hover:border-borde-fuerte rounded-md px-2.5 py-1 cursor-pointer transition-colors shrink-0">
-            Restablecer predefinidos
-          </button>
+          <Boton variante="secundario" tamano="xs" onClick={onRestablecer}>Restablecer predefinidos</Boton>
         )}
       </div>
 
@@ -319,13 +316,15 @@ function SeccionLista({
             {/* Nombre (editable al hacer doble click) */}
             <div className="flex-1 min-w-0">
               {editandoId === item.id ? (
-                <input type="text" value={editandoNombre}
+                <Input
+                  value={editandoNombre}
                   onChange={e => setEditandoNombre(e.target.value)}
                   onBlur={() => guardarRename(item.id)}
                   onKeyDown={e => { if (e.key === 'Enter') guardarRename(item.id); if (e.key === 'Escape') setEditandoId(null) }}
                   autoFocus
-                  className="w-full bg-transparent border-none outline-none text-sm text-texto-primario"
-                  style={{ borderBottom: '1px solid var(--borde-foco)' }}
+                  variante="plano"
+                  compacto
+                  formato={null}
                 />
               ) : (
                 <span
@@ -345,10 +344,7 @@ function SeccionLista({
             />
 
             {/* Eliminar */}
-            <button type="button" onClick={() => onDelete(item.id)}
-              className="opacity-0 group-hover:opacity-100 text-texto-terciario hover:text-insignia-peligro bg-transparent border-none cursor-pointer transition-all p-1">
-              <Trash2 size={14} />
-            </button>
+            <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={14} />} onClick={() => onDelete(item.id)} className="opacity-0 group-hover:opacity-100 text-texto-terciario hover:text-insignia-peligro" />
           </div>
         ))}
 

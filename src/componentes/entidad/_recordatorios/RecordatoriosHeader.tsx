@@ -121,15 +121,18 @@ function RecordatoriosHeader() {
         tituloMovil="Recordatorios"
         contenido={contenido}
       >
-        <button
-          className="relative flex items-center justify-center size-8 rounded-md bg-transparent border-none text-texto-terciario cursor-pointer hover:text-texto-secundario transition-colors"
-          title="Recordatorios"
+        <Boton
+          variante="fantasma"
+          tamano="xs"
+          soloIcono
+          icono={<AlarmClock size={17} strokeWidth={1.75} />}
+          titulo="Recordatorios"
+          className="relative"
         >
-          <AlarmClock size={17} strokeWidth={1.75} />
           {vencidos > 0 && (
             <span className="absolute top-0.5 right-0.5 size-2 rounded-full bg-insignia-peligro-texto" />
           )}
-        </button>
+        </Boton>
       </Popover>
 
       {/* Previews de alerta */}

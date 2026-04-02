@@ -19,6 +19,7 @@ import { PLANTILLA_PDF_DEFECTO } from '@/lib/pdf/plantilla-defecto'
 import { A4_ANCHO, A4_ALTO } from '@/lib/pdf/constantes'
 import { COLOR_MARCA_DEFECTO } from '@/lib/colores_entidad'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { Boton } from '@/componentes/ui/Boton'
 import type {
   ConfigMembrete, ConfigPiePagina, ConfigDatosEmpresaPdf,
   LineaPresupuesto, CuotaPago,
@@ -398,10 +399,7 @@ export default function EditorPlantillaPdf() {
       <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-borde-sutil bg-superficie-tarjeta shrink-0">
         {/* Izquierda: volver + título */}
         <div className="flex items-center gap-3 min-w-0">
-          <button onClick={() => router.push('/presupuestos/configuracion')}
-            className="p-1.5 rounded-lg hover:bg-superficie-app transition-colors text-texto-secundario">
-            <ArrowLeft size={18} />
-          </button>
+          <Boton variante="fantasma" tamano="xs" soloIcono icono={<ArrowLeft size={18} />} onClick={() => router.push('/presupuestos/configuracion')} />
           <div className="min-w-0">
             <h1 className="text-sm font-semibold text-texto-primario truncate">Editor de plantilla PDF</h1>
             <p className="text-xs text-texto-terciario truncate">
@@ -446,29 +444,15 @@ export default function EditorPlantillaPdf() {
             </button>
           </div>
 
-          <button onClick={() => setPanelVariables(!panelVariables)}
-            className={`hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs border transition-colors ${
-              panelVariables ? 'bg-marca-500/10 text-texto-marca border-marca-500/30' : 'text-texto-terciario border-borde-sutil hover:bg-superficie-app'
-            }`}>
-            <Hash size={13} /> Variables
-          </button>
+          <Boton variante={panelVariables ? 'secundario' : 'fantasma'} tamano="xs" icono={<Hash size={13} />} onClick={() => setPanelVariables(!panelVariables)} className={`hidden sm:flex ${panelVariables ? 'bg-marca-500/10 text-texto-marca border-marca-500/30' : ''}`}>
+            Variables
+          </Boton>
 
-          <button onClick={restaurarDefecto}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-texto-terciario border border-borde-sutil hover:bg-superficie-app transition-colors">
-            <RotateCcw size={13} /> Default
-          </button>
+          <Boton variante="secundario" tamano="xs" icono={<RotateCcw size={13} />} onClick={restaurarDefecto}>Default</Boton>
 
-          <button onClick={() => { if (debounceRef.current) clearTimeout(debounceRef.current); guardarPlantilla(codigo) }}
-            disabled={guardando || guardado}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-marca-500 text-white hover:bg-marca-600 disabled:opacity-40 transition-colors">
-            <Save size={13} /> Guardar
-          </button>
+          <Boton variante="primario" tamano="xs" icono={<Save size={13} />} onClick={() => { if (debounceRef.current) clearTimeout(debounceRef.current); guardarPlantilla(codigo) }} disabled={guardando || guardado}>Guardar</Boton>
 
-          <button onClick={() => router.push('/presupuestos/configuracion')}
-            className="p-1.5 rounded-lg text-texto-terciario hover:bg-superficie-app transition-colors hidden sm:block"
-            title="Cerrar editor">
-            <Minimize2 size={15} />
-          </button>
+          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Minimize2 size={15} />} onClick={() => router.push('/presupuestos/configuracion')} titulo="Cerrar editor" className="hidden sm:flex" />
         </div>
       </div>
 

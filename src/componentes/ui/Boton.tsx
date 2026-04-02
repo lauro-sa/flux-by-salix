@@ -1,6 +1,6 @@
 'use client'
 
-import { forwardRef, type ReactNode } from 'react'
+import { forwardRef, type ReactNode, type MouseEvent } from 'react'
 import { motion } from 'framer-motion'
 import { Loader2 } from 'lucide-react'
 
@@ -17,32 +17,34 @@ interface PropiedadesBoton {
   anchoCompleto?: boolean
   disabled?: boolean
   children?: ReactNode
-  onClick?: () => void
+  onClick?: (e: MouseEvent<HTMLButtonElement>) => void
   type?: 'button' | 'submit' | 'reset'
   className?: string
+  titulo?: string
+  redondeado?: boolean
 }
 
 const clasesVariante: Record<VarianteBoton, string> = {
-  primario: 'bg-texto-marca text-white',
-  secundario: 'bg-superficie-tarjeta text-texto-primario border border-borde-fuerte',
-  fantasma: 'bg-transparent text-texto-secundario hover:bg-superficie-hover',
-  peligro: 'bg-insignia-peligro text-white',
-  exito: 'bg-insignia-exito text-white',
-  advertencia: 'bg-insignia-advertencia text-white',
+  primario: 'bg-texto-marca text-white hover:brightness-110',
+  secundario: 'bg-superficie-tarjeta text-texto-primario border border-borde-sutil hover:border-borde-fuerte hover:bg-superficie-hover',
+  fantasma: 'bg-transparent text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario',
+  peligro: 'bg-insignia-peligro text-white hover:brightness-110',
+  exito: 'bg-insignia-exito text-white hover:brightness-110',
+  advertencia: 'bg-insignia-advertencia text-white hover:brightness-110',
 }
 
 const clasesTamano: Record<TamanoBoton, string> = {
-  xs: 'px-2 py-0.5 text-xs gap-1',
-  sm: 'px-3 py-1 text-sm gap-1.5',
+  xs: 'px-2.5 py-1 text-xs gap-1.5',
+  sm: 'px-3 py-1.5 text-sm gap-1.5',
   md: 'px-4 py-2 text-sm gap-2',
-  lg: 'px-6 py-3 text-base gap-2',
+  lg: 'px-5 py-2.5 text-sm gap-2',
 }
 
 const clasesSoloIcono: Record<TamanoBoton, string> = {
-  xs: 'p-1.5 size-8',
-  sm: 'p-1.5 size-9',
-  md: 'p-2 size-10',
-  lg: 'p-3 size-11',
+  xs: 'p-1.5 size-7',
+  sm: 'p-1.5 size-8',
+  md: 'p-2 size-9',
+  lg: 'p-2.5 size-10',
 }
 
 /**
@@ -64,15 +66,18 @@ const Boton = forwardRef<HTMLButtonElement, PropiedadesBoton>(
       onClick,
       type = 'button',
       className = '',
+      titulo,
+      redondeado = false,
     },
     ref
   ) => {
     const clases = [
-      'inline-flex items-center justify-center rounded-md font-medium leading-none whitespace-nowrap select-none transition-all duration-150 cursor-pointer',
+      'inline-flex items-center justify-center font-medium leading-none whitespace-nowrap select-none transition-all duration-150 cursor-pointer',
+      redondeado ? 'rounded-full' : 'rounded-lg',
       clasesVariante[variante],
       soloIcono ? clasesSoloIcono[tamano] : clasesTamano[tamano],
       anchoCompleto ? 'w-full' : '',
-      disabled || cargando ? 'opacity-50 cursor-not-allowed' : '',
+      disabled || cargando ? 'opacity-50 cursor-not-allowed pointer-events-none' : '',
       className,
     ].join(' ')
 
@@ -80,8 +85,9 @@ const Boton = forwardRef<HTMLButtonElement, PropiedadesBoton>(
       <motion.button
         ref={ref}
         type={type}
+        title={titulo}
         whileHover={!disabled && !cargando ? { scale: 1.02 } : undefined}
-        whileTap={!disabled && !cargando ? { scale: 0.98 } : undefined}
+        whileTap={!disabled && !cargando ? { scale: 0.97 } : undefined}
         disabled={disabled || cargando}
         onClick={onClick}
         className={clases}

@@ -191,30 +191,20 @@ export function MatrizCategoria({
                         {/* Botones rapidos por fila */}
                         <td className="px-2 py-1.5 text-center">
                           <div className="flex items-center justify-center gap-1">
-                            <button
-                              type="button"
+                            <Boton
+                              variante={todoActivo ? 'exito' : 'fantasma'}
+                              tamano="xs"
                               onClick={() => onTodoModulo(modulo)}
-                              className={[
-                                'px-1.5 py-0.5 rounded text-xxs font-medium border-none cursor-pointer transition-colors',
-                                todoActivo
-                                  ? 'bg-insignia-exito/20 text-insignia-exito'
-                                  : 'bg-superficie-hover text-texto-terciario hover:text-texto-primario',
-                              ].join(' ')}
                             >
                               Todo
-                            </button>
-                            <button
-                              type="button"
+                            </Boton>
+                            <Boton
+                              variante={accionesActivas.length === 0 ? 'peligro' : 'fantasma'}
+                              tamano="xs"
                               onClick={() => onNadaModulo(modulo)}
-                              className={[
-                                'px-1.5 py-0.5 rounded text-xxs font-medium border-none cursor-pointer transition-colors',
-                                accionesActivas.length === 0
-                                  ? 'bg-insignia-peligro/20 text-insignia-peligro'
-                                  : 'bg-superficie-hover text-texto-terciario hover:text-texto-primario',
-                              ].join(' ')}
                             >
                               Nada
-                            </button>
+                            </Boton>
                           </div>
                         </td>
                       </tr>

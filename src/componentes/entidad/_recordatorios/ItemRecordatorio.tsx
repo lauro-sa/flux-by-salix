@@ -1,6 +1,7 @@
 'use client'
 
 import { Circle, CheckCircle2, Trash2, Repeat, Maximize2 } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 import { textoRecurrencia } from '@/componentes/ui/SelectorRecurrencia'
 import { motion } from 'framer-motion'
 import { type Recordatorio, formatearFecha, hoyISO } from './tipos'
@@ -30,20 +31,15 @@ function ItemRecordatorio({ recordatorio: r, indice, onToggleCompletar, onElimin
       className="group flex items-start gap-2.5 py-2.5 px-1 rounded-lg hover:bg-superficie-hover transition-colors"
     >
       {/* Botón check */}
-      <button
+      <Boton
+        variante="fantasma"
+        tamano="xs"
+        soloIcono
+        icono={esCompletado ? <CheckCircle2 size={16} strokeWidth={1.5} /> : <Circle size={16} strokeWidth={1.5} />}
         onClick={() => onToggleCompletar(r.id, !esCompletado)}
-        className={`shrink-0 mt-0.5 bg-transparent border-none cursor-pointer transition-colors p-0 ${
-          esCompletado
-            ? 'text-insignia-exito hover:text-texto-marca'
-            : 'text-texto-terciario hover:text-texto-marca'
-        }`}
-        title={esCompletado ? 'Descompletar' : 'Completar'}
-      >
-        {esCompletado
-          ? <CheckCircle2 size={16} strokeWidth={1.5} />
-          : <Circle size={16} strokeWidth={1.5} />
-        }
-      </button>
+        titulo={esCompletado ? 'Descompletar' : 'Completar'}
+        className={`shrink-0 mt-0.5 ${esCompletado ? 'text-insignia-exito hover:text-texto-marca' : 'text-texto-terciario hover:text-texto-marca'}`}
+      />
 
       {/* Contenido */}
       <div className="flex-1 min-w-0">
@@ -77,13 +73,15 @@ function ItemRecordatorio({ recordatorio: r, indice, onToggleCompletar, onElimin
       </div>
 
       {/* Botón eliminar */}
-      <button
+      <Boton
+        variante="fantasma"
+        tamano="xs"
+        soloIcono
+        icono={<Trash2 size={13} />}
         onClick={() => onEliminar(r)}
-        className="shrink-0 self-center opacity-0 group-hover:opacity-100 flex items-center justify-center size-7 rounded-md bg-transparent hover:bg-superficie-hover border-none cursor-pointer text-texto-terciario hover:text-insignia-peligro-texto transition-all"
-        title="Eliminar"
-      >
-        <Trash2 size={13} />
-      </button>
+        titulo="Eliminar"
+        className="shrink-0 self-center opacity-0 group-hover:opacity-100 text-texto-terciario hover:text-insignia-peligro-texto"
+      />
     </motion.div>
   )
 }

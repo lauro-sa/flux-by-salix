@@ -219,20 +219,14 @@ export function ModalReglas({ abierto, onCerrar }: PropiedadesModalReglas) {
                     placeholder="Valor..."
                   />
                   {condiciones.length > 1 && (
-                    <button onClick={() => removerCondicion(i)}>
-                      <X size={12} style={{ color: 'var(--texto-terciario)' }} />
-                    </button>
+                    <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={12} />} onClick={() => removerCondicion(i)} />
                   )}
                 </div>
               ))}
             </div>
-            <button
-              onClick={agregarCondicion}
-              className="flex items-center gap-1 text-xxs mt-2 px-2 py-1 rounded"
-              style={{ color: 'var(--texto-marca)' }}
-            >
-              <Plus size={10} /> Agregar condición
-            </button>
+            <Boton variante="fantasma" tamano="xs" icono={<Plus size={10} />} onClick={agregarCondicion} className="mt-2 text-texto-marca">
+              Agregar condición
+            </Boton>
           </div>
 
           {/* Acciones */}
@@ -262,20 +256,14 @@ export function ModalReglas({ abierto, onCerrar }: PropiedadesModalReglas) {
                     />
                   )}
                   {acciones.length > 1 && (
-                    <button onClick={() => removerAccion(i)}>
-                      <X size={12} style={{ color: 'var(--texto-terciario)' }} />
-                    </button>
+                    <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={12} />} onClick={() => removerAccion(i)} />
                   )}
                 </div>
               ))}
             </div>
-            <button
-              onClick={agregarAccion}
-              className="flex items-center gap-1 text-xxs mt-2 px-2 py-1 rounded"
-              style={{ color: 'var(--texto-marca)' }}
-            >
-              <Plus size={10} /> Agregar acción
-            </button>
+            <Boton variante="fantasma" tamano="xs" icono={<Plus size={10} />} onClick={agregarAccion} className="mt-2 text-texto-marca">
+              Agregar acción
+            </Boton>
           </div>
         </div>
       ) : (
@@ -320,12 +308,8 @@ export function ModalReglas({ abierto, onCerrar }: PropiedadesModalReglas) {
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => iniciarEdicion(regla)} className="p-1 rounded">
-                      <Pencil size={12} style={{ color: 'var(--texto-terciario)' }} />
-                    </button>
-                    <button onClick={() => eliminar(regla.id)} className="p-1 rounded">
-                      <Trash2 size={12} style={{ color: 'var(--insignia-peligro)' }} />
-                    </button>
+                    <Boton variante="fantasma" tamano="xs" soloIcono icono={<Pencil size={12} />} onClick={() => iniciarEdicion(regla)} />
+                    <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={12} />} onClick={() => eliminar(regla.id)} className="text-insignia-peligro" />
                   </div>
                 </div>
               </div>

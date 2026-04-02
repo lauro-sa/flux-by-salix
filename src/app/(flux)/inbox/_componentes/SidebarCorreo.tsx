@@ -203,13 +203,7 @@ export function SidebarCorreo({
       {/* Redactar */}
       <div className={`${colapsado ? 'p-1.5 flex flex-col items-center' : 'p-3'}`}>
         {colapsado ? (
-          <button
-            onClick={onRedactar}
-            className="w-9 h-9 rounded-lg flex items-center justify-center"
-            style={{ background: 'var(--texto-marca)', color: 'var(--texto-inverso)' }}
-          >
-            <Pen size={16} />
-          </button>
+          <Boton variante="primario" tamano="sm" soloIcono icono={<Pen size={16} />} onClick={onRedactar} />
         ) : (
           <Boton variante="primario" tamano="sm" icono={<Pen size={14} />} onClick={onRedactar} className="w-full">
             {t('inbox.redactar')}

@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar } from '@/componentes/ui/Avatar'
+import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Buscador } from '@/componentes/ui/Buscador'
 import { Pildora } from '@/componentes/ui/Pildora'
@@ -161,22 +162,22 @@ export function ListaConversaciones({
             </div>
             <div className="flex items-center gap-1">
               {seleccionados.size > 0 && onEliminarSeleccion && (
-                <button
+                <Boton
+                  variante="fantasma"
+                  tamano="xs"
+                  soloIcono
+                  icono={<Trash2 size={14} />}
                   onClick={handleEliminarSeleccion}
-                  className="p-1 rounded-md transition-colors"
-                  style={{ color: 'var(--insignia-peligro)' }}
-                  aria-label="Eliminar seleccionados"
-                >
-                  <Trash2 size={14} />
-                </button>
+                  className="text-[var(--insignia-peligro)]"
+                />
               )}
-              <button
+              <Boton
+                variante="fantasma"
+                tamano="xs"
                 onClick={() => { setModoSeleccion(false); setSeleccionados(new Set()) }}
-                className="text-xxs px-2 py-0.5 rounded"
-                style={{ color: 'var(--texto-terciario)' }}
               >
                 {t('comun.cancelar')}
-              </button>
+              </Boton>
             </div>
           </div>
         ) : (
@@ -215,22 +216,22 @@ export function ListaConversaciones({
                 </button>
               )}
               {onEliminarSeleccion && (
-                <button
+                <Boton
+                  variante="fantasma"
+                  tamano="xs"
+                  soloIcono
+                  icono={<CheckSquare size={14} />}
                   onClick={() => setModoSeleccion(true)}
-                  className="p-1 rounded-md transition-colors"
-                  style={{ color: 'var(--texto-terciario)' }}
-                  title="Seleccionar"
-                >
-                  <CheckSquare size={14} />
-                </button>
+                  titulo="Seleccionar"
+                />
               )}
-              <button
+              <Boton
+                variante="fantasma"
+                tamano="xs"
+                soloIcono
+                icono={<Filter size={14} />}
                 onClick={() => setMostrarFiltros(!mostrarFiltros)}
-                className="p-1 rounded-md transition-colors"
-                style={{ color: 'var(--texto-terciario)' }}
-              >
-                <Filter size={14} />
-              </button>
+              />
             </div>
           </div>
         )}
@@ -248,27 +249,27 @@ export function ListaConversaciones({
               {desde}–{hasta} de {conversaciones.length}
             </span>
             <div className="flex items-center gap-0.5">
-              <button
+              <Boton
+                variante="fantasma"
+                tamano="xs"
+                soloIcono
+                icono={<ChevronLeft size={14} />}
                 onClick={() => setPagina(p => Math.max(1, p - 1))}
                 disabled={pagina === 1}
-                className="p-1 rounded-md transition-colors disabled:opacity-30"
-                style={{ color: 'var(--texto-terciario)' }}
-                aria-label="Página anterior"
-              >
-                <ChevronLeft size={14} />
-              </button>
+                titulo="Página anterior"
+              />
               <span className="text-xxs px-1" style={{ color: 'var(--texto-secundario)' }}>
                 {pagina}/{totalPaginas}
               </span>
-              <button
+              <Boton
+                variante="fantasma"
+                tamano="xs"
+                soloIcono
+                icono={<ChevronRightIcon size={14} />}
                 onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}
                 disabled={pagina === totalPaginas}
-                className="p-1 rounded-md transition-colors disabled:opacity-30"
-                style={{ color: 'var(--texto-terciario)' }}
-                aria-label="Página siguiente"
-              >
-                <ChevronRightIcon size={14} />
-              </button>
+                titulo="Página siguiente"
+              />
             </div>
           </div>
         )}
@@ -321,27 +322,30 @@ export function ListaConversaciones({
             className="flex items-center gap-1 px-3 py-1.5 overflow-hidden"
             style={{ borderBottom: '1px solid var(--borde-sutil)', background: 'var(--superficie-hover)' }}
           >
-            <button
+            <Boton
+              variante="secundario"
+              tamano="xs"
+              icono={<Eye size={10} />}
               onClick={() => { onOperacionMasiva('marcar_leido', [...seleccionados]); setSeleccionados(new Set()); setModoSeleccion(false) }}
-              className="text-xxs px-2 py-1 rounded flex items-center gap-1 transition-colors"
-              style={{ color: 'var(--texto-secundario)', background: 'var(--superficie-tarjeta)' }}
             >
-              <Eye size={10} /> {t('inbox.marcar_leido')}
-            </button>
-            <button
+              {t('inbox.marcar_leido')}
+            </Boton>
+            <Boton
+              variante="secundario"
+              tamano="xs"
+              icono={<EyeOff size={10} />}
               onClick={() => { onOperacionMasiva('marcar_no_leido', [...seleccionados]); setSeleccionados(new Set()); setModoSeleccion(false) }}
-              className="text-xxs px-2 py-1 rounded flex items-center gap-1 transition-colors"
-              style={{ color: 'var(--texto-secundario)', background: 'var(--superficie-tarjeta)' }}
             >
-              <EyeOff size={10} /> {t('inbox.marcar_no_leido')}
-            </button>
-            <button
+              {t('inbox.marcar_no_leido')}
+            </Boton>
+            <Boton
+              variante="secundario"
+              tamano="xs"
+              icono={<CheckCircle size={10} />}
               onClick={() => { onOperacionMasiva('cerrar', [...seleccionados]); setSeleccionados(new Set()); setModoSeleccion(false) }}
-              className="text-xxs px-2 py-1 rounded flex items-center gap-1 transition-colors"
-              style={{ color: 'var(--texto-secundario)', background: 'var(--superficie-tarjeta)' }}
             >
-              <CheckCircle size={10} /> Cerrar
-            </button>
+              Cerrar
+            </Boton>
           </motion.div>
         )}
       </AnimatePresence>

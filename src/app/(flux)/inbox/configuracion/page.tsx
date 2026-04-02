@@ -9,6 +9,7 @@ import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion
 import { Boton } from '@/componentes/ui/Boton'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import { Input } from '@/componentes/ui/Input'
+import { TextArea } from '@/componentes/ui/TextArea'
 import { Select } from '@/componentes/ui/Select'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Tarjeta } from '@/componentes/ui/Tarjeta'
@@ -280,30 +281,37 @@ export default function PaginaConfiguracionInbox() {
 
       {/* Interno */}
       {seccionActiva === 'interno' && (
-        <div className="space-y-6">
-          <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
-            {t('inbox.config.interno')}
-          </h3>
-          <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
-            Los canales internos se crean y administran directamente desde la pestaña Interno del Inbox.
-            Acá podés configurar permisos y notificaciones globales.
-          </p>
-          <div className="space-y-3">
-            <Interruptor
-              activo={true}
-              onChange={() => {}}
-              etiqueta="Permitir que cualquier miembro cree canales públicos"
-            />
-            <Interruptor
-              activo={true}
-              onChange={() => {}}
-              etiqueta="Permitir mensajes directos entre agentes"
-            />
-            <Interruptor
-              activo={false}
-              onChange={() => {}}
-              etiqueta="Permitir invitados externos en canales"
-            />
+        <div className="space-y-5">
+          <div>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+              {t('inbox.config.interno')}
+            </h3>
+            <p className="text-xs mt-1" style={{ color: 'var(--texto-terciario)' }}>
+              Los canales internos se crean y administran directamente desde la pestaña Interno del Inbox.
+              Acá podés configurar permisos y notificaciones globales.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {[
+              { campo: 'permitir_canales_publicos', etiqueta: 'Canales públicos', desc: 'Permitir que cualquier miembro cree canales públicos' },
+              { campo: 'permitir_mensajes_directos', etiqueta: 'Mensajes directos', desc: 'Permitir mensajes directos entre agentes' },
+              { campo: 'permitir_invitados_externos', etiqueta: 'Invitados externos', desc: 'Permitir invitados externos en canales' },
+            ].map(n => (
+              <div
+                key={n.campo}
+                className="flex items-center justify-between gap-3 p-3 rounded-xl"
+                style={{ border: '1px solid var(--borde-sutil)' }}
+              >
+                <div className="min-w-0">
+                  <p className="text-xs font-medium" style={{ color: 'var(--texto-primario)' }}>{n.etiqueta}</p>
+                  <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>{n.desc}</p>
+                </div>
+                <Interruptor
+                  activo={(config as unknown as Record<string, boolean>)?.[n.campo] ?? n.campo !== 'permitir_invitados_externos'}
+                  onChange={(v) => guardarConfig({ [n.campo]: v })}
+                />
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -1069,17 +1077,13 @@ function SeccionCorreo({
             <label className="text-xs font-medium block mb-1" style={{ color: 'var(--insignia-exito)' }}>
               Permitidos
             </label>
-            <textarea
+            <TextArea
               value={listaPermitidos}
               onChange={(e) => setListaPermitidos(e.target.value)}
               onBlur={guardarListas}
               rows={5}
-              className="w-full text-xs rounded-lg p-2.5 resize-none outline-none font-mono"
-              style={{
-                background: 'var(--superficie-hover)',
-                color: 'var(--texto-primario)',
-                border: '1px solid var(--borde-sutil)',
-              }}
+              compacto
+              monoespacio
               placeholder="cliente@empresa.com&#10;@socio.com"
             />
           </div>
@@ -1087,17 +1091,13 @@ function SeccionCorreo({
             <label className="text-xs font-medium block mb-1" style={{ color: 'var(--insignia-peligro)' }}>
               Bloqueados
             </label>
-            <textarea
+            <TextArea
               value={listaBloqueados}
               onChange={(e) => setListaBloqueados(e.target.value)}
               onBlur={guardarListas}
               rows={5}
-              className="w-full text-xs rounded-lg p-2.5 resize-none outline-none font-mono"
-              style={{
-                background: 'var(--superficie-hover)',
-                color: 'var(--texto-primario)',
-                border: '1px solid var(--borde-sutil)',
-              }}
+              compacto
+              monoespacio
               placeholder="spam@dominio.com&#10;@marketing-masivo.com"
             />
           </div>
@@ -1655,9 +1655,7 @@ function SeccionChatbot() {
                               placeholder="Texto de la opción"
                               className="flex-1"
                             />
-                            <button onClick={() => eliminarOpcionMenu(i)} className="p-1" style={{ color: 'var(--texto-terciario)' }}>
-                              <Trash2 size={12} />
-                            </button>
+                            <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={12} />} onClick={() => eliminarOpcionMenu(i)} />
                           </div>
                           <div className="ml-8">
                             <EditorWhatsApp
@@ -1694,9 +1692,7 @@ function SeccionChatbot() {
                               className="flex-1"
                             />
                             <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>{(op.etiqueta || '').length}/20</span>
-                            <button onClick={() => eliminarOpcionMenu(i)} className="p-1" style={{ color: 'var(--texto-terciario)' }}>
-                              <Trash2 size={12} />
-                            </button>
+                            <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={12} />} onClick={() => eliminarOpcionMenu(i)} />
                           </div>
                           <div className="px-3 py-2" style={{ background: 'var(--superficie-tarjeta)' }}>
                             <EditorWhatsApp
@@ -1731,9 +1727,7 @@ function SeccionChatbot() {
                               maxLength={24}
                               className="flex-1"
                             />
-                            <button onClick={() => eliminarOpcionMenu(i)} className="p-1" style={{ color: 'var(--texto-terciario)' }}>
-                              <Trash2 size={12} />
-                            </button>
+                            <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={12} />} onClick={() => eliminarOpcionMenu(i)} />
                           </div>
                           <Input
                             value={op.descripcion || ''}
@@ -1785,9 +1779,7 @@ function SeccionChatbot() {
                     placeholder="Palabras separadas por coma: precio, costo, cuanto"
                     className="flex-1"
                   />
-                  <button onClick={() => eliminarPalabraClave(i)} className="p-1" style={{ color: 'var(--texto-terciario)' }}>
-                    <Trash2 size={12} />
-                  </button>
+                  <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={12} />} onClick={() => eliminarPalabraClave(i)} />
                 </div>
                 <EditorWhatsApp
                   valor={pc.respuesta}
@@ -1927,17 +1919,11 @@ function EditorWhatsApp({
               <label className="text-xxs font-medium mb-1.5 block" style={{ color: 'var(--texto-terciario)' }}>
                 Mensaje (formato WhatsApp)
               </label>
-              <textarea
+              <TextArea
                 value={valor}
                 onChange={(e) => onChange(e.target.value)}
                 placeholder={placeholder || 'Escribí tu mensaje...'}
-                className="w-full rounded-lg p-3 text-sm resize-none outline-none"
-                style={{
-                  background: 'var(--superficie-app)',
-                  color: 'var(--texto-primario)',
-                  border: '1px solid var(--borde-sutil)',
-                  minHeight: alturaMinima,
-                }}
+                style={{ minHeight: alturaMinima }}
                 autoFocus
                 spellCheck={false}
               />
@@ -2120,18 +2106,11 @@ function ModalRespuestaRapida({
           <div className="grid grid-cols-2 gap-3">
             {/* Textarea — pegá o escribí el mensaje */}
             <div>
-              <textarea
+              <TextArea
                 value={contenido}
                 onChange={(e) => setContenido(e.target.value)}
                 placeholder={'Pegá o escribí tu mensaje acá...\n\nFormato WhatsApp:\n*negrita*  _cursiva_  ~tachado~'}
-                className="w-full rounded-lg p-3 text-sm resize-none outline-none"
-                style={{
-                  background: 'var(--superficie-app)',
-                  color: 'var(--texto-primario)',
-                  border: '1px solid var(--borde-sutil)',
-                  minHeight: 220,
-                  fontFamily: 'inherit',
-                }}
+                style={{ minHeight: 220 }}
                 spellCheck={false}
               />
               <p className="text-xxs mt-1.5" style={{ color: 'var(--texto-terciario)' }}>

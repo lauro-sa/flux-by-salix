@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, createContext, useContext, useRef, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, X, AlertTriangle, Info } from 'lucide-react'
+import { Boton } from '@/componentes/ui/Boton'
 import { sonidos } from '@/hooks/useSonido'
 
 type TipoToast = 'exito' | 'error' | 'advertencia' | 'info'
@@ -151,12 +152,13 @@ function ToastItem({ toast, onRemover }: { toast: DatosToast; onRemover: () => v
         </span>
 
         {/* Botón cerrar */}
-        <button
+        <Boton
+          variante="fantasma"
+          tamano="xs"
+          soloIcono
+          icono={<X size={14} />}
           onClick={onRemover}
-          className="shrink-0 flex items-center justify-center size-6 rounded-md bg-transparent hover:bg-superficie-hover border-none cursor-pointer text-texto-terciario hover:text-texto-secundario transition-colors"
-        >
-          <X size={14} />
-        </button>
+        />
       </div>
     </motion.div>
   )
