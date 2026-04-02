@@ -8,9 +8,6 @@ import { extraerSlug } from '@/lib/subdominio'
  *   1. Refrescar tokens de Supabase (mantener sesión)
  *   2. Resolver subdominio → empresa
  *   3. Redirigir según estado de autenticación
- *
- * Usa getSession() (lectura local del JWT) en lugar de getUser() (llamada de red)
- * para evitar MIDDLEWARE_INVOCATION_TIMEOUT en Vercel Hobby.
  */
 
 // Rutas de auth (sin sesión)
@@ -19,16 +16,8 @@ const RUTAS_AUTH = ['/login', '/registro', '/recuperar', '/restablecer']
 // Rutas de transición (con sesión pero sin empresa completa)
 const RUTAS_TRANSICION = ['/onboarding', '/esperando-activacion', '/selector-empresa', '/verificar-correo', '/invitacion']
 
-// Rutas que se saltan completamente
-const RUTAS_IGNORADAS = ['/_next', '/favicon.ico', '/api/', '/sw.js', '/manifest.json', '/offline']
-
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-
-  // Ignorar assets, APIs y archivos estáticos
-  if (RUTAS_IGNORADAS.some(ruta => pathname.startsWith(ruta))) {
-    return NextResponse.next()
-  }
 
   // Portal público — sin auth
   if (pathname.startsWith('/portal')) {
@@ -38,10 +27,20 @@ export async function middleware(request: NextRequest) {
   // Crear cliente Supabase y refrescar sesión
   const { supabase, response } = await crearClienteMiddleware(request)
 
-  // Usar getSession() que lee el JWT localmente (sin llamada de red).
-  // getUser() valida contra el servidor pero causa timeouts en Edge.
-  const { data: { session } } = await supabase.auth.getSession()
-  const user = session?.user ?? null
+  // getUser() valida el token con Supabase y refresca si expiró.
+  // Wrapeamos con timeout para evitar MIDDLEWARE_INVOCATION_TIMEOUT en Vercel.
+  let user = null
+  try {
+    const resultado = await Promise.race([
+      supabase.auth.getUser(),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 1200)),
+    ])
+    if (resultado && 'data' in resultado) {
+      user = resultado.data.user
+    }
+  } catch {
+    // Si falla la validación, tratar como sin sesión
+  }
 
   // Extraer subdominio
   const host = request.headers.get('host') || ''
@@ -55,7 +54,6 @@ export async function middleware(request: NextRequest) {
 
   // --- Sin sesión ---
   if (!user) {
-    // Puede estar en rutas de auth o invitación, el resto redirige a login
     if (esRutaAuth || pathname.startsWith('/invitacion')) {
       return response
     }
@@ -77,14 +75,14 @@ export async function middleware(request: NextRequest) {
   const empresaId = user.app_metadata?.empresa_activa_id
   const tieneEmpresaActiva = !!empresaId
 
-  // Autenticado + verificado + en ruta de auth (login/registro) → redirigir fuera
+  // Autenticado + verificado + en ruta de auth → redirigir fuera
   if (esRutaAuth) {
     const url = request.nextUrl.clone()
     url.pathname = tieneEmpresaActiva ? '/dashboard' : '/onboarding'
     return NextResponse.redirect(url)
   }
 
-  // En ruta de transición → dejar pasar (el usuario puede estar en onboarding, etc.)
+  // En ruta de transición → dejar pasar
   if (esRutaTransicion) {
     return response
   }
@@ -96,12 +94,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Todo OK → pasar
+  // Todo OK
   return response
 }
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|manifest\\.json|sw\\.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico|manifest\\.json|sw\\.js|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 }
