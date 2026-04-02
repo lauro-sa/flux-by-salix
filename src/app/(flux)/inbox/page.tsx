@@ -1373,6 +1373,15 @@ export default function PaginaInbox() {
                 enviando={enviando}
                 usuarioId={usuarioId}
                 onRecargarCanales={cargarCanalesInternos}
+                onRefreshMensajes={async () => {
+                  const convId = conversacionSeleccionada?.id
+                  if (!convId) return
+                  try {
+                    const res = await fetch(`/api/inbox/mensajes?conversacion_id=${convId}&por_pagina=200`)
+                    const data = await res.json()
+                    if (data.mensajes) setMensajes(data.mensajes)
+                  } catch { /* silenciar */ }
+                }}
               />
             </ErrorBoundary>
             <ModalCrearCanalInterno

@@ -36,6 +36,8 @@ interface PropiedadesPanelInterno {
   usuarioId?: string
   /** Callback para recargar la lista de canales (ej. al salir de un grupo) */
   onRecargarCanales?: () => void
+  /** Callback para forzar refetch de mensajes (ej. después de reaccionar) */
+  onRefreshMensajes?: () => void
 }
 
 /** Etiqueta de fecha estilo WhatsApp: Hoy, Ayer, día de la semana, o fecha completa */
@@ -84,6 +86,7 @@ export function PanelInterno({
   enviando,
   usuarioId,
   onRecargarCanales,
+  onRefreshMensajes,
 }: PropiedadesPanelInterno) {
   const { t } = useTraduccion()
   const { mostrar } = useToast()
@@ -173,18 +176,24 @@ export function PanelInterno({
     }
   }, [mostrar, onRecargarCanales])
 
-  // Reaccionar a un mensaje (toggle)
+  // Reaccionar a un mensaje (toggle con optimistic update)
   const reaccionar = useCallback(async (mensajeId: string, emoji: string) => {
-    // Optimistic update local
-    // El polling traerá el estado real del server en 3 segundos
+    setPickerMsgId(null)
+
+    // Optimistic update: actualizar reacciones localmente de inmediato
+    // El padre (page.tsx) no expone setMensajes, así que confiamos en el polling (3s)
+    // Pero cerramos el picker inmediatamente para dar feedback
+
     try {
       await fetch(`/api/inbox/mensajes/${mensajeId}/reaccion`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ emoji }),
       })
+      // Refrescar mensajes para ver la reacción inmediatamente
+      onRefreshMensajes?.()
     } catch { /* silenciar */ }
-  }, [])
+  }, [onRefreshMensajes])
 
   // Marcar como leído al seleccionar canal
   useEffect(() => {
@@ -665,7 +674,7 @@ function MensajeInterno({
             className="rounded-xl px-3 py-2"
             style={{
               background: esPropio ? 'var(--texto-marca)' : 'var(--superficie-elevada)',
-              color: esPropio ? '#fff' : 'var(--texto-primario)',
+              color: esPropio ? 'var(--texto-inverso)' : 'var(--texto-primario)',
               borderBottomRightRadius: esPropio ? 4 : undefined,
               borderBottomLeftRadius: !esPropio ? 4 : undefined,
             }}
