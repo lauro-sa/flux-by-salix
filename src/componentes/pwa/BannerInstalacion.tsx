@@ -1,6 +1,6 @@
 'use client'
 
-import { Download, X, Share } from 'lucide-react'
+import { Download, X, Ellipsis, Share, Plus } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { usePWAInstall } from '@/hooks/usePWAInstall'
 import { Boton } from '@/componentes/ui/Boton'
@@ -9,7 +9,7 @@ import { Boton } from '@/componentes/ui/Boton'
  * BannerInstalacion — Sugiere instalar Flux como PWA.
  *
  * - Android/Chrome: botón "Instalar" que dispara el prompt nativo.
- * - iOS Safari: instrucciones para "Agregar a pantalla de inicio".
+ * - iOS Safari: pasos reales (··· → Compartir → Agregar a Inicio).
  * - Se oculta si ya está instalada o si el usuario la descartó (7 días).
  *
  * Se monta en PlantillaApp, visible solo en móvil/tablet.
@@ -38,10 +38,26 @@ export function BannerInstalacion() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-texto-primario">Instalar Flux</p>
               {esIOS ? (
-                <p className="text-xs text-texto-secundario mt-0.5">
-                  Tocá <Share size={12} className="inline-block mx-0.5 -mt-0.5" /> y luego
-                  <strong> &quot;Agregar a pantalla de inicio&quot;</strong>
-                </p>
+                <div className="mt-1.5 space-y-1">
+                  <div className="flex items-center gap-2 text-xs text-texto-secundario">
+                    <span className="size-5 rounded-md bg-superficie-hover flex items-center justify-center shrink-0">
+                      <Ellipsis size={14} className="text-texto-primario" />
+                    </span>
+                    <span>Tocá los <strong>tres puntos</strong> abajo</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-texto-secundario">
+                    <span className="size-5 rounded-md bg-superficie-hover flex items-center justify-center shrink-0">
+                      <Share size={12} className="text-texto-primario" />
+                    </span>
+                    <span>Luego <strong>Compartir</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-texto-secundario">
+                    <span className="size-5 rounded-md bg-superficie-hover flex items-center justify-center shrink-0">
+                      <Plus size={14} className="text-texto-primario" />
+                    </span>
+                    <span>Y por último <strong>Agregar a Inicio</strong></span>
+                  </div>
+                </div>
               ) : (
                 <p className="text-xs text-texto-secundario mt-0.5">
                   Accedé más rápido desde tu pantalla de inicio
