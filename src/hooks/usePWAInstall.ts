@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from 'react'
  * - Android/Chrome: captura el evento `beforeinstallprompt` para mostrar prompt nativo.
  * - iOS Safari: detecta si se puede agregar a Home Screen (no hay API nativa).
  * - Si ya está instalada (standalone), no muestra nada.
+ * - SSR-safe: todo arranca en false y se actualiza post-mount.
  *
  * Se usa en: BannerInstalacion y cualquier lugar donde se quiera sugerir instalar.
  */
@@ -30,26 +31,28 @@ const CLAVE_DESCARTADO = 'flux_pwa_descartado'
 export function usePWAInstall(): EstadoInstalacion {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [descartado, setDescartado] = useState(false)
+  // SSR-safe: todo arranca en false, se calcula en useEffect
+  const [yaInstalada, setYaInstalada] = useState(false)
+  const [esIOS, setEsIOS] = useState(false)
 
-  // Detectar si ya está instalada
-  const yaInstalada = typeof window !== 'undefined' && (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    window.matchMedia('(display-mode: fullscreen)').matches ||
-    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
-  )
-
-  // Detectar iOS
-  const esIOS = typeof navigator !== 'undefined' &&
-    /iPad|iPhone|iPod/.test(navigator.userAgent) &&
-    !(window as Window & { MSStream?: unknown }).MSStream
-
-  // Verificar si fue descartado antes
+  // Detectar estado real post-mount
   useEffect(() => {
+    setYaInstalada(
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.matchMedia('(display-mode: fullscreen)').matches ||
+      (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+    )
+
+    setEsIOS(
+      /iPad|iPhone|iPod/.test(navigator.userAgent) &&
+      !(window as Window & { MSStream?: unknown }).MSStream
+    )
+
+    // Verificar si fue descartado antes
     try {
       const valor = localStorage.getItem(CLAVE_DESCARTADO)
       if (valor) {
         const ts = parseInt(valor, 10)
-        // Mostrar de nuevo después de 7 días
         if (Date.now() - ts < 7 * 24 * 60 * 60 * 1000) {
           setDescartado(true)
         }

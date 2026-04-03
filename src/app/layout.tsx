@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import Script from 'next/script'
 import './globals.css'
 
 // Toda la app depende de auth y contextos client-side,
@@ -49,16 +50,18 @@ export default function LayoutRaiz({
         {/* Theme-color dinámico: evita barra oscura en iOS PWA */}
         <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
         <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+      </head>
+      <body>
         {/* Anti-FOUC: detectar tema ANTES de que React monte para evitar flash.
             Lee flux_preferencias de localStorage → extrae .tema → aplica data-tema al html.
             También sincroniza el meta theme-color para que iOS no muestre barra de color incorrecto. */}
-        <script
+        <Script
+          id="anti-fouc"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var d=document.documentElement;var t='sistema';try{var p=JSON.parse(localStorage.getItem('flux_preferencias')||'{}');if(p.tema)t=p.tema}catch(e){}if(t==='oscuro'){d.setAttribute('data-tema','oscuro')}else if(t==='claro'){d.setAttribute('data-tema','claro')}else{if(window.matchMedia('(prefers-color-scheme:dark)').matches){d.setAttribute('data-tema','oscuro')}else{d.setAttribute('data-tema','claro')}}var es=d.getAttribute('data-tema')==='oscuro';var all=document.querySelectorAll('meta[name="theme-color"]');all.forEach(function(m){m.setAttribute('content',es?'#000000':'#ffffff')})}catch(e){}})()`
           }}
         />
-      </head>
-      <body>
         {children}
         <RegistroSW />
       </body>
