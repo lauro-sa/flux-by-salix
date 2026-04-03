@@ -14,12 +14,13 @@
 }
 
 /* ── Layout PWA vs Browser ──
-   PWA standalone: safe-area padding para notch + home indicator.
+   PWA standalone: padding-top para el notch.
+   El padding-bottom se aplica al main (no al wrapper) para que
+   el contenido tenga espacio y no quede tapado por el home indicator.
    Browser: sin padding — contenido fluye detrás de las barras transparentes de Safari. */
 @media (display-mode: standalone) {
   .layout-app {
     padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
 
@@ -76,7 +77,7 @@
   .main-layout {
     min-height: 0;
     overflow-y: auto;
-    padding-bottom: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
 .layout-app--fijo .main-layout {
