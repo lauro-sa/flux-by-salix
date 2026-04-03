@@ -153,8 +153,8 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
      En desktop o rutas con paneles fijos: height:100dvh + overflow:hidden → scroll interno. */
   const layoutFijo = !esMovil || necesitaLayoutFijo
 
-  /* Detectar PWA standalone — solo ahí necesitamos padding de safe-area inferior
-     porque Safari browser maneja su propia barra (y la queremos transparente). */
+  /* Detectar PWA standalone — solo ahí necesitamos padding de safe-areas
+     porque Safari browser maneja sus propias barras (y las queremos transparentes). */
   const esPWA = typeof window !== 'undefined' && (
     window.matchMedia('(display-mode: standalone)').matches ||
     (window.navigator as Navigator & { standalone?: boolean }).standalone === true
@@ -168,10 +168,12 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
           : { minHeight: '100dvh' }
         ),
         backgroundColor: 'var(--superficie-app)',
-        paddingTop: 'env(safe-area-inset-top, 0px)',
-        /* En PWA standalone: padding para el home indicator.
-           En Safari browser: sin padding — el contenido fluye detrás de la toolbar transparente. */
-        ...(esPWA ? { paddingBottom: 'env(safe-area-inset-bottom, 0px)' } : {}),
+        /* Solo PWA standalone: padding para notch + home indicator.
+           En Safari browser: sin padding — el contenido fluye detrás de las barras transparentes. */
+        ...(esPWA ? {
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        } : {}),
       }}
     >
       <Sidebar

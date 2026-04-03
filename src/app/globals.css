@@ -4,9 +4,13 @@
 /* Tailwind CSS 4 */
 @import 'tailwindcss';
 
-/* PWA: desactivar elastic scroll / pull-to-refresh del navegador */
-html, body {
-  overscroll-behavior: none;
+/* PWA standalone: desactivar elastic scroll / pull-to-refresh.
+   En Safari browser NO se aplica — permite que la toolbar se compacte
+   y el contenido sea visible detrás de la barra transparente. */
+@media (display-mode: standalone) {
+  html, body {
+    overscroll-behavior: none;
+  }
 }
 
 /* PWA: eliminar highlight azul/gris al tocar en iOS/Android */
