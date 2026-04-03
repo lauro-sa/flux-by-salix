@@ -13,6 +13,78 @@
   }
 }
 
+/* ── Layout PWA vs Browser ──
+   PWA standalone: safe-area padding para notch + home indicator.
+   Browser: sin padding — contenido fluye detrás de las barras transparentes de Safari. */
+@media (display-mode: standalone) {
+  .layout-app {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* Layout principal de la app.
+   Desktop: layout fijo (height:100dvh, overflow:hidden) para paneles con scroll interno.
+   Mobile browser: documento scrollea → Safari compacta la toolbar. */
+.layout-app {
+  background-color: var(--superficie-app);
+  min-height: 100dvh;
+}
+@media (min-width: 768px), (display-mode: standalone) {
+  .layout-app {
+    height: 100dvh;
+    overflow: hidden;
+    min-height: auto;
+  }
+}
+/* Rutas con paneles fijos (inbox, calendario) fuerzan layout fijo en mobile también */
+.layout-app--fijo {
+  height: 100dvh;
+  overflow: hidden;
+  min-height: auto;
+}
+
+/* Contenido principal — adaptable a layout fijo/flow */
+.contenido-principal-layout {
+  min-height: 100%;
+}
+@media (min-width: 768px), (display-mode: standalone) {
+  .contenido-principal-layout {
+    height: 100%;
+    overflow: hidden;
+    min-height: auto;
+  }
+}
+.layout-app--fijo .contenido-principal-layout {
+  height: 100%;
+  overflow: hidden;
+  min-height: auto;
+}
+
+/* Main content — scroll interno en desktop/PWA, padding extra en mobile browser */
+.main-layout {
+  padding-bottom: 9rem; /* pb-36: espacio para que contenido no quede bajo toolbar Safari */
+}
+@media (min-width: 768px) {
+  .main-layout {
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: 1.5rem;
+  }
+}
+@media (display-mode: standalone) {
+  .main-layout {
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: 0;
+  }
+}
+.layout-app--fijo .main-layout {
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 0;
+}
+
 /* PWA: eliminar highlight azul/gris al tocar en iOS/Android */
 button, a, [role="button"], input, select, textarea, label {
   -webkit-tap-highlight-color: transparent;

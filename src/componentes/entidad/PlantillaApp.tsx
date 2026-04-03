@@ -10,7 +10,6 @@ import { ToastNotificacion } from '@/componentes/feedback/ToastNotificacion'
 import { BannerInstalacion } from '@/componentes/pwa/BannerInstalacion'
 import { useTema } from '@/hooks/useTema'
 import { usePreferencias } from '@/hooks/usePreferencias'
-import { useEsMovil } from '@/hooks/useEsMovil'
 import type { Migaja } from '@/hooks/useNavegacion'
 import type { ReactNode } from 'react'
 
@@ -40,7 +39,6 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
   const pathname = usePathname()
   const { efecto } = useTema()
   const { preferencias, guardar } = usePreferencias()
-  const esMovil = useEsMovil()
   // Ya no se usa drawer lateral — NavegacionMovil maneja la nav en teléfonos
   const [mobilMenuAbierto, setMobilMenuAbierto] = useState(false)
 
@@ -149,33 +147,13 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
     )
   }
 
-  /* En móvil (salvo inbox/calendario): el documento scrollea → Safari compacta la toolbar.
-     En desktop o rutas con paneles fijos: height:100dvh + overflow:hidden → scroll interno. */
-  const layoutFijo = !esMovil || necesitaLayoutFijo
-
-  /* Detectar PWA standalone — solo ahí necesitamos padding de safe-areas
-     porque Safari browser maneja sus propias barras (y las queremos transparentes). */
-  const esPWA = typeof window !== 'undefined' && (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
-  )
+  /* Layout se resuelve por CSS:
+     - Desktop (md+) y PWA standalone: height:100dvh + overflow:hidden (layout fijo)
+     - Mobile browser: min-height:100dvh (documento scrollea → Safari compacta toolbar)
+     - Rutas con paneles (inbox, calendario): siempre fijo via layout-app--fijo */
 
   return (
-    <div
-      style={{
-        ...(layoutFijo
-          ? { height: '100dvh', overflow: 'hidden' }
-          : { minHeight: '100dvh' }
-        ),
-        backgroundColor: 'var(--superficie-app)',
-        /* Solo PWA standalone: padding para notch + home indicator.
-           En Safari browser: sin padding — el contenido fluye detrás de las barras transparentes. */
-        ...(esPWA ? {
-          paddingTop: 'env(safe-area-inset-top, 0px)',
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        } : {}),
-      }}
-    >
+    <div className={`layout-app${necesitaLayoutFijo ? ' layout-app--fijo' : ''}`}>
       <Sidebar
         colapsado={sidebarColapsado}
         onToggle={toggleSidebar}
@@ -187,17 +165,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
         onMouseLeave={onSidebarMouseLeave}
       />
 
-      <div
-        className="contenido-principal"
-        style={{
-          ...(layoutFijo
-            ? { height: '100%', overflow: 'hidden' }
-            : { minHeight: '100%' }
-          ),
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <div className="contenido-principal contenido-principal-layout flex flex-col">
         <Header
           onAbrirMenuMobil={() => setMobilMenuAbierto(true)}
           onToggleSidebar={toggleSidebar}
@@ -214,10 +182,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
         <ToastNotificacion />
 
         <main
-          className={[
-            'scrollbar-auto-oculto flex-1 flex flex-col w-full bg-superficie-app',
-            layoutFijo ? 'min-h-0 overflow-y-auto' : 'pb-36 md:pb-6',
-          ].join(' ')}
+          className="scrollbar-auto-oculto flex-1 flex flex-col w-full bg-superficie-app main-layout"
         >
           {children}
         </main>
