@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useState, useRef, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MoreHorizontal, Settings, X } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { useTraduccion } from '@/lib/i18n'
+import { ProveedorSlotPaginador } from '@/componentes/tablas/ContextoPaginacion'
 
 /* ─── Tipos ─── */
 
@@ -70,34 +71,39 @@ function PlantillaListado({
 }: PropiedadesPlantillaListado) {
   const [menuAbierto, setMenuAbierto] = useState(false)
   const { t } = useTraduccion()
+  const slotPaginadorRef = useRef<HTMLDivElement | null>(null)
 
   return (
     <div className={`flex flex-col h-full ${className}`}>
 
       {/* ═══ CABECERO — Título está en las migajas del navbar ═══ */}
-      <div className="flex flex-col gap-2 shrink-0 px-4 sm:px-6 pt-3 sm:pt-4 pb-4">
+      <div className="shrink-0 px-2 sm:px-6 pt-5 sm:pt-5 pb-5 sm:pb-5">
+        <div className="flex items-center gap-2">
+          {accionPrincipal && (
+            <>
+              <div className="sm:hidden">
+                <Boton variante="primario" tamano="md" icono={accionPrincipal.icono} onClick={accionPrincipal.onClick}>
+                  Nuevo
+                </Boton>
+              </div>
+              <div className="hidden sm:block">
+                <Boton variante="primario" tamano="md" icono={accionPrincipal.icono} onClick={accionPrincipal.onClick}>
+                  {accionPrincipal.etiqueta}
+                </Boton>
+              </div>
+            </>
+          )}
 
-        {/* Fila 1: engranaje config (alineado a la derecha, mismo padding que toolbar) */}
-        {mostrarConfiguracion && onConfiguracion && (
-          <div className="flex justify-end">
-            <Boton variante="fantasma" tamano="sm" soloIcono icono={<Settings size={16} />} onClick={onConfiguracion} titulo="Configuración" className="mr-2.5" />
-          </div>
-        )}
-
-        {/* Fila 2: acción principal + acciones */}
-        {(accionPrincipal || acciones.length > 0) && (
-          <div className="flex items-center gap-2">
-            {accionPrincipal && (
-              <Boton variante="primario" tamano="md" icono={accionPrincipal.icono} onClick={accionPrincipal.onClick}>
-                {accionPrincipal.etiqueta}
-              </Boton>
-            )}
-
-            {acciones.length > 0 && (
-              <div className="relative">
+          {acciones.length > 0 && (
+            <div className="relative">
+              <div className="sm:hidden">
+                <Boton variante="secundario" tamano="md" soloIcono icono={<MoreHorizontal size={16} />} onClick={() => setMenuAbierto(!menuAbierto)} titulo={t('comun.acciones')} />
+              </div>
+              <div className="hidden sm:block">
                 <Boton variante="secundario" tamano="md" iconoDerecho={<MoreHorizontal size={14} />} onClick={() => setMenuAbierto(!menuAbierto)}>
                   {t('comun.acciones')}
                 </Boton>
+              </div>
 
                 <AnimatePresence>
                   {menuAbierto && (
@@ -126,13 +132,23 @@ function PlantillaListado({
                 </AnimatePresence>
               </div>
             )}
-          </div>
-        )}
+
+          <div className="flex-1" />
+
+          {/* Slot para paginador mobile (TablaDinamica renderiza aquí via portal) */}
+          <div ref={slotPaginadorRef} className="sm:hidden flex items-center" />
+
+          {mostrarConfiguracion && onConfiguracion && (
+            <Boton variante="fantasma" tamano="sm" soloIcono icono={<Settings size={16} />} onClick={onConfiguracion} titulo="Configuración" className="mr-2.5 sm:mr-0" />
+          )}
+        </div>
       </div>
 
       {/* ═══ CONTENIDO — TablaDinamica ocupa todo el alto restante ═══ */}
       <div className="flex-1 min-h-0">
-        {children}
+        <ProveedorSlotPaginador slotRef={slotPaginadorRef}>
+          {children}
+        </ProveedorSlotPaginador>
       </div>
     </div>
   )

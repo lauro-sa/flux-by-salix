@@ -6,9 +6,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, X, Check, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   Columns3, SlidersHorizontal, Bookmark, BookmarkPlus,
-  List, LayoutGrid, ArrowUpDown, Pin, Star,
+  List, LayoutGrid, ArrowUpDown, Pin, Star, MoreVertical,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { PortalPaginador } from '@/componentes/tablas/ContextoPaginacion'
 import { Checkbox } from '@/componentes/ui/Checkbox'
 import { usePreferencias, type ConfigTabla } from '@/hooks/usePreferencias'
 import { BREAKPOINTS } from '@/lib/breakpoints'
@@ -94,6 +95,15 @@ function TablaDinamica<T>({
   const [vistaActual, setVistaActual] = useState<TipoVista>(
     (configGuardada?.tipoVista as TipoVista) || vistaInicial || vistas[0] || 'lista'
   )
+  const [menuVistasMobilAbierto, setMenuVistasMobilAbierto] = useState(false)
+  const [esMobil, setEsMobil] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)')
+    setEsMobil(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setEsMobil(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
 
 
   /* En móvil (≤ 768px), forzar tarjetas si está disponible */
@@ -807,14 +817,54 @@ function TablaDinamica<T>({
     return `${totalRegistros.toLocaleString('es')} registro${totalRegistros !== 1 ? 's' : ''}. ${placeholder}`
   }, [seleccionados.size, totalRegistros, placeholder])
 
+  /* Elemento paginador reutilizable — se comparte con PlantillaListado via contexto */
+  const paginadorElemento = totalPaginas > 1 ? (
+    <div className="flex items-center gap-0.5 shrink-0 border border-borde-sutil rounded-lg px-1 h-9">
+      <Boton
+        variante="fantasma"
+        tamano="xs"
+        soloIcono
+        icono={<ChevronLeft size={14} />}
+        titulo="Página anterior"
+        onClick={() => setPaginaActual(Math.max(1, paginaActual - 1))}
+        disabled={paginaActual === 1}
+      />
+      <Tooltip contenido={paginaActual === totalPaginas ? 'Ir a la primera página' : 'Ir a la última página'}>
+        <button
+          type="button"
+          onClick={() => {
+            if (paginaActual === totalPaginas) setPaginaActual(1)
+            else setPaginaActual(totalPaginas)
+          }}
+          className="px-2 py-0.5 text-xs font-medium text-texto-primario hover:bg-superficie-hover cursor-pointer border-none bg-transparent rounded transition-colors whitespace-nowrap tabular-nums focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
+        >
+          {registroInicio}–{registroFin} / {totalRegistros.toLocaleString('es')}
+        </button>
+      </Tooltip>
+      <Boton
+        variante="fantasma"
+        tamano="xs"
+        soloIcono
+        icono={<ChevronRight size={14} />}
+        titulo="Página siguiente"
+        onClick={() => setPaginaActual(Math.min(totalPaginas, paginaActual + 1))}
+        disabled={paginaActual === totalPaginas}
+      />
+    </div>
+  ) : null
+
   return (
+    <>
+    {/* Portal: paginador mobile en la fila de acciones de PlantillaListado */}
+    <PortalPaginador>{paginadorElemento}</PortalPaginador>
+
     <div ref={contenedorRef} className={`flex flex-col h-full ${className}`}>
 
       {/* ═══ TOOLBAR ═══ */}
-      <div className="flex items-center gap-2 pb-4 px-4 sm:px-6 relative z-30 shrink-0">
+      <div className="flex items-center gap-2 pb-3.5 sm:pb-4 px-2 sm:px-6 relative z-30 shrink-0">
 
-        {/* Buscador — ancho se adapta al contenido, máximo 70% del toolbar */}
-        <div className="min-w-0 max-w-full relative transition-all duration-200" style={{ maxWidth: '700px', width: panelFiltrosAbierto ? '700px' : anchoBuscador > 0 ? anchoBuscador : undefined }}>
+        {/* Buscador — mobile: 100%, desktop: adaptable */}
+        <div className="min-w-0 w-full sm:w-auto sm:max-w-[700px] relative transition-all duration-200" style={esMobil ? undefined : { width: panelFiltrosAbierto ? '700px' : anchoBuscador > 0 ? anchoBuscador : undefined }}>
           {/* Span oculto para medir ancho real del texto */}
           <span ref={medidorRef} className="invisible absolute whitespace-pre text-sm" style={{ pointerEvents: 'none' }} />
           <div className={[
@@ -947,6 +997,51 @@ function TablaDinamica<T>({
               onClick={() => { setPanelColumnasAbierto(!panelColumnasAbierto); setPanelFiltrosAbierto(false) }}
               className="shrink-0"
             />
+
+            {/* Mobile: menú de vistas (3 puntitos dentro del buscador) */}
+            {vistas.length > 1 && (
+              <div className="sm:hidden relative shrink-0">
+                <Boton
+                  variante="fantasma"
+                  tamano="xs"
+                  soloIcono
+                  icono={<MoreVertical size={14} />}
+                  titulo="Vista"
+                  onClick={() => setMenuVistasMobilAbierto(!menuVistasMobilAbierto)}
+                />
+                <AnimatePresence>
+                  {menuVistasMobilAbierto && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setMenuVistasMobilAbierto(false)} />
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        transition={{ duration: 0.12 }}
+                        className="absolute right-0 top-full mt-1 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-50 overflow-hidden py-1"
+                      >
+                        {vistas.map((v) => (
+                          <button
+                            key={v}
+                            type="button"
+                            onClick={() => { vistaManualRef.current = true; setVistaActual(v); setMenuVistasMobilAbierto(false) }}
+                            className={[
+                              'flex items-center gap-2.5 w-full px-3 py-2 text-sm cursor-pointer border-none transition-colors',
+                              v === vistaActual
+                                ? 'bg-superficie-seleccionada text-texto-marca font-medium'
+                                : 'bg-transparent text-texto-secundario hover:bg-superficie-hover',
+                            ].join(' ')}
+                          >
+                            {iconosVista[v]}
+                            <span>{v.charAt(0).toUpperCase() + v.slice(1)}</span>
+                          </button>
+                        ))}
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
           </div>
 
           {/* Panel de filtros + vistas (desplegable) */}
@@ -1071,52 +1166,22 @@ function TablaDinamica<T>({
           </AnimatePresence>
         </div>
 
-        {/* Espaciador — empuja controles a la derecha */}
-        <div className="flex-1" />
+        {/* Espaciador — empuja controles a la derecha (solo desktop) */}
+        <div className="hidden sm:block flex-1" />
 
-        {/* Paginador compacto */}
-        {totalPaginas > 1 && (
-          <div className="hidden sm:flex items-center gap-0.5 shrink-0 border border-borde-sutil rounded-lg px-1 h-9">
-            <Boton
-              variante="fantasma"
-              tamano="xs"
-              soloIcono
-              icono={<ChevronLeft size={14} />}
-              titulo="Página anterior"
-              onClick={() => setPaginaActual(Math.max(1, paginaActual - 1))}
-              disabled={paginaActual === 1}
-            />
-            <Tooltip contenido={paginaActual === totalPaginas ? 'Ir a la primera página' : 'Ir a la última página'}>
-              <button
-                type="button"
-                onClick={() => {
-                  if (paginaActual === totalPaginas) setPaginaActual(1)
-                  else setPaginaActual(totalPaginas)
-                }}
-                className="px-2 py-0.5 text-xs font-medium text-texto-primario hover:bg-superficie-hover cursor-pointer border-none bg-transparent rounded transition-colors whitespace-nowrap tabular-nums focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
-              >
-                {registroInicio}–{registroFin} / {totalRegistros.toLocaleString('es')}
-              </button>
-            </Tooltip>
-            <Boton
-              variante="fantasma"
-              tamano="xs"
-              soloIcono
-              icono={<ChevronRight size={14} />}
-              titulo="Página siguiente"
-              onClick={() => setPaginaActual(Math.min(totalPaginas, paginaActual + 1))}
-              disabled={paginaActual === totalPaginas}
-            />
+        {/* Paginador compacto — solo desktop (en mobile lo renderiza PlantillaListado) */}
+        {paginadorElemento && (
+          <div className="hidden sm:block">
+            {paginadorElemento}
           </div>
         )}
 
-        {/* Switcher de vistas — compacto, sin contenedor */}
+        {/* Switcher de vistas — desktop only (en mobile está dentro del buscador) */}
         {vistas.length > 1 && (
-          <div className="flex items-center gap-0 shrink-0 outline outline-1 outline-borde-sutil rounded-md overflow-hidden">
+          <div className="hidden sm:flex items-center gap-0 shrink-0 outline outline-1 outline-borde-sutil rounded-md overflow-hidden">
             {vistas.map((v) => (
-              <Tooltip contenido={v.charAt(0).toUpperCase() + v.slice(1)}>
+              <Tooltip key={v} contenido={v.charAt(0).toUpperCase() + v.slice(1)}>
                 <button
-                  key={v}
                   type="button"
                   onClick={() => { vistaManualRef.current = true; setVistaActual(v) }}
                   className={[
@@ -1133,8 +1198,8 @@ function TablaDinamica<T>({
           </div>
         )}
 
-        {/* Panel de columnas (sidebar derecho fijo) */}
-        <div ref={panelColumnasRef}>
+        {/* Panel de columnas (sidebar derecho fijo — absolute para no afectar flex) */}
+        <div ref={panelColumnasRef} className="contents">
           <AnimatePresence>
             {panelColumnasAbierto && (
               <>
@@ -1172,7 +1237,7 @@ function TablaDinamica<T>({
       </div>
 
       {/* ═══ CONTENIDO — header fijo, filas scrollean, footer fijo abajo ═══ */}
-      <div className={`flex-1 min-h-0 flex flex-col border-t border-borde-sutil ${vistaActual === 'tarjetas' ? 'max-sm:bg-transparent bg-superficie-tarjeta' : 'bg-superficie-tarjeta'}`}>
+      <div className={`flex-1 min-h-0 flex flex-col ${vistaActual === 'tarjetas' ? 'bg-transparent' : 'border-t border-borde-sutil'}`}>
         {/* Estado vacío */}
         {datos.length === 0 && estadoVacio ? (
           <div className="flex-1 min-h-0 flex items-center justify-center">
@@ -1439,6 +1504,7 @@ function TablaDinamica<T>({
         guardarPreferencias={guardarPreferencias}
       />
     </div>
+    </>
   )
 }
 

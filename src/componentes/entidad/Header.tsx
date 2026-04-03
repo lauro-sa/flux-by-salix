@@ -193,10 +193,11 @@ function Header({
         <Boton
           variante="fantasma"
           tamano="sm"
+          soloIcono
           onClick={() => setMenuAbierto(!menuAbierto)}
-          className="rounded-xl"
+          className="rounded-xl sm:!w-auto sm:!h-auto sm:!px-3 sm:!py-1.5"
+          icono={<IconoSalix tamano={20} hover tap />}
         >
-          <IconoSalix tamano={22} hover tap />
           <span className="hidden sm:inline text-sm font-medium text-current">Flux</span>
         </Boton>
 

@@ -91,6 +91,8 @@ function Tooltip({
 
   const mostrar = useCallback(() => {
     if (deshabilitado) return
+    // No mostrar en dispositivos táctiles
+    if (window.matchMedia('(pointer: coarse)').matches) return
     refTimer.current = setTimeout(() => setVisible(true), delay)
   }, [delay, deshabilitado])
 
