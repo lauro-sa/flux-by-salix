@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react'
-import { motion, type Variants, type Transition, AnimatePresence } from 'framer-motion'
+import { motion, type Variants, type Transition } from 'framer-motion'
 
 /** Cada pieza del ícono con su path y posición en el anillo */
 export const PIEZAS_ICONO = [
@@ -175,48 +175,54 @@ export default function IconoSalix({
   /* Distancia de separación en hover (relativa al viewBox de 24px) */
   const distanciaHover = 1.5
 
+  /* Evitar motion.svg y motion.span como wrapper — ambos causan hydration mismatch
+     porque Framer Motion serializa atributos distinto en SSR vs client.
+     Se usa <span> + <svg> nativos, con motion.g/motion.path solo internamente. */
   return (
-    <motion.svg
-      viewBox="0 0 24 24"
-      width={tamano}
-      height={tamano}
-      className={`${className} ${esInteractivo ? 'cursor-pointer' : ''}`}
-      xmlns="http://www.w3.org/2000/svg"
-      role="img"
-      aria-label="Salix"
-      initial={estadoInicial}
-      animate={estadoAnimar}
-      whileTap={tap ? { scale: 0.9 } : undefined}
-      onHoverStart={hover ? () => setHovered(true) : undefined}
-      onHoverEnd={hover ? () => setHovered(false) : undefined}
-      style={{ overflow: 'visible' }}
+    <span
+      style={{ display: 'inline-flex' }}
+      onMouseEnter={hover ? () => setHovered(true) : undefined}
+      onMouseLeave={hover ? () => setHovered(false) : undefined}
     >
-      {PIEZAS_ICONO.map(pieza => {
-        const dir = direccionSeparacion[pieza.id] || { x: 0, y: 0 }
-        const desplazamiento = hovered
-          ? { x: dir.x * distanciaHover * (pieza.anillo + 1), y: dir.y * distanciaHover * (pieza.anillo + 1) }
-          : { x: 0, y: 0 }
+      <svg
+        viewBox="0 0 24 24"
+        width={tamano}
+        height={tamano}
+        className={`${className} ${esInteractivo ? 'cursor-pointer' : ''}`}
+        xmlns="http://www.w3.org/2000/svg"
+        role="img"
+        aria-label="Salix"
+        style={{ overflow: 'visible' }}
+      >
+        <motion.g initial={estadoInicial} animate={estadoAnimar}>
+          {PIEZAS_ICONO.map(pieza => {
+            const dir = direccionSeparacion[pieza.id] || { x: 0, y: 0 }
+            const desplazamiento = hovered
+              ? { x: dir.x * distanciaHover * (pieza.anillo + 1), y: dir.y * distanciaHover * (pieza.anillo + 1) }
+              : { x: 0, y: 0 }
 
-        return (
-          <motion.path
-            key={pieza.id}
-            d={pieza.d}
-            fill={color || 'currentColor'}
-            variants={variants}
-            custom={obtenerCustom(pieza)}
-            {...(hovered ? {
-              animate: {
-                translateX: desplazamiento.x,
-                translateY: desplazamiento.y,
-              },
-              transition: {
-                translateX: { type: 'spring', stiffness: 300, damping: 20 },
-                translateY: { type: 'spring', stiffness: 300, damping: 20 },
-              },
-            } : {})}
-          />
-        )
-      })}
-    </motion.svg>
+            return (
+              <motion.path
+                key={pieza.id}
+                d={pieza.d}
+                fill={color || 'currentColor'}
+                variants={variants}
+                custom={obtenerCustom(pieza)}
+                {...(hovered ? {
+                  animate: {
+                    translateX: desplazamiento.x,
+                    translateY: desplazamiento.y,
+                  },
+                  transition: {
+                    translateX: { type: 'spring', stiffness: 300, damping: 20 },
+                    translateY: { type: 'spring', stiffness: 300, damping: 20 },
+                  },
+                } : {})}
+              />
+            )
+          })}
+        </motion.g>
+      </svg>
+    </span>
   )
 }

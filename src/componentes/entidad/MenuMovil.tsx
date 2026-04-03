@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
@@ -10,6 +10,7 @@ import { useEmpresa } from '@/hooks/useEmpresa'
 import { useRol } from '@/hooks/useRol'
 import { useModulos } from '@/hooks/useModulos'
 import { useNotificaciones } from '@/hooks/useNotificaciones'
+import { useScrollLockiOS } from '@/hooks/useScrollLockiOS'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
@@ -96,6 +97,9 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
   const { tieneModulo } = useModulos()
   const { noLeidasPorCategoria } = useNotificaciones({ deshabilitado: false })
 
+  // iOS: position:fixed en body para evitar scroll detrás del menú
+  useScrollLockiOS(abierto)
+
   const [modalCerrarSesion, setModalCerrarSesion] = useState(false)
   const [cerrandoSesion, setCerrandoSesion] = useState(false)
   const [estado, setEstado] = useState<'online' | 'ausente' | 'no_molestar'>('online')
@@ -155,14 +159,6 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
   const nombreEmpresa = empresa?.nombre || 'Mi empresa'
   const inicialEmpresa = nombreEmpresa[0]?.toUpperCase() || 'F'
   const logoEmpresa = empresa?.logo_url || null
-
-  /* Bloquear scroll del body */
-  useEffect(() => {
-    if (abierto) {
-      document.body.style.overflow = 'hidden'
-      return () => { document.body.style.overflow = '' }
-    }
-  }, [abierto])
 
   /* Contador global para animación escalonada */
   let contadorGlobal = 0

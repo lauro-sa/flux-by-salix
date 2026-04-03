@@ -19,6 +19,8 @@ import { useEffect, useCallback, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence, useMotionValue, useTransform, type PanInfo } from 'framer-motion'
 import { useTema } from '@/hooks/useTema'
+import { useScrollLockiOS } from '@/hooks/useScrollLockiOS'
+import { useVisualViewport } from '@/hooks/useVisualViewport'
 
 /* ─── Tipos ─── */
 
@@ -65,6 +67,10 @@ function BottomSheet({
   const { efecto } = useTema()
   const esCristal = efecto !== 'solido'
   const panelRef = useRef<HTMLDivElement>(null)
+
+  // iOS: position:fixed en body para evitar scroll detrás del sheet
+  useScrollLockiOS(abierto)
+  const { tecladoAbierto, alturaVisible } = useVisualViewport()
   const contenidoRef = useRef<HTMLDivElement>(null)
   const y = useMotionValue(0)
   const overlayOpacity = useTransform(y, [0, 300], [1, 0.15])
@@ -78,14 +84,12 @@ function BottomSheet({
     }
   }, [])
 
-  /* ── Bloquear scroll del body ── */
+  /* ── Reset drag al abrir ── */
   useEffect(() => {
     if (abierto) {
-      document.body.style.overflow = 'hidden'
       y.set(0)
       setPuedeArrastrar(true)
     }
-    return () => { document.body.style.overflow = '' }
   }, [abierto, y])
 
   /* ── Escape para cerrar + focus trap ── */
@@ -121,29 +125,17 @@ function BottomSheet({
     return () => document.removeEventListener('keydown', manejarTecla)
   }, [abierto, manejarTecla])
 
-  /* ── Ajustar cuando aparece el teclado virtual (iOS/Android) ── */
+  /* ── Ajustar cuando aparece el teclado virtual (via useVisualViewport) ── */
   useEffect(() => {
-    if (!abierto || !window.visualViewport) return
-
-    const vv = window.visualViewport
-    const manejarResize = () => {
-      if (!panelRef.current) return
-      const alturaVP = vv.height
-      const alturaVentana = window.innerHeight
-      const tecladoAbierto = alturaVentana - alturaVP > 50
-
-      if (tecladoAbierto) {
-        panelRef.current.style.maxHeight = `${alturaVP - 20}px`
-        panelRef.current.style.transition = 'max-height 0.25s ease'
-      } else {
-        panelRef.current.style.maxHeight = ''
-        panelRef.current.style.transition = ''
-      }
+    if (!abierto || !panelRef.current) return
+    if (tecladoAbierto) {
+      panelRef.current.style.maxHeight = `${alturaVisible - 20}px`
+      panelRef.current.style.transition = 'max-height 0.25s ease'
+    } else {
+      panelRef.current.style.maxHeight = ''
+      panelRef.current.style.transition = ''
     }
-
-    vv.addEventListener('resize', manejarResize)
-    return () => vv.removeEventListener('resize', manejarResize)
-  }, [abierto])
+  }, [abierto, tecladoAbierto, alturaVisible])
 
   /* ── Swipe-to-dismiss — solo si el scroll del contenido está arriba ── */
   const manejarDragEnd = useCallback((_: unknown, info: PanInfo) => {

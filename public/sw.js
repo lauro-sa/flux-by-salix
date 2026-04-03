@@ -1,12 +1,17 @@
 /// Service Worker de Flux by Salix
 /// Cache de assets estáticos + estrategia network-first para API
 
-const CACHE_NAME = 'flux-v1'
+const CACHE_NAME = 'flux-v2'
 
 // Assets estáticos que se cachean en la instalación
 const ASSETS_ESTATICOS = [
   '/dashboard',
   '/offline',
+  '/login',
+  '/manifest.json',
+  '/iconos/icon-192.png',
+  '/iconos/apple-touch-icon.png',
+  '/iconos/favicon.svg',
 ]
 
 // Instalación — cachear assets estáticos (sin fallar si alguno no carga)
@@ -59,6 +64,34 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
+  // Google Fonts — cache-first (raramente cambian)
+  if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
+    event.respondWith(
+      caches.match(request).then((cached) =>
+        cached || fetch(request).then((response) => {
+          const clone = response.clone()
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
+          return response
+        })
+      )
+    )
+    return
+  }
+
+  // Iconos y splash screens — cache-first
+  if (url.pathname.startsWith('/iconos/') || url.pathname.startsWith('/splash/')) {
+    event.respondWith(
+      caches.match(request).then((cached) =>
+        cached || fetch(request).then((response) => {
+          const clone = response.clone()
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
+          return response
+        })
+      )
+    )
+    return
+  }
+
   // Navegación y resto — network-first con fallback a cache
   if (request.mode === 'navigate') {
     event.respondWith(
@@ -85,8 +118,8 @@ self.addEventListener('push', (event) => {
     const titulo = datos.titulo || 'Flux'
     const opciones = {
       body: datos.cuerpo || '',
-      icon: datos.icono || '/icons/icon-192x192.png',
-      badge: datos.insignia || '/icons/icon-72x72.png',
+      icon: datos.icono || '/iconos/icon-192.png',
+      badge: datos.insignia || '/iconos/icon-192.png',
       tag: datos.url || 'flux-notificacion',
       data: { url: datos.url || '/' },
       vibrate: [200, 100, 200],

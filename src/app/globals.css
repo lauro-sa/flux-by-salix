@@ -9,6 +9,22 @@ html, body {
   overscroll-behavior: none;
 }
 
+/* PWA: eliminar highlight azul/gris al tocar en iOS/Android */
+button, a, [role="button"], input, select, textarea, label {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* PWA iOS: inputs a 16px mínimo para evitar auto-zoom de Safari.
+   Safari hace zoom automático si font-size < 16px al enfocar un input.
+   max(16px, 1em) respeta tamaños mayores pero impone el piso de 16px. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: max(16px, 1em) !important;
+  }
+}
+
 /* Accesibilidad: reducir animaciones para usuarios que lo prefieran */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

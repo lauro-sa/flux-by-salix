@@ -54,17 +54,22 @@ function aplicarAtributos(temaActivo: TemaActivo, efecto: Efecto, fondo: FondoCr
     html.setAttribute('data-escala', escala)
   }
 
-  // Actualizar meta theme-color para la barra de estado del navegador/iOS
-  const color = getComputedStyle(html).getPropertyValue('--superficie-app').trim()
-  if (color) {
-    let meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null
-    if (!meta) {
-      meta = document.createElement('meta')
-      meta.name = 'theme-color'
-      document.head.appendChild(meta)
+  // Actualizar TODOS los meta theme-color para la barra del navegador/iOS PWA.
+  // Necesitamos esperar un frame para que las CSS custom properties se actualicen.
+  requestAnimationFrame(() => {
+    const color = getComputedStyle(html).getPropertyValue('--superficie-app').trim()
+    if (color) {
+      const metas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')
+      if (metas.length > 0) {
+        metas.forEach(m => { m.content = color })
+      } else {
+        const meta = document.createElement('meta')
+        meta.name = 'theme-color'
+        meta.content = color
+        document.head.appendChild(meta)
+      }
     }
-    meta.content = color
-  }
+  })
 }
 
 function ProveedorTema({ children }: { children: ReactNode }) {

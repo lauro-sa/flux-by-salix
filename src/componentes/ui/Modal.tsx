@@ -4,6 +4,7 @@ import { useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTema } from '@/hooks/useTema'
+import { useScrollLockiOS } from '@/hooks/useScrollLockiOS'
 
 type TamanoModal = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl'
 
@@ -39,6 +40,9 @@ function Modal({ abierto, onCerrar, titulo, tamano = 'lg', children, acciones, s
   const esCristal = efecto !== 'solido'
   const panelRef = useRef<HTMLDivElement>(null)
 
+  // iOS: position:fixed en body para evitar scroll detrás del modal
+  useScrollLockiOS(abierto)
+
   const manejarTecla = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') { onCerrar(); return }
 
@@ -62,7 +66,6 @@ function Modal({ abierto, onCerrar, titulo, tamano = 'lg', children, acciones, s
   useEffect(() => {
     if (abierto) {
       document.addEventListener('keydown', manejarTecla)
-      document.body.style.overflow = 'hidden'
       // Auto-focus al primer elemento focusable del modal
       requestAnimationFrame(() => {
         const primero = panelRef.current?.querySelector<HTMLElement>(
@@ -73,7 +76,6 @@ function Modal({ abierto, onCerrar, titulo, tamano = 'lg', children, acciones, s
     }
     return () => {
       document.removeEventListener('keydown', manejarTecla)
-      document.body.style.overflow = ''
     }
   }, [abierto, manejarTecla])
 

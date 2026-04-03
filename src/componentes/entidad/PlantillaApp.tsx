@@ -7,6 +7,7 @@ import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { MenuMovil } from './MenuMovil'
 import { ToastNotificacion } from '@/componentes/feedback/ToastNotificacion'
+import { BannerInstalacion } from '@/componentes/pwa/BannerInstalacion'
 import { useTema } from '@/hooks/useTema'
 import { usePreferencias } from '@/hooks/usePreferencias'
 import type { Migaja } from '@/hooks/useNavegacion'
@@ -178,16 +179,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
         <ToastNotificacion />
 
         <main
-          className="scrollbar-auto-oculto"
-          style={{
-            flex: 1,
-            minHeight: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            width: '100%',
-            overflowY: 'auto',
-            backgroundColor: 'var(--superficie-app)',
-          }}
+          className="scrollbar-auto-oculto flex-1 min-h-0 flex flex-col w-full overflow-y-auto bg-superficie-app pb-[env(safe-area-inset-bottom,0px)]"
         >
           {children}
         </main>
@@ -198,6 +190,9 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
         abierto={mobilMenuAbierto}
         onCerrar={() => setMobilMenuAbierto(false)}
       />
+
+      {/* Banner de instalación PWA (solo si no está instalada) */}
+      <BannerInstalacion />
 
       <style suppressHydrationWarning>{`
         @media (min-width: 768px) {

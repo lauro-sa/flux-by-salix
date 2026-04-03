@@ -63,8 +63,8 @@ export async function POST(request: NextRequest) {
       titulo: titulo || 'Flux',
       cuerpo: cuerpo || '',
       url: url || '/',
-      icono: '/icons/icon-192x192.png',
-      insignia: '/icons/icon-72x72.png',
+      icono: '/iconos/icon-192.png',
+      insignia: '/iconos/icon-192.png',
     })
 
     let enviados = 0
