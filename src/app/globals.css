@@ -54,10 +54,11 @@
   min-height: auto;
 }
 
-/* Header — padding-top para notch solo en PWA standalone */
+/* PWA standalone: espacio para el notch ANTES del header (no dentro, que rompe h-14).
+   Se aplica como margin-top al contenedor del contenido principal. */
 @media (display-mode: standalone) {
-  .header-app {
-    padding-top: env(safe-area-inset-top, 0px) !important;
+  .contenido-principal-layout {
+    padding-top: env(safe-area-inset-top, 0px);
   }
 }
 
