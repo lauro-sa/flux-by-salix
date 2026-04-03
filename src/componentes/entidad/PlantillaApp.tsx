@@ -10,6 +10,7 @@ import { ToastNotificacion } from '@/componentes/feedback/ToastNotificacion'
 import { BannerInstalacion } from '@/componentes/pwa/BannerInstalacion'
 import { useTema } from '@/hooks/useTema'
 import { usePreferencias } from '@/hooks/usePreferencias'
+import { useEsMovil } from '@/hooks/useEsMovil'
 import type { Migaja } from '@/hooks/useNavegacion'
 import type { ReactNode } from 'react'
 
@@ -39,6 +40,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
   const pathname = usePathname()
   const { efecto } = useTema()
   const { preferencias, guardar } = usePreferencias()
+  const esMovil = useEsMovil()
   // Ya no se usa drawer lateral — NavegacionMovil maneja la nav en teléfonos
   const [mobilMenuAbierto, setMobilMenuAbierto] = useState(false)
 
@@ -121,6 +123,10 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
   // Rutas que se renderizan a pantalla completa (sin sidebar ni header)
   const esPantallaCompleta = pathname === '/aplicaciones'
 
+  // Rutas que necesitan layout fijo (height: 100dvh, overflow: hidden) incluso en móvil.
+  // Inbox y calendario usan paneles con scroll interno que no deben scrollear el documento.
+  const necesitaLayoutFijo = pathname.startsWith('/inbox') || pathname.startsWith('/calendario')
+
   if (esPantallaCompleta) {
     return (
       <div style={{ height: '100dvh', backgroundColor: fondoWrapper, overflow: 'hidden' }}>
@@ -143,15 +149,18 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
     )
   }
 
+  /* En móvil (salvo inbox/calendario): el documento scrollea → Safari compacta la toolbar.
+     En desktop o rutas con paneles fijos: height:100dvh + overflow:hidden → scroll interno. */
+  const layoutFijo = !esMovil || necesitaLayoutFijo
+
   return (
     <div
       style={{
-        height: '100dvh',
+        ...(layoutFijo
+          ? { height: '100dvh', overflow: 'hidden' }
+          : { minHeight: '100dvh' }
+        ),
         backgroundColor: 'var(--superficie-app)',
-        overflow: 'hidden',
-        /* Safe areas: el contenido de la app llena toda la pantalla,
-           incluyendo las zonas del notch y home indicator, con el
-           fondo correcto de la app (no negro) */
         paddingTop: 'env(safe-area-inset-top, 0px)',
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}
@@ -170,10 +179,12 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
       <div
         className="contenido-principal"
         style={{
-          height: '100%',
+          ...(layoutFijo
+            ? { height: '100%', overflow: 'hidden' }
+            : { minHeight: '100%' }
+          ),
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden',
         }}
       >
         <Header
@@ -192,7 +203,10 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
         <ToastNotificacion />
 
         <main
-          className="scrollbar-auto-oculto flex-1 min-h-0 flex flex-col w-full overflow-y-auto bg-superficie-app"
+          className={[
+            'scrollbar-auto-oculto flex-1 flex flex-col w-full bg-superficie-app',
+            layoutFijo ? 'min-h-0 overflow-y-auto' : '',
+          ].join(' ')}
         >
           {children}
         </main>
