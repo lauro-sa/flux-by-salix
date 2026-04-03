@@ -133,6 +133,8 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
             width: '100%',
             overflowY: 'auto',
             backgroundColor: 'var(--superficie-app)',
+            paddingTop: 'env(safe-area-inset-top, 0px)',
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
           }}
         >
           {children}
@@ -142,7 +144,18 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
   }
 
   return (
-    <div style={{ height: '100dvh', backgroundColor: fondoWrapper, overflow: 'hidden' }}>
+    <div
+      style={{
+        height: '100dvh',
+        backgroundColor: 'var(--superficie-app)',
+        overflow: 'hidden',
+        /* Safe areas: el contenido de la app llena toda la pantalla,
+           incluyendo las zonas del notch y home indicator, con el
+           fondo correcto de la app (no negro) */
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      }}
+    >
       <Sidebar
         colapsado={sidebarColapsado}
         onToggle={toggleSidebar}
@@ -157,7 +170,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
       <div
         className="contenido-principal"
         style={{
-          height: '100dvh',
+          height: '100%',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
@@ -179,7 +192,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
         <ToastNotificacion />
 
         <main
-          className="scrollbar-auto-oculto flex-1 min-h-0 flex flex-col w-full overflow-y-auto bg-superficie-app pb-[env(safe-area-inset-bottom,0px)]"
+          className="scrollbar-auto-oculto flex-1 min-h-0 flex flex-col w-full overflow-y-auto bg-superficie-app"
         >
           {children}
         </main>

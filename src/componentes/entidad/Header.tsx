@@ -99,11 +99,13 @@ function Header({
   }
 
   return (
-    <header className="h-[var(--header-alto)] flex items-center justify-between px-4 bg-superficie-app md:bg-superficie-tarjeta/80 md:backdrop-blur-sm border-b-0 md:border-b md:border-borde-sutil sticky top-0 z-40 gap-4 md:cristal-panel" style={{ paddingTop: 'var(--safe-area-top)' }}>
+    <header className="h-14 sm:h-[var(--header-alto)] flex items-center justify-between px-3 sm:px-4 bg-superficie-app md:bg-superficie-tarjeta/80 md:backdrop-blur-sm border-b-0 md:border-b md:border-borde-sutil sticky top-0 z-40 gap-3 sm:gap-4 md:cristal-panel">
       {/* Izquierda */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
         {/* Mobile: abrir menú fullscreen */}
-        <Boton variante="fantasma" tamano="sm" soloIcono titulo="Abrir menú" icono={<PanelLeft size={22} />} onClick={onAbrirMenuMobil} className="md:hidden shrink-0" />
+        <button type="button" onClick={onAbrirMenuMobil} className="md:hidden shrink-0 size-10 inline-flex items-center justify-center rounded-lg text-texto-secundario hover:bg-superficie-hover transition-colors cursor-pointer border-none bg-transparent">
+          <PanelLeft size={26} />
+        </button>
 
         {/* Desktop: toggle sidebar con popover */}
         <div ref={sidebarMenuRef} className="hidden md:block relative">
@@ -195,8 +197,8 @@ function Header({
           tamano="sm"
           soloIcono
           onClick={() => setMenuAbierto(!menuAbierto)}
-          className="rounded-xl sm:!w-auto sm:!h-auto sm:!px-3 sm:!py-1.5"
-          icono={<IconoSalix tamano={20} hover tap />}
+          className="rounded-xl !size-10 sm:!w-auto sm:!h-auto sm:!px-3 sm:!py-1.5"
+          icono={<IconoSalix tamano={26} hover tap />}
         >
           <span className="hidden sm:inline text-sm font-medium text-current">Flux</span>
         </Boton>

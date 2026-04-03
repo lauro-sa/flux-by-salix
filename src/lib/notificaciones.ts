@@ -85,6 +85,11 @@ export async function crearNotificacion({
 
   // Push notification (fire-and-forget, no bloquear)
   enviarPush({ empresaId, usuarioId, titulo, cuerpo, url }).catch(() => {})
+
+  // Notificar a admins que tienen "recibir todas las notificaciones" activado
+  notificarAdminsObservadores({
+    empresaId, usuarioIdOriginal: usuarioId, tipo, titulo, cuerpo, icono, color, url, referenciaTipo, referenciaId,
+  }).catch(() => {})
 }
 
 /**
@@ -140,6 +145,73 @@ export async function crearNotificacionesBatch(
  * Envía push notification a todas las suscripciones activas de un usuario.
  * Usa la librería web-push directamente para evitar llamadas HTTP internas.
  */
+/**
+ * Notifica a admins/propietarios que activaron "recibir todas las notificaciones".
+ * Busca miembros de la empresa con rol admin/propietario que tengan la preferencia activa,
+ * excluye al usuario que ya recibió la notificación original.
+ */
+async function notificarAdminsObservadores({
+  empresaId,
+  usuarioIdOriginal,
+  tipo,
+  titulo,
+  cuerpo,
+  icono,
+  color,
+  url,
+  referenciaTipo,
+  referenciaId,
+}: Omit<CrearNotificacionParams, 'usuarioId'> & { usuarioIdOriginal: string }) {
+  const admin = crearClienteAdmin()
+
+  // Buscar miembros admin/propietario de la empresa
+  const { data: miembros } = await admin
+    .from('miembros_empresa')
+    .select('usuario_id, rol')
+    .eq('empresa_id', empresaId)
+    .in('rol', ['propietario', 'administrador'])
+    .eq('activo', true)
+    .neq('usuario_id', usuarioIdOriginal)
+
+  if (!miembros || miembros.length === 0) return
+
+  // Verificar cuáles tienen la preferencia activada
+  const { data: preferencias } = await admin
+    .from('preferencias_usuario')
+    .select('usuario_id, preferencias')
+    .eq('empresa_id', empresaId)
+    .in('usuario_id', miembros.map(m => m.usuario_id))
+
+  const observadores = miembros.filter(m => {
+    const pref = preferencias?.find(p => p.usuario_id === m.usuario_id)
+    return pref?.preferencias?.recibir_todas_notificaciones === true
+  })
+
+  if (observadores.length === 0) return
+
+  // Crear notificaciones para cada observador
+  const notificaciones = observadores.map(obs => ({
+    empresa_id: empresaId,
+    usuario_id: obs.usuario_id,
+    tipo,
+    titulo,
+    cuerpo: cuerpo || null,
+    icono: icono || null,
+    color: color || null,
+    url: url || null,
+    leida: false,
+    referencia_tipo: referenciaTipo || null,
+    referencia_id: referenciaId || null,
+  }))
+
+  await admin.from('notificaciones').insert(notificaciones)
+
+  // Push a cada observador
+  for (const obs of observadores) {
+    enviarPush({ empresaId, usuarioId: obs.usuario_id, titulo, cuerpo, url }).catch(() => {})
+  }
+}
+
 async function enviarPush({
   empresaId,
   usuarioId,

@@ -14,6 +14,8 @@ import {
   type PrefsNotificacion,
 } from '@/hooks/useNotificaciones'
 import { usePushNotificaciones } from '@/hooks/usePushNotificaciones'
+import { usePreferencias } from '@/hooks/usePreferencias'
+import { useRol } from '@/hooks/useRol'
 
 /**
  * SeccionNotificaciones — permisos PWA + configuración de sonidos por categoría.
@@ -56,6 +58,9 @@ export function SeccionNotificaciones() {
   const [solicitando, setSolicitando] = useState<string | null>(null)
   const [prefs, setPrefs] = useState<PrefsNotificacion>(PREFS_DEFAULT)
   const push = usePushNotificaciones()
+  const { preferencias, guardar: guardarPreferencia } = usePreferencias()
+  const { esAdmin, esPropietario } = useRol()
+  const esAdminOPropietario = esAdmin || esPropietario
 
   /* Cargar preferencias */
   useEffect(() => { setPrefs(leerPrefs()) }, [])
@@ -294,6 +299,27 @@ export function SeccionNotificaciones() {
                 if (v) await push.suscribir()
                 else await push.desuscribir()
               }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── Recibir todas las notificaciones (solo admin/propietario) ── */}
+      {esAdminOPropietario && (
+        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <Bell size={18} className="text-texto-terciario" />
+                <span className="text-sm font-semibold text-texto-primario">Recibir todas las notificaciones</span>
+              </div>
+              <p className="text-xs text-texto-terciario mt-0.5">
+                Recibí notificaciones de correos, WhatsApp, actividades y portal aunque no estés asignado. Solo disponible para administradores.
+              </p>
+            </div>
+            <Interruptor
+              activo={!!preferencias.recibir_todas_notificaciones}
+              onChange={(v) => guardarPreferencia({ recibir_todas_notificaciones: v })}
             />
           </div>
         </div>

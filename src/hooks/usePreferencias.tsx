@@ -41,6 +41,8 @@ interface Preferencias {
   sidebar_secciones: Record<string, boolean>
   /** Config de tablas por módulo: { usuarios: {...}, contactos: {...} } */
   config_tablas: Record<string, ConfigTabla>
+  /** Admin/propietario: recibir todas las notificaciones aunque no estés asignado */
+  recibir_todas_notificaciones: boolean
 }
 
 interface ContextoPreferencias {
@@ -61,6 +63,7 @@ const DEFAULTS: Preferencias = {
   sidebar_auto_ocultar: false,
   sidebar_secciones: {},
   config_tablas: {},
+  recibir_todas_notificaciones: false,
 }
 
 const CLAVE_DISPOSITIVO = 'flux_dispositivo_id'
@@ -140,6 +143,7 @@ function ProveedorPreferencias({ children }: { children: ReactNode }) {
               sidebar_auto_ocultar: datos.sidebar_auto_ocultar ?? false,
               sidebar_secciones: datos.sidebar_secciones || {},
               config_tablas: datos.config_tablas || {},
+              recibir_todas_notificaciones: datos.recibir_todas_notificaciones ?? false,
             }
             setPreferencias(prefs)
             localStorage.setItem(CLAVE_PREFS_LOCAL, JSON.stringify(prefs))
