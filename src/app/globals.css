@@ -13,20 +13,13 @@
   }
 }
 
-/* ── Layout PWA vs Browser ──
-   PWA standalone: padding-top para el notch.
-   El padding-bottom se aplica al main (no al wrapper) para que
-   el contenido tenga espacio y no quede tapado por el home indicator.
-   Browser: sin padding — contenido fluye detrás de las barras transparentes de Safari. */
-@media (display-mode: standalone) {
-  .layout-app {
-    padding-top: env(safe-area-inset-top, 0px);
-  }
-}
+/* ── Layout de la app ──
+   Sin padding en el wrapper — los safe areas los manejan los componentes:
+   Header: padding-top para el notch (via CSS abajo)
+   Main: padding-bottom para el home indicator
+   Esto evita gaps negros entre el contenido y los bordes. */
 
-/* Layout principal de la app.
-   Desktop: layout fijo (height:100dvh, overflow:hidden) para paneles con scroll interno.
-   Mobile browser: documento scrollea → Safari compacta la toolbar. */
+/* Layout principal */
 .layout-app {
   background-color: var(--superficie-app);
   min-height: 100dvh;
@@ -38,14 +31,13 @@
     min-height: auto;
   }
 }
-/* Rutas con paneles fijos (inbox, calendario) fuerzan layout fijo en mobile también */
 .layout-app--fijo {
   height: 100dvh;
   overflow: hidden;
   min-height: auto;
 }
 
-/* Contenido principal — adaptable a layout fijo/flow */
+/* Contenido principal */
 .contenido-principal-layout {
   min-height: 100%;
 }
@@ -62,9 +54,16 @@
   min-height: auto;
 }
 
-/* Main content — scroll interno en desktop/PWA, padding extra en mobile browser */
+/* Header — padding-top para notch solo en PWA standalone */
+@media (display-mode: standalone) {
+  .header-app {
+    padding-top: env(safe-area-inset-top, 0px) !important;
+  }
+}
+
+/* Main content */
 .main-layout {
-  padding-bottom: 9rem; /* pb-36: espacio para que contenido no quede bajo toolbar Safari */
+  padding-bottom: 9rem; /* mobile browser: espacio para toolbar Safari */
 }
 @media (min-width: 768px) {
   .main-layout {
@@ -77,7 +76,8 @@
   .main-layout {
     min-height: 0;
     overflow-y: auto;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    /* home indicator: contenido scrollea hasta ver todo, no queda cortado */
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 1rem);
   }
 }
 .layout-app--fijo .main-layout {
