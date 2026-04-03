@@ -19,7 +19,11 @@ function ContenidoLayoutAuth({ children }: { children: React.ReactNode }) {
   const { t } = useTraduccion()
 
   return (
-    <div className="min-h-dvh flex flex-col lg:flex-row" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+    <div className="min-h-dvh flex flex-col lg:flex-row relative">
+      {/* Partículas de fondo — cubren TODO el viewport en mobile */}
+      <div className="absolute inset-0 lg:hidden">
+        <FondoParticulas />
+      </div>
 
       {/* Panel izquierdo — partículas + branding (desktop) */}
       <div className="hidden lg:flex lg:w-[45%] xl:w-[50%] relative overflow-hidden">
@@ -61,12 +65,8 @@ function ContenidoLayoutAuth({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {/* Panel derecho — formulario */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-8 lg:p-12 relative bg-superficie-app">
-        {/* Partículas en mobile (detrás del formulario, sin interacción) */}
-        <div className="absolute inset-0 lg:hidden">
-          <FondoParticulas />
-        </div>
+      {/* Panel derecho — formulario (fondo transparente en mobile para ver partículas) */}
+      <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-8 lg:p-12 relative lg:bg-superficie-app">
 
         {/* Logo mobile */}
         <div className="lg:hidden mb-10 relative z-10">
