@@ -25,9 +25,9 @@ export function BannerInstalacion() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 60 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="fixed bottom-4 left-4 right-4 z-50 md:left-auto md:right-6 md:bottom-6 md:w-[360px]"
+          className="fixed bottom-16 left-4 right-4 z-50 md:left-auto md:right-6 md:bottom-6 md:w-[360px]"
         >
-          <div className="bg-superficie-elevada border border-borde-sutil rounded-2xl shadow-elevada p-4 flex items-start gap-3">
+          <div className="bg-superficie-elevada/95 backdrop-blur-md border border-borde-sutil rounded-2xl shadow-elevada p-4 flex items-start gap-3">
             {/* Ícono */}
             <div className="size-10 rounded-xl bg-texto-marca/10 flex items-center justify-center shrink-0">
               <Download size={20} className="text-texto-marca" />
