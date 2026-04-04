@@ -77,8 +77,13 @@ function usePushNotificaciones() {
     setEstado(prev => ({ ...prev, cargando: true }))
 
     try {
-      // Solicitar permiso
-      const permiso = await Notification.requestPermission()
+      // Solicitar permiso (con timeout para iOS que puede colgarse)
+      const permiso = await Promise.race([
+        Notification.requestPermission(),
+        new Promise<NotificationPermission>((_, reject) =>
+          setTimeout(() => reject(new Error('Permission timeout')), 15000)
+        ),
+      ])
       setEstado(prev => ({ ...prev, permiso }))
       if (permiso !== 'granted') {
         setEstado(prev => ({ ...prev, cargando: false }))

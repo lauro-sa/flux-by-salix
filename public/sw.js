@@ -108,31 +108,34 @@ self.addEventListener('fetch', (event) => {
 })
 
 // ─── Push Notifications ───
-// Recibe notificaciones push y muestra una notificación nativa del SO.
+// Recibe notificaciones push y SIEMPRE muestra una notificación visible.
+// iOS descarta silenciosamente los push que no muestran notificación.
 
 self.addEventListener('push', (event) => {
-  if (!event.data) return
-
-  try {
-    const datos = event.data.json()
-    const titulo = datos.titulo || 'Flux'
-    const opciones = {
-      body: datos.cuerpo || '',
-      icon: datos.icono || '/iconos/icon-192.png',
-      badge: datos.insignia || '/iconos/icon-192.png',
-      tag: datos.url || 'flux-notificacion',
-      data: { url: datos.url || '/' },
-      // vibrate y renotify NO soportados en iOS — omitidos
+  // iOS requiere que SIEMPRE se muestre una notificación visible
+  const mostrar = () => {
+    try {
+      const datos = event.data ? event.data.json() : {}
+      const titulo = datos.titulo || 'Flux'
+      const opciones = {
+        body: datos.cuerpo || '',
+        icon: datos.icono || '/iconos/icon-192.png',
+        badge: '/iconos/icon-192.png',
+        tag: datos.url || 'flux-notificacion',
+        data: { url: datos.url || '/' },
+        // iOS: requireInteraction false + silent false = notificación normal
+        requireInteraction: false,
+        silent: false,
+      }
+      return self.registration.showNotification(titulo, opciones)
+    } catch {
+      // Fallback si el payload no es JSON
+      const texto = event.data ? event.data.text() : 'Nueva notificación'
+      return self.registration.showNotification('Flux', { body: texto })
     }
-
-    event.waitUntil(self.registration.showNotification(titulo, opciones))
-  } catch {
-    // Si el payload no es JSON, mostrar como texto plano
-    const texto = event.data.text()
-    event.waitUntil(
-      self.registration.showNotification('Flux', { body: texto })
-    )
   }
+
+  event.waitUntil(mostrar())
 })
 
 // Click en la notificación — abrir la URL correspondiente
@@ -146,8 +149,9 @@ self.addEventListener('notificationclick', (event) => {
       // Si ya hay una ventana abierta, navegar ahí
       for (const cliente of clientes) {
         if (cliente.url.includes(self.location.origin)) {
-          cliente.focus()
-          cliente.navigate(url)
+          if ('focus' in cliente) cliente.focus()
+          // Enviar mensaje para navegar (más confiable en iOS que navigate)
+          cliente.postMessage({ type: 'NAVEGAR', url })
           return
         }
       }

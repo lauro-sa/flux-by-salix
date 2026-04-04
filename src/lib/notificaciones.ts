@@ -252,6 +252,7 @@ async function enviarPush({
     titulo: titulo || 'Flux',
     cuerpo: cuerpo || '',
     url: url || '/',
+    icono: '/iconos/icon-192.png',
   })
 
   for (const sub of suscripciones) {
@@ -259,7 +260,13 @@ async function enviarPush({
       await webpush.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         payload,
-        { TTL: 3600 },
+        {
+          TTL: 3600,
+          urgency: 'high', // iOS deprioritiza sin urgency alta
+          headers: {
+            Urgency: 'high',
+          },
+        },
       )
     } catch (err) {
       const statusCode = (err as { statusCode?: number }).statusCode
