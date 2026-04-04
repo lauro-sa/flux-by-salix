@@ -10,6 +10,7 @@ import { ToastNotificacion } from '@/componentes/feedback/ToastNotificacion'
 import { BannerInstalacion } from '@/componentes/pwa/BannerInstalacion'
 import { useTema } from '@/hooks/useTema'
 import { usePreferencias } from '@/hooks/usePreferencias'
+import { useHeaderAutoOculto } from '@/hooks/useHeaderAutoOculto'
 import type { Migaja } from '@/hooks/useNavegacion'
 import type { ReactNode } from 'react'
 
@@ -39,6 +40,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
   const pathname = usePathname()
   const { efecto } = useTema()
   const { preferencias, guardar } = usePreferencias()
+  const headerOculto = useHeaderAutoOculto()
   // Ya no se usa drawer lateral — NavegacionMovil maneja la nav en teléfonos
   const [mobilMenuAbierto, setMobilMenuAbierto] = useState(false)
 
@@ -177,6 +179,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
           autoOcultar={autoOcultar}
           onToggleAutoOcultar={toggleAutoOcultar}
           migajasExtras={migajasExtras}
+          oculto={headerOculto}
         />
 
         <ToastNotificacion />
