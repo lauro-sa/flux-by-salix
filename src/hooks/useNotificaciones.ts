@@ -288,6 +288,20 @@ function useNotificaciones(opciones: OpcionesNotificaciones = {}) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deshabilitado])
 
+  // Escuchar evento del inbox para marcar notificaciones como leídas en el estado local
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { referenciaId } = (e as CustomEvent).detail
+      if (referenciaId) {
+        setNotificaciones((prev) =>
+          prev.map((n) => n.referencia_id === referenciaId ? { ...n, leida: true } : n)
+        )
+      }
+    }
+    window.addEventListener('flux:notificaciones-leidas', handler)
+    return () => window.removeEventListener('flux:notificaciones-leidas', handler)
+  }, [])
+
   /* Marcar como leídas */
   const marcarLeidas = useCallback(async (ids: string[]) => {
     try {
@@ -325,6 +339,22 @@ function useNotificaciones(opciones: OpcionesNotificaciones = {}) {
     }
   }, [notificaciones, marcarLeidas])
 
+  /** Marcar como leídas todas las notificaciones de una referencia (ej. conversación) */
+  const marcarLeidasPorReferencia = useCallback(async (referenciaId: string) => {
+    try {
+      await fetch('/api/inbox/notificaciones', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ referencia_id: referenciaId }),
+      })
+      setNotificaciones((prev) =>
+        prev.map((n) => n.referencia_id === referenciaId ? { ...n, leida: true } : n)
+      )
+    } catch {
+      /* silencioso */
+    }
+  }, [])
+
   /* Descartar */
   const descartar = useCallback(async (id: string) => {
     await marcarLeidas([id])
@@ -353,6 +383,7 @@ function useNotificaciones(opciones: OpcionesNotificaciones = {}) {
     actualizarPrefs,
     obtener,
     marcarLeidas,
+    marcarLeidasPorReferencia,
     marcarTodasLeidas,
     descartar,
     porCategoria,

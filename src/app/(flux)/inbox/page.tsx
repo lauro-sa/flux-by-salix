@@ -553,13 +553,15 @@ function PaginaInbox() {
     cargar()
   }, [tabActivo, canalInternoSeleccionado?.id])
 
-  // Marcar notificaciones de una conversación como leídas (fire-and-forget)
+  // Marcar notificaciones de una conversación como leídas y actualizar el header
   const marcarNotificacionesLeidasDeConversacion = useCallback((conversacionId: string) => {
     fetch('/api/inbox/notificaciones', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ referencia_id: conversacionId }),
     }).catch(() => { /* silenciar */ })
+    // Notificar al hook de notificaciones del header para que actualice su estado local
+    window.dispatchEvent(new CustomEvent('flux:notificaciones-leidas', { detail: { referenciaId: conversacionId } }))
   }, [])
 
   // Seleccionar conversación y cargar mensajes
