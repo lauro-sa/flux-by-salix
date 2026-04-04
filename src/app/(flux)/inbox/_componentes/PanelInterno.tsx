@@ -223,6 +223,7 @@ export function PanelInterno({
         style={{
           borderRight: esMovil ? 'none' : '1px solid var(--borde-sutil)',
           background: 'var(--superficie-sidebar)',
+          overscrollBehaviorY: 'contain',
         }}
       >
         {/* Header */}
@@ -399,7 +400,7 @@ export function PanelInterno({
             </div>
 
             {/* Mensajes */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 min-h-0">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 min-h-0" style={{ overscrollBehaviorY: 'contain', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}>
               {cargando ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="flex gap-1">

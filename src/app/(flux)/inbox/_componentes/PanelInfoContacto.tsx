@@ -568,7 +568,7 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
   // Móvil: vista completa sin animación de ancho
   if (esMovil) {
     return (
-      <div className="h-full overflow-y-auto" style={{ background: 'var(--superficie-tarjeta)' }}>
+      <div className="h-full overflow-y-auto" style={{ background: 'var(--superficie-tarjeta)', overscrollBehaviorY: 'contain' }}>
         {contenidoPanel}
       </div>
     )

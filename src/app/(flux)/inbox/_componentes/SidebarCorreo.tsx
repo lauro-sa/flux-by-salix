@@ -220,7 +220,7 @@ export function SidebarCorreo({
       </div>
 
       {/* Carpetas */}
-      <div className={`flex-1 overflow-y-auto ${colapsado ? 'px-1' : 'px-1.5'} pb-3`}>
+      <div className={`flex-1 overflow-y-auto ${colapsado ? 'px-1' : 'px-1.5'} pb-3`} style={{ overscrollBehaviorY: 'contain' }}>
         {colapsado ? (
           /* Modo colapsado: solo iconos */
           <div className="space-y-0.5">
