@@ -1206,7 +1206,7 @@ function PaginaInbox() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-var(--header-alto))]">
+    <div className="flex flex-col flex-1 min-h-0 h-full">
       {/* Barra superior: tabs + acciones */}
       <div
         className="flex items-center justify-between px-4 py-1.5 flex-shrink-0"

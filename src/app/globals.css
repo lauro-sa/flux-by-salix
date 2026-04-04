@@ -47,6 +47,12 @@ html {
   overflow: hidden;
   min-height: auto;
 }
+/* PWA standalone: usar 100% en vez de 100dvh (respeta safe-area del html) */
+@media (display-mode: standalone) {
+  .layout-app--fijo {
+    height: 100%;
+  }
+}
 
 /* Contenido principal */
 .contenido-principal-layout {

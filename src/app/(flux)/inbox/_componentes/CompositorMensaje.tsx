@@ -445,6 +445,7 @@ export function CompositorMensaje({
       style={{
         borderTop: '1px solid var(--borde-sutil)',
         background: 'var(--superficie-tarjeta)',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}
     >
       {/* Respondiendo a (hilos internos) */}

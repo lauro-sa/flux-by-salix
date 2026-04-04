@@ -324,7 +324,7 @@ export function PanelWhatsApp({
   }
 
   return (
-    <div className="flex-1 flex flex-col" style={{ background: 'var(--superficie-app)' }}>
+    <div className="flex-1 flex flex-col min-h-0" style={{ background: 'var(--superficie-app)' }}>
       {/* Header de la conversación */}
       <div
         className="flex items-center gap-3 px-4 py-2.5"
@@ -435,7 +435,7 @@ export function PanelWhatsApp({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 py-3 space-y-1 relative"
+        className="flex-1 overflow-y-auto px-4 py-3 space-y-1 relative min-h-0"
         style={{
           backgroundImage: 'radial-gradient(circle at 25% 25%, var(--superficie-hover) 1px, transparent 1px)',
           backgroundSize: '24px 24px',

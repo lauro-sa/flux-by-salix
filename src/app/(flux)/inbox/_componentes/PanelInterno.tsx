@@ -304,7 +304,7 @@ export function PanelInterno({
       {/* Panel de mensajes — oculto en móvil cuando se ven los canales */}
       {mostrarChat && (
       <>
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-h-0">
         {!canalSeleccionado ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
@@ -399,7 +399,7 @@ export function PanelInterno({
             </div>
 
             {/* Mensajes */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 min-h-0">
               {cargando ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="flex gap-1">
