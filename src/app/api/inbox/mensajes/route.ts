@@ -216,7 +216,9 @@ export async function POST(request: NextRequest) {
                 empresaId,
                 usuarioId: m.usuario_id,
                 tipo: 'mensaje_interno',
-                titulo: `💬 ${nombreRemitente} en ${conv.contacto_nombre || 'canal interno'}`,
+                titulo: conv.contacto_nombre && conv.contacto_nombre !== nombreRemitente
+                  ? `💬 ${nombreRemitente} en ${conv.contacto_nombre}`
+                  : `💬 ${nombreRemitente}`,
                 cuerpo: (texto || '').slice(0, 120),
                 icono: 'MessageSquare',
                 color: 'var(--canal-interno)',

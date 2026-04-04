@@ -148,43 +148,10 @@ self.addEventListener('fetch', (event) => {
   }
 })
 
-// ─── Push Notifications (fallback para web-push directo, no FCM) ───
-// Si por alguna razón llega un push que no es de FCM, lo manejamos igual.
-self.addEventListener('push', (event) => {
-  // Si Firebase ya manejó el push, no hacer nada
-  // Firebase intercepta los push events de FCM antes de que lleguen acá
-  let datos = {}
-  try {
-    if (event.data) {
-      datos = event.data.json()
-    }
-  } catch {
-    try {
-      const texto = event.data ? event.data.text() : ''
-      datos = { titulo: 'Flux', cuerpo: texto }
-    } catch {
-      datos = {}
-    }
-  }
-
-  const declarativo = datos.notification || {}
-  const titulo = datos.titulo || declarativo.title || datos.title || 'Flux'
-  const cuerpo = datos.cuerpo || declarativo.body || datos.body || ''
-  const url = datos.url || declarativo.navigate || '/'
-  const icono = datos.icono || declarativo.icon || '/iconos/icon-192.png'
-
-  event.waitUntil(
-    self.registration.showNotification(titulo, {
-      body: cuerpo,
-      icon: icono,
-      badge: '/iconos/icon-192.png',
-      tag: url || 'flux-notificacion',
-      data: { url },
-      requireInteraction: false,
-      silent: false,
-    })
-  )
-})
+// ─── Push Notifications ───
+// Firebase Messaging maneja TODOS los push de FCM.
+// Cuando webpush.notification está presente, el browser lo muestra automáticamente.
+// NO agregar un listener de 'push' propio — causa notificación doble en iOS.
 
 // Click en la notificación — abrir la URL correspondiente
 self.addEventListener('notificationclick', (event) => {
