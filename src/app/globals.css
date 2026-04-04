@@ -54,10 +54,11 @@
   min-height: auto;
 }
 
-/* PWA standalone: espacio para el notch ANTES del header (no dentro, que rompe h-14).
-   Se aplica como margin-top al contenedor del contenido principal. */
+/* PWA standalone: header absorbe el notch con padding-top (usa min-height, no height fija).
+   Main absorbe el home indicator con padding-bottom scrolleable.
+   Ningún contenedor padre tiene padding → no se pierde espacio. */
 @media (display-mode: standalone) {
-  .contenido-principal-layout {
+  .header-app {
     padding-top: env(safe-area-inset-top, 0px);
   }
 }
@@ -77,8 +78,9 @@
   .main-layout {
     min-height: 0;
     overflow-y: auto;
-    /* home indicator: contenido scrollea hasta ver todo, no queda cortado */
-    padding-bottom: max(env(safe-area-inset-bottom, 0px), 1rem);
+    /* El padding-bottom está DENTRO del scroll — no crea gap visible, solo permite
+       scrollear el último item por encima del home indicator */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
 .layout-app--fijo .main-layout {
