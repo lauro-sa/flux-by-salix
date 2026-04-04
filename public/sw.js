@@ -30,14 +30,13 @@ self.addEventListener('install', (event) => {
   self.skipWaiting()
 })
 
-// Activación — limpiar caches viejos
+// Activación — limpiar TODOS los caches para forzar assets frescos en cada deploy
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+      Promise.all(keys.map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim())
   )
-  self.clients.claim()
 })
 
 // Fetch — network-first para API y navegación, cache-first para assets
@@ -50,16 +49,17 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Assets estáticos (_next/static) — cache-first
+  // Assets estáticos (_next/static) — network-first (los hashes en URL garantizan unicidad)
+  // Network-first asegura que cada deploy sirva los bundles nuevos inmediatamente.
   if (url.pathname.startsWith('/_next/static/')) {
     event.respondWith(
-      caches.match(request).then((cached) =>
-        cached || fetch(request).then((response) => {
+      fetch(request)
+        .then((response) => {
           const clone = response.clone()
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
           return response
         })
-      )
+        .catch(() => caches.match(request))
     )
     return
   }
