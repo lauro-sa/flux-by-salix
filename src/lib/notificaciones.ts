@@ -83,8 +83,9 @@ export async function crearNotificacion({
     return
   }
 
-  // Push notification (fire-and-forget, no bloquear)
-  enviarPush({ empresaId, usuarioId, titulo, cuerpo, url }).catch(() => {})
+  // Push notification (fire-and-forget, pero con log de error)
+  console.log(`[Push] crearNotificacion: enviando push a usuario ${usuarioId.slice(0, 8)}...`)
+  enviarPush({ empresaId, usuarioId, titulo, cuerpo, url }).catch((err) => console.error('[Push] Error:', err))
 
   // Notificar a admins que tienen "recibir todas las notificaciones" activado
   notificarAdminsObservadores({
@@ -124,8 +125,9 @@ export async function crearNotificacionesBatch(
     return
   }
 
-  // Push notifications (fire-and-forget, no bloquear)
+  // Push notifications (fire-and-forget, pero con logs de error)
   const uniqueUsuarios = [...new Set(notificaciones.map(n => `${n.empresaId}|${n.usuarioId}`))]
+  console.log(`[Push] Batch: enviando push a ${uniqueUsuarios.length} usuario(s)`)
   for (const key of uniqueUsuarios) {
     const [empresaId, usuarioId] = key.split('|')
     const primera = notificaciones.find(n => n.empresaId === empresaId && n.usuarioId === usuarioId)
@@ -136,7 +138,7 @@ export async function crearNotificacionesBatch(
         titulo: primera.titulo,
         cuerpo: primera.cuerpo,
         url: primera.url,
-      }).catch(() => {})
+      }).catch((err) => console.error('[Push] Error en batch:', err))
     }
   }
 }
@@ -262,14 +264,21 @@ async function enviarPush({
         payload,
         {
           TTL: 3600,
-          urgency: 'high', // iOS deprioritiza sin urgency alta
+          urgency: 'high',
           headers: {
             Urgency: 'high',
           },
         },
       )
+      // Marcar como enviada exitosamente
+      await admin
+        .from('suscripciones_push')
+        .update({ ultima_notificacion_en: new Date().toISOString() })
+        .eq('id', sub.id)
+      console.log(`[Push] Enviada a ${sub.endpoint.slice(0, 50)}...`)
     } catch (err) {
       const statusCode = (err as { statusCode?: number }).statusCode
+      console.error(`[Push] Error enviando a ${sub.endpoint.slice(0, 50)}... status=${statusCode}`, (err as Error).message)
       if (statusCode === 404 || statusCode === 410) {
         await admin.from('suscripciones_push').update({ activa: false }).eq('id', sub.id)
       }
