@@ -1,10 +1,15 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 
 /**
  * usePushNotificaciones — Registrar y desregistrar push notifications (Web Push API).
- * Registra el service worker, solicita permiso, obtiene suscripción y la envía al servidor.
+ *
+ * iOS requiere:
+ * - La app DEBE estar instalada como PWA (standalone)
+ * - El permiso se pide DENTRO de la PWA (no desde Safari browser)
+ * - iOS 16.4+ soporta Web Push en PWAs standalone
+ *
  * Se usa en: SeccionNotificaciones (Mi Cuenta).
  */
 
@@ -13,20 +18,44 @@ interface EstadoPush {
   permiso: NotificationPermission | 'no_soportado'
   suscrito: boolean
   cargando: boolean
+  /** true si es iOS y NO está en standalone → push no va a funcionar */
+  requiereInstalacion: boolean
 }
 
 function usePushNotificaciones() {
-  const [estado, setEstado] = useState<EstadoPush>(() => {
-    if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) {
-      return { soportado: false, permiso: 'no_soportado', suscrito: false, cargando: false }
-    }
-    return {
-      soportado: true,
-      permiso: Notification.permission,
+  const [estado, setEstado] = useState<EstadoPush>(() => ({
+    soportado: false,
+    permiso: 'no_soportado',
+    suscrito: false,
+    cargando: false,
+    requiereInstalacion: false,
+  }))
+
+  // Inicializar post-mount (SSR-safe)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const tieneNotification = 'Notification' in window
+    const tieneSW = 'serviceWorker' in navigator
+
+    const esIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) &&
+      !(window as Window & { MSStream?: unknown }).MSStream
+    const esStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+
+    // iOS necesita estar instalada como PWA para push
+    const requiereInstalacion = esIOS && !esStandalone
+
+    const soportado = tieneNotification && tieneSW && !requiereInstalacion
+
+    setEstado({
+      soportado,
+      permiso: tieneNotification ? Notification.permission : 'no_soportado',
       suscrito: false,
       cargando: false,
-    }
-  })
+      requiereInstalacion,
+    })
+  }, [])
 
   /** Verificar si ya hay suscripción activa */
   const verificar = useCallback(async () => {
@@ -56,7 +85,7 @@ function usePushNotificaciones() {
         return false
       }
 
-      // Obtener VAPID public key del servidor
+      // Obtener VAPID public key
       const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
       if (!vapidKey) {
         console.error('NEXT_PUBLIC_VAPID_PUBLIC_KEY no configurada')
@@ -64,8 +93,13 @@ function usePushNotificaciones() {
         return false
       }
 
-      // Registrar service worker si no está registrado
-      const reg = await navigator.serviceWorker.ready
+      // Esperar service worker con timeout (15s)
+      const reg = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('SW timeout')), 15000)
+        ),
+      ])
 
       // Suscribirse al push
       const suscripcion = await reg.pushManager.subscribe({

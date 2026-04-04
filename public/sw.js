@@ -122,8 +122,7 @@ self.addEventListener('push', (event) => {
       badge: datos.insignia || '/iconos/icon-192.png',
       tag: datos.url || 'flux-notificacion',
       data: { url: datos.url || '/' },
-      vibrate: [200, 100, 200],
-      renotify: true,
+      // vibrate y renotify NO soportados en iOS — omitidos
     }
 
     event.waitUntil(self.registration.showNotification(titulo, opciones))

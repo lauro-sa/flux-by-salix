@@ -270,6 +270,19 @@ export function SeccionNotificaciones() {
       </div>
 
       {/* ── Push Notifications ── */}
+      {push.requiereInstalacion && (
+        <div className="bg-insignia-advertencia-fondo/30 border border-insignia-advertencia/20 rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-1">
+            <Smartphone size={18} className="text-insignia-advertencia" />
+            <h3 className="text-sm font-semibold text-texto-primario">Notificaciones push</h3>
+          </div>
+          <p className="text-xs text-texto-secundario">
+            En iPhone, las notificaciones push solo funcionan si instalás Flux como app.
+            Tocá <strong>···</strong> abajo → <strong>Compartir</strong> → <strong>Agregar a Inicio</strong>,
+            y luego activá las notificaciones desde la app instalada.
+          </p>
+        </div>
+      )}
       {push.soportado && (
         <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-borde-sutil">
