@@ -352,7 +352,7 @@ export function ListaConversaciones({
       </AnimatePresence>
 
       {/* Lista de conversaciones */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" style={{ overscrollBehaviorY: 'contain', WebkitOverflowScrolling: 'touch' }}>
         {cargando ? (
           <div className="flex items-center justify-center py-12">
             <div className="flex gap-1">

@@ -119,13 +119,17 @@ export function CompositorMensaje({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const inputArchivosRef = useRef<HTMLInputElement>(null)
 
-  // Auto-resize textarea
+  // Auto-resize textarea (un solo reflow usando requestAnimationFrame)
   const ajustarAltura = useCallback(() => {
     const el = textareaRef.current
-    if (el) {
+    if (!el) return
+    requestAnimationFrame(() => {
       el.style.height = 'auto'
-      el.style.height = `${Math.min(el.scrollHeight, 150)}px`
-    }
+      const nueva = Math.min(el.scrollHeight, 150)
+      el.style.height = `${nueva}px`
+      // Permitir scroll interno cuando alcanza el máximo
+      el.style.overflowY = el.scrollHeight > 150 ? 'auto' : 'hidden'
+    })
   }, [])
 
   // Limpiar preview URL al desmontar
@@ -441,11 +445,10 @@ export function CompositorMensaje({
 
   return (
     <div
-      className="flex-shrink-0"
+      className="flex-shrink-0 compositor-safe-area"
       style={{
         borderTop: '1px solid var(--borde-sutil)',
         background: 'var(--superficie-tarjeta)',
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}
     >
       {/* Respondiendo a (hilos internos) */}

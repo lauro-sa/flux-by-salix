@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
+import { useRef, useEffect, useState, useCallback, useMemo, type CSSProperties } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar } from '@/componentes/ui/Avatar'
 import {
@@ -17,6 +17,7 @@ import { CompositorMensaje, type DatosMensaje } from './CompositorMensaje'
 import { PanelIA } from './PanelIA'
 import { COLOR_ETIQUETA_DEFECTO } from '@/lib/colores_entidad'
 import { useTraduccion } from '@/lib/i18n'
+import { useVisualViewport } from '@/hooks/useVisualViewport'
 import type { MensajeConAdjuntos, MensajeAdjunto, Conversacion } from '@/tipos/inbox'
 
 /**
@@ -228,6 +229,15 @@ export function PanelWhatsApp({
   const { t } = useTraduccion()
   const scrollRef = useRef<HTMLDivElement>(null)
 
+  // Monitorear visual viewport para ajustar layout cuando el teclado virtual se abre
+  const { alturaVisible, tecladoAbierto } = useVisualViewport()
+
+  // Estilo del contenedor principal: cuando el teclado está abierto en móvil,
+  // forzar la altura al viewport visible para que el compositor quede encima del teclado
+  const estiloContenedorPrincipal: CSSProperties = esMovil && tecladoAbierto
+    ? { background: 'var(--superficie-app)', height: alturaVisible, maxHeight: alturaVisible }
+    : { background: 'var(--superficie-app)' }
+
   // Texto inyectado desde PanelIA hacia el compositor.
   const [textoIA, setTextoIA] = useState('')
   const [contadorTextoIA, setContadorTextoIA] = useState(0)
@@ -256,6 +266,10 @@ export function PanelWhatsApp({
   // Etiqueta expandida (muestra X para quitar)
   const [etiquetaExpandida, setEtiquetaExpandida] = useState<string | null>(null)
 
+  // Header compacto en móvil: se oculta al scrollear hacia abajo para dar más espacio
+  const [headerCompacto, setHeaderCompacto] = useState(false)
+  const ultimoScrollTopRef = useRef(0)
+
   // Reacciones: picker de emojis rápidos
   const [pickerMsgId, setPickerMsgId] = useState<string | null>(null)
   const EMOJIS_RAPIDOS = ['👍', '✅', '🙏', '👀', '📌', '⭐']
@@ -280,10 +294,21 @@ export function PanelWhatsApp({
     if (!el) return
     if (estaCercaDelFondoRef.current) {
       el.scrollTop = el.scrollHeight
-      const t = setTimeout(() => { el.scrollTop = el.scrollHeight }, 100)
-      return () => clearTimeout(t)
+      // Segundo intento tras 100ms para contenido lazy, y tercero a 400ms para animación de teclado
+      const t1 = setTimeout(() => { el.scrollTop = el.scrollHeight }, 100)
+      const t2 = setTimeout(() => { el.scrollTop = el.scrollHeight }, 400)
+      return () => { clearTimeout(t1); clearTimeout(t2) }
     }
   }, [mensajes])
+
+  // Re-scroll cuando el teclado se abre/cierra (el viewport cambia)
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el || !esMovil) return
+    if (estaCercaDelFondoRef.current) {
+      requestAnimationFrame(() => { el.scrollTop = el.scrollHeight })
+    }
+  }, [tecladoAbierto, alturaVisible, esMovil])
 
   // Detectar scroll: si llega al tope → cargar anteriores, trackear posición
   const handleScroll = useCallback(() => {
@@ -291,6 +316,13 @@ export function PanelWhatsApp({
     if (!el) return
     // Trackear si está cerca del fondo (dentro de 150px)
     estaCercaDelFondoRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150
+    // Header compacto en móvil: ocultar etiquetas/info al scrollear hacia abajo
+    if (esMovil) {
+      const delta = el.scrollTop - ultimoScrollTopRef.current
+      if (delta > 15 && el.scrollTop > 60) setHeaderCompacto(true)
+      else if (delta < -15) setHeaderCompacto(false)
+      ultimoScrollTopRef.current = el.scrollTop
+    }
     // Si llega al tope, cargar anteriores
     if (el.scrollTop < 50 && hayMasAnteriores && !cargandoAnteriores && onCargarAnteriores) {
       const scrollHeightAntes = el.scrollHeight
@@ -303,7 +335,7 @@ export function PanelWhatsApp({
         })
       })
     }
-  }, [hayMasAnteriores, cargandoAnteriores, onCargarAnteriores])
+  }, [hayMasAnteriores, cargandoAnteriores, onCargarAnteriores, esMovil])
 
   if (!conversacion) {
     return (
@@ -324,13 +356,15 @@ export function PanelWhatsApp({
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0" style={{ background: 'var(--superficie-app)' }}>
-      {/* Header de la conversación */}
+    <div className="flex-1 flex flex-col min-h-0" style={estiloContenedorPrincipal}>
+      {/* Header de la conversación — se compacta al scrollear en móvil */}
       <div
-        className="flex items-center gap-3 px-4 py-2.5"
+        className="flex items-center gap-3 px-4 flex-shrink-0 transition-all duration-200"
         style={{
           borderBottom: '1px solid var(--borde-sutil)',
           background: 'var(--superficie-tarjeta)',
+          paddingTop: esMovil && headerCompacto ? '0.375rem' : '0.625rem',
+          paddingBottom: esMovil && headerCompacto ? '0.375rem' : '0.625rem',
         }}
       >
         {/* Botón atrás en móvil — min 44px zona táctil */}
@@ -356,13 +390,14 @@ export function PanelWhatsApp({
           <h3 className="text-sm font-semibold truncate" style={{ color: 'var(--texto-primario)' }}>
             {conversacion.contacto_nombre || conversacion.identificador_externo || 'Conversación'}
           </h3>
-          {conversacion.identificador_externo && (
+          {/* En móvil compacto: ocultar número y etiquetas para ganar espacio vertical */}
+          {!(esMovil && headerCompacto) && conversacion.identificador_externo && (
             <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
               {conversacion.identificador_externo}
             </p>
           )}
-          {/* Etiquetas asignadas con color — click para expandir X y quitar */}
-          {conversacion.etiquetas && conversacion.etiquetas.length > 0 && (
+          {/* Etiquetas asignadas con color — ocultas en modo compacto móvil */}
+          {!(esMovil && headerCompacto) && conversacion.etiquetas && conversacion.etiquetas.length > 0 && (
             <div className="flex items-center gap-1 mt-0.5 flex-wrap">
               {conversacion.etiquetas.map((et) => {
                 const info = etiquetasEmpresa[et]
@@ -439,6 +474,9 @@ export function PanelWhatsApp({
         style={{
           backgroundImage: 'radial-gradient(circle at 25% 25%, var(--superficie-hover) 1px, transparent 1px)',
           backgroundSize: '24px 24px',
+          overscrollBehaviorY: 'contain',
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-y',
         }}
       >
         {/* Indicador de carga de mensajes anteriores */}

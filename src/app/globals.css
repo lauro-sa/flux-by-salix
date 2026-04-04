@@ -97,6 +97,16 @@ html {
   padding-bottom: 0;
 }
 
+/* Compositor del inbox: safe-area solo en mobile browser (en PWA standalone el html ya lo maneja) */
+.compositor-safe-area {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (display-mode: standalone) {
+  .compositor-safe-area {
+    padding-bottom: 0;
+  }
+}
+
 /* PWA: eliminar highlight azul/gris al tocar en iOS/Android */
 button, a, [role="button"], input, select, textarea, label {
   -webkit-tap-highlight-color: transparent;
