@@ -13,20 +13,31 @@
   }
 }
 
-/* ── Layout de la app ──
-   Sin padding en el wrapper — los safe areas los manejan los componentes:
-   Header: padding-top para el notch (via CSS abajo)
-   Main: padding-bottom para el home indicator
-   Esto evita gaps negros entre el contenido y los bordes. */
+/* ── PWA: eliminar gap negro con safe-area (solución oficial) ──
+   Ref: https://dev.to/karmasakshi/make-your-pwas-look-handsome-on-ios-1o08
+   min-height: calc(100% + safe-area-inset-top) evita la barra negra inferior.
+   padding en los 4 lados asegura que el contenido no quede detrás del notch. */
+html {
+  min-height: calc(100% + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
 
-/* Layout principal */
+/* ── Layout principal ── */
 .layout-app {
   background-color: var(--superficie-app);
   min-height: 100dvh;
 }
-@media (min-width: 768px), (display-mode: standalone) {
+@media (min-width: 768px) {
   .layout-app {
     height: 100dvh;
+    overflow: hidden;
+    min-height: auto;
+  }
+}
+/* PWA standalone también usa layout fijo */
+@media (display-mode: standalone) {
+  .layout-app {
+    height: 100%;
     overflow: hidden;
     min-height: auto;
   }
@@ -54,18 +65,10 @@
   min-height: auto;
 }
 
-/* PWA standalone: header absorbe el notch con padding-top (usa min-height, no height fija).
-   Main absorbe el home indicator con padding-bottom scrolleable.
-   Ningún contenedor padre tiene padding → no se pierde espacio. */
-@media (display-mode: standalone) {
-  .header-app {
-    padding-top: env(safe-area-inset-top, 0px);
-  }
-}
-
 /* Main content */
 .main-layout {
-  padding-bottom: 9rem; /* mobile browser: espacio para toolbar Safari */
+  /* Mobile browser: espacio para scrollear más allá de la toolbar */
+  padding-bottom: 4rem;
 }
 @media (min-width: 768px) {
   .main-layout {
@@ -78,9 +81,7 @@
   .main-layout {
     min-height: 0;
     overflow-y: auto;
-    /* El padding-bottom está DENTRO del scroll — no crea gap visible, solo permite
-       scrollear el último item por encima del home indicator */
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: 0;
   }
 }
 .layout-app--fijo .main-layout {

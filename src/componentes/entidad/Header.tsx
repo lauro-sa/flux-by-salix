@@ -99,7 +99,7 @@ function Header({
   }
 
   return (
-    <header className="header-app min-h-14 sm:min-h-[var(--header-alto)] flex items-center justify-between px-3 sm:px-4 bg-superficie-app md:bg-superficie-tarjeta/80 md:backdrop-blur-sm border-b-0 md:border-b md:border-borde-sutil sticky top-0 z-40 gap-3 sm:gap-4 md:cristal-panel shrink-0">
+    <header className="h-14 sm:h-[var(--header-alto)] flex items-center justify-between px-3 sm:px-4 bg-superficie-app md:bg-superficie-tarjeta/80 md:backdrop-blur-sm border-b-0 md:border-b md:border-borde-sutil sticky top-0 z-40 gap-3 sm:gap-4 md:cristal-panel shrink-0">
       {/* Izquierda */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
         {/* Mobile: abrir menú fullscreen */}
