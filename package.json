@@ -58,14 +58,12 @@
     "react-easy-crop": "^5.5.7",
     "react-email": "^5.2.10",
     "tailwindcss": "^4.2.2",
-    "typescript": "^6.0.2",
-    "web-push": "^3.6.7"
+    "typescript": "^6.0.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
     "@types/mailparser": "^3.4.6",
     "@types/nodemailer": "^7.0.11",
-    "@types/web-push": "^3.6.4",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.2",

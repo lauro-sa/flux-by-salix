@@ -156,7 +156,7 @@ NO usar `font-size: max(16px, 1em) !important` en inputs — hace los bullets de
 - Network-first para navegación con fallback a `/offline`
 - Cache-first para `/_next/static/`, fuentes Google, iconos
 - NO cachear requests de Supabase ni `/api/`
-- Push notifications con web-push + VAPID
+- Push notifications con Firebase Cloud Messaging (FCM → APNs para iOS)
 
 ---
 

@@ -391,9 +391,9 @@ export interface SuscripcionPush {
   id: string
   usuario_id: string
   empresa_id: string
-  endpoint: string
-  p256dh: string
-  auth: string
+  endpoint: string          // Token FCM (antes era web-push endpoint)
+  p256dh: string            // 'fcm' para tokens FCM, clave pública para legacy web-push
+  auth: string              // 'fcm' para tokens FCM, clave auth para legacy web-push
   user_agent: string | null
   activa: boolean
   creada_en: string
