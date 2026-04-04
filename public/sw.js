@@ -109,33 +109,47 @@ self.addEventListener('fetch', (event) => {
 
 // ─── Push Notifications ───
 // Recibe notificaciones push y SIEMPRE muestra una notificación visible.
-// iOS descarta silenciosamente los push que no muestran notificación.
+// iOS Safari revoca la suscripción si el SW no muestra notificación 3 veces.
+// Soporta Declarative Web Push (Safari 18.4+) como fallback automático.
 
 self.addEventListener('push', (event) => {
-  // iOS requiere que SIEMPRE se muestre una notificación visible
-  const mostrar = () => {
+  // Extraer datos del payload de forma segura
+  let datos = {}
+  try {
+    if (event.data) {
+      datos = event.data.json()
+    }
+  } catch {
+    // Si no es JSON, intentar texto plano
     try {
-      const datos = event.data ? event.data.json() : {}
-      const titulo = datos.titulo || 'Flux'
-      const opciones = {
-        body: datos.cuerpo || '',
-        icon: datos.icono || '/iconos/icon-192.png',
-        badge: '/iconos/icon-192.png',
-        tag: datos.url || 'flux-notificacion',
-        data: { url: datos.url || '/' },
-        // iOS: requireInteraction false + silent false = notificación normal
-        requireInteraction: false,
-        silent: false,
-      }
-      return self.registration.showNotification(titulo, opciones)
+      const texto = event.data ? event.data.text() : ''
+      datos = { titulo: 'Flux', cuerpo: texto }
     } catch {
-      // Fallback si el payload no es JSON
-      const texto = event.data ? event.data.text() : 'Nueva notificación'
-      return self.registration.showNotification('Flux', { body: texto })
+      datos = {}
     }
   }
 
-  event.waitUntil(mostrar())
+  // Soportar tanto formato custom (titulo/cuerpo) como Declarative Web Push (notification.title/body)
+  const declarativo = datos.notification || {}
+  const titulo = datos.titulo || declarativo.title || 'Flux'
+  const cuerpo = datos.cuerpo || declarativo.body || ''
+  const url = datos.url || declarativo.navigate || '/'
+  const icono = datos.icono || declarativo.icon || '/iconos/icon-192.png'
+
+  const opciones = {
+    body: cuerpo,
+    icon: icono,
+    badge: '/iconos/icon-192.png',
+    tag: url || 'flux-notificacion',
+    data: { url },
+    requireInteraction: false,
+    silent: false,
+  }
+
+  // CRÍTICO: showNotification SIEMPRE debe ejecutarse para evitar la regla de 3 strikes de Safari
+  event.waitUntil(
+    self.registration.showNotification(titulo, opciones)
+  )
 })
 
 // Click en la notificación — abrir la URL correspondiente

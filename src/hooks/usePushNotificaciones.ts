@@ -57,13 +57,34 @@ function usePushNotificaciones() {
     })
   }, [])
 
-  /** Verificar si ya hay suscripción activa */
+  /**
+   * Verificar si ya hay suscripción activa.
+   * iOS puede rotar el endpoint silenciosamente (reinicio, actualización).
+   * Si el endpoint cambió, re-registra automáticamente en el servidor.
+   */
   const verificar = useCallback(async () => {
     if (!estado.soportado) return false
     try {
       const reg = await navigator.serviceWorker.ready
       const sub = await reg.pushManager.getSubscription()
       const suscrito = !!sub
+
+      // Detectar rotación de endpoint en iOS: comparar con el guardado
+      if (sub) {
+        const endpointGuardado = localStorage.getItem('flux_push_endpoint')
+        if (endpointGuardado && endpointGuardado !== sub.endpoint) {
+          // El endpoint cambió → re-registrar en el servidor
+          console.log('[Push] Endpoint rotado, re-registrando...')
+          const keys = sub.toJSON().keys as { p256dh: string; auth: string }
+          await fetch('/api/push', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint: sub.endpoint, keys }),
+          })
+        }
+        localStorage.setItem('flux_push_endpoint', sub.endpoint)
+      }
+
       setEstado(prev => ({ ...prev, suscrito, permiso: Notification.permission }))
       return suscrito
     } catch {
@@ -124,6 +145,9 @@ function usePushNotificaciones() {
       })
 
       if (!res.ok) throw new Error('Error al registrar push')
+
+      // Guardar endpoint para detectar rotación en iOS
+      localStorage.setItem('flux_push_endpoint', suscripcion.endpoint)
 
       setEstado(prev => ({ ...prev, suscrito: true, cargando: false }))
       return true

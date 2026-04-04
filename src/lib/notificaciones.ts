@@ -218,6 +218,11 @@ async function notificarAdminsObservadores({
   }
 }
 
+/**
+ * Envía push notification a todas las suscripciones activas de un usuario.
+ * Incluye payload Declarative Web Push (Safari 18.4+) como fallback para iOS.
+ * Si el SW no muestra la notificación, Safari la muestra con el payload declarativo.
+ */
 async function enviarPush({
   empresaId,
   usuarioId,
@@ -231,7 +236,7 @@ async function enviarPush({
   cuerpo?: string
   url?: string
 }) {
-  const { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT } = process.env
+  const { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT, NEXT_PUBLIC_APP_URL } = process.env
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return
 
   const admin = crearClienteAdmin()
@@ -254,23 +259,44 @@ async function enviarPush({
     VAPID_PRIVATE_KEY,
   )
 
+  // URL completa para Declarative Web Push (Safari necesita URL absoluta en navigate)
+  const urlCompleta = url
+    ? `${NEXT_PUBLIC_APP_URL || 'https://fluxsalix.com'}${url.startsWith('/') ? url : `/${url}`}`
+    : NEXT_PUBLIC_APP_URL || 'https://fluxsalix.com'
+
+  // Payload dual: campos custom para el SW + Declarative Web Push para Safari 18.4+
+  // Safari intercepta web_push:8030 y muestra la notificación aunque el SW falle
   const payload = JSON.stringify({
+    // Campos custom para el SW handler (Chrome, Firefox, y Safari pre-18.4)
     titulo: titulo || 'Flux',
     cuerpo: cuerpo || '',
     url: url || '/',
     icono: '/iconos/icon-192.png',
+    // Declarative Web Push (Safari 18.4+ / iOS 18.4+)
+    web_push: 8030,
+    notification: {
+      title: titulo || 'Flux',
+      body: cuerpo || '',
+      navigate: urlCompleta,
+      silent: false,
+      app_badge: 'increment',
+    },
   })
 
   for (const sub of suscripciones) {
     try {
+      const esApple = sub.endpoint.includes('web.push.apple.com')
       await webpush.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         payload,
         {
-          TTL: 3600,
+          TTL: esApple ? 86400 : 3600, // Apple: 24h (más confiable para entregas diferidas)
           urgency: 'high',
+          contentEncoding: 'aes128gcm', // Requerido explícitamente por Apple
           headers: {
             Urgency: 'high',
+            // Topic para Apple: coalesce notificaciones del mismo tipo
+            ...(esApple ? { Topic: 'flux-notificacion' } : {}),
           },
         },
       )
@@ -279,7 +305,7 @@ async function enviarPush({
         .from('suscripciones_push')
         .update({ ultima_notificacion_en: new Date().toISOString() })
         .eq('id', sub.id)
-      console.log(`[Push] Enviada a ${sub.endpoint.slice(0, 50)}...`)
+      console.log(`[Push] Enviada a ${esApple ? 'Apple' : 'Chrome/FF'}: ${sub.endpoint.slice(0, 50)}...`)
     } catch (err) {
       const statusCode = (err as { statusCode?: number }).statusCode
       console.error(`[Push] Error enviando a ${sub.endpoint.slice(0, 50)}... status=${statusCode}`, (err as Error).message)

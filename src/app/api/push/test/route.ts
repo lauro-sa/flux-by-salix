@@ -53,24 +53,46 @@ export async function GET() {
       VAPID_PRIVATE_KEY,
     )
 
+    const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://fluxsalix.com'
+
+    // Payload dual: custom para SW + Declarative Web Push para Safari 18.4+
     const payload = JSON.stringify({
       titulo: 'Test Push - Flux',
       cuerpo: 'Si ves esto, push funciona correctamente!',
       url: '/dashboard',
       icono: '/iconos/icon-192.png',
+      // Declarative Web Push (Safari 18.4+ / iOS 18.4+)
+      web_push: 8030,
+      notification: {
+        title: 'Test Push - Flux',
+        body: 'Si ves esto, push funciona correctamente!',
+        navigate: `${APP_URL}/dashboard`,
+        silent: false,
+        app_badge: 'increment',
+      },
     })
 
     const resultados = []
 
     for (const sub of suscripciones) {
+      const esApple = sub.endpoint.includes('web.push.apple.com')
       try {
         const res = await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
           payload,
-          { TTL: 3600, urgency: 'high', headers: { Urgency: 'high' } },
+          {
+            TTL: esApple ? 86400 : 3600,
+            urgency: 'high',
+            contentEncoding: 'aes128gcm',
+            headers: {
+              Urgency: 'high',
+              ...(esApple ? { Topic: 'flux-test' } : {}),
+            },
+          },
         )
         resultados.push({
           endpoint: sub.endpoint.slice(0, 60) + '...',
+          plataforma: esApple ? 'Apple (iOS/Safari)' : 'Chrome/Firefox',
           status: res.statusCode,
           ok: true,
         })
@@ -78,6 +100,7 @@ export async function GET() {
         const e = err as { statusCode?: number; body?: string; message?: string }
         resultados.push({
           endpoint: sub.endpoint.slice(0, 60) + '...',
+          plataforma: esApple ? 'Apple (iOS/Safari)' : 'Chrome/Firefox',
           status: e.statusCode,
           error: e.message || e.body || 'desconocido',
           ok: false,
