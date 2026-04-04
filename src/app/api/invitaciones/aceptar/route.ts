@@ -56,14 +56,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Ya sos miembro de esta empresa' }, { status: 409 })
     }
 
-    // Crear miembro con activo=false (espera activación del admin)
+    // Crear miembro — activo=true porque la invitación ya fue aprobada por el admin
     const { data: miembro, error: errorMiembro } = await admin
       .from('miembros')
       .insert({
         usuario_id: user.id,
         empresa_id: invitacion.empresa_id,
         rol: invitacion.rol,
-        activo: false,
+        activo: true,
       })
       .select('id')
       .single()
@@ -87,8 +87,13 @@ export async function POST(request: NextRequest) {
       .update({ usado: true })
       .eq('id', invitacion.id)
 
+    // Setear empresa activa en JWT para que el middleware redirija al dashboard
+    await admin.auth.admin.updateUserById(user.id, {
+      app_metadata: { empresa_activa_id: invitacion.empresa_id },
+    })
+
     return NextResponse.json({
-      mensaje: 'Te uniste a la empresa. Un administrador debe activar tu cuenta.',
+      mensaje: 'Te uniste a la empresa.',
       empresa: invitacion.empresas,
     })
   } catch {

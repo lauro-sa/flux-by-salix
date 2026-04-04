@@ -159,14 +159,14 @@ export async function POST(request: NextRequest) {
           continue
         }
 
-        // Crear miembro
+        // Crear miembro — activo=true porque la invitación ya fue aprobada por el admin
         const { data: nuevoMiembro } = await admin
           .from('miembros')
           .insert({
             usuario_id: userId,
             empresa_id: inv.empresa_id,
             rol: inv.rol,
-            activo: false,
+            activo: true,
           })
           .select('id')
           .single()
@@ -190,12 +190,35 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Si se auto-vinculó por invitación, setear empresa activa en JWT
+    if (autoVinculados > 0) {
+      const { data: primerActivo } = await admin
+        .from('miembros')
+        .select('empresa_id')
+        .eq('usuario_id', userId)
+        .eq('activo', true)
+        .limit(1)
+        .maybeSingle()
+
+      if (primerActivo) {
+        await admin.auth.admin.updateUserById(userId, {
+          app_metadata: { empresa_activa_id: primerActivo.empresa_id },
+        })
+      } else {
+        // Tiene membresías pero ninguna activa (contactos pre-cargados sin invitación)
+        await admin.auth.admin.updateUserById(userId, {
+          app_metadata: { tiene_membresias: true },
+        })
+      }
+    }
+
     return NextResponse.json({
       usuario: { id: userId, correo: data.user.email },
       mensaje: autoVinculados > 0
-        ? `Cuenta creada y vinculada a ${autoVinculados} empresa${autoVinculados > 1 ? 's' : ''}. Un administrador debe activar tu cuenta.`
+        ? `Cuenta creada y vinculada a ${autoVinculados} empresa${autoVinculados > 1 ? 's' : ''}.`
         : 'Cuenta creada. Revisá tu correo para verificar.',
       auto_vinculado: autoVinculados > 0,
+      redirigir: autoVinculados > 0 ? '/dashboard' : undefined,
     })
   } catch {
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })

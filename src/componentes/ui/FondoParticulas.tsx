@@ -18,6 +18,7 @@ interface PropiedadesFondoParticulas {
 
 // Configuración de puntos
 const ESPACIADO = 40
+const ESPACIADO_MOBILE = 32
 const RADIO_BASE = 1.2
 const RADIO_MAX = 3
 const OPACIDAD_BASE = 0.15
@@ -26,11 +27,17 @@ const RADIO_INFLUENCIA = 180
 const DISTANCIA_LINEA = 80
 const FUERZA_REPULSION = 12
 
-// Configuración del cursor fantasma
-const FANTASMA_VELOCIDAD = 0.4 // px por frame — muy lento y orgánico
-const FANTASMA_RADIO_INFLUENCIA = 140 // un poco menor que el real
-const FANTASMA_OPACIDAD_MULT = 0.55 // efecto más sutil que el mouse real
-const FANTASMA_CAMBIO_DIR = 0.008 // qué tan seguido cambia de rumbo (por frame)
+// Configuración del cursor fantasma — desktop
+const FANTASMA_VELOCIDAD = 0.4
+const FANTASMA_RADIO_INFLUENCIA = 140
+const FANTASMA_OPACIDAD_MULT = 0.55
+const FANTASMA_CAMBIO_DIR = 0.008
+
+// Configuración del cursor fantasma — mobile (más vivo para compensar falta de mouse)
+const FANTASMA_VELOCIDAD_MOBILE = 0.8
+const FANTASMA_RADIO_INFLUENCIA_MOBILE = 180
+const FANTASMA_OPACIDAD_MULT_MOBILE = 0.7
+const FANTASMA_CAMBIO_DIR_MOBILE = 0.016
 
 interface Punto {
   xOriginal: number
@@ -57,6 +64,7 @@ function FondoParticulas({ className = '' }: PropiedadesFondoParticulas) {
   const fantasmasRef = useRef<CursorFantasma[]>([])
   const animFrameRef = useRef<number>(0)
   const dimensionesRef = useRef({ ancho: 0, alto: 0 })
+  const esMobileRef = useRef(false)
   const prefiereReducir = useRef(false)
   const { temaActivo } = useTema()
 
@@ -70,14 +78,18 @@ function FondoParticulas({ className = '' }: PropiedadesFondoParticulas) {
   }, [])
 
   const inicializarPuntos = useCallback((ancho: number, alto: number) => {
+    const esMobile = ancho < 768
+    esMobileRef.current = esMobile
+    const espaciado = esMobile ? ESPACIADO_MOBILE : ESPACIADO
+
     const puntos: Punto[] = []
-    const columnas = Math.ceil(ancho / ESPACIADO) + 1
-    const filas = Math.ceil(alto / ESPACIADO) + 1
+    const columnas = Math.ceil(ancho / espaciado) + 1
+    const filas = Math.ceil(alto / espaciado) + 1
 
     for (let fila = 0; fila < filas; fila++) {
       for (let col = 0; col < columnas; col++) {
-        const x = col * ESPACIADO
-        const y = fila * ESPACIADO
+        const x = col * espaciado
+        const y = fila * espaciado
         puntos.push({
           xOriginal: x,
           yOriginal: y,
@@ -92,32 +104,53 @@ function FondoParticulas({ className = '' }: PropiedadesFondoParticulas) {
     puntosRef.current = puntos
     dimensionesRef.current = { ancho, alto }
 
-    // Inicializar 2 fantasmas en zonas distintas del canvas
-    fantasmasRef.current = [
+    const vel = esMobile ? FANTASMA_VELOCIDAD_MOBILE : FANTASMA_VELOCIDAD
+    const dir = esMobile ? FANTASMA_CAMBIO_DIR_MOBILE : FANTASMA_CAMBIO_DIR
+
+    // Fantasmas base — 2 en zonas distintas del canvas
+    const fantasmas: CursorFantasma[] = [
       {
         x: ancho * 0.15 + Math.random() * ancho * 0.25,
         y: alto * 0.2 + Math.random() * alto * 0.3,
         angulo: Math.random() * Math.PI * 2,
-        velocidadAngular: (Math.random() - 0.5) * FANTASMA_CAMBIO_DIR,
-        velocidad: FANTASMA_VELOCIDAD * (0.8 + Math.random() * 0.4),
+        velocidadAngular: (Math.random() - 0.5) * dir,
+        velocidad: vel * (0.8 + Math.random() * 0.4),
       },
       {
         x: ancho * 0.55 + Math.random() * ancho * 0.3,
         y: alto * 0.5 + Math.random() * alto * 0.3,
         angulo: Math.random() * Math.PI * 2,
-        velocidadAngular: (Math.random() - 0.5) * FANTASMA_CAMBIO_DIR,
-        velocidad: FANTASMA_VELOCIDAD * (0.6 + Math.random() * 0.5),
+        velocidadAngular: (Math.random() - 0.5) * dir,
+        velocidad: vel * (0.6 + Math.random() * 0.5),
       },
     ]
+
+    // 3er fantasma en mobile para cubrir la zona central
+    if (esMobile) {
+      fantasmas.push({
+        x: ancho * 0.3 + Math.random() * ancho * 0.4,
+        y: alto * 0.35 + Math.random() * alto * 0.3,
+        angulo: Math.random() * Math.PI * 2,
+        velocidadAngular: (Math.random() - 0.5) * dir,
+        velocidad: vel * (0.7 + Math.random() * 0.3),
+      })
+    }
+
+    fantasmasRef.current = fantasmas
   }, [])
 
   // Mover los cursores fantasma — movimiento orgánico tipo drift
   const actualizarFantasmas = useCallback(() => {
     const { ancho, alto } = dimensionesRef.current
+    const esMobile = esMobileRef.current
+    const dir = esMobile ? FANTASMA_CAMBIO_DIR_MOBILE : FANTASMA_CAMBIO_DIR
+    const ahora = Date.now()
 
-    for (const f of fantasmasRef.current) {
+    for (let idx = 0; idx < fantasmasRef.current.length; idx++) {
+      const f = fantasmasRef.current[idx]
+
       // Cambiar rumbo gradualmente (tipo ruido Perlin simplificado)
-      f.velocidadAngular += (Math.random() - 0.5) * FANTASMA_CAMBIO_DIR * 2
+      f.velocidadAngular += (Math.random() - 0.5) * dir * 2
       f.velocidadAngular *= 0.98 // damping para suavizar
       f.angulo += f.velocidadAngular
 
@@ -125,8 +158,14 @@ function FondoParticulas({ className = '' }: PropiedadesFondoParticulas) {
       f.x += Math.cos(f.angulo) * f.velocidad
       f.y += Math.sin(f.angulo) * f.velocidad
 
+      // Variación sinusoidal en mobile para movimiento más orgánico
+      if (esMobile) {
+        f.x += Math.sin(ahora * 0.001 + idx * 2.1) * 0.3
+        f.y += Math.cos(ahora * 0.0008 + idx * 1.7) * 0.3
+      }
+
       // Rebotar suavemente en los bordes
-      const margen = 80
+      const margen = esMobile ? 40 : 80
       if (f.x < margen) f.angulo += 0.03
       if (f.x > ancho - margen) f.angulo += 0.03
       if (f.y < margen) f.angulo += 0.03
@@ -152,7 +191,10 @@ function FondoParticulas({ className = '' }: PropiedadesFondoParticulas) {
     const usarMouse = mouseActivoRef.current
     const cursorReal = mouseRef.current
 
-    // Mouse real → solo mouse. Sin mouse → los 2 fantasmas.
+    // Mouse real → solo mouse. Sin mouse → fantasmas.
+    const esMobile = esMobileRef.current
+    const radioInfFantasma = esMobile ? FANTASMA_RADIO_INFLUENCIA_MOBILE : FANTASMA_RADIO_INFLUENCIA
+    const opacidadMultFantasma = esMobile ? FANTASMA_OPACIDAD_MULT_MOBILE : FANTASMA_OPACIDAD_MULT
     const cursores: Array<{ x: number; y: number; radioInf: number; opacidadMult: number }> = []
 
     if (usarMouse) {
@@ -167,8 +209,8 @@ function FondoParticulas({ className = '' }: PropiedadesFondoParticulas) {
         cursores.push({
           x: f.x,
           y: f.y,
-          radioInf: FANTASMA_RADIO_INFLUENCIA,
-          opacidadMult: FANTASMA_OPACIDAD_MULT,
+          radioInf: radioInfFantasma,
+          opacidadMult: opacidadMultFantasma,
         })
       }
     }
@@ -295,8 +337,26 @@ function FondoParticulas({ className = '' }: PropiedadesFondoParticulas) {
       mouseActivoRef.current = false
     }
 
+    // Touch events para mobile — interacción táctil con partículas
+    const manejarTouch = (e: TouchEvent) => {
+      const touch = e.touches[0]
+      if (!touch) return
+      const rect = canvas.getBoundingClientRect()
+      mouseRef.current = {
+        x: touch.clientX - rect.left,
+        y: touch.clientY - rect.top,
+      }
+      mouseActivoRef.current = true
+    }
+
+    const manejarTouchFin = () => {
+      mouseActivoRef.current = false
+    }
+
     canvas.addEventListener('mousemove', manejarMouse)
     canvas.addEventListener('mouseleave', manejarMouseSalir)
+    canvas.addEventListener('touchmove', manejarTouch, { passive: true })
+    canvas.addEventListener('touchend', manejarTouchFin)
 
     const animar = () => {
       if (prefiereReducir.current) {
@@ -326,6 +386,8 @@ function FondoParticulas({ className = '' }: PropiedadesFondoParticulas) {
       resizeObserver.disconnect()
       canvas.removeEventListener('mousemove', manejarMouse)
       canvas.removeEventListener('mouseleave', manejarMouseSalir)
+      canvas.removeEventListener('touchmove', manejarTouch)
+      canvas.removeEventListener('touchend', manejarTouchFin)
     }
   }, [inicializarPuntos, dibujar])
 

@@ -29,13 +29,14 @@ export async function middleware(request: NextRequest) {
 
   // getUser() valida y refresca el token con Supabase.
   // Sin esto, las API routes reciben tokens expirados y devuelven 401.
-  // Si falla o tarda demasiado (>5s), usamos getSession() como fallback.
+  // Si falla o tarda demasiado (>8s), usamos getSession() como fallback.
+  // El timeout debe ser generoso para no desloguear en redes lentas (mobile/PWA).
   let user = null
   try {
     const { data: { user: usuarioValidado } } = await Promise.race([
       supabase.auth.getUser(),
       new Promise<{ data: { user: null } }>((resolve) =>
-        setTimeout(() => resolve({ data: { user: null } }), 5000)
+        setTimeout(() => resolve({ data: { user: null } }), 8000)
       ),
     ])
     user = usuarioValidado
@@ -58,6 +59,13 @@ export async function middleware(request: NextRequest) {
 
   const esRutaAuth = RUTAS_AUTH.some(ruta => pathname.startsWith(ruta))
   const esRutaTransicion = RUTAS_TRANSICION.some(ruta => pathname.startsWith(ruta))
+
+  // Redirect /registro → /login (flujo unificado)
+  if (pathname.startsWith('/registro')) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    return NextResponse.redirect(url)
+  }
 
   // --- Sin sesión ---
   if (!user) {
@@ -94,10 +102,12 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  // Ruta protegida sin empresa activa → onboarding
+  // Ruta protegida sin empresa activa
   if (!tieneEmpresaActiva) {
     const url = request.nextUrl.clone()
-    url.pathname = '/onboarding'
+    // Si tiene membresías pendientes (contactos pre-cargados), esperar activación
+    const tieneMembresias = user.app_metadata?.tiene_membresias
+    url.pathname = tieneMembresias ? '/esperando-activacion' : '/onboarding'
     return NextResponse.redirect(url)
   }
 

@@ -148,6 +148,13 @@ export const en: Traducciones = {
     layout_titulo_1: 'Smart management',
     layout_titulo_2: 'for your company',
     layout_desc: 'Contacts, sales, teams and operations in one platform. Simple, fast and built to grow.',
+    ingresa_tu_correo: 'Enter your email',
+    ingresa_tu_correo_desc: 'We use your email to identify you',
+    continuar: 'Continue',
+    bienvenido_de_vuelta: 'Welcome back',
+    completa_tus_datos: 'Complete your details',
+    solo_nombre_y_contrasena: 'Just your name and a password',
+    usar_otro_correo: 'Use a different email',
   },
 
   invitacion: {
@@ -157,12 +164,13 @@ export const en: Traducciones = {
     no_valida_titulo: 'Invalid invitation',
     ir_login: 'Go to sign in',
     te_uniste_a: 'You joined',
-    activacion_pendiente: 'An admin must activate your account. Redirecting...',
+    activacion_pendiente: 'You joined successfully. Redirecting...',
     invitacion_a: 'Invitation to',
     te_invitaron_como: 'You were invited as',
     unirse_a: 'Join',
     login_y_unirse: 'Sign in and join',
     crear_cuenta_y_unirse: 'Create account and join',
+    continuar_para_unirse: 'Continue to join',
   },
 
   empresa: {

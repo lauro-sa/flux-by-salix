@@ -96,7 +96,10 @@ function ContenidoInvitacion() {
     }
 
     setAceptada(true)
-    setTimeout(() => router.push('/esperando-activacion'), 2000)
+    // Refrescar sesión para que el JWT tenga la empresa activa
+    const supabaseCliente = crearClienteNavegador()
+    await supabaseCliente.auth.refreshSession()
+    setTimeout(() => window.location.href = '/dashboard', 1500)
   }
 
   // Estado de carga
@@ -181,18 +184,11 @@ function ContenidoInvitacion() {
           {t('invitacion.unirse_a')} {invitacion?.empresa_nombre}
         </Boton>
       ) : (
-        <div className="flex flex-col gap-3">
-          <Link href={`/login?next=/invitacion?token=${token}`}>
-            <Boton variante="primario" anchoCompleto iconoDerecho={<ArrowRight size={16} />}>
-              {t('invitacion.login_y_unirse')}
-            </Boton>
-          </Link>
-          <Link href={`/registro?next=/invitacion?token=${token}`}>
-            <Boton variante="secundario" anchoCompleto>
-              {t('invitacion.crear_cuenta_y_unirse')}
-            </Boton>
-          </Link>
-        </div>
+        <Link href={`/login?next=/invitacion?token=${token}`}>
+          <Boton variante="primario" anchoCompleto iconoDerecho={<ArrowRight size={16} />}>
+            {t('invitacion.continuar_para_unirse')}
+          </Boton>
+        </Link>
       )}
     </div>
   )

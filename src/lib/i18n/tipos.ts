@@ -158,6 +158,13 @@ export interface Traducciones {
     layout_titulo_1: string
     layout_titulo_2: string
     layout_desc: string
+    ingresa_tu_correo: string
+    ingresa_tu_correo_desc: string
+    continuar: string
+    bienvenido_de_vuelta: string
+    completa_tus_datos: string
+    solo_nombre_y_contrasena: string
+    usar_otro_correo: string
   }
 
   // Invitación
@@ -174,6 +181,7 @@ export interface Traducciones {
     unirse_a: string
     login_y_unirse: string
     crear_cuenta_y_unirse: string
+    continuar_para_unirse: string
   }
 
   // Multi-empresa

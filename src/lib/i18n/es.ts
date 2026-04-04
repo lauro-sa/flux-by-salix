@@ -148,6 +148,13 @@ export const es: Traducciones = {
     layout_titulo_1: 'Gestión inteligente',
     layout_titulo_2: 'para tu empresa',
     layout_desc: 'Contactos, ventas, equipos y operaciones en una sola plataforma. Simple, rápida y hecha para crecer.',
+    ingresa_tu_correo: 'Ingresá tu correo',
+    ingresa_tu_correo_desc: 'Usamos tu correo para identificarte',
+    continuar: 'Continuar',
+    bienvenido_de_vuelta: 'Bienvenido de vuelta',
+    completa_tus_datos: 'Completá tus datos',
+    solo_nombre_y_contrasena: 'Solo necesitamos tu nombre y una contraseña',
+    usar_otro_correo: 'Usar otro correo',
   },
 
   invitacion: {
@@ -157,12 +164,13 @@ export const es: Traducciones = {
     no_valida_titulo: 'Invitación no válida',
     ir_login: 'Ir al inicio de sesión',
     te_uniste_a: 'Te uniste a',
-    activacion_pendiente: 'Un administrador debe activar tu cuenta. Redirigiendo...',
+    activacion_pendiente: 'Te uniste correctamente. Redirigiendo...',
     invitacion_a: 'Invitación a',
     te_invitaron_como: 'Te invitaron como',
     unirse_a: 'Unirse a',
     login_y_unirse: 'Iniciar sesión y unirse',
     crear_cuenta_y_unirse: 'Crear cuenta y unirse',
+    continuar_para_unirse: 'Continuar para unirse',
   },
 
   empresa: {

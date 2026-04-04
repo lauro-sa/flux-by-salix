@@ -30,11 +30,14 @@ function ContenidoLayoutAuth({ children }: { children: React.ReactNode }) {
         {/* Fondo de partículas interactivo */}
         <FondoParticulas />
 
+        {/* Gradiente sutil sobre partículas para profundidad */}
+        <div className="absolute inset-0 bg-gradient-to-b from-superficie-app/20 via-transparent to-superficie-app/30 pointer-events-none" />
+
         {/* Contenido del panel sobre las partículas */}
         <div className="relative z-10 flex flex-col justify-between p-12 xl:p-16 w-full pointer-events-none">
-          {/* Logo */}
-          <div>
-            <LogoSalix layout="completo" tamano={40} animacion="ensamble" hover={false} tap={false} />
+          {/* Logo — interactivo */}
+          <div className="pointer-events-auto">
+            <LogoSalix layout="completo" tamano={40} animacion="ensamble" hover={true} tap={true} />
           </div>
 
           {/* Texto central */}
@@ -68,9 +71,9 @@ function ContenidoLayoutAuth({ children }: { children: React.ReactNode }) {
       {/* Panel derecho — formulario (fondo transparente en mobile para ver partículas) */}
       <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-8 lg:p-12 relative lg:bg-superficie-app">
 
-        {/* Logo mobile */}
-        <div className="lg:hidden mb-10 relative z-10">
-          <LogoSalix layout="completo" tamano={36} animacion="entrada" hover={false} tap={false} />
+        {/* Logo mobile — ensamble animado + interactivo */}
+        <div className="lg:hidden mb-8 relative z-10">
+          <LogoSalix layout="completo" tamano={36} animacion="ensamble" hover={true} tap={true} />
         </div>
 
         {/* Card del formulario */}
@@ -78,9 +81,9 @@ function ContenidoLayoutAuth({ children }: { children: React.ReactNode }) {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
-          className="relative z-10 w-full max-w-[400px]"
+          className="relative z-10 w-full max-w-[440px]"
         >
-          <div className="bg-superficie-tarjeta/95 backdrop-blur-sm border border-borde-sutil rounded-2xl p-7 sm:p-8 shadow-lg shadow-black/[0.06]">
+          <div className="bg-superficie-tarjeta/90 backdrop-blur-md border border-borde-sutil/60 rounded-xl p-6 sm:p-8 shadow-xl shadow-black/[0.10]">
             {children}
           </div>
         </motion.div>

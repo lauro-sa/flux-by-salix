@@ -6,7 +6,7 @@
  * Organizado en 4 anillos concéntricos para efecto ripple.
  */
 
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { motion, type Variants, type Transition } from 'framer-motion'
 
 /** Cada pieza del ícono con su path y posición en el anillo */
@@ -129,8 +129,18 @@ export default function IconoSalix({
   tap = false,
 }: IconoSalixProps) {
   const [hovered, setHovered] = useState(false)
+  const [tocado, setTocado] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const esAnimado = variante !== 'estatico'
   const esInteractivo = hover || tap
+  const separado = hovered || tocado
+
+  // Toggle tap: separar piezas y volver después de 600ms
+  const manejarTap = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    setTocado(true)
+    timerRef.current = setTimeout(() => setTocado(false), 600)
+  }, [])
 
   /* ── Ícono estático sin interacciones — path único, máxima performance ── */
   if (!esAnimado && !esInteractivo) {
@@ -183,6 +193,8 @@ export default function IconoSalix({
       style={{ display: 'inline-flex' }}
       onMouseEnter={hover ? () => setHovered(true) : undefined}
       onMouseLeave={hover ? () => setHovered(false) : undefined}
+      onTouchStart={tap ? manejarTap : undefined}
+      onClick={tap ? manejarTap : undefined}
     >
       <svg
         viewBox="0 0 24 24"
@@ -197,9 +209,8 @@ export default function IconoSalix({
         <motion.g initial={estadoInicial} animate={estadoAnimar}>
           {PIEZAS_ICONO.map(pieza => {
             const dir = direccionSeparacion[pieza.id] || { x: 0, y: 0 }
-            const desplazamiento = hovered
-              ? { x: dir.x * distanciaHover * (pieza.anillo + 1), y: dir.y * distanciaHover * (pieza.anillo + 1) }
-              : { x: 0, y: 0 }
+            const desplX = separado ? dir.x * distanciaHover * (pieza.anillo + 1) : 0
+            const desplY = separado ? dir.y * distanciaHover * (pieza.anillo + 1) : 0
 
             return (
               <motion.path
@@ -208,16 +219,11 @@ export default function IconoSalix({
                 fill={color || 'currentColor'}
                 variants={variants}
                 custom={obtenerCustom(pieza)}
-                {...(hovered ? {
-                  animate: {
-                    translateX: desplazamiento.x,
-                    translateY: desplazamiento.y,
-                  },
-                  transition: {
-                    translateX: { type: 'spring', stiffness: 300, damping: 20 },
-                    translateY: { type: 'spring', stiffness: 300, damping: 20 },
-                  },
-                } : {})}
+                animate={{ translateX: desplX, translateY: desplY }}
+                transition={{
+                  translateX: { type: 'spring', stiffness: 300, damping: 20 },
+                  translateY: { type: 'spring', stiffness: 300, damping: 20 },
+                }}
               />
             )
           })}

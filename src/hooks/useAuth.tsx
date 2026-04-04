@@ -14,8 +14,9 @@ interface ContextoAuth {
   usuario: User | null
   sesion: Session | null
   cargando: boolean
+  verificarCorreo: (correo: string) => Promise<{ existe: boolean }>
   iniciarSesion: (correo: string, contrasena: string) => Promise<{ error?: string; redirigir?: string }>
-  registrarse: (datos: { correo: string; contrasena: string; nombre: string; apellido: string }) => Promise<{ error?: string }>
+  registrarse: (datos: { correo: string; contrasena: string; nombre: string; apellido: string }) => Promise<{ error?: string; redirigir?: string }>
   cerrarSesion: () => Promise<void>
   recuperarContrasena: (correo: string) => Promise<{ error?: string }>
   restablecerContrasena: (contrasena: string) => Promise<{ error?: string }>
@@ -23,12 +24,14 @@ interface ContextoAuth {
 
 const ContextoAuthInterno = createContext<ContextoAuth | null>(null)
 
+// Singleton — crearClienteNavegador() ya cachea internamente via @supabase/ssr,
+// pero al extraerlo aquí queda explícito que la referencia es estable
+const supabase = crearClienteNavegador()
+
 function ProveedorAuth({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<User | null>(null)
   const [sesion, setSesion] = useState<Session | null>(null)
   const [cargando, setCargando] = useState(true)
-
-  const supabase = crearClienteNavegador()
 
   // Inicializar sesión y escuchar cambios
   useEffect(() => {
@@ -48,7 +51,18 @@ function ProveedorAuth({ children }: { children: ReactNode }) {
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const verificarCorreo = useCallback(async (correo: string) => {
+    const respuesta = await fetch('/api/auth/verificar-correo-existe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ correo }),
+    })
+    const datos = await respuesta.json()
+    return { existe: datos.existe ?? false }
+  }, [])
 
   const iniciarSesion = useCallback(async (correo: string, contrasena: string) => {
     const respuesta = await fetch('/api/auth/login', {
@@ -67,7 +81,7 @@ function ProveedorAuth({ children }: { children: ReactNode }) {
     await supabase.auth.refreshSession()
 
     return { redirigir: datos.redirigir }
-  }, [supabase])
+  }, [])
 
   const registrarse = useCallback(async (datos: {
     correo: string
@@ -87,7 +101,7 @@ function ProveedorAuth({ children }: { children: ReactNode }) {
       return { error: resultado.error }
     }
 
-    return {}
+    return { redirigir: resultado.redirigir }
   }, [])
 
   const cerrarSesion = useCallback(async () => {
@@ -95,7 +109,7 @@ function ProveedorAuth({ children }: { children: ReactNode }) {
     await supabase.auth.signOut()
     setUsuario(null)
     setSesion(null)
-  }, [supabase])
+  }, [])
 
   const recuperarContrasena = useCallback(async (correo: string) => {
     const respuesta = await fetch('/api/auth/recuperar', {
@@ -124,7 +138,7 @@ function ProveedorAuth({ children }: { children: ReactNode }) {
   return (
     <ContextoAuthInterno.Provider value={{
       usuario, sesion, cargando,
-      iniciarSesion, registrarse, cerrarSesion,
+      verificarCorreo, iniciarSesion, registrarse, cerrarSesion,
       recuperarContrasena, restablecerContrasena,
     }}>
       {children}
