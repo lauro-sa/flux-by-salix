@@ -317,7 +317,7 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
                         onClick={async () => {
                           if (emp.id !== empresa?.id) {
                             await cambiarEmpresa(emp.id)
-                            window.location.reload()
+                            router.push('/dashboard')
                           }
                         }}
                         className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors text-left active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"

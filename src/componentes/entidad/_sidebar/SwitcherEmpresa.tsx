@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, Check, Plus } from 'lucide-react'
 import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
@@ -21,6 +22,7 @@ interface PropiedadesSwitcherEmpresa {
 
 function SwitcherEmpresa({ colapsado, onToggle }: PropiedadesSwitcherEmpresa) {
   const { t } = useTraduccion()
+  const router = useRouter()
   const { empresa, empresas, cambiarEmpresa } = useEmpresa()
   const [abierto, setAbierto] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -83,7 +85,7 @@ function SwitcherEmpresa({ colapsado, onToggle }: PropiedadesSwitcherEmpresa) {
           <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} className="absolute left-2.5 right-2.5 top-full mt-1 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-50 py-1">
             <div className="px-3 py-1.5 text-xxs font-semibold text-texto-terciario uppercase tracking-wider">{t('sidebar.empresas')}</div>
             {empresas.map(emp => (
-              <button key={emp.id} onClick={async () => { if (emp.id !== empresa?.id) { await cambiarEmpresa(emp.id); window.location.reload() } setAbierto(false) }} className="flex items-center gap-2.5 w-full px-3 py-2 text-left border-none cursor-pointer bg-transparent hover:bg-superficie-hover focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 rounded-lg">
+              <button key={emp.id} onClick={async () => { if (emp.id !== empresa?.id) { await cambiarEmpresa(emp.id); router.push('/dashboard') } setAbierto(false) }} className="flex items-center gap-2.5 w-full px-3 py-2 text-left border-none cursor-pointer bg-transparent hover:bg-superficie-hover focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 rounded-lg">
                 <div className={`size-7 rounded-md flex items-center justify-center text-white font-bold text-xs shrink-0 ${!emp.logo_url ? (emp.id === empresa?.id ? 'bg-texto-marca' : 'bg-texto-terciario') : ''}`}>
                   {emp.logo_url ? (
                     <Image src={emp.logo_url} alt={emp.nombre} width={28} height={28} className="size-7 rounded-md object-cover" />

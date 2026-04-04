@@ -216,10 +216,10 @@ export async function POST(request: NextRequest) {
                 empresaId,
                 usuarioId: m.usuario_id,
                 tipo: 'mensaje_interno',
-                titulo: conv.contacto_nombre && conv.contacto_nombre !== nombreRemitente
-                  ? `💬 ${nombreRemitente} en ${conv.contacto_nombre}`
-                  : `💬 ${nombreRemitente}`,
-                cuerpo: (texto || '').slice(0, 120),
+                titulo: `💬 ${nombreRemitente}`,
+                cuerpo: (conv.contacto_nombre && conv.contacto_nombre !== nombreRemitente
+                  ? `Mensaje · ${conv.contacto_nombre} · `
+                  : 'Mensaje · ') + (texto || '').slice(0, 120),
                 icono: 'MessageSquare',
                 color: 'var(--canal-interno)',
                 url: `/inbox?conv=${conversacion_id}&tab=interno`,

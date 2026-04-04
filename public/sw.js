@@ -68,14 +68,19 @@ self.addEventListener('install', (event) => {
       )
     )
   )
-  self.skipWaiting()
+  // Solo skipWaiting en la primera instalación (sin clientes controlados).
+  // En actualizaciones, el SW nuevo espera a que se cierren/recarguen las pestañas,
+  // evitando refrescos automáticos inesperados.
+  self.clients.matchAll().then((clientes) => {
+    if (clientes.length === 0) self.skipWaiting()
+  })
 })
 
-// Activación — limpiar TODOS los caches para forzar assets frescos en cada deploy
+// Activación — limpiar caches viejos (no el actual) y tomar control gradualmente
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.map((k) => caches.delete(k)))
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
     ).then(() => self.clients.claim())
   )
 })

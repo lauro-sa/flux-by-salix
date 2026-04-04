@@ -52,30 +52,57 @@ export async function GET(request: NextRequest) {
     }
 
     const notificaciones: Parameters<typeof crearNotificacionesBatch>[0] = []
+    const idsCumpleaneros = cumpleHoy.map(p => p.id)
+
+    // Una sola query: traer TODAS las membresías de todos los cumpleañeros
+    const { data: membresiasCumple } = await admin
+      .from('miembros')
+      .select('usuario_id, empresa_id')
+      .in('usuario_id', idsCumpleaneros)
+      .eq('activo', true)
+
+    if (!membresiasCumple || membresiasCumple.length === 0) {
+      return NextResponse.json({ cumpleanios: cumpleHoy.length, notificaciones_creadas: 0, timestamp: ahora.toISOString() })
+    }
+
+    // Empresas únicas donde hay al menos un cumpleañero
+    const empresasIds = [...new Set(membresiasCumple.map(m => m.empresa_id))]
+
+    // Una sola query: traer todos los miembros activos de esas empresas
+    const { data: todosLosmiembros } = await admin
+      .from('miembros')
+      .select('usuario_id, empresa_id')
+      .in('empresa_id', empresasIds)
+      .eq('activo', true)
+
+    // Indexar miembros por empresa para acceso O(1)
+    const miembrosPorEmpresa = new Map<string, string[]>()
+    for (const m of todosLosmiembros || []) {
+      const lista = miembrosPorEmpresa.get(m.empresa_id) || []
+      lista.push(m.usuario_id)
+      miembrosPorEmpresa.set(m.empresa_id, lista)
+    }
+
+    // Indexar empresas por cumpleañero
+    const empresasPorCumple = new Map<string, string[]>()
+    for (const m of membresiasCumple) {
+      const lista = empresasPorCumple.get(m.usuario_id) || []
+      lista.push(m.empresa_id)
+      empresasPorCumple.set(m.usuario_id, lista)
+    }
 
     for (const persona of cumpleHoy) {
       const nombreCompleto = `${persona.nombre} ${persona.apellido || ''}`.trim()
+      const empresas = empresasPorCumple.get(persona.id) || []
 
-      // Buscar empresas donde esta persona es miembro activo
-      const { data: membresias } = await admin
-        .from('miembros')
-        .select('empresa_id')
-        .eq('usuario_id', persona.id)
-        .eq('activo', true)
+      for (const empresaId of empresas) {
+        const companeros = miembrosPorEmpresa.get(empresaId) || []
 
-      for (const membresia of membresias || []) {
-        // Buscar todos los miembros activos de la empresa
-        const { data: companeros } = await admin
-          .from('miembros')
-          .select('usuario_id')
-          .eq('empresa_id', membresia.empresa_id)
-          .eq('activo', true)
-
-        for (const comp of companeros || []) {
-          const esMismo = comp.usuario_id === persona.id
+        for (const usuarioId of companeros) {
+          const esMismo = usuarioId === persona.id
           notificaciones.push({
-            empresaId: membresia.empresa_id,
-            usuarioId: comp.usuario_id,
+            empresaId,
+            usuarioId,
             tipo: esMismo ? 'cumpleanios_propio' : 'cumpleanios_colega',
             titulo: esMismo
               ? '🎂 ¡Feliz cumpleaños!'

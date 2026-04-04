@@ -4,9 +4,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
-  Users, FileText, MessageSquare, Mail, Clock,
+  Users, FileText, MessageSquare, Mail,
   Plus, ArrowRight,
-  Send, Inbox as InboxIcon, CheckCircle2,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useEmpresa } from '@/hooks/useEmpresa'
@@ -17,9 +16,22 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import { Cargador } from '@/componentes/ui/Cargador'
 import { Boton } from '@/componentes/ui/Boton'
 
+// Widgets del dashboard
+import { WidgetPipeline } from './_componentes/WidgetPipeline'
+import { WidgetActividades } from './_componentes/WidgetActividades'
+import { WidgetCrecimientoContactos } from './_componentes/WidgetCrecimientoContactos'
+import { WidgetProductosTop } from './_componentes/WidgetProductosTop'
+import { WidgetPorVencer } from './_componentes/WidgetPorVencer'
+import { WidgetAsistencia } from './_componentes/WidgetAsistencia'
+import { WidgetInbox } from './_componentes/WidgetInbox'
+import { WidgetIngresos } from './_componentes/WidgetIngresos'
+import { WidgetComparativa } from './_componentes/WidgetComparativa'
+import { WidgetClientes } from './_componentes/WidgetClientes'
+
 /**
- * Página de Dashboard — Panel de inicio con resumen de la actividad.
- * Muestra métricas clave, accesos rápidos, actividad reciente y estado del inbox.
+ * Página de Dashboard — Panel de inicio con resumen completo de la actividad.
+ * Muestra métricas clave, pipeline de ventas, actividades, inbox, contactos,
+ * productos top, presupuestos por vencer y asistencia del equipo.
  */
 
 // ─── Tipos ───
@@ -28,20 +40,45 @@ interface DatosDashboard {
   contactos: {
     total: number
     recientes: Array<{ id: string; nombre: string; apellido?: string; correo?: string; telefono?: string; creado_en: string }>
+    crecimiento_semanal: Array<{ semana: string; cantidad: number }>
   }
   presupuestos: {
     total: number
     por_estado: Record<string, number>
     recientes: Array<{ id: string; numero: string; estado: string; contacto_nombre?: string; contacto_apellido?: string; total?: number; creado_en: string }>
+    pipeline_montos: Record<string, number>
+    por_vencer: Array<{ id: string; numero: string; estado: string; contacto_nombre?: string; contacto_apellido?: string; total?: number; fecha_vencimiento: string }>
   }
   conversaciones: {
     abiertas: number
     por_canal: Record<string, number>
     sin_leer: number
   }
-  actividades?: {
+  actividades: {
     pendientes: Array<{ id: string; titulo: string; tipo_clave: string; estado_clave: string; prioridad: string; fecha_vencimiento: string | null; asignado_nombre: string | null }>
     total_pendientes: number
+    completadas_hoy: number
+    por_persona: Array<{ nombre: string; pendientes: number; completadas: number }>
+  }
+  productos: {
+    top: Array<{ id: string; nombre: string; tipo: string; precio_unitario: number | null; veces_presupuestado: number; veces_vendido: number }>
+  }
+  asistencia: {
+    hoy: { presentes: number; ausentes: number; tardanzas: number; total: number }
+    semana: Record<string, { presentes: number; ausentes: number; tardanzas: number }>
+  }
+  ingresos: {
+    por_mes: Record<string, { cantidad: number; monto: number; ordenes_cantidad: number; ordenes_monto: number }>
+    por_anio: Record<string, { cantidad: number; monto: number; ordenes_cantidad: number; ordenes_monto: number }>
+  }
+  comparativa: {
+    presupuestos_por_mes: Record<string, { creados: number; monto_total: number }>
+    contactos_por_mes: Record<string, number>
+  }
+  clientes: {
+    activos_por_tipo: Record<string, { etiqueta: string; cantidad: number }>
+    total_activos: number
+    nuevos_por_mes: Record<string, Record<string, number>>
   }
 }
 
@@ -202,10 +239,99 @@ export default function PaginaDashboard() {
         <BotonRapido etiqueta={t('dashboard.ir_al_inbox')} icono={<MessageSquare size={15} />} onClick={() => router.push('/inbox')} />
       </motion.div>
 
-      {/* ─── Grid de paneles ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* ─── Fila 1: Presupuestos vs Ventas (full width) ─── */}
+      {datos?.ingresos && datos?.comparativa && (
+        <motion.div variants={itemVariantes}>
+          <WidgetIngresos
+            cerradosPorMes={datos.ingresos.por_mes}
+            cerradosPorAnio={datos.ingresos.por_anio}
+            emitidosPorMes={datos.comparativa.presupuestos_por_mes}
+            formatoMoneda={moneda}
+          />
+        </motion.div>
+      )}
 
-        {/* ─── Contactos recientes (columna izquierda) ─── */}
+      {/* ─── Fila 2: Comparativa interanual + Pipeline ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {datos?.comparativa && (
+          <motion.div variants={itemVariantes}>
+            <WidgetComparativa
+              presupuestosPorMes={datos.comparativa.presupuestos_por_mes}
+              contactosPorMes={datos.comparativa.contactos_por_mes}
+              formatoMoneda={moneda}
+            />
+          </motion.div>
+        )}
+
+        {datos?.presupuestos && (
+          <motion.div variants={itemVariantes}>
+            <WidgetPipeline
+              porEstado={datos.presupuestos.por_estado}
+              pipelineMontos={datos.presupuestos.pipeline_montos}
+              formatoMoneda={moneda}
+            />
+          </motion.div>
+        )}
+
+      </div>
+
+      {/* ─── Fila 3: Clientes + Actividades ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {datos?.clientes && (
+          <motion.div variants={itemVariantes}>
+            <WidgetClientes
+              activosPorTipo={datos.clientes.activos_por_tipo}
+              totalActivos={datos.clientes.total_activos}
+              nuevosPorMes={datos.clientes.nuevos_por_mes}
+            />
+          </motion.div>
+        )}
+
+        {datos?.actividades && (
+          <motion.div variants={itemVariantes}>
+            <WidgetActividades
+              pendientes={datos.actividades.pendientes}
+              totalPendientes={datos.actividades.total_pendientes}
+              completadasHoy={datos.actividades.completadas_hoy}
+              porPersona={datos.actividades.por_persona}
+            />
+          </motion.div>
+        )}
+      </div>
+
+      {/* ─── Fila 4: Crecimiento contactos + Inbox ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {datos?.contactos.crecimiento_semanal && datos.contactos.crecimiento_semanal.length > 0 && (
+          <motion.div variants={itemVariantes}>
+            <WidgetCrecimientoContactos crecimientoSemanal={datos.contactos.crecimiento_semanal} />
+          </motion.div>
+        )}
+
+        {metricas && (
+          <motion.div variants={itemVariantes}>
+            <WidgetInbox resumen={metricas.resumen} porAgente={metricas.por_agente} />
+          </motion.div>
+        )}
+      </div>
+
+      {/* ─── Fila 5: Por vencer + Productos top ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {datos?.presupuestos.por_vencer && datos.presupuestos.por_vencer.length > 0 && (
+          <motion.div variants={itemVariantes}>
+            <WidgetPorVencer presupuestos={datos.presupuestos.por_vencer} formatoMoneda={moneda} />
+          </motion.div>
+        )}
+
+        {datos?.productos.top && datos.productos.top.length > 0 && (
+          <motion.div variants={itemVariantes}>
+            <WidgetProductosTop productos={datos.productos.top} formatoMoneda={moneda} />
+          </motion.div>
+        )}
+      </div>
+
+      {/* ─── Fila 6: Contactos recientes + Presupuestos recientes + Asistencia ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Contactos recientes */}
         <motion.div variants={itemVariantes}>
           <Tarjeta
             titulo={`${t('contactos.titulo')} ${t('dashboard.recientes')}`}
@@ -246,88 +372,7 @@ export default function PaginaDashboard() {
           </Tarjeta>
         </motion.div>
 
-        {/* ─── Métricas del inbox (columna central) ─── */}
-        <motion.div variants={itemVariantes}>
-          <Tarjeta
-            titulo={t('dashboard.inbox_ultimos_30d')}
-            acciones={
-              <Boton variante="fantasma" tamano="xs" iconoDerecho={<ArrowRight size={12} />} onClick={() => router.push('/inbox')}>
-                {t('dashboard.ver_todo')}
-              </Boton>
-            }
-          >
-            {metricas ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <MiniMetrica
-                    etiqueta={t('dashboard.label_recibidos')}
-                    valor={metricas.resumen.mensajes_recibidos}
-                    icono={<InboxIcon size={14} />}
-                  />
-                  <MiniMetrica
-                    etiqueta={t('dashboard.label_enviados')}
-                    valor={metricas.resumen.mensajes_enviados}
-                    icono={<Send size={14} />}
-                  />
-                  <MiniMetrica
-                    etiqueta={t('dashboard.label_resueltas')}
-                    valor={metricas.resumen.conversaciones_resueltas}
-                    icono={<CheckCircle2 size={14} />}
-                  />
-                  <MiniMetrica
-                    etiqueta={t('dashboard.label_tiempo_resp')}
-                    valor={`${metricas.resumen.tiempo_respuesta_promedio_min}m`}
-                    icono={<Clock size={14} />}
-                  />
-                </div>
-
-                {/* Barra de SLA */}
-                <div>
-                  <div className="flex items-center justify-between text-xs mb-1.5">
-                    <span className="text-texto-secundario">{t('dashboard.sla_cumplido')}</span>
-                    <span className={`font-semibold ${metricas.resumen.sla_cumplido_pct >= 80 ? 'text-insignia-exito-texto' : metricas.resumen.sla_cumplido_pct >= 50 ? 'text-insignia-advertencia-texto' : 'text-insignia-peligro-texto'}`}>
-                      {metricas.resumen.sla_cumplido_pct}%
-                    </span>
-                  </div>
-                  <div className="h-2 rounded-full bg-superficie-hover overflow-hidden">
-                    <motion.div
-                      className={`h-full rounded-full ${metricas.resumen.sla_cumplido_pct >= 80 ? 'bg-insignia-exito-texto' : metricas.resumen.sla_cumplido_pct >= 50 ? 'bg-insignia-advertencia-texto' : 'bg-insignia-peligro-texto'}`}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${metricas.resumen.sla_cumplido_pct}%` }}
-                      transition={{ duration: 0.8, ease: 'easeOut', delay: 0.3 }}
-                    />
-                  </div>
-                </div>
-
-                {/* Agentes */}
-                {metricas.por_agente.length > 0 && (
-                  <div className="pt-2 border-t border-borde-sutil">
-                    <p className="text-xs text-texto-terciario mb-2">{t('dashboard.por_agente')}</p>
-                    <div className="space-y-1.5">
-                      {metricas.por_agente.slice(0, 3).map(agente => (
-                        <div key={agente.nombre} className="flex items-center justify-between text-xs">
-                          <span className="text-texto-secundario truncate">{agente.nombre}</span>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-texto-primario font-medium">{agente.resueltas}/{agente.asignadas}</span>
-                            {agente.sla_total > 0 && (
-                              <Insignia color={agente.sla_cumplido / agente.sla_total >= 0.8 ? 'exito' : 'advertencia'}>
-                                {Math.round((agente.sla_cumplido / agente.sla_total) * 100)}%
-                              </Insignia>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm text-texto-terciario">{t('dashboard.sin_datos_inbox')}</p>
-            )}
-          </Tarjeta>
-        </motion.div>
-
-        {/* ─── Presupuestos recientes ─── */}
+        {/* Presupuestos recientes */}
         <motion.div variants={itemVariantes}>
           <Tarjeta
             titulo={`${t('navegacion.presupuestos')} ${t('dashboard.recientes')}`}
@@ -371,86 +416,10 @@ export default function PaginaDashboard() {
           </Tarjeta>
         </motion.div>
 
-        {/* ─── Resumen de presupuestos por estado ─── */}
-        <motion.div variants={itemVariantes}>
-          <Tarjeta titulo={`${t('navegacion.presupuestos')} ${t('dashboard.por_estado')}`}>
-            {datos?.presupuestos.por_estado && Object.keys(datos.presupuestos.por_estado).length > 0 ? (
-              <div className="space-y-2.5">
-                {Object.entries(datos.presupuestos.por_estado)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([estado, cantidad]) => {
-                    const porcentaje = datos.presupuestos.total > 0
-                      ? Math.round((cantidad / datos.presupuestos.total) * 100)
-                      : 0
-                    return (
-                      <div key={estado}>
-                        <div className="flex items-center justify-between text-xs mb-1">
-                          <div className="flex items-center gap-2">
-                            <Insignia color={COLOR_ESTADO_PRESUPUESTO[estado] || 'neutro'}>
-                              {estado}
-                            </Insignia>
-                          </div>
-                          <span className="text-texto-secundario font-medium">{cantidad}</span>
-                        </div>
-                        <div className="h-1.5 rounded-full bg-superficie-hover overflow-hidden">
-                          <motion.div
-                            className="h-full rounded-full bg-texto-marca opacity-60"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${porcentaje}%` }}
-                            transition={{ duration: 0.6, ease: 'easeOut', delay: 0.2 }}
-                          />
-                        </div>
-                      </div>
-                    )
-                  })}
-              </div>
-            ) : (
-              <p className="text-sm text-texto-terciario py-4 text-center">{t('documentos.sin_documentos')}</p>
-            )}
-          </Tarjeta>
-        </motion.div>
-
-        {/* ─── Actividades pendientes ─── */}
-        {datos?.actividades && datos.actividades.pendientes.length > 0 && (
+        {/* Asistencia del equipo */}
+        {datos?.asistencia && (
           <motion.div variants={itemVariantes}>
-            <Tarjeta
-              titulo={`Actividades pendientes (${datos.actividades.total_pendientes})`}
-              acciones={
-                <Boton variante="fantasma" tamano="xs" iconoDerecho={<ArrowRight size={12} />} onClick={() => router.push('/actividades')}>
-                  {t('dashboard.ver_todo')}
-                </Boton>
-              }
-            >
-              <div className="space-y-1">
-                {datos.actividades.pendientes.map(act => {
-                  const vencida = act.fecha_vencimiento && new Date(act.fecha_vencimiento) < new Date()
-                  return (
-                    <div
-                      key={act.id}
-                      className="flex items-center justify-between py-2 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors"
-                      onClick={() => router.push('/actividades')}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-texto-primario truncate">{act.titulo}</span>
-                          {act.prioridad === 'alta' && (
-                            <Insignia color="peligro">Alta</Insignia>
-                          )}
-                        </div>
-                        {act.asignado_nombre && (
-                          <p className="text-xs text-texto-terciario truncate mt-0.5">{act.asignado_nombre}</p>
-                        )}
-                      </div>
-                      {act.fecha_vencimiento && (
-                        <span className={`text-xs shrink-0 ml-2 ${vencida ? 'text-insignia-peligro-texto font-semibold' : 'text-texto-terciario'}`}>
-                          {new Date(act.fecha_vencimiento).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
-                        </span>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </Tarjeta>
+            <WidgetAsistencia hoy={datos.asistencia.hoy} semana={datos.asistencia.semana} />
           </motion.div>
         )}
       </div>
@@ -490,26 +459,6 @@ function TarjetaMetrica({
         </div>
       </div>
     </Tarjeta>
-  )
-}
-
-function MiniMetrica({
-  etiqueta,
-  valor,
-  icono,
-}: {
-  etiqueta: string
-  valor: number | string
-  icono: React.ReactNode
-}) {
-  return (
-    <div className="flex items-center gap-2.5 py-2 px-3 rounded-lg bg-superficie-hover/50">
-      <div className="text-texto-terciario">{icono}</div>
-      <div>
-        <p className="text-lg font-bold text-texto-primario leading-tight">{valor}</p>
-        <p className="text-xxs text-texto-terciario">{etiqueta}</p>
-      </div>
-    </div>
   )
 }
 

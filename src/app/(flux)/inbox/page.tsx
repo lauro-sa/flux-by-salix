@@ -448,8 +448,8 @@ function PaginaInbox() {
   useEffect(() => {
     if (tabActivo !== 'correo' || !configCargada) return
     cargarContadores()
-    // Refrescar contadores cada 30 segundos
-    const intervalo = setInterval(cargarContadores, 30000)
+    // Refrescar contadores cada 60 segundos
+    const intervalo = setInterval(cargarContadores, 60000)
     return () => clearInterval(intervalo)
   }, [tabActivo, cargarContadores, configCargada])
 
@@ -473,10 +473,10 @@ function PaginaInbox() {
     }
   }, [cargarConversaciones, cargarContadores])
 
-  // Auto-sincronizar correos cada 30 segundos
+  // Auto-sincronizar correos cada 60 segundos
   useEffect(() => {
     if (tabActivo !== 'correo' || !configCargada) return
-    const intervalo = setInterval(sincronizarCorreos, 30000)
+    const intervalo = setInterval(sincronizarCorreos, 60000)
     return () => clearInterval(intervalo)
   }, [tabActivo, sincronizarCorreos, configCargada])
 
@@ -1051,6 +1051,8 @@ function PaginaInbox() {
     const abortController = new AbortController()
 
     const poll = async () => {
+      // No hacer polling si la pestaña está oculta (ahorra batería en mobile/PWA)
+      if (document.hidden || cancelado) return
       try {
         const res = await fetch(
           `/api/inbox/mensajes?conversacion_id=${convId}&por_pagina=200`,
@@ -1112,9 +1114,10 @@ function PaginaInbox() {
       }
     }
 
-    // Ejecutar poll inmediatamente + cada 3 segundos
+    // Ejecutar poll inmediatamente + cada 5 segundos
+    // (3s era demasiado agresivo, genera tráfico innecesario en mobile/PWA)
     poll()
-    const intervalo = setInterval(poll, 3000)
+    const intervalo = setInterval(poll, 5000)
 
     return () => {
       cancelado = true
@@ -1153,7 +1156,7 @@ function PaginaInbox() {
       } catch { /* silenciar */ }
     }
 
-    const intervalo = setInterval(poll, 10000)
+    const intervalo = setInterval(poll, 15000)
     return () => {
       cancelado = true
       abortController.abort()

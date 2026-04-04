@@ -93,17 +93,33 @@ function Tooltip({
     if (deshabilitado) return
     // No mostrar en dispositivos táctiles
     if (window.matchMedia('(pointer: coarse)').matches) return
+    clearTimeout(refTimer.current)
     refTimer.current = setTimeout(() => setVisible(true), delay)
   }, [delay, deshabilitado])
 
   const ocultar = useCallback(() => {
     clearTimeout(refTimer.current)
+    refTimer.current = undefined
     setVisible(false)
   }, [])
 
   useEffect(() => {
     if (visible) calcularPosicion()
   }, [visible, calcularPosicion])
+
+  // Ocultar al hacer scroll, resize, o click en cualquier lugar
+  useEffect(() => {
+    if (!visible) return
+    const cerrar = () => { clearTimeout(refTimer.current); setVisible(false) }
+    window.addEventListener('scroll', cerrar, true)
+    window.addEventListener('resize', cerrar)
+    window.addEventListener('pointerdown', cerrar)
+    return () => {
+      window.removeEventListener('scroll', cerrar, true)
+      window.removeEventListener('resize', cerrar)
+      window.removeEventListener('pointerdown', cerrar)
+    }
+  }, [visible])
 
   useEffect(() => () => clearTimeout(refTimer.current), [])
 
@@ -120,8 +136,7 @@ function Tooltip({
         ref={refTrigger}
         onMouseEnter={mostrar}
         onMouseLeave={ocultar}
-        onFocus={mostrar}
-        onBlur={ocultar}
+        onClick={ocultar}
         className="inline-flex"
       >
         {children}

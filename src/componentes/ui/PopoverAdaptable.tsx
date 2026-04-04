@@ -1,18 +1,19 @@
 'use client'
 
 /**
- * PopoverAdaptable — Popover en desktop, BottomSheet en móvil.
+ * PopoverAdaptable — Popover en desktop, panel desplegable full-width en móvil.
  *
- * Misma API que Popover. En móvil, el trigger abre un BottomSheet
- * en vez de un panel flotante, para mejor UX táctil.
+ * Misma API que Popover. En móvil, el trigger abre un panel que se despliega
+ * desde el header hacia abajo, ocupando todo el ancho de la pantalla.
  *
  * Se usa en: NotificacionesHeader, RecordatoriosHeader, y cualquier
  * panel flotante que necesite adaptarse a mobile.
  */
 
-import { type ReactNode } from 'react'
+import { type ReactNode, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Popover } from '@/componentes/ui/Popover'
-import { BottomSheet } from '@/componentes/ui/BottomSheet'
 import { useEsMovil } from '@/hooks/useEsMovil'
 
 type Alineacion = 'inicio' | 'centro' | 'fin'
@@ -30,7 +31,7 @@ interface PropiedadesPopoverAdaptable {
   offset?: number
   clasePan?: string
   sinCerrarClickFuera?: boolean
-  /** Título del BottomSheet en móvil */
+  /** Título del panel en móvil (ya no se usa BottomSheet pero se mantiene la prop) */
   tituloMovil?: string
 }
 
@@ -44,11 +45,21 @@ function PopoverAdaptable({
 }: PropiedadesPopoverAdaptable) {
   const esMovil = useEsMovil()
 
+  /* Cerrar con Escape en mobile */
+  const cerrar = useCallback(() => onCambio?.(false), [onCambio])
+
+  useEffect(() => {
+    if (!esMovil || !abierto) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') cerrar() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [esMovil, abierto, cerrar])
+
   if (esMovil) {
     const estaAbierto = abierto ?? false
     return (
       <>
-        {/* Trigger — al tocar abre el BottomSheet */}
+        {/* Trigger */}
         <span
           onClick={() => onCambio?.(!estaAbierto)}
           className="inline-flex"
@@ -60,14 +71,39 @@ function PopoverAdaptable({
         >
           {children}
         </span>
-        <BottomSheet
-          abierto={estaAbierto}
-          onCerrar={() => onCambio?.(false)}
-          titulo={tituloMovil}
-          altura="auto"
-        >
-          {contenido}
-        </BottomSheet>
+
+        {/* Panel desplegable desde el header — full width */}
+        {typeof window !== 'undefined' && createPortal(
+          <AnimatePresence>
+            {estaAbierto && (
+              <div className="fixed inset-0 z-50">
+                {/* Overlay */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute inset-0 bg-black/30"
+                  onClick={cerrar}
+                />
+
+                {/* Panel — se ancla justo debajo del header (h-14 = 56px) */}
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ type: 'spring', damping: 28, stiffness: 380, mass: 0.6 }}
+                  className="absolute left-0 right-0 bg-superficie-elevada border-b border-borde-sutil shadow-elevada overflow-hidden"
+                  style={{ top: '3.5rem' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {contenido}
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>,
+          document.body
+        )}
       </>
     )
   }

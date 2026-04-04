@@ -22,8 +22,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { token } = body as { token: string }
 
-    if (!token) {
-      return NextResponse.json({ error: 'Token requerido' }, { status: 400 })
+    // Validar formato: tokens FCM tienen entre 100-300 caracteres alfanuméricos
+    if (!token || typeof token !== 'string' || token.length < 100 || token.length > 300) {
+      return NextResponse.json({ error: 'Token inválido' }, { status: 400 })
     }
 
     const admin = crearClienteAdmin()

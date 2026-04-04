@@ -66,6 +66,19 @@ export async function crearNotificacion({
     }
   }
 
+  // Limpiar notificaciones viejas leídas de la misma referencia para no acumular basura
+  if (referenciaTipo && referenciaId) {
+    admin
+      .from('notificaciones')
+      .delete()
+      .eq('empresa_id', empresaId)
+      .eq('usuario_id', usuarioId)
+      .eq('referencia_tipo', referenciaTipo)
+      .eq('referencia_id', referenciaId)
+      .eq('leida', true)
+      .then(() => {})
+  }
+
   const { error } = await admin
     .from('notificaciones')
     .insert({
@@ -108,33 +121,80 @@ export async function crearNotificacionesBatch(
 
   const admin = crearClienteAdmin()
 
-  const filas = notificaciones.map(n => ({
-    empresa_id: n.empresaId,
-    usuario_id: n.usuarioId,
-    tipo: n.tipo,
-    titulo: n.titulo,
-    cuerpo: n.cuerpo || null,
-    icono: n.icono || null,
-    color: n.color || null,
-    url: n.url || null,
-    leida: false,
-    referencia_tipo: n.referenciaTipo || null,
-    referencia_id: n.referenciaId || null,
-  }))
+  // Anti-duplicación: filtrar notificaciones que ya existen sin leer con misma referencia
+  const conReferencia = notificaciones.filter(n => n.referenciaTipo && n.referenciaId)
+  const sinReferencia = notificaciones.filter(n => !n.referenciaTipo || !n.referenciaId)
 
-  const { error } = await admin.from('notificaciones').insert(filas)
+  // Buscar existentes para las que tienen referencia (filtrar por empresa + tipo)
+  let yaExistentes: Set<string> = new Set()
+  if (conReferencia.length > 0) {
+    const referenciaIds = [...new Set(conReferencia.map(n => n.referenciaId!))]
+    const empresaIds = [...new Set(conReferencia.map(n => n.empresaId))]
+    const { data: existentes } = await admin
+      .from('notificaciones')
+      .select('usuario_id, referencia_id')
+      .in('referencia_id', referenciaIds)
+      .in('empresa_id', empresaIds)
+      .eq('leida', false)
 
-  if (error) {
-    console.error('Error al crear notificaciones batch:', error)
-    return
+    if (existentes) {
+      yaExistentes = new Set(existentes.map(e => `${e.usuario_id}|${e.referencia_id}`))
+    }
+  }
+
+  // Separar: las que ya existen se actualizan, las nuevas se insertan
+  const paraActualizar: CrearNotificacionParams[] = []
+  const paraInsertar: CrearNotificacionParams[] = [...sinReferencia]
+
+  for (const n of conReferencia) {
+    const clave = `${n.usuarioId}|${n.referenciaId}`
+    if (yaExistentes.has(clave)) {
+      paraActualizar.push(n)
+    } else {
+      paraInsertar.push(n)
+    }
+  }
+
+  // Actualizar existentes (nuevo mensaje en misma conversación)
+  for (const n of paraActualizar) {
+    await admin
+      .from('notificaciones')
+      .update({ titulo: n.titulo, cuerpo: n.cuerpo || null, creada_en: new Date().toISOString() })
+      .eq('usuario_id', n.usuarioId)
+      .eq('referencia_id', n.referenciaId!)
+      .eq('leida', false)
+  }
+
+  // Insertar nuevas
+  if (paraInsertar.length > 0) {
+    const filas = paraInsertar.map(n => ({
+      empresa_id: n.empresaId,
+      usuario_id: n.usuarioId,
+      tipo: n.tipo,
+      titulo: n.titulo,
+      cuerpo: n.cuerpo || null,
+      icono: n.icono || null,
+      color: n.color || null,
+      url: n.url || null,
+      leida: false,
+      referencia_tipo: n.referenciaTipo || null,
+      referencia_id: n.referenciaId || null,
+    }))
+
+    const { error } = await admin.from('notificaciones').insert(filas)
+    if (error) {
+      console.error('Error al crear notificaciones batch:', error)
+      return
+    }
   }
 
   // Push notifications (fire-and-forget, pero con logs de error)
-  const uniqueUsuarios = [...new Set(notificaciones.map(n => `${n.empresaId}|${n.usuarioId}`))]
+  const todas = [...paraInsertar, ...paraActualizar]
+  const uniqueUsuarios = [...new Set(todas.map(n => `${n.empresaId}|${n.usuarioId}`))]
   console.log(`[Push] Batch: enviando push a ${uniqueUsuarios.length} usuario(s)`)
   for (const key of uniqueUsuarios) {
     const [empresaId, usuarioId] = key.split('|')
-    const primera = notificaciones.find(n => n.empresaId === empresaId && n.usuarioId === usuarioId)
+    const primera = todas.find(n => n.empresaId === empresaId && n.usuarioId === usuarioId)
     if (primera) {
       enviarPush({
         empresaId,
@@ -280,8 +340,12 @@ async function enviarPush({
       fcmOptions: { link: urlDestino },
     },
     // APNs nativo: canal directo de Apple (el más confiable para iOS)
+    // apns-collapse-id agrupa notificaciones de la misma conversación en iOS
     apns: {
-      headers: { 'apns-priority': '10' },
+      headers: {
+        'apns-priority': '10',
+        'apns-collapse-id': urlDestino.slice(0, 64),
+      },
       payload: {
         aps: {
           alert: { title: tituloFinal, body: cuerpoFinal },
@@ -291,9 +355,10 @@ async function enviarPush({
         },
       },
     },
-    // Android: alta prioridad
+    // Android: alta prioridad + collapseKey agrupa por conversación
     android: {
       priority: 'high' as const,
+      collapseKey: urlDestino.slice(0, 64),
       notification: {
         title: tituloFinal,
         body: cuerpoFinal,
@@ -322,13 +387,14 @@ async function enviarPush({
         }
       })
 
-      // Desactivar suscripciones con tokens inválidos
+      // Desactivar suscripciones con tokens inválidos (filtrar por empresa también)
       for (const tokenInvalido of tokensInvalidos) {
         await admin
           .from('suscripciones_push')
           .update({ activa: false })
           .eq('endpoint', tokenInvalido)
           .eq('usuario_id', usuarioId)
+          .eq('empresa_id', empresaId)
       }
     }
 

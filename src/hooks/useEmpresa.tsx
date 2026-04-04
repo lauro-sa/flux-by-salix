@@ -25,13 +25,18 @@ interface ContextoEmpresa {
 
 const ContextoEmpresaInterno = createContext<ContextoEmpresa | null>(null)
 
+// Singleton estable — misma instancia que useAuth
+const supabase = crearClienteNavegador()
+
 function ProveedorEmpresa({ children }: { children: ReactNode }) {
   const { usuario, sesion } = useAuth()
   const [empresa, setEmpresa] = useState<Empresa | null>(null)
   const [empresas, setEmpresas] = useState<EmpresaConRol[]>([])
   const [cargando, setCargando] = useState(true)
 
-  const supabase = crearClienteNavegador()
+  // Extraer empresa_activa_id del JWT para usarlo como dependencia estable
+  // (evita re-cargar empresas cada vez que la sesión se refresca sin cambios)
+  const empresaActivaId = sesion?.user?.app_metadata?.empresa_activa_id as string | undefined
 
   // Cargar empresa activa y lista de empresas
   useEffect(() => {
@@ -74,7 +79,6 @@ function ProveedorEmpresa({ children }: { children: ReactNode }) {
         setEmpresas(listaEmpresas)
 
         // Setear empresa activa desde JWT
-        const empresaActivaId = sesion?.user?.app_metadata?.empresa_activa_id
         if (empresaActivaId) {
           const activa = listaEmpresas.find(e => e.id === empresaActivaId)
           setEmpresa(activa || null)
@@ -85,7 +89,8 @@ function ProveedorEmpresa({ children }: { children: ReactNode }) {
     }
 
     cargar()
-  }, [usuario, sesion, supabase])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usuario?.id, empresaActivaId])
 
   const cambiarEmpresa = useCallback(async (empresaId: string) => {
     const respuesta = await fetch('/api/empresas/cambiar', {
@@ -108,7 +113,7 @@ function ProveedorEmpresa({ children }: { children: ReactNode }) {
     if (nueva) setEmpresa(nueva)
 
     return {}
-  }, [empresas, supabase])
+  }, [empresas])
 
   return (
     <ContextoEmpresaInterno.Provider value={{

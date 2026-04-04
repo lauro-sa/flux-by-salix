@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   MessagesSquare, Zap, Bell,
@@ -18,6 +18,7 @@ import {
 } from '@/hooks/useNotificaciones'
 import { useModoConcentracion } from '@/hooks/useModoConcentracion'
 import { RecordatoriosHeader } from './RecordatoriosHeader'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 
 /**
  * NotificacionesHeader — Los 3 íconos de notificaciones del header + botón silenciar.
@@ -96,67 +97,81 @@ function tiempoRelativo(fecha: string): string {
   return new Date(fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
 }
 
-/** Agrupar notificaciones por referencia_id (misma conversación) */
-function agruparNotificaciones(notificaciones: Notificacion[]): { ultima: Notificacion; cantidad: number; ids: string[]; todas: Notificacion[] }[] {
-  const mapa = new Map<string, { ultima: Notificacion; cantidad: number; ids: string[]; todas: Notificacion[] }>()
+/** Agrupar notificaciones por referencia_id (misma conversación).
+ *  Solo muestra grupos que tengan al menos 1 no leída.
+ *  El badge y "+N más" cuentan solo las no leídas del grupo. */
+function agruparNotificaciones(notificaciones: Notificacion[]) {
+  const mapa = new Map<string, { ultima: Notificacion; ids: string[]; noLeidas: Notificacion[] }>()
 
   for (const n of notificaciones) {
     const clave = n.referencia_id || n.id
     const existente = mapa.get(clave)
     if (existente) {
-      existente.cantidad += 1
       existente.ids.push(n.id)
-      existente.todas.push(n)
-      if (n.creada_en > existente.ultima.creada_en) {
-        existente.ultima = n
+      if (!n.leida) {
+        existente.noLeidas.push(n)
+        if (n.creada_en > existente.ultima.creada_en) existente.ultima = n
       }
     } else {
-      mapa.set(clave, { ultima: n, cantidad: 1, ids: [n.id], todas: [n] })
+      mapa.set(clave, {
+        ultima: n,
+        ids: [n.id],
+        noLeidas: n.leida ? [] : [n],
+      })
     }
   }
 
-  return [...mapa.values()]
+  // Solo mostrar grupos con al menos 1 notificación no leída
+  return [...mapa.values()].filter((g) => g.noLeidas.length > 0)
+}
+
+function renderizarIconoNotificacion(tipo: string, color: string, cantidad: number) {
+  const esWhatsApp = tipo === 'mensaje_whatsapp' || tipo === 'nuevo_mensaje'
+  const IconoComp = ICONOS_TIPO[tipo] || Bell
+
+  return (
+    <div className="relative shrink-0">
+      <div
+        className="size-8 rounded-lg flex items-center justify-center"
+        style={{ backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)` }}
+      >
+        {esWhatsApp
+          ? <IconoWhatsApp size={16} style={{ color }} />
+          : <IconoComp size={16} style={{ color }} />
+        }
+      </div>
+      {cantidad > 1 && (
+        <span
+          className="absolute -top-1 -right-1 flex items-center justify-center min-w-[16px] h-4 px-0.5 rounded-full text-xxs font-bold text-white"
+          style={{ backgroundColor: color }}
+        >
+          {cantidad}
+        </span>
+      )}
+    </div>
+  )
 }
 
 function notificacionAItem(
-  n: Notificacion,
-  cantidad: number,
-  ids: string[],
-  todas: Notificacion[],
+  grupo: { ultima: Notificacion; ids: string[]; noLeidas: Notificacion[] },
   onClickItem: (n: Notificacion, ids: string[]) => void,
 ): ItemNotificacion {
-  const IconoComp = ICONOS_TIPO[n.tipo] || Bell
+  const { ultima: n, ids, noLeidas } = grupo
+  const cantidad = noLeidas.length
   const color = COLORES_TIPO[n.tipo] || 'var(--texto-terciario)'
   return {
     id: n.id,
-    icono: (
-      <div className="relative shrink-0">
-        <div
-          className="size-8 rounded-lg flex items-center justify-center"
-          style={{ backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)` }}
-        >
-          <IconoComp size={16} style={{ color }} />
-        </div>
-        {cantidad > 1 && (
-          <span
-            className="absolute -top-1 -right-1 flex items-center justify-center min-w-[16px] h-4 px-0.5 rounded-full text-xxs font-bold text-white"
-            style={{ backgroundColor: color }}
-          >
-            {cantidad}
-          </span>
-        )}
-      </div>
-    ),
+    icono: renderizarIconoNotificacion(n.tipo, color, cantidad),
     titulo: n.titulo,
     descripcion: cantidad > 1
       ? `${n.cuerpo || ''} · +${cantidad - 1} más`.replace(/^ · /, '')
       : (n.cuerpo || undefined),
     tiempo: tiempoRelativo(n.creada_en),
-    leida: n.leida,
+    leida: false,
     onClick: () => onClickItem(n, ids),
     datos: { ids },
     subItems: cantidad > 1
-      ? todas.map((sub) => ({
+      ? noLeidas.map((sub) => ({
           id: sub.id,
           titulo: sub.titulo,
           descripcion: sub.cuerpo || undefined,
@@ -208,10 +223,81 @@ const POPOVERS: ConfigPopover[] = [
 
 /* ─── Componente ─── */
 
+/* ─── Pestañas del Inbox ─── */
+
+type FiltroInbox = 'todo' | 'whatsapp' | 'correo' | 'interno'
+
+const TIPOS_POR_FILTRO: Record<FiltroInbox, string[] | null> = {
+  todo: null,
+  whatsapp: ['mensaje_whatsapp', 'nuevo_mensaje'],
+  correo: ['mensaje_correo'],
+  interno: ['mensaje_interno', 'mencion'],
+}
+
+const PESTANAS_INBOX: { clave: FiltroInbox; etiqueta: string }[] = [
+  { clave: 'todo', etiqueta: 'Todo' },
+  { clave: 'whatsapp', etiqueta: 'WhatsApp' },
+  { clave: 'correo', etiqueta: 'Correo' },
+  { clave: 'interno', etiqueta: 'Interno' },
+]
+
+function PestanasInbox({
+  activa,
+  onChange,
+  conteos,
+}: {
+  activa: FiltroInbox
+  onChange: (f: FiltroInbox) => void
+  conteos: Record<FiltroInbox, number>
+}) {
+  return (
+    <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-borde-sutil">
+      {PESTANAS_INBOX.map(({ clave, etiqueta }) => {
+        const esActiva = activa === clave
+        const conteo = conteos[clave]
+        return (
+          <button
+            key={clave}
+            onClick={() => onChange(clave)}
+            className={[
+              'relative flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border-none cursor-pointer transition-colors',
+              esActiva
+                ? 'bg-superficie-hover text-texto-primario'
+                : 'bg-transparent text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover/50',
+            ].join(' ')}
+          >
+            {clave === 'whatsapp' && (
+              <IconoWhatsApp size={12} className={esActiva ? 'text-[var(--canal-whatsapp)]' : ''} />
+            )}
+            {clave === 'correo' && (
+              <Mail size={12} strokeWidth={1.75} className={esActiva ? 'text-[var(--canal-correo)]' : ''} />
+            )}
+            {clave === 'interno' && (
+              <MessageSquare size={12} strokeWidth={1.75} className={esActiva ? 'text-[var(--canal-interno)]' : ''} />
+            )}
+            {etiqueta}
+            {conteo > 0 && (
+              <span className={[
+                'inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-xxs font-bold',
+                esActiva ? 'bg-texto-marca text-white' : 'bg-superficie-hover text-texto-terciario',
+              ].join(' ')}>
+                {conteo > 99 ? '99+' : conteo}
+              </span>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ─── Componente principal ─── */
+
 function NotificacionesHeader() {
   const router = useRouter()
   const { estaSilenciada } = useModoConcentracion()
   const [popoverAbierto, setPopoverAbierto] = useState<string | null>(null)
+  const [filtroInbox, setFiltroInbox] = useState<FiltroInbox>('todo')
 
   const {
     porCategoria,
@@ -223,12 +309,25 @@ function NotificacionesHeader() {
   } = useNotificaciones({ estaSilenciada })
 
   const handleClickItem = useCallback((n: Notificacion, idsGrupo?: string[]) => {
-    // Marcar todas las del grupo como leídas
     const ids = idsGrupo && idsGrupo.length > 0 ? idsGrupo : [n.id]
     marcarLeidas(ids)
     setPopoverAbierto(null)
     if (n.url) router.push(n.url)
   }, [marcarLeidas, router])
+
+  /* Conteos de no leídas por sub-filtro del inbox */
+  const itemsInbox = porCategoria('inbox')
+  const conteosInbox = useMemo(() => {
+    const c: Record<FiltroInbox, number> = { todo: 0, whatsapp: 0, correo: 0, interno: 0 }
+    for (const n of itemsInbox) {
+      if (n.leida) continue
+      c.todo++
+      for (const [filtro, tipos] of Object.entries(TIPOS_POR_FILTRO)) {
+        if (tipos && tipos.includes(n.tipo)) c[filtro as FiltroInbox]++
+      }
+    }
+    return c
+  }, [itemsInbox])
 
   return (
     <div className="flex items-center gap-0.5">
@@ -238,11 +337,17 @@ function NotificacionesHeader() {
         const Icono = config.icono
         const silenciada = estaSilenciada(config.categoria)
 
+        /* Filtrar por pestaña si es inbox */
+        const tiposFiltro = config.categoria === 'inbox' ? TIPOS_POR_FILTRO[filtroInbox] : null
+        const itemsFiltrados = tiposFiltro
+          ? items.filter((n) => tiposFiltro.includes(n.tipo))
+          : items
+
         /* Agrupar por conversación/referencia para no mostrar un choclo */
-        const grupos = agruparNotificaciones(items)
+        const grupos = agruparNotificaciones(itemsFiltrados)
         const itemsMapeados: ItemNotificacion[] = grupos
           .slice(0, 20)
-          .map((g) => notificacionAItem(g.ultima, g.cantidad, g.ids, g.todas, handleClickItem))
+          .map((g) => notificacionAItem(g, handleClickItem))
 
         return (
           <Popover
@@ -254,27 +359,36 @@ function NotificacionesHeader() {
             offset={10}
             tituloMovil={config.titulo}
             contenido={
-              <PanelNotificaciones
-                titulo={config.titulo}
-                iconoTitulo={<Icono size={15} strokeWidth={1.75} className="text-texto-terciario" />}
-                items={itemsMapeados}
-                noLeidas={noLeidas}
-                cargando={cargando}
-                onMarcarTodasLeidas={() => marcarTodasLeidas(config.categoria)}
-                onDescartar={descartar}
-                textoVacio={config.textoVacio}
-                iconoVacio={<Icono size={32} strokeWidth={1.2} className="text-texto-terciario/40" />}
-                pie={
-                  <Boton
-                    variante="fantasma"
-                    tamano="xs"
-                    onClick={() => { setPopoverAbierto(null); router.push(config.rutaVerTodo) }}
-                    className="w-full"
-                  >
-                    {config.etiquetaVerTodo} →
-                  </Boton>
-                }
-              />
+              <>
+                {config.categoria === 'inbox' && (
+                  <PestanasInbox
+                    activa={filtroInbox}
+                    onChange={setFiltroInbox}
+                    conteos={conteosInbox}
+                  />
+                )}
+                <PanelNotificaciones
+                  titulo={config.titulo}
+                  iconoTitulo={<Icono size={15} strokeWidth={1.75} className="text-texto-terciario" />}
+                  items={itemsMapeados}
+                  noLeidas={config.categoria === 'inbox' ? conteosInbox[filtroInbox] : noLeidas}
+                  cargando={cargando}
+                  onMarcarTodasLeidas={() => marcarTodasLeidas(config.categoria)}
+                  onDescartar={descartar}
+                  textoVacio={config.textoVacio}
+                  iconoVacio={<Icono size={32} strokeWidth={1.2} className="text-texto-terciario/40" />}
+                  pie={
+                    <Boton
+                      variante="fantasma"
+                      tamano="xs"
+                      onClick={() => { setPopoverAbierto(null); router.push(config.rutaVerTodo) }}
+                      className="w-full"
+                    >
+                      {config.etiquetaVerTodo} →
+                    </Boton>
+                  }
+                />
+              </>
             }
           >
             <span className="relative">

@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
           // Buscar canal por phoneNumberId
           const { data: canal } = await admin
             .from('canales_inbox')
-            .select('id, empresa_id, config_conexion')
+            .select('id, empresa_id, config_conexion, nombre')
             .eq('tipo', 'whatsapp')
             .contains('config_conexion', { phoneNumberId })
             .limit(1)
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
 
 async function procesarMensajeEntrante(
   admin: ReturnType<typeof crearAdmin>,
-  canal: { id: string; empresa_id: string; config_conexion: unknown },
+  canal: { id: string; empresa_id: string; config_conexion: unknown; nombre?: string },
   msg: MensajeEntranteMeta,
   contactoMeta?: { profile: { name: string }; wa_id: string },
 ) {
@@ -440,10 +440,11 @@ async function procesarMensajeEntrante(
 
     const contactoNombre = convActual?.contacto_nombre || nombreRemitente
     const preview = textoPreviewMensaje(msg)
+    const canalNombre = canal.nombre || ''
     const datosNotif = {
       tipo: 'mensaje_whatsapp',
-      titulo: `💬 Mensaje de ${contactoNombre}`,
-      cuerpo: preview.slice(0, 120),
+      titulo: `💬 ${contactoNombre}`,
+      cuerpo: (canalNombre ? `WhatsApp · ${canalNombre} · ` : 'WhatsApp · ') + preview.slice(0, 120),
       icono: 'MessageSquare',
       color: 'var(--canal-whatsapp)',
       url: `/inbox?conv=${conversacion.id}`,
@@ -760,7 +761,7 @@ async function transcribirAudio(
 
 async function descargarYGuardarMedia(
   admin: ReturnType<typeof crearAdmin>,
-  canal: { id: string; empresa_id: string; config_conexion: unknown },
+  canal: { id: string; empresa_id: string; config_conexion: unknown; nombre?: string },
   msg: MensajeEntranteMeta,
   mensajeId: string,
 ) {
@@ -1016,7 +1017,7 @@ interface PalabraClaveBot {
  */
 async function procesarChatbot(
   admin: ReturnType<typeof crearAdmin>,
-  canal: { id: string; empresa_id: string; config_conexion: unknown },
+  canal: { id: string; empresa_id: string; config_conexion: unknown; nombre?: string },
   conversacionId: string,
   telefono: string,
   textoCliente: string,

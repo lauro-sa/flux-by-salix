@@ -157,6 +157,15 @@ async function sincronizarGmail(
   const empresaId = canal.empresa_id as string
   const canalId = canal.id as string
   const emailCanal = config.email
+  const canalNombre = (canal.nombre as string) || emailCanal
+
+  // Pre-cargar admins una sola vez para toda la sincronización (evita N queries)
+  const { data: adminsCache } = await admin
+    .from('miembros')
+    .select('usuario_id')
+    .eq('empresa_id', empresaId)
+    .in('rol', ['propietario', 'administrador'])
+    .eq('activo', true)
 
   let mensajesNuevos = 0
   let nuevoHistoryId = cursor.historyId
@@ -173,7 +182,7 @@ async function sincronizarGmail(
       for (const msgId of cambios.mensajesAgregados) {
         try {
           const correo = await obtenerMensajeCompleto(config.refresh_token, msgId)
-          const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal)
+          const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal, false, undefined, canalNombre)
           if (procesado) mensajesNuevos++
         } catch (err) {
           console.error(`Error procesando mensaje ${msgId}:`, err)
@@ -216,6 +225,7 @@ async function sincronizarGmailCompleto(
   const empresaId = canal.empresa_id as string
   const canalId = canal.id as string
   const emailCanal = config.email
+  const canalNombre = (canal.nombre as string) || emailCanal
 
   // Obtener historyId actual
   const perfil = await obtenerPerfilGmail(config.refresh_token)
@@ -235,7 +245,7 @@ async function sincronizarGmailCompleto(
   for (const msg of resultadoInbox.mensajes) {
     try {
       const correo = await obtenerMensajeCompleto(config.refresh_token, msg.id)
-      const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal, esSyncInicialGmail)
+      const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal, esSyncInicialGmail, undefined, canalNombre)
       if (procesado) mensajesNuevos++
     } catch (err) {
       console.error(`Error procesando mensaje ${msg.id}:`, err)
@@ -247,7 +257,7 @@ async function sincronizarGmailCompleto(
   for (const msg of resultadoSent.mensajes) {
     try {
       const correo = await obtenerMensajeCompleto(config.refresh_token, msg.id)
-      const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal, esSyncInicialGmail)
+      const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal, esSyncInicialGmail, undefined, canalNombre)
       if (procesado) mensajesNuevos++
     } catch (err) {
       console.error(`Error procesando mensaje enviado ${msg.id}:`, err)
@@ -285,7 +295,16 @@ async function sincronizarIMAP(
   const empresaId = canal.empresa_id as string
   const canalId = canal.id as string
   const emailCanal = config.usuario
+  const canalNombre = (canal.nombre as string) || emailCanal
   const esSyncInicial = !cursor.ultimoUID || cursor.ultimoUID === 0
+
+  // Pre-cargar admins una sola vez para toda la sincronización IMAP
+  const { data: adminsCacheImap } = await admin
+    .from('miembros')
+    .select('usuario_id')
+    .eq('empresa_id', empresaId)
+    .in('rol', ['propietario', 'administrador'])
+    .eq('activo', true)
 
   let mensajesNuevos = 0
   let ultimoUIDInbox = cursor.ultimoUID || 0
@@ -332,6 +351,7 @@ async function sincronizarIMAP(
           const procesado = await procesarCorreoEntrante(
             admin, correo, empresaId, canalId, emailCanal, esSyncInicial,
             carpeta.estado === 'spam' ? 'spam' : undefined,
+            canalNombre, adminsCacheImap || undefined,
           )
           if (procesado) mensajesNuevos++
         } catch (err) {
@@ -383,6 +403,8 @@ async function procesarCorreoEntrante(
   emailCanal: string,
   syncInicial = false,
   estadoForzado?: 'spam',
+  canalNombre?: string,
+  adminsCache?: { usuario_id: string }[],
 ): Promise<boolean> {
   // 1. Deduplicar por correo_message_id
   if (correo.messageId) {
@@ -544,8 +566,8 @@ async function procesarCorreoEntrante(
         const { crearNotificacion, crearNotificacionesBatch } = await import('@/lib/notificaciones')
         const datosNotif = {
           tipo: 'mensaje_correo',
-          titulo: `📩 Nuevo correo de ${contactoNombre}`,
-          cuerpo: previewTexto.slice(0, 120) || correo.asunto,
+          titulo: `📩 ${contactoNombre}`,
+          cuerpo: (canalNombre ? `Correo · ${canalNombre} · ` : 'Correo · ') + (previewTexto.slice(0, 120) || correo.asunto),
           icono: 'Mail',
           color: 'var(--canal-correo)',
           url: `/inbox?conv=${conversacionId}`,
@@ -556,13 +578,14 @@ async function procesarCorreoEntrante(
         if (convActual.asignado_a) {
           await crearNotificacion({ empresaId, usuarioId: convActual.asignado_a, ...datosNotif })
         } else {
-          // Sin asignado → notificar a admins/propietarios
-          const { data: admins } = await admin
+          // Sin asignado → notificar a admins/propietarios (usar cache si disponible)
+          const admins = adminsCache ?? (await admin
             .from('miembros')
             .select('usuario_id')
             .eq('empresa_id', empresaId)
             .in('rol', ['propietario', 'administrador'])
             .eq('activo', true)
+          ).data
 
           if (admins && admins.length > 0) {
             await crearNotificacionesBatch(admins.map(a => ({ empresaId, usuarioId: a.usuario_id, ...datosNotif })))
