@@ -40,7 +40,7 @@ function Tabs({ tabs, activo, onChange, className = '', layoutId = 'tab-indicato
             ].join(' ')}
           >
             {tab.icono}
-            <span className="hidden sm:inline">{tab.etiqueta}</span>
+            <span className={esActivo ? 'inline' : 'hidden sm:inline'}>{tab.etiqueta}</span>
             {tab.contador !== undefined && (
               <span className={`text-xs px-1.5 py-0.5 rounded-full ${esActivo ? 'bg-insignia-primario-fondo text-insignia-primario-texto' : 'bg-superficie-hover text-texto-terciario'}`}>
                 {tab.contador}

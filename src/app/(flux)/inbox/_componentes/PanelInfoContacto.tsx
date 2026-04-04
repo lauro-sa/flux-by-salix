@@ -8,7 +8,7 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import {
   X, Phone, Mail, Hash, MapPin, Building2, Briefcase,
-  ExternalLink, FileText, Image, Play, ChevronDown, ChevronUp,
+  ExternalLink, FileText, Image, Play, ChevronDown, ChevronUp, ChevronLeft,
   Link2, Download, UserCheck, Trash2, Clock,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
@@ -27,6 +27,8 @@ interface PropiedadesPanelInfo {
   abierto: boolean
   onCerrar: () => void
   onAbrirVisor?: (url: string) => void
+  /** Modo móvil: se muestra como vista completa con botón atrás */
+  esMovil?: boolean
 }
 
 interface DatosContacto {
@@ -56,7 +58,7 @@ interface ConversacionHistorial {
 
 type TabMedia = 'fotos' | 'documentos' | 'enlaces'
 
-export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, onAbrirVisor }: PropiedadesPanelInfo) {
+export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, onAbrirVisor, esMovil }: PropiedadesPanelInfo) {
   const [contacto, setContacto] = useState<DatosContacto | null>(null)
   const [historial, setHistorial] = useState<ConversacionHistorial[]>([])
   const [cargandoHistorial, setCargandoHistorial] = useState(false)
@@ -213,38 +215,27 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
   const totalDocs = medios.documentos.length
   const totalEnlaces = medios.enlaces.length
 
-  return (
-    <AnimatePresence>
-      {abierto && (
-        <motion.div
-          initial={{ width: 0, opacity: 0 }}
-          animate={{ width: 320, opacity: 1 }}
-          exit={{ width: 0, opacity: 0 }}
-          transition={{ duration: 0.2, ease: 'easeInOut' }}
-          className="h-full overflow-hidden flex-shrink-0"
-          style={{
-            borderLeft: '1px solid var(--borde-sutil)',
-            background: 'var(--superficie-tarjeta)',
-          }}
-        >
-          <div className="h-full overflow-y-auto">
-            {/* Header */}
-            <div
-              className="flex items-center justify-between p-3"
-              style={{ borderBottom: '1px solid var(--borde-sutil)' }}
-            >
-              <span className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
-                Info del contacto
-              </span>
-              <Boton
-                variante="fantasma"
-                tamano="xs"
-                soloIcono
-                titulo="Cerrar"
-                icono={<X size={16} />}
-                onClick={onCerrar}
-              />
-            </div>
+  // Contenido compartido entre móvil y desktop
+  const contenidoPanel = (
+    <>
+      {/* Header */}
+      <div
+        className="flex items-center justify-between p-3 sticky top-0 z-10"
+        style={{ borderBottom: '1px solid var(--borde-sutil)', background: 'var(--superficie-tarjeta)' }}
+      >
+        {esMovil ? (
+          <Boton variante="fantasma" tamano="sm" icono={<ChevronLeft size={20} />} onClick={onCerrar} className="min-h-[44px]">
+            Volver
+          </Boton>
+        ) : (
+          <span className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+            Info del contacto
+          </span>
+        )}
+        {!esMovil && (
+          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Cerrar" icono={<X size={16} />} onClick={onCerrar} />
+        )}
+      </div>
 
             {!conversacion?.contacto_id ? (
               <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
@@ -571,6 +562,35 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
                 )}
               </div>
             </div>
+    </>
+  )
+
+  // Móvil: vista completa sin animación de ancho
+  if (esMovil) {
+    return (
+      <div className="h-full overflow-y-auto" style={{ background: 'var(--superficie-tarjeta)' }}>
+        {contenidoPanel}
+      </div>
+    )
+  }
+
+  // Desktop: panel lateral animado
+  return (
+    <AnimatePresence>
+      {abierto && (
+        <motion.div
+          initial={{ width: 0, opacity: 0 }}
+          animate={{ width: 320, opacity: 1 }}
+          exit={{ width: 0, opacity: 0 }}
+          transition={{ duration: 0.2, ease: 'easeInOut' }}
+          className="h-full overflow-hidden flex-shrink-0"
+          style={{
+            borderLeft: '1px solid var(--borde-sutil)',
+            background: 'var(--superficie-tarjeta)',
+          }}
+        >
+          <div className="h-full overflow-y-auto">
+            {contenidoPanel}
           </div>
         </motion.div>
       )}

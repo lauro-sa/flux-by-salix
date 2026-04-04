@@ -40,6 +40,8 @@ interface PropiedadesSidebarCorreo {
   canalTodas?: boolean
   onSeleccionarTodas?: () => void
   colapsado?: boolean
+  /** Modo móvil: items más grandes para zona táctil */
+  esMovil?: boolean
 }
 
 /** Claves i18n se resuelven en render con t() */
@@ -64,6 +66,7 @@ export function SidebarCorreo({
   canalTodas = false,
   onSeleccionarTodas,
   colapsado = false,
+  esMovil = false,
 }: PropiedadesSidebarCorreo) {
   const { t } = useTraduccion()
   const { preferencias, guardar: guardarPreferencia } = usePreferencias()
@@ -198,14 +201,19 @@ export function SidebarCorreo({
     }
   }
 
+  // Tamaños adaptativos según móvil o desktop
+  const tamanoBtn = esMovil ? 'md' as const : 'sm' as const
+  const claseTexto = esMovil ? 'text-sm' : 'text-xs'
+  const claseTextoChico = esMovil ? 'text-xs' : 'text-xxs'
+
   return (
     <div className="flex flex-col h-full">
       {/* Redactar */}
-      <div className={`${colapsado ? 'p-1.5 flex flex-col items-center' : 'p-3'}`}>
+      <div className={`${colapsado ? 'p-1.5 flex flex-col items-center' : esMovil ? 'p-4' : 'p-3'}`}>
         {colapsado ? (
           <Boton variante="primario" tamano="sm" soloIcono titulo="Redactar" icono={<Pen size={16} />} onClick={onRedactar} />
         ) : (
-          <Boton variante="primario" tamano="sm" icono={<Pen size={14} />} onClick={onRedactar} className="w-full">
+          <Boton variante="primario" tamano={tamanoBtn} icono={<Pen size={esMovil ? 16 : 14} />} onClick={onRedactar} className="w-full">
             {t('inbox.redactar')}
           </Boton>
         )}
@@ -240,14 +248,14 @@ export function SidebarCorreo({
           <>
             {/* Todas las cuentas */}
             {mostrarTodas && canales.length > 1 && (
-              <div className="mb-2">
+              <div className={esMovil ? 'mb-3' : 'mb-2'}>
                 <Boton
                   variante="fantasma"
-                  tamano="sm"
+                  tamano={tamanoBtn}
                   anchoCompleto
-                  icono={<Mail size={14} />}
+                  icono={<Mail size={esMovil ? 18 : 14} />}
                   onClick={onSeleccionarTodas}
-                  className="text-xs font-semibold"
+                  className={`${claseTexto} font-semibold`}
                   style={{
                     color: canalTodas ? 'var(--texto-marca)' : 'var(--texto-secundario)',
                     background: canalTodas ? 'var(--superficie-seleccionada)' : 'transparent',
@@ -272,25 +280,25 @@ export function SidebarCorreo({
               const estaActiva = canalActivo === canal.id && !canalTodas
 
               return (
-                <Reorder.Item key={canal.id} value={canal.id} className="mb-1 list-none">
+                <Reorder.Item key={canal.id} value={canal.id} className={`${esMovil ? 'mb-2' : 'mb-1'} list-none`}>
                   <Boton
                     variante="fantasma"
-                    tamano="sm"
+                    tamano={tamanoBtn}
                     anchoCompleto
                     onClick={() => {
                       toggleCuenta(canal.id)
                       onSeleccionarCanal(canal.id)
                     }}
-                    className="text-xs group"
+                    className={`${claseTexto} group`}
                   >
-                    <span className="flex items-center gap-1.5 w-full">
-                      <GripVertical size={10} className="cursor-grab opacity-30 sm:opacity-0 group-hover:opacity-50 transition-opacity" style={{ color: 'var(--texto-terciario)' }} />
+                    <span className={`flex items-center ${esMovil ? 'gap-2.5' : 'gap-1.5'} w-full`}>
+                      {!esMovil && <GripVertical size={10} className="cursor-grab opacity-30 sm:opacity-0 group-hover:opacity-50 transition-opacity" style={{ color: 'var(--texto-terciario)' }} />}
                       {expandida ? (
-                        <ChevronDown size={10} style={{ color: 'var(--texto-terciario)' }} />
+                        <ChevronDown size={esMovil ? 14 : 10} style={{ color: 'var(--texto-terciario)' }} />
                       ) : (
-                        <ChevronRight size={10} style={{ color: 'var(--texto-terciario)' }} />
+                        <ChevronRight size={esMovil ? 14 : 10} style={{ color: 'var(--texto-terciario)' }} />
                       )}
-                      <span className="flex-1 text-left font-semibold truncate text-xxs uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
+                      <span className={`flex-1 text-left font-semibold truncate ${esMovil ? 'text-xs' : 'text-xxs'} uppercase tracking-wider`} style={{ color: 'var(--texto-terciario)' }}>
                         {canal.nombre}
                       </span>
                     </span>
@@ -312,13 +320,13 @@ export function SidebarCorreo({
                             <Boton
                               key={carpeta.clave}
                               variante="fantasma"
-                              tamano="sm"
+                              tamano={tamanoBtn}
                               anchoCompleto
                               onClick={() => {
                                 onSeleccionarCanal(canal.id)
                                 onSeleccionarCarpeta(carpeta.clave)
                               }}
-                              className="pl-6 pr-2.5 text-xs"
+                              className={`${esMovil ? 'pl-8 pr-3' : 'pl-6 pr-2.5'} ${claseTexto}`}
                               style={{
                                 color: activa ? 'var(--texto-marca)' : 'var(--texto-secundario)',
                                 background: activa ? 'var(--superficie-seleccionada)' : 'transparent',
@@ -333,7 +341,7 @@ export function SidebarCorreo({
                                 {/* Mostrar total de la carpeta + sin leer si hay */}
                                 {total > 0 && (
                                   <span
-                                    className="text-xxs px-1.5 py-0.5 rounded-full font-medium"
+                                    className={`${claseTextoChico} px-1.5 py-0.5 rounded-full font-medium`}
                                     style={{
                                       background: sinLeer > 0
                                         ? (carpeta.clave === 'spam' ? 'var(--insignia-advertencia-fondo, rgba(234, 179, 8, 0.15))' : 'var(--insignia-peligro)')

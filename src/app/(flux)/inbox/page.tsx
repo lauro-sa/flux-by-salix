@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { sonidos } from '@/hooks/useSonido'
+import { useEsMovil } from '@/hooks/useEsMovil'
 import { ErrorBoundary } from '@/componentes/feedback/ErrorBoundary'
 import { ListaConversaciones } from './_componentes/ListaConversaciones'
 import { PanelWhatsApp, VisorMedia, type MediaVisor } from './_componentes/PanelWhatsApp'
@@ -150,6 +151,35 @@ function PaginaInbox() {
       return nuevo
     })
   }, [])
+
+  // ─── Responsive: detección móvil + vista activa ───
+  const esMovil = useEsMovil()
+
+  // Vista móvil: qué pantalla se muestra en cada canal
+  type VistaMovilWA = 'lista' | 'chat' | 'info'
+  type VistaMovilCorreo = 'sidebar' | 'lista' | 'correo'
+  type VistaMovilInterno = 'canales' | 'chat'
+
+  const [vistaMovilWA, setVistaMovilWA] = useState<VistaMovilWA>('lista')
+  const [vistaMovilCorreo, setVistaMovilCorreo] = useState<VistaMovilCorreo>('sidebar')
+  const [vistaMovilInterno, setVistaMovilInterno] = useState<VistaMovilInterno>('canales')
+
+  // Al seleccionar conversación en móvil, avanzar a la vista de chat/correo
+  const seleccionarConversacionMovil = useCallback((id: string) => {
+    // La selección real se delega a seleccionarConversacion (definida después)
+    // Aquí solo manejamos la navegación de vista
+    if (esMovil) {
+      if (tabActivo === 'whatsapp') setVistaMovilWA('chat')
+      else if (tabActivo === 'correo') setVistaMovilCorreo('correo')
+    }
+  }, [esMovil, tabActivo])
+
+  // Reset de vistas móviles cuando cambia de tab
+  useEffect(() => {
+    setVistaMovilWA('lista')
+    setVistaMovilCorreo('sidebar')
+    setVistaMovilInterno('canales')
+  }, [tabActivo])
 
   // Visor de media fullscreen (compartido entre PanelWhatsApp y PanelInfoContacto)
   const [visorAbierto, setVisorAbierto] = useState(false)
@@ -539,6 +569,12 @@ function PaginaInbox() {
     setConversacionSeleccionada(conv)
     if (!conv) return
 
+    // Navegar a vista de chat en móvil
+    if (esMovil) {
+      if (tabActivo === 'whatsapp') setVistaMovilWA('chat')
+      else if (tabActivo === 'correo') setVistaMovilCorreo('correo')
+    }
+
     // Marcar notificaciones de esta conversación como leídas
     marcarNotificacionesLeidasDeConversacion(id)
 
@@ -557,7 +593,7 @@ function PaginaInbox() {
     } finally {
       setCargandoMensajes(false)
     }
-  }, [conversaciones, marcarNotificacionesLeidasDeConversacion])
+  }, [conversaciones, marcarNotificacionesLeidasDeConversacion, esMovil, tabActivo])
 
   // Cargar mensajes anteriores (scroll infinito)
   const cargarMensajesAnteriores = useCallback(async () => {
@@ -1235,226 +1271,70 @@ function PaginaInbox() {
 
       {/* Contenido principal */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* ─── CORREO: layout tipo cliente de email (sidebar | lista | contenido) ─── */}
+        {/* ─── CORREO: layout responsivo (sidebar | lista | contenido) ─── */}
         {tabActivo === 'correo' && (
           <>
-            {/* Columna 1: Sidebar cuentas + carpetas (con su toggle arriba) */}
-            <div
-              className="flex flex-col flex-shrink-0 transition-all duration-200 h-full overflow-hidden"
-              style={{
-                width: sidebarCorreoColapsado ? 48 : 224,
-                borderRight: '1px solid var(--borde-sutil)',
-                background: 'var(--superficie-sidebar, var(--superficie-tarjeta))',
-              }}
-            >
-              {/* Toggle del sidebar */}
-              <div className="flex items-center justify-center h-9 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
-                <Boton variante="fantasma" tamano="xs" soloIcono titulo="Alternar panel" icono={sidebarCorreoColapsado ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />} onClick={toggleSidebarCorreo} />
-              </div>
-              {/* Contenido del sidebar */}
-              <div className="flex-1 overflow-hidden">
-                <SidebarCorreo
-                  canales={canalesCorreo}
-                  canalActivo={canalCorreoActivo}
-                  carpetaActiva={carpetaCorreo}
-                  colapsado={sidebarCorreoColapsado}
-                  onSeleccionarCanal={(id) => {
-                    setCanalCorreoActivo(id)
-                    setCanalTodas(false)
-                    setConversacionSeleccionada(null)
-                    setMensajes([])
-                  }}
-                  onSeleccionarCarpeta={(carpeta) => {
-                    setCarpetaCorreo(carpeta)
-                    setConversacionSeleccionada(null)
-                    setMensajes([])
-                  }}
-                  onRedactar={() => {
-                    setConversacionSeleccionada(null)
-                    setMensajes([])
-                    setRedactandoNuevo(true)
-                  }}
-                  contadores={contadoresCorreo}
-                  canalTodas={canalTodas}
-                  onSeleccionarTodas={() => {
-                    setCanalTodas(true)
-                    setCanalCorreoActivo('')
-                    setConversacionSeleccionada(null)
-                    setMensajes([])
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* ─── Panel principal: depende del modo de vista ─── */}
-            {modoVista === 'columna' ? (
+            {/* ─── MÓVIL: vistas una a la vez ─── */}
+            {esMovil ? (
               <>
-                {/* MODO COLUMNA: lista | correo (2 paneles separados) */}
-                <div
-                  className="flex flex-col flex-shrink-0 transition-all duration-200 h-full overflow-hidden"
-                  style={{ width: listaCorreoColapsada ? 40 : 320, borderRight: '1px solid var(--borde-sutil)' }}
-                >
-                  <div className="flex items-center justify-between px-2 h-9 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
-                    <Boton variante="fantasma" tamano="xs" soloIcono titulo="Alternar lista" icono={listaCorreoColapsada ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />} onClick={toggleListaCorreo} />
-                    {/* Selector de vista */}
-                    <div className="flex items-center gap-0.5 rounded-md p-0.5" style={{ background: 'var(--superficie-hover)' }}>
-                      <Boton
-                        variante="fantasma"
-                        tamano="xs"
-                        soloIcono
-                        icono={<Columns2 size={12} />}
-                        onClick={() => cambiarModoVista('columna')}
-                        titulo="Vista columna"
-                        style={{ color: 'var(--texto-marca)', background: 'var(--superficie-seleccionada)' }}
-                      />
-                      <Boton
-                        variante="fantasma"
-                        tamano="xs"
-                        soloIcono
-                        icono={<Rows2 size={12} />}
-                        onClick={() => cambiarModoVista('fila')}
-                        titulo="Vista fila"
-                        style={{ color: 'var(--texto-terciario)' }}
-                      />
-                    </div>
+                {/* Vista 1: Sidebar de cuentas y carpetas */}
+                {vistaMovilCorreo === 'sidebar' && (
+                  <div className="flex-1 flex flex-col h-full overflow-y-auto" style={{ background: 'var(--superficie-sidebar, var(--superficie-tarjeta))' }}>
+                    <SidebarCorreo
+                      canales={canalesCorreo}
+                      canalActivo={canalCorreoActivo}
+                      carpetaActiva={carpetaCorreo}
+                      colapsado={false}
+                      esMovil
+                      onSeleccionarCanal={(id) => {
+                        setCanalCorreoActivo(id)
+                        setCanalTodas(false)
+                        setConversacionSeleccionada(null)
+                        setMensajes([])
+                        setVistaMovilCorreo('lista')
+                      }}
+                      onSeleccionarCarpeta={(carpeta) => {
+                        setCarpetaCorreo(carpeta)
+                        setConversacionSeleccionada(null)
+                        setMensajes([])
+                        setVistaMovilCorreo('lista')
+                      }}
+                      onRedactar={() => {
+                        setConversacionSeleccionada(null)
+                        setMensajes([])
+                        setRedactandoNuevo(true)
+                        setVistaMovilCorreo('correo')
+                      }}
+                      contadores={contadoresCorreo}
+                      canalTodas={canalTodas}
+                      onSeleccionarTodas={() => {
+                        setCanalTodas(true)
+                        setCanalCorreoActivo('')
+                        setConversacionSeleccionada(null)
+                        setMensajes([])
+                        setVistaMovilCorreo('lista')
+                      }}
+                    />
                   </div>
-                  {!listaCorreoColapsada && (
-                    <div className="flex-1 overflow-hidden">
-                      <ListaConversaciones
-                        conversaciones={conversaciones}
-                        seleccionada={conversacionSeleccionada?.id || null}
-                        onSeleccionar={seleccionarConversacion}
-                        busqueda={busqueda}
-                        onBusqueda={setBusqueda}
-                        filtroEstado={filtroEstado}
-                        onFiltroEstado={setFiltroEstado}
-                        tipoCanal="correo"
-                        cargando={cargandoConversaciones}
-                        totalNoLeidos={totalNoLeidos}
-                        onEliminarSeleccion={eliminarMultiples}
-                        soloNoLeidos={soloNoLeidos}
-                        onToggleNoLeidos={() => setSoloNoLeidos(prev => !prev)}
-                      />
-                    </div>
-                  )}
-                </div>
+                )}
 
-                <div className="flex-1 flex flex-col min-w-0 h-full overflow-x-hidden">
-                  {redactandoNuevo ? (
-                    <div className="flex-1 flex flex-col p-4" style={{ background: 'var(--superficie-app)' }}>
-                      <CompositorCorreo
-                        tipo="nuevo"
-                        canalesCorreo={canalesCorreo.map(c => ({
-                          id: c.id,
-                          nombre: c.nombre,
-                          email: (c.config_conexion as { email?: string; usuario?: string })?.email
-                            || (c.config_conexion as { email?: string; usuario?: string })?.usuario
-                            || c.nombre,
-                        }))}
-                        canalSeleccionado={canalCorreoActivo}
-                        onCambiarCanal={setCanalCorreoActivo}
-                        onEnviar={enviarCorreo}
-                        onProgramar={programarCorreo}
-                        onCancelar={() => setRedactandoNuevo(false)}
-                        cargando={enviando}
-                        firma={firmaCorreo}
-                      />
-                    </div>
-                  ) : (
-                    <ErrorBoundary mensaje="Error en el panel de correo"><PanelCorreo
-                      conversacion={conversacionSeleccionada}
-                      mensajes={mensajes}
-                      onEnviarCorreo={enviarCorreo}
-                      onMarcarSpam={marcarSpam}
-                      onDesmarcarSpam={desmarcarSpam}
-                      onArchivar={archivarConversacion}
-                      onEliminar={eliminarConversacion}
-                      onToggleLeido={toggleLeido}
-                      cargando={cargandoMensajes}
-                      enviando={enviando}
-                      emailCanal={emailCanalActivo}
-                      firma={firmaCorreo}
-                    /></ErrorBoundary>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                {/* MODO FILA: lista y correo comparten el mismo panel */}
-                <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-                  {/* Barra con selector de vista + botón volver */}
-                  <div className="flex items-center justify-between px-2 h-9 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
-                    <div className="flex items-center gap-2">
-                      {(conversacionSeleccionada || redactandoNuevo) && (
-                        <Boton
-                          variante="fantasma"
-                          tamano="xs"
-                          icono={<ArrowLeft size={14} />}
-                          onClick={() => { setConversacionSeleccionada(null); setMensajes([]); setRedactandoNuevo(false) }}
-                        >
-                          {t('comun.volver')}
-                        </Boton>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-0.5 rounded-md p-0.5" style={{ background: 'var(--superficie-hover)' }}>
+                {/* Vista 2: Lista de correos */}
+                {vistaMovilCorreo === 'lista' && (
+                  <div className="flex-1 flex flex-col h-full overflow-hidden">
+                    {/* Header con botón atrás — min 44px de zona táctil */}
+                    <div className="flex items-center gap-2 px-2 min-h-[44px] flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)', background: 'var(--superficie-tarjeta)' }}>
                       <Boton
                         variante="fantasma"
-                        tamano="xs"
-                        soloIcono
-                        icono={<Columns2 size={12} />}
-                        onClick={() => cambiarModoVista('columna')}
-                        titulo="Vista columna"
-                        style={{ color: 'var(--texto-terciario)' }}
-                      />
-                      <Boton
-                        variante="fantasma"
-                        tamano="xs"
-                        soloIcono
-                        icono={<Rows2 size={12} />}
-                        onClick={() => cambiarModoVista('fila')}
-                        titulo="Vista fila"
-                        style={{ color: 'var(--texto-marca)', background: 'var(--superficie-seleccionada)' }}
-                      />
+                        tamano="sm"
+                        icono={<ArrowLeft size={18} />}
+                        onClick={() => setVistaMovilCorreo('sidebar')}
+                      >
+                        Cuentas
+                      </Boton>
+                      <span className="text-sm font-medium truncate flex-1 text-right" style={{ color: 'var(--texto-secundario)' }}>
+                        {carpetaCorreo === 'entrada' ? 'Entrada' : carpetaCorreo === 'enviados' ? 'Enviados' : carpetaCorreo === 'spam' ? 'Spam' : 'Archivado'}
+                      </span>
                     </div>
-                  </div>
-
-                  {/* Contenido: lista O correo (no ambos) */}
-                  {redactandoNuevo ? (
-                    <div className="flex-1 flex flex-col p-4" style={{ background: 'var(--superficie-app)' }}>
-                      <CompositorCorreo
-                        tipo="nuevo"
-                        canalesCorreo={canalesCorreo.map(c => ({
-                          id: c.id,
-                          nombre: c.nombre,
-                          email: (c.config_conexion as { email?: string; usuario?: string })?.email
-                            || (c.config_conexion as { email?: string; usuario?: string })?.usuario
-                            || c.nombre,
-                        }))}
-                        canalSeleccionado={canalCorreoActivo}
-                        onCambiarCanal={setCanalCorreoActivo}
-                        onEnviar={enviarCorreo}
-                        onProgramar={programarCorreo}
-                        onCancelar={() => setRedactandoNuevo(false)}
-                        cargando={enviando}
-                        firma={firmaCorreo}
-                      />
-                    </div>
-                  ) : conversacionSeleccionada ? (
-                    <ErrorBoundary mensaje="Error en el panel de correo"><PanelCorreo
-                      conversacion={conversacionSeleccionada}
-                      mensajes={mensajes}
-                      onEnviarCorreo={enviarCorreo}
-                      onMarcarSpam={marcarSpam}
-                      onDesmarcarSpam={desmarcarSpam}
-                      onArchivar={archivarConversacion}
-                      onEliminar={eliminarConversacion}
-                      onToggleLeido={toggleLeido}
-                      cargando={cargandoMensajes}
-                      enviando={enviando}
-                      emailCanal={emailCanalActivo}
-                      firma={firmaCorreo}
-                    /></ErrorBoundary>
-                  ) : (
                     <div className="flex-1 overflow-hidden">
                       <ListaConversaciones
                         conversaciones={conversaciones}
@@ -1472,96 +1352,360 @@ function PaginaInbox() {
                         onToggleNoLeidos={() => setSoloNoLeidos(prev => !prev)}
                       />
                     </div>
-                  )}
+                  </div>
+                )}
+
+                {/* Vista 3: Correo abierto o redactando */}
+                {vistaMovilCorreo === 'correo' && (
+                  <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+                    {/* Header con botón atrás — min 44px zona táctil */}
+                    <div className="flex items-center gap-2 px-2 min-h-[44px] flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)', background: 'var(--superficie-tarjeta)' }}>
+                      <Boton
+                        variante="fantasma"
+                        tamano="sm"
+                        icono={<ArrowLeft size={18} />}
+                        onClick={() => { setVistaMovilCorreo('lista'); setConversacionSeleccionada(null); setMensajes([]); setRedactandoNuevo(false) }}
+                      >
+                        {t('comun.volver')}
+                      </Boton>
+                    </div>
+                    {redactandoNuevo ? (
+                      <div className="flex-1 flex flex-col p-3" style={{ background: 'var(--superficie-app)' }}>
+                        <CompositorCorreo
+                          tipo="nuevo"
+                          canalesCorreo={canalesCorreo.map(c => ({
+                            id: c.id,
+                            nombre: c.nombre,
+                            email: (c.config_conexion as { email?: string; usuario?: string })?.email
+                              || (c.config_conexion as { email?: string; usuario?: string })?.usuario
+                              || c.nombre,
+                          }))}
+                          canalSeleccionado={canalCorreoActivo}
+                          onCambiarCanal={setCanalCorreoActivo}
+                          onEnviar={enviarCorreo}
+                          onProgramar={programarCorreo}
+                          onCancelar={() => { setRedactandoNuevo(false); setVistaMovilCorreo('lista') }}
+                          cargando={enviando}
+                          firma={firmaCorreo}
+                        />
+                      </div>
+                    ) : (
+                      <ErrorBoundary mensaje="Error en el panel de correo"><PanelCorreo
+                        conversacion={conversacionSeleccionada}
+                        mensajes={mensajes}
+                        onEnviarCorreo={enviarCorreo}
+                        onMarcarSpam={marcarSpam}
+                        onDesmarcarSpam={desmarcarSpam}
+                        onArchivar={archivarConversacion}
+                        onEliminar={eliminarConversacion}
+                        onToggleLeido={toggleLeido}
+                        cargando={cargandoMensajes}
+                        enviando={enviando}
+                        emailCanal={emailCanalActivo}
+                        firma={firmaCorreo}
+                      /></ErrorBoundary>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              /* ─── DESKTOP: layout original con columnas ─── */
+              <>
+                {/* Columna 1: Sidebar cuentas + carpetas */}
+                <div
+                  className="flex flex-col flex-shrink-0 transition-all duration-200 h-full overflow-hidden"
+                  style={{
+                    width: sidebarCorreoColapsado ? 48 : 224,
+                    borderRight: '1px solid var(--borde-sutil)',
+                    background: 'var(--superficie-sidebar, var(--superficie-tarjeta))',
+                  }}
+                >
+                  <div className="flex items-center justify-center h-9 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
+                    <Boton variante="fantasma" tamano="xs" soloIcono titulo="Alternar panel" icono={sidebarCorreoColapsado ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />} onClick={toggleSidebarCorreo} />
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <SidebarCorreo
+                      canales={canalesCorreo}
+                      canalActivo={canalCorreoActivo}
+                      carpetaActiva={carpetaCorreo}
+                      colapsado={sidebarCorreoColapsado}
+                      onSeleccionarCanal={(id) => {
+                        setCanalCorreoActivo(id)
+                        setCanalTodas(false)
+                        setConversacionSeleccionada(null)
+                        setMensajes([])
+                      }}
+                      onSeleccionarCarpeta={(carpeta) => {
+                        setCarpetaCorreo(carpeta)
+                        setConversacionSeleccionada(null)
+                        setMensajes([])
+                      }}
+                      onRedactar={() => {
+                        setConversacionSeleccionada(null)
+                        setMensajes([])
+                        setRedactandoNuevo(true)
+                      }}
+                      contadores={contadoresCorreo}
+                      canalTodas={canalTodas}
+                      onSeleccionarTodas={() => {
+                        setCanalTodas(true)
+                        setCanalCorreoActivo('')
+                        setConversacionSeleccionada(null)
+                        setMensajes([])
+                      }}
+                    />
+                  </div>
                 </div>
+
+                {/* Panel principal desktop */}
+                {modoVista === 'columna' ? (
+                  <>
+                    <div
+                      className="flex flex-col flex-shrink-0 transition-all duration-200 h-full overflow-hidden"
+                      style={{ width: listaCorreoColapsada ? 40 : 320, borderRight: '1px solid var(--borde-sutil)' }}
+                    >
+                      <div className="flex items-center justify-between px-2 h-9 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
+                        <Boton variante="fantasma" tamano="xs" soloIcono titulo="Alternar lista" icono={listaCorreoColapsada ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />} onClick={toggleListaCorreo} />
+                        <div className="flex items-center gap-0.5 rounded-md p-0.5" style={{ background: 'var(--superficie-hover)' }}>
+                          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Columns2 size={12} />} onClick={() => cambiarModoVista('columna')} titulo="Vista columna" style={{ color: 'var(--texto-marca)', background: 'var(--superficie-seleccionada)' }} />
+                          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Rows2 size={12} />} onClick={() => cambiarModoVista('fila')} titulo="Vista fila" style={{ color: 'var(--texto-terciario)' }} />
+                        </div>
+                      </div>
+                      {!listaCorreoColapsada && (
+                        <div className="flex-1 overflow-hidden">
+                          <ListaConversaciones
+                            conversaciones={conversaciones}
+                            seleccionada={conversacionSeleccionada?.id || null}
+                            onSeleccionar={seleccionarConversacion}
+                            busqueda={busqueda}
+                            onBusqueda={setBusqueda}
+                            filtroEstado={filtroEstado}
+                            onFiltroEstado={setFiltroEstado}
+                            tipoCanal="correo"
+                            cargando={cargandoConversaciones}
+                            totalNoLeidos={totalNoLeidos}
+                            onEliminarSeleccion={eliminarMultiples}
+                            soloNoLeidos={soloNoLeidos}
+                            onToggleNoLeidos={() => setSoloNoLeidos(prev => !prev)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 flex flex-col min-w-0 h-full overflow-x-hidden">
+                      {redactandoNuevo ? (
+                        <div className="flex-1 flex flex-col p-4" style={{ background: 'var(--superficie-app)' }}>
+                          <CompositorCorreo
+                            tipo="nuevo"
+                            canalesCorreo={canalesCorreo.map(c => ({
+                              id: c.id,
+                              nombre: c.nombre,
+                              email: (c.config_conexion as { email?: string; usuario?: string })?.email
+                                || (c.config_conexion as { email?: string; usuario?: string })?.usuario
+                                || c.nombre,
+                            }))}
+                            canalSeleccionado={canalCorreoActivo}
+                            onCambiarCanal={setCanalCorreoActivo}
+                            onEnviar={enviarCorreo}
+                            onProgramar={programarCorreo}
+                            onCancelar={() => setRedactandoNuevo(false)}
+                            cargando={enviando}
+                            firma={firmaCorreo}
+                          />
+                        </div>
+                      ) : (
+                        <ErrorBoundary mensaje="Error en el panel de correo"><PanelCorreo
+                          conversacion={conversacionSeleccionada}
+                          mensajes={mensajes}
+                          onEnviarCorreo={enviarCorreo}
+                          onMarcarSpam={marcarSpam}
+                          onDesmarcarSpam={desmarcarSpam}
+                          onArchivar={archivarConversacion}
+                          onEliminar={eliminarConversacion}
+                          onToggleLeido={toggleLeido}
+                          cargando={cargandoMensajes}
+                          enviando={enviando}
+                          emailCanal={emailCanalActivo}
+                          firma={firmaCorreo}
+                        /></ErrorBoundary>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+                      <div className="flex items-center justify-between px-2 h-9 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
+                        <div className="flex items-center gap-2">
+                          {(conversacionSeleccionada || redactandoNuevo) && (
+                            <Boton variante="fantasma" tamano="xs" icono={<ArrowLeft size={14} />} onClick={() => { setConversacionSeleccionada(null); setMensajes([]); setRedactandoNuevo(false) }}>
+                              {t('comun.volver')}
+                            </Boton>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-0.5 rounded-md p-0.5" style={{ background: 'var(--superficie-hover)' }}>
+                          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Columns2 size={12} />} onClick={() => cambiarModoVista('columna')} titulo="Vista columna" style={{ color: 'var(--texto-terciario)' }} />
+                          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Rows2 size={12} />} onClick={() => cambiarModoVista('fila')} titulo="Vista fila" style={{ color: 'var(--texto-marca)', background: 'var(--superficie-seleccionada)' }} />
+                        </div>
+                      </div>
+                      {redactandoNuevo ? (
+                        <div className="flex-1 flex flex-col p-4" style={{ background: 'var(--superficie-app)' }}>
+                          <CompositorCorreo
+                            tipo="nuevo"
+                            canalesCorreo={canalesCorreo.map(c => ({
+                              id: c.id,
+                              nombre: c.nombre,
+                              email: (c.config_conexion as { email?: string; usuario?: string })?.email
+                                || (c.config_conexion as { email?: string; usuario?: string })?.usuario
+                                || c.nombre,
+                            }))}
+                            canalSeleccionado={canalCorreoActivo}
+                            onCambiarCanal={setCanalCorreoActivo}
+                            onEnviar={enviarCorreo}
+                            onProgramar={programarCorreo}
+                            onCancelar={() => setRedactandoNuevo(false)}
+                            cargando={enviando}
+                            firma={firmaCorreo}
+                          />
+                        </div>
+                      ) : conversacionSeleccionada ? (
+                        <ErrorBoundary mensaje="Error en el panel de correo"><PanelCorreo
+                          conversacion={conversacionSeleccionada}
+                          mensajes={mensajes}
+                          onEnviarCorreo={enviarCorreo}
+                          onMarcarSpam={marcarSpam}
+                          onDesmarcarSpam={desmarcarSpam}
+                          onArchivar={archivarConversacion}
+                          onEliminar={eliminarConversacion}
+                          onToggleLeido={toggleLeido}
+                          cargando={cargandoMensajes}
+                          enviando={enviando}
+                          emailCanal={emailCanalActivo}
+                          firma={firmaCorreo}
+                        /></ErrorBoundary>
+                      ) : (
+                        <div className="flex-1 overflow-hidden">
+                          <ListaConversaciones
+                            conversaciones={conversaciones}
+                            seleccionada={null}
+                            onSeleccionar={seleccionarConversacion}
+                            busqueda={busqueda}
+                            onBusqueda={setBusqueda}
+                            filtroEstado={filtroEstado}
+                            onFiltroEstado={setFiltroEstado}
+                            tipoCanal="correo"
+                            cargando={cargandoConversaciones}
+                            totalNoLeidos={totalNoLeidos}
+                            onEliminarSeleccion={eliminarMultiples}
+                            soloNoLeidos={soloNoLeidos}
+                            onToggleNoLeidos={() => setSoloNoLeidos(prev => !prev)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </>
             )}
           </>
         )}
 
-        {/* ─── WHATSAPP: layout original (lista | chat | info) ─── */}
+        {/* ─── WHATSAPP: layout responsivo (lista | chat | info) ─── */}
         {tabActivo === 'whatsapp' && (
           <>
-            <div className="w-80 flex-shrink-0">
-              <ListaConversaciones
-                conversaciones={conversaciones}
-                seleccionada={conversacionSeleccionada?.id || null}
-                onSeleccionar={seleccionarConversacion}
-                busqueda={busqueda}
-                onBusqueda={setBusqueda}
-                filtroEstado={filtroEstado}
-                onFiltroEstado={setFiltroEstado}
-                filtroEtiqueta={filtroEtiqueta}
-                onFiltroEtiqueta={setFiltroEtiqueta}
-                tipoCanal="whatsapp"
-                cargando={cargandoConversaciones}
-                totalNoLeidos={totalNoLeidos}
-                onEliminarSeleccion={eliminarMultiples}
-                soloNoLeidos={soloNoLeidos}
-                onToggleNoLeidos={() => setSoloNoLeidos(prev => !prev)}
-                onOperacionMasiva={async (accion, ids) => {
-                  const admin = async (cambios: Record<string, unknown>) => {
-                    await Promise.all(ids.map(id =>
-                      fetch(`/api/inbox/conversaciones/${id}`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(cambios),
-                      })
-                    ))
-                    cargarConversaciones()
-                  }
-                  if (accion === 'marcar_leido') await admin({ mensajes_sin_leer: 0 })
-                  if (accion === 'marcar_no_leido') await admin({ mensajes_sin_leer: 1 })
-                  if (accion === 'cerrar') await admin({ estado: 'resuelta' })
+            {/* Lista de conversaciones — oculta en móvil cuando hay chat abierto */}
+            {(!esMovil || vistaMovilWA === 'lista') && (
+              <div className={esMovil ? 'flex-1' : 'w-80 flex-shrink-0'}>
+                <ListaConversaciones
+                  conversaciones={conversaciones}
+                  seleccionada={conversacionSeleccionada?.id || null}
+                  onSeleccionar={seleccionarConversacion}
+                  busqueda={busqueda}
+                  onBusqueda={setBusqueda}
+                  filtroEstado={filtroEstado}
+                  onFiltroEstado={setFiltroEstado}
+                  filtroEtiqueta={filtroEtiqueta}
+                  onFiltroEtiqueta={setFiltroEtiqueta}
+                  tipoCanal="whatsapp"
+                  cargando={cargandoConversaciones}
+                  totalNoLeidos={totalNoLeidos}
+                  onEliminarSeleccion={eliminarMultiples}
+                  soloNoLeidos={soloNoLeidos}
+                  onToggleNoLeidos={() => setSoloNoLeidos(prev => !prev)}
+                  onOperacionMasiva={async (accion, ids) => {
+                    const admin = async (cambios: Record<string, unknown>) => {
+                      await Promise.all(ids.map(id =>
+                        fetch(`/api/inbox/conversaciones/${id}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(cambios),
+                        })
+                      ))
+                      cargarConversaciones()
+                    }
+                    if (accion === 'marcar_leido') await admin({ mensajes_sin_leer: 0 })
+                    if (accion === 'marcar_no_leido') await admin({ mensajes_sin_leer: 1 })
+                    if (accion === 'cerrar') await admin({ estado: 'resuelta' })
+                  }}
+                />
+              </div>
+            )}
+            {/* Chat — en móvil pantalla completa con botón atrás */}
+            {(!esMovil || vistaMovilWA === 'chat') && (
+              <ErrorBoundary mensaje="Error en el panel de WhatsApp">
+              <PanelWhatsApp
+                conversacion={conversacionSeleccionada}
+                mensajes={mensajes}
+                onEnviar={enviarMensaje}
+                onAbrirVisor={abrirVisor}
+                iaHabilitada={iaHabilitada}
+                esMovil={esMovil}
+                onVolver={() => { setVistaMovilWA('lista'); setConversacionSeleccionada(null); setMensajes([]) }}
+                onAbrirInfo={() => setVistaMovilWA('info')}
+                onEtiquetasCambiaron={(etiquetas) => {
+                  setConversacionSeleccionada(prev => prev ? { ...prev, etiquetas } : null)
+                  setConversaciones(prev => prev.map(c =>
+                    c.id === conversacionSeleccionada?.id ? { ...c, etiquetas } : c
+                  ))
                 }}
+                onEditarNota={async (id, texto) => {
+                  setMensajes(prev => prev.map(m =>
+                    m.id === id ? { ...m, texto, editado_en: new Date().toISOString() } : m
+                  ))
+                  try {
+                    await fetch(`/api/inbox/mensajes/${id}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ texto }),
+                    })
+                  } catch { /* revertir */ }
+                }}
+                onEliminarNota={async (id) => {
+                  setMensajes(prev => prev.filter(m => m.id !== id))
+                  try {
+                    await fetch(`/api/inbox/mensajes/${id}`, { method: 'DELETE' })
+                  } catch { /* revertir */ }
+                }}
+                cargando={cargandoMensajes}
+                enviando={enviando}
+                onCargarAnteriores={cargarMensajesAnteriores}
+                hayMasAnteriores={hayMasAnteriores}
+                cargandoAnteriores={cargandoAnteriores}
+                onReaccionar={reaccionarMensaje}
               />
-            </div>
-            <ErrorBoundary mensaje="Error en el panel de WhatsApp">
-            <PanelWhatsApp
-              conversacion={conversacionSeleccionada}
-              mensajes={mensajes}
-              onEnviar={enviarMensaje}
-              onAbrirVisor={abrirVisor}
-              iaHabilitada={iaHabilitada}
-              onEtiquetasCambiaron={(etiquetas) => {
-                // Actualizar inmediatamente en la UI sin esperar polling
-                setConversacionSeleccionada(prev => prev ? { ...prev, etiquetas } : null)
-                setConversaciones(prev => prev.map(c =>
-                  c.id === conversacionSeleccionada?.id ? { ...c, etiquetas } : c
-                ))
-              }}
-              onEditarNota={async (id, texto) => {
-                // Optimistic update
-                setMensajes(prev => prev.map(m =>
-                  m.id === id ? { ...m, texto, editado_en: new Date().toISOString() } : m
-                ))
-                try {
-                  await fetch(`/api/inbox/mensajes/${id}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ texto }),
-                  })
-                } catch {
-                  // Revertir en caso de error (recargar mensajes)
-                }
-              }}
-              onEliminarNota={async (id) => {
-                // Optimistic: remover de la lista
-                setMensajes(prev => prev.filter(m => m.id !== id))
-                try {
-                  await fetch(`/api/inbox/mensajes/${id}`, { method: 'DELETE' })
-                } catch {
-                  // Revertir en caso de error
-                }
-              }}
-              cargando={cargandoMensajes}
-              enviando={enviando}
-              onCargarAnteriores={cargarMensajesAnteriores}
-              hayMasAnteriores={hayMasAnteriores}
-              cargandoAnteriores={cargandoAnteriores}
-              onReaccionar={reaccionarMensaje}
-            />
-            </ErrorBoundary>
+              </ErrorBoundary>
+            )}
+            {/* Info contacto — en móvil pantalla completa */}
+            {esMovil && vistaMovilWA === 'info' && (
+              <div className="flex-1 overflow-y-auto" style={{ background: 'var(--superficie-app)' }}>
+                <PanelInfoContacto
+                  conversacion={conversacionSeleccionada}
+                  mensajes={mensajes}
+                  abierto={true}
+                  onCerrar={() => setVistaMovilWA('chat')}
+                  onAbrirVisor={abrirVisor}
+                  esMovil
+                />
+              </div>
+            )}
           </>
         )}
 
@@ -1581,6 +1725,8 @@ function PaginaInbox() {
                     setConversacionSeleccionada(null)
                     setMensajes([])
                   }
+                  // En móvil, navegar al chat cuando se selecciona un canal
+                  if (esMovil && canal) setVistaMovilInterno('chat')
                 }}
                 onCrearCanal={() => setModalCrearInterno(true)}
                 onEnviar={enviarMensaje}
@@ -1589,6 +1735,14 @@ function PaginaInbox() {
                 usuarioId={usuarioId}
                 onRecargarCanales={cargarCanalesInternos}
                 onReaccionar={reaccionarMensaje}
+                esMovil={esMovil}
+                vistaMovil={vistaMovilInterno}
+                onVolverMovil={() => {
+                  setVistaMovilInterno('canales')
+                  setCanalInternoSeleccionado(null)
+                  setConversacionSeleccionada(null)
+                  setMensajes([])
+                }}
               />
             </ErrorBoundary>
             <ModalCrearCanalInterno
@@ -1611,8 +1765,8 @@ function PaginaInbox() {
           </>
         )}
 
-        {/* Panel derecho: info contacto + galería de medios (solo WhatsApp) */}
-        {tabActivo === 'whatsapp' && (
+        {/* Panel derecho: info contacto + galería de medios (solo WhatsApp, solo desktop) */}
+        {tabActivo === 'whatsapp' && !esMovil && (
           <PanelInfoContacto
             conversacion={conversacionSeleccionada}
             mensajes={mensajes}

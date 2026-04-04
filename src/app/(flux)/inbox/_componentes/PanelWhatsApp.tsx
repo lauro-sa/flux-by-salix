@@ -46,6 +46,12 @@ interface PropiedadesPanelWhatsApp {
   cargandoAnteriores?: boolean
   /** Callback para reaccionar a un mensaje (optimistic update) */
   onReaccionar?: (mensajeId: string, emoji: string) => void
+  /** Modo móvil: muestra botón atrás en el header */
+  esMovil?: boolean
+  /** Callback para volver a la lista en móvil */
+  onVolver?: () => void
+  /** Callback para abrir panel de info del contacto en móvil */
+  onAbrirInfo?: () => void
 }
 
 // Iconos de estado de entrega
@@ -215,6 +221,9 @@ export function PanelWhatsApp({
   hayMasAnteriores = false,
   cargandoAnteriores = false,
   onReaccionar,
+  esMovil = false,
+  onVolver,
+  onAbrirInfo,
 }: PropiedadesPanelWhatsApp) {
   const { t } = useTraduccion()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -324,10 +333,25 @@ export function PanelWhatsApp({
           background: 'var(--superficie-tarjeta)',
         }}
       >
-        <Avatar
-          nombre={conversacion.contacto_nombre || conversacion.identificador_externo || '?'}
-          tamano="sm"
-        />
+        {/* Botón atrás en móvil — min 44px zona táctil */}
+        {esMovil && onVolver && (
+          <button
+            onClick={onVolver}
+            className="flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center -ml-2 rounded-md transition-colors active:bg-[var(--superficie-hover)]"
+            style={{ color: 'var(--texto-secundario)' }}
+          >
+            <ChevronLeft size={22} />
+          </button>
+        )}
+        <div
+          className={esMovil && onAbrirInfo ? 'cursor-pointer' : ''}
+          onClick={esMovil && onAbrirInfo ? onAbrirInfo : undefined}
+        >
+          <Avatar
+            nombre={conversacion.contacto_nombre || conversacion.identificador_externo || '?'}
+            tamano="sm"
+          />
+        </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-semibold truncate" style={{ color: 'var(--texto-primario)' }}>
             {conversacion.contacto_nombre || conversacion.identificador_externo || 'Conversación'}

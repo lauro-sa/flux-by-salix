@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { Boton } from '@/componentes/ui/Boton'
 import {
-  Hash, Lock, MessageSquare, Plus, ChevronRight,
+  Hash, Lock, MessageSquare, Plus, ChevronRight, ChevronLeft,
   Users, Settings, Smile, AtSign, Reply, X,
   BellOff, Bell, LogOut, Check, CheckCheck,
   MoreHorizontal, UserPlus, Pencil, Archive, SmilePlus,
@@ -40,6 +40,12 @@ interface PropiedadesPanelInterno {
   onRecargarCanales?: () => void
   /** Callback para reaccionar a un mensaje (optimistic update desde el padre) */
   onReaccionar?: (mensajeId: string, emoji: string) => void
+  /** Modo móvil: muestra una vista a la vez */
+  esMovil?: boolean
+  /** Vista activa en móvil: 'canales' o 'chat' */
+  vistaMovil?: 'canales' | 'chat'
+  /** Callback para volver a la lista de canales en móvil */
+  onVolverMovil?: () => void
 }
 
 /** Etiqueta de fecha estilo WhatsApp: Hoy, Ayer, día de la semana, o fecha completa */
@@ -89,6 +95,9 @@ export function PanelInterno({
   usuarioId,
   onRecargarCanales,
   onReaccionar: onReaccionarPadre,
+  esMovil,
+  vistaMovil = 'canales',
+  onVolverMovil,
 }: PropiedadesPanelInterno) {
   const { t } = useTraduccion()
   const { mostrar } = useToast()
@@ -201,13 +210,18 @@ export function PanelInterno({
     }).catch(() => {})
   }, [canalSeleccionado?.id])
 
+  // En móvil: mostrar solo sidebar o solo chat según vistaMovil
+  const mostrarSidebar = !esMovil || vistaMovil === 'canales'
+  const mostrarChat = !esMovil || vistaMovil === 'chat'
+
   return (
     <div className="flex-1 flex" style={{ background: 'var(--superficie-app)' }}>
-      {/* Sidebar de canales */}
+      {/* Sidebar de canales — oculto en móvil cuando se ve el chat */}
+      {mostrarSidebar && (
       <div
-        className="w-80 flex-shrink-0 flex flex-col h-full overflow-y-auto"
+        className={esMovil ? 'flex-1 flex flex-col h-full overflow-y-auto' : 'w-80 flex-shrink-0 flex flex-col h-full overflow-y-auto'}
         style={{
-          borderRight: '1px solid var(--borde-sutil)',
+          borderRight: esMovil ? 'none' : '1px solid var(--borde-sutil)',
           background: 'var(--superficie-sidebar)',
         }}
       >
@@ -285,8 +299,11 @@ export function PanelInterno({
           </div>
         )}
       </div>
+      )}
 
-      {/* Panel de mensajes */}
+      {/* Panel de mensajes — oculto en móvil cuando se ven los canales */}
+      {mostrarChat && (
+      <>
       <div className="flex-1 flex flex-col">
         {!canalSeleccionado ? (
           <div className="flex-1 flex items-center justify-center">
@@ -312,6 +329,16 @@ export function PanelInterno({
                 background: 'var(--superficie-tarjeta)',
               }}
             >
+              {/* Botón atrás en móvil — min 44px zona táctil */}
+              {esMovil && onVolverMovil && (
+                <button
+                  onClick={onVolverMovil}
+                  className="flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center -ml-2 rounded-md transition-colors active:bg-[var(--superficie-hover)]"
+                  style={{ color: 'var(--texto-secundario)' }}
+                >
+                  <ChevronLeft size={22} />
+                </button>
+              )}
               {canalSeleccionado.tipo === 'publico' ? (
                 <Hash size={18} style={{ color: 'var(--canal-interno)' }} />
               ) : canalSeleccionado.tipo === 'privado' ? (
@@ -448,41 +475,45 @@ export function PanelInterno({
         )}
       </div>
 
-      {/* Panel de hilo (lateral) */}
-      <AnimatePresence>
-        {hiloAbierto && (
-          <motion.div
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 360, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            className="flex-shrink-0 h-full overflow-hidden flex flex-col"
-            style={{
-              borderLeft: '1px solid var(--borde-sutil)',
-              background: 'var(--superficie-tarjeta)',
-            }}
-          >
-            <div className="flex items-center justify-between p-3" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
-              <span className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
-                Hilo
-              </span>
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={14} />} onClick={() => setHiloAbierto(null)} titulo="Cerrar hilo" />
-            </div>
-            <div className="flex-1 overflow-y-auto p-3">
-              <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
-                Las respuestas del hilo aparecerán acá.
-              </p>
-            </div>
-            <CompositorMensaje
-              tipoCanal="interno"
-              onEnviar={(datos) => {
-                onEnviar({ ...datos, respuesta_a_id: hiloAbierto })
+      {/* Panel de hilo (lateral) — solo desktop */}
+      {!esMovil && (
+        <AnimatePresence>
+          {hiloAbierto && (
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 360, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              className="flex-shrink-0 h-full overflow-hidden flex flex-col"
+              style={{
+                borderLeft: '1px solid var(--borde-sutil)',
+                background: 'var(--superficie-tarjeta)',
               }}
-              cargando={enviando}
-              placeholder="Responder en hilo..."
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+            >
+              <div className="flex items-center justify-between p-3" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
+                <span className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+                  Hilo
+                </span>
+                <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={14} />} onClick={() => setHiloAbierto(null)} titulo="Cerrar hilo" />
+              </div>
+              <div className="flex-1 overflow-y-auto p-3">
+                <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
+                  Las respuestas del hilo aparecerán acá.
+                </p>
+              </div>
+              <CompositorMensaje
+                tipoCanal="interno"
+                onEnviar={(datos) => {
+                  onEnviar({ ...datos, respuesta_a_id: hiloAbierto })
+                }}
+                cargando={enviando}
+                placeholder="Responder en hilo..."
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )}
+      </>
+      )}
     </div>
   )
 }

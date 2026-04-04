@@ -99,10 +99,10 @@ function PlantillaConfiguracion({
   const seccionActivaData = secciones.find(s => s.id === seccionActiva)
 
   return (
-    <div className={`flex flex-col h-full max-h-full gap-4 md:gap-6 pl-4 pt-4 pb-4 md:pl-6 md:pt-6 md:pb-6 overflow-hidden ${className}`}>
+    <div className={`flex flex-col h-full max-h-full gap-4 md:gap-6 pl-2 pt-3 pb-3 md:pl-6 md:pt-6 md:pb-6 overflow-hidden ${className}`}>
 
       {/* ═══ CABECERO ═══ */}
-      <div className="flex items-center gap-2 shrink-0 pr-4 md:pr-6">
+      <div className="flex items-center gap-2 shrink-0 pr-2 md:pr-6">
         {/* Mobile: botón volver contextual */}
         {(onVolver || mobileVistaContenido) && (
           <Boton
@@ -190,7 +190,7 @@ function PlantillaConfiguracion({
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.15, ease: 'easeOut' }}
-                className="h-full overflow-y-auto pr-4 sidebar-scroll"
+                className="h-full overflow-y-auto pr-2 sidebar-scroll"
               >
                 <div className="pb-6 space-y-5">
 
@@ -267,12 +267,10 @@ function PlantillaConfiguracion({
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
                 transition={{ duration: 0.15, ease: 'easeOut' }}
-                className="h-full overflow-y-auto pr-4 scrollbar-auto-oculto"
+                className="h-full overflow-y-auto pr-2 scrollbar-auto-oculto"
               >
-                <div className="pb-6">
-                  <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
-                    {children}
-                  </div>
+                <div className="pb-6 space-y-5">
+                  {children}
                 </div>
               </motion.div>
             )}
