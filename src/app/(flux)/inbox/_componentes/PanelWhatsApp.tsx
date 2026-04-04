@@ -233,9 +233,10 @@ export function PanelWhatsApp({
   const { alturaVisible, tecladoAbierto } = useVisualViewport()
 
   // Estilo del contenedor principal: cuando el teclado está abierto en móvil,
-  // forzar la altura al viewport visible para que el compositor quede encima del teclado
+  // forzar la altura al viewport visible para que el compositor quede encima del teclado.
+  // flex: 'none' anula flex-1 para que height explícito se respete.
   const estiloContenedorPrincipal: CSSProperties = esMovil && tecladoAbierto
-    ? { background: 'var(--superficie-app)', height: alturaVisible, maxHeight: alturaVisible }
+    ? { background: 'var(--superficie-app)', height: alturaVisible, maxHeight: alturaVisible, flex: 'none' }
     : { background: 'var(--superficie-app)' }
 
   // Texto inyectado desde PanelIA hacia el compositor.
