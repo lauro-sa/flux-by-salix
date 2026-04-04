@@ -558,7 +558,7 @@ async function procesarCorreoEntrante(
         } else {
           // Sin asignado → notificar a admins/propietarios
           const { data: admins } = await admin
-            .from('miembros_empresa')
+            .from('miembros')
             .select('usuario_id')
             .eq('empresa_id', empresaId)
             .in('rol', ['propietario', 'administrador'])

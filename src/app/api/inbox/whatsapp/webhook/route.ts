@@ -461,7 +461,7 @@ async function procesarMensajeEntrante(
     } else {
       // Sin asignado → notificar a todos los admins/propietarios activos
       const { data: admins } = await admin
-        .from('miembros_empresa')
+        .from('miembros')
         .select('usuario_id')
         .eq('empresa_id', canal.empresa_id)
         .in('rol', ['propietario', 'administrador'])

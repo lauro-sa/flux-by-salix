@@ -168,7 +168,7 @@ async function notificarAdminsObservadores({
 
   // Buscar miembros admin/propietario de la empresa
   const { data: miembros } = await admin
-    .from('miembros_empresa')
+    .from('miembros')
     .select('usuario_id, rol')
     .eq('empresa_id', empresaId)
     .in('rol', ['propietario', 'administrador'])
