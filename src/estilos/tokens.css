@@ -393,7 +393,7 @@
     /* Tipografía — sube ~2-3px para legibilidad y targets de toque */
     --texto-xxs: 0.75rem;     /* 12px (era 10px) */
     --texto-xs: 0.8125rem;    /* 13px (era 11px) */
-    --texto-sm: 0.9375rem;    /* 15px (era 13px) */
+    --texto-sm: 1rem;         /* 16px — mínimo para evitar auto-zoom de Safari en inputs */
     --texto-base: 1.0625rem;  /* 17px (era 14px) */
     --texto-md: 1.125rem;     /* 18px (era 15px) */
     --texto-lg: 1.25rem;      /* 20px (era 17px) */
@@ -406,7 +406,7 @@
   [data-escala="compacto"] {
     --texto-xxs: 0.6875rem;   /* 11px */
     --texto-xs: 0.75rem;      /* 12px */
-    --texto-sm: 0.875rem;     /* 14px */
+    --texto-sm: 1rem;         /* 16px — mínimo para evitar auto-zoom Safari en inputs */
     --texto-base: 1rem;       /* 16px */
     --texto-md: 1.0625rem;    /* 17px */
     --texto-lg: 1.1875rem;    /* 19px */

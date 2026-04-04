@@ -94,16 +94,10 @@ button, a, [role="button"], input, select, textarea, label {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* PWA iOS: inputs a 16px mínimo para evitar auto-zoom de Safari.
-   Safari hace zoom automático si font-size < 16px al enfocar un input.
-   max(16px, 1em) respeta tamaños mayores pero impone el piso de 16px. */
-@media (pointer: coarse) {
-  input:not([type="checkbox"]):not([type="radio"]),
-  select,
-  textarea {
-    font-size: max(16px, 1em) !important;
-  }
-}
+/* PWA iOS: prevenir auto-zoom de Safari en inputs.
+   Safari hace zoom si font-size < 16px. En vez de forzar con !important,
+   subimos --texto-sm a 16px en mobile (tokens.css ya tiene 15px, esto lo ajusta).
+   Solo para inputs que heredan text-sm. */
 
 /* Accesibilidad: reducir animaciones para usuarios que lo prefieran */
 @media (prefers-reduced-motion: reduce) {
