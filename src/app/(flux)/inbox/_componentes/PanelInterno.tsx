@@ -215,7 +215,7 @@ export function PanelInterno({
   const mostrarChat = !esMovil || vistaMovil === 'chat'
 
   return (
-    <div className="flex-1 flex" style={{ background: 'var(--superficie-app)' }}>
+    <div className="flex-1 flex min-h-0" style={{ background: 'var(--superficie-app)' }}>
       {/* Sidebar de canales — oculto en móvil cuando se ve el chat */}
       {mostrarSidebar && (
       <div
@@ -306,7 +306,7 @@ export function PanelInterno({
       <>
       <div className="flex-1 flex flex-col min-h-0">
         {!canalSeleccionado ? (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center min-h-0">
             <div className="text-center">
               <div
                 className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"

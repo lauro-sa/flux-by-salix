@@ -307,7 +307,7 @@ export function PanelWhatsApp({
 
   if (!conversacion) {
     return (
-      <div className="flex-1 flex items-center justify-center" style={{ background: 'var(--superficie-app)' }}>
+      <div className="flex-1 flex items-center justify-center min-h-0" style={{ background: 'var(--superficie-app)' }}>
         <div className="text-center">
           <div
             className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"

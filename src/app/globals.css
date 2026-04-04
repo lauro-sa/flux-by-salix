@@ -68,7 +68,7 @@ html {
 .layout-app--fijo .contenido-principal-layout {
   height: 100%;
   overflow: hidden;
-  min-height: auto;
+  min-height: 0;
 }
 
 /* Main content */
@@ -92,7 +92,8 @@ html {
 }
 .layout-app--fijo .main-layout {
   min-height: 0;
-  overflow-y: auto;
+  flex: 1 1 0%;
+  overflow: hidden;
   padding-bottom: 0;
 }
 
