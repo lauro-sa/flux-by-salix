@@ -148,10 +148,6 @@ export async function crearNotificacionesBatch(
 }
 
 /**
- * Envía push notification a todas las suscripciones activas de un usuario.
- * Usa la librería web-push directamente para evitar llamadas HTTP internas.
- */
-/**
  * Notifica a admins/propietarios que activaron "recibir todas las notificaciones".
  * Busca miembros de la empresa con rol admin/propietario que tengan la preferencia activa,
  * excluye al usuario que ya recibió la notificación original.
@@ -219,9 +215,9 @@ async function notificarAdminsObservadores({
 }
 
 /**
- * Envía push notification a todas las suscripciones activas de un usuario.
- * Incluye payload Declarative Web Push (Safari 18.4+) como fallback para iOS.
- * Si el SW no muestra la notificación, Safari la muestra con el payload declarativo.
+ * Envía push notification via Firebase Cloud Messaging (FCM).
+ * FCM enruta automáticamente a APNs para iOS — mucho más confiable que web-push directo.
+ * El payload incluye webpush.notification para que iOS lo muestre sin depender del SW.
  */
 async function enviarPush({
   empresaId,
@@ -236,82 +232,114 @@ async function enviarPush({
   cuerpo?: string
   url?: string
 }) {
-  const { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT, NEXT_PUBLIC_APP_URL } = process.env
-  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return
-
   const admin = crearClienteAdmin()
 
-  // Buscar suscripciones activas
+  // Buscar tokens FCM activos (guardados en la columna "endpoint")
   const { data: suscripciones } = await admin
     .from('suscripciones_push')
-    .select('id, endpoint, p256dh, auth')
+    .select('id, endpoint')
     .eq('usuario_id', usuarioId)
     .eq('empresa_id', empresaId)
     .eq('activa', true)
 
   if (!suscripciones || suscripciones.length === 0) return
 
-  // Import dinámico para no cargar web-push si no se usa
-  const webpush = await import('web-push')
-  webpush.setVapidDetails(
-    VAPID_SUBJECT || 'mailto:soporte@fluxsalix.com',
-    VAPID_PUBLIC_KEY,
-    VAPID_PRIVATE_KEY,
-  )
+  const tokens = suscripciones.map(s => s.endpoint).filter(Boolean)
+  if (tokens.length === 0) return
 
-  // URL completa para Declarative Web Push (Safari necesita URL absoluta en navigate)
-  const urlCompleta = url
-    ? `${NEXT_PUBLIC_APP_URL || 'https://fluxsalix.com'}${url.startsWith('/') ? url : `/${url}`}`
-    : NEXT_PUBLIC_APP_URL || 'https://fluxsalix.com'
+  // Import dinámico para no cargar firebase-admin si no se usa
+  const { obtenerMensajeriaAdmin } = await import('@/lib/firebase-admin')
+  const mensajeria = obtenerMensajeriaAdmin()
 
-  // Payload dual: campos custom para el SW + Declarative Web Push para Safari 18.4+
-  // Safari intercepta web_push:8030 y muestra la notificación aunque el SW falle
-  const payload = JSON.stringify({
-    // Campos custom para el SW handler (Chrome, Firefox, y Safari pre-18.4)
-    titulo: titulo || 'Flux',
-    cuerpo: cuerpo || '',
-    url: url || '/',
-    icono: '/iconos/icon-192.png',
-    // Declarative Web Push (Safari 18.4+ / iOS 18.4+)
-    web_push: 8030,
-    notification: {
-      title: titulo || 'Flux',
-      body: cuerpo || '',
-      navigate: urlCompleta,
-      silent: false,
-      app_badge: 'increment',
+  const urlDestino = url || '/'
+  const tituloFinal = titulo || 'Flux'
+  const cuerpoFinal = cuerpo || ''
+
+  // Payload FCM multi-plataforma (mismo formato que el repo viejo que SÍ funcionaba)
+  const mensaje = {
+    // data: siempre presente, el SW lo usa para data-only messages
+    data: {
+      title: tituloFinal,
+      body: cuerpoFinal,
+      url: urlDestino,
+      tipo: 'notificacion',
     },
-  })
-
-  for (const sub of suscripciones) {
-    try {
-      const esApple = sub.endpoint.includes('web.push.apple.com')
-      await webpush.sendNotification(
-        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-        payload,
-        {
-          TTL: esApple ? 86400 : 3600, // Apple: 24h (más confiable para entregas diferidas)
-          urgency: 'high',
-          contentEncoding: 'aes128gcm', // Requerido explícitamente por Apple
-          headers: {
-            Urgency: 'high',
-            // Topic para Apple: coalesce notificaciones del mismo tipo
-            ...(esApple ? { Topic: 'flux-notificacion' } : {}),
-          },
+    // webpush.notification: iOS Safari PWA lo muestra automáticamente sin pasar por el SW
+    webpush: {
+      headers: { Urgency: 'high' },
+      notification: {
+        title: tituloFinal,
+        body: cuerpoFinal,
+        icon: '/iconos/icon-192.png',
+        badge: '/iconos/icon-192.png',
+        tag: urlDestino,
+        requireInteraction: false,
+        silent: false,
+        data: { url: urlDestino },
+      },
+      fcmOptions: { link: urlDestino },
+    },
+    // APNs nativo: canal directo de Apple (el más confiable para iOS)
+    apns: {
+      headers: { 'apns-priority': '10' },
+      payload: {
+        aps: {
+          alert: { title: tituloFinal, body: cuerpoFinal },
+          sound: 'default',
+          badge: 1,
+          'content-available': 1,
         },
-      )
-      // Marcar como enviada exitosamente
-      await admin
-        .from('suscripciones_push')
-        .update({ ultima_notificacion_en: new Date().toISOString() })
-        .eq('id', sub.id)
-      console.log(`[Push] Enviada a ${esApple ? 'Apple' : 'Chrome/FF'}: ${sub.endpoint.slice(0, 50)}...`)
-    } catch (err) {
-      const statusCode = (err as { statusCode?: number }).statusCode
-      console.error(`[Push] Error enviando a ${sub.endpoint.slice(0, 50)}... status=${statusCode}`, (err as Error).message)
-      if (statusCode === 404 || statusCode === 410) {
-        await admin.from('suscripciones_push').update({ activa: false }).eq('id', sub.id)
+      },
+    },
+    // Android: alta prioridad
+    android: {
+      priority: 'high' as const,
+      notification: {
+        title: tituloFinal,
+        body: cuerpoFinal,
+        sound: 'default',
+        channelId: 'notificaciones',
+      },
+    },
+    tokens,
+  }
+
+  try {
+    const response = await mensajeria.sendEachForMulticast(mensaje)
+    console.log(`[Push FCM] Enviados: ${response.successCount}/${tokens.length} a usuario ${usuarioId.slice(0, 8)}...`)
+
+    // Limpiar tokens inválidos
+    if (response.failureCount > 0) {
+      const tokensInvalidos: string[] = []
+      response.responses.forEach((r, i) => {
+        if (!r.success) {
+          const code = r.error?.code
+          if (code === 'messaging/invalid-registration-token' ||
+              code === 'messaging/registration-token-not-registered') {
+            tokensInvalidos.push(tokens[i])
+          }
+          console.error(`[Push FCM] Error token ${i}: ${code} — ${r.error?.message}`)
+        }
+      })
+
+      // Desactivar suscripciones con tokens inválidos
+      for (const tokenInvalido of tokensInvalidos) {
+        await admin
+          .from('suscripciones_push')
+          .update({ activa: false })
+          .eq('endpoint', tokenInvalido)
+          .eq('usuario_id', usuarioId)
       }
     }
+
+    // Actualizar timestamp de última notificación
+    await admin
+      .from('suscripciones_push')
+      .update({ ultima_notificacion_en: new Date().toISOString() })
+      .eq('usuario_id', usuarioId)
+      .eq('empresa_id', empresaId)
+      .eq('activa', true)
+  } catch (err) {
+    console.error(`[Push FCM] Error general:`, (err as Error).message)
   }
 }

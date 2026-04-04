@@ -38,6 +38,8 @@
     "@types/react-dom": "^19.2.3",
     "drizzle-orm": "^0.45.1",
     "exceljs": "^4.4.0",
+    "firebase": "^12.11.0",
+    "firebase-admin": "^13.7.0",
     "framer-motion": "^12.38.0",
     "googleapis": "^171.4.0",
     "imapflow": "^1.2.18",

@@ -3,15 +3,20 @@
 import { useState, useCallback, useEffect } from 'react'
 
 /**
- * usePushNotificaciones — Registrar y desregistrar push notifications (Web Push API).
+ * usePushNotificaciones — Registrar y desregistrar push notifications via FCM.
+ *
+ * Usa Firebase Cloud Messaging que internamente enruta a APNs para iOS.
+ * Esto resuelve el problema de web-push directo que Apple descartaba silenciosamente.
  *
  * iOS requiere:
  * - La app DEBE estar instalada como PWA (standalone)
  * - El permiso se pide DENTRO de la PWA (no desde Safari browser)
- * - iOS 16.4+ soporta Web Push en PWAs standalone
  *
  * Se usa en: SeccionNotificaciones (Mi Cuenta).
  */
+
+// VAPID key de FCM (Cloud Messaging → Web Push certificates)
+const FCM_VAPID_KEY = 'BFFijjNwAopPTNWvLV8sGAn3cy1O00rp3Af3GFjVSRDzYUzcYqYe2O8a4Qi3R1D8F6eWpbb5e4FW3ChDwGzUWS4'
 
 interface EstadoPush {
   soportado: boolean
@@ -58,33 +63,16 @@ function usePushNotificaciones() {
   }, [])
 
   /**
-   * Verificar si ya hay suscripción activa.
-   * iOS puede rotar el endpoint silenciosamente (reinicio, actualización).
-   * Si el endpoint cambió, re-registra automáticamente en el servidor.
+   * Verificar si ya hay token FCM guardado.
+   * Si el token cambió (nuevo deploy, nuevo SW), re-registra automáticamente.
    */
   const verificar = useCallback(async () => {
     if (!estado.soportado) return false
+    if (Notification.permission !== 'granted') return false
+
     try {
-      const reg = await navigator.serviceWorker.ready
-      const sub = await reg.pushManager.getSubscription()
-      const suscrito = !!sub
-
-      // Detectar rotación de endpoint en iOS: comparar con el guardado
-      if (sub) {
-        const endpointGuardado = localStorage.getItem('flux_push_endpoint')
-        if (endpointGuardado && endpointGuardado !== sub.endpoint) {
-          // El endpoint cambió → re-registrar en el servidor
-          console.log('[Push] Endpoint rotado, re-registrando...')
-          const keys = sub.toJSON().keys as { p256dh: string; auth: string }
-          await fetch('/api/push', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ endpoint: sub.endpoint, keys }),
-          })
-        }
-        localStorage.setItem('flux_push_endpoint', sub.endpoint)
-      }
-
+      const tokenGuardado = localStorage.getItem('flux_fcm_token')
+      const suscrito = !!tokenGuardado
       setEstado(prev => ({ ...prev, suscrito, permiso: Notification.permission }))
       return suscrito
     } catch {
@@ -92,7 +80,7 @@ function usePushNotificaciones() {
     }
   }, [estado.soportado])
 
-  /** Suscribirse a push notifications */
+  /** Suscribirse a push notifications via FCM */
   const suscribir = useCallback(async (): Promise<boolean> => {
     if (!estado.soportado) return false
     setEstado(prev => ({ ...prev, cargando: true }))
@@ -111,43 +99,73 @@ function usePushNotificaciones() {
         return false
       }
 
-      // Obtener VAPID public key
-      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-      if (!vapidKey) {
-        console.error('NEXT_PUBLIC_VAPID_PUBLIC_KEY no configurada')
-        setEstado(prev => ({ ...prev, cargando: false }))
-        return false
-      }
-
       // Esperar service worker con timeout (15s)
       const reg = await Promise.race([
         navigator.serviceWorker.ready,
-        new Promise<never>((_, reject) =>
+        new Promise<ServiceWorkerRegistration>((_, reject) =>
           setTimeout(() => reject(new Error('SW timeout')), 15000)
         ),
       ])
 
-      // Suscribirse al push
-      const suscripcion = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidKey) as BufferSource,
+      // Asegurar que el SW esté activo (race con skipWaiting)
+      if (!reg.active) {
+        await new Promise<void>((resolve) => {
+          const sw = reg.installing || reg.waiting
+          if (!sw) return resolve()
+          const onCambio = () => {
+            if (sw.state === 'activated') {
+              sw.removeEventListener('statechange', onCambio)
+              resolve()
+            }
+          }
+          sw.addEventListener('statechange', onCambio)
+          if (sw.state === 'activated') resolve()
+        })
+      }
+
+      // Importar Firebase Messaging dinámicamente (evita cargar en SSR)
+      const { obtenerMensajeria } = await import('@/lib/firebase')
+      const { getToken } = await import('firebase/messaging')
+      const mensajeria = await obtenerMensajeria()
+      if (!mensajeria) {
+        console.error('Firebase Messaging no soportado')
+        setEstado(prev => ({ ...prev, cargando: false }))
+        return false
+      }
+
+      // Obtener token FCM usando el SW existente y la VAPID key de FCM
+      const token = await getToken(mensajeria, {
+        vapidKey: FCM_VAPID_KEY,
+        serviceWorkerRegistration: reg,
       })
 
-      // Enviar al servidor
-      const keys = suscripcion.toJSON().keys as { p256dh: string; auth: string }
+      if (!token) {
+        console.error('No se obtuvo token FCM')
+        setEstado(prev => ({ ...prev, cargando: false }))
+        return false
+      }
+
+      // Detectar rotación de token: si cambió, eliminar el viejo del servidor
+      const tokenAnterior = localStorage.getItem('flux_fcm_token')
+      if (tokenAnterior && tokenAnterior !== token) {
+        await fetch('/api/push', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: tokenAnterior }),
+        }).catch(() => {})
+      }
+
+      // Enviar token al servidor
       const res = await fetch('/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          endpoint: suscripcion.endpoint,
-          keys,
-        }),
+        body: JSON.stringify({ token }),
       })
 
       if (!res.ok) throw new Error('Error al registrar push')
 
-      // Guardar endpoint para detectar rotación en iOS
-      localStorage.setItem('flux_push_endpoint', suscripcion.endpoint)
+      // Guardar token para detectar rotación
+      localStorage.setItem('flux_fcm_token', token)
 
       setEstado(prev => ({ ...prev, suscrito: true, cargando: false }))
       return true
@@ -164,20 +182,17 @@ function usePushNotificaciones() {
     setEstado(prev => ({ ...prev, cargando: true }))
 
     try {
-      const reg = await navigator.serviceWorker.ready
-      const sub = await reg.pushManager.getSubscription()
-
-      if (sub) {
+      const token = localStorage.getItem('flux_fcm_token')
+      if (token) {
         // Eliminar del servidor
         await fetch('/api/push', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ endpoint: sub.endpoint }),
+          body: JSON.stringify({ token }),
         })
-        // Desuscribir localmente
-        await sub.unsubscribe()
       }
 
+      localStorage.removeItem('flux_fcm_token')
       setEstado(prev => ({ ...prev, suscrito: false, cargando: false }))
       return true
     } catch (err) {
@@ -188,18 +203,6 @@ function usePushNotificaciones() {
   }, [estado.soportado])
 
   return { ...estado, verificar, suscribir, desuscribir }
-}
-
-/** Convierte VAPID key de base64 a Uint8Array para pushManager.subscribe */
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
-  const rawData = atob(base64)
-  const outputArray = new Uint8Array(rawData.length)
-  for (let i = 0; i < rawData.length; i++) {
-    outputArray[i] = rawData.charCodeAt(i)
-  }
-  return outputArray
 }
 
 export { usePushNotificaciones }

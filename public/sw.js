@@ -1,5 +1,46 @@
 /// Service Worker de Flux by Salix
 /// Cache de assets estáticos + estrategia network-first para API
+/// Firebase Cloud Messaging para push notifications (iOS + Android + Desktop)
+
+// ─── Firebase Messaging (push via FCM → APNs para iOS) ───
+importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js')
+importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js')
+
+firebase.initializeApp({
+  apiKey: 'AIzaSyD8VfiguEpE64ITtdtWCtbklUzetg1Zlko',
+  authDomain: 'flux-by-salix-436a4.firebaseapp.com',
+  projectId: 'flux-by-salix-436a4',
+  storageBucket: 'flux-by-salix-436a4.firebasestorage.app',
+  messagingSenderId: '78902887591',
+  appId: '1:78902887591:web:1223eb6a672103d71c4782',
+})
+
+const messaging = firebase.messaging()
+
+// ─── FCM Background Messages ───
+// Cuando llega un push con webpush.notification, Firebase lo muestra automáticamente
+// y NO llama a onBackgroundMessage (evita doble push).
+// Solo entra acá si el payload es data-only (sin notification top-level).
+messaging.onBackgroundMessage((payload) => {
+  if (payload.notification) return // Firebase ya lo mostró
+
+  const datos = payload.data || {}
+  const titulo = datos.title || datos.titulo || 'Flux'
+  const cuerpo = datos.body || datos.cuerpo || ''
+  const url = datos.url || '/'
+
+  return self.registration.showNotification(titulo, {
+    body: cuerpo,
+    icon: '/iconos/icon-192.png',
+    badge: '/iconos/icon-192.png',
+    tag: url || 'flux-notificacion',
+    data: { url },
+    requireInteraction: false,
+    silent: false,
+  })
+})
+
+// ─── Cache ───
 
 const CACHE_NAME = 'flux-v2'
 
@@ -107,20 +148,17 @@ self.addEventListener('fetch', (event) => {
   }
 })
 
-// ─── Push Notifications ───
-// Recibe notificaciones push y SIEMPRE muestra una notificación visible.
-// iOS Safari revoca la suscripción si el SW no muestra notificación 3 veces.
-// Soporta Declarative Web Push (Safari 18.4+) como fallback automático.
-
+// ─── Push Notifications (fallback para web-push directo, no FCM) ───
+// Si por alguna razón llega un push que no es de FCM, lo manejamos igual.
 self.addEventListener('push', (event) => {
-  // Extraer datos del payload de forma segura
+  // Si Firebase ya manejó el push, no hacer nada
+  // Firebase intercepta los push events de FCM antes de que lleguen acá
   let datos = {}
   try {
     if (event.data) {
       datos = event.data.json()
     }
   } catch {
-    // Si no es JSON, intentar texto plano
     try {
       const texto = event.data ? event.data.text() : ''
       datos = { titulo: 'Flux', cuerpo: texto }
@@ -129,26 +167,22 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  // Soportar tanto formato custom (titulo/cuerpo) como Declarative Web Push (notification.title/body)
   const declarativo = datos.notification || {}
-  const titulo = datos.titulo || declarativo.title || 'Flux'
-  const cuerpo = datos.cuerpo || declarativo.body || ''
+  const titulo = datos.titulo || declarativo.title || datos.title || 'Flux'
+  const cuerpo = datos.cuerpo || declarativo.body || datos.body || ''
   const url = datos.url || declarativo.navigate || '/'
   const icono = datos.icono || declarativo.icon || '/iconos/icon-192.png'
 
-  const opciones = {
-    body: cuerpo,
-    icon: icono,
-    badge: '/iconos/icon-192.png',
-    tag: url || 'flux-notificacion',
-    data: { url },
-    requireInteraction: false,
-    silent: false,
-  }
-
-  // CRÍTICO: showNotification SIEMPRE debe ejecutarse para evitar la regla de 3 strikes de Safari
   event.waitUntil(
-    self.registration.showNotification(titulo, opciones)
+    self.registration.showNotification(titulo, {
+      body: cuerpo,
+      icon: icono,
+      badge: '/iconos/icon-192.png',
+      tag: url || 'flux-notificacion',
+      data: { url },
+      requireInteraction: false,
+      silent: false,
+    })
   )
 })
 
@@ -156,7 +190,9 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
 
-  const url = event.notification.data?.url || '/'
+  // Soportar tanto data de FCM como data manual
+  const fcmData = event.notification.data?.FCM_MSG?.data || {}
+  const url = fcmData.url || event.notification.data?.url || '/'
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientes) => {
