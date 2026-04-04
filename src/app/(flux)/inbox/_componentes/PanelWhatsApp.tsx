@@ -148,21 +148,32 @@ export interface MediaVisor {
 
 // ─── Tipos de elementos renderizables (pre-procesados) ───
 type ElementoChat =
-  | { tipo: 'separador'; fecha: Date; key: string }
   | { tipo: 'burbuja'; mensaje: MensajeConAdjuntos; key: string }
   | { tipo: 'grupo_imagenes'; mensajes: MensajeConAdjuntos[]; key: string }
 
-/** Pre-procesa mensajes en elementos renderizables, agrupando imágenes consecutivas */
-function prepararElementos(mensajes: MensajeConAdjuntos[]): ElementoChat[] {
-  const elementos: ElementoChat[] = []
+/** Sección agrupada por fecha — cada sección contiene su fecha y sus elementos */
+interface SeccionFecha {
+  fecha: Date
+  key: string
+  elementos: ElementoChat[]
+}
+
+/** Pre-procesa mensajes en secciones por fecha, agrupando imágenes consecutivas.
+ *  Cada sección se renderiza como un div contenedor con su separador sticky,
+ *  así el sticky queda limitado al scope de su sección y la siguiente lo empuja
+ *  hacia arriba naturalmente (comportamiento estilo WhatsApp). */
+function prepararSecciones(mensajes: MensajeConAdjuntos[]): SeccionFecha[] {
+  const secciones: SeccionFecha[] = []
+  let seccionActual: SeccionFecha | null = null
   let i = 0
 
   while (i < mensajes.length) {
     const msg = mensajes[i]
 
-    // Separador de día
+    // Nueva sección de día
     if (i === 0 || esDiaDiferente(mensajes[i - 1].creado_en, msg.creado_en)) {
-      elementos.push({ tipo: 'separador', fecha: new Date(msg.creado_en), key: `sep-${msg.id}` })
+      seccionActual = { fecha: new Date(msg.creado_en), key: `sec-${msg.id}`, elementos: [] }
+      secciones.push(seccionActual)
     }
 
     // Detectar grupo de imágenes consecutivas
@@ -182,7 +193,7 @@ function prepararElementos(mensajes: MensajeConAdjuntos[]): ElementoChat[] {
       }
 
       if (grupo.length >= 2) {
-        elementos.push({ tipo: 'grupo_imagenes', mensajes: grupo, key: `grp-${msg.id}` })
+        seccionActual!.elementos.push({ tipo: 'grupo_imagenes', mensajes: grupo, key: `grp-${msg.id}` })
         i = j
         continue
       }
@@ -194,13 +205,13 @@ function prepararElementos(mensajes: MensajeConAdjuntos[]): ElementoChat[] {
     // Solo omitir mensajes de texto completamente vacíos
     if (msg.texto || msg.adjuntos.length > 0 || esMediaSinContenido
       || msg.tipo_contenido === 'ubicacion' || msg.tipo_contenido === 'contacto_compartido') {
-      elementos.push({ tipo: 'burbuja', mensaje: msg, key: msg.id })
+      seccionActual!.elementos.push({ tipo: 'burbuja', mensaje: msg, key: msg.id })
     }
 
     i++
   }
 
-  return elementos
+  return secciones
 }
 
 // ═══════════════════════════════════════════════════
@@ -283,8 +294,8 @@ export function PanelWhatsApp({
     return () => document.removeEventListener('mousedown', cerrar)
   }, [pickerMsgId])
 
-  // Pre-procesar elementos de chat
-  const elementos = useMemo(() => prepararElementos(mensajes), [mensajes])
+  // Pre-procesar secciones de chat agrupadas por fecha
+  const secciones = useMemo(() => prepararSecciones(mensajes), [mensajes])
 
   // Trackear si el usuario está cerca del fondo (para auto-scroll inteligente)
   const estaCercaDelFondoRef = useRef(true)
@@ -511,26 +522,25 @@ export function PanelWhatsApp({
             </div>
           </div>
         ) : (
-          elementos.map((elem) => {
-            if (elem.tipo === 'separador') {
-              return (
-                <div
-                  key={elem.key}
-                  className="flex items-center justify-center py-2 z-10"
-                  style={{ position: 'sticky', top: 0 }}
+          secciones.map((seccion) => (
+            <div key={seccion.key}>
+              {/* Píldora de fecha sticky — limitada al scope de esta sección,
+                  así la siguiente sección la empuja hacia arriba (estilo WhatsApp) */}
+              <div
+                className="flex items-center justify-center py-2 z-10"
+                style={{ position: 'sticky', top: 0 }}
+              >
+                <span
+                  className="text-xxs px-3 py-1 rounded-lg shadow-sm"
+                  style={{
+                    background: 'var(--superficie-elevada)',
+                    color: 'var(--texto-terciario)',
+                  }}
                 >
-                  <span
-                    className="text-xxs px-3 py-1 rounded-lg shadow-sm"
-                    style={{
-                      background: 'var(--superficie-elevada)',
-                      color: 'var(--texto-terciario)',
-                    }}
-                  >
-                    {etiquetaDia(elem.fecha, { hoy: t('inbox.fecha_hoy'), ayer: t('inbox.fecha_ayer') })}
-                  </span>
-                </div>
-              )
-            }
+                  {etiquetaDia(seccion.fecha, { hoy: t('inbox.fecha_hoy'), ayer: t('inbox.fecha_ayer') })}
+                </span>
+              </div>
+              {seccion.elementos.map((elem) => {
 
             if (elem.tipo === 'grupo_imagenes') {
               const primerMsg = elem.mensajes[0]
@@ -961,7 +971,9 @@ export function PanelWhatsApp({
                 </div>
               </motion.div>
             )
-          })
+          })}
+            </div>
+          ))
         )}
       </div>
 

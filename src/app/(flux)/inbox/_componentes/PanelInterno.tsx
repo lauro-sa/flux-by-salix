@@ -420,45 +420,59 @@ export function PanelInterno({
                   <EstadoVacio titulo="No hay mensajes todavía" descripcion="Enviá el primero." />
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {mensajes.map((msg, idx) => {
-                    // Separador de fecha entre mensajes de días distintos
-                    const fechaActual = new Date(msg.creado_en)
-                    const fechaAnterior = idx > 0 ? new Date(mensajes[idx - 1].creado_en) : null
-                    const mostrarSeparador = !fechaAnterior || fechaActual.toDateString() !== fechaAnterior.toDateString()
-
-                    return (
-                      <div key={msg.id}>
-                        {mostrarSeparador && (
-                          <div className="flex justify-center my-3">
-                            <span
-                              className="text-xxs font-medium px-3 py-1 rounded-full"
-                              style={{
-                                background: 'var(--superficie-elevada)',
-                                color: 'var(--texto-terciario)',
-                              }}
-                            >
-                              {etiquetaDiaInterno(fechaActual)}
-                            </span>
-                          </div>
-                        )}
-                        <MensajeInterno
-                          mensaje={msg}
-                          esPropio={msg.remitente_id === usuarioId}
-                          esDM={canalSeleccionado?.tipo === 'directo'}
-                          pickerAbierto={pickerMsgId === msg.id}
-                          onTogglePicker={() => setPickerMsgId(pickerMsgId === msg.id ? null : msg.id)}
-                          onResponder={() => setRespondiendo({
-                            id: msg.id,
-                            texto: msg.texto || '',
-                            autor: msg.remitente_nombre || 'Desconocido',
-                          })}
-                          onAbrirHilo={() => setHiloAbierto(msg.id)}
-                          onReaccionar={reaccionar}
-                        />
+                <div className="space-y-1">
+                  {/* Agrupar mensajes en secciones por fecha para sticky correcto */}
+                  {(() => {
+                    const secciones: { fecha: Date; msgs: typeof mensajes }[] = []
+                    for (const msg of mensajes) {
+                      const fecha = new Date(msg.creado_en)
+                      const ultima = secciones[secciones.length - 1]
+                      if (!ultima || fecha.toDateString() !== ultima.fecha.toDateString()) {
+                        secciones.push({ fecha, msgs: [msg] })
+                      } else {
+                        ultima.msgs.push(msg)
+                      }
+                    }
+                    return secciones.map((seccion, si) => (
+                      <div key={si}>
+                        {/* Píldora de fecha sticky — empujada por la siguiente sección */}
+                        <div
+                          className="flex justify-center py-2 z-10"
+                          style={{ position: 'sticky', top: 0 }}
+                        >
+                          <span
+                            className="text-xxs font-medium px-3 py-1 rounded-full shadow-sm"
+                            style={{
+                              background: 'var(--superficie-elevada)',
+                              color: 'var(--texto-terciario)',
+                            }}
+                          >
+                            {etiquetaDiaInterno(seccion.fecha)}
+                          </span>
+                        </div>
+                        <div className="space-y-3">
+                          {seccion.msgs.map((msg) => (
+                            <div key={msg.id}>
+                              <MensajeInterno
+                                mensaje={msg}
+                                esPropio={msg.remitente_id === usuarioId}
+                                esDM={canalSeleccionado?.tipo === 'directo'}
+                                pickerAbierto={pickerMsgId === msg.id}
+                                onTogglePicker={() => setPickerMsgId(pickerMsgId === msg.id ? null : msg.id)}
+                                onResponder={() => setRespondiendo({
+                                  id: msg.id,
+                                  texto: msg.texto || '',
+                                  autor: msg.remitente_nombre || 'Desconocido',
+                                })}
+                                onAbrirHilo={() => setHiloAbierto(msg.id)}
+                                onReaccionar={reaccionar}
+                              />
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    )
-                  })}
+                    ))
+                  })()}
                 </div>
               )}
             </div>
