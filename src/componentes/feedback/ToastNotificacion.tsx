@@ -220,13 +220,12 @@ function ToastNotificacion() {
   const { estaSilenciada } = useModoConcentracion()
   const [grupos, setGrupos] = useState<GrupoToast[]>([])
 
-  // En mobile con push activo, no mostrar toast (ya llega la notificación del sistema)
-  const esMobile = typeof window !== 'undefined' && window.innerWidth < 768
-  const pushActivo = typeof window !== 'undefined' && Notification.permission === 'granted'
-
   const handleNueva = useCallback((n: Notificacion) => {
-    // Si estamos en mobile con push habilitado, el OS ya muestra la notificación
-    if (esMobile && pushActivo) return
+    // En mobile con push activo, no mostrar toast (ya llega la notificación del sistema)
+    if (typeof window !== 'undefined' && window.innerWidth < 768
+      && 'Notification' in window && Notification.permission === 'granted') {
+      return
+    }
 
     const categoria = categorizarTipo(n.tipo)
     if (estaSilenciada(categoria)) return
