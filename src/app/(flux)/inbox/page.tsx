@@ -1091,6 +1091,8 @@ function PaginaInbox() {
               if (mensajeNuevo?.es_entrante || (mensajeNuevo?.remitente_id && !mensajeNuevo.id.startsWith('temp-'))) {
                 sonidos.notificacion()
               }
+              // Marcar notificaciones como leídas: estamos viendo la conversación activamente
+              marcarNotificacionesLeidasDeConversacion(convId)
             }
             ultimoMensajeRef.current = ultimoNuevo
             return merged
