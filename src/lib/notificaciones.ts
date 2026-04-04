@@ -54,10 +54,14 @@ export async function crearNotificacion({
       .maybeSingle()
 
     if (existente) {
+      // Actualizar la notificación existente (nuevo mensaje en misma conversación)
       await admin
         .from('notificaciones')
         .update({ titulo, cuerpo: cuerpo || null, creada_en: new Date().toISOString() })
         .eq('id', existente.id)
+      // IMPORTANTE: enviar push aunque sea duplicado — el usuario necesita saber que hay un mensaje nuevo
+      console.log(`[Push] crearNotificacion (dedup): enviando push a usuario ${usuarioId.slice(0, 8)}...`)
+      enviarPush({ empresaId, usuarioId, titulo, cuerpo, url }).catch((err) => console.error('[Push] Error dedup:', err))
       return
     }
   }

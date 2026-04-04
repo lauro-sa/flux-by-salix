@@ -427,30 +427,55 @@ async function procesarMensajeEntrante(
     }
   }
 
-  // ─── Notificación al agente asignado ───
+  // ─── Notificación de WhatsApp entrante ───
+  // Si hay agente asignado → notificar solo a él.
+  // Si NO hay agente asignado → notificar a todos los admins/propietarios activos.
   try {
+    const { crearNotificacion, crearNotificacionesBatch } = await import('@/lib/notificaciones')
     const { data: convActual } = await admin
       .from('conversaciones')
       .select('asignado_a, contacto_nombre')
       .eq('id', conversacion.id)
       .single()
 
+    const contactoNombre = convActual?.contacto_nombre || nombreRemitente
+    const preview = textoPreviewMensaje(msg)
+    const datosNotif = {
+      tipo: 'mensaje_whatsapp',
+      titulo: `💬 Mensaje de ${contactoNombre}`,
+      cuerpo: preview.slice(0, 120),
+      icono: 'MessageSquare',
+      color: 'var(--canal-whatsapp)',
+      url: `/inbox?conv=${conversacion.id}`,
+      referenciaTipo: 'conversacion',
+      referenciaId: conversacion.id,
+    }
+
     if (convActual?.asignado_a) {
-      const { crearNotificacion } = await import('@/lib/notificaciones')
-      const contactoNombre = convActual.contacto_nombre || nombreRemitente
-      const preview = textoPreviewMensaje(msg)
+      // Notificar al agente asignado
       await crearNotificacion({
         empresaId: canal.empresa_id,
         usuarioId: convActual.asignado_a,
-        tipo: 'mensaje_whatsapp',
-        titulo: `💬 Mensaje de ${contactoNombre}`,
-        cuerpo: preview.slice(0, 120),
-        icono: 'MessageSquare',
-        color: 'var(--canal-whatsapp)',
-        url: `/inbox?conv=${conversacion.id}`,
-        referenciaTipo: 'conversacion',
-        referenciaId: conversacion.id,
+        ...datosNotif,
       })
+    } else {
+      // Sin asignado → notificar a todos los admins/propietarios activos
+      const { data: admins } = await admin
+        .from('miembros_empresa')
+        .select('usuario_id')
+        .eq('empresa_id', canal.empresa_id)
+        .in('rol', ['propietario', 'administrador'])
+        .eq('activo', true)
+
+      if (admins && admins.length > 0) {
+        await crearNotificacionesBatch(
+          admins.map(a => ({
+            empresaId: canal.empresa_id,
+            usuarioId: a.usuario_id,
+            ...datosNotif,
+          }))
+        )
+      }
     }
   } catch (err) {
     console.warn('[NOTIFICACION] Error creando notificación WhatsApp:', err)

@@ -537,25 +537,39 @@ async function procesarCorreoEntrante(
         .update({ mensajes_sin_leer: (convActual.mensajes_sin_leer || 0) + 1 })
         .eq('id', conversacionId)
 
-      // Crear notificación para el agente asignado (con anti-duplicación)
-      if (convActual.asignado_a) {
-        try {
-          const { crearNotificacion } = await import('@/lib/notificaciones')
-          await crearNotificacion({
-            empresaId,
-            usuarioId: convActual.asignado_a,
-            tipo: 'mensaje_correo',
-            titulo: `📩 Nuevo correo de ${contactoNombre}`,
-            cuerpo: previewTexto.slice(0, 120) || correo.asunto,
-            icono: 'Mail',
-            color: 'var(--canal-correo)',
-            url: `/inbox?conv=${conversacionId}`,
-            referenciaTipo: 'conversacion',
-            referenciaId: conversacionId,
-          })
-        } catch {
-          // Silenciar si falla la notificación
+      // Crear notificación de correo entrante
+      // Si hay agente asignado → notificar solo a él.
+      // Si NO hay agente → notificar a admins/propietarios.
+      try {
+        const { crearNotificacion, crearNotificacionesBatch } = await import('@/lib/notificaciones')
+        const datosNotif = {
+          tipo: 'mensaje_correo',
+          titulo: `📩 Nuevo correo de ${contactoNombre}`,
+          cuerpo: previewTexto.slice(0, 120) || correo.asunto,
+          icono: 'Mail',
+          color: 'var(--canal-correo)',
+          url: `/inbox?conv=${conversacionId}`,
+          referenciaTipo: 'conversacion',
+          referenciaId: conversacionId,
         }
+
+        if (convActual.asignado_a) {
+          await crearNotificacion({ empresaId, usuarioId: convActual.asignado_a, ...datosNotif })
+        } else {
+          // Sin asignado → notificar a admins/propietarios
+          const { data: admins } = await admin
+            .from('miembros_empresa')
+            .select('usuario_id')
+            .eq('empresa_id', empresaId)
+            .in('rol', ['propietario', 'administrador'])
+            .eq('activo', true)
+
+          if (admins && admins.length > 0) {
+            await crearNotificacionesBatch(admins.map(a => ({ empresaId, usuarioId: a.usuario_id, ...datosNotif })))
+          }
+        }
+      } catch {
+        // Silenciar si falla la notificación
       }
     }
   }
