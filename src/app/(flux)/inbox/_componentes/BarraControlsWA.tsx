@@ -127,24 +127,29 @@ export function BarraControlsWA({
   const cargarMiembros = useCallback(async () => {
     if (miembros.length > 0 || !empresaId) return
     const supabase = crearClienteNavegador()
-    const { data } = await supabase
+    // Paso 1: obtener usuario_ids de miembros activos
+    const { data: miembrosData } = await supabase
       .from('miembros')
-      .select('id, usuario_id, perfiles(nombre, apellido, avatar_url)')
+      .select('usuario_id')
       .eq('empresa_id', empresaId)
       .eq('activo', true)
-    if (data) {
-      setMiembros(data.map((m: Record<string, unknown>) => {
-        const perfil = (m.perfiles as Record<string, unknown>) || {}
-        return {
-          id: m.id as string,
-          usuario_id: m.usuario_id as string,
-          nombre: (perfil.nombre as string) || '',
-          apellido: (perfil.apellido as string) || '',
-          avatar_url: (perfil.avatar_url as string | null) || null,
-        }
-      }))
+    if (!miembrosData || miembrosData.length === 0) return
+    // Paso 2: obtener perfiles con nombres
+    const ids = miembrosData.map(m => m.usuario_id)
+    const { data: perfiles } = await supabase
+      .from('perfiles')
+      .select('id, nombre, apellido, avatar_url')
+      .in('id', ids)
+    if (perfiles) {
+      setMiembros(perfiles.map(p => ({
+        id: p.id,
+        usuario_id: p.id,
+        nombre: p.nombre || '',
+        apellido: p.apellido || '',
+        avatar_url: p.avatar_url || null,
+      })))
     }
-  }, [miembros.length])
+  }, [miembros.length, empresaId])
 
   // ─── Cargar sectores al abrir popover sector ───
   const cargarSectores = useCallback(async () => {
