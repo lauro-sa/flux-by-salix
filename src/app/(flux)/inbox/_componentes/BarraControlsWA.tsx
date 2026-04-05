@@ -243,21 +243,26 @@ export function BarraControlsWA({
               </p>
               {/* Sin agente */}
               <button
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors"
-                style={{ color: 'var(--texto-secundario)' }}
+                type="button"
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
+                style={{ color: 'var(--texto-secundario)', border: 'none', background: 'transparent' }}
                 onClick={() => patchConversacion({ asignado_a: null, asignado_a_nombre: null })}
               >
-                <div className="size-6 rounded-full bg-[var(--superficie-hover)] flex items-center justify-center">
+                <div className="size-6 rounded-full flex items-center justify-center" style={{ background: 'var(--superficie-hover)' }}>
                   <User size={12} />
                 </div>
                 <span>Sin agente</span>
                 {!conversacion.asignado_a && <Check size={14} className="ml-auto" style={{ color: 'var(--insignia-exito)' }} />}
               </button>
+              {miembros.length === 0 && (
+                <p className="px-3 py-2 text-xxs" style={{ color: 'var(--texto-terciario)' }}>Cargando miembros...</p>
+              )}
               {miembros.map((m) => (
                 <button
+                  type="button"
                   key={m.usuario_id}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors"
-                  style={{ color: 'var(--texto-primario)' }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
+                  style={{ color: 'var(--texto-primario)', border: 'none', background: 'transparent' }}
                   onClick={() => patchConversacion({
                     asignado_a: m.usuario_id,
                     asignado_a_nombre: `${m.nombre} ${m.apellido}`.trim(),
@@ -296,19 +301,24 @@ export function BarraControlsWA({
                 Sector asignado
               </p>
               <button
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors"
-                style={{ color: 'var(--texto-secundario)' }}
+                type="button"
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
+                style={{ color: 'var(--texto-secundario)', border: 'none', background: 'transparent' }}
                 onClick={() => patchConversacion({ sector_id: null, sector_nombre: null, sector_color: null })}
               >
                 <div className="size-3 rounded-full" style={{ background: '#9ca3af' }} />
                 <span>Sin sector</span>
                 {!conversacion.sector_id && <Check size={14} className="ml-auto" style={{ color: 'var(--insignia-exito)' }} />}
               </button>
+              {sectores.length === 0 && (
+                <p className="px-3 py-2 text-xxs" style={{ color: 'var(--texto-terciario)' }}>Cargando sectores...</p>
+              )}
               {sectores.map((s) => (
                 <button
+                  type="button"
                   key={s.id}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors"
-                  style={{ color: 'var(--texto-primario)' }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
+                  style={{ color: 'var(--texto-primario)', border: 'none', background: 'transparent' }}
                   onClick={() => patchConversacion({ sector_id: s.id, sector_nombre: s.nombre, sector_color: s.color })}
                 >
                   <div className="size-3 rounded-full flex-shrink-0" style={{ background: s.color }} />
@@ -374,8 +384,8 @@ export function BarraControlsWA({
               ]).map((opcion) => (
                 <button
                   key={opcion.etiqueta}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors"
-                  style={{ color: 'var(--texto-primario)' }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
+                  style={{ color: 'var(--texto-primario)', border: 'none', background: 'transparent' }}
                   onClick={() => patchConversacion(opcion.cambios)}
                 >
                   <div
@@ -420,8 +430,8 @@ export function BarraControlsWA({
               ]).map((opcion) => (
                 <button
                   key={opcion.etiqueta}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors"
-                  style={{ color: 'var(--texto-primario)' }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
+                  style={{ color: 'var(--texto-primario)', border: 'none', background: 'transparent' }}
                   onClick={() => patchConversacion(opcion.cambios)}
                 >
                   <div
@@ -481,8 +491,9 @@ export function BarraControlsWA({
                 </p>
                 {/* Sin etapa */}
                 <button
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors"
-                  style={{ color: 'var(--texto-secundario)' }}
+                  type="button"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
+                  style={{ color: 'var(--texto-secundario)', border: 'none', background: 'transparent' }}
                   onClick={() => patchConversacion({ etapa_id: null })}
                 >
                   <div className="size-3 rounded-full" style={{ background: '#9ca3af' }} />
@@ -491,9 +502,10 @@ export function BarraControlsWA({
                 </button>
                 {etapas.filter(e => e.activa).map((e) => (
                   <button
+                    type="button"
                     key={e.id}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors"
-                    style={{ color: 'var(--texto-primario)' }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
+                    style={{ color: 'var(--texto-primario)', border: 'none', background: 'transparent' }}
                     onClick={() => patchConversacion({ etapa_id: e.id })}
                   >
                     <div className="size-3 rounded-full flex-shrink-0" style={{ background: e.color }} />
