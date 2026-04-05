@@ -2,15 +2,15 @@
 
 import { useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { Sparkles } from 'lucide-react'
+import {
+  Sparkles, TrendingUp, TrendingDown, Minus,
+  AlertTriangle, CheckCircle2, Clock, MessageSquare,
+} from 'lucide-react'
 
 /**
- * ResumenInteligente — Párrafo generado a partir de los datos del dashboard.
- * Analiza presupuestos, ventas, contactos, actividades e inbox para dar
- * un panorama rápido del estado del negocio sin tener que mirar cada widget.
- *
- * No usa IA — es lógica determinística basada en comparaciones y umbrales.
- * Esto es más rápido, más barato, y siempre predecible.
+ * ResumenInteligente — Resumen visual del mes actual.
+ * Muestra indicadores clave con colores, flechas y contexto breve.
+ * Se lee de un vistazo — no es un párrafo.
  */
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
@@ -42,101 +42,108 @@ export function ResumenInteligente(props: Props) {
     presupuestosNuevosMes, presupuestosNuevosMesAnterior, presupuestosBorradores,
     ordenesMontoMes, ordenesMontoMesAnterior, ordenesCantidadMes,
     actividadesPendientes, actividadesVencidas, actividadesCompletadasHoy,
-    conversacionesAbiertas, conversacionesSinLeer,
-    presupuestosPorVencer,
-    formatoMoneda,
+    conversacionesSinLeer, presupuestosPorVencer, formatoMoneda,
   } = props
 
   const mesActual = MESES[new Date().getMonth()]
-  const mesAnterior = MESES[new Date().getMonth() === 0 ? 11 : new Date().getMonth() - 1]
 
-  const parrafos = useMemo(() => {
-    const lineas: string[] = []
+  // Puntos de atención (alertas + logros)
+  const puntos = useMemo(() => {
+    const items: Array<{ tipo: 'alerta' | 'logro' | 'info'; icono: React.ReactNode; texto: string }> = []
 
-    // ─── Ventas / Órdenes ───
+    // Ventas del mes
     if (ordenesCantidadMes > 0) {
-      const difMonto = ordenesMontoMes - ordenesMontoMesAnterior
-      if (ordenesMontoMesAnterior > 0) {
-        const pct = Math.round((difMonto / ordenesMontoMesAnterior) * 100)
-        if (pct > 0) {
-          lineas.push(`En ${mesActual} cerraste ${ordenesCantidadMes} venta${ordenesCantidadMes > 1 ? 's' : ''} por ${formatoMoneda(ordenesMontoMes)}, un ${pct}% más que en ${mesAnterior}.`)
-        } else if (pct < -10) {
-          lineas.push(`En ${mesActual} llevas ${ordenesCantidadMes} venta${ordenesCantidadMes > 1 ? 's' : ''} por ${formatoMoneda(ordenesMontoMes)}. Comparado con ${mesAnterior} (${formatoMoneda(ordenesMontoMesAnterior)}), bajó un ${Math.abs(pct)}%.`)
-        } else {
-          lineas.push(`En ${mesActual} cerraste ${ordenesCantidadMes} venta${ordenesCantidadMes > 1 ? 's' : ''} por ${formatoMoneda(ordenesMontoMes)}, similar a ${mesAnterior}.`)
-        }
-      } else {
-        lineas.push(`En ${mesActual} cerraste ${ordenesCantidadMes} venta${ordenesCantidadMes > 1 ? 's' : ''} por ${formatoMoneda(ordenesMontoMes)}.`)
-      }
-    } else {
-      if (ordenesMontoMesAnterior > 0) {
-        lineas.push(`Todavía no cerraste ventas en ${mesActual}. En ${mesAnterior} habías facturado ${formatoMoneda(ordenesMontoMesAnterior)}.`)
-      }
+      const dif = ordenesMontoMes - ordenesMontoMesAnterior
+      items.push({
+        tipo: dif >= 0 ? 'logro' : 'info',
+        icono: dif >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />,
+        texto: `${ordenesCantidadMes} venta${ordenesCantidadMes > 1 ? 's' : ''} por ${formatoMoneda(ordenesMontoMes)} en ${mesActual}${
+          ordenesMontoMesAnterior > 0
+            ? dif >= 0 ? ` (+${formatoMoneda(dif)} vs mes anterior)` : ` (${formatoMoneda(dif)} vs mes anterior)`
+            : ''
+        }`,
+      })
+    } else if (ordenesMontoMesAnterior > 0) {
+      items.push({
+        tipo: 'alerta',
+        icono: <AlertTriangle size={14} />,
+        texto: `Sin ventas cerradas en ${mesActual} — el mes pasado fueron ${formatoMoneda(ordenesMontoMesAnterior)}`,
+      })
     }
 
-    // ─── Presupuestos ───
-    if (presupuestosNuevosMes > 0) {
-      let textoPresup = `Emitiste ${presupuestosNuevosMes} presupuesto${presupuestosNuevosMes > 1 ? 's' : ''} este mes`
-      if (presupuestosNuevosMesAnterior > 0) {
-        const difPresup = presupuestosNuevosMes - presupuestosNuevosMesAnterior
-        if (difPresup > 0) textoPresup += ` (+${difPresup} vs ${mesAnterior})`
-        else if (difPresup < 0) textoPresup += ` (${difPresup} vs ${mesAnterior})`
-      }
-      textoPresup += '.'
-      if (presupuestosBorradores > 0) {
-        textoPresup += ` Tenés ${presupuestosBorradores} en borrador pendiente${presupuestosBorradores > 1 ? 's' : ''} de enviar.`
-      }
-      lineas.push(textoPresup)
-    }
-
-    // ─── Por vencer (urgente) ───
+    // Presupuestos por vencer
     if (presupuestosPorVencer > 0) {
-      lineas.push(`⚠ ${presupuestosPorVencer} presupuesto${presupuestosPorVencer > 1 ? 's' : ''} enviado${presupuestosPorVencer > 1 ? 's' : ''} vence${presupuestosPorVencer > 1 ? 'n' : ''} en los próximos 7 días — revisalos para no perder esas oportunidades.`)
+      items.push({
+        tipo: 'alerta',
+        icono: <Clock size={14} />,
+        texto: `${presupuestosPorVencer} presupuesto${presupuestosPorVencer > 1 ? 's' : ''} vence${presupuestosPorVencer > 1 ? 'n' : ''} en 7 días`,
+      })
     }
 
-    // ─── Contactos ───
-    if (contactosNuevosMes > 0) {
-      let textoContactos = `Sumaste ${contactosNuevosMes} contacto${contactosNuevosMes > 1 ? 's' : ''} nuevo${contactosNuevosMes > 1 ? 's' : ''}`
-      if (contactosNuevosMesAnterior > 0) {
-        const dif = contactosNuevosMes - contactosNuevosMesAnterior
-        if (dif > 0) textoContactos += `, ${dif} más que el mes pasado`
-        else if (dif < 0) textoContactos += `, ${Math.abs(dif)} menos que el mes pasado`
-      }
-      textoContactos += '.'
-      lineas.push(textoContactos)
+    // Borradores pendientes
+    if (presupuestosBorradores > 0) {
+      items.push({
+        tipo: 'info',
+        icono: <Clock size={14} />,
+        texto: `${presupuestosBorradores} borrador${presupuestosBorradores > 1 ? 'es' : ''} pendiente${presupuestosBorradores > 1 ? 's' : ''} de enviar`,
+      })
     }
 
-    // ─── Actividades ───
+    // Actividades vencidas
     if (actividadesVencidas > 0) {
-      lineas.push(`Tenés ${actividadesVencidas} actividad${actividadesVencidas > 1 ? 'es' : ''} vencida${actividadesVencidas > 1 ? 's' : ''} que necesitan atención.`)
-    } else if (actividadesPendientes > 0) {
-      let textoAct = `${actividadesPendientes} actividad${actividadesPendientes > 1 ? 'es' : ''} pendiente${actividadesPendientes > 1 ? 's' : ''}`
-      if (actividadesCompletadasHoy > 0) {
-        textoAct += ` (completaste ${actividadesCompletadasHoy} hoy)`
-      }
-      textoAct += '.'
-      lineas.push(textoAct)
+      items.push({
+        tipo: 'alerta',
+        icono: <AlertTriangle size={14} />,
+        texto: `${actividadesVencidas} actividad${actividadesVencidas > 1 ? 'es' : ''} vencida${actividadesVencidas > 1 ? 's' : ''}`,
+      })
     }
 
-    // ─── Inbox ───
+    // Completadas hoy
+    if (actividadesCompletadasHoy > 0) {
+      items.push({
+        tipo: 'logro',
+        icono: <CheckCircle2 size={14} />,
+        texto: `${actividadesCompletadasHoy} actividad${actividadesCompletadasHoy > 1 ? 'es' : ''} completada${actividadesCompletadasHoy > 1 ? 's' : ''} hoy`,
+      })
+    }
+
+    // Inbox sin leer
     if (conversacionesSinLeer > 3) {
-      lineas.push(`Tenés ${conversacionesSinLeer} conversaciones sin leer en el inbox.`)
-    } else if (conversacionesAbiertas > 0 && conversacionesSinLeer === 0) {
-      lineas.push(`Inbox al día — ${conversacionesAbiertas} conversacion${conversacionesAbiertas > 1 ? 'es' : ''} abierta${conversacionesAbiertas > 1 ? 's' : ''}, todo leído.`)
+      items.push({
+        tipo: 'info',
+        icono: <MessageSquare size={14} />,
+        texto: `${conversacionesSinLeer} conversaciones sin leer`,
+      })
     }
 
-    return lineas
+    // Contactos nuevos
+    if (contactosNuevosMes > 0) {
+      const dif = contactosNuevosMes - contactosNuevosMesAnterior
+      items.push({
+        tipo: dif >= 0 ? 'logro' : 'info',
+        icono: dif >= 0 ? <TrendingUp size={14} /> : <Minus size={14} />,
+        texto: `+${contactosNuevosMes} contacto${contactosNuevosMes > 1 ? 's' : ''} nuevo${contactosNuevosMes > 1 ? 's' : ''}${
+          contactosNuevosMesAnterior > 0 ? ` (${dif >= 0 ? '+' : ''}${dif} vs mes anterior)` : ''
+        }`,
+      })
+    }
+
+    return items
   }, [
-    mesActual, mesAnterior,
-    contactosNuevosMes, contactosNuevosMesAnterior,
+    mesActual, contactosNuevosMes, contactosNuevosMesAnterior,
     presupuestosNuevosMes, presupuestosNuevosMesAnterior, presupuestosBorradores,
     ordenesMontoMes, ordenesMontoMesAnterior, ordenesCantidadMes,
     actividadesPendientes, actividadesVencidas, actividadesCompletadasHoy,
-    conversacionesAbiertas, conversacionesSinLeer,
-    presupuestosPorVencer, formatoMoneda,
+    conversacionesSinLeer, presupuestosPorVencer, formatoMoneda,
   ])
 
-  if (parrafos.length === 0) return null
+  if (puntos.length === 0) return null
+
+  const COLORES_TIPO = {
+    alerta: 'text-insignia-peligro-texto bg-insignia-peligro-fondo',
+    logro: 'text-insignia-exito-texto bg-insignia-exito-fondo',
+    info: 'text-texto-terciario bg-superficie-hover',
+  }
 
   return (
     <motion.div
@@ -145,15 +152,23 @@ export function ResumenInteligente(props: Props) {
       transition={{ duration: 0.3, delay: 0.1 }}
       className="bg-superficie-tarjeta border border-borde-sutil rounded-lg px-5 py-4"
     >
-      <div className="flex items-start gap-3">
-        <div className="size-7 rounded-lg bg-texto-marca/10 flex items-center justify-center shrink-0 mt-0.5">
-          <Sparkles size={14} className="text-texto-marca" />
+      <div className="flex items-center gap-2 mb-3">
+        <div className="size-6 rounded-md bg-texto-marca/10 flex items-center justify-center">
+          <Sparkles size={12} className="text-texto-marca" />
         </div>
-        <div className="text-sm text-texto-secundario leading-relaxed space-y-1">
-          {parrafos.map((p, i) => (
-            <p key={i}>{p}</p>
-          ))}
-        </div>
+        <span className="text-xs font-semibold text-texto-primario capitalize">{mesActual} — puntos clave</span>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {puntos.map((p, i) => (
+          <div
+            key={i}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs ${COLORES_TIPO[p.tipo]}`}
+          >
+            {p.icono}
+            <span>{p.texto}</span>
+          </div>
+        ))}
       </div>
     </motion.div>
   )
