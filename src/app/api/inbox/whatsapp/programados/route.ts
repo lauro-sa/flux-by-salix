@@ -1,0 +1,187 @@
+import { NextResponse, type NextRequest } from 'next/server'
+import { crearClienteServidor } from '@/lib/supabase/servidor'
+
+/**
+ * API de mensajes de WhatsApp programados.
+ * GET  — Listar programados de una conversación (pendiente/error)
+ * POST — Programar un nuevo mensaje de WhatsApp
+ * DELETE — Cancelar un mensaje programado (solo si está pendiente)
+ *
+ * Se usa en: PanelWhatsApp, SeccionWhatsApp (programar envíos diferidos).
+ * El cron /api/cron/enviar-programados los envía cuando llega la hora.
+ */
+
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = await crearClienteServidor()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+    const empresaId = user.app_metadata?.empresa_activa_id || user.user_metadata?.empresa_id
+    if (!empresaId) return NextResponse.json({ error: 'Sin empresa' }, { status: 403 })
+
+    const { searchParams } = new URL(request.url)
+    const conversacionId = searchParams.get('conversacion_id')
+
+    if (!conversacionId) {
+      return NextResponse.json({ error: 'conversacion_id es requerido' }, { status: 400 })
+    }
+
+    // RLS filtra por empresa_id automáticamente
+    const { data, error } = await supabase
+      .from('whatsapp_programados')
+      .select('*')
+      .eq('conversacion_id', conversacionId)
+      .in('estado', ['pendiente', 'error'])
+      .order('enviar_en', { ascending: true })
+
+    if (error) {
+      console.error('Error al listar WhatsApp programados:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ programados: data })
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: 500 })
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = await crearClienteServidor()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+    const empresaId = user.app_metadata?.empresa_activa_id || user.user_metadata?.empresa_id
+    if (!empresaId) return NextResponse.json({ error: 'Sin empresa' }, { status: 403 })
+
+    const body = await request.json()
+    const {
+      conversacion_id,
+      canal_id,
+      destinatario,
+      tipo_contenido,
+      texto,
+      media_url,
+      media_nombre,
+      plantilla_nombre,
+      plantilla_idioma,
+      plantilla_componentes,
+      enviar_en,
+    } = body
+
+    // Validaciones básicas
+    if (!conversacion_id) {
+      return NextResponse.json({ error: 'conversacion_id es requerido' }, { status: 400 })
+    }
+    if (!canal_id) {
+      return NextResponse.json({ error: 'canal_id es requerido' }, { status: 400 })
+    }
+    if (!destinatario) {
+      return NextResponse.json({ error: 'destinatario es requerido' }, { status: 400 })
+    }
+    if (!enviar_en) {
+      return NextResponse.json({ error: 'enviar_en es requerido' }, { status: 400 })
+    }
+
+    // Validar que la fecha de envío sea futura
+    const fechaEnvio = new Date(enviar_en)
+    if (fechaEnvio <= new Date()) {
+      return NextResponse.json({ error: 'enviar_en debe ser una fecha futura' }, { status: 400 })
+    }
+
+    // Validar contenido según tipo
+    const tipoFinal = tipo_contenido || 'texto'
+    if (tipoFinal === 'texto' && !texto) {
+      return NextResponse.json({ error: 'texto es requerido para mensajes de texto' }, { status: 400 })
+    }
+    if (['imagen', 'video', 'audio', 'documento'].includes(tipoFinal) && !media_url) {
+      return NextResponse.json({ error: 'media_url es requerido para mensajes multimedia' }, { status: 400 })
+    }
+    if (tipoFinal === 'plantilla' && !plantilla_nombre) {
+      return NextResponse.json({ error: 'plantilla_nombre es requerido para plantillas' }, { status: 400 })
+    }
+
+    const { data, error } = await supabase
+      .from('whatsapp_programados')
+      .insert({
+        empresa_id: empresaId,
+        canal_id,
+        conversacion_id,
+        creado_por: user.id,
+        destinatario,
+        tipo_contenido: tipoFinal,
+        texto: texto || null,
+        media_url: media_url || null,
+        media_nombre: media_nombre || null,
+        plantilla_nombre: plantilla_nombre || null,
+        plantilla_idioma: plantilla_idioma || null,
+        plantilla_componentes: plantilla_componentes || null,
+        enviar_en: fechaEnvio.toISOString(),
+        estado: 'pendiente',
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error al programar WhatsApp:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ programado: data }, { status: 201 })
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await crearClienteServidor()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+    const empresaId = user.app_metadata?.empresa_activa_id || user.user_metadata?.empresa_id
+    if (!empresaId) return NextResponse.json({ error: 'Sin empresa' }, { status: 403 })
+
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+
+    if (!id) {
+      return NextResponse.json({ error: 'id es requerido' }, { status: 400 })
+    }
+
+    // Verificar que existe y está pendiente (RLS filtra por empresa)
+    const { data: existente, error: errorBuscar } = await supabase
+      .from('whatsapp_programados')
+      .select('id, estado')
+      .eq('id', id)
+      .single()
+
+    if (errorBuscar || !existente) {
+      return NextResponse.json({ error: 'Mensaje programado no encontrado' }, { status: 404 })
+    }
+
+    if (existente.estado !== 'pendiente') {
+      return NextResponse.json(
+        { error: `No se puede cancelar un mensaje con estado "${existente.estado}"` },
+        { status: 400 },
+      )
+    }
+
+    const { data, error } = await supabase
+      .from('whatsapp_programados')
+      .update({ estado: 'cancelado' })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error al cancelar WhatsApp programado:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ programado: data })
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: 500 })
+  }
+}

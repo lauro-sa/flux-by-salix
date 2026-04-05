@@ -12,8 +12,10 @@ import {
   ChevronDown, ChevronLeft, ChevronRight as ChevronRightIcon,
   Circle, Square, CheckSquare,
   Tag, CheckCircle, Eye, EyeOff,
+  MoreVertical, Pin, BellOff,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
+import { MenuConversacion } from './MenuConversacion'
 import { useTraduccion } from '@/lib/i18n'
 import type { ConversacionConDetalles, EstadoConversacion, TipoCanal } from '@/tipos/inbox'
 
@@ -44,6 +46,9 @@ interface PropiedadesListaConversaciones {
   // Filtro no leídos
   soloNoLeidos?: boolean
   onToggleNoLeidos?: () => void
+  // Menú contextual
+  onAccionMenu?: (accion: string, conversacionId: string, datos?: unknown) => void
+  esAdmin?: boolean
 }
 
 // Iconos de canal
@@ -59,6 +64,7 @@ const COLOR_ESTADO: Record<EstadoConversacion, string> = {
   en_espera: 'advertencia',
   resuelta: 'neutro',
   spam: 'peligro',
+  snooze: 'info',
 }
 
 // Formato de tiempo relativo
@@ -94,9 +100,17 @@ export function ListaConversaciones({
   onOperacionMasiva,
   soloNoLeidos,
   onToggleNoLeidos,
+  onAccionMenu,
+  esAdmin = false,
 }: PropiedadesListaConversaciones) {
   const { t } = useTraduccion()
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
+
+  // Estado del menú contextual
+  const [menuConv, setMenuConv] = useState<{
+    conv: ConversacionConDetalles
+    pos: { x: number; y: number } | null
+  } | null>(null)
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
   const [modoSeleccion, setModoSeleccion] = useState(false)
   const [pagina, setPagina] = useState(1)
@@ -385,14 +399,18 @@ export function ListaConversaciones({
         ) : (
           <AnimatePresence mode="popLayout">
             {conversacionesPaginadas.map((conv) => (
-              <motion.button
+              <motion.div
                 key={conv.id}
                 layout
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 onClick={() => onSeleccionar(conv.id)}
-                className="w-full text-left px-3 py-2.5 transition-colors"
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  setMenuConv({ conv, pos: { x: e.clientX, y: e.clientY } })
+                }}
+                className="w-full text-left px-3 py-2.5 transition-colors group relative cursor-pointer"
                 style={{
                   background: seleccionada === conv.id
                     ? 'var(--superficie-seleccionada)'
@@ -400,6 +418,18 @@ export function ListaConversaciones({
                   borderBottom: '1px solid var(--borde-sutil)',
                 }}
               >
+                {/* Botón 3 puntos para mobile/hover */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setMenuConv({ conv, pos: null })
+                  }}
+                  className="absolute top-2 right-2 size-6 flex items-center justify-center rounded-md opacity-0 group-hover:opacity-100 md:opacity-0 max-md:opacity-60 transition-opacity hover:bg-[var(--superficie-hover)] cursor-pointer"
+                  style={{ color: 'var(--texto-terciario)', background: 'transparent', border: 'none', zIndex: 1 }}
+                  aria-label="Más opciones"
+                >
+                  <MoreVertical size={14} />
+                </button>
                 <div className="flex items-start gap-2.5">
                   {/* Checkbox en modo selección */}
                   {modoSeleccion && (
@@ -438,6 +468,13 @@ export function ListaConversaciones({
                       >
                         {conv.contacto_nombre || conv.identificador_externo || 'Desconocido'}
                       </span>
+                      {/* Indicadores de fijado y silenciado */}
+                      {conv._fijada && (
+                        <Pin size={10} style={{ color: 'var(--texto-terciario)', flexShrink: 0 }} />
+                      )}
+                      {conv._silenciada && (
+                        <BellOff size={10} style={{ color: 'var(--texto-terciario)', flexShrink: 0 }} />
+                      )}
                       {conv.contacto?.es_provisorio && (
                         <span
                           className="text-xxs font-medium px-1 py-0.5 rounded flex-shrink-0"
@@ -548,13 +585,68 @@ export function ListaConversaciones({
                         </span>
                       )}
                     </div>
+
+                    {/* Badges de estado */}
+                    {(conv.etapa_etiqueta || conv.sector_nombre || conv.chatbot_activo || conv.agente_ia_activo) && (
+                      <div className="flex items-center gap-1 mt-1 flex-wrap">
+                        {conv.etapa_etiqueta && (
+                          <span
+                            className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                            style={{
+                              background: `${conv.etapa_color || '#6b7280'}18`,
+                              color: conv.etapa_color || '#6b7280',
+                            }}
+                          >
+                            {conv.etapa_etiqueta}
+                          </span>
+                        )}
+                        {conv.sector_nombre && (
+                          <span
+                            className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                            style={{
+                              background: `${conv.sector_color || '#6366f1'}18`,
+                              color: conv.sector_color || '#6366f1',
+                            }}
+                          >
+                            {conv.sector_nombre}
+                          </span>
+                        )}
+                        {conv.chatbot_activo && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                            Bot
+                          </span>
+                        )}
+                        {conv.agente_ia_activo && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-violet-500/15 text-violet-600 dark:text-violet-400">
+                            IA
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
-              </motion.button>
+              </motion.div>
             ))}
           </AnimatePresence>
         )}
       </div>
+
+      {/* Menú contextual de conversación */}
+      {menuConv && (
+        <MenuConversacion
+          conversacion={menuConv.conv}
+          posicion={menuConv.pos}
+          abierto
+          onCerrar={() => setMenuConv(null)}
+          onAccion={(accion, datos) => {
+            onAccionMenu?.(accion, menuConv.conv.id, datos)
+            setMenuConv(null)
+          }}
+          esAdmin={esAdmin}
+          estaFijada={!!menuConv.conv._fijada}
+          estaSilenciada={!!menuConv.conv._silenciada}
+        />
+      )}
     </div>
   )
 }

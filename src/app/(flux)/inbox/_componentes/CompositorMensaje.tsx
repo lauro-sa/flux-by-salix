@@ -43,6 +43,8 @@ interface PropiedadesCompositor {
   permitirNotasInternas?: boolean
   /** Callback cuando se envía nota interna (en vez de onEnviar normal) */
   onEnviarNotaInterna?: (texto: string) => void
+  /** Callback cada vez que cambia el texto del compositor (para programar, etc.) */
+  onCambioTexto?: (texto: string) => void
 }
 
 export interface DatosMensaje {
@@ -84,6 +86,7 @@ export function CompositorMensaje({
   conversacionId,
   permitirNotasInternas = false,
   onEnviarNotaInterna,
+  onCambioTexto,
 }: PropiedadesCompositor) {
   const { t } = useTraduccion()
   const [texto, setTexto] = useState('')
@@ -714,6 +717,7 @@ export function CompositorMensaje({
               onChange={(e) => {
                 const valor = e.target.value
                 setTexto(valor)
+                onCambioTexto?.(valor)
                 ajustarAltura()
 
                 // Detectar `/` al inicio para respuestas rápidas

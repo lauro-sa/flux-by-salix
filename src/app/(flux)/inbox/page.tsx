@@ -13,6 +13,8 @@ import {
   Plus, Pen, Columns2, Rows2, ArrowLeft, RefreshCw,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
+import VistaPipeline from './_componentes/VistaPipeline'
+import { KanbanSquare } from 'lucide-react'
 import { sonidos } from '@/hooks/useSonido'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import { ErrorBoundary } from '@/componentes/feedback/ErrorBoundary'
@@ -69,6 +71,7 @@ function PaginaInbox() {
 
   // Estado global del inbox
   const [tabActivo, setTabActivo] = useState<TipoCanal>('whatsapp')
+  const [vistaWA, setVistaWA] = useState<'conversaciones' | 'pipeline'>('conversaciones')
   const [configCargada, setConfigCargada] = useState(false)
   const [modulosActivos, setModulosActivos] = useState<Set<string>>(
     new Set(['inbox_whatsapp', 'inbox_correo', 'inbox_interno']) // Por defecto todos activos
@@ -1243,6 +1246,29 @@ function PaginaInbox() {
         />
 
         <div className="flex items-center gap-1">
+          {/* Toggle vista WhatsApp: conversaciones / pipeline (solo desktop) */}
+          {tabActivo === 'whatsapp' && !esMovil && (
+            <div className="flex items-center border border-borde-sutil rounded-lg overflow-hidden mr-1">
+              <Boton
+                variante={vistaWA === 'conversaciones' ? 'primario' : 'fantasma'}
+                tamano="xs"
+                soloIcono
+                titulo="Vista conversaciones"
+                icono={<Rows2 size={14} />}
+                onClick={() => setVistaWA('conversaciones')}
+                className="!rounded-none !rounded-l-lg"
+              />
+              <Boton
+                variante={vistaWA === 'pipeline' ? 'primario' : 'fantasma'}
+                tamano="xs"
+                soloIcono
+                titulo="Vista pipeline"
+                icono={<KanbanSquare size={14} />}
+                onClick={() => setVistaWA('pipeline')}
+                className="!rounded-none !rounded-r-lg"
+              />
+            </div>
+          )}
           {/* Toggle panel info (solo WhatsApp tiene panel lateral de info) */}
           {tabActivo === 'whatsapp' && (
             <Boton
@@ -1620,6 +1646,12 @@ function PaginaInbox() {
         {/* ─── WHATSAPP: layout responsivo (lista | chat | info) ─── */}
         {tabActivo === 'whatsapp' && (
           <>
+            {vistaWA === 'pipeline' && !esMovil ? (
+              <div className="flex-1 overflow-auto p-4">
+                <VistaPipeline tipoCanal="whatsapp" />
+              </div>
+            ) : (
+            <>
             {/* Lista de conversaciones — oculta en móvil cuando hay chat abierto */}
             {(!esMovil || vistaMovilWA === 'lista') && (
               <div className={esMovil ? 'flex-1' : 'w-80 flex-shrink-0'}>
@@ -1699,6 +1731,12 @@ function PaginaInbox() {
                 hayMasAnteriores={hayMasAnteriores}
                 cargandoAnteriores={cargandoAnteriores}
                 onReaccionar={reaccionarMensaje}
+                onCambioConversacion={(cambios) => {
+                  setConversacionSeleccionada(prev => prev ? { ...prev, ...cambios } : null)
+                  setConversaciones(prev => prev.map(c =>
+                    c.id === conversacionSeleccionada?.id ? { ...c, ...cambios } : c
+                  ))
+                }}
               />
               </ErrorBoundary>
             )}
@@ -1714,6 +1752,8 @@ function PaginaInbox() {
                   esMovil
                 />
               </div>
+            )}
+            </>
             )}
           </>
         )}
@@ -1774,8 +1814,8 @@ function PaginaInbox() {
           </>
         )}
 
-        {/* Panel derecho: info contacto + galería de medios (solo WhatsApp, solo desktop) */}
-        {tabActivo === 'whatsapp' && !esMovil && (
+        {/* Panel derecho: info contacto + galería de medios (solo WhatsApp, solo desktop, solo vista conversaciones) */}
+        {tabActivo === 'whatsapp' && !esMovil && vistaWA === 'conversaciones' && (
           <PanelInfoContacto
             conversacion={conversacionSeleccionada}
             mensajes={mensajes}

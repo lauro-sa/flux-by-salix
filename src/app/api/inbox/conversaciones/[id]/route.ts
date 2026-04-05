@@ -76,7 +76,11 @@ export async function PATCH(
     const camposPermitidos = [
       'estado', 'prioridad', 'asignado_a', 'asignado_a_nombre',
       'contacto_id', 'contacto_nombre', 'asunto', 'etiquetas',
-      'mensajes_sin_leer',
+      'mensajes_sin_leer', 'etapa_id',
+      'snooze_hasta', 'snooze_nota', 'snooze_por',
+      'sector_id', 'sector_nombre', 'sector_color',
+      'chatbot_activo', 'agente_ia_activo', 'chatbot_pausado_hasta', 'ia_pausado_hasta',
+      'bloqueada', 'en_pipeline', 'en_papelera', 'papelera_en',
     ]
     const cambios: Record<string, unknown> = { actualizado_en: new Date().toISOString() }
 
@@ -84,6 +88,21 @@ export async function PATCH(
       if (body[campo] !== undefined) {
         cambios[campo] = body[campo]
       }
+    }
+
+    // Exclusión mutua: chatbot vs agente IA
+    if (body.chatbot_activo === true) {
+      cambios.agente_ia_activo = false
+      cambios.ia_pausado_hasta = null
+    }
+    if (body.agente_ia_activo === true) {
+      cambios.chatbot_activo = false
+      cambios.chatbot_pausado_hasta = null
+    }
+
+    // Al mover a papelera, registrar timestamp
+    if (body.en_papelera === true) {
+      cambios.papelera_en = new Date().toISOString()
     }
 
     // Si se cierra la conversación
@@ -105,6 +124,44 @@ export async function PATCH(
         asignado_por: user.id,
         asignado_por_nombre: `${user.user_metadata?.nombre || ''} ${user.user_metadata?.apellido || ''}`.trim(),
         notas: body.notas_asignacion || null,
+      })
+    }
+
+    // Mensaje de sistema al cambiar de etapa
+    if (body.etapa_id !== undefined) {
+      // Obtener nombre de la etapa destino
+      const { data: etapa } = await admin
+        .from('etapas_conversacion')
+        .select('etiqueta')
+        .eq('id', body.etapa_id)
+        .single()
+
+      const etapaNombre = etapa?.etiqueta || 'desconocida'
+      const nombre = user.user_metadata?.nombre || ''
+      const apellido = user.user_metadata?.apellido || ''
+      const rol = user.app_metadata?.rol || 'usuario'
+      const sectorNombre = user.user_metadata?.sector_nombre || ''
+
+      // Calcular iniciales (ej: "Sebastian Lauro" → "S.L.")
+      const iniciales = [nombre, apellido]
+        .filter(Boolean)
+        .map((p: string) => p.charAt(0).toUpperCase())
+        .join('.')
+        .concat('.')
+
+      await admin.from('mensajes').insert({
+        empresa_id: empresaId,
+        conversacion_id: id,
+        es_entrante: false,
+        remitente_tipo: 'sistema',
+        remitente_id: user.id,
+        remitente_nombre: `${iniciales} · ${sectorNombre || rol}`,
+        tipo_contenido: 'texto',
+        texto: `movió a "${etapaNombre}"${body.nota_etapa ? ` — ${body.nota_etapa}` : ''}`,
+        es_nota_interna: false,
+        estado: 'enviado',
+        reacciones: {},
+        metadata: {},
       })
     }
 

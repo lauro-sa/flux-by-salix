@@ -179,7 +179,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
           autoOcultar={autoOcultar}
           onToggleAutoOcultar={toggleAutoOcultar}
           migajasExtras={migajasExtras}
-          oculto={headerOculto}
+          oculto={necesitaLayoutFijo ? false : headerOculto}
         />
 
         <ToastNotificacion />

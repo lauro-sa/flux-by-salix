@@ -7,7 +7,7 @@ import {
   Check, CheckCheck, Clock, AlertCircle, Play, Pause,
   Download, FileText, MapPin, User, X, ChevronLeft, ChevronRight,
   Image, Music, StickyNote, Pencil, Trash2, Tag, SmilePlus,
-  FileDown, Bot, Sparkles,
+  FileDown, Bot, Sparkles, AlarmClock, Mic,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { TextArea } from '@/componentes/ui/TextArea'
@@ -15,10 +15,14 @@ import { ModalEtiquetas } from './ModalEtiquetas'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { CompositorMensaje, type DatosMensaje } from './CompositorMensaje'
 import { PanelIA } from './PanelIA'
+import { PopoverSnooze } from './PopoverSnooze'
+import { PopoverProgramar } from './PopoverProgramar'
+import { GrabadorAudio } from './GrabadorAudio'
 import { COLOR_ETIQUETA_DEFECTO } from '@/lib/colores_entidad'
 import { useTraduccion } from '@/lib/i18n'
 import { useVisualViewport } from '@/hooks/useVisualViewport'
-import type { MensajeConAdjuntos, MensajeAdjunto, Conversacion } from '@/tipos/inbox'
+import { BarraControlsWA } from './BarraControlsWA'
+import type { MensajeConAdjuntos, MensajeAdjunto, Conversacion, ConversacionConDetalles } from '@/tipos/inbox'
 
 /**
  * Panel central de WhatsApp — burbujas de chat con soporte multimedia.
@@ -27,7 +31,7 @@ import type { MensajeConAdjuntos, MensajeAdjunto, Conversacion } from '@/tipos/i
  */
 
 interface PropiedadesPanelWhatsApp {
-  conversacion: Conversacion | null
+  conversacion: ConversacionConDetalles | null
   mensajes: MensajeConAdjuntos[]
   onEnviar: (datos: DatosMensaje) => void
   onAbrirVisor: (url: string) => void
@@ -53,6 +57,8 @@ interface PropiedadesPanelWhatsApp {
   onVolver?: () => void
   /** Callback para abrir panel de info del contacto en móvil */
   onAbrirInfo?: () => void
+  /** Callback para actualizar campos de la conversación (optimistic update desde BarraControlsWA) */
+  onCambioConversacion?: (cambios: Partial<Conversacion>) => void
 }
 
 // Iconos de estado de entrega
@@ -236,6 +242,7 @@ export function PanelWhatsApp({
   esMovil = false,
   onVolver,
   onAbrirInfo,
+  onCambioConversacion,
 }: PropiedadesPanelWhatsApp) {
   const { t } = useTraduccion()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -253,6 +260,13 @@ export function PanelWhatsApp({
   // Texto inyectado desde PanelIA hacia el compositor.
   const [textoIA, setTextoIA] = useState('')
   const [contadorTextoIA, setContadorTextoIA] = useState(0)
+
+  // Audio grabado desde el panel (GrabadorAudio)
+  const [grabandoAudio, setGrabandoAudio] = useState(false)
+  // Mensaje programado pendiente (PopoverProgramar)
+  const [programadoPendiente, setProgramadoPendiente] = useState<{ id: string; enviar_en: string; texto: string | null } | null>(null)
+  // Texto actual del compositor (para programar)
+  const [textoCompositor, setTextoCompositor] = useState('')
 
   // Etiquetas de la empresa (para mostrar colores)
   const [etiquetasEmpresa, setEtiquetasEmpresa] = useState<Record<string, { color: string; icono: string | null }>>({})
@@ -442,6 +456,29 @@ export function PanelWhatsApp({
         </div>
         {/* Acciones del header */}
         <div className="flex items-center gap-0.5 flex-shrink-0">
+          <PopoverSnooze
+            conversacionId={conversacion.id}
+            snoozeActual={conversacion.snooze_hasta ? {
+              hasta: conversacion.snooze_hasta,
+              nota: conversacion.snooze_nota || null,
+            } : null}
+            onSnooze={async (hasta, nota) => {
+              // Actualizar snooze en el servidor
+              await fetch(`/api/inbox/conversaciones/${conversacion.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ snooze_hasta: hasta, snooze_nota: nota, estado: 'snooze' }),
+              })
+            }}
+            onDespertar={async () => {
+              // Quitar snooze
+              await fetch(`/api/inbox/conversaciones/${conversacion.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ snooze_hasta: null, snooze_nota: null, estado: 'abierta' }),
+              })
+            }}
+          />
           <Boton variante="fantasma" tamano="xs" soloIcono icono={<Tag size={16} />} onClick={() => setModalEtiquetas(true)} titulo={t('inbox.etiquetar')} />
           <Boton
             variante="fantasma"
@@ -456,6 +493,7 @@ export function PanelWhatsApp({
         </div>
       </div>
 
+      {/* Barra de controles WhatsApp (agente, sector, bot, IA, etapa) */}
       {/* Modal de etiquetas */}
       <ModalEtiquetas
         abierto={modalEtiquetas}
@@ -478,6 +516,18 @@ export function PanelWhatsApp({
           touchAction: 'pan-y',
         }}
       >
+        {/* Barra de controles flotante (sobre los mensajes) */}
+        <div className="sticky top-0 z-20 flex justify-center pointer-events-none py-2">
+          <div className="pointer-events-auto">
+            <BarraControlsWA
+              conversacion={conversacion}
+              onCambio={(cambios) => onCambioConversacion?.(cambios)}
+              esMovil={esMovil}
+              onAbrirInfo={onAbrirInfo}
+            />
+          </div>
+        </div>
+
         {/* Indicador de carga de mensajes anteriores */}
         {cargandoAnteriores && (
           <div className="flex justify-center py-2">
@@ -514,8 +564,8 @@ export function PanelWhatsApp({
               {/* Píldora de fecha sticky — limitada al scope de esta sección,
                   así la siguiente sección la empuja hacia arriba (estilo WhatsApp) */}
               <div
-                className="flex items-center justify-center py-2 z-10"
-                style={{ position: 'sticky', top: 0 }}
+                className="flex items-center justify-center py-2 z-[5]"
+                style={{ position: 'sticky', top: 80 }}
               >
                 <span
                   className="text-xxs px-3 py-1 rounded-lg shadow-sm"
@@ -980,18 +1030,87 @@ export function PanelWhatsApp({
         />
       )}
 
-      {/* Compositor */}
-      <CompositorMensaje
-        tipoCanal="whatsapp"
-        onEnviar={onEnviar}
-        cargando={enviando}
-        placeholder="Escribir mensaje..."
-        textoInicial={textoIA}
-        textoInicialVersion={contadorTextoIA}
-        onAbrirPlantillas={() => {}}
-        conversacionId={conversacion.id}
-        permitirNotasInternas
-      />
+      {/* Compositor / Grabador de audio */}
+      {grabandoAudio ? (
+        <GrabadorAudio
+          activo={grabandoAudio}
+          onGrabacionCompleta={async (audio, duracion) => {
+            setGrabandoAudio(false)
+            // Subir audio y enviar como mensaje
+            const archivo = new File([audio], `audio_${Date.now()}.ogg`, { type: audio.type || 'audio/ogg' })
+            onEnviar({ texto: '', tipo_contenido: 'audio', archivo })
+          }}
+          onCancelar={() => setGrabandoAudio(false)}
+        />
+      ) : (
+        <div className="flex items-end gap-1 flex-shrink-0" style={{ borderTop: '1px solid var(--borde-sutil)' }}>
+          <div className="flex-1 min-w-0">
+            <CompositorMensaje
+              tipoCanal="whatsapp"
+              onEnviar={onEnviar}
+              cargando={enviando}
+              placeholder="Escribir mensaje..."
+              textoInicial={textoIA}
+              textoInicialVersion={contadorTextoIA}
+              onAbrirPlantillas={() => {}}
+              conversacionId={conversacion.id}
+              permitirNotasInternas
+              onCambioTexto={setTextoCompositor}
+            />
+          </div>
+          <div className="flex items-center gap-0.5 pb-2 pr-2 flex-shrink-0">
+            <Boton
+              variante="fantasma"
+              tamano="xs"
+              soloIcono
+              titulo="Grabar audio"
+              icono={<Mic size={16} />}
+              onClick={() => setGrabandoAudio(true)}
+            />
+            <PopoverProgramar
+              onProgramar={async (fechaHora) => {
+                // Programar el texto actual del compositor
+                if (!conversacion || !textoCompositor.trim()) return
+                try {
+                  const res = await fetch('/api/inbox/whatsapp/programados', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      conversacion_id: conversacion.id,
+                      canal_id: conversacion.canal_id,
+                      destinatario: conversacion.identificador_externo,
+                      tipo_contenido: 'texto',
+                      texto: textoCompositor.trim(),
+                      enviar_en: fechaHora,
+                    }),
+                  })
+                  if (res.ok) {
+                    const data = await res.json()
+                    setProgramadoPendiente({
+                      id: data.id || data.programado?.id,
+                      enviar_en: fechaHora,
+                      texto: textoCompositor.trim(),
+                    })
+                    // Limpiar compositor inyectando texto vacío
+                  }
+                } catch {
+                  // Error silencioso — se podría integrar con toast
+                }
+              }}
+              programadoPendiente={programadoPendiente}
+              onCancelar={async () => {
+                if (!programadoPendiente) return
+                try {
+                  await fetch(`/api/inbox/whatsapp/programados?id=${programadoPendiente.id}`, { method: 'DELETE' })
+                } catch {
+                  // Error silencioso
+                }
+                setProgramadoPendiente(null)
+              }}
+            />
+          </div>
+        </div>
+      )}
 
     </div>
   )

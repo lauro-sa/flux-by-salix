@@ -115,7 +115,7 @@ export interface ConfigWhatsAppTwilio {
 
 // ─── Conversaciones ───
 
-export type EstadoConversacion = 'abierta' | 'en_espera' | 'resuelta' | 'spam'
+export type EstadoConversacion = 'abierta' | 'en_espera' | 'resuelta' | 'spam' | 'snooze'
 export type PrioridadConversacion = 'baja' | 'normal' | 'alta' | 'urgente'
 
 export interface Conversacion {
@@ -147,10 +147,56 @@ export interface Conversacion {
   actualizado_en: string
   cerrado_en: string | null
   cerrado_por: string | null
+  // Pipeline
+  etapa_id: string | null
+  etapa_etiqueta?: string | null
+  etapa_color?: string | null
+  // Sector asignado
+  sector_id: string | null
+  sector_nombre: string | null
+  sector_color: string | null
+  // Bloqueo, pipeline, papelera
+  bloqueada: boolean
+  en_pipeline: boolean
+  en_papelera: boolean
+  papelera_en: string | null
+  // Bot / IA
+  chatbot_activo: boolean
+  agente_ia_activo: boolean
+  chatbot_pausado_hasta: string | null
+  ia_pausado_hasta: string | null
+  // Snooze / recordatorio
+  snooze_hasta: string | null
+  snooze_nota: string | null
+  snooze_por: string | null
+}
+
+/** Flags per-user que vienen del JOIN con pins/silencios/seguidores */
+export interface FlagsUsuarioConversacion {
+  _fijada?: boolean
+  _silenciada?: boolean
+  _seguida?: boolean
+}
+
+/** Estados de bot y agente IA */
+export type EstadoBot = 'activo' | 'pausado_1h' | 'pausado_24h' | 'inactivo'
+export type EstadoAgente = 'activo' | 'pausado_1h' | 'pausado_8h' | 'inactivo'
+
+/** Requisito de validación para una etapa del pipeline */
+export type CampoRequisito = 'contacto_vinculado' | 'agente_asignado' | 'sector' | 'direccion' | 'email' | 'telefono'
+
+export interface RequisitoEtapa {
+  campo: CampoRequisito
+  estricto: boolean // true = bloquea, false = solo advierte
+}
+
+export interface AccionAutoEtapa {
+  tipo: 'crear_actividad' | 'crear_visita' | 'crear_presupuesto' | 'pedir_motivo'
+  config?: Record<string, unknown>
 }
 
 /** Conversación con datos expandidos para la lista */
-export interface ConversacionConDetalles extends Conversacion {
+export interface ConversacionConDetalles extends Conversacion, FlagsUsuarioConversacion {
   canal?: CanalInbox
   contacto?: {
     id: string
@@ -493,6 +539,131 @@ export interface EtiquetaInbox {
 
 /** @deprecated Usar EtiquetaInbox */
 export type EtiquetaCorreo = EtiquetaInbox
+
+// ─── Etapas de conversación (pipeline) ───
+
+export interface EtapaConversacion {
+  id: string
+  empresa_id: string
+  tipo_canal: TipoCanal
+  clave: string
+  etiqueta: string
+  color: string
+  icono: string | null
+  orden: number
+  es_predefinida: boolean
+  activa: boolean
+  // Validaciones del pipeline (opcionales, default [])
+  requisitos?: RequisitoEtapa[]
+  sectores_permitidos?: string[]
+  acciones_auto?: AccionAutoEtapa[]
+  creado_en: string
+}
+
+export const ETAPAS_DEFAULT_WHATSAPP: Omit<EtapaConversacion, 'id' | 'empresa_id' | 'creado_en'>[] = [
+  { tipo_canal: 'whatsapp', clave: 'nuevo', etiqueta: 'Nuevo', color: '#6b7280', icono: '🆕', orden: 0, es_predefinida: true, activa: true },
+  { tipo_canal: 'whatsapp', clave: 'contactado', etiqueta: 'Contactado', color: '#3b82f6', icono: '📞', orden: 1, es_predefinida: true, activa: true },
+  { tipo_canal: 'whatsapp', clave: 'calificado', etiqueta: 'Calificado', color: '#f59e0b', icono: '⭐', orden: 2, es_predefinida: true, activa: true },
+  { tipo_canal: 'whatsapp', clave: 'propuesta', etiqueta: 'Propuesta', color: '#8b5cf6', icono: '📋', orden: 3, es_predefinida: true, activa: true },
+  { tipo_canal: 'whatsapp', clave: 'ganado', etiqueta: 'Ganado', color: '#22c55e', icono: '✅', orden: 4, es_predefinida: true, activa: true },
+  { tipo_canal: 'whatsapp', clave: 'perdido', etiqueta: 'Perdido', color: '#ef4444', icono: '❌', orden: 5, es_predefinida: true, activa: true },
+]
+
+export const ETAPAS_DEFAULT_CORREO: Omit<EtapaConversacion, 'id' | 'empresa_id' | 'creado_en'>[] = [
+  { tipo_canal: 'correo', clave: 'recibido', etiqueta: 'Recibido', color: '#6b7280', icono: '📥', orden: 0, es_predefinida: true, activa: true },
+  { tipo_canal: 'correo', clave: 'en_proceso', etiqueta: 'En proceso', color: '#3b82f6', icono: '🔄', orden: 1, es_predefinida: true, activa: true },
+  { tipo_canal: 'correo', clave: 'respondido', etiqueta: 'Respondido', color: '#22c55e', icono: '✉️', orden: 2, es_predefinida: true, activa: true },
+  { tipo_canal: 'correo', clave: 'seguimiento', etiqueta: 'Seguimiento', color: '#f59e0b', icono: '👁️', orden: 3, es_predefinida: true, activa: true },
+  { tipo_canal: 'correo', clave: 'cerrado', etiqueta: 'Cerrado', color: '#8b5cf6', icono: '🔒', orden: 4, es_predefinida: true, activa: true },
+]
+
+// ─── WhatsApp programado ───
+
+export type EstadoProgramadoWA = 'pendiente' | 'enviado' | 'cancelado' | 'error'
+
+export interface WhatsAppProgramado {
+  id: string
+  empresa_id: string
+  canal_id: string
+  conversacion_id: string | null
+  creado_por: string
+  destinatario: string
+  tipo_contenido: TipoContenido
+  texto: string | null
+  media_url: string | null
+  media_nombre: string | null
+  plantilla_nombre: string | null
+  plantilla_idioma: string | null
+  plantilla_componentes: Record<string, unknown> | null
+  enviar_en: string
+  estado: EstadoProgramadoWA
+  enviado_en: string | null
+  wa_message_id: string | null
+  error: string | null
+  creado_en: string
+}
+
+// ─── Plantillas de WhatsApp (Meta Business Templates) ───
+
+export type CategoriaPlantillaWA = 'MARKETING' | 'UTILITY' | 'AUTHENTICATION'
+export type IdiomaPlantillaWA = 'es' | 'es_AR' | 'es_MX' | 'en' | 'en_US' | 'pt_BR' | 'fr' | 'it' | 'de'
+export type EstadoMeta = 'BORRADOR' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'DISABLED' | 'PAUSED' | 'ERROR'
+export type TipoEncabezadoWA = 'NONE' | 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT'
+export type TipoBotonWA = 'QUICK_REPLY' | 'URL' | 'PHONE_NUMBER'
+
+export interface EncabezadoPlantillaWA {
+  tipo: TipoEncabezadoWA
+  texto?: string
+  ejemplo?: string
+}
+
+export interface CuerpoPlantillaWA {
+  texto: string
+  ejemplos?: string[]
+  mapeo_variables?: string[] // mapea {{N}} → 'contacto.nombre', etc.
+}
+
+export interface PiePaginaPlantillaWA {
+  texto: string
+}
+
+export interface BotonPlantillaWA {
+  tipo: TipoBotonWA
+  texto: string
+  url?: string
+  telefono?: string
+}
+
+export interface ComponentesPlantillaWA {
+  encabezado?: EncabezadoPlantillaWA
+  cuerpo: CuerpoPlantillaWA
+  pie_pagina?: PiePaginaPlantillaWA
+  botones?: BotonPlantillaWA[]
+}
+
+export interface PlantillaWhatsApp {
+  id: string
+  empresa_id: string
+  canal_id: string | null
+  nombre: string
+  nombre_api: string
+  categoria: CategoriaPlantillaWA
+  idioma: IdiomaPlantillaWA
+  componentes: ComponentesPlantillaWA
+  estado_meta: EstadoMeta
+  id_template_meta: string | null
+  error_meta: string | null
+  ultima_sincronizacion: string | null
+  modulos: string[]
+  es_por_defecto: boolean
+  disponible_para: 'todos' | 'roles' | 'usuarios'
+  roles_permitidos: string[]
+  usuarios_permitidos: string[]
+  activo: boolean
+  creado_por: string | null
+  creado_en: string
+  actualizado_en: string
+}
 
 // ─── Correo programado ───
 
