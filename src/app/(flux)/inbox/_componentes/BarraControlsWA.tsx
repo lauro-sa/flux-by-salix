@@ -288,31 +288,47 @@ export function BarraControlsWA({
               {miembros.length === 0 && (
                 <p className="px-3 py-2 text-xxs" style={{ color: 'var(--texto-terciario)' }}>Cargando miembros...</p>
               )}
-              {miembros.map((m) => (
-                <button
-                  type="button"
-                  key={m.usuario_id}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
-                  style={{ color: 'var(--texto-primario)', border: 'none', background: 'transparent' }}
-                  onClick={() => patchConversacion({
-                    asignado_a: m.usuario_id,
-                    asignado_a_nombre: `${m.nombre} ${m.apellido}`.trim(),
-                  })}
-                >
-                  <Avatar nombre={`${m.nombre} ${m.apellido}`} foto={m.avatar_url} tamano="xs" />
-                  <div className="flex-1 min-w-0 text-left">
-                    <span className="truncate block">{m.nombre} {m.apellido}</span>
-                    {(m.puesto || m.sector) && (
-                      <span className="text-xxs block truncate" style={{ color: 'var(--texto-terciario)' }}>
-                        {[m.puesto, m.sector].filter(Boolean).join(' · ')}
-                      </span>
-                    )}
+              {(() => {
+                // Agrupar miembros por sector
+                const grupos = new Map<string, MiembroEquipo[]>()
+                for (const m of miembros) {
+                  const grupo = m.sector || 'Sin sector'
+                  if (!grupos.has(grupo)) grupos.set(grupo, [])
+                  grupos.get(grupo)!.push(m)
+                }
+                return Array.from(grupos.entries()).map(([sector, miembrosGrupo]) => (
+                  <div key={sector}>
+                    <p className="px-3 pt-2 pb-1 text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
+                      {sector}
+                    </p>
+                    {miembrosGrupo.map((m) => (
+                      <button
+                        type="button"
+                        key={m.usuario_id}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
+                        style={{ color: 'var(--texto-primario)', border: 'none', background: 'transparent' }}
+                        onClick={() => patchConversacion({
+                          asignado_a: m.usuario_id,
+                          asignado_a_nombre: `${m.nombre} ${m.apellido}`.trim(),
+                        })}
+                      >
+                        <Avatar nombre={`${m.nombre} ${m.apellido}`} foto={m.avatar_url} tamano="xs" />
+                        <div className="flex-1 min-w-0 text-left">
+                          <span className="truncate block">{m.nombre} {m.apellido}</span>
+                          {m.puesto && (
+                            <span className="text-xxs block truncate" style={{ color: 'var(--texto-terciario)' }}>
+                              {m.puesto}
+                            </span>
+                          )}
+                        </div>
+                        {conversacion.asignado_a === m.usuario_id && (
+                          <Check size={14} className="ml-auto flex-shrink-0" style={{ color: 'var(--insignia-exito)' }} />
+                        )}
+                      </button>
+                    ))}
                   </div>
-                  {conversacion.asignado_a === m.usuario_id && (
-                    <Check size={14} className="ml-auto flex-shrink-0" style={{ color: 'var(--insignia-exito)' }} />
-                  )}
-                </button>
-              ))}
+                ))
+              })()}
             </div>
           }
           onCambio={(abierto) => { if (abierto) cargarMiembros() }}
