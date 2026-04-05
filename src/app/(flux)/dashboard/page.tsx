@@ -122,6 +122,8 @@ function obtenerNombreUsuario(usuario: { user_metadata?: Record<string, string> 
 const COLOR_ESTADO_PRESUPUESTO: Record<string, 'neutro' | 'info' | 'advertencia' | 'exito' | 'peligro' | 'naranja' | 'violeta'> = {
   borrador: 'neutro',
   enviado: 'violeta',
+  confirmado_cliente: 'info',
+  orden_venta: 'exito',
   aceptado: 'exito',
   rechazado: 'peligro',
   vencido: 'naranja',
@@ -541,7 +543,10 @@ function TarjetaMensajesRecientes({
 }) {
   const [canal, setCanal] = useState<string>('todos')
 
-  const canalesDisponibles = ['todos', ...Array.from(new Set(mensajes.map(m => m.tipo_canal))).filter(Boolean)]
+  // Siempre mostrar los canales principales + los que tengan datos
+  const canalesConDatos = Array.from(new Set(mensajes.map(m => m.tipo_canal))).filter(Boolean)
+  const canalesBase = ['whatsapp', 'correo', 'interno']
+  const canalesDisponibles = ['todos', ...canalesBase.filter(c => canalesConDatos.includes(c)), ...canalesConDatos.filter(c => !canalesBase.includes(c))]
 
   const ETIQUETA_CANAL: Record<string, string> = {
     todos: 'Todos',

@@ -87,7 +87,7 @@ export async function GET() {
       // Últimos 5 presupuestos
       admin
         .from('presupuestos')
-        .select('id, numero, estado, contacto_nombre, contacto_apellido, total, creado_en')
+        .select('id, numero, estado, contacto_nombre, contacto_apellido, total_final, creado_en')
         .eq('empresa_id', empresaId)
         .order('creado_en', { ascending: false })
         .limit(5),
@@ -216,15 +216,14 @@ export async function GET() {
         .select('id, tipo_contacto:tipos_contacto(clave, etiqueta), creado_en')
         .eq('empresa_id', empresaId),
 
-      // ─── Mensajes recientes (últimos 8 con datos de conversación) ───
+      // ─── Mensajes recientes (últimos 30 para cubrir todos los canales) ───
       admin
         .from('mensajes')
-        .select('id, texto, remitente_nombre, remitente_tipo, es_entrante, tipo_contenido, correo_asunto, creado_en, conversacion_id, conversacion:conversaciones(tipo_canal, contacto_nombre)')
+        .select('id, texto, remitente_nombre, remitente_tipo, es_entrante, tipo_contenido, correo_asunto, es_nota_interna, creado_en, conversacion_id, conversacion:conversaciones(tipo_canal, contacto_nombre)')
         .eq('empresa_id', empresaId)
-        .eq('es_nota_interna', false)
         .is('eliminado_en', null)
         .order('creado_en', { ascending: false })
-        .limit(8),
+        .limit(30),
 
       // ─── Actividades próximas (ordenadas por vencimiento más cercano) ───
       admin
@@ -417,7 +416,10 @@ export async function GET() {
       presupuestos: {
         total: (resPresupuestos.data || []).length,
         por_estado: presupuestosPorEstado,
-        recientes: resPresupuestosRecientes.data || [],
+        recientes: (resPresupuestosRecientes.data || []).map(p => ({
+          ...p,
+          total: p.total_final,
+        })),
         pipeline_montos: pipelineMontos,
         por_vencer: resPresupuestosPorVencer.data || [],
       },
