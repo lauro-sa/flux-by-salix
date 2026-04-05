@@ -123,12 +123,14 @@ export function BarraControlsWA({
   }, [conversacion.id, onCambio])
 
   // ─── Cargar miembros al abrir popover agente ───
+  const empresaId = usuario?.app_metadata?.empresa_activa_id
   const cargarMiembros = useCallback(async () => {
-    if (miembros.length > 0) return
+    if (miembros.length > 0 || !empresaId) return
     const supabase = crearClienteNavegador()
     const { data } = await supabase
       .from('miembros')
       .select('id, usuario_id, perfiles(nombre, apellido, avatar_url)')
+      .eq('empresa_id', empresaId)
       .eq('activo', true)
     if (data) {
       setMiembros(data.map((m: Record<string, unknown>) => {
@@ -146,14 +148,15 @@ export function BarraControlsWA({
 
   // ─── Cargar sectores al abrir popover sector ───
   const cargarSectores = useCallback(async () => {
-    if (sectores.length > 0) return
+    if (sectores.length > 0 || !empresaId) return
     const supabase = crearClienteNavegador()
     const { data } = await supabase
       .from('sectores')
       .select('id, nombre, color')
+      .eq('empresa_id', empresaId)
       .order('orden')
     if (data) setSectores(data as SectorItem[])
-  }, [sectores.length])
+  }, [sectores.length, empresaId])
 
   // ─── Cargar etapas al abrir popover etapa ───
   const cargarEtapas = useCallback(async () => {
