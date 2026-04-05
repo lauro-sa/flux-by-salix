@@ -308,6 +308,16 @@ export function PanelWhatsApp({
     })
   }, [])
 
+  // Cargar firma fijada por contacto al cambiar de conversación
+  useEffect(() => {
+    if (!conversacion) return
+    const key = `flux_firma_contacto_${conversacion.contacto_id || conversacion.id}`
+    const firmaContacto = localStorage.getItem(key)
+    if (firmaContacto) {
+      setFormatoFirma(firmaContacto as FormatoNombreRemitente | 'sin_firma')
+    }
+  }, [conversacion?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Etiquetas de la empresa (para mostrar colores)
   const [etiquetasEmpresa, setEtiquetasEmpresa] = useState<Record<string, { color: string; icono: string | null }>>({})
   useEffect(() => {
@@ -1100,6 +1110,20 @@ export function PanelWhatsApp({
                 })
               }
             }}
+            onFijarFirmaDefault={(fmt) => {
+              setFormatoFirma(fmt)
+              // Guardar como default en el perfil del usuario
+              const sb = crearClienteNavegador()
+              sb.auth.getUser().then(({ data: { user } }) => {
+                if (user) sb.from('perfiles').update({ formato_nombre_remitente: fmt === 'sin_firma' ? 'sin_firma' : fmt }).eq('id', user.id)
+              })
+            }}
+            onFijarFirmaContacto={(fmt) => {
+              // Guardar en localStorage por contacto
+              const key = `flux_firma_contacto_${conversacion.contacto_id || conversacion.id}`
+              localStorage.setItem(key, fmt)
+            }}
+            nombreContacto={conversacion.contacto_nombre || conversacion.identificador_externo || undefined}
           />
         </div>
         <div className="flex items-center gap-0.5 pb-2 pr-2 flex-shrink-0">

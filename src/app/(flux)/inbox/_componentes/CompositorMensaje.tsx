@@ -58,6 +58,12 @@ interface PropiedadesCompositor {
   formatoFirma?: FormatoNombreRemitente | 'sin_firma' | null
   /** Callback cuando cambia el formato de firma */
   onCambioFormatoFirma?: (formato: FormatoNombreRemitente | 'sin_firma') => void
+  /** Callback para fijar firma como default para todos los chats */
+  onFijarFirmaDefault?: (formato: FormatoNombreRemitente | 'sin_firma') => void
+  /** Callback para fijar firma para este contacto */
+  onFijarFirmaContacto?: (formato: FormatoNombreRemitente | 'sin_firma') => void
+  /** Nombre del contacto (para el label "Fijar para X") */
+  nombreContacto?: string
 }
 
 export interface DatosMensaje {
@@ -103,6 +109,9 @@ export function CompositorMensaje({
   datosUsuario,
   formatoFirma,
   onCambioFormatoFirma,
+  onFijarFirmaDefault,
+  onFijarFirmaContacto,
+  nombreContacto,
 }: PropiedadesCompositor) {
   const { t } = useTraduccion()
   const [texto, setTexto] = useState('')
@@ -636,38 +645,91 @@ export function CompositorMensaje({
         const apellido = datosUsuario.apellido
         const inicialAp = apellido ? apellido[0].toUpperCase() : ''
         const iniciales = `${nombre ? nombre[0].toUpperCase() : ''}${inicialAp}`
-        const OPCIONES_FIRMA: { valor: string; preview: string }[] = [
-          { valor: 'sin_firma', preview: '' },
-          ...(sector ? [{ valor: 'solo_sector', preview: sector }] : []),
-          { valor: 'nombre_inicial_sector', preview: sector ? `${nombre} ${inicialAp} | ${sector}` : `${nombre} ${inicialAp}` },
-          { valor: 'iniciales_sector', preview: sector ? `${iniciales} | ${sector}` : iniciales },
+        const OPCIONES_FIRMA: { valor: string; preview: string; desc: string }[] = [
+          { valor: 'sin_firma', preview: '', desc: 'El mensaje se envía sin encabezado' },
+          ...(sector ? [{ valor: 'solo_sector', preview: sector, desc: 'Solo el departamento/sector' }] : []),
+          { valor: 'nombre_inicial_sector', preview: sector ? `${nombre} ${inicialAp} | ${sector}` : `${nombre} ${inicialAp}`, desc: 'Tu nombre + sector separados por |' },
+          { valor: 'iniciales_sector', preview: sector ? `${iniciales} | ${sector}` : iniciales, desc: 'Tus iniciales + sector separados por |' },
         ]
         const opcionActiva = OPCIONES_FIRMA.find(o => o.valor === formatoFirma) || OPCIONES_FIRMA[0]
-        const tieneFirema = opcionActiva.valor !== 'sin_firma'
+        const tieneFirma = opcionActiva.valor !== 'sin_firma'
         return (
           <Popover
-            alineacion="inicio"
+            alineacion="centro"
             lado="arriba"
-            ancho={240}
+            ancho={300}
             contenido={
-              <div className="py-1">
-                <p className="px-3 py-1.5 text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
-                  Firma
+              <div className="py-2">
+                {/* Header */}
+                <p className="px-4 pb-2 text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
+                  Firma del mensaje
                 </p>
-                {OPCIONES_FIRMA.map((op) => {
-                  const activo = formatoFirma === op.valor
-                  return (
-                    <button
-                      key={op.valor}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors"
-                      style={{ color: activo ? 'var(--texto-marca)' : 'var(--texto-primario)' }}
-                      onClick={() => onCambioFormatoFirma?.(op.valor as FormatoNombreRemitente | 'sin_firma')}
-                    >
-                      <span className="flex-1">{op.valor === 'sin_firma' ? 'Sin firma' : `*${op.preview}:*`}</span>
-                      {activo && <Check size={13} className="shrink-0" />}
-                    </button>
-                  )
-                })}
+                <p className="px-4 pb-3 text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                  El cliente verá esta firma antes de cada mensaje que envíes
+                </p>
+
+                {/* Opciones */}
+                <div className="flex flex-col">
+                  {OPCIONES_FIRMA.map((op, i) => {
+                    const activo = formatoFirma === op.valor
+                    return (
+                      <div key={op.valor}>
+                        {i > 0 && <div className="mx-3 border-t" style={{ borderColor: 'var(--borde-sutil)' }} />}
+                        <button
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
+                          style={{ color: activo ? 'var(--texto-marca)' : 'var(--texto-primario)', border: 'none', background: 'transparent' }}
+                          onClick={() => onCambioFormatoFirma?.(op.valor as FormatoNombreRemitente | 'sin_firma')}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium">
+                              {op.valor === 'sin_firma' ? 'Sin firma' : `*${op.preview}:*`}
+                            </div>
+                            <div className="text-xxs mt-0.5" style={{ color: 'var(--texto-terciario)' }}>
+                              {op.desc}
+                            </div>
+                          </div>
+                          {activo && <Check size={15} className="shrink-0" style={{ color: 'var(--texto-marca)' }} />}
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Acciones: fijar */}
+                {tieneFirma && (onFijarFirmaDefault || onFijarFirmaContacto) && (
+                  <>
+                    <div className="mx-3 my-1 border-t" style={{ borderColor: 'var(--borde-sutil)' }} />
+                    <p className="px-4 pt-1.5 pb-1 text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
+                      Aplicar firma
+                    </p>
+                    {onFijarFirmaDefault && (
+                      <button
+                        className="w-full flex items-center gap-2.5 px-4 py-2 text-left text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
+                        style={{ color: 'var(--texto-secundario)', border: 'none', background: 'transparent' }}
+                        onClick={() => onFijarFirmaDefault(formatoFirma as FormatoNombreRemitente | 'sin_firma')}
+                      >
+                        <span className="text-base">⭐</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium">Usar para todos los chats</div>
+                          <div className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>Se aplicará a todas las conversaciones nuevas</div>
+                        </div>
+                      </button>
+                    )}
+                    {onFijarFirmaContacto && nombreContacto && (
+                      <button
+                        className="w-full flex items-center gap-2.5 px-4 py-2 text-left text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
+                        style={{ color: 'var(--texto-secundario)', border: 'none', background: 'transparent' }}
+                        onClick={() => onFijarFirmaContacto(formatoFirma as FormatoNombreRemitente | 'sin_firma')}
+                      >
+                        <span className="text-base">📌</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium">Fijar para {nombreContacto}</div>
+                          <div className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>Se usará siempre con este contacto</div>
+                        </div>
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
             }
           >
@@ -676,8 +738,8 @@ export function CompositorMensaje({
               style={{ borderBottom: '1px solid var(--borde-sutil)' }}
             >
               <PenLine size={10} style={{ color: 'var(--texto-terciario)' }} />
-              <span className="text-xxs" style={{ color: tieneFirema ? 'var(--texto-secundario)' : 'var(--texto-terciario)' }}>
-                {tieneFirema ? `*${opcionActiva.preview}:*` : 'Sin firma — toca para activar'}
+              <span className="text-xxs" style={{ color: tieneFirma ? 'var(--texto-secundario)' : 'var(--texto-terciario)' }}>
+                {tieneFirma ? `*${opcionActiva.preview}:*` : 'Sin firma — toca para elegir'}
               </span>
             </div>
           </Popover>
