@@ -103,21 +103,42 @@ export function ResumenMetricas({
           </div>
           <p className="text-xl font-bold text-insignia-exito-texto">{formatoMoneda(resumen.ordenesMonto)}</p>
           <p className="text-xxs text-texto-terciario">{resumen.ordenesCantidad} cerradas</p>
-          {resumen.ordenesMontoAnterior > 0 && (
-            <div className="pt-2 border-t border-borde-sutil space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xxs text-texto-terciario">{anioActual - 1}</span>
-                <span className="text-xxs text-texto-secundario font-medium">{formatoMoneda(resumen.ordenesMontoAnterior)}</span>
+          {resumen.ordenesMontoAnterior > 0 && (() => {
+            // Qué % del año ya pasó (ej: abril = 4/12 = 33%)
+            const mesActualNum = new Date().getMonth() + 1
+            const pctAnioTranscurrido = Math.round((mesActualNum / 12) * 100)
+            const pctAlcanzado = resumen.pctDelAnterior
+            // Si vas al 32% y pasó el 25% del año → vas adelantado
+            // Si vas al 32% y pasó el 50% del año → vas atrasado
+            const ritmo = pctAlcanzado >= pctAnioTranscurrido ? 'adelantado' : 'atrasado'
+            const colorRitmo = ritmo === 'adelantado' ? 'text-insignia-exito-texto' : 'text-insignia-advertencia-texto'
+
+            return (
+              <div className="pt-2 border-t border-borde-sutil space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xxs text-texto-terciario">{anioActual - 1} total</span>
+                  <span className="text-xxs text-texto-secundario font-medium">{formatoMoneda(resumen.ordenesMontoAnterior)}</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-superficie-hover overflow-hidden relative">
+                  {/* Marcador de dónde "deberías" estar */}
+                  <div
+                    className="absolute top-0 bottom-0 w-px bg-texto-terciario/50 z-10"
+                    style={{ left: `${pctAnioTranscurrido}%` }}
+                  />
+                  <div
+                    className="h-full rounded-full bg-insignia-exito-texto/60 transition-all duration-700"
+                    style={{ width: `${Math.min(pctAlcanzado, 100)}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xxs text-texto-terciario">{pctAlcanzado}% alcanzado</span>
+                  <span className={`text-xxs font-medium ${colorRitmo}`}>
+                    {ritmo === 'adelantado' ? 'Buen ritmo' : 'Por debajo'} — pasó {pctAnioTranscurrido}% del año
+                  </span>
+                </div>
               </div>
-              <div className="h-1.5 rounded-full bg-superficie-hover overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-insignia-exito-texto/60 transition-all duration-700"
-                  style={{ width: `${Math.min(resumen.pctDelAnterior, 100)}%` }}
-                />
-              </div>
-              <p className="text-xxs text-texto-terciario">{resumen.pctDelAnterior}% del total {anioActual - 1}</p>
-            </div>
-          )}
+            )
+          })()}
         </div>
 
         {/* Presupuestos emitidos */}
