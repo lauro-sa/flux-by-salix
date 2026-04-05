@@ -1084,7 +1084,11 @@ export function PanelWhatsApp({
             conversacionId={conversacion.id}
             permitirNotasInternas
             onCambioTexto={setTextoCompositor}
-            datosUsuario={datosUsuarioFirma || undefined}
+            datosUsuario={datosUsuarioFirma ? {
+              ...datosUsuarioFirma,
+              // El sector de la conversación (píldora) tiene prioridad sobre el del usuario
+              sector: conversacion.sector_nombre || datosUsuarioFirma.sector,
+            } : undefined}
             formatoFirma={formatoFirma}
             onCambioFormatoFirma={(fmt) => {
               setFormatoFirma(fmt)
