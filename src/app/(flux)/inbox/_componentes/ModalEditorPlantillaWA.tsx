@@ -796,6 +796,7 @@ function formatearTextoWA(texto: string): string {
 }
 
 interface DatosPreview {
+  [key: string]: string
   contacto_nombre: string
   contacto_telefono: string
   contacto_correo: string
