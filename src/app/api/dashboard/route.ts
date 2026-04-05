@@ -53,6 +53,8 @@ export async function GET() {
       resHistoricoContactos,
       resPresupuestosConContacto,
       resContactosConTipo,
+      resMensajesRecientes,
+      resActividadesProximas,
     ] = await Promise.all([
       // ─── Consultas originales ───
 
@@ -213,6 +215,28 @@ export async function GET() {
         .from('contactos')
         .select('id, tipo_contacto:tipos_contacto(clave, etiqueta), creado_en')
         .eq('empresa_id', empresaId),
+
+      // ─── Mensajes recientes (últimos 8 con datos de conversación) ───
+      admin
+        .from('mensajes')
+        .select('id, texto, remitente_nombre, remitente_tipo, es_entrante, tipo_contenido, correo_asunto, creado_en, conversacion_id, conversacion:conversaciones(tipo_canal, contacto_nombre)')
+        .eq('empresa_id', empresaId)
+        .eq('es_nota_interna', false)
+        .is('eliminado_en', null)
+        .order('creado_en', { ascending: false })
+        .limit(8),
+
+      // ─── Actividades próximas (ordenadas por vencimiento más cercano) ───
+      admin
+        .from('actividades')
+        .select('id, titulo, tipo_clave, estado_clave, prioridad, fecha_vencimiento, asignado_nombre')
+        .eq('empresa_id', empresaId)
+        .eq('en_papelera', false)
+        .in('estado_clave', ['pendiente'])
+        .not('fecha_vencimiento', 'is', null)
+        .gte('fecha_vencimiento', hoyStr)
+        .order('fecha_vencimiento', { ascending: true })
+        .limit(5),
     ])
 
     // ─── Procesar datos originales ───
@@ -428,6 +452,23 @@ export async function GET() {
         total_activos: contactosConPresupuesto.size,
         nuevos_por_mes: clientesNuevosPorMes,
       },
+      mensajes_recientes: (resMensajesRecientes.data || []).map(m => {
+        const conv = Array.isArray(m.conversacion) ? m.conversacion[0] : m.conversacion
+        return {
+          id: m.id,
+          texto: m.texto,
+          remitente_nombre: m.remitente_nombre,
+          remitente_tipo: m.remitente_tipo,
+          es_entrante: m.es_entrante,
+          tipo_contenido: m.tipo_contenido,
+          correo_asunto: m.correo_asunto,
+          creado_en: m.creado_en,
+          conversacion_id: m.conversacion_id,
+          tipo_canal: (conv as Record<string, unknown>)?.tipo_canal || 'desconocido',
+          contacto_nombre: (conv as Record<string, unknown>)?.contacto_nombre || null,
+        }
+      }),
+      actividades_proximas: resActividadesProximas.data || [],
     })
   } catch (err) {
     registrarError(err, { ruta: '/api/dashboard', accion: 'obtener' })

@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
   Users, FileText, MessageSquare, CheckSquare,
-  Plus, ArrowRight, CalendarClock, Bell,
+  Plus, ArrowRight, Mail, MessageCircle,
+  Image, Mic, File, Video,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useEmpresa } from '@/hooks/useEmpresa'
@@ -80,6 +81,15 @@ interface DatosDashboard {
     total_activos: number
     nuevos_por_mes: Record<string, Record<string, number>>
   }
+  mensajes_recientes: Array<{
+    id: string; texto: string | null; remitente_nombre: string | null; remitente_tipo: string
+    es_entrante: boolean; tipo_contenido: string; correo_asunto: string | null
+    creado_en: string; conversacion_id: string; tipo_canal: string; contacto_nombre: string | null
+  }>
+  actividades_proximas: Array<{
+    id: string; titulo: string; tipo_clave: string; estado_clave: string
+    prioridad: string; fecha_vencimiento: string; asignado_nombre: string | null
+  }>
 }
 
 interface MetricasInbox {
@@ -198,71 +208,51 @@ export default function PaginaDashboard() {
         </p>
       </motion.div>
 
-      {/* ─── Tarjetas de métricas principales ─── */}
-      <motion.div variants={itemVariantes} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Contactos: total + nuevos este mes */}
-        {(() => {
-          const mesActual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
-          const nuevosEsteMes = datos?.comparativa?.contactos_por_mes?.[mesActual] ?? 0
-          return (
-            <TarjetaMetrica
-              titulo={t('contactos.titulo')}
-              valor={datos?.contactos.total ?? 0}
-              icono={<Users size={20} strokeWidth={1.5} />}
-              color="primario"
-              detalle={nuevosEsteMes > 0 ? `+${nuevosEsteMes} este mes` : undefined}
-              onClick={() => router.push('/contactos')}
-            />
-          )
-        })()}
-
-        {/* Presupuestos: total + nuevos este mes + borradores */}
-        {(() => {
-          const mesActual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
-          const nuevosEsteMes = datos?.comparativa?.presupuestos_por_mes?.[mesActual]?.creados ?? 0
-          const borradores = datos?.presupuestos.por_estado.borrador ?? 0
-          const partes = []
-          if (nuevosEsteMes > 0) partes.push(`+${nuevosEsteMes} este mes`)
-          if (borradores > 0) partes.push(`${borradores} ${t('dashboard.borradores')}`)
-          return (
-            <TarjetaMetrica
-              titulo={t('navegacion.presupuestos')}
-              valor={datos?.presupuestos.total ?? 0}
-              icono={<FileText size={20} strokeWidth={1.5} />}
-              color="info"
-              detalle={partes.length > 0 ? partes.join(' · ') : undefined}
-              onClick={() => router.push('/presupuestos')}
-            />
-          )
-        })()}
-
-        {/* Actividades: pendientes + vencidas */}
-        <TarjetaMetrica
-          titulo="Actividades pendientes"
+      {/* ─── KPIs compactos ─── */}
+      <motion.div variants={itemVariantes} className="grid grid-cols-4 gap-3">
+        <KpiCompacto
+          titulo={t('contactos.titulo')}
+          valor={datos?.contactos.total ?? 0}
+          icono={<Users size={16} strokeWidth={1.5} />}
+          color="primario"
+          detalle={(() => {
+            const mesActual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+            const n = datos?.comparativa?.contactos_por_mes?.[mesActual] ?? 0
+            return n > 0 ? `+${n} este mes` : undefined
+          })()}
+          onClick={() => router.push('/contactos')}
+        />
+        <KpiCompacto
+          titulo={t('navegacion.presupuestos')}
+          valor={datos?.presupuestos.total ?? 0}
+          icono={<FileText size={16} strokeWidth={1.5} />}
+          color="info"
+          detalle={(() => {
+            const mesActual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+            const n = datos?.comparativa?.presupuestos_por_mes?.[mesActual]?.creados ?? 0
+            return n > 0 ? `+${n} este mes` : undefined
+          })()}
+          onClick={() => router.push('/presupuestos')}
+        />
+        <KpiCompacto
+          titulo="Actividades"
           valor={datos?.actividades?.total_pendientes ?? 0}
-          icono={<CheckSquare size={20} strokeWidth={1.5} />}
+          icono={<CheckSquare size={16} strokeWidth={1.5} />}
           color="exito"
           detalle={(() => {
-            const vencidas = datos?.actividades?.pendientes.filter(a => a.fecha_vencimiento && new Date(a.fecha_vencimiento) < new Date()).length ?? 0
-            const hoy = datos?.actividades?.completadas_hoy ?? 0
-            const partes = []
-            if (vencidas > 0) partes.push(`${vencidas} vencida${vencidas > 1 ? 's' : ''}`)
-            if (hoy > 0) partes.push(`${hoy} completada${hoy > 1 ? 's' : ''} hoy`)
-            return partes.length > 0 ? partes.join(' · ') : undefined
+            const v = datos?.actividades?.pendientes.filter(a => a.fecha_vencimiento && new Date(a.fecha_vencimiento) < new Date()).length ?? 0
+            return v > 0 ? `${v} vencida${v > 1 ? 's' : ''}` : undefined
           })()}
           onClick={() => router.push('/actividades')}
         />
-
-        {/* Inbox: conversaciones abiertas + sin leer */}
-        <TarjetaMetrica
-          titulo="Inbox abierto"
+        <KpiCompacto
+          titulo="Inbox"
           valor={datos?.conversaciones.abiertas ?? 0}
-          icono={<MessageSquare size={20} strokeWidth={1.5} />}
+          icono={<MessageSquare size={16} strokeWidth={1.5} />}
           color="violeta"
           detalle={(() => {
-            const sinLeer = datos?.conversaciones.sin_leer ?? 0
-            if (sinLeer > 0) return `${sinLeer} ${t('dashboard.sin_leer')}`
-            return 'Todo leído'
+            const s = datos?.conversaciones.sin_leer ?? 0
+            return s > 0 ? `${s} sin leer` : undefined
           })()}
           onClick={() => router.push('/inbox')}
         />
@@ -274,6 +264,114 @@ export default function PaginaDashboard() {
         <BotonRapido etiqueta={t('documentos.tipos.presupuesto')} icono={<FileText size={15} />} onClick={() => router.push('/presupuestos/nuevo')} />
         <BotonRapido etiqueta="Actividad" icono={<CheckSquare size={15} />} onClick={() => router.push('/actividades')} />
         <BotonRapido etiqueta={t('dashboard.ir_al_inbox')} icono={<MessageSquare size={15} />} onClick={() => router.push('/inbox')} />
+      </motion.div>
+
+      {/* ─── Recientes: 4 tarjetas con listas ─── */}
+      <motion.div variants={itemVariantes} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        {/* Últimos presupuestos */}
+        <TarjetaReciente
+          titulo="Últimos presupuestos"
+          icono={<FileText size={14} />}
+          verTodo={() => router.push('/presupuestos')}
+        >
+          {datos?.presupuestos.recientes && datos.presupuestos.recientes.length > 0 ? (
+            datos.presupuestos.recientes.map(p => (
+              <div
+                key={p.id}
+                className="flex items-center justify-between py-1.5 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors"
+                onClick={() => router.push(`/presupuestos/${p.id}`)}
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-medium text-texto-primario">{p.numero}</span>
+                    <Insignia color={COLOR_ESTADO_PRESUPUESTO[p.estado] || 'neutro'}>
+                      {p.estado === 'confirmado_cliente' ? 'Confirmado' : p.estado === 'orden_venta' ? 'Orden' : p.estado}
+                    </Insignia>
+                  </div>
+                  <p className="text-xxs text-texto-terciario truncate">
+                    {[p.contacto_nombre, p.contacto_apellido].filter(Boolean).join(' ') || 'Sin contacto'}
+                  </p>
+                </div>
+                <div className="text-right shrink-0 ml-2">
+                  {p.total != null && <p className="text-xs font-semibold text-texto-primario tabular-nums">{moneda(p.total)}</p>}
+                  <p className="text-xxs text-texto-terciario">{fechaRelativa(p.creado_en)}</p>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="text-xs text-texto-terciario text-center py-3">Sin presupuestos</p>
+          )}
+        </TarjetaReciente>
+
+        {/* Últimos contactos */}
+        <TarjetaReciente
+          titulo="Últimos contactos"
+          icono={<Users size={14} />}
+          verTodo={() => router.push('/contactos')}
+        >
+          {datos?.contactos.recientes && datos.contactos.recientes.length > 0 ? (
+            datos.contactos.recientes.map(c => (
+              <div
+                key={c.id}
+                className="flex items-center justify-between py-1.5 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors"
+                onClick={() => router.push(`/contactos/${c.id}`)}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="size-6 rounded-full bg-superficie-hover flex items-center justify-center text-xxs font-semibold text-texto-secundario shrink-0">
+                    {(c.nombre?.[0] || '').toUpperCase()}{(c.apellido?.[0] || '').toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-texto-primario truncate">
+                      {[c.nombre, c.apellido].filter(Boolean).join(' ')}
+                    </p>
+                    <p className="text-xxs text-texto-terciario truncate">{c.correo || c.telefono || ''}</p>
+                  </div>
+                </div>
+                <span className="text-xxs text-texto-terciario shrink-0 ml-2">{fechaRelativa(c.creado_en)}</span>
+              </div>
+            ))
+          ) : (
+            <p className="text-xs text-texto-terciario text-center py-3">Sin contactos</p>
+          )}
+        </TarjetaReciente>
+
+        {/* Próximas actividades */}
+        <TarjetaReciente
+          titulo="Próximas actividades"
+          icono={<CheckSquare size={14} />}
+          verTodo={() => router.push('/actividades')}
+        >
+          {datos?.actividades_proximas && datos.actividades_proximas.length > 0 ? (
+            datos.actividades_proximas.map(act => (
+              <div
+                key={act.id}
+                className="flex items-center justify-between py-1.5 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors"
+                onClick={() => router.push('/actividades')}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-texto-primario truncate">{act.titulo}</span>
+                    {act.prioridad === 'alta' && <Insignia color="peligro">!</Insignia>}
+                  </div>
+                  {act.asignado_nombre && (
+                    <p className="text-xxs text-texto-terciario truncate">{act.asignado_nombre}</p>
+                  )}
+                </div>
+                <span className="text-xxs text-texto-terciario shrink-0 ml-2">
+                  {new Date(act.fecha_vencimiento).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                </span>
+              </div>
+            ))
+          ) : (
+            <p className="text-xs text-texto-terciario text-center py-3">Sin actividades próximas</p>
+          )}
+        </TarjetaReciente>
+
+        {/* Últimos mensajes */}
+        <TarjetaMensajesRecientes
+          mensajes={datos?.mensajes_recientes || []}
+          fechaRelativa={fechaRelativa}
+        />
       </motion.div>
 
       {/* ─── Fila 1: Presupuestos vs Ventas (full width) ─── */}
@@ -366,147 +464,176 @@ export default function PaginaDashboard() {
         )}
       </div>
 
-      {/* ─── Fila 6: Contactos recientes + Presupuestos recientes + Asistencia ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Contactos recientes */}
-        <motion.div variants={itemVariantes}>
-          <Tarjeta
-            titulo={`${t('contactos.titulo')} ${t('dashboard.recientes')}`}
-            acciones={
-              <Boton variante="fantasma" tamano="xs" iconoDerecho={<ArrowRight size={12} />} onClick={() => router.push('/contactos')}>
-                {t('dashboard.ver_todo')}
-              </Boton>
-            }
-          >
-            {datos?.contactos.recientes && datos.contactos.recientes.length > 0 ? (
-              <div className="space-y-1">
-                {datos.contactos.recientes.map(c => (
-                  <div
-                    key={c.id}
-                    className="flex items-center justify-between py-2 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors"
-                    onClick={() => router.push(`/contactos/${c.id}`)}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="size-8 rounded-full bg-superficie-hover flex items-center justify-center text-xs font-semibold text-texto-secundario shrink-0">
-                        {(c.nombre?.[0] || '').toUpperCase()}{(c.apellido?.[0] || '').toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-texto-primario truncate">
-                          {[c.nombre, c.apellido].filter(Boolean).join(' ')}
-                        </p>
-                        <p className="text-xs text-texto-terciario truncate">
-                          {c.correo || c.telefono || ''}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-xxs text-texto-terciario shrink-0 ml-2">{fechaRelativa(c.creado_en)}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-texto-terciario py-4 text-center">{t('contactos.sin_contactos')}</p>
-            )}
-          </Tarjeta>
-        </motion.div>
-
-        {/* Presupuestos recientes */}
-        <motion.div variants={itemVariantes}>
-          <Tarjeta
-            titulo={`${t('navegacion.presupuestos')} ${t('dashboard.recientes')}`}
-            acciones={
-              <Boton variante="fantasma" tamano="xs" iconoDerecho={<ArrowRight size={12} />} onClick={() => router.push('/presupuestos')}>
-                {t('dashboard.ver_todo')}
-              </Boton>
-            }
-          >
-            {datos?.presupuestos.recientes && datos.presupuestos.recientes.length > 0 ? (
-              <div className="space-y-2">
-                {datos.presupuestos.recientes.map(p => (
-                  <div
-                    key={p.id}
-                    className="flex items-center justify-between py-2 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors"
-                    onClick={() => router.push(`/presupuestos/${p.id}`)}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-texto-primario">{p.numero}</span>
-                        <Insignia color={COLOR_ESTADO_PRESUPUESTO[p.estado] || 'neutro'}>
-                          {p.estado}
-                        </Insignia>
-                      </div>
-                      <p className="text-xs text-texto-terciario truncate mt-0.5">
-                        {[p.contacto_nombre, p.contacto_apellido].filter(Boolean).join(' ') || 'Sin contacto'}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0 ml-3">
-                      {p.total != null && (
-                        <p className="text-sm font-semibold text-texto-primario">{moneda(p.total)}</p>
-                      )}
-                      <p className="text-xxs text-texto-terciario">{fechaRelativa(p.creado_en)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-texto-terciario py-4 text-center">{t('documentos.sin_documentos')}</p>
-            )}
-          </Tarjeta>
-        </motion.div>
-
-        {/* Asistencia del equipo */}
-        {datos?.asistencia && (
+      {/* ─── Fila 6: Asistencia (si hay datos) ─── */}
+      {datos?.asistencia && (datos.asistencia.hoy.total > 0 || Object.keys(datos.asistencia.semana).length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <motion.div variants={itemVariantes}>
             <WidgetAsistencia hoy={datos.asistencia.hoy} semana={datos.asistencia.semana} />
           </motion.div>
-        )}
-      </div>
+        </div>
+      )}
     </motion.div>
   )
 }
 
 // ─── Subcomponentes ───
 
-function TarjetaMetrica({
-  titulo,
-  valor,
-  icono,
-  color,
-  detalle,
-  onClick,
+/** KPI compacto — una línea con icono, valor y detalle */
+function KpiCompacto({
+  titulo, valor, icono, color, detalle, onClick,
 }: {
-  titulo: string
-  valor: number | string
-  icono: React.ReactNode
-  color: 'primario' | 'info' | 'exito' | 'violeta'
-  detalle?: string
-  onClick?: () => void
+  titulo: string; valor: number | string; icono: React.ReactNode
+  color: 'primario' | 'info' | 'exito' | 'violeta'; detalle?: string; onClick?: () => void
 }) {
   return (
-    <Tarjeta onClick={onClick} className="group">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs text-texto-terciario">{titulo}</p>
-          <p className="text-2xl font-bold text-texto-primario mt-1">{valor}</p>
-          {detalle && (
-            <p className="text-xxs text-texto-terciario mt-1">{detalle}</p>
-          )}
-        </div>
-        <div className={`size-9 rounded-lg flex items-center justify-center bg-insignia-${color}-fondo text-insignia-${color}-texto`}>
+    <div
+      onClick={onClick}
+      className="bg-superficie-tarjeta border border-borde-sutil rounded-lg py-3 px-4 cursor-pointer hover:border-borde-fuerte hover:shadow-sm transition-all duration-150"
+    >
+      <div className="flex items-center gap-3">
+        <div className={`size-8 rounded-lg flex items-center justify-center shrink-0 bg-insignia-${color}-fondo text-insignia-${color}-texto`}>
           {icono}
         </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-2">
+            <span className="text-xl font-bold text-texto-primario leading-tight">{valor}</span>
+            <span className="text-xxs text-texto-terciario truncate">{titulo}</span>
+          </div>
+          {detalle && (
+            <p className="text-xxs text-texto-terciario truncate">{detalle}</p>
+          )}
+        </div>
       </div>
-    </Tarjeta>
+    </div>
+  )
+}
+
+/** Tarjeta de lista reciente — header con icono + título + "ver todo" */
+function TarjetaReciente({
+  titulo, icono, verTodo, children,
+}: {
+  titulo: string; icono: React.ReactNode; verTodo: () => void; children: React.ReactNode
+}) {
+  return (
+    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-texto-terciario">{icono}</span>
+          <h3 className="text-xs font-semibold text-texto-primario">{titulo}</h3>
+        </div>
+        <button onClick={verTodo} className="text-xxs text-texto-terciario hover:text-texto-secundario flex items-center gap-1 transition-colors">
+          Ver todo <ArrowRight size={10} />
+        </button>
+      </div>
+      <div className="space-y-0.5">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/** Tarjeta de mensajes recientes con pestañas de canal */
+function TarjetaMensajesRecientes({
+  mensajes, fechaRelativa,
+}: {
+  mensajes: DatosDashboard['mensajes_recientes']
+  fechaRelativa: (fecha: string) => string
+}) {
+  const [canal, setCanal] = useState<string>('todos')
+
+  const canalesDisponibles = ['todos', ...Array.from(new Set(mensajes.map(m => m.tipo_canal))).filter(Boolean)]
+
+  const ETIQUETA_CANAL: Record<string, string> = {
+    todos: 'Todos',
+    whatsapp: 'WhatsApp',
+    correo: 'Correo',
+    interno: 'Interno',
+  }
+
+  const ICONO_TIPO_CONTENIDO: Record<string, React.ReactNode> = {
+    imagen: <Image size={10} />,
+    audio: <Mic size={10} />,
+    documento: <File size={10} />,
+    video: <Video size={10} />,
+  }
+
+  const filtrados = canal === 'todos' ? mensajes : mensajes.filter(m => m.tipo_canal === canal)
+
+  return (
+    <div className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-texto-terciario"><MessageSquare size={14} /></span>
+          <h3 className="text-xs font-semibold text-texto-primario">Últimos mensajes</h3>
+        </div>
+      </div>
+
+      {/* Pestañas de canal */}
+      {canalesDisponibles.length > 2 && (
+        <div className="flex items-center gap-1 mb-3">
+          {canalesDisponibles.map(c => (
+            <button
+              key={c}
+              onClick={() => setCanal(c)}
+              className={`px-2 py-0.5 text-xxs rounded-md transition-colors ${
+                canal === c
+                  ? 'bg-superficie-hover text-texto-primario font-medium'
+                  : 'text-texto-terciario hover:text-texto-secundario'
+              }`}
+            >
+              {ETIQUETA_CANAL[c] || c}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Lista */}
+      <div className="space-y-0.5">
+        {filtrados.length > 0 ? (
+          filtrados.slice(0, 5).map(m => {
+            const preview = m.correo_asunto || m.texto || `[${m.tipo_contenido}]`
+            return (
+              <div
+                key={m.id}
+                className="flex items-start gap-2 py-1.5 px-1 rounded-md hover:bg-superficie-hover transition-colors"
+              >
+                {/* Indicador de canal */}
+                <div className={`size-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                  m.tipo_canal === 'whatsapp' ? 'bg-canal-whatsapp/15 text-canal-whatsapp'
+                  : m.tipo_canal === 'correo' ? 'bg-canal-correo/15 text-canal-correo'
+                  : 'bg-canal-interno/15 text-canal-interno'
+                }`}>
+                  {m.tipo_canal === 'whatsapp' ? <MessageCircle size={10} />
+                    : m.tipo_canal === 'correo' ? <Mail size={10} />
+                    : <MessageSquare size={10} />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-medium text-texto-primario truncate">
+                      {m.es_entrante ? (m.contacto_nombre || m.remitente_nombre || 'Contacto') : 'Tú'}
+                    </span>
+                    {m.tipo_contenido !== 'texto' && ICONO_TIPO_CONTENIDO[m.tipo_contenido] && (
+                      <span className="text-texto-terciario">{ICONO_TIPO_CONTENIDO[m.tipo_contenido]}</span>
+                    )}
+                    <span className="text-xxs text-texto-terciario ml-auto shrink-0">{fechaRelativa(m.creado_en)}</span>
+                  </div>
+                  <p className="text-xxs text-texto-terciario truncate">{preview?.slice(0, 60)}</p>
+                </div>
+              </div>
+            )
+          })
+        ) : (
+          <p className="text-xs text-texto-terciario text-center py-3">Sin mensajes</p>
+        )}
+      </div>
+    </div>
   )
 }
 
 function BotonRapido({
-  etiqueta,
-  icono,
-  onClick,
+  etiqueta, icono, onClick,
 }: {
-  etiqueta: string
-  icono: React.ReactNode
-  onClick: () => void
+  etiqueta: string; icono: React.ReactNode; onClick: () => void
 }) {
   return (
     <Boton variante="secundario" tamano="sm" icono={<Plus size={13} strokeWidth={2} />} onClick={onClick}>
