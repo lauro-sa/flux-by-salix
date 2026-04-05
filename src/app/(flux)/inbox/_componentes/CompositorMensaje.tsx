@@ -192,8 +192,15 @@ export function CompositorMensaje({
     // Enviar texto
     if (!texto.trim() || cargando) return
 
+    // Aplicar firma al texto (solo WhatsApp, solo mensajes normales, no notas internas)
+    let textoFinal = texto.trim()
+    if (tipoCanal === 'whatsapp' && !esNotaInterna && formatoFirma && formatoFirma !== 'sin_firma' && datosUsuario) {
+      const firma = generarNombreRemitente(formatoFirma, datosUsuario)
+      textoFinal = `*${firma}:*\n${textoFinal}`
+    }
+
     const datos: DatosMensaje = {
-      texto: texto.trim(),
+      texto: textoFinal,
       tipo_contenido: 'texto',
       es_nota_interna: esNotaInterna || undefined,
     }
