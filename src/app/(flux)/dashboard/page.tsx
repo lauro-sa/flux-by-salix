@@ -4,8 +4,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
-  Users, FileText, MessageSquare, Mail,
-  Plus, ArrowRight,
+  Users, FileText, MessageSquare, CheckSquare,
+  Plus, ArrowRight, CalendarClock, Bell,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useEmpresa } from '@/hooks/useEmpresa'
@@ -200,35 +200,71 @@ export default function PaginaDashboard() {
 
       {/* ─── Tarjetas de métricas principales ─── */}
       <motion.div variants={itemVariantes} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Contactos: total + nuevos este mes */}
+        {(() => {
+          const mesActual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+          const nuevosEsteMes = datos?.comparativa?.contactos_por_mes?.[mesActual] ?? 0
+          return (
+            <TarjetaMetrica
+              titulo={t('contactos.titulo')}
+              valor={datos?.contactos.total ?? 0}
+              icono={<Users size={20} strokeWidth={1.5} />}
+              color="primario"
+              detalle={nuevosEsteMes > 0 ? `+${nuevosEsteMes} este mes` : undefined}
+              onClick={() => router.push('/contactos')}
+            />
+          )
+        })()}
+
+        {/* Presupuestos: total + nuevos este mes + borradores */}
+        {(() => {
+          const mesActual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+          const nuevosEsteMes = datos?.comparativa?.presupuestos_por_mes?.[mesActual]?.creados ?? 0
+          const borradores = datos?.presupuestos.por_estado.borrador ?? 0
+          const partes = []
+          if (nuevosEsteMes > 0) partes.push(`+${nuevosEsteMes} este mes`)
+          if (borradores > 0) partes.push(`${borradores} ${t('dashboard.borradores')}`)
+          return (
+            <TarjetaMetrica
+              titulo={t('navegacion.presupuestos')}
+              valor={datos?.presupuestos.total ?? 0}
+              icono={<FileText size={20} strokeWidth={1.5} />}
+              color="info"
+              detalle={partes.length > 0 ? partes.join(' · ') : undefined}
+              onClick={() => router.push('/presupuestos')}
+            />
+          )
+        })()}
+
+        {/* Actividades: pendientes + vencidas */}
         <TarjetaMetrica
-          titulo={t('contactos.titulo')}
-          valor={datos?.contactos.total ?? 0}
-          icono={<Users size={20} strokeWidth={1.5} />}
-          color="primario"
-          onClick={() => router.push('/contactos')}
+          titulo="Actividades pendientes"
+          valor={datos?.actividades?.total_pendientes ?? 0}
+          icono={<CheckSquare size={20} strokeWidth={1.5} />}
+          color="exito"
+          detalle={(() => {
+            const vencidas = datos?.actividades?.pendientes.filter(a => a.fecha_vencimiento && new Date(a.fecha_vencimiento) < new Date()).length ?? 0
+            const hoy = datos?.actividades?.completadas_hoy ?? 0
+            const partes = []
+            if (vencidas > 0) partes.push(`${vencidas} vencida${vencidas > 1 ? 's' : ''}`)
+            if (hoy > 0) partes.push(`${hoy} completada${hoy > 1 ? 's' : ''} hoy`)
+            return partes.length > 0 ? partes.join(' · ') : undefined
+          })()}
+          onClick={() => router.push('/actividades')}
         />
+
+        {/* Inbox: conversaciones abiertas + sin leer */}
         <TarjetaMetrica
-          titulo={t('navegacion.presupuestos')}
-          valor={datos?.presupuestos.total ?? 0}
-          icono={<FileText size={20} strokeWidth={1.5} />}
-          color="info"
-          detalle={datos?.presupuestos.por_estado.borrador ? `${datos.presupuestos.por_estado.borrador} ${t('dashboard.borradores')}` : undefined}
-          onClick={() => router.push('/presupuestos')}
-        />
-        <TarjetaMetrica
-          titulo={t('inbox.conversaciones')}
+          titulo="Inbox abierto"
           valor={datos?.conversaciones.abiertas ?? 0}
           icono={<MessageSquare size={20} strokeWidth={1.5} />}
-          color="exito"
-          detalle={datos?.conversaciones.sin_leer ? `${datos.conversaciones.sin_leer} ${t('dashboard.sin_leer')}` : undefined}
-          onClick={() => router.push('/inbox')}
-        />
-        <TarjetaMetrica
-          titulo={t('dashboard.mensajes_30d')}
-          valor={(metricas?.resumen.mensajes_recibidos ?? 0) + (metricas?.resumen.mensajes_enviados ?? 0)}
-          icono={<Mail size={20} strokeWidth={1.5} />}
           color="violeta"
-          detalle={metricas?.resumen.mensajes_recibidos ? `${metricas.resumen.mensajes_recibidos} ${t('dashboard.recibidos').toLowerCase()}` : undefined}
+          detalle={(() => {
+            const sinLeer = datos?.conversaciones.sin_leer ?? 0
+            if (sinLeer > 0) return `${sinLeer} ${t('dashboard.sin_leer')}`
+            return 'Todo leído'
+          })()}
+          onClick={() => router.push('/inbox')}
         />
       </motion.div>
 
@@ -236,6 +272,7 @@ export default function PaginaDashboard() {
       <motion.div variants={itemVariantes} className="flex flex-wrap gap-2">
         <BotonRapido etiqueta={t('contactos.nuevo')} icono={<Users size={15} />} onClick={() => router.push('/contactos/nuevo')} />
         <BotonRapido etiqueta={t('documentos.tipos.presupuesto')} icono={<FileText size={15} />} onClick={() => router.push('/presupuestos/nuevo')} />
+        <BotonRapido etiqueta="Actividad" icono={<CheckSquare size={15} />} onClick={() => router.push('/actividades')} />
         <BotonRapido etiqueta={t('dashboard.ir_al_inbox')} icono={<MessageSquare size={15} />} onClick={() => router.push('/inbox')} />
       </motion.div>
 
