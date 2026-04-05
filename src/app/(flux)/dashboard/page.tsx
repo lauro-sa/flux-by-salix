@@ -645,9 +645,11 @@ function TarjetaMensajesRecientes({
                         const fecha = new Date(m.creado_en)
                         const hoy = new Date()
                         const ayer = new Date(hoy); ayer.setDate(ayer.getDate() - 1)
-                        const hora = fecha.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
-                        if (fecha.toDateString() === hoy.toDateString()) return hora
-                        if (fecha.toDateString() === ayer.toDateString()) return `Ayer ${hora}`
+                        if (fecha.toDateString() === hoy.toDateString()) return 'Hoy'
+                        if (fecha.toDateString() === ayer.toDateString()) return 'Ayer'
+                        // Dentro de esta semana: mostrar día (Lunes, Martes, etc.)
+                        const diffDias = Math.floor((hoy.getTime() - fecha.getTime()) / 86400000)
+                        if (diffDias < 7) return fecha.toLocaleDateString('es-AR', { weekday: 'long' }).replace(/^\w/, c => c.toUpperCase())
                         return fecha.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })
                       })()}
                     </span>
