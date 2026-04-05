@@ -629,6 +629,61 @@ export function CompositorMensaje({
         )}
       </AnimatePresence>
 
+      {/* Firma del mensaje (solo WhatsApp) */}
+      {tipoCanal === 'whatsapp' && datosUsuario && !esNotaInterna && !grabando && (() => {
+        const sector = datosUsuario.sector
+        const nombre = datosUsuario.nombre
+        const apellido = datosUsuario.apellido
+        const inicialAp = apellido ? apellido[0].toUpperCase() : ''
+        const iniciales = `${nombre ? nombre[0].toUpperCase() : ''}${inicialAp}`
+        const OPCIONES_FIRMA: { valor: string; preview: string }[] = [
+          { valor: 'sin_firma', preview: '' },
+          ...(sector ? [{ valor: 'solo_sector', preview: sector }] : []),
+          { valor: 'nombre_inicial_sector', preview: sector ? `${nombre} ${inicialAp} | ${sector}` : `${nombre} ${inicialAp}` },
+          { valor: 'iniciales_sector', preview: sector ? `${iniciales} | ${sector}` : iniciales },
+        ]
+        const opcionActiva = OPCIONES_FIRMA.find(o => o.valor === formatoFirma) || OPCIONES_FIRMA[0]
+        const tieneFirema = opcionActiva.valor !== 'sin_firma'
+        return (
+          <Popover
+            alineacion="inicio"
+            lado="arriba"
+            ancho={240}
+            contenido={
+              <div className="py-1">
+                <p className="px-3 py-1.5 text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
+                  Firma
+                </p>
+                {OPCIONES_FIRMA.map((op) => {
+                  const activo = formatoFirma === op.valor
+                  return (
+                    <button
+                      key={op.valor}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors"
+                      style={{ color: activo ? 'var(--texto-marca)' : 'var(--texto-primario)' }}
+                      onClick={() => onCambioFormatoFirma?.(op.valor as FormatoNombreRemitente | 'sin_firma')}
+                    >
+                      <span className="flex-1">{op.valor === 'sin_firma' ? 'Sin firma' : `*${op.preview}:*`}</span>
+                      {activo && <Check size={13} className="shrink-0" />}
+                    </button>
+                  )
+                })}
+              </div>
+            }
+          >
+            <div
+              className="flex items-center gap-1.5 px-3 py-1 cursor-pointer hover:bg-[var(--superficie-hover)] transition-colors"
+              style={{ borderBottom: '1px solid var(--borde-sutil)' }}
+            >
+              <PenLine size={10} style={{ color: 'var(--texto-terciario)' }} />
+              <span className="text-xxs" style={{ color: tieneFirema ? 'var(--texto-secundario)' : 'var(--texto-terciario)' }}>
+                {tieneFirema ? `*${opcionActiva.preview}:*` : 'Sin firma — toca para activar'}
+              </span>
+            </div>
+          </Popover>
+        )
+      })()}
+
       {/* Barra de input */}
       <div className="flex items-end gap-2 p-3 relative">
         {/* Grabando audio estilo WhatsApp — waveform en vivo */}
@@ -740,68 +795,6 @@ export function CompositorMensaje({
                 }}
               />
             )}
-
-            {/* Píldora de firma (solo WhatsApp, cuando hay datos de usuario) */}
-            {tipoCanal === 'whatsapp' && datosUsuario && !esNotaInterna && (() => {
-              const sector = datosUsuario.sector
-              const nombre = datosUsuario.nombre
-              const apellido = datosUsuario.apellido
-              const inicialAp = apellido ? apellido[0].toUpperCase() : ''
-              const iniciales = `${nombre ? nombre[0].toUpperCase() : ''}${inicialAp}`
-              const OPCIONES_FIRMA: { valor: string; preview: string; desc: string }[] = [
-                ...(sector ? [{ valor: 'solo_sector', preview: sector, desc: 'Solo el sector' }] : []),
-                { valor: 'nombre_inicial_sector', preview: sector ? `${nombre} ${inicialAp} | ${sector}` : `${nombre} ${inicialAp}`, desc: 'Nombre + sector' },
-                { valor: 'iniciales_sector', preview: sector ? `${iniciales} | ${sector}` : iniciales, desc: 'Iniciales + sector' },
-                { valor: 'sin_firma', preview: '', desc: 'Sin firma' },
-              ]
-              const opcionActiva = OPCIONES_FIRMA.find(o => o.valor === formatoFirma) || OPCIONES_FIRMA[0]
-              return (
-                <Popover
-                  alineacion="inicio"
-                  lado="arriba"
-                  ancho={250}
-                  contenido={
-                    <div className="py-1">
-                      <p className="px-3 py-1.5 text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
-                        Firma
-                      </p>
-                      {OPCIONES_FIRMA.map((op) => {
-                        const activo = formatoFirma === op.valor
-                        return (
-                          <button
-                            key={op.valor}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors"
-                            style={{ color: activo ? 'var(--texto-marca)' : 'var(--texto-primario)' }}
-                            onClick={() => onCambioFormatoFirma?.(op.valor as FormatoNombreRemitente | 'sin_firma')}
-                          >
-                            <div className="flex-1 min-w-0">
-                              {op.valor === 'sin_firma' ? (
-                                <span className="text-texto-terciario">Sin firma</span>
-                              ) : (
-                                <span className="font-medium">*{op.preview}:*</span>
-                              )}
-                            </div>
-                            {activo && <Check size={13} className="shrink-0" />}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  }
-                >
-                  <button
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xxs font-medium cursor-pointer transition-colors hover:bg-[var(--superficie-hover)]"
-                    style={{
-                      color: formatoFirma === 'sin_firma' ? 'var(--texto-terciario)' : 'var(--texto-marca)',
-                      background: formatoFirma === 'sin_firma' ? 'transparent' : 'color-mix(in srgb, var(--texto-marca) 8%, transparent)',
-                      border: 'none',
-                    }}
-                  >
-                    <PenLine size={10} />
-                    {opcionActiva.valor !== 'sin_firma' ? `*${opcionActiva.preview}:*` : 'Sin firma'}
-                  </button>
-                </Popover>
-              )
-            })()}
 
             {/* Textarea */}
             <TextArea

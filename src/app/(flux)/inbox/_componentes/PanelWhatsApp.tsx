@@ -270,7 +270,7 @@ export function PanelWhatsApp({
 
   // Firma del mensaje
   const [datosUsuarioFirma, setDatosUsuarioFirma] = useState<{ nombre: string; apellido: string; sector?: string | null } | null>(null)
-  const [formatoFirma, setFormatoFirma] = useState<FormatoNombreRemitente | 'sin_firma'>('nombre_inicial_sector')
+  const [formatoFirma, setFormatoFirma] = useState<FormatoNombreRemitente | 'sin_firma'>('sin_firma')
 
   // Cargar datos del usuario para la firma
   useEffect(() => {
