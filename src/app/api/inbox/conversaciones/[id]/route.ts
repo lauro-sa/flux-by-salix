@@ -115,6 +115,7 @@ export async function PATCH(
 
     // Registrar asignación si cambió el agente
     if (body.asignado_a !== undefined) {
+      const nombreAsignador = `${user.user_metadata?.nombre || ''} ${user.user_metadata?.apellido || ''}`.trim()
       await admin.from('asignaciones_inbox').insert({
         empresa_id: empresaId,
         conversacion_id: id,
@@ -122,9 +123,33 @@ export async function PATCH(
         usuario_nombre: body.asignado_a_nombre || null,
         tipo: body.tipo_asignacion || 'manual',
         asignado_por: user.id,
-        asignado_por_nombre: `${user.user_metadata?.nombre || ''} ${user.user_metadata?.apellido || ''}`.trim(),
+        asignado_por_nombre: nombreAsignador,
         notas: body.notas_asignacion || null,
       })
+
+      // Notificar al agente asignado (push + sistema)
+      if (body.asignado_a && body.asignado_a !== user.id) {
+        const { crearNotificacion } = await import('@/lib/notificaciones')
+        // Obtener nombre del contacto para el mensaje
+        const { data: conv } = await admin
+          .from('conversaciones')
+          .select('contacto_nombre, identificador_externo')
+          .eq('id', id)
+          .single()
+        const contacto = conv?.contacto_nombre || conv?.identificador_externo || 'una conversación'
+        await crearNotificacion({
+          empresaId,
+          usuarioId: body.asignado_a,
+          tipo: 'asignacion',
+          titulo: 'Te asignaron una conversación',
+          cuerpo: `${nombreAsignador} te asignó la conversación de ${contacto}`,
+          icono: '👤',
+          color: '#0ea5e9',
+          url: `/inbox?conv=${id}&tab=whatsapp`,
+          referenciaTipo: 'conversacion',
+          referenciaId: id,
+        })
+      }
     }
 
     // Mensaje de sistema al cambiar de etapa
