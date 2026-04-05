@@ -508,11 +508,12 @@ function ModuloToggle({
 }
 
 // Card visual de canal conectado — muestra todos los datos de la cuenta
-function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () => void }) {
+function CanalCard({ canal, onRecargar, onHacerPrincipal }: { canal: CanalInbox; onRecargar?: () => void; onHacerPrincipal?: (canalId: string) => void }) {
   const { t } = useTraduccion()
   const [expandido, setExpandido] = useState(false)
   const [cargandoCalidad, setCargandoCalidad] = useState(false)
   const [modalEliminar, setModalEliminar] = useState(false)
+  const [modalPrincipal, setModalPrincipal] = useState(false)
   const [eliminando, setEliminando] = useState(false)
   const [editando, setEditando] = useState(false)
   type DatosCalidad = { rating: string; tier: string; status: string }
@@ -623,6 +624,11 @@ function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () =
               <Insignia color={conectado ? 'exito' : error ? 'peligro' : 'neutro'} tamano="sm">
                 {conectado ? t('inbox.config.estado_conectado') : error ? t('inbox.config.estado_error') : t('inbox.config.estado_desconectado')}
               </Insignia>
+              {canal.es_principal && (
+                <Insignia color="primario" tamano="sm">
+                  Principal
+                </Insignia>
+              )}
               {calidad && (
                 <Insignia color={colorCalidad[calidad.rating] as 'exito' | 'advertencia' | 'peligro'} tamano="sm">
                   {calidad.rating}
@@ -646,11 +652,7 @@ function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () =
                   {(config.usuario || config.email || '') as string}
                 </span>
               )}
-              {!esWhatsApp && canal.modulos_disponibles && canal.modulos_disponibles.length > 0 && (
-                <span className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
-                  · {canal.modulos_disponibles.join(', ')}
-                </span>
-              )}
+              {/* Módulos se configuran ahora en la matriz global de disponibilidad */}
             </span>
             {error && canal.ultimo_error && (
               <span className="text-xxs mt-1 block" style={{ color: 'var(--insignia-peligro)' }}>
@@ -763,6 +765,38 @@ function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () =
                 </div>
               )}
 
+              {/* Firma de correo inline */}
+              {!esWhatsApp && (
+                <div className="pt-2">
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--texto-secundario)' }}>
+                    Firma de correo
+                  </label>
+                  <div
+                    className="rounded-lg overflow-hidden"
+                    style={{ border: '1px solid var(--borde-sutil)' }}
+                  >
+                    <EditorTexto
+                      contenido={((canal.config_conexion as Record<string, unknown>).firma || '') as string}
+                      onChange={(html: string) => {
+                        // Autoguardado con debounce — usa el mismo patrón que EditorFirmaCanal
+                        clearTimeout((window as unknown as Record<string, ReturnType<typeof setTimeout>>)[`firma_${canal.id}`])
+                        ;(window as unknown as Record<string, ReturnType<typeof setTimeout>>)[`firma_${canal.id}`] = setTimeout(async () => {
+                          await fetch(`/api/inbox/canales/${canal.id}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              config_conexion: { ...(canal.config_conexion as Record<string, unknown>), firma: html },
+                            }),
+                          })
+                        }, 1000)
+                      }}
+                      placeholder="Ej: Juan Pérez — Ventas — Mi Empresa S.A."
+                      alturaMinima={80}
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Acciones */}
               <div className="flex items-center gap-2 pt-2">
                 {esWhatsApp && (
@@ -773,6 +807,16 @@ function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () =
                     cargando={cargandoCalidad}
                   >
                     Consultar calidad
+                  </Boton>
+                )}
+                {!esWhatsApp && !canal.es_principal && onHacerPrincipal && (
+                  <Boton
+                    variante="secundario"
+                    tamano="xs"
+                    icono={<Shield size={12} />}
+                    onClick={() => setModalPrincipal(true)}
+                  >
+                    Hacer principal
                   </Boton>
                 )}
                 <Boton
@@ -807,6 +851,20 @@ function CanalCard({ canal, onRecargar }: { canal: CanalInbox; onRecargar?: () =
         tipo="peligro"
         etiquetaConfirmar="Sí, eliminar"
         cargando={eliminando}
+      />
+
+      {/* Modal confirmar hacer principal */}
+      <ModalConfirmacion
+        abierto={modalPrincipal}
+        onCerrar={() => setModalPrincipal(false)}
+        onConfirmar={() => {
+          setModalPrincipal(false)
+          onHacerPrincipal?.(canal.id)
+        }}
+        titulo="Cambiar cuenta principal"
+        descripcion={`"${canal.nombre}" será la nueva cuenta principal. Todos los correos que no tengan una regla por tipo de contacto se enviarán desde esta bandeja.`}
+        tipo="info"
+        etiquetaConfirmar="Sí, hacer principal"
       />
 
       {/* Modal editar canal */}
@@ -893,46 +951,17 @@ function SeccionMetricasConfig() {
   )
 }
 
-// Editor de firma HTML por canal (con autoguardado)
-function EditorFirmaCanal({ canal }: { canal: CanalInbox }) {
-  const configCanal = canal.config_conexion as Record<string, unknown>
-  const firmaActual = (configCanal.firma || '') as string
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+// Módulos donde las bandejas pueden enviar correo
+const MODULOS_CORREO = [
+  { slug: 'inbox', nombre: 'Inbox' },
+  { slug: 'contactos', nombre: 'Contactos' },
+  { slug: 'presupuestos', nombre: 'Presupuestos' },
+  { slug: 'ordenes_trabajo', nombre: 'Órdenes de trabajo' },
+  { slug: 'informes', nombre: 'Informes' },
+  { slug: 'marketing', nombre: 'Marketing' },
+]
 
-  const guardarFirma = useCallback((html: string) => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    timeoutRef.current = setTimeout(async () => {
-      await fetch(`/api/inbox/canales/${canal.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          config_conexion: { ...configCanal, firma: html },
-        }),
-      })
-    }, 1000)
-  }, [canal.id, configCanal])
-
-  return (
-    <div className="mb-4">
-      <label className="text-xs font-medium block mb-1" style={{ color: 'var(--texto-secundario)' }}>
-        {canal.nombre}
-      </label>
-      <div
-        className="rounded-lg overflow-hidden"
-        style={{ border: '1px solid var(--borde-sutil)' }}
-      >
-        <EditorTexto
-          contenido={firmaActual}
-          onChange={guardarFirma}
-          placeholder="Ej: Juan Pérez — Ventas — Mi Empresa S.A."
-          alturaMinima={80}
-        />
-      </div>
-    </div>
-  )
-}
-
-// Sección de Correo — bandejas, firma, listas permitidos/bloqueados
+// Sección de Correo — 4 subsecciones: bandejas, predeterminado, módulos, anti-spam
 function SeccionCorreo({
   canalesCorreo,
   config,
@@ -947,6 +976,7 @@ function SeccionCorreo({
   onGuardarConfig: (cambios: Partial<ConfigInbox>) => void
 }) {
   const { t } = useTraduccion()
+  const { mostrar } = useToast()
   const configAny = config as unknown as Record<string, unknown> | null
   const [listaPermitidos, setListaPermitidos] = useState(
     ((configAny?.correo_lista_permitidos as string[]) || []).join('\n')
@@ -954,6 +984,35 @@ function SeccionCorreo({
   const [listaBloqueados, setListaBloqueados] = useState(
     ((configAny?.correo_lista_bloqueados as string[]) || []).join('\n')
   )
+
+  // Tipos de contacto y reglas por tipo
+  const [tiposContacto, setTiposContacto] = useState<{ id: string; etiqueta: string; icono: string }[]>([])
+  const [reglasPorTipo, setReglasPorTipo] = useState<Record<string, string>>({}) // tipo_contacto_id → canal_id
+
+  // Cargar tipos de contacto y reglas
+  useEffect(() => {
+    const cargarDatos = async () => {
+      try {
+        const [resTipos, resReglas] = await Promise.all([
+          fetch('/api/contactos/tipos'),
+          fetch('/api/inbox/correo/tipo-contacto'),
+        ])
+        const [dataTipos, dataReglas] = await Promise.all([resTipos.json(), resReglas.json()])
+
+        setTiposContacto((dataTipos.tipos || []).filter((t: { activo: boolean }) => t.activo))
+
+        // Convertir array de reglas a mapa tipo_contacto_id → canal_id
+        const mapa: Record<string, string> = {}
+        for (const r of (dataReglas.reglas || [])) {
+          mapa[r.tipo_contacto_id] = r.canal_id
+        }
+        setReglasPorTipo(mapa)
+      } catch {
+        // silenciar
+      }
+    }
+    cargarDatos()
+  }, [canalesCorreo])
 
   const guardarListas = () => {
     const permitidos = listaPermitidos.split('\n').map(l => l.trim()).filter(Boolean)
@@ -972,7 +1031,6 @@ function SeccionCorreo({
     setSincronizando(true)
     setResultadoSync(null)
     try {
-      // Sincronizar cada canal en paralelo (evita timeout)
       const resultados = await Promise.allSettled(
         canalesCorreo.map(canal =>
           fetch('/api/inbox/correo/sincronizar', {
@@ -1006,71 +1064,274 @@ function SeccionCorreo({
     }
   }
 
+  // Hacer principal
+  const hacerPrincipal = async (canalId: string) => {
+    try {
+      await fetch(`/api/inbox/canales/${canalId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ es_principal: true }),
+      })
+      mostrar('exito', 'Cuenta principal actualizada')
+      onRecargar()
+    } catch {
+      mostrar('error', 'Error al cambiar cuenta principal')
+    }
+  }
+
+  // Guardar regla por tipo de contacto
+  const guardarReglaTipo = async (tipoContactoId: string, canalId: string) => {
+    const nuevasReglas = { ...reglasPorTipo }
+    if (canalId) {
+      nuevasReglas[tipoContactoId] = canalId
+    } else {
+      delete nuevasReglas[tipoContactoId]
+    }
+    setReglasPorTipo(nuevasReglas)
+
+    try {
+      await fetch('/api/inbox/correo/tipo-contacto', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reglas: Object.entries(nuevasReglas).map(([tipoId, cId]) => ({
+            tipo_contacto_id: tipoId,
+            canal_id: cId,
+          })),
+        }),
+      })
+    } catch {
+      mostrar('error', 'Error al guardar regla')
+    }
+  }
+
+  // Guardar módulos disponibles de una bandeja
+  const guardarModulosBandeja = async (canalId: string, modulos: string[]) => {
+    try {
+      await fetch(`/api/inbox/canales/${canalId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modulos_disponibles: modulos }),
+      })
+    } catch {
+      mostrar('error', 'Error al guardar módulos')
+    }
+  }
+
+  // Ordenar: principal primero, después por fecha de creación
+  const canalesOrdenados = [...canalesCorreo].sort((a, b) => {
+    if (a.es_principal && !b.es_principal) return -1
+    if (!a.es_principal && b.es_principal) return 1
+    return 0
+  })
+
+  const canalPrincipal = canalesCorreo.find(c => c.es_principal)
+  const emailDeCanal = (canal: CanalInbox) => {
+    const cfg = canal.config_conexion as Record<string, unknown>
+    return (cfg.email || cfg.usuario || canal.nombre) as string
+  }
+
   return (
-    <div className="space-y-6">
-      {/* Bandejas */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
-            Bandejas de correo
+    <div className="space-y-8">
+      {/* ═══ 1. BANDEJAS DE CORREO ═══ */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+              Bandejas de correo
+            </h3>
+            {canalesCorreo.length > 0 && (
+              <Boton
+                variante="secundario"
+                tamano="xs"
+                icono={sincronizando ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                onClick={sincronizarAhora}
+                disabled={sincronizando}
+              >
+                {sincronizando ? 'Sincronizando...' : 'Sincronizar ahora'}
+              </Boton>
+            )}
+          </div>
+          <Boton variante="primario" tamano="sm" icono={<Plus size={14} />} onClick={onAgregarCanal}>
+            Agregar bandeja
+          </Boton>
+        </div>
+
+        {resultadoSync && (
+          <Alerta tipo={resultadoSync.includes('Error') ? 'peligro' : 'exito'} cerrable onCerrar={() => setResultadoSync(null)}>
+            {resultadoSync}
+          </Alerta>
+        )}
+
+        <p className="text-xs mb-3" style={{ color: 'var(--texto-terciario)' }}>
+          Conectá bandejas de correo compartidas o personales. Expandí cada tarjeta para ver los datos de conexión, editar la firma y configurar como principal.
+        </p>
+
+        {canalesCorreo.length === 0 ? (
+          <EstadoVacio
+            icono={<Mail />}
+            titulo="Sin bandejas de correo"
+            descripcion="Conectá una bandeja de correo compartida (ventas@, info@) o personal."
+          />
+        ) : (
+          <div className="space-y-3">
+            {canalesOrdenados.map((canal) => (
+              <CanalCard key={canal.id} canal={canal} onRecargar={onRecargar} onHacerPrincipal={hacerPrincipal} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ═══ 2. CORREO PREDETERMINADO ═══ */}
+      {canalesCorreo.length > 0 && (
+        <div className="pt-6" style={{ borderTop: '1px solid var(--borde-sutil)' }}>
+          <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--texto-primario)' }}>
+            Correo predeterminado
           </h3>
-          {canalesCorreo.length > 0 && (
-            <Boton
-              variante="secundario"
-              tamano="xs"
-              icono={sincronizando ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-              onClick={sincronizarAhora}
-              disabled={sincronizando}
-            >
-              {sincronizando ? 'Sincronizando...' : 'Sincronizar ahora'}
-            </Boton>
+          <p className="text-xs mb-4" style={{ color: 'var(--texto-terciario)' }}>
+            Cuando envíes un correo, el sistema seleccionará automáticamente la bandeja configurada. Siempre podrás cambiarla manualmente antes de enviar.
+          </p>
+
+          {/* Cuenta principal */}
+          <div
+            className="p-3 rounded-lg mb-4 flex items-center gap-3"
+            style={{ background: 'var(--superficie-hover)' }}
+          >
+            <Shield size={16} style={{ color: 'var(--texto-marca)' }} />
+            <div className="flex-1">
+              <p className="text-xs font-medium" style={{ color: 'var(--texto-primario)' }}>
+                Cuenta principal
+              </p>
+              <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
+                {canalPrincipal
+                  ? `${canalPrincipal.nombre} (${emailDeCanal(canalPrincipal)})`
+                  : 'Ninguna — marcá una bandeja como principal desde la lista de arriba'
+                }
+              </p>
+            </div>
+            {canalPrincipal && (
+              <Insignia color="primario" tamano="sm">Principal</Insignia>
+            )}
+          </div>
+
+          {/* Reglas por tipo de contacto */}
+          {tiposContacto.length > 0 && (
+            <div>
+              <p className="text-xs font-medium mb-2" style={{ color: 'var(--texto-secundario)' }}>
+                Reglas por tipo de contacto
+              </p>
+              <div className="space-y-2">
+                {tiposContacto.map((tipo) => (
+                  <div
+                    key={tipo.id}
+                    className="flex items-center gap-3 p-2 rounded-lg"
+                    style={{ background: 'var(--superficie-tarjeta)' }}
+                  >
+                    <span className="text-xs font-medium flex-1 min-w-0" style={{ color: 'var(--texto-primario)' }}>
+                      {tipo.etiqueta}
+                    </span>
+                    <Select
+                      valor={reglasPorTipo[tipo.id] || ''}
+                      onChange={(v) => guardarReglaTipo(tipo.id, v)}
+                      opciones={[
+                        { valor: '', etiqueta: 'Usar cuenta principal' },
+                        ...canalesOrdenados.map(c => ({
+                          valor: c.id,
+                          etiqueta: `${c.nombre} (${emailDeCanal(c)})`,
+                        })),
+                      ]}
+                      variante="plano"
+                      className="text-xs max-w-[280px]"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
-        <Boton variante="primario" tamano="sm" icono={<Plus size={14} />} onClick={onAgregarCanal}>
-          Agregar bandeja
-        </Boton>
-      </div>
-
-      {resultadoSync && (
-        <Alerta tipo={resultadoSync.includes('Error') ? 'peligro' : 'exito'} cerrable onCerrar={() => setResultadoSync(null)}>
-          {resultadoSync}
-        </Alerta>
       )}
 
-      <Alerta tipo="info" titulo="Tipos de conexión">
-        Podés conectar correos vía IMAP/SMTP (cualquier proveedor) o Gmail OAuth (conexión directa con Google).
-      </Alerta>
+      {/* ═══ 3. DISPONIBILIDAD EN MÓDULOS ═══ */}
+      {canalesCorreo.length > 0 && (
+        <div className="pt-6" style={{ borderTop: '1px solid var(--borde-sutil)' }}>
+          <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--texto-primario)' }}>
+            Disponibilidad en módulos
+          </h3>
+          <p className="text-xs mb-4" style={{ color: 'var(--texto-terciario)' }}>
+            Configurá en qué módulos aparece cada bandeja al enviar correos. Si no marcás ninguno, estará disponible en todos.
+          </p>
 
-      {canalesCorreo.length === 0 ? (
-        <EstadoVacio
-          icono={<Mail />}
-          titulo="Sin bandejas de correo"
-          descripcion="Conectá una bandeja de correo compartida (ventas@, info@) o personal."
-        />
-      ) : (
-        <div className="space-y-3">
-          {canalesCorreo.map((canal) => (
-            <CanalCard key={canal.id} canal={canal} onRecargar={onRecargar} />
-          ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr>
+                  <th className="text-left py-2 pr-3 font-medium" style={{ color: 'var(--texto-secundario)' }}>
+                    Bandeja
+                  </th>
+                  {MODULOS_CORREO.map(mod => (
+                    <th key={mod.slug} className="text-center py-2 px-2 font-medium" style={{ color: 'var(--texto-terciario)' }}>
+                      {mod.nombre}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {canalesOrdenados.map((canal) => {
+                  const mods = canal.modulos_disponibles || []
+                  const todosActivos = mods.length === 0 // vacío = disponible en todos
+                  return (
+                    <tr key={canal.id} style={{ borderTop: '1px solid var(--borde-sutil)' }}>
+                      <td className="py-2 pr-3 font-medium" style={{ color: 'var(--texto-primario)' }}>
+                        <div className="flex items-center gap-2">
+                          <span>{canal.nombre}</span>
+                          <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                            {emailDeCanal(canal)}
+                          </span>
+                        </div>
+                      </td>
+                      {MODULOS_CORREO.map(mod => {
+                        const activo = todosActivos || mods.includes(mod.slug)
+                        return (
+                          <td key={mod.slug} className="text-center py-2 px-2">
+                            <input
+                              type="checkbox"
+                              checked={activo}
+                              onChange={() => {
+                                let nuevos: string[]
+                                if (todosActivos) {
+                                  // Pasar de "todos" a "todos menos este"
+                                  nuevos = MODULOS_CORREO.map(m => m.slug).filter(s => s !== mod.slug)
+                                } else if (activo) {
+                                  nuevos = mods.filter(m => m !== mod.slug)
+                                  // Si queda vacío o igual a todos, volver a vacío
+                                  if (nuevos.length === 0) nuevos = []
+                                } else {
+                                  nuevos = [...mods, mod.slug]
+                                  // Si se marcaron todos, volver a vacío (= todos)
+                                  if (nuevos.length === MODULOS_CORREO.length) nuevos = []
+                                }
+                                guardarModulosBandeja(canal.id, nuevos)
+                                // Actualizar estado local optimista
+                                canal.modulos_disponibles = nuevos
+                                onRecargar()
+                              }}
+                              className="w-4 h-4 rounded cursor-pointer accent-[var(--texto-marca)]"
+                            />
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      {/* Firma de correo */}
-      <div className="pt-4" style={{ borderTop: '1px solid var(--borde-sutil)' }}>
-        <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--texto-primario)' }}>
-          Firma de correo
-        </h3>
-        <p className="text-xs mb-3" style={{ color: 'var(--texto-terciario)' }}>
-          Se incluye al final de cada correo enviado. Podés usar HTML básico.
-        </p>
-        {canalesCorreo.map((canal) => (
-          <EditorFirmaCanal key={canal.id} canal={canal} />
-        ))}
-      </div>
-
-      {/* Listas de permitidos/bloqueados */}
-      <div className="pt-4" style={{ borderTop: '1px solid var(--borde-sutil)' }}>
-        <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--texto-primario)' }}>
+      {/* ═══ 4. FILTRO ANTI-SPAM ═══ */}
+      <div className="pt-6" style={{ borderTop: '1px solid var(--borde-sutil)' }}>
+        <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--texto-primario)' }}>
           Filtro anti-spam
         </h3>
         <p className="text-xs mb-3" style={{ color: 'var(--texto-terciario)' }}>

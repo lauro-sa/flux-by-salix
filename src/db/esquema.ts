@@ -957,11 +957,24 @@ export const canales_inbox = pgTable('canales_inbox', {
   ultima_sincronizacion: timestamp('ultima_sincronizacion', { withTimezone: true }),
   sync_cursor: jsonb('sync_cursor').default(sql`'{}'`),
   modulos_disponibles: text('modulos_disponibles').array().notNull().default(sql`'{}'`),
+  es_principal: boolean('es_principal').notNull().default(false),
   creado_por: uuid('creado_por').notNull(),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
 }, (tabla) => [
   index('canales_inbox_empresa_idx').on(tabla.empresa_id),
+])
+
+// Reglas de correo por tipo de contacto — qué bandeja usar para cada tipo
+export const correo_por_tipo_contacto = pgTable('correo_por_tipo_contacto', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  tipo_contacto_id: uuid('tipo_contacto_id').notNull().references(() => tipos_contacto.id, { onDelete: 'cascade' }),
+  canal_id: uuid('canal_id').notNull().references(() => canales_inbox.id, { onDelete: 'cascade' }),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  uniqueIndex('correo_tipo_contacto_empresa_idx').on(tabla.empresa_id, tabla.tipo_contacto_id),
+  index('correo_por_tipo_contacto_empresa_idx').on(tabla.empresa_id),
 ])
 
 // Canales internos — chat de equipo (públicos, privados, DMs)

@@ -274,7 +274,7 @@ function SelectorHora({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.12 }}
-              className="absolute top-1 left-0 z-50 w-[240px] bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden"
+              className="absolute top-1 left-0 z-50 w-[240px] max-w-[calc(100vw-2rem)] bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden"
             >
               {/* Selector con flechas */}
               <div className="p-4 flex items-center justify-center gap-4">

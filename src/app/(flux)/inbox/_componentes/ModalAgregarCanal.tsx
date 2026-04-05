@@ -8,7 +8,7 @@ import { Select } from '@/componentes/ui/Select'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Alerta } from '@/componentes/ui/Alerta'
 import {
-  Mail, Smartphone, Globe, Lock, Box,
+  Mail, Smartphone, Globe, Lock,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { useTraduccion } from '@/lib/i18n'
@@ -46,15 +46,6 @@ const PROVEEDORES_CORREO = [
   { valor: 'imap', etiqueta: 'IMAP/SMTP', descripcion: 'Cualquier servidor de correo (Yahoo, propio, etc.)' },
 ]
 
-// Módulos que pueden enviar correo (se muestran como opciones de disponibilidad)
-const MODULOS_CORREO = [
-  { slug: 'inbox', nombre: 'Inbox' },
-  { slug: 'contactos', nombre: 'Contactos' },
-  { slug: 'presupuestos', nombre: 'Presupuestos' },
-  { slug: 'ordenes_trabajo', nombre: 'Órdenes de trabajo' },
-  { slug: 'informes', nombre: 'Informes' },
-  { slug: 'marketing', nombre: 'Marketing' },
-]
 
 export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado, canalEditar }: PropiedadesModal) {
   const { t } = useTraduccion()
@@ -486,69 +477,7 @@ export function ModalAgregarCanal({ abierto, onCerrar, tipoCanal, onCanalCreado,
               </>
             )}
 
-            {/* Módulos disponibles (solo correo) */}
-            {tipoCanal === 'correo' && (
-              <div
-                className="pt-3 mt-1"
-                style={{ borderTop: '1px solid var(--borde-sutil)' }}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Box size={14} style={{ color: 'var(--texto-terciario)' }} />
-                  <p className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>
-                    Disponible en módulos
-                  </p>
-                </div>
-                <p className="text-xs mb-3" style={{ color: 'var(--texto-terciario)' }}>
-                  Elegí en qué módulos aparece esta bandeja al enviar correos. Si no seleccionás ninguno, estará disponible en todos.
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {MODULOS_CORREO.map((mod) => {
-                    const activo = modulosDisponibles.includes(mod.slug)
-                    return (
-                      <Boton
-                        key={mod.slug}
-                        type="button"
-                        variante={activo ? 'primario' : 'secundario'}
-                        tamano="sm"
-                        onClick={() => {
-                          setModulosDisponibles(prev =>
-                            activo
-                              ? prev.filter(m => m !== mod.slug)
-                              : [...prev, mod.slug]
-                          )
-                        }}
-                        className="text-left"
-                        style={{
-                          border: activo
-                            ? '2px solid var(--texto-marca)'
-                            : '1px solid var(--borde-sutil)',
-                          background: activo
-                            ? 'var(--superficie-seleccionada)'
-                            : 'transparent',
-                          color: activo
-                            ? 'var(--texto-marca)'
-                            : 'var(--texto-secundario)',
-                        }}
-                      >
-                        <span className="flex items-center gap-2 text-xs">
-                          <span
-                            className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0 text-[10px]"
-                            style={{
-                              background: activo ? 'var(--texto-marca)' : 'transparent',
-                              border: activo ? 'none' : '1.5px solid var(--borde-fuerte)',
-                              color: activo ? 'var(--texto-inverso)' : 'transparent',
-                            }}
-                          >
-                            {activo && '✓'}
-                          </span>
-                          {mod.nombre}
-                        </span>
-                      </Boton>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
+            {/* Módulos disponibles se configuran ahora en la sección de Correo electrónico */}
           </div>
         )}
       </div>

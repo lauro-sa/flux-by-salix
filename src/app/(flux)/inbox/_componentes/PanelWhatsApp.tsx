@@ -1103,7 +1103,7 @@ export function VisorMedia({
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ duration: 0.15 }}
                   className="max-w-full max-h-full object-contain select-none rounded"
-                  style={{ maxHeight: 'calc(100vh - 200px)' }}
+                  style={{ maxHeight: 'calc(100dvh - 200px)' }}
                 />
               ) : (
                 <motion.img
@@ -1332,7 +1332,7 @@ function ReproductorAudio({ adjunto, children }: { adjunto: MensajeAdjunto; chil
         href={adjunto.url}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center gap-2 min-w-[200px] px-2 py-1.5 rounded"
+        className="flex items-center gap-2 min-w-[120px] sm:min-w-[200px] px-2 py-1.5 rounded"
         style={{ background: 'var(--superficie-hover)' }}
       >
         <Music size={16} style={{ color: 'var(--canal-whatsapp)' }} />
@@ -1343,7 +1343,7 @@ function ReproductorAudio({ adjunto, children }: { adjunto: MensajeAdjunto; chil
   }
 
   return (
-    <div className="flex items-center gap-2.5 min-w-[240px] max-w-[320px]">
+    <div className="flex items-center gap-2.5 min-w-[160px] sm:min-w-[240px] max-w-[320px]">
       {/* Audio nativo (solo se usa si el navegador soporta OGG) */}
       <audio
         ref={audioRef}
@@ -1563,7 +1563,7 @@ const ICONO_MEDIA: Record<string, { icono: React.ReactNode; texto: string }> = {
 function MediaCargando({ tipo }: { tipo: string }) {
   const info = ICONO_MEDIA[tipo] || ICONO_MEDIA.documento
   return (
-    <div className="flex items-center gap-2 min-w-[160px] py-1">
+    <div className="flex items-center gap-2 min-w-[100px] sm:min-w-[160px] py-1">
       <div
         className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 animate-pulse"
         style={{ background: 'var(--superficie-hover)', color: 'var(--texto-terciario)' }}
@@ -1622,7 +1622,7 @@ function ContenidoMensaje({
       // Audio sin adjunto: mostrar placeholder descriptivo
       if (texto) {
         return (
-          <div className="flex items-center gap-2 min-w-[160px] py-1">
+          <div className="flex items-center gap-2 min-w-[100px] sm:min-w-[160px] py-1">
             <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
               style={{ background: 'var(--superficie-hover)', color: 'var(--texto-terciario)' }}>
               <Music size={14} />
@@ -1698,7 +1698,7 @@ function ContenidoMensaje({
 
     case 'ubicacion':
       return (
-        <div className="flex items-center gap-2 min-w-[180px]">
+        <div className="flex items-center gap-2 min-w-[120px] sm:min-w-[180px]">
           <MapPin size={16} style={{ color: 'var(--insignia-peligro)' }} />
           <span className="text-sm" style={{ color: 'var(--texto-primario)' }}>
             {caption || 'Ubicación compartida'}

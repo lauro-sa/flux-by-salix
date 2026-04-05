@@ -267,7 +267,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
 
         {/* Stepper visual — scroll horizontal en pantallas chicas */}
         <div className="overflow-x-auto">
-          <div className="flex items-center min-w-[500px]">
+          <div className="flex items-center min-w-0 sm:min-w-[500px]">
             {CAMPOS_META.map((campo, i) => {
               const completado = campo.clave === 'nombre' ? !!canal.nombre : !!config[campo.clave]
               return (

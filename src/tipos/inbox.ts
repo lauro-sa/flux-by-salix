@@ -43,6 +43,7 @@ export interface CanalInbox {
   ultimo_error: string | null
   ultima_sincronizacion: string | null
   modulos_disponibles: string[]
+  es_principal: boolean
   creado_por: string
   creado_en: string
   actualizado_en: string
@@ -57,6 +58,20 @@ export interface CanalAgenteAsignado {
   nombre?: string
   apellido?: string
   avatar_url?: string | null
+}
+
+// Regla de correo predeterminado por tipo de contacto
+export interface CorreoPorTipoContacto {
+  id: string
+  empresa_id: string
+  tipo_contacto_id: string
+  canal_id: string
+  creado_en: string
+  // JOINs opcionales
+  tipo_contacto_etiqueta?: string
+  tipo_contacto_icono?: string
+  canal_nombre?: string
+  canal_email?: string
 }
 
 // ─── Config IMAP ───

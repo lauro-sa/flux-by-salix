@@ -182,7 +182,7 @@ export function DireccionesContacto({ direcciones, onChange, paises }: Props) {
               onChange={e => manejarCampo('calle', e.target.value)}
               placeholder="Calle y número" />
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="col-span-2">
                 <Input variante="plano" value={dirActiva.datos.barrio}
                   onChange={e => manejarCampo('barrio', e.target.value)}

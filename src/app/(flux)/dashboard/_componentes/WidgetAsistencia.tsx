@@ -115,7 +115,7 @@ export function WidgetAsistencia({ hoy, semana }: Props) {
       </div>
 
       {/* Leyenda */}
-      <div className="grid grid-cols-3 gap-3 text-center">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
         <div className="py-2 px-2 rounded-lg bg-superficie-hover/50">
           <span className="text-lg font-bold text-insignia-exito-texto">{totalSemana.presentes}</span>
           <p className="text-xxs text-texto-terciario">Presentes</p>

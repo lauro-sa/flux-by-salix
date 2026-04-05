@@ -122,12 +122,12 @@ function Select({ opciones, valor, placeholder = 'Seleccionar...', etiqueta, err
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.12 }}
-              className="fixed border border-borde-sutil rounded-md shadow-lg overflow-hidden max-h-60 overflow-y-auto"
+              className="fixed border border-borde-sutil rounded-md shadow-lg overflow-hidden max-h-[min(15rem,60dvh)] overflow-y-auto"
               style={{
                 top: posicion.top,
                 left: posicion.left,
                 width: posicion.width,
-                zIndex: 9999,
+                zIndex: 'var(--z-popover)' as unknown as number,
                 ...(esCristal ? {
                   backgroundColor: 'var(--superficie-flotante)',
                   backdropFilter: 'blur(32px) saturate(1.5)',

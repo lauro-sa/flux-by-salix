@@ -80,7 +80,7 @@ export function BannerInstalacion() {
             {/* Cerrar */}
             <button
               onClick={descartar}
-              className="shrink-0 size-7 flex items-center justify-center rounded-lg text-texto-terciario hover:bg-superficie-hover transition-colors cursor-pointer bg-transparent border-none"
+              className="shrink-0 size-10 flex items-center justify-center rounded-lg text-texto-terciario hover:bg-superficie-hover active:bg-superficie-hover transition-colors cursor-pointer bg-transparent border-none"
               aria-label="Cerrar"
             >
               <X size={16} />

@@ -1091,7 +1091,7 @@ export default function PaginaPerfilUsuario() {
         <div className="animate-pulse space-y-4">
           <div className="h-6 w-24 bg-superficie-hover rounded" />
           <div className="h-20 bg-superficie-hover rounded-xl" />
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map(i => <div key={i} className="h-24 bg-superficie-hover rounded-lg" />)}
           </div>
         </div>
@@ -2534,7 +2534,7 @@ export default function PaginaPerfilUsuario() {
                       <div className="py-4 text-center text-sm text-texto-terciario">Calculando...</div>
                     ) : (
                       <>
-                        <div className="grid grid-cols-4 gap-4 text-center mb-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center mb-4">
                           <div>
                             <p className="text-2xl font-black text-texto-primario">{statsPeriodo.habiles}</p>
                             <div className="h-px bg-borde-sutil my-1.5" />

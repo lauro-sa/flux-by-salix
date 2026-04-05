@@ -65,8 +65,8 @@ function Sidebar({
       {/* Drawer movil */}
       <AnimatePresence>
         {mobilAbierto && (<>
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onCerrarMobil} className="fixed inset-0 bg-black/40 z-[45]" />
-          <motion.aside initial={{ x: -300 }} animate={{ x: 0 }} exit={{ x: -300 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }} className="fixed top-0 left-0 h-dvh w-[80vw] max-w-[320px] bg-superficie-sidebar border-r border-borde-sutil z-[46] cristal-panel" style={{ paddingTop: 'var(--safe-area-top)' }} {...swipeProps}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onCerrarMobil} className="fixed inset-0 bg-black/40" style={{ zIndex: 'var(--z-modal)' as unknown as number }} />
+          <motion.aside initial={{ x: -300 }} animate={{ x: 0 }} exit={{ x: -300 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }} className="fixed top-0 left-0 h-dvh w-[80vw] max-w-[320px] bg-superficie-sidebar border-r border-borde-sutil cristal-panel" style={{ zIndex: 'calc(var(--z-modal) + 1)' as unknown as number, paddingTop: 'var(--safe-area-top)' }} {...swipeProps}>
             <SidebarContenido
               colapsado={false}
               onToggle={onToggle}

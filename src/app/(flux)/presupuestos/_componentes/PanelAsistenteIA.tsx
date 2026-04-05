@@ -214,7 +214,7 @@ export function PanelAsistenteIA({ abierto, onCerrar, onAplicarLineas, onCrearSe
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ duration: 0.2 }}
-          className="fixed right-0 top-0 bottom-0 w-[480px] z-40 bg-superficie-elevada border-l border-borde-sutil shadow-elevada flex flex-col"
+          className="fixed right-0 top-0 bottom-0 w-full sm:w-[480px] z-40 bg-superficie-elevada border-l border-borde-sutil shadow-elevada flex flex-col"
         >
           {/* ── Header ── */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-borde-sutil">

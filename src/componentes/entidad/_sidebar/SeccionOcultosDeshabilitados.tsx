@@ -63,7 +63,7 @@ function SeccionOcultosDeshabilitados({
                       icono={<Eye size={12} />}
                       titulo="Mostrar"
                       onClick={(e) => { e.stopPropagation(); onRestaurarOculto(item.id) }}
-                      className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-70"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-70 group-active:opacity-70"
                       style={{ color: 'var(--texto-terciario)' }}
                     />
                   </motion.div>
@@ -97,7 +97,7 @@ function SeccionOcultosDeshabilitados({
                       icono={<Power size={12} />}
                       titulo="Habilitar"
                       onClick={(e) => { e.stopPropagation(); onRestaurarDeshabilitado(item.id) }}
-                      className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-70"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-70 group-active:opacity-70"
                       style={{ color: 'var(--texto-terciario)' }}
                     />
                   </motion.div>

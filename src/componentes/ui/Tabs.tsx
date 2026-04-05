@@ -25,7 +25,7 @@ interface PropiedadesTabs {
  */
 function Tabs({ tabs, activo, onChange, className = '', layoutId = 'tab-indicator' }: PropiedadesTabs) {
   return (
-    <div className={`flex gap-1 border-b border-borde-sutil ${className}`} role="tablist">
+    <div className={`flex gap-1 border-b border-borde-sutil overflow-x-auto scrollbar-none ${className}`} role="tablist">
       {tabs.map((tab) => {
         const esActivo = tab.clave === activo
         return (

@@ -397,8 +397,8 @@ export function ToolbarEditorTexto({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 4, scale: 0.97 }}
         transition={{ duration: 0.12, ease: 'easeOut' }}
-        className="fixed z-[9999] rounded-lg shadow-elevada border border-borde-sutil"
-        style={{ top: toolbarPos.top, left: toolbarPos.left, ...estiloSuperficie }}
+        className="fixed rounded-lg shadow-elevada border border-borde-sutil"
+        style={{ top: toolbarPos.top, left: toolbarPos.left, zIndex: 'var(--z-popover)' as unknown as number, ...estiloSuperficie }}
         onMouseDown={(e) => e.preventDefault()}
       >
         <div className="flex items-center gap-0.5 px-1.5 py-1">
@@ -476,12 +476,13 @@ export function ToolbarEditorTexto({
             exit={{ opacity: 0, y: panelAbajo ? -4 : 4 }}
             transition={{ duration: 0.1 }}
             data-panel-editor="true"
-            className="fixed z-[9999] rounded-lg shadow-elevada border border-borde-sutil overflow-hidden max-h-[80vh] overflow-y-auto"
+            className="fixed rounded-lg shadow-elevada border border-borde-sutil overflow-hidden max-h-[80vh] overflow-y-auto"
             style={{
               ...(panelAbajo
                 ? { top: toolbarPos.top + alturaToolbarPx + 4 }
                 : { bottom: window.innerHeight - toolbarPos.top + 4 }),
               left: Math.max(8, Math.min(subDropdownLeft, window.innerWidth - 340)),
+              zIndex: 'var(--z-popover)' as unknown as number,
               ...estiloSuperficie,
             }}
             onMouseDown={(e) => e.preventDefault()}

@@ -28,7 +28,7 @@ function Kanban<T>({ columnas, items, obtenerColumna, renderItem, claveItem, cla
       {columnas.map((col) => {
         const itemsColumna = items.filter((item) => obtenerColumna(item) === col.id)
         return (
-          <div key={col.id} className="flex flex-col gap-3 min-w-[280px] w-[280px] shrink-0">
+          <div key={col.id} className="flex flex-col gap-3 min-w-[240px] sm:min-w-[280px] w-[240px] sm:w-[280px] shrink-0">
             {/* Header de columna */}
             <div className="flex items-center gap-2 px-1">
               {col.color && <div className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: col.color }} />}

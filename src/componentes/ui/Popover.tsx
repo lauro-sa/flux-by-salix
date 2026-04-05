@@ -87,8 +87,9 @@ function Popover({
 
     const calcular = () => {
       const rect = triggerRef.current!.getBoundingClientRect()
-      const anchoNum = typeof ancho === 'number' ? ancho : 380
+      const anchoRaw = typeof ancho === 'number' ? ancho : 380
       const margen = 12
+      const anchoNum = Math.min(anchoRaw, window.innerWidth - margen * 2)
 
       /* Alto real del panel (si ya está renderizado) o estimación */
       const altoPanel = panelRef.current?.scrollHeight || 300
@@ -137,7 +138,7 @@ function Popover({
         left,
         width: typeof ancho === 'number' ? ancho : ancho,
         maxHeight: maxH,
-        zIndex: 9999,
+        zIndex: 'var(--z-popover)' as unknown as number,
       })
     }
 
@@ -164,11 +165,11 @@ function Popover({
       ) return
 
       /* Ignorar clicks en elementos flotantes de otros portales (dropdowns, calendarios, etc.)
-         Recorremos los padres del target buscando z-index >= 9999 */
+         Recorremos los padres del target buscando z-index alto (portales) */
       let el = target as HTMLElement | null
       while (el) {
         const zIndex = parseInt(window.getComputedStyle(el).zIndex || '0', 10)
-        if (zIndex >= 9999 && el !== panelRef.current) return
+        if (zIndex >= 40 && el !== panelRef.current) return
         el = el.parentElement
       }
 

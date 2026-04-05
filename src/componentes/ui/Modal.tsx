@@ -108,7 +108,7 @@ function Modal({ abierto, onCerrar, titulo, tamano = 'lg', children, acciones, s
               role="dialog"
               aria-modal="true"
               aria-label={titulo || 'Modal'}
-              className={`rounded-lg shadow-elevada w-full ${clasesAncho[tamano]} max-h-[85vh] flex flex-col pointer-events-auto border border-borde-sutil`}
+              className={`rounded-lg shadow-elevada w-full ${clasesAncho[tamano]} max-w-[calc(100vw-2rem)] max-h-[85dvh] flex flex-col pointer-events-auto border border-borde-sutil`}
               style={esCristal ? {
                 backgroundColor: 'var(--superficie-flotante)',
                 backdropFilter: 'blur(32px) saturate(1.5)',

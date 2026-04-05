@@ -114,7 +114,7 @@ function PlantillaListado({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -4 }}
                         transition={{ duration: 0.12 }}
-                        className="absolute top-full left-0 mt-1 min-w-[180px] bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-50 overflow-hidden"
+                        className="absolute top-full left-0 mt-1 min-w-[180px] max-w-[calc(100vw-2rem)] bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-50 overflow-hidden"
                       >
                         {acciones.map((accion) => (
                           <OpcionMenu

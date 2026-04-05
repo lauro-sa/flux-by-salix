@@ -156,7 +156,7 @@ export function ModalEnviarDocumento({
                             initial={{ opacity: 0, y: -4 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -4 }}
-                            className="absolute left-0 top-full z-50 mt-1 py-1 rounded-lg shadow-lg min-w-[280px]"
+                            className="absolute left-0 top-full z-50 mt-1 py-1 rounded-lg shadow-lg min-w-[200px] sm:min-w-[280px] max-w-[calc(100vw-2rem)]"
                             style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)' }}
                           >
                             {canales.map(c => (
@@ -483,7 +483,7 @@ export function ModalEnviarDocumento({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 8, scale: 0.96 }}
                         transition={{ duration: 0.15 }}
-                        className="absolute bottom-full right-0 mb-2 w-[280px] rounded-xl shadow-elevada p-4 z-50 space-y-3"
+                        className="absolute bottom-full right-0 mb-2 w-[280px] max-w-[calc(100vw-2rem)] rounded-xl shadow-elevada p-4 z-50 space-y-3"
                         style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)' }}
                       >
                         <span className="text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>

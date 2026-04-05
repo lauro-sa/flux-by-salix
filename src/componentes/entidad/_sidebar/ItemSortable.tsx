@@ -99,7 +99,7 @@ function ItemSortable({
             e.stopPropagation()
             onAbrirMenu(item.id, e.currentTarget)
           }}
-          className="absolute right-1 top-1/2 -translate-y-1/2 size-6 rounded-md cursor-pointer opacity-0 group-hover:opacity-100 hover:bg-superficie-activa flex items-center justify-center transition-opacity z-30"
+          className="absolute right-1 top-1/2 -translate-y-1/2 size-6 rounded-md cursor-pointer opacity-0 group-hover:opacity-100 group-active:opacity-100 hover:bg-superficie-activa active:bg-superficie-activa flex items-center justify-center transition-opacity z-30"
           style={{ color: 'var(--texto-terciario)' }}
         >
           <MoreHorizontal size={13} />

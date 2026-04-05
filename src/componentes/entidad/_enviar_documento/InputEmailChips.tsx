@@ -72,7 +72,7 @@ export function InputEmailChips({
   }
 
   return (
-    <div className="flex items-start gap-2 min-h-[36px] relative">
+    <div className="flex items-start gap-2 min-h-[44px] sm:min-h-[36px] relative">
       <span className="text-sm w-14 flex-shrink-0 pt-2 text-right font-medium" style={{ color: 'var(--texto-terciario)' }}>
         {etiqueta}
       </span>
@@ -80,7 +80,7 @@ export function InputEmailChips({
         <div
           role="textbox"
           tabIndex={0}
-          className="flex flex-wrap items-center gap-1 min-h-[32px] cursor-text"
+          className="flex flex-wrap items-center gap-1 min-h-[44px] sm:min-h-[32px] cursor-text"
           onClick={() => inputRef.current?.focus()}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inputRef.current?.focus() } }}
         >

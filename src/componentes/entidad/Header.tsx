@@ -136,7 +136,7 @@ function Header({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.12 }}
-                className="absolute left-0 top-full mt-1.5 border border-borde-sutil rounded-xl shadow-lg overflow-hidden min-w-[220px] py-1 z-50"
+                className="absolute left-0 top-full mt-1.5 border border-borde-sutil rounded-xl shadow-lg overflow-hidden min-w-[220px] max-w-[calc(100vw-2rem)] py-1 z-50"
                 style={estiloPopover}
               >
                 <div className="px-3 py-2 text-xxs font-semibold text-texto-terciario uppercase tracking-wider">
@@ -220,7 +220,7 @@ function Header({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -6, scale: 0.97 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
-              className="absolute right-0 top-full mt-2 border border-borde-sutil rounded-2xl shadow-elevada overflow-hidden w-[280px] z-50"
+              className="absolute right-0 top-full mt-2 border border-borde-sutil rounded-2xl shadow-elevada overflow-hidden w-[280px] max-w-[calc(100vw-2rem)] z-50"
               style={estiloPopover}
             >
               {/* Cabecera del menú — Logo + info */}

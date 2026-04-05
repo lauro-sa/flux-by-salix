@@ -266,9 +266,9 @@ export function ModalImportar({ abierto, onCerrar, onImportacionCompleta }: Prop
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-borde-sutil">
-                      <th className="text-left py-2 px-3 text-texto-terciario font-medium w-[200px]">Columna del archivo</th>
+                      <th className="text-left py-2 px-3 text-texto-terciario font-medium w-auto sm:w-[200px] max-w-[140px] sm:max-w-none truncate">Columna del archivo</th>
                       <th className="text-left py-2 px-3 text-texto-terciario font-medium w-[40px]">→</th>
-                      <th className="text-left py-2 px-3 text-texto-terciario font-medium w-[200px]">Campo en Flux</th>
+                      <th className="text-left py-2 px-3 text-texto-terciario font-medium w-auto sm:w-[200px] max-w-[140px] sm:max-w-none truncate">Campo en Flux</th>
                       <th className="text-left py-2 px-3 text-texto-terciario font-medium">Vista previa (primeras filas)</th>
                     </tr>
                   </thead>

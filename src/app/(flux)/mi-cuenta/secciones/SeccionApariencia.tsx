@@ -58,7 +58,7 @@ export function SeccionApariencia() {
       {/* TAMAÑO DE FUENTE */}
       <div>
         <Etiqueta>Tamaño de fuente</Etiqueta>
-        <div className="grid grid-cols-3 gap-3 mt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
           {([
             { clave: 'compacto' as EscalaTexto, etiqueta: 'Normal', descripcion: 'Tamaño estándar', tamano: 'text-lg' },
             { clave: 'normal' as EscalaTexto, etiqueta: 'Mediano', descripcion: 'Un poco más grande', tamano: 'text-xl' },
@@ -88,7 +88,7 @@ export function SeccionApariencia() {
       {/* MODO DE COLOR */}
       <div>
         <Etiqueta>Modo de color</Etiqueta>
-        <div className="grid grid-cols-3 gap-3 mt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
           {([
             { clave: 'claro' as Tema, etiqueta: 'Claro', fondo: 'bg-white', barra: 'bg-gray-200', lineas: 'bg-gray-100' },
             { clave: 'oscuro' as Tema, etiqueta: 'Oscuro', fondo: 'bg-zinc-900', barra: 'bg-zinc-700', lineas: 'bg-zinc-800' },
@@ -118,7 +118,7 @@ export function SeccionApariencia() {
       {/* INTENSIDAD GLASS */}
       <div>
         <Etiqueta>Intensidad glass</Etiqueta>
-        <div className="grid grid-cols-3 gap-3 mt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
           {([
             { clave: 'cristal' as Efecto, etiqueta: 'Glass', descripcion: 'Translúcido con blur', opacidad: 'opacity-30' },
             { clave: 'semi-cristal' as Efecto, etiqueta: 'Semi Glass', descripcion: 'Semi-opaco, menos blur', opacidad: 'opacity-60' },

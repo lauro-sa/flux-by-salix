@@ -47,10 +47,10 @@ const clasesTamano: Record<TamanoBoton, string> = {
 }
 
 const clasesSoloIcono: Record<TamanoBoton, string> = {
-  xs: 'p-1.5 size-7',
-  sm: 'p-1.5 size-8',
-  md: 'p-2 size-9',
-  lg: 'p-2.5 size-10',
+  xs: 'p-1.5 size-7 touch-target',
+  sm: 'p-1.5 size-8 touch-target',
+  md: 'p-2 size-9 touch-target',
+  lg: 'p-2.5 size-10 touch-target',
 }
 
 /**

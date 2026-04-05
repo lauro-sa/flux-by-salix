@@ -70,8 +70,8 @@ function PreviewRecordatorio({ previewModal, onCerrarModal, previewToast, onCerr
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="fixed right-6 z-[10000] w-[360px] border border-borde-sutil rounded-2xl shadow-elevada overflow-hidden"
-            style={{ backgroundColor: 'var(--superficie-elevada)', top: 'calc(var(--header-alto) + 12px)' }}
+            className="fixed left-4 right-4 sm:left-auto sm:right-6 sm:w-[360px] border border-borde-sutil rounded-2xl shadow-elevada overflow-hidden"
+            style={{ backgroundColor: 'var(--superficie-elevada)', top: 'calc(var(--header-alto) + 12px)', zIndex: 'var(--z-popover)' as unknown as number }}
           >
             <div className="flex items-start gap-3 p-4">
               <div className="size-9 rounded-lg bg-texto-marca/10 flex items-center justify-center shrink-0">

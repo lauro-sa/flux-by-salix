@@ -338,7 +338,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
         </div>
 
         {/* ═══════ CONTENIDO — min-h fijo para que no salte ═══════ */}
-        <div className="overflow-y-auto px-6 py-6" style={{ minHeight: '460px', maxHeight: 'calc(100vh - 280px)' }}>
+        <div className="overflow-y-auto px-6 py-6" style={{ minHeight: '460px', maxHeight: 'calc(100dvh - 280px)' }}>
 
           {/* ════════════════ TAB GENERAL — layout Odoo 2 columnas ════════════════ */}
           {tabActivo === 'general' && (
@@ -601,7 +601,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
               {/* Resumen margen */}
               {precio > 0 && costoEfectivo > 0 && (
                 <div className="rounded-xl border border-borde-sutil p-5 bg-superficie-app">
-                  <div className="grid grid-cols-3 gap-6 text-center">
+                  <div className="grid grid-cols-3 gap-3 sm:gap-6 text-center">
                     <div>
                       <p className="text-xs text-texto-terciario mb-1">Precio venta</p>
                       <p className="font-mono font-bold text-texto-primario text-lg">

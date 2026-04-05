@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
 
     const tipo = request.nextUrl.searchParams.get('tipo')
     const modulo = request.nextUrl.searchParams.get('modulo')
+    const tipoContactoId = request.nextUrl.searchParams.get('tipo_contacto_id')
     const admin = crearClienteAdmin()
 
     let query = admin
@@ -56,7 +57,25 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({ canales })
+    // Si se pasa tipo_contacto_id, buscar canal predeterminado para ese tipo
+    let canalPredeterminadoTipo: string | null = null
+    if (tipoContactoId) {
+      const { data: regla } = await admin
+        .from('correo_por_tipo_contacto')
+        .select('canal_id')
+        .eq('empresa_id', empresaId)
+        .eq('tipo_contacto_id', tipoContactoId)
+        .single()
+      if (regla) canalPredeterminadoTipo = regla.canal_id
+    }
+
+    // Marcar canal predeterminado en la respuesta
+    const canalesConPredeterminado = canales.map((c: Record<string, unknown>) => ({
+      ...c,
+      _predeterminado_tipo: c.id === canalPredeterminadoTipo,
+    }))
+
+    return NextResponse.json({ canales: canalesConPredeterminado })
   } catch (err) {
     console.error('Error al obtener canales:', err)
     return NextResponse.json({ canales: [] })

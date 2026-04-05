@@ -370,7 +370,7 @@ function SelectorFecha({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.12 }}
-              className="fixed w-[280px] bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden"
+              className="fixed w-[280px] max-w-[calc(100vw-1.5rem)] bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden"
               style={{ top: posDropdown.top, left: posDropdown.left, zIndex: 'var(--z-popover)' as unknown as number }}
             >
               {/* ── VISTA DÍAS ── */}

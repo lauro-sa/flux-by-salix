@@ -173,7 +173,7 @@ export function PanelColumnas<T>({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 20 }}
       transition={{ type: 'spring', duration: 0.25 }}
-      className="fixed top-0 right-0 h-full w-[320px] bg-superficie-app border-l border-borde-sutil shadow-elevada z-50 overflow-hidden flex flex-col"
+      className="fixed top-0 right-0 h-full w-[85vw] sm:w-[320px] bg-superficie-app border-l border-borde-sutil shadow-elevada z-50 overflow-hidden flex flex-col"
     >
       <div className="flex items-center justify-between px-4 py-3 border-b border-borde-sutil shrink-0">
         <span className="text-sm font-semibold text-texto-primario">Configurar columnas</span>

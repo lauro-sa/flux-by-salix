@@ -103,7 +103,7 @@ function ToastItem({ grupo, onDescartar, onVer }: PropsToastItem) {
       transition={{ duration: 0.25, ease: 'easeOut' }}
       onMouseEnter={() => esGrupo && setExpandido(true)}
       onMouseLeave={() => setExpandido(false)}
-      className="w-[360px] border border-borde-sutil rounded-2xl shadow-elevada overflow-hidden pointer-events-auto"
+      className="w-full sm:w-[360px] max-w-[calc(100vw-2rem)] border border-borde-sutil rounded-2xl shadow-elevada overflow-hidden pointer-events-auto"
       style={{ backgroundColor: 'var(--superficie-elevada)' }}
     >
       {/* Header: siempre visible */}

@@ -424,7 +424,9 @@ function PaginaInbox() {
         // Validar que el canal activo siga existiendo; si no, seleccionar el primero
         const idsCanales = new Set(canales.map(c => c.id))
         if (canales.length > 0 && (!canalCorreoActivo || !idsCanales.has(canalCorreoActivo))) {
-          setCanalCorreoActivo(canales[0].id)
+          // Preferir canal principal, sino el primero
+          const principal = canales.find(c => c.es_principal)
+          setCanalCorreoActivo(principal?.id || canales[0].id)
         }
         if (canales.length <= 1) {
           setCanalTodas(false)

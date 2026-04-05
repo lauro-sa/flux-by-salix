@@ -304,7 +304,11 @@ export default function EditorPresupuesto({
             email: c.config_conexion?.email || c.config_conexion?.usuario || c.nombre,
             predeterminado: false,
           }))
-        if (canales.length > 0) canales[0].predeterminado = true
+        // Prioridad: canal marcado por tipo de contacto > canal principal > primero
+        const porTipo = canales.find((c: { _predeterminado_tipo?: boolean }) => c._predeterminado_tipo)
+        const principal = canales.find((c: { es_principal?: boolean }) => c.es_principal)
+        const elegido = porTipo || principal || canales[0]
+        if (elegido) elegido.predeterminado = true
         setCanalesCorreo(canales)
       })
       .catch(() => {})

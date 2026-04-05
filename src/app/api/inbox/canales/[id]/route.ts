@@ -19,7 +19,7 @@ export async function PATCH(
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
     const body = await request.json()
-    const camposPermitidos = ['nombre', 'activo', 'config_conexion', 'estado_conexion', 'ultimo_error', 'modulos_disponibles']
+    const camposPermitidos = ['nombre', 'activo', 'config_conexion', 'estado_conexion', 'ultimo_error', 'modulos_disponibles', 'es_principal']
     const cambios: Record<string, unknown> = { actualizado_en: new Date().toISOString() }
 
     for (const campo of camposPermitidos) {
@@ -27,6 +27,17 @@ export async function PATCH(
     }
 
     const admin = crearClienteAdmin()
+
+    // Si se marca como principal, desmarcar el anterior
+    if (body.es_principal === true) {
+      await admin
+        .from('canales_inbox')
+        .update({ es_principal: false })
+        .eq('empresa_id', empresaId)
+        .eq('tipo', 'correo')
+        .eq('es_principal', true)
+        .neq('id', id)
+    }
 
     const { data, error } = await admin
       .from('canales_inbox')

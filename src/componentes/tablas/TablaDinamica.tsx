@@ -137,7 +137,7 @@ function TablaDinamica<T>({
 
   // Medir ancho del texto para expandir el buscador progresivamente
   // Mínimo generoso en desktop, en móvil se adapta via max-width: 100%
-  const ANCHO_MINIMO_BUSCADOR = 520
+  const ANCHO_MINIMO_BUSCADOR = esMobil ? 280 : 520
   const anchoBaseRef = useRef(0)
   useEffect(() => {
     if (!medidorRef.current) return

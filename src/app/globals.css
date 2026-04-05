@@ -34,10 +34,10 @@ html {
     min-height: auto;
   }
 }
-/* PWA standalone también usa layout fijo */
+/* PWA standalone: misma lógica que --fijo, descontando safe-areas */
 @media (display-mode: standalone) {
   .layout-app {
-    height: 100%;
+    height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     overflow: hidden;
     min-height: auto;
   }
@@ -47,10 +47,12 @@ html {
   overflow: hidden;
   min-height: auto;
 }
-/* PWA standalone: usar 100% en vez de 100dvh (respeta safe-area del html) */
+/* PWA standalone: altura exacta descontando safe-areas.
+   html tiene min-height inflado + padding para evitar gap negro,
+   pero eso rompe height:100% en layouts fijos. Calculamos la altura real. */
 @media (display-mode: standalone) {
   .layout-app--fijo {
-    height: 100%;
+    height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -113,9 +115,20 @@ button, a, [role="button"], input, select, textarea, label {
 }
 
 /* PWA iOS: prevenir auto-zoom de Safari en inputs.
-   Safari hace zoom si font-size < 16px. En vez de forzar con !important,
-   subimos --texto-sm a 16px en mobile (tokens.css ya tiene 15px, esto lo ajusta).
-   Solo para inputs que heredan text-sm. */
+   Safari hace zoom si font-size < 16px. Forzamos 16px en dispositivos táctiles. */
+@media (pointer: coarse), (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Touch targets mínimos 44px en dispositivos táctiles (recomendación Apple HIG) */
+@media (pointer: coarse) {
+  .touch-target {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+}
 
 /* Accesibilidad: reducir animaciones para usuarios que lo prefieran */
 @media (prefers-reduced-motion: reduce) {
@@ -125,6 +138,27 @@ button, a, [role="button"], input, select, textarea, label {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Indicador visual de scroll horizontal en tablas y contenedores */
+.overflow-x-auto {
+  background:
+    linear-gradient(to right, var(--superficie-tarjeta) 30%, transparent) left center,
+    linear-gradient(to left, var(--superficie-tarjeta) 30%, transparent) right center,
+    linear-gradient(to right, rgba(0,0,0,0.08), transparent) left center,
+    linear-gradient(to left, rgba(0,0,0,0.08), transparent) right center;
+  background-size: 20px 100%, 20px 100%, 8px 100%, 8px 100%;
+  background-repeat: no-repeat;
+  background-attachment: local, local, scroll, scroll;
+}
+
+/* Ocultar scrollbar pero permitir scroll (para tabs, carruseles, etc.) */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
 
 /* Safe area insets para PWA en iOS (notch, home indicator) */

@@ -42,7 +42,7 @@ export function WidgetActividades({ pendientes, totalPendientes, completadasHoy,
   const contenidoResumen = (
     <div className="space-y-4">
       {/* Mini KPIs */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <div className="flex flex-col items-center py-3 px-2 rounded-lg bg-superficie-hover/50">
           <Clock size={14} className="text-insignia-advertencia-texto mb-1" />
           <span className="text-lg font-bold text-texto-primario leading-tight">{totalPendientes}</span>
