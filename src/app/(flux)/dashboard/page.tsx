@@ -28,6 +28,7 @@ import { WidgetInbox } from './_componentes/WidgetInbox'
 import { WidgetIngresos } from './_componentes/WidgetIngresos'
 import { WidgetComparativa } from './_componentes/WidgetComparativa'
 import { WidgetClientes } from './_componentes/WidgetClientes'
+import { ResumenInteligente } from './_componentes/ResumenInteligente'
 
 /**
  * Página de Dashboard — Panel de inicio con resumen completo de la actividad.
@@ -220,6 +221,60 @@ export default function PaginaDashboard() {
         </p>
       </motion.div>
 
+      {/* ─── Resumen inteligente ─── */}
+      {datos && (
+        <motion.div variants={itemVariantes}>
+          <ResumenInteligente
+            contactosTotal={datos.contactos.total}
+            contactosNuevosMes={(() => {
+              const clave = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+              return datos.comparativa?.contactos_por_mes?.[clave] ?? 0
+            })()}
+            contactosNuevosMesAnterior={(() => {
+              const fecha = new Date(); fecha.setMonth(fecha.getMonth() - 1)
+              const clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`
+              return datos.comparativa?.contactos_por_mes?.[clave] ?? 0
+            })()}
+            presupuestosTotal={datos.presupuestos.total}
+            presupuestosNuevosMes={(() => {
+              const clave = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+              return datos.comparativa?.presupuestos_por_mes?.[clave]?.creados ?? 0
+            })()}
+            presupuestosNuevosMesAnterior={(() => {
+              const fecha = new Date(); fecha.setMonth(fecha.getMonth() - 1)
+              const clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`
+              return datos.comparativa?.presupuestos_por_mes?.[clave]?.creados ?? 0
+            })()}
+            presupuestosBorradores={datos.presupuestos.por_estado.borrador ?? 0}
+            ordenesMontoMes={(() => {
+              const clave = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+              return datos.ingresos?.por_mes?.[clave]?.ordenes_monto ?? 0
+            })()}
+            ordenesMontoMesAnterior={(() => {
+              const fecha = new Date(); fecha.setMonth(fecha.getMonth() - 1)
+              const clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`
+              return datos.ingresos?.por_mes?.[clave]?.ordenes_monto ?? 0
+            })()}
+            ordenesCantidadMes={(() => {
+              const clave = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+              return datos.ingresos?.por_mes?.[clave]?.ordenes_cantidad ?? 0
+            })()}
+            ordenesCantidadMesAnterior={(() => {
+              const fecha = new Date(); fecha.setMonth(fecha.getMonth() - 1)
+              const clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`
+              return datos.ingresos?.por_mes?.[clave]?.ordenes_cantidad ?? 0
+            })()}
+            actividadesPendientes={datos.actividades?.total_pendientes ?? 0}
+            actividadesVencidas={datos.actividades?.pendientes.filter(a => a.fecha_vencimiento && new Date(a.fecha_vencimiento) < new Date()).length ?? 0}
+            actividadesCompletadasHoy={datos.actividades?.completadas_hoy ?? 0}
+            conversacionesAbiertas={datos.conversaciones.abiertas}
+            conversacionesSinLeer={datos.conversaciones.sin_leer}
+            presupuestosPorVencer={datos.presupuestos.por_vencer?.length ?? 0}
+            formatoMoneda={moneda}
+          />
+        </motion.div>
+      )}
+
       {/* ─── KPIs compactos ─── */}
       <motion.div variants={itemVariantes} className="grid grid-cols-4 gap-3">
         <KpiCompacto
@@ -393,7 +448,7 @@ export default function PaginaDashboard() {
         />
       </motion.div>
 
-      {/* ─── Fila 1: Presupuestos vs Ventas (full width) ─── */}
+      {/* ─── Fila 1: Presupuestos vs Ventas (full width — lo más importante) ─── */}
       {datos?.ingresos && datos?.comparativa && (
         <motion.div variants={itemVariantes}>
           <WidgetIngresos
@@ -405,18 +460,8 @@ export default function PaginaDashboard() {
         </motion.div>
       )}
 
-      {/* ─── Fila 2: Comparativa interanual + Pipeline ─── */}
+      {/* ─── Fila 2: Pipeline + Por vencer (estado actual + urgente) ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {datos?.comparativa && (
-          <motion.div variants={itemVariantes}>
-            <WidgetComparativa
-              presupuestosPorMes={datos.comparativa.presupuestos_por_mes}
-              contactosPorMes={datos.comparativa.contactos_por_mes}
-              formatoMoneda={moneda}
-            />
-          </motion.div>
-        )}
-
         {datos?.presupuestos && (
           <motion.div variants={itemVariantes}>
             <WidgetPipeline
@@ -427,9 +472,22 @@ export default function PaginaDashboard() {
           </motion.div>
         )}
 
+        {datos?.presupuestos.por_vencer && datos.presupuestos.por_vencer.length > 0 ? (
+          <motion.div variants={itemVariantes}>
+            <WidgetPorVencer presupuestos={datos.presupuestos.por_vencer} formatoMoneda={moneda} />
+          </motion.div>
+        ) : datos?.comparativa ? (
+          <motion.div variants={itemVariantes}>
+            <WidgetComparativa
+              presupuestosPorMes={datos.comparativa.presupuestos_por_mes}
+              contactosPorMes={datos.comparativa.contactos_por_mes}
+              formatoMoneda={moneda}
+            />
+          </motion.div>
+        ) : null}
       </div>
 
-      {/* ─── Fila 3: Clientes + Actividades ─── */}
+      {/* ─── Fila 3: Clientes + Comparativa (crecimiento y análisis) ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {datos?.clientes && (
           <motion.div variants={itemVariantes}>
@@ -441,6 +499,19 @@ export default function PaginaDashboard() {
           </motion.div>
         )}
 
+        {datos?.comparativa && datos?.presupuestos.por_vencer && datos.presupuestos.por_vencer.length > 0 && (
+          <motion.div variants={itemVariantes}>
+            <WidgetComparativa
+              presupuestosPorMes={datos.comparativa.presupuestos_por_mes}
+              contactosPorMes={datos.comparativa.contactos_por_mes}
+              formatoMoneda={moneda}
+            />
+          </motion.div>
+        )}
+      </div>
+
+      {/* ─── Fila 4: Actividades + Inbox (operativo) ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {datos?.actividades && (
           <motion.div variants={itemVariantes}>
             <WidgetActividades
@@ -451,15 +522,6 @@ export default function PaginaDashboard() {
             />
           </motion.div>
         )}
-      </div>
-
-      {/* ─── Fila 4: Crecimiento contactos + Inbox ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {datos?.contactos.crecimiento_semanal && datos.contactos.crecimiento_semanal.length > 0 && (
-          <motion.div variants={itemVariantes}>
-            <WidgetCrecimientoContactos crecimientoSemanal={datos.contactos.crecimiento_semanal} />
-          </motion.div>
-        )}
 
         {metricas && (
           <motion.div variants={itemVariantes}>
@@ -468,11 +530,11 @@ export default function PaginaDashboard() {
         )}
       </div>
 
-      {/* ─── Fila 5: Por vencer + Productos top ─── */}
+      {/* ─── Fila 5: Crecimiento contactos + Productos (tendencias) ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {datos?.presupuestos.por_vencer && datos.presupuestos.por_vencer.length > 0 && (
+        {datos?.contactos.crecimiento_semanal && datos.contactos.crecimiento_semanal.length > 0 && (
           <motion.div variants={itemVariantes}>
-            <WidgetPorVencer presupuestos={datos.presupuestos.por_vencer} formatoMoneda={moneda} />
+            <WidgetCrecimientoContactos crecimientoSemanal={datos.contactos.crecimiento_semanal} />
           </motion.div>
         )}
 
