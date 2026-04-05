@@ -36,6 +36,8 @@ interface MiembroEquipo {
   nombre: string
   apellido: string
   avatar_url: string | null
+  puesto: string | null
+  sector: string | null
 }
 
 interface SectorItem {
@@ -127,10 +129,10 @@ export function BarraControlsWA({
   const cargarMiembros = useCallback(async () => {
     if (miembros.length > 0 || !empresaId) return
     const supabase = crearClienteNavegador()
-    // Paso 1: obtener usuario_ids de miembros activos
+    // Paso 1: obtener miembros activos con puesto y sector
     const { data: miembrosData } = await supabase
       .from('miembros')
-      .select('usuario_id')
+      .select('usuario_id, puesto_nombre, sector')
       .eq('empresa_id', empresaId)
       .eq('activo', true)
     if (!miembrosData || miembrosData.length === 0) return
@@ -141,13 +143,18 @@ export function BarraControlsWA({
       .select('id, nombre, apellido, avatar_url')
       .in('id', ids)
     if (perfiles) {
-      setMiembros(perfiles.map(p => ({
-        id: p.id,
-        usuario_id: p.id,
-        nombre: p.nombre || '',
-        apellido: p.apellido || '',
-        avatar_url: p.avatar_url || null,
-      })))
+      setMiembros(perfiles.map(p => {
+        const miembro = miembrosData.find(m => m.usuario_id === p.id)
+        return {
+          id: p.id,
+          usuario_id: p.id,
+          nombre: p.nombre || '',
+          apellido: p.apellido || '',
+          avatar_url: p.avatar_url || null,
+          puesto: (miembro?.puesto_nombre as string) || null,
+          sector: (miembro?.sector as string) || null,
+        }
+      }))
     }
   }, [miembros.length, empresaId])
 
@@ -277,7 +284,14 @@ export function BarraControlsWA({
                   })}
                 >
                   <Avatar nombre={`${m.nombre} ${m.apellido}`} foto={m.avatar_url} tamano="xs" />
-                  <span className="truncate">{m.nombre} {m.apellido}</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="truncate block">{m.nombre} {m.apellido}</span>
+                    {(m.puesto || m.sector) && (
+                      <span className="text-xxs block truncate" style={{ color: 'var(--texto-terciario)' }}>
+                        {[m.puesto, m.sector].filter(Boolean).join(' · ')}
+                      </span>
+                    )}
+                  </div>
                   {conversacion.asignado_a === m.usuario_id && (
                     <Check size={14} className="ml-auto flex-shrink-0" style={{ color: 'var(--insignia-exito)' }} />
                   )}
