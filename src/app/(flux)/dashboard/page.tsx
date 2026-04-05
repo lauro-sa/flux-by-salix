@@ -30,6 +30,7 @@ import { WidgetIngresos } from './_componentes/WidgetIngresos'
 import { WidgetComparativa } from './_componentes/WidgetComparativa'
 import { WidgetClientes } from './_componentes/WidgetClientes'
 import { ResumenInteligente } from './_componentes/ResumenInteligente'
+import { ResumenMetricas } from './_componentes/ResumenMetricas'
 
 /**
  * Página de Dashboard — Panel de inicio con dos pestañas:
@@ -464,6 +465,21 @@ function PestanaMetricas({
 }) {
   return (
     <>
+      {/* Resumen anual */}
+      {datos && (
+        <motion.div variants={itemVariantes}>
+          <ResumenMetricas
+            ingresosPorAnio={datos.ingresos?.por_anio ?? {}}
+            presupuestosPorMes={datos.comparativa?.presupuestos_por_mes ?? {}}
+            contactosPorMes={datos.comparativa?.contactos_por_mes ?? {}}
+            clientesTotalActivos={datos.clientes?.total_activos ?? 0}
+            slaInbox={metricas?.resumen.sla_cumplido_pct ?? 0}
+            tiempoRespuesta={metricas?.resumen.tiempo_respuesta_promedio_min ?? 0}
+            formatoMoneda={moneda}
+          />
+        </motion.div>
+      )}
+
       {/* Presupuestos vs Órdenes (full width) */}
       {datos?.ingresos && datos?.comparativa && (
         <motion.div variants={itemVariantes}>
