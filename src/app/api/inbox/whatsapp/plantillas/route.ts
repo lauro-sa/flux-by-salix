@@ -268,7 +268,7 @@ export async function POST(request: NextRequest) {
             .update({
               estado_meta: estadoMeta,
               id_template_meta: pm.id,
-              error_meta: estadoMeta === 'REJECTED' ? (pm as Record<string, unknown>).rejected_reason as string || 'Rechazada por Meta' : null,
+              error_meta: estadoMeta === 'REJECTED' ? (pm as unknown as Record<string, unknown>).rejected_reason as string || 'Rechazada por Meta' : null,
               ultima_sincronizacion: ahora,
               actualizado_en: ahora,
             })
@@ -351,7 +351,7 @@ function transformarAMeta(comp: ComponentesPlantillaWA): ComponentePlantillaMeta
         const btn: Record<string, unknown> = { type: b.tipo, text: b.texto }
         if (b.tipo === 'URL' && b.url) btn.url = b.url
         if (b.tipo === 'PHONE_NUMBER' && b.telefono) btn.phone_number = b.telefono
-        return btn as ComponentePlantillaMeta['buttons'] extends (infer T)[] | undefined ? T : never
+        return btn as unknown as ComponentePlantillaMeta['buttons'] extends (infer T)[] | undefined ? T : never
       }),
     })
   }
