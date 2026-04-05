@@ -2,12 +2,11 @@
 
 import { useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { TrendingUp, TrendingDown, Minus, Target, Users, FileText, MessageSquare } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 
 /**
- * ResumenMetricas — Resumen visual del año para la pestaña de métricas.
- * Tarjetas con números grandes, comparaciones claras, indicadores de color.
- * Se lee de un vistazo sin tener que leer párrafos.
+ * ResumenMetricas — 4 tarjetas KPI del año actual vs anterior.
+ * Diseño estilo Stripe: número grande, subtítulo, comparación compacta.
  */
 
 interface Props {
@@ -20,12 +19,12 @@ interface Props {
   formatoMoneda: (n: number) => string
 }
 
-function Indicador({ valor, sufijo, positivo }: { valor: number; sufijo?: string; positivo?: boolean }) {
-  if (valor === 0) return <span className="text-xs text-texto-terciario flex items-center gap-1"><Minus size={12} /> sin cambio</span>
-  const esPositivo = positivo !== undefined ? positivo : valor > 0
+function Variacion({ valor, sufijo, invertir }: { valor: number; sufijo?: string; invertir?: boolean }) {
+  if (valor === 0) return <span className="text-xxs text-texto-terciario flex items-center gap-0.5"><Minus size={10} />—</span>
+  const positivo = invertir ? valor < 0 : valor > 0
   return (
-    <span className={`text-xs font-medium flex items-center gap-1 ${esPositivo ? 'text-insignia-exito-texto' : 'text-insignia-peligro-texto'}`}>
-      {valor > 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+    <span className={`text-xxs font-medium flex items-center gap-0.5 ${positivo ? 'text-insignia-exito-texto' : 'text-insignia-peligro-texto'}`}>
+      {valor > 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
       {valor > 0 ? '+' : ''}{valor}{sufijo || ''}
     </span>
   )
@@ -35,181 +34,139 @@ export function ResumenMetricas({
   ingresosPorAnio, presupuestosPorMes, contactosPorMes,
   clientesTotalActivos, slaInbox, tiempoRespuesta, formatoMoneda,
 }: Props) {
-  const anioActual = new Date().getFullYear()
+  const anio = new Date().getFullYear()
+  const mesNum = new Date().getMonth() + 1
+  const pctAnio = Math.round((mesNum / 12) * 100)
 
-  const resumen = useMemo(() => {
-    const datosActual = ingresosPorAnio[String(anioActual)]
-    const datosAnterior = ingresosPorAnio[String(anioActual - 1)]
+  const datos = useMemo(() => {
+    const actual = ingresosPorAnio[String(anio)]
+    const anterior = ingresosPorAnio[String(anio - 1)]
 
-    // Presupuestos emitidos
     const presupActual = Object.entries(presupuestosPorMes)
-      .filter(([k]) => k.startsWith(`${anioActual}-`))
+      .filter(([k]) => k.startsWith(`${anio}-`))
       .reduce((s, [, v]) => s + v.creados, 0)
     const presupAnterior = Object.entries(presupuestosPorMes)
-      .filter(([k]) => k.startsWith(`${anioActual - 1}-`))
+      .filter(([k]) => k.startsWith(`${anio - 1}-`))
       .reduce((s, [, v]) => s + v.creados, 0)
-    const montoPresupActual = Object.entries(presupuestosPorMes)
-      .filter(([k]) => k.startsWith(`${anioActual}-`))
-      .reduce((s, [, v]) => s + v.monto_total, 0)
 
-    // Contactos
     const contactosActual = Object.entries(contactosPorMes)
-      .filter(([k]) => k.startsWith(`${anioActual}-`))
+      .filter(([k]) => k.startsWith(`${anio}-`))
       .reduce((s, [, v]) => s + v, 0)
     const contactosAnterior = Object.entries(contactosPorMes)
-      .filter(([k]) => k.startsWith(`${anioActual - 1}-`))
+      .filter(([k]) => k.startsWith(`${anio - 1}-`))
       .reduce((s, [, v]) => s + v, 0)
 
-    // Tasa de cierre
-    const tasaActual = presupActual > 0 ? Math.round(((datosActual?.ordenes_cantidad || 0) / presupActual) * 100) : 0
-    const tasaAnterior = presupAnterior > 0 ? Math.round(((datosAnterior?.ordenes_cantidad || 0) / presupAnterior) * 100) : 0
+    const tasa = presupActual > 0 ? Math.round(((actual?.ordenes_cantidad || 0) / presupActual) * 100) : 0
+    const tasaAnt = presupAnterior > 0 ? Math.round(((anterior?.ordenes_cantidad || 0) / presupAnterior) * 100) : 0
 
-    // % del año anterior alcanzado
-    const pctDelAnterior = datosAnterior?.ordenes_monto
-      ? Math.round(((datosActual?.ordenes_monto || 0) / datosAnterior.ordenes_monto) * 100)
+    const pctAlcanzado = anterior?.ordenes_monto
+      ? Math.round(((actual?.ordenes_monto || 0) / anterior.ordenes_monto) * 100)
       : 0
 
     return {
-      ordenesMonto: datosActual?.ordenes_monto || 0,
-      ordenesCantidad: datosActual?.ordenes_cantidad || 0,
-      ordenesMontoAnterior: datosAnterior?.ordenes_monto || 0,
-      ordenesCantidadAnterior: datosAnterior?.ordenes_cantidad || 0,
-      pctDelAnterior,
+      ordenesMonto: actual?.ordenes_monto || 0,
+      ordenesCant: actual?.ordenes_cantidad || 0,
+      ordenesMontoAnt: anterior?.ordenes_monto || 0,
+      pctAlcanzado,
       presupActual,
       presupAnterior,
-      montoPresupActual,
-      tasaActual,
-      tasaAnterior,
+      tasa,
+      tasaAnt,
       contactosActual,
       contactosAnterior,
     }
-  }, [ingresosPorAnio, presupuestosPorMes, contactosPorMes, anioActual])
+  }, [ingresosPorAnio, presupuestosPorMes, contactosPorMes, anio])
+
+  // ¿Vas adelantado o atrasado respecto al ritmo del año anterior?
+  const ritmoOk = datos.pctAlcanzado >= pctAnio
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: 0.1 }}
-      className="space-y-3"
+      transition={{ duration: 0.25 }}
     >
-      <h3 className="text-sm font-semibold text-texto-primario">Resumen {anioActual}</h3>
+      <div className="flex items-baseline justify-between mb-3">
+        <h3 className="text-sm font-semibold text-texto-primario">Resumen {anio}</h3>
+        <span className="text-xxs text-texto-terciario">{pctAnio}% del año transcurrido</span>
+      </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* Órdenes de venta */}
-        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-4 space-y-2">
-          <div className="flex items-center gap-2 text-texto-terciario">
-            <Target size={14} />
-            <span className="text-xxs font-medium uppercase tracking-wide">Órdenes de venta</span>
-          </div>
-          <p className="text-xl font-bold text-insignia-exito-texto">{formatoMoneda(resumen.ordenesMonto)}</p>
-          <p className="text-xxs text-texto-terciario">{resumen.ordenesCantidad} cerradas</p>
-          {resumen.ordenesMontoAnterior > 0 && (() => {
-            // Qué % del año ya pasó (ej: abril = 4/12 = 33%)
-            const mesActualNum = new Date().getMonth() + 1
-            const pctAnioTranscurrido = Math.round((mesActualNum / 12) * 100)
-            const pctAlcanzado = resumen.pctDelAnterior
-            // Si vas al 32% y pasó el 25% del año → vas adelantado
-            // Si vas al 32% y pasó el 50% del año → vas atrasado
-            const ritmo = pctAlcanzado >= pctAnioTranscurrido ? 'adelantado' : 'atrasado'
-            const colorRitmo = ritmo === 'adelantado' ? 'text-insignia-exito-texto' : 'text-insignia-advertencia-texto'
-
-            return (
-              <div className="pt-2 border-t border-borde-sutil space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xxs text-texto-terciario">{anioActual - 1} total</span>
-                  <span className="text-xxs text-texto-secundario font-medium">{formatoMoneda(resumen.ordenesMontoAnterior)}</span>
-                </div>
-                <div className="h-1.5 rounded-full bg-superficie-hover overflow-hidden relative">
-                  {/* Marcador de dónde "deberías" estar */}
-                  <div
-                    className="absolute top-0 bottom-0 w-px bg-texto-terciario/50 z-10"
-                    style={{ left: `${pctAnioTranscurrido}%` }}
-                  />
-                  <div
-                    className="h-full rounded-full bg-insignia-exito-texto/60 transition-all duration-700"
-                    style={{ width: `${Math.min(pctAlcanzado, 100)}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xxs text-texto-terciario">{pctAlcanzado}% alcanzado</span>
-                  <span className={`text-xxs font-medium ${colorRitmo}`}>
-                    {ritmo === 'adelantado' ? 'Buen ritmo' : 'Por debajo'} — pasó {pctAnioTranscurrido}% del año
-                  </span>
-                </div>
+        {/* Ventas */}
+        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-4">
+          <p className="text-xxs text-texto-terciario uppercase tracking-wide mb-1">Vendido</p>
+          <p className="text-xl font-bold text-insignia-exito-texto leading-tight">{formatoMoneda(datos.ordenesMonto)}</p>
+          <p className="text-xxs text-texto-terciario mt-0.5">{datos.ordenesCant} órdenes</p>
+          {datos.ordenesMontoAnt > 0 && (
+            <div className="mt-3 pt-3 border-t border-borde-sutil">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xxs text-texto-terciario">vs {anio - 1}</span>
+                <span className="text-xxs text-texto-secundario">{formatoMoneda(datos.ordenesMontoAnt)}</span>
               </div>
-            )
-          })()}
+              <div className="h-1.5 rounded-full bg-superficie-hover overflow-hidden relative">
+                <div className="absolute top-0 bottom-0 w-px bg-texto-terciario/40 z-10" style={{ left: `${pctAnio}%` }} />
+                <div className={`h-full rounded-full transition-all duration-700 ${ritmoOk ? 'bg-insignia-exito-texto/60' : 'bg-insignia-advertencia-texto/60'}`} style={{ width: `${Math.min(datos.pctAlcanzado, 100)}%` }} />
+              </div>
+              <p className={`text-xxs mt-1 ${ritmoOk ? 'text-insignia-exito-texto' : 'text-insignia-advertencia-texto'}`}>
+                {datos.pctAlcanzado}% — {ritmoOk ? 'buen ritmo' : 'por debajo del ritmo'}
+              </p>
+            </div>
+          )}
         </div>
 
-        {/* Presupuestos emitidos */}
-        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-4 space-y-2">
-          <div className="flex items-center gap-2 text-texto-terciario">
-            <FileText size={14} />
-            <span className="text-xxs font-medium uppercase tracking-wide">Presupuestado</span>
-          </div>
-          <p className="text-xl font-bold text-texto-primario">{resumen.presupActual}</p>
-          <p className="text-xxs text-texto-terciario">por {formatoMoneda(resumen.montoPresupActual)}</p>
-          {resumen.presupAnterior > 0 && (
-            <div className="pt-2 border-t border-borde-sutil">
-              <div className="flex items-center justify-between">
-                <span className="text-xxs text-texto-terciario">vs {anioActual - 1}</span>
-                <Indicador valor={resumen.presupActual - resumen.presupAnterior} />
-              </div>
+        {/* Presupuestos */}
+        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-4">
+          <p className="text-xxs text-texto-terciario uppercase tracking-wide mb-1">Presupuestado</p>
+          <p className="text-xl font-bold text-texto-primario leading-tight">{datos.presupActual}</p>
+          <p className="text-xxs text-texto-terciario mt-0.5">presupuestos emitidos</p>
+          {datos.presupAnterior > 0 && (
+            <div className="mt-3 pt-3 border-t border-borde-sutil flex items-center justify-between">
+              <span className="text-xxs text-texto-terciario">{anio - 1}: {datos.presupAnterior}</span>
+              <Variacion valor={datos.presupActual - datos.presupAnterior} />
             </div>
           )}
         </div>
 
         {/* Tasa de cierre */}
-        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-4 space-y-2">
-          <div className="flex items-center gap-2 text-texto-terciario">
-            <TrendingUp size={14} />
-            <span className="text-xxs font-medium uppercase tracking-wide">Tasa de cierre</span>
-          </div>
-          <p className={`text-xl font-bold ${resumen.tasaActual >= 30 ? 'text-insignia-exito-texto' : resumen.tasaActual >= 15 ? 'text-insignia-advertencia-texto' : 'text-insignia-peligro-texto'}`}>
-            {resumen.tasaActual}%
+        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-4">
+          <p className="text-xxs text-texto-terciario uppercase tracking-wide mb-1">Tasa de cierre</p>
+          <p className={`text-xl font-bold leading-tight ${datos.tasa >= 30 ? 'text-insignia-exito-texto' : datos.tasa >= 15 ? 'text-insignia-advertencia-texto' : 'text-texto-primario'}`}>
+            {datos.tasa}%
           </p>
-          <p className="text-xxs text-texto-terciario">{resumen.ordenesCantidad} de {resumen.presupActual} presupuestos</p>
-          {resumen.tasaAnterior > 0 && (
-            <div className="pt-2 border-t border-borde-sutil">
-              <div className="flex items-center justify-between">
-                <span className="text-xxs text-texto-terciario">{anioActual - 1}: {resumen.tasaAnterior}%</span>
-                <Indicador valor={resumen.tasaActual - resumen.tasaAnterior} sufijo="pp" />
-              </div>
+          <p className="text-xxs text-texto-terciario mt-0.5">{datos.ordenesCant} de {datos.presupActual}</p>
+          {datos.tasaAnt > 0 && (
+            <div className="mt-3 pt-3 border-t border-borde-sutil flex items-center justify-between">
+              <span className="text-xxs text-texto-terciario">{anio - 1}: {datos.tasaAnt}%</span>
+              <Variacion valor={datos.tasa - datos.tasaAnt} sufijo="pp" />
             </div>
           )}
         </div>
 
         {/* Contactos + Inbox */}
-        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-4 space-y-2">
-          <div className="flex items-center gap-2 text-texto-terciario">
-            <Users size={14} />
-            <span className="text-xxs font-medium uppercase tracking-wide">Contactos nuevos</span>
-          </div>
-          <p className="text-xl font-bold text-texto-primario">{resumen.contactosActual}</p>
-          <p className="text-xxs text-texto-terciario">{clientesTotalActivos} con presupuestos</p>
-          {resumen.contactosAnterior > 0 && (
-            <div className="pt-2 border-t border-borde-sutil">
+        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-4">
+          <p className="text-xxs text-texto-terciario uppercase tracking-wide mb-1">Contactos nuevos</p>
+          <p className="text-xl font-bold text-texto-primario leading-tight">{datos.contactosActual}</p>
+          <p className="text-xxs text-texto-terciario mt-0.5">{clientesTotalActivos} con presupuestos</p>
+          <div className="mt-3 pt-3 border-t border-borde-sutil space-y-1.5">
+            {datos.contactosAnterior > 0 && (
               <div className="flex items-center justify-between">
-                <span className="text-xxs text-texto-terciario">vs {anioActual - 1}</span>
-                <Indicador valor={resumen.contactosActual - resumen.contactosAnterior} />
+                <span className="text-xxs text-texto-terciario">{anio - 1}: {datos.contactosAnterior}</span>
+                <Variacion valor={datos.contactosActual - datos.contactosAnterior} />
               </div>
-            </div>
-          )}
-          {(slaInbox > 0 || tiempoRespuesta > 0) && (
-            <div className="pt-2 border-t border-borde-sutil flex items-center gap-3">
-              {slaInbox > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <MessageSquare size={11} className="text-texto-terciario" />
+            )}
+            {(slaInbox > 0 || tiempoRespuesta > 0) && (
+              <div className="flex items-center justify-between">
+                {slaInbox > 0 && (
                   <span className={`text-xxs font-medium ${slaInbox >= 80 ? 'text-insignia-exito-texto' : slaInbox >= 50 ? 'text-insignia-advertencia-texto' : 'text-insignia-peligro-texto'}`}>
                     SLA {slaInbox}%
                   </span>
-                </div>
-              )}
-              {tiempoRespuesta > 0 && (
-                <span className="text-xxs text-texto-terciario">{tiempoRespuesta}min resp.</span>
-              )}
-            </div>
-          )}
+                )}
+                {tiempoRespuesta > 0 && (
+                  <span className="text-xxs text-texto-terciario">{tiempoRespuesta}min resp.</span>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </motion.div>
