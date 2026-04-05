@@ -129,22 +129,38 @@ export function BarraControlsWA({
   const cargarMiembros = useCallback(async () => {
     if (miembros.length > 0 || !empresaId) return
     const supabase = crearClienteNavegador()
-    // Paso 1: obtener miembros activos con puesto y sector
+    // Paso 1: obtener miembros activos con puesto, sector y rol
     const { data: miembrosData } = await supabase
       .from('miembros')
-      .select('usuario_id, puesto_nombre, sector')
+      .select('id, usuario_id, puesto_nombre, sector, rol')
       .eq('empresa_id', empresaId)
       .eq('activo', true)
     if (!miembrosData || miembrosData.length === 0) return
+
     // Paso 2: obtener perfiles con nombres
     const ids = miembrosData.map(m => m.usuario_id)
     const { data: perfiles } = await supabase
       .from('perfiles')
       .select('id, nombre, apellido, avatar_url')
       .in('id', ids)
+
+    // Paso 3: obtener sectores primarios de cada miembro
+    const miembroIds = miembrosData.map(m => m.id)
+    const { data: miembrosSectores } = await supabase
+      .from('miembros_sectores')
+      .select('miembro_id, sectores(nombre)')
+      .in('miembro_id', miembroIds)
+      .eq('es_primario', true)
+
     if (perfiles) {
       setMiembros(perfiles.map(p => {
         const miembro = miembrosData.find(m => m.usuario_id === p.id)
+        // Buscar sector primario
+        const ms = miembrosSectores?.find(s => s.miembro_id === miembro?.id)
+        const sectorNombre = (ms?.sectores as unknown as { nombre: string } | null)?.nombre
+          || (miembro?.sector as string)
+          || null
+        const rol = miembro?.rol as string || null
         return {
           id: p.id,
           usuario_id: p.id,
@@ -152,7 +168,7 @@ export function BarraControlsWA({
           apellido: p.apellido || '',
           avatar_url: p.avatar_url || null,
           puesto: (miembro?.puesto_nombre as string) || null,
-          sector: (miembro?.sector as string) || null,
+          sector: sectorNombre || (rol && rol !== 'empleado' ? rol : null),
         }
       }))
     }
@@ -276,7 +292,7 @@ export function BarraControlsWA({
                 <button
                   type="button"
                   key={m.usuario_id}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
                   style={{ color: 'var(--texto-primario)', border: 'none', background: 'transparent' }}
                   onClick={() => patchConversacion({
                     asignado_a: m.usuario_id,
@@ -284,7 +300,7 @@ export function BarraControlsWA({
                   })}
                 >
                   <Avatar nombre={`${m.nombre} ${m.apellido}`} foto={m.avatar_url} tamano="xs" />
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 text-left">
                     <span className="truncate block">{m.nombre} {m.apellido}</span>
                     {(m.puesto || m.sector) && (
                       <span className="text-xxs block truncate" style={{ color: 'var(--texto-terciario)' }}>
