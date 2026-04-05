@@ -517,10 +517,9 @@ export function BarraControlsWA({
           </Tooltip>
         )}
 
-      </div>
+        {/* Separador + Etapa del pipeline */}
+        <div className="w-px h-5 mx-0.5" style={{ background: 'color-mix(in srgb, var(--borde-sutil) 60%, transparent)' }} />
 
-      {/* Etapa del pipeline — centrada, separada */}
-      <div className="flex justify-center mt-1">
         <Popover
           alineacion="centro"
           ancho={240}
@@ -575,6 +574,7 @@ export function BarraControlsWA({
         </Popover>
       </div>
     </motion.div>
+
   )
 }
 

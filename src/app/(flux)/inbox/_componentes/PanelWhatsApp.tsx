@@ -567,7 +567,7 @@ export function PanelWhatsApp({
         }}
       >
         {/* Barra de controles flotante (sobre los mensajes) */}
-        <div className="sticky top-0 z-20 flex justify-center pointer-events-none pt-2 pb-4">
+        <div className="sticky top-0 z-20 flex justify-center pointer-events-none pt-2 pb-3">
           <div className="pointer-events-auto">
             <BarraControlsWA
               conversacion={conversacion}
