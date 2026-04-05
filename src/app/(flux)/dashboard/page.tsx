@@ -40,7 +40,7 @@ import { WidgetClientes } from './_componentes/WidgetClientes'
 interface DatosDashboard {
   contactos: {
     total: number
-    recientes: Array<{ id: string; nombre: string; apellido?: string; correo?: string; telefono?: string; creado_en: string }>
+    recientes: Array<{ id: string; nombre: string; apellido?: string; correo?: string; telefono?: string; creado_en: string; tipo_clave?: string; tipo_etiqueta?: string; tipo_color?: string }>
     crecimiento_semanal: Array<{ semana: string; cantidad: number }>
   }
   presupuestos: {
@@ -83,8 +83,9 @@ interface DatosDashboard {
   }
   mensajes_recientes: Array<{
     id: string; texto: string | null; remitente_nombre: string | null; remitente_tipo: string
-    es_entrante: boolean; tipo_contenido: string; correo_asunto: string | null
+    es_entrante: boolean; tipo_contenido: string; correo_asunto: string | null; correo_de: string | null
     creado_en: string; conversacion_id: string; tipo_canal: string; contacto_nombre: string | null
+    nombre_canal: string | null
   }>
   actividades_proximas: Array<{
     id: string; titulo: string; tipo_clave: string; estado_clave: string
@@ -128,6 +129,15 @@ const COLOR_ESTADO_PRESUPUESTO: Record<string, 'neutro' | 'info' | 'advertencia'
   rechazado: 'peligro',
   vencido: 'naranja',
   cancelado: 'neutro',
+}
+
+const COLOR_TIPO_CONTACTO: Record<string, string> = {
+  persona: 'primario',
+  empresa: 'info',
+  edificio: 'cyan',
+  proveedor: 'naranja',
+  lead: 'advertencia',
+  equipo: 'exito',
 }
 
 // ─── Animaciones ───
@@ -323,9 +333,16 @@ export default function PaginaDashboard() {
                     {(c.nombre?.[0] || '').toUpperCase()}{(c.apellido?.[0] || '').toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-medium text-texto-primario truncate">
-                      {[c.nombre, c.apellido].filter(Boolean).join(' ')}
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-medium text-texto-primario truncate">
+                        {[c.nombre, c.apellido].filter(Boolean).join(' ')}
+                      </p>
+                      {c.tipo_etiqueta && (
+                        <Insignia color={(COLOR_TIPO_CONTACTO[c.tipo_clave || ''] || 'neutro') as 'neutro' | 'primario' | 'info' | 'exito' | 'naranja' | 'advertencia'}>
+                          {c.tipo_etiqueta}
+                        </Insignia>
+                      )}
+                    </div>
                     <p className="text-xxs text-texto-terciario truncate">{c.correo || c.telefono || ''}</p>
                   </div>
                 </div>
@@ -615,8 +632,11 @@ function TarjetaMensajesRecientes({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-medium text-texto-primario truncate">
-                      {m.es_entrante ? (m.contacto_nombre || m.remitente_nombre || 'Contacto') : 'Tú'}
+                      {m.es_entrante ? (m.contacto_nombre || m.remitente_nombre || m.correo_de || 'Contacto') : 'Tú'}
                     </span>
+                    {m.nombre_canal && (
+                      <span className="text-xxs text-texto-terciario bg-superficie-hover px-1.5 py-0.5 rounded shrink-0">{m.nombre_canal}</span>
+                    )}
                     {m.tipo_contenido !== 'texto' && ICONO_TIPO_CONTENIDO[m.tipo_contenido] && (
                       <span className="text-texto-terciario">{ICONO_TIPO_CONTENIDO[m.tipo_contenido]}</span>
                     )}

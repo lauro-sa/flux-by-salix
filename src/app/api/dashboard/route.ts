@@ -84,19 +84,21 @@ export async function GET() {
         .eq('empresa_id', empresaId)
         .gt('no_leidos', 0),
 
-      // Últimos 5 presupuestos
+      // Últimos 5 presupuestos (no eliminados)
       admin
         .from('presupuestos')
         .select('id, numero, estado, contacto_nombre, contacto_apellido, total_final, creado_en')
         .eq('empresa_id', empresaId)
+        .eq('en_papelera', false)
         .order('creado_en', { ascending: false })
         .limit(5),
 
-      // Últimos 5 contactos creados
+      // Últimos 5 contactos creados (no eliminados, con tipo)
       admin
         .from('contactos')
-        .select('id, nombre, apellido, correo, telefono, creado_en')
+        .select('id, nombre, apellido, correo, telefono, creado_en, tipo_contacto:tipos_contacto(clave, etiqueta, color)')
         .eq('empresa_id', empresaId)
+        .eq('en_papelera', false)
         .order('creado_en', { ascending: false })
         .limit(5),
 
@@ -219,7 +221,7 @@ export async function GET() {
       // ─── Mensajes recientes (últimos 30 para cubrir todos los canales) ───
       admin
         .from('mensajes')
-        .select('id, texto, remitente_nombre, remitente_tipo, es_entrante, tipo_contenido, correo_asunto, es_nota_interna, creado_en, conversacion_id, conversacion:conversaciones(tipo_canal, contacto_nombre)')
+        .select('id, texto, remitente_nombre, remitente_tipo, es_entrante, tipo_contenido, correo_asunto, correo_de, es_nota_interna, creado_en, conversacion_id, conversacion:conversaciones(tipo_canal, contacto_nombre, canal_id, canal:canales_inbox(nombre))')
         .eq('empresa_id', empresaId)
         .is('eliminado_en', null)
         .order('creado_en', { ascending: false })
@@ -410,7 +412,20 @@ export async function GET() {
     return NextResponse.json({
       contactos: {
         total: resContactos.count || 0,
-        recientes: resContactosRecientes.data || [],
+        recientes: (resContactosRecientes.data || []).map(c => {
+          const tipo = Array.isArray(c.tipo_contacto) ? c.tipo_contacto[0] : c.tipo_contacto
+          return {
+            id: c.id,
+            nombre: c.nombre,
+            apellido: c.apellido,
+            correo: c.correo,
+            telefono: c.telefono,
+            creado_en: c.creado_en,
+            tipo_clave: (tipo as Record<string, unknown>)?.clave || null,
+            tipo_etiqueta: (tipo as Record<string, unknown>)?.etiqueta || null,
+            tipo_color: (tipo as Record<string, unknown>)?.color || null,
+          }
+        }),
         crecimiento_semanal: contactosPorSemana,
       },
       presupuestos: {
@@ -455,7 +470,9 @@ export async function GET() {
         nuevos_por_mes: clientesNuevosPorMes,
       },
       mensajes_recientes: (resMensajesRecientes.data || []).map(m => {
-        const conv = Array.isArray(m.conversacion) ? m.conversacion[0] : m.conversacion
+        const conv = (Array.isArray(m.conversacion) ? m.conversacion[0] : m.conversacion) as Record<string, unknown> | null
+        const canal = conv?.canal as Record<string, unknown> | Array<Record<string, unknown>> | null
+        const canalObj = Array.isArray(canal) ? canal[0] : canal
         return {
           id: m.id,
           texto: m.texto,
@@ -464,10 +481,12 @@ export async function GET() {
           es_entrante: m.es_entrante,
           tipo_contenido: m.tipo_contenido,
           correo_asunto: m.correo_asunto,
+          correo_de: m.correo_de,
           creado_en: m.creado_en,
           conversacion_id: m.conversacion_id,
-          tipo_canal: (conv as Record<string, unknown>)?.tipo_canal || 'desconocido',
-          contacto_nombre: (conv as Record<string, unknown>)?.contacto_nombre || null,
+          tipo_canal: (conv?.tipo_canal as string) || 'desconocido',
+          contacto_nombre: (conv?.contacto_nombre as string) || null,
+          nombre_canal: (canalObj?.nombre as string) || null,
         }
       }),
       actividades_proximas: resActividadesProximas.data || [],
