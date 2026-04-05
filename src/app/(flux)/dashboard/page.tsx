@@ -640,7 +640,17 @@ function TarjetaMensajesRecientes({
                     {m.tipo_contenido !== 'texto' && ICONO_TIPO_CONTENIDO[m.tipo_contenido] && (
                       <span className="text-texto-terciario">{ICONO_TIPO_CONTENIDO[m.tipo_contenido]}</span>
                     )}
-                    <span className="text-xxs text-texto-terciario ml-auto shrink-0">{fechaRelativa(m.creado_en)}</span>
+                    <span className="text-xxs text-texto-terciario ml-auto shrink-0">
+                      {(() => {
+                        const fecha = new Date(m.creado_en)
+                        const hoy = new Date()
+                        const ayer = new Date(hoy); ayer.setDate(ayer.getDate() - 1)
+                        const hora = fecha.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+                        if (fecha.toDateString() === hoy.toDateString()) return hora
+                        if (fecha.toDateString() === ayer.toDateString()) return `Ayer ${hora}`
+                        return fecha.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })
+                      })()}
+                    </span>
                   </div>
                   <p className="text-xxs text-texto-terciario truncate">{preview?.slice(0, 60)}</p>
                 </div>
