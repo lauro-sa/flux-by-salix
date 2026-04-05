@@ -407,19 +407,6 @@ export function BarraControlsWA({
           }}
         />
 
-        {/* Boton Contacto vinculado */}
-        <Tooltip contenido={conversacion.contacto_id ? 'Contacto vinculado' : 'Sin contacto vinculado'}>
-          <button
-            className="min-w-[36px] min-h-[36px] rounded-full flex items-center justify-center transition-colors hover:bg-[var(--superficie-hover)]"
-            onClick={() => onAbrirInfo?.()}
-          >
-            {conversacion.contacto_id ? (
-              <UserCheck size={16} style={{ color: '#22c55e' }} />
-            ) : (
-              <UserPlus size={16} style={{ color: 'var(--texto-terciario)' }} />
-            )}
-          </button>
-        </Tooltip>
 
         {/* Pildora Bot */}
         <Popover
@@ -529,67 +516,63 @@ export function BarraControlsWA({
             </button>
           </Tooltip>
         )}
+
       </div>
 
-      {/* Fila 2: Etapa centrada (flotante) */}
-      <div className="flex items-center justify-center">
-        <div className="flex items-center gap-2">
-          <Popover
-            alineacion="centro"
-            ancho={240}
-            altoMaximo={360}
-            contenido={
-              <div className="py-1">
-                <p className="px-3 py-1.5 text-xxs font-medium" style={{ color: 'var(--texto-terciario)' }}>
-                  Etapa del pipeline
-                </p>
-                {/* Sin etapa */}
+      {/* Etapa del pipeline — centrada, separada */}
+      <div className="flex justify-center mt-1">
+        <Popover
+          alineacion="centro"
+          ancho={240}
+          altoMaximo={360}
+          contenido={
+            <div className="py-1">
+              <p className="px-3 py-1.5 text-xxs font-medium" style={{ color: 'var(--texto-terciario)' }}>
+                Etapa del pipeline
+              </p>
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
+                style={{ color: 'var(--texto-secundario)', border: 'none', background: 'transparent' }}
+                onClick={() => patchConversacion({ etapa_id: null })}
+              >
+                <div className="size-3 rounded-full" style={{ background: '#9ca3af' }} />
+                <span>Sin etapa</span>
+                {!conversacion.etapa_id && <Check size={14} className="ml-auto" style={{ color: 'var(--insignia-exito)' }} />}
+              </button>
+              {etapas.filter(e => e.activa).map((e) => (
                 <button
                   type="button"
+                  key={e.id}
                   className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
-                  style={{ color: 'var(--texto-secundario)', border: 'none', background: 'transparent' }}
-                  onClick={() => patchConversacion({ etapa_id: null })}
+                  style={{ color: 'var(--texto-primario)', border: 'none', background: 'transparent' }}
+                  onClick={() => patchConversacion({ etapa_id: e.id })}
                 >
-                  <div className="size-3 rounded-full" style={{ background: '#9ca3af' }} />
-                  <span>Sin etapa</span>
-                  {!conversacion.etapa_id && <Check size={14} className="ml-auto" style={{ color: 'var(--insignia-exito)' }} />}
+                  <div className="size-3 rounded-full flex-shrink-0" style={{ background: e.color }} />
+                  <span>{e.icono} {e.etiqueta}</span>
+                  {conversacion.etapa_id === e.id && (
+                    <Check size={14} className="ml-auto flex-shrink-0" style={{ color: 'var(--insignia-exito)' }} />
+                  )}
                 </button>
-                {etapas.filter(e => e.activa).map((e) => (
-                  <button
-                    type="button"
-                    key={e.id}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
-                    style={{ color: 'var(--texto-primario)', border: 'none', background: 'transparent' }}
-                    onClick={() => patchConversacion({ etapa_id: e.id })}
-                  >
-                    <div className="size-3 rounded-full flex-shrink-0" style={{ background: e.color }} />
-                    <span>{e.icono} {e.etiqueta}</span>
-                    {conversacion.etapa_id === e.id && (
-                      <Check size={14} className="ml-auto flex-shrink-0" style={{ color: 'var(--insignia-exito)' }} />
-                    )}
-                  </button>
-                ))}
-              </div>
-            }
-            onCambio={(abierto) => { if (abierto) cargarEtapas() }}
+              ))}
+            </div>
+          }
+          onCambio={(abierto) => { if (abierto) cargarEtapas() }}
+        >
+          <motion.button
+            className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-colors cursor-pointer"
+            style={{
+              background: etapaActual ? etapaActual.color : '#9ca3af',
+              color: '#fff',
+              boxShadow: etapaActual ? `0 2px 10px ${etapaActual.color}35` : '0 2px 6px rgba(0,0,0,0.12)',
+            }}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
           >
-            <motion.button
-              className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-colors cursor-pointer"
-              style={{
-                background: etapaActual ? etapaActual.color : '#9ca3af',
-                color: '#fff',
-                boxShadow: etapaActual
-                  ? `0 2px 12px ${etapaActual.color}40`
-                  : '0 2px 8px rgba(0,0,0,0.15)',
-              }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              {etapaActual ? etapaActual.etiqueta : 'Sin etapa'}
-              <ChevronDown size={12} />
-            </motion.button>
-          </Popover>
-        </div>
+            {etapaActual ? etapaActual.etiqueta : 'Sin etapa'}
+            <ChevronDown size={12} />
+          </motion.button>
+        </Popover>
       </div>
     </motion.div>
   )
