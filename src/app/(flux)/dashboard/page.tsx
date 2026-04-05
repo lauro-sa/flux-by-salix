@@ -7,12 +7,13 @@ import {
   Users, FileText, MessageSquare, CheckSquare,
   Plus, ArrowRight, Mail, MessageCircle,
   Image, Mic, File, Video,
+  BarChart3, LayoutDashboard,
+  Receipt, ClipboardList, Calendar, Megaphone, ShieldCheck,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useFormato } from '@/hooks/useFormato'
 import { useTraduccion } from '@/lib/i18n'
-import { Tarjeta } from '@/componentes/ui/Tarjeta'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Cargador } from '@/componentes/ui/Cargador'
 import { Boton } from '@/componentes/ui/Boton'
@@ -31,9 +32,9 @@ import { WidgetClientes } from './_componentes/WidgetClientes'
 import { ResumenInteligente } from './_componentes/ResumenInteligente'
 
 /**
- * Página de Dashboard — Panel de inicio con resumen completo de la actividad.
- * Muestra métricas clave, pipeline de ventas, actividades, inbox, contactos,
- * productos top, presupuestos por vencer y asistencia del equipo.
+ * Página de Dashboard — Panel de inicio con dos pestañas:
+ * - General: resumen rápido, KPIs, recientes, pipeline, por vencer
+ * - Métricas: gráficos, comparativas, análisis profundo
  */
 
 // ─── Tipos ───
@@ -121,6 +122,15 @@ function obtenerNombreUsuario(usuario: { user_metadata?: Record<string, string> 
   return usuario.user_metadata.nombre || usuario.user_metadata.full_name?.split(' ')[0] || ''
 }
 
+function claveMesActual(): string {
+  return `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+}
+
+function claveMesAnterior(): string {
+  const fecha = new Date(); fecha.setMonth(fecha.getMonth() - 1)
+  return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`
+}
+
 const COLOR_ESTADO_PRESUPUESTO: Record<string, 'neutro' | 'info' | 'advertencia' | 'exito' | 'peligro' | 'naranja' | 'violeta'> = {
   borrador: 'neutro',
   enviado: 'violeta',
@@ -141,14 +151,16 @@ const COLOR_TIPO_CONTACTO: Record<string, string> = {
   equipo: 'exito',
 }
 
+const ETIQUETA_ESTADO: Record<string, string> = {
+  confirmado_cliente: 'Confirmado',
+  orden_venta: 'Orden',
+}
+
 // ─── Animaciones ───
 
 const contenedorVariantes = {
   oculto: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.06 },
-  },
+  visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
 }
 
 const itemVariantes = {
@@ -165,6 +177,7 @@ export default function PaginaDashboard() {
   const { moneda, fechaRelativa } = useFormato()
   const router = useRouter()
 
+  const [pestana, setPestana] = useState<'general' | 'metricas'>('general')
   const [datos, setDatos] = useState<DatosDashboard | null>(null)
   const [metricas, setMetricas] = useState<MetricasInbox | null>(null)
   const [cargando, setCargando] = useState(true)
@@ -172,10 +185,8 @@ export default function PaginaDashboard() {
   const claveSaludo = useMemo(() => obtenerClaveSaludo(), [])
   const nombre = useMemo(() => obtenerNombreUsuario(usuario), [usuario])
 
-  // Cargar datos
   useEffect(() => {
     if (!empresa) return
-
     const cargar = async () => {
       setCargando(true)
       try {
@@ -183,7 +194,6 @@ export default function PaginaDashboard() {
           fetch('/api/dashboard'),
           fetch('/api/inbox/metricas?desde=' + new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]),
         ])
-
         if (resDash.ok) setDatos(await resDash.json())
         if (resMetricas.ok) setMetricas(await resMetricas.json())
       } catch (err) {
@@ -192,7 +202,6 @@ export default function PaginaDashboard() {
         setCargando(false)
       }
     }
-
     cargar()
   }, [empresa])
 
@@ -205,65 +214,105 @@ export default function PaginaDashboard() {
   }
 
   return (
-    <motion.div
-      className="space-y-8 px-4 sm:px-6 pt-4 sm:pt-5 pb-12"
-      variants={contenedorVariantes}
-      initial="oculto"
-      animate="visible"
-    >
-      {/* ─── Saludo ─── */}
-      <motion.div variants={itemVariantes}>
-        <h1 className="text-2xl font-bold text-texto-primario">
-          {t(claveSaludo)}{nombre ? `, ${nombre}` : ''}
-        </h1>
-        <p className="text-sm text-texto-terciario mt-1">
-          {empresa ? (empresa as Record<string, unknown>).nombre as string : 'Flux by Salix'}
-        </p>
-      </motion.div>
+    <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-12">
+      {/* ─── Header: Saludo + Pestañas ─── */}
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-texto-primario">
+            {t(claveSaludo)}{nombre ? `, ${nombre}` : ''}
+          </h1>
+          <p className="text-sm text-texto-terciario mt-1">
+            {empresa ? (empresa as Record<string, unknown>).nombre as string : 'Flux by Salix'}
+          </p>
+        </div>
 
-      {/* ─── Resumen inteligente ─── */}
+        {/* Pestañas General / Métricas */}
+        <div className="flex items-center gap-1 bg-superficie-hover/50 rounded-lg p-0.5 shrink-0">
+          <button
+            onClick={() => setPestana('general')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              pestana === 'general'
+                ? 'bg-superficie-tarjeta text-texto-primario shadow-sm border border-borde-sutil'
+                : 'text-texto-terciario hover:text-texto-secundario'
+            }`}
+          >
+            <LayoutDashboard size={13} />
+            General
+          </button>
+          <button
+            onClick={() => setPestana('metricas')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              pestana === 'metricas'
+                ? 'bg-superficie-tarjeta text-texto-primario shadow-sm border border-borde-sutil'
+                : 'text-texto-terciario hover:text-texto-secundario'
+            }`}
+          >
+            <BarChart3 size={13} />
+            Métricas
+          </button>
+        </div>
+      </div>
+
+      {/* ─── Contenido por pestaña ─── */}
+      <motion.div
+        key={pestana}
+        className="space-y-6"
+        variants={contenedorVariantes}
+        initial="oculto"
+        animate="visible"
+      >
+        {pestana === 'general' ? (
+          <PestanaGeneral
+            datos={datos}
+            metricas={metricas}
+            t={t}
+            moneda={moneda}
+            fechaRelativa={fechaRelativa}
+            router={router}
+          />
+        ) : (
+          <PestanaMetricas
+            datos={datos}
+            metricas={metricas}
+            moneda={moneda}
+          />
+        )}
+      </motion.div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════
+// PESTAÑA GENERAL
+// ═══════════════════════════════════════════════════════
+
+function PestanaGeneral({
+  datos, metricas, t, moneda, fechaRelativa, router,
+}: {
+  datos: DatosDashboard | null
+  metricas: MetricasInbox | null
+  t: (k: string) => string
+  moneda: (n: number) => string
+  fechaRelativa: (f: string) => string
+  router: ReturnType<typeof useRouter>
+}) {
+  return (
+    <>
+      {/* Resumen inteligente */}
       {datos && (
         <motion.div variants={itemVariantes}>
           <ResumenInteligente
             contactosTotal={datos.contactos.total}
-            contactosNuevosMes={(() => {
-              const clave = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
-              return datos.comparativa?.contactos_por_mes?.[clave] ?? 0
-            })()}
-            contactosNuevosMesAnterior={(() => {
-              const fecha = new Date(); fecha.setMonth(fecha.getMonth() - 1)
-              const clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`
-              return datos.comparativa?.contactos_por_mes?.[clave] ?? 0
-            })()}
+            contactosNuevosMes={datos.comparativa?.contactos_por_mes?.[claveMesActual()] ?? 0}
+            contactosNuevosMesAnterior={datos.comparativa?.contactos_por_mes?.[claveMesAnterior()] ?? 0}
             presupuestosTotal={datos.presupuestos.total}
-            presupuestosNuevosMes={(() => {
-              const clave = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
-              return datos.comparativa?.presupuestos_por_mes?.[clave]?.creados ?? 0
-            })()}
-            presupuestosNuevosMesAnterior={(() => {
-              const fecha = new Date(); fecha.setMonth(fecha.getMonth() - 1)
-              const clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`
-              return datos.comparativa?.presupuestos_por_mes?.[clave]?.creados ?? 0
-            })()}
+            presupuestosNuevosMes={datos.comparativa?.presupuestos_por_mes?.[claveMesActual()]?.creados ?? 0}
+            presupuestosNuevosMesAnterior={datos.comparativa?.presupuestos_por_mes?.[claveMesAnterior()]?.creados ?? 0}
             presupuestosBorradores={datos.presupuestos.por_estado.borrador ?? 0}
-            ordenesMontoMes={(() => {
-              const clave = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
-              return datos.ingresos?.por_mes?.[clave]?.ordenes_monto ?? 0
-            })()}
-            ordenesMontoMesAnterior={(() => {
-              const fecha = new Date(); fecha.setMonth(fecha.getMonth() - 1)
-              const clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`
-              return datos.ingresos?.por_mes?.[clave]?.ordenes_monto ?? 0
-            })()}
-            ordenesCantidadMes={(() => {
-              const clave = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
-              return datos.ingresos?.por_mes?.[clave]?.ordenes_cantidad ?? 0
-            })()}
-            ordenesCantidadMesAnterior={(() => {
-              const fecha = new Date(); fecha.setMonth(fecha.getMonth() - 1)
-              const clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`
-              return datos.ingresos?.por_mes?.[clave]?.ordenes_cantidad ?? 0
-            })()}
+            ordenesMontoMes={datos.ingresos?.por_mes?.[claveMesActual()]?.ordenes_monto ?? 0}
+            ordenesMontoMesAnterior={datos.ingresos?.por_mes?.[claveMesAnterior()]?.ordenes_monto ?? 0}
+            ordenesCantidadMes={datos.ingresos?.por_mes?.[claveMesActual()]?.ordenes_cantidad ?? 0}
+            ordenesCantidadMesAnterior={datos.ingresos?.por_mes?.[claveMesAnterior()]?.ordenes_cantidad ?? 0}
             actividadesPendientes={datos.actividades?.total_pendientes ?? 0}
             actividadesVencidas={datos.actividades?.pendientes.filter(a => a.fecha_vencimiento && new Date(a.fecha_vencimiento) < new Date()).length ?? 0}
             actividadesCompletadasHoy={datos.actividades?.completadas_hoy ?? 0}
@@ -275,18 +324,14 @@ export default function PaginaDashboard() {
         </motion.div>
       )}
 
-      {/* ─── KPIs compactos ─── */}
-      <motion.div variants={itemVariantes} className="grid grid-cols-4 gap-3">
+      {/* KPIs compactos */}
+      <motion.div variants={itemVariantes} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <KpiCompacto
           titulo={t('contactos.titulo')}
           valor={datos?.contactos.total ?? 0}
           icono={<Users size={16} strokeWidth={1.5} />}
           color="primario"
-          detalle={(() => {
-            const mesActual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
-            const n = datos?.comparativa?.contactos_por_mes?.[mesActual] ?? 0
-            return n > 0 ? `+${n} este mes` : undefined
-          })()}
+          detalle={(() => { const n = datos?.comparativa?.contactos_por_mes?.[claveMesActual()] ?? 0; return n > 0 ? `+${n} este mes` : undefined })()}
           onClick={() => router.push('/contactos')}
         />
         <KpiCompacto
@@ -294,11 +339,7 @@ export default function PaginaDashboard() {
           valor={datos?.presupuestos.total ?? 0}
           icono={<FileText size={16} strokeWidth={1.5} />}
           color="info"
-          detalle={(() => {
-            const mesActual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
-            const n = datos?.comparativa?.presupuestos_por_mes?.[mesActual]?.creados ?? 0
-            return n > 0 ? `+${n} este mes` : undefined
-          })()}
+          detalle={(() => { const n = datos?.comparativa?.presupuestos_por_mes?.[claveMesActual()]?.creados ?? 0; return n > 0 ? `+${n} este mes` : undefined })()}
           onClick={() => router.push('/presupuestos')}
         />
         <KpiCompacto
@@ -306,10 +347,7 @@ export default function PaginaDashboard() {
           valor={datos?.actividades?.total_pendientes ?? 0}
           icono={<CheckSquare size={16} strokeWidth={1.5} />}
           color="exito"
-          detalle={(() => {
-            const v = datos?.actividades?.pendientes.filter(a => a.fecha_vencimiento && new Date(a.fecha_vencimiento) < new Date()).length ?? 0
-            return v > 0 ? `${v} vencida${v > 1 ? 's' : ''}` : undefined
-          })()}
+          detalle={(() => { const v = datos?.actividades?.pendientes.filter(a => a.fecha_vencimiento && new Date(a.fecha_vencimiento) < new Date()).length ?? 0; return v > 0 ? `${v} vencida${v > 1 ? 's' : ''}` : undefined })()}
           onClick={() => router.push('/actividades')}
         />
         <KpiCompacto
@@ -317,15 +355,12 @@ export default function PaginaDashboard() {
           valor={datos?.conversaciones.abiertas ?? 0}
           icono={<MessageSquare size={16} strokeWidth={1.5} />}
           color="violeta"
-          detalle={(() => {
-            const s = datos?.conversaciones.sin_leer ?? 0
-            return s > 0 ? `${s} sin leer` : undefined
-          })()}
+          detalle={(() => { const s = datos?.conversaciones.sin_leer ?? 0; return s > 0 ? `${s} sin leer` : undefined })()}
           onClick={() => router.push('/inbox')}
         />
       </motion.div>
 
-      {/* ─── Accesos rápidos ─── */}
+      {/* Accesos rápidos */}
       <motion.div variants={itemVariantes} className="flex flex-wrap gap-2">
         <BotonRapido etiqueta={t('contactos.nuevo')} icono={<Users size={15} />} onClick={() => router.push('/contactos/nuevo')} />
         <BotonRapido etiqueta={t('documentos.tipos.presupuesto')} icono={<FileText size={15} />} onClick={() => router.push('/presupuestos/nuevo')} />
@@ -333,31 +368,18 @@ export default function PaginaDashboard() {
         <BotonRapido etiqueta={t('dashboard.ir_al_inbox')} icono={<MessageSquare size={15} />} onClick={() => router.push('/inbox')} />
       </motion.div>
 
-      {/* ─── Recientes: 4 tarjetas con listas ─── */}
+      {/* 4 tarjetas recientes */}
       <motion.div variants={itemVariantes} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {/* Últimos presupuestos */}
-        <TarjetaReciente
-          titulo="Últimos presupuestos"
-          icono={<FileText size={14} />}
-          verTodo={() => router.push('/presupuestos')}
-        >
+        <TarjetaReciente titulo="Últimos presupuestos" icono={<FileText size={14} />} verTodo={() => router.push('/presupuestos')}>
           {datos?.presupuestos.recientes && datos.presupuestos.recientes.length > 0 ? (
             datos.presupuestos.recientes.map(p => (
-              <div
-                key={p.id}
-                className="flex items-center justify-between py-1.5 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors"
-                onClick={() => router.push(`/presupuestos/${p.id}`)}
-              >
+              <div key={p.id} className="flex items-center justify-between py-1.5 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors" onClick={() => router.push(`/presupuestos/${p.id}`)}>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-medium text-texto-primario">{p.numero}</span>
-                    <Insignia color={COLOR_ESTADO_PRESUPUESTO[p.estado] || 'neutro'}>
-                      {p.estado === 'confirmado_cliente' ? 'Confirmado' : p.estado === 'orden_venta' ? 'Orden' : p.estado}
-                    </Insignia>
+                    <Insignia color={COLOR_ESTADO_PRESUPUESTO[p.estado] || 'neutro'}>{ETIQUETA_ESTADO[p.estado] || p.estado}</Insignia>
                   </div>
-                  <p className="text-xxs text-texto-terciario truncate">
-                    {[p.contacto_nombre, p.contacto_apellido].filter(Boolean).join(' ') || 'Sin contacto'}
-                  </p>
+                  <p className="text-xxs text-texto-terciario truncate">{[p.contacto_nombre, p.contacto_apellido].filter(Boolean).join(' ') || 'Sin contacto'}</p>
                 </div>
                 <div className="text-right shrink-0 ml-2">
                   {p.total != null && <p className="text-xs font-semibold text-texto-primario tabular-nums">{moneda(p.total)}</p>}
@@ -365,38 +387,21 @@ export default function PaginaDashboard() {
                 </div>
               </div>
             ))
-          ) : (
-            <p className="text-xs text-texto-terciario text-center py-3">Sin presupuestos</p>
-          )}
+          ) : <p className="text-xs text-texto-terciario text-center py-3">Sin presupuestos</p>}
         </TarjetaReciente>
 
-        {/* Últimos contactos */}
-        <TarjetaReciente
-          titulo="Últimos contactos"
-          icono={<Users size={14} />}
-          verTodo={() => router.push('/contactos')}
-        >
+        <TarjetaReciente titulo="Últimos contactos" icono={<Users size={14} />} verTodo={() => router.push('/contactos')}>
           {datos?.contactos.recientes && datos.contactos.recientes.length > 0 ? (
             datos.contactos.recientes.map(c => (
-              <div
-                key={c.id}
-                className="flex items-center justify-between py-1.5 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors"
-                onClick={() => router.push(`/contactos/${c.id}`)}
-              >
+              <div key={c.id} className="flex items-center justify-between py-1.5 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors" onClick={() => router.push(`/contactos/${c.id}`)}>
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="size-6 rounded-full bg-superficie-hover flex items-center justify-center text-xxs font-semibold text-texto-secundario shrink-0">
                     {(c.nombre?.[0] || '').toUpperCase()}{(c.apellido?.[0] || '').toUpperCase()}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <p className="text-xs font-medium text-texto-primario truncate">
-                        {[c.nombre, c.apellido].filter(Boolean).join(' ')}
-                      </p>
-                      {c.tipo_etiqueta && (
-                        <Insignia color={(COLOR_TIPO_CONTACTO[c.tipo_clave || ''] || 'neutro') as 'neutro' | 'primario' | 'info' | 'exito' | 'naranja' | 'advertencia'}>
-                          {c.tipo_etiqueta}
-                        </Insignia>
-                      )}
+                      <p className="text-xs font-medium text-texto-primario truncate">{[c.nombre, c.apellido].filter(Boolean).join(' ')}</p>
+                      {c.tipo_etiqueta && <Insignia color={(COLOR_TIPO_CONTACTO[c.tipo_clave || ''] || 'neutro') as 'neutro' | 'primario' | 'info' | 'exito' | 'naranja' | 'advertencia'}>{c.tipo_etiqueta}</Insignia>}
                     </div>
                     <p className="text-xxs text-texto-terciario truncate">{c.correo || c.telefono || ''}</p>
                   </div>
@@ -404,51 +409,62 @@ export default function PaginaDashboard() {
                 <span className="text-xxs text-texto-terciario shrink-0 ml-2">{fechaRelativa(c.creado_en)}</span>
               </div>
             ))
-          ) : (
-            <p className="text-xs text-texto-terciario text-center py-3">Sin contactos</p>
-          )}
+          ) : <p className="text-xs text-texto-terciario text-center py-3">Sin contactos</p>}
         </TarjetaReciente>
 
-        {/* Próximas actividades */}
-        <TarjetaReciente
-          titulo="Próximas actividades"
-          icono={<CheckSquare size={14} />}
-          verTodo={() => router.push('/actividades')}
-        >
+        <TarjetaReciente titulo="Próximas actividades" icono={<CheckSquare size={14} />} verTodo={() => router.push('/actividades')}>
           {datos?.actividades_proximas && datos.actividades_proximas.length > 0 ? (
             datos.actividades_proximas.map(act => (
-              <div
-                key={act.id}
-                className="flex items-center justify-between py-1.5 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors"
-                onClick={() => router.push('/actividades')}
-              >
+              <div key={act.id} className="flex items-center justify-between py-1.5 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors" onClick={() => router.push('/actividades')}>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-texto-primario truncate">{act.titulo}</span>
                     {act.prioridad === 'alta' && <Insignia color="peligro">!</Insignia>}
                   </div>
-                  {act.asignado_nombre && (
-                    <p className="text-xxs text-texto-terciario truncate">{act.asignado_nombre}</p>
-                  )}
+                  {act.asignado_nombre && <p className="text-xxs text-texto-terciario truncate">{act.asignado_nombre}</p>}
                 </div>
                 <span className="text-xxs text-texto-terciario shrink-0 ml-2">
                   {new Date(act.fecha_vencimiento).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
                 </span>
               </div>
             ))
-          ) : (
-            <p className="text-xs text-texto-terciario text-center py-3">Sin actividades próximas</p>
-          )}
+          ) : <p className="text-xs text-texto-terciario text-center py-3">Sin actividades próximas</p>}
         </TarjetaReciente>
 
-        {/* Últimos mensajes */}
-        <TarjetaMensajesRecientes
-          mensajes={datos?.mensajes_recientes || []}
-          fechaRelativa={fechaRelativa}
-        />
+        <TarjetaMensajesRecientes mensajes={datos?.mensajes_recientes || []} />
       </motion.div>
 
-      {/* ─── Fila 1: Presupuestos vs Ventas (full width — lo más importante) ─── */}
+      {/* Pipeline + Por vencer */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {datos?.presupuestos && (
+          <motion.div variants={itemVariantes}>
+            <WidgetPipeline porEstado={datos.presupuestos.por_estado} pipelineMontos={datos.presupuestos.pipeline_montos} formatoMoneda={moneda} />
+          </motion.div>
+        )}
+        {datos?.presupuestos.por_vencer && datos.presupuestos.por_vencer.length > 0 && (
+          <motion.div variants={itemVariantes}>
+            <WidgetPorVencer presupuestos={datos.presupuestos.por_vencer} formatoMoneda={moneda} />
+          </motion.div>
+        )}
+      </div>
+    </>
+  )
+}
+
+// ═══════════════════════════════════════════════════════
+// PESTAÑA MÉTRICAS
+// ═══════════════════════════════════════════════════════
+
+function PestanaMetricas({
+  datos, metricas, moneda,
+}: {
+  datos: DatosDashboard | null
+  metricas: MetricasInbox | null
+  moneda: (n: number) => string
+}) {
+  return (
+    <>
+      {/* Presupuestos vs Órdenes (full width) */}
       {datos?.ingresos && datos?.comparativa && (
         <motion.div variants={itemVariantes}>
           <WidgetIngresos
@@ -460,23 +476,9 @@ export default function PaginaDashboard() {
         </motion.div>
       )}
 
-      {/* ─── Fila 2: Pipeline + Por vencer (estado actual + urgente) ─── */}
+      {/* Comparativa + Clientes */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {datos?.presupuestos && (
-          <motion.div variants={itemVariantes}>
-            <WidgetPipeline
-              porEstado={datos.presupuestos.por_estado}
-              pipelineMontos={datos.presupuestos.pipeline_montos}
-              formatoMoneda={moneda}
-            />
-          </motion.div>
-        )}
-
-        {datos?.presupuestos.por_vencer && datos.presupuestos.por_vencer.length > 0 ? (
-          <motion.div variants={itemVariantes}>
-            <WidgetPorVencer presupuestos={datos.presupuestos.por_vencer} formatoMoneda={moneda} />
-          </motion.div>
-        ) : datos?.comparativa ? (
+        {datos?.comparativa && (
           <motion.div variants={itemVariantes}>
             <WidgetComparativa
               presupuestosPorMes={datos.comparativa.presupuestos_por_mes}
@@ -484,11 +486,7 @@ export default function PaginaDashboard() {
               formatoMoneda={moneda}
             />
           </motion.div>
-        ) : null}
-      </div>
-
-      {/* ─── Fila 3: Clientes + Comparativa (crecimiento y análisis) ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        )}
         {datos?.clientes && (
           <motion.div variants={itemVariantes}>
             <WidgetClientes
@@ -498,19 +496,9 @@ export default function PaginaDashboard() {
             />
           </motion.div>
         )}
-
-        {datos?.comparativa && datos?.presupuestos.por_vencer && datos.presupuestos.por_vencer.length > 0 && (
-          <motion.div variants={itemVariantes}>
-            <WidgetComparativa
-              presupuestosPorMes={datos.comparativa.presupuestos_por_mes}
-              contactosPorMes={datos.comparativa.contactos_por_mes}
-              formatoMoneda={moneda}
-            />
-          </motion.div>
-        )}
       </div>
 
-      {/* ─── Fila 4: Actividades + Inbox (operativo) ─── */}
+      {/* Actividades + Inbox */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {datos?.actividades && (
           <motion.div variants={itemVariantes}>
@@ -522,7 +510,6 @@ export default function PaginaDashboard() {
             />
           </motion.div>
         )}
-
         {metricas && (
           <motion.div variants={itemVariantes}>
             <WidgetInbox resumen={metricas.resumen} porAgente={metricas.por_agente} />
@@ -530,14 +517,13 @@ export default function PaginaDashboard() {
         )}
       </div>
 
-      {/* ─── Fila 5: Crecimiento contactos + Productos (tendencias) ─── */}
+      {/* Crecimiento + Productos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {datos?.contactos.crecimiento_semanal && datos.contactos.crecimiento_semanal.length > 0 && (
           <motion.div variants={itemVariantes}>
             <WidgetCrecimientoContactos crecimientoSemanal={datos.contactos.crecimiento_semanal} />
           </motion.div>
         )}
-
         {datos?.productos.top && datos.productos.top.length > 0 && (
           <motion.div variants={itemVariantes}>
             <WidgetProductosTop productos={datos.productos.top} formatoMoneda={moneda} />
@@ -545,7 +531,7 @@ export default function PaginaDashboard() {
         )}
       </div>
 
-      {/* ─── Fila 6: Asistencia (si hay datos) ─── */}
+      {/* Asistencia */}
       {datos?.asistencia && (datos.asistencia.hoy.total > 0 || Object.keys(datos.asistencia.semana).length > 0) && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <motion.div variants={itemVariantes}>
@@ -553,13 +539,35 @@ export default function PaginaDashboard() {
           </motion.div>
         </div>
       )}
-    </motion.div>
+
+      {/* ─── Próximamente ─── */}
+      <motion.div variants={itemVariantes}>
+        <div className="border border-borde-sutil border-dashed rounded-lg p-6">
+          <h3 className="text-sm font-semibold text-texto-secundario mb-4">Próximamente</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            {[
+              { icono: <Receipt size={16} />, nombre: 'Facturación' },
+              { icono: <ClipboardList size={16} />, nombre: 'Órdenes de trabajo' },
+              { icono: <Calendar size={16} />, nombre: 'Calendario' },
+              { icono: <Megaphone size={16} />, nombre: 'Marketing' },
+              { icono: <ShieldCheck size={16} />, nombre: 'Auditoría' },
+            ].map(m => (
+              <div key={m.nombre} className="flex items-center gap-2.5 py-2.5 px-3 rounded-lg bg-superficie-hover/30 text-texto-terciario">
+                {m.icono}
+                <span className="text-xs">{m.nombre}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+    </>
   )
 }
 
-// ─── Subcomponentes ───
+// ═══════════════════════════════════════════════════════
+// SUBCOMPONENTES
+// ═══════════════════════════════════════════════════════
 
-/** KPI compacto — una línea con icono, valor y detalle */
 function KpiCompacto({
   titulo, valor, icono, color, detalle, onClick,
 }: {
@@ -580,16 +588,13 @@ function KpiCompacto({
             <span className="text-xl font-bold text-texto-primario leading-tight">{valor}</span>
             <span className="text-xxs text-texto-terciario truncate">{titulo}</span>
           </div>
-          {detalle && (
-            <p className="text-xxs text-texto-terciario truncate">{detalle}</p>
-          )}
+          {detalle && <p className="text-xxs text-texto-terciario truncate">{detalle}</p>}
         </div>
       </div>
     </div>
   )
 }
 
-/** Tarjeta de lista reciente — header con icono + título + "ver todo" */
 function TarjetaReciente({
   titulo, icono, verTodo, children,
 }: {
@@ -606,64 +611,39 @@ function TarjetaReciente({
           Ver todo <ArrowRight size={10} />
         </button>
       </div>
-      <div className="space-y-0.5">
-        {children}
-      </div>
+      <div className="space-y-0.5">{children}</div>
     </div>
   )
 }
 
-/** Tarjeta de mensajes recientes con pestañas de canal */
-function TarjetaMensajesRecientes({
-  mensajes, fechaRelativa,
-}: {
-  mensajes: DatosDashboard['mensajes_recientes']
-  fechaRelativa: (fecha: string) => string
-}) {
+function TarjetaMensajesRecientes({ mensajes }: { mensajes: DatosDashboard['mensajes_recientes'] }) {
   const [canal, setCanal] = useState<string>('todos')
 
-  // Siempre mostrar los canales principales + los que tengan datos
   const canalesConDatos = Array.from(new Set(mensajes.map(m => m.tipo_canal))).filter(Boolean)
   const canalesBase = ['whatsapp', 'correo', 'interno']
   const canalesDisponibles = ['todos', ...canalesBase.filter(c => canalesConDatos.includes(c)), ...canalesConDatos.filter(c => !canalesBase.includes(c))]
 
-  const ETIQUETA_CANAL: Record<string, string> = {
-    todos: 'Todos',
-    whatsapp: 'WhatsApp',
-    correo: 'Correo',
-    interno: 'Interno',
-  }
-
+  const ETIQUETA_CANAL: Record<string, string> = { todos: 'Todos', whatsapp: 'WhatsApp', correo: 'Correo', interno: 'Interno' }
   const ICONO_TIPO_CONTENIDO: Record<string, React.ReactNode> = {
-    imagen: <Image size={10} />,
-    audio: <Mic size={10} />,
-    documento: <File size={10} />,
-    video: <Video size={10} />,
+    imagen: <Image size={10} />, audio: <Mic size={10} />, documento: <File size={10} />, video: <Video size={10} />,
   }
 
   const filtrados = canal === 'todos' ? mensajes : mensajes.filter(m => m.tipo_canal === canal)
 
   return (
     <div className="bg-superficie-tarjeta border border-borde-sutil rounded-lg p-4">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <span className="text-texto-terciario"><MessageSquare size={14} /></span>
-          <h3 className="text-xs font-semibold text-texto-primario">Últimos mensajes</h3>
-        </div>
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-texto-terciario"><MessageSquare size={14} /></span>
+        <h3 className="text-xs font-semibold text-texto-primario">Últimos mensajes</h3>
       </div>
 
-      {/* Pestañas de canal */}
       {canalesDisponibles.length > 2 && (
         <div className="flex items-center gap-1 mb-3">
           {canalesDisponibles.map(c => (
             <button
               key={c}
               onClick={() => setCanal(c)}
-              className={`px-2 py-0.5 text-xxs rounded-md transition-colors ${
-                canal === c
-                  ? 'bg-superficie-hover text-texto-primario font-medium'
-                  : 'text-texto-terciario hover:text-texto-secundario'
-              }`}
+              className={`px-2 py-0.5 text-xxs rounded-md transition-colors ${canal === c ? 'bg-superficie-hover text-texto-primario font-medium' : 'text-texto-terciario hover:text-texto-secundario'}`}
             >
               {ETIQUETA_CANAL[c] || c}
             </button>
@@ -671,37 +651,26 @@ function TarjetaMensajesRecientes({
         </div>
       )}
 
-      {/* Lista */}
       <div className="space-y-0.5">
         {filtrados.length > 0 ? (
           filtrados.slice(0, 5).map(m => {
             const preview = m.correo_asunto || m.texto || `[${m.tipo_contenido}]`
             return (
-              <div
-                key={m.id}
-                className="flex items-start gap-2 py-1.5 px-1 rounded-md hover:bg-superficie-hover transition-colors"
-              >
-                {/* Indicador de canal */}
+              <div key={m.id} className="flex items-start gap-2 py-1.5 px-1 rounded-md hover:bg-superficie-hover transition-colors">
                 <div className={`size-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
                   m.tipo_canal === 'whatsapp' ? 'bg-canal-whatsapp/15 text-canal-whatsapp'
                   : m.tipo_canal === 'correo' ? 'bg-canal-correo/15 text-canal-correo'
                   : 'bg-canal-interno/15 text-canal-interno'
                 }`}>
-                  {m.tipo_canal === 'whatsapp' ? <MessageCircle size={10} />
-                    : m.tipo_canal === 'correo' ? <Mail size={10} />
-                    : <MessageSquare size={10} />}
+                  {m.tipo_canal === 'whatsapp' ? <MessageCircle size={10} /> : m.tipo_canal === 'correo' ? <Mail size={10} /> : <MessageSquare size={10} />}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-medium text-texto-primario truncate">
                       {m.es_entrante ? (m.contacto_nombre || m.remitente_nombre || m.correo_de || 'Contacto') : 'Tú'}
                     </span>
-                    {m.nombre_canal && (
-                      <span className="text-xxs text-texto-terciario bg-superficie-hover px-1.5 py-0.5 rounded shrink-0">{m.nombre_canal}</span>
-                    )}
-                    {m.tipo_contenido !== 'texto' && ICONO_TIPO_CONTENIDO[m.tipo_contenido] && (
-                      <span className="text-texto-terciario">{ICONO_TIPO_CONTENIDO[m.tipo_contenido]}</span>
-                    )}
+                    {m.nombre_canal && <span className="text-xxs text-texto-terciario bg-superficie-hover px-1.5 py-0.5 rounded shrink-0">{m.nombre_canal}</span>}
+                    {m.tipo_contenido !== 'texto' && ICONO_TIPO_CONTENIDO[m.tipo_contenido] && <span className="text-texto-terciario">{ICONO_TIPO_CONTENIDO[m.tipo_contenido]}</span>}
                     <span className="text-xxs text-texto-terciario ml-auto shrink-0">
                       {(() => {
                         const fecha = new Date(m.creado_en)
@@ -709,7 +678,6 @@ function TarjetaMensajesRecientes({
                         const ayer = new Date(hoy); ayer.setDate(ayer.getDate() - 1)
                         if (fecha.toDateString() === hoy.toDateString()) return 'Hoy'
                         if (fecha.toDateString() === ayer.toDateString()) return 'Ayer'
-                        // Dentro de esta semana: mostrar día (Lunes, Martes, etc.)
                         const diffDias = Math.floor((hoy.getTime() - fecha.getTime()) / 86400000)
                         if (diffDias < 7) return fecha.toLocaleDateString('es-AR', { weekday: 'long' }).replace(/^\w/, c => c.toUpperCase())
                         return fecha.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })
@@ -721,19 +689,13 @@ function TarjetaMensajesRecientes({
               </div>
             )
           })
-        ) : (
-          <p className="text-xs text-texto-terciario text-center py-3">Sin mensajes</p>
-        )}
+        ) : <p className="text-xs text-texto-terciario text-center py-3">Sin mensajes</p>}
       </div>
     </div>
   )
 }
 
-function BotonRapido({
-  etiqueta, icono, onClick,
-}: {
-  etiqueta: string; icono: React.ReactNode; onClick: () => void
-}) {
+function BotonRapido({ etiqueta, icono, onClick }: { etiqueta: string; icono: React.ReactNode; onClick: () => void }) {
   return (
     <Boton variante="secundario" tamano="sm" icono={<Plus size={13} strokeWidth={2} />} onClick={onClick}>
       {etiqueta}
