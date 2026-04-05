@@ -144,6 +144,7 @@ export async function PATCH(
       'pais_fiscal', 'tipo_identificacion', 'numero_identificacion', 'datos_fiscales',
       'etiquetas', 'notas',
       'activo', 'en_papelera', 'es_provisorio',
+      'tipo_contacto_id',
     ]
 
     const actualizar: Record<string, unknown> = {}

@@ -7,7 +7,7 @@ import {
   Check, CheckCheck, Clock, AlertCircle, Play, Pause,
   Download, FileText, MapPin, User, X, ChevronLeft, ChevronRight,
   Image, Music, StickyNote, Pencil, Trash2, Tag, SmilePlus,
-  FileDown, Bot, Sparkles, AlarmClock, Mic,
+  FileDown, Bot, Sparkles, AlarmClock,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { TextArea } from '@/componentes/ui/TextArea'
@@ -17,11 +17,13 @@ import { CompositorMensaje, type DatosMensaje } from './CompositorMensaje'
 import { PanelIA } from './PanelIA'
 import { PopoverSnooze } from './PopoverSnooze'
 import { PopoverProgramar } from './PopoverProgramar'
-import { GrabadorAudio } from './GrabadorAudio'
+// GrabadorAudio integrado en CompositorMensaje (no se importa aparte)
 import { COLOR_ETIQUETA_DEFECTO } from '@/lib/colores_entidad'
 import { useTraduccion } from '@/lib/i18n'
 import { useVisualViewport } from '@/hooks/useVisualViewport'
 import { BarraControlsWA } from './BarraControlsWA'
+import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import type { FormatoNombreRemitente } from '@/lib/nombre-remitente'
 import type { MensajeConAdjuntos, MensajeAdjunto, Conversacion, ConversacionConDetalles } from '@/tipos/inbox'
 
 /**
@@ -261,12 +263,50 @@ export function PanelWhatsApp({
   const [textoIA, setTextoIA] = useState('')
   const [contadorTextoIA, setContadorTextoIA] = useState(0)
 
-  // Audio grabado desde el panel (GrabadorAudio)
-  const [grabandoAudio, setGrabandoAudio] = useState(false)
   // Mensaje programado pendiente (PopoverProgramar)
   const [programadoPendiente, setProgramadoPendiente] = useState<{ id: string; enviar_en: string; texto: string | null } | null>(null)
   // Texto actual del compositor (para programar)
   const [textoCompositor, setTextoCompositor] = useState('')
+
+  // Firma del mensaje
+  const [datosUsuarioFirma, setDatosUsuarioFirma] = useState<{ nombre: string; apellido: string; sector?: string | null } | null>(null)
+  const [formatoFirma, setFormatoFirma] = useState<FormatoNombreRemitente | 'sin_firma'>('nombre_inicial_sector')
+
+  // Cargar datos del usuario para la firma
+  useEffect(() => {
+    const supabase = crearClienteNavegador()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      const nombre = user.user_metadata?.nombre || ''
+      const apellido = user.user_metadata?.apellido || ''
+      // Cargar formato guardado del perfil
+      const empresaId = user.app_metadata?.empresa_activa_id
+      if (empresaId) {
+        const admin = crearClienteNavegador()
+        admin.from('perfiles').select('formato_nombre_remitente').eq('id', user.id).single()
+          .then(({ data }) => {
+            if (data?.formato_nombre_remitente) {
+              setFormatoFirma(data.formato_nombre_remitente as FormatoNombreRemitente)
+            }
+          })
+        // Obtener sector
+        admin.from('miembros').select('id').eq('usuario_id', user.id).eq('empresa_id', empresaId).single()
+          .then(({ data: miembro }) => {
+            if (!miembro) { setDatosUsuarioFirma({ nombre, apellido }); return }
+            admin.from('miembros_sectores').select('sector_id').eq('miembro_id', miembro.id).eq('es_primario', true).single()
+              .then(({ data: ms }) => {
+                if (!ms) { setDatosUsuarioFirma({ nombre, apellido }); return }
+                admin.from('sectores').select('nombre').eq('id', ms.sector_id).single()
+                  .then(({ data: sector }) => {
+                    setDatosUsuarioFirma({ nombre, apellido, sector: sector?.nombre || null })
+                  })
+              })
+          })
+      } else {
+        setDatosUsuarioFirma({ nombre, apellido })
+      }
+    })
+  }, [])
 
   // Etiquetas de la empresa (para mostrar colores)
   const [etiquetasEmpresa, setEtiquetasEmpresa] = useState<Record<string, { color: string; icono: string | null }>>({})
@@ -1030,44 +1070,36 @@ export function PanelWhatsApp({
         />
       )}
 
-      {/* Compositor / Grabador de audio */}
-      {grabandoAudio ? (
-        <GrabadorAudio
-          activo={grabandoAudio}
-          onGrabacionCompleta={async (audio, duracion) => {
-            setGrabandoAudio(false)
-            // Subir audio y enviar como mensaje
-            const archivo = new File([audio], `audio_${Date.now()}.ogg`, { type: audio.type || 'audio/ogg' })
-            onEnviar({ texto: '', tipo_contenido: 'audio', archivo })
-          }}
-          onCancelar={() => setGrabandoAudio(false)}
-        />
-      ) : (
-        <div className="flex items-end gap-1 flex-shrink-0" style={{ borderTop: '1px solid var(--borde-sutil)' }}>
-          <div className="flex-1 min-w-0">
-            <CompositorMensaje
-              tipoCanal="whatsapp"
-              onEnviar={onEnviar}
-              cargando={enviando}
-              placeholder="Escribir mensaje..."
-              textoInicial={textoIA}
-              textoInicialVersion={contadorTextoIA}
-              onAbrirPlantillas={() => {}}
-              conversacionId={conversacion.id}
-              permitirNotasInternas
-              onCambioTexto={setTextoCompositor}
-            />
-          </div>
-          <div className="flex items-center gap-0.5 pb-2 pr-2 flex-shrink-0">
-            <Boton
-              variante="fantasma"
-              tamano="xs"
-              soloIcono
-              titulo="Grabar audio"
-              icono={<Mic size={16} />}
-              onClick={() => setGrabandoAudio(true)}
-            />
-            <PopoverProgramar
+      {/* Compositor */}
+      <div className="flex items-end gap-1 flex-shrink-0" style={{ borderTop: '1px solid var(--borde-sutil)' }}>
+        <div className="flex-1 min-w-0">
+          <CompositorMensaje
+            tipoCanal="whatsapp"
+            onEnviar={onEnviar}
+            cargando={enviando}
+            placeholder="Escribir mensaje..."
+            textoInicial={textoIA}
+            textoInicialVersion={contadorTextoIA}
+            onAbrirPlantillas={() => {}}
+            conversacionId={conversacion.id}
+            permitirNotasInternas
+            onCambioTexto={setTextoCompositor}
+            datosUsuario={datosUsuarioFirma || undefined}
+            formatoFirma={formatoFirma}
+            onCambioFormatoFirma={(fmt) => {
+              setFormatoFirma(fmt)
+              // Guardar en perfil
+              if (fmt !== 'sin_firma') {
+                const sb = crearClienteNavegador()
+                sb.auth.getUser().then(({ data: { user } }) => {
+                  if (user) sb.from('perfiles').update({ formato_nombre_remitente: fmt }).eq('id', user.id)
+                })
+              }
+            }}
+          />
+        </div>
+        <div className="flex items-center gap-0.5 pb-2 pr-2 flex-shrink-0">
+          <PopoverProgramar
               onProgramar={async (fechaHora) => {
                 // Programar el texto actual del compositor
                 if (!conversacion || !textoCompositor.trim()) return
@@ -1110,7 +1142,6 @@ export function PanelWhatsApp({
             />
           </div>
         </div>
-      )}
 
     </div>
   )

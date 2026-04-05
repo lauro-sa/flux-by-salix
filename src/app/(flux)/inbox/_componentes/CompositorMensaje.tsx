@@ -13,6 +13,13 @@ import { TextArea } from '@/componentes/ui/TextArea'
 import type { TipoCanal, TipoContenido } from '@/tipos/inbox'
 import { useTraduccion } from '@/lib/i18n'
 import { SelectorRespuestasRapidas } from './SelectorRespuestasRapidas'
+import { Popover } from '@/componentes/ui/Popover'
+import {
+  type FormatoNombreRemitente,
+  FORMATOS_NOMBRE_REMITENTE,
+  generarNombreRemitente,
+} from '@/lib/nombre-remitente'
+import { Check, PenLine, Ban } from 'lucide-react'
 
 /**
  * Compositor de mensajes — barra inferior del chat.
@@ -45,6 +52,12 @@ interface PropiedadesCompositor {
   onEnviarNotaInterna?: (texto: string) => void
   /** Callback cada vez que cambia el texto del compositor (para programar, etc.) */
   onCambioTexto?: (texto: string) => void
+  /** Datos del usuario para la firma (WhatsApp) */
+  datosUsuario?: { nombre: string; apellido: string; sector?: string | null }
+  /** Formato de firma activo — null = sin firma */
+  formatoFirma?: FormatoNombreRemitente | 'sin_firma' | null
+  /** Callback cuando cambia el formato de firma */
+  onCambioFormatoFirma?: (formato: FormatoNombreRemitente | 'sin_firma') => void
 }
 
 export interface DatosMensaje {
@@ -87,6 +100,9 @@ export function CompositorMensaje({
   permitirNotasInternas = false,
   onEnviarNotaInterna,
   onCambioTexto,
+  datosUsuario,
+  formatoFirma,
+  onCambioFormatoFirma,
 }: PropiedadesCompositor) {
   const { t } = useTraduccion()
   const [texto, setTexto] = useState('')
@@ -707,6 +723,73 @@ export function CompositorMensaje({
                   background: esNotaInterna ? 'color-mix(in srgb, var(--insignia-advertencia) 12%, transparent)' : 'transparent',
                 }}
               />
+            )}
+
+            {/* Píldora de firma (solo WhatsApp, cuando hay datos de usuario) */}
+            {tipoCanal === 'whatsapp' && datosUsuario && !esNotaInterna && (
+              <Popover
+                alineacion="inicio"
+                lado="arriba"
+                ancho={280}
+                altoMaximo={400}
+                contenido={
+                  <div className="py-1">
+                    <p className="px-3 py-1.5 text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
+                      Firma del mensaje
+                    </p>
+                    <p className="px-3 pb-2 text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                      El cliente verá esta firma antes de cada mensaje
+                    </p>
+                    {/* Sin firma */}
+                    <button
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors"
+                      style={{ color: formatoFirma === 'sin_firma' ? 'var(--texto-marca)' : 'var(--texto-secundario)' }}
+                      onClick={() => onCambioFormatoFirma?.('sin_firma')}
+                    >
+                      <Ban size={14} className="shrink-0 opacity-60" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium">Sin firma</div>
+                        <div className="text-xxs opacity-60">El mensaje se envía sin encabezado</div>
+                      </div>
+                      {formatoFirma === 'sin_firma' && <Check size={14} className="shrink-0" />}
+                    </button>
+                    {/* Formatos */}
+                    {FORMATOS_NOMBRE_REMITENTE.map((fmt) => {
+                      const preview = datosUsuario ? fmt.ejemplo(datosUsuario) : fmt.valor
+                      const activo = formatoFirma === fmt.valor
+                      return (
+                        <button
+                          key={fmt.valor}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors"
+                          style={{ color: activo ? 'var(--texto-marca)' : 'var(--texto-primario)' }}
+                          onClick={() => onCambioFormatoFirma?.(fmt.valor)}
+                        >
+                          <PenLine size={14} className="shrink-0 opacity-40" />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium">{preview}</div>
+                            <div className="text-xxs opacity-60">{fmt.descripcion}</div>
+                          </div>
+                          {activo && <Check size={14} className="shrink-0" />}
+                        </button>
+                      )
+                    })}
+                  </div>
+                }
+              >
+                <button
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xxs font-medium cursor-pointer transition-colors hover:bg-[var(--superficie-hover)]"
+                  style={{
+                    color: formatoFirma === 'sin_firma' ? 'var(--texto-terciario)' : 'var(--texto-marca)',
+                    background: formatoFirma === 'sin_firma' ? 'transparent' : 'color-mix(in srgb, var(--texto-marca) 8%, transparent)',
+                    border: 'none',
+                  }}
+                >
+                  <PenLine size={10} />
+                  {formatoFirma && formatoFirma !== 'sin_firma' && datosUsuario
+                    ? `*${generarNombreRemitente(formatoFirma, datosUsuario)}:*`
+                    : 'Sin firma'}
+                </button>
+              </Popover>
             )}
 
             {/* Textarea */}
