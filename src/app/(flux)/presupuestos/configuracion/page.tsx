@@ -370,9 +370,21 @@ export default function PaginaConfigPresupuestos() {
             <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => guardarImpuestos(IMPUESTOS_DEFAULT)}>Restablecer</Boton>
           </div>
           <p className="text-base text-texto-terciario mt-1 mb-5">Impuestos disponibles al crear líneas de presupuesto.</p>
-          <div className="space-y-2">
+          <Reorder.Group
+            axis="y"
+            values={impuestos.map(i => i.id)}
+            onReorder={(nuevosIds) => {
+              const mapa = new Map(impuestos.map(i => [i.id, i]))
+              guardarImpuestos(nuevosIds.map(id => mapa.get(id)!).filter(Boolean))
+            }}
+            className="space-y-2"
+          >
             {impuestos.map((imp, idx) => (
-              <div key={imp.id} className="flex items-center gap-3 p-3 bg-superficie-app rounded-lg">
+              <Reorder.Item key={imp.id} value={imp.id}>
+              <div className="flex items-center gap-3 p-3 bg-superficie-app rounded-lg group">
+                <div className="cursor-grab opacity-30 group-hover:opacity-60 transition-opacity shrink-0">
+                  <GripVertical size={14} />
+                </div>
                 <Input
                   variante="plano" value={imp.label}
                   onChange={(e) => { const n = [...impuestos]; n[idx] = { ...imp, label: e.target.value }; setImpuestos(n) }}
@@ -410,11 +422,12 @@ export default function PaginaConfigPresupuestos() {
                 />
                 <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar impuesto" icono={<Trash2 size={14} />} onClick={() => guardarImpuestos(impuestos.filter((_, i) => i !== idx))} className="text-texto-terciario hover:text-estado-error" />
               </div>
+              </Reorder.Item>
             ))}
+          </Reorder.Group>
             <Boton variante="fantasma" tamano="xs" icono={<Plus size={14} />} onClick={() => guardarImpuestos([...impuestos, { id: `imp-${Date.now()}`, label: 'Nuevo impuesto', porcentaje: 0, activo: true }])}>
               Agregar impuesto
             </Boton>
-          </div>
         </div>
       )}
 
@@ -426,9 +439,21 @@ export default function PaginaConfigPresupuestos() {
             <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => guardarMonedas(MONEDAS_DEFAULT, 'ARS')}>Restablecer</Boton>
           </div>
           <p className="text-base text-texto-terciario mt-1 mb-5">Monedas disponibles para presupuestos.</p>
-          <div className="space-y-2">
+          <Reorder.Group
+            axis="y"
+            values={monedas.map(m => m.id)}
+            onReorder={(nuevosIds) => {
+              const mapa = new Map(monedas.map(m => [m.id, m]))
+              guardarMonedas(nuevosIds.map(id => mapa.get(id)!).filter(Boolean))
+            }}
+            className="space-y-2"
+          >
             {monedas.map((mon, idx) => (
-              <div key={mon.id} className="flex items-center gap-3 p-3 bg-superficie-app rounded-lg">
+              <Reorder.Item key={mon.id} value={mon.id}>
+              <div className="flex items-center gap-3 p-3 bg-superficie-app rounded-lg group">
+                <div className="cursor-grab opacity-30 group-hover:opacity-60 transition-opacity shrink-0">
+                  <GripVertical size={14} />
+                </div>
                 <Input value={mon.id}
                   onChange={(e) => { const n = [...monedas]; n[idx] = { ...mon, id: e.target.value.toUpperCase() }; setMonedas(n) }}
                   onBlur={() => guardarMonedas(monedas)}
@@ -460,8 +485,9 @@ export default function PaginaConfigPresupuestos() {
                 />
                 <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar moneda" icono={<Trash2 size={14} />} onClick={() => guardarMonedas(monedas.filter((_, i) => i !== idx))} className="text-texto-terciario hover:text-estado-error" />
               </div>
+              </Reorder.Item>
             ))}
-          </div>
+          </Reorder.Group>
         </div>
       )}
 
