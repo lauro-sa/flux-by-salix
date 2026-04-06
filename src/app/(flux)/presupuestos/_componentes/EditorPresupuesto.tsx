@@ -409,6 +409,8 @@ export default function EditorPresupuesto({
   lineasRef.current = lineas
   const presupuestoIdRef = useRef(idPresupuesto)
   presupuestoIdRef.current = idPresupuesto
+  const presupuestoRef = useRef(presupuesto)
+  presupuestoRef.current = presupuesto
 
   // ─── MODO CREAR: Crear presupuesto ──────────────────────────────────────
 
@@ -915,7 +917,12 @@ export default function EditorPresupuesto({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ forzar: false }),
-          }),
+          }).then(r => r.json()).then(data => {
+            // Actualizar pdf_url en el estado para que esté disponible al enviar
+            if (data.url) {
+              setPresupuesto(prev => prev ? { ...prev, pdf_url: data.url } : null)
+            }
+          }).catch(() => {}),
           fetch(`/api/presupuestos/${idPresupuesto}/portal`, { method: 'POST' })
             .then(r => r.json())
             .then(data => { if (data.url) setUrlPortalReal(data.url) })
@@ -974,8 +981,8 @@ export default function EditorPresupuesto({
           correo_cco: datos.correo_cco.length > 0 ? datos.correo_cco : undefined,
           correo_asunto: datos.asunto, texto: datos.texto, html: htmlFinal,
           adjuntos_ids: datos.adjuntos_ids.length > 0 ? datos.adjuntos_ids : undefined,
-          pdf_url: presupuesto?.pdf_url || undefined,
-          pdf_nombre: presupuesto?.numero ? `${presupuesto.numero}.pdf` : undefined,
+          pdf_url: presupuestoRef.current?.pdf_url || undefined,
+          pdf_nombre: presupuestoRef.current?.numero ? `${presupuestoRef.current.numero}.pdf` : undefined,
           tipo: 'nuevo', programado_para: datos.programado_para,
         }),
       })
@@ -987,7 +994,9 @@ export default function EditorPresupuesto({
     setModalEnviarAbierto(false)
 
     // Función de envío real (se ejecuta cuando termina el countdown o se clickea "Enviar ya")
+    // Usa ref para tener el pdf_url más reciente (puede actualizarse mientras el countdown corre)
     const enviarFn = async () => {
+      const pres = presupuestoRef.current
       await fetch('/api/inbox/correo/enviar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -997,8 +1006,8 @@ export default function EditorPresupuesto({
           correo_cco: datos.correo_cco.length > 0 ? datos.correo_cco : undefined,
           correo_asunto: datos.asunto, texto: datos.texto, html: htmlFinal,
           adjuntos_ids: datos.adjuntos_ids.length > 0 ? datos.adjuntos_ids : undefined,
-          pdf_url: presupuesto?.pdf_url || undefined,
-          pdf_nombre: presupuesto?.numero ? `${presupuesto.numero}.pdf` : undefined,
+          pdf_url: pres?.pdf_url || undefined,
+          pdf_nombre: pres?.numero ? `${pres.numero}.pdf` : undefined,
           tipo: 'nuevo',
         }),
       })
