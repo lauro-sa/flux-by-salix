@@ -31,7 +31,10 @@ export const DATOS_EJEMPLO: Record<string, Record<string, unknown>> = {
   contacto: {
     nombre: 'Juan', apellido: 'García', nombre_completo: 'Juan García',
     correo: 'juan@ejemplo.com', telefono: '+54 11 1234-5678',
-    direccion_completa: 'Av. Corrientes 1234, CABA',
+    calle: 'Av. Corrientes', numero: '1234', piso: '3°A',
+    barrio: 'San Nicolás', ciudad: 'CABA', provincia: 'Buenos Aires',
+    codigo_postal: 'C1043AAZ',
+    direccion_completa: 'Av. Corrientes 1234, 3°A, San Nicolás, CABA, Buenos Aires, C1043AAZ',
   },
   presupuesto: {
     numero: 'P-0001', estado: 'Confirmado', total_con_iva: '$150.000,00',

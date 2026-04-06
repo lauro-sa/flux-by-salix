@@ -325,16 +325,27 @@ export function ModalEditorPlantillaCorreo({
           document.body
         )}
 
-        {/* SelectorVariables del cuerpo (siempre montado para el portal) */}
-        <div className="relative">
-          <SelectorVariables
-            abierto={variablesCuerpoAbierto}
-            onCerrar={() => setVariablesCuerpoAbierto(false)}
-            onSeleccionar={insertarVariableCuerpo}
-            posicion="abajo"
-            contexto={contextoVariables}
-          />
-        </div>
+        {/* SelectorVariables del cuerpo — posicionado cerca del botón flotante {} */}
+        {abierto && typeof window !== 'undefined' && createPortal(
+          <div
+            className="fixed"
+            style={{
+              top: cursorEditorPos ? cursorEditorPos.top - 3 : 0,
+              left: cursorEditorPos ? cursorEditorPos.left + 24 : 0,
+              zIndex: 99999,
+              pointerEvents: variablesCuerpoAbierto ? 'auto' : 'none',
+            }}
+          >
+            <SelectorVariables
+              abierto={variablesCuerpoAbierto}
+              onCerrar={() => setVariablesCuerpoAbierto(false)}
+              onSeleccionar={insertarVariableCuerpo}
+              posicion="abajo"
+              contexto={contextoVariables}
+            />
+          </div>,
+          document.body
+        )}
 
         {/* ═══════════ TAB CÓDIGO (HTML) ═══════════ */}
         {tabActivo === 'codigo' && (
