@@ -130,11 +130,12 @@ function PaginaInbox() {
   }, [])
 
   // Ancho de la lista de conversaciones (redimensionable, persistido)
-  const [anchoLista, setAnchoLista] = useState(() => {
-    if (typeof window === 'undefined') return 340
-    return parseInt(localStorage.getItem('flux_inbox_ancho_lista') || '340')
-  })
+  const [anchoLista, setAnchoLista] = useState(340)
   const redimensionandoRef = useRef(false)
+  useEffect(() => {
+    const guardado = localStorage.getItem('flux_inbox_ancho_lista')
+    if (guardado) setAnchoLista(parseInt(guardado))
+  }, [])
 
   // Layout colapsable del correo (persistido en localStorage)
   const [sidebarCorreoColapsado, setSidebarCorreoColapsado] = useState(() => {
