@@ -1,5 +1,6 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useNavegacion, type Migaja } from '@/hooks/useNavegacion'
@@ -51,7 +52,7 @@ interface PropiedadesMigajas {
   extras?: Migaja[] // Migajas adicionales (ej: nombre de entidad dinámica)
 }
 
-function Migajas({ extras }: PropiedadesMigajas) {
+function MigajasInterno({ extras }: PropiedadesMigajas) {
   const pathname = usePathname()
   const { migajas: migajasBase, volverAtras, puedeVolver, obtenerMigajasParaRuta } = useNavegacion()
 
@@ -135,5 +136,8 @@ function Migajas({ extras }: PropiedadesMigajas) {
     </>
   )
 }
+
+// Renderizar solo en cliente para evitar hydration mismatch con searchParams (desde=/...)
+const Migajas = dynamic(() => Promise.resolve(MigajasInterno), { ssr: false })
 
 export { Migajas }

@@ -190,9 +190,8 @@ function ModalTipoActividad({ abierto, tipo, modulosDisponibles, guardando, onGu
             {COLORES_TIPO.map(preset => {
               const seleccionado = color.toLowerCase() === preset.color.toLowerCase()
               return (
-                <Tooltip contenido={preset.nombre}>
+                <Tooltip key={preset.color} contenido={preset.nombre}>
                 <button
-                  key={preset.color}
                   onClick={() => setColor(preset.color)}
                   className={`relative size-8 rounded-full transition-all duration-150 cursor-pointer hover:scale-110 ${
                     seleccionado ? 'ring-2 ring-offset-2 ring-texto-marca ring-offset-superficie-tarjeta scale-110' : ''

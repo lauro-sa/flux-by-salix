@@ -119,6 +119,7 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
     border-collapse: collapse;
     margin-bottom: 16px;
     font-size: 8.5pt;
+    table-layout: fixed;
   }
   .tabla-lineas thead th {
     background: {color_primario_08};
@@ -127,19 +128,24 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    padding: 7px 8px;
+    padding: 7px 6px;
     border-bottom: 1.5px solid {color_primario_20};
     text-align: left;
+    white-space: nowrap;
   }
   .tabla-lineas thead th.num { text-align: right; }
+  .tabla-lineas thead th.col-desc { white-space: normal; }
   .tabla-lineas tbody td {
-    padding: 6px 8px;
+    padding: 6px 6px;
     border-bottom: 1px solid #e5e7eb;
     vertical-align: top;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
   }
   .tabla-lineas tbody td.num {
     text-align: right;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
   .tabla-lineas tbody tr { page-break-inside: avoid; }
 
@@ -385,13 +391,13 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
 <table class="tabla-lineas">
   <thead>
     <tr>
-      <th>Descripción</th>
-      {{#if col_cantidad}}<th class="num">Cant.</th>{{/if}}
-      {{#if col_unidad}}<th>U. Medida</th>{{/if}}
-      {{#if col_precio_unitario}}<th class="num">Precio unit.</th>{{/if}}
-      {{#if col_descuento}}<th class="num">% Bonif.</th>{{/if}}
-      {{#if col_impuesto}}<th>Impuestos</th>{{/if}}
-      <th class="num">Importe</th>
+      <th class="col-desc">Descripción</th>
+      {{#if col_cantidad}}<th class="num" style="width:8%;">Cant.</th>{{/if}}
+      {{#if col_unidad}}<th style="width:8%;">U. Medida</th>{{/if}}
+      {{#if col_precio_unitario}}<th class="num" style="width:14%;">Precio unit.</th>{{/if}}
+      {{#if col_descuento}}<th class="num" style="width:8%;">% Bonif.</th>{{/if}}
+      {{#if col_impuesto}}<th style="width:10%;">Impuestos</th>{{/if}}
+      <th class="num" style="width:14%;">Importe</th>
     </tr>
   </thead>
   <tbody>

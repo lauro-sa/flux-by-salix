@@ -30,13 +30,21 @@ interface ContactoResultado {
   apellido: string | null
   correo: string | null
   telefono: string | null
+  whatsapp?: string | null
   codigo: string
   tipo_contacto: { clave: string; etiqueta: string } | null
   numero_identificacion: string | null
   condicion_iva: string | null
   datos_fiscales: Record<string, string> | null
-  direcciones: { texto: string | null; es_principal: boolean }[]
+  direcciones: { id?: string; texto: string | null; tipo?: string; es_principal: boolean }[]
   vinculaciones?: { puesto: string | null; vinculado: ContactoHijo }[]
+}
+
+interface DireccionFicha {
+  id?: string
+  texto: string | null
+  tipo?: string
+  es_principal: boolean
 }
 
 interface ContactoSeleccionado {
@@ -45,10 +53,12 @@ interface ContactoSeleccionado {
   apellido: string | null
   correo: string | null
   telefono: string | null
+  whatsapp?: string | null
   tipo_contacto: { clave: string; etiqueta: string } | null
   numero_identificacion: string | null
   condicion_iva: string | null
   direccion: string | null
+  direcciones?: DireccionFicha[]
 }
 
 interface PropiedadesSelectorContacto {
@@ -56,6 +66,8 @@ interface PropiedadesSelectorContacto {
   onChange: (contacto: ContactoResultado | null) => void
   /** Cuando se selecciona un hijo vinculado: padre como cliente, hijo como dirigido a */
   onSeleccionarConDirigidoA?: (padre: ContactoResultado, hijoId: string) => void
+  /** Cuando el usuario cambia la dirección seleccionada */
+  onCambiarDireccion?: (direccionId: string) => void
   soloLectura?: boolean
   error?: boolean
 }
@@ -64,6 +76,7 @@ export default function SelectorContactoPresupuesto({
   contacto,
   onChange,
   onSeleccionarConDirigidoA,
+  onCambiarDireccion,
   soloLectura = false,
   error = false,
 }: PropiedadesSelectorContacto) {
@@ -131,8 +144,26 @@ export default function SelectorContactoPresupuesto({
   const listaVisible = busqueda.trim() ? resultados : recientes
   const tituloLista = busqueda.trim() ? undefined : 'Recientes'
 
+  // Teléfono a mostrar: prioridad WhatsApp > teléfono fijo
+  const telefonoMostrar = contacto?.whatsapp || contacto?.telefono || null
+  const esTelefonoWhatsapp = !!contacto?.whatsapp
+
+  // Direcciones disponibles
+  const direcciones = contacto?.direcciones?.filter(d => d.texto) || []
+  const direccionActual = direcciones.find(d => d.es_principal) || direcciones[0] || null
+
+  // Etiquetas de tipo de dirección
+  const etiquetaTipoDireccion = (tipo?: string) => {
+    const etiquetas: Record<string, string> = { principal: 'Principal', fiscal: 'Fiscal', entrega: 'Entrega', otra: 'Otra' }
+    return tipo ? etiquetas[tipo] || tipo : null
+  }
+
   // Si hay contacto seleccionado, mostrar ficha
   if (contacto) {
+    // Si no hay direcciones pero sí hay contacto.direccion (fallback modo editar)
+    const direccionTexto = direccionActual?.texto || contacto.direccion
+    const direccionTipo = direccionActual ? etiquetaTipoDireccion(direccionActual.tipo) : null
+
     return (
       <div className={`rounded-lg bg-superficie-app/50 px-3 py-3 ${error ? 'ring-2 ring-estado-error/50' : ''}`}>
         <div className="flex items-start justify-between">
@@ -153,10 +184,45 @@ export default function SelectorContactoPresupuesto({
                 {contacto.condicion_iva && ` · ${contacto.condicion_iva.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`}
               </p>
             )}
-            {contacto.direccion && (
+            {direccionTexto && (
+              <div className="flex items-start gap-1.5">
+                <MapPin size={12} className="shrink-0 mt-0.5 text-texto-terciario" />
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-texto-terciario">{direccionTexto}</p>
+                  {direccionTipo && (
+                    <span className="text-xxs px-1.5 py-0.5 rounded bg-superficie-tarjeta border border-borde-sutil text-texto-terciario shrink-0">
+                      {direccionTipo}
+                    </span>
+                  )}
+                  {direcciones.length > 1 && !soloLectura && (
+                    <select
+                      className="text-xxs bg-superficie-tarjeta border border-borde-sutil rounded px-1 py-0.5 text-texto-secundario cursor-pointer outline-none"
+                      value={direccionActual?.id || ''}
+                      onChange={(e) => {
+                        const dir = direcciones.find(d => d.id === e.target.value)
+                        if (dir && onCambiarDireccion) onCambiarDireccion(dir.id || '')
+                      }}
+                    >
+                      {direcciones.map((d, i) => (
+                        <option key={d.id || i} value={d.id || ''}>
+                          {etiquetaTipoDireccion(d.tipo) || `Dirección ${i + 1}`}{d.es_principal ? ' (principal)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              </div>
+            )}
+            {contacto.correo && (
               <p className="text-xs text-texto-terciario flex items-center gap-1.5">
-                <MapPin size={12} className="shrink-0" />
-                {contacto.direccion}
+                <Mail size={12} className="shrink-0" />
+                {contacto.correo}
+              </p>
+            )}
+            {telefonoMostrar && (
+              <p className="text-xs text-texto-terciario flex items-center gap-1.5">
+                <Phone size={12} className="shrink-0" />
+                {telefonoMostrar}
               </p>
             )}
           </div>

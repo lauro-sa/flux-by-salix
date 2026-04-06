@@ -17,12 +17,13 @@ export interface ContactoResumido {
   apellido: string | null
   correo: string | null
   telefono: string | null
+  whatsapp?: string | null
   codigo: string
   tipo_contacto: { clave: string; etiqueta: string } | null
   numero_identificacion: string | null
   datos_fiscales: Record<string, string> | null
   condicion_iva: string | null
-  direcciones: { texto: string | null; es_principal: boolean }[]
+  direcciones: { id?: string; texto: string | null; tipo?: string; calle?: string | null; numero?: string | null; ciudad?: string | null; provincia?: string | null; codigo_postal?: string | null; es_principal: boolean }[]
 }
 
 // Vinculacion de un contacto (persona vinculada a una empresa)

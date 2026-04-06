@@ -9,6 +9,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useToast } from '@/componentes/feedback/Toast'
 import { crearNodoVariable } from '@/componentes/ui/ExtensionVariableChip'
+import { formatearVariable, revertirVariablesEnPlantilla } from '@/lib/variables/resolver'
 import { OPCIONES_DISPONIBLE, DATOS_EJEMPLO } from './constantes'
 import { formatoMoneda, formatoFecha, formatearHtml, compactarHtml } from './utilidades'
 import type { PlantillaRespuesta } from '@/tipos/inbox'
@@ -42,6 +43,7 @@ export function useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar }:
   const [documentoPreview, setDocumentoPreview] = useState<DocumentoResultado | null>(null)
   const [cuotasPreview, setCuotasPreview] = useState<CuotaPreview[]>([])
   const [cargandoContacto, setCargandoContacto] = useState(false)
+  const [datosEmpresaReal, setDatosEmpresaReal] = useState<Record<string, string> | null>(null)
 
   // ─── Variables y editor ───
   const [variablesAsuntoAbierto, setVariablesAsuntoAbierto] = useState(false)
@@ -107,9 +109,9 @@ export function useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar }:
         })(),
       }
     })() : DATOS_EJEMPLO.presupuesto,
-    empresa: DATOS_EJEMPLO.empresa,
+    empresa: datosEmpresaReal || DATOS_EJEMPLO.empresa,
     dirigido_a: DATOS_EJEMPLO.dirigido_a,
-  }), [contactoPreview, documentoPreview, cuotasPreview])
+  }), [contactoPreview, documentoPreview, cuotasPreview, datosEmpresaReal])
 
   // ─── Seleccionar contacto para preview ───
   const seleccionarContactoPreview = useCallback(async (id: string) => {
@@ -189,17 +191,41 @@ export function useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar }:
     }
     setGuardando(false)
     setTabActivo('editar')
-    setHtmlCrudo('')
+    setHtmlCrudo(formatearHtml(plantilla?.contenido_html || plantilla?.contenido || ''))
     setCursorEditorPos(null)
     editorConFoco.current = false
     setEditorListo(false)
     setVariablesCuerpoAbierto(false)
     setUsuariosSeleccionados(plantilla?.usuarios_permitidos || [])
-    fetch('/api/usuarios')
-      .then(r => r.json())
-      .then(data => setUsuariosEmpresa(data.usuarios || []))
-      .catch(() => {})
+    // Cargar usuarios y datos reales de la empresa en paralelo
+    Promise.all([
+      fetch('/api/usuarios').then(r => r.json()).catch(() => ({ usuarios: [] })),
+      fetch('/api/empresas/actualizar').then(r => r.json()).catch(() => ({ empresa: null })),
+    ]).then(([usersData, empData]) => {
+      setUsuariosEmpresa(usersData.usuarios || [])
+      if (empData.empresa) {
+        setDatosEmpresaReal({
+          nombre: empData.empresa.nombre || '',
+          correo_contacto: empData.empresa.correo || '',
+          telefono: empData.empresa.telefono || '',
+        })
+      }
+    })
   }, [abierto, plantilla])
+
+  // ─── Sincronizar contenido al editor TipTap cuando se abre/cambia plantilla ───
+  useEffect(() => {
+    if (!editorListo || !abierto) return
+    const editor = editorRef.current
+    if (!editor) return
+    // Solo inyectar si el contenido actual del editor difiere del estado
+    const htmlActualEditor = editor.getHTML()
+    if (contenidoHtml && htmlActualEditor !== contenidoHtml) {
+      editor.commands.setContent(contenidoHtml)
+    }
+  // Solo al cambiar editorListo (cuando el editor se monta/remonta)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editorListo, abierto])
 
   // ─── Cambiar tab sincronizando HTML ───
   const handleCambiarTab = useCallback((tab: string) => {
@@ -257,7 +283,8 @@ export function useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar }:
     if (match) {
       const [, entidad, campo] = match
       const preview = contextoVariables[entidad]?.[campo]
-      const valorPreview = (preview !== undefined && preview !== null && preview !== '') ? String(preview) : ''
+      const moneda = (contextoVariables?.presupuesto?.moneda || contextoVariables?.empresa?.moneda || 'ARS') as string
+      const valorPreview = (preview !== undefined && preview !== null && preview !== '') ? formatearVariable(entidad, campo, preview, moneda) : ''
       editor.chain().focus().insertContent(crearNodoVariable(entidad, campo, valorPreview)).run()
     } else {
       editor.chain().focus().insertContent(variable).run()
@@ -303,16 +330,20 @@ export function useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar }:
     }
     setGuardando(true)
     try {
-      const textoPlano = contenidoHtml
+      // Revertir valores de preview a variables {{entidad.campo}} antes de guardar
+      const htmlParaGuardar = revertirVariablesEnPlantilla(contenidoHtml, contextoVariables)
+      const asuntoParaGuardar = revertirVariablesEnPlantilla(asunto.trim(), contextoVariables)
+
+      const textoPlano = htmlParaGuardar
         .replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n')
         .replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim()
 
       const datos = {
         nombre: nombre.trim(),
         canal: 'correo' as const,
-        asunto: asunto.trim(),
+        asunto: asuntoParaGuardar,
         contenido: textoPlano,
-        contenido_html: contenidoHtml,
+        contenido_html: htmlParaGuardar,
         modulos,
         disponible_para: visibilidad === 'solo_yo' ? 'usuarios' : visibilidad,
         usuarios_permitidos: visibilidad === 'usuarios' ? usuariosSeleccionados : [],
@@ -342,7 +373,7 @@ export function useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar }:
     } finally {
       setGuardando(false)
     }
-  }, [nombre, asunto, contenidoHtml, modulos, visibilidad, usuariosSeleccionados, esPorDefecto, esEdicion, plantilla, mostrar, onGuardado, onCerrar])
+  }, [nombre, asunto, contenidoHtml, modulos, visibilidad, usuariosSeleccionados, esPorDefecto, esEdicion, plantilla, mostrar, onGuardado, onCerrar, contextoVariables])
 
   // ─── Resolver variables para la vista previa ───
   const resolverPreview = useCallback((texto: string) => {

@@ -59,8 +59,12 @@ function transformarVariables(contenido: string): string {
   // 2. Reemplazar helpers de adelanto/pago: {{formatMoneda documento.adelanto.monto}} etc.
   resultado = resultado.replace(
     /\{\{formatMoneda\s+(\w+)\.(\w+)\.(\w+)\}\}/g,
-    (_, grupo, _sub, _campo) => {
-      if (grupo === 'documento') return '{{presupuesto.monto_adelanto}}'
+    (_, grupo, sub, _campo) => {
+      if (grupo === 'documento') {
+        if (sub === 'adelanto') return '{{presupuesto.monto_adelanto}}'
+        if (sub === 'pagoFinal') return '{{presupuesto.monto_restante}}'
+        return '{{presupuesto.saldo_pendiente}}'
+      }
       return `{{${grupo}}}`
     }
   )

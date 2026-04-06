@@ -89,8 +89,9 @@ export default function PaginaActividades() {
   const [filtroTipo, setFiltroTipo] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('')
   const [filtroPrioridad, setFiltroPrioridad] = useState('')
-  const filtrosRef = useRef({ tipo: '', estado: '', prioridad: '' })
-  filtrosRef.current = { tipo: filtroTipo, estado: filtroEstado, prioridad: filtroPrioridad }
+  const [filtroVista, setFiltroVista] = useState('')
+  const filtrosRef = useRef({ tipo: '', estado: '', prioridad: '', vista: '' })
+  filtrosRef.current = { tipo: filtroTipo, estado: filtroEstado, prioridad: filtroPrioridad, vista: filtroVista }
 
   const busquedaRef = useRef(busqueda)
   busquedaRef.current = busqueda
@@ -138,6 +139,7 @@ export default function PaginaActividades() {
       if (filtrosRef.current.tipo) params.set('tipo', filtrosRef.current.tipo)
       if (filtrosRef.current.estado) params.set('estado', filtrosRef.current.estado)
       if (filtrosRef.current.prioridad) params.set('prioridad', filtrosRef.current.prioridad)
+      if (filtrosRef.current.vista) params.set('vista', filtrosRef.current.vista)
       params.set('pagina', String(p))
       params.set('por_pagina', String(POR_PAGINA))
 
@@ -188,7 +190,7 @@ export default function PaginaActividades() {
     if (pagina === 1) cargarActividades(1)
     else setPagina(1)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroTipo, filtroEstado, filtroPrioridad])
+  }, [filtroTipo, filtroEstado, filtroPrioridad, filtroVista])
 
   // Recargar al cambiar búsqueda (con debounce, reseteando a página 1)
   const montadoRef = useRef(false)
@@ -389,6 +391,7 @@ export default function PaginaActividades() {
         const Icono = tipo ? obtenerIcono(tipo.icono) : null
         const completada = fila.estado_clave === 'completada' || fila.estado_clave === 'cancelada'
         const contacto = (fila.vinculos as Vinculo[])?.find(v => v.tipo === 'contacto')
+        const cantSeguimientos = Array.isArray(fila.seguimientos) ? fila.seguimientos.length : 0
         return (
           <div className="flex items-center gap-2.5 min-w-0">
             {tipo && (
@@ -400,8 +403,13 @@ export default function PaginaActividades() {
               </div>
             )}
             <div className="min-w-0">
-              <p className={`text-sm font-medium truncate ${completada ? 'line-through text-texto-terciario' : 'text-texto-primario'}`}>
+              <p className={`text-sm font-medium truncate flex items-center gap-1.5 ${completada ? 'line-through text-texto-terciario' : 'text-texto-primario'}`}>
                 {fila.titulo}
+                {cantSeguimientos > 0 && (
+                  <span className="inline-flex items-center gap-0.5 text-xxs font-bold text-insignia-advertencia-texto bg-insignia-advertencia-fondo px-1.5 py-0.5 rounded-full shrink-0" title={`${cantSeguimientos} seguimiento${cantSeguimientos > 1 ? 's' : ''}`}>
+                    🔥{cantSeguimientos}
+                  </span>
+                )}
               </p>
               {contacto && (
                 <p className="text-xs text-texto-terciario truncate flex items-center gap-1">
@@ -596,9 +604,14 @@ export default function PaginaActividades() {
           )}
         </div>
 
-        {/* Título */}
-        <p className={`text-sm font-medium mb-1 ${completada ? 'line-through text-texto-terciario' : 'text-texto-primario'}`}>
-          {fila.titulo}
+        {/* Título + badge seguimientos */}
+        <p className={`text-sm font-medium mb-1 flex items-center gap-1.5 ${completada ? 'line-through text-texto-terciario' : 'text-texto-primario'}`}>
+          <span className="truncate">{fila.titulo}</span>
+          {Array.isArray(fila.seguimientos) && fila.seguimientos.length > 0 && (
+            <span className="inline-flex items-center gap-0.5 text-xxs font-bold text-insignia-advertencia-texto bg-insignia-advertencia-fondo px-1.5 py-0.5 rounded-full shrink-0">
+              🔥{fila.seguimientos.length}
+            </span>
+          )}
         </p>
 
         {/* Contacto vinculado */}
@@ -739,8 +752,16 @@ export default function PaginaActividades() {
               { valor: 'alta', etiqueta: 'Alta' },
             ],
           },
+          {
+            id: 'vista', etiqueta: 'Vista', tipo: 'pills' as const,
+            valor: filtroVista, onChange: (v) => setFiltroVista(v as string),
+            opciones: [
+              { valor: 'mias', etiqueta: 'Asignadas a mí' },
+              { valor: 'enviadas', etiqueta: 'Creadas por mí' },
+            ],
+          },
         ]}
-        onLimpiarFiltros={() => { setFiltroTipo(''); setFiltroEstado(''); setFiltroPrioridad('') }}
+        onLimpiarFiltros={() => { setFiltroTipo(''); setFiltroEstado(''); setFiltroPrioridad(''); setFiltroVista('') }}
         opcionesOrden={[
           { etiqueta: 'Más recientes', clave: 'creado_en', direccion: 'desc' },
           { etiqueta: 'Más antiguos', clave: 'creado_en', direccion: 'asc' },

@@ -149,7 +149,10 @@ export default function EditorPresupuesto({
         if (data.moneda_predeterminada) setMoneda(data.moneda_predeterminada)
         if (data.notas_predeterminadas) setNotasHtml(data.notas_predeterminadas)
         if (data.condiciones_predeterminadas) setCondicionesHtml(data.condiciones_predeterminadas)
-        if (data.columnas_lineas_default) setColumnasVisibles(data.columnas_lineas_default as string[])
+        // Preferencia del usuario (localStorage) tiene prioridad sobre config de empresa
+        const columnasGuardadas = (() => { try { const c = localStorage.getItem('flux_columnas_presupuesto'); return c ? JSON.parse(c) : null } catch { return null } })()
+        if (columnasGuardadas?.length) setColumnasVisibles(columnasGuardadas)
+        else if (data.columnas_lineas_default) setColumnasVisibles(data.columnas_lineas_default as string[])
         if (data.dias_vencimiento_predeterminado != null) setDiasVencimiento(data.dias_vencimiento_predeterminado)
         const condiciones = (data.condiciones_pago || []) as CondicionPago[]
         const defecto = condiciones.find(c => c.predeterminado)
@@ -226,11 +229,29 @@ export default function EditorPresupuesto({
       // Notificar título
       onTituloCargado?.(pres.numero || 'Detalle')
 
-      // Cargar vinculaciones del contacto
+      // Cargar datos completos del contacto (whatsapp, direcciones, vinculaciones)
       if (pres.contacto_id) {
         fetch(`/api/contactos/${pres.contacto_id}`)
           .then(r => r.json())
-          .then(data => setVinculaciones(data.vinculaciones || []))
+          .then(data => {
+            setVinculaciones(data.vinculaciones || [])
+            if (data?.id) {
+              setContactoSeleccionado({
+                id: data.id,
+                nombre: data.nombre,
+                apellido: data.apellido,
+                correo: data.correo,
+                telefono: data.telefono,
+                whatsapp: data.whatsapp || null,
+                codigo: data.codigo || '',
+                tipo_contacto: data.tipo_contacto || null,
+                numero_identificacion: data.numero_identificacion || null,
+                datos_fiscales: data.datos_fiscales || null,
+                condicion_iva: data.datos_fiscales?.condicion_iva || null,
+                direcciones: data.direcciones || [],
+              })
+            }
+          })
           .catch(() => {})
       }
       // Cargar datos completos del "dirigido a" si existe
@@ -274,6 +295,7 @@ export default function EditorPresupuesto({
           apellido: data.apellido,
           correo: data.correo,
           telefono: data.telefono,
+          whatsapp: data.whatsapp || null,
           codigo: data.codigo || '',
           tipo_contacto: data.tipo_contacto || null,
           numero_identificacion: data.numero_identificacion || null,
@@ -318,13 +340,14 @@ export default function EditorPresupuesto({
       .then(r => r.json())
       .then(data => {
         const todas = data.plantillas || []
-        const pls = todas.map((p: { id: string; nombre: string; asunto: string; contenido_html: string; canal_id?: string; creado_por?: string }) => ({
+        const pls = todas.map((p: { id: string; nombre: string; asunto: string; contenido_html: string; canal_id?: string; creado_por?: string; disponible_para?: string }) => ({
           id: p.id,
           nombre: p.nombre,
           asunto: p.asunto || '',
           contenido_html: p.contenido_html || '',
           canal_id: p.canal_id || null,
           creado_por: p.creado_por || '',
+          disponible_para: (p.disponible_para || 'todos') as 'todos' | 'roles' | 'usuarios',
         }))
         setPlantillasCorreo(pls)
         // Detectar plantilla predeterminada (tiene _es_por_defecto en variables y modulo presupuestos)
@@ -343,13 +366,14 @@ export default function EditorPresupuesto({
       .then(r => r.json())
       .then(data => {
         const todas = data.plantillas || []
-        const pls = todas.map((p: { id: string; nombre: string; asunto: string; contenido_html: string; canal_id?: string; creado_por?: string }) => ({
+        const pls = todas.map((p: { id: string; nombre: string; asunto: string; contenido_html: string; canal_id?: string; creado_por?: string; disponible_para?: string }) => ({
           id: p.id,
           nombre: p.nombre,
           asunto: p.asunto || '',
           contenido_html: p.contenido_html || '',
           canal_id: p.canal_id || null,
           creado_por: p.creado_por || '',
+          disponible_para: (p.disponible_para || 'todos') as 'todos' | 'roles' | 'usuarios',
         }))
         setPlantillasCorreo(pls)
         const pred = todas.find((p: { variables?: { clave: string }[]; modulos?: string[] }) =>
@@ -476,8 +500,10 @@ export default function EditorPresupuesto({
         onCreado?.(presupuestoCreado.id, presupuestoCreado.numero)
         window.history.replaceState(null, '', `/presupuestos/${presupuestoCreado.id}`)
       } else {
-        const err = await res.json().catch(() => ({}))
-        console.error('Error al crear presupuesto:', res.status, err)
+        const textoError = await res.text().catch(() => '')
+        let err = {}
+        try { err = JSON.parse(textoError) } catch {}
+        console.error('Error al crear presupuesto:', res.status, textoError, err)
         setNumeroPresupuesto(null)
         creandoRef.current = false
         setGuardando(false)
@@ -1023,13 +1049,14 @@ export default function EditorPresupuesto({
           contenido: datos.contenido_html.replace(/<[^>]+>/g, '').trim(),
           contenido_html: datos.contenido_html,
           modulos: ['presupuestos'],
-          disponible_para: 'todos',
+          disponible_para: 'usuarios',
         }),
       })
+      recargarPlantillasCorreo()
     } catch (err) {
       console.error('Error al guardar plantilla:', err)
     }
-  }, [])
+  }, [recargarPlantillasCorreo])
 
   const handleEnviarProforma = () => { /* pendiente: integrar proforma */ }
   const [generandoPdf, setGenerandoPdf] = useState(false)
@@ -1334,10 +1361,12 @@ export default function EditorPresupuesto({
                       apellido: contactoSeleccionado.apellido,
                       correo: contactoSeleccionado.correo,
                       telefono: contactoSeleccionado.telefono,
+                      whatsapp: contactoSeleccionado.whatsapp || null,
                       tipo_contacto: contactoSeleccionado.tipo_contacto,
                       numero_identificacion: contactoSeleccionado.numero_identificacion,
                       condicion_iva: contactoSeleccionado.condicion_iva || null,
                       direccion: contactoSeleccionado.direcciones?.find(d => d.es_principal)?.texto || null,
+                      direcciones: contactoSeleccionado.direcciones || [],
                     } : null}
                     onChange={(c) => {
                       if (c) {
@@ -1366,9 +1395,21 @@ export default function EditorPresupuesto({
                     }}
                   />
                 ) : (
-                  /* Modo editar: usa SelectorContactoPresupuesto con datos del presupuesto */
+                  /* Modo editar: usa datos completos del contacto si están cargados, sino fallback al snapshot */
                   <SelectorContactoPresupuesto
-                    contacto={presupuesto?.contacto_nombre ? {
+                    contacto={contactoSeleccionado ? {
+                      id: contactoSeleccionado.id,
+                      nombre: contactoSeleccionado.nombre,
+                      apellido: contactoSeleccionado.apellido,
+                      correo: contactoSeleccionado.correo,
+                      telefono: contactoSeleccionado.telefono,
+                      whatsapp: contactoSeleccionado.whatsapp || null,
+                      tipo_contacto: contactoSeleccionado.tipo_contacto,
+                      numero_identificacion: contactoSeleccionado.numero_identificacion,
+                      condicion_iva: contactoSeleccionado.condicion_iva || null,
+                      direccion: contactoSeleccionado.direcciones?.find(d => d.es_principal)?.texto || presupuesto?.contacto_direccion || null,
+                      direcciones: contactoSeleccionado.direcciones || [],
+                    } : presupuesto?.contacto_nombre ? {
                       id: presupuesto.contacto_id || '',
                       nombre: presupuesto.contacto_nombre,
                       apellido: presupuesto.contacto_apellido || null,
@@ -1706,7 +1747,7 @@ export default function EditorPresupuesto({
                           formato={null}
                           variante="plano"
                           compacto
-                          className={`${valorAncho} text-right`}
+                          className={`${valorAncho} text-right pl-3`}
                         />
                       ) : (
                         <span className="text-sm text-texto-primario">{referencia || '—'}</span>
@@ -1714,67 +1755,68 @@ export default function EditorPresupuesto({
                     </div>
                   </div>
 
-                  {/* ── Fechas ── */}
-                  <div className="px-3 py-1">
-                    <div className={fila}>
-                      <span className={etiqueta}>Emision</span>
-                      <div className={valorAncho}>
-                        {esEditable ? (
-                          <SelectorFecha
-                            valor={modo === 'editar' ? (presupuesto?.fecha_emision?.split('T')[0] || '') : fechaEmision}
-                            onChange={(v) => {
-                              if (!v) return
-                              if (modo === 'crear') setFechaEmision(v)
-                              autoguardar({ fecha_emision: v })
-                            }}
-                            limpiable={false}
-                          />
-                        ) : (
-                          <span className="text-sm text-texto-primario">
-                            {presupuesto?.fecha_emision ? formatearFecha(presupuesto.fecha_emision) : '—'}
-                          </span>
-                        )}
-                      </div>
+                  {/* ── Fechas (grid único de 3 columnas compartido) ── */}
+                  <div className="px-3 py-1 grid grid-cols-[1fr_2.5rem_auto] items-center gap-x-3">
+                    {/* Fila Emisión */}
+                    <span className={`${etiqueta} py-2.5`}>Emisión</span>
+                    <div className="py-2.5" />
+                    <div className="py-2.5 w-40">
+                      {esEditable ? (
+                        <SelectorFecha
+                          valor={modo === 'editar' ? (presupuesto?.fecha_emision?.split('T')[0] || '') : fechaEmision}
+                          onChange={(v) => {
+                            if (!v) return
+                            if (modo === 'crear') setFechaEmision(v)
+                            autoguardar({ fecha_emision: v })
+                          }}
+                          limpiable={false}
+                        />
+                      ) : (
+                        <span className="text-sm text-texto-primario">
+                          {presupuesto?.fecha_emision ? formatearFecha(presupuesto.fecha_emision) : '—'}
+                        </span>
+                      )}
                     </div>
-                    <div className={fila}>
-                      <span className={etiqueta}>Validez</span>
-                      <div className="flex items-center gap-3">
-                        {esEditable && !bloqueada && (
-                          <Input
-                            tipo="number"
-                            min={1}
-                            value={diasVencimiento}
-                            onChange={(e) => setDiasVencimiento(Math.max(1, parseInt(e.target.value) || 1))}
-                            onBlur={() => autoguardar({ dias_vencimiento: diasVencimiento })}
-                            onFocus={(e) => e.target.select()}
-                            formato={null}
-                            compacto
-                            className="w-14 font-mono text-center"
-                            title="Dias de validez"
-                          />
-                        )}
-                        <div className={valorAncho}>
-                          {esEditable ? (
-                            <SelectorFecha
-                              valor={fechaVenc.toISOString().split('T')[0]}
-                              onChange={(v) => {
-                                if (!v || bloqueada) return
-                                const emision = new Date(fechaEmision + 'T00:00:00')
-                                const venc = new Date(v + 'T00:00:00')
-                                const diff = Math.round((venc.getTime() - emision.getTime()) / (1000 * 60 * 60 * 24))
-                                setDiasVencimiento(Math.max(1, diff))
-                                autoguardar({ dias_vencimiento: Math.max(1, diff) })
-                              }}
-                              limpiable={false}
-                              disabled={bloqueada}
-                            />
-                          ) : (
-                            <span className={`text-sm ${presupuesto?.fecha_vencimiento && new Date(presupuesto.fecha_vencimiento) < new Date() ? 'text-estado-error font-medium' : 'text-texto-primario'}`}>
-                              {presupuesto?.fecha_vencimiento ? formatearFecha(presupuesto.fecha_vencimiento) : '—'}
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                    {/* Fila Validez */}
+                    <span className={`${etiqueta} py-2.5`}>Validez</span>
+                    <div className="py-2.5">
+                      {esEditable && !bloqueada ? (
+                        <Input
+                          tipo="number"
+                          min={1}
+                          value={diasVencimiento}
+                          onChange={(e) => setDiasVencimiento(Math.max(1, parseInt(e.target.value) || 1))}
+                          onBlur={() => autoguardar({ dias_vencimiento: diasVencimiento })}
+                          onFocus={(e) => e.target.select()}
+                          formato={null}
+                          compacto
+                          className="!w-10 font-mono text-center text-xs !px-1 !py-1"
+                          title="Dias de validez"
+                        />
+                      ) : (
+                        <span className="text-xs text-texto-terciario font-mono text-center block">{diasVencimiento}d</span>
+                      )}
+                    </div>
+                    <div className="py-2.5 w-40">
+                      {esEditable ? (
+                        <SelectorFecha
+                          valor={fechaVenc.toISOString().split('T')[0]}
+                          onChange={(v) => {
+                            if (!v || bloqueada) return
+                            const emision = new Date(fechaEmision + 'T00:00:00')
+                            const venc = new Date(v + 'T00:00:00')
+                            const diff = Math.round((venc.getTime() - emision.getTime()) / (1000 * 60 * 60 * 24))
+                            setDiasVencimiento(Math.max(1, diff))
+                            autoguardar({ dias_vencimiento: Math.max(1, diff) })
+                          }}
+                          limpiable={false}
+                          disabled={bloqueada}
+                        />
+                      ) : (
+                        <span className={`text-sm ${presupuesto?.fecha_vencimiento && new Date(presupuesto.fecha_vencimiento) < new Date() ? 'text-estado-error font-medium' : 'text-texto-primario'}`}>
+                          {presupuesto?.fecha_vencimiento ? formatearFecha(presupuesto.fecha_vencimiento) : '—'}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -1877,7 +1919,12 @@ export default function EditorPresupuesto({
             onEditarLinea={editarLinea}
             onEliminarLinea={eliminarLinea}
             onReordenar={reordenarLineas}
-            onCambiarColumnas={(cols) => { setColumnasVisibles(cols); autoguardar({ columnas_lineas: cols }) }}
+            onCambiarColumnas={(cols) => {
+              setColumnasVisibles(cols)
+              autoguardar({ columnas_lineas: cols })
+              // Persistir preferencia del usuario para futuros presupuestos
+              try { localStorage.setItem('flux_columnas_presupuesto', JSON.stringify(cols)) } catch {}
+            }}
           />
         </div>
 
@@ -2102,6 +2149,7 @@ export default function EditorPresupuesto({
               contenido: datos.contenido_html.replace(/<[^>]*>/g, ''),
               contenido_html: datos.contenido_html,
               modulos: ['presupuestos'],
+              disponible_para: datos.paraTodos ? 'todos' : 'usuarios',
             }),
           })
           recargarPlantillasCorreo()
@@ -2120,21 +2168,47 @@ export default function EditorPresupuesto({
             tipo: contactoSeleccionado?.tipo_contacto?.etiqueta || presupuesto?.contacto_tipo || '',
             numero_identificacion: contactoSeleccionado?.numero_identificacion || presupuesto?.contacto_identificacion || '',
             condicion_iva: contactoSeleccionado?.condicion_iva || presupuesto?.contacto_condicion_iva || '',
-            direccion_completa: contactoSeleccionado?.direcciones?.[0]?.texto || presupuesto?.contacto_direccion || '',
+            direccion_completa: contactoSeleccionado?.direcciones?.find(d => d.es_principal)?.texto || contactoSeleccionado?.direcciones?.[0]?.texto || presupuesto?.contacto_direccion || '',
+            calle: (() => { const d = contactoSeleccionado?.direcciones?.find(d => d.es_principal) || contactoSeleccionado?.direcciones?.[0]; return d ? [d.calle, d.numero].filter(Boolean).join(' ') : '' })(),
+            ciudad: (contactoSeleccionado?.direcciones?.find(d => d.es_principal) || contactoSeleccionado?.direcciones?.[0])?.ciudad || '',
+            provincia: (contactoSeleccionado?.direcciones?.find(d => d.es_principal) || contactoSeleccionado?.direcciones?.[0])?.provincia || '',
+            codigo_postal: (contactoSeleccionado?.direcciones?.find(d => d.es_principal) || contactoSeleccionado?.direcciones?.[0])?.codigo_postal || '',
           },
-          presupuesto: {
-            numero: presupuesto?.numero || numeroPresupuesto || '',
-            estado: presupuesto?.estado || 'borrador',
-            moneda: presupuesto?.moneda || moneda,
-            total_neto: presupuesto?.subtotal_neto || '',
-            total_impuestos: presupuesto?.total_impuestos || '',
-            total_con_iva: presupuesto?.total_final || '',
-            fecha_emision: presupuesto?.fecha_emision || fechaEmision,
-            fecha_vencimiento: presupuesto?.fecha_vencimiento || '',
-            referencia: presupuesto?.referencia || referencia,
-            contacto_nombre: contactoSeleccionado?.nombre || presupuesto?.contacto_nombre || '',
-            contacto_correo: contactoSeleccionado?.correo || presupuesto?.contacto_correo || '',
-          },
+          presupuesto: (() => {
+            const totalFinal = totales.total
+            // Calcular adelanto y restante desde hitos de la condición de pago
+            const hitos = condSeleccionada?.tipo === 'hitos' ? condSeleccionada.hitos : []
+            const primerHito = hitos[0]
+            const porcentajeAdelanto = primerHito?.porcentaje || 0
+            const montoAdelanto = totalFinal * porcentajeAdelanto / 100
+            // Monto restante = total - adelanto (lo que falta pagar después del adelanto)
+            const montoRestante = totalFinal - montoAdelanto
+            // Saldo pendiente = total - suma de cuotas cobradas
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const cuotasCobradas = (presupuesto as any)?.cuotas_cobradas
+            const totalPagado = typeof cuotasCobradas === 'number' ? cuotasCobradas : 0
+            const saldoPendiente = totalFinal - totalPagado
+
+            return {
+              numero: presupuesto?.numero || numeroPresupuesto || '',
+              estado: presupuesto?.estado || 'borrador',
+              moneda: presupuesto?.moneda || moneda,
+              total_neto: presupuesto?.subtotal_neto || totales.subtotal,
+              total_impuestos: presupuesto?.total_impuestos || totales.impuestos,
+              total_con_iva: presupuesto?.total_final || totalFinal,
+              condicion_pago_label: presupuesto?.condicion_pago_label || condSeleccionada?.label || '',
+              porcentaje_adelanto: porcentajeAdelanto,
+              monto_adelanto: montoAdelanto,
+              monto_restante: montoRestante,
+              saldo_pendiente: saldoPendiente,
+              pagado: totalPagado,
+              fecha_emision: presupuesto?.fecha_emision || fechaEmision,
+              fecha_vencimiento: presupuesto?.fecha_vencimiento || '',
+              referencia: presupuesto?.referencia || referencia,
+              contacto_nombre: contactoSeleccionado?.nombre || presupuesto?.contacto_nombre || '',
+              contacto_correo: contactoSeleccionado?.correo || presupuesto?.contacto_correo || '',
+            }
+          })(),
           empresa: {
             nombre: datosEmpresa?.nombre || '',
             correo_contacto: datosEmpresa?.correo || '',

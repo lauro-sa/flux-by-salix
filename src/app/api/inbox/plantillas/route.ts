@@ -29,6 +29,9 @@ export async function GET(request: NextRequest) {
       query = query.or(`canal.eq.${canal},canal.eq.todos`)
     }
 
+    // Filtrar por visibilidad: ver plantillas para todos + mis propias plantillas personales
+    query = query.or(`disponible_para.eq.todos,creado_por.eq.${user.id}`)
+
     const { data, error } = await query
     if (error) {
       if (error.code === '42P01' || error.message?.includes('does not exist')) {

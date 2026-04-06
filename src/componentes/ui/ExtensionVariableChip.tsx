@@ -1,26 +1,28 @@
 /**
- * ExtensionVariableChip — Extensión TipTap que renderiza variables como texto con marca inline.
- * Usa un Mark (no un Node atómico), así se puede combinar con bold, italic, color, tamaño, etc.
- * El texto visible es el valor resuelto; la marca guarda la clave de la variable.
- * Usa una clase CSS para el resaltado — NO style inline (para no pisar color/fontSize de otras marcas).
+ * ExtensionVariableChip — Extensión TipTap que renderiza variables como nodos inline atómicos.
+ * Usa un Node inline atom: no se puede editar parcialmente, se borra en bloque al presionar backspace.
+ * El texto visible es el valor preview o la clave de la variable.
+ * Usa una clase CSS para el resaltado.
  * Se usa en: EditorTexto cuando se pasa habilitarVariables.
  */
 
-import { Mark, mergeAttributes } from '@tiptap/core'
+import { Node, mergeAttributes } from '@tiptap/core'
 
-// ─── Mark de variable ───
+// ─── Node atómico de variable ───
 
-export const VariableChip = Mark.create({
+export const VariableChip = Node.create({
   name: 'variableChip',
-  // Prioridad baja para que sea la marca más externa — las demás (bold, color, etc.) quedan dentro
-  priority: 50,
-  // Permitir que todas las demás marcas coexistan dentro
-  excludes: '',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  draggable: true,
 
   addAttributes() {
     return {
       entidad: { default: '' },
       campo: { default: '' },
+      texto: { default: '' },
     }
   },
 
@@ -32,37 +34,55 @@ export const VariableChip = Mark.create({
           const dom = el as HTMLElement
           const clave = dom.getAttribute('data-variable') || ''
           const [entidad, campo] = clave.split('.')
-          return { entidad, campo }
+          return { entidad, campo, texto: dom.textContent || '' }
         },
       },
     ]
   },
 
-  renderHTML({ HTMLAttributes }) {
+  renderHTML({ node, HTMLAttributes }) {
     const clave = `${HTMLAttributes.entidad}.${HTMLAttributes.campo}`
-    // Solo atributos HTML, NO style inline — el estilo va por CSS con la clase
+    const texto = node.attrs.texto || `{{${clave}}}`
     return ['span', mergeAttributes(HTMLAttributes, {
       'data-variable': clave,
       class: 'variable-resaltada',
       title: `{{${clave}}}`,
-    }), 0]
+      contenteditable: 'false',
+    }), texto]
+  },
+
+  addNodeView() {
+    return ({ node, HTMLAttributes }) => {
+      const clave = `${node.attrs.entidad}.${node.attrs.campo}`
+      const texto = node.attrs.texto || `{{${clave}}}`
+
+      const dom = document.createElement('span')
+      dom.setAttribute('data-variable', clave)
+      dom.className = 'variable-resaltada'
+      dom.title = `{{${clave}}}`
+      dom.contentEditable = 'false'
+      dom.textContent = texto
+
+      // Atributos adicionales de TipTap
+      for (const [key, value] of Object.entries(HTMLAttributes)) {
+        if (key !== 'class' && key !== 'contenteditable' && value != null) {
+          dom.setAttribute(key, String(value))
+        }
+      }
+
+      return { dom }
+    }
   },
 })
 
 /**
  * Helper para crear el contenido a insertar en el editor.
- * Inserta texto con la marca variableChip aplicada.
+ * Inserta un nodo atómico variableChip.
  */
 export function crearNodoVariable(entidad: string, campo: string, valorPreview: string) {
   const texto = valorPreview || `{{${entidad}.${campo}}}`
   return {
-    type: 'text',
-    text: texto,
-    marks: [
-      {
-        type: 'variableChip',
-        attrs: { entidad, campo },
-      },
-    ],
+    type: 'variableChip',
+    attrs: { entidad, campo, texto },
   }
 }

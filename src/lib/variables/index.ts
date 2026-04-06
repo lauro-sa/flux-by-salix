@@ -41,4 +41,5 @@ export {
   extraerVariables,
   resolverVariablesDetallado,
   validarVariables,
+  formatearVariable,
 } from './resolver'

@@ -850,6 +850,9 @@ export const actividades = pgTable('actividades', {
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
 
+  // Seguimientos (reclamos/follow-ups del cliente)
+  seguimientos: jsonb('seguimientos').default([]),
+
   // Soft delete
   en_papelera: boolean('en_papelera').notNull().default(false),
   papelera_en: timestamp('papelera_en', { withTimezone: true }),

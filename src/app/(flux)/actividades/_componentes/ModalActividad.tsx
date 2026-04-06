@@ -38,6 +38,14 @@ interface ItemChecklist {
   fecha?: string | null
 }
 
+interface Seguimiento {
+  id: string
+  nota: string
+  registrado_por: string
+  registrado_por_nombre: string
+  fecha: string
+}
+
 interface Actividad {
   id: string
   titulo: string
@@ -52,6 +60,7 @@ interface Actividad {
   asignado_nombre: string | null
   checklist: ItemChecklist[]
   vinculos: Vinculo[]
+  seguimientos?: Seguimiento[]
 }
 
 interface Miembro {
@@ -390,6 +399,19 @@ function ModalActividad({
         {/* ── Checklist (condicional) ── */}
         {tipoSeleccionado?.campo_checklist && (
           <SeccionChecklist checklist={checklist} onChange={setChecklist} />
+        )}
+
+        {/* ── Seguimientos (solo edición) ── */}
+        {esEdicion && (
+          <SeccionSeguimientos
+            seguimientos={(actividad?.seguimientos as Seguimiento[]) || []}
+            actividadId={actividad!.id}
+            onActualizar={(nuevos) => {
+              if (actividad) {
+                (actividad as Actividad).seguimientos = nuevos
+              }
+            }}
+          />
         )}
       </div>
     </Modal>
@@ -793,5 +815,103 @@ function SeccionChecklist({ checklist, onChange }: { checklist: ItemChecklist[];
   )
 }
 
+/* ── Sección de seguimientos ── */
+function SeccionSeguimientos({
+  seguimientos,
+  actividadId,
+  onActualizar,
+}: {
+  seguimientos: Seguimiento[]
+  actividadId: string
+  onActualizar: (nuevos: Seguimiento[]) => void
+}) {
+  const [nota, setNota] = useState('')
+  const [guardando, setGuardando] = useState(false)
+  const [lista, setLista] = useState<Seguimiento[]>(seguimientos)
+  const [abierto, setAbierto] = useState(false)
+
+  const registrar = async () => {
+    if (!nota.trim()) return
+    setGuardando(true)
+    try {
+      const res = await fetch(`/api/actividades/${actividadId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'registrar_seguimiento', nota: nota.trim() }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const nuevos = Array.isArray(data.seguimientos) ? data.seguimientos : []
+        setLista(nuevos)
+        onActualizar(nuevos)
+        setNota('')
+      }
+    } finally { setGuardando(false) }
+  }
+
+  return (
+    <div className="border-t border-borde-sutil pt-3 mt-1">
+      <button
+        onClick={() => setAbierto(!abierto)}
+        className="flex items-center gap-2 text-sm font-medium text-texto-secundario bg-transparent border-none cursor-pointer hover:text-texto-primario transition-colors p-0 w-full"
+      >
+        <span className="flex items-center gap-1.5">
+          🔥 Seguimientos
+          {lista.length > 0 && (
+            <span className="text-xs font-bold text-insignia-advertencia-texto bg-insignia-advertencia-fondo px-1.5 py-0.5 rounded-full">
+              {lista.length}
+            </span>
+          )}
+        </span>
+        <ChevronDown size={14} className={`transition-transform ${abierto ? 'rotate-180' : ''}`} />
+      </button>
+
+      {abierto && (
+        <div className="mt-2 space-y-2">
+          {/* Timeline de seguimientos */}
+          {lista.length > 0 && (
+            <div className="space-y-1.5 max-h-[160px] overflow-y-auto">
+              {[...lista].reverse().map((s) => (
+                <div key={s.id} className="flex gap-2 text-xs py-1.5 px-2 rounded-lg bg-superficie-tarjeta">
+                  <div className="shrink-0 mt-0.5">
+                    <div className="size-5 rounded-full bg-insignia-advertencia-fondo flex items-center justify-center text-insignia-advertencia-texto text-xxs font-bold">
+                      {s.registrado_por_nombre?.charAt(0)?.toUpperCase() || '?'}
+                    </div>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-texto-primario">{s.nota}</p>
+                    <p className="text-texto-terciario mt-0.5">
+                      {s.registrado_por_nombre} · {new Date(s.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Input para nuevo seguimiento */}
+          <div className="flex gap-2">
+            <input
+              value={nota}
+              onChange={(e) => setNota(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); registrar() } }}
+              placeholder="Ej: El cliente llamó preguntando..."
+              className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-borde-fuerte bg-superficie-tarjeta text-texto-primario placeholder:text-texto-terciario/50 outline-none focus:border-texto-marca transition-colors"
+            />
+            <Boton
+              tamano="xs"
+              onClick={registrar}
+              cargando={guardando}
+              disabled={!nota.trim()}
+            >
+              Registrar
+            </Boton>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export { ModalActividad }
-export type { Actividad, Vinculo, ItemChecklist, Miembro }
+export type { Actividad, Miembro, Vinculo, Seguimiento, ItemChecklist }

@@ -88,6 +88,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 4. Actividades vencidas hace más de 1 día que siguen sin completar (recordatorio recurrente)
+    const { data: vencidasPendientes } = await admin
+      .from('actividades')
+      .select('id, titulo, empresa_id, asignado_a, creado_por, fecha_vencimiento')
+      .lt('fecha_vencimiento', ayerInicio.toISOString())
+      .in('estado_clave', ['pendiente', 'vencida'])
+      .eq('en_papelera', false)
+
     // Generar notificaciones
     const notificaciones: Parameters<typeof crearNotificacionesBatch>[0] = []
 
@@ -118,7 +126,7 @@ export async function GET(request: NextRequest) {
           empresaId: act.empresa_id,
           usuarioId: destinatario,
           tipo: 'actividad_vencida',
-          titulo: '🚨 Vencida',
+          titulo: '🚨 Venció ayer',
           cuerpo: `Actividad · ${act.titulo}`,
           icono: 'AlertCircle',
           color: '#e5484d',
@@ -129,12 +137,32 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Recordatorio recurrente de vencidas (más de 1 día)
+    for (const act of vencidasPendientes || []) {
+      const destinatario = act.asignado_a || act.creado_por
+      if (!destinatario) continue
+      const diasVencida = Math.floor((hoyInicio.getTime() - new Date(act.fecha_vencimiento).getTime()) / 86400000)
+      notificaciones.push({
+        empresaId: act.empresa_id,
+        usuarioId: destinatario,
+        tipo: 'actividad_vencida',
+        titulo: `🚨 Vencida hace ${diasVencida} día${diasVencida > 1 ? 's' : ''}`,
+        cuerpo: `Actividad · ${act.titulo}`,
+        icono: 'AlertCircle',
+        color: '#e5484d',
+        url: '/actividades',
+        referenciaTipo: 'actividad',
+        referenciaId: act.id,
+      })
+    }
+
     // Insertar notificaciones en batch
     await crearNotificacionesBatch(notificaciones)
 
     return NextResponse.json({
       vencen_hoy: (vencenHoy || []).length,
       vencieron_ayer: (vencieronAyer || []).length,
+      vencidas_recordatorio: (vencidasPendientes || []).length,
       marcadas_vencida: marcadas,
       notificaciones_enviadas: notificaciones.length,
       timestamp: ahora.toISOString(),

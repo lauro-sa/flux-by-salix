@@ -8,6 +8,7 @@
 
 import { useRef, useCallback } from 'react'
 import { X } from 'lucide-react'
+import { formatearVariable } from '@/lib/variables/resolver'
 import { Input } from '@/componentes/ui/Input'
 
 // ─── Parser de segmentos ───
@@ -102,7 +103,8 @@ export function InputAsuntoVariables({
           return <span key={i}>{seg.valor}</span>
         }
         const preview = contexto?.[seg.entidad]?.[seg.campo]
-        const valorPreview = (preview !== undefined && preview !== null && preview !== '') ? String(preview) : null
+        const moneda = (contexto?.presupuesto?.moneda || contexto?.empresa?.moneda || 'ARS') as string
+        const valorPreview = (preview !== undefined && preview !== null && preview !== '') ? formatearVariable(seg.entidad, seg.campo, preview, moneda) : null
         return (
           <span
             key={i}

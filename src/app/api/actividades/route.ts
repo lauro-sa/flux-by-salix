@@ -129,16 +129,20 @@ export async function GET(request: NextRequest) {
 
     const { data, count, error } = await query
 
-    // Segundo criterio: dentro de la misma fecha, alta primero
+    // Segundo criterio: dentro de la misma fecha → más seguimientos primero → alta primero
     const PESO_PRIORIDAD: Record<string, number> = { alta: 0, normal: 1, baja: 2 }
     if (data && orden_campo === 'fecha_vencimiento') {
       data.sort((a, b) => {
-        // Primero por fecha (ya viene ordenado del query, preservar)
+        // Primero por fecha
         const fA = a.fecha_vencimiento || ''
         const fB = b.fecha_vencimiento || ''
         const cmpFecha = orden_dir ? fA.localeCompare(fB) : fB.localeCompare(fA)
         if (cmpFecha !== 0) return cmpFecha
-        // Misma fecha: alta primero
+        // Misma fecha: más seguimientos primero
+        const segA = Array.isArray(a.seguimientos) ? a.seguimientos.length : 0
+        const segB = Array.isArray(b.seguimientos) ? b.seguimientos.length : 0
+        if (segA !== segB) return segB - segA
+        // Mismos seguimientos: alta primero
         return (PESO_PRIORIDAD[a.prioridad] ?? 1) - (PESO_PRIORIDAD[b.prioridad] ?? 1)
       })
     }

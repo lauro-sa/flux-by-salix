@@ -129,7 +129,7 @@ export interface PropiedadesModalEnviarDocumento {
   /** Guardar cambios del asunto+html actual sobre la plantilla seleccionada */
   onGuardarCambiosPlantilla?: (id: string, datos: { asunto: string; contenido_html: string }) => Promise<void>
   /** Guardar el contenido actual como nueva plantilla */
-  onCrearPlantilla?: (nombre: string, datos: { asunto: string; contenido_html: string }) => Promise<void>
+  onCrearPlantilla?: (nombre: string, datos: { asunto: string; contenido_html: string; paraTodos?: boolean }) => Promise<void>
   /** Eliminar una plantilla */
   onEliminarPlantilla?: (id: string) => Promise<void>
 }

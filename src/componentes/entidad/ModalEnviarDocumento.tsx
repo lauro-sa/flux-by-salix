@@ -10,17 +10,17 @@
  * y renderiza sub-componentes extraídos en _enviar_documento/.
  */
 
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
 import { Checkbox } from '@/componentes/ui/Checkbox'
-import { Input } from '@/componentes/ui/Input'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import {
   Send, X, Paperclip, FileText, Loader2,
-  ChevronDown, Link2, Upload,
-  SendHorizonal, Braces, BookmarkPlus, Save,
+  ChevronDown, Link2, Upload, Maximize2, Minimize2,
+  SendHorizonal, Braces, Save, Check, BookmarkPlus,
 } from 'lucide-react'
 import { SelectorVariables } from '@/componentes/ui/SelectorVariables'
 import { Tooltip } from '@/componentes/ui/Tooltip'
@@ -75,6 +75,8 @@ export function ModalEnviarDocumento({
   onCrearPlantilla,
   onEliminarPlantilla,
 }: PropiedadesModalEnviarDocumento) {
+  const [expandido, setExpandido] = useState(false)
+
   const estado = useEnvioDocumento({
     abierto,
     canales,
@@ -93,11 +95,17 @@ export function ModalEnviarDocumento({
     onGuardarPlantilla,
   })
 
+  // Detectar si hay cambios respecto a la plantilla cargada
+  const tieneModificaciones = !!(estado.plantillaId && (
+    estado.asunto !== estado.plantillaAsuntoOriginal ||
+    estado.html !== estado.plantillaHtmlOriginal
+  ))
+
   return (
-    <Modal abierto={abierto} onCerrar={onCerrar} tamano="3xl" sinPadding>
+    <Modal abierto={abierto} onCerrar={onCerrar} tamano="3xl" sinPadding expandido={expandido}>
       <div
         ref={estado.dropRef}
-        className="flex flex-col h-full max-h-[80vh] relative"
+        className="flex flex-col flex-1 min-h-0 relative"
         onDragOver={estado.handleDragOver}
         onDragLeave={estado.handleDragLeave}
         onDrop={estado.handleDrop}
@@ -125,7 +133,17 @@ export function ModalEnviarDocumento({
             <h2 className="text-lg font-semibold" style={{ color: 'var(--texto-primario)' }}>
               Enviar documento
             </h2>
-            <Boton variante="fantasma" tamano="sm" soloIcono titulo="Cerrar" icono={<X size={18} />} onClick={onCerrar} />
+            <div className="flex items-center gap-1">
+              <Boton
+                variante="fantasma"
+                tamano="sm"
+                soloIcono
+                titulo={expandido ? 'Minimizar' : 'Pantalla completa'}
+                icono={expandido ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+                onClick={() => setExpandido(!expandido)}
+              />
+              <Boton variante="fantasma" tamano="sm" soloIcono titulo="Cerrar" icono={<X size={18} />} onClick={onCerrar} />
+            </div>
           </div>
 
           {/* Campos del correo */}
@@ -294,13 +312,15 @@ export function ModalEnviarDocumento({
               onSeleccionar={estado.aplicarPlantilla}
               onLimpiar={estado.limpiarPlantilla}
               onGuardarCambios={onGuardarCambiosPlantilla ? async (id) => {
-                await onGuardarCambiosPlantilla(id, { asunto: estado.asunto, contenido_html: estado.html })
+                await onGuardarCambiosPlantilla(id, { asunto: estado.revertirVariables(estado.asunto), contenido_html: estado.revertirVariables(estado.html) })
+                estado.marcarPlantillaSincronizada()
               } : undefined}
-              onGuardarComo={onCrearPlantilla ? async (nombre) => {
-                await onCrearPlantilla(nombre, { asunto: estado.asunto, contenido_html: estado.html })
+              onGuardarComo={onCrearPlantilla ? async (nombre, paraTodos) => {
+                await onCrearPlantilla(nombre, { asunto: estado.revertirVariables(estado.asunto), contenido_html: estado.revertirVariables(estado.html), paraTodos })
               } : undefined}
               onEliminar={onEliminarPlantilla}
               onTogglePredeterminada={onCambiarPredeterminada}
+              tieneModificaciones={tieneModificaciones}
             />
             {estado.canalActivo && (
               <span className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
@@ -311,12 +331,12 @@ export function ModalEnviarDocumento({
         </div>
 
         {/* ══════════ CUERPO CON SCROLL ══════════ */}
-        <div className="flex-1 overflow-y-auto px-6 py-4" style={{ minHeight: 200 }}>
+        <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
           <EditorTexto
             contenido={snapshotRestaurar ? snapshotRestaurar.html : htmlInicial}
             onChange={estado.setHtml}
             placeholder="Escribí tu mensaje..."
-            alturaMinima={280}
+            alturaMinima={200}
             autoEnfocar
             habilitarVariables
             onEditorListo={estado.handleEditorListo}
@@ -368,22 +388,34 @@ export function ModalEnviarDocumento({
 
           {/* Fila de adjuntos — chips compactos en línea */}
           <div className="flex items-center gap-2 px-6 py-2.5 flex-wrap">
-            {/* PDF chip */}
-            {adjuntoDocumento && estado.incluirPdf && (
-              <span
-                className="inline-flex items-center gap-1.5 pl-2 pr-1 py-1 rounded-md text-xs"
-                style={{ background: 'var(--superficie-hover)', color: 'var(--texto-secundario)' }}
-              >
-                <FileText size={13} style={{ color: 'var(--insignia-peligro)' }} />
-                <span className="max-w-[160px] truncate">{adjuntoDocumento.nombre_archivo}</span>
+            {/* PDF chip — toggle incluir/quitar */}
+            {adjuntoDocumento && (
+              estado.incluirPdf ? (
+                <span
+                  className="inline-flex items-center gap-1.5 pl-2 pr-1 py-1 rounded-md text-xs"
+                  style={{ background: 'var(--superficie-hover)', color: 'var(--texto-secundario)' }}
+                >
+                  <FileText size={13} style={{ color: 'var(--insignia-peligro)' }} />
+                  <span className="max-w-[160px] truncate">{adjuntoDocumento.nombre_archivo}</span>
+                  <button
+                    onClick={() => estado.setIncluirPdf(false)}
+                    className="p-0.5 rounded hover:bg-[var(--superficie-activa)] transition-colors"
+                    type="button"
+                  >
+                    <X size={11} style={{ color: 'var(--texto-terciario)' }} />
+                  </button>
+                </span>
+              ) : (
                 <button
-                  onClick={() => estado.setIncluirPdf(false)}
-                  className="p-0.5 rounded hover:bg-[var(--superficie-activa)] transition-colors"
+                  onClick={() => estado.setIncluirPdf(true)}
+                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors hover:bg-[var(--superficie-hover)]"
+                  style={{ color: 'var(--texto-terciario)', border: '1px dashed var(--borde-sutil)' }}
                   type="button"
                 >
-                  <X size={11} style={{ color: 'var(--texto-terciario)' }} />
+                  <FileText size={13} />
+                  <span>Incluir PDF</span>
                 </button>
-              </span>
+              )
             )}
 
             {/* Adjuntos extra como chips */}
@@ -439,7 +471,7 @@ export function ModalEnviarDocumento({
 
           {/* Botones de acción */}
           <div
-            className="flex items-center justify-between px-6 py-3"
+            className="flex items-center justify-between px-6 py-4"
             style={{ borderTop: '1px solid var(--borde-sutil)' }}
           >
             {/* Izquierda: Enviar + Descartar */}
@@ -459,7 +491,7 @@ export function ModalEnviarDocumento({
               </Boton>
             </div>
 
-            {/* Derecha: iconos de programar + borrador + plantilla */}
+            {/* Derecha: programar + guardar plantilla */}
             <div className="flex items-center gap-1 relative">
               {/* Popover de programación */}
               <PopoverProgramar
@@ -469,47 +501,30 @@ export function ModalEnviarDocumento({
                 disabled={!estado.puedeEnviar}
               />
               <Boton variante="fantasma" tamano="sm" soloIcono icono={<SendHorizonal size={18} />} onClick={() => estado.setMostrarProgramar(!estado.mostrarProgramar)} titulo="Programar envío" />
-              {onGuardarBorrador && (
-                <Boton variante="fantasma" tamano="sm" soloIcono icono={<Save size={18} />} onClick={estado.handleGuardarBorrador} titulo="Guardar como borrador" />
-              )}
-              {onGuardarPlantilla && (
-                <div className="relative">
-                  <Boton variante="fantasma" tamano="sm" soloIcono icono={<BookmarkPlus size={18} />} onClick={() => estado.setMostrarGuardarPlantilla(!estado.mostrarGuardarPlantilla)} titulo="Guardar como plantilla" />
-                  {/* Popover para nombre de plantilla */}
-                  <AnimatePresence>
-                    {estado.mostrarGuardarPlantilla && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                        transition={{ duration: 0.15 }}
-                        className="absolute bottom-full right-0 mb-2 w-[280px] max-w-[calc(100vw-2rem)] rounded-xl shadow-elevada p-4 z-50 space-y-3"
-                        style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)' }}
-                      >
-                        <span className="text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
-                          Guardar como plantilla
-                        </span>
-                        <Input
-                          value={estado.nombrePlantilla}
-                          onChange={(e) => estado.setNombrePlantilla(e.target.value)}
-                          placeholder="Nombre de la plantilla"
-                          formato={null}
-                          compacto
-                          autoFocus
-                          onKeyDown={(e) => { if (e.key === 'Enter') estado.handleGuardarPlantilla() }}
-                        />
-                        <div className="flex justify-end gap-2">
-                          <Boton variante="fantasma" tamano="xs" onClick={() => { estado.setMostrarGuardarPlantilla(false); estado.setNombrePlantilla('') }}>
-                            Cancelar
-                          </Boton>
-                          <Boton variante="primario" tamano="xs" disabled={!estado.nombrePlantilla.trim()} onClick={estado.handleGuardarPlantilla}>
-                            Guardar
-                          </Boton>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+
+              {/* Guardar plantilla — amarillo cuando hay cambios, normal si no */}
+              {onGuardarCambiosPlantilla && (
+                <Tooltip contenido={
+                  tieneModificaciones ? 'Guardar cambios en la plantilla'
+                    : estado.plantillaId ? 'Plantilla sin cambios'
+                    : 'Seleccioná una plantilla primero'
+                }>
+                  <button
+                    onClick={async () => {
+                      if (!tieneModificaciones || !estado.plantillaId) return
+                      await onGuardarCambiosPlantilla(estado.plantillaId, { asunto: estado.revertirVariables(estado.asunto), contenido_html: estado.revertirVariables(estado.html) })
+                      estado.marcarPlantillaSincronizada()
+                    }}
+                    disabled={!tieneModificaciones}
+                    className="size-8 flex items-center justify-center rounded-lg transition-all"
+                    style={{
+                      color: tieneModificaciones ? 'var(--insignia-advertencia)' : 'var(--texto-terciario)',
+                      opacity: tieneModificaciones ? 1 : 0.35,
+                    }}
+                  >
+                    <BookmarkPlus size={18} />
+                  </button>
+                </Tooltip>
               )}
             </div>
           </div>

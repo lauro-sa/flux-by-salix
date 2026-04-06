@@ -9,6 +9,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { crearNodoVariable } from '@/componentes/ui/ExtensionVariableChip'
+import { resolverVariables as resolverVariablesLib, formatearVariable, revertirVariablesEnPlantilla } from '@/lib/variables/resolver'
 import type {
   CanalCorreoEmpresa,
   PlantillaCorreo,
@@ -144,13 +145,30 @@ export function useEnvioDocumento({
   const canalActivo = canales.find(c => c.id === canalId) || canales[0]
 
   // ─── Resolver variables {{entidad.campo}} con datos reales del contexto ───
+  // Usa el resolver oficial que formatea moneda, fechas, porcentajes, etc.
+  // También actualiza spans de variable existentes (<span data-variable="...">valorViejo</span>)
   const resolverVariables = useCallback((texto: string): string => {
     if (!contextoVariables || !texto) return texto
-    return texto.replace(/\{\{(\w+)\.(\w+)\}\}/g, (_match, entidad: string, campo: string) => {
-      const valor = contextoVariables[entidad]?.[campo]
-      return (valor !== undefined && valor !== null && valor !== '') ? String(valor) : ''
-    })
+    // 1. Resolver {{entidad.campo}} → valor formateado
+    let resultado = resolverVariablesLib(texto, contextoVariables)
+    // 2. Actualizar spans de variable con valores frescos del contexto
+    const moneda = (contextoVariables.presupuesto?.moneda || contextoVariables.empresa?.moneda || 'ARS') as string
+    resultado = resultado.replace(
+      /<span[^>]*data-variable="([a-z_]+)\.([a-z_]+)"[^>]*>[^<]*<\/span>/g,
+      (_match, entidad: string, campo: string) => {
+        const valor = contextoVariables[entidad]?.[campo]
+        const formateado = (valor !== undefined && valor !== null && valor !== '')
+          ? formatearVariable(entidad, campo, valor, moneda)
+          : `{{${entidad}.${campo}}}`
+        return `<span data-variable="${entidad}.${campo}" class="variable-resaltada" title="{{${entidad}.${campo}}}" contenteditable="false">${formateado}</span>`
+      }
+    )
+    return resultado
   }, [contextoVariables])
+
+  // ─── Snapshot del contenido resuelto al aplicar plantilla (para detectar cambios) ───
+  const [plantillaAsuntoOriginal, setPlantillaAsuntoOriginal] = useState('')
+  const [plantillaHtmlOriginal, setPlantillaHtmlOriginal] = useState('')
 
   // ─── Auto-aplicar plantilla predeterminada al abrir ───
   const predeterminadaAplicadaRef = useRef(false)
@@ -162,37 +180,43 @@ export function useEnvioDocumento({
     if (!pl) return
     predeterminadaAplicadaRef.current = true
     setPlantillaId(pl.id)
-    if (pl.asunto) setAsunto(resolverVariables(pl.asunto))
-    if (pl.contenido_html) {
-      const htmlResuelto = resolverVariables(pl.contenido_html)
-      setHtml(htmlResuelto)
-      const editor = editorRef.current
-      if (editor) editor.commands.setContent(htmlResuelto)
-    }
+    const asuntoResuelto = pl.asunto ? resolverVariables(pl.asunto) : ''
+    const htmlResuelto = pl.contenido_html ? resolverVariables(pl.contenido_html) : ''
+    setAsunto(asuntoResuelto || asuntoPredeterminado)
+    const htmlFinal = htmlResuelto || ''
+    setHtml(htmlFinal)
+    const editor = editorRef.current
+    if (editor) editor.commands.setContent(htmlFinal)
+    setPlantillaAsuntoOriginal(asuntoResuelto || asuntoPredeterminado)
+    setPlantillaHtmlOriginal(htmlFinal)
     if (pl.canal_id) setCanalId(pl.canal_id)
-  }, [abierto, editorListo, plantillaPredeterminadaId, plantillas, snapshotRestaurar, resolverVariables])
+  }, [abierto, editorListo, plantillaPredeterminadaId, plantillas, snapshotRestaurar, resolverVariables, asuntoPredeterminado])
 
   // ─── Aplicar plantilla ───
   const aplicarPlantilla = useCallback((id: string) => {
     setPlantillaId(id)
     const pl = plantillas.find(p => p.id === id)
     if (pl) {
-      if (pl.asunto) setAsunto(resolverVariables(pl.asunto))
-      if (pl.contenido_html) {
-        const htmlResuelto = resolverVariables(pl.contenido_html)
-        setHtml(htmlResuelto)
-        const editor = editorRef.current
-        if (editor) editor.commands.setContent(htmlResuelto)
-      }
+      const asuntoResuelto = pl.asunto ? resolverVariables(pl.asunto) : ''
+      const htmlResuelto = pl.contenido_html ? resolverVariables(pl.contenido_html) : ''
+      setAsunto(asuntoResuelto || asuntoPredeterminado)
+      const htmlFinal = htmlResuelto || ''
+      setHtml(htmlFinal)
+      const editor = editorRef.current
+      if (editor) editor.commands.setContent(htmlFinal)
+      setPlantillaAsuntoOriginal(asuntoResuelto || asuntoPredeterminado)
+      setPlantillaHtmlOriginal(htmlFinal)
       if (pl.canal_id) setCanalId(pl.canal_id)
     }
-  }, [plantillas, resolverVariables])
+  }, [plantillas, resolverVariables, asuntoPredeterminado])
 
   // ─── Limpiar plantilla ───
   const limpiarPlantilla = useCallback(() => {
     setPlantillaId('')
     setAsunto(asuntoPredeterminado)
     setHtml(htmlInicial)
+    setPlantillaAsuntoOriginal('')
+    setPlantillaHtmlOriginal('')
     const editor = editorRef.current
     if (editor) editor.commands.setContent(htmlInicial)
   }, [asuntoPredeterminado, htmlInicial])
@@ -224,7 +248,8 @@ export function useEnvioDocumento({
     if (match) {
       const [, entidad, campo] = match
       const preview = contextoVariables?.[entidad]?.[campo]
-      const valorPreview = (preview !== undefined && preview !== null && preview !== '') ? String(preview) : ''
+      const moneda = (contextoVariables?.presupuesto?.moneda || contextoVariables?.empresa?.moneda || 'ARS') as string
+      const valorPreview = (preview !== undefined && preview !== null && preview !== '') ? formatearVariable(entidad, campo, preview, moneda) : ''
       editor.chain().focus().insertContent(crearNodoVariable(entidad, campo, valorPreview)).run()
     } else {
       editor.chain().focus().insertContent(variable).run()
@@ -247,18 +272,39 @@ export function useEnvioDocumento({
     })
   }, [onGuardarBorrador, canalId, para, cc, cco, asunto, html, adjuntos, incluirEnlacePortal])
 
+  // ─── Revertir valores resueltos a variables {{entidad.campo}} para guardar plantillas ───
+  const revertirVariables = useCallback((texto: string): string => {
+    return revertirVariablesEnPlantilla(texto, contextoVariables || {})
+  }, [contextoVariables])
+
   // ─── Guardar como plantilla ───
-  const handleGuardarPlantilla = useCallback(() => {
-    if (!onGuardarPlantilla || !nombrePlantilla.trim()) return
-    onGuardarPlantilla({
-      nombre: nombrePlantilla.trim(),
-      asunto,
-      contenido_html: html,
-      canal_id: canalId,
-    })
-    setMostrarGuardarPlantilla(false)
-    setNombrePlantilla('')
-  }, [onGuardarPlantilla, nombrePlantilla, asunto, html, canalId])
+  const [guardandoPlantilla, setGuardandoPlantilla] = useState(false)
+  const [plantillaGuardadaOk, setPlantillaGuardadaOk] = useState(false)
+  const handleGuardarPlantilla = useCallback(async () => {
+    if (!onGuardarPlantilla || !nombrePlantilla.trim() || guardandoPlantilla) return
+    setGuardandoPlantilla(true)
+    try {
+      // Revertir valores resueltos a variables antes de guardar
+      const asuntoConVariables = revertirVariables(asunto)
+      const htmlConVariables = revertirVariables(html)
+      await onGuardarPlantilla({
+        nombre: nombrePlantilla.trim(),
+        asunto: asuntoConVariables,
+        contenido_html: htmlConVariables,
+        canal_id: canalId,
+      })
+      setPlantillaGuardadaOk(true)
+      setTimeout(() => {
+        setMostrarGuardarPlantilla(false)
+        setNombrePlantilla('')
+        setPlantillaGuardadaOk(false)
+      }, 1200)
+    } catch {
+      /* error se maneja en el padre */
+    } finally {
+      setGuardandoPlantilla(false)
+    }
+  }, [onGuardarPlantilla, nombrePlantilla, asunto, html, canalId, guardandoPlantilla])
 
   // ─── Subir archivos ───
   const subirArchivos = useCallback(async (archivos: File[]) => {
@@ -443,11 +489,20 @@ export function useEnvioDocumento({
     // Plantillas
     aplicarPlantilla,
     limpiarPlantilla,
+    revertirVariables,
+    plantillaAsuntoOriginal,
+    plantillaHtmlOriginal,
+    marcarPlantillaSincronizada: useCallback(() => {
+      setPlantillaAsuntoOriginal(asunto)
+      setPlantillaHtmlOriginal(html)
+    }, [asunto, html]),
 
     // Guardar plantilla (popover)
     mostrarGuardarPlantilla, setMostrarGuardarPlantilla,
     nombrePlantilla, setNombrePlantilla,
     handleGuardarPlantilla,
+    guardandoPlantilla,
+    plantillaGuardadaOk,
 
     // Borrador
     handleGuardarBorrador,

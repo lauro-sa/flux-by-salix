@@ -151,6 +151,34 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json(data)
     }
 
+    if (body.accion === 'registrar_seguimiento') {
+      const nota = body.nota || ''
+      // Obtener seguimientos actuales
+      const { data: act } = await admin.from('actividades').select('seguimientos').eq('id', id).single()
+      const seguimientos = Array.isArray(act?.seguimientos) ? act.seguimientos : []
+      seguimientos.push({
+        id: crypto.randomUUID(),
+        nota,
+        registrado_por: user.id,
+        registrado_por_nombre: nombreEditor,
+        fecha: new Date().toISOString(),
+      })
+
+      const { data, error } = await admin
+        .from('actividades')
+        .update({
+          seguimientos,
+          actualizado_en: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .eq('empresa_id', empresaId)
+        .select()
+        .single()
+
+      if (error) return NextResponse.json({ error: 'Error al registrar seguimiento' }, { status: 500 })
+      return NextResponse.json(data)
+    }
+
     if (body.accion === 'reactivar') {
       const { data: estadoPendiente } = await admin
         .from('estados_actividad')

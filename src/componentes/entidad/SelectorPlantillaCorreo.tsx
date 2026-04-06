@@ -8,7 +8,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, Star, Plus, Save, Trash2, Check, FileText, Building2, User } from 'lucide-react'
+import { ChevronDown, Star, Plus, Save, Trash2, Check, FileText, Building2, User, Loader2, BookmarkPlus } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Boton } from '@/componentes/ui/Boton'
 import { Tooltip } from '@/componentes/ui/Tooltip'
@@ -21,6 +21,7 @@ export interface PlantillaCorreoCompleta {
   contenido_html: string
   canal_id?: string | null
   creado_por: string
+  disponible_para?: 'todos' | 'roles' | 'usuarios'
 }
 
 interface PropiedadesSelectorPlantillaCorreo {
@@ -33,12 +34,14 @@ interface PropiedadesSelectorPlantillaCorreo {
   onLimpiar: () => void
   /** Guardar cambios del asunto+html actual sobre la plantilla seleccionada */
   onGuardarCambios?: (id: string) => Promise<void>
-  /** Guardar como nueva plantilla con nombre */
-  onGuardarComo?: (nombre: string) => Promise<void>
+  /** Guardar como nueva plantilla con nombre y visibilidad */
+  onGuardarComo?: (nombre: string, paraTodos?: boolean) => Promise<void>
   /** Eliminar plantilla */
   onEliminar?: (id: string) => Promise<void>
   /** Cambiar predeterminada (solo admins) */
   onTogglePredeterminada?: (id: string | null) => void | Promise<void>
+  /** Indica si el contenido actual difiere de la plantilla cargada */
+  tieneModificaciones?: boolean
 }
 
 export function SelectorPlantillaCorreo({
@@ -53,10 +56,12 @@ export function SelectorPlantillaCorreo({
   onGuardarComo,
   onEliminar,
   onTogglePredeterminada,
+  tieneModificaciones,
 }: PropiedadesSelectorPlantillaCorreo) {
   const [abierto, setAbierto] = useState(false)
   const [creando, setCreando] = useState(false)
   const [nombreNueva, setNombreNueva] = useState('')
+  const [nuevaParaTodos, setNuevaParaTodos] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [eliminando, setEliminando] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -66,9 +71,12 @@ export function SelectorPlantillaCorreo({
     ? plantillas.find(p => p.id === plantillaActualId)
     : null
 
-  // Separar plantillas: sistema (creado por otro) vs mías
-  const plantillasSistema = plantillas.filter(p => p.creado_por !== usuarioId)
-  const plantillasMias = plantillas.filter(p => p.creado_por === usuarioId)
+  // Verificar si hay cambios y el usuario puede guardar
+  const puedeGuardarCambios = !!(tieneModificaciones && plantillaCargada && onGuardarCambios && (plantillaCargada.creado_por === usuarioId || esAdmin))
+
+  // Separar plantillas: empresa (disponibles para todos) vs personales
+  const plantillasEmpresa = plantillas.filter(p => p.disponible_para === 'todos' || (!p.disponible_para && p.creado_por !== usuarioId))
+  const plantillasPersonales = plantillas.filter(p => p.disponible_para !== 'todos' && p.disponible_para !== undefined && p.creado_por === usuarioId)
 
   // Cerrar al click fuera
   useEffect(() => {
@@ -91,10 +99,11 @@ export function SelectorPlantillaCorreo({
   const handleGuardarComo = async () => {
     if (!nombreNueva.trim() || !onGuardarComo) return
     setGuardando(true)
-    await onGuardarComo(nombreNueva.trim())
+    await onGuardarComo(nombreNueva.trim(), nuevaParaTodos)
     setGuardando(false)
     setCreando(false)
     setNombreNueva('')
+    setNuevaParaTodos(false)
   }
 
   const itemClase = 'flex items-center gap-2.5 w-full px-3 py-2 text-left text-sm transition-colors rounded-md'
@@ -102,9 +111,9 @@ export function SelectorPlantillaCorreo({
   const renderPlantilla = (p: PlantillaCorreoCompleta) => {
     const esActual = p.id === plantillaActualId
     const esPredeterminada = p.id === predeterminadaId
-    const esMia = p.creado_por === usuarioId
-    const puedeEditar = esMia || esAdmin
-    const puedeEliminar = esMia || esAdmin
+    const esDeEmpresa = p.disponible_para === 'todos'
+    const puedeEditar = p.creado_por === usuarioId || esAdmin
+    const puedeEliminar = p.creado_por === usuarioId || esAdmin
 
     return (
       <div key={p.id} className="group flex items-center">
@@ -154,7 +163,7 @@ export function SelectorPlantillaCorreo({
   }
 
   return (
-    <div ref={ref} className="relative inline-flex items-center">
+    <div ref={ref} className="relative inline-flex items-center gap-1">
       {/* Trigger */}
       <button
         onClick={() => { setAbierto(!abierto); setCreando(false); setEliminando(null) }}
@@ -174,6 +183,28 @@ export function SelectorPlantillaCorreo({
           }}
         />
       </button>
+
+      {/* Botón guardar cambios — visible cuando hay modificaciones */}
+      {puedeGuardarCambios && plantillaCargada && (
+        <Tooltip contenido={`Guardar cambios en "${plantillaCargada.nombre}"`}>
+          <button
+            onClick={async (e) => {
+              e.stopPropagation()
+              setGuardando(true)
+              await onGuardarCambios!(plantillaCargada.id)
+              setGuardando(false)
+            }}
+            disabled={guardando}
+            className="size-7 flex items-center justify-center rounded-md transition-all focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
+            style={{
+              color: 'var(--insignia-advertencia)',
+              background: 'rgba(234, 179, 8, 0.1)',
+            }}
+          >
+            {guardando ? <Loader2 size={14} className="animate-spin" /> : <BookmarkPlus size={14} />}
+          </button>
+        </Tooltip>
+      )}
 
       {/* Menú desplegable */}
       <AnimatePresence>
@@ -195,7 +226,7 @@ export function SelectorPlantillaCorreo({
             ) : (
               <>
                 {/* Plantillas del sistema (admin) */}
-                {plantillasSistema.length > 0 && (
+                {plantillasEmpresa.length > 0 && (
                   <div className="px-1.5 mb-1">
                     <div className="flex items-center gap-1.5 px-3 py-1.5 mb-0.5">
                       <Building2 size={11} style={{ color: 'var(--texto-terciario)' }} />
@@ -203,17 +234,17 @@ export function SelectorPlantillaCorreo({
                         De la empresa
                       </span>
                     </div>
-                    {plantillasSistema.map(renderPlantilla)}
+                    {plantillasEmpresa.map(renderPlantilla)}
                   </div>
                 )}
 
                 {/* Separador si hay ambas secciones */}
-                {plantillasSistema.length > 0 && plantillasMias.length > 0 && (
+                {plantillasEmpresa.length > 0 && plantillasPersonales.length > 0 && (
                   <div className="my-1" style={{ borderTop: '1px solid var(--borde-sutil)' }} />
                 )}
 
                 {/* Mis plantillas */}
-                {plantillasMias.length > 0 && (
+                {plantillasPersonales.length > 0 && (
                   <div className="px-1.5 mb-1">
                     <div className="flex items-center gap-1.5 px-3 py-1.5 mb-0.5">
                       <User size={11} style={{ color: 'var(--texto-terciario)' }} />
@@ -221,7 +252,7 @@ export function SelectorPlantillaCorreo({
                         Mis plantillas
                       </span>
                     </div>
-                    {plantillasMias.map(renderPlantilla)}
+                    {plantillasPersonales.map(renderPlantilla)}
                   </div>
                 )}
               </>
@@ -253,7 +284,7 @@ export function SelectorPlantillaCorreo({
               {/* Guardar como nueva */}
               {onGuardarComo && (
                 creando ? (
-                  <div className="px-3 py-2">
+                  <div className="px-3 py-2 space-y-2">
                     <div className="flex items-center gap-1.5">
                       <input
                         ref={inputRef}
@@ -262,7 +293,7 @@ export function SelectorPlantillaCorreo({
                         onChange={(e) => setNombreNueva(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') handleGuardarComo()
-                          if (e.key === 'Escape') { setCreando(false); setNombreNueva('') }
+                          if (e.key === 'Escape') { setCreando(false); setNombreNueva(''); setNuevaParaTodos(false) }
                         }}
                         placeholder="Nombre de la plantilla"
                         className="flex-1 min-w-0 rounded-lg px-2.5 py-1.5 text-sm outline-none transition-colors"
@@ -282,6 +313,19 @@ export function SelectorPlantillaCorreo({
                         Guardar
                       </Boton>
                     </div>
+                    {esAdmin && (
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={nuevaParaTodos}
+                          onChange={(e) => setNuevaParaTodos(e.target.checked)}
+                          className="accent-[var(--texto-marca)]"
+                        />
+                        <span className="text-xs" style={{ color: 'var(--texto-secundario)' }}>
+                          Disponible para todos los usuarios
+                        </span>
+                      </label>
+                    )}
                   </div>
                 ) : (
                   <OpcionMenu

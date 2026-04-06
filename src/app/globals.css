@@ -699,9 +699,12 @@ a:hover { text-decoration: none; }
   font-size: 0.9em;
   font-family: var(--fuente-mono);
 }
-/* Variable resaltada — solo fondo sutil, hereda color/tamaño/peso del texto */
+/* Variable resaltada — nodo atómico inline, no editable parcialmente */
 .tiptap .variable-resaltada {
   background: var(--insignia-primario-fondo);
   border-radius: 3px;
-  padding: 0 2px;
+  padding: 1px 4px;
+  display: inline;
+  user-select: all;
+  cursor: default;
 }

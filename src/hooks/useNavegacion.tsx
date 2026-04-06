@@ -101,24 +101,23 @@ function generarMigajas(pathname: string, extras?: Migaja[]): Migaja[] {
       }
     }
 
-    // Insertar intermedias antes de la página actual (última migaja)
+    // Insertar intermedias: el módulo de origen va ANTES del módulo actual
+    // Ej: desde=/actividades en /presupuestos/nuevo → Actividades > Presupuestos > Nuevo
     if (intermedias.length > 0) {
-      // Para cada intermedia, agregar su módulo padre si no está ya en las migajas
-      // Ej: intermedia /contactos/uuid → agregar "Contactos" (/contactos) si no está
       const conPadres: Migaja[] = []
       for (const inter of intermedias) {
         const segmentos = inter.ruta.split('/').filter(Boolean)
         if (segmentos.length > 0) {
           const rutaPadre = `/${segmentos[0]}`
-          const padreExiste = migajas.some(m => m.ruta === rutaPadre)
-          if (!padreExiste && MIGAJAS_MODULOS[rutaPadre]) {
+          const padreExiste = migajas.some(m => m.ruta === rutaPadre) || conPadres.some(m => m.ruta === rutaPadre)
+          if (!padreExiste && MIGAJAS_MODULOS[rutaPadre] && rutaPadre !== inter.ruta) {
             conPadres.push(MIGAJAS_MODULOS[rutaPadre])
           }
         }
         conPadres.push(inter)
       }
-      // Insertar antes de la última migaja (la página actual)
-      migajas.splice(migajas.length > 0 ? migajas.length - 1 : 0, 0, ...conPadres)
+      // Insertar al inicio (antes del módulo actual) para respetar el orden de navegación
+      migajas.splice(0, 0, ...conPadres)
     }
   }
 

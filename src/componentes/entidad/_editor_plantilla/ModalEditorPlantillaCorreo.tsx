@@ -8,6 +8,7 @@
  * Se usa en: inbox/configuracion (SeccionPlantillas).
  */
 
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
@@ -16,7 +17,7 @@ import { Select } from '@/componentes/ui/Select'
 import { Tabs } from '@/componentes/ui/Tabs'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import { SelectorVariables } from '@/componentes/ui/SelectorVariables'
-import { Braces, Eye, Save, Code2, PenLine } from 'lucide-react'
+import { Braces, Eye, Save, Code2, PenLine, Maximize2, Minimize2 } from 'lucide-react'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { useTraduccion } from '@/lib/i18n'
 
@@ -47,6 +48,7 @@ export function ModalEditorPlantillaCorreo({
   onGuardado,
 }: PropiedadesModalEditorPlantilla) {
   const { t } = useTraduccion()
+  const [expandido, setExpandido] = useState(false)
 
   const estado = useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar })
 
@@ -90,6 +92,17 @@ export function ModalEditorPlantillaCorreo({
       titulo={esEdicion ? `Editar plantilla — ${nombre || plantilla?.nombre || ''}` : 'Nueva plantilla'}
       tamano="4xl"
       sinPadding
+      expandido={expandido}
+      accionesEncabezado={
+        <Boton
+          variante="fantasma"
+          tamano="xs"
+          soloIcono
+          titulo={expandido ? 'Minimizar' : 'Pantalla completa'}
+          icono={expandido ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+          onClick={() => setExpandido(!expandido)}
+        />
+      }
       acciones={
         <>
           <Boton variante="primario" tamano="sm" icono={<Save size={14} />} cargando={guardando} onClick={handleGuardar}>
@@ -177,19 +190,55 @@ export function ModalEditorPlantillaCorreo({
         <Tabs tabs={TABS_EDITOR} activo={tabActivo} onChange={handleCambiarTab} />
       </div>
 
-      <div className="px-6 py-5 overflow-y-auto" style={{ maxHeight: '60vh' }}>
+      <div className="px-6 py-4 flex-1 min-h-0 flex flex-col overflow-hidden">
 
         {/* ═══════════ TAB EDITAR (visual) — se oculta con display:none para no desmontar el editor ═══════════ */}
-        <div className="space-y-5" style={{ display: tabActivo === 'editar' ? undefined : 'none' }}>
-            {/* Nombre */}
-            <Input
-              etiqueta="Nombre *"
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              placeholder="Ej: Envío presupuesto, Seguimiento factura..."
-            />
+        <div className="flex flex-col flex-1 min-h-0 gap-3 overflow-y-auto" style={{ display: tabActivo === 'editar' ? undefined : 'none' }}>
+            {/* Fila 1: Nombre + Quién la puede usar */}
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                etiqueta="Nombre *"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                placeholder="Ej: Envío presupuesto, Seguimiento factura..."
+              />
+              <Select
+                etiqueta="Quién la puede usar"
+                opciones={OPCIONES_VISIBILIDAD.map(o => ({ valor: o.valor, etiqueta: o.etiqueta }))}
+                valor={visibilidad}
+                onChange={setVisibilidad}
+              />
+            </div>
 
-            {/* Asunto con variables resueltas inline */}
+            {/* Fila 2: Disponible para (chips sin padding izquierdo) */}
+            <div>
+              <label className="text-xs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>Disponible para</label>
+              <div className="flex flex-wrap gap-1.5">
+                {OPCIONES_DISPONIBLE.filter(o => o.valor !== 'todos').map(o => {
+                  const activo = modulos.includes(o.valor)
+                  return (
+                    <button
+                      type="button"
+                      key={o.valor}
+                      className="text-xs px-2.5 py-1 rounded-full cursor-pointer transition-colors select-none"
+                      style={{
+                        border: `1px solid ${activo ? 'var(--texto-marca)' : 'var(--borde-sutil)'}`,
+                        background: activo ? 'var(--insignia-primario-fondo)' : 'transparent',
+                        color: activo ? 'var(--texto-marca)' : 'var(--texto-secundario)',
+                      }}
+                      onClick={() => setModulos(prev => activo ? prev.filter(m => m !== o.valor) : [...prev, o.valor])}
+                    >
+                      {o.etiqueta}
+                    </button>
+                  )
+                })}
+              </div>
+              {modulos.length === 0 && (
+                <p className="text-xxs mt-1" style={{ color: 'var(--texto-terciario)' }}>Sin selección = disponible en todos los módulos</p>
+              )}
+            </div>
+
+            {/* Fila 3: Asunto completo */}
             <div>
               <label className="text-xs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>Asunto</label>
               <AsuntoConVariables
@@ -201,46 +250,6 @@ export function ModalEditorPlantillaCorreo({
                 onToggleVariables={() => setVariablesAsuntoAbierto(!variablesAsuntoAbierto)}
                 onCerrarVariables={() => setVariablesAsuntoAbierto(false)}
                 onInsertarVariable={insertarVariableAsunto}
-              />
-            </div>
-
-            {/* Disponible para (checkboxes multiples) + Visibilidad */}
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>Disponible para</label>
-                <div className="flex flex-wrap gap-2">
-                  {OPCIONES_DISPONIBLE.filter(o => o.valor !== 'todos').map(o => {
-                    const activo = modulos.includes(o.valor)
-                    return (
-                      <label
-                        key={o.valor}
-                        className="flex items-center gap-1.5 text-xs px-3 py-1 rounded-full cursor-pointer transition-colors select-none"
-                        style={{
-                          border: `1px solid ${activo ? 'var(--texto-marca)' : 'var(--borde-sutil)'}`,
-                          background: activo ? 'var(--insignia-primario-fondo)' : undefined,
-                          color: activo ? 'var(--texto-marca)' : 'var(--texto-secundario)',
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={activo}
-                          onChange={() => setModulos(prev => activo ? prev.filter(m => m !== o.valor) : [...prev, o.valor])}
-                          className="sr-only"
-                        />
-                        {o.etiqueta}
-                      </label>
-                    )
-                  })}
-                </div>
-                {modulos.length === 0 && (
-                  <p className="text-xxs mt-1" style={{ color: 'var(--texto-terciario)' }}>Sin selección = disponible en todos los módulos</p>
-                )}
-              </div>
-              <Select
-                etiqueta="Quién la puede usar"
-                opciones={OPCIONES_VISIBILIDAD.map(o => ({ valor: o.valor, etiqueta: o.etiqueta }))}
-                valor={visibilidad}
-                onChange={setVisibilidad}
               />
             </div>
 
@@ -281,16 +290,17 @@ export function ModalEditorPlantillaCorreo({
               </div>
             )}
 
-            {/* Contenido visual */}
-            <div>
-              <label className="text-xs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>Contenido</label>
+            {/* Contenido visual — ocupa todo el espacio restante */}
+            <div className="flex-1 min-h-0 flex flex-col">
+              <label className="text-xs font-medium mb-1.5 block shrink-0" style={{ color: 'var(--texto-secundario)' }}>Contenido</label>
               <EditorTexto
                 contenido={esEdicion ? contenidoHtml : ''}
                 onChange={setContenidoHtml}
                 placeholder="Hola {{contacto.nombre}}, adjuntamos el presupuesto..."
-                alturaMinima={220}
+                alturaMinima={180}
                 habilitarVariables
                 onEditorListo={(editor) => { editorRef.current = editor; setEditorListo(true) }}
+                className="flex-1"
               />
             </div>
           </div>

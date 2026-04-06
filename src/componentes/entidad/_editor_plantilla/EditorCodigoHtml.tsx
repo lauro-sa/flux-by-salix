@@ -10,7 +10,6 @@ import { useRef, useCallback } from 'react'
 import { Braces } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
-import { TextArea } from '@/componentes/ui/TextArea'
 import { SelectorVariables } from '@/componentes/ui/SelectorVariables'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { OPCIONES_VISIBILIDAD } from './constantes'
@@ -83,58 +82,46 @@ export function EditorCodigoHtml({
   }, [htmlCrudo, onHtmlCrudoChange])
 
   return (
-    <div className="space-y-4">
-      {/* Nombre + Asunto en fila compacta */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div className="flex flex-col flex-1 min-h-0 gap-4">
+      {/* Fila 1: Nombre + Quién la puede usar */}
+      <div className="grid grid-cols-2 gap-4">
         <Input
           etiqueta="Nombre *"
           value={nombre}
           onChange={(e) => onNombreChange(e.target.value)}
           placeholder="Nombre de la plantilla"
         />
-        <Input
-          etiqueta="Asunto"
-          value={asunto}
-          onChange={(e) => onAsuntoChange(e.target.value)}
-          placeholder="Asunto del correo"
+        <Select
+          etiqueta="Quién la puede usar"
+          opciones={OPCIONES_VISIBILIDAD.map(o => ({ valor: o.valor, etiqueta: o.etiqueta }))}
+          valor={visibilidad}
+          onChange={onVisibilidadChange}
         />
       </div>
 
-      {/* Visibilidad (modulos se editan en tab Editar) */}
-      <Select
-        etiqueta="Quien la puede usar"
-        opciones={OPCIONES_VISIBILIDAD.map(o => ({ valor: o.valor, etiqueta: o.etiqueta }))}
-        valor={visibilidad}
-        onChange={onVisibilidadChange}
+      {/* Fila 2: Asunto completo */}
+      <Input
+        etiqueta="Asunto"
+        value={asunto}
+        onChange={(e) => onAsuntoChange(e.target.value)}
+        placeholder="Asunto del correo con {{variables}}"
       />
 
-      {/* Textarea HTML crudo con boton de variables flotante */}
-      <div>
-        <label className="text-xs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>HTML del correo</label>
-        <div className="relative">
-          <TextArea
-            ref={htmlTextareaRef}
-            value={htmlCrudo}
-            onChange={(e) => onHtmlCrudoChange(e.target.value)}
-            placeholder="<p>Hola {{contacto.nombre}},</p>&#10;<p>Adjuntamos el {{presupuesto.numero}}.</p>"
-            compacto
-            monoespacio
-            spellCheck={false}
-            className="pr-10"
-            style={{ minHeight: 280, tabSize: 2 }}
-          />
-          <div className="absolute top-2 right-2">
-            <Tooltip contenido="Insertar variable">
-              <button
-                onClick={onToggleVariablesHtml}
-                onMouseDown={(e) => e.preventDefault()}
-                className="flex items-center justify-center size-7 rounded-md transition-colors hover:bg-[var(--superficie-hover)] focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
-                style={{ color: variablesHtmlAbierto ? 'var(--texto-marca)' : 'var(--texto-terciario)' }}
-                type="button"
-              >
-                <Braces size={14} />
-              </button>
-            </Tooltip>
+      {/* Textarea HTML crudo — ocupa todo el espacio restante */}
+      <div className="flex-1 min-h-0 flex flex-col">
+        <div className="flex items-center justify-between mb-1.5 shrink-0">
+          <label className="text-xs font-medium" style={{ color: 'var(--texto-secundario)' }}>HTML del correo</label>
+          <div className="relative">
+            <button
+              onClick={onToggleVariablesHtml}
+              onMouseDown={(e) => e.preventDefault()}
+              className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors hover:bg-[var(--superficie-hover)]"
+              style={{ color: variablesHtmlAbierto ? 'var(--texto-marca)' : 'var(--texto-terciario)' }}
+              type="button"
+            >
+              <Braces size={13} />
+              <span>Insertar variable</span>
+            </button>
             <SelectorVariables
               abierto={variablesHtmlAbierto}
               onCerrar={onCerrarVariablesHtml}
@@ -143,6 +130,17 @@ export function EditorCodigoHtml({
               contexto={contextoVariables}
             />
           </div>
+        </div>
+        <div className="flex-1 min-h-0">
+          <textarea
+            ref={htmlTextareaRef}
+            value={htmlCrudo}
+            onChange={(e) => onHtmlCrudoChange(e.target.value)}
+            placeholder={"<p>Hola {{contacto.nombre}},</p>\n<p>Adjuntamos el {{presupuesto.numero}}.</p>"}
+            spellCheck={false}
+            className="w-full h-full rounded-md border border-borde-fuerte bg-superficie-tarjeta px-3 py-2 text-xs font-mono text-texto-primario placeholder:text-texto-placeholder resize-none outline-none focus:border-borde-foco focus:shadow-foco transition-all"
+            style={{ tabSize: 2 }}
+          />
         </div>
       </div>
 

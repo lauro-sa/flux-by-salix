@@ -318,7 +318,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(presupuesto, { status: 201 })
-  } catch {
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+  } catch (err) {
+    console.error('Error interno POST /api/presupuestos:', err)
+    return NextResponse.json({ error: 'Error interno', detalle: String(err) }, { status: 500 })
   }
 }
