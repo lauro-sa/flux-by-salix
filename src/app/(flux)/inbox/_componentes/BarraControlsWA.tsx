@@ -244,24 +244,25 @@ export function BarraControlsWA({
     }
   }, [conversacion.etapa_id, conversacion.etapa_etiqueta, conversacion.etapa_color, etapas])
 
+  // ─── Iniciales del agente ───
+  const inicialesAgente = conversacion.asignado_a_nombre
+    ? conversacion.asignado_a_nombre.split(' ').map(p => p[0]?.toUpperCase() || '').join('').slice(0, 2)
+    : null
+
   return (
     <motion.div
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: 'easeOut' }}
-      className="flex flex-col items-center gap-1"
+      className="inline-flex items-center gap-1 px-2 py-1 rounded-2xl"
+      style={{
+        background: 'color-mix(in srgb, var(--superficie-tarjeta) 80%, transparent)',
+        backdropFilter: 'blur(12px) saturate(1.3)',
+        WebkitBackdropFilter: 'blur(12px) saturate(1.3)',
+        border: '1px solid color-mix(in srgb, var(--borde-sutil) 60%, transparent)',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+      }}
     >
-      {/* Fila 1: Agente, Sector | Contacto, Bot, IA, Seguir */}
-      <div
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl ${esMovil ? 'flex-wrap justify-center' : ''}`}
-        style={{
-          background: 'color-mix(in srgb, var(--superficie-tarjeta) 80%, transparent)',
-          backdropFilter: 'blur(12px) saturate(1.3)',
-          WebkitBackdropFilter: 'blur(12px) saturate(1.3)',
-          border: '1px solid color-mix(in srgb, var(--borde-sutil) 60%, transparent)',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-        }}
-      >
         {/* Pildora Agente */}
         <Popover
           alineacion="inicio"
@@ -333,15 +334,20 @@ export function BarraControlsWA({
           }
           onCambio={(abierto) => { if (abierto) cargarMiembros() }}
         >
-          <PildoraControl
-            activa={!!conversacion.asignado_a}
-            colorTinte={conversacion.asignado_a ? '#0ea5e9' : undefined}
-          >
-            <User size={12} />
-            <span className="truncate max-w-[100px]">
-              {conversacion.asignado_a_nombre || 'Sin agente'}
-            </span>
-          </PildoraControl>
+          <Tooltip contenido={conversacion.asignado_a_nombre || 'Sin agente'}>
+            <div
+              className="h-7 px-2.5 rounded-full flex items-center gap-1.5 text-xs font-medium cursor-pointer transition-colors"
+              style={{
+                background: conversacion.asignado_a
+                  ? 'color-mix(in srgb, #0ea5e9 15%, transparent)'
+                  : 'var(--superficie-hover)',
+                color: conversacion.asignado_a ? '#0ea5e9' : 'var(--texto-terciario)',
+              }}
+            >
+              <User size={12} />
+              <span>{inicialesAgente || 'Sin'}</span>
+            </div>
+          </Tooltip>
         </Popover>
 
         {/* Pildora Sector */}
@@ -386,29 +392,68 @@ export function BarraControlsWA({
           }
           onCambio={(abierto) => { if (abierto) cargarSectores() }}
         >
-          <PildoraControl
-            activa={!!conversacion.sector_id}
-            colorTinte={conversacion.sector_color || undefined}
-          >
-            <Building2 size={12} />
-            <span className="truncate max-w-[80px]">
-              {conversacion.sector_nombre || 'Sin sector'}
-            </span>
-          </PildoraControl>
+          <Tooltip contenido={conversacion.sector_nombre || 'Sin sector'}>
+            <div
+              className="h-7 px-2.5 rounded-full flex items-center gap-1.5 text-xs font-medium cursor-pointer transition-colors"
+              style={{
+                background: conversacion.sector_id
+                  ? `color-mix(in srgb, ${conversacion.sector_color || '#6366f1'} 15%, transparent)`
+                  : 'var(--superficie-hover)',
+                color: conversacion.sector_id ? (conversacion.sector_color || '#6366f1') : 'var(--texto-terciario)',
+              }}
+            >
+              <Building2 size={12} />
+              <span className="truncate max-w-[60px]">{conversacion.sector_nombre || 'Sin'}</span>
+            </div>
+          </Tooltip>
         </Popover>
 
-        {/* Separador vertical */}
-        <div
-          className="mx-1 flex-shrink-0"
-          style={{
-            width: 1,
-            height: 20,
-            background: 'var(--borde-sutil)',
-          }}
-        />
+        {/* Separador izq */}
+        <div className="w-px h-5 mx-0.5 flex-shrink-0" style={{ background: 'color-mix(in srgb, var(--borde-sutil) 60%, transparent)' }} />
 
+        {/* Etapa — centrada */}
+        <Popover
+          alineacion="centro"
+          ancho={240}
+          altoMaximo={360}
+          contenido={
+            <div className="py-1">
+              <p className="px-3 py-1.5 text-xxs font-medium" style={{ color: 'var(--texto-terciario)' }}>Etapa del pipeline</p>
+              <button type="button" className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
+                style={{ color: 'var(--texto-secundario)', border: 'none', background: 'transparent' }}
+                onClick={() => patchConversacion({ etapa_id: null })}>
+                <div className="size-3 rounded-full" style={{ background: '#9ca3af' }} />
+                <span>Sin etapa</span>
+                {!conversacion.etapa_id && <Check size={14} className="ml-auto" style={{ color: 'var(--insignia-exito)' }} />}
+              </button>
+              {etapas.filter(e => e.activa).map((e) => (
+                <button type="button" key={e.id} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
+                  style={{ color: 'var(--texto-primario)', border: 'none', background: 'transparent' }}
+                  onClick={() => patchConversacion({ etapa_id: e.id })}>
+                  <div className="size-3 rounded-full flex-shrink-0" style={{ background: e.color }} />
+                  <span>{e.icono} {e.etiqueta}</span>
+                  {conversacion.etapa_id === e.id && <Check size={14} className="ml-auto flex-shrink-0" style={{ color: 'var(--insignia-exito)' }} />}
+                </button>
+              ))}
+            </div>
+          }
+          onCambio={(abierto) => { if (abierto) cargarEtapas() }}
+        >
+          <motion.button
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold cursor-pointer"
+            style={{ background: etapaActual ? etapaActual.color : '#9ca3af', color: '#fff' }}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+          >
+            {etapaActual ? etapaActual.etiqueta : 'Sin etapa'}
+            <ChevronDown size={11} />
+          </motion.button>
+        </Popover>
 
-        {/* Pildora Bot */}
+        {/* Separador der */}
+        <div className="w-px h-5 mx-0.5 flex-shrink-0" style={{ background: 'color-mix(in srgb, var(--borde-sutil) 60%, transparent)' }} />
+
+        {/* Bot */}
         <Popover
           alineacion="centro"
           ancho={200}
@@ -429,29 +474,26 @@ export function BarraControlsWA({
                   style={{ color: 'var(--texto-primario)', border: 'none', background: 'transparent' }}
                   onClick={() => patchConversacion(opcion.cambios)}
                 >
-                  <div
-                    className="size-2 rounded-full flex-shrink-0"
-                    style={{ background: colorIndicador(opcion.estado, 'bot') }}
-                  />
+                  <div className="size-2 rounded-full flex-shrink-0" style={{ background: colorIndicador(opcion.estado, 'bot') }} />
                   <span>{opcion.etiqueta}</span>
                 </button>
               ))}
             </div>
           }
         >
-          <PildoraControl
-            activa={estadoBot !== 'inactivo'}
-            colorTinte={colorIndicador(estadoBot, 'bot')}
-          >
-            <div className="relative">
-              <Bot size={12} />
-              <div
-                className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full"
-                style={{ background: colorIndicador(estadoBot, 'bot') }}
-              />
+          <Tooltip contenido={`Bot: ${estadoBot}`}>
+            <div
+              className="size-7 rounded-full flex items-center justify-center cursor-pointer transition-colors"
+              style={{
+                background: estadoBot !== 'inactivo'
+                  ? `color-mix(in srgb, ${colorIndicador(estadoBot, 'bot')} 15%, transparent)`
+                  : 'var(--superficie-hover)',
+                color: estadoBot !== 'inactivo' ? colorIndicador(estadoBot, 'bot') : 'var(--texto-terciario)',
+              }}
+            >
+              <Bot size={13} />
             </div>
-            <span>Bot{estadoBot === 'pausado' ? ' \u23F8' : ''}</span>
-          </PildoraControl>
+          </Tooltip>
         </Popover>
 
         {/* Pildora IA */}
@@ -485,96 +527,38 @@ export function BarraControlsWA({
             </div>
           }
         >
-          <PildoraControl
-            activa={estadoIA !== 'inactivo'}
-            colorTinte={colorIndicador(estadoIA, 'ia')}
-          >
-            <div className="relative">
-              <Sparkles size={12} />
-              <div
-                className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full"
-                style={{ background: colorIndicador(estadoIA, 'ia') }}
-              />
+          <Tooltip contenido={`IA: ${estadoIA}`}>
+            <div
+              className="size-7 rounded-full flex items-center justify-center cursor-pointer transition-colors"
+              style={{
+                background: estadoIA !== 'inactivo'
+                  ? `color-mix(in srgb, ${colorIndicador(estadoIA, 'ia')} 15%, transparent)`
+                  : 'var(--superficie-hover)',
+                color: estadoIA !== 'inactivo' ? colorIndicador(estadoIA, 'ia') : 'var(--texto-terciario)',
+              }}
+            >
+              <Sparkles size={13} />
             </div>
-            <span>IA{estadoIA === 'pausado' ? ' \u23F8' : ''}</span>
-          </PildoraControl>
+          </Tooltip>
         </Popover>
 
-        {/* Boton Seguir — solo si no es el agente asignado */}
+        {/* Seguir */}
         {!esAgenteAsignado && (
           <Tooltip contenido={siguiendo ? 'Dejar de seguir' : 'Seguir conversacion'}>
-            <button
-              className="min-w-[36px] min-h-[36px] rounded-full flex items-center justify-center transition-colors hover:bg-[var(--superficie-hover)]"
+            <div
+              className="size-7 rounded-full flex items-center justify-center cursor-pointer transition-colors"
+              style={{
+                background: siguiendo ? 'color-mix(in srgb, var(--texto-marca) 15%, transparent)' : 'var(--superficie-hover)',
+                color: siguiendo ? 'var(--texto-marca)' : 'var(--texto-terciario)',
+              }}
               onClick={toggleSeguir}
-              disabled={cargandoSeguir}
             >
-              {siguiendo ? (
-                <Bell size={16} style={{ color: 'var(--texto-marca)' }} />
-              ) : (
-                <BellOff size={16} style={{ color: 'var(--texto-terciario)' }} />
-              )}
-            </button>
+              {siguiendo ? <Bell size={13} /> : <BellOff size={13} />}
+            </div>
           </Tooltip>
         )}
 
-        {/* Separador + Etapa del pipeline */}
-        <div className="w-px h-5 mx-0.5" style={{ background: 'color-mix(in srgb, var(--borde-sutil) 60%, transparent)' }} />
-
-        <Popover
-          alineacion="centro"
-          ancho={240}
-          altoMaximo={360}
-          contenido={
-            <div className="py-1">
-              <p className="px-3 py-1.5 text-xxs font-medium" style={{ color: 'var(--texto-terciario)' }}>
-                Etapa del pipeline
-              </p>
-              <button
-                type="button"
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
-                style={{ color: 'var(--texto-secundario)', border: 'none', background: 'transparent' }}
-                onClick={() => patchConversacion({ etapa_id: null })}
-              >
-                <div className="size-3 rounded-full" style={{ background: '#9ca3af' }} />
-                <span>Sin etapa</span>
-                {!conversacion.etapa_id && <Check size={14} className="ml-auto" style={{ color: 'var(--insignia-exito)' }} />}
-              </button>
-              {etapas.filter(e => e.activa).map((e) => (
-                <button
-                  type="button"
-                  key={e.id}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
-                  style={{ color: 'var(--texto-primario)', border: 'none', background: 'transparent' }}
-                  onClick={() => patchConversacion({ etapa_id: e.id })}
-                >
-                  <div className="size-3 rounded-full flex-shrink-0" style={{ background: e.color }} />
-                  <span>{e.icono} {e.etiqueta}</span>
-                  {conversacion.etapa_id === e.id && (
-                    <Check size={14} className="ml-auto flex-shrink-0" style={{ color: 'var(--insignia-exito)' }} />
-                  )}
-                </button>
-              ))}
-            </div>
-          }
-          onCambio={(abierto) => { if (abierto) cargarEtapas() }}
-        >
-          <motion.button
-            className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-colors cursor-pointer"
-            style={{
-              background: etapaActual ? etapaActual.color : '#9ca3af',
-              color: '#fff',
-              boxShadow: etapaActual ? `0 2px 10px ${etapaActual.color}35` : '0 2px 6px rgba(0,0,0,0.12)',
-            }}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-          >
-            {etapaActual ? etapaActual.etiqueta : 'Sin etapa'}
-            <ChevronDown size={12} />
-          </motion.button>
-        </Popover>
-      </div>
     </motion.div>
-
   )
 }
 
