@@ -392,7 +392,7 @@ export default function PaginaConfigPresupuestos() {
                   formato={null}
                   compacto
                   placeholder="Nombre del impuesto"
-                  className="flex-1"
+                  className="w-48 shrink-0"
                 />
                 <Input
                   tipo="number" value={imp.porcentaje}
@@ -400,9 +400,9 @@ export default function PaginaConfigPresupuestos() {
                   onBlur={() => guardarImpuestos(impuestos)}
                   formato={null}
                   compacto
-                  className="w-16 text-right font-mono"
+                  className="w-16 text-right font-mono shrink-0"
                 />
-                <span className="text-xs text-texto-terciario">%</span>
+                <span className="text-xs text-texto-terciario shrink-0">%</span>
                 <label className="flex items-center gap-1.5 cursor-pointer text-xs text-texto-terciario shrink-0" title="Se aplica automáticamente si el producto no tiene impuesto propio">
                   <input
                     type="radio"
