@@ -1779,10 +1779,8 @@ function PaginaInbox() {
                 />
                 {/* Drag handle para redimensionar — hidden en mobile via CSS */}
                 <div
-                  className="absolute top-0 -right-px w-[3px] h-full cursor-col-resize transition-colors z-10 hidden md:block"
-                  style={{ background: 'transparent' }}
-                  onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'var(--texto-marca)'; (e.target as HTMLElement).style.opacity = '0.3' }}
-                  onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.opacity = '1' }}
+                  className="absolute top-0 -right-px w-[3px] h-full cursor-col-resize z-10 hidden md:block opacity-0 hover:opacity-100 active:opacity-100 transition-opacity"
+                  style={{ backgroundColor: 'var(--texto-marca)' }}
                     onMouseDown={(e) => {
                       e.preventDefault()
                       redimensionandoRef.current = true
