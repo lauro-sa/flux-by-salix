@@ -336,7 +336,7 @@ export function BarraControlsWA({
         >
           <Tooltip contenido={conversacion.asignado_a_nombre || 'Sin agente'}>
             <div
-              className="h-7 px-2.5 rounded-full flex items-center gap-1.5 text-xs font-medium cursor-pointer transition-colors"
+              className={`${esMovil ? 'size-9' : 'h-7 px-2.5'} rounded-full flex items-center justify-center gap-1.5 text-xs font-medium cursor-pointer transition-colors`}
               style={{
                 background: conversacion.asignado_a
                   ? 'color-mix(in srgb, #0ea5e9 15%, transparent)'
@@ -344,8 +344,8 @@ export function BarraControlsWA({
                 color: conversacion.asignado_a ? '#0ea5e9' : 'var(--texto-terciario)',
               }}
             >
-              <User size={12} />
-              <span>{inicialesAgente || 'Sin'}</span>
+              <User size={esMovil ? 14 : 12} />
+              {!esMovil && <span>{inicialesAgente || 'Sin'}</span>}
             </div>
           </Tooltip>
         </Popover>
@@ -394,7 +394,7 @@ export function BarraControlsWA({
         >
           <Tooltip contenido={conversacion.sector_nombre || 'Sin sector'}>
             <div
-              className="h-7 px-2.5 rounded-full flex items-center gap-1.5 text-xs font-medium cursor-pointer transition-colors"
+              className={`${esMovil ? 'size-9' : 'h-7 px-2.5'} rounded-full flex items-center justify-center gap-1.5 text-xs font-medium cursor-pointer transition-colors`}
               style={{
                 background: conversacion.sector_id
                   ? `color-mix(in srgb, ${conversacion.sector_color || '#6366f1'} 15%, transparent)`
@@ -402,8 +402,8 @@ export function BarraControlsWA({
                 color: conversacion.sector_id ? (conversacion.sector_color || '#6366f1') : 'var(--texto-terciario)',
               }}
             >
-              <Building2 size={12} />
-              <span className="truncate max-w-[60px]">{conversacion.sector_nombre || 'Sin'}</span>
+              <Building2 size={esMovil ? 14 : 12} />
+              {!esMovil && <span className="truncate max-w-[60px]">{conversacion.sector_nombre || 'Sin'}</span>}
             </div>
           </Tooltip>
         </Popover>
@@ -483,9 +483,9 @@ export function BarraControlsWA({
         >
           <Tooltip contenido={`Bot: ${estadoBot}`}>
             <div
-              className="h-7 rounded-full flex items-center gap-1.5 cursor-pointer transition-colors"
+              className={`${esMovil ? 'size-9' : 'h-7'} rounded-full flex items-center justify-center gap-1.5 cursor-pointer transition-colors`}
               style={{
-                padding: esMovil ? '0 0.4rem' : '0 0.625rem',
+                padding: esMovil ? undefined : '0 0.625rem',
                 background: estadoBot !== 'inactivo'
                   ? `color-mix(in srgb, ${colorIndicador(estadoBot, 'bot')} 15%, transparent)`
                   : 'var(--superficie-hover)',
@@ -531,9 +531,9 @@ export function BarraControlsWA({
         >
           <Tooltip contenido={`IA: ${estadoIA}`}>
             <div
-              className="h-7 rounded-full flex items-center gap-1.5 cursor-pointer transition-colors"
+              className={`${esMovil ? 'size-9' : 'h-7'} rounded-full flex items-center justify-center gap-1.5 cursor-pointer transition-colors`}
               style={{
-                padding: esMovil ? '0 0.4rem' : '0 0.625rem',
+                padding: esMovil ? undefined : '0 0.625rem',
                 background: estadoIA !== 'inactivo'
                   ? `color-mix(in srgb, ${colorIndicador(estadoIA, 'ia')} 15%, transparent)`
                   : 'var(--superficie-hover)',
@@ -550,14 +550,14 @@ export function BarraControlsWA({
         {!esAgenteAsignado && (
           <Tooltip contenido={siguiendo ? 'Dejar de seguir' : 'Seguir conversacion'}>
             <div
-              className="size-7 rounded-full flex items-center justify-center cursor-pointer transition-colors"
+              className={`${esMovil ? 'size-9' : 'size-7'} rounded-full flex items-center justify-center cursor-pointer transition-colors`}
               style={{
                 background: siguiendo ? 'color-mix(in srgb, var(--texto-marca) 15%, transparent)' : 'var(--superficie-hover)',
                 color: siguiendo ? 'var(--texto-marca)' : 'var(--texto-terciario)',
               }}
               onClick={toggleSeguir}
             >
-              {siguiendo ? <Bell size={13} /> : <BellOff size={13} />}
+              {siguiendo ? <Bell size={esMovil ? 15 : 13} /> : <BellOff size={esMovil ? 15 : 13} />}
             </div>
           </Tooltip>
         )}
