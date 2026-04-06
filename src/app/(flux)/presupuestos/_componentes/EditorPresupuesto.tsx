@@ -267,6 +267,7 @@ export default function EditorPresupuesto({
                 apellido: data.apellido,
                 correo: data.correo,
                 telefono: data.telefono,
+                whatsapp: data.whatsapp || null,
                 tipo_contacto: data.tipo_contacto,
               })
             }
@@ -1394,6 +1395,7 @@ export default function EditorPresupuesto({
                             apellido: hijo.apellido,
                             correo: hijo.correo,
                             telefono: hijo.telefono,
+                            whatsapp: hijo.whatsapp || null,
                             tipo_contacto: hijo.tipo_contacto,
                           })
                         }
@@ -1478,15 +1480,15 @@ export default function EditorPresupuesto({
                           {atencionSeleccionada.nombre} {atencionSeleccionada.apellido || ''}
                         </p>
                         {atencionSeleccionada.correo && (
-                          <p className="text-xs text-texto-secundario flex items-center gap-1.5">
-                            <Mail size={13} className="text-texto-terciario shrink-0" />
+                          <p className="text-xs text-texto-terciario flex items-center gap-1.5">
+                            <Mail size={13} className="shrink-0" />
                             {atencionSeleccionada.correo}
                           </p>
                         )}
-                        {atencionSeleccionada.telefono && (
-                          <p className="text-xs text-texto-secundario flex items-center gap-1.5">
-                            <Phone size={13} className="text-texto-terciario shrink-0" />
-                            {atencionSeleccionada.telefono}
+                        {(atencionSeleccionada.whatsapp || atencionSeleccionada.telefono) && (
+                          <p className="text-xs text-texto-terciario flex items-center gap-1.5">
+                            <Phone size={13} className="shrink-0" />
+                            {atencionSeleccionada.whatsapp || atencionSeleccionada.telefono}
                           </p>
                         )}
                       </div>
@@ -1535,15 +1537,15 @@ export default function EditorPresupuesto({
                     <div className="space-y-1">
                       <p className="text-sm font-semibold text-texto-primario">{presupuesto.atencion_nombre}</p>
                       {(atencionSeleccionada?.correo || presupuesto.atencion_correo) && (
-                        <p className="text-xs text-texto-secundario flex items-center gap-1.5">
-                          <Mail size={13} className="text-texto-terciario shrink-0" />
+                        <p className="text-xs text-texto-terciario flex items-center gap-1.5">
+                          <Mail size={13} className="shrink-0" />
                           {atencionSeleccionada?.correo || presupuesto.atencion_correo}
                         </p>
                       )}
-                      {atencionSeleccionada?.telefono && (
-                        <p className="text-xs text-texto-secundario flex items-center gap-1.5">
-                          <Phone size={13} className="text-texto-terciario shrink-0" />
-                          {atencionSeleccionada.telefono}
+                      {(atencionSeleccionada?.whatsapp || atencionSeleccionada?.telefono) && (
+                        <p className="text-xs text-texto-terciario flex items-center gap-1.5">
+                          <Phone size={13} className="shrink-0" />
+                          {atencionSeleccionada.whatsapp || atencionSeleccionada.telefono}
                         </p>
                       )}
                       {presupuesto.atencion_cargo && (

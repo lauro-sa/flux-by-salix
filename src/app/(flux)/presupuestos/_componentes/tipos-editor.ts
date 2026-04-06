@@ -38,6 +38,7 @@ export interface Vinculacion {
     apellido: string | null
     correo: string | null
     telefono: string | null
+    whatsapp?: string | null
     tipo_contacto: { clave: string; etiqueta: string } | null
   }
 }
