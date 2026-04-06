@@ -495,8 +495,8 @@ export function ListaConversaciones({
                     </div>
                   </div>
 
-                  {/* Col 3: Fecha + 3 puntos + badge no leídos — centrado vertical */}
-                  <div className="flex flex-col items-center justify-center gap-1.5 flex-shrink-0 self-center min-w-[40px]">
+                  {/* Col 3: Fecha + (badge no leídos / 3 puntos) — centrado vertical */}
+                  <div className="flex flex-col items-center justify-center gap-1 flex-shrink-0 self-center min-w-[40px]">
                     {conv.ultimo_mensaje_en && (
                       <span className="text-[11px] whitespace-nowrap" style={{
                         color: conv.mensajes_sin_leer > 0 ? 'var(--insignia-exito)' : 'var(--texto-terciario)',
@@ -505,19 +505,26 @@ export function ListaConversaciones({
                         {tiempoRelativo(conv.ultimo_mensaje_en)}
                       </span>
                     )}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setMenuConv({ conv, pos: null }) }}
-                      className="size-6 flex items-center justify-center rounded-md opacity-0 group-hover:opacity-100 max-md:opacity-60 transition-opacity cursor-pointer"
-                      style={{ color: 'var(--texto-terciario)', background: 'transparent', border: 'none' }}
-                    >
-                      <MoreVertical size={16} />
-                    </button>
-                    {conv.mensajes_sin_leer > 0 && (
-                      <span className="min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-[10px] font-bold"
-                        style={{ background: 'var(--insignia-exito)', color: 'var(--texto-inverso)' }}>
-                        {conv.mensajes_sin_leer > 99 ? '99+' : conv.mensajes_sin_leer}
-                      </span>
-                    )}
+                    {/* Badge no leídos visible, se oculta en hover y aparecen 3 puntos */}
+                    <div className="relative size-6 flex items-center justify-center">
+                      {/* Badge — visible por defecto, se oculta en hover */}
+                      {conv.mensajes_sin_leer > 0 && (
+                        <span className="min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-[10px] font-bold group-hover:hidden"
+                          style={{ background: 'var(--insignia-exito)', color: 'var(--texto-inverso)' }}>
+                          {conv.mensajes_sin_leer > 99 ? '99+' : conv.mensajes_sin_leer}
+                        </span>
+                      )}
+                      {/* 3 puntos — ocultos por defecto, visibles en hover */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setMenuConv({ conv, pos: null }) }}
+                        className={`absolute inset-0 flex items-center justify-center rounded-md cursor-pointer transition-opacity ${
+                          conv.mensajes_sin_leer > 0 ? 'opacity-0 group-hover:opacity-100' : 'opacity-0 group-hover:opacity-100 max-md:opacity-60'
+                        }`}
+                        style={{ color: 'var(--texto-terciario)', background: 'transparent', border: 'none' }}
+                      >
+                        <MoreVertical size={16} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </motion.div>

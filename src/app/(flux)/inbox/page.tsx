@@ -1683,7 +1683,7 @@ function PaginaInbox() {
                   soloNoLeidos={soloNoLeidos}
                   onToggleNoLeidos={() => setSoloNoLeidos(prev => !prev)}
                   onOperacionMasiva={async (accion, ids) => {
-                    const admin = async (cambios: Record<string, unknown>) => {
+                    const patchMultiple = async (cambios: Record<string, unknown>) => {
                       await Promise.all(ids.map(id =>
                         fetch(`/api/inbox/conversaciones/${id}`, {
                           method: 'PATCH',
@@ -1693,10 +1693,74 @@ function PaginaInbox() {
                       ))
                       cargarConversaciones()
                     }
-                    if (accion === 'marcar_leido') await admin({ mensajes_sin_leer: 0 })
-                    if (accion === 'marcar_no_leido') await admin({ mensajes_sin_leer: 1 })
-                    if (accion === 'cerrar') await admin({ estado: 'resuelta' })
+                    if (accion === 'marcar_leido') await patchMultiple({ mensajes_sin_leer: 0 })
+                    if (accion === 'marcar_no_leido') await patchMultiple({ mensajes_sin_leer: 1 })
+                    if (accion === 'cerrar') await patchMultiple({ estado: 'resuelta' })
                   }}
+                  onAccionMenu={async (accion, convId, datos) => {
+                    const patchConv = async (cambios: Record<string, unknown>) => {
+                      await fetch(`/api/inbox/conversaciones/${convId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(cambios),
+                      })
+                      // Actualizar optimista en la lista
+                      setConversaciones(prev => prev.map(c =>
+                        c.id === convId ? { ...c, ...cambios } : c
+                      ))
+                    }
+                    switch (accion) {
+                      case 'marcar_leido':
+                        await patchConv({ mensajes_sin_leer: 0 })
+                        break
+                      case 'marcar_no_leido':
+                        await patchConv({ mensajes_sin_leer: 1 })
+                        break
+                      case 'fijar_para_mi':
+                        await fetch(`/api/inbox/conversaciones/${convId}/pins`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+                        cargarConversaciones()
+                        break
+                      case 'desfijar':
+                        await fetch(`/api/inbox/conversaciones/${convId}/pins`, { method: 'DELETE' })
+                        cargarConversaciones()
+                        break
+                      case 'silenciar':
+                        await fetch(`/api/inbox/conversaciones/${convId}/silenciar`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+                        cargarConversaciones()
+                        break
+                      case 'desilenciar':
+                        await fetch(`/api/inbox/conversaciones/${convId}/silenciar`, { method: 'DELETE' })
+                        cargarConversaciones()
+                        break
+                      case 'seguir_pipeline':
+                        await patchConv({ en_pipeline: true })
+                        break
+                      case 'quitar_pipeline':
+                        await patchConv({ en_pipeline: false })
+                        break
+                      case 'bloquear':
+                        await patchConv({ bloqueada: true })
+                        cargarConversaciones()
+                        break
+                      case 'mover_papelera':
+                        await patchConv({ en_papelera: true })
+                        cargarConversaciones()
+                        break
+                      case 'fijar_para_usuario':
+                        if (datos && typeof datos === 'object' && 'usuario_ids' in datos) {
+                          const ids = (datos as { usuario_ids: string[] }).usuario_ids
+                          await Promise.all(ids.map(uid =>
+                            fetch(`/api/inbox/conversaciones/${convId}/pins`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ usuario_id: uid }),
+                            })
+                          ))
+                        }
+                        break
+                    }
+                  }}
+                  esAdmin={true}
                 />
                 {/* Drag handle para redimensionar */}
                 {!esMovil && (
