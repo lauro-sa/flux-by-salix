@@ -1180,7 +1180,7 @@ function PaginaInbox() {
       } catch { /* silenciar */ }
     }
 
-    const intervalo = setInterval(poll, 15000)
+    const intervalo = setInterval(poll, 5000)
     return () => {
       cancelado = true
       abortController.abort()
