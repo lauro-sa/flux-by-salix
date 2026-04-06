@@ -303,11 +303,8 @@ export default function EditorPresupuesto({
           condicion_iva: data.datos_fiscales?.condicion_iva || null,
           direcciones: data.direcciones || [],
         })
-        // Cargar vinculaciones del contacto
-        fetch(`/api/contactos/vinculaciones?contacto_id=${data.id}`)
-          .then(r => r.json())
-          .then(v => setVinculaciones(v.vinculaciones || []))
-          .catch(() => {})
+        // Usar vinculaciones que ya vienen del contacto
+        setVinculaciones(data.vinculaciones || [])
       })
       .catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
