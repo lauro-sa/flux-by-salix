@@ -29,10 +29,21 @@ export function InputEmailChips({
   const inputRef = useRef<HTMLInputElement>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const [emailInvalido, setEmailInvalido] = useState(false)
+
   const agregarEmail = useCallback((valor: string) => {
     const email = valor.trim().toLowerCase()
-    if (email && !emails.includes(email)) onChange([...emails, email])
+    if (!email) return
+    // Validar formato de email
+    const esValido = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)
+    if (!esValido) {
+      setEmailInvalido(true)
+      setTimeout(() => setEmailInvalido(false), 2000)
+      return
+    }
+    if (!emails.includes(email)) onChange([...emails, email])
     setInputValor('')
+    setEmailInvalido(false)
     setSugerencias([])
     setMostrarSugerencias(false)
   }, [emails, onChange])
@@ -95,11 +106,16 @@ export function InputEmailChips({
             onKeyDown={handleKeyDown}
             onBlur={handleBlur}
             onFocus={() => { if (sugerencias.length > 0) setMostrarSugerencias(true) }}
-            className="flex-1 min-w-[120px] text-sm bg-transparent outline-none py-1.5"
-            style={{ color: 'var(--texto-primario)' }}
+            className={`flex-1 min-w-[120px] text-sm bg-transparent outline-none py-1.5 ${emailInvalido ? 'text-estado-error' : ''}`}
+            style={{ color: emailInvalido ? 'var(--estado-error)' : 'var(--texto-primario)' }}
             placeholder={emails.length === 0 ? (placeholder || 'correo@ejemplo.com') : ''}
           />
         </div>
+        {emailInvalido && (
+          <p className="text-xxs mt-0.5 ml-16" style={{ color: 'var(--estado-error)' }}>
+            Ingresá un correo válido
+          </p>
+        )}
         <AnimatePresence>
           {mostrarSugerencias && sugerencias.length > 0 && (
             <motion.div
