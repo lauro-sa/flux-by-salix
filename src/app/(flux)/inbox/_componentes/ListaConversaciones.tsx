@@ -401,7 +401,6 @@ export function ListaConversaciones({
             {conversacionesPaginadas.map((conv) => (
               <motion.div
                 key={conv.id}
-                layout
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -410,118 +409,115 @@ export function ListaConversaciones({
                   e.preventDefault()
                   setMenuConv({ conv, pos: { x: e.clientX, y: e.clientY } })
                 }}
-                className="w-full text-left px-3 py-2.5 transition-colors group cursor-pointer"
+                className="w-full text-left px-3 py-3 transition-colors group cursor-pointer"
                 style={{
                   background: seleccionada === conv.id ? 'var(--superficie-seleccionada)' : 'transparent',
                   borderBottom: '1px solid var(--borde-sutil)',
                 }}
               >
-                <div className="flex gap-2.5">
-                  {/* Avatar con badge de canal */}
+                {/* Layout principal: Avatar | Contenido | Fecha+Menu */}
+                <div className="flex gap-3">
+                  {/* Col 1: Avatar */}
                   {modoSeleccion ? (
-                    <div
-                      role="checkbox"
-                      aria-checked={seleccionados.has(conv.id)}
+                    <div role="checkbox" aria-checked={seleccionados.has(conv.id)}
                       onClick={(e) => { e.stopPropagation(); toggleSeleccion(conv.id) }}
-                      className="flex-shrink-0 mt-1 cursor-pointer"
-                    >
+                      className="flex-shrink-0 self-center cursor-pointer">
                       {seleccionados.has(conv.id)
-                        ? <CheckSquare size={18} style={{ color: 'var(--texto-marca)' }} />
-                        : <Square size={18} style={{ color: 'var(--texto-terciario)' }} />
-                      }
+                        ? <CheckSquare size={20} style={{ color: 'var(--texto-marca)' }} />
+                        : <Square size={20} style={{ color: 'var(--texto-terciario)' }} />}
                     </div>
                   ) : (
-                    <div className="flex-shrink-0 relative">
-                      <Avatar nombre={conv.contacto_nombre || conv.identificador_externo || '?'} tamano="sm" />
+                    <div className="flex-shrink-0 relative self-center">
+                      <Avatar nombre={conv.contacto_nombre || conv.identificador_externo || '?'} tamano="md" />
                       {tipoCanal === 'whatsapp' && (
-                        <div className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full flex items-center justify-center" style={{ background: '#25D366' }}>
-                          <IconoWhatsApp size={8} className="text-white" />
+                        <div className="absolute -bottom-0.5 -right-0.5 size-4 rounded-full flex items-center justify-center" style={{ background: '#25D366' }}>
+                          <IconoWhatsApp size={9} className="text-white" />
                         </div>
                       )}
                     </div>
                   )}
 
-                  {/* Contenido — máximo 3 filas */}
+                  {/* Col 2: Contenido */}
                   <div className="flex-1 min-w-0">
-                    {/* Fila 1: Nombre + Lead | Fecha + 3 puntos (columna derecha) */}
-                    <div className="flex items-start gap-1">
-                      <div className="flex-1 min-w-0 flex items-center gap-1">
-                        <span className="text-sm font-medium truncate" style={{
-                          color: conv.mensajes_sin_leer > 0 ? 'var(--texto-primario)' : 'var(--texto-secundario)',
-                        }}>
-                          {conv.contacto_nombre || conv.identificador_externo || 'Desconocido'}
+                    {/* Nombre + Lead */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[13px] font-semibold truncate" style={{
+                        color: conv.mensajes_sin_leer > 0 ? 'var(--texto-primario)' : 'var(--texto-secundario)',
+                      }}>
+                        {conv.contacto_nombre || conv.identificador_externo || 'Desconocido'}
+                      </span>
+                      {conv._fijada && <Pin size={11} className="flex-shrink-0" style={{ color: 'var(--texto-terciario)' }} />}
+                      {conv.contacto?.es_provisorio && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0"
+                          style={{ background: 'var(--insignia-advertencia-fondo)', color: 'var(--insignia-advertencia-texto)' }}>
+                          Lead
                         </span>
-                        {conv._fijada && <Pin size={10} className="flex-shrink-0" style={{ color: 'var(--texto-terciario)' }} />}
-                        {conv.contacto?.es_provisorio && (
-                          <span className="text-[10px] font-semibold px-1 rounded flex-shrink-0"
-                            style={{ background: 'var(--insignia-advertencia-fondo)', color: 'var(--insignia-advertencia-texto)' }}>
-                            Lead
-                          </span>
-                        )}
-                      </div>
-                      {/* Columna derecha: fecha arriba, 3 puntos abajo */}
-                      <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                        {conv.ultimo_mensaje_en && (
-                          <span className="text-xs" style={{
-                            color: conv.mensajes_sin_leer > 0 ? 'var(--insignia-exito)' : 'var(--texto-terciario)',
-                            fontWeight: conv.mensajes_sin_leer > 0 ? 600 : 400,
-                          }}>
-                            {tiempoRelativo(conv.ultimo_mensaje_en)}
-                          </span>
-                        )}
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setMenuConv({ conv, pos: null }) }}
-                          className="size-5 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 max-md:opacity-50 transition-opacity cursor-pointer"
-                          style={{ color: 'var(--texto-terciario)', background: 'transparent', border: 'none' }}
-                        >
-                          <MoreVertical size={14} />
-                        </button>
-                      </div>
+                      )}
                     </div>
 
-                    {/* Fila 2: Preview del último mensaje */}
-                    <p className="text-xs truncate" style={{
+                    {/* Teléfono */}
+                    {conv.identificador_externo && conv.contacto_nombre && (
+                      <p className="text-[11px] truncate" style={{ color: 'var(--texto-terciario)' }}>
+                        {conv.identificador_externo}
+                      </p>
+                    )}
+
+                    {/* Preview mensaje */}
+                    <p className="text-xs truncate mt-0.5" style={{
                       color: conv.mensajes_sin_leer > 0 ? 'var(--texto-secundario)' : 'var(--texto-terciario)',
                     }}>
-                      {conv.ultimo_mensaje_es_entrante === false && (
-                        <span style={{ color: 'var(--texto-terciario)' }}>Tú: </span>
-                      )}
+                      {conv.ultimo_mensaje_es_entrante === false && <span style={{ color: 'var(--texto-terciario)' }}>Tú: </span>}
                       {conv.ultimo_mensaje_texto || 'Sin mensajes'}
                     </p>
 
-                    {/* Fila 3: Badges compactos (etiquetas + etapa + sector + estado) */}
-                    <div className="flex items-center gap-1 mt-1 overflow-hidden">
+                    {/* Badges */}
+                    <div className="flex items-center gap-1 mt-1.5 overflow-x-auto flex-nowrap">
                       {conv.etiquetas?.slice(0, 2).map((et) => (
-                        <span key={et} className="text-[10px] px-1 rounded truncate max-w-[60px]"
-                          style={{ background: 'var(--superficie-hover)', color: 'var(--texto-terciario)' }}>
-                          {et}
-                        </span>
+                        <span key={et} className="text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap"
+                          style={{ background: 'var(--superficie-hover)', color: 'var(--texto-terciario)' }}>{et}</span>
                       ))}
                       {conv.etapa_etiqueta && (
-                        <span className="text-[10px] px-1.5 rounded-full font-medium"
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap"
                           style={{ background: `${conv.etapa_color || '#6b7280'}18`, color: conv.etapa_color || '#6b7280' }}>
-                          {conv.etapa_etiqueta}
-                        </span>
+                          {conv.etapa_etiqueta}</span>
                       )}
                       {conv.sector_nombre && (
-                        <span className="text-[10px] px-1.5 rounded-full font-medium"
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap"
                           style={{ background: `${conv.sector_color || '#6366f1'}18`, color: conv.sector_color || '#6366f1' }}>
-                          {conv.sector_nombre}
-                        </span>
+                          {conv.sector_nombre}</span>
                       )}
                       {conv.chatbot_activo && (
-                        <span className="text-[10px] px-1 rounded-full font-medium bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">Bot</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">Bot</span>
                       )}
                       {conv.agente_ia_activo && (
-                        <span className="text-[10px] px-1 rounded-full font-medium bg-violet-500/15 text-violet-600 dark:text-violet-400">IA</span>
-                      )}
-                      {conv.mensajes_sin_leer > 0 && (
-                        <span className="ml-auto min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-                          style={{ background: 'var(--insignia-exito)', color: 'var(--texto-inverso)' }}>
-                          {conv.mensajes_sin_leer > 99 ? '99+' : conv.mensajes_sin_leer}
-                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap bg-violet-500/15 text-violet-600 dark:text-violet-400">IA</span>
                       )}
                     </div>
+                  </div>
+
+                  {/* Col 3: Fecha + 3 puntos + badge no leídos */}
+                  <div className="flex flex-col items-end gap-1 flex-shrink-0 pt-0.5">
+                    {conv.ultimo_mensaje_en && (
+                      <span className="text-xs whitespace-nowrap" style={{
+                        color: conv.mensajes_sin_leer > 0 ? 'var(--insignia-exito)' : 'var(--texto-terciario)',
+                        fontWeight: conv.mensajes_sin_leer > 0 ? 600 : 400,
+                      }}>
+                        {tiempoRelativo(conv.ultimo_mensaje_en)}
+                      </span>
+                    )}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setMenuConv({ conv, pos: null }) }}
+                      className="size-6 flex items-center justify-center rounded-md opacity-0 group-hover:opacity-100 max-md:opacity-60 transition-opacity cursor-pointer"
+                      style={{ color: 'var(--texto-terciario)', background: 'transparent', border: 'none' }}
+                    >
+                      <MoreVertical size={16} />
+                    </button>
+                    {conv.mensajes_sin_leer > 0 && (
+                      <span className="min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-[10px] font-bold"
+                        style={{ background: 'var(--insignia-exito)', color: 'var(--texto-inverso)' }}>
+                        {conv.mensajes_sin_leer > 99 ? '99+' : conv.mensajes_sin_leer}
+                      </span>
+                    )}
                   </div>
                 </div>
               </motion.div>
