@@ -254,7 +254,7 @@ export function BarraControlsWA({
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: 'easeOut' }}
-      className="inline-flex items-center gap-1 px-2 py-1 rounded-2xl"
+      className={`inline-flex items-center ${esMovil ? 'gap-2 px-2.5 py-1.5' : 'gap-1 px-2 py-1'} rounded-2xl`}
       style={{
         background: 'color-mix(in srgb, var(--superficie-tarjeta) 80%, transparent)',
         backdropFilter: 'blur(12px) saturate(1.3)',
@@ -344,7 +344,7 @@ export function BarraControlsWA({
                 color: conversacion.asignado_a ? '#0ea5e9' : 'var(--texto-terciario)',
               }}
             >
-              <User size={esMovil ? 14 : 12} />
+              <User size={esMovil ? 16 : 12} />
               {!esMovil && <span>{inicialesAgente || 'Sin'}</span>}
             </div>
           </Tooltip>
@@ -402,7 +402,7 @@ export function BarraControlsWA({
                 color: conversacion.sector_id ? (conversacion.sector_color || '#6366f1') : 'var(--texto-terciario)',
               }}
             >
-              <Building2 size={esMovil ? 14 : 12} />
+              <Building2 size={esMovil ? 16 : 12} />
               {!esMovil && <span className="truncate max-w-[60px]">{conversacion.sector_nombre || 'Sin'}</span>}
             </div>
           </Tooltip>
@@ -492,7 +492,7 @@ export function BarraControlsWA({
                 color: estadoBot !== 'inactivo' ? colorIndicador(estadoBot, 'bot') : 'var(--texto-terciario)',
               }}
             >
-              <Bot size={12} />
+              <Bot size={esMovil ? 16 : 12} />
               {!esMovil && <span className="text-xs font-medium">Bot</span>}
             </div>
           </Tooltip>
@@ -540,7 +540,7 @@ export function BarraControlsWA({
                 color: estadoIA !== 'inactivo' ? colorIndicador(estadoIA, 'ia') : 'var(--texto-terciario)',
               }}
             >
-              <Sparkles size={12} />
+              <Sparkles size={esMovil ? 16 : 12} />
               {!esMovil && <span className="text-xs font-medium">IA</span>}
             </div>
           </Tooltip>
@@ -557,7 +557,7 @@ export function BarraControlsWA({
               }}
               onClick={toggleSeguir}
             >
-              {siguiendo ? <Bell size={esMovil ? 15 : 13} /> : <BellOff size={esMovil ? 15 : 13} />}
+              {siguiendo ? <Bell size={esMovil ? 16 : 13} /> : <BellOff size={esMovil ? 16 : 13} />}
             </div>
           </Tooltip>
         )}
