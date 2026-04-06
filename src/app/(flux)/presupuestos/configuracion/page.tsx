@@ -389,12 +389,6 @@ export default function PaginaConfigPresupuestos() {
                   className="w-20 text-right font-mono"
                 />
                 <span className="text-xs text-texto-terciario">%</span>
-                <Checkbox
-                  marcado={imp.activo}
-                  onChange={(v) => { const n = [...impuestos]; n[idx] = { ...imp, activo: v }; guardarImpuestos(n) }}
-                  etiqueta="Activo"
-                  className="text-xs text-texto-terciario"
-                />
                 <label className="flex items-center gap-1.5 cursor-pointer text-xs text-texto-terciario shrink-0" title="Se aplica automáticamente si el producto no tiene impuesto propio">
                   <input
                     type="radio"
@@ -408,6 +402,12 @@ export default function PaginaConfigPresupuestos() {
                   />
                   Default
                 </label>
+                <Checkbox
+                  marcado={imp.activo}
+                  onChange={(v) => { const n = [...impuestos]; n[idx] = { ...imp, activo: v }; guardarImpuestos(n) }}
+                  etiqueta="Activo"
+                  className="text-xs text-texto-terciario"
+                />
                 <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar impuesto" icono={<Trash2 size={14} />} onClick={() => guardarImpuestos(impuestos.filter((_, i) => i !== idx))} className="text-texto-terciario hover:text-estado-error" />
               </div>
             ))}
@@ -446,9 +446,10 @@ export default function PaginaConfigPresupuestos() {
                   onBlur={() => guardarMonedas(monedas)}
                   formato={null}
                   className="flex-1" />
-                <label className="flex items-center gap-1 text-xs text-texto-terciario cursor-pointer">
+                <label className="flex items-center gap-1.5 text-xs text-texto-terciario cursor-pointer shrink-0">
                   <input type="radio" name="moneda_default" checked={monedaPredeterminada === mon.id}
-                    onChange={() => guardarMonedas(monedas, mon.id)} />
+                    onChange={() => guardarMonedas(monedas, mon.id)}
+                    style={{ accentColor: 'var(--texto-marca)' }} />
                   Default
                 </label>
                 <Checkbox
@@ -457,6 +458,7 @@ export default function PaginaConfigPresupuestos() {
                   etiqueta="Activo"
                   className="text-xs text-texto-terciario"
                 />
+                <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar moneda" icono={<Trash2 size={14} />} onClick={() => guardarMonedas(monedas.filter((_, i) => i !== idx))} className="text-texto-terciario hover:text-estado-error" />
               </div>
             ))}
           </div>
