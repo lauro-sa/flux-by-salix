@@ -495,10 +495,10 @@ export function ListaConversaciones({
                     </div>
                   </div>
 
-                  {/* Col 3: Fecha + 3 puntos + badge no leídos */}
-                  <div className="flex flex-col items-end gap-1 flex-shrink-0 pt-0.5">
+                  {/* Col 3: Fecha + 3 puntos + badge no leídos — centrado vertical */}
+                  <div className="flex flex-col items-center justify-center gap-1.5 flex-shrink-0 self-center min-w-[40px]">
                     {conv.ultimo_mensaje_en && (
-                      <span className="text-xs whitespace-nowrap" style={{
+                      <span className="text-[11px] whitespace-nowrap" style={{
                         color: conv.mensajes_sin_leer > 0 ? 'var(--insignia-exito)' : 'var(--texto-terciario)',
                         fontWeight: conv.mensajes_sin_leer > 0 ? 600 : 400,
                       }}>
