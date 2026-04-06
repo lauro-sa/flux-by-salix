@@ -395,6 +395,19 @@ export default function PaginaConfigPresupuestos() {
                   etiqueta="Activo"
                   className="text-xs text-texto-terciario"
                 />
+                <label className="flex items-center gap-1.5 cursor-pointer text-xs text-texto-terciario shrink-0" title="Se aplica automáticamente si el producto no tiene impuesto propio">
+                  <input
+                    type="radio"
+                    name="impuesto_predeterminado"
+                    checked={!!imp.predeterminado}
+                    onChange={() => {
+                      const n = impuestos.map((im, i) => ({ ...im, predeterminado: i === idx }))
+                      guardarImpuestos(n)
+                    }}
+                    style={{ accentColor: 'var(--texto-marca)' }}
+                  />
+                  Default
+                </label>
                 <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar impuesto" icono={<Trash2 size={14} />} onClick={() => guardarImpuestos(impuestos.filter((_, i) => i !== idx))} className="text-texto-terciario hover:text-estado-error" />
               </div>
             ))}

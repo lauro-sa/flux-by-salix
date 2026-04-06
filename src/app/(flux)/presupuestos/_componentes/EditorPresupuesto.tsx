@@ -652,7 +652,7 @@ export default function EditorPresupuesto({
 
   const agregarLinea = useCallback(async (tipo: TipoLinea) => {
     const impuestos = (config?.impuestos || []) as Impuesto[]
-    const impDefault = impuestos.find(i => i.activo && i.porcentaje > 0)
+    const impDefault = impuestos.find(i => i.activo && i.predeterminado) || impuestos.find(i => i.activo && i.porcentaje > 0)
     const pid = presupuestoIdRef.current
 
     if (pid) {
@@ -706,7 +706,7 @@ export default function EditorPresupuesto({
     for (const lineaIA of lineasIA) {
       // Buscar impuesto por id
       const imp = lineaIA.impuesto_id ? impuestos.find(i => i.id === lineaIA.impuesto_id) : null
-      const impDefault = impuestos.find(i => i.activo && i.porcentaje > 0)
+      const impDefault = impuestos.find(i => i.activo && i.predeterminado) || impuestos.find(i => i.activo && i.porcentaje > 0)
       const impFinal = imp || impDefault
 
       if (pid) {

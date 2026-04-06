@@ -277,6 +277,7 @@ export interface Impuesto {
   label: string
   porcentaje: number
   activo: boolean
+  predeterminado?: boolean
 }
 
 export interface Moneda {
