@@ -65,18 +65,14 @@ export function AsuntoConVariables({
     onChange(nuevoValor)
   }, [onChange])
 
-  // Renderizar contenido cuando cambia el valor externamente (ej: insertar variable)
+  // Renderizar contenido cuando cambia el valor o el contexto (datos del contacto/documento)
   useEffect(() => {
     if (!editableRef.current) return
-    // Solo actualizar DOM si el valor cambio externamente (no por input del usuario)
-    const domText = Array.from(editableRef.current.childNodes).map(n => {
-      if (n.nodeType === Node.TEXT_NODE) return n.textContent || ''
-      if (n instanceof HTMLElement) return n.getAttribute('data-raw') || n.textContent || ''
-      return ''
-    }).join('')
-    if (domText === valor) return
 
     skipUpdateRef.current = true
+    // Guardar posición del cursor si el elemento tiene foco
+    const tieneFoco = document.activeElement === editableRef.current
+
     editableRef.current.innerHTML = ''
     segmentos.forEach(seg => {
       if (seg.tipo === 'texto') {
@@ -97,6 +93,16 @@ export function AsuntoConVariables({
       }
     })
     skipUpdateRef.current = false
+
+    // Restaurar foco al final si lo tenía
+    if (tieneFoco && editableRef.current) {
+      const sel = window.getSelection()
+      const range = document.createRange()
+      range.selectNodeContents(editableRef.current)
+      range.collapse(false)
+      sel?.removeAllRanges()
+      sel?.addRange(range)
+    }
   }, [valor, segmentos, contexto])
 
   const vacio = !valor

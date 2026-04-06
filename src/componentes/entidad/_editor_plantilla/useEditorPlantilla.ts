@@ -235,6 +235,33 @@ export function useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar }:
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editorListo, abierto])
 
+  // ─── Actualizar valores de variables en el editor cuando cambia el contexto ───
+  useEffect(() => {
+    if (!editorListo || !abierto) return
+    const editor = editorRef.current
+    if (!editor) return
+    const moneda = (contextoVariables?.presupuesto?.moneda || 'ARS') as string
+
+    // Actualizar spans data-variable con valores frescos
+    const html = editor.getHTML()
+    const actualizado = html.replace(
+      /<span[^>]*data-variable="([a-z_]+)\.([a-z_]+)"[^>]*>[^<]*<\/span>/g,
+      (_match: string, entidad: string, campo: string) => {
+        const valor = contextoVariables[entidad]?.[campo]
+        const formateado = (valor !== undefined && valor !== null && valor !== '')
+          ? formatearVariable(entidad, campo, valor, moneda)
+          : `{{${entidad}.${campo}}}`
+        return `<span data-variable="${entidad}.${campo}" class="variable-resaltada" title="{{${entidad}.${campo}}}" contenteditable="false">${formateado}</span>`
+      }
+    )
+    if (actualizado !== html) {
+      editor.commands.setContent(actualizado)
+      // Sincronizar estado
+      setContenidoHtml(actualizado)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contextoVariables, editorListo, abierto])
+
   // ─── Cambiar tab sincronizando HTML ───
   const handleCambiarTab = useCallback((tab: string) => {
     if (tabActivo === 'editar' && tab === 'codigo') {
