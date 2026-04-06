@@ -442,7 +442,7 @@ export function ListaConversaciones({
                     {/* Nombre + Lead */}
                     <div className="flex items-center gap-1.5">
                       <span className="text-[13px] font-semibold truncate" style={{
-                        color: conv.mensajes_sin_leer > 0 ? 'var(--texto-primario)' : 'var(--texto-secundario)',
+                        color: conv.mensajes_sin_leer !== 0 ? 'var(--texto-primario)' : 'var(--texto-secundario)',
                       }}>
                         {conv.contacto_nombre || conv.identificador_externo || 'Desconocido'}
                       </span>
@@ -464,7 +464,7 @@ export function ListaConversaciones({
 
                     {/* Preview mensaje */}
                     <p className="text-xs truncate mt-0.5" style={{
-                      color: conv.mensajes_sin_leer > 0 ? 'var(--texto-secundario)' : 'var(--texto-terciario)',
+                      color: conv.mensajes_sin_leer !== 0 ? 'var(--texto-secundario)' : 'var(--texto-terciario)',
                     }}>
                       {conv.ultimo_mensaje_es_entrante === false && <span style={{ color: 'var(--texto-terciario)' }}>Tú: </span>}
                       {conv.ultimo_mensaje_texto || 'Sin mensajes'}
@@ -499,8 +499,8 @@ export function ListaConversaciones({
                   <div className="flex flex-col items-center justify-center gap-1 flex-shrink-0 self-center min-w-[40px]">
                     {conv.ultimo_mensaje_en && (
                       <span className="text-[11px] whitespace-nowrap" style={{
-                        color: conv.mensajes_sin_leer > 0 ? 'var(--insignia-exito)' : 'var(--texto-terciario)',
-                        fontWeight: conv.mensajes_sin_leer > 0 ? 600 : 400,
+                        color: conv.mensajes_sin_leer !== 0 ? 'var(--insignia-exito)' : 'var(--texto-terciario)',
+                        fontWeight: conv.mensajes_sin_leer !== 0 ? 600 : 400,
                       }}>
                         {tiempoRelativo(conv.ultimo_mensaje_en)}
                       </span>
@@ -508,17 +508,17 @@ export function ListaConversaciones({
                     {/* Badge no leídos visible, se oculta en hover y aparecen 3 puntos */}
                     <div className="relative size-6 flex items-center justify-center">
                       {/* Badge — visible por defecto, se oculta en hover */}
-                      {conv.mensajes_sin_leer > 0 && (
-                        conv.mensajes_sin_leer === 1 ? (
-                          /* Punto simple (marcado manualmente como no leído o 1 mensaje) */
+                      {conv.mensajes_sin_leer !== 0 && (
+                        conv.mensajes_sin_leer === -1 ? (
+                          /* Punto (marcado manualmente como no leído) */
                           <div className="size-3 rounded-full group-hover:hidden" style={{ background: 'var(--insignia-exito)' }} />
-                        ) : (
-                          /* Número cuando hay múltiples no leídos */
+                        ) : conv.mensajes_sin_leer > 0 ? (
+                          /* Número (mensajes reales no leídos) */
                           <span className="min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-[10px] font-bold group-hover:hidden"
                             style={{ background: 'var(--insignia-exito)', color: 'var(--texto-inverso)' }}>
                             {conv.mensajes_sin_leer > 99 ? '99+' : conv.mensajes_sin_leer}
                           </span>
-                        )
+                        ) : null
                       )}
                       {/* 3 puntos — ocultos por defecto, visibles en hover */}
                       <button
@@ -530,7 +530,7 @@ export function ListaConversaciones({
                           setMenuConv({ conv, pos: esMd ? { x: rect.left, y: rect.bottom + 4 } : null })
                         }}
                         className={`absolute inset-0 flex items-center justify-center rounded-md cursor-pointer transition-opacity ${
-                          conv.mensajes_sin_leer > 0 ? 'opacity-0 group-hover:opacity-100' : 'opacity-0 group-hover:opacity-100 max-md:opacity-60'
+                          conv.mensajes_sin_leer !== 0 ? 'opacity-0 group-hover:opacity-100' : 'opacity-0 group-hover:opacity-100 max-md:opacity-60'
                         }`}
                         style={{ color: 'var(--texto-terciario)', background: 'transparent', border: 'none' }}
                       >

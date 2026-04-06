@@ -1717,12 +1717,12 @@ function PaginaInbox() {
                         await patchConv({ mensajes_sin_leer: 1 })
                         break
                       case 'marcar_lectura': {
-                        // Viene del menú contextual — toggle según estado actual
+                        // Toggle: -1 = marcado manual (punto sin número), 0 = leído
                         const convActual = conversaciones.find(c => c.id === convId)
-                        if (convActual && convActual.mensajes_sin_leer > 0) {
+                        if (convActual && convActual.mensajes_sin_leer !== 0) {
                           await patchConv({ mensajes_sin_leer: 0 })
                         } else {
-                          await patchConv({ mensajes_sin_leer: 1 })
+                          await patchConv({ mensajes_sin_leer: -1 })
                         }
                         break
                       }
