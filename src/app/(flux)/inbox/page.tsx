@@ -593,6 +593,17 @@ function PaginaInbox() {
     // Marcar notificaciones de esta conversación como leídas
     marcarNotificacionesLeidasDeConversacion(id)
 
+    // Marcar conversación como leída (optimista + API)
+    if (conv.mensajes_sin_leer !== 0) {
+      setConversaciones(prev => prev.map(c => c.id === id ? { ...c, mensajes_sin_leer: 0 } : c))
+      setConversacionSeleccionada(prev => prev ? { ...prev, mensajes_sin_leer: 0 } : prev)
+      fetch(`/api/inbox/conversaciones/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mensajes_sin_leer: 0 }),
+      }).catch(() => {})
+    }
+
     setCargandoMensajes(true)
     paginaMensajesRef.current = 1
     try {
