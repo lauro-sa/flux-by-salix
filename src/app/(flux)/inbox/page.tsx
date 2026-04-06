@@ -1762,13 +1762,12 @@ function PaginaInbox() {
                   }}
                   esAdmin={true}
                 />
-                {/* Drag handle para redimensionar */}
-                {!esMovil && (
-                  <div
-                    className="absolute top-0 -right-px w-[3px] h-full cursor-col-resize transition-colors z-10 group/resize"
-                    style={{ background: 'transparent' }}
-                    onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'var(--texto-marca)'; (e.target as HTMLElement).style.opacity = '0.3' }}
-                    onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.opacity = '1' }}
+                {/* Drag handle para redimensionar — hidden en mobile via CSS */}
+                <div
+                  className="absolute top-0 -right-px w-[3px] h-full cursor-col-resize transition-colors z-10 hidden md:block"
+                  style={{ background: 'transparent' }}
+                  onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'var(--texto-marca)'; (e.target as HTMLElement).style.opacity = '0.3' }}
+                  onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.opacity = '1' }}
                     onMouseDown={(e) => {
                       e.preventDefault()
                       redimensionandoRef.current = true
@@ -1789,7 +1788,6 @@ function PaginaInbox() {
                       document.addEventListener('mouseup', onUp)
                     }}
                   />
-                )}
               </div>
             )}
             {/* Chat — en móvil pantalla completa con botón atrás */}
