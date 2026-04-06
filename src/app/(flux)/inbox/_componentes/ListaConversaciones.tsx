@@ -443,36 +443,40 @@ export function ListaConversaciones({
 
                   {/* Contenido — máximo 3 filas */}
                   <div className="flex-1 min-w-0">
-                    {/* Fila 1: Nombre + Lead + fecha + 3 puntos */}
-                    <div className="flex items-center gap-1">
-                      <span className="text-sm font-medium truncate" style={{
-                        color: conv.mensajes_sin_leer > 0 ? 'var(--texto-primario)' : 'var(--texto-secundario)',
-                      }}>
-                        {conv.contacto_nombre || conv.identificador_externo || 'Desconocido'}
-                      </span>
-                      {conv._fijada && <Pin size={10} className="flex-shrink-0" style={{ color: 'var(--texto-terciario)' }} />}
-                      {conv.contacto?.es_provisorio && (
-                        <span className="text-[10px] font-semibold px-1 rounded flex-shrink-0"
-                          style={{ background: 'var(--insignia-advertencia-fondo)', color: 'var(--insignia-advertencia-texto)' }}>
-                          Lead
-                        </span>
-                      )}
-                      <span className="flex-1" />
-                      {conv.ultimo_mensaje_en && (
-                        <span className="text-[11px] flex-shrink-0" style={{
-                          color: conv.mensajes_sin_leer > 0 ? 'var(--insignia-exito)' : 'var(--texto-terciario)',
+                    {/* Fila 1: Nombre + Lead | Fecha + 3 puntos (columna derecha) */}
+                    <div className="flex items-start gap-1">
+                      <div className="flex-1 min-w-0 flex items-center gap-1">
+                        <span className="text-sm font-medium truncate" style={{
+                          color: conv.mensajes_sin_leer > 0 ? 'var(--texto-primario)' : 'var(--texto-secundario)',
                         }}>
-                          {tiempoRelativo(conv.ultimo_mensaje_en)}
+                          {conv.contacto_nombre || conv.identificador_externo || 'Desconocido'}
                         </span>
-                      )}
-                      {/* 3 puntos */}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setMenuConv({ conv, pos: null }) }}
-                        className="size-5 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 max-md:opacity-50 transition-opacity cursor-pointer flex-shrink-0"
-                        style={{ color: 'var(--texto-terciario)', background: 'transparent', border: 'none' }}
-                      >
-                        <MoreVertical size={14} />
-                      </button>
+                        {conv._fijada && <Pin size={10} className="flex-shrink-0" style={{ color: 'var(--texto-terciario)' }} />}
+                        {conv.contacto?.es_provisorio && (
+                          <span className="text-[10px] font-semibold px-1 rounded flex-shrink-0"
+                            style={{ background: 'var(--insignia-advertencia-fondo)', color: 'var(--insignia-advertencia-texto)' }}>
+                            Lead
+                          </span>
+                        )}
+                      </div>
+                      {/* Columna derecha: fecha arriba, 3 puntos abajo */}
+                      <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                        {conv.ultimo_mensaje_en && (
+                          <span className="text-xs" style={{
+                            color: conv.mensajes_sin_leer > 0 ? 'var(--insignia-exito)' : 'var(--texto-terciario)',
+                            fontWeight: conv.mensajes_sin_leer > 0 ? 600 : 400,
+                          }}>
+                            {tiempoRelativo(conv.ultimo_mensaje_en)}
+                          </span>
+                        )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setMenuConv({ conv, pos: null }) }}
+                          className="size-5 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 max-md:opacity-50 transition-opacity cursor-pointer"
+                          style={{ color: 'var(--texto-terciario)', background: 'transparent', border: 'none' }}
+                        >
+                          <MoreVertical size={14} />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Fila 2: Preview del último mensaje */}
