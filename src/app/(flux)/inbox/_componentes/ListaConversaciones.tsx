@@ -509,14 +509,26 @@ export function ListaConversaciones({
                     <div className="relative size-6 flex items-center justify-center">
                       {/* Badge — visible por defecto, se oculta en hover */}
                       {conv.mensajes_sin_leer > 0 && (
-                        <span className="min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-[10px] font-bold group-hover:hidden"
-                          style={{ background: 'var(--insignia-exito)', color: 'var(--texto-inverso)' }}>
-                          {conv.mensajes_sin_leer > 99 ? '99+' : conv.mensajes_sin_leer}
-                        </span>
+                        conv.mensajes_sin_leer === 1 ? (
+                          /* Punto simple (marcado manualmente como no leído o 1 mensaje) */
+                          <div className="size-3 rounded-full group-hover:hidden" style={{ background: 'var(--insignia-exito)' }} />
+                        ) : (
+                          /* Número cuando hay múltiples no leídos */
+                          <span className="min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-[10px] font-bold group-hover:hidden"
+                            style={{ background: 'var(--insignia-exito)', color: 'var(--texto-inverso)' }}>
+                            {conv.mensajes_sin_leer > 99 ? '99+' : conv.mensajes_sin_leer}
+                          </span>
+                        )
                       )}
                       {/* 3 puntos — ocultos por defecto, visibles en hover */}
                       <button
-                        onClick={(e) => { e.stopPropagation(); setMenuConv({ conv, pos: null }) }}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                          // Desktop: posicionar popover al lado del botón. Mobile: bottom sheet (null)
+                          const esMd = window.innerWidth >= 768
+                          setMenuConv({ conv, pos: esMd ? { x: rect.left, y: rect.bottom + 4 } : null })
+                        }}
                         className={`absolute inset-0 flex items-center justify-center rounded-md cursor-pointer transition-opacity ${
                           conv.mensajes_sin_leer > 0 ? 'opacity-0 group-hover:opacity-100' : 'opacity-0 group-hover:opacity-100 max-md:opacity-60'
                         }`}
