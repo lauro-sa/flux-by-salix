@@ -301,6 +301,7 @@ export interface CondicionPago {
   hitos: HitoPago[]
   notaPlanPago: string
   predeterminado: boolean
+  activo?: boolean
 }
 
 export interface HitoPago {

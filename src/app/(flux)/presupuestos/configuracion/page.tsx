@@ -518,51 +518,50 @@ export default function PaginaConfigPresupuestos() {
           >
             {condicionesPago.map((cond, idx) => (
               <Reorder.Item key={cond.id} value={cond.id}>
-                <div
-                  className="flex items-center justify-between p-3 bg-superficie-app rounded-lg group cursor-pointer hover:bg-superficie-app/80 transition-colors"
-                  onClick={() => { setCondicionEditando(cond); setModalCondicionAbierto(true) }}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div
-                      className="cursor-grab opacity-30 group-hover:opacity-60 transition-opacity shrink-0"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <GripVertical size={14} />
+                <div className="flex items-center gap-3 p-3 bg-superficie-app rounded-lg group">
+                  <div
+                    className="cursor-grab opacity-30 group-hover:opacity-60 transition-opacity shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <GripVertical size={14} />
+                  </div>
+                  <div
+                    className="flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => { setCondicionEditando(cond); setModalCondicionAbierto(true) }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-texto-primario truncate">{cond.label}</span>
+                      <span className={`text-xxs px-1.5 py-0.5 rounded shrink-0 ${
+                        cond.tipo === 'hitos'
+                          ? 'bg-[var(--texto-marca)]/10 text-texto-marca'
+                          : 'bg-superficie-tarjeta text-texto-terciario'
+                      }`}>
+                        {cond.tipo === 'hitos' ? 'Hitos' : 'Plazo'}
+                      </span>
                     </div>
+                    <span className="text-xs text-texto-terciario block">
+                      {cond.tipo === 'hitos'
+                        ? (cond.hitos || []).map(h => `${h.porcentaje}% ${h.descripcion}`).join(' + ')
+                        : `${cond.diasVencimiento} días`}
+                    </span>
+                  </div>
+                  <label className="flex items-center gap-1.5 cursor-pointer text-xs text-texto-terciario shrink-0">
                     <input
                       type="radio"
                       name="condicion_predeterminada"
                       checked={!!cond.predeterminado}
-                      onChange={(e) => {
-                        e.stopPropagation()
-                        guardarCondiciones(condicionesPago.map((c, i) => ({ ...c, predeterminado: i === idx })))
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      className="shrink-0"
+                      onChange={() => guardarCondiciones(condicionesPago.map((c, i) => ({ ...c, predeterminado: i === idx })))}
                       style={{ accentColor: 'var(--texto-marca)' }}
-                      title="Predeterminado"
                     />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-texto-primario truncate">{cond.label}</span>
-                        <span className={`text-xxs px-1.5 py-0.5 rounded shrink-0 ${
-                          cond.tipo === 'hitos'
-                            ? 'bg-[var(--texto-marca)]/10 text-texto-marca'
-                            : 'bg-superficie-tarjeta text-texto-terciario'
-                        }`}>
-                          {cond.tipo === 'hitos' ? 'Hitos' : 'Plazo'}
-                        </span>
-                      </div>
-                      <span className="text-xs text-texto-secundario block">
-                        {cond.tipo === 'hitos'
-                          ? (cond.hitos || []).map(h => `${h.porcentaje}% ${h.descripcion}`).join(' + ')
-                          : `${cond.diasVencimiento} días`}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar condición" icono={<Trash2 size={14} />} onClick={(e) => { e.stopPropagation(); guardarCondiciones(condicionesPago.filter((_, i) => i !== idx)) }} className="text-texto-terciario hover:text-estado-error" />
-                  </div>
+                    Default
+                  </label>
+                  <Checkbox
+                    marcado={cond.activo !== false}
+                    onChange={(v) => { const n = [...condicionesPago]; n[idx] = { ...cond, activo: v }; guardarCondiciones(n) }}
+                    etiqueta="Activo"
+                    className="text-xs text-texto-terciario"
+                  />
+                  <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar condición" icono={<Trash2 size={14} />} onClick={() => guardarCondiciones(condicionesPago.filter((_, i) => i !== idx))} className="text-texto-terciario hover:text-estado-error" />
                 </div>
               </Reorder.Item>
             ))}
