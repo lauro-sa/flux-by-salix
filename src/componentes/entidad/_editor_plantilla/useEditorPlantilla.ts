@@ -221,30 +221,22 @@ export function useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar }:
     })
   }, [abierto, plantilla])
 
-  // ─── Sincronizar contenido al editor TipTap cuando se abre/cambia plantilla ───
-  useEffect(() => {
-    if (!editorListo || !abierto) return
-    const editor = editorRef.current
-    if (!editor) return
-    // Solo inyectar si el contenido actual del editor difiere del estado
-    const htmlActualEditor = editor.getHTML()
-    if (contenidoHtml && htmlActualEditor !== contenidoHtml) {
-      editor.commands.setContent(contenidoHtml)
-    }
-  // Solo al cambiar editorListo (cuando el editor se monta/remonta)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editorListo, abierto])
-
-  // ─── Actualizar valores de variables en el editor cuando cambia el contexto ───
-  useEffect(() => {
-    if (!editorListo || !abierto) return
-    const editor = editorRef.current
-    if (!editor) return
+  // ─── Convertir {{variables}} a chips y sincronizar con el editor ───
+  const resolverVariablesEnHtml = useCallback((html: string): string => {
     const moneda = (contextoVariables?.presupuesto?.moneda || 'ARS') as string
-
-    // Actualizar spans data-variable con valores frescos
-    const html = editor.getHTML()
-    const actualizado = html.replace(
+    // 1. Convertir {{entidad.campo}} texto plano a spans data-variable con valor resuelto
+    let resultado = html.replace(
+      /\{\{(\w+)\.(\w+)\}\}/g,
+      (_match: string, entidad: string, campo: string) => {
+        const valor = contextoVariables[entidad]?.[campo]
+        const formateado = (valor !== undefined && valor !== null && valor !== '')
+          ? formatearVariable(entidad, campo, valor, moneda)
+          : `{{${entidad}.${campo}}}`
+        return `<span data-variable="${entidad}.${campo}" class="variable-resaltada" title="{{${entidad}.${campo}}}" contenteditable="false">${formateado}</span>`
+      }
+    )
+    // 2. Actualizar spans data-variable existentes con valores frescos
+    resultado = resultado.replace(
       /<span[^>]*data-variable="([a-z_]+)\.([a-z_]+)"[^>]*>[^<]*<\/span>/g,
       (_match: string, entidad: string, campo: string) => {
         const valor = contextoVariables[entidad]?.[campo]
@@ -254,10 +246,30 @@ export function useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar }:
         return `<span data-variable="${entidad}.${campo}" class="variable-resaltada" title="{{${entidad}.${campo}}}" contenteditable="false">${formateado}</span>`
       }
     )
+    return resultado
+  }, [contextoVariables])
+
+  // Sincronizar contenido al editor TipTap cuando se abre/cambia plantilla
+  useEffect(() => {
+    if (!editorListo || !abierto) return
+    const editor = editorRef.current
+    if (!editor) return
+    if (contenidoHtml) {
+      const resuelto = resolverVariablesEnHtml(contenidoHtml)
+      editor.commands.setContent(resuelto)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editorListo, abierto])
+
+  // Actualizar valores de variables en el editor cuando cambia el contexto (contacto/documento)
+  useEffect(() => {
+    if (!editorListo || !abierto) return
+    const editor = editorRef.current
+    if (!editor) return
+    const html = editor.getHTML()
+    const actualizado = resolverVariablesEnHtml(html)
     if (actualizado !== html) {
       editor.commands.setContent(actualizado)
-      // Sincronizar estado
-      setContenidoHtml(actualizado)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contextoVariables, editorListo, abierto])
