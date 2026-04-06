@@ -615,7 +615,7 @@ export function PanelWhatsApp({
                   así la siguiente sección la empuja hacia arriba (estilo WhatsApp) */}
               <div
                 className="flex items-center justify-center py-2 z-[5]"
-                style={{ position: 'sticky', top: 52 }}
+                style={{ position: 'sticky', top: 64 }}
               >
                 <span
                   className="text-xxs px-3 py-1 rounded-lg shadow-sm"
