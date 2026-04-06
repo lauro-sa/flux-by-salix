@@ -1701,7 +1701,10 @@ function PaginaInbox() {
                 {/* Drag handle para redimensionar */}
                 {!esMovil && (
                   <div
-                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-[var(--texto-marca)] active:bg-[var(--texto-marca)] transition-colors opacity-0 hover:opacity-30 active:opacity-50 z-10"
+                    className="absolute top-0 -right-px w-[3px] h-full cursor-col-resize transition-colors z-10 group/resize"
+                    style={{ background: 'transparent' }}
+                    onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'var(--texto-marca)'; (e.target as HTMLElement).style.opacity = '0.3' }}
+                    onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.opacity = '1' }}
                     onMouseDown={(e) => {
                       e.preventDefault()
                       redimensionandoRef.current = true
