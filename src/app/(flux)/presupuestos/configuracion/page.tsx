@@ -386,10 +386,12 @@ export default function PaginaConfigPresupuestos() {
                   <GripVertical size={14} />
                 </div>
                 <Input
-                  variante="plano" value={imp.label}
+                  value={imp.label}
                   onChange={(e) => { const n = [...impuestos]; n[idx] = { ...imp, label: e.target.value }; setImpuestos(n) }}
                   onBlur={() => guardarImpuestos(impuestos)}
                   formato={null}
+                  compacto
+                  placeholder="Nombre del impuesto"
                   className="flex-1"
                 />
                 <Input
@@ -398,7 +400,7 @@ export default function PaginaConfigPresupuestos() {
                   onBlur={() => guardarImpuestos(impuestos)}
                   formato={null}
                   compacto
-                  className="w-20 text-right font-mono"
+                  className="w-16 text-right font-mono"
                 />
                 <span className="text-xs text-texto-terciario">%</span>
                 <label className="flex items-center gap-1.5 cursor-pointer text-xs text-texto-terciario shrink-0" title="Se aplica automáticamente si el producto no tiene impuesto propio">
