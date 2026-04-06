@@ -402,222 +402,122 @@ export function ListaConversaciones({
               <motion.div
                 key={conv.id}
                 layout
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
                 onClick={() => onSeleccionar(conv.id)}
                 onContextMenu={(e) => {
                   e.preventDefault()
                   setMenuConv({ conv, pos: { x: e.clientX, y: e.clientY } })
                 }}
-                className="w-full text-left px-3 py-2.5 transition-colors group relative cursor-pointer"
+                className="w-full text-left px-3 py-2.5 transition-colors group cursor-pointer"
                 style={{
-                  background: seleccionada === conv.id
-                    ? 'var(--superficie-seleccionada)'
-                    : 'transparent',
+                  background: seleccionada === conv.id ? 'var(--superficie-seleccionada)' : 'transparent',
                   borderBottom: '1px solid var(--borde-sutil)',
                 }}
               >
-                {/* Botón 3 puntos para mobile/hover */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setMenuConv({ conv, pos: null })
-                  }}
-                  className="absolute top-3 right-2 size-7 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 max-md:opacity-60 transition-opacity hover:bg-[var(--superficie-hover)] cursor-pointer"
-                  style={{ color: 'var(--texto-terciario)', background: 'transparent', border: 'none', zIndex: 1 }}
-                  aria-label="Más opciones"
-                >
-                  <MoreVertical size={16} />
-                </button>
-                <div className="flex items-start gap-3">
-                  {/* Checkbox en modo selección */}
-                  {modoSeleccion && (
+                <div className="flex gap-2.5">
+                  {/* Avatar con badge de canal */}
+                  {modoSeleccion ? (
                     <div
                       role="checkbox"
                       aria-checked={seleccionados.has(conv.id)}
                       onClick={(e) => { e.stopPropagation(); toggleSeleccion(conv.id) }}
-                      className="flex-shrink-0 mt-2 cursor-pointer"
+                      className="flex-shrink-0 mt-1 cursor-pointer"
                     >
                       {seleccionados.has(conv.id)
                         ? <CheckSquare size={18} style={{ color: 'var(--texto-marca)' }} />
                         : <Square size={18} style={{ color: 'var(--texto-terciario)' }} />
                       }
                     </div>
-                  )}
-                  {/* Avatar más grande con badge de canal */}
-                  {!modoSeleccion && (
-                  <div className="flex-shrink-0 relative">
-                    <Avatar
-                      nombre={conv.contacto_nombre || conv.identificador_externo || '?'}
-                      tamano="md"
-                    />
-                    {tipoCanal === 'whatsapp' && (
-                      <div className="absolute -bottom-0.5 -right-0.5 size-4 rounded-full flex items-center justify-center" style={{ background: '#25D366' }}>
-                        <IconoWhatsApp size={10} className="text-white" />
-                      </div>
-                    )}
-                  </div>
+                  ) : (
+                    <div className="flex-shrink-0 relative">
+                      <Avatar nombre={conv.contacto_nombre || conv.identificador_externo || '?'} tamano="sm" />
+                      {tipoCanal === 'whatsapp' && (
+                        <div className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full flex items-center justify-center" style={{ background: '#25D366' }}>
+                          <IconoWhatsApp size={8} className="text-white" />
+                        </div>
+                      )}
+                    </div>
                   )}
 
-                  {/* Contenido */}
+                  {/* Contenido — máximo 3 filas */}
                   <div className="flex-1 min-w-0">
-                    {/* Fila 1: Nombre + badges + fecha */}
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className="text-sm font-semibold truncate flex-1 min-w-0"
-                        style={{
-                          color: conv.mensajes_sin_leer > 0
-                            ? 'var(--texto-primario)'
-                            : 'var(--texto-secundario)',
-                        }}
-                      >
+                    {/* Fila 1: Nombre + Lead + fecha + 3 puntos */}
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm font-medium truncate" style={{
+                        color: conv.mensajes_sin_leer > 0 ? 'var(--texto-primario)' : 'var(--texto-secundario)',
+                      }}>
                         {conv.contacto_nombre || conv.identificador_externo || 'Desconocido'}
                       </span>
-                      {conv._fijada && <Pin size={11} style={{ color: 'var(--texto-terciario)', flexShrink: 0 }} />}
-                      {conv._silenciada && <BellOff size={11} style={{ color: 'var(--texto-terciario)', flexShrink: 0 }} />}
+                      {conv._fijada && <Pin size={10} className="flex-shrink-0" style={{ color: 'var(--texto-terciario)' }} />}
                       {conv.contacto?.es_provisorio && (
-                        <span className="text-xxs font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                        <span className="text-[10px] font-semibold px-1 rounded flex-shrink-0"
                           style={{ background: 'var(--insignia-advertencia-fondo)', color: 'var(--insignia-advertencia-texto)' }}>
                           Lead
                         </span>
                       )}
+                      <span className="flex-1" />
                       {conv.ultimo_mensaje_en && (
-                        <span className="text-xxs flex-shrink-0 ml-auto" style={{
+                        <span className="text-[11px] flex-shrink-0" style={{
                           color: conv.mensajes_sin_leer > 0 ? 'var(--insignia-exito)' : 'var(--texto-terciario)',
-                          fontWeight: conv.mensajes_sin_leer > 0 ? 600 : 400,
                         }}>
                           {tiempoRelativo(conv.ultimo_mensaje_en)}
                         </span>
                       )}
-                      {conv.mensajes_sin_leer > 0 && (
-                        <span className="min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-                          style={{ background: 'var(--insignia-exito)', color: 'var(--texto-inverso)' }}>
-                          {conv.mensajes_sin_leer > 99 ? '99+' : conv.mensajes_sin_leer}
-                        </span>
-                      )}
+                      {/* 3 puntos */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setMenuConv({ conv, pos: null }) }}
+                        className="size-5 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 max-md:opacity-50 transition-opacity cursor-pointer flex-shrink-0"
+                        style={{ color: 'var(--texto-terciario)', background: 'transparent', border: 'none' }}
+                      >
+                        <MoreVertical size={14} />
+                      </button>
                     </div>
 
-                    {/* Fila 2: Número/identificador */}
-                    {conv.identificador_externo && conv.contacto_nombre && (
-                      <p className="text-xxs truncate mt-0.5" style={{ color: 'var(--texto-terciario)' }}>
-                        {conv.identificador_externo}
-                      </p>
-                    )}
-
-                    {/* Asunto (correo) o último mensaje */}
-                    {tipoCanal === 'correo' && conv.asunto && (
-                      <p
-                        className="text-xs font-medium truncate mt-0.5"
-                        style={{ color: 'var(--texto-primario)' }}
-                      >
-                        {conv.asunto}
-                      </p>
-                    )}
-
-                    <p
-                      className="text-xs truncate mt-0.5"
-                      style={{
-                        color: conv.mensajes_sin_leer > 0
-                          ? 'var(--texto-secundario)'
-                          : 'var(--texto-terciario)',
-                        fontWeight: conv.mensajes_sin_leer > 0 ? 500 : 400,
-                      }}
-                    >
-                      {/* Indicador enviado/recibido */}
+                    {/* Fila 2: Preview del último mensaje */}
+                    <p className="text-xs truncate" style={{
+                      color: conv.mensajes_sin_leer > 0 ? 'var(--texto-secundario)' : 'var(--texto-terciario)',
+                    }}>
                       {conv.ultimo_mensaje_es_entrante === false && (
                         <span style={{ color: 'var(--texto-terciario)' }}>Tú: </span>
                       )}
                       {conv.ultimo_mensaje_texto || 'Sin mensajes'}
                     </p>
 
-                    {/* Etiqueta de cuenta de correo */}
-                    {tipoCanal === 'correo' && conv.canal?.nombre && (
-                      <p
-                        className="text-xxs truncate mt-0.5"
-                        style={{ color: 'var(--canal-correo)' }}
-                      >
-                        {conv.canal.nombre}
-                      </p>
-                    )}
-
-                    {/* Etiquetas de la conversación */}
-                    {conv.etiquetas && conv.etiquetas.length > 0 && (
-                      <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                        {conv.etiquetas.slice(0, 3).map((et) => (
-                          <span
-                            key={et}
-                            className="text-xxs px-1 py-0 rounded cursor-pointer"
-                            style={{ background: 'var(--superficie-hover)', color: 'var(--texto-terciario)' }}
-                            onClick={(e) => { e.stopPropagation(); onFiltroEtiqueta?.(et) }}
-                          >
-                            {et}
-                          </span>
-                        ))}
-                        {conv.etiquetas.length > 3 && (
-                          <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                            +{conv.etiquetas.length - 3}
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Footer: estado + asignado */}
-                    <div className="flex items-center gap-2 mt-1">
-                      <Insignia color={COLOR_ESTADO[conv.estado] as 'exito' | 'advertencia' | 'neutro' | 'peligro'} tamano="sm">
-                        {conv.estado.replace('_', ' ')}
-                      </Insignia>
-                      {conv.asignado_a_nombre && (
-                        <span className="text-xxs flex items-center gap-1" style={{ color: 'var(--texto-terciario)' }}>
-                          <User size={10} />
-                          {conv.asignado_a_nombre.split(' ')[0]}
+                    {/* Fila 3: Badges compactos (etiquetas + etapa + sector + estado) */}
+                    <div className="flex items-center gap-1 mt-1 overflow-hidden">
+                      {conv.etiquetas?.slice(0, 2).map((et) => (
+                        <span key={et} className="text-[10px] px-1 rounded truncate max-w-[60px]"
+                          style={{ background: 'var(--superficie-hover)', color: 'var(--texto-terciario)' }}>
+                          {et}
+                        </span>
+                      ))}
+                      {conv.etapa_etiqueta && (
+                        <span className="text-[10px] px-1.5 rounded-full font-medium"
+                          style={{ background: `${conv.etapa_color || '#6b7280'}18`, color: conv.etapa_color || '#6b7280' }}>
+                          {conv.etapa_etiqueta}
                         </span>
                       )}
-                      {conv.tiempo_sin_respuesta_desde && (
-                        <span className="text-xxs flex items-center gap-1" style={{ color: 'var(--insignia-advertencia)' }}>
-                          <Clock size={10} />
-                          {tiempoRelativo(conv.tiempo_sin_respuesta_desde)}
+                      {conv.sector_nombre && (
+                        <span className="text-[10px] px-1.5 rounded-full font-medium"
+                          style={{ background: `${conv.sector_color || '#6366f1'}18`, color: conv.sector_color || '#6366f1' }}>
+                          {conv.sector_nombre}
+                        </span>
+                      )}
+                      {conv.chatbot_activo && (
+                        <span className="text-[10px] px-1 rounded-full font-medium bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">Bot</span>
+                      )}
+                      {conv.agente_ia_activo && (
+                        <span className="text-[10px] px-1 rounded-full font-medium bg-violet-500/15 text-violet-600 dark:text-violet-400">IA</span>
+                      )}
+                      {conv.mensajes_sin_leer > 0 && (
+                        <span className="ml-auto min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                          style={{ background: 'var(--insignia-exito)', color: 'var(--texto-inverso)' }}>
+                          {conv.mensajes_sin_leer > 99 ? '99+' : conv.mensajes_sin_leer}
                         </span>
                       )}
                     </div>
-
-                    {/* Badges de estado */}
-                    {(conv.etapa_etiqueta || conv.sector_nombre || conv.chatbot_activo || conv.agente_ia_activo) && (
-                      <div className="flex items-center gap-1 mt-1 flex-wrap">
-                        {conv.etapa_etiqueta && (
-                          <span
-                            className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                            style={{
-                              background: `${conv.etapa_color || '#6b7280'}18`,
-                              color: conv.etapa_color || '#6b7280',
-                            }}
-                          >
-                            {conv.etapa_etiqueta}
-                          </span>
-                        )}
-                        {conv.sector_nombre && (
-                          <span
-                            className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                            style={{
-                              background: `${conv.sector_color || '#6366f1'}18`,
-                              color: conv.sector_color || '#6366f1',
-                            }}
-                          >
-                            {conv.sector_nombre}
-                          </span>
-                        )}
-                        {conv.chatbot_activo && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-                            Bot
-                          </span>
-                        )}
-                        {conv.agente_ia_activo && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-violet-500/15 text-violet-600 dark:text-violet-400">
-                            IA
-                          </span>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </div>
               </motion.div>
