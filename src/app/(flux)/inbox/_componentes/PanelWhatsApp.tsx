@@ -672,6 +672,33 @@ export function PanelWhatsApp({
             const esPropio = !msg.es_entrante
             const esNota = msg.es_nota_interna
 
+            // Mensaje de sistema: línea centrada compacta (cambio de etapa, asignación, etc.)
+            if (msg.remitente_tipo === 'sistema') {
+              return (
+                <motion.div
+                  key={elem.key}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex justify-center py-0.5"
+                >
+                  <div
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xxs"
+                    style={{
+                      background: 'color-mix(in srgb, var(--superficie-tarjeta) 90%, transparent)',
+                      color: 'var(--texto-terciario)',
+                    }}
+                  >
+                    <span className="font-semibold" style={{ color: 'var(--texto-secundario)' }}>
+                      {msg.remitente_nombre}
+                    </span>
+                    <span>→</span>
+                    <span>{msg.texto}</span>
+                    <span className="opacity-60">{formatoHora(msg.creado_en)}</span>
+                  </div>
+                </motion.div>
+              )
+            }
+
             // Nota interna: burbuja centrada con estilo diferenciado
             if (esNota) {
               const editandoEsta = editandoNotaId === msg.id

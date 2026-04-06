@@ -113,9 +113,29 @@ export async function PATCH(
 
     const admin = crearClienteAdmin()
 
-    // Registrar asignación si cambió el agente
+    // ─── Helper: insertar mensaje de sistema en la conversación ───
+    const nombreCompleto = `${user.user_metadata?.nombre || ''} ${user.user_metadata?.apellido || ''}`.trim() || 'Usuario'
+    const insertarSistema = async (texto: string) => {
+      await admin.from('mensajes').insert({
+        empresa_id: empresaId,
+        conversacion_id: id,
+        es_entrante: false,
+        remitente_tipo: 'sistema',
+        remitente_id: user.id,
+        remitente_nombre: nombreCompleto,
+        tipo_contenido: 'texto',
+        texto,
+        es_nota_interna: true, // solo visible para agentes
+        estado: 'enviado',
+        reacciones: {},
+        metadata: {},
+      })
+    }
+
+    // ─── Registrar cambios con mensajes de sistema ───
+
+    // Asignación de agente
     if (body.asignado_a !== undefined) {
-      const nombreAsignador = `${user.user_metadata?.nombre || ''} ${user.user_metadata?.apellido || ''}`.trim()
       await admin.from('asignaciones_inbox').insert({
         empresa_id: empresaId,
         conversacion_id: id,
@@ -123,14 +143,19 @@ export async function PATCH(
         usuario_nombre: body.asignado_a_nombre || null,
         tipo: body.tipo_asignacion || 'manual',
         asignado_por: user.id,
-        asignado_por_nombre: nombreAsignador,
+        asignado_por_nombre: nombreCompleto,
         notas: body.notas_asignacion || null,
       })
+
+      if (body.asignado_a) {
+        await insertarSistema(`asignó a ${body.asignado_a_nombre || 'un agente'}`)
+      } else {
+        await insertarSistema('quitó la asignación de agente')
+      }
 
       // Notificar al agente asignado (push + sistema)
       if (body.asignado_a && body.asignado_a !== user.id) {
         const { crearNotificacion } = await import('@/lib/notificaciones')
-        // Obtener nombre del contacto para el mensaje
         const { data: conv } = await admin
           .from('conversaciones')
           .select('contacto_nombre, identificador_externo')
@@ -142,7 +167,7 @@ export async function PATCH(
           usuarioId: body.asignado_a,
           tipo: 'asignacion',
           titulo: 'Te asignaron una conversación',
-          cuerpo: `${nombreAsignador} te asignó la conversación de ${contacto}`,
+          cuerpo: `${nombreCompleto} te asignó la conversación de ${contacto}`,
           icono: '👤',
           color: '#0ea5e9',
           url: `/inbox?conv=${id}&tab=whatsapp`,
@@ -152,42 +177,69 @@ export async function PATCH(
       }
     }
 
-    // Mensaje de sistema al cambiar de etapa
+    // Cambio de etapa
     if (body.etapa_id !== undefined) {
-      // Obtener nombre de la etapa destino
-      const { data: etapa } = await admin
-        .from('etapas_conversacion')
-        .select('etiqueta')
-        .eq('id', body.etapa_id)
-        .single()
+      if (body.etapa_id) {
+        const { data: etapa } = await admin
+          .from('etapas_conversacion')
+          .select('etiqueta')
+          .eq('id', body.etapa_id)
+          .single()
+        await insertarSistema(`movió a "${etapa?.etiqueta || 'desconocida'}"${body.nota_etapa ? ` — ${body.nota_etapa}` : ''}`)
+      } else {
+        await insertarSistema('quitó la etapa')
+      }
+    }
 
-      const etapaNombre = etapa?.etiqueta || 'desconocida'
-      const nombre = user.user_metadata?.nombre || ''
-      const apellido = user.user_metadata?.apellido || ''
-      const rol = user.app_metadata?.rol || 'usuario'
-      const sectorNombre = user.user_metadata?.sector_nombre || ''
+    // Cambio de sector
+    if (body.sector_id !== undefined) {
+      if (body.sector_nombre) {
+        await insertarSistema(`asignó al sector "${body.sector_nombre}"`)
+      } else {
+        await insertarSistema('quitó el sector')
+      }
+    }
 
-      // Calcular iniciales (ej: "Sebastian Lauro" → "S.L.")
-      const iniciales = [nombre, apellido]
-        .filter(Boolean)
-        .map((p: string) => p.charAt(0).toUpperCase())
-        .join('.')
-        .concat('.')
+    // Cambio de estado
+    if (body.estado !== undefined) {
+      const etiquetas: Record<string, string> = {
+        abierta: 'reabrió la conversación',
+        en_espera: 'puso en espera',
+        resuelta: 'resolvió la conversación',
+        spam: 'marcó como spam',
+      }
+      if (etiquetas[body.estado]) {
+        await insertarSistema(etiquetas[body.estado])
+      }
+    }
 
-      await admin.from('mensajes').insert({
-        empresa_id: empresaId,
-        conversacion_id: id,
-        es_entrante: false,
-        remitente_tipo: 'sistema',
-        remitente_id: user.id,
-        remitente_nombre: `${iniciales} · ${sectorNombre || rol}`,
-        tipo_contenido: 'texto',
-        texto: `movió a "${etapaNombre}"${body.nota_etapa ? ` — ${body.nota_etapa}` : ''}`,
-        es_nota_interna: false,
-        estado: 'enviado',
-        reacciones: {},
-        metadata: {},
-      })
+    // Bot / IA
+    if (body.chatbot_activo === true) {
+      await insertarSistema('activó el chatbot')
+    } else if (body.chatbot_activo === false && body.chatbot_pausado_hasta) {
+      await insertarSistema('pausó el chatbot')
+    } else if (body.chatbot_activo === false && !body.chatbot_pausado_hasta) {
+      await insertarSistema('desactivó el chatbot')
+    }
+
+    if (body.agente_ia_activo === true) {
+      await insertarSistema('activó el agente IA')
+    } else if (body.agente_ia_activo === false && body.ia_pausado_hasta) {
+      await insertarSistema('pausó el agente IA')
+    } else if (body.agente_ia_activo === false && !body.ia_pausado_hasta) {
+      await insertarSistema('desactivó el agente IA')
+    }
+
+    // Bloqueo
+    if (body.bloqueada === true) {
+      await insertarSistema('bloqueó este número')
+    } else if (body.bloqueada === false) {
+      await insertarSistema('desbloqueó este número')
+    }
+
+    // Papelera
+    if (body.en_papelera === true) {
+      await insertarSistema('movió a la papelera')
     }
 
     const { data, error } = await admin
