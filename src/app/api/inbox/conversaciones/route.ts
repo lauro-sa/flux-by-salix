@@ -57,9 +57,16 @@ export async function GET(request: NextRequest) {
       .select(`
         *,
         canal:canales_inbox!canal_id(id, nombre, tipo, proveedor),
-        contacto:contactos!contacto_id(id, es_provisorio)
+        contacto:contactos!contacto_id(id, nombre, apellido, correo, telefono, whatsapp, avatar_url, es_provisorio),
+        etapa:etapas_conversacion!etapa_id(id, etiqueta, color, icono)
       `, { count: 'exact' })
       .eq('empresa_id', empresaId)
+
+    // Filtros de papelera y bloqueadas (excluir por defecto)
+    const mostrarPapelera = params.get('papelera') === 'true'
+    const mostrarBloqueadas = params.get('bloqueadas') === 'true'
+    if (!mostrarPapelera) query = query.eq('en_papelera', false)
+    if (!mostrarBloqueadas) query = query.eq('bloqueada', false)
 
     // Filtros
     if (tipo_canal) query = query.eq('tipo_canal', tipo_canal)
@@ -148,7 +155,41 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ conversaciones: resultados, total: count || resultados.length })
+    // Enriquecer con flags del usuario actual (fijada, silenciada, seguida)
+    const convIds = resultados.map(c => c.id)
+    if (convIds.length > 0) {
+      const [pinsData, silenciosData, seguidoresData] = await Promise.all([
+        admin.from('conversacion_pins').select('conversacion_id').eq('usuario_id', user.id).in('conversacion_id', convIds),
+        admin.from('conversacion_silencios').select('conversacion_id').eq('usuario_id', user.id).in('conversacion_id', convIds),
+        admin.from('conversacion_seguidores').select('conversacion_id').eq('usuario_id', user.id).in('conversacion_id', convIds),
+      ])
+      const pinsSet = new Set((pinsData.data || []).map(p => p.conversacion_id))
+      const silenciosSet = new Set((silenciosData.data || []).map(s => s.conversacion_id))
+      const seguidoresSet = new Set((seguidoresData.data || []).map(s => s.conversacion_id))
+
+      // Agregar flags, aplanar etapa, y ordenar fijadas primero
+      const conversacionesConFlags = resultados.map(c => {
+        const etapaJoin = c.etapa as { id: string; etiqueta: string; color: string; icono: string | null } | null
+        return {
+          ...c,
+          etapa_etiqueta: etapaJoin?.etiqueta || null,
+          etapa_color: etapaJoin?.color || null,
+          _fijada: pinsSet.has(c.id),
+          _silenciada: silenciosSet.has(c.id),
+          _seguida: seguidoresSet.has(c.id),
+        }
+      })
+      conversacionesConFlags.sort((a, b) => (b._fijada ? 1 : 0) - (a._fijada ? 1 : 0))
+
+      return NextResponse.json({ conversaciones: conversacionesConFlags, total: count || resultados.length })
+    }
+
+    // Aplanar etapa para resultados sin pins
+    const resultadosConEtapa = resultados.map(c => {
+      const etapaJoin = c.etapa as { id: string; etiqueta: string; color: string; icono: string | null } | null
+      return { ...c, etapa_etiqueta: etapaJoin?.etiqueta || null, etapa_color: etapaJoin?.color || null }
+    })
+    return NextResponse.json({ conversaciones: resultadosConEtapa, total: count || resultados.length })
   } catch (err) {
     console.error('Error al obtener conversaciones:', err)
     return NextResponse.json({ conversaciones: [], total: 0 })

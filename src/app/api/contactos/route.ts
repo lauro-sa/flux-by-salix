@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
     const vinculado_de = params.get('vinculado_de')
     const origen_filtro = params.get('origen_filtro')
     const condicion_iva = params.get('condicion_iva')
+    const etapa_id = params.get('etapa_id')
     const orden_campo = params.get('orden_campo') || 'codigo'
     const orden_dir = params.get('orden_dir') === 'asc' ? true : false
     const pagina = parseInt(params.get('pagina') || '1')
@@ -117,6 +118,22 @@ export async function GET(request: NextRequest) {
       query = query.eq('datos_fiscales->>condicion_iva', condicion_iva)
     }
 
+    // Filtro por etapa de conversación (busca contactos cuya última conversación tenga esa etapa)
+    if (etapa_id) {
+      const { data: convsConEtapa } = await admin
+        .from('conversaciones')
+        .select('contacto_id')
+        .eq('empresa_id', empresaId)
+        .eq('etapa_id', etapa_id)
+        .not('contacto_id', 'is', null)
+      const idsConEtapa = [...new Set((convsConEtapa || []).map(c => c.contacto_id).filter(Boolean))]
+      if (idsConEtapa.length > 0) {
+        query = query.in('id', idsConEtapa)
+      } else {
+        return NextResponse.json({ contactos: [], total: 0, pagina, por_pagina, total_paginas: 0 })
+      }
+    }
+
     // Filtro por vinculaciones (directas e inversas)
     if (vinculado_de) {
       const [{ data: directas }, { data: inversas }] = await Promise.all([
@@ -176,8 +193,41 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Error al obtener contactos' }, { status: 500 })
     }
 
+    // Enriquecer con la última etapa de conversación por contacto
+    const contactoIds = (data || []).map(c => c.id).filter(Boolean)
+    let etapasPorContacto: Record<string, { etapa_etiqueta: string; etapa_color: string; tipo_canal: string }> = {}
+
+    if (contactoIds.length > 0) {
+      const { data: convEtapas } = await admin
+        .from('conversaciones')
+        .select('contacto_id, etapa_id, tipo_canal, etapa:etapas_conversacion(etiqueta, color)')
+        .in('contacto_id', contactoIds)
+        .not('etapa_id', 'is', null)
+        .order('ultimo_mensaje_en', { ascending: false })
+
+      if (convEtapas) {
+        // Solo tomar la primera (más reciente) por contacto
+        for (const conv of convEtapas) {
+          if (!conv.contacto_id || etapasPorContacto[conv.contacto_id]) continue
+          const etapa = conv.etapa as unknown as { etiqueta: string; color: string } | null
+          if (etapa) {
+            etapasPorContacto[conv.contacto_id] = {
+              etapa_etiqueta: etapa.etiqueta,
+              etapa_color: etapa.color,
+              tipo_canal: conv.tipo_canal,
+            }
+          }
+        }
+      }
+    }
+
+    const contactosConEtapa = (data || []).map(c => ({
+      ...c,
+      ultima_etapa: etapasPorContacto[c.id] || null,
+    }))
+
     return NextResponse.json({
-      contactos: data || [],
+      contactos: contactosConEtapa,
       total: count || 0,
       pagina,
       por_pagina,

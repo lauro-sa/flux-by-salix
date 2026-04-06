@@ -1059,6 +1059,24 @@ export const conversaciones = pgTable('conversaciones', {
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
   cerrado_en: timestamp('cerrado_en', { withTimezone: true }),
   cerrado_por: uuid('cerrado_por'),
+  // Etapa del pipeline
+  etapa_id: uuid('etapa_id'),
+  // Sector asignado (denormalizado)
+  sector_id: uuid('sector_id'),
+  sector_nombre: text('sector_nombre'),
+  sector_color: text('sector_color'),
+  // Bloqueo, pipeline, papelera
+  bloqueada: boolean('bloqueada').notNull().default(false),
+  en_pipeline: boolean('en_pipeline').notNull().default(true),
+  en_papelera: boolean('en_papelera').notNull().default(false),
+  papelera_en: timestamp('papelera_en', { withTimezone: true }),
+  // Bot / IA pause
+  chatbot_pausado_hasta: timestamp('chatbot_pausado_hasta', { withTimezone: true }),
+  ia_pausado_hasta: timestamp('ia_pausado_hasta', { withTimezone: true }),
+  // Snooze / recordatorio
+  snooze_hasta: timestamp('snooze_hasta', { withTimezone: true }),
+  snooze_nota: text('snooze_nota'),
+  snooze_por: uuid('snooze_por'),
 }, (tabla) => [
   index('conversaciones_empresa_idx').on(tabla.empresa_id),
   index('conversaciones_canal_idx').on(tabla.canal_id),
@@ -1066,6 +1084,10 @@ export const conversaciones = pgTable('conversaciones', {
   index('conversaciones_estado_idx').on(tabla.empresa_id, tabla.estado),
   index('conversaciones_asignado_idx').on(tabla.empresa_id, tabla.asignado_a),
   index('conversaciones_ultimo_mensaje_idx').on(tabla.empresa_id, tabla.ultimo_mensaje_en),
+  index('conversaciones_etapa_idx').on(tabla.empresa_id, tabla.etapa_id),
+  index('conversaciones_snooze_idx').on(tabla.empresa_id, tabla.snooze_hasta),
+  index('conversaciones_sector_idx').on(tabla.empresa_id, tabla.sector_id),
+  index('conversaciones_papelera_idx').on(tabla.empresa_id, tabla.en_papelera),
 ])
 
 // Mensajes — contenido de cada conversación
@@ -1217,6 +1239,83 @@ export const config_inbox = pgTable('config_inbox', {
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
 })
 
+// Etapas de conversación — pipeline configurable por empresa y tipo de canal
+export const etapas_conversacion = pgTable('etapas_conversacion', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  tipo_canal: text('tipo_canal').notNull(), // 'whatsapp' | 'correo'
+  clave: text('clave').notNull(),
+  etiqueta: text('etiqueta').notNull(),
+  color: text('color').notNull().default('#6b7280'),
+  icono: text('icono'),
+  orden: integer('orden').notNull().default(0),
+  es_predefinida: boolean('es_predefinida').notNull().default(false),
+  activa: boolean('activa').notNull().default(true),
+  // Validaciones del pipeline
+  requisitos: jsonb('requisitos').notNull().default(sql`'[]'`), // [{campo, estricto}]
+  sectores_permitidos: uuid('sectores_permitidos').array().notNull().default(sql`'{}'`),
+  acciones_auto: jsonb('acciones_auto').notNull().default(sql`'[]'`), // [{tipo, config?}]
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  uniqueIndex('etapas_conversacion_empresa_canal_clave_idx').on(tabla.empresa_id, tabla.tipo_canal, tabla.clave),
+  index('etapas_conversacion_empresa_idx').on(tabla.empresa_id, tabla.tipo_canal),
+])
+
+// Pins de conversación — fijar por usuario
+export const conversacion_pins = pgTable('conversacion_pins', {
+  conversacion_id: uuid('conversacion_id').notNull().references(() => conversaciones.id, { onDelete: 'cascade' }),
+  usuario_id: uuid('usuario_id').notNull(),
+  fijada_en: timestamp('fijada_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  primaryKey({ columns: [tabla.conversacion_id, tabla.usuario_id] }),
+  index('conversacion_pins_usuario_idx').on(tabla.usuario_id),
+])
+
+// Seguidores de conversación — reciben push notifications
+export const conversacion_seguidores = pgTable('conversacion_seguidores', {
+  conversacion_id: uuid('conversacion_id').notNull().references(() => conversaciones.id, { onDelete: 'cascade' }),
+  usuario_id: uuid('usuario_id').notNull(),
+  agregado_en: timestamp('agregado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  primaryKey({ columns: [tabla.conversacion_id, tabla.usuario_id] }),
+  index('conversacion_seguidores_usuario_idx').on(tabla.usuario_id),
+])
+
+// Silencios de conversación — mute por usuario
+export const conversacion_silencios = pgTable('conversacion_silencios', {
+  conversacion_id: uuid('conversacion_id').notNull().references(() => conversaciones.id, { onDelete: 'cascade' }),
+  usuario_id: uuid('usuario_id').notNull(),
+  silenciado_en: timestamp('silenciado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  primaryKey({ columns: [tabla.conversacion_id, tabla.usuario_id] }),
+])
+
+// WhatsApp programados — envío diferido de mensajes WhatsApp
+export const whatsapp_programados = pgTable('whatsapp_programados', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  canal_id: uuid('canal_id').notNull().references(() => canales_inbox.id),
+  conversacion_id: uuid('conversacion_id').references(() => conversaciones.id, { onDelete: 'set null' }),
+  creado_por: uuid('creado_por').notNull(),
+  destinatario: text('destinatario').notNull(), // número de teléfono
+  tipo_contenido: text('tipo_contenido').notNull().default('texto'), // 'texto' | 'imagen' | 'audio' | 'video' | 'documento' | 'plantilla'
+  texto: text('texto'),
+  media_url: text('media_url'),
+  media_nombre: text('media_nombre'),
+  plantilla_nombre: text('plantilla_nombre'),
+  plantilla_idioma: text('plantilla_idioma'),
+  plantilla_componentes: jsonb('plantilla_componentes'),
+  enviar_en: timestamp('enviar_en', { withTimezone: true }).notNull(),
+  estado: text('estado').notNull().default('pendiente'), // 'pendiente' | 'enviado' | 'cancelado' | 'error'
+  enviado_en: timestamp('enviado_en', { withTimezone: true }),
+  wa_message_id: text('wa_message_id'),
+  error: text('error'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('whatsapp_programados_empresa_idx').on(tabla.empresa_id),
+  index('whatsapp_programados_estado_idx').on(tabla.estado, tabla.enviar_en),
+])
+
 // Correos programados — envío diferido
 export const correos_programados = pgTable('correos_programados', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -1300,6 +1399,40 @@ export const metricas_correo = pgTable('metricas_correo', {
 }, (tabla) => [
   index('metricas_correo_empresa_idx').on(tabla.empresa_id),
   index('metricas_correo_fecha_idx').on(tabla.empresa_id, tabla.fecha),
+])
+
+// Plantillas de WhatsApp (Meta Business Templates)
+export const plantillas_whatsapp = pgTable('plantillas_whatsapp', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  canal_id: uuid('canal_id').references(() => canales_inbox.id, { onDelete: 'set null' }),
+  // Identidad Meta
+  nombre: text('nombre').notNull(),
+  nombre_api: text('nombre_api').notNull(), // lowercase_underscore, max 512
+  categoria: text('categoria').notNull().default('UTILITY'), // MARKETING | UTILITY | AUTHENTICATION
+  idioma: text('idioma').notNull().default('es'),
+  // Componentes (estructura Meta)
+  componentes: jsonb('componentes').notNull().default(sql`'{}'`),
+  // Estado Meta
+  estado_meta: text('estado_meta').notNull().default('BORRADOR'), // BORRADOR | PENDING | APPROVED | REJECTED | DISABLED | PAUSED | ERROR
+  id_template_meta: text('id_template_meta'),
+  error_meta: text('error_meta'),
+  ultima_sincronizacion: timestamp('ultima_sincronizacion', { withTimezone: true }),
+  // Disponibilidad
+  modulos: text('modulos').array().default(sql`'{}'`),
+  es_por_defecto: boolean('es_por_defecto').default(false),
+  disponible_para: text('disponible_para').default('todos'),
+  roles_permitidos: text('roles_permitidos').array().default(sql`'{}'`),
+  usuarios_permitidos: uuid('usuarios_permitidos').array().default(sql`'{}'`),
+  // Auditoría
+  activo: boolean('activo').notNull().default(true),
+  creado_por: uuid('creado_por'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('plantillas_wa_empresa_idx').on(tabla.empresa_id),
+  index('plantillas_wa_estado_idx').on(tabla.empresa_id, tabla.estado_meta),
+  uniqueIndex('plantillas_wa_nombre_api_idx').on(tabla.empresa_id, tabla.canal_id, tabla.nombre_api),
 ])
 
 // ═══════════════════════════════════════════════════════════════

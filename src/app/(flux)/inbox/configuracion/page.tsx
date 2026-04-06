@@ -24,13 +24,15 @@ import {
   Settings2, Mail, Hash, FileText, Users,
   Clock, Bell, Plus, Trash2, Wifi, WifiOff, AlertTriangle,
   Pencil, GripVertical, Shield, ChevronDown, RefreshCw, Loader2,
-  Zap, TrendingUp, Tag, Sparkles, Bot, MessageCircle,
+  Zap, TrendingUp, Tag, Sparkles, Bot, MessageCircle, KanbanSquare,
 } from 'lucide-react'
 import type { CanalInbox, PlantillaRespuesta, ConfigInbox, TipoCanal } from '@/tipos/inbox'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { ModalAgregarCanal } from '../_componentes/ModalAgregarCanal'
 import { SeccionWhatsApp } from '../_componentes/SeccionWhatsApp'
+import { SeccionEtapas } from '../_componentes/SeccionEtapas'
 import { ModalEditorPlantillaCorreo } from '@/componentes/entidad/ModalEditorPlantillaCorreo'
+import { SeccionPlantillasWA } from '../_componentes/SeccionPlantillasWA'
 import { ModalEtiquetas } from '../_componentes/ModalEtiquetas'
 import { ModalReglas } from '../_componentes/ModalReglas'
 import { PanelMetricas } from '../_componentes/PanelMetricas'
@@ -135,6 +137,7 @@ export default function PaginaConfiguracionInbox() {
     { id: 'whatsapp', etiqueta: t('inbox.canales.whatsapp'), icono: <IconoWhatsApp size={16} /> },
     { id: 'correo', etiqueta: t('inbox.config.correo'), icono: <Mail size={16} /> },
     { id: 'interno', etiqueta: t('inbox.config.interno'), icono: <Hash size={16} /> },
+    { id: 'pipeline', etiqueta: 'Pipeline / Etapas', icono: <KanbanSquare size={16} /> },
     { id: 'chatbot', etiqueta: 'Chatbot', icono: <Bot size={16} />, grupo: 'Automatización' },
     { id: 'agente_ia', etiqueta: 'Agente IA', icono: <Sparkles size={16} />, grupo: 'Automatización' },
     { id: 'respuestas_rapidas', etiqueta: 'Respuestas rápidas', icono: <Zap size={16} />, grupo: t('inbox.plantillas') },
@@ -331,6 +334,11 @@ export default function PaginaConfiguracionInbox() {
         <SeccionMetricasConfig />
       )}
 
+      {/* Pipeline / Etapas */}
+      {seccionActiva === 'pipeline' && (
+        <SeccionPipeline />
+      )}
+
       {/* Chatbot */}
       {seccionActiva === 'chatbot' && (
         <SeccionChatbot />
@@ -351,9 +359,8 @@ export default function PaginaConfiguracionInbox() {
 
       {/* Plantillas Meta (WhatsApp) */}
       {seccionActiva === 'plantillas_wa' && (
-        <SeccionPlantillas
-          canal="whatsapp"
-          plantillas={plantillas.filter(p => p.canal === 'whatsapp' || p.canal === 'todos')}
+        <SeccionPlantillasWA
+          canalesWhatsApp={canalesWhatsApp}
           onRecargar={cargar}
         />
       )}
@@ -479,6 +486,57 @@ export default function PaginaConfiguracionInbox() {
         onCanalCreado={cargar}
       />
     </PlantillaConfiguracion>
+  )
+}
+
+// Sección Pipeline — etapas de WhatsApp y Correo con tabs
+function SeccionPipeline() {
+  const [tabCanal, setTabCanal] = useState<'whatsapp' | 'correo'>('whatsapp')
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+          Pipeline / Etapas
+        </h3>
+        <p className="text-xs mt-1 mb-4" style={{ color: 'var(--texto-terciario)' }}>
+          Definí las etapas por las que pasan tus conversaciones en cada canal. Podés personalizar nombres, colores e íconos, y ver las conversaciones organizadas en vista pipeline desde el inbox.
+        </p>
+      </div>
+
+      {/* Tabs WhatsApp / Correo */}
+      <div
+        className="flex gap-1 p-1 rounded-lg w-fit"
+        style={{ background: 'var(--superficie-hover)' }}
+      >
+        <button
+          onClick={() => setTabCanal('whatsapp')}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+          style={{
+            background: tabCanal === 'whatsapp' ? 'var(--superficie-tarjeta)' : 'transparent',
+            color: tabCanal === 'whatsapp' ? 'var(--texto-primario)' : 'var(--texto-terciario)',
+            boxShadow: tabCanal === 'whatsapp' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+          }}
+        >
+          <IconoWhatsApp size={14} />
+          WhatsApp
+        </button>
+        <button
+          onClick={() => setTabCanal('correo')}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+          style={{
+            background: tabCanal === 'correo' ? 'var(--superficie-tarjeta)' : 'transparent',
+            color: tabCanal === 'correo' ? 'var(--texto-primario)' : 'var(--texto-terciario)',
+            boxShadow: tabCanal === 'correo' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+          }}
+        >
+          <Mail size={14} />
+          Correo
+        </button>
+      </div>
+
+      <SeccionEtapas tipoCanal={tabCanal} key={tabCanal} />
+    </div>
   )
 }
 

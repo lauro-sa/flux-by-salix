@@ -76,7 +76,11 @@ export async function PATCH(
     const camposPermitidos = [
       'estado', 'prioridad', 'asignado_a', 'asignado_a_nombre',
       'contacto_id', 'contacto_nombre', 'asunto', 'etiquetas',
-      'mensajes_sin_leer',
+      'mensajes_sin_leer', 'etapa_id',
+      'snooze_hasta', 'snooze_nota', 'snooze_por',
+      'sector_id', 'sector_nombre', 'sector_color',
+      'chatbot_activo', 'agente_ia_activo', 'chatbot_pausado_hasta', 'ia_pausado_hasta',
+      'bloqueada', 'en_pipeline', 'en_papelera', 'papelera_en',
     ]
     const cambios: Record<string, unknown> = { actualizado_en: new Date().toISOString() }
 
@@ -84,6 +88,21 @@ export async function PATCH(
       if (body[campo] !== undefined) {
         cambios[campo] = body[campo]
       }
+    }
+
+    // Exclusión mutua: chatbot vs agente IA
+    if (body.chatbot_activo === true) {
+      cambios.agente_ia_activo = false
+      cambios.ia_pausado_hasta = null
+    }
+    if (body.agente_ia_activo === true) {
+      cambios.chatbot_activo = false
+      cambios.chatbot_pausado_hasta = null
+    }
+
+    // Al mover a papelera, registrar timestamp
+    if (body.en_papelera === true) {
+      cambios.papelera_en = new Date().toISOString()
     }
 
     // Si se cierra la conversación
@@ -94,7 +113,35 @@ export async function PATCH(
 
     const admin = crearClienteAdmin()
 
-    // Registrar asignación si cambió el agente
+    // ─── Obtener nombre completo del usuario desde perfiles ───
+    const { data: perfilUsuario } = await admin
+      .from('perfiles')
+      .select('nombre, apellido')
+      .eq('id', user.id)
+      .single()
+    const nombreCompleto = perfilUsuario
+      ? `${perfilUsuario.nombre || ''} ${perfilUsuario.apellido || ''}`.trim()
+      : `${user.user_metadata?.nombre || ''} ${user.user_metadata?.apellido || ''}`.trim() || 'Usuario'
+    const insertarSistema = async (texto: string) => {
+      await admin.from('mensajes').insert({
+        empresa_id: empresaId,
+        conversacion_id: id,
+        es_entrante: false,
+        remitente_tipo: 'sistema',
+        remitente_id: user.id,
+        remitente_nombre: nombreCompleto,
+        tipo_contenido: 'texto',
+        texto,
+        es_nota_interna: true, // solo visible para agentes
+        estado: 'enviado',
+        reacciones: {},
+        metadata: {},
+      })
+    }
+
+    // ─── Registrar cambios con mensajes de sistema ───
+
+    // Asignación de agente
     if (body.asignado_a !== undefined) {
       await admin.from('asignaciones_inbox').insert({
         empresa_id: empresaId,
@@ -103,9 +150,103 @@ export async function PATCH(
         usuario_nombre: body.asignado_a_nombre || null,
         tipo: body.tipo_asignacion || 'manual',
         asignado_por: user.id,
-        asignado_por_nombre: `${user.user_metadata?.nombre || ''} ${user.user_metadata?.apellido || ''}`.trim(),
+        asignado_por_nombre: nombreCompleto,
         notas: body.notas_asignacion || null,
       })
+
+      if (body.asignado_a) {
+        await insertarSistema(`asignó a ${body.asignado_a_nombre || 'un agente'}`)
+      } else {
+        await insertarSistema('quitó la asignación de agente')
+      }
+
+      // Notificar al agente asignado (push + sistema)
+      if (body.asignado_a && body.asignado_a !== user.id) {
+        const { crearNotificacion } = await import('@/lib/notificaciones')
+        const { data: conv } = await admin
+          .from('conversaciones')
+          .select('contacto_nombre, identificador_externo')
+          .eq('id', id)
+          .single()
+        const contacto = conv?.contacto_nombre || conv?.identificador_externo || 'una conversación'
+        await crearNotificacion({
+          empresaId,
+          usuarioId: body.asignado_a,
+          tipo: 'asignacion',
+          titulo: 'Te asignaron una conversación',
+          cuerpo: `${nombreCompleto} te asignó la conversación de ${contacto}`,
+          icono: '👤',
+          color: '#0ea5e9',
+          url: `/inbox?conv=${id}&tab=whatsapp`,
+          referenciaTipo: 'conversacion',
+          referenciaId: id,
+        })
+      }
+    }
+
+    // Cambio de etapa
+    if (body.etapa_id !== undefined) {
+      if (body.etapa_id) {
+        const { data: etapa } = await admin
+          .from('etapas_conversacion')
+          .select('etiqueta')
+          .eq('id', body.etapa_id)
+          .single()
+        await insertarSistema(`movió a "${etapa?.etiqueta || 'desconocida'}"${body.nota_etapa ? ` — ${body.nota_etapa}` : ''}`)
+      } else {
+        await insertarSistema('quitó la etapa')
+      }
+    }
+
+    // Cambio de sector
+    if (body.sector_id !== undefined) {
+      if (body.sector_nombre) {
+        await insertarSistema(`asignó al sector "${body.sector_nombre}"`)
+      } else {
+        await insertarSistema('quitó el sector')
+      }
+    }
+
+    // Cambio de estado
+    if (body.estado !== undefined) {
+      const etiquetas: Record<string, string> = {
+        abierta: 'reabrió la conversación',
+        en_espera: 'puso en espera',
+        resuelta: 'resolvió la conversación',
+        spam: 'marcó como spam',
+      }
+      if (etiquetas[body.estado]) {
+        await insertarSistema(etiquetas[body.estado])
+      }
+    }
+
+    // Bot / IA
+    if (body.chatbot_activo === true) {
+      await insertarSistema('activó el chatbot')
+    } else if (body.chatbot_activo === false && body.chatbot_pausado_hasta) {
+      await insertarSistema('pausó el chatbot')
+    } else if (body.chatbot_activo === false && !body.chatbot_pausado_hasta) {
+      await insertarSistema('desactivó el chatbot')
+    }
+
+    if (body.agente_ia_activo === true) {
+      await insertarSistema('activó el agente IA')
+    } else if (body.agente_ia_activo === false && body.ia_pausado_hasta) {
+      await insertarSistema('pausó el agente IA')
+    } else if (body.agente_ia_activo === false && !body.ia_pausado_hasta) {
+      await insertarSistema('desactivó el agente IA')
+    }
+
+    // Bloqueo
+    if (body.bloqueada === true) {
+      await insertarSistema('bloqueó este número')
+    } else if (body.bloqueada === false) {
+      await insertarSistema('desbloqueó este número')
+    }
+
+    // Papelera
+    if (body.en_papelera === true) {
+      await insertarSistema('movió a la papelera')
     }
 
     const { data, error } = await admin

@@ -12,8 +12,10 @@ import {
   ChevronDown, ChevronLeft, ChevronRight as ChevronRightIcon,
   Circle, Square, CheckSquare,
   Tag, CheckCircle, Eye, EyeOff,
+  MoreVertical, Pin, BellOff,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
+import { MenuConversacion } from './MenuConversacion'
 import { useTraduccion } from '@/lib/i18n'
 import type { ConversacionConDetalles, EstadoConversacion, TipoCanal } from '@/tipos/inbox'
 
@@ -44,6 +46,9 @@ interface PropiedadesListaConversaciones {
   // Filtro no leídos
   soloNoLeidos?: boolean
   onToggleNoLeidos?: () => void
+  // Menú contextual
+  onAccionMenu?: (accion: string, conversacionId: string, datos?: unknown) => void
+  esAdmin?: boolean
 }
 
 // Iconos de canal
@@ -59,6 +64,7 @@ const COLOR_ESTADO: Record<EstadoConversacion, string> = {
   en_espera: 'advertencia',
   resuelta: 'neutro',
   spam: 'peligro',
+  snooze: 'info',
 }
 
 // Formato de tiempo relativo
@@ -94,9 +100,17 @@ export function ListaConversaciones({
   onOperacionMasiva,
   soloNoLeidos,
   onToggleNoLeidos,
+  onAccionMenu,
+  esAdmin = false,
 }: PropiedadesListaConversaciones) {
   const { t } = useTraduccion()
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
+
+  // Estado del menú contextual
+  const [menuConv, setMenuConv] = useState<{
+    conv: ConversacionConDetalles
+    pos: { x: number; y: number } | null
+  } | null>(null)
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
   const [modoSeleccion, setModoSeleccion] = useState(false)
   const [pagina, setPagina] = useState(1)
@@ -385,176 +399,177 @@ export function ListaConversaciones({
         ) : (
           <AnimatePresence mode="popLayout">
             {conversacionesPaginadas.map((conv) => (
-              <motion.button
+              <motion.div
                 key={conv.id}
-                layout
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
                 onClick={() => onSeleccionar(conv.id)}
-                className="w-full text-left px-3 py-2.5 transition-colors"
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  setMenuConv({ conv, pos: { x: e.clientX, y: e.clientY } })
+                }}
+                className="w-full text-left px-3 py-3 transition-colors group cursor-pointer"
                 style={{
-                  background: seleccionada === conv.id
-                    ? 'var(--superficie-seleccionada)'
-                    : 'transparent',
+                  background: seleccionada === conv.id ? 'var(--superficie-seleccionada)' : 'transparent',
                   borderBottom: '1px solid var(--borde-sutil)',
                 }}
               >
-                <div className="flex items-start gap-2.5">
-                  {/* Checkbox en modo selección */}
-                  {modoSeleccion && (
-                    <div
-                      role="checkbox"
-                      aria-checked={seleccionados.has(conv.id)}
+                {/* Layout principal: Avatar | Contenido | Fecha+Menu */}
+                <div className="flex gap-3">
+                  {/* Col 1: Avatar */}
+                  {modoSeleccion ? (
+                    <div role="checkbox" aria-checked={seleccionados.has(conv.id)}
                       onClick={(e) => { e.stopPropagation(); toggleSeleccion(conv.id) }}
-                      className="flex-shrink-0 mt-1.5 cursor-pointer"
-                    >
+                      className="flex-shrink-0 self-center cursor-pointer">
                       {seleccionados.has(conv.id)
-                        ? <CheckSquare size={16} style={{ color: 'var(--texto-marca)' }} />
-                        : <Square size={16} style={{ color: 'var(--texto-terciario)' }} />
-                      }
+                        ? <CheckSquare size={20} style={{ color: 'var(--texto-marca)' }} />
+                        : <Square size={20} style={{ color: 'var(--texto-terciario)' }} />}
+                    </div>
+                  ) : (
+                    <div className="flex-shrink-0 relative self-center">
+                      <Avatar nombre={conv.contacto_nombre || conv.identificador_externo || '?'} tamano="md" />
+                      {tipoCanal === 'whatsapp' && (
+                        <div className="absolute -bottom-0.5 -right-0.5 size-4 rounded-full flex items-center justify-center" style={{ background: '#25D366' }}>
+                          <IconoWhatsApp size={9} className="text-white" />
+                        </div>
+                      )}
                     </div>
                   )}
-                  {/* Avatar */}
-                  {!modoSeleccion && (
-                  <div className="flex-shrink-0 mt-0.5">
-                    <Avatar
-                      nombre={conv.contacto_nombre || conv.identificador_externo || '?'}
-                      tamano="sm"
-                    />
-                  </div>
-                  )}
 
-                  {/* Contenido */}
+                  {/* Col 2: Contenido */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span
-                        className="text-sm font-medium truncate"
-                        style={{
-                          color: conv.mensajes_sin_leer > 0
-                            ? 'var(--texto-primario)'
-                            : 'var(--texto-secundario)',
-                        }}
-                      >
+                    {/* Nombre + Lead */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[13px] font-semibold truncate" style={{
+                        color: conv.mensajes_sin_leer !== 0 ? 'var(--texto-primario)' : 'var(--texto-secundario)',
+                      }}>
                         {conv.contacto_nombre || conv.identificador_externo || 'Desconocido'}
                       </span>
+                      {conv._fijada && <Pin size={11} className="flex-shrink-0" style={{ color: 'var(--texto-terciario)' }} />}
                       {conv.contacto?.es_provisorio && (
-                        <span
-                          className="text-xxs font-medium px-1 py-0.5 rounded flex-shrink-0"
-                          style={{
-                            background: 'var(--insignia-advertencia-fondo)',
-                            color: 'var(--insignia-advertencia-texto)',
-                          }}
-                        >
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0"
+                          style={{ background: 'var(--insignia-advertencia-fondo)', color: 'var(--insignia-advertencia-texto)' }}>
                           Lead
                         </span>
                       )}
-                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                        {conv.ultimo_mensaje_en && (
-                          <span className="text-xxs" style={{
-                            color: conv.mensajes_sin_leer > 0
-                              ? 'var(--insignia-exito)'
-                              : 'var(--texto-terciario)',
-                          }}>
-                            {tiempoRelativo(conv.ultimo_mensaje_en)}
-                          </span>
-                        )}
-                        {conv.mensajes_sin_leer > 0 && (
-                          <span
-                            className="min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center text-xs font-bold"
-                            style={{
-                              background: 'var(--insignia-exito)',
-                              color: 'var(--texto-inverso)',
-                            }}
-                          >
-                            {conv.mensajes_sin_leer > 99 ? '99+' : conv.mensajes_sin_leer}
-                          </span>
-                        )}
-                      </div>
                     </div>
 
-                    {/* Asunto (correo) o último mensaje */}
-                    {tipoCanal === 'correo' && conv.asunto && (
-                      <p
-                        className="text-xs font-medium truncate mt-0.5"
-                        style={{ color: 'var(--texto-primario)' }}
-                      >
-                        {conv.asunto}
+                    {/* Teléfono */}
+                    {conv.identificador_externo && conv.contacto_nombre && (
+                      <p className="text-[11px] truncate" style={{ color: 'var(--texto-terciario)' }}>
+                        {conv.identificador_externo}
                       </p>
                     )}
 
-                    <p
-                      className="text-xs truncate mt-0.5"
-                      style={{
-                        color: conv.mensajes_sin_leer > 0
-                          ? 'var(--texto-secundario)'
-                          : 'var(--texto-terciario)',
-                        fontWeight: conv.mensajes_sin_leer > 0 ? 500 : 400,
-                      }}
-                    >
-                      {/* Indicador enviado/recibido */}
-                      {conv.ultimo_mensaje_es_entrante === false && (
-                        <span style={{ color: 'var(--texto-terciario)' }}>Tú: </span>
-                      )}
+                    {/* Preview mensaje */}
+                    <p className="text-xs truncate mt-0.5" style={{
+                      color: conv.mensajes_sin_leer !== 0 ? 'var(--texto-secundario)' : 'var(--texto-terciario)',
+                    }}>
+                      {conv.ultimo_mensaje_es_entrante === false && <span style={{ color: 'var(--texto-terciario)' }}>Tú: </span>}
                       {conv.ultimo_mensaje_texto || 'Sin mensajes'}
                     </p>
 
-                    {/* Etiqueta de cuenta de correo */}
-                    {tipoCanal === 'correo' && conv.canal?.nombre && (
-                      <p
-                        className="text-xxs truncate mt-0.5"
-                        style={{ color: 'var(--canal-correo)' }}
-                      >
-                        {conv.canal.nombre}
-                      </p>
-                    )}
-
-                    {/* Etiquetas de la conversación */}
-                    {conv.etiquetas && conv.etiquetas.length > 0 && (
-                      <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                        {conv.etiquetas.slice(0, 3).map((et) => (
-                          <span
-                            key={et}
-                            className="text-xxs px-1 py-0 rounded cursor-pointer"
-                            style={{ background: 'var(--superficie-hover)', color: 'var(--texto-terciario)' }}
-                            onClick={(e) => { e.stopPropagation(); onFiltroEtiqueta?.(et) }}
-                          >
-                            {et}
-                          </span>
-                        ))}
-                        {conv.etiquetas.length > 3 && (
-                          <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                            +{conv.etiquetas.length - 3}
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Footer: estado + asignado */}
-                    <div className="flex items-center gap-2 mt-1">
-                      <Insignia color={COLOR_ESTADO[conv.estado] as 'exito' | 'advertencia' | 'neutro' | 'peligro'} tamano="sm">
-                        {conv.estado.replace('_', ' ')}
-                      </Insignia>
-                      {conv.asignado_a_nombre && (
-                        <span className="text-xxs flex items-center gap-1" style={{ color: 'var(--texto-terciario)' }}>
-                          <User size={10} />
-                          {conv.asignado_a_nombre.split(' ')[0]}
-                        </span>
+                    {/* Badges */}
+                    <div className="flex items-center gap-1 mt-1.5 overflow-x-auto flex-nowrap">
+                      {conv.etiquetas?.slice(0, 2).map((et) => (
+                        <span key={et} className="text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap"
+                          style={{ background: 'var(--superficie-hover)', color: 'var(--texto-terciario)' }}>{et}</span>
+                      ))}
+                      {conv.etapa_etiqueta && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap"
+                          style={{ background: `${conv.etapa_color || '#6b7280'}18`, color: conv.etapa_color || '#6b7280' }}>
+                          {conv.etapa_etiqueta}</span>
                       )}
-                      {conv.tiempo_sin_respuesta_desde && (
-                        <span className="text-xxs flex items-center gap-1" style={{ color: 'var(--insignia-advertencia)' }}>
-                          <Clock size={10} />
-                          {tiempoRelativo(conv.tiempo_sin_respuesta_desde)}
-                        </span>
+                      {conv.sector_nombre && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap"
+                          style={{ background: `${conv.sector_color || '#6366f1'}18`, color: conv.sector_color || '#6366f1' }}>
+                          {conv.sector_nombre}</span>
+                      )}
+                      {conv.chatbot_activo && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">Bot</span>
+                      )}
+                      {conv.agente_ia_activo && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap bg-violet-500/15 text-violet-600 dark:text-violet-400">IA</span>
                       )}
                     </div>
                   </div>
+
+                  {/* Col 3: Fecha + (badge no leídos / 3 puntos) — centrado vertical */}
+                  <div className="flex flex-col items-center justify-center gap-1 flex-shrink-0 self-center min-w-[40px]">
+                    {conv.ultimo_mensaje_en && (
+                      <span className="text-[11px] whitespace-nowrap" style={{
+                        color: conv.mensajes_sin_leer !== 0 ? 'var(--insignia-exito)' : 'var(--texto-terciario)',
+                        fontWeight: conv.mensajes_sin_leer !== 0 ? 600 : 400,
+                      }}>
+                        {tiempoRelativo(conv.ultimo_mensaje_en)}
+                      </span>
+                    )}
+                    {/* Badge no leídos / 3 puntos — swap en hover */}
+                    {conv.mensajes_sin_leer !== 0 ? (
+                      <>
+                        {/* Badge visible, se oculta en hover */}
+                        <div className="group-hover:hidden">
+                          {conv.mensajes_sin_leer === -1 ? (
+                            <div className="size-3 rounded-full" style={{ background: 'var(--insignia-exito)' }} />
+                          ) : (
+                            <span className="min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-[10px] font-bold"
+                              style={{ background: 'var(--insignia-exito)', color: 'var(--texto-inverso)' }}>
+                              {conv.mensajes_sin_leer > 99 ? '99+' : conv.mensajes_sin_leer}
+                            </span>
+                          )}
+                        </div>
+                        {/* 3 puntos aparecen en hover */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                            setMenuConv({ conv, pos: window.innerWidth >= 768 ? { x: rect.left, y: rect.bottom + 4 } : null })
+                          }}
+                          className="hidden group-hover:flex size-6 items-center justify-center rounded-md cursor-pointer"
+                          style={{ color: 'var(--texto-terciario)', background: 'transparent', border: 'none' }}
+                        >
+                          <MoreVertical size={16} />
+                        </button>
+                      </>
+                    ) : (
+                      /* Sin no leídos: solo 3 puntos en hover */
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                          setMenuConv({ conv, pos: window.innerWidth >= 768 ? { x: rect.left, y: rect.bottom + 4 } : null })
+                        }}
+                        className="opacity-0 group-hover:opacity-100 max-md:opacity-60 size-6 flex items-center justify-center rounded-md cursor-pointer transition-opacity"
+                        style={{ color: 'var(--texto-terciario)', background: 'transparent', border: 'none' }}
+                      >
+                        <MoreVertical size={16} />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </motion.button>
+              </motion.div>
             ))}
           </AnimatePresence>
         )}
       </div>
+
+      {/* Menú contextual de conversación */}
+      {menuConv && (
+        <MenuConversacion
+          conversacion={menuConv.conv}
+          posicion={menuConv.pos}
+          abierto
+          onCerrar={() => setMenuConv(null)}
+          onAccion={(accion, datos) => {
+            onAccionMenu?.(accion, menuConv.conv.id, datos)
+            setMenuConv(null)
+          }}
+          esAdmin={esAdmin}
+          estaFijada={!!menuConv.conv._fijada}
+          estaSilenciada={!!menuConv.conv._silenciada}
+        />
+      )}
     </div>
   )
 }

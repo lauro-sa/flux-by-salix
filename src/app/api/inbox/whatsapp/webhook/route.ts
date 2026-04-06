@@ -377,15 +377,24 @@ async function procesarMensajeEntrante(
     .select('id')
     .single()
 
-  // Actualizar conversación con preview descriptivo
+  // Actualizar conversación con preview descriptivo + incrementar no leídos
   const preview = textoPreviewMensaje(msg)
+  const { data: convActualNoLeidos } = await admin
+    .from('conversaciones')
+    .select('mensajes_sin_leer')
+    .eq('id', conversacion.id)
+    .single()
+  const noLeidosActual = convActualNoLeidos?.mensajes_sin_leer ?? 0
+  // Si estaba en -1 (marcado manual), empezar desde 1. Si no, incrementar.
+  const nuevosNoLeidos = noLeidosActual <= 0 ? 1 : noLeidosActual + 1
+
   await admin
     .from('conversaciones')
     .update({
       ultimo_mensaje_texto: preview,
       ultimo_mensaje_en: new Date().toISOString(),
       ultimo_mensaje_es_entrante: true,
-      mensajes_sin_leer: 1,
+      mensajes_sin_leer: nuevosNoLeidos,
       tiempo_sin_respuesta_desde: new Date().toISOString(),
       actualizado_en: new Date().toISOString(),
     })

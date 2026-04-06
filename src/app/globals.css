@@ -34,12 +34,20 @@ html {
     min-height: auto;
   }
 }
-/* PWA standalone: misma lógica que --fijo, descontando safe-areas */
+/* PWA standalone: position fixed para escapar del min-height inflado del html.
+   El html tiene min-height: calc(100% + safe-area-top) + padding para evitar gap negro,
+   pero eso infla el documento. position:fixed ignora el flujo del documento y usa
+   el viewport real, respetando safe-areas con los insets. */
 @media (display-mode: standalone) {
   .layout-app {
-    height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
-    overflow: hidden;
+    position: fixed;
+    top: env(safe-area-inset-top, 0px);
+    left: env(safe-area-inset-left, 0px);
+    right: env(safe-area-inset-right, 0px);
+    bottom: env(safe-area-inset-bottom, 0px);
+    height: auto;
     min-height: auto;
+    overflow: hidden;
   }
 }
 .layout-app--fijo {
@@ -47,12 +55,15 @@ html {
   overflow: hidden;
   min-height: auto;
 }
-/* PWA standalone: altura exacta descontando safe-areas.
-   html tiene min-height inflado + padding para evitar gap negro,
-   pero eso rompe height:100% en layouts fijos. Calculamos la altura real. */
+/* PWA standalone: mismo position:fixed que el layout normal */
 @media (display-mode: standalone) {
   .layout-app--fijo {
-    height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    position: fixed;
+    top: env(safe-area-inset-top, 0px);
+    left: env(safe-area-inset-left, 0px);
+    right: env(safe-area-inset-right, 0px);
+    bottom: env(safe-area-inset-bottom, 0px);
+    height: auto;
   }
 }
 

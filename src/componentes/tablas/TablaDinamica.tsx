@@ -1061,54 +1061,72 @@ function TablaDinamica<T>({
                       {/* Layout 3 columnas: Filtros | Orden | Favoritos */}
                       <div className="flex divide-x divide-borde-sutil">
 
-                        {/* ── Columna 1: Filtros ── */}
-                        {todosLosFiltros.length > 0 && (
-                          <div className="flex-1 p-4 flex flex-col gap-4 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider flex items-center gap-1.5">
-                                <SlidersHorizontal size={12} />
-                                Filtros
-                              </span>
-                              {numFiltrosActivos > 0 && (
-                                <Boton variante="peligro" tamano="xs" redondeado onClick={limpiarTodo}>
-                                  Limpiar ({numFiltrosActivos})
-                                </Boton>
-                              )}
-                            </div>
-                            <div className="flex flex-col gap-4">
-                              {todosLosFiltros.map(filtro => (
-                                <SeccionFiltroPanel key={filtro.id} filtro={filtro} />
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                        {/* ── Columna 1: Filtros (primeros 3) ── */}
+                        {todosLosFiltros.length > 0 && (() => {
+                          const filtrosCol1 = todosLosFiltros.slice(0, 3)
+                          const filtrosCol2 = todosLosFiltros.slice(3)
+                          return (
+                            <>
+                              <div className="flex-1 p-4 flex flex-col gap-4 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider flex items-center gap-1.5">
+                                    <SlidersHorizontal size={12} />
+                                    Filtros
+                                  </span>
+                                  {numFiltrosActivos > 0 && (
+                                    <Boton variante="peligro" tamano="xs" redondeado onClick={limpiarTodo}>
+                                      Limpiar ({numFiltrosActivos})
+                                    </Boton>
+                                  )}
+                                </div>
+                                <div className="flex flex-col gap-4">
+                                  {filtrosCol1.map(filtro => (
+                                    <SeccionFiltroPanel key={filtro.id} filtro={filtro} />
+                                  ))}
+                                </div>
+                              </div>
 
-                        {/* ── Columna 2: Orden ── */}
-                        {opcionesOrden && opcionesOrden.length > 0 && (
-                          <div className="flex-1 p-4 flex flex-col gap-3 min-w-0">
-                            <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider flex items-center gap-1.5">
-                              <ArrowUpDown size={12} />
-                              Orden
-                            </span>
-                            <div className="flex flex-col gap-0.5">
-                              {opcionesOrden.map(op => {
-                                const activo = ordenamiento.length > 0 && ordenamiento[0].clave === op.clave && ordenamiento[0].direccion === op.direccion
-                                return (
-                                  <button key={`${op.clave}-${op.direccion}`} type="button"
-                                    onClick={() => setOrdenamiento([{ clave: op.clave, direccion: op.direccion }])}
-                                    className={[
-                                      'flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm text-left cursor-pointer border-none transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
-                                      activo ? 'bg-superficie-seleccionada text-texto-marca font-medium' : 'bg-transparent text-texto-primario hover:bg-superficie-hover',
-                                    ].join(' ')}>
-                                    <ArrowUpDown size={12} className={activo ? 'text-texto-marca' : 'text-texto-terciario'} />
-                                    <span className="flex-1">{op.etiqueta}</span>
-                                    {activo && <Check size={13} className="text-texto-marca" />}
-                                  </button>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        )}
+                              {/* ── Columna 2: Orden + Filtros extra ── */}
+                              {(opcionesOrden && opcionesOrden.length > 0 || filtrosCol2.length > 0) && (
+                                <div className="flex-1 p-4 flex flex-col gap-4 min-w-0">
+                                  {opcionesOrden && opcionesOrden.length > 0 && (
+                                    <>
+                                      <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider flex items-center gap-1.5">
+                                        <ArrowUpDown size={12} />
+                                        Orden
+                                      </span>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {opcionesOrden.map(op => {
+                                          const activo = ordenamiento.length > 0 && ordenamiento[0].clave === op.clave && ordenamiento[0].direccion === op.direccion
+                                          return (
+                                            <button key={`${op.clave}-${op.direccion}`} type="button"
+                                              onClick={() => setOrdenamiento([{ clave: op.clave, direccion: op.direccion }])}
+                                              className={[
+                                                'px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer border-none transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
+                                                activo ? 'bg-texto-marca text-white' : 'bg-superficie-tarjeta text-texto-secundario hover:bg-superficie-hover',
+                                              ].join(' ')}>
+                                              {op.etiqueta}
+                                            </button>
+                                          )
+                                        })}
+                                      </div>
+                                    </>
+                                  )}
+                                  {filtrosCol2.length > 0 && (
+                                    <div className="flex flex-col gap-4">
+                                      {opcionesOrden && opcionesOrden.length > 0 && (
+                                        <div className="border-t border-borde-sutil" />
+                                      )}
+                                      {filtrosCol2.map(filtro => (
+                                        <SeccionFiltroPanel key={filtro.id} filtro={filtro} />
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </>
+                          )
+                        })()}
 
                         {/* ── Columna 3: Favoritos / Vistas ── */}
                         {idModulo && (

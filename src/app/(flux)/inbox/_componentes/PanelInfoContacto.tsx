@@ -12,6 +12,7 @@ import {
   Link2, Download, UserCheck, Trash2, Clock,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
+import { SelectorEtapa } from './SelectorEtapa'
 import type { Conversacion, MensajeConAdjuntos } from '@/tipos/inbox'
 import type { MediaVisor } from './PanelWhatsApp'
 
@@ -425,6 +426,20 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
                     </div>
                   )}
                 </SeccionColapsable>
+              </div>
+            )}
+
+            {/* ═══ Etapa de conversación (pipeline) ═══ */}
+            {conversacion && conversacion.tipo_canal !== 'interno' && (
+              <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
+                <SelectorEtapa
+                  conversacionId={conversacion.id}
+                  tipoCanal={conversacion.tipo_canal as 'whatsapp' | 'correo'}
+                  etapaActualId={conversacion.etapa_id || null}
+                  onCambio={(etapaId) => {
+                    // Actualizar estado local de la conversación
+                  }}
+                />
               </div>
             )}
 

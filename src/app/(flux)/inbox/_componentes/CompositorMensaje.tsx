@@ -13,6 +13,13 @@ import { TextArea } from '@/componentes/ui/TextArea'
 import type { TipoCanal, TipoContenido } from '@/tipos/inbox'
 import { useTraduccion } from '@/lib/i18n'
 import { SelectorRespuestasRapidas } from './SelectorRespuestasRapidas'
+import { Popover } from '@/componentes/ui/Popover'
+import {
+  type FormatoNombreRemitente,
+  FORMATOS_NOMBRE_REMITENTE,
+  generarNombreRemitente,
+} from '@/lib/nombre-remitente'
+import { Check, PenLine, Ban } from 'lucide-react'
 
 /**
  * Compositor de mensajes — barra inferior del chat.
@@ -43,6 +50,20 @@ interface PropiedadesCompositor {
   permitirNotasInternas?: boolean
   /** Callback cuando se envía nota interna (en vez de onEnviar normal) */
   onEnviarNotaInterna?: (texto: string) => void
+  /** Callback cada vez que cambia el texto del compositor (para programar, etc.) */
+  onCambioTexto?: (texto: string) => void
+  /** Datos del usuario para la firma (WhatsApp) */
+  datosUsuario?: { nombre: string; apellido: string; sector?: string | null }
+  /** Formato de firma activo — null = sin firma */
+  formatoFirma?: FormatoNombreRemitente | 'sin_firma' | null
+  /** Callback cuando cambia el formato de firma */
+  onCambioFormatoFirma?: (formato: FormatoNombreRemitente | 'sin_firma') => void
+  /** Callback para fijar firma como default para todos los chats */
+  onFijarFirmaDefault?: (formato: FormatoNombreRemitente | 'sin_firma') => void
+  /** Callback para fijar firma para este contacto */
+  onFijarFirmaContacto?: (formato: FormatoNombreRemitente | 'sin_firma') => void
+  /** Nombre del contacto (para el label "Fijar para X") */
+  nombreContacto?: string
 }
 
 export interface DatosMensaje {
@@ -84,6 +105,13 @@ export function CompositorMensaje({
   conversacionId,
   permitirNotasInternas = false,
   onEnviarNotaInterna,
+  onCambioTexto,
+  datosUsuario,
+  formatoFirma,
+  onCambioFormatoFirma,
+  onFijarFirmaDefault,
+  onFijarFirmaContacto,
+  nombreContacto,
 }: PropiedadesCompositor) {
   const { t } = useTraduccion()
   const [texto, setTexto] = useState('')
@@ -173,8 +201,24 @@ export function CompositorMensaje({
     // Enviar texto
     if (!texto.trim() || cargando) return
 
+    // Aplicar firma al texto (solo WhatsApp, solo mensajes normales, no notas internas)
+    let textoFinal = texto.trim()
+    if (tipoCanal === 'whatsapp' && !esNotaInterna && formatoFirma && formatoFirma !== 'sin_firma' && datosUsuario) {
+      const { nombre, apellido, sector } = datosUsuario
+      const inicialAp = apellido ? apellido[0].toUpperCase() : ''
+      const iniciales = `${nombre ? nombre[0].toUpperCase() : ''}${inicialAp}`
+      let firma = ''
+      switch (formatoFirma) {
+        case 'solo_sector': firma = sector || nombre; break
+        case 'nombre_inicial_sector': firma = sector ? `${nombre} ${inicialAp} | ${sector}` : `${nombre} ${inicialAp}`; break
+        case 'iniciales_sector': firma = sector ? `${iniciales} | ${sector}` : iniciales; break
+        default: firma = sector ? `${nombre} ${inicialAp} | ${sector}` : `${nombre} ${inicialAp}`
+      }
+      textoFinal = `*${firma}:*\n${textoFinal}`
+    }
+
     const datos: DatosMensaje = {
-      texto: texto.trim(),
+      texto: textoFinal,
       tipo_contenido: 'texto',
       es_nota_interna: esNotaInterna || undefined,
     }
@@ -594,6 +638,114 @@ export function CompositorMensaje({
         )}
       </AnimatePresence>
 
+      {/* Firma del mensaje (solo WhatsApp) */}
+      {tipoCanal === 'whatsapp' && datosUsuario && !esNotaInterna && !grabando && (() => {
+        const sector = datosUsuario.sector
+        const nombre = datosUsuario.nombre
+        const apellido = datosUsuario.apellido
+        const inicialAp = apellido ? apellido[0].toUpperCase() : ''
+        const iniciales = `${nombre ? nombre[0].toUpperCase() : ''}${inicialAp}`
+        const OPCIONES_FIRMA: { valor: string; preview: string; desc: string }[] = [
+          { valor: 'sin_firma', preview: '', desc: 'El mensaje se envía sin encabezado' },
+          ...(sector ? [{ valor: 'solo_sector', preview: sector, desc: 'Solo el departamento/sector' }] : []),
+          { valor: 'nombre_inicial_sector', preview: sector ? `${nombre} ${inicialAp} | ${sector}` : `${nombre} ${inicialAp}`, desc: 'Tu nombre + sector separados por |' },
+          { valor: 'iniciales_sector', preview: sector ? `${iniciales} | ${sector}` : iniciales, desc: 'Tus iniciales + sector separados por |' },
+        ]
+        const opcionActiva = OPCIONES_FIRMA.find(o => o.valor === formatoFirma) || OPCIONES_FIRMA[0]
+        const tieneFirma = opcionActiva.valor !== 'sin_firma'
+        return (
+          <Popover
+            alineacion="centro"
+            lado="arriba"
+            ancho={300}
+            contenido={
+              <div className="py-2">
+                {/* Header */}
+                <p className="px-4 pb-2 text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
+                  Firma del mensaje
+                </p>
+                <p className="px-4 pb-3 text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                  El cliente verá esta firma antes de cada mensaje que envíes
+                </p>
+
+                {/* Opciones */}
+                <div className="flex flex-col">
+                  {OPCIONES_FIRMA.map((op, i) => {
+                    const activo = formatoFirma === op.valor
+                    return (
+                      <div key={op.valor}>
+                        {i > 0 && <div className="mx-3 border-t" style={{ borderColor: 'var(--borde-sutil)' }} />}
+                        <button
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
+                          style={{ color: activo ? 'var(--texto-marca)' : 'var(--texto-primario)', border: 'none', background: 'transparent' }}
+                          onClick={() => onCambioFormatoFirma?.(op.valor as FormatoNombreRemitente | 'sin_firma')}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium">
+                              {op.valor === 'sin_firma' ? 'Sin firma' : `*${op.preview}:*`}
+                            </div>
+                            <div className="text-xxs mt-0.5" style={{ color: 'var(--texto-terciario)' }}>
+                              {op.desc}
+                            </div>
+                          </div>
+                          {activo && <Check size={15} className="shrink-0" style={{ color: 'var(--texto-marca)' }} />}
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Acciones: fijar */}
+                {tieneFirma && (onFijarFirmaDefault || onFijarFirmaContacto) && (
+                  <>
+                    <div className="mx-3 my-1 border-t" style={{ borderColor: 'var(--borde-sutil)' }} />
+                    <p className="px-4 pt-1.5 pb-1 text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
+                      Aplicar firma
+                    </p>
+                    {onFijarFirmaDefault && (
+                      <button
+                        className="w-full flex items-center gap-2.5 px-4 py-2 text-left text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
+                        style={{ color: 'var(--texto-secundario)', border: 'none', background: 'transparent' }}
+                        onClick={() => onFijarFirmaDefault(formatoFirma as FormatoNombreRemitente | 'sin_firma')}
+                      >
+                        <span className="text-base">⭐</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium">Usar para todos los chats</div>
+                          <div className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>Se aplicará a todas las conversaciones nuevas</div>
+                        </div>
+                      </button>
+                    )}
+                    {onFijarFirmaContacto && nombreContacto && (
+                      <button
+                        className="w-full flex items-center gap-2.5 px-4 py-2 text-left text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
+                        style={{ color: 'var(--texto-secundario)', border: 'none', background: 'transparent' }}
+                        onClick={() => onFijarFirmaContacto(formatoFirma as FormatoNombreRemitente | 'sin_firma')}
+                      >
+                        <span className="text-base">📌</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium">Fijar para {nombreContacto}</div>
+                          <div className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>Se usará siempre con este contacto</div>
+                        </div>
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            }
+          >
+            <div
+              className="flex items-center gap-1.5 px-3 py-1 cursor-pointer hover:bg-[var(--superficie-hover)] transition-colors"
+              style={{ borderBottom: '1px solid var(--borde-sutil)' }}
+            >
+              <PenLine size={10} style={{ color: 'var(--texto-terciario)' }} />
+              <span className="text-xxs" style={{ color: tieneFirma ? 'var(--texto-secundario)' : 'var(--texto-terciario)' }}>
+                {tieneFirma ? `*${opcionActiva.preview}:*` : 'Sin firma — toca para elegir'}
+              </span>
+            </div>
+          </Popover>
+        )
+      })()}
+
       {/* Barra de input */}
       <div className="flex items-end gap-2 p-3 relative">
         {/* Grabando audio estilo WhatsApp — waveform en vivo */}
@@ -714,6 +866,7 @@ export function CompositorMensaje({
               onChange={(e) => {
                 const valor = e.target.value
                 setTexto(valor)
+                onCambioTexto?.(valor)
                 ajustarAltura()
 
                 // Detectar `/` al inicio para respuestas rápidas

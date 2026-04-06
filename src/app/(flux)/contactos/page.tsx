@@ -14,7 +14,7 @@ import {
   User, Tag, Hash, CreditCard, Link2, Mail, Phone, MessageCircle, Briefcase, Factory,
   Globe, MapPin, Tags, StickyNote, Calendar, Receipt, GraduationCap,
   Languages, Clock, Coins, Landmark, FileText, Star, Compass, ShieldCheck,
-  Trash2, X, UserCheck, Merge, FileDown,
+  Trash2, X, UserCheck, Merge, FileDown, KanbanSquare,
 } from 'lucide-react'
 import { ModalImportar } from './_componentes/ModalImportar'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
@@ -64,6 +64,7 @@ interface FilaContacto {
   direcciones: { id: string; calle: string | null; texto: string | null; ciudad: string | null; provincia: string | null; es_principal: boolean }[]
   responsables: { usuario_id: string }[]
   vinculaciones: { vinculado: { id: string; nombre: string; apellido: string | null } }[]
+  ultima_etapa: { etapa_etiqueta: string; etapa_color: string; tipo_canal: string } | null
 }
 
 const POR_PAGINA = 50
@@ -91,8 +92,12 @@ export default function PaginaContactos() {
   const [filtroTipo, setFiltroTipo] = useState('')
   const [filtroOrigen, setFiltroOrigen] = useState('')
   const [filtroIva, setFiltroIva] = useState('')
-  const filtrosRef = useRef({ tipo: '', origen: '', iva: '' })
-  filtrosRef.current = { tipo: filtroTipo, origen: filtroOrigen, iva: filtroIva }
+  const [filtroEtapa, setFiltroEtapa] = useState('')
+  const [etapasWA, setEtapasWA] = useState<{ valor: string; etiqueta: string }[]>([])
+  const [etapasCorreo, setEtapasCorreo] = useState<{ valor: string; etiqueta: string }[]>([])
+  // Nota: etapasWA y etapasCorreo se usan como filtros separados en el panel
+  const filtrosRef = useRef({ tipo: '', origen: '', iva: '', etapa: '' })
+  filtrosRef.current = { tipo: filtroTipo, origen: filtroOrigen, iva: filtroIva, etapa: filtroEtapa }
 
   // Ref para tener siempre el valor actual de busqueda sin re-crear callbacks
   const busquedaRef = useRef(busqueda)
@@ -233,6 +238,7 @@ export default function PaginaContactos() {
       if (filtrosRef.current.tipo) params.set('tipo', filtrosRef.current.tipo)
       if (filtrosRef.current.origen) params.set('origen_filtro', filtrosRef.current.origen)
       if (filtrosRef.current.iva) params.set('condicion_iva', filtrosRef.current.iva)
+      if (filtrosRef.current.etapa) params.set('etapa_id', filtrosRef.current.etapa)
       params.set('pagina', String(p))
       params.set('por_pagina', String(POR_PAGINA))
 
@@ -258,6 +264,16 @@ export default function PaginaContactos() {
     fetch('/api/contactos/tipos').then(r => r.json()).then(tipos => {
       if (tipos.tipos_contacto) setTiposContacto(tipos.tipos_contacto)
     }).catch(() => {})
+
+    // Cargar etapas de WhatsApp + correo para los filtros
+    fetch('/api/inbox/etapas?tipo_canal=whatsapp').then(r => r.json()).then(data => {
+      const etapas = (data.etapas || data || []) as { id: string; etiqueta: string }[]
+      setEtapasWA(etapas.map(e => ({ valor: e.id, etiqueta: e.etiqueta })))
+    }).catch(() => {})
+    fetch('/api/inbox/etapas?tipo_canal=correo').then(r => r.json()).then(data => {
+      const etapas = (data.etapas || data || []) as { id: string; etiqueta: string }[]
+      setEtapasCorreo(etapas.map(e => ({ valor: e.id, etiqueta: e.etiqueta })))
+    }).catch(() => {})
   }, [])
 
   // Cargar contactos al cambiar página
@@ -271,7 +287,7 @@ export default function PaginaContactos() {
     if (pagina === 1) fetchContactos(1)
     else setPagina(1)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroTipo, filtroOrigen, filtroIva])
+  }, [filtroTipo, filtroOrigen, filtroIva, filtroEtapa])
 
   // Recargar al cambiar búsqueda (con debounce, reseteando a página 1)
   const montadoRef = useRef(false)
@@ -338,11 +354,18 @@ export default function PaginaContactos() {
             </div>
             <div className="min-w-0">
               <div className="font-medium text-texto-primario truncate">{nombreCompleto}</div>
-              <div className="flex items-center gap-1.5 mt-0.5">
+              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                 {tipo && (
                   <span className="inline-flex items-center rounded-full px-1.5 py-px text-xxs font-medium whitespace-nowrap"
                     style={{ backgroundColor: `var(--insignia-${color}-fondo)`, color: `var(--insignia-${color}-texto)` }}>
                     {tipo.etiqueta}
+                  </span>
+                )}
+                {fila.ultima_etapa && (
+                  <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-px text-xxs font-medium whitespace-nowrap"
+                    style={{ backgroundColor: `${fila.ultima_etapa.etapa_color}18`, color: fila.ultima_etapa.etapa_color }}>
+                    <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: fila.ultima_etapa.etapa_color }} />
+                    {fila.ultima_etapa.etapa_etiqueta}
                   </span>
                 )}
                 {fila.cargo && <span className="text-xs text-texto-terciario truncate">{fila.cargo}</span>}
@@ -523,6 +546,33 @@ export default function PaginaContactos() {
           {fila.etiquetas.length > 2 && <span className="text-xs text-texto-terciario">+{fila.etiquetas.length - 2}</span>}
         </div>
       ) : null,
+    },
+    {
+      clave: 'etapa', etiqueta: 'Etapa', ancho: 150, grupo: t('comun.metadata'), icono: <KanbanSquare size={I} />,
+      render: (fila) => {
+        if (!fila.ultima_etapa) return null
+        const { etapa_etiqueta, etapa_color, tipo_canal } = fila.ultima_etapa
+        return (
+          <div className="flex items-center gap-1.5">
+            <span
+              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap"
+              style={{
+                backgroundColor: `${etapa_color}18`,
+                color: etapa_color,
+              }}
+              title={`Canal: ${tipo_canal === 'whatsapp' ? 'WhatsApp' : 'Correo'}`}
+            >
+              <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: etapa_color }} />
+              {etapa_etiqueta}
+            </span>
+            {tipo_canal === 'whatsapp'
+              ? <MessageCircle size={11} className="text-texto-terciario shrink-0" />
+              : <Mail size={11} className="text-texto-terciario shrink-0" />
+            }
+          </div>
+        )
+      },
+      obtenerValor: (fila) => fila.ultima_etapa?.etapa_etiqueta || '',
     },
     {
       clave: 'origen', etiqueta: t('comun.origen'), ancho: 110, grupo: t('comun.metadata'), icono: <Compass size={I} />,
@@ -727,28 +777,37 @@ export default function PaginaContactos() {
             opciones: tiposContacto.map(t => ({ valor: t.clave, etiqueta: t.etiqueta })),
           },
           {
-            id: 'origen', etiqueta: 'Origen', tipo: 'seleccion' as const,
+            id: 'origen', etiqueta: 'Origen', tipo: 'pills' as const,
             valor: filtroOrigen, onChange: (v) => setFiltroOrigen(v as string),
             opciones: [
               { valor: 'manual', etiqueta: 'Manual' },
               { valor: 'importacion', etiqueta: 'Importación' },
-              { valor: 'ia_captador', etiqueta: 'IA Captador' },
+              { valor: 'ia_captador', etiqueta: 'IA' },
               { valor: 'usuario', etiqueta: 'Usuario' },
             ],
           },
+          ...((etapasWA.length > 0 || etapasCorreo.length > 0) ? [{
+            id: 'etapa', etiqueta: 'Etapa', tipo: 'pills' as const,
+            valor: filtroEtapa,
+            onChange: (v: string | string[]) => setFiltroEtapa(v as string),
+            opciones: [
+              ...etapasWA.map(e => ({ valor: e.valor, etiqueta: `WA: ${e.etiqueta}` })),
+              ...etapasCorreo.map(e => ({ valor: e.valor, etiqueta: `✉ ${e.etiqueta}` })),
+            ],
+          }] : []),
           {
-            id: 'condicion_iva', etiqueta: 'Cond. IVA', tipo: 'seleccion' as const,
+            id: 'condicion_iva', etiqueta: 'Cond. IVA', tipo: 'pills' as const,
             valor: filtroIva, onChange: (v) => setFiltroIva(v as string),
             opciones: [
               { valor: 'responsable_inscripto', etiqueta: 'Resp. Inscripto' },
               { valor: 'monotributista', etiqueta: 'Monotributista' },
               { valor: 'exento', etiqueta: 'Exento' },
               { valor: 'consumidor_final', etiqueta: 'Cons. Final' },
-              { valor: 'no_responsable', etiqueta: 'No Responsable' },
+              { valor: 'no_responsable', etiqueta: 'No Resp.' },
             ],
           },
         ]}
-        onLimpiarFiltros={() => { setFiltroTipo(''); setFiltroOrigen(''); setFiltroIva('') }}
+        onLimpiarFiltros={() => { setFiltroTipo(''); setFiltroOrigen(''); setFiltroIva(''); setFiltroEtapa('') }}
         idModulo="contactos"
         columnasVisiblesDefault={COLUMNAS_VISIBLES_DEFAULT}
         opcionesOrden={[

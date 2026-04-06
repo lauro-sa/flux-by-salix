@@ -13,6 +13,8 @@ import {
   Plus, Pen, Columns2, Rows2, ArrowLeft, RefreshCw,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
+import VistaPipeline from './_componentes/VistaPipeline'
+import { KanbanSquare } from 'lucide-react'
 import { sonidos } from '@/hooks/useSonido'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import { ErrorBoundary } from '@/componentes/feedback/ErrorBoundary'
@@ -69,6 +71,7 @@ function PaginaInbox() {
 
   // Estado global del inbox
   const [tabActivo, setTabActivo] = useState<TipoCanal>('whatsapp')
+  const [vistaWA, setVistaWA] = useState<'conversaciones' | 'pipeline'>('conversaciones')
   const [configCargada, setConfigCargada] = useState(false)
   const [modulosActivos, setModulosActivos] = useState<Set<string>>(
     new Set(['inbox_whatsapp', 'inbox_correo', 'inbox_interno']) // Por defecto todos activos
@@ -124,6 +127,14 @@ function PaginaInbox() {
   const cambiarModoVista = useCallback((modo: ModoVista) => {
     setModoVista(modo)
     localStorage.setItem('flux_inbox_modo_vista', modo)
+  }, [])
+
+  // Ancho de la lista de conversaciones (redimensionable, persistido)
+  const [anchoLista, setAnchoLista] = useState(340)
+  const redimensionandoRef = useRef(false)
+  useEffect(() => {
+    const guardado = localStorage.getItem('flux_inbox_ancho_lista')
+    if (guardado) setAnchoLista(parseInt(guardado))
   }, [])
 
   // Layout colapsable del correo (persistido en localStorage)
@@ -581,6 +592,17 @@ function PaginaInbox() {
 
     // Marcar notificaciones de esta conversación como leídas
     marcarNotificacionesLeidasDeConversacion(id)
+
+    // Marcar conversación como leída (optimista + API)
+    if (conv.mensajes_sin_leer !== 0) {
+      setConversaciones(prev => prev.map(c => c.id === id ? { ...c, mensajes_sin_leer: 0 } : c))
+      setConversacionSeleccionada(prev => prev ? { ...prev, mensajes_sin_leer: 0 } : prev)
+      fetch(`/api/inbox/conversaciones/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mensajes_sin_leer: 0 }),
+      }).catch(() => {})
+    }
 
     setCargandoMensajes(true)
     paginaMensajesRef.current = 1
@@ -1158,7 +1180,7 @@ function PaginaInbox() {
       } catch { /* silenciar */ }
     }
 
-    const intervalo = setInterval(poll, 15000)
+    const intervalo = setInterval(poll, 5000)
     return () => {
       cancelado = true
       abortController.abort()
@@ -1243,6 +1265,29 @@ function PaginaInbox() {
         />
 
         <div className="flex items-center gap-1">
+          {/* Toggle vista WhatsApp: conversaciones / pipeline (solo desktop) */}
+          {tabActivo === 'whatsapp' && !esMovil && (
+            <div className="flex items-center border border-borde-sutil rounded-lg overflow-hidden mr-1">
+              <Boton
+                variante={vistaWA === 'conversaciones' ? 'primario' : 'fantasma'}
+                tamano="xs"
+                soloIcono
+                titulo="Vista conversaciones"
+                icono={<Rows2 size={14} />}
+                onClick={() => setVistaWA('conversaciones')}
+                className="!rounded-none !rounded-l-lg"
+              />
+              <Boton
+                variante={vistaWA === 'pipeline' ? 'primario' : 'fantasma'}
+                tamano="xs"
+                soloIcono
+                titulo="Vista pipeline"
+                icono={<KanbanSquare size={14} />}
+                onClick={() => setVistaWA('pipeline')}
+                className="!rounded-none !rounded-r-lg"
+              />
+            </div>
+          )}
           {/* Toggle panel info (solo WhatsApp tiene panel lateral de info) */}
           {tabActivo === 'whatsapp' && (
             <Boton
@@ -1620,9 +1665,18 @@ function PaginaInbox() {
         {/* ─── WHATSAPP: layout responsivo (lista | chat | info) ─── */}
         {tabActivo === 'whatsapp' && (
           <>
+            {vistaWA === 'pipeline' && !esMovil ? (
+              <div className="flex-1 overflow-auto p-4">
+                <VistaPipeline tipoCanal="whatsapp" />
+              </div>
+            ) : (
+            <>
             {/* Lista de conversaciones — oculta en móvil cuando hay chat abierto */}
             {(!esMovil || vistaMovilWA === 'lista') && (
-              <div className={esMovil ? 'flex-1' : 'w-80 flex-shrink-0'}>
+              <div
+                className={esMovil ? 'flex-1' : 'flex-shrink-0 relative'}
+                style={esMovil ? undefined : { width: anchoLista, minWidth: 280, maxWidth: 500 }}
+              >
                 <ListaConversaciones
                   conversaciones={conversaciones}
                   seleccionada={conversacionSeleccionada?.id || null}
@@ -1640,7 +1694,7 @@ function PaginaInbox() {
                   soloNoLeidos={soloNoLeidos}
                   onToggleNoLeidos={() => setSoloNoLeidos(prev => !prev)}
                   onOperacionMasiva={async (accion, ids) => {
-                    const admin = async (cambios: Record<string, unknown>) => {
+                    const patchMultiple = async (cambios: Record<string, unknown>) => {
                       await Promise.all(ids.map(id =>
                         fetch(`/api/inbox/conversaciones/${id}`, {
                           method: 'PATCH',
@@ -1650,11 +1704,114 @@ function PaginaInbox() {
                       ))
                       cargarConversaciones()
                     }
-                    if (accion === 'marcar_leido') await admin({ mensajes_sin_leer: 0 })
-                    if (accion === 'marcar_no_leido') await admin({ mensajes_sin_leer: 1 })
-                    if (accion === 'cerrar') await admin({ estado: 'resuelta' })
+                    if (accion === 'marcar_leido') await patchMultiple({ mensajes_sin_leer: 0 })
+                    if (accion === 'marcar_no_leido') await patchMultiple({ mensajes_sin_leer: 1 })
+                    if (accion === 'cerrar') await patchMultiple({ estado: 'resuelta' })
                   }}
+                  onAccionMenu={async (accion, convId, datos) => {
+                    const patchConv = async (cambios: Record<string, unknown>) => {
+                      await fetch(`/api/inbox/conversaciones/${convId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(cambios),
+                      })
+                      // Actualizar optimista en la lista
+                      setConversaciones(prev => prev.map(c =>
+                        c.id === convId ? { ...c, ...cambios } : c
+                      ))
+                    }
+                    switch (accion) {
+                      case 'marcar_leido':
+                        await patchConv({ mensajes_sin_leer: 0 })
+                        break
+                      case 'marcar_no_leido':
+                        await patchConv({ mensajes_sin_leer: 1 })
+                        break
+                      case 'marcar_lectura': {
+                        // Toggle: -1 = marcado manual (punto sin número), 0 = leído
+                        const convActual = conversaciones.find(c => c.id === convId)
+                        if (convActual && convActual.mensajes_sin_leer !== 0) {
+                          await patchConv({ mensajes_sin_leer: 0 })
+                        } else {
+                          await patchConv({ mensajes_sin_leer: -1 })
+                        }
+                        break
+                      }
+                      case 'fijar':
+                      case 'fijar_para_mi': {
+                        const convActualPin = conversaciones.find(c => c.id === convId)
+                        if (convActualPin?._fijada) {
+                          await fetch(`/api/inbox/conversaciones/${convId}/pins`, { method: 'DELETE' })
+                        } else {
+                          await fetch(`/api/inbox/conversaciones/${convId}/pins`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+                        }
+                        cargarConversaciones()
+                        break
+                      }
+                      case 'silenciar': {
+                        const convActualSil = conversaciones.find(c => c.id === convId)
+                        if (convActualSil?._silenciada) {
+                          await fetch(`/api/inbox/conversaciones/${convId}/silenciar`, { method: 'DELETE' })
+                        } else {
+                          await fetch(`/api/inbox/conversaciones/${convId}/silenciar`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+                        }
+                        cargarConversaciones()
+                        break
+                      }
+                      case 'pipeline': {
+                        const convActualPip = conversaciones.find(c => c.id === convId)
+                        await patchConv({ en_pipeline: !convActualPip?.en_pipeline })
+                        break
+                      }
+                      case 'bloquear':
+                        await patchConv({ bloqueada: true })
+                        cargarConversaciones()
+                        break
+                      case 'papelera':
+                      case 'mover_papelera':
+                        await patchConv({ en_papelera: true })
+                        cargarConversaciones()
+                        break
+                      case 'fijar_para_usuario':
+                        if (datos && typeof datos === 'object' && 'usuario_ids' in datos) {
+                          const ids = (datos as { usuario_ids: string[] }).usuario_ids
+                          await Promise.all(ids.map(uid =>
+                            fetch(`/api/inbox/conversaciones/${convId}/pins`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ usuario_id: uid }),
+                            })
+                          ))
+                        }
+                        break
+                    }
+                  }}
+                  esAdmin={true}
                 />
+                {/* Drag handle para redimensionar — hidden en mobile via CSS */}
+                <div
+                  className="absolute top-0 -right-px w-[3px] h-full cursor-col-resize z-10 hidden md:block opacity-0 hover:opacity-100 active:opacity-100 transition-opacity"
+                  style={{ backgroundColor: 'var(--texto-marca)' }}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      redimensionandoRef.current = true
+                      const inicio = e.clientX
+                      const anchoInicial = anchoLista
+                      const onMove = (ev: MouseEvent) => {
+                        if (!redimensionandoRef.current) return
+                        const nuevoAncho = Math.max(280, Math.min(500, anchoInicial + (ev.clientX - inicio)))
+                        setAnchoLista(nuevoAncho)
+                      }
+                      const onUp = () => {
+                        redimensionandoRef.current = false
+                        localStorage.setItem('flux_inbox_ancho_lista', String(anchoLista))
+                        document.removeEventListener('mousemove', onMove)
+                        document.removeEventListener('mouseup', onUp)
+                      }
+                      document.addEventListener('mousemove', onMove)
+                      document.addEventListener('mouseup', onUp)
+                    }}
+                  />
               </div>
             )}
             {/* Chat — en móvil pantalla completa con botón atrás */}
@@ -1699,6 +1856,12 @@ function PaginaInbox() {
                 hayMasAnteriores={hayMasAnteriores}
                 cargandoAnteriores={cargandoAnteriores}
                 onReaccionar={reaccionarMensaje}
+                onCambioConversacion={(cambios) => {
+                  setConversacionSeleccionada(prev => prev ? { ...prev, ...cambios } : null)
+                  setConversaciones(prev => prev.map(c =>
+                    c.id === conversacionSeleccionada?.id ? { ...c, ...cambios } : c
+                  ))
+                }}
               />
               </ErrorBoundary>
             )}
@@ -1714,6 +1877,8 @@ function PaginaInbox() {
                   esMovil
                 />
               </div>
+            )}
+            </>
             )}
           </>
         )}
@@ -1774,8 +1939,8 @@ function PaginaInbox() {
           </>
         )}
 
-        {/* Panel derecho: info contacto + galería de medios (solo WhatsApp, solo desktop) */}
-        {tabActivo === 'whatsapp' && !esMovil && (
+        {/* Panel derecho: info contacto + galería de medios (solo WhatsApp, solo desktop, solo vista conversaciones) */}
+        {tabActivo === 'whatsapp' && !esMovil && vistaWA === 'conversaciones' && (
           <PanelInfoContacto
             conversacion={conversacionSeleccionada}
             mensajes={mensajes}
