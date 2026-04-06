@@ -221,55 +221,70 @@ export function useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar }:
     })
   }, [abierto, plantilla])
 
-  // ─── Convertir {{variables}} a chips y sincronizar con el editor ───
-  const resolverVariablesEnHtml = useCallback((html: string): string => {
+  // ─── Convertir {{variables}} texto plano a spans para que TipTap las parsee como chips ───
+  const prepararHtmlParaEditor = useCallback((html: string): string => {
+    if (!html) return html
     const moneda = (contextoVariables?.presupuesto?.moneda || 'ARS') as string
-    // 1. Convertir {{entidad.campo}} texto plano a spans data-variable con valor resuelto
-    let resultado = html.replace(
+    // Solo convertir {{var}} que NO estén ya dentro de un span data-variable
+    // Primero proteger los spans existentes
+    const protegidos: string[] = []
+    let protegido = html.replace(
+      /<span[^>]*data-variable="[^"]*"[^>]*>[^<]*<\/span>/g,
+      (match) => { protegidos.push(match); return `__PROT_${protegidos.length - 1}__` }
+    )
+    // Convertir {{var}} restantes
+    protegido = protegido.replace(
       /\{\{(\w+)\.(\w+)\}\}/g,
-      (_match: string, entidad: string, campo: string) => {
-        const valor = contextoVariables[entidad]?.[campo]
-        const formateado = (valor !== undefined && valor !== null && valor !== '')
-          ? formatearVariable(entidad, campo, valor, moneda)
-          : `{{${entidad}.${campo}}}`
-        return `<span data-variable="${entidad}.${campo}" class="variable-resaltada" title="{{${entidad}.${campo}}}" contenteditable="false">${formateado}</span>`
+      (_m: string, ent: string, cam: string) => {
+        const val = contextoVariables[ent]?.[cam]
+        const txt = (val !== undefined && val !== null && val !== '')
+          ? formatearVariable(ent, cam, val, moneda)
+          : `{{${ent}.${cam}}}`
+        return `<span data-variable="${ent}.${cam}">${txt}</span>`
       }
     )
-    // 2. Actualizar spans data-variable existentes con valores frescos
-    resultado = resultado.replace(
-      /<span[^>]*data-variable="([a-z_]+)\.([a-z_]+)"[^>]*>[^<]*<\/span>/g,
-      (_match: string, entidad: string, campo: string) => {
-        const valor = contextoVariables[entidad]?.[campo]
-        const formateado = (valor !== undefined && valor !== null && valor !== '')
-          ? formatearVariable(entidad, campo, valor, moneda)
-          : `{{${entidad}.${campo}}}`
-        return `<span data-variable="${entidad}.${campo}" class="variable-resaltada" title="{{${entidad}.${campo}}}" contenteditable="false">${formateado}</span>`
-      }
-    )
-    return resultado
+    // Restaurar protegidos
+    return protegido.replace(/__PROT_(\d+)__/g, (_m, i) => protegidos[parseInt(i)])
   }, [contextoVariables])
 
   // Sincronizar contenido al editor TipTap cuando se abre/cambia plantilla
   useEffect(() => {
     if (!editorListo || !abierto) return
     const editor = editorRef.current
-    if (!editor) return
-    if (contenidoHtml) {
-      const resuelto = resolverVariablesEnHtml(contenidoHtml)
-      editor.commands.setContent(resuelto)
-    }
+    if (!editor || !contenidoHtml) return
+    const htmlPreparado = prepararHtmlParaEditor(contenidoHtml)
+    editor.commands.setContent(htmlPreparado)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editorListo, abierto])
 
-  // Actualizar valores de variables en el editor cuando cambia el contexto (contacto/documento)
+  // ─── Actualizar texto de los chips de variable cuando cambia el contexto ───
   useEffect(() => {
     if (!editorListo || !abierto) return
     const editor = editorRef.current
     if (!editor) return
-    const html = editor.getHTML()
-    const actualizado = resolverVariablesEnHtml(html)
-    if (actualizado !== html) {
-      editor.commands.setContent(actualizado)
+    const moneda = (contextoVariables?.presupuesto?.moneda || 'ARS') as string
+    let cambio = false
+
+    // Recorrer todos los nodos variableChip y actualizar su texto
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    editor.state.doc.descendants((node: any, pos: number) => {
+      if (node.type.name === 'variableChip') {
+        const { entidad, campo } = node.attrs
+        const valor = contextoVariables[entidad]?.[campo]
+        const nuevoTexto = (valor !== undefined && valor !== null && valor !== '')
+          ? formatearVariable(entidad, campo, valor, moneda)
+          : `{{${entidad}.${campo}}}`
+        if (node.attrs.texto !== nuevoTexto) {
+          editor.view.dispatch(
+            editor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, texto: nuevoTexto })
+          )
+          cambio = true
+        }
+      }
+    })
+
+    if (cambio) {
+      setContenidoHtml(editor.getHTML())
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contextoVariables, editorListo, abierto])
