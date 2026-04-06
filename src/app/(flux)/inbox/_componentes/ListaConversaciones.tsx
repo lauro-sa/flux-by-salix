@@ -424,42 +424,48 @@ export function ListaConversaciones({
                     e.stopPropagation()
                     setMenuConv({ conv, pos: null })
                   }}
-                  className="absolute top-2 right-2 size-6 flex items-center justify-center rounded-md opacity-0 group-hover:opacity-100 md:opacity-0 max-md:opacity-60 transition-opacity hover:bg-[var(--superficie-hover)] cursor-pointer"
+                  className="absolute top-3 right-2 size-7 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 max-md:opacity-60 transition-opacity hover:bg-[var(--superficie-hover)] cursor-pointer"
                   style={{ color: 'var(--texto-terciario)', background: 'transparent', border: 'none', zIndex: 1 }}
                   aria-label="Más opciones"
                 >
-                  <MoreVertical size={14} />
+                  <MoreVertical size={16} />
                 </button>
-                <div className="flex items-start gap-2.5">
+                <div className="flex items-start gap-3">
                   {/* Checkbox en modo selección */}
                   {modoSeleccion && (
                     <div
                       role="checkbox"
                       aria-checked={seleccionados.has(conv.id)}
                       onClick={(e) => { e.stopPropagation(); toggleSeleccion(conv.id) }}
-                      className="flex-shrink-0 mt-1.5 cursor-pointer"
+                      className="flex-shrink-0 mt-2 cursor-pointer"
                     >
                       {seleccionados.has(conv.id)
-                        ? <CheckSquare size={16} style={{ color: 'var(--texto-marca)' }} />
-                        : <Square size={16} style={{ color: 'var(--texto-terciario)' }} />
+                        ? <CheckSquare size={18} style={{ color: 'var(--texto-marca)' }} />
+                        : <Square size={18} style={{ color: 'var(--texto-terciario)' }} />
                       }
                     </div>
                   )}
-                  {/* Avatar */}
+                  {/* Avatar más grande con badge de canal */}
                   {!modoSeleccion && (
-                  <div className="flex-shrink-0 mt-0.5">
+                  <div className="flex-shrink-0 relative">
                     <Avatar
                       nombre={conv.contacto_nombre || conv.identificador_externo || '?'}
-                      tamano="sm"
+                      tamano="md"
                     />
+                    {tipoCanal === 'whatsapp' && (
+                      <div className="absolute -bottom-0.5 -right-0.5 size-4 rounded-full flex items-center justify-center" style={{ background: '#25D366' }}>
+                        <IconoWhatsApp size={10} className="text-white" />
+                      </div>
+                    )}
                   </div>
                   )}
 
                   {/* Contenido */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
+                    {/* Fila 1: Nombre + badges + fecha */}
+                    <div className="flex items-center gap-1.5">
                       <span
-                        className="text-sm font-medium truncate"
+                        className="text-sm font-semibold truncate flex-1 min-w-0"
                         style={{
                           color: conv.mensajes_sin_leer > 0
                             ? 'var(--texto-primario)'
@@ -468,47 +474,36 @@ export function ListaConversaciones({
                       >
                         {conv.contacto_nombre || conv.identificador_externo || 'Desconocido'}
                       </span>
-                      {/* Indicadores de fijado y silenciado */}
-                      {conv._fijada && (
-                        <Pin size={10} style={{ color: 'var(--texto-terciario)', flexShrink: 0 }} />
-                      )}
-                      {conv._silenciada && (
-                        <BellOff size={10} style={{ color: 'var(--texto-terciario)', flexShrink: 0 }} />
-                      )}
+                      {conv._fijada && <Pin size={11} style={{ color: 'var(--texto-terciario)', flexShrink: 0 }} />}
+                      {conv._silenciada && <BellOff size={11} style={{ color: 'var(--texto-terciario)', flexShrink: 0 }} />}
                       {conv.contacto?.es_provisorio && (
-                        <span
-                          className="text-xxs font-medium px-1 py-0.5 rounded flex-shrink-0"
-                          style={{
-                            background: 'var(--insignia-advertencia-fondo)',
-                            color: 'var(--insignia-advertencia-texto)',
-                          }}
-                        >
+                        <span className="text-xxs font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                          style={{ background: 'var(--insignia-advertencia-fondo)', color: 'var(--insignia-advertencia-texto)' }}>
                           Lead
                         </span>
                       )}
-                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                        {conv.ultimo_mensaje_en && (
-                          <span className="text-xxs" style={{
-                            color: conv.mensajes_sin_leer > 0
-                              ? 'var(--insignia-exito)'
-                              : 'var(--texto-terciario)',
-                          }}>
-                            {tiempoRelativo(conv.ultimo_mensaje_en)}
-                          </span>
-                        )}
-                        {conv.mensajes_sin_leer > 0 && (
-                          <span
-                            className="min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center text-xs font-bold"
-                            style={{
-                              background: 'var(--insignia-exito)',
-                              color: 'var(--texto-inverso)',
-                            }}
-                          >
-                            {conv.mensajes_sin_leer > 99 ? '99+' : conv.mensajes_sin_leer}
-                          </span>
-                        )}
-                      </div>
+                      {conv.ultimo_mensaje_en && (
+                        <span className="text-xxs flex-shrink-0 ml-auto" style={{
+                          color: conv.mensajes_sin_leer > 0 ? 'var(--insignia-exito)' : 'var(--texto-terciario)',
+                          fontWeight: conv.mensajes_sin_leer > 0 ? 600 : 400,
+                        }}>
+                          {tiempoRelativo(conv.ultimo_mensaje_en)}
+                        </span>
+                      )}
+                      {conv.mensajes_sin_leer > 0 && (
+                        <span className="min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                          style={{ background: 'var(--insignia-exito)', color: 'var(--texto-inverso)' }}>
+                          {conv.mensajes_sin_leer > 99 ? '99+' : conv.mensajes_sin_leer}
+                        </span>
+                      )}
                     </div>
+
+                    {/* Fila 2: Número/identificador */}
+                    {conv.identificador_externo && conv.contacto_nombre && (
+                      <p className="text-xxs truncate mt-0.5" style={{ color: 'var(--texto-terciario)' }}>
+                        {conv.identificador_externo}
+                      </p>
+                    )}
 
                     {/* Asunto (correo) o último mensaje */}
                     {tipoCanal === 'correo' && conv.asunto && (

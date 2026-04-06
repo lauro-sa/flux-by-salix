@@ -129,6 +129,13 @@ function PaginaInbox() {
     localStorage.setItem('flux_inbox_modo_vista', modo)
   }, [])
 
+  // Ancho de la lista de conversaciones (redimensionable, persistido)
+  const [anchoLista, setAnchoLista] = useState(() => {
+    if (typeof window === 'undefined') return 340
+    return parseInt(localStorage.getItem('flux_inbox_ancho_lista') || '340')
+  })
+  const redimensionandoRef = useRef(false)
+
   // Layout colapsable del correo (persistido en localStorage)
   const [sidebarCorreoColapsado, setSidebarCorreoColapsado] = useState(() => {
     if (typeof window === 'undefined') return false
@@ -1654,7 +1661,10 @@ function PaginaInbox() {
             <>
             {/* Lista de conversaciones — oculta en móvil cuando hay chat abierto */}
             {(!esMovil || vistaMovilWA === 'lista') && (
-              <div className={esMovil ? 'flex-1' : 'w-80 flex-shrink-0'}>
+              <div
+                className={esMovil ? 'flex-1' : 'flex-shrink-0 relative'}
+                style={esMovil ? undefined : { width: anchoLista, minWidth: 280, maxWidth: 500 }}
+              >
                 <ListaConversaciones
                   conversaciones={conversaciones}
                   seleccionada={conversacionSeleccionada?.id || null}
@@ -1687,6 +1697,31 @@ function PaginaInbox() {
                     if (accion === 'cerrar') await admin({ estado: 'resuelta' })
                   }}
                 />
+                {/* Drag handle para redimensionar */}
+                {!esMovil && (
+                  <div
+                    className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-[var(--texto-marca)] active:bg-[var(--texto-marca)] transition-colors opacity-0 hover:opacity-30 active:opacity-50 z-10"
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      redimensionandoRef.current = true
+                      const inicio = e.clientX
+                      const anchoInicial = anchoLista
+                      const onMove = (ev: MouseEvent) => {
+                        if (!redimensionandoRef.current) return
+                        const nuevoAncho = Math.max(280, Math.min(500, anchoInicial + (ev.clientX - inicio)))
+                        setAnchoLista(nuevoAncho)
+                      }
+                      const onUp = () => {
+                        redimensionandoRef.current = false
+                        localStorage.setItem('flux_inbox_ancho_lista', String(anchoLista))
+                        document.removeEventListener('mousemove', onMove)
+                        document.removeEventListener('mouseup', onUp)
+                      }
+                      document.addEventListener('mousemove', onMove)
+                      document.addEventListener('mouseup', onUp)
+                    }}
+                  />
+                )}
               </div>
             )}
             {/* Chat — en móvil pantalla completa con botón atrás */}
