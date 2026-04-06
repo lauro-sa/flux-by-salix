@@ -481,21 +481,23 @@ function FilaNota({
   onEliminar: (id: string) => void
 }) {
   return (
-    <div className="flex items-center gap-1 px-1 py-2">
+    <div className="flex items-start gap-1 px-1 py-2">
       {!soloLectura && (
-        <div className="w-6 flex items-center justify-center cursor-grab opacity-0 group-hover:opacity-50 transition-opacity">
+        <div className="w-6 flex items-center justify-center cursor-grab opacity-0 group-hover:opacity-50 transition-opacity mt-0.5">
           <GripVertical size={14} />
         </div>
       )}
-      <div className="flex-1 flex items-center gap-2">
-        <StickyNote size={14} className="text-texto-terciario shrink-0" />
-        <CampoTexto
-          valor={linea.descripcion || ''}
-          placeholder="Nota o comentario..."
-          soloLectura={soloLectura}
-          className="text-sm text-texto-secundario italic"
-          onChange={(v) => onEditar(linea.id, 'descripcion', v)}
-        />
+      <div className="flex-1 flex items-start gap-2">
+        <StickyNote size={14} className="text-texto-terciario shrink-0 mt-1" />
+        {soloLectura ? (
+          <p className="text-sm text-texto-secundario italic whitespace-pre-wrap">{linea.descripcion || ''}</p>
+        ) : (
+          <CampoTextoNota
+            valor={linea.descripcion || ''}
+            placeholder="Nota o comentario..."
+            onChange={(v) => onEditar(linea.id, 'descripcion', v)}
+          />
+        )}
       </div>
       {!soloLectura && (
         <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar nota" icono={<Trash2 size={14} />} onClick={() => onEliminar(linea.id)} className="w-8 opacity-0 group-hover:opacity-100" />
@@ -587,6 +589,41 @@ function CampoTexto({
       onChange={(e) => setLocal(e.target.value)}
       onBlur={() => { if (local !== valor) onChange(local) }}
       className={`w-full bg-transparent border-0 outline-none text-sm placeholder:text-texto-placeholder focus:bg-superficie-tarjeta focus:rounded px-1 py-0.5 -mx-1 transition-colors ${className}`}
+    />
+  )
+}
+
+function CampoTextoNota({
+  valor,
+  placeholder,
+  onChange,
+}: {
+  valor: string
+  placeholder?: string
+  onChange: (valor: string) => void
+}) {
+  const [local, setLocal] = useState(valor)
+  const ref = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => { setLocal(valor) }, [valor])
+
+  // Auto-resize del textarea
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.style.height = 'auto'
+      ref.current.style.height = `${ref.current.scrollHeight}px`
+    }
+  }, [local])
+
+  return (
+    <textarea
+      ref={ref}
+      value={local}
+      placeholder={placeholder}
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={() => { if (local !== valor) onChange(local) }}
+      rows={1}
+      className="w-full bg-transparent border-0 outline-none text-sm text-texto-secundario italic placeholder:text-texto-placeholder focus:bg-superficie-tarjeta focus:rounded px-1 py-0.5 -mx-1 transition-colors resize-none overflow-hidden"
     />
   )
 }
