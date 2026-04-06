@@ -529,14 +529,18 @@ export default function PaginaConfigPresupuestos() {
                     >
                       <GripVertical size={14} />
                     </div>
-                    <button
-                      onClick={(e) => {
+                    <input
+                      type="radio"
+                      name="condicion_predeterminada"
+                      checked={!!cond.predeterminado}
+                      onChange={(e) => {
                         e.stopPropagation()
                         guardarCondiciones(condicionesPago.map((c, i) => ({ ...c, predeterminado: i === idx })))
                       }}
-                      className={`size-4 rounded-full border-2 shrink-0 transition-colors ${
-                        cond.predeterminado ? 'border-marca-500 bg-[var(--texto-marca)]' : 'border-borde-sutil'
-                      }`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="shrink-0"
+                      style={{ accentColor: 'var(--texto-marca)' }}
+                      title="Predeterminado"
                     />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
