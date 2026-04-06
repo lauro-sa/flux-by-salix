@@ -1716,32 +1716,47 @@ function PaginaInbox() {
                       case 'marcar_no_leido':
                         await patchConv({ mensajes_sin_leer: 1 })
                         break
-                      case 'fijar_para_mi':
-                        await fetch(`/api/inbox/conversaciones/${convId}/pins`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+                      case 'marcar_lectura': {
+                        // Viene del menú contextual — toggle según estado actual
+                        const convActual = conversaciones.find(c => c.id === convId)
+                        if (convActual && convActual.mensajes_sin_leer > 0) {
+                          await patchConv({ mensajes_sin_leer: 0 })
+                        } else {
+                          await patchConv({ mensajes_sin_leer: 1 })
+                        }
+                        break
+                      }
+                      case 'fijar':
+                      case 'fijar_para_mi': {
+                        const convActualPin = conversaciones.find(c => c.id === convId)
+                        if (convActualPin?._fijada) {
+                          await fetch(`/api/inbox/conversaciones/${convId}/pins`, { method: 'DELETE' })
+                        } else {
+                          await fetch(`/api/inbox/conversaciones/${convId}/pins`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+                        }
                         cargarConversaciones()
                         break
-                      case 'desfijar':
-                        await fetch(`/api/inbox/conversaciones/${convId}/pins`, { method: 'DELETE' })
+                      }
+                      case 'silenciar': {
+                        const convActualSil = conversaciones.find(c => c.id === convId)
+                        if (convActualSil?._silenciada) {
+                          await fetch(`/api/inbox/conversaciones/${convId}/silenciar`, { method: 'DELETE' })
+                        } else {
+                          await fetch(`/api/inbox/conversaciones/${convId}/silenciar`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+                        }
                         cargarConversaciones()
                         break
-                      case 'silenciar':
-                        await fetch(`/api/inbox/conversaciones/${convId}/silenciar`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
-                        cargarConversaciones()
+                      }
+                      case 'pipeline': {
+                        const convActualPip = conversaciones.find(c => c.id === convId)
+                        await patchConv({ en_pipeline: !convActualPip?.en_pipeline })
                         break
-                      case 'desilenciar':
-                        await fetch(`/api/inbox/conversaciones/${convId}/silenciar`, { method: 'DELETE' })
-                        cargarConversaciones()
-                        break
-                      case 'seguir_pipeline':
-                        await patchConv({ en_pipeline: true })
-                        break
-                      case 'quitar_pipeline':
-                        await patchConv({ en_pipeline: false })
-                        break
+                      }
                       case 'bloquear':
                         await patchConv({ bloqueada: true })
                         cargarConversaciones()
                         break
+                      case 'papelera':
                       case 'mover_papelera':
                         await patchConv({ en_papelera: true })
                         cargarConversaciones()
