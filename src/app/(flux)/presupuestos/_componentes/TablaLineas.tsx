@@ -381,13 +381,13 @@ function FilaProducto({
             )}
             {col === 'impuesto' && (
               <CampoSelect
-                valor={linea.impuesto_porcentaje || '0'}
-                opciones={impuestos.filter(i => i.activo).map(i => ({ valor: String(i.porcentaje), etiqueta: i.label }))}
+                valor={linea.impuesto_label || ''}
+                opciones={impuestos.filter(i => i.activo).map(i => ({ valor: i.label, etiqueta: i.label }))}
                 soloLectura={soloLectura}
                 onChange={(v) => {
-                  const imp = impuestos.find(i => String(i.porcentaje) === v)
-                  onEditar(linea.id, 'impuesto_porcentaje', v)
-                  if (imp) onEditar(linea.id, 'impuesto_label', imp.label)
+                  const imp = impuestos.find(i => i.label === v)
+                  onEditar(linea.id, 'impuesto_porcentaje', imp ? String(imp.porcentaje) : '0')
+                  onEditar(linea.id, 'impuesto_label', v || '')
                 }}
               />
             )}
