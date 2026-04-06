@@ -65,14 +65,22 @@ export function useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar }:
 
   // ─── Contexto de variables ───
   const contextoVariables = useMemo<Record<string, Record<string, unknown>>>(() => ({
-    contacto: contactoPreview ? {
-      nombre: contactoPreview.nombre || '',
-      apellido: contactoPreview.apellido || '',
-      nombre_completo: `${contactoPreview.nombre || ''} ${contactoPreview.apellido || ''}`.trim(),
-      correo: contactoPreview.correo || '',
-      telefono: contactoPreview.telefono || '',
-      direccion_completa: (contactoPreview.direcciones as Array<{ texto: string }>)?.[0]?.texto || '',
-    } : DATOS_EJEMPLO.contacto,
+    contacto: contactoPreview ? (() => {
+      const dirs = contactoPreview.direcciones as Array<{ texto?: string; calle?: string; numero?: string; ciudad?: string; provincia?: string; codigo_postal?: string; es_principal?: boolean }> || []
+      const dirPrincipal = dirs.find(d => d.es_principal) || dirs[0]
+      return {
+        nombre: contactoPreview.nombre || '',
+        apellido: contactoPreview.apellido || '',
+        nombre_completo: `${contactoPreview.nombre || ''} ${contactoPreview.apellido || ''}`.trim(),
+        correo: contactoPreview.correo || '',
+        telefono: contactoPreview.telefono || '',
+        direccion_completa: dirPrincipal?.texto || '',
+        calle: [dirPrincipal?.calle, dirPrincipal?.numero].filter(Boolean).join(' ') || '',
+        ciudad: dirPrincipal?.ciudad || '',
+        provincia: dirPrincipal?.provincia || '',
+        codigo_postal: dirPrincipal?.codigo_postal || '',
+      }
+    })() : DATOS_EJEMPLO.contacto,
     presupuesto: documentoPreview ? (() => {
       const total = Number(documentoPreview.total_final) || 0
       const neto = Number(documentoPreview.subtotal_neto) || 0
