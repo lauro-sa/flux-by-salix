@@ -18,7 +18,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { Checkbox } from '@/componentes/ui/Checkbox'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import {
-  Send, X, Paperclip, FileText, Loader2,
+  Send, X, Paperclip, FileText, Loader2, Clock,
   ChevronDown, Link2, Upload, Maximize2, Minimize2,
   SendHorizonal, Braces, Save, Check, BookmarkPlus,
 } from 'lucide-react'
@@ -500,7 +500,7 @@ export function ModalEnviarDocumento({
                 onProgramar={estado.handleProgramar}
                 disabled={!estado.puedeEnviar}
               />
-              <Boton variante="fantasma" tamano="sm" soloIcono icono={<SendHorizonal size={18} />} onClick={() => estado.setMostrarProgramar(!estado.mostrarProgramar)} titulo="Programar envío" />
+              <Boton variante="fantasma" tamano="sm" soloIcono icono={<Clock size={18} />} onClick={() => estado.setMostrarProgramar(!estado.mostrarProgramar)} titulo="Programar envío" />
 
               {/* Guardar plantilla — amarillo cuando hay cambios, normal si no */}
               {onGuardarCambiosPlantilla && (

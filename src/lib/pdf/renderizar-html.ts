@@ -332,16 +332,12 @@ export function renderizarHtml(
     notas_html: notasAHtml(presupuesto.notas_html),
     condiciones_html: notasAHtml(presupuesto.condiciones_html),
     tiene_cuotas: presupuesto.cuotas.length > 0,
-    mostrar_datos_bancarios: datosEmpPdf?.mostrar_datos_bancarios === true && !!(
-      datosEmpPdf?.datos_bancarios?.banco ||
-      datosEmpPdf?.datos_bancarios?.titular ||
-      datosEmpPdf?.datos_bancarios?.cbu ||
-      datosEmpPdf?.datos_bancarios?.alias
-    ),
-    banco: datosEmpPdf?.datos_bancarios?.banco || '',
-    banco_titular: datosEmpPdf?.datos_bancarios?.titular || '',
-    banco_cbu: datosEmpPdf?.datos_bancarios?.cbu || '',
-    banco_alias: datosEmpPdf?.datos_bancarios?.alias || '',
+    // Datos bancarios solo se muestran en el portal (post-firma), nunca en el PDF
+    mostrar_datos_bancarios: false,
+    banco: '',
+    banco_titular: '',
+    banco_cbu: '',
+    banco_alias: '',
     // Columnas visibles en tabla de líneas
     col_producto: (presupuesto.columnas_lineas || COLUMNAS_TODAS).includes('producto'),
     col_descripcion: true, // siempre visible

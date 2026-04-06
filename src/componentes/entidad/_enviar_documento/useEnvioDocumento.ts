@@ -188,13 +188,16 @@ export function useEnvioDocumento({
     setPlantillaAsuntoOriginal(asuntoResuelto || asuntoPredeterminado)
     setPlantillaHtmlOriginal(htmlFinal)
     if (pl.canal_id) setCanalId(pl.canal_id)
-    // Inyectar al editor con pequeño delay para asegurar que TipTap esté completamente montado
-    const editor = editorRef.current
-    if (editor) {
-      requestAnimationFrame(() => {
+    // Inyectar al editor — reintentar hasta que TipTap esté completamente funcional
+    const inyectar = (intentos = 0) => {
+      const editor = editorRef.current
+      if (editor && !editor.isDestroyed) {
         editor.commands.setContent(htmlFinal)
-      })
+      } else if (intentos < 5) {
+        setTimeout(() => inyectar(intentos + 1), 100)
+      }
     }
+    setTimeout(() => inyectar(), 50)
   }, [abierto, editorListo, plantillaPredeterminadaId, plantillas, snapshotRestaurar, resolverVariables, asuntoPredeterminado])
 
   // ─── Aplicar plantilla ───

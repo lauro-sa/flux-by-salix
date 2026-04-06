@@ -119,7 +119,6 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
     border-collapse: collapse;
     margin-bottom: 16px;
     font-size: 8.5pt;
-    table-layout: fixed;
   }
   .tabla-lineas thead th {
     background: {color_primario_08};
@@ -391,13 +390,13 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
 <table class="tabla-lineas">
   <thead>
     <tr>
-      <th class="col-desc">Descripción</th>
-      {{#if col_cantidad}}<th class="num" style="width:8%;">Cant.</th>{{/if}}
-      {{#if col_unidad}}<th style="width:8%;">U. Medida</th>{{/if}}
-      {{#if col_precio_unitario}}<th class="num" style="width:14%;">Precio unit.</th>{{/if}}
-      {{#if col_descuento}}<th class="num" style="width:8%;">% Bonif.</th>{{/if}}
-      {{#if col_impuesto}}<th style="width:10%;">Impuestos</th>{{/if}}
-      <th class="num" style="width:14%;">Importe</th>
+      <th class="col-desc" style="width:100%;">Descripción</th>
+      {{#if col_cantidad}}<th class="num">Cant.</th>{{/if}}
+      {{#if col_unidad}}<th>U. Medida</th>{{/if}}
+      {{#if col_precio_unitario}}<th class="num">Precio unit.</th>{{/if}}
+      {{#if col_descuento}}<th class="num">% Bonif.</th>{{/if}}
+      {{#if col_impuesto}}<th>Impuestos</th>{{/if}}
+      <th class="num">Importe</th>
     </tr>
   </thead>
   <tbody>
