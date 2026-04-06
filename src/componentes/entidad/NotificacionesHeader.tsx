@@ -312,7 +312,12 @@ function NotificacionesHeader() {
     const ids = idsGrupo && idsGrupo.length > 0 ? idsGrupo : [n.id]
     marcarLeidas(ids)
     setPopoverAbierto(null)
-    if (n.url) router.push(n.url)
+    // Si es notificación de actividad con referencia, abrir el modal de esa actividad
+    if (n.referencia_tipo === 'actividad' && n.referencia_id) {
+      router.push(`/actividades?actividad_id=${n.referencia_id}`)
+    } else if (n.url) {
+      router.push(n.url)
+    }
   }, [marcarLeidas, router])
 
   /* Conteos de no leídas por sub-filtro del inbox */

@@ -66,6 +66,8 @@ export interface AccionLote {
   icono?: ReactNode
   onClick: (ids: Set<string>) => void
   peligro?: boolean
+  /** No limpiar selección al ejecutar (útil para submenús como posponer) */
+  noLimpiarSeleccion?: boolean
   /** Atajo de teclado a mostrar (ej: 'E', 'Del', '⌘D') */
   atajo?: string
   /** Grupo visual — acciones del mismo grupo se agrupan juntas con separadores entre grupos */

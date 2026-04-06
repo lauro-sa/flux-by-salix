@@ -104,6 +104,7 @@ function SeccionTipos({ tipos, cargando, onActualizar, onAccionAPI }: Propiedade
       const actualizado = await onAccionAPI('editar_tipo', datos) as TipoActividad
       onActualizar(orden.map(t => t.id === actualizado.id ? actualizado : t))
       setTipoEditando(null)
+      setModalAbierto(false)
     } finally {
       setGuardando(false)
     }

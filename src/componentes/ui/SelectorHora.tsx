@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Clock, ChevronUp, ChevronDown } from 'lucide-react'
 import { useFormato } from '@/hooks/useFormato'
@@ -76,7 +77,9 @@ function SelectorHora({
   const es12h = fmt.formatoHora === '12h'
   const [abierto, setAbierto] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [posDropdown, setPosDropdown] = useState({ top: 0, left: 0 })
 
   const placeholderReal = placeholder || (es12h ? 'HH:MM AM' : 'HH:MM')
 
@@ -107,15 +110,50 @@ function SelectorHora({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hora, minuto, valor, editando])
 
-  // Cerrar al click afuera
+  // Calcular posición del dropdown relativa al trigger
+  const actualizarPosicion = useCallback(() => {
+    if (!triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    const anchoDropdown = 240
+    const altoDropdown = 280
+
+    let top = rect.bottom + 4
+    let left = rect.left
+
+    // Si se sale por la derecha
+    if (left + anchoDropdown > window.innerWidth - 8) {
+      left = rect.right - anchoDropdown
+    }
+    if (left < 8) left = 8
+
+    // Si se sale por abajo, abrir hacia arriba
+    if (top + altoDropdown > window.innerHeight - 8) {
+      top = rect.top - altoDropdown - 4
+    }
+
+    setPosDropdown({ top, left })
+  }, [])
+
+  // Cerrar al click afuera + recalcular posición en scroll/resize
   useEffect(() => {
     if (!abierto) return
+    actualizarPosicion()
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setAbierto(false)
+      const target = e.target as Node
+      const dentroDropdown = ref.current?.contains(target)
+      const dentroTrigger = triggerRef.current?.contains(target)
+      if (!dentroDropdown && !dentroTrigger) setAbierto(false)
     }
+    const onScrollResize = () => actualizarPosicion()
     document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [abierto])
+    window.addEventListener('scroll', onScrollResize, true)
+    window.addEventListener('resize', onScrollResize)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      window.removeEventListener('scroll', onScrollResize, true)
+      window.removeEventListener('resize', onScrollResize)
+    }
+  }, [abierto, actualizarPosicion])
 
   const aplicar = (h: number, m: number) => {
     const hStr = String(h).padStart(2, '0')
@@ -223,7 +261,7 @@ function SelectorHora({
   ]
 
   return (
-    <div ref={ref} className={`flex flex-col w-full ${className}`}>
+    <div className={`flex flex-col w-full ${className}`}>
       {etiqueta && (
         <label className={`text-sm font-medium mb-1 ${error ? 'text-insignia-peligro' : 'text-texto-secundario'}`}>
           {etiqueta}
@@ -232,8 +270,9 @@ function SelectorHora({
 
       {/* Input escribible con ícono de reloj */}
       <div
+        ref={triggerRef}
         className={[
-          'flex items-center gap-2 px-3 py-2 rounded-md border text-sm transition-all w-full',
+          'flex items-center gap-2 px-3 py-2 rounded-md border text-sm transition-all w-full overflow-hidden',
           'bg-superficie-tarjeta',
           disabled ? 'opacity-50 cursor-not-allowed' : '',
           error ? 'border-insignia-peligro' : abierto ? 'border-borde-foco shadow-foco' : 'border-borde-fuerte hover:border-borde-foco',
@@ -265,16 +304,18 @@ function SelectorHora({
 
       {error && <span className="text-xs text-insignia-peligro mt-1">{error}</span>}
 
-      {/* Dropdown */}
-      <div className="relative">
+      {/* Dropdown — portal para escapar overflow de modales/popovers */}
+      {typeof window !== 'undefined' && createPortal(
         <AnimatePresence>
           {abierto && (
             <motion.div
+              ref={ref}
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.12 }}
-              className="absolute top-1 left-0 z-50 w-[240px] max-w-[calc(100vw-2rem)] bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden"
+              className="fixed w-[240px] max-w-[calc(100vw-2rem)] bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden"
+              style={{ top: posDropdown.top, left: posDropdown.left, zIndex: 'var(--z-popover)' as unknown as number }}
             >
               {/* Selector con flechas */}
               <div className="p-4 flex items-center justify-center gap-4">
@@ -348,8 +389,9 @@ function SelectorHora({
               </div>
             </motion.div>
           )}
-        </AnimatePresence>
-      </div>
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   )
 }

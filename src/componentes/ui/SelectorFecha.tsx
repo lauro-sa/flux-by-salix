@@ -320,7 +320,7 @@ function SelectorFecha({
       <div
         ref={triggerRef}
         className={[
-          'flex items-center gap-2 px-3 py-2 rounded-md border text-sm transition-all w-full',
+          'flex items-center gap-2 px-3 py-2 rounded-md border text-sm transition-all w-full overflow-hidden',
           'bg-superficie-tarjeta',
           disabled ? 'opacity-50 cursor-not-allowed' : '',
           error ? 'border-insignia-peligro' : abierto ? 'border-borde-foco shadow-foco' : 'border-borde-fuerte hover:border-borde-foco',

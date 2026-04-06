@@ -37,8 +37,8 @@ export async function GET(request: NextRequest) {
     const fecha = params.get('fecha') // 'hoy' | 'semana' | 'vencidas' | 'sin_fecha' | 'futuras'
     const contacto_id = params.get('contacto_id') // filtrar por vínculo a contacto
     const en_papelera = params.get('en_papelera') === 'true'
-    const orden_campo = params.get('orden_campo') || 'creado_en'
-    const orden_dir = params.get('orden_dir') === 'asc'
+    const orden_campo = params.get('orden_campo') || 'fecha_vencimiento'
+    const orden_dir = params.get('orden_dir') ? params.get('orden_dir') === 'asc' : true
     const pagina = parseInt(params.get('pagina') || '1')
     const por_pagina = Math.min(parseInt(params.get('por_pagina') || '50'), 100)
     const desde = (pagina - 1) * por_pagina
@@ -123,10 +123,25 @@ export async function GET(request: NextRequest) {
 
     // Ordenamiento y paginación
     query = query
-      .order(orden_campo, { ascending: orden_dir })
+      .order(orden_campo, { ascending: orden_dir, nullsFirst: false })
+      .order('creado_en', { ascending: true })
       .range(desde, desde + por_pagina - 1)
 
     const { data, count, error } = await query
+
+    // Segundo criterio: dentro de la misma fecha, alta primero
+    const PESO_PRIORIDAD: Record<string, number> = { alta: 0, normal: 1, baja: 2 }
+    if (data && orden_campo === 'fecha_vencimiento') {
+      data.sort((a, b) => {
+        // Primero por fecha (ya viene ordenado del query, preservar)
+        const fA = a.fecha_vencimiento || ''
+        const fB = b.fecha_vencimiento || ''
+        const cmpFecha = orden_dir ? fA.localeCompare(fB) : fB.localeCompare(fA)
+        if (cmpFecha !== 0) return cmpFecha
+        // Misma fecha: alta primero
+        return (PESO_PRIORIDAD[a.prioridad] ?? 1) - (PESO_PRIORIDAD[b.prioridad] ?? 1)
+      })
+    }
 
     if (error) {
       console.error('Error al listar actividades:', error)

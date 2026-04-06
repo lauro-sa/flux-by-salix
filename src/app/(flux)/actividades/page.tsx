@@ -1,14 +1,16 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import {
   PlusCircle, Download, ClipboardList, CalendarClock,
-  CheckCircle, Clock, User, FileText, MapPin,
+  CheckCircle, Clock, User, FileText, MapPin, Trash2,
 } from 'lucide-react'
+import type { AccionLote } from '@/componentes/tablas/tipos-tabla'
+import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
@@ -64,12 +66,19 @@ const POR_PAGINA = 50
 
 export default function PaginaActividades() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { mostrar } = useToast()
   const [busqueda, setBusqueda] = useState('')
   const [actividades, setActividades] = useState<Actividad[]>([])
   const [tipos, setTipos] = useState<TipoActividad[]>([])
   const [estados, setEstados] = useState<EstadoActividad[]>([])
   const [miembros, setMiembros] = useState<Miembro[]>([])
+  const [presetsPosposicion, setPresetsPosposicion] = useState<{ id: string; etiqueta: string; dias: number }[]>([
+    { id: '1d', etiqueta: '1 día', dias: 1 },
+    { id: '3d', etiqueta: '3 días', dias: 3 },
+    { id: '1s', etiqueta: '1 semana', dias: 7 },
+    { id: '2s', etiqueta: '2 semanas', dias: 14 },
+  ])
   const [cargando, setCargando] = useState(true)
   const [total, setTotal] = useState(0)
   const [pagina, setPagina] = useState(1)
@@ -112,6 +121,9 @@ export default function PaginaActividades() {
       setTipos(configRes.tipos || [])
       setEstados(configRes.estados || [])
       setMiembros(miembrosData)
+      if (configRes.config?.presets_posposicion?.length) {
+        setPresetsPosposicion(configRes.config.presets_posposicion)
+      }
     } catch (err) { console.error('Error en actividades:', err) }
   }, [])
 
@@ -146,6 +158,29 @@ export default function PaginaActividades() {
   useEffect(() => {
     cargarActividades(pagina)
   }, [pagina, cargarActividades])
+
+  // Abrir modal si viene ?actividad_id=UUID desde notificación
+  const actividadIdParam = searchParams.get('actividad_id')
+  const yaAbiertoRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!actividadIdParam || actividadIdParam === yaAbiertoRef.current) return
+    yaAbiertoRef.current = actividadIdParam
+    // Buscar en las actividades cargadas o fetch directo
+    const encontrada = actividades.find(a => a.id === actividadIdParam)
+    if (encontrada) {
+      setActividadEditando(encontrada)
+      setModalAbierto(true)
+    } else {
+      // Fetch directo si no está en la página actual
+      fetch(`/api/actividades/${actividadIdParam}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data) { setActividadEditando(data); setModalAbierto(true) }
+        })
+    }
+    // Limpiar el param de la URL sin recargar
+    router.replace('/actividades', { scroll: false })
+  }, [actividadIdParam, actividades, router])
 
   // Re-fetch al cambiar filtros (reset a página 1)
   useEffect(() => {
@@ -232,6 +267,86 @@ export default function PaginaActividades() {
     }
   }
 
+  // ═══════ Acciones en lote ═══════
+  const [confirmEliminarLote, setConfirmEliminarLote] = useState<Set<string> | null>(null)
+  const [menuPosponerLote, setMenuPosponerLote] = useState<Set<string> | null>(null)
+  const [posMenuPosponer, setPosMenuPosponer] = useState<{ x: number; top: number; bottom: number } | null>(null)
+
+  const completarLote = useCallback(async (ids: Set<string>) => {
+    try {
+      await Promise.all([...ids].map(id =>
+        fetch(`/api/actividades/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accion: 'completar' }),
+        })
+      ))
+      mostrar('exito', `${ids.size} actividad${ids.size > 1 ? 'es' : ''} completada${ids.size > 1 ? 's' : ''}`)
+      cargarActividades(pagina)
+    } catch { mostrar('error', 'Error al completar actividades') }
+  }, [pagina, cargarActividades, mostrar])
+
+  const posponerLote = useCallback(async (ids: Set<string>, dias: number) => {
+    try {
+      await Promise.all([...ids].map(id =>
+        fetch(`/api/actividades/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accion: 'posponer', dias }),
+        })
+      ))
+      mostrar('info', `${ids.size} actividad${ids.size > 1 ? 'es' : ''} pospuesta${ids.size > 1 ? 's' : ''} ${dias} día${dias > 1 ? 's' : ''}`)
+      setMenuPosponerLote(null)
+      cargarActividades(pagina)
+    } catch { mostrar('error', 'Error al posponer actividades') }
+  }, [pagina, cargarActividades, mostrar])
+
+  const eliminarLote = useCallback(async (ids: Set<string>) => {
+    try {
+      await Promise.all([...ids].map(id =>
+        fetch(`/api/actividades/${id}`, { method: 'DELETE' })
+      ))
+      mostrar('exito', `${ids.size} actividad${ids.size > 1 ? 'es' : ''} eliminada${ids.size > 1 ? 's' : ''}`)
+      setConfirmEliminarLote(null)
+      cargarActividades(pagina)
+    } catch { mostrar('error', 'Error al eliminar actividades') }
+  }, [pagina, cargarActividades, mostrar])
+
+  const accionesLote = useMemo((): AccionLote[] => [
+    {
+      id: 'completar',
+      etiqueta: 'Completar',
+      icono: <CheckCircle size={14} />,
+      onClick: completarLote,
+      grupo: 'edicion',
+    },
+    {
+      id: 'posponer',
+      etiqueta: 'Posponer',
+      icono: <Clock size={14} />,
+      onClick: (ids) => {
+        // Buscar el botón de posponer en la barra para posicionar el popover
+        const boton = document.querySelector('[data-accion-lote="posponer"]') as HTMLElement
+        if (boton) {
+          const rect = boton.getBoundingClientRect()
+          setPosMenuPosponer({ x: rect.left + rect.width / 2, top: rect.top, bottom: rect.bottom })
+        }
+        setMenuPosponerLote(ids)
+      },
+      noLimpiarSeleccion: true,
+      grupo: 'edicion',
+    },
+    {
+      id: 'eliminar',
+      etiqueta: 'Eliminar',
+      icono: <Trash2 size={14} />,
+      onClick: (ids) => setConfirmEliminarLote(ids),
+      peligro: true,
+      atajo: 'Supr',
+      grupo: 'peligro',
+    },
+  ], [completarLote])
+
   /** Acción inteligente por tipo — presupuestar abre /presupuestos/nuevo con contacto */
   const ejecutarAccionTipo = (act: Actividad) => {
     const tipo = tiposPorId[act.tipo_id]
@@ -265,30 +380,6 @@ export default function PaginaActividades() {
   /** Columnas de la tabla */
   const columnas: ColumnaDinamica<Actividad>[] = [
     {
-      clave: 'estado_clave',
-      etiqueta: '',
-      ancho: 36,
-      render: (fila) => {
-        const esPendiente = fila.estado_clave !== 'completada' && fila.estado_clave !== 'cancelada'
-        const estado = estadosPorClave[fila.estado_clave]
-        return (
-          <Tooltip contenido={esPendiente ? 'Completar' : estado?.etiqueta}>
-          <button
-            onClick={(e) => { e.stopPropagation(); if (esPendiente) completarActividad(fila.id) }}
-            className={`size-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
-              esPendiente
-                ? 'border-borde-fuerte bg-transparent cursor-pointer hover:border-insignia-exito hover:bg-insignia-exito-fondo'
-                : 'border-transparent cursor-default'
-            }`}
-            style={!esPendiente && estado ? { backgroundColor: estado.color + '20', color: estado.color } : undefined}
-          >
-            {!esPendiente && <CheckCircle size={12} />}
-          </button>
-          </Tooltip>
-        )
-      },
-    },
-    {
       clave: 'titulo',
       etiqueta: 'Actividad',
       ancho: 320,
@@ -314,8 +405,12 @@ export default function PaginaActividades() {
               </p>
               {contacto && (
                 <p className="text-xs text-texto-terciario truncate flex items-center gap-1">
-                  <User size={10} />
-                  {contacto.nombre}
+                  <User size={10} /> {contacto.nombre}
+                </p>
+              )}
+              {fila.descripcion && (
+                <p className="text-xs text-texto-terciario/60 truncate">
+                  {fila.descripcion}
                 </p>
               )}
             </div>
@@ -343,9 +438,10 @@ export default function PaginaActividades() {
       ancho: 90,
       ordenable: true,
       render: (fila) => {
-        if (fila.prioridad === 'normal') return null
         const p = COLORES_PRIORIDAD[fila.prioridad]
-        return p ? <Insignia color={p.color as 'info' | 'peligro'}>{p.etiqueta}</Insignia> : null
+        if (!p) return null
+        if (fila.prioridad === 'normal') return <span className="text-xs text-texto-terciario">{p.etiqueta}</span>
+        return <Insignia color={p.color as 'info' | 'peligro'}>{p.etiqueta}</Insignia>
       },
     },
     {
@@ -398,33 +494,67 @@ export default function PaginaActividades() {
     {
       clave: 'acciones',
       etiqueta: '',
-      ancho: 80,
+      ancho: 110,
       render: (fila) => {
         const esPendiente = fila.estado_clave !== 'completada' && fila.estado_clave !== 'cancelada'
+        const estado = estadosPorClave[fila.estado_clave]
         const tipo = tiposPorId[fila.tipo_id]
-        const tieneAccionTipo = tipo && ['presupuestar', 'visita', 'correo'].includes(tipo.clave)
+        const tieneAccionTipo = esPendiente && tipo && ['presupuestar', 'visita', 'correo'].includes(tipo.clave)
         return (
           <div className="flex items-center gap-0.5 justify-end">
-            {esPendiente && tieneAccionTipo && (
-              <Boton
-                variante="fantasma"
-                tamano="xs"
-                soloIcono
-                icono={tipo?.clave === 'presupuestar' ? <FileText size={14} /> : tipo?.clave === 'visita' ? <MapPin size={14} /> : <ClipboardList size={14} />}
-                onClick={(e) => { e.stopPropagation(); ejecutarAccionTipo(fila) }}
-                titulo={`Ir a ${tipo?.etiqueta?.toLowerCase()}`}
-              />
+            {/* Completar / estado */}
+            <Tooltip contenido={esPendiente ? 'Completar' : estado?.etiqueta || ''}>
+              <button
+                onClick={(e) => { e.stopPropagation(); if (esPendiente) completarActividad(fila.id) }}
+                className={`size-6 rounded-md flex items-center justify-center shrink-0 transition-colors ${
+                  esPendiente
+                    ? 'bg-transparent cursor-pointer hover:bg-insignia-exito-fondo hover:text-insignia-exito-texto text-texto-terciario'
+                    : 'bg-transparent cursor-default'
+                }`}
+                style={!esPendiente && estado ? { color: estado.color } : undefined}
+              >
+                <CheckCircle size={14} />
+              </button>
+            </Tooltip>
+            {/* Acción inteligente según tipo */}
+            {tieneAccionTipo && (
+              <Tooltip contenido={tipo?.clave === 'presupuestar' ? 'Crear presupuesto' : tipo?.clave === 'visita' ? 'Ir a visitas' : 'Enviar correo'}>
+                <Boton
+                  variante="fantasma"
+                  tamano="xs"
+                  soloIcono
+                  icono={tipo?.clave === 'presupuestar' ? <FileText size={14} /> : tipo?.clave === 'visita' ? <MapPin size={14} /> : <ClipboardList size={14} />}
+                  onClick={(e) => { e.stopPropagation(); ejecutarAccionTipo(fila) }}
+                  titulo={`Ir a ${tipo?.etiqueta?.toLowerCase()}`}
+                />
+              </Tooltip>
             )}
+            {/* Posponer con dropdown */}
             {esPendiente && (
-              <Boton
-                variante="fantasma"
-                tamano="xs"
-                soloIcono
-                icono={<Clock size={14} />}
-                onClick={(e) => { e.stopPropagation(); posponerActividad(fila.id, 1) }}
-                titulo="Posponer 1 día"
-                className="hover:bg-insignia-advertencia-fondo hover:text-insignia-advertencia-texto"
-              />
+              <div className="relative group/posponer">
+                <Tooltip contenido="Posponer">
+                  <Boton
+                    variante="fantasma"
+                    tamano="xs"
+                    soloIcono
+                    icono={<Clock size={14} />}
+                    onClick={(e) => { e.stopPropagation(); posponerActividad(fila.id, presetsPosposicion[0]?.dias ?? 1) }}
+                    titulo="Posponer"
+                    className="hover:bg-insignia-advertencia-fondo hover:text-insignia-advertencia-texto"
+                  />
+                </Tooltip>
+                <div className="absolute top-full right-0 mt-0.5 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden z-50 hidden group-hover/posponer:block min-w-[120px]">
+                  {presetsPosposicion.map(op => (
+                    <button
+                      key={op.id}
+                      onClick={(e) => { e.stopPropagation(); posponerActividad(fila.id, op.dias) }}
+                      className="w-full px-3 py-1.5 text-xs text-left text-texto-primario bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors"
+                    >
+                      {op.etiqueta}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )
@@ -508,6 +638,18 @@ export default function PaginaActividades() {
 
             {esPendiente && (
               <div className="flex items-center gap-0.5">
+                {tipo && ['presupuestar', 'visita', 'correo'].includes(tipo.clave) && (
+                  <Tooltip contenido={tipo.clave === 'presupuestar' ? 'Crear presupuesto' : tipo.clave === 'visita' ? 'Ir a visitas' : 'Enviar correo'}>
+                    <Boton
+                      variante="fantasma"
+                      tamano="xs"
+                      soloIcono
+                      icono={tipo.clave === 'presupuestar' ? <FileText size={15} /> : tipo.clave === 'visita' ? <MapPin size={15} /> : <ClipboardList size={15} />}
+                      onClick={(e) => { e.stopPropagation(); ejecutarAccionTipo(fila) }}
+                      titulo={`Ir a ${tipo.etiqueta?.toLowerCase()}`}
+                    />
+                  </Tooltip>
+                )}
                 <Boton
                   variante="fantasma"
                   tamano="xs"
@@ -517,15 +659,28 @@ export default function PaginaActividades() {
                   titulo="Completar"
                   className="hover:bg-insignia-exito-fondo hover:text-insignia-exito-texto"
                 />
-                <Boton
-                  variante="fantasma"
-                  tamano="xs"
-                  soloIcono
-                  icono={<Clock size={15} />}
-                  onClick={(e) => { e.stopPropagation(); posponerActividad(fila.id, 1) }}
-                  titulo="Posponer 1 día"
-                  className="hover:bg-insignia-advertencia-fondo hover:text-insignia-advertencia-texto"
-                />
+                <div className="relative group/posponer">
+                  <Boton
+                    variante="fantasma"
+                    tamano="xs"
+                    soloIcono
+                    icono={<Clock size={15} />}
+                    onClick={(e) => { e.stopPropagation(); posponerActividad(fila.id, presetsPosposicion[0]?.dias ?? 1) }}
+                    titulo="Posponer"
+                    className="hover:bg-insignia-advertencia-fondo hover:text-insignia-advertencia-texto"
+                  />
+                  <div className="absolute bottom-full right-0 mb-0.5 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden z-50 hidden group-hover/posponer:block min-w-[120px]">
+                    {presetsPosposicion.map(op => (
+                      <button
+                        key={op.id}
+                        onClick={(e) => { e.stopPropagation(); posponerActividad(fila.id, op.dias) }}
+                        className="w-full px-3 py-1.5 text-xs text-left text-texto-primario bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors"
+                      >
+                        {op.etiqueta}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -560,6 +715,7 @@ export default function PaginaActividades() {
         onCambiarPagina={setPagina}
         vistas={['lista', 'tarjetas']}
         seleccionables
+        accionesLote={accionesLote}
         busqueda={busqueda}
         onBusqueda={setBusqueda}
         placeholder="Buscar actividades..."
@@ -617,11 +773,52 @@ export default function PaginaActividades() {
         tipos={tipos}
         estados={estados}
         miembros={miembros}
+        presetsPosposicion={presetsPosposicion}
         onGuardar={actividadEditando ? editarActividad : crearActividad}
         onCompletar={async (id) => { await completarActividad(id); setModalAbierto(false); setActividadEditando(null) }}
         onPosponer={async (id, dias) => { await posponerActividad(id, dias); setModalAbierto(false); setActividadEditando(null) }}
         onCerrar={() => { setModalAbierto(false); setActividadEditando(null) }}
       />
+
+      {/* Confirmar eliminación en lote */}
+      <ModalConfirmacion
+        abierto={!!confirmEliminarLote}
+        titulo="Eliminar actividades"
+        descripcion={`¿Eliminar ${confirmEliminarLote?.size ?? 0} actividad${(confirmEliminarLote?.size ?? 0) > 1 ? 'es' : ''}? Se moverán a la papelera.`}
+        etiquetaConfirmar="Eliminar"
+        tipo="peligro"
+        onConfirmar={() => confirmEliminarLote && eliminarLote(confirmEliminarLote)}
+        onCerrar={() => setConfirmEliminarLote(null)}
+      />
+
+      {/* Menú de posponer en lote — popover pegado al botón de la barra */}
+      {menuPosponerLote && posMenuPosponer && (
+        <>
+          <div className="fixed inset-0 z-[101]" onClick={() => { setMenuPosponerLote(null); setPosMenuPosponer(null) }} />
+          <div
+            className="fixed z-[102] bg-superficie-elevada border border-borde-sutil rounded-xl p-1.5 min-w-[160px]"
+            style={{
+              left: posMenuPosponer.x,
+              transform: 'translateX(-50%)',
+              ...(posMenuPosponer.top > 220
+                ? { top: posMenuPosponer.top - 8, transform: 'translate(-50%, -100%)' }
+                : { top: posMenuPosponer.bottom + 8 }),
+              boxShadow: 'var(--sombra-md)',
+            }}
+          >
+            {presetsPosposicion.map(op => (
+              <button
+                key={op.id}
+                onClick={() => { posponerLote(menuPosponerLote, op.dias); setPosMenuPosponer(null) }}
+                className="w-full px-3 py-2 text-sm text-left text-texto-primario bg-transparent border-none cursor-pointer hover:bg-superficie-hover rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Clock size={14} className="text-texto-terciario" />
+                {op.etiqueta}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </PlantillaListado>
   )
 }

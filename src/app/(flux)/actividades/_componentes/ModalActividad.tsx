@@ -11,7 +11,7 @@ import { obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import {
   Plus, Trash2, Search, X, Check, GripVertical,
   ChevronDown, User, Link2, CheckCircle, FileText,
-  MapPin, Mail as MailIcon, Clock,
+  MapPin, Mail as MailIcon, Clock, ExternalLink,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -67,12 +67,19 @@ const ACCIONES_TIPO: Record<string, { etiqueta: string; icono: typeof FileText; 
   correo: { etiqueta: 'Enviar correo', icono: MailIcon, ruta: (cId) => cId ? `/inbox?contacto_id=${cId}&desde=/actividades` : '/inbox?desde=/actividades' },
 }
 
+interface PresetPosposicion {
+  id: string
+  etiqueta: string
+  dias: number
+}
+
 interface PropiedadesModal {
   abierto: boolean
   actividad?: Actividad | null
   tipos: TipoActividad[]
   estados: EstadoActividad[]
   miembros: Miembro[]
+  presetsPosposicion?: PresetPosposicion[]
   vinculoInicial?: Vinculo | null
   onGuardar: (datos: Record<string, unknown>) => Promise<void>
   onCompletar?: (id: string) => Promise<void>
@@ -81,7 +88,7 @@ interface PropiedadesModal {
 }
 
 function ModalActividad({
-  abierto, actividad, tipos, estados, miembros, vinculoInicial,
+  abierto, actividad, tipos, estados, miembros, presetsPosposicion, vinculoInicial,
   onGuardar, onCompletar, onPosponer, onCerrar,
 }: PropiedadesModal) {
   const router = useRouter()
@@ -246,14 +253,14 @@ function ModalActividad({
                 </Boton>
                 {/* Dropdown de opciones */}
                 <div className="absolute top-full left-0 mt-1 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden z-50 hidden group-hover:block min-w-[140px]">
-                  {[
-                    { etiqueta: '1 día', dias: 1 },
-                    { etiqueta: '3 días', dias: 3 },
-                    { etiqueta: '1 semana', dias: 7 },
-                    { etiqueta: '2 semanas', dias: 14 },
-                  ].map(op => (
+                  {(presetsPosposicion ?? [
+                    { id: '1d', etiqueta: '1 día', dias: 1 },
+                    { id: '3d', etiqueta: '3 días', dias: 3 },
+                    { id: '1s', etiqueta: '1 semana', dias: 7 },
+                    { id: '2s', etiqueta: '2 semanas', dias: 14 },
+                  ]).map(op => (
                     <button
-                      key={op.dias}
+                      key={op.id}
                       onClick={async () => { await onPosponer(actividad.id, op.dias); onCerrar() }}
                       className="w-full px-3 py-2 text-sm text-left text-texto-primario bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
                     >
@@ -313,7 +320,7 @@ function ModalActividad({
         </div>
 
         {/* ── Vínculos ── */}
-        <SeccionVinculos vinculos={vinculos} onChange={manejarCambioVinculos} />
+        <SeccionVinculos vinculos={vinculos} onChange={manejarCambioVinculos} onNavegar={(ruta) => { onCerrar(); router.push(ruta) }} />
 
         {/* ── Título ── */}
         <Input
@@ -406,7 +413,14 @@ const ICONOS_VINCULO: Record<string, typeof User> = {
   visita: Link2,
 }
 
-function SeccionVinculos({ vinculos, onChange }: { vinculos: Vinculo[]; onChange: (v: Vinculo[]) => void }) {
+/** Ruta de navegación según tipo de vínculo */
+const RUTAS_VINCULO: Record<string, (id: string) => string> = {
+  contacto: (id) => `/contactos/${id}?desde=/actividades`,
+  documento: (id) => `/presupuestos/${id}?desde=/actividades`,
+  visita: (id) => `/visitas/${id}?desde=/actividades`,
+}
+
+function SeccionVinculos({ vinculos, onChange, onNavegar }: { vinculos: Vinculo[]; onChange: (v: Vinculo[]) => void; onNavegar?: (ruta: string) => void }) {
   const [foco, setFoco] = useState(false)
   const [tabActivo, setTabActivo] = useState('contacto')
   const [busqueda, setBusqueda] = useState('')
@@ -522,13 +536,22 @@ function SeccionVinculos({ vinculos, onChange }: { vinculos: Vinculo[]; onChange
         <div className="flex flex-wrap gap-1.5 mb-2">
           {vinculos.map(v => {
             const IconoV = ICONOS_VINCULO[v.tipo] || Link2
+            const rutaVinculo = RUTAS_VINCULO[v.tipo]
             return (
               <span
                 key={v.id}
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-superficie-hover text-texto-primario"
               >
                 <IconoV size={11} className="text-texto-terciario" />
-                {v.nombre}
+                {rutaVinculo ? (
+                  <button
+                    onClick={() => onNavegar?.(rutaVinculo(v.id))}
+                    className="bg-transparent border-none cursor-pointer text-texto-primario hover:text-texto-marca transition-colors inline-flex items-center gap-1 p-0 text-xs font-medium"
+                  >
+                    {v.nombre}
+                    <ExternalLink size={10} className="opacity-50" />
+                  </button>
+                ) : v.nombre}
                 <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={10} />} onClick={() => removerVinculo(v.id)} titulo="Quitar vínculo" className="size-4" />
               </span>
             )

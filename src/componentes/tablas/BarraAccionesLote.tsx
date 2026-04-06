@@ -162,7 +162,7 @@ export function BarraAccionesLote({
                 key={accion.id}
                 accion={accion}
                 seleccionados={seleccionados}
-                onClick={() => { accion.onClick(seleccionados); if (!accion.peligro) onLimpiarSeleccion() }}
+                onClick={() => { accion.onClick(seleccionados); if (!accion.peligro && !accion.noLimpiarSeleccion) onLimpiarSeleccion() }}
               />
             )
           })}
@@ -211,6 +211,7 @@ function BotonAccion({
   return (
     <Tooltip contenido={textoTooltip}>
       <button
+        data-accion-lote={accion.id}
         onClick={onClick}
         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[13px] font-medium transition-colors shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-white focus-visible:-outline-offset-2"
         style={{

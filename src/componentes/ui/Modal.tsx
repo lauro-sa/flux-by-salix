@@ -19,15 +19,15 @@ interface PropiedadesModal {
   sinPadding?: boolean
 }
 
-const clasesAncho: Record<TamanoModal, string> = {
-  sm: 'max-w-[400px]',
-  md: 'max-w-[520px]',
-  lg: 'max-w-[640px]',
-  xl: 'max-w-[780px]',
-  '2xl': 'max-w-[900px]',
-  '3xl': 'max-w-[1024px]',
-  '4xl': 'max-w-[1152px]',
-  '5xl': 'max-w-[1280px]',
+const anchosPx: Record<TamanoModal, number> = {
+  sm: 420,
+  md: 520,
+  lg: 620,
+  xl: 720,
+  '2xl': 820,
+  '3xl': 920,
+  '4xl': 1000,
+  '5xl': 1080,
 }
 
 /**
@@ -108,13 +108,16 @@ function Modal({ abierto, onCerrar, titulo, tamano = 'lg', children, acciones, s
               role="dialog"
               aria-modal="true"
               aria-label={titulo || 'Modal'}
-              className={`rounded-lg shadow-elevada w-full ${clasesAncho[tamano]} max-w-[calc(100vw-2rem)] max-h-[85dvh] flex flex-col pointer-events-auto border border-borde-sutil`}
-              style={esCristal ? {
-                backgroundColor: 'var(--superficie-flotante)',
-                backdropFilter: 'blur(32px) saturate(1.5)',
-                WebkitBackdropFilter: 'blur(32px) saturate(1.5)',
-              } : {
-                backgroundColor: 'var(--superficie-elevada)',
+              className="rounded-lg shadow-elevada w-full max-h-[min(80dvh,600px)] flex flex-col pointer-events-auto border border-borde-sutil"
+              style={{
+                maxWidth: `min(calc(100vw - 2rem), ${anchosPx[tamano]}px)`,
+                ...(esCristal ? {
+                  backgroundColor: 'var(--superficie-flotante)',
+                  backdropFilter: 'blur(32px) saturate(1.5)',
+                  WebkitBackdropFilter: 'blur(32px) saturate(1.5)',
+                } : {
+                  backgroundColor: 'var(--superficie-elevada)',
+                }),
               }}
               onClick={(e) => e.stopPropagation()}
             >

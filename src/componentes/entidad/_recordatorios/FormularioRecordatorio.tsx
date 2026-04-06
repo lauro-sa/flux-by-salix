@@ -50,14 +50,16 @@ function FormularioRecordatorio({ estado }: FormularioRecordatorioProps) {
 
       {/* 2. Fecha + Hora — compacto, sin labels */}
       <div className="grid grid-cols-2 gap-2">
-        <SelectorFecha
-          valor={fecha}
-          onChange={(v) => setFecha(v || mañanaISO())}
-          limpiable={false}
-        />
-        <div className="flex items-center gap-2">
+        <div className="min-w-0">
+          <SelectorFecha
+            valor={fecha}
+            onChange={(v) => setFecha(v || mañanaISO())}
+            limpiable={false}
+          />
+        </div>
+        <div className="flex items-center gap-2 min-w-0">
           {usarHora ? (
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <SelectorHora
                 valor={hora}
                 onChange={setHora}

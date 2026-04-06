@@ -183,6 +183,11 @@ function ProveedorNavegacion({ children }: { children: ReactNode }) {
       return false
     })
     .map(([ruta, etiqueta]) => ({ ruta, etiqueta }))
+
+  // Si hay ?desde= y es un módulo estático, agregar como migaja intermedia
+  if (origenActual && MIGAJAS_MODULOS[origenActual] && !extras.some(e => e.ruta === origenActual)) {
+    extras.unshift(MIGAJAS_MODULOS[origenActual])
+  }
   const migajas = generarMigajas(pathname, extras.length > 0 ? extras : undefined)
 
   const volverAtras = useCallback(() => {
