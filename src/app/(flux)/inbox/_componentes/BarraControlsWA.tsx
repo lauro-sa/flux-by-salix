@@ -483,15 +483,17 @@ export function BarraControlsWA({
         >
           <Tooltip contenido={`Bot: ${estadoBot}`}>
             <div
-              className="size-7 rounded-full flex items-center justify-center cursor-pointer transition-colors"
+              className="h-7 rounded-full flex items-center gap-1.5 cursor-pointer transition-colors"
               style={{
+                padding: esMovil ? '0 0.4rem' : '0 0.625rem',
                 background: estadoBot !== 'inactivo'
                   ? `color-mix(in srgb, ${colorIndicador(estadoBot, 'bot')} 15%, transparent)`
                   : 'var(--superficie-hover)',
                 color: estadoBot !== 'inactivo' ? colorIndicador(estadoBot, 'bot') : 'var(--texto-terciario)',
               }}
             >
-              <Bot size={13} />
+              <Bot size={12} />
+              {!esMovil && <span className="text-xs font-medium">Bot</span>}
             </div>
           </Tooltip>
         </Popover>
@@ -529,15 +531,17 @@ export function BarraControlsWA({
         >
           <Tooltip contenido={`IA: ${estadoIA}`}>
             <div
-              className="size-7 rounded-full flex items-center justify-center cursor-pointer transition-colors"
+              className="h-7 rounded-full flex items-center gap-1.5 cursor-pointer transition-colors"
               style={{
+                padding: esMovil ? '0 0.4rem' : '0 0.625rem',
                 background: estadoIA !== 'inactivo'
                   ? `color-mix(in srgb, ${colorIndicador(estadoIA, 'ia')} 15%, transparent)`
                   : 'var(--superficie-hover)',
                 color: estadoIA !== 'inactivo' ? colorIndicador(estadoIA, 'ia') : 'var(--texto-terciario)',
               }}
             >
-              <Sparkles size={13} />
+              <Sparkles size={12} />
+              {!esMovil && <span className="text-xs font-medium">IA</span>}
             </div>
           </Tooltip>
         </Popover>

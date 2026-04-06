@@ -113,8 +113,15 @@ export async function PATCH(
 
     const admin = crearClienteAdmin()
 
-    // ─── Helper: insertar mensaje de sistema en la conversación ───
-    const nombreCompleto = `${user.user_metadata?.nombre || ''} ${user.user_metadata?.apellido || ''}`.trim() || 'Usuario'
+    // ─── Obtener nombre completo del usuario desde perfiles ───
+    const { data: perfilUsuario } = await admin
+      .from('perfiles')
+      .select('nombre, apellido')
+      .eq('id', user.id)
+      .single()
+    const nombreCompleto = perfilUsuario
+      ? `${perfilUsuario.nombre || ''} ${perfilUsuario.apellido || ''}`.trim()
+      : `${user.user_metadata?.nombre || ''} ${user.user_metadata?.apellido || ''}`.trim() || 'Usuario'
     const insertarSistema = async (texto: string) => {
       await admin.from('mensajes').insert({
         empresa_id: empresaId,
