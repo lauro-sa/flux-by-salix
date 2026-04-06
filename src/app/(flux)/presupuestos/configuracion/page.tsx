@@ -381,27 +381,30 @@ export default function PaginaConfigPresupuestos() {
           >
             {impuestos.map((imp, idx) => (
               <Reorder.Item key={imp.id} value={imp.id}>
-              <div className="flex items-center gap-3 p-3 bg-superficie-app rounded-lg group">
+              <div className="flex items-center gap-2 p-3 bg-superficie-app rounded-lg group overflow-hidden">
                 <div className="cursor-grab opacity-30 group-hover:opacity-60 transition-opacity shrink-0">
                   <GripVertical size={14} />
                 </div>
-                <Input
-                  value={imp.label}
-                  onChange={(e) => { const n = [...impuestos]; n[idx] = { ...imp, label: e.target.value }; setImpuestos(n) }}
-                  onBlur={() => guardarImpuestos(impuestos)}
-                  formato={null}
-                  compacto
-                  placeholder="Nombre del impuesto"
-                  className="w-48 shrink-0"
-                />
-                <Input
-                  tipo="number" value={imp.porcentaje}
-                  onChange={(e) => { const n = [...impuestos]; n[idx] = { ...imp, porcentaje: parseFloat(e.target.value) || 0 }; setImpuestos(n) }}
-                  onBlur={() => guardarImpuestos(impuestos)}
-                  formato={null}
-                  compacto
-                  className="w-16 text-right font-mono shrink-0"
-                />
+                <div className="min-w-0 flex-1">
+                  <Input
+                    value={imp.label}
+                    onChange={(e) => { const n = [...impuestos]; n[idx] = { ...imp, label: e.target.value }; setImpuestos(n) }}
+                    onBlur={() => guardarImpuestos(impuestos)}
+                    formato={null}
+                    compacto
+                    placeholder="Nombre del impuesto"
+                  />
+                </div>
+                <div className="shrink-0 w-14">
+                  <Input
+                    tipo="number" value={imp.porcentaje}
+                    onChange={(e) => { const n = [...impuestos]; n[idx] = { ...imp, porcentaje: parseFloat(e.target.value) || 0 }; setImpuestos(n) }}
+                    onBlur={() => guardarImpuestos(impuestos)}
+                    formato={null}
+                    compacto
+                    className="text-right font-mono"
+                  />
+                </div>
                 <span className="text-xs text-texto-terciario shrink-0">%</span>
                 <label className="flex items-center gap-1.5 cursor-pointer text-xs text-texto-terciario shrink-0" title="Se aplica automáticamente si el producto no tiene impuesto propio">
                   <input
