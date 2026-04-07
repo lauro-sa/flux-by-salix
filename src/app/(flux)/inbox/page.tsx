@@ -75,6 +75,8 @@ function PaginaInbox() {
   const abriendoDesdeUrlRef = useRef(
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('conv')
   )
+  // Ref para saber si el usuario ya cambió de tab manualmente (evita que cargarConfig lo sobreescriba)
+  const tabCambiadoManualRef = useRef(false)
   const [tabActivo, setTabActivo] = useState<TipoCanal>('whatsapp')
   const [vistaWA, setVistaWA] = useState<'conversaciones' | 'pipeline'>('conversaciones')
   const [configCargada, setConfigCargada] = useState(false)
@@ -248,8 +250,9 @@ function PaginaInbox() {
           if (activos.size > 0) {
             setModulosActivos(activos)
             // Seleccionar primer tab activo, SOLO si no hay navegación desde notificación
+            // y el usuario no cambió de tab manualmente mientras cargaba la config
             const urlParams = new URLSearchParams(window.location.search)
-            if (!urlParams.has('conv') && !urlParams.has('tab')) {
+            if (!urlParams.has('conv') && !urlParams.has('tab') && !tabCambiadoManualRef.current) {
               if (activos.has('inbox_whatsapp')) setTabActivo('whatsapp')
               else if (activos.has('inbox_correo')) setTabActivo('correo')
               else if (activos.has('inbox_interno')) setTabActivo('interno')
@@ -676,14 +679,24 @@ function PaginaInbox() {
           return [...prev, { ...nuevo, adjuntos: nuevo.adjuntos || [] }]
         })
         // Actualizar conversación en la lista (ultimo_mensaje, etc.)
+        // Como estamos viendo esta conversación, mensajes_sin_leer = 0
         setConversaciones(prev => prev.map(c =>
           c.id === convId ? {
             ...c,
             ultimo_mensaje_texto: nuevo.texto || '',
             ultimo_mensaje_en: nuevo.creado_en,
             ultimo_mensaje_es_entrante: nuevo.es_entrante,
+            mensajes_sin_leer: 0,
           } : c
         ))
+        // Marcar como leído en BD (el webhook ya incrementó, lo reseteamos)
+        if (nuevo.es_entrante) {
+          fetch(`/api/inbox/conversaciones/${convId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mensajes_sin_leer: 0 }),
+          }).catch(() => {})
+        }
       })
       .on('postgres_changes', {
         event: 'UPDATE',
@@ -1339,6 +1352,7 @@ function PaginaInbox() {
           }))}
           activo={tabActivo}
           onChange={(clave) => {
+            tabCambiadoManualRef.current = true
             setTabActivo(clave as TipoCanal)
             setConversacionSeleccionada(null)
             setMensajes([])
@@ -1603,14 +1617,11 @@ function PaginaInbox() {
                       className="flex flex-col flex-shrink-0 transition-all duration-200 h-full overflow-hidden"
                       style={{ width: listaCorreoColapsada ? 40 : 320, borderRight: '1px solid var(--borde-sutil)' }}
                     >
-                      <div className="flex items-center justify-between px-2 h-9 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
-                        <Boton variante="fantasma" tamano="xs" soloIcono titulo="Alternar lista" icono={listaCorreoColapsada ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />} onClick={toggleListaCorreo} />
-                        <div className="flex items-center gap-0.5 rounded-md p-0.5" style={{ background: 'var(--superficie-hover)' }}>
-                          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Columns2 size={12} />} onClick={() => cambiarModoVista('columna')} titulo="Vista columna" style={{ color: 'var(--texto-marca)', background: 'var(--superficie-seleccionada)' }} />
-                          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Rows2 size={12} />} onClick={() => cambiarModoVista('fila')} titulo="Vista fila" style={{ color: 'var(--texto-terciario)' }} />
+                      {listaCorreoColapsada ? (
+                        <div className="flex items-center justify-center h-9 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
+                          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Mostrar lista" icono={<PanelLeftOpen size={14} />} onClick={toggleListaCorreo} />
                         </div>
-                      </div>
-                      {!listaCorreoColapsada && (
+                      ) : (
                         <div className="flex-1 overflow-hidden">
                           <ListaConversaciones
                             conversaciones={conversaciones}
@@ -1626,6 +1637,15 @@ function PaginaInbox() {
                             onEliminarSeleccion={eliminarMultiples}
                             soloNoLeidos={soloNoLeidos}
                             onToggleNoLeidos={() => setSoloNoLeidos(prev => !prev)}
+                            accionesHeader={
+                              <div className="flex items-center gap-0.5">
+                                <Boton variante="fantasma" tamano="xs" soloIcono titulo="Ocultar lista" icono={<PanelLeftClose size={14} />} onClick={toggleListaCorreo} />
+                                <div className="flex items-center gap-0 rounded-md p-0.5" style={{ background: 'var(--superficie-hover)' }}>
+                                  <Boton variante="fantasma" tamano="xs" soloIcono icono={<Columns2 size={12} />} onClick={() => cambiarModoVista('columna')} titulo="Vista columna" style={{ color: 'var(--texto-marca)', background: 'var(--superficie-seleccionada)' }} />
+                                  <Boton variante="fantasma" tamano="xs" soloIcono icono={<Rows2 size={12} />} onClick={() => cambiarModoVista('fila')} titulo="Vista fila" style={{ color: 'var(--texto-terciario)' }} />
+                                </div>
+                              </div>
+                            }
                           />
                         </div>
                       )}
@@ -1672,19 +1692,17 @@ function PaginaInbox() {
                 ) : (
                   <>
                     <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-                      <div className="flex items-center justify-between px-2 h-9 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
-                        <div className="flex items-center gap-2">
-                          {(conversacionSeleccionada || redactandoNuevo) && (
-                            <Boton variante="fantasma" tamano="xs" icono={<ArrowLeft size={14} />} onClick={() => { setConversacionSeleccionada(null); setMensajes([]); setRedactandoNuevo(false) }}>
-                              {t('comun.volver')}
-                            </Boton>
-                          )}
+                      {(conversacionSeleccionada || redactandoNuevo) && (
+                        <div className="flex items-center justify-between px-2 h-9 flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
+                          <Boton variante="fantasma" tamano="xs" icono={<ArrowLeft size={14} />} onClick={() => { setConversacionSeleccionada(null); setMensajes([]); setRedactandoNuevo(false) }}>
+                            {t('comun.volver')}
+                          </Boton>
+                          <div className="flex items-center gap-0.5 rounded-md p-0.5" style={{ background: 'var(--superficie-hover)' }}>
+                            <Boton variante="fantasma" tamano="xs" soloIcono icono={<Columns2 size={12} />} onClick={() => cambiarModoVista('columna')} titulo="Vista columna" style={{ color: 'var(--texto-terciario)' }} />
+                            <Boton variante="fantasma" tamano="xs" soloIcono icono={<Rows2 size={12} />} onClick={() => cambiarModoVista('fila')} titulo="Vista fila" style={{ color: 'var(--texto-marca)', background: 'var(--superficie-seleccionada)' }} />
+                          </div>
                         </div>
-                        <div className="flex items-center gap-0.5 rounded-md p-0.5" style={{ background: 'var(--superficie-hover)' }}>
-                          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Columns2 size={12} />} onClick={() => cambiarModoVista('columna')} titulo="Vista columna" style={{ color: 'var(--texto-terciario)' }} />
-                          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Rows2 size={12} />} onClick={() => cambiarModoVista('fila')} titulo="Vista fila" style={{ color: 'var(--texto-marca)', background: 'var(--superficie-seleccionada)' }} />
-                        </div>
-                      </div>
+                      )}
                       {redactandoNuevo ? (
                         <div className="flex-1 flex flex-col p-4" style={{ background: 'var(--superficie-app)' }}>
                           <CompositorCorreo
@@ -1736,6 +1754,12 @@ function PaginaInbox() {
                             onEliminarSeleccion={eliminarMultiples}
                             soloNoLeidos={soloNoLeidos}
                             onToggleNoLeidos={() => setSoloNoLeidos(prev => !prev)}
+                            accionesHeader={
+                              <div className="flex items-center gap-0 rounded-md p-0.5" style={{ background: 'var(--superficie-hover)' }}>
+                                <Boton variante="fantasma" tamano="xs" soloIcono icono={<Columns2 size={12} />} onClick={() => cambiarModoVista('columna')} titulo="Vista columna" style={{ color: 'var(--texto-terciario)' }} />
+                                <Boton variante="fantasma" tamano="xs" soloIcono icono={<Rows2 size={12} />} onClick={() => cambiarModoVista('fila')} titulo="Vista fila" style={{ color: 'var(--texto-marca)', background: 'var(--superficie-seleccionada)' }} />
+                              </div>
+                            }
                           />
                         </div>
                       )}
