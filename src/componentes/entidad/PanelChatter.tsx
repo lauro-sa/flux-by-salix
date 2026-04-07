@@ -15,13 +15,11 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, useId } from 'react'
 import {
-  MessageSquare, Send, Loader2, Reply, Search,
+  MessageSquare, Loader2, Search,
   ChevronDown, ChevronUp, X, MoreVertical, Paperclip,
   PanelRightClose, PanelRightOpen, Check,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Boton } from '@/componentes/ui/Boton'
-import { TextArea } from '@/componentes/ui/TextArea'
 import { ModalActividad } from '@/app/(flux)/actividades/_componentes/ModalActividad'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import type { EntradaChatter, FiltroChatter } from '@/tipos/chatter'
@@ -60,10 +58,7 @@ export function PanelChatter({
   const [entradas, setEntradas] = useState<EntradaChatter[]>([])
   const [cargando, setCargando] = useState(true)
   const [filtro, setFiltro] = useState<FiltroChatter>('todo')
-  const [mensaje, setMensaje] = useState('')
-  const [enviando, setEnviando] = useState(false)
   const [modoNota, setModoNota] = useState(false)
-  const [modoRespuestaPortal, setModoRespuestaPortal] = useState(false)
   const [busqueda, setBusqueda] = useState('')
   const [mostrarBusqueda, setMostrarBusqueda] = useState(false)
   const [colapsado, setColapsado] = useState(false)
@@ -78,7 +73,6 @@ export function PanelChatter({
   const { datos: configActividades, cargando: cargandoConfig, cargar: cargarConfig } = useConfigActividades()
 
   const scrollRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   // ─── Cargar entradas ───
   const cargar = useCallback(async () => {
@@ -179,56 +173,6 @@ export function PanelChatter({
     return resultado
   }, [entradas])
 
-  // ─── Enviar mensaje rápido ───
-  const enviarMensaje = async () => {
-    const texto = mensaje.trim()
-    if (!texto || enviando) return
-
-    setEnviando(true)
-    try {
-      if (modoRespuestaPortal && entidadTipo === 'presupuesto') {
-        const res = await fetch(`/api/presupuestos/${entidadId}/mensajes-portal`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contenido: texto }),
-        })
-        if (res.ok) {
-          setMensaje('')
-          setModoRespuestaPortal(false)
-          await fetch('/api/chatter', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              entidad_tipo: entidadTipo,
-              entidad_id: entidadId,
-              tipo: 'mensaje',
-              contenido: texto,
-              metadata: { portal: true },
-            }),
-          })
-          await cargar()
-        }
-      } else {
-        const res = await fetch('/api/chatter', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            entidad_tipo: entidadTipo,
-            entidad_id: entidadId,
-            tipo: 'mensaje',
-            contenido: texto,
-          }),
-        })
-        if (res.ok) {
-          setMensaje('')
-          await cargar()
-        }
-      }
-    } catch { /* silencioso */ }
-    setEnviando(false)
-    inputRef.current?.focus()
-  }
-
   // ─── Confirmar/rechazar comprobante ───
   const accionComprobante = async (_entradaId: string, comprobanteId: string, accion: 'confirmar' | 'rechazar') => {
     try {
@@ -277,9 +221,6 @@ export function PanelChatter({
     setModalActividad(false)
     await cargar()
   }
-
-  // Detectar mensajes del portal
-  const hayMensajesPortal = entradas.some(e => e.metadata?.portal && e.autor_id === 'portal')
 
   // Vínculo inicial para el modal de actividad
   const vinculoInicialActividad = useMemo(() => {
@@ -515,50 +456,6 @@ export function PanelChatter({
                 )}
               </div>
 
-              {/* ─── Input rápido ─── */}
-              <div className="px-3 py-2.5 border-t border-borde-sutil">
-                {entidadTipo === 'presupuesto' && hayMensajesPortal && (
-                  <button
-                    onClick={() => {
-                      setModoRespuestaPortal(!modoRespuestaPortal)
-                      inputRef.current?.focus()
-                    }}
-                    className={`flex items-center gap-1 text-xs mb-2 transition-colors rounded ${
-                      modoRespuestaPortal
-                        ? 'text-texto-marca font-medium'
-                        : 'text-texto-terciario hover:text-texto-secundario'
-                    }`}
-                  >
-                    <Reply size={12} />
-                    {modoRespuestaPortal ? 'Respondiendo al cliente (portal)' : 'Responder al cliente'}
-                  </button>
-                )}
-
-                <div className="flex gap-2 items-end">
-                  <TextArea
-                    ref={inputRef}
-                    value={mensaje}
-                    onChange={e => setMensaje(e.target.value)}
-                    enviarConEnter
-                    onEnviar={enviarMensaje}
-                    placeholder={modoRespuestaPortal
-                      ? 'Mensaje para el cliente (visible en portal)...'
-                      : 'Escribí un mensaje rápido...'
-                    }
-                    rows={1}
-                  />
-                  <Boton
-                    variante="primario"
-                    tamano="sm"
-                    soloIcono
-                    titulo="Enviar"
-                    icono={<Send size={16} />}
-                    onClick={enviarMensaje}
-                    disabled={!mensaje.trim() || enviando}
-                    cargando={enviando}
-                  />
-                </div>
-              </div>
             </motion.div>
           )}
         </AnimatePresence>
