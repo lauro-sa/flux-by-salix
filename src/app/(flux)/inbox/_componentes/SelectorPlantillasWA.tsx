@@ -19,6 +19,9 @@ interface PropiedadesSelectorPlantillas {
   onCerrar: () => void
   onEnviarPlantilla: (plantilla: PlantillaWhatsApp) => void
   enviando?: boolean
+  /** Módulo desde donde se abre (inbox, presupuestos, contactos, etc.).
+   *  Filtra plantillas que tengan este módulo en su lista, o que no tengan módulos asignados (= todas). */
+  contexto?: string
 }
 
 /** Reemplaza {{N}} por ejemplos o placeholder visual */
@@ -68,6 +71,7 @@ export function SelectorPlantillasWA({
   onCerrar,
   onEnviarPlantilla,
   enviando,
+  contexto,
 }: PropiedadesSelectorPlantillas) {
   const [plantillas, setPlantillas] = useState<PlantillaWhatsApp[]>([])
   const [cargando, setCargando] = useState(false)
@@ -82,7 +86,14 @@ export function SelectorPlantillasWA({
       .then(res => res.json())
       .then(data => {
         const aprobadas = (data.plantillas || []).filter(
-          (p: PlantillaWhatsApp) => p.estado_meta === 'APPROVED' && p.activo
+          (p: PlantillaWhatsApp) => {
+            if (p.estado_meta !== 'APPROVED' || !p.activo) return false
+            // Si la plantilla no tiene módulos asignados → disponible en todos
+            if (!p.modulos || p.modulos.length === 0) return true
+            // Si hay contexto, filtrar por módulo
+            if (contexto) return p.modulos.includes(contexto)
+            return true
+          }
         )
         setPlantillas(aprobadas)
       })

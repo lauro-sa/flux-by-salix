@@ -1346,6 +1346,7 @@ export function PanelWhatsApp({
             onCerrar={() => setSelectorPlantillas(false)}
             onEnviarPlantilla={enviarPlantilla}
             enviando={enviandoPlantilla}
+            contexto="inbox"
           />
         )}
         <div className="flex-1 min-w-0">

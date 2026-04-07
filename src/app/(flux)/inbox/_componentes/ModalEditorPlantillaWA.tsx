@@ -61,6 +61,15 @@ const TIPOS_ENCABEZADO: { valor: TipoEncabezadoWA; etiqueta: string }[] = [
   { valor: 'DOCUMENT', etiqueta: 'Documento' },
 ]
 
+/** Módulos donde puede usarse la plantilla. Si vacío = disponible en todos */
+const MODULOS_DISPONIBLES: { valor: string; etiqueta: string }[] = [
+  { valor: 'inbox', etiqueta: 'Inbox (chat)' },
+  { valor: 'presupuestos', etiqueta: 'Presupuestos' },
+  { valor: 'contactos', etiqueta: 'Contactos' },
+  { valor: 'ordenes', etiqueta: 'Órdenes' },
+  { valor: 'actividades', etiqueta: 'Actividades' },
+]
+
 const TIPOS_BOTON: { valor: TipoBotonWA; etiqueta: string }[] = [
   { valor: 'QUICK_REPLY', etiqueta: 'Respuesta rápida' },
   { valor: 'URL', etiqueta: 'Enlace URL' },
@@ -127,6 +136,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
   const [componentes, setComponentes] = useState<ComponentesPlantillaWA>({
     cuerpo: { texto: '' },
   })
+  const [modulos, setModulos] = useState<string[]>([])
 
   // Datos de preview (contacto + documento reales)
   const [contactoPreview, setContactoPreview] = useState<Record<string, unknown> | null>(null)
@@ -143,6 +153,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
       setCategoria(plantilla.categoria)
       setIdioma(plantilla.idioma)
       setComponentes(plantilla.componentes || { cuerpo: { texto: '' } })
+      setModulos(plantilla.modulos || [])
     } else {
       setNombre('')
       setNombreApi('')
@@ -150,6 +161,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
       setCategoria('UTILITY')
       setIdioma('es')
       setComponentes({ cuerpo: { texto: '' } })
+      setModulos([])
     }
     setPestana('editar')
   }, [plantilla, abierto])
@@ -228,7 +240,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
           id: plantilla?.id,
           canal_id: canalId,
           nombre, nombre_api: nombreApi,
-          categoria, idioma, componentes,
+          categoria, idioma, componentes, modulos,
         }),
       })
       const data = await res.json()
@@ -241,7 +253,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
     } finally {
       setGuardando(false)
     }
-  }, [nombre, nombreApi, categoria, idioma, componentes, plantilla, canalId, tieneErrores])
+  }, [nombre, nombreApi, categoria, idioma, componentes, modulos, plantilla, canalId, tieneErrores])
 
   const enviarAMeta = useCallback(async () => {
     if (tieneErrores) return
@@ -256,7 +268,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
           id: plantilla?.id,
           canal_id: canalId,
           nombre, nombre_api: nombreApi,
-          categoria, idioma, componentes,
+          categoria, idioma, componentes, modulos,
         }),
       })
       const dataGuardar = await resGuardar.json()
@@ -286,7 +298,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
     } finally {
       setEnviandoAMeta(false)
     }
-  }, [nombre, nombreApi, categoria, idioma, componentes, plantilla, canalId, tieneErrores])
+  }, [nombre, nombreApi, categoria, idioma, componentes, modulos, plantilla, canalId, tieneErrores])
 
   // ─── Helpers ───
 
@@ -500,6 +512,44 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
                     opciones={IDIOMAS.map(i => ({ valor: i.valor, etiqueta: i.etiqueta }))}
                     onChange={(v) => setIdioma(v as IdiomaPlantillaWA)}
                   />
+                </div>
+
+                {/* Disponible en módulos */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium" style={{ color: 'var(--texto-secundario)' }}>
+                    Disponible en
+                  </label>
+                  <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                    Elegí dónde aparece esta plantilla. Si no seleccionás ninguno, aparece en todos.
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {MODULOS_DISPONIBLES.map(m => {
+                      const activo = modulos.includes(m.valor)
+                      return (
+                        <button
+                          key={m.valor}
+                          type="button"
+                          onClick={() => {
+                            setModulos(prev =>
+                              activo ? prev.filter(v => v !== m.valor) : [...prev, m.valor]
+                            )
+                          }}
+                          className="text-xs px-3 py-1.5 rounded-full font-medium transition-all"
+                          style={{
+                            background: activo
+                              ? 'color-mix(in srgb, var(--texto-marca) 15%, transparent)'
+                              : 'color-mix(in srgb, var(--texto-terciario) 8%, transparent)',
+                            color: activo ? 'var(--texto-marca)' : 'var(--texto-terciario)',
+                            border: activo
+                              ? '1px solid color-mix(in srgb, var(--texto-marca) 30%, transparent)'
+                              : '1px solid var(--borde-sutil)',
+                          }}
+                        >
+                          {m.etiqueta}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
 
                 {/* Encabezado */}
