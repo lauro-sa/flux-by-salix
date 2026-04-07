@@ -488,8 +488,8 @@ export function PanelChatter({
               {/* ─── Timeline ─── */}
               <div
                 ref={scrollRef}
-                className={`flex-1 overflow-y-auto px-3 py-2 space-y-0.5 min-h-[100px] ${
-                  esLateral ? '' : 'max-h-[450px]'
+                className={`flex-1 px-3 py-2 space-y-0.5 min-h-[100px] ${
+                  esLateral ? 'overflow-y-auto' : ''
                 }`}
               >
                 {cargando ? (
