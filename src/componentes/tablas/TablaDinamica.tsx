@@ -868,11 +868,10 @@ function TablaDinamica<T>({
     <div ref={contenedorRef} className={`flex flex-col h-full ${className}`}>
 
       {/* ═══ TOOLBAR ═══ */}
-      {!contenidoCustom && (
-      <div className="flex items-center gap-2 pb-3.5 sm:pb-4 px-2 sm:px-6 relative z-30 shrink-0">
+      <div className={`flex items-center gap-2 pb-3.5 sm:pb-4 px-2 sm:px-6 relative z-30 shrink-0 ${contenidoCustom ? 'justify-end' : ''}`}>
 
-        {/* Buscador — mobile: 100%, desktop: adaptable */}
-        <div className="min-w-0 w-full sm:w-auto sm:max-w-[700px] relative transition-all duration-200" style={esMobil ? undefined : { width: panelFiltrosAbierto ? '700px' : anchoBuscador > 0 ? anchoBuscador : undefined }}>
+        {/* Buscador — mobile: 100%, desktop: adaptable (oculto en contenidoCustom) */}
+        <div className={`min-w-0 w-full sm:w-auto sm:max-w-[700px] relative transition-all duration-200 ${contenidoCustom ? 'hidden' : ''}`} style={esMobil ? undefined : { width: panelFiltrosAbierto ? '700px' : anchoBuscador > 0 ? anchoBuscador : undefined }}>
           {/* Span oculto para medir ancho real del texto */}
           <span ref={medidorRef} className="invisible absolute whitespace-pre text-sm" style={{ pointerEvents: 'none' }} />
           <div className={[
@@ -1193,10 +1192,10 @@ function TablaDinamica<T>({
         </div>
 
         {/* Espaciador — empuja controles a la derecha (solo desktop) */}
-        <div className="hidden sm:block flex-1" />
+        <div className={`hidden sm:block flex-1 ${contenidoCustom ? '!hidden' : ''}`} />
 
-        {/* Paginador compacto — solo desktop (en mobile lo renderiza PlantillaListado) */}
-        {paginadorElemento && (
+        {/* Paginador compacto — solo desktop (oculto en contenidoCustom) */}
+        {paginadorElemento && !contenidoCustom && (
           <div className="hidden sm:block">
             {paginadorElemento}
           </div>
@@ -1265,7 +1264,6 @@ function TablaDinamica<T>({
           </AnimatePresence>
         </div>
       </div>
-      )}
 
       {/* ═══ CONTENIDO — header fijo, filas scrollean, footer fijo abajo ═══ */}
       {contenidoCustom ? (

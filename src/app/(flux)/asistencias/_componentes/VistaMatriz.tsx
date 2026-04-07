@@ -384,7 +384,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
       </div>
 
       {/* Navegación del período */}
-      <div className="flex items-center justify-center gap-3 px-4 py-2 shrink-0">
+      <div className="flex items-center justify-center gap-3 px-4 py-3 shrink-0">
         <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronLeft size={16} />} onClick={() => setOffset(o => o - 1)} />
         <button
           onClick={() => setOffset(0)}
