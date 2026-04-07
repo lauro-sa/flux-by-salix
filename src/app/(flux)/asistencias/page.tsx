@@ -9,6 +9,7 @@ import { Download, Clock, TimerOff, Pencil } from 'lucide-react'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { ModalEditarFichaje } from './_componentes/ModalEditarFichaje'
+import { VistaMatriz } from './_componentes/VistaMatriz'
 
 // ─── Constantes ──────────────────────────────────────────────
 
@@ -111,6 +112,7 @@ export default function PaginaAsistencias() {
   const [cargando, setCargando] = useState(true)
   const [pagina, setPagina] = useState(1)
   const [editando, setEditando] = useState<RegistroAsistencia | null>(null)
+  const [vistaMatriz, setVistaMatriz] = useState(false)
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -226,30 +228,34 @@ export default function PaginaAsistencias() {
       mostrarConfiguracion
       onConfiguracion={() => router.push('/asistencias/configuracion')}
     >
-      <TablaDinamica
-        columnas={columnas}
-        datos={registros}
-        claveFila={(r) => r.id}
-        vistas={['lista', 'tarjetas', 'matriz']}
-        seleccionables
-        busqueda={busqueda}
-        onBusqueda={setBusqueda}
-        placeholder="Buscar empleado..."
-        idModulo="asistencias"
-        totalRegistros={total}
-        registrosPorPagina={50}
-        paginaExterna={pagina}
-        onCambiarPagina={setPagina}
-        onVistaExterna={(v) => { if (v === 'matriz') router.push('/asistencias/matriz') }}
-        onClickFila={(r) => setEditando(r)}
-        estadoVacio={
-          <EstadoVacio
-            icono={<TimerOff size={52} strokeWidth={1} />}
-            titulo="Nadie fichó todavía"
-            descripcion="Cuando tu equipo empiece a registrar entrada y salida, las fichadas van a aparecer acá."
-          />
-        }
-      />
+      {vistaMatriz ? (
+        <VistaMatriz onVolverALista={() => setVistaMatriz(false)} />
+      ) : (
+        <TablaDinamica
+          columnas={columnas}
+          datos={registros}
+          claveFila={(r) => r.id}
+          vistas={['lista', 'tarjetas', 'matriz']}
+          seleccionables
+          busqueda={busqueda}
+          onBusqueda={setBusqueda}
+          placeholder="Buscar empleado..."
+          idModulo="asistencias"
+          totalRegistros={total}
+          registrosPorPagina={50}
+          paginaExterna={pagina}
+          onCambiarPagina={setPagina}
+          onVistaExterna={(v) => { if (v === 'matriz') setVistaMatriz(true) }}
+          onClickFila={(r) => setEditando(r)}
+          estadoVacio={
+            <EstadoVacio
+              icono={<TimerOff size={52} strokeWidth={1} />}
+              titulo="Nadie fichó todavía"
+              descripcion="Cuando tu equipo empiece a registrar entrada y salida, las fichadas van a aparecer acá."
+            />
+          }
+        />
+      )}
 
       <ModalEditarFichaje
         abierto={!!editando}
