@@ -314,17 +314,17 @@ export function VistaMatriz() {
                         const d = new Date(fecha + 'T12:00:00')
                         const diaSemana = d.getDay()
                         const esFinde = diaSemana === 0 || diaSemana === 6
-                        const diasCortoMovil = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
+                        const diasMovil = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
                         return (
                           <div key={fecha} className={`text-center py-1.5 text-[10px] font-medium ${esFinde ? 'text-texto-terciario/40' : 'text-texto-terciario'}`}>
-                            {diasCortoMovil[diaSemana]}
+                            {diasMovil[diaSemana]}
                           </div>
                         )
                       })}
                     </div>
 
-                    {/* Celdas */}
-                    <div className="grid" style={{ gridTemplateColumns: `repeat(${fechas.length}, 1fr)` }}>
+                    {/* Celdas con fondo de color */}
+                    <div className="grid gap-1 px-1 pb-1" style={{ gridTemplateColumns: `repeat(${fechas.length}, 1fr)` }}>
                       {fechas.map((fecha) => {
                         const d = new Date(fecha + 'T12:00:00')
                         const diaSemana = d.getDay()
@@ -334,42 +334,54 @@ export function VistaMatriz() {
                         const asist = asistMiembro[fecha] as CeldaAsistencia | undefined
                         const estado = estadoCelda(asist)
 
-                        // Fondo de celda
-                        let fondoCelda = ''
-                        if (esFinde) fondoCelda = 'bg-superficie-elevada/30'
-                        else if (esFeriado) fondoCelda = 'bg-violet-500/8'
-                        else if (esHoy) fondoCelda = 'bg-texto-marca/8'
+                        // Fondo según estado
+                        let fondoCelda = 'bg-transparent'
+                        let textColor = 'text-texto-primario'
+                        let subTexto = ''
+                        let puntoColor = ''
 
-                        // Color del punto
-                        const colorPuntoMovil = COLOR_PUNTO[estado] || ''
+                        if (esFinde) {
+                          fondoCelda = 'bg-superficie-elevada/40'
+                          textColor = 'text-texto-terciario/30'
+                        } else if (estado === 'ausente') {
+                          fondoCelda = 'bg-red-500/12 border border-red-500/20'
+                          subTexto = 'AUS'
+                        } else if (estado === 'tardanza') {
+                          fondoCelda = 'bg-amber-500/12 border border-amber-500/20'
+                          puntoColor = 'bg-amber-400'
+                        } else if (estado === 'cerrado' || estado === 'normal') {
+                          fondoCelda = 'bg-emerald-500/12 border border-emerald-500/20'
+                          puntoColor = 'bg-emerald-400'
+                        } else if (estado === 'activo') {
+                          fondoCelda = 'bg-sky-500/12 border border-sky-500/20'
+                          puntoColor = 'bg-sky-400'
+                        } else if (estado === 'auto_cerrado') {
+                          fondoCelda = 'bg-red-500/8 border border-red-500/15'
+                          puntoColor = 'bg-red-400'
+                        }
 
-                        // Texto debajo del número
-                        let textoEstado = ''
-                        if (estado === 'ausente') textoEstado = 'AUS'
-                        else if (estado === 'tardanza') textoEstado = 'TAR'
+                        if (esFeriado && !esFinde) {
+                          fondoCelda = estado !== 'vacio' ? fondoCelda : 'bg-violet-500/10 border border-violet-500/20'
+                          textColor = estado === 'vacio' ? 'text-violet-400' : textColor
+                        }
+
+                        if (esHoy) textColor = 'text-texto-marca'
 
                         return (
                           <div
                             key={fecha}
-                            className={`flex flex-col items-center justify-center py-2 ${fondoCelda} ${esHoy ? 'ring-1 ring-texto-marca/30 rounded-md' : ''}`}
+                            className={`flex flex-col items-center justify-center py-2 rounded-lg ${fondoCelda}`}
                           >
-                            <span className={`text-sm font-semibold ${
-                              esHoy ? 'text-texto-marca' :
-                              esFeriado ? 'text-violet-400' :
-                              esFinde ? 'text-texto-terciario/30' :
-                              'text-texto-primario'
-                            }`}>
+                            <span className={`text-sm font-bold ${textColor}`}>
                               {d.getDate()}
                             </span>
 
                             {esFinde ? (
-                              <span className="text-texto-terciario/20 text-[9px]">—</span>
-                            ) : estado === 'ausente' ? (
-                              <span className="text-red-400 text-[9px] font-bold">{textoEstado}</span>
-                            ) : estado === 'tardanza' ? (
-                              <span className="text-amber-400 text-[9px] font-bold">{textoEstado}</span>
-                            ) : colorPuntoMovil ? (
-                              <div className={`size-1.5 rounded-full mt-0.5 ${colorPuntoMovil}`} />
+                              <span className="text-texto-terciario/20 text-[9px] leading-none">—</span>
+                            ) : subTexto ? (
+                              <span className="text-red-400 text-[9px] font-bold leading-none mt-0.5">{subTexto}</span>
+                            ) : puntoColor ? (
+                              <div className={`size-1.5 rounded-full mt-1 ${puntoColor}`} />
                             ) : null}
                           </div>
                         )
