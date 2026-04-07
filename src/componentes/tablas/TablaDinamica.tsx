@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, X, Check, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   Columns3, SlidersHorizontal, Bookmark, BookmarkPlus,
-  List, LayoutGrid, ArrowUpDown, Pin, Star, MoreVertical,
+  List, LayoutGrid, CalendarDays, ArrowUpDown, Pin, Star, MoreVertical,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { PortalPaginador } from '@/componentes/tablas/ContextoPaginacion'
@@ -62,6 +62,7 @@ function TablaDinamica<T>({
   onLimpiarFiltros,
   accionesLote = [],
   onClickFila,
+  onVistaExterna,
   mostrarResumen = false,
   estadoVacio,
   idModulo,
@@ -778,6 +779,7 @@ function TablaDinamica<T>({
   const iconosVista: Record<TipoVista, ReactNode> = {
     lista: <List size={14} />,
     tarjetas: <LayoutGrid size={14} />,
+    matriz: <CalendarDays size={14} />,
   }
 
   const todoSeleccionado = datosPaginados.length > 0 && seleccionados.size === datosPaginados.length
@@ -1024,7 +1026,7 @@ function TablaDinamica<T>({
                           <button
                             key={v}
                             type="button"
-                            onClick={() => { vistaManualRef.current = true; setVistaActual(v); setMenuVistasMobilAbierto(false) }}
+                            onClick={() => { if (onVistaExterna && v !== 'lista' && v !== 'tarjetas') { onVistaExterna(v); return } vistaManualRef.current = true; setVistaActual(v); setMenuVistasMobilAbierto(false) }}
                             className={[
                               'flex items-center gap-2.5 w-full px-3 py-2 text-sm cursor-pointer border-none transition-colors',
                               v === vistaActual
@@ -1201,7 +1203,7 @@ function TablaDinamica<T>({
               <Tooltip key={v} contenido={v.charAt(0).toUpperCase() + v.slice(1)}>
                 <button
                   type="button"
-                  onClick={() => { vistaManualRef.current = true; setVistaActual(v) }}
+                  onClick={() => { if (onVistaExterna && v !== 'lista' && v !== 'tarjetas') { onVistaExterna(v); return } vistaManualRef.current = true; setVistaActual(v) }}
                   className={[
                     'size-8 inline-flex items-center justify-center cursor-pointer border-none transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
                     v === vistaActual

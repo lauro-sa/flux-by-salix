@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
-import { Download, Clock, TimerOff, Pencil, CalendarDays } from 'lucide-react'
+import { Download, Clock, TimerOff, Pencil } from 'lucide-react'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { ModalEditarFichaje } from './_componentes/ModalEditarFichaje'
@@ -221,12 +221,6 @@ export default function PaginaAsistencias() {
       titulo="Asistencias"
       icono={<Clock size={20} />}
       acciones={[
-        {
-          id: 'matriz',
-          etiqueta: 'Matriz',
-          icono: <CalendarDays size={14} />,
-          onClick: () => router.push('/asistencias/matriz'),
-        },
         { id: 'exportar', etiqueta: 'Exportar', icono: <Download size={14} />, onClick: () => {} },
       ]}
       mostrarConfiguracion
@@ -236,7 +230,7 @@ export default function PaginaAsistencias() {
         columnas={columnas}
         datos={registros}
         claveFila={(r) => r.id}
-        vistas={['lista', 'tarjetas']}
+        vistas={['lista', 'tarjetas', 'matriz']}
         seleccionables
         busqueda={busqueda}
         onBusqueda={setBusqueda}
@@ -246,6 +240,7 @@ export default function PaginaAsistencias() {
         registrosPorPagina={50}
         paginaExterna={pagina}
         onCambiarPagina={setPagina}
+        onVistaExterna={(v) => { if (v === 'matriz') router.push('/asistencias/matriz') }}
         onClickFila={(r) => setEditando(r)}
         estadoVacio={
           <EstadoVacio

@@ -14,7 +14,7 @@ export type TipoCalculo = 'conteo' | 'suma' | 'promedio' | 'min' | 'max' | 'ning
 export type DireccionOrden = 'asc' | 'desc'
 
 /** Vistas disponibles */
-export type TipoVista = 'lista' | 'tarjetas'
+export type TipoVista = 'lista' | 'tarjetas' | 'matriz'
 
 /** Configuración de una columna */
 export interface ColumnaDinamica<T> {
@@ -113,6 +113,8 @@ export interface PropiedadesTablaDinamica<T> {
 
   /* Eventos */
   onClickFila?: (fila: T) => void
+  /** Callback cuando se selecciona una vista que no se maneja internamente (ej: 'matriz') */
+  onVistaExterna?: (vista: TipoVista) => void
 
   /* Resumen / calculador */
   mostrarResumen?: boolean
