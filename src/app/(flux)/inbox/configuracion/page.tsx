@@ -1016,6 +1016,7 @@ const MODULOS_CORREO = [
   { slug: 'inbox', nombre: 'Inbox' },
   { slug: 'contactos', nombre: 'Contactos' },
   { slug: 'presupuestos', nombre: 'Presupuestos' },
+  { slug: 'asistencias', nombre: 'Asistencias' },
   { slug: 'ordenes_trabajo', nombre: 'Órdenes de trabajo' },
   { slug: 'informes', nombre: 'Informes' },
   { slug: 'marketing', nombre: 'Marketing' },

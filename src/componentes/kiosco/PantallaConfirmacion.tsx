@@ -1,7 +1,8 @@
 /**
  * Pantalla de confirmación post-fichaje.
- * Muestra foto, saludo contextual, confeti en cumpleaños.
+ * Foto grande, saludo contextual, confeti en cumpleaños.
  * Auto-dismiss: 4s normal / 8s cumpleaños o salida.
+ * Tema negro puro.
  */
 'use client'
 
@@ -17,21 +18,13 @@ import {
 type TipoAccion = 'entrada' | 'salida' | 'almuerzo' | 'volver_almuerzo' | 'particular' | 'volver_particular'
 
 interface PropsPantallaConfirmacion {
-  /** Nombre del empleado */
   nombre: string
-  /** Sector/departamento */
   sector?: string | null
-  /** URL de la foto del empleado */
   fotoUrl?: string | null
-  /** Acción que se ejecutó */
   accion: TipoAccion
-  /** Si es cumpleaños del empleado */
   esCumpleanos: boolean
-  /** Horas trabajadas hoy (para salida) */
   horasTrabajadas?: string | null
-  /** Si completó la jornada */
   jornadaCompleta?: boolean
-  /** Callback al expirar auto-dismiss */
   alDismiss: () => void
 }
 
@@ -66,25 +59,19 @@ export default function PantallaConfirmacion({
 }: PropsPantallaConfirmacion) {
   const contenedorRef = useRef<HTMLDivElement>(null)
 
-  // Auto-dismiss
   const duracion = esCumpleanos || accion === 'salida' ? 8000 : 4000
   useEffect(() => {
     const timer = setTimeout(alDismiss, duracion)
     return () => clearTimeout(timer)
   }, [alDismiss, duracion])
 
-  // Sonido y confeti
   useEffect(() => {
     if (esCumpleanos && accion === 'entrada') {
       sonarCumpleanosEntrada()
-      if (contenedorRef.current) {
-        lanzarConfeti(contenedorRef.current, 'explosion', 3000)
-      }
+      if (contenedorRef.current) lanzarConfeti(contenedorRef.current, 'explosion', 3000)
     } else if (esCumpleanos && accion === 'salida') {
       sonarCumpleanosSalida()
-      if (contenedorRef.current) {
-        lanzarConfeti(contenedorRef.current, 'lluvia', 4000)
-      }
+      if (contenedorRef.current) lanzarConfeti(contenedorRef.current, 'lluvia', 4000)
     } else {
       sonarEntrada()
     }
@@ -101,27 +88,29 @@ export default function PantallaConfirmacion({
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
     >
-      {/* Foto del empleado */}
+      {/* Foto del empleado — grande, con borde marca */}
       {fotoUrl ? (
         <motion.img
           src={fotoUrl}
           alt={nombre}
-          className="w-32 h-32 rounded-full object-cover"
-          style={{ border: '4px solid var(--texto-marca)' }}
-          initial={{ scale: 0.5 }}
-          animate={{ scale: 1 }}
+          className="w-36 h-36 md:w-44 md:h-44 rounded-3xl object-cover shadow-2xl"
+          style={{ border: '4px solid #3b82f6' }}
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 200, damping: 15 }}
         />
       ) : (
         <motion.div
-          className="w-32 h-32 rounded-full flex items-center justify-center text-5xl font-semibold"
+          className="w-36 h-36 md:w-44 md:h-44 rounded-3xl flex items-center justify-center shadow-2xl"
           style={{
-            backgroundColor: 'var(--superficie-tarjeta)',
-            color: 'var(--texto-marca)',
-            border: '4px solid var(--texto-marca)',
+            backgroundColor: '#18181b',
+            color: '#3b82f6',
+            border: '4px solid #3b82f6',
+            fontSize: 'clamp(2.5rem, 8vw, 4rem)',
+            fontWeight: 600,
           }}
-          initial={{ scale: 0.5 }}
-          animate={{ scale: 1 }}
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 200, damping: 15 }}
         >
           {nombre.charAt(0).toUpperCase()}
@@ -131,16 +120,13 @@ export default function PantallaConfirmacion({
       {/* Nombre y sector */}
       <div className="flex flex-col items-center gap-1">
         <h2
-          className="text-3xl font-semibold"
-          style={{ color: 'var(--texto-primario)' }}
+          className="font-semibold"
+          style={{ fontSize: 'clamp(1.5rem, 5vw, 2.5rem)', color: '#f8fafc' }}
         >
           {nombre}
         </h2>
         {sector && (
-          <p
-            className="text-lg"
-            style={{ color: 'var(--texto-secundario)' }}
-          >
+          <p style={{ fontSize: 'clamp(0.9rem, 2.5vw, 1.25rem)', color: '#94a3b8' }}>
             {sector}
           </p>
         )}
@@ -148,14 +134,23 @@ export default function PantallaConfirmacion({
 
       {/* Mensaje contextual */}
       <motion.p
-        className="text-2xl font-medium flex items-center gap-2"
-        style={{ color: 'var(--texto-marca)' }}
+        className="font-medium flex items-center gap-2"
+        style={{ fontSize: 'clamp(1.25rem, 4vw, 2rem)', color: '#3b82f6' }}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
       >
         {mensaje} {!esCumpleanos && '✓'}
       </motion.p>
+
+      {/* Barra de progreso auto-dismiss */}
+      <motion.div
+        className="absolute bottom-0 left-0 h-1 rounded-full"
+        style={{ backgroundColor: '#3b82f6' }}
+        initial={{ width: '100%' }}
+        animate={{ width: '0%' }}
+        transition={{ duration: duracion / 1000, ease: 'linear' }}
+      />
     </motion.div>
   )
 }

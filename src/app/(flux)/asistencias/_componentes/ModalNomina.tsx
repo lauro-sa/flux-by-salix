@@ -3,20 +3,34 @@
 import { useState, useEffect } from 'react'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
-import { Download, Loader2, DollarSign, Clock, UserCheck, UserX, AlertTriangle } from 'lucide-react'
+import { Download, Loader2, DollarSign, Clock, UserCheck, UserX, AlertTriangle, Send } from 'lucide-react'
+import { ModalEnviarReciboNomina } from './ModalEnviarReciboNomina'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
 interface ResultadoNomina {
   miembro_id: string
   nombre: string
+  correo: string
   compensacion_tipo: string
   compensacion_monto: number
+  compensacion_frecuencia?: string
   dias_laborales: number
   dias_trabajados: number
   dias_ausentes: number
   dias_tardanza: number
-  horas_totales: number
+  // Horas detalladas
+  horas_brutas: number
+  horas_netas: number
+  horas_almuerzo: number
+  horas_particular: number
+  horas_totales: number // = netas (compatibilidad)
+  promedio_horas_diario: number
+  dias_con_almuerzo: number
+  dias_con_salida_particular: number
+  descuenta_almuerzo: boolean
+  duracion_almuerzo_config: number
+  // Pago
   monto_pagar: number
   monto_detalle: string
 }
@@ -57,6 +71,8 @@ export function ModalNomina({ abierto, onCerrar, desde, hasta, etiquetaPeriodo, 
   const [cargando, setCargando] = useState(true)
   const [resultados, setResultados] = useState<ResultadoNomina[]>([])
   const [diasLaborales, setDiasLaborales] = useState(0)
+  const [nombreEmpresa, setNombreEmpresa] = useState('')
+  const [modalEnvioAbierto, setModalEnvioAbierto] = useState(false)
 
   useEffect(() => {
     if (!abierto || !desde || !hasta) return
@@ -69,6 +85,7 @@ export function ModalNomina({ abierto, onCerrar, desde, hasta, etiquetaPeriodo, 
       .then(data => {
         setResultados(data.resultados || [])
         setDiasLaborales(data.dias_laborales || 0)
+        setNombreEmpresa(data.nombre_empresa || '')
       })
       .catch(() => {})
       .finally(() => setCargando(false))
@@ -94,6 +111,13 @@ export function ModalNomina({ abierto, onCerrar, desde, hasta, etiquetaPeriodo, 
               window.open(`/api/asistencias/exportar?desde=${desde}&hasta=${hasta}`, '_blank')
             }}>
               <Download size={13} className="mr-1" /> Exportar
+            </Boton>
+            <Boton
+              tamano="sm"
+              onClick={() => setModalEnvioAbierto(true)}
+              disabled={resultados.length === 0 || cargando}
+            >
+              <Send size={13} className="mr-1" /> Enviar recibo
             </Boton>
             <Boton variante="secundario" tamano="sm" onClick={onCerrar}>Cerrar</Boton>
           </div>
@@ -180,6 +204,15 @@ export function ModalNomina({ abierto, onCerrar, desde, hasta, etiquetaPeriodo, 
           )}
         </div>
       )}
+
+      {/* Modal de envío de recibos */}
+      <ModalEnviarReciboNomina
+        abierto={modalEnvioAbierto}
+        onCerrar={() => setModalEnvioAbierto(false)}
+        resultados={resultados}
+        etiquetaPeriodo={etiquetaPeriodo}
+        nombreEmpresa={nombreEmpresa}
+      />
     </Modal>
   )
 }

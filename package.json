@@ -54,6 +54,7 @@
     "postcss": "^8.5.8",
     "postgres": "^3.4.8",
     "puppeteer-core": "^24.40.0",
+    "qrcode.react": "^4.2.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-easy-crop": "^5.5.7",

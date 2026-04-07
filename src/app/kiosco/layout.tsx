@@ -5,10 +5,14 @@ export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
   title: 'Kiosco — Flux by Salix',
   description: 'Terminal de fichaje para empleados',
+  manifest: '/kiosco-manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Kiosco Flux',
+    title: 'Kiosco',
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
   },
 }
 
@@ -18,6 +22,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
+  themeColor: '#09090b',
 }
 
 export default function LayoutKiosco({

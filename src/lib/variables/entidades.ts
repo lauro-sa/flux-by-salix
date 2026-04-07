@@ -59,7 +59,7 @@
 import { createElement } from 'react'
 import {
   User, UserCheck, Building2, FileText, Package, CalendarDays,
-  MapPin, MessageSquare, Clock, Briefcase, Receipt,
+  MapPin, MessageSquare, Clock, Briefcase, Receipt, DollarSign,
   BarChart3, Settings, Globe,
 } from 'lucide-react'
 import { registrarEntidad } from './registro'
@@ -428,6 +428,46 @@ registrarEntidad({
     { clave: 'correo', etiqueta: 'Correo electrónico', tipo_dato: 'email', origen: 'columna', grupo: 'contacto' },
     { clave: 'telefono', etiqueta: 'Teléfono', tipo_dato: 'telefono', origen: 'columna', grupo: 'contacto' },
     { clave: 'rol', etiqueta: 'Rol', tipo_dato: 'texto', origen: 'columna', grupo: 'basico' },
+  ],
+})
+
+// ─────────────────────────────────────────────────────
+// NÓMINA — Datos del recibo de haberes / nómina
+// ─────────────────────────────────────────────────────
+registrarEntidad({
+  clave: 'nomina',
+  etiqueta: 'Nómina',
+  icono: icono(DollarSign),
+  variables: [
+    // Empleado
+    { clave: 'nombre_empleado', etiqueta: 'Nombre del empleado', tipo_dato: 'texto', origen: 'relacion', grupo: 'basico' },
+    { clave: 'correo_empleado', etiqueta: 'Correo del empleado', tipo_dato: 'email', origen: 'relacion', grupo: 'basico' },
+
+    // Período
+    { clave: 'periodo', etiqueta: 'Período', descripcion: 'Ej: Quincena 1-15 de Abril 2026', tipo_dato: 'texto', origen: 'calculado', grupo: 'basico' },
+
+    // Asistencia
+    { clave: 'dias_trabajados', etiqueta: 'Días trabajados', tipo_dato: 'numero', origen: 'columna', grupo: 'detalles' },
+    { clave: 'dias_laborales', etiqueta: 'Días laborales del período', tipo_dato: 'numero', origen: 'columna', grupo: 'detalles' },
+    { clave: 'dias_ausentes', etiqueta: 'Días ausentes', tipo_dato: 'numero', origen: 'columna', grupo: 'detalles' },
+    { clave: 'dias_tardanza', etiqueta: 'Días con tardanza', tipo_dato: 'numero', origen: 'columna', grupo: 'detalles' },
+    { clave: 'porcentaje_asistencia', etiqueta: 'Porcentaje de asistencia', descripcion: 'Ej: 95%', tipo_dato: 'texto', origen: 'calculado', grupo: 'detalles' },
+
+    // Horas detalladas
+    { clave: 'horas_brutas', etiqueta: 'Horas brutas (sin descontar)', descripcion: 'Tiempo total en oficina', tipo_dato: 'texto', origen: 'calculado', grupo: 'detalles' },
+    { clave: 'horas_netas', etiqueta: 'Horas netas trabajadas', descripcion: 'Descontando almuerzo y salidas', tipo_dato: 'texto', origen: 'calculado', grupo: 'detalles' },
+    { clave: 'horas_almuerzo', etiqueta: 'Horas de almuerzo', tipo_dato: 'texto', origen: 'calculado', grupo: 'detalles' },
+    { clave: 'horas_particular', etiqueta: 'Horas de salidas particulares', descripcion: 'Trámites personales', tipo_dato: 'texto', origen: 'calculado', grupo: 'detalles' },
+    { clave: 'promedio_diario', etiqueta: 'Promedio horas por día', descripcion: 'Ej: 7h 15min', tipo_dato: 'texto', origen: 'calculado', grupo: 'detalles' },
+    { clave: 'dias_con_salida_particular', etiqueta: 'Días con salida particular', tipo_dato: 'numero', origen: 'columna', grupo: 'detalles' },
+
+    // Config almuerzo
+    { clave: 'descuenta_almuerzo', etiqueta: '¿Se descuenta almuerzo?', tipo_dato: 'texto', origen: 'calculado', grupo: 'detalles' },
+
+    // Compensación
+    { clave: 'compensacion_tipo', etiqueta: 'Tipo de compensación', descripcion: 'Mensual fijo / Por día / Por hora', tipo_dato: 'texto', origen: 'columna', grupo: 'financiero' },
+    { clave: 'compensacion_detalle', etiqueta: 'Detalle de compensación', descripcion: 'Ej: $200.000 mensual × 15/22 días', tipo_dato: 'texto', origen: 'calculado', grupo: 'financiero' },
+    { clave: 'monto_bruto', etiqueta: 'Monto a pagar', tipo_dato: 'moneda', origen: 'columna', grupo: 'financiero' },
   ],
 })
 

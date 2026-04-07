@@ -1,6 +1,6 @@
 /**
  * Pantalla de error con auto-dismiss (2.5s).
- * Muestra mensaje de error y vuelve automáticamente a espera.
+ * Animación shake + sonido de error.
  */
 'use client'
 
@@ -8,11 +8,8 @@ import { useEffect } from 'react'
 import { motion } from 'framer-motion'
 
 interface PropsPantallaError {
-  /** Mensaje de error a mostrar */
   mensaje: string
-  /** Callback al expirar el auto-dismiss */
   alDismiss: () => void
-  /** Duración antes de auto-dismiss (ms) */
   duracionMs?: number
 }
 
@@ -29,24 +26,26 @@ export default function PantallaError({
   return (
     <motion.div
       className="flex flex-col items-center justify-center h-full gap-6"
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
     >
-      {/* Ícono de error */}
+      {/* Ícono de error con shake */}
       <div
         className="w-24 h-24 rounded-full flex items-center justify-center"
-        style={{ backgroundColor: 'var(--insignia-peligro)', opacity: 0.15 }}
+        style={{
+          backgroundColor: 'rgba(248, 113, 113, 0.15)',
+          animation: 'kiosco-shake 0.4s ease-in-out',
+        }}
       >
         <svg
           width="48"
           height="48"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="currentColor"
+          stroke="#f87171"
           strokeWidth="2"
-          style={{ color: 'var(--insignia-peligro)' }}
         >
           <circle cx="12" cy="12" r="10" />
           <line x1="15" y1="9" x2="9" y2="15" />
@@ -55,16 +54,16 @@ export default function PantallaError({
       </div>
 
       <p
-        className="text-2xl font-medium text-center max-w-md"
-        style={{ color: 'var(--texto-primario)' }}
+        className="font-medium text-center max-w-md"
+        style={{
+          fontSize: 'clamp(1.25rem, 4vw, 2rem)',
+          color: '#f8fafc',
+        }}
       >
         {mensaje}
       </p>
 
-      <p
-        className="text-sm"
-        style={{ color: 'var(--texto-terciario)' }}
-      >
+      <p className="text-sm" style={{ color: '#64748b' }}>
         Volviendo en unos segundos...
       </p>
     </motion.div>

@@ -16,6 +16,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { Cargador } from '@/componentes/ui/Cargador'
 import { useFormato } from '@/hooks/useFormato'
 import { SelectorHora } from '@/componentes/ui/SelectorHora'
+import { QRCodeSVG } from 'qrcode.react'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -633,10 +634,23 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
         </div>
       </TarjetaConfig>
 
-      {/* Link de activación generado */}
+      {/* Link + QR de activación generado */}
       {linkGenerado && (
-        <TarjetaConfig titulo="Enlace de activación" descripcion="Abrí este enlace en la tablet del kiosco para activarlo.">
-          <div className="space-y-3">
+        <TarjetaConfig titulo="Activar terminal" descripcion="Escaneá el QR desde la tablet o copiá el enlace.">
+          <div className="space-y-4">
+            {/* QR Code */}
+            <div className="flex justify-center py-4">
+              <div className="p-4 bg-white rounded-2xl">
+                <QRCodeSVG
+                  value={linkGenerado.link}
+                  size={200}
+                  level="M"
+                  includeMargin={false}
+                />
+              </div>
+            </div>
+
+            {/* Enlace */}
             <div className="flex items-center gap-2 p-3 rounded-lg bg-superficie-elevada border border-borde-sutil">
               <Link2 size={14} className="text-texto-terciario shrink-0" />
               <code className="text-xs text-texto-secundario break-all flex-1">{linkGenerado.link}</code>

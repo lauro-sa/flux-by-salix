@@ -1,7 +1,8 @@
 /**
  * Pantalla de acciones contextuales según el estado del turno.
- * Timeout de 15s → vuelve a espera.
- * Botón "Terminar jornada" con countdown de 15s para evitar toques accidentales.
+ * Timeout 15s → vuelve a espera.
+ * Botón salida con countdown + barra de progreso.
+ * Tema negro puro.
  */
 'use client'
 
@@ -12,21 +13,13 @@ type EstadoTurno = 'activo' | 'almuerzo' | 'particular' | null
 type Accion = 'entrada' | 'salida' | 'almuerzo' | 'volver_almuerzo' | 'particular' | 'volver_particular'
 
 interface PropsPantallaAcciones {
-  /** Nombre del empleado */
   nombre: string
-  /** Foto del empleado */
   fotoUrl?: string | null
-  /** Estado actual del turno */
   estadoTurno: EstadoTurno
-  /** Si ya almorzó hoy */
   yaAlmorzo: boolean
-  /** Si tiene solicitudes pendientes */
   tieneSolicitudes: boolean
-  /** Callback al seleccionar acción */
   alAccionar: (accion: Accion) => void
-  /** Callback para abrir formulario de solicitud */
   alReportar: () => void
-  /** Callback al expirar timeout (volver a espera) */
   alTimeout: () => void
 }
 
@@ -43,13 +36,11 @@ export default function PantallaAcciones({
   const [segundosRestantes, setSegundosRestantes] = useState(15)
   const [salidaDesbloqueada, setSalidaDesbloqueada] = useState(false)
 
-  // Timeout de inactividad: 15s → volver a espera
   useEffect(() => {
     const timer = setTimeout(alTimeout, 15000)
     return () => clearTimeout(timer)
   }, [alTimeout])
 
-  // Countdown para desbloquear botón de salida
   useEffect(() => {
     if (segundosRestantes <= 0) {
       setSalidaDesbloqueada(true)
@@ -60,32 +51,37 @@ export default function PantallaAcciones({
   }, [segundosRestantes])
 
   const manejarSalida = useCallback(() => {
-    if (salidaDesbloqueada) {
-      alAccionar('salida')
-    }
+    if (salidaDesbloqueada) alAccionar('salida')
   }, [salidaDesbloqueada, alAccionar])
 
   return (
     <motion.div
-      className="flex flex-col items-center justify-center h-full gap-8 px-8"
+      className="flex flex-col items-center justify-center h-full gap-6 md:gap-8 px-8"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.25 }}
     >
-      {/* Saludo con foto */}
+      {/* Avatar + saludo */}
       <div className="flex flex-col items-center gap-3">
-        {fotoUrl && (
+        {fotoUrl ? (
           <img
             src={fotoUrl}
             alt={nombre}
-            className="w-20 h-20 rounded-full object-cover"
-            style={{ border: '3px solid var(--borde-sutil)' }}
+            className="w-24 h-24 md:w-32 md:h-32 rounded-2xl object-cover"
+            style={{ border: '3px solid #27272a' }}
           />
+        ) : (
+          <div
+            className="w-24 h-24 md:w-32 md:h-32 rounded-2xl flex items-center justify-center text-4xl font-semibold"
+            style={{ backgroundColor: '#18181b', color: '#3b82f6', border: '3px solid #27272a' }}
+          >
+            {nombre.charAt(0).toUpperCase()}
+          </div>
         )}
         <h2
-          className="text-2xl font-semibold"
-          style={{ color: 'var(--texto-primario)' }}
+          className="font-semibold"
+          style={{ fontSize: 'clamp(1.25rem, 4vw, 2rem)', color: '#f8fafc' }}
         >
           Hola, {nombre}
         </h2>
@@ -93,101 +89,60 @@ export default function PantallaAcciones({
 
       {/* Botones de acción */}
       <div className="flex flex-col gap-3 w-full max-w-sm">
-        {/* Turno activo sin almuerzo previo */}
         {estadoTurno === 'activo' && !yaAlmorzo && (
-          <BotonAccion
-            icono="🍽"
-            texto="Salir a almorzar"
-            onClick={() => alAccionar('almuerzo')}
-          />
+          <BotonAccion icono="🍽" texto="Salir a almorzar" onClick={() => alAccionar('almuerzo')} />
         )}
-
-        {/* Turno activo — salir un momento */}
         {estadoTurno === 'activo' && (
-          <BotonAccion
-            icono="📋"
-            texto="Salgo un momento"
-            onClick={() => alAccionar('particular')}
-          />
+          <BotonAccion icono="📋" texto="Salgo un momento" onClick={() => alAccionar('particular')} />
         )}
-
-        {/* En almuerzo */}
         {estadoTurno === 'almuerzo' && (
-          <BotonAccion
-            icono="🔙"
-            texto="Volver del almuerzo"
-            onClick={() => alAccionar('volver_almuerzo')}
-          />
+          <BotonAccion icono="🔙" texto="Volver del almuerzo" onClick={() => alAccionar('volver_almuerzo')} />
         )}
-
-        {/* En trámite */}
         {estadoTurno === 'particular' && (
-          <BotonAccion
-            icono="🔙"
-            texto="Ya volví"
-            onClick={() => alAccionar('volver_particular')}
-          />
+          <BotonAccion icono="🔙" texto="Ya volví" onClick={() => alAccionar('volver_particular')} />
         )}
 
-        {/* Reportar asistencia */}
         {tieneSolicitudes && (
-          <BotonAccion
-            icono="📝"
-            texto="Reportar asistencia"
-            onClick={alReportar}
-            variante="secundario"
-          />
+          <BotonAccion icono="📝" texto="Reportar asistencia" onClick={alReportar} variante="secundario" />
         )}
 
-        {/* Separador */}
         {estadoTurno && (
-          <div
-            className="h-px my-1"
-            style={{ backgroundColor: 'var(--borde-sutil)' }}
-          />
-        )}
-
-        {/* Terminar jornada con countdown */}
-        {estadoTurno && (
-          <button
-            onClick={manejarSalida}
-            disabled={!salidaDesbloqueada}
-            className="relative w-full py-4 rounded-2xl text-lg font-medium transition-all overflow-hidden active:scale-[0.98]"
-            style={{
-              backgroundColor: salidaDesbloqueada
-                ? 'var(--insignia-peligro)'
-                : 'var(--superficie-tarjeta)',
-              color: salidaDesbloqueada
-                ? '#fff'
-                : 'var(--texto-terciario)',
-              border: salidaDesbloqueada
-                ? 'none'
-                : '1px solid var(--borde-sutil)',
-            }}
-          >
-            {/* Barra de progreso */}
-            {!salidaDesbloqueada && (
-              <div
-                className="absolute left-0 top-0 h-full transition-all duration-1000 ease-linear"
-                style={{
-                  backgroundColor: 'var(--insignia-peligro)',
-                  opacity: 0.1,
-                  width: `${((15 - segundosRestantes) / 15) * 100}%`,
-                }}
-              />
-            )}
-            <span className="relative z-10">
-              🚪 Terminar jornada
-              {!salidaDesbloqueada && ` ··· ${segundosRestantes}s`}
-            </span>
-          </button>
+          <>
+            <div className="h-px my-1" style={{ backgroundColor: '#27272a' }} />
+            <button
+              onClick={manejarSalida}
+              disabled={!salidaDesbloqueada}
+              className="relative w-full py-4 md:py-5 rounded-2xl font-medium transition-all overflow-hidden active:scale-[0.98]"
+              style={{
+                fontSize: 'clamp(1rem, 3vw, 1.25rem)',
+                backgroundColor: salidaDesbloqueada ? '#f87171' : '#18181b',
+                color: salidaDesbloqueada ? '#fff' : '#64748b',
+                border: salidaDesbloqueada ? 'none' : '1px solid #27272a',
+              }}
+            >
+              {/* Barra de progreso de izquierda a derecha */}
+              {!salidaDesbloqueada && (
+                <div
+                  className="absolute left-0 top-0 h-full transition-all duration-1000 ease-linear"
+                  style={{
+                    backgroundColor: '#f87171',
+                    opacity: 0.15,
+                    width: `${((15 - segundosRestantes) / 15) * 100}%`,
+                  }}
+                />
+              )}
+              <span className="relative z-10">
+                🚪 Terminar jornada
+                {!salidaDesbloqueada && ` ··· ${segundosRestantes}s`}
+              </span>
+            </button>
+          </>
         )}
       </div>
     </motion.div>
   )
 }
 
-// Botón de acción reutilizable
 function BotonAccion({
   icono,
   texto,
@@ -202,13 +157,12 @@ function BotonAccion({
   return (
     <button
       onClick={onClick}
-      className="w-full py-4 rounded-2xl text-lg font-medium transition-all active:scale-[0.98] flex items-center justify-center gap-3"
+      className="w-full py-4 md:py-5 rounded-2xl font-medium transition-all active:scale-[0.98] flex items-center justify-center gap-3"
       style={{
-        backgroundColor: variante === 'primario'
-          ? 'var(--superficie-tarjeta)'
-          : 'transparent',
-        color: 'var(--texto-primario)',
-        border: `1px solid var(--borde-${variante === 'primario' ? 'sutil' : 'fuerte'})`,
+        fontSize: 'clamp(1rem, 3vw, 1.25rem)',
+        backgroundColor: variante === 'primario' ? '#18181b' : 'transparent',
+        color: '#f8fafc',
+        border: `1px solid ${variante === 'primario' ? '#27272a' : '#3f3f46'}`,
       }}
     >
       <span>{icono}</span>

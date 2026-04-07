@@ -25,6 +25,25 @@ export async function GET(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
+    // Datos de la empresa
+    const { data: empresaData } = await admin
+      .from('empresas')
+      .select('nombre')
+      .eq('id', empresaId)
+      .single()
+
+    const nombreEmpresa = (empresaData?.nombre as string) || ''
+
+    // Config de asistencias de la empresa (descuento almuerzo, etc.)
+    const { data: configAsist } = await admin
+      .from('config_asistencias')
+      .select('descontar_almuerzo, duracion_almuerzo_min')
+      .eq('empresa_id', empresaId)
+      .single()
+
+    const descontarAlmuerzo = (configAsist?.descontar_almuerzo as boolean) ?? true
+    const duracionAlmuerzoMin = (configAsist?.duracion_almuerzo_min as number) ?? 60
+
     // Miembros con datos de compensación
     let queryMiembros = admin
       .from('miembros')
@@ -38,14 +57,14 @@ export async function GET(request: NextRequest) {
 
     const { data: perfilesData } = await admin
       .from('perfiles')
-      .select('id, nombre, apellido')
+      .select('id, nombre, apellido, correo_empresa, correo')
 
     const perfilMap = new Map((perfilesData || []).map((p: Record<string, unknown>) => [p.id, p]))
 
     // Asistencias del período
     const { data: asistencias } = await admin
       .from('asistencias')
-      .select('miembro_id, fecha, estado, tipo, hora_entrada, hora_salida, inicio_almuerzo, fin_almuerzo')
+      .select('miembro_id, fecha, estado, tipo, hora_entrada, hora_salida, inicio_almuerzo, fin_almuerzo, salida_particular, vuelta_particular')
       .eq('empresa_id', empresaId)
       .gte('fecha', desde)
       .lte('fecha', hasta)
@@ -88,28 +107,59 @@ export async function GET(request: NextRequest) {
       const m = miembro as Record<string, unknown>
       const perfil = perfilMap.get(m.usuario_id) as Record<string, unknown> | undefined
       const nombre = perfil ? `${perfil.nombre} ${perfil.apellido}` : 'Sin nombre'
+      const correo = (perfil?.correo_empresa as string) || (perfil?.correo as string) || ''
 
       const registros = asistPorMiembro.get(m.id as string) || []
       const diasTrabajados = registros.filter(r => r.estado !== 'ausente').length
       const diasAusentes = registros.filter(r => r.estado === 'ausente').length
       const diasTardanza = registros.filter(r => r.tipo === 'tardanza').length
 
-      // Calcular horas totales
-      let minutosTotales = 0
+      // Calcular horas con desglose detallado
+      let minutosBrutos = 0        // Tiempo total en oficina (sin descontar nada)
+      let minutosAlmuerzo = 0      // Tiempo total de almuerzo descontado
+      let minutosParticular = 0    // Tiempo total de salidas particulares
+      let diasConAlmuerzo = 0
+      let diasConSalidaParticular = 0
+
       for (const r of registros) {
         if (!r.hora_entrada || r.estado === 'ausente') continue
         const entrada = new Date(r.hora_entrada as string).getTime()
         const salida = r.hora_salida ? new Date(r.hora_salida as string).getTime() : 0
         if (!salida) continue
-        let min = Math.round((salida - entrada) / 60000)
-        // Descontar almuerzo
+
+        const minBrutos = Math.round((salida - entrada) / 60000)
+        minutosBrutos += Math.max(0, minBrutos)
+
+        // Almuerzo
         if (r.inicio_almuerzo && r.fin_almuerzo) {
-          min -= Math.round((new Date(r.fin_almuerzo as string).getTime() - new Date(r.inicio_almuerzo as string).getTime()) / 60000)
+          const minAlm = Math.round((new Date(r.fin_almuerzo as string).getTime() - new Date(r.inicio_almuerzo as string).getTime()) / 60000)
+          minutosAlmuerzo += Math.max(0, minAlm)
+          diasConAlmuerzo++
         }
-        minutosTotales += Math.max(0, min)
+
+        // Salida particular (trámites personales)
+        if (r.salida_particular && r.vuelta_particular) {
+          const minPart = Math.round((new Date(r.vuelta_particular as string).getTime() - new Date(r.salida_particular as string).getTime()) / 60000)
+          minutosParticular += Math.max(0, minPart)
+          diasConSalidaParticular++
+        }
       }
 
-      const horasTotales = Math.round((minutosTotales / 60) * 100) / 100
+      // Minutos netos = brutos - almuerzo (si la empresa descuenta) - particulares
+      const minutosDescontados = (descontarAlmuerzo ? minutosAlmuerzo : 0) + minutosParticular
+      const minutosNetos = Math.max(0, minutosBrutos - minutosDescontados)
+      const horasBrutas = Math.round((minutosBrutos / 60) * 100) / 100
+      const horasNetas = Math.round((minutosNetos / 60) * 100) / 100
+      const horasAlmuerzo = Math.round((minutosAlmuerzo / 60) * 100) / 100
+      const horasParticular = Math.round((minutosParticular / 60) * 100) / 100
+
+      // Promedio horas netas por día trabajado
+      const promedioDiario = diasTrabajados > 0
+        ? Math.round((minutosNetos / diasTrabajados / 60) * 100) / 100
+        : 0
+
+      // Para compatibilidad: horasTotales = netas (lo que se usa para pagar)
+      const horasTotales = horasNetas
 
       // Calcular monto a pagar
       const compTipo = (m.compensacion_tipo as string) || 'fijo'
@@ -147,6 +197,7 @@ export async function GET(request: NextRequest) {
       return {
         miembro_id: m.id,
         nombre,
+        correo,
         compensacion_tipo: compTipo,
         compensacion_monto: compMonto,
         compensacion_frecuencia: compFrecuencia,
@@ -154,7 +205,20 @@ export async function GET(request: NextRequest) {
         dias_trabajados: diasTrabajados,
         dias_ausentes: diasAusentes,
         dias_tardanza: diasTardanza,
-        horas_totales: horasTotales,
+        // Horas detalladas
+        horas_brutas: horasBrutas,
+        horas_netas: horasNetas,
+        horas_almuerzo: horasAlmuerzo,
+        horas_particular: horasParticular,
+        horas_totales: horasTotales, // = netas (compatibilidad)
+        promedio_horas_diario: promedioDiario,
+        // Conteos de almuerzo y salidas particulares
+        dias_con_almuerzo: diasConAlmuerzo,
+        dias_con_salida_particular: diasConSalidaParticular,
+        // Config empresa
+        descuenta_almuerzo: descontarAlmuerzo,
+        duracion_almuerzo_config: duracionAlmuerzoMin,
+        // Pago
         monto_pagar: Math.round(montoPagar * 100) / 100,
         monto_detalle: montoDetalle,
       }
@@ -163,6 +227,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       desde, hasta,
       dias_laborales: diasLaboralesEnPeriodo,
+      nombre_empresa: nombreEmpresa,
       resultados: resultados.sort((a, b) => a.nombre.localeCompare(b.nombre)),
     })
   } catch {

@@ -1,6 +1,6 @@
 /**
  * Pantalla idle del kiosco — logo empresa, reloj, instrucciones.
- * Se muestra cuando no hay actividad.
+ * Diseño negro puro para OLED, tipografía fluida.
  */
 'use client'
 
@@ -8,19 +8,12 @@ import { motion } from 'framer-motion'
 import RelojTiempoReal from './RelojTiempoReal'
 
 interface PropsPantallaEspera {
-  /** Nombre de la empresa */
   nombreEmpresa: string
-  /** URL del logo de la empresa (opcional) */
   logoUrl?: string | null
-  /** Modo de visualización de la empresa */
   modoEmpresa: 'logo_y_nombre' | 'solo_logo' | 'solo_nombre'
-  /** Método de lectura configurado */
   metodoLectura: 'rfid_hid' | 'nfc'
-  /** Nombre del terminal */
   nombreTerminal: string
-  /** Callback para abrir teclado PIN */
   alAbrirPIN: () => void
-  /** Callback para fullscreen */
   alToggleFullscreen: () => void
 }
 
@@ -39,7 +32,7 @@ export default function PantallaEspera({
 
   return (
     <motion.div
-      className="flex flex-col items-center justify-center h-full gap-10 px-8"
+      className="flex flex-col items-center justify-center h-full gap-8 md:gap-10 px-8"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -51,13 +44,16 @@ export default function PantallaEspera({
           <img
             src={logoUrl}
             alt={nombreEmpresa}
-            className="h-20 w-auto object-contain"
+            className="h-20 md:h-24 w-auto object-contain"
           />
         )}
         {(modoEmpresa === 'logo_y_nombre' || modoEmpresa === 'solo_nombre') && (
           <h1
-            className="text-3xl font-semibold tracking-tight"
-            style={{ color: 'var(--texto-primario)' }}
+            className="font-semibold uppercase tracking-wider text-center"
+            style={{
+              fontSize: 'clamp(1.25rem, 4vw, 2.25rem)',
+              color: 'var(--kiosco-texto, #f8fafc)',
+            }}
           >
             {nombreEmpresa}
           </h1>
@@ -71,27 +67,30 @@ export default function PantallaEspera({
       <div
         className="px-8 py-5 rounded-2xl text-center max-w-md"
         style={{
-          backgroundColor: 'var(--superficie-tarjeta)',
-          border: '1px solid var(--borde-sutil)',
+          backgroundColor: 'var(--kiosco-card, #18181b)',
+          border: '1px solid var(--kiosco-border, #27272a)',
         }}
       >
         <p
-          className="text-xl font-medium"
-          style={{ color: 'var(--texto-primario)' }}
+          className="font-medium"
+          style={{
+            fontSize: 'clamp(1rem, 3vw, 1.35rem)',
+            color: 'var(--kiosco-texto-sec, #e2e8f0)',
+          }}
         >
           {mensajeInstruccion}
         </p>
       </div>
 
       {/* Footer: PIN + estado + fullscreen */}
-      <div className="absolute bottom-8 left-8 right-8 flex items-center justify-between">
+      <div className="absolute bottom-6 md:bottom-8 left-6 md:left-8 right-6 md:right-8 flex items-center justify-between">
         <button
           onClick={alAbrirPIN}
-          className="px-5 py-3 rounded-xl text-sm font-medium transition-all active:scale-95"
+          className="px-4 md:px-5 py-2.5 md:py-3 rounded-xl text-sm font-medium transition-all active:scale-95"
           style={{
-            backgroundColor: 'var(--superficie-tarjeta)',
-            color: 'var(--texto-secundario)',
-            border: '1px solid var(--borde-sutil)',
+            backgroundColor: 'var(--kiosco-card, #18181b)',
+            color: 'var(--kiosco-texto-mut, #94a3b8)',
+            border: '1px solid var(--kiosco-border, #27272a)',
           }}
         >
           Ingresar con PIN
@@ -100,11 +99,14 @@ export default function PantallaEspera({
         <div className="flex items-center gap-2">
           <span
             className="w-2.5 h-2.5 rounded-full"
-            style={{ backgroundColor: 'var(--insignia-exito)' }}
+            style={{
+              backgroundColor: 'var(--kiosco-exito, #4ade80)',
+              animation: 'kiosco-pulso 3s ease-in-out infinite',
+            }}
           />
           <span
             className="text-sm"
-            style={{ color: 'var(--texto-terciario)' }}
+            style={{ color: 'var(--kiosco-texto-dim, #64748b)' }}
           >
             {nombreTerminal}
           </span>
@@ -112,11 +114,11 @@ export default function PantallaEspera({
 
         <button
           onClick={alToggleFullscreen}
-          className="p-3 rounded-xl transition-all active:scale-95"
+          className="p-2.5 md:p-3 rounded-xl transition-all active:scale-95"
           style={{
-            backgroundColor: 'var(--superficie-tarjeta)',
-            border: '1px solid var(--borde-sutil)',
-            color: 'var(--texto-terciario)',
+            backgroundColor: 'var(--kiosco-card, #18181b)',
+            border: '1px solid var(--kiosco-border, #27272a)',
+            color: 'var(--kiosco-texto-dim, #64748b)',
           }}
           title="Pantalla completa"
         >

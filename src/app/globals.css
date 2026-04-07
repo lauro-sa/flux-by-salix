@@ -709,16 +709,66 @@ a:hover { text-decoration: none; }
   cursor: default;
 }
 
-/* ── Kiosco de fichaje ── */
+/* ── Kiosco de fichaje — tema negro puro (OLED) ── */
 .kiosco-layout {
-  background-color: var(--superficie-app);
+  --kiosco-bg: #09090b;
+  --kiosco-card: #18181b;
+  --kiosco-card-hover: #27272a;
+  --kiosco-border: #27272a;
+  --kiosco-texto: #f8fafc;
+  --kiosco-texto-sec: #e2e8f0;
+  --kiosco-texto-mut: #94a3b8;
+  --kiosco-texto-dim: #64748b;
+  --kiosco-exito: #4ade80;
+  --kiosco-peligro: #f87171;
+  --kiosco-advertencia: #fbbf24;
+  --kiosco-marca: rgb(59, 130, 246);
+
+  /* Override tokens semánticos de Flux para forzar negro */
+  --superficie-app: #09090b;
+  --superficie-tarjeta: #18181b;
+  --superficie-elevada: #27272a;
+  --borde-sutil: #27272a;
+  --borde-fuerte: #3f3f46;
+  --texto-primario: #f8fafc;
+  --texto-secundario: #e2e8f0;
+  --texto-terciario: #94a3b8;
+  --texto-marca: rgb(59, 130, 246);
+  --insignia-exito: #4ade80;
+  --insignia-peligro: #f87171;
+  --insignia-advertencia: #fbbf24;
+
+  background-color: #09090b;
+  color: #f8fafc;
   min-height: 100dvh;
   width: 100%;
   overflow: hidden;
   position: relative;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+
   /* Deshabilitar selección de texto y zoom en tablet */
   user-select: none;
   -webkit-user-select: none;
   touch-action: manipulation;
   -webkit-touch-callout: none;
+}
+/* Tap highlight deshabilitado en kiosco */
+.kiosco-layout button,
+.kiosco-layout a,
+.kiosco-layout input,
+.kiosco-layout select,
+.kiosco-layout textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Animaciones del kiosco */
+@keyframes kiosco-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-8px); }
+  40%, 80% { transform: translateX(8px); }
+}
+@keyframes kiosco-pulso {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.15); opacity: 0.5; }
 }

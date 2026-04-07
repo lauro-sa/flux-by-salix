@@ -1,5 +1,6 @@
 /**
  * Sonidos sintetizados con Web Audio API para el kiosco.
+ * 6 melodías de cumpleaños + entrada/error.
  * No requiere archivos de audio — todo se genera en el navegador.
  */
 
@@ -9,111 +10,86 @@ function obtenerContexto(): AudioContext {
   if (!contextoAudio) {
     contextoAudio = new AudioContext()
   }
-  // Reanudar si está suspendido (política de autoplay)
   if (contextoAudio.state === 'suspended') {
     contextoAudio.resume()
   }
   return contextoAudio
 }
 
-/** Tono corto ascendente — fichaje exitoso */
+/** Helper para generar un tono con envolvente */
+function tocar(
+  ctx: AudioContext,
+  freq: number,
+  inicio: number,
+  dur: number,
+  tipoOnda: OscillatorType = 'sine',
+  volMax = 0.2,
+  ataque = 0.02,
+) {
+  const osc = ctx.createOscillator()
+  const ganancia = ctx.createGain()
+  osc.type = tipoOnda
+  osc.connect(ganancia)
+  ganancia.connect(ctx.destination)
+
+  osc.frequency.setValueAtTime(freq, ctx.currentTime + inicio)
+  ganancia.gain.setValueAtTime(0, ctx.currentTime + inicio)
+  ganancia.gain.linearRampToValueAtTime(volMax, ctx.currentTime + inicio + ataque)
+  ganancia.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + inicio + dur)
+
+  osc.start(ctx.currentTime + inicio)
+  osc.stop(ctx.currentTime + inicio + dur)
+}
+
+/** Tono ascendente — fichaje exitoso (440Hz → 880Hz) */
 export function sonarEntrada() {
   const ctx = obtenerContexto()
   const osc = ctx.createOscillator()
   const ganancia = ctx.createGain()
-
-  osc.type = 'sine'
-  osc.frequency.setValueAtTime(523, ctx.currentTime) // Do5
-  osc.frequency.linearRampToValueAtTime(784, ctx.currentTime + 0.15) // Sol5
-
-  ganancia.gain.setValueAtTime(0.3, ctx.currentTime)
-  ganancia.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3)
-
   osc.connect(ganancia)
   ganancia.connect(ctx.destination)
-  osc.start(ctx.currentTime)
-  osc.stop(ctx.currentTime + 0.3)
+  osc.frequency.setValueAtTime(440, ctx.currentTime)
+  osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15)
+  ganancia.gain.setValueAtTime(0.25, ctx.currentTime)
+  ganancia.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45)
+  osc.start()
+  osc.stop(ctx.currentTime + 0.45)
 }
 
-/** Tono descendente corto — error */
+/** Tono descendente — error (440Hz → 220Hz) */
 export function sonarError() {
   const ctx = obtenerContexto()
   const osc = ctx.createOscillator()
   const ganancia = ctx.createGain()
-
-  osc.type = 'sine'
-  osc.frequency.setValueAtTime(440, ctx.currentTime) // La4
-  osc.frequency.linearRampToValueAtTime(220, ctx.currentTime + 0.25) // La3
-
-  ganancia.gain.setValueAtTime(0.3, ctx.currentTime)
-  ganancia.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35)
-
   osc.connect(ganancia)
   ganancia.connect(ctx.destination)
-  osc.start(ctx.currentTime)
+  osc.frequency.setValueAtTime(440, ctx.currentTime)
+  osc.frequency.linearRampToValueAtTime(220, ctx.currentTime + 0.25)
+  ganancia.gain.setValueAtTime(0.3, ctx.currentTime)
+  ganancia.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35)
+  osc.start()
   osc.stop(ctx.currentTime + 0.35)
 }
 
-/** Arpa mágica — cumpleaños entrada (cascada 9 notas Do Mayor) */
+// Melodías de cumpleaños: 1=Arpa, 2=Fanfarria (usadas por entrada/salida)
+const SONIDO_CUMPLE_ENTRADA = 1
+const SONIDO_CUMPLE_SALIDA = 2
+
+/** Arpa Mágica — cascada brillante de notas (cumpleaños entrada) */
 export function sonarCumpleanosEntrada() {
   const ctx = obtenerContexto()
-  // Do Mayor: C5, D5, E5, F5, G5, A5, B5, C6, E6
-  const notas = [523, 587, 659, 698, 784, 880, 988, 1047, 1319]
-  const intervalo = 0.08
-
-  notas.forEach((freq, i) => {
-    const osc = ctx.createOscillator()
-    const ganancia = ctx.createGain()
-
-    osc.type = 'sine'
-    osc.frequency.setValueAtTime(freq, ctx.currentTime)
-
-    const inicio = ctx.currentTime + i * intervalo
-    ganancia.gain.setValueAtTime(0, inicio)
-    ganancia.gain.linearRampToValueAtTime(0.25, inicio + 0.02)
-    ganancia.gain.exponentialRampToValueAtTime(0.01, inicio + 0.6)
-
-    osc.connect(ganancia)
-    ganancia.connect(ctx.destination)
-    osc.start(inicio)
-    osc.stop(inicio + 0.6)
-  })
+  const notas = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51, 1567.98]
+  notas.forEach((freq, idx) => tocar(ctx, freq, idx * 0.04, 0.8, 'sine', 0.2))
+  const fin = notas.length * 0.04
+  // Acorde sostenido al final
+  ;[1046.50, 1318.51, 1567.98, 2093.00].forEach(f => tocar(ctx, f, fin, 1.5, 'sine', 0.15))
 }
 
-/** Fanfarria — cumpleaños salida (trompeta square + sawtooth) */
+/** Fanfarria — trompeta clásica (cumpleaños salida) */
 export function sonarCumpleanosSalida() {
   const ctx = obtenerContexto()
-  // Fanfarria: Sol4-Sol4-Sol4-Do5 (patrón de trompeta)
-  const notas = [
-    { freq: 392, dur: 0.12, inicio: 0 },
-    { freq: 392, dur: 0.12, inicio: 0.15 },
-    { freq: 392, dur: 0.12, inicio: 0.3 },
-    { freq: 523, dur: 0.4, inicio: 0.45 },
-  ]
-
-  notas.forEach(({ freq, dur, inicio }) => {
-    // Square wave (trompeta)
-    const osc1 = ctx.createOscillator()
-    const gan1 = ctx.createGain()
-    osc1.type = 'square'
-    osc1.frequency.setValueAtTime(freq, ctx.currentTime)
-    gan1.gain.setValueAtTime(0.12, ctx.currentTime + inicio)
-    gan1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + inicio + dur)
-    osc1.connect(gan1)
-    gan1.connect(ctx.destination)
-    osc1.start(ctx.currentTime + inicio)
-    osc1.stop(ctx.currentTime + inicio + dur + 0.1)
-
-    // Sawtooth (brillo)
-    const osc2 = ctx.createOscillator()
-    const gan2 = ctx.createGain()
-    osc2.type = 'sawtooth'
-    osc2.frequency.setValueAtTime(freq * 2, ctx.currentTime)
-    gan2.gain.setValueAtTime(0.05, ctx.currentTime + inicio)
-    gan2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + inicio + dur)
-    osc2.connect(gan2)
-    gan2.connect(ctx.destination)
-    osc2.start(ctx.currentTime + inicio)
-    osc2.stop(ctx.currentTime + inicio + dur + 0.1)
-  })
+  tocar(ctx, 523.25, 0, 0.15, 'square', 0.1)
+  tocar(ctx, 659.25, 0.15, 0.15, 'square', 0.1)
+  tocar(ctx, 783.99, 0.30, 0.15, 'square', 0.1)
+  tocar(ctx, 1046.50, 0.45, 0.60, 'sawtooth', 0.15)
 }

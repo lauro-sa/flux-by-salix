@@ -1,6 +1,6 @@
 /**
  * Reloj digital con segundos, actualización cada segundo.
- * Muestra hora + fecha en español.
+ * Tipografía fluida con clamp() para escalar en cualquier tablet.
  */
 'use client'
 
@@ -37,14 +37,21 @@ export default function RelojTiempoReal() {
   return (
     <div className="flex flex-col items-center gap-1">
       <span
-        className="text-6xl font-light tabular-nums tracking-tight"
-        style={{ color: 'var(--texto-primario)' }}
+        className="font-light tabular-nums tracking-tight"
+        style={{
+          fontSize: 'clamp(3.5rem, 13vw, 8.5rem)',
+          lineHeight: 1.1,
+          color: 'var(--kiosco-texto, #f8fafc)',
+        }}
       >
         {formatearHora(ahora)}
       </span>
       <span
-        className="text-lg"
-        style={{ color: 'var(--texto-secundario)' }}
+        className="tracking-wide"
+        style={{
+          fontSize: 'clamp(1rem, 3vw, 1.5rem)',
+          color: 'var(--kiosco-texto-mut, #94a3b8)',
+        }}
       >
         {formatearFecha(ahora)}
       </span>
