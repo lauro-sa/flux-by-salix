@@ -506,9 +506,9 @@ export function VistaMatriz() {
                 return (
                   <tr key={miembro.id} className="hover:bg-superficie-elevada/20 transition-colors">
                     {/* Empleado con avatar */}
-                    <td className={`sticky left-0 z-10 bg-superficie-app border-b border-borde-sutil ${esUltra ? 'px-2 py-1.5' : 'px-4 py-3'}`}>
+                    <td className={`sticky left-0 z-10 bg-superficie-app border-b border-borde-sutil ${esUltra ? 'px-2 py-1.5' : esIntermedio ? 'px-2 py-2' : 'px-4 py-3'}`}>
                       <div className="flex items-center gap-2">
-                        <div className={`${esUltra ? 'size-6 text-[9px]' : 'size-8 text-xs'} rounded-full flex items-center justify-center font-bold shrink-0 ${colorAvatar}`}>
+                        <div className={`${esUltra ? 'size-6 text-[9px]' : esIntermedio ? 'size-7 text-[10px]' : 'size-8 text-xs'} rounded-full flex items-center justify-center font-bold shrink-0 ${colorAvatar}`}>
                           {iniciales(miembro.nombre)}
                         </div>
                         <span className={`font-medium text-texto-primario ${esUltra ? 'text-[11px] leading-tight max-w-[90px]' : esIntermedio ? 'text-xs leading-tight max-w-[120px]' : 'text-sm whitespace-nowrap'}`}>
