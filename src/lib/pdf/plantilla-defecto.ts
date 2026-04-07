@@ -392,10 +392,10 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
     <tr>
       <th class="col-desc" style="width:100%;">Descripción</th>
       {{#if col_cantidad}}<th class="num">Cant.</th>{{/if}}
-      {{#if col_unidad}}<th>U. Medida</th>{{/if}}
+      {{#if col_unidad}}<th class="num">U. Medida</th>{{/if}}
       {{#if col_precio_unitario}}<th class="num">Precio unit.</th>{{/if}}
       {{#if col_descuento}}<th class="num">% Bonif.</th>{{/if}}
-      {{#if col_impuesto}}<th>Impuestos</th>{{/if}}
+      {{#if col_impuesto}}<th class="num">Impuestos</th>{{/if}}
       <th class="num">Importe</th>
     </tr>
   </thead>
@@ -418,10 +418,10 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
             {{#if descripcion_detalle}}<span class="desc-detalle">{descripcion_detalle}</span>{{/if}}
           </td>
           {{#if col_cantidad}}<td class="num">{cantidad}</td>{{/if}}
-          {{#if col_unidad}}<td>{unidad}</td>{{/if}}
+          {{#if col_unidad}}<td class="num">{unidad}</td>{{/if}}
           {{#if col_precio_unitario}}<td class="num">{moneda_simbolo} {precio_unitario_formateado}</td>{{/if}}
           {{#if col_descuento}}<td class="num">{{#if tiene_descuento}}{descuento}%{{/if}}</td>{{/if}}
-          {{#if col_impuesto}}<td>{impuesto_label}</td>{{/if}}
+          {{#if col_impuesto}}<td class="num">{impuesto_label}</td>{{/if}}
           <td class="num">{moneda_simbolo} {subtotal_formateado}</td>
         </tr>
       {{/if}}

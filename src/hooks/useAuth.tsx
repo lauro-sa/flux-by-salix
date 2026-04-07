@@ -77,8 +77,15 @@ function ProveedorAuth({ children }: { children: ReactNode }) {
       return { error: datos.error }
     }
 
-    // Refrescar la sesión del cliente después del login server-side
-    await supabase.auth.refreshSession()
+    // Refrescar la sesión para obtener el JWT con los claims actualizados
+    // (empresa_activa_id se setea server-side en el login).
+    // Si el middleware lee el JWT viejo (sin empresa_activa_id), redirige a /onboarding → loop.
+    // Reintentamos el refresh hasta que el claim se propague o se agoten los intentos.
+    for (let i = 0; i < 3; i++) {
+      const { data: sesionRefrescada } = await supabase.auth.refreshSession()
+      if (sesionRefrescada?.user?.app_metadata?.empresa_activa_id || datos.empresas_activas !== 1) break
+      await new Promise(r => setTimeout(r, 200))
+    }
 
     return { redirigir: datos.redirigir }
   }, [])

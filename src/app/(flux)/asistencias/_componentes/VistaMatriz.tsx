@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   ChevronLeft, ChevronRight, Loader2, Calendar, Printer, Download,
-  SlidersHorizontal,
+  SlidersHorizontal, Maximize2,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { useEsMovil } from '@/hooks/useEsMovil'
@@ -159,6 +159,7 @@ export function VistaMatriz() {
   const [asistencias, setAsistencias] = useState<Record<string, Record<string, CeldaAsistencia>>>({})
   const [cargando, setCargando] = useState(true)
   const [ocultarFindes, setOcultarFindes] = useState(false)
+  const [ajustarPantalla, setAjustarPantalla] = useState(false)
 
   const { desde, hasta, etiqueta, subtitulo } = useMemo(() => obtenerRango(periodo, offset), [periodo, offset])
   const todasLasFechas = useMemo(() => generarFechas(desde, hasta), [desde, hasta])
@@ -242,6 +243,19 @@ export function VistaMatriz() {
           >
             <SlidersHorizontal size={12} />
             {ocultarFindes ? 'Sin fines de semana' : 'Sáb/Dom'}
+          </button>
+
+          {/* Ajustar a pantalla */}
+          <button
+            onClick={() => setAjustarPantalla(v => !v)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+              ajustarPantalla
+                ? 'bg-texto-marca/15 text-texto-marca border border-texto-marca/20'
+                : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-elevada/50'
+            }`}
+            title={ajustarPantalla ? 'Tamaño normal' : 'Ajustar a pantalla'}
+          >
+            <Maximize2 size={12} />
           </button>
         </div>
 
@@ -401,10 +415,10 @@ export function VistaMatriz() {
         </div>
       ) : (
         <div className="flex-1 overflow-auto">
-          <table className="w-full border-collapse text-sm">
+          <table className={`border-collapse text-sm ${ajustarPantalla ? 'w-full table-fixed' : 'w-full'}`}>
             <thead className="sticky top-0 z-10 bg-superficie-app">
               <tr>
-                <th className="sticky left-0 z-20 bg-superficie-app text-left px-4 py-3 font-medium text-texto-terciario text-xs uppercase tracking-wider border-b border-borde-sutil min-w-[200px]">
+                <th className={`sticky left-0 z-20 bg-superficie-app text-left px-4 py-3 font-medium text-texto-terciario text-xs uppercase tracking-wider border-b border-borde-sutil ${ajustarPantalla ? 'w-[160px]' : 'min-w-[200px]'}`}>
                   Empleado
                 </th>
                 {fechas.map((fecha, i) => {
@@ -428,7 +442,7 @@ export function VistaMatriz() {
                         </th>
                       )}
                       <th
-                        className={`px-1 py-2 text-center border-b border-borde-sutil min-w-[90px] ${
+                        className={`px-1 py-2 text-center border-b border-borde-sutil ${ajustarPantalla ? '' : 'min-w-[90px]'} ${
                           esHoy ? 'bg-texto-marca/8' : nombreFeriado ? 'bg-violet-500/8' : ''
                         }`}
                       >
@@ -452,7 +466,7 @@ export function VistaMatriz() {
                   )
                 })}
                 {/* Resumen */}
-                <th className="sticky right-0 z-20 bg-superficie-app px-3 py-2 text-center border-b border-l border-borde-sutil min-w-[70px]">
+                <th className={`sticky right-0 z-20 bg-superficie-app px-3 py-2 text-center border-b border-l border-borde-sutil ${ajustarPantalla ? 'w-[60px]' : 'min-w-[70px]'}`}>
                   <div className="text-[10px] uppercase tracking-wider text-texto-terciario">Resumen</div>
                 </th>
               </tr>
@@ -511,7 +525,7 @@ export function VistaMatriz() {
                       if (esFinde) {
                         return (
                           <td key={fecha} className="px-1 py-1.5 border-b border-borde-sutil bg-superficie-elevada/20">
-                            <div className="flex items-center justify-center h-[60px]">
+                            <div className={`flex items-center justify-center ${ajustarPantalla ? 'h-[52px]' : 'h-[60px]'}`}>
                               <span className="text-texto-terciario/30 text-xs">—</span>
                             </div>
                           </td>
@@ -524,15 +538,15 @@ export function VistaMatriz() {
                       if (estado === 'ausente') {
                         celda = (
                           <td key={fecha} className={`px-1 py-1.5 border-b border-borde-sutil ${fondoCol}`}>
-                            <div className={`mx-auto rounded-lg h-[60px] flex items-center justify-center ${COLORES_CELDA.ausente.fondo} border ${COLORES_CELDA.ausente.borde}`}>
-                              <span className="text-red-400 text-[11px] font-semibold uppercase">Ausente</span>
+                            <div className={`mx-auto rounded-lg ${ajustarPantalla ? 'h-[52px]' : 'h-[60px]'} flex items-center justify-center ${COLORES_CELDA.ausente.fondo} border ${COLORES_CELDA.ausente.borde}`}>
+                              <span className={`text-red-400 ${ajustarPantalla ? 'text-[9px]' : 'text-[11px]'} font-semibold uppercase`}>Ausente</span>
                             </div>
                           </td>
                         )
                       } else if (!asist || estado === 'vacio') {
                         celda = (
                           <td key={fecha} className={`px-1 py-1.5 border-b border-borde-sutil ${fondoCol}`}>
-                            <div className="h-[60px]" />
+                            <div className={ajustarPantalla ? 'h-[52px]' : 'h-[60px]'} />
                           </td>
                         )
                       } else {
@@ -547,11 +561,11 @@ export function VistaMatriz() {
 
                         celda = (
                           <td key={fecha} className={`px-1 py-1.5 border-b border-borde-sutil ${fondoCol}`}>
-                            <div className={`mx-auto rounded-lg h-[74px] flex flex-col items-center justify-center gap-1.5 border ${colores.fondo} ${colores.borde} cursor-default pt-1`}>
-                              <div className={`size-2 rounded-full ${colorPunto} shrink-0`} />
-                              <span className="text-xs font-semibold text-texto-primario leading-none">{horaE}</span>
-                              <span className="text-[10px] text-texto-terciario leading-none">{horaS || '...'}</span>
-                              <span className="text-[9px] text-texto-terciario/70 leading-none">{etiquetaEstado}</span>
+                            <div className={`mx-auto rounded-lg ${ajustarPantalla ? 'h-[52px] gap-0.5 px-0.5' : 'h-[74px] gap-1.5 pt-1'} flex flex-col items-center justify-center border ${colores.fondo} ${colores.borde} cursor-default`}>
+                              <div className={`${ajustarPantalla ? 'size-1.5' : 'size-2'} rounded-full ${colorPunto} shrink-0`} />
+                              <span className={`${ajustarPantalla ? 'text-[10px]' : 'text-xs'} font-semibold text-texto-primario leading-none`}>{horaE}</span>
+                              <span className={`${ajustarPantalla ? 'text-[8px]' : 'text-[10px]'} text-texto-terciario leading-none`}>{horaS || '...'}</span>
+                              {!ajustarPantalla && <span className="text-[9px] text-texto-terciario/70 leading-none">{etiquetaEstado}</span>}
                             </div>
                           </td>
                         )
