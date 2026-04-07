@@ -119,16 +119,9 @@ export function PanelChatter({
     }
   }, [entidadId, entidadTipo, cargar])
 
-  // Auto-scroll al fondo
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }
-  }, [entradas])
-
-  // ─── Filtrar entradas ───
+  // ─── Filtrar entradas (más nuevas primero) ───
   const entradasFiltradas = useMemo(() => {
-    let resultado = entradas
+    let resultado = [...entradas].reverse()
 
     switch (filtro) {
       case 'correos':
