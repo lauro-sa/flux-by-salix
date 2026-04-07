@@ -1856,6 +1856,18 @@ export default function EditorPresupuesto({
                         </span>
                       )}
                     </div>
+                    {/* Fila Emisión original (solo si fue re-emitido) */}
+                    {presupuesto?.fecha_emision_original && (
+                      <>
+                        <span className={`${etiqueta} py-1 text-texto-terciario text-[10px]`}>Emisión original</span>
+                        <div className="py-1" />
+                        <div className="py-1">
+                          <span className="text-xs text-texto-terciario">
+                            {formatearFecha(presupuesto.fecha_emision_original)}
+                          </span>
+                        </div>
+                      </>
+                    )}
                     {/* Fila Validez */}
                     <span className={`${etiqueta} py-2.5`}>Validez</span>
                     <div className="py-2.5">

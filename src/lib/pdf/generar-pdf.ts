@@ -188,7 +188,7 @@ export async function generarPdfPresupuesto(
 
   const datosPresupuesto: DatosPresupuestoPdf = {
     numero: presupuesto.numero, estado: presupuesto.estado,
-    fecha_emision: presupuesto.fecha_emision, fecha_vencimiento: presupuesto.fecha_vencimiento,
+    fecha_emision: presupuesto.fecha_emision, fecha_emision_original: presupuesto.fecha_emision_original || null, fecha_vencimiento: presupuesto.fecha_vencimiento,
     moneda: presupuesto.moneda, moneda_simbolo: obtenerSimbolo(presupuesto.moneda),
     referencia: presupuesto.referencia, condicion_pago_label: presupuesto.condicion_pago_label,
     nota_plan_pago: presupuesto.nota_plan_pago,
