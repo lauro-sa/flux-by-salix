@@ -10,7 +10,6 @@ import {
   Calendar, MapPin, Pencil, Trash2, ChevronDown,
 } from 'lucide-react'
 import { useFormato } from '@/hooks/useFormato'
-import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { SelectorHora } from '@/componentes/ui/SelectorHora'
 
 // ─── Tipos ───────────────────────────────────────────────────
@@ -85,6 +84,19 @@ function aDatetimeLocal(iso: string | null): string {
 function deDatetimeLocal(val: string): string | null {
   if (!val) return null
   return new Date(val).toISOString()
+}
+
+/** Extraer HH:mm de un datetime-local string "YYYY-MM-DDTHH:mm" */
+function extraerHora(dtLocal: string): string | null {
+  if (!dtLocal) return null
+  const partes = dtLocal.split('T')
+  return partes[1] || null
+}
+
+/** Reconstruir datetime-local desde fecha YYYY-MM-DD + hora HH:mm */
+function reconstruir(fecha: string, hora: string | null): string {
+  if (!hora) return ''
+  return `${fecha}T${hora}`
 }
 
 function inicial(nombre: string): string {
@@ -377,15 +389,15 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
               />
             </div>
 
-            {/* Timestamps */}
+            {/* Horarios — solo horas, la fecha es fija */}
             <div className="grid grid-cols-2 gap-3">
-              <CampoFechaHora etiqueta="Entrada" valor={entrada} onChange={setEntrada} />
-              <CampoFechaHora etiqueta="Salida" valor={salida} onChange={setSalida} />
+              <SelectorHora etiqueta="Entrada" valor={extraerHora(entrada)} onChange={(v) => setEntrada(reconstruir(r.fecha, v))} pasoMinutos={5} />
+              <SelectorHora etiqueta="Salida" valor={extraerHora(salida)} onChange={(v) => setSalida(reconstruir(r.fecha, v))} pasoMinutos={5} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <CampoFechaHora etiqueta="Inicio almuerzo" valor={inicioAlm} onChange={setInicioAlm} />
-              <CampoFechaHora etiqueta="Fin almuerzo" valor={finAlm} onChange={setFinAlm} />
+              <SelectorHora etiqueta="Inicio almuerzo" valor={extraerHora(inicioAlm)} onChange={(v) => setInicioAlm(reconstruir(r.fecha, v))} pasoMinutos={5} />
+              <SelectorHora etiqueta="Fin almuerzo" valor={extraerHora(finAlm)} onChange={(v) => setFinAlm(reconstruir(r.fecha, v))} pasoMinutos={5} />
             </div>
 
             <details className="group">
@@ -394,8 +406,8 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
                 Trámite / particular
               </summary>
               <div className="grid grid-cols-2 gap-3 mt-2">
-                <CampoFechaHora etiqueta="Salida trámite" valor={salidaPart} onChange={setSalidaPart} />
-                <CampoFechaHora etiqueta="Vuelta trámite" valor={vueltaPart} onChange={setVueltaPart} />
+                <SelectorHora etiqueta="Salida trámite" valor={extraerHora(salidaPart)} onChange={(v) => setSalidaPart(reconstruir(r.fecha, v))} pasoMinutos={5} />
+                <SelectorHora etiqueta="Vuelta trámite" valor={extraerHora(vueltaPart)} onChange={(v) => setVueltaPart(reconstruir(r.fecha, v))} pasoMinutos={5} />
               </div>
             </details>
 
@@ -413,34 +425,3 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
   )
 }
 
-// ─── Campo fecha+hora reutilizable ───────────────────────────
-
-function CampoFechaHora({ etiqueta, valor, onChange }: { etiqueta: string; valor: string; onChange: (v: string) => void }) {
-  // valor viene como "YYYY-MM-DDTHH:mm" (datetime-local format)
-  const partes = valor ? valor.split('T') : ['', '']
-  const fechaParte = partes[0] || ''
-  const horaParte = partes[1] || ''
-
-  const actualizar = (fecha: string, hora: string) => {
-    if (fecha && hora) onChange(`${fecha}T${hora}`)
-    else if (fecha) onChange(`${fecha}T00:00`)
-    else onChange('')
-  }
-
-  return (
-    <div className="space-y-2">
-      <label className="block text-[11px] font-medium text-texto-terciario uppercase tracking-wider">{etiqueta}</label>
-      <div className="grid grid-cols-2 gap-2">
-        <SelectorFecha
-          valor={fechaParte || null}
-          onChange={(v) => actualizar(v || '', horaParte)}
-        />
-        <SelectorHora
-          valor={horaParte || null}
-          onChange={(v) => actualizar(fechaParte, v || '')}
-          pasoMinutos={5}
-        />
-      </div>
-    </div>
-  )
-}
