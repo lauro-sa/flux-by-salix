@@ -6,6 +6,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import Holidays from 'date-holidays'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -80,12 +81,34 @@ function obtenerRango(periodo: Periodo, offset: number): { desde: Date; hasta: D
   }
 
   if (periodo === 'quincena') {
-    const base = new Date(hoy.getFullYear(), hoy.getMonth() + offset, 1)
-    const desde = new Date(base.getFullYear(), base.getMonth(), 1)
-    const hasta = new Date(base.getFullYear(), base.getMonth(), 15)
-    const etiqueta = `Quincena 1-15 de ${MESES[base.getMonth()]} ${base.getFullYear()}`
-    const subtitulo = `01/${String(base.getMonth()+1).padStart(2,'0')}/${base.getFullYear()} — 15/${String(base.getMonth()+1).padStart(2,'0')}/${base.getFullYear()}`
-    return { desde, hasta, etiqueta, subtitulo }
+    // Quincena actual: si hoy <= 15 → primera, si no → segunda
+    const quincenaActual = hoy.getDate() <= 15 ? 0 : 1 // 0 = primera, 1 = segunda
+    const quincenaAbsoluta = hoy.getMonth() * 2 + quincenaActual + offset
+    const mesIdx = Math.floor(quincenaAbsoluta / 2)
+    const esPrimera = ((quincenaAbsoluta % 2) + 2) % 2 === 0
+
+    const anoBase = hoy.getFullYear() + Math.floor(mesIdx / 12)
+    const mes = ((mesIdx % 12) + 12) % 12
+
+    if (esPrimera) {
+      const desde = new Date(anoBase, mes, 1)
+      const hasta = new Date(anoBase, mes, 15)
+      const pad = (n: number) => String(n).padStart(2, '0')
+      return {
+        desde, hasta,
+        etiqueta: `Quincena 1-15 de ${MESES[mes]} ${anoBase}`,
+        subtitulo: `01/${pad(mes+1)}/${anoBase} — 15/${pad(mes+1)}/${anoBase}`,
+      }
+    } else {
+      const desde = new Date(anoBase, mes, 16)
+      const hasta = new Date(anoBase, mes + 1, 0)
+      const pad = (n: number) => String(n).padStart(2, '0')
+      return {
+        desde, hasta,
+        etiqueta: `Quincena 16-${hasta.getDate()} de ${MESES[mes]} ${anoBase}`,
+        subtitulo: `16/${pad(mes+1)}/${anoBase} — ${pad(hasta.getDate())}/${pad(mes+1)}/${anoBase}`,
+      }
+    }
   }
 
   // mes
@@ -136,6 +159,22 @@ export function VistaMatriz() {
 
   const { desde, hasta, etiqueta, subtitulo } = useMemo(() => obtenerRango(periodo, offset), [periodo, offset])
   const fechas = useMemo(() => generarFechas(desde, hasta), [desde, hasta])
+
+  // Feriados argentinos (offline via date-holidays)
+  const feriados = useMemo(() => {
+    const hd = new Holidays('AR')
+    const anios = new Set(fechas.map(f => parseInt(f.split('-')[0])))
+    const mapa = new Map<string, string>()
+    for (const anio of anios) {
+      for (const h of hd.getHolidays(anio)) {
+        if (h.type === 'public') {
+          const fecha = h.date.split(' ')[0] // "YYYY-MM-DD HH:mm:ss" → "YYYY-MM-DD"
+          mapa.set(fecha, h.name)
+        }
+      }
+    }
+    return mapa
+  }, [fechas])
   const diasLaborales = useMemo(() => fechas.filter(f => {
     const d = new Date(f + 'T12:00:00').getDay()
     return d !== 0 && d !== 6
@@ -229,22 +268,30 @@ export function VistaMatriz() {
                   const diaSemana = d.getDay()
                   const esHoy = fecha === hoyStr
                   const esFinde = diaSemana === 0 || diaSemana === 6
+                  const nombreFeriado = feriados.get(fecha)
 
                   return (
                     <th
                       key={fecha}
                       className={`px-1 py-2 text-center border-b border-borde-sutil min-w-[90px] ${
-                        esHoy ? 'bg-texto-marca/8' : ''
+                        esHoy ? 'bg-texto-marca/8' : nombreFeriado ? 'bg-[color:var(--insignia-peligro)]/5' : ''
                       }`}
                     >
-                      <div className={`text-[10px] uppercase tracking-wider ${esFinde ? 'text-texto-terciario/50' : 'text-texto-terciario'}`}>
+                      <div className={`text-[10px] uppercase tracking-wider ${
+                        nombreFeriado ? 'text-[color:var(--insignia-peligro)]' : esFinde ? 'text-texto-terciario/50' : 'text-texto-terciario'
+                      }`}>
                         {DIAS_SEMANA_CORTO[diaSemana]}
                       </div>
                       <div className={`text-lg font-semibold ${
-                        esHoy ? 'text-texto-marca' : esFinde ? 'text-texto-terciario/40' : 'text-texto-primario'
+                        esHoy ? 'text-texto-marca' : nombreFeriado ? 'text-[color:var(--insignia-peligro)]' : esFinde ? 'text-texto-terciario/40' : 'text-texto-primario'
                       }`}>
                         {d.getDate()}
                       </div>
+                      {nombreFeriado && (
+                        <div className="text-[8px] text-[color:var(--insignia-peligro)] leading-tight truncate max-w-[80px] mx-auto" title={nombreFeriado}>
+                          {nombreFeriado.length > 15 ? nombreFeriado.slice(0, 14) + '…' : nombreFeriado}
+                        </div>
+                      )}
                     </th>
                   )
                 })}
