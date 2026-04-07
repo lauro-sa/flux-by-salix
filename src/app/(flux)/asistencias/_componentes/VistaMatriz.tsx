@@ -31,23 +31,23 @@ type Periodo = 'semana' | 'quincena' | 'mes'
 // ─── Constantes ──────────────────────────────────────────────
 
 const COLORES_CELDA: Record<string, { fondo: string; borde: string }> = {
-  normal:       { fondo: 'bg-insignia-exito/10', borde: 'border-insignia-exito/20' },
-  cerrado:      { fondo: 'bg-insignia-exito/10', borde: 'border-insignia-exito/20' },
-  activo:       { fondo: 'bg-insignia-exito/15', borde: 'border-insignia-exito/30' },
-  tardanza:     { fondo: 'bg-insignia-advertencia/15', borde: 'border-insignia-advertencia/25' },
-  almuerzo:     { fondo: 'bg-insignia-advertencia/10', borde: 'border-insignia-advertencia/20' },
-  particular:   { fondo: 'bg-insignia-info/10', borde: 'border-insignia-info/20' },
-  auto_cerrado: { fondo: 'bg-[color:var(--insignia-peligro)]/10', borde: 'border-[color:var(--insignia-peligro)]/20' },
-  ausente:      { fondo: 'bg-[color:var(--insignia-peligro)]/8', borde: 'border-[color:var(--insignia-peligro)]/15' },
+  normal:       { fondo: 'bg-emerald-500/10', borde: 'border-emerald-500/20' },
+  cerrado:      { fondo: 'bg-emerald-500/10', borde: 'border-emerald-500/20' },
+  activo:       { fondo: 'bg-sky-500/12', borde: 'border-sky-500/25' },
+  tardanza:     { fondo: 'bg-amber-500/12', borde: 'border-amber-500/25' },
+  almuerzo:     { fondo: 'bg-amber-500/10', borde: 'border-amber-500/20' },
+  particular:   { fondo: 'bg-sky-500/10', borde: 'border-sky-500/20' },
+  auto_cerrado: { fondo: 'bg-red-500/10', borde: 'border-red-500/20' },
+  ausente:      { fondo: 'bg-red-500/8', borde: 'border-red-500/15' },
 }
 
 const COLOR_PUNTO: Record<string, string> = {
-  normal: 'bg-insignia-exito',
-  cerrado: 'bg-insignia-exito',
-  activo: 'bg-insignia-exito',
-  tardanza: 'bg-insignia-advertencia',
-  auto_cerrado: 'bg-[color:var(--insignia-peligro)]',
-  ausente: 'bg-[color:var(--insignia-peligro)]',
+  normal: 'bg-emerald-400',
+  cerrado: 'bg-emerald-400',
+  activo: 'bg-sky-400',
+  tardanza: 'bg-amber-400',
+  auto_cerrado: 'bg-red-400',
+  ausente: 'bg-red-400',
 }
 
 const DIAS_SEMANA_CORTO = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
@@ -274,21 +274,21 @@ export function VistaMatriz() {
                     <th
                       key={fecha}
                       className={`px-1 py-2 text-center border-b border-borde-sutil min-w-[90px] ${
-                        esHoy ? 'bg-texto-marca/8' : nombreFeriado ? 'bg-[color:var(--insignia-peligro)]/5' : ''
+                        esHoy ? 'bg-texto-marca/8' : nombreFeriado ? 'bg-violet-500/8' : ''
                       }`}
                     >
                       <div className={`text-[10px] uppercase tracking-wider ${
-                        nombreFeriado ? 'text-[color:var(--insignia-peligro)]' : esFinde ? 'text-texto-terciario/50' : 'text-texto-terciario'
+                        nombreFeriado ? 'text-violet-400' : esFinde ? 'text-texto-terciario/50' : 'text-texto-terciario'
                       }`}>
                         {DIAS_SEMANA_CORTO[diaSemana]}
                       </div>
                       <div className={`text-lg font-semibold ${
-                        esHoy ? 'text-texto-marca' : nombreFeriado ? 'text-[color:var(--insignia-peligro)]' : esFinde ? 'text-texto-terciario/40' : 'text-texto-primario'
+                        esHoy ? 'text-texto-marca' : nombreFeriado ? 'text-violet-400' : esFinde ? 'text-texto-terciario/40' : 'text-texto-primario'
                       }`}>
                         {d.getDate()}
                       </div>
                       {nombreFeriado && (
-                        <div className="text-[8px] text-[color:var(--insignia-peligro)] leading-tight truncate max-w-[80px] mx-auto" title={nombreFeriado}>
+                        <div className="text-[8px] text-violet-400 leading-tight truncate max-w-[80px] mx-auto" title={nombreFeriado}>
                           {nombreFeriado.length > 15 ? nombreFeriado.slice(0, 14) + '…' : nombreFeriado}
                         </div>
                       )}
@@ -337,7 +337,7 @@ export function VistaMatriz() {
                       const esHoy = fecha === hoyStr
                       const esFinde = d.getDay() === 0 || d.getDay() === 6
                       const esFeriado = feriados.has(fecha)
-                      const fondoCol = esHoy ? 'bg-texto-marca/5' : esFeriado ? 'bg-[color:var(--insignia-peligro)]/5' : ''
+                      const fondoCol = esHoy ? 'bg-texto-marca/5' : esFeriado ? 'bg-violet-500/5' : ''
 
                       // Fin de semana
                       if (esFinde) {
@@ -355,7 +355,7 @@ export function VistaMatriz() {
                         return (
                           <td key={fecha} className={`px-1 py-1.5 border-b border-borde-sutil ${fondoCol}`}>
                             <div className={`mx-auto rounded-lg h-[60px] flex items-center justify-center ${COLORES_CELDA.ausente.fondo} border ${COLORES_CELDA.ausente.borde}`}>
-                              <span className="text-[color:var(--insignia-peligro)] text-[11px] font-semibold uppercase">Ausente</span>
+                              <span className="text-red-400 text-[11px] font-semibold uppercase">Ausente</span>
                             </div>
                           </td>
                         )
