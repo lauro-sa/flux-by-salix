@@ -794,7 +794,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
             Cancelar
           </Boton>
           <div className="flex items-center gap-2">
-            {esEditable && (
+            {esEditable ? (
               <>
                 <Boton
                   variante="secundario"
@@ -815,6 +815,16 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
                   Enviar a Meta
                 </Boton>
               </>
+            ) : (
+              <Boton
+                variante="primario"
+                tamano="sm"
+                icono={guardando ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                onClick={guardar}
+                disabled={guardando}
+              >
+                Guardar cambios
+              </Boton>
             )}
           </div>
         </div>
