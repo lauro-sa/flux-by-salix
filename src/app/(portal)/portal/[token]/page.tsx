@@ -214,11 +214,24 @@ const obtenerDatosPortal = cache(async (token: string): Promise<DatosPortal | nu
         })(),
         datos_fiscales: empresa.datos_fiscales || null,
       },
-      vendedor: {
-        nombre: vendedor ? [vendedor.nombre, vendedor.apellido].filter(Boolean).join(' ') : 'Sin asignar',
-        correo: vendedor?.correo || null,
-        telefono: vendedor?.telefono || null,
-      },
+      vendedor: await (async () => {
+        if (!vendedor) return { nombre: 'Sin asignar', correo: null, telefono: null }
+        // Buscar sector primario del vendedor para mostrar al cliente
+        let sectorNombre: string | null = null
+        const { data: miembro } = await admin.from('miembros').select('id').eq('usuario_id', portalToken.creado_por).eq('empresa_id', portalToken.empresa_id).single()
+        if (miembro) {
+          const { data: ms } = await admin.from('miembros_sectores').select('sector_id').eq('miembro_id', miembro.id).eq('es_primario', true).single()
+          if (ms) {
+            const { data: sector } = await admin.from('sectores').select('nombre').eq('id', ms.sector_id).single()
+            if (sector) sectorNombre = sector.nombre
+          }
+        }
+        return {
+          nombre: sectorNombre || [vendedor.nombre, vendedor.apellido].filter(Boolean).join(' '),
+          correo: vendedor.correo || null,
+          telefono: vendedor.telefono || null,
+        }
+      })(),
       datos_bancarios: datosBancarios,
       moneda_simbolo: monedaSimb,
       locale: obtenerLocale(empresa.zona_horaria),
