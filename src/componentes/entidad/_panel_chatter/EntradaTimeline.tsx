@@ -7,7 +7,7 @@
  * Se usa en: PanelChatter (timeline unificada).
  */
 
-import { useState } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import {
   FileText, Check, X, ChevronDown, ChevronUp,
   StickyNote, Globe, Mail, Paperclip,
@@ -129,6 +129,46 @@ function EntradaSistema({
   )
 }
 
+// ─── Iframe aislado para renderizar HTML de correo ───
+function IframeCorreo({ html }: { html: string }) {
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const [altura, setAltura] = useState(200)
+
+  const ajustarAltura = useCallback(() => {
+    const iframe = iframeRef.current
+    if (!iframe?.contentDocument?.body) return
+    const h = iframe.contentDocument.body.scrollHeight
+    if (h > 0) setAltura(Math.min(h + 16, 500))
+  }, [])
+
+  useEffect(() => {
+    const iframe = iframeRef.current
+    if (!iframe) return
+    const handleLoad = () => {
+      ajustarAltura()
+      // Observer para cambios dinámicos (imágenes cargando, etc.)
+      const observer = new MutationObserver(ajustarAltura)
+      if (iframe.contentDocument?.body) {
+        observer.observe(iframe.contentDocument.body, { childList: true, subtree: true, attributes: true })
+      }
+      return () => observer.disconnect()
+    }
+    iframe.addEventListener('load', handleLoad)
+    return () => iframe.removeEventListener('load', handleLoad)
+  }, [ajustarAltura])
+
+  return (
+    <iframe
+      ref={iframeRef}
+      srcDoc={html}
+      sandbox="allow-same-origin"
+      className="w-full border-0"
+      style={{ height: `${altura}px`, maxHeight: '500px' }}
+      title="Correo enviado"
+    />
+  )
+}
+
 // ─── Entrada de correo (expandible) ───
 function EntradaCorreo({ entrada, formatoHora, locale }: { entrada: PropsEntradaTimeline['entrada']; formatoHora: string; locale: string }) {
   const [expandido, setExpandido] = useState(false)
@@ -190,7 +230,7 @@ function EntradaCorreo({ entrada, formatoHora, locale }: { entrada: PropsEntrada
           </div>
         </button>
 
-        {/* Cuerpo expandible del correo */}
+        {/* Cuerpo expandible del correo — iframe aislado para no romper estilos */}
         <AnimatePresence>
           {expandido && htmlCorreo && (
             <motion.div
@@ -200,12 +240,13 @@ function EntradaCorreo({ entrada, formatoHora, locale }: { entrada: PropsEntrada
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
-              <div className="px-3 py-2 border-t border-borde-sutil max-h-[400px] overflow-y-auto">
-                <div
-                  className="text-xs text-texto-secundario prose prose-sm max-w-none [&_p]:mb-2 [&_br]:block [&_br]:mb-1 [&_strong]:text-texto-primario [&_img]:max-w-full [&_img]:h-auto [&_table]:w-full"
-                  dangerouslySetInnerHTML={{ __html: htmlCorreo }}
-                />
-                <ListaAdjuntos adjuntos={entrada.adjuntos} />
+              <div className="border-t border-borde-sutil">
+                <IframeCorreo html={htmlCorreo} />
+                {entrada.adjuntos?.length > 0 && (
+                  <div className="px-3 py-1">
+                    <ListaAdjuntos adjuntos={entrada.adjuntos} />
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
