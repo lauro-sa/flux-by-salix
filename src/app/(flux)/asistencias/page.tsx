@@ -8,6 +8,7 @@ import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import { Download, Clock, TimerOff, Pencil, CalendarDays } from 'lucide-react'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Insignia } from '@/componentes/ui/Insignia'
+import { ModalEditarFichaje } from './_componentes/ModalEditarFichaje'
 
 // ─── Constantes ──────────────────────────────────────────────
 
@@ -56,6 +57,8 @@ interface RegistroAsistencia {
   tipo: string
   metodo_registro: string
   puntualidad_min: number | null
+  salida_particular: string | null
+  vuelta_particular: string | null
   editado_por: string | null
   notas: string | null
   ubicacion_entrada: Record<string, unknown> | null
@@ -107,6 +110,7 @@ export default function PaginaAsistencias() {
   const [total, setTotal] = useState(0)
   const [cargando, setCargando] = useState(true)
   const [pagina, setPagina] = useState(1)
+  const [editando, setEditando] = useState<RegistroAsistencia | null>(null)
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -242,6 +246,7 @@ export default function PaginaAsistencias() {
         registrosPorPagina={50}
         paginaExterna={pagina}
         onCambiarPagina={setPagina}
+        onClickFila={(r) => setEditando(r)}
         estadoVacio={
           <EstadoVacio
             icono={<TimerOff size={52} strokeWidth={1} />}
@@ -249,6 +254,13 @@ export default function PaginaAsistencias() {
             descripcion="Cuando tu equipo empiece a registrar entrada y salida, las fichadas van a aparecer acá."
           />
         }
+      />
+
+      <ModalEditarFichaje
+        abierto={!!editando}
+        onCerrar={() => setEditando(null)}
+        registro={editando}
+        onGuardado={cargar}
       />
     </PlantillaListado>
   )

@@ -60,6 +60,14 @@
     {
       "path": "/api/cron/despertar-snooze",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/asistencias/cron?tarea=marcar_ausentes",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/asistencias/cron?tarea=auto_checkout",
+      "schedule": "0 6 * * *"
     }
   ]
 }
