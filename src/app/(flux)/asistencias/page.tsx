@@ -99,9 +99,9 @@ function calcularDuracion(entrada: string | null, salida: string | null, inicioA
   return m > 0 ? `${h}h ${m}min` : `${h}h`
 }
 
-function formatearFecha(fecha: string): string {
+function formatearFecha(fecha: string, locale: string): string {
   const d = new Date(fecha + 'T12:00:00')
-  return d.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })
+  return d.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' })
 }
 
 function formatearUbicacion(ub: Record<string, unknown> | null): string {
@@ -115,7 +115,7 @@ function formatearUbicacion(ub: Record<string, unknown> | null): string {
 
 export default function PaginaAsistencias() {
   const router = useRouter()
-  const { formatoHora } = useFormato()
+  const { formatoHora, locale } = useFormato()
   const [busqueda, setBusqueda] = useState('')
   const [registros, setRegistros] = useState<RegistroAsistencia[]>([])
   const [total, setTotal] = useState(0)
@@ -158,7 +158,7 @@ export default function PaginaAsistencias() {
       tipo: 'fecha',
       filtrable: true,
       render: (r) => (
-        <span className="text-texto-secundario">{formatearFecha(r.fecha)}</span>
+        <span className="text-texto-secundario">{formatearFecha(r.fecha, locale)}</span>
       ),
     },
     {

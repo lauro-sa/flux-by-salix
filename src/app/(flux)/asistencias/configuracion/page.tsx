@@ -13,6 +13,7 @@ import { Select } from '@/componentes/ui/Select'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Boton } from '@/componentes/ui/Boton'
 import { Cargador } from '@/componentes/ui/Cargador'
+import { useFormato } from '@/hooks/useFormato'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -553,6 +554,7 @@ function SeccionKiosco({ config, onGuardar }: { config: ConfigAsistencias; onGua
 // ─── Sección Terminales ──────────────────────────────────────
 
 function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[]; onRecargar: () => void }) {
+  const formato = useFormato()
   return (
     <div className="space-y-6">
       <TarjetaConfig titulo="Terminales de kiosco" descripcion="Dispositivos registrados para fichaje presencial.">
@@ -570,7 +572,7 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
                     <p className="text-sm font-medium text-texto-primario">{t.nombre}</p>
                     <p className="text-xs text-texto-terciario">
                       {t.ultimo_ping
-                        ? `Último ping: ${new Date(t.ultimo_ping).toLocaleString('es-AR')}`
+                        ? `Último ping: ${formato.fecha(t.ultimo_ping, { conHora: true })}`
                         : 'Sin conexión registrada'}
                     </p>
                   </div>

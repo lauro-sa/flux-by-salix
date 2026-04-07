@@ -10,6 +10,7 @@ import type { Actividad, Miembro } from '../../actividades/_componentes/ModalAct
 import type { TipoActividad } from '../../actividades/configuracion/secciones/SeccionTipos'
 import type { EstadoActividad } from '../../actividades/configuracion/secciones/SeccionEstados'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { useFormato } from '@/hooks/useFormato'
 
 /**
  * SeccionActividadesContacto — Sección de actividades dentro de la ficha del contacto.
@@ -205,6 +206,7 @@ function FilaActividadCompacta({
   onCompletar?: () => void
   onPosponer?: () => void
 }) {
+  const formato = useFormato()
   const Icono = tipo ? obtenerIcono(tipo.icono) : null
   const vencida = actividad.fecha_vencimiento && new Date(actividad.fecha_vencimiento) < new Date() && !completada
 
@@ -227,7 +229,7 @@ function FilaActividadCompacta({
         </p>
         {actividad.fecha_vencimiento && (
           <p className={`text-xs ${vencida ? 'text-insignia-peligro-texto font-medium' : 'text-texto-terciario'}`}>
-            {new Date(actividad.fecha_vencimiento).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+            {formato.fecha(actividad.fecha_vencimiento, { corta: true })}
             {vencida && ' — vencida'}
           </p>
         )}

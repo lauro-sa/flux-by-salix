@@ -219,6 +219,10 @@ export function VistaMatriz() {
 
   const hoyStr = new Date().toISOString().split('T')[0]
 
+  // Nivel de compresión: ultra = mes ajustado (solo puntos), compacto = ajustado normal
+  const esUltra = ajustarPantalla && fechas.length > 16
+  const esCompacto = ajustarPantalla && !esUltra
+
   return (
     <div className="flex flex-col h-full">
       {/* Header de la matriz */}
@@ -427,7 +431,7 @@ export function VistaMatriz() {
           <table className={`border-collapse text-sm ${ajustarPantalla ? 'w-full table-fixed' : 'w-full'}`}>
             <thead className="sticky top-0 z-10 bg-superficie-app">
               <tr>
-                <th className={`sticky left-0 z-20 bg-superficie-app text-left px-4 py-3 font-medium text-texto-terciario text-xs uppercase tracking-wider border-b border-borde-sutil ${ajustarPantalla ? 'w-[160px]' : 'min-w-[200px]'}`}>
+                <th className={`sticky left-0 z-20 bg-superficie-app text-left font-medium text-texto-terciario text-xs uppercase tracking-wider border-b border-borde-sutil ${esUltra ? 'w-[120px] px-2 py-2' : esCompacto ? 'w-[160px] px-3 py-2' : 'min-w-[200px] px-4 py-3'}`}>
                   Empleado
                 </th>
                 {fechas.map((fecha, i) => {
@@ -451,21 +455,24 @@ export function VistaMatriz() {
                         </th>
                       )}
                       <th
-                        className={`px-1 py-2 text-center border-b border-borde-sutil ${ajustarPantalla ? '' : 'min-w-[90px]'} ${
+                        className={`py-2 text-center border-b border-borde-sutil ${esUltra ? 'px-0' : esCompacto ? 'px-0.5' : 'px-1 min-w-[90px]'} ${
                           esHoy ? 'bg-texto-marca/8' : nombreFeriado ? 'bg-violet-500/8' : ''
                         }`}
                       >
-                        <div className={`text-[10px] uppercase tracking-wider ${
+                        <div className={`${esUltra ? 'text-[7px]' : 'text-[10px]'} uppercase tracking-wider ${
                           nombreFeriado ? 'text-violet-400' : esFinde ? 'text-texto-terciario/50' : 'text-texto-terciario'
                         }`}>
-                          {DIAS_SEMANA_CORTO[diaSemana]}
+                          {esUltra ? DIAS_SEMANA_CORTO[diaSemana].charAt(0) : DIAS_SEMANA_CORTO[diaSemana]}
                         </div>
-                        <div className={`text-lg font-semibold ${
+                        <div className={`${esUltra ? 'text-xs' : esCompacto ? 'text-sm' : 'text-lg'} font-semibold ${
                           esHoy ? 'text-texto-marca' : nombreFeriado ? 'text-violet-400' : esFinde ? 'text-texto-terciario/40' : 'text-texto-primario'
                         }`}>
                           {d.getDate()}
                         </div>
-                        {nombreFeriado && (
+                        {nombreFeriado && esUltra && (
+                          <div className="size-1 rounded-full bg-violet-400 mx-auto mt-0.5" title={nombreFeriado} />
+                        )}
+                        {nombreFeriado && !esUltra && (
                           <div className="text-[8px] text-violet-400 leading-tight truncate max-w-[80px] mx-auto" title={nombreFeriado}>
                             {nombreFeriado.length > 15 ? nombreFeriado.slice(0, 14) + '…' : nombreFeriado}
                           </div>
@@ -497,12 +504,12 @@ export function VistaMatriz() {
                 return (
                   <tr key={miembro.id} className="hover:bg-superficie-elevada/20 transition-colors">
                     {/* Empleado con avatar */}
-                    <td className="sticky left-0 z-10 bg-superficie-app px-4 py-3 border-b border-borde-sutil">
-                      <div className="flex items-center gap-3">
-                        <div className={`size-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${colorAvatar}`}>
+                    <td className={`sticky left-0 z-10 bg-superficie-app border-b border-borde-sutil ${esUltra ? 'px-2 py-1.5' : 'px-4 py-3'}`}>
+                      <div className="flex items-center gap-2">
+                        <div className={`${esUltra ? 'size-6 text-[9px]' : 'size-8 text-xs'} rounded-full flex items-center justify-center font-bold shrink-0 ${colorAvatar}`}>
                           {iniciales(miembro.nombre)}
                         </div>
-                        <span className="font-medium text-texto-primario text-sm whitespace-nowrap">
+                        <span className={`font-medium text-texto-primario ${esUltra ? 'text-[11px] truncate max-w-[80px]' : 'text-sm whitespace-nowrap'}`}>
                           {miembro.nombre}
                         </span>
                       </div>
@@ -533,9 +540,9 @@ export function VistaMatriz() {
                       // Fin de semana
                       if (esFinde) {
                         return (
-                          <td key={fecha} className="px-1 py-1.5 border-b border-borde-sutil bg-superficie-elevada/20">
-                            <div className={`flex items-center justify-center ${ajustarPantalla ? 'h-[52px]' : 'h-[60px]'}`}>
-                              <span className="text-texto-terciario/30 text-xs">—</span>
+                          <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil bg-superficie-elevada/20`}>
+                            <div className={`flex items-center justify-center ${esUltra ? 'h-[20px]' : esCompacto ? 'h-[52px]' : 'h-[60px]'}`}>
+                              <span className={`text-texto-terciario/30 ${esUltra ? 'text-[8px]' : 'text-xs'}`}>—</span>
                             </div>
                           </td>
                         )
@@ -546,16 +553,22 @@ export function VistaMatriz() {
 
                       if (estado === 'ausente') {
                         celda = (
-                          <td key={fecha} className={`px-1 py-1.5 border-b border-borde-sutil ${fondoCol}`}>
-                            <div className={`mx-auto rounded-lg ${ajustarPantalla ? 'h-[52px]' : 'h-[60px]'} flex items-center justify-center ${COLORES_CELDA.ausente.fondo} border ${COLORES_CELDA.ausente.borde}`}>
-                              <span className={`text-red-400 ${ajustarPantalla ? 'text-[9px]' : 'text-[11px]'} font-semibold uppercase`}>Ausente</span>
+                          <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol}`}>
+                            {esUltra ? (
+                              <div className="mx-auto size-5 rounded-md bg-red-500/20 flex items-center justify-center" title="Ausente">
+                                <span className="text-red-400 text-[7px] font-bold">A</span>
+                              </div>
+                            ) : (
+                            <div className={`mx-auto rounded-lg ${esCompacto ? 'h-[52px]' : 'h-[60px]'} flex items-center justify-center ${COLORES_CELDA.ausente.fondo} border ${COLORES_CELDA.ausente.borde}`}>
+                              <span className={`text-red-400 ${esCompacto ? 'text-[9px]' : 'text-[11px]'} font-semibold uppercase`}>Ausente</span>
                             </div>
+                            )}
                           </td>
                         )
                       } else if (!asist || estado === 'vacio') {
                         celda = (
-                          <td key={fecha} className={`px-1 py-1.5 border-b border-borde-sutil ${fondoCol}`}>
-                            <div className={ajustarPantalla ? 'h-[52px]' : 'h-[60px]'} />
+                          <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol}`}>
+                            <div className={esUltra ? 'h-[20px]' : esCompacto ? 'h-[52px]' : 'h-[60px]'} />
                           </td>
                         )
                       } else {
@@ -569,13 +582,25 @@ export function VistaMatriz() {
                           estado === 'auto_cerrado' ? 'auto' : estado
 
                         celda = (
-                          <td key={fecha} className={`px-1 py-1.5 border-b border-borde-sutil ${fondoCol}`}>
-                            <div className={`mx-auto rounded-lg ${ajustarPantalla ? 'h-[52px] gap-0.5 px-0.5' : 'h-[74px] gap-1.5 pt-1'} flex flex-col items-center justify-center border ${colores.fondo} ${colores.borde} cursor-default`}>
-                              <div className={`${ajustarPantalla ? 'size-1.5' : 'size-2'} rounded-full ${colorPunto} shrink-0`} />
-                              <span className={`${ajustarPantalla ? 'text-[10px]' : 'text-xs'} font-semibold text-texto-primario leading-none`}>{horaE}</span>
-                              <span className={`${ajustarPantalla ? 'text-[8px]' : 'text-[10px]'} text-texto-terciario leading-none`}>{horaS || '...'}</span>
-                              {!ajustarPantalla && <span className="text-[9px] text-texto-terciario/70 leading-none">{etiquetaEstado}</span>}
-                            </div>
+                          <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol}`}>
+                            {esUltra ? (
+                              /* Ultra compacto: solo punto de color */
+                              <div
+                                className="mx-auto size-5 rounded-md flex items-center justify-center cursor-default"
+                                title={`${horaE} → ${horaS || '...'} (${etiquetaEstado})`}
+                                style={{ backgroundColor: `color-mix(in srgb, ${estado === 'cerrado' ? '#10b981' : estado === 'tardanza' ? '#f59e0b' : estado === 'auto_cerrado' ? '#ef4444' : estado === 'activo' ? '#0ea5e9' : '#10b981'} 20%, transparent)` }}
+                              >
+                                <div className={`size-1.5 rounded-full ${colorPunto}`} />
+                              </div>
+                            ) : (
+                              /* Normal / compacto */
+                              <div className={`mx-auto rounded-lg ${esCompacto ? 'h-[52px] gap-0.5 px-0.5' : 'h-[74px] gap-1.5 pt-1'} flex flex-col items-center justify-center border ${colores.fondo} ${colores.borde} cursor-default`}>
+                                <div className={`${esCompacto ? 'size-1.5' : 'size-2'} rounded-full ${colorPunto} shrink-0`} />
+                                <span className={`${esCompacto ? 'text-[10px]' : 'text-xs'} font-semibold text-texto-primario leading-none`}>{horaE}</span>
+                                <span className={`${esCompacto ? 'text-[8px]' : 'text-[10px]'} text-texto-terciario leading-none`}>{horaS || '...'}</span>
+                                {!esCompacto && <span className="text-[9px] text-texto-terciario/70 leading-none">{etiquetaEstado}</span>}
+                              </div>
+                            )}
                           </td>
                         )
                       }

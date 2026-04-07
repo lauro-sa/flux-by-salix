@@ -175,7 +175,7 @@ export default function PaginaDashboard() {
   const { t } = useTraduccion()
   const { usuario } = useAuth()
   const { empresa } = useEmpresa()
-  const { moneda, fechaRelativa } = useFormato()
+  const { moneda, fechaRelativa, fecha: formatoFecha, locale: formatoLocale } = useFormato()
   const router = useRouter()
 
   const [pestana, setPestana] = useState<'general' | 'metricas'>('general')
@@ -425,7 +425,7 @@ function PestanaGeneral({
                   {act.asignado_nombre && <p className="text-xxs text-texto-terciario truncate">{act.asignado_nombre}</p>}
                 </div>
                 <span className="text-xxs text-texto-terciario shrink-0 ml-2">
-                  {new Date(act.fecha_vencimiento).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                  {formatoFecha(act.fecha_vencimiento, { corta: true })}
                 </span>
               </div>
             ))
@@ -695,8 +695,8 @@ function TarjetaMensajesRecientes({ mensajes }: { mensajes: DatosDashboard['mens
                         if (fecha.toDateString() === hoy.toDateString()) return 'Hoy'
                         if (fecha.toDateString() === ayer.toDateString()) return 'Ayer'
                         const diffDias = Math.floor((hoy.getTime() - fecha.getTime()) / 86400000)
-                        if (diffDias < 7) return fecha.toLocaleDateString('es-AR', { weekday: 'long' }).replace(/^\w/, c => c.toUpperCase())
-                        return fecha.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })
+                        if (diffDias < 7) return fecha.toLocaleDateString(formatoLocale, { weekday: 'long' }).replace(/^\w/, c => c.toUpperCase())
+                        return formatoFecha(fecha, { corta: true })
                       })()}
                     </span>
                   </div>

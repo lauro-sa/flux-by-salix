@@ -8,6 +8,7 @@ import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import type { CondicionPago } from '@/tipos/presupuesto'
 import { useTraduccion } from '@/lib/i18n'
+import { useFormato } from '@/hooks/useFormato'
 
 /**
  * ModalCondicionPago — Modal para crear/editar una condición de pago.
@@ -40,10 +41,10 @@ interface PropiedadesModal {
   condicionEditar?: CondicionPago | null
 }
 
-const fmtMonto = (v: number) => `$ ${v.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-
 export default function ModalCondicionPago({ abierto, onCerrar, onGuardar, condicionEditar }: PropiedadesModal) {
   const { t } = useTraduccion()
+  const formato = useFormato()
+  const fmtMonto = (v: number) => formato.moneda(v)
   const esEdicion = !!condicionEditar
   const [form, setForm] = useState<FormularioCondicion>({ ...FORM_VACIO })
 
@@ -284,7 +285,7 @@ export default function ModalCondicionPago({ abierto, onCerrar, onGuardar, condi
             <span className="text-texto-secundario">Ejemplo:</span>
             <span className="font-medium text-texto-primario">{fmtMonto(EJEMPLO_TOTAL)}</span>
             <span className="text-texto-terciario">el</span>
-            <span className="font-medium text-texto-primario">{hoy.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}</span>
+            <span className="font-medium text-texto-primario">{formato.fecha(hoy, { corta: true })}</span>
           </div>
 
           {form.tipo === 'plazo_fijo' ? (
@@ -296,7 +297,7 @@ export default function ModalCondicionPago({ abierto, onCerrar, onGuardar, condi
                     {(() => {
                       const f = new Date(hoy)
                       f.setDate(f.getDate() + (parseInt(form.diasVencimiento) || 0))
-                      return f.toLocaleDateString('es-AR')
+                      return formato.fecha(f)
                     })()}
                   </strong>
                 </p>
@@ -311,7 +312,7 @@ export default function ModalCondicionPago({ abierto, onCerrar, onGuardar, condi
                 return (
                   <p key={h.id} className="text-sm text-texto-primario">
                     Plazo <strong>#{i + 1}</strong> de <strong>{fmtMonto(monto)}</strong> a pagar antes del{' '}
-                    <strong className="text-texto-marca">{fechaVenc.toLocaleDateString('es-AR')}</strong>
+                    <strong className="text-texto-marca">{formato.fecha(fechaVenc)}</strong>
                   </p>
                 )
               })}

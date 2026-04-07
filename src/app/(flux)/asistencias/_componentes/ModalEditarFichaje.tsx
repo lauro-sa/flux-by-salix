@@ -52,9 +52,9 @@ function fmtHora(iso: string | null, formato: string = '24h'): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-function fmtFechaLarga(fecha: string): string {
+function fmtFechaLarga(fecha: string, locale: string): string {
   const d = new Date(fecha + 'T12:00:00')
-  return d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  return d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
     .replace(/^\w/, c => c.toUpperCase())
 }
 
@@ -119,7 +119,7 @@ const JORNADA_REF = 8 * 60
 // ─── Componente ──────────────────────────────────────────────
 
 export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: PropiedadesModal) {
-  const { formatoHora } = useFormato()
+  const { formatoHora, locale } = useFormato()
   const [editando, setEditando] = useState(false)
   const [entrada, setEntrada] = useState('')
   const [salida, setSalida] = useState('')
@@ -231,7 +231,7 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
               <h3 className="text-base font-semibold text-texto-primario">{r.miembro_nombre}</h3>
               <p className="text-xs text-texto-terciario flex items-center gap-1.5">
                 <Calendar size={11} />
-                {fmtFechaLarga(r.fecha)}
+                {fmtFechaLarga(r.fecha, locale)}
               </p>
             </div>
           </div>

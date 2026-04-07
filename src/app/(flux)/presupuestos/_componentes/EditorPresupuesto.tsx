@@ -35,6 +35,7 @@ import { useEnvioPendiente } from '@/hooks/useEnvioPendiente'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useAuth } from '@/hooks/useAuth'
 import { useTraduccion } from '@/lib/i18n'
+import { useFormato } from '@/hooks/useFormato'
 import { useEsPantallaAncha } from '@/hooks/useEsPantallaAncha'
 import { usePreferencias } from '@/hooks/usePreferencias'
 import { PanelChatter } from '@/componentes/entidad/PanelChatter'
@@ -47,7 +48,6 @@ import { ETIQUETAS_ESTADO, TRANSICIONES_ESTADO } from '@/tipos/presupuesto'
 import type {
   ContactoResumido, Vinculacion, DatosEmpresa, LineaTemporal,
 } from './tipos-editor'
-import { SIMBOLO_MONEDA } from './tipos-editor'
 
 // ─── Props del componente ───────────────────────────────────────────────────
 
@@ -75,6 +75,7 @@ export default function EditorPresupuesto({
 }: PropsEditorPresupuesto) {
   const router = useRouter()
   const { t } = useTraduccion()
+  const formato = useFormato()
   const { empresa } = useEmpresa()
   const { usuario } = useAuth()
   const { esPropietario, esAdmin } = useRol()
@@ -1132,10 +1133,16 @@ export default function EditorPresupuesto({
     return { subtotal, impuestos, total: subtotal + impuestos }
   })()
 
-  const simbolo = SIMBOLO_MONEDA[moneda] || '$'
+  // Símbolo de moneda del documento (puede diferir de la moneda de la empresa)
+  const simbolo = new Intl.NumberFormat(formato.locale, { style: 'currency', currency: moneda || formato.codigoMoneda, currencyDisplay: 'narrowSymbol' }).formatToParts(0).find(p => p.type === 'currency')?.value || '$'
   const fmt = (v: string | number) => {
     const num = typeof v === 'number' ? v : parseFloat(v || '0')
-    return `${simbolo} ${num.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    return new Intl.NumberFormat(formato.locale, {
+      style: 'currency',
+      currency: moneda || formato.codigoMoneda,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(num)
   }
 
   const condiciones = (config?.condiciones_pago || []) as CondicionPago[]
@@ -1161,8 +1168,7 @@ export default function EditorPresupuesto({
   })()
 
   const formatearFecha = (d: Date | string) => {
-    const fecha = typeof d === 'string' ? new Date(d) : d
-    return fecha.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })
+    return formato.fecha(d)
   }
 
   // Validez bloqueada
@@ -1880,7 +1886,7 @@ export default function EditorPresupuesto({
                             <div className="flex items-center gap-3">
                               <span className="text-texto-terciario tabular-nums w-8 text-right">{h.porcentaje}%</span>
                               <span className="text-texto-terciario">{simbolo}</span>
-                              <span className="text-texto-primario font-mono tabular-nums text-right w-[9rem]">{(totales.total * h.porcentaje / 100).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                              <span className="text-texto-primario font-mono tabular-nums text-right w-[9rem]">{formato.numero(totales.total * h.porcentaje / 100, 2)}</span>
                             </div>
                           </div>
                         ))}
@@ -2009,7 +2015,7 @@ export default function EditorPresupuesto({
                     {ETIQUETAS_ESTADO[h.estado as EstadoPresupuesto] || h.estado}
                   </Insignia>
                   <span className="text-texto-terciario">
-                    {new Date(h.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    {formato.fecha(h.fecha, { corta: true })} {formato.hora(h.fecha)}
                   </span>
                   {h.usuario_nombre && <span className="text-texto-terciario">— {h.usuario_nombre}</span>}
                 </div>
@@ -2068,8 +2074,8 @@ export default function EditorPresupuesto({
           tipoDocumento="Presupuesto"
           datosDocumento={{
             numero: presupuesto?.numero || numeroPresupuesto || '',
-            total: presupuesto?.total_final ? `$${Number(presupuesto.total_final).toLocaleString('es-AR')}` : '',
-            fecha: presupuesto?.fecha_emision ? new Date(presupuesto.fecha_emision).toLocaleDateString('es-AR') : '',
+            total: presupuesto?.total_final ? fmt(presupuesto.total_final) : '',
+            fecha: presupuesto?.fecha_emision ? formato.fecha(presupuesto.fecha_emision) : '',
             estado: presupuesto?.estado || '',
             empresaNombre: datosEmpresa?.nombre || empresa?.nombre || '',
             urlPortal: urlPortalReal || undefined,

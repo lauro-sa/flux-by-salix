@@ -15,6 +15,7 @@ import { Interruptor } from '@/componentes/ui/Interruptor'
 import { ModalRestablecer } from '@/componentes/ui/ModalRestablecer'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Tooltip } from '@/componentes/ui/Tooltip'
+import { useFormato } from '@/hooks/useFormato'
 
 // Colores disponibles para etiquetas
 const COLORES_ETIQUETA: { valor: string; etiqueta: string }[] = [
@@ -579,6 +580,7 @@ interface ModuloDisponible {
 }
 
 function SeccionGoogleDrive() {
+  const formato = useFormato()
   const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
   const [config, setConfig] = useState<ConfigGDrive | null>(null)
   const [modulos, setModulos] = useState<ModuloDisponible[]>([])
@@ -773,7 +775,7 @@ function SeccionGoogleDrive() {
                 <div className="flex items-center gap-2 text-sm">
                   <span className="text-texto-terciario">Última sincronización:</span>
                   <span className="text-texto-secundario">
-                    {new Date(config.ultima_sync).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })}
+                    {formato.fecha(config.ultima_sync, { conHora: true })}
                   </span>
                 </div>
               )}

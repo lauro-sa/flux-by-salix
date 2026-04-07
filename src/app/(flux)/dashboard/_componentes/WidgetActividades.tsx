@@ -5,6 +5,7 @@ import { ArrowRight, CheckCircle2, AlertCircle, Clock } from 'lucide-react'
 import { TarjetaConPestanas } from '@/componentes/ui/TarjetaConPestanas'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Boton } from '@/componentes/ui/Boton'
+import { useFormato } from '@/hooks/useFormato'
 
 /**
  * WidgetActividades — Resumen de actividades con dos vistas:
@@ -37,6 +38,7 @@ interface Props {
 
 export function WidgetActividades({ pendientes, totalPendientes, completadasHoy, porPersona }: Props) {
   const router = useRouter()
+  const formato = useFormato()
   const vencidas = pendientes.filter(a => a.fecha_vencimiento && new Date(a.fecha_vencimiento) < new Date()).length
 
   const contenidoResumen = (
@@ -82,7 +84,7 @@ export function WidgetActividades({ pendientes, totalPendientes, completadasHoy,
                 </div>
                 {act.fecha_vencimiento && (
                   <span className={`text-xs shrink-0 ml-2 ${estaVencida ? 'text-insignia-peligro-texto font-semibold' : 'text-texto-terciario'}`}>
-                    {new Date(act.fecha_vencimiento).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                    {formato.fecha(act.fecha_vencimiento!, { corta: true })}
                   </span>
                 )}
               </div>

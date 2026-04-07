@@ -7,6 +7,7 @@ import {
   List, Loader2,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { useFormato } from '@/hooks/useFormato'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -55,7 +56,7 @@ function generarFechas(desde: Date, hasta: Date): string[] {
   return fechas
 }
 
-function obtenerRango(periodo: Periodo, offset: number): { desde: Date; hasta: Date; etiqueta: string } {
+function obtenerRango(periodo: Periodo, offset: number, locale: string): { desde: Date; hasta: Date; etiqueta: string } {
   const hoy = new Date()
   hoy.setHours(12, 0, 0, 0) // evitar drift UTC
 
@@ -77,11 +78,11 @@ function obtenerRango(periodo: Periodo, offset: number): { desde: Date; hasta: D
     if ((!esSegunda && offset >= 0) || (esSegunda && offset < 0)) {
       const desde = new Date(anoBase, mes, 1)
       const hasta = new Date(anoBase, mes, 15)
-      return { desde, hasta, etiqueta: `1-15 ${desde.toLocaleDateString('es-AR', { month: 'short', year: 'numeric' })}` }
+      return { desde, hasta, etiqueta: `1-15 ${desde.toLocaleDateString(locale, { month: 'short', year: 'numeric' })}` }
     } else {
       const desde = new Date(anoBase, mes, 16)
       const hasta = new Date(anoBase, mes + 1, 0) // último día del mes
-      return { desde, hasta, etiqueta: `16-${hasta.getDate()} ${desde.toLocaleDateString('es-AR', { month: 'short', year: 'numeric' })}` }
+      return { desde, hasta, etiqueta: `16-${hasta.getDate()} ${desde.toLocaleDateString(locale, { month: 'short', year: 'numeric' })}` }
     }
   }
 
@@ -91,13 +92,13 @@ function obtenerRango(periodo: Periodo, offset: number): { desde: Date; hasta: D
   const mes = ((mesBase % 12) + 12) % 12
   const desde = new Date(anoBase, mes, 1)
   const hasta = new Date(anoBase, mes + 1, 0)
-  const etiqueta = desde.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+  const etiqueta = desde.toLocaleDateString(locale, { month: 'long', year: 'numeric' })
   return { desde, hasta, etiqueta: etiqueta.charAt(0).toUpperCase() + etiqueta.slice(1) }
 }
 
-function formatearHora(iso: string | null): string {
+function formatearHora(iso: string | null, locale: string): string {
   if (!iso) return ''
-  return new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
 }
 
 function estadoCelda(asist: CeldaAsistencia | undefined): string {
@@ -112,13 +113,14 @@ function estadoCelda(asist: CeldaAsistencia | undefined): string {
 
 export default function PaginaMatrizAsistencias() {
   const router = useRouter()
+  const { locale } = useFormato()
   const [periodo, setPeriodo] = useState<Periodo>('semana')
   const [offset, setOffset] = useState(0)
   const [miembros, setMiembros] = useState<Miembro[]>([])
   const [asistencias, setAsistencias] = useState<Record<string, Record<string, CeldaAsistencia>>>({})
   const [cargando, setCargando] = useState(true)
 
-  const { desde, hasta, etiqueta } = useMemo(() => obtenerRango(periodo, offset), [periodo, offset])
+  const { desde, hasta, etiqueta } = useMemo(() => obtenerRango(periodo, offset, locale), [periodo, offset, locale])
 
   const fechas = useMemo(() => generarFechas(desde, hasta), [desde, hasta])
 
@@ -251,7 +253,7 @@ export default function PaginaMatrizAsistencias() {
                       >
                         {asist && config ? (
                           <div
-                            title={`${config.etiqueta}${asist.hora_entrada ? ` | E: ${formatearHora(asist.hora_entrada)}` : ''}${asist.hora_salida ? ` | S: ${formatearHora(asist.hora_salida)}` : ''}`}
+                            title={`${config.etiqueta}${asist.hora_entrada ? ` | E: ${formatearHora(asist.hora_entrada, locale)}` : ''}${asist.hora_salida ? ` | S: ${formatearHora(asist.hora_salida, locale)}` : ''}`}
                             className={`mx-auto size-7 rounded-md flex items-center justify-center cursor-default ${config.bg}`}
                           >
                             <span className={`text-[10px] font-bold ${config.texto}`}>

@@ -25,6 +25,7 @@ import { Insignia, type ColorInsignia } from '@/componentes/ui/Insignia'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { COLOR_TIPO_CONTACTO } from '@/lib/colores_entidad'
 import type { TipoContacto } from '@/tipos'
+import { useFormato } from '@/hooks/useFormato'
 
 // Tipo para las filas de la tabla — incluye todos los campos del API
 interface FilaContacto {
@@ -72,6 +73,7 @@ const POR_PAGINA = 50
 export default function PaginaContactos() {
   const { t } = useTraduccion()
   const { tienePermiso } = useRol()
+  const formato = useFormato()
   const router = useRouter()
   const searchParams = useSearchParams()
   const vinculadoDe = searchParams.get('vinculado_de')
@@ -320,7 +322,7 @@ export default function PaginaContactos() {
   const ETIQUETAS_ORIGEN: Record<string, string> = {
     manual: 'Manual', importacion: 'Importación', ia_captador: 'IA Captador', usuario: 'Usuario',
   }
-  const formatoFecha = (iso: string) => new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
+  const formatoFecha = (iso: string) => formato.fecha(iso, { corta: true })
 
   /** Columnas visibles por defecto — las esenciales para el día a día */
   const COLUMNAS_VISIBLES_DEFAULT = ['codigo', 'nombre', 'correo', 'whatsapp', 'ubicacion', 'etiquetas']
@@ -469,7 +471,7 @@ export default function PaginaContactos() {
       clave: 'limite_credito', etiqueta: t('contactos.limite_credito'), ancho: 130, tipo: 'moneda', grupo: t('comun.comercial'), icono: <Landmark size={I} />,
       alineacion: 'right', resumen: 'suma',
       render: (fila) => fila.limite_credito && Number(fila.limite_credito) > 0
-        ? <span className="text-texto-secundario text-xs font-mono">{Number(fila.limite_credito).toLocaleString('es-AR')}</span>
+        ? <span className="text-texto-secundario text-xs font-mono">{formato.numero(Number(fila.limite_credito))}</span>
         : null,
     },
     {

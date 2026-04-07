@@ -32,11 +32,11 @@ function fmtHora(iso: string | null, formato: string = '24h'): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-function fmtFecha(fecha: string): string {
+function fmtFecha(fecha: string, locale: string): string {
   const d = new Date(fecha + 'T12:00:00')
-  const dia = d.toLocaleDateString('es-AR', { weekday: 'short' }).replace(/^\w/, c => c.toUpperCase())
+  const dia = d.toLocaleDateString(locale, { weekday: 'short' }).replace(/^\w/, c => c.toUpperCase())
   const num = d.getDate()
-  const mes = d.toLocaleDateString('es-AR', { month: 'long' }).replace(/^\w/, c => c.toUpperCase())
+  const mes = d.toLocaleDateString(locale, { month: 'long' }).replace(/^\w/, c => c.toUpperCase())
   return `${dia} ${num} De ${mes}`
 }
 
@@ -86,7 +86,7 @@ const JORNADA_REF = 8 * 60
 // ─── Componente ──────────────────────────────────────────────
 
 export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }) {
-  const { formatoHora } = useFormato()
+  const { formatoHora, locale } = useFormato()
   const r = registro
   const cfg = ESTADO_CFG[r.estado] || ESTADO_CFG.cerrado
   const min = calcMin(r.hora_entrada, r.hora_salida, r.inicio_almuerzo, r.fin_almuerzo)
@@ -123,7 +123,7 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
       </div>
 
       {/* Fecha */}
-      <p className="text-xs text-texto-terciario">{fmtFecha(r.fecha)}</p>
+      <p className="text-xs text-texto-terciario">{fmtFecha(r.fecha, locale)}</p>
 
       {/* Horarios + duración en una línea */}
       {r.estado !== 'ausente' && r.hora_entrada ? (

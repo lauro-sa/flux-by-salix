@@ -13,6 +13,7 @@ import {
   ChevronDown, User, Link2, CheckCircle, FileText,
   MapPin, Mail as MailIcon, Clock, ExternalLink,
 } from 'lucide-react'
+import { useFormato } from '@/hooks/useFormato'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
@@ -681,6 +682,7 @@ function SeccionVinculos({ vinculos, onChange, onNavegar }: { vinculos: Vinculo[
 // ══════════════════════════════════════════════════
 
 function SeccionChecklist({ checklist, onChange }: { checklist: ItemChecklist[]; onChange: (c: ItemChecklist[]) => void }) {
+  const formato = useFormato()
   const [nuevoTexto, setNuevoTexto] = useState('')
 
   const agregar = () => {
@@ -764,7 +766,7 @@ function SeccionChecklist({ checklist, onChange }: { checklist: ItemChecklist[];
                       }`}
                     >
                       <Clock size={9} />
-                      {new Date(item.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+                      {formato.fecha(item.fecha, { corta: true })}
                       <X size={8} className="ml-0.5" />
                     </button>
                   ) : (
@@ -825,6 +827,7 @@ function SeccionSeguimientos({
   actividadId: string
   onActualizar: (nuevos: Seguimiento[]) => void
 }) {
+  const formato = useFormato()
   const [nota, setNota] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [lista, setLista] = useState<Seguimiento[]>(seguimientos)
@@ -881,7 +884,7 @@ function SeccionSeguimientos({
                   <div className="min-w-0 flex-1">
                     <p className="text-texto-primario">{s.nota}</p>
                     <p className="text-texto-terciario mt-0.5">
-                      {s.registrado_por_nombre} · {new Date(s.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      {s.registrado_por_nombre} · {formato.fecha(s.fecha, { corta: true, conHora: true })}
                     </p>
                   </div>
                 </div>

@@ -173,11 +173,11 @@ function obtenerDiasMes(anio: number, mes: number, diaInicioSemana: number = 1) 
 type Periodo = { inicio: Date; fin: Date; etiqueta: string }
 
 /** Calcula la quincena para una fecha dada */
-function obtenerQuincena(fecha: Date): Periodo {
+function obtenerQuincena(fecha: Date, locale: string): Periodo {
   const anio = fecha.getFullYear()
   const mes = fecha.getMonth()
   const dia = fecha.getDate()
-  const nombreMes = fecha.toLocaleDateString('es', { month: 'long' })
+  const nombreMes = fecha.toLocaleDateString(locale, { month: 'long' })
 
   if (dia <= 15) {
     return {
@@ -196,10 +196,10 @@ function obtenerQuincena(fecha: Date): Periodo {
 }
 
 /** Calcula el período según frecuencia y fecha de referencia */
-function obtenerPeriodo(fecha: Date, frecuencia: string): Periodo {
+function obtenerPeriodo(fecha: Date, frecuencia: string, locale: string): Periodo {
   const anio = fecha.getFullYear()
   const mes = fecha.getMonth()
-  const nombreMes = fecha.toLocaleDateString('es', { month: 'long' })
+  const nombreMes = fecha.toLocaleDateString(locale, { month: 'long' })
   const mesCapitalizado = nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1)
 
   switch (frecuencia) {
@@ -217,7 +217,7 @@ function obtenerPeriodo(fecha: Date, frecuencia: string): Periodo {
       }
     }
     case 'quincenal':
-      return obtenerQuincena(fecha)
+      return obtenerQuincena(fecha, locale)
     case 'mensual':
     case 'eventual':
     default: {
@@ -232,7 +232,7 @@ function obtenerPeriodo(fecha: Date, frecuencia: string): Periodo {
 }
 
 /** Navega al período anterior o siguiente */
-function navegarPeriodo(periodoActual: Periodo, direccion: 'anterior' | 'siguiente', frecuencia: string): Periodo {
+function navegarPeriodo(periodoActual: Periodo, direccion: 'anterior' | 'siguiente', frecuencia: string, locale: string): Periodo {
   const ref = new Date(periodoActual.inicio)
 
   if (frecuencia === 'semanal') {
@@ -250,7 +250,7 @@ function navegarPeriodo(periodoActual: Periodo, direccion: 'anterior' | 'siguien
     ref.setMonth(ref.getMonth() + (direccion === 'siguiente' ? 1 : -1))
   }
 
-  return obtenerPeriodo(ref, frecuencia)
+  return obtenerPeriodo(ref, frecuencia, locale)
 }
 
 /* ═══════════════════════════════════════════════════
@@ -273,7 +273,7 @@ function diasHastaCumple(fechaNac: string | null): number {
 }
 
 /** Texto descriptivo del cumpleaños */
-function textoCumple(dias: number, fechaNac: string | null): string {
+function textoCumple(dias: number, fechaNac: string | null, locale: string): string {
   if (dias < 0 || !fechaNac) return ''
   const nac = new Date(fechaNac + 'T12:00:00')
   const hoy = new Date()
@@ -282,7 +282,7 @@ function textoCumple(dias: number, fechaNac: string | null): string {
   if (dias === 1) return `Cumple ${edadCumple} años mañana`
   const fecha = new Date()
   fecha.setDate(fecha.getDate() + dias)
-  return `Cumple ${edadCumple} años el ${fecha.toLocaleDateString('es', { weekday: 'long' })}`
+  return `Cumple ${edadCumple} años el ${fecha.toLocaleDateString(locale, { weekday: 'long' })}`
 }
 
 /** Ítem de menú dropdown — reemplaza botones nativos repetidos */
@@ -910,7 +910,7 @@ export default function PaginaPerfilUsuario() {
 
   /* Período actual según frecuencia configurada */
   const hoy = new Date()
-  const periodoActual = useMemo(() => obtenerPeriodo(hoy, compensacionFrecuencia), [compensacionFrecuencia]) // eslint-disable-line react-hooks/exhaustive-deps
+  const periodoActual = useMemo(() => obtenerPeriodo(hoy, compensacionFrecuencia, fmt.locale), [compensacionFrecuencia, fmt.locale]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /* Período activo (modal o actual) */
   const periodoActivo = periodoModal || periodoActual
@@ -1027,7 +1027,7 @@ export default function PaginaPerfilUsuario() {
   /* Inicializar modal al abrir */
   useEffect(() => {
     if (modalLiquidacion && !periodoModal) {
-      const periodo = obtenerPeriodo(hoy, compensacionFrecuencia)
+      const periodo = obtenerPeriodo(hoy, compensacionFrecuencia, fmt.locale)
       setPeriodoModal(periodo)
       setLiqConcepto(periodo.etiqueta)
       setLiqMonto(String(montoPagar))
@@ -1056,8 +1056,8 @@ export default function PaginaPerfilUsuario() {
     // Generar etiqueta descriptiva: "17 al 20 de Marzo 2026"
     const dInicio = inicio.getDate()
     const dFin = fin.getDate()
-    const mesInicio = inicio.toLocaleDateString('es', { month: 'long' })
-    const mesFin = fin.toLocaleDateString('es', { month: 'long' })
+    const mesInicio = inicio.toLocaleDateString(fmt.locale, { month: 'long' })
+    const mesFin = fin.toLocaleDateString(fmt.locale, { month: 'long' })
     const anioFin = fin.getFullYear()
     const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
@@ -1198,13 +1198,13 @@ export default function PaginaPerfilUsuario() {
                     className="flex items-center gap-1.5 text-insignia-advertencia font-medium"
                   >
                     <Cake size={13} />
-                    {textoCumple(dias, perfil.fecha_nacimiento)}
+                    {textoCumple(dias, perfil.fecha_nacimiento, fmt.locale)}
                   </motion.span>
                 )
                 if (dias > 0 && dias <= 7) return (
                   <span className="flex items-center gap-1.5 text-insignia-advertencia/50">
                     <Cake size={13} />
-                    {textoCumple(dias, perfil.fecha_nacimiento)}
+                    {textoCumple(dias, perfil.fecha_nacimiento, fmt.locale)}
                   </span>
                 )
                 if (edad !== null) return (
@@ -1653,7 +1653,7 @@ export default function PaginaPerfilUsuario() {
                         ) : diasHastaCumple(perfil.fecha_nacimiento) <= 7 ? (
                           <div className="flex items-center gap-1.5">
                             <Cake size={12} className="text-insignia-advertencia/50" />
-                            <span className="text-xs text-insignia-advertencia/50">{textoCumple(diasHastaCumple(perfil.fecha_nacimiento), perfil.fecha_nacimiento)}</span>
+                            <span className="text-xs text-insignia-advertencia/50">{textoCumple(diasHastaCumple(perfil.fecha_nacimiento), perfil.fecha_nacimiento, fmt.locale)}</span>
                           </div>
                         ) : (
                           <p className="text-xs text-texto-terciario">{edad} años</p>
@@ -2453,7 +2453,7 @@ export default function PaginaPerfilUsuario() {
                           soloIcono
                           titulo="Período anterior"
                           icono={<ChevronLeft size={18} />}
-                          onClick={() => periodoModal && setPeriodoModal(navegarPeriodo(periodoModal, 'anterior', compensacionFrecuencia))}
+                          onClick={() => periodoModal && setPeriodoModal(navegarPeriodo(periodoModal, 'anterior', compensacionFrecuencia, fmt.locale))}
                         />
 
                         <div className="text-center">
@@ -2469,7 +2469,7 @@ export default function PaginaPerfilUsuario() {
                           soloIcono
                           titulo="Período siguiente"
                           icono={<ChevronRight size={18} />}
-                          onClick={() => periodoModal && setPeriodoModal(navegarPeriodo(periodoModal, 'siguiente', compensacionFrecuencia))}
+                          onClick={() => periodoModal && setPeriodoModal(navegarPeriodo(periodoModal, 'siguiente', compensacionFrecuencia, fmt.locale))}
                         />
                       </div>
 

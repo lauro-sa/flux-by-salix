@@ -22,6 +22,7 @@ import type { TipoActividad } from './configuracion/secciones/SeccionTipos'
 import type { EstadoActividad } from './configuracion/secciones/SeccionEstados'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useToast } from '@/componentes/feedback/Toast'
+import { useFormato } from '@/hooks/useFormato'
 
 /**
  * Página principal de Actividades.
@@ -40,7 +41,7 @@ const COLORES_PRIORIDAD: Record<string, { color: string; etiqueta: string }> = {
  * 2-6 días → nombre del día (Lunes, Martes...)
  * +7 días → fecha corta (15 abr)
  */
-function fechaCorta(iso: string | null): string {
+function fechaCorta(iso: string | null, locale: string): string {
   if (!iso) return 'Sin fecha'
   const fecha = new Date(iso)
   const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
@@ -52,14 +53,14 @@ function fechaCorta(iso: string | null): string {
 
   // 2-6 días (pasado o futuro) → nombre del día
   if (diff >= 2 && diff <= 6) {
-    return fecha.toLocaleDateString('es-AR', { weekday: 'long' }).replace(/^\w/, c => c.toUpperCase())
+    return fecha.toLocaleDateString(locale, { weekday: 'long' }).replace(/^\w/, c => c.toUpperCase())
   }
   if (diff <= -2 && diff >= -6) {
-    return fecha.toLocaleDateString('es-AR', { weekday: 'long' }).replace(/^\w/, c => c.toUpperCase())
+    return fecha.toLocaleDateString(locale, { weekday: 'long' }).replace(/^\w/, c => c.toUpperCase())
   }
 
   // +7 días → fecha corta
-  return fecha.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })
+  return fecha.toLocaleDateString(locale, { day: '2-digit', month: 'short' })
 }
 
 const POR_PAGINA = 50
@@ -68,6 +69,7 @@ export default function PaginaActividades() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { mostrar } = useToast()
+  const formato = useFormato()
   const [busqueda, setBusqueda] = useState('')
   const [actividades, setActividades] = useState<Actividad[]>([])
   const [tipos, setTipos] = useState<TipoActividad[]>([])
@@ -476,7 +478,7 @@ export default function PaginaActividades() {
           <span className={`text-xs font-medium ${
             vencida ? 'text-insignia-peligro-texto' : esHoy ? 'text-insignia-advertencia-texto' : 'text-texto-terciario'
           }`}>
-            {fechaCorta(fila.fecha_vencimiento)}
+            {fechaCorta(fila.fecha_vencimiento, formato.locale)}
           </span>
         )
       },
@@ -642,7 +644,7 @@ export default function PaginaActividades() {
             <div className="flex items-center gap-2">
               {fila.fecha_vencimiento && (
                 <span className={`text-xs font-medium ${vencida ? 'text-insignia-peligro-texto' : 'text-texto-terciario'}`}>
-                  {fechaCorta(fila.fecha_vencimiento)}
+                  {fechaCorta(fila.fecha_vencimiento, formato.locale)}
                 </span>
               )}
               {fila.prioridad === 'alta' && <Insignia color="peligro">Alta</Insignia>}

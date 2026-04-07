@@ -79,7 +79,7 @@ function diasHastaCumple(fechaNac: string | null): number {
 }
 
 /** Genera texto de cumpleaños: "Cumple hoy", "Cumple mañana", "Cumple el miércoles" */
-function textoCumple(dias: number, fechaNac: string | null): string {
+function textoCumple(dias: number, fechaNac: string | null, locale: string): string {
   if (dias < 0 || !fechaNac) return ''
   const nac = new Date(fechaNac + 'T12:00:00')
   const edad = new Date().getFullYear() - nac.getFullYear() + (dias === 0 ? 0 : 0)
@@ -92,7 +92,7 @@ function textoCumple(dias: number, fechaNac: string | null): string {
 
   const fecha = new Date()
   fecha.setDate(fecha.getDate() + dias)
-  const diaSemana = fecha.toLocaleDateString('es', { weekday: 'long' })
+  const diaSemana = fecha.toLocaleDateString(locale, { weekday: 'long' })
   return `Cumple ${edadCumple} el ${diaSemana}`
 }
 
@@ -121,8 +121,8 @@ function crearRolesOpciones(t: (clave: string) => string) {
   ]
 }
 
-function formatearMoneda(monto: number): string {
-  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(monto)
+function formatearMoneda(monto: number, locale: string, monedaCodigo: string): string {
+  return new Intl.NumberFormat(locale, { style: 'currency', currency: monedaCodigo, minimumFractionDigits: 0 }).format(monto)
 }
 
 const ETIQUETA_FRECUENCIA: Record<string, string> = {
@@ -157,11 +157,11 @@ function crearEtiquetaFichaje(t: (clave: string) => string): Record<string, stri
   }
 }
 
-function formatearIngreso(fecha: string | null): string | null {
+function formatearIngreso(fecha: string | null, locale: string): string | null {
   if (!fecha) return null
   const d = new Date(fecha)
   if (isNaN(d.getTime())) return null
-  return `Desde ${d.toLocaleDateString('es-AR', { month: 'short', year: 'numeric' })}`
+  return `Desde ${d.toLocaleDateString(locale, { month: 'short', year: 'numeric' })}`
 }
 
 /* ── Columnas de la tabla ──
@@ -173,7 +173,7 @@ function formatearIngreso(fecha: string | null): string | null {
 const COLUMNAS_VISIBLES_DEFAULT = ['nombre', 'rol', 'activo', 'sector', 'puesto', 'correo']
 
 /** Genera columnas de la tabla con traducciones */
-function crearColumnas(t: (clave: string) => string): ColumnaDinamica<MiembroTabla>[] {
+function crearColumnas(t: (clave: string) => string, locale: string, monedaCodigo: string): ColumnaDinamica<MiembroTabla>[] {
   const ETIQUETA_ROL = crearEtiquetaRol(t)
   const ETIQUETA_HORARIO = crearEtiquetaHorario(t)
   const ETIQUETA_FICHAJE = crearEtiquetaFichaje(t)
@@ -209,12 +209,12 @@ function crearColumnas(t: (clave: string) => string): ColumnaDinamica<MiembroTab
                 className="text-xs text-insignia-advertencia font-medium truncate flex items-center gap-1"
               >
                 <Cake size={10} />
-                {textoCumple(dias, fila.fecha_nacimiento)}
+                {textoCumple(dias, fila.fecha_nacimiento, locale)}
               </motion.p>
             ) : esProximo ? (
               <p className="text-xs text-insignia-advertencia/50 truncate flex items-center gap-1">
                 <Cake size={10} />
-                {textoCumple(dias, fila.fecha_nacimiento)}
+                {textoCumple(dias, fila.fecha_nacimiento, locale)}
               </p>
             ) : (
               fila.correo && <p className="text-xs text-texto-terciario truncate">{fila.correo}</p>
@@ -758,12 +758,12 @@ export default function PaginaUsuarios() {
                         className="text-xs text-insignia-advertencia font-medium truncate flex items-center gap-1 mt-0.5"
                       >
                         <Cake size={10} />
-                        {textoCumple(dias, fila.fecha_nacimiento)}
+                        {textoCumple(dias, fila.fecha_nacimiento, locale)}
                       </motion.p>
                     ) : (
                       <p className="text-xs text-insignia-advertencia/50 truncate flex items-center gap-1 mt-0.5">
                         <Cake size={10} />
-                        {textoCumple(dias, fila.fecha_nacimiento)}
+                        {textoCumple(dias, fila.fecha_nacimiento, locale)}
                       </p>
                     )
                   )}

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useNavegacion } from '@/hooks/useNavegacion'
 import { useRol } from '@/hooks/useRol'
+import { useFormato } from '@/hooks/useFormato'
 import { useTraduccion } from '@/lib/i18n'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -64,14 +65,10 @@ interface FilaPresupuesto {
 
 const POR_PAGINA = 50
 
-// Símbolos de moneda
-const SIMBOLO_MONEDA: Record<string, string> = {
-  ARS: '$', USD: 'US$', EUR: '€',
-}
-
 export default function PaginaPresupuestos() {
   const { t } = useTraduccion()
   const { tienePermiso } = useRol()
+  const formato = useFormato()
   const router = useRouter()
   const searchParams = useSearchParams()
   const contactoIdFiltro = searchParams.get('contacto_id')
@@ -272,19 +269,25 @@ export default function PaginaPresupuestos() {
     }
     if (limpio.length >= 7 && limpio.length <= 8) {
       // DNI: XX.XXX.XXX
-      return { tipo: 'DNI', formateado: Number(limpio).toLocaleString('es-AR') }
+      return { tipo: 'DNI', formateado: formato.numero(Number(limpio)) }
     }
     return { tipo: '', formateado: num }
   }
   const formatoFecha = (iso: string) => {
     const fecha = new Date(iso)
     const esEsteAno = fecha.getFullYear() === new Date().getFullYear()
-    return fecha.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', ...(esEsteAno ? {} : { year: 'numeric' }) })
+    // Fecha corta para el año actual, con año si es distinto
+    if (esEsteAno) return formato.fecha(fecha, { corta: true })
+    return formato.fecha(fecha)
   }
-  const formatoMoneda = (valor: string, moneda: string) => {
+  const formatoMonedaDoc = (valor: string, monedaDoc: string) => {
     const num = parseFloat(valor || '0')
-    const simbolo = SIMBOLO_MONEDA[moneda] || '$'
-    return `${simbolo} ${num.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    return new Intl.NumberFormat(formato.locale, {
+      style: 'currency',
+      currency: monedaDoc || formato.codigoMoneda,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(num)
   }
 
   /* ── Columnas de la tabla ──
@@ -389,7 +392,7 @@ export default function PaginaPresupuestos() {
       obtenerValor: (fila) => parseFloat(fila.total_final || '0'),
       render: (fila) => (
         <span className="font-mono text-sm font-medium text-texto-primario">
-          {formatoMoneda(fila.total_final, fila.moneda)}
+          {formatoMonedaDoc(fila.total_final, fila.moneda)}
         </span>
       ),
     },
@@ -408,7 +411,7 @@ export default function PaginaPresupuestos() {
       obtenerValor: (fila) => parseFloat(fila.subtotal_neto || '0'),
       render: (fila) => (
         <span className="font-mono text-xs text-texto-secundario">
-          {formatoMoneda(fila.subtotal_neto, fila.moneda)}
+          {formatoMonedaDoc(fila.subtotal_neto, fila.moneda)}
         </span>
       ),
     },
@@ -418,7 +421,7 @@ export default function PaginaPresupuestos() {
       obtenerValor: (fila) => parseFloat(fila.total_impuestos || '0'),
       render: (fila) => (
         <span className="font-mono text-xs text-texto-secundario">
-          {formatoMoneda(fila.total_impuestos, fila.moneda)}
+          {formatoMonedaDoc(fila.total_impuestos, fila.moneda)}
         </span>
       ),
     },
@@ -543,7 +546,7 @@ export default function PaginaPresupuestos() {
               {/* ── Detalle ── */}
               <div className="border-t border-borde-sutil pt-2.5 flex items-center justify-between gap-2">
                 <span className="font-mono text-sm font-semibold text-texto-primario">
-                  {formatoMoneda(fila.total_final, fila.moneda)}
+                  {formatoMonedaDoc(fila.total_final, fila.moneda)}
                 </span>
                 <span className={`text-xs ${vencido ? 'text-estado-error font-medium' : 'text-texto-terciario'}`}>
                   {formatoFecha(fila.fecha_emision)}

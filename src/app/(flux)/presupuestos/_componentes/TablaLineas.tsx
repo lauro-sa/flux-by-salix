@@ -14,6 +14,7 @@ import { Select } from '@/componentes/ui/Select'
 import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { TextArea } from '@/componentes/ui/TextArea'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { useFormato } from '@/hooks/useFormato'
 
 /**
  * TablaLineas — Editor de líneas del presupuesto.
@@ -106,11 +107,17 @@ function TablaLineas({
     return () => document.removeEventListener('mousedown', cerrar)
   }, [])
 
-  // Formatear número como moneda
+  const formatoHook = useFormato()
+  // Formatear número como moneda del documento
   const fmt = useCallback((valor: string) => {
     const num = parseFloat(valor || '0')
-    return `${simboloMoneda} ${num.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  }, [simboloMoneda])
+    return new Intl.NumberFormat(formatoHook.locale, {
+      style: 'currency',
+      currency: moneda || formatoHook.codigoMoneda,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(num)
+  }, [moneda, formatoHook.locale, formatoHook.codigoMoneda])
 
   // IDs para reordenar
   const idsLineas = lineas.map(l => l.id)
@@ -649,10 +656,11 @@ function CampoNumero({
 
   useEffect(() => { setLocal(valor) }, [valor])
 
+  const formatoNum = useFormato()
   const formatear = (v: string) => {
     const num = parseFloat(v)
     if (isNaN(num) || num === 0) return v
-    return num.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    return formatoNum.numero(num, 2)
   }
 
   if (soloLectura) {

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowRight, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { Tarjeta } from '@/componentes/ui/Tarjeta'
 import { Boton } from '@/componentes/ui/Boton'
+import { useFormato } from '@/hooks/useFormato'
 
 /**
  * WidgetCrecimientoContactos — Mini gráfico de barras con contactos nuevos por semana.
@@ -17,6 +18,7 @@ interface Props {
 
 export function WidgetCrecimientoContactos({ crecimientoSemanal }: Props) {
   const router = useRouter()
+  const formato = useFormato()
   const max = Math.max(...crecimientoSemanal.map(s => s.cantidad), 1)
   const totalPeriodo = crecimientoSemanal.reduce((s, w) => s + w.cantidad, 0)
 
@@ -91,10 +93,10 @@ export function WidgetCrecimientoContactos({ crecimientoSemanal }: Props) {
         {/* Eje X simplificado */}
         <div className="flex justify-between text-xxs text-texto-terciario">
           <span>
-            {new Date(crecimientoSemanal[0]?.semana).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+            {formato.fecha(crecimientoSemanal[0]?.semana, { corta: true })}
           </span>
           <span>
-            {new Date(crecimientoSemanal[crecimientoSemanal.length - 1]?.semana).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
+            {formato.fecha(crecimientoSemanal[crecimientoSemanal.length - 1]?.semana, { corta: true })}
           </span>
         </div>
       </div>

@@ -13,8 +13,14 @@ interface FormatoConfig {
   /** Formatea un número como moneda según la config de la empresa */
   moneda: (monto: number) => string
 
+  /** Formatea un número con separadores de miles según la config de la empresa */
+  numero: (n: number, decimales?: number) => string
+
   /** Formatea una fecha según el formato de la empresa (DD/MM/YYYY, MM/DD/YYYY, etc.) */
   fecha: (fecha: Date | string, opciones?: { conHora?: boolean; corta?: boolean; soloMes?: boolean }) => string
+
+  /** Formatea solo la hora según la config de la empresa (24h o 12h) */
+  hora: (fecha: Date | string) => string
 
   /** Formatea fecha relativa: "hace 2 días", "hoy", "ayer" */
   fechaRelativa: (fecha: Date | string) => string
@@ -34,6 +40,9 @@ interface FormatoConfig {
 
   /** Formato de hora: '12h' o '24h' */
   formatoHora: string
+
+  /** Locale derivado de la zona horaria (ej: 'es-AR', 'es-MX', 'es') */
+  locale: string
 }
 
 const DIAS_COMPLETOS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
@@ -63,6 +72,14 @@ function useFormato(): FormatoConfig {
         minimumFractionDigits: 0,
         maximumFractionDigits: monto % 1 === 0 ? 0 : 2,
       }).format(monto)
+    }
+
+    /** Formatear número con separadores de miles */
+    const numero = (n: number, decimales?: number): string => {
+      return new Intl.NumberFormat(locale, {
+        minimumFractionDigits: decimales ?? 0,
+        maximumFractionDigits: decimales ?? (n % 1 === 0 ? 0 : 2),
+      }).format(n)
     }
 
     /** Formatear fecha */
@@ -106,6 +123,20 @@ function useFormato(): FormatoConfig {
       return resultado
     }
 
+    /** Formatear solo hora según config empresa (24h o 12h) */
+    const hora = (input: Date | string): string => {
+      const d = typeof input === 'string' ? new Date(input) : input
+      if (isNaN(d.getTime())) return '—'
+      const horas = d.getHours()
+      const minutos = String(d.getMinutes()).padStart(2, '0')
+      if (fmtHora === '12h') {
+        const h12 = horas % 12 || 12
+        const ampm = horas < 12 ? 'AM' : 'PM'
+        return `${h12}:${minutos} ${ampm}`
+      }
+      return `${String(horas).padStart(2, '0')}:${minutos}`
+    }
+
     /** Fecha legible larga (ej: "15 de marzo de 2026") */
     const fechaLegible = (input: Date | string): string => {
       const d = typeof input === 'string' ? new Date(input + (input.length === 10 ? 'T12:00:00' : '')) : input
@@ -136,7 +167,9 @@ function useFormato(): FormatoConfig {
 
     return {
       moneda,
+      numero,
       fecha,
+      hora,
       fechaRelativa,
       diaInicioSemana: diaInicio,
       diasSemana: reordenar(DIAS_COMPLETOS),
@@ -144,6 +177,7 @@ function useFormato(): FormatoConfig {
       zonaHoraria: zona,
       codigoMoneda: monedaCodigo,
       formatoHora: fmtHora,
+      locale,
     }
   }, [empresa])
 }
