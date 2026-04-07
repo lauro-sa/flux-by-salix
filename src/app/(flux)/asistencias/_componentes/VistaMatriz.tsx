@@ -514,7 +514,7 @@ export function VistaMatriz() {
                         <div className={`${esUltra ? 'size-6 text-[9px]' : esIntermedio ? 'size-7 text-[10px]' : 'size-8 text-xs'} rounded-full flex items-center justify-center font-bold shrink-0 ${colorAvatar}`}>
                           {iniciales(miembro.nombre)}
                         </div>
-                        <span className={`font-medium text-texto-primario ${esUltra ? 'text-[11px] leading-tight max-w-[90px]' : esIntermedio ? 'text-xs leading-tight max-w-[120px]' : 'text-sm whitespace-nowrap'}`}>
+                        <span className={`font-medium text-texto-primario ${esUltra ? 'text-[11px] leading-tight' : esIntermedio ? 'text-xs leading-tight' : 'text-sm whitespace-nowrap'}`}>
                           {miembro.nombre}
                         </span>
                       </div>
