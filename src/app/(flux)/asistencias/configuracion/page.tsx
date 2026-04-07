@@ -14,6 +14,7 @@ import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Boton } from '@/componentes/ui/Boton'
 import { Cargador } from '@/componentes/ui/Cargador'
 import { useFormato } from '@/hooks/useFormato'
+import { SelectorHora } from '@/componentes/ui/SelectorHora'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -447,18 +448,16 @@ function EditorTurno({ turno, onActualizar, onEliminar, puedeEliminar }: {
             </div>
             {dias[clave].activo && (
               <div className="flex items-center gap-2 text-sm">
-                <input
-                  type="time"
-                  value={dias[clave].desde}
-                  onChange={(e) => actualizarDia(clave, 'desde', e.target.value)}
-                  className="bg-superficie-tarjeta border border-borde-sutil rounded-lg px-2 py-1 text-sm text-texto-primario"
+                <SelectorHora
+                  valor={dias[clave].desde || null}
+                  onChange={(v) => actualizarDia(clave, 'desde', v || '09:00')}
+                  pasoMinutos={15}
                 />
                 <span className="text-texto-terciario">a</span>
-                <input
-                  type="time"
-                  value={dias[clave].hasta}
-                  onChange={(e) => actualizarDia(clave, 'hasta', e.target.value)}
-                  className="bg-superficie-tarjeta border border-borde-sutil rounded-lg px-2 py-1 text-sm text-texto-primario"
+                <SelectorHora
+                  valor={dias[clave].hasta || null}
+                  onChange={(v) => actualizarDia(clave, 'hasta', v || '18:00')}
+                  pasoMinutos={15}
                 />
               </div>
             )}

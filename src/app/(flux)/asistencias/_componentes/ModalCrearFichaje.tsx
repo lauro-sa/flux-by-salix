@@ -7,6 +7,8 @@ import { TextArea } from '@/componentes/ui/TextArea'
 import { Boton } from '@/componentes/ui/Boton'
 import { AlertTriangle, Plus } from 'lucide-react'
 import { useFormato } from '@/hooks/useFormato'
+import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
+import { SelectorHora } from '@/componentes/ui/SelectorHora'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -158,37 +160,27 @@ export function ModalCrearFichaje({ abierto, onCerrar, onCreado, miembroId, miem
             </p>
           </div>
         ) : (
-          <div>
-            <label className="block text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1">Fecha</label>
-            <input
-              type="date"
-              value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
-              className="w-full bg-superficie-elevada/40 border border-borde-sutil rounded-lg px-3 py-2 text-sm text-texto-primario focus:border-texto-marca focus:outline-none transition-colors"
-            />
-          </div>
+          <SelectorFecha
+            etiqueta="Fecha"
+            valor={fecha || null}
+            onChange={(v) => setFecha(v || '')}
+          />
         )}
 
         {/* Horarios */}
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1">Entrada</label>
-            <input
-              type="time"
-              value={entrada}
-              onChange={(e) => setEntrada(e.target.value)}
-              className="w-full bg-superficie-elevada/40 border border-borde-sutil rounded-lg px-3 py-2 text-sm text-texto-primario focus:border-texto-marca focus:outline-none transition-colors"
-            />
-          </div>
-          <div>
-            <label className="block text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1">Salida</label>
-            <input
-              type="time"
-              value={salida}
-              onChange={(e) => setSalida(e.target.value)}
-              className="w-full bg-superficie-elevada/40 border border-borde-sutil rounded-lg px-3 py-2 text-sm text-texto-primario focus:border-texto-marca focus:outline-none transition-colors"
-            />
-          </div>
+          <SelectorHora
+            etiqueta="Entrada"
+            valor={entrada || null}
+            onChange={(v) => setEntrada(v || '')}
+            pasoMinutos={5}
+          />
+          <SelectorHora
+            etiqueta="Salida"
+            valor={salida || null}
+            onChange={(v) => setSalida(v || '')}
+            pasoMinutos={5}
+          />
         </div>
 
         {/* Estado y tipo */}

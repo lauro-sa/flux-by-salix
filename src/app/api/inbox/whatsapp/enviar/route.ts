@@ -162,13 +162,40 @@ export async function POST(request: NextRequest) {
 
     const waMessageId = resultado.messages?.[0]?.id
 
-    // Texto para preview (no guardar placeholders como [audio])
-    const textoPreview = tipoFlux === 'texto'
-      ? textoFinal
-      : media_caption || ''
-    const textoConversacion = tipoFlux === 'texto'
-      ? textoFinal
-      : media_caption || `📎 ${tipoFlux.charAt(0).toUpperCase() + tipoFlux.slice(1)}`
+    // Texto para preview — para plantillas, obtener el cuerpo de la plantilla
+    let textoPreview = ''
+    let textoConversacion = ''
+
+    if (tipo === 'plantilla' && plantilla_nombre_api) {
+      // Buscar la plantilla para obtener su texto como preview
+      const { data: plantillaDb } = await admin
+        .from('plantillas_whatsapp')
+        .select('componentes, nombre')
+        .eq('nombre_api', plantilla_nombre_api)
+        .eq('empresa_id', empresaId)
+        .limit(1)
+        .maybeSingle()
+
+      let cuerpoPlantilla = plantillaDb?.componentes?.cuerpo?.texto || plantilla_nombre_api
+      // Reemplazar variables con los parámetros enviados
+      const parametros = plantilla_componentes
+        ?.find((c: { type: string }) => c.type === 'body')
+        ?.parameters as { text: string }[] | undefined
+      if (parametros) {
+        cuerpoPlantilla = cuerpoPlantilla.replace(/\{\{(\d+)\}\}/g, (_: string, num: string) => {
+          const idx = parseInt(num) - 1
+          return parametros[idx]?.text || `{{${num}}}`
+        })
+      }
+      textoPreview = cuerpoPlantilla
+      textoConversacion = `📋 ${plantillaDb?.nombre || plantilla_nombre_api}`
+    } else if (tipoFlux === 'texto') {
+      textoPreview = textoFinal
+      textoConversacion = textoFinal
+    } else {
+      textoPreview = media_caption || ''
+      textoConversacion = media_caption || `📎 ${tipoFlux.charAt(0).toUpperCase() + tipoFlux.slice(1)}`
+    }
 
     // Guardar mensaje en BD
     const { data: mensaje } = await admin

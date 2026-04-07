@@ -10,6 +10,8 @@ import {
   Calendar, MapPin, Pencil, Trash2, ChevronDown,
 } from 'lucide-react'
 import { useFormato } from '@/hooks/useFormato'
+import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
+import { SelectorHora } from '@/componentes/ui/SelectorHora'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -377,13 +379,13 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
 
             {/* Timestamps */}
             <div className="grid grid-cols-2 gap-3">
-              <CampoFecha etiqueta="Entrada" valor={entrada} onChange={setEntrada} />
-              <CampoFecha etiqueta="Salida" valor={salida} onChange={setSalida} />
+              <CampoFechaHora etiqueta="Entrada" valor={entrada} onChange={setEntrada} />
+              <CampoFechaHora etiqueta="Salida" valor={salida} onChange={setSalida} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <CampoFecha etiqueta="Inicio almuerzo" valor={inicioAlm} onChange={setInicioAlm} />
-              <CampoFecha etiqueta="Fin almuerzo" valor={finAlm} onChange={setFinAlm} />
+              <CampoFechaHora etiqueta="Inicio almuerzo" valor={inicioAlm} onChange={setInicioAlm} />
+              <CampoFechaHora etiqueta="Fin almuerzo" valor={finAlm} onChange={setFinAlm} />
             </div>
 
             <details className="group">
@@ -392,8 +394,8 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
                 Trámite / particular
               </summary>
               <div className="grid grid-cols-2 gap-3 mt-2">
-                <CampoFecha etiqueta="Salida trámite" valor={salidaPart} onChange={setSalidaPart} />
-                <CampoFecha etiqueta="Vuelta trámite" valor={vueltaPart} onChange={setVueltaPart} />
+                <CampoFechaHora etiqueta="Salida trámite" valor={salidaPart} onChange={setSalidaPart} />
+                <CampoFechaHora etiqueta="Vuelta trámite" valor={vueltaPart} onChange={setVueltaPart} />
               </div>
             </details>
 
@@ -411,18 +413,34 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
   )
 }
 
-// ─── Campo fecha reutilizable ────────────────────────────────
+// ─── Campo fecha+hora reutilizable ───────────────────────────
 
-function CampoFecha({ etiqueta, valor, onChange }: { etiqueta: string; valor: string; onChange: (v: string) => void }) {
+function CampoFechaHora({ etiqueta, valor, onChange }: { etiqueta: string; valor: string; onChange: (v: string) => void }) {
+  // valor viene como "YYYY-MM-DDTHH:mm" (datetime-local format)
+  const partes = valor ? valor.split('T') : ['', '']
+  const fechaParte = partes[0] || ''
+  const horaParte = partes[1] || ''
+
+  const actualizar = (fecha: string, hora: string) => {
+    if (fecha && hora) onChange(`${fecha}T${hora}`)
+    else if (fecha) onChange(`${fecha}T00:00`)
+    else onChange('')
+  }
+
   return (
-    <div>
-      <label className="block text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1">{etiqueta}</label>
-      <input
-        type="datetime-local"
-        value={valor}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-superficie-elevada/40 border border-borde-sutil rounded-lg px-3 py-2 text-sm text-texto-primario focus:border-texto-marca focus:outline-none transition-colors"
-      />
+    <div className="space-y-2">
+      <label className="block text-[11px] font-medium text-texto-terciario uppercase tracking-wider">{etiqueta}</label>
+      <div className="grid grid-cols-2 gap-2">
+        <SelectorFecha
+          valor={fechaParte || null}
+          onChange={(v) => actualizar(v || '', horaParte)}
+        />
+        <SelectorHora
+          valor={horaParte || null}
+          onChange={(v) => actualizar(fechaParte, v || '')}
+          pasoMinutos={5}
+        />
+      </div>
     </div>
   )
 }
