@@ -1836,6 +1836,18 @@ export default function EditorPresupuesto({
 
                   {/* ── Fechas (grid único de 3 columnas compartido) ── */}
                   <div className="px-3 py-1 grid grid-cols-[1fr_2.5rem_auto] items-center gap-x-3">
+                    {/* Fila Emisión original (arriba, solo si fue re-emitido) */}
+                    {presupuesto?.fecha_emision_original && (
+                      <>
+                        <span className={`${etiqueta} py-1 text-texto-terciario !text-[10px] !font-normal`}>Emisión original</span>
+                        <div className="py-1" />
+                        <div className="py-1 w-40">
+                          <span className="text-xs text-texto-terciario">
+                            {formatearFecha(presupuesto.fecha_emision_original)}
+                          </span>
+                        </div>
+                      </>
+                    )}
                     {/* Fila Emisión */}
                     <span className={`${etiqueta} py-2.5`}>Emisión</span>
                     <div className="py-2.5" />
@@ -1856,18 +1868,6 @@ export default function EditorPresupuesto({
                         </span>
                       )}
                     </div>
-                    {/* Fila Emisión original (solo si fue re-emitido) */}
-                    {presupuesto?.fecha_emision_original && (
-                      <>
-                        <span className={`${etiqueta} py-1 text-texto-terciario text-[10px]`}>Emisión original</span>
-                        <div className="py-1" />
-                        <div className="py-1">
-                          <span className="text-xs text-texto-terciario">
-                            {formatearFecha(presupuesto.fecha_emision_original)}
-                          </span>
-                        </div>
-                      </>
-                    )}
                     {/* Fila Validez */}
                     <span className={`${etiqueta} py-2.5`}>Validez</span>
                     <div className="py-2.5">
