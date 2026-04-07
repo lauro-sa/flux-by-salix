@@ -174,14 +174,14 @@ export async function GET() {
       // ─── Asistencia de hoy ───
       admin
         .from('asistencias')
-        .select('miembro_id, estado, hora_entrada, hora_salida')
+        .select('miembro_id, estado, tipo, hora_entrada, hora_salida')
         .eq('empresa_id', empresaId)
         .eq('fecha', hoyStr),
 
       // ─── Asistencia de la semana ───
       admin
         .from('asistencias')
-        .select('miembro_id, estado, fecha')
+        .select('miembro_id, estado, tipo, fecha')
         .eq('empresa_id', empresaId)
         .gte('fecha', inicioSemana.toISOString().split('T')[0])
         .lte('fecha', hoyStr),
@@ -301,9 +301,9 @@ export async function GET() {
     const asistenciaHoy = { presentes: 0, ausentes: 0, tardanzas: 0, total: 0 }
     for (const a of resAsistenciaHoy.data || []) {
       asistenciaHoy.total++
-      if (a.estado === 'presente') asistenciaHoy.presentes++
-      else if (a.estado === 'ausente') asistenciaHoy.ausentes++
-      else if (a.estado === 'tardanza') asistenciaHoy.tardanzas++
+      if (a.estado === 'ausente') asistenciaHoy.ausentes++
+      else if (a.tipo === 'tardanza') asistenciaHoy.tardanzas++
+      else asistenciaHoy.presentes++ // activo, cerrado, almuerzo, particular, auto_cerrado
     }
 
     // ─── Asistencia semana por persona ───
@@ -311,9 +311,9 @@ export async function GET() {
     for (const a of resAsistenciaSemana.data || []) {
       const id = a.miembro_id
       if (!mapaAsistenciaSemana[id]) mapaAsistenciaSemana[id] = { presentes: 0, ausentes: 0, tardanzas: 0 }
-      if (a.estado === 'presente') mapaAsistenciaSemana[id].presentes++
-      else if (a.estado === 'ausente') mapaAsistenciaSemana[id].ausentes++
-      else if (a.estado === 'tardanza') mapaAsistenciaSemana[id].tardanzas++
+      if (a.estado === 'ausente') mapaAsistenciaSemana[id].ausentes++
+      else if (a.tipo === 'tardanza') mapaAsistenciaSemana[id].tardanzas++
+      else mapaAsistenciaSemana[id].presentes++
     }
 
     // ─── Ingresos por mes — separando orden_venta (100% cerrado) de confirmado_cliente ───

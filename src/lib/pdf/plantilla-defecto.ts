@@ -176,7 +176,6 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
     display: flex;
     justify-content: flex-end;
     margin-bottom: 18px;
-    page-break-inside: avoid;
   }
   .tabla-totales {
     width: 260px;
@@ -200,7 +199,7 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
   }
 
   /* ── Cuotas de pago ── */
-  .seccion-cuotas { margin-bottom: 16px; page-break-inside: avoid; }
+  .seccion-cuotas { margin-bottom: 16px; }
   .seccion-cuotas h3 {
     font-size: 9pt;
     font-weight: 600;
@@ -375,10 +374,6 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
     <dl style="text-align: right;">
       <dt>Fecha de emisión</dt>
       <dd>{fecha_emision}</dd>
-      {{#if fecha_emision_original}}
-        <dt style="font-size: 0.7em; color: #888;">Emisión original</dt>
-        <dd style="font-size: 0.85em; color: #888;">{fecha_emision_original}</dd>
-      {{/if}}
       {{#if fecha_vencimiento}}
         <dt>Vencimiento</dt>
         <dd>{fecha_vencimiento}</dd>

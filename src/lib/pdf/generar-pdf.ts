@@ -9,7 +9,6 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   renderizarHtml,
   generarNombreArchivo,
-  generarCabeceraYPiePdf,
   type DatosPresupuestoPdf,
   type DatosEmpresa,
   type ConfigPdf,
@@ -28,12 +27,7 @@ interface ResultadoPdf {
 
 // ─── Conversión HTML a PDF con Puppeteer ───
 
-interface OpcionesPdf {
-  headerTemplate?: string
-  footerTemplate?: string
-}
-
-async function htmlAPdf(html: string, opciones?: OpcionesPdf): Promise<{ pdf: Buffer; miniatura: Buffer | null }> {
+async function htmlAPdf(html: string): Promise<{ pdf: Buffer; miniatura: Buffer | null }> {
   let browser
   try {
     const chromium = (await import('@sparticuz/chromium-min')).default
@@ -76,22 +70,15 @@ async function htmlAPdf(html: string, opciones?: OpcionesPdf): Promise<{ pdf: Bu
 
   try {
     const pagina = await browser.newPage()
-    // Ocultar el pie del body (lo maneja Puppeteer como footer nativo en TODAS las páginas).
-    // NO poner @page{margin:0} — dejar que Puppeteer controle los márgenes de cada página.
-    // body padding 0 porque los márgenes de Puppeteer manejan el espaciado por página.
-    const cssOverride = '<style>body{padding:0!important;margin:0!important}.pie-wrapper{display:none!important}</style>'
-    const htmlLimpio = html.replace('</head>', `${cssOverride}\n</head>`)
+    // Normalizar márgenes: anular los de la plantilla guardada y aplicar valores correctos
+    const cssMargen = '<style>@page{margin:0!important}body{padding:10mm 13mm 25mm 13mm!important;margin:0!important}</style>'
+    const htmlLimpio = html.replace('</head>', `${cssMargen}\n</head>`)
     await pagina.setContent(htmlLimpio, { waitUntil: 'networkidle0' })
-
-    const usarHeaderFooter = !!(opciones?.headerTemplate || opciones?.footerTemplate)
     const pdfBuffer = await pagina.pdf({
       format: 'A4',
       printBackground: true,
-      // Márgenes de Puppeteer: aplican a CADA página. El header/footer se renderizan dentro.
-      margin: { top: '16mm', bottom: '24mm', left: '13mm', right: '13mm' },
-      displayHeaderFooter: usarHeaderFooter,
-      headerTemplate: opciones?.headerTemplate || '<span></span>',
-      footerTemplate: opciones?.footerTemplate || '<span></span>',
+      margin: { top: '0', bottom: '0', left: '0', right: '0' },
+      displayHeaderFooter: false,
       preferCSSPageSize: false,
     })
 
@@ -201,7 +188,7 @@ export async function generarPdfPresupuesto(
 
   const datosPresupuesto: DatosPresupuestoPdf = {
     numero: presupuesto.numero, estado: presupuesto.estado,
-    fecha_emision: presupuesto.fecha_emision, fecha_emision_original: presupuesto.fecha_emision_original || null, fecha_vencimiento: presupuesto.fecha_vencimiento,
+    fecha_emision: presupuesto.fecha_emision, fecha_vencimiento: presupuesto.fecha_vencimiento,
     moneda: presupuesto.moneda, moneda_simbolo: obtenerSimbolo(presupuesto.moneda),
     referencia: presupuesto.referencia, condicion_pago_label: presupuesto.condicion_pago_label,
     nota_plan_pago: presupuesto.nota_plan_pago,
@@ -234,27 +221,10 @@ export async function generarPdfPresupuesto(
     datos_empresa_pdf: config?.datos_empresa_pdf || null, monedas: config?.monedas || [],
   }
 
-  // Derivar locale de la zona horaria de la empresa
-  const zona = (empresa.zona_horaria as string) || ''
-  const locale = zona.startsWith('America/Argentina') ? 'es-AR'
-    : zona.startsWith('America') ? 'es-MX'
-    : 'es'
-
-  const html = renderizarHtml(datosPresupuesto, datosEmpresa, configPdf, locale)
-
-  // 5b. Generar cabecera y pie para Puppeteer (displayHeaderFooter)
-  // Se renderizan en las áreas de margen de cada página — sin position:fixed, sin JavaScript.
-  const { headerTemplate, footerTemplate } = generarCabeceraYPiePdf({
-    logoUrl,
-    empresaNombre: empresa.nombre,
-    tipoDocumento: 'Presupuesto',
-    numero: presupuesto.numero,
-    colorMarca: empresa.color_marca,
-    pie: config?.pie_pagina || null,
-  })
+  const html = renderizarHtml(datosPresupuesto, datosEmpresa, configPdf)
 
   // 6. Convertir y subir
-  const { pdf: pdfBuffer, miniatura: miniaturaBuffer } = await htmlAPdf(html, { headerTemplate, footerTemplate })
+  const { pdf: pdfBuffer, miniatura: miniaturaBuffer } = await htmlAPdf(html)
   const nombreArchivo = generarNombreArchivo(config?.patron_nombre_pdf, {
     numero: presupuesto.numero, contacto_nombre: presupuesto.contacto_nombre,
     contacto_apellido: presupuesto.contacto_apellido, fecha_emision: presupuesto.fecha_emision,
