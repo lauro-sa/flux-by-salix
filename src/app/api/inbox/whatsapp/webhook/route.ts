@@ -456,7 +456,7 @@ async function procesarMensajeEntrante(
       cuerpo: (canalNombre ? `WhatsApp · ${canalNombre} · ` : 'WhatsApp · ') + preview.slice(0, 120),
       icono: 'MessageSquare',
       color: 'var(--canal-whatsapp)',
-      url: `/inbox?conv=${conversacion.id}`,
+      url: `/inbox?conv=${conversacion.id}&tab=whatsapp`,
       referenciaTipo: 'conversacion',
       referenciaId: conversacion.id,
     }

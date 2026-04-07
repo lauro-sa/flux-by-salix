@@ -19,7 +19,7 @@ export interface Recordatorio {
 /* ─── Helpers de fecha ─── */
 
 /** Formatea una fecha ISO a texto legible: "Hoy", "Mañana" o "12 mar" */
-export function formatearFecha(fecha: string): string {
+export function formatearFecha(fecha: string, locale: string = 'es-AR'): string {
   const d = new Date(fecha + 'T00:00:00')
   const hoy = new Date()
   hoy.setHours(0, 0, 0, 0)
@@ -29,7 +29,7 @@ export function formatearFecha(fecha: string): string {
   if (d.getTime() === hoy.getTime()) return 'Hoy'
   if (d.getTime() === mañana.getTime()) return 'Mañana'
 
-  return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+  return d.toLocaleDateString(locale, { day: 'numeric', month: 'short' })
 }
 
 /** Devuelve la fecha de hoy en formato ISO (YYYY-MM-DD) */

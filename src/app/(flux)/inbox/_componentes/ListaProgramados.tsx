@@ -7,6 +7,7 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import {
   Clock, X, Mail, User, Loader2,
 } from 'lucide-react'
+import { useFormato } from '@/hooks/useFormato'
 import type { CorreoProgramado } from '@/tipos/inbox'
 
 /**
@@ -15,6 +16,7 @@ import type { CorreoProgramado } from '@/tipos/inbox'
  */
 
 export function ListaProgramados() {
+  const formato = useFormato()
   const [programados, setProgramados] = useState<CorreoProgramado[]>([])
   const [cargando, setCargando] = useState(false)
   const [cancelando, setCancelando] = useState<string | null>(null)
@@ -100,8 +102,8 @@ export function ListaProgramados() {
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <Insignia color="info" tamano="sm">
                     {esHoy
-                      ? `Hoy ${fechaEnvio.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}`
-                      : fechaEnvio.toLocaleDateString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                      ? `Hoy ${formato.hora(fechaEnvio)}`
+                      : formato.fecha(fechaEnvio, { conHora: true })
                     }
                   </Insignia>
                 </div>

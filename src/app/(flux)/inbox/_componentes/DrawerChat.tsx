@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Send, Loader2, ArrowUpRight } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useFormato } from '@/hooks/useFormato'
 import { Boton } from '@/componentes/ui/Boton'
 import { SelectorEtapa } from './SelectorEtapa'
 import type { ConversacionConDetalles, MensajeConAdjuntos, TipoCanal } from '@/tipos/inbox'
@@ -28,11 +29,11 @@ interface PropiedadesDrawerChat {
 
 // ─── Helpers ───
 
-function formatoHora(iso: string): string {
-  return new Date(iso).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })
+function formatoHora(iso: string, locale: string): string {
+  return new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
 }
 
-function formatoFecha(iso: string): string {
+function formatoFecha(iso: string, locale: string): string {
   const fecha = new Date(iso)
   const hoy = new Date()
   const ayer = new Date(hoy)
@@ -40,13 +41,14 @@ function formatoFecha(iso: string): string {
 
   if (fecha.toDateString() === hoy.toDateString()) return 'Hoy'
   if (fecha.toDateString() === ayer.toDateString()) return 'Ayer'
-  return fecha.toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })
+  return fecha.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 // ─── Componente ───
 
 export function DrawerChat({ conversacion, tipoCanal, abierto, onCerrar, onEtapaCambiada }: PropiedadesDrawerChat) {
   const router = useRouter()
+  const formato = useFormato()
   const [mensajes, setMensajes] = useState<MensajeConAdjuntos[]>([])
   const [cargando, setCargando] = useState(false)
   const [enviando, setEnviando] = useState(false)
@@ -128,7 +130,7 @@ export function DrawerChat({ conversacion, tipoCanal, abierto, onCerrar, onEtapa
   // ─── Agrupar mensajes por fecha ───
 
   const mensajesAgrupados = mensajes.reduce<{ fecha: string; mensajes: MensajeConAdjuntos[] }[]>((acc, msg) => {
-    const fecha = formatoFecha(msg.creado_en)
+    const fecha = formatoFecha(msg.creado_en, formato.locale)
     const grupo = acc.find(g => g.fecha === fecha)
     if (grupo) grupo.mensajes.push(msg)
     else acc.push({ fecha, mensajes: [msg] })
@@ -282,7 +284,7 @@ export function DrawerChat({ conversacion, tipoCanal, abierto, onCerrar, onEtapa
 
                             {/* Hora */}
                             <div className={`text-[10px] mt-0.5 text-right ${esEntrante ? 'text-texto-terciario' : 'text-white/70'}`}>
-                              {formatoHora(msg.creado_en)}
+                              {formatoHora(msg.creado_en, formato.locale)}
                             </div>
                           </div>
                         </div>

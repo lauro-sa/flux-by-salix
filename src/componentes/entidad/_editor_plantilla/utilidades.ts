@@ -7,21 +7,21 @@ import { COLORES_AVATAR } from './constantes'
 
 // ─── Formato de moneda para la vista previa ───
 
-export function formatoMoneda(valor: string | null | undefined, moneda?: string): string {
+export function formatoMoneda(valor: string | null | undefined, moneda?: string, locale: string = 'es-AR'): string {
   if (!valor) return ''
   const num = Number(valor)
   if (isNaN(num)) return valor
   const simbolo = moneda === 'USD' ? 'US$' : moneda === 'EUR' ? '€' : '$'
-  return `${simbolo} ${num.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `${simbolo} ${num.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 // ─── Formato de fecha para la vista previa ───
 
-export function formatoFecha(valor: string | null | undefined): string {
+export function formatoFecha(valor: string | null | undefined, locale: string = 'es-AR'): string {
   if (!valor) return ''
   try {
     const d = new Date(valor)
-    return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    return d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' })
   } catch { return valor }
 }
 

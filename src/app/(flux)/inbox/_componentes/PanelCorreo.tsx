@@ -96,6 +96,9 @@ body {
   overflow-x: hidden;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  background-color: #ffffff;
+  color: #1a1a1a;
+  color-scheme: light;
 }
 img {
   max-width: 100% !important;

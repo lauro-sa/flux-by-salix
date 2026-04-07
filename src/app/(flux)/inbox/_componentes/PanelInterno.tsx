@@ -13,6 +13,7 @@ import {
 import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { CompositorMensaje, type DatosMensaje } from './CompositorMensaje'
 import { useTraduccion } from '@/lib/i18n'
+import { useFormato } from '@/hooks/useFormato'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { useToast } from '@/componentes/feedback/Toast'
 import type { MensajeConAdjuntos, CanalInterno, Conversacion } from '@/tipos/inbox'
@@ -49,7 +50,7 @@ interface PropiedadesPanelInterno {
 }
 
 /** Etiqueta de fecha estilo WhatsApp: Hoy, Ayer, día de la semana, o fecha completa */
-function etiquetaDiaInterno(fecha: Date): string {
+function etiquetaDiaInterno(fecha: Date, locale: string): string {
   const hoy = new Date()
   const ayer = new Date()
   ayer.setDate(ayer.getDate() - 1)
@@ -65,19 +66,19 @@ function etiquetaDiaInterno(fecha: Date): string {
   hace7Dias.setHours(0, 0, 0, 0)
 
   if (fecha >= hace7Dias) {
-    return fecha.toLocaleDateString('es', { weekday: 'long' }).replace(/^\w/, c => c.toUpperCase())
+    return fecha.toLocaleDateString(locale, { weekday: 'long' }).replace(/^\w/, c => c.toUpperCase())
   }
 
-  return fecha.toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })
+  return fecha.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-function formatoHoraInterno(fecha: string): string {
+function formatoHoraInterno(fecha: string, locale: string): string {
   const d = new Date(fecha)
   const hoy = new Date()
   const esHoy = d.toDateString() === hoy.toDateString()
 
-  if (esHoy) return d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })
-  return d.toLocaleDateString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  if (esHoy) return d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleDateString(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
 export function PanelInterno({

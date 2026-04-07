@@ -13,6 +13,7 @@ import {
   StickyNote, Globe, Mail, Paperclip,
   Clock, Pencil, Trash2,
 } from 'lucide-react'
+import { useFormato } from '@/hooks/useFormato'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar } from '@/componentes/ui/Avatar'
@@ -30,6 +31,7 @@ export function EntradaTimeline({
   onEditarNota,
   onEliminarNota,
 }: PropsEntradaTimeline) {
+  const { locale } = useFormato()
   const esSistema = entrada.tipo === 'sistema'
   const esCorreo = entrada.tipo === 'correo'
   const esWhatsApp = entrada.tipo === 'whatsapp'
@@ -40,13 +42,13 @@ export function EntradaTimeline({
   const fh = formatoHora
 
   if (esSistema) {
-    return <EntradaSistema entrada={entrada} entidadTipo={entidadTipo} formatoHora={fh} onAccionComprobante={onAccionComprobante} />
+    return <EntradaSistema entrada={entrada} entidadTipo={entidadTipo} formatoHora={fh} locale={locale} onAccionComprobante={onAccionComprobante} />
   }
   if (esCorreo) {
-    return <EntradaCorreo entrada={entrada} formatoHora={fh} />
+    return <EntradaCorreo entrada={entrada} formatoHora={fh} locale={locale} />
   }
   if (esWhatsApp) {
-    return <EntradaWhatsApp entrada={entrada} formatoHora={fh} />
+    return <EntradaWhatsApp entrada={entrada} formatoHora={fh} locale={locale} />
   }
   if (esNotaInterna) {
     const esPropia = !!usuarioActualId && entrada.autor_id === usuarioActualId
@@ -55,13 +57,14 @@ export function EntradaTimeline({
         entrada={entrada}
         esPropia={esPropia}
         formatoHora={fh}
+        locale={locale}
         onEditar={onEditarNota ? () => onEditarNota(entrada) : undefined}
         onEliminar={onEliminarNota ? () => onEliminarNota(entrada.id) : undefined}
       />
     )
   }
 
-  return <EntradaMensaje entrada={entrada} esMensajePortal={!!esMensajePortal} formatoHora={fh} />
+  return <EntradaMensaje entrada={entrada} esMensajePortal={!!esMensajePortal} formatoHora={fh} locale={locale} />
 }
 
 // ─── Entrada de sistema ───
@@ -69,11 +72,13 @@ function EntradaSistema({
   entrada,
   entidadTipo,
   formatoHora,
+  locale,
   onAccionComprobante,
 }: {
   entrada: PropsEntradaTimeline['entrada']
   entidadTipo: string
   formatoHora: string
+  locale: string
   onAccionComprobante: PropsEntradaTimeline['onAccionComprobante']
 }) {
   const [accionando, setAccionando] = useState(false)
@@ -116,8 +121,8 @@ function EntradaSistema({
           </div>
         )}
 
-        <span className="text-[10px] text-texto-terciario opacity-0 group-hover:opacity-100 transition-opacity" title={fechaCompleta(entrada.creado_en, formatoHora)}>
-          {fechaRelativa(entrada.creado_en, formatoHora)}
+        <span className="text-[10px] text-texto-terciario opacity-0 group-hover:opacity-100 transition-opacity" title={fechaCompleta(entrada.creado_en, formatoHora, locale)}>
+          {fechaRelativa(entrada.creado_en, formatoHora, locale)}
         </span>
       </div>
     </div>
@@ -125,7 +130,7 @@ function EntradaSistema({
 }
 
 // ─── Entrada de correo (expandible) ───
-function EntradaCorreo({ entrada, formatoHora }: { entrada: PropsEntradaTimeline['entrada']; formatoHora: string }) {
+function EntradaCorreo({ entrada, formatoHora, locale }: { entrada: PropsEntradaTimeline['entrada']; formatoHora: string; locale: string }) {
   const [expandido, setExpandido] = useState(false)
   const accion = entrada.metadata?.accion as AccionSistema | undefined
   const esRecibido = accion === 'correo_recibido'

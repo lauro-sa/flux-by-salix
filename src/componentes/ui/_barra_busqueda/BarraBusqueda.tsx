@@ -9,6 +9,7 @@ import { PillFiltroActivo } from './PillFiltroActivo'
 import { PanelFiltros } from './PanelFiltros'
 import { SelectorVistas } from './SelectorVistas'
 import { Tooltip } from '@/componentes/ui/Tooltip'
+import { useFormato } from '@/hooks/useFormato'
 
 /**
  * BarraBusqueda — Cápsula de búsqueda avanzada con filtros, pills, vistas y favoritos.
@@ -35,6 +36,7 @@ function BarraBusqueda({
   onAbrirColumnas,
   className = '',
 }: PropiedadesBarraBusqueda) {
+  const { locale } = useFormato()
   const [enfocado, setEnfocado] = useState(false)
   const [panelAbierto, setPanelAbierto] = useState(false)
   const [valorInterno, setValorInterno] = useState(busqueda)
@@ -101,7 +103,7 @@ function BarraBusqueda({
     return f.valor !== ''
   })
 
-  const placeholderDinamico = generarPlaceholder(placeholder, contadorResultados, numFiltrosActivos)
+  const placeholderDinamico = generarPlaceholder(placeholder, contadorResultados, numFiltrosActivos, locale)
 
   return (
     <div ref={contenedorRef} className={`relative ${className}`}>

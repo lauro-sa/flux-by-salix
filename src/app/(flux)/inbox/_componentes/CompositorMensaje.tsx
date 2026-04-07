@@ -12,6 +12,7 @@ import { Input } from '@/componentes/ui/Input'
 import { TextArea } from '@/componentes/ui/TextArea'
 import type { TipoCanal, TipoContenido } from '@/tipos/inbox'
 import { useTraduccion } from '@/lib/i18n'
+import { useFormato } from '@/hooks/useFormato'
 import { SelectorRespuestasRapidas } from './SelectorRespuestasRapidas'
 import { Popover } from '@/componentes/ui/Popover'
 import {
@@ -140,6 +141,7 @@ export function CompositorMensaje({
   onToggleIA,
 }: PropiedadesCompositor) {
   const { t } = useTraduccion()
+  const formato = useFormato()
   const [texto, setTexto] = useState('')
   const [esNotaInterna, setEsNotaInterna] = useState(false)
   const [panelAbierto, setPanelAbierto] = useState<'firma' | 'programar' | null>(null)

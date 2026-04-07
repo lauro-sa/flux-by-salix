@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTraduccion } from '@/lib/i18n'
+import { useFormato } from '@/hooks/useFormato'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -57,6 +58,7 @@ const POR_PAGINA = 50
 export default function PaginaProductos() {
   const { t } = useTraduccion()
   const router = useRouter()
+  const formato = useFormato()
 
   // ─── Estado ───
   const [busqueda, setBusqueda] = useState('')
@@ -189,18 +191,19 @@ export default function PaginaProductos() {
   }, [busqueda])
 
   // ─── Helpers ───
-  const SIMBOLO_MONEDA: Record<string, string> = {
-    ARS: '$', USD: 'US$', EUR: '€', BRL: 'R$', CLP: 'CL$', COP: 'COL$', MXN: 'MX$', UYU: '$U', PEN: 'S/',
-  }
-
-  const formatoMoneda = (valor: string | null, monedaCodigo?: string | null, mostrarCero = false) => {
+  // Formatea moneda usando el locale y moneda de la empresa via useFormato
+  const formatoMonedaLocal = useCallback((valor: string | null, monedaCodigo?: string | null, mostrarCero = false) => {
     if (!valor && !mostrarCero) return null
     const num = Number(valor || 0)
     if (num === 0 && !mostrarCero) return null
-    const simbolo = monedaCodigo ? (SIMBOLO_MONEDA[monedaCodigo] || monedaCodigo) : '$'
-    return `${simbolo} ${num.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  }
-  const formatoFecha = (iso: string) => new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
+    const codigoFinal = monedaCodigo || formato.codigoMoneda
+    return new Intl.NumberFormat(formato.locale, {
+      style: 'currency',
+      currency: codigoFinal,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(num)
+  }, [formato.locale, formato.codigoMoneda])
 
   // ─── Abrir modal para edición ───
   const abrirEdicion = useCallback(async (fila: FilaProducto) => {
@@ -292,14 +295,14 @@ export default function PaginaProductos() {
       clave: 'precio_unitario', etiqueta: 'Precio venta', ancho: 130, ordenable: true, tipo: 'moneda', alineacion: 'right', grupo: 'Precios', icono: <DollarSign size={I} />,
       resumen: 'promedio',
       render: (fila) => {
-        const v = formatoMoneda(fila.precio_unitario, fila.moneda, true)
+        const v = formatoMonedaLocal(fila.precio_unitario, fila.moneda, true)
         return v ? <span className="font-mono text-texto-primario">{v}</span> : <span className="text-texto-terciario">—</span>
       },
     },
     {
       clave: 'costo', etiqueta: 'Costo', ancho: 120, ordenable: true, tipo: 'moneda', alineacion: 'right', grupo: 'Precios', icono: <DollarSign size={I} />,
       render: (fila) => {
-        const v = formatoMoneda(fila.costo, fila.moneda)
+        const v = formatoMonedaLocal(fila.costo, fila.moneda)
         return v ? <span className="font-mono text-texto-terciario">{v}</span> : <span className="text-texto-terciario">—</span>
       },
     },
@@ -377,14 +380,14 @@ export default function PaginaProductos() {
     /* ── Metadata ── */
     {
       clave: 'creado_en', etiqueta: 'Creación', ancho: 120, ordenable: true, tipo: 'fecha', grupo: 'Metadata', icono: <Calendar size={I} />,
-      render: (fila) => <span className="text-texto-terciario text-xs">{formatoFecha(fila.creado_en)}</span>,
+      render: (fila) => <span className="text-texto-terciario text-xs">{formato.fecha(fila.creado_en, { corta: true })}</span>,
     },
   ]
 
   // ─── Renderizar tarjeta ───
   const renderizarTarjeta = (fila: FilaProducto) => {
     const color = (COLOR_TIPO_PRODUCTO[fila.tipo] || 'neutro') as ColorInsignia
-    const precioStr = formatoMoneda(fila.precio_unitario, fila.moneda, true)
+    const precioStr = formatoMonedaLocal(fila.precio_unitario, fila.moneda, true)
 
     return (
       <div className="p-4 flex flex-col gap-3">

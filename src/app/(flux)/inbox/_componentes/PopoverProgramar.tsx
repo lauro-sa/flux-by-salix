@@ -8,6 +8,7 @@ import {
 import { Popover } from '@/componentes/ui/Popover'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { Boton } from '@/componentes/ui/Boton'
+import { useFormato } from '@/hooks/useFormato'
 
 /**
  * PopoverProgramar — Permite programar el envío de un mensaje de WhatsApp
@@ -36,29 +37,33 @@ interface PropiedadesPopoverProgramar {
   renderInline?: boolean
 }
 
-// Formateador de fechas en español
-const formateadorFecha = new Intl.DateTimeFormat('es', {
-  weekday: 'long',
-  day: 'numeric',
-  month: 'short',
-  hour: '2-digit',
-  minute: '2-digit',
-})
+// Funciones de formateo que reciben el locale de la empresa
+function formatearFechaCompleta(fecha: Date, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(fecha)
+}
 
-// Formateador corto para mostrar hora calculada en los presets
-const formateadorHora = new Intl.DateTimeFormat('es', {
-  hour: '2-digit',
-  minute: '2-digit',
-})
+function formatearHoraCorta(fecha: Date, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(fecha)
+}
 
-// Formateador para día + hora (presets de días futuros)
-const formateadorDiaHora = new Intl.DateTimeFormat('es', {
-  weekday: 'short',
-  day: 'numeric',
-  month: 'short',
-  hour: '2-digit',
-  minute: '2-digit',
-})
+function formatearDiaHora(fecha: Date, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(fecha)
+}
 
 /** Calcula el próximo lunes a las 9:00 desde la fecha actual */
 function proximoLunes(): Date {
@@ -97,11 +102,11 @@ function esHoy(fecha: Date): boolean {
 }
 
 /** Texto descriptivo de la hora calculada para cada preset */
-function textoHoraPreset(fecha: Date): string {
+function textoHoraPreset(fecha: Date, locale: string): string {
   if (esHoy(fecha)) {
-    return `hoy ${formateadorHora.format(fecha)}`
+    return `hoy ${formatearHoraCorta(fecha, locale)}`
   }
-  return formateadorDiaHora.format(fecha)
+  return formatearDiaHora(fecha, locale)
 }
 
 interface PresetProgramacion {
@@ -119,6 +124,7 @@ export function PopoverProgramar({
   claseTrigger,
   renderInline,
 }: PropiedadesPopoverProgramar) {
+  const formato = useFormato()
   const [mostrarPersonalizado, setMostrarPersonalizado] = useState(false)
   const [fechaPersonalizada, setFechaPersonalizada] = useState('')
   const [abierto, setAbierto] = useState(false)
@@ -234,7 +240,7 @@ export function PopoverProgramar({
                     style={{ color: 'var(--texto-marca)' }}
                   >
                     Mensaje programado para{' '}
-                    {formateadorFecha.format(new Date(programadoPendiente.enviar_en))}
+                    {formatearFechaCompleta(new Date(programadoPendiente.enviar_en), formato.locale)}
                   </p>
                   {programadoPendiente.texto && (
                     <p
@@ -307,7 +313,7 @@ export function PopoverProgramar({
                 className="text-xs flex-shrink-0 tabular-nums"
                 style={{ color: 'var(--texto-terciario)' }}
               >
-                {textoHoraPreset(fechaCalculada)}
+                {textoHoraPreset(fechaCalculada, formato.locale)}
               </span>
             </button>
           )

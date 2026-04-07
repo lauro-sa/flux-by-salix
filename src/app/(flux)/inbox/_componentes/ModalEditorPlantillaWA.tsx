@@ -26,6 +26,7 @@ import { BuscadorContactoPreview } from '@/componentes/entidad/_editor_plantilla
 import { BuscadorDocumentoPreview } from '@/componentes/entidad/_editor_plantilla/BuscadorDocumentoPreview'
 import { DATOS_EJEMPLO } from '@/componentes/entidad/_editor_plantilla/constantes'
 import { formatoMoneda, formatoFecha } from '@/componentes/entidad/_editor_plantilla/utilidades'
+import { useFormato } from '@/hooks/useFormato'
 import type { DocumentoResultado } from '@/componentes/entidad/_editor_plantilla/tipos'
 import type {
   PlantillaWhatsApp, ComponentesPlantillaWA, CategoriaPlantillaWA,
@@ -122,6 +123,7 @@ interface Props {
 // ─── Componente ───
 
 export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, onGuardado }: Props) {
+  const { locale } = useFormato()
   const { mostrar } = useToast()
   const [guardando, setGuardando] = useState(false)
   const [enviandoAMeta, setEnviandoAMeta] = useState(false)
@@ -406,10 +408,10 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
       ? documentoPreview.numero
       : String(DATOS_EJEMPLO.presupuesto.numero),
     documento_total: documentoPreview
-      ? formatoMoneda(documentoPreview.total_final, documentoPreview.moneda)
+      ? formatoMoneda(documentoPreview.total_final, documentoPreview.moneda, locale)
       : String(DATOS_EJEMPLO.presupuesto.total_con_iva),
     documento_fecha: documentoPreview
-      ? formatoFecha(documentoPreview.fecha_emision)
+      ? formatoFecha(documentoPreview.fecha_emision, locale)
       : String(DATOS_EJEMPLO.presupuesto.fecha_emision),
     empresa_nombre: String(DATOS_EJEMPLO.empresa.nombre),
   }), [contactoPreview, documentoPreview])

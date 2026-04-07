@@ -570,7 +570,7 @@ async function procesarCorreoEntrante(
           cuerpo: (canalNombre ? `Correo · ${canalNombre} · ` : 'Correo · ') + (previewTexto.slice(0, 120) || correo.asunto),
           icono: 'Mail',
           color: 'var(--canal-correo)',
-          url: `/inbox?conv=${conversacionId}`,
+          url: `/inbox?conv=${conversacionId}&tab=correo`,
           referenciaTipo: 'conversacion',
           referenciaId: conversacionId,
         }

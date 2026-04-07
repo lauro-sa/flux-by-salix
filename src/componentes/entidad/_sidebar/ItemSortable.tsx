@@ -2,10 +2,11 @@
 
 /**
  * ItemSortable — Item de navegacion individual del Sidebar.
- * Soporta drag-and-drop, badges, menu contextual y tooltips en modo colapsado.
+ * Soporta drag-and-drop, badges, menu contextual (long press + 3 puntos) y tooltips en modo colapsado.
  */
 
 import { createPortal } from 'react-dom'
+import { useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -50,6 +51,39 @@ function ItemSortable({
     disabled: !esSortable,
   })
 
+  // Long press para abrir menu contextual (600ms — estandar movil)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const longPressActivado = useRef(false)
+  const itemRef = useRef<HTMLDivElement>(null)
+
+  const iniciarLongPress = useCallback(() => {
+    if (item.fijo || colapsado) return
+    longPressActivado.current = false
+    timerRef.current = setTimeout(() => {
+      longPressActivado.current = true
+      if (itemRef.current) {
+        onAbrirMenu(item.id, itemRef.current)
+        // Vibrar al abrir menu por long press
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(15)
+      }
+    }, 600)
+  }, [item.id, item.fijo, colapsado, onAbrirMenu])
+
+  const cancelarLongPress = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+  }, [])
+
+  const manejarClick = useCallback(() => {
+    if (longPressActivado.current) {
+      longPressActivado.current = false
+      return
+    }
+    onNavegar()
+  }, [onNavegar])
+
   const estiloSortable: React.CSSProperties = {
     transform: CSS.Transform.toString(transform) || undefined,
     transition,
@@ -59,9 +93,19 @@ function ItemSortable({
 
   return (
     <div ref={setNodeRef} style={estiloSortable} className={`relative group ${isDragging ? 'shadow-lg rounded-md bg-superficie-elevada' : ''} ${animandoSalida ? 'sidebar-item-puff' : ''}`}>
-      {/* Item principal — div clickeable en vez de Link */}
+      {/* Item principal — div clickeable, long press abre menu */}
       <div
-        onClick={onNavegar}
+        ref={itemRef}
+        onClick={manejarClick}
+        onTouchStart={iniciarLongPress}
+        onTouchEnd={cancelarLongPress}
+        onTouchMove={cancelarLongPress}
+        onContextMenu={(e) => {
+          if (!item.fijo && !colapsado) {
+            e.preventDefault()
+            if (itemRef.current) onAbrirMenu(item.id, itemRef.current)
+          }
+        }}
         style={{ color: activo ? 'var(--texto-primario)' : 'var(--texto-secundario)' }}
         className={[
           'flex items-center rounded-md text-sm font-medium cursor-pointer transition-all duration-100 relative select-none',

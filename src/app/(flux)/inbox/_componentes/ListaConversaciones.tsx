@@ -17,6 +17,7 @@ import {
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { MenuConversacion } from './MenuConversacion'
 import { useTraduccion } from '@/lib/i18n'
+import { useFormato } from '@/hooks/useFormato'
 import type { ConversacionConDetalles, EstadoConversacion, TipoCanal } from '@/tipos/inbox'
 
 /**
@@ -68,12 +69,12 @@ const COLOR_ESTADO: Record<EstadoConversacion, string> = {
 }
 
 // Formato estilo WhatsApp: hoy → hora, ayer → "ayer", esta semana → día, después → fecha
-function tiempoRelativo(fecha: string): string {
+function tiempoRelativo(fecha: string, locale: string): string {
   const ahora = new Date()
   const msg = new Date(fecha)
 
   if (msg.toDateString() === ahora.toDateString()) {
-    return msg.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })
+    return msg.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
   }
 
   const ayer = new Date(ahora)
@@ -82,10 +83,10 @@ function tiempoRelativo(fecha: string): string {
 
   const diffDias = Math.floor((ahora.getTime() - msg.getTime()) / 86400000)
   if (diffDias < 7) {
-    return msg.toLocaleDateString('es', { weekday: 'long' })
+    return msg.toLocaleDateString(locale, { weekday: 'long' })
   }
 
-  return msg.toLocaleDateString('es', { day: 'numeric', month: 'short', year: ahora.getFullYear() !== msg.getFullYear() ? 'numeric' : undefined })
+  return msg.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: ahora.getFullYear() !== msg.getFullYear() ? 'numeric' : undefined })
 }
 
 export function ListaConversaciones({
@@ -109,6 +110,7 @@ export function ListaConversaciones({
   esAdmin = false,
 }: PropiedadesListaConversaciones) {
   const { t } = useTraduccion()
+  const formato = useFormato()
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
 
   // Estado del menú contextual
@@ -523,7 +525,7 @@ export function ListaConversaciones({
                           color: conv.mensajes_sin_leer !== 0 ? 'var(--insignia-exito)' : 'var(--texto-terciario)',
                           fontWeight: conv.mensajes_sin_leer !== 0 ? 600 : 400,
                         }}>
-                          {tiempoRelativo(conv.ultimo_mensaje_en)}
+                          {tiempoRelativo(conv.ultimo_mensaje_en, formato.locale)}
                         </span>
                       </div>
                     )}

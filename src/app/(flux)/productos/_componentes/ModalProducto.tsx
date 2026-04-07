@@ -19,6 +19,7 @@ const EditorTexto = dynamic(() => import('@/componentes/ui/EditorTexto').then(m 
 import { InputMoneda } from '@/componentes/ui/InputMoneda'
 import { PanelChatter } from '@/componentes/entidad/PanelChatter'
 import { COLOR_TIPO_PRODUCTO } from '@/lib/colores_entidad'
+import { useFormato } from '@/hooks/useFormato'
 import type { Producto, TipoProducto, ConfigProductos, DesgloseCosto } from '@/tipos/producto'
 
 /**
@@ -38,6 +39,7 @@ interface PropsModalProducto {
 }
 
 export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config, impuestos = [] }: PropsModalProducto) {
+  const formato = useFormato()
   const esEdicion = !!producto
 
   // ─── Estado del formulario ───
@@ -412,7 +414,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
                       />
                       {precioConImpuesto > 0 && (
                         <p className="text-xs text-texto-terciario mt-1">
-                          = {moneda ? ({'ARS':'$','USD':'US$','EUR':'€'}[moneda] || moneda) : '$'} {precioConImpuesto.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} imp. incluidos
+                          = {formato.numero(precioConImpuesto, 2)} imp. incluidos
                         </p>
                       )}
                     </div>
@@ -583,7 +585,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
                           Total costo
                         </td>
                         <td className="px-4 py-3 text-right font-mono font-bold text-texto-primario">
-                          {costoDesglose.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                          {formato.numero(costoDesglose, 2)}
                         </td>
                         <td />
                       </tr>
@@ -605,13 +607,13 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
                     <div>
                       <p className="text-xs text-texto-terciario mb-1">Precio venta</p>
                       <p className="font-mono font-bold text-texto-primario text-lg">
-                        {precio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                        {formato.numero(precio, 2)}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-texto-terciario mb-1">Costo total</p>
                       <p className="font-mono font-bold text-texto-primario text-lg">
-                        {costoEfectivo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                        {formato.numero(costoEfectivo, 2)}
                       </p>
                     </div>
                     <div>

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { SelectorEtapa } from './SelectorEtapa'
+import { useFormato } from '@/hooks/useFormato'
 import type { Conversacion, MensajeConAdjuntos } from '@/tipos/inbox'
 
 /**
@@ -157,6 +158,7 @@ function borrarCacheIA(convId: string) {
 }
 
 export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, onAbrirVisor, esMovil }: PropiedadesPanelInfo) {
+  const formato = useFormato()
   const [contacto, setContacto] = useState<DatosContacto | null>(null)
   const [historial, setHistorial] = useState<ConversacionHistorial[]>([])
   const [cargandoHistorial, setCargandoHistorial] = useState(false)
@@ -856,9 +858,9 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
                         </Insignia>
                       </div>
                       <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                        {p.moneda} {Number(p.total_final).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                        {p.moneda} {Number(p.total_final).toLocaleString(formato.locale, { minimumFractionDigits: 2 })}
                         {' · '}
-                        {new Date(p.fecha_emision).toLocaleDateString('es', { day: 'numeric', month: 'short' })}
+                        {formato.fecha(new Date(p.fecha_emision), { corta: true })}
                       </p>
                     </div>
                     <ArrowRight size={12} style={{ color: 'var(--texto-terciario)' }} />
@@ -911,7 +913,7 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
                         </p>
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                            {new Date(conv.creado_en).toLocaleDateString('es', { day: 'numeric', month: 'short', year: '2-digit' })}
+                            {formato.fecha(new Date(conv.creado_en), { corta: true })}
                           </span>
                           <Insignia color={colorEstado[conv.estado] || 'neutro'} tamano="sm">
                             {conv.estado}
@@ -1016,7 +1018,7 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
                       <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
                         {doc.tamano ? (doc.tamano > 1048576 ? `${(doc.tamano / 1048576).toFixed(1)} MB` : `${(doc.tamano / 1024).toFixed(0)} KB`) : ''}
                         {doc.tamano ? ' · ' : ''}
-                        {new Date(doc.fecha).toLocaleDateString('es', { day: 'numeric', month: 'short' })}
+                        {formato.fecha(new Date(doc.fecha), { corta: true })}
                       </p>
                     </div>
                     <Download size={12} style={{ color: 'var(--texto-terciario)' }} />
@@ -1050,7 +1052,7 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
                       </p>
                     </div>
                     <span className="text-xxs flex-shrink-0" style={{ color: 'var(--texto-terciario)' }}>
-                      {new Date(enlace.fecha).toLocaleDateString('es', { day: 'numeric', month: 'short' })}
+                      {formato.fecha(new Date(enlace.fecha), { corta: true })}
                     </span>
                   </a>
                 ))}

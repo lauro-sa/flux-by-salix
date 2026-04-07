@@ -22,6 +22,7 @@ import type { PlantillaWhatsApp } from '@/tipos/inbox'
 // GrabadorAudio integrado en CompositorMensaje (no se importa aparte)
 import { COLOR_ETIQUETA_DEFECTO } from '@/lib/colores_entidad'
 import { useTraduccion } from '@/lib/i18n'
+import { useFormato } from '@/hooks/useFormato'
 import { useVisualViewport } from '@/hooks/useVisualViewport'
 import { BarraControlsWA } from './BarraControlsWA'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
@@ -80,12 +81,12 @@ const ICONO_ESTADO: Record<string, React.ReactNode> = {
   failed: <AlertCircle size={12} style={{ color: 'var(--insignia-peligro)' }} />,
 }
 
-function formatoHora(fecha: string): string {
-  return new Date(fecha).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })
+function formatoHora(fecha: string, locale: string): string {
+  return new Date(fecha).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
 }
 
 // Etiqueta de día estilo WhatsApp: Hoy, Ayer, Lunes..Domingo, o fecha completa
-function etiquetaDia(fecha: Date, labels?: { hoy: string; ayer: string }): string {
+function etiquetaDia(fecha: Date, locale: string, labels?: { hoy: string; ayer: string }): string {
   const hoy = new Date()
   const ayer = new Date()
   ayer.setDate(ayer.getDate() - 1)
@@ -103,11 +104,11 @@ function etiquetaDia(fecha: Date, labels?: { hoy: string; ayer: string }): strin
   hace7Dias.setHours(0, 0, 0, 0)
 
   if (fecha >= hace7Dias) {
-    return fecha.toLocaleDateString('es', { weekday: 'long' })
+    return fecha.toLocaleDateString(locale, { weekday: 'long' })
       .replace(/^\w/, c => c.toUpperCase())
   }
 
-  return fecha.toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })
+  return fecha.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 // Verificar si dos fechas son días distintos
@@ -250,6 +251,7 @@ export function PanelWhatsApp({
   onCambioConversacion,
 }: PropiedadesPanelWhatsApp) {
   const { t } = useTraduccion()
+  const formato = useFormato()
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Monitorear visual viewport para ajustar layout cuando el teclado virtual se abre
@@ -710,7 +712,7 @@ export function PanelWhatsApp({
                     color: 'var(--texto-terciario)',
                   }}
                 >
-                  {etiquetaDia(seccion.fecha, { hoy: t('inbox.fecha_hoy'), ayer: t('inbox.fecha_ayer') })}
+                  {etiquetaDia(seccion.fecha, formato.locale, { hoy: t('inbox.fecha_hoy'), ayer: t('inbox.fecha_ayer') })}
                 </span>
               </div>
               {seccion.elementos.map((elem) => {
@@ -744,7 +746,7 @@ export function PanelWhatsApp({
                     <GrillaImagenes imagenes={elem.mensajes} onAbrirVisor={onAbrirVisor} />
                     <div className="flex items-center justify-end gap-1 mt-0.5">
                       <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                        {formatoHora(elem.mensajes[elem.mensajes.length - 1].creado_en)}
+                        {formatoHora(elem.mensajes[elem.mensajes.length - 1].creado_en, formato.locale)}
                       </span>
                       {esPropio && ICONO_ESTADO[primerMsg.wa_status || primerMsg.estado]}
                     </div>
@@ -779,7 +781,7 @@ export function PanelWhatsApp({
                     </span>
                     <span>→</span>
                     <span>{msg.texto}</span>
-                    <span className="opacity-60">{formatoHora(msg.creado_en)}</span>
+                    <span className="opacity-60">{formatoHora(msg.creado_en, formato.locale)}</span>
                   </div>
                 </motion.div>
               )
@@ -840,7 +842,7 @@ export function PanelWhatsApp({
                       </div>
                       <div className="flex items-center justify-end mt-1">
                         <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                          {formatoHora(msg.creado_en)}
+                          {formatoHora(msg.creado_en, formato.locale)}
                         </span>
                       </div>
                     </div>
@@ -961,7 +963,7 @@ export function PanelWhatsApp({
                         </span>
                       )}
                       <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                        {formatoHora(msg.creado_en)}
+                        {formatoHora(msg.creado_en, formato.locale)}
                       </span>
                     </div>
                   </div>
@@ -1047,7 +1049,7 @@ export function PanelWhatsApp({
 
                     <div className="flex items-center justify-end gap-1 mt-0.5">
                       <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                        {formatoHora(msg.creado_en)}
+                        {formatoHora(msg.creado_en, formato.locale)}
                       </span>
                       {ICONO_ESTADO[msg.wa_status || msg.estado]}
                     </div>
@@ -1086,7 +1088,7 @@ export function PanelWhatsApp({
                       metaHora={
                         <div className="flex items-center gap-1">
                           <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                            {formatoHora(msg.creado_en)}
+                            {formatoHora(msg.creado_en, formato.locale)}
                           </span>
                           {esPropio && ICONO_ESTADO[msg.wa_status || msg.estado]}
                         </div>
@@ -1096,7 +1098,7 @@ export function PanelWhatsApp({
                     {msg.tipo_contenido !== 'audio' && (
                       <div className="flex items-center justify-end gap-1 mt-0.5">
                         <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                          {formatoHora(msg.creado_en)}
+                          {formatoHora(msg.creado_en, formato.locale)}
                         </span>
                         {esPropio && ICONO_ESTADO[msg.wa_status || msg.estado]}
                       </div>
@@ -1218,7 +1220,7 @@ export function PanelWhatsApp({
         <AnimatePresence>
           {programados.map((prog) => {
             const fechaProg = new Date(prog.enviar_en)
-            const fechaTexto = new Intl.DateTimeFormat('es', {
+            const fechaTexto = new Intl.DateTimeFormat(formato.locale, {
               weekday: 'short', day: 'numeric', month: 'short',
               hour: '2-digit', minute: '2-digit',
             }).format(fechaProg)
@@ -1379,7 +1381,7 @@ export function PanelWhatsApp({
                     setTextoIA('')
                     setContadorTextoIA(c => c + 1)
                     setFechaProgramada(null)
-                    const fechaFormateada = new Intl.DateTimeFormat('es', {
+                    const fechaFormateada = new Intl.DateTimeFormat(formato.locale, {
                       weekday: 'short', day: 'numeric', month: 'short',
                       hour: '2-digit', minute: '2-digit',
                     }).format(new Date(fechaProgramada))
@@ -1597,7 +1599,7 @@ export function VisorMedia({
               <p className="text-sm text-white mb-1">{actual.caption}</p>
             )}
             <p className="text-xxs text-white/50">
-              {new Date(actual.fecha).toLocaleDateString('es', {
+              {new Date(actual.fecha).toLocaleDateString(formato.locale, {
                 day: 'numeric', month: 'short', year: 'numeric',
                 hour: '2-digit', minute: '2-digit',
               })}

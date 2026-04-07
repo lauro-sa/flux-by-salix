@@ -7,6 +7,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { EncabezadoSeccion } from '@/componentes/ui/EncabezadoSeccion'
 import { useAuth } from '@/hooks/useAuth'
+import { useFormato } from '@/hooks/useFormato'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useRouter } from 'next/navigation'
 
@@ -60,6 +61,7 @@ type ModalCerrar = null | 'individual' | 'todas' | 'todas_menos_actual'
 
 export function SeccionSeguridad() {
   const { restablecerContrasena } = useAuth()
+  const formato = useFormato()
   const router = useRouter()
 
   /* Estado de cambio de contraseña */
@@ -257,17 +259,17 @@ export function SeccionSeguridad() {
       if (diffHoras < 24) return `Hace ${diffHoras}h`
 
       const esHoy = fecha.toDateString() === ahora.toDateString()
-      if (esHoy) return `Hoy, ${fecha.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}`
+      if (esHoy) return `Hoy, ${formato.hora(fecha)}`
 
       const ayer = new Date(ahora)
       ayer.setDate(ayer.getDate() - 1)
       if (fecha.toDateString() === ayer.toDateString()) {
-        return `Ayer, ${fecha.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}`
+        return `Ayer, ${formato.hora(fecha)}`
       }
 
       if (diffDias < 7) return `Hace ${diffDias} días`
 
-      return new Intl.DateTimeFormat('es', {
+      return new Intl.DateTimeFormat(formato.locale, {
         day: 'numeric', month: 'short', year: fecha.getFullYear() !== ahora.getFullYear() ? 'numeric' : undefined,
       }).format(fecha)
     } catch { return iso }
@@ -277,7 +279,7 @@ export function SeccionSeguridad() {
     try {
       const fecha = new Date(iso)
       const ahora = new Date()
-      return new Intl.DateTimeFormat('es', {
+      return new Intl.DateTimeFormat(formato.locale, {
         day: 'numeric', month: 'short', year: fecha.getFullYear() !== ahora.getFullYear() ? 'numeric' : undefined,
         hour: '2-digit', minute: '2-digit',
       }).format(fecha)

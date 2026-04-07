@@ -22,6 +22,7 @@ import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { useAuth } from '@/hooks/useAuth'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useRol } from '@/hooks/useRol'
+import { useFormato } from '@/hooks/useFormato'
 import { useTraduccion } from '@/lib/i18n'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 
@@ -373,7 +374,7 @@ function crearColumnas(t: (clave: string) => string, locale: string, monedaCodig
       if (!fila.compensacion_monto) return <span className="text-sm text-texto-terciario">—</span>
       return (
         <div>
-          <p className="text-sm font-medium text-texto-primario">{formatearMoneda(fila.compensacion_monto)}</p>
+          <p className="text-sm font-medium text-texto-primario">{formatearMoneda(fila.compensacion_monto, locale, monedaCodigo)}</p>
           <p className="text-xxs text-texto-terciario">
             {etiquetaCompensacion(fila.compensacion_tipo, fila.compensacion_frecuencia)} · {fila.compensacion_frecuencia}
           </p>
@@ -459,7 +460,7 @@ function crearColumnas(t: (clave: string) => string, locale: string, monedaCodig
     grupo: t('comun.fechas'),
     render: (fila) => (
       <span className="text-sm text-texto-terciario">
-        {fila.unido_en ? new Date(fila.unido_en).toLocaleDateString('es', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'}
+        {fila.unido_en ? new Date(fila.unido_en).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: '2-digit' }) : '—'}
       </span>
     ),
   },
@@ -473,7 +474,7 @@ function crearColumnas(t: (clave: string) => string, locale: string, monedaCodig
       if (!fila.fecha_nacimiento) return <span className="text-sm text-texto-terciario">—</span>
       const dias = diasHastaCumple(fila.fecha_nacimiento)
       const fecha = new Date(fila.fecha_nacimiento + 'T12:00:00')
-      const texto = fecha.toLocaleDateString('es', { day: 'numeric', month: 'short' })
+      const texto = fecha.toLocaleDateString(locale, { day: 'numeric', month: 'short' })
       if (dias === 0) return <span className="text-sm text-insignia-advertencia font-medium flex items-center gap-1"><Cake size={12} /> ¡Hoy!</span>
       if (dias > 0 && dias <= 7) return <span className="text-sm text-insignia-advertencia/60 flex items-center gap-1"><Cake size={12} /> {texto} ({dias}d)</span>
       return <span className="text-sm text-texto-terciario">{texto}</span>
@@ -488,10 +489,11 @@ export default function PaginaUsuarios() {
   const { usuario } = useAuth()
   const { empresa } = useEmpresa()
   const { esPropietario, esAdmin } = useRol()
+  const formato = useFormato()
   const [supabase] = useState(() => crearClienteNavegador())
 
   // Columnas y opciones con traducciones (se recalculan si cambia el idioma)
-  const columnas = crearColumnas(t)
+  const columnas = crearColumnas(t, formato.locale, formato.codigoMoneda)
   const ETIQUETA_ROL = crearEtiquetaRol(t)
   const ROLES_OPCIONES = crearRolesOpciones(t)
 
@@ -729,7 +731,7 @@ export default function PaginaUsuarios() {
         renderTarjeta={(fila) => {
           const dias = diasHastaCumple(fila.fecha_nacimiento)
           const esCumple = dias >= 0 && dias <= 7
-          const ingreso = formatearIngreso(fila.unido_en)
+          const ingreso = formatearIngreso(fila.unido_en, formato.locale)
           const tieneDetalle = fila.telefono || fila.compensacion_monto > 0 || ingreso
           return (
             <div className="p-4 flex flex-col gap-3">
@@ -758,12 +760,12 @@ export default function PaginaUsuarios() {
                         className="text-xs text-insignia-advertencia font-medium truncate flex items-center gap-1 mt-0.5"
                       >
                         <Cake size={10} />
-                        {textoCumple(dias, fila.fecha_nacimiento, locale)}
+                        {textoCumple(dias, fila.fecha_nacimiento, formato.locale)}
                       </motion.p>
                     ) : (
                       <p className="text-xs text-insignia-advertencia/50 truncate flex items-center gap-1 mt-0.5">
                         <Cake size={10} />
-                        {textoCumple(dias, fila.fecha_nacimiento, locale)}
+                        {textoCumple(dias, fila.fecha_nacimiento, formato.locale)}
                       </p>
                     )
                   )}
@@ -784,7 +786,7 @@ export default function PaginaUsuarios() {
                 <div className="border-t border-borde-sutil pt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-texto-terciario">
                   {fila.compensacion_monto > 0 && (
                     <span className="text-xs font-medium text-texto-primario">
-                      {formatearMoneda(fila.compensacion_monto)}
+                      {formatearMoneda(fila.compensacion_monto, formato.locale, formato.codigoMoneda)}
                       <span className="text-texto-terciario font-normal">
                         {etiquetaCompensacion(fila.compensacion_tipo, fila.compensacion_frecuencia)}
                       </span>

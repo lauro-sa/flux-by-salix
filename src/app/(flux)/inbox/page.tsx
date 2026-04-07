@@ -70,6 +70,11 @@ function PaginaInbox() {
   const supabase = useMemo(() => crearClienteNavegador(), [])
 
   // Estado global del inbox
+  // Ref para bloquear cargarConversaciones mientras se abre desde URL (evita race condition)
+  // Inicializar en true si la URL ya trae ?conv= para bloquear el primer fetch automático
+  const abriendoDesdeUrlRef = useRef(
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('conv')
+  )
   const [tabActivo, setTabActivo] = useState<TipoCanal>('whatsapp')
   const [vistaWA, setVistaWA] = useState<'conversaciones' | 'pipeline'>('conversaciones')
   const [configCargada, setConfigCargada] = useState(false)
@@ -290,6 +295,8 @@ function PaginaInbox() {
   const cargarConversaciones = useCallback(async () => {
     // No cargar hasta que la config esté lista
     if (!configCargada) return
+    // Bloquear mientras se abre desde URL (evita race condition con tab incorrecto)
+    if (abriendoDesdeUrlRef.current) return
     // Para correo, esperar a que haya canal activo (evita doble fetch)
     if (tabActivo === 'correo' && !canalTodas && !canalCorreoActivo) return
     setCargandoConversaciones(true)
@@ -329,6 +336,9 @@ function PaginaInbox() {
     // Evitar re-procesar el mismo convId
     if (convParamAnteriorRef.current === convId) return
     convParamAnteriorRef.current = convId
+
+    // Bloquear cargarConversaciones para evitar race condition
+    abriendoDesdeUrlRef.current = true
 
     // Abrir conversación por ID — optimizado para mínima latencia
     const abrirDesdeUrl = async () => {
@@ -406,8 +416,26 @@ function PaginaInbox() {
         // Limpiar params de la URL
         window.history.replaceState({}, '', window.location.pathname)
         convParamAnteriorRef.current = null
+
+        // Desbloquear y cargar conversaciones del tab correcto
+        abriendoDesdeUrlRef.current = false
+        // Cargar lista de conversaciones del tab que se determinó
+        const tabFinal = tabParam || (conv.tipo_canal || conv.canal?.tipo) as string
+        if (tabFinal && tabFinal !== 'correo') {
+          // Para whatsapp/interno, cargar directo
+          const params = new URLSearchParams()
+          params.set('tipo_canal', tabFinal)
+          try {
+            const resList = await fetch(`/api/inbox/conversaciones?${params}`)
+            const dataList = await resList.json()
+            setConversaciones(dataList.conversaciones || [])
+          } catch { /* silenciar */ }
+        }
+        // Para correo, el useEffect de cargarConversaciones se encargará
+        // cuando se carguen los canales de correo
       } catch {
         setCargandoMensajes(false)
+        abriendoDesdeUrlRef.current = false
       }
     }
     abrirDesdeUrl()

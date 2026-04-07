@@ -80,8 +80,8 @@ export function contarFiltrosActivos(filtros: Filtro[]): number {
 }
 
 /** Genera el placeholder dinámico */
-export function generarPlaceholder(base: string, contador?: number, filtrosActivos?: number): string {
+export function generarPlaceholder(base: string, contador?: number, filtrosActivos?: number, locale: string = 'es-AR'): string {
   if (filtrosActivos && filtrosActivos > 0) return `Buscar en ${filtrosActivos} filtro${filtrosActivos > 1 ? 's' : ''} activo${filtrosActivos > 1 ? 's' : ''}...`
-  if (contador !== undefined) return `${base} (${contador.toLocaleString('es')} resultados)`
+  if (contador !== undefined) return `${base} (${contador.toLocaleString(locale)} resultados)`
   return base
 }

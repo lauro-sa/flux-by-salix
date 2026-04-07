@@ -3,6 +3,7 @@
 import { Circle, CheckCircle2, Trash2, Repeat, Maximize2 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { textoRecurrencia } from '@/componentes/ui/SelectorRecurrencia'
+import { useFormato } from '@/hooks/useFormato'
 import { motion } from 'framer-motion'
 import { type Recordatorio, formatearFecha, hoyISO } from './tipos'
 
@@ -19,6 +20,7 @@ interface ItemRecordatorioProps {
 }
 
 function ItemRecordatorio({ recordatorio: r, indice, onToggleCompletar, onEliminar }: ItemRecordatorioProps) {
+  const { locale } = useFormato()
   const esCompletado = r.completado
 
   return (
@@ -46,14 +48,14 @@ function ItemRecordatorio({ recordatorio: r, indice, onToggleCompletar, onElimin
         {esCompletado ? (
           <>
             <p className="text-sm text-texto-terciario line-through truncate">{r.titulo}</p>
-            <span className="text-xxs text-texto-terciario">{formatearFecha(r.fecha)}</span>
+            <span className="text-xxs text-texto-terciario">{formatearFecha(r.fecha, locale)}</span>
           </>
         ) : (
           <>
             <p className="text-sm font-medium text-texto-primario truncate">{r.titulo}</p>
             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
               <span className={`text-xxs ${r.fecha < hoyISO() ? 'text-insignia-peligro-texto font-semibold' : 'text-texto-terciario'}`}>
-                {formatearFecha(r.fecha)}
+                {formatearFecha(r.fecha, locale)}
               </span>
               {r.hora && <span className="text-xxs text-texto-terciario">{r.hora}</span>}
               {r.repetir !== 'ninguno' && (

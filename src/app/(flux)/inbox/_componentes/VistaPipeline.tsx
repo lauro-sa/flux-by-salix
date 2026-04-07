@@ -32,6 +32,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
+import { useFormato } from '@/hooks/useFormato'
 import type { ConversacionConDetalles, EtapaConversacion } from '@/tipos/inbox'
 import type { ResultadoValidacion } from './_helpers/validarRequisitosEtapa'
 import { validarRequisitosEtapa } from './_helpers/validarRequisitosEtapa'
@@ -48,7 +49,7 @@ interface PropiedadesVistaPipeline {
 
 // ─── Helpers ───
 
-function tiempoRelativo(fecha: string): string {
+function tiempoRelativo(fecha: string, locale: string): string {
   const diff = Date.now() - new Date(fecha).getTime()
   const mins = Math.floor(diff / 60000)
   if (mins < 1) return 'ahora'
@@ -58,7 +59,7 @@ function tiempoRelativo(fecha: string): string {
   const dias = Math.floor(hrs / 24)
   if (dias === 1) return 'ayer'
   if (dias < 7) return `hace ${dias}d`
-  return new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short' }).format(new Date(fecha))
+  return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' }).format(new Date(fecha))
 }
 
 function truncar(texto: string, max: number): string {
@@ -78,6 +79,7 @@ const INTERVALO_REFRESCO_MS = 30_000
 // ─── Tarjeta de conversación (visual) ───
 
 function TarjetaConversacion({ conversacion }: { conversacion: ConversacionConDetalles }) {
+  const formato = useFormato()
   const nombreContacto =
     conversacion.contacto?.nombre
       ? `${conversacion.contacto.nombre}${conversacion.contacto.apellido ? ` ${conversacion.contacto.apellido}` : ''}`
@@ -87,7 +89,7 @@ function TarjetaConversacion({ conversacion }: { conversacion: ConversacionConDe
     ? truncar(conversacion.ultimo_mensaje_texto, 60)
     : 'Sin mensajes'
 
-  const tiempoUltimoMsg = conversacion.ultimo_mensaje_en ? tiempoRelativo(conversacion.ultimo_mensaje_en) : null
+  const tiempoUltimoMsg = conversacion.ultimo_mensaje_en ? tiempoRelativo(conversacion.ultimo_mensaje_en, formato.locale) : null
   const prioridad = conversacion.prioridad !== 'normal' ? COLORES_PRIORIDAD[conversacion.prioridad] : null
 
   return (

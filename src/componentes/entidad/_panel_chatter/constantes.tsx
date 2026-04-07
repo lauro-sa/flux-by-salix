@@ -119,7 +119,7 @@ function formatearHora(d: Date, formato: string = '24h'): string {
 // Ayer → "Ayer 14:30"
 // Esta semana → "Martes 14:30"
 // Más de una semana → "21 mar 14:30" (o con año si no es el actual)
-export function fechaRelativa(fecha: string, formatoHora: string = '24h'): string {
+export function fechaRelativa(fecha: string, formatoHora: string = '24h', locale: string = 'es-AR'): string {
   const ahora = new Date()
   const d = new Date(fecha)
 
@@ -137,7 +137,7 @@ export function fechaRelativa(fecha: string, formatoHora: string = '24h'): strin
   }
 
   const mismoAnio = d.getFullYear() === ahora.getFullYear()
-  return d.toLocaleDateString('es-AR', {
+  return d.toLocaleDateString(locale, {
     day: 'numeric',
     month: 'short',
     ...(mismoAnio ? {} : { year: 'numeric' }),
@@ -160,8 +160,8 @@ export function formatearTextoWA(texto: string): string {
 }
 
 // Formatear fecha completa para tooltip
-export function fechaCompleta(fecha: string, formatoHora: string = '24h'): string {
+export function fechaCompleta(fecha: string, formatoHora: string = '24h', locale: string = 'es-AR'): string {
   const d = new Date(fecha)
-  const fechaParte = d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
+  const fechaParte = d.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })
   return `${fechaParte} ${formatearHora(d, formatoHora)}`
 }

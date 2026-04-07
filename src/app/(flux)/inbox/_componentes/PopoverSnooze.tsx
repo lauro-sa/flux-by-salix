@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { Popover } from '@/componentes/ui/Popover'
 import { Boton } from '@/componentes/ui/Boton'
+import { useFormato } from '@/hooks/useFormato'
 
 /**
  * PopoverSnooze — Popover para posponer (snooze) una conversación.
@@ -45,7 +46,7 @@ function proximoLunesALas9(): Date {
 }
 
 /** Formatea una fecha ISO a texto legible */
-function formatearFecha(iso: string): string {
+function formatearFecha(iso: string, locale: string): string {
   try {
     const fecha = new Date(iso)
     const ahora = new Date()
@@ -53,15 +54,15 @@ function formatearFecha(iso: string): string {
     const diaFecha = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate())
     const diffDias = Math.round((diaFecha.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24))
 
-    const hora = fecha.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })
+    const hora = fecha.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
 
     if (diffDias === 0) return `Hoy a las ${hora}`
     if (diffDias === 1) return `Mañana a las ${hora}`
     if (diffDias > 1 && diffDias <= 7) {
-      const dia = fecha.toLocaleDateString('es', { weekday: 'long' })
+      const dia = fecha.toLocaleDateString(locale, { weekday: 'long' })
       return `${dia.charAt(0).toUpperCase() + dia.slice(1)} a las ${hora}`
     }
-    return fecha.toLocaleDateString('es', {
+    return fecha.toLocaleDateString(locale, {
       day: 'numeric', month: 'short', year: fecha.getFullYear() !== ahora.getFullYear() ? 'numeric' : undefined,
     }) + ` a las ${hora}`
   } catch {
@@ -118,6 +119,7 @@ function PopoverSnooze({
   onSnooze,
   onDespertar,
 }: PropiedadesPopoverSnooze) {
+  const formato = useFormato()
   const [abierto, setAbierto] = useState(false)
   const [nota, setNota] = useState('')
   const [mostrarPersonalizado, setMostrarPersonalizado] = useState(false)
@@ -212,7 +214,7 @@ function PopoverSnooze({
         >
           <div className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--insignia-advertencia, #f59e0b)' }}>
             <BellRing size={14} />
-            <span>Pospuesta hasta {formatearFecha(snoozeActual.hasta)}</span>
+            <span>Pospuesta hasta {formatearFecha(snoozeActual.hasta, formato.locale)}</span>
           </div>
           {snoozeActual.nota && (
             <p className="text-xs pl-[22px]" style={{ color: 'var(--texto-secundario)' }}>
@@ -390,8 +392,8 @@ function PopoverSnooze({
         tamano="sm"
         soloIcono
         icono={estaPospuesta ? <BellRing size={16} /> : <Clock size={16} />}
-        titulo={estaPospuesta ? `Pospuesta hasta ${formatearFecha(snoozeActual!.hasta)}` : 'Posponer conversación'}
-        tooltip={estaPospuesta ? `Pospuesta hasta ${formatearFecha(snoozeActual!.hasta)}` : 'Posponer'}
+        titulo={estaPospuesta ? `Pospuesta hasta ${formatearFecha(snoozeActual!.hasta, formato.locale)}` : 'Posponer conversación'}
+        tooltip={estaPospuesta ? `Pospuesta hasta ${formatearFecha(snoozeActual!.hasta, formato.locale)}` : 'Posponer'}
       />
     </Popover>
   )

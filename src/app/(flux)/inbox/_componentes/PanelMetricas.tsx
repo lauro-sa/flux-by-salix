@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
+import { useFormato } from '@/hooks/useFormato'
 import { Select } from '@/componentes/ui/Select'
 import {
   MessageSquare, Send, CheckCircle, TrendingUp,
@@ -38,6 +39,7 @@ interface PropiedadesPanelMetricas {
 }
 
 export function PanelMetricas({ tipoCanal }: PropiedadesPanelMetricas = {}) {
+  const formato = useFormato()
   const [periodo, setPeriodo] = useState('30')
   const [resumen, setResumen] = useState<Resumen | null>(null)
   const [porAgente, setPorAgente] = useState<MetricaAgente[]>([])
@@ -122,7 +124,7 @@ export function PanelMetricas({ tipoCanal }: PropiedadesPanelMetricas = {}) {
               <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>{t.etiqueta}</span>
             </div>
             <p className="text-xl font-bold" style={{ color: 'var(--texto-primario)' }}>
-              {t.valor.toLocaleString()}
+              {t.valor.toLocaleString(formato.locale)}
             </p>
           </motion.div>
         ))}

@@ -269,6 +269,8 @@ export default function PaginaDashboard() {
             t={t}
             moneda={moneda}
             fechaRelativa={fechaRelativa}
+            formatoFecha={formatoFecha}
+            formatoLocale={formatoLocale}
             router={router}
           />
         ) : (
@@ -288,13 +290,15 @@ export default function PaginaDashboard() {
 // ═══════════════════════════════════════════════════════
 
 function PestanaGeneral({
-  datos, metricas, t, moneda, fechaRelativa, router,
+  datos, metricas, t, moneda, fechaRelativa, formatoFecha, formatoLocale, router,
 }: {
   datos: DatosDashboard | null
   metricas: MetricasInbox | null
   t: (k: string) => string
   moneda: (n: number) => string
   fechaRelativa: (f: string) => string
+  formatoFecha: (fecha: Date | string, opciones?: { conHora?: boolean; corta?: boolean; soloMes?: boolean }) => string
+  formatoLocale: string
   router: ReturnType<typeof useRouter>
 }) {
   return (
@@ -634,6 +638,7 @@ function TarjetaReciente({
 
 function TarjetaMensajesRecientes({ mensajes }: { mensajes: DatosDashboard['mensajes_recientes'] }) {
   const [canal, setCanal] = useState<string>('todos')
+  const { fecha: fmtFecha, locale: fmtLocale } = useFormato()
 
   const canalesConDatos = Array.from(new Set(mensajes.map(m => m.tipo_canal))).filter(Boolean)
   const canalesBase = ['whatsapp', 'correo', 'interno']
@@ -695,8 +700,8 @@ function TarjetaMensajesRecientes({ mensajes }: { mensajes: DatosDashboard['mens
                         if (fecha.toDateString() === hoy.toDateString()) return 'Hoy'
                         if (fecha.toDateString() === ayer.toDateString()) return 'Ayer'
                         const diffDias = Math.floor((hoy.getTime() - fecha.getTime()) / 86400000)
-                        if (diffDias < 7) return fecha.toLocaleDateString(formatoLocale, { weekday: 'long' }).replace(/^\w/, c => c.toUpperCase())
-                        return formatoFecha(fecha, { corta: true })
+                        if (diffDias < 7) return fecha.toLocaleDateString(fmtLocale, { weekday: 'long' }).replace(/^\w/, c => c.toUpperCase())
+                        return fmtFecha(fecha, { corta: true })
                       })()}
                     </span>
                   </div>
