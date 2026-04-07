@@ -269,7 +269,17 @@ export default function PaginaAsistencias() {
         onCambiarPagina={setPagina}
         onVistaExterna={(v) => setVista(v as 'lista' | 'tarjetas' | 'matriz')}
         vistaExternaActiva={vista === 'matriz' ? 'matriz' : null}
-        contenidoCustom={vista === 'matriz' ? <VistaMatriz /> : undefined}
+        contenidoCustom={vista === 'matriz' ? <VistaMatriz onClickAsistencia={async (id) => {
+          // Buscar en registros cargados
+          const encontrado = registros.find(r => r.id === id)
+          if (encontrado) { setEditando(encontrado); return }
+          // Si no está, buscar todos y filtrar
+          const res = await fetch('/api/asistencias?pagina=1&limite=200')
+          if (!res.ok) return
+          const data = await res.json()
+          const reg = (data.registros || []).find((r: RegistroAsistencia) => r.id === id)
+          if (reg) setEditando(reg)
+        }} /> : undefined}
         renderTarjeta={(r) => <TarjetaAsistencia registro={r} />}
         onClickFila={(r) => setEditando(r)}
         estadoVacio={

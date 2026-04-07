@@ -160,7 +160,7 @@ const COLORES_AVATAR = [
 
 // ─── Componente ──────────────────────────────────────────────
 
-export function VistaMatriz() {
+export function VistaMatriz({ onClickAsistencia }: { onClickAsistencia?: (asistenciaId: string) => void }) {
   const esMovil = useEsMovil()
   const { formatoHora } = useFormato()
   const [periodo, setPeriodo] = useState<Periodo>('semana')
@@ -561,7 +561,7 @@ export function VistaMatriz() {
                           <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol}`}>
                             {esUltra ? (
                               <div className="group/celda relative mx-auto">
-                                <div className="size-5 rounded-md bg-red-500/20 flex items-center justify-center">
+                                <div className="size-5 rounded-md bg-red-500/20 flex items-center justify-center cursor-pointer" onClick={() => asist && onClickAsistencia?.(asist.id)}>
                                   <span className="text-red-400 text-[7px] font-bold">A</span>
                                 </div>
                                 <div className="absolute z-[100] top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 scale-95 pointer-events-none group-hover/celda:opacity-100 group-hover/celda:scale-100 transition-all duration-150">
@@ -576,7 +576,7 @@ export function VistaMatriz() {
                                 </div>
                               </div>
                             ) : (
-                            <div className={`mx-auto rounded-lg ${esCompacto ? 'h-[52px]' : 'h-[60px]'} flex items-center justify-center ${COLORES_CELDA.ausente.fondo} border ${COLORES_CELDA.ausente.borde}`}>
+                            <div onClick={() => asist && onClickAsistencia?.(asist.id)} className={`mx-auto rounded-lg ${esCompacto ? 'h-[52px]' : 'h-[60px]'} flex items-center justify-center ${COLORES_CELDA.ausente.fondo} border ${COLORES_CELDA.ausente.borde} cursor-pointer hover:brightness-110 transition-all`}>
                               <span className={`text-red-400 ${esCompacto ? 'text-[9px]' : 'text-[11px]'} font-semibold uppercase`}>Ausente</span>
                             </div>
                             )}
@@ -611,7 +611,8 @@ export function VistaMatriz() {
                               /* Ultra compacto: solo punto de color con tooltip rico */
                               <div className="group/celda relative inline-flex justify-center">
                                 <div
-                                  className="size-5 rounded-md flex items-center justify-center cursor-default"
+                                  className="size-5 rounded-md flex items-center justify-center cursor-pointer"
+                                  onClick={() => onClickAsistencia?.(asist.id)}
                                   style={{ backgroundColor: `color-mix(in srgb, ${estado === 'cerrado' ? '#10b981' : estado === 'tardanza' ? '#f59e0b' : estado === 'auto_cerrado' ? '#ef4444' : estado === 'activo' ? '#0ea5e9' : '#10b981'} 20%, transparent)` }}
                                 >
                                   <div className={`size-1.5 rounded-full ${colorPunto}`} />
@@ -631,7 +632,9 @@ export function VistaMatriz() {
                               </div>
                             ) : (
                               /* Normal / compacto */
-                              <div className={`mx-auto rounded-lg ${esCompacto ? 'h-[52px] gap-0.5 px-0.5' : esIntermedio ? 'h-[62px] gap-1 px-0.5' : 'h-[74px] gap-1.5 pt-1'} flex flex-col items-center justify-center border ${colores.fondo} ${colores.borde} cursor-default`}>
+                              <div
+                                onClick={() => onClickAsistencia?.(asist.id)}
+                                className={`mx-auto rounded-lg ${esCompacto ? 'h-[52px] gap-0.5 px-0.5' : esIntermedio ? 'h-[62px] gap-1 px-0.5' : 'h-[74px] gap-1.5 pt-1'} flex flex-col items-center justify-center border ${colores.fondo} ${colores.borde} cursor-pointer hover:brightness-110 transition-all`}>
                                 <div className={`${esCompacto || esIntermedio ? 'size-1.5' : 'size-2'} rounded-full ${colorPunto} shrink-0`} />
                                 <span className={`${esCompacto ? 'text-[10px]' : esIntermedio ? 'text-[11px]' : 'text-xs'} font-semibold text-texto-primario leading-none`}>{horaE}</span>
                                 <span className={`${esCompacto || esIntermedio ? 'text-[8px]' : 'text-[10px]'} text-texto-terciario leading-none`}>{horaS || '...'}</span>
