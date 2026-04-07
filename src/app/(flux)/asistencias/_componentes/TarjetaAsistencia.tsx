@@ -120,15 +120,15 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
       {/* Horarios + duración en una línea */}
       {r.estado !== 'ausente' && r.hora_entrada ? (
         <>
-          <div className="flex items-baseline gap-1.5 flex-wrap">
-            <span className="text-base font-mono font-bold text-texto-primario">
+          <div className="flex items-baseline gap-3 flex-wrap">
+            <span className="text-xl font-mono font-bold text-texto-primario tracking-tight">
               {fmtHora24(r.hora_entrada)}
             </span>
-            <span className="text-texto-terciario">→</span>
-            <span className="text-base font-mono font-bold text-texto-primario">
+            <span className="text-texto-terciario text-base">→</span>
+            <span className="text-xl font-mono font-bold text-texto-primario tracking-tight">
               {r.hora_salida ? fmtHora24(r.hora_salida) : '…'}
             </span>
-            <span className={`text-xs font-medium ${colorDurTxt}`}>
+            <span className={`text-sm font-medium ${colorDurTxt}`}>
               · {dur}
             </span>
           </div>
@@ -152,12 +152,12 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
         </>
       ) : r.estado === 'activo' && r.hora_entrada ? (
         <>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-base font-mono font-bold text-texto-primario">
+          <div className="flex items-baseline gap-3">
+            <span className="text-xl font-mono font-bold text-texto-primario tracking-tight">
               {fmtHora24(r.hora_entrada)}
             </span>
-            <span className="text-texto-terciario">→</span>
-            <span className="text-base font-mono text-texto-terciario">…</span>
+            <span className="text-texto-terciario text-base">→</span>
+            <span className="text-xl font-mono text-texto-terciario tracking-tight">…</span>
           </div>
           <div className="w-full h-5 rounded-full bg-superficie-elevada/50 overflow-hidden">
             <div className="h-full rounded-full bg-emerald-400 transition-all duration-500 flex items-center justify-center" style={{ width: '100%' }}>
