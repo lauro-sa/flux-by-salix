@@ -100,8 +100,8 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
 
   return (
     <div className="flex flex-col gap-2.5 w-full">
-      {/* Header: avatar + nombre + badge */}
-      <div className="flex items-center justify-between gap-2">
+      {/* Header: avatar + nombre + badge (pr-6 para no chocar con checkbox) */}
+      <div className="flex items-center justify-between gap-2 pr-6">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className={`size-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${colorAvatar}`}>
             {inicial(r.miembro_nombre)}
