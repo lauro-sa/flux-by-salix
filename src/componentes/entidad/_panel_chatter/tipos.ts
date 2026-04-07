@@ -66,7 +66,10 @@ export interface PropsEntradaTimeline {
   entrada: EntradaChatter
   entidadTipo: string
   entidadId: string
+  usuarioActualId?: string
   onAccionComprobante: (entradaId: string, comprobanteId: string, accion: 'confirmar' | 'rechazar') => void
+  onEditarNota?: (entrada: EntradaChatter) => void
+  onEliminarNota?: (entradaId: string) => void
   onRecargar: () => void
 }
 
@@ -74,6 +77,8 @@ export interface PropsEntradaTimeline {
 export interface PropsEditorNota {
   entidadTipo: string
   entidadId: string
+  /** Nota existente para editar (si es undefined, crea nueva) */
+  notaEditando?: import('@/tipos/chatter').EntradaChatter | null
   onEnviado: () => void
   onCancelar: () => void
 }

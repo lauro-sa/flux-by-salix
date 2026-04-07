@@ -22,6 +22,7 @@ import {
 import { AnimatePresence, motion } from 'framer-motion'
 import { ModalActividad } from '@/app/(flux)/actividades/_componentes/ModalActividad'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { useAuth } from '@/hooks/useAuth'
 import type { EntradaChatter, FiltroChatter } from '@/tipos/chatter'
 import { Popover } from '@/componentes/ui/Popover'
 import {
@@ -54,11 +55,14 @@ export function PanelChatter({
   onCambiarSinLateral,
   className = '',
 }: PropsPanelChatter) {
+  const { usuario } = useAuth()
+
   // ─── Estado principal ───
   const [entradas, setEntradas] = useState<EntradaChatter[]>([])
   const [cargando, setCargando] = useState(true)
   const [filtro, setFiltro] = useState<FiltroChatter>('todo')
   const [modoNota, setModoNota] = useState(false)
+  const [notaEditando, setNotaEditando] = useState<EntradaChatter | null>(null)
   const [busqueda, setBusqueda] = useState('')
   const [mostrarBusqueda, setMostrarBusqueda] = useState(false)
   const [colapsado, setColapsado] = useState(false)
@@ -184,6 +188,20 @@ export function PanelChatter({
       if (res.ok) await cargar()
     } catch { /* silencioso */ }
   }
+
+  // ─── Editar nota ───
+  const editarNota = useCallback((entrada: EntradaChatter) => {
+    setNotaEditando(entrada)
+    setModoNota(true)
+  }, [])
+
+  // ─── Eliminar nota ───
+  const eliminarNota = useCallback(async (entradaId: string) => {
+    try {
+      const res = await fetch(`/api/chatter?id=${entradaId}`, { method: 'DELETE' })
+      if (res.ok) await cargar()
+    } catch { /* silencioso */ }
+  }, [cargar])
 
   // ─── Abrir modal de actividad (lazy load config) ───
   const abrirActividad = useCallback(async () => {
@@ -414,13 +432,16 @@ export function PanelChatter({
                 {modoNota && (
                   <div className="px-3 pt-3 pb-1">
                     <EditorNota
+                      key={notaEditando?.id || 'nueva'}
                       entidadTipo={entidadTipo}
                       entidadId={entidadId}
+                      notaEditando={notaEditando}
                       onEnviado={() => {
                         setModoNota(false)
+                        setNotaEditando(null)
                         cargar()
                       }}
-                      onCancelar={() => setModoNota(false)}
+                      onCancelar={() => { setModoNota(false); setNotaEditando(null) }}
                     />
                   </div>
                 )}
@@ -449,7 +470,10 @@ export function PanelChatter({
                       entrada={entrada}
                       entidadTipo={entidadTipo}
                       entidadId={entidadId}
+                      usuarioActualId={usuario?.id}
                       onAccionComprobante={accionComprobante}
+                      onEditarNota={editarNota}
+                      onEliminarNota={eliminarNota}
                       onRecargar={cargar}
                     />
                   ))

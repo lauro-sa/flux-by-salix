@@ -102,3 +102,107 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }
+
+/**
+ * PATCH /api/chatter — Editar una entrada de chatter (solo notas propias).
+ * Body: { id, contenido, metadata? }
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const supabase = await crearClienteServidor()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+    const empresaId = user.app_metadata?.empresa_activa_id
+    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    const body = await request.json()
+    const { id, contenido, metadata } = body
+
+    if (!id || !contenido) {
+      return NextResponse.json({ error: 'id y contenido son requeridos' }, { status: 400 })
+    }
+
+    const admin = crearClienteAdmin()
+
+    // Verificar que la entrada existe, es del usuario y es nota_interna
+    const { data: entrada } = await admin
+      .from('chatter')
+      .select('autor_id, tipo')
+      .eq('id', id)
+      .eq('empresa_id', empresaId)
+      .single()
+
+    if (!entrada) return NextResponse.json({ error: 'Entrada no encontrada' }, { status: 404 })
+    if (entrada.autor_id !== user.id) return NextResponse.json({ error: 'Solo podés editar tus propias notas' }, { status: 403 })
+    if (entrada.tipo !== 'nota_interna') return NextResponse.json({ error: 'Solo se pueden editar notas internas' }, { status: 400 })
+
+    const updates: Record<string, unknown> = {
+      contenido,
+      editado_en: new Date().toISOString(),
+    }
+    if (metadata) updates.metadata = metadata
+
+    const { data, error } = await admin
+      .from('chatter')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error al editar chatter:', error)
+      return NextResponse.json({ error: 'Error al editar' }, { status: 500 })
+    }
+
+    return NextResponse.json(data)
+  } catch {
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+  }
+}
+
+/**
+ * DELETE /api/chatter?id=xxx — Eliminar una entrada de chatter (solo notas propias).
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await crearClienteServidor()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+    const empresaId = user.app_metadata?.empresa_activa_id
+    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+    if (!id) return NextResponse.json({ error: 'id es requerido' }, { status: 400 })
+
+    const admin = crearClienteAdmin()
+
+    // Verificar propiedad y tipo
+    const { data: entrada } = await admin
+      .from('chatter')
+      .select('autor_id, tipo')
+      .eq('id', id)
+      .eq('empresa_id', empresaId)
+      .single()
+
+    if (!entrada) return NextResponse.json({ error: 'Entrada no encontrada' }, { status: 404 })
+    if (entrada.autor_id !== user.id) return NextResponse.json({ error: 'Solo podés eliminar tus propias notas' }, { status: 403 })
+    if (entrada.tipo !== 'nota_interna') return NextResponse.json({ error: 'Solo se pueden eliminar notas internas' }, { status: 400 })
+
+    const { error } = await admin
+      .from('chatter')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      console.error('Error al eliminar chatter:', error)
+      return NextResponse.json({ error: 'Error al eliminar' }, { status: 500 })
+    }
+
+    return NextResponse.json({ ok: true })
+  } catch {
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+  }
+}

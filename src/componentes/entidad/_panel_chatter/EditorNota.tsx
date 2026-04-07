@@ -14,9 +14,10 @@ import { Boton } from '@/componentes/ui/Boton'
 import type { AdjuntoChatter } from '@/tipos/chatter'
 import type { PropsEditorNota } from './tipos'
 
-export function EditorNota({ entidadTipo, entidadId, onEnviado, onCancelar }: PropsEditorNota) {
-  const [html, setHtml] = useState('')
-  const [textoPlano, setTextoPlano] = useState('')
+export function EditorNota({ entidadTipo, entidadId, notaEditando, onEnviado, onCancelar }: PropsEditorNota) {
+  const esEdicion = !!notaEditando
+  const [html, setHtml] = useState(notaEditando?.metadata?.contenido_html || '')
+  const [textoPlano, setTextoPlano] = useState(notaEditando?.contenido || '')
   const [adjuntos, setAdjuntos] = useState<AdjuntoChatter[]>([])
   const [enviando, setEnviando] = useState(false)
   const [subiendoArchivo, setSubiendoArchivo] = useState(false)
@@ -72,26 +73,34 @@ export function EditorNota({ entidadTipo, entidadId, onEnviado, onCancelar }: Pr
     setAdjuntos(prev => prev.filter((_, i) => i !== indice))
   }
 
-  // Enviar nota
+  // Enviar o actualizar nota
   const enviar = async () => {
     if (!tieneContenido || enviando) return
 
     setEnviando(true)
     try {
-      const res = await fetch('/api/chatter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          entidad_tipo: entidadTipo,
-          entidad_id: entidadId,
-          tipo: 'nota_interna',
-          contenido: textoPlano.trim(),
-          adjuntos,
-          metadata: {
-            contenido_html: html,
-          },
-        }),
-      })
+      const res = esEdicion
+        ? await fetch('/api/chatter', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: notaEditando!.id,
+              contenido: textoPlano.trim(),
+              metadata: { ...notaEditando!.metadata, contenido_html: html },
+            }),
+          })
+        : await fetch('/api/chatter', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              entidad_tipo: entidadTipo,
+              entidad_id: entidadId,
+              tipo: 'nota_interna',
+              contenido: textoPlano.trim(),
+              adjuntos,
+              metadata: { contenido_html: html },
+            }),
+          })
 
       if (res.ok) {
         setHtml('')
@@ -116,7 +125,9 @@ export function EditorNota({ entidadTipo, entidadId, onEnviado, onCancelar }: Pr
       <div className="border border-insignia-advertencia/30 rounded-lg bg-insignia-advertencia/5 overflow-hidden">
         {/* Etiqueta */}
         <div className="flex items-center justify-between px-3 py-1.5 border-b border-insignia-advertencia/20">
-          <span className="text-[11px] font-medium text-insignia-advertencia">Nota interna (solo visible para el equipo)</span>
+          <span className="text-[11px] font-medium text-insignia-advertencia">
+            {esEdicion ? 'Editando nota' : 'Nota interna (solo visible para el equipo)'}
+          </span>
           <button
             onClick={onCancelar}
             className="text-texto-terciario hover:text-texto-secundario transition-colors p-0.5 rounded"
@@ -184,7 +195,7 @@ export function EditorNota({ entidadTipo, entidadId, onEnviado, onCancelar }: Pr
               disabled={!tieneContenido || enviando}
               cargando={enviando}
             >
-              Registrar
+              {esEdicion ? 'Guardar' : 'Registrar'}
             </Boton>
           </div>
         </div>

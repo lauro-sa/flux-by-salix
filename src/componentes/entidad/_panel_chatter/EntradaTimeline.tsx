@@ -11,7 +11,7 @@ import { useState } from 'react'
 import {
   FileText, Check, X, ChevronDown, ChevronUp,
   StickyNote, Globe, Mail, Paperclip,
-  Clock,
+  Clock, Pencil, Trash2,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -24,7 +24,10 @@ import type { PropsEntradaTimeline } from './tipos'
 export function EntradaTimeline({
   entrada,
   entidadTipo,
+  usuarioActualId,
   onAccionComprobante,
+  onEditarNota,
+  onEliminarNota,
 }: PropsEntradaTimeline) {
   const esSistema = entrada.tipo === 'sistema'
   const esCorreo = entrada.tipo === 'correo'
@@ -32,26 +35,28 @@ export function EntradaTimeline({
   const esNotaInterna = entrada.tipo === 'nota_interna'
   const esMensaje = entrada.tipo === 'mensaje'
   const esMensajePortal = esMensaje && entrada.metadata?.portal && entrada.autor_id === 'portal'
-  const accion = entrada.metadata?.accion as AccionSistema | undefined
 
-  // Renderizar según tipo
   if (esSistema) {
     return <EntradaSistema entrada={entrada} entidadTipo={entidadTipo} onAccionComprobante={onAccionComprobante} />
   }
-
   if (esCorreo) {
     return <EntradaCorreo entrada={entrada} />
   }
-
   if (esWhatsApp) {
     return <EntradaWhatsApp entrada={entrada} />
   }
-
   if (esNotaInterna) {
-    return <EntradaNotaInterna entrada={entrada} />
+    const esPropia = !!usuarioActualId && entrada.autor_id === usuarioActualId
+    return (
+      <EntradaNotaInterna
+        entrada={entrada}
+        esPropia={esPropia}
+        onEditar={onEditarNota ? () => onEditarNota(entrada) : undefined}
+        onEliminar={onEliminarNota ? () => onEliminarNota(entrada.id) : undefined}
+      />
+    )
   }
 
-  // Mensaje normal o portal
   return <EntradaMensaje entrada={entrada} esMensajePortal={!!esMensajePortal} />
 }
 
@@ -330,11 +335,22 @@ function PalomitasWA({ estado }: { estado?: string }) {
 }
 
 // ─── Nota interna (con formato rico) ───
-function EntradaNotaInterna({ entrada }: { entrada: PropsEntradaTimeline['entrada'] }) {
+function EntradaNotaInterna({
+  entrada,
+  esPropia,
+  onEditar,
+  onEliminar,
+}: {
+  entrada: PropsEntradaTimeline['entrada']
+  esPropia: boolean
+  onEditar?: () => void
+  onEliminar?: () => void
+}) {
   const htmlContenido = entrada.metadata?.contenido_html
+  const fueEditada = !!entrada.editado_en
 
   return (
-    <div className="flex items-start gap-2.5 py-2 bg-insignia-advertencia/5 -mx-3 px-3 rounded-lg my-0.5">
+    <div className="group flex items-start gap-2.5 py-2 bg-insignia-advertencia/5 -mx-3 px-3 rounded-lg my-0.5">
       <Avatar nombre={entrada.autor_nombre} foto={entrada.autor_avatar_url} tamano="xs" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
@@ -342,9 +358,38 @@ function EntradaNotaInterna({ entrada }: { entrada: PropsEntradaTimeline['entrad
           <span className="text-[10px] text-insignia-advertencia flex items-center gap-0.5 font-medium">
             <StickyNote size={10} /> Nota interna
           </span>
-          <span className="text-[10px] text-texto-terciario ml-auto shrink-0" title={fechaCompleta(entrada.creado_en)}>
-            {fechaRelativa(entrada.creado_en)}
-          </span>
+          {fueEditada && (
+            <span className="text-[10px] text-texto-terciario italic">editada</span>
+          )}
+
+          <div className="ml-auto flex items-center gap-1 shrink-0">
+            {/* Botones editar/eliminar (solo notas propias, visibles en hover) */}
+            {esPropia && (
+              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                {onEditar && (
+                  <button
+                    onClick={onEditar}
+                    className="p-1 rounded hover:bg-insignia-advertencia/15 text-texto-terciario hover:text-texto-secundario transition-colors"
+                    title="Editar nota"
+                  >
+                    <Pencil size={12} />
+                  </button>
+                )}
+                {onEliminar && (
+                  <button
+                    onClick={onEliminar}
+                    className="p-1 rounded hover:bg-insignia-peligro/15 text-texto-terciario hover:text-insignia-peligro transition-colors"
+                    title="Eliminar nota"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                )}
+              </div>
+            )}
+            <span className="text-[10px] text-texto-terciario" title={fechaCompleta(entrada.creado_en)}>
+              {fechaRelativa(entrada.creado_en)}
+            </span>
+          </div>
         </div>
         {htmlContenido ? (
           <div
