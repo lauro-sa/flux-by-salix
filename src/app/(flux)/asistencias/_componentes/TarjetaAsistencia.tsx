@@ -51,7 +51,7 @@ function fmtDuracion(min: number): string {
 }
 
 function inicial(nombre: string): string {
-  return nombre.split(' ').map(p => p[0]).filter(Boolean).slice(0, 1).join('').toUpperCase()
+  return nombre.split(' ').map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
 }
 
 // ─── Config de estados ───────────────────────────────────────
@@ -121,11 +121,11 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
       {r.estado !== 'ausente' && r.hora_entrada ? (
         <>
           <div className="flex items-baseline gap-3 flex-wrap">
-            <span className="text-xl font-mono font-bold text-texto-primario tracking-tight">
+            <span className="text-lg font-mono font-semibold text-texto-primario tracking-tight">
               {fmtHora24(r.hora_entrada)}
             </span>
             <span className="text-texto-terciario text-base">→</span>
-            <span className="text-xl font-mono font-bold text-texto-primario tracking-tight">
+            <span className="text-lg font-mono font-semibold text-texto-primario tracking-tight">
               {r.hora_salida ? fmtHora24(r.hora_salida) : '…'}
             </span>
             <span className={`text-sm font-medium ${colorDurTxt}`}>
@@ -134,13 +134,13 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
           </div>
 
           {/* Barra de progreso */}
-          <div className="w-full h-5 rounded-full bg-superficie-elevada/50 overflow-hidden">
+          <div className="w-full h-4 rounded-full bg-superficie-elevada/40 overflow-hidden">
             <div
-              className={`h-full rounded-full ${colorBarra} transition-all duration-500 flex items-center justify-center`}
-              style={{ width: `${Math.max(pct, 12)}%` }}
+              className={`h-full rounded-full ${colorBarra}/80 transition-all duration-500 flex items-center justify-center`}
+              style={{ width: `${Math.max(pct, 15)}%` }}
             >
-              <span className="text-[9px] font-semibold text-white/80 whitespace-nowrap flex items-center gap-1">
-                <Calendar size={9} /> {dur}
+              <span className="text-[8px] font-semibold text-white/90 whitespace-nowrap flex items-center gap-0.5">
+                <Calendar size={8} /> {dur}
               </span>
             </div>
           </div>
@@ -153,15 +153,15 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
       ) : r.estado === 'activo' && r.hora_entrada ? (
         <>
           <div className="flex items-baseline gap-3">
-            <span className="text-xl font-mono font-bold text-texto-primario tracking-tight">
+            <span className="text-lg font-mono font-semibold text-texto-primario tracking-tight">
               {fmtHora24(r.hora_entrada)}
             </span>
             <span className="text-texto-terciario text-base">→</span>
-            <span className="text-xl font-mono text-texto-terciario tracking-tight">…</span>
+            <span className="text-lg font-mono text-texto-terciario tracking-tight">…</span>
           </div>
-          <div className="w-full h-5 rounded-full bg-superficie-elevada/50 overflow-hidden">
-            <div className="h-full rounded-full bg-emerald-400 transition-all duration-500 flex items-center justify-center" style={{ width: '100%' }}>
-              <Calendar size={9} className="text-white/80" />
+          <div className="w-full h-4 rounded-full bg-superficie-elevada/40 overflow-hidden">
+            <div className="h-full rounded-full bg-emerald-400/80 transition-all duration-500 flex items-center justify-center" style={{ width: '100%' }}>
+              <Calendar size={8} className="text-white/90" />
             </div>
           </div>
           <p className="text-xs text-texto-terciario -mt-0.5">En jornada...</p>
