@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
-import { Download, Clock, TimerOff, Pencil } from 'lucide-react'
+import { Download, Clock, TimerOff, Pencil, List, LayoutGrid, CalendarDays } from 'lucide-react'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { ModalEditarFichaje } from './_componentes/ModalEditarFichaje'
@@ -112,7 +112,7 @@ export default function PaginaAsistencias() {
   const [cargando, setCargando] = useState(true)
   const [pagina, setPagina] = useState(1)
   const [editando, setEditando] = useState<RegistroAsistencia | null>(null)
-  const [vistaMatriz, setVistaMatriz] = useState(false)
+  const [vista, setVista] = useState<'lista' | 'tarjetas' | 'matriz'>('lista')
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -228,14 +228,39 @@ export default function PaginaAsistencias() {
       mostrarConfiguracion
       onConfiguracion={() => router.push('/asistencias/configuracion')}
     >
-      {vistaMatriz ? (
-        <VistaMatriz onVolverALista={() => setVistaMatriz(false)} />
+      {/* Toggle de vistas propio — siempre visible */}
+      <div className="flex items-center justify-end px-2 py-1.5">
+        <div className="flex items-center gap-0 outline outline-1 outline-borde-sutil rounded-md overflow-hidden">
+          {([
+            { id: 'lista' as const, icono: <List size={14} /> },
+            { id: 'tarjetas' as const, icono: <LayoutGrid size={14} /> },
+            { id: 'matriz' as const, icono: <CalendarDays size={14} /> },
+          ]).map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              onClick={() => setVista(v.id)}
+              className={`size-8 inline-flex items-center justify-center cursor-pointer border-none transition-colors ${
+                v.id === vista
+                  ? 'bg-superficie-hover text-texto-primario'
+                  : 'bg-transparent text-texto-terciario hover:text-texto-secundario'
+              }`}
+            >
+              {v.icono}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {vista === 'matriz' ? (
+        <VistaMatriz />
       ) : (
         <TablaDinamica
           columnas={columnas}
           datos={registros}
           claveFila={(r) => r.id}
-          vistas={['lista', 'tarjetas', 'matriz']}
+          vistas={vista === 'tarjetas' ? ['lista', 'tarjetas'] : ['lista']}
+          vistaInicial={vista === 'tarjetas' ? 'tarjetas' : 'lista'}
           seleccionables
           busqueda={busqueda}
           onBusqueda={setBusqueda}
@@ -245,7 +270,6 @@ export default function PaginaAsistencias() {
           registrosPorPagina={50}
           paginaExterna={pagina}
           onCambiarPagina={setPagina}
-          onVistaExterna={(v) => { if (v === 'matriz') setVistaMatriz(true) }}
           onClickFila={(r) => setEditando(r)}
           estadoVacio={
             <EstadoVacio

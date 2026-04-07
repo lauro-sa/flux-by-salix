@@ -99,7 +99,7 @@ function estadoCelda(asist: CeldaAsistencia | undefined): string {
 
 // ─── Componente ──────────────────────────────────────────────
 
-export function VistaMatriz({ onVolverALista }: { onVolverALista?: () => void }) {
+export function VistaMatriz() {
   const [periodo, setPeriodo] = useState<Periodo>('semana')
   const [offset, setOffset] = useState(0)
   const [miembros, setMiembros] = useState<Miembro[]>([])
@@ -159,13 +159,7 @@ export function VistaMatriz({ onVolverALista }: { onVolverALista?: () => void })
           <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronRight size={16} />} onClick={() => setOffset(o => o + 1)} />
         </div>
 
-        <div className="w-[100px] flex justify-end">
-          {onVolverALista && (
-            <Boton variante="fantasma" tamano="xs" onClick={onVolverALista}>
-              ← Lista
-            </Boton>
-          )}
-        </div>
+        <div className="w-[100px]" />
       </div>
 
       {/* Matriz */}
