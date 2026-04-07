@@ -19,16 +19,22 @@ export async function GET(request: NextRequest) {
     const params = request.nextUrl.searchParams
     const desde = params.get('desde')
     const hasta = params.get('hasta')
+    const empleadosFiltro = params.get('empleados')?.split(',').filter(Boolean) || null
+    const diasFiltro = params.get('dias')?.split(',').filter(Boolean) || null
     if (!desde || !hasta) return NextResponse.json({ error: 'Parámetros desde y hasta requeridos' }, { status: 400 })
 
     const admin = crearClienteAdmin()
 
     // Miembros con datos de compensación
-    const { data: miembrosData } = await admin
+    let queryMiembros = admin
       .from('miembros')
       .select('id, usuario_id, compensacion_tipo, compensacion_monto, compensacion_frecuencia, dias_trabajo')
       .eq('empresa_id', empresaId)
       .eq('activo', true)
+
+    if (empleadosFiltro) queryMiembros = queryMiembros.in('id', empleadosFiltro)
+
+    const { data: miembrosData } = await queryMiembros
 
     const { data: perfilesData } = await admin
       .from('perfiles')
@@ -44,17 +50,28 @@ export async function GET(request: NextRequest) {
       .gte('fecha', desde)
       .lte('fecha', hasta)
 
+    // Filtrar por días seleccionados
+    const diasSet = diasFiltro ? new Set(diasFiltro) : null
+
     // Agrupar por miembro
     const asistPorMiembro = new Map<string, Record<string, unknown>[]>()
     for (const a of (asistencias || [])) {
       const r = a as Record<string, unknown>
+      if (diasSet && !diasSet.has(r.fecha as string)) continue
       const mid = r.miembro_id as string
       if (!asistPorMiembro.has(mid)) asistPorMiembro.set(mid, [])
       asistPorMiembro.get(mid)!.push(r)
     }
 
-    // Calcular días laborales en el período
+    // Calcular días laborales en el período (o los seleccionados)
     const diasLaboralesEnPeriodo = (() => {
+      if (diasSet) {
+        // Solo contar los días seleccionados que son laborales
+        return Array.from(diasSet).filter(f => {
+          const d = new Date(f + 'T12:00:00').getDay()
+          return d !== 0 && d !== 6
+        }).length
+      }
       let count = 0
       const d = new Date(desde + 'T12:00:00')
       const fin = new Date(hasta + 'T12:00:00')

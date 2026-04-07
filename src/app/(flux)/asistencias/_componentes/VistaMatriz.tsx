@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { Tooltip } from '@/componentes/ui/Tooltip'
+import { Checkbox } from '@/componentes/ui/Checkbox'
 import { ModalNomina } from './ModalNomina'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import { useFormato } from '@/hooks/useFormato'
@@ -176,6 +177,23 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
   const [cargando, setCargando] = useState(true)
   const [ocultarFindes, setOcultarFindes] = useState(false)
   const [ajustarPantalla, setAjustarPantalla] = useState(false)
+  const [selEmpleados, setSelEmpleados] = useState<Set<string>>(new Set())
+  const [selDias, setSelDias] = useState<Set<string>>(new Set())
+
+  const toggleEmpleado = (id: string) => {
+    setSelEmpleados(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  }
+  const toggleTodosEmpleados = () => {
+    setSelEmpleados(prev => prev.size === miembros.length ? new Set() : new Set(miembros.map(m => m.id)))
+  }
+  const toggleDia = (fecha: string) => {
+    setSelDias(prev => { const n = new Set(prev); if (n.has(fecha)) n.delete(fecha); else n.add(fecha); return n })
+  }
+  const toggleTodosDias = () => {
+    const diasLab = fechas.filter(f => { const d = new Date(f + 'T12:00:00').getDay(); return d !== 0 && d !== 6 })
+    setSelDias(prev => prev.size === diasLab.length ? new Set() : new Set(diasLab))
+  }
+  const haySeleccion = selEmpleados.size > 0 || selDias.size > 0
 
   const { desde, hasta, etiqueta, subtitulo } = useMemo(() => obtenerRango(periodo, offset), [periodo, offset])
   const todasLasFechas = useMemo(() => generarFechas(desde, hasta), [desde, hasta])
@@ -300,6 +318,11 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
         <div className="hidden sm:flex items-center gap-1">
           <Boton variante="fantasma" tamano="xs" onClick={() => setNominaAbierta(true)}>
             <Printer size={13} className="mr-1.5" /> Nómina
+            {haySeleccion && (
+              <span className="ml-1 text-[10px] bg-texto-marca/20 text-texto-marca px-1.5 py-0.5 rounded-full">
+                {selEmpleados.size > 0 ? `${selEmpleados.size} emp` : ''}{selEmpleados.size > 0 && selDias.size > 0 ? ' · ' : ''}{selDias.size > 0 ? `${selDias.size} días` : ''}
+              </span>
+            )}
           </Boton>
           <Boton variante="fantasma" tamano="xs" onClick={() => {
             const d = desde.toISOString().split('T')[0]
@@ -447,7 +470,14 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
             <thead className="sticky top-0 z-10 bg-superficie-app">
               <tr>
                 <th className={`sticky left-0 z-20 bg-superficie-app text-left font-medium text-texto-terciario text-xs uppercase tracking-wider border-b border-borde-sutil ${esUltra ? 'w-[120px] px-2 py-2' : esCompacto ? 'w-[160px] px-3 py-2' : esIntermedio ? 'w-[140px] max-w-[140px] px-2 py-3' : 'min-w-[200px] px-4 py-3'}`}>
-                  Empleado
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      marcado={selEmpleados.size === miembros.length && miembros.length > 0}
+                      indeterminado={selEmpleados.size > 0 && selEmpleados.size < miembros.length}
+                      onChange={toggleTodosEmpleados}
+                    />
+                    <span>Empleado</span>
+                  </div>
                 </th>
                 {fechas.map((fecha, i) => {
                   const d = new Date(fecha + 'T12:00:00')
@@ -492,6 +522,14 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                             {nombreFeriado.length > 15 ? nombreFeriado.slice(0, 14) + '…' : nombreFeriado}
                           </div>
                         )}
+                        {!esFinde && !esUltra && (
+                          <div className="mt-1 flex justify-center">
+                            <Checkbox
+                              marcado={selDias.has(fecha)}
+                              onChange={() => toggleDia(fecha)}
+                            />
+                          </div>
+                        )}
                       </th>
                     </React.Fragment>
                   )
@@ -521,6 +559,10 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                     {/* Empleado con avatar */}
                     <td className={`sticky left-0 z-10 bg-superficie-app border-b border-borde-sutil ${esUltra ? 'px-2 py-1.5' : esCompacto || esIntermedio ? 'px-2 py-2' : 'px-4 py-3'}`}>
                       <div className="flex items-center gap-2">
+                        <Checkbox
+                          marcado={selEmpleados.has(miembro.id)}
+                          onChange={() => toggleEmpleado(miembro.id)}
+                        />
                         <div className={`${esUltra ? 'size-6 text-[9px]' : esCompacto || esIntermedio ? 'size-7 text-[10px]' : 'size-8 text-xs'} rounded-full flex items-center justify-center font-bold shrink-0 ${colorAvatar}`}>
                           {iniciales(miembro.nombre)}
                         </div>
@@ -691,6 +733,8 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
         desde={desde.toISOString().split('T')[0]}
         hasta={hasta.toISOString().split('T')[0]}
         etiquetaPeriodo={etiqueta}
+        empleadosSeleccionados={selEmpleados.size > 0 ? Array.from(selEmpleados) : undefined}
+        diasSeleccionados={selDias.size > 0 ? Array.from(selDias) : undefined}
       />
     </div>
   )

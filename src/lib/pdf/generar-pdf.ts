@@ -30,37 +30,42 @@ interface ResultadoPdf {
 interface OpcionesPdf {
   /** HTML del mini header que va en <thead> (repite en cada página via CSS) */
   theadHtml?: string
-  /** Template HTML del footer para Puppeteer displayHeaderFooter */
+  /** HTML del pie visual que va en <tfoot> (repite en cada página via CSS) */
+  tfootHtml?: string
+  /** Template HTML del footer para Puppeteer displayHeaderFooter (solo paginación) */
   footerTemplate?: string
 }
 
 /**
- * Envuelve el contenido del <body> en una <table> con <thead> para header repetido.
- * El <thead> repite en cada página via CSS (display: table-header-group).
- * También oculta el .pie-wrapper del body (el footer lo maneja Puppeteer).
+ * Envuelve el contenido del <body> en una <table> con <thead>/<tfoot> para repetición.
+ * - <thead> repite el mini header en cada página (display: table-header-group)
+ * - <tfoot> repite el pie visual en cada página (display: table-footer-group)
+ * - Oculta .pie-wrapper del body (el pie ahora va en tfoot)
  */
-function envolverEnTabla(html: string, theadHtml: string): string {
-  // CSS para la tabla wrapper + ocultar pie-wrapper del body
+function envolverEnTabla(html: string, theadHtml: string, tfootHtml?: string): string {
   const cssTabla = `<style>
+    @page{size:A4;margin:10mm 13mm 14mm 13mm!important}
     body{padding:0!important;margin:0!important}
+    html,body{height:100%}
     .pie-wrapper{display:none!important}
-    table.doc-wrapper{width:100%;border-collapse:collapse}
+    table.doc-wrapper{width:100%;height:100%;border-collapse:collapse}
     table.doc-wrapper thead{display:table-header-group}
-    table.doc-wrapper thead td{padding:0}
-    table.doc-wrapper tbody td{padding:0}
+    table.doc-wrapper tfoot{display:table-footer-group}
+    table.doc-wrapper tbody td{height:100%;vertical-align:top}
+    table.doc-wrapper thead td,table.doc-wrapper tfoot td,table.doc-wrapper tbody td{padding:0}
     table.doc-wrapper tr{border:none}
   </style>`
 
-  // Inyectar CSS antes de </head>
   let resultado = html.replace('</head>', `${cssTabla}\n</head>`)
 
-  // Extraer contenido del body y envolverlo en tabla
   const bodyMatch = resultado.match(/<body[^>]*>([\s\S]*)<\/body>/i)
   if (bodyMatch) {
     const bodyContent = bodyMatch[1]
+    const tfootBlock = tfootHtml ? `<tfoot><tr><td>${tfootHtml}</td></tr></tfoot>` : ''
     const tablaHtml = `
 <table class="doc-wrapper">
   <thead><tr><td>${theadHtml}</td></tr></thead>
+  ${tfootBlock}
   <tbody><tr><td>${bodyContent}</td></tr></tbody>
 </table>`
     resultado = resultado.replace(bodyMatch[1], tablaHtml)
@@ -117,7 +122,7 @@ async function htmlAPdf(html: string, opciones?: OpcionesPdf): Promise<{ pdf: Bu
     // Si hay footerTemplate, usar displayHeaderFooter de Puppeteer para el pie + paginación.
     let htmlFinal = html
     if (opciones?.theadHtml) {
-      htmlFinal = envolverEnTabla(htmlFinal, opciones.theadHtml)
+      htmlFinal = envolverEnTabla(htmlFinal, opciones.theadHtml, opciones.tfootHtml)
     } else {
       // Sin thead: usar approach original con body padding
       const cssMargen = '<style>@page{margin:0!important}body{padding:10mm 13mm 25mm 13mm!important;margin:0!important}</style>'
@@ -133,7 +138,7 @@ async function htmlAPdf(html: string, opciones?: OpcionesPdf): Promise<{ pdf: Bu
       // Con thead: Puppeteer pone márgenes por página (contenido + footer no se pisan)
       // Sin thead: approach original (margin 0, body padding)
       margin: opciones?.theadHtml
-        ? { top: '10mm', bottom: usarFooter ? '20mm' : '10mm', left: '13mm', right: '13mm' }
+        ? { top: '10mm', bottom: usarFooter ? '12mm' : '10mm', left: '13mm', right: '13mm' }
         : { top: '0', bottom: '0', left: '0', right: '0' },
       displayHeaderFooter: usarFooter,
       headerTemplate: '<span></span>',
@@ -283,46 +288,76 @@ export async function generarPdfPresupuesto(
   const html = renderizarHtml(datosPresupuesto, datosEmpresa, configPdf)
 
   // 5b. Mini header para <thead> (repite en cada página via CSS table-header-group)
-  const theadHtml = `<div style="display:flex;justify-content:space-between;align-items:center;padding:3mm 0 2mm;border-bottom:0.5px solid #e5e7eb;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:7pt;color:#9ca3af;">
-  <div style="display:flex;align-items:center;gap:5px;">
+  const theadHtml = `<div style="display:flex;justify-content:space-between;align-items:center;padding:2mm 0 2mm;border-bottom:0.5px solid #e5e7eb;margin-bottom:4mm;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:7pt;color:#9ca3af;">
+  <div style="display:flex;align-items:center;">
     ${logoUrl ? `<img src="${logoUrl}" style="max-height:14px;object-fit:contain;" />` : ''}
-    <span>${empresa.nombre}</span>
   </div>
   <span>Presupuesto ${presupuesto.numero}</span>
 </div>`
 
-  // 5c. Footer para Puppeteer displayHeaderFooter (renderiza en cada página con paginación)
-  // Reproduce las 3 columnas del pie de página configurado + "Página X de Y"
+  // 5c. Pie visual en <tfoot> (repite en cada página via CSS table-footer-group).
+  // Reproduce el .pie-wrapper del body con QR, textos e imágenes (que SÍ cargan por URL en tfoot).
+  // Puppeteer footerTemplate solo muestra "Página X de Y" (no soporta imágenes por URL).
   const pie = config?.pie_pagina
-  const pieTamano = pie?.tamano_texto || 10
+  let tfootHtml: string | undefined
+  if (pie) {
+    const pieTam = pie.tamano_texto || 10
+    const colorLinea = pie.color_linea === 'marca'
+      ? `rgb(${(() => { const h = (empresa.color_marca || '#3b82f6').replace('#',''); return `${parseInt(h.substring(0,2),16)},${parseInt(h.substring(2,4),16)},${parseInt(h.substring(4,6),16)}`})()})`
+      : '#d1d5db'
 
-  // Renderizar columnas del pie para el footer de Puppeteer (imágenes con URL directa)
-  const renderColPie = (col?: { tipo?: string; texto?: string; tamano_texto?: number; imagen_url?: string; texto_imagen?: string }) => {
-    if (!col || col.tipo === 'vacio') return ''
-    if (col.tipo === 'texto') return col.texto ? `<span style="font-size:${col.tamano_texto || pieTamano}px">${col.texto}</span>` : ''
-    if (col.tipo === 'numeracion') return '<span>Pág. <span class="pageNumber"></span> de <span class="totalPages"></span></span>'
-    if (col.tipo === 'imagen' && col.imagen_url) return `<img src="${col.imagen_url}" style="max-height:30px;object-fit:contain;">`
-    return ''
+    // Reutilizar la función renderizarColumnaPie importada del renderizarHtml
+    // para mantener consistencia. Pero como no está exportada, la replicamos inline.
+    const renderCol = (col?: { tipo?: string; texto?: string; tamano_texto?: number; imagen_url?: string; texto_imagen?: string; posicion_texto?: string; alineacion_texto?: string }) => {
+      if (!col || col.tipo === 'vacio') return ''
+      if (col.tipo === 'texto') {
+        const tam = col.tamano_texto || pieTam
+        return col.texto ? `<span style="font-size:${tam}px;">${col.texto}</span>` : ''
+      }
+      if (col.tipo === 'numeracion') return '' // paginación va en footerTemplate de Puppeteer
+      if (col.tipo === 'imagen') {
+        const img = col.imagen_url ? `<img src="${col.imagen_url}" alt="" style="max-height:40px;object-fit:contain;">` : ''
+        const txt = col.texto_imagen ? `<span style="font-size:0.85em;">${col.texto_imagen}</span>` : ''
+        if (!txt) return img
+        const esArriba = col.posicion_texto === 'arriba'
+        const alin = col.alineacion_texto === 'derecha' ? 'flex-end' : col.alineacion_texto === 'centro' ? 'center' : 'flex-start'
+        return `<div style="display:inline-flex;flex-direction:column;align-items:${alin};gap:2px;">${esArriba ? txt + img : img + txt}</div>`
+      }
+      return ''
+    }
+
+    const izq = renderCol(pie.columnas?.izquierda)
+    const cen = renderCol(pie.columnas?.centro)
+    const der = renderCol(pie.columnas?.derecha)
+
+    if (izq || cen || der) {
+      tfootHtml = `<div style="margin-top:10px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+  ${(pie.linea_superior !== false) ? `<div style="border-top:${pie.grosor_linea || 1}px solid ${colorLinea};margin-bottom:6px;"></div>` : ''}
+  <div style="display:flex;justify-content:space-between;align-items:center;font-size:${pieTam}px;color:#9ca3af;">
+    <div>${izq}</div>
+    <div style="text-align:center">${cen}</div>
+    <div style="text-align:right">${der}</div>
+  </div>
+</div>`
+    }
   }
 
-  const pieIzq = renderColPie(pie?.columnas?.izquierda)
-  const pieCen = renderColPie(pie?.columnas?.centro)
-  const pieDer = renderColPie(pie?.columnas?.derecha)
-  const tieneContenidoPie = !!(pieIzq || pieCen || pieDer)
-  const tieneNumeracion = [pie?.columnas?.izquierda, pie?.columnas?.centro, pie?.columnas?.derecha]
-    .some(c => c?.tipo === 'numeracion')
+  // footerTemplate de Puppeteer: paginación dinámica "Página X de Y".
+  // Respeta la posición configurada en el pie (izquierda/centro/derecha).
+  const paginaHtml = '<span>Página <span class="pageNumber"></span> de <span class="totalPages"></span></span>'
+  const posNumeracion = pie?.columnas?.derecha?.tipo === 'numeracion' ? 'derecha'
+    : pie?.columnas?.centro?.tipo === 'numeracion' ? 'centro'
+    : pie?.columnas?.izquierda?.tipo === 'numeracion' ? 'izquierda'
+    : 'derecha' // default: derecha
 
-  const footerTemplate = `<div style="width:100%;padding:0 13mm;font-family:Helvetica,Arial,sans-serif;font-size:${pieTamano}px;color:#9ca3af;">
-  ${tieneContenidoPie ? `<div style="display:flex;justify-content:space-between;align-items:center;">
-    <div>${pieIzq}</div>
-    <div style="text-align:center">${pieCen}</div>
-    <div style="text-align:right">${pieDer}</div>
-  </div>` : ''}
-  ${!tieneNumeracion ? `<div style="text-align:center;font-size:7pt;color:#b0b0b0;margin-top:2px">Página <span class="pageNumber"></span> de <span class="totalPages"></span></div>` : ''}
+  const footerTemplate = `<div style="width:100%;display:flex;justify-content:space-between;font-family:Helvetica,Arial,sans-serif;font-size:8px;color:#9ca3af;padding:0 13mm;">
+  <div>${posNumeracion === 'izquierda' ? paginaHtml : ''}</div>
+  <div>${posNumeracion === 'centro' ? paginaHtml : ''}</div>
+  <div>${posNumeracion === 'derecha' ? paginaHtml : ''}</div>
 </div>`
 
   // 6. Convertir y subir
-  const { pdf: pdfBuffer, miniatura: miniaturaBuffer } = await htmlAPdf(html, { theadHtml, footerTemplate })
+  const { pdf: pdfBuffer, miniatura: miniaturaBuffer } = await htmlAPdf(html, { theadHtml, tfootHtml, footerTemplate })
   const nombreArchivo = generarNombreArchivo(config?.patron_nombre_pdf, {
     numero: presupuesto.numero, contacto_nombre: presupuesto.contacto_nombre,
     contacto_apellido: presupuesto.contacto_apellido, fecha_emision: presupuesto.fecha_emision,

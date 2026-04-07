@@ -27,6 +27,10 @@ interface PropiedadesModal {
   desde: string
   hasta: string
   etiquetaPeriodo: string
+  /** Si se seleccionaron empleados específicos */
+  empleadosSeleccionados?: string[]
+  /** Si se seleccionaron días específicos */
+  diasSeleccionados?: string[]
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -49,7 +53,7 @@ function inicial(nombre: string): string {
 
 // ─── Componente ──────────────────────────────────────────────
 
-export function ModalNomina({ abierto, onCerrar, desde, hasta, etiquetaPeriodo }: PropiedadesModal) {
+export function ModalNomina({ abierto, onCerrar, desde, hasta, etiquetaPeriodo, empleadosSeleccionados, diasSeleccionados }: PropiedadesModal) {
   const [cargando, setCargando] = useState(true)
   const [resultados, setResultados] = useState<ResultadoNomina[]>([])
   const [diasLaborales, setDiasLaborales] = useState(0)
@@ -57,7 +61,10 @@ export function ModalNomina({ abierto, onCerrar, desde, hasta, etiquetaPeriodo }
   useEffect(() => {
     if (!abierto || !desde || !hasta) return
     setCargando(true)
-    fetch(`/api/asistencias/nomina?desde=${desde}&hasta=${hasta}`)
+    const params = new URLSearchParams({ desde, hasta })
+    if (empleadosSeleccionados?.length) params.set('empleados', empleadosSeleccionados.join(','))
+    if (diasSeleccionados?.length) params.set('dias', diasSeleccionados.join(','))
+    fetch(`/api/asistencias/nomina?${params}`)
       .then(r => r.json())
       .then(data => {
         setResultados(data.resultados || [])
@@ -65,7 +72,7 @@ export function ModalNomina({ abierto, onCerrar, desde, hasta, etiquetaPeriodo }
       })
       .catch(() => {})
       .finally(() => setCargando(false))
-  }, [abierto, desde, hasta])
+  }, [abierto, desde, hasta, empleadosSeleccionados, diasSeleccionados])
 
   const totalPagar = resultados.reduce((s, r) => s + r.monto_pagar, 0)
   const totalHoras = resultados.reduce((s, r) => s + r.horas_totales, 0)
