@@ -29,6 +29,16 @@ function previewCuerpo(texto: string, ejemplos?: string[]): string {
   })
 }
 
+/** Parsear formato WhatsApp (*negrita*, _cursiva_, ~tachado~, ```código```) a HTML */
+function formatoWhatsApp(texto: string): string {
+  return texto
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>')
+    .replace(/_([^_\n]+)_/g, '<em>$1</em>')
+    .replace(/~([^~\n]+)~/g, '<del>$1</del>')
+    .replace(/```([^`]+)```/g, '<code>$1</code>')
+}
+
 /** Color de la píldora según categoría */
 function colorCategoria(categoria: string): { bg: string; fg: string } {
   switch (categoria) {
@@ -217,24 +227,24 @@ export function SelectorPlantillasWA({
                         <p
                           className="font-semibold text-sm mb-1"
                           style={{ color: 'var(--texto-primario)' }}
-                        >
-                          {encabezado.texto}
-                        </p>
+                          dangerouslySetInnerHTML={{ __html: formatoWhatsApp(encabezado.texto) }}
+                        />
                       )}
 
                       {/* Cuerpo */}
                       <p
                         className="text-sm whitespace-pre-wrap leading-relaxed"
                         style={{ color: 'var(--texto-primario)' }}
-                      >
-                        {cuerpoPreview}
-                      </p>
+                        dangerouslySetInnerHTML={{ __html: formatoWhatsApp(cuerpoPreview) }}
+                      />
 
                       {/* Pie de página */}
                       {piePagina && (
-                        <p className="text-xs mt-1.5" style={{ color: 'var(--texto-terciario)' }}>
-                          {piePagina}
-                        </p>
+                        <p
+                          className="text-xs mt-1.5"
+                          style={{ color: 'var(--texto-terciario)' }}
+                          dangerouslySetInnerHTML={{ __html: formatoWhatsApp(piePagina) }}
+                        />
                       )}
 
                       {/* Botones de plantilla */}
