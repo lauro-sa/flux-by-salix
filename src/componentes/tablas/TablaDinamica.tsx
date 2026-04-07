@@ -868,6 +868,7 @@ function TablaDinamica<T>({
     <div ref={contenedorRef} className={`flex flex-col h-full ${className}`}>
 
       {/* ═══ TOOLBAR ═══ */}
+      {!contenidoCustom && (
       <div className="flex items-center gap-2 pb-3.5 sm:pb-4 px-2 sm:px-6 relative z-30 shrink-0">
 
         {/* Buscador — mobile: 100%, desktop: adaptable */}
@@ -1264,6 +1265,7 @@ function TablaDinamica<T>({
           </AnimatePresence>
         </div>
       </div>
+      )}
 
       {/* ═══ CONTENIDO — header fijo, filas scrollean, footer fijo abajo ═══ */}
       {contenidoCustom ? (

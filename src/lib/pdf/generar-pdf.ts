@@ -285,7 +285,7 @@ export async function generarPdfPresupuesto(
   <div style="display:flex;align-items:center;">
     ${logoUrl ? `<img src="${logoUrl}" style="max-height:14px;object-fit:contain;" />` : ''}
   </div>
-  <span>Presupuesto ${presupuesto.numero}</span>
+  <span>${presupuesto.numero}</span>
 </div>`
 
   // 5c. Footer completo para Puppeteer (siempre al fondo de cada página).
