@@ -141,77 +141,84 @@ function EntradaCorreo({ entrada, formatoHora, locale }: { entrada: PropsEntrada
   const htmlCorreo = entrada.metadata?.correo_html
 
   return (
-    <div className={`rounded-lg border overflow-hidden my-1 ${
-      esRecibido
-        ? 'border-canal-correo/30 bg-canal-correo/5'
-        : 'border-borde-sutil bg-superficie-app/50'
-    }`}>
-      {/* Header del correo */}
-      <button
-        onClick={() => setExpandido(!expandido)}
-        className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-superficie-hover/50 transition-colors"
-      >
-        <div className="flex items-center justify-center size-7 rounded-full bg-canal-correo/10 text-canal-correo shrink-0">
-          <Mail size={14} />
+    <div className="space-y-0.5">
+      {/* Línea de sistema: quién ejecutó la acción */}
+      <div className="flex items-center gap-2.5 py-1">
+        <div className="flex items-center justify-center size-6 rounded-full shrink-0 bg-canal-correo/10 text-canal-correo">
+          <Mail size={12} />
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-texto-primario truncate">{entrada.autor_nombre}</span>
-            <span className="text-[10px] text-texto-terciario shrink-0">{fechaRelativa(entrada.creado_en, formatoHora, locale)}</span>
-          </div>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            {esRecibido && <span className="text-[10px] px-1 py-px rounded bg-canal-correo/15 text-canal-correo font-medium">Recibido</span>}
+        <p className="text-xs text-texto-secundario leading-relaxed">
+          <span className="font-medium text-texto-primario">{entrada.autor_nombre}</span>
+          {' · '}
+          {esRecibido ? 'Correo recibido' : 'Envió correo'}
+          {asunto ? `: ${asunto}` : ''}
+        </p>
+        <span className="text-[10px] text-texto-terciario shrink-0 ml-auto">{fechaRelativa(entrada.creado_en, formatoHora, locale)}</span>
+      </div>
+
+      {/* Card del correo expandible */}
+      <div className={`rounded-lg border overflow-hidden ml-8 ${
+        esRecibido
+          ? 'border-canal-correo/30 bg-canal-correo/5'
+          : 'border-borde-sutil bg-superficie-app/50'
+      }`}>
+        {/* Header del correo */}
+        <button
+          onClick={() => setExpandido(!expandido)}
+          className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-superficie-hover/50 transition-colors"
+        >
+          <div className="flex-1 min-w-0">
             <p className="text-xs text-texto-secundario truncate">{asunto || entrada.contenido}</p>
+            {destinatario && (
+              <p className="text-[10px] text-texto-terciario truncate mt-0.5">
+                {esRecibido ? 'De' : 'Para'}: {destinatario}
+                {cc && <span className="ml-1.5">· CC: {cc}</span>}
+                {cco && <span className="ml-1.5">· CCO: {cco}</span>}
+              </p>
+            )}
           </div>
-          {destinatario && (
-            <p className="text-[10px] text-texto-terciario truncate mt-0.5">
-              {esRecibido ? 'De' : 'Para'}: {destinatario}
-              {cc && <span className="ml-1.5">· CC: {cc}</span>}
-              {cco && <span className="ml-1.5">· CCO: {cco}</span>}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          {entrada.adjuntos?.length > 0 && (
-            <span className="flex items-center gap-0.5 text-[10px] text-texto-terciario">
-              <Paperclip size={10} />
-              {entrada.adjuntos.length}
-            </span>
-          )}
-          {htmlCorreo && (
-            expandido ? <ChevronUp size={14} className="text-texto-terciario" /> : <ChevronDown size={14} className="text-texto-terciario" />
-          )}
-        </div>
-      </button>
+          <div className="flex items-center gap-1 shrink-0">
+            {entrada.adjuntos?.length > 0 && (
+              <span className="flex items-center gap-0.5 text-[10px] text-texto-terciario">
+                <Paperclip size={10} />
+                {entrada.adjuntos.length}
+              </span>
+            )}
+            {htmlCorreo && (
+              expandido ? <ChevronUp size={14} className="text-texto-terciario" /> : <ChevronDown size={14} className="text-texto-terciario" />
+            )}
+          </div>
+        </button>
 
-      {/* Cuerpo expandible del correo */}
-      <AnimatePresence>
-        {expandido && htmlCorreo && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            <div className="px-3 py-2 border-t border-borde-sutil max-h-[400px] overflow-y-auto">
-              <div
-                className="text-xs text-texto-secundario prose prose-sm max-w-none [&_img]:max-w-full [&_img]:h-auto"
-                dangerouslySetInnerHTML={{ __html: htmlCorreo }}
-              />
-              <ListaAdjuntos adjuntos={entrada.adjuntos} />
-            </div>
-          </motion.div>
+        {/* Cuerpo expandible del correo */}
+        <AnimatePresence>
+          {expandido && htmlCorreo && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="px-3 py-2 border-t border-borde-sutil max-h-[400px] overflow-y-auto">
+                <div
+                  className="text-xs text-texto-secundario prose prose-sm max-w-none [&_p]:mb-2 [&_br]:block [&_br]:mb-1 [&_strong]:text-texto-primario [&_img]:max-w-full [&_img]:h-auto [&_table]:w-full"
+                  dangerouslySetInnerHTML={{ __html: htmlCorreo }}
+                />
+                <ListaAdjuntos adjuntos={entrada.adjuntos} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Si no tiene HTML, mostrar contenido como texto */}
+        {expandido && !htmlCorreo && entrada.contenido && (
+          <div className="px-3 py-2 border-t border-borde-sutil">
+            <p className="text-xs text-texto-secundario whitespace-pre-wrap">{entrada.contenido}</p>
+            <ListaAdjuntos adjuntos={entrada.adjuntos} />
+          </div>
         )}
-      </AnimatePresence>
-
-      {/* Si no tiene HTML, mostrar contenido como texto */}
-      {expandido && !htmlCorreo && entrada.contenido && (
-        <div className="px-3 py-2 border-t border-borde-sutil">
-          <p className="text-xs text-texto-secundario whitespace-pre-wrap">{entrada.contenido}</p>
-          <ListaAdjuntos adjuntos={entrada.adjuntos} />
-        </div>
-      )}
+      </div>
     </div>
   )
 }
