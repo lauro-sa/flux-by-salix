@@ -336,6 +336,8 @@ export function VistaMatriz() {
                       const d = new Date(fecha + 'T12:00:00')
                       const esHoy = fecha === hoyStr
                       const esFinde = d.getDay() === 0 || d.getDay() === 6
+                      const esFeriado = feriados.has(fecha)
+                      const fondoCol = esHoy ? 'bg-texto-marca/5' : esFeriado ? 'bg-[color:var(--insignia-peligro)]/5' : ''
 
                       // Fin de semana
                       if (esFinde) {
@@ -351,7 +353,7 @@ export function VistaMatriz() {
                       // Ausente
                       if (estado === 'ausente') {
                         return (
-                          <td key={fecha} className={`px-1 py-1.5 border-b border-borde-sutil ${esHoy ? 'bg-texto-marca/5' : ''}`}>
+                          <td key={fecha} className={`px-1 py-1.5 border-b border-borde-sutil ${fondoCol}`}>
                             <div className={`mx-auto rounded-lg h-[60px] flex items-center justify-center ${COLORES_CELDA.ausente.fondo} border ${COLORES_CELDA.ausente.borde}`}>
                               <span className="text-[color:var(--insignia-peligro)] text-[11px] font-semibold uppercase">Ausente</span>
                             </div>
@@ -362,7 +364,7 @@ export function VistaMatriz() {
                       // Sin registro (día laboral)
                       if (!asist || estado === 'vacio') {
                         return (
-                          <td key={fecha} className={`px-1 py-1.5 border-b border-borde-sutil ${esHoy ? 'bg-texto-marca/5' : ''}`}>
+                          <td key={fecha} className={`px-1 py-1.5 border-b border-borde-sutil ${fondoCol}`}>
                             <div className="h-[60px]" />
                           </td>
                         )
