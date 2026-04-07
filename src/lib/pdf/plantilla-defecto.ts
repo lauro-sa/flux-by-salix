@@ -176,6 +176,7 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
     display: flex;
     justify-content: flex-end;
     margin-bottom: 18px;
+    page-break-inside: avoid;
   }
   .tabla-totales {
     width: 260px;
@@ -199,7 +200,7 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
   }
 
   /* ── Cuotas de pago ── */
-  .seccion-cuotas { margin-bottom: 16px; }
+  .seccion-cuotas { margin-bottom: 16px; page-break-inside: avoid; }
   .seccion-cuotas h3 {
     font-size: 9pt;
     font-weight: 600;

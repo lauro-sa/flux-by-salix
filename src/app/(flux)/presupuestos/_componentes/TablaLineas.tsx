@@ -463,7 +463,7 @@ function FilaSeccion({
           valor={linea.descripcion || ''}
           placeholder="Título de sección"
           soloLectura={soloLectura}
-          className="font-semibold text-sm uppercase tracking-wide text-texto-secundario"
+          className="font-semibold text-sm text-texto-secundario"
           onChange={(v) => onEditar(linea.id, 'descripcion', v)}
         />
       </div>
