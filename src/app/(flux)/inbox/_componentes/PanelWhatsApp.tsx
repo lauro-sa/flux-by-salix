@@ -45,6 +45,8 @@ interface PropiedadesPanelWhatsApp {
   onEliminarNota?: (id: string) => void
   /** Si true, muestra el PanelIA con sugerencias/resumen/sentimiento */
   iaHabilitada?: boolean
+  /** Si true, el chatbot está habilitado a nivel empresa */
+  botHabilitado?: boolean
   /** Callback cuando cambian las etiquetas de la conversación (actualización inmediata) */
   onEtiquetasCambiaron?: (etiquetas: string[]) => void
   cargando: boolean
@@ -238,6 +240,7 @@ export function PanelWhatsApp({
   onEditarNota,
   onEliminarNota,
   iaHabilitada = false,
+  botHabilitado = false,
   onEtiquetasCambiaron,
   cargando,
   enviando,
@@ -699,6 +702,7 @@ export function PanelWhatsApp({
               esMovil={esMovil}
               onAbrirInfo={onAbrirInfo}
               iaHabilitada={iaHabilitada}
+              botHabilitado={botHabilitado}
             />
           </div>
         </div>

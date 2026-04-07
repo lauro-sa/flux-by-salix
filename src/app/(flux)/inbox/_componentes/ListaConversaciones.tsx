@@ -50,6 +50,14 @@ interface PropiedadesListaConversaciones {
   // Menú contextual
   onAccionMenu?: (accion: string, conversacionId: string, datos?: unknown) => void
   esAdmin?: boolean
+  /** Botones extra para el header (ej: toggle vista columna/fila en correo) */
+  accionesHeader?: React.ReactNode
+  /** Oculta el toggle de colapsar lista (cuando ya hay uno externo) */
+  ocultarToggleColapsar?: boolean
+  /** Si el chatbot está habilitado a nivel empresa */
+  botHabilitado?: boolean
+  /** Si el agente IA está habilitado a nivel empresa */
+  iaHabilitada?: boolean
 }
 
 // Iconos de canal
@@ -69,12 +77,12 @@ const COLOR_ESTADO: Record<EstadoConversacion, string> = {
 }
 
 // Formato estilo WhatsApp: hoy → hora, ayer → "ayer", esta semana → día, después → fecha
-function tiempoRelativo(fecha: string, locale: string): string {
+function tiempoRelativo(fecha: string, locale: string, hour12 = false): string {
   const ahora = new Date()
   const msg = new Date(fecha)
 
   if (msg.toDateString() === ahora.toDateString()) {
-    return msg.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+    return msg.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12 })
   }
 
   const ayer = new Date(ahora)
@@ -108,6 +116,9 @@ export function ListaConversaciones({
   onToggleNoLeidos,
   onAccionMenu,
   esAdmin = false,
+  accionesHeader,
+  botHabilitado = true,
+  iaHabilitada = true,
 }: PropiedadesListaConversaciones) {
   const { t } = useTraduccion()
   const formato = useFormato()
@@ -212,59 +223,68 @@ export function ListaConversaciones({
             </div>
           </div>
         ) : (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {ICONO_CANAL[tipoCanal]}
-              <span className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
-                {t('inbox.conversaciones')}
-              </span>
-              {totalNoLeidos > 0 && (
-                <span
-                  className="text-xxs font-medium px-1.5 py-0.5 rounded-full"
-                  style={{
-                    background: 'var(--insignia-peligro-fondo)',
-                    color: 'var(--insignia-peligro-texto)',
-                  }}
-                >
-                  {totalNoLeidos}
+          <div className="space-y-1.5">
+            {/* Fila 1: título + badge */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {ICONO_CANAL[tipoCanal]}
+                <span className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+                  {t('inbox.conversaciones')}
                 </span>
-              )}
-            </div>
-            <div className="flex items-center gap-1">
-              {onToggleNoLeidos && (
-                <Boton
-                  variante={soloNoLeidos ? 'primario' : 'secundario'}
-                  tamano="xs"
-                  icono={<Circle size={8} fill={soloNoLeidos ? 'currentColor' : 'none'} />}
-                  onClick={onToggleNoLeidos}
-                  titulo={soloNoLeidos ? 'Mostrar todos' : 'Solo no leídos'}
-                  style={{
-                    color: soloNoLeidos ? 'var(--insignia-exito-texto, var(--texto-marca))' : 'var(--texto-terciario)',
-                    background: soloNoLeidos ? 'var(--insignia-exito-fondo, var(--superficie-seleccionada))' : 'transparent',
-                    border: soloNoLeidos ? 'none' : '1px solid var(--borde-sutil)',
-                  }}
-                >
-                  No leídos
-                </Boton>
-              )}
-              {onEliminarSeleccion && (
+                {totalNoLeidos > 0 && (
+                  <span
+                    className="text-xxs font-medium px-1.5 py-0.5 rounded-full"
+                    style={{
+                      background: 'var(--insignia-peligro-fondo)',
+                      color: 'var(--insignia-peligro-texto)',
+                    }}
+                  >
+                    {totalNoLeidos}
+                  </span>
+                )}
+              </div>
+              {/* Acciones: no leídos, seleccionar, filtro */}
+              <div className="flex items-center gap-0.5">
+                {onToggleNoLeidos && (
+                  <Boton
+                    variante="fantasma"
+                    tamano="xs"
+                    soloIcono
+                    icono={soloNoLeidos ? <EyeOff size={14} /> : <Eye size={14} />}
+                    onClick={onToggleNoLeidos}
+                    titulo={soloNoLeidos ? 'Mostrar todos' : 'Solo no leídos'}
+                    style={{
+                      color: soloNoLeidos ? 'var(--texto-marca)' : 'var(--texto-terciario)',
+                    }}
+                  />
+                )}
+                {onEliminarSeleccion && (
+                  <Boton
+                    variante="fantasma"
+                    tamano="xs"
+                    soloIcono
+                    icono={<CheckSquare size={14} />}
+                    onClick={() => setModoSeleccion(true)}
+                    titulo="Seleccionar"
+                    style={{ color: 'var(--texto-terciario)' }}
+                  />
+                )}
                 <Boton
                   variante="fantasma"
                   tamano="xs"
                   soloIcono
-                  icono={<CheckSquare size={14} />}
-                  onClick={() => setModoSeleccion(true)}
-                  titulo="Seleccionar"
+                  icono={<Filter size={14} />}
+                  onClick={() => setMostrarFiltros(!mostrarFiltros)}
+                  style={{ color: mostrarFiltros ? 'var(--texto-marca)' : 'var(--texto-terciario)' }}
                 />
-              )}
-              <Boton
-                variante="fantasma"
-                tamano="xs"
-                soloIcono
-                icono={<Filter size={14} />}
-                onClick={() => setMostrarFiltros(!mostrarFiltros)}
-              />
+              </div>
             </div>
+            {/* Fila 2: acciones extra del header (vista columna/fila, colapsar, etc.) */}
+            {accionesHeader && (
+              <div className="flex items-center justify-end">
+                {accionesHeader}
+              </div>
+            )}
           </div>
         )}
 
@@ -487,28 +507,30 @@ export function ListaConversaciones({
                       {conv.ultimo_mensaje_texto || 'Sin mensajes'}
                     </p>
 
-                    {/* Badges */}
+                    {/* Badges — etapas, bot e IA solo aplican a WhatsApp */}
                     <div className="flex items-center gap-1 mt-1.5 overflow-x-auto flex-nowrap">
                       {conv.etiquetas?.slice(0, 2).map((et) => (
                         <span key={et} className="text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap"
                           style={{ background: 'var(--superficie-hover)', color: 'var(--texto-terciario)' }}>{et}</span>
                       ))}
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap"
-                        style={{
-                          background: conv.etapa_etiqueta ? `${conv.etapa_color || '#6b7280'}18` : 'var(--superficie-hover)',
-                          color: conv.etapa_etiqueta ? (conv.etapa_color || '#6b7280') : 'var(--texto-terciario)',
-                        }}>
-                        {conv.etapa_etiqueta || 'Sin etapa'}
-                      </span>
+                      {tipoCanal === 'whatsapp' && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap"
+                          style={{
+                            background: conv.etapa_etiqueta ? `${conv.etapa_color || '#6b7280'}18` : 'var(--superficie-hover)',
+                            color: conv.etapa_etiqueta ? (conv.etapa_color || '#6b7280') : 'var(--texto-terciario)',
+                          }}>
+                          {conv.etapa_etiqueta || 'Sin etapa'}
+                        </span>
+                      )}
                       {conv.sector_nombre && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap"
                           style={{ background: `${conv.sector_color || '#6366f1'}18`, color: conv.sector_color || '#6366f1' }}>
                           {conv.sector_nombre}</span>
                       )}
-                      {conv.chatbot_activo && (
+                      {tipoCanal === 'whatsapp' && botHabilitado && conv.chatbot_activo && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">Bot</span>
                       )}
-                      {conv.agente_ia_activo && (
+                      {tipoCanal === 'whatsapp' && iaHabilitada && conv.agente_ia_activo && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap bg-violet-500/15 text-violet-600 dark:text-violet-400">IA</span>
                       )}
                     </div>
@@ -525,7 +547,7 @@ export function ListaConversaciones({
                           color: conv.mensajes_sin_leer !== 0 ? 'var(--insignia-exito)' : 'var(--texto-terciario)',
                           fontWeight: conv.mensajes_sin_leer !== 0 ? 600 : 400,
                         }}>
-                          {tiempoRelativo(conv.ultimo_mensaje_en, formato.locale)}
+                          {tiempoRelativo(conv.ultimo_mensaje_en, formato.locale, formato.formatoHora === '12h')}
                         </span>
                       </div>
                     )}

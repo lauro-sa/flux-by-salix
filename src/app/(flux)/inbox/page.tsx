@@ -110,8 +110,9 @@ function PaginaInbox() {
   // Panel info contacto
   const [panelInfoAbierto, setPanelInfoAbierto] = useState(false)
 
-  // IA habilitada para el inbox
+  // Bot/IA habilitados a nivel global (config empresa)
   const [iaHabilitada, setIaHabilitada] = useState(false)
+  const [botHabilitado, setBotHabilitado] = useState(false)
 
   // Correo: redactar nuevo + canales disponibles + carpeta
   const [redactandoNuevo, setRedactandoNuevo] = useState(false)
@@ -234,17 +235,15 @@ function PaginaInbox() {
       try {
         const res = await fetch('/api/inbox/config')
         const data = await res.json()
-        // Config IA: combinar ia_habilitada (config_inbox) + activo (config_agente_ia)
-        // Ambos deben estar activos para que Bot/IA estén disponibles en las conversaciones
-        let iaActiva = data.config?.ia_habilitada ?? false
-        if (iaActiva) {
-          try {
-            const resAgente = await fetch('/api/inbox/agente-ia/config')
-            const dataAgente = await resAgente.json()
-            iaActiva = dataAgente.config?.activo ?? false
-          } catch { /* Si falla, asumir deshabilitado */ }
-        }
-        setIaHabilitada(iaActiva)
+        // Cargar estado global de Bot y Agente IA (configs separadas)
+        try {
+          const [resChatbot, resAgente] = await Promise.all([
+            fetch('/api/inbox/chatbot').then(r => r.json()).catch(() => ({ config: null })),
+            fetch('/api/inbox/agente-ia/config').then(r => r.json()).catch(() => ({ config: null })),
+          ])
+          setBotHabilitado(resChatbot.config?.activo ?? false)
+          setIaHabilitada(resAgente.config?.activo ?? false)
+        } catch { /* Si falla, quedan en false */ }
 
         if (data.modulos) {
           const activos = new Set<string>(
@@ -1804,6 +1803,8 @@ function PaginaInbox() {
                   tipoCanal="whatsapp"
                   cargando={cargandoConversaciones}
                   totalNoLeidos={totalNoLeidos}
+                  botHabilitado={botHabilitado}
+                  iaHabilitada={iaHabilitada}
                   onEliminarSeleccion={eliminarMultiples}
                   soloNoLeidos={soloNoLeidos}
                   onToggleNoLeidos={() => setSoloNoLeidos(prev => !prev)}
@@ -1937,6 +1938,7 @@ function PaginaInbox() {
                 onEnviar={enviarMensaje}
                 onAbrirVisor={abrirVisor}
                 iaHabilitada={iaHabilitada}
+                botHabilitado={botHabilitado}
                 esMovil={esMovil}
                 onVolver={() => { setVistaMovilWA('lista'); setConversacionSeleccionada(null); setMensajes([]) }}
                 onAbrirInfo={() => setVistaMovilWA('info')}

@@ -26,8 +26,10 @@ interface PropiedadesBarraControlsWA {
   onCambio: (cambios: Partial<Conversacion>) => void
   esMovil?: boolean
   onAbrirInfo?: () => void
-  /** Si el módulo IA está habilitado a nivel empresa (configuración inbox) */
+  /** Si el Agente IA está habilitado a nivel empresa */
   iaHabilitada?: boolean
+  /** Si el Chatbot está habilitado a nivel empresa */
+  botHabilitado?: boolean
 }
 
 // ─── Tipos auxiliares ───
@@ -74,6 +76,7 @@ export function BarraControlsWA({
   esMovil = false,
   onAbrirInfo,
   iaHabilitada = true,
+  botHabilitado = true,
 }: PropiedadesBarraControlsWA) {
   const { usuario } = useAuth()
 
@@ -457,7 +460,7 @@ export function BarraControlsWA({
         <div className="w-px h-5 mx-0.5 flex-shrink-0" style={{ background: 'color-mix(in srgb, var(--borde-sutil) 60%, transparent)' }} />
 
         {/* Bot */}
-        {iaHabilitada ? (
+        {botHabilitado ? (
           <Popover
             alineacion="centro"
             ancho={200}
@@ -502,7 +505,7 @@ export function BarraControlsWA({
             </Tooltip>
           </Popover>
         ) : (
-          <Tooltip contenido="Bot deshabilitado — activalo desde Configuración → Inbox → IA">
+          <Tooltip contenido="Chatbot deshabilitado — activalo desde Configuración → Inbox → Chatbot">
             <div
               className={`${esMovil ? 'size-9' : 'h-7'} rounded-full flex items-center justify-center gap-1.5 transition-colors`}
               style={{
@@ -568,7 +571,7 @@ export function BarraControlsWA({
             </Tooltip>
           </Popover>
         ) : (
-          <Tooltip contenido="IA deshabilitada — activala desde Configuración → Inbox → IA">
+          <Tooltip contenido="Agente IA deshabilitado — activalo desde Configuración → Inbox → Agente IA">
             <div
               className={`${esMovil ? 'size-9' : 'h-7'} rounded-full flex items-center justify-center gap-1.5 transition-colors`}
               style={{
