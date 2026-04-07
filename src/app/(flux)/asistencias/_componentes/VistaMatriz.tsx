@@ -293,50 +293,50 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
   return (
     <div className="flex flex-col h-full">
       {/* Header de la matriz */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-3 sm:px-4 py-2 sm:py-3 border-b border-borde-sutil shrink-0">
-        {/* Periodo toggles */}
-        <div className="flex items-center gap-1">
+      {/* Barra de controles estilo buscador */}
+      <div className="px-3 sm:px-4 pt-2 sm:pt-3 shrink-0">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-borde-sutil bg-superficie-tarjeta">
+          {/* Periodo toggles */}
           {(['semana', 'quincena', 'mes'] as Periodo[]).map((p) => (
             <button
               key={p}
               onClick={() => { setPeriodo(p); setOffset(0) }}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+              className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg transition-colors ${
                 periodo === p
-                  ? 'bg-superficie-elevada text-texto-primario border border-borde-sutil'
-                  : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-elevada/50'
+                  ? 'bg-superficie-elevada text-texto-primario'
+                  : 'text-texto-terciario hover:text-texto-secundario'
               }`}
             >
-              <Calendar size={12} />
+              <Calendar size={11} />
               {p.charAt(0).toUpperCase() + p.slice(1)}
             </button>
           ))}
+
+          {/* Separador */}
+          <div className="w-px h-5 bg-borde-sutil" />
 
           {/* Ocultar fines de semana */}
           <Tooltip contenido={ocultarFindes ? 'Mostrar fines de semana' : 'Ocultar fines de semana'}>
             <button
               onClick={() => setOcultarFindes(v => !v)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                ocultarFindes
-                  ? 'bg-texto-marca/15 text-texto-marca border border-texto-marca/20'
-                  : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-elevada/50'
+              className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg transition-colors ${
+                ocultarFindes ? 'text-texto-marca bg-texto-marca/10' : 'text-texto-terciario hover:text-texto-secundario'
               }`}
             >
-              <SlidersHorizontal size={12} />
-              {ocultarFindes ? 'Sin fines de semana' : 'Sáb/Dom'}
+              <SlidersHorizontal size={11} />
+              <span className="hidden sm:inline">{ocultarFindes ? 'Sin finde' : 'Sáb/Dom'}</span>
             </button>
           </Tooltip>
 
           {/* Ajustar a pantalla */}
-          <Tooltip contenido={ajustarPantalla ? 'Volver a tamaño normal' : 'Ajustar todo a la pantalla'}>
+          <Tooltip contenido={ajustarPantalla ? 'Tamaño normal' : 'Ajustar a pantalla'}>
             <button
               onClick={() => setAjustarPantalla(v => !v)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                ajustarPantalla
-                  ? 'bg-texto-marca/15 text-texto-marca border border-texto-marca/20'
-                  : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-elevada/50'
+              className={`inline-flex items-center p-1 rounded-lg transition-colors ${
+                ajustarPantalla ? 'text-texto-marca bg-texto-marca/10' : 'text-texto-terciario hover:text-texto-secundario'
               }`}
             >
-              <Maximize2 size={12} />
+              <Maximize2 size={13} />
             </button>
           </Tooltip>
 
@@ -344,49 +344,56 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
           <Tooltip contenido={modoSeleccion ? 'Salir de selección' : 'Seleccionar para nómina'}>
             <button
               onClick={() => { setModoSeleccion(v => !v); if (modoSeleccion) setSelCeldas(new Set()) }}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                modoSeleccion
-                  ? 'bg-texto-marca/15 text-texto-marca border border-texto-marca/20'
-                  : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-elevada/50'
+              className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg transition-colors ${
+                modoSeleccion ? 'text-texto-marca bg-texto-marca/10' : 'text-texto-terciario hover:text-texto-secundario'
               }`}
             >
-              {modoSeleccion ? <X size={12} /> : <CheckSquare size={12} />}
-              {modoSeleccion ? `${selCeldas.size} sel.` : 'Seleccionar'}
+              {modoSeleccion ? <X size={11} /> : <CheckSquare size={11} />}
+              <span className="hidden sm:inline">{modoSeleccion ? `${selCeldas.size} sel.` : 'Seleccionar'}</span>
             </button>
           </Tooltip>
-        </div>
 
-        {/* Navegación central */}
-        <div className="flex items-center gap-3">
-          <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronLeft size={16} />} onClick={() => setOffset(o => o - 1)} />
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Nómina */}
           <button
-            onClick={() => setOffset(0)}
-            className="text-center hover:text-texto-marca transition-colors"
+            onClick={() => setNominaAbierta(true)}
+            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg text-texto-terciario hover:text-texto-secundario transition-colors"
           >
-            <p className="text-sm font-semibold text-texto-primario">{etiqueta}</p>
-            <p className="text-[10px] text-texto-terciario">{subtitulo}</p>
-          </button>
-          <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronRight size={16} />} onClick={() => setOffset(o => o + 1)} />
-        </div>
-
-        {/* Acciones derecha — solo desktop */}
-        <div className="hidden sm:flex items-center gap-1">
-          <Boton variante="fantasma" tamano="xs" onClick={() => setNominaAbierta(true)}>
-            <Printer size={13} className="mr-1.5" /> Nómina
+            <Printer size={11} />
+            <span className="hidden sm:inline">Nómina</span>
             {haySeleccion && (
-              <span className="ml-1 text-[10px] bg-texto-marca/20 text-texto-marca px-1.5 py-0.5 rounded-full">
-                {selCeldas.size} sel.
-              </span>
+              <span className="text-[9px] bg-texto-marca/20 text-texto-marca px-1 py-0.5 rounded-full">{selCeldas.size}</span>
             )}
-          </Boton>
-          <Boton variante="fantasma" tamano="xs" onClick={() => {
-            const d = desde.toISOString().split('T')[0]
-            const h = hasta.toISOString().split('T')[0]
-            window.open(`/api/asistencias/exportar?desde=${d}&hasta=${h}`, '_blank')
-          }}>
-            <Download size={13} className="mr-1.5" /> Exportar
-          </Boton>
+          </button>
+
+          {/* Exportar */}
+          <button
+            onClick={() => {
+              const d = desde.toISOString().split('T')[0]
+              const h = hasta.toISOString().split('T')[0]
+              window.open(`/api/asistencias/exportar?desde=${d}&hasta=${h}`, '_blank')
+            }}
+            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg text-texto-terciario hover:text-texto-secundario transition-colors"
+          >
+            <Download size={11} />
+            <span className="hidden sm:inline">Exportar</span>
+          </button>
         </div>
+      </div>
+
+      {/* Navegación del período */}
+      <div className="flex items-center justify-center gap-3 px-4 py-2 shrink-0">
+        <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronLeft size={16} />} onClick={() => setOffset(o => o - 1)} />
+        <button
+          onClick={() => setOffset(0)}
+          className="text-center hover:text-texto-marca transition-colors"
+        >
+          <p className="text-sm font-semibold text-texto-primario">{etiqueta}</p>
+          <p className="text-[10px] text-texto-terciario">{subtitulo}</p>
+        </button>
+        <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronRight size={16} />} onClick={() => setOffset(o => o + 1)} />
       </div>
 
       {/* Contenido */}
