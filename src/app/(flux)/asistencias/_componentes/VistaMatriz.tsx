@@ -160,9 +160,10 @@ const COLORES_AVATAR = [
 
 // ─── Componente ──────────────────────────────────────────────
 
-export function VistaMatriz({ onClickAsistencia, onCrearFichaje }: {
+export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: {
   onClickAsistencia?: (asistenciaId: string) => void
   onCrearFichaje?: (miembroId: string, miembroNombre: string, fecha: string) => void
+  recargarKey?: number
 }) {
   const esMovil = useEsMovil()
   const { formatoHora } = useFormato()
@@ -219,7 +220,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje }: {
     }
   }, [desde, hasta])
 
-  useEffect(() => { cargar() }, [cargar])
+  useEffect(() => { cargar() }, [cargar, recargarKey])
 
   const hoyStr = new Date().toISOString().split('T')[0]
 

@@ -126,6 +126,7 @@ export default function PaginaAsistencias() {
   const [pagina, setPagina] = useState(1)
   const [editando, setEditando] = useState<RegistroAsistencia | null>(null)
   const [creando, setCreando] = useState<{ miembroId?: string; miembroNombre?: string; fecha?: string } | null>(null)
+  const [matrizKey, setMatrizKey] = useState(0)
 
   // Vista persistida por usuario+dispositivo
   const vistaGuardada = (preferencias.config_tablas?.asistencias?.tipoVista as 'lista' | 'tarjetas' | 'matriz') || 'lista'
@@ -277,6 +278,7 @@ export default function PaginaAsistencias() {
         onVistaExterna={(v) => setVista(v as 'lista' | 'tarjetas' | 'matriz')}
         vistaExternaActiva={vista === 'matriz' ? 'matriz' : null}
         contenidoCustom={vista === 'matriz' ? <VistaMatriz
+          recargarKey={matrizKey}
           onCrearFichaje={(miembroId, miembroNombre, fecha) => setCreando({ miembroId, miembroNombre, fecha })}
           onClickAsistencia={async (id) => {
           // Buscar en registros cargados
@@ -304,13 +306,13 @@ export default function PaginaAsistencias() {
         abierto={!!editando}
         onCerrar={() => setEditando(null)}
         registro={editando}
-        onGuardado={cargar}
+        onGuardado={() => { cargar(); setMatrizKey(k => k + 1) }}
       />
 
       <ModalCrearFichaje
         abierto={!!creando}
         onCerrar={() => setCreando(null)}
-        onCreado={cargar}
+        onCreado={() => { cargar(); setMatrizKey(k => k + 1) }}
         miembroId={creando?.miembroId}
         miembroNombre={creando?.miembroNombre}
         fecha={creando?.fecha}
