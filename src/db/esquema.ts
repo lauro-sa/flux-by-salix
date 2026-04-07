@@ -70,6 +70,9 @@ export const miembros = pgTable('miembros', {
   kiosco_rfid: text('kiosco_rfid'),
   kiosco_pin: text('kiosco_pin'),
   foto_kiosco_url: text('foto_kiosco_url'),
+  // Asistencias
+  turno_id: uuid('turno_id'), // FK a turnos_laborales (nullable, hereda sector → empresa)
+  fecha_nacimiento: date('fecha_nacimiento'), // para saludos de cumpleaños en kiosco
   // Compensación / n��mina
   compensacion_tipo: text('compensacion_tipo').default('fijo'), // 'fijo' | 'por_dia' | 'por_hora'
   compensacion_monto: numeric('compensacion_monto').default('0'),
@@ -1606,23 +1609,166 @@ export const log_agente_ia = pgTable('log_agente_ia', {
 // RRHH / ESTRUCTURA ORGANIZACIONAL
 // ═══════════════════════════════════════════════════════════════
 
-// Asistencias — registros de entrada/salida por miembro
+// Turnos laborales — horarios configurables por empresa, asignables a sectores o miembros
+export const turnos_laborales = pgTable('turnos_laborales', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  nombre: text('nombre').notNull(), // "Horario general", "Turno fábrica"
+  es_default: boolean('es_default').notNull().default(false), // uno solo por empresa
+  flexible: boolean('flexible').notNull().default(false), // sin control de puntualidad ni ausencia
+  tolerancia_min: integer('tolerancia_min').notNull().default(10), // minutos de gracia para tardanza
+  dias: jsonb('dias').notNull().default(sql`'{"lunes":{"activo":true,"desde":"09:00","hasta":"18:00"},"martes":{"activo":true,"desde":"09:00","hasta":"18:00"},"miercoles":{"activo":true,"desde":"09:00","hasta":"18:00"},"jueves":{"activo":true,"desde":"09:00","hasta":"18:00"},"viernes":{"activo":true,"desde":"09:00","hasta":"18:00"},"sabado":{"activo":false,"desde":"09:00","hasta":"13:00"},"domingo":{"activo":false,"desde":"09:00","hasta":"13:00"}}'`),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('turnos_laborales_empresa_idx').on(tabla.empresa_id),
+  index('turnos_laborales_default_idx').on(tabla.empresa_id, tabla.es_default),
+])
+
+// Asistencias — registro diario de fichaje por miembro (un registro por persona por día)
 export const asistencias = pgTable('asistencias', {
   id: uuid('id').primaryKey().defaultRandom(),
   empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
   miembro_id: uuid('miembro_id').notNull().references(() => miembros.id, { onDelete: 'cascade' }),
   fecha: date('fecha').notNull(),
+  // Timestamps de jornada
   hora_entrada: timestamp('hora_entrada', { withTimezone: true }),
   hora_salida: timestamp('hora_salida', { withTimezone: true }),
-  estado: text('estado').notNull().default('presente'), // 'presente', 'ausente', 'tardanza', 'justificado'
-  ubicacion_entrada: jsonb('ubicacion_entrada'),
+  inicio_almuerzo: timestamp('inicio_almuerzo', { withTimezone: true }),
+  fin_almuerzo: timestamp('fin_almuerzo', { withTimezone: true }),
+  salida_particular: timestamp('salida_particular', { withTimezone: true }), // salida breve (trámite)
+  vuelta_particular: timestamp('vuelta_particular', { withTimezone: true }),
+  // Estado de la jornada (máquina de estados)
+  estado: text('estado').notNull().default('activo'), // 'activo' | 'almuerzo' | 'particular' | 'cerrado' | 'auto_cerrado' | 'ausente'
+  // Clasificación
+  tipo: text('tipo').notNull().default('normal'), // 'normal' | 'tardanza' | 'ausencia' | 'flexible'
+  puntualidad_min: integer('puntualidad_min'), // minutos de desvío vs horario esperado
+  // Método de registro
+  metodo_registro: text('metodo_registro').notNull().default('manual'), // 'manual' | 'rfid' | 'nfc' | 'pin' | 'automatico' | 'solicitud' | 'sistema'
+  terminal_id: uuid('terminal_id'),
+  terminal_nombre: text('terminal_nombre'),
+  // Ubicación (geocoding inverso: "Av. Directorio 800, Parque Patricios, CABA")
+  ubicacion_entrada: jsonb('ubicacion_entrada'), // { lat, lng, direccion, barrio, ciudad }
   ubicacion_salida: jsonb('ubicacion_salida'),
+  // Fotos silenciosas
+  foto_entrada: text('foto_entrada'), // URL Supabase Storage
+  foto_salida: text('foto_salida'),
+  // Turno laboral aplicado
+  turno_id: uuid('turno_id'),
+  // Auditoría
+  cierre_automatico: boolean('cierre_automatico').notNull().default(false),
+  creado_por: uuid('creado_por'),
+  editado_por: uuid('editado_por'),
+  solicitud_id: uuid('solicitud_id'),
   notas: text('notas'),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
 }, (tabla) => [
   index('asistencias_empresa_idx').on(tabla.empresa_id),
   index('asistencias_miembro_idx').on(tabla.miembro_id),
-  index('asistencias_fecha_idx').on(tabla.empresa_id, tabla.miembro_id, tabla.fecha),
+  uniqueIndex('asistencias_miembro_fecha_idx').on(tabla.empresa_id, tabla.miembro_id, tabla.fecha),
+  index('asistencias_estado_entrada_idx').on(tabla.empresa_id, tabla.estado, tabla.hora_entrada),
+  index('asistencias_fecha_empresa_idx').on(tabla.empresa_id, tabla.fecha),
+])
+
+// Fichajes de actividad — heartbeats para fichaje automático y tracking de uso real
+export const fichajes_actividad = pgTable('fichajes_actividad', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  miembro_id: uuid('miembro_id').notNull().references(() => miembros.id, { onDelete: 'cascade' }),
+  fecha: date('fecha').notNull(),
+  timestamp: timestamp('timestamp', { withTimezone: true }).notNull(),
+  tipo: text('tipo').notNull(), // 'login' | 'heartbeat' | 'beforeunload' | 'visibility'
+  metadata: jsonb('metadata'), // { navegador, so, dispositivo, pestana_visible }
+}, (tabla) => [
+  index('fichajes_actividad_miembro_fecha_idx').on(tabla.empresa_id, tabla.miembro_id, tabla.fecha),
+  index('fichajes_actividad_timestamp_idx').on(tabla.empresa_id, tabla.miembro_id, tabla.timestamp),
+])
+
+// Solicitudes de fichaje — reclamos de corrección de asistencia desde el kiosco
+export const solicitudes_fichaje = pgTable('solicitudes_fichaje', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  solicitante_id: uuid('solicitante_id').notNull().references(() => miembros.id, { onDelete: 'cascade' }),
+  fecha: date('fecha').notNull(), // día de la asistencia reclamada
+  hora_entrada: text('hora_entrada'), // "09:15" (formato HH:mm)
+  hora_salida: text('hora_salida'), // "18:30"
+  motivo: text('motivo').notNull(), // descripción libre
+  terminal_nombre: text('terminal_nombre'), // desde qué terminal se envió
+  // Resolución
+  estado: text('estado').notNull().default('pendiente'), // 'pendiente' | 'aprobada' | 'rechazada'
+  resuelto_por: uuid('resuelto_por'),
+  resuelto_en: timestamp('resuelto_en', { withTimezone: true }),
+  notas_resolucion: text('notas_resolucion'), // feedback del admin
+  // Apelación (máximo 1)
+  solicitud_original_id: uuid('solicitud_original_id'), // FK a solicitudes_fichaje si es apelación
+  es_apelacion: boolean('es_apelacion').notNull().default(false),
+  motivo_apelacion: text('motivo_apelacion'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('solicitudes_fichaje_solicitante_idx').on(tabla.empresa_id, tabla.solicitante_id, tabla.fecha),
+  index('solicitudes_fichaje_estado_idx').on(tabla.empresa_id, tabla.estado),
+])
+
+// Terminales de kiosco — dispositivos registrados por empresa
+export const terminales_kiosco = pgTable('terminales_kiosco', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  nombre: text('nombre').notNull(), // "Entrada Principal", "Planta 2"
+  activo: boolean('activo').notNull().default(true),
+  ultimo_ping: timestamp('ultimo_ping', { withTimezone: true }),
+  token_hash: text('token_hash'), // hash del token de setup
+  creado_por: uuid('creado_por'),
+  revocado_por: uuid('revocado_por'),
+  revocado_en: timestamp('revocado_en', { withTimezone: true }),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('terminales_kiosco_empresa_idx').on(tabla.empresa_id),
+  index('terminales_kiosco_activo_idx').on(tabla.empresa_id, tabla.activo),
+])
+
+// Configuración de asistencias — una por empresa
+export const config_asistencias = pgTable('config_asistencias', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }).unique(),
+  // Kiosco
+  kiosco_habilitado: boolean('kiosco_habilitado').notNull().default(false),
+  kiosco_metodo_lectura: text('kiosco_metodo_lectura').notNull().default('rfid_hid'), // 'rfid_hid' | 'nfc'
+  kiosco_pin_admin: text('kiosco_pin_admin'), // PIN 4 dígitos para salir del kiosco
+  kiosco_capturar_foto: boolean('kiosco_capturar_foto').notNull().default(false),
+  kiosco_modo_empresa: text('kiosco_modo_empresa').notNull().default('logo_y_nombre'), // 'logo_y_nombre' | 'solo_logo' | 'solo_nombre'
+  // Auto-checkout
+  auto_checkout_habilitado: boolean('auto_checkout_habilitado').notNull().default(true),
+  auto_checkout_max_horas: integer('auto_checkout_max_horas').notNull().default(12),
+  // Cálculo de horas
+  descontar_almuerzo: boolean('descontar_almuerzo').notNull().default(true),
+  duracion_almuerzo_min: integer('duracion_almuerzo_min').notNull().default(60),
+  horas_minimas_diarias: numeric('horas_minimas_diarias', { precision: 4, scale: 2 }).notNull().default('0'),
+  horas_maximas_diarias: numeric('horas_maximas_diarias', { precision: 4, scale: 2 }).notNull().default('0'),
+  // Fichaje automático
+  fichaje_auto_habilitado: boolean('fichaje_auto_habilitado').notNull().default(false),
+  fichaje_auto_notif_min: integer('fichaje_auto_notif_min').notNull().default(10),
+  fichaje_auto_umbral_salida: integer('fichaje_auto_umbral_salida').notNull().default(30),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('config_asistencias_empresa_idx').on(tabla.empresa_id),
+])
+
+// Auditoría de asistencias — registro de ediciones manuales
+export const auditoria_asistencias = pgTable('auditoria_asistencias', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  asistencia_id: uuid('asistencia_id').notNull(),
+  editado_por: uuid('editado_por').notNull(), // miembro_id del admin
+  campo_modificado: text('campo_modificado').notNull(),
+  valor_anterior: text('valor_anterior'),
+  valor_nuevo: text('valor_nuevo'),
+  motivo: text('motivo'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('auditoria_asistencias_asistencia_idx').on(tabla.asistencia_id),
+  index('auditoria_asistencias_empresa_idx').on(tabla.empresa_id),
 ])
 
 // Sectores — departamentos / áreas de la empresa
@@ -1636,6 +1782,7 @@ export const sectores = pgTable('sectores', {
   orden: integer('orden').notNull().default(0),
   padre_id: uuid('padre_id'), // auto-referencia para sub-sectores
   jefe_id: uuid('jefe_id'), // miembro_id del jefe del sector
+  turno_id: uuid('turno_id'), // FK a turnos_laborales (nullable, si null hereda default empresa)
   es_predefinido: boolean('es_predefinido').notNull().default(false),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
 }, (tabla) => [
