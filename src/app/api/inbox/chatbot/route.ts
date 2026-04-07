@@ -53,6 +53,17 @@ export async function PUT(request: NextRequest) {
       .single()
 
     if (error) throw error
+
+    // Si se desactivó el chatbot globalmente, desactivar en todas las conversaciones
+    // para que al reactivarlo no mande mensajes inesperados a conversaciones viejas
+    if (body.activo === false) {
+      await admin
+        .from('conversaciones')
+        .update({ chatbot_activo: false, chatbot_pausado_hasta: null })
+        .eq('empresa_id', empresaId)
+        .eq('chatbot_activo', true)
+    }
+
     return NextResponse.json({ config: data })
   } catch (err) {
     console.error('Error al guardar config chatbot:', err)

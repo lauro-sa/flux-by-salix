@@ -85,6 +85,16 @@ export async function PUT(request: NextRequest) {
       .single()
 
     if (error) throw error
+
+    // Si se desactivó el agente IA globalmente, desactivar en todas las conversaciones
+    if (datosFiltrados.activo === false) {
+      await admin
+        .from('conversaciones')
+        .update({ agente_ia_activo: false, ia_pausado_hasta: null })
+        .eq('empresa_id', empresaId)
+        .eq('agente_ia_activo', true)
+    }
+
     return NextResponse.json({ config: data })
   } catch (err) {
     console.error('Error al guardar config agente IA:', err)
