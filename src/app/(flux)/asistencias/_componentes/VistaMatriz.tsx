@@ -382,9 +382,9 @@ export function VistaMatriz() {
 
                       return (
                         <td key={fecha} className={`px-1 py-1.5 border-b border-borde-sutil ${esHoy ? 'bg-texto-marca/5' : ''}`}>
-                          <div className={`mx-auto rounded-lg h-[68px] flex flex-col items-center justify-center gap-1 border ${colores.fondo} ${colores.borde} cursor-default`}>
+                          <div className={`mx-auto rounded-lg h-[74px] flex flex-col items-center justify-center gap-1.5 border ${colores.fondo} ${colores.borde} cursor-default pt-1`}>
                             {/* Punto de estado */}
-                            <div className={`size-1.5 rounded-full ${colorPunto}`} />
+                            <div className={`size-2 rounded-full ${colorPunto} shrink-0`} />
                             {/* Entrada */}
                             <span className="text-xs font-semibold text-texto-primario leading-none">
                               {horaE}
