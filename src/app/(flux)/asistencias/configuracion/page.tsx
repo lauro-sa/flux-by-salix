@@ -603,6 +603,15 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
     onRecargar()
   }
 
+  const eliminarTerminal = async (terminalId: string) => {
+    await fetch('/api/kiosco/terminales', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ terminalId, eliminar: true }),
+    })
+    onRecargar()
+  }
+
   const copiarLink = () => {
     if (!linkGenerado) return
     navigator.clipboard.writeText(linkGenerado.link)
@@ -659,6 +668,9 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
               <Boton onClick={copiarLink} variante="secundario" tamano="sm" icono={<Copy size={14} />}>
                 {copiado ? 'Copiado' : 'Copiar enlace'}
               </Boton>
+              <Boton onClick={() => setLinkGenerado(null)} variante="fantasma" tamano="sm">
+                Cerrar
+              </Boton>
             </div>
             <p className="text-xs text-texto-terciario">
               El enlace es de un solo uso. Una vez activado, el kiosco queda vinculado permanentemente.
@@ -689,7 +701,7 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {t.activo && (
+                  {t.activo ? (
                     <>
                       <button
                         onClick={() => regenerarLink(t.id)}
@@ -706,6 +718,14 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
                         <Ban size={14} className="text-insignia-peligro" />
                       </button>
                     </>
+                  ) : (
+                    <button
+                      onClick={() => eliminarTerminal(t.id)}
+                      className="p-1.5 rounded-md hover:bg-insignia-peligro/10 transition-colors"
+                      title="Eliminar terminal"
+                    >
+                      <Trash2 size={14} className="text-insignia-peligro" />
+                    </button>
                   )}
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${t.activo ? 'bg-insignia-exito/15 text-insignia-exito' : 'bg-superficie-elevada text-texto-terciario'}`}>
                     {t.activo ? 'Activa' : 'Revocada'}

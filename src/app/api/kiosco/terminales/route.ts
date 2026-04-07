@@ -71,8 +71,10 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * DELETE /api/kiosco/terminales — Revocar terminal.
- * Body: { terminalId }
+ * DELETE /api/kiosco/terminales — Revocar o eliminar terminal.
+ * Body: { terminalId, eliminar?: boolean }
+ * eliminar=true → borra de la BD (solo revocadas)
+ * eliminar=false → revoca (desactiva)
  */
 export async function DELETE(request: NextRequest) {
   try {
@@ -84,7 +86,7 @@ export async function DELETE(request: NextRequest) {
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
     const body = await request.json()
-    const { terminalId } = body
+    const { terminalId, eliminar } = body
 
     if (!terminalId) {
       return NextResponse.json({ error: 'ID de terminal requerido' }, { status: 400 })
@@ -92,7 +94,22 @@ export async function DELETE(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    // Obtener miembro_id del usuario actual
+    // Eliminar definitivamente (solo terminales ya revocadas)
+    if (eliminar) {
+      const { error } = await admin
+        .from('terminales_kiosco')
+        .delete()
+        .eq('id', terminalId)
+        .eq('empresa_id', empresaId)
+        .eq('activo', false)
+
+      if (error) {
+        return NextResponse.json({ error: 'Error al eliminar' }, { status: 500 })
+      }
+      return NextResponse.json({ ok: true })
+    }
+
+    // Revocar (desactivar)
     const { data: miembro } = await admin
       .from('miembros')
       .select('id')
@@ -106,7 +123,7 @@ export async function DELETE(request: NextRequest) {
         activo: false,
         revocado_por: miembro?.id || null,
         revocado_en: new Date().toISOString(),
-        token_hash: null, // Invalidar token
+        token_hash: null,
       })
       .eq('id', terminalId)
       .eq('empresa_id', empresaId)
