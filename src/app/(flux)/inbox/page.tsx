@@ -71,10 +71,8 @@ function PaginaInbox() {
 
   // Estado global del inbox
   // Ref para bloquear cargarConversaciones mientras se abre desde URL (evita race condition)
-  // Inicializar en true si la URL ya trae ?conv= para bloquear el primer fetch automático
-  const abriendoDesdeUrlRef = useRef(
-    typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('conv')
-  )
+  // Se activa en el useEffect de searchParams antes de que configCargada habilite cargarConversaciones
+  const abriendoDesdeUrlRef = useRef(false)
   // Ref para saber si el usuario ya cambió de tab manualmente (evita que cargarConfig lo sobreescriba)
   const tabCambiadoManualRef = useRef(false)
   const [tabActivo, setTabActivo] = useState<TipoCanal>('whatsapp')
@@ -236,10 +234,17 @@ function PaginaInbox() {
       try {
         const res = await fetch('/api/inbox/config')
         const data = await res.json()
-        // Config IA del inbox
-        if (data.config?.ia_habilitada !== undefined) {
-          setIaHabilitada(data.config.ia_habilitada)
+        // Config IA: combinar ia_habilitada (config_inbox) + activo (config_agente_ia)
+        // Ambos deben estar activos para que Bot/IA estén disponibles en las conversaciones
+        let iaActiva = data.config?.ia_habilitada ?? false
+        if (iaActiva) {
+          try {
+            const resAgente = await fetch('/api/inbox/agente-ia/config')
+            const dataAgente = await resAgente.json()
+            iaActiva = dataAgente.config?.activo ?? false
+          } catch { /* Si falla, asumir deshabilitado */ }
         }
+        setIaHabilitada(iaActiva)
 
         if (data.modulos) {
           const activos = new Set<string>(
