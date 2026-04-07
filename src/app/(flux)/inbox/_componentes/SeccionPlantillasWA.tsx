@@ -23,6 +23,15 @@ import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { ModalEditorPlantillaWA } from './ModalEditorPlantillaWA'
 import type { PlantillaWhatsApp, EstadoMeta, CanalInbox } from '@/tipos/inbox'
 
+/** Etiquetas legibles de módulos */
+const ETIQUETA_MODULO: Record<string, string> = {
+  inbox: 'Inbox',
+  presupuestos: 'Presupuestos',
+  contactos: 'Contactos',
+  ordenes: 'Órdenes',
+  actividades: 'Actividades',
+}
+
 // ─── Constantes ───
 
 const FILTROS_ESTADO: { valor: EstadoMeta | 'TODOS'; etiqueta: string; color: string }[] = [
@@ -298,9 +307,33 @@ export function SeccionPlantillasWA({ canalesWhatsApp, onRecargar }: Props) {
                     <Insignia color="primario" tamano="sm">{p.categoria}</Insignia>
                     <Insignia color="neutro" tamano="sm">{IDIOMAS_MAPA[p.idioma] || p.idioma}</Insignia>
                   </div>
-                  <p className="text-xs mt-0.5 font-mono truncate" style={{ color: 'var(--texto-terciario)' }}>
-                    {p.nombre_api}
-                  </p>
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    <p className="text-xs font-mono truncate" style={{ color: 'var(--texto-terciario)' }}>
+                      {p.nombre_api}
+                    </p>
+                    {p.modulos && p.modulos.length > 0 ? (
+                      <>
+                        <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>·</span>
+                        {p.modulos.map(m => (
+                          <span
+                            key={m}
+                            className="text-xxs px-1.5 py-0.5 rounded-full"
+                            style={{
+                              background: 'color-mix(in srgb, var(--texto-marca) 10%, transparent)',
+                              color: 'var(--texto-marca)',
+                            }}
+                          >
+                            {ETIQUETA_MODULO[m] || m}
+                          </span>
+                        ))}
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>·</span>
+                        <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>Todos los módulos</span>
+                      </>
+                    )}
+                  </div>
                   {p.componentes?.cuerpo?.texto && (
                     <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--texto-secundario)' }}>
                       {p.componentes.cuerpo.texto.substring(0, 120)}
