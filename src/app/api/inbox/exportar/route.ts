@@ -92,8 +92,8 @@ export async function GET(request: NextRequest) {
     // Formato TXT (legible, para copiar o imprimir)
     const lineas: string[] = []
     lineas.push(`═══ Conversación con ${nombreContacto} ═══`)
-    lineas.push(`Canal: ${conversacion.tipo_canal} | Inicio: ${new Date(conversacion.creado_en).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })}`)
-    lineas.push(`Exportado: ${new Date().toLocaleString('es')}`)
+    lineas.push(`Canal: ${conversacion.tipo_canal} | Inicio: ${fmt.fecha(conversacion.creado_en)}`)
+    lineas.push(`Exportado: ${fmt.fecha(new Date(), { conHora: true })}`)
     lineas.push(`Total mensajes: ${mensajes.length}`)
     lineas.push('')
     lineas.push('─'.repeat(50))
@@ -102,8 +102,8 @@ export async function GET(request: NextRequest) {
     let diaActual = ''
     for (const m of mensajes) {
       const fecha = new Date(m.creado_en)
-      const dia = fecha.toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })
-      const hora = fecha.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })
+      const dia = fmt.fecha(fecha)
+      const hora = fmt.hora(fecha)
 
       if (dia !== diaActual) {
         diaActual = dia

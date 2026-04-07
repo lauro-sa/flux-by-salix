@@ -23,6 +23,17 @@ export async function sincronizarEmpresa(
   const resumen: Record<string, number> = {}
 
   try {
+    // Derivar locale de la zona horaria de la empresa para formateo de fechas
+    const { data: configRegional } = await admin
+      .from('config_inbox')
+      .select('zona_horaria')
+      .eq('empresa_id', config.empresa_id)
+      .maybeSingle()
+    const zona = configRegional?.zona_horaria || 'America/Argentina/Buenos_Aires'
+    const locale = zona.startsWith('America/Argentina') ? 'es-AR'
+      : zona.startsWith('America') ? 'es-MX'
+      : 'es'
+
     // Obtener access token fresco
     const accessToken = await obtenerAccessToken(config.refresh_token!)
 
@@ -38,7 +49,7 @@ export async function sincronizarEmpresa(
       if (!hoja) continue
 
       try {
-        const { encabezados, filas } = await obtenerDatosModulo(admin, config.empresa_id, modulo)
+        const { encabezados, filas } = await obtenerDatosModulo(admin, config.empresa_id, modulo, locale)
 
         await escribirSpreadsheet(
           accessToken,
@@ -85,10 +96,11 @@ async function obtenerDatosModulo(
   admin: SupabaseClient,
   empresaId: string,
   modulo: string,
+  locale = 'es-AR',
 ): Promise<{ encabezados: string[]; filas: (string | number | null)[][] }> {
   switch (modulo) {
     case 'contactos':
-      return obtenerDatosContactos(admin, empresaId)
+      return obtenerDatosContactos(admin, empresaId, locale)
     default:
       return { encabezados: [], filas: [] }
   }
@@ -98,6 +110,7 @@ async function obtenerDatosModulo(
 async function obtenerDatosContactos(
   admin: SupabaseClient,
   empresaId: string,
+  locale = 'es-AR',
 ): Promise<{ encabezados: string[]; filas: (string | number | null)[][] }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: contactos } = await admin
@@ -141,7 +154,7 @@ async function obtenerDatosContactos(
 
     const formatFecha = (f: string | null) => {
       if (!f) return null
-      return new Date(f).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      return new Date(f).toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     }
 
     return [

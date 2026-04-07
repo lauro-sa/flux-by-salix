@@ -13,6 +13,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { SelectorHora } from '@/componentes/ui/SelectorHora'
+import { useFormato } from '@/hooks/useFormato'
 import { diaSiguienteCorto } from './ayudantes'
 
 interface PropiedadesPopoverProgramar {
@@ -28,6 +29,7 @@ export function PopoverProgramar({
   onProgramar,
   disabled,
 }: PropiedadesPopoverProgramar) {
+  const { locale } = useFormato()
   const [fechaCustom, setFechaCustom] = useState<string | null>(null)
   const [horaCustom, setHoraCustom] = useState<string | null>(null)
   const [mostrarCustom, setMostrarCustom] = useState(false)
@@ -50,7 +52,7 @@ export function PopoverProgramar({
 
   const manana = new Date()
   manana.setDate(manana.getDate() + 1)
-  const dia = diaSiguienteCorto()
+  const dia = diaSiguienteCorto(locale)
 
   const formatear = (hora: number) => {
     const d = new Date(manana)

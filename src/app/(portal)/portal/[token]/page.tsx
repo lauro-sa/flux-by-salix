@@ -17,6 +17,14 @@ interface Props {
   params: Promise<{ token: string }>
 }
 
+/** Deriva el locale BCP-47 a partir de la zona horaria de la empresa */
+function obtenerLocale(zona?: string): string {
+  if (!zona) return 'es'
+  if (zona.startsWith('America/Argentina')) return 'es-AR'
+  if (zona.startsWith('America')) return 'es-MX'
+  return 'es'
+}
+
 // ── Función cacheada: una sola ejecución por request ──────────────────────
 const obtenerDatosPortal = cache(async (token: string): Promise<DatosPortal | null> => {
   try {
@@ -97,7 +105,7 @@ const obtenerDatosPortal = cache(async (token: string): Promise<DatosPortal | nu
       admin.from('presupuestos').select('*').eq('id', portalToken.presupuesto_id).single(),
       admin.from('lineas_presupuesto').select('*').eq('presupuesto_id', portalToken.presupuesto_id).order('orden'),
       admin.from('presupuesto_cuotas').select('*').eq('presupuesto_id', portalToken.presupuesto_id).order('numero'),
-      admin.from('empresas').select('id, nombre, slug, logo_url, color_marca, descripcion, telefono, correo, pagina_web, ubicacion, direccion, datos_fiscales, datos_bancarios').eq('id', portalToken.empresa_id).single(),
+      admin.from('empresas').select('id, nombre, slug, logo_url, color_marca, descripcion, telefono, correo, pagina_web, ubicacion, direccion, datos_fiscales, datos_bancarios, zona_horaria').eq('id', portalToken.empresa_id).single(),
       admin.from('config_presupuestos').select('datos_empresa_pdf, monedas').eq('empresa_id', portalToken.empresa_id).single(),
       admin.from('perfiles').select('nombre, apellido, correo, telefono').eq('id', portalToken.creado_por).single(),
     ])
@@ -212,6 +220,7 @@ const obtenerDatosPortal = cache(async (token: string): Promise<DatosPortal | nu
       },
       datos_bancarios: datosBancarios,
       moneda_simbolo: monedaSimb,
+      locale: obtenerLocale(empresa.zona_horaria),
       estado_cliente: estadoCliente,
       firma,
       aceptado_en: portalToken.aceptado_en || null,

@@ -21,8 +21,8 @@ export function formatoTamano(bytes: number): string {
 }
 
 /** Nombre corto del día siguiente: "lun", "mar", etc. */
-export function diaSiguienteCorto(): string {
+export function diaSiguienteCorto(locale = 'es-AR'): string {
   const manana = new Date()
   manana.setDate(manana.getDate() + 1)
-  return manana.toLocaleDateString('es-AR', { weekday: 'short' }).replace('.', '')
+  return manana.toLocaleDateString(locale, { weekday: 'short' }).replace('.', '')
 }

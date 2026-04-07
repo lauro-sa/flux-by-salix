@@ -27,7 +27,7 @@ interface Props {
 
 export default function VistaPortal({ datos }: Props) {
   const { t } = useTraduccion()
-  const { presupuesto, empresa, vendedor, datos_bancarios, moneda_simbolo } = datos
+  const { presupuesto, empresa, vendedor, datos_bancarios, moneda_simbolo, locale } = datos
 
   // Estado persistido (inicializado desde el servidor)
   const [estadoCliente, setEstadoCliente] = useState<EstadoPortal>(datos.estado_cliente || 'visto')
@@ -267,6 +267,7 @@ export default function VistaPortal({ datos }: Props) {
           nombreCliente={nombreContacto || 'Cliente'}
           colorMarca={colorMarca}
           token={token}
+          locale={locale}
           onMensajeEnviado={(msg) => setMensajes(prev => [...prev, msg])}
         />
 

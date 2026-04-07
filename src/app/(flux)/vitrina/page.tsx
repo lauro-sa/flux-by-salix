@@ -360,7 +360,7 @@ function SeccionTablaDinamica({ id, mostrar }: { id?: string; mostrar: (tipo: 'e
       obtenerValor: (c) => c.valorEstimado,
       render: (c) => (
         <span className="font-medium tabular-nums">
-          {c.valorEstimado > 0 ? `$${c.valorEstimado.toLocaleString('es')}` : '—'}
+          {c.valorEstimado > 0 ? `$${c.valorEstimado.toLocaleString('es-AR')}` : '—'}
         </span>
       ),
     },
@@ -460,7 +460,7 @@ function SeccionTablaDinamica({ id, mostrar }: { id?: string; mostrar: (tipo: 'e
                 {c.tipo}
               </span>
               {c.valorEstimado > 0 && (
-                <span className="text-xs font-medium text-texto-primario tabular-nums">${c.valorEstimado.toLocaleString('es')}</span>
+                <span className="text-xs font-medium text-texto-primario tabular-nums">${c.valorEstimado.toLocaleString('es-AR')}</span>
               )}
             </div>
             <p className="text-xs text-texto-terciario">{c.correo}</p>

@@ -178,22 +178,22 @@ export function compararValores(a: unknown, b: unknown, direccion: DireccionOrde
 }
 
 /** Formatea un número para mostrar */
-export function formatearNumero(n: number, tipoDato?: TipoDato): string {
+export function formatearNumero(n: number, tipoDato?: TipoDato, locale = 'es-AR'): string {
   if (tipoDato === 'moneda') {
-    return `$ ${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    return `$ ${n.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
-  return n.toLocaleString('es-AR', { maximumFractionDigits: 2 })
+  return n.toLocaleString(locale, { maximumFractionDigits: 2 })
 }
 
 /** Calcula un resumen sobre un arreglo de valores numéricos */
-export function calcularResumen(valores: number[], tipo: TipoCalculo, tipoDato?: TipoDato): string {
+export function calcularResumen(valores: number[], tipo: TipoCalculo, tipoDato?: TipoDato, locale = 'es-AR'): string {
   if (valores.length === 0) return '—'
   switch (tipo) {
-    case 'conteo': return formatearNumero(valores.length)
-    case 'suma': return formatearNumero(valores.reduce((a, b) => a + b, 0), tipoDato)
-    case 'promedio': return formatearNumero(valores.reduce((a, b) => a + b, 0) / valores.length, tipoDato)
-    case 'min': return formatearNumero(Math.min(...valores), tipoDato)
-    case 'max': return formatearNumero(Math.max(...valores), tipoDato)
+    case 'conteo': return formatearNumero(valores.length, undefined, locale)
+    case 'suma': return formatearNumero(valores.reduce((a, b) => a + b, 0), tipoDato, locale)
+    case 'promedio': return formatearNumero(valores.reduce((a, b) => a + b, 0) / valores.length, tipoDato, locale)
+    case 'min': return formatearNumero(Math.min(...valores), tipoDato, locale)
+    case 'max': return formatearNumero(Math.max(...valores), tipoDato, locale)
     default: return '—'
   }
 }

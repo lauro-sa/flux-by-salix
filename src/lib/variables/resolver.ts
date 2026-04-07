@@ -16,7 +16,7 @@ const REGEX_VARIABLE = /\{\{([a-z_]+)\.([a-z_]+)\}\}/g
 /**
  * Formatea un valor crudo según el tipo de dato de la variable.
  */
-function formatearValor(valor: unknown, definicion?: DefinicionVariable, moneda?: string): string {
+function formatearValor(valor: unknown, definicion?: DefinicionVariable, moneda?: string, locale = 'es-AR'): string {
   if (valor === null || valor === undefined || valor === '') return ''
 
   if (!definicion) return String(valor)
@@ -26,7 +26,7 @@ function formatearValor(valor: unknown, definicion?: DefinicionVariable, moneda?
       const num = typeof valor === 'number' ? valor : parseFloat(String(valor))
       if (isNaN(num)) return String(valor)
       const codigoMoneda = moneda || 'ARS'
-      return new Intl.NumberFormat('es-AR', {
+      return new Intl.NumberFormat(locale, {
         style: 'currency',
         currency: codigoMoneda,
         minimumFractionDigits: 2,
@@ -36,7 +36,7 @@ function formatearValor(valor: unknown, definicion?: DefinicionVariable, moneda?
     case 'numero': {
       const num = typeof valor === 'number' ? valor : parseFloat(String(valor))
       if (isNaN(num)) return String(valor)
-      return new Intl.NumberFormat('es-AR').format(num)
+      return new Intl.NumberFormat(locale).format(num)
     }
 
     case 'porcentaje': {
@@ -48,7 +48,7 @@ function formatearValor(valor: unknown, definicion?: DefinicionVariable, moneda?
     case 'fecha': {
       const fecha = valor instanceof Date ? valor : new Date(String(valor))
       if (isNaN(fecha.getTime())) return String(valor)
-      return new Intl.DateTimeFormat('es-AR', {
+      return new Intl.DateTimeFormat(locale, {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -58,7 +58,7 @@ function formatearValor(valor: unknown, definicion?: DefinicionVariable, moneda?
     case 'fecha_hora': {
       const fecha = valor instanceof Date ? valor : new Date(String(valor))
       if (isNaN(fecha.getTime())) return String(valor)
-      return new Intl.DateTimeFormat('es-AR', {
+      return new Intl.DateTimeFormat(locale, {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -108,13 +108,14 @@ function obtenerValor(
 export function resolverVariables(
   texto: string,
   contexto: ContextoVariables,
+  locale = 'es-AR',
 ): string {
   // Detectar moneda del presupuesto o empresa para formatear importes
   const moneda = (contexto.presupuesto?.moneda || contexto.empresa?.moneda || 'ARS') as string
 
   return texto.replace(REGEX_VARIABLE, (_match, claveEntidad: string, claveCampo: string) => {
     const { valor, definicion } = obtenerValor(claveEntidad, claveCampo, contexto)
-    return formatearValor(valor, definicion, moneda)
+    return formatearValor(valor, definicion, moneda, locale)
   })
 }
 
@@ -146,13 +147,14 @@ export function extraerVariables(texto: string): Array<{ entidad: string; campo:
 export function resolverVariablesDetallado(
   texto: string,
   contexto: ContextoVariables,
+  locale = 'es-AR',
 ): { texto_resuelto: string; variables: VariableResuelta[] } {
   const variablesResueltas: VariableResuelta[] = []
   const moneda = (contexto.presupuesto?.moneda || contexto.empresa?.moneda || 'ARS') as string
 
   const texto_resuelto = texto.replace(REGEX_VARIABLE, (_match, claveEntidad: string, claveCampo: string) => {
     const { valor, definicion } = obtenerValor(claveEntidad, claveCampo, contexto)
-    const formateado = formatearValor(valor, definicion, moneda)
+    const formateado = formatearValor(valor, definicion, moneda, locale)
 
     variablesResueltas.push({
       clave_completa: `${claveEntidad}.${claveCampo}`,
@@ -194,11 +196,12 @@ export function formatearVariable(
   claveCampo: string,
   valor: unknown,
   moneda?: string,
+  locale = 'es-AR',
 ): string {
   if (valor === null || valor === undefined || valor === '') return ''
   const entidad = obtenerEntidad(claveEntidad)
   const definicion = entidad?.variables.find((v) => v.clave === claveCampo)
-  return formatearValor(valor, definicion, moneda || 'ARS')
+  return formatearValor(valor, definicion, moneda || 'ARS', locale)
 }
 
 /**
@@ -214,6 +217,7 @@ export function formatearVariable(
 export function revertirVariablesEnPlantilla(
   texto: string,
   contexto: Record<string, Record<string, unknown> | undefined>,
+  locale = 'es-AR',
 ): string {
   if (!texto || !contexto) return texto
 
@@ -234,7 +238,7 @@ export function revertirVariablesEnPlantilla(
       const variable = `{{${entidad}.${campo}}}`
 
       // Valor formateado (moneda, fecha, etc.)
-      const formateado = formatearVariable(entidad, campo, valorCrudo, moneda)
+      const formateado = formatearVariable(entidad, campo, valorCrudo, moneda, locale)
       if (formateado && formateado.length > 2) {
         reemplazos.push({ valor: formateado, variable })
       }

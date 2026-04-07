@@ -114,6 +114,18 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
     guardar({ sidebar_secciones: nuevas })
   }, [seccion, preferencias.sidebar_secciones, guardar])
 
+  /* Fijar sidebar en un estado específico para la sección actual (desactiva auto-ocultar si estaba activo) */
+  const fijarSeccion = useCallback((colapsado: boolean) => {
+    guardar({
+      sidebar_auto_ocultar: false,
+      sidebar_secciones: {
+        ...preferencias.sidebar_secciones,
+        [seccion]: colapsado,
+      },
+    })
+    setHoverExpandido(false)
+  }, [seccion, preferencias.sidebar_secciones, guardar])
+
   const tienePreferenciaSeccion = preferencias.sidebar_secciones?.[seccion] !== undefined
 
   /* En auto-ocultar: margen fijo para la barra minimizada (mismo ancho colapsado) */
@@ -177,6 +189,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
           seccionActual={seccion}
           tienePreferenciaSeccion={tienePreferenciaSeccion}
           onAplicarATodas={aplicarATodas}
+          onFijarSeccion={fijarSeccion}
           onLimpiarSeccion={limpiarSeccion}
           autoOcultar={autoOcultar}
           onToggleAutoOcultar={toggleAutoOcultar}

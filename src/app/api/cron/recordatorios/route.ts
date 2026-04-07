@@ -21,7 +21,8 @@ export async function GET(request: NextRequest) {
     const admin = crearClienteAdmin()
     const ahora = new Date()
     const hoyISO = ahora.toISOString().split('T')[0]
-    const horaActual = ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })
+    // Formato HH:MM en UTC para comparación consistente (sin depender de locale)
+    const horaActual = `${String(ahora.getUTCHours()).padStart(2, '0')}:${String(ahora.getUTCMinutes()).padStart(2, '0')}`
 
     // Buscar recordatorios que ya vencieron:
     // 1. Fecha pasada (cualquier hora)

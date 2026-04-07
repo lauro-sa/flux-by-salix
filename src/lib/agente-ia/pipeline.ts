@@ -135,6 +135,17 @@ export async function ejecutarPipelineAgente(params: {
     admin, empresa_id, conversacion_id, mensaje_id, config,
   })
 
+  // Derivar locale de la zona horaria de la empresa (para formateo de fechas)
+  const { data: configInboxLocale } = await admin
+    .from('config_inbox')
+    .select('zona_horaria')
+    .eq('empresa_id', empresa_id)
+    .maybeSingle()
+  const zonaEmpresa = configInboxLocale?.zona_horaria || 'America/Argentina/Buenos_Aires'
+  const locale = zonaEmpresa.startsWith('America/Argentina') ? 'es-AR'
+    : zonaEmpresa.startsWith('America') ? 'es-MX'
+    : 'es'
+
   if (!contexto.config_ia.apiKey) {
     console.warn('[AGENTE_IA] Sin API key configurada')
     return { acciones_ejecutadas: [], escalado: false }
@@ -199,7 +210,7 @@ export async function ejecutarPipelineAgente(params: {
   }
 
   // 4. Construir prompts separados (system + user) y llamar al LLM
-  const { sistema, usuario } = construirPrompts(contexto)
+  const { sistema, usuario } = construirPrompts(contexto, { locale })
   let respuestaLLM: RespuestaLLM
   let tokensEntrada = 0
   let tokensSalida = 0
@@ -360,7 +371,7 @@ export async function ejecutarPipelineAgente(params: {
             .eq('id', contactoId)
             .single()
 
-          const fecha = new Date().toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })
+          const fecha = new Date().toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
           const notaNueva = `[${fecha}] Consulta: ${datos.tipo_trabajo}${datos.direccion ? ` en ${datos.direccion}` : ''}`
           const notasExistentes = contactoActual?.notas || ''
           // No duplicar si ya tiene la misma nota

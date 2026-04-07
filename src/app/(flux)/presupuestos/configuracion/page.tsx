@@ -10,6 +10,7 @@ import {
 import { Reorder } from 'framer-motion'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { A4_ANCHO, A4_ALTO } from '@/lib/pdf/constantes'
+import { useFormato } from '@/hooks/useFormato'
 import ModalCondicionPago from '../_componentes/ModalCondicionPago'
 import EditorNotasPresupuesto from '../_componentes/EditorNotasPresupuesto'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
@@ -134,6 +135,7 @@ const DATOS_EMPRESA_PDF_DEFAULT: ConfigDatosEmpresaPdf = {
 export default function PaginaConfigPresupuestos() {
   const router = useRouter()
   const { t } = useTraduccion()
+  const formato = useFormato()
   const [cargando, setCargando] = useState(true)
   const [seccionActiva, setSeccionActiva] = useState('impuestos')
   const autoguardadoRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -1590,7 +1592,7 @@ export default function PaginaConfigPresupuestos() {
                 {patronNombrePdf
                   .replace('{numero}', previewNumero)
                   .replace('{contacto_nombre}', 'Juan Pérez')
-                  .replace('{fecha}', new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-'))
+                  .replace('{fecha}', formato.fecha(new Date()).replace(/\//g, '-'))
                   .replace('{tipo}', 'Presupuesto')
                   .replace('{referencia}', 'REF-001')
                 }.pdf

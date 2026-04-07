@@ -18,18 +18,20 @@ interface Props {
   nombreCliente: string
   colorMarca: string
   token: string
+  /** Locale derivado de la zona horaria de la empresa (ej: 'es-AR', 'es-MX', 'es') */
+  locale?: string
   onMensajeEnviado: (mensaje: MensajePortal) => void
 }
 
-function fechaCorta(fecha: string): string {
+function fechaCorta(fecha: string, locale: string): string {
   const d = new Date(fecha)
   const ahora = new Date()
   const hoy = ahora.toDateString() === d.toDateString()
-  if (hoy) return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
-  return d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+  if (hoy) return d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleDateString(locale, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
-export default function MiniChat({ mensajes, nombreCliente, colorMarca, token, onMensajeEnviado }: Props) {
+export default function MiniChat({ mensajes, nombreCliente, colorMarca, token, locale = 'es', onMensajeEnviado }: Props) {
   const { t } = useTraduccion()
   const [texto, setTexto] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -125,7 +127,7 @@ export default function MiniChat({ mensajes, nombreCliente, colorMarca, token, o
                     )}
                     <p className="text-sm whitespace-pre-wrap">{msg.contenido}</p>
                     <span className={`text-xxs block mt-0.5 ${esCliente ? 'text-white/60' : 'text-texto-terciario'}`}>
-                      {fechaCorta(msg.creado_en)}
+                      {fechaCorta(msg.creado_en, locale)}
                     </span>
                   </div>
                 </div>

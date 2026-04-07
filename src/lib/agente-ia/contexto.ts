@@ -242,7 +242,7 @@ export interface PromptsAgente {
   usuario: string
 }
 
-export function construirPrompts(ctx: ContextoPipeline): PromptsAgente {
+export function construirPrompts(ctx: ContextoPipeline, opciones?: { locale?: string }): PromptsAgente {
   const { config, contacto, empresa_nombre, base_conocimiento, mensajes, etiquetas_disponibles } = ctx
 
   // ── Secciones condicionales ──
@@ -315,7 +315,8 @@ export function construirPrompts(ctx: ContextoPipeline): PromptsAgente {
     : ''
 
   // ── Fecha actual para reglas de agenda ──
-  const fechaHoy = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
+  const locale = opciones?.locale || 'es-AR'
+  const fechaHoy = new Date().toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })
 
   // ══════════════════════════════════════════
   // SYSTEM PROMPT

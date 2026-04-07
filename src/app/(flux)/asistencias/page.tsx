@@ -10,6 +10,7 @@ import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { ModalEditarFichaje } from './_componentes/ModalEditarFichaje'
 import { useFormato } from '@/hooks/useFormato'
+import { usePreferencias } from '@/hooks/usePreferencias'
 import { VistaMatriz } from './_componentes/VistaMatriz'
 import { TarjetaAsistencia } from './_componentes/TarjetaAsistencia'
 
@@ -116,13 +117,27 @@ function formatearUbicacion(ub: Record<string, unknown> | null): string {
 export default function PaginaAsistencias() {
   const router = useRouter()
   const { formatoHora, locale } = useFormato()
+  const { preferencias, guardar: guardarPrefs } = usePreferencias()
   const [busqueda, setBusqueda] = useState('')
   const [registros, setRegistros] = useState<RegistroAsistencia[]>([])
   const [total, setTotal] = useState(0)
   const [cargando, setCargando] = useState(true)
   const [pagina, setPagina] = useState(1)
   const [editando, setEditando] = useState<RegistroAsistencia | null>(null)
-  const [vista, setVista] = useState<'lista' | 'tarjetas' | 'matriz'>('lista')
+
+  // Vista persistida por usuario+dispositivo
+  const vistaGuardada = (preferencias.config_tablas?.asistencias?.tipoVista as 'lista' | 'tarjetas' | 'matriz') || 'lista'
+  const [vista, setVistaLocal] = useState<'lista' | 'tarjetas' | 'matriz'>(vistaGuardada)
+
+  const setVista = useCallback((v: 'lista' | 'tarjetas' | 'matriz') => {
+    setVistaLocal(v)
+    guardarPrefs({
+      config_tablas: {
+        ...preferencias.config_tablas,
+        asistencias: { ...preferencias.config_tablas?.asistencias, tipoVista: v },
+      },
+    })
+  }, [preferencias.config_tablas, guardarPrefs])
 
   const cargar = useCallback(async () => {
     setCargando(true)

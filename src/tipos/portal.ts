@@ -122,6 +122,8 @@ export interface DatosPortal {
     alias: string
   } | null
   moneda_simbolo: string
+  /** Locale derivado de la zona horaria de la empresa (ej: 'es-AR', 'es-MX', 'es') */
+  locale: string
   // Estado del portal (persistido)
   estado_cliente: EstadoPortal
   firma: {

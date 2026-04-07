@@ -5,9 +5,9 @@ import { useTema } from '@/hooks/useTema'
 import { useTraduccion } from '@/lib/i18n'
 import { Migajas } from './Migajas'
 import {
-  PanelLeft, PanelLeftClose, Moon, Sun, Monitor, Check, Globe,
+  PanelLeft, PanelLeftClose, Moon, Sun, Monitor, Check,
   ChevronsLeft, ChevronsRight, RotateCcw, Headphones, Settings,
-  ChevronRight, BellOff, BellRing, PanelLeftDashed,
+  BellOff, BellRing, PanelLeftDashed,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
@@ -44,6 +44,7 @@ interface PropiedadesHeader {
   seccionActual: string
   tienePreferenciaSeccion: boolean
   onAplicarATodas: (colapsado: boolean) => void
+  onFijarSeccion: (colapsado: boolean) => void
   onLimpiarSeccion: () => void
   autoOcultar: boolean
   onToggleAutoOcultar: () => void
@@ -59,6 +60,7 @@ function Header({
   seccionActual,
   tienePreferenciaSeccion,
   onAplicarATodas,
+  onFijarSeccion,
   onLimpiarSeccion,
   autoOcultar,
   onToggleAutoOcultar,
@@ -149,7 +151,7 @@ function Header({
             />
           </div>
 
-          {/* Popover de opciones del sidebar */}
+          {/* Popover contextual de opciones del sidebar */}
           <AnimatePresence>
             {sidebarMenuAbierto && (
               <motion.div
@@ -164,39 +166,93 @@ function Header({
                   Menú lateral
                 </div>
 
-                {/* Auto-ocultar */}
-                <OpcionMenu
-                  icono={<PanelLeftDashed size={15} />}
-                  activo={autoOcultar}
-                  derecha={autoOcultar ? <Check size={14} className="text-texto-marca" /> : undefined}
-                  onClick={() => { onToggleAutoOcultar(); setSidebarMenuAbierto(false) }}
-                >
-                  Auto-ocultar
-                </OpcionMenu>
-
-                <div className="h-px bg-borde-sutil my-1 mx-2" />
-
-                {!autoOcultar && (
+                {autoOcultar ? (<>
+                  {/* ── Auto-ocultar activo: opciones para fijar ── */}
                   <OpcionMenu
-                    icono={sidebarColapsado ? <PanelLeft size={15} /> : <PanelLeftClose size={15} />}
+                    icono={<PanelLeft size={15} />}
+                    onClick={() => { onFijarSeccion(false); setSidebarMenuAbierto(false) }}
+                  >
+                    Expandir solo en <strong className="capitalize">{nombreSeccion}</strong>
+                  </OpcionMenu>
+                  <OpcionMenu
+                    icono={<ChevronsRight size={15} />}
+                    onClick={() => { onAplicarATodas(false); setSidebarMenuAbierto(false) }}
+                  >
+                    Expandir en todas
+                  </OpcionMenu>
+
+                  <div className="h-px bg-borde-sutil my-1 mx-2" />
+
+                  <OpcionMenu
+                    icono={<PanelLeftClose size={15} />}
+                    onClick={() => { onFijarSeccion(true); setSidebarMenuAbierto(false) }}
+                  >
+                    Colapsar solo en <strong className="capitalize">{nombreSeccion}</strong>
+                  </OpcionMenu>
+                  <OpcionMenu
+                    icono={<ChevronsLeft size={15} />}
+                    onClick={() => { onAplicarATodas(true); setSidebarMenuAbierto(false) }}
+                  >
+                    Colapsar en todas
+                  </OpcionMenu>
+
+                  <div className="h-px bg-borde-sutil my-1 mx-2" />
+
+                  <OpcionMenu
+                    icono={<PanelLeftDashed size={15} />}
+                    activo
+                    derecha={<Check size={14} className="text-texto-marca" />}
+                    onClick={() => { onToggleAutoOcultar(); setSidebarMenuAbierto(false) }}
+                  >
+                    Auto-ocultar
+                  </OpcionMenu>
+                </>) : sidebarColapsado ? (<>
+                  {/* ── Colapsado: opciones para expandir ── */}
+                  <OpcionMenu
+                    icono={<PanelLeft size={15} />}
                     onClick={() => { onToggleSidebar(); setSidebarMenuAbierto(false) }}
                   >
-                    {sidebarColapsado ? 'Expandir' : 'Colapsar'} en <strong className="capitalize">{nombreSeccion}</strong>
+                    Expandir solo en <strong className="capitalize">{nombreSeccion}</strong>
                   </OpcionMenu>
-                )}
+                  <OpcionMenu
+                    icono={<ChevronsRight size={15} />}
+                    onClick={() => { onAplicarATodas(false); setSidebarMenuAbierto(false) }}
+                  >
+                    Expandir en todas
+                  </OpcionMenu>
 
-                <OpcionMenu
-                  icono={<ChevronsLeft size={15} />}
-                  onClick={() => { onAplicarATodas(true); setSidebarMenuAbierto(false) }}
-                >
-                  Colapsar en todas
-                </OpcionMenu>
-                <OpcionMenu
-                  icono={<ChevronsRight size={15} />}
-                  onClick={() => { onAplicarATodas(false); setSidebarMenuAbierto(false) }}
-                >
-                  Expandir en todas
-                </OpcionMenu>
+                  <div className="h-px bg-borde-sutil my-1 mx-2" />
+
+                  <OpcionMenu
+                    icono={<PanelLeftDashed size={15} />}
+                    onClick={() => { onToggleAutoOcultar(); setSidebarMenuAbierto(false) }}
+                  >
+                    Auto-ocultar
+                  </OpcionMenu>
+                </>) : (<>
+                  {/* ── Expandido: opciones para colapsar ── */}
+                  <OpcionMenu
+                    icono={<PanelLeftClose size={15} />}
+                    onClick={() => { onToggleSidebar(); setSidebarMenuAbierto(false) }}
+                  >
+                    Colapsar solo en <strong className="capitalize">{nombreSeccion}</strong>
+                  </OpcionMenu>
+                  <OpcionMenu
+                    icono={<ChevronsLeft size={15} />}
+                    onClick={() => { onAplicarATodas(true); setSidebarMenuAbierto(false) }}
+                  >
+                    Colapsar en todas
+                  </OpcionMenu>
+
+                  <div className="h-px bg-borde-sutil my-1 mx-2" />
+
+                  <OpcionMenu
+                    icono={<PanelLeftDashed size={15} />}
+                    onClick={() => { onToggleAutoOcultar(); setSidebarMenuAbierto(false) }}
+                  >
+                    Auto-ocultar
+                  </OpcionMenu>
+                </>)}
 
                 {tienePreferenciaSeccion && !autoOcultar && (
                   <>
