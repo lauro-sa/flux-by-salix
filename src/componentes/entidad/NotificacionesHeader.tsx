@@ -18,6 +18,7 @@ import {
 } from '@/hooks/useNotificaciones'
 import { useModoConcentracion } from '@/hooks/useModoConcentracion'
 import { RecordatoriosHeader } from './RecordatoriosHeader'
+import { WidgetJornada } from './WidgetJornada'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 
 /**
@@ -429,6 +430,9 @@ function NotificacionesHeader() {
           </Popover>
         )
       })}
+
+      {/* Jornada (fichaje manual) */}
+      <WidgetJornada />
 
       {/* Recordatorios */}
       <RecordatoriosHeader />
