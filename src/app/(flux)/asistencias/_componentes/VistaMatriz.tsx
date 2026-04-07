@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   ChevronLeft, ChevronRight, Loader2, Calendar, Printer, Download,
-  SlidersHorizontal, Maximize2,
+  SlidersHorizontal, Maximize2, CheckSquare, X,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { Tooltip } from '@/componentes/ui/Tooltip'
@@ -177,23 +177,63 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
   const [cargando, setCargando] = useState(true)
   const [ocultarFindes, setOcultarFindes] = useState(false)
   const [ajustarPantalla, setAjustarPantalla] = useState(false)
-  const [selEmpleados, setSelEmpleados] = useState<Set<string>>(new Set())
-  const [selDias, setSelDias] = useState<Set<string>>(new Set())
+  // Modo selección (oculto por defecto)
+  const [modoSeleccion, setModoSeleccion] = useState(false)
+  // Selección: celdas individuales (miembroId:fecha) + empleados completos
+  const [selCeldas, setSelCeldas] = useState<Set<string>>(new Set())
 
+  const celdaKey = (miembroId: string, fecha: string) => `${miembroId}:${fecha}`
+
+  const toggleCelda = (miembroId: string, fecha: string) => {
+    const key = celdaKey(miembroId, fecha)
+    setSelCeldas(prev => { const n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n })
+  }
+
+  // Seleccionar todos los días de un empleado
   const toggleEmpleado = (id: string) => {
-    setSelEmpleados(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
-  }
-  const toggleTodosEmpleados = () => {
-    setSelEmpleados(prev => prev.size === miembros.length ? new Set() : new Set(miembros.map(m => m.id)))
-  }
-  const toggleDia = (fecha: string) => {
-    setSelDias(prev => { const n = new Set(prev); if (n.has(fecha)) n.delete(fecha); else n.add(fecha); return n })
-  }
-  const toggleTodosDias = () => {
     const diasLab = fechas.filter(f => { const d = new Date(f + 'T12:00:00').getDay(); return d !== 0 && d !== 6 })
-    setSelDias(prev => prev.size === diasLab.length ? new Set() : new Set(diasLab))
+    const keys = diasLab.map(f => celdaKey(id, f))
+    const todosSeleccionados = keys.every(k => selCeldas.has(k))
+    setSelCeldas(prev => {
+      const n = new Set(prev)
+      if (todosSeleccionados) { keys.forEach(k => n.delete(k)) }
+      else { keys.forEach(k => n.add(k)) }
+      return n
+    })
   }
-  const haySeleccion = selEmpleados.size > 0 || selDias.size > 0
+
+  const toggleTodosEmpleados = () => {
+    const diasLab = fechas.filter(f => { const d = new Date(f + 'T12:00:00').getDay(); return d !== 0 && d !== 6 })
+    const totalKeys = miembros.flatMap(m => diasLab.map(f => celdaKey(m.id, f)))
+    const todosSeleccionados = totalKeys.length > 0 && totalKeys.every(k => selCeldas.has(k))
+    setSelCeldas(todosSeleccionados ? new Set() : new Set(totalKeys))
+  }
+
+  // Verificar si un empleado tiene todas sus celdas seleccionadas
+  const empleadoSeleccionado = (id: string) => {
+    const diasLab = fechas.filter(f => { const d = new Date(f + 'T12:00:00').getDay(); return d !== 0 && d !== 6 })
+    return diasLab.length > 0 && diasLab.every(f => selCeldas.has(celdaKey(id, f)))
+  }
+  const empleadoParcial = (id: string) => {
+    const diasLab = fechas.filter(f => { const d = new Date(f + 'T12:00:00').getDay(); return d !== 0 && d !== 6 })
+    const sel = diasLab.filter(f => selCeldas.has(celdaKey(id, f))).length
+    return sel > 0 && sel < diasLab.length
+  }
+
+  const haySeleccion = selCeldas.size > 0
+
+  // Derivar empleados y días seleccionados para la nómina
+  const selEmpleadosNomina = useMemo(() => {
+    const ids = new Set<string>()
+    selCeldas.forEach(k => ids.add(k.split(':')[0]))
+    return Array.from(ids)
+  }, [selCeldas])
+
+  const selDiasNomina = useMemo(() => {
+    const dias = new Set<string>()
+    selCeldas.forEach(k => dias.add(k.split(':')[1]))
+    return Array.from(dias)
+  }, [selCeldas])
 
   const { desde, hasta, etiqueta, subtitulo } = useMemo(() => obtenerRango(periodo, offset), [periodo, offset])
   const todasLasFechas = useMemo(() => generarFechas(desde, hasta), [desde, hasta])
@@ -299,6 +339,21 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
               <Maximize2 size={12} />
             </button>
           </Tooltip>
+
+          {/* Seleccionar */}
+          <Tooltip contenido={modoSeleccion ? 'Salir de selección' : 'Seleccionar para nómina'}>
+            <button
+              onClick={() => { setModoSeleccion(v => !v); if (modoSeleccion) setSelCeldas(new Set()) }}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                modoSeleccion
+                  ? 'bg-texto-marca/15 text-texto-marca border border-texto-marca/20'
+                  : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-elevada/50'
+              }`}
+            >
+              {modoSeleccion ? <X size={12} /> : <CheckSquare size={12} />}
+              {modoSeleccion ? `${selCeldas.size} sel.` : 'Seleccionar'}
+            </button>
+          </Tooltip>
         </div>
 
         {/* Navegación central */}
@@ -320,7 +375,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
             <Printer size={13} className="mr-1.5" /> Nómina
             {haySeleccion && (
               <span className="ml-1 text-[10px] bg-texto-marca/20 text-texto-marca px-1.5 py-0.5 rounded-full">
-                {selEmpleados.size > 0 ? `${selEmpleados.size} emp` : ''}{selEmpleados.size > 0 && selDias.size > 0 ? ' · ' : ''}{selDias.size > 0 ? `${selDias.size} días` : ''}
+                {selCeldas.size} sel.
               </span>
             )}
           </Boton>
@@ -471,11 +526,13 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
               <tr>
                 <th className={`sticky left-0 z-20 bg-superficie-app text-left font-medium text-texto-terciario text-xs uppercase tracking-wider border-b border-borde-sutil ${esUltra ? 'w-[120px] px-2 py-2' : esCompacto ? 'w-[160px] px-3 py-2' : esIntermedio ? 'w-[140px] max-w-[140px] px-2 py-3' : 'min-w-[200px] px-4 py-3'}`}>
                   <div className="flex items-center gap-2">
-                    <Checkbox
-                      marcado={selEmpleados.size === miembros.length && miembros.length > 0}
-                      indeterminado={selEmpleados.size > 0 && selEmpleados.size < miembros.length}
-                      onChange={toggleTodosEmpleados}
-                    />
+                    {modoSeleccion && (
+                      <Checkbox
+                        marcado={selCeldas.size > 0 && miembros.every(m => empleadoSeleccionado(m.id))}
+                        indeterminado={haySeleccion && !miembros.every(m => empleadoSeleccionado(m.id))}
+                        onChange={toggleTodosEmpleados}
+                      />
+                    )}
                     <span>Empleado</span>
                   </div>
                 </th>
@@ -522,14 +579,6 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                             {nombreFeriado.length > 15 ? nombreFeriado.slice(0, 14) + '…' : nombreFeriado}
                           </div>
                         )}
-                        {!esFinde && !esUltra && (
-                          <div className="mt-1 flex justify-center">
-                            <Checkbox
-                              marcado={selDias.has(fecha)}
-                              onChange={() => toggleDia(fecha)}
-                            />
-                          </div>
-                        )}
                       </th>
                     </React.Fragment>
                   )
@@ -559,10 +608,13 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                     {/* Empleado con avatar */}
                     <td className={`sticky left-0 z-10 bg-superficie-app border-b border-borde-sutil ${esUltra ? 'px-2 py-1.5' : esCompacto || esIntermedio ? 'px-2 py-2' : 'px-4 py-3'}`}>
                       <div className="flex items-center gap-2">
-                        <Checkbox
-                          marcado={selEmpleados.has(miembro.id)}
-                          onChange={() => toggleEmpleado(miembro.id)}
-                        />
+                        {modoSeleccion && (
+                          <Checkbox
+                            marcado={empleadoSeleccionado(miembro.id)}
+                            indeterminado={empleadoParcial(miembro.id)}
+                            onChange={() => toggleEmpleado(miembro.id)}
+                          />
+                        )}
                         <div className={`${esUltra ? 'size-6 text-[9px]' : esCompacto || esIntermedio ? 'size-7 text-[10px]' : 'size-8 text-xs'} rounded-full flex items-center justify-center font-bold shrink-0 ${colorAvatar}`}>
                           {iniciales(miembro.nombre)}
                         </div>
@@ -582,6 +634,8 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                       const esFinde = diaSemana === 0 || diaSemana === 6
                       const esFeriado = feriados.has(fecha)
                       const fondoCol = esHoy ? 'bg-texto-marca/5' : esFeriado ? 'bg-violet-500/5' : ''
+                      const celdaSel = modoSeleccion && selCeldas.has(celdaKey(miembro.id, fecha))
+                      const ringSeleccion = celdaSel ? 'ring-2 ring-texto-marca/50 ring-inset rounded-md' : ''
                       const esLunesTrasOculto = ocultarFindes && diaSemana === 1 && i > 0
 
                       // Separador de fin de semana
@@ -610,10 +664,10 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
 
                       if (estado === 'ausente') {
                         celda = (
-                          <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol}`}>
+                          <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol} ${ringSeleccion}`}>
                             {esUltra ? (
                               <div className="group/celda relative mx-auto">
-                                <div className="size-5 rounded-md bg-red-500/20 flex items-center justify-center cursor-pointer" onClick={() => asist && onClickAsistencia?.(asist.id)}>
+                                <div className="size-5 rounded-md bg-red-500/20 flex items-center justify-center cursor-pointer" onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else { asist && onClickAsistencia?.(asist.id) } }}>
                                   <span className="text-red-400 text-[7px] font-bold">A</span>
                                 </div>
                                 <div className="absolute z-[100] top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 scale-95 pointer-events-none group-hover/celda:opacity-100 group-hover/celda:scale-100 transition-all duration-150">
@@ -628,7 +682,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                                 </div>
                               </div>
                             ) : (
-                            <div onClick={() => asist && onClickAsistencia?.(asist.id)} className={`mx-auto rounded-lg ${esCompacto ? 'h-[52px]' : 'h-[60px]'} flex items-center justify-center ${COLORES_CELDA.ausente.fondo} border ${COLORES_CELDA.ausente.borde} cursor-pointer hover:brightness-110 transition-all`}>
+                            <div onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else { asist && onClickAsistencia?.(asist.id) } }} className={`mx-auto rounded-lg ${esCompacto ? 'h-[52px]' : 'h-[60px]'} flex items-center justify-center ${COLORES_CELDA.ausente.fondo} border ${COLORES_CELDA.ausente.borde} cursor-pointer hover:brightness-110 transition-all`}>
                               <span className={`text-red-400 ${esCompacto ? 'text-[9px]' : 'text-[11px]'} font-semibold uppercase`}>Ausente</span>
                             </div>
                             )}
@@ -636,10 +690,10 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                         )
                       } else if (!asist || estado === 'vacio') {
                         celda = (
-                          <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol}`}>
+                          <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol} ${ringSeleccion}`}>
                             <div
                               className={`${esUltra ? 'h-[20px]' : esCompacto ? 'h-[52px]' : 'h-[60px]'} ${!esFinde ? 'cursor-pointer hover:bg-superficie-elevada/30 rounded-lg transition-colors' : ''}`}
-                              onClick={() => { if (!esFinde) onCrearFichaje?.(miembro.id, miembro.nombre, fecha) }}
+                              onClick={() => { if (!esFinde) { if (modoSeleccion) toggleCelda(miembro.id, fecha); else onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } }}
                             />
                           </td>
                         )
@@ -661,13 +715,13 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                         const colorDurTxt = estado === 'auto_cerrado' || estado === 'tardanza' ? 'text-amber-400' : 'text-emerald-400'
 
                         celda = (
-                          <td key={fecha} className={`${esUltra ? 'px-0 py-1 text-center' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol}`}>
+                          <td key={fecha} className={`${esUltra ? 'px-0 py-1 text-center' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol} ${ringSeleccion}`}>
                             {esUltra ? (
                               /* Ultra compacto: solo punto de color con tooltip rico */
                               <div className="group/celda relative inline-flex justify-center">
                                 <div
                                   className="size-5 rounded-md flex items-center justify-center cursor-pointer"
-                                  onClick={() => onClickAsistencia?.(asist.id)}
+                                  onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else { onClickAsistencia?.(asist.id) } }}
                                   style={{ backgroundColor: `color-mix(in srgb, ${estado === 'cerrado' ? '#10b981' : estado === 'tardanza' ? '#f59e0b' : estado === 'auto_cerrado' ? '#ef4444' : estado === 'activo' ? '#0ea5e9' : '#10b981'} 20%, transparent)` }}
                                 >
                                   <div className={`size-1.5 rounded-full ${colorPunto}`} />
@@ -688,7 +742,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                             ) : (
                               /* Normal / compacto */
                               <div
-                                onClick={() => onClickAsistencia?.(asist.id)}
+                                onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else { onClickAsistencia?.(asist.id) } }}
                                 title={`${etiquetaEstado} · ${fmtDur(min)} netos`}
                                 className={`mx-auto rounded-lg ${esCompacto ? 'h-[52px] gap-0.5 px-0.5' : esIntermedio ? 'h-[62px] gap-1 px-0.5' : 'h-[74px] gap-1.5 pt-1'} flex flex-col items-center justify-center border ${colores.fondo} ${colores.borde} cursor-pointer hover:brightness-110 transition-all`}>
                                 <div className={`${esCompacto || esIntermedio ? 'size-1.5' : 'size-2'} rounded-full ${colorPunto} shrink-0`} />
@@ -733,8 +787,8 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
         desde={desde.toISOString().split('T')[0]}
         hasta={hasta.toISOString().split('T')[0]}
         etiquetaPeriodo={etiqueta}
-        empleadosSeleccionados={selEmpleados.size > 0 ? Array.from(selEmpleados) : undefined}
-        diasSeleccionados={selDias.size > 0 ? Array.from(selDias) : undefined}
+        empleadosSeleccionados={haySeleccion ? selEmpleadosNomina : undefined}
+        diasSeleccionados={haySeleccion ? selDiasNomina : undefined}
       />
     </div>
   )
