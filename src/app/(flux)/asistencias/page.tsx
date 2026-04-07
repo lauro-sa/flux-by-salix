@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
-import { Download, Clock, TimerOff, Pencil } from 'lucide-react'
+import { Download, Clock, TimerOff, Pencil, Plus } from 'lucide-react'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { ModalEditarFichaje } from './_componentes/ModalEditarFichaje'
@@ -13,6 +13,7 @@ import { useFormato } from '@/hooks/useFormato'
 import { usePreferencias } from '@/hooks/usePreferencias'
 import { VistaMatriz } from './_componentes/VistaMatriz'
 import { TarjetaAsistencia } from './_componentes/TarjetaAsistencia'
+import { ModalCrearFichaje } from './_componentes/ModalCrearFichaje'
 
 // ─── Constantes ──────────────────────────────────────────────
 
@@ -124,6 +125,7 @@ export default function PaginaAsistencias() {
   const [cargando, setCargando] = useState(true)
   const [pagina, setPagina] = useState(1)
   const [editando, setEditando] = useState<RegistroAsistencia | null>(null)
+  const [creando, setCreando] = useState<{ miembroId?: string; miembroNombre?: string; fecha?: string } | null>(null)
 
   // Vista persistida por usuario+dispositivo
   const vistaGuardada = (preferencias.config_tablas?.asistencias?.tipoVista as 'lista' | 'tarjetas' | 'matriz') || 'lista'
@@ -247,6 +249,11 @@ export default function PaginaAsistencias() {
     <PlantillaListado
       titulo="Asistencias"
       icono={<Clock size={20} />}
+      accionPrincipal={{
+        etiqueta: 'Agregar fichaje',
+        icono: <Plus size={14} />,
+        onClick: () => setCreando({}),
+      }}
       acciones={[
         { id: 'exportar', etiqueta: 'Exportar', icono: <Download size={14} />, onClick: () => {} },
       ]}
@@ -269,7 +276,9 @@ export default function PaginaAsistencias() {
         onCambiarPagina={setPagina}
         onVistaExterna={(v) => setVista(v as 'lista' | 'tarjetas' | 'matriz')}
         vistaExternaActiva={vista === 'matriz' ? 'matriz' : null}
-        contenidoCustom={vista === 'matriz' ? <VistaMatriz onClickAsistencia={async (id) => {
+        contenidoCustom={vista === 'matriz' ? <VistaMatriz
+          onCrearFichaje={(miembroId, miembroNombre, fecha) => setCreando({ miembroId, miembroNombre, fecha })}
+          onClickAsistencia={async (id) => {
           // Buscar en registros cargados
           const encontrado = registros.find(r => r.id === id)
           if (encontrado) { setEditando(encontrado); return }
@@ -296,6 +305,15 @@ export default function PaginaAsistencias() {
         onCerrar={() => setEditando(null)}
         registro={editando}
         onGuardado={cargar}
+      />
+
+      <ModalCrearFichaje
+        abierto={!!creando}
+        onCerrar={() => setCreando(null)}
+        onCreado={cargar}
+        miembroId={creando?.miembroId}
+        miembroNombre={creando?.miembroNombre}
+        fecha={creando?.fecha}
       />
     </PlantillaListado>
   )

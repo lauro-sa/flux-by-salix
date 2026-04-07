@@ -160,7 +160,10 @@ const COLORES_AVATAR = [
 
 // ─── Componente ──────────────────────────────────────────────
 
-export function VistaMatriz({ onClickAsistencia }: { onClickAsistencia?: (asistenciaId: string) => void }) {
+export function VistaMatriz({ onClickAsistencia, onCrearFichaje }: {
+  onClickAsistencia?: (asistenciaId: string) => void
+  onCrearFichaje?: (miembroId: string, miembroNombre: string, fecha: string) => void
+}) {
   const esMovil = useEsMovil()
   const { formatoHora } = useFormato()
   const [periodo, setPeriodo] = useState<Periodo>('semana')
@@ -585,7 +588,10 @@ export function VistaMatriz({ onClickAsistencia }: { onClickAsistencia?: (asiste
                       } else if (!asist || estado === 'vacio') {
                         celda = (
                           <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol}`}>
-                            <div className={esUltra ? 'h-[20px]' : esCompacto ? 'h-[52px]' : 'h-[60px]'} />
+                            <div
+                              className={`${esUltra ? 'h-[20px]' : esCompacto ? 'h-[52px]' : 'h-[60px]'} ${!esFinde ? 'cursor-pointer hover:bg-superficie-elevada/30 rounded-lg transition-colors' : ''}`}
+                              onClick={() => { if (!esFinde) onCrearFichaje?.(miembro.id, miembro.nombre, fecha) }}
+                            />
                           </td>
                         )
                       } else {
