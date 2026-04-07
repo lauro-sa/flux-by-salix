@@ -14,12 +14,20 @@ interface TerminalValidada {
   nombre: string
 }
 
-/** Verificar token del kiosco desde el header Authorization */
+/** Verificar token del kiosco desde header Authorization o cookie HttpOnly */
 export async function verificarTokenKiosco(request: NextRequest): Promise<TerminalValidada | null> {
+  // 1. Intentar header Authorization
+  let token: string | null = null
   const authHeader = request.headers.get('authorization')
-  if (!authHeader?.startsWith('Bearer ')) return null
+  if (authHeader?.startsWith('Bearer ') && authHeader.slice(7) !== '__cookie__') {
+    token = authHeader.slice(7)
+  }
 
-  const token = authHeader.slice(7)
+  // 2. Fallback: cookie HttpOnly (más persistente)
+  if (!token) {
+    token = request.cookies.get('kiosco_token')?.value || null
+  }
+
   if (!token) return null
 
   const tokenHash = hashToken(token)

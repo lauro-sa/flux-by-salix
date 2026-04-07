@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Settings2, Clock, CalendarCheck, Monitor, Timer, Zap,
   Plus, Trash2, Star, ChevronDown, ChevronUp, Shield,
+  Link2, Copy, RefreshCw, Ban,
 } from 'lucide-react'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
@@ -554,31 +555,148 @@ function SeccionKiosco({ config, onGuardar }: { config: ConfigAsistencias; onGua
 
 function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[]; onRecargar: () => void }) {
   const formato = useFormato()
+  const [nombreNueva, setNombreNueva] = useState('')
+  const [creando, setCreando] = useState(false)
+  const [linkGenerado, setLinkGenerado] = useState<{ terminalId: string; link: string } | null>(null)
+  const [copiado, setCopiado] = useState(false)
+
+  const crearTerminal = async () => {
+    if (!nombreNueva.trim() || creando) return
+    setCreando(true)
+    try {
+      const res = await fetch('/api/kiosco/terminales', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre: nombreNueva.trim() }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setLinkGenerado({ terminalId: data.terminal.id, link: data.linkSetup })
+        setNombreNueva('')
+        onRecargar()
+      }
+    } finally {
+      setCreando(false)
+    }
+  }
+
+  const regenerarLink = async (terminalId: string) => {
+    const res = await fetch('/api/kiosco/terminales', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ terminalId }),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      setLinkGenerado({ terminalId, link: data.linkSetup })
+    }
+  }
+
+  const revocarTerminal = async (terminalId: string) => {
+    await fetch('/api/kiosco/terminales', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ terminalId }),
+    })
+    if (linkGenerado?.terminalId === terminalId) setLinkGenerado(null)
+    onRecargar()
+  }
+
+  const copiarLink = () => {
+    if (!linkGenerado) return
+    navigator.clipboard.writeText(linkGenerado.link)
+    setCopiado(true)
+    setTimeout(() => setCopiado(false), 2000)
+  }
+
   return (
     <div className="space-y-6">
-      <TarjetaConfig titulo="Terminales de kiosco" descripcion="Dispositivos registrados para fichaje presencial.">
+      {/* Crear nueva terminal */}
+      <TarjetaConfig titulo="Nueva terminal" descripcion="Creá un terminal y generá el enlace de activación para la tablet.">
+        <div className="flex gap-2">
+          <Input
+            etiqueta=""
+            placeholder="Nombre (ej: Entrada Principal)"
+            value={nombreNueva}
+            onChange={(e) => setNombreNueva(e.target.value)}
+            compacto
+          />
+          <Boton
+            onClick={crearTerminal}
+            variante="primario"
+            tamano="sm"
+            disabled={!nombreNueva.trim() || creando}
+            icono={<Plus size={16} />}
+          >
+            Crear
+          </Boton>
+        </div>
+      </TarjetaConfig>
+
+      {/* Link de activación generado */}
+      {linkGenerado && (
+        <TarjetaConfig titulo="Enlace de activación" descripcion="Abrí este enlace en la tablet del kiosco para activarlo.">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-superficie-elevada border border-borde-sutil">
+              <Link2 size={14} className="text-texto-terciario shrink-0" />
+              <code className="text-xs text-texto-secundario break-all flex-1">{linkGenerado.link}</code>
+            </div>
+            <div className="flex gap-2">
+              <Boton onClick={copiarLink} variante="secundario" tamano="sm" icono={<Copy size={14} />}>
+                {copiado ? 'Copiado' : 'Copiar enlace'}
+              </Boton>
+            </div>
+            <p className="text-xs text-texto-terciario">
+              El enlace es de un solo uso. Una vez activado, el kiosco queda vinculado permanentemente.
+            </p>
+          </div>
+        </TarjetaConfig>
+      )}
+
+      {/* Lista de terminales */}
+      <TarjetaConfig titulo="Terminales registradas" descripcion="Dispositivos vinculados para fichaje presencial.">
         {terminales.length === 0 ? (
           <p className="text-sm text-texto-terciario py-4">
-            No hay terminales registradas. Habilitá el kiosco y generá un enlace de setup para vincular una tablet.
+            No hay terminales registradas. Creá una arriba para empezar.
           </p>
         ) : (
           <div className="space-y-2">
             {terminales.map((t) => (
-              <div key={t.id} className="flex items-center justify-between py-2.5 px-3 rounded-lg border border-borde-sutil">
+              <div key={t.id} className="flex items-center justify-between py-3 px-3 rounded-lg border border-borde-sutil">
                 <div className="flex items-center gap-3">
-                  <div className={`size-2 rounded-full ${t.activo ? 'bg-insignia-exito' : 'bg-texto-terciario'}`} />
+                  <div className={`size-2.5 rounded-full ${t.activo ? 'bg-insignia-exito' : 'bg-texto-terciario'}`} />
                   <div>
                     <p className="text-sm font-medium text-texto-primario">{t.nombre}</p>
                     <p className="text-xs text-texto-terciario">
                       {t.ultimo_ping
                         ? `Último ping: ${formato.fecha(t.ultimo_ping, { conHora: true })}`
-                        : 'Sin conexión registrada'}
+                        : 'Nunca conectada'}
                     </p>
                   </div>
                 </div>
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${t.activo ? 'bg-insignia-exito/15 text-insignia-exito' : 'bg-superficie-elevada text-texto-terciario'}`}>
-                  {t.activo ? 'Activa' : 'Revocada'}
-                </span>
+                <div className="flex items-center gap-2">
+                  {t.activo && (
+                    <>
+                      <button
+                        onClick={() => regenerarLink(t.id)}
+                        className="p-1.5 rounded-md hover:bg-superficie-elevada transition-colors"
+                        title="Regenerar enlace de activación"
+                      >
+                        <RefreshCw size={14} className="text-texto-terciario" />
+                      </button>
+                      <button
+                        onClick={() => revocarTerminal(t.id)}
+                        className="p-1.5 rounded-md hover:bg-insignia-peligro/10 transition-colors"
+                        title="Revocar terminal"
+                      >
+                        <Ban size={14} className="text-insignia-peligro" />
+                      </button>
+                    </>
+                  )}
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${t.activo ? 'bg-insignia-exito/15 text-insignia-exito' : 'bg-superficie-elevada text-texto-terciario'}`}>
+                    {t.activo ? 'Activa' : 'Revocada'}
+                  </span>
+                </div>
               </div>
             ))}
           </div>

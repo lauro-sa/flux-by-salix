@@ -3,47 +3,51 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { hashToken, generarTokenKiosco } from '@/lib/kiosco/auth'
 
 /**
- * POST /api/kiosco/setup — Activar terminal con token de setup.
- * Body: { token, empresaId, terminalId }
+ * POST /api/kiosco/reactivar — Reactivar terminal con PIN admin.
+ * Body: { terminalNombre, pinAdmin }
  *
- * Valida el token temporal, genera un token de larga duración,
- * lo guarda en cookie HttpOnly + lo devuelve en el body.
+ * Permite reactivar un kiosco sin generar un nuevo QR.
+ * Útil cuando se borran los datos del navegador.
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { token, empresaId, terminalId } = body
+    const { terminalNombre, pinAdmin } = body
 
-    if (!token || !empresaId || !terminalId) {
-      return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
+    if (!terminalNombre || !pinAdmin) {
+      return NextResponse.json({ error: 'Ingresá nombre y PIN' }, { status: 400 })
     }
 
     const admin = crearClienteAdmin()
-    const tokenHashSetup = hashToken(token)
 
-    // Buscar terminal con ese token de setup
+    // Buscar terminal activa con ese nombre
     const { data: terminal } = await admin
       .from('terminales_kiosco')
-      .select('id, nombre, empresa_id, activo, token_hash')
-      .eq('id', terminalId)
-      .eq('empresa_id', empresaId)
-      .eq('token_hash', tokenHashSetup)
+      .select('id, empresa_id, nombre')
+      .ilike('nombre', terminalNombre.trim())
       .eq('activo', true)
       .is('revocado_en', null)
       .maybeSingle()
 
     if (!terminal) {
-      return NextResponse.json(
-        { error: 'Token inválido o terminal no encontrada' },
-        { status: 404 },
-      )
+      return NextResponse.json({ error: 'Terminal no encontrada' }, { status: 404 })
     }
 
-    // Generar token de larga duración para el kiosco
+    // Verificar PIN admin de la empresa
+    const { data: config } = await admin
+      .from('config_asistencias')
+      .select('kiosco_pin_admin, kiosco_metodo_lectura, kiosco_capturar_foto, kiosco_modo_empresa')
+      .eq('empresa_id', terminal.empresa_id)
+      .maybeSingle()
+
+    if (!config?.kiosco_pin_admin || config.kiosco_pin_admin !== pinAdmin) {
+      return NextResponse.json({ error: 'PIN incorrecto' }, { status: 401 })
+    }
+
+    // Generar nuevo token
     const tokenKiosco = generarTokenKiosco()
     const tokenHashKiosco = hashToken(tokenKiosco)
 
-    // Actualizar terminal con el nuevo token permanente
     await admin
       .from('terminales_kiosco')
       .update({
@@ -52,43 +56,32 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', terminal.id)
 
-    // Obtener datos de la empresa para el kiosco
+    // Datos de empresa
     const { data: empresa } = await admin
       .from('empresas')
       .select('nombre, logo_url')
-      .eq('id', empresaId)
+      .eq('id', terminal.empresa_id)
       .single()
-
-    // Obtener config de asistencias
-    const { data: config } = await admin
-      .from('config_asistencias')
-      .select('kiosco_metodo_lectura, kiosco_capturar_foto, kiosco_modo_empresa')
-      .eq('empresa_id', empresaId)
-      .maybeSingle()
 
     const datosRespuesta = {
       ok: true,
       token: tokenKiosco,
-      terminal: {
-        id: terminal.id,
-        nombre: terminal.nombre,
-      },
+      terminal: { id: terminal.id, nombre: terminal.nombre },
       empresa: {
-        id: empresaId,
+        id: terminal.empresa_id,
         nombre: empresa?.nombre || 'Empresa',
         logoUrl: empresa?.logo_url || null,
       },
       config: {
-        metodoLectura: config?.kiosco_metodo_lectura || 'rfid_hid',
-        capturarFoto: config?.kiosco_capturar_foto || false,
-        modoEmpresa: config?.kiosco_modo_empresa || 'logo_y_nombre',
+        metodoLectura: config.kiosco_metodo_lectura || 'rfid_hid',
+        capturarFoto: config.kiosco_capturar_foto || false,
+        modoEmpresa: config.kiosco_modo_empresa || 'logo_y_nombre',
       },
     }
 
     const response = NextResponse.json(datosRespuesta)
 
-    // Cookie HttpOnly con el token — persiste aunque borren localStorage
-    // maxAge: 10 años (el admin revoca desde Flux si quiere desactivar)
+    // Mismas cookies que en setup
     response.cookies.set('kiosco_token', tokenKiosco, {
       httpOnly: true,
       secure: true,
@@ -97,7 +90,6 @@ export async function POST(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 365 * 10,
     })
 
-    // Cookie con datos de config (no sensible, legible desde JS)
     response.cookies.set('kiosco_config', JSON.stringify({
       terminal: datosRespuesta.terminal,
       empresa: datosRespuesta.empresa,
@@ -112,7 +104,7 @@ export async function POST(request: NextRequest) {
 
     return response
   } catch (error) {
-    console.error('Error en /api/kiosco/setup:', error)
+    console.error('Error en /api/kiosco/reactivar:', error)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }
