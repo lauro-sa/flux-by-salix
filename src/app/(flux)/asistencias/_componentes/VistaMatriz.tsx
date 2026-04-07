@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   ChevronLeft, ChevronRight, Loader2, Calendar, Printer, Download,
   SlidersHorizontal,
@@ -280,36 +280,48 @@ export function VistaMatriz() {
                 <th className="sticky left-0 z-20 bg-superficie-app text-left px-4 py-3 font-medium text-texto-terciario text-xs uppercase tracking-wider border-b border-borde-sutil min-w-[200px]">
                   Empleado
                 </th>
-                {fechas.map((fecha) => {
+                {fechas.map((fecha, i) => {
                   const d = new Date(fecha + 'T12:00:00')
                   const diaSemana = d.getDay()
                   const esHoy = fecha === hoyStr
                   const esFinde = diaSemana === 0 || diaSemana === 6
                   const nombreFeriado = feriados.get(fecha)
 
+                  // Separador de fin de semana (cuando ocultos): si el día es lunes y no es el primer día
+                  const esLunesTrasOculto = ocultarFindes && diaSemana === 1 && i > 0
+
                   return (
-                    <th
-                      key={fecha}
-                      className={`px-1 py-2 text-center border-b border-borde-sutil min-w-[90px] ${
-                        esHoy ? 'bg-texto-marca/8' : nombreFeriado ? 'bg-violet-500/8' : ''
-                      }`}
-                    >
-                      <div className={`text-[10px] uppercase tracking-wider ${
-                        nombreFeriado ? 'text-violet-400' : esFinde ? 'text-texto-terciario/50' : 'text-texto-terciario'
-                      }`}>
-                        {DIAS_SEMANA_CORTO[diaSemana]}
-                      </div>
-                      <div className={`text-lg font-semibold ${
-                        esHoy ? 'text-texto-marca' : nombreFeriado ? 'text-violet-400' : esFinde ? 'text-texto-terciario/40' : 'text-texto-primario'
-                      }`}>
-                        {d.getDate()}
-                      </div>
-                      {nombreFeriado && (
-                        <div className="text-[8px] text-violet-400 leading-tight truncate max-w-[80px] mx-auto" title={nombreFeriado}>
-                          {nombreFeriado.length > 15 ? nombreFeriado.slice(0, 14) + '…' : nombreFeriado}
-                        </div>
+                    <React.Fragment key={fecha}>
+                      {esLunesTrasOculto && (
+                        <th className="border-b border-borde-sutil w-[6px] min-w-[6px] max-w-[6px] p-0">
+                          <div className="h-full flex items-center justify-center gap-[2px]">
+                            <div className="w-[1px] h-8 bg-texto-terciario/20 rounded-full" />
+                            <div className="w-[1px] h-8 bg-texto-terciario/20 rounded-full" />
+                          </div>
+                        </th>
                       )}
-                    </th>
+                      <th
+                        className={`px-1 py-2 text-center border-b border-borde-sutil min-w-[90px] ${
+                          esHoy ? 'bg-texto-marca/8' : nombreFeriado ? 'bg-violet-500/8' : ''
+                        }`}
+                      >
+                        <div className={`text-[10px] uppercase tracking-wider ${
+                          nombreFeriado ? 'text-violet-400' : esFinde ? 'text-texto-terciario/50' : 'text-texto-terciario'
+                        }`}>
+                          {DIAS_SEMANA_CORTO[diaSemana]}
+                        </div>
+                        <div className={`text-lg font-semibold ${
+                          esHoy ? 'text-texto-marca' : nombreFeriado ? 'text-violet-400' : esFinde ? 'text-texto-terciario/40' : 'text-texto-primario'
+                        }`}>
+                          {d.getDate()}
+                        </div>
+                        {nombreFeriado && (
+                          <div className="text-[8px] text-violet-400 leading-tight truncate max-w-[80px] mx-auto" title={nombreFeriado}>
+                            {nombreFeriado.length > 15 ? nombreFeriado.slice(0, 14) + '…' : nombreFeriado}
+                          </div>
+                        )}
+                      </th>
+                    </React.Fragment>
                   )
                 })}
                 {/* Resumen */}
@@ -347,14 +359,26 @@ export function VistaMatriz() {
                     </td>
 
                     {/* Celdas por día */}
-                    {fechas.map((fecha) => {
+                    {fechas.map((fecha, i) => {
                       const asist = asistMiembro[fecha] as CeldaAsistencia | undefined
                       const estado = estadoCelda(asist)
                       const d = new Date(fecha + 'T12:00:00')
+                      const diaSemana = d.getDay()
                       const esHoy = fecha === hoyStr
-                      const esFinde = d.getDay() === 0 || d.getDay() === 6
+                      const esFinde = diaSemana === 0 || diaSemana === 6
                       const esFeriado = feriados.has(fecha)
                       const fondoCol = esHoy ? 'bg-texto-marca/5' : esFeriado ? 'bg-violet-500/5' : ''
+                      const esLunesTrasOculto = ocultarFindes && diaSemana === 1 && i > 0
+
+                      // Separador de fin de semana
+                      const separador = esLunesTrasOculto ? (
+                        <td className="border-b border-borde-sutil w-[6px] min-w-[6px] max-w-[6px] p-0">
+                          <div className="h-full flex items-center justify-center gap-[2px]">
+                            <div className="w-[1px] h-10 bg-texto-terciario/20 rounded-full" />
+                            <div className="w-[1px] h-10 bg-texto-terciario/20 rounded-full" />
+                          </div>
+                        </td>
+                      ) : null
 
                       // Fin de semana
                       if (esFinde) {
@@ -367,56 +391,48 @@ export function VistaMatriz() {
                         )
                       }
 
-                      // Ausente
+                      // Celda contenido
+                      let celda: React.ReactNode
+
                       if (estado === 'ausente') {
-                        return (
+                        celda = (
                           <td key={fecha} className={`px-1 py-1.5 border-b border-borde-sutil ${fondoCol}`}>
                             <div className={`mx-auto rounded-lg h-[60px] flex items-center justify-center ${COLORES_CELDA.ausente.fondo} border ${COLORES_CELDA.ausente.borde}`}>
                               <span className="text-red-400 text-[11px] font-semibold uppercase">Ausente</span>
                             </div>
                           </td>
                         )
-                      }
-
-                      // Sin registro (día laboral)
-                      if (!asist || estado === 'vacio') {
-                        return (
+                      } else if (!asist || estado === 'vacio') {
+                        celda = (
                           <td key={fecha} className={`px-1 py-1.5 border-b border-borde-sutil ${fondoCol}`}>
                             <div className="h-[60px]" />
                           </td>
                         )
+                      } else {
+                        const colores = COLORES_CELDA[estado] || COLORES_CELDA.cerrado
+                        const colorPunto = COLOR_PUNTO[estado] || 'bg-emerald-400'
+                        const horaE = formatearHora(asist.hora_entrada)
+                        const horaS = formatearHora(asist.hora_salida)
+                        const etiquetaEstado = estado === 'cerrado' ? 'ok' :
+                          estado === 'tardanza' ? 'tarde' :
+                          estado === 'activo' ? 'en turno' :
+                          estado === 'auto_cerrado' ? 'auto' : estado
+
+                        celda = (
+                          <td key={fecha} className={`px-1 py-1.5 border-b border-borde-sutil ${fondoCol}`}>
+                            <div className={`mx-auto rounded-lg h-[74px] flex flex-col items-center justify-center gap-1.5 border ${colores.fondo} ${colores.borde} cursor-default pt-1`}>
+                              <div className={`size-2 rounded-full ${colorPunto} shrink-0`} />
+                              <span className="text-xs font-semibold text-texto-primario leading-none">{horaE}</span>
+                              <span className="text-[10px] text-texto-terciario leading-none">{horaS || '...'}</span>
+                              <span className="text-[9px] text-texto-terciario/70 leading-none">{etiquetaEstado}</span>
+                            </div>
+                          </td>
+                        )
                       }
 
-                      // Con registro
-                      const colores = COLORES_CELDA[estado] || COLORES_CELDA.cerrado
-                      const colorPunto = COLOR_PUNTO[estado] || 'bg-insignia-exito'
-                      const horaE = formatearHora(asist.hora_entrada)
-                      const horaS = formatearHora(asist.hora_salida)
-                      const etiquetaEstado = estado === 'cerrado' ? 'ok' :
-                        estado === 'tardanza' ? 'tarde' :
-                        estado === 'activo' ? 'en turno' :
-                        estado === 'auto_cerrado' ? 'auto' : estado
-
-                      return (
-                        <td key={fecha} className={`px-1 py-1.5 border-b border-borde-sutil ${esHoy ? 'bg-texto-marca/5' : ''}`}>
-                          <div className={`mx-auto rounded-lg h-[74px] flex flex-col items-center justify-center gap-1.5 border ${colores.fondo} ${colores.borde} cursor-default pt-1`}>
-                            {/* Punto de estado */}
-                            <div className={`size-2 rounded-full ${colorPunto} shrink-0`} />
-                            {/* Entrada */}
-                            <span className="text-xs font-semibold text-texto-primario leading-none">
-                              {horaE}
-                            </span>
-                            {/* Salida */}
-                            <span className="text-[10px] text-texto-terciario leading-none">
-                              {horaS || '...'}
-                            </span>
-                            {/* Estado */}
-                            <span className="text-[9px] text-texto-terciario/70 leading-none">
-                              {etiquetaEstado}
-                            </span>
-                          </div>
-                        </td>
-                      )
+                      return separador ? (
+                        <React.Fragment key={fecha}>{separador}{celda}</React.Fragment>
+                      ) : celda
                     })}
 
                     {/* Resumen */}
