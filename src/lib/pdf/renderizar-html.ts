@@ -38,6 +38,7 @@ export interface DatosPresupuestoPdf {
   numero: string
   estado: string
   fecha_emision: string
+  fecha_emision_original: string | null
   fecha_vencimiento: string | null
   moneda: string
   moneda_simbolo: string
@@ -290,6 +291,7 @@ export function renderizarHtml(
     numero: presupuesto.numero,
     estado: presupuesto.estado,
     fecha_emision: formatearFecha(presupuesto.fecha_emision, locale),
+    fecha_emision_original: presupuesto.fecha_emision_original ? formatearFecha(presupuesto.fecha_emision_original, locale) : '',
     fecha_vencimiento: formatearFecha(presupuesto.fecha_vencimiento, locale),
     moneda_codigo: presupuesto.moneda,
     moneda_simbolo: simbolo,
@@ -547,6 +549,7 @@ export const DATOS_MUESTRA: DatosPresupuestoPdf = {
   numero: 'P-0001',
   estado: 'borrador',
   fecha_emision: new Date().toISOString(),
+  fecha_emision_original: null,
   fecha_vencimiento: new Date(Date.now() + 30 * 86400000).toISOString(),
   moneda: 'ARS',
   moneda_simbolo: '$',

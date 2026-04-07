@@ -375,6 +375,10 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
     <dl style="text-align: right;">
       <dt>Fecha de emisión</dt>
       <dd>{fecha_emision}</dd>
+      {{#if fecha_emision_original}}
+        <dt style="font-size: 0.7em; color: #888;">Emisión original</dt>
+        <dd style="font-size: 0.85em; color: #888;">{fecha_emision_original}</dd>
+      {{/if}}
       {{#if fecha_vencimiento}}
         <dt>Vencimiento</dt>
         <dd>{fecha_vencimiento}</dd>

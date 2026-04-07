@@ -256,7 +256,9 @@ export default function PaginaAsistencias() {
         onClick: () => setCreando({}),
       }}
       acciones={[
-        { id: 'exportar', etiqueta: 'Exportar', icono: <Download size={14} />, onClick: () => {} },
+        { id: 'exportar', etiqueta: 'Exportar Excel', icono: <Download size={14} />, onClick: () => {
+          window.open('/api/asistencias/exportar', '_blank')
+        } },
       ]}
       mostrarConfiguracion
       onConfiguracion={() => router.push('/asistencias/configuracion')}

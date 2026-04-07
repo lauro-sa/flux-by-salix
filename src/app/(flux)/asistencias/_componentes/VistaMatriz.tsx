@@ -299,7 +299,11 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
           <Boton variante="fantasma" tamano="xs">
             <Printer size={13} className="mr-1.5" /> Nómina
           </Boton>
-          <Boton variante="fantasma" tamano="xs">
+          <Boton variante="fantasma" tamano="xs" onClick={() => {
+            const d = desde.toISOString().split('T')[0]
+            const h = hasta.toISOString().split('T')[0]
+            window.open(`/api/asistencias/exportar?desde=${d}&hasta=${h}`, '_blank')
+          }}>
             <Download size={13} className="mr-1.5" /> Exportar
           </Boton>
         </div>
@@ -641,6 +645,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                               /* Normal / compacto */
                               <div
                                 onClick={() => onClickAsistencia?.(asist.id)}
+                                title={`${etiquetaEstado} · ${fmtDur(min)} netos`}
                                 className={`mx-auto rounded-lg ${esCompacto ? 'h-[52px] gap-0.5 px-0.5' : esIntermedio ? 'h-[62px] gap-1 px-0.5' : 'h-[74px] gap-1.5 pt-1'} flex flex-col items-center justify-center border ${colores.fondo} ${colores.borde} cursor-pointer hover:brightness-110 transition-all`}>
                                 <div className={`${esCompacto || esIntermedio ? 'size-1.5' : 'size-2'} rounded-full ${colorPunto} shrink-0`} />
                                 <span className={`${esCompacto ? 'text-[10px]' : esIntermedio ? 'text-[11px]' : 'text-xs'} font-semibold text-texto-primario leading-none`}>{horaE}</span>

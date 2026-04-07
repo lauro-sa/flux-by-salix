@@ -296,6 +296,7 @@ export default function EditorPlantillaPdf() {
           numero: p.numero,
           estado: p.estado,
           fecha_emision: p.fecha_emision,
+          fecha_emision_original: p.fecha_emision_original || null,
           fecha_vencimiento: p.fecha_vencimiento,
           moneda: p.moneda,
           moneda_simbolo: '',

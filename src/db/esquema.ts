@@ -407,6 +407,7 @@ export const presupuestos = pgTable('presupuestos', {
 
   // Fechas
   fecha_emision: timestamp('fecha_emision', { withTimezone: true }).defaultNow().notNull(),
+  fecha_emision_original: timestamp('fecha_emision_original', { withTimezone: true }), // Se llena al re-emitir
   dias_vencimiento: integer('dias_vencimiento').notNull().default(30),
   fecha_vencimiento: timestamp('fecha_vencimiento', { withTimezone: true }),
 

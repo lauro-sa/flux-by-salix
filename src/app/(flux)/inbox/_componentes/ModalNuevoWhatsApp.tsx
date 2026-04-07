@@ -33,10 +33,16 @@ function formatoWhatsApp(texto: string): string {
 }
 
 /** Reemplaza {{N}} con valores dados o placeholder */
+/** Si el campo tiene valor lo muestra, si está vacío muestra placeholder gris, si no hay valores usa ejemplo */
 function previewCuerpoConValores(texto: string, valores: string[], ejemplos?: string[]): string {
   return texto.replace(/\{\{(\d+)\}\}/g, (_, num) => {
     const idx = parseInt(num) - 1
-    if (valores[idx]?.trim()) return valores[idx]
+    // Si hay valores (plantilla seleccionada), usar lo que escribió el usuario
+    if (valores.length > 0) {
+      if (valores[idx]?.trim()) return valores[idx]
+      return '' // Vacío = se envía sin valor
+    }
+    // Si no hay valores (plantilla no seleccionada), mostrar ejemplo
     if (ejemplos?.[idx]) return ejemplos[idx]
     return `[variable ${num}]`
   })

@@ -971,8 +971,8 @@ function PaginaInbox() {
       const matches = cuerpo.texto.match(/\{\{\d+\}\}/g)
       if (matches && matches.length > 0) {
         const parametros = matches.map((_, i) => {
-          // Usar valor del usuario tal cual (puede estar vacío si no quiere completar)
-          const valor = valoresVariables[i] ?? ''
+          // Usar valor del usuario; si está vacío enviar zero-width space (Meta no acepta string vacío)
+          const valor = valoresVariables[i]?.trim() || '\u200B'
           return { type: 'text', text: valor }
         })
         componentesMeta.push({ type: 'body', parameters: parametros })

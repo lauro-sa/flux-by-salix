@@ -1102,6 +1102,52 @@ export default function EditorPresupuesto({
       setGenerandoPdf(false)
     }
   }
+  // Re-emitir presupuesto con fechas actualizadas
+  const handleReEmitir = useCallback(async () => {
+    const pid = presupuestoIdRef.current
+    if (!pid) return
+
+    const hoy = new Date()
+    const hoyStr = hoy.toISOString().split('T')[0]
+    const dias = diasVencimientoRef.current
+    const venc = new Date(hoy)
+    venc.setDate(venc.getDate() + dias)
+    const vencStr = venc.toISOString()
+
+    // Guardar fecha original solo la primera vez
+    const fechaOriginal = presupuesto?.fecha_emision_original || presupuesto?.fecha_emision || fechaEmision
+
+    // Actualizar estado local
+    setFechaEmision(hoyStr)
+
+    // Guardar en BD
+    autoguardar({
+      fecha_emision: hoyStr,
+      fecha_vencimiento: vencStr,
+      ...(!presupuesto?.fecha_emision_original ? { fecha_emision_original: fechaOriginal } : {}),
+    })
+
+    // Registrar en chatter
+    const fechaOriginalFormateada = new Date(fechaOriginal).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    try {
+      await fetch('/api/chatter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          entidad_tipo: 'presupuesto',
+          entidad_id: pid,
+          tipo: 'sistema',
+          contenido: `Re-emitió el presupuesto (emisión original: ${fechaOriginalFormateada})`,
+          metadata: {
+            accion: 're_emision',
+            fecha_emision_original: fechaOriginal,
+            fecha_emision_nueva: hoyStr,
+          },
+        }),
+      })
+    } catch { /* silenciar */ }
+  }, [presupuesto?.fecha_emision_original, presupuesto?.fecha_emision, fechaEmision, autoguardar])
+
   const handleVistaPrevia = async () => {
     const pid = idPresupuesto
     if (!pid) return
@@ -1275,6 +1321,10 @@ export default function EditorPresupuesto({
                 )
 
                 const esEnviado = estadoActual === 'enviado'
+                // Re-emitir: visible si la fecha de emisión es anterior a hoy
+                const hoyStr = new Date().toISOString().split('T')[0]
+                const emisionStr = (presupuesto?.fecha_emision || fechaEmision || '').slice(0, 10)
+                const puedeReEmitir = emisionStr < hoyStr
 
                 if (estaCancelado) {
                   return (
@@ -1293,6 +1343,7 @@ export default function EditorPresupuesto({
                         <BotonAccion onClick={handleEnviarProforma} icono={Receipt} label="Enviar Factura Proforma" />
                         <BotonAccion onClick={handleEnviar} icono={Send} label={t('documentos.enviar')} />
                         <BotonAccion onClick={handleVistaPrevia} icono={Eye} label={t('documentos.vista_previa')} />
+                        {puedeReEmitir && <BotonAccion onClick={handleReEmitir} icono={RefreshCw} label="Re-emitir" />}
                         <BotonAccion onClick={() => cambiarEstado('cancelado')} icono={Ban} label={t('comun.cancelar')} variante="peligro" />
                       </>
                     ) : (
@@ -1302,6 +1353,7 @@ export default function EditorPresupuesto({
                         <BotonAccion onClick={handleImprimir} icono={generandoPdf ? Loader2 : Printer} label={generandoPdf ? 'Generando...' : t('documentos.imprimir')} disabled={generandoPdf} animarIcono={generandoPdf} />
                         {siguienteEstado && <BotonAccion onClick={() => cambiarEstado(siguienteEstado)} icono={FileCheck} label={t('comun.confirmar')} variante="primario" />}
                         <BotonAccion onClick={handleVistaPrevia} icono={Eye} label={t('documentos.vista_previa')} />
+                        {puedeReEmitir && <BotonAccion onClick={handleReEmitir} icono={RefreshCw} label="Re-emitir" />}
                         {!estaCancelado && estadosPosibles.includes('cancelado') && (
                           <BotonAccion onClick={() => cambiarEstado('cancelado')} icono={Ban} label={t('comun.cancelar')} variante="peligro" />
                         )}

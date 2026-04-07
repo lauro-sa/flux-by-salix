@@ -146,7 +146,7 @@ export async function PATCH(
       'atencion_contacto_id', 'atencion_nombre', 'atencion_correo', 'atencion_cargo',
       'referencia', 'moneda', 'cotizacion_cambio',
       'condicion_pago_id', 'condicion_pago_label', 'condicion_pago_tipo',
-      'fecha_emision', 'dias_vencimiento', 'fecha_vencimiento',
+      'fecha_emision', 'fecha_emision_original', 'dias_vencimiento', 'fecha_vencimiento',
       'subtotal_neto', 'total_impuestos', 'descuento_global', 'descuento_global_monto', 'total_final',
       'columnas_lineas', 'notas_html', 'condiciones_html', 'nota_plan_pago',
       'estado', 'en_papelera',

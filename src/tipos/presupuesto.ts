@@ -102,6 +102,7 @@ export interface Presupuesto {
 
   // Fechas
   fecha_emision: string
+  fecha_emision_original: string | null
   dias_vencimiento: number
   fecha_vencimiento: string | null
 

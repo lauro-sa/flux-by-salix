@@ -6,7 +6,7 @@
 import {
   FileText, ArrowRightLeft, Globe, Eye, CheckCircle2, XCircle,
   CreditCard, Clock, ClipboardList, RotateCcw, Mail, MailOpen,
-  Pencil,
+  Pencil, RefreshCw,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { AccionSistema } from '@/tipos/chatter'
@@ -97,6 +97,11 @@ export const ICONOS_ACCION: Record<AccionSistema, ConfigIconoAccion> = {
     icono: <IconoWhatsApp size={14} />,
     color: 'bg-canal-whatsapp/10 text-canal-whatsapp',
     etiqueta: 'WhatsApp enviado',
+  },
+  re_emision: {
+    icono: <RefreshCw size={14} />,
+    color: 'bg-insignia-info/10 text-insignia-info',
+    etiqueta: 'Re-emitido',
   },
 }
 

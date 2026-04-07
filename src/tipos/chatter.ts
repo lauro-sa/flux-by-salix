@@ -28,6 +28,8 @@ export type AccionSistema =
   | 'correo_recibido'
   // WhatsApp (solo enviados — las respuestas viven en el inbox, no se vinculan al documento)
   | 'whatsapp_enviado'
+  // Re-emisión
+  | 're_emision'
 
 // ─── Adjunto ───
 export interface AdjuntoChatter {

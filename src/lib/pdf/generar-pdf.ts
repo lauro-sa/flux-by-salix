@@ -76,26 +76,20 @@ async function htmlAPdf(html: string, opciones?: OpcionesPdf): Promise<{ pdf: Bu
 
   try {
     const pagina = await browser.newPage()
-    const tieneHeaderFooter = !!(opciones?.headerTemplate || opciones?.footerTemplate)
-
-    // CSS override: el body no necesita padding propio (Puppeteer pone los márgenes de página)
-    // y ocultamos el pie del body (ahora lo renderiza Puppeteer como footer nativo en TODAS las páginas)
-    const cssOverride = `<style>
-      body{padding:0!important;margin:0!important}
-      .pie-wrapper{display:none!important}
-    </style>`
+    // Ocultar el pie del body (lo maneja Puppeteer como footer nativo en TODAS las páginas).
+    // NO poner @page{margin:0} — dejar que Puppeteer controle los márgenes de cada página.
+    // body padding 0 porque los márgenes de Puppeteer manejan el espaciado por página.
+    const cssOverride = '<style>body{padding:0!important;margin:0!important}.pie-wrapper{display:none!important}</style>'
     const htmlLimpio = html.replace('</head>', `${cssOverride}\n</head>`)
     await pagina.setContent(htmlLimpio, { waitUntil: 'networkidle0' })
 
+    const usarHeaderFooter = !!(opciones?.headerTemplate || opciones?.footerTemplate)
     const pdfBuffer = await pagina.pdf({
       format: 'A4',
       printBackground: true,
-      // Márgenes de la página: el contenido fluye dentro de estos márgenes.
-      // Header y footer de Puppeteer se renderizan DENTRO de las áreas de margen top/bottom.
-      margin: tieneHeaderFooter
-        ? { top: '16mm', bottom: '22mm', left: '13mm', right: '13mm' }
-        : { top: '10mm', bottom: '25mm', left: '13mm', right: '13mm' },
-      displayHeaderFooter: tieneHeaderFooter,
+      // Márgenes de Puppeteer: aplican a CADA página. El header/footer se renderizan dentro.
+      margin: { top: '16mm', bottom: '24mm', left: '13mm', right: '13mm' },
+      displayHeaderFooter: usarHeaderFooter,
       headerTemplate: opciones?.headerTemplate || '<span></span>',
       footerTemplate: opciones?.footerTemplate || '<span></span>',
       preferCSSPageSize: false,
@@ -207,7 +201,7 @@ export async function generarPdfPresupuesto(
 
   const datosPresupuesto: DatosPresupuestoPdf = {
     numero: presupuesto.numero, estado: presupuesto.estado,
-    fecha_emision: presupuesto.fecha_emision, fecha_vencimiento: presupuesto.fecha_vencimiento,
+    fecha_emision: presupuesto.fecha_emision, fecha_emision_original: presupuesto.fecha_emision_original || null, fecha_vencimiento: presupuesto.fecha_vencimiento,
     moneda: presupuesto.moneda, moneda_simbolo: obtenerSimbolo(presupuesto.moneda),
     referencia: presupuesto.referencia, condicion_pago_label: presupuesto.condicion_pago_label,
     nota_plan_pago: presupuesto.nota_plan_pago,
@@ -248,7 +242,8 @@ export async function generarPdfPresupuesto(
 
   const html = renderizarHtml(datosPresupuesto, datosEmpresa, configPdf, locale)
 
-  // 5b. Generar cabecera y pie de página para Puppeteer (multi-página)
+  // 5b. Generar cabecera y pie para Puppeteer (displayHeaderFooter)
+  // Se renderizan en las áreas de margen de cada página — sin position:fixed, sin JavaScript.
   const { headerTemplate, footerTemplate } = generarCabeceraYPiePdf({
     logoUrl,
     empresaNombre: empresa.nombre,
