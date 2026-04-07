@@ -168,7 +168,7 @@ function PantallaReactivar({
   const [enviando, setEnviando] = useState(false)
 
   const manejarEnvio = async () => {
-    if (!nombre.trim() || pin.length < 4) return
+    if (!nombre.trim() || pin.length < 6) return
     setEnviando(true)
     setError('')
     const resultado = await onReactivar(nombre.trim(), pin)
@@ -200,10 +200,10 @@ function PantallaReactivar({
         <input
           type="password"
           inputMode="numeric"
-          maxLength={4}
-          placeholder="PIN admin (4 dígitos)"
+          maxLength={6}
+          placeholder="PIN admin (6 dígitos)"
           value={pin}
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+          onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
           className="w-full px-4 py-3.5 rounded-xl text-base bg-neutral-900 text-white border border-neutral-700 placeholder-neutral-500 outline-none focus:border-neutral-500 tracking-[0.5em] text-center"
         />
 
@@ -220,7 +220,7 @@ function PantallaReactivar({
           </button>
           <button
             onClick={manejarEnvio}
-            disabled={!nombre.trim() || pin.length < 4 || enviando}
+            disabled={!nombre.trim() || pin.length < 6 || enviando}
             className="flex-1 py-3.5 rounded-xl text-base font-medium text-white active:scale-[0.98] transition-all disabled:opacity-40"
             style={{ backgroundColor: 'var(--texto-marca)' }}
           >

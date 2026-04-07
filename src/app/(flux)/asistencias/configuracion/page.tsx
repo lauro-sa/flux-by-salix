@@ -320,43 +320,54 @@ function SeccionTurnos({ turnos, sectores, onRecargar }: { turnos: TurnoLaboral[
       </TarjetaConfig>
 
       {/* Lista de turnos */}
-      {turnos.map((turno) => (
-        <TarjetaConfig
-          key={turno.id}
-          titulo={
-            <div className="flex items-center gap-2">
-              <span>{turno.nombre}</span>
-              {turno.es_default && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-insignia-exito/15 text-insignia-exito">
-                  <Star size={10} /> Predeterminado
-                </span>
-              )}
-              {turno.flexible && (
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-insignia-info/15 text-insignia-info">
-                  Flexible
-                </span>
-              )}
-            </div>
-          }
-          accion={
-            <button
-              onClick={() => setExpandido(expandido === turno.id ? null : turno.id)}
-              className="p-1 rounded-md hover:bg-superficie-elevada transition-colors"
-            >
-              {expandido === turno.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
-          }
-        >
-          {expandido === turno.id && (
-            <EditorTurno
-              turno={turno}
-              onActualizar={(campos) => actualizarTurno(turno.id, campos)}
-              onEliminar={() => eliminarTurno(turno.id)}
-              puedeEliminar={!turno.es_default}
-            />
-          )}
-        </TarjetaConfig>
-      ))}
+      {turnos.map((turno) => {
+        const abierto = expandido === turno.id
+        // Resumen de horario para mostrar cuando está colapsado
+        const diasActivos = DIAS_SEMANA.filter(d => turno.dias[d.clave]?.activo)
+        const resumenHorario = diasActivos.length > 0
+          ? `${diasActivos.map(d => d.etiqueta.slice(0, 3)).join(', ')} · ${turno.dias[diasActivos[0].clave]?.desde || '09:00'} a ${turno.dias[diasActivos[0].clave]?.hasta || '18:00'}`
+          : 'Sin días activos'
+
+        return (
+          <TarjetaConfig
+            key={turno.id}
+            titulo={
+              <button
+                type="button"
+                onClick={() => setExpandido(abierto ? null : turno.id)}
+                className="flex items-center gap-2 w-full text-left cursor-pointer"
+              >
+                {abierto ? <ChevronUp size={14} className="text-texto-terciario shrink-0" /> : <ChevronDown size={14} className="text-texto-terciario shrink-0" />}
+                <span>{turno.nombre}</span>
+                {turno.es_default && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-insignia-exito/15 text-insignia-exito">
+                    <Star size={10} /> Predeterminado
+                  </span>
+                )}
+                {turno.flexible && (
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-insignia-info/15 text-insignia-info">
+                    Flexible
+                  </span>
+                )}
+                {!abierto && (
+                  <span className="ml-auto text-[11px] text-texto-terciario font-normal">
+                    {resumenHorario} · {turno.flexible ? 'Sin control' : `${turno.tolerancia_min}min tolerancia`}
+                  </span>
+                )}
+              </button>
+            }
+          >
+            {abierto && (
+              <EditorTurno
+                turno={turno}
+                onActualizar={(campos) => actualizarTurno(turno.id, campos)}
+                onEliminar={() => eliminarTurno(turno.id)}
+                puedeEliminar={!turno.es_default}
+              />
+            )}
+          </TarjetaConfig>
+        )
+      })}
 
       {/* Asignación a sectores */}
       {turnos.length > 0 && sectores.length > 0 && (
@@ -402,6 +413,20 @@ function EditorTurno({ turno, onActualizar, onEliminar, puedeEliminar }: {
 
   return (
     <div className="space-y-4 pt-2">
+      {/* Nombre editable */}
+      <div className="max-w-[300px]">
+        <Input
+          etiqueta="Nombre del turno"
+          value={turno.nombre}
+          onChange={() => {}}
+          onBlur={(e) => {
+            const val = e.currentTarget.value.trim()
+            if (val && val !== turno.nombre) onActualizar({ nombre: val })
+          }}
+          compacto
+        />
+      </div>
+
       {/* Opciones generales */}
       <div className="flex flex-wrap items-center gap-6">
         <Interruptor
@@ -523,11 +548,11 @@ function SeccionKiosco({ config, onGuardar }: { config: ConfigAsistencias; onGua
 
               <div className="max-w-[200px]">
                 <Input
-                  etiqueta="PIN admin (4 dígitos)"
+                  etiqueta="PIN admin (6 dígitos)"
                   value={config.kiosco_pin_admin || ''}
                   onChange={() => {}}
                   onBlur={(e) => {
-                    const val = e.currentTarget.value.replace(/\D/g, '').slice(0, 4)
+                    const val = e.currentTarget.value.replace(/\D/g, '').slice(0, 6)
                     onGuardar({ kiosco_pin_admin: val || null })
                   }}
                   placeholder="0000"
