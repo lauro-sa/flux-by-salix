@@ -10,6 +10,7 @@ import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { ModalEditarFichaje } from './_componentes/ModalEditarFichaje'
 import { VistaMatriz } from './_componentes/VistaMatriz'
+import { TarjetaAsistencia } from './_componentes/TarjetaAsistencia'
 
 // ─── Constantes ──────────────────────────────────────────────
 
@@ -245,6 +246,7 @@ export default function PaginaAsistencias() {
         onVistaExterna={(v) => setVista(v as 'lista' | 'tarjetas' | 'matriz')}
         vistaExternaActiva={vista === 'matriz' ? 'matriz' : null}
         contenidoCustom={vista === 'matriz' ? <VistaMatriz /> : undefined}
+        renderTarjeta={(r) => <TarjetaAsistencia registro={r} />}
         onClickFila={(r) => setEditando(r)}
         estadoVacio={
           <EstadoVacio
