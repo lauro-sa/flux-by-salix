@@ -13,6 +13,14 @@ import type { PlantillaWhatsApp } from '@/tipos/inbox'
  * Estilo burbuja WhatsApp: muestra preview del mensaje tal como lo vería el contacto.
  */
 
+/** Datos del contacto actual para reemplazar variables en el preview */
+interface DatosContactoPreview {
+  nombre?: string | null
+  apellido?: string | null
+  telefono?: string | null
+  correo?: string | null
+}
+
 interface PropiedadesSelectorPlantillas {
   canalId: string
   abierto: boolean
@@ -22,13 +30,48 @@ interface PropiedadesSelectorPlantillas {
   /** Módulo desde donde se abre (inbox, presupuestos, contactos, etc.).
    *  Filtra plantillas que tengan este módulo en su lista, o que no tengan módulos asignados (= todas). */
   contexto?: string
+  /** Datos del contacto para preview real de variables */
+  contacto?: DatosContactoPreview | null
+  /** Nombre de la empresa para preview de {{empresa_nombre}} */
+  empresaNombre?: string | null
 }
 
-/** Reemplaza {{N}} por ejemplos o placeholder visual */
-function previewCuerpo(texto: string, ejemplos?: string[]): string {
+/** Resuelve el valor real de una variable mapeada usando datos del contacto/empresa */
+function resolverVariable(
+  mapeo: string | undefined,
+  contacto?: DatosContactoPreview | null,
+  empresaNombre?: string | null,
+): string | null {
+  if (!mapeo) return null
+  switch (mapeo) {
+    case 'contacto_nombre': {
+      const nombre = [contacto?.nombre, contacto?.apellido].filter(Boolean).join(' ')
+      return nombre || null
+    }
+    case 'contacto_telefono': return contacto?.telefono || null
+    case 'contacto_correo': return contacto?.correo || null
+    case 'empresa_nombre': return empresaNombre || null
+    default: return null
+  }
+}
+
+/** Reemplaza {{N}} usando: 1) datos reales del contacto (mapeo), 2) ejemplos, 3) placeholder */
+function previewCuerpo(
+  texto: string,
+  mapeo?: string[],
+  ejemplos?: string[],
+  contacto?: DatosContactoPreview | null,
+  empresaNombre?: string | null,
+): string {
   return texto.replace(/\{\{(\d+)\}\}/g, (_, num) => {
     const idx = parseInt(num) - 1
-    return ejemplos?.[idx] || `[variable ${num}]`
+    // Prioridad 1: valor real del contacto/empresa
+    const valorReal = resolverVariable(mapeo?.[idx], contacto, empresaNombre)
+    if (valorReal) return valorReal
+    // Prioridad 2: ejemplo de la plantilla
+    if (ejemplos?.[idx]) return ejemplos[idx]
+    // Prioridad 3: placeholder
+    return `[variable ${num}]`
   })
 }
 
@@ -72,6 +115,8 @@ export function SelectorPlantillasWA({
   onEnviarPlantilla,
   enviando,
   contexto,
+  contacto,
+  empresaNombre,
 }: PropiedadesSelectorPlantillas) {
   const [plantillas, setPlantillas] = useState<PlantillaWhatsApp[]>([])
   const [cargando, setCargando] = useState(false)
@@ -183,8 +228,10 @@ export function SelectorPlantillasWA({
           ) : (
             plantillasFiltradas.map(plantilla => {
               const cat = colorCategoria(plantilla.categoria)
+              const mapeo = plantilla.componentes?.cuerpo?.mapeo_variables
+              const ejemplos = plantilla.componentes?.cuerpo?.ejemplos
               const cuerpoPreview = plantilla.componentes?.cuerpo
-                ? previewCuerpo(plantilla.componentes.cuerpo.texto, plantilla.componentes.cuerpo.ejemplos)
+                ? previewCuerpo(plantilla.componentes.cuerpo.texto, mapeo, ejemplos, contacto, empresaNombre)
                 : ''
               const piePagina = plantilla.componentes?.pie_pagina?.texto
               const botones = plantilla.componentes?.botones

@@ -1349,6 +1349,7 @@ export function PanelWhatsApp({
             onEnviarPlantilla={enviarPlantilla}
             enviando={enviandoPlantilla}
             contexto="inbox"
+            contacto={conversacion.contacto}
           />
         )}
         <div className="flex-1 min-w-0">
@@ -1472,6 +1473,7 @@ export function VisorMedia({
   onCerrar: () => void
   onCambiarIndice: (i: number) => void
 }) {
+  const formato = useFormato()
   const actual = medias[indice]
   const videoRef = useRef<HTMLVideoElement>(null)
 
