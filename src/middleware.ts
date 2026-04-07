@@ -24,10 +24,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Kiosco standalone (kiosco.fluxsalix.com) — auth propia, sin sesión de usuario
+  // Kiosco standalone (kiosco.salixweb.com) — auth propia, sin sesión de usuario
   const host = request.headers.get('host') || ''
-  const slugSubdominio = extraerSlug(host)
-  if (slugSubdominio === 'kiosco') {
+  const hostSinPuerto = host.split(':')[0]
+  const esKiosco = hostSinPuerto.startsWith('kiosco.')
+  if (esKiosco) {
     // El kiosco maneja su propia auth por token de terminal
     // Solo permitir rutas del kiosco, redirigir cualquier otra al root
     if (!pathname.startsWith('/kiosco')) {
