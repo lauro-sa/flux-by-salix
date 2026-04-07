@@ -25,15 +25,26 @@ export async function GET(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
+    // Obtener miembros con nombres para mapear después
+    const { data: miembrosData } = await admin
+      .from('miembros')
+      .select('id, usuario_id')
+      .eq('empresa_id', empresaId)
+
+    const { data: perfilesData } = await admin
+      .from('perfiles')
+      .select('id, nombre, apellido')
+
+    // Mapeo miembro_id → nombre completo
+    const perfilMap = new Map((perfilesData || []).map((p: Record<string, unknown>) => [p.id, p]))
+    const miembroNombres = new Map((miembrosData || []).map((m: Record<string, unknown>) => {
+      const perfil = perfilMap.get(m.usuario_id) as Record<string, unknown> | undefined
+      return [m.id, perfil ? `${perfil.nombre} ${perfil.apellido}` : 'Sin nombre']
+    }))
+
     let query = admin
       .from('asistencias')
-      .select(`
-        *,
-        miembro:miembros!inner(
-          id, usuario_id,
-          perfil:perfiles!miembros_usuario_id_fkey(nombre, apellido)
-        )
-      `, { count: 'exact' })
+      .select('*', { count: 'exact' })
       .eq('empresa_id', empresaId)
       .order('fecha', { ascending: false })
       .order('hora_entrada', { ascending: false })
@@ -48,16 +59,10 @@ export async function GET(request: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    // Aplanar datos del miembro para facilitar uso en el frontend
-    const registros = (data || []).map((r: Record<string, unknown>) => {
-      const miembro = r.miembro as Record<string, unknown> | null
-      const perfil = miembro?.perfil as Record<string, unknown> | null
-      return {
-        ...r,
-        miembro: undefined,
-        miembro_nombre: perfil ? `${perfil.nombre} ${perfil.apellido}` : 'Sin nombre',
-      }
-    })
+    const registros = (data || []).map((r: Record<string, unknown>) => ({
+      ...r,
+      miembro_nombre: miembroNombres.get(r.miembro_id) || 'Sin nombre',
+    }))
 
     return NextResponse.json({ registros, total: count || 0 })
   } catch {
