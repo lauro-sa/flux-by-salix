@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { useEsMovil } from '@/hooks/useEsMovil'
+import { useFormato } from '@/hooks/useFormato'
 import Holidays from 'date-holidays'
 
 // ─── Tipos ───────────────────────────────────────────────────
@@ -122,9 +123,16 @@ function obtenerRango(periodo: Periodo, offset: number): { desde: Date; hasta: D
   return { desde, hasta, etiqueta, subtitulo }
 }
 
-function formatearHora(iso: string | null): string {
+function formatearHora(iso: string | null, formato: string = '24h'): string {
   if (!iso) return ''
-  return new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+  const d = new Date(iso)
+  if (formato === '12h') {
+    const h = d.getHours() % 12 || 12
+    const m = String(d.getMinutes()).padStart(2, '0')
+    const ampm = d.getHours() < 12 ? 'AM' : 'PM'
+    return `${h}:${m} ${ampm}`
+  }
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
 function estadoCelda(asist: CeldaAsistencia | undefined): string {
@@ -153,6 +161,7 @@ const COLORES_AVATAR = [
 
 export function VistaMatriz() {
   const esMovil = useEsMovil()
+  const { formatoHora } = useFormato()
   const [periodo, setPeriodo] = useState<Periodo>('semana')
   const [offset, setOffset] = useState(0)
   const [miembros, setMiembros] = useState<Miembro[]>([])
@@ -552,8 +561,8 @@ export function VistaMatriz() {
                       } else {
                         const colores = COLORES_CELDA[estado] || COLORES_CELDA.cerrado
                         const colorPunto = COLOR_PUNTO[estado] || 'bg-emerald-400'
-                        const horaE = formatearHora(asist.hora_entrada)
-                        const horaS = formatearHora(asist.hora_salida)
+                        const horaE = formatearHora(asist.hora_entrada, formatoHora)
+                        const horaS = formatearHora(asist.hora_salida, formatoHora)
                         const etiquetaEstado = estado === 'cerrado' ? 'ok' :
                           estado === 'tardanza' ? 'tarde' :
                           estado === 'activo' ? 'en turno' :

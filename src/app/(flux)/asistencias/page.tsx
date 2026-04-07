@@ -9,6 +9,7 @@ import { Download, Clock, TimerOff, Pencil } from 'lucide-react'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { ModalEditarFichaje } from './_componentes/ModalEditarFichaje'
+import { useFormato } from '@/hooks/useFormato'
 import { VistaMatriz } from './_componentes/VistaMatriz'
 import { TarjetaAsistencia } from './_componentes/TarjetaAsistencia'
 
@@ -68,9 +69,16 @@ interface RegistroAsistencia {
 
 // ─── Helpers ─────────────────────────────────────────────────
 
-function formatearHora(iso: string | null): string {
+function formatearHora(iso: string | null, formato: string = '24h'): string {
   if (!iso) return '—'
-  return new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+  const d = new Date(iso)
+  if (formato === '12h') {
+    const h = d.getHours() % 12 || 12
+    const m = String(d.getMinutes()).padStart(2, '0')
+    const ampm = d.getHours() < 12 ? 'AM' : 'PM'
+    return `${h}:${m} ${ampm}`
+  }
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
 function calcularDuracion(entrada: string | null, salida: string | null, inicioAlm: string | null, finAlm: string | null): string {
@@ -107,6 +115,7 @@ function formatearUbicacion(ub: Record<string, unknown> | null): string {
 
 export default function PaginaAsistencias() {
   const router = useRouter()
+  const { formatoHora } = useFormato()
   const [busqueda, setBusqueda] = useState('')
   const [registros, setRegistros] = useState<RegistroAsistencia[]>([])
   const [total, setTotal] = useState(0)
@@ -156,13 +165,13 @@ export default function PaginaAsistencias() {
       clave: 'hora_entrada',
       etiqueta: 'Entrada',
       ancho: 80,
-      render: (r) => <span>{formatearHora(r.hora_entrada)}</span>,
+      render: (r) => <span>{formatearHora(r.hora_entrada, formatoHora)}</span>,
     },
     {
       clave: 'hora_salida',
       etiqueta: 'Salida',
       ancho: 80,
-      render: (r) => <span>{formatearHora(r.hora_salida)}</span>,
+      render: (r) => <span>{formatearHora(r.hora_salida, formatoHora)}</span>,
     },
     {
       clave: 'duracion' as keyof RegistroAsistencia,

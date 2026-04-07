@@ -1,6 +1,7 @@
 'use client'
 
 import { CheckCircle2, AlertTriangle, Clock, XCircle, Coffee, Footprints, Calendar } from 'lucide-react'
+import { useFormato } from '@/hooks/useFormato'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -19,9 +20,15 @@ interface RegistroAsistencia {
 
 // ─── Helpers ─────────────────────────────────────────────────
 
-function fmtHora24(iso: string | null): string {
+function fmtHora(iso: string | null, formato: string = '24h'): string {
   if (!iso) return '--:--'
   const d = new Date(iso)
+  if (formato === '12h') {
+    const h = d.getHours() % 12 || 12
+    const m = String(d.getMinutes()).padStart(2, '0')
+    const ampm = d.getHours() < 12 ? 'AM' : 'PM'
+    return `${h}:${m} ${ampm}`
+  }
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
@@ -79,6 +86,7 @@ const JORNADA_REF = 8 * 60
 // ─── Componente ──────────────────────────────────────────────
 
 export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }) {
+  const { formatoHora } = useFormato()
   const r = registro
   const cfg = ESTADO_CFG[r.estado] || ESTADO_CFG.cerrado
   const min = calcMin(r.hora_entrada, r.hora_salida, r.inicio_almuerzo, r.fin_almuerzo)
@@ -122,11 +130,11 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
         <>
           <div className="flex items-baseline gap-3 flex-wrap">
             <span className="text-lg font-mono font-semibold text-texto-primario tracking-tight">
-              {fmtHora24(r.hora_entrada)}
+              {fmtHora(r.hora_entrada, formatoHora)}
             </span>
             <span className="text-texto-terciario text-base">→</span>
             <span className="text-lg font-mono font-semibold text-texto-primario tracking-tight">
-              {r.hora_salida ? fmtHora24(r.hora_salida) : '…'}
+              {r.hora_salida ? fmtHora(r.hora_salida, formatoHora) : '…'}
             </span>
             <span className={`text-sm font-medium ${colorDurTxt}`}>
               · {dur}
@@ -154,7 +162,7 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
         <>
           <div className="flex items-baseline gap-3">
             <span className="text-lg font-mono font-semibold text-texto-primario tracking-tight">
-              {fmtHora24(r.hora_entrada)}
+              {fmtHora(r.hora_entrada, formatoHora)}
             </span>
             <span className="text-texto-terciario text-base">→</span>
             <span className="text-lg font-mono text-texto-terciario tracking-tight">…</span>

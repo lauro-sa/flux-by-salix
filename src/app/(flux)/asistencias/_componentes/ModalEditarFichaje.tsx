@@ -9,6 +9,7 @@ import {
   CheckCircle2, AlertTriangle, Clock, XCircle, Coffee, Footprints,
   Calendar, MapPin, Pencil, Trash2, ChevronDown,
 } from 'lucide-react'
+import { useFormato } from '@/hooks/useFormato'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -39,9 +40,15 @@ interface PropiedadesModal {
 
 // ─── Helpers ─────────────────────────────────────────────────
 
-function fmtHora24(iso: string | null): string {
+function fmtHora(iso: string | null, formato: string = '24h'): string {
   if (!iso) return '--:--'
   const d = new Date(iso)
+  if (formato === '12h') {
+    const h = d.getHours() % 12 || 12
+    const m = String(d.getMinutes()).padStart(2, '0')
+    const ampm = d.getHours() < 12 ? 'AM' : 'PM'
+    return `${h}:${m} ${ampm}`
+  }
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
@@ -112,6 +119,7 @@ const JORNADA_REF = 8 * 60
 // ─── Componente ──────────────────────────────────────────────
 
 export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: PropiedadesModal) {
+  const { formatoHora } = useFormato()
   const [editando, setEditando] = useState(false)
   const [entrada, setEntrada] = useState('')
   const [salida, setSalida] = useState('')
@@ -242,11 +250,11 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
                 {/* Entrada → Salida · Duración */}
                 <div className="flex items-baseline gap-3">
                   <span className="text-2xl font-mono font-semibold text-texto-primario tracking-tight">
-                    {fmtHora24(r.hora_entrada)}
+                    {fmtHora(r.hora_entrada, formatoHora)}
                   </span>
                   <span className="text-texto-terciario text-lg">→</span>
                   <span className="text-2xl font-mono font-semibold text-texto-primario tracking-tight">
-                    {r.hora_salida ? fmtHora24(r.hora_salida) : '…'}
+                    {r.hora_salida ? fmtHora(r.hora_salida, formatoHora) : '…'}
                   </span>
                   <span className={`text-sm font-medium ${colorDurTxt}`}>· {dur}</span>
                 </div>
@@ -279,7 +287,7 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
                 <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
                   <p className="text-[10px] uppercase tracking-wider text-texto-terciario mb-1">Almuerzo</p>
                   <p className="text-sm text-texto-primario font-mono">
-                    {fmtHora24(r.inicio_almuerzo)} → {fmtHora24(r.fin_almuerzo)}
+                    {fmtHora(r.inicio_almuerzo, formatoHora)} → {fmtHora(r.fin_almuerzo, formatoHora)}
                   </p>
                 </div>
               )}
@@ -289,7 +297,7 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
                 <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
                   <p className="text-[10px] uppercase tracking-wider text-texto-terciario mb-1">Trámite</p>
                   <p className="text-sm text-texto-primario font-mono">
-                    {fmtHora24(r.salida_particular)} → {fmtHora24(r.vuelta_particular)}
+                    {fmtHora(r.salida_particular, formatoHora)} → {fmtHora(r.vuelta_particular, formatoHora)}
                   </p>
                 </div>
               )}
