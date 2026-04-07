@@ -436,7 +436,7 @@ export function VistaMatriz() {
           <table className={`border-collapse text-sm ${ajustarPantalla ? 'w-full table-fixed' : 'w-full'}`}>
             <thead className="sticky top-0 z-10 bg-superficie-app">
               <tr>
-                <th className={`sticky left-0 z-20 bg-superficie-app text-left font-medium text-texto-terciario text-xs uppercase tracking-wider border-b border-borde-sutil ${esUltra ? 'w-[120px] px-2 py-2' : esCompacto ? 'w-[160px] px-3 py-2' : esIntermedio ? 'min-w-[160px] px-3 py-3' : 'min-w-[200px] px-4 py-3'}`}>
+                <th className={`sticky left-0 z-20 bg-superficie-app text-left font-medium text-texto-terciario text-xs uppercase tracking-wider border-b border-borde-sutil ${esUltra ? 'w-[120px] px-2 py-2' : esCompacto ? 'w-[160px] px-3 py-2' : esIntermedio ? 'w-[140px] max-w-[140px] px-2 py-3' : 'min-w-[200px] px-4 py-3'}`}>
                   Empleado
                 </th>
                 {fechas.map((fecha, i) => {
