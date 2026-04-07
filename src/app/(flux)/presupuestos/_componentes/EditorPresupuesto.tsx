@@ -1861,8 +1861,8 @@ export default function EditorPresupuesto({
                         </div>
                       </>
                     )}
-                    {/* Fila Emisión */}
-                    <span className={`${etiqueta} py-2.5`}>Emisión</span>
+                    {/* Fila Emisión / Re-emisión */}
+                    <span className={`${etiqueta} py-2.5`}>{presupuesto?.fecha_emision_original ? 'Re-emisión' : 'Emisión'}</span>
                     <div className="py-2.5" />
                     <div className="py-2.5 w-40">
                       {esEditable ? (

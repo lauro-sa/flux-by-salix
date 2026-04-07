@@ -17,6 +17,7 @@ interface Props {
     numero: string
     estado: string
     fecha_emision: string
+    fecha_emision_original: string | null
     fecha_vencimiento: string | null
     condicion_pago_label: string | null
     referencia: string | null
@@ -82,8 +83,11 @@ export default function InfoDocumento({ presupuesto, vendedorNombre, estadoClien
         {/* ── Grid de datos (3 cols en desktop) ── */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4 text-sm">
           <div>
-            <span className="text-texto-terciario">Fecha de emisión</span>
+            <span className="text-texto-terciario">{presupuesto.fecha_emision_original ? 'Fecha de re-emisión' : 'Fecha de emisión'}</span>
             <p className="text-texto-primario font-medium mt-0.5">{formatearFecha(presupuesto.fecha_emision)}</p>
+            {presupuesto.fecha_emision_original && (
+              <p className="text-[11px] text-texto-terciario mt-0.5">Emisión original: {formatearFecha(presupuesto.fecha_emision_original)}</p>
+            )}
           </div>
           {presupuesto.fecha_vencimiento && (
             <div>

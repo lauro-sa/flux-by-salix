@@ -168,6 +168,7 @@ const obtenerDatosPortal = cache(async (token: string): Promise<DatosPortal | nu
         numero: presupuesto.numero,
         estado: presupuesto.estado,
         fecha_emision: presupuesto.fecha_emision,
+        fecha_emision_original: presupuesto.fecha_emision_original || null,
         fecha_vencimiento: presupuesto.fecha_vencimiento,
         moneda: presupuesto.moneda,
         referencia: presupuesto.referencia,

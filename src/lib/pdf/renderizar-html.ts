@@ -292,6 +292,7 @@ export function renderizarHtml(
     estado: presupuesto.estado,
     fecha_emision: formatearFecha(presupuesto.fecha_emision, locale),
     fecha_emision_original: presupuesto.fecha_emision_original ? formatearFecha(presupuesto.fecha_emision_original, locale) : '',
+    etiqueta_fecha_emision: presupuesto.fecha_emision_original ? 'Fecha de re-emisión' : 'Fecha de emisión',
     fecha_vencimiento: formatearFecha(presupuesto.fecha_vencimiento, locale),
     moneda_codigo: presupuesto.moneda,
     moneda_simbolo: simbolo,

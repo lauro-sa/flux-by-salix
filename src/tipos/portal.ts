@@ -66,6 +66,7 @@ export interface DatosPortal {
     numero: string
     estado: string
     fecha_emision: string
+    fecha_emision_original: string | null
     fecha_vencimiento: string | null
     moneda: string
     referencia: string | null
