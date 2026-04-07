@@ -88,12 +88,12 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
   const hash = r.miembro_nombre.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
   const colorAvatar = COLORES_AVATAR[hash % COLORES_AVATAR.length]
 
-  // Color barra
-  const colorBarra = r.estado === 'ausente' ? 'bg-red-400'
-    : r.estado === 'auto_cerrado' ? 'bg-amber-400'
-    : r.tipo === 'tardanza' ? 'bg-amber-400'
-    : r.estado === 'activo' ? 'bg-emerald-400'
-    : 'bg-emerald-400'
+  // Color barra (transparente para que el texto sea legible)
+  const colorBarra = r.estado === 'ausente' ? 'bg-red-500/25'
+    : r.estado === 'auto_cerrado' ? 'bg-amber-500/25'
+    : r.tipo === 'tardanza' ? 'bg-amber-500/25'
+    : r.estado === 'activo' ? 'bg-emerald-500/25'
+    : 'bg-emerald-500/25'
 
   // Color duración texto
   const colorDurTxt = r.estado === 'auto_cerrado' || r.tipo === 'tardanza' ? 'text-amber-400' : 'text-emerald-400'
@@ -134,12 +134,12 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
           </div>
 
           {/* Barra de progreso */}
-          <div className="w-full h-4 rounded-full bg-superficie-elevada/40 overflow-hidden">
+          <div className="w-full h-5 rounded-full bg-superficie-elevada/30 overflow-hidden">
             <div
-              className={`h-full rounded-full ${colorBarra}/80 transition-all duration-500 flex items-center justify-center`}
+              className={`h-full rounded-full ${colorBarra} transition-all duration-500 flex items-center justify-center`}
               style={{ width: `${Math.max(pct, 15)}%` }}
             >
-              <span className="text-[8px] font-semibold text-white/90 whitespace-nowrap flex items-center gap-0.5">
+              <span className={`text-[9px] font-semibold whitespace-nowrap flex items-center gap-0.5 ${colorDurTxt}`}>
                 <Calendar size={8} /> {dur}
               </span>
             </div>
@@ -159,9 +159,9 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
             <span className="text-texto-terciario text-base">→</span>
             <span className="text-lg font-mono text-texto-terciario tracking-tight">…</span>
           </div>
-          <div className="w-full h-4 rounded-full bg-superficie-elevada/40 overflow-hidden">
-            <div className="h-full rounded-full bg-emerald-400/80 transition-all duration-500 flex items-center justify-center" style={{ width: '100%' }}>
-              <Calendar size={8} className="text-white/90" />
+          <div className="w-full h-5 rounded-full bg-superficie-elevada/30 overflow-hidden">
+            <div className="h-full rounded-full bg-emerald-500/25 transition-all duration-500 flex items-center justify-center" style={{ width: '100%' }}>
+              <Calendar size={8} className="text-emerald-400" />
             </div>
           </div>
           <p className="text-xs text-texto-terciario -mt-0.5">En jornada...</p>
