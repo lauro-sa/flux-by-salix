@@ -1116,6 +1116,18 @@ export default function EditorPresupuesto({
 
     // Guardar fecha original solo la primera vez
     const fechaOriginal = presupuesto?.fecha_emision_original || presupuesto?.fecha_emision || fechaEmision
+    // Fecha de emisión anterior (la que se está reemplazando ahora)
+    const fechaAnterior = presupuesto?.fecha_emision || fechaEmision
+
+    // Contar re-emisiones previas desde chatter
+    let numReEmision = 1
+    try {
+      const resChatter = await fetch(`/api/chatter?entidad_tipo=presupuesto&entidad_id=${pid}`)
+      if (resChatter.ok) {
+        const dataChatter = await resChatter.json()
+        numReEmision = ((dataChatter.entradas || []).filter((e: { metadata?: { accion?: string } }) => e.metadata?.accion === 're_emision').length) + 1
+      }
+    } catch { /* silenciar */ }
 
     // Actualizar estado local
     setFechaEmision(hoyStr)
@@ -1127,8 +1139,8 @@ export default function EditorPresupuesto({
       ...(!presupuesto?.fecha_emision_original ? { fecha_emision_original: fechaOriginal } : {}),
     })
 
-    // Registrar en chatter
-    const fechaOriginalFormateada = new Date(fechaOriginal).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    // Registrar en chatter con número de re-emisión
+    const fmtFecha = (f: string) => new Date(f).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
     try {
       await fetch('/api/chatter', {
         method: 'POST',
@@ -1137,10 +1149,11 @@ export default function EditorPresupuesto({
           entidad_tipo: 'presupuesto',
           entidad_id: pid,
           tipo: 'sistema',
-          contenido: `Re-emitió el presupuesto (emisión original: ${fechaOriginalFormateada})`,
+          contenido: `Re-emisión ${numReEmision} — Emisión anterior: ${fmtFecha(fechaAnterior)} → Nueva: ${fmtFecha(hoyStr)}`,
           metadata: {
             accion: 're_emision',
-            fecha_emision_original: fechaOriginal,
+            numero_re_emision: numReEmision,
+            fecha_emision_anterior: fechaAnterior,
             fecha_emision_nueva: hoyStr,
           },
         }),
