@@ -126,6 +126,11 @@ export async function POST(request: NextRequest) {
         })
       : 'Agente'
 
+    // Nombre real del usuario (para chatter, no el formato de remitente)
+    const nombreRealUsuario = perfil
+      ? `${perfil.nombre} ${perfil.apellido || ''}`.trim()
+      : 'Agente'
+
     // Determinar email remitente
     let emailRemitente = ''
     if (canal.proveedor === 'gmail_oauth') {
@@ -401,7 +406,7 @@ export async function POST(request: NextRequest) {
           messageId: correoMessageId || undefined,
           html: html || undefined,
           usuarioId: userId,
-          usuarioNombre: nombreAgente,
+          usuarioNombre: nombreRealUsuario,
         })
       } catch (e) {
         // No bloquear el envío si falla el registro en chatter

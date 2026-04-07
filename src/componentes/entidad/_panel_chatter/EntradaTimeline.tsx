@@ -194,7 +194,7 @@ function EntradaCorreo({ entrada, formatoHora, locale }: { entrada: PropsEntrada
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="px-3 py-2 border-t border-borde-sutil">
+            <div className="px-3 py-2 border-t border-borde-sutil max-h-[400px] overflow-y-auto">
               <div
                 className="text-xs text-texto-secundario prose prose-sm max-w-none [&_img]:max-w-full [&_img]:h-auto"
                 dangerouslySetInnerHTML={{ __html: htmlCorreo }}
