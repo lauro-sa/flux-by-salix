@@ -36,26 +36,41 @@ interface PropiedadesSelectorPlantillas {
   empresaNombre?: string | null
 }
 
-/** Resuelve el valor real de una variable mapeada usando datos del contacto/empresa */
+/** Nombres genéricos usados como ejemplo en plantillas — si el ejemplo es uno de estos,
+ *  se reemplaza por el nombre real del contacto */
+const NOMBRES_EJEMPLO = new Set(['juan garcía', 'juan garcia', 'maría lópez', 'maria lopez', 'nombre'])
+
+/** Obtiene el nombre completo del contacto */
+function nombreContacto(contacto?: DatosContactoPreview | null): string | null {
+  if (!contacto) return null
+  const nombre = [contacto.nombre, contacto.apellido].filter(Boolean).join(' ')
+  return nombre || null
+}
+
+/** Resuelve una variable usando: mapeo explícito, detección por ejemplo, o el ejemplo crudo */
 function resolverVariable(
   mapeo: string | undefined,
+  ejemplo: string | undefined,
   contacto?: DatosContactoPreview | null,
   empresaNombre?: string | null,
 ): string | null {
-  if (!mapeo) return null
-  switch (mapeo) {
-    case 'contacto_nombre': {
-      const nombre = [contacto?.nombre, contacto?.apellido].filter(Boolean).join(' ')
-      return nombre || null
+  // 1. Mapeo explícito configurado en la plantilla
+  if (mapeo) {
+    switch (mapeo) {
+      case 'contacto_nombre': return nombreContacto(contacto)
+      case 'contacto_telefono': return contacto?.telefono || null
+      case 'contacto_correo': return contacto?.correo || null
+      case 'empresa_nombre': return empresaNombre || null
     }
-    case 'contacto_telefono': return contacto?.telefono || null
-    case 'contacto_correo': return contacto?.correo || null
-    case 'empresa_nombre': return empresaNombre || null
-    default: return null
   }
+  // 2. Sin mapeo — detectar automáticamente si el ejemplo parece un nombre de persona
+  if (ejemplo && NOMBRES_EJEMPLO.has(ejemplo.toLowerCase().trim())) {
+    return nombreContacto(contacto)
+  }
+  return null
 }
 
-/** Reemplaza {{N}} usando: 1) datos reales del contacto (mapeo), 2) ejemplos, 3) placeholder */
+/** Reemplaza {{N}} usando: dato real del contacto > ejemplo > placeholder */
 function previewCuerpo(
   texto: string,
   mapeo?: string[],
@@ -65,12 +80,9 @@ function previewCuerpo(
 ): string {
   return texto.replace(/\{\{(\d+)\}\}/g, (_, num) => {
     const idx = parseInt(num) - 1
-    // Prioridad 1: valor real del contacto/empresa
-    const valorReal = resolverVariable(mapeo?.[idx], contacto, empresaNombre)
+    const valorReal = resolverVariable(mapeo?.[idx], ejemplos?.[idx], contacto, empresaNombre)
     if (valorReal) return valorReal
-    // Prioridad 2: ejemplo de la plantilla
     if (ejemplos?.[idx]) return ejemplos[idx]
-    // Prioridad 3: placeholder
     return `[variable ${num}]`
   })
 }

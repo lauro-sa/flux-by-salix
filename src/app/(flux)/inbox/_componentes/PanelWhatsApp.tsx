@@ -408,6 +408,42 @@ export function PanelWhatsApp({
     if (!conversacion) return
     setEnviandoPlantilla(true)
     try {
+      // Construir components en formato Meta API a partir de componentes Flux
+      const componentesMeta: Record<string, unknown>[] = []
+      const cuerpo = plantilla.componentes?.cuerpo
+      if (cuerpo?.texto) {
+        // Contar variables {{N}} en el cuerpo
+        const matches = cuerpo.texto.match(/\{\{\d+\}\}/g)
+        if (matches && matches.length > 0) {
+          // Resolver cada variable con datos reales del contacto
+          const contacto = conversacion.contacto
+          const nombreCompleto = [contacto?.nombre, contacto?.apellido].filter(Boolean).join(' ')
+          const parametros = matches.map((_, i) => {
+            const mapeo = cuerpo.mapeo_variables?.[i]
+            const ejemplo = cuerpo.ejemplos?.[i]
+            let valor = ejemplo || ''
+            // Mapeo explícito
+            if (mapeo === 'contacto_nombre' && nombreCompleto) valor = nombreCompleto
+            else if (mapeo === 'contacto_telefono' && contacto?.telefono) valor = contacto.telefono
+            else if (mapeo === 'contacto_correo' && contacto?.correo) valor = contacto.correo
+            // Detección automática: si el ejemplo parece nombre genérico, usar nombre real
+            else if (!mapeo && ejemplo && /^(juan garcía|juan garcia|maría lópez|maria lopez|nombre)$/i.test(ejemplo.trim()) && nombreCompleto) {
+              valor = nombreCompleto
+            }
+            return { type: 'text', text: valor }
+          })
+          componentesMeta.push({ type: 'body', parameters: parametros })
+        }
+      }
+      // Encabezado con variable
+      const encabezado = plantilla.componentes?.encabezado
+      if (encabezado?.tipo === 'TEXT' && encabezado.texto?.includes('{{1}}')) {
+        componentesMeta.push({
+          type: 'header',
+          parameters: [{ type: 'text', text: encabezado.ejemplo || '' }],
+        })
+      }
+
       const res = await fetch('/api/inbox/whatsapp/enviar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -417,7 +453,7 @@ export function PanelWhatsApp({
           tipo: 'plantilla',
           plantilla_nombre_api: plantilla.nombre_api,
           plantilla_idioma: plantilla.idioma,
-          plantilla_componentes: plantilla.componentes,
+          plantilla_componentes: componentesMeta,
         }),
       })
       if (res.ok) {
