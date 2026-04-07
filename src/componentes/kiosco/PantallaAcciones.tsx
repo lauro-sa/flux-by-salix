@@ -74,7 +74,7 @@ export default function PantallaAcciones({
         ) : (
           <div
             className="w-24 h-24 md:w-32 md:h-32 rounded-2xl flex items-center justify-center text-4xl font-semibold"
-            style={{ backgroundColor: '#18181b', color: '#3b82f6', border: '3px solid #27272a' }}
+            style={{ backgroundColor: '#18181b', color: 'var(--texto-marca)', border: '3px solid #27272a' }}
           >
             {nombre.charAt(0).toUpperCase()}
           </div>

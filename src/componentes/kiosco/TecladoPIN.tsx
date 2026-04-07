@@ -61,7 +61,7 @@ export default function TecladoPIN({
             key={i}
             className="w-5 h-5 rounded-full transition-all duration-150"
             style={{
-              backgroundColor: i < pin.length ? '#3b82f6' : '#27272a',
+              backgroundColor: i < pin.length ? 'var(--texto-marca)' : '#27272a',
               transform: i < pin.length ? 'scale(1.2)' : 'scale(1)',
             }}
           />

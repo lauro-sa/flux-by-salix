@@ -96,20 +96,28 @@ export default function PantallaEspera({
           Ingresar con PIN
         </button>
 
-        <div className="flex items-center gap-2">
-          <span
-            className="w-2.5 h-2.5 rounded-full"
-            style={{
-              backgroundColor: 'var(--kiosco-exito, #4ade80)',
-              animation: 'kiosco-pulso 3s ease-in-out infinite',
-            }}
-          />
-          <span
-            className="text-sm"
-            style={{ color: 'var(--kiosco-texto-dim, #64748b)' }}
-          >
-            {nombreTerminal}
-          </span>
+        <div className="flex flex-col items-center gap-1">
+          <div className="flex items-center gap-2">
+            <span
+              className="w-2 h-2 rounded-full"
+              style={{
+                backgroundColor: 'var(--kiosco-exito, #4ade80)',
+                animation: 'kiosco-pulso 3s ease-in-out infinite',
+              }}
+            />
+            <span
+              className="text-xs"
+              style={{ color: 'var(--kiosco-texto-dim, #64748b)' }}
+            >
+              {nombreTerminal}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 opacity-40">
+            <img src="/iconos/favicon.svg" alt="" className="w-3 h-3 invert" />
+            <span className="text-[10px] tracking-wider uppercase" style={{ color: '#64748b' }}>
+              Flux by Salix
+            </span>
+          </div>
         </div>
 
         <button

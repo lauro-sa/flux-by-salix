@@ -94,7 +94,7 @@ export default function PantallaConfirmacion({
           src={fotoUrl}
           alt={nombre}
           className="w-36 h-36 md:w-44 md:h-44 rounded-3xl object-cover shadow-2xl"
-          style={{ border: '4px solid #3b82f6' }}
+          style={{ border: '4px solid var(--texto-marca)' }}
           initial={{ scale: 0.5, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 200, damping: 15 }}
@@ -104,8 +104,8 @@ export default function PantallaConfirmacion({
           className="w-36 h-36 md:w-44 md:h-44 rounded-3xl flex items-center justify-center shadow-2xl"
           style={{
             backgroundColor: '#18181b',
-            color: '#3b82f6',
-            border: '4px solid #3b82f6',
+            color: 'var(--texto-marca)',
+            border: '4px solid var(--texto-marca)',
             fontSize: 'clamp(2.5rem, 8vw, 4rem)',
             fontWeight: 600,
           }}
@@ -135,7 +135,7 @@ export default function PantallaConfirmacion({
       {/* Mensaje contextual */}
       <motion.p
         className="font-medium flex items-center gap-2"
-        style={{ fontSize: 'clamp(1.25rem, 4vw, 2rem)', color: '#3b82f6' }}
+        style={{ fontSize: 'clamp(1.25rem, 4vw, 2rem)', color: 'var(--texto-marca)' }}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
@@ -146,7 +146,7 @@ export default function PantallaConfirmacion({
       {/* Barra de progreso auto-dismiss */}
       <motion.div
         className="absolute bottom-0 left-0 h-1 rounded-full"
-        style={{ backgroundColor: '#3b82f6' }}
+        style={{ backgroundColor: 'var(--texto-marca)' }}
         initial={{ width: '100%' }}
         animate={{ width: '0%' }}
         transition={{ duration: duracion / 1000, ease: 'linear' }}

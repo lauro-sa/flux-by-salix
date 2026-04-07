@@ -16,6 +16,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { Cargador } from '@/componentes/ui/Cargador'
 import { useFormato } from '@/hooks/useFormato'
 import { SelectorHora } from '@/componentes/ui/SelectorHora'
+import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { QRCodeSVG } from 'qrcode.react'
 
 // ─── Tipos ───────────────────────────────────────────────────
@@ -560,6 +561,7 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
   const [creando, setCreando] = useState(false)
   const [linkGenerado, setLinkGenerado] = useState<{ terminalId: string; link: string } | null>(null)
   const [copiado, setCopiado] = useState(false)
+  const [confirmar, setConfirmar] = useState<{ tipo: 'revocar' | 'eliminar'; id: string; nombre: string } | null>(null)
 
   const crearTerminal = async () => {
     if (!nombreNueva.trim() || creando) return
@@ -593,22 +595,18 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
     }
   }
 
-  const revocarTerminal = async (terminalId: string) => {
+  const ejecutarAccion = async () => {
+    if (!confirmar) return
     await fetch('/api/kiosco/terminales', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ terminalId }),
+      body: JSON.stringify({
+        terminalId: confirmar.id,
+        eliminar: confirmar.tipo === 'eliminar',
+      }),
     })
-    if (linkGenerado?.terminalId === terminalId) setLinkGenerado(null)
-    onRecargar()
-  }
-
-  const eliminarTerminal = async (terminalId: string) => {
-    await fetch('/api/kiosco/terminales', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ terminalId, eliminar: true }),
-    })
+    if (linkGenerado?.terminalId === confirmar.id) setLinkGenerado(null)
+    setConfirmar(null)
     onRecargar()
   }
 
@@ -619,18 +617,24 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
     setTimeout(() => setCopiado(false), 2000)
   }
 
+  const terminalesActivas = terminales.filter((t) => t.activo)
+  const terminalesRevocadas = terminales.filter((t) => !t.activo)
+
   return (
     <div className="space-y-6">
       {/* Crear nueva terminal */}
       <TarjetaConfig titulo="Nueva terminal" descripcion="Creá un terminal y generá el enlace de activación para la tablet.">
-        <div className="flex gap-2">
-          <Input
-            etiqueta=""
-            placeholder="Nombre (ej: Entrada Principal)"
-            value={nombreNueva}
-            onChange={(e) => setNombreNueva(e.target.value)}
-            compacto
-          />
+        <div className="flex items-end gap-2">
+          <div className="flex-1">
+            <Input
+              etiqueta=""
+              placeholder="Nombre (ej: Entrada Principal)"
+              value={nombreNueva}
+              onChange={(e) => setNombreNueva(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && crearTerminal()}
+              compacto
+            />
+          </div>
           <Boton
             onClick={crearTerminal}
             variante="primario"
@@ -647,9 +651,8 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
       {linkGenerado && (
         <TarjetaConfig titulo="Activar terminal" descripcion="Escaneá el QR desde la tablet o copiá el enlace.">
           <div className="space-y-4">
-            {/* QR Code */}
             <div className="flex justify-center py-4">
-              <div className="p-4 bg-white rounded-2xl">
+              <div className="p-4 bg-white rounded-2xl shadow-lg">
                 <QRCodeSVG
                   value={linkGenerado.link}
                   size={200}
@@ -659,11 +662,11 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
               </div>
             </div>
 
-            {/* Enlace */}
             <div className="flex items-center gap-2 p-3 rounded-lg bg-superficie-elevada border border-borde-sutil">
               <Link2 size={14} className="text-texto-terciario shrink-0" />
-              <code className="text-xs text-texto-secundario break-all flex-1">{linkGenerado.link}</code>
+              <code className="text-xs text-texto-secundario break-all flex-1 select-all">{linkGenerado.link}</code>
             </div>
+
             <div className="flex gap-2">
               <Boton onClick={copiarLink} variante="secundario" tamano="sm" icono={<Copy size={14} />}>
                 {copiado ? 'Copiado' : 'Copiar enlace'}
@@ -672,6 +675,7 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
                 Cerrar
               </Boton>
             </div>
+
             <p className="text-xs text-texto-terciario">
               El enlace es de un solo uso. Una vez activado, el kiosco queda vinculado permanentemente.
             </p>
@@ -679,63 +683,90 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
         </TarjetaConfig>
       )}
 
-      {/* Lista de terminales */}
-      <TarjetaConfig titulo="Terminales registradas" descripcion="Dispositivos vinculados para fichaje presencial.">
-        {terminales.length === 0 ? (
-          <p className="text-sm text-texto-terciario py-4">
-            No hay terminales registradas. Creá una arriba para empezar.
-          </p>
-        ) : (
+      {/* Terminales activas */}
+      {terminalesActivas.length > 0 && (
+        <TarjetaConfig titulo="Terminales activas" descripcion="Dispositivos vinculados y funcionando.">
           <div className="space-y-2">
-            {terminales.map((t) => (
-              <div key={t.id} className="flex items-center justify-between py-3 px-3 rounded-lg border border-borde-sutil">
-                <div className="flex items-center gap-3">
-                  <div className={`size-2.5 rounded-full ${t.activo ? 'bg-insignia-exito' : 'bg-texto-terciario'}`} />
-                  <div>
-                    <p className="text-sm font-medium text-texto-primario">{t.nombre}</p>
-                    <p className="text-xs text-texto-terciario">
-                      {t.ultimo_ping
-                        ? `Último ping: ${formato.fecha(t.ultimo_ping, { conHora: true })}`
-                        : 'Nunca conectada'}
-                    </p>
-                  </div>
+            {terminalesActivas.map((t) => (
+              <div key={t.id} className="flex items-center gap-3 py-3 px-4 rounded-xl border border-borde-sutil">
+                <div className="size-2.5 rounded-full bg-insignia-exito shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-texto-primario truncate">{t.nombre}</p>
+                  <p className="text-xs text-texto-terciario">
+                    {t.ultimo_ping
+                      ? `Último ping: ${formato.fecha(t.ultimo_ping, { conHora: true })}`
+                      : 'Nunca conectada'}
+                  </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  {t.activo ? (
-                    <>
-                      <button
-                        onClick={() => regenerarLink(t.id)}
-                        className="p-1.5 rounded-md hover:bg-superficie-elevada transition-colors"
-                        title="Regenerar enlace de activación"
-                      >
-                        <RefreshCw size={14} className="text-texto-terciario" />
-                      </button>
-                      <button
-                        onClick={() => revocarTerminal(t.id)}
-                        className="p-1.5 rounded-md hover:bg-insignia-peligro/10 transition-colors"
-                        title="Revocar terminal"
-                      >
-                        <Ban size={14} className="text-insignia-peligro" />
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={() => eliminarTerminal(t.id)}
-                      className="p-1.5 rounded-md hover:bg-insignia-peligro/10 transition-colors"
-                      title="Eliminar terminal"
-                    >
-                      <Trash2 size={14} className="text-insignia-peligro" />
-                    </button>
-                  )}
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${t.activo ? 'bg-insignia-exito/15 text-insignia-exito' : 'bg-superficie-elevada text-texto-terciario'}`}>
-                    {t.activo ? 'Activa' : 'Revocada'}
-                  </span>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => regenerarLink(t.id)}
+                    className="p-2 rounded-lg hover:bg-superficie-elevada transition-colors"
+                    title="Regenerar enlace"
+                  >
+                    <RefreshCw size={15} className="text-texto-terciario" />
+                  </button>
+                  <button
+                    onClick={() => setConfirmar({ tipo: 'revocar', id: t.id, nombre: t.nombre })}
+                    className="p-2 rounded-lg hover:bg-insignia-peligro/10 transition-colors"
+                    title="Revocar terminal"
+                  >
+                    <Ban size={15} className="text-insignia-peligro" />
+                  </button>
                 </div>
               </div>
             ))}
           </div>
-        )}
-      </TarjetaConfig>
+        </TarjetaConfig>
+      )}
+
+      {/* Terminales revocadas */}
+      {terminalesRevocadas.length > 0 && (
+        <TarjetaConfig titulo="Terminales revocadas" descripcion="Dispositivos desactivados.">
+          <div className="space-y-2">
+            {terminalesRevocadas.map((t) => (
+              <div key={t.id} className="flex items-center gap-3 py-3 px-4 rounded-xl border border-borde-sutil opacity-60">
+                <div className="size-2.5 rounded-full bg-texto-terciario shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-texto-primario truncate">{t.nombre}</p>
+                  <p className="text-xs text-texto-terciario">Revocada</p>
+                </div>
+                <button
+                  onClick={() => setConfirmar({ tipo: 'eliminar', id: t.id, nombre: t.nombre })}
+                  className="p-2 rounded-lg hover:bg-insignia-peligro/10 transition-colors shrink-0"
+                  title="Eliminar terminal"
+                >
+                  <Trash2 size={15} className="text-insignia-peligro" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </TarjetaConfig>
+      )}
+
+      {/* Estado vacío */}
+      {terminales.length === 0 && (
+        <TarjetaConfig titulo="Terminales registradas" descripcion="Dispositivos vinculados para fichaje presencial.">
+          <p className="text-sm text-texto-terciario py-4">
+            No hay terminales registradas. Creá una arriba para empezar.
+          </p>
+        </TarjetaConfig>
+      )}
+
+      {/* Modal de confirmación */}
+      <ModalConfirmacion
+        abierto={!!confirmar}
+        onCerrar={() => setConfirmar(null)}
+        onConfirmar={ejecutarAccion}
+        tipo="peligro"
+        titulo={confirmar?.tipo === 'revocar' ? 'Revocar terminal' : 'Eliminar terminal'}
+        descripcion={
+          confirmar?.tipo === 'revocar'
+            ? `¿Revocar "${confirmar.nombre}"? La tablet dejará de funcionar como kiosco. Podés reactivarla después con un nuevo enlace.`
+            : `¿Eliminar "${confirmar?.nombre}" permanentemente? Esta acción no se puede deshacer.`
+        }
+        etiquetaConfirmar={confirmar?.tipo === 'revocar' ? 'Revocar' : 'Eliminar'}
+      />
     </div>
   )
 }
