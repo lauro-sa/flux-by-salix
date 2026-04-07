@@ -9,6 +9,7 @@ import {
   List, LayoutGrid, CalendarDays, ArrowUpDown, Pin, Star, MoreVertical,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { useFormato } from '@/hooks/useFormato'
 import { PortalPaginador } from '@/componentes/tablas/ContextoPaginacion'
 import { Checkbox } from '@/componentes/ui/Checkbox'
 import { usePreferencias, type ConfigTabla } from '@/hooks/usePreferencias'
@@ -76,6 +77,7 @@ function TablaDinamica<T>({
 }: PropiedadesTablaDinamica<T>) {
 
   const { t } = useTraduccion()
+  const { locale } = useFormato()
 
   /* ── Preferencias (persistencia por usuario+dispositivo) ── */
   const { preferencias, cargando: cargandoPrefs, guardar: guardarPreferencias } = usePreferencias()
@@ -819,7 +821,7 @@ function TablaDinamica<T>({
     if (seleccionados.size > 0) {
       return `${seleccionados.size} seleccionado${seleccionados.size > 1 ? 's' : ''}. ${placeholder}`
     }
-    return `${totalRegistros.toLocaleString('es')} registro${totalRegistros !== 1 ? 's' : ''}. ${placeholder}`
+    return `${totalRegistros.toLocaleString(locale)} registro${totalRegistros !== 1 ? 's' : ''}. ${placeholder}`
   }, [seleccionados.size, totalRegistros, placeholder])
 
   /* Elemento paginador reutilizable — se comparte con PlantillaListado via contexto */
@@ -843,7 +845,7 @@ function TablaDinamica<T>({
           }}
           className="px-2 py-0.5 text-xs font-medium text-texto-primario hover:bg-superficie-hover cursor-pointer border-none bg-transparent rounded transition-colors whitespace-nowrap tabular-nums focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
         >
-          {registroInicio}–{registroFin} / {totalRegistros.toLocaleString('es')}
+          {registroInicio}–{registroFin} / {totalRegistros.toLocaleString(locale)}
         </button>
       </Tooltip>
       <Boton

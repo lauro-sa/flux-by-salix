@@ -15,6 +15,7 @@ import { CompositorCorreo, type DatosCorreo } from './CompositorCorreo'
 import { PanelIA } from './PanelIA'
 import { ModalEtiquetas } from './ModalEtiquetas'
 import { useTraduccion } from '@/lib/i18n'
+import { useFormato } from '@/hooks/useFormato'
 import DOMPurify from 'isomorphic-dompurify'
 import type { MensajeConAdjuntos, Conversacion } from '@/tipos/inbox'
 
@@ -41,15 +42,15 @@ interface PropiedadesPanelCorreo {
   firma?: string
 }
 
-function formatoFechaCorreo(fecha: string): string {
+function formatoFechaCorreo(fecha: string, locale: string): string {
   const d = new Date(fecha)
   const hoy = new Date()
   const esHoy = d.toDateString() === hoy.toDateString()
 
   if (esHoy) {
-    return d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })
+    return d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
   }
-  return d.toLocaleDateString('es', {
+  return d.toLocaleDateString(locale, {
     day: 'numeric',
     month: 'short',
     year: d.getFullYear() !== hoy.getFullYear() ? 'numeric' : undefined,
@@ -188,6 +189,7 @@ export function PanelCorreo({
   firma,
 }: PropiedadesPanelCorreo) {
   const { t } = useTraduccion()
+  const formato = useFormato()
   const [respondiendo, setRespondiendo] = useState(false)
   const [tipoRespuesta, setTipoRespuesta] = useState<'responder' | 'responder_todos' | 'reenviar'>('responder')
   const [modalEtiquetas, setModalEtiquetas] = useState(false)
@@ -437,7 +439,7 @@ export function PanelCorreo({
                             <Insignia color="neutro" tamano="sm">{t('inbox.enviados')}</Insignia>
                           )}
                           <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                            {formatoFechaCorreo(msg.creado_en)}
+                            {formatoFechaCorreo(msg.creado_en, formato.locale)}
                           </span>
                         </span>
                         {!expandido && (

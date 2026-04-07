@@ -6,6 +6,7 @@
  */
 
 import { Insignia } from '@/componentes/ui/Insignia'
+import { useFormato } from '@/hooks/useFormato'
 import type { PermisoAuditoria } from '@/tipos/permisos_auditoria'
 
 interface PropiedadesHistorialAuditoria {
@@ -13,6 +14,7 @@ interface PropiedadesHistorialAuditoria {
 }
 
 export function HistorialAuditoria({ entradas }: PropiedadesHistorialAuditoria) {
+  const { locale } = useFormato()
   if (entradas.length === 0) return null
 
   return (
@@ -27,7 +29,7 @@ export function HistorialAuditoria({ entradas }: PropiedadesHistorialAuditoria) 
             >
               {entrada.accion_tipo === 'revocar_todo' ? 'Revocado' : entrada.accion_tipo === 'restablecer_rol' ? 'Restablecido' : 'Editado'}
             </Insignia>
-            <span>{new Date(entrada.editado_en).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+            <span>{new Date(entrada.editado_en).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
             {entrada.motivo && <span className="italic">— {entrada.motivo}</span>}
           </div>
         ))}

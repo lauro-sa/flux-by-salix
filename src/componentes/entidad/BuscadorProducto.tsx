@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search, Package, Wrench, Plus } from 'lucide-react'
 import { COLOR_TIPO_PRODUCTO } from '@/lib/colores_entidad'
+import { useFormato } from '@/hooks/useFormato'
 
 /**
  * BuscadorProducto — Autocompletado de productos/servicios para líneas de presupuesto.
@@ -52,6 +53,7 @@ export function BuscadorProducto({
   soloLectura = false,
   className = '',
 }: PropsBuscadorProducto) {
+  const { locale } = useFormato()
   const [busqueda, setBusqueda] = useState('')
   const [resultados, setResultados] = useState<ProductoBusqueda[]>([])
   const [abierto, setAbierto] = useState(false)
@@ -237,7 +239,7 @@ export function BuscadorProducto({
                 {resultados.map((producto, i) => {
                   const color = COLOR_TIPO_PRODUCTO[producto.tipo] || 'neutro'
                   const precioStr = producto.precio_unitario && parseFloat(producto.precio_unitario) > 0
-                    ? `$ ${parseFloat(producto.precio_unitario).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+                    ? `$ ${parseFloat(producto.precio_unitario).toLocaleString(locale, { minimumFractionDigits: 2 })}`
                     : null
 
                   return (

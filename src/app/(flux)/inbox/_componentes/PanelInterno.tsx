@@ -101,6 +101,7 @@ export function PanelInterno({
   onVolverMovil,
 }: PropiedadesPanelInterno) {
   const { t } = useTraduccion()
+  const formato = useFormato()
   const { mostrar } = useToast()
   const [respondiendo, setRespondiendo] = useState<{ id: string; texto: string; autor: string } | null>(null)
   const [hiloAbierto, setHiloAbierto] = useState<string | null>(null)
@@ -448,7 +449,7 @@ export function PanelInterno({
                               color: 'var(--texto-terciario)',
                             }}
                           >
-                            {etiquetaDiaInterno(seccion.fecha)}
+                            {etiquetaDiaInterno(seccion.fecha, formato.locale)}
                           </span>
                         </div>
                         <div className="space-y-3">
@@ -663,6 +664,7 @@ function MensajeInterno({
   onAbrirHilo: () => void
   onReaccionar?: (mensajeId: string, emoji: string) => void
 }) {
+  const formato = useFormato()
   const [mostrarAcciones, setMostrarAcciones] = useState(false)
   const [lecturas, setLecturas] = useState<{ leido_por: { nombre: string; leido_en: string }[]; sin_leer: { nombre: string }[] } | null>(null)
   const [mostrarLecturas, setMostrarLecturas] = useState(false)
@@ -712,7 +714,7 @@ function MensajeInterno({
 
             <div className={`flex items-center gap-1 mt-0.5 ${esPropio ? 'justify-end' : ''}`}>
               <span className="text-xxs" style={{ opacity: 0.7 }}>
-                {formatoHoraInterno(mensaje.creado_en)}
+                {formatoHoraInterno(mensaje.creado_en, formato.locale)}
               </span>
               {esPropio && (
                 <Boton variante="fantasma" tamano="xs" soloIcono icono={<CheckCheck size={12} />} onClick={cargarLecturas} titulo="Ver quién leyó" style={{ opacity: 0.7 }} />
@@ -798,7 +800,7 @@ function MensajeInterno({
                     {lecturas.leido_por.map((l, i) => (
                       <div key={i} className="flex justify-between gap-3 py-0.5">
                         <span>{l.nombre}</span>
-                        <span style={{ color: 'var(--texto-terciario)' }}>{formatoHoraInterno(l.leido_en)}</span>
+                        <span style={{ color: 'var(--texto-terciario)' }}>{formatoHoraInterno(l.leido_en, formato.locale)}</span>
                       </div>
                     ))}
                   </div>
@@ -833,7 +835,7 @@ function MensajeInterno({
             {mensaje.remitente_nombre || 'Desconocido'}
           </span>
           <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-            {formatoHoraInterno(mensaje.creado_en)}
+            {formatoHoraInterno(mensaje.creado_en, formato.locale)}
           </span>
           {/* Read receipt indicator (solo en mensajes propios) */}
           {esPropio && (
@@ -897,7 +899,7 @@ function MensajeInterno({
                   {lecturas.leido_por.map((l, i) => (
                     <div key={i} className="flex items-center justify-between gap-3 py-0.5">
                       <span style={{ color: 'var(--texto-primario)' }}>{l.nombre}</span>
-                      <span style={{ color: 'var(--texto-terciario)' }}>{formatoHoraInterno(l.leido_en)}</span>
+                      <span style={{ color: 'var(--texto-terciario)' }}>{formatoHoraInterno(l.leido_en, formato.locale)}</span>
                     </div>
                   ))}
                 </div>

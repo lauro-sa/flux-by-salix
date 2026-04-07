@@ -90,19 +90,19 @@ export interface ConfigPdf {
 
 // ─── Formateo ───
 
-export function formatearNumero(valor: string | number, decimales = 2): string {
+export function formatearNumero(valor: string | number, decimales = 2, locale = 'es-AR'): string {
   const num = typeof valor === 'string' ? parseFloat(valor) : valor
   if (isNaN(num)) return '0,00'
-  return num.toLocaleString('es-AR', {
+  return num.toLocaleString(locale, {
     minimumFractionDigits: decimales,
     maximumFractionDigits: decimales,
   })
 }
 
-export function formatearFecha(fechaIso: string | null): string {
+export function formatearFecha(fechaIso: string | null, locale = 'es-AR'): string {
   if (!fechaIso) return '-'
   const fecha = new Date(fechaIso)
-  return fecha.toLocaleDateString('es-AR', {
+  return fecha.toLocaleDateString(locale, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -229,6 +229,7 @@ export function renderizarHtml(
   presupuesto: DatosPresupuestoPdf,
   empresa: DatosEmpresa,
   config: ConfigPdf,
+  locale = 'es-AR',
 ): string {
   const plantilla = config.plantilla_html || PLANTILLA_PDF_DEFECTO
   const membrete = config.membrete
@@ -288,8 +289,8 @@ export function renderizarHtml(
     tipo_documento: 'Presupuesto',
     numero: presupuesto.numero,
     estado: presupuesto.estado,
-    fecha_emision: formatearFecha(presupuesto.fecha_emision),
-    fecha_vencimiento: formatearFecha(presupuesto.fecha_vencimiento),
+    fecha_emision: formatearFecha(presupuesto.fecha_emision, locale),
+    fecha_vencimiento: formatearFecha(presupuesto.fecha_vencimiento, locale),
     moneda_codigo: presupuesto.moneda,
     moneda_simbolo: simbolo,
     referencia: presupuesto.referencia || '',
@@ -323,12 +324,12 @@ export function renderizarHtml(
     atencion_nombre: presupuesto.atencion_nombre || '',
     atencion_cargo: presupuesto.atencion_cargo || '',
     atencion_correo: presupuesto.atencion_correo || '',
-    subtotal_neto_formateado: formatearNumero(presupuesto.subtotal_neto),
-    total_impuestos_formateado: formatearNumero(presupuesto.total_impuestos),
+    subtotal_neto_formateado: formatearNumero(presupuesto.subtotal_neto, 2, locale),
+    total_impuestos_formateado: formatearNumero(presupuesto.total_impuestos, 2, locale),
     tiene_descuento_global: parseFloat(presupuesto.descuento_global) > 0,
     descuento_global_porcentaje: presupuesto.descuento_global,
-    descuento_global_monto_formateado: formatearNumero(presupuesto.descuento_global_monto),
-    total_final_formateado: formatearNumero(presupuesto.total_final),
+    descuento_global_monto_formateado: formatearNumero(presupuesto.descuento_global_monto, 2, locale),
+    total_final_formateado: formatearNumero(presupuesto.total_final, 2, locale),
     notas_html: notasAHtml(presupuesto.notas_html),
     condiciones_html: notasAHtml(presupuesto.condiciones_html),
     tiene_cuotas: presupuesto.cuotas.length > 0,
@@ -373,14 +374,14 @@ export function renderizarHtml(
       codigo_producto: linea.codigo_producto || '',
       descripcion: linea.descripcion || '',
       descripcion_detalle: linea.descripcion_detalle || '',
-      cantidad: linea.tipo_linea === 'producto' ? formatearNumero(linea.cantidad, 2) : '',
+      cantidad: linea.tipo_linea === 'producto' ? formatearNumero(linea.cantidad, 2, locale) : '',
       unidad: linea.unidad || '',
-      precio_unitario_formateado: formatearNumero(linea.precio_unitario),
+      precio_unitario_formateado: formatearNumero(linea.precio_unitario, 2, locale),
       tiene_descuento: parseFloat(linea.descuento) > 0,
       descuento: linea.descuento,
       impuesto_label: linea.impuesto_label || '',
-      subtotal_formateado: formatearNumero(linea.subtotal),
-      monto_formateado: formatearNumero(linea.monto || '0'),
+      subtotal_formateado: formatearNumero(linea.subtotal, 2, locale),
+      monto_formateado: formatearNumero(linea.monto || '0', 2, locale),
       moneda_simbolo: simbolo,
       // Columnas visibles (para condicionales dentro del loop)
       col_producto: cols.includes('producto'),
@@ -394,7 +395,7 @@ export function renderizarHtml(
 
   const impuestosLoop = desgloseImp.map(imp => ({
     label: imp.label,
-    monto_formateado: formatearNumero(imp.monto),
+    monto_formateado: formatearNumero(imp.monto, 2, locale),
     moneda_simbolo: simbolo,
   }))
 
@@ -404,7 +405,7 @@ export function renderizarHtml(
       numero: String(cuota.numero),
       descripcion: cuota.descripcion || '',
       porcentaje: cuota.porcentaje,
-      monto_formateado: formatearNumero(cuota.monto),
+      monto_formateado: formatearNumero(cuota.monto, 2, locale),
       moneda_simbolo: simbolo,
       estado: cuota.estado,
       estado_label: cuota.estado === 'cobrada' ? 'Cobrada' : 'Pendiente',
@@ -424,7 +425,8 @@ export function renderizarHtml(
 
 export function generarNombreArchivo(
   patron: string | null,
-  presupuesto: { numero: string; contacto_nombre: string | null; contacto_apellido: string | null; fecha_emision: string; referencia: string | null }
+  presupuesto: { numero: string; contacto_nombre: string | null; contacto_apellido: string | null; fecha_emision: string; referencia: string | null },
+  locale = 'es-AR',
 ): string {
   const template = patron || '{numero} - {contacto_nombre}'
   const nombreContacto = [presupuesto.contacto_nombre, presupuesto.contacto_apellido]
@@ -434,7 +436,7 @@ export function generarNombreArchivo(
   const nombre = template
     .replace('{numero}', presupuesto.numero || '')
     .replace('{contacto_nombre}', nombreContacto)
-    .replace('{fecha}', formatearFecha(presupuesto.fecha_emision).replace(/\//g, '-'))
+    .replace('{fecha}', formatearFecha(presupuesto.fecha_emision, locale).replace(/\//g, '-'))
     .replace('{tipo}', 'Presupuesto')
     .replace('{referencia}', presupuesto.referencia || '')
     .trim()

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { crearFormato } from '@/lib/formato-regional'
 import ExcelJS from 'exceljs'
 
 /**
@@ -19,14 +20,15 @@ export async function GET() {
 
     const admin = crearClienteAdmin()
 
-    // Obtener nombre de empresa para el título
+    // Obtener nombre y config regional de empresa para el título y formateo
     const { data: empresa } = await admin
       .from('empresas')
-      .select('nombre')
+      .select('nombre, zona_horaria')
       .eq('id', empresaId)
       .single()
 
     const nombreEmpresa = empresa?.nombre || 'Empresa'
+    const fmt = crearFormato({ zona_horaria: empresa?.zona_horaria })
 
     // Obtener contactos con relaciones
     const { data: contactos } = await admin
@@ -106,7 +108,7 @@ export async function GET() {
 
     // ── Fila 1: Título fusionado ──
     const ahora = new Date()
-    const fechaHora = ahora.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+    const fechaHora = fmt.fecha(ahora) + ' ' + fmt.hora(ahora)
 
     const filaTitulo = hoja.addRow([`Contactos — ${nombreEmpresa} — ${fechaHora}`])
     hoja.mergeCells(1, 1, 1, encabezados.length)
@@ -179,8 +181,8 @@ export async function GET() {
         (dirPrincipal?.provincia as string) || '',
         (dirPrincipal?.codigo_postal as string) || '',
         (dirPrincipal?.pais as string) || '',
-        c.creado_en ? new Date(c.creado_en).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '',
-        c.actualizado_en ? new Date(c.actualizado_en).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '',
+        c.creado_en ? fmt.fecha(c.creado_en, { conHora: true }) : '',
+        c.actualizado_en ? fmt.fecha(c.actualizado_en, { conHora: true }) : '',
       ]
 
       const fila = hoja.addRow(valores)

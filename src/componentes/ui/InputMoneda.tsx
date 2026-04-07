@@ -1,15 +1,22 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useMemo } from 'react'
+import { useFormato } from '@/hooks/useFormato'
 
 /**
  * InputMoneda — Input numérico que muestra el valor formateado ($ 150.000,00)
  * cuando no está enfocado, y el valor raw (150000) cuando el usuario edita.
  */
 
-const SIMBOLOS: Record<string, string> = {
-  ARS: '$', USD: 'US$', EUR: '€', BRL: 'R$', CLP: 'CL$',
-  COP: 'COL$', MXN: 'MX$', UYU: '$U', PEN: 'S/',
+/** Deriva el símbolo de moneda usando Intl.NumberFormat para cualquier código ISO */
+function obtenerSimboloMoneda(codigoMoneda: string, locale: string): string {
+  try {
+    const partes = new Intl.NumberFormat(locale, { style: 'currency', currency: codigoMoneda }).formatToParts(0)
+    const simbolo = partes.find(p => p.type === 'currency')?.value
+    return simbolo || codigoMoneda
+  } catch {
+    return codigoMoneda
+  }
 }
 
 interface PropiedadesInputMoneda {
@@ -23,16 +30,18 @@ interface PropiedadesInputMoneda {
 }
 
 export function InputMoneda({ etiqueta, value, onChange, moneda, placeholder = '0,00', disabled = false, ayuda }: PropiedadesInputMoneda) {
+  const { locale, codigoMoneda } = useFormato()
   const [enfocado, setEnfocado] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const simbolo = moneda ? (SIMBOLOS[moneda] || moneda) : '$'
+  const monedaEfectiva = moneda || codigoMoneda
+  const simbolo = useMemo(() => obtenerSimboloMoneda(monedaEfectiva, locale), [monedaEfectiva, locale])
 
   const formatear = useCallback((val: string) => {
     const num = parseFloat(val)
     if (isNaN(num)) return ''
-    return num.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  }, [])
+    return num.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  }, [locale])
 
   const manejarFoco = useCallback(() => {
     setEnfocado(true)

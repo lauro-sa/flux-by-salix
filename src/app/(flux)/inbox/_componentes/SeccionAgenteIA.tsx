@@ -5,6 +5,7 @@ import { Sparkles, Brain, MessageSquare, BookOpen, AlertTriangle, Activity, Plus
 import { Interruptor, Select, Input, Boton, Modal, Insignia, Checkbox } from '@/componentes/ui'
 import { TextArea } from '@/componentes/ui/TextArea'
 import { useTraduccion } from '@/lib/i18n'
+import { useFormato } from '@/hooks/useFormato'
 import { useToast } from '@/componentes/feedback/Toast'
 import type { ConfigAgenteIA, EntradaBaseConocimiento, LogAgenteIA, TipoContactoConfig, PasoFlujoConfig, EjemploConversacionConfig } from '@/tipos/inbox'
 
@@ -91,6 +92,7 @@ interface CanalSimple {
 
 export default function SeccionAgenteIA() {
   const { t } = useTraduccion()
+  const formato = useFormato()
   const { mostrar: mostrarToast } = useToast()
   const [config, setConfig] = useState<ConfigAgenteIA>(CONFIG_DEFAULTS)
   const [cargando, setCargando] = useState(true)
@@ -965,6 +967,7 @@ function TabRespuestas({ config, guardar }: TabProps) {
 // ═══════════════════════════════════════════════
 
 function SeccionEntrenar({ config, guardar }: TabProps) {
+  const formato = useFormato()
   const [analizando, setAnalizando] = useState(false)
   const [periodoDias, setPeriodoDias] = useState(60)
   const [resultado, setResultado] = useState<Record<string, unknown> | null>(null)
@@ -1150,7 +1153,7 @@ function SeccionEntrenar({ config, guardar }: TabProps) {
 
           {config.ultimo_analisis_conversaciones && (
             <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-              Último análisis: {new Date(config.ultimo_analisis_conversaciones).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}
+              Último análisis: {new Date(config.ultimo_analisis_conversaciones).toLocaleDateString(formato.locale, { day: 'numeric', month: 'short', year: 'numeric' })}
             </p>
           )}
         </>
@@ -1845,6 +1848,7 @@ function TabEscalamiento({ config, guardar }: TabProps) {
 // ═══════════════════════════════════════════════
 
 function TabActividad() {
+  const formato = useFormato()
   const [logs, setLogs] = useState<LogAgenteIA[]>([])
   const [todosLogs, setTodosLogs] = useState<LogAgenteIA[]>([])
   const [metricas, setMetricas] = useState<{
@@ -1929,11 +1933,11 @@ function TabActividad() {
           {etiquetaAccion[log.accion] || log.accion}
         </Insignia>
         <span style={{ color: 'var(--texto-terciario)' }}>
-          {new Date(log.creado_en).toLocaleString('es-AR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' })}
+          {new Date(log.creado_en).toLocaleString(formato.locale, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' })}
         </span>
       </div>
       <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-        {log.latencia_ms}ms · {(log.tokens_entrada + log.tokens_salida).toLocaleString()} tokens
+        {log.latencia_ms}ms · {(log.tokens_entrada + log.tokens_salida).toLocaleString(formato.locale)} tokens
       </span>
     </div>
   )
@@ -1950,7 +1954,7 @@ function TabActividad() {
         {metricas ? (
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
             {tarjetaMetrica('Acciones', metricas.total_acciones)}
-            {tarjetaMetrica('Tokens', metricas.total_tokens.toLocaleString())}
+            {tarjetaMetrica('Tokens', metricas.total_tokens.toLocaleString(formato.locale))}
             {tarjetaMetrica('Latencia prom.', `${metricas.latencia_promedio}ms`)}
             {tarjetaMetrica('Tasa de éxito', `${metricas.tasa_exito}%`)}
             {tarjetaMetrica('Sentimiento', metricas.sentimiento_promedio || '—')}

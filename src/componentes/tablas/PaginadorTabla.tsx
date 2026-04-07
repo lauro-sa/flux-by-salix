@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useTraduccion } from '@/lib/i18n'
+import { useFormato } from '@/hooks/useFormato'
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 
@@ -25,6 +26,7 @@ export function Paginador({
   onCambiarPagina: (pagina: number) => void
 }) {
   const { t } = useTraduccion()
+  const { locale } = useFormato()
   /* Estado para el comportamiento "click centro = última, otro click = primera" */
   const [ultimoClickCentro, setUltimoClickCentro] = useState(false)
 
@@ -54,7 +56,7 @@ export function Paginador({
     <div className="flex items-center justify-between px-4 py-2 border-t border-borde-sutil">
       {/* Info */}
       <span className="text-xs text-texto-terciario">
-        {registroInicio}–{registroFin} de {totalRegistros.toLocaleString('es')}
+        {registroInicio}–{registroFin} de {totalRegistros.toLocaleString(locale)}
       </span>
 
       {/* Controles */}

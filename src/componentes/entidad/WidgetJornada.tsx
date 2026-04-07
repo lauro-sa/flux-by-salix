@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { PopoverAdaptable as Popover } from '@/componentes/ui/PopoverAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
+import { useFormato } from '@/hooks/useFormato'
 import { motion, AnimatePresence } from 'framer-motion'
 
 // ─── Tipos ───────────────────────────────────────────────────
@@ -32,9 +33,9 @@ interface ConfigFichaje {
 
 // ─── Helpers ─────────────────────────────────────────────────
 
-function formatearHora(iso: string | null): string {
+function formatearHora(iso: string | null, locale: string = 'es-AR'): string {
   if (!iso) return '--:--'
-  return new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
 }
 
 function calcularMinutosTrabajados(turno: TurnoHoy): number {
@@ -121,6 +122,7 @@ async function obtenerUbicacion(): Promise<Record<string, unknown> | null> {
 // ─── Componente principal ────────────────────────────────────
 
 function WidgetJornada() {
+  const { locale } = useFormato()
   const [abierto, setAbierto] = useState(false)
   const [turno, setTurno] = useState<TurnoHoy | null>(null)
   const [metodoFichaje, setMetodoFichaje] = useState<string | null>(null)
@@ -214,13 +216,13 @@ function WidgetJornada() {
                       </span>
                     </div>
                     <p className="text-xs text-texto-terciario">
-                      Entrada: {formatearHora(turno.hora_entrada)}
-                      {turno.hora_salida && ` — Salida: ${formatearHora(turno.hora_salida)}`}
+                      Entrada: {formatearHora(turno.hora_entrada, locale)}
+                      {turno.hora_salida && ` — Salida: ${formatearHora(turno.hora_salida, locale)}`}
                     </p>
                     {turno.inicio_almuerzo && (
                       <p className="text-xs text-texto-terciario">
-                        Almuerzo: {formatearHora(turno.inicio_almuerzo)}
-                        {turno.fin_almuerzo && ` — ${formatearHora(turno.fin_almuerzo)}`}
+                        Almuerzo: {formatearHora(turno.inicio_almuerzo, locale)}
+                        {turno.fin_almuerzo && ` — ${formatearHora(turno.fin_almuerzo, locale)}`}
                       </p>
                     )}
                     {estaAbierto && (

@@ -764,6 +764,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
                   onSeleccionarDocumento={seleccionarDocumentoPreview}
                   onLimpiarContacto={() => { setContactoPreview(null); setDocumentoPreview(null) }}
                   onLimpiarDocumento={() => setDocumentoPreview(null)}
+                  locale={locale}
                 />
                 <PreviewWhatsApp componentes={componentes} datosPreview={datosPreview} />
               </div>
@@ -780,6 +781,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
                   onLimpiarContacto={() => { setContactoPreview(null); setDocumentoPreview(null) }}
                   onLimpiarDocumento={() => setDocumentoPreview(null)}
                   horizontal
+                  locale={locale}
                 />
               </div>
               <PreviewWhatsApp componentes={componentes} datosPreview={datosPreview} />
@@ -879,6 +881,7 @@ function SelectoresPreviewDatos({
   onLimpiarContacto,
   onLimpiarDocumento,
   horizontal,
+  locale,
 }: {
   contactoPreview: Record<string, unknown> | null
   documentoPreview: DocumentoResultado | null
@@ -888,6 +891,7 @@ function SelectoresPreviewDatos({
   onLimpiarContacto: () => void
   onLimpiarDocumento: () => void
   horizontal?: boolean
+  locale: string
 }) {
   const nombreContacto = contactoPreview
     ? `${(contactoPreview.nombre as string) || ''} ${(contactoPreview.apellido as string) || ''}`.trim()
@@ -934,7 +938,7 @@ function SelectoresPreviewDatos({
               {documentoPreview.numero}
               {documentoPreview.total_final && (
                 <span className="ml-1.5 text-xs" style={{ color: 'var(--texto-terciario)' }}>
-                  · {documentoPreview.moneda === 'USD' ? 'US$' : '$'} {Number(documentoPreview.total_final).toLocaleString('es-AR')}
+                  · {documentoPreview.moneda === 'USD' ? 'US$' : '$'} {Number(documentoPreview.total_final).toLocaleString(locale)}
                 </span>
               )}
             </span>
@@ -959,6 +963,7 @@ function SelectoresPreviewDatos({
 // ─── Preview estilo WhatsApp ───
 
 function PreviewWhatsApp({ componentes, datosPreview }: { componentes: ComponentesPlantillaWA; datosPreview?: DatosPreview }) {
+  const { locale } = useFormato()
   const cuerpoHtml = useMemo(() => {
     let texto = componentes.cuerpo?.texto || ''
     const ejemplos = componentes.cuerpo?.ejemplos || []
@@ -1050,7 +1055,7 @@ function PreviewWhatsApp({ componentes, datosPreview }: { componentes: Component
           )}
           <div className="flex justify-end mt-1">
             <span className="text-[10px]" style={{ color: '#8696a0' }}>
-              {new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
+              {new Date().toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
         </div>

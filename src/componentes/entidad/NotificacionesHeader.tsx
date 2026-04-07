@@ -9,6 +9,7 @@ import {
   Megaphone, FileCheck, Mail,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { useFormato } from '@/hooks/useFormato'
 import { PopoverAdaptable as Popover } from '@/componentes/ui/PopoverAdaptable'
 import { PanelNotificaciones, type ItemNotificacion } from '@/componentes/ui/PanelNotificaciones'
 import {
@@ -84,7 +85,7 @@ const COLORES_TIPO: Record<string, string> = {
 
 /* ─── Helpers ─── */
 
-function tiempoRelativo(fecha: string): string {
+function tiempoRelativo(fecha: string, locale: string = 'es-AR'): string {
   const ahora = Date.now()
   const creada = new Date(fecha).getTime()
   const diff = ahora - creada
@@ -95,7 +96,7 @@ function tiempoRelativo(fecha: string): string {
   if (horas < 24) return `hace ${horas}h`
   const dias = Math.floor(horas / 24)
   if (dias < 7) return `hace ${dias}d`
-  return new Date(fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+  return new Date(fecha).toLocaleDateString(locale, { day: 'numeric', month: 'short' })
 }
 
 /** Agrupar notificaciones por referencia_id (misma conversación).
@@ -205,6 +206,7 @@ function extraerTituloActividad(n: Notificacion): string | undefined {
 function notificacionAItem(
   grupo: { ultima: Notificacion; ids: string[]; noLeidas: Notificacion[] },
   onClickItem: (n: Notificacion, ids: string[]) => void,
+  locale: string = 'es-AR',
 ): ItemNotificacion {
   const { ultima: n, ids, noLeidas } = grupo
   const cantidad = noLeidas.length
@@ -218,7 +220,7 @@ function notificacionAItem(
       ? `${descripcionBase || ''} · +${cantidad - 1} más`.replace(/^ · /, '')
       : descripcionBase,
     insignia: renderizarPildoraTipo(n),
-    tiempo: tiempoRelativo(n.creada_en),
+    tiempo: tiempoRelativo(n.creada_en, locale),
     leida: false,
     onClick: () => onClickItem(n, ids),
     datos: { ids },
@@ -228,7 +230,7 @@ function notificacionAItem(
           titulo: sub.titulo,
           descripcion: extraerTituloActividad(sub),
           insignia: renderizarPildoraTipo(sub),
-          tiempo: tiempoRelativo(sub.creada_en),
+          tiempo: tiempoRelativo(sub.creada_en, locale),
           leida: sub.leida,
           onClick: () => onClickItem(sub, [sub.id]),
         }))
@@ -348,6 +350,7 @@ function PestanasInbox({
 
 function NotificacionesHeader() {
   const router = useRouter()
+  const { locale } = useFormato()
   const { estaSilenciada } = useModoConcentracion()
   const [popoverAbierto, setPopoverAbierto] = useState<string | null>(null)
   const [filtroInbox, setFiltroInbox] = useState<FiltroInbox>('todo')
@@ -405,7 +408,7 @@ function NotificacionesHeader() {
         const grupos = agruparNotificaciones(itemsFiltrados)
         const itemsMapeados: ItemNotificacion[] = grupos
           .slice(0, 20)
-          .map((g) => notificacionAItem(g, handleClickItem))
+          .map((g) => notificacionAItem(g, handleClickItem, locale))
 
         return (
           <Popover

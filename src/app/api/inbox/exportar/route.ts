@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { crearFormato } from '@/lib/formato-regional'
 
 /**
  * GET /api/inbox/exportar?conversacion_id=xxx&formato=csv|txt
@@ -26,6 +27,14 @@ export async function GET(request: NextRequest) {
     }
 
     const admin = crearClienteAdmin()
+
+    // Obtener config regional de la empresa
+    const { data: empresa } = await admin
+      .from('empresas')
+      .select('zona_horaria')
+      .eq('id', empresaId)
+      .single()
+    const fmt = crearFormato({ zona_horaria: empresa?.zona_horaria })
 
     // Obtener conversación
     const { data: conversacion } = await admin
@@ -60,8 +69,8 @@ export async function GET(request: NextRequest) {
       const cabecera = 'Fecha,Hora,Remitente,Tipo,Contenido,Nota interna\n'
       const filas = mensajes.map(m => {
         const fecha = new Date(m.creado_en)
-        const fechaStr = fecha.toLocaleDateString('es', { day: '2-digit', month: '2-digit', year: 'numeric' })
-        const horaStr = fecha.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })
+        const fechaStr = fmt.fecha(fecha)
+        const horaStr = fmt.hora(fecha)
         const remitente = m.es_entrante ? nombreContacto : (m.remitente_nombre || 'Agente')
         const tipo = m.tipo_contenido
         const texto = (m.texto || '').replace(/"/g, '""').replace(/\n/g, ' ')

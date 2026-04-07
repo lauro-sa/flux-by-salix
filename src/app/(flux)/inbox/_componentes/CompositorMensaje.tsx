@@ -757,7 +757,7 @@ export function CompositorMensaje({
                     <>
                       <AlarmClock size={10} className="shrink-0" style={{ color: 'var(--texto-marca)' }} />
                       <span className="text-xxs font-medium truncate" style={{ color: 'var(--texto-marca)' }}>
-                        {new Intl.DateTimeFormat('es', {
+                        {new Intl.DateTimeFormat(formato.locale, {
                           weekday: 'short', day: 'numeric', month: 'short',
                           hour: '2-digit', minute: '2-digit',
                         }).format(new Date(programadoPara))}

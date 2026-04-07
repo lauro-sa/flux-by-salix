@@ -28,9 +28,9 @@ interface DatosCertificado {
   geo_longitud?: number
 }
 
-export function generarHtmlCertificado(datos: DatosCertificado): string {
+export function generarHtmlCertificado(datos: DatosCertificado, locale = 'es-AR'): string {
   const fecha = new Date(datos.fecha_hora)
-  const fechaFormateada = fecha.toLocaleDateString('es-AR', {
+  const fechaFormateada = fecha.toLocaleDateString(locale, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',

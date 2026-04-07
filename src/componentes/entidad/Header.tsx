@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTema } from '@/hooks/useTema'
 import { useTraduccion } from '@/lib/i18n'
 import { Migajas } from './Migajas'
@@ -78,6 +78,8 @@ function Header({
   const [sidebarMenuAbierto, setSidebarMenuAbierto] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const sidebarMenuRef = useRef<HTMLDivElement>(null)
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const longPressFired = useRef(false)
   const esCristal = efecto !== 'solido'
 
   /* Cerrar dropdowns al click fuera */
@@ -116,17 +118,36 @@ function Header({
           <PanelLeft size={26} />
         </button>
 
-        {/* Desktop: toggle sidebar con popover */}
+        {/* Desktop: toggle sidebar con popover (clic derecho / long press abre opciones) */}
         <div ref={sidebarMenuRef} className="hidden md:block relative">
-          <Boton
-            variante="fantasma"
-            tamano="sm"
-            soloIcono
-            icono={sidebarColapsado ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
-            onClick={onToggleSidebar}
-            titulo={sidebarColapsado ? 'Expandir menú\nDoble clic: más opciones' : 'Colapsar menú\nDoble clic: más opciones'}
-            className="shrink-0"
-          />
+          <div
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setSidebarMenuAbierto(v => !v)
+            }}
+            onTouchStart={() => {
+              longPressTimerRef.current = setTimeout(() => {
+                longPressFired.current = true
+                setSidebarMenuAbierto(v => !v)
+                if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(15)
+              }, 600)
+            }}
+            onTouchEnd={() => { if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null } }}
+            onTouchMove={() => { if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null } }}
+          >
+            <Boton
+              variante="fantasma"
+              tamano="sm"
+              soloIcono
+              icono={sidebarColapsado ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
+              onClick={(e) => {
+                if (longPressFired.current) { longPressFired.current = false; return }
+                onToggleSidebar()
+              }}
+              titulo={sidebarColapsado ? 'Expandir menú\nClic derecho: más opciones' : 'Colapsar menú\nClic derecho: más opciones'}
+              className="shrink-0"
+            />
+          </div>
 
           {/* Popover de opciones del sidebar */}
           <AnimatePresence>

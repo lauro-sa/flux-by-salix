@@ -559,14 +559,14 @@ export function VistaMatriz() {
                                 <div className="size-5 rounded-md bg-red-500/20 flex items-center justify-center">
                                   <span className="text-red-400 text-[7px] font-bold">A</span>
                                 </div>
-                                <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 scale-95 pointer-events-none group-hover/celda:opacity-100 group-hover/celda:scale-100 transition-all duration-150">
-                                  <div className="bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg px-3 py-2 whitespace-nowrap">
+                                <div className="absolute z-[100] top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 scale-95 pointer-events-none group-hover/celda:opacity-100 group-hover/celda:scale-100 transition-all duration-150">
+                                  <div className="absolute left-1/2 -translate-x-1/2 bottom-full w-2 h-2 bg-superficie-elevada border-l border-t border-borde-sutil rotate-45 mb-[-5px]" />
+                                  <div className="bg-superficie-elevada border border-borde-sutil rounded-lg shadow-xl px-3 py-2 whitespace-nowrap">
                                     <div className="flex items-center gap-1.5">
                                       <div className="size-2 rounded-full bg-red-400" />
                                       <span className="text-xs font-medium text-red-400">Ausente</span>
                                     </div>
                                     <p className="text-[10px] text-texto-terciario mt-0.5">Sin registro de asistencia</p>
-                                    <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-superficie-elevada border-r border-b border-borde-sutil rotate-45 -mt-1" />
                                   </div>
                                 </div>
                               </div>
@@ -601,26 +601,26 @@ export function VistaMatriz() {
                         const colorDurTxt = estado === 'auto_cerrado' || estado === 'tardanza' ? 'text-amber-400' : 'text-emerald-400'
 
                         celda = (
-                          <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol}`}>
+                          <td key={fecha} className={`${esUltra ? 'px-0 py-1 text-center' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol}`}>
                             {esUltra ? (
                               /* Ultra compacto: solo punto de color con tooltip rico */
-                              <div className="group/celda relative mx-auto">
+                              <div className="group/celda relative inline-flex justify-center">
                                 <div
                                   className="size-5 rounded-md flex items-center justify-center cursor-default"
                                   style={{ backgroundColor: `color-mix(in srgb, ${estado === 'cerrado' ? '#10b981' : estado === 'tardanza' ? '#f59e0b' : estado === 'auto_cerrado' ? '#ef4444' : estado === 'activo' ? '#0ea5e9' : '#10b981'} 20%, transparent)` }}
                                 >
                                   <div className={`size-1.5 rounded-full ${colorPunto}`} />
                                 </div>
-                                {/* Tooltip rico al hacer hover */}
-                                <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 scale-95 pointer-events-none group-hover/celda:opacity-100 group-hover/celda:scale-100 transition-all duration-150">
-                                  <div className="bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg px-3 py-2 whitespace-nowrap min-w-[140px]">
+                                {/* Tooltip rico al hacer hover — aparece abajo */}
+                                <div className="absolute z-[100] top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 scale-95 pointer-events-none group-hover/celda:opacity-100 group-hover/celda:scale-100 transition-all duration-150">
+                                  <div className="absolute left-1/2 -translate-x-1/2 bottom-full w-2 h-2 bg-superficie-elevada border-l border-t border-borde-sutil rotate-45 mb-[-5px]" />
+                                  <div className="bg-superficie-elevada border border-borde-sutil rounded-lg shadow-xl px-3 py-2 whitespace-nowrap min-w-[150px]">
                                     <div className="flex items-center gap-1.5 mb-1">
                                       <div className={`size-2 rounded-full ${colorPunto}`} />
                                       <span className="text-xs font-medium text-texto-primario capitalize">{etiquetaEstado}</span>
                                     </div>
                                     <p className="text-sm font-mono font-semibold text-texto-primario">{horaE} → {horaS || '...'}</p>
                                     {min > 0 && <p className={`text-xs mt-0.5 ${colorDurTxt}`}>{fmtDur(min)} netos</p>}
-                                    <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-superficie-elevada border-r border-b border-borde-sutil rotate-45 -mt-1" />
                                   </div>
                                 </div>
                               </div>

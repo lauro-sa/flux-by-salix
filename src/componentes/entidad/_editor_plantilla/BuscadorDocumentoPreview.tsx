@@ -8,6 +8,7 @@
 
 import { useState, useEffect } from 'react'
 import { PenLine, ChevronDown } from 'lucide-react'
+import { useFormato } from '@/hooks/useFormato'
 import type { DocumentoResultado } from './tipos'
 
 interface PropiedadesBuscadorDocumentoPreview {
@@ -19,6 +20,7 @@ export function BuscadorDocumentoPreview({
   contactoId,
   onSeleccionar,
 }: PropiedadesBuscadorDocumentoPreview) {
+  const { locale } = useFormato()
   const [docs, setDocs] = useState<DocumentoResultado[]>([])
   const [mostrar, setMostrar] = useState(false)
   const [cargando, setCargando] = useState(false)
@@ -73,7 +75,7 @@ export function BuscadorDocumentoPreview({
                   </div>
                   {d.total_final && (
                     <span className="text-xs font-medium flex-shrink-0" style={{ color: 'var(--texto-secundario)' }}>
-                      {d.moneda === 'USD' ? 'US$' : '$'} {Number(d.total_final).toLocaleString('es-AR')}
+                      {d.moneda === 'USD' ? 'US$' : '$'} {Number(d.total_final).toLocaleString(locale)}
                     </span>
                   )}
                 </button>

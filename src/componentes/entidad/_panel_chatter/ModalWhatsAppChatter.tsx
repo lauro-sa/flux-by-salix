@@ -15,6 +15,7 @@ import {
 import { motion } from 'framer-motion'
 import { Modal } from '@/componentes/ui/Modal'
 import { Boton } from '@/componentes/ui/Boton'
+import { useFormato } from '@/hooks/useFormato'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { PlantillaWhatsApp, ComponentesPlantillaWA } from '@/tipos/inbox'
 import type { ContactoChatter, DatosDocumentoChatter } from './tipos'
@@ -41,6 +42,7 @@ export function ModalWhatsAppChatter({
   datosDocumento,
   onEnviado,
 }: PropsModalWhatsApp) {
+  const { locale } = useFormato()
   const [plantillas, setPlantillas] = useState<PlantillaWhatsApp[]>([])
   const [cargandoPlantillas, setCargandoPlantillas] = useState(false)
   const [plantillaSeleccionada, setPlantillaSeleccionada] = useState<PlantillaWhatsApp | null>(null)
@@ -486,7 +488,7 @@ export function ModalWhatsAppChatter({
                       {/* Hora */}
                       <div className="flex justify-end mt-1">
                         <span className="text-[10px]" style={{ color: '#8696a0' }}>
-                          {new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
+                          {new Date().toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
                     </div>

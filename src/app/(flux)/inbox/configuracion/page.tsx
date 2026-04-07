@@ -17,6 +17,7 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import { Alerta } from '@/componentes/ui/Alerta'
 import { CargadorSeccion } from '@/componentes/ui/Cargador'
 import SeccionAgenteIA from '@/app/(flux)/inbox/_componentes/SeccionAgenteIA'
+import { useFormato } from '@/hooks/useFormato'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Avatar } from '@/componentes/ui/Avatar'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
@@ -49,6 +50,7 @@ export default function PaginaConfiguracionInbox() {
   const router = useRouter()
   const { mostrar } = useToast()
   const { t } = useTraduccion()
+  const formato = useFormato()
   const { tienePermisoConfig } = useRol()
   const puedeConfigEmpresa = tienePermisoConfig('config_empresa', 'ver')
   const [seccionActiva, setSeccionActiva] = useState('general')
@@ -2207,6 +2209,7 @@ function EditorWhatsApp({
   titulo?: string
 }) {
   const { t } = useTraduccion()
+  const formato = useFormato()
   const [modalAbierto, setModalAbierto] = useState(false)
 
   return (
@@ -2313,7 +2316,7 @@ function EditorWhatsApp({
                       />
                       <div className="flex items-center justify-end gap-1 mt-0.5">
                         <span className="text-xxs" style={{ color: '#ffffff99' }}>
-                          {new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
+                          {new Date().toLocaleTimeString(formato.locale, { hour: '2-digit', minute: '2-digit' })}
                         </span>
                         <svg width="16" height="11" viewBox="0 0 16 11" fill="none">
                           <path d="M11.071 0.929L4.5 7.5L1.429 4.429" stroke="#53bdeb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
