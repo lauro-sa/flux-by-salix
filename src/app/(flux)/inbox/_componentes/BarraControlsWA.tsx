@@ -26,6 +26,8 @@ interface PropiedadesBarraControlsWA {
   onCambio: (cambios: Partial<Conversacion>) => void
   esMovil?: boolean
   onAbrirInfo?: () => void
+  /** Si el módulo IA está habilitado a nivel empresa (configuración inbox) */
+  iaHabilitada?: boolean
 }
 
 // ─── Tipos auxiliares ───
@@ -71,6 +73,7 @@ export function BarraControlsWA({
   onCambio,
   esMovil = false,
   onAbrirInfo,
+  iaHabilitada = true,
 }: PropiedadesBarraControlsWA) {
   const { usuario } = useAuth()
 
@@ -454,97 +457,133 @@ export function BarraControlsWA({
         <div className="w-px h-5 mx-0.5 flex-shrink-0" style={{ background: 'color-mix(in srgb, var(--borde-sutil) 60%, transparent)' }} />
 
         {/* Bot */}
-        <Popover
-          alineacion="centro"
-          ancho={200}
-          contenido={
-            <div className="py-1">
-              <p className="px-3 py-1.5 text-xxs font-medium" style={{ color: 'var(--texto-terciario)' }}>
-                Estado del chatbot
-              </p>
-              {([
-                { etiqueta: 'Activo', estado: 'activo' as const, cambios: { chatbot_activo: true, chatbot_pausado_hasta: null, agente_ia_activo: false, ia_pausado_hasta: null } },
-                { etiqueta: 'Pausado 1h', estado: 'pausado' as const, cambios: { chatbot_activo: false, chatbot_pausado_hasta: new Date(Date.now() + 3600_000).toISOString() } },
-                { etiqueta: 'Pausado 24h', estado: 'pausado' as const, cambios: { chatbot_activo: false, chatbot_pausado_hasta: new Date(Date.now() + 86400_000).toISOString() } },
-                { etiqueta: 'Inactivo', estado: 'inactivo' as const, cambios: { chatbot_activo: false, chatbot_pausado_hasta: null } },
-              ]).map((opcion) => (
-                <button
-                  key={opcion.etiqueta}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
-                  style={{ color: 'var(--texto-primario)', border: 'none', background: 'transparent' }}
-                  onClick={() => patchConversacion(opcion.cambios)}
-                >
-                  <div className="size-2 rounded-full flex-shrink-0" style={{ background: colorIndicador(opcion.estado, 'bot') }} />
-                  <span>{opcion.etiqueta}</span>
-                </button>
-              ))}
-            </div>
-          }
-        >
-          <Tooltip contenido={`Bot: ${estadoBot}`}>
+        {iaHabilitada ? (
+          <Popover
+            alineacion="centro"
+            ancho={200}
+            contenido={
+              <div className="py-1">
+                <p className="px-3 py-1.5 text-xxs font-medium" style={{ color: 'var(--texto-terciario)' }}>
+                  Estado del chatbot
+                </p>
+                {([
+                  { etiqueta: 'Activo', estado: 'activo' as const, cambios: { chatbot_activo: true, chatbot_pausado_hasta: null, agente_ia_activo: false, ia_pausado_hasta: null } },
+                  { etiqueta: 'Pausado 1h', estado: 'pausado' as const, cambios: { chatbot_activo: false, chatbot_pausado_hasta: new Date(Date.now() + 3600_000).toISOString() } },
+                  { etiqueta: 'Pausado 24h', estado: 'pausado' as const, cambios: { chatbot_activo: false, chatbot_pausado_hasta: new Date(Date.now() + 86400_000).toISOString() } },
+                  { etiqueta: 'Inactivo', estado: 'inactivo' as const, cambios: { chatbot_activo: false, chatbot_pausado_hasta: null } },
+                ]).map((opcion) => (
+                  <button
+                    key={opcion.etiqueta}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
+                    style={{ color: 'var(--texto-primario)', border: 'none', background: 'transparent' }}
+                    onClick={() => patchConversacion(opcion.cambios)}
+                  >
+                    <div className="size-2 rounded-full flex-shrink-0" style={{ background: colorIndicador(opcion.estado, 'bot') }} />
+                    <span>{opcion.etiqueta}</span>
+                  </button>
+                ))}
+              </div>
+            }
+          >
+            <Tooltip contenido={`Bot: ${estadoBot}`}>
+              <div
+                className={`${esMovil ? 'size-9' : 'h-7'} rounded-full flex items-center justify-center gap-1.5 cursor-pointer transition-colors`}
+                style={{
+                  padding: esMovil ? undefined : '0 0.625rem',
+                  background: estadoBot !== 'inactivo'
+                    ? `color-mix(in srgb, ${colorIndicador(estadoBot, 'bot')} 15%, transparent)`
+                    : 'var(--superficie-hover)',
+                  color: estadoBot !== 'inactivo' ? colorIndicador(estadoBot, 'bot') : 'var(--texto-terciario)',
+                }}
+              >
+                <Bot size={esMovil ? 16 : 12} />
+                {!esMovil && <span className="text-xs font-medium">Bot</span>}
+              </div>
+            </Tooltip>
+          </Popover>
+        ) : (
+          <Tooltip contenido="Bot deshabilitado — activalo desde Configuración → Inbox → IA">
             <div
-              className={`${esMovil ? 'size-9' : 'h-7'} rounded-full flex items-center justify-center gap-1.5 cursor-pointer transition-colors`}
+              className={`${esMovil ? 'size-9' : 'h-7'} rounded-full flex items-center justify-center gap-1.5 transition-colors`}
               style={{
                 padding: esMovil ? undefined : '0 0.625rem',
-                background: estadoBot !== 'inactivo'
-                  ? `color-mix(in srgb, ${colorIndicador(estadoBot, 'bot')} 15%, transparent)`
-                  : 'var(--superficie-hover)',
-                color: estadoBot !== 'inactivo' ? colorIndicador(estadoBot, 'bot') : 'var(--texto-terciario)',
+                background: 'var(--superficie-hover)',
+                color: 'var(--texto-terciario)',
+                opacity: 0.5,
+                cursor: 'not-allowed',
               }}
             >
               <Bot size={esMovil ? 16 : 12} />
               {!esMovil && <span className="text-xs font-medium">Bot</span>}
             </div>
           </Tooltip>
-        </Popover>
+        )}
 
         {/* Pildora IA */}
-        <Popover
-          alineacion="centro"
-          ancho={200}
-          contenido={
-            <div className="py-1">
-              <p className="px-3 py-1.5 text-xxs font-medium" style={{ color: 'var(--texto-terciario)' }}>
-                Estado del agente IA
-              </p>
-              {([
-                { etiqueta: 'Activo', estado: 'activo' as const, cambios: { agente_ia_activo: true, ia_pausado_hasta: null, chatbot_activo: false, chatbot_pausado_hasta: null } },
-                { etiqueta: 'Pausado 1h', estado: 'pausado' as const, cambios: { agente_ia_activo: false, ia_pausado_hasta: new Date(Date.now() + 3600_000).toISOString() } },
-                { etiqueta: 'Pausado 8h', estado: 'pausado' as const, cambios: { agente_ia_activo: false, ia_pausado_hasta: new Date(Date.now() + 28800_000).toISOString() } },
-                { etiqueta: 'Inactivo', estado: 'inactivo' as const, cambios: { agente_ia_activo: false, ia_pausado_hasta: null } },
-              ]).map((opcion) => (
-                <button
-                  key={opcion.etiqueta}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
-                  style={{ color: 'var(--texto-primario)', border: 'none', background: 'transparent' }}
-                  onClick={() => patchConversacion(opcion.cambios)}
-                >
-                  <div
-                    className="size-2 rounded-full flex-shrink-0"
-                    style={{ background: colorIndicador(opcion.estado, 'ia') }}
-                  />
-                  <span>{opcion.etiqueta}</span>
-                </button>
-              ))}
-            </div>
-          }
-        >
-          <Tooltip contenido={`IA: ${estadoIA}`}>
+        {iaHabilitada ? (
+          <Popover
+            alineacion="centro"
+            ancho={200}
+            contenido={
+              <div className="py-1">
+                <p className="px-3 py-1.5 text-xxs font-medium" style={{ color: 'var(--texto-terciario)' }}>
+                  Estado del agente IA
+                </p>
+                {([
+                  { etiqueta: 'Activo', estado: 'activo' as const, cambios: { agente_ia_activo: true, ia_pausado_hasta: null, chatbot_activo: false, chatbot_pausado_hasta: null } },
+                  { etiqueta: 'Pausado 1h', estado: 'pausado' as const, cambios: { agente_ia_activo: false, ia_pausado_hasta: new Date(Date.now() + 3600_000).toISOString() } },
+                  { etiqueta: 'Pausado 8h', estado: 'pausado' as const, cambios: { agente_ia_activo: false, ia_pausado_hasta: new Date(Date.now() + 28800_000).toISOString() } },
+                  { etiqueta: 'Inactivo', estado: 'inactivo' as const, cambios: { agente_ia_activo: false, ia_pausado_hasta: null } },
+                ]).map((opcion) => (
+                  <button
+                    key={opcion.etiqueta}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
+                    style={{ color: 'var(--texto-primario)', border: 'none', background: 'transparent' }}
+                    onClick={() => patchConversacion(opcion.cambios)}
+                  >
+                    <div
+                      className="size-2 rounded-full flex-shrink-0"
+                      style={{ background: colorIndicador(opcion.estado, 'ia') }}
+                    />
+                    <span>{opcion.etiqueta}</span>
+                  </button>
+                ))}
+              </div>
+            }
+          >
+            <Tooltip contenido={`IA: ${estadoIA}`}>
+              <div
+                className={`${esMovil ? 'size-9' : 'h-7'} rounded-full flex items-center justify-center gap-1.5 cursor-pointer transition-colors`}
+                style={{
+                  padding: esMovil ? undefined : '0 0.625rem',
+                  background: estadoIA !== 'inactivo'
+                    ? `color-mix(in srgb, ${colorIndicador(estadoIA, 'ia')} 15%, transparent)`
+                    : 'var(--superficie-hover)',
+                  color: estadoIA !== 'inactivo' ? colorIndicador(estadoIA, 'ia') : 'var(--texto-terciario)',
+                }}
+              >
+                <Sparkles size={esMovil ? 16 : 12} />
+                {!esMovil && <span className="text-xs font-medium">IA</span>}
+              </div>
+            </Tooltip>
+          </Popover>
+        ) : (
+          <Tooltip contenido="IA deshabilitada — activala desde Configuración → Inbox → IA">
             <div
-              className={`${esMovil ? 'size-9' : 'h-7'} rounded-full flex items-center justify-center gap-1.5 cursor-pointer transition-colors`}
+              className={`${esMovil ? 'size-9' : 'h-7'} rounded-full flex items-center justify-center gap-1.5 transition-colors`}
               style={{
                 padding: esMovil ? undefined : '0 0.625rem',
-                background: estadoIA !== 'inactivo'
-                  ? `color-mix(in srgb, ${colorIndicador(estadoIA, 'ia')} 15%, transparent)`
-                  : 'var(--superficie-hover)',
-                color: estadoIA !== 'inactivo' ? colorIndicador(estadoIA, 'ia') : 'var(--texto-terciario)',
+                background: 'var(--superficie-hover)',
+                color: 'var(--texto-terciario)',
+                opacity: 0.5,
+                cursor: 'not-allowed',
               }}
             >
               <Sparkles size={esMovil ? 16 : 12} />
               {!esMovil && <span className="text-xs font-medium">IA</span>}
             </div>
           </Tooltip>
-        </Popover>
+        )}
 
         {/* Seguir */}
         {!esAgenteAsignado && (

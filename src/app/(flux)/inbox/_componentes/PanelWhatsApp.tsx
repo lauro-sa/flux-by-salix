@@ -81,8 +81,8 @@ const ICONO_ESTADO: Record<string, React.ReactNode> = {
   failed: <AlertCircle size={12} style={{ color: 'var(--insignia-peligro)' }} />,
 }
 
-function formatoHora(fecha: string, locale: string): string {
-  return new Date(fecha).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+function formatoHora(fecha: string, locale: string, hour12 = false): string {
+  return new Date(fecha).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12 })
 }
 
 // Etiqueta de día estilo WhatsApp: Hoy, Ayer, Lunes..Domingo, o fecha completa
@@ -698,6 +698,7 @@ export function PanelWhatsApp({
               onCambio={(cambios) => onCambioConversacion?.(cambios)}
               esMovil={esMovil}
               onAbrirInfo={onAbrirInfo}
+              iaHabilitada={iaHabilitada}
             />
           </div>
         </div>
@@ -782,7 +783,7 @@ export function PanelWhatsApp({
                     <GrillaImagenes imagenes={elem.mensajes} onAbrirVisor={onAbrirVisor} />
                     <div className="flex items-center justify-end gap-1 mt-0.5">
                       <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                        {formatoHora(elem.mensajes[elem.mensajes.length - 1].creado_en, formato.locale)}
+                        {formatoHora(elem.mensajes[elem.mensajes.length - 1].creado_en, formato.locale, formato.formatoHora === '12h')}
                       </span>
                       {esPropio && ICONO_ESTADO[primerMsg.wa_status || primerMsg.estado]}
                     </div>
@@ -817,7 +818,7 @@ export function PanelWhatsApp({
                     </span>
                     <span>→</span>
                     <span>{msg.texto}</span>
-                    <span className="opacity-60">{formatoHora(msg.creado_en, formato.locale)}</span>
+                    <span className="opacity-60">{formatoHora(msg.creado_en, formato.locale, formato.formatoHora === '12h')}</span>
                   </div>
                 </motion.div>
               )
@@ -878,7 +879,7 @@ export function PanelWhatsApp({
                       </div>
                       <div className="flex items-center justify-end mt-1">
                         <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                          {formatoHora(msg.creado_en, formato.locale)}
+                          {formatoHora(msg.creado_en, formato.locale, formato.formatoHora === '12h')}
                         </span>
                       </div>
                     </div>
@@ -999,7 +1000,7 @@ export function PanelWhatsApp({
                         </span>
                       )}
                       <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                        {formatoHora(msg.creado_en, formato.locale)}
+                        {formatoHora(msg.creado_en, formato.locale, formato.formatoHora === '12h')}
                       </span>
                     </div>
                   </div>
@@ -1085,7 +1086,7 @@ export function PanelWhatsApp({
 
                     <div className="flex items-center justify-end gap-1 mt-0.5">
                       <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                        {formatoHora(msg.creado_en, formato.locale)}
+                        {formatoHora(msg.creado_en, formato.locale, formato.formatoHora === '12h')}
                       </span>
                       {ICONO_ESTADO[msg.wa_status || msg.estado]}
                     </div>
@@ -1124,7 +1125,7 @@ export function PanelWhatsApp({
                       metaHora={
                         <div className="flex items-center gap-1">
                           <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                            {formatoHora(msg.creado_en, formato.locale)}
+                            {formatoHora(msg.creado_en, formato.locale, formato.formatoHora === '12h')}
                           </span>
                           {esPropio && ICONO_ESTADO[msg.wa_status || msg.estado]}
                         </div>
@@ -1134,7 +1135,7 @@ export function PanelWhatsApp({
                     {msg.tipo_contenido !== 'audio' && (
                       <div className="flex items-center justify-end gap-1 mt-0.5">
                         <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                          {formatoHora(msg.creado_en, formato.locale)}
+                          {formatoHora(msg.creado_en, formato.locale, formato.formatoHora === '12h')}
                         </span>
                         {esPropio && ICONO_ESTADO[msg.wa_status || msg.estado]}
                       </div>
