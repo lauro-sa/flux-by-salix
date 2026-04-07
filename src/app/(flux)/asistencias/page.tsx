@@ -232,7 +232,7 @@ export default function PaginaAsistencias() {
         columnas={columnas}
         datos={registros}
         claveFila={(r) => r.id}
-        vistas={['lista']}
+        vistas={['lista', 'tarjetas']}
         seleccionables
         busqueda={busqueda}
         onBusqueda={setBusqueda}
