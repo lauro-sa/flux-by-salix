@@ -6,6 +6,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { useEsMovil } from '@/hooks/useEsMovil'
 import Holidays from 'date-holidays'
 
 // ─── Tipos ───────────────────────────────────────────────────
@@ -151,6 +152,7 @@ const COLORES_AVATAR = [
 // ─── Componente ──────────────────────────────────────────────
 
 export function VistaMatriz() {
+  const esMovil = useEsMovil()
   const [periodo, setPeriodo] = useState<Periodo>('semana')
   const [offset, setOffset] = useState(0)
   const [miembros, setMiembros] = useState<Miembro[]>([])
@@ -210,7 +212,7 @@ export function VistaMatriz() {
   return (
     <div className="flex flex-col h-full">
       {/* Header de la matriz */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-borde-sutil shrink-0">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-3 sm:px-4 py-2 sm:py-3 border-b border-borde-sutil shrink-0">
         {/* Periodo toggles */}
         <div className="flex items-center gap-1">
           {(['semana', 'quincena', 'mes'] as Periodo[]).map((p) => (
@@ -256,8 +258,8 @@ export function VistaMatriz() {
           <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronRight size={16} />} onClick={() => setOffset(o => o + 1)} />
         </div>
 
-        {/* Acciones derecha */}
-        <div className="flex items-center gap-1">
+        {/* Acciones derecha — solo desktop */}
+        <div className="hidden sm:flex items-center gap-1">
           <Boton variante="fantasma" tamano="xs">
             <Printer size={13} className="mr-1.5" /> Nómina
           </Boton>
@@ -267,10 +269,123 @@ export function VistaMatriz() {
         </div>
       </div>
 
-      {/* Tabla matriz */}
+      {/* Contenido */}
       {cargando ? (
         <div className="flex items-center justify-center flex-1 py-20">
           <Loader2 size={24} className="animate-spin text-texto-terciario" />
+        </div>
+      ) : esMovil ? (
+        /* ═══ VISTA MOBILE — Tarjetas por empleado ═══ */
+        <div className="flex-1 overflow-auto px-3 py-3 space-y-3">
+          {miembros.map((miembro, idx) => {
+            const asistMiembro = asistencias[miembro.id] || {}
+            let presentes = 0
+            let ausentes = 0
+            for (const fecha of diasLaborales) {
+              const a = asistMiembro[fecha]
+              if (a && a.estado !== 'ausente') presentes++
+              else if (a && a.estado === 'ausente') ausentes++
+            }
+            const totalLaboral = diasLaborales.length
+            const colorAvatar = COLORES_AVATAR[idx % COLORES_AVATAR.length]
+
+            return (
+              <div key={miembro.id} className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
+                {/* Header de tarjeta */}
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`size-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${colorAvatar}`}>
+                      {iniciales(miembro.nombre)}
+                    </div>
+                    <span className="font-semibold text-texto-primario text-sm">{miembro.nombre}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-texto-primario">{presentes}/{totalLaboral}</span>
+                    {ausentes > 0 && <span className="text-xs font-semibold text-red-400">{ausentes}A</span>}
+                  </div>
+                </div>
+
+                {/* Mini calendario semanal */}
+                <div className="px-3 pb-3">
+                  <div className="bg-superficie-app/50 rounded-lg border border-borde-sutil/50 overflow-hidden">
+                    {/* Días header */}
+                    <div className="grid" style={{ gridTemplateColumns: `repeat(${fechas.length}, 1fr)` }}>
+                      {fechas.map((fecha) => {
+                        const d = new Date(fecha + 'T12:00:00')
+                        const diaSemana = d.getDay()
+                        const esFinde = diaSemana === 0 || diaSemana === 6
+                        const diasCortoMovil = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
+                        return (
+                          <div key={fecha} className={`text-center py-1.5 text-[10px] font-medium ${esFinde ? 'text-texto-terciario/40' : 'text-texto-terciario'}`}>
+                            {diasCortoMovil[diaSemana]}
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Celdas */}
+                    <div className="grid" style={{ gridTemplateColumns: `repeat(${fechas.length}, 1fr)` }}>
+                      {fechas.map((fecha) => {
+                        const d = new Date(fecha + 'T12:00:00')
+                        const diaSemana = d.getDay()
+                        const esHoy = fecha === hoyStr
+                        const esFinde = diaSemana === 0 || diaSemana === 6
+                        const esFeriado = feriados.has(fecha)
+                        const asist = asistMiembro[fecha] as CeldaAsistencia | undefined
+                        const estado = estadoCelda(asist)
+
+                        // Fondo de celda
+                        let fondoCelda = ''
+                        if (esFinde) fondoCelda = 'bg-superficie-elevada/30'
+                        else if (esFeriado) fondoCelda = 'bg-violet-500/8'
+                        else if (esHoy) fondoCelda = 'bg-texto-marca/8'
+
+                        // Color del punto
+                        const colorPuntoMovil = COLOR_PUNTO[estado] || ''
+
+                        // Texto debajo del número
+                        let textoEstado = ''
+                        if (estado === 'ausente') textoEstado = 'AUS'
+                        else if (estado === 'tardanza') textoEstado = 'TAR'
+
+                        return (
+                          <div
+                            key={fecha}
+                            className={`flex flex-col items-center justify-center py-2 ${fondoCelda} ${esHoy ? 'ring-1 ring-texto-marca/30 rounded-md' : ''}`}
+                          >
+                            <span className={`text-sm font-semibold ${
+                              esHoy ? 'text-texto-marca' :
+                              esFeriado ? 'text-violet-400' :
+                              esFinde ? 'text-texto-terciario/30' :
+                              'text-texto-primario'
+                            }`}>
+                              {d.getDate()}
+                            </span>
+
+                            {esFinde ? (
+                              <span className="text-texto-terciario/20 text-[9px]">—</span>
+                            ) : estado === 'ausente' ? (
+                              <span className="text-red-400 text-[9px] font-bold">{textoEstado}</span>
+                            ) : estado === 'tardanza' ? (
+                              <span className="text-amber-400 text-[9px] font-bold">{textoEstado}</span>
+                            ) : colorPuntoMovil ? (
+                              <div className={`size-1.5 rounded-full mt-0.5 ${colorPuntoMovil}`} />
+                            ) : null}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+
+          {miembros.length === 0 && (
+            <div className="flex items-center justify-center py-20 text-texto-terciario text-sm">
+              No hay miembros activos
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex-1 overflow-auto">
