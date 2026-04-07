@@ -42,7 +42,7 @@ interface OpcionesPdf {
  */
 function envolverEnTabla(html: string, theadHtml: string): string {
   const cssTabla = `<style>
-    @page{size:A4;margin:10mm 13mm 14mm 13mm!important}
+    @page{size:A4;margin:10mm 13mm 28mm 13mm!important}
     body{padding:0!important;margin:0!important}
     .pie-wrapper{display:none!important}
     table.doc-wrapper{width:100%;border-collapse:collapse}

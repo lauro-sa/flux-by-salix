@@ -177,6 +177,8 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
     justify-content: flex-end;
     margin-bottom: 18px;
     page-break-inside: avoid;
+    break-inside: avoid;
+    page-break-before: auto;
   }
   .tabla-totales {
     width: 260px;
