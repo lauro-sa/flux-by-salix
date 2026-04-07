@@ -67,6 +67,8 @@ export interface PropsEntradaTimeline {
   entidadTipo: string
   entidadId: string
   usuarioActualId?: string
+  /** Formato de hora de la empresa: '24h' o '12h' */
+  formatoHora?: string
   onAccionComprobante: (entradaId: string, comprobanteId: string, accion: 'confirmar' | 'rechazar') => void
   onEditarNota?: (entrada: EntradaChatter) => void
   onEliminarNota?: (entradaId: string) => void

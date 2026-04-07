@@ -103,9 +103,15 @@ export const ICONOS_ACCION: Record<AccionSistema, ConfigIconoAccion> = {
 // Nombres de días para "el martes", "el jueves", etc.
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
 
-// Formatear hora (14:30)
-function formatearHora(d: Date): string {
-  return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+// Formatear hora según config de empresa (24h o 12h)
+function formatearHora(d: Date, formato: string = '24h'): string {
+  if (formato === '12h') {
+    const h = d.getHours() % 12 || 12
+    const m = String(d.getMinutes()).padStart(2, '0')
+    const ampm = d.getHours() < 12 ? 'AM' : 'PM'
+    return `${h}:${m} ${ampm}`
+  }
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
 // Formatear fecha contextual:
@@ -113,20 +119,21 @@ function formatearHora(d: Date): string {
 // Ayer → "Ayer 14:30"
 // Esta semana → "Martes 14:30"
 // Más de una semana → "21 mar 14:30" (o con año si no es el actual)
-export function fechaRelativa(fecha: string): string {
+export function fechaRelativa(fecha: string, formatoHora: string = '24h'): string {
   const ahora = new Date()
   const d = new Date(fecha)
 
-  // Comparar por días calendario (no por diferencia de ms)
   const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())
   const fechaInicio = new Date(d.getFullYear(), d.getMonth(), d.getDate())
   const diasDiff = Math.floor((hoyInicio.getTime() - fechaInicio.getTime()) / 86400000)
 
-  if (diasDiff === 0) return formatearHora(d)
-  if (diasDiff === 1) return `Ayer ${formatearHora(d)}`
+  const hora = formatearHora(d, formatoHora)
+
+  if (diasDiff === 0) return hora
+  if (diasDiff === 1) return `Ayer ${hora}`
   if (diasDiff < 7) {
     const dia = DIAS[d.getDay()]
-    return `${dia.charAt(0).toUpperCase() + dia.slice(1)} ${formatearHora(d)}`
+    return `${dia.charAt(0).toUpperCase() + dia.slice(1)} ${hora}`
   }
 
   const mismoAnio = d.getFullYear() === ahora.getFullYear()
@@ -134,7 +141,7 @@ export function fechaRelativa(fecha: string): string {
     day: 'numeric',
     month: 'short',
     ...(mismoAnio ? {} : { year: 'numeric' }),
-  }) + ` ${formatearHora(d)}`
+  }) + ` ${hora}`
 }
 
 // Formatear texto con sintaxis de WhatsApp (*negrita*, _itálica_, ~tachado~, ```mono```)
@@ -153,12 +160,8 @@ export function formatearTextoWA(texto: string): string {
 }
 
 // Formatear fecha completa para tooltip
-export function fechaCompleta(fecha: string): string {
-  return new Date(fecha).toLocaleString('es-AR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+export function fechaCompleta(fecha: string, formatoHora: string = '24h'): string {
+  const d = new Date(fecha)
+  const fechaParte = d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
+  return `${fechaParte} ${formatearHora(d, formatoHora)}`
 }

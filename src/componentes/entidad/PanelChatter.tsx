@@ -23,6 +23,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ModalActividad } from '@/app/(flux)/actividades/_componentes/ModalActividad'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useAuth } from '@/hooks/useAuth'
+import { useFormato } from '@/hooks/useFormato'
 import type { EntradaChatter, FiltroChatter } from '@/tipos/chatter'
 import { Popover } from '@/componentes/ui/Popover'
 import {
@@ -56,6 +57,7 @@ export function PanelChatter({
   className = '',
 }: PropsPanelChatter) {
   const { usuario } = useAuth()
+  const { formatoHora } = useFormato()
 
   // ─── Estado principal ───
   const [entradas, setEntradas] = useState<EntradaChatter[]>([])
@@ -471,6 +473,7 @@ export function PanelChatter({
                       entidadTipo={entidadTipo}
                       entidadId={entidadId}
                       usuarioActualId={usuario?.id}
+                      formatoHora={formatoHora}
                       onAccionComprobante={accionComprobante}
                       onEditarNota={editarNota}
                       onEliminarNota={eliminarNota}

@@ -25,6 +25,7 @@ export function EntradaTimeline({
   entrada,
   entidadTipo,
   usuarioActualId,
+  formatoHora = '24h',
   onAccionComprobante,
   onEditarNota,
   onEliminarNota,
@@ -36,14 +37,16 @@ export function EntradaTimeline({
   const esMensaje = entrada.tipo === 'mensaje'
   const esMensajePortal = esMensaje && entrada.metadata?.portal && entrada.autor_id === 'portal'
 
+  const fh = formatoHora
+
   if (esSistema) {
-    return <EntradaSistema entrada={entrada} entidadTipo={entidadTipo} onAccionComprobante={onAccionComprobante} />
+    return <EntradaSistema entrada={entrada} entidadTipo={entidadTipo} formatoHora={fh} onAccionComprobante={onAccionComprobante} />
   }
   if (esCorreo) {
-    return <EntradaCorreo entrada={entrada} />
+    return <EntradaCorreo entrada={entrada} formatoHora={fh} />
   }
   if (esWhatsApp) {
-    return <EntradaWhatsApp entrada={entrada} />
+    return <EntradaWhatsApp entrada={entrada} formatoHora={fh} />
   }
   if (esNotaInterna) {
     const esPropia = !!usuarioActualId && entrada.autor_id === usuarioActualId
@@ -51,23 +54,26 @@ export function EntradaTimeline({
       <EntradaNotaInterna
         entrada={entrada}
         esPropia={esPropia}
+        formatoHora={fh}
         onEditar={onEditarNota ? () => onEditarNota(entrada) : undefined}
         onEliminar={onEliminarNota ? () => onEliminarNota(entrada.id) : undefined}
       />
     )
   }
 
-  return <EntradaMensaje entrada={entrada} esMensajePortal={!!esMensajePortal} />
+  return <EntradaMensaje entrada={entrada} esMensajePortal={!!esMensajePortal} formatoHora={fh} />
 }
 
 // ─── Entrada de sistema ───
 function EntradaSistema({
   entrada,
   entidadTipo,
+  formatoHora,
   onAccionComprobante,
 }: {
   entrada: PropsEntradaTimeline['entrada']
   entidadTipo: string
+  formatoHora: string
   onAccionComprobante: PropsEntradaTimeline['onAccionComprobante']
 }) {
   const [accionando, setAccionando] = useState(false)
@@ -110,8 +116,8 @@ function EntradaSistema({
           </div>
         )}
 
-        <span className="text-[10px] text-texto-terciario opacity-0 group-hover:opacity-100 transition-opacity" title={fechaCompleta(entrada.creado_en)}>
-          {fechaRelativa(entrada.creado_en)}
+        <span className="text-[10px] text-texto-terciario opacity-0 group-hover:opacity-100 transition-opacity" title={fechaCompleta(entrada.creado_en, formatoHora)}>
+          {fechaRelativa(entrada.creado_en, formatoHora)}
         </span>
       </div>
     </div>
@@ -119,7 +125,7 @@ function EntradaSistema({
 }
 
 // ─── Entrada de correo (expandible) ───
-function EntradaCorreo({ entrada }: { entrada: PropsEntradaTimeline['entrada'] }) {
+function EntradaCorreo({ entrada, formatoHora }: { entrada: PropsEntradaTimeline['entrada']; formatoHora: string }) {
   const [expandido, setExpandido] = useState(false)
   const accion = entrada.metadata?.accion as AccionSistema | undefined
   const esRecibido = accion === 'correo_recibido'
@@ -146,7 +152,7 @@ function EntradaCorreo({ entrada }: { entrada: PropsEntradaTimeline['entrada'] }
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-texto-primario truncate">{entrada.autor_nombre}</span>
-            <span className="text-[10px] text-texto-terciario shrink-0">{fechaRelativa(entrada.creado_en)}</span>
+            <span className="text-[10px] text-texto-terciario shrink-0">{fechaRelativa(entrada.creado_en, formatoHora)}</span>
           </div>
           <div className="flex items-center gap-1.5 mt-0.5">
             {esRecibido && <span className="text-[10px] px-1 py-px rounded bg-canal-correo/15 text-canal-correo font-medium">Recibido</span>}
@@ -206,7 +212,7 @@ function EntradaCorreo({ entrada }: { entrada: PropsEntradaTimeline['entrada'] }
 }
 
 // ─── Entrada de WhatsApp ───
-function EntradaWhatsApp({ entrada }: { entrada: PropsEntradaTimeline['entrada'] }) {
+function EntradaWhatsApp({ entrada, formatoHora }: { entrada: PropsEntradaTimeline['entrada']; formatoHora: string }) {
   const numero = entrada.metadata?.whatsapp_numero || ''
   const destinatario = entrada.metadata?.whatsapp_destinatario || ''
   const plantilla = entrada.metadata?.whatsapp_plantilla
@@ -338,11 +344,13 @@ function PalomitasWA({ estado }: { estado?: string }) {
 function EntradaNotaInterna({
   entrada,
   esPropia,
+  formatoHora,
   onEditar,
   onEliminar,
 }: {
   entrada: PropsEntradaTimeline['entrada']
   esPropia: boolean
+  formatoHora: string
   onEditar?: () => void
   onEliminar?: () => void
 }) {
@@ -386,8 +394,8 @@ function EntradaNotaInterna({
                 )}
               </div>
             )}
-            <span className="text-[10px] text-texto-terciario" title={fechaCompleta(entrada.creado_en)}>
-              {fechaRelativa(entrada.creado_en)}
+            <span className="text-[10px] text-texto-terciario" title={fechaCompleta(entrada.creado_en, formatoHora)}>
+              {fechaRelativa(entrada.creado_en, formatoHora)}
             </span>
           </div>
         </div>
@@ -406,7 +414,7 @@ function EntradaNotaInterna({
 }
 
 // ─── Mensaje normal o portal ───
-function EntradaMensaje({ entrada, esMensajePortal }: { entrada: PropsEntradaTimeline['entrada']; esMensajePortal: boolean }) {
+function EntradaMensaje({ entrada, esMensajePortal, formatoHora }: { entrada: PropsEntradaTimeline['entrada']; esMensajePortal: boolean; formatoHora: string }) {
   return (
     <div className={`flex items-start gap-2.5 py-2 ${
       esMensajePortal ? 'bg-texto-marca/5 -mx-3 px-3 rounded-lg my-0.5' : ''
@@ -420,8 +428,8 @@ function EntradaMensaje({ entrada, esMensajePortal }: { entrada: PropsEntradaTim
               <Globe size={10} /> Portal
             </span>
           )}
-          <span className="text-[10px] text-texto-terciario ml-auto shrink-0" title={fechaCompleta(entrada.creado_en)}>
-            {fechaRelativa(entrada.creado_en)}
+          <span className="text-[10px] text-texto-terciario ml-auto shrink-0" title={fechaCompleta(entrada.creado_en, formatoHora)}>
+            {fechaRelativa(entrada.creado_en, formatoHora)}
           </span>
         </div>
         <p className="text-sm text-texto-secundario mt-0.5 whitespace-pre-wrap">{entrada.contenido}</p>
