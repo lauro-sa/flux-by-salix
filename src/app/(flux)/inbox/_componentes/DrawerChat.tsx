@@ -29,8 +29,8 @@ interface PropiedadesDrawerChat {
 
 // ─── Helpers ───
 
-function formatoHora(iso: string, locale: string): string {
-  return new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+function formatoHora(iso: string, locale: string, hour12 = false): string {
+  return new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12 })
 }
 
 function formatoFecha(iso: string, locale: string): string {
@@ -284,7 +284,7 @@ export function DrawerChat({ conversacion, tipoCanal, abierto, onCerrar, onEtapa
 
                             {/* Hora */}
                             <div className={`text-[10px] mt-0.5 text-right ${esEntrante ? 'text-texto-terciario' : 'text-white/70'}`}>
-                              {formatoHora(msg.creado_en, formato.locale)}
+                              {formatoHora(msg.creado_en, formato.locale, formato.formatoHora === '12h')}
                             </div>
                           </div>
                         </div>

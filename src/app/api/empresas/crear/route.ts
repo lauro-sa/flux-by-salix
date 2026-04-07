@@ -4,6 +4,24 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { vincularOCrearContactoEquipo } from '@/lib/contactos/contacto-equipo'
 
 /**
+ * Defaults regionales por país — se aplican al crear empresa nueva.
+ * Si el usuario no selecciona país, se usan defaults genéricos (Argentina).
+ */
+const DEFAULTS_REGIONALES: Record<string, { moneda: string; zona_horaria: string; formato_fecha: string; formato_hora: string; dia_inicio_semana: string }> = {
+  AR: { moneda: 'ARS', zona_horaria: 'America/Argentina/Buenos_Aires', formato_fecha: 'DD/MM/YYYY', formato_hora: '24h', dia_inicio_semana: 'lunes' },
+  MX: { moneda: 'MXN', zona_horaria: 'America/Mexico_City', formato_fecha: 'DD/MM/YYYY', formato_hora: '12h', dia_inicio_semana: 'lunes' },
+  CO: { moneda: 'COP', zona_horaria: 'America/Bogota', formato_fecha: 'DD/MM/YYYY', formato_hora: '12h', dia_inicio_semana: 'lunes' },
+  CL: { moneda: 'CLP', zona_horaria: 'America/Santiago', formato_fecha: 'DD/MM/YYYY', formato_hora: '24h', dia_inicio_semana: 'lunes' },
+  PE: { moneda: 'PEN', zona_horaria: 'America/Lima', formato_fecha: 'DD/MM/YYYY', formato_hora: '12h', dia_inicio_semana: 'lunes' },
+  UY: { moneda: 'UYU', zona_horaria: 'America/Montevideo', formato_fecha: 'DD/MM/YYYY', formato_hora: '24h', dia_inicio_semana: 'lunes' },
+  BR: { moneda: 'BRL', zona_horaria: 'America/Sao_Paulo', formato_fecha: 'DD/MM/YYYY', formato_hora: '24h', dia_inicio_semana: 'lunes' },
+  ES: { moneda: 'EUR', zona_horaria: 'Europe/Madrid', formato_fecha: 'DD/MM/YYYY', formato_hora: '24h', dia_inicio_semana: 'lunes' },
+  US: { moneda: 'USD', zona_horaria: 'America/New_York', formato_fecha: 'MM/DD/YYYY', formato_hora: '12h', dia_inicio_semana: 'domingo' },
+}
+
+const DEFAULTS_GENERICOS = DEFAULTS_REGIONALES.AR
+
+/**
  * POST /api/empresas/crear — Crear empresa nueva (onboarding).
  * Crea la empresa, el miembro propietario (activo=true),
  * crea contacto tipo "equipo", y setea empresa_activa_id en el JWT.
@@ -51,10 +69,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Crear empresa
+    // Defaults regionales según país seleccionado
+    const regional = DEFAULTS_REGIONALES[pais] || DEFAULTS_GENERICOS
+
+    // Crear empresa con config regional desde el inicio
     const { data: empresa, error: errorEmpresa } = await admin
       .from('empresas')
-      .insert({ nombre, slug: slugLimpio, pais: pais || null })
+      .insert({
+        nombre,
+        slug: slugLimpio,
+        pais: pais || null,
+        paises: pais ? [pais] : [],
+        moneda: regional.moneda,
+        formato_fecha: regional.formato_fecha,
+        formato_hora: regional.formato_hora,
+        dia_inicio_semana: regional.dia_inicio_semana,
+        zona_horaria: regional.zona_horaria,
+      })
       .select()
       .single()
 

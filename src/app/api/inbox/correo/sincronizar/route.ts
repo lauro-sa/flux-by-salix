@@ -15,6 +15,7 @@ import {
   type CursorSincronizacion,
 } from '@/lib/gmail'
 import type { ConfigIMAP } from '@/tipos/inbox'
+import { registrarCorreoRecibidoEnChatter } from '@/lib/chatter'
 
 /**
  * POST /api/inbox/correo/sincronizar — Sincroniza correos de un canal o todos.
@@ -594,6 +595,50 @@ async function procesarCorreoEntrante(
       } catch {
         // Silenciar si falla la notificación
       }
+    }
+  }
+
+  // ─── Vincular respuesta entrante al chatter del documento ───
+  // Si este correo responde a uno que fue enviado desde un documento,
+  // registrar la respuesta en el chatter de ese documento automáticamente
+  if (esEntrante && !syncInicial) {
+    try {
+      // Buscar en chatter si algún correo previo de esta conversación está vinculado a un documento
+      const { data: mensajesPrevios } = await admin
+        .from('mensajes')
+        .select('correo_message_id')
+        .eq('conversacion_id', conversacionId)
+        .eq('es_entrante', false)
+        .not('correo_message_id', 'is', null)
+        .limit(10)
+
+      if (mensajesPrevios?.length) {
+        const messageIds = mensajesPrevios.map(m => m.correo_message_id).filter(Boolean)
+        // Buscar en chatter si alguno de esos message_ids está vinculado a un documento
+        const { data: chatterVinculado } = await admin
+          .from('chatter')
+          .select('entidad_tipo, entidad_id')
+          .eq('empresa_id', empresaId)
+          .eq('tipo', 'correo')
+          .in('metadata->>correo_message_id', messageIds)
+          .limit(1)
+          .maybeSingle()
+
+        if (chatterVinculado) {
+          await registrarCorreoRecibidoEnChatter({
+            empresaId,
+            entidadTipo: chatterVinculado.entidad_tipo,
+            entidadId: chatterVinculado.entidad_id,
+            asunto: correo.asunto,
+            remitente: correo.de,
+            messageId: correo.messageId || undefined,
+            html: correo.html || undefined,
+          })
+        }
+      }
+    } catch (err) {
+      // No bloquear la sincronización si falla el registro en chatter
+      console.error('Error vinculando respuesta a chatter de documento:', err)
     }
   }
 

@@ -490,7 +490,7 @@ export const en: Traducciones = {
     cc: 'CC',
     cco: 'BCC',
     asunto: 'Subject',
-    bandeja_compartida: 'Shared inbox',
+    bandeja_compartida: 'Inbox',
     bandeja_personal: 'Personal inbox',
     redactar: 'Compose',
     borradores: 'Drafts',

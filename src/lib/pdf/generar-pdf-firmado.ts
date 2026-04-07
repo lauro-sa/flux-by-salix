@@ -42,15 +42,20 @@ export async function generarPdfFirmado(
   admin: SupabaseClient,
   datos: DatosAceptacion
 ): Promise<ResultadoPdfFirmado> {
-  // 1. Obtener símbolo de moneda
-  const { data: config } = await admin
-    .from('config_presupuestos')
-    .select('monedas')
-    .eq('empresa_id', datos.empresaId)
-    .single()
+  // 1. Obtener símbolo de moneda y zona horaria de la empresa
+  const [{ data: config }, { data: empresaData }] = await Promise.all([
+    admin.from('config_presupuestos').select('monedas').eq('empresa_id', datos.empresaId).single(),
+    admin.from('empresas').select('zona_horaria').eq('id', datos.empresaId).single(),
+  ])
 
   const monedas = (config?.monedas || []) as { id: string; simbolo: string }[]
   const monedaSimbolo = monedas.find(m => m.id === datos.moneda)?.simbolo || '$'
+
+  // Derivar locale de la zona horaria de la empresa
+  const zona = (empresaData?.zona_horaria as string) || ''
+  const locale = zona.startsWith('America/Argentina') ? 'es-AR'
+    : zona.startsWith('America') ? 'es-MX'
+    : 'es'
 
   // 2. Generar HTML del certificado
   const html = generarHtmlCertificado({
@@ -67,7 +72,7 @@ export async function generarPdfFirmado(
     ip: datos.ip,
     user_agent: datos.user_agent,
     fecha_hora: datos.fecha_hora,
-  })
+  }, locale)
 
   // 3. Convertir a PDF con Puppeteer
   const pdfBuffer = await htmlCertificadoAPdf(html)

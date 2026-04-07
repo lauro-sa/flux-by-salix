@@ -215,22 +215,60 @@ export async function POST(request: NextRequest) {
       adjuntos: adjuntosParaEnvio.length > 0 ? adjuntosParaEnvio : undefined,
     }
 
+    // ─── Threading automático para documentos ───
+    // Si se envía desde un documento (presupuesto, factura, etc.), buscar si ya
+    // hay correos previos enviados para ese documento y reutilizar el hilo
+    let hiloDocumento: { messageId: string; conversacionId: string; threadId?: string } | null = null
+    if (entidad_tipo && entidad_id && tipo === 'nuevo') {
+      // Buscar en chatter el último correo enviado para este documento
+      const { data: chatterPrevio } = await admin
+        .from('chatter')
+        .select('metadata')
+        .eq('empresa_id', empresaId)
+        .eq('entidad_tipo', entidad_tipo)
+        .eq('entidad_id', entidad_id)
+        .eq('tipo', 'correo')
+        .order('creado_en', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (chatterPrevio?.metadata) {
+        const meta = chatterPrevio.metadata as Record<string, unknown>
+        const prevMessageId = meta.correo_message_id as string | undefined
+        if (prevMessageId) {
+          // Buscar la conversación y threadId del mensaje previo
+          const { data: msgPrevio } = await admin
+            .from('mensajes')
+            .select('conversacion_id, metadata')
+            .eq('empresa_id', empresaId)
+            .eq('correo_message_id', prevMessageId)
+            .maybeSingle()
+
+          if (msgPrevio) {
+            hiloDocumento = {
+              messageId: prevMessageId,
+              conversacionId: msgPrevio.conversacion_id,
+              threadId: (msgPrevio.metadata as Record<string, unknown>)?.thread_id as string | undefined,
+            }
+            // Inyectar headers de threading
+            opcionesMensaje.inReplyTo = prevMessageId
+            opcionesMensaje.references = [prevMessageId]
+          }
+        }
+      }
+    }
+
     // Enviar según proveedor
     let correoMessageId: string | null = null
+    let gmailThreadId: string | null = null
 
     if (canal.proveedor === 'gmail_oauth') {
       const config = canal.config_conexion as { refresh_token: string }
 
-      // Obtener threadId si es respuesta
-      let threadId: string | undefined
-      if (conversacion_id && tipo !== 'nuevo') {
-        const { data: convData } = await admin
-          .from('conversaciones')
-          .select('hilo_externo_id')
-          .eq('id', conversacion_id)
-          .single()
-
-        // También buscar el threadId de Gmail en metadata del último mensaje
+      // Obtener threadId si es respuesta o continuación de hilo de documento
+      let threadId: string | undefined = hiloDocumento?.threadId || undefined
+      if (!threadId && conversacion_id && tipo !== 'nuevo') {
+        // Respuesta desde inbox — buscar threadId en metadata del último mensaje
         const { data: ultimoMsg } = await admin
           .from('mensajes')
           .select('metadata')
@@ -244,6 +282,7 @@ export async function POST(request: NextRequest) {
 
       const resultado = await enviarCorreoGmail(config.refresh_token, opcionesMensaje, threadId)
       correoMessageId = resultado.id
+      gmailThreadId = resultado.threadId
     } else if (canal.proveedor === 'imap') {
       const { enviarCorreoSMTP } = await import('@/lib/correo-imap')
       const config = canal.config_conexion as ConfigIMAP
@@ -264,8 +303,8 @@ export async function POST(request: NextRequest) {
       correoMessageId = resultado.messageId
     }
 
-    // Crear o usar conversación
-    let convId = conversacion_id
+    // Crear o usar conversación (prioridad: explícito > hilo documento > nueva)
+    let convId = conversacion_id || hiloDocumento?.conversacionId || null
     if (!convId) {
       // Crear nueva conversación para correo nuevo
       const { data: nuevaConv, error: errorConv } = await admin
@@ -296,6 +335,10 @@ export async function POST(request: NextRequest) {
       ? texto.slice(0, 200).replace(/\s+/g, ' ').trim()
       : '(Sin texto)'
 
+    // Headers de threading efectivos (pueden venir del body o del hilo de documento)
+    const inReplyToFinal = opcionesMensaje.inReplyTo || correo_in_reply_to || null
+    const referencesFinal = opcionesMensaje.references || (correo_references?.length > 0 ? correo_references : null)
+
     const { data: mensaje } = await admin
       .from('mensajes')
       .insert({
@@ -314,9 +357,10 @@ export async function POST(request: NextRequest) {
         correo_cco: correo_cco?.length > 0 ? correo_cco : null,
         correo_asunto: correo_asunto || null,
         correo_message_id: correoMessageId || null,
-        correo_in_reply_to: correo_in_reply_to || null,
-        correo_references: correo_references?.length > 0 ? correo_references : null,
+        correo_in_reply_to: inReplyToFinal,
+        correo_references: referencesFinal,
         estado: 'enviado',
+        ...(gmailThreadId ? { metadata: { thread_id: gmailThreadId } } : {}),
       })
       .select()
       .single()

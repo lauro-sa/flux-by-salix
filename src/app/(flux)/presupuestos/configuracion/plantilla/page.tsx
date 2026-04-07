@@ -16,6 +16,7 @@ import {
   type ConfigPdf,
 } from '@/lib/pdf/renderizar-html'
 import { PLANTILLA_PDF_DEFECTO } from '@/lib/pdf/plantilla-defecto'
+import { useFormato } from '@/hooks/useFormato'
 import { A4_ANCHO, A4_ALTO } from '@/lib/pdf/constantes'
 import { COLOR_MARCA_DEFECTO } from '@/lib/colores_entidad'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
@@ -123,6 +124,7 @@ interface PresupuestoResumen {
 
 export default function EditorPlantillaPdf() {
   const router = useRouter()
+  const { locale } = useFormato()
   const editorRef = useRef<HTMLTextAreaElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -352,11 +354,11 @@ export default function EditorPlantillaPdf() {
       plantilla_html: codigo || null,
     }
     try {
-      return renderizarHtml(datosPreview, datosEmpresa, cfgConPlantilla)
+      return renderizarHtml(datosPreview, datosEmpresa, cfgConPlantilla, locale)
     } catch {
       return '<div style="padding:40px;color:#ef4444;font-family:sans-serif"><h2>Error en la plantilla</h2><p>Revisá el HTML, puede haber un bloque sin cerrar.</p></div>'
     }
-  }, [codigo, datosPreview, datosEmpresa, configPdf])
+  }, [codigo, datosPreview, datosEmpresa, configPdf, locale])
 
   // ─── HTML con padding embebido para simular márgenes del PDF ───
   const htmlConMargenes = useMemo(() => {

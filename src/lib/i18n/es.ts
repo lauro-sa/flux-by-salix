@@ -494,7 +494,7 @@ export const es: Traducciones = {
     cc: 'CC',
     cco: 'CCO',
     asunto: 'Asunto',
-    bandeja_compartida: 'Bandeja compartida',
+    bandeja_compartida: 'Bandeja de entrada',
     bandeja_personal: 'Bandeja personal',
     redactar: 'Redactar',
     borradores: 'Borradores',

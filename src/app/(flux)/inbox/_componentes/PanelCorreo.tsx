@@ -42,13 +42,13 @@ interface PropiedadesPanelCorreo {
   firma?: string
 }
 
-function formatoFechaCorreo(fecha: string, locale: string): string {
+function formatoFechaCorreo(fecha: string, locale: string, hour12 = false): string {
   const d = new Date(fecha)
   const hoy = new Date()
   const esHoy = d.toDateString() === hoy.toDateString()
 
   if (esHoy) {
-    return d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+    return d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12 })
   }
   return d.toLocaleDateString(locale, {
     day: 'numeric',
@@ -56,6 +56,7 @@ function formatoFechaCorreo(fecha: string, locale: string): string {
     year: d.getFullYear() !== hoy.getFullYear() ? 'numeric' : undefined,
     hour: '2-digit',
     minute: '2-digit',
+    hour12,
   })
 }
 
@@ -439,7 +440,7 @@ export function PanelCorreo({
                             <Insignia color="neutro" tamano="sm">{t('inbox.enviados')}</Insignia>
                           )}
                           <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                            {formatoFechaCorreo(msg.creado_en, formato.locale)}
+                            {formatoFechaCorreo(msg.creado_en, formato.locale, formato.formatoHora === '12h')}
                           </span>
                         </span>
                         {!expandido && (

@@ -9,6 +9,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   renderizarHtml,
   generarNombreArchivo,
+  generarCabeceraYPiePdf,
   type DatosPresupuestoPdf,
   type DatosEmpresa,
   type ConfigPdf,
@@ -27,7 +28,12 @@ interface ResultadoPdf {
 
 // ─── Conversión HTML a PDF con Puppeteer ───
 
-async function htmlAPdf(html: string): Promise<{ pdf: Buffer; miniatura: Buffer | null }> {
+interface OpcionesPdf {
+  headerTemplate?: string
+  footerTemplate?: string
+}
+
+async function htmlAPdf(html: string, opciones?: OpcionesPdf): Promise<{ pdf: Buffer; miniatura: Buffer | null }> {
   let browser
   try {
     const chromium = (await import('@sparticuz/chromium-min')).default
@@ -70,15 +76,28 @@ async function htmlAPdf(html: string): Promise<{ pdf: Buffer; miniatura: Buffer 
 
   try {
     const pagina = await browser.newPage()
-    // Normalizar márgenes: anular los de la plantilla guardada y aplicar valores correctos
-    const cssMargen = '<style>@page{margin:0!important}body{padding:10mm 13mm 25mm 13mm!important;margin:0!important}</style>'
-    const htmlLimpio = html.replace('</head>', `${cssMargen}\n</head>`)
+    const tieneHeaderFooter = !!(opciones?.headerTemplate || opciones?.footerTemplate)
+
+    // CSS override: el body no necesita padding propio (Puppeteer pone los márgenes de página)
+    // y ocultamos el pie del body (ahora lo renderiza Puppeteer como footer nativo en TODAS las páginas)
+    const cssOverride = `<style>
+      body{padding:0!important;margin:0!important}
+      .pie-wrapper{display:none!important}
+    </style>`
+    const htmlLimpio = html.replace('</head>', `${cssOverride}\n</head>`)
     await pagina.setContent(htmlLimpio, { waitUntil: 'networkidle0' })
+
     const pdfBuffer = await pagina.pdf({
       format: 'A4',
       printBackground: true,
-      margin: { top: '0', bottom: '0', left: '0', right: '0' },
-      displayHeaderFooter: false,
+      // Márgenes de la página: el contenido fluye dentro de estos márgenes.
+      // Header y footer de Puppeteer se renderizan DENTRO de las áreas de margen top/bottom.
+      margin: tieneHeaderFooter
+        ? { top: '16mm', bottom: '22mm', left: '13mm', right: '13mm' }
+        : { top: '10mm', bottom: '25mm', left: '13mm', right: '13mm' },
+      displayHeaderFooter: tieneHeaderFooter,
+      headerTemplate: opciones?.headerTemplate || '<span></span>',
+      footerTemplate: opciones?.footerTemplate || '<span></span>',
       preferCSSPageSize: false,
     })
 
@@ -221,10 +240,26 @@ export async function generarPdfPresupuesto(
     datos_empresa_pdf: config?.datos_empresa_pdf || null, monedas: config?.monedas || [],
   }
 
-  const html = renderizarHtml(datosPresupuesto, datosEmpresa, configPdf)
+  // Derivar locale de la zona horaria de la empresa
+  const zona = (empresa.zona_horaria as string) || ''
+  const locale = zona.startsWith('America/Argentina') ? 'es-AR'
+    : zona.startsWith('America') ? 'es-MX'
+    : 'es'
+
+  const html = renderizarHtml(datosPresupuesto, datosEmpresa, configPdf, locale)
+
+  // 5b. Generar cabecera y pie de página para Puppeteer (multi-página)
+  const { headerTemplate, footerTemplate } = generarCabeceraYPiePdf({
+    logoUrl,
+    empresaNombre: empresa.nombre,
+    tipoDocumento: 'Presupuesto',
+    numero: presupuesto.numero,
+    colorMarca: empresa.color_marca,
+    pie: config?.pie_pagina || null,
+  })
 
   // 6. Convertir y subir
-  const { pdf: pdfBuffer, miniatura: miniaturaBuffer } = await htmlAPdf(html)
+  const { pdf: pdfBuffer, miniatura: miniaturaBuffer } = await htmlAPdf(html, { headerTemplate, footerTemplate })
   const nombreArchivo = generarNombreArchivo(config?.patron_nombre_pdf, {
     numero: presupuesto.numero, contacto_nombre: presupuesto.contacto_nombre,
     contacto_apellido: presupuesto.contacto_apellido, fecha_emision: presupuesto.fecha_emision,

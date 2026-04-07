@@ -54,11 +54,46 @@ export async function GET(
         .order('numero', { ascending: true }),
     ])
 
+    // Si no hay cuotas en BD pero tiene condición de pago tipo hitos,
+    // generar cuotas sintéticas desde la configuración para que el editor
+    // de plantillas pueda calcular correctamente monto_adelanto
+    let cuotas = cuotasRes.data || []
+    if (cuotas.length === 0 && presupuesto.condicion_pago_id && presupuesto.condicion_pago_tipo === 'hitos') {
+      const { data: config } = await admin
+        .from('config_presupuestos')
+        .select('condiciones_pago')
+        .eq('empresa_id', empresaId)
+        .single()
+
+      if (config?.condiciones_pago) {
+        const condiciones = config.condiciones_pago as Array<{
+          id: string; tipo: string; hitos: Array<{ porcentaje: number; descripcion: string; diasDesdeEmision?: number }>
+        }>
+        const condicion = condiciones.find(c => c.id === presupuesto.condicion_pago_id)
+        if (condicion?.tipo === 'hitos' && condicion.hitos?.length) {
+          const totalFinal = Number(presupuesto.total_final) || 0
+          cuotas = condicion.hitos.map((h, i) => ({
+            id: `sintetico-${i}`,
+            presupuesto_id: id,
+            empresa_id: empresaId,
+            numero: i + 1,
+            descripcion: h.descripcion || '',
+            porcentaje: String(h.porcentaje),
+            monto: String(totalFinal * h.porcentaje / 100),
+            dias_desde_emision: h.diasDesdeEmision || 0,
+            estado: 'pendiente',
+            fecha_cobro: null,
+            cobrado_por_nombre: null,
+          }))
+        }
+      }
+    }
+
     return NextResponse.json({
       ...presupuesto,
       lineas: lineasRes.data || [],
       historial: historialRes.data || [],
-      cuotas: cuotasRes.data || [],
+      cuotas,
     })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

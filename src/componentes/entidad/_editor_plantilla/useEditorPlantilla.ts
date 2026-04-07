@@ -10,6 +10,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useToast } from '@/componentes/feedback/Toast'
 import { crearNodoVariable } from '@/componentes/ui/ExtensionVariableChip'
 import { formatearVariable, revertirVariablesEnPlantilla } from '@/lib/variables/resolver'
+import { useFormato } from '@/hooks/useFormato'
 import { OPCIONES_DISPONIBLE, DATOS_EJEMPLO } from './constantes'
 import { formatoMoneda, formatoFecha, formatearHtml, compactarHtml } from './utilidades'
 import type { PlantillaRespuesta } from '@/tipos/inbox'
@@ -24,6 +25,7 @@ interface ParametrosHook {
 
 export function useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar }: ParametrosHook) {
   const { mostrar } = useToast()
+  const { locale } = useFormato()
   const esEdicion = !!plantilla
 
   // ─── Estado del formulario ───
@@ -104,8 +106,11 @@ export function useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar }:
           const primeraCuota = cuotasPreview[0]
           const cuotasPagadas = cuotasPreview.filter(c => c.estado === 'cobrada')
           const montoPagado = cuotasPagadas.reduce((sum, c) => sum + (Number(c.monto) || 0), 0)
-          const montoAdelanto = primeraCuota ? Number(primeraCuota.monto) || 0 : total
-          const porcentajeAdelanto = primeraCuota ? Number(primeraCuota.porcentaje) || 0 : 100
+          // Calcular adelanto: usar monto de cuota si existe, sino calcular con porcentaje
+          const porcentajeAdelanto = primeraCuota ? Number(primeraCuota.porcentaje) || 0 : 0
+          const montoAdelanto = primeraCuota
+            ? (Number(primeraCuota.monto) || (total * porcentajeAdelanto / 100))
+            : 0
           return {
             porcentaje_adelanto: `${porcentajeAdelanto}%`,
             monto_adelanto: formatoMoneda(String(montoAdelanto), m),
@@ -238,14 +243,14 @@ export function useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar }:
       (_m: string, ent: string, cam: string) => {
         const val = contextoVariables[ent]?.[cam]
         const txt = (val !== undefined && val !== null && val !== '')
-          ? formatearVariable(ent, cam, val, moneda)
+          ? formatearVariable(ent, cam, val, moneda, locale)
           : `{{${ent}.${cam}}}`
         return `<span data-variable="${ent}.${cam}">${txt}</span>`
       }
     )
     // Restaurar protegidos
     return protegido.replace(/__PROT_(\d+)__/g, (_m, i) => protegidos[parseInt(i)])
-  }, [contextoVariables])
+  }, [contextoVariables, locale])
 
   // Sincronizar contenido al editor TipTap cuando se abre/cambia plantilla
   useEffect(() => {
@@ -272,7 +277,7 @@ export function useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar }:
         const { entidad, campo } = node.attrs
         const valor = contextoVariables[entidad]?.[campo]
         const nuevoTexto = (valor !== undefined && valor !== null && valor !== '')
-          ? formatearVariable(entidad, campo, valor, moneda)
+          ? formatearVariable(entidad, campo, valor, moneda, locale)
           : `{{${entidad}.${campo}}}`
         if (node.attrs.texto !== nuevoTexto) {
           editor.view.dispatch(
@@ -346,13 +351,13 @@ export function useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar }:
       const [, entidad, campo] = match
       const preview = contextoVariables[entidad]?.[campo]
       const moneda = (contextoVariables?.presupuesto?.moneda || contextoVariables?.empresa?.moneda || 'ARS') as string
-      const valorPreview = (preview !== undefined && preview !== null && preview !== '') ? formatearVariable(entidad, campo, preview, moneda) : ''
+      const valorPreview = (preview !== undefined && preview !== null && preview !== '') ? formatearVariable(entidad, campo, preview, moneda, locale) : ''
       editor.chain().focus().insertContent(crearNodoVariable(entidad, campo, valorPreview)).run()
     } else {
       editor.chain().focus().insertContent(variable).run()
     }
     setVariablesCuerpoAbierto(false)
-  }, [contextoVariables])
+  }, [contextoVariables, locale])
 
   // ─── Rastrear cursor del editor para el { } flotante ───
   const actualizarCursorEditor = useCallback(() => {

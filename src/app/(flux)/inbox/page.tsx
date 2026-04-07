@@ -25,6 +25,7 @@ import { CompositorCorreo, type DatosCorreo } from './_componentes/CompositorCor
 import { SidebarCorreo, type CarpetaCorreo } from './_componentes/SidebarCorreo'
 import { PanelInterno } from './_componentes/PanelInterno'
 import { ModalCrearCanalInterno } from './_componentes/ModalCrearCanalInterno'
+import { ModalNuevoWhatsApp } from './_componentes/ModalNuevoWhatsApp'
 import { PanelInfoContacto } from './_componentes/PanelInfoContacto'
 import type {
   TipoCanal, EstadoConversacion, ConversacionConDetalles,
@@ -122,6 +123,10 @@ function PaginaInbox() {
   const [canalTodas, setCanalTodas] = useState(false)
   const [contadoresCorreo, setContadoresCorreo] = useState<Record<string, { entrada: number; spam: number }>>({})
   const [sincronizando, setSincronizando] = useState(false)
+
+  // WhatsApp: modal nuevo mensaje + canal WA
+  const [modalNuevoWA, setModalNuevoWA] = useState(false)
+  const [canalWAId, setCanalWAId] = useState<string>('')
 
   // Modo de vista: 'columna' (3 paneles) o 'fila' (lista se reemplaza por correo al seleccionar)
   type ModoVista = 'columna' | 'fila'
@@ -272,6 +277,18 @@ function PaginaInbox() {
     }
     cargarConfig()
   }, [])
+
+  // Cargar canal WhatsApp activo (para modal de nuevo mensaje)
+  useEffect(() => {
+    if (!configCargada || !modulosActivos.has('inbox_whatsapp')) return
+    fetch('/api/inbox/canales?tipo=whatsapp')
+      .then(r => r.json())
+      .then(data => {
+        const canales = data.canales || []
+        if (canales.length > 0) setCanalWAId(canales[0].id)
+      })
+      .catch(() => {})
+  }, [configCargada, modulosActivos])
 
   // Helper: construir params de filtro para conversaciones (DRY — usado en carga y polling)
   const construirParamsConversaciones = useCallback(() => {
@@ -924,6 +941,77 @@ function PaginaInbox() {
       setEnviando(false)
     }
   }, [conversacionSeleccionada, supabase])
+
+  // Enviar nuevo WhatsApp a un número (desde modal)
+  // Crea la conversación, envía la plantilla, y selecciona la conversación
+  const enviarNuevoWhatsApp = useCallback(async (telefono: string, plantilla: import('@/tipos/inbox').PlantillaWhatsApp, valoresVariables: string[]) => {
+    if (!canalWAId) throw new Error('No hay canal WhatsApp configurado')
+
+    // 1. Crear conversación
+    const resConv = await fetch('/api/inbox/conversaciones', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        canal_id: canalWAId,
+        tipo_canal: 'whatsapp',
+        identificador_externo: telefono,
+      }),
+    })
+    if (!resConv.ok) {
+      const data = await resConv.json().catch(() => ({ error: 'Error desconocido' }))
+      mostrar('error', data.error || 'Error al crear conversación')
+      throw new Error(data.error)
+    }
+    const { conversacion } = await resConv.json()
+
+    // 2. Construir componentes Meta para la plantilla usando los valores del usuario
+    const componentesMeta: Record<string, unknown>[] = []
+    const cuerpo = plantilla.componentes?.cuerpo
+    if (cuerpo?.texto) {
+      const matches = cuerpo.texto.match(/\{\{\d+\}\}/g)
+      if (matches && matches.length > 0) {
+        const parametros = matches.map((_, i) => {
+          // Usar valor del usuario tal cual (puede estar vacío si no quiere completar)
+          const valor = valoresVariables[i] ?? ''
+          return { type: 'text', text: valor }
+        })
+        componentesMeta.push({ type: 'body', parameters: parametros })
+      }
+    }
+    const encabezado = plantilla.componentes?.encabezado
+    if (encabezado?.tipo === 'TEXT' && encabezado.texto?.includes('{{1}}')) {
+      componentesMeta.push({
+        type: 'header',
+        parameters: [{ type: 'text', text: encabezado.ejemplo || '' }],
+      })
+    }
+
+    // 3. Enviar plantilla
+    const resEnvio = await fetch('/api/inbox/whatsapp/enviar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        conversacion_id: conversacion.id,
+        canal_id: canalWAId,
+        tipo: 'plantilla',
+        plantilla_nombre_api: plantilla.nombre_api,
+        plantilla_idioma: plantilla.idioma,
+        plantilla_componentes: componentesMeta,
+      }),
+    })
+    if (!resEnvio.ok) {
+      const data = await resEnvio.json().catch(() => ({ error: 'Error desconocido' }))
+      mostrar('error', data.error || 'Error al enviar plantilla')
+      throw new Error(data.error)
+    }
+
+    mostrar('exito', `Plantilla enviada a ${telefono}`)
+
+    // 4. Recargar conversaciones y seleccionar la nueva
+    await cargarConversaciones()
+    seleccionarConversacion(conversacion.id)
+    if (esMovil) setVistaMovilWA('chat')
+  }, [canalWAId, mostrar, cargarConversaciones, seleccionarConversacion, esMovil])
 
   // Reaccionar a un mensaje (optimistic update + API call)
   // Compartido entre WhatsApp, Interno y cualquier canal
@@ -1805,6 +1893,7 @@ function PaginaInbox() {
                   totalNoLeidos={totalNoLeidos}
                   botHabilitado={botHabilitado}
                   iaHabilitada={iaHabilitada}
+                  onNuevoMensaje={canalWAId ? () => setModalNuevoWA(true) : undefined}
                   onEliminarSeleccion={eliminarMultiples}
                   soloNoLeidos={soloNoLeidos}
                   onToggleNoLeidos={() => setSoloNoLeidos(prev => !prev)}
@@ -2075,6 +2164,16 @@ function PaginaInbox() {
         onCerrar={() => setVisorAbierto(false)}
         onCambiarIndice={setVisorIndice}
       />
+
+      {/* Modal nuevo WhatsApp */}
+      {canalWAId && (
+        <ModalNuevoWhatsApp
+          abierto={modalNuevoWA}
+          onCerrar={() => setModalNuevoWA(false)}
+          canalId={canalWAId}
+          onEnviar={enviarNuevoWhatsApp}
+        />
+      )}
     </div>
   )
 }

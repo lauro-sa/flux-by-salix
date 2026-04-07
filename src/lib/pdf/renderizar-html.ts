@@ -421,6 +421,103 @@ export function renderizarHtml(
   return html
 }
 
+// ─── Plantillas de cabecera y pie para Puppeteer (multi-página) ───
+
+/**
+ * Renderiza una columna del pie de página para Puppeteer.
+ * Igual que renderizarColumnaPie pero usa clases especiales de Puppeteer
+ * para la numeración dinámica (pageNumber / totalPages).
+ */
+function renderizarColumnaPiePuppeteer(
+  columna?: { tipo?: string; texto?: string; tamano_texto?: number; imagen_url?: string; texto_imagen?: string; posicion_texto?: string; alineacion_texto?: string },
+  tamanoBase?: number
+): string {
+  if (!columna || columna.tipo === 'vacio') return ''
+  if (columna.tipo === 'texto') {
+    const tam = columna.tamano_texto || tamanoBase || 10
+    return columna.texto ? `<span style="font-size:${tam}px;">${columna.texto}</span>` : ''
+  }
+  if (columna.tipo === 'numeracion') {
+    return '<span style="font-size:8px;">Página <span class="pageNumber"></span> de <span class="totalPages"></span></span>'
+  }
+  if (columna.tipo === 'imagen') {
+    const img = columna.imagen_url ? `<img src="${columna.imagen_url}" style="max-height:30px;object-fit:contain;">` : ''
+    const txt = columna.texto_imagen ? `<span style="font-size:0.85em;">${columna.texto_imagen}</span>` : ''
+    if (!txt) return img
+    const esArriba = columna.posicion_texto === 'arriba'
+    const alin = columna.alineacion_texto === 'derecha' ? 'flex-end' : columna.alineacion_texto === 'centro' ? 'center' : 'flex-start'
+    return `<div style="display:inline-flex;flex-direction:column;align-items:${alin};gap:2px;">${esArriba ? txt + img : img + txt}</div>`
+  }
+  return ''
+}
+
+interface OpcionesCabeceraYPie {
+  logoUrl: string
+  empresaNombre: string
+  tipoDocumento: string
+  numero: string
+  colorMarca: string | null | undefined
+  pie: ConfigPiePagina | null
+}
+
+/**
+ * Genera las plantillas HTML de cabecera y pie de página para Puppeteer.
+ * - Cabecera: mini membrete visible solo en página 2+ (logo chico + nombre empresa + nro documento)
+ * - Pie: contenido configurable + numeración "Página X de Y"
+ * Se usa en: generar-pdf.ts (Puppeteer displayHeaderFooter)
+ */
+export function generarCabeceraYPiePdf(opciones: OpcionesCabeceraYPie): {
+  headerTemplate: string
+  footerTemplate: string
+} {
+  const { logoUrl, empresaNombre, tipoDocumento, numero, colorMarca, pie } = opciones
+  const color = colorMarca || COLOR_MARCA_DEFECTO
+  const rgb = hexARgb(color)
+  const colorPrimario = `rgb(${rgb})`
+
+  // ── Cabecera: mini membrete en todas las páginas ──
+  // Se muestra en todas las páginas como barra sutil con empresa + nro documento.
+  // En página 1 aparece arriba del membrete completo (contexto profesional).
+  // En páginas 2+ sirve como referencia del documento.
+  const headerTemplate = `<div style="width:100%;padding:0 13mm;font-family:Helvetica,Arial,sans-serif;font-size:10px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:2mm 0 1mm;border-bottom:0.5px solid #e5e7eb;">
+    <div style="display:flex;align-items:center;gap:6px;">
+      ${logoUrl ? `<img src="${logoUrl}" style="max-height:16px;object-fit:contain;" />` : ''}
+      <span style="font-size:7pt;color:#9ca3af;">${empresaNombre}</span>
+    </div>
+    <span style="font-size:7pt;color:#9ca3af;">${tipoDocumento} ${numero} — Página <span class="pageNumber"></span> de <span class="totalPages"></span></span>
+  </div>
+</div>`
+
+  // ── Pie de página: contenido configurable + numeración ──
+  const tamano = pie?.tamano_texto || 10
+  const izq = renderizarColumnaPiePuppeteer(pie?.columnas?.izquierda, tamano)
+  const cen = renderizarColumnaPiePuppeteer(pie?.columnas?.centro, tamano)
+  const der = renderizarColumnaPiePuppeteer(pie?.columnas?.derecha, tamano)
+  const tieneContenidoPie = !!(izq || cen || der)
+
+  // Verificar si alguna columna ya tiene numeración para no duplicar
+  const tieneNumeracion = [pie?.columnas?.izquierda, pie?.columnas?.centro, pie?.columnas?.derecha]
+    .some(c => c?.tipo === 'numeracion')
+
+  const lineaSuperior = pie?.linea_superior !== false
+  const grosorLinea = pie?.grosor_linea || 1
+  const colorLinea = pie?.color_linea === 'marca' ? colorPrimario : '#d1d5db'
+
+  // Puppeteer necesita font-size explícito en el root (por defecto es 0)
+  const footerTemplate = `<div style="width:100%;padding:0 13mm;font-family:Helvetica,Arial,sans-serif;font-size:${tamano}px;">
+  ${lineaSuperior && tieneContenidoPie ? `<div style="border-top:${grosorLinea}px solid ${colorLinea};margin-bottom:4px;"></div>` : ''}
+  ${tieneContenidoPie ? `<div style="display:flex;justify-content:space-between;align-items:center;color:#9ca3af;">
+    <div>${izq}</div>
+    <div style="text-align:center;">${cen}</div>
+    <div style="text-align:right;">${der}</div>
+  </div>` : ''}
+  ${!tieneNumeracion ? `<div style="text-align:center;font-size:7pt;color:#b0b0b0;margin-top:2px;">Página <span class="pageNumber"></span> de <span class="totalPages"></span></div>` : ''}
+</div>`
+
+  return { headerTemplate, footerTemplate }
+}
+
 // ─── Nombre del archivo ───
 
 export function generarNombreArchivo(

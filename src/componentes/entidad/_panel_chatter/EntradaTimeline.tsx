@@ -255,7 +255,7 @@ function EntradaWhatsApp({ entrada, formatoHora, locale }: { entrada: PropsEntra
       {/* Hora + palomitas (estilo inbox: abajo a la derecha) */}
       <div className="flex items-center justify-end gap-1 px-3 pb-2">
         <span className="text-[10px] text-texto-terciario">
-          {new Date(entrada.creado_en).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+          {new Date(entrada.creado_en).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: formatoHora === '12h' })}
         </span>
         <PalomitasWA estado={waStatus} />
       </div>

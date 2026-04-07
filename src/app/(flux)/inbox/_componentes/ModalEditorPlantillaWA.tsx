@@ -123,7 +123,7 @@ interface Props {
 // ─── Componente ───
 
 export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, onGuardado }: Props) {
-  const { locale } = useFormato()
+  const { locale, formatoHora: fmtHora } = useFormato()
   const { mostrar } = useToast()
   const [guardando, setGuardando] = useState(false)
   const [enviandoAMeta, setEnviandoAMeta] = useState(false)
@@ -963,7 +963,7 @@ function SelectoresPreviewDatos({
 // ─── Preview estilo WhatsApp ───
 
 function PreviewWhatsApp({ componentes, datosPreview }: { componentes: ComponentesPlantillaWA; datosPreview?: DatosPreview }) {
-  const { locale } = useFormato()
+  const { locale, formatoHora: fmtHora } = useFormato()
   const cuerpoHtml = useMemo(() => {
     let texto = componentes.cuerpo?.texto || ''
     const ejemplos = componentes.cuerpo?.ejemplos || []
@@ -1055,7 +1055,7 @@ function PreviewWhatsApp({ componentes, datosPreview }: { componentes: Component
           )}
           <div className="flex justify-end mt-1">
             <span className="text-[10px]" style={{ color: '#8696a0' }}>
-              {new Date().toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+              {new Date().toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: fmtHora === '12h' })}
             </span>
           </div>
         </div>

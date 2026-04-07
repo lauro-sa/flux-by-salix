@@ -12,7 +12,7 @@ import {
   ChevronDown, ChevronLeft, ChevronRight as ChevronRightIcon,
   Circle, Square, CheckSquare,
   Tag, CheckCircle, Eye, EyeOff,
-  MoreVertical, Pin, BellOff,
+  MoreVertical, Pin, BellOff, Plus,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { MenuConversacion } from './MenuConversacion'
@@ -58,6 +58,8 @@ interface PropiedadesListaConversaciones {
   botHabilitado?: boolean
   /** Si el agente IA está habilitado a nivel empresa */
   iaHabilitada?: boolean
+  /** Callback para abrir modal de nuevo mensaje (botón "+" en barra de búsqueda) */
+  onNuevoMensaje?: () => void
 }
 
 // Iconos de canal
@@ -119,6 +121,7 @@ export function ListaConversaciones({
   accionesHeader,
   botHabilitado = true,
   iaHabilitada = true,
+  onNuevoMensaje,
 }: PropiedadesListaConversaciones) {
   const { t } = useTraduccion()
   const formato = useFormato()
@@ -292,6 +295,18 @@ export function ListaConversaciones({
           valor={busqueda}
           onChange={onBusqueda}
           placeholder={`Buscar entre ${conversaciones.length} correo${conversaciones.length !== 1 ? 's' : ''}...`}
+          accionDerecha={onNuevoMensaje ? (
+            <button
+              onClick={onNuevoMensaje}
+              title="Nuevo mensaje"
+              className="flex items-center justify-center size-5 rounded-full bg-transparent border-none cursor-pointer transition-colors"
+              style={{ color: 'var(--texto-terciario)' }}
+              onMouseEnter={(e) => e.currentTarget.style.color = 'var(--texto-primario)'}
+              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--texto-terciario)'}
+            >
+              <Plus size={14} />
+            </button>
+          ) : undefined}
         />
 
         {/* Paginador */}

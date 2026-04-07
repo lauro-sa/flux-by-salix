@@ -2316,7 +2316,7 @@ function EditorWhatsApp({
                       />
                       <div className="flex items-center justify-end gap-1 mt-0.5">
                         <span className="text-xxs" style={{ color: '#ffffff99' }}>
-                          {new Date().toLocaleTimeString(formato.locale, { hour: '2-digit', minute: '2-digit' })}
+                          {new Date().toLocaleTimeString(formato.locale, { hour: '2-digit', minute: '2-digit', hour12: formato.formatoHora === '12h' })}
                         </span>
                         <svg width="16" height="11" viewBox="0 0 16 11" fill="none">
                           <path d="M11.071 0.929L4.5 7.5L1.429 4.429" stroke="#53bdeb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>

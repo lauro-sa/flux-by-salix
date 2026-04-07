@@ -46,7 +46,7 @@ function proximoLunesALas9(): Date {
 }
 
 /** Formatea una fecha ISO a texto legible */
-function formatearFecha(iso: string, locale: string): string {
+function formatearFecha(iso: string, locale: string, hour12 = false): string {
   try {
     const fecha = new Date(iso)
     const ahora = new Date()
@@ -54,7 +54,7 @@ function formatearFecha(iso: string, locale: string): string {
     const diaFecha = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate())
     const diffDias = Math.round((diaFecha.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24))
 
-    const hora = fecha.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+    const hora = fecha.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12 })
 
     if (diffDias === 0) return `Hoy a las ${hora}`
     if (diffDias === 1) return `Mañana a las ${hora}`
@@ -214,7 +214,7 @@ function PopoverSnooze({
         >
           <div className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--insignia-advertencia, #f59e0b)' }}>
             <BellRing size={14} />
-            <span>Pospuesta hasta {formatearFecha(snoozeActual.hasta, formato.locale)}</span>
+            <span>Pospuesta hasta {formatearFecha(snoozeActual.hasta, formato.locale, formato.formatoHora === '12h')}</span>
           </div>
           {snoozeActual.nota && (
             <p className="text-xs pl-[22px]" style={{ color: 'var(--texto-secundario)' }}>
@@ -392,8 +392,8 @@ function PopoverSnooze({
         tamano="sm"
         soloIcono
         icono={estaPospuesta ? <BellRing size={16} /> : <Clock size={16} />}
-        titulo={estaPospuesta ? `Pospuesta hasta ${formatearFecha(snoozeActual!.hasta, formato.locale)}` : 'Posponer conversación'}
-        tooltip={estaPospuesta ? `Pospuesta hasta ${formatearFecha(snoozeActual!.hasta, formato.locale)}` : 'Posponer'}
+        titulo={estaPospuesta ? `Pospuesta hasta ${formatearFecha(snoozeActual!.hasta, formato.locale, formato.formatoHora === '12h')}` : 'Posponer conversación'}
+        tooltip={estaPospuesta ? `Pospuesta hasta ${formatearFecha(snoozeActual!.hasta, formato.locale, formato.formatoHora === '12h')}` : 'Posponer'}
       />
     </Popover>
   )

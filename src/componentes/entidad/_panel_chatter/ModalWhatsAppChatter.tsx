@@ -42,7 +42,7 @@ export function ModalWhatsAppChatter({
   datosDocumento,
   onEnviado,
 }: PropsModalWhatsApp) {
-  const { locale } = useFormato()
+  const { locale, formatoHora: fmtHora } = useFormato()
   const [plantillas, setPlantillas] = useState<PlantillaWhatsApp[]>([])
   const [cargandoPlantillas, setCargandoPlantillas] = useState(false)
   const [plantillaSeleccionada, setPlantillaSeleccionada] = useState<PlantillaWhatsApp | null>(null)
@@ -488,7 +488,7 @@ export function ModalWhatsAppChatter({
                       {/* Hora */}
                       <div className="flex justify-end mt-1">
                         <span className="text-[10px]" style={{ color: '#8696a0' }}>
-                          {new Date().toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+                          {new Date().toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: fmtHora === '12h' })}
                         </span>
                       </div>
                     </div>

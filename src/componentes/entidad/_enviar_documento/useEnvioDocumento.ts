@@ -10,6 +10,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { crearNodoVariable } from '@/componentes/ui/ExtensionVariableChip'
 import { resolverVariables as resolverVariablesLib, formatearVariable, revertirVariablesEnPlantilla } from '@/lib/variables/resolver'
+import { useFormato } from '@/hooks/useFormato'
 import type {
   CanalCorreoEmpresa,
   PlantillaCorreo,
@@ -59,6 +60,8 @@ export function useEnvioDocumento({
   onGuardarBorrador,
   onGuardarPlantilla,
 }: ParametrosHook) {
+  const { locale } = useFormato()
+
   // ─── Estado del formulario ───
   const canalPredeterminado = canales.find(c => c.predeterminado) || canales[0]
   const [canalId, setCanalId] = useState(canalPredeterminado?.id || '')
@@ -154,7 +157,7 @@ export function useEnvioDocumento({
   const resolverVariables = useCallback((texto: string): string => {
     if (!contextoVariables || !texto) return texto
     // 1. Resolver {{entidad.campo}} → valor formateado
-    let resultado = resolverVariablesLib(texto, contextoVariables)
+    let resultado = resolverVariablesLib(texto, contextoVariables, locale)
     // 2. Actualizar spans de variable con valores frescos del contexto
     const moneda = (contextoVariables.presupuesto?.moneda || contextoVariables.empresa?.moneda || 'ARS') as string
     resultado = resultado.replace(
@@ -162,13 +165,13 @@ export function useEnvioDocumento({
       (_match, entidad: string, campo: string) => {
         const valor = contextoVariables[entidad]?.[campo]
         const formateado = (valor !== undefined && valor !== null && valor !== '')
-          ? formatearVariable(entidad, campo, valor, moneda)
+          ? formatearVariable(entidad, campo, valor, moneda, locale)
           : `{{${entidad}.${campo}}}`
         return `<span data-variable="${entidad}.${campo}" class="variable-resaltada" title="{{${entidad}.${campo}}}" contenteditable="false">${formateado}</span>`
       }
     )
     return resultado
-  }, [contextoVariables])
+  }, [contextoVariables, locale])
 
   // ─── Snapshot del contenido resuelto al aplicar plantilla (para detectar cambios) ───
   const [plantillaAsuntoOriginal, setPlantillaAsuntoOriginal] = useState('')
@@ -261,13 +264,13 @@ export function useEnvioDocumento({
       const [, entidad, campo] = match
       const preview = contextoVariables?.[entidad]?.[campo]
       const moneda = (contextoVariables?.presupuesto?.moneda || contextoVariables?.empresa?.moneda || 'ARS') as string
-      const valorPreview = (preview !== undefined && preview !== null && preview !== '') ? formatearVariable(entidad, campo, preview, moneda) : ''
+      const valorPreview = (preview !== undefined && preview !== null && preview !== '') ? formatearVariable(entidad, campo, preview, moneda, locale) : ''
       editor.chain().focus().insertContent(crearNodoVariable(entidad, campo, valorPreview)).run()
     } else {
       editor.chain().focus().insertContent(variable).run()
     }
     setVariablesCuerpoAbierto(false)
-  }, [contextoVariables])
+  }, [contextoVariables, locale])
 
   // ─── Guardar como borrador ───
   const handleGuardarBorrador = useCallback(() => {

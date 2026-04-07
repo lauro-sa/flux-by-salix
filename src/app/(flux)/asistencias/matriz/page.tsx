@@ -96,9 +96,9 @@ function obtenerRango(periodo: Periodo, offset: number, locale: string): { desde
   return { desde, hasta, etiqueta: etiqueta.charAt(0).toUpperCase() + etiqueta.slice(1) }
 }
 
-function formatearHora(iso: string | null, locale: string): string {
+function formatearHora(iso: string | null, locale: string, hour12 = false): string {
   if (!iso) return ''
-  return new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12 })
 }
 
 function estadoCelda(asist: CeldaAsistencia | undefined): string {
@@ -113,7 +113,8 @@ function estadoCelda(asist: CeldaAsistencia | undefined): string {
 
 export default function PaginaMatrizAsistencias() {
   const router = useRouter()
-  const { locale } = useFormato()
+  const { locale, formatoHora: fmtHora } = useFormato()
+  const hour12 = fmtHora === '12h'
   const [periodo, setPeriodo] = useState<Periodo>('semana')
   const [offset, setOffset] = useState(0)
   const [miembros, setMiembros] = useState<Miembro[]>([])
@@ -253,7 +254,7 @@ export default function PaginaMatrizAsistencias() {
                       >
                         {asist && config ? (
                           <div
-                            title={`${config.etiqueta}${asist.hora_entrada ? ` | E: ${formatearHora(asist.hora_entrada, locale)}` : ''}${asist.hora_salida ? ` | S: ${formatearHora(asist.hora_salida, locale)}` : ''}`}
+                            title={`${config.etiqueta}${asist.hora_entrada ? ` | E: ${formatearHora(asist.hora_entrada, locale, hour12)}` : ''}${asist.hora_salida ? ` | S: ${formatearHora(asist.hora_salida, locale, hour12)}` : ''}`}
                             className={`mx-auto size-7 rounded-md flex items-center justify-center cursor-default ${config.bg}`}
                           >
                             <span className={`text-[10px] font-bold ${config.texto}`}>

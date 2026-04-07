@@ -490,7 +490,7 @@ export const pt: Traducciones = {
     cc: 'CC',
     cco: 'CCO',
     asunto: 'Assunto',
-    bandeja_compartida: 'Caixa compartilhada',
+    bandeja_compartida: 'Caixa de entrada',
     bandeja_personal: 'Caixa pessoal',
     redactar: 'Redigir',
     borradores: 'Rascunhos',

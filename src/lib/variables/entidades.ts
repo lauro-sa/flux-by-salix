@@ -440,7 +440,7 @@ const variablesFecha: DefinicionVariable[] = [
   { clave: 'hoy', etiqueta: 'Fecha de hoy', tipo_dato: 'fecha', origen: 'calculado', grupo: 'basico',
     calcular: () => new Date() },
   { clave: 'hora', etiqueta: 'Hora actual', tipo_dato: 'texto', origen: 'calculado', grupo: 'basico',
-    calcular: (d) => new Date().toLocaleTimeString((d?._locale as string) || 'es-AR', { hour: '2-digit', minute: '2-digit' }) },
+    calcular: (d) => new Date().toLocaleTimeString((d?._locale as string) || 'es-AR', { hour: '2-digit', minute: '2-digit', hour12: (d?._formatoHora as string) === '12h' }) },
   { clave: 'dia_semana', etiqueta: 'Día de la semana', tipo_dato: 'texto', origen: 'calculado', grupo: 'basico',
     calcular: (d) => new Date().toLocaleDateString((d?._locale as string) || 'es-AR', { weekday: 'long' }) },
   { clave: 'mes', etiqueta: 'Mes actual', tipo_dato: 'texto', origen: 'calculado', grupo: 'basico',
