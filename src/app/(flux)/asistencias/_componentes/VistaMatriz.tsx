@@ -156,14 +156,22 @@ export function VistaMatriz() {
   const [miembros, setMiembros] = useState<Miembro[]>([])
   const [asistencias, setAsistencias] = useState<Record<string, Record<string, CeldaAsistencia>>>({})
   const [cargando, setCargando] = useState(true)
+  const [ocultarFindes, setOcultarFindes] = useState(false)
 
   const { desde, hasta, etiqueta, subtitulo } = useMemo(() => obtenerRango(periodo, offset), [periodo, offset])
-  const fechas = useMemo(() => generarFechas(desde, hasta), [desde, hasta])
+  const todasLasFechas = useMemo(() => generarFechas(desde, hasta), [desde, hasta])
+  const fechas = useMemo(() => {
+    if (!ocultarFindes) return todasLasFechas
+    return todasLasFechas.filter(f => {
+      const d = new Date(f + 'T12:00:00').getDay()
+      return d !== 0 && d !== 6
+    })
+  }, [todasLasFechas, ocultarFindes])
 
   // Feriados argentinos (offline via date-holidays)
   const feriados = useMemo(() => {
     const hd = new Holidays('AR')
-    const anios = new Set(fechas.map(f => parseInt(f.split('-')[0])))
+    const anios = new Set(todasLasFechas.map(f => parseInt(f.split('-')[0])))
     const mapa = new Map<string, string>()
     for (const anio of anios) {
       for (const h of hd.getHolidays(anio)) {
@@ -175,10 +183,10 @@ export function VistaMatriz() {
     }
     return mapa
   }, [fechas])
-  const diasLaborales = useMemo(() => fechas.filter(f => {
+  const diasLaborales = useMemo(() => todasLasFechas.filter(f => {
     const d = new Date(f + 'T12:00:00').getDay()
     return d !== 0 && d !== 6
-  }), [fechas])
+  }), [todasLasFechas])
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -220,9 +228,18 @@ export function VistaMatriz() {
             </button>
           ))}
 
-          {/* Filtros placeholder */}
-          <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full text-texto-terciario hover:text-texto-secundario hover:bg-superficie-elevada/50 transition-colors">
+          {/* Ocultar fines de semana */}
+          <button
+            onClick={() => setOcultarFindes(v => !v)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+              ocultarFindes
+                ? 'bg-texto-marca/15 text-texto-marca border border-texto-marca/20'
+                : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-elevada/50'
+            }`}
+            title={ocultarFindes ? 'Mostrar fines de semana' : 'Ocultar fines de semana'}
+          >
             <SlidersHorizontal size={12} />
+            {ocultarFindes ? 'Sin fines de semana' : 'Sáb/Dom'}
           </button>
         </div>
 
