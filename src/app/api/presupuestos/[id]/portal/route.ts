@@ -4,6 +4,19 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
 import crypto from 'crypto'
 
+/** Obtener la URL base de la app (producción o local) */
+function obtenerUrlBase(): string {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim()
+  if (appUrl) return appUrl
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`
+  }
+  return ''
+}
+
 /**
  * POST /api/presupuestos/[id]/portal — Generar (o reutilizar) token de acceso público.
  * Retorna la URL del portal para compartir con el cliente.
@@ -50,7 +63,7 @@ export async function POST(
       .single()
 
     if (tokenExistente) {
-      const url = `${process.env.NEXT_PUBLIC_APP_URL || ''}/portal/${tokenExistente.token}`
+      const url = `${obtenerUrlBase()}/portal/${tokenExistente.token}`
       return NextResponse.json({
         token: tokenExistente.token,
         url,
@@ -79,7 +92,7 @@ export async function POST(
       return NextResponse.json({ error: error.message || 'Error al generar token' }, { status: 500 })
     }
 
-    const url = `${process.env.NEXT_PUBLIC_APP_URL || ''}/portal/${nuevoToken}`
+    const url = `${obtenerUrlBase()}/portal/${nuevoToken}`
 
     // Registrar en chatter
     const { data: perfil } = await admin
@@ -146,7 +159,7 @@ export async function GET(
       return NextResponse.json({ existe: false })
     }
 
-    const url = `${process.env.NEXT_PUBLIC_APP_URL || ''}/portal/${token.token}`
+    const url = `${obtenerUrlBase()}/portal/${token.token}`
     return NextResponse.json({
       existe: true,
       token: token.token,

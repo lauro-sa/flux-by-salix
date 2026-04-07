@@ -18,17 +18,35 @@ import { registrarCorreoEnChatter } from '@/lib/chatter'
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await crearClienteServidor()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    // Detectar llamada desde cron (envío programado) via headers internos
+    const programadoPor = request.headers.get('x-programado-por')
+    const empresaIdCron = request.headers.get('x-empresa-id')
+    const esProgramado = !!(programadoPor && empresaIdCron)
 
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    let userId: string
+    let empresaId: string
 
-    // Verificar permiso de enviar correos
-    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'inbox_correo', 'enviar')
-    if (!permitido) {
-      return NextResponse.json({ error: 'Sin permiso para enviar correos' }, { status: 403 })
+    if (esProgramado) {
+      // Llamada interna del cron — usar datos del header
+      userId = programadoPor
+      empresaId = empresaIdCron
+    } else {
+      // Llamada normal de usuario — requiere sesión
+      const supabase = await crearClienteServidor()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+      const empId = user.app_metadata?.empresa_activa_id
+      if (!empId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+      // Verificar permiso de enviar correos
+      const { permitido } = await obtenerYVerificarPermiso(user.id, empId, 'inbox_correo', 'enviar')
+      if (!permitido) {
+        return NextResponse.json({ error: 'Sin permiso para enviar correos' }, { status: 403 })
+      }
+
+      userId = user.id
+      empresaId = empId
     }
 
     const body = await request.json()
@@ -74,7 +92,7 @@ export async function POST(request: NextRequest) {
     const { data: perfil } = await admin
       .from('perfiles')
       .select('nombre, apellido, formato_nombre_remitente')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single()
 
     // Obtener sector del agente
@@ -82,7 +100,7 @@ export async function POST(request: NextRequest) {
     const { data: miembro } = await admin
       .from('miembros')
       .select('id')
-      .eq('usuario_id', user.id)
+      .eq('usuario_id', userId)
       .eq('empresa_id', empresaId)
       .single()
     if (miembro) {
@@ -285,7 +303,7 @@ export async function POST(request: NextRequest) {
         conversacion_id: convId,
         es_entrante: false,
         remitente_tipo: 'agente',
-        remitente_id: user.id,
+        remitente_id: userId,
         remitente_nombre: nombreAgente,
         tipo_contenido: html ? 'email_html' : 'texto',
         texto: texto || '',
@@ -338,7 +356,7 @@ export async function POST(request: NextRequest) {
           remitente: de,
           messageId: correoMessageId || undefined,
           html: html || undefined,
-          usuarioId: user.id,
+          usuarioId: userId,
           usuarioNombre: nombreAgente,
         })
       } catch (e) {

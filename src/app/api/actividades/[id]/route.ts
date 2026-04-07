@@ -111,14 +111,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
       // Notificar al creador que su actividad fue completada (si fue otro quien la completó)
       if (data.creado_por && data.creado_por !== user.id) {
+        const { data: tipoComp } = await admin.from('tipos_actividad').select('etiqueta, color').eq('id', data.tipo_id).single()
         crearNotificacion({
           empresaId,
           usuarioId: data.creado_por,
           tipo: 'actividad_asignada',
           titulo: `✅ ${nombreEditor} completó`,
-          cuerpo: `Actividad · ${data.titulo}`,
+          cuerpo: `${tipoComp?.etiqueta || 'Actividad'} · ${data.titulo}`,
           icono: 'CheckCircle',
-          color: '#46a758',
+          color: tipoComp?.color || '#46a758',
           url: '/actividades',
           referenciaTipo: 'actividad',
           referenciaId: data.id,
@@ -265,14 +266,16 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     // Notificar si se reasignó a otro usuario
     if (body.asignado_a && body.asignado_a !== user.id) {
+      // Obtener tipo para la píldora en la notificación
+      const { data: tipoAct } = await admin.from('tipos_actividad').select('etiqueta, color').eq('id', data.tipo_id).single()
       crearNotificacion({
         empresaId,
         usuarioId: body.asignado_a,
         tipo: 'actividad_asignada',
         titulo: `📋 ${nombreEditor} te asignó`,
-        cuerpo: `Actividad · ${data.titulo}`,
+        cuerpo: `${tipoAct?.etiqueta || 'Actividad'} · ${data.titulo}`,
         icono: 'ClipboardList',
-        color: '#3b82f6',
+        color: tipoAct?.color || '#3b82f6',
         url: '/actividades',
         referenciaTipo: 'actividad',
         referenciaId: data.id,

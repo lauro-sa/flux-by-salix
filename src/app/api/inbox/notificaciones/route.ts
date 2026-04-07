@@ -46,8 +46,43 @@ export async function GET(request: NextRequest) {
 
     const noLeidas = conteoNoLeidas.count
 
+    // Enriquecer notificaciones de actividades con tipo (etiqueta + color)
+    const notificacionesEnriquecidas = data || []
+    const refsActividad = notificacionesEnriquecidas
+      .filter(n => n.referencia_tipo === 'actividad' && n.referencia_id)
+      .map(n => n.referencia_id!)
+
+    if (refsActividad.length > 0) {
+      const idsUnicos = [...new Set(refsActividad)]
+      const { data: actividades } = await admin
+        .from('actividades')
+        .select('id, tipo_id')
+        .in('id', idsUnicos)
+
+      if (actividades && actividades.length > 0) {
+        const tipoIds = [...new Set(actividades.map(a => a.tipo_id))]
+        const { data: tipos } = await admin
+          .from('tipos_actividad')
+          .select('id, etiqueta, color')
+          .in('id', tipoIds)
+
+        const tiposPorId = new Map((tipos || []).map(t => [t.id, t]))
+        const tipoPorActividad = new Map(actividades.map(a => [a.id, tiposPorId.get(a.tipo_id)]))
+
+        for (const n of notificacionesEnriquecidas) {
+          if (n.referencia_tipo === 'actividad' && n.referencia_id) {
+            const tipo = tipoPorActividad.get(n.referencia_id)
+            if (tipo) {
+              n.tipo_etiqueta = tipo.etiqueta
+              n.tipo_color = tipo.color
+            }
+          }
+        }
+      }
+    }
+
     return NextResponse.json({
-      notificaciones: data || [],
+      notificaciones: notificacionesEnriquecidas,
       total: count || 0,
       no_leidas: noLeidas || 0,
     })

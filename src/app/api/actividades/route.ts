@@ -188,10 +188,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'El tipo es obligatorio' }, { status: 400 })
     }
 
-    // Obtener tipo para snapshot de clave
+    // Obtener tipo para snapshot de clave + info para notificación
     const { data: tipo } = await admin
       .from('tipos_actividad')
-      .select('clave')
+      .select('clave, etiqueta, color')
       .eq('id', body.tipo_id)
       .single()
 
@@ -273,9 +273,9 @@ export async function POST(request: NextRequest) {
         usuarioId: data.asignado_a,
         tipo: 'actividad_asignada',
         titulo: `📋 ${nombreCreador} te asignó`,
-        cuerpo: `Actividad · ${data.titulo}`,
+        cuerpo: `${tipo.etiqueta} · ${data.titulo}`,
         icono: 'ClipboardList',
-        color: '#3b82f6',
+        color: tipo.color,
         url: '/actividades',
         referenciaTipo: 'actividad',
         referenciaId: data.id,

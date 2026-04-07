@@ -31,6 +31,10 @@ export interface Notificacion {
   referencia_tipo?: string | null
   referencia_id?: string | null
   creada_en: string
+  /** Etiqueta del tipo de actividad (enriquecido por la API) */
+  tipo_etiqueta?: string | null
+  /** Color del tipo de actividad (enriquecido por la API) */
+  tipo_color?: string | null
 }
 
 /* Mapeo de tipo de notificación → categoría */

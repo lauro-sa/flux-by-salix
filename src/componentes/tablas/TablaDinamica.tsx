@@ -710,9 +710,10 @@ function TablaDinamica<T>({
     })
   }, [datos, filtrosInternos])
 
-  /* Búsqueda interna — filtra datos buscando en las columnas */
+  /* Búsqueda interna — filtra datos buscando en las columnas (solo client-side,
+     en server-side el servidor ya filtró) */
   const datosBuscados = useMemo(() => {
-    if (!busquedaInterna.trim()) return datosFiltrados
+    if (esServerSide || !busquedaInterna.trim()) return datosFiltrados
     const termino = busquedaInterna.toLowerCase().trim()
     return datosFiltrados.filter(fila => {
       /* Buscar en todas las columnas */
@@ -731,7 +732,7 @@ function TablaDinamica<T>({
       }
       return false
     })
-  }, [datosFiltrados, busquedaInterna, columnas])
+  }, [datosFiltrados, busquedaInterna, columnas, esServerSide])
 
   /* Ordenar */
   const datosOrdenados = useMemo(() => {

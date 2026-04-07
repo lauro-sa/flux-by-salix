@@ -132,7 +132,7 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
     text-align: left;
     white-space: nowrap;
   }
-  .tabla-lineas thead th.num { text-align: right; }
+  .tabla-lineas thead th.num { text-align: center; }
   .tabla-lineas thead th.col-desc { white-space: normal; }
   .tabla-lineas tbody td {
     padding: 6px 6px;
@@ -142,7 +142,7 @@ export const PLANTILLA_PDF_DEFECTO = `<!DOCTYPE html>
     overflow-wrap: break-word;
   }
   .tabla-lineas tbody td.num {
-    text-align: right;
+    text-align: center;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }

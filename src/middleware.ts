@@ -19,8 +19,8 @@ const RUTAS_TRANSICION = ['/onboarding', '/esperando-activacion', '/selector-emp
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Portal público — sin auth
-  if (pathname.startsWith('/portal')) {
+  // API routes y portal público — sin auth ni redirecciones
+  if (pathname.startsWith('/api') || pathname.startsWith('/portal')) {
     return NextResponse.next()
   }
 

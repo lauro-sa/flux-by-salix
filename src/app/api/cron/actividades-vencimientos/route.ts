@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     // 1. Actividades que vencen HOY (pendientes, con asignado o creador)
     const { data: vencenHoy } = await admin
       .from('actividades')
-      .select('id, titulo, empresa_id, asignado_a, creado_por')
+      .select('id, titulo, empresa_id, asignado_a, creado_por, tipo_id')
       .gte('fecha_vencimiento', hoyInicio.toISOString())
       .lt('fecha_vencimiento', hoyFin.toISOString())
       .in('estado_clave', ['pendiente'])
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     // 2. Actividades que vencieron AYER (pendientes)
     const { data: vencieronAyer } = await admin
       .from('actividades')
-      .select('id, titulo, empresa_id, asignado_a, creado_por')
+      .select('id, titulo, empresa_id, asignado_a, creado_por, tipo_id')
       .gte('fecha_vencimiento', ayerInicio.toISOString())
       .lt('fecha_vencimiento', hoyInicio.toISOString())
       .in('estado_clave', ['pendiente'])
@@ -91,10 +91,22 @@ export async function GET(request: NextRequest) {
     // 4. Actividades vencidas hace más de 1 día que siguen sin completar (recordatorio recurrente)
     const { data: vencidasPendientes } = await admin
       .from('actividades')
-      .select('id, titulo, empresa_id, asignado_a, creado_por, fecha_vencimiento')
+      .select('id, titulo, empresa_id, asignado_a, creado_por, fecha_vencimiento, tipo_id')
       .lt('fecha_vencimiento', ayerInicio.toISOString())
       .in('estado_clave', ['pendiente', 'vencida'])
       .eq('en_papelera', false)
+
+    // Obtener tipos de actividad para las píldoras en notificaciones
+    const todasActividades = [...(vencenHoy || []), ...(vencieronAyer || []), ...(vencidasPendientes || [])]
+    const tipoIdsUnicos = [...new Set(todasActividades.map(a => a.tipo_id).filter(Boolean))]
+    const tiposPorId = new Map<string, { etiqueta: string; color: string }>()
+    if (tipoIdsUnicos.length > 0) {
+      const { data: tipos } = await admin
+        .from('tipos_actividad')
+        .select('id, etiqueta, color')
+        .in('id', tipoIdsUnicos)
+      for (const t of tipos || []) tiposPorId.set(t.id, { etiqueta: t.etiqueta, color: t.color })
+    }
 
     // Generar notificaciones
     const notificaciones: Parameters<typeof crearNotificacionesBatch>[0] = []
@@ -103,14 +115,15 @@ export async function GET(request: NextRequest) {
     for (const act of vencenHoy || []) {
       const destinatario = act.asignado_a || act.creado_por
       if (destinatario) {
+        const tipo = tiposPorId.get(act.tipo_id)
         notificaciones.push({
           empresaId: act.empresa_id,
           usuarioId: destinatario,
           tipo: 'actividad_pronto_vence',
           titulo: '⏰ Vence hoy',
-          cuerpo: `Actividad · ${act.titulo}`,
+          cuerpo: `${tipo?.etiqueta || 'Actividad'} · ${act.titulo}`,
           icono: 'Clock',
-          color: '#f5a623',
+          color: tipo?.color || '#f5a623',
           url: '/actividades',
           referenciaTipo: 'actividad',
           referenciaId: act.id,
@@ -122,14 +135,15 @@ export async function GET(request: NextRequest) {
     for (const act of vencieronAyer || []) {
       const destinatario = act.asignado_a || act.creado_por
       if (destinatario) {
+        const tipo = tiposPorId.get(act.tipo_id)
         notificaciones.push({
           empresaId: act.empresa_id,
           usuarioId: destinatario,
           tipo: 'actividad_vencida',
           titulo: '🚨 Venció ayer',
-          cuerpo: `Actividad · ${act.titulo}`,
+          cuerpo: `${tipo?.etiqueta || 'Actividad'} · ${act.titulo}`,
           icono: 'AlertCircle',
-          color: '#e5484d',
+          color: tipo?.color || '#e5484d',
           url: '/actividades',
           referenciaTipo: 'actividad',
           referenciaId: act.id,
@@ -142,14 +156,15 @@ export async function GET(request: NextRequest) {
       const destinatario = act.asignado_a || act.creado_por
       if (!destinatario) continue
       const diasVencida = Math.floor((hoyInicio.getTime() - new Date(act.fecha_vencimiento).getTime()) / 86400000)
+      const tipo = tiposPorId.get(act.tipo_id)
       notificaciones.push({
         empresaId: act.empresa_id,
         usuarioId: destinatario,
         tipo: 'actividad_vencida',
         titulo: `🚨 Vencida hace ${diasVencida} día${diasVencida > 1 ? 's' : ''}`,
-        cuerpo: `Actividad · ${act.titulo}`,
+        cuerpo: `${tipo?.etiqueta || 'Actividad'} · ${act.titulo}`,
         icono: 'AlertCircle',
-        color: '#e5484d',
+        color: tipo?.color || '#e5484d',
         url: '/actividades',
         referenciaTipo: 'actividad',
         referenciaId: act.id,

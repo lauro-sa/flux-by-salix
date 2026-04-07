@@ -1866,7 +1866,7 @@ export default function EditorPresupuesto({
                           />
                         ) : (
                           <span className="text-sm text-texto-primario">
-                            {presupuesto?.condicion_pago_label || 'Sin condicion'}
+                            {condSeleccionada?.label || presupuesto?.condicion_pago_label || 'Sin condicion'}
                           </span>
                         )}
                       </div>
@@ -1878,8 +1878,9 @@ export default function EditorPresupuesto({
                           <div key={h.id} className="flex items-center justify-between text-xs pl-1">
                             <span className="text-texto-terciario">{h.descripcion}</span>
                             <div className="flex items-center gap-3">
-                              <span className="text-texto-terciario">{h.porcentaje}%</span>
-                              <span className="text-texto-primario font-mono tabular-nums">{fmt(totales.total * h.porcentaje / 100)}</span>
+                              <span className="text-texto-terciario tabular-nums w-8 text-right">{h.porcentaje}%</span>
+                              <span className="text-texto-terciario">{simbolo}</span>
+                              <span className="text-texto-primario font-mono tabular-nums text-right w-[9rem]">{(totales.total * h.porcentaje / 100).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                           </div>
                         ))}
@@ -1955,17 +1956,17 @@ export default function EditorPresupuesto({
             <div className="w-full max-w-xs space-y-1.5">
               <div className="flex justify-between text-sm">
                 <span className="text-texto-secundario">{t('documentos.subtotal')}</span>
-                <span className="font-mono text-texto-primario">{fmt(totales.subtotal)}</span>
+                <span className="font-mono tabular-nums text-texto-primario text-right">{fmt(totales.subtotal)}</span>
               </div>
               {totales.impuestos !== 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-texto-secundario">{t('documentos.impuesto')}</span>
-                  <span className="font-mono text-texto-primario">{fmt(totales.impuestos)}</span>
+                  <span className="font-mono tabular-nums text-texto-primario text-right">{fmt(totales.impuestos)}</span>
                 </div>
               )}
               <div className="border-t border-borde-sutil pt-2 flex justify-between text-base font-bold">
                 <span className="text-texto-primario">{t('documentos.total')}</span>
-                <span className="font-mono text-texto-marca">{fmt(totales.total)}</span>
+                <span className="font-mono tabular-nums text-texto-marca text-right">{fmt(totales.total)}</span>
               </div>
             </div>
           </div>

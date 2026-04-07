@@ -193,7 +193,7 @@ function TablaLineas({
         {columnasVisibles.map(col => {
           if (!ETIQUETA_COLUMNA[col]) return <div key={col} className={ANCHO_COLUMNA[col] || 'w-[100px]'} />
           return (
-            <div key={col} className={`${ANCHO_COLUMNA[col] || 'w-[100px]'} px-1 ${['subtotal', 'precio_unitario', 'cantidad', 'descuento'].includes(col) ? 'text-right' : ''}`}>
+            <div key={col} className={`${ANCHO_COLUMNA[col] || 'w-[100px]'} px-1 ${col === 'producto' ? '' : 'text-center'}`}>
               {ETIQUETA_COLUMNA[col]}
             </div>
           )
@@ -319,7 +319,7 @@ function FilaProducto({
         )}
 
         {columnasVisibles.map(col => (
-          <div key={col} className={`${ANCHO_COLUMNA[col] || 'w-[100px]'} px-1`}>
+          <div key={col} className={`${ANCHO_COLUMNA[col] || 'w-[100px]'} px-1 ${col !== 'producto' && col !== 'descripcion' ? 'text-center' : ''}`}>
             {col === 'producto' && (
               <BuscadorProducto
                 valor={linea.descripcion || ''}
@@ -349,7 +349,7 @@ function FilaProducto({
               <CampoNumero
                 valor={linea.cantidad}
                 soloLectura={soloLectura}
-                className="text-right"
+                className="text-center"
                 onChange={(v) => onEditar(linea.id, 'cantidad', v)}
               />
             )}
@@ -365,7 +365,7 @@ function FilaProducto({
               <CampoNumero
                 valor={linea.precio_unitario}
                 soloLectura={soloLectura}
-                className="text-right"
+                className="text-center"
                 esMoneda
                 onChange={(v) => onEditar(linea.id, 'precio_unitario', v)}
               />
@@ -374,7 +374,7 @@ function FilaProducto({
               <CampoNumero
                 valor={linea.descuento}
                 soloLectura={soloLectura}
-                className="text-right"
+                className="text-center"
                 sufijo="%"
                 onChange={(v) => onEditar(linea.id, 'descuento', v)}
               />
@@ -392,7 +392,7 @@ function FilaProducto({
               />
             )}
             {col === 'subtotal' && (
-              <div className="text-right font-mono text-sm text-texto-marca font-medium pr-1">
+              <div className="text-center font-mono text-sm text-texto-marca font-medium">
                 {fmt(linea.subtotal)}
               </div>
             )}
@@ -674,7 +674,7 @@ function CampoNumero({
           setEnfocado(false)
           if (local !== valor) onChange(local)
         }}
-        className="w-full bg-transparent border-0 outline-none text-sm font-mono text-right placeholder:text-texto-placeholder focus:bg-superficie-tarjeta focus:rounded px-1 py-0.5 -mx-1 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        className="w-full bg-transparent border-0 outline-none text-sm font-mono text-center placeholder:text-texto-placeholder focus:bg-superficie-tarjeta focus:rounded px-1 py-0.5 -mx-1 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
       {sufijo && <span className="text-xs text-texto-terciario ml-0.5">{sufijo}</span>}
     </div>

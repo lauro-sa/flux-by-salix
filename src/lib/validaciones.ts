@@ -98,9 +98,15 @@ export function validarCamposContacto(datos: {
   return errores
 }
 
-/** Sanitiza input de búsqueda: solo permite caracteres seguros para FTS e ilike */
+/** Sanitiza input de búsqueda: solo permite caracteres seguros para FTS e ilike.
+ *  Caracteres comunes en nombres de contactos (&, /, (, ), ,) se convierten en espacio
+ *  para que FTS los trate como tokens separados (ej: "IN&PR" → "IN PR") */
 export function sanitizarBusqueda(input: string): string {
-  return input.replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ0-9\s.@\-_]/g, '').trim()
+  return input
+    .replace(/[&/(),]/g, ' ')
+    .replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ0-9\s.@\-_]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 /** Quita acentos/diacríticos de un texto para búsquedas ILIKE insensibles a acentos */

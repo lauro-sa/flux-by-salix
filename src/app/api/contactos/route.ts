@@ -221,10 +221,27 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const contactosConEtapa = (data || []).map(c => ({
+    let contactosConEtapa = (data || []).map(c => ({
       ...c,
       ultima_etapa: etapasPorContacto[c.id] || null,
     }))
+
+    // Cuando hay búsqueda, re-ordenar por relevancia:
+    // 1. Nombre empieza con el término → más relevante
+    // 2. Nombre contiene el término → relevante
+    // 3. Resto (matcheó por correo, teléfono, dirección, etc.)
+    if (busqueda.trim()) {
+      const busquedaNorm = normalizarAcentos(busqueda).toLowerCase()
+      // Normalizar nombre igual que la búsqueda (& → espacio) para comparar relevancia
+      const normNombre = (s: string) => normalizarAcentos(s).replace(/[&/(),]/g, ' ').replace(/\s+/g, ' ').toLowerCase().trim()
+      contactosConEtapa.sort((a, b) => {
+        const na = normNombre((a.nombre || '') + ' ' + (a.apellido || ''))
+        const nb = normNombre((b.nombre || '') + ' ' + (b.apellido || ''))
+        const aEmpieza = na.startsWith(busquedaNorm) ? 0 : na.includes(busquedaNorm) ? 1 : 2
+        const bEmpieza = nb.startsWith(busquedaNorm) ? 0 : nb.includes(busquedaNorm) ? 1 : 2
+        return aEmpieza - bEmpieza
+      })
+    }
 
     return NextResponse.json({
       contactos: contactosConEtapa,

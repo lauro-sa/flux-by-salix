@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { type ReactNode, useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   MessagesSquare, Zap, Bell,
@@ -153,6 +153,55 @@ function renderizarIconoNotificacion(tipo: string, color: string, cantidad: numb
   )
 }
 
+/** Tipos de notificación que corresponden a actividades */
+const TIPOS_ACTIVIDAD = new Set([
+  'actividad_asignada', 'actividad_pronto_vence', 'actividad_vencida',
+  'actividad', 'asignacion',
+])
+
+/**
+ * Renderiza la píldora del tipo de actividad (ej: "Visita", "Llamada", "Presupuestar").
+ * Prioridad: tipo_etiqueta/tipo_color (enriquecido por API).
+ * Fallback: parsea cuerpo "{etiqueta} · {titulo}" + color de la notificación (Realtime).
+ */
+function renderizarPildoraTipo(n: Notificacion): ReactNode {
+  if (!TIPOS_ACTIVIDAD.has(n.tipo)) return null
+
+  // Fuente 1: campos enriquecidos por la API
+  let etiqueta = n.tipo_etiqueta
+  let colorTipo = n.tipo_color
+
+  // Fuente 2 (fallback Realtime): parsear del cuerpo + color de la notificación
+  if (!etiqueta && n.cuerpo) {
+    const partes = n.cuerpo.split(' · ')
+    if (partes.length >= 2 && partes[0] !== 'Actividad') {
+      etiqueta = partes[0]
+      colorTipo = n.color
+    }
+  }
+
+  if (!etiqueta) return null
+
+  const c = colorTipo || 'var(--texto-terciario)'
+  return (
+    <span
+      className="inline-flex items-center text-xxs font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap shrink-0"
+      style={{ backgroundColor: `color-mix(in srgb, ${c} 12%, transparent)`, color: c }}
+    >
+      {etiqueta}
+    </span>
+  )
+}
+
+/** Extrae solo el título de la actividad del cuerpo (sin la etiqueta del tipo) */
+function extraerTituloActividad(n: Notificacion): string | undefined {
+  if (!TIPOS_ACTIVIDAD.has(n.tipo) || !n.cuerpo) return n.cuerpo || undefined
+  const partes = n.cuerpo.split(' · ')
+  if (partes.length < 2) return n.cuerpo
+  // Retorna todo después de la primera parte (etiqueta o "Actividad")
+  return partes.slice(1).join(' · ')
+}
+
 function notificacionAItem(
   grupo: { ultima: Notificacion; ids: string[]; noLeidas: Notificacion[] },
   onClickItem: (n: Notificacion, ids: string[]) => void,
@@ -160,13 +209,15 @@ function notificacionAItem(
   const { ultima: n, ids, noLeidas } = grupo
   const cantidad = noLeidas.length
   const color = COLORES_TIPO[n.tipo] || 'var(--texto-terciario)'
+  const descripcionBase = extraerTituloActividad(n)
   return {
     id: n.id,
     icono: renderizarIconoNotificacion(n.tipo, color, cantidad),
     titulo: n.titulo,
     descripcion: cantidad > 1
-      ? `${n.cuerpo || ''} · +${cantidad - 1} más`.replace(/^ · /, '')
-      : (n.cuerpo || undefined),
+      ? `${descripcionBase || ''} · +${cantidad - 1} más`.replace(/^ · /, '')
+      : descripcionBase,
+    insignia: renderizarPildoraTipo(n),
     tiempo: tiempoRelativo(n.creada_en),
     leida: false,
     onClick: () => onClickItem(n, ids),
@@ -175,7 +226,8 @@ function notificacionAItem(
       ? noLeidas.map((sub) => ({
           id: sub.id,
           titulo: sub.titulo,
-          descripcion: sub.cuerpo || undefined,
+          descripcion: extraerTituloActividad(sub),
+          insignia: renderizarPildoraTipo(sub),
           tiempo: tiempoRelativo(sub.creada_en),
           leida: sub.leida,
           onClick: () => onClickItem(sub, [sub.id]),

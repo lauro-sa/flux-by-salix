@@ -112,6 +112,19 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Error al actualizar configuración' }, { status: 500 })
     }
 
+    // Si se actualizaron condiciones_pago, sincronizar labels en presupuestos existentes
+    if (body.condiciones_pago && Array.isArray(body.condiciones_pago)) {
+      for (const cond of body.condiciones_pago) {
+        if (cond.id && cond.label) {
+          await admin
+            .from('presupuestos')
+            .update({ condicion_pago_label: cond.label })
+            .eq('empresa_id', empresaId)
+            .eq('condicion_pago_id', cond.id)
+        }
+      }
+    }
+
     // Si se actualizó la secuencia
     if (body.secuencia) {
       await admin

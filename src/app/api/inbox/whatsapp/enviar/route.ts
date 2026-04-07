@@ -14,17 +14,35 @@ import { generarNombreRemitente } from '@/lib/nombre-remitente'
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await crearClienteServidor()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    // Detectar llamada desde cron (envío programado) via headers internos
+    const programadoPor = request.headers.get('x-programado-por')
+    const empresaIdCron = request.headers.get('x-empresa-id')
+    const esProgramado = !!(programadoPor && empresaIdCron)
 
-    const empresaId = user.app_metadata?.empresa_activa_id
-    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+    let userId: string
+    let empresaId: string
 
-    // Verificar permiso de enviar mensajes por WhatsApp
-    const { permitido } = await obtenerYVerificarPermiso(user.id, empresaId, 'inbox_whatsapp', 'enviar')
-    if (!permitido) {
-      return NextResponse.json({ error: 'Sin permiso para enviar mensajes por WhatsApp' }, { status: 403 })
+    if (esProgramado) {
+      // Llamada interna del cron — usar datos del header
+      userId = programadoPor
+      empresaId = empresaIdCron
+    } else {
+      // Llamada normal de usuario — requiere sesión
+      const supabase = await crearClienteServidor()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+      const empId = user.app_metadata?.empresa_activa_id
+      if (!empId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+      // Verificar permiso de enviar mensajes por WhatsApp
+      const { permitido } = await obtenerYVerificarPermiso(user.id, empId, 'inbox_whatsapp', 'enviar')
+      if (!permitido) {
+        return NextResponse.json({ error: 'Sin permiso para enviar mensajes por WhatsApp' }, { status: 403 })
+      }
+
+      userId = user.id
+      empresaId = empId
     }
 
     const body = await request.json()
@@ -74,13 +92,13 @@ export async function POST(request: NextRequest) {
     const { data: perfil } = await admin
       .from('perfiles')
       .select('nombre, apellido, formato_nombre_remitente')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single()
 
     let sectorNombre: string | null = null
     const { data: miembro } = await admin
       .from('miembros').select('id')
-      .eq('usuario_id', user.id).eq('empresa_id', empresaId).single()
+      .eq('usuario_id', userId).eq('empresa_id', empresaId).single()
     if (miembro) {
       const { data: ms } = await admin
         .from('miembros_sectores').select('sector_id')
@@ -160,7 +178,7 @@ export async function POST(request: NextRequest) {
         conversacion_id,
         es_entrante: false,
         remitente_tipo: 'agente',
-        remitente_id: user.id,
+        remitente_id: userId,
         remitente_nombre: nombreAgente,
         tipo_contenido: tipoFlux,
         texto: textoPreview,
