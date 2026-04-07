@@ -90,13 +90,34 @@ export async function POST(request: NextRequest) {
       }
 
       if (id) {
-        // Actualizar existente (solo si es BORRADOR o ERROR)
-        const { data, error } = await admin
+        // Verificar estado de la plantilla
+        const { data: existente } = await admin
           .from('plantillas_whatsapp')
-          .update(datos)
+          .select('estado_meta')
           .eq('id', id)
           .eq('empresa_id', empresaId)
-          .in('estado_meta', ['BORRADOR', 'ERROR'])
+          .single()
+
+        if (!existente) {
+          return NextResponse.json({ error: 'Plantilla no encontrada' }, { status: 404 })
+        }
+
+        // Si está aprobada/pendiente en Meta, solo permitir campos locales (modulos, disponibilidad)
+        const esEditableEnMeta = ['BORRADOR', 'ERROR'].includes(existente.estado_meta)
+        const datosUpdate = esEditableEnMeta ? datos : {
+          modulos: datos.modulos,
+          es_por_defecto: datos.es_por_defecto,
+          disponible_para: datos.disponible_para,
+          roles_permitidos: datos.roles_permitidos,
+          usuarios_permitidos: datos.usuarios_permitidos,
+          actualizado_en: datos.actualizado_en,
+        }
+
+        const { data, error } = await admin
+          .from('plantillas_whatsapp')
+          .update(datosUpdate)
+          .eq('id', id)
+          .eq('empresa_id', empresaId)
           .select()
           .single()
 
