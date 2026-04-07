@@ -708,3 +708,17 @@ a:hover { text-decoration: none; }
   user-select: all;
   cursor: default;
 }
+
+/* ── Kiosco de fichaje ── */
+.kiosco-layout {
+  background-color: var(--superficie-app);
+  min-height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  /* Deshabilitar selección de texto y zoom en tablet */
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+}

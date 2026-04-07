@@ -24,6 +24,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Kiosco standalone (kiosco.fluxsalix.com) — auth propia, sin sesión de usuario
+  const host = request.headers.get('host') || ''
+  const slugSubdominio = extraerSlug(host)
+  if (slugSubdominio === 'kiosco') {
+    // El kiosco maneja su propia auth por token de terminal
+    // Solo permitir rutas del kiosco, redirigir cualquier otra al root
+    if (!pathname.startsWith('/kiosco')) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/kiosco'
+      return NextResponse.redirect(url)
+    }
+    return NextResponse.next()
+  }
+
   // Crear cliente Supabase y refrescar sesión
   const { supabase, response } = await crearClienteMiddleware(request)
 
@@ -50,8 +64,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Extraer subdominio
-  const host = request.headers.get('host') || ''
+  // Extraer subdominio (reutiliza host ya declarado arriba)
   const slug = extraerSlug(host)
   if (slug) {
     response.headers.set('x-flux-slug', slug)
