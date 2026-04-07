@@ -115,6 +115,10 @@ export interface PropiedadesTablaDinamica<T> {
   onClickFila?: (fila: T) => void
   /** Callback cuando se selecciona una vista que no se maneja internamente (ej: 'matriz') */
   onVistaExterna?: (vista: TipoVista) => void
+  /** Vista externa activa — se usa para resaltar el botón cuando la vista la maneja el padre */
+  vistaExternaActiva?: TipoVista | null
+  /** Contenido custom que reemplaza la tabla (ej: vista matriz) */
+  contenidoCustom?: ReactNode
 
   /* Resumen / calculador */
   mostrarResumen?: boolean

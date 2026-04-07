@@ -63,6 +63,8 @@ function TablaDinamica<T>({
   accionesLote = [],
   onClickFila,
   onVistaExterna,
+  vistaExternaActiva,
+  contenidoCustom,
   mostrarResumen = false,
   estadoVacio,
   idModulo,
@@ -1203,10 +1205,14 @@ function TablaDinamica<T>({
               <Tooltip key={v} contenido={v.charAt(0).toUpperCase() + v.slice(1)}>
                 <button
                   type="button"
-                  onClick={() => { if (onVistaExterna && v !== 'lista' && v !== 'tarjetas') { onVistaExterna(v); return } vistaManualRef.current = true; setVistaActual(v) }}
+                  onClick={() => {
+                    if (onVistaExterna && v !== 'lista' && v !== 'tarjetas') { onVistaExterna(v); return }
+                    if (onVistaExterna && vistaExternaActiva) { onVistaExterna(v); }
+                    vistaManualRef.current = true; setVistaActual(v)
+                  }}
                   className={[
                     'size-8 inline-flex items-center justify-center cursor-pointer border-none transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
-                    v === vistaActual
+                    (vistaExternaActiva ? v === vistaExternaActiva : v === vistaActual)
                       ? 'bg-superficie-hover text-texto-primario'
                       : 'bg-transparent text-texto-terciario hover:text-texto-secundario',
                   ].join(' ')}
@@ -1257,6 +1263,9 @@ function TablaDinamica<T>({
       </div>
 
       {/* ═══ CONTENIDO — header fijo, filas scrollean, footer fijo abajo ═══ */}
+      {contenidoCustom ? (
+        <div className="flex-1 min-h-0 flex flex-col">{contenidoCustom}</div>
+      ) : (
       <div className={`flex-1 min-h-0 flex flex-col ${vistaActual === 'tarjetas' ? 'bg-transparent' : 'border-t border-borde-sutil'}`}>
         {/* Estado vacío */}
         {datos.length === 0 && estadoVacio ? (
@@ -1514,6 +1523,7 @@ function TablaDinamica<T>({
         )}
 
       </div>
+      )}
 
       {/* ── Barra flotante de acciones masivas (arrastrable, estilo Attio) ── */}
       <BarraAccionesLote
