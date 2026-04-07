@@ -234,6 +234,7 @@ export default function PaginaAsistencias() {
         datos={registros}
         claveFila={(r) => r.id}
         vistas={['lista', 'tarjetas', 'matriz']}
+        seleccionables
         busqueda={busqueda}
         onBusqueda={setBusqueda}
         placeholder="Buscar empleado..."

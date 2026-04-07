@@ -1486,16 +1486,6 @@ function TablaDinamica<T>({
                       ].join(' ')}
                       onClick={() => onClickFila?.(fila)}
                     >
-                      {/* Checkbox en tarjeta */}
-                      {seleccionables && (
-                        <div className="absolute top-2 right-2" onClick={(e) => e.stopPropagation()}>
-                          <Checkbox
-                            marcado={estaSeleccionado}
-                            onChange={() => toggleUno(id)}
-                          />
-                        </div>
-                      )}
-
                       {/* Contenido de la tarjeta */}
                       {renderTarjeta ? renderTarjeta(fila) : (
                         <div className="flex flex-col gap-1.5">
@@ -1509,6 +1499,16 @@ function TablaDinamica<T>({
                               </span>
                             </div>
                           ))}
+                        </div>
+                      )}
+
+                      {/* Checkbox en tarjeta — abajo a la derecha */}
+                      {seleccionables && (
+                        <div className="absolute bottom-2 right-2" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            marcado={estaSeleccionado}
+                            onChange={() => toggleUno(id)}
+                          />
                         </div>
                       )}
                     </motion.div>
