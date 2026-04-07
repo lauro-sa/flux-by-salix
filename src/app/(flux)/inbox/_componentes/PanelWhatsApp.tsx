@@ -16,6 +16,8 @@ import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { CompositorMensaje, type DatosMensaje } from './CompositorMensaje'
 import { PanelIA } from './PanelIA'
 import { PopoverSnooze } from './PopoverSnooze'
+import { SelectorPlantillasWA } from './SelectorPlantillasWA'
+import type { PlantillaWhatsApp } from '@/tipos/inbox'
 // PopoverProgramar ahora vive dentro de CompositorMensaje
 // GrabadorAudio integrado en CompositorMensaje (no se importa aparte)
 import { COLOR_ETIQUETA_DEFECTO } from '@/lib/colores_entidad'
@@ -273,6 +275,9 @@ export function PanelWhatsApp({
   const [iaExpandida, setIaExpandida] = useState(false)
   // Texto actual del compositor (para programar)
   const [textoCompositor, setTextoCompositor] = useState('')
+  // Selector de plantillas WA
+  const [selectorPlantillas, setSelectorPlantillas] = useState(false)
+  const [enviandoPlantilla, setEnviandoPlantilla] = useState(false)
   const { mostrar: mostrarToast } = useToast()
 
   // Cargar mensajes programados pendientes al abrir/cambiar conversación
@@ -382,6 +387,52 @@ export function PanelWhatsApp({
 
   // Pre-procesar secciones de chat agrupadas por fecha
   const secciones = useMemo(() => prepararSecciones(mensajes), [mensajes])
+
+  // Detectar ventana de 24h de Meta: cerrada si el último mensaje entrante fue hace >24h
+  const ventanaCerrada = useMemo(() => {
+    if (!conversacion || mensajes.length === 0) return false
+    // Buscar el mensaje entrante más reciente
+    const ultimoEntrante = [...mensajes].reverse().find(m => m.es_entrante)
+    if (!ultimoEntrante) return true // Nunca nos escribió → ventana cerrada
+    const hace24h = Date.now() - 24 * 60 * 60 * 1000
+    return new Date(ultimoEntrante.creado_en).getTime() < hace24h
+  }, [conversacion, mensajes])
+
+  // Cerrar selector de plantillas al cambiar de conversación
+  useEffect(() => { setSelectorPlantillas(false) }, [conversacion?.id])
+
+  // Enviar plantilla WA
+  const enviarPlantilla = useCallback(async (plantilla: PlantillaWhatsApp) => {
+    if (!conversacion) return
+    setEnviandoPlantilla(true)
+    try {
+      const res = await fetch('/api/inbox/whatsapp/enviar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversacion_id: conversacion.id,
+          canal_id: conversacion.canal_id,
+          tipo: 'plantilla',
+          plantilla_nombre_api: plantilla.nombre_api,
+          plantilla_idioma: plantilla.idioma,
+          plantilla_componentes: plantilla.componentes,
+        }),
+      })
+      if (res.ok) {
+        setSelectorPlantillas(false)
+        mostrarToast('exito', `Plantilla "${plantilla.nombre}" enviada`)
+        // Forzar recarga de mensajes — el padre se encarga via onEnviar
+        onEnviar({ texto: '', tipo_contenido: 'texto' })
+      } else {
+        const data = await res.json().catch(() => ({ error: 'Error desconocido' }))
+        mostrarToast('error', data.error || 'Error al enviar plantilla')
+      }
+    } catch {
+      mostrarToast('error', 'Error al enviar plantilla')
+    } finally {
+      setEnviandoPlantilla(false)
+    }
+  }, [conversacion, mostrarToast, onEnviar])
 
   // Trackear si el usuario está cerca del fondo (para auto-scroll inteligente)
   const estaCercaDelFondoRef = useRef(true)
@@ -1260,8 +1311,43 @@ export function PanelWhatsApp({
         />
       )}
 
+      {/* Banner ventana 24h cerrada */}
+      {ventanaCerrada && conversacion && (
+        <div
+          className="flex items-center gap-2 px-3 py-2 text-xs"
+          style={{
+            background: 'color-mix(in srgb, var(--insignia-advertencia) 10%, var(--superficie-tarjeta))',
+            borderTop: '1px solid color-mix(in srgb, var(--insignia-advertencia) 25%, transparent)',
+            color: 'var(--texto-secundario)',
+          }}
+        >
+          <Clock size={14} style={{ color: 'var(--insignia-advertencia)', flexShrink: 0 }} />
+          <span>
+            Pasaron más de 24h sin respuesta del contacto. Solo podés enviar <strong>plantillas aprobadas</strong> por Meta.
+          </span>
+          <Boton
+            variante="secundario"
+            tamano="xs"
+            onClick={() => setSelectorPlantillas(true)}
+            className="ml-auto whitespace-nowrap"
+          >
+            Enviar plantilla
+          </Boton>
+        </div>
+      )}
+
       {/* Compositor */}
-      <div className="flex items-end gap-1 flex-shrink-0" style={{ borderTop: '1px solid var(--borde-sutil)' }}>
+      <div className="flex items-end gap-1 flex-shrink-0 relative" style={{ borderTop: ventanaCerrada ? 'none' : '1px solid var(--borde-sutil)' }}>
+        {/* Selector de plantillas WA (flotante sobre compositor) */}
+        {conversacion && (
+          <SelectorPlantillasWA
+            canalId={conversacion.canal_id}
+            abierto={selectorPlantillas}
+            onCerrar={() => setSelectorPlantillas(false)}
+            onEnviarPlantilla={enviarPlantilla}
+            enviando={enviandoPlantilla}
+          />
+        )}
         <div className="flex-1 min-w-0">
           <CompositorMensaje
             tipoCanal="whatsapp"
@@ -1310,7 +1396,7 @@ export function PanelWhatsApp({
             placeholder="Escribir mensaje..."
             textoInicial={textoIA}
             textoInicialVersion={contadorTextoIA}
-            onAbrirPlantillas={() => {}}
+            onAbrirPlantillas={() => setSelectorPlantillas(!selectorPlantillas)}
             conversacionId={conversacion.id}
             permitirNotasInternas
             onCambioTexto={setTextoCompositor}
