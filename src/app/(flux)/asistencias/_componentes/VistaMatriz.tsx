@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { Tooltip } from '@/componentes/ui/Tooltip'
+import { ModalNomina } from './ModalNomina'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import { useFormato } from '@/hooks/useFormato'
 import Holidays from 'date-holidays'
@@ -165,6 +166,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
   onCrearFichaje?: (miembroId: string, miembroNombre: string, fecha: string) => void
   recargarKey?: number
 }) {
+  const [nominaAbierta, setNominaAbierta] = useState(false)
   const esMovil = useEsMovil()
   const { formatoHora } = useFormato()
   const [periodo, setPeriodo] = useState<Periodo>('semana')
@@ -296,7 +298,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
 
         {/* Acciones derecha — solo desktop */}
         <div className="hidden sm:flex items-center gap-1">
-          <Boton variante="fantasma" tamano="xs">
+          <Boton variante="fantasma" tamano="xs" onClick={() => setNominaAbierta(true)}>
             <Printer size={13} className="mr-1.5" /> Nómina
           </Boton>
           <Boton variante="fantasma" tamano="xs" onClick={() => {
@@ -682,6 +684,14 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
           )}
         </div>
       )}
+
+      <ModalNomina
+        abierto={nominaAbierta}
+        onCerrar={() => setNominaAbierta(false)}
+        desde={desde.toISOString().split('T')[0]}
+        hasta={hasta.toISOString().split('T')[0]}
+        etiquetaPeriodo={etiqueta}
+      />
     </div>
   )
 }
