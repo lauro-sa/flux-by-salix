@@ -33,6 +33,8 @@ interface ParametrosHook {
   contextoVariables?: Record<string, Record<string, unknown>>
   snapshotRestaurar?: SnapshotCorreo | null
   plantillaPredeterminadaId?: string | null
+  pdfDesactivadoInicial?: boolean
+  portalDesactivadoInicial?: boolean
   onEnviar: (datos: DatosEnvioDocumento) => void | Promise<void>
   onGuardarBorrador?: (datos: DatosBorradorCorreo) => void | Promise<void>
   onGuardarPlantilla?: (datos: DatosPlantillaCorreo) => void | Promise<void>
@@ -51,6 +53,8 @@ export function useEnvioDocumento({
   contextoVariables,
   snapshotRestaurar,
   plantillaPredeterminadaId,
+  pdfDesactivadoInicial,
+  portalDesactivadoInicial,
   onEnviar,
   onGuardarBorrador,
   onGuardarPlantilla,
@@ -69,8 +73,8 @@ export function useEnvioDocumento({
 
   // Adjuntos
   const [adjuntos, setAdjuntos] = useState<AdjuntoDocumento[]>([])
-  const [incluirPdf, setIncluirPdf] = useState(true)
-  const [incluirEnlacePortal, setIncluirEnlacePortal] = useState(!!urlPortal)
+  const [incluirPdf, setIncluirPdf] = useState(!pdfDesactivadoInicial)
+  const [incluirEnlacePortal, setIncluirEnlacePortal] = useState(!portalDesactivadoInicial && !!urlPortal)
   const [subiendoAdjuntos, setSubiendoAdjuntos] = useState(false)
   const inputArchivosRef = useRef<HTMLInputElement>(null)
 
@@ -128,8 +132,8 @@ export function useEnvioDocumento({
         setHtml(htmlInicial)
         setPlantillaId('')
         setAdjuntos([])
-        setIncluirPdf(!!adjuntoDocumento)
-        setIncluirEnlacePortal(!!urlPortal)
+        setIncluirPdf(pdfDesactivadoInicial ? false : !!adjuntoDocumento)
+        setIncluirEnlacePortal(portalDesactivadoInicial ? false : !!urlPortal)
       }
       setMostrarProgramar(false)
       setMostrarCanales(false)
@@ -433,6 +437,19 @@ export function useEnvioDocumento({
   const handleEnviar = useCallback(async () => {
     const datos = construirDatos()
     if (!datos) return
+
+    // Advertencias antes de enviar
+    const advertencias: string[] = []
+    if (!datos.asunto.trim()) advertencias.push('sin asunto')
+    if (!datos.texto.trim()) advertencias.push('sin contenido en el cuerpo')
+
+    if (advertencias.length > 0) {
+      const confirmar = window.confirm(
+        `Estás por enviar un correo ${advertencias.join(' y ')}.\n¿Querés enviarlo de todas formas?`
+      )
+      if (!confirmar) return
+    }
+
     await onEnviar(datos)
   }, [construirDatos, onEnviar])
 

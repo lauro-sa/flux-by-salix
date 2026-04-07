@@ -5,7 +5,7 @@
  */
 
 // ─── Tipos de entrada ───
-export type TipoChatter = 'mensaje' | 'sistema' | 'nota_interna'
+export type TipoChatter = 'mensaje' | 'sistema' | 'nota_interna' | 'correo' | 'whatsapp'
 
 // ─── Acciones de sistema predefinidas ───
 export type AccionSistema =
@@ -23,6 +23,11 @@ export type AccionSistema =
   | 'actividad_creada'
   | 'actividad_completada'
   | 'actividad_reactivada'
+  // Correo
+  | 'correo_enviado'
+  | 'correo_recibido'
+  // WhatsApp (solo enviados — las respuestas viven en el inbox, no se vinculan al documento)
+  | 'whatsapp_enviado'
 
 // ─── Adjunto ───
 export interface AdjuntoChatter {
@@ -53,6 +58,23 @@ export interface MetadataChatter {
   cuota_id?: string
   descripcion_pago?: string
   monto_pago?: string
+  // Para correos
+  correo_asunto?: string
+  correo_destinatario?: string
+  correo_de?: string
+  correo_message_id?: string
+  correo_html?: string
+  // Para WhatsApp
+  whatsapp_numero?: string
+  whatsapp_destinatario?: string
+  whatsapp_plantilla?: string
+  whatsapp_botones?: { tipo: string; texto: string; url?: string }[]
+  wa_message_id?: string
+  wa_status?: 'sent' | 'delivered' | 'read' | 'failed'
+  // Para notas ricas
+  contenido_html?: string
+  // Para menciones
+  menciones?: string[]
 }
 
 // ─── Entrada de chatter ───
@@ -81,3 +103,6 @@ export interface CrearEntradaChatterPayload {
   adjuntos?: AdjuntoChatter[]
   metadata?: MetadataChatter
 }
+
+// ─── Filtros del chatter ───
+export type FiltroChatter = 'todo' | 'correos' | 'whatsapp' | 'notas' | 'sistema'

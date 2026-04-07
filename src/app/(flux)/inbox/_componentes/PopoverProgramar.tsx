@@ -28,6 +28,12 @@ interface PropiedadesPopoverProgramar {
   onCancelar?: () => void
   /** Mensaje programado pendiente (si existe) */
   programadoPendiente?: ProgramadoPendiente | null
+  /** Trigger personalizado — si se pasa, reemplaza el botón default */
+  children?: React.ReactNode
+  /** Clase CSS para el wrapper del trigger en el Popover interno */
+  claseTrigger?: string
+  /** Si true, renderiza el contenido inline sin Popover wrapper */
+  renderInline?: boolean
 }
 
 // Formateador de fechas en español
@@ -109,6 +115,9 @@ export function PopoverProgramar({
   onProgramar,
   onCancelar,
   programadoPendiente,
+  children,
+  claseTrigger,
+  renderInline,
 }: PropiedadesPopoverProgramar) {
   const [mostrarPersonalizado, setMostrarPersonalizado] = useState(false)
   const [fechaPersonalizada, setFechaPersonalizada] = useState('')
@@ -404,6 +413,9 @@ export function PopoverProgramar({
     </div>
   )
 
+  // Modo inline: renderizar contenido directamente sin Popover wrapper
+  if (renderInline) return contenido
+
   return (
     <Popover
       contenido={contenido}
@@ -412,34 +424,36 @@ export function PopoverProgramar({
       alineacion="fin"
       lado="arriba"
       ancho={320}
+      claseTrigger={claseTrigger}
     >
-      <Tooltip contenido="Programar envío">
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          className="p-2 rounded-lg flex-shrink-0 transition-colors hover:bg-superficie-hover relative"
-          style={{
-            color: programadoPendiente
-              ? 'var(--texto-marca)'
-              : 'var(--texto-terciario)',
-            minWidth: 44,
-            minHeight: 44,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Clock size={18} />
-          {/* Indicador de mensaje pendiente */}
-          {programadoPendiente && (
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
-              style={{ background: 'var(--texto-marca)' }}
-            />
-          )}
-        </motion.button>
-      </Tooltip>
+      {children || (
+        <Tooltip contenido="Programar envío">
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            className="p-2 rounded-lg flex-shrink-0 transition-colors hover:bg-superficie-hover relative"
+            style={{
+              color: programadoPendiente
+                ? 'var(--texto-marca)'
+                : 'var(--texto-terciario)',
+              minWidth: 44,
+              minHeight: 44,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Clock size={18} />
+            {programadoPendiente && (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
+                style={{ background: 'var(--texto-marca)' }}
+              />
+            )}
+          </motion.button>
+        </Tooltip>
+      )}
     </Popover>
   )
 }

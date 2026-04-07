@@ -35,6 +35,8 @@ import { useEnvioPendiente } from '@/hooks/useEnvioPendiente'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useAuth } from '@/hooks/useAuth'
 import { useTraduccion } from '@/lib/i18n'
+import { useEsPantallaAncha } from '@/hooks/useEsPantallaAncha'
+import { usePreferencias } from '@/hooks/usePreferencias'
 import { PanelChatter } from '@/componentes/entidad/PanelChatter'
 import type {
   PresupuestoConLineas, LineaPresupuesto, TipoLinea,
@@ -77,6 +79,10 @@ export default function EditorPresupuesto({
   const { usuario } = useAuth()
   const { esPropietario, esAdmin } = useRol()
   const { programarEnvio } = useEnvioPendiente()
+  const esPantallaAncha = useEsPantallaAncha()
+  const { preferencias, guardar: guardarPreferencia } = usePreferencias()
+  const sinLateral = preferencias.chatter_sin_lateral
+  const chatterLateral = esPantallaAncha && !sinLateral.includes('*') && !sinLateral.includes('presupuestos')
 
   // ─── Estado compartido ──────────────────────────────────────────────────
 
@@ -101,6 +107,7 @@ export default function EditorPresupuesto({
 
   // Modal enviar documento por correo
   const [modalEnviarAbierto, setModalEnviarAbierto] = useState(false)
+  const [correoLibre, setCorreoLibre] = useState(false) // true = desde chatter (sin plantilla, sin PDF, sin portal)
   const [canalesCorreo, setCanalesCorreo] = useState<CanalCorreoEmpresa[]>([])
   const [plantillasCorreo, setPlantillasCorreo] = useState<import('@/componentes/entidad/ModalEnviarDocumento').PlantillaCorreo[]>([])
   const [plantillaCorreoPredeterminadaId, setPlantillaCorreoPredeterminadaId] = useState<string | null>(null)
@@ -1187,7 +1194,11 @@ export default function EditorPresupuesto({
   // ─── RENDER ─────────────────────────────────────────────────────────────
 
   return (
-    <div className="w-full max-w-[1200px] mx-auto px-4 py-6 space-y-5">
+    <div className={`w-full mx-auto px-4 py-6 ${
+      chatterLateral ? 'max-w-[1600px] flex gap-5 items-start' : 'max-w-[1200px] space-y-5'
+    }`}>
+      {/* ─── Contenido principal (se comprime cuando chatter está lateral) ─── */}
+      <div className={`space-y-5 ${chatterLateral ? 'flex-1 min-w-0' : ''}`}>
       {/* ─── Contenedor principal ─── */}
       <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil overflow-hidden">
 
@@ -2025,11 +2036,54 @@ export default function EditorPresupuesto({
         </div>
       )}
 
+      {/* Cierre del wrapper de contenido principal (modo lateral) */}
+      </div>
+
       {/* ─── Panel de actividad (Chatter) ─── */}
       {modo === 'editar' && idPresupuesto && (
         <PanelChatter
           entidadTipo="presupuesto"
           entidadId={idPresupuesto}
+          contacto={(() => {
+            // Prioridad: dirigido a > contacto principal > snapshot presupuesto
+            const atencion = atencionSeleccionada
+            const cto = contactoSeleccionado
+            return {
+              id: atencion?.id || cto?.id || presupuesto?.contacto_id || undefined,
+              nombre: atencion
+                ? `${atencion.nombre} ${atencion.apellido || ''}`.trim()
+                : cto
+                  ? `${cto.nombre} ${cto.apellido || ''}`.trim()
+                  : presupuesto?.contacto_nombre
+                    ? `${presupuesto.contacto_nombre} ${presupuesto.contacto_apellido || ''}`.trim()
+                    : undefined,
+              correo: atencion?.correo || cto?.correo || presupuesto?.contacto_correo || undefined,
+              whatsapp: atencion?.whatsapp || cto?.whatsapp || undefined,
+              telefono: atencion?.telefono || cto?.telefono || presupuesto?.contacto_telefono || undefined,
+            }
+          })()}
+          tipoDocumento="Presupuesto"
+          datosDocumento={{
+            numero: presupuesto?.numero || numeroPresupuesto || '',
+            total: presupuesto?.total_final ? `$${Number(presupuesto.total_final).toLocaleString('es-AR')}` : '',
+            fecha: presupuesto?.fecha_emision ? new Date(presupuesto.fecha_emision).toLocaleDateString('es-AR') : '',
+            estado: presupuesto?.estado || '',
+            empresaNombre: datosEmpresa?.nombre || empresa?.nombre || '',
+            urlPortal: urlPortalReal || undefined,
+          }}
+          onAbrirCorreo={() => { setCorreoLibre(true); setModalEnviarAbierto(true) }}
+          adjuntosDocumento={presupuesto?.pdf_url ? [{
+            url: presupuesto.pdf_url,
+            nombre: `${presupuesto.numero || 'Presupuesto'}.pdf`,
+            tipo: 'application/pdf',
+            miniatura_url: presupuesto.pdf_miniatura_url || undefined,
+            origen: 'PDF del presupuesto',
+          }] : []}
+          modo={chatterLateral ? 'lateral' : 'inferior'}
+          seccion="presupuestos"
+          sinLateral={sinLateral}
+          onCambiarSinLateral={(nuevo) => guardarPreferencia({ chatter_sin_lateral: nuevo })}
+          className={chatterLateral ? 'w-[380px] shrink-0 sticky top-4 max-h-[calc(100dvh-3rem)]' : ''}
         />
       )}
 
@@ -2044,13 +2098,11 @@ export default function EditorPresupuesto({
       {/* ─── Modal enviar documento por correo ─── */}
       <ModalEnviarDocumento
         abierto={modalEnviarAbierto}
-        onCerrar={() => setModalEnviarAbierto(false)}
+        onCerrar={() => { setModalEnviarAbierto(false); setCorreoLibre(false) }}
         onEnviar={handleEnviarCorreo}
         canales={canalesCorreo}
-        plantillas={plantillasCorreo}
+        plantillas={correoLibre ? [] : plantillasCorreo}
         correosDestinatario={
-          // Prioridad: 1) dirigido a (estado local), 2) dirigido a (snapshot presupuesto),
-          // 3) contacto seleccionado, 4) contacto snapshot presupuesto
           atencionSeleccionada?.correo
             ? [atencionSeleccionada.correo]
             : presupuesto?.atencion_correo
@@ -2072,7 +2124,7 @@ export default function EditorPresupuesto({
                   ? `${presupuesto.contacto_nombre} ${presupuesto.contacto_apellido || ''}`.trim()
                   : ''
         }
-        asuntoPredeterminado={(() => {
+        asuntoPredeterminado={correoLibre ? '' : (() => {
           const num = numeroPresupuesto || presupuesto?.numero || ''
           const nombreDest = atencionSeleccionada
             ? `${atencionSeleccionada.nombre} ${atencionSeleccionada.apellido || ''}`.trim()
@@ -2094,12 +2146,14 @@ export default function EditorPresupuesto({
           } : null
         }
         urlPortal={urlPortalReal}
+        pdfDesactivadoInicial={correoLibre}
+        portalDesactivadoInicial={correoLibre}
         enviando={enviandoCorreo}
         tipoDocumento={t('documentos.tipos.presupuesto')}
         onGuardarBorrador={handleGuardarBorrador}
         onGuardarPlantilla={handleGuardarPlantilla}
-        snapshotRestaurar={snapshotCorreo}
-        plantillaPredeterminadaId={plantillaCorreoPredeterminadaId}
+        snapshotRestaurar={correoLibre ? undefined : snapshotCorreo}
+        plantillaPredeterminadaId={correoLibre ? undefined : plantillaCorreoPredeterminadaId}
         onCambiarPredeterminada={(esPropietario || esAdmin) ? async (tplId) => {
           // Guardar/quitar _es_por_defecto via PATCH a la plantilla
           if (tplId) {

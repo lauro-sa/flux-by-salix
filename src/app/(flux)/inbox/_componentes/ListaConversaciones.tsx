@@ -8,7 +8,7 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import { Buscador } from '@/componentes/ui/Buscador'
 import { Pildora } from '@/componentes/ui/Pildora'
 import {
-  Mail, Hash, Clock, User, Filter, Trash2,
+  Mail, Hash, Clock, User, Filter, Trash2, AlarmClock,
   ChevronDown, ChevronLeft, ChevronRight as ChevronRightIcon,
   Circle, Square, CheckSquare,
   Tag, CheckCircle, Eye, EyeOff,
@@ -67,20 +67,25 @@ const COLOR_ESTADO: Record<EstadoConversacion, string> = {
   snooze: 'info',
 }
 
-// Formato de tiempo relativo
+// Formato estilo WhatsApp: hoy → hora, ayer → "ayer", esta semana → día, después → fecha
 function tiempoRelativo(fecha: string): string {
   const ahora = new Date()
   const msg = new Date(fecha)
-  const diff = ahora.getTime() - msg.getTime()
-  const minutos = Math.floor(diff / 60000)
-  const horas = Math.floor(diff / 3600000)
-  const dias = Math.floor(diff / 86400000)
 
-  if (minutos < 1) return 'ahora'
-  if (minutos < 60) return `${minutos}m`
-  if (horas < 24) return `${horas}h`
-  if (dias < 7) return `${dias}d`
-  return msg.toLocaleDateString('es', { day: 'numeric', month: 'short' })
+  if (msg.toDateString() === ahora.toDateString()) {
+    return msg.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })
+  }
+
+  const ayer = new Date(ahora)
+  ayer.setDate(ayer.getDate() - 1)
+  if (msg.toDateString() === ayer.toDateString()) return 'ayer'
+
+  const diffDias = Math.floor((ahora.getTime() - msg.getTime()) / 86400000)
+  if (diffDias < 7) {
+    return msg.toLocaleDateString('es', { weekday: 'long' })
+  }
+
+  return msg.toLocaleDateString('es', { day: 'numeric', month: 'short', year: ahora.getFullYear() !== msg.getFullYear() ? 'numeric' : undefined })
 }
 
 export function ListaConversaciones({
@@ -118,6 +123,16 @@ export function ListaConversaciones({
 
   // Resetear página cuando cambian las conversaciones
   useEffect(() => { setPagina(1) }, [conversaciones.length])
+
+  // Mapa conversacion_id → próxima fecha programada
+  const [programadosPorConv, setProgramadosPorConv] = useState<Record<string, string>>({})
+  useEffect(() => {
+    if (tipoCanal !== 'whatsapp') { setProgramadosPorConv({}); return }
+    fetch('/api/inbox/whatsapp/programados')
+      .then(r => r.json())
+      .then(d => setProgramadosPorConv(d.programados_por_conversacion || {}))
+      .catch(() => setProgramadosPorConv({}))
+  }, [tipoCanal, conversaciones.length])
 
   const totalPaginas = Math.max(1, Math.ceil(conversaciones.length / POR_PAGINA))
   const conversacionesPaginadas = conversaciones.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA)
@@ -476,11 +491,13 @@ export function ListaConversaciones({
                         <span key={et} className="text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap"
                           style={{ background: 'var(--superficie-hover)', color: 'var(--texto-terciario)' }}>{et}</span>
                       ))}
-                      {conv.etapa_etiqueta && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap"
-                          style={{ background: `${conv.etapa_color || '#6b7280'}18`, color: conv.etapa_color || '#6b7280' }}>
-                          {conv.etapa_etiqueta}</span>
-                      )}
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap"
+                        style={{
+                          background: conv.etapa_etiqueta ? `${conv.etapa_color || '#6b7280'}18` : 'var(--superficie-hover)',
+                          color: conv.etapa_etiqueta ? (conv.etapa_color || '#6b7280') : 'var(--texto-terciario)',
+                        }}>
+                        {conv.etapa_etiqueta || 'Sin etapa'}
+                      </span>
                       {conv.sector_nombre && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap"
                           style={{ background: `${conv.sector_color || '#6366f1'}18`, color: conv.sector_color || '#6366f1' }}>
@@ -495,15 +512,20 @@ export function ListaConversaciones({
                     </div>
                   </div>
 
-                  {/* Col 3: Fecha + (badge no leídos / 3 puntos) — centrado vertical */}
+                  {/* Col 3: Fecha + programado + (badge no leídos / 3 puntos) — centrado vertical */}
                   <div className="flex flex-col items-center justify-center gap-1 flex-shrink-0 self-center min-w-[40px]">
                     {conv.ultimo_mensaje_en && (
-                      <span className="text-[11px] whitespace-nowrap" style={{
-                        color: conv.mensajes_sin_leer !== 0 ? 'var(--insignia-exito)' : 'var(--texto-terciario)',
-                        fontWeight: conv.mensajes_sin_leer !== 0 ? 600 : 400,
-                      }}>
-                        {tiempoRelativo(conv.ultimo_mensaje_en)}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        {programadosPorConv[conv.id] && (
+                          <AlarmClock size={11} style={{ color: 'var(--texto-marca)' }} />
+                        )}
+                        <span className="text-[11px] whitespace-nowrap" style={{
+                          color: conv.mensajes_sin_leer !== 0 ? 'var(--insignia-exito)' : 'var(--texto-terciario)',
+                          fontWeight: conv.mensajes_sin_leer !== 0 ? 600 : 400,
+                        }}>
+                          {tiempoRelativo(conv.ultimo_mensaje_en)}
+                        </span>
+                      </div>
                     )}
                     {/* Badge no leídos / 3 puntos — swap en hover */}
                     {conv.mensajes_sin_leer !== 0 ? (

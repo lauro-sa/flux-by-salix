@@ -621,6 +621,63 @@ function PaginaInbox() {
     }
   }, [conversaciones, marcarNotificacionesLeidasDeConversacion, esMovil, tabActivo])
 
+  // ─── Realtime: escuchar mensajes nuevos y cambios de estado ───
+  useEffect(() => {
+    const convId = conversacionSeleccionada?.id
+    if (!convId) return
+
+    const canal = supabase
+      .channel(`inbox-mensajes-${convId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'mensajes',
+        filter: `conversacion_id=eq.${convId}`,
+      }, (payload) => {
+        const nuevo = payload.new as MensajeConAdjuntos
+        // Solo agregar si no existe ya (evitar duplicados con mensajes optimistas)
+        setMensajes(prev => {
+          if (prev.some(m => m.id === nuevo.id)) return prev
+          // Si es un mensaje optimista pendiente (wa_message_id coincide), reemplazar
+          const idxOptimista = prev.findIndex(m => m.id?.startsWith('temp-'))
+          if (idxOptimista >= 0 && !nuevo.es_entrante) {
+            const copia = [...prev]
+            copia[idxOptimista] = { ...nuevo, adjuntos: nuevo.adjuntos || [] }
+            return copia
+          }
+          return [...prev, { ...nuevo, adjuntos: nuevo.adjuntos || [] }]
+        })
+        // Actualizar conversación en la lista (ultimo_mensaje, etc.)
+        setConversaciones(prev => prev.map(c =>
+          c.id === convId ? {
+            ...c,
+            ultimo_mensaje_texto: nuevo.texto || '',
+            ultimo_mensaje_en: nuevo.creado_en,
+            ultimo_mensaje_es_entrante: nuevo.es_entrante,
+          } : c
+        ))
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'mensajes',
+        filter: `conversacion_id=eq.${convId}`,
+      }, (payload) => {
+        const actualizado = payload.new as MensajeConAdjuntos
+        // Actualizar estado (palomitas) y otros campos del mensaje
+        setMensajes(prev => prev.map(m =>
+          m.id === actualizado.id
+            ? { ...m, wa_status: actualizado.wa_status, estado: actualizado.estado }
+            : m
+        ))
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(canal)
+    }
+  }, [conversacionSeleccionada?.id, supabase])
+
   // Cargar mensajes anteriores (scroll infinito)
   const cargarMensajesAnteriores = useCallback(async () => {
     const convId = conversacionSeleccionada?.id

@@ -874,6 +874,25 @@ async function procesarEstadoMensaje(
     })
     .eq('wa_message_id', estado.id)
     .eq('empresa_id', canal.empresa_id)
+
+  // Propagar estado al chatter (palomitas en documentos)
+  const { data: entradasChatter } = await admin
+    .from('chatter')
+    .select('id, metadata')
+    .eq('empresa_id', canal.empresa_id)
+    .eq('tipo', 'whatsapp')
+    .filter('metadata->>wa_message_id', 'eq', estado.id)
+
+  if (entradasChatter?.length) {
+    for (const entrada of entradasChatter) {
+      await admin
+        .from('chatter')
+        .update({
+          metadata: { ...(entrada.metadata as Record<string, unknown>), wa_status: estado.status },
+        })
+        .eq('id', entrada.id)
+    }
+  }
 }
 
 // ─── Procesar actualización de estado de plantilla ───

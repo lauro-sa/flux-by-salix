@@ -43,6 +43,8 @@ interface Preferencias {
   config_tablas: Record<string, ConfigTabla>
   /** Admin/propietario: recibir todas las notificaciones aunque no estés asignado */
   recibir_todas_notificaciones: boolean
+  /** Secciones donde el chatter NO se ancla al costado. ['*'] = ninguna sección. ['presupuestos'] = solo esa */
+  chatter_sin_lateral: string[]
 }
 
 interface ContextoPreferencias {
@@ -64,6 +66,7 @@ const DEFAULTS: Preferencias = {
   sidebar_secciones: {},
   config_tablas: {},
   recibir_todas_notificaciones: false,
+  chatter_sin_lateral: [],
 }
 
 const CLAVE_DISPOSITIVO = 'flux_dispositivo_id'
@@ -144,6 +147,7 @@ function ProveedorPreferencias({ children }: { children: ReactNode }) {
               sidebar_secciones: datos.sidebar_secciones || {},
               config_tablas: datos.config_tablas || {},
               recibir_todas_notificaciones: datos.recibir_todas_notificaciones ?? false,
+              chatter_sin_lateral: datos.chatter_sin_lateral || [],
             }
             setPreferencias(prefs)
             localStorage.setItem(CLAVE_PREFS_LOCAL, JSON.stringify(prefs))
@@ -188,6 +192,7 @@ function ProveedorPreferencias({ children }: { children: ReactNode }) {
     sidebar_auto_ocultar: prefs.sidebar_auto_ocultar,
     sidebar_secciones: prefs.sidebar_secciones,
     config_tablas: prefs.config_tablas,
+    chatter_sin_lateral: prefs.chatter_sin_lateral,
   }), [])
 
   /** Envía los cambios pendientes a la BD inmediatamente (sin debounce) */

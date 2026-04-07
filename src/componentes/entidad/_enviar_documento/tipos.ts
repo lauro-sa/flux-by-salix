@@ -132,4 +132,8 @@ export interface PropiedadesModalEnviarDocumento {
   onCrearPlantilla?: (nombre: string, datos: { asunto: string; contenido_html: string; paraTodos?: boolean }) => Promise<void>
   /** Eliminar una plantilla */
   onEliminarPlantilla?: (id: string) => Promise<void>
+  /** Si true, el PDF inicia desactivado (el usuario puede activarlo manualmente) */
+  pdfDesactivadoInicial?: boolean
+  /** Si true, el portal inicia desactivado (el usuario puede activarlo manualmente) */
+  portalDesactivadoInicial?: boolean
 }

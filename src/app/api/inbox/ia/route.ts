@@ -226,6 +226,51 @@ ${hiloTexto}`
         break
       }
 
+      case 'extraer_datos': {
+        // Escanear conversación y extraer datos estructurados del contacto
+        prompt = `Eres un asistente experto en extraer datos de contacto de conversaciones. Analiza esta conversación de WhatsApp y extrae TODOS los datos que puedas identificar sobre el cliente/contacto.
+
+Conversación:
+${hiloTexto}
+
+Extrae los siguientes campos si están presentes en la conversación. Si un dato no se menciona, dejalo como null. Sé preciso y no inventes datos.
+
+Responde ÚNICAMENTE con un JSON válido con esta estructura:
+{
+  "nombre": string | null,
+  "apellido": string | null,
+  "telefono": string | null,
+  "correo": string | null,
+  "cargo": string | null,
+  "rubro": string | null,
+  "direccion": {
+    "calle": string | null,
+    "numero": string | null,
+    "barrio": string | null,
+    "ciudad": string | null,
+    "provincia": string | null,
+    "codigo_postal": string | null,
+    "texto_completo": string | null
+  } | null,
+  "tipo_trabajo": string | null,
+  "empresa_nombre": string | null,
+  "notas": string | null,
+  "datos_extra": { [clave: string]: string }
+}
+
+El campo "datos_extra" es para cualquier otro dato relevante mencionado (ej: "presupuesto solicitado", "cantidad de personas", "fecha preferida", "modelo de auto", etc).
+El campo "notas" es un resumen breve de lo que el cliente necesita o busca.`
+
+        const textoExtraccion = await generarConIA(proveedor, apiKey, modelo, prompt, 800)
+        try {
+          const jsonMatch = textoExtraccion.match(/\{[\s\S]*\}/)
+          resultado = jsonMatch ? JSON.parse(jsonMatch[0]) : {}
+        } catch {
+          resultado = { error: 'No se pudo extraer datos estructurados' }
+        }
+        break
+      }
+
       default:
         return NextResponse.json({ error: 'Acción no soportada' }, { status: 400 })
     }

@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Send, Paperclip, Mic, Pause, X, Image, Film, File, FileText, Trash2,
-  StickyNote,
+  StickyNote, AlarmClock,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { Tooltip } from '@/componentes/ui/Tooltip'
@@ -19,7 +19,9 @@ import {
   FORMATOS_NOMBRE_REMITENTE,
   generarNombreRemitente,
 } from '@/lib/nombre-remitente'
-import { Check, PenLine, Ban } from 'lucide-react'
+import { Check, PenLine, Ban, Clock, Sparkles, ChevronUp, ChevronDown } from 'lucide-react'
+import { PopoverProgramar } from './PopoverProgramar'
+import type { ProgramadoPendiente } from './PopoverProgramar'
 
 /**
  * Compositor de mensajes — barra inferior del chat.
@@ -64,6 +66,22 @@ interface PropiedadesCompositor {
   onFijarFirmaContacto?: (formato: FormatoNombreRemitente | 'sin_firma') => void
   /** Nombre del contacto (para el label "Fijar para X") */
   nombreContacto?: string
+  /** Fecha/hora programada seleccionada (ISO string). Si existe, el envío será programado */
+  programadoPara?: string | null
+  /** Callback para quitar la programación */
+  onQuitarProgramacion?: () => void
+  /** Callback al seleccionar fecha/hora desde el popover de programar */
+  onProgramar?: (fechaHora: string) => void
+  /** Mensaje programado pendiente (para mostrar en el popover) */
+  programadoPendiente?: ProgramadoPendiente | null
+  /** Callback para cancelar un programado pendiente desde el popover */
+  onCancelarProgramado?: () => void
+  /** Si true, muestra botón Salix IA en la barra */
+  iaHabilitada?: boolean
+  /** Si el panel IA está expandido */
+  iaExpandida?: boolean
+  /** Callback al tocar botón Salix IA */
+  onToggleIA?: () => void
 }
 
 export interface DatosMensaje {
@@ -112,10 +130,32 @@ export function CompositorMensaje({
   onFijarFirmaDefault,
   onFijarFirmaContacto,
   nombreContacto,
+  programadoPara,
+  onQuitarProgramacion,
+  onProgramar,
+  programadoPendiente,
+  onCancelarProgramado,
+  iaHabilitada,
+  iaExpandida,
+  onToggleIA,
 }: PropiedadesCompositor) {
   const { t } = useTraduccion()
   const [texto, setTexto] = useState('')
   const [esNotaInterna, setEsNotaInterna] = useState(false)
+  const [panelAbierto, setPanelAbierto] = useState<'firma' | 'programar' | null>(null)
+  const barraRef = useRef<HTMLDivElement>(null)
+
+  // Cerrar panel al hacer clic fuera de la barra + panel
+  useEffect(() => {
+    if (!panelAbierto) return
+    const handler = (e: MouseEvent) => {
+      if (barraRef.current && !barraRef.current.contains(e.target as Node)) {
+        setPanelAbierto(null)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [panelAbierto])
 
   // Respuestas rápidas: popup con `/`
   const [rrVisible, setRrVisible] = useState(false)
@@ -167,11 +207,12 @@ export function CompositorMensaje({
     }
   }, [previewUrl])
 
-  // Sincronizar texto inyectado externamente (ej. sugerencia de PanelIA).
+  // Sincronizar texto inyectado externamente (ej. sugerencia de PanelIA, limpiar tras programar).
   // textoInicialVersion permite re-insertar el mismo texto si se clickea dos veces.
   useEffect(() => {
-    if (textoInicial !== undefined && textoInicial !== '') {
+    if (textoInicial !== undefined) {
       setTexto(textoInicial)
+      onCambioTexto?.(textoInicial)
       // Ajustar altura del textarea tras insertar el texto
       setTimeout(ajustarAltura, 0)
     }
@@ -638,111 +679,190 @@ export function CompositorMensaje({
         )}
       </AnimatePresence>
 
-      {/* Firma del mensaje (solo WhatsApp) */}
-      {tipoCanal === 'whatsapp' && datosUsuario && !esNotaInterna && !grabando && (() => {
-        const sector = datosUsuario.sector
-        const nombre = datosUsuario.nombre
-        const apellido = datosUsuario.apellido
+      {/* Barra de acciones: Firma | Salix IA | Programar envío */}
+      {tipoCanal === 'whatsapp' && !esNotaInterna && !grabando && (() => {
+        const sector = datosUsuario?.sector
+        const nombre = datosUsuario?.nombre || ''
+        const apellido = datosUsuario?.apellido || ''
         const inicialAp = apellido ? apellido[0].toUpperCase() : ''
         const iniciales = `${nombre ? nombre[0].toUpperCase() : ''}${inicialAp}`
         const OPCIONES_FIRMA: { valor: string; preview: string; desc: string }[] = [
-          { valor: 'sin_firma', preview: '', desc: 'El mensaje se envía sin encabezado' },
-          ...(sector ? [{ valor: 'solo_sector', preview: sector, desc: 'Solo el departamento/sector' }] : []),
-          { valor: 'nombre_inicial_sector', preview: sector ? `${nombre} ${inicialAp} | ${sector}` : `${nombre} ${inicialAp}`, desc: 'Tu nombre + sector separados por |' },
-          { valor: 'iniciales_sector', preview: sector ? `${iniciales} | ${sector}` : iniciales, desc: 'Tus iniciales + sector separados por |' },
+          { valor: 'sin_firma', preview: '', desc: 'Sin encabezado' },
+          ...(sector ? [{ valor: 'solo_sector', preview: sector, desc: 'Solo sector' }] : []),
+          { valor: 'nombre_inicial_sector', preview: sector ? `${nombre} ${inicialAp} | ${sector}` : `${nombre} ${inicialAp}`, desc: 'Nombre + sector' },
+          { valor: 'iniciales_sector', preview: sector ? `${iniciales} | ${sector}` : iniciales, desc: 'Iniciales + sector' },
         ]
         const opcionActiva = OPCIONES_FIRMA.find(o => o.valor === formatoFirma) || OPCIONES_FIRMA[0]
         const tieneFirma = opcionActiva.valor !== 'sin_firma'
+
+        const tieneProgramar = !!onProgramar
+        const tieneIA = !!iaHabilitada
+        const secciones = [!!datosUsuario, tieneIA, tieneProgramar].filter(Boolean).length
+        const anchoPorSeccion = secciones > 0 ? `${100 / secciones}%` : '100%'
+
         return (
-          <Popover
-            alineacion="centro"
-            lado="arriba"
-            ancho={300}
-            contenido={
-              <div className="py-2">
-                {/* Header */}
-                <p className="px-4 pb-2 text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
-                  Firma del mensaje
-                </p>
-                <p className="px-4 pb-3 text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                  El cliente verá esta firma antes de cada mensaje que envíes
-                </p>
-
-                {/* Opciones */}
-                <div className="flex flex-col">
-                  {OPCIONES_FIRMA.map((op, i) => {
-                    const activo = formatoFirma === op.valor
-                    return (
-                      <div key={op.valor}>
-                        {i > 0 && <div className="mx-3 border-t" style={{ borderColor: 'var(--borde-sutil)' }} />}
-                        <button
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
-                          style={{ color: activo ? 'var(--texto-marca)' : 'var(--texto-primario)', border: 'none', background: 'transparent' }}
-                          onClick={() => onCambioFormatoFirma?.(op.valor as FormatoNombreRemitente | 'sin_firma')}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium">
-                              {op.valor === 'sin_firma' ? 'Sin firma' : `*${op.preview}:*`}
-                            </div>
-                            <div className="text-xxs mt-0.5" style={{ color: 'var(--texto-terciario)' }}>
-                              {op.desc}
-                            </div>
-                          </div>
-                          {activo && <Check size={15} className="shrink-0" style={{ color: 'var(--texto-marca)' }} />}
-                        </button>
-                      </div>
-                    )
-                  })}
+          <div ref={barraRef}>
+            {/* Barra de botones */}
+            <div className="flex items-stretch" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
+              {/* Firma */}
+              {datosUsuario && (
+                <div
+                  style={{ width: anchoPorSeccion }}
+                  className={`flex items-center justify-center gap-1.5 px-3 py-1.5 cursor-pointer transition-colors ${panelAbierto === 'firma' ? 'bg-[var(--superficie-hover)]' : 'hover:bg-[var(--superficie-hover)]'}`}
+                  onClick={() => setPanelAbierto(panelAbierto === 'firma' ? null : 'firma')}
+                >
+                  <PenLine size={10} className="shrink-0" style={{ color: panelAbierto === 'firma' ? 'var(--texto-marca)' : 'var(--texto-terciario)' }} />
+                  <span className="text-xxs truncate" style={{ color: tieneFirma ? 'var(--texto-secundario)' : 'var(--texto-terciario)' }}>
+                    {tieneFirma ? `*${opcionActiva.preview}:*` : 'Sin firma'}
+                  </span>
                 </div>
+              )}
 
-                {/* Acciones: fijar */}
-                {tieneFirma && (onFijarFirmaDefault || onFijarFirmaContacto) && (
-                  <>
-                    <div className="mx-3 my-1 border-t" style={{ borderColor: 'var(--borde-sutil)' }} />
-                    <p className="px-4 pt-1.5 pb-1 text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
-                      Aplicar firma
-                    </p>
-                    {onFijarFirmaDefault && (
+              {datosUsuario && (tieneIA || tieneProgramar) && (
+                <div className="w-px self-stretch" style={{ background: 'var(--borde-sutil)' }} />
+              )}
+
+              {/* Salix IA */}
+              {tieneIA && (
+                <div
+                  style={{ width: anchoPorSeccion }}
+                  className={`flex items-center justify-center gap-1.5 px-3 py-1.5 cursor-pointer transition-colors ${iaExpandida ? 'bg-[var(--superficie-hover)]' : 'hover:bg-[var(--superficie-hover)]'}`}
+                  onClick={() => { setPanelAbierto(null); onToggleIA?.() }}
+                >
+                  <Sparkles size={10} className="shrink-0" style={{ color: 'var(--texto-marca)' }} />
+                  <span className="text-xxs font-medium" style={{ color: iaExpandida ? 'var(--texto-marca)' : 'var(--texto-terciario)' }}>
+                    Salix IA
+                  </span>
+                  {iaExpandida
+                    ? <ChevronDown size={10} style={{ color: 'var(--texto-terciario)' }} />
+                    : <ChevronUp size={10} style={{ color: 'var(--texto-terciario)' }} />
+                  }
+                </div>
+              )}
+
+              {tieneProgramar && (datosUsuario || tieneIA) && (
+                <div className="w-px self-stretch" style={{ background: 'var(--borde-sutil)' }} />
+              )}
+
+              {/* Programar envío */}
+              {tieneProgramar && (
+                <div
+                  style={{ width: anchoPorSeccion }}
+                  className={`flex items-center justify-center gap-1.5 px-3 py-1.5 cursor-pointer transition-colors ${panelAbierto === 'programar' ? 'bg-[var(--superficie-hover)]' : 'hover:bg-[var(--superficie-hover)]'}`}
+                  onClick={() => setPanelAbierto(panelAbierto === 'programar' ? null : 'programar')}
+                >
+                  {programadoPara ? (
+                    <>
+                      <AlarmClock size={10} className="shrink-0" style={{ color: 'var(--texto-marca)' }} />
+                      <span className="text-xxs font-medium truncate" style={{ color: 'var(--texto-marca)' }}>
+                        {new Intl.DateTimeFormat('es', {
+                          weekday: 'short', day: 'numeric', month: 'short',
+                          hour: '2-digit', minute: '2-digit',
+                        }).format(new Date(programadoPara))}
+                      </span>
                       <button
-                        className="w-full flex items-center gap-2.5 px-4 py-2 text-left text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
-                        style={{ color: 'var(--texto-secundario)', border: 'none', background: 'transparent' }}
-                        onClick={() => onFijarFirmaDefault(formatoFirma as FormatoNombreRemitente | 'sin_firma')}
+                        onClick={(e) => { e.stopPropagation(); onQuitarProgramacion?.() }}
+                        className="p-0.5 rounded hover:bg-[var(--superficie-hover)] transition-colors shrink-0"
+                        style={{ color: 'var(--texto-terciario)' }}
                       >
-                        <span className="text-base">⭐</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium">Usar para todos los chats</div>
-                          <div className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>Se aplicará a todas las conversaciones nuevas</div>
-                        </div>
+                        <X size={11} />
                       </button>
-                    )}
-                    {onFijarFirmaContacto && nombreContacto && (
-                      <button
-                        className="w-full flex items-center gap-2.5 px-4 py-2 text-left text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
-                        style={{ color: 'var(--texto-secundario)', border: 'none', background: 'transparent' }}
-                        onClick={() => onFijarFirmaContacto(formatoFirma as FormatoNombreRemitente | 'sin_firma')}
-                      >
-                        <span className="text-base">📌</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium">Fijar para {nombreContacto}</div>
-                          <div className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>Se usará siempre con este contacto</div>
-                        </div>
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            }
-          >
-            <div
-              className="flex items-center gap-1.5 px-3 py-1 cursor-pointer hover:bg-[var(--superficie-hover)] transition-colors"
-              style={{ borderBottom: '1px solid var(--borde-sutil)' }}
-            >
-              <PenLine size={10} style={{ color: 'var(--texto-terciario)' }} />
-              <span className="text-xxs" style={{ color: tieneFirma ? 'var(--texto-secundario)' : 'var(--texto-terciario)' }}>
-                {tieneFirma ? `*${opcionActiva.preview}:*` : 'Sin firma — toca para elegir'}
-              </span>
+                    </>
+                  ) : (
+                    <>
+                      <Clock size={10} className="shrink-0" style={{ color: panelAbierto === 'programar' ? 'var(--texto-marca)' : 'var(--texto-terciario)' }} />
+                      <span className="text-xxs" style={{ color: panelAbierto === 'programar' ? 'var(--texto-marca)' : 'var(--texto-terciario)' }}>
+                        Programar envío
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
-          </Popover>
+
+            {/* Panel expandible: Firma */}
+            <AnimatePresence>
+              {panelAbierto === 'firma' && datosUsuario && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden"
+                  style={{ background: 'var(--superficie-hover)' }}
+                >
+                  <div className="px-4 py-2.5 space-y-1">
+                    <div className="flex flex-wrap gap-1.5">
+                      {OPCIONES_FIRMA.map((op) => {
+                        const activo = formatoFirma === op.valor
+                        return (
+                          <button
+                            key={op.valor}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors"
+                            style={{
+                              background: activo ? 'color-mix(in srgb, var(--texto-marca) 12%, transparent)' : 'var(--superficie-tarjeta)',
+                              color: activo ? 'var(--texto-marca)' : 'var(--texto-secundario)',
+                              border: activo ? '1px solid color-mix(in srgb, var(--texto-marca) 30%, transparent)' : '1px solid var(--borde-sutil)',
+                            }}
+                            onClick={() => {
+                              onCambioFormatoFirma?.(op.valor as FormatoNombreRemitente | 'sin_firma')
+                              setPanelAbierto(null)
+                            }}
+                          >
+                            {op.valor === 'sin_firma' ? 'Sin firma' : `*${op.preview}:*`}
+                            {activo && <Check size={11} />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {tieneFirma && (onFijarFirmaDefault || onFijarFirmaContacto) && (
+                      <div className="flex gap-2 pt-1">
+                        {onFijarFirmaDefault && (
+                          <button
+                            className="text-xxs hover:underline transition-colors"
+                            style={{ color: 'var(--texto-terciario)' }}
+                            onClick={() => { onFijarFirmaDefault(formatoFirma as FormatoNombreRemitente | 'sin_firma'); setPanelAbierto(null) }}
+                          >
+                            Usar para todos
+                          </button>
+                        )}
+                        {onFijarFirmaContacto && nombreContacto && (
+                          <button
+                            className="text-xxs hover:underline transition-colors"
+                            style={{ color: 'var(--texto-terciario)' }}
+                            onClick={() => { onFijarFirmaContacto(formatoFirma as FormatoNombreRemitente | 'sin_firma'); setPanelAbierto(null) }}
+                          >
+                            Fijar para {nombreContacto}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Panel expandible: Programar envío */}
+            <AnimatePresence>
+              {panelAbierto === 'programar' && onProgramar && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden"
+                  style={{ background: 'var(--superficie-hover)' }}
+                >
+                  <div className="px-4 py-2.5">
+                    <PopoverProgramar
+                      onProgramar={(fechaHora) => { onProgramar(fechaHora); setPanelAbierto(null) }}
+                      programadoPendiente={programadoPendiente}
+                      onCancelar={onCancelarProgramado}
+                      renderInline
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         )
       })()}
 
@@ -897,9 +1017,9 @@ export function CompositorMensaje({
               <Boton variante="fantasma" tamano="sm" soloIcono icono={<Mic size={18} />} onClick={iniciarGrabacion} titulo={t('inbox.grabar_audio')} />
             )}
 
-            {/* Bot��n enviar */}
+            {/* Botón enviar / programar */}
             {(tieneContenido || audioGrabado) && (
-              <Tooltip contenido={esNotaInterna ? t('inbox.nota_interna') : t('inbox.enviar')}>
+              <Tooltip contenido={programadoPara ? 'Programar envío' : esNotaInterna ? t('inbox.nota_interna') : t('inbox.enviar')}>
               <motion.button
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
@@ -908,12 +1028,14 @@ export function CompositorMensaje({
                 disabled={cargando || convirtiendo}
                 className="p-2 rounded-lg flex-shrink-0 transition-colors"
                 style={{
-                  background: esNotaInterna ? 'var(--insignia-advertencia)' : 'var(--texto-marca)',
+                  background: programadoPara
+                    ? 'var(--texto-marca)'
+                    : esNotaInterna ? 'var(--insignia-advertencia)' : 'var(--texto-marca)',
                   color: 'var(--texto-inverso)',
                   opacity: cargando ? 0.5 : 1,
                 }}
               >
-                {esNotaInterna ? <StickyNote size={18} /> : <Send size={18} />}
+                {programadoPara ? <AlarmClock size={18} /> : esNotaInterna ? <StickyNote size={18} /> : <Send size={18} />}
               </motion.button>
               </Tooltip>
             )}

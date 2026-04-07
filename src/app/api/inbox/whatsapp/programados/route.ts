@@ -23,11 +23,30 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const conversacionId = searchParams.get('conversacion_id')
 
+    // Sin conversacion_id: devolver el próximo programado por conversación
     if (!conversacionId) {
-      return NextResponse.json({ error: 'conversacion_id es requerido' }, { status: 400 })
+      const { data, error } = await supabase
+        .from('whatsapp_programados')
+        .select('conversacion_id, enviar_en')
+        .eq('estado', 'pendiente')
+        .order('enviar_en', { ascending: true })
+
+      if (error) {
+        console.error('Error al listar conversaciones con programados:', error)
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      // Agrupar: solo el más próximo por conversación
+      const mapa: Record<string, string> = {}
+      for (const p of data || []) {
+        if (p.conversacion_id && !mapa[p.conversacion_id]) {
+          mapa[p.conversacion_id] = p.enviar_en
+        }
+      }
+      return NextResponse.json({ programados_por_conversacion: mapa })
     }
 
-    // RLS filtra por empresa_id automáticamente
+    // Con conversacion_id: devolver programados de esa conversación
     const { data, error } = await supabase
       .from('whatsapp_programados')
       .select('*')

@@ -42,6 +42,8 @@ interface PropiedadesPopover {
   clasePan?: string
   /** Deshabilitar cierre al click fuera */
   sinCerrarClickFuera?: boolean
+  /** Clase CSS para el wrapper del trigger (default: inline-flex) */
+  claseTrigger?: string
 }
 
 function Popover({
@@ -55,6 +57,7 @@ function Popover({
   altoMaximo = '80vh',
   offset = 8,
   clasePan = '',
+  claseTrigger,
   sinCerrarClickFuera = false,
 }: PropiedadesPopover) {
   const { efecto } = useTema()
@@ -207,7 +210,7 @@ function Popover({
   return (
     <>
       {/* Trigger */}
-      <div ref={triggerRef} onClick={toggle} className="inline-flex">
+      <div ref={triggerRef} onClick={toggle} className={claseTrigger || 'inline-flex'}>
         {children}
       </div>
 

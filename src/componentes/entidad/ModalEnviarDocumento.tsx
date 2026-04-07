@@ -74,6 +74,8 @@ export function ModalEnviarDocumento({
   onGuardarCambiosPlantilla,
   onCrearPlantilla,
   onEliminarPlantilla,
+  pdfDesactivadoInicial,
+  portalDesactivadoInicial,
 }: PropiedadesModalEnviarDocumento) {
   const [expandido, setExpandido] = useState(false)
 
@@ -90,6 +92,8 @@ export function ModalEnviarDocumento({
     contextoVariables,
     snapshotRestaurar,
     plantillaPredeterminadaId,
+    pdfDesactivadoInicial,
+    portalDesactivadoInicial,
     onEnviar,
     onGuardarBorrador,
     onGuardarPlantilla,

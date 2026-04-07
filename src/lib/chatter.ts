@@ -1,6 +1,6 @@
 /**
  * Helpers para registrar entradas en el chatter desde el servidor.
- * Se usa en: API routes de presupuestos, portal, etc.
+ * Se usa en: API routes de presupuestos, portal, correo, WhatsApp, etc.
  */
 
 import { crearClienteAdmin } from '@/lib/supabase/admin'
@@ -104,3 +104,143 @@ export async function registrarCambioEstado({
     },
   })
 }
+
+/**
+ * Registra un correo enviado en el chatter de una entidad.
+ * Se llama después de enviar un correo desde ModalEnviarDocumento o el inbox.
+ */
+export async function registrarCorreoEnChatter({
+  empresaId,
+  entidadTipo,
+  entidadId,
+  asunto,
+  destinatario,
+  remitente,
+  messageId,
+  html,
+  adjuntos = [],
+  usuarioId,
+  usuarioNombre,
+  usuarioAvatarUrl,
+}: {
+  empresaId: string
+  entidadTipo: string
+  entidadId: string
+  asunto: string
+  destinatario: string
+  remitente?: string
+  messageId?: string
+  html?: string
+  adjuntos?: AdjuntoChatter[]
+  usuarioId: string
+  usuarioNombre: string
+  usuarioAvatarUrl?: string | null
+}) {
+  await registrarChatter({
+    empresaId,
+    entidadTipo,
+    entidadId,
+    tipo: 'correo',
+    contenido: `Correo enviado: ${asunto}`,
+    autorId: usuarioId,
+    autorNombre: usuarioNombre,
+    autorAvatarUrl: usuarioAvatarUrl,
+    adjuntos,
+    metadata: {
+      accion: 'correo_enviado',
+      correo_asunto: asunto,
+      correo_destinatario: destinatario,
+      correo_de: remitente,
+      correo_message_id: messageId,
+      correo_html: html,
+    },
+  })
+}
+
+/**
+ * Registra un correo recibido (respuesta) en el chatter.
+ * Se llama desde el webhook IMAP cuando se detecta una respuesta
+ * vinculada a un documento por correo_in_reply_to / correo_references.
+ */
+export async function registrarCorreoRecibidoEnChatter({
+  empresaId,
+  entidadTipo,
+  entidadId,
+  asunto,
+  remitente,
+  messageId,
+  html,
+  adjuntos = [],
+}: {
+  empresaId: string
+  entidadTipo: string
+  entidadId: string
+  asunto: string
+  remitente: string
+  messageId?: string
+  html?: string
+  adjuntos?: AdjuntoChatter[]
+}) {
+  await registrarChatter({
+    empresaId,
+    entidadTipo,
+    entidadId,
+    tipo: 'correo',
+    contenido: `Correo recibido: ${asunto}`,
+    autorId: 'correo_externo',
+    autorNombre: remitente,
+    adjuntos,
+    metadata: {
+      accion: 'correo_recibido',
+      correo_asunto: asunto,
+      correo_de: remitente,
+      correo_message_id: messageId,
+      correo_html: html,
+    },
+  })
+}
+
+/**
+ * Registra un mensaje de WhatsApp enviado en el chatter.
+ */
+export async function registrarWhatsAppEnChatter({
+  empresaId,
+  entidadTipo,
+  entidadId,
+  texto,
+  numero,
+  plantilla,
+  adjuntos = [],
+  usuarioId,
+  usuarioNombre,
+  usuarioAvatarUrl,
+}: {
+  empresaId: string
+  entidadTipo: string
+  entidadId: string
+  texto: string
+  numero: string
+  plantilla?: string
+  adjuntos?: AdjuntoChatter[]
+  usuarioId: string
+  usuarioNombre: string
+  usuarioAvatarUrl?: string | null
+}) {
+  await registrarChatter({
+    empresaId,
+    entidadTipo,
+    entidadId,
+    tipo: 'whatsapp',
+    contenido: texto,
+    autorId: usuarioId,
+    autorNombre: usuarioNombre,
+    autorAvatarUrl: usuarioAvatarUrl,
+    adjuntos,
+    metadata: {
+      accion: 'whatsapp_enviado',
+      whatsapp_numero: numero,
+      whatsapp_plantilla: plantilla,
+    },
+  })
+}
+

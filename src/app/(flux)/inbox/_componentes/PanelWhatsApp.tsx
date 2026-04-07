@@ -16,7 +16,7 @@ import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { CompositorMensaje, type DatosMensaje } from './CompositorMensaje'
 import { PanelIA } from './PanelIA'
 import { PopoverSnooze } from './PopoverSnooze'
-import { PopoverProgramar } from './PopoverProgramar'
+// PopoverProgramar ahora vive dentro de CompositorMensaje
 // GrabadorAudio integrado en CompositorMensaje (no se importa aparte)
 import { COLOR_ETIQUETA_DEFECTO } from '@/lib/colores_entidad'
 import { useTraduccion } from '@/lib/i18n'
@@ -24,6 +24,7 @@ import { useVisualViewport } from '@/hooks/useVisualViewport'
 import { BarraControlsWA } from './BarraControlsWA'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import type { FormatoNombreRemitente } from '@/lib/nombre-remitente'
+import { useToast } from '@/componentes/feedback/Toast'
 import type { MensajeConAdjuntos, MensajeAdjunto, Conversacion, ConversacionConDetalles } from '@/tipos/inbox'
 
 /**
@@ -71,8 +72,8 @@ const ICONO_ESTADO: Record<string, React.ReactNode> = {
   sent: <Check size={12} style={{ color: 'var(--texto-terciario)' }} />,
   entregado: <CheckCheck size={12} style={{ color: 'var(--texto-terciario)' }} />,
   delivered: <CheckCheck size={12} style={{ color: 'var(--texto-terciario)' }} />,
-  leido: <CheckCheck size={12} style={{ color: 'var(--canal-whatsapp)' }} />,
-  read: <CheckCheck size={12} style={{ color: 'var(--canal-whatsapp)' }} />,
+  leido: <CheckCheck size={12} style={{ color: '#53bdeb' }} />,
+  read: <CheckCheck size={12} style={{ color: '#53bdeb' }} />,
   fallido: <AlertCircle size={12} style={{ color: 'var(--insignia-peligro)' }} />,
   failed: <AlertCircle size={12} style={{ color: 'var(--insignia-peligro)' }} />,
 }
@@ -263,10 +264,35 @@ export function PanelWhatsApp({
   const [textoIA, setTextoIA] = useState('')
   const [contadorTextoIA, setContadorTextoIA] = useState(0)
 
-  // Mensaje programado pendiente (PopoverProgramar)
-  const [programadoPendiente, setProgramadoPendiente] = useState<{ id: string; enviar_en: string; texto: string | null } | null>(null)
+  // Mensajes programados pendientes (múltiples)
+  interface MensajeProgramado { id: string; enviar_en: string; texto: string | null }
+  const [programados, setProgramados] = useState<MensajeProgramado[]>([])
+  // Fecha seleccionada para programar (aún no confirmada — se confirma al presionar enviar)
+  const [fechaProgramada, setFechaProgramada] = useState<string | null>(null)
+  // Panel IA controlado desde la barra del compositor
+  const [iaExpandida, setIaExpandida] = useState(false)
   // Texto actual del compositor (para programar)
   const [textoCompositor, setTextoCompositor] = useState('')
+  const { mostrar: mostrarToast } = useToast()
+
+  // Cargar mensajes programados pendientes al abrir/cambiar conversación
+  useEffect(() => {
+    if (!conversacion?.id) { setProgramados([]); setFechaProgramada(null); return }
+    setFechaProgramada(null)
+    fetch(`/api/inbox/whatsapp/programados?conversacion_id=${conversacion.id}`)
+      .then(res => res.json())
+      .then(data => {
+        const pendientes = (data.programados || [])
+          .filter((p: { estado: string }) => p.estado === 'pendiente')
+          .map((p: { id: string; enviar_en: string; texto: string | null }) => ({
+            id: p.id,
+            enviar_en: p.enviar_en,
+            texto: p.texto,
+          }))
+        setProgramados(pendientes)
+      })
+      .catch(() => setProgramados([]))
+  }, [conversacion?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Firma del mensaje
   const [datosUsuarioFirma, setDatosUsuarioFirma] = useState<{ nombre: string; apellido: string; sector?: string | null } | null>(null)
@@ -371,6 +397,15 @@ export function PanelWhatsApp({
       return () => clearTimeout(t)
     }
   }, [mensajes])
+
+  // Auto-scroll al agregar un mensaje programado
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el || programados.length === 0) return
+    if (estaCercaDelFondoRef.current) {
+      el.scrollTop = el.scrollHeight
+    }
+  }, [programados.length])
 
   // Re-scroll cuando el teclado se abre/cierra (solo al cambiar tecladoAbierto, no alturaVisible)
   useEffect(() => {
@@ -1017,6 +1052,44 @@ export function PanelWhatsApp({
                     )}
                   </div>
 
+                  {/* Botones de plantilla WA (debajo de la burbuja, estilo WhatsApp) */}
+                  {(() => {
+                    const meta = msg.metadata as Record<string, unknown> | null
+                    const botones = meta?.botones as { tipo: string; texto: string; url?: string }[] | undefined
+                    if (!msg.plantilla_id || !botones?.length) return null
+                    return (
+                      <div className="mt-1 space-y-1" style={{ maxWidth: '100%' }}>
+                        {botones.map((btn, idx) => {
+                          const esLink = btn.tipo === 'URL' && btn.url
+                          if (esLink) {
+                            return (
+                              <a
+                                key={idx}
+                                href={btn.url!}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block rounded-lg py-2 text-center text-[13px] font-medium no-underline hover:opacity-80 transition-opacity"
+                                style={{ background: 'var(--superficie-tarjeta)', color: '#00a5f4', boxShadow: 'var(--sombra-sm)' }}
+                              >
+                                🔗 {btn.texto}
+                              </a>
+                            )
+                          }
+                          return (
+                            <div
+                              key={idx}
+                              className="rounded-lg py-2 text-center text-[13px] font-medium"
+                              style={{ background: 'var(--superficie-tarjeta)', color: '#00a5f4', boxShadow: 'var(--sombra-sm)' }}
+                            >
+                              {btn.tipo === 'PHONE_NUMBER' && '📞 '}
+                              {btn.texto}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })()}
+
                   {/* Reacciones visibles debajo de la burbuja */}
                   {tieneReacciones && (
                     <div className={`flex gap-0.5 mt-0.5 ${esPropio ? 'justify-end' : 'justify-start'}`}>
@@ -1089,12 +1162,92 @@ export function PanelWhatsApp({
             </div>
           ))
         )}
+
+        {/* Burbujas de mensajes programados pendientes */}
+        <AnimatePresence>
+          {programados.map((prog) => {
+            const fechaProg = new Date(prog.enviar_en)
+            const fechaTexto = new Intl.DateTimeFormat('es', {
+              weekday: 'short', day: 'numeric', month: 'short',
+              hour: '2-digit', minute: '2-digit',
+            }).format(fechaProg)
+
+            return (
+              <motion.div
+                key={prog.id}
+                initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="flex justify-end"
+              >
+                <div
+                  className="max-w-[75%] rounded-lg px-3 py-1.5 relative"
+                  style={{
+                    background: 'color-mix(in srgb, var(--texto-marca) 6%, var(--superficie-seleccionada))',
+                    border: '1px dashed color-mix(in srgb, var(--texto-marca) 30%, transparent)',
+                    borderTopRightRadius: '4px',
+                    boxShadow: 'var(--sombra-sm)',
+                  }}
+                >
+                  {/* Etiqueta programado */}
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <AlarmClock size={11} style={{ color: 'var(--texto-marca)' }} />
+                    <span className="text-xxs font-semibold" style={{ color: 'var(--texto-marca)' }}>
+                      Programado — {fechaTexto}
+                    </span>
+                  </div>
+
+                  {/* Texto del mensaje */}
+                  {prog.texto && (
+                    <p
+                      className="text-sm whitespace-pre-wrap"
+                      style={{ color: 'var(--texto-primario)' }}
+                    >
+                      {prog.texto}
+                    </p>
+                  )}
+
+                  {/* Footer: reloj + botón cancelar */}
+                  <div className="flex items-center justify-between gap-2 mt-1.5">
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(`/api/inbox/whatsapp/programados?id=${prog.id}`, { method: 'DELETE' })
+                          if (res.ok) {
+                            setProgramados(prev => prev.filter(p => p.id !== prog.id))
+                            mostrarToast('info', 'Envío programado cancelado')
+                          }
+                        } catch {
+                          mostrarToast('error', 'Error al cancelar')
+                        }
+                      }}
+                      className="text-xxs font-medium px-2 py-0.5 rounded-md transition-colors"
+                      style={{
+                        color: 'var(--insignia-peligro)',
+                        background: 'color-mix(in srgb, var(--insignia-peligro) 8%, transparent)',
+                      }}
+                    >
+                      Cancelar envío
+                    </button>
+                    <div className="flex items-center gap-1">
+                      <Clock size={11} style={{ color: 'var(--texto-marca)' }} />
+                      <span className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
+                        pendiente
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )
+          })}
+        </AnimatePresence>
       </div>
 
-      {/* Panel IA — barra colapsable sobre el compositor (solo si la empresa lo habilitó) */}
+      {/* Panel IA — controlado desde la barra del compositor */}
       {conversacion && iaHabilitada && (
         <PanelIA
           conversacionId={conversacion.id}
+          expandidoExterno={iaExpandida}
           onInsertarTexto={(texto) => {
             setTextoIA(texto)
             setContadorTextoIA(c => c + 1)
@@ -1112,7 +1265,47 @@ export function PanelWhatsApp({
         <div className="flex-1 min-w-0">
           <CompositorMensaje
             tipoCanal="whatsapp"
-            onEnviar={onEnviar}
+            onEnviar={async (datos) => {
+              // Si hay fecha programada, guardar en BD en vez de enviar inmediatamente
+              if (fechaProgramada && conversacion) {
+                try {
+                  const res = await fetch('/api/inbox/whatsapp/programados', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      conversacion_id: conversacion.id,
+                      canal_id: conversacion.canal_id,
+                      destinatario: conversacion.identificador_externo,
+                      tipo_contenido: datos.tipo_contenido || 'texto',
+                      texto: datos.texto,
+                      enviar_en: fechaProgramada,
+                    }),
+                  })
+                  if (res.ok) {
+                    const data = await res.json()
+                    setProgramados(prev => [...prev, {
+                      id: data.id || data.programado?.id,
+                      enviar_en: fechaProgramada,
+                      texto: datos.texto || null,
+                    }])
+                    // Limpiar compositor y fecha
+                    setTextoIA('')
+                    setContadorTextoIA(c => c + 1)
+                    setFechaProgramada(null)
+                    const fechaFormateada = new Intl.DateTimeFormat('es', {
+                      weekday: 'short', day: 'numeric', month: 'short',
+                      hour: '2-digit', minute: '2-digit',
+                    }).format(new Date(fechaProgramada))
+                    mostrarToast('exito', `Mensaje programado para ${fechaFormateada}`)
+                  }
+                } catch {
+                  mostrarToast('error', 'Error al programar mensaje')
+                }
+                return
+              }
+              // Envío normal
+              onEnviar(datos)
+            }}
             cargando={enviando}
             placeholder="Escribir mensaje..."
             textoInicial={textoIA}
@@ -1121,15 +1314,31 @@ export function PanelWhatsApp({
             conversacionId={conversacion.id}
             permitirNotasInternas
             onCambioTexto={setTextoCompositor}
+            iaHabilitada={iaHabilitada}
+            iaExpandida={iaExpandida}
+            onToggleIA={() => setIaExpandida(!iaExpandida)}
+            programadoPara={fechaProgramada}
+            onQuitarProgramacion={() => setFechaProgramada(null)}
+            onProgramar={(fechaHora) => setFechaProgramada(fechaHora)}
+            programadoPendiente={programados[0] || null}
+            onCancelarProgramado={async () => {
+              const primero = programados[0]
+              if (!primero) return
+              try {
+                await fetch(`/api/inbox/whatsapp/programados?id=${primero.id}`, { method: 'DELETE' })
+                setProgramados(prev => prev.filter(p => p.id !== primero.id))
+                mostrarToast('info', 'Envío programado cancelado')
+              } catch {
+                mostrarToast('error', 'Error al cancelar')
+              }
+            }}
             datosUsuario={datosUsuarioFirma ? {
               ...datosUsuarioFirma,
-              // El sector de la conversación (píldora) tiene prioridad sobre el del usuario
               sector: conversacion.sector_nombre || datosUsuarioFirma.sector,
             } : undefined}
             formatoFirma={formatoFirma}
             onCambioFormatoFirma={(fmt) => {
               setFormatoFirma(fmt)
-              // Guardar en perfil
               if (fmt !== 'sin_firma') {
                 const sb = crearClienteNavegador()
                 sb.auth.getUser().then(({ data: { user } }) => {
@@ -1139,64 +1348,19 @@ export function PanelWhatsApp({
             }}
             onFijarFirmaDefault={(fmt) => {
               setFormatoFirma(fmt)
-              // Guardar como default en el perfil del usuario
               const sb = crearClienteNavegador()
               sb.auth.getUser().then(({ data: { user } }) => {
                 if (user) sb.from('perfiles').update({ formato_nombre_remitente: fmt === 'sin_firma' ? 'sin_firma' : fmt }).eq('id', user.id)
               })
             }}
             onFijarFirmaContacto={(fmt) => {
-              // Guardar en localStorage por contacto
               const key = `flux_firma_contacto_${conversacion.contacto_id || conversacion.id}`
               localStorage.setItem(key, fmt)
             }}
             nombreContacto={conversacion.contacto_nombre || conversacion.identificador_externo || undefined}
           />
         </div>
-        <div className="flex items-center gap-0.5 pb-2 pr-2 flex-shrink-0">
-          <PopoverProgramar
-              onProgramar={async (fechaHora) => {
-                // Programar el texto actual del compositor
-                if (!conversacion || !textoCompositor.trim()) return
-                try {
-                  const res = await fetch('/api/inbox/whatsapp/programados', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      conversacion_id: conversacion.id,
-                      canal_id: conversacion.canal_id,
-                      destinatario: conversacion.identificador_externo,
-                      tipo_contenido: 'texto',
-                      texto: textoCompositor.trim(),
-                      enviar_en: fechaHora,
-                    }),
-                  })
-                  if (res.ok) {
-                    const data = await res.json()
-                    setProgramadoPendiente({
-                      id: data.id || data.programado?.id,
-                      enviar_en: fechaHora,
-                      texto: textoCompositor.trim(),
-                    })
-                    // Limpiar compositor inyectando texto vacío
-                  }
-                } catch {
-                  // Error silencioso — se podría integrar con toast
-                }
-              }}
-              programadoPendiente={programadoPendiente}
-              onCancelar={async () => {
-                if (!programadoPendiente) return
-                try {
-                  await fetch(`/api/inbox/whatsapp/programados?id=${programadoPendiente.id}`, { method: 'DELETE' })
-                } catch {
-                  // Error silencioso
-                }
-                setProgramadoPendiente(null)
-              }}
-            />
-          </div>
-        </div>
+      </div>
 
     </div>
   )
