@@ -139,7 +139,7 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
               className={`h-full rounded-full ${colorBarra} transition-all duration-500 flex items-center justify-center`}
               style={{ width: `${Math.max(pct, 15)}%` }}
             >
-              <span className={`text-[9px] font-semibold whitespace-nowrap flex items-center gap-0.5 ${colorDurTxt}`}>
+              <span className="text-[9px] font-semibold whitespace-nowrap flex items-center gap-0.5 text-texto-secundario">
                 <Calendar size={8} /> {dur}
               </span>
             </div>
