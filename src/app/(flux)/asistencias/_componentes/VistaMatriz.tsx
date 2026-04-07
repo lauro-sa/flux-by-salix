@@ -219,9 +219,11 @@ export function VistaMatriz() {
 
   const hoyStr = new Date().toISOString().split('T')[0]
 
-  // Nivel de compresión: ultra = mes ajustado (solo puntos), compacto = ajustado normal
+  // Nivel de compresión según cantidad de días y ajustar pantalla
   const esUltra = ajustarPantalla && fechas.length > 16
   const esCompacto = ajustarPantalla && !esUltra
+  // Quincena+ sin ajustar: celdas intermedias (más angostas que semana)
+  const esIntermedio = !ajustarPantalla && fechas.length > 8
 
   return (
     <div className="flex flex-col h-full">
@@ -431,7 +433,7 @@ export function VistaMatriz() {
           <table className={`border-collapse text-sm ${ajustarPantalla ? 'w-full table-fixed' : 'w-full'}`}>
             <thead className="sticky top-0 z-10 bg-superficie-app">
               <tr>
-                <th className={`sticky left-0 z-20 bg-superficie-app text-left font-medium text-texto-terciario text-xs uppercase tracking-wider border-b border-borde-sutil ${esUltra ? 'w-[120px] px-2 py-2' : esCompacto ? 'w-[160px] px-3 py-2' : 'min-w-[200px] px-4 py-3'}`}>
+                <th className={`sticky left-0 z-20 bg-superficie-app text-left font-medium text-texto-terciario text-xs uppercase tracking-wider border-b border-borde-sutil ${esUltra ? 'w-[120px] px-2 py-2' : esCompacto ? 'w-[160px] px-3 py-2' : esIntermedio ? 'min-w-[160px] px-3 py-3' : 'min-w-[200px] px-4 py-3'}`}>
                   Empleado
                 </th>
                 {fechas.map((fecha, i) => {
@@ -455,7 +457,7 @@ export function VistaMatriz() {
                         </th>
                       )}
                       <th
-                        className={`py-2 text-center border-b border-borde-sutil ${esUltra ? 'px-0' : esCompacto ? 'px-0.5' : 'px-1 min-w-[90px]'} ${
+                        className={`py-2 text-center border-b border-borde-sutil ${esUltra ? 'px-0' : esCompacto ? 'px-0.5' : esIntermedio ? 'px-0.5 min-w-[70px]' : 'px-1 min-w-[90px]'} ${
                           esHoy ? 'bg-texto-marca/8' : nombreFeriado ? 'bg-violet-500/8' : ''
                         }`}
                       >
@@ -464,7 +466,7 @@ export function VistaMatriz() {
                         }`}>
                           {esUltra ? DIAS_SEMANA_CORTO[diaSemana].charAt(0) : DIAS_SEMANA_CORTO[diaSemana]}
                         </div>
-                        <div className={`${esUltra ? 'text-xs' : esCompacto ? 'text-sm' : 'text-lg'} font-semibold ${
+                        <div className={`${esUltra ? 'text-xs' : esCompacto ? 'text-sm' : esIntermedio ? 'text-base' : 'text-lg'} font-semibold ${
                           esHoy ? 'text-texto-marca' : nombreFeriado ? 'text-violet-400' : esFinde ? 'text-texto-terciario/40' : 'text-texto-primario'
                         }`}>
                           {d.getDate()}
@@ -626,11 +628,11 @@ export function VistaMatriz() {
                               </div>
                             ) : (
                               /* Normal / compacto */
-                              <div className={`mx-auto rounded-lg ${esCompacto ? 'h-[52px] gap-0.5 px-0.5' : 'h-[74px] gap-1.5 pt-1'} flex flex-col items-center justify-center border ${colores.fondo} ${colores.borde} cursor-default`}>
-                                <div className={`${esCompacto ? 'size-1.5' : 'size-2'} rounded-full ${colorPunto} shrink-0`} />
-                                <span className={`${esCompacto ? 'text-[10px]' : 'text-xs'} font-semibold text-texto-primario leading-none`}>{horaE}</span>
-                                <span className={`${esCompacto ? 'text-[8px]' : 'text-[10px]'} text-texto-terciario leading-none`}>{horaS || '...'}</span>
-                                {!esCompacto && <span className="text-[9px] text-texto-terciario/70 leading-none">{etiquetaEstado}</span>}
+                              <div className={`mx-auto rounded-lg ${esCompacto ? 'h-[52px] gap-0.5 px-0.5' : esIntermedio ? 'h-[62px] gap-1 px-0.5' : 'h-[74px] gap-1.5 pt-1'} flex flex-col items-center justify-center border ${colores.fondo} ${colores.borde} cursor-default`}>
+                                <div className={`${esCompacto || esIntermedio ? 'size-1.5' : 'size-2'} rounded-full ${colorPunto} shrink-0`} />
+                                <span className={`${esCompacto ? 'text-[10px]' : esIntermedio ? 'text-[11px]' : 'text-xs'} font-semibold text-texto-primario leading-none`}>{horaE}</span>
+                                <span className={`${esCompacto || esIntermedio ? 'text-[8px]' : 'text-[10px]'} text-texto-terciario leading-none`}>{horaS || '...'}</span>
+                                {!esCompacto && !esIntermedio && <span className="text-[9px] text-texto-terciario/70 leading-none">{etiquetaEstado}</span>}
                               </div>
                             )}
                           </td>
