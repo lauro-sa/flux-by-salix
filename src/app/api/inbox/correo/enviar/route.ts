@@ -9,6 +9,7 @@ import {
 } from '@/lib/gmail'
 import type { ConfigIMAP } from '@/tipos/inbox'
 import { generarNombreRemitente } from '@/lib/nombre-remitente'
+import { registrarCorreoEnChatter } from '@/lib/chatter'
 
 /**
  * POST /api/inbox/correo/enviar — Enviar correo electrónico.
@@ -46,6 +47,8 @@ export async function POST(request: NextRequest) {
       tipo = 'nuevo', // 'nuevo' | 'responder' | 'responder_todos' | 'reenviar'
       pdf_url,       // URL directa de un PDF a adjuntar (ej: presupuesto)
       pdf_nombre,    // Nombre del archivo PDF
+      entidad_tipo,  // Opcional: tipo de entidad para registrar en chatter (ej: 'presupuesto')
+      entidad_id,    // Opcional: ID de entidad para registrar en chatter
     } = body
 
     if (!canal_id) {
@@ -320,6 +323,29 @@ export async function POST(request: NextRequest) {
         actualizado_en: new Date().toISOString(),
       })
       .eq('id', convId)
+
+    // ─── Registrar en chatter si hay entidad vinculada ───
+    if (entidad_tipo && entidad_id) {
+      try {
+        await registrarCorreoEnChatter({
+          empresaId,
+          entidadTipo: entidad_tipo,
+          entidadId: entidad_id,
+          asunto: correo_asunto || '(Sin asunto)',
+          destinatario: correo_para.join(', '),
+          cc: correo_cc?.length > 0 ? correo_cc : undefined,
+          cco: correo_cco?.length > 0 ? correo_cco : undefined,
+          remitente: de,
+          messageId: correoMessageId || undefined,
+          html: html || undefined,
+          usuarioId: user.id,
+          usuarioNombre: nombreAgente,
+        })
+      } catch (e) {
+        // No bloquear el envío si falla el registro en chatter
+        console.error('Error al registrar correo en chatter:', e)
+      }
+    }
 
     return NextResponse.json({
       mensaje,

@@ -61,6 +61,8 @@ export interface MetadataChatter {
   // Para correos
   correo_asunto?: string
   correo_destinatario?: string
+  correo_cc?: string
+  correo_cco?: string
   correo_de?: string
   correo_message_id?: string
   correo_html?: string

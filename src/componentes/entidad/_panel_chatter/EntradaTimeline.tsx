@@ -120,6 +120,8 @@ function EntradaCorreo({ entrada }: { entrada: PropsEntradaTimeline['entrada'] }
   const esRecibido = accion === 'correo_recibido'
   const asunto = entrada.metadata?.correo_asunto || ''
   const destinatario = entrada.metadata?.correo_destinatario || entrada.metadata?.correo_de || ''
+  const cc = entrada.metadata?.correo_cc
+  const cco = entrada.metadata?.correo_cco
   const htmlCorreo = entrada.metadata?.correo_html
 
   return (
@@ -148,6 +150,8 @@ function EntradaCorreo({ entrada }: { entrada: PropsEntradaTimeline['entrada'] }
           {destinatario && (
             <p className="text-[10px] text-texto-terciario truncate mt-0.5">
               {esRecibido ? 'De' : 'Para'}: {destinatario}
+              {cc && <span className="ml-1.5">· CC: {cc}</span>}
+              {cco && <span className="ml-1.5">· CCO: {cco}</span>}
             </p>
           )}
         </div>

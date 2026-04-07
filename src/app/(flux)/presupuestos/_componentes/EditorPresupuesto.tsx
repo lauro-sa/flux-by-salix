@@ -989,6 +989,7 @@ export default function EditorPresupuesto({
           pdf_url: presupuestoRef.current?.pdf_url || undefined,
           pdf_nombre: presupuestoRef.current?.numero ? `${presupuestoRef.current.numero}.pdf` : undefined,
           tipo: 'nuevo', programado_para: datos.programado_para,
+          entidad_tipo: 'presupuesto', entidad_id: idPresupuesto,
         }),
       })
       if (res.ok) setModalEnviarAbierto(false)
@@ -1014,6 +1015,7 @@ export default function EditorPresupuesto({
           pdf_url: pres?.pdf_url || undefined,
           pdf_nombre: pres?.numero ? `${pres.numero}.pdf` : undefined,
           tipo: 'nuevo',
+          entidad_tipo: 'presupuesto', entidad_id: idPresupuesto,
         }),
       })
     }

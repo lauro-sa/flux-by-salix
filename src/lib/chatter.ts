@@ -115,6 +115,8 @@ export async function registrarCorreoEnChatter({
   entidadId,
   asunto,
   destinatario,
+  cc,
+  cco,
   remitente,
   messageId,
   html,
@@ -128,6 +130,8 @@ export async function registrarCorreoEnChatter({
   entidadId: string
   asunto: string
   destinatario: string
+  cc?: string[]
+  cco?: string[]
   remitente?: string
   messageId?: string
   html?: string
@@ -136,12 +140,17 @@ export async function registrarCorreoEnChatter({
   usuarioNombre: string
   usuarioAvatarUrl?: string | null
 }) {
+  // Construir contenido descriptivo con CC/CCO
+  const partes = [`Correo enviado: ${asunto}`]
+  if (cc?.length) partes.push(`CC: ${cc.join(', ')}`)
+  if (cco?.length) partes.push(`CCO: ${cco.join(', ')}`)
+
   await registrarChatter({
     empresaId,
     entidadTipo,
     entidadId,
     tipo: 'correo',
-    contenido: `Correo enviado: ${asunto}`,
+    contenido: partes.join(' · '),
     autorId: usuarioId,
     autorNombre: usuarioNombre,
     autorAvatarUrl: usuarioAvatarUrl,
@@ -150,6 +159,8 @@ export async function registrarCorreoEnChatter({
       accion: 'correo_enviado',
       correo_asunto: asunto,
       correo_destinatario: destinatario,
+      correo_cc: cc?.join(', ') || undefined,
+      correo_cco: cco?.join(', ') || undefined,
       correo_de: remitente,
       correo_message_id: messageId,
       correo_html: html,
