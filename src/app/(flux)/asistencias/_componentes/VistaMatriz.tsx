@@ -6,6 +6,7 @@ import {
   SlidersHorizontal, Maximize2,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import { useFormato } from '@/hooks/useFormato'
 import Holidays from 'date-holidays'
@@ -247,31 +248,33 @@ export function VistaMatriz() {
           ))}
 
           {/* Ocultar fines de semana */}
-          <button
-            onClick={() => setOcultarFindes(v => !v)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-              ocultarFindes
-                ? 'bg-texto-marca/15 text-texto-marca border border-texto-marca/20'
-                : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-elevada/50'
-            }`}
-            title={ocultarFindes ? 'Mostrar fines de semana' : 'Ocultar fines de semana'}
-          >
-            <SlidersHorizontal size={12} />
-            {ocultarFindes ? 'Sin fines de semana' : 'Sáb/Dom'}
-          </button>
+          <Tooltip contenido={ocultarFindes ? 'Mostrar fines de semana' : 'Ocultar fines de semana'}>
+            <button
+              onClick={() => setOcultarFindes(v => !v)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                ocultarFindes
+                  ? 'bg-texto-marca/15 text-texto-marca border border-texto-marca/20'
+                  : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-elevada/50'
+              }`}
+            >
+              <SlidersHorizontal size={12} />
+              {ocultarFindes ? 'Sin fines de semana' : 'Sáb/Dom'}
+            </button>
+          </Tooltip>
 
           {/* Ajustar a pantalla */}
-          <button
-            onClick={() => setAjustarPantalla(v => !v)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-              ajustarPantalla
-                ? 'bg-texto-marca/15 text-texto-marca border border-texto-marca/20'
-                : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-elevada/50'
-            }`}
-            title={ajustarPantalla ? 'Tamaño normal' : 'Ajustar a pantalla'}
-          >
-            <Maximize2 size={12} />
-          </button>
+          <Tooltip contenido={ajustarPantalla ? 'Volver a tamaño normal' : 'Ajustar todo a la pantalla'}>
+            <button
+              onClick={() => setAjustarPantalla(v => !v)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                ajustarPantalla
+                  ? 'bg-texto-marca/15 text-texto-marca border border-texto-marca/20'
+                  : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-elevada/50'
+              }`}
+            >
+              <Maximize2 size={12} />
+            </button>
+          </Tooltip>
         </div>
 
         {/* Navegación central */}
