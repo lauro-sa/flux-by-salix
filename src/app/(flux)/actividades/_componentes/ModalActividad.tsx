@@ -18,6 +18,7 @@ import { useFormato } from '@/hooks/useFormato'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { SelectorCalendarioBloque } from './SelectorCalendarioBloque'
 import type { TipoActividad } from '../configuracion/secciones/SeccionTipos'
 import type { EstadoActividad } from '../configuracion/secciones/SeccionEstados'
 
@@ -202,21 +203,8 @@ function ModalActividad({
   // Estado para bloques de calendario inline (al crear con tipo campo_calendario)
   const tipoConCalendario = tipoSeleccionado && 'campo_calendario' in tipoSeleccionado && (tipoSeleccionado as TipoActividad & { campo_calendario?: boolean }).campo_calendario
   const [bloquesNuevos, setBloquesNuevos] = useState<{ fecha: string; horaInicio: string; horaFin: string }[]>([])
-
-  // Agregar bloque de calendario inline
-  const agregarBloqueNuevo = () => {
-    const hoy = new Date()
-    const fecha = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`
-    setBloquesNuevos(prev => [...prev, { fecha, horaInicio: '08:00', horaFin: '17:00' }])
-  }
-
-  const actualizarBloqueNuevo = (indice: number, campo: string, valor: string) => {
-    setBloquesNuevos(prev => prev.map((b, i) => i === indice ? { ...b, [campo]: valor } : b))
-  }
-
-  const eliminarBloqueNuevo = (indice: number) => {
-    setBloquesNuevos(prev => prev.filter((_, i) => i !== indice))
-  }
+  // Estado del modal selector de calendario (mini-calendario semanal)
+  const [selectorCalendarioAbierto, setSelectorCalendarioAbierto] = useState(false)
 
   // Guardar
   const manejarGuardar = async () => {
