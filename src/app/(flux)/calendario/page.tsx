@@ -17,6 +17,8 @@ import { VistaCalendarioSemana } from './_componentes/VistaCalendarioSemana'
 import { VistaCalendarioDia } from './_componentes/VistaCalendarioDia'
 import { VistaCalendarioAgenda } from './_componentes/VistaCalendarioAgenda'
 import { VistaCalendarioEquipo } from './_componentes/VistaCalendarioEquipo'
+import { VistaCalendarioQuincenal } from './_componentes/VistaCalendarioQuincenal'
+import { MiniCalendario } from './_componentes/MiniCalendario'
 import { ModalEvento } from './_componentes/ModalEvento'
 import { PopoverEvento } from './_componentes/PopoverEvento'
 import { useToast } from '@/componentes/feedback/Toast'
@@ -60,6 +62,20 @@ function obtenerRangoFechas(vista: VistaCalendario, fecha: Date): { desde: strin
       return {
         desde: formatearFechaISO(lunes),
         hasta: formatearFechaISO(domingo),
+      }
+    }
+
+    case 'quincenal': {
+      // 14 dias desde el lunes de la semana actual
+      const diaQ = fecha.getDay()
+      const diffLunesQ = diaQ === 0 ? -6 : 1 - diaQ
+      const lunesQ = new Date(fecha)
+      lunesQ.setDate(fecha.getDate() + diffLunesQ)
+      const finQ = new Date(lunesQ)
+      finQ.setDate(lunesQ.getDate() + 13)
+      return {
+        desde: formatearFechaISO(lunesQ),
+        hasta: formatearFechaISO(finQ),
       }
     }
 
@@ -162,13 +178,51 @@ export default function PaginaCalendario() {
     setCargando(true)
     try {
       const { desde, hasta } = obtenerRangoFechas(vistaActiva, fechaActual)
-      const res = await fetch(`/api/calendario?desde=${desde}&hasta=${hasta}`)
-      if (res.ok) {
-        const datos = await res.json()
-        setEventos(datos.eventos || datos || [])
-      } else {
-        setEventos([])
+
+      // Cargar eventos y feriados en paralelo
+      const [eventosRes, feriadosRes] = await Promise.all([
+        fetch(`/api/calendario?desde=${desde}&hasta=${hasta}`),
+        fetch(`/api/calendario/feriados?anio=${new Date(desde).getFullYear()}`),
+      ])
+
+      let eventosData: EventoCalendario[] = []
+      if (eventosRes.ok) {
+        const datos = await eventosRes.json()
+        eventosData = datos.eventos || datos || []
       }
+
+      // Inyectar feriados como eventos todo_el_dia
+      if (feriadosRes.ok) {
+        const feriadosData = await feriadosRes.json()
+        const feriadosComoEventos: EventoCalendario[] = (feriadosData.feriados || []).map((f: { id: string; nombre: string; fecha: string; tipo: string }) => ({
+          id: `feriado-${f.id}`,
+          titulo: f.nombre,
+          descripcion: null,
+          ubicacion: null,
+          tipo_id: null,
+          tipo_clave: 'feriado',
+          color: '#8B5CF6',
+          fecha_inicio: `${f.fecha}T00:00:00`,
+          fecha_fin: `${f.fecha}T23:59:59`,
+          todo_el_dia: true,
+          recurrencia: null,
+          visibilidad: 'publica',
+          asignados: [],
+          asignado_ids: [],
+          vinculos: [],
+          vinculo_ids: [],
+          actividad_id: null,
+          estado: 'confirmado',
+          notas: f.tipo,
+          creado_por: '',
+          creado_por_nombre: null,
+          creado_en: '',
+          _es_feriado: true,
+        }))
+        eventosData = [...feriadosComoEventos, ...eventosData]
+      }
+
+      setEventos(eventosData)
     } catch {
       setEventos([])
     } finally {
@@ -203,6 +257,9 @@ export default function PaginaCalendario() {
           break
         case 'semana':
           nueva.setDate(nueva.getDate() + 7 * delta)
+          break
+        case 'quincenal':
+          nueva.setDate(nueva.getDate() + 14 * delta)
           break
         case 'dia':
           nueva.setDate(nueva.getDate() + delta)
@@ -411,6 +468,17 @@ export default function PaginaCalendario() {
           />
         )
 
+      case 'quincenal':
+        return (
+          <VistaCalendarioQuincenal
+            fechaActual={fechaActual}
+            eventos={eventosFiltrados}
+            onClickHora={manejarClickDia}
+            onClickEvento={manejarClickEvento}
+            onMoverEvento={moverEvento}
+          />
+        )
+
       case 'dia':
         return (
           <VistaCalendarioDia
@@ -484,9 +552,24 @@ export default function PaginaCalendario() {
         onCambiarFiltroVista={setFiltroVista}
       />
 
-      {/* Vista activa — sin padding lateral para que la grilla ocupe todo el ancho */}
-      <div className="flex-1 min-h-0 -mx-2 sm:-mx-6">
-        {renderizarVista()}
+      {/* Layout principal con mini calendario opcional */}
+      <div className="flex-1 min-h-0 -mx-2 sm:-mx-6 flex gap-0">
+        {/* Mini calendario (solo en vistas que no son mes/agenda, solo en desktop) */}
+        {(['dia', 'semana', 'quincenal', 'equipo'] as VistaCalendario[]).includes(vistaActiva) && (
+          <div className="hidden lg:block shrink-0 w-[250px] p-3 border-r border-borde-sutil overflow-y-auto">
+            <MiniCalendario
+              fechaActual={fechaActual}
+              onSeleccionarDia={(fecha) => {
+                setFechaActual(fecha)
+              }}
+            />
+          </div>
+        )}
+
+        {/* Vista activa */}
+        <div className="flex-1 min-h-0">
+          {renderizarVista()}
+        </div>
       </div>
 
       </div>{/* cierre wrapper con márgenes */}

@@ -39,6 +39,21 @@ function obtenerEtiqueta(vista: VistaCalendario, fecha: Date): string {
       }
       return `${lunes.getDate()} ${mesInicio} – ${domingo.getDate()} ${mesFin} ${domingo.getFullYear()}`
     }
+    case 'quincenal': {
+      // Rango de 14 dias desde el lunes de la semana actual
+      const diaQ = fecha.getDay()
+      const diffLunesQ = diaQ === 0 ? -6 : 1 - diaQ
+      const lunesQ = new Date(fecha)
+      lunesQ.setDate(fecha.getDate() + diffLunesQ)
+      const domingoQ = new Date(lunesQ)
+      domingoQ.setDate(lunesQ.getDate() + 13)
+      const mesInicioQ = MESES[lunesQ.getMonth()].slice(0, 3)
+      const mesFinQ = MESES[domingoQ.getMonth()].slice(0, 3)
+      if (lunesQ.getMonth() === domingoQ.getMonth()) {
+        return `${lunesQ.getDate()} – ${domingoQ.getDate()} ${mesInicioQ} ${lunesQ.getFullYear()}`
+      }
+      return `${lunesQ.getDate()} ${mesInicioQ} – ${domingoQ.getDate()} ${mesFinQ} ${domingoQ.getFullYear()}`
+    }
     case 'dia': {
       const diaSemana = DIAS_SEMANA[fecha.getDay()]
       const diaNum = fecha.getDate()
@@ -59,6 +74,7 @@ function obtenerEtiqueta(vista: VistaCalendario, fecha: Date): string {
 const OPCIONES_VISTA: { valor: VistaCalendario; etiqueta: string }[] = [
   { valor: 'mes', etiqueta: 'Mes' },
   { valor: 'semana', etiqueta: 'Semana' },
+  { valor: 'quincenal', etiqueta: 'Quincenal' },
   { valor: 'dia', etiqueta: 'Día' },
   { valor: 'agenda', etiqueta: 'Agenda' },
   { valor: 'equipo', etiqueta: 'Equipo' },

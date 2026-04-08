@@ -28,6 +28,8 @@ export interface EventoCalendario {
   creado_en: string
   /** Marcador interno para indicar que el usuario está ocupado */
   _es_ocupado?: boolean
+  /** Marcador interno para feriados inyectados desde la tabla feriados */
+  _es_feriado?: boolean
 }
 
 export interface TipoEventoCalendario {
@@ -42,7 +44,7 @@ export interface TipoEventoCalendario {
 }
 
 /** Vistas disponibles del calendario */
-export type VistaCalendario = 'mes' | 'semana' | 'dia' | 'agenda' | 'equipo'
+export type VistaCalendario = 'mes' | 'semana' | 'quincenal' | 'dia' | 'agenda' | 'equipo'
 
 /** Callback al hacer clic en un evento — incluye posición del clic para el popover */
 export type OnClickEvento = (evento: EventoCalendario, posicion?: { x: number; y: number }) => void
