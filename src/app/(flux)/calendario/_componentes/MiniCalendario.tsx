@@ -121,10 +121,8 @@ interface PropiedadesMiniCalendario {
 // --- Componente ---
 
 function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: PropiedadesMiniCalendario) {
-  const [visible, setVisible] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return true
-    return localStorage.getItem(STORAGE_KEY_VISIBLE) !== 'false'
-  })
+  // Siempre visible al cargar — solo se oculta si el usuario lo cierra en esta sesión
+  const [visible, setVisible] = useState(true)
 
   const [posicion, setPosicion] = useState<PosicionAnclaje>(() => {
     if (typeof window === 'undefined') return 'abajo-derecha'
@@ -157,7 +155,7 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: Propied
 
   // Persistir configuración
   useEffect(() => { localStorage.setItem(STORAGE_KEY, posicion) }, [posicion])
-  useEffect(() => { localStorage.setItem(STORAGE_KEY_VISIBLE, String(visible)) }, [visible])
+  // No persistir visibilidad — siempre abierto al recargar
 
   // Recalcular posición absoluta cuando cambia la posición de anclaje o el tamaño
   const recalcularPosicion = useCallback(() => {
@@ -267,15 +265,15 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: Propied
       <motion.button
         type="button"
         onClick={() => setVisible(true)}
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="absolute z-30 bottom-4 right-4 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-superficie-elevada border border-borde-sutil shadow-lg text-texto-terciario hover:text-texto-primario hover:border-texto-marca/30 transition-colors"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="absolute z-40 bottom-5 right-5 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-texto-marca text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all font-medium text-xs"
         title="Mostrar mini calendario"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
         </svg>
-        <span className="text-[10px] font-medium">Mini cal</span>
+        Mini calendario
       </motion.button>
     )
   }
