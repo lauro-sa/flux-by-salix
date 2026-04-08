@@ -76,9 +76,9 @@ const fmtHoras = (h: number) => {
   return min > 0 ? `${hrs}h ${min}min` : `${hrs}h`
 }
 
-function construirDatosEmpleado(r: ResultadoNominaConCorreo, etiquetaPeriodo: string): DatosNominaCorreo { // eslint-disable-line @typescript-eslint/no-explicit-any
+function construirDatosEmpleado(r: ResultadoNominaConCorreo, etiquetaPeriodo: string): DatosNominaCorreo {
   const diasLab = r.dias_laborales || 1
-  return {
+  return ({
     nombre_empleado: r.nombre,
     correo_empleado: r.correo,
     periodo: etiquetaPeriodo,
@@ -101,7 +101,7 @@ function construirDatosEmpleado(r: ResultadoNominaConCorreo, etiquetaPeriodo: st
     compensacion_tipo: r.compensacion_tipo,
     compensacion_detalle: r.monto_detalle,
     monto_bruto: r.monto_pagar,
-  }
+  }) as DatosNominaCorreo
 }
 
 // ─── Estado del envío en lote ────────────────────────────────
