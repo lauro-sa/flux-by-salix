@@ -56,6 +56,13 @@ function obtenerEtiqueta(vista: VistaCalendario, fecha: Date): string {
     case 'agenda':
       return `${mes} ${anio}`
 
+    case 'equipo': {
+      const diaSemana = DIAS_SEMANA[fecha.getDay()]
+      const diaNum = fecha.getDate()
+      const mesNombre = MESES[fecha.getMonth()].toLowerCase()
+      return `${diaSemana} ${diaNum} de ${mesNombre} — Equipo`
+    }
+
     default:
       return `${mes} ${anio}`
   }
@@ -67,13 +74,32 @@ const OPCIONES_VISTA: { valor: VistaCalendario; etiqueta: string }[] = [
   { valor: 'semana', etiqueta: 'Semana' },
   { valor: 'dia', etiqueta: 'Día' },
   { valor: 'agenda', etiqueta: 'Agenda' },
+  { valor: 'equipo', etiqueta: 'Equipo' },
 ]
+
+/** Tipo de evento con color para los filtros */
+interface TipoFiltro {
+  id: string
+  clave: string
+  etiqueta: string
+  color: string
+}
 
 interface PropiedadesBarraHerramientas {
   vistaActiva: VistaCalendario
   fechaActual: Date
   onCambiarVista: (vista: VistaCalendario) => void
   onNavegar: (direccion: 'anterior' | 'siguiente' | 'hoy') => void
+  /** Tipos de evento disponibles para filtrar */
+  tipos?: TipoFiltro[]
+  /** Clave del tipo de evento seleccionado ('' = todos) */
+  filtroTipo?: string
+  /** Callback al cambiar el filtro de tipo */
+  onCambiarFiltroTipo?: (tipo: string) => void
+  /** Vista de eventos: 'todos' o 'mios' */
+  filtroVista?: string
+  /** Callback al cambiar la vista de eventos */
+  onCambiarFiltroVista?: (vista: string) => void
 }
 
 function BarraHerramientasCalendario({
@@ -81,60 +107,134 @@ function BarraHerramientasCalendario({
   fechaActual,
   onCambiarVista,
   onNavegar,
+  tipos,
+  filtroTipo = '',
+  onCambiarFiltroTipo,
+  filtroVista = 'todos',
+  onCambiarFiltroVista,
 }: PropiedadesBarraHerramientas) {
   const etiqueta = obtenerEtiqueta(vistaActiva, fechaActual)
+  const hayFiltros = tipos && tipos.length > 0
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-      {/* Navegación izquierda */}
-      <div className="flex items-center gap-2">
-        <Boton
-          variante="secundario"
-          tamano="sm"
-          onClick={() => onNavegar('hoy')}
-        >
-          Hoy
-        </Boton>
-        <Boton
-          variante="fantasma"
-          tamano="sm"
-          soloIcono
-          icono={<ChevronLeft size={16} />}
-          onClick={() => onNavegar('anterior')}
-          titulo="Anterior"
-        />
-        <Boton
-          variante="fantasma"
-          tamano="sm"
-          soloIcono
-          icono={<ChevronRight size={16} />}
-          onClick={() => onNavegar('siguiente')}
-          titulo="Siguiente"
-        />
-        {/* Etiqueta de fecha */}
-        <span className="text-base font-semibold text-texto-primario ml-1 whitespace-nowrap">
-          {etiqueta}
-        </span>
+    <div className="flex flex-col gap-2 mb-4">
+      {/* Fila principal: navegación + selector de vista */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Navegación izquierda */}
+        <div className="flex items-center gap-2">
+          <Boton
+            variante="secundario"
+            tamano="sm"
+            onClick={() => onNavegar('hoy')}
+          >
+            Hoy
+          </Boton>
+          <Boton
+            variante="fantasma"
+            tamano="sm"
+            soloIcono
+            icono={<ChevronLeft size={16} />}
+            onClick={() => onNavegar('anterior')}
+            titulo="Anterior"
+          />
+          <Boton
+            variante="fantasma"
+            tamano="sm"
+            soloIcono
+            icono={<ChevronRight size={16} />}
+            onClick={() => onNavegar('siguiente')}
+            titulo="Siguiente"
+          />
+          {/* Etiqueta de fecha */}
+          <span className="text-base font-semibold text-texto-primario ml-1 whitespace-nowrap">
+            {etiqueta}
+          </span>
+        </div>
+
+        {/* Selector de vista (segmentado) */}
+        <div className="flex items-center bg-superficie-tarjeta border border-borde-sutil rounded-lg p-0.5">
+          {OPCIONES_VISTA.map((opcion) => (
+            <button
+              key={opcion.valor}
+              type="button"
+              onClick={() => onCambiarVista(opcion.valor)}
+              className={[
+                'px-3 py-1.5 text-sm rounded-md transition-colors font-medium',
+                vistaActiva === opcion.valor
+                  ? 'bg-superficie-elevada text-texto-primario shadow-sm'
+                  : 'text-texto-terciario hover:text-texto-secundario',
+              ].join(' ')}
+            >
+              {opcion.etiqueta}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Selector de vista (segmentado) */}
-      <div className="flex items-center bg-superficie-tarjeta border border-borde-sutil rounded-lg p-0.5">
-        {OPCIONES_VISTA.map((opcion) => (
-          <button
-            key={opcion.valor}
-            type="button"
-            onClick={() => onCambiarVista(opcion.valor)}
-            className={[
-              'px-3 py-1.5 text-sm rounded-md transition-colors font-medium',
-              vistaActiva === opcion.valor
-                ? 'bg-superficie-elevada text-texto-primario shadow-sm'
-                : 'text-texto-terciario hover:text-texto-secundario',
-            ].join(' ')}
-          >
-            {opcion.etiqueta}
-          </button>
-        ))}
-      </div>
+      {/* Fila de filtros — solo visible si hay tipos disponibles */}
+      {hayFiltros && (
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Filtro por tipo de evento (píldoras con punto de color) */}
+          <div className="flex items-center gap-1 flex-wrap">
+            <button
+              type="button"
+              onClick={() => onCambiarFiltroTipo?.('')}
+              className={[
+                'px-2.5 py-1 text-xs rounded-full border transition-colors font-medium',
+                filtroTipo === ''
+                  ? 'bg-superficie-elevada text-texto-primario border-borde-fuerte shadow-sm'
+                  : 'text-texto-terciario border-borde-sutil hover:text-texto-secundario hover:border-borde-fuerte',
+              ].join(' ')}
+            >
+              Todos
+            </button>
+            {tipos!.map((tipo) => (
+              <button
+                key={tipo.id}
+                type="button"
+                onClick={() => onCambiarFiltroTipo?.(filtroTipo === tipo.clave ? '' : tipo.clave)}
+                className={[
+                  'inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full border transition-colors font-medium',
+                  filtroTipo === tipo.clave
+                    ? 'bg-superficie-elevada text-texto-primario border-borde-fuerte shadow-sm'
+                    : 'text-texto-terciario border-borde-sutil hover:text-texto-secundario hover:border-borde-fuerte',
+                ].join(' ')}
+              >
+                <span
+                  className="size-2 rounded-full shrink-0"
+                  style={{ backgroundColor: tipo.color }}
+                />
+                {tipo.etiqueta}
+              </button>
+            ))}
+          </div>
+
+          {/* Separador vertical */}
+          <div className="w-px h-5 bg-borde-sutil mx-1" />
+
+          {/* Toggle Todos / Mis eventos */}
+          <div className="flex items-center bg-superficie-tarjeta border border-borde-sutil rounded-full p-0.5">
+            {[
+              { valor: 'todos', etiqueta: 'Todos' },
+              { valor: 'mios', etiqueta: 'Mis eventos' },
+            ].map((opcion) => (
+              <button
+                key={opcion.valor}
+                type="button"
+                onClick={() => onCambiarFiltroVista?.(opcion.valor)}
+                className={[
+                  'px-2.5 py-1 text-xs rounded-full transition-colors font-medium',
+                  filtroVista === opcion.valor
+                    ? 'bg-superficie-elevada text-texto-primario shadow-sm'
+                    : 'text-texto-terciario hover:text-texto-secundario',
+                ].join(' ')}
+              >
+                {opcion.etiqueta}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

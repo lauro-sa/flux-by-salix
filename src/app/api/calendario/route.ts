@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { crearNotificacion } from '@/lib/notificaciones'
-import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 
 /**
  * GET /api/calendario — Listar eventos del calendario en un rango de fechas.
@@ -17,14 +17,10 @@ export async function GET(request: NextRequest) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
-    // Verificar permisos de visibilidad
-    const { permitido: verTodos } = await obtenerYVerificarPermiso(user.id, empresaId, 'calendario', 'ver_todos')
-    let soloPropio = false
-    if (!verTodos) {
-      const { permitido: verPropio } = await obtenerYVerificarPermiso(user.id, empresaId, 'calendario', 'ver_propio')
-      if (!verPropio) return NextResponse.json({ error: 'Sin permiso para ver calendario' }, { status: 403 })
-      soloPropio = true
-    }
+    // Verificar permisos de visibilidad (1 sola query)
+    const visibilidad = await verificarVisibilidad(user.id, empresaId, 'calendario')
+    if (!visibilidad) return NextResponse.json({ error: 'Sin permiso para ver calendario' }, { status: 403 })
+    const soloPropio = visibilidad.soloPropio
 
     const params = request.nextUrl.searchParams
     const desde = params.get('desde')
@@ -201,6 +197,7 @@ export async function POST(request: NextRequest) {
         actividad_id: body.actividad_id || null,
         estado: body.estado || 'confirmado',
         notas: body.notas || null,
+        recordatorio_minutos: body.recordatorio_minutos ?? 0,
         creado_por: user.id,
         creado_por_nombre: nombreCreador,
       })
@@ -227,6 +224,31 @@ export async function POST(request: NextRequest) {
           referenciaTipo: 'evento_calendario',
           referenciaId: data.id,
         })
+      }
+    }
+
+    // Crear recordatorios programados si tiene recordatorio_minutos > 0
+    const recordatorioMin = body.recordatorio_minutos ?? 0
+    if (recordatorioMin > 0) {
+      const fechaEvento = new Date(body.fecha_inicio)
+      const programadoPara = new Date(fechaEvento.getTime() - recordatorioMin * 60000)
+
+      // Crear recordatorio para el creador y para cada asignado
+      const usuarios = [
+        { id: user.id, nombre: nombreCreador },
+        ...asignados.filter((a: { id: string }) => a.id !== user.id),
+      ]
+
+      const recordatorios = usuarios.map((u: { id: string; nombre: string }) => ({
+        empresa_id: empresaId,
+        evento_id: data.id,
+        usuario_id: u.id,
+        usuario_nombre: u.nombre,
+        programado_para: programadoPara.toISOString(),
+      }))
+
+      if (recordatorios.length > 0) {
+        await admin.from('recordatorios_calendario').insert(recordatorios)
       }
     }
 

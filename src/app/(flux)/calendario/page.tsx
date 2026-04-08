@@ -7,7 +7,7 @@
  * Se usa como: /calendario
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Calendar, Plus, Settings2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { BarraHerramientasCalendario } from './_componentes/BarraHerramientasCalendario'
@@ -15,7 +15,9 @@ import { VistaCalendarioMes } from './_componentes/VistaCalendarioMes'
 import { VistaCalendarioSemana } from './_componentes/VistaCalendarioSemana'
 import { VistaCalendarioDia } from './_componentes/VistaCalendarioDia'
 import { VistaCalendarioAgenda } from './_componentes/VistaCalendarioAgenda'
+import { VistaCalendarioEquipo } from './_componentes/VistaCalendarioEquipo'
 import { ModalEvento } from './_componentes/ModalEvento'
+import { PopoverEvento } from './_componentes/PopoverEvento'
 import { Boton } from '@/componentes/ui/Boton'
 import { useToast } from '@/componentes/feedback/Toast'
 import type { EventoCalendario, TipoEventoCalendario, VistaCalendario } from './_componentes/tipos'
@@ -62,6 +64,7 @@ function obtenerRangoFechas(vista: VistaCalendario, fecha: Date): { desde: strin
     }
 
     case 'dia':
+    case 'equipo':
       return {
         desde: formatearFechaISO(fecha),
         hasta: formatearFechaISO(fecha),
@@ -106,10 +109,19 @@ export default function PaginaCalendario() {
   const [eventoEditando, setEventoEditando] = useState<EventoCalendario | null>(null)
   const [fechaPreseleccionada, setFechaPreseleccionada] = useState<Date | null>(null)
 
+  // Estado del popover de evento
+  const [popoverEvento, setPopoverEvento] = useState<EventoCalendario | null>(null)
+  const [popoverPosicion, setPopoverPosicion] = useState<{ x: number; y: number } | null>(null)
+
+  // Estado de filtros
+  const [filtroTipo, setFiltroTipo] = useState('')
+  const [filtroVista, setFiltroVista] = useState('todos')
+  const [usuarioActualId, setUsuarioActualId] = useState<string | null>(null)
+
   // Ref para evitar doble-fetch en desarrollo (StrictMode)
   const fetchRef = useRef(false)
 
-  // --- Carga de tipos de evento ---
+  // --- Carga de tipos de evento y usuario actual ---
   useEffect(() => {
     const cargarTipos = async () => {
       try {
@@ -123,6 +135,20 @@ export default function PaginaCalendario() {
       }
     }
     cargarTipos()
+
+    // Obtener ID del usuario actual para el filtro "Mis eventos"
+    const cargarUsuario = async () => {
+      try {
+        const res = await fetch('/api/auth/yo')
+        if (res.ok) {
+          const datos = await res.json()
+          setUsuarioActualId(datos.id || datos.usuario_id || null)
+        }
+      } catch {
+        // Silenciar — filtro "Mis eventos" no funcionará sin ID
+      }
+    }
+    cargarUsuario()
   }, [])
 
   // --- Carga de eventos según vista y fecha ---
@@ -178,24 +204,94 @@ export default function PaginaCalendario() {
         case 'agenda':
           nueva.setMonth(nueva.getMonth() + delta)
           break
+        case 'equipo':
+          nueva.setDate(nueva.getDate() + delta)
+          break
       }
 
       return nueva
     })
   }, [vistaActiva])
 
+  // --- Filtrado de eventos ---
+  const eventosFiltrados = useMemo(() => {
+    let filtrados = eventos
+
+    // Filtrar por tipo de evento
+    if (filtroTipo) {
+      filtrados = filtrados.filter((e) => e.tipo_clave === filtroTipo)
+    }
+
+    // Filtrar por "mis eventos" (donde el usuario actual está asignado o es creador)
+    if (filtroVista === 'mios' && usuarioActualId) {
+      filtrados = filtrados.filter(
+        (e) =>
+          e.creado_por === usuarioActualId ||
+          e.asignado_ids.includes(usuarioActualId),
+      )
+    }
+
+    return filtrados
+  }, [eventos, filtroTipo, filtroVista, usuarioActualId])
+
   // --- Acciones del calendario ---
   const manejarClickDia = useCallback((fecha: Date) => {
+    // Cerrar popover si está abierto
+    setPopoverEvento(null)
+    setPopoverPosicion(null)
     setEventoEditando(null)
     setFechaPreseleccionada(fecha)
     setModalAbierto(true)
   }, [])
 
-  const manejarClickEvento = useCallback((evento: EventoCalendario) => {
-    setEventoEditando(evento)
-    setFechaPreseleccionada(null)
-    setModalAbierto(true)
+  /** Muestra el popover de resumen al hacer clic en un evento */
+  const manejarClickEvento = useCallback((evento: EventoCalendario, posicion?: { x: number; y: number }) => {
+    if (posicion) {
+      // Mostrar popover primero
+      setPopoverEvento(evento)
+      setPopoverPosicion(posicion)
+    } else {
+      // Sin posición (fallback): abrir modal directamente
+      setEventoEditando(evento)
+      setFechaPreseleccionada(null)
+      setModalAbierto(true)
+    }
   }, [])
+
+  /** Cierra el popover de evento */
+  const cerrarPopover = useCallback(() => {
+    setPopoverEvento(null)
+    setPopoverPosicion(null)
+  }, [])
+
+  /** Abre el modal de edición desde el popover */
+  const editarDesdePopover = useCallback(() => {
+    if (popoverEvento) {
+      setEventoEditando(popoverEvento)
+      setFechaPreseleccionada(null)
+      setModalAbierto(true)
+    }
+    cerrarPopover()
+  }, [popoverEvento, cerrarPopover])
+
+  /** Elimina el evento mostrado en el popover */
+  const eliminarDesdePopover = useCallback(async () => {
+    if (!popoverEvento) return
+    try {
+      const res = await fetch(`/api/calendario/${popoverEvento.id}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}))
+        throw new Error(error.error || 'Error al eliminar evento')
+      }
+      mostrar('exito', 'Evento eliminado')
+      cerrarPopover()
+      await cargarEventos()
+    } catch (err) {
+      mostrar('error', err instanceof Error ? err.message : 'Error al eliminar evento')
+    }
+  }, [popoverEvento, cerrarPopover, cargarEventos, mostrar])
 
   const cerrarModal = useCallback(() => {
     setModalAbierto(false)
@@ -253,6 +349,36 @@ export default function PaginaCalendario() {
     }
   }, [eventoEditando, cargarEventos, mostrar])
 
+  // --- Mover evento por drag-and-drop ---
+  const moverEvento = useCallback(async (id: string, nuevaInicio: string, nuevaFin: string) => {
+    // Actualización optimista: aplicar cambio inmediatamente en la UI
+    setEventos(prev => prev.map(e =>
+      e.id === id ? { ...e, fecha_inicio: nuevaInicio, fecha_fin: nuevaFin } : e
+    ))
+
+    try {
+      const res = await fetch(`/api/calendario/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accion: 'mover',
+          fecha_inicio: nuevaInicio,
+          fecha_fin: nuevaFin,
+        }),
+      })
+
+      if (!res.ok) {
+        // Revertir en caso de error del servidor
+        await cargarEventos()
+        mostrar('error', 'Error al mover evento')
+      }
+    } catch {
+      // Recargar en caso de error de red
+      await cargarEventos()
+      mostrar('error', 'Error al mover evento')
+    }
+  }, [cargarEventos, mostrar])
+
   // --- Renderizado de vista activa ---
   const renderizarVista = () => {
     switch (vistaActiva) {
@@ -260,7 +386,7 @@ export default function PaginaCalendario() {
         return (
           <VistaCalendarioMes
             fechaActual={fechaActual}
-            eventos={eventos}
+            eventos={eventosFiltrados}
             onClickDia={manejarClickDia}
             onClickEvento={manejarClickEvento}
           />
@@ -270,9 +396,10 @@ export default function PaginaCalendario() {
         return (
           <VistaCalendarioSemana
             fechaActual={fechaActual}
-            eventos={eventos}
+            eventos={eventosFiltrados}
             onClickHora={manejarClickDia}
             onClickEvento={manejarClickEvento}
+            onMoverEvento={moverEvento}
           />
         )
 
@@ -280,9 +407,10 @@ export default function PaginaCalendario() {
         return (
           <VistaCalendarioDia
             fechaActual={fechaActual}
-            eventos={eventos}
+            eventos={eventosFiltrados}
             onClickHora={manejarClickDia}
             onClickEvento={manejarClickEvento}
+            onMoverEvento={moverEvento}
           />
         )
 
@@ -290,7 +418,18 @@ export default function PaginaCalendario() {
         return (
           <VistaCalendarioAgenda
             fechaActual={fechaActual}
-            eventos={eventos}
+            eventos={eventosFiltrados}
+            onClickEvento={manejarClickEvento}
+          />
+        )
+
+      case 'equipo':
+        return (
+          <VistaCalendarioEquipo
+            fechaActual={fechaActual}
+            eventos={eventosFiltrados}
+            miembros={[]}
+            onClickHora={manejarClickDia}
             onClickEvento={manejarClickEvento}
           />
         )
@@ -339,12 +478,31 @@ export default function PaginaCalendario() {
         fechaActual={fechaActual}
         onCambiarVista={setVistaActiva}
         onNavegar={navegar}
+        tipos={tiposEvento.filter((t) => t.activo).map((t) => ({
+          id: t.id,
+          clave: t.clave,
+          etiqueta: t.etiqueta,
+          color: t.color,
+        }))}
+        filtroTipo={filtroTipo}
+        onCambiarFiltroTipo={setFiltroTipo}
+        filtroVista={filtroVista}
+        onCambiarFiltroVista={setFiltroVista}
       />
 
       {/* Vista activa */}
       <div className="flex-1 min-h-0">
         {renderizarVista()}
       </div>
+
+      {/* Popover de resumen del evento */}
+      <PopoverEvento
+        evento={popoverEvento}
+        posicion={popoverPosicion}
+        onEditar={editarDesdePopover}
+        onEliminar={eliminarDesdePopover}
+        onCerrar={cerrarPopover}
+      />
 
       {/* Modal de evento */}
       <ModalEvento

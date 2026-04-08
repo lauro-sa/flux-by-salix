@@ -2,12 +2,15 @@
 
 /**
  * ModalEvento — Modal para crear y editar eventos del calendario.
- * Usa ModalAdaptable para ser responsivo (modal en desktop, bottom sheet en móvil).
- * Se usa en: página principal del calendario.
+ * Usa ModalAdaptable para ser responsivo (modal en desktop, bottom sheet en movil).
+ * Incluye: asignados (multi-select), vinculaciones (busqueda de contactos),
+ * y recurrencia (SelectorRecurrencia compacto).
+ * Se usa en: pagina principal del calendario.
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Trash2 } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { Trash2, X, Search, UserPlus, Link2, Users, ChevronDown, ChevronUp } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { ModalAdaptable } from '@/componentes/ui/ModalAdaptable'
 import { Input } from '@/componentes/ui/Input'
 import { TextArea } from '@/componentes/ui/TextArea'
@@ -16,6 +19,8 @@ import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { SelectorHora } from '@/componentes/ui/SelectorHora'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Boton } from '@/componentes/ui/Boton'
+import { SelectorRecurrencia, type ConfigRecurrencia, RECURRENCIA_DEFAULT } from '@/componentes/ui/SelectorRecurrencia'
+import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import type { EventoCalendario, TipoEventoCalendario } from './tipos'
 
 interface PropiedadesModalEvento {
@@ -23,16 +28,30 @@ interface PropiedadesModalEvento {
   /** null = modo crear, con datos = modo editar */
   evento: EventoCalendario | null
   tipos: TipoEventoCalendario[]
-  /** Fecha preseleccionada al hacer clic en un día vacío */
+  /** Fecha preseleccionada al hacer clic en un dia vacio */
   fechaPreseleccionada: Date | null
   onGuardar: (datos: Record<string, unknown>) => Promise<void>
   onEliminar?: () => Promise<void>
   onCerrar: () => void
 }
 
+/** Tipo interno para miembros del equipo */
+interface MiembroEquipo {
+  usuario_id: string
+  nombre: string
+  apellido: string
+}
+
+/** Tipo interno para vinculos */
+interface Vinculo {
+  tipo: string
+  id: string
+  nombre: string
+}
+
 /** Opciones de visibilidad del evento */
 const OPCIONES_VISIBILIDAD = [
-  { valor: 'publica', etiqueta: 'Pública' },
+  { valor: 'publica', etiqueta: 'Publica' },
   { valor: 'ocupado', etiqueta: 'Ocupado' },
   { valor: 'privada', etiqueta: 'Privada' },
 ]
@@ -63,6 +82,282 @@ function sumarMinutos(fecha: Date, minutos: number): Date {
   return new Date(fecha.getTime() + minutos * 60000)
 }
 
+/* ─── Sub-componente: Chip removible ─── */
+
+function ChipRemovible({
+  etiqueta,
+  onRemover,
+  icono,
+}: {
+  etiqueta: string
+  onRemover: () => void
+  icono?: React.ReactNode
+}) {
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-superficie-elevada border border-borde-sutil text-texto-secundario">
+      {icono}
+      <span className="max-w-[120px] truncate">{etiqueta}</span>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          onRemover()
+        }}
+        className="ml-0.5 rounded-full p-0.5 hover:bg-superficie-app transition-colors cursor-pointer"
+      >
+        <X size={10} className="text-texto-terciario" />
+      </button>
+    </span>
+  )
+}
+
+/* ─── Sub-componente: Selector de asignados ─── */
+
+function SelectorAsignados({
+  asignados,
+  miembrosDisponibles,
+  onAgregar,
+  onRemover,
+}: {
+  asignados: { id: string; nombre: string }[]
+  miembrosDisponibles: MiembroEquipo[]
+  onAgregar: (miembro: MiembroEquipo) => void
+  onRemover: (id: string) => void
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const refContenedor = useRef<HTMLDivElement>(null)
+
+  /** Miembros que aun no estan asignados */
+  const disponibles = useMemo(
+    () => miembrosDisponibles.filter((m) => !asignados.some((a) => a.id === m.usuario_id)),
+    [miembrosDisponibles, asignados],
+  )
+
+  /* Cerrar dropdown al hacer clic fuera */
+  useEffect(() => {
+    if (!abierto) return
+    const manejarClicFuera = (e: MouseEvent) => {
+      if (refContenedor.current && !refContenedor.current.contains(e.target as Node)) {
+        setAbierto(false)
+      }
+    }
+    document.addEventListener('mousedown', manejarClicFuera)
+    return () => document.removeEventListener('mousedown', manejarClicFuera)
+  }, [abierto])
+
+  return (
+    <div className="flex flex-col gap-1.5" ref={refContenedor}>
+      <label className="text-xs font-medium text-texto-secundario flex items-center gap-1.5">
+        <Users size={13} className="text-texto-terciario" />
+        Asignados
+      </label>
+
+      {/* Chips de asignados actuales */}
+      {asignados.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {asignados.map((a) => (
+            <ChipRemovible
+              key={a.id}
+              etiqueta={a.nombre}
+              onRemover={() => onRemover(a.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Boton para agregar + dropdown */}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setAbierto(!abierto)}
+          disabled={disponibles.length === 0}
+          className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-texto-terciario hover:text-texto-secundario hover:bg-superficie-elevada border border-dashed border-borde-sutil transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <UserPlus size={12} />
+          {asignados.length === 0 ? 'Agregar asignado' : 'Agregar otro'}
+        </button>
+
+        <AnimatePresence>
+          {abierto && disponibles.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.15 }}
+              className="absolute z-50 top-full left-0 mt-1 w-56 max-h-40 overflow-y-auto rounded-lg border border-borde-sutil bg-superficie-tarjeta shadow-lg"
+            >
+              {disponibles.map((m) => (
+                <button
+                  key={m.usuario_id}
+                  type="button"
+                  onClick={() => {
+                    onAgregar(m)
+                    setAbierto(false)
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs text-texto-primario hover:bg-superficie-elevada transition-colors cursor-pointer"
+                >
+                  {m.nombre} {m.apellido}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  )
+}
+
+/* ─── Sub-componente: Selector de vinculaciones ─── */
+
+function SelectorVinculaciones({
+  vinculos,
+  onAgregar,
+  onRemover,
+}: {
+  vinculos: Vinculo[]
+  onAgregar: (vinculo: Vinculo) => void
+  onRemover: (id: string) => void
+}) {
+  const [busqueda, setBusqueda] = useState('')
+  const [resultados, setResultados] = useState<{ id: string; nombre: string }[]>([])
+  const [buscando, setBuscando] = useState(false)
+  const [mostrarBuscador, setMostrarBuscador] = useState(false)
+  const refContenedor = useRef<HTMLDivElement>(null)
+  const refTemporizador = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  /* Buscar contactos con debounce */
+  useEffect(() => {
+    if (busqueda.trim().length < 2) {
+      setResultados([])
+      return
+    }
+
+    if (refTemporizador.current) clearTimeout(refTemporizador.current)
+
+    refTemporizador.current = setTimeout(async () => {
+      setBuscando(true)
+      try {
+        const resp = await fetch(`/api/contactos?busqueda=${encodeURIComponent(busqueda.trim())}&por_pagina=5`)
+        if (resp.ok) {
+          const datos = await resp.json()
+          const contactos = datos.contactos || datos.data || datos || []
+          setResultados(
+            contactos
+              .filter((c: Record<string, unknown>) => !vinculos.some((v) => v.id === c.id))
+              .map((c: Record<string, unknown>) => ({
+                id: c.id as string,
+                nombre: [c.nombre, c.apellido].filter(Boolean).join(' ') || (c.empresa as string) || 'Sin nombre',
+              })),
+          )
+        }
+      } catch {
+        /* silenciar errores de red */
+      } finally {
+        setBuscando(false)
+      }
+    }, 300)
+
+    return () => {
+      if (refTemporizador.current) clearTimeout(refTemporizador.current)
+    }
+  }, [busqueda, vinculos])
+
+  /* Cerrar al hacer clic fuera */
+  useEffect(() => {
+    if (!mostrarBuscador) return
+    const manejarClicFuera = (e: MouseEvent) => {
+      if (refContenedor.current && !refContenedor.current.contains(e.target as Node)) {
+        setMostrarBuscador(false)
+        setBusqueda('')
+        setResultados([])
+      }
+    }
+    document.addEventListener('mousedown', manejarClicFuera)
+    return () => document.removeEventListener('mousedown', manejarClicFuera)
+  }, [mostrarBuscador])
+
+  return (
+    <div className="flex flex-col gap-1.5" ref={refContenedor}>
+      <label className="text-xs font-medium text-texto-secundario flex items-center gap-1.5">
+        <Link2 size={13} className="text-texto-terciario" />
+        Vinculaciones
+      </label>
+
+      {/* Chips de vinculos existentes */}
+      {vinculos.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {vinculos.map((v) => (
+            <ChipRemovible
+              key={v.id}
+              etiqueta={v.nombre}
+              onRemover={() => onRemover(v.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Buscador de contactos */}
+      <div className="relative">
+        {!mostrarBuscador ? (
+          <button
+            type="button"
+            onClick={() => setMostrarBuscador(true)}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-texto-terciario hover:text-texto-secundario hover:bg-superficie-elevada border border-dashed border-borde-sutil transition-colors cursor-pointer"
+          >
+            <Search size={12} />
+            Vincular contacto
+          </button>
+        ) : (
+          <div className="flex items-center gap-1.5 border border-borde-sutil rounded-md px-2 py-1 bg-superficie-tarjeta">
+            <Search size={12} className="text-texto-terciario shrink-0" />
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar contacto..."
+              autoFocus
+              className="flex-1 text-xs bg-transparent outline-none text-texto-primario placeholder:text-texto-terciario"
+            />
+            {buscando && (
+              <span className="text-xxs text-texto-terciario animate-pulse">...</span>
+            )}
+          </div>
+        )}
+
+        {/* Resultados de busqueda */}
+        <AnimatePresence>
+          {resultados.length > 0 && mostrarBuscador && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.15 }}
+              className="absolute z-50 top-full left-0 mt-1 w-full max-h-36 overflow-y-auto rounded-lg border border-borde-sutil bg-superficie-tarjeta shadow-lg"
+            >
+              {resultados.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => {
+                    onAgregar({ tipo: 'contacto', id: r.id, nombre: r.nombre })
+                    setBusqueda('')
+                    setResultados([])
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs text-texto-primario hover:bg-superficie-elevada transition-colors cursor-pointer"
+                >
+                  {r.nombre}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  )
+}
+
+/* ─── Componente principal ─── */
+
 function ModalEvento({
   abierto,
   evento,
@@ -74,7 +369,7 @@ function ModalEvento({
 }: PropiedadesModalEvento) {
   const esEdicion = !!evento
 
-  // Estado del formulario
+  // Estado del formulario — campos basicos
   const [titulo, setTitulo] = useState('')
   const [tipoId, setTipoId] = useState('')
   const [fechaInicio, setFechaInicio] = useState<string | null>(null)
@@ -88,6 +383,19 @@ function ModalEvento({
   const [notas, setNotas] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [eliminando, setEliminando] = useState(false)
+
+  // Estado — asignados
+  const [asignados, setAsignados] = useState<{ id: string; nombre: string }[]>([])
+  const [miembrosDisponibles, setMiembrosDisponibles] = useState<MiembroEquipo[]>([])
+
+  // Estado — vinculaciones
+  const [vinculos, setVinculos] = useState<Vinculo[]>([])
+
+  // Estado — recurrencia
+  const [recurrencia, setRecurrencia] = useState<ConfigRecurrencia>(RECURRENCIA_DEFAULT)
+
+  // Estado — seccion colapsable "Mas opciones"
+  const [masOpciones, setMasOpciones] = useState(false)
 
   /** Opciones de tipo formateadas para el Select */
   const opcionesTipo = useMemo(() =>
@@ -104,12 +412,38 @@ function ModalEvento({
     [tipos, tipoId],
   )
 
+  /* ── Cargar miembros del equipo al montar ── */
+  useEffect(() => {
+    const cargarMiembros = async () => {
+      const supabase = crearClienteNavegador()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const empresaId = user.app_metadata?.empresa_activa_id
+      if (!empresaId) return
+      const { data } = await supabase
+        .from('miembros')
+        .select('usuario_id, perfiles!inner(nombre, apellido)')
+        .eq('empresa_id', empresaId)
+        .eq('activo', true)
+      if (data) {
+        setMiembrosDisponibles(
+          data.map((m: Record<string, unknown>) => ({
+            usuario_id: m.usuario_id as string,
+            nombre: (m.perfiles as Record<string, unknown>).nombre as string,
+            apellido: (m.perfiles as Record<string, unknown>).apellido as string,
+          })),
+        )
+      }
+    }
+    cargarMiembros()
+  }, [])
+
   // Inicializar formulario cuando se abre el modal
   useEffect(() => {
     if (!abierto) return
 
     if (evento) {
-      // Modo edición: cargar datos del evento
+      // Modo edicion: cargar datos del evento
       setTitulo(evento.titulo)
       setTipoId(evento.tipo_id || '')
       setTodoElDia(evento.todo_el_dia)
@@ -124,6 +458,26 @@ function ModalEvento({
       setHoraInicio(evento.todo_el_dia ? null : fechaAHora(fi))
       setFechaFin(fechaAISO(ff))
       setHoraFin(evento.todo_el_dia ? null : fechaAHora(ff))
+
+      // Inicializar asignados desde el evento
+      setAsignados(evento.asignados || [])
+
+      // Inicializar vinculos desde el evento
+      setVinculos(evento.vinculos || [])
+
+      // Inicializar recurrencia desde el evento
+      setRecurrencia(
+        evento.recurrencia
+          ? (evento.recurrencia as ConfigRecurrencia)
+          : RECURRENCIA_DEFAULT,
+      )
+
+      // Expandir "Mas opciones" si el evento tiene datos avanzados
+      const tieneAvanzados =
+        (evento.asignados && evento.asignados.length > 0) ||
+        (evento.vinculos && evento.vinculos.length > 0) ||
+        (evento.recurrencia && (evento.recurrencia as ConfigRecurrencia).frecuencia !== 'ninguno')
+      setMasOpciones(!!tieneAvanzados)
     } else {
       // Modo crear: valores por defecto
       const inicio = fechaPreseleccionada ? new Date(fechaPreseleccionada) : horaRedondeada()
@@ -141,16 +495,21 @@ function ModalEvento({
       setHoraInicio(fechaAHora(inicio.getHours() === 0 && inicio.getMinutes() === 0 ? horaRedondeada() : inicio))
       setFechaFin(fechaAISO(fin))
       setHoraFin(fechaAHora(fin))
+
+      setAsignados([])
+      setVinculos([])
+      setRecurrencia(RECURRENCIA_DEFAULT)
+      setMasOpciones(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abierto, evento])
 
-  // Cuando cambia el tipo, actualizar duración y todo_el_dia
+  // Cuando cambia el tipo, actualizar duracion y todo_el_dia
   useEffect(() => {
     if (!tipoSeleccionado || esEdicion) return
     setTodoElDia(tipoSeleccionado.todo_el_dia_default)
 
-    // Recalcular hora fin basándose en la duración del tipo
+    // Recalcular hora fin basandose en la duracion del tipo
     if (fechaInicio && horaInicio) {
       const [h, m] = horaInicio.split(':').map(Number)
       const inicio = new Date(`${fechaInicio}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`)
@@ -160,6 +519,27 @@ function ModalEvento({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tipoId])
+
+  /* ── Handlers para asignados ── */
+  const agregarAsignado = useCallback((miembro: MiembroEquipo) => {
+    setAsignados((prev) => [
+      ...prev,
+      { id: miembro.usuario_id, nombre: `${miembro.nombre} ${miembro.apellido}`.trim() },
+    ])
+  }, [])
+
+  const removerAsignado = useCallback((id: string) => {
+    setAsignados((prev) => prev.filter((a) => a.id !== id))
+  }, [])
+
+  /* ── Handlers para vinculos ── */
+  const agregarVinculo = useCallback((vinculo: Vinculo) => {
+    setVinculos((prev) => [...prev, vinculo])
+  }, [])
+
+  const removerVinculo = useCallback((id: string) => {
+    setVinculos((prev) => prev.filter((v) => v.id !== id))
+  }, [])
 
   /** Manejar guardar */
   const manejarGuardar = useCallback(async () => {
@@ -186,12 +566,16 @@ function ModalEvento({
         descripcion: descripcion.trim() || null,
         ubicacion: ubicacion.trim() || null,
         notas: notas.trim() || null,
+        asignados,
+        vinculos,
+        vinculo_ids: vinculos.map((v) => v.id),
+        recurrencia: recurrencia.frecuencia !== 'ninguno' ? recurrencia : null,
       })
       onCerrar()
     } finally {
       setGuardando(false)
     }
-  }, [titulo, fechaInicio, fechaFin, horaInicio, horaFin, todoElDia, visibilidad, descripcion, ubicacion, notas, tipoId, evento, onGuardar, onCerrar])
+  }, [titulo, fechaInicio, fechaFin, horaInicio, horaFin, todoElDia, visibilidad, descripcion, ubicacion, notas, tipoId, evento, onGuardar, onCerrar, asignados, vinculos, recurrencia])
 
   /** Manejar eliminar */
   const manejarEliminar = useCallback(async () => {
@@ -208,7 +592,7 @@ function ModalEvento({
   /** Botones del footer del modal */
   const acciones = (
     <div className="flex items-center justify-between w-full gap-3">
-      {/* Botón eliminar (solo en edición) */}
+      {/* Boton eliminar (solo en edicion) */}
       <div>
         {esEdicion && onEliminar && (
           <Boton
@@ -256,9 +640,9 @@ function ModalEvento({
       alturaMovil="completo"
     >
       <div className="flex flex-col gap-4">
-        {/* Título */}
+        {/* Titulo */}
         <Input
-          etiqueta="Título"
+          etiqueta="Titulo"
           placeholder="Nombre del evento"
           value={titulo}
           onChange={(e) => setTitulo(e.target.value)}
@@ -305,12 +689,21 @@ function ModalEvento({
           )}
         </div>
 
-        {/* Todo el día */}
-        <Interruptor
-          activo={todoElDia}
-          onChange={setTodoElDia}
-          etiqueta="Todo el día"
-        />
+        {/* Todo el dia + recurrencia */}
+        <div className="flex flex-col gap-3">
+          <Interruptor
+            activo={todoElDia}
+            onChange={setTodoElDia}
+            etiqueta="Todo el dia"
+          />
+
+          <SelectorRecurrencia
+            valor={recurrencia}
+            onChange={setRecurrencia}
+            fechaReferencia={fechaInicio}
+            compacto
+          />
+        </div>
 
         {/* Visibilidad */}
         <Select
@@ -320,32 +713,69 @@ function ModalEvento({
           onChange={setVisibilidad}
         />
 
-        {/* Descripción */}
-        <TextArea
-          etiqueta="Descripción"
-          placeholder="Descripción del evento (opcional)"
-          value={descripcion}
-          onChange={(e) => setDescripcion(e.target.value)}
-          rows={3}
+        {/* Asignados */}
+        <SelectorAsignados
+          asignados={asignados}
+          miembrosDisponibles={miembrosDisponibles}
+          onAgregar={agregarAsignado}
+          onRemover={removerAsignado}
         />
 
-        {/* Ubicación */}
-        <Input
-          etiqueta="Ubicación"
-          placeholder="Lugar del evento (opcional)"
-          value={ubicacion}
-          onChange={(e) => setUbicacion(e.target.value)}
-          formato={null}
+        {/* Vinculaciones */}
+        <SelectorVinculaciones
+          vinculos={vinculos}
+          onAgregar={agregarVinculo}
+          onRemover={removerVinculo}
         />
 
-        {/* Notas */}
-        <TextArea
-          etiqueta="Notas"
-          placeholder="Notas internas (opcional)"
-          value={notas}
-          onChange={(e) => setNotas(e.target.value)}
-          rows={2}
-        />
+        {/* ── Seccion colapsable: mas opciones ── */}
+        <button
+          type="button"
+          onClick={() => setMasOpciones(!masOpciones)}
+          className="flex items-center gap-1.5 text-xs text-texto-terciario hover:text-texto-secundario transition-colors cursor-pointer self-start"
+        >
+          {masOpciones ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          {masOpciones ? 'Menos opciones' : 'Mas opciones'}
+        </button>
+
+        <AnimatePresence>
+          {masOpciones && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden flex flex-col gap-4"
+            >
+              {/* Descripcion */}
+              <TextArea
+                etiqueta="Descripcion"
+                placeholder="Descripcion del evento (opcional)"
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+                rows={3}
+              />
+
+              {/* Ubicacion */}
+              <Input
+                etiqueta="Ubicacion"
+                placeholder="Lugar del evento (opcional)"
+                value={ubicacion}
+                onChange={(e) => setUbicacion(e.target.value)}
+                formato={null}
+              />
+
+              {/* Notas */}
+              <TextArea
+                etiqueta="Notas"
+                placeholder="Notas internas (opcional)"
+                value={notas}
+                onChange={(e) => setNotas(e.target.value)}
+                rows={2}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </ModalAdaptable>
   )

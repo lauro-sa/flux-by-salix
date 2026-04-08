@@ -9,7 +9,7 @@
 
 import { useMemo } from 'react'
 import { motion } from 'framer-motion'
-import type { EventoCalendario } from './tipos'
+import type { EventoCalendario, OnClickEvento } from './tipos'
 
 // --- Constantes ---
 
@@ -104,7 +104,7 @@ interface GrupoDia {
 interface PropiedadesVistaAgenda {
   fechaActual: Date
   eventos: EventoCalendario[]
-  onClickEvento: (evento: EventoCalendario) => void
+  onClickEvento: OnClickEvento
 }
 
 function VistaCalendarioAgenda({
@@ -197,7 +197,7 @@ function VistaCalendarioAgenda({
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.12, delay: indiceGrupo * 0.02 + indiceEvento * 0.02 }}
                   className="flex items-start gap-3 px-3 py-2.5 rounded-lg text-left transition-colors hover:bg-superficie-hover w-full group"
-                  onClick={() => onClickEvento(evento)}
+                  onClick={(e) => onClickEvento(evento, { x: e.clientX, y: e.clientY })}
                 >
                   {/* Columna izquierda: hora */}
                   <div className="w-28 shrink-0 pt-0.5">

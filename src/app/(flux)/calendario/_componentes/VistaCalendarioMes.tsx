@@ -8,7 +8,7 @@
 
 import { useMemo } from 'react'
 import { motion } from 'framer-motion'
-import type { EventoCalendario } from './tipos'
+import type { EventoCalendario, OnClickEvento } from './tipos'
 
 /** Nombres cortos de días de la semana (lunes primero) */
 const DIAS_ENCABEZADO = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
@@ -93,7 +93,7 @@ interface PropiedadesVistaMes {
   fechaActual: Date
   eventos: EventoCalendario[]
   onClickDia: (fecha: Date) => void
-  onClickEvento: (evento: EventoCalendario) => void
+  onClickEvento: OnClickEvento
 }
 
 function VistaCalendarioMes({
@@ -209,7 +209,7 @@ function VistaCalendarioMes({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation()
-                      onClickEvento(evento)
+                      onClickEvento(evento, { x: e.clientX, y: e.clientY })
                     }}
                     className="w-full text-left truncate rounded px-1.5 py-0.5 text-[11px] leading-tight transition-opacity hover:opacity-80"
                     style={{

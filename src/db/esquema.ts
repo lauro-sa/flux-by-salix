@@ -65,6 +65,7 @@ export const miembros = pgTable('miembros', {
   horario_tipo: text('horario_tipo'), // 'lunes_viernes' | 'lunes_sabado' | 'todos' | 'custom'
   horario_flexible: boolean('horario_flexible').notNull().default(false),
   metodo_fichaje: text('metodo_fichaje'), // 'kiosco' | 'automatico' | 'manual'
+  fichaje_auto_movil: boolean('fichaje_auto_movil').notNull().default(false), // permitir fichaje automático desde móvil/PWA
   salix_ia_habilitado: boolean('salix_ia_habilitado').notNull().default(false),
   // Kiosco
   kiosco_rfid: text('kiosco_rfid'),
@@ -957,6 +958,9 @@ export const eventos_calendario = pgTable('eventos_calendario', {
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
 
+  // Recordatorio (minutos antes del evento, 0 = sin recordatorio)
+  recordatorio_minutos: integer('recordatorio_minutos').notNull().default(0),
+
   // Soft delete
   en_papelera: boolean('en_papelera').notNull().default(false),
   papelera_en: timestamp('papelera_en', { withTimezone: true }),
@@ -967,6 +971,22 @@ export const eventos_calendario = pgTable('eventos_calendario', {
   index('eventos_cal_empresa_actividad_idx').on(tabla.empresa_id, tabla.actividad_id),
   index('eventos_cal_empresa_padre_idx').on(tabla.empresa_id, tabla.evento_padre_id),
   index('eventos_cal_empresa_papelera_idx').on(tabla.empresa_id, tabla.en_papelera),
+])
+
+// Recordatorios de calendario — programados para enviar antes de un evento
+export const recordatorios_calendario = pgTable('recordatorios_calendario', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  evento_id: uuid('evento_id').notNull().references(() => eventos_calendario.id, { onDelete: 'cascade' }),
+  usuario_id: uuid('usuario_id').notNull(),
+  usuario_nombre: text('usuario_nombre'),
+  programado_para: timestamp('programado_para', { withTimezone: true }).notNull(),
+  enviado: boolean('enviado').notNull().default(false),
+  enviado_en: timestamp('enviado_en', { withTimezone: true }),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('recordatorios_cal_pendientes_idx').on(tabla.programado_para, tabla.enviado),
+  index('recordatorios_cal_evento_idx').on(tabla.evento_id),
 ])
 
 // ═══ PRODUCTOS ═══
