@@ -23,21 +23,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Faltan parámetros entidad_tipo y entidad_id' }, { status: 400 })
     }
 
+    const limite = Math.min(parseInt(searchParams.get('limite') || '200'), 500)
+    const pagina = parseInt(searchParams.get('pagina') || '1')
+    const desde = (pagina - 1) * limite
+
     const admin = crearClienteAdmin()
-    const { data, error } = await admin
+    const { data, error, count } = await admin
       .from('chatter')
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('empresa_id', empresaId)
       .eq('entidad_tipo', entidadTipo)
       .eq('entidad_id', entidadId)
       .order('creado_en', { ascending: true })
+      .range(desde, desde + limite - 1)
 
     if (error) {
       console.error('Error al obtener chatter:', error)
       return NextResponse.json({ error: 'Error al obtener chatter' }, { status: 500 })
     }
 
-    return NextResponse.json({ entradas: data || [] })
+    return NextResponse.json({
+      entradas: data || [],
+      total: count || 0,
+      pagina,
+      limite,
+    })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }

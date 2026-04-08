@@ -97,6 +97,10 @@ export function PanelChatter({
   }, [entidadId, cargar])
 
   // ─── Realtime: escuchar cambios en la tabla chatter para esta entidad ───
+  // Usar ref para evitar stale closure — el handler siempre llama la versión más reciente de cargar
+  const cargarRef = useRef(cargar)
+  useEffect(() => { cargarRef.current = cargar }, [cargar])
+
   useEffect(() => {
     if (!entidadId) return
 
@@ -110,14 +114,14 @@ export function PanelChatter({
         filter: `entidad_id=eq.${entidadId}`,
       }, () => {
         // Recargar todas las entradas cuando hay cualquier cambio (INSERT o UPDATE)
-        cargar()
+        cargarRef.current()
       })
       .subscribe()
 
     return () => {
       supabase.removeChannel(canal)
     }
-  }, [entidadId, entidadTipo, cargar])
+  }, [entidadId, entidadTipo])
 
   // ─── Filtrar entradas (más nuevas primero) ───
   const entradasFiltradas = useMemo(() => {

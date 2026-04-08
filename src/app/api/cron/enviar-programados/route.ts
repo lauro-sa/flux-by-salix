@@ -34,6 +34,17 @@ export async function GET(request: NextRequest) {
     if (pendientes && pendientes.length > 0) {
       for (const programado of pendientes) {
         try {
+          // Marcar atómicamente como 'enviando' para evitar doble envío si dos crons se solapan
+          const { data: tomado } = await admin
+            .from('correos_programados')
+            .update({ estado: 'enviando' })
+            .eq('id', programado.id)
+            .eq('estado', 'pendiente')
+            .select('id')
+            .maybeSingle()
+
+          if (!tomado) continue // Otro cron ya lo tomó
+
           const baseUrl = process.env.NEXT_PUBLIC_APP_URL
           if (!baseUrl) throw new Error('NEXT_PUBLIC_APP_URL no configurada')
 
@@ -56,7 +67,9 @@ export async function GET(request: NextRequest) {
               correo_in_reply_to: programado.correo_in_reply_to,
               correo_references: programado.correo_references,
               adjuntos_ids: programado.adjuntos_ids,
-              tipo: 'nuevo',
+              tipo: programado.tipo || 'nuevo',
+              entidad_tipo: programado.entidad_tipo || undefined,
+              entidad_id: programado.entidad_id || undefined,
             }),
           })
 
@@ -101,6 +114,17 @@ export async function GET(request: NextRequest) {
       } else {
         for (const programado of waPendientes) {
           try {
+            // Marcar atómicamente como 'enviando' para evitar doble envío
+            const { data: tomado } = await admin
+              .from('whatsapp_programados')
+              .update({ estado: 'enviando' })
+              .eq('id', programado.id)
+              .eq('estado', 'pendiente')
+              .select('id')
+              .maybeSingle()
+
+            if (!tomado) continue
+
             // Mapear tipo_contenido de Flux a tipo del endpoint de envío
             const mapaTipo: Record<string, string> = {
               texto: 'texto',

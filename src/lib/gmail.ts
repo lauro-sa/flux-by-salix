@@ -313,14 +313,28 @@ export interface OpcionesMensajeRFC2822 {
   }[]
 }
 
-/** Construye un mensaje RFC 2822 como string base64url para enviar via Gmail API */
-export function construirMensajeRFC2822(opciones: OpcionesMensajeRFC2822): string {
+/** Genera un Message-ID RFC 5322 único para identificar el correo */
+export function generarMessageId(dominio?: string): string {
+  const dom = dominio || 'flux.app'
+  const ts = Date.now().toString(36)
+  const rand = Math.random().toString(36).slice(2, 10)
+  return `<${ts}.${rand}@${dom}>`
+}
+
+/** Construye un mensaje RFC 2822 como string base64url para enviar via Gmail API.
+ *  Retorna { raw, messageId } donde messageId es el Message-ID generado. */
+export function construirMensajeRFC2822(opciones: OpcionesMensajeRFC2822): { raw: string; messageId: string } {
   const boundary = `flux_${Date.now()}_${Math.random().toString(36).slice(2)}`
   const tieneAdjuntos = opciones.adjuntos && opciones.adjuntos.length > 0
+
+  // Generar Message-ID propio para que coincida entre envío y sync
+  const dominioRemitente = opciones.de.match(/@([^>]+)/)?.[1] || 'flux.app'
+  const messageId = generarMessageId(dominioRemitente)
 
   const lineas: string[] = []
 
   // Headers obligatorios
+  lineas.push(`Message-ID: ${messageId}`)
   lineas.push(`From: ${opciones.de}`)
   lineas.push(`To: ${opciones.para.join(', ')}`)
   if (opciones.cc?.length) lineas.push(`CC: ${opciones.cc.join(', ')}`)
@@ -413,21 +427,24 @@ export function construirMensajeRFC2822(opciones: OpcionesMensajeRFC2822): strin
   const raw = lineas.join('\r\n')
 
   // Codificar a base64url (requerido por Gmail API)
-  return Buffer.from(raw)
+  const rawBase64 = Buffer.from(raw)
     .toString('base64')
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/, '')
+
+  return { raw: rawBase64, messageId }
 }
 
-/** Envía un correo a través de Gmail API */
+/** Envía un correo a través de Gmail API.
+ *  Retorna el Message-ID RFC 5322 (para threading), gmailId y threadId. */
 export async function enviarCorreoGmail(
   refreshToken: string,
   opciones: OpcionesMensajeRFC2822,
   threadId?: string,
-): Promise<{ id: string; threadId: string }> {
+): Promise<{ id: string; threadId: string; messageId: string }> {
   const gmail = crearClienteGmail(refreshToken)
-  const raw = construirMensajeRFC2822(opciones)
+  const { raw, messageId } = construirMensajeRFC2822(opciones)
 
   const { data } = await gmail.users.messages.send({
     userId: 'me',
@@ -440,6 +457,7 @@ export async function enviarCorreoGmail(
   return {
     id: data.id!,
     threadId: data.threadId!,
+    messageId,  // Message-ID RFC 5322 generado por nosotros
   }
 }
 

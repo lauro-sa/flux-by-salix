@@ -13,6 +13,7 @@ import {
   StickyNote, Globe, Mail, Paperclip,
   Clock, Pencil, Trash2,
 } from 'lucide-react'
+import DOMPurify from 'isomorphic-dompurify'
 import { useFormato } from '@/hooks/useFormato'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -457,7 +458,7 @@ function EntradaNotaInterna({
         {htmlContenido ? (
           <div
             className="text-sm text-texto-secundario mt-1 prose prose-sm max-w-none [&_p]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0"
-            dangerouslySetInnerHTML={{ __html: htmlContenido }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(htmlContenido) }}
           />
         ) : (
           <p className="text-sm text-texto-secundario mt-0.5 whitespace-pre-wrap">{entrada.contenido}</p>

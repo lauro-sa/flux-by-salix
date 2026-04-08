@@ -147,6 +147,18 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// ─── Helpers ───
+
+/** Ejecuta una promesa con timeout. Rechaza si excede los ms indicados. */
+function conTimeout<T>(promesa: Promise<T>, ms: number, descripcion = 'operación'): Promise<T> {
+  return Promise.race([
+    promesa,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout: ${descripcion} excedió ${ms}ms`)), ms)
+    ),
+  ])
+}
+
 // ─── Sincronización Gmail ───
 
 async function sincronizarGmail(
@@ -182,7 +194,10 @@ async function sincronizarGmail(
 
       for (const msgId of cambios.mensajesAgregados) {
         try {
-          const correo = await obtenerMensajeCompleto(config.refresh_token, msgId)
+          const correo = await conTimeout(
+            obtenerMensajeCompleto(config.refresh_token, msgId),
+            30000, `obtener mensaje ${msgId}`,
+          )
           const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal, false, undefined, canalNombre)
           if (procesado) mensajesNuevos++
         } catch (err) {
@@ -242,10 +257,16 @@ async function sincronizarGmailCompleto(
   const esSyncInicialGmail = true
 
   // Procesar inbox
-  const resultadoInbox = await listarMensajesGmail(config.refresh_token, queryInbox, undefined, 100)
+  const resultadoInbox = await conTimeout(
+    listarMensajesGmail(config.refresh_token, queryInbox, undefined, 100),
+    60000, 'listar inbox Gmail',
+  )
   for (const msg of resultadoInbox.mensajes) {
     try {
-      const correo = await obtenerMensajeCompleto(config.refresh_token, msg.id)
+      const correo = await conTimeout(
+        obtenerMensajeCompleto(config.refresh_token, msg.id),
+        30000, `obtener mensaje ${msg.id}`,
+      )
       const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal, esSyncInicialGmail, undefined, canalNombre)
       if (procesado) mensajesNuevos++
     } catch (err) {
@@ -254,10 +275,16 @@ async function sincronizarGmailCompleto(
   }
 
   // Procesar enviados
-  const resultadoSent = await listarMensajesGmail(config.refresh_token, querySent, undefined, 100)
+  const resultadoSent = await conTimeout(
+    listarMensajesGmail(config.refresh_token, querySent, undefined, 100),
+    60000, 'listar enviados Gmail',
+  )
   for (const msg of resultadoSent.mensajes) {
     try {
-      const correo = await obtenerMensajeCompleto(config.refresh_token, msg.id)
+      const correo = await conTimeout(
+        obtenerMensajeCompleto(config.refresh_token, msg.id),
+        30000, `obtener mensaje enviado ${msg.id}`,
+      )
       const procesado = await procesarCorreoEntrante(admin, correo, empresaId, canalId, emailCanal, esSyncInicialGmail, undefined, canalNombre)
       if (procesado) mensajesNuevos++
     } catch (err) {
@@ -451,7 +478,7 @@ async function procesarCorreoEntrante(
   }
 
   // 3. Encontrar o crear conversación
-  let conversacionId = await buscarConversacionPorHilo(admin, correo, empresaId)
+  let conversacionId = await buscarConversacionPorHilo(admin, correo, empresaId, canalId)
 
   if (!conversacionId) {
     const estadoConv = estadoForzado || estadoInicial
@@ -651,8 +678,22 @@ async function buscarConversacionPorHilo(
   admin: ReturnType<typeof crearClienteAdmin>,
   correo: CorreoParsedo,
   empresaId: string,
+  canalId: string,
 ): Promise<string | null> {
-  // 1. Buscar por In-Reply-To → correo_message_id de un mensaje existente
+  // 1. Buscar por Gmail threadId (más fiable — mismo threadId para todo el hilo)
+  if (correo.threadId) {
+    const { data } = await admin
+      .from('conversaciones')
+      .select('id')
+      .eq('empresa_id', empresaId)
+      .eq('canal_id', canalId)
+      .eq('hilo_externo_id', correo.threadId)
+      .maybeSingle()
+
+    if (data) return data.id
+  }
+
+  // 2. Buscar por In-Reply-To → correo_message_id de un mensaje existente
   if (correo.inReplyTo) {
     const { data } = await admin
       .from('mensajes')
@@ -665,7 +706,7 @@ async function buscarConversacionPorHilo(
     if (data) return data.conversacion_id
   }
 
-  // 2. Buscar por References → cualquier message_id referenciado
+  // 3. Buscar por References → cualquier message_id referenciado
   if (correo.references.length > 0) {
     const { data } = await admin
       .from('mensajes')
@@ -679,7 +720,7 @@ async function buscarConversacionPorHilo(
     if (data) return data.conversacion_id
   }
 
-  // 3. Fallback: buscar por asunto normalizado + identificador en últimos 7 días
+  // 4. Fallback: buscar por asunto normalizado + identificador en últimos 7 días
   const asuntoNormalizado = normalizarAsunto(correo.asunto)
   if (asuntoNormalizado) {
     const hace7Dias = new Date(Date.now() - 7 * 86400000).toISOString()
@@ -689,6 +730,7 @@ async function buscarConversacionPorHilo(
       .from('conversaciones')
       .select('id')
       .eq('empresa_id', empresaId)
+      .eq('canal_id', canalId)
       .eq('tipo_canal', 'correo')
       .eq('asunto', asuntoNormalizado)
       .or(`identificador_externo.eq.${emailRemitente}`)
@@ -733,7 +775,7 @@ async function crearConversacion(
       canal_id: canalId,
       tipo_canal: 'correo',
       identificador_externo: identificadorExterno,
-      hilo_externo_id: correo.messageId || correo.threadId || null,
+      hilo_externo_id: correo.threadId || null,
       contacto_nombre: contactoNombre || identificadorExterno,
       estado,
       prioridad: 'normal',

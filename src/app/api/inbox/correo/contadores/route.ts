@@ -141,6 +141,7 @@ export async function GET(request: NextRequest) {
       .eq('ultimo_mensaje_es_entrante', false)
       .eq('en_papelera', false)
       .eq('bloqueada', false)
+      .limit(5000)
 
     if (enviadosPorCanal) {
       for (const conv of enviadosPorCanal) {

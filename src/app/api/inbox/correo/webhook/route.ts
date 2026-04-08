@@ -75,16 +75,19 @@ export async function POST(request: NextRequest) {
       if (cambios.mensajesAgregados.length > 0) {
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL
         if (baseUrl) {
-          fetch(`${baseUrl}/api/inbox/correo/sincronizar`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-cron-secret': process.env.CRON_SECRET || '',
-            },
-            body: JSON.stringify({ canal_id: canal.id }),
-          }).catch(() => {
-            // No bloquear el webhook
-          })
+          try {
+            await fetch(`${baseUrl}/api/inbox/correo/sincronizar`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-cron-secret': process.env.CRON_SECRET || '',
+              },
+              body: JSON.stringify({ canal_id: canal.id }),
+              signal: AbortSignal.timeout(55000), // Timeout antes del límite de Vercel (60s)
+            })
+          } catch (err) {
+            console.error(`Error sincronizando canal ${canal.id} desde webhook:`, err)
+          }
         }
       }
 
