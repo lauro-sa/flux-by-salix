@@ -27,12 +27,14 @@ const STORAGE_KEY_VISIBLE = 'flux_mini_calendario_visible'
 
 /** Margen desde los bordes del contenedor */
 const MARGEN = 12
+/** Offset superior para no tapar el header de días de las vistas */
+const OFFSET_SUPERIOR = 80
 
-/** 9 posiciones de anclaje: esquinas, centros de borde, centro */
+/** 6 posiciones de anclaje: 4 esquinas + centro-izquierda + centro-derecha */
 type PosicionAnclaje =
-  | 'arriba-izquierda' | 'arriba-centro' | 'arriba-derecha'
-  | 'centro-izquierda' | 'centro' | 'centro-derecha'
-  | 'abajo-izquierda' | 'abajo-centro' | 'abajo-derecha'
+  | 'arriba-izquierda' | 'arriba-derecha'
+  | 'centro-izquierda' | 'centro-derecha'
+  | 'abajo-izquierda' | 'abajo-derecha'
 
 /** Convierte posición de anclaje a top/left en px dentro del contenedor */
 function calcularPosicionAbsoluta(
@@ -55,29 +57,26 @@ function calcularPosicionAbsoluta(
     left = (contenedorW - panelW) / 2
   }
 
-  // Vertical
+  // Vertical — con offset para no tapar el header de días
   if (pos.startsWith('arriba')) {
-    top = MARGEN
+    top = OFFSET_SUPERIOR
   } else if (pos.startsWith('abajo')) {
     top = contenedorH - panelH - MARGEN
   } else {
-    // centro vertical
-    top = (contenedorH - panelH) / 2
+    // centro vertical (entre offset superior y abajo)
+    top = OFFSET_SUPERIOR + (contenedorH - OFFSET_SUPERIOR - panelH) / 2
   }
 
-  return { top: Math.max(MARGEN, top), left: Math.max(MARGEN, left) }
+  return { top: Math.max(OFFSET_SUPERIOR, top), left: Math.max(MARGEN, left) }
 }
 
-/** Posiciones de anclaje con coordenadas relativas (0-1) para snap */
+/** 6 posiciones de anclaje con coordenadas relativas (0-1) para snap */
 const POSICIONES_ANCLAJE: { id: PosicionAnclaje; xRel: number; yRel: number }[] = [
   { id: 'arriba-izquierda', xRel: 0, yRel: 0 },
-  { id: 'arriba-centro', xRel: 0.5, yRel: 0 },
   { id: 'arriba-derecha', xRel: 1, yRel: 0 },
   { id: 'centro-izquierda', xRel: 0, yRel: 0.5 },
-  { id: 'centro', xRel: 0.5, yRel: 0.5 },
   { id: 'centro-derecha', xRel: 1, yRel: 0.5 },
   { id: 'abajo-izquierda', xRel: 0, yRel: 1 },
-  { id: 'abajo-centro', xRel: 0.5, yRel: 1 },
   { id: 'abajo-derecha', xRel: 1, yRel: 1 },
 ]
 
@@ -202,8 +201,8 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: Propied
       const dx = e.clientX - refInicioArrastre.current.clientX
       const dy = e.clientY - refInicioArrastre.current.clientY
       setArrastrandoPx({
-        top: refInicioArrastre.current.panelTop + dy,
-        left: refInicioArrastre.current.panelLeft + dx,
+        top: Math.max(OFFSET_SUPERIOR, refInicioArrastre.current.panelTop + dy),
+        left: Math.max(MARGEN, refInicioArrastre.current.panelLeft + dx),
       })
     }
 
