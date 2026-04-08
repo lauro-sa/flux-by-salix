@@ -455,6 +455,9 @@ export default function PaginaCalendario() {
       mostrarConfiguracion
       onConfiguracion={() => router.push('/calendario/configuracion')}
     >
+      {/* Wrapper con márgenes laterales para la barra y contenido */}
+      <div className="flex flex-col h-full px-2 sm:px-6">
+
       {/* Barra de herramientas */}
       <BarraHerramientasCalendario
         vistaActiva={vistaActiva}
@@ -473,10 +476,12 @@ export default function PaginaCalendario() {
         onCambiarFiltroVista={setFiltroVista}
       />
 
-      {/* Vista activa */}
-      <div className="flex-1 min-h-0">
+      {/* Vista activa — sin padding lateral para que la grilla ocupe todo el ancho */}
+      <div className="flex-1 min-h-0 -mx-2 sm:-mx-6">
         {renderizarVista()}
       </div>
+
+      </div>{/* cierre wrapper con márgenes */}
 
       {/* Popover de resumen del evento */}
       <PopoverEvento
