@@ -75,6 +75,12 @@ export interface PropsEntradaTimeline {
   onEditarNota?: (entrada: EntradaChatter) => void
   onEliminarNota?: (entradaId: string) => void
   onRecargar: () => void
+  /** Set de IDs de actividades que ya fueron completadas/canceladas/pospuestas — oculta botones */
+  actividadesResueltas?: Set<string>
+  /** Callbacks para acciones rápidas de actividad desde el chatter */
+  onCompletarActividad?: (actividadId: string) => Promise<void>
+  onPosponerActividad?: (actividadId: string, dias: number) => Promise<void>
+  onCancelarActividad?: (actividadId: string) => Promise<void>
 }
 
 // ─── Props de EditorNota ───

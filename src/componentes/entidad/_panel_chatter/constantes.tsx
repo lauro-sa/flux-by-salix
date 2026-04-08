@@ -6,7 +6,7 @@
 import {
   FileText, ArrowRightLeft, Globe, Eye, CheckCircle2, XCircle,
   CreditCard, Clock, ClipboardList, RotateCcw, Mail, MailOpen,
-  Pencil, RefreshCw,
+  Pencil, RefreshCw, CalendarClock, Ban,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { AccionSistema } from '@/tipos/chatter'
@@ -77,6 +77,16 @@ export const ICONOS_ACCION: Record<AccionSistema, ConfigIconoAccion> = {
     icono: <CheckCircle2 size={14} />,
     color: 'bg-insignia-exito/10 text-insignia-exito',
     etiqueta: 'Actividad completada',
+  },
+  actividad_pospuesta: {
+    icono: <CalendarClock size={14} />,
+    color: 'bg-insignia-advertencia/10 text-insignia-advertencia',
+    etiqueta: 'Actividad pospuesta',
+  },
+  actividad_cancelada: {
+    icono: <Ban size={14} />,
+    color: 'bg-insignia-peligro/10 text-insignia-peligro',
+    etiqueta: 'Actividad cancelada',
   },
   actividad_reactivada: {
     icono: <RotateCcw size={14} />,

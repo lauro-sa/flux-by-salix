@@ -22,6 +22,8 @@ export type AccionSistema =
   | 'campo_editado'
   | 'actividad_creada'
   | 'actividad_completada'
+  | 'actividad_pospuesta'
+  | 'actividad_cancelada'
   | 'actividad_reactivada'
   // Correo
   | 'correo_enviado'

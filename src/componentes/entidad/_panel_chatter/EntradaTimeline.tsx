@@ -11,7 +11,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import {
   FileText, Check, X, ChevronDown, ChevronUp,
   StickyNote, Globe, Mail, Paperclip,
-  Clock, Pencil, Trash2,
+  Clock, Pencil, Trash2, CheckCircle2, CalendarClock, Ban, Link,
 } from 'lucide-react'
 import DOMPurify from 'isomorphic-dompurify'
 import { useFormato } from '@/hooks/useFormato'
@@ -31,6 +31,10 @@ export function EntradaTimeline({
   onAccionComprobante,
   onEditarNota,
   onEliminarNota,
+  actividadesResueltas,
+  onCompletarActividad,
+  onPosponerActividad,
+  onCancelarActividad,
 }: PropsEntradaTimeline) {
   const { locale } = useFormato()
   const esSistema = entrada.tipo === 'sistema'
@@ -43,7 +47,19 @@ export function EntradaTimeline({
   const fh = formatoHora
 
   if (esSistema) {
-    return <EntradaSistema entrada={entrada} entidadTipo={entidadTipo} formatoHora={fh} locale={locale} onAccionComprobante={onAccionComprobante} />
+    return (
+      <EntradaSistema
+        entrada={entrada}
+        entidadTipo={entidadTipo}
+        formatoHora={fh}
+        locale={locale}
+        onAccionComprobante={onAccionComprobante}
+        actividadesResueltas={actividadesResueltas}
+        onCompletarActividad={onCompletarActividad}
+        onPosponerActividad={onPosponerActividad}
+        onCancelarActividad={onCancelarActividad}
+      />
+    )
   }
   if (esCorreo) {
     return <EntradaCorreo entrada={entrada} formatoHora={fh} locale={locale} />
@@ -68,6 +84,14 @@ export function EntradaTimeline({
   return <EntradaMensaje entrada={entrada} esMensajePortal={!!esMensajePortal} formatoHora={fh} locale={locale} />
 }
 
+// ─── Opciones predefinidas para posponer actividad ───
+const OPCIONES_POSPONER = [
+  { etiqueta: '1 día', dias: 1 },
+  { etiqueta: '3 días', dias: 3 },
+  { etiqueta: '1 semana', dias: 7 },
+  { etiqueta: '2 semanas', dias: 14 },
+]
+
 // ─── Entrada de sistema ───
 function EntradaSistema({
   entrada,
@@ -75,18 +99,38 @@ function EntradaSistema({
   formatoHora,
   locale,
   onAccionComprobante,
+  actividadesResueltas,
+  onCompletarActividad,
+  onPosponerActividad,
+  onCancelarActividad,
 }: {
   entrada: PropsEntradaTimeline['entrada']
   entidadTipo: string
   formatoHora: string
   locale: string
   onAccionComprobante: PropsEntradaTimeline['onAccionComprobante']
+  actividadesResueltas?: Set<string>
+  onCompletarActividad?: (actividadId: string) => Promise<void>
+  onPosponerActividad?: (actividadId: string, dias: number) => Promise<void>
+  onCancelarActividad?: (actividadId: string) => Promise<void>
 }) {
   const [accionando, setAccionando] = useState(false)
+  const [menuPosponer, setMenuPosponer] = useState(false)
+  const refMenuPosponer = useRef<HTMLDivElement>(null)
+
   const accion = entrada.metadata?.accion as AccionSistema | undefined
   const config = accion ? ICONOS_ACCION[accion] : null
   const esComprobante = accion === 'portal_comprobante'
   const comprobanteId = entrada.metadata?.detalles?.comprobante_id as string | undefined
+
+  // Detectar si es una entrada de actividad creada con botones accionables
+  const esActividadCreada = accion === 'actividad_creada'
+  const actividadId = entrada.metadata?.actividad_id
+  const actividadResuelta = actividadId ? actividadesResueltas?.has(actividadId) : false
+  const mostrarBotonesActividad = esActividadCreada && actividadId && !actividadResuelta
+
+  // Vínculos relacionados (ej: Presupuesto #452 · Edificio Torres del Sol)
+  const vinculosRelacionados = entrada.metadata?.vinculos_relacionados
 
   const handleAccion = async (acc: 'confirmar' | 'rechazar') => {
     if (accionando || !comprobanteId) return
@@ -94,6 +138,41 @@ function EntradaSistema({
     await onAccionComprobante(entrada.id, comprobanteId, acc)
     setAccionando(false)
   }
+
+  // Acciones de actividad
+  const handleCompletar = async () => {
+    if (accionando || !actividadId || !onCompletarActividad) return
+    setAccionando(true)
+    await onCompletarActividad(actividadId)
+    setAccionando(false)
+  }
+
+  const handlePosponer = async (dias: number) => {
+    if (accionando || !actividadId || !onPosponerActividad) return
+    setMenuPosponer(false)
+    setAccionando(true)
+    await onPosponerActividad(actividadId, dias)
+    setAccionando(false)
+  }
+
+  const handleCancelar = async () => {
+    if (accionando || !actividadId || !onCancelarActividad) return
+    setAccionando(true)
+    await onCancelarActividad(actividadId)
+    setAccionando(false)
+  }
+
+  // Cerrar menú posponer al hacer clic fuera
+  useEffect(() => {
+    if (!menuPosponer) return
+    const handleClickFuera = (e: MouseEvent) => {
+      if (refMenuPosponer.current && !refMenuPosponer.current.contains(e.target as Node)) {
+        setMenuPosponer(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickFuera)
+    return () => document.removeEventListener('mousedown', handleClickFuera)
+  }, [menuPosponer])
 
   return (
     <div className="flex items-start gap-2.5 py-1.5 group">
@@ -106,6 +185,19 @@ function EntradaSistema({
           {' · '}
           {entrada.contenido}
         </p>
+
+        {/* Vínculos relacionados (ej: documentos y contactos vinculados a la actividad) */}
+        {vinculosRelacionados && vinculosRelacionados.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+            <Link size={10} className="text-texto-terciario shrink-0" />
+            {vinculosRelacionados.map((v, i) => (
+              <span key={v.id} className="text-xxs text-texto-marca">
+                {v.nombre}
+                {i < vinculosRelacionados.length - 1 && <span className="text-texto-terciario ml-1.5">·</span>}
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Adjuntos */}
         <ListaAdjuntos adjuntos={entrada.adjuntos} />
@@ -120,6 +212,80 @@ function EntradaSistema({
               Rechazar
             </Boton>
           </div>
+        )}
+
+        {/* Botones de acción para actividades (completar, posponer, cancelar) */}
+        {mostrarBotonesActividad && (
+          <div className="flex items-center gap-1.5 mt-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+            {/* Completar */}
+            <Boton
+              variante="exito"
+              tamano="xs"
+              icono={<CheckCircle2 size={12} />}
+              onClick={handleCompletar}
+              disabled={accionando}
+              cargando={accionando}
+            >
+              Completar
+            </Boton>
+
+            {/* Posponer con dropdown */}
+            <div className="relative" ref={refMenuPosponer}>
+              <Boton
+                variante="secundario"
+                tamano="xs"
+                icono={<CalendarClock size={12} />}
+                iconoDerecho={<ChevronDown size={10} />}
+                onClick={() => setMenuPosponer(!menuPosponer)}
+                disabled={accionando}
+              >
+                Posponer
+              </Boton>
+
+              {/* Menú desplegable de opciones de posponer */}
+              <AnimatePresence>
+                {menuPosponer && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.12 }}
+                    className="absolute left-0 top-full mt-1 z-20 bg-superficie-tarjeta border border-borde-sutil rounded-lg shadow-lg py-1 min-w-[120px]"
+                  >
+                    {OPCIONES_POSPONER.map(opcion => (
+                      <button
+                        key={opcion.dias}
+                        onClick={() => handlePosponer(opcion.dias)}
+                        className="w-full text-left px-3 py-1.5 text-xs text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario transition-colors"
+                      >
+                        {opcion.etiqueta}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Cancelar */}
+            <Boton
+              variante="fantasma"
+              tamano="xs"
+              icono={<Ban size={12} />}
+              onClick={handleCancelar}
+              disabled={accionando}
+              className="text-texto-terciario hover:text-insignia-peligro"
+            >
+              Cancelar
+            </Boton>
+          </div>
+        )}
+
+        {/* Indicador de actividad ya resuelta */}
+        {esActividadCreada && actividadId && actividadResuelta && (
+          <span className="inline-flex items-center gap-1 mt-1.5 text-xxs text-insignia-exito bg-insignia-exito/10 px-2 py-0.5 rounded-full font-medium">
+            <CheckCircle2 size={10} />
+            Resuelta
+          </span>
         )}
 
         <span className="text-xxs text-texto-terciario opacity-0 group-hover:opacity-100 transition-opacity" title={fechaCompleta(entrada.creado_en, formatoHora, locale)}>

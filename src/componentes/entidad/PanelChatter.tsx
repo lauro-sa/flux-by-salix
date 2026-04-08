@@ -275,6 +275,62 @@ export function PanelChatter({
     return vinculos.length > 0 ? vinculos : null
   }, [contacto?.id, contacto?.nombre, contactoPrincipal, entidadTipo, entidadId, datosDocumento?.numero, tipoDocumento])
 
+  // ─── Actividades resueltas (completadas/canceladas) — para ocultar botones en el timeline ───
+  const actividadesResueltas = useMemo(() => {
+    const ids = new Set<string>()
+    for (const e of entradas) {
+      const accion = e.metadata?.accion
+      if (
+        (accion === 'actividad_completada' || accion === 'actividad_cancelada') &&
+        e.metadata?.actividad_id
+      ) {
+        ids.add(e.metadata.actividad_id)
+      }
+    }
+    return ids
+  }, [entradas])
+
+  // ─── Acciones rápidas de actividad desde el chatter ───
+  const completarActividadDesdeChatter = useCallback(async (actividadId: string) => {
+    try {
+      const res = await fetch(`/api/actividades/${actividadId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'completar' }),
+      })
+      if (!res.ok) throw new Error()
+      // El chatter se recarga automáticamente via realtime
+    } catch {
+      /* Error silencioso — el realtime se encargará de sincronizar */
+    }
+  }, [])
+
+  const posponerActividadDesdeChatter = useCallback(async (actividadId: string, dias: number) => {
+    try {
+      const res = await fetch(`/api/actividades/${actividadId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'posponer', dias }),
+      })
+      if (!res.ok) throw new Error()
+    } catch {
+      /* Error silencioso */
+    }
+  }, [])
+
+  const cancelarActividadDesdeChatter = useCallback(async (actividadId: string) => {
+    try {
+      const res = await fetch(`/api/actividades/${actividadId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'cancelar' }),
+      })
+      if (!res.ok) throw new Error()
+    } catch {
+      /* Error silencioso */
+    }
+  }, [])
+
   // WhatsApp siempre habilitado — el modal valida si hay número/conversación
   const tieneWhatsApp = true
 
@@ -501,6 +557,10 @@ export function PanelChatter({
                       onEditarNota={editarNota}
                       onEliminarNota={eliminarNota}
                       onRecargar={cargar}
+                      actividadesResueltas={actividadesResueltas}
+                      onCompletarActividad={completarActividadDesdeChatter}
+                      onPosponerActividad={posponerActividadDesdeChatter}
+                      onCancelarActividad={cancelarActividadDesdeChatter}
                     />
                   ))
                 )}

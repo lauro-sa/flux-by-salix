@@ -152,7 +152,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     if (body.accion === 'posponer') {
       const dias = body.dias || 1
-      const actividad = await admin.from('actividades').select('fecha_vencimiento').eq('id', id).single()
+      const actividad = await admin.from('actividades').select('fecha_vencimiento, titulo, vinculos').eq('id', id).single()
       const base = actividad.data?.fecha_vencimiento ? new Date(actividad.data.fecha_vencimiento) : new Date()
       base.setDate(base.getDate() + dias)
 
@@ -170,6 +170,107 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         .single()
 
       if (error) return NextResponse.json({ error: 'Error al posponer' }, { status: 500 })
+
+      // Registrar en chatter de cada entidad vinculada
+      const vinculos = (data.vinculos || []) as { tipo: string; id: string; nombre: string }[]
+      for (const vinculo of vinculos) {
+        const otrosVinculos = vinculos.filter(v => v.id !== vinculo.id)
+        registrarChatter({
+          empresaId,
+          entidadTipo: vinculo.tipo,
+          entidadId: vinculo.id,
+          contenido: `Actividad pospuesta ${dias} día${dias > 1 ? 's' : ''}: ${data.titulo}`,
+          autorId: user.id,
+          autorNombre: nombreEditor,
+          metadata: {
+            accion: 'actividad_pospuesta',
+            actividad_id: data.id,
+            titulo: data.titulo,
+            vinculos_relacionados: otrosVinculos,
+          },
+        })
+      }
+
+      return NextResponse.json(data)
+    }
+
+    if (body.accion === 'cancelar') {
+      const { data: estadoCancelada } = await admin
+        .from('estados_actividad')
+        .select('id, clave')
+        .eq('empresa_id', empresaId)
+        .eq('grupo', 'cancelado')
+        .order('orden')
+        .limit(1)
+        .single()
+
+      // Si no hay estado 'cancelado', buscar uno de grupo 'completado' como fallback
+      const estadoFinal = estadoCancelada || await admin
+        .from('estados_actividad')
+        .select('id, clave')
+        .eq('empresa_id', empresaId)
+        .eq('grupo', 'completado')
+        .order('orden')
+        .limit(1)
+        .single()
+        .then(r => r.data)
+
+      if (!estadoFinal) return NextResponse.json({ error: 'Estado de cancelación no encontrado' }, { status: 500 })
+
+      const { data, error } = await admin
+        .from('actividades')
+        .update({
+          estado_id: estadoFinal.id,
+          estado_clave: estadoFinal.clave,
+          fecha_completada: new Date().toISOString(),
+          editado_por: user.id,
+          editado_por_nombre: nombreEditor,
+          actualizado_en: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .eq('empresa_id', empresaId)
+        .select()
+        .single()
+
+      if (error) return NextResponse.json({ error: 'Error al cancelar' }, { status: 500 })
+
+      // Registrar en chatter de cada entidad vinculada
+      const vinculos = (data.vinculos || []) as { tipo: string; id: string; nombre: string }[]
+      for (const vinculo of vinculos) {
+        const otrosVinculos = vinculos.filter(v => v.id !== vinculo.id)
+        registrarChatter({
+          empresaId,
+          entidadTipo: vinculo.tipo,
+          entidadId: vinculo.id,
+          contenido: `Actividad cancelada: ${data.titulo}`,
+          autorId: user.id,
+          autorNombre: nombreEditor,
+          metadata: {
+            accion: 'actividad_cancelada',
+            actividad_id: data.id,
+            titulo: data.titulo,
+            vinculos_relacionados: otrosVinculos,
+          },
+        })
+      }
+
+      // Cancelar eventos de calendario vinculados
+      await admin
+        .from('eventos_calendario')
+        .update({ estado: 'cancelado' })
+        .eq('empresa_id', empresaId)
+        .eq('actividad_id', id)
+
+      // Marcar notificaciones como leídas
+      admin
+        .from('notificaciones')
+        .update({ leida: true })
+        .eq('referencia_tipo', 'actividad')
+        .eq('referencia_id', data.id)
+        .eq('empresa_id', empresaId)
+        .eq('leida', false)
+        .then(() => {})
+
       return NextResponse.json(data)
     }
 
