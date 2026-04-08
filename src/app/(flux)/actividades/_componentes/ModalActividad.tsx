@@ -199,9 +199,24 @@ function ModalActividad({
     }
   }
 
-  // Estado para mostrar bloques de calendario después de crear
-  const [actividadCreadaId, setActividadCreadaId] = useState<string | null>(null)
-  const mostrarBloquesPostCreacion = !!actividadCreadaId
+  // Estado para bloques de calendario inline (al crear con tipo campo_calendario)
+  const tipoConCalendario = tipoSeleccionado && 'campo_calendario' in tipoSeleccionado && (tipoSeleccionado as TipoActividad & { campo_calendario?: boolean }).campo_calendario
+  const [bloquesNuevos, setBloquesNuevos] = useState<{ fecha: string; horaInicio: string; horaFin: string }[]>([])
+
+  // Agregar bloque de calendario inline
+  const agregarBloqueNuevo = () => {
+    const hoy = new Date()
+    const fecha = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`
+    setBloquesNuevos(prev => [...prev, { fecha, horaInicio: '08:00', horaFin: '17:00' }])
+  }
+
+  const actualizarBloqueNuevo = (indice: number, campo: string, valor: string) => {
+    setBloquesNuevos(prev => prev.map((b, i) => i === indice ? { ...b, [campo]: valor } : b))
+  }
+
+  const eliminarBloqueNuevo = (indice: number) => {
+    setBloquesNuevos(prev => prev.filter((_, i) => i !== indice))
+  }
 
   // Guardar
   const manejarGuardar = async () => {
@@ -221,71 +236,49 @@ function ModalActividad({
         vinculos,
       })
 
-      // Si es creación y el tipo tiene campo_calendario, mostrar bloques
-      const tipoConCalendario = tipoSeleccionado && 'campo_calendario' in tipoSeleccionado && tipoSeleccionado.campo_calendario
-      if (!esEdicion && tipoConCalendario && resultado && typeof resultado === 'object' && 'id' in resultado) {
-        setActividadCreadaId((resultado as { id: string }).id)
-      } else {
-        onCerrar()
+      // Si es creación con bloques de calendario, crearlos después de la actividad
+      if (!esEdicion && tipoConCalendario && bloquesNuevos.length > 0 && resultado && typeof resultado === 'object' && 'id' in resultado) {
+        const actividadId = (resultado as { id: string }).id
+        const asignados = asignadoA && asignadoNombre
+          ? [{ id: asignadoA, nombre: asignadoNombre }]
+          : []
+
+        // Crear todos los bloques en paralelo
+        await Promise.all(bloquesNuevos.map(bloque =>
+          fetch('/api/calendario', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              titulo: titulo.trim(),
+              fecha_inicio: `${bloque.fecha}T${bloque.horaInicio}:00`,
+              fecha_fin: `${bloque.fecha}T${bloque.horaFin}:00`,
+              tipo_clave: 'tarea',
+              actividad_id: actividadId,
+              asignados,
+              vinculos,
+              estado: 'confirmado',
+            }),
+          })
+        ))
       }
+
+      onCerrar()
     } finally {
       setGuardando(false)
     }
-  }
-
-  // Cerrar después de agendar bloques
-  const cerrarPostCalendario = () => {
-    setActividadCreadaId(null)
-    onCerrar()
-  }
-
-  // Si acabamos de crear y el tipo tiene calendario, mostrar pantalla de agendar
-  if (mostrarBloquesPostCreacion && actividadCreadaId) {
-    return (
-      <Modal
-        abierto={abierto}
-        onCerrar={cerrarPostCalendario}
-        titulo="Agendar en calendario"
-        tamano="3xl"
-        acciones={
-          <div className="flex items-center justify-between w-full">
-            <span className="text-xs text-texto-terciario">Actividad creada. Agendá los bloques de trabajo.</span>
-            <Boton tamano="sm" onClick={cerrarPostCalendario}>
-              Listo
-            </Boton>
-          </div>
-        }
-      >
-        <div className="space-y-4">
-          <div className="p-3 rounded-lg bg-superficie-hover/50 border border-borde-sutil">
-            <p className="text-sm font-medium text-texto-primario">{titulo}</p>
-            {asignadoNombre && (
-              <p className="text-xs text-texto-terciario mt-0.5">Asignado a: {asignadoNombre}</p>
-            )}
-          </div>
-          <SeccionBloquesCalendario
-            actividadId={actividadCreadaId}
-            titulo={titulo}
-            asignadoA={asignadoA}
-            asignadoNombre={asignadoNombre}
-            vinculos={vinculos}
-          />
-        </div>
-      </Modal>
-    )
   }
 
   return (
     <Modal
       abierto={abierto}
       onCerrar={onCerrar}
-      titulo={esEdicion ? 'Editar actividad' : (tipoSeleccionado && 'campo_calendario' in tipoSeleccionado && tipoSeleccionado.campo_calendario ? 'Nueva actividad + calendario' : 'Nueva actividad')}
+      titulo={esEdicion ? 'Editar actividad' : 'Nueva actividad'}
       tamano="3xl"
       acciones={
         <>
           <Boton variante="secundario" tamano="sm" onClick={onCerrar}>Cancelar</Boton>
           <Boton tamano="sm" onClick={manejarGuardar} cargando={guardando} disabled={!titulo.trim() || !tipoId}>
-            {esEdicion ? 'Guardar' : (tipoSeleccionado && 'campo_calendario' in tipoSeleccionado && tipoSeleccionado.campo_calendario ? 'Crear y agendar' : 'Crear actividad')}
+            {esEdicion ? 'Guardar' : (tipoConCalendario && bloquesNuevos.length > 0 ? 'Crear y agendar' : 'Crear actividad')}
           </Boton>
         </>
       }
@@ -468,7 +461,7 @@ function ModalActividad({
             {/* Separador visual */}
             <div className="hidden md:block border-t border-borde-sutil" />
 
-            {/* Bloques de calendario (solo edición) */}
+            {/* Bloques de calendario — edición: componente existente */}
             {esEdicion && actividad && (
               <SeccionBloquesCalendario
                 actividadId={actividad.id}
@@ -477,6 +470,64 @@ function ModalActividad({
                 asignadoNombre={asignadoNombre}
                 vinculos={vinculos}
               />
+            )}
+
+            {/* Bloques de calendario — creación: inline cuando el tipo tiene campo_calendario */}
+            {!esEdicion && tipoConCalendario && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Calendar size={15} className="text-texto-terciario" />
+                    <span className="text-sm font-medium text-texto-primario">Agendar en calendario</span>
+                  </div>
+                  <Boton variante="fantasma" tamano="xs" icono={<Plus size={14} />} onClick={agregarBloqueNuevo}>
+                    Bloque
+                  </Boton>
+                </div>
+
+                {bloquesNuevos.length === 0 && (
+                  <p className="text-xs text-texto-terciario italic">
+                    Agregá bloques para agendar cuándo se realizará este trabajo.
+                  </p>
+                )}
+
+                {bloquesNuevos.map((bloque, i) => (
+                  <div key={i} className="flex items-end gap-1.5 p-2 rounded-lg bg-superficie-hover/30 border border-borde-sutil">
+                    <div className="flex-1">
+                      <SelectorFecha
+                        valor={bloque.fecha}
+                        onChange={(v) => actualizarBloqueNuevo(i, 'fecha', v || '')}
+                        etiqueta="Fecha"
+                      />
+                    </div>
+                    <div className="w-20">
+                      <label className="text-xs text-texto-terciario mb-1 block">Desde</label>
+                      <input
+                        type="time"
+                        value={bloque.horaInicio}
+                        onChange={(e) => actualizarBloqueNuevo(i, 'horaInicio', e.target.value)}
+                        className="w-full px-2 py-1.5 text-xs rounded-md border border-borde-sutil bg-superficie-tarjeta text-texto-primario"
+                      />
+                    </div>
+                    <div className="w-20">
+                      <label className="text-xs text-texto-terciario mb-1 block">Hasta</label>
+                      <input
+                        type="time"
+                        value={bloque.horaFin}
+                        onChange={(e) => actualizarBloqueNuevo(i, 'horaFin', e.target.value)}
+                        className="w-full px-2 py-1.5 text-xs rounded-md border border-borde-sutil bg-superficie-tarjeta text-texto-primario"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => eliminarBloqueNuevo(i)}
+                      className="p-1.5 text-texto-terciario hover:text-estado-error transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
