@@ -256,6 +256,19 @@ function ModalActividad({
     }
   }
 
+  // Si el selector de calendario está abierto, mostrar solo eso (no dos modales)
+  if (selectorCalendarioAbierto) {
+    return (
+      <SelectorCalendarioBloque
+        abierto
+        bloques={bloquesNuevos}
+        onCambiar={setBloquesNuevos}
+        onCerrar={() => setSelectorCalendarioAbierto(false)}
+        titulo={titulo || 'Nuevo evento'}
+      />
+    )
+  }
+
   return (
     <Modal
       abierto={abierto}
@@ -502,13 +515,6 @@ function ModalActividad({
                   </div>
                 )}
 
-                <SelectorCalendarioBloque
-                  abierto={selectorCalendarioAbierto}
-                  bloques={bloquesNuevos}
-                  onCambiar={setBloquesNuevos}
-                  onCerrar={() => setSelectorCalendarioAbierto(false)}
-                  titulo={titulo || 'Nuevo evento'}
-                />
               </div>
             )}
           </div>

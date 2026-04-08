@@ -5,7 +5,7 @@
 
 import {
   FileText, ArrowRightLeft, Globe, Eye, CheckCircle2, XCircle,
-  CreditCard, Clock, ClipboardList, RotateCcw, Mail, MailOpen,
+  CreditCard, Clock, Zap, RotateCcw, Mail, MailOpen,
   Pencil, RefreshCw, CalendarClock, Ban,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
@@ -69,7 +69,7 @@ export const ICONOS_ACCION: Record<AccionSistema, ConfigIconoAccion> = {
     etiqueta: 'Campo editado',
   },
   actividad_creada: {
-    icono: <ClipboardList size={14} />,
+    icono: <Zap size={14} />,
     color: 'bg-insignia-info/10 text-insignia-info',
     etiqueta: 'Actividad creada',
   },
