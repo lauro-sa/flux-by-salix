@@ -92,8 +92,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       if (error) return NextResponse.json({ error: 'Error al completar' }, { status: 500 })
 
       // Registrar en chatter de cada entidad vinculada
-      const vinculos = (data.vinculos || []) as { tipo: string; id: string }[]
+      const vinculos = (data.vinculos || []) as { tipo: string; id: string; nombre: string }[]
       for (const vinculo of vinculos) {
+        const otrosVinculos = vinculos.filter(v => v.id !== vinculo.id)
+
         registrarChatter({
           empresaId,
           entidadTipo: vinculo.tipo,
@@ -105,9 +107,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
             accion: 'actividad_completada',
             actividad_id: data.id,
             titulo: data.titulo,
+            vinculos_relacionados: otrosVinculos,
           },
         })
       }
+
+      // Cancelar eventos de calendario vinculados a esta actividad
+      await admin
+        .from('eventos_calendario')
+        .update({ estado: 'completado' })
+        .eq('empresa_id', empresaId)
+        .eq('actividad_id', id)
 
       // Marcar como leídas todas las notificaciones previas de esta actividad
       // (vencimientos, asignaciones, recordatorios) para que no sigan apareciendo en la campana

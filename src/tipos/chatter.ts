@@ -56,6 +56,7 @@ export interface MetadataChatter {
   actividad_id?: string
   tipo_actividad?: string
   titulo?: string
+  vinculos_relacionados?: { tipo: string; id: string; nombre: string }[]
   // Para comprobantes
   cuota_id?: string
   descripcion_pago?: string

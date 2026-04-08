@@ -223,6 +223,9 @@ export async function POST(request: NextRequest) {
 
     // Registrar en chatter de cada entidad vinculada
     for (const vinculo of vinculos) {
+      // Los otros vínculos (para mostrar contexto en el timeline)
+      const otrosVinculos = vinculos.filter((v: { id: string }) => v.id !== vinculo.id)
+
       registrarChatter({
         empresaId,
         entidadTipo: vinculo.tipo,
@@ -235,6 +238,7 @@ export async function POST(request: NextRequest) {
           actividad_id: data.id,
           tipo_actividad: tipo.clave,
           titulo: body.titulo.trim(),
+          vinculos_relacionados: otrosVinculos,
         },
       })
     }
