@@ -22,8 +22,10 @@ const CABECERAS_DIAS = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do']
 
 const STORAGE_KEY = 'flux_mini_cal_pos'
 const PANEL_W = 230
-const PANEL_H = 280
+const PANEL_H = 270
 const MARGEN = 8
+/** Offset superior para no tapar el header de días/fechas de la grilla */
+const TOP_MIN = 90
 
 /** 6 posiciones de anclaje */
 type PosicionAnclaje =
@@ -40,19 +42,19 @@ interface PosicionInfo {
 const POSICIONES: PosicionInfo[] = [
   {
     id: 'arriba-izquierda',
-    calcular: () => ({ top: MARGEN, left: MARGEN }),
+    calcular: () => ({ top: TOP_MIN, left: MARGEN }),
   },
   {
     id: 'arriba-derecha',
-    calcular: (cW) => ({ top: MARGEN, left: cW - PANEL_W - MARGEN }),
+    calcular: (cW) => ({ top: TOP_MIN, left: cW - PANEL_W - MARGEN }),
   },
   {
     id: 'centro-izquierda',
-    calcular: (_, cH) => ({ top: (cH - PANEL_H) / 2, left: MARGEN }),
+    calcular: (_, cH) => ({ top: TOP_MIN + (cH - TOP_MIN - PANEL_H) / 2, left: MARGEN }),
   },
   {
     id: 'centro-derecha',
-    calcular: (cW, cH) => ({ top: (cH - PANEL_H) / 2, left: cW - PANEL_W - MARGEN }),
+    calcular: (cW, cH) => ({ top: TOP_MIN + (cH - TOP_MIN - PANEL_H) / 2, left: cW - PANEL_W - MARGEN }),
   },
   {
     id: 'abajo-izquierda',
@@ -212,8 +214,8 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: Propied
       const dy = e.clientY - refInicioArrastre.current.clientY
 
       setArrastrandoXY({
-        top: refInicioArrastre.current.panelTop + dy,
-        left: refInicioArrastre.current.panelLeft + dx,
+        top: Math.max(TOP_MIN, refInicioArrastre.current.panelTop + dy),
+        left: Math.max(MARGEN, refInicioArrastre.current.panelLeft + dx),
       })
 
       // Calcular posición fantasma más cercana
