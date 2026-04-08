@@ -12,9 +12,11 @@ import { Calendar, Plus, Settings2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { BarraHerramientasCalendario } from './_componentes/BarraHerramientasCalendario'
 import { VistaCalendarioMes } from './_componentes/VistaCalendarioMes'
+import { VistaCalendarioSemana } from './_componentes/VistaCalendarioSemana'
+import { VistaCalendarioDia } from './_componentes/VistaCalendarioDia'
+import { VistaCalendarioAgenda } from './_componentes/VistaCalendarioAgenda'
 import { ModalEvento } from './_componentes/ModalEvento'
 import { Boton } from '@/componentes/ui/Boton'
-import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { useToast } from '@/componentes/feedback/Toast'
 import type { EventoCalendario, TipoEventoCalendario, VistaCalendario } from './_componentes/tipos'
 
@@ -265,16 +267,32 @@ export default function PaginaCalendario() {
         )
 
       case 'semana':
+        return (
+          <VistaCalendarioSemana
+            fechaActual={fechaActual}
+            eventos={eventos}
+            onClickHora={manejarClickDia}
+            onClickEvento={manejarClickEvento}
+          />
+        )
+
       case 'dia':
+        return (
+          <VistaCalendarioDia
+            fechaActual={fechaActual}
+            eventos={eventos}
+            onClickHora={manejarClickDia}
+            onClickEvento={manejarClickEvento}
+          />
+        )
+
       case 'agenda':
         return (
-          <div className="flex-1 flex items-center justify-center">
-            <EstadoVacio
-              icono={<Calendar size={48} strokeWidth={1.2} />}
-              titulo="Próximamente"
-              descripcion={`La vista ${vistaActiva} estará disponible pronto.`}
-            />
-          </div>
+          <VistaCalendarioAgenda
+            fechaActual={fechaActual}
+            eventos={eventos}
+            onClickEvento={manejarClickEvento}
+          />
         )
 
       default:
