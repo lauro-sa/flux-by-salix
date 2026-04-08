@@ -13,8 +13,12 @@
  */
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import { motion } from 'framer-motion'
+import {
+  UtensilsCrossed, Footprints, ArrowRight, LogOut, LogIn,
+  FileText, X,
+} from 'lucide-react'
 
 type EstadoTurno = 'activo' | 'almuerzo' | 'particular' | null
 type Accion = 'entrada' | 'salida' | 'almuerzo' | 'volver_almuerzo' | 'particular' | 'volver_particular'
@@ -37,7 +41,7 @@ const POP_EN = 3
 const BOTONES = {
   almuerzo: {
     accion: 'almuerzo' as Accion,
-    icono: '🍽',
+    icono: <UtensilsCrossed size={26} />,
     label: 'Salir a almorzar',
     detalle: 'Registrar pausa de almuerzo',
     bg: 'rgba(245,158,11,0.12)',
@@ -46,7 +50,7 @@ const BOTONES = {
   },
   particular: {
     accion: 'particular' as Accion,
-    icono: '🚶',
+    icono: <Footprints size={26} />,
     label: 'Salgo un momento',
     detalle: 'Trámite o gestión personal',
     bg: 'rgba(56,189,248,0.12)',
@@ -55,7 +59,7 @@ const BOTONES = {
   },
   volver_almuerzo: {
     accion: 'volver_almuerzo' as Accion,
-    icono: '↩',
+    icono: <ArrowRight size={26} />,
     label: 'Volver del almuerzo',
     detalle: 'Continuar jornada',
     bg: 'rgba(74,222,128,0.12)',
@@ -64,7 +68,7 @@ const BOTONES = {
   },
   volver_particular: {
     accion: 'volver_particular' as Accion,
-    icono: '↩',
+    icono: <ArrowRight size={26} />,
     label: 'Ya volví',
     detalle: 'Continuar jornada',
     bg: 'rgba(74,222,128,0.12)',
@@ -184,7 +188,7 @@ export default function PantallaAcciones({
                 }}
                 className="flex-1 flex items-center gap-3 md:gap-4 px-5 py-4 md:px-6 md:py-5 rounded-2xl md:rounded-3xl text-base md:text-lg font-bold justify-center border transition-colors active:scale-95 disabled:cursor-not-allowed"
               >
-                <span className="text-2xl md:text-3xl">{btn.icono}</span>
+                {btn.icono}
                 <div className="text-left">
                   <p className="leading-tight">{btn.label}</p>
                   <p className="text-xs md:text-sm font-normal opacity-60 leading-tight">{btn.detalle}</p>
@@ -213,7 +217,7 @@ export default function PantallaAcciones({
               }}
             />
             <div className="relative z-10 flex items-center gap-3 md:gap-4">
-              <span className="text-2xl md:text-3xl">🚪</span>
+              <LogOut size={28} />
               <div className="text-left">
                 <p className="leading-tight">Terminar jornada</p>
                 <p className="text-xs md:text-sm font-normal opacity-60 leading-tight">Registrar salida definitiva</p>
@@ -232,7 +236,7 @@ export default function PantallaAcciones({
             color: '#86efac',
           }}
         >
-          <span className="text-2xl md:text-3xl">▶</span>
+          <LogIn size={28} />
           <div className="text-left">
             <p className="leading-tight">Empezar turno</p>
             <p className="text-xs md:text-sm font-normal opacity-60 leading-tight">Registrar entrada</p>
@@ -251,7 +255,7 @@ export default function PantallaAcciones({
             color: '#a1a1aa',
           }}
         >
-          📝 Reportar asistencia
+          <FileText size={18} /> Reportar asistencia
         </button>
       )}
 
@@ -277,7 +281,7 @@ export default function PantallaAcciones({
               className="text-xs md:text-base font-medium flex items-center gap-1 transition-colors"
               style={{ color: '#52525b' }}
             >
-              ✕ Cancelar
+              <X size={14} /> Cancelar
             </button>
           </div>
         </div>
@@ -287,7 +291,7 @@ export default function PantallaAcciones({
           className="text-xs md:text-base font-medium flex items-center gap-1 transition-colors"
           style={{ color: '#52525b' }}
         >
-          ✕ Cancelar
+          <X size={14} /> Cancelar
         </button>
       )}
     </motion.div>

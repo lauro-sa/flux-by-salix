@@ -6,6 +6,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import { Key, Wifi, Keyboard, Maximize } from 'lucide-react'
 import RelojTiempoReal from './RelojTiempoReal'
 
 interface PropsPantallaEspera {
@@ -75,8 +76,8 @@ export default function PantallaEspera({
           className="flex items-center gap-3 px-6 py-3 md:px-8 md:py-4 rounded-2xl md:rounded-3xl"
           style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}
         >
-          <span style={{ color: '#a1a1aa', fontSize: 'clamp(1.5rem, 4vw, 2rem)' }}>
-            {metodoLectura === 'nfc' ? '📡' : '🔑'}
+          <span style={{ color: '#a1a1aa' }}>
+            {metodoLectura === 'nfc' ? <Wifi size={28} /> : <Key size={28} />}
           </span>
           <p
             className="font-medium"
@@ -107,7 +108,7 @@ export default function PantallaEspera({
           className="flex items-center gap-1.5 md:gap-2.5 transition-colors text-sm md:text-lg font-medium"
           style={{ color: '#52525b' }}
         >
-          <span style={{ fontSize: 'clamp(0.9rem, 2vw, 1.25rem)' }}>⌨</span>
+          <Keyboard size={18} />
           Ingresar con PIN
         </button>
         {!esPantallaCompleta && (
@@ -116,7 +117,7 @@ export default function PantallaEspera({
             className="flex items-center gap-1.5 md:gap-2.5 transition-colors text-sm md:text-lg font-medium"
             style={{ color: '#52525b' }}
           >
-            <span style={{ fontSize: 'clamp(0.9rem, 2vw, 1.25rem)' }}>⛶</span>
+            <Maximize size={18} />
             Pantalla completa
           </button>
         )}
