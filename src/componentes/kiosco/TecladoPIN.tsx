@@ -1,6 +1,6 @@
 /**
  * Teclado numérico en pantalla para ingreso de PIN.
- * Diseño negro puro, botones grandes para tablet.
+ * Replicado del kiosco viejo: NO auto-envía, tiene Cancelar y Aceptar.
  */
 'use client'
 
@@ -23,25 +23,24 @@ export default function TecladoPIN({
   const [pin, setPin] = useState('')
 
   const agregarDigito = useCallback((digito: string) => {
-    setPin((prev) => {
-      const nuevo = prev + digito
-      if (nuevo.length === largoPIN) {
-        setTimeout(() => alEnviar(nuevo), 100)
-        return nuevo
-      }
-      return nuevo.length <= largoPIN ? nuevo : prev
-    })
-  }, [largoPIN, alEnviar])
+    setPin((prev) => prev.length < largoPIN ? prev + digito : prev)
+  }, [largoPIN])
 
   const borrar = useCallback(() => {
     setPin((prev) => prev.slice(0, -1))
   }, [])
 
+  const enviar = useCallback(() => {
+    if (pin.length >= largoPIN) {
+      alEnviar(pin)
+    }
+  }, [pin, largoPIN, alEnviar])
+
   const teclas = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'borrar']
 
   return (
     <motion.div
-      className="flex flex-col items-center justify-center gap-8 p-8"
+      className="flex flex-col items-center justify-center h-full gap-8 p-8"
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
@@ -80,11 +79,7 @@ export default function TecladoPIN({
                 onClick={borrar}
                 disabled={pin.length === 0}
                 className="h-16 rounded-2xl text-xl font-medium transition-all active:scale-95 disabled:opacity-30"
-                style={{
-                  backgroundColor: '#18181b',
-                  color: '#94a3b8',
-                  border: '1px solid #27272a',
-                }}
+                style={{ backgroundColor: '#18181b', color: '#94a3b8', border: '1px solid #27272a' }}
               >
                 ←
               </button>
@@ -97,11 +92,7 @@ export default function TecladoPIN({
               onClick={() => agregarDigito(tecla)}
               disabled={pin.length >= largoPIN}
               className="h-16 rounded-2xl text-2xl font-medium transition-all active:scale-95 disabled:opacity-50"
-              style={{
-                backgroundColor: '#18181b',
-                color: '#f8fafc',
-                border: '1px solid #27272a',
-              }}
+              style={{ backgroundColor: '#18181b', color: '#f8fafc', border: '1px solid #27272a' }}
             >
               {tecla}
             </button>
@@ -109,13 +100,24 @@ export default function TecladoPIN({
         })}
       </div>
 
-      <button
-        onClick={alCancelar}
-        className="text-base transition-opacity hover:opacity-70"
-        style={{ color: '#64748b' }}
-      >
-        Cancelar
-      </button>
+      {/* Botones Cancelar y Aceptar */}
+      <div className="flex gap-4 w-[280px]">
+        <button
+          onClick={alCancelar}
+          className="flex-1 py-3.5 rounded-xl text-base font-medium transition-all active:scale-95"
+          style={{ backgroundColor: '#18181b', color: '#94a3b8', border: '1px solid #27272a' }}
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={enviar}
+          disabled={pin.length < largoPIN}
+          className="flex-1 py-3.5 rounded-xl text-base font-medium transition-all active:scale-95 disabled:opacity-30"
+          style={{ backgroundColor: 'var(--texto-marca)', color: '#fff' }}
+        >
+          Aceptar
+        </button>
+      </div>
     </motion.div>
   )
 }

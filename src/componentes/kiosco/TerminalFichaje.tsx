@@ -138,8 +138,11 @@ export default function TerminalFichaje({ config }: { config: ConfigTerminal }) 
       })
 
       if (!res.ok) {
-        const error = await res.json().catch(() => ({ error: 'Error desconocido' }))
-        mostrarError(error.error || 'No reconocido')
+        const error = await res.json().catch(() => ({ error: 'Error de conexión' }))
+        const msg = res.status === 404
+          ? (metodo === 'pin' ? 'PIN incorrecto o empleado no encontrado' : 'Llavero no registrado. Contactá al administrador.')
+          : (error.error || 'Error de conexión. Intentá nuevamente.')
+        mostrarError(msg)
         return
       }
 

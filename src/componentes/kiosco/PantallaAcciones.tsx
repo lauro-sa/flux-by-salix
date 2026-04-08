@@ -1,13 +1,15 @@
 /**
  * Pantalla de acciones contextuales según el estado del turno.
- * Timeout 15s → vuelve a espera.
- * Botón salida con countdown + barra de progreso.
- * Tema negro puro.
+ * Replicado del kiosco viejo:
+ * - Countdown visible de 15s → auto-salida o volver a espera
+ * - Botones secundarios desaparecen en últimos 3s
+ * - Botón salida con barra de progreso
+ * - Botón cancelar para volver a espera
  */
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 
 type EstadoTurno = 'activo' | 'almuerzo' | 'particular' | null
 type Accion = 'entrada' | 'salida' | 'almuerzo' | 'volver_almuerzo' | 'particular' | 'volver_particular'
@@ -23,6 +25,8 @@ interface PropsPantallaAcciones {
   alTimeout: () => void
 }
 
+const TIMEOUT_SEGUNDOS = 15
+
 export default function PantallaAcciones({
   nombre,
   fotoUrl,
@@ -33,26 +37,29 @@ export default function PantallaAcciones({
   alReportar,
   alTimeout,
 }: PropsPantallaAcciones) {
-  const [segundosRestantes, setSegundosRestantes] = useState(15)
-  const [salidaDesbloqueada, setSalidaDesbloqueada] = useState(false)
+  const [contador, setContador] = useState(TIMEOUT_SEGUNDOS)
 
+  // Countdown de inactividad
   useEffect(() => {
-    const timer = setTimeout(alTimeout, 15000)
-    return () => clearTimeout(timer)
-  }, [alTimeout])
-
-  useEffect(() => {
-    if (segundosRestantes <= 0) {
-      setSalidaDesbloqueada(true)
+    if (contador <= 0) {
+      alTimeout()
       return
     }
-    const timer = setTimeout(() => setSegundosRestantes((s) => s - 1), 1000)
+    const timer = setTimeout(() => setContador((c) => c - 1), 1000)
     return () => clearTimeout(timer)
-  }, [segundosRestantes])
+  }, [contador, alTimeout])
 
-  const manejarSalida = useCallback(() => {
-    if (salidaDesbloqueada) alAccionar('salida')
-  }, [salidaDesbloqueada, alAccionar])
+  // Resetear contador al tocar cualquier botón
+  const resetearContador = useCallback(() => {
+    setContador(TIMEOUT_SEGUNDOS)
+  }, [])
+
+  const accionConReset = useCallback((accion: Accion) => {
+    resetearContador()
+    alAccionar(accion)
+  }, [resetearContador, alAccionar])
+
+  const botonesVisibles = contador > 3
 
   return (
     <motion.div
@@ -68,13 +75,13 @@ export default function PantallaAcciones({
           <img
             src={fotoUrl}
             alt={nombre}
-            className="w-24 h-24 md:w-32 md:h-32 rounded-2xl object-cover"
-            style={{ border: '3px solid #27272a' }}
+            className="w-28 h-28 md:w-36 md:h-36 rounded-3xl object-cover shadow-2xl"
+            style={{ border: '4px solid #27272a' }}
           />
         ) : (
           <div
-            className="w-24 h-24 md:w-32 md:h-32 rounded-2xl flex items-center justify-center text-4xl font-semibold"
-            style={{ backgroundColor: '#18181b', color: 'var(--texto-marca)', border: '3px solid #27272a' }}
+            className="w-28 h-28 md:w-36 md:h-36 rounded-3xl flex items-center justify-center text-5xl font-semibold shadow-2xl"
+            style={{ backgroundColor: '#18181b', color: 'var(--texto-marca)', border: '4px solid #27272a' }}
           >
             {nombre.charAt(0).toUpperCase()}
           </div>
@@ -85,59 +92,102 @@ export default function PantallaAcciones({
         >
           Hola, {nombre}
         </h2>
+
+        {/* Estado actual */}
+        {estadoTurno && (
+          <span
+            className="text-sm px-3 py-1 rounded-full"
+            style={{
+              backgroundColor: estadoTurno === 'activo' ? 'rgba(74,222,128,0.15)' : 'rgba(251,191,36,0.15)',
+              color: estadoTurno === 'activo' ? '#4ade80' : '#fbbf24',
+            }}
+          >
+            {estadoTurno === 'activo' ? 'En turno' : estadoTurno === 'almuerzo' ? 'En almuerzo' : 'Fuera — trámite'}
+          </span>
+        )}
       </div>
 
       {/* Botones de acción */}
       <div className="flex flex-col gap-3 w-full max-w-sm">
-        {estadoTurno === 'activo' && !yaAlmorzo && (
-          <BotonAccion icono="🍽" texto="Salir a almorzar" onClick={() => alAccionar('almuerzo')} />
-        )}
-        {estadoTurno === 'activo' && (
-          <BotonAccion icono="📋" texto="Salgo un momento" onClick={() => alAccionar('particular')} />
-        )}
-        {estadoTurno === 'almuerzo' && (
-          <BotonAccion icono="🔙" texto="Volver del almuerzo" onClick={() => alAccionar('volver_almuerzo')} />
-        )}
-        {estadoTurno === 'particular' && (
-          <BotonAccion icono="🔙" texto="Ya volví" onClick={() => alAccionar('volver_particular')} />
-        )}
-
-        {tieneSolicitudes && (
-          <BotonAccion icono="📝" texto="Reportar asistencia" onClick={alReportar} variante="secundario" />
-        )}
-
-        {estadoTurno && (
-          <>
-            <div className="h-px my-1" style={{ backgroundColor: '#27272a' }} />
-            <button
-              onClick={manejarSalida}
-              disabled={!salidaDesbloqueada}
-              className="relative w-full py-4 md:py-5 rounded-2xl font-medium transition-all overflow-hidden active:scale-[0.98]"
-              style={{
-                fontSize: 'clamp(1rem, 3vw, 1.25rem)',
-                backgroundColor: salidaDesbloqueada ? '#f87171' : '#18181b',
-                color: salidaDesbloqueada ? '#fff' : '#64748b',
-                border: salidaDesbloqueada ? 'none' : '1px solid #27272a',
-              }}
-            >
-              {/* Barra de progreso de izquierda a derecha */}
-              {!salidaDesbloqueada && (
-                <div
-                  className="absolute left-0 top-0 h-full transition-all duration-1000 ease-linear"
-                  style={{
-                    backgroundColor: '#f87171',
-                    opacity: 0.15,
-                    width: `${((15 - segundosRestantes) / 15) * 100}%`,
-                  }}
-                />
+        <AnimatePresence>
+          {botonesVisibles && (
+            <>
+              {/* Sin turno → Empezar */}
+              {!estadoTurno && (
+                <BotonAccion key="entrada" icono="▶" texto="Empezar turno" onClick={() => accionConReset('entrada')} />
               )}
-              <span className="relative z-10">
-                🚪 Terminar jornada
-                {!salidaDesbloqueada && ` ··· ${segundosRestantes}s`}
-              </span>
-            </button>
-          </>
+
+              {/* Turno activo sin almuerzo previo */}
+              {estadoTurno === 'activo' && !yaAlmorzo && (
+                <BotonAccion key="almuerzo" icono="🍽" texto="Salir a almorzar" onClick={() => accionConReset('almuerzo')} />
+              )}
+
+              {/* Turno activo — salir un momento */}
+              {estadoTurno === 'activo' && (
+                <BotonAccion key="particular" icono="📋" texto="Salgo un momento" onClick={() => accionConReset('particular')} />
+              )}
+
+              {/* En almuerzo */}
+              {estadoTurno === 'almuerzo' && (
+                <BotonAccion key="volver_almuerzo" icono="🔙" texto="Volver del almuerzo" onClick={() => accionConReset('volver_almuerzo')} />
+              )}
+
+              {/* En trámite */}
+              {estadoTurno === 'particular' && (
+                <BotonAccion key="volver_particular" icono="🔙" texto="Ya volví" onClick={() => accionConReset('volver_particular')} />
+              )}
+
+              {/* Reportar asistencia */}
+              {tieneSolicitudes && (
+                <BotonAccion key="reportar" icono="📝" texto="Reportar asistencia" onClick={() => { resetearContador(); alReportar() }} variante="secundario" />
+              )}
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* Separador */}
+        {estadoTurno && (
+          <div className="h-px my-1" style={{ backgroundColor: '#27272a' }} />
         )}
+
+        {/* Terminar jornada — solo si tiene turno activo */}
+        {estadoTurno && (
+          <button
+            onClick={() => accionConReset('salida')}
+            className="relative w-full py-4 md:py-5 rounded-2xl font-medium transition-all overflow-hidden active:scale-[0.98]"
+            style={{
+              fontSize: 'clamp(1rem, 3vw, 1.25rem)',
+              backgroundColor: '#18181b',
+              color: '#f87171',
+              border: '1px solid #27272a',
+            }}
+          >
+            {/* Barra de progreso */}
+            <div
+              className="absolute left-0 top-0 h-full transition-all duration-1000 ease-linear"
+              style={{
+                backgroundColor: '#f87171',
+                opacity: 0.15,
+                width: `${((TIMEOUT_SEGUNDOS - contador) / TIMEOUT_SEGUNDOS) * 100}%`,
+              }}
+            />
+            <span className="relative z-10">🚪 Terminar jornada</span>
+          </button>
+        )}
+      </div>
+
+      {/* Footer: countdown + cancelar */}
+      <div className="flex flex-col items-center gap-3 mt-2">
+        <p className="text-sm" style={{ color: '#64748b' }}>
+          Volviendo en {contador}s
+        </p>
+        <button
+          onClick={alTimeout}
+          className="text-sm px-4 py-2 rounded-lg transition-all active:scale-95"
+          style={{ color: '#94a3b8', backgroundColor: '#18181b', border: '1px solid #27272a' }}
+        >
+          Cancelar
+        </button>
       </div>
     </motion.div>
   )
@@ -155,7 +205,7 @@ function BotonAccion({
   variante?: 'primario' | 'secundario'
 }) {
   return (
-    <button
+    <motion.button
       onClick={onClick}
       className="w-full py-4 md:py-5 rounded-2xl font-medium transition-all active:scale-[0.98] flex items-center justify-center gap-3"
       style={{
@@ -164,9 +214,13 @@ function BotonAccion({
         color: '#f8fafc',
         border: `1px solid ${variante === 'primario' ? '#27272a' : '#3f3f46'}`,
       }}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      transition={{ duration: 0.2 }}
     >
       <span>{icono}</span>
       <span>{texto}</span>
-    </button>
+    </motion.button>
   )
 }
