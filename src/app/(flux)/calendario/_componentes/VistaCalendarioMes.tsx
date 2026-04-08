@@ -202,7 +202,7 @@ function VistaCalendarioMes({
               </div>
 
               {/* Eventos del día */}
-              <div className="flex flex-col gap-0.5">
+              <div className="flex flex-col gap-0.5 overflow-hidden min-w-0">
                 {eventosVisibles.map((evento) => (
                   <button
                     key={evento.id}
@@ -211,7 +211,8 @@ function VistaCalendarioMes({
                       e.stopPropagation()
                       onClickEvento(evento, { x: e.clientX, y: e.clientY })
                     }}
-                    className="w-full text-left truncate rounded px-1.5 py-0.5 text-[11px] leading-tight transition-opacity hover:opacity-80"
+                    title={evento.titulo}
+                    className="w-full text-left truncate rounded px-1.5 py-0.5 text-[11px] leading-tight transition-opacity hover:opacity-80 block"
                     style={{
                       backgroundColor: evento.color
                         ? `${evento.color}20`

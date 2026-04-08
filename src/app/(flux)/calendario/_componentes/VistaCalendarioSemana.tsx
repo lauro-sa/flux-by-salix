@@ -664,14 +664,15 @@ function VistaCalendarioSemana({
                 return (
                   <div
                     key={clave}
-                    className="flex flex-col gap-0.5 p-1 border-r border-borde-sutil last:border-r-0 min-h-[28px]"
+                    className="flex flex-col gap-0.5 p-1 border-r border-borde-sutil last:border-r-0 min-h-[28px] overflow-hidden min-w-0"
                   >
                     {visibles.map((evento) => (
                       <button
                         key={evento.id}
                         type="button"
                         onClick={() => onClickEvento(evento)}
-                        className="w-full text-left truncate rounded px-1.5 py-0.5 text-[11px] leading-tight transition-opacity hover:opacity-80"
+                        title={evento.titulo}
+                        className="w-full text-left truncate rounded px-1.5 py-0.5 text-[11px] leading-tight transition-opacity hover:opacity-80 block"
                         style={{
                           backgroundColor: evento.color
                             ? `${evento.color}40`

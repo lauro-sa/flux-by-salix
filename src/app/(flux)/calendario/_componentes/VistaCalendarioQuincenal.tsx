@@ -655,14 +655,15 @@ function VistaCalendarioQuincenal({
                 return (
                   <div
                     key={clave}
-                    className="flex flex-col gap-0.5 p-0.5 border-r border-borde-sutil last:border-r-0 min-h-[24px]"
+                    className="flex flex-col gap-0.5 p-0.5 border-r border-borde-sutil last:border-r-0 min-h-[24px] overflow-hidden min-w-0"
                   >
                     {visibles.map((evento) => (
                       <button
                         key={evento.id}
                         type="button"
                         onClick={() => onClickEvento(evento)}
-                        className="w-full text-left truncate rounded px-1 py-0.5 text-[9px] leading-tight transition-opacity hover:opacity-80"
+                        title={evento.titulo}
+                        className="w-full text-left truncate rounded px-1 py-0.5 text-[9px] leading-tight transition-opacity hover:opacity-80 block"
                         style={{
                           backgroundColor: evento.color
                             ? `${evento.color}40`
