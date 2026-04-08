@@ -256,59 +256,32 @@ function ModalActividad({
     }
   }
 
-  // Navegar al calendario real para seleccionar bloques
-  const abrirCalendarioReal = useCallback(() => {
-    // Guardar estado del formulario en sessionStorage
-    const estadoFormulario = {
-      titulo, descripcion, tipoId, prioridad, fechaVencimiento,
-      asignadoA, asignadoNombre, checklist, vinculos, bloquesNuevos,
-      rutaRetorno: window.location.pathname + window.location.search,
-    }
-    sessionStorage.setItem('flux_actividad_pendiente', JSON.stringify(estadoFormulario))
-    // Navegar al calendario en modo selección
-    router.push('/calendario?modo=seleccion')
-  }, [titulo, descripcion, tipoId, prioridad, fechaVencimiento, asignadoA, asignadoNombre, checklist, vinculos, bloquesNuevos, router])
-
-  // Al montar, verificar si volvemos del calendario con bloques seleccionados
+  // Al montar, limpiar datos de navegación fallida si hay
   useEffect(() => {
-    console.log('[ModalActividad] useEffect — abierto:', abierto)
     if (!abierto) return
-    const bloquesCalendario = sessionStorage.getItem('flux_bloques_calendario')
-    console.log('[ModalActividad] bloques en sessionStorage:', !!bloquesCalendario)
-    if (bloquesCalendario) {
-      try {
-        const bloques = JSON.parse(bloquesCalendario)
-        console.log('[ModalActividad] ✅ Restaurando bloques:', bloques)
-        if (Array.isArray(bloques) && bloques.length > 0) {
-          setBloquesNuevos(bloques)
-        }
-      } catch { /* ignorar */ }
-      sessionStorage.removeItem('flux_bloques_calendario')
-    }
-    const estadoGuardado = sessionStorage.getItem('flux_actividad_pendiente')
-    console.log('[ModalActividad] estado pendiente en sessionStorage:', !!estadoGuardado)
-    if (estadoGuardado) {
-      try {
-        const estado = JSON.parse(estadoGuardado)
-        console.log('[ModalActividad] ✅ Restaurando estado:', Object.keys(estado))
-        if (estado.titulo) setTitulo(estado.titulo)
-        if (estado.descripcion) setDescripcion(estado.descripcion)
-        if (estado.tipoId) setTipoId(estado.tipoId)
-        if (estado.prioridad) setPrioridad(estado.prioridad)
-        if (estado.fechaVencimiento) setFechaVencimiento(estado.fechaVencimiento)
-        if (estado.asignadoA) setAsignadoA(estado.asignadoA)
-        if (estado.asignadoNombre) setAsignadoNombre(estado.asignadoNombre)
-        if (estado.checklist) setChecklist(estado.checklist)
-        if (estado.vinculos) setVinculos(estado.vinculos)
-        if (estado.bloquesNuevos) setBloquesNuevos(estado.bloquesNuevos)
-      } catch { /* ignorar */ }
-      sessionStorage.removeItem('flux_actividad_pendiente')
-    }
+    // Limpiar sessionStorage residual
+    sessionStorage.removeItem('flux_actividad_pendiente')
+    sessionStorage.removeItem('flux_bloques_calendario')
   }, [abierto]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
+    <>
+    {/* Selector fullscreen: reemplaza todo cuando está abierto */}
+    {selectorCalendarioAbierto && (
+      <SelectorCalendarioBloque
+        abierto
+        bloques={bloquesNuevos}
+        onCambiar={(nuevos) => {
+          setBloquesNuevos(nuevos)
+          setSelectorCalendarioAbierto(false)
+        }}
+        onCerrar={() => setSelectorCalendarioAbierto(false)}
+        titulo={titulo || 'Nuevo evento'}
+      />
+    )}
+
     <Modal
-      abierto={abierto}
+      abierto={abierto && !selectorCalendarioAbierto}
       onCerrar={onCerrar}
       titulo={esEdicion ? 'Editar actividad' : 'Nueva actividad'}
       tamano="3xl"
@@ -518,7 +491,7 @@ function ModalActividad({
                     <Calendar size={15} className="text-texto-terciario" />
                     <span className="text-sm font-medium text-texto-primario">Agendar en calendario</span>
                   </div>
-                  <Boton variante="fantasma" tamano="xs" icono={<Calendar size={14} />} onClick={abrirCalendarioReal}>
+                  <Boton variante="fantasma" tamano="xs" icono={<Calendar size={14} />} onClick={() => setSelectorCalendarioAbierto(true)}>
                     Abrir calendario
                   </Boton>
                 </div>
@@ -526,7 +499,7 @@ function ModalActividad({
                 {bloquesNuevos.length === 0 ? (
                   <button
                     type="button"
-                    onClick={abrirCalendarioReal}
+                    onClick={() => setSelectorCalendarioAbierto(true)}
                     className="w-full p-3 rounded-lg border-2 border-dashed border-borde-sutil text-xs text-texto-terciario hover:border-texto-marca/30 hover:text-texto-marca transition-colors"
                   >
                     Hacé clic para abrir el calendario y ver disponibilidad
@@ -571,6 +544,7 @@ function ModalActividad({
         )}
       </div>
     </Modal>
+    </>
   )
 }
 

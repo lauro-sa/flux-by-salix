@@ -77,15 +77,8 @@ export function PanelChatter({
   const [modalWhatsApp, setModalWhatsApp] = useState(false)
   const [modalActividad, setModalActividad] = useState(false)
 
-  // Reabrir modal de actividad si volvemos del calendario con datos pendientes
-  // Depende de pathname + searchParams para re-ejecutarse cuando Next.js navega
-  useEffect(() => {
-    const pendiente = sessionStorage.getItem('flux_actividad_pendiente')
-    const bloques = sessionStorage.getItem('flux_bloques_calendario')
-    if (pendiente || bloques) {
-      setModalActividad(true)
-    }
-  }, [pathname, searchParams])
+  // Nota: el selector de calendario es fullscreen dentro del ModalActividad,
+  // no navega a otra página, así que no necesitamos sessionStorage ni reapertura.
   const [menuAbierto, setMenuAbierto] = useState(false)
   const [adjuntosExpandidos, setAdjuntosExpandidos] = useState(false)
 
