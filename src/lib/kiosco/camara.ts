@@ -1,62 +1,56 @@
 /**
  * Captura silenciosa de foto desde la cámara de la tablet.
- * TRUCO: capturar ANTES de autenticar porque después la persona ya se corrió.
- * Compresión: JPEG 320x240 @ 65% (~10-15KB)
+ *
+ * NO mantiene la cámara encendida. Flujo:
+ * 1. Pasan el llavero → abre cámara
+ * 2. Espera 300ms para que se estabilice
+ * 3. Captura un frame JPEG 320x240
+ * 4. Cierra la cámara inmediatamente
+ * 5. Si el empleado existe → guarda la foto
+ * 6. Si no existe → descarta la foto
  */
 
-let stream: MediaStream | null = null
-let video: HTMLVideoElement | null = null
-
-/** Inicializar cámara (llamar al montar el kiosco) */
-export async function iniciarCamara(): Promise<boolean> {
+/** Capturar foto instantánea: abrir cámara → foto → cerrar cámara (~500ms total) */
+export async function capturarFotoInstantanea(): Promise<Blob | null> {
+  let stream: MediaStream | null = null
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user', width: 320, height: 240 },
+      video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } },
       audio: false,
     })
-    video = document.createElement('video')
+
+    const video = document.createElement('video')
     video.srcObject = stream
     video.setAttribute('playsinline', 'true')
-    video.setAttribute('autoplay', 'true')
     video.muted = true
-    await video.play()
-    return true
-  } catch {
-    console.warn('Kiosco: no se pudo acceder a la cámara')
-    return false
-  }
-}
 
-/** Capturar frame actual como blob JPEG comprimido */
-export async function capturarFoto(): Promise<Blob | null> {
-  if (!video || !stream) return null
+    await new Promise<void>((resolve) => {
+      video.onloadeddata = () => resolve()
+      video.play().catch(() => resolve())
+    })
 
-  const canvas = document.createElement('canvas')
-  canvas.width = 320
-  canvas.height = 240
+    // Esperar 300ms para que la cámara se estabilice
+    await new Promise(r => setTimeout(r, 300))
 
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return null
+    const vw = video.videoWidth || 320
+    const vh = video.videoHeight || 240
+    const ratio = Math.min(320 / vw, 240 / vh)
 
-  ctx.drawImage(video, 0, 0, 320, 240)
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(vw * ratio)
+    canvas.height = Math.round(vh * ratio)
+    canvas.getContext('2d')!.drawImage(video, 0, 0, canvas.width, canvas.height)
 
-  return new Promise((resolve) => {
-    canvas.toBlob(
-      (blob) => resolve(blob),
-      'image/jpeg',
-      0.65, // 65% calidad
-    )
-  })
-}
-
-/** Detener cámara y liberar recursos */
-export function detenerCamara() {
-  if (stream) {
-    stream.getTracks().forEach((track) => track.stop())
-    stream = null
-  }
-  if (video) {
+    // Cerrar cámara inmediatamente
+    stream.getTracks().forEach(t => t.stop())
     video.srcObject = null
-    video = null
+
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.65)
+    })
+  } catch {
+    // Cerrar si hubo error
+    stream?.getTracks().forEach(t => t.stop())
+    return null
   }
 }

@@ -12,7 +12,7 @@ import { AnimatePresence } from 'framer-motion'
 import { useEscuchaRFID } from '@/hooks/kiosco/useEscuchaRFID'
 import { useEscuchaNFC } from '@/hooks/kiosco/useEscuchaNFC'
 import { sonarError } from '@/lib/kiosco/sonidos'
-import { capturarFoto, iniciarCamara, detenerCamara } from '@/lib/kiosco/camara'
+import { capturarFotoInstantanea } from '@/lib/kiosco/camara'
 
 import PantallaEspera from './PantallaEspera'
 import PantallaIdentificando from './PantallaIdentificando'
@@ -78,13 +78,7 @@ export default function TerminalFichaje({ config }: { config: ConfigTerminal }) 
   const [mensajeError, setMensajeError] = useState('')
   const fotoCapturada = useRef<Blob | null>(null)
 
-  // Iniciar cámara si está configurada
-  useEffect(() => {
-    if (config.capturarFoto) {
-      iniciarCamara()
-      return () => detenerCamara()
-    }
-  }, [config.capturarFoto])
+  // La cámara NO se mantiene encendida — se abre solo al momento de fichar
 
   // Toggle fullscreen
   const toggleFullscreen = useCallback(() => {
@@ -117,9 +111,10 @@ export default function TerminalFichaje({ config }: { config: ConfigTerminal }) 
 
     setEstado('IDENTIFICANDO')
 
-    // Capturar foto ANTES de autenticar (truco: la persona aún está frente a la cámara)
+    // Capturar foto ANTES de autenticar: abrir cámara → foto → cerrar (~500ms)
+    // La persona aún está frente a la cámara, después se identifica
     if (config.capturarFoto) {
-      fotoCapturada.current = await capturarFoto()
+      fotoCapturada.current = await capturarFotoInstantanea()
     }
 
     try {

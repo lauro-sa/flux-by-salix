@@ -1,6 +1,6 @@
 /**
  * Formulario para reportar asistencia (reclamo) desde el kiosco.
- * Selectores custom estilo kiosco negro: pills para fecha, columnas para hora.
+ * Selectores custom: pills fecha + hora escribible/seleccionable.
  */
 'use client'
 
@@ -46,13 +46,16 @@ function generarUltimos7Dias(): { valor: string; etiqueta: string; completa: str
   })
 }
 
-// ─── Selector de hora estilo kiosco (columnas hora/minuto) ───
-function SelectorHoraKiosco({ valor, onChange, etiqueta }: {
+// ─── Input de hora escribible + dropdown ───
+// Escribís "1420" → se autoformatea a "14:20"
+// O tocás el botón reloj → dropdown con columnas hora/minuto
+function InputHoraKiosco({ valor, onChange, etiqueta }: {
   valor: string | null
   onChange: (v: string | null) => void
   etiqueta: string
 }) {
   const [abierto, setAbierto] = useState(false)
+  const [textoInput, setTextoInput] = useState(valor || '')
   const ref = useRef<HTMLDivElement>(null)
   const refHoras = useRef<HTMLDivElement>(null)
   const refMinutos = useRef<HTMLDivElement>(null)
@@ -62,6 +65,10 @@ function SelectorHoraKiosco({ valor, onChange, etiqueta }: {
   const minActual = partes[1]
   const minutos = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
 
+  // Sync input text cuando cambia valor externo
+  useEffect(() => { setTextoInput(valor || '') }, [valor])
+
+  // Cerrar dropdown al tocar fuera
   useEffect(() => {
     if (!abierto) return
     function cerrar(e: Event) {
@@ -71,6 +78,7 @@ function SelectorHoraKiosco({ valor, onChange, etiqueta }: {
     return () => document.removeEventListener('pointerdown', cerrar)
   }, [abierto])
 
+  // Auto-scroll al abrir
   useEffect(() => {
     if (!abierto) return
     setTimeout(() => {
@@ -87,34 +95,59 @@ function SelectorHoraKiosco({ valor, onChange, etiqueta }: {
   }, [abierto, horaActual, minActual])
 
   function seleccionar(h: number, m: number) {
-    onChange(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
+    const v = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+    onChange(v)
+    setAbierto(false)
   }
 
-  const texto = valor || 'Opcional'
+  // Autoformatear al salir del input: "1420" → "14:20", "9" → "09:00"
+  function formatearYGuardar() {
+    const limpio = textoInput.replace(/[^0-9]/g, '')
+    if (!limpio) { onChange(null); return }
+
+    let h = 0, m = 0
+    if (limpio.length <= 2) {
+      h = Math.min(23, parseInt(limpio))
+      m = 0
+    } else {
+      h = Math.min(23, parseInt(limpio.slice(0, -2) || '0'))
+      m = Math.min(59, parseInt(limpio.slice(-2)))
+    }
+    const v = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+    onChange(v)
+    setTextoInput(v)
+  }
 
   return (
     <div ref={ref} className="relative">
       <label className="text-xs font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: '#a1a1aa' }}>
         {etiqueta}
       </label>
-      <button
-        type="button"
-        onClick={() => setAbierto(v => !v)}
-        className="w-full h-11 rounded-xl border flex items-center justify-center gap-2 text-sm font-medium transition-all"
-        style={{
-          backgroundColor: abierto ? '#3f3f46' : '#18181b',
-          borderColor: abierto ? 'var(--texto-marca)' : '#27272a',
-          color: valor ? '#f4f4f5' : '#52525b',
-        }}
-      >
-        <Clock size={16} />
-        <span className={valor ? 'font-mono text-base' : ''}>{texto}</span>
-        {valor && (
-          <span onClick={(e) => { e.stopPropagation(); onChange(null); setAbierto(false) }}>
-            <X size={14} style={{ color: '#52525b' }} />
-          </span>
-        )}
-      </button>
+      <div className="flex gap-1.5">
+        <input
+          type="text"
+          inputMode="numeric"
+          value={textoInput}
+          onChange={(e) => setTextoInput(e.target.value)}
+          onBlur={formatearYGuardar}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); formatearYGuardar(); (e.target as HTMLInputElement).blur() } }}
+          placeholder="HH:MM"
+          className="flex-1 h-11 rounded-xl border text-sm font-mono text-center outline-none"
+          style={{ backgroundColor: '#18181b', color: '#f4f4f5', borderColor: '#27272a' }}
+        />
+        <button
+          type="button"
+          onClick={() => setAbierto(v => !v)}
+          className="h-11 w-11 rounded-xl border flex items-center justify-center shrink-0 transition-all"
+          style={{
+            backgroundColor: abierto ? '#3f3f46' : '#18181b',
+            borderColor: abierto ? 'var(--texto-marca)' : '#27272a',
+            color: '#a1a1aa',
+          }}
+        >
+          <Clock size={16} />
+        </button>
+      </div>
 
       {abierto && (
         <div
@@ -124,45 +157,117 @@ function SelectorHoraKiosco({ valor, onChange, etiqueta }: {
           <div className="flex">
             <div className="flex-1">
               <p className="text-[10px] font-bold uppercase tracking-wider text-center py-2" style={{ color: '#52525b' }}>Hora</p>
-              <div ref={refHoras} className="max-h-44 overflow-y-auto overscroll-contain">
+              <div ref={refHoras} className="max-h-40 overflow-y-auto overscroll-contain">
                 {Array.from({ length: 24 }, (_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => seleccionar(i, minActual ?? 0)}
-                    className="w-full py-2.5 text-sm text-center transition-colors"
-                    style={{
-                      color: i === horaActual ? 'var(--texto-marca)' : '#d4d4d8',
-                      fontWeight: i === horaActual ? 700 : 400,
-                      backgroundColor: i === horaActual ? 'rgba(123,123,216,0.15)' : 'transparent',
-                    }}
-                  >
-                    {String(i).padStart(2, '0')}
-                  </button>
+                  <button key={i} onClick={() => seleccionar(i, minActual ?? 0)}
+                    className="w-full py-2 text-sm text-center transition-colors"
+                    style={{ color: i === horaActual ? 'var(--texto-marca)' : '#d4d4d8', fontWeight: i === horaActual ? 700 : 400, backgroundColor: i === horaActual ? 'rgba(123,123,216,0.15)' : 'transparent' }}
+                  >{String(i).padStart(2, '0')}</button>
                 ))}
               </div>
             </div>
             <div style={{ width: 1, backgroundColor: '#3f3f46' }} />
             <div className="flex-1">
               <p className="text-[10px] font-bold uppercase tracking-wider text-center py-2" style={{ color: '#52525b' }}>Min</p>
-              <div ref={refMinutos} className="max-h-44 overflow-y-auto overscroll-contain">
+              <div ref={refMinutos} className="max-h-40 overflow-y-auto overscroll-contain">
                 {minutos.map(m => (
-                  <button
-                    key={m}
-                    onClick={() => seleccionar(horaActual ?? 0, m)}
-                    className="w-full py-2.5 text-sm text-center transition-colors"
-                    style={{
-                      color: m === minActual ? 'var(--texto-marca)' : '#d4d4d8',
-                      fontWeight: m === minActual ? 700 : 400,
-                      backgroundColor: m === minActual ? 'rgba(123,123,216,0.15)' : 'transparent',
-                    }}
-                  >
-                    {String(m).padStart(2, '0')}
-                  </button>
+                  <button key={m} onClick={() => seleccionar(horaActual ?? 0, m)}
+                    className="w-full py-2 text-sm text-center transition-colors"
+                    style={{ color: m === minActual ? 'var(--texto-marca)' : '#d4d4d8', fontWeight: m === minActual ? 700 : 400, backgroundColor: m === minActual ? 'rgba(123,123,216,0.15)' : 'transparent' }}
+                  >{String(m).padStart(2, '0')}</button>
                 ))}
               </div>
             </div>
           </div>
         </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Input de fecha escribible + pills ───
+// Escribís "0704" → se autoformatea a "07/04/2026" → valor "2026-04-07"
+// O tocás las pills para selección rápida
+function InputFechaKiosco({ valor, onChange }: {
+  valor: string | null
+  onChange: (v: string | null) => void
+}) {
+  const [textoInput, setTextoInput] = useState('')
+  const diasDisponibles = generarUltimos7Dias()
+  const fechaSeleccionada = diasDisponibles.find(d => d.valor === valor)
+
+  // Sync display cuando cambia valor externo
+  useEffect(() => {
+    if (valor) {
+      const [y, m, d] = valor.split('-')
+      setTextoInput(`${d}/${m}/${y}`)
+    } else {
+      setTextoInput('')
+    }
+  }, [valor])
+
+  // Autoformatear: "0704" → "07/04/2026", "7" → "07/MM/YYYY"
+  function formatearYGuardar() {
+    const limpio = textoInput.replace(/[^0-9]/g, '')
+    if (!limpio) { onChange(null); return }
+
+    const anio = new Date().getFullYear()
+    let dia = 1, mes = 1
+
+    if (limpio.length <= 2) {
+      dia = Math.min(31, Math.max(1, parseInt(limpio)))
+      mes = new Date().getMonth() + 1
+    } else if (limpio.length <= 4) {
+      dia = Math.min(31, Math.max(1, parseInt(limpio.slice(0, 2))))
+      mes = Math.min(12, Math.max(1, parseInt(limpio.slice(2))))
+    } else {
+      dia = Math.min(31, Math.max(1, parseInt(limpio.slice(0, 2))))
+      mes = Math.min(12, Math.max(1, parseInt(limpio.slice(2, 4))))
+    }
+
+    const v = `${anio}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
+    onChange(v)
+  }
+
+  return (
+    <div>
+      <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: '#a1a1aa' }}>Fecha</label>
+
+      {/* Input escribible */}
+      <input
+        type="text"
+        inputMode="numeric"
+        value={textoInput}
+        onChange={(e) => setTextoInput(e.target.value)}
+        onBlur={formatearYGuardar}
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); formatearYGuardar(); (e.target as HTMLInputElement).blur() } }}
+        placeholder="DD/MM (ej: 0704)"
+        className="w-full h-11 rounded-xl border text-sm px-4 outline-none mb-2"
+        style={{ backgroundColor: '#18181b', color: '#f4f4f5', borderColor: '#27272a' }}
+      />
+
+      {/* Pills rápidas */}
+      <div className="flex flex-wrap gap-1.5">
+        {diasDisponibles.map(d => (
+          <button
+            key={d.valor}
+            onClick={() => onChange(d.valor)}
+            className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all capitalize active:scale-95"
+            style={{
+              backgroundColor: valor === d.valor ? 'var(--texto-marca)' : '#18181b',
+              color: valor === d.valor ? '#fff' : '#d4d4d8',
+              border: `1px solid ${valor === d.valor ? 'var(--texto-marca)' : '#27272a'}`,
+            }}
+          >
+            {d.etiqueta}
+          </button>
+        ))}
+      </div>
+
+      {fechaSeleccionada && (
+        <p className="text-xs mt-1.5 flex items-center gap-1" style={{ color: '#a1a1aa' }}>
+          <Calendar size={12} /> {fechaSeleccionada.completa}
+        </p>
       )}
     </div>
   )
@@ -182,8 +287,6 @@ export default function PantallaSolicitud({
   const [motivo, setMotivo] = useState('')
   const [apelandoId, setApelandoId] = useState<string | null>(null)
 
-  const diasDisponibles = generarUltimos7Dias()
-  const fechaSeleccionada = diasDisponibles.find(d => d.valor === fecha)
   const esValido = fecha && motivo.trim().length >= 5 && !cargando
 
   const manejarEnvio = useCallback(() => {
@@ -256,36 +359,13 @@ export default function PantallaSolicitud({
 
       {/* Formulario */}
       <div className="flex flex-col gap-4 w-full max-w-lg">
-        {/* Fecha — pills */}
-        <div>
-          <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: '#a1a1aa' }}>Fecha</label>
-          <div className="flex flex-wrap gap-2">
-            {diasDisponibles.map(d => (
-              <button
-                key={d.valor}
-                onClick={() => setFecha(d.valor)}
-                className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all capitalize active:scale-95"
-                style={{
-                  backgroundColor: fecha === d.valor ? 'var(--texto-marca)' : '#18181b',
-                  color: fecha === d.valor ? '#fff' : '#d4d4d8',
-                  border: `1px solid ${fecha === d.valor ? 'var(--texto-marca)' : '#27272a'}`,
-                }}
-              >
-                {d.etiqueta}
-              </button>
-            ))}
-          </div>
-          {fechaSeleccionada && (
-            <p className="text-xs mt-1.5 flex items-center gap-1" style={{ color: '#a1a1aa' }}>
-              <Calendar size={12} /> {fechaSeleccionada.completa}
-            </p>
-          )}
-        </div>
+        {/* Fecha — input escribible + pills */}
+        <InputFechaKiosco valor={fecha} onChange={setFecha} />
 
-        {/* Horas — selector custom */}
+        {/* Horas — input escribible + dropdown */}
         <div className="grid grid-cols-2 gap-3">
-          <SelectorHoraKiosco etiqueta="Hora entrada" valor={horaEntrada} onChange={setHoraEntrada} />
-          <SelectorHoraKiosco etiqueta="Hora salida" valor={horaSalida} onChange={setHoraSalida} />
+          <InputHoraKiosco etiqueta="Hora entrada" valor={horaEntrada} onChange={setHoraEntrada} />
+          <InputHoraKiosco etiqueta="Hora salida" valor={horaSalida} onChange={setHoraSalida} />
         </div>
 
         {/* Motivo */}
@@ -299,7 +379,7 @@ export default function PantallaSolicitud({
             placeholder={apelandoId ? 'Explicá por qué debería reconsiderarse...' : 'Explicá por qué no pudiste fichar...'}
             rows={2}
             maxLength={300}
-            className="w-full rounded-xl text-sm p-3 resize-none outline-none focus:ring-1"
+            className="w-full rounded-xl text-sm p-3 resize-none outline-none"
             style={{ backgroundColor: '#18181b', color: '#f4f4f5', border: '1px solid #27272a' }}
           />
           <p className="text-[10px] text-right mt-0.5" style={{ color: '#52525b' }}>{motivo.length}/300</p>
