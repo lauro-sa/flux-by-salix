@@ -22,6 +22,8 @@ interface PropsPantallaConfirmacion {
   esCumpleanos: boolean
   horasTrabajadas?: string | null
   jornadaCompleta?: boolean
+  esTardanza?: boolean
+  minutosRetraso?: number | null
   alDismiss: () => void
 }
 

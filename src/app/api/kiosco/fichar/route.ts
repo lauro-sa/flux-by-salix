@@ -265,6 +265,8 @@ export async function POST(request: NextRequest) {
       asistenciaId,
       horasTrabajadas,
       jornadaCompleta,
+      esTardanza: tipoRegistro === 'tardanza',
+      minutosRetraso: puntualidadMin && puntualidadMin > 0 ? puntualidadMin : null,
     })
   } catch (error) {
     console.error('Error en /api/kiosco/fichar:', error)

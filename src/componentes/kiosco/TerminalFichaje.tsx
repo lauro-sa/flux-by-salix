@@ -62,6 +62,8 @@ interface ResultadoFichaje {
   accion: Accion
   horasTrabajadas?: string | null
   jornadaCompleta?: boolean
+  esTardanza?: boolean
+  minutosRetraso?: number | null
 }
 
 function esCumpleanosHoy(fechaNacimiento: string | null | undefined): boolean {
@@ -195,6 +197,8 @@ export default function TerminalFichaje({ config }: { config: ConfigTerminal }) 
         accion,
         horasTrabajadas: datos.horasTrabajadas,
         jornadaCompleta: datos.jornadaCompleta,
+        esTardanza: datos.esTardanza,
+        minutosRetraso: datos.minutosRetraso,
       })
       setEstado('CONFIRMACION')
     } catch {
@@ -326,6 +330,8 @@ export default function TerminalFichaje({ config }: { config: ConfigTerminal }) 
             esCumpleanos={esCumpleanosHoy(empleado.fechaNacimiento)}
             horasTrabajadas={resultado.horasTrabajadas}
             jornadaCompleta={resultado.jornadaCompleta}
+            esTardanza={resultado.esTardanza}
+            minutosRetraso={resultado.minutosRetraso}
             alDismiss={irAEspera}
           />
         )}

@@ -286,12 +286,11 @@ export default function PaginaAsistencias() {
           // Buscar en registros cargados
           const encontrado = registros.find(r => r.id === id)
           if (encontrado) { setEditando(encontrado); return }
-          // Si no está, buscar todos y filtrar
-          const res = await fetch('/api/asistencias?pagina=1&limite=200')
+          // Si no está, buscar por ID directo
+          const res = await fetch(`/api/asistencias/detalle?id=${id}`)
           if (!res.ok) return
-          const data = await res.json()
-          const reg = (data.registros || []).find((r: RegistroAsistencia) => r.id === id)
-          if (reg) setEditando(reg)
+          const reg = await res.json()
+          if (reg?.id) setEditando(reg)
         }} /> : undefined}
         renderTarjeta={(r) => <TarjetaAsistencia registro={r} />}
         onClickFila={(r) => setEditando(r)}
