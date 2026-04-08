@@ -748,21 +748,33 @@ function VistaCalendarioDia({
 
       {/* Overlay flotante que sigue al cursor durante el arrastre de mover */}
       <DragOverlay dropAnimation={null}>
-        {eventoDragActivo && tipoDrag === 'mover' && (
-          <div
-            className="rounded-md overflow-hidden px-2.5 py-1.5 shadow-2xl ring-2 ring-texto-marca/30 pointer-events-none"
-            style={{
-              width: 200,
-              backgroundColor: `color-mix(in srgb, ${eventoDragActivo.color || 'var(--texto-marca)'} 30%, transparent)`,
-              borderLeft: `3px solid ${eventoDragActivo.color || 'var(--texto-marca)'}`,
-              color: eventoDragActivo.color || 'var(--texto-marca)',
-            }}
-          >
-            <span className="text-sm font-medium truncate block">
-              {eventoDragActivo.titulo}
-            </span>
-          </div>
-        )}
+        {eventoDragActivo && tipoDrag === 'mover' && (() => {
+          const color = eventoDragActivo.color || 'var(--texto-marca)'
+          const inicio = new Date(eventoDragActivo.fecha_inicio)
+          const fin = new Date(eventoDragActivo.fecha_fin)
+          const durMin = (fin.getTime() - inicio.getTime()) / 60000
+          const altura = Math.max(durMin * (ALTURA_FILA_HORA / 60), 24)
+          const horaInicio = `${String(inicio.getHours()).padStart(2, '0')}:${String(inicio.getMinutes()).padStart(2, '0')}`
+          const horaFin = `${String(fin.getHours()).padStart(2, '0')}:${String(fin.getMinutes()).padStart(2, '0')}`
+          return (
+            <div
+              className="rounded-md overflow-hidden px-2.5 py-1.5 shadow-2xl ring-2 ring-texto-marca/30 pointer-events-none"
+              style={{
+                width: 250,
+                height: altura,
+                backgroundColor: `color-mix(in srgb, ${color} 30%, transparent)`,
+                borderLeft: `3px solid ${color}`,
+                color: color,
+              }}
+            >
+              <span className="text-sm font-medium truncate block">{eventoDragActivo.titulo}</span>
+              <span className="text-xs opacity-70 block">{horaInicio} – {horaFin}</span>
+              {eventoDragActivo.descripcion && (
+                <span className="text-xs opacity-50 block truncate mt-0.5">{eventoDragActivo.descripcion}</span>
+              )}
+            </div>
+          )
+        })()}
       </DragOverlay>
     </DndContext>
   )

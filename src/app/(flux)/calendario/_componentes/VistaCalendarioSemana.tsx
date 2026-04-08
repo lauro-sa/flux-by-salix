@@ -381,6 +381,7 @@ function VistaCalendarioSemana({
 
   // --- Estado para DragOverlay (evento activo durante arrastre) ---
   const [eventoDragActivo, setEventoDragActivo] = useState<EventoCalendario | null>(null)
+  const [alturaDragActivo, setAlturaDragActivo] = useState(60)
   const [tipoDrag, setTipoDrag] = useState<'mover' | 'redimensionar' | null>(null)
 
   // Sensor con umbral de distancia para diferenciar click de arrastre
@@ -563,6 +564,11 @@ function VistaCalendarioSemana({
     if (evento) {
       setEventoDragActivo(evento)
       setTipoDrag(esRedimensionar ? 'redimensionar' : 'mover')
+      // Calcular altura del bloque en px
+      const inicio = parsearFecha(evento.fecha_inicio)
+      const fin = parsearFecha(evento.fecha_fin)
+      const durMin = (fin.getTime() - inicio.getTime()) / 60000
+      setAlturaDragActivo(Math.max(durMin * (ALTURA_FILA / 60), 20))
     }
   }, [eventos])
 
@@ -857,21 +863,28 @@ function VistaCalendarioSemana({
 
       {/* Overlay flotante que sigue al cursor durante el arrastre de mover */}
       <DragOverlay dropAnimation={null}>
-        {eventoDragActivo && tipoDrag === 'mover' && (
-          <div
-            className="rounded-md overflow-hidden px-1.5 py-0.5 shadow-2xl ring-2 ring-texto-marca/30 pointer-events-none"
-            style={{
-              width: 150,
-              backgroundColor: `color-mix(in srgb, ${eventoDragActivo.color || 'var(--texto-marca)'} 30%, transparent)`,
-              borderLeft: `3px solid ${eventoDragActivo.color || 'var(--texto-marca)'}`,
-              color: eventoDragActivo.color || 'var(--texto-marca)',
-            }}
-          >
-            <span className="text-[11px] font-medium truncate block">
-              {eventoDragActivo.titulo}
-            </span>
-          </div>
-        )}
+        {eventoDragActivo && tipoDrag === 'mover' && (() => {
+          const color = eventoDragActivo.color || 'var(--texto-marca)'
+          const inicio = parsearFecha(eventoDragActivo.fecha_inicio)
+          const fin = parsearFecha(eventoDragActivo.fecha_fin)
+          return (
+            <div
+              className="rounded-md overflow-hidden px-1.5 py-1 shadow-2xl ring-2 ring-texto-marca/30 pointer-events-none"
+              style={{
+                width: 150,
+                height: alturaDragActivo,
+                backgroundColor: `color-mix(in srgb, ${color} 30%, transparent)`,
+                borderLeft: `3px solid ${color}`,
+                color: color,
+              }}
+            >
+              <span className="text-[11px] font-medium truncate block">{eventoDragActivo.titulo}</span>
+              <span className="text-[10px] opacity-70 block">
+                {formatearHoraCorta(inicio)} – {formatearHoraCorta(fin)}
+              </span>
+            </div>
+          )
+        })()}
       </DragOverlay>
     </DndContext>
   )
