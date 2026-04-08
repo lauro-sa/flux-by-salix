@@ -13,7 +13,7 @@ import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Input } from '@/componentes/ui/Input'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { CargadorSeccion } from '@/componentes/ui/Cargador'
-import { PALETA_COLORES_TIPO_ACTIVIDAD } from '@/lib/colores_entidad'
+import { PALETA_COLORES_TIPO_ACTIVIDAD, COLOR_MARCA_DEFECTO } from '@/lib/colores_entidad'
 
 /**
  * SeccionTiposEvento — Lista de tipos de evento del calendario con drag-and-drop, toggle, editar.
@@ -273,7 +273,7 @@ function ModalTipoEvento({ abierto, tipo, guardando, onGuardar, onCerrar, onElim
   const [etiqueta, setEtiqueta] = useState('')
   const [clave, setClave] = useState('')
   const [icono, setIcono] = useState('Calendar')
-  const [color, setColor] = useState('#5b5bd6')
+  const [color, setColor] = useState(COLOR_MARCA_DEFECTO)
   const [duracionDefault, setDuracionDefault] = useState(60)
   const [todoElDiaDefault, setTodoElDiaDefault] = useState(false)
   // Ref para el input color nativo (gotero)
@@ -293,7 +293,7 @@ function ModalTipoEvento({ abierto, tipo, guardando, onGuardar, onCerrar, onElim
       setEtiqueta('')
       setClave('')
       setIcono('Calendar')
-      setColor('#5b5bd6')
+      setColor(COLOR_MARCA_DEFECTO)
       setDuracionDefault(60)
       setTodoElDiaDefault(false)
     }

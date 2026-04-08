@@ -533,8 +533,8 @@ function VistaCalendarioDia({
                 className="absolute left-14 right-0 z-20 pointer-events-none flex items-center"
                 style={{ top: `${posicionIndicadorActual}px` }}
               >
-                <div className="size-2.5 rounded-full bg-red-500 -ml-1.5 shrink-0" />
-                <div className="flex-1 h-px bg-red-500" />
+                <div className="size-2.5 rounded-full -ml-1.5 shrink-0" style={{ backgroundColor: 'var(--insignia-peligro)' }} />
+                <div className="flex-1 h-px" style={{ backgroundColor: 'var(--insignia-peligro)' }} />
               </div>
             )}
 

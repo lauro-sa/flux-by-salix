@@ -3,6 +3,7 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { crearNotificacion } from '@/lib/notificaciones'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
+import { COLOR_ETIQUETA_DEFECTO, COLOR_MARCA_DEFECTO } from '@/lib/colores_entidad'
 
 /**
  * GET /api/calendario — Listar eventos del calendario en un rango de fechas.
@@ -93,7 +94,7 @@ export async function GET(request: NextRequest) {
           ubicacion: null,
           tipo_id: null,
           tipo_clave: 'bloqueo',
-          color: '#6B7280',
+          color: COLOR_ETIQUETA_DEFECTO,
           fecha_inicio: evento.fecha_inicio,
           fecha_fin: evento.fecha_fin,
           todo_el_dia: evento.todo_el_dia,
@@ -219,7 +220,7 @@ export async function POST(request: NextRequest) {
           titulo: `📅 ${nombreCreador} te agendó`,
           cuerpo: `${body.titulo.trim()}`,
           icono: 'Calendar',
-          color: body.color || '#3B82F6',
+          color: body.color || COLOR_MARCA_DEFECTO,
           url: '/calendario',
           referenciaTipo: 'evento_calendario',
           referenciaId: data.id,

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { COLOR_MARCA_DEFECTO } from '@/lib/colores_entidad'
 
 /**
  * GET /api/calendario/config — Obtener configuración del calendario.
@@ -76,7 +77,7 @@ export async function PUT(request: NextRequest) {
             clave: datos.clave.toLowerCase().trim().replace(/\s+/g, '_'),
             etiqueta: datos.etiqueta.trim(),
             icono: datos.icono || 'Calendar',
-            color: datos.color || '#3B82F6',
+            color: datos.color || COLOR_MARCA_DEFECTO,
             duracion_default: datos.duracion_default ?? 60,
             todo_el_dia_default: datos.todo_el_dia_default ?? false,
             orden: (maxOrden?.orden ?? -1) + 1,

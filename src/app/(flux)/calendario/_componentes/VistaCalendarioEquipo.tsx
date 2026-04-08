@@ -394,8 +394,8 @@ function VistaCalendarioEquipo({
                 className="absolute left-0 right-0 z-20 pointer-events-none flex items-center"
                 style={{ top: posicionIndicadorActual }}
               >
-                <div className="size-2 rounded-full bg-red-500 -ml-1 shrink-0" />
-                <div className="flex-1 h-[2px] bg-red-500" />
+                <div className="size-2 rounded-full -ml-1 shrink-0" style={{ backgroundColor: 'var(--insignia-peligro)' }} />
+                <div className="flex-1 h-[2px]" style={{ backgroundColor: 'var(--insignia-peligro)' }} />
               </div>
             )}
 
