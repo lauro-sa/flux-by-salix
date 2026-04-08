@@ -482,6 +482,22 @@ export default function PaginaCalendario() {
 
   // --- Mover evento por drag-and-drop ---
   const moverEvento = useCallback(async (id: string, nuevaInicio: string, nuevaFin: string) => {
+    // Si es un pseudo-evento de selección, actualizar el bloque local
+    if (id.startsWith('seleccion-')) {
+      const indice = parseInt(id.replace('seleccion-', ''), 10)
+      setBloquesSeleccionados(prev => prev.map((b, i) => {
+        if (i !== indice) return b
+        const inicio = new Date(nuevaInicio)
+        const fin = new Date(nuevaFin)
+        return {
+          fecha: formatearFechaISO(inicio),
+          horaInicio: `${String(inicio.getHours()).padStart(2, '0')}:${String(inicio.getMinutes()).padStart(2, '0')}`,
+          horaFin: `${String(fin.getHours()).padStart(2, '0')}:${String(fin.getMinutes()).padStart(2, '0')}`,
+        }
+      }))
+      return
+    }
+
     // Actualización optimista: aplicar cambio inmediatamente en la UI
     setEventos(prev => prev.map(e =>
       e.id === id ? { ...e, fecha_inicio: nuevaInicio, fecha_fin: nuevaFin } : e
