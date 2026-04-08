@@ -1,14 +1,11 @@
 /**
- * Pantalla de confirmación post-fichaje.
- * Foto grande, saludo contextual, confeti en cumpleaños.
+ * Pantalla de confirmación post-fichaje — réplica del kiosco viejo.
+ * Avatar con check/cake superpuesto, confeti CSS, barra progresiva, saludos con nombre.
  * Auto-dismiss: 4s normal / 8s cumpleaños o salida.
- * Tema negro puro.
  */
 'use client'
 
-import { useEffect, useRef } from 'react'
-import { motion } from 'framer-motion'
-import { lanzarConfeti } from '@/lib/kiosco/confeti'
+import { useEffect, useState, useMemo } from 'react'
 import {
   sonarEntrada,
   sonarCumpleanosEntrada,
@@ -28,6 +25,8 @@ interface PropsPantallaConfirmacion {
   alDismiss: () => void
 }
 
+const COLORES_CONFETI = ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#c77dff', '#ff9f43', '#ff85a1', '#00cec9']
+
 function obtenerMensaje(
   nombre: string,
   accion: TipoAccion,
@@ -35,16 +34,72 @@ function obtenerMensaje(
   horasTrabajadas?: string | null,
   jornadaCompleta?: boolean,
 ): string {
-  if (accion === 'entrada' && esCumpleanos) return `¡Feliz cumpleaños, ${nombre}! 🎂`
-  if (accion === 'salida' && esCumpleanos) return '¡A celebrar! 🎈'
-  if (accion === 'entrada') return `¡Buen turno, ${nombre}!`
-  if (accion === 'almuerzo') return '¡Buen provecho!'
-  if (accion === 'volver_almuerzo') return '¡De vuelta al trabajo!'
-  if (accion === 'particular') return '¡Hasta pronto!'
-  if (accion === 'volver_particular') return '¡De vuelta!'
-  if (accion === 'salida' && jornadaCompleta) return 'Jornada completa'
-  if (accion === 'salida' && horasTrabajadas) return `Hoy trabajaste ${horasTrabajadas}`
-  return `¡Hasta mañana, ${nombre}!`
+  const partes = nombre.trim().split(/\s+/)
+  const corto = partes.length > 1 ? `${partes[0]} ${partes[partes.length - 1]}` : partes[0]
+  if (accion === 'entrada' && esCumpleanos) return `¡Feliz cumpleaños, ${corto}! 🎂 Que tengas un excelente día.`
+  if (accion === 'salida' && esCumpleanos) return `¡A celebrar, ${corto}! 🎈 Disfrutá tu día.`
+  if (accion === 'entrada') return `¡Buen turno, ${corto}!`
+  if (accion === 'almuerzo') return `¡Buen provecho, ${corto}!`
+  if (accion === 'volver_almuerzo') return `¡De vuelta al trabajo, ${corto}!`
+  if (accion === 'particular') return `¡Hasta pronto, ${corto}!`
+  if (accion === 'volver_particular') return `¡De vuelta, ${corto}!`
+  if (accion === 'salida' && jornadaCompleta) return `¡Hasta luego, ${corto}! Jornada completa.`
+  if (accion === 'salida' && horasTrabajadas) return `¡Hasta luego, ${corto}! Hoy trabajaste ${horasTrabajadas}.`
+  return `¡Hasta luego, ${corto}!`
+}
+
+// Confeti CSS con custom properties — explosión (entrada) o lluvia (salida)
+function ConfetiCSS({ tipo }: { tipo: 'entrada' | 'salida' }) {
+  const piezas = useMemo(() => {
+    return Array.from({ length: 60 }, (_, i) => {
+      if (tipo === 'entrada') {
+        const angulo = (45 + Math.random() * 90) * Math.PI / 180
+        const vel = 400 + Math.random() * 500
+        return {
+          left: '50%', top: '70%',
+          cx: Math.round(Math.cos(angulo) * vel),
+          cy: Math.round(-Math.sin(angulo) * vel),
+          delay: `${Math.random() * 0.15}s`,
+          dur: `${2.5 + Math.random()}s`,
+          color: COLORES_CONFETI[i % COLORES_CONFETI.length],
+          size: `${6 + Math.random() * 6}px`,
+          redondo: i % 2 === 0,
+          anim: 'confeti-explotar',
+        }
+      }
+      return {
+        left: `${Math.random() * 100}%`, top: '-50px',
+        cx: Math.round((Math.random() - 0.5) * 300),
+        cy: 600 + Math.random() * 400,
+        delay: `${Math.random() * 2}s`,
+        dur: `${3 + Math.random() * 2}s`,
+        color: COLORES_CONFETI[i % COLORES_CONFETI.length],
+        size: `${6 + Math.random() * 6}px`,
+        redondo: i % 2 === 0,
+        anim: 'confeti-lluvia',
+      }
+    })
+  }, [tipo])
+
+  return (
+    <div className="fixed inset-0 pointer-events-none overflow-hidden z-20">
+      {piezas.map((p, i) => (
+        <div
+          key={i}
+          style={{
+            position: 'absolute',
+            left: p.left, top: p.top,
+            width: p.size, height: p.size,
+            backgroundColor: p.color,
+            borderRadius: p.redondo ? '50%' : '2px',
+            '--cx': `${p.cx}px`,
+            '--cy': `${p.cy}px`,
+            animation: `${p.anim} ${p.dur} ${p.delay} ease-out forwards`,
+          } as React.CSSProperties}
+        />
+      ))}
+    </div>
+  )
 }
 
 export default function PantallaConfirmacion({
@@ -57,100 +112,118 @@ export default function PantallaConfirmacion({
   jornadaCompleta,
   alDismiss,
 }: PropsPantallaConfirmacion) {
-  const contenedorRef = useRef<HTMLDivElement>(null)
-
+  const [progreso, setProgreso] = useState(100)
   const duracion = esCumpleanos || accion === 'salida' ? 8000 : 4000
-  useEffect(() => {
-    const timer = setTimeout(alDismiss, duracion)
-    return () => clearTimeout(timer)
-  }, [alDismiss, duracion])
 
+  // Sonido al montar
   useEffect(() => {
-    if (esCumpleanos && accion === 'entrada') {
-      sonarCumpleanosEntrada()
-      if (contenedorRef.current) lanzarConfeti(contenedorRef.current, 'explosion', 3000)
-    } else if (esCumpleanos && accion === 'salida') {
-      sonarCumpleanosSalida()
-      if (contenedorRef.current) lanzarConfeti(contenedorRef.current, 'lluvia', 4000)
-    } else {
-      sonarEntrada()
-    }
-  }, [esCumpleanos, accion])
+    if (esCumpleanos && accion === 'entrada') sonarCumpleanosEntrada()
+    else if (esCumpleanos && accion === 'salida') sonarCumpleanosSalida()
+    else sonarEntrada()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Barra de progreso + auto-dismiss
+  useEffect(() => {
+    const inicio = Date.now()
+    const interval = setInterval(() => {
+      const transcurrido = Date.now() - inicio
+      const pct = Math.max(0, 100 - (transcurrido / duracion) * 100)
+      setProgreso(pct)
+      if (transcurrido >= duracion) {
+        clearInterval(interval)
+        alDismiss()
+      }
+    }, 50)
+    return () => clearInterval(interval)
+  }, [duracion, alDismiss])
 
   const mensaje = obtenerMensaje(nombre, accion, esCumpleanos, horasTrabajadas, jornadaCompleta)
+  const iniciales = nombre.split(' ').slice(0, 2).map(p => p[0] || '').join('').toUpperCase()
+  const tieneFoto = !!fotoUrl
 
   return (
-    <motion.div
-      ref={contenedorRef}
-      className="flex flex-col items-center justify-center h-full gap-6"
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
+    <div
+      className="flex flex-col items-center justify-center h-full gap-6 md:gap-8 px-8 py-12 select-none"
+      style={{ animation: 'kiosco-entrada 350ms cubic-bezier(0.16,1,0.3,1)' }}
     >
-      {/* Foto del empleado — grande, con borde marca */}
-      {fotoUrl ? (
-        <motion.img
-          src={fotoUrl}
-          alt={nombre}
-          className="w-36 h-36 md:w-44 md:h-44 rounded-3xl object-cover shadow-2xl"
-          style={{ border: '4px solid var(--texto-marca)' }}
-          initial={{ scale: 0.5, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-        />
-      ) : (
-        <motion.div
-          className="w-36 h-36 md:w-44 md:h-44 rounded-3xl flex items-center justify-center shadow-2xl"
-          style={{
-            backgroundColor: '#18181b',
-            color: 'var(--texto-marca)',
-            border: '4px solid var(--texto-marca)',
-            fontSize: 'clamp(2.5rem, 8vw, 4rem)',
-            fontWeight: 600,
-          }}
-          initial={{ scale: 0.5, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-        >
-          {nombre.charAt(0).toUpperCase()}
-        </motion.div>
-      )}
+      {/* Confeti de cumpleaños */}
+      {esCumpleanos && <ConfetiCSS tipo={accion === 'salida' ? 'salida' : 'entrada'} />}
 
-      {/* Nombre y sector */}
-      <div className="flex flex-col items-center gap-1">
-        <h2
-          className="font-semibold"
-          style={{ fontSize: 'clamp(1.5rem, 5vw, 2.5rem)', color: '#f8fafc' }}
-        >
-          {nombre}
-        </h2>
-        {sector && (
-          <p style={{ fontSize: 'clamp(0.9rem, 2.5vw, 1.25rem)', color: '#94a3b8' }}>
-            {sector}
-          </p>
+      {/* Avatar con ícono check/cake superpuesto */}
+      <div className="flex flex-col items-center gap-4 md:gap-5">
+        {fotoUrl ? (
+          <div
+            className="w-48 md:w-64 aspect-[3/4] rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl shadow-black/50"
+            style={{
+              border: '4px solid rgba(63,63,70,0.6)',
+              animation: 'kiosco-check 500ms cubic-bezier(0.34,1.56,0.64,1)',
+            }}
+          >
+            <img src={fotoUrl} alt={nombre} className="w-full h-full object-cover" draggable={false} />
+          </div>
+        ) : (
+          <div
+            className="flex items-center justify-center w-40 h-40 md:w-52 md:h-52 rounded-full"
+            style={{
+              backgroundColor: esCumpleanos ? 'rgba(234,179,8,0.15)' : 'rgba(74,222,128,0.15)',
+              border: `4px solid ${esCumpleanos ? 'rgba(234,179,8,0.4)' : 'rgba(74,222,128,0.3)'}`,
+              animation: 'kiosco-check 500ms cubic-bezier(0.34,1.56,0.64,1)',
+            }}
+          >
+            <span
+              className="text-7xl md:text-8xl"
+              style={{ color: esCumpleanos ? '#facc15' : '#4ade80' }}
+            >
+              {esCumpleanos ? '🎂' : '✓'}
+            </span>
+          </div>
+        )}
+
+        {/* Ícono superpuesto cuando hay foto */}
+        {tieneFoto && (
+          <div
+            className="-mt-9 md:-mt-11 flex items-center justify-center w-12 h-12 md:w-16 md:h-16 rounded-full shadow-lg z-10"
+            style={{
+              backgroundColor: esCumpleanos ? 'rgba(234,179,8,0.9)' : 'rgba(74,222,128,0.9)',
+            }}
+          >
+            <span className="text-white text-2xl md:text-3xl">
+              {esCumpleanos ? '🎂' : '✓'}
+            </span>
+          </div>
         )}
       </div>
 
-      {/* Mensaje contextual */}
-      <motion.p
-        className="font-medium flex items-center gap-2"
-        style={{ fontSize: 'clamp(1.25rem, 4vw, 2rem)', color: 'var(--texto-marca)' }}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-      >
-        {mensaje} {!esCumpleanos && '✓'}
-      </motion.p>
+      {/* Mensaje + nombre */}
+      <div className="text-center">
+        <p
+          className="font-black"
+          style={{ fontSize: 'clamp(1.5rem, 5vw, 2.5rem)', color: '#f4f4f5' }}
+        >
+          {mensaje}
+        </p>
+        {sector && !esCumpleanos && (
+          <p className="mt-1 md:mt-2" style={{ fontSize: 'clamp(0.9rem, 2.5vw, 1.25rem)', color: '#a1a1aa' }}>
+            {sector}
+          </p>
+        )}
+        <p className="font-semibold mt-2 md:mt-3" style={{ fontSize: 'clamp(0.9rem, 2.5vw, 1.125rem)', color: '#d4d4d8' }}>
+          {nombre}
+        </p>
+      </div>
 
-      {/* Barra de progreso auto-dismiss */}
-      <motion.div
-        className="absolute bottom-0 left-0 h-1 rounded-full"
-        style={{ backgroundColor: 'var(--texto-marca)' }}
-        initial={{ width: '100%' }}
-        animate={{ width: '0%' }}
-        transition={{ duration: duracion / 1000, ease: 'linear' }}
-      />
-    </motion.div>
+      {/* Barra de progreso para auto-dismiss */}
+      <div className="w-64 md:w-80 h-1 md:h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: '#27272a' }}>
+        <div
+          className="h-full rounded-full"
+          style={{
+            width: `${progreso}%`,
+            backgroundColor: esCumpleanos ? 'rgba(234,179,8,0.6)' : 'rgba(74,222,128,0.6)',
+            transition: 'none',
+          }}
+        />
+      </div>
+    </div>
   )
 }
