@@ -53,9 +53,9 @@ interface Vinculo {
 
 /** Opciones de visibilidad del evento */
 const OPCIONES_VISIBILIDAD = [
-  { valor: 'publica', etiqueta: 'Publica' },
-  { valor: 'ocupado', etiqueta: 'Ocupado' },
-  { valor: 'privada', etiqueta: 'Privada' },
+  { valor: 'publica', etiqueta: 'Pública', descripcion: 'Tu equipo ve todos los detalles del evento' },
+  { valor: 'ocupado', etiqueta: 'Ocupado', descripcion: 'Los demás solo ven un bloque "Ocupado" sin detalles' },
+  { valor: 'privada', etiqueta: 'Privada', descripcion: 'Invisible para los demás, solo vos y los asignados' },
 ]
 
 /** Convierte Date a formato ISO fecha "YYYY-MM-DD" */
@@ -712,12 +712,34 @@ function ModalEvento({
         </div>
 
         {/* Visibilidad */}
-        <Select
-          etiqueta="Visibilidad"
-          opciones={OPCIONES_VISIBILIDAD}
-          valor={visibilidad}
-          onChange={setVisibilidad}
-        />
+        <div>
+          <label className="block text-sm font-medium text-texto-secundario mb-1.5">Visibilidad</label>
+          <div className="flex flex-col gap-1.5">
+            {OPCIONES_VISIBILIDAD.map(op => (
+              <button
+                key={op.valor}
+                type="button"
+                onClick={() => setVisibilidad(op.valor)}
+                className={[
+                  'flex flex-col text-left px-3 py-2 rounded-lg border transition-all',
+                  visibilidad === op.valor
+                    ? 'border-texto-marca bg-texto-marca/5'
+                    : 'border-borde-sutil hover:border-borde-fuerte hover:bg-superficie-hover/50',
+                ].join(' ')}
+              >
+                <span className={[
+                  'text-sm font-medium',
+                  visibilidad === op.valor ? 'text-texto-marca' : 'text-texto-primario',
+                ].join(' ')}>
+                  {op.etiqueta}
+                </span>
+                <span className="text-[11px] text-texto-terciario leading-tight mt-0.5">
+                  {op.descripcion}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Asignados */}
         <SelectorAsignados
