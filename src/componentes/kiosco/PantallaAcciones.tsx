@@ -136,14 +136,14 @@ export default function PantallaAcciones({
       {/* Avatar + nombre + cargo */}
       <div className="flex flex-col items-center gap-3 landscape:gap-2 md:gap-4">
         {fotoUrl ? (
-          <div className="w-44 landscape:w-36 md:w-56 aspect-[3/4] rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl shadow-black/50"
+          <div className="w-44 landscape:w-44 md:w-56 aspect-[3/4] rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl shadow-black/50"
             style={{ border: '4px solid rgba(63,63,70,0.6)' }}
           >
             <img src={fotoUrl} alt={nombre} className="w-full h-full object-cover" draggable={false} />
           </div>
         ) : (
           <div
-            className="w-36 h-36 landscape:w-28 landscape:h-28 md:w-44 md:h-44 rounded-full flex items-center justify-center"
+            className="w-36 h-36 landscape:w-32 landscape:h-32 md:w-44 md:h-44 rounded-full flex items-center justify-center"
             style={{
               backgroundColor: 'rgba(123,123,216,0.15)',
               border: '4px solid rgba(123,123,216,0.3)',
@@ -261,7 +261,7 @@ export default function PantallaAcciones({
 
       {/* Barra countdown + cancelar */}
       {estadoTurno ? (
-        <div className="flex flex-col items-center gap-2 md:gap-3 w-full max-w-xs md:max-w-md mt-4 landscape:mt-2">
+        <div className="flex flex-col items-center gap-2 md:gap-3 w-full max-w-xs md:max-w-md mt-6 landscape:mt-4">
           <div className="w-full h-1 md:h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: '#27272a' }}>
             <div
               className="h-full rounded-full"
