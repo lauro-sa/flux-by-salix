@@ -108,6 +108,8 @@ export default function PaginaCalendario() {
   const [modalAbierto, setModalAbierto] = useState(false)
   const [eventoEditando, setEventoEditando] = useState<EventoCalendario | null>(null)
   const [fechaPreseleccionada, setFechaPreseleccionada] = useState<Date | null>(null)
+  /** Fecha fin preseleccionada al arrastrar un rango horario (drag-to-select) */
+  const [fechaFinPreseleccionada, setFechaFinPreseleccionada] = useState<Date | null>(null)
 
   // Estado del popover de evento
   const [popoverEvento, setPopoverEvento] = useState<EventoCalendario | null>(null)
@@ -239,12 +241,13 @@ export default function PaginaCalendario() {
   }, [eventos, filtroTipo, filtroVista, usuarioActualId])
 
   // --- Acciones del calendario ---
-  const manejarClickDia = useCallback((fecha: Date) => {
+  const manejarClickDia = useCallback((fecha: Date, fechaFin?: Date) => {
     // Cerrar popover si está abierto
     setPopoverEvento(null)
     setPopoverPosicion(null)
     setEventoEditando(null)
     setFechaPreseleccionada(fecha)
+    setFechaFinPreseleccionada(fechaFin || null)
     setModalAbierto(true)
   }, [])
 
@@ -301,6 +304,7 @@ export default function PaginaCalendario() {
     setModalAbierto(false)
     setEventoEditando(null)
     setFechaPreseleccionada(null)
+    setFechaFinPreseleccionada(null)
   }, [])
 
   // --- Guardar evento (crear o editar) ---
@@ -502,6 +506,7 @@ export default function PaginaCalendario() {
         evento={eventoEditando}
         tipos={tiposEvento}
         fechaPreseleccionada={fechaPreseleccionada}
+        fechaFinPreseleccionada={fechaFinPreseleccionada}
         onGuardar={guardarEvento}
         onEliminar={eventoEditando ? eliminarEvento : undefined}
         onCerrar={cerrarModal}

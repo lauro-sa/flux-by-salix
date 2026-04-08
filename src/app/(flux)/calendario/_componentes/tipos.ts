@@ -46,3 +46,6 @@ export type VistaCalendario = 'mes' | 'semana' | 'dia' | 'agenda' | 'equipo'
 
 /** Callback al hacer clic en un evento — incluye posición del clic para el popover */
 export type OnClickEvento = (evento: EventoCalendario, posicion?: { x: number; y: number }) => void
+
+/** Callback al crear evento desde selección de rango horario (arrastrar para seleccionar) */
+export type OnCrearDesdeSeleccion = (fechaInicio: Date, fechaFin?: Date) => void

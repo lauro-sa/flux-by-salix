@@ -232,6 +232,7 @@ function BloqueEventoArrastrable({
   return (
     <motion.div
       ref={refNodoMover}
+      data-evento-bloque
       {...atributosMover}
       {...escuchasMover}
       whileHover={!estaArrastrandoMover ? { scale: 1.02 } : undefined}
@@ -291,12 +292,59 @@ function BloqueEventoArrastrable({
 interface PropiedadesVistaSemana {
   fechaActual: Date
   eventos: EventoCalendario[]
-  /** Click en franja vacía → crear evento */
-  onClickHora: (fecha: Date) => void
+  /** Click en franja vacía → crear evento; fechaFin opcional si se arrastró un rango */
+  onClickHora: (fecha: Date, fechaFin?: Date) => void
   /** Click en evento → editar */
   onClickEvento: (evento: EventoCalendario) => void
   /** Drag para mover evento */
   onMoverEvento?: (id: string, nuevaInicio: string, nuevaFin: string) => void
+}
+
+/** Estado de la selección por arrastre (drag-to-select) */
+interface EstadoSeleccionRango {
+  /** Día de la columna donde inició el arrastre */
+  dia: Date
+  /** Posición Y inicial relativa a la columna (en px) */
+  inicioY: number
+  /** Posición Y actual relativa a la columna (en px) */
+  finY: number
+  /** Si el arrastre está activo (mousedown sin mouseup) */
+  activa: boolean
+}
+
+/**
+ * Redondea una posición Y a intervalos de 15 minutos dentro de la cuadrícula.
+ * Devuelve la posición redondeada en px.
+ */
+function redondearYA15Min(y: number): number {
+  const minutos = (y / ALTURA_FILA) * 60
+  const minutosRedondeados = Math.round(minutos / 15) * 15
+  return (minutosRedondeados / 60) * ALTURA_FILA
+}
+
+/**
+ * Convierte una posición Y (px) a hora formateada "HH:MM".
+ * Se usa para mostrar etiquetas durante la selección por arrastre.
+ */
+function formatoHoraDesdeY(y: number): string {
+  const minutosDesdeInicio = (y / ALTURA_FILA) * 60
+  const horaTotal = HORA_INICIO * 60 + minutosDesdeInicio
+  const horas = Math.floor(horaTotal / 60)
+  const minutos = Math.round(horaTotal % 60)
+  return `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}`
+}
+
+/**
+ * Convierte una posición Y (px) y un día a un objeto Date con hora correspondiente.
+ */
+function fechaDesdeY(dia: Date, y: number): Date {
+  const minutosDesdeInicio = (y / ALTURA_FILA) * 60
+  const horaTotal = HORA_INICIO * 60 + minutosDesdeInicio
+  const horas = Math.floor(horaTotal / 60)
+  const minutos = Math.round(horaTotal % 60)
+  const fecha = new Date(dia)
+  fecha.setHours(horas, minutos, 0, 0)
+  return fecha
 }
 
 function VistaCalendarioSemana({
@@ -312,6 +360,12 @@ function VistaCalendarioSemana({
     const ahora = new Date()
     return ahora.getHours() * 60 + ahora.getMinutes()
   })
+
+  // --- Estado para selección de rango por arrastre (drag-to-select) ---
+  const [seleccion, setSeleccion] = useState<EstadoSeleccionRango | null>(null)
+  /** Ref para acceder al estado actual de selección dentro de listeners del documento */
+  const refSeleccion = useRef<EstadoSeleccionRango | null>(null)
+  refSeleccion.current = seleccion
 
   // Sensor con umbral de distancia para diferenciar click de arrastre
   const sensores = useSensors(
@@ -389,23 +443,96 @@ function VistaCalendarioSemana({
   // --- Altura total de la cuadrícula ---
   const alturaTotal = (HORA_FIN - HORA_INICIO) * ALTURA_FILA
 
-  // --- Handler de click en área vacía ---
-  const manejarClickCuadricula = useCallback(
-    (dia: Date, e: React.MouseEvent<HTMLDivElement>) => {
-      const rect = e.currentTarget.getBoundingClientRect()
-      const y = e.clientY - rect.top
-      const minutosDesdeInicio = (y / ALTURA_FILA) * 60
-      const minutosRedondeados = Math.floor(minutosDesdeInicio / 15) * 15
-      const horaTotal = HORA_INICIO * 60 + minutosRedondeados
-      const horas = Math.floor(horaTotal / 60)
-      const minutos = horaTotal % 60
+  // --- Handlers de selección por arrastre (drag-to-select) ---
 
-      const fechaClick = new Date(dia)
-      fechaClick.setHours(horas, minutos, 0, 0)
-      onClickHora(fechaClick)
+  /**
+   * Inicia la selección al hacer mousedown en un espacio vacío de la columna.
+   * No se activa si el click fue sobre un bloque de evento (useDraggable de @dnd-kit).
+   */
+  const manejarMouseDown = useCallback(
+    (dia: Date, e: React.MouseEvent<HTMLDivElement>) => {
+      // Solo botón izquierdo
+      if (e.button !== 0) return
+      // Evitar activar si el clic fue sobre un evento (elemento hijo con z-10)
+      const objetivo = e.target as HTMLElement
+      if (objetivo !== e.currentTarget && objetivo.closest('[data-evento-bloque]')) return
+
+      const rect = e.currentTarget.getBoundingClientRect()
+      const y = redondearYA15Min(e.clientY - rect.top)
+
+      setSeleccion({
+        dia,
+        inicioY: y,
+        finY: y,
+        activa: true,
+      })
     },
-    [onClickHora],
+    [],
   )
+
+  /**
+   * Actualiza el fin de la selección mientras se arrastra.
+   * Se escucha en el contenedor de columnas para permitir arrastre fluido.
+   */
+  const manejarMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!refSeleccion.current?.activa) return
+
+      // Obtener la columna del día correspondiente a la selección
+      const claveSeleccion = claveDelDia(refSeleccion.current.dia)
+      const columnaDiv = e.currentTarget.querySelector(
+        `[data-dia-clave="${claveSeleccion}"]`,
+      ) as HTMLElement | null
+      if (!columnaDiv) return
+
+      const rect = columnaDiv.getBoundingClientRect()
+      const yRelativo = e.clientY - rect.top
+      // Limitar entre 0 y la altura total de la cuadrícula
+      const yClamped = Math.max(0, Math.min(yRelativo, alturaTotal))
+      const yRedondeado = redondearYA15Min(yClamped)
+
+      setSeleccion((prev) =>
+        prev ? { ...prev, finY: yRedondeado } : null,
+      )
+    },
+    [alturaTotal],
+  )
+
+  /**
+   * Finaliza la selección por arrastre al soltar el mouse.
+   * Si la selección tiene altura mínima (>= 15 min), llama onClickHora con rango.
+   * Si no, se trata como un click simple en la cuadrícula.
+   */
+  useEffect(() => {
+    const manejarMouseUp = () => {
+      const sel = refSeleccion.current
+      if (!sel?.activa) return
+
+      const yMin = Math.min(sel.inicioY, sel.finY)
+      const yMax = Math.max(sel.inicioY, sel.finY)
+      const alturaSeleccion = yMax - yMin
+
+      // Umbral mínimo: si la diferencia es menor a ~7px (medio intervalo de 15 min),
+      // se trata como click simple (sin rango de fin)
+      const UMBRAL_ARRASTRE_SELECCION = (15 / 60) * ALTURA_FILA * 0.5
+
+      if (alturaSeleccion > UMBRAL_ARRASTRE_SELECCION) {
+        // Selección con rango: pasar inicio y fin
+        const fechaInicio = fechaDesdeY(sel.dia, yMin)
+        const fechaFin = fechaDesdeY(sel.dia, yMax)
+        onClickHora(fechaInicio, fechaFin)
+      } else {
+        // Click simple: sin rango
+        const fechaClick = fechaDesdeY(sel.dia, yMin)
+        onClickHora(fechaClick)
+      }
+
+      setSeleccion(null)
+    }
+
+    document.addEventListener('mouseup', manejarMouseUp)
+    return () => document.removeEventListener('mouseup', manejarMouseUp)
+  }, [onClickHora])
 
   /**
    * Maneja el fin de un arrastre (mover o redimensionar).
@@ -587,7 +714,7 @@ function VistaCalendarioSemana({
             </div>
 
             {/* Columnas de días */}
-            <div ref={refColumnas} className="grid grid-cols-7 flex-1 relative">
+            <div ref={refColumnas} className="grid grid-cols-7 flex-1 relative" onMouseMove={manejarMouseMove}>
               {/* Líneas horizontales de horas completas */}
               {HORAS.map((hora) => (
                 <div
@@ -606,20 +733,24 @@ function VistaCalendarioSemana({
                 />
               ))}
 
-              {/* Columnas individuales de cada día */}
+              {/* Columnas individuales de cada día con soporte drag-to-select */}
               {diasSemana.map((dia: Date) => {
                 const clave = claveDelDia(dia)
                 const posiciones = posicionesPorDia.get(clave) || []
                 const hoyFlag = esHoy(dia)
+                // Verificar si hay selección activa en esta columna
+                const seleccionEnEsteDia =
+                  seleccion?.activa && claveDelDia(seleccion.dia) === clave
 
                 return (
                   <div
                     key={clave}
+                    data-dia-clave={clave}
                     className={[
-                      'relative border-r border-borde-sutil last:border-r-0',
+                      'relative border-r border-borde-sutil last:border-r-0 cursor-crosshair',
                       hoyFlag ? 'bg-texto-marca/[0.03]' : '',
                     ].join(' ')}
-                    onClick={(e) => manejarClickCuadricula(dia, e)}
+                    onMouseDown={(e) => manejarMouseDown(dia, e)}
                   >
                     {/* Indicador de hora actual (línea roja) */}
                     {hoyFlag && lineaAhoraVisible && (
@@ -629,6 +760,31 @@ function VistaCalendarioSemana({
                       >
                         <div className="size-2 rounded-full -ml-1 shrink-0" style={{ backgroundColor: 'var(--insignia-peligro)' }} />
                         <div className="flex-1 h-[2px]" style={{ backgroundColor: 'var(--insignia-peligro)' }} />
+                      </div>
+                    )}
+
+                    {/* Resaltado de selección por arrastre (drag-to-select) */}
+                    {seleccionEnEsteDia && seleccion && (
+                      <div
+                        className="absolute left-1 right-1 rounded-md z-10 pointer-events-none flex items-start p-1"
+                        style={{
+                          top: Math.min(seleccion.inicioY, seleccion.finY),
+                          height: Math.max(
+                            Math.abs(seleccion.finY - seleccion.inicioY),
+                            (15 / 60) * ALTURA_FILA,
+                          ),
+                          backgroundColor: 'var(--texto-marca)',
+                          opacity: 0.15,
+                        }}
+                      >
+                        <span
+                          className="text-[10px] font-medium pointer-events-none select-none"
+                          style={{ color: 'var(--texto-marca)', opacity: 1 }}
+                        >
+                          {formatoHoraDesdeY(Math.min(seleccion.inicioY, seleccion.finY))}
+                          {' – '}
+                          {formatoHoraDesdeY(Math.max(seleccion.inicioY, seleccion.finY))}
+                        </span>
                       </div>
                     )}
 

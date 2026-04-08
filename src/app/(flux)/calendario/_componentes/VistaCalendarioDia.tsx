@@ -8,7 +8,7 @@
  * Se usa en: página principal del calendario (vista día).
  */
 
-import { useMemo, useRef, useEffect, useCallback } from 'react'
+import { useMemo, useRef, useEffect, useCallback, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   DndContext,
@@ -231,6 +231,7 @@ function BloqueEventoDiaArrastrable({
   return (
     <motion.div
       ref={refNodoMover}
+      data-evento-bloque
       {...atributosMover}
       {...escuchasMover}
       initial={{ opacity: 0, x: -4 }}
@@ -324,10 +325,54 @@ function BloqueEventoDiaArrastrable({
 interface PropiedadesVistaDia {
   fechaActual: Date
   eventos: EventoCalendario[]
-  onClickHora: (fecha: Date) => void
+  /** Click en franja vacía → crear evento; fechaFin opcional si se arrastró un rango */
+  onClickHora: (fecha: Date, fechaFin?: Date) => void
   onClickEvento: (evento: EventoCalendario) => void
   /** Drag para mover evento (solo vertical/tiempo en vista día) */
   onMoverEvento?: (id: string, nuevaInicio: string, nuevaFin: string) => void
+}
+
+/** Estado de la selección por arrastre (drag-to-select) en vista día */
+interface EstadoSeleccionRangoDia {
+  /** Posición Y inicial relativa a la cuadrícula (en px) */
+  inicioY: number
+  /** Posición Y actual relativa a la cuadrícula (en px) */
+  finY: number
+  /** Si el arrastre está activo */
+  activa: boolean
+}
+
+/**
+ * Redondea una posición Y a intervalos de 15 minutos.
+ */
+function redondearYA15MinDia(y: number): number {
+  const minutos = (y / ALTURA_FILA_HORA) * 60
+  const minutosRedondeados = Math.round(minutos / 15) * 15
+  return (minutosRedondeados / 60) * ALTURA_FILA_HORA
+}
+
+/**
+ * Convierte una posición Y (px) a hora formateada "HH:MM" para vista día.
+ */
+function formatoHoraDesdeYDia(y: number): string {
+  const minutosDesdeInicio = (y / ALTURA_FILA_HORA) * 60
+  const horaTotal = HORA_INICIO * 60 + minutosDesdeInicio
+  const horas = Math.floor(horaTotal / 60)
+  const minutos = Math.round(horaTotal % 60)
+  return `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}`
+}
+
+/**
+ * Convierte una posición Y (px) y una fecha a un objeto Date con hora correspondiente.
+ */
+function fechaDesdeYDia(dia: Date, y: number): Date {
+  const minutosDesdeInicioVal = (y / ALTURA_FILA_HORA) * 60
+  const horaTotal = HORA_INICIO * 60 + minutosDesdeInicioVal
+  const horas = Math.floor(horaTotal / 60)
+  const minutos = Math.round(horaTotal % 60)
+  const fecha = new Date(dia)
+  fecha.setHours(horas, minutos, 0, 0)
+  return fecha
 }
 
 function VistaCalendarioDia({
@@ -338,6 +383,13 @@ function VistaCalendarioDia({
   onMoverEvento,
 }: PropiedadesVistaDia) {
   const refContenedor = useRef<HTMLDivElement>(null)
+  /** Ref a la cuadrícula interior donde se renderizan las filas de hora */
+  const refCuadricula = useRef<HTMLDivElement>(null)
+
+  // --- Estado para selección de rango por arrastre (drag-to-select) ---
+  const [seleccionDia, setSeleccionDia] = useState<EstadoSeleccionRangoDia | null>(null)
+  const refSeleccionDia = useRef<EstadoSeleccionRangoDia | null>(null)
+  refSeleccionDia.current = seleccionDia
 
   // Sensor con umbral de distancia para diferenciar click de arrastre
   const sensores = useSensors(
@@ -395,16 +447,83 @@ function VistaCalendarioDia({
     refContenedor.current.scrollTop = pixelesObjetivo
   }, [])
 
-  /** Maneja clic en una celda horaria vacía */
-  function manejarClickHora(hora: number, e: React.MouseEvent<HTMLDivElement>) {
-    const rect = e.currentTarget.getBoundingClientRect()
-    const y = e.clientY - rect.top
-    const minutosFraccion = Math.floor((y / ALTURA_FILA_HORA) * 60)
-    const minutosRedondeados = Math.round(minutosFraccion / 15) * 15
-    const fechaHora = new Date(fechaActual)
-    fechaHora.setHours(hora, minutosRedondeados, 0, 0)
-    onClickHora(fechaHora)
-  }
+  // --- Handlers de selección por arrastre (drag-to-select) en vista día ---
+
+  /** Altura total de la cuadrícula en px */
+  const alturaTotalDia = (HORA_FIN - HORA_INICIO + 1) * ALTURA_FILA_HORA
+
+  /**
+   * Inicia la selección al hacer mousedown en un espacio vacío.
+   */
+  const manejarMouseDownDia = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return
+      const objetivo = e.target as HTMLElement
+      if (objetivo.closest('[data-evento-bloque]')) return
+
+      // Calcular Y relativo a la cuadrícula completa
+      if (!refCuadricula.current) return
+      const rect = refCuadricula.current.getBoundingClientRect()
+      const y = redondearYA15MinDia(e.clientY - rect.top)
+
+      setSeleccionDia({
+        inicioY: y,
+        finY: y,
+        activa: true,
+      })
+    },
+    [],
+  )
+
+  /**
+   * Actualiza el fin de la selección mientras se arrastra.
+   */
+  const manejarMouseMoveDia = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!refSeleccionDia.current?.activa) return
+      if (!refCuadricula.current) return
+
+      const rect = refCuadricula.current.getBoundingClientRect()
+      const yRelativo = e.clientY - rect.top
+      const yClamped = Math.max(0, Math.min(yRelativo, alturaTotalDia))
+      const yRedondeado = redondearYA15MinDia(yClamped)
+
+      setSeleccionDia((prev) =>
+        prev ? { ...prev, finY: yRedondeado } : null,
+      )
+    },
+    [alturaTotalDia],
+  )
+
+  /**
+   * Finaliza la selección al soltar el mouse.
+   */
+  useEffect(() => {
+    const manejarMouseUpDia = () => {
+      const sel = refSeleccionDia.current
+      if (!sel?.activa) return
+
+      const yMin = Math.min(sel.inicioY, sel.finY)
+      const yMax = Math.max(sel.inicioY, sel.finY)
+      const alturaSeleccion = yMax - yMin
+
+      const UMBRAL = (15 / 60) * ALTURA_FILA_HORA * 0.5
+
+      if (alturaSeleccion > UMBRAL) {
+        const fechaInicio = fechaDesdeYDia(fechaActual, yMin)
+        const fechaFin = fechaDesdeYDia(fechaActual, yMax)
+        onClickHora(fechaInicio, fechaFin)
+      } else {
+        const fechaClick = fechaDesdeYDia(fechaActual, yMin)
+        onClickHora(fechaClick)
+      }
+
+      setSeleccionDia(null)
+    }
+
+    document.addEventListener('mouseup', manejarMouseUpDia)
+    return () => document.removeEventListener('mouseup', manejarMouseUpDia)
+  }, [fechaActual, onClickHora])
 
   /**
    * Maneja el fin de un arrastre (mover o redimensionar) en vista día.
@@ -499,17 +618,23 @@ function VistaCalendarioDia({
           </div>
         )}
 
-        {/* Cuadrícula horaria con scroll */}
-        <div ref={refContenedor} className="flex-1 overflow-y-auto relative">
+        {/* Cuadrícula horaria con scroll y soporte drag-to-select */}
+        <div
+          ref={refContenedor}
+          className="flex-1 overflow-y-auto relative"
+          onMouseMove={manejarMouseMoveDia}
+        >
           <div
-            className="relative"
-            style={{ height: `${(HORA_FIN - HORA_INICIO + 1) * ALTURA_FILA_HORA}px` }}
+            ref={refCuadricula}
+            className="relative cursor-crosshair"
+            style={{ height: `${alturaTotalDia}px` }}
+            onMouseDown={manejarMouseDownDia}
           >
             {/* Filas de horas */}
             {filasHoras.map((hora) => (
               <div
                 key={hora}
-                className="absolute left-0 right-0 flex"
+                className="absolute left-0 right-0 flex pointer-events-none"
                 style={{ top: `${(hora - HORA_INICIO) * ALTURA_FILA_HORA}px`, height: `${ALTURA_FILA_HORA}px` }}
               >
                 {/* Etiqueta de hora */}
@@ -519,13 +644,35 @@ function VistaCalendarioDia({
                   </span>
                 </div>
 
-                {/* Celda clicable */}
-                <div
-                  className="flex-1 border-t border-borde-sutil cursor-pointer hover:bg-superficie-hover/30 transition-colors"
-                  onClick={(e) => manejarClickHora(hora, e)}
-                />
+                {/* Línea separadora */}
+                <div className="flex-1 border-t border-borde-sutil" />
               </div>
             ))}
+
+            {/* Resaltado de selección por arrastre (drag-to-select) */}
+            {seleccionDia?.activa && (
+              <div
+                className="absolute left-16 right-2 rounded-md z-10 pointer-events-none flex items-start p-1"
+                style={{
+                  top: Math.min(seleccionDia.inicioY, seleccionDia.finY),
+                  height: Math.max(
+                    Math.abs(seleccionDia.finY - seleccionDia.inicioY),
+                    (15 / 60) * ALTURA_FILA_HORA,
+                  ),
+                  backgroundColor: 'var(--texto-marca)',
+                  opacity: 0.15,
+                }}
+              >
+                <span
+                  className="text-[10px] font-medium pointer-events-none select-none"
+                  style={{ color: 'var(--texto-marca)', opacity: 1 }}
+                >
+                  {formatoHoraDesdeYDia(Math.min(seleccionDia.inicioY, seleccionDia.finY))}
+                  {' – '}
+                  {formatoHoraDesdeYDia(Math.max(seleccionDia.inicioY, seleccionDia.finY))}
+                </span>
+              </div>
+            )}
 
             {/* Indicador de hora actual */}
             {posicionIndicadorActual !== null && (

@@ -30,6 +30,8 @@ interface PropiedadesModalEvento {
   tipos: TipoEventoCalendario[]
   /** Fecha preseleccionada al hacer clic en un dia vacio */
   fechaPreseleccionada: Date | null
+  /** Fecha fin preseleccionada al arrastrar un rango horario (drag-to-select) */
+  fechaFinPreseleccionada?: Date | null
   onGuardar: (datos: Record<string, unknown>) => Promise<void>
   onEliminar?: () => Promise<void>
   onCerrar: () => void
@@ -363,6 +365,7 @@ function ModalEvento({
   evento,
   tipos,
   fechaPreseleccionada,
+  fechaFinPreseleccionada,
   onGuardar,
   onEliminar,
   onCerrar,
@@ -481,8 +484,11 @@ function ModalEvento({
     } else {
       // Modo crear: valores por defecto
       const inicio = fechaPreseleccionada ? new Date(fechaPreseleccionada) : horaRedondeada()
-      const duracion = tipoSeleccionado?.duracion_default || 60
-      const fin = sumarMinutos(inicio, duracion)
+      // Si hay fecha fin preseleccionada (drag-to-select), usarla directamente;
+      // si no, calcular a partir de la duración del tipo
+      const fin = fechaFinPreseleccionada
+        ? new Date(fechaFinPreseleccionada)
+        : sumarMinutos(inicio, tipoSeleccionado?.duracion_default || 60)
 
       setTitulo('')
       setTipoId(tipos.find(t => t.activo)?.id || '')
