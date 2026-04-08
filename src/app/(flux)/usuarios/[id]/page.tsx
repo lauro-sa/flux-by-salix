@@ -1746,48 +1746,48 @@ export default function PaginaPerfilUsuario() {
                   {/* Llavero RFID */}
                   <div>
                     <p className="text-sm font-semibold text-texto-primario mb-1">Código de llavero RFID</p>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        tipo="text"
-                        ref={rfidInputRef}
-                        value={miembro.kiosco_rfid || ''}
-                        onChange={(e) => setMiembro(p => p ? { ...p, kiosco_rfid: e.target.value } : null)}
-                        onBlur={() => {
-                          if (capturandoRfid && miembro.kiosco_rfid) {
-                            guardarMiembroInmediato({ kiosco_rfid: miembro.kiosco_rfid })
-                            setCapturandoRfid(false)
-                          } else {
-                            guardarMiembro({ kiosco_rfid: miembro.kiosco_rfid || null })
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault()
-                            if (miembro.kiosco_rfid) {
+                    <div className="flex items-center gap-2 max-w-sm">
+                      <div className="w-48">
+                        <Input
+                          tipo="text"
+                          ref={rfidInputRef}
+                          value={miembro.kiosco_rfid || ''}
+                          onChange={(e) => setMiembro(p => p ? { ...p, kiosco_rfid: e.target.value } : null)}
+                          onBlur={() => {
+                            if (capturandoRfid && miembro.kiosco_rfid) {
                               guardarMiembroInmediato({ kiosco_rfid: miembro.kiosco_rfid })
+                              setCapturandoRfid(false)
+                            } else {
+                              guardarMiembro({ kiosco_rfid: miembro.kiosco_rfid || null })
                             }
-                            setCapturandoRfid(false)
-                            rfidInputRef.current?.blur()
-                          }
-                        }}
-                        placeholder={capturandoRfid ? 'Esperando llavero...' : 'Pasar llavero por el lector...'}
-                        formato={null}
-                        disabled={!puedeEditar}
-                        compacto
-                      />
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              if (miembro.kiosco_rfid) {
+                                guardarMiembroInmediato({ kiosco_rfid: miembro.kiosco_rfid })
+                              }
+                              setCapturandoRfid(false)
+                              rfidInputRef.current?.blur()
+                            }
+                          }}
+                          placeholder={capturandoRfid ? 'Esperando...' : 'Código RFID'}
+                          formato={null}
+                          disabled={!puedeEditar}
+                          compacto
+                        />
+                      </div>
                       {puedeEditar && (
                         <Boton
                           variante={capturandoRfid ? 'primario' : 'secundario'}
                           tamano="sm"
                           icono={<Nfc size={14} className={capturandoRfid ? 'animate-pulse' : ''} />}
-                          cargando={capturandoRfid}
                           onClick={() => {
                             if (capturandoRfid) {
                               setCapturandoRfid(false)
                               return
                             }
                             setCapturandoRfid(true)
-                            // Enfocar el input para que el lector USB escriba ahí
                             setTimeout(() => rfidInputRef.current?.focus(), 50)
                           }}
                         >
