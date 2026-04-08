@@ -1,203 +1,231 @@
 /**
  * Formulario para reportar asistencia (reclamo) desde el kiosco.
- * Selector de fecha (últimos 30 días), hora entrada/salida, motivo.
+ * Usa componentes de Flux: SelectorFecha, SelectorHora, TextArea.
+ * Muestra solicitudes anteriores con estado (aprobada/rechazada/pendiente).
+ * Permite apelar solicitudes rechazadas.
  */
 'use client'
 
 import { useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
+import { FileText, Gavel, Send, CheckCircle, XCircle, Clock, Info } from 'lucide-react'
+import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
+import { SelectorHora } from '@/componentes/ui/SelectorHora'
+import { Boton } from '@/componentes/ui/Boton'
 
 interface PropsPantallaSolicitud {
-  /** Nombre del empleado */
   nombre: string
-  /** Callback al enviar solicitud */
+  solicitudes?: SolicitudResumen[]
   alEnviar: (datos: DatosSolicitud) => void
-  /** Callback para volver a acciones */
   alCancelar: () => void
+  cargando?: boolean
+}
+
+interface SolicitudResumen {
+  id: string
+  fecha: string
+  estado: 'pendiente' | 'aprobada' | 'rechazada'
+  notasResolucion?: string | null
+  solicitudOriginalId?: string | null
 }
 
 export interface DatosSolicitud {
-  fecha: string      // YYYY-MM-DD
-  horaEntrada: string // HH:mm
-  horaSalida: string  // HH:mm
+  fecha: string
+  horaEntrada: string
+  horaSalida: string
   motivo: string
-}
-
-function generarUltimos30Dias(): { valor: string; etiqueta: string }[] {
-  const dias: { valor: string; etiqueta: string }[] = []
-  const hoy = new Date()
-
-  for (let i = 1; i <= 30; i++) {
-    const fecha = new Date(hoy)
-    fecha.setDate(hoy.getDate() - i)
-    const valor = fecha.toISOString().split('T')[0]
-    const etiqueta = fecha.toLocaleDateString('es-AR', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-    })
-    dias.push({ valor, etiqueta })
-  }
-
-  return dias
+  solicitudOriginalId?: string | null
 }
 
 export default function PantallaSolicitud({
   nombre,
+  solicitudes = [],
   alEnviar,
   alCancelar,
+  cargando = false,
 }: PropsPantallaSolicitud) {
-  const [fecha, setFecha] = useState('')
-  const [horaEntrada, setHoraEntrada] = useState('')
-  const [horaSalida, setHoraSalida] = useState('')
+  const [fecha, setFecha] = useState<string | null>(null)
+  const [horaEntrada, setHoraEntrada] = useState<string | null>(null)
+  const [horaSalida, setHoraSalida] = useState<string | null>(null)
   const [motivo, setMotivo] = useState('')
+  const [apelandoId, setApelandoId] = useState<string | null>(null)
 
-  const diasDisponibles = generarUltimos30Dias()
-
-  const esValido = fecha && horaEntrada && horaSalida && motivo.trim().length >= 5
+  const esValido = fecha && motivo.trim().length >= 5 && !cargando
 
   const manejarEnvio = useCallback(() => {
-    if (!esValido) return
-    alEnviar({ fecha, horaEntrada, horaSalida, motivo: motivo.trim() })
-  }, [esValido, fecha, horaEntrada, horaSalida, motivo, alEnviar])
+    if (!esValido || !fecha) return
+    alEnviar({
+      fecha,
+      horaEntrada: horaEntrada || '',
+      horaSalida: horaSalida || '',
+      motivo: motivo.trim(),
+      solicitudOriginalId: apelandoId,
+    })
+  }, [esValido, fecha, horaEntrada, horaSalida, motivo, apelandoId, alEnviar])
+
+  const apelar = (sol: SolicitudResumen) => {
+    setFecha(sol.fecha)
+    setMotivo('')
+    setApelandoId(sol.id)
+  }
+
+  // IDs de solicitudes que ya tienen apelación pendiente
+  const idsYaApelados = new Set(
+    solicitudes
+      .filter(s => s.solicitudOriginalId && s.estado === 'pendiente')
+      .map(s => s.solicitudOriginalId)
+  )
 
   return (
     <motion.div
-      className="flex flex-col items-center justify-center h-full gap-6 px-8 py-12"
+      className="flex flex-col items-center justify-start h-full gap-5 px-6 py-6 select-none overflow-y-auto"
       initial={{ opacity: 0, x: 30 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -30 }}
       transition={{ duration: 0.25 }}
     >
-      <h2
-        className="text-2xl font-semibold"
-        style={{ color: 'var(--texto-primario)' }}
-      >
-        Reportar asistencia
-      </h2>
-      <p
-        className="text-base"
-        style={{ color: 'var(--texto-secundario)' }}
-      >
-        {nombre}, seleccioná el día que no pudiste fichar
-      </p>
-
-      <div className="flex flex-col gap-4 w-full max-w-sm">
-        {/* Selector de fecha */}
-        <div className="flex flex-col gap-1.5">
-          <label
-            className="text-sm font-medium"
-            style={{ color: 'var(--texto-secundario)' }}
-          >
-            Fecha
-          </label>
-          <select
-            value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl text-base appearance-none"
-            style={{
-              backgroundColor: 'var(--superficie-tarjeta)',
-              color: 'var(--texto-primario)',
-              border: '1px solid var(--borde-sutil)',
-            }}
-          >
-            <option value="">Seleccionar día...</option>
-            {diasDisponibles.map((dia) => (
-              <option key={dia.valor} value={dia.valor}>
-                {dia.etiqueta}
-              </option>
-            ))}
-          </select>
+      {/* Header */}
+      <div className="text-center">
+        <div className="flex justify-center mb-2">
+          {apelandoId
+            ? <Gavel size={40} style={{ color: '#fbbf24' }} />
+            : <FileText size={40} style={{ color: '#fbbf24' }} />
+          }
         </div>
+        <p className="text-xl md:text-2xl font-bold" style={{ color: '#f4f4f5' }}>
+          {apelandoId ? 'Apelar solicitud' : 'Reportar asistencia'}
+        </p>
+        <p className="text-sm md:text-base mt-1" style={{ color: '#a1a1aa' }}>
+          {nombre}
+        </p>
+      </div>
+
+      {/* Solicitudes anteriores */}
+      {solicitudes.length > 0 && (
+        <div className="flex flex-col gap-2 w-full max-w-lg">
+          {solicitudes.map((sol) => {
+            const fechaFmt = sol.fecha ? sol.fecha.split('-').reverse().join('/') : '—'
+            const puedeApelar = sol.estado === 'rechazada' && !sol.solicitudOriginalId && !idsYaApelados.has(sol.id)
+
+            return (
+              <div
+                key={sol.id}
+                className="flex items-start gap-3 px-4 py-3 rounded-xl text-xs md:text-sm font-medium"
+                style={{
+                  backgroundColor: sol.estado === 'aprobada' ? 'rgba(74,222,128,0.1)' : sol.estado === 'rechazada' ? 'rgba(248,113,113,0.1)' : 'rgba(251,191,36,0.1)',
+                  border: `1px solid ${sol.estado === 'aprobada' ? 'rgba(74,222,128,0.2)' : sol.estado === 'rechazada' ? 'rgba(248,113,113,0.2)' : 'rgba(251,191,36,0.2)'}`,
+                  color: sol.estado === 'aprobada' ? '#86efac' : sol.estado === 'rechazada' ? '#fca5a5' : '#fcd34d',
+                }}
+              >
+                {sol.estado === 'aprobada' ? <CheckCircle size={16} className="mt-0.5 shrink-0" /> : sol.estado === 'rechazada' ? <XCircle size={16} className="mt-0.5 shrink-0" /> : <Clock size={16} className="mt-0.5 shrink-0" />}
+                <div className="flex-1">
+                  <p className="font-semibold">
+                    Solicitud del {fechaFmt} — {sol.estado === 'aprobada' ? 'Aprobada' : sol.estado === 'rechazada' ? 'Rechazada' : 'En revisión'}
+                  </p>
+                  {sol.estado === 'rechazada' && sol.notasResolucion && (
+                    <p className="opacity-80 mt-0.5">Motivo: {sol.notasResolucion}</p>
+                  )}
+                  {sol.estado === 'pendiente' && (
+                    <p className="opacity-70 mt-0.5">Será evaluada por un supervisor</p>
+                  )}
+                </div>
+                {puedeApelar && (
+                  <button
+                    onClick={() => apelar(sol)}
+                    className="shrink-0 px-3 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors"
+                    style={{ backgroundColor: 'rgba(248,113,113,0.2)', color: '#fecaca' }}
+                  >
+                    Apelar
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Formulario */}
+      <div className="flex flex-col gap-4 w-full max-w-lg">
+        {/* Fecha */}
+        <SelectorFecha
+          etiqueta="Fecha"
+          valor={fecha}
+          onChange={setFecha}
+          placeholder="Seleccionar día..."
+        />
 
         {/* Horas */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label
-              className="text-sm font-medium"
-              style={{ color: 'var(--texto-secundario)' }}
-            >
-              Hora entrada
-            </label>
-            <input
-              type="time"
-              value={horaEntrada}
-              onChange={(e) => setHoraEntrada(e.target.value)}
-              className="px-4 py-3 rounded-xl text-base"
-              style={{
-                backgroundColor: 'var(--superficie-tarjeta)',
-                color: 'var(--texto-primario)',
-                border: '1px solid var(--borde-sutil)',
-              }}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label
-              className="text-sm font-medium"
-              style={{ color: 'var(--texto-secundario)' }}
-            >
-              Hora salida
-            </label>
-            <input
-              type="time"
-              value={horaSalida}
-              onChange={(e) => setHoraSalida(e.target.value)}
-              className="px-4 py-3 rounded-xl text-base"
-              style={{
-                backgroundColor: 'var(--superficie-tarjeta)',
-                color: 'var(--texto-primario)',
-                border: '1px solid var(--borde-sutil)',
-              }}
-            />
-          </div>
+          <SelectorHora
+            etiqueta="Hora entrada"
+            valor={horaEntrada}
+            onChange={setHoraEntrada}
+            placeholder="Opcional"
+          />
+          <SelectorHora
+            etiqueta="Hora salida"
+            valor={horaSalida}
+            onChange={setHoraSalida}
+            placeholder="Opcional"
+          />
         </div>
 
         {/* Motivo */}
-        <div className="flex flex-col gap-1.5">
-          <label
-            className="text-sm font-medium"
-            style={{ color: 'var(--texto-secundario)' }}
-          >
-            Motivo
+        <div>
+          <label className="text-sm font-medium block mb-1.5" style={{ color: '#a1a1aa' }}>
+            Motivo <span style={{ color: '#52525b' }}>(obligatorio)</span>
           </label>
           <textarea
             value={motivo}
             onChange={(e) => setMotivo(e.target.value)}
-            placeholder="Explicá por qué no pudiste fichar..."
+            placeholder={apelandoId ? 'Explicá por qué debería reconsiderarse...' : 'Explicá por qué no pudiste fichar...'}
             rows={3}
-            className="px-4 py-3 rounded-xl text-base resize-none"
+            maxLength={300}
+            className="w-full rounded-xl text-sm md:text-base p-3 resize-none outline-none"
             style={{
-              backgroundColor: 'var(--superficie-tarjeta)',
-              color: 'var(--texto-primario)',
-              border: '1px solid var(--borde-sutil)',
+              backgroundColor: '#18181b',
+              color: '#f4f4f5',
+              border: '1px solid #27272a',
             }}
           />
+          <p className="text-xs text-right mt-0.5" style={{ color: '#52525b' }}>{motivo.length}/300</p>
+        </div>
+
+        {/* Aviso */}
+        <div
+          className="flex items-start gap-2 px-4 py-3 rounded-xl text-xs md:text-sm"
+          style={{
+            backgroundColor: 'rgba(251,191,36,0.08)',
+            border: '1px solid rgba(251,191,36,0.2)',
+            color: 'rgba(252,211,77,0.8)',
+          }}
+        >
+          <Info size={16} className="mt-0.5 shrink-0" />
+          <p className="leading-relaxed">
+            Esta solicitud será evaluada por un supervisor. Recibirás una notificación cuando sea aprobada o rechazada.
+          </p>
         </div>
 
         {/* Botones */}
-        <div className="flex gap-3 mt-2">
-          <button
+        <div className="flex gap-3">
+          <Boton
             onClick={alCancelar}
-            className="flex-1 py-3.5 rounded-xl text-base font-medium transition-all active:scale-[0.98]"
-            style={{
-              backgroundColor: 'var(--superficie-tarjeta)',
-              color: 'var(--texto-secundario)',
-              border: '1px solid var(--borde-sutil)',
-            }}
+            variante="secundario"
+            disabled={cargando}
+            className="flex-1"
           >
             Cancelar
-          </button>
-          <button
+          </Boton>
+          <Boton
             onClick={manejarEnvio}
+            variante="primario"
             disabled={!esValido}
-            className="flex-1 py-3.5 rounded-xl text-base font-medium transition-all active:scale-[0.98] disabled:opacity-40"
-            style={{
-              backgroundColor: 'var(--texto-marca)',
-              color: '#fff',
-            }}
+            cargando={cargando}
+            icono={<Send size={16} />}
+            className="flex-1"
           >
-            Enviar
-          </button>
+            {apelandoId ? 'Enviar apelación' : 'Enviar solicitud'}
+          </Boton>
         </div>
       </div>
     </motion.div>
