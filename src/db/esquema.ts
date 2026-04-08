@@ -776,6 +776,7 @@ export const tipos_actividad = pgTable('tipos_actividad', {
   campo_responsable: boolean('campo_responsable').notNull().default(true),
   campo_prioridad: boolean('campo_prioridad').notNull().default(false),
   campo_checklist: boolean('campo_checklist').notNull().default(false),
+  campo_calendario: boolean('campo_calendario').notNull().default(false),
   // Orden, estado, predefinido
   orden: integer('orden').notNull().default(0),
   activo: boolean('activo').notNull().default(true),
@@ -987,6 +988,27 @@ export const recordatorios_calendario = pgTable('recordatorios_calendario', {
 }, (tabla) => [
   index('recordatorios_cal_pendientes_idx').on(tabla.programado_para, tabla.enviado),
   index('recordatorios_cal_evento_idx').on(tabla.evento_id),
+])
+
+// Feriados — días no laborables configurados por empresa
+export const feriados = pgTable('feriados', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  nombre: text('nombre').notNull(),
+  fecha: date('fecha').notNull(),
+  tipo: text('tipo').notNull().default('nacional'), // 'nacional' | 'puente' | 'empresa' | 'regional'
+  pais_codigo: text('pais_codigo'), // ISO 3166-1 alpha-2 (nullable — null = aplica a todos)
+  recurrente: boolean('recurrente').notNull().default(false),
+  dia_mes: integer('dia_mes'), // día del mes para recurrentes (ej: 25 para Navidad)
+  mes: integer('mes'), // mes para recurrentes (ej: 12 para Navidad)
+  activo: boolean('activo').notNull().default(true),
+  origen: text('origen').notNull().default('manual'), // 'libreria' | 'manual' | 'importado'
+  creado_por: uuid('creado_por'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('feriados_empresa_fecha_idx').on(tabla.empresa_id, tabla.fecha),
+  index('feriados_empresa_anio_idx').on(tabla.empresa_id, tabla.activo),
+  uniqueIndex('feriados_empresa_fecha_nombre_idx').on(tabla.empresa_id, tabla.fecha, tabla.nombre),
 ])
 
 // ═══ PRODUCTOS ═══

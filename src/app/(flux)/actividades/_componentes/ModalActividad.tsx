@@ -92,7 +92,7 @@ interface PropiedadesModal {
   miembros: Miembro[]
   presetsPosposicion?: PresetPosposicion[]
   vinculoInicial?: Vinculo | null
-  onGuardar: (datos: Record<string, unknown>) => Promise<void>
+  onGuardar: (datos: Record<string, unknown>) => Promise<unknown>
   onCompletar?: (id: string) => Promise<void>
   onPosponer?: (id: string, dias: number) => Promise<void>
   onCerrar: () => void
@@ -197,12 +197,16 @@ function ModalActividad({
     }
   }
 
+  // Estado para mostrar bloques de calendario después de crear
+  const [actividadCreadaId, setActividadCreadaId] = useState<string | null>(null)
+  const mostrarBloquesPostCreacion = !!actividadCreadaId
+
   // Guardar
   const manejarGuardar = async () => {
     if (!titulo.trim() || !tipoId) return
     setGuardando(true)
     try {
-      await onGuardar({
+      const resultado = await onGuardar({
         ...(esEdicion ? { id: actividad!.id } : {}),
         titulo: titulo.trim(),
         descripcion: descripcion || null,
@@ -214,23 +218,72 @@ function ModalActividad({
         checklist,
         vinculos,
       })
-      onCerrar()
+
+      // Si es creación y el tipo tiene campo_calendario, mostrar bloques
+      const tipoConCalendario = tipoSeleccionado && 'campo_calendario' in tipoSeleccionado && tipoSeleccionado.campo_calendario
+      if (!esEdicion && tipoConCalendario && resultado && typeof resultado === 'object' && 'id' in resultado) {
+        setActividadCreadaId((resultado as { id: string }).id)
+      } else {
+        onCerrar()
+      }
     } finally {
       setGuardando(false)
     }
+  }
+
+  // Cerrar después de agendar bloques
+  const cerrarPostCalendario = () => {
+    setActividadCreadaId(null)
+    onCerrar()
+  }
+
+  // Si acabamos de crear y el tipo tiene calendario, mostrar pantalla de agendar
+  if (mostrarBloquesPostCreacion && actividadCreadaId) {
+    return (
+      <Modal
+        abierto={abierto}
+        onCerrar={cerrarPostCalendario}
+        titulo="Agendar en calendario"
+        tamano="lg"
+        acciones={
+          <div className="flex items-center justify-between w-full">
+            <span className="text-xs text-texto-terciario">Actividad creada. Agendá los bloques de trabajo.</span>
+            <Boton tamano="sm" onClick={cerrarPostCalendario}>
+              Listo
+            </Boton>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="p-3 rounded-lg bg-superficie-hover/50 border border-borde-sutil">
+            <p className="text-sm font-medium text-texto-primario">{titulo}</p>
+            {asignadoNombre && (
+              <p className="text-xs text-texto-terciario mt-0.5">Asignado a: {asignadoNombre}</p>
+            )}
+          </div>
+          <SeccionBloquesCalendario
+            actividadId={actividadCreadaId}
+            titulo={titulo}
+            asignadoA={asignadoA}
+            asignadoNombre={asignadoNombre}
+            vinculos={vinculos}
+          />
+        </div>
+      </Modal>
+    )
   }
 
   return (
     <Modal
       abierto={abierto}
       onCerrar={onCerrar}
-      titulo={esEdicion ? 'Editar actividad' : 'Nueva actividad'}
+      titulo={esEdicion ? 'Editar actividad' : (tipoSeleccionado && 'campo_calendario' in tipoSeleccionado && tipoSeleccionado.campo_calendario ? 'Nueva actividad + calendario' : 'Nueva actividad')}
       tamano="lg"
       acciones={
         <>
           <Boton variante="secundario" tamano="sm" onClick={onCerrar}>Cancelar</Boton>
           <Boton tamano="sm" onClick={manejarGuardar} cargando={guardando} disabled={!titulo.trim() || !tipoId}>
-            {esEdicion ? 'Guardar' : 'Crear actividad'}
+            {esEdicion ? 'Guardar' : (tipoSeleccionado && 'campo_calendario' in tipoSeleccionado && tipoSeleccionado.campo_calendario ? 'Crear y agendar' : 'Crear actividad')}
           </Boton>
         </>
       }

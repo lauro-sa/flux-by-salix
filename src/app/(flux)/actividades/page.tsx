@@ -186,8 +186,10 @@ export default function PaginaActividades() {
         body: JSON.stringify(datos),
       })
       if (!res.ok) throw new Error('Error al crear')
+      const resultado = await res.json()
       mostrar('exito', 'Actividad creada')
       recargarActividades()
+      return resultado // Devolver para que el modal pueda usar el ID
     } catch {
       mostrar('error', 'Error al crear la actividad')
     }
