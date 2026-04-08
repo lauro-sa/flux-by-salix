@@ -1749,12 +1749,30 @@ export default function PaginaPerfilUsuario() {
                     <div className="flex items-center gap-2">
                       <Input
                         tipo="text"
+                        ref={rfidInputRef}
                         value={miembro.kiosco_rfid || ''}
                         onChange={(e) => setMiembro(p => p ? { ...p, kiosco_rfid: e.target.value } : null)}
-                        onBlur={() => guardarMiembro({ kiosco_rfid: miembro.kiosco_rfid || null })}
+                        onBlur={() => {
+                          if (capturandoRfid && miembro.kiosco_rfid) {
+                            guardarMiembroInmediato({ kiosco_rfid: miembro.kiosco_rfid })
+                            setCapturandoRfid(false)
+                          } else {
+                            guardarMiembro({ kiosco_rfid: miembro.kiosco_rfid || null })
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            if (miembro.kiosco_rfid) {
+                              guardarMiembroInmediato({ kiosco_rfid: miembro.kiosco_rfid })
+                            }
+                            setCapturandoRfid(false)
+                            rfidInputRef.current?.blur()
+                          }
+                        }}
                         placeholder={capturandoRfid ? 'Esperando llavero...' : 'Pasar llavero por el lector...'}
                         formato={null}
-                        disabled={!puedeEditar || capturandoRfid}
+                        disabled={!puedeEditar}
                         compacto
                       />
                       {puedeEditar && (
@@ -1765,19 +1783,12 @@ export default function PaginaPerfilUsuario() {
                           cargando={capturandoRfid}
                           onClick={() => {
                             if (capturandoRfid) {
-                              // Cancelar captura
                               setCapturandoRfid(false)
                               return
                             }
                             setCapturandoRfid(true)
-                            // Simular captura — en producción escucharía eventos del lector USB
-                            // Por ahora genera un código hex aleatorio después de 2s
-                            setTimeout(() => {
-                              const codigo = Array.from({ length: 8 }, () => Math.floor(Math.random() * 16).toString(16)).join('')
-                              setMiembro(p => p ? { ...p, kiosco_rfid: codigo } : null)
-                              guardarMiembroInmediato({ kiosco_rfid: codigo })
-                              setCapturandoRfid(false)
-                            }, 2000)
+                            // Enfocar el input para que el lector USB escriba ahí
+                            setTimeout(() => rfidInputRef.current?.focus(), 50)
                           }}
                         >
                           {capturandoRfid ? 'Capturando...' : 'Capturar'}
