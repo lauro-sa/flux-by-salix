@@ -51,6 +51,7 @@ interface ResultadoNominaConCorreo {
   dias_con_salida_particular: number
   descuenta_almuerzo: boolean
   duracion_almuerzo_config: number
+  dias_feriados: number
   monto_pagar: number
   monto_detalle: string
 }

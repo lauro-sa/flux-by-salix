@@ -244,8 +244,8 @@ export default function PantallaAcciones({
         </button>
       )}
 
-      {/* Reportar asistencia */}
-      {tieneSolicitudes && (
+      {/* Reportar asistencia — siempre visible */}
+      {(
         <button
           onClick={() => { resetContador(); alReportar() }}
           className="flex items-center gap-2 px-4 py-2 md:px-5 md:py-2.5 rounded-xl md:rounded-2xl text-sm md:text-base font-medium transition-all active:scale-95"

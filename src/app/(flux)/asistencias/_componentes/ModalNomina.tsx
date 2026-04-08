@@ -30,6 +30,7 @@ interface ResultadoNomina {
   dias_con_salida_particular: number
   descuenta_almuerzo: boolean
   duracion_almuerzo_config: number
+  dias_feriados: number
   // Pago
   monto_pagar: number
   monto_detalle: string
@@ -153,7 +154,7 @@ export function ModalNomina({ abierto, onCerrar, desde, hasta, etiquetaPeriodo, 
           <div className="space-y-2">
             {resultados.map((r, idx) => {
               const colorAvatar = COLORES_AVATAR[idx % COLORES_AVATAR.length]
-              const pctAsistencia = diasLaborales > 0 ? Math.round((r.dias_trabajados / diasLaborales) * 100) : 0
+              const pctAsistencia = r.dias_laborales > 0 ? Math.round((r.dias_trabajados / r.dias_laborales) * 100) : 0
 
               return (
                 <div key={r.miembro_id} className="bg-superficie-elevada/20 border border-borde-sutil rounded-lg px-4 py-3">
@@ -171,21 +172,26 @@ export function ModalNomina({ abierto, onCerrar, desde, hasta, etiquetaPeriodo, 
                   </div>
 
                   {/* Métricas */}
-                  <div className="flex items-center gap-4 text-[11px]">
+                  <div className="flex items-center gap-4 text-[11px] flex-wrap">
                     <span className="flex items-center gap-1 text-texto-secundario">
                       <UserCheck size={11} className="text-emerald-400" />
-                      {r.dias_trabajados}/{diasLaborales} días
+                      {r.dias_trabajados}/{r.dias_laborales} días
                     </span>
                     {r.dias_ausentes > 0 && (
                       <span className="flex items-center gap-1 text-red-400">
                         <UserX size={11} />
-                        {r.dias_ausentes} ausencias
+                        {r.dias_ausentes} ausencia{r.dias_ausentes !== 1 ? 's' : ''}
                       </span>
                     )}
                     {r.dias_tardanza > 0 && (
                       <span className="flex items-center gap-1 text-amber-400">
                         <AlertTriangle size={11} />
-                        {r.dias_tardanza} tardanzas
+                        {r.dias_tardanza} tardanza{r.dias_tardanza !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {r.dias_feriados > 0 && (
+                      <span className="flex items-center gap-1 text-violet-400">
+                        {r.dias_feriados} feriado{r.dias_feriados !== 1 ? 's' : ''}
                       </span>
                     )}
                     <span className="flex items-center gap-1 text-texto-terciario">
