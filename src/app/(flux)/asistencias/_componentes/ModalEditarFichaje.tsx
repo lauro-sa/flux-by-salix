@@ -391,13 +391,13 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
 
             {/* Horarios — solo horas, la fecha es fija */}
             <div className="grid grid-cols-2 gap-3">
-              <SelectorHora etiqueta="Entrada" valor={extraerHora(entrada)} onChange={(v) => setEntrada(reconstruir(r.fecha, v))} pasoMinutos={5} />
-              <SelectorHora etiqueta="Salida" valor={extraerHora(salida)} onChange={(v) => setSalida(reconstruir(r.fecha, v))} pasoMinutos={5} />
+              <CampoHoraLimpiable etiqueta="Entrada" valor={extraerHora(entrada)} onChange={(v) => setEntrada(reconstruir(r.fecha, v))} onLimpiar={() => setEntrada('')} />
+              <CampoHoraLimpiable etiqueta="Salida" valor={extraerHora(salida)} onChange={(v) => setSalida(reconstruir(r.fecha, v))} onLimpiar={() => setSalida('')} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <SelectorHora etiqueta="Inicio almuerzo" valor={extraerHora(inicioAlm)} onChange={(v) => setInicioAlm(reconstruir(r.fecha, v))} pasoMinutos={5} />
-              <SelectorHora etiqueta="Fin almuerzo" valor={extraerHora(finAlm)} onChange={(v) => setFinAlm(reconstruir(r.fecha, v))} pasoMinutos={5} />
+              <CampoHoraLimpiable etiqueta="Inicio almuerzo" valor={extraerHora(inicioAlm)} onChange={(v) => setInicioAlm(reconstruir(r.fecha, v))} onLimpiar={() => setInicioAlm('')} />
+              <CampoHoraLimpiable etiqueta="Fin almuerzo" valor={extraerHora(finAlm)} onChange={(v) => setFinAlm(reconstruir(r.fecha, v))} onLimpiar={() => setFinAlm('')} />
             </div>
 
             <details className="group">
@@ -406,8 +406,8 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
                 Trámite / particular
               </summary>
               <div className="grid grid-cols-2 gap-3 mt-2">
-                <SelectorHora etiqueta="Salida trámite" valor={extraerHora(salidaPart)} onChange={(v) => setSalidaPart(reconstruir(r.fecha, v))} pasoMinutos={5} />
-                <SelectorHora etiqueta="Vuelta trámite" valor={extraerHora(vueltaPart)} onChange={(v) => setVueltaPart(reconstruir(r.fecha, v))} pasoMinutos={5} />
+                <CampoHoraLimpiable etiqueta="Salida trámite" valor={extraerHora(salidaPart)} onChange={(v) => setSalidaPart(reconstruir(r.fecha, v))} onLimpiar={() => setSalidaPart('')} />
+                <CampoHoraLimpiable etiqueta="Vuelta trámite" valor={extraerHora(vueltaPart)} onChange={(v) => setVueltaPart(reconstruir(r.fecha, v))} onLimpiar={() => setVueltaPart('')} />
               </div>
             </details>
 
@@ -425,3 +425,27 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
   )
 }
 
+// ─── Campo hora con botón limpiar ────────────────────────────
+
+function CampoHoraLimpiable({ etiqueta, valor, onChange, onLimpiar }: {
+  etiqueta: string
+  valor: string | null
+  onChange: (v: string | null) => void
+  onLimpiar: () => void
+}) {
+  return (
+    <div className="relative">
+      <SelectorHora etiqueta={etiqueta} valor={valor} onChange={onChange} pasoMinutos={5} />
+      {valor && (
+        <button
+          type="button"
+          onClick={onLimpiar}
+          className="absolute top-0 right-0 text-[10px] text-texto-terciario hover:text-red-400 transition-colors"
+          title="Limpiar"
+        >
+          ✕
+        </button>
+      )}
+    </div>
+  )
+}
