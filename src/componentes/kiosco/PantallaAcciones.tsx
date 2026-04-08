@@ -101,9 +101,11 @@ export default function PantallaAcciones({
   alTimeout,
 }: PropsPantallaAcciones) {
   const [contador, setContador] = useState(TIMEOUT)
+  const [pausado, setPausado] = useState(false)
 
-  // Countdown
+  // Countdown — se pausa si el usuario toca la pantalla
   useEffect(() => {
+    if (pausado) return
     if (contador <= 0) {
       if (estadoTurno) {
         alAccionar('salida')
@@ -114,7 +116,7 @@ export default function PantallaAcciones({
     }
     const timer = setTimeout(() => setContador((c) => c - 1), 1000)
     return () => clearTimeout(timer)
-  }, [contador, estadoTurno, alAccionar, alTimeout])
+  }, [contador, pausado, estadoTurno, alAccionar, alTimeout])
 
   const resetContador = useCallback(() => setContador(TIMEOUT), [])
 
@@ -127,6 +129,11 @@ export default function PantallaAcciones({
 
   return (
     <motion.div
+      onTouchStart={() => setPausado(true)}
+      onTouchEnd={() => setPausado(false)}
+      onMouseDown={() => setPausado(true)}
+      onMouseUp={() => setPausado(false)}
+      onMouseLeave={() => setPausado(false)}
       className="flex flex-col items-center justify-center h-full gap-4 landscape:gap-3 md:gap-6 px-6 md:px-8 py-6 landscape:py-3 select-none overflow-y-auto"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -273,8 +280,8 @@ export default function PantallaAcciones({
             />
           </div>
           <div className="flex items-center gap-4 md:gap-6">
-            <p className="text-xs md:text-base" style={{ color: '#52525b' }}>
-              Salida automática en {contador}s
+            <p className="text-xs md:text-base" style={{ color: pausado ? '#a1a1aa' : '#52525b' }}>
+              {pausado ? 'Pausado — soltá para continuar' : `Salida automática en ${contador}s`}
             </p>
             <button
               onClick={alTimeout}
