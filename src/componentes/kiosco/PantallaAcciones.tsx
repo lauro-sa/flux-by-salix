@@ -127,23 +127,23 @@ export default function PantallaAcciones({
 
   return (
     <motion.div
-      className="flex flex-col items-center justify-center h-full gap-6 md:gap-8 px-6 md:px-8 py-8 select-none"
+      className="flex flex-col items-center justify-center h-full gap-4 landscape:gap-3 md:gap-6 px-6 md:px-8 py-6 landscape:py-3 select-none overflow-y-auto"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
     >
       {/* Avatar + nombre + cargo */}
-      <div className="flex flex-col items-center gap-4 md:gap-5">
+      <div className="flex flex-col items-center gap-3 landscape:gap-2 md:gap-4">
         {fotoUrl ? (
-          <div className="w-40 md:w-52 aspect-[3/4] rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl shadow-black/50"
+          <div className="w-32 landscape:w-24 md:w-44 aspect-[3/4] rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl shadow-black/50"
             style={{ border: '4px solid rgba(63,63,70,0.6)' }}
           >
             <img src={fotoUrl} alt={nombre} className="w-full h-full object-cover" draggable={false} />
           </div>
         ) : (
           <div
-            className="w-36 h-36 md:w-44 md:h-44 rounded-full flex items-center justify-center"
+            className="w-28 h-28 landscape:w-20 landscape:h-20 md:w-36 md:h-36 rounded-full flex items-center justify-center"
             style={{
               backgroundColor: 'rgba(59,130,246,0.15)',
               border: '4px solid rgba(59,130,246,0.3)',
@@ -154,7 +154,7 @@ export default function PantallaAcciones({
         )}
 
         <div className="text-center">
-          <p className="text-2xl md:text-3xl font-black" style={{ color: '#f4f4f5' }}>{nombre}</p>
+          <p className="text-xl landscape:text-lg md:text-2xl font-black" style={{ color: '#f4f4f5' }}>{nombre}</p>
         </div>
 
         {/* Badge de estado */}
@@ -170,9 +170,9 @@ export default function PantallaAcciones({
 
       {/* Botones de acción */}
       {estadoTurno ? (
-        <div className="flex flex-col gap-3 md:gap-4 w-full max-w-xl md:max-w-2xl">
+        <div className="flex flex-col gap-2 md:gap-3 w-full max-w-xl md:max-w-2xl">
           {/* Botones secundarios en fila */}
-          <div className="flex items-stretch gap-3 md:gap-4">
+          <div className="flex items-stretch gap-2 md:gap-3">
             {botonesSecundarios.map((btn) => (
               <button
                 key={btn.accion}
@@ -186,7 +186,7 @@ export default function PantallaAcciones({
                   transition: 'opacity 0.95s linear',
                   ...(popActivo ? { animation: 'kiosco-pop-btn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards', pointerEvents: 'none' as const } : {}),
                 }}
-                className="flex-1 flex items-center gap-3 md:gap-4 px-5 py-4 md:px-6 md:py-5 rounded-2xl md:rounded-3xl text-base md:text-lg font-bold justify-center border transition-colors active:scale-95 disabled:cursor-not-allowed"
+                className="flex-1 flex items-center gap-2 md:gap-3 px-4 py-3 landscape:py-2.5 md:px-5 md:py-4 rounded-xl md:rounded-2xl text-sm md:text-base font-bold justify-center border transition-colors active:scale-95 disabled:cursor-not-allowed"
               >
                 {btn.icono}
                 <div className="text-left">
@@ -200,7 +200,7 @@ export default function PantallaAcciones({
           {/* Botón Salida — full width con fill de progreso */}
           <button
             onClick={() => { resetContador(); alAccionar('salida') }}
-            className="relative overflow-hidden w-full flex items-center gap-3 md:gap-4 px-6 py-5 md:px-7 md:py-6 rounded-2xl md:rounded-3xl text-lg md:text-xl font-bold justify-center border transition-colors active:scale-[0.98]"
+            className="relative overflow-hidden w-full flex items-center gap-2 md:gap-3 px-5 py-3.5 landscape:py-3 md:px-6 md:py-5 rounded-xl md:rounded-2xl text-base md:text-lg font-bold justify-center border transition-colors active:scale-[0.98]"
             style={{
               backgroundColor: 'rgba(239,68,68,0.1)',
               borderColor: 'rgba(239,68,68,0.25)',
@@ -229,7 +229,7 @@ export default function PantallaAcciones({
         /* Sin turno → Empezar */
         <button
           onClick={() => { resetContador(); alAccionar('entrada') }}
-          className="w-full max-w-xl md:max-w-2xl flex items-center gap-3 md:gap-4 px-6 py-5 md:px-7 md:py-6 rounded-2xl md:rounded-3xl text-lg md:text-xl font-bold justify-center border transition-colors active:scale-95"
+          className="w-full max-w-xl md:max-w-2xl flex items-center gap-2 md:gap-3 px-5 py-4 landscape:py-3 md:px-6 md:py-5 rounded-xl md:rounded-2xl text-base md:text-lg font-bold justify-center border transition-colors active:scale-95"
           style={{
             backgroundColor: 'rgba(74,222,128,0.12)',
             borderColor: 'rgba(74,222,128,0.3)',
