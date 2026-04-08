@@ -139,7 +139,7 @@ export default function PaginaCalendario() {
   }, [modoSeleccion])
 
   // Estado principal
-  const [vistaActiva, setVistaActiva] = useState<VistaCalendario>('mes')
+  const [vistaActiva, setVistaActiva] = useState<VistaCalendario>(modoSeleccion ? 'semana' : 'mes')
   const [fechaActual, setFechaActual] = useState<Date>(new Date())
   const [eventos, setEventos] = useState<EventoCalendario[]>([])
   const [tiposEvento, setTiposEvento] = useState<TipoEventoCalendario[]>([])
@@ -646,9 +646,14 @@ export default function PaginaCalendario() {
                 onClick={() => {
                   sessionStorage.setItem('flux_bloques_calendario', JSON.stringify(bloquesSeleccionados))
                   const ruta = actividadPendiente?.rutaRetorno || '/actividades'
-                  // Agregar parámetro para que la página destino reabra el modal
-                  const separador = ruta.includes('?') ? '&' : '?'
-                  router.push(`${ruta}${separador}abrir_actividad=1`)
+                  router.push(ruta)
+                  // Disparar evento custom después de navegar para que el PanelChatter lo escuche
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('flux:reabrir-actividad'))
+                  }, 500)
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('flux:reabrir-actividad'))
+                  }, 1500)
                 }}
               >
                 Confirmar ({bloquesSeleccionados.length})

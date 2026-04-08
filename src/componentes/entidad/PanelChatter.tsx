@@ -77,29 +77,38 @@ export function PanelChatter({
   const [modalActividad, setModalActividad] = useState(false)
 
   // Reabrir modal de actividad si volvemos del calendario con datos pendientes
-  const debeAbrirActividad = searchParams.get('abrir_actividad') === '1'
   useEffect(() => {
-    if (debeAbrirActividad) {
-      // Pequeño delay para que la página termine de renderizar
-      const timer = setTimeout(() => {
-        setModalActividad(true)
-        // Limpiar el parámetro de la URL sin recargar
-        const url = new URL(window.location.href)
-        url.searchParams.delete('abrir_actividad')
-        window.history.replaceState({}, '', url.toString())
-      }, 300)
-      return () => clearTimeout(timer)
-    }
-  }, [debeAbrirActividad])
-
-  // También verificar sessionStorage al montar (por si el parámetro se perdió)
-  useEffect(() => {
+    // Al montar, verificar si hay datos pendientes
     const pendiente = sessionStorage.getItem('flux_actividad_pendiente')
     const bloques = sessionStorage.getItem('flux_bloques_calendario')
     if (pendiente || bloques) {
       setModalActividad(true)
     }
-  }, [])
+
+    // Escuchar evento custom disparado al confirmar bloques del calendario
+    const manejarReapertura = () => {
+      setModalActividad(true)
+    }
+    window.addEventListener('flux:reabrir-actividad', manejarReapertura)
+
+    // Polling de respaldo: verificar cada 500ms durante 5 segundos
+    let intentos = 0
+    const intervalo = setInterval(() => {
+      intentos++
+      if (intentos > 10) { clearInterval(intervalo); return }
+      const p = sessionStorage.getItem('flux_actividad_pendiente')
+      const b = sessionStorage.getItem('flux_bloques_calendario')
+      if ((p || b) && !modalActividad) {
+        setModalActividad(true)
+        clearInterval(intervalo)
+      }
+    }, 500)
+
+    return () => {
+      window.removeEventListener('flux:reabrir-actividad', manejarReapertura)
+      clearInterval(intervalo)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [menuAbierto, setMenuAbierto] = useState(false)
   const [adjuntosExpandidos, setAdjuntosExpandidos] = useState(false)
 
