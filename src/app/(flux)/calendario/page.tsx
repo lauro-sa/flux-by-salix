@@ -644,16 +644,26 @@ export default function PaginaCalendario() {
                 tamano="xs"
                 icono={<Check size={14} />}
                 onClick={() => {
+                  console.log('[Calendario] Confirmando bloques:', bloquesSeleccionados)
+                  console.log('[Calendario] Guardando en sessionStorage...')
                   sessionStorage.setItem('flux_bloques_calendario', JSON.stringify(bloquesSeleccionados))
+                  console.log('[Calendario] sessionStorage guardado. Verificación:', !!sessionStorage.getItem('flux_bloques_calendario'))
                   const ruta = actividadPendiente?.rutaRetorno || '/actividades'
+                  console.log('[Calendario] Navegando a:', ruta)
                   router.push(ruta)
-                  // Disparar evento custom después de navegar para que el PanelChatter lo escuche
+                  // Disparar evento custom después de navegar
                   setTimeout(() => {
+                    console.log('[Calendario] Disparando evento flux:reabrir-actividad (500ms)')
                     window.dispatchEvent(new CustomEvent('flux:reabrir-actividad'))
                   }, 500)
                   setTimeout(() => {
+                    console.log('[Calendario] Disparando evento flux:reabrir-actividad (1500ms)')
                     window.dispatchEvent(new CustomEvent('flux:reabrir-actividad'))
                   }, 1500)
+                  setTimeout(() => {
+                    console.log('[Calendario] Disparando evento flux:reabrir-actividad (3000ms)')
+                    window.dispatchEvent(new CustomEvent('flux:reabrir-actividad'))
+                  }, 3000)
                 }}
               >
                 Confirmar ({bloquesSeleccionados.length})

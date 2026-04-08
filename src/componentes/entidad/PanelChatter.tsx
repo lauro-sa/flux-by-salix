@@ -78,27 +78,32 @@ export function PanelChatter({
 
   // Reabrir modal de actividad si volvemos del calendario con datos pendientes
   useEffect(() => {
-    // Al montar, verificar si hay datos pendientes
+    console.log('[PanelChatter] useEffect montaje — verificando sessionStorage...')
     const pendiente = sessionStorage.getItem('flux_actividad_pendiente')
     const bloques = sessionStorage.getItem('flux_bloques_calendario')
+    console.log('[PanelChatter] pendiente:', !!pendiente, 'bloques:', !!bloques)
     if (pendiente || bloques) {
+      console.log('[PanelChatter] ✅ Abriendo modal desde sessionStorage al montar')
       setModalActividad(true)
     }
 
-    // Escuchar evento custom disparado al confirmar bloques del calendario
+    // Escuchar evento custom
     const manejarReapertura = () => {
+      console.log('[PanelChatter] ✅ Evento flux:reabrir-actividad recibido — abriendo modal')
       setModalActividad(true)
     }
     window.addEventListener('flux:reabrir-actividad', manejarReapertura)
 
-    // Polling de respaldo: verificar cada 500ms durante 5 segundos
+    // Polling de respaldo
     let intentos = 0
     const intervalo = setInterval(() => {
       intentos++
-      if (intentos > 10) { clearInterval(intervalo); return }
       const p = sessionStorage.getItem('flux_actividad_pendiente')
       const b = sessionStorage.getItem('flux_bloques_calendario')
-      if ((p || b) && !modalActividad) {
+      console.log(`[PanelChatter] Polling #${intentos} — pendiente:`, !!p, 'bloques:', !!b)
+      if (intentos > 10) { clearInterval(intervalo); return }
+      if (p || b) {
+        console.log('[PanelChatter] ✅ Polling encontró datos — abriendo modal')
         setModalActividad(true)
         clearInterval(intervalo)
       }

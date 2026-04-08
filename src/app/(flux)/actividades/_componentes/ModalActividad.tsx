@@ -271,22 +271,26 @@ function ModalActividad({
 
   // Al montar, verificar si volvemos del calendario con bloques seleccionados
   useEffect(() => {
+    console.log('[ModalActividad] useEffect — abierto:', abierto)
     if (!abierto) return
     const bloquesCalendario = sessionStorage.getItem('flux_bloques_calendario')
+    console.log('[ModalActividad] bloques en sessionStorage:', !!bloquesCalendario)
     if (bloquesCalendario) {
       try {
         const bloques = JSON.parse(bloquesCalendario)
+        console.log('[ModalActividad] ✅ Restaurando bloques:', bloques)
         if (Array.isArray(bloques) && bloques.length > 0) {
           setBloquesNuevos(bloques)
         }
       } catch { /* ignorar */ }
       sessionStorage.removeItem('flux_bloques_calendario')
     }
-    // También restaurar estado del formulario si volvemos del calendario
     const estadoGuardado = sessionStorage.getItem('flux_actividad_pendiente')
+    console.log('[ModalActividad] estado pendiente en sessionStorage:', !!estadoGuardado)
     if (estadoGuardado) {
       try {
         const estado = JSON.parse(estadoGuardado)
+        console.log('[ModalActividad] ✅ Restaurando estado:', Object.keys(estado))
         if (estado.titulo) setTitulo(estado.titulo)
         if (estado.descripcion) setDescripcion(estado.descripcion)
         if (estado.tipoId) setTipoId(estado.tipoId)
