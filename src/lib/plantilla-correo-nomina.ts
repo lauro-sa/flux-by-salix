@@ -85,6 +85,43 @@ const FILA = (label: string, valor: string, extra = '') =>
 const FILA_TOTAL = (label: string, valor: string) =>
   `<tr><td style="padding:5px 0;border-top:1px solid #e2e8f0;padding-top:8px;font-weight:600;color:#1e293b;">${label}</td><td style="padding:5px 0;border-top:1px solid #e2e8f0;padding-top:8px;text-align:right;font-weight:700;color:#166534;font-size:14px;">${valor}</td></tr>`
 
+function construirSeccionAsistencia(datos: DatosNominaCorreo): string {
+  const filas: string[] = []
+
+  filas.push(FILA('Días trabajados', `${datos.dias_trabajados} de ${datos.dias_laborales}`))
+  filas.push(FILA('Porcentaje de asistencia', datos.porcentaje_asistencia))
+
+  if (datos.dias_ausentes > 0) {
+    filas.push(FILA('Ausencias', `${datos.dias_ausentes} día${datos.dias_ausentes !== 1 ? 's' : ''}`))
+  }
+
+  if (datos.dias_tardanza > 0) {
+    filas.push(FILA('Tardanzas', `${datos.dias_tardanza} día${datos.dias_tardanza !== 1 ? 's' : ''}`))
+  }
+
+  // Feriados
+  if (datos.dias_feriados > 0) {
+    if (datos.dias_trabajados_feriado > 0) {
+      filas.push(FILA(
+        `Feriados trabajados`,
+        `${datos.dias_trabajados_feriado} de ${datos.dias_feriados} feriado${datos.dias_feriados !== 1 ? 's' : ''} en el período`,
+      ))
+    } else {
+      filas.push(FILA(
+        'Feriados en el período',
+        `${datos.dias_feriados} (no trabajado${datos.dias_feriados !== 1 ? 's' : ''})`,
+      ))
+    }
+  }
+
+  return `<tr><td style="padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-top:none;">
+    <p style="margin:0 0 10px;font-size:11px;color:#64748b;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Asistencia</p>
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" style="font-size:13px;color:#475569;">
+      ${filas.join('\n      ')}
+    </table>
+  </td></tr>`
+}
+
 function construirSeccionHoras(datos: DatosNominaCorreo): string {
   const filas: string[] = []
   const huboAlmuerzo = datos.dias_con_almuerzo > 0
@@ -188,6 +225,7 @@ export function construirContextoNomina(
       dias_con_almuerzo: datos.dias_con_almuerzo,
       descuenta_almuerzo: datos.descuenta_almuerzo ? 'Sí' : 'No',
       // Bloques HTML condicionales
+      seccion_asistencia: construirSeccionAsistencia(datos),
       seccion_horas: construirSeccionHoras(datos),
       seccion_nota: construirSeccionNota(datos),
       // Compensación

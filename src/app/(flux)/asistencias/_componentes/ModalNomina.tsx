@@ -31,6 +31,7 @@ interface ResultadoNomina {
   descuenta_almuerzo: boolean
   duracion_almuerzo_config: number
   dias_feriados: number
+  dias_trabajados_feriado: number
   // Pago
   monto_pagar: number
   monto_detalle: string

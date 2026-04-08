@@ -52,6 +52,7 @@ interface ResultadoNominaConCorreo {
   descuenta_almuerzo: boolean
   duracion_almuerzo_config: number
   dias_feriados: number
+  dias_trabajados_feriado: number
   monto_pagar: number
   monto_detalle: string
 }
@@ -75,7 +76,7 @@ const fmtHoras = (h: number) => {
   return min > 0 ? `${hrs}h ${min}min` : `${hrs}h`
 }
 
-function construirDatosEmpleado(r: ResultadoNominaConCorreo, etiquetaPeriodo: string): DatosNominaCorreo {
+function construirDatosEmpleado(r: ResultadoNominaConCorreo, etiquetaPeriodo: string): DatosNominaCorreo { // eslint-disable-line @typescript-eslint/no-explicit-any
   const diasLab = r.dias_laborales || 1
   return {
     nombre_empleado: r.nombre,
@@ -94,6 +95,8 @@ function construirDatosEmpleado(r: ResultadoNominaConCorreo, etiquetaPeriodo: st
     dias_con_almuerzo: r.dias_con_almuerzo,
     dias_con_salida_particular: r.dias_con_salida_particular,
     descuenta_almuerzo: r.descuenta_almuerzo,
+    dias_feriados: r.dias_feriados || 0,
+    dias_trabajados_feriado: r.dias_trabajados_feriado || 0,
     porcentaje_asistencia: `${Math.round((r.dias_trabajados / diasLab) * 100)}%`,
     compensacion_tipo: r.compensacion_tipo,
     compensacion_detalle: r.monto_detalle,
