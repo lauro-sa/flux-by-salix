@@ -1,80 +1,79 @@
 /**
- * Hook para capturar lectura de lector RFID USB (HID emulado).
- * El lector simula un teclado: envía el código como keystrokes rápidos + Enter.
- * Distingue de escritura humana por intervalo <50ms entre teclas.
+ * Hook para capturar códigos RFID emitidos por lectores USB (modo HID / emulación de teclado).
+ *
+ * Los lectores RFID USB envían el código como una ráfaga de pulsaciones de teclado (<50ms
+ * entre cada una) seguida de Enter. Este hook distingue esa ráfaga de la escritura humana
+ * normal comparando el intervalo entre teclas.
+ *
+ * Basado en el hook del kiosco anterior (salixweb-0226) que funcionaba en producción.
  */
 'use client'
 
 import { useEffect, useRef, useCallback } from 'react'
 
+const INTERVALO_MAX_HID_MS = 50      // teclas con < 50ms → lector HID
+const TIMEOUT_RESET_BUFFER_MS = 500  // limpiar buffer si pasan > 500ms sin input
+const LONGITUD_MIN_CODIGO = 4        // mínimo de caracteres para código válido
+
 interface OpcionesRFID {
   /** Callback al leer un código RFID válido */
   alLeer: (codigo: string) => void
-  /** Si el hook está activo (desactivar durante otras pantallas) */
+  /** Si el hook está activo */
   activo?: boolean
-  /** Intervalo máximo entre teclas para considerar lectura RFID (ms) */
-  intervaloMaxMs?: number
-  /** Largo mínimo del código para ser válido */
-  largoMinimo?: number
 }
 
-export function useEscuchaRFID({
-  alLeer,
-  activo = true,
-  intervaloMaxMs = 50,
-  largoMinimo = 4,
-}: OpcionesRFID) {
-  const buffer = useRef('')
-  const ultimaTecla = useRef(0)
-  const timerLimpieza = useRef<ReturnType<typeof setTimeout>>(undefined)
+export function useEscuchaRFID({ alLeer, activo = true }: OpcionesRFID) {
+  const bufferRef = useRef('')
+  const ultimaTeclaRef = useRef(0)
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const limpiarBuffer = useCallback(() => {
-    buffer.current = ''
+    bufferRef.current = ''
+    ultimaTeclaRef.current = 0
   }, [])
 
   useEffect(() => {
     if (!activo) return
 
-    const manejarTecla = (e: KeyboardEvent) => {
+    function handleKeydown(e: KeyboardEvent) {
+      // Si hay un input/textarea/select enfocado → el usuario está escribiendo, ignorar
+      const tag = document.activeElement?.tagName?.toUpperCase()
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+
       const ahora = Date.now()
-      const intervalo = ahora - ultimaTecla.current
+      const intervalo = ahora - ultimaTeclaRef.current
+      ultimaTeclaRef.current = ahora
 
-      // Si pasó mucho tiempo desde la última tecla, es escritura humana — resetear
-      if (intervalo > intervaloMaxMs && buffer.current.length > 0) {
-        buffer.current = ''
-      }
-
-      ultimaTecla.current = ahora
+      // Resetear el timer de limpieza con cada tecla
+      if (timerRef.current) clearTimeout(timerRef.current)
 
       if (e.key === 'Enter') {
-        // Enter = fin de lectura RFID
-        if (buffer.current.length >= largoMinimo) {
-          e.preventDefault()
-          e.stopPropagation()
-          alLeer(buffer.current)
+        const codigo = bufferRef.current.trim()
+        if (codigo.length >= LONGITUD_MIN_CODIGO) {
+          alLeer(codigo)
         }
-        buffer.current = ''
+        limpiarBuffer()
         return
       }
 
-      // Solo caracteres alfanuméricos
-      if (e.key.length === 1 && /^[a-zA-Z0-9]$/.test(e.key)) {
-        buffer.current += e.key
-        e.preventDefault()
-        e.stopPropagation()
+      // Solo acumular caracteres imprimibles (longitud 1)
+      if (e.key.length !== 1) return
 
-        // Limpiar buffer si no se completa en 500ms
-        clearTimeout(timerLimpieza.current)
-        timerLimpieza.current = setTimeout(limpiarBuffer, 500)
+      // Si el buffer no estaba vacío y el intervalo es largo → humano escribiendo → reset
+      if (bufferRef.current.length > 0 && intervalo > INTERVALO_MAX_HID_MS * 3) {
+        limpiarBuffer()
       }
+
+      bufferRef.current += e.key
+
+      // Auto-reset si no llega Enter
+      timerRef.current = setTimeout(limpiarBuffer, TIMEOUT_RESET_BUFFER_MS)
     }
 
-    // Capturar en fase de captura para interceptar antes que otros handlers
-    document.addEventListener('keydown', manejarTecla, { capture: true })
-
+    document.addEventListener('keydown', handleKeydown)
     return () => {
-      document.removeEventListener('keydown', manejarTecla, { capture: true })
-      clearTimeout(timerLimpieza.current)
+      document.removeEventListener('keydown', handleKeydown)
+      if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, [activo, alLeer, intervaloMaxMs, largoMinimo, limpiarBuffer])
+  }, [activo, alLeer, limpiarBuffer])
 }
