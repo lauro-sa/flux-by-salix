@@ -633,6 +633,7 @@ export default function PaginaCalendario() {
                 tamano="xs"
                 onClick={() => {
                   sessionStorage.removeItem('flux_bloques_calendario')
+                  sessionStorage.removeItem('flux_actividad_pendiente')
                   const ruta = actividadPendiente?.rutaRetorno || '/actividades'
                   router.push(ruta)
                 }}
@@ -645,7 +646,9 @@ export default function PaginaCalendario() {
                 onClick={() => {
                   sessionStorage.setItem('flux_bloques_calendario', JSON.stringify(bloquesSeleccionados))
                   const ruta = actividadPendiente?.rutaRetorno || '/actividades'
-                  router.push(ruta)
+                  // Agregar parámetro para que la página destino reabra el modal
+                  const separador = ruta.includes('?') ? '&' : '?'
+                  router.push(`${ruta}${separador}abrir_actividad=1`)
                 }}
               >
                 Confirmar ({bloquesSeleccionados.length})

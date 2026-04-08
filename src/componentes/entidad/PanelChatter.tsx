@@ -78,8 +78,17 @@ export function PanelChatter({
   useEffect(() => {
     const pendiente = sessionStorage.getItem('flux_actividad_pendiente')
     const bloques = sessionStorage.getItem('flux_bloques_calendario')
-    if (pendiente || bloques) {
+    const urlParams = new URLSearchParams(window.location.search)
+    if (pendiente || bloques || urlParams.get('abrir_actividad') === '1') {
       setModalActividad(true)
+      // Limpiar el parámetro de la URL sin recargar
+      if (urlParams.get('abrir_actividad')) {
+        urlParams.delete('abrir_actividad')
+        const nuevaUrl = urlParams.toString()
+          ? `${window.location.pathname}?${urlParams.toString()}`
+          : window.location.pathname
+        window.history.replaceState({}, '', nuevaUrl)
+      }
     }
   }, [])
   const [menuAbierto, setMenuAbierto] = useState(false)
