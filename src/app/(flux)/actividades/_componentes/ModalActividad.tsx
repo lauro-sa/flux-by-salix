@@ -244,7 +244,7 @@ function ModalActividad({
         abierto={abierto}
         onCerrar={cerrarPostCalendario}
         titulo="Agendar en calendario"
-        tamano="lg"
+        tamano="3xl"
         acciones={
           <div className="flex items-center justify-between w-full">
             <span className="text-xs text-texto-terciario">Actividad creada. Agendá los bloques de trabajo.</span>
@@ -278,7 +278,7 @@ function ModalActividad({
       abierto={abierto}
       onCerrar={onCerrar}
       titulo={esEdicion ? 'Editar actividad' : (tipoSeleccionado && 'campo_calendario' in tipoSeleccionado && tipoSeleccionado.campo_calendario ? 'Nueva actividad + calendario' : 'Nueva actividad')}
-      tamano="lg"
+      tamano="3xl"
       acciones={
         <>
           <Boton variante="secundario" tamano="sm" onClick={onCerrar}>Cancelar</Boton>
@@ -289,7 +289,7 @@ function ModalActividad({
       }
     >
       <div className="space-y-5">
-        {/* ── Acciones rápidas (solo en edición, actividad pendiente) ── */}
+        {/* ── Acciones rápidas (solo en edición, actividad pendiente) — ancho completo ── */}
         {esEdicion && actividad && actividad.estado_clave !== 'completada' && actividad.estado_clave !== 'cancelada' && (
           <div className="flex flex-wrap gap-2">
             {/* Botón Completar */}
@@ -357,117 +357,129 @@ function ModalActividad({
           </div>
         )}
 
-        {/* ── Selector de tipo (pills visuales) ── */}
-        <div>
-          <label className="text-sm font-medium text-texto-secundario block mb-2">Tipo</label>
-          <div className="flex flex-wrap gap-1.5">
-            {tiposActivos.map(tipo => {
-              const Icono = obtenerIcono(tipo.icono)
-              const sel = tipoId === tipo.id
-              return (
-                <button
-                  key={tipo.id}
-                  onClick={() => manejarCambioTipo(tipo.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer border focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
-                    sel
-                      ? 'border-transparent text-white'
-                      : 'bg-superficie-hover text-texto-secundario border-transparent hover:text-texto-primario'
-                  }`}
-                  style={sel ? { backgroundColor: tipo.color } : undefined}
-                >
-                  {Icono && <Icono size={14} />}
-                  {tipo.etiqueta}
-                </button>
-              )
-            })}
+        {/* ── Layout 2 columnas (desktop) / 1 columna (mobile) ── */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+          {/* ── Columna izquierda (60%) — tipo, título, descripción, checklist ── */}
+          <div className="md:col-span-3 space-y-4">
+            {/* Selector de tipo (pills visuales) */}
+            <div>
+              <label className="text-sm font-medium text-texto-secundario block mb-2">Tipo</label>
+              <div className="flex flex-wrap gap-1.5">
+                {tiposActivos.map(tipo => {
+                  const Icono = obtenerIcono(tipo.icono)
+                  const sel = tipoId === tipo.id
+                  return (
+                    <button
+                      key={tipo.id}
+                      onClick={() => manejarCambioTipo(tipo.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer border focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
+                        sel
+                          ? 'border-transparent text-white'
+                          : 'bg-superficie-hover text-texto-secundario border-transparent hover:text-texto-primario'
+                      }`}
+                      style={sel ? { backgroundColor: tipo.color } : undefined}
+                    >
+                      {Icono && <Icono size={14} />}
+                      {tipo.etiqueta}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Título */}
+            <Input
+              tipo="text"
+              etiqueta="Título"
+              value={titulo}
+              onChange={(e) => { setTitulo(e.target.value); setTituloManual(true) }}
+              placeholder="¿Qué hay que hacer?"
+            />
+
+            {/* Descripción (condicional) */}
+            {tipoSeleccionado?.campo_descripcion && (
+              <TextArea
+                etiqueta="Descripción"
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+                placeholder="Detalles adicionales..."
+                rows={4}
+              />
+            )}
+
+            {/* Checklist (condicional) */}
+            {tipoSeleccionado?.campo_checklist && (
+              <SeccionChecklist checklist={checklist} onChange={setChecklist} />
+            )}
+          </div>
+
+          {/* ── Columna derecha (40%) — responsable, prioridad, fecha, vínculos, bloques ── */}
+          <div className="md:col-span-2 space-y-4 md:border-l md:border-borde-sutil md:pl-6">
+            {/* Responsable */}
+            {tipoSeleccionado?.campo_responsable && (
+              <Select
+                etiqueta="Responsable"
+                valor={asignadoA || ''}
+                onChange={(val) => {
+                  setAsignadoA(val || null)
+                  const m = miembros.find(m => m.usuario_id === val)
+                  setAsignadoNombre(m ? `${m.nombre} ${m.apellido}`.trim() : null)
+                }}
+                placeholder="Sin asignar"
+                opciones={miembros.map(m => ({
+                  valor: m.usuario_id,
+                  etiqueta: `${m.nombre} ${m.apellido}`.trim(),
+                }))}
+              />
+            )}
+
+            {/* Prioridad */}
+            {tipoSeleccionado?.campo_prioridad && (
+              <Select
+                etiqueta="Prioridad"
+                valor={prioridad}
+                onChange={setPrioridad}
+                opciones={[
+                  { valor: 'baja', etiqueta: 'Baja' },
+                  { valor: 'normal', etiqueta: 'Normal' },
+                  { valor: 'alta', etiqueta: 'Alta' },
+                ]}
+              />
+            )}
+
+            {/* Fecha vencimiento */}
+            {tipoSeleccionado?.campo_fecha && (
+              <SelectorFecha
+                valor={fechaVencimiento}
+                onChange={(v) => setFechaVencimiento(v || '')}
+                etiqueta="Vencimiento"
+                limpiable
+              />
+            )}
+
+            {/* Separador visual */}
+            <div className="hidden md:block border-t border-borde-sutil" />
+
+            {/* Vínculos */}
+            <SeccionVinculos vinculos={vinculos} onChange={manejarCambioVinculos} onNavegar={(ruta) => { onCerrar(); router.push(ruta) }} />
+
+            {/* Separador visual */}
+            <div className="hidden md:block border-t border-borde-sutil" />
+
+            {/* Bloques de calendario (solo edición) */}
+            {esEdicion && actividad && (
+              <SeccionBloquesCalendario
+                actividadId={actividad.id}
+                titulo={actividad.titulo}
+                asignadoA={asignadoA}
+                asignadoNombre={asignadoNombre}
+                vinculos={vinculos}
+              />
+            )}
           </div>
         </div>
 
-        {/* ── Vínculos ── */}
-        <SeccionVinculos vinculos={vinculos} onChange={manejarCambioVinculos} onNavegar={(ruta) => { onCerrar(); router.push(ruta) }} />
-
-        {/* ── Título ── */}
-        <Input
-          tipo="text"
-          etiqueta="Título"
-          value={titulo}
-          onChange={(e) => { setTitulo(e.target.value); setTituloManual(true) }}
-          placeholder="¿Qué hay que hacer?"
-        />
-
-        {/* ── Descripción (condicional) ── */}
-        {tipoSeleccionado?.campo_descripcion && (
-          <TextArea
-            etiqueta="Descripción"
-            value={descripcion}
-            onChange={(e) => setDescripcion(e.target.value)}
-            placeholder="Detalles adicionales..."
-            rows={3}
-          />
-        )}
-
-        {/* ── Fila: Fecha + Prioridad + Responsable ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {/* Fecha vencimiento */}
-          {tipoSeleccionado?.campo_fecha && (
-            <SelectorFecha
-              valor={fechaVencimiento}
-              onChange={(v) => setFechaVencimiento(v || '')}
-              etiqueta="Vencimiento"
-              limpiable
-            />
-          )}
-
-          {/* Prioridad */}
-          {tipoSeleccionado?.campo_prioridad && (
-            <Select
-              etiqueta="Prioridad"
-              valor={prioridad}
-              onChange={setPrioridad}
-              opciones={[
-                { valor: 'baja', etiqueta: 'Baja' },
-                { valor: 'normal', etiqueta: 'Normal' },
-                { valor: 'alta', etiqueta: 'Alta' },
-              ]}
-            />
-          )}
-
-          {/* Responsable */}
-          {tipoSeleccionado?.campo_responsable && (
-            <Select
-              etiqueta="Responsable"
-              valor={asignadoA || ''}
-              onChange={(val) => {
-                setAsignadoA(val || null)
-                const m = miembros.find(m => m.usuario_id === val)
-                setAsignadoNombre(m ? `${m.nombre} ${m.apellido}`.trim() : null)
-              }}
-              placeholder="Sin asignar"
-              opciones={miembros.map(m => ({
-                valor: m.usuario_id,
-                etiqueta: `${m.nombre} ${m.apellido}`.trim(),
-              }))}
-            />
-          )}
-        </div>
-
-        {/* ── Checklist (condicional) ── */}
-        {tipoSeleccionado?.campo_checklist && (
-          <SeccionChecklist checklist={checklist} onChange={setChecklist} />
-        )}
-
-        {/* ── Bloques de calendario (solo edición, actividad con fecha) ── */}
-        {esEdicion && actividad && (
-          <SeccionBloquesCalendario
-            actividadId={actividad.id}
-            titulo={actividad.titulo}
-            asignadoA={asignadoA}
-            asignadoNombre={asignadoNombre}
-            vinculos={vinculos}
-          />
-        )}
-
-        {/* ── Seguimientos (solo edición) ── */}
+        {/* ── Seguimientos (solo edición) — ancho completo debajo del grid ── */}
         {esEdicion && (
           <SeccionSeguimientos
             seguimientos={(actividad?.seguimientos as Seguimiento[]) || []}

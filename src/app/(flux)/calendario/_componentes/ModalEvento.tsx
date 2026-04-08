@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Trash2, X, Search, UserPlus, Link2, Users, ChevronDown, ChevronUp } from 'lucide-react'
+import { Trash2, X, Search, UserPlus, Link2, Users } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ModalAdaptable } from '@/componentes/ui/ModalAdaptable'
 import { Input } from '@/componentes/ui/Input'
@@ -397,8 +397,8 @@ function ModalEvento({
   // Estado — recurrencia
   const [recurrencia, setRecurrencia] = useState<ConfigRecurrencia>(RECURRENCIA_DEFAULT)
 
-  // Estado — seccion colapsable "Mas opciones"
-  const [masOpciones, setMasOpciones] = useState(false)
+  // Recordatorio
+  const [recordatorio, setRecordatorio] = useState('15')
 
   /** Opciones de tipo formateadas para el Select */
   const opcionesTipo = useMemo(() =>
@@ -475,12 +475,8 @@ function ModalEvento({
           : RECURRENCIA_DEFAULT,
       )
 
-      // Expandir "Mas opciones" si el evento tiene datos avanzados
-      const tieneAvanzados =
-        (evento.asignados && evento.asignados.length > 0) ||
-        (evento.vinculos && evento.vinculos.length > 0) ||
-        (evento.recurrencia && (evento.recurrencia as ConfigRecurrencia).frecuencia !== 'ninguno')
-      setMasOpciones(!!tieneAvanzados)
+      // Inicializar recordatorio (si existe en el evento)
+      setRecordatorio((evento as unknown as Record<string, unknown>).recordatorio as string || '15')
     } else {
       // Modo crear: valores por defecto
       const inicio = fechaPreseleccionada ? new Date(fechaPreseleccionada) : horaRedondeada()
@@ -505,7 +501,7 @@ function ModalEvento({
       setAsignados([])
       setVinculos([])
       setRecurrencia(RECURRENCIA_DEFAULT)
-      setMasOpciones(false)
+      setRecordatorio('15')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abierto, evento])
@@ -576,12 +572,13 @@ function ModalEvento({
         vinculos,
         vinculo_ids: vinculos.map((v) => v.id),
         recurrencia: recurrencia.frecuencia !== 'ninguno' ? recurrencia : null,
+        recordatorio: recordatorio !== 'ninguno' ? Number(recordatorio) : null,
       })
       onCerrar()
     } finally {
       setGuardando(false)
     }
-  }, [titulo, fechaInicio, fechaFin, horaInicio, horaFin, todoElDia, visibilidad, descripcion, ubicacion, notas, tipoId, evento, onGuardar, onCerrar, asignados, vinculos, recurrencia])
+  }, [titulo, fechaInicio, fechaFin, horaInicio, horaFin, todoElDia, visibilidad, descripcion, ubicacion, notas, tipoId, evento, onGuardar, onCerrar, asignados, vinculos, recurrencia, recordatorio])
 
   /** Manejar eliminar */
   const manejarEliminar = useCallback(async () => {
@@ -641,169 +638,178 @@ function ModalEvento({
       abierto={abierto}
       onCerrar={onCerrar}
       titulo={esEdicion ? 'Editar evento' : 'Nuevo evento'}
-      tamano="lg"
+      tamano="3xl"
       acciones={acciones}
       alturaMovil="completo"
     >
-      <div className="flex flex-col gap-4">
-        {/* Titulo */}
-        <Input
-          etiqueta="Titulo"
-          placeholder="Nombre del evento"
-          value={titulo}
-          onChange={(e) => setTitulo(e.target.value)}
-          autoFocus
-          formato={null}
-        />
-
-        {/* Tipo de evento */}
-        {opcionesTipo.length > 0 && (
-          <Select
-            etiqueta="Tipo de evento"
-            opciones={opcionesTipo}
-            valor={tipoId}
-            onChange={setTipoId}
-            placeholder="Seleccionar tipo..."
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+        {/* ── Columna principal (60%) — datos del evento ── */}
+        <div className="md:col-span-3 space-y-4">
+          {/* Titulo */}
+          <Input
+            etiqueta="Titulo"
+            placeholder="Nombre del evento"
+            value={titulo}
+            onChange={(e) => setTitulo(e.target.value)}
+            autoFocus
+            formato={null}
           />
-        )}
 
-        {/* Fechas y horas */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <SelectorFecha
-            etiqueta="Fecha inicio"
-            valor={fechaInicio}
-            onChange={setFechaInicio}
-          />
-          {!todoElDia && (
-            <SelectorHora
-              etiqueta="Hora inicio"
-              valor={horaInicio}
-              onChange={setHoraInicio}
+          {/* Fecha inicio + hora inicio en una fila */}
+          <div className="grid grid-cols-2 gap-2">
+            <SelectorFecha
+              etiqueta="Inicio"
+              valor={fechaInicio}
+              onChange={setFechaInicio}
             />
-          )}
-          <SelectorFecha
-            etiqueta="Fecha fin"
-            valor={fechaFin}
-            onChange={setFechaFin}
-          />
-          {!todoElDia && (
-            <SelectorHora
-              etiqueta="Hora fin"
-              valor={horaFin}
-              onChange={setHoraFin}
-            />
-          )}
-        </div>
-
-        {/* Todo el dia + recurrencia */}
-        <div className="flex flex-col gap-3">
-          <Interruptor
-            activo={todoElDia}
-            onChange={setTodoElDia}
-            etiqueta="Todo el dia"
-          />
-
-          <SelectorRecurrencia
-            valor={recurrencia}
-            onChange={setRecurrencia}
-            fechaReferencia={fechaInicio}
-            compacto
-          />
-        </div>
-
-        {/* Visibilidad */}
-        <div>
-          <label className="block text-sm font-medium text-texto-secundario mb-1.5">Visibilidad</label>
-          <div className="flex flex-col gap-1.5">
-            {OPCIONES_VISIBILIDAD.map(op => (
-              <button
-                key={op.valor}
-                type="button"
-                onClick={() => setVisibilidad(op.valor)}
-                className={[
-                  'flex flex-col text-left px-3 py-2 rounded-lg border transition-all',
-                  visibilidad === op.valor
-                    ? 'border-texto-marca bg-texto-marca/5'
-                    : 'border-borde-sutil hover:border-borde-fuerte hover:bg-superficie-hover/50',
-                ].join(' ')}
-              >
-                <span className={[
-                  'text-sm font-medium',
-                  visibilidad === op.valor ? 'text-texto-marca' : 'text-texto-primario',
-                ].join(' ')}>
-                  {op.etiqueta}
-                </span>
-                <span className="text-[11px] text-texto-terciario leading-tight mt-0.5">
-                  {op.descripcion}
-                </span>
-              </button>
-            ))}
+            {!todoElDia && (
+              <SelectorHora
+                etiqueta=""
+                valor={horaInicio}
+                onChange={setHoraInicio}
+              />
+            )}
           </div>
+
+          {/* Fecha fin + hora fin en una fila */}
+          <div className="grid grid-cols-2 gap-2">
+            <SelectorFecha
+              etiqueta="Fin"
+              valor={fechaFin}
+              onChange={setFechaFin}
+            />
+            {!todoElDia && (
+              <SelectorHora
+                etiqueta=""
+                valor={horaFin}
+                onChange={setHoraFin}
+              />
+            )}
+          </div>
+
+          {/* Todo el dia + recurrencia */}
+          <div className="flex flex-col gap-3">
+            <Interruptor
+              activo={todoElDia}
+              onChange={setTodoElDia}
+              etiqueta="Todo el dia"
+            />
+
+            <SelectorRecurrencia
+              valor={recurrencia}
+              onChange={setRecurrencia}
+              fechaReferencia={fechaInicio}
+              compacto
+            />
+          </div>
+
+          {/* Descripcion — siempre visible */}
+          <TextArea
+            etiqueta="Descripcion"
+            placeholder="Descripcion del evento (opcional)"
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
+            rows={3}
+          />
+
+          {/* Ubicacion — siempre visible */}
+          <Input
+            etiqueta="Ubicacion"
+            placeholder="Lugar del evento (opcional)"
+            value={ubicacion}
+            onChange={(e) => setUbicacion(e.target.value)}
+            formato={null}
+          />
+
+          {/* Notas — siempre visible */}
+          <TextArea
+            etiqueta="Notas"
+            placeholder="Notas internas (opcional)"
+            value={notas}
+            onChange={(e) => setNotas(e.target.value)}
+            rows={2}
+          />
         </div>
 
-        {/* Asignados */}
-        <SelectorAsignados
-          asignados={asignados}
-          miembrosDisponibles={miembrosDisponibles}
-          onAgregar={agregarAsignado}
-          onRemover={removerAsignado}
-        />
-
-        {/* Vinculaciones */}
-        <SelectorVinculaciones
-          vinculos={vinculos}
-          onAgregar={agregarVinculo}
-          onRemover={removerVinculo}
-        />
-
-        {/* ── Seccion colapsable: mas opciones ── */}
-        <button
-          type="button"
-          onClick={() => setMasOpciones(!masOpciones)}
-          className="flex items-center gap-1.5 text-xs text-texto-terciario hover:text-texto-secundario transition-colors cursor-pointer self-start"
-        >
-          {masOpciones ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          {masOpciones ? 'Menos opciones' : 'Mas opciones'}
-        </button>
-
-        <AnimatePresence>
-          {masOpciones && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-hidden flex flex-col gap-4"
-            >
-              {/* Descripcion */}
-              <TextArea
-                etiqueta="Descripcion"
-                placeholder="Descripcion del evento (opcional)"
-                value={descripcion}
-                onChange={(e) => setDescripcion(e.target.value)}
-                rows={3}
-              />
-
-              {/* Ubicacion */}
-              <Input
-                etiqueta="Ubicacion"
-                placeholder="Lugar del evento (opcional)"
-                value={ubicacion}
-                onChange={(e) => setUbicacion(e.target.value)}
-                formato={null}
-              />
-
-              {/* Notas */}
-              <TextArea
-                etiqueta="Notas"
-                placeholder="Notas internas (opcional)"
-                value={notas}
-                onChange={(e) => setNotas(e.target.value)}
-                rows={2}
-              />
-            </motion.div>
+        {/* ── Columna secundaria (40%) — configuracion y relaciones ── */}
+        <div className="md:col-span-2 space-y-4 md:border-l md:border-borde-sutil md:pl-6">
+          {/* Tipo de evento */}
+          {opcionesTipo.length > 0 && (
+            <Select
+              etiqueta="Tipo de evento"
+              opciones={opcionesTipo}
+              valor={tipoId}
+              onChange={setTipoId}
+              placeholder="Seleccionar tipo..."
+            />
           )}
-        </AnimatePresence>
+
+          {/* Visibilidad */}
+          <div>
+            <label className="block text-sm font-medium text-texto-secundario mb-1.5">Visibilidad</label>
+            <div className="flex flex-col gap-1.5">
+              {OPCIONES_VISIBILIDAD.map(op => (
+                <button
+                  key={op.valor}
+                  type="button"
+                  onClick={() => setVisibilidad(op.valor)}
+                  className={[
+                    'flex flex-col text-left px-3 py-2 rounded-lg border transition-all',
+                    visibilidad === op.valor
+                      ? 'border-texto-marca bg-texto-marca/5'
+                      : 'border-borde-sutil hover:border-borde-fuerte hover:bg-superficie-hover/50',
+                  ].join(' ')}
+                >
+                  <span className={[
+                    'text-sm font-medium',
+                    visibilidad === op.valor ? 'text-texto-marca' : 'text-texto-primario',
+                  ].join(' ')}>
+                    {op.etiqueta}
+                  </span>
+                  <span className="text-[11px] text-texto-terciario leading-tight mt-0.5">
+                    {op.descripcion}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Separador sutil */}
+          <hr className="border-borde-sutil" />
+
+          {/* Asignados */}
+          <SelectorAsignados
+            asignados={asignados}
+            miembrosDisponibles={miembrosDisponibles}
+            onAgregar={agregarAsignado}
+            onRemover={removerAsignado}
+          />
+
+          {/* Vinculaciones */}
+          <SelectorVinculaciones
+            vinculos={vinculos}
+            onAgregar={agregarVinculo}
+            onRemover={removerVinculo}
+          />
+
+          {/* Separador sutil */}
+          <hr className="border-borde-sutil" />
+
+          {/* Recordatorio */}
+          <Select
+            etiqueta="Recordatorio"
+            opciones={[
+              { valor: 'ninguno', etiqueta: 'Sin recordatorio' },
+              { valor: '5', etiqueta: '5 minutos antes' },
+              { valor: '15', etiqueta: '15 minutos antes' },
+              { valor: '30', etiqueta: '30 minutos antes' },
+              { valor: '60', etiqueta: '1 hora antes' },
+              { valor: '1440', etiqueta: '1 dia antes' },
+            ]}
+            valor={recordatorio}
+            onChange={setRecordatorio}
+          />
+        </div>
       </div>
     </ModalAdaptable>
   )
