@@ -1742,172 +1742,164 @@ export default function PaginaPerfilUsuario() {
               {/* ── 4. ACCESO AL KIOSCO ── */}
               <section>
                 <SeccionEncabezado icono={<KeyRound size={15} />} titulo="Acceso al kiosco" />
-                <div className="space-y-5">
-                  {/* Llavero RFID */}
-                  <div>
-                    <p className="text-sm font-semibold text-texto-primario mb-1">Código de llavero RFID</p>
-                    <div className="flex items-center gap-2 max-w-sm">
-                      <div className="w-48">
-                        <Input
-                          tipo="text"
-                          ref={rfidInputRef}
-                          value={miembro.kiosco_rfid || ''}
-                          onChange={(e) => setMiembro(p => p ? { ...p, kiosco_rfid: e.target.value } : null)}
-                          onBlur={() => {
-                            if (capturandoRfid && miembro.kiosco_rfid) {
-                              guardarMiembroInmediato({ kiosco_rfid: miembro.kiosco_rfid })
-                              setCapturandoRfid(false)
-                            } else {
-                              guardarMiembro({ kiosco_rfid: miembro.kiosco_rfid || null })
-                            }
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault()
-                              if (miembro.kiosco_rfid) {
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6">
+                  {/* Columna izquierda: RFID + PIN */}
+                  <div className="space-y-5">
+                    {/* Llavero RFID */}
+                    <div className="space-y-1.5">
+                      <p className="text-sm font-medium text-texto-primario">Llavero RFID</p>
+                      <div className="flex items-center gap-2">
+                        <div className="w-44">
+                          <Input
+                            tipo="text"
+                            ref={rfidInputRef}
+                            value={miembro.kiosco_rfid || ''}
+                            onChange={(e) => setMiembro(p => p ? { ...p, kiosco_rfid: e.target.value } : null)}
+                            onBlur={() => {
+                              if (capturandoRfid && miembro.kiosco_rfid) {
                                 guardarMiembroInmediato({ kiosco_rfid: miembro.kiosco_rfid })
+                                setCapturandoRfid(false)
+                              } else {
+                                guardarMiembro({ kiosco_rfid: miembro.kiosco_rfid || null })
                               }
-                              setCapturandoRfid(false)
-                              rfidInputRef.current?.blur()
-                            }
-                          }}
-                          placeholder={capturandoRfid ? 'Esperando...' : 'Código RFID'}
-                          formato={null}
-                          disabled={!puedeEditar}
-                          compacto
-                        />
-                      </div>
-                      {puedeEditar && (
-                        <Boton
-                          variante={capturandoRfid ? 'primario' : 'secundario'}
-                          tamano="sm"
-                          icono={<Nfc size={14} className={capturandoRfid ? 'animate-pulse' : ''} />}
-                          onClick={() => {
-                            if (capturandoRfid) {
-                              setCapturandoRfid(false)
-                              return
-                            }
-                            setCapturandoRfid(true)
-                            setTimeout(() => rfidInputRef.current?.focus(), 50)
-                          }}
-                        >
-                          {capturandoRfid ? 'Capturando...' : 'Capturar'}
-                        </Boton>
-                      )}
-                    </div>
-                    <p className="text-xs text-texto-terciario mt-1">
-                      {capturandoRfid
-                        ? 'Pasá el llavero por el lector USB ahora...'
-                        : 'Hacé clic en "Capturar" y luego pasá el llavero por el lector USB.'
-                      }
-                    </p>
-                  </div>
-
-                  {/* PIN del Kiosco — 6 dígitos */}
-                  <div>
-                    <p className="text-sm font-semibold text-texto-primario mb-1">PIN del kiosco <span className="font-normal text-texto-terciario">(6 dígitos)</span></p>
-                    <div className="flex items-center gap-2">
-                      <div className="max-w-[180px]">
-                        <Input
-                          tipo={pinVisible ? 'text' : 'password'}
-                          value={miembro.kiosco_pin || ''}
-                          onChange={(e) => setMiembro(p => p ? { ...p, kiosco_pin: e.target.value.replace(/\D/g, '').slice(0, 6) } : null)}
-                          onBlur={() => guardarMiembro({ kiosco_pin: miembro.kiosco_pin || null })}
-                          placeholder="000000"
-                          formato={null}
-                          disabled={!puedeEditar}
-                          compacto
-                          iconoDerecho={
-                            <Boton
-                              variante="fantasma"
-                              tamano="xs"
-                              soloIcono
-                              icono={pinVisible ? <EyeOff size={14} /> : <Eye size={14} />}
-                              titulo={pinVisible ? 'Ocultar PIN' : 'Mostrar PIN'}
-                              onClick={() => setPinVisible(v => !v)}
-                            />
-                          }
-                        />
-                      </div>
-                      {puedeEditar && (
-                        <Boton
-                          variante="fantasma"
-                          tamano="sm"
-                          icono={<KeyRound size={14} />}
-                          onClick={() => {
-                            const pin = String(Math.floor(100000 + Math.random() * 900000))
-                            setMiembro(p => p ? { ...p, kiosco_pin: pin } : null)
-                            guardarMiembroInmediato({ kiosco_pin: pin })
-                            setPinVisible(true)
-                          }}
-                        >
-                          Generar
-                        </Boton>
-                      )}
-                    </div>
-                    <p className="text-xs text-texto-terciario mt-1">Alternativa al llavero para emergencias. Ej: últimos 6 dígitos del DNI.</p>
-                  </div>
-
-                  {/* Foto para kiosco — formato vertical 3:4 */}
-                  <div>
-                    <p className="text-sm font-semibold text-texto-primario mb-1">Foto para kiosco</p>
-                    <p className="text-xs text-texto-terciario mb-3">Foto vertical tipo carnet que se muestra en la pantalla del kiosco al fichar.</p>
-                    <div className="flex items-start gap-4">
-                      <input type="file" accept=".jpg,.jpeg,.png,.webp" className="hidden" id="foto-kiosco-upload"
-                        onChange={(e) => {
-                          const archivo = e.target.files?.[0]
-                          if (!archivo) return
-                          const url = URL.createObjectURL(archivo)
-                          setRecortador({ imagen: url, tipo: 'kiosco' })
-                          e.target.value = ''
-                        }}
-                      />
-                      <div className="w-28 shrink-0">
-                        {miembro.foto_kiosco_url ? (
-                          <div className="relative group">
-                            <img
-                              src={miembro.foto_kiosco_url}
-                              alt="Foto kiosco"
-                              className="w-28 aspect-[3/4] object-cover rounded-lg border border-borde-sutil"
-                            />
-                            <Boton
-                              variante="fantasma"
-                              soloIcono
-                              icono={<Camera size={18} className="text-white" />}
-                              titulo="Editar foto kiosco"
-                              onClick={() => setRecortador({ imagen: miembro.foto_kiosco_url!, tipo: 'kiosco' })}
-                              className="absolute inset-0 !rounded-lg opacity-0 group-hover:opacity-100 !bg-black/40"
-                            />
-                            {/* Eliminar foto kiosco */}
-                            <Boton
-                              variante="peligro"
-                              tamano="xs"
-                              soloIcono
-                              icono={<X size={10} className="text-white" />}
-                              titulo="Eliminar foto"
-                              onClick={async () => {
-                                setMiembro(p => p ? { ...p, foto_kiosco_url: null } : null)
-                                guardarMiembroInmediato({ foto_kiosco_url: null })
-                              }}
-                              className="absolute -top-1.5 -right-1.5 !size-5 !rounded-full opacity-0 group-hover:opacity-100"
-                            />
-                          </div>
-                        ) : (
-                          <label
-                            htmlFor="foto-kiosco-upload"
-                            className="w-28 aspect-[3/4] rounded-lg border-2 border-dashed border-borde-fuerte flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:bg-superficie-hover/30 hover:border-texto-marca/30 transition-all"
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault()
+                                if (miembro.kiosco_rfid) {
+                                  guardarMiembroInmediato({ kiosco_rfid: miembro.kiosco_rfid })
+                                }
+                                setCapturandoRfid(false)
+                                rfidInputRef.current?.blur()
+                              }
+                            }}
+                            placeholder={capturandoRfid ? 'Esperando...' : 'Sin asignar'}
+                            formato={null}
+                            disabled={!puedeEditar}
+                            compacto
+                          />
+                        </div>
+                        {puedeEditar && (
+                          <Boton
+                            variante={capturandoRfid ? 'primario' : 'secundario'}
+                            tamano="sm"
+                            icono={<Nfc size={14} className={capturandoRfid ? 'animate-pulse' : ''} />}
+                            onClick={() => {
+                              if (capturandoRfid) {
+                                setCapturandoRfid(false)
+                                return
+                              }
+                              setCapturandoRfid(true)
+                              setTimeout(() => rfidInputRef.current?.focus(), 50)
+                            }}
                           >
-                            <Camera size={20} className="text-texto-terciario" />
-                            <span className="text-xxs text-texto-terciario">Subir foto</span>
-                          </label>
+                            {capturandoRfid ? 'Capturando...' : 'Capturar'}
+                          </Boton>
                         )}
                       </div>
-                      <div className="text-xs text-texto-terciario space-y-1 pt-1">
-                        <p>Formato vertical (3:4), tipo carnet</p>
-                        <p>Se muestra al fichar en el kiosco</p>
-                        <p>JPG o PNG, máx 2 MB</p>
-                      </div>
+                      <p className="text-xs text-texto-terciario">
+                        {capturandoRfid ? 'Pasá el llavero por el lector USB...' : 'Clic en Capturar y pasá el llavero.'}
+                      </p>
                     </div>
+
+                    {/* PIN */}
+                    <div className="space-y-1.5">
+                      <p className="text-sm font-medium text-texto-primario">PIN del kiosco <span className="font-normal text-texto-terciario">(6 dígitos)</span></p>
+                      <div className="flex items-center gap-2">
+                        <div className="w-44">
+                          <Input
+                            tipo={pinVisible ? 'text' : 'password'}
+                            value={miembro.kiosco_pin || ''}
+                            onChange={(e) => setMiembro(p => p ? { ...p, kiosco_pin: e.target.value.replace(/\D/g, '').slice(0, 6) } : null)}
+                            onBlur={() => guardarMiembro({ kiosco_pin: miembro.kiosco_pin || null })}
+                            placeholder="000000"
+                            formato={null}
+                            disabled={!puedeEditar}
+                            compacto
+                            iconoDerecho={
+                              <Boton
+                                variante="fantasma"
+                                tamano="xs"
+                                soloIcono
+                                icono={pinVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+                                titulo={pinVisible ? 'Ocultar' : 'Mostrar'}
+                                onClick={() => setPinVisible(v => !v)}
+                              />
+                            }
+                          />
+                        </div>
+                        {puedeEditar && (
+                          <Boton
+                            variante="secundario"
+                            tamano="sm"
+                            icono={<KeyRound size={14} />}
+                            onClick={() => {
+                              const pin = String(Math.floor(100000 + Math.random() * 900000))
+                              setMiembro(p => p ? { ...p, kiosco_pin: pin } : null)
+                              guardarMiembroInmediato({ kiosco_pin: pin })
+                              setPinVisible(true)
+                            }}
+                          >
+                            Generar
+                          </Boton>
+                        )}
+                      </div>
+                      <p className="text-xs text-texto-terciario">Alternativa al llavero. Ej: últimos 6 dígitos del DNI.</p>
+                    </div>
+                  </div>
+
+                  {/* Columna derecha: Foto kiosco */}
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-texto-primario">Foto para kiosco</p>
+                    <input type="file" accept=".jpg,.jpeg,.png,.webp" className="hidden" id="foto-kiosco-upload"
+                      onChange={(e) => {
+                        const archivo = e.target.files?.[0]
+                        if (!archivo) return
+                        const url = URL.createObjectURL(archivo)
+                        setRecortador({ imagen: url, tipo: 'kiosco' })
+                        e.target.value = ''
+                      }}
+                    />
+                    <div className="w-28 shrink-0">
+                      {miembro.foto_kiosco_url ? (
+                        <div className="relative group">
+                          <img
+                            src={miembro.foto_kiosco_url}
+                            alt="Foto kiosco"
+                            className="w-28 aspect-[3/4] object-cover rounded-lg border border-borde-sutil"
+                          />
+                          <Boton
+                            variante="fantasma"
+                            soloIcono
+                            icono={<Camera size={18} className="text-white" />}
+                            titulo="Editar foto kiosco"
+                            onClick={() => setRecortador({ imagen: miembro.foto_kiosco_url!, tipo: 'kiosco' })}
+                            className="absolute inset-0 !rounded-lg opacity-0 group-hover:opacity-100 !bg-black/40"
+                          />
+                          <Boton
+                            variante="peligro"
+                            tamano="xs"
+                            soloIcono
+                            icono={<X size={10} className="text-white" />}
+                            titulo="Eliminar foto"
+                            onClick={async () => {
+                              setMiembro(p => p ? { ...p, foto_kiosco_url: null } : null)
+                              guardarMiembroInmediato({ foto_kiosco_url: null })
+                            }}
+                            className="absolute -top-1.5 -right-1.5 !size-5 !rounded-full opacity-0 group-hover:opacity-100"
+                          />
+                        </div>
+                      ) : (
+                        <label
+                          htmlFor="foto-kiosco-upload"
+                          className="w-28 aspect-[3/4] rounded-lg border-2 border-dashed border-borde-fuerte flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:bg-superficie-hover/30 hover:border-texto-marca/30 transition-all"
+                        >
+                          <Camera size={20} className="text-texto-terciario" />
+                          <span className="text-xxs text-texto-terciario">Subir foto</span>
+                        </label>
+                      )}
+                    </div>
+                    <p className="text-xs text-texto-terciario">Vertical 3:4, tipo carnet</p>
                   </div>
                 </div>
               </section>
