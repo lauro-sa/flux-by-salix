@@ -256,18 +256,51 @@ function ModalActividad({
     }
   }
 
-  // Si el selector de calendario está abierto, mostrar solo eso (no dos modales)
-  if (selectorCalendarioAbierto) {
-    return (
-      <SelectorCalendarioBloque
-        abierto
-        bloques={bloquesNuevos}
-        onCambiar={setBloquesNuevos}
-        onCerrar={() => setSelectorCalendarioAbierto(false)}
-        titulo={titulo || 'Nuevo evento'}
-      />
-    )
-  }
+  // Navegar al calendario real para seleccionar bloques
+  const abrirCalendarioReal = useCallback(() => {
+    // Guardar estado del formulario en sessionStorage
+    const estadoFormulario = {
+      titulo, descripcion, tipoId, prioridad, fechaVencimiento,
+      asignadoA, asignadoNombre, checklist, vinculos, bloquesNuevos,
+      rutaRetorno: window.location.pathname + window.location.search,
+    }
+    sessionStorage.setItem('flux_actividad_pendiente', JSON.stringify(estadoFormulario))
+    // Navegar al calendario en modo selección
+    router.push('/calendario?modo=seleccion')
+  }, [titulo, descripcion, tipoId, prioridad, fechaVencimiento, asignadoA, asignadoNombre, checklist, vinculos, bloquesNuevos, router])
+
+  // Al montar, verificar si volvemos del calendario con bloques seleccionados
+  useEffect(() => {
+    if (!abierto) return
+    const bloquesCalendario = sessionStorage.getItem('flux_bloques_calendario')
+    if (bloquesCalendario) {
+      try {
+        const bloques = JSON.parse(bloquesCalendario)
+        if (Array.isArray(bloques) && bloques.length > 0) {
+          setBloquesNuevos(bloques)
+        }
+      } catch { /* ignorar */ }
+      sessionStorage.removeItem('flux_bloques_calendario')
+    }
+    // También restaurar estado del formulario si volvemos del calendario
+    const estadoGuardado = sessionStorage.getItem('flux_actividad_pendiente')
+    if (estadoGuardado) {
+      try {
+        const estado = JSON.parse(estadoGuardado)
+        if (estado.titulo) setTitulo(estado.titulo)
+        if (estado.descripcion) setDescripcion(estado.descripcion)
+        if (estado.tipoId) setTipoId(estado.tipoId)
+        if (estado.prioridad) setPrioridad(estado.prioridad)
+        if (estado.fechaVencimiento) setFechaVencimiento(estado.fechaVencimiento)
+        if (estado.asignadoA) setAsignadoA(estado.asignadoA)
+        if (estado.asignadoNombre) setAsignadoNombre(estado.asignadoNombre)
+        if (estado.checklist) setChecklist(estado.checklist)
+        if (estado.vinculos) setVinculos(estado.vinculos)
+        if (estado.bloquesNuevos) setBloquesNuevos(estado.bloquesNuevos)
+      } catch { /* ignorar */ }
+      sessionStorage.removeItem('flux_actividad_pendiente')
+    }
+  }, [abierto]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Modal
@@ -481,7 +514,7 @@ function ModalActividad({
                     <Calendar size={15} className="text-texto-terciario" />
                     <span className="text-sm font-medium text-texto-primario">Agendar en calendario</span>
                   </div>
-                  <Boton variante="fantasma" tamano="xs" icono={<Calendar size={14} />} onClick={() => setSelectorCalendarioAbierto(true)}>
+                  <Boton variante="fantasma" tamano="xs" icono={<Calendar size={14} />} onClick={abrirCalendarioReal}>
                     Abrir calendario
                   </Boton>
                 </div>
@@ -489,10 +522,10 @@ function ModalActividad({
                 {bloquesNuevos.length === 0 ? (
                   <button
                     type="button"
-                    onClick={() => setSelectorCalendarioAbierto(true)}
+                    onClick={abrirCalendarioReal}
                     className="w-full p-3 rounded-lg border-2 border-dashed border-borde-sutil text-xs text-texto-terciario hover:border-texto-marca/30 hover:text-texto-marca transition-colors"
                   >
-                    Hacé clic para abrir el calendario y seleccionar horarios
+                    Hacé clic para abrir el calendario y ver disponibilidad
                   </button>
                 ) : (
                   <div className="space-y-1">

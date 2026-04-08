@@ -8,8 +8,8 @@
  */
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { Calendar, PlusCircle } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { Calendar, PlusCircle, ArrowLeft, Check } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { BarraHerramientasCalendario } from './_componentes/BarraHerramientasCalendario'
 import { VistaCalendarioMes } from './_componentes/VistaCalendarioMes'
@@ -20,6 +20,7 @@ import { VistaCalendarioEquipo } from './_componentes/VistaCalendarioEquipo'
 import { VistaCalendarioQuincenal } from './_componentes/VistaCalendarioQuincenal'
 import { MiniCalendario } from './_componentes/MiniCalendario'
 import { ModalEvento } from './_componentes/ModalEvento'
+import { Boton } from '@/componentes/ui/Boton'
 import { PopoverEvento } from './_componentes/PopoverEvento'
 import { useToast } from '@/componentes/feedback/Toast'
 import type { EventoCalendario, TipoEventoCalendario, VistaCalendario } from './_componentes/tipos'
@@ -111,7 +112,31 @@ function formatearFechaISO(fecha: Date): string {
 
 export default function PaginaCalendario() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { mostrar } = useToast()
+
+  // Modo selección: viene de crear actividad para elegir bloques
+  const modoSeleccion = searchParams.get('modo') === 'seleccion'
+  const [bloquesSeleccionados, setBloquesSeleccionados] = useState<{ fecha: string; horaInicio: string; horaFin: string }[]>([])
+
+  // Datos de la actividad pendiente (para mostrar en el banner)
+  const [actividadPendiente, setActividadPendiente] = useState<{ titulo?: string; rutaRetorno?: string } | null>(null)
+
+  useEffect(() => {
+    if (!modoSeleccion) return
+    const datos = sessionStorage.getItem('flux_actividad_pendiente')
+    if (datos) {
+      try { setActividadPendiente(JSON.parse(datos)) } catch { /* ignorar */ }
+    }
+    // Recuperar bloques previos si los hay
+    const bloquesPrev = sessionStorage.getItem('flux_bloques_calendario')
+    if (bloquesPrev) {
+      try {
+        const b = JSON.parse(bloquesPrev)
+        if (Array.isArray(b)) setBloquesSeleccionados(b)
+      } catch { /* ignorar */ }
+    }
+  }, [modoSeleccion])
 
   // Estado principal
   const [vistaActiva, setVistaActiva] = useState<VistaCalendario>('mes')
@@ -147,8 +172,10 @@ export default function PaginaCalendario() {
         if (res.ok) {
           const datos = await res.json()
           setTiposEvento(datos.tipos || [])
-          // Aplicar vista predeterminada desde la config de la empresa
-          if (datos.config?.vista_default) {
+          // En modo selección forzar vista semana; si no, aplicar config
+          if (modoSeleccion) {
+            setVistaActiva('semana')
+          } else if (datos.config?.vista_default) {
             setVistaActiva(datos.config.vista_default as VistaCalendario)
           }
         }
@@ -299,6 +326,16 @@ export default function PaginaCalendario() {
 
   // --- Acciones del calendario ---
   const manejarClickDia = useCallback((fecha: Date, fechaFin?: Date) => {
+    // En modo selección: agregar bloque en vez de abrir modal
+    if (modoSeleccion) {
+      const fechaStr = formatearFechaISO(fecha)
+      const horaInicio = `${String(fecha.getHours()).padStart(2, '0')}:${String(fecha.getMinutes()).padStart(2, '0')}`
+      const fin = fechaFin || new Date(fecha.getTime() + 60 * 60000) // 1 hora por defecto
+      const horaFin = `${String(fin.getHours()).padStart(2, '0')}:${String(fin.getMinutes()).padStart(2, '0')}`
+      setBloquesSeleccionados(prev => [...prev, { fecha: fechaStr, horaInicio, horaFin }])
+      return
+    }
+
     // Cerrar popover si está abierto
     setPopoverEvento(null)
     setPopoverPosicion(null)
@@ -306,7 +343,7 @@ export default function PaginaCalendario() {
     setFechaPreseleccionada(fecha)
     setFechaFinPreseleccionada(fechaFin || null)
     setModalAbierto(true)
-  }, [])
+  }, [modoSeleccion])
 
   /** Muestra el popover de resumen al hacer clic en un evento */
   const manejarClickEvento = useCallback((evento: EventoCalendario, posicion?: { x: number; y: number }) => {
@@ -533,6 +570,48 @@ export default function PaginaCalendario() {
     >
       {/* Wrapper con márgenes laterales para la barra y contenido */}
       <div className="flex flex-col h-full px-2 sm:px-6">
+
+      {/* Banner modo selección */}
+      {modoSeleccion && (
+        <div className="flex items-center justify-between gap-3 p-3 mb-3 rounded-xl bg-texto-marca/10 border border-texto-marca/20">
+          <div className="flex items-center gap-2 min-w-0">
+            <Calendar size={16} className="text-texto-marca shrink-0" />
+            <span className="text-sm font-medium text-texto-marca truncate">
+              Seleccionando bloques{actividadPendiente?.titulo ? `: ${actividadPendiente.titulo}` : ''}
+            </span>
+            {bloquesSeleccionados.length > 0 && (
+              <span className="text-xs bg-texto-marca text-white px-2 py-0.5 rounded-full shrink-0">
+                {bloquesSeleccionados.length} bloque{bloquesSeleccionados.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Boton
+              variante="fantasma"
+              tamano="xs"
+              icono={<ArrowLeft size={14} />}
+              onClick={() => {
+                sessionStorage.removeItem('flux_bloques_calendario')
+                const ruta = actividadPendiente?.rutaRetorno || '/actividades'
+                router.push(ruta)
+              }}
+            >
+              Cancelar
+            </Boton>
+            <Boton
+              tamano="xs"
+              icono={<Check size={14} />}
+              onClick={() => {
+                sessionStorage.setItem('flux_bloques_calendario', JSON.stringify(bloquesSeleccionados))
+                const ruta = actividadPendiente?.rutaRetorno || '/actividades'
+                router.push(ruta)
+              }}
+            >
+              Confirmar
+            </Boton>
+          </div>
+        </div>
+      )}
 
       {/* Barra de herramientas */}
       <BarraHerramientasCalendario
