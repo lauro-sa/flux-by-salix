@@ -335,6 +335,11 @@ function redondearYA15Min(y: number): number {
   return (minutosRedondeados / 60) * ALTURA_FILA
 }
 
+/** Convierte una posición Y (px) a hora decimal (ej: 8.5 = 08:30) */
+function horaDecimalDesdeYSemana(y: number): number {
+  return HORA_INICIO + (y / ALTURA_FILA)
+}
+
 /**
  * Convierte una posición Y (px) a hora formateada "HH:MM".
  * Se usa para mostrar etiquetas durante la selección por arrastre.
@@ -379,6 +384,9 @@ function VistaCalendarioSemana({
   /** Ref para acceder al estado actual de selección dentro de listeners del documento */
   const refSeleccion = useRef<EstadoSeleccionRango | null>(null)
   refSeleccion.current = seleccion
+
+  // --- Rango de horas activo para resaltar etiquetas de hora ---
+  const [rangoHorasActivo, setRangoHorasActivo] = useState<{ horaInicio: number; horaFin: number } | null>(null)
 
   // --- Estado para DragOverlay (evento activo durante arrastre) ---
   const [eventoDragActivo, setEventoDragActivo] = useState<EventoCalendario | null>(null)
@@ -511,9 +519,14 @@ function VistaCalendarioSemana({
       const yClamped = Math.max(0, Math.min(yRelativo, alturaTotal))
       const yRedondeado = redondearYA15Min(yClamped)
 
-      setSeleccion((prev) =>
-        prev ? { ...prev, finY: yRedondeado } : null,
-      )
+      setSeleccion((prev) => {
+        if (!prev) return null
+        // Actualizar rango activo para resaltar etiquetas de hora
+        const yMin = Math.min(prev.inicioY, yRedondeado)
+        const yMax = Math.max(prev.inicioY, yRedondeado)
+        setRangoHorasActivo({ horaInicio: horaDecimalDesdeYSemana(yMin), horaFin: horaDecimalDesdeYSemana(yMax) })
+        return { ...prev, finY: yRedondeado }
+      })
     },
     [alturaTotal],
   )
@@ -527,6 +540,9 @@ function VistaCalendarioSemana({
     const manejarMouseUp = () => {
       const sel = refSeleccion.current
       if (!sel?.activa) return
+
+      // Limpiar rango activo de etiquetas de hora
+      setRangoHorasActivo(null)
 
       const yMin = Math.min(sel.inicioY, sel.finY)
       const yMax = Math.max(sel.inicioY, sel.finY)
@@ -583,14 +599,35 @@ function VistaCalendarioSemana({
     setTipoDrag(null)
     setDragDeltaY(0)
     setDragDeltaX(0)
+    setRangoHorasActivo(null)
   }, [])
 
   const manejarMovimientoDrag = useCallback((event: DragMoveEvent) => {
     if (event.delta) {
       setDragDeltaY(event.delta.y)
       setDragDeltaX(event.delta.x)
+
+      // Actualizar rango de horas activo durante arrastre de evento
+      const idStr = event.active.id as string
+      const esRedimensionar = idStr.startsWith('redimensionar-')
+      const eventoId = esRedimensionar ? idStr.replace('redimensionar-', '') : idStr.replace('mover-', '')
+      const eventoOrig = eventos.find(e => e.id === eventoId)
+      if (eventoOrig) {
+        const inicio = parsearFecha(eventoOrig.fecha_inicio)
+        const fin = parsearFecha(eventoOrig.fecha_fin)
+        const deltaMin = Math.round((event.delta.y / ALTURA_FILA) * 60 / 15) * 15
+        if (esRedimensionar) {
+          const hInicio = inicio.getHours() + inicio.getMinutes() / 60
+          const hFin = fin.getHours() + fin.getMinutes() / 60 + deltaMin / 60
+          setRangoHorasActivo({ horaInicio: hInicio, horaFin: Math.max(hFin, hInicio + 0.25) })
+        } else {
+          const hInicio = inicio.getHours() + inicio.getMinutes() / 60 + deltaMin / 60
+          const hFin = fin.getHours() + fin.getMinutes() / 60 + deltaMin / 60
+          setRangoHorasActivo({ horaInicio: hInicio, horaFin: hFin })
+        }
+      }
     }
-  }, [])
+  }, [eventos])
 
   /**
    * Maneja el fin de un arrastre (mover o redimensionar).
@@ -653,6 +690,7 @@ function VistaCalendarioSemana({
       setTipoDrag(null)
       setDragDeltaY(0)
       setDragDeltaX(0)
+      setRangoHorasActivo(null)
     },
     [eventos, onMoverEvento],
   )
@@ -768,20 +806,42 @@ function VistaCalendarioSemana({
         {/* Cuadrícula horaria (scrollable) */}
         <div ref={refCuadricula} className="flex-1 overflow-y-auto min-h-0">
           <div className="flex relative" style={{ height: alturaTotal }}>
-            {/* Columna de etiquetas de hora */}
+            {/* Columna de etiquetas de hora con resaltado de rango activo */}
             <div
               className="shrink-0 relative border-r border-borde-sutil"
               style={{ width: ANCHO_COLUMNA_HORAS }}
             >
-              {HORAS.map((hora) => (
-                <div
-                  key={hora}
-                  className="absolute right-2 text-xs text-texto-terciario leading-none -translate-y-1/2"
-                  style={{ top: tiempoAPx(hora, 0) }}
-                >
-                  {String(hora).padStart(2, '0')}:00
-                </div>
-              ))}
+              {HORAS.map((hora) => {
+                const enRango = rangoHorasActivo !== null &&
+                  hora >= Math.floor(rangoHorasActivo.horaInicio) &&
+                  hora < Math.ceil(rangoHorasActivo.horaFin)
+
+                return (
+                  <div
+                    key={hora}
+                    className="absolute flex items-center -translate-y-1/2"
+                    style={{ top: tiempoAPx(hora, 0), left: 0, right: 0 }}
+                  >
+                    {/* Barra vertical indicadora de rango activo */}
+                    <div
+                      className="w-[3px] h-4 rounded-full shrink-0 ml-1 transition-colors duration-150"
+                      style={{
+                        backgroundColor: enRango ? 'var(--texto-marca)' : 'transparent',
+                      }}
+                    />
+                    <span
+                      className={[
+                        'text-xs leading-none ml-auto mr-2 transition-colors duration-150',
+                        enRango
+                          ? 'text-texto-marca font-bold'
+                          : 'text-texto-terciario',
+                      ].join(' ')}
+                    >
+                      {String(hora).padStart(2, '0')}:00
+                    </span>
+                  </div>
+                )
+              })}
             </div>
 
             {/* Columnas de días */}

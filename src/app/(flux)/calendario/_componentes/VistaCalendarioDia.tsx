@@ -352,6 +352,11 @@ interface EstadoSeleccionRangoDia {
   activa: boolean
 }
 
+/** Convierte una posición Y (px) a hora decimal (ej: 8.5 = 08:30) */
+function horaDecimalDesdeYDia(y: number): number {
+  return HORA_INICIO + (y / ALTURA_FILA_HORA)
+}
+
 /**
  * Redondea una posición Y a intervalos de 15 minutos.
  */
@@ -400,6 +405,9 @@ function VistaCalendarioDia({
   const [seleccionDia, setSeleccionDia] = useState<EstadoSeleccionRangoDia | null>(null)
   const refSeleccionDia = useRef<EstadoSeleccionRangoDia | null>(null)
   refSeleccionDia.current = seleccionDia
+
+  // --- Rango de horas activo para resaltar etiquetas de hora ---
+  const [rangoHorasActivo, setRangoHorasActivo] = useState<{ horaInicio: number; horaFin: number } | null>(null)
 
   // --- Estado para DragOverlay (evento activo durante arrastre) ---
   const [eventoDragActivo, setEventoDragActivo] = useState<EventoCalendario | null>(null)
@@ -503,9 +511,14 @@ function VistaCalendarioDia({
       const yClamped = Math.max(0, Math.min(yRelativo, alturaTotalDia))
       const yRedondeado = redondearYA15MinDia(yClamped)
 
-      setSeleccionDia((prev) =>
-        prev ? { ...prev, finY: yRedondeado } : null,
-      )
+      setSeleccionDia((prev) => {
+        if (!prev) return null
+        // Actualizar rango activo para resaltar etiquetas de hora
+        const yMin = Math.min(prev.inicioY, yRedondeado)
+        const yMax = Math.max(prev.inicioY, yRedondeado)
+        setRangoHorasActivo({ horaInicio: horaDecimalDesdeYDia(yMin), horaFin: horaDecimalDesdeYDia(yMax) })
+        return { ...prev, finY: yRedondeado }
+      })
     },
     [alturaTotalDia],
   )
@@ -517,6 +530,9 @@ function VistaCalendarioDia({
     const manejarMouseUpDia = () => {
       const sel = refSeleccionDia.current
       if (!sel?.activa) return
+
+      // Limpiar rango activo de etiquetas de hora
+      setRangoHorasActivo(null)
 
       const yMin = Math.min(sel.inicioY, sel.finY)
       const yMax = Math.max(sel.inicioY, sel.finY)
@@ -563,11 +579,34 @@ function VistaCalendarioDia({
     setEventoDragActivo(null)
     setTipoDrag(null)
     setDragDeltaY(0)
+    setRangoHorasActivo(null)
   }, [])
 
   const manejarMovimientoDrag = useCallback((event: DragMoveEvent) => {
-    if (event.delta) setDragDeltaY(event.delta.y)
-  }, [])
+    if (event.delta) {
+      setDragDeltaY(event.delta.y)
+
+      // Actualizar rango de horas activo durante arrastre de evento
+      const idStr = event.active.id as string
+      const esRedimensionar = idStr.startsWith('redimensionar-')
+      const eventoId = esRedimensionar ? idStr.replace('redimensionar-', '') : idStr.replace('mover-', '')
+      const eventoOrig = eventos.find(e => e.id === eventoId)
+      if (eventoOrig) {
+        const inicio = new Date(eventoOrig.fecha_inicio)
+        const fin = new Date(eventoOrig.fecha_fin)
+        const deltaMin = Math.round((event.delta.y / ALTURA_FILA_HORA) * 60 / 15) * 15
+        if (esRedimensionar) {
+          const hInicio = inicio.getHours() + inicio.getMinutes() / 60
+          const hFin = fin.getHours() + fin.getMinutes() / 60 + deltaMin / 60
+          setRangoHorasActivo({ horaInicio: hInicio, horaFin: Math.max(hFin, hInicio + 0.25) })
+        } else {
+          const hInicio = inicio.getHours() + inicio.getMinutes() / 60 + deltaMin / 60
+          const hFin = fin.getHours() + fin.getMinutes() / 60 + deltaMin / 60
+          setRangoHorasActivo({ horaInicio: hInicio, horaFin: hFin })
+        }
+      }
+    }
+  }, [eventos])
 
   /**
    * Maneja el fin de un arrastre (mover o redimensionar) en vista día.
@@ -611,6 +650,7 @@ function VistaCalendarioDia({
       setEventoDragActivo(null)
       setTipoDrag(null)
       setDragDeltaY(0)
+      setRangoHorasActivo(null)
     },
     [eventos, onMoverEvento],
   )
@@ -686,23 +726,43 @@ function VistaCalendarioDia({
             onMouseDown={manejarMouseDownDia}
           >
             {/* Filas de horas */}
-            {filasHoras.map((hora) => (
-              <div
-                key={hora}
-                className="absolute left-0 right-0 flex pointer-events-none"
-                style={{ top: `${(hora - HORA_INICIO) * ALTURA_FILA_HORA}px`, height: `${ALTURA_FILA_HORA}px` }}
-              >
-                {/* Etiqueta de hora */}
-                <div className="w-16 shrink-0 pr-2 text-right">
-                  <span className="text-xs text-texto-terciario -translate-y-1/2 inline-block">
-                    {formatearHora(hora)}
-                  </span>
-                </div>
+            {filasHoras.map((hora) => {
+              const enRango = rangoHorasActivo !== null &&
+                hora >= Math.floor(rangoHorasActivo.horaInicio) &&
+                hora < Math.ceil(rangoHorasActivo.horaFin)
 
-                {/* Línea separadora */}
-                <div className="flex-1 border-t border-borde-sutil" />
-              </div>
-            ))}
+              return (
+                <div
+                  key={hora}
+                  className="absolute left-0 right-0 flex pointer-events-none"
+                  style={{ top: `${(hora - HORA_INICIO) * ALTURA_FILA_HORA}px`, height: `${ALTURA_FILA_HORA}px` }}
+                >
+                  {/* Etiqueta de hora con resaltado de rango activo */}
+                  <div className="w-16 shrink-0 flex items-start">
+                    {/* Barra vertical indicadora de rango activo */}
+                    <div
+                      className="w-[3px] h-4 rounded-full shrink-0 ml-1 -translate-y-1/2 transition-colors duration-150"
+                      style={{
+                        backgroundColor: enRango ? 'var(--texto-marca)' : 'transparent',
+                      }}
+                    />
+                    <span
+                      className={[
+                        'text-xs -translate-y-1/2 ml-auto mr-2 transition-colors duration-150',
+                        enRango
+                          ? 'text-texto-marca font-bold'
+                          : 'text-texto-terciario',
+                      ].join(' ')}
+                    >
+                      {formatearHora(hora)}
+                    </span>
+                  </div>
+
+                  {/* Línea separadora */}
+                  <div className="flex-1 border-t border-borde-sutil" />
+                </div>
+              )
+            })}
 
             {/* Resaltado de selección por arrastre (drag-to-select) */}
             {seleccionDia?.activa && (

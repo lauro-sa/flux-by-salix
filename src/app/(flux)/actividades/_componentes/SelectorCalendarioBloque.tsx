@@ -47,6 +47,42 @@ interface EstadoArrastre {
   activa: boolean
 }
 
+/** Estado del arrastre para mover un bloque existente */
+interface EstadoMoverBloque {
+  /** Índice del bloque en bloquesLocal */
+  indiceBloque: number
+  /** Índice del día donde está el bloque originalmente */
+  indiceDiaOriginal: number
+  /** Posición Y del inicio del mouse (px relativo a la cuadrícula) */
+  mouseInicioY: number
+  /** Posición X del inicio del mouse (px absoluto) */
+  mouseInicioX: number
+  /** Delta Y actual en px */
+  deltaY: number
+  /** Delta X actual en columnas (días) */
+  deltaDias: number
+  /** Si el arrastre está activo */
+  activa: boolean
+}
+
+/** Estado del arrastre para redimensionar un bloque existente */
+interface EstadoRedimensionarBloque {
+  /** Índice del bloque en bloquesLocal */
+  indiceBloque: number
+  /** Posición Y del inicio del mouse (px) */
+  mouseInicioY: number
+  /** Delta Y actual en px */
+  deltaY: number
+  /** Si el arrastre está activo */
+  activa: boolean
+}
+
+/** Rango activo de horas para resaltar etiquetas */
+interface RangoHorasActivo {
+  horaInicio: number
+  horaFin: number
+}
+
 // --- Props del componente ---
 
 interface PropiedadesSelectorCalendario {
@@ -146,6 +182,17 @@ function horaDesdeY(y: number): string {
   return `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}`
 }
 
+/** Convierte una posición Y (px) a hora decimal (ej: 8.5 = 08:30) */
+function horaDecimalDesdeY(y: number): number {
+  return HORA_INICIO + (y / ALTURA_FILA)
+}
+
+/** Convierte hora string "HH:MM" a hora decimal */
+function horaDecimalDesdeStr(hora: string): number {
+  const [h, m] = hora.split(':').map(Number)
+  return h + m / 60
+}
+
 /** Formatea un bloque para mostrar en la lista: "Mié 8 Abr 08:00 - 12:00" */
 function formatoBloque(bloque: BloqueHorario): string {
   const [anio, mes, dia] = bloque.fecha.split('-').map(Number)
@@ -178,6 +225,16 @@ function SelectorCalendarioBloque({
   const [arrastre, setArrastre] = useState<EstadoArrastre | null>(null)
   const refArrastre = useRef<EstadoArrastre | null>(null)
   refArrastre.current = arrastre
+  // Estado del arrastre para mover un bloque existente
+  const [moverBloque, setMoverBloque] = useState<EstadoMoverBloque | null>(null)
+  const refMoverBloque = useRef<EstadoMoverBloque | null>(null)
+  refMoverBloque.current = moverBloque
+  // Estado del arrastre para redimensionar un bloque existente
+  const [redimensionarBloque, setRedimensionarBloque] = useState<EstadoRedimensionarBloque | null>(null)
+  const refRedimensionarBloque = useRef<EstadoRedimensionarBloque | null>(null)
+  refRedimensionarBloque.current = redimensionarBloque
+  // Rango de horas activo para resaltar etiquetas de hora
+  const [rangoActivo, setRangoActivo] = useState<RangoHorasActivo | null>(null)
   // Bloques temporales (copia local que se confirma al cerrar)
   const [bloquesLocal, setBloquesLocal] = useState<BloqueHorario[]>(bloques)
   // Ref a la cuadrícula para calcular posiciones del mouse
@@ -324,22 +381,65 @@ function SelectorCalendarioBloque({
     return mapa
   }, [eventosExistentes, diasVisibles])
 
-  // --- Bloques seleccionados agrupados por día (para renderizar en cuadrícula) ---
+  // --- Bloques seleccionados agrupados por día (con índice global para mover/redimensionar) ---
 
   const bloquesPorDia = useMemo(() => {
-    const mapa = new Map<string, BloqueHorario[]>()
-    for (const bloque of bloquesLocal) {
+    const mapa = new Map<string, { bloque: BloqueHorario; indiceGlobal: number }[]>()
+    for (let i = 0; i < bloquesLocal.length; i++) {
+      const bloque = bloquesLocal[i]
       if (!mapa.has(bloque.fecha)) mapa.set(bloque.fecha, [])
-      mapa.get(bloque.fecha)!.push(bloque)
+      mapa.get(bloque.fecha)!.push({ bloque, indiceGlobal: i })
     }
     return mapa
   }, [bloquesLocal])
 
-  // --- Arrastre para seleccionar rangos ---
+  // --- Arrastre para seleccionar rangos / mover / redimensionar ---
 
-  /** Inicia el arrastre al hacer mousedown en la cuadrícula */
+  /** Inicia el arrastre al hacer mousedown en la cuadrícula.
+   *  Distingue: mousedown en asa de resize → redimensionar,
+   *  mousedown en bloque seleccionado → mover,
+   *  mousedown en espacio vacío → seleccionar nuevo rango.
+   */
   const manejarMouseDown = useCallback((indiceDia: number, e: React.MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return
+    const objetivo = e.target as HTMLElement
+
+    // 1. Si el click fue en el asa de redimensionado
+    const asaRedimensionar = objetivo.closest('[data-asa-redimensionar]') as HTMLElement | null
+    if (asaRedimensionar) {
+      e.preventDefault()
+      const indiceBloqueStr = asaRedimensionar.getAttribute('data-asa-redimensionar')
+      if (indiceBloqueStr !== null) {
+        setRedimensionarBloque({
+          indiceBloque: Number(indiceBloqueStr),
+          mouseInicioY: e.clientY,
+          deltaY: 0,
+          activa: true,
+        })
+        return
+      }
+    }
+
+    // 2. Si el click fue en un bloque seleccionado → mover
+    const bloqueElemento = objetivo.closest('[data-bloque-seleccionado]') as HTMLElement | null
+    if (bloqueElemento) {
+      e.preventDefault()
+      const indiceBloqueStr = bloqueElemento.getAttribute('data-bloque-seleccionado')
+      if (indiceBloqueStr !== null) {
+        setMoverBloque({
+          indiceBloque: Number(indiceBloqueStr),
+          indiceDiaOriginal: indiceDia,
+          mouseInicioY: e.clientY,
+          mouseInicioX: e.clientX,
+          deltaY: 0,
+          deltaDias: 0,
+          activa: true,
+        })
+        return
+      }
+    }
+
+    // 3. Espacio vacío → seleccionar rango
     const rect = e.currentTarget.getBoundingClientRect()
     const y = redondearYA30Min(Math.max(0, e.clientY - rect.top))
 
@@ -351,53 +451,161 @@ function SelectorCalendarioBloque({
     })
   }, [])
 
-  /** Actualiza la posición durante el arrastre */
+  /** Actualiza la posición durante cualquier arrastre (selección, mover, redimensionar) */
   const manejarMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!refArrastre.current?.activa) return
+    // --- Arrastre de selección ---
+    if (refArrastre.current?.activa) {
+      const columnaDiv = e.currentTarget.querySelector(
+        `[data-selector-dia="${refArrastre.current.indiceDia}"]`,
+      ) as HTMLElement | null
+      if (!columnaDiv) return
 
-    // Encontrar la columna del día correspondiente
-    const columnaDiv = e.currentTarget.querySelector(
-      `[data-selector-dia="${refArrastre.current.indiceDia}"]`,
-    ) as HTMLElement | null
-    if (!columnaDiv) return
+      const rect = columnaDiv.getBoundingClientRect()
+      const yRelativo = e.clientY - rect.top
+      const yClamped = Math.max(0, Math.min(yRelativo, alturaTotal))
+      const yRedondeado = redondearYA30Min(yClamped)
 
-    const rect = columnaDiv.getBoundingClientRect()
-    const yRelativo = e.clientY - rect.top
-    const yClamped = Math.max(0, Math.min(yRelativo, alturaTotal))
-    const yRedondeado = redondearYA30Min(yClamped)
+      setArrastre(prev => prev ? { ...prev, finY: yRedondeado } : null)
 
-    setArrastre(prev => prev ? { ...prev, finY: yRedondeado } : null)
-  }, [alturaTotal])
+      // Actualizar rango activo para etiquetas de hora
+      const yMin = Math.min(refArrastre.current.inicioY, yRedondeado)
+      const yMax = Math.max(refArrastre.current.inicioY, yRedondeado)
+      setRangoActivo({ horaInicio: horaDecimalDesdeY(yMin), horaFin: horaDecimalDesdeY(yMax) })
+      return
+    }
 
-  /** Finaliza el arrastre y agrega el bloque */
-  useEffect(() => {
-    const manejarMouseUp = () => {
-      const sel = refArrastre.current
-      if (!sel?.activa) return
+    // --- Arrastre de mover bloque ---
+    if (refMoverBloque.current?.activa) {
+      const deltaY = e.clientY - refMoverBloque.current.mouseInicioY
+      const deltaX = e.clientX - refMoverBloque.current.mouseInicioX
 
-      const yMin = Math.min(sel.inicioY, sel.finY)
-      const yMax = Math.max(sel.inicioY, sel.finY)
-      const altura = yMax - yMin
-
-      // Umbral mínimo: al menos 30 min (media hora)
-      const umbralMinimo = (30 / 60) * ALTURA_FILA * 0.5
-      if (altura > umbralMinimo) {
-        const dia = diasVisibles[sel.indiceDia]
-        if (dia) {
-          const horaInicio = horaDesdeY(yMin)
-          const horaFin = horaDesdeY(yMax)
-          const fecha = formatoISO(dia)
-
-          setBloquesLocal(prev => [...prev, { fecha, horaInicio, horaFin }])
-        }
+      // Calcular delta de días basado en ancho de columna
+      const primeraColumna = e.currentTarget.querySelector('[data-selector-dia="0"]') as HTMLElement | null
+      let deltaDias = 0
+      if (primeraColumna) {
+        const anchoColumna = primeraColumna.getBoundingClientRect().width
+        deltaDias = Math.round(deltaX / anchoColumna)
       }
 
-      setArrastre(null)
+      setMoverBloque(prev => prev ? { ...prev, deltaY, deltaDias } : null)
+
+      // Actualizar rango activo basándose en la nueva posición del bloque
+      const bloque = bloquesLocal[refMoverBloque.current.indiceBloque]
+      if (bloque) {
+        const deltaMinutos = Math.round((deltaY / ALTURA_FILA) * 60 / 30) * 30
+        const hiOrig = horaDecimalDesdeStr(bloque.horaInicio)
+        const hfOrig = horaDecimalDesdeStr(bloque.horaFin)
+        const deltaHoras = deltaMinutos / 60
+        setRangoActivo({ horaInicio: hiOrig + deltaHoras, horaFin: hfOrig + deltaHoras })
+      }
+      return
+    }
+
+    // --- Arrastre de redimensionar bloque ---
+    if (refRedimensionarBloque.current?.activa) {
+      const deltaY = e.clientY - refRedimensionarBloque.current.mouseInicioY
+      setRedimensionarBloque(prev => prev ? { ...prev, deltaY } : null)
+
+      // Actualizar rango activo
+      const bloque = bloquesLocal[refRedimensionarBloque.current.indiceBloque]
+      if (bloque) {
+        const deltaMinutos = Math.round((deltaY / ALTURA_FILA) * 60 / 30) * 30
+        const hiOrig = horaDecimalDesdeStr(bloque.horaInicio)
+        const hfOrig = horaDecimalDesdeStr(bloque.horaFin)
+        const nuevoFin = Math.max(hfOrig + deltaMinutos / 60, hiOrig + 0.5) // mínimo 30 min
+        setRangoActivo({ horaInicio: hiOrig, horaFin: nuevoFin })
+      }
+      return
+    }
+  }, [alturaTotal, bloquesLocal])
+
+  /** Finaliza cualquier arrastre activo (selección, mover, redimensionar) */
+  useEffect(() => {
+    const manejarMouseUp = () => {
+      // Limpiar rango activo de etiquetas de hora
+      setRangoActivo(null)
+
+      // --- Finalizar selección de rango ---
+      const sel = refArrastre.current
+      if (sel?.activa) {
+        const yMin = Math.min(sel.inicioY, sel.finY)
+        const yMax = Math.max(sel.inicioY, sel.finY)
+        const altura = yMax - yMin
+
+        const umbralMinimo = (30 / 60) * ALTURA_FILA * 0.5
+        if (altura > umbralMinimo) {
+          const dia = diasVisibles[sel.indiceDia]
+          if (dia) {
+            const horaInicio = horaDesdeY(yMin)
+            const horaFin = horaDesdeY(yMax)
+            const fecha = formatoISO(dia)
+            setBloquesLocal(prev => [...prev, { fecha, horaInicio, horaFin }])
+          }
+        }
+
+        setArrastre(null)
+        return
+      }
+
+      // --- Finalizar mover bloque ---
+      const mov = refMoverBloque.current
+      if (mov?.activa) {
+        const bloqueOriginal = bloquesLocal[mov.indiceBloque]
+        if (bloqueOriginal) {
+          // Calcular delta de tiempo en minutos redondeado a 30 min
+          const deltaMinutos = Math.round((mov.deltaY / ALTURA_FILA) * 60 / 30) * 30
+          const [hi, mi] = bloqueOriginal.horaInicio.split(':').map(Number)
+          const [hf, mf] = bloqueOriginal.horaFin.split(':').map(Number)
+          const inicioMin = hi * 60 + mi + deltaMinutos
+          const finMin = hf * 60 + mf + deltaMinutos
+
+          // Calcular nueva fecha con delta de días
+          const fechaOriginal = new Date(bloqueOriginal.fecha + 'T00:00:00')
+          fechaOriginal.setDate(fechaOriginal.getDate() + mov.deltaDias)
+          const nuevaFecha = formatoISO(fechaOriginal)
+
+          const nuevaHoraInicio = `${String(Math.floor(inicioMin / 60)).padStart(2, '0')}:${String(inicioMin % 60).padStart(2, '0')}`
+          const nuevaHoraFin = `${String(Math.floor(finMin / 60)).padStart(2, '0')}:${String(finMin % 60).padStart(2, '0')}`
+
+          setBloquesLocal(prev => prev.map((b, i) =>
+            i === mov.indiceBloque
+              ? { fecha: nuevaFecha, horaInicio: nuevaHoraInicio, horaFin: nuevaHoraFin }
+              : b,
+          ))
+        }
+        setMoverBloque(null)
+        return
+      }
+
+      // --- Finalizar redimensionar bloque ---
+      const red = refRedimensionarBloque.current
+      if (red?.activa) {
+        const bloqueOriginal = bloquesLocal[red.indiceBloque]
+        if (bloqueOriginal) {
+          const deltaMinutos = Math.round((red.deltaY / ALTURA_FILA) * 60 / 30) * 30
+          const [hf, mf] = bloqueOriginal.horaFin.split(':').map(Number)
+          const [hi, mi] = bloqueOriginal.horaInicio.split(':').map(Number)
+          const finMin = hf * 60 + mf + deltaMinutos
+          const inicioMin = hi * 60 + mi
+          // Mínimo 30 minutos de duración
+          const finMinFinal = Math.max(finMin, inicioMin + 30)
+
+          const nuevaHoraFin = `${String(Math.floor(finMinFinal / 60)).padStart(2, '0')}:${String(finMinFinal % 60).padStart(2, '0')}`
+
+          setBloquesLocal(prev => prev.map((b, i) =>
+            i === red.indiceBloque
+              ? { ...b, horaFin: nuevaHoraFin }
+              : b,
+          ))
+        }
+        setRedimensionarBloque(null)
+        return
+      }
     }
 
     document.addEventListener('mouseup', manejarMouseUp)
     return () => document.removeEventListener('mouseup', manejarMouseUp)
-  }, [diasVisibles])
+  }, [diasVisibles, bloquesLocal])
 
   // --- Eliminar un bloque de la lista ---
 
@@ -538,20 +746,44 @@ function SelectorCalendarioBloque({
         {/* ── Cuadrícula horaria (scrollable) ── */}
         <div ref={refCuadricula} className="flex-1 overflow-y-auto min-h-0">
           <div className="flex relative" style={{ height: alturaTotal }}>
-            {/* Columna de etiquetas de hora */}
+            {/* Columna de etiquetas de hora con resaltado de rango activo */}
             <div
               className="shrink-0 relative border-r border-borde-sutil"
               style={{ width: ANCHO_COL_HORA }}
             >
-              {HORAS.map((hora) => (
-                <div
-                  key={hora}
-                  className="absolute right-2 text-[10px] text-texto-terciario leading-none -translate-y-1/2"
-                  style={{ top: tiempoAPx(hora, 0) }}
-                >
-                  {String(hora).padStart(2, '0')}:00
-                </div>
-              ))}
+              {HORAS.map((hora) => {
+                // Determinar si esta hora cae dentro del rango activo
+                const enRango = rangoActivo !== null &&
+                  hora >= Math.floor(rangoActivo.horaInicio) &&
+                  hora <= Math.ceil(rangoActivo.horaFin) &&
+                  hora < Math.ceil(rangoActivo.horaFin)
+
+                return (
+                  <div
+                    key={hora}
+                    className="absolute right-0 flex items-center -translate-y-1/2"
+                    style={{ top: tiempoAPx(hora, 0), left: 0, right: 0 }}
+                  >
+                    {/* Barra vertical indicadora de rango activo */}
+                    <div
+                      className="w-[3px] h-4 rounded-full shrink-0 ml-1 transition-colors duration-150"
+                      style={{
+                        backgroundColor: enRango ? 'var(--texto-marca)' : 'transparent',
+                      }}
+                    />
+                    <span
+                      className={[
+                        'text-[10px] leading-none ml-auto mr-2 transition-colors duration-150',
+                        enRango
+                          ? 'text-texto-marca font-bold'
+                          : 'text-texto-terciario',
+                      ].join(' ')}
+                    >
+                      {String(hora).padStart(2, '0')}:00
+                    </span>
+                  </div>
+                )
+              })}
             </div>
 
             {/* Columnas de días */}
@@ -632,31 +864,86 @@ function SelectorCalendarioBloque({
                       )
                     })}
 
-                    {/* Bloques ya seleccionados (color marca) */}
-                    {bloquesDelDia.map((bloque, bi) => {
+                    {/* Bloques ya seleccionados (color marca) — arrastrables y redimensionables */}
+                    {bloquesDelDia.map(({ bloque, indiceGlobal }) => {
                       const [hi, mi] = bloque.horaInicio.split(':').map(Number)
                       const [hf, mf] = bloque.horaFin.split(':').map(Number)
-                      const topPx = tiempoAPx(hi, mi)
-                      const alturaPx = Math.max(
+                      let topPx = tiempoAPx(hi, mi)
+                      let alturaPx = Math.max(
                         ((hf * 60 + mf) - (hi * 60 + mi)) * (ALTURA_FILA / 60),
                         10,
                       )
 
+                      // ¿Se está moviendo este bloque?
+                      const moviendoEste = moverBloque?.activa && moverBloque.indiceBloque === indiceGlobal
+                      // ¿Se está redimensionando este bloque?
+                      const redimensionandoEste = redimensionarBloque?.activa && redimensionarBloque.indiceBloque === indiceGlobal
+
+                      // Aplicar delta de redimensionado
+                      if (redimensionandoEste && redimensionarBloque) {
+                        const deltaMin = Math.round((redimensionarBloque.deltaY / ALTURA_FILA) * 60 / 30) * 30
+                        const nuevoFinMin = Math.max((hf * 60 + mf) + deltaMin, (hi * 60 + mi) + 30)
+                        alturaPx = Math.max(
+                          (nuevoFinMin - (hi * 60 + mi)) * (ALTURA_FILA / 60),
+                          10,
+                        )
+                      }
+
                       return (
-                        <div
-                          key={`bloque-${bi}`}
-                          className="absolute left-1 right-1 rounded text-[9px] leading-tight px-1.5 py-0.5 overflow-hidden select-none z-10"
-                          style={{
-                            top: topPx,
-                            height: alturaPx,
-                            backgroundColor: 'color-mix(in srgb, var(--texto-marca) 20%, transparent)',
-                            border: '1px solid color-mix(in srgb, var(--texto-marca) 40%, transparent)',
-                            color: 'var(--texto-marca)',
-                          }}
-                        >
-                          <span className="truncate block font-medium">
-                            {bloque.horaInicio} – {bloque.horaFin}
-                          </span>
+                        <div key={`bloque-${indiceGlobal}`}>
+                          {/* Fantasma en posición original cuando se mueve */}
+                          {moviendoEste && (
+                            <div
+                              className="absolute left-1 right-1 rounded text-[9px] leading-tight px-1.5 py-0.5 overflow-hidden select-none z-10 pointer-events-none"
+                              style={{
+                                top: topPx,
+                                height: alturaPx,
+                                backgroundColor: 'color-mix(in srgb, var(--texto-marca) 8%, transparent)',
+                                border: '1px dashed color-mix(in srgb, var(--texto-marca) 25%, transparent)',
+                                color: 'var(--texto-marca)',
+                                opacity: 0.4,
+                              }}
+                            >
+                              <span className="truncate block font-medium">
+                                {bloque.horaInicio} – {bloque.horaFin}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Bloque principal (con offset visual si se mueve) */}
+                          <div
+                            data-bloque-seleccionado={indiceGlobal}
+                            className={[
+                              'absolute left-1 right-1 rounded text-[9px] leading-tight px-1.5 py-0.5 overflow-hidden select-none z-10',
+                              moviendoEste ? 'cursor-grabbing shadow-lg ring-1 ring-texto-marca/30' : 'cursor-grab',
+                              redimensionandoEste ? 'shadow-lg ring-1 ring-texto-marca/20' : '',
+                            ].join(' ')}
+                            style={{
+                              top: moviendoEste && moverBloque
+                                ? topPx + moverBloque.deltaY
+                                : topPx,
+                              height: alturaPx,
+                              backgroundColor: moviendoEste
+                                ? 'color-mix(in srgb, var(--texto-marca) 30%, transparent)'
+                                : 'color-mix(in srgb, var(--texto-marca) 20%, transparent)',
+                              border: '1px solid color-mix(in srgb, var(--texto-marca) 40%, transparent)',
+                              color: 'var(--texto-marca)',
+                              opacity: moviendoEste ? 0.85 : 1,
+                              transition: moviendoEste || redimensionandoEste ? 'none' : 'top 0.15s, height 0.15s',
+                            }}
+                          >
+                            <span className="truncate block font-medium">
+                              {bloque.horaInicio} – {bloque.horaFin}
+                            </span>
+
+                            {/* Asa de redimensionado en la parte inferior */}
+                            <div
+                              data-asa-redimensionar={indiceGlobal}
+                              className="absolute bottom-0 left-0 right-0 h-[6px] cursor-s-resize group/asa flex items-center justify-center"
+                            >
+                              <div className="w-6 h-0.5 rounded-full bg-current opacity-0 group-hover/asa:opacity-50 transition-opacity" />
+                            </div>
+                          </div>
                         </div>
                       )
                     })}
