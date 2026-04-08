@@ -460,7 +460,7 @@ function ModalActividad({
               />
             )}
 
-            {/* Bloques de calendario — creación: inline cuando el tipo tiene campo_calendario */}
+            {/* Bloques de calendario — creación: selector visual */}
             {!esEdicion && tipoConCalendario && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -468,53 +468,47 @@ function ModalActividad({
                     <Calendar size={15} className="text-texto-terciario" />
                     <span className="text-sm font-medium text-texto-primario">Agendar en calendario</span>
                   </div>
-                  <Boton variante="fantasma" tamano="xs" icono={<Plus size={14} />} onClick={agregarBloqueNuevo}>
-                    Bloque
+                  <Boton variante="fantasma" tamano="xs" icono={<Calendar size={14} />} onClick={() => setSelectorCalendarioAbierto(true)}>
+                    Abrir calendario
                   </Boton>
                 </div>
 
-                {bloquesNuevos.length === 0 && (
-                  <p className="text-xs text-texto-terciario italic">
-                    Agregá bloques para agendar cuándo se realizará este trabajo.
-                  </p>
+                {bloquesNuevos.length === 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setSelectorCalendarioAbierto(true)}
+                    className="w-full p-3 rounded-lg border-2 border-dashed border-borde-sutil text-xs text-texto-terciario hover:border-texto-marca/30 hover:text-texto-marca transition-colors"
+                  >
+                    Hacé clic para abrir el calendario y seleccionar horarios
+                  </button>
+                ) : (
+                  <div className="space-y-1">
+                    {bloquesNuevos.map((bloque, i) => (
+                      <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-superficie-hover/50 text-sm">
+                        <span className="size-2 rounded-full bg-texto-marca shrink-0" />
+                        <span className="text-texto-primario font-medium">{bloque.fecha}</span>
+                        <span className="text-texto-terciario text-xs">
+                          {bloque.horaInicio} – {bloque.horaFin}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setBloquesNuevos(prev => prev.filter((_, idx) => idx !== i))}
+                          className="ml-auto text-texto-terciario hover:text-estado-error transition-colors"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 )}
 
-                {bloquesNuevos.map((bloque, i) => (
-                  <div key={i} className="flex items-end gap-1.5 p-2 rounded-lg bg-superficie-hover/30 border border-borde-sutil">
-                    <div className="flex-1">
-                      <SelectorFecha
-                        valor={bloque.fecha}
-                        onChange={(v) => actualizarBloqueNuevo(i, 'fecha', v || '')}
-                        etiqueta="Fecha"
-                      />
-                    </div>
-                    <div className="w-20">
-                      <label className="text-xs text-texto-terciario mb-1 block">Desde</label>
-                      <input
-                        type="time"
-                        value={bloque.horaInicio}
-                        onChange={(e) => actualizarBloqueNuevo(i, 'horaInicio', e.target.value)}
-                        className="w-full px-2 py-1.5 text-xs rounded-md border border-borde-sutil bg-superficie-tarjeta text-texto-primario"
-                      />
-                    </div>
-                    <div className="w-20">
-                      <label className="text-xs text-texto-terciario mb-1 block">Hasta</label>
-                      <input
-                        type="time"
-                        value={bloque.horaFin}
-                        onChange={(e) => actualizarBloqueNuevo(i, 'horaFin', e.target.value)}
-                        className="w-full px-2 py-1.5 text-xs rounded-md border border-borde-sutil bg-superficie-tarjeta text-texto-primario"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => eliminarBloqueNuevo(i)}
-                      className="p-1.5 text-texto-terciario hover:text-estado-error transition-colors"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
+                <SelectorCalendarioBloque
+                  abierto={selectorCalendarioAbierto}
+                  bloques={bloquesNuevos}
+                  onCambiar={setBloquesNuevos}
+                  onCerrar={() => setSelectorCalendarioAbierto(false)}
+                  titulo={titulo || 'Nuevo evento'}
+                />
               </div>
             )}
           </div>
