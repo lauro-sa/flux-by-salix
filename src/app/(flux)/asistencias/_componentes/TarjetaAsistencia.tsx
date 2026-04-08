@@ -1,6 +1,6 @@
 'use client'
 
-import { CheckCircle2, AlertTriangle, Clock, XCircle, Coffee, Footprints, Calendar } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, Clock, XCircle, Coffee, Footprints, Calendar, UtensilsCrossed } from 'lucide-react'
 import { useFormato } from '@/hooks/useFormato'
 
 // ─── Tipos ───────────────────────────────────────────────────
@@ -13,6 +13,8 @@ interface RegistroAsistencia {
   hora_salida: string | null
   inicio_almuerzo: string | null
   fin_almuerzo: string | null
+  salida_particular: string | null
+  vuelta_particular: string | null
   estado: string
   tipo: string
   metodo_registro: string
@@ -32,22 +34,17 @@ function fmtHora(iso: string | null, formato: string = '24h'): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
+function fmtHoraCorta(iso: string): string {
+  const d = new Date(iso)
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
 function fmtFecha(fecha: string, locale: string): string {
   const d = new Date(fecha + 'T12:00:00')
   const dia = d.toLocaleDateString(locale, { weekday: 'short' }).replace(/^\w/, c => c.toUpperCase())
   const num = d.getDate()
   const mes = d.toLocaleDateString(locale, { month: 'long' }).replace(/^\w/, c => c.toUpperCase())
   return `${dia} ${num} De ${mes}`
-}
-
-function calcMin(entrada: string | null, salida: string | null, inicioAlm: string | null, finAlm: string | null): number {
-  if (!entrada) return 0
-  const fin = salida ? new Date(salida).getTime() : Date.now()
-  let min = Math.round((fin - new Date(entrada).getTime()) / 60000)
-  if (inicioAlm && finAlm) {
-    min -= Math.round((new Date(finAlm).getTime() - new Date(inicioAlm).getTime()) / 60000)
-  }
-  return Math.max(0, min)
 }
 
 function fmtDuracion(min: number): string {
@@ -57,11 +54,22 @@ function fmtDuracion(min: number): string {
   return m > 0 ? `${h}h ${m}min` : `${h}h`
 }
 
+function fmtDurCorta(min: number): string {
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  if (h === 0) return `${m}m`
+  return m > 0 ? `${h}h ${m}m` : `${h}h`
+}
+
+function msToMin(a: string, b: string): number {
+  return Math.max(0, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000))
+}
+
 function inicial(nombre: string): string {
   return nombre.split(' ').map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
 }
 
-// ─── Config de estados ───────────────────────────────────────
+// ─── Config estados ──────────────────────────────────────────
 
 const ESTADO_CFG: Record<string, { etiqueta: string; color: string; fondo: string; icono: React.ReactNode }> = {
   activo:       { etiqueta: 'En turno', color: 'text-emerald-400', fondo: 'bg-emerald-500/15 border-emerald-500/30', icono: <Clock size={11} /> },
@@ -81,7 +89,67 @@ const COLORES_AVATAR = [
   'bg-cyan-500/25 text-cyan-400',
 ]
 
-const JORNADA_REF = 8 * 60
+// ─── Segmentos de la barra de tiempo ─────────────────────────
+
+interface Segmento {
+  tipo: 'trabajo' | 'almuerzo' | 'tramite'
+  minutos: number
+  color: string
+  icono?: string
+}
+
+function calcularSegmentos(r: RegistroAsistencia): Segmento[] {
+  if (!r.hora_entrada) return []
+  const entrada = new Date(r.hora_entrada).getTime()
+  const salida = r.hora_salida ? new Date(r.hora_salida).getTime() : Date.now()
+  const totalMin = Math.max(1, Math.round((salida - entrada) / 60000))
+
+  const segmentos: { inicio: number; fin: number; tipo: 'trabajo' | 'almuerzo' | 'tramite' }[] = []
+
+  // Recolectar pausas
+  const pausas: { inicio: number; fin: number; tipo: 'almuerzo' | 'tramite' }[] = []
+
+  if (r.inicio_almuerzo && r.fin_almuerzo) {
+    pausas.push({
+      inicio: new Date(r.inicio_almuerzo).getTime(),
+      fin: new Date(r.fin_almuerzo).getTime(),
+      tipo: 'almuerzo',
+    })
+  }
+
+  if (r.salida_particular && r.vuelta_particular) {
+    pausas.push({
+      inicio: new Date(r.salida_particular).getTime(),
+      fin: new Date(r.vuelta_particular).getTime(),
+      tipo: 'tramite',
+    })
+  }
+
+  // Ordenar pausas por inicio
+  pausas.sort((a, b) => a.inicio - b.inicio)
+
+  // Construir segmentos
+  let cursor = entrada
+  for (const pausa of pausas) {
+    if (pausa.inicio > cursor) {
+      segmentos.push({ inicio: cursor, fin: pausa.inicio, tipo: 'trabajo' })
+    }
+    segmentos.push({ inicio: pausa.inicio, fin: pausa.fin, tipo: pausa.tipo })
+    cursor = pausa.fin
+  }
+  if (cursor < salida) {
+    segmentos.push({ inicio: cursor, fin: salida, tipo: 'trabajo' })
+  }
+
+  // Convertir a minutos y colores
+  const colores = { trabajo: 'bg-emerald-500/30', almuerzo: 'bg-amber-500/40', tramite: 'bg-sky-500/40' }
+
+  return segmentos.map(s => ({
+    tipo: s.tipo,
+    minutos: Math.max(1, Math.round((s.fin - s.inicio) / 60000)),
+    color: colores[s.tipo],
+  }))
+}
 
 // ─── Componente ──────────────────────────────────────────────
 
@@ -89,26 +157,25 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
   const { formatoHora, locale } = useFormato()
   const r = registro
   const cfg = ESTADO_CFG[r.estado] || ESTADO_CFG.cerrado
-  const min = calcMin(r.hora_entrada, r.hora_salida, r.inicio_almuerzo, r.fin_almuerzo)
-  const dur = fmtDuracion(min)
-  const pct = Math.min(100, Math.round((min / JORNADA_REF) * 100))
+
+  // Calcular minutos netos
+  const minBrutos = r.hora_entrada && r.hora_salida ? msToMin(r.hora_entrada, r.hora_salida) : 0
+  const minAlmuerzo = r.inicio_almuerzo && r.fin_almuerzo ? msToMin(r.inicio_almuerzo, r.fin_almuerzo) : 0
+  const minTramite = r.salida_particular && r.vuelta_particular ? msToMin(r.salida_particular, r.vuelta_particular) : 0
+  const minNetos = Math.max(0, minBrutos - minAlmuerzo - minTramite)
+  const dur = fmtDuracion(minNetos)
 
   const hash = r.miembro_nombre.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
   const colorAvatar = COLORES_AVATAR[hash % COLORES_AVATAR.length]
-
-  // Color barra (transparente para que el texto sea legible)
-  const colorBarra = r.estado === 'ausente' ? 'bg-red-500/25'
-    : r.estado === 'auto_cerrado' ? 'bg-amber-500/25'
-    : r.tipo === 'tardanza' ? 'bg-amber-500/25'
-    : r.estado === 'activo' ? 'bg-emerald-500/25'
-    : 'bg-emerald-500/25'
-
-  // Color duración texto
   const colorDurTxt = r.estado === 'auto_cerrado' || r.tipo === 'tardanza' ? 'text-amber-400' : 'text-emerald-400'
+
+  // Segmentos de la barra
+  const segmentos = calcularSegmentos(r)
+  const totalMinSegmentos = segmentos.reduce((s, seg) => s + seg.minutos, 0) || 1
 
   return (
     <div className="flex flex-col gap-2.5 w-full">
-      {/* Header: avatar + nombre + badge (pr-6 para no chocar con checkbox) */}
+      {/* Header: avatar + nombre + badge */}
       <div className="flex items-center justify-between gap-2 pr-6">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className={`size-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${colorAvatar}`}>
@@ -125,7 +192,7 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
       {/* Fecha */}
       <p className="text-xs text-texto-terciario">{fmtFecha(r.fecha, locale)}</p>
 
-      {/* Horarios + duración en una línea */}
+      {/* Horarios + duración */}
       {r.estado !== 'ausente' && r.hora_entrada ? (
         <>
           <div className="flex items-baseline gap-3 flex-wrap">
@@ -141,22 +208,48 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
             </span>
           </div>
 
-          {/* Barra de progreso */}
-          <div className="w-full h-5 rounded-full bg-superficie-elevada/30 overflow-hidden">
-            <div
-              className={`h-full rounded-full ${colorBarra} transition-all duration-500 flex items-center justify-center`}
-              style={{ width: `${Math.max(pct, 15)}%` }}
-            >
-              <span className="text-[9px] font-semibold whitespace-nowrap flex items-center gap-0.5 text-texto-secundario">
-                <Calendar size={8} /> {dur}
-              </span>
-            </div>
+          {/* Barra segmentada de tiempo */}
+          <div className="w-full h-5 rounded-full bg-superficie-elevada/30 overflow-hidden flex">
+            {segmentos.map((seg, i) => {
+              const pct = (seg.minutos / totalMinSegmentos) * 100
+              return (
+                <div
+                  key={i}
+                  className={`h-full ${seg.color} flex items-center justify-center overflow-hidden transition-all duration-500 first:rounded-l-full last:rounded-r-full`}
+                  style={{ width: `${pct}%` }}
+                  title={`${seg.tipo === 'trabajo' ? 'Trabajo' : seg.tipo === 'almuerzo' ? 'Almuerzo' : 'Trámite'}: ${fmtDurCorta(seg.minutos)}`}
+                >
+                  {pct > 8 && (
+                    <span className="text-[8px] font-semibold text-texto-secundario whitespace-nowrap flex items-center gap-0.5">
+                      {seg.tipo === 'almuerzo' && <span>🍽</span>}
+                      {seg.tipo === 'tramite' && <span>🚶</span>}
+                      {seg.tipo === 'trabajo' && <Calendar size={7} />}
+                      {fmtDurCorta(seg.minutos)}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
           </div>
 
-          {/* Horas netas */}
-          <p className={`text-xs font-medium ${colorDurTxt} -mt-0.5`}>
-            {dur} netos
-          </p>
+          {/* Detalle: horas netas + almuerzo + trámite */}
+          <div className="flex items-center gap-3 flex-wrap text-xs">
+            <span className={`font-medium ${colorDurTxt}`}>{dur} netos</span>
+
+            {r.inicio_almuerzo && r.fin_almuerzo && (
+              <span className="flex items-center gap-1 text-amber-400/80">
+                <UtensilsCrossed size={11} />
+                {fmtHoraCorta(r.inicio_almuerzo)}–{fmtHoraCorta(r.fin_almuerzo)} · {fmtDurCorta(minAlmuerzo)}
+              </span>
+            )}
+
+            {r.salida_particular && r.vuelta_particular && (
+              <span className="flex items-center gap-1 text-sky-400/80">
+                <Footprints size={11} />
+                {fmtHoraCorta(r.salida_particular)}–{fmtHoraCorta(r.vuelta_particular)} · {fmtDurCorta(minTramite)}
+              </span>
+            )}
+          </div>
         </>
       ) : r.estado === 'activo' && r.hora_entrada ? (
         <>
@@ -172,7 +265,7 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
               <Calendar size={8} className="text-emerald-400" />
             </div>
           </div>
-          <p className="text-xs text-texto-terciario -mt-0.5">En jornada...</p>
+          <p className="text-xs text-texto-terciario">En jornada...</p>
         </>
       ) : (
         <p className="text-xs text-red-400/60 py-2">Sin registro de asistencia</p>
