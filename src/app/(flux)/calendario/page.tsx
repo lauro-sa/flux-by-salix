@@ -121,20 +121,24 @@ export default function PaginaCalendario() {
   // Ref para evitar doble-fetch en desarrollo (StrictMode)
   const fetchRef = useRef(false)
 
-  // --- Carga de tipos de evento y usuario actual ---
+  // --- Carga de config (tipos + vista default) y usuario actual ---
   useEffect(() => {
-    const cargarTipos = async () => {
+    const cargarConfig = async () => {
       try {
         const res = await fetch('/api/calendario/config')
         if (res.ok) {
           const datos = await res.json()
           setTiposEvento(datos.tipos || [])
+          // Aplicar vista predeterminada desde la config de la empresa
+          if (datos.config?.vista_default) {
+            setVistaActiva(datos.config.vista_default as VistaCalendario)
+          }
         }
       } catch {
         // Silenciar error — los tipos son opcionales
       }
     }
-    cargarTipos()
+    cargarConfig()
 
     // Obtener ID del usuario actual para el filtro "Mis eventos"
     const cargarUsuario = async () => {
