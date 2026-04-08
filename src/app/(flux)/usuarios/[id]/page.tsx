@@ -308,10 +308,10 @@ function ItemMenu({ icono, children, onClick, variante = 'normal' }: {
   )
 }
 
-/** Encabezado de sección plano con línea inferior */
+/** Encabezado de sección con línea inferior sutil */
 function SeccionEncabezado({ icono, titulo, accion }: { icono: React.ReactNode; titulo: string; accion?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-2 mb-4 pb-2 border-b border-borde-sutil">
+    <div className="flex items-center justify-between gap-2 mb-4 pb-2.5 -mx-4 px-4 sm:-mx-5 sm:px-5 border-b border-borde-sutil/40">
       <div className="flex items-center gap-2">
         <span className="text-texto-terciario">{icono}</span>
         <h3 className="text-sm font-semibold text-texto-primario">{titulo}</h3>
@@ -1623,7 +1623,7 @@ export default function PaginaPerfilUsuario() {
               TAB INFORMACIÓN
               ═══════════════════════════════ */}
           {tab === 'informacion' && (
-            <div className="space-y-8 p-4 sm:p-6">
+            <div className="space-y-5 p-4 sm:p-6 [&>section]:bg-superficie-tarjeta/40 [&>section]:rounded-xl [&>section]:p-4 [&>section]:sm:p-5 [&>section]:border [&>section]:border-borde-sutil/40">
 
               {/* ── 1. DATOS PERSONALES ── */}
               <section>
@@ -1691,7 +1691,7 @@ export default function PaginaPerfilUsuario() {
                 </div>
               </section>
 
-              {/* ── 3. DATOS LABORALES ── */}
+              {/* ── 3. DATOS LABORALES + KIOSCO ── */}
               <section>
                 <SeccionEncabezado icono={<Briefcase size={15} />} titulo={t('usuarios.datos_laborales')} />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1737,73 +1737,19 @@ export default function PaginaPerfilUsuario() {
                     </div>
                   ))}
                 </div>
-              </section>
 
-              {/* ── 4. ACCESO AL KIOSCO ── */}
-              <section>
-                <SeccionEncabezado icono={<KeyRound size={15} />} titulo="Acceso al kiosco" />
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-center gap-8 sm:gap-12">
-                  {/* Columna izquierda: Foto */}
-                  <div className="space-y-1.5 flex flex-col items-center">
-                    <p className="text-sm font-medium text-texto-primario">Foto para kiosco</p>
-                    <input type="file" accept=".jpg,.jpeg,.png,.webp" className="hidden" id="foto-kiosco-upload"
-                      onChange={(e) => {
-                        const archivo = e.target.files?.[0]
-                        if (!archivo) return
-                        const url = URL.createObjectURL(archivo)
-                        setRecortador({ imagen: url, tipo: 'kiosco' })
-                        e.target.value = ''
-                      }}
-                    />
-                    <div className="w-28 shrink-0">
-                      {miembro.foto_kiosco_url ? (
-                        <div className="relative group">
-                          <img
-                            src={miembro.foto_kiosco_url}
-                            alt="Foto kiosco"
-                            className="w-28 aspect-[3/4] object-cover rounded-lg border border-borde-sutil"
-                          />
-                          <Boton
-                            variante="fantasma"
-                            soloIcono
-                            icono={<Camera size={18} className="text-white" />}
-                            titulo="Editar foto kiosco"
-                            onClick={() => setRecortador({ imagen: miembro.foto_kiosco_url!, tipo: 'kiosco' })}
-                            className="absolute inset-0 !rounded-lg opacity-0 group-hover:opacity-100 !bg-black/40"
-                          />
-                          <Boton
-                            variante="peligro"
-                            tamano="xs"
-                            soloIcono
-                            icono={<X size={10} className="text-white" />}
-                            titulo="Eliminar foto"
-                            onClick={async () => {
-                              setMiembro(p => p ? { ...p, foto_kiosco_url: null } : null)
-                              guardarMiembroInmediato({ foto_kiosco_url: null })
-                            }}
-                            className="absolute -top-1.5 -right-1.5 !size-5 !rounded-full opacity-0 group-hover:opacity-100"
-                          />
-                        </div>
-                      ) : (
-                        <label
-                          htmlFor="foto-kiosco-upload"
-                          className="w-28 aspect-[3/4] rounded-lg border-2 border-dashed border-borde-fuerte flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:bg-superficie-hover/30 hover:border-texto-marca/30 transition-all"
-                        >
-                          <Camera size={20} className="text-texto-terciario" />
-                          <span className="text-xxs text-texto-terciario">Subir foto</span>
-                        </label>
-                      )}
-                    </div>
-                    <p className="text-xs text-texto-terciario">Vertical 3:4, tipo carnet</p>
-                  </div>
-
-                  {/* Columna derecha: RFID + PIN */}
-                  <div className="space-y-5">
+                {/* Acceso al kiosco */}
+                <div className="mt-6 pt-5 -mx-4 px-4 sm:-mx-5 sm:px-5 border-t border-borde-sutil/40">
+                  <p className="text-sm font-medium text-texto-primario flex items-center gap-2 mb-4">
+                    <KeyRound size={14} className="text-texto-terciario" />
+                    Acceso al kiosco
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Llavero RFID */}
                     <div className="space-y-1.5">
                       <p className="text-sm font-medium text-texto-primario">Llavero RFID</p>
                       <div className="flex items-center gap-2">
-                        <div className="w-44">
+                        <div className="flex-1 min-w-0">
                           <Input
                             tipo="text"
                             ref={rfidInputRef}
@@ -1856,11 +1802,11 @@ export default function PaginaPerfilUsuario() {
                       </p>
                     </div>
 
-                    {/* PIN */}
+                    {/* PIN del kiosco */}
                     <div className="space-y-1.5">
                       <p className="text-sm font-medium text-texto-primario">PIN del kiosco <span className="font-normal text-texto-terciario">(6 dígitos)</span></p>
                       <div className="flex items-center gap-2">
-                        <div className="w-44">
+                        <div className="flex-1 min-w-0">
                           <Input
                             tipo={pinVisible ? 'text' : 'password'}
                             value={miembro.kiosco_pin || ''}
@@ -1901,10 +1847,71 @@ export default function PaginaPerfilUsuario() {
                       <p className="text-xs text-texto-terciario">Alternativa al llavero. Ej: últimos 6 dígitos del DNI.</p>
                     </div>
                   </div>
+
+                  {/* Foto para kiosco */}
+                  <div className="mt-4 flex items-start gap-4">
+                    <input type="file" accept=".jpg,.jpeg,.png,.webp" className="hidden" id="foto-kiosco-upload"
+                      onChange={(e) => {
+                        const archivo = e.target.files?.[0]
+                        if (!archivo) return
+                        const url = URL.createObjectURL(archivo)
+                        setRecortador({ imagen: url, tipo: 'kiosco' })
+                        e.target.value = ''
+                      }}
+                    />
+                    <div className="w-16 shrink-0">
+                      {miembro.foto_kiosco_url ? (
+                        <div className="relative group">
+                          <img
+                            src={miembro.foto_kiosco_url}
+                            alt="Foto kiosco"
+                            className="w-16 aspect-[3/4] object-cover rounded-lg border border-borde-sutil"
+                          />
+                          <Boton
+                            variante="fantasma"
+                            soloIcono
+                            icono={<Camera size={14} className="text-white" />}
+                            titulo="Editar foto kiosco"
+                            onClick={() => setRecortador({ imagen: miembro.foto_kiosco_url!, tipo: 'kiosco' })}
+                            className="absolute inset-0 !rounded-lg opacity-0 group-hover:opacity-100 !bg-black/40"
+                          />
+                          <Boton
+                            variante="peligro"
+                            tamano="xs"
+                            soloIcono
+                            icono={<X size={10} className="text-white" />}
+                            titulo="Eliminar foto"
+                            onClick={async () => {
+                              setMiembro(p => p ? { ...p, foto_kiosco_url: null } : null)
+                              guardarMiembroInmediato({ foto_kiosco_url: null })
+                            }}
+                            className="absolute -top-1.5 -right-1.5 !size-5 !rounded-full opacity-0 group-hover:opacity-100"
+                          />
+                        </div>
+                      ) : (
+                        <label
+                          htmlFor="foto-kiosco-upload"
+                          className="w-16 aspect-[3/4] rounded-lg border-2 border-dashed border-borde-fuerte flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-superficie-hover/30 hover:border-texto-marca/30 transition-all"
+                        >
+                          <Camera size={14} className="text-texto-terciario" />
+                          <span className="text-xxs text-texto-terciario">Subir</span>
+                        </label>
+                      )}
+                    </div>
+                    <div className="pt-0.5">
+                      <p className="text-sm font-medium text-texto-primario">Foto para kiosco</p>
+                      <p className="text-xs text-texto-terciario mt-0.5">Se muestra al fichar. Vertical 3:4, tipo carnet.</p>
+                      {!miembro.foto_kiosco_url && puedeEditar && (
+                        <label htmlFor="foto-kiosco-upload" className="text-xs text-texto-marca cursor-pointer hover:underline mt-1 inline-block">
+                          Subir foto
+                        </label>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </section>
 
-              {/* ── 5. CONTACTO DE EMERGENCIA — conectado a BD ── */}
+              {/* ── 4. CONTACTO DE EMERGENCIA — conectado a BD ── */}
               <section>
                 <SeccionEncabezado icono={<Heart size={15} />} titulo="Contacto de emergencia" />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
