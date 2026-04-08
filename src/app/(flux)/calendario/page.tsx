@@ -8,8 +8,9 @@
  */
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { Calendar, Plus, Settings2 } from 'lucide-react'
+import { Calendar, PlusCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { BarraHerramientasCalendario } from './_componentes/BarraHerramientasCalendario'
 import { VistaCalendarioMes } from './_componentes/VistaCalendarioMes'
 import { VistaCalendarioSemana } from './_componentes/VistaCalendarioSemana'
@@ -18,7 +19,6 @@ import { VistaCalendarioAgenda } from './_componentes/VistaCalendarioAgenda'
 import { VistaCalendarioEquipo } from './_componentes/VistaCalendarioEquipo'
 import { ModalEvento } from './_componentes/ModalEvento'
 import { PopoverEvento } from './_componentes/PopoverEvento'
-import { Boton } from '@/componentes/ui/Boton'
 import { useToast } from '@/componentes/feedback/Toast'
 import type { EventoCalendario, TipoEventoCalendario, VistaCalendario } from './_componentes/tipos'
 
@@ -440,38 +440,21 @@ export default function PaginaCalendario() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Encabezado */}
-      <div className="flex items-center justify-between gap-3 shrink-0 mb-4">
-        <h1 className="text-xl font-bold text-texto-primario flex items-center gap-2">
-          <span className="text-texto-terciario">
-            <Calendar size={20} />
-          </span>
-          Calendario
-        </h1>
-        <div className="flex items-center gap-2">
-          <Boton
-            variante="fantasma"
-            tamano="sm"
-            soloIcono
-            icono={<Settings2 size={16} />}
-            onClick={() => router.push('/calendario/configuracion')}
-            titulo="Configuración"
-          />
-          <Boton
-            tamano="sm"
-            icono={<Plus size={16} />}
-            onClick={() => {
-              setEventoEditando(null)
-              setFechaPreseleccionada(new Date())
-              setModalAbierto(true)
-            }}
-          >
-            Evento
-          </Boton>
-        </div>
-      </div>
-
+    <PlantillaListado
+      titulo="Calendario"
+      icono={<Calendar size={20} />}
+      accionPrincipal={{
+        etiqueta: 'Nuevo evento',
+        icono: <PlusCircle size={14} />,
+        onClick: () => {
+          setEventoEditando(null)
+          setFechaPreseleccionada(new Date())
+          setModalAbierto(true)
+        },
+      }}
+      mostrarConfiguracion
+      onConfiguracion={() => router.push('/calendario/configuracion')}
+    >
       {/* Barra de herramientas */}
       <BarraHerramientasCalendario
         vistaActiva={vistaActiva}
@@ -514,6 +497,6 @@ export default function PaginaCalendario() {
         onEliminar={eventoEditando ? eliminarEvento : undefined}
         onCerrar={cerrarModal}
       />
-    </div>
+    </PlantillaListado>
   )
 }
