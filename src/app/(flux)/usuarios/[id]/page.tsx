@@ -1742,8 +1742,62 @@ export default function PaginaPerfilUsuario() {
               {/* ── 4. ACCESO AL KIOSCO ── */}
               <section>
                 <SeccionEncabezado icono={<KeyRound size={15} />} titulo="Acceso al kiosco" />
-                <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6">
-                  {/* Columna izquierda: RFID + PIN */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-center gap-8 sm:gap-12">
+                  {/* Columna izquierda: Foto */}
+                  <div className="space-y-1.5 flex flex-col items-center">
+                    <p className="text-sm font-medium text-texto-primario">Foto para kiosco</p>
+                    <input type="file" accept=".jpg,.jpeg,.png,.webp" className="hidden" id="foto-kiosco-upload"
+                      onChange={(e) => {
+                        const archivo = e.target.files?.[0]
+                        if (!archivo) return
+                        const url = URL.createObjectURL(archivo)
+                        setRecortador({ imagen: url, tipo: 'kiosco' })
+                        e.target.value = ''
+                      }}
+                    />
+                    <div className="w-28 shrink-0">
+                      {miembro.foto_kiosco_url ? (
+                        <div className="relative group">
+                          <img
+                            src={miembro.foto_kiosco_url}
+                            alt="Foto kiosco"
+                            className="w-28 aspect-[3/4] object-cover rounded-lg border border-borde-sutil"
+                          />
+                          <Boton
+                            variante="fantasma"
+                            soloIcono
+                            icono={<Camera size={18} className="text-white" />}
+                            titulo="Editar foto kiosco"
+                            onClick={() => setRecortador({ imagen: miembro.foto_kiosco_url!, tipo: 'kiosco' })}
+                            className="absolute inset-0 !rounded-lg opacity-0 group-hover:opacity-100 !bg-black/40"
+                          />
+                          <Boton
+                            variante="peligro"
+                            tamano="xs"
+                            soloIcono
+                            icono={<X size={10} className="text-white" />}
+                            titulo="Eliminar foto"
+                            onClick={async () => {
+                              setMiembro(p => p ? { ...p, foto_kiosco_url: null } : null)
+                              guardarMiembroInmediato({ foto_kiosco_url: null })
+                            }}
+                            className="absolute -top-1.5 -right-1.5 !size-5 !rounded-full opacity-0 group-hover:opacity-100"
+                          />
+                        </div>
+                      ) : (
+                        <label
+                          htmlFor="foto-kiosco-upload"
+                          className="w-28 aspect-[3/4] rounded-lg border-2 border-dashed border-borde-fuerte flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:bg-superficie-hover/30 hover:border-texto-marca/30 transition-all"
+                        >
+                          <Camera size={20} className="text-texto-terciario" />
+                          <span className="text-xxs text-texto-terciario">Subir foto</span>
+                        </label>
+                      )}
+                    </div>
+                    <p className="text-xs text-texto-terciario">Vertical 3:4, tipo carnet</p>
+                  </div>
+
+                  {/* Columna derecha: RFID + PIN */}
                   <div className="space-y-5">
                     {/* Llavero RFID */}
                     <div className="space-y-1.5">
@@ -1846,60 +1900,6 @@ export default function PaginaPerfilUsuario() {
                       </div>
                       <p className="text-xs text-texto-terciario">Alternativa al llavero. Ej: últimos 6 dígitos del DNI.</p>
                     </div>
-                  </div>
-
-                  {/* Columna derecha: Foto kiosco */}
-                  <div className="space-y-1.5">
-                    <p className="text-sm font-medium text-texto-primario">Foto para kiosco</p>
-                    <input type="file" accept=".jpg,.jpeg,.png,.webp" className="hidden" id="foto-kiosco-upload"
-                      onChange={(e) => {
-                        const archivo = e.target.files?.[0]
-                        if (!archivo) return
-                        const url = URL.createObjectURL(archivo)
-                        setRecortador({ imagen: url, tipo: 'kiosco' })
-                        e.target.value = ''
-                      }}
-                    />
-                    <div className="w-28 shrink-0">
-                      {miembro.foto_kiosco_url ? (
-                        <div className="relative group">
-                          <img
-                            src={miembro.foto_kiosco_url}
-                            alt="Foto kiosco"
-                            className="w-28 aspect-[3/4] object-cover rounded-lg border border-borde-sutil"
-                          />
-                          <Boton
-                            variante="fantasma"
-                            soloIcono
-                            icono={<Camera size={18} className="text-white" />}
-                            titulo="Editar foto kiosco"
-                            onClick={() => setRecortador({ imagen: miembro.foto_kiosco_url!, tipo: 'kiosco' })}
-                            className="absolute inset-0 !rounded-lg opacity-0 group-hover:opacity-100 !bg-black/40"
-                          />
-                          <Boton
-                            variante="peligro"
-                            tamano="xs"
-                            soloIcono
-                            icono={<X size={10} className="text-white" />}
-                            titulo="Eliminar foto"
-                            onClick={async () => {
-                              setMiembro(p => p ? { ...p, foto_kiosco_url: null } : null)
-                              guardarMiembroInmediato({ foto_kiosco_url: null })
-                            }}
-                            className="absolute -top-1.5 -right-1.5 !size-5 !rounded-full opacity-0 group-hover:opacity-100"
-                          />
-                        </div>
-                      ) : (
-                        <label
-                          htmlFor="foto-kiosco-upload"
-                          className="w-28 aspect-[3/4] rounded-lg border-2 border-dashed border-borde-fuerte flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:bg-superficie-hover/30 hover:border-texto-marca/30 transition-all"
-                        >
-                          <Camera size={20} className="text-texto-terciario" />
-                          <span className="text-xxs text-texto-terciario">Subir foto</span>
-                        </label>
-                      )}
-                    </div>
-                    <p className="text-xs text-texto-terciario">Vertical 3:4, tipo carnet</p>
                   </div>
                 </div>
               </section>
