@@ -25,7 +25,10 @@ interface PropiedadesTabs {
  */
 function Tabs({ tabs, activo, onChange, className = '', layoutId = 'tab-indicator' }: PropiedadesTabs) {
   return (
-    <div className={`flex gap-1 border-b border-borde-sutil overflow-x-auto scrollbar-none ${className}`} role="tablist">
+    <div
+      className={`flex gap-0.5 px-3 border-b border-borde-sutil ${className}`}
+      role="tablist"
+    >
       {tabs.map((tab) => {
         const esActivo = tab.clave === activo
         return (
@@ -35,8 +38,8 @@ function Tabs({ tabs, activo, onChange, className = '', layoutId = 'tab-indicato
             aria-selected={esActivo}
             onClick={() => onChange(tab.clave)}
             className={[
-              'relative flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-none bg-transparent cursor-pointer transition-colors duration-150 rounded-t-lg',
-              esActivo ? 'text-texto-marca' : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover',
+              'relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-none bg-transparent cursor-pointer transition-colors duration-150 whitespace-nowrap',
+              esActivo ? 'text-texto-marca' : 'text-texto-terciario hover:text-texto-secundario',
             ].join(' ')}
           >
             {tab.icono}

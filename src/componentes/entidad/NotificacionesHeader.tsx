@@ -419,8 +419,13 @@ function ContenidoRecordatorios({ estado }: { estado: ReturnType<typeof useRecor
 
   return (
     <div className="flex flex-col" style={{ minHeight: 280 }}>
+      {/* Nota aclaratoria */}
+      <p className="text-xxs text-texto-terciario px-4 pt-2.5 pb-0.5">
+        Tus recordatorios personales — solo vos los ves.
+      </p>
+
       {/* Sub-tabs: Crear | Activos | Completados */}
-      <div className="px-3 pt-2 shrink-0">
+      <div className="shrink-0">
         <Tabs
           tabs={[
             { clave: 'crear', etiqueta: 'Crear', icono: <Plus size={13} /> },
@@ -504,8 +509,9 @@ function NotificacionesHeader() {
   /* Sincronizar estado abierto de recordatorios con el popover */
   const abrirPopoverActividades = useCallback((abierto: boolean) => {
     setPopoverAbierto(abierto ? 'actividades' : null)
-    estadoRecordatorios.setAbierto(abierto && tabActividades === 'recordatorios')
-  }, [tabActividades, estadoRecordatorios])
+    if (abierto) setTabActividades('actividades')
+    estadoRecordatorios.setAbierto(false)
+  }, [estadoRecordatorios])
 
   const cambiarTabActividades = useCallback((tab: TabActividades) => {
     setTabActividades(tab)
@@ -539,7 +545,7 @@ function NotificacionesHeader() {
 
   return (
     <>
-      <div className="flex items-center gap-0.5">
+      <div className="flex items-center gap-1">
         {POPOVERS.map((config) => {
           const noLeidas = noLeidasPorCategoria(config.categoria)
           const items = porCategoria(config.categoria)
@@ -657,6 +663,9 @@ function NotificacionesHeader() {
             </Popover>
           )
         })}
+
+        {/* Separador */}
+        <span className="hidden sm:block w-px h-4 bg-borde-sutil mx-1" />
 
         {/* Jornada (chip compacto con timer) */}
         <WidgetJornada />

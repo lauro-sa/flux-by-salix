@@ -9,7 +9,12 @@ import * as esquema from './esquema'
  */
 const conexionString = process.env.DATABASE_URL!
 
-const cliente = postgres(conexionString)
+const cliente = postgres(conexionString, {
+  max: 20,
+  idle_timeout: 30,
+  connect_timeout: 10,
+  prepare: true,
+})
 export const db = drizzle(cliente, { schema: esquema })
 
 export { esquema }

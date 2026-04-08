@@ -3,7 +3,7 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
 import { crearNotificacion } from '@/lib/notificaciones'
-import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 
 /**
  * GET /api/actividades — Listar actividades de la empresa activa.
@@ -18,14 +18,10 @@ export async function GET(request: NextRequest) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
-    // Verificar permisos de visibilidad: ver_todos > ver_propio > 403
-    const { permitido: verTodos } = await obtenerYVerificarPermiso(user.id, empresaId, 'actividades', 'ver_todos')
-    let soloPropio = false
-    if (!verTodos) {
-      const { permitido: verPropio } = await obtenerYVerificarPermiso(user.id, empresaId, 'actividades', 'ver_propio')
-      if (!verPropio) return NextResponse.json({ error: 'Sin permiso para ver actividades' }, { status: 403 })
-      soloPropio = true
-    }
+    // Verificar permisos de visibilidad con una sola query a BD
+    const visibilidad = await verificarVisibilidad(user.id, empresaId, 'actividades')
+    if (!visibilidad) return NextResponse.json({ error: 'Sin permiso para ver actividades' }, { status: 403 })
+    const soloPropio = visibilidad.soloPropio
 
     const params = request.nextUrl.searchParams
     const busqueda = params.get('busqueda') || ''
@@ -121,31 +117,20 @@ export async function GET(request: NextRequest) {
       query = query.or(`titulo.ilike.%${busqueda}%,asignado_nombre.ilike.%${busqueda}%`)
     }
 
-    // Ordenamiento y paginación
-    query = query
-      .order(orden_campo, { ascending: orden_dir, nullsFirst: false })
-      .order('creado_en', { ascending: true })
-      .range(desde, desde + por_pagina - 1)
+    // Ordenamiento y paginación — multi-criterio en SQL para evitar sort en memoria
+    if (orden_campo === 'fecha_vencimiento') {
+      query = query
+        .order('fecha_vencimiento', { ascending: orden_dir, nullsFirst: false })
+        .order('prioridad', { ascending: true }) // alta < normal < baja alfabéticamente
+        .order('creado_en', { ascending: true })
+    } else {
+      query = query
+        .order(orden_campo, { ascending: orden_dir, nullsFirst: false })
+        .order('creado_en', { ascending: true })
+    }
+    query = query.range(desde, desde + por_pagina - 1)
 
     const { data, count, error } = await query
-
-    // Segundo criterio: dentro de la misma fecha → más seguimientos primero → alta primero
-    const PESO_PRIORIDAD: Record<string, number> = { alta: 0, normal: 1, baja: 2 }
-    if (data && orden_campo === 'fecha_vencimiento') {
-      data.sort((a, b) => {
-        // Primero por fecha
-        const fA = a.fecha_vencimiento || ''
-        const fB = b.fecha_vencimiento || ''
-        const cmpFecha = orden_dir ? fA.localeCompare(fB) : fB.localeCompare(fA)
-        if (cmpFecha !== 0) return cmpFecha
-        // Misma fecha: más seguimientos primero
-        const segA = Array.isArray(a.seguimientos) ? a.seguimientos.length : 0
-        const segB = Array.isArray(b.seguimientos) ? b.seguimientos.length : 0
-        if (segA !== segB) return segB - segA
-        // Mismos seguimientos: alta primero
-        return (PESO_PRIORIDAD[a.prioridad] ?? 1) - (PESO_PRIORIDAD[b.prioridad] ?? 1)
-      })
-    }
 
     if (error) {
       console.error('Error al listar actividades:', error)
@@ -188,31 +173,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'El tipo es obligatorio' }, { status: 400 })
     }
 
-    // Obtener tipo para snapshot de clave + info para notificación
-    const { data: tipo } = await admin
-      .from('tipos_actividad')
-      .select('clave, etiqueta, color')
-      .eq('id', body.tipo_id)
-      .single()
+    // Queries independientes en paralelo: tipo, estado default y perfil del creador
+    const [
+      { data: tipo },
+      { data: estadoDefault },
+      { data: perfil },
+    ] = await Promise.all([
+      admin.from('tipos_actividad').select('clave, etiqueta, color').eq('id', body.tipo_id).single(),
+      admin.from('estados_actividad').select('id, clave').eq('empresa_id', empresaId).eq('clave', 'pendiente').single(),
+      admin.from('perfiles').select('nombre, apellido').eq('id', user.id).single(),
+    ])
 
     if (!tipo) return NextResponse.json({ error: 'Tipo no encontrado' }, { status: 404 })
-
-    // Obtener estado default (pendiente)
-    const { data: estadoDefault } = await admin
-      .from('estados_actividad')
-      .select('id, clave')
-      .eq('empresa_id', empresaId)
-      .eq('clave', 'pendiente')
-      .single()
-
     if (!estadoDefault) return NextResponse.json({ error: 'Estado pendiente no encontrado' }, { status: 500 })
-
-    // Obtener nombre del creador
-    const { data: perfil } = await admin
-      .from('perfiles')
-      .select('nombre, apellido')
-      .eq('id', user.id)
-      .single()
 
     const nombreCreador = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : 'Usuario'
 

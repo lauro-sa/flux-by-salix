@@ -5,6 +5,7 @@ import { ProveedorNavegacion } from '@/hooks/useNavegacion'
 import { ProveedorIdioma } from '@/lib/i18n'
 import { ProveedorToast } from '@/componentes/feedback/Toast'
 import { ProveedorEnvioPendiente } from '@/hooks/useEnvioPendiente'
+import { ProveedorQuery } from '@/hooks/useQueryClient'
 import { ProveedorAuth } from '@/hooks/useAuth'
 import { ProveedorPreferencias } from '@/hooks/usePreferencias'
 import { ProveedorEmpresa } from '@/hooks/useEmpresa'
@@ -17,6 +18,7 @@ import { PlantillaApp } from '@/componentes/entidad/PlantillaApp'
  */
 export default function LayoutFlux({ children }: { children: React.ReactNode }) {
   return (
+    <ProveedorQuery>
     <ProveedorIdioma>
       <ProveedorAuth>
         <ProveedorPreferencias>
@@ -38,5 +40,6 @@ export default function LayoutFlux({ children }: { children: React.ReactNode }) 
         </ProveedorPreferencias>
       </ProveedorAuth>
     </ProveedorIdioma>
+    </ProveedorQuery>
   )
 }

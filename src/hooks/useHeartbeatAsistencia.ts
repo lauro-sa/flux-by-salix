@@ -50,6 +50,7 @@ export function useHeartbeatAsistencia() {
               navigator.userAgent.includes('Safari') ? 'Safari' : 'Otro',
             pestana_visible: document.visibilityState === 'visible',
             ultimo_input_hace_ms: tiempoDesdeUltimaActividad,
+            es_movil: /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
           },
         }),
         keepalive: tipo === 'beforeunload',

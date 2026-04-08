@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trash2, RotateCcw, Clock, User, FileText, Package, Zap, Search, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Boton } from '@/componentes/ui/Boton'
@@ -9,6 +10,7 @@ import { Tabs } from '@/componentes/ui/Tabs'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { SkeletonLista } from '@/componentes/feedback/SkeletonTabla'
 import { useAuth } from '@/hooks/useAuth'
 import { useRol } from '@/hooks/useRol'
 import { useTraduccion } from '@/lib/i18n'
@@ -64,8 +66,8 @@ export default function PaginaPapelera() {
   const { usuario } = useAuth()
   const { esPropietario, esAdmin } = useRol()
 
-  const [elementos, setElementos] = useState<ElementoPapelera[]>([])
-  const [cargando, setCargando] = useState(true)
+  const queryClient = useQueryClient()
+
   const [filtro, setFiltro] = useState<'todos' | TipoEntidad>('todos')
   const [busqueda, setBusqueda] = useState('')
   const [restaurando, setRestaurando] = useState<string | null>(null)
@@ -74,82 +76,78 @@ export default function PaginaPapelera() {
 
   const puedeVerTodos = esPropietario || esAdmin
 
-  const cargarElementos = useCallback(async () => {
-    setCargando(true)
-    const resultados: ElementoPapelera[] = []
+  // Cargar elementos de la papelera con React Query
+  const { data: elementos = [], isLoading: cargando } = useQuery({
+    queryKey: ['papelera'],
+    queryFn: async () => {
+      const [contactosRes, presupuestosRes, actividadesRes, productosRes] = await Promise.all([
+        fetch('/api/contactos?en_papelera=true').then(r => r.ok ? r.json() : { contactos: [] }),
+        fetch('/api/presupuestos?en_papelera=true').then(r => r.ok ? r.json() : { presupuestos: [] }),
+        fetch('/api/actividades?en_papelera=true').then(r => r.ok ? r.json() : { actividades: [] }),
+        fetch('/api/productos?en_papelera=true').then(r => r.ok ? r.json() : { productos: [] }),
+      ])
 
-    // Cargar en paralelo todas las entidades con en_papelera=true
-    const [contactosRes, presupuestosRes, actividadesRes, productosRes] = await Promise.all([
-      fetch('/api/contactos?en_papelera=true').then(r => r.ok ? r.json() : []),
-      fetch('/api/presupuestos?en_papelera=true').then(r => r.ok ? r.json() : []),
-      fetch('/api/actividades?en_papelera=true').then(r => r.ok ? r.json() : []),
-      fetch('/api/productos?en_papelera=true').then(r => r.ok ? r.json() : []),
-    ])
+      const resultados: ElementoPapelera[] = []
 
-    // Mapear contactos
-    const contactos = contactosRes?.contactos || []
-    for (const c of contactos) {
-      resultados.push({
-        id: c.id,
-        nombre: [c.nombre, c.apellido].filter(Boolean).join(' ') || 'Sin nombre',
-        tipo: 'contactos',
-        eliminado_en: c.papelera_en || c.actualizado_en,
-        eliminado_por: c.editado_por,
-        eliminado_por_nombre: null,
-        subtitulo: c.correo || c.telefono || c.codigo,
-      })
-    }
+      // Mapear contactos
+      for (const c of (contactosRes?.contactos || [])) {
+        resultados.push({
+          id: c.id,
+          nombre: [c.nombre, c.apellido].filter(Boolean).join(' ') || 'Sin nombre',
+          tipo: 'contactos',
+          eliminado_en: c.papelera_en || c.actualizado_en,
+          eliminado_por: c.editado_por,
+          eliminado_por_nombre: null,
+          subtitulo: c.correo || c.telefono || c.codigo,
+        })
+      }
 
-    // Mapear presupuestos
-    const presupuestos = presupuestosRes?.presupuestos || []
-    for (const p of presupuestos) {
-      resultados.push({
-        id: p.id,
-        nombre: p.titulo || p.codigo || 'Sin título',
-        tipo: 'presupuestos',
-        eliminado_en: p.papelera_en || p.actualizado_en,
-        eliminado_por: p.editado_por,
-        eliminado_por_nombre: p.editado_por_nombre,
-        subtitulo: p.codigo,
-      })
-    }
+      // Mapear presupuestos
+      for (const p of (presupuestosRes?.presupuestos || [])) {
+        resultados.push({
+          id: p.id,
+          nombre: p.titulo || p.codigo || 'Sin título',
+          tipo: 'presupuestos',
+          eliminado_en: p.papelera_en || p.actualizado_en,
+          eliminado_por: p.editado_por,
+          eliminado_por_nombre: p.editado_por_nombre,
+          subtitulo: p.codigo,
+        })
+      }
 
-    // Mapear actividades
-    const actividades = actividadesRes?.actividades || []
-    for (const a of actividades) {
-      resultados.push({
-        id: a.id,
-        nombre: a.titulo || a.asunto || 'Sin título',
-        tipo: 'actividades',
-        eliminado_en: a.papelera_en || a.actualizado_en,
-        eliminado_por: a.editado_por,
-        eliminado_por_nombre: a.editado_por_nombre,
-        subtitulo: a.tipo,
-      })
-    }
+      // Mapear actividades
+      for (const a of (actividadesRes?.actividades || [])) {
+        resultados.push({
+          id: a.id,
+          nombre: a.titulo || a.asunto || 'Sin título',
+          tipo: 'actividades',
+          eliminado_en: a.papelera_en || a.actualizado_en,
+          eliminado_por: a.editado_por,
+          eliminado_por_nombre: a.editado_por_nombre,
+          subtitulo: a.tipo,
+        })
+      }
 
-    // Mapear productos
-    const productos = productosRes?.productos || []
-    for (const p of productos) {
-      resultados.push({
-        id: p.id,
-        nombre: p.nombre || 'Sin nombre',
-        tipo: 'productos',
-        eliminado_en: p.papelera_en || p.actualizado_en,
-        eliminado_por: p.editado_por,
-        eliminado_por_nombre: p.editado_por_nombre,
-        subtitulo: p.codigo || p.sku,
-      })
-    }
+      // Mapear productos
+      for (const p of (productosRes?.productos || [])) {
+        resultados.push({
+          id: p.id,
+          nombre: p.nombre || 'Sin nombre',
+          tipo: 'productos',
+          eliminado_en: p.papelera_en || p.actualizado_en,
+          eliminado_por: p.editado_por,
+          eliminado_por_nombre: p.editado_por_nombre,
+          subtitulo: p.codigo || p.sku,
+        })
+      }
 
-    // Ordenar por fecha de eliminación (más reciente primero)
-    resultados.sort((a, b) => new Date(b.eliminado_en).getTime() - new Date(a.eliminado_en).getTime())
+      // Ordenar por fecha de eliminación (más reciente primero)
+      resultados.sort((a, b) => new Date(b.eliminado_en).getTime() - new Date(a.eliminado_en).getTime())
 
-    setElementos(resultados)
-    setCargando(false)
-  }, [])
-
-  useEffect(() => { cargarElementos() }, [cargarElementos])
+      return resultados
+    },
+    staleTime: 20_000,
+  })
 
   /** Restaurar un elemento */
   const restaurar = useCallback(async (elem: ElementoPapelera) => {
@@ -162,11 +160,13 @@ export default function PaginaPapelera() {
         body: JSON.stringify({ en_papelera: false }),
       })
       if (res.ok) {
-        setElementos(prev => prev.filter(e => e.id !== elem.id))
+        queryClient.setQueryData(['papelera'], (prev: ElementoPapelera[] | undefined) =>
+          (prev || []).filter(e => e.id !== elem.id)
+        )
       }
     } catch { /* silenciar */ }
     setRestaurando(null)
-  }, [])
+  }, [queryClient])
 
   /** Eliminar definitivamente */
   const eliminarDefinitivo = useCallback(async (elem: ElementoPapelera) => {
@@ -176,13 +176,15 @@ export default function PaginaPapelera() {
       if (elem.tipo === 'contactos') {
         const res = await fetch(`/api/contactos/${elem.id}`, { method: 'DELETE' })
         if (res.ok) {
-          setElementos(prev => prev.filter(e => e.id !== elem.id))
+          queryClient.setQueryData(['papelera'], (prev: ElementoPapelera[] | undefined) =>
+            (prev || []).filter(e => e.id !== elem.id)
+          )
         }
       }
     } catch { /* silenciar */ }
     setEliminando(false)
     setConfirmacionEliminar(null)
-  }, [])
+  }, [queryClient])
 
   // Filtrar por visibilidad (solo admin/propietario ven todo, otros solo lo que eliminaron ellos)
   const elementosVisibles = puedeVerTodos
@@ -268,9 +270,7 @@ export default function PaginaPapelera() {
       {/* Lista de elementos */}
       <div className="flex-1 overflow-auto">
         {cargando ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-6 w-6 border-2 border-texto-terciario border-t-texto-marca" />
-          </div>
+          <SkeletonLista filas={6} />
         ) : elementosFiltrados.length === 0 ? (
           <div className="flex items-center justify-center h-full bg-superficie-tarjeta border border-borde-sutil rounded-lg">
             <EstadoVacio

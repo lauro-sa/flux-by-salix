@@ -1,6 +1,6 @@
 'use client'
 
-import { CheckCircle2, AlertTriangle, Clock, XCircle, Coffee, Footprints, Calendar, UtensilsCrossed } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, Clock, XCircle, Coffee, Footprints, Calendar, UtensilsCrossed, Palmtree } from 'lucide-react'
 import { useFormato } from '@/hooks/useFormato'
 
 // ─── Tipos ───────────────────────────────────────────────────
@@ -18,6 +18,7 @@ interface RegistroAsistencia {
   estado: string
   tipo: string
   metodo_registro: string
+  notas?: string | null
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -76,6 +77,7 @@ const ESTADO_CFG: Record<string, { etiqueta: string; color: string; fondo: strin
   cerrado:      { etiqueta: 'Cerrado', color: 'text-emerald-400/70', fondo: 'bg-emerald-500/10 border-emerald-500/20', icono: <CheckCircle2 size={11} /> },
   auto_cerrado: { etiqueta: 'Sin salida', color: 'text-amber-400', fondo: 'bg-amber-500/15 border-amber-500/30', icono: <AlertTriangle size={11} /> },
   ausente:      { etiqueta: 'Ausente', color: 'text-red-400', fondo: 'bg-red-500/15 border-red-500/30', icono: <XCircle size={11} /> },
+  feriado:      { etiqueta: 'Feriado', color: 'text-violet-400', fondo: 'bg-violet-500/15 border-violet-500/30', icono: <Palmtree size={11} /> },
   almuerzo:     { etiqueta: 'Almorzando', color: 'text-amber-400', fondo: 'bg-amber-500/15 border-amber-500/30', icono: <Coffee size={11} /> },
   particular:   { etiqueta: 'Trámite', color: 'text-sky-400', fondo: 'bg-sky-500/15 border-sky-500/30', icono: <Footprints size={11} /> },
 }
@@ -267,6 +269,8 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
           </div>
           <p className="text-xs text-texto-terciario">En jornada...</p>
         </>
+      ) : r.estado === 'feriado' ? (
+        <p className="text-xs text-violet-400/80 py-2">{r.notas || 'Feriado'}</p>
       ) : (
         <p className="text-xs text-red-400/60 py-2">Sin registro de asistencia</p>
       )}

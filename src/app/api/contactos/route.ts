@@ -456,14 +456,14 @@ export async function POST(request: NextRequest) {
     ])
 
     // Crear dirección y vinculaciones en paralelo
-    const insercionesExtra: Promise<unknown>[] = []
+    const insercionesExtra: PromiseLike<unknown>[] = []
 
     if (body.direccion) {
       insercionesExtra.push(
         admin.from('contacto_direcciones').insert({
           contacto_id: contacto.id,
           ...body.direccion,
-        })
+        }).then()
       )
     }
 
@@ -487,7 +487,7 @@ export async function POST(request: NextRequest) {
         },
       ])
       insercionesExtra.push(
-        admin.from('contacto_vinculaciones').insert(vinculaciones)
+        admin.from('contacto_vinculaciones').insert(vinculaciones).then()
       )
     }
 

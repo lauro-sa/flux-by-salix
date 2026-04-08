@@ -1719,6 +1719,9 @@ export default function PaginaPerfilUsuario() {
                 <div className="mt-5 space-y-3">
                   {[
                     { campo: 'horario_flexible', etiqueta: 'Horario flexible', desc: 'No se controla el horario de entrada/salida' },
+                    ...(miembro.metodo_fichaje === 'automatico' ? [
+                      { campo: 'fichaje_auto_movil', etiqueta: 'Fichaje automático en móvil', desc: 'Permitir que el fichaje automático funcione desde celulares y tablets (PWA)' },
+                    ] : []),
                     { campo: 'salix_ia_habilitado', etiqueta: 'Acceso a Salix IA', desc: 'Puede usar el asistente de inteligencia artificial' },
                   ].map(toggle => (
                     <div key={toggle.campo} className="flex items-center justify-between py-2">

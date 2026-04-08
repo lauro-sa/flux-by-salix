@@ -36,14 +36,14 @@ export async function POST(request: NextRequest) {
     // Obtener miembro
     const { data: miembro } = await admin
       .from('miembros')
-      .select('id, usuario_id, metodo_fichaje')
+      .select('id, usuario_id, metodo_fichaje, fichaje_auto_movil')
       .eq('usuario_id', user.id)
       .eq('empresa_id', empresaId)
       .single()
 
     if (!miembro) return NextResponse.json({ error: 'No sos miembro' }, { status: 403 })
 
-    // Registrar heartbeat en fichajes_actividad
+    // Registrar heartbeat en fichajes_actividad (siempre, independiente del dispositivo)
     await admin
       .from('fichajes_actividad')
       .insert({
@@ -56,7 +56,11 @@ export async function POST(request: NextRequest) {
       })
 
     // Si tiene fichaje automático, manejar entrada/salida tentativa
-    if (miembro.metodo_fichaje === 'automatico') {
+    // Verificar restricción de dispositivo móvil
+    const esMovil = metadata?.es_movil === true
+    const fichajePermitido = miembro.metodo_fichaje === 'automatico' && (!esMovil || miembro.fichaje_auto_movil)
+
+    if (fichajePermitido) {
       const { data: turnoHoy } = await admin
         .from('asistencias')
         .select('id, estado, hora_entrada')

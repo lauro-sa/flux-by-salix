@@ -251,10 +251,18 @@ async function recalcularTotales(
   empresaId: string,
   userId: string,
 ) {
-  const { data: lineas } = await admin
-    .from('lineas_presupuesto')
-    .select('tipo_linea, subtotal, impuesto_monto, monto')
-    .eq('presupuesto_id', presupuestoId)
+  // Leer líneas y descuento global en paralelo
+  const [{ data: lineas }, { data: presupuesto }] = await Promise.all([
+    admin
+      .from('lineas_presupuesto')
+      .select('tipo_linea, subtotal, impuesto_monto, monto')
+      .eq('presupuesto_id', presupuestoId),
+    admin
+      .from('presupuestos')
+      .select('descuento_global')
+      .eq('id', presupuestoId)
+      .single(),
+  ])
 
   if (!lineas) return
 
@@ -266,16 +274,9 @@ async function recalcularTotales(
       subtotalNeto += parseFloat(linea.subtotal || '0')
       totalImpuestos += parseFloat(linea.impuesto_monto || '0')
     } else if (linea.tipo_linea === 'descuento') {
-      subtotalNeto += parseFloat(linea.monto || '0') // monto negativo
+      subtotalNeto += parseFloat(linea.monto || '0')
     }
   }
-
-  // Obtener descuento global actual
-  const { data: presupuesto } = await admin
-    .from('presupuestos')
-    .select('descuento_global')
-    .eq('id', presupuestoId)
-    .single()
 
   const descuentoGlobalPct = parseFloat(presupuesto?.descuento_global || '0')
   const descuentoGlobalMonto = subtotalNeto * descuentoGlobalPct / 100

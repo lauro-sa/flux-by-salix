@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 
 /**
  * GET /api/inbox/internos — Listar canales internos del usuario.
@@ -16,13 +16,10 @@ export async function GET() {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
-    // Verificar permiso de ver canales internos
-    const { permitido: verTodos } = await obtenerYVerificarPermiso(user.id, empresaId, 'inbox_interno', 'ver_todos')
-    if (!verTodos) {
-      const { permitido: verPropio } = await obtenerYVerificarPermiso(user.id, empresaId, 'inbox_interno', 'ver_propio')
-      if (!verPropio) {
-        return NextResponse.json({ error: 'Sin permiso para ver canales internos' }, { status: 403 })
-      }
+    // Verificar permiso de ver canales internos (1 sola query)
+    const visibilidad = await verificarVisibilidad(user.id, empresaId, 'inbox_interno')
+    if (!visibilidad) {
+      return NextResponse.json({ error: 'Sin permiso para ver canales internos' }, { status: 403 })
     }
 
     const admin = crearClienteAdmin()

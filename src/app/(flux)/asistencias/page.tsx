@@ -24,6 +24,7 @@ const ETIQUETA_ESTADO: Record<string, string> = {
   cerrado: 'Cerrado',
   auto_cerrado: 'Sin salida',
   ausente: 'Ausente',
+  feriado: 'Feriado',
   presente: 'Presente',
 }
 
@@ -34,6 +35,7 @@ const COLOR_ESTADO: Record<string, string> = {
   cerrado: 'neutro',
   auto_cerrado: 'peligro',
   ausente: 'peligro',
+  feriado: 'info',
   presente: 'exito',
 }
 

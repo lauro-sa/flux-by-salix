@@ -3,7 +3,7 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
 import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
-import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarError } from '@/lib/logger'
 
 /**
@@ -19,14 +19,10 @@ export async function GET(request: NextRequest) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
-    // Verificar permisos de visibilidad: ver_todos > ver_propio > 403
-    const { permitido: verTodos } = await obtenerYVerificarPermiso(user.id, empresaId, 'presupuestos', 'ver_todos')
-    let soloPropio = false
-    if (!verTodos) {
-      const { permitido: verPropio } = await obtenerYVerificarPermiso(user.id, empresaId, 'presupuestos', 'ver_propio')
-      if (!verPropio) return NextResponse.json({ error: 'Sin permiso para ver presupuestos' }, { status: 403 })
-      soloPropio = true
-    }
+    // Verificar permisos de visibilidad con una sola query a BD
+    const visibilidad = await verificarVisibilidad(user.id, empresaId, 'presupuestos')
+    if (!visibilidad) return NextResponse.json({ error: 'Sin permiso para ver presupuestos' }, { status: 403 })
+    const soloPropio = visibilidad.soloPropio
 
     const params = request.nextUrl.searchParams
     const busqueda = sanitizarBusqueda(params.get('busqueda') || '')
@@ -46,7 +42,18 @@ export async function GET(request: NextRequest) {
 
     let query = admin
       .from('presupuestos')
-      .select('*', { count: 'exact' })
+      .select(`
+        id, numero, estado, referencia,
+        contacto_id, contacto_nombre, contacto_apellido, contacto_tipo,
+        contacto_correo, contacto_telefono, contacto_identificacion,
+        contacto_condicion_iva, contacto_direccion,
+        atencion_contacto_id, atencion_nombre, atencion_correo, atencion_cargo,
+        moneda, condicion_pago_label,
+        fecha_emision, fecha_vencimiento, dias_vencimiento,
+        subtotal_neto, total_impuestos, descuento_global, total_final,
+        origen_documento_numero,
+        creado_por, creado_por_nombre, creado_en, actualizado_en
+      `, { count: 'exact' })
       .eq('empresa_id', empresaId)
       .eq('en_papelera', en_papelera)
 
@@ -137,28 +144,21 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const admin = crearClienteAdmin()
 
-    // Generar número secuencial
-    const { data: numero, error: numError } = await admin
-      .rpc('siguiente_codigo', { p_empresa_id: empresaId, p_entidad: 'presupuesto' })
+    // Paralelizar queries independientes: número, config y perfil
+    const [
+      { data: numero, error: numError },
+      { data: config },
+      { data: perfil },
+    ] = await Promise.all([
+      admin.rpc('siguiente_codigo', { p_empresa_id: empresaId, p_entidad: 'presupuesto' }),
+      admin.from('config_presupuestos').select('*').eq('empresa_id', empresaId).maybeSingle(),
+      admin.from('perfiles').select('nombre, apellido').eq('id', user.id).single(),
+    ])
 
     if (numError || !numero) {
       console.error('Error al generar número:', numError)
       return NextResponse.json({ error: 'Error al generar número de presupuesto' }, { status: 500 })
     }
-
-    // Obtener config para defaults
-    const { data: config } = await admin
-      .from('config_presupuestos')
-      .select('*')
-      .eq('empresa_id', empresaId)
-      .maybeSingle()
-
-    // Obtener nombre del usuario
-    const { data: perfil } = await admin
-      .from('perfiles')
-      .select('nombre, apellido')
-      .eq('id', user.id)
-      .single()
 
     const nombreUsuario = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : null
 

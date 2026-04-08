@@ -44,6 +44,7 @@ const COLORES_CELDA: Record<string, { fondo: string; borde: string }> = {
   particular:   { fondo: 'bg-sky-500/10', borde: 'border-sky-500/20' },
   auto_cerrado: { fondo: 'bg-red-500/10', borde: 'border-red-500/20' },
   ausente:      { fondo: 'bg-red-500/8', borde: 'border-red-500/15' },
+  feriado:      { fondo: 'bg-violet-500/10', borde: 'border-violet-500/20' },
 }
 
 const COLOR_PUNTO: Record<string, string> = {
@@ -53,6 +54,7 @@ const COLOR_PUNTO: Record<string, string> = {
   tardanza: 'bg-amber-400',
   auto_cerrado: 'bg-red-400',
   ausente: 'bg-red-400',
+  feriado: 'bg-violet-400',
 }
 
 const DIAS_SEMANA_CORTO = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
@@ -143,12 +145,15 @@ const hoyStrGlobal = new Date().toISOString().split('T')[0]
 
 function estadoCelda(asist: CeldaAsistencia | undefined, fecha?: string, esFinde?: boolean, esFeriado?: boolean): string {
   if (asist) {
+    if (asist.estado === 'feriado') return 'feriado'
     if (asist.tipo === 'tardanza') return 'tardanza'
     if (asist.estado === 'ausente') return 'ausente'
     if (asist.estado === 'auto_cerrado') return 'auto_cerrado'
     if (asist.estado === 'activo') return 'activo'
     return 'cerrado'
   }
+  // Sin registro: feriado visual (sin record en BD)
+  if (fecha && esFeriado && !esFinde) return 'feriado'
   // Sin registro: si es día laboral pasado (no finde, no feriado, no futuro) → ausente
   if (fecha && !esFinde && !esFeriado && fecha < hoyStrGlobal) {
     return 'ausente'
@@ -678,7 +683,35 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                       // Celda contenido
                       let celda: React.ReactNode
 
-                      if (estado === 'ausente') {
+                      if (estado === 'feriado') {
+                        const nombreFer = feriados.get(fecha) || 'Feriado'
+                        celda = (
+                          <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol} ${ringSeleccion}`}>
+                            {esUltra ? (
+                              <div className="group/celda relative mx-auto">
+                                <div className="size-5 rounded-md bg-violet-500/20 flex items-center justify-center">
+                                  <span className="text-violet-400 text-[7px] font-bold">F</span>
+                                </div>
+                                <div className="absolute z-[100] top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 scale-95 pointer-events-none group-hover/celda:opacity-100 group-hover/celda:scale-100 transition-all duration-150">
+                                  <div className="absolute left-1/2 -translate-x-1/2 bottom-full w-2 h-2 bg-superficie-elevada border-l border-t border-borde-sutil rotate-45 mb-[-5px]" />
+                                  <div className="bg-superficie-elevada border border-borde-sutil rounded-lg shadow-xl px-3 py-2 whitespace-nowrap">
+                                    <div className="flex items-center gap-1.5">
+                                      <div className="size-2 rounded-full bg-violet-400" />
+                                      <span className="text-xs font-medium text-violet-400">Feriado</span>
+                                    </div>
+                                    <p className="text-xxs text-texto-terciario mt-0.5">{nombreFer}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                            <div className={`mx-auto rounded-lg ${esCompacto ? 'h-[52px]' : 'h-[60px]'} flex flex-col items-center justify-center ${COLORES_CELDA.feriado.fondo} border ${COLORES_CELDA.feriado.borde}`}>
+                              <span className={`text-violet-400 ${esCompacto ? 'text-xxs' : 'text-xs'} font-semibold`}>Feriado</span>
+                              {!esCompacto && <span className="text-xxs text-violet-400/60 truncate max-w-[80px]">{nombreFer}</span>}
+                            </div>
+                            )}
+                          </td>
+                        )
+                      } else if (estado === 'ausente') {
                         celda = (
                           <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol} ${ringSeleccion}`}>
                             {esUltra ? (

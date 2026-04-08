@@ -37,6 +37,7 @@ export interface Miembro {
   horario_tipo: HorarioTipo | null
   horario_flexible: boolean
   metodo_fichaje: MetodoFichaje | null
+  fichaje_auto_movil: boolean
   salix_ia_habilitado: boolean
 
   // Kiosco
