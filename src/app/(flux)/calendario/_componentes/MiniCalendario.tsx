@@ -2,16 +2,14 @@
 
 /**
  * MiniCalendario — Panel flotante arrastrable con calendario compacto.
- * Se posiciona relativo al contenedor padre (área de la vista del calendario).
- * Se ancla a 9 posiciones (4 esquinas + 4 centros de borde + centro).
- * Al arrastrar y soltar, snappea a la posición más cercana.
- * La posición se guarda en localStorage para persistir entre sesiones.
+ * 6 posiciones de anclaje (4 esquinas + centro-izquierda + centro-derecha).
+ * Al arrastrar muestra indicadores fantasma en cada posición posible.
  * Se usa en: página del calendario (vistas día, semana, quincenal, equipo).
  */
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, GripHorizontal, X } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 
 // --- Constantes ---
 
@@ -22,63 +20,73 @@ const NOMBRES_MESES = [
 
 const CABECERAS_DIAS = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do']
 
-const STORAGE_KEY = 'flux_mini_calendario_posicion'
-const STORAGE_KEY_VISIBLE = 'flux_mini_calendario_visible'
+const STORAGE_KEY = 'flux_mini_cal_pos'
+const PANEL_W = 230
+const PANEL_H = 280
+const MARGEN = 8
 
-/** Margen desde los bordes del contenedor */
-const MARGEN = 12
-/** Offset superior para no tapar el header de días de las vistas */
-const OFFSET_SUPERIOR = 80
-
-/** 6 posiciones de anclaje: 4 esquinas + centro-izquierda + centro-derecha */
+/** 6 posiciones de anclaje */
 type PosicionAnclaje =
   | 'arriba-izquierda' | 'arriba-derecha'
   | 'centro-izquierda' | 'centro-derecha'
   | 'abajo-izquierda' | 'abajo-derecha'
 
-/** Convierte posición de anclaje a top/left en px dentro del contenedor */
-function calcularPosicionAbsoluta(
-  pos: PosicionAnclaje,
-  contenedorW: number,
-  contenedorH: number,
-  panelW: number,
-  panelH: number,
-): { top: number; left: number } {
-  let top = 0
-  let left = 0
-
-  // Horizontal
-  if (pos.includes('izquierda')) {
-    left = MARGEN
-  } else if (pos.includes('derecha')) {
-    left = contenedorW - panelW - MARGEN
-  } else {
-    // centro horizontal
-    left = (contenedorW - panelW) / 2
-  }
-
-  // Vertical — con offset para no tapar el header de días
-  if (pos.startsWith('arriba')) {
-    top = OFFSET_SUPERIOR
-  } else if (pos.startsWith('abajo')) {
-    top = contenedorH - panelH - MARGEN
-  } else {
-    // centro vertical (entre offset superior y abajo)
-    top = OFFSET_SUPERIOR + (contenedorH - OFFSET_SUPERIOR - panelH) / 2
-  }
-
-  return { top: Math.max(OFFSET_SUPERIOR, top), left: Math.max(MARGEN, left) }
+interface PosicionInfo {
+  id: PosicionAnclaje
+  /** Calcula top/left en px dado el tamaño del contenedor */
+  calcular: (cW: number, cH: number) => { top: number; left: number }
 }
 
-/** 6 posiciones de anclaje con coordenadas relativas (0-1) para snap */
-const POSICIONES_ANCLAJE: { id: PosicionAnclaje; xRel: number; yRel: number }[] = [
-  { id: 'arriba-izquierda', xRel: 0, yRel: 0 },
-  { id: 'arriba-derecha', xRel: 1, yRel: 0 },
-  { id: 'centro-izquierda', xRel: 0, yRel: 0.5 },
-  { id: 'centro-derecha', xRel: 1, yRel: 0.5 },
-  { id: 'abajo-izquierda', xRel: 0, yRel: 1 },
-  { id: 'abajo-derecha', xRel: 1, yRel: 1 },
+const POSICIONES: PosicionInfo[] = [
+  {
+    id: 'arriba-izquierda',
+    calcular: () => ({ top: MARGEN, left: MARGEN }),
+  },
+  {
+    id: 'arriba-derecha',
+    calcular: (cW) => ({ top: MARGEN, left: cW - PANEL_W - MARGEN }),
+  },
+  {
+    id: 'centro-izquierda',
+    calcular: (_, cH) => ({ top: (cH - PANEL_H) / 2, left: MARGEN }),
+  },
+  {
+    id: 'centro-derecha',
+    calcular: (cW, cH) => ({ top: (cH - PANEL_H) / 2, left: cW - PANEL_W - MARGEN }),
+  },
+  {
+    id: 'abajo-izquierda',
+    calcular: (_, cH) => ({ top: cH - PANEL_H - MARGEN, left: MARGEN }),
+  },
+  {
+    id: 'abajo-derecha',
+    calcular: (cW, cH) => ({ top: cH - PANEL_H - MARGEN, left: cW - PANEL_W - MARGEN }),
+  },
 ]
+
+/** Encuentra la posición de anclaje más cercana a un punto */
+function posicionMasCercana(
+  mouseX: number,
+  mouseY: number,
+  cW: number,
+  cH: number,
+): PosicionAnclaje {
+  let mejor: PosicionAnclaje = 'abajo-derecha'
+  let menorDist = Infinity
+
+  for (const pos of POSICIONES) {
+    const { top, left } = pos.calcular(cW, cH)
+    const centroX = left + PANEL_W / 2
+    const centroY = top + PANEL_H / 2
+    const dist = Math.hypot(mouseX - centroX, mouseY - centroY)
+    if (dist < menorDist) {
+      menorDist = dist
+      mejor = pos.id
+    }
+  }
+
+  return mejor
+}
 
 // --- Utilidades de fechas ---
 
@@ -120,7 +128,6 @@ interface PropiedadesMiniCalendario {
 // --- Componente ---
 
 function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: PropiedadesMiniCalendario) {
-  // Siempre visible al cargar — solo se oculta si el usuario lo cierra en esta sesión
   const [visible, setVisible] = useState(true)
 
   const [posicion, setPosicion] = useState<PosicionAnclaje>(() => {
@@ -128,61 +135,64 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: Propied
     return (localStorage.getItem(STORAGE_KEY) as PosicionAnclaje) || 'abajo-derecha'
   })
 
-  // Posición calculada en px (absoluta dentro del contenedor)
-  const [posicionPx, setPosicionPx] = useState<{ top: number; left: number } | null>(null)
-
-  // Estado del arrastre
+  // Arrastre
   const [arrastrando, setArrastrando] = useState(false)
-  const [arrastrandoPx, setArrastrandoPx] = useState<{ top: number; left: number } | null>(null)
+  const [arrastrandoXY, setArrastrandoXY] = useState<{ top: number; left: number } | null>(null)
+  const [posicionFantasma, setPosicionFantasma] = useState<PosicionAnclaje | null>(null)
 
-  const refPanel = useRef<HTMLDivElement>(null)
-  const refInicioArrastre = useRef<{ clientX: number; clientY: number; panelTop: number; panelLeft: number } | null>(null)
+  const refContenedor = useRef<HTMLDivElement | null>(null)
+  const refInicioArrastre = useRef<{
+    clientX: number; clientY: number
+    panelTop: number; panelLeft: number
+  } | null>(null)
 
-  // Mes visible (independiente del principal)
+  // Mes visible
   const [mesVisible, setMesVisible] = useState<Date>(
     () => new Date(fechaActual.getFullYear(), fechaActual.getMonth(), 1),
   )
-
   const anio = mesVisible.getFullYear()
   const mes = mesVisible.getMonth()
   const semanas = useMemo(() => generarCuadriculaMes(anio, mes), [anio, mes])
 
-  // Sincronizar mes cuando cambia fechaActual
   useEffect(() => {
     setMesVisible(new Date(fechaActual.getFullYear(), fechaActual.getMonth(), 1))
   }, [fechaActual.getFullYear(), fechaActual.getMonth()]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Persistir configuración
   useEffect(() => { localStorage.setItem(STORAGE_KEY, posicion) }, [posicion])
-  // No persistir visibilidad — siempre abierto al recargar
 
-  // Recalcular posición absoluta cuando cambia la posición de anclaje o el tamaño
-  const recalcularPosicion = useCallback(() => {
-    if (!refPanel.current) return
-    const contenedor = refPanel.current.parentElement
-    if (!contenedor) return
-    const cRect = contenedor.getBoundingClientRect()
-    const pRect = refPanel.current.getBoundingClientRect()
-    const pos = calcularPosicionAbsoluta(posicion, cRect.width, cRect.height, pRect.width, pRect.height)
-    setPosicionPx(pos)
-  }, [posicion])
+  // Obtener el contenedor padre (el div relative en page.tsx)
+  const obtenerContenedor = useCallback((): HTMLElement | null => {
+    return refContenedor.current?.parentElement ?? null
+  }, [])
+
+  // Calcular posición en px para una posición de anclaje
+  const calcularPx = useCallback((pos: PosicionAnclaje): { top: number; left: number } => {
+    const c = obtenerContenedor()
+    if (!c) return { top: MARGEN, left: MARGEN }
+    const rect = c.getBoundingClientRect()
+    const info = POSICIONES.find(p => p.id === pos)
+    if (!info) return { top: MARGEN, left: MARGEN }
+    return info.calcular(rect.width, rect.height)
+  }, [obtenerContenedor])
+
+  // Posición actual anclada
+  const [posicionPx, setPosicionPx] = useState<{ top: number; left: number }>({ top: MARGEN, left: MARGEN })
+
+  const recalcular = useCallback(() => {
+    setPosicionPx(calcularPx(posicion))
+  }, [posicion, calcularPx])
 
   useEffect(() => {
-    recalcularPosicion()
-    window.addEventListener('resize', recalcularPosicion)
-    return () => window.removeEventListener('resize', recalcularPosicion)
-  }, [recalcularPosicion])
+    recalcular()
+    window.addEventListener('resize', recalcular)
+    return () => window.removeEventListener('resize', recalcular)
+  }, [recalcular])
 
-  // Re-calcular después del primer render para tener dimensiones correctas
-  useEffect(() => {
-    const timer = setTimeout(recalcularPosicion, 50)
-    return () => clearTimeout(timer)
-  }, [recalcularPosicion, visible])
+  useEffect(() => { setTimeout(recalcular, 50) }, [recalcular, visible])
 
   // --- Arrastre ---
   const iniciarArrastre = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
-    if (!refPanel.current || !posicionPx) return
     refInicioArrastre.current = {
       clientX: e.clientX,
       clientY: e.clientY,
@@ -190,7 +200,7 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: Propied
       panelLeft: posicionPx.left,
     }
     setArrastrando(true)
-    setArrastrandoPx({ ...posicionPx })
+    setArrastrandoXY({ ...posicionPx })
   }, [posicionPx])
 
   useEffect(() => {
@@ -200,38 +210,33 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: Propied
       if (!refInicioArrastre.current) return
       const dx = e.clientX - refInicioArrastre.current.clientX
       const dy = e.clientY - refInicioArrastre.current.clientY
-      setArrastrandoPx({
-        top: Math.max(OFFSET_SUPERIOR, refInicioArrastre.current.panelTop + dy),
-        left: Math.max(MARGEN, refInicioArrastre.current.panelLeft + dx),
+
+      setArrastrandoXY({
+        top: refInicioArrastre.current.panelTop + dy,
+        left: refInicioArrastre.current.panelLeft + dx,
       })
+
+      // Calcular posición fantasma más cercana
+      const c = obtenerContenedor()
+      if (c) {
+        const rect = c.getBoundingClientRect()
+        const mouseRelX = e.clientX - rect.left
+        const mouseRelY = e.clientY - rect.top
+        const cercana = posicionMasCercana(mouseRelX, mouseRelY, rect.width, rect.height)
+        setPosicionFantasma(cercana)
+      }
     }
 
-    const manejarUp = (e: MouseEvent) => {
+    const manejarUp = () => {
       setArrastrando(false)
-      setArrastrandoPx(null)
+      setArrastrandoXY(null)
       refInicioArrastre.current = null
 
-      // Encontrar posición de anclaje más cercana relativa al contenedor
-      if (!refPanel.current) return
-      const contenedor = refPanel.current.parentElement
-      if (!contenedor) return
-      const cRect = contenedor.getBoundingClientRect()
-
-      // Posición relativa del mouse dentro del contenedor (0-1)
-      const xRel = Math.max(0, Math.min(1, (e.clientX - cRect.left) / cRect.width))
-      const yRel = Math.max(0, Math.min(1, (e.clientY - cRect.top) / cRect.height))
-
-      let mejorPos: PosicionAnclaje = 'abajo-derecha'
-      let menorDist = Infinity
-      for (const p of POSICIONES_ANCLAJE) {
-        const dist = Math.hypot(xRel - p.xRel, yRel - p.yRel)
-        if (dist < menorDist) {
-          menorDist = dist
-          mejorPos = p.id
-        }
+      // Anclar a la posición fantasma
+      if (posicionFantasma) {
+        setPosicion(posicionFantasma)
       }
-
-      setPosicion(mejorPos)
+      setPosicionFantasma(null)
     }
 
     document.addEventListener('mousemove', manejarMove)
@@ -240,7 +245,7 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: Propied
       document.removeEventListener('mousemove', manejarMove)
       document.removeEventListener('mouseup', manejarUp)
     }
-  }, [arrastrando])
+  }, [arrastrando, obtenerContenedor, posicionFantasma])
 
   const irMesAnterior = useCallback(() => {
     setMesVisible(prev => {
@@ -258,7 +263,7 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: Propied
     })
   }, [onCambiarMes])
 
-  // Botón para reabrir cuando está oculto
+  // --- Botón reabrir ---
   if (!visible) {
     return (
       <motion.button
@@ -277,126 +282,169 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: Propied
     )
   }
 
-  // Posición actual (arrastrando o anclada)
-  const posActual = arrastrando && arrastrandoPx ? arrastrandoPx : posicionPx
+  // Posición actual (arrastrando libremente o anclada)
+  const posActual = arrastrando && arrastrandoXY ? arrastrandoXY : posicionPx
 
   return (
-    <motion.div
-      ref={refPanel}
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{
-        opacity: 1,
-        scale: 1,
-        top: posActual?.top ?? MARGEN,
-        left: posActual?.left ?? MARGEN,
-      }}
-      transition={arrastrando
-        ? { duration: 0 }
-        : { type: 'spring', stiffness: 400, damping: 30 }
-      }
-      className={[
-        'absolute z-30 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-xl select-none w-[230px]',
-        arrastrando ? 'shadow-2xl ring-2 ring-texto-marca/20 cursor-grabbing' : '',
-      ].join(' ')}
-      style={{ position: 'absolute' }}
-    >
-      {/* Barra de título (arrastrable) */}
-      <div
-        className="flex items-center justify-between px-2.5 pt-1.5 pb-0.5 cursor-grab active:cursor-grabbing"
-        onMouseDown={iniciarArrastre}
+    <>
+      {/* Indicadores fantasma de las 6 posiciones durante arrastre */}
+      <AnimatePresence>
+        {arrastrando && (
+          <>
+            {POSICIONES.map(pos => {
+              const c = obtenerContenedor()
+              if (!c) return null
+              const rect = c.getBoundingClientRect()
+              const { top, left } = pos.calcular(rect.width, rect.height)
+              const esDestino = posicionFantasma === pos.id
+
+              return (
+                <motion.div
+                  key={pos.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className={[
+                    'absolute z-20 rounded-xl border-2 border-dashed pointer-events-none transition-all duration-150',
+                    esDestino
+                      ? 'border-texto-marca bg-texto-marca/10 scale-100'
+                      : 'border-borde-sutil/50 bg-superficie-hover/20 scale-95',
+                  ].join(' ')}
+                  style={{
+                    top,
+                    left,
+                    width: PANEL_W,
+                    height: PANEL_H,
+                  }}
+                >
+                  {esDestino && (
+                    <div className="flex items-center justify-center h-full">
+                      <span className="text-xs font-medium text-texto-marca/70">Soltar aquí</span>
+                    </div>
+                  )}
+                </motion.div>
+              )
+            })}
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Panel del mini calendario */}
+      <motion.div
+        ref={refContenedor}
+        animate={{
+          top: posActual.top,
+          left: posActual.left,
+        }}
+        transition={arrastrando
+          ? { duration: 0 }
+          : { type: 'spring', stiffness: 500, damping: 35 }
+        }
+        className={[
+          'absolute z-30 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-xl select-none',
+          arrastrando ? 'shadow-2xl ring-2 ring-texto-marca/30 opacity-80' : '',
+        ].join(' ')}
+        style={{ width: PANEL_W }}
       >
-        <GripHorizontal size={12} className="text-texto-terciario/40" />
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); setVisible(false) }}
-          className="p-0.5 rounded text-texto-terciario/40 hover:text-texto-primario hover:bg-superficie-hover transition-colors"
-          title="Ocultar"
+        {/* Barra arrastrable */}
+        <div
+          className="flex items-center justify-between px-2.5 pt-1.5 pb-0.5 cursor-grab active:cursor-grabbing"
+          onMouseDown={iniciarArrastre}
         >
-          <X size={11} />
-        </button>
-      </div>
-
-      <div className="px-2.5 pb-2.5">
-        {/* Navegación de mes */}
-        <div className="flex items-center justify-between mb-1">
+          <GripHorizontal size={12} className="text-texto-terciario/40" />
           <button
             type="button"
-            onClick={irMesAnterior}
-            className="p-0.5 rounded text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover transition-colors"
+            onClick={(e) => { e.stopPropagation(); setVisible(false) }}
+            className="p-0.5 rounded text-texto-terciario/40 hover:text-texto-primario hover:bg-superficie-hover transition-colors"
+            title="Ocultar"
           >
-            <ChevronLeft size={13} />
-          </button>
-          <span className="text-[11px] font-semibold text-texto-primario">
-            {NOMBRES_MESES[mes]} {anio}
-          </span>
-          <button
-            type="button"
-            onClick={irMesSiguiente}
-            className="p-0.5 rounded text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover transition-colors"
-          >
-            <ChevronRight size={13} />
+            <X size={11} />
           </button>
         </div>
 
-        {/* Cabeceras de días */}
-        <div className="grid grid-cols-7 mb-0.5">
-          {CABECERAS_DIAS.map(nombre => (
-            <div key={nombre} className="text-center text-[9px] font-medium text-texto-terciario leading-tight py-0.5">
-              {nombre}
-            </div>
-          ))}
-        </div>
+        <div className="px-2.5 pb-2.5">
+          {/* Navegación de mes */}
+          <div className="flex items-center justify-between mb-1">
+            <button
+              type="button"
+              onClick={irMesAnterior}
+              className="p-0.5 rounded text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover transition-colors"
+            >
+              <ChevronLeft size={13} />
+            </button>
+            <span className="text-[11px] font-semibold text-texto-primario">
+              {NOMBRES_MESES[mes]} {anio}
+            </span>
+            <button
+              type="button"
+              onClick={irMesSiguiente}
+              className="p-0.5 rounded text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover transition-colors"
+            >
+              <ChevronRight size={13} />
+            </button>
+          </div>
 
-        {/* Cuadrícula */}
-        <div className="flex flex-col">
-          {semanas.map((semana, i) => (
-            <div key={i} className="grid grid-cols-7">
-              {semana.map(dia => {
-                const esDelMes = dia.getMonth() === mes
-                const esDiaHoy = esHoy(dia)
-                const esSeleccionado = mismoDia(dia, fechaActual)
+          {/* Cabeceras */}
+          <div className="grid grid-cols-7 mb-0.5">
+            {CABECERAS_DIAS.map(nombre => (
+              <div key={nombre} className="text-center text-[9px] font-medium text-texto-terciario leading-tight py-0.5">
+                {nombre}
+              </div>
+            ))}
+          </div>
 
-                return (
-                  <button
-                    key={dia.toISOString()}
-                    type="button"
-                    onClick={() => onSeleccionarDia(dia)}
-                    className={[
-                      'flex items-center justify-center text-[10px] leading-none py-[2.5px] transition-colors',
-                      !esDelMes ? 'text-texto-terciario/30' : '',
-                      esDiaHoy ? 'font-bold' : '',
-                      esSeleccionado && !esDiaHoy ? 'font-semibold' : '',
-                      esDelMes && !esDiaHoy && !esSeleccionado ? 'text-texto-primario hover:text-texto-marca' : '',
-                      esDelMes && esSeleccionado && !esDiaHoy ? 'text-texto-marca' : '',
-                    ].join(' ')}
-                  >
-                    <span
+          {/* Cuadrícula */}
+          <div className="flex flex-col">
+            {semanas.map((semana, i) => (
+              <div key={i} className="grid grid-cols-7">
+                {semana.map(dia => {
+                  const esDelMes = dia.getMonth() === mes
+                  const esDiaHoy = esHoy(dia)
+                  const esSeleccionado = mismoDia(dia, fechaActual)
+
+                  return (
+                    <button
+                      key={dia.toISOString()}
+                      type="button"
+                      onClick={() => onSeleccionarDia(dia)}
                       className={[
-                        'flex items-center justify-center size-5 rounded-full transition-colors',
-                        esDiaHoy ? 'bg-texto-marca text-white' : '',
-                        esSeleccionado && !esDiaHoy ? 'ring-1 ring-texto-marca' : '',
-                        !esDiaHoy && !esSeleccionado ? 'hover:bg-superficie-hover' : '',
+                        'flex items-center justify-center text-[10px] leading-none py-[2.5px] transition-colors',
+                        !esDelMes ? 'text-texto-terciario/30' : '',
+                        esDiaHoy ? 'font-bold' : '',
+                        esSeleccionado && !esDiaHoy ? 'font-semibold' : '',
+                        esDelMes && !esDiaHoy && !esSeleccionado ? 'text-texto-primario hover:text-texto-marca' : '',
+                        esDelMes && esSeleccionado && !esDiaHoy ? 'text-texto-marca' : '',
                       ].join(' ')}
                     >
-                      {dia.getDate()}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          ))}
-        </div>
+                      <span
+                        className={[
+                          'flex items-center justify-center size-5 rounded-full transition-colors',
+                          esDiaHoy ? 'bg-texto-marca text-white' : '',
+                          esSeleccionado && !esDiaHoy ? 'ring-1 ring-texto-marca' : '',
+                          !esDiaHoy && !esSeleccionado ? 'hover:bg-superficie-hover' : '',
+                        ].join(' ')}
+                      >
+                        {dia.getDate()}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
 
-        {/* Hoy rápido */}
-        <button
-          type="button"
-          onClick={() => onSeleccionarDia(new Date())}
-          className="w-full mt-1.5 text-[9px] font-medium text-texto-marca hover:underline"
-        >
-          Ir a hoy
-        </button>
-      </div>
-    </motion.div>
+          {/* Hoy rápido */}
+          <button
+            type="button"
+            onClick={() => onSeleccionarDia(new Date())}
+            className="w-full mt-1.5 text-[9px] font-medium text-texto-marca hover:underline"
+          >
+            Ir a hoy
+          </button>
+        </div>
+      </motion.div>
+    </>
   )
 }
 
