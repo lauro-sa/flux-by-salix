@@ -870,6 +870,107 @@ export const actividades = pgTable('actividades', {
   index('actividades_papelera_idx').on(tabla.empresa_id, tabla.en_papelera),
 ])
 
+// ═══ CALENDARIO ═══
+
+// Tipos de evento de calendario — configurables por empresa
+export const tipos_evento_calendario = pgTable('tipos_evento_calendario', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  clave: text('clave').notNull(),
+  etiqueta: text('etiqueta').notNull(),
+  icono: text('icono').notNull().default('Calendar'),
+  color: text('color').notNull().default('#3B82F6'),
+  duracion_default: integer('duracion_default').notNull().default(60),
+  todo_el_dia_default: boolean('todo_el_dia_default').notNull().default(false),
+  activo: boolean('activo').notNull().default(true),
+  es_predefinido: boolean('es_predefinido').notNull().default(false),
+  orden: integer('orden').notNull().default(0),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  uniqueIndex('tipos_evento_cal_empresa_clave_idx').on(tabla.empresa_id, tabla.clave),
+  index('tipos_evento_cal_empresa_idx').on(tabla.empresa_id),
+])
+
+// Configuración del calendario por empresa
+export const config_calendario = pgTable('config_calendario', {
+  empresa_id: uuid('empresa_id').primaryKey().references(() => empresas.id, { onDelete: 'cascade' }),
+  hora_inicio_laboral: time('hora_inicio_laboral').notNull().default('08:00'),
+  hora_fin_laboral: time('hora_fin_laboral').notNull().default('18:00'),
+  dias_laborales: integer('dias_laborales').array().notNull().default(sql`'{1,2,3,4,5}'`),
+  intervalo_slot: integer('intervalo_slot').notNull().default(30),
+  vista_default: text('vista_default').notNull().default('semana'),
+  mostrar_fines_semana: boolean('mostrar_fines_semana').notNull().default(true),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+})
+
+// Eventos de calendario — reuniones, tareas, bloqueos, etc.
+export const eventos_calendario = pgTable('eventos_calendario', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+
+  // Contenido
+  titulo: text('titulo').notNull(),
+  descripcion: text('descripcion'),
+  ubicacion: text('ubicacion'),
+
+  // Tipo (FK a tabla configurable)
+  tipo_id: uuid('tipo_id').references(() => tipos_evento_calendario.id),
+  tipo_clave: text('tipo_clave'),
+  color: text('color'),
+
+  // Temporalidad
+  fecha_inicio: timestamp('fecha_inicio', { withTimezone: true }).notNull(),
+  fecha_fin: timestamp('fecha_fin', { withTimezone: true }).notNull(),
+  todo_el_dia: boolean('todo_el_dia').notNull().default(false),
+
+  // Recurrencia
+  recurrencia: jsonb('recurrencia'),
+  evento_padre_id: uuid('evento_padre_id'),
+  es_excepcion: boolean('es_excepcion').notNull().default(false),
+  fecha_excepcion: timestamp('fecha_excepcion', { withTimezone: true }),
+
+  // Asignación múltiple [{id, nombre}]
+  creado_por: uuid('creado_por').notNull(),
+  creado_por_nombre: text('creado_por_nombre'),
+  asignados: jsonb('asignados').notNull().default(sql`'[]'`),
+  asignado_ids: text('asignado_ids').array().notNull().default(sql`'{}'`),
+
+  // Visibilidad: 'publica' | 'ocupado' | 'privada'
+  visibilidad: text('visibilidad').notNull().default('publica'),
+
+  // Vinculaciones polimórficas [{tipo, id, nombre}]
+  vinculos: jsonb('vinculos').notNull().default(sql`'[]'`),
+  vinculo_ids: text('vinculo_ids').array().notNull().default(sql`'{}'`),
+
+  // Actividad vinculada (relación directa opcional)
+  actividad_id: uuid('actividad_id'),
+
+  // Estado: 'tentativo' | 'confirmado' | 'cancelado'
+  estado: text('estado').notNull().default('confirmado'),
+
+  // Notas
+  notas: text('notas'),
+
+  // Auditoría
+  editado_por: uuid('editado_por'),
+  editado_por_nombre: text('editado_por_nombre'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+
+  // Soft delete
+  en_papelera: boolean('en_papelera').notNull().default(false),
+  papelera_en: timestamp('papelera_en', { withTimezone: true }),
+}, (tabla) => [
+  index('eventos_cal_empresa_rango_idx').on(tabla.empresa_id, tabla.fecha_inicio, tabla.fecha_fin),
+  index('eventos_cal_empresa_creador_idx').on(tabla.empresa_id, tabla.creado_por),
+  index('eventos_cal_empresa_tipo_idx').on(tabla.empresa_id, tabla.tipo_clave),
+  index('eventos_cal_empresa_actividad_idx').on(tabla.empresa_id, tabla.actividad_id),
+  index('eventos_cal_empresa_padre_idx').on(tabla.empresa_id, tabla.evento_padre_id),
+  index('eventos_cal_empresa_papelera_idx').on(tabla.empresa_id, tabla.en_papelera),
+])
+
+// ═══ PRODUCTOS ═══
+
 // Configuración de productos por empresa (JSONB flexible)
 export const config_productos = pgTable('config_productos', {
   empresa_id: uuid('empresa_id').primaryKey().references(() => empresas.id, { onDelete: 'cascade' }),

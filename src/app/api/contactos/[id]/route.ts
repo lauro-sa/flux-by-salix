@@ -49,43 +49,31 @@ export async function GET(
     contacto.responsables = respRes.data || []
     contacto.seguidores = segRes.data || []
 
-    // Vinculaciones con datos del contacto vinculado
-    const { data: vinculaciones } = await admin
-      .from('contacto_vinculaciones')
-      .select(`
-        id,
-        vinculado_id,
-        tipo_relacion_id,
-        puesto,
-        recibe_documentos,
-        creado_en,
-        tipo_relacion:tipos_relacion!tipo_relacion_id(id, clave, etiqueta, etiqueta_inversa),
-        vinculado:contactos!vinculado_id(
-          id, nombre, apellido, correo, telefono, codigo,
-          tipo_contacto:tipos_contacto!tipo_contacto_id(clave, etiqueta, icono, color)
-        )
-      `)
-      .eq('contacto_id', id)
-      .eq('empresa_id', empresaId)
-
-    // Vinculaciones inversas (contactos que lo vincularon a él)
-    const { data: vinculacionesInversas } = await admin
-      .from('contacto_vinculaciones')
-      .select(`
-        id,
-        contacto_id,
-        tipo_relacion_id,
-        puesto,
-        recibe_documentos,
-        creado_en,
-        tipo_relacion:tipos_relacion!tipo_relacion_id(id, clave, etiqueta, etiqueta_inversa),
-        contacto:contactos!contacto_id(
-          id, nombre, apellido, correo, telefono, codigo,
-          tipo_contacto:tipos_contacto!tipo_contacto_id(clave, etiqueta, icono, color)
-        )
-      `)
-      .eq('vinculado_id', id)
-      .eq('empresa_id', empresaId)
+    // Vinculaciones directas e inversas en paralelo
+    const [{ data: vinculaciones }, { data: vinculacionesInversas }] = await Promise.all([
+      admin.from('contacto_vinculaciones')
+        .select(`
+          id, vinculado_id, tipo_relacion_id, puesto, recibe_documentos, creado_en,
+          tipo_relacion:tipos_relacion!tipo_relacion_id(id, clave, etiqueta, etiqueta_inversa),
+          vinculado:contactos!vinculado_id(
+            id, nombre, apellido, correo, telefono, codigo,
+            tipo_contacto:tipos_contacto!tipo_contacto_id(clave, etiqueta, icono, color)
+          )
+        `)
+        .eq('contacto_id', id)
+        .eq('empresa_id', empresaId),
+      admin.from('contacto_vinculaciones')
+        .select(`
+          id, contacto_id, tipo_relacion_id, puesto, recibe_documentos, creado_en,
+          tipo_relacion:tipos_relacion!tipo_relacion_id(id, clave, etiqueta, etiqueta_inversa),
+          contacto:contactos!contacto_id(
+            id, nombre, apellido, correo, telefono, codigo,
+            tipo_contacto:tipos_contacto!tipo_contacto_id(clave, etiqueta, icono, color)
+          )
+        `)
+        .eq('vinculado_id', id)
+        .eq('empresa_id', empresaId),
+    ])
 
     // Filtrar inversas: solo las que NO tienen contraparte en directas
     // (si yo vinculé A→B, el reverso B→A no es "externo", es parte de la misma vinculación)
@@ -298,18 +286,18 @@ async function propagarCambioNombreContacto(
   contactoId: string,
   nombreNuevo: string
 ) {
-  // Separar nombre y apellido del nombre completo para tablas que los guardan por separado
   const partes = nombreNuevo.split(' ')
   const nombre = partes[0] || ''
   const apellido = partes.slice(1).join(' ') || ''
 
-  // 1. Actualizar vínculos JSONB en actividades
+  // 1. Actualizar vínculos JSONB en actividades — obtener y actualizar en batch con Promise.all
   const { data: actividades } = await admin
     .from('actividades')
     .select('id, vinculos')
     .eq('empresa_id', empresaId)
     .contains('vinculo_ids', [contactoId])
 
+  const updatesActividades: PromiseLike<unknown>[] = []
   if (actividades && actividades.length > 0) {
     for (const act of actividades) {
       const vinculos = (act.vinculos || []) as { tipo: string; id: string; nombre: string }[]
@@ -321,27 +309,25 @@ async function propagarCambioNombreContacto(
         }
       }
       if (cambio) {
-        await admin
-          .from('actividades')
-          .update({ vinculos })
-          .eq('id', act.id)
+        updatesActividades.push(
+          admin.from('actividades').update({ vinculos }).eq('id', act.id)
+        )
       }
     }
   }
 
-  // 2. Actualizar conversaciones que referencian este contacto
-  admin
-    .from('conversaciones')
-    .update({ contacto_nombre: nombreNuevo })
-    .eq('empresa_id', empresaId)
-    .eq('contacto_id', contactoId)
-    .then(() => {})
-
-  // 3. Actualizar presupuestos que referencian este contacto
-  admin
-    .from('presupuestos')
-    .update({ contacto_nombre: nombre, contacto_apellido: apellido })
-    .eq('empresa_id', empresaId)
-    .eq('contacto_id', contactoId)
-    .then(() => {})
+  // Ejecutar todos los updates en paralelo
+  await Promise.all([
+    ...updatesActividades,
+    // 2. Conversaciones
+    admin.from('conversaciones')
+      .update({ contacto_nombre: nombreNuevo })
+      .eq('empresa_id', empresaId)
+      .eq('contacto_id', contactoId),
+    // 3. Presupuestos
+    admin.from('presupuestos')
+      .update({ contacto_nombre: nombre, contacto_apellido: apellido })
+      .eq('empresa_id', empresaId)
+      .eq('contacto_id', contactoId),
+  ])
 }

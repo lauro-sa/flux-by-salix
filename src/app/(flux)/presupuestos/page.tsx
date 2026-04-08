@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavegacion } from '@/hooks/useNavegacion'
+import { useListado } from '@/hooks/useListado'
 import { useRol } from '@/hooks/useRol'
 import { useFormato } from '@/hooks/useFormato'
 import { useTraduccion } from '@/lib/i18n'
@@ -14,6 +16,7 @@ import {
   Clock, CircleDot, FilePen, Trash2, X, FileDown, Copy, RefreshCw,
 } from 'lucide-react'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { SkeletonTabla } from '@/componentes/feedback/SkeletonTabla'
 import { useToast } from '@/componentes/feedback/Toast'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
@@ -71,28 +74,45 @@ export default function PaginaPresupuestos() {
   const formato = useFormato()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const queryClient = useQueryClient()
   const contactoIdFiltro = searchParams.get('contacto_id')
   const origenUrl = searchParams.get('origen')
   const [busqueda, setBusqueda] = useState('')
-  const [presupuestos, setPresupuestos] = useState<FilaPresupuesto[]>([])
-  const [cargando, setCargando] = useState(true)
-  const [total, setTotal] = useState(0)
+  const [busquedaDebounced, setBusquedaDebounced] = useState('')
   const [pagina, setPagina] = useState(1)
   const [nombreFiltro, setNombreFiltro] = useState<string | null>(null)
 
   // Filtros server-side
   const [filtroEstado, setFiltroEstado] = useState('')
   const [filtroMoneda, setFiltroMoneda] = useState('')
-  const filtrosPresRef = useRef({ estado: '', moneda: '' })
-  filtrosPresRef.current = { estado: filtroEstado, moneda: filtroMoneda }
-
-  const busquedaRef = useRef(busqueda)
-  busquedaRef.current = busqueda
-
-  const fetchIdRef = useRef(0)
 
   const pathname = usePathname()
   const { setMigajaDinamica } = useNavegacion()
+
+  // Debounce de búsqueda (300ms)
+  useEffect(() => {
+    const timeout = setTimeout(() => setBusquedaDebounced(busqueda), 300)
+    return () => clearTimeout(timeout)
+  }, [busqueda])
+
+  // Reset de página al cambiar filtros/búsqueda
+  useEffect(() => { setPagina(1) }, [busquedaDebounced, filtroEstado, filtroMoneda])
+
+  // Datos con React Query
+  const { datos: presupuestos, total, cargando, cargandoInicial, recargar } = useListado<FilaPresupuesto>({
+    clave: 'presupuestos',
+    url: '/api/presupuestos',
+    parametros: {
+      busqueda: busquedaDebounced,
+      contacto_id: contactoIdFiltro || undefined,
+      estado: filtroEstado || undefined,
+      moneda: filtroMoneda || undefined,
+      pagina,
+      por_pagina: POR_PAGINA,
+    },
+    extraerDatos: (json) => (json.presupuestos || []) as FilaPresupuesto[],
+    extraerTotal: (json) => (json.total || 0) as number,
+  })
 
   // Resolver nombre del contacto filtrado + migaja
   useEffect(() => {
@@ -123,14 +143,13 @@ export default function PaginaPresupuestos() {
           })
         )
       )
-      setPresupuestos(prev => prev.filter(p => !ids.has(p.id)))
-      setTotal(prev => prev - ids.size)
+      queryClient.invalidateQueries({ queryKey: ['presupuestos'] })
       mostrarToast('exito', `${ids.size} presupuesto${ids.size !== 1 ? 's' : ''} enviado${ids.size !== 1 ? 's' : ''} a papelera`)
     } catch (err) {
       console.error('Error al enviar a papelera:', err)
       mostrarToast('error', 'Error al enviar a papelera')
     }
-  }, [mostrarToast])
+  }, [mostrarToast, queryClient])
 
   // Cambiar estado en lote
   const cambiarEstadoLote = useCallback(async (ids: Set<string>) => {
@@ -151,14 +170,12 @@ export default function PaginaPresupuestos() {
           })
         )
       )
-      setPresupuestos(prev => prev.map(p =>
-        ids.has(p.id) ? { ...p, estado: estado.trim() as EstadoPresupuesto } : p
-      ))
+      queryClient.invalidateQueries({ queryKey: ['presupuestos'] })
       mostrarToast('exito', `Estado cambiado a "${estado.trim()}" en ${ids.size} presupuesto${ids.size !== 1 ? 's' : ''}`)
     } catch {
       mostrarToast('error', 'Error al cambiar estado')
     }
-  }, [mostrarToast])
+  }, [mostrarToast, queryClient])
 
   // Duplicar presupuestos en lote
   const duplicarLote = useCallback(async (ids: Set<string>) => {
@@ -171,13 +188,12 @@ export default function PaginaPresupuestos() {
       const nuevos = resultados.filter(r => r.id)
       if (nuevos.length > 0) {
         mostrarToast('exito', `${nuevos.length} presupuesto${nuevos.length !== 1 ? 's' : ''} duplicado${nuevos.length !== 1 ? 's' : ''}`)
-        // Recargar la lista
-        setPagina(1)
+        queryClient.invalidateQueries({ queryKey: ['presupuestos'] })
       }
     } catch {
       mostrarToast('error', 'Error al duplicar presupuestos')
     }
-  }, [mostrarToast])
+  }, [mostrarToast, queryClient])
 
   // Exportar presupuestos seleccionados a CSV
   const exportarPresupuestosCSV = useCallback(async (ids: Set<string>) => {
@@ -203,62 +219,6 @@ export default function PaginaPresupuestos() {
     URL.revokeObjectURL(url)
     mostrarToast('exito', `${ids.size} presupuesto${ids.size !== 1 ? 's' : ''} exportado${ids.size !== 1 ? 's' : ''}`)
   }, [presupuestos, mostrarToast])
-
-  // Fetch de presupuestos
-  const fetchPresupuestos = useCallback(async (p: number) => {
-    const id = ++fetchIdRef.current
-    setCargando(true)
-    try {
-      const params = new URLSearchParams()
-      const b = busquedaRef.current
-      if (b) params.set('busqueda', b)
-      if (contactoIdFiltro) params.set('contacto_id', contactoIdFiltro)
-      if (filtrosPresRef.current.estado) params.set('estado', filtrosPresRef.current.estado)
-      if (filtrosPresRef.current.moneda) params.set('moneda', filtrosPresRef.current.moneda)
-      params.set('pagina', String(p))
-      params.set('por_pagina', String(POR_PAGINA))
-
-      const res = await fetch(`/api/presupuestos?${params}`)
-      const data = await res.json()
-
-      if (data.presupuestos && fetchIdRef.current === id) {
-        setPresupuestos(data.presupuestos)
-        setTotal(data.total)
-      }
-    } catch {
-      // silenciar
-    } finally {
-      if (fetchIdRef.current === id) setCargando(false)
-    }
-  }, [contactoIdFiltro])
-
-  // Cargar al cambiar página
-  useEffect(() => {
-    fetchPresupuestos(pagina)
-  }, [pagina, fetchPresupuestos])
-
-  // Re-fetch al cambiar filtros (reset a página 1)
-  useEffect(() => {
-    if (!montadoRef.current) return
-    if (pagina === 1) fetchPresupuestos(1)
-    else setPagina(1)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroEstado, filtroMoneda])
-
-  // Recargar al cambiar búsqueda (con debounce, reseteando a página 1)
-  const montadoRef = useRef(false)
-  useEffect(() => {
-    if (!montadoRef.current) { montadoRef.current = true; return }
-    const timeout = setTimeout(() => {
-      if (pagina === 1) {
-        fetchPresupuestos(1)
-      } else {
-        setPagina(1)
-      }
-    }, 300)
-    return () => clearTimeout(timeout)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busqueda])
 
   // Helpers de formato
   const formatoIdentificacion = (num: string) => {
