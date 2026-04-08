@@ -2,6 +2,7 @@
 
 /**
  * MiniCalendario — Panel flotante arrastrable con calendario compacto.
+ * Se posiciona relativo al contenedor padre (área de la vista del calendario).
  * Se ancla a 9 posiciones (4 esquinas + 4 centros de borde + centro).
  * Al arrastrar y soltar, snappea a la posición más cercana.
  * La posición se guarda en localStorage para persistir entre sesiones.
@@ -24,37 +25,50 @@ const CABECERAS_DIAS = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do']
 const STORAGE_KEY = 'flux_mini_calendario_posicion'
 const STORAGE_KEY_VISIBLE = 'flux_mini_calendario_visible'
 
+/** Margen desde los bordes del contenedor */
+const MARGEN = 12
+
 /** 9 posiciones de anclaje: esquinas, centros de borde, centro */
 type PosicionAnclaje =
   | 'arriba-izquierda' | 'arriba-centro' | 'arriba-derecha'
   | 'centro-izquierda' | 'centro' | 'centro-derecha'
   | 'abajo-izquierda' | 'abajo-centro' | 'abajo-derecha'
 
-/** Convierte una posición de anclaje a CSS inset */
-function posicionACSS(pos: PosicionAnclaje): { top?: string; bottom?: string; left?: string; right?: string } {
-  const MARGEN = '12px'
-  switch (pos) {
-    case 'arriba-izquierda': return { top: MARGEN, left: MARGEN }
-    case 'arriba-centro': return { top: MARGEN, left: '50%' }
-    case 'arriba-derecha': return { top: MARGEN, right: MARGEN }
-    case 'centro-izquierda': return { top: '50%', left: MARGEN }
-    case 'centro': return { top: '50%', left: '50%' }
-    case 'centro-derecha': return { top: '50%', right: MARGEN }
-    case 'abajo-izquierda': return { bottom: MARGEN, left: MARGEN }
-    case 'abajo-centro': return { bottom: MARGEN, left: '50%' }
-    case 'abajo-derecha': return { bottom: MARGEN, right: MARGEN }
+/** Convierte posición de anclaje a top/left en px dentro del contenedor */
+function calcularPosicionAbsoluta(
+  pos: PosicionAnclaje,
+  contenedorW: number,
+  contenedorH: number,
+  panelW: number,
+  panelH: number,
+): { top: number; left: number } {
+  let top = 0
+  let left = 0
+
+  // Horizontal
+  if (pos.includes('izquierda')) {
+    left = MARGEN
+  } else if (pos.includes('derecha')) {
+    left = contenedorW - panelW - MARGEN
+  } else {
+    // centro horizontal
+    left = (contenedorW - panelW) / 2
   }
+
+  // Vertical
+  if (pos.startsWith('arriba')) {
+    top = MARGEN
+  } else if (pos.startsWith('abajo')) {
+    top = contenedorH - panelH - MARGEN
+  } else {
+    // centro vertical
+    top = (contenedorH - panelH) / 2
+  }
+
+  return { top: Math.max(MARGEN, top), left: Math.max(MARGEN, left) }
 }
 
-/** Transform para centrar en posiciones centrales */
-function posicionATransform(pos: PosicionAnclaje): string {
-  if (pos === 'arriba-centro' || pos === 'abajo-centro') return 'translateX(-50%)'
-  if (pos === 'centro-izquierda' || pos === 'centro-derecha') return 'translateY(-50%)'
-  if (pos === 'centro') return 'translate(-50%, -50%)'
-  return 'none'
-}
-
-/** Posiciones de anclaje con coordenadas relativas para snap */
+/** Posiciones de anclaje con coordenadas relativas (0-1) para snap */
 const POSICIONES_ANCLAJE: { id: PosicionAnclaje; xRel: number; yRel: number }[] = [
   { id: 'arriba-izquierda', xRel: 0, yRel: 0 },
   { id: 'arriba-centro', xRel: 0.5, yRel: 0 },
@@ -84,23 +98,15 @@ function generarCuadriculaMes(anio: number, mes: number): Date[][] {
   const offsetInicio = diaInicio === 0 ? 6 : diaInicio - 1
   const dias: Date[] = []
 
-  for (let i = offsetInicio - 1; i >= 0; i--) {
-    dias.push(new Date(anio, mes, -i))
-  }
-  for (let i = 1; i <= ultimoDia.getDate(); i++) {
-    dias.push(new Date(anio, mes, i))
-  }
+  for (let i = offsetInicio - 1; i >= 0; i--) dias.push(new Date(anio, mes, -i))
+  for (let i = 1; i <= ultimoDia.getDate(); i++) dias.push(new Date(anio, mes, i))
   const restante = 7 - (dias.length % 7)
   if (restante < 7) {
-    for (let i = 1; i <= restante; i++) {
-      dias.push(new Date(anio, mes + 1, i))
-    }
+    for (let i = 1; i <= restante; i++) dias.push(new Date(anio, mes + 1, i))
   }
 
   const semanas: Date[][] = []
-  for (let i = 0; i < dias.length; i += 7) {
-    semanas.push(dias.slice(i, i + 7))
-  }
+  for (let i = 0; i < dias.length; i += 7) semanas.push(dias.slice(i, i + 7))
   return semanas
 }
 
@@ -115,27 +121,27 @@ interface PropiedadesMiniCalendario {
 // --- Componente ---
 
 function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: PropiedadesMiniCalendario) {
-  // Estado de visibilidad (persistido)
   const [visible, setVisible] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true
-    const guardado = localStorage.getItem(STORAGE_KEY_VISIBLE)
-    return guardado !== 'false'
+    return localStorage.getItem(STORAGE_KEY_VISIBLE) !== 'false'
   })
 
-  // Posición de anclaje (persistida)
   const [posicion, setPosicion] = useState<PosicionAnclaje>(() => {
     if (typeof window === 'undefined') return 'abajo-derecha'
-    const guardada = localStorage.getItem(STORAGE_KEY)
-    return (guardada as PosicionAnclaje) || 'abajo-derecha'
+    return (localStorage.getItem(STORAGE_KEY) as PosicionAnclaje) || 'abajo-derecha'
   })
+
+  // Posición calculada en px (absoluta dentro del contenedor)
+  const [posicionPx, setPosicionPx] = useState<{ top: number; left: number } | null>(null)
 
   // Estado del arrastre
   const [arrastrando, setArrastrando] = useState(false)
-  const [arrastrandoPos, setArrastrandoPos] = useState<{ x: number; y: number } | null>(null)
-  const refPanel = useRef<HTMLDivElement>(null)
-  const refInicioArrastre = useRef<{ x: number; y: number; rect: DOMRect } | null>(null)
+  const [arrastrandoPx, setArrastrandoPx] = useState<{ top: number; left: number } | null>(null)
 
-  // Mes visible en el mini calendario (independiente del principal)
+  const refPanel = useRef<HTMLDivElement>(null)
+  const refInicioArrastre = useRef<{ clientX: number; clientY: number; panelTop: number; panelLeft: number } | null>(null)
+
+  // Mes visible (independiente del principal)
   const [mesVisible, setMesVisible] = useState<Date>(
     () => new Date(fechaActual.getFullYear(), fechaActual.getMonth(), 1),
   )
@@ -144,52 +150,79 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: Propied
   const mes = mesVisible.getMonth()
   const semanas = useMemo(() => generarCuadriculaMes(anio, mes), [anio, mes])
 
-  // Sincronizar mes visible cuando cambia el mes de fechaActual
+  // Sincronizar mes cuando cambia fechaActual
   useEffect(() => {
     setMesVisible(new Date(fechaActual.getFullYear(), fechaActual.getMonth(), 1))
   }, [fechaActual.getFullYear(), fechaActual.getMonth()]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Guardar posición en localStorage
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, posicion)
+  // Persistir configuración
+  useEffect(() => { localStorage.setItem(STORAGE_KEY, posicion) }, [posicion])
+  useEffect(() => { localStorage.setItem(STORAGE_KEY_VISIBLE, String(visible)) }, [visible])
+
+  // Recalcular posición absoluta cuando cambia la posición de anclaje o el tamaño
+  const recalcularPosicion = useCallback(() => {
+    if (!refPanel.current) return
+    const contenedor = refPanel.current.parentElement
+    if (!contenedor) return
+    const cRect = contenedor.getBoundingClientRect()
+    const pRect = refPanel.current.getBoundingClientRect()
+    const pos = calcularPosicionAbsoluta(posicion, cRect.width, cRect.height, pRect.width, pRect.height)
+    setPosicionPx(pos)
   }, [posicion])
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_VISIBLE, String(visible))
-  }, [visible])
+    recalcularPosicion()
+    window.addEventListener('resize', recalcularPosicion)
+    return () => window.removeEventListener('resize', recalcularPosicion)
+  }, [recalcularPosicion])
 
-  // --- Arrastre del panel ---
+  // Re-calcular después del primer render para tener dimensiones correctas
+  useEffect(() => {
+    const timer = setTimeout(recalcularPosicion, 50)
+    return () => clearTimeout(timer)
+  }, [recalcularPosicion, visible])
+
+  // --- Arrastre ---
   const iniciarArrastre = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
-    if (!refPanel.current) return
-    const rect = refPanel.current.getBoundingClientRect()
-    refInicioArrastre.current = { x: e.clientX, y: e.clientY, rect }
+    if (!refPanel.current || !posicionPx) return
+    refInicioArrastre.current = {
+      clientX: e.clientX,
+      clientY: e.clientY,
+      panelTop: posicionPx.top,
+      panelLeft: posicionPx.left,
+    }
     setArrastrando(true)
-    setArrastrandoPos({ x: rect.left, y: rect.top })
-  }, [])
+    setArrastrandoPx({ ...posicionPx })
+  }, [posicionPx])
 
   useEffect(() => {
     if (!arrastrando) return
 
-    const manejarMouseMove = (e: MouseEvent) => {
+    const manejarMove = (e: MouseEvent) => {
       if (!refInicioArrastre.current) return
-      const { rect } = refInicioArrastre.current
-      const deltaX = e.clientX - refInicioArrastre.current.x
-      const deltaY = e.clientY - refInicioArrastre.current.y
-      setArrastrandoPos({
-        x: rect.left + deltaX,
-        y: rect.top + deltaY,
+      const dx = e.clientX - refInicioArrastre.current.clientX
+      const dy = e.clientY - refInicioArrastre.current.clientY
+      setArrastrandoPx({
+        top: refInicioArrastre.current.panelTop + dy,
+        left: refInicioArrastre.current.panelLeft + dx,
       })
     }
 
-    const manejarMouseUp = (e: MouseEvent) => {
+    const manejarUp = (e: MouseEvent) => {
       setArrastrando(false)
-      setArrastrandoPos(null)
+      setArrastrandoPx(null)
       refInicioArrastre.current = null
 
-      // Encontrar la posición de anclaje más cercana
-      const xRel = e.clientX / window.innerWidth
-      const yRel = e.clientY / window.innerHeight
+      // Encontrar posición de anclaje más cercana relativa al contenedor
+      if (!refPanel.current) return
+      const contenedor = refPanel.current.parentElement
+      if (!contenedor) return
+      const cRect = contenedor.getBoundingClientRect()
+
+      // Posición relativa del mouse dentro del contenedor (0-1)
+      const xRel = Math.max(0, Math.min(1, (e.clientX - cRect.left) / cRect.width))
+      const yRel = Math.max(0, Math.min(1, (e.clientY - cRect.top) / cRect.height))
 
       let mejorPos: PosicionAnclaje = 'abajo-derecha'
       let menorDist = Infinity
@@ -204,11 +237,11 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: Propied
       setPosicion(mejorPos)
     }
 
-    document.addEventListener('mousemove', manejarMouseMove)
-    document.addEventListener('mouseup', manejarMouseUp)
+    document.addEventListener('mousemove', manejarMove)
+    document.addEventListener('mouseup', manejarUp)
     return () => {
-      document.removeEventListener('mousemove', manejarMouseMove)
-      document.removeEventListener('mouseup', manejarMouseUp)
+      document.removeEventListener('mousemove', manejarMove)
+      document.removeEventListener('mouseup', manejarUp)
     }
   }, [arrastrando])
 
@@ -228,80 +261,75 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: Propied
     })
   }, [onCambiarMes])
 
-  // Botón para mostrar el mini calendario cuando está oculto
+  // Botón para reabrir cuando está oculto
   if (!visible) {
     return (
-      <button
+      <motion.button
         type="button"
         onClick={() => setVisible(true)}
-        className="fixed z-40 bottom-4 right-4 p-2 rounded-lg bg-superficie-elevada border border-borde-sutil shadow-lg text-texto-terciario hover:text-texto-primario transition-colors"
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="absolute z-30 bottom-4 right-4 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-superficie-elevada border border-borde-sutil shadow-lg text-texto-terciario hover:text-texto-primario hover:border-texto-marca/30 transition-colors"
         title="Mostrar mini calendario"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
         </svg>
-      </button>
+        <span className="text-[10px] font-medium">Mini cal</span>
+      </motion.button>
     )
   }
 
-  // Estilo del panel (anclado o arrastrando)
-  const estiloPanel: React.CSSProperties = arrastrando && arrastrandoPos
-    ? {
-        position: 'fixed',
-        left: arrastrandoPos.x,
-        top: arrastrandoPos.y,
-        zIndex: 50,
-        cursor: 'grabbing',
-      }
-    : {
-        position: 'fixed',
-        ...posicionACSS(posicion),
-        transform: posicionATransform(posicion),
-        zIndex: 40,
-      }
+  // Posición actual (arrastrando o anclada)
+  const posActual = arrastrando && arrastrandoPx ? arrastrandoPx : posicionPx
 
   return (
     <motion.div
       ref={refPanel}
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-      style={estiloPanel}
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{
+        opacity: 1,
+        scale: 1,
+        top: posActual?.top ?? MARGEN,
+        left: posActual?.left ?? MARGEN,
+      }}
+      transition={arrastrando
+        ? { duration: 0 }
+        : { type: 'spring', stiffness: 400, damping: 30 }
+      }
       className={[
-        'bg-superficie-elevada border border-borde-sutil rounded-xl shadow-xl select-none w-[240px]',
-        arrastrando ? 'shadow-2xl ring-2 ring-texto-marca/20' : '',
+        'absolute z-30 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-xl select-none w-[230px]',
+        arrastrando ? 'shadow-2xl ring-2 ring-texto-marca/20 cursor-grabbing' : '',
       ].join(' ')}
+      style={{ position: 'absolute' }}
     >
       {/* Barra de título (arrastrable) */}
       <div
-        className="flex items-center justify-between px-3 pt-2 pb-1 cursor-grab active:cursor-grabbing"
+        className="flex items-center justify-between px-2.5 pt-1.5 pb-0.5 cursor-grab active:cursor-grabbing"
         onMouseDown={iniciarArrastre}
       >
-        <GripHorizontal size={14} className="text-texto-terciario/50" />
-        <span className="text-[10px] text-texto-terciario uppercase tracking-wider font-medium">
-          Mini calendario
-        </span>
+        <GripHorizontal size={12} className="text-texto-terciario/40" />
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); setVisible(false) }}
-          className="p-0.5 rounded text-texto-terciario/50 hover:text-texto-primario hover:bg-superficie-hover transition-colors"
+          className="p-0.5 rounded text-texto-terciario/40 hover:text-texto-primario hover:bg-superficie-hover transition-colors"
           title="Ocultar"
         >
-          <X size={12} />
+          <X size={11} />
         </button>
       </div>
 
-      <div className="px-3 pb-3">
+      <div className="px-2.5 pb-2.5">
         {/* Navegación de mes */}
-        <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center justify-between mb-1">
           <button
             type="button"
             onClick={irMesAnterior}
             className="p-0.5 rounded text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover transition-colors"
           >
-            <ChevronLeft size={14} />
+            <ChevronLeft size={13} />
           </button>
-          <span className="text-xs font-semibold text-texto-primario">
+          <span className="text-[11px] font-semibold text-texto-primario">
             {NOMBRES_MESES[mes]} {anio}
           </span>
           <button
@@ -309,20 +337,20 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: Propied
             onClick={irMesSiguiente}
             className="p-0.5 rounded text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover transition-colors"
           >
-            <ChevronRight size={14} />
+            <ChevronRight size={13} />
           </button>
         </div>
 
         {/* Cabeceras de días */}
         <div className="grid grid-cols-7 mb-0.5">
           {CABECERAS_DIAS.map(nombre => (
-            <div key={nombre} className="text-center text-[10px] font-medium text-texto-terciario leading-tight py-0.5">
+            <div key={nombre} className="text-center text-[9px] font-medium text-texto-terciario leading-tight py-0.5">
               {nombre}
             </div>
           ))}
         </div>
 
-        {/* Cuadrícula de días */}
+        {/* Cuadrícula */}
         <div className="flex flex-col">
           {semanas.map((semana, i) => (
             <div key={i} className="grid grid-cols-7">
@@ -337,7 +365,7 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: Propied
                     type="button"
                     onClick={() => onSeleccionarDia(dia)}
                     className={[
-                      'flex items-center justify-center text-[11px] leading-none py-[3px] transition-colors',
+                      'flex items-center justify-center text-[10px] leading-none py-[2.5px] transition-colors',
                       !esDelMes ? 'text-texto-terciario/30' : '',
                       esDiaHoy ? 'font-bold' : '',
                       esSeleccionado && !esDiaHoy ? 'font-semibold' : '',
@@ -347,9 +375,9 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: Propied
                   >
                     <span
                       className={[
-                        'flex items-center justify-center size-5.5 rounded-full transition-colors',
+                        'flex items-center justify-center size-5 rounded-full transition-colors',
                         esDiaHoy ? 'bg-texto-marca text-white' : '',
-                        esSeleccionado && !esDiaHoy ? 'ring-1.5 ring-texto-marca' : '',
+                        esSeleccionado && !esDiaHoy ? 'ring-1 ring-texto-marca' : '',
                         !esDiaHoy && !esSeleccionado ? 'hover:bg-superficie-hover' : '',
                       ].join(' ')}
                     >
@@ -362,11 +390,11 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: Propied
           ))}
         </div>
 
-        {/* Botón "Hoy" rápido */}
+        {/* Hoy rápido */}
         <button
           type="button"
           onClick={() => onSeleccionarDia(new Date())}
-          className="w-full mt-2 text-[10px] font-medium text-texto-marca hover:underline"
+          className="w-full mt-1.5 text-[9px] font-medium text-texto-marca hover:underline"
         >
           Ir a hoy
         </button>
