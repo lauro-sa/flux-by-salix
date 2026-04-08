@@ -9,7 +9,6 @@
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { ModalAdaptable } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
 import { ChevronLeft, ChevronRight, X, Calendar } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -420,25 +419,21 @@ function SelectorCalendarioBloque({
   // --- Número de columnas según vista ---
   const numColumnas = vista === 'dia' ? 1 : 7
 
+  if (!abierto) return null
+
   return (
-    <ModalAdaptable
-      abierto={abierto}
-      onCerrar={cancelar}
-      tamano="5xl"
-      forzarModal
-      sinPadding
-      acciones={
-        <>
-          <Boton variante="secundario" tamano="sm" onClick={cancelar}>
-            Cancelar
-          </Boton>
-          <Boton tamano="sm" onClick={confirmar}>
-            Confirmar ({bloquesLocal.length})
-          </Boton>
-        </>
-      }
-    >
-      <div className="flex flex-col h-[70vh] max-h-[700px]">
+    <div className="fixed inset-0 z-50 flex flex-col bg-superficie-app">
+      {/* Barra superior con acciones */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-borde-sutil bg-superficie-tarjeta shrink-0">
+        <Boton variante="fantasma" tamano="sm" onClick={cancelar}>
+          ← Volver al formulario
+        </Boton>
+        <Boton tamano="sm" onClick={confirmar}>
+          Confirmar {bloquesLocal.length > 0 ? `(${bloquesLocal.length})` : ''}
+        </Boton>
+      </div>
+
+      <div className="flex flex-col flex-1 min-h-0">
         {/* ── Encabezado: navegación + vista ── */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-borde-sutil shrink-0">
           <div className="flex items-center gap-2">
@@ -749,7 +744,7 @@ function SelectorCalendarioBloque({
           )}
         </div>
       </div>
-    </ModalAdaptable>
+    </div>
   )
 }
 
