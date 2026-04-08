@@ -129,11 +129,13 @@ export default function PantallaAcciones({
 
   return (
     <motion.div
-      onTouchStart={() => setPausado(true)}
-      onTouchEnd={() => setPausado(false)}
-      onMouseDown={() => setPausado(true)}
-      onMouseUp={() => setPausado(false)}
-      onMouseLeave={() => setPausado(false)}
+      onPointerDown={(e) => {
+        if ((e.target as HTMLElement).closest('button')) return
+        setPausado(true)
+      }}
+      onPointerUp={() => setPausado(false)}
+      onPointerCancel={() => setPausado(false)}
+      onPointerLeave={() => setPausado(false)}
       className="flex flex-col items-center justify-center h-full gap-4 landscape:gap-3 md:gap-6 px-6 md:px-8 py-6 landscape:py-3 select-none overflow-y-auto"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
