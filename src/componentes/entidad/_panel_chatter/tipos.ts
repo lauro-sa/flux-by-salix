@@ -16,6 +16,8 @@ export interface PropsPanelChatter {
   entidadId: string
   /** Datos del contacto vinculado (para pre-llenar acciones de correo/WA/actividad) */
   contacto?: ContactoChatter
+  /** Contacto principal del documento (ej: edificio) — se usa para vincular en actividades */
+  contactoPrincipal?: { id: string; nombre: string } | null
   /** Tipo de documento para contexto en modales ('Presupuesto', 'Factura', etc.) */
   tipoDocumento?: string
   /** Datos del documento para resolución de variables en plantillas WA */
@@ -73,6 +75,12 @@ export interface PropsEntradaTimeline {
   onEditarNota?: (entrada: EntradaChatter) => void
   onEliminarNota?: (entradaId: string) => void
   onRecargar: () => void
+  /** Set de IDs de actividades que ya fueron completadas/canceladas/pospuestas — oculta botones */
+  actividadesResueltas?: Set<string>
+  /** Callbacks para acciones rápidas de actividad desde el chatter */
+  onCompletarActividad?: (actividadId: string) => Promise<void>
+  onPosponerActividad?: (actividadId: string, dias: number) => Promise<void>
+  onCancelarActividad?: (actividadId: string) => Promise<void>
 }
 
 // ─── Props de EditorNota ───

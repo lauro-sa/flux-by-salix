@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 
 /**
  * GET /api/inbox/conversaciones — Listar conversaciones con filtros.
@@ -30,14 +30,11 @@ export async function GET(request: NextRequest) {
       ? moduloPorCanal[tipo_canal as keyof typeof moduloPorCanal]
       : null
 
-    // Si hay tipo_canal específico, verificar permiso de ese módulo
+    // Si hay tipo_canal específico, verificar permiso de ese módulo (1 sola query)
     if (moduloPermiso) {
-      const { permitido: verTodos } = await obtenerYVerificarPermiso(user.id, empresaId, moduloPermiso, 'ver_todos')
-      if (!verTodos) {
-        const { permitido: verPropio } = await obtenerYVerificarPermiso(user.id, empresaId, moduloPermiso, 'ver_propio')
-        if (!verPropio) {
-          return NextResponse.json({ error: 'Sin permiso para ver conversaciones de este canal' }, { status: 403 })
-        }
+      const visibilidad = await verificarVisibilidad(user.id, empresaId, moduloPermiso)
+      if (!visibilidad) {
+        return NextResponse.json({ error: 'Sin permiso para ver conversaciones de este canal' }, { status: 403 })
       }
     }
     const estado = params.get('estado') // 'abierta', 'en_espera', 'resuelta', 'spam'

@@ -12,11 +12,13 @@ import {
   Plus, Trash2, Search, X, Check, GripVertical,
   ChevronDown, User, Link2, CheckCircle, FileText,
   MapPin, Mail as MailIcon, Clock, ExternalLink,
+  Calendar,
 } from 'lucide-react'
 import { useFormato } from '@/hooks/useFormato'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { SelectorCalendarioBloque } from './SelectorCalendarioBloque'
 import type { TipoActividad } from '../configuracion/secciones/SeccionTipos'
 import type { EstadoActividad } from '../configuracion/secciones/SeccionEstados'
 
@@ -90,8 +92,8 @@ interface PropiedadesModal {
   estados: EstadoActividad[]
   miembros: Miembro[]
   presetsPosposicion?: PresetPosposicion[]
-  vinculoInicial?: Vinculo | null
-  onGuardar: (datos: Record<string, unknown>) => Promise<void>
+  vinculoInicial?: Vinculo | Vinculo[] | null
+  onGuardar: (datos: Record<string, unknown>) => Promise<unknown>
   onCompletar?: (id: string) => Promise<void>
   onPosponer?: (id: string, dias: number) => Promise<void>
   onCerrar: () => void
@@ -144,7 +146,9 @@ function ModalActividad({
       setChecklist(actividad.checklist || [])
       setVinculos(actividad.vinculos || [])
     } else {
-      const vincsIniciales = vinculoInicial ? [vinculoInicial] : []
+      const vincsIniciales = vinculoInicial
+        ? Array.isArray(vinculoInicial) ? vinculoInicial : [vinculoInicial]
+        : []
       const primerTipoId = tiposActivos[0]?.id || ''
       setTipoId(primerTipoId)
       setDescripcion('')
@@ -196,12 +200,18 @@ function ModalActividad({
     }
   }
 
+  // Estado para bloques de calendario inline (al crear con tipo campo_calendario)
+  const tipoConCalendario = tipoSeleccionado && 'campo_calendario' in tipoSeleccionado && (tipoSeleccionado as TipoActividad & { campo_calendario?: boolean }).campo_calendario
+  const [bloquesNuevos, setBloquesNuevos] = useState<{ fecha: string; horaInicio: string; horaFin: string }[]>([])
+  // Estado del modal selector de calendario (mini-calendario semanal)
+  const [selectorCalendarioAbierto, setSelectorCalendarioAbierto] = useState(false)
+
   // Guardar
   const manejarGuardar = async () => {
     if (!titulo.trim() || !tipoId) return
     setGuardando(true)
     try {
-      await onGuardar({
+      const resultado = await onGuardar({
         ...(esEdicion ? { id: actividad!.id } : {}),
         titulo: titulo.trim(),
         descripcion: descripcion || null,
@@ -213,6 +223,33 @@ function ModalActividad({
         checklist,
         vinculos,
       })
+
+      // Si es creación con bloques de calendario, crearlos después de la actividad
+      if (!esEdicion && tipoConCalendario && bloquesNuevos.length > 0 && resultado && typeof resultado === 'object' && 'id' in resultado) {
+        const actividadId = (resultado as { id: string }).id
+        const asignados = asignadoA && asignadoNombre
+          ? [{ id: asignadoA, nombre: asignadoNombre }]
+          : []
+
+        // Crear todos los bloques en paralelo
+        await Promise.all(bloquesNuevos.map(bloque =>
+          fetch('/api/calendario', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              titulo: titulo.trim(),
+              fecha_inicio: `${bloque.fecha}T${bloque.horaInicio}:00`,
+              fecha_fin: `${bloque.fecha}T${bloque.horaFin}:00`,
+              tipo_clave: 'tarea',
+              actividad_id: actividadId,
+              asignados,
+              vinculos,
+              estado: 'confirmado',
+            }),
+          })
+        ))
+      }
+
       onCerrar()
     } finally {
       setGuardando(false)
@@ -224,18 +261,18 @@ function ModalActividad({
       abierto={abierto}
       onCerrar={onCerrar}
       titulo={esEdicion ? 'Editar actividad' : 'Nueva actividad'}
-      tamano="lg"
+      tamano="3xl"
       acciones={
         <>
           <Boton variante="secundario" tamano="sm" onClick={onCerrar}>Cancelar</Boton>
           <Boton tamano="sm" onClick={manejarGuardar} cargando={guardando} disabled={!titulo.trim() || !tipoId}>
-            {esEdicion ? 'Guardar' : 'Crear actividad'}
+            {esEdicion ? 'Guardar' : (tipoConCalendario && bloquesNuevos.length > 0 ? 'Crear y agendar' : 'Crear actividad')}
           </Boton>
         </>
       }
     >
       <div className="space-y-5">
-        {/* ── Acciones rápidas (solo en edición, actividad pendiente) ── */}
+        {/* ── Acciones rápidas (solo en edición, actividad pendiente) — ancho completo ── */}
         {esEdicion && actividad && actividad.estado_clave !== 'completada' && actividad.estado_clave !== 'cancelada' && (
           <div className="flex flex-wrap gap-2">
             {/* Botón Completar */}
@@ -303,106 +340,187 @@ function ModalActividad({
           </div>
         )}
 
-        {/* ── Selector de tipo (pills visuales) ── */}
-        <div>
-          <label className="text-sm font-medium text-texto-secundario block mb-2">Tipo</label>
-          <div className="flex flex-wrap gap-1.5">
-            {tiposActivos.map(tipo => {
-              const Icono = obtenerIcono(tipo.icono)
-              const sel = tipoId === tipo.id
-              return (
-                <button
-                  key={tipo.id}
-                  onClick={() => manejarCambioTipo(tipo.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer border focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
-                    sel
-                      ? 'border-transparent text-white'
-                      : 'bg-superficie-hover text-texto-secundario border-transparent hover:text-texto-primario'
-                  }`}
-                  style={sel ? { backgroundColor: tipo.color } : undefined}
-                >
-                  {Icono && <Icono size={14} />}
-                  {tipo.etiqueta}
-                </button>
-              )
-            })}
+        {/* ── Layout 2 columnas (desktop) / 1 columna (mobile) ── */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+          {/* ── Columna izquierda (60%) — tipo, título, descripción, checklist ── */}
+          <div className="md:col-span-3 space-y-4">
+            {/* Selector de tipo (pills visuales) */}
+            <div>
+              <label className="text-sm font-medium text-texto-secundario block mb-2">Tipo</label>
+              <div className="flex flex-wrap gap-1.5">
+                {tiposActivos.map(tipo => {
+                  const Icono = obtenerIcono(tipo.icono)
+                  const sel = tipoId === tipo.id
+                  return (
+                    <button
+                      key={tipo.id}
+                      onClick={() => manejarCambioTipo(tipo.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer border focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
+                        sel
+                          ? 'border-transparent text-white'
+                          : 'bg-superficie-hover text-texto-secundario border-transparent hover:text-texto-primario'
+                      }`}
+                      style={sel ? { backgroundColor: tipo.color } : undefined}
+                    >
+                      {Icono && <Icono size={14} />}
+                      {tipo.etiqueta}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Título */}
+            <Input
+              tipo="text"
+              etiqueta="Título"
+              value={titulo}
+              onChange={(e) => { setTitulo(e.target.value); setTituloManual(true) }}
+              placeholder="¿Qué hay que hacer?"
+            />
+
+            {/* Descripción (condicional) */}
+            {tipoSeleccionado?.campo_descripcion && (
+              <TextArea
+                etiqueta="Descripción"
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+                placeholder="Detalles adicionales..."
+                rows={4}
+              />
+            )}
+
+            {/* Checklist (condicional) */}
+            {tipoSeleccionado?.campo_checklist && (
+              <SeccionChecklist checklist={checklist} onChange={setChecklist} />
+            )}
+          </div>
+
+          {/* ── Columna derecha (40%) — responsable, prioridad, fecha, vínculos, bloques ── */}
+          <div className="md:col-span-2 space-y-4 md:border-l md:border-borde-sutil md:pl-6">
+            {/* Responsable */}
+            {tipoSeleccionado?.campo_responsable && (
+              <Select
+                etiqueta="Responsable"
+                valor={asignadoA || ''}
+                onChange={(val) => {
+                  setAsignadoA(val || null)
+                  const m = miembros.find(m => m.usuario_id === val)
+                  setAsignadoNombre(m ? `${m.nombre} ${m.apellido}`.trim() : null)
+                }}
+                placeholder="Sin asignar"
+                opciones={miembros.map(m => ({
+                  valor: m.usuario_id,
+                  etiqueta: `${m.nombre} ${m.apellido}`.trim(),
+                }))}
+              />
+            )}
+
+            {/* Prioridad */}
+            {tipoSeleccionado?.campo_prioridad && (
+              <Select
+                etiqueta="Prioridad"
+                valor={prioridad}
+                onChange={setPrioridad}
+                opciones={[
+                  { valor: 'baja', etiqueta: 'Baja' },
+                  { valor: 'normal', etiqueta: 'Normal' },
+                  { valor: 'alta', etiqueta: 'Alta' },
+                ]}
+              />
+            )}
+
+            {/* Fecha vencimiento */}
+            {tipoSeleccionado?.campo_fecha && (
+              <SelectorFecha
+                valor={fechaVencimiento}
+                onChange={(v) => setFechaVencimiento(v || '')}
+                etiqueta="Vencimiento"
+                limpiable
+              />
+            )}
+
+            {/* Separador visual */}
+            <div className="hidden md:block border-t border-borde-sutil" />
+
+            {/* Vínculos */}
+            <SeccionVinculos vinculos={vinculos} onChange={manejarCambioVinculos} onNavegar={(ruta) => { onCerrar(); router.push(ruta) }} />
+
+            {/* Separador visual */}
+            <div className="hidden md:block border-t border-borde-sutil" />
+
+            {/* Bloques de calendario — edición: componente existente */}
+            {esEdicion && actividad && (
+              <SeccionBloquesCalendario
+                actividadId={actividad.id}
+                titulo={actividad.titulo}
+                asignadoA={asignadoA}
+                asignadoNombre={asignadoNombre}
+                vinculos={vinculos}
+              />
+            )}
+
+            {/* Bloques de calendario — creación: inline cuando el tipo tiene campo_calendario */}
+            {!esEdicion && tipoConCalendario && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Calendar size={15} className="text-texto-terciario" />
+                    <span className="text-sm font-medium text-texto-primario">Agendar en calendario</span>
+                  </div>
+                  <Boton variante="fantasma" tamano="xs" icono={<Plus size={14} />} onClick={agregarBloqueNuevo}>
+                    Bloque
+                  </Boton>
+                </div>
+
+                {bloquesNuevos.length === 0 && (
+                  <p className="text-xs text-texto-terciario italic">
+                    Agregá bloques para agendar cuándo se realizará este trabajo.
+                  </p>
+                )}
+
+                {bloquesNuevos.map((bloque, i) => (
+                  <div key={i} className="flex items-end gap-1.5 p-2 rounded-lg bg-superficie-hover/30 border border-borde-sutil">
+                    <div className="flex-1">
+                      <SelectorFecha
+                        valor={bloque.fecha}
+                        onChange={(v) => actualizarBloqueNuevo(i, 'fecha', v || '')}
+                        etiqueta="Fecha"
+                      />
+                    </div>
+                    <div className="w-20">
+                      <label className="text-xs text-texto-terciario mb-1 block">Desde</label>
+                      <input
+                        type="time"
+                        value={bloque.horaInicio}
+                        onChange={(e) => actualizarBloqueNuevo(i, 'horaInicio', e.target.value)}
+                        className="w-full px-2 py-1.5 text-xs rounded-md border border-borde-sutil bg-superficie-tarjeta text-texto-primario"
+                      />
+                    </div>
+                    <div className="w-20">
+                      <label className="text-xs text-texto-terciario mb-1 block">Hasta</label>
+                      <input
+                        type="time"
+                        value={bloque.horaFin}
+                        onChange={(e) => actualizarBloqueNuevo(i, 'horaFin', e.target.value)}
+                        className="w-full px-2 py-1.5 text-xs rounded-md border border-borde-sutil bg-superficie-tarjeta text-texto-primario"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => eliminarBloqueNuevo(i)}
+                      className="p-1.5 text-texto-terciario hover:text-estado-error transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* ── Vínculos ── */}
-        <SeccionVinculos vinculos={vinculos} onChange={manejarCambioVinculos} onNavegar={(ruta) => { onCerrar(); router.push(ruta) }} />
-
-        {/* ── Título ── */}
-        <Input
-          tipo="text"
-          etiqueta="Título"
-          value={titulo}
-          onChange={(e) => { setTitulo(e.target.value); setTituloManual(true) }}
-          placeholder="¿Qué hay que hacer?"
-        />
-
-        {/* ── Descripción (condicional) ── */}
-        {tipoSeleccionado?.campo_descripcion && (
-          <TextArea
-            etiqueta="Descripción"
-            value={descripcion}
-            onChange={(e) => setDescripcion(e.target.value)}
-            placeholder="Detalles adicionales..."
-            rows={3}
-          />
-        )}
-
-        {/* ── Fila: Fecha + Prioridad + Responsable ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {/* Fecha vencimiento */}
-          {tipoSeleccionado?.campo_fecha && (
-            <SelectorFecha
-              valor={fechaVencimiento}
-              onChange={(v) => setFechaVencimiento(v || '')}
-              etiqueta="Vencimiento"
-              limpiable
-            />
-          )}
-
-          {/* Prioridad */}
-          {tipoSeleccionado?.campo_prioridad && (
-            <Select
-              etiqueta="Prioridad"
-              valor={prioridad}
-              onChange={setPrioridad}
-              opciones={[
-                { valor: 'baja', etiqueta: 'Baja' },
-                { valor: 'normal', etiqueta: 'Normal' },
-                { valor: 'alta', etiqueta: 'Alta' },
-              ]}
-            />
-          )}
-
-          {/* Responsable */}
-          {tipoSeleccionado?.campo_responsable && (
-            <Select
-              etiqueta="Responsable"
-              valor={asignadoA || ''}
-              onChange={(val) => {
-                setAsignadoA(val || null)
-                const m = miembros.find(m => m.usuario_id === val)
-                setAsignadoNombre(m ? `${m.nombre} ${m.apellido}`.trim() : null)
-              }}
-              placeholder="Sin asignar"
-              opciones={miembros.map(m => ({
-                valor: m.usuario_id,
-                etiqueta: `${m.nombre} ${m.apellido}`.trim(),
-              }))}
-            />
-          )}
-        </div>
-
-        {/* ── Checklist (condicional) ── */}
-        {tipoSeleccionado?.campo_checklist && (
-          <SeccionChecklist checklist={checklist} onChange={setChecklist} />
-        )}
-
-        {/* ── Seguimientos (solo edición) ── */}
+        {/* ── Seguimientos (solo edición) — ancho completo debajo del grid ── */}
         {esEdicion && (
           <SeccionSeguimientos
             seguimientos={(actividad?.seguimientos as Seguimiento[]) || []}
@@ -813,6 +931,257 @@ function SeccionChecklist({ checklist, onChange }: { checklist: ItemChecklist[];
           className="flex-1"
         />
       </div>
+    </div>
+  )
+}
+
+/* ── Sección de bloques de calendario ── */
+interface BloqueCalendario {
+  id: string
+  titulo: string
+  fecha_inicio: string
+  fecha_fin: string
+  todo_el_dia: boolean
+  color: string | null
+  estado: string
+}
+
+function SeccionBloquesCalendario({
+  actividadId,
+  titulo,
+  asignadoA,
+  asignadoNombre,
+  vinculos,
+}: {
+  actividadId: string
+  titulo: string
+  asignadoA: string | null
+  asignadoNombre: string | null
+  vinculos: Vinculo[]
+}) {
+  const [bloques, setBloques] = useState<BloqueCalendario[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [creando, setCreando] = useState(false)
+  const [mostrarFormulario, setMostrarFormulario] = useState(false)
+  const [nuevaFechaInicio, setNuevaFechaInicio] = useState('')
+  const [nuevaHoraInicio, setNuevaHoraInicio] = useState('08:00')
+  const [nuevaHoraFin, setNuevaHoraFin] = useState('17:00')
+  const formato = useFormato()
+
+  // Cargar bloques vinculados a esta actividad
+  useEffect(() => {
+    const cargar = async () => {
+      try {
+        // Buscar eventos de calendario con actividad_id = esta actividad
+        const desde = '2020-01-01'
+        const hasta = '2030-12-31'
+        const res = await fetch(`/api/calendario?desde=${desde}&hasta=${hasta}`)
+        if (res.ok) {
+          const datos = await res.json()
+          const eventosActividad = (datos.eventos || []).filter(
+            (e: BloqueCalendario & { actividad_id: string }) => e.actividad_id === actividadId
+          )
+          setBloques(eventosActividad)
+        }
+      } catch {
+        // Silenciar
+      } finally {
+        setCargando(false)
+      }
+    }
+    cargar()
+  }, [actividadId])
+
+  // Crear un bloque nuevo
+  const crearBloque = async () => {
+    if (!nuevaFechaInicio || !nuevaHoraInicio || !nuevaHoraFin) return
+    setCreando(true)
+    try {
+      const fechaInicio = `${nuevaFechaInicio}T${nuevaHoraInicio}:00`
+      const fechaFin = `${nuevaFechaInicio}T${nuevaHoraFin}:00`
+
+      // Preparar asignados
+      const asignados = asignadoA && asignadoNombre
+        ? [{ id: asignadoA, nombre: asignadoNombre }]
+        : []
+
+      const res = await fetch('/api/calendario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          titulo,
+          fecha_inicio: fechaInicio,
+          fecha_fin: fechaFin,
+          tipo_clave: 'tarea',
+          actividad_id: actividadId,
+          asignados,
+          vinculos,
+          estado: 'confirmado',
+        }),
+      })
+
+      if (res.ok) {
+        const nuevo = await res.json()
+        setBloques(prev => [...prev, nuevo])
+        setMostrarFormulario(false)
+        setNuevaFechaInicio('')
+        setNuevaHoraInicio('08:00')
+        setNuevaHoraFin('17:00')
+      }
+    } catch {
+      // Silenciar
+    } finally {
+      setCreando(false)
+    }
+  }
+
+  // Eliminar un bloque
+  const eliminarBloque = async (id: string) => {
+    try {
+      const res = await fetch(`/api/calendario/${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setBloques(prev => prev.filter(b => b.id !== id))
+      }
+    } catch {
+      // Silenciar
+    }
+  }
+
+  // Calcular horas totales
+  const horasTotales = bloques.reduce((acc, b) => {
+    const inicio = new Date(b.fecha_inicio)
+    const fin = new Date(b.fecha_fin)
+    return acc + (fin.getTime() - inicio.getTime()) / (1000 * 60 * 60)
+  }, 0)
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Calendar size={15} className="text-texto-terciario" />
+          <span className="text-sm font-medium text-texto-primario">Bloques de calendario</span>
+          {bloques.length > 0 && (
+            <span className="text-xs text-texto-terciario">
+              {bloques.length} bloque{bloques.length !== 1 ? 's' : ''} · {horasTotales.toFixed(1)} hs
+            </span>
+          )}
+        </div>
+        <Boton
+          variante="fantasma"
+          tamano="xs"
+          icono={<Plus size={14} />}
+          onClick={() => setMostrarFormulario(!mostrarFormulario)}
+        >
+          Agendar
+        </Boton>
+      </div>
+
+      {/* Lista de bloques existentes */}
+      {!cargando && bloques.length > 0 && (
+        <div className="space-y-1">
+          {bloques
+            .sort((a, b) => new Date(a.fecha_inicio).getTime() - new Date(b.fecha_inicio).getTime())
+            .map(bloque => {
+              const inicio = new Date(bloque.fecha_inicio)
+              const fin = new Date(bloque.fecha_fin)
+              const duracionHs = (fin.getTime() - inicio.getTime()) / (1000 * 60 * 60)
+
+              return (
+                <div
+                  key={bloque.id}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-superficie-hover/50 group"
+                >
+                  <div
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ backgroundColor: bloque.color || '#F59E0B' }}
+                  />
+                  <span className="text-sm text-texto-primario font-medium">
+                    {formato.fecha(bloque.fecha_inicio, { corta: true })}
+                  </span>
+                  <span className="text-xs text-texto-terciario">
+                    {formato.hora(bloque.fecha_inicio)} – {formato.hora(bloque.fecha_fin)}
+                  </span>
+                  <span className="text-xs text-texto-terciario">
+                    ({duracionHs.toFixed(1)} hs)
+                  </span>
+                  <button
+                    className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-texto-terciario hover:text-estado-error"
+                    onClick={() => eliminarBloque(bloque.id)}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )
+            })}
+        </div>
+      )}
+
+      {cargando && (
+        <p className="text-xs text-texto-terciario italic px-3">Cargando bloques...</p>
+      )}
+
+      {!cargando && bloques.length === 0 && !mostrarFormulario && (
+        <p className="text-xs text-texto-terciario italic px-3">
+          Sin bloques agendados. Usa "Agendar" para planificar cuándo se realizará este trabajo.
+        </p>
+      )}
+
+      {/* Formulario inline para crear bloque */}
+      <AnimatePresence>
+        {mostrarFormulario && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="flex flex-col sm:flex-row gap-2 p-3 bg-superficie-hover/30 rounded-lg border border-borde-sutil">
+              <SelectorFecha
+                valor={nuevaFechaInicio}
+                onChange={(v) => setNuevaFechaInicio(v || '')}
+                etiqueta="Fecha"
+              />
+              <div className="flex gap-2 flex-1">
+                <div className="flex-1">
+                  <label className="text-xs text-texto-terciario mb-1 block">Desde</label>
+                  <input
+                    type="time"
+                    value={nuevaHoraInicio}
+                    onChange={(e) => setNuevaHoraInicio(e.target.value)}
+                    className="w-full px-2 py-1.5 text-sm rounded-md border border-borde-sutil bg-superficie-tarjeta text-texto-primario"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-texto-terciario mb-1 block">Hasta</label>
+                  <input
+                    type="time"
+                    value={nuevaHoraFin}
+                    onChange={(e) => setNuevaHoraFin(e.target.value)}
+                    className="w-full px-2 py-1.5 text-sm rounded-md border border-borde-sutil bg-superficie-tarjeta text-texto-primario"
+                  />
+                </div>
+              </div>
+              <div className="flex items-end gap-2">
+                <Boton
+                  tamano="sm"
+                  onClick={crearBloque}
+                  cargando={creando}
+                  disabled={!nuevaFechaInicio}
+                >
+                  Agregar
+                </Boton>
+                <Boton
+                  variante="fantasma"
+                  tamano="sm"
+                  onClick={() => setMostrarFormulario(false)}
+                >
+                  <X size={14} />
+                </Boton>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
+import { useListado, useConfig } from '@/hooks/useListado'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -70,19 +72,10 @@ export default function PaginaActividades() {
   const searchParams = useSearchParams()
   const { mostrar } = useToast()
   const formato = useFormato()
+
+  // Estado local de UI
   const [busqueda, setBusqueda] = useState('')
-  const [actividades, setActividades] = useState<Actividad[]>([])
-  const [tipos, setTipos] = useState<TipoActividad[]>([])
-  const [estados, setEstados] = useState<EstadoActividad[]>([])
-  const [miembros, setMiembros] = useState<Miembro[]>([])
-  const [presetsPosposicion, setPresetsPosposicion] = useState<{ id: string; etiqueta: string; dias: number }[]>([
-    { id: '1d', etiqueta: '1 día', dias: 1 },
-    { id: '3d', etiqueta: '3 días', dias: 3 },
-    { id: '1s', etiqueta: '1 semana', dias: 7 },
-    { id: '2s', etiqueta: '2 semanas', dias: 14 },
-  ])
-  const [cargando, setCargando] = useState(true)
-  const [total, setTotal] = useState(0)
+  const [busquedaDebounced, setBusquedaDebounced] = useState('')
   const [pagina, setPagina] = useState(1)
   const [modalAbierto, setModalAbierto] = useState(false)
   const [actividadEditando, setActividadEditando] = useState<Actividad | null>(null)
@@ -92,77 +85,74 @@ export default function PaginaActividades() {
   const [filtroEstado, setFiltroEstado] = useState<string[]>(['pendiente', 'vencida'])
   const [filtroPrioridad, setFiltroPrioridad] = useState('')
   const [filtroVista, setFiltroVista] = useState('mias')
-  const filtrosRef = useRef({ tipo: '', estado: ['pendiente', 'vencida'] as string[], prioridad: '', vista: 'mias' })
-  filtrosRef.current = { tipo: filtroTipo, estado: filtroEstado, prioridad: filtroPrioridad, vista: filtroVista }
 
-  const busquedaRef = useRef(busqueda)
-  busquedaRef.current = busqueda
+  // Debounce de búsqueda (300ms)
+  useEffect(() => {
+    const timeout = setTimeout(() => setBusquedaDebounced(busqueda), 300)
+    return () => clearTimeout(timeout)
+  }, [busqueda])
 
-  // Contador de fetch para descartar respuestas obsoletas (race condition)
-  const fetchIdRef = useRef(0)
+  // Reset de página al cambiar filtros o búsqueda
+  useEffect(() => { setPagina(1) }, [busquedaDebounced, filtroTipo, filtroEstado, filtroPrioridad, filtroVista])
+
+  // ═══════ Datos con React Query ═══════
+
+  /** Listado paginado de actividades */
+  const { datos: actividades, total, cargando, recargar: recargarActividades } = useListado<Actividad>({
+    clave: 'actividades',
+    url: '/api/actividades',
+    parametros: {
+      busqueda: busquedaDebounced,
+      tipo: filtroTipo || undefined,
+      estado: Array.isArray(filtroEstado) ? filtroEstado.join(',') : filtroEstado || undefined,
+      prioridad: filtroPrioridad || undefined,
+      vista: filtroVista || undefined,
+      pagina,
+      por_pagina: POR_PAGINA,
+    },
+    extraerDatos: (json) => (json.actividades || []) as Actividad[],
+    extraerTotal: (json) => (json.total || 0) as number,
+  })
+
+  /** Configuración de tipos, estados y presets (cache largo) */
+  const { datos: configData } = useConfig<{ tipos: TipoActividad[]; estados: EstadoActividad[]; config: Record<string, unknown> }>(
+    'actividades-config',
+    '/api/actividades/config',
+    (json) => json as { tipos: TipoActividad[]; estados: EstadoActividad[]; config: Record<string, unknown> },
+  )
+
+  const tipos = configData?.tipos || []
+  const estados = configData?.estados || []
+  const presetsPosposicion = (configData?.config?.presets_posposicion as { id: string; etiqueta: string; dias: number }[] | undefined)?.length
+    ? (configData.config.presets_posposicion as { id: string; etiqueta: string; dias: number }[])
+    : [
+        { id: '1d', etiqueta: '1 día', dias: 1 },
+        { id: '3d', etiqueta: '3 días', dias: 3 },
+        { id: '1s', etiqueta: '1 semana', dias: 7 },
+        { id: '2s', etiqueta: '2 semanas', dias: 14 },
+      ]
+
+  /** Miembros de la empresa (cache largo, query directa a Supabase) */
+  const { data: miembrosData } = useQuery({
+    queryKey: ['miembros-empresa'],
+    queryFn: async () => {
+      const supabase = crearClienteNavegador()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return []
+      const empresaId = user.app_metadata?.empresa_activa_id
+      if (!empresaId) return []
+      const { data: mRes } = await supabase.from('miembros').select('usuario_id').eq('empresa_id', empresaId).eq('activo', true)
+      if (!mRes?.length) return []
+      const { data: perfiles } = await supabase.from('perfiles').select('id, nombre, apellido').in('id', mRes.map(m => m.usuario_id))
+      return (perfiles || []).map(p => ({ usuario_id: p.id, nombre: p.nombre, apellido: p.apellido }))
+    },
+    staleTime: 5 * 60_000,
+  })
+  const miembros = miembrosData || []
 
   // Mapas memoizados
   const tiposPorId = useMemo(() => Object.fromEntries(tipos.map(t => [t.id, t])), [tipos])
   const estadosPorClave = useMemo(() => Object.fromEntries(estados.map(e => [e.clave, e])), [estados])
-
-  const cargarConfig = useCallback(async () => {
-    try {
-      const [configRes, miembrosData] = await Promise.all([
-        fetch('/api/actividades/config').then(r => r.json()),
-        (async () => {
-          const supabase = crearClienteNavegador()
-          const { data: { user } } = await supabase.auth.getUser()
-          if (!user) return []
-          const empresaId = user.app_metadata?.empresa_activa_id
-          if (!empresaId) return []
-          const { data: mRes } = await supabase.from('miembros').select('usuario_id').eq('empresa_id', empresaId).eq('activo', true)
-          if (!mRes?.length) return []
-          const { data: perfiles } = await supabase.from('perfiles').select('id, nombre, apellido').in('id', mRes.map(m => m.usuario_id))
-          return (perfiles || []).map(p => ({ usuario_id: p.id, nombre: p.nombre, apellido: p.apellido }))
-        })(),
-      ])
-      setTipos(configRes.tipos || [])
-      setEstados(configRes.estados || [])
-      setMiembros(miembrosData)
-      if (configRes.config?.presets_posposicion?.length) {
-        setPresetsPosposicion(configRes.config.presets_posposicion)
-      }
-    } catch (err) { console.error('Error en actividades:', err) }
-  }, [])
-
-  // Fetch de actividades con protección contra race conditions
-  const cargarActividades = useCallback(async (p: number) => {
-    const id = ++fetchIdRef.current
-    setCargando(true)
-    try {
-      const params = new URLSearchParams()
-      const b = busquedaRef.current
-      if (b) params.set('busqueda', b)
-      if (filtrosRef.current.tipo) params.set('tipo', filtrosRef.current.tipo)
-      const estadoArr = Array.isArray(filtrosRef.current.estado) ? filtrosRef.current.estado : (filtrosRef.current.estado ? [filtrosRef.current.estado] : [])
-      if (estadoArr.length > 0) params.set('estado', estadoArr.join(','))
-      if (filtrosRef.current.prioridad) params.set('prioridad', filtrosRef.current.prioridad)
-      if (filtrosRef.current.vista) params.set('vista', filtrosRef.current.vista)
-      params.set('pagina', String(p))
-      params.set('por_pagina', String(POR_PAGINA))
-
-      const res = await fetch(`/api/actividades?${params}`)
-      if (res.ok && fetchIdRef.current === id) {
-        const data = await res.json()
-        setActividades(data.actividades || [])
-        setTotal(data.total || 0)
-      }
-    } catch (err) { console.error('Error en actividades:', err) }
-    finally { if (fetchIdRef.current === id) setCargando(false) }
-  }, [])
-
-  // Cargar config al montar
-  useEffect(() => { cargarConfig() }, [cargarConfig])
-
-  // Cargar al cambiar página
-  useEffect(() => {
-    cargarActividades(pagina)
-  }, [pagina, cargarActividades])
 
   // Abrir modal si viene ?actividad_id=UUID desde notificación
   const actividadIdParam = searchParams.get('actividad_id')
@@ -187,29 +177,6 @@ export default function PaginaActividades() {
     router.replace('/actividades', { scroll: false })
   }, [actividadIdParam, actividades, router])
 
-  // Re-fetch al cambiar filtros (reset a página 1)
-  useEffect(() => {
-    if (!montadoRef.current) return
-    if (pagina === 1) cargarActividades(1)
-    else setPagina(1)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroTipo, filtroEstado, filtroPrioridad, filtroVista])
-
-  // Recargar al cambiar búsqueda (con debounce, reseteando a página 1)
-  const montadoRef = useRef(false)
-  useEffect(() => {
-    if (!montadoRef.current) { montadoRef.current = true; return }
-    const timeout = setTimeout(() => {
-      if (pagina === 1) {
-        cargarActividades(1)
-      } else {
-        setPagina(1)
-      }
-    }, 300)
-    return () => clearTimeout(timeout)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busqueda])
-
   // Acciones
   const crearActividad = async (datos: Record<string, unknown>) => {
     try {
@@ -219,8 +186,10 @@ export default function PaginaActividades() {
         body: JSON.stringify(datos),
       })
       if (!res.ok) throw new Error('Error al crear')
+      const resultado = await res.json()
       mostrar('exito', 'Actividad creada')
-      cargarActividades(pagina)
+      recargarActividades()
+      return resultado // Devolver para que el modal pueda usar el ID
     } catch {
       mostrar('error', 'Error al crear la actividad')
     }
@@ -236,7 +205,7 @@ export default function PaginaActividades() {
       })
       if (!res.ok) throw new Error('Error al editar')
       mostrar('exito', 'Actividad actualizada')
-      cargarActividades(pagina)
+      recargarActividades()
     } catch {
       mostrar('error', 'Error al guardar la actividad')
     }
@@ -251,7 +220,7 @@ export default function PaginaActividades() {
       })
       if (!res.ok) throw new Error()
       mostrar('exito', 'Actividad completada')
-      cargarActividades(pagina)
+      recargarActividades()
     } catch {
       mostrar('error', 'Error al completar la actividad')
     }
@@ -266,7 +235,7 @@ export default function PaginaActividades() {
       })
       if (!res.ok) throw new Error()
       mostrar('info', `Actividad pospuesta ${dias} día${dias > 1 ? 's' : ''}`)
-      cargarActividades(pagina)
+      recargarActividades()
     } catch {
       mostrar('error', 'Error al posponer la actividad')
     }
@@ -287,9 +256,9 @@ export default function PaginaActividades() {
         })
       ))
       mostrar('exito', `${ids.size} actividad${ids.size > 1 ? 'es' : ''} completada${ids.size > 1 ? 's' : ''}`)
-      cargarActividades(pagina)
+      recargarActividades()
     } catch { mostrar('error', 'Error al completar actividades') }
-  }, [pagina, cargarActividades, mostrar])
+  }, [recargarActividades, mostrar])
 
   const posponerLote = useCallback(async (ids: Set<string>, dias: number) => {
     try {
@@ -302,9 +271,9 @@ export default function PaginaActividades() {
       ))
       mostrar('info', `${ids.size} actividad${ids.size > 1 ? 'es' : ''} pospuesta${ids.size > 1 ? 's' : ''} ${dias} día${dias > 1 ? 's' : ''}`)
       setMenuPosponerLote(null)
-      cargarActividades(pagina)
+      recargarActividades()
     } catch { mostrar('error', 'Error al posponer actividades') }
-  }, [pagina, cargarActividades, mostrar])
+  }, [recargarActividades, mostrar])
 
   const eliminarLote = useCallback(async (ids: Set<string>) => {
     try {
@@ -313,9 +282,9 @@ export default function PaginaActividades() {
       ))
       mostrar('exito', `${ids.size} actividad${ids.size > 1 ? 'es' : ''} eliminada${ids.size > 1 ? 's' : ''}`)
       setConfirmEliminarLote(null)
-      cargarActividades(pagina)
+      recargarActividades()
     } catch { mostrar('error', 'Error al eliminar actividades') }
-  }, [pagina, cargarActividades, mostrar])
+  }, [recargarActividades, mostrar])
 
   const accionesLote = useMemo((): AccionLote[] => [
     {

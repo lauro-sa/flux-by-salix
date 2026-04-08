@@ -37,6 +37,7 @@ const CAMPOS_DISPONIBLES = [
   { clave: 'campo_responsable', etiqueta: 'Responsable', descripcion: 'Asignar a un miembro del equipo' },
   { clave: 'campo_prioridad', etiqueta: 'Prioridad', descripcion: 'Nivel de urgencia (baja, normal, alta)' },
   { clave: 'campo_checklist', etiqueta: 'Checklist', descripcion: 'Lista de tareas dentro de la actividad' },
+  { clave: 'campo_calendario', etiqueta: 'Agendar en calendario', descripcion: 'Al crear, permite agendar bloques en el calendario' },
 ]
 
 function ModalTipoActividad({ abierto, tipo, modulosDisponibles, guardando, onGuardar, onCerrar, onEliminar }: PropiedadesModal) {
@@ -55,6 +56,7 @@ function ModalTipoActividad({ abierto, tipo, modulosDisponibles, guardando, onGu
     campo_responsable: true,
     campo_prioridad: false,
     campo_checklist: false,
+    campo_calendario: false,
   })
   // Ref para el input color nativo (gotero)
   const colorInputRef = useRef<HTMLInputElement>(null)
@@ -75,6 +77,7 @@ function ModalTipoActividad({ abierto, tipo, modulosDisponibles, guardando, onGu
         campo_responsable: tipo.campo_responsable,
         campo_prioridad: tipo.campo_prioridad,
         campo_checklist: tipo.campo_checklist,
+        campo_calendario: tipo.campo_calendario ?? false,
       })
     } else {
       setEtiqueta('')
@@ -89,6 +92,7 @@ function ModalTipoActividad({ abierto, tipo, modulosDisponibles, guardando, onGu
         campo_responsable: true,
         campo_prioridad: false,
         campo_checklist: false,
+        campo_calendario: false,
       })
     }
   }, [abierto, tipo])

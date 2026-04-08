@@ -22,6 +22,8 @@ export type AccionSistema =
   | 'campo_editado'
   | 'actividad_creada'
   | 'actividad_completada'
+  | 'actividad_pospuesta'
+  | 'actividad_cancelada'
   | 'actividad_reactivada'
   // Correo
   | 'correo_enviado'
@@ -56,6 +58,7 @@ export interface MetadataChatter {
   actividad_id?: string
   tipo_actividad?: string
   titulo?: string
+  vinculos_relacionados?: { tipo: string; id: string; nombre: string }[]
   // Para comprobantes
   cuota_id?: string
   descripcion_pago?: string

@@ -6,8 +6,8 @@
  * Se usa en: PanelChatter cuando el usuario hace clic en "Registrar nota".
  */
 
-import { useState, useRef } from 'react'
-import { Send, Paperclip, X, FileText, Loader2 } from 'lucide-react'
+import { useState, useRef, useCallback } from 'react'
+import { Send, Paperclip, X, FileText, Loader2, AlertCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import { Boton } from '@/componentes/ui/Boton'
@@ -21,6 +21,7 @@ export function EditorNota({ entidadTipo, entidadId, notaEditando, onEnviado, on
   const [adjuntos, setAdjuntos] = useState<AdjuntoChatter[]>([])
   const [enviando, setEnviando] = useState(false)
   const [subiendoArchivo, setSubiendoArchivo] = useState(false)
+  const [error, setError] = useState('')
   const inputArchivoRef = useRef<HTMLInputElement>(null)
 
   const tieneContenido = textoPlano.trim().length > 0
@@ -58,10 +59,12 @@ export function EditorNota({ entidadTipo, entidadId, notaEditando, onEnviado, on
             tipo: archivo.type,
             tamano: archivo.size,
           }])
+        } else {
+          setError(`Error al subir "${archivo.name}"`)
         }
       }
     } catch {
-      // Silencioso — el archivo no se adjunta
+      setError('Error al subir archivo')
     }
     setSubiendoArchivo(false)
     // Limpiar input para permitir re-seleccionar el mismo archivo
@@ -74,10 +77,11 @@ export function EditorNota({ entidadTipo, entidadId, notaEditando, onEnviado, on
   }
 
   // Enviar o actualizar nota
-  const enviar = async () => {
+  const enviar = useCallback(async () => {
     if (!tieneContenido || enviando) return
 
     setEnviando(true)
+    setError('')
     try {
       const res = esEdicion
         ? await fetch('/api/chatter', {
@@ -107,12 +111,14 @@ export function EditorNota({ entidadTipo, entidadId, notaEditando, onEnviado, on
         setTextoPlano('')
         setAdjuntos([])
         onEnviado()
+      } else {
+        setError('Error al guardar la nota')
       }
     } catch {
-      // Silencioso
+      setError('Error de conexión al guardar')
     }
     setEnviando(false)
-  }
+  }, [tieneContenido, enviando, esEdicion, notaEditando, textoPlano, html, entidadTipo, entidadId, adjuntos, onEnviado])
 
   return (
     <motion.div
@@ -159,6 +165,14 @@ export function EditorNota({ entidadTipo, entidadId, notaEditando, onEnviado, on
                 </button>
               </span>
             ))}
+          </div>
+        )}
+
+        {/* Error */}
+        {error && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-insignia-peligro border-t border-insignia-advertencia/20">
+            <AlertCircle size={12} />
+            {error}
           </div>
         )}
 

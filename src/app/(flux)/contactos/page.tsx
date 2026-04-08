@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavegacion } from '@/hooks/useNavegacion'
 import { useRol } from '@/hooks/useRol'
 import { useTraduccion } from '@/lib/i18n'
+import { useListado, useConfig } from '@/hooks/useListado'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -18,6 +20,7 @@ import {
 } from 'lucide-react'
 import { ModalImportar } from './_componentes/ModalImportar'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { SkeletonTabla } from '@/componentes/feedback/SkeletonTabla'
 import { useToast } from '@/componentes/feedback/Toast'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { Boton } from '@/componentes/ui/Boton'
@@ -76,17 +79,15 @@ export default function PaginaContactos() {
   const formato = useFormato()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const queryClient = useQueryClient()
   const vinculadoDe = searchParams.get('vinculado_de')
   const origenUrl = searchParams.get('origen')
   const [busqueda, setBusqueda] = useState('')
-  const [contactos, setContactos] = useState<FilaContacto[]>([])
-  const [tiposContacto, setTiposContacto] = useState<TipoContacto[]>([])
+  const [busquedaDebounced, setBusquedaDebounced] = useState('')
   const [modalImportar, setModalImportar] = useState(false)
   const [modalPapeleraLote, setModalPapeleraLote] = useState(false)
   const [idsPapeleraPendientes, setIdsPapeleraPendientes] = useState<Set<string>>(new Set())
   const [cargandoPapeleraLote, setCargandoPapeleraLote] = useState(false)
-  const [cargando, setCargando] = useState(true)
-  const [total, setTotal] = useState(0)
   const [pagina, setPagina] = useState(1)
   const [nombreFiltro, setNombreFiltro] = useState<string | null>(null)
 
@@ -95,17 +96,60 @@ export default function PaginaContactos() {
   const [filtroOrigen, setFiltroOrigen] = useState('')
   const [filtroIva, setFiltroIva] = useState('')
   const [filtroEtapa, setFiltroEtapa] = useState('')
-  const [etapasWA, setEtapasWA] = useState<{ valor: string; etiqueta: string }[]>([])
-  const [etapasCorreo, setEtapasCorreo] = useState<{ valor: string; etiqueta: string }[]>([])
-  // Nota: etapasWA y etapasCorreo se usan como filtros separados en el panel
-  const filtrosRef = useRef({ tipo: '', origen: '', iva: '', etapa: '' })
-  filtrosRef.current = { tipo: filtroTipo, origen: filtroOrigen, iva: filtroIva, etapa: filtroEtapa }
 
-  // Ref para tener siempre el valor actual de busqueda sin re-crear callbacks
-  const busquedaRef = useRef(busqueda)
-  busquedaRef.current = busqueda
+  // Debounce de búsqueda (300ms)
+  useEffect(() => {
+    const timeout = setTimeout(() => setBusquedaDebounced(busqueda), 300)
+    return () => clearTimeout(timeout)
+  }, [busqueda])
 
-  const fetchIdRef = useRef(0)
+  // Resetear página al cambiar filtros o búsqueda
+  useEffect(() => {
+    setPagina(1)
+  }, [filtroTipo, filtroOrigen, filtroIva, filtroEtapa, busquedaDebounced])
+
+  // ── Listado de contactos con React Query ──
+  const { datos: contactos, total, cargando, cargandoInicial, recargar: recargarContactos } = useListado<FilaContacto>({
+    clave: 'contactos',
+    url: '/api/contactos',
+    parametros: {
+      busqueda: busquedaDebounced,
+      vinculado_de: vinculadoDe || undefined,
+      tipo: filtroTipo || undefined,
+      origen_filtro: filtroOrigen || undefined,
+      condicion_iva: filtroIva || undefined,
+      etapa_id: filtroEtapa || undefined,
+      pagina,
+      por_pagina: POR_PAGINA,
+    },
+    extraerDatos: (json) => (json.contactos || []) as FilaContacto[],
+    extraerTotal: (json) => (json.total || 0) as number,
+  })
+
+  // ── Tipos de contacto (config, cache largo) ──
+  const { datos: tiposData } = useConfig('contactos-tipos', '/api/contactos/tipos', (json) => json.tipos_contacto as TipoContacto[])
+  const tiposContacto = tiposData || []
+
+  // ── Etapas WhatsApp y Correo para filtros ──
+  const { data: etapasWAData } = useQuery({
+    queryKey: ['etapas-wa'],
+    queryFn: () => fetch('/api/inbox/etapas?tipo_canal=whatsapp').then(r => r.json()),
+    staleTime: 5 * 60_000,
+  })
+  const etapasWA = useMemo(() => {
+    const etapas = (etapasWAData?.etapas || etapasWAData || []) as { id: string; etiqueta: string }[]
+    return etapas.map(e => ({ valor: e.id, etiqueta: e.etiqueta }))
+  }, [etapasWAData])
+
+  const { data: etapasCorreoData } = useQuery({
+    queryKey: ['etapas-correo'],
+    queryFn: () => fetch('/api/inbox/etapas?tipo_canal=correo').then(r => r.json()),
+    staleTime: 5 * 60_000,
+  })
+  const etapasCorreo = useMemo(() => {
+    const etapas = (etapasCorreoData?.etapas || etapasCorreoData || []) as { id: string; etiqueta: string }[]
+    return etapas.map(e => ({ valor: e.id, etiqueta: e.etiqueta }))
+  }, [etapasCorreoData])
 
   const pathname = usePathname()
   const { setMigajaDinamica } = useNavegacion()
@@ -150,8 +194,6 @@ export default function PaginaContactos() {
           throw new Error(cuerpo.error || `Error ${res.status}`)
         }
       }
-      setContactos(prev => prev.filter(c => !ids.has(c.id)))
-      setTotal(prev => prev - ids.size)
       const filasOk = [...ids].map(id => contactos.find(c => c.id === id)).filter(Boolean) as FilaContacto[]
       const todosProv = filasOk.length > 0 && filasOk.every(c => c.es_provisorio === true)
       if (todosProv) {
@@ -167,6 +209,7 @@ export default function PaginaContactos() {
       }
       setModalPapeleraLote(false)
       setIdsPapeleraPendientes(new Set())
+      queryClient.invalidateQueries({ queryKey: ['contactos'] })
     } catch (err) {
       console.error('Error al enviar contactos a la papelera:', err)
       mostrarToast(
@@ -176,7 +219,7 @@ export default function PaginaContactos() {
     } finally {
       setCargandoPapeleraLote(false)
     }
-  }, [idsPapeleraPendientes, contactos, mostrarToast, t])
+  }, [idsPapeleraPendientes, contactos, mostrarToast, t, queryClient])
 
   // Exportar contactos seleccionados a CSV
   const exportarContactosCSV = useCallback(async (ids: Set<string>) => {
@@ -216,103 +259,12 @@ export default function PaginaContactos() {
           })
         )
       )
-      // Actualizar localmente
-      setContactos(prev => prev.map(c =>
-        ids.has(c.id) && !c.etiquetas.includes(etiqueta.trim())
-          ? { ...c, etiquetas: [...c.etiquetas, etiqueta.trim()] }
-          : c
-      ))
       mostrarToast('exito', `Etiqueta "${etiqueta.trim()}" agregada a ${ids.size} contacto${ids.size !== 1 ? 's' : ''}`)
+      queryClient.invalidateQueries({ queryKey: ['contactos'] })
     } catch {
       mostrarToast('error', 'Error al agregar etiqueta')
     }
-  }, [mostrarToast])
-
-  // Fetch de contactos — función estable
-  const fetchContactos = useCallback(async (p: number) => {
-    const id = ++fetchIdRef.current
-    setCargando(true)
-    try {
-      const params = new URLSearchParams()
-      const b = busquedaRef.current
-      if (b) params.set('busqueda', b)
-      if (vinculadoDe) params.set('vinculado_de', vinculadoDe)
-      if (filtrosRef.current.tipo) params.set('tipo', filtrosRef.current.tipo)
-      if (filtrosRef.current.origen) params.set('origen_filtro', filtrosRef.current.origen)
-      if (filtrosRef.current.iva) params.set('condicion_iva', filtrosRef.current.iva)
-      if (filtrosRef.current.etapa) params.set('etapa_id', filtrosRef.current.etapa)
-      params.set('pagina', String(p))
-      params.set('por_pagina', String(POR_PAGINA))
-
-      const res = await fetch(`/api/contactos?${params}`)
-      const data = await res.json()
-
-      if (data.contactos && fetchIdRef.current === id) {
-        setContactos(data.contactos)
-        setTotal(data.total)
-      }
-    } catch {
-      // silenciar
-    } finally {
-      if (fetchIdRef.current === id) setCargando(false)
-    }
-  }, [vinculadoDe])
-
-  // Cargar tipos (solo una vez)
-  const cargaInicialRef = useRef(false)
-  useEffect(() => {
-    if (cargaInicialRef.current) return
-    cargaInicialRef.current = true
-    fetch('/api/contactos/tipos').then(r => r.json()).then(tipos => {
-      if (tipos.tipos_contacto) setTiposContacto(tipos.tipos_contacto)
-    }).catch(() => {})
-
-    // Cargar etapas de WhatsApp + correo para los filtros
-    fetch('/api/inbox/etapas?tipo_canal=whatsapp').then(r => r.json()).then(data => {
-      const etapas = (data.etapas || data || []) as { id: string; etiqueta: string }[]
-      setEtapasWA(etapas.map(e => ({ valor: e.id, etiqueta: e.etiqueta })))
-    }).catch(() => {})
-    fetch('/api/inbox/etapas?tipo_canal=correo').then(r => r.json()).then(data => {
-      const etapas = (data.etapas || data || []) as { id: string; etiqueta: string }[]
-      setEtapasCorreo(etapas.map(e => ({ valor: e.id, etiqueta: e.etiqueta })))
-    }).catch(() => {})
-  }, [])
-
-  // Cargar contactos al cambiar página
-  useEffect(() => {
-    fetchContactos(pagina)
-  }, [pagina, fetchContactos])
-
-  // Re-fetch al cambiar filtros (reset a página 1)
-  useEffect(() => {
-    if (!montadoRef.current) return
-    if (pagina === 1) fetchContactos(1)
-    else setPagina(1)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroTipo, filtroOrigen, filtroIva, filtroEtapa])
-
-  // Recargar al cambiar búsqueda (con debounce, reseteando a página 1)
-  const montadoRef = useRef(false)
-  useEffect(() => {
-    if (!montadoRef.current) { montadoRef.current = true; return }
-    const timeout = setTimeout(() => {
-      if (pagina === 1) {
-        // Ya estamos en página 1, el efecto de pagina no se dispara, llamar directo
-        fetchContactos(1)
-      } else {
-        // Cambiar a página 1 dispara el efecto de arriba
-        setPagina(1)
-      }
-    }, 300)
-    return () => clearTimeout(timeout)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busqueda])
-
-  // Wrapper para importación y otros re-fetches
-  const recargarContactos = useCallback(() => {
-    setPagina(1)
-    fetchContactos(1)
-  }, [fetchContactos])
+  }, [mostrarToast, queryClient])
 
   // Helpers de formato
   const ETIQUETAS_IVA: Record<string, string> = {
@@ -747,7 +699,7 @@ export default function PaginaContactos() {
       mostrarConfiguracion
       onConfiguracion={() => router.push('/contactos/configuracion')}
     >
-      <TablaDinamica
+      {cargandoInicial ? <SkeletonTabla /> : <TablaDinamica
         chipFiltro={vinculadoDe && nombreFiltro ? (
           <Boton
             variante="secundario"
@@ -839,7 +791,7 @@ export default function PaginaContactos() {
             }
           />
         }
-      />
+      />}
     </PlantillaListado>
 
     {/* Modal de importación con pasos (subir, mapear, preview, importar, resultado) */}

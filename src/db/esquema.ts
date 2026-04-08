@@ -65,6 +65,7 @@ export const miembros = pgTable('miembros', {
   horario_tipo: text('horario_tipo'), // 'lunes_viernes' | 'lunes_sabado' | 'todos' | 'custom'
   horario_flexible: boolean('horario_flexible').notNull().default(false),
   metodo_fichaje: text('metodo_fichaje'), // 'kiosco' | 'automatico' | 'manual'
+  fichaje_auto_movil: boolean('fichaje_auto_movil').notNull().default(false), // permitir fichaje automático desde móvil/PWA
   salix_ia_habilitado: boolean('salix_ia_habilitado').notNull().default(false),
   // Kiosco
   kiosco_rfid: text('kiosco_rfid'),
@@ -775,6 +776,7 @@ export const tipos_actividad = pgTable('tipos_actividad', {
   campo_responsable: boolean('campo_responsable').notNull().default(true),
   campo_prioridad: boolean('campo_prioridad').notNull().default(false),
   campo_checklist: boolean('campo_checklist').notNull().default(false),
+  campo_calendario: boolean('campo_calendario').notNull().default(false),
   // Orden, estado, predefinido
   orden: integer('orden').notNull().default(0),
   activo: boolean('activo').notNull().default(true),
@@ -869,6 +871,147 @@ export const actividades = pgTable('actividades', {
   index('actividades_creado_por_idx').on(tabla.empresa_id, tabla.creado_por),
   index('actividades_papelera_idx').on(tabla.empresa_id, tabla.en_papelera),
 ])
+
+// ═══ CALENDARIO ═══
+
+// Tipos de evento de calendario — configurables por empresa
+export const tipos_evento_calendario = pgTable('tipos_evento_calendario', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  clave: text('clave').notNull(),
+  etiqueta: text('etiqueta').notNull(),
+  icono: text('icono').notNull().default('Calendar'),
+  color: text('color').notNull().default('#3B82F6'),
+  duracion_default: integer('duracion_default').notNull().default(60),
+  todo_el_dia_default: boolean('todo_el_dia_default').notNull().default(false),
+  activo: boolean('activo').notNull().default(true),
+  es_predefinido: boolean('es_predefinido').notNull().default(false),
+  orden: integer('orden').notNull().default(0),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  uniqueIndex('tipos_evento_cal_empresa_clave_idx').on(tabla.empresa_id, tabla.clave),
+  index('tipos_evento_cal_empresa_idx').on(tabla.empresa_id),
+])
+
+// Configuración del calendario por empresa
+export const config_calendario = pgTable('config_calendario', {
+  empresa_id: uuid('empresa_id').primaryKey().references(() => empresas.id, { onDelete: 'cascade' }),
+  hora_inicio_laboral: time('hora_inicio_laboral').notNull().default('08:00'),
+  hora_fin_laboral: time('hora_fin_laboral').notNull().default('18:00'),
+  dias_laborales: integer('dias_laborales').array().notNull().default(sql`'{1,2,3,4,5}'`),
+  intervalo_slot: integer('intervalo_slot').notNull().default(30),
+  vista_default: text('vista_default').notNull().default('semana'),
+  mostrar_fines_semana: boolean('mostrar_fines_semana').notNull().default(true),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+})
+
+// Eventos de calendario — reuniones, tareas, bloqueos, etc.
+export const eventos_calendario = pgTable('eventos_calendario', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+
+  // Contenido
+  titulo: text('titulo').notNull(),
+  descripcion: text('descripcion'),
+  ubicacion: text('ubicacion'),
+
+  // Tipo (FK a tabla configurable)
+  tipo_id: uuid('tipo_id').references(() => tipos_evento_calendario.id),
+  tipo_clave: text('tipo_clave'),
+  color: text('color'),
+
+  // Temporalidad
+  fecha_inicio: timestamp('fecha_inicio', { withTimezone: true }).notNull(),
+  fecha_fin: timestamp('fecha_fin', { withTimezone: true }).notNull(),
+  todo_el_dia: boolean('todo_el_dia').notNull().default(false),
+
+  // Recurrencia
+  recurrencia: jsonb('recurrencia'),
+  evento_padre_id: uuid('evento_padre_id'),
+  es_excepcion: boolean('es_excepcion').notNull().default(false),
+  fecha_excepcion: timestamp('fecha_excepcion', { withTimezone: true }),
+
+  // Asignación múltiple [{id, nombre}]
+  creado_por: uuid('creado_por').notNull(),
+  creado_por_nombre: text('creado_por_nombre'),
+  asignados: jsonb('asignados').notNull().default(sql`'[]'`),
+  asignado_ids: text('asignado_ids').array().notNull().default(sql`'{}'`),
+
+  // Visibilidad: 'publica' | 'ocupado' | 'privada'
+  visibilidad: text('visibilidad').notNull().default('publica'),
+
+  // Vinculaciones polimórficas [{tipo, id, nombre}]
+  vinculos: jsonb('vinculos').notNull().default(sql`'[]'`),
+  vinculo_ids: text('vinculo_ids').array().notNull().default(sql`'{}'`),
+
+  // Actividad vinculada (relación directa opcional)
+  actividad_id: uuid('actividad_id'),
+
+  // Estado: 'tentativo' | 'confirmado' | 'cancelado'
+  estado: text('estado').notNull().default('confirmado'),
+
+  // Notas
+  notas: text('notas'),
+
+  // Auditoría
+  editado_por: uuid('editado_por'),
+  editado_por_nombre: text('editado_por_nombre'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+
+  // Recordatorio (minutos antes del evento, 0 = sin recordatorio)
+  recordatorio_minutos: integer('recordatorio_minutos').notNull().default(0),
+
+  // Soft delete
+  en_papelera: boolean('en_papelera').notNull().default(false),
+  papelera_en: timestamp('papelera_en', { withTimezone: true }),
+}, (tabla) => [
+  index('eventos_cal_empresa_rango_idx').on(tabla.empresa_id, tabla.fecha_inicio, tabla.fecha_fin),
+  index('eventos_cal_empresa_creador_idx').on(tabla.empresa_id, tabla.creado_por),
+  index('eventos_cal_empresa_tipo_idx').on(tabla.empresa_id, tabla.tipo_clave),
+  index('eventos_cal_empresa_actividad_idx').on(tabla.empresa_id, tabla.actividad_id),
+  index('eventos_cal_empresa_padre_idx').on(tabla.empresa_id, tabla.evento_padre_id),
+  index('eventos_cal_empresa_papelera_idx').on(tabla.empresa_id, tabla.en_papelera),
+])
+
+// Recordatorios de calendario — programados para enviar antes de un evento
+export const recordatorios_calendario = pgTable('recordatorios_calendario', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  evento_id: uuid('evento_id').notNull().references(() => eventos_calendario.id, { onDelete: 'cascade' }),
+  usuario_id: uuid('usuario_id').notNull(),
+  usuario_nombre: text('usuario_nombre'),
+  programado_para: timestamp('programado_para', { withTimezone: true }).notNull(),
+  enviado: boolean('enviado').notNull().default(false),
+  enviado_en: timestamp('enviado_en', { withTimezone: true }),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('recordatorios_cal_pendientes_idx').on(tabla.programado_para, tabla.enviado),
+  index('recordatorios_cal_evento_idx').on(tabla.evento_id),
+])
+
+// Feriados — días no laborables configurados por empresa
+export const feriados = pgTable('feriados', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  nombre: text('nombre').notNull(),
+  fecha: date('fecha').notNull(),
+  tipo: text('tipo').notNull().default('nacional'), // 'nacional' | 'puente' | 'empresa' | 'regional'
+  pais_codigo: text('pais_codigo'), // ISO 3166-1 alpha-2 (nullable — null = aplica a todos)
+  recurrente: boolean('recurrente').notNull().default(false),
+  dia_mes: integer('dia_mes'), // día del mes para recurrentes (ej: 25 para Navidad)
+  mes: integer('mes'), // mes para recurrentes (ej: 12 para Navidad)
+  activo: boolean('activo').notNull().default(true),
+  origen: text('origen').notNull().default('manual'), // 'libreria' | 'manual' | 'importado'
+  creado_por: uuid('creado_por'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('feriados_empresa_fecha_idx').on(tabla.empresa_id, tabla.fecha),
+  index('feriados_empresa_anio_idx').on(tabla.empresa_id, tabla.activo),
+  uniqueIndex('feriados_empresa_fecha_nombre_idx').on(tabla.empresa_id, tabla.fecha, tabla.nombre),
+])
+
+// ═══ PRODUCTOS ═══
 
 // Configuración de productos por empresa (JSONB flexible)
 export const config_productos = pgTable('config_productos', {

@@ -76,6 +76,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Debe haber al menos un destinatario' }, { status: 400 })
     }
 
+    // Validar formato de emails
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const emailsInvalidos = [
+      ...correo_para,
+      ...(correo_cc || []),
+      ...(correo_cco || []),
+    ].filter((e: string) => !emailRegex.test(e.trim()))
+
+    if (emailsInvalidos.length > 0) {
+      return NextResponse.json({
+        error: `Email inválido: ${emailsInvalidos[0]}`,
+      }, { status: 400 })
+    }
+
     const admin = crearClienteAdmin()
 
     // Obtener canal y config
@@ -173,6 +187,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Adjuntar PDF directo (ej: PDF del presupuesto desde Storage)
+    let pdfFallo = false
     if (pdf_url) {
       try {
         // Extraer storage_path de la URL de Supabase
@@ -189,6 +204,9 @@ export async function POST(request: NextRequest) {
               tipoMime: 'application/pdf',
               contenido: Buffer.from(await pdfData.arrayBuffer()),
             })
+          } else {
+            pdfFallo = true
+            console.error('Error descargando PDF de Storage:', pdfError?.message)
           }
         } else {
           // URL externa — descargar directo
@@ -199,10 +217,14 @@ export async function POST(request: NextRequest) {
               tipoMime: 'application/pdf',
               contenido: Buffer.from(await res.arrayBuffer()),
             })
+          } else {
+            pdfFallo = true
+            console.error('Error descargando PDF externo:', res.status)
           }
         }
-      } catch {
-        console.error('Error descargando PDF para adjuntar')
+      } catch (err) {
+        pdfFallo = true
+        console.error('Error descargando PDF para adjuntar:', err)
       }
     }
 
@@ -241,10 +263,10 @@ export async function POST(request: NextRequest) {
         const meta = chatterPrevio.metadata as Record<string, unknown>
         const prevMessageId = meta.correo_message_id as string | undefined
         if (prevMessageId) {
-          // Buscar la conversación y threadId del mensaje previo
+          // Buscar la conversación, threadId y references del mensaje previo
           const { data: msgPrevio } = await admin
             .from('mensajes')
-            .select('conversacion_id, metadata')
+            .select('conversacion_id, metadata, correo_references')
             .eq('empresa_id', empresaId)
             .eq('correo_message_id', prevMessageId)
             .maybeSingle()
@@ -255,9 +277,10 @@ export async function POST(request: NextRequest) {
               conversacionId: msgPrevio.conversacion_id,
               threadId: (msgPrevio.metadata as Record<string, unknown>)?.thread_id as string | undefined,
             }
-            // Inyectar headers de threading
+            // Inyectar headers de threading — acumular cadena completa de References (RFC 5322)
             opcionesMensaje.inReplyTo = prevMessageId
-            opcionesMensaje.references = [prevMessageId]
+            const refsPrevias = (msgPrevio.correo_references as string[] | null) || []
+            opcionesMensaje.references = [...refsPrevias, prevMessageId].filter((v, i, a) => a.indexOf(v) === i)
           }
         }
       }
@@ -286,7 +309,7 @@ export async function POST(request: NextRequest) {
       }
 
       const resultado = await enviarCorreoGmail(config.refresh_token, opcionesMensaje, threadId)
-      correoMessageId = resultado.id
+      correoMessageId = resultado.messageId  // Message-ID RFC 5322 (para threading correcto)
       gmailThreadId = resultado.threadId
     } else if (canal.proveedor === 'imap') {
       const { enviarCorreoSMTP } = await import('@/lib/correo-imap')
@@ -311,6 +334,19 @@ export async function POST(request: NextRequest) {
     // Crear o usar conversación (prioridad: explícito > hilo documento > nueva)
     let convId = conversacion_id || hiloDocumento?.conversacionId || null
     if (!convId) {
+      // Buscar contacto por email para vincular la conversación
+      const emailDestino = extraerEmail(correo_para[0])
+      let contactoIdConv: string | null = null
+      const { data: contactoExistente } = await admin
+        .from('contactos')
+        .select('id, nombre, apellido')
+        .eq('empresa_id', empresaId)
+        .eq('correo', emailDestino)
+        .maybeSingle()
+      if (contactoExistente) {
+        contactoIdConv = contactoExistente.id
+      }
+
       // Crear nueva conversación para correo nuevo
       const { data: nuevaConv, error: errorConv } = await admin
         .from('conversaciones')
@@ -318,12 +354,16 @@ export async function POST(request: NextRequest) {
           empresa_id: empresaId,
           canal_id,
           tipo_canal: 'correo',
-          identificador_externo: extraerEmail(correo_para[0]),
-          contacto_nombre: correo_para[0],
+          identificador_externo: emailDestino,
+          contacto_id: contactoIdConv,
+          contacto_nombre: contactoExistente
+            ? `${contactoExistente.nombre} ${contactoExistente.apellido || ''}`.trim()
+            : correo_para[0],
           estado: 'abierta',
           prioridad: 'normal',
           asunto: correo_asunto || null,
           mensajes_sin_leer: 0,
+          ...(gmailThreadId ? { hilo_externo_id: gmailThreadId } : {}),
         })
         .select('id')
         .single()
@@ -380,7 +420,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Actualizar conversación
-    await admin
+    const { error: errorActConv } = await admin
       .from('conversaciones')
       .update({
         ultimo_mensaje_texto: previewTexto,
@@ -388,8 +428,14 @@ export async function POST(request: NextRequest) {
         ultimo_mensaje_es_entrante: false,
         tiempo_sin_respuesta_desde: null,
         actualizado_en: new Date().toISOString(),
+        // Guardar threadId de Gmail para matching futuro (si no existía)
+        ...(gmailThreadId ? { hilo_externo_id: gmailThreadId } : {}),
       })
       .eq('id', convId)
+
+    if (errorActConv) {
+      console.error('Error actualizando conversación tras envío:', errorActConv)
+    }
 
     // ─── Registrar en chatter si hay entidad vinculada ───
     if (entidad_tipo && entidad_id) {
@@ -418,6 +464,7 @@ export async function POST(request: NextRequest) {
       mensaje,
       conversacion_id: convId,
       correo_message_id: correoMessageId,
+      ...(pdfFallo ? { advertencia: 'El PDF no pudo adjuntarse al correo' } : {}),
     }, { status: 201 })
   } catch (err) {
     console.error('Error al enviar correo:', err)

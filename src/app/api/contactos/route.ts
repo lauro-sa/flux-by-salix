@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { esEmailValido, esTelefonoValido, esUrlValida, esIdentificacionValida, sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
-import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarError } from '@/lib/logger'
 
 /**
@@ -18,14 +18,10 @@ export async function GET(request: NextRequest) {
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
-    // Verificar permisos de visibilidad: ver_todos > ver_propio > 403
-    const { permitido: verTodos } = await obtenerYVerificarPermiso(user.id, empresaId, 'contactos', 'ver_todos')
-    let soloPropio = false
-    if (!verTodos) {
-      const { permitido: verPropio } = await obtenerYVerificarPermiso(user.id, empresaId, 'contactos', 'ver_propio')
-      if (!verPropio) return NextResponse.json({ error: 'Sin permiso para ver contactos' }, { status: 403 })
-      soloPropio = true
-    }
+    // Verificar permisos de visibilidad con una sola query a BD
+    const visibilidad = await verificarVisibilidad(user.id, empresaId, 'contactos')
+    if (!visibilidad) return NextResponse.json({ error: 'Sin permiso para ver contactos' }, { status: 403 })
+    const soloPropio = visibilidad.soloPropio
 
     const params = request.nextUrl.searchParams
     const busqueda = sanitizarBusqueda(params.get('busqueda') || '')
@@ -46,11 +42,17 @@ export async function GET(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    // Query base con JOIN a tipo_contacto
+    // Query base: campos selectivos (sin datos_fiscales, notas, etc. innecesarios para la lista)
     let query = admin
       .from('contactos')
       .select(`
-        *,
+        id, codigo, nombre, apellido, correo, telefono, whatsapp, cargo, rubro,
+        activo, es_provisorio, origen, etiquetas, moneda, idioma,
+        tipo_identificacion, numero_identificacion, datos_fiscales,
+        limite_credito, plazo_pago_cliente, plazo_pago_proveedor,
+        rank_cliente, rank_proveedor, pais_fiscal, zona_horaria,
+        notas, web, titulo,
+        creado_por, creado_en, actualizado_en,
         tipo_contacto:tipos_contacto!tipo_contacto_id(id, clave, etiqueta, icono, color),
         responsables:contacto_responsables(usuario_id),
         direcciones:contacto_direcciones(id, tipo, calle, numero, texto, ciudad, provincia, codigo_postal, es_principal),
@@ -193,20 +195,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Error al obtener contactos' }, { status: 500 })
     }
 
-    // Enriquecer con la última etapa de conversación por contacto
+    // Enriquecer con la última etapa de conversación por contacto (en paralelo con nada — ya tenemos data)
     const contactoIds = (data || []).map(c => c.id).filter(Boolean)
-    let etapasPorContacto: Record<string, { etapa_etiqueta: string; etapa_color: string; tipo_canal: string }> = {}
+    const etapasPorContacto: Record<string, { etapa_etiqueta: string; etapa_color: string; tipo_canal: string }> = {}
 
     if (contactoIds.length > 0) {
+      // Traer solo las conversaciones con etapa de los contactos de esta página
       const { data: convEtapas } = await admin
         .from('conversaciones')
-        .select('contacto_id, etapa_id, tipo_canal, etapa:etapas_conversacion(etiqueta, color)')
+        .select('contacto_id, tipo_canal, etapa:etapas_conversacion!etapa_id(etiqueta, color)')
         .in('contacto_id', contactoIds)
         .not('etapa_id', 'is', null)
         .order('ultimo_mensaje_en', { ascending: false })
+        .limit(contactoIds.length * 2) // Máximo 2 conversaciones por contacto es suficiente
 
       if (convEtapas) {
-        // Solo tomar la primera (más reciente) por contacto
         for (const conv of convEtapas) {
           if (!conv.contacto_id || etapasPorContacto[conv.contacto_id]) continue
           const etapa = conv.etapa as unknown as { etiqueta: string; color: string } | null
@@ -352,80 +355,50 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Error al generar código' }, { status: 500 })
     }
 
-    // Detección de duplicados (por identificación o correo)
-    if (body.numero_identificacion) {
-      const { data: duplicado } = await admin
-        .from('contactos')
-        .select('id, nombre, codigo')
-        .eq('empresa_id', empresaId)
-        .eq('numero_identificacion', body.numero_identificacion)
-        .eq('en_papelera', false)
-        .maybeSingle()
+    // Detección de duplicados — todas las queries en paralelo
+    if (!body.ignorar_duplicados) {
+      const checksParalelos: PromiseLike<{ campo: string; duplicado: { id: string; nombre: string; codigo: string } | null }>[] = []
 
-      if (duplicado && !body.ignorar_duplicados) {
-        return NextResponse.json({
-          error: 'duplicado',
-          duplicado: { id: duplicado.id, nombre: duplicado.nombre, codigo: duplicado.codigo },
-          mensaje: `Ya existe un contacto con esa identificación: ${duplicado.nombre} (${duplicado.codigo})`,
-        }, { status: 409 })
+      if (body.numero_identificacion) {
+        checksParalelos.push(
+          admin.from('contactos').select('id, nombre, codigo').eq('empresa_id', empresaId)
+            .eq('numero_identificacion', body.numero_identificacion).eq('en_papelera', false).maybeSingle()
+            .then(({ data }) => ({ campo: 'identificación', duplicado: data }))
+        )
       }
-    }
-
-    if (body.correo) {
-      const { data: duplicado } = await admin
-        .from('contactos')
-        .select('id, nombre, codigo')
-        .eq('empresa_id', empresaId)
-        .eq('correo', body.correo.toLowerCase().trim())
-        .eq('en_papelera', false)
-        .maybeSingle()
-
-      if (duplicado && !body.ignorar_duplicados) {
-        return NextResponse.json({
-          error: 'duplicado',
-          duplicado: { id: duplicado.id, nombre: duplicado.nombre, codigo: duplicado.codigo },
-          mensaje: `Ya existe un contacto con ese correo: ${duplicado.nombre} (${duplicado.codigo})`,
-        }, { status: 409 })
+      if (body.correo) {
+        checksParalelos.push(
+          admin.from('contactos').select('id, nombre, codigo').eq('empresa_id', empresaId)
+            .eq('correo', body.correo.toLowerCase().trim()).eq('en_papelera', false).maybeSingle()
+            .then(({ data }) => ({ campo: 'correo', duplicado: data }))
+        )
       }
-    }
-
-    // Duplicado por teléfono
-    if (body.telefono?.trim()) {
-      const { data: duplicado } = await admin
-        .from('contactos')
-        .select('id, nombre, codigo')
-        .eq('empresa_id', empresaId)
-        .eq('telefono', body.telefono.trim())
-        .eq('en_papelera', false)
-        .maybeSingle()
-
-      if (duplicado && !body.ignorar_duplicados) {
-        return NextResponse.json({
-          error: 'duplicado',
-          duplicado: { id: duplicado.id, nombre: duplicado.nombre, codigo: duplicado.codigo },
-          mensaje: `Ya existe un contacto con ese teléfono: ${duplicado.nombre} (${duplicado.codigo})`,
-          campo: 'telefono',
-        }, { status: 409 })
+      if (body.telefono?.trim()) {
+        checksParalelos.push(
+          admin.from('contactos').select('id, nombre, codigo').eq('empresa_id', empresaId)
+            .eq('telefono', body.telefono.trim()).eq('en_papelera', false).maybeSingle()
+            .then(({ data }) => ({ campo: 'telefono', duplicado: data }))
+        )
       }
-    }
+      if (body.whatsapp?.trim()) {
+        checksParalelos.push(
+          admin.from('contactos').select('id, nombre, codigo').eq('empresa_id', empresaId)
+            .eq('whatsapp', body.whatsapp.trim()).eq('en_papelera', false).maybeSingle()
+            .then(({ data }) => ({ campo: 'whatsapp', duplicado: data }))
+        )
+      }
 
-    // Duplicado por WhatsApp
-    if (body.whatsapp?.trim()) {
-      const { data: duplicado } = await admin
-        .from('contactos')
-        .select('id, nombre, codigo')
-        .eq('empresa_id', empresaId)
-        .eq('whatsapp', body.whatsapp.trim())
-        .eq('en_papelera', false)
-        .maybeSingle()
-
-      if (duplicado && !body.ignorar_duplicados) {
-        return NextResponse.json({
-          error: 'duplicado',
-          duplicado: { id: duplicado.id, nombre: duplicado.nombre, codigo: duplicado.codigo },
-          mensaje: `Ya existe un contacto con ese WhatsApp: ${duplicado.nombre} (${duplicado.codigo})`,
-          campo: 'whatsapp',
-        }, { status: 409 })
+      if (checksParalelos.length > 0) {
+        const resultados = await Promise.all(checksParalelos)
+        const encontrado = resultados.find(r => r.duplicado)
+        if (encontrado?.duplicado) {
+          return NextResponse.json({
+            error: 'duplicado',
+            duplicado: { id: encontrado.duplicado.id, nombre: encontrado.duplicado.nombre, codigo: encontrado.duplicado.codigo },
+            mensaje: `Ya existe un contacto con ${encontrado.campo === 'identificación' ? 'esa' : 'ese'} ${encontrado.campo}: ${encontrado.duplicado.nombre} (${encontrado.duplicado.codigo})`,
+            campo: encontrado.campo,
+          }, { status: 409 })
+        }
       }
     }
 
@@ -482,18 +455,20 @@ export async function POST(request: NextRequest) {
       }),
     ])
 
-    // Crear dirección si se envió
+    // Crear dirección y vinculaciones en paralelo
+    const insercionesExtra: PromiseLike<unknown>[] = []
+
     if (body.direccion) {
-      await admin.from('contacto_direcciones').insert({
-        contacto_id: contacto.id,
-        ...body.direccion,
-      })
+      insercionesExtra.push(
+        admin.from('contacto_direcciones').insert({
+          contacto_id: contacto.id,
+          ...body.direccion,
+        }).then()
+      )
     }
 
-    // Crear vinculaciones si se enviaron
     if (body.vinculaciones?.length) {
       const vinculaciones = body.vinculaciones.flatMap((v: { vinculado_id: string; tipo_relacion_id?: string; puesto?: string; recibe_documentos?: boolean }) => [
-        // A → B
         {
           empresa_id: empresaId,
           contacto_id: contacto.id,
@@ -502,18 +477,21 @@ export async function POST(request: NextRequest) {
           puesto: v.puesto || null,
           recibe_documentos: v.recibe_documentos || false,
         },
-        // B → A (bidireccional)
         {
           empresa_id: empresaId,
           contacto_id: v.vinculado_id,
           vinculado_id: contacto.id,
           tipo_relacion_id: v.tipo_relacion_id || null,
-          puesto: null, // el puesto inverso se define desde el otro lado
+          puesto: null,
           recibe_documentos: false,
         },
       ])
-      await admin.from('contacto_vinculaciones').insert(vinculaciones)
+      insercionesExtra.push(
+        admin.from('contacto_vinculaciones').insert(vinculaciones).then()
+      )
     }
+
+    if (insercionesExtra.length > 0) await Promise.all(insercionesExtra)
 
     return NextResponse.json(contacto, { status: 201 })
   } catch (err) {

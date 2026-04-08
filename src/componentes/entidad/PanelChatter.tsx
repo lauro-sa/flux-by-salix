@@ -46,6 +46,7 @@ export function PanelChatter({
   entidadTipo,
   entidadId,
   contacto,
+  contactoPrincipal,
   tipoDocumento,
   datosDocumento,
   onAbrirCorreo,
@@ -97,6 +98,10 @@ export function PanelChatter({
   }, [entidadId, cargar])
 
   // ─── Realtime: escuchar cambios en la tabla chatter para esta entidad ───
+  // Usar ref para evitar stale closure — el handler siempre llama la versión más reciente de cargar
+  const cargarRef = useRef(cargar)
+  useEffect(() => { cargarRef.current = cargar }, [cargar])
+
   useEffect(() => {
     if (!entidadId) return
 
@@ -110,14 +115,14 @@ export function PanelChatter({
         filter: `entidad_id=eq.${entidadId}`,
       }, () => {
         // Recargar todas las entradas cuando hay cualquier cambio (INSERT o UPDATE)
-        cargar()
+        cargarRef.current()
       })
       .subscribe()
 
     return () => {
       supabase.removeChannel(canal)
     }
-  }, [entidadId, entidadTipo, cargar])
+  }, [entidadId, entidadTipo])
 
   // ─── Filtrar entradas (más nuevas primero) ───
   const entradasFiltradas = useMemo(() => {
@@ -244,13 +249,87 @@ export function PanelChatter({
 
   // Vínculo inicial para el modal de actividad
   const vinculoInicialActividad = useMemo(() => {
-    if (!contacto?.id || !contacto?.nombre) return null
-    return {
-      tipo: 'contacto',
-      id: contacto.id,
-      nombre: contacto.nombre,
+    const vinculos: { tipo: string; id: string; nombre: string }[] = []
+
+    // Vincular al contacto principal del documento (ej: edificio)
+    // Si hay contactoPrincipal explícito, usarlo; si no, el contacto del chatter
+    const ctoPrincipal = contactoPrincipal || (contacto?.id && contacto?.nombre ? { id: contacto.id, nombre: contacto.nombre } : null)
+    if (ctoPrincipal) {
+      vinculos.push({
+        tipo: 'contacto',
+        id: ctoPrincipal.id,
+        nombre: ctoPrincipal.nombre,
+      })
     }
-  }, [contacto?.id, contacto?.nombre])
+
+    // Vincular el documento (presupuesto, orden, factura, etc.)
+    const esDocumento = ['presupuesto', 'factura', 'orden', 'informe'].includes(entidadTipo)
+    if (esDocumento && entidadId && datosDocumento?.numero) {
+      vinculos.push({
+        tipo: entidadTipo,
+        id: entidadId,
+        nombre: `${tipoDocumento || entidadTipo} #${datosDocumento.numero}`,
+      })
+    }
+
+    return vinculos.length > 0 ? vinculos : null
+  }, [contacto?.id, contacto?.nombre, contactoPrincipal, entidadTipo, entidadId, datosDocumento?.numero, tipoDocumento])
+
+  // ─── Actividades resueltas (completadas/canceladas) — para ocultar botones en el timeline ───
+  const actividadesResueltas = useMemo(() => {
+    const ids = new Set<string>()
+    for (const e of entradas) {
+      const accion = e.metadata?.accion
+      if (
+        (accion === 'actividad_completada' || accion === 'actividad_cancelada') &&
+        e.metadata?.actividad_id
+      ) {
+        ids.add(e.metadata.actividad_id)
+      }
+    }
+    return ids
+  }, [entradas])
+
+  // ─── Acciones rápidas de actividad desde el chatter ───
+  const completarActividadDesdeChatter = useCallback(async (actividadId: string) => {
+    try {
+      const res = await fetch(`/api/actividades/${actividadId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'completar' }),
+      })
+      if (!res.ok) throw new Error()
+      // El chatter se recarga automáticamente via realtime
+    } catch {
+      /* Error silencioso — el realtime se encargará de sincronizar */
+    }
+  }, [])
+
+  const posponerActividadDesdeChatter = useCallback(async (actividadId: string, dias: number) => {
+    try {
+      const res = await fetch(`/api/actividades/${actividadId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'posponer', dias }),
+      })
+      if (!res.ok) throw new Error()
+    } catch {
+      /* Error silencioso */
+    }
+  }, [])
+
+  const cancelarActividadDesdeChatter = useCallback(async (actividadId: string) => {
+    try {
+      const res = await fetch(`/api/actividades/${actividadId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'cancelar' }),
+      })
+      if (!res.ok) throw new Error()
+    } catch {
+      /* Error silencioso */
+    }
+  }, [])
 
   // WhatsApp siempre habilitado — el modal valida si hay número/conversación
   const tieneWhatsApp = true
@@ -478,6 +557,10 @@ export function PanelChatter({
                       onEditarNota={editarNota}
                       onEliminarNota={eliminarNota}
                       onRecargar={cargar}
+                      actividadesResueltas={actividadesResueltas}
+                      onCompletarActividad={completarActividadDesdeChatter}
+                      onPosponerActividad={posponerActividadDesdeChatter}
+                      onCancelarActividad={cancelarActividadDesdeChatter}
                     />
                   ))
                 )}

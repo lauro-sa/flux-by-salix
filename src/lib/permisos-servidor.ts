@@ -55,8 +55,23 @@ export async function obtenerYVerificarPermiso(
   modulo: Modulo,
   accion: Accion
 ): Promise<{ permitido: boolean; miembro: DatosMiembro | null }> {
-  const admin = crearClienteAdmin()
+  const datos = await obtenerDatosMiembro(usuarioId, empresaId)
+  if (!datos) return { permitido: false, miembro: null }
+  return {
+    permitido: verificarPermiso(datos, modulo, accion),
+    miembro: datos,
+  }
+}
 
+/**
+ * Obtiene datos del miembro una sola vez para verificar múltiples permisos.
+ * Evita hacer N queries a miembros cuando se necesitan verificar ver_todos + ver_propio.
+ */
+export async function obtenerDatosMiembro(
+  usuarioId: string,
+  empresaId: string
+): Promise<DatosMiembro | null> {
+  const admin = crearClienteAdmin()
   const { data: miembro } = await admin
     .from('miembros')
     .select('rol, permisos_custom')
@@ -65,15 +80,31 @@ export async function obtenerYVerificarPermiso(
     .eq('activo', true)
     .single()
 
-  if (!miembro) return { permitido: false, miembro: null }
+  if (!miembro) return null
 
-  const datosMiembro: DatosMiembro = {
+  return {
     rol: miembro.rol as Rol,
     permisos_custom: miembro.permisos_custom as PermisosMapa | null,
   }
+}
 
-  return {
-    permitido: verificarPermiso(datosMiembro, modulo, accion),
-    miembro: datosMiembro,
-  }
+/**
+ * Verifica permisos de visibilidad (ver_todos vs ver_propio) con una sola query a BD.
+ * Retorna { verTodos, soloPropio, miembro } o null si no tiene ningún permiso.
+ */
+export async function verificarVisibilidad(
+  usuarioId: string,
+  empresaId: string,
+  modulo: Modulo
+): Promise<{ verTodos: boolean; soloPropio: boolean; miembro: DatosMiembro } | null> {
+  const miembro = await obtenerDatosMiembro(usuarioId, empresaId)
+  if (!miembro) return null
+
+  const verTodos = verificarPermiso(miembro, modulo, 'ver_todos')
+  if (verTodos) return { verTodos: true, soloPropio: false, miembro }
+
+  const verPropio = verificarPermiso(miembro, modulo, 'ver_propio')
+  if (verPropio) return { verTodos: false, soloPropio: true, miembro }
+
+  return null
 }

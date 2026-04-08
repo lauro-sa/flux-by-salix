@@ -477,71 +477,117 @@ function WidgetJornada() {
                 <BarraTimeline turno={turno} horarioEsperado={horarioHoy} hour12={hour12} />
               )}
 
-              {/* Acciones para fichaje automático (almuerzo/trámite) */}
+              {/* Acciones para fichaje automático */}
               {turno?.estado === 'activo' && (
                 <div className="space-y-2">
-                  {!turno.inicio_almuerzo && (
+                  {/* Fila: almuerzo + trámite */}
+                  <div className="grid grid-cols-2 gap-2">
+                    {!turno.inicio_almuerzo && (
+                      <Boton
+                        variante="secundario"
+                        tamano="sm"
+                        className="w-full"
+                        onClick={() => fichar('almuerzo')}
+                        disabled={ejecutando}
+                      >
+                        <UtensilsCrossed size={13} className="mr-1.5" /> Almorzar
+                      </Boton>
+                    )}
                     <Boton
                       variante="secundario"
-                      className="w-full"
-                      onClick={() => fichar('almuerzo')}
+                      tamano="sm"
+                      className={`w-full ${turno.inicio_almuerzo ? 'col-span-2' : ''}`}
+                      onClick={() => fichar('particular')}
                       disabled={ejecutando}
                     >
-                      <UtensilsCrossed size={14} className="mr-2" /> Salir a almorzar
+                      <Footprints size={13} className="mr-1.5" /> Trámite
                     </Boton>
-                  )}
+                  </div>
+                  {/* Terminar jornada */}
                   <Boton
-                    variante="secundario"
-                    className="w-full"
-                    onClick={() => fichar('particular')}
+                    variante="fantasma"
+                    tamano="sm"
+                    className="w-full !text-insignia-peligro hover:!bg-insignia-peligro/10"
+                    onClick={() => fichar('salida')}
                     disabled={ejecutando}
+                    cargando={ejecutando}
                   >
-                    <Footprints size={14} className="mr-2" /> Salgo un momento
+                    <Square size={13} className="mr-1.5" /> Terminar jornada
                   </Boton>
                 </div>
               )}
 
-              {/* En almuerzo — puede volver manualmente o esperar retorno automático */}
+              {/* En almuerzo */}
               {turno?.estado === 'almuerzo' && (
                 <div className="space-y-2">
                   <Boton
                     variante="primario"
+                    tamano="sm"
                     className="w-full"
                     onClick={() => fichar('volver_almuerzo')}
                     disabled={ejecutando}
                     cargando={ejecutando}
                   >
-                    <CornerDownLeft size={14} className="mr-2" /> Volver del almuerzo
+                    <CornerDownLeft size={13} className="mr-1.5" /> Volver del almuerzo
+                  </Boton>
+                  <Boton
+                    variante="fantasma"
+                    tamano="sm"
+                    className="w-full !text-insignia-peligro hover:!bg-insignia-peligro/10"
+                    onClick={() => fichar('salida')}
+                    disabled={ejecutando}
+                  >
+                    <Square size={13} className="mr-1.5" /> Terminar jornada
                   </Boton>
                   <p className="text-xxs text-texto-terciario text-center">
-                    También se registra automáticamente cuando vuelvas a usar Flux.
+                    El retorno también se registra automáticamente al volver a usar Flux.
                   </p>
                 </div>
               )}
 
-              {/* En trámite — puede volver manualmente o esperar retorno automático */}
+              {/* En trámite */}
               {turno?.estado === 'particular' && (
                 <div className="space-y-2">
                   <Boton
                     variante="primario"
+                    tamano="sm"
                     className="w-full"
                     onClick={() => fichar('volver_particular')}
                     disabled={ejecutando}
                     cargando={ejecutando}
                   >
-                    <CornerDownLeft size={14} className="mr-2" /> Ya volví
+                    <CornerDownLeft size={13} className="mr-1.5" /> Ya volví
+                  </Boton>
+                  <Boton
+                    variante="fantasma"
+                    tamano="sm"
+                    className="w-full !text-insignia-peligro hover:!bg-insignia-peligro/10"
+                    onClick={() => fichar('salida')}
+                    disabled={ejecutando}
+                  >
+                    <Square size={13} className="mr-1.5" /> Terminar jornada
                   </Boton>
                   <p className="text-xxs text-texto-terciario text-center">
-                    También se registra automáticamente cuando vuelvas a usar Flux.
+                    El retorno también se registra automáticamente al volver a usar Flux.
                   </p>
                 </div>
               )}
 
-              {/* Sin turno aún */}
+              {/* Sin turno aún — puede fichar manualmente o esperar automático */}
               {!turno && (
-                <div className="bg-superficie-hover/50 rounded-lg px-3 py-2">
-                  <p className="text-xs text-texto-terciario text-center">
-                    Tu entrada se fichará automáticamente cuando empieces a usar Flux.
+                <div className="space-y-2">
+                  <Boton
+                    variante="primario"
+                    tamano="sm"
+                    className="w-full"
+                    onClick={() => fichar('entrada')}
+                    disabled={ejecutando}
+                    cargando={ejecutando}
+                  >
+                    <Play size={13} className="mr-1.5" /> Marcar entrada
+                  </Boton>
+                  <p className="text-xxs text-texto-terciario text-center">
+                    También se ficha automáticamente al usar Flux.
                   </p>
                 </div>
               )}
