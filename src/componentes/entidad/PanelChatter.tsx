@@ -14,6 +14,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo, useId } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   MessageSquare, Loader2, Search, Zap,
   ChevronDown, ChevronUp, X, MoreVertical, Paperclip,
@@ -59,6 +60,7 @@ export function PanelChatter({
 }: PropsPanelChatter) {
   const { usuario } = useAuth()
   const { formatoHora } = useFormato()
+  const searchParams = useSearchParams()
 
   // ─── Estado principal ───
   const [entradas, setEntradas] = useState<EntradaChatter[]>([])
@@ -75,20 +77,27 @@ export function PanelChatter({
   const [modalActividad, setModalActividad] = useState(false)
 
   // Reabrir modal de actividad si volvemos del calendario con datos pendientes
+  const debeAbrirActividad = searchParams.get('abrir_actividad') === '1'
+  useEffect(() => {
+    if (debeAbrirActividad) {
+      // Pequeño delay para que la página termine de renderizar
+      const timer = setTimeout(() => {
+        setModalActividad(true)
+        // Limpiar el parámetro de la URL sin recargar
+        const url = new URL(window.location.href)
+        url.searchParams.delete('abrir_actividad')
+        window.history.replaceState({}, '', url.toString())
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+  }, [debeAbrirActividad])
+
+  // También verificar sessionStorage al montar (por si el parámetro se perdió)
   useEffect(() => {
     const pendiente = sessionStorage.getItem('flux_actividad_pendiente')
     const bloques = sessionStorage.getItem('flux_bloques_calendario')
-    const urlParams = new URLSearchParams(window.location.search)
-    if (pendiente || bloques || urlParams.get('abrir_actividad') === '1') {
+    if (pendiente || bloques) {
       setModalActividad(true)
-      // Limpiar el parámetro de la URL sin recargar
-      if (urlParams.get('abrir_actividad')) {
-        urlParams.delete('abrir_actividad')
-        const nuevaUrl = urlParams.toString()
-          ? `${window.location.pathname}?${urlParams.toString()}`
-          : window.location.pathname
-        window.history.replaceState({}, '', nuevaUrl)
-      }
     }
   }, [])
   const [menuAbierto, setMenuAbierto] = useState(false)
