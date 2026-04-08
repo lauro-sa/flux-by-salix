@@ -236,8 +236,9 @@ function SelectorCalendarioBloque({
         )
         if (!respuesta.ok) throw new Error('Error al cargar eventos')
         const datos = await respuesta.json()
+        const listaEventos = Array.isArray(datos) ? datos : (datos.eventos || [])
         setEventosExistentes(
-          (datos || []).map((e: Record<string, unknown>) => ({
+          listaEventos.map((e: Record<string, unknown>) => ({
             id: e.id as string,
             titulo: e.titulo as string,
             fecha_inicio: e.fecha_inicio as string,
@@ -423,7 +424,7 @@ function SelectorCalendarioBloque({
     <ModalAdaptable
       abierto={abierto}
       onCerrar={cancelar}
-      tamano="4xl"
+      tamano="5xl"
       forzarModal
       sinPadding
       acciones={
