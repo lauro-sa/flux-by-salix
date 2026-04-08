@@ -552,25 +552,18 @@ export default function PaginaCalendario() {
         onCambiarFiltroVista={setFiltroVista}
       />
 
-      {/* Layout principal con mini calendario opcional */}
-      <div className="flex-1 min-h-0 -mx-2 sm:-mx-6 flex gap-0">
-        {/* Mini calendario (solo en vistas que no son mes/agenda, solo en desktop) */}
-        {(['dia', 'semana', 'quincenal', 'equipo'] as VistaCalendario[]).includes(vistaActiva) && (
-          <div className="hidden lg:block shrink-0 w-[250px] p-3 border-r border-borde-sutil overflow-y-auto">
-            <MiniCalendario
-              fechaActual={fechaActual}
-              onSeleccionarDia={(fecha) => {
-                setFechaActual(fecha)
-              }}
-            />
-          </div>
-        )}
-
-        {/* Vista activa */}
-        <div className="flex-1 min-h-0">
-          {renderizarVista()}
-        </div>
+      {/* Vista activa — sin padding lateral para que la grilla ocupe todo el ancho */}
+      <div className="flex-1 min-h-0 -mx-2 sm:-mx-6">
+        {renderizarVista()}
       </div>
+
+      {/* Mini calendario flotante (solo en vistas que no son mes/agenda) */}
+      {(['dia', 'semana', 'quincenal', 'equipo'] as VistaCalendario[]).includes(vistaActiva) && (
+        <MiniCalendario
+          fechaActual={fechaActual}
+          onSeleccionarDia={(fecha) => setFechaActual(fecha)}
+        />
+      )}
 
       </div>{/* cierre wrapper con márgenes */}
 
