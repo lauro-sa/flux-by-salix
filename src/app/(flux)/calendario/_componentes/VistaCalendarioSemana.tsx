@@ -12,11 +12,13 @@ import { useMemo, useRef, useEffect, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   DndContext,
+  DragOverlay,
   useDraggable,
   PointerSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from '@dnd-kit/core'
 import type { EventoCalendario } from './tipos'
 
@@ -239,23 +241,7 @@ function BloqueEventoArrastrable({
   }
 
   return (
-    <>
-      {/* Fantasma: copia semitransparente en posición original mientras se arrastra */}
-      {(estaArrastrandoMover || estaRedimensionando) && (
-        <div
-          className="absolute z-5 rounded-md overflow-hidden pointer-events-none border-2 border-dashed"
-          style={{
-            ...estiloBase,
-            height: alturaPx,
-            borderColor: colorEvento,
-            backgroundColor: `color-mix(in srgb, ${colorEvento} 10%, transparent)`,
-            borderLeft: `3px dashed ${colorEvento}`,
-            opacity: 0.5,
-          }}
-        />
-      )}
-
-      {/* Bloque real (se mueve con el drag) */}
+      /* Bloque original — cuando se arrastra para mover, se vuelve fantasma (DragOverlay muestra la copia flotante) */
       <motion.div
         ref={refNodoMover}
         data-evento-bloque
@@ -271,13 +257,17 @@ function BloqueEventoArrastrable({
         }}
         className={[
           'absolute z-10 rounded-md overflow-hidden text-left cursor-grab px-1.5 py-0.5 select-none transition-shadow',
-          estaArrastrandoMover ? 'cursor-grabbing shadow-xl ring-2 ring-texto-marca/40 scale-[1.02]' : '',
+          estaArrastrandoMover ? 'cursor-grabbing' : '',
           estaRedimensionando ? 'shadow-lg ring-1 ring-texto-marca/20' : '',
         ].join(' ')}
         style={{
           ...estiloBase,
           height: alturaConRedimensionado,
-          ...estiloTransformMover,
+          // Al mover: el original queda como fantasma en su lugar, DragOverlay muestra la copia flotante
+          opacity: estaArrastrandoMover ? 0.3 : 1,
+          borderStyle: estaArrastrandoMover ? 'dashed' : 'solid',
+          // No aplicar transform al original — DragOverlay se encarga del movimiento visual
+          ...(!estaArrastrandoMover ? estiloTransformMover : {}),
         }}
       >
       {esCorto ? (
@@ -306,7 +296,6 @@ function BloqueEventoArrastrable({
         <div className="w-6 h-0.5 rounded-full bg-current opacity-0 group-hover/asa:opacity-40 transition-opacity" />
       </div>
     </motion.div>
-    </>
   )
 }
 
@@ -389,6 +378,10 @@ function VistaCalendarioSemana({
   /** Ref para acceder al estado actual de selección dentro de listeners del documento */
   const refSeleccion = useRef<EstadoSeleccionRango | null>(null)
   refSeleccion.current = seleccion
+
+  // --- Estado para DragOverlay (evento activo durante arrastre) ---
+  const [eventoDragActivo, setEventoDragActivo] = useState<EventoCalendario | null>(null)
+  const [tipoDrag, setTipoDrag] = useState<'mover' | 'redimensionar' | null>(null)
 
   // Sensor con umbral de distancia para diferenciar click de arrastre
   const sensores = useSensors(
@@ -558,6 +551,30 @@ function VistaCalendarioSemana({
   }, [onClickHora])
 
   /**
+   * Inicia el arrastre: guarda el evento activo y tipo para renderizar DragOverlay.
+   */
+  const manejarInicioDrag = useCallback((event: DragStartEvent) => {
+    const idStr = event.active.id as string
+    const esRedimensionar = idStr.startsWith('redimensionar-')
+    const eventoId = esRedimensionar
+      ? idStr.replace('redimensionar-', '')
+      : idStr.replace('mover-', '')
+    const evento = eventos.find(e => e.id === eventoId)
+    if (evento) {
+      setEventoDragActivo(evento)
+      setTipoDrag(esRedimensionar ? 'redimensionar' : 'mover')
+    }
+  }, [eventos])
+
+  /**
+   * Cancela el arrastre: limpia el estado de DragOverlay.
+   */
+  const manejarCancelDrag = useCallback(() => {
+    setEventoDragActivo(null)
+    setTipoDrag(null)
+  }, [])
+
+  /**
    * Maneja el fin de un arrastre (mover o redimensionar).
    * Calcula la nueva fecha/hora basándose en el delta de píxeles.
    */
@@ -612,6 +629,10 @@ function VistaCalendarioSemana({
 
         onMoverEvento(eventoId, nuevaInicio.toISOString(), nuevaFin.toISOString())
       }
+
+      // Limpiar estado de DragOverlay al finalizar arrastre
+      setEventoDragActivo(null)
+      setTipoDrag(null)
     },
     [eventos, onMoverEvento],
   )
@@ -622,7 +643,12 @@ function VistaCalendarioSemana({
     minutosAhora >= HORA_INICIO * 60 && minutosAhora <= HORA_FIN * 60
 
   return (
-    <DndContext sensors={sensores} onDragEnd={manejarFinArrastre}>
+    <DndContext
+      sensors={sensores}
+      onDragStart={manejarInicioDrag}
+      onDragEnd={manejarFinArrastre}
+      onDragCancel={manejarCancelDrag}
+    >
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -828,6 +854,25 @@ function VistaCalendarioSemana({
           </div>
         </div>
       </motion.div>
+
+      {/* Overlay flotante que sigue al cursor durante el arrastre de mover */}
+      <DragOverlay dropAnimation={null}>
+        {eventoDragActivo && tipoDrag === 'mover' && (
+          <div
+            className="rounded-md overflow-hidden px-1.5 py-0.5 shadow-2xl ring-2 ring-texto-marca/30 pointer-events-none"
+            style={{
+              width: 150,
+              backgroundColor: `color-mix(in srgb, ${eventoDragActivo.color || 'var(--texto-marca)'} 30%, transparent)`,
+              borderLeft: `3px solid ${eventoDragActivo.color || 'var(--texto-marca)'}`,
+              color: eventoDragActivo.color || 'var(--texto-marca)',
+            }}
+          >
+            <span className="text-[11px] font-medium truncate block">
+              {eventoDragActivo.titulo}
+            </span>
+          </div>
+        )}
+      </DragOverlay>
     </DndContext>
   )
 }
