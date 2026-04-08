@@ -16,6 +16,8 @@ export interface PropsPanelChatter {
   entidadId: string
   /** Datos del contacto vinculado (para pre-llenar acciones de correo/WA/actividad) */
   contacto?: ContactoChatter
+  /** Contacto principal del documento (ej: edificio) — se usa para vincular en actividades */
+  contactoPrincipal?: { id: string; nombre: string } | null
   /** Tipo de documento para contexto en modales ('Presupuesto', 'Factura', etc.) */
   tipoDocumento?: string
   /** Datos del documento para resolución de variables en plantillas WA */

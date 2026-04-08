@@ -2130,6 +2130,13 @@ export default function EditorPresupuesto({
         <PanelChatter
           entidadTipo="presupuesto"
           entidadId={idPresupuesto}
+          contactoPrincipal={contactoSeleccionado ? {
+            id: contactoSeleccionado.id,
+            nombre: `${contactoSeleccionado.nombre} ${contactoSeleccionado.apellido || ''}`.trim(),
+          } : presupuesto?.contacto_id ? {
+            id: presupuesto.contacto_id,
+            nombre: `${presupuesto.contacto_nombre || ''} ${presupuesto.contacto_apellido || ''}`.trim(),
+          } : null}
           contacto={(() => {
             // Prioridad: dirigido a > contacto principal > snapshot presupuesto
             const atencion = atencionSeleccionada

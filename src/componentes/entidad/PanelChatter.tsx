@@ -46,6 +46,7 @@ export function PanelChatter({
   entidadTipo,
   entidadId,
   contacto,
+  contactoPrincipal,
   tipoDocumento,
   datosDocumento,
   onAbrirCorreo,
@@ -248,13 +249,31 @@ export function PanelChatter({
 
   // Vínculo inicial para el modal de actividad
   const vinculoInicialActividad = useMemo(() => {
-    if (!contacto?.id || !contacto?.nombre) return null
-    return {
-      tipo: 'contacto',
-      id: contacto.id,
-      nombre: contacto.nombre,
+    const vinculos: { tipo: string; id: string; nombre: string }[] = []
+
+    // Vincular al contacto principal del documento (ej: edificio)
+    // Si hay contactoPrincipal explícito, usarlo; si no, el contacto del chatter
+    const ctoPrincipal = contactoPrincipal || (contacto?.id && contacto?.nombre ? { id: contacto.id, nombre: contacto.nombre } : null)
+    if (ctoPrincipal) {
+      vinculos.push({
+        tipo: 'contacto',
+        id: ctoPrincipal.id,
+        nombre: ctoPrincipal.nombre,
+      })
     }
-  }, [contacto?.id, contacto?.nombre])
+
+    // Vincular el documento (presupuesto, orden, factura, etc.)
+    const esDocumento = ['presupuesto', 'factura', 'orden', 'informe'].includes(entidadTipo)
+    if (esDocumento && entidadId && datosDocumento?.numero) {
+      vinculos.push({
+        tipo: entidadTipo,
+        id: entidadId,
+        nombre: `${tipoDocumento || entidadTipo} #${datosDocumento.numero}`,
+      })
+    }
+
+    return vinculos.length > 0 ? vinculos : null
+  }, [contacto?.id, contacto?.nombre, contactoPrincipal, entidadTipo, entidadId, datosDocumento?.numero, tipoDocumento])
 
   // WhatsApp siempre habilitado — el modal valida si hay número/conversación
   const tieneWhatsApp = true

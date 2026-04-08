@@ -91,7 +91,7 @@ interface PropiedadesModal {
   estados: EstadoActividad[]
   miembros: Miembro[]
   presetsPosposicion?: PresetPosposicion[]
-  vinculoInicial?: Vinculo | null
+  vinculoInicial?: Vinculo | Vinculo[] | null
   onGuardar: (datos: Record<string, unknown>) => Promise<unknown>
   onCompletar?: (id: string) => Promise<void>
   onPosponer?: (id: string, dias: number) => Promise<void>
@@ -145,7 +145,9 @@ function ModalActividad({
       setChecklist(actividad.checklist || [])
       setVinculos(actividad.vinculos || [])
     } else {
-      const vincsIniciales = vinculoInicial ? [vinculoInicial] : []
+      const vincsIniciales = vinculoInicial
+        ? Array.isArray(vinculoInicial) ? vinculoInicial : [vinculoInicial]
+        : []
       const primerTipoId = tiposActivos[0]?.id || ''
       setTipoId(primerTipoId)
       setDescripcion('')
