@@ -1,21 +1,19 @@
 /**
- * Reloj digital con segundos, actualización cada segundo.
- * Tipografía fluida con clamp() para escalar en cualquier tablet.
+ * Reloj digital en tiempo real con fecha.
+ * Tipografía monoespaciada font-black para evitar saltos (como el kiosco viejo).
  */
 'use client'
 
 import { useState, useEffect } from 'react'
 
-const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 
 function formatearHora(fecha: Date): string {
-  return fecha.toLocaleTimeString('es-AR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  })
+  const h = String(fecha.getHours()).padStart(2, '0')
+  const m = String(fecha.getMinutes()).padStart(2, '0')
+  const s = String(fecha.getSeconds()).padStart(2, '0')
+  return `${h}:${m}:${s}`
 }
 
 function formatearFecha(fecha: Date): string {
@@ -23,7 +21,7 @@ function formatearFecha(fecha: Date): string {
   const num = fecha.getDate()
   const mes = MESES[fecha.getMonth()]
   const anio = fecha.getFullYear()
-  return `${dia} ${num} de ${mes}, ${anio}`
+  return `${dia}, ${num} de ${mes} de ${anio}`
 }
 
 export default function RelojTiempoReal() {
@@ -35,26 +33,26 @@ export default function RelojTiempoReal() {
   }, [])
 
   return (
-    <div className="flex flex-col items-center gap-1">
-      <span
-        className="font-light tabular-nums tracking-tight"
+    <div className="text-center select-none pointer-events-none">
+      <p
+        className="font-mono font-black tracking-tight tabular-nums"
         style={{
           fontSize: 'clamp(3.5rem, 13vw, 8.5rem)',
-          lineHeight: 1.1,
-          color: 'var(--kiosco-texto, #f8fafc)',
+          lineHeight: 1,
+          color: '#f4f4f5',
         }}
       >
         {formatearHora(ahora)}
-      </span>
-      <span
-        className="tracking-wide"
+      </p>
+      <p
+        className="capitalize mt-3 md:mt-4"
         style={{
-          fontSize: 'clamp(1rem, 3vw, 1.5rem)',
-          color: 'var(--kiosco-texto-mut, #94a3b8)',
+          fontSize: 'clamp(0.875rem, 2.2vw, 1.3rem)',
+          color: '#94a3b8',
         }}
       >
         {formatearFecha(ahora)}
-      </span>
+      </p>
     </div>
   )
 }

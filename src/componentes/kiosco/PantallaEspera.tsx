@@ -1,9 +1,10 @@
 /**
  * Pantalla idle del kiosco — logo empresa, reloj, instrucciones.
- * Diseño negro puro para OLED, tipografía fluida.
+ * Replicado del kiosco viejo: layout centrado, botones discretos en fila.
  */
 'use client'
 
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import RelojTiempoReal from './RelojTiempoReal'
 
@@ -22,118 +23,113 @@ export default function PantallaEspera({
   logoUrl,
   modoEmpresa,
   metodoLectura,
-  nombreTerminal,
   alAbrirPIN,
   alToggleFullscreen,
 }: PropsPantallaEspera) {
-  const mensajeInstruccion = metodoLectura === 'nfc'
-    ? 'Acercá tu tarjeta NFC al lector'
-    : 'Pasá tu llavero por el lector'
+  const [esPantallaCompleta, setEsPantallaCompleta] = useState(false)
+
+  useEffect(() => {
+    const onChange = () => setEsPantallaCompleta(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', onChange)
+    setEsPantallaCompleta(!!document.fullscreenElement)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+
+  const mostrarLogo = logoUrl && (modoEmpresa === 'logo_y_nombre' || modoEmpresa === 'solo_logo')
+  const mostrarNombre = modoEmpresa === 'logo_y_nombre' || modoEmpresa === 'solo_nombre' || (modoEmpresa === 'solo_logo' && !logoUrl)
 
   return (
     <motion.div
-      className="flex flex-col items-center justify-center h-full gap-8 md:gap-10 px-8"
+      className="flex flex-col items-center justify-center flex-1 h-full gap-8 md:gap-10 px-8 py-12 select-none"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
     >
-      {/* Logo y nombre empresa */}
-      <div className="flex flex-col items-center gap-4">
-        {(modoEmpresa === 'logo_y_nombre' || modoEmpresa === 'solo_logo') && logoUrl && (
+      {/* Logo / Nombre empresa */}
+      <div className="flex flex-col items-center gap-3 md:gap-4 min-h-[80px] justify-center">
+        {mostrarLogo && (
           <img
             src={logoUrl}
             alt={nombreEmpresa}
-            className="h-20 md:h-24 w-auto object-contain"
+            className="h-20 md:h-24 object-contain opacity-90"
+            draggable={false}
           />
         )}
-        {(modoEmpresa === 'logo_y_nombre' || modoEmpresa === 'solo_nombre') && (
-          <h1
-            className="font-semibold uppercase tracking-wider text-center"
-            style={{
-              fontSize: 'clamp(1.25rem, 4vw, 2.25rem)',
-              color: 'var(--kiosco-texto, #f8fafc)',
-            }}
+        {mostrarNombre && (
+          <p
+            className="text-2xl md:text-3xl font-semibold tracking-wider uppercase"
+            style={{ color: '#a1a1aa' }}
           >
             {nombreEmpresa}
-          </h1>
+          </p>
         )}
       </div>
 
       {/* Reloj */}
       <RelojTiempoReal />
 
-      {/* Instrucción principal */}
-      <div
-        className="px-8 py-5 rounded-2xl text-center max-w-md"
-        style={{
-          backgroundColor: 'var(--kiosco-card, #18181b)',
-          border: '1px solid var(--kiosco-border, #27272a)',
-        }}
-      >
-        <p
-          className="font-medium"
-          style={{
-            fontSize: 'clamp(1rem, 3vw, 1.35rem)',
-            color: 'var(--kiosco-texto-sec, #e2e8f0)',
-          }}
+      {/* Instrucción */}
+      <div className="flex flex-col items-center gap-3 mt-2">
+        <div
+          className="flex items-center gap-3 px-6 py-3 md:px-8 md:py-4 rounded-2xl md:rounded-3xl"
+          style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}
         >
-          {mensajeInstruccion}
-        </p>
-      </div>
-
-      {/* Footer: PIN + estado + fullscreen */}
-      <div className="absolute bottom-6 md:bottom-8 left-6 md:left-8 right-6 md:right-8 flex items-center justify-between">
-        <button
-          onClick={alAbrirPIN}
-          className="px-4 md:px-5 py-2.5 md:py-3 rounded-xl text-sm font-medium transition-all active:scale-95"
-          style={{
-            backgroundColor: 'var(--kiosco-card, #18181b)',
-            color: 'var(--kiosco-texto-mut, #94a3b8)',
-            border: '1px solid var(--kiosco-border, #27272a)',
-          }}
-        >
-          Ingresar con PIN
-        </button>
-
-        <div className="flex flex-col items-center gap-1">
-          <div className="flex items-center gap-2">
-            <span
-              className="w-2 h-2 rounded-full"
-              style={{
-                backgroundColor: 'var(--kiosco-exito, #4ade80)',
-                animation: 'kiosco-pulso 3s ease-in-out infinite',
-              }}
-            />
-            <span
-              className="text-xs"
-              style={{ color: 'var(--kiosco-texto-dim, #64748b)' }}
-            >
-              {nombreTerminal}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 opacity-40">
-            <img src="/iconos/favicon.svg" alt="" className="w-3 h-3 invert" />
-            <span className="text-[10px] tracking-wider uppercase" style={{ color: '#64748b' }}>
-              Flux by Salix
-            </span>
-          </div>
+          <span style={{ color: '#a1a1aa', fontSize: 'clamp(1.5rem, 4vw, 2rem)' }}>
+            {metodoLectura === 'nfc' ? '📡' : '🔑'}
+          </span>
+          <p
+            className="font-medium"
+            style={{ fontSize: 'clamp(1rem, 2.5vw, 1.25rem)', color: '#d4d4d8' }}
+          >
+            {metodoLectura === 'nfc'
+              ? 'Acercá tu tarjeta NFC para fichar'
+              : 'Pasá tu llavero por el lector para fichar'}
+          </p>
         </div>
 
+        {/* Indicador de actividad */}
+        <div className="flex items-center gap-2 mt-1">
+          <span
+            className="size-2 rounded-full animate-pulse"
+            style={{ backgroundColor: '#4ade80' }}
+          />
+          <span className="text-sm" style={{ color: '#52525b' }}>
+            Terminal activa
+          </span>
+        </div>
+      </div>
+
+      {/* Botones discretos inferiores */}
+      <div className="flex items-center gap-5 md:gap-8 mt-4">
         <button
-          onClick={alToggleFullscreen}
-          className="p-2.5 md:p-3 rounded-xl transition-all active:scale-95"
-          style={{
-            backgroundColor: 'var(--kiosco-card, #18181b)',
-            border: '1px solid var(--kiosco-border, #27272a)',
-            color: 'var(--kiosco-texto-dim, #64748b)',
-          }}
-          title="Pantalla completa"
+          onClick={alAbrirPIN}
+          className="flex items-center gap-1.5 md:gap-2.5 transition-colors text-sm md:text-lg font-medium"
+          style={{ color: '#52525b' }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
-          </svg>
+          <span style={{ fontSize: 'clamp(0.9rem, 2vw, 1.25rem)' }}>⌨</span>
+          Ingresar con PIN
         </button>
+        {!esPantallaCompleta && (
+          <button
+            onClick={alToggleFullscreen}
+            className="flex items-center gap-1.5 md:gap-2.5 transition-colors text-sm md:text-lg font-medium"
+            style={{ color: '#52525b' }}
+          >
+            <span style={{ fontSize: 'clamp(0.9rem, 2vw, 1.25rem)' }}>⛶</span>
+            Pantalla completa
+          </button>
+        )}
+      </div>
+
+      {/* Branding Flux discreto */}
+      <div className="absolute bottom-3 md:bottom-5 left-0 right-0 flex items-center justify-center pointer-events-none">
+        <p
+          className="text-[11px] md:text-sm font-bold tracking-[0.25em] uppercase select-none"
+          style={{ color: '#3f3f46' }}
+        >
+          Flux · by Salix
+        </p>
       </div>
     </motion.div>
   )
