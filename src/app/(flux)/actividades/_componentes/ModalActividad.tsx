@@ -12,6 +12,7 @@ import {
   Plus, Trash2, Search, X, Check, GripVertical,
   ChevronDown, User, Link2, CheckCircle, FileText,
   MapPin, Mail as MailIcon, Clock, ExternalLink,
+  Calendar,
 } from 'lucide-react'
 import { useFormato } from '@/hooks/useFormato'
 import { useRouter } from 'next/navigation'
@@ -400,6 +401,17 @@ function ModalActividad({
         {/* ── Checklist (condicional) ── */}
         {tipoSeleccionado?.campo_checklist && (
           <SeccionChecklist checklist={checklist} onChange={setChecklist} />
+        )}
+
+        {/* ── Bloques de calendario (solo edición, actividad con fecha) ── */}
+        {esEdicion && actividad && (
+          <SeccionBloquesCalendario
+            actividadId={actividad.id}
+            titulo={actividad.titulo}
+            asignadoA={asignadoA}
+            asignadoNombre={asignadoNombre}
+            vinculos={vinculos}
+          />
         )}
 
         {/* ── Seguimientos (solo edición) ── */}
@@ -813,6 +825,257 @@ function SeccionChecklist({ checklist, onChange }: { checklist: ItemChecklist[];
           className="flex-1"
         />
       </div>
+    </div>
+  )
+}
+
+/* ── Sección de bloques de calendario ── */
+interface BloqueCalendario {
+  id: string
+  titulo: string
+  fecha_inicio: string
+  fecha_fin: string
+  todo_el_dia: boolean
+  color: string | null
+  estado: string
+}
+
+function SeccionBloquesCalendario({
+  actividadId,
+  titulo,
+  asignadoA,
+  asignadoNombre,
+  vinculos,
+}: {
+  actividadId: string
+  titulo: string
+  asignadoA: string | null
+  asignadoNombre: string | null
+  vinculos: Vinculo[]
+}) {
+  const [bloques, setBloques] = useState<BloqueCalendario[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [creando, setCreando] = useState(false)
+  const [mostrarFormulario, setMostrarFormulario] = useState(false)
+  const [nuevaFechaInicio, setNuevaFechaInicio] = useState('')
+  const [nuevaHoraInicio, setNuevaHoraInicio] = useState('08:00')
+  const [nuevaHoraFin, setNuevaHoraFin] = useState('17:00')
+  const formato = useFormato()
+
+  // Cargar bloques vinculados a esta actividad
+  useEffect(() => {
+    const cargar = async () => {
+      try {
+        // Buscar eventos de calendario con actividad_id = esta actividad
+        const desde = '2020-01-01'
+        const hasta = '2030-12-31'
+        const res = await fetch(`/api/calendario?desde=${desde}&hasta=${hasta}`)
+        if (res.ok) {
+          const datos = await res.json()
+          const eventosActividad = (datos.eventos || []).filter(
+            (e: BloqueCalendario & { actividad_id: string }) => e.actividad_id === actividadId
+          )
+          setBloques(eventosActividad)
+        }
+      } catch {
+        // Silenciar
+      } finally {
+        setCargando(false)
+      }
+    }
+    cargar()
+  }, [actividadId])
+
+  // Crear un bloque nuevo
+  const crearBloque = async () => {
+    if (!nuevaFechaInicio || !nuevaHoraInicio || !nuevaHoraFin) return
+    setCreando(true)
+    try {
+      const fechaInicio = `${nuevaFechaInicio}T${nuevaHoraInicio}:00`
+      const fechaFin = `${nuevaFechaInicio}T${nuevaHoraFin}:00`
+
+      // Preparar asignados
+      const asignados = asignadoA && asignadoNombre
+        ? [{ id: asignadoA, nombre: asignadoNombre }]
+        : []
+
+      const res = await fetch('/api/calendario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          titulo,
+          fecha_inicio: fechaInicio,
+          fecha_fin: fechaFin,
+          tipo_clave: 'tarea',
+          actividad_id: actividadId,
+          asignados,
+          vinculos,
+          estado: 'confirmado',
+        }),
+      })
+
+      if (res.ok) {
+        const nuevo = await res.json()
+        setBloques(prev => [...prev, nuevo])
+        setMostrarFormulario(false)
+        setNuevaFechaInicio('')
+        setNuevaHoraInicio('08:00')
+        setNuevaHoraFin('17:00')
+      }
+    } catch {
+      // Silenciar
+    } finally {
+      setCreando(false)
+    }
+  }
+
+  // Eliminar un bloque
+  const eliminarBloque = async (id: string) => {
+    try {
+      const res = await fetch(`/api/calendario/${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setBloques(prev => prev.filter(b => b.id !== id))
+      }
+    } catch {
+      // Silenciar
+    }
+  }
+
+  // Calcular horas totales
+  const horasTotales = bloques.reduce((acc, b) => {
+    const inicio = new Date(b.fecha_inicio)
+    const fin = new Date(b.fecha_fin)
+    return acc + (fin.getTime() - inicio.getTime()) / (1000 * 60 * 60)
+  }, 0)
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Calendar size={15} className="text-texto-terciario" />
+          <span className="text-sm font-medium text-texto-primario">Bloques de calendario</span>
+          {bloques.length > 0 && (
+            <span className="text-xs text-texto-terciario">
+              {bloques.length} bloque{bloques.length !== 1 ? 's' : ''} · {horasTotales.toFixed(1)} hs
+            </span>
+          )}
+        </div>
+        <Boton
+          variante="fantasma"
+          tamano="xs"
+          icono={<Plus size={14} />}
+          onClick={() => setMostrarFormulario(!mostrarFormulario)}
+        >
+          Agendar
+        </Boton>
+      </div>
+
+      {/* Lista de bloques existentes */}
+      {!cargando && bloques.length > 0 && (
+        <div className="space-y-1">
+          {bloques
+            .sort((a, b) => new Date(a.fecha_inicio).getTime() - new Date(b.fecha_inicio).getTime())
+            .map(bloque => {
+              const inicio = new Date(bloque.fecha_inicio)
+              const fin = new Date(bloque.fecha_fin)
+              const duracionHs = (fin.getTime() - inicio.getTime()) / (1000 * 60 * 60)
+
+              return (
+                <div
+                  key={bloque.id}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-superficie-hover/50 group"
+                >
+                  <div
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ backgroundColor: bloque.color || '#F59E0B' }}
+                  />
+                  <span className="text-sm text-texto-primario font-medium">
+                    {formato.fecha(bloque.fecha_inicio, { corta: true })}
+                  </span>
+                  <span className="text-xs text-texto-terciario">
+                    {formato.hora(bloque.fecha_inicio)} – {formato.hora(bloque.fecha_fin)}
+                  </span>
+                  <span className="text-xs text-texto-terciario">
+                    ({duracionHs.toFixed(1)} hs)
+                  </span>
+                  <button
+                    className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-texto-terciario hover:text-estado-error"
+                    onClick={() => eliminarBloque(bloque.id)}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )
+            })}
+        </div>
+      )}
+
+      {cargando && (
+        <p className="text-xs text-texto-terciario italic px-3">Cargando bloques...</p>
+      )}
+
+      {!cargando && bloques.length === 0 && !mostrarFormulario && (
+        <p className="text-xs text-texto-terciario italic px-3">
+          Sin bloques agendados. Usa "Agendar" para planificar cuándo se realizará este trabajo.
+        </p>
+      )}
+
+      {/* Formulario inline para crear bloque */}
+      <AnimatePresence>
+        {mostrarFormulario && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="flex flex-col sm:flex-row gap-2 p-3 bg-superficie-hover/30 rounded-lg border border-borde-sutil">
+              <SelectorFecha
+                valor={nuevaFechaInicio}
+                onChange={(v) => setNuevaFechaInicio(v || '')}
+                etiqueta="Fecha"
+              />
+              <div className="flex gap-2 flex-1">
+                <div className="flex-1">
+                  <label className="text-xs text-texto-terciario mb-1 block">Desde</label>
+                  <input
+                    type="time"
+                    value={nuevaHoraInicio}
+                    onChange={(e) => setNuevaHoraInicio(e.target.value)}
+                    className="w-full px-2 py-1.5 text-sm rounded-md border border-borde-sutil bg-superficie-tarjeta text-texto-primario"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-texto-terciario mb-1 block">Hasta</label>
+                  <input
+                    type="time"
+                    value={nuevaHoraFin}
+                    onChange={(e) => setNuevaHoraFin(e.target.value)}
+                    className="w-full px-2 py-1.5 text-sm rounded-md border border-borde-sutil bg-superficie-tarjeta text-texto-primario"
+                  />
+                </div>
+              </div>
+              <div className="flex items-end gap-2">
+                <Boton
+                  tamano="sm"
+                  onClick={crearBloque}
+                  cargando={creando}
+                  disabled={!nuevaFechaInicio}
+                >
+                  Agregar
+                </Boton>
+                <Boton
+                  variante="fantasma"
+                  tamano="sm"
+                  onClick={() => setMostrarFormulario(false)}
+                >
+                  <X size={14} />
+                </Boton>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
