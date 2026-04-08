@@ -15,7 +15,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, useId } from 'react'
 import {
-  MessageSquare, Loader2, Search,
+  MessageSquare, Loader2, Search, Zap,
   ChevronDown, ChevronUp, X, MoreVertical, Paperclip,
   PanelRightClose, PanelRightOpen, Check,
 } from 'lucide-react'
@@ -345,7 +345,7 @@ export function PanelChatter({
         {/* ─── Header ─── */}
         <div className="px-3 py-2 border-b border-borde-sutil flex items-center gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
-            <MessageSquare size={14} className="text-texto-secundario shrink-0" />
+            <Zap size={14} className="text-texto-secundario shrink-0" />
             <span className="text-sm font-semibold text-texto-primario">Actividad</span>
             {entradas.length > 0 && (
               <span className="text-xxs text-texto-terciario bg-superficie-hover px-1.5 py-0.5 rounded-full">

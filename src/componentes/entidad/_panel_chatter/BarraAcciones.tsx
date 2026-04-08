@@ -7,7 +7,7 @@
  * Se usa en: PanelChatter (parte superior, debajo del header).
  */
 
-import { Mail, StickyNote, CalendarPlus } from 'lucide-react'
+import { Mail, StickyNote, Zap } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { PropsBarraAcciones } from './tipos'
 
@@ -15,7 +15,7 @@ const ICONOS: Record<string, React.ReactNode> = {
   correo: <Mail size={14} />,
   whatsapp: <IconoWhatsApp size={14} />,
   nota: <StickyNote size={14} />,
-  actividad: <CalendarPlus size={14} />,
+  actividad: <Zap size={14} />,
 }
 
 interface ConfigAccion {
