@@ -321,8 +321,37 @@ export default function PaginaCalendario() {
       )
     }
 
+    // En modo selección, agregar los bloques seleccionados como pseudo-eventos
+    if (modoSeleccion && bloquesSeleccionados.length > 0) {
+      const pseudoEventos: EventoCalendario[] = bloquesSeleccionados.map((b, i) => ({
+        id: `seleccion-${i}`,
+        titulo: actividadPendiente?.titulo || 'Nuevo bloque',
+        descripcion: null,
+        ubicacion: null,
+        tipo_id: null,
+        tipo_clave: 'tarea',
+        color: 'var(--texto-marca)',
+        fecha_inicio: `${b.fecha}T${b.horaInicio}:00`,
+        fecha_fin: `${b.fecha}T${b.horaFin}:00`,
+        todo_el_dia: false,
+        recurrencia: null,
+        visibilidad: 'publica',
+        asignados: [],
+        asignado_ids: [],
+        vinculos: [],
+        vinculo_ids: [],
+        actividad_id: null,
+        estado: 'confirmado',
+        notas: null,
+        creado_por: '',
+        creado_por_nombre: null,
+        creado_en: new Date().toISOString(),
+      }))
+      return [...filtrados, ...pseudoEventos]
+    }
+
     return filtrados
-  }, [eventos, filtroTipo, filtroVista, usuarioActualId])
+  }, [eventos, filtroTipo, filtroVista, usuarioActualId, modoSeleccion, bloquesSeleccionados, actividadPendiente?.titulo])
 
   // --- Acciones del calendario ---
   const manejarClickDia = useCallback((fecha: Date, fechaFin?: Date) => {
@@ -573,43 +602,67 @@ export default function PaginaCalendario() {
 
       {/* Banner modo selección */}
       {modoSeleccion && (
-        <div className="flex items-center justify-between gap-3 p-3 mb-3 rounded-xl bg-texto-marca/10 border border-texto-marca/20">
-          <div className="flex items-center gap-2 min-w-0">
-            <Calendar size={16} className="text-texto-marca shrink-0" />
-            <span className="text-sm font-medium text-texto-marca truncate">
-              Seleccionando bloques{actividadPendiente?.titulo ? `: ${actividadPendiente.titulo}` : ''}
-            </span>
-            {bloquesSeleccionados.length > 0 && (
-              <span className="text-xs bg-texto-marca text-white px-2 py-0.5 rounded-full shrink-0">
-                {bloquesSeleccionados.length} bloque{bloquesSeleccionados.length !== 1 ? 's' : ''}
+        <div className="mb-3 rounded-xl bg-texto-marca/10 border border-texto-marca/20 overflow-hidden">
+          {/* Fila principal */}
+          <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <Calendar size={16} className="text-texto-marca shrink-0" />
+              <span className="text-sm font-medium text-texto-marca truncate">
+                {actividadPendiente?.titulo || 'Seleccioná bloques de tiempo'}
               </span>
-            )}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Boton
+                variante="fantasma"
+                tamano="xs"
+                onClick={() => {
+                  sessionStorage.removeItem('flux_bloques_calendario')
+                  const ruta = actividadPendiente?.rutaRetorno || '/actividades'
+                  router.push(ruta)
+                }}
+              >
+                Cancelar
+              </Boton>
+              <Boton
+                tamano="xs"
+                icono={<Check size={14} />}
+                onClick={() => {
+                  sessionStorage.setItem('flux_bloques_calendario', JSON.stringify(bloquesSeleccionados))
+                  const ruta = actividadPendiente?.rutaRetorno || '/actividades'
+                  router.push(ruta)
+                }}
+              >
+                Confirmar ({bloquesSeleccionados.length})
+              </Boton>
+            </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Boton
-              variante="fantasma"
-              tamano="xs"
-              icono={<ArrowLeft size={14} />}
-              onClick={() => {
-                sessionStorage.removeItem('flux_bloques_calendario')
-                const ruta = actividadPendiente?.rutaRetorno || '/actividades'
-                router.push(ruta)
-              }}
-            >
-              Cancelar
-            </Boton>
-            <Boton
-              tamano="xs"
-              icono={<Check size={14} />}
-              onClick={() => {
-                sessionStorage.setItem('flux_bloques_calendario', JSON.stringify(bloquesSeleccionados))
-                const ruta = actividadPendiente?.rutaRetorno || '/actividades'
-                router.push(ruta)
-              }}
-            >
-              Confirmar
-            </Boton>
-          </div>
+
+          {/* Lista de bloques seleccionados */}
+          {bloquesSeleccionados.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 px-3 pb-2.5">
+              {bloquesSeleccionados.map((bloque, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-texto-marca/15 text-texto-marca text-xs font-medium"
+                >
+                  {bloque.fecha} · {bloque.horaInicio}–{bloque.horaFin}
+                  <button
+                    type="button"
+                    onClick={() => setBloquesSeleccionados(prev => prev.filter((_, idx) => idx !== i))}
+                    className="hover:text-white transition-colors ml-0.5"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {bloquesSeleccionados.length === 0 && (
+            <p className="px-3 pb-2.5 text-xs text-texto-marca/70">
+              Arrastrá en la grilla para seleccionar horarios. Podés agregar varios bloques.
+            </p>
+          )}
         </div>
       )}
 
