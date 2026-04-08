@@ -1,15 +1,20 @@
 /**
- * Pantalla de acciones contextuales según el estado del turno.
- * Replicado del kiosco viejo:
- * - Countdown visible de 15s → auto-salida o volver a espera
- * - Botones secundarios desaparecen en últimos 3s
- * - Botón salida con barra de progreso
- * - Botón cancelar para volver a espera
+ * Pantalla de acciones contextuales — réplica del kiosco viejo.
+ *
+ * Layout:
+ *   activo (sin almuerzo) → [Almuerzo | Trámite] + [Salida full width]
+ *   activo (ya almorzó)   → [Trámite]            + [Salida full width]
+ *   almuerzo              → [Volver al trabajo]   + [Salida]
+ *   particular            → [Ya volví]            + [Salida]
+ *
+ * - Countdown visible 15s con barra de progreso
+ * - Pop animation en últimos 3s en botones secundarios
+ * - Auto-salida al llegar a 0 (si tiene turno)
  */
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 
 type EstadoTurno = 'activo' | 'almuerzo' | 'particular' | null
 type Accion = 'entrada' | 'salida' | 'almuerzo' | 'volver_almuerzo' | 'particular' | 'volver_particular'
@@ -25,7 +30,61 @@ interface PropsPantallaAcciones {
   alTimeout: () => void
 }
 
-const TIMEOUT_SEGUNDOS = 15
+const TIMEOUT = 15
+const POP_EN = 3
+
+// Definiciones de botones con colores como el viejo
+const BOTONES = {
+  almuerzo: {
+    accion: 'almuerzo' as Accion,
+    icono: '🍽',
+    label: 'Salir a almorzar',
+    detalle: 'Registrar pausa de almuerzo',
+    bg: 'rgba(245,158,11,0.12)',
+    border: 'rgba(245,158,11,0.3)',
+    color: '#fcd34d',
+  },
+  particular: {
+    accion: 'particular' as Accion,
+    icono: '🚶',
+    label: 'Salgo un momento',
+    detalle: 'Trámite o gestión personal',
+    bg: 'rgba(56,189,248,0.12)',
+    border: 'rgba(56,189,248,0.3)',
+    color: '#7dd3fc',
+  },
+  volver_almuerzo: {
+    accion: 'volver_almuerzo' as Accion,
+    icono: '↩',
+    label: 'Volver del almuerzo',
+    detalle: 'Continuar jornada',
+    bg: 'rgba(74,222,128,0.12)',
+    border: 'rgba(74,222,128,0.3)',
+    color: '#86efac',
+  },
+  volver_particular: {
+    accion: 'volver_particular' as Accion,
+    icono: '↩',
+    label: 'Ya volví',
+    detalle: 'Continuar jornada',
+    bg: 'rgba(74,222,128,0.12)',
+    border: 'rgba(74,222,128,0.3)',
+    color: '#86efac',
+  },
+}
+
+const BADGE_ESTADO: Record<string, { texto: string; bg: string; color: string }> = {
+  activo: { texto: 'En turno', bg: 'rgba(74,222,128,0.15)', color: '#86efac' },
+  almuerzo: { texto: 'En almuerzo', bg: 'rgba(245,158,11,0.15)', color: '#fcd34d' },
+  particular: { texto: 'Fuera — trámite', bg: 'rgba(56,189,248,0.15)', color: '#7dd3fc' },
+}
+
+function obtenerBotonesSecundarios(estado: EstadoTurno, yaAlmorzo: boolean) {
+  if (estado === 'almuerzo') return [BOTONES.volver_almuerzo]
+  if (estado === 'particular') return [BOTONES.volver_particular]
+  if (yaAlmorzo) return [BOTONES.particular]
+  return [BOTONES.almuerzo, BOTONES.particular]
+}
 
 export default function PantallaAcciones({
   nombre,
@@ -37,190 +96,200 @@ export default function PantallaAcciones({
   alReportar,
   alTimeout,
 }: PropsPantallaAcciones) {
-  const [contador, setContador] = useState(TIMEOUT_SEGUNDOS)
+  const [contador, setContador] = useState(TIMEOUT)
 
-  // Countdown de inactividad
+  // Countdown
   useEffect(() => {
     if (contador <= 0) {
-      alTimeout()
+      if (estadoTurno) {
+        alAccionar('salida')
+      } else {
+        alTimeout()
+      }
       return
     }
     const timer = setTimeout(() => setContador((c) => c - 1), 1000)
     return () => clearTimeout(timer)
-  }, [contador, alTimeout])
+  }, [contador, estadoTurno, alAccionar, alTimeout])
 
-  // Resetear contador al tocar cualquier botón
-  const resetearContador = useCallback(() => {
-    setContador(TIMEOUT_SEGUNDOS)
-  }, [])
+  const resetContador = useCallback(() => setContador(TIMEOUT), [])
 
-  const accionConReset = useCallback((accion: Accion) => {
-    resetearContador()
-    alAccionar(accion)
-  }, [resetearContador, alAccionar])
+  const pctPasado = (TIMEOUT - contador) / TIMEOUT
+  const popActivo = contador <= POP_EN
 
-  const botonesVisibles = contador > 3
+  const botonesSecundarios = obtenerBotonesSecundarios(estadoTurno, yaAlmorzo)
+  const badge = estadoTurno ? BADGE_ESTADO[estadoTurno] : null
+  const iniciales = nombre.split(' ').slice(0, 2).map(p => p[0] || '').join('').toUpperCase()
 
   return (
     <motion.div
-      className="flex flex-col items-center justify-center h-full gap-6 md:gap-8 px-8"
+      className="flex flex-col items-center justify-center h-full gap-6 md:gap-8 px-6 md:px-8 py-8 select-none"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.25 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
     >
-      {/* Avatar + saludo */}
-      <div className="flex flex-col items-center gap-3">
+      {/* Avatar + nombre + cargo */}
+      <div className="flex flex-col items-center gap-4 md:gap-5">
         {fotoUrl ? (
-          <img
-            src={fotoUrl}
-            alt={nombre}
-            className="w-28 h-28 md:w-36 md:h-36 rounded-3xl object-cover shadow-2xl"
-            style={{ border: '4px solid #27272a' }}
-          />
+          <div className="w-40 md:w-52 aspect-[3/4] rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl shadow-black/50"
+            style={{ border: '4px solid rgba(63,63,70,0.6)' }}
+          >
+            <img src={fotoUrl} alt={nombre} className="w-full h-full object-cover" draggable={false} />
+          </div>
         ) : (
           <div
-            className="w-28 h-28 md:w-36 md:h-36 rounded-3xl flex items-center justify-center text-5xl font-semibold shadow-2xl"
-            style={{ backgroundColor: '#18181b', color: 'var(--texto-marca)', border: '4px solid #27272a' }}
-          >
-            {nombre.charAt(0).toUpperCase()}
-          </div>
-        )}
-        <h2
-          className="font-semibold"
-          style={{ fontSize: 'clamp(1.25rem, 4vw, 2rem)', color: '#f8fafc' }}
-        >
-          Hola, {nombre}
-        </h2>
-
-        {/* Estado actual */}
-        {estadoTurno && (
-          <span
-            className="text-sm px-3 py-1 rounded-full"
+            className="w-36 h-36 md:w-44 md:h-44 rounded-full flex items-center justify-center"
             style={{
-              backgroundColor: estadoTurno === 'activo' ? 'rgba(74,222,128,0.15)' : 'rgba(251,191,36,0.15)',
-              color: estadoTurno === 'activo' ? '#4ade80' : '#fbbf24',
+              backgroundColor: 'rgba(59,130,246,0.15)',
+              border: '4px solid rgba(59,130,246,0.3)',
             }}
           >
-            {estadoTurno === 'activo' ? 'En turno' : estadoTurno === 'almuerzo' ? 'En almuerzo' : 'Fuera — trámite'}
-          </span>
+            <span className="text-5xl md:text-7xl font-black" style={{ color: 'var(--texto-marca)' }}>{iniciales}</span>
+          </div>
+        )}
+
+        <div className="text-center">
+          <p className="text-2xl md:text-3xl font-black" style={{ color: '#f4f4f5' }}>{nombre}</p>
+        </div>
+
+        {/* Badge de estado */}
+        {badge && (
+          <div
+            className="flex items-center gap-2 px-4 py-1.5 md:px-5 md:py-2 rounded-full text-sm md:text-base font-semibold"
+            style={{ backgroundColor: badge.bg, color: badge.color }}
+          >
+            {badge.texto}
+          </div>
         )}
       </div>
 
       {/* Botones de acción */}
-      <div className="flex flex-col gap-3 w-full max-w-sm">
-        <AnimatePresence>
-          {botonesVisibles && (
-            <>
-              {/* Sin turno → Empezar */}
-              {!estadoTurno && (
-                <BotonAccion key="entrada" icono="▶" texto="Empezar turno" onClick={() => accionConReset('entrada')} />
-              )}
+      {estadoTurno ? (
+        <div className="flex flex-col gap-3 md:gap-4 w-full max-w-xl md:max-w-2xl">
+          {/* Botones secundarios en fila */}
+          <div className="flex items-stretch gap-3 md:gap-4">
+            {botonesSecundarios.map((btn) => (
+              <button
+                key={btn.accion}
+                onClick={() => { resetContador(); alAccionar(btn.accion) }}
+                disabled={popActivo}
+                style={{
+                  backgroundColor: btn.bg,
+                  borderColor: btn.border,
+                  color: btn.color,
+                  opacity: popActivo ? 0 : Math.max(0.45, 1 - pctPasado * 0.55),
+                  transition: 'opacity 0.95s linear',
+                  ...(popActivo ? { animation: 'kiosco-pop-btn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards', pointerEvents: 'none' as const } : {}),
+                }}
+                className="flex-1 flex items-center gap-3 md:gap-4 px-5 py-4 md:px-6 md:py-5 rounded-2xl md:rounded-3xl text-base md:text-lg font-bold justify-center border transition-colors active:scale-95 disabled:cursor-not-allowed"
+              >
+                <span className="text-2xl md:text-3xl">{btn.icono}</span>
+                <div className="text-left">
+                  <p className="leading-tight">{btn.label}</p>
+                  <p className="text-xs md:text-sm font-normal opacity-60 leading-tight">{btn.detalle}</p>
+                </div>
+              </button>
+            ))}
+          </div>
 
-              {/* Turno activo sin almuerzo previo */}
-              {estadoTurno === 'activo' && !yaAlmorzo && (
-                <BotonAccion key="almuerzo" icono="🍽" texto="Salir a almorzar" onClick={() => accionConReset('almuerzo')} />
-              )}
-
-              {/* Turno activo — salir un momento */}
-              {estadoTurno === 'activo' && (
-                <BotonAccion key="particular" icono="📋" texto="Salgo un momento" onClick={() => accionConReset('particular')} />
-              )}
-
-              {/* En almuerzo */}
-              {estadoTurno === 'almuerzo' && (
-                <BotonAccion key="volver_almuerzo" icono="🔙" texto="Volver del almuerzo" onClick={() => accionConReset('volver_almuerzo')} />
-              )}
-
-              {/* En trámite */}
-              {estadoTurno === 'particular' && (
-                <BotonAccion key="volver_particular" icono="🔙" texto="Ya volví" onClick={() => accionConReset('volver_particular')} />
-              )}
-
-              {/* Reportar asistencia */}
-              {tieneSolicitudes && (
-                <BotonAccion key="reportar" icono="📝" texto="Reportar asistencia" onClick={() => { resetearContador(); alReportar() }} variante="secundario" />
-              )}
-            </>
-          )}
-        </AnimatePresence>
-
-        {/* Separador */}
-        {estadoTurno && (
-          <div className="h-px my-1" style={{ backgroundColor: '#27272a' }} />
-        )}
-
-        {/* Terminar jornada — solo si tiene turno activo */}
-        {estadoTurno && (
+          {/* Botón Salida — full width con fill de progreso */}
           <button
-            onClick={() => accionConReset('salida')}
-            className="relative w-full py-4 md:py-5 rounded-2xl font-medium transition-all overflow-hidden active:scale-[0.98]"
+            onClick={() => { resetContador(); alAccionar('salida') }}
+            className="relative overflow-hidden w-full flex items-center gap-3 md:gap-4 px-6 py-5 md:px-7 md:py-6 rounded-2xl md:rounded-3xl text-lg md:text-xl font-bold justify-center border transition-colors active:scale-[0.98]"
             style={{
-              fontSize: 'clamp(1rem, 3vw, 1.25rem)',
-              backgroundColor: '#18181b',
-              color: '#f87171',
-              border: '1px solid #27272a',
+              backgroundColor: 'rgba(239,68,68,0.1)',
+              borderColor: 'rgba(239,68,68,0.25)',
+              color: '#fca5a5',
             }}
           >
-            {/* Barra de progreso */}
             <div
-              className="absolute left-0 top-0 h-full transition-all duration-1000 ease-linear"
+              className="absolute inset-0 origin-left"
               style={{
-                backgroundColor: '#f87171',
-                opacity: 0.15,
-                width: `${((TIMEOUT_SEGUNDOS - contador) / TIMEOUT_SEGUNDOS) * 100}%`,
+                backgroundColor: 'rgba(239,68,68,0.18)',
+                transform: `scaleX(${pctPasado})`,
+                transition: 'transform 0.95s linear',
+                borderRadius: 'inherit',
               }}
             />
-            <span className="relative z-10">🚪 Terminar jornada</span>
+            <div className="relative z-10 flex items-center gap-3 md:gap-4">
+              <span className="text-2xl md:text-3xl">🚪</span>
+              <div className="text-left">
+                <p className="leading-tight">Terminar jornada</p>
+                <p className="text-xs md:text-sm font-normal opacity-60 leading-tight">Registrar salida definitiva</p>
+              </div>
+            </div>
           </button>
-        )}
-      </div>
+        </div>
+      ) : (
+        /* Sin turno → Empezar */
+        <button
+          onClick={() => { resetContador(); alAccionar('entrada') }}
+          className="w-full max-w-xl md:max-w-2xl flex items-center gap-3 md:gap-4 px-6 py-5 md:px-7 md:py-6 rounded-2xl md:rounded-3xl text-lg md:text-xl font-bold justify-center border transition-colors active:scale-95"
+          style={{
+            backgroundColor: 'rgba(74,222,128,0.12)',
+            borderColor: 'rgba(74,222,128,0.3)',
+            color: '#86efac',
+          }}
+        >
+          <span className="text-2xl md:text-3xl">▶</span>
+          <div className="text-left">
+            <p className="leading-tight">Empezar turno</p>
+            <p className="text-xs md:text-sm font-normal opacity-60 leading-tight">Registrar entrada</p>
+          </div>
+        </button>
+      )}
 
-      {/* Footer: countdown + cancelar */}
-      <div className="flex flex-col items-center gap-3 mt-2">
-        <p className="text-sm" style={{ color: '#64748b' }}>
-          Volviendo en {contador}s
-        </p>
+      {/* Reportar asistencia */}
+      {tieneSolicitudes && (
+        <button
+          onClick={() => { resetContador(); alReportar() }}
+          className="flex items-center gap-2 px-4 py-2 md:px-5 md:py-2.5 rounded-xl md:rounded-2xl text-sm md:text-base font-medium transition-all active:scale-95"
+          style={{
+            backgroundColor: 'rgba(39,39,42,0.6)',
+            border: '1px solid rgba(63,63,70,0.4)',
+            color: '#a1a1aa',
+          }}
+        >
+          📝 Reportar asistencia
+        </button>
+      )}
+
+      {/* Barra countdown + cancelar */}
+      {estadoTurno ? (
+        <div className="flex flex-col items-center gap-2 md:gap-3 w-full max-w-xs md:max-w-md">
+          <div className="w-full h-1 md:h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: '#27272a' }}>
+            <div
+              className="h-full rounded-full"
+              style={{
+                backgroundColor: '#52525b',
+                width: `${(contador / TIMEOUT) * 100}%`,
+                transition: 'width 0.95s linear',
+              }}
+            />
+          </div>
+          <div className="flex items-center gap-4 md:gap-6">
+            <p className="text-xs md:text-base" style={{ color: '#52525b' }}>
+              Salida automática en {contador}s
+            </p>
+            <button
+              onClick={alTimeout}
+              className="text-xs md:text-base font-medium flex items-center gap-1 transition-colors"
+              style={{ color: '#52525b' }}
+            >
+              ✕ Cancelar
+            </button>
+          </div>
+        </div>
+      ) : (
         <button
           onClick={alTimeout}
-          className="text-sm px-4 py-2 rounded-lg transition-all active:scale-95"
-          style={{ color: '#94a3b8', backgroundColor: '#18181b', border: '1px solid #27272a' }}
+          className="text-xs md:text-base font-medium flex items-center gap-1 transition-colors"
+          style={{ color: '#52525b' }}
         >
-          Cancelar
+          ✕ Cancelar
         </button>
-      </div>
+      )}
     </motion.div>
-  )
-}
-
-function BotonAccion({
-  icono,
-  texto,
-  onClick,
-  variante = 'primario',
-}: {
-  icono: string
-  texto: string
-  onClick: () => void
-  variante?: 'primario' | 'secundario'
-}) {
-  return (
-    <motion.button
-      onClick={onClick}
-      className="w-full py-4 md:py-5 rounded-2xl font-medium transition-all active:scale-[0.98] flex items-center justify-center gap-3"
-      style={{
-        fontSize: 'clamp(1rem, 3vw, 1.25rem)',
-        backgroundColor: variante === 'primario' ? '#18181b' : 'transparent',
-        color: '#f8fafc',
-        border: `1px solid ${variante === 'primario' ? '#27272a' : '#3f3f46'}`,
-      }}
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ duration: 0.2 }}
-    >
-      <span>{icono}</span>
-      <span>{texto}</span>
-    </motion.button>
   )
 }
