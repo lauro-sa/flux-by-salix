@@ -14,7 +14,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo, useId } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, usePathname } from 'next/navigation'
 import {
   MessageSquare, Loader2, Search, Zap,
   ChevronDown, ChevronUp, X, MoreVertical, Paperclip,
@@ -61,6 +61,7 @@ export function PanelChatter({
   const { usuario } = useAuth()
   const { formatoHora } = useFormato()
   const searchParams = useSearchParams()
+  const pathname = usePathname()
 
   // ─── Estado principal ───
   const [entradas, setEntradas] = useState<EntradaChatter[]>([])
@@ -77,43 +78,14 @@ export function PanelChatter({
   const [modalActividad, setModalActividad] = useState(false)
 
   // Reabrir modal de actividad si volvemos del calendario con datos pendientes
+  // Depende de pathname + searchParams para re-ejecutarse cuando Next.js navega
   useEffect(() => {
-    console.log('[PanelChatter] useEffect montaje — verificando sessionStorage...')
     const pendiente = sessionStorage.getItem('flux_actividad_pendiente')
     const bloques = sessionStorage.getItem('flux_bloques_calendario')
-    console.log('[PanelChatter] pendiente:', !!pendiente, 'bloques:', !!bloques)
     if (pendiente || bloques) {
-      console.log('[PanelChatter] ✅ Abriendo modal desde sessionStorage al montar')
       setModalActividad(true)
     }
-
-    // Escuchar evento custom
-    const manejarReapertura = () => {
-      console.log('[PanelChatter] ✅ Evento flux:reabrir-actividad recibido — abriendo modal')
-      setModalActividad(true)
-    }
-    window.addEventListener('flux:reabrir-actividad', manejarReapertura)
-
-    // Polling de respaldo
-    let intentos = 0
-    const intervalo = setInterval(() => {
-      intentos++
-      const p = sessionStorage.getItem('flux_actividad_pendiente')
-      const b = sessionStorage.getItem('flux_bloques_calendario')
-      console.log(`[PanelChatter] Polling #${intentos} — pendiente:`, !!p, 'bloques:', !!b)
-      if (intentos > 10) { clearInterval(intervalo); return }
-      if (p || b) {
-        console.log('[PanelChatter] ✅ Polling encontró datos — abriendo modal')
-        setModalActividad(true)
-        clearInterval(intervalo)
-      }
-    }, 500)
-
-    return () => {
-      window.removeEventListener('flux:reabrir-actividad', manejarReapertura)
-      clearInterval(intervalo)
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pathname, searchParams])
   const [menuAbierto, setMenuAbierto] = useState(false)
   const [adjuntosExpandidos, setAdjuntosExpandidos] = useState(false)
 
