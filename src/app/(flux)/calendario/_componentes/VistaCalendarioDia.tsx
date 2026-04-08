@@ -19,6 +19,7 @@ import {
   useSensors,
   type DragEndEvent,
   type DragStartEvent,
+  type DragMoveEvent,
 } from '@dnd-kit/core'
 import type { EventoCalendario } from './tipos'
 
@@ -403,6 +404,7 @@ function VistaCalendarioDia({
   // --- Estado para DragOverlay (evento activo durante arrastre) ---
   const [eventoDragActivo, setEventoDragActivo] = useState<EventoCalendario | null>(null)
   const [tipoDrag, setTipoDrag] = useState<'mover' | 'redimensionar' | null>(null)
+  const [dragDeltaY, setDragDeltaY] = useState(0)
 
   // Sensor con umbral de distancia para diferenciar click de arrastre
   const sensores = useSensors(
@@ -560,6 +562,11 @@ function VistaCalendarioDia({
   const manejarCancelDrag = useCallback(() => {
     setEventoDragActivo(null)
     setTipoDrag(null)
+    setDragDeltaY(0)
+  }, [])
+
+  const manejarMovimientoDrag = useCallback((event: DragMoveEvent) => {
+    if (event.delta) setDragDeltaY(event.delta.y)
   }, [])
 
   /**
@@ -603,6 +610,7 @@ function VistaCalendarioDia({
       // Limpiar estado de DragOverlay al finalizar arrastre
       setEventoDragActivo(null)
       setTipoDrag(null)
+      setDragDeltaY(0)
     },
     [eventos, onMoverEvento],
   )
@@ -611,6 +619,7 @@ function VistaCalendarioDia({
     <DndContext
       sensors={sensores}
       onDragStart={manejarInicioDrag}
+      onDragMove={manejarMovimientoDrag}
       onDragEnd={manejarFinArrastre}
       onDragCancel={manejarCancelDrag}
     >
@@ -754,8 +763,14 @@ function VistaCalendarioDia({
           const fin = new Date(eventoDragActivo.fecha_fin)
           const durMin = (fin.getTime() - inicio.getTime()) / 60000
           const altura = Math.max(durMin * (ALTURA_FILA_HORA / 60), 24)
-          const horaInicio = `${String(inicio.getHours()).padStart(2, '0')}:${String(inicio.getMinutes()).padStart(2, '0')}`
-          const horaFin = `${String(fin.getHours()).padStart(2, '0')}:${String(fin.getMinutes()).padStart(2, '0')}`
+
+          // Calcular nuevas horas en tiempo real
+          const deltaMinutos = Math.round((dragDeltaY / ALTURA_FILA_HORA) * 60 / 15) * 15
+          const nuevaInicio = new Date(inicio.getTime() + deltaMinutos * 60000)
+          const nuevaFin = new Date(fin.getTime() + deltaMinutos * 60000)
+          const hI = `${String(nuevaInicio.getHours()).padStart(2, '0')}:${String(nuevaInicio.getMinutes()).padStart(2, '0')}`
+          const hF = `${String(nuevaFin.getHours()).padStart(2, '0')}:${String(nuevaFin.getMinutes()).padStart(2, '0')}`
+
           return (
             <div
               className="rounded-md overflow-hidden px-2.5 py-1.5 shadow-2xl ring-2 ring-texto-marca/30 pointer-events-none"
@@ -768,10 +783,7 @@ function VistaCalendarioDia({
               }}
             >
               <span className="text-sm font-medium truncate block">{eventoDragActivo.titulo}</span>
-              <span className="text-xs opacity-70 block">{horaInicio} – {horaFin}</span>
-              {eventoDragActivo.descripcion && (
-                <span className="text-xs opacity-50 block truncate mt-0.5">{eventoDragActivo.descripcion}</span>
-              )}
+              <span className="text-xs opacity-70 block">{hI} – {hF}</span>
             </div>
           )
         })()}

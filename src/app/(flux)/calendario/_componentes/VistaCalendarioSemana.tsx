@@ -19,6 +19,7 @@ import {
   useSensors,
   type DragEndEvent,
   type DragStartEvent,
+  type DragMoveEvent,
 } from '@dnd-kit/core'
 import type { EventoCalendario } from './tipos'
 
@@ -383,6 +384,8 @@ function VistaCalendarioSemana({
   const [eventoDragActivo, setEventoDragActivo] = useState<EventoCalendario | null>(null)
   const [alturaDragActivo, setAlturaDragActivo] = useState(60)
   const [tipoDrag, setTipoDrag] = useState<'mover' | 'redimensionar' | null>(null)
+  const [dragDeltaY, setDragDeltaY] = useState(0)
+  const [dragDeltaX, setDragDeltaX] = useState(0)
 
   // Sensor con umbral de distancia para diferenciar click de arrastre
   const sensores = useSensors(
@@ -578,6 +581,15 @@ function VistaCalendarioSemana({
   const manejarCancelDrag = useCallback(() => {
     setEventoDragActivo(null)
     setTipoDrag(null)
+    setDragDeltaY(0)
+    setDragDeltaX(0)
+  }, [])
+
+  const manejarMovimientoDrag = useCallback((event: DragMoveEvent) => {
+    if (event.delta) {
+      setDragDeltaY(event.delta.y)
+      setDragDeltaX(event.delta.x)
+    }
   }, [])
 
   /**
@@ -639,6 +651,8 @@ function VistaCalendarioSemana({
       // Limpiar estado de DragOverlay al finalizar arrastre
       setEventoDragActivo(null)
       setTipoDrag(null)
+      setDragDeltaY(0)
+      setDragDeltaX(0)
     },
     [eventos, onMoverEvento],
   )
@@ -652,6 +666,7 @@ function VistaCalendarioSemana({
     <DndContext
       sensors={sensores}
       onDragStart={manejarInicioDrag}
+      onDragMove={manejarMovimientoDrag}
       onDragEnd={manejarFinArrastre}
       onDragCancel={manejarCancelDrag}
     >
@@ -867,6 +882,25 @@ function VistaCalendarioSemana({
           const color = eventoDragActivo.color || 'var(--texto-marca)'
           const inicio = parsearFecha(eventoDragActivo.fecha_inicio)
           const fin = parsearFecha(eventoDragActivo.fecha_fin)
+
+          // Calcular nuevas horas basándose en el delta actual
+          const deltaMinutos = Math.round((dragDeltaY / ALTURA_FILA) * 60 / 15) * 15
+          const nuevaInicio = new Date(inicio.getTime() + deltaMinutos * 60000)
+          const nuevaFin = new Date(fin.getTime() + deltaMinutos * 60000)
+
+          // Calcular nuevo día
+          let deltaDias = 0
+          if (refColumnas.current) {
+            const anchoColumna = refColumnas.current.getBoundingClientRect().width / 7
+            deltaDias = Math.round(dragDeltaX / anchoColumna)
+          }
+          if (deltaDias !== 0) {
+            nuevaInicio.setDate(nuevaInicio.getDate() + deltaDias)
+            nuevaFin.setDate(nuevaFin.getDate() + deltaDias)
+          }
+
+          const DIAS_CORTOS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
+
           return (
             <div
               className="rounded-md overflow-hidden px-1.5 py-1 shadow-2xl ring-2 ring-texto-marca/30 pointer-events-none"
@@ -880,7 +914,8 @@ function VistaCalendarioSemana({
             >
               <span className="text-[11px] font-medium truncate block">{eventoDragActivo.titulo}</span>
               <span className="text-[10px] opacity-70 block">
-                {formatearHoraCorta(inicio)} – {formatearHoraCorta(fin)}
+                {deltaDias !== 0 && `${DIAS_CORTOS[nuevaInicio.getDay()]} ${nuevaInicio.getDate()} · `}
+                {formatearHoraCorta(nuevaInicio)} – {formatearHoraCorta(nuevaFin)}
               </span>
             </div>
           )
