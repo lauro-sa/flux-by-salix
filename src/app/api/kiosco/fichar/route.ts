@@ -24,7 +24,15 @@ export async function POST(request: NextRequest) {
 
     const admin = crearClienteAdmin()
     const ahora = new Date().toISOString()
-    const fechaHoy = new Date().toISOString().split('T')[0]
+
+    // Obtener zona horaria de la empresa
+    const { data: empresaData } = await admin
+      .from('empresas')
+      .select('zona_horaria')
+      .eq('id', empresaId)
+      .single()
+    const zonaHoraria = empresaData?.zona_horaria || 'America/Argentina/Buenos_Aires'
+    const fechaHoy = new Date().toLocaleDateString('en-CA', { timeZone: zonaHoraria })
 
     // Obtener datos del miembro para resolución de turno
     const { data: miembro } = await admin

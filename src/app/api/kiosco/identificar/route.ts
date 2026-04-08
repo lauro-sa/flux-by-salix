@@ -23,7 +23,15 @@ export async function POST(request: NextRequest) {
     }
 
     const admin = crearClienteAdmin()
-    const fechaHoy = new Date().toISOString().split('T')[0]
+
+    // Obtener zona horaria de la empresa
+    const { data: empresa } = await admin
+      .from('empresas')
+      .select('zona_horaria')
+      .eq('id', empresaId)
+      .single()
+    const zonaHoraria = empresa?.zona_horaria || 'America/Argentina/Buenos_Aires'
+    const fechaHoy = new Date().toLocaleDateString('en-CA', { timeZone: zonaHoraria })
 
     // Buscar empleado según método
     let filtro: Record<string, string>
@@ -51,14 +59,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No reconocido' }, { status: 404 })
     }
 
-    // Obtener nombre del perfil
+    // Obtener nombre y foto del perfil
     const { data: perfil } = await admin
       .from('perfiles')
-      .select('nombre_completo')
+      .select('nombre, apellido, avatar_url')
       .eq('id', miembro.usuario_id)
       .single()
 
-    const nombre = perfil?.nombre_completo || 'Empleado'
+    const nombre = perfil
+      ? `${perfil.nombre || ''} ${perfil.apellido || ''}`.trim()
+      : 'Empleado'
+    const fotoPerfilUrl = miembro.foto_kiosco_url || perfil?.avatar_url || null
 
     // Cerrar turno de día anterior si quedó abierto
     const { data: turnoAnterior } = await admin
@@ -115,7 +126,7 @@ export async function POST(request: NextRequest) {
       miembroId: miembro.id,
       nombre,
       sector: miembro.sector,
-      fotoUrl: miembro.foto_kiosco_url,
+      fotoUrl: fotoPerfilUrl,
       fechaNacimiento: miembro.fecha_nacimiento,
       estadoTurno: turnoHoy?.estado ?? null,
       yaAlmorzo: !!(turnoHoy?.inicio_almuerzo && turnoHoy?.fin_almuerzo),
