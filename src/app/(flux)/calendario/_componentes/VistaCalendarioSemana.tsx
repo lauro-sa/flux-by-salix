@@ -220,7 +220,7 @@ function BloqueEventoArrastrable({
     ? {
         transform: `translate(${transformMover.x}px, ${transformMover.y}px)`,
         zIndex: 50,
-        opacity: 0.85,
+        opacity: 1,
       }
     : {}
 
@@ -229,35 +229,57 @@ function BloqueEventoArrastrable({
     ? Math.max(alturaPx + transformRedimensionar.y, 15)
     : alturaPx
 
+  const estiloBase = {
+    top: topPx,
+    left: `calc(${izquierdaPorc}% + 2px)`,
+    width: `calc(${anchoPorc}% - 4px)`,
+    backgroundColor: `color-mix(in srgb, ${colorEvento} 25%, transparent)`,
+    borderLeft: `3px solid ${colorEvento}`,
+    color: colorEvento,
+  }
+
   return (
-    <motion.div
-      ref={refNodoMover}
-      data-evento-bloque
-      {...atributosMover}
-      {...escuchasMover}
-      whileHover={!estaArrastrandoMover ? { scale: 1.02 } : undefined}
-      transition={{ duration: 0.1 }}
-      onClick={(e) => {
-        if (!estaArrastrandoMover && !estaRedimensionando) {
-          e.stopPropagation()
-          onClickEvento(evento)
-        }
-      }}
-      className={[
-        'absolute z-10 rounded-md overflow-hidden text-left cursor-grab px-1.5 py-0.5 select-none',
-        estaArrastrandoMover ? 'cursor-grabbing shadow-lg ring-2 ring-texto-marca/30' : '',
-      ].join(' ')}
-      style={{
-        top: topPx,
-        height: alturaConRedimensionado,
-        left: `calc(${izquierdaPorc}% + 2px)`,
-        width: `calc(${anchoPorc}% - 4px)`,
-        backgroundColor: `color-mix(in srgb, ${colorEvento} 25%, transparent)`,
-        borderLeft: `3px solid ${colorEvento}`,
-        color: colorEvento,
-        ...estiloTransformMover,
-      }}
-    >
+    <>
+      {/* Fantasma: copia semitransparente en posición original mientras se arrastra */}
+      {(estaArrastrandoMover || estaRedimensionando) && (
+        <div
+          className="absolute z-5 rounded-md overflow-hidden pointer-events-none border-2 border-dashed"
+          style={{
+            ...estiloBase,
+            height: alturaPx,
+            borderColor: colorEvento,
+            backgroundColor: `color-mix(in srgb, ${colorEvento} 10%, transparent)`,
+            borderLeft: `3px dashed ${colorEvento}`,
+            opacity: 0.5,
+          }}
+        />
+      )}
+
+      {/* Bloque real (se mueve con el drag) */}
+      <motion.div
+        ref={refNodoMover}
+        data-evento-bloque
+        {...atributosMover}
+        {...escuchasMover}
+        whileHover={!estaArrastrandoMover ? { scale: 1.02 } : undefined}
+        transition={{ duration: 0.1 }}
+        onClick={(e) => {
+          if (!estaArrastrandoMover && !estaRedimensionando) {
+            e.stopPropagation()
+            onClickEvento(evento)
+          }
+        }}
+        className={[
+          'absolute z-10 rounded-md overflow-hidden text-left cursor-grab px-1.5 py-0.5 select-none transition-shadow',
+          estaArrastrandoMover ? 'cursor-grabbing shadow-xl ring-2 ring-texto-marca/40 scale-[1.02]' : '',
+          estaRedimensionando ? 'shadow-lg ring-1 ring-texto-marca/20' : '',
+        ].join(' ')}
+        style={{
+          ...estiloBase,
+          height: alturaConRedimensionado,
+          ...estiloTransformMover,
+        }}
+      >
       {esCorto ? (
         <span className="text-[11px] leading-tight truncate block font-medium">
           {evento.titulo}
@@ -284,6 +306,7 @@ function BloqueEventoArrastrable({
         <div className="w-6 h-0.5 rounded-full bg-current opacity-0 group-hover/asa:opacity-40 transition-opacity" />
       </div>
     </motion.div>
+    </>
   )
 }
 

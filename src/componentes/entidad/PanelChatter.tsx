@@ -73,6 +73,15 @@ export function PanelChatter({
   // ─── Estado de modales internos ───
   const [modalWhatsApp, setModalWhatsApp] = useState(false)
   const [modalActividad, setModalActividad] = useState(false)
+
+  // Reabrir modal de actividad si volvemos del calendario con datos pendientes
+  useEffect(() => {
+    const pendiente = sessionStorage.getItem('flux_actividad_pendiente')
+    const bloques = sessionStorage.getItem('flux_bloques_calendario')
+    if (pendiente || bloques) {
+      setModalActividad(true)
+    }
+  }, [])
   const [menuAbierto, setMenuAbierto] = useState(false)
   const [adjuntosExpandidos, setAdjuntosExpandidos] = useState(false)
 

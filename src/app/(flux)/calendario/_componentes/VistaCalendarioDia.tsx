@@ -219,7 +219,7 @@ function BloqueEventoDiaArrastrable({
     ? {
         transform: `translate(0px, ${transformMover.y}px)`,
         zIndex: 50,
-        opacity: 0.85,
+        opacity: 1,
       }
     : {}
 
@@ -228,40 +228,58 @@ function BloqueEventoDiaArrastrable({
     ? Math.max(ep.altoPixeles + transformRedimensionar.y, 15)
     : ep.altoPixeles
 
+  const colorEvento = ep.evento.color || 'var(--texto-marca)'
+  const estiloBase = {
+    top: `${ep.arribaPixeles}px`,
+    left: `${izquierda}%`,
+    width: `${anchoPorcentaje}%`,
+    backgroundColor: ep.evento.color ? `${ep.evento.color}20` : 'var(--superficie-elevada)',
+    borderLeft: ep.evento.color ? `3px solid ${ep.evento.color}` : '3px solid var(--texto-marca)',
+    color: ep.evento.color || 'var(--texto-primario)',
+  }
+
   return (
-    <motion.div
-      ref={refNodoMover}
-      data-evento-bloque
-      {...atributosMover}
-      {...escuchasMover}
-      initial={{ opacity: 0, x: -4 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.15, delay: indice * 0.03 }}
-      className={[
-        'absolute rounded-md px-2.5 py-1.5 text-left overflow-hidden cursor-grab transition-shadow hover:shadow-md z-10 select-none',
-        estaArrastrandoMover ? 'cursor-grabbing shadow-lg ring-2 ring-texto-marca/30' : '',
-      ].join(' ')}
-      style={{
-        top: `${ep.arribaPixeles}px`,
-        height: `${Math.max(alturaConRedimensionado, 24)}px`,
-        left: `${izquierda}%`,
-        width: `${anchoPorcentaje}%`,
-        backgroundColor: ep.evento.color
-          ? `${ep.evento.color}20`
-          : 'var(--superficie-elevada)',
-        borderLeft: ep.evento.color
-          ? `3px solid ${ep.evento.color}`
-          : '3px solid var(--texto-marca)',
-        color: ep.evento.color || 'var(--texto-primario)',
-        ...estiloTransformMover,
-      }}
-      onClick={(e) => {
-        if (!estaArrastrandoMover && !estaRedimensionando) {
-          e.stopPropagation()
-          onClickEvento(ep.evento)
-        }
-      }}
-    >
+    <>
+      {/* Fantasma en posición original */}
+      {(estaArrastrandoMover || estaRedimensionando) && (
+        <div
+          className="absolute rounded-md overflow-hidden pointer-events-none border-2 border-dashed z-5"
+          style={{
+            ...estiloBase,
+            height: `${ep.altoPixeles}px`,
+            borderColor: colorEvento,
+            backgroundColor: `color-mix(in srgb, ${colorEvento} 10%, transparent)`,
+            borderLeft: `3px dashed ${colorEvento}`,
+            opacity: 0.5,
+          }}
+        />
+      )}
+
+      <motion.div
+        ref={refNodoMover}
+        data-evento-bloque
+        {...atributosMover}
+        {...escuchasMover}
+        initial={{ opacity: 0, x: -4 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.15, delay: indice * 0.03 }}
+        className={[
+          'absolute rounded-md px-2.5 py-1.5 text-left overflow-hidden cursor-grab transition-shadow hover:shadow-md z-10 select-none',
+          estaArrastrandoMover ? 'cursor-grabbing shadow-xl ring-2 ring-texto-marca/40 scale-[1.02]' : '',
+          estaRedimensionando ? 'shadow-lg ring-1 ring-texto-marca/20' : '',
+        ].join(' ')}
+        style={{
+          ...estiloBase,
+          height: `${Math.max(alturaConRedimensionado, 24)}px`,
+          ...estiloTransformMover,
+        }}
+        onClick={(e) => {
+          if (!estaArrastrandoMover && !estaRedimensionando) {
+            e.stopPropagation()
+            onClickEvento(ep.evento)
+          }
+        }}
+      >
       {/* Título */}
       <div className="text-sm font-medium truncate leading-tight">
         {ep.evento.titulo}
@@ -317,6 +335,7 @@ function BloqueEventoDiaArrastrable({
         <div className="w-8 h-0.5 rounded-full bg-current opacity-0 group-hover/asa:opacity-40 transition-opacity" />
       </div>
     </motion.div>
+    </>
   )
 }
 
