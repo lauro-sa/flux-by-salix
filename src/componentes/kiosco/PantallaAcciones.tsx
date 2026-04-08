@@ -145,8 +145,8 @@ export default function PantallaAcciones({
           <div
             className="w-36 h-36 landscape:w-28 landscape:h-28 md:w-44 md:h-44 rounded-full flex items-center justify-center"
             style={{
-              backgroundColor: 'rgba(59,130,246,0.15)',
-              border: '4px solid rgba(59,130,246,0.3)',
+              backgroundColor: 'rgba(123,123,216,0.15)',
+              border: '4px solid rgba(123,123,216,0.3)',
             }}
           >
             <span className="text-5xl md:text-7xl font-black" style={{ color: 'var(--texto-marca)' }}>{iniciales}</span>

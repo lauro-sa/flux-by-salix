@@ -722,7 +722,7 @@ a:hover { text-decoration: none; }
   --kiosco-exito: #4ade80;
   --kiosco-peligro: #f87171;
   --kiosco-advertencia: #fbbf24;
-  --kiosco-marca: rgb(59, 130, 246);
+  --kiosco-marca: #7b7bd8;
 
   /* Override tokens semánticos de Flux para forzar negro */
   --superficie-app: #09090b;
@@ -733,7 +733,7 @@ a:hover { text-decoration: none; }
   --texto-primario: #f8fafc;
   --texto-secundario: #e2e8f0;
   --texto-terciario: #94a3b8;
-  --texto-marca: rgb(59, 130, 246);
+  --texto-marca: #7b7bd8;
   --insignia-exito: #4ade80;
   --insignia-peligro: #f87171;
   --insignia-advertencia: #fbbf24;
