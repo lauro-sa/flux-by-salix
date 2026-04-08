@@ -126,44 +126,39 @@ export async function GET(request: NextRequest) {
     // ─── Helper: generar todas las fechas del período ───
     const diasSemanaStr = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
 
-    function calcularDiasLaborales(
+    /** Genera las fechas del período separadas en laborales y feriados según el turno */
+    function calcularDiasDelPeriodo(
       turno: Record<string, unknown> | undefined,
-    ): { total: number; fechas: string[]; feriados: string[] } {
+    ): { fechasLaborales: string[]; fechasFeriado: string[] } {
       const diasConfig = (turno?.dias || {}) as Record<string, { activo: boolean }>
       const fechasLab: string[] = []
-      const feriadosEnPeriodo: string[] = []
+      const fechasFer: string[] = []
 
-      // Si hay filtro de días, solo esos
-      if (diasSet) {
-        for (const f of diasSet) {
-          if (feriadosSet.has(f)) {
-            feriadosEnPeriodo.push(f)
-            continue
-          }
-          const d = new Date(f + 'T12:00:00')
-          const diaNombre = diasSemanaStr[d.getDay()]
-          if (diasConfig[diaNombre]?.activo !== false) {
-            fechasLab.push(f)
-          }
-        }
-      } else {
+      const fechas = diasSet ? Array.from(diasSet) : (() => {
+        const arr: string[] = []
         const d = new Date(desde + 'T12:00:00')
         const fin = new Date(hasta + 'T12:00:00')
         while (d <= fin) {
-          const f = d.toISOString().split('T')[0]
-          if (feriadosSet.has(f)) {
-            feriadosEnPeriodo.push(f)
-          } else {
-            const diaNombre = diasSemanaStr[d.getDay()]
-            if (diasConfig[diaNombre]?.activo !== false) {
-              fechasLab.push(f)
-            }
-          }
+          arr.push(d.toISOString().split('T')[0])
           d.setDate(d.getDate() + 1)
+        }
+        return arr
+      })()
+
+      for (const f of fechas) {
+        const d = new Date(f + 'T12:00:00')
+        const diaNombre = diasSemanaStr[d.getDay()]
+        const esActivo = diasConfig[diaNombre]?.activo !== false
+
+        if (feriadosSet.has(f)) {
+          // Es feriado — no cuenta como laboral, pero si fichó se suma aparte
+          fechasFer.push(f)
+        } else if (esActivo) {
+          fechasLab.push(f)
         }
       }
 
-      return { total: fechasLab.length, fechas: fechasLab, feriados: feriadosEnPeriodo }
+      return { fechasLaborales: fechasLab, fechasFeriado: fechasFer }
     }
 
     // ─── Calcular por cada miembro ───
@@ -178,25 +173,35 @@ export async function GET(request: NextRequest) {
       if (!turnoId) turnoId = sectorTurnoMap.get(m.id) as string | null
       const turno = turnoId ? turnoMap.get(turnoId) : turnoDefault
 
-      // Calcular días laborales según el turno de este empleado
-      const diasLab = calcularDiasLaborales(turno as Record<string, unknown> | undefined)
-      const diasLaborales = diasLab.total
-      const fechasLaborales = new Set(diasLab.fechas)
-      const diasFeriadoCount = diasLab.feriados.length
+      // Calcular días laborales y feriados según el turno de este empleado
+      const diasPeriodo = calcularDiasDelPeriodo(turno as Record<string, unknown> | undefined)
+      const fechasLaboralesSet = new Set(diasPeriodo.fechasLaborales)
+      const fechasFeriadoSet = new Set(diasPeriodo.fechasFeriado)
 
       const registros = asistPorMiembro.get(m.id as string) || []
 
-      // Días con registro de presencia (estado != ausente)
+      // Separar registros de presencia
       const fechasConPresencia = new Set(
         registros.filter(r => r.estado !== 'ausente').map(r => r.fecha as string)
       )
 
-      // Días trabajados = registros de presencia que caen en día laboral
-      const diasTrabajados = [...fechasConPresencia].filter(f => fechasLaborales.has(f)).length
+      // Días trabajados en días laborales normales
+      const diasTrabajadosNormales = [...fechasConPresencia].filter(f => fechasLaboralesSet.has(f)).length
 
-      // Ausencias = días laborales sin ningún registro de presencia
-      // Esto funciona independientemente de si el cron corrió o no
-      const diasAusentes = Math.max(0, diasLaborales - diasTrabajados)
+      // Días trabajados en feriado (vino a trabajar un feriado)
+      const diasTrabajadosEnFeriado = [...fechasConPresencia].filter(f => fechasFeriadoSet.has(f)).length
+
+      // Total de días laborales (feriados no cuentan como laborales)
+      const diasLaborales = diasPeriodo.fechasLaborales.length
+
+      // Total trabajados = normales + feriados
+      const diasTrabajados = diasTrabajadosNormales + diasTrabajadosEnFeriado
+
+      // Ausencias = días laborales donde no fichó (feriados no generan ausencia)
+      const diasAusentes = Math.max(0, diasLaborales - diasTrabajadosNormales)
+
+      // Feriados en el período (no trabajados)
+      const diasFeriadoCount = diasPeriodo.fechasFeriado.length
 
       const diasTardanza = registros.filter(r => r.tipo === 'tardanza').length
 
@@ -284,6 +289,7 @@ export async function GET(request: NextRequest) {
         dias_ausentes: diasAusentes,
         dias_tardanza: diasTardanza,
         dias_feriados: diasFeriadoCount,
+        dias_trabajados_feriado: diasTrabajadosEnFeriado,
         // Horas detalladas
         horas_brutas: horasBrutas,
         horas_netas: horasNetas,

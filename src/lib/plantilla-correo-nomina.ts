@@ -31,30 +31,8 @@ export const HTML_RECIBO_NOMINA = `<p>Hola <strong>{{nomina.nombre_empleado}}</s
     </td>
   </tr>
 
-  <!-- Asistencia -->
-  <tr>
-    <td style="padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-top:none;">
-      <p style="margin:0 0 10px;font-size:11px;color:#64748b;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Asistencia</p>
-      <table cellpadding="0" cellspacing="0" border="0" width="100%" style="font-size:13px;color:#475569;">
-        <tr>
-          <td style="padding:5px 0;">Días trabajados</td>
-          <td style="padding:5px 0;text-align:right;font-weight:600;color:#1e293b;">{{nomina.dias_trabajados}} de {{nomina.dias_laborales}}</td>
-        </tr>
-        <tr>
-          <td style="padding:5px 0;">Porcentaje de asistencia</td>
-          <td style="padding:5px 0;text-align:right;font-weight:600;color:#1e293b;">{{nomina.porcentaje_asistencia}}</td>
-        </tr>
-        <tr>
-          <td style="padding:5px 0;">Ausencias</td>
-          <td style="padding:5px 0;text-align:right;font-weight:600;color:#1e293b;">{{nomina.dias_ausentes}} día(s)</td>
-        </tr>
-        <tr>
-          <td style="padding:5px 0;">Tardanzas</td>
-          <td style="padding:5px 0;text-align:right;font-weight:600;color:#1e293b;">{{nomina.dias_tardanza}} día(s)</td>
-        </tr>
-      </table>
-    </td>
-  </tr>
+  <!-- Asistencia (generado condicionalmente — incluye feriados si aplica) -->
+  {{nomina.seccion_asistencia}}
 
   <!-- Horas (generado condicionalmente) -->
   {{nomina.seccion_horas}}
@@ -88,6 +66,9 @@ export interface DatosNominaCorreo {
   dias_con_salida_particular: number
   // Config
   descuenta_almuerzo: boolean
+  // Feriados
+  dias_feriados: number
+  dias_trabajados_feriado: number
   // Asistencia
   porcentaje_asistencia: string
   // Compensación

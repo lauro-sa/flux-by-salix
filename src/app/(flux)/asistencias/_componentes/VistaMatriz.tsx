@@ -138,13 +138,22 @@ function formatearHora(iso: string | null, formato: string = '24h'): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-function estadoCelda(asist: CeldaAsistencia | undefined): string {
-  if (!asist) return 'vacio'
-  if (asist.tipo === 'tardanza') return 'tardanza'
-  if (asist.estado === 'ausente') return 'ausente'
-  if (asist.estado === 'auto_cerrado') return 'auto_cerrado'
-  if (asist.estado === 'activo') return 'activo'
-  return 'cerrado'
+/** hoyStr para comparaciones — se usa en estadoCelda y renderizado */
+const hoyStrGlobal = new Date().toISOString().split('T')[0]
+
+function estadoCelda(asist: CeldaAsistencia | undefined, fecha?: string, esFinde?: boolean, esFeriado?: boolean): string {
+  if (asist) {
+    if (asist.tipo === 'tardanza') return 'tardanza'
+    if (asist.estado === 'ausente') return 'ausente'
+    if (asist.estado === 'auto_cerrado') return 'auto_cerrado'
+    if (asist.estado === 'activo') return 'activo'
+    return 'cerrado'
+  }
+  // Sin registro: si es día laboral pasado (no finde, no feriado, no futuro) → ausente
+  if (fecha && !esFinde && !esFeriado && fecha < hoyStrGlobal) {
+    return 'ausente'
+  }
+  return 'vacio'
 }
 
 function iniciales(nombre: string): string {
@@ -459,7 +468,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                         const esFinde = diaSemana === 0 || diaSemana === 6
                         const esFeriado = feriados.has(fecha)
                         const asist = asistMiembro[fecha] as CeldaAsistencia | undefined
-                        const estado = estadoCelda(asist)
+                        const estado = estadoCelda(asist, fecha, esFinde, esFeriado)
 
                         // Fondo según estado
                         let fondoCelda = 'bg-transparent'
@@ -634,12 +643,12 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                     {/* Celdas por día */}
                     {fechas.map((fecha, i) => {
                       const asist = asistMiembro[fecha] as CeldaAsistencia | undefined
-                      const estado = estadoCelda(asist)
                       const d = new Date(fecha + 'T12:00:00')
                       const diaSemana = d.getDay()
                       const esHoy = fecha === hoyStr
                       const esFinde = diaSemana === 0 || diaSemana === 6
                       const esFeriado = feriados.has(fecha)
+                      const estado = estadoCelda(asist, fecha, esFinde, esFeriado)
                       const fondoCol = esHoy ? 'bg-texto-marca/5' : esFeriado ? 'bg-violet-500/5' : ''
                       const celdaSel = modoSeleccion && selCeldas.has(celdaKey(miembro.id, fecha))
                       const ringSeleccion = celdaSel ? 'ring-2 ring-texto-marca/50 ring-inset rounded-md' : ''

@@ -9,9 +9,6 @@
 import { useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { FileText, Gavel, Send, CheckCircle, XCircle, Clock, Info } from 'lucide-react'
-import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
-import { SelectorHora } from '@/componentes/ui/SelectorHora'
-import { Boton } from '@/componentes/ui/Boton'
 
 interface PropsPantallaSolicitud {
   nombre: string
@@ -147,27 +144,41 @@ export default function PantallaSolicitud({
       {/* Formulario */}
       <div className="flex flex-col gap-4 w-full max-w-lg">
         {/* Fecha */}
-        <SelectorFecha
-          etiqueta="Fecha"
-          valor={fecha}
-          onChange={setFecha}
-          placeholder="Seleccionar día..."
-        />
+        <div>
+          <label className="text-sm font-medium block mb-1.5" style={{ color: '#a1a1aa' }}>Fecha</label>
+          <input
+            type="date"
+            value={fecha || ''}
+            onChange={(e) => setFecha(e.target.value || null)}
+            max={new Date().toISOString().split('T')[0]}
+            min={(() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split('T')[0] })()}
+            className="w-full h-12 rounded-xl text-sm md:text-base px-4 outline-none"
+            style={{ backgroundColor: '#18181b', color: '#f4f4f5', border: '1px solid #27272a', colorScheme: 'dark' }}
+          />
+        </div>
 
         {/* Horas */}
         <div className="grid grid-cols-2 gap-3">
-          <SelectorHora
-            etiqueta="Hora entrada"
-            valor={horaEntrada}
-            onChange={setHoraEntrada}
-            placeholder="Opcional"
-          />
-          <SelectorHora
-            etiqueta="Hora salida"
-            valor={horaSalida}
-            onChange={setHoraSalida}
-            placeholder="Opcional"
-          />
+          <div>
+            <label className="text-sm font-medium block mb-1.5" style={{ color: '#a1a1aa' }}>Hora entrada</label>
+            <input
+              type="time"
+              value={horaEntrada || ''}
+              onChange={(e) => setHoraEntrada(e.target.value || null)}
+              className="w-full h-12 rounded-xl text-sm md:text-base px-4 outline-none"
+              style={{ backgroundColor: '#18181b', color: '#f4f4f5', border: '1px solid #27272a', colorScheme: 'dark' }}
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium block mb-1.5" style={{ color: '#a1a1aa' }}>Hora salida</label>
+            <input
+              type="time"
+              value={horaSalida || ''}
+              onChange={(e) => setHoraSalida(e.target.value || null)}
+              className="w-full h-12 rounded-xl text-sm md:text-base px-4 outline-none"
+              style={{ backgroundColor: '#18181b', color: '#f4f4f5', border: '1px solid #27272a', colorScheme: 'dark' }}
+            />
+          </div>
         </div>
 
         {/* Motivo */}
@@ -182,11 +193,7 @@ export default function PantallaSolicitud({
             rows={3}
             maxLength={300}
             className="w-full rounded-xl text-sm md:text-base p-3 resize-none outline-none"
-            style={{
-              backgroundColor: '#18181b',
-              color: '#f4f4f5',
-              border: '1px solid #27272a',
-            }}
+            style={{ backgroundColor: '#18181b', color: '#f4f4f5', border: '1px solid #27272a' }}
           />
           <p className="text-xs text-right mt-0.5" style={{ color: '#52525b' }}>{motivo.length}/300</p>
         </div>
@@ -202,30 +209,35 @@ export default function PantallaSolicitud({
         >
           <Info size={16} className="mt-0.5 shrink-0" />
           <p className="leading-relaxed">
-            Esta solicitud será evaluada por un supervisor. Recibirás una notificación cuando sea aprobada o rechazada.
+            Esta solicitud será evaluada por un supervisor.
           </p>
         </div>
 
         {/* Botones */}
         <div className="flex gap-3">
-          <Boton
+          <button
             onClick={alCancelar}
-            variante="secundario"
             disabled={cargando}
-            className="flex-1"
+            className="flex-1 h-12 rounded-xl text-sm md:text-base font-semibold transition-all active:scale-[0.98] disabled:opacity-50"
+            style={{ backgroundColor: '#18181b', color: '#d4d4d8', border: '1px solid #27272a' }}
           >
             Cancelar
-          </Boton>
-          <Boton
+          </button>
+          <button
             onClick={manejarEnvio}
-            variante="primario"
             disabled={!esValido}
-            cargando={cargando}
-            icono={<Send size={16} />}
-            className="flex-1"
+            className="flex-1 h-12 rounded-xl text-sm md:text-base font-semibold transition-all active:scale-[0.98] disabled:opacity-30 flex items-center justify-center gap-2"
+            style={{ backgroundColor: 'var(--texto-marca)', color: '#fff' }}
           >
-            {apelandoId ? 'Enviar apelación' : 'Enviar solicitud'}
-          </Boton>
+            {cargando ? (
+              <span className="size-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+            ) : (
+              <>
+                <Send size={16} />
+                {apelandoId ? 'Enviar apelación' : 'Enviar solicitud'}
+              </>
+            )}
+          </button>
         </div>
       </div>
     </motion.div>
