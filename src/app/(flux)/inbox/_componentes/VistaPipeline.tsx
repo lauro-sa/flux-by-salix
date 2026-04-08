@@ -104,9 +104,9 @@ function TarjetaConversacion({ conversacion }: { conversacion: ConversacionConDe
       </div>
       <p className="text-xs text-texto-secundario leading-relaxed mb-2 line-clamp-2">{ultimoMensaje}</p>
       <div className="flex items-center gap-2 flex-wrap">
-        {tiempoUltimoMsg && <span className="text-[11px] text-texto-terciario">{tiempoUltimoMsg}</span>}
+        {tiempoUltimoMsg && <span className="text-xs text-texto-terciario">{tiempoUltimoMsg}</span>}
         {prioridad && (
-          <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded ${prioridad.fondo} ${prioridad.texto}`}>
+          <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${prioridad.fondo} ${prioridad.texto}`}>
             {prioridad.etiqueta}
           </span>
         )}

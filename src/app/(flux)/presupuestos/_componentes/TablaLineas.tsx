@@ -145,7 +145,7 @@ function TablaLineas({
                 >
                   {/* Columnas visibles — reordenables */}
                   <div className="px-3 pb-1 mb-1 border-b border-borde-sutil">
-                    <span className="text-[10px] text-texto-terciario uppercase tracking-wider">Visibles</span>
+                    <span className="text-xxs text-texto-terciario uppercase tracking-wider">Visibles</span>
                   </div>
                   <Reorder.Group
                     axis="y"
@@ -177,7 +177,7 @@ function TablaLineas({
                   {COLUMNAS_LINEA_DISPONIBLES.filter(c => !columnasVisibles.includes(c.id) && !c.requerida).length > 0 && (
                     <>
                       <div className="px-3 pt-2 pb-1 mt-1 border-t border-borde-sutil">
-                        <span className="text-[10px] text-texto-terciario uppercase tracking-wider">Ocultas</span>
+                        <span className="text-xxs text-texto-terciario uppercase tracking-wider">Ocultas</span>
                       </div>
                       {COLUMNAS_LINEA_DISPONIBLES.filter(c => !columnasVisibles.includes(c.id) && !c.requerida).map((col) => (
                         <OpcionMenu key={col.id} icono={<Eye size={12} />} onClick={() => onCambiarColumnas([...columnasVisibles, col.id])}>

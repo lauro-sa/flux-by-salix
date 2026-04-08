@@ -16,11 +16,13 @@ export async function GET() {
 
     const admin = crearClienteAdmin()
 
-    const [configRes, turnosRes, terminalesRes, sectoresRes] = await Promise.all([
+    const [configRes, turnosRes, terminalesRes, sectoresRes, horariosRes] = await Promise.all([
       admin.from('config_asistencias').select('*').eq('empresa_id', empresaId).maybeSingle(),
       admin.from('turnos_laborales').select('*').eq('empresa_id', empresaId).order('creado_en'),
       admin.from('terminales_kiosco').select('*').eq('empresa_id', empresaId).order('creado_en'),
       admin.from('sectores').select('id, nombre, turno_id, activo').eq('empresa_id', empresaId).eq('activo', true).order('orden'),
+      // Horarios generales de la empresa (sector_id IS NULL) para mostrar como predeterminado
+      admin.from('horarios').select('*').eq('empresa_id', empresaId).is('sector_id', null).order('dia_semana'),
     ])
 
     // Si no existe config, devolver defaults
@@ -46,6 +48,7 @@ export async function GET() {
       turnos: turnosRes.data || [],
       terminales: terminalesRes.data || [],
       sectores: sectoresRes.data || [],
+      horarios_empresa: horariosRes.data || [],
     })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

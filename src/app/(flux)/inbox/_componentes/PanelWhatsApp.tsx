@@ -1162,7 +1162,7 @@ export function PanelWhatsApp({
                                 href={btn.url!}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="block rounded-lg py-2 text-center text-[13px] font-medium no-underline hover:opacity-80 transition-opacity"
+                                className="block rounded-lg py-2 text-center text-sm font-medium no-underline hover:opacity-80 transition-opacity"
                                 style={{ background: 'var(--superficie-tarjeta)', color: '#00a5f4', boxShadow: 'var(--sombra-sm)' }}
                               >
                                 🔗 {btn.texto}
@@ -1172,7 +1172,7 @@ export function PanelWhatsApp({
                           return (
                             <div
                               key={idx}
-                              className="rounded-lg py-2 text-center text-[13px] font-medium"
+                              className="rounded-lg py-2 text-center text-sm font-medium"
                               style={{ background: 'var(--superficie-tarjeta)', color: '#00a5f4', boxShadow: 'var(--sombra-sm)' }}
                             >
                               {btn.tipo === 'PHONE_NUMBER' && '📞 '}

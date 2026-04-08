@@ -86,7 +86,7 @@ export default function InfoDocumento({ presupuesto, vendedorNombre, estadoClien
             <span className="text-texto-terciario">{presupuesto.fecha_emision_original ? 'Fecha de re-emisión' : 'Fecha de emisión'}</span>
             <p className="text-texto-primario font-medium mt-0.5">{formatearFecha(presupuesto.fecha_emision)}</p>
             {presupuesto.fecha_emision_original && (
-              <p className="text-[11px] text-texto-terciario mt-0.5">Emisión original: {formatearFecha(presupuesto.fecha_emision_original)}</p>
+              <p className="text-xs text-texto-terciario mt-0.5">Emisión original: {formatearFecha(presupuesto.fecha_emision_original)}</p>
             )}
           </div>
           {presupuesto.fecha_vencimiento && (

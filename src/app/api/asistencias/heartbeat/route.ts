@@ -1,15 +1,19 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { crearNotificacion } from '@/lib/notificaciones'
 
 /**
  * POST /api/asistencias/heartbeat — Registrar heartbeat de actividad.
- * Se llama cada 5 minutos si la pestaña está visible.
- * Para miembros con fichaje automático, también actualiza hora_salida tentativa.
+ * Se llama cada 5 minutos si la pestaña está visible y el usuario interactúa.
+ * Para miembros con fichaje automático:
+ *   - Crea entrada automática en el primer heartbeat del día
+ *   - Actualiza hora_salida tentativa con cada heartbeat (salida rolling)
+ * Devuelve estado para que el cliente muestre notificaciones.
  *
  * Body: {
  *   tipo?: 'heartbeat' | 'login' | 'beforeunload' | 'visibility'
- *   metadata?: { navegador, so, dispositivo, pestana_visible }
+ *   metadata?: { navegador, pestana_visible, ultimo_input_hace_ms }
  *   ubicacion?: { lat, lng, direccion, barrio, ciudad }
  * }
  */
@@ -32,7 +36,7 @@ export async function POST(request: NextRequest) {
     // Obtener miembro
     const { data: miembro } = await admin
       .from('miembros')
-      .select('id, metodo_fichaje')
+      .select('id, usuario_id, metodo_fichaje')
       .eq('usuario_id', user.id)
       .eq('empresa_id', empresaId)
       .single()
@@ -55,7 +59,7 @@ export async function POST(request: NextRequest) {
     if (miembro.metodo_fichaje === 'automatico') {
       const { data: turnoHoy } = await admin
         .from('asistencias')
-        .select('id, estado')
+        .select('id, estado, hora_entrada')
         .eq('empresa_id', empresaId)
         .eq('miembro_id', miembro.id)
         .eq('fecha', fechaHoy)
@@ -63,7 +67,7 @@ export async function POST(request: NextRequest) {
 
       if (!turnoHoy && tipo !== 'beforeunload') {
         // No hay turno hoy → crear entrada automática
-        await admin
+        const { data: nuevoFichaje } = await admin
           .from('asistencias')
           .insert({
             empresa_id: empresaId,
@@ -77,8 +81,33 @@ export async function POST(request: NextRequest) {
             ubicacion_entrada: ubicacion || null,
             creado_por: miembro.id,
           })
+          .select('id, hora_entrada')
+          .single()
 
-        return NextResponse.json({ accion: 'entrada_automatica', mensaje: 'Fichaje automático registrado' })
+        // Crear notificación persistente para el usuario
+        const horaFormateada = new Date(ahora).toLocaleTimeString('es-AR', {
+          hour: '2-digit', minute: '2-digit', hour12: false,
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        })
+
+        crearNotificacion({
+          empresaId,
+          usuarioId: user.id,
+          tipo: 'fichaje_automatico',
+          titulo: `Entrada fichada a las ${horaFormateada}`,
+          cuerpo: 'Tu jornada fue registrada automáticamente al detectar actividad.',
+          icono: 'clock',
+          color: 'var(--insignia-exito)',
+          url: '/asistencias',
+          referenciaTipo: 'asistencia',
+          referenciaId: nuevoFichaje?.id,
+        }).catch(() => {})
+
+        return NextResponse.json({
+          accion: 'entrada_creada',
+          hora_entrada: ahora,
+          fichaje_id: nuevoFichaje?.id,
+        })
       }
 
       if (turnoHoy && turnoHoy.estado === 'activo') {
@@ -90,6 +119,37 @@ export async function POST(request: NextRequest) {
             actualizado_en: ahora,
           })
           .eq('id', turnoHoy.id)
+
+        return NextResponse.json({
+          accion: 'salida_actualizada',
+          hora_entrada: turnoHoy.hora_entrada,
+        })
+      }
+
+      // Si está en almuerzo o trámite y recibimos un heartbeat activo (no beforeunload),
+      // el usuario volvió a usar la compu → retorno automático
+      if (turnoHoy && tipo !== 'beforeunload' && (turnoHoy.estado === 'almuerzo' || turnoHoy.estado === 'particular')) {
+        const camposRetorno: Record<string, unknown> = {
+          estado: 'activo',
+          hora_salida: ahora,
+          actualizado_en: ahora,
+        }
+        if (turnoHoy.estado === 'almuerzo') {
+          camposRetorno.fin_almuerzo = ahora
+        } else {
+          camposRetorno.vuelta_particular = ahora
+        }
+
+        await admin
+          .from('asistencias')
+          .update(camposRetorno)
+          .eq('id', turnoHoy.id)
+
+        return NextResponse.json({
+          accion: 'retorno_automatico',
+          retorno_de: turnoHoy.estado,
+          hora_entrada: turnoHoy.hora_entrada,
+        })
       }
     }
 

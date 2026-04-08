@@ -145,13 +145,13 @@ function FilaAdjunto({ adjunto }: { adjunto: AdjuntoConOrigen }) {
         <p className="text-xs font-medium text-texto-primario truncate">{adjunto.nombre}</p>
         <div className="flex items-center gap-1.5">
           {ext && (
-            <span className="text-[9px] font-semibold text-texto-terciario uppercase">{ext}</span>
+            <span className="text-xxs font-semibold text-texto-terciario uppercase">{ext}</span>
           )}
           {adjunto.tamano && (
-            <span className="text-[9px] text-texto-terciario">{formatearTamano(adjunto.tamano)}</span>
+            <span className="text-xxs text-texto-terciario">{formatearTamano(adjunto.tamano)}</span>
           )}
           {adjunto.origen && (
-            <span className="text-[9px] text-texto-terciario truncate">· {adjunto.origen}</span>
+            <span className="text-xxs text-texto-terciario truncate">· {adjunto.origen}</span>
           )}
         </div>
       </div>

@@ -222,7 +222,7 @@ export default function PaginaMatrizAsistencias() {
                         esHoy ? 'bg-texto-marca/10' : esFinde ? 'bg-superficie-elevada/50' : ''
                       }`}
                     >
-                      <div className="text-[10px] text-texto-terciario">{DIAS_SEMANA_CORTO[diaSemana]}</div>
+                      <div className="text-xxs text-texto-terciario">{DIAS_SEMANA_CORTO[diaSemana]}</div>
                       <div className={`text-xs ${esHoy ? 'text-texto-marca font-bold' : 'text-texto-secundario'}`}>
                         {d.getDate()}
                       </div>
@@ -257,7 +257,7 @@ export default function PaginaMatrizAsistencias() {
                             title={`${config.etiqueta}${asist.hora_entrada ? ` | E: ${formatearHora(asist.hora_entrada, locale, hour12)}` : ''}${asist.hora_salida ? ` | S: ${formatearHora(asist.hora_salida, locale, hour12)}` : ''}`}
                             className={`mx-auto size-7 rounded-md flex items-center justify-center cursor-default ${config.bg}`}
                           >
-                            <span className={`text-[10px] font-bold ${config.texto}`}>
+                            <span className={`text-xxs font-bold ${config.texto}`}>
                               {estado === 'cerrado' ? '✓' :
                                estado === 'tardanza' ? 'T' :
                                estado === 'ausente' ? '✕' :

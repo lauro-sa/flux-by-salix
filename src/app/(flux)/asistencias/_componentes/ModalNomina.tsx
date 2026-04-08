@@ -137,17 +137,17 @@ export function ModalNomina({ abierto, onCerrar, desde, hasta, etiquetaPeriodo, 
             <div className="bg-superficie-elevada/30 rounded-lg px-3 py-3 text-center">
               <DollarSign size={16} className="mx-auto text-emerald-400 mb-1" />
               <p className="text-lg font-bold text-texto-primario">{fmtMonto(totalPagar)}</p>
-              <p className="text-[10px] text-texto-terciario">Total a pagar</p>
+              <p className="text-xxs text-texto-terciario">Total a pagar</p>
             </div>
             <div className="bg-superficie-elevada/30 rounded-lg px-3 py-3 text-center">
               <Clock size={16} className="mx-auto text-sky-400 mb-1" />
               <p className="text-lg font-bold text-texto-primario">{fmtHoras(totalHoras)}</p>
-              <p className="text-[10px] text-texto-terciario">Horas totales</p>
+              <p className="text-xxs text-texto-terciario">Horas totales</p>
             </div>
             <div className="bg-superficie-elevada/30 rounded-lg px-3 py-3 text-center">
               <UserCheck size={16} className="mx-auto text-emerald-400 mb-1" />
               <p className="text-lg font-bold text-texto-primario">{diasLaborales}</p>
-              <p className="text-[10px] text-texto-terciario">Días laborales</p>
+              <p className="text-xxs text-texto-terciario">Días laborales</p>
             </div>
           </div>
 
@@ -166,14 +166,14 @@ export function ModalNomina({ abierto, onCerrar, desde, hasta, etiquetaPeriodo, 
                       </div>
                       <div>
                         <p className="text-sm font-medium text-texto-primario">{r.nombre}</p>
-                        <p className="text-[10px] text-texto-terciario">{r.monto_detalle}</p>
+                        <p className="text-xxs text-texto-terciario">{r.monto_detalle}</p>
                       </div>
                     </div>
                     <span className="text-base font-bold text-emerald-400">{fmtMonto(r.monto_pagar)}</span>
                   </div>
 
                   {/* Métricas */}
-                  <div className="flex items-center gap-4 text-[11px] flex-wrap">
+                  <div className="flex items-center gap-4 text-xs flex-wrap">
                     <span className="flex items-center gap-1 text-texto-secundario">
                       <UserCheck size={11} className="text-emerald-400" />
                       {r.dias_trabajados}/{r.dias_laborales} días

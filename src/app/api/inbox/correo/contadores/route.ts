@@ -28,9 +28,11 @@ export async function GET(request: NextRequest) {
       // Fallback: traer solo los campos mínimos con límite razonable
       const { data: conversaciones } = await admin
         .from('conversaciones')
-        .select('canal_id, estado, mensajes_sin_leer')
+        .select('canal_id, estado, mensajes_sin_leer, ultimo_mensaje_es_entrante')
         .eq('empresa_id', empresaId)
         .eq('tipo_canal', 'correo')
+        .eq('en_papelera', false)
+        .eq('bloqueada', false)
         .limit(5000)
 
       interface Conteo {
@@ -57,6 +59,11 @@ export async function GET(request: NextRequest) {
 
         const c = contadores[conv.canal_id]
         const sinLeer = conv.mensajes_sin_leer || 0
+
+        // Contar enviados: conversaciones cuyo último mensaje es saliente
+        if (conv.ultimo_mensaje_es_entrante === false) {
+          c.enviados_total++
+        }
 
         switch (conv.estado) {
           case 'abierta':
@@ -122,6 +129,31 @@ export async function GET(request: NextRequest) {
         case 'resuelta':
           c.archivado_total += fila.total
           break
+      }
+    }
+
+    // Contar enviados por canal (el RPC agrupa por estado, no por dirección)
+    const { data: enviadosPorCanal } = await admin
+      .from('conversaciones')
+      .select('canal_id')
+      .eq('empresa_id', empresaId)
+      .eq('tipo_canal', 'correo')
+      .eq('ultimo_mensaje_es_entrante', false)
+      .eq('en_papelera', false)
+      .eq('bloqueada', false)
+
+    if (enviadosPorCanal) {
+      for (const conv of enviadosPorCanal) {
+        if (!conv.canal_id) continue
+        if (!contadores[conv.canal_id]) {
+          contadores[conv.canal_id] = {
+            entrada: 0, entrada_total: 0,
+            enviados_total: 0,
+            spam: 0, spam_total: 0,
+            archivado_total: 0,
+          }
+        }
+        contadores[conv.canal_id].enviados_total++
       }
     }
 

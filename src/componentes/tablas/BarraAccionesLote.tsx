@@ -213,7 +213,7 @@ function BotonAccion({
       <button
         data-accion-lote={accion.id}
         onClick={onClick}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[13px] font-medium transition-colors shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-white focus-visible:-outline-offset-2"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-sm font-medium transition-colors shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-white focus-visible:-outline-offset-2"
         style={{
           color: esPeligro ? 'var(--insignia-peligro)' : 'var(--texto-primario)',
         }}
@@ -243,7 +243,7 @@ function Separador() {
 function Tecla({ children }: { children: string }) {
   return (
     <kbd
-      className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-1 rounded text-[10px] font-medium leading-none ml-1.5 shrink-0"
+      className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-1 rounded text-xxs font-medium leading-none ml-1.5 shrink-0"
       style={{
         backgroundColor: 'var(--superficie-activa)',
         color: 'var(--texto-terciario)',

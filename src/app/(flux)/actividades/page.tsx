@@ -89,10 +89,10 @@ export default function PaginaActividades() {
 
   // Filtros server-side
   const [filtroTipo, setFiltroTipo] = useState('')
-  const [filtroEstado, setFiltroEstado] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState<string[]>(['pendiente', 'vencida'])
   const [filtroPrioridad, setFiltroPrioridad] = useState('')
-  const [filtroVista, setFiltroVista] = useState('')
-  const filtrosRef = useRef({ tipo: '', estado: '', prioridad: '', vista: '' })
+  const [filtroVista, setFiltroVista] = useState('mias')
+  const filtrosRef = useRef({ tipo: '', estado: ['pendiente', 'vencida'] as string[], prioridad: '', vista: 'mias' })
   filtrosRef.current = { tipo: filtroTipo, estado: filtroEstado, prioridad: filtroPrioridad, vista: filtroVista }
 
   const busquedaRef = useRef(busqueda)
@@ -139,7 +139,8 @@ export default function PaginaActividades() {
       const b = busquedaRef.current
       if (b) params.set('busqueda', b)
       if (filtrosRef.current.tipo) params.set('tipo', filtrosRef.current.tipo)
-      if (filtrosRef.current.estado) params.set('estado', filtrosRef.current.estado)
+      const estadoArr = Array.isArray(filtrosRef.current.estado) ? filtrosRef.current.estado : (filtrosRef.current.estado ? [filtrosRef.current.estado] : [])
+      if (estadoArr.length > 0) params.set('estado', estadoArr.join(','))
       if (filtrosRef.current.prioridad) params.set('prioridad', filtrosRef.current.prioridad)
       if (filtrosRef.current.vista) params.set('vista', filtrosRef.current.vista)
       params.set('pagina', String(p))
@@ -741,8 +742,8 @@ export default function PaginaActividades() {
             opciones: tipos.filter(t => t.activo).map(t => ({ valor: t.clave, etiqueta: t.etiqueta })),
           },
           {
-            id: 'estado', etiqueta: 'Estado', tipo: 'pills' as const,
-            valor: filtroEstado, onChange: (v) => setFiltroEstado(v as string),
+            id: 'estado', etiqueta: 'Estado', tipo: 'multiple' as const,
+            valor: filtroEstado, onChange: (v) => setFiltroEstado(Array.isArray(v) ? v : (v ? [v] : [])),
             opciones: estados.filter(e => e.activo).map(e => ({ valor: e.clave, etiqueta: e.etiqueta })),
           },
           {
@@ -763,7 +764,7 @@ export default function PaginaActividades() {
             ],
           },
         ]}
-        onLimpiarFiltros={() => { setFiltroTipo(''); setFiltroEstado(''); setFiltroPrioridad(''); setFiltroVista('') }}
+        onLimpiarFiltros={() => { setFiltroTipo(''); setFiltroEstado([]); setFiltroPrioridad(''); setFiltroVista('') }}
         opcionesOrden={[
           { etiqueta: 'Más recientes', clave: 'creado_en', direccion: 'desc' },
           { etiqueta: 'Más antiguos', clave: 'creado_en', direccion: 'asc' },

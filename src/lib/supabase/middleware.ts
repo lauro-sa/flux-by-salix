@@ -9,6 +9,10 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function crearClienteMiddleware(request: NextRequest) {
   const supabaseResponse = NextResponse.next({ request })
 
+  // En desarrollo, Jetski/IDX preview usa un iframe cross-origin
+  // que bloquea cookies SameSite=Lax. Forzar SameSite=None + Secure.
+  const esDesarrollo = process.env.NODE_ENV === 'development'
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -24,7 +28,10 @@ export async function crearClienteMiddleware(request: NextRequest) {
           })
           // Setear en la respuesta existente (no recrear para no perder headers)
           cookiesParaSetear.forEach(({ name, value, options }) => {
-            supabaseResponse.cookies.set(name, value, options)
+            supabaseResponse.cookies.set(name, value, {
+              ...options,
+              ...(esDesarrollo && { sameSite: 'none' as const, secure: true }),
+            })
           })
         },
       },

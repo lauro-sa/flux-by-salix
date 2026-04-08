@@ -444,7 +444,7 @@ export function ModalEnviarReciboNomina({
                     <Mail size={12} className="text-texto-terciario shrink-0" />
                     <div>
                       <p className="text-sm font-medium text-texto-primario">{r.nombre}</p>
-                      <p className="text-[11px] text-texto-terciario">{r.correo}</p>
+                      <p className="text-xs text-texto-terciario">{r.correo}</p>
                     </div>
                   </div>
                   <span className="text-sm font-semibold text-emerald-400">{fmtMonto(r.monto_pagar)}</span>
@@ -461,7 +461,7 @@ export function ModalEnviarReciboNomina({
                     <UserX size={12} className="text-amber-400 shrink-0" />
                     <div>
                       <p className="text-sm font-medium text-texto-primario">{r.nombre}</p>
-                      <p className="text-[11px] text-amber-400">Sin correo configurado</p>
+                      <p className="text-xs text-amber-400">Sin correo configurado</p>
                     </div>
                   </div>
                   <span className="text-sm text-texto-terciario">{fmtMonto(r.monto_pagar)}</span>

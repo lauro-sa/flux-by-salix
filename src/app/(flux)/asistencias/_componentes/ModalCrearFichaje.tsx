@@ -138,7 +138,7 @@ export function ModalCrearFichaje({ abierto, onCerrar, onCreado, miembroId, miem
         {/* Empleado */}
         {miembroId ? (
           <div>
-            <label className="block text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1">Empleado</label>
+            <label className="block text-xs font-medium text-texto-terciario uppercase tracking-wider mb-1">Empleado</label>
             <p className="text-sm font-medium text-texto-primario">{nombreMiembro}</p>
           </div>
         ) : (
@@ -154,7 +154,7 @@ export function ModalCrearFichaje({ abierto, onCerrar, onCreado, miembroId, miem
         {/* Fecha */}
         {fechaProp ? (
           <div>
-            <label className="block text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1">Fecha</label>
+            <label className="block text-xs font-medium text-texto-terciario uppercase tracking-wider mb-1">Fecha</label>
             <p className="text-sm text-texto-primario">
               {new Date(fechaProp + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
             </p>

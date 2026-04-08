@@ -442,7 +442,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
               {estadoInfo.etiqueta}
             </Insignia>
             {plantilla.id_template_meta && (
-              <span className="text-[10px] font-mono" style={{ color: 'var(--texto-terciario)' }}>
+              <span className="text-xxs font-mono" style={{ color: 'var(--texto-terciario)' }}>
                 ID: {plantilla.id_template_meta}
               </span>
             )}
@@ -585,7 +585,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
                     </div>
                   )}
                   {['IMAGE', 'VIDEO', 'DOCUMENT'].includes(componentes.encabezado?.tipo || '') && (
-                    <p className="text-[11px]" style={{ color: 'var(--texto-terciario)' }}>
+                    <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
                       El archivo se adjuntará al momento de enviar, no al crear la plantilla.
                     </p>
                   )}
@@ -597,7 +597,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
                     <label className="text-xs font-medium" style={{ color: 'var(--texto-secundario)' }}>
                       Cuerpo del mensaje *
                     </label>
-                    <span className="text-[10px]" style={{ color: (componentes.cuerpo?.texto?.length || 0) > 1024 ? 'var(--insignia-peligro)' : 'var(--texto-terciario)' }}>
+                    <span className="text-xxs" style={{ color: (componentes.cuerpo?.texto?.length || 0) > 1024 ? 'var(--insignia-peligro)' : 'var(--texto-terciario)' }}>
                       {componentes.cuerpo?.texto?.length || 0}/1024
                     </span>
                   </div>
@@ -617,7 +617,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
                       </button>
                       <div className="w-px h-4 mx-1" style={{ background: 'var(--borde-sutil)' }} />
                       <button
-                        className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium hover:bg-[var(--superficie-hover)] transition-colors"
+                        className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium hover:bg-[var(--superficie-hover)] transition-colors"
                         style={{ color: 'var(--texto-marca)' }}
                         onClick={insertarVariable}
                       >
@@ -676,7 +676,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
                         </div>
                       ))}
                     </div>
-                    <p className="text-[10px]" style={{ color: 'var(--texto-terciario)' }}>
+                    <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
                       El campo de Flux se usará para previsualizar con datos reales y auto-completar al enviar. El ejemplo es requerido por Meta para aprobar la plantilla.
                     </p>
                   </div>
@@ -899,7 +899,7 @@ function SelectoresPreviewDatos({
 
   return (
     <div className={`w-full space-y-2`}>
-      <label className="text-[11px] font-medium" style={{ color: 'var(--texto-terciario)' }}>
+      <label className="text-xs font-medium" style={{ color: 'var(--texto-terciario)' }}>
         Previsualizar con datos reales
       </label>
       <div className={horizontal ? 'grid grid-cols-2 gap-3' : 'space-y-2'}>
@@ -1027,34 +1027,34 @@ function PreviewWhatsApp({ componentes, datosPreview }: { componentes: Component
         <div className="rounded-lg p-2.5 max-w-[250px] shadow-sm" style={{ background: '#fff' }}>
           {componentes.encabezado?.tipo === 'TEXT' && componentes.encabezado.texto && (
             <p
-              className="text-[13px] font-semibold mb-1"
+              className="text-sm font-semibold mb-1"
               style={{ color: '#111' }}
               dangerouslySetInnerHTML={{ __html: encabezadoHtml }}
             />
           )}
           {componentes.encabezado?.tipo && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(componentes.encabezado.tipo) && (
-            <div className="rounded mb-2 flex items-center justify-center text-[11px]" style={{ background: '#f0f0f0', color: '#999', height: 80 }}>
+            <div className="rounded mb-2 flex items-center justify-center text-xs" style={{ background: '#f0f0f0', color: '#999', height: 80 }}>
               {componentes.encabezado.tipo === 'IMAGE' ? '🖼️ Imagen' : componentes.encabezado.tipo === 'VIDEO' ? '🎬 Video' : '📄 Documento'}
             </div>
           )}
           {cuerpoHtml ? (
             <p
-              className="text-[13px] whitespace-pre-wrap leading-snug"
+              className="text-sm whitespace-pre-wrap leading-snug"
               style={{ color: '#111' }}
               dangerouslySetInnerHTML={{ __html: cuerpoHtml }}
             />
           ) : (
-            <p className="text-[13px] whitespace-pre-wrap leading-snug" style={{ color: '#999' }}>
+            <p className="text-sm whitespace-pre-wrap leading-snug" style={{ color: '#999' }}>
               Cuerpo del mensaje...
             </p>
           )}
           {componentes.pie_pagina?.texto && (
-            <p className="text-[11px] mt-1.5" style={{ color: '#8696a0' }}>
+            <p className="text-xs mt-1.5" style={{ color: '#8696a0' }}>
               {componentes.pie_pagina.texto}
             </p>
           )}
           <div className="flex justify-end mt-1">
-            <span className="text-[10px]" style={{ color: '#8696a0' }}>
+            <span className="text-xxs" style={{ color: '#8696a0' }}>
               {new Date().toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: fmtHora === '12h' })}
             </span>
           </div>
@@ -1062,7 +1062,7 @@ function PreviewWhatsApp({ componentes, datosPreview }: { componentes: Component
         {componentes.botones && componentes.botones.length > 0 && (
           <div className="mt-1 space-y-1 max-w-[250px]">
             {componentes.botones.map((b, idx) => (
-              <div key={idx} className="rounded-lg py-2 text-center text-[13px] font-medium shadow-sm" style={{ background: '#fff', color: '#00a5f4' }}>
+              <div key={idx} className="rounded-lg py-2 text-center text-sm font-medium shadow-sm" style={{ background: '#fff', color: '#00a5f4' }}>
                 {b.tipo === 'URL' && '🔗 '}
                 {b.tipo === 'PHONE_NUMBER' && '📞 '}
                 {b.texto || 'Botón'}

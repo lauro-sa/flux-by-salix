@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   X, MessageSquare, AtSign, AlertTriangle, CalendarClock, UserPlus,
-  Eye, PartyPopper, Megaphone, FileCheck, Mail, Bell, Zap, ChevronDown,
+  Eye, PartyPopper, Megaphone, FileCheck, Mail, Bell, Zap, ChevronDown, Clock,
 } from 'lucide-react'
 import {
   useNotificaciones,
@@ -32,6 +32,7 @@ const ICONOS_TIPO: Record<string, typeof Mail> = {
   anuncio: Megaphone, portal_vista: Eye, portal_aceptado: FileCheck,
   portal_rechazado: AlertTriangle, portal_cancelado: AlertTriangle,
   documento_estado: FileCheck, actualizacion: Bell, usuario_pendiente: UserPlus,
+  fichaje_automatico: Clock,
 }
 
 const COLORES_TIPO: Record<string, string> = {
@@ -40,6 +41,7 @@ const COLORES_TIPO: Record<string, string> = {
   mencion: 'var(--texto-marca)', sla_vencido: 'var(--insignia-peligro-texto)',
   actividad_pronto_vence: 'var(--insignia-advertencia-texto)',
   actividad_vencida: 'var(--insignia-peligro-texto)',
+  fichaje_automatico: 'var(--insignia-exito-texto)',
   asignacion: 'var(--texto-marca)', actividad_asignada: 'var(--texto-marca)',
   cumpleanios_propio: 'var(--insignia-rosa-texto)', cumpleanios_colega: 'var(--insignia-rosa-texto)',
   portal_vista: 'var(--insignia-info-texto)', portal_aceptado: 'var(--insignia-exito-texto)',
@@ -52,6 +54,7 @@ const ETIQUETAS_TIPO: Record<string, string> = {
   mencion: 'Mención', actividad_asignada: 'Actividad', actividad_pronto_vence: 'Vencimiento',
   actividad_vencida: 'Vencida', recordatorio: 'Recordatorio', portal_vista: 'Portal',
   portal_aceptado: 'Aceptado', portal_rechazado: 'Rechazado',
+  fichaje_automatico: 'Fichaje',
   cumpleanios_propio: 'Cumpleaños', cumpleanios_colega: 'Cumpleaños', anuncio: 'Anuncio',
 }
 

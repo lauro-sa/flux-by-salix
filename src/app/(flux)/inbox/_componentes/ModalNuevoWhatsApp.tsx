@@ -195,11 +195,11 @@ export function ModalNuevoWhatsApp({ abierto, onCerrar, canalId, onEnviar }: Pro
             )}
           </div>
           {mostrarEstado && !validacion.valido && validacion.mensaje ? (
-            <p className="text-[11px]" style={{ color: 'var(--insignia-peligro)' }}>
+            <p className="text-xs" style={{ color: 'var(--insignia-peligro)' }}>
               {validacion.mensaje}
             </p>
           ) : (
-            <p className="text-[11px]" style={{ color: 'var(--texto-terciario)' }}>
+            <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
               Código de país + número, sin espacios ni guiones
             </p>
           )}
@@ -214,7 +214,7 @@ export function ModalNuevoWhatsApp({ abierto, onCerrar, canalId, onEnviar }: Pro
                 <span className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>
                   Plantillas disponibles
                 </span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--superficie-hover)', color: 'var(--texto-terciario)' }}>
+                <span className="text-xxs px-1.5 py-0.5 rounded-full" style={{ background: 'var(--superficie-hover)', color: 'var(--texto-terciario)' }}>
                   {plantillas.length}
                 </span>
               </div>
@@ -273,7 +273,7 @@ export function ModalNuevoWhatsApp({ abierto, onCerrar, canalId, onEnviar }: Pro
                         {plantilla.nombre}
                       </span>
                       <span
-                        className="text-[9px] px-1.5 py-0.5 rounded-full font-medium uppercase"
+                        className="text-xxs px-1.5 py-0.5 rounded-full font-medium uppercase"
                         style={{
                           background: plantilla.categoria === 'MARKETING'
                             ? 'color-mix(in srgb, #8b5cf6 12%, transparent)'
@@ -287,7 +287,7 @@ export function ModalNuevoWhatsApp({ abierto, onCerrar, canalId, onEnviar }: Pro
 
                     {/* Preview burbuja — muestra los valores editados en tiempo real */}
                     <div
-                      className="rounded-lg p-2.5 text-[12px] leading-relaxed"
+                      className="rounded-lg p-2.5 text-xs leading-relaxed"
                       style={{
                         background: 'color-mix(in srgb, var(--canal-whatsapp) 8%, var(--superficie-hover))',
                         color: 'var(--texto-secundario)',
@@ -313,7 +313,7 @@ export function ModalNuevoWhatsApp({ abierto, onCerrar, canalId, onEnviar }: Pro
                         />
                       )}
                       {piePagina?.texto && (
-                        <p className="mt-1.5 text-[10px]" style={{ color: 'var(--texto-terciario)' }}>
+                        <p className="mt-1.5 text-xxs" style={{ color: 'var(--texto-terciario)' }}>
                           {piePagina.texto}
                         </p>
                       )}
@@ -328,12 +328,12 @@ export function ModalNuevoWhatsApp({ abierto, onCerrar, canalId, onEnviar }: Pro
         {/* Campos de variables — solo si la plantilla seleccionada tiene variables */}
         {plantillaSeleccionada && numVariables > 0 && (
           <div className="px-5 py-3 space-y-2" style={{ borderTop: '1px solid var(--borde-sutil)' }}>
-            <span className="text-[11px] font-medium" style={{ color: 'var(--texto-secundario)' }}>
+            <span className="text-xs font-medium" style={{ color: 'var(--texto-secundario)' }}>
               Completar variables
             </span>
             {valoresVariables.map((valor, i) => (
               <div key={i}>
-                <label className="text-[10px] mb-0.5 block" style={{ color: 'var(--texto-terciario)' }}>
+                <label className="text-xxs mb-0.5 block" style={{ color: 'var(--texto-terciario)' }}>
                   {labelVariable(i, plantillaSeleccionada.componentes?.cuerpo?.mapeo_variables, plantillaSeleccionada.componentes?.cuerpo?.ejemplos)}
                 </label>
                 <input

@@ -125,7 +125,7 @@ export function EditorNota({ entidadTipo, entidadId, notaEditando, onEnviado, on
       <div className="border border-insignia-advertencia/30 rounded-lg bg-insignia-advertencia/5 overflow-hidden">
         {/* Etiqueta */}
         <div className="flex items-center justify-between px-3 py-1.5 border-b border-insignia-advertencia/20">
-          <span className="text-[11px] font-medium text-insignia-advertencia">
+          <span className="text-xs font-medium text-insignia-advertencia">
             {esEdicion ? 'Editando nota' : 'Nota interna (solo visible para el equipo)'}
           </span>
           <button

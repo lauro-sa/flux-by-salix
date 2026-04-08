@@ -167,12 +167,13 @@ function Popover({
         panelRef.current?.contains(target)
       ) return
 
-      /* Ignorar clicks en elementos flotantes de otros portales (dropdowns, calendarios, etc.)
-         Recorremos los padres del target buscando z-index alto (portales) */
+      /* Ignorar clicks en portales flotantes (dropdowns, calendarios, etc.)
+         Solo ignoramos elementos con z-index muy alto (portales renderizados en body) */
       let el = target as HTMLElement | null
       while (el) {
-        const zIndex = parseInt(window.getComputedStyle(el).zIndex || '0', 10)
-        if (zIndex >= 40 && el !== panelRef.current) return
+        const zRaw = window.getComputedStyle(el).zIndex
+        const zIndex = parseInt(zRaw || '0', 10)
+        if (zIndex >= 9000 && el !== panelRef.current) return
         el = el.parentElement
       }
 

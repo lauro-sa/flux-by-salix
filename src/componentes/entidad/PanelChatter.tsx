@@ -269,7 +269,7 @@ export function PanelChatter({
             <MessageSquare size={14} className="text-texto-secundario shrink-0" />
             <span className="text-sm font-semibold text-texto-primario">Actividad</span>
             {entradas.length > 0 && (
-              <span className="text-[10px] text-texto-terciario bg-superficie-hover px-1.5 py-0.5 rounded-full">
+              <span className="text-xxs text-texto-terciario bg-superficie-hover px-1.5 py-0.5 rounded-full">
                 {entradas.length}
               </span>
             )}
@@ -291,7 +291,7 @@ export function PanelChatter({
                 title={`${totalAdjuntos} adjunto${totalAdjuntos > 1 ? 's' : ''}`}
               >
                 <Paperclip size={14} />
-                <span className="absolute -top-0.5 -right-0.5 text-[8px] font-bold bg-texto-marca text-blanco size-3.5 rounded-full flex items-center justify-center">
+                <span className="absolute -top-0.5 -right-0.5 text-xxs font-bold bg-texto-marca text-blanco size-3.5 rounded-full flex items-center justify-center">
                   {totalAdjuntos}
                 </span>
               </button>
@@ -401,7 +401,7 @@ export function PanelChatter({
                     <button
                       key={f.clave}
                       onClick={() => setFiltro(f.clave)}
-                      className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0 ${
+                      className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors shrink-0 ${
                         esActivo
                           ? 'bg-texto-marca/10 text-texto-marca'
                           : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover'
@@ -409,7 +409,7 @@ export function PanelChatter({
                     >
                       {f.etiqueta}
                       {count > 0 && (
-                        <span className={`text-[9px] px-1 py-px rounded-full ${
+                        <span className={`text-xxs px-1 py-px rounded-full ${
                           esActivo ? 'bg-texto-marca/20 text-texto-marca' : 'bg-superficie-hover text-texto-terciario'
                         }`}>
                           {count}
@@ -571,7 +571,7 @@ function MenuChatter({
     onCerrar()
   }
 
-  const btnClase = 'w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-texto-primario hover:bg-superficie-hover transition-colors text-left'
+  const btnClase = 'w-full flex items-center gap-2.5 px-3 py-2 text-sm text-texto-primario hover:bg-superficie-hover transition-colors text-left'
 
   return (
     <div className="py-1">
@@ -585,7 +585,7 @@ function MenuChatter({
       {onCambiarSinLateral && (
         <>
           <div className="h-px bg-borde-sutil mx-2 my-1" />
-          <p className="px-3 py-1.5 text-[10px] font-semibold text-texto-terciario uppercase tracking-wider">
+          <p className="px-3 py-1.5 text-xxs font-semibold text-texto-terciario uppercase tracking-wider">
             Panel lateral
           </p>
 

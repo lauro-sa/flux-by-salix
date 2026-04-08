@@ -281,7 +281,7 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
                     className={`h-full rounded-full ${colorBarra} transition-all duration-500 flex items-center justify-center`}
                     style={{ width: `${Math.max(pct, 15)}%` }}
                   >
-                    <span className="text-[9px] font-semibold whitespace-nowrap flex items-center gap-0.5 text-texto-secundario">
+                    <span className="text-xxs font-semibold whitespace-nowrap flex items-center gap-0.5 text-texto-secundario">
                       <Calendar size={8} /> {dur}
                     </span>
                   </div>
@@ -301,7 +301,7 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
               {/* Almuerzo */}
               {(r.inicio_almuerzo || r.fin_almuerzo) && (
                 <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
-                  <p className="text-[10px] uppercase tracking-wider text-texto-terciario mb-1">Almuerzo</p>
+                  <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1">Almuerzo</p>
                   <p className="text-sm text-texto-primario font-mono">
                     {fmtHora(r.inicio_almuerzo, formatoHora)} → {fmtHora(r.fin_almuerzo, formatoHora)}
                   </p>
@@ -311,7 +311,7 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
               {/* Trámite */}
               {(r.salida_particular || r.vuelta_particular) && (
                 <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
-                  <p className="text-[10px] uppercase tracking-wider text-texto-terciario mb-1">Trámite</p>
+                  <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1">Trámite</p>
                   <p className="text-sm text-texto-primario font-mono">
                     {fmtHora(r.salida_particular, formatoHora)} → {fmtHora(r.vuelta_particular, formatoHora)}
                   </p>
@@ -320,7 +320,7 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
 
               {/* Método */}
               <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
-                <p className="text-[10px] uppercase tracking-wider text-texto-terciario mb-1">Método</p>
+                <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1">Método</p>
                 <p className="text-sm text-texto-primario">
                   {METODO_ETIQUETA[r.metodo_registro || 'manual'] || r.metodo_registro}
                 </p>
@@ -328,14 +328,14 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
 
               {/* Tipo */}
               <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
-                <p className="text-[10px] uppercase tracking-wider text-texto-terciario mb-1">Tipo</p>
+                <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1">Tipo</p>
                 <p className="text-sm text-texto-primario capitalize">{r.tipo}</p>
               </div>
 
               {/* Ubicación */}
               {r.ubicacion_entrada && (r.ubicacion_entrada as Record<string, string>)?.direccion && (
                 <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5 col-span-2">
-                  <p className="text-[10px] uppercase tracking-wider text-texto-terciario mb-1">Ubicación</p>
+                  <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1">Ubicación</p>
                   <p className="text-sm text-texto-primario flex items-center gap-1.5">
                     <MapPin size={12} className="text-texto-terciario shrink-0" />
                     {(r.ubicacion_entrada as Record<string, string>).direccion}
@@ -348,7 +348,7 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
             {/* Notas */}
             {r.notas && (
               <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
-                <p className="text-[10px] uppercase tracking-wider text-texto-terciario mb-1">Notas</p>
+                <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1">Notas</p>
                 <p className="text-sm text-texto-secundario">{r.notas}</p>
               </div>
             )}
@@ -358,13 +358,13 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
               <div className="grid grid-cols-2 gap-3">
                 {r.foto_entrada && (
                   <div className="bg-superficie-elevada/30 rounded-lg overflow-hidden">
-                    <p className="text-[10px] uppercase tracking-wider text-texto-terciario px-3 pt-2 pb-1">Foto entrada</p>
+                    <p className="text-xxs uppercase tracking-wider text-texto-terciario px-3 pt-2 pb-1">Foto entrada</p>
                     <img src={r.foto_entrada} alt="Foto entrada" className="w-full h-32 object-cover" />
                   </div>
                 )}
                 {r.foto_salida && (
                   <div className="bg-superficie-elevada/30 rounded-lg overflow-hidden">
-                    <p className="text-[10px] uppercase tracking-wider text-texto-terciario px-3 pt-2 pb-1">Foto salida</p>
+                    <p className="text-xxs uppercase tracking-wider text-texto-terciario px-3 pt-2 pb-1">Foto salida</p>
                     <img src={r.foto_salida} alt="Foto salida" className="w-full h-32 object-cover" />
                   </div>
                 )}
@@ -373,7 +373,7 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
 
             {/* Editado */}
             {r.editado_por && (
-              <p className="text-[10px] text-texto-terciario flex items-center gap-1">
+              <p className="text-xxs text-texto-terciario flex items-center gap-1">
                 <Pencil size={9} /> Editado manualmente
               </p>
             )}
@@ -460,7 +460,7 @@ function CampoHoraLimpiable({ etiqueta, valor, onChange, onLimpiar }: {
         <button
           type="button"
           onClick={onLimpiar}
-          className="absolute top-0 right-0 text-[10px] text-texto-terciario hover:text-red-400 transition-colors"
+          className="absolute top-0 right-0 text-xxs text-texto-terciario hover:text-red-400 transition-colors"
           title="Limpiar"
         >
           ✕

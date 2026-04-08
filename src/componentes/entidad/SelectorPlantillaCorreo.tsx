@@ -230,7 +230,7 @@ export function SelectorPlantillaCorreo({
                   <div className="px-1.5 mb-1">
                     <div className="flex items-center gap-1.5 px-3 py-1.5 mb-0.5">
                       <Building2 size={11} style={{ color: 'var(--texto-terciario)' }} />
-                      <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
+                      <span className="text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
                         De la empresa
                       </span>
                     </div>
@@ -248,7 +248,7 @@ export function SelectorPlantillaCorreo({
                   <div className="px-1.5 mb-1">
                     <div className="flex items-center gap-1.5 px-3 py-1.5 mb-0.5">
                       <User size={11} style={{ color: 'var(--texto-terciario)' }} />
-                      <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
+                      <span className="text-xxs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-terciario)' }}>
                         Mis plantillas
                       </span>
                     </div>

@@ -226,7 +226,7 @@ export function DrawerChat({ conversacion, tipoCanal, abierto, onCerrar, onEtapa
                   <div key={grupo.fecha}>
                     {/* Separador de fecha */}
                     <div className="flex items-center justify-center my-3">
-                      <span className="text-[10px] text-texto-terciario bg-superficie-hover px-2.5 py-0.5 rounded-full uppercase tracking-wider font-medium">
+                      <span className="text-xxs text-texto-terciario bg-superficie-hover px-2.5 py-0.5 rounded-full uppercase tracking-wider font-medium">
                         {grupo.fecha}
                       </span>
                     </div>
@@ -239,7 +239,7 @@ export function DrawerChat({ conversacion, tipoCanal, abierto, onCerrar, onEtapa
                       if (esNota) {
                         return (
                           <div key={msg.id} className="flex justify-center my-1">
-                            <div className="text-[11px] text-yellow-600 dark:text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-3 py-1 max-w-[90%] text-center italic">
+                            <div className="text-xs text-yellow-600 dark:text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-3 py-1 max-w-[90%] text-center italic">
                               {msg.texto}
                             </div>
                           </div>
@@ -283,7 +283,7 @@ export function DrawerChat({ conversacion, tipoCanal, abierto, onCerrar, onEtapa
                             )}
 
                             {/* Hora */}
-                            <div className={`text-[10px] mt-0.5 text-right ${esEntrante ? 'text-texto-terciario' : 'text-white/70'}`}>
+                            <div className={`text-xxs mt-0.5 text-right ${esEntrante ? 'text-texto-terciario' : 'text-white/70'}`}>
                               {formatoHora(msg.creado_en, formato.locale, formato.formatoHora === '12h')}
                             </div>
                           </div>

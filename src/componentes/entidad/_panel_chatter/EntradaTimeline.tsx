@@ -121,7 +121,7 @@ function EntradaSistema({
           </div>
         )}
 
-        <span className="text-[10px] text-texto-terciario opacity-0 group-hover:opacity-100 transition-opacity" title={fechaCompleta(entrada.creado_en, formatoHora, locale)}>
+        <span className="text-xxs text-texto-terciario opacity-0 group-hover:opacity-100 transition-opacity" title={fechaCompleta(entrada.creado_en, formatoHora, locale)}>
           {fechaRelativa(entrada.creado_en, formatoHora, locale)}
         </span>
       </div>
@@ -193,7 +193,7 @@ function EntradaCorreo({ entrada, formatoHora, locale }: { entrada: PropsEntrada
           {esRecibido ? 'Correo recibido' : 'Envió correo'}
           {asunto ? `: ${asunto}` : ''}
         </p>
-        <span className="text-[10px] text-texto-terciario shrink-0 ml-auto">{fechaRelativa(entrada.creado_en, formatoHora, locale)}</span>
+        <span className="text-xxs text-texto-terciario shrink-0 ml-auto">{fechaRelativa(entrada.creado_en, formatoHora, locale)}</span>
       </div>
 
       {/* Card del correo expandible */}
@@ -210,7 +210,7 @@ function EntradaCorreo({ entrada, formatoHora, locale }: { entrada: PropsEntrada
           <div className="flex-1 min-w-0">
             <p className="text-xs text-texto-secundario truncate">{asunto || entrada.contenido}</p>
             {destinatario && (
-              <p className="text-[10px] text-texto-terciario truncate mt-0.5">
+              <p className="text-xxs text-texto-terciario truncate mt-0.5">
                 {esRecibido ? 'De' : 'Para'}: {destinatario}
                 {cc && <span className="ml-1.5">· CC: {cc}</span>}
                 {cco && <span className="ml-1.5">· CCO: {cco}</span>}
@@ -219,7 +219,7 @@ function EntradaCorreo({ entrada, formatoHora, locale }: { entrada: PropsEntrada
           </div>
           <div className="flex items-center gap-1 shrink-0">
             {entrada.adjuntos?.length > 0 && (
-              <span className="flex items-center gap-0.5 text-[10px] text-texto-terciario">
+              <span className="flex items-center gap-0.5 text-xxs text-texto-terciario">
                 <Paperclip size={10} />
                 {entrada.adjuntos.length}
               </span>
@@ -282,11 +282,11 @@ function EntradaWhatsApp({ entrada, formatoHora, locale }: { entrada: PropsEntra
         <span className="text-xs font-semibold text-texto-primario">
           {destinatario || numero || 'WhatsApp'}
         </span>
-        {plantilla && <span className="text-[10px] px-1.5 py-px rounded bg-superficie-hover text-texto-terciario">Plantilla</span>}
+        {plantilla && <span className="text-xxs px-1.5 py-px rounded bg-superficie-hover text-texto-terciario">Plantilla</span>}
       </div>
 
       {/* Subtítulo: para + enviado por */}
-      <p className="text-[10px] text-texto-terciario px-3 pl-[52px] pb-2">
+      <p className="text-xxs text-texto-terciario px-3 pl-[52px] pb-2">
         {numero && <>Para: {numero}</>}
         {numero && entrada.autor_nombre && <> · </>}
         {entrada.autor_nombre && <>Enviado por {entrada.autor_nombre}</>}
@@ -302,7 +302,7 @@ function EntradaWhatsApp({ entrada, formatoHora, locale }: { entrada: PropsEntra
 
       {/* Hora + palomitas (estilo inbox: abajo a la derecha) */}
       <div className="flex items-center justify-end gap-1 px-3 pb-2">
-        <span className="text-[10px] text-texto-terciario">
+        <span className="text-xxs text-texto-terciario">
           {new Date(entrada.creado_en).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: formatoHora === '12h' })}
         </span>
         <PalomitasWA estado={waStatus} />
@@ -320,7 +320,7 @@ function EntradaWhatsApp({ entrada, formatoHora, locale }: { entrada: PropsEntra
                   href={btn.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-1 py-2 text-[13px] font-medium no-underline hover:bg-superficie-hover/50 transition-colors"
+                  className="flex items-center justify-center gap-1 py-2 text-sm font-medium no-underline hover:bg-superficie-hover/50 transition-colors"
                   style={{ color: '#00a5f4' }}
                 >
                   🔗 {btn.texto}
@@ -330,7 +330,7 @@ function EntradaWhatsApp({ entrada, formatoHora, locale }: { entrada: PropsEntra
             return (
               <div
                 key={i}
-                className="flex items-center justify-center gap-1 py-2 text-[13px] font-medium"
+                className="flex items-center justify-center gap-1 py-2 text-sm font-medium"
                 style={{ color: '#00a5f4' }}
               >
                 {btn.tipo === 'PHONE_NUMBER' && '📞 '}
@@ -418,11 +418,11 @@ function EntradaNotaInterna({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-texto-primario">{entrada.autor_nombre}</span>
-          <span className="text-[10px] text-insignia-advertencia flex items-center gap-0.5 font-medium">
+          <span className="text-xxs text-insignia-advertencia flex items-center gap-0.5 font-medium">
             <StickyNote size={10} /> Nota interna
           </span>
           {fueEditada && (
-            <span className="text-[10px] text-texto-terciario italic">editada</span>
+            <span className="text-xxs text-texto-terciario italic">editada</span>
           )}
 
           <div className="ml-auto flex items-center gap-1 shrink-0">
@@ -449,7 +449,7 @@ function EntradaNotaInterna({
                 )}
               </div>
             )}
-            <span className="text-[10px] text-texto-terciario" title={fechaCompleta(entrada.creado_en, formatoHora, locale)}>
+            <span className="text-xxs text-texto-terciario" title={fechaCompleta(entrada.creado_en, formatoHora, locale)}>
               {fechaRelativa(entrada.creado_en, formatoHora, locale)}
             </span>
           </div>
@@ -479,11 +479,11 @@ function EntradaMensaje({ entrada, esMensajePortal, formatoHora, locale }: { ent
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-texto-primario">{entrada.autor_nombre}</span>
           {esMensajePortal && (
-            <span className="text-[10px] text-texto-marca flex items-center gap-0.5">
+            <span className="text-xxs text-texto-marca flex items-center gap-0.5">
               <Globe size={10} /> Portal
             </span>
           )}
-          <span className="text-[10px] text-texto-terciario ml-auto shrink-0" title={fechaCompleta(entrada.creado_en, formatoHora, locale)}>
+          <span className="text-xxs text-texto-terciario ml-auto shrink-0" title={fechaCompleta(entrada.creado_en, formatoHora, locale)}>
             {fechaRelativa(entrada.creado_en, formatoHora, locale)}
           </span>
         </div>

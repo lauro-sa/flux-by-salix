@@ -10,15 +10,15 @@
 
    ESCALA DE TIPOGRAFÍA (clases Tailwind):
                 Desktop   Móvil
-     text-xxs  → 10px    12px  — badges, contadores, metadatos mínimos
-     text-xs   → 11px    13px  — labels secundarios, timestamps
-     text-sm   → 13px    15px  — texto de UI principal, botones, inputs, nav
-     text-base → 14px    17px  — cuerpo de texto, párrafos
-     text-md   → 15px    18px  — texto destacado
-     text-lg   → 17px    20px  — títulos de sección (h3)
-     text-xl   → 20px    23px  — títulos de página secundarios (h2)
-     text-2xl  → 24px    27px  — títulos de página principales (h1)
-     text-3xl  → 30px    33px  — héroe / landing
+     text-xxs  → 11px    12px  — badges, contadores, metadatos mínimos
+     text-xs   → 12px    13px  — labels secundarios, timestamps
+     text-sm   → 14px    16px  — texto de UI principal, botones, inputs, nav
+     text-base → 15px    17px  — cuerpo de texto, párrafos
+     text-md   → 16px    18px  — texto destacado
+     text-lg   → 18px    20px  — títulos de sección (h3)
+     text-xl   → 21px    23px  — títulos de página secundarios (h2)
+     text-2xl  → 25px    27px  — títulos de página principales (h1)
+     text-3xl  → 31px    33px  — héroe / landing
      Móvil se activa con: @media (pointer: coarse), (max-width: 768px)
 
    ESCALA DE SOMBRAS:
@@ -55,9 +55,9 @@
 :root {
   /* Texto — estilo iOS HIG con alpha para adaptarse a cualquier superficie */
   --texto-primario: #0a0a0a;
-  --texto-secundario: rgba(60, 60, 67, 0.73);
-  --texto-terciario: rgba(60, 60, 67, 0.55);
-  --texto-placeholder: rgba(60, 60, 67, 0.30);
+  --texto-secundario: rgba(60, 60, 67, 0.80);
+  --texto-terciario: rgba(60, 60, 67, 0.65);
+  --texto-placeholder: rgba(60, 60, 67, 0.42);
   --texto-inverso: #ffffff;
   --texto-marca: #5b5bd6; /* Índigo Attio — se sobreescribe por empresa */
 
@@ -162,16 +162,16 @@
   --fuente-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --fuente-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
 
-  /* Tipografía — escala "normal" (default) */
-  --texto-xxs: 0.625rem;   /* 10px */
-  --texto-xs: 0.6875rem;   /* 11px */
-  --texto-sm: 0.8125rem;   /* 13px */
-  --texto-base: 0.875rem;  /* 14px */
-  --texto-md: 0.9375rem;   /* 15px */
-  --texto-lg: 1.0625rem;   /* 17px */
-  --texto-xl: 1.25rem;     /* 20px */
-  --texto-2xl: 1.5rem;     /* 24px */
-  --texto-3xl: 1.875rem;   /* 30px */
+  /* Tipografía — escala "normal" (default) — +1px vs anterior */
+  --texto-xxs: 0.6875rem;  /* 11px */
+  --texto-xs: 0.75rem;     /* 12px */
+  --texto-sm: 0.875rem;    /* 14px */
+  --texto-base: 0.9375rem; /* 15px */
+  --texto-md: 1rem;        /* 16px */
+  --texto-lg: 1.125rem;    /* 18px */
+  --texto-xl: 1.3125rem;   /* 21px */
+  --texto-2xl: 1.5625rem;  /* 25px */
+  --texto-3xl: 1.9375rem;  /* 31px */
 
   /* Espaciado */
   --espacio-1: 0.25rem;
@@ -214,9 +214,9 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-tema="claro"]) {
     --texto-primario: #f5f5f5;
-    --texto-secundario: rgba(235, 235, 245, 0.65);
-    --texto-terciario: rgba(235, 235, 245, 0.45);
-    --texto-placeholder: rgba(235, 235, 245, 0.28);
+    --texto-secundario: rgba(235, 235, 245, 0.72);
+    --texto-terciario: rgba(235, 235, 245, 0.50);
+    --texto-placeholder: rgba(235, 235, 245, 0.35);
     --texto-inverso: #ffffff;
     --texto-marca: #7b7bd8;
 
@@ -283,9 +283,9 @@
 /* Override manual tema oscuro — mismos colores que media query */
 [data-tema="oscuro"] {
   --texto-primario: #f5f5f5;
-  --texto-secundario: rgba(235, 235, 245, 0.65);
-  --texto-terciario: rgba(235, 235, 245, 0.38);
-  --texto-placeholder: rgba(235, 235, 245, 0.28);
+  --texto-secundario: rgba(235, 235, 245, 0.72);
+  --texto-terciario: rgba(235, 235, 245, 0.50);
+  --texto-placeholder: rgba(235, 235, 245, 0.35);
   --texto-inverso: #ffffff;
   --texto-marca: #e8922a;
 
@@ -348,27 +348,27 @@
 }
 
 /* ---------- ESCALA DE TEXTO ---------- */
-/* Compacto: -1px en cada nivel — para pantallas chicas o más densidad */
+/* Compacto: -1px vs normal — para pantallas chicas o más densidad */
 [data-escala="compacto"] {
-  --texto-xxs: 0.5625rem;  /* 9px */
-  --texto-xs: 0.625rem;    /* 10px */
-  --texto-sm: 0.75rem;     /* 12px */
-  --texto-base: 0.8125rem; /* 13px */
-  --texto-md: 0.875rem;    /* 14px */
-  --texto-lg: 1rem;        /* 16px */
-  --texto-xl: 1.125rem;    /* 18px */
-  --texto-2xl: 1.375rem;   /* 22px */
-  --texto-3xl: 1.75rem;    /* 28px */
+  --texto-xxs: 0.625rem;   /* 10px */
+  --texto-xs: 0.6875rem;   /* 11px */
+  --texto-sm: 0.8125rem;   /* 13px */
+  --texto-base: 0.875rem;  /* 14px */
+  --texto-md: 0.9375rem;   /* 15px */
+  --texto-lg: 1.0625rem;   /* 17px */
+  --texto-xl: 1.25rem;     /* 20px */
+  --texto-2xl: 1.5rem;     /* 24px */
+  --texto-3xl: 1.875rem;   /* 30px */
 }
 
-/* Cómodo: +1px en cada nivel — para pantallas grandes o mejor legibilidad */
+/* Cómodo: +1px vs normal — para pantallas grandes o mejor legibilidad */
 [data-escala="comodo"] {
-  --texto-xxs: 0.6875rem;  /* 11px */
-  --texto-xs: 0.75rem;     /* 12px */
-  --texto-sm: 0.875rem;    /* 14px */
-  --texto-base: 0.9375rem; /* 15px */
-  --texto-md: 1rem;        /* 16px */
-  --texto-lg: 1.125rem;    /* 18px */
+  --texto-xxs: 0.75rem;    /* 12px */
+  --texto-xs: 0.8125rem;   /* 13px */
+  --texto-sm: 0.9375rem;   /* 15px */
+  --texto-base: 1rem;      /* 16px */
+  --texto-md: 1.0625rem;   /* 17px */
+  --texto-lg: 1.1875rem;   /* 19px */
   --texto-xl: 1.375rem;    /* 22px */
   --texto-2xl: 1.625rem;   /* 26px */
   --texto-3xl: 2rem;       /* 32px */

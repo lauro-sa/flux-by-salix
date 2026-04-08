@@ -136,23 +136,6 @@ function BarraBusqueda({
           className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-placeholder md:text-sm text-md"
         />
 
-        {/* Pills de filtros activos */}
-        <AnimatePresence mode="popLayout">
-          {filtrosConValor.map((f) => {
-            const valorTexto = Array.isArray(f.valor)
-              ? `${f.valor.length} selec.`
-              : f.opciones?.find((o) => o.valor === f.valor)?.etiqueta || f.valor
-            return (
-              <PillFiltroActivo
-                key={f.id}
-                etiqueta={f.etiqueta}
-                valor={valorTexto}
-                onRemover={() => f.onChange(Array.isArray(f.valor) ? [] : '')}
-              />
-            )
-          })}
-        </AnimatePresence>
-
         {/* Separador visual */}
         {(filtros.length > 0 || plantillas || opcionesVista) && (
           <div className="w-px h-5 bg-borde-sutil shrink-0 mx-0.5" />
@@ -244,6 +227,40 @@ function BarraBusqueda({
           </Tooltip>
         )}
       </motion.div>
+
+      {/* Pills de filtros activos — debajo de la cápsula para no comprimir los botones */}
+      {filtrosConValor.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 mt-2 px-1">
+          <AnimatePresence mode="popLayout">
+            {filtrosConValor.map((f) => {
+              const valorTexto = Array.isArray(f.valor)
+                ? f.valor.map(v => f.opciones?.find(o => o.valor === v)?.etiqueta || v).join(', ')
+                : f.opciones?.find((o) => o.valor === f.valor)?.etiqueta || f.valor
+              return (
+                <PillFiltroActivo
+                  key={f.id}
+                  etiqueta={f.etiqueta}
+                  valor={valorTexto}
+                  onRemover={() => f.onChange(Array.isArray(f.valor) ? [] : '')}
+                />
+              )
+            })}
+          </AnimatePresence>
+          {filtrosConValor.length > 1 && onLimpiarFiltros && (
+            <motion.button
+              type="button"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={limpiarTodo}
+              className="text-xxs text-texto-terciario hover:text-insignia-peligro-texto cursor-pointer border-none bg-transparent transition-colors"
+            >
+              Limpiar todo
+            </motion.button>
+          )}
+        </div>
+      )}
 
       {/* Panel desplegable de filtros */}
       <AnimatePresence>

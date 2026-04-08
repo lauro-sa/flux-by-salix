@@ -109,6 +109,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         })
       }
 
+      // Marcar como leídas todas las notificaciones previas de esta actividad
+      // (vencimientos, asignaciones, recordatorios) para que no sigan apareciendo en la campana
+      admin
+        .from('notificaciones')
+        .update({ leida: true })
+        .eq('referencia_tipo', 'actividad')
+        .eq('referencia_id', data.id)
+        .eq('empresa_id', empresaId)
+        .eq('leida', false)
+        .then(() => {})
+
       // Notificar al creador que su actividad fue completada (si fue otro quien la completó)
       if (data.creado_por && data.creado_por !== user.id) {
         const { data: tipoComp } = await admin.from('tipos_actividad').select('etiqueta, color').eq('id', data.tipo_id).single()

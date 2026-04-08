@@ -283,32 +283,98 @@ export async function GET() {
 
     const { data: miembro } = await admin
       .from('miembros')
-      .select('id, metodo_fichaje')
+      .select('id, turno_id, metodo_fichaje')
       .eq('usuario_id', user.id)
       .eq('empresa_id', empresaId)
       .single()
 
     if (!miembro) return NextResponse.json({ error: 'No sos miembro' }, { status: 403 })
 
-    const { data: turnoHoy } = await admin
-      .from('asistencias')
-      .select('*')
-      .eq('empresa_id', empresaId)
-      .eq('miembro_id', miembro.id)
-      .eq('fecha', fechaHoy)
-      .maybeSingle()
+    const [turnoHoyRes, configRes] = await Promise.all([
+      admin
+        .from('asistencias')
+        .select('*')
+        .eq('empresa_id', empresaId)
+        .eq('miembro_id', miembro.id)
+        .eq('fecha', fechaHoy)
+        .maybeSingle(),
+      admin
+        .from('config_asistencias')
+        .select('fichaje_auto_habilitado, descontar_almuerzo, duracion_almuerzo_min')
+        .eq('empresa_id', empresaId)
+        .maybeSingle(),
+    ])
 
-    // Obtener config de la empresa para saber si fichaje auto está habilitado
-    const { data: config } = await admin
-      .from('config_asistencias')
-      .select('fichaje_auto_habilitado, descontar_almuerzo, duracion_almuerzo_min')
-      .eq('empresa_id', empresaId)
-      .maybeSingle()
+    // Resolver horario esperado del día: miembro → sector → default turno → horarios empresa
+    const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
+    const diaSemanaIdx = new Date().getDay() // 0=dom ... 6=sab
+    const diaHoy = diasSemana[diaSemanaIdx]
+    let horarioHoy: { desde: string; hasta: string } | null = null
+
+    // 1) Buscar turno asignado al miembro o a su sector
+    let turnoLaboralId = miembro.turno_id
+    if (!turnoLaboralId) {
+      const { data: memSector } = await admin
+        .from('miembros_sectores')
+        .select('sector:sectores(turno_id)')
+        .eq('miembro_id', miembro.id)
+        .eq('es_primario', true)
+        .maybeSingle()
+      const sector = memSector?.sector as unknown as { turno_id: string | null } | null
+      turnoLaboralId = sector?.turno_id || null
+    }
+
+    if (turnoLaboralId) {
+      const { data: turnoLaboral } = await admin
+        .from('turnos_laborales')
+        .select('dias')
+        .eq('id', turnoLaboralId)
+        .single()
+      if (turnoLaboral) {
+        const dias = turnoLaboral.dias as Record<string, { activo: boolean; desde: string; hasta: string }>
+        const diaConfig = dias[diaHoy]
+        if (diaConfig?.activo) {
+          horarioHoy = { desde: diaConfig.desde, hasta: diaConfig.hasta }
+        }
+      }
+    }
+
+    // 2) Si no hay turno personalizado, usar horarios de empresa (tabla horarios, sector_id IS NULL)
+    if (!horarioHoy) {
+      const { data: horarioEmpresa } = await admin
+        .from('horarios')
+        .select('hora_inicio, hora_fin, activo')
+        .eq('empresa_id', empresaId)
+        .is('sector_id', null)
+        .eq('dia_semana', diaSemanaIdx === 0 ? 6 : diaSemanaIdx - 1) // tabla usa 0=lun
+        .maybeSingle()
+      if (horarioEmpresa?.activo) {
+        horarioHoy = { desde: horarioEmpresa.hora_inicio, hasta: horarioEmpresa.hora_fin }
+      }
+    }
+
+    // 3) Fallback: turno default de la empresa
+    if (!horarioHoy) {
+      const { data: turnoDefault } = await admin
+        .from('turnos_laborales')
+        .select('dias')
+        .eq('empresa_id', empresaId)
+        .eq('es_default', true)
+        .maybeSingle()
+      if (turnoDefault) {
+        const dias = turnoDefault.dias as Record<string, { activo: boolean; desde: string; hasta: string }>
+        const diaConfig = dias[diaHoy]
+        if (diaConfig?.activo) {
+          horarioHoy = { desde: diaConfig.desde, hasta: diaConfig.hasta }
+        }
+      }
+    }
 
     return NextResponse.json({
-      turno: turnoHoy,
+      turno: turnoHoyRes.data,
       metodo_fichaje: miembro.metodo_fichaje,
-      config: config || { fichaje_auto_habilitado: false, descontar_almuerzo: true, duracion_almuerzo_min: 60 },
+      config: configRes.data || { fichaje_auto_habilitado: false, descontar_almuerzo: true, duracion_almuerzo_min: 60 },
+      horario_hoy: horarioHoy, // { desde: '09:00', hasta: '18:00' } o null
     })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

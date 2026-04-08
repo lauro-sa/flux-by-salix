@@ -373,7 +373,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
             <Printer size={11} />
             <span className="hidden sm:inline">Nómina</span>
             {haySeleccion && (
-              <span className="text-[9px] bg-texto-marca/20 text-texto-marca px-1 py-0.5 rounded-full">{selCeldas.size}</span>
+              <span className="text-xxs bg-texto-marca/20 text-texto-marca px-1 py-0.5 rounded-full">{selCeldas.size}</span>
             )}
           </button>
 
@@ -400,7 +400,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
           className="text-center hover:text-texto-marca transition-colors"
         >
           <p className="text-sm font-semibold text-texto-primario">{etiqueta}</p>
-          <p className="text-[10px] text-texto-terciario">{subtitulo}</p>
+          <p className="text-xxs text-texto-terciario">{subtitulo}</p>
         </button>
         <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronRight size={16} />} onClick={() => setOffset(o => o + 1)} />
       </div>
@@ -452,7 +452,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                         const esFinde = diaSemana === 0 || diaSemana === 6
                         const diasMovil = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
                         return (
-                          <div key={fecha} className={`text-center py-1.5 text-[10px] font-medium ${esFinde ? 'text-texto-terciario/40' : 'text-texto-terciario'}`}>
+                          <div key={fecha} className={`text-center py-1.5 text-xxs font-medium ${esFinde ? 'text-texto-terciario/40' : 'text-texto-terciario'}`}>
                             {diasMovil[diaSemana]}
                           </div>
                         )
@@ -513,9 +513,9 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                             </span>
 
                             {esFinde ? (
-                              <span className="text-texto-terciario/20 text-[9px] leading-none">—</span>
+                              <span className="text-texto-terciario/20 text-xxs leading-none">—</span>
                             ) : subTexto ? (
-                              <span className="text-red-400 text-[9px] font-bold leading-none mt-0.5">{subTexto}</span>
+                              <span className="text-red-400 text-xxs font-bold leading-none mt-0.5">{subTexto}</span>
                             ) : puntoColor ? (
                               <div className={`size-1.5 rounded-full mt-1 ${puntoColor}`} />
                             ) : null}
@@ -577,7 +577,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                           esHoy ? 'bg-texto-marca/8' : nombreFeriado ? 'bg-violet-500/8' : ''
                         }`}
                       >
-                        <div className={`${esUltra ? 'text-[7px]' : 'text-[10px]'} uppercase tracking-wider ${
+                        <div className={`${esUltra ? 'text-[7px]' : 'text-xxs'} uppercase tracking-wider ${
                           nombreFeriado ? 'text-violet-400' : esFinde ? 'text-texto-terciario/50' : 'text-texto-terciario'
                         }`}>
                           {esUltra ? DIAS_SEMANA_CORTO[diaSemana].charAt(0) : DIAS_SEMANA_CORTO[diaSemana]}
@@ -591,7 +591,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                           <div className="size-1 rounded-full bg-violet-400 mx-auto mt-0.5" title={nombreFeriado} />
                         )}
                         {nombreFeriado && !esUltra && (
-                          <div className="text-[8px] text-violet-400 leading-tight truncate max-w-[80px] mx-auto" title={nombreFeriado}>
+                          <div className="text-xxs text-violet-400 leading-tight truncate max-w-[80px] mx-auto" title={nombreFeriado}>
                             {nombreFeriado.length > 15 ? nombreFeriado.slice(0, 14) + '…' : nombreFeriado}
                           </div>
                         )}
@@ -601,7 +601,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                 })}
                 {/* Resumen */}
                 <th className={`sticky right-0 z-20 bg-superficie-app px-3 py-2 text-center border-b border-l border-borde-sutil ${ajustarPantalla ? 'w-[60px]' : 'min-w-[70px]'}`}>
-                  <div className="text-[10px] uppercase tracking-wider text-texto-terciario">Resumen</div>
+                  <div className="text-xxs uppercase tracking-wider text-texto-terciario">Resumen</div>
                 </th>
               </tr>
             </thead>
@@ -631,10 +631,10 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                             onChange={() => toggleEmpleado(miembro.id)}
                           />
                         )}
-                        <div className={`${esUltra ? 'size-6 text-[9px]' : esCompacto || esIntermedio ? 'size-7 text-[10px]' : 'size-8 text-xs'} rounded-full flex items-center justify-center font-bold shrink-0 ${colorAvatar}`}>
+                        <div className={`${esUltra ? 'size-6 text-xxs' : esCompacto || esIntermedio ? 'size-7 text-xxs' : 'size-8 text-xs'} rounded-full flex items-center justify-center font-bold shrink-0 ${colorAvatar}`}>
                           {iniciales(miembro.nombre)}
                         </div>
-                        <span className={`font-medium text-texto-primario ${esUltra ? 'text-[11px] leading-tight' : esCompacto || esIntermedio ? 'text-xs leading-tight' : 'text-sm whitespace-nowrap'}`}>
+                        <span className={`font-medium text-texto-primario ${esUltra ? 'text-xs leading-tight' : esCompacto || esIntermedio ? 'text-xs leading-tight' : 'text-sm whitespace-nowrap'}`}>
                           {miembro.nombre}
                         </span>
                       </div>
@@ -669,7 +669,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                         return (
                           <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil bg-superficie-elevada/20`}>
                             <div className={`flex items-center justify-center ${esUltra ? 'h-[20px]' : esCompacto ? 'h-[52px]' : 'h-[60px]'}`}>
-                              <span className={`text-texto-terciario/30 ${esUltra ? 'text-[8px]' : 'text-xs'}`}>—</span>
+                              <span className={`text-texto-terciario/30 ${esUltra ? 'text-xxs' : 'text-xs'}`}>—</span>
                             </div>
                           </td>
                         )
@@ -693,13 +693,13 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                                       <div className="size-2 rounded-full bg-red-400" />
                                       <span className="text-xs font-medium text-red-400">Ausente</span>
                                     </div>
-                                    <p className="text-[10px] text-texto-terciario mt-0.5">Sin registro de asistencia</p>
+                                    <p className="text-xxs text-texto-terciario mt-0.5">Sin registro de asistencia</p>
                                   </div>
                                 </div>
                               </div>
                             ) : (
                             <div onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } }} className={`mx-auto rounded-lg ${esCompacto ? 'h-[52px]' : 'h-[60px]'} flex items-center justify-center ${COLORES_CELDA.ausente.fondo} border ${COLORES_CELDA.ausente.borde} cursor-pointer hover:brightness-110 transition-all`}>
-                              <span className={`text-red-400 ${esCompacto ? 'text-[9px]' : 'text-[11px]'} font-semibold uppercase`}>Ausente</span>
+                              <span className={`text-red-400 ${esCompacto ? 'text-xxs' : 'text-xs'} font-semibold uppercase`}>Ausente</span>
                             </div>
                             )}
                           </td>
@@ -762,9 +762,9 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                                 title={`${etiquetaEstado} · ${fmtDur(min)} netos`}
                                 className={`mx-auto rounded-lg ${esCompacto ? 'h-[52px] gap-0.5 px-0.5' : esIntermedio ? 'h-[62px] gap-1 px-0.5' : 'h-[74px] gap-1.5 pt-1'} flex flex-col items-center justify-center border ${colores.fondo} ${colores.borde} cursor-pointer hover:brightness-110 transition-all`}>
                                 <div className={`${esCompacto || esIntermedio ? 'size-1.5' : 'size-2'} rounded-full ${colorPunto} shrink-0`} />
-                                <span className={`${esCompacto ? 'text-[10px]' : esIntermedio ? 'text-[11px]' : 'text-xs'} font-semibold text-texto-primario leading-none`}>{horaE}</span>
-                                <span className={`${esCompacto || esIntermedio ? 'text-[8px]' : 'text-[10px]'} text-texto-terciario leading-none`}>{horaS || '...'}</span>
-                                {!esCompacto && !esIntermedio && <span className="text-[9px] text-texto-terciario/70 leading-none">{etiquetaEstado}</span>}
+                                <span className={`${esCompacto ? 'text-xxs' : esIntermedio ? 'text-xs' : 'text-xs'} font-semibold text-texto-primario leading-none`}>{horaE}</span>
+                                <span className={`${esCompacto || esIntermedio ? 'text-xxs' : 'text-xxs'} text-texto-terciario leading-none`}>{horaS || '...'}</span>
+                                {!esCompacto && !esIntermedio && <span className="text-xxs text-texto-terciario/70 leading-none">{etiquetaEstado}</span>}
                               </div>
                             )}
                           </td>
@@ -780,7 +780,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                     <td className="sticky right-0 z-10 bg-superficie-app px-3 py-3 text-center border-b border-l border-borde-sutil">
                       <div className="text-sm font-bold text-texto-primario">{presentes}/{totalLaboral}</div>
                       {ausentes > 0 && (
-                        <div className="text-[10px] text-[color:var(--insignia-peligro)] font-medium">{ausentes}A</div>
+                        <div className="text-xxs text-[color:var(--insignia-peligro)] font-medium">{ausentes}A</div>
                       )}
                     </td>
                   </tr>

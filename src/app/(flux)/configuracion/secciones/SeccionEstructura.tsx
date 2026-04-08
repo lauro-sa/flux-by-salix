@@ -308,7 +308,7 @@ function NodoSector({ sector, nivel, esUltimo, miembrosPorSector, miembros, asig
 
 // ==================== COMPONENTE PRINCIPAL ====================
 
-export function SeccionEstructura() {
+export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) {
   const { t } = useTraduccion()
   const { empresa } = useEmpresa()
   const supabase = crearClienteNavegador()
@@ -320,7 +320,8 @@ export function SeccionEstructura() {
   const [horarios, setHorarios] = useState<Horario[]>([])
   const [horarioSectorId, setHorarioSectorId] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
-  const [tab, setTab] = useState<'sectores' | 'puestos' | 'horarios'>('sectores')
+  const tabInicialValido = (tabInicial === 'sectores' || tabInicial === 'puestos' || tabInicial === 'horarios') ? tabInicial : 'sectores'
+  const [tab, setTab] = useState<'sectores' | 'puestos' | 'horarios'>(tabInicialValido)
 
   // Modales
   const [modalEditar, setModalEditar] = useState<Sector | null>(null)

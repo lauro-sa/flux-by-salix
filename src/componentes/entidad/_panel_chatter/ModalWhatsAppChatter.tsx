@@ -340,7 +340,7 @@ export function ModalWhatsAppChatter({
             <p className="text-xs text-texto-terciario">{numero || 'Sin número'}</p>
           </div>
           {tipoDocumento && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-superficie-hover text-texto-terciario shrink-0">
+            <span className="text-xxs px-2 py-0.5 rounded-full bg-superficie-hover text-texto-terciario shrink-0">
               {tipoDocumento}
             </span>
           )}
@@ -417,14 +417,14 @@ export function ModalWhatsAppChatter({
                           <IconoWhatsApp size={13} className="text-canal-whatsapp shrink-0" />
                           <span className="text-sm font-medium text-texto-primario">{p.nombre}</span>
                         </div>
-                        <span className="text-[11px] text-texto-terciario truncate pl-[21px]">
+                        <span className="text-xs text-texto-terciario truncate pl-[21px]">
                           {p.componentes?.cuerpo?.texto?.slice(0, 90)}{(p.componentes?.cuerpo?.texto?.length || 0) > 90 ? '...' : ''}
                         </span>
                         <div className="flex items-center gap-2 mt-0.5 pl-[21px]">
-                          <span className="text-[9px] px-1.5 py-px rounded bg-canal-whatsapp/10 text-canal-whatsapp font-medium uppercase">
+                          <span className="text-xxs px-1.5 py-px rounded bg-canal-whatsapp/10 text-canal-whatsapp font-medium uppercase">
                             {p.categoria}
                           </span>
-                          <span className="text-[9px] text-texto-terciario">{p.idioma}</span>
+                          <span className="text-xxs text-texto-terciario">{p.idioma}</span>
                         </div>
                       </button>
                     ))}
@@ -443,7 +443,7 @@ export function ModalWhatsAppChatter({
                   <div className="flex items-center gap-2 px-3 py-2" style={{ background: '#075e54' }}>
                     <IconoWhatsApp size={16} style={{ color: '#fff' }} />
                     <span className="text-xs font-medium text-white">WhatsApp</span>
-                    <span className="text-[10px] text-white/60 ml-auto">{numero}</span>
+                    <span className="text-xxs text-white/60 ml-auto">{numero}</span>
                   </div>
 
                   {/* Fondo WA */}
@@ -456,13 +456,13 @@ export function ModalWhatsAppChatter({
                       {/* Encabezado */}
                       {plantillaSeleccionada.componentes?.encabezado?.tipo === 'TEXT' && encabezadoHtml && (
                         <p
-                          className="text-[13px] font-semibold mb-1"
+                          className="text-sm font-semibold mb-1"
                           style={{ color: '#111' }}
                           dangerouslySetInnerHTML={{ __html: encabezadoHtml }}
                         />
                       )}
                       {plantillaSeleccionada.componentes?.encabezado?.tipo && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(plantillaSeleccionada.componentes.encabezado.tipo) && (
-                        <div className="rounded mb-2 flex items-center justify-center text-[11px]" style={{ background: '#f0f0f0', color: '#999', height: 80 }}>
+                        <div className="rounded mb-2 flex items-center justify-center text-xs" style={{ background: '#f0f0f0', color: '#999', height: 80 }}>
                           {plantillaSeleccionada.componentes.encabezado.tipo === 'IMAGE' ? 'Imagen' : plantillaSeleccionada.componentes.encabezado.tipo === 'VIDEO' ? 'Video' : 'Documento'}
                         </div>
                       )}
@@ -470,24 +470,24 @@ export function ModalWhatsAppChatter({
                       {/* Cuerpo */}
                       {cuerpoHtml ? (
                         <p
-                          className="text-[13px] whitespace-pre-wrap leading-snug"
+                          className="text-sm whitespace-pre-wrap leading-snug"
                           style={{ color: '#111' }}
                           dangerouslySetInnerHTML={{ __html: cuerpoHtml }}
                         />
                       ) : (
-                        <p className="text-[13px]" style={{ color: '#999' }}>Cuerpo del mensaje...</p>
+                        <p className="text-sm" style={{ color: '#999' }}>Cuerpo del mensaje...</p>
                       )}
 
                       {/* Pie de página */}
                       {plantillaSeleccionada.componentes?.pie_pagina?.texto && (
-                        <p className="text-[11px] mt-1.5" style={{ color: '#8696a0' }}>
+                        <p className="text-xs mt-1.5" style={{ color: '#8696a0' }}>
                           {plantillaSeleccionada.componentes.pie_pagina.texto}
                         </p>
                       )}
 
                       {/* Hora */}
                       <div className="flex justify-end mt-1">
-                        <span className="text-[10px]" style={{ color: '#8696a0' }}>
+                        <span className="text-xxs" style={{ color: '#8696a0' }}>
                           {new Date().toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: fmtHora === '12h' })}
                         </span>
                       </div>
@@ -497,7 +497,7 @@ export function ModalWhatsAppChatter({
                     {plantillaSeleccionada.componentes?.botones?.length ? (
                       <div className="mt-1 space-y-1">
                         {plantillaSeleccionada.componentes.botones.map((b, i) => (
-                          <div key={i} className="rounded-lg py-2 text-center text-[13px] font-medium shadow-sm" style={{ background: '#fff', color: '#00a5f4' }}>
+                          <div key={i} className="rounded-lg py-2 text-center text-sm font-medium shadow-sm" style={{ background: '#fff', color: '#00a5f4' }}>
                             {b.tipo === 'URL' && '🔗 '}
                             {b.tipo === 'PHONE_NUMBER' && '📞 '}
                             {b.texto || 'Botón'}
@@ -511,7 +511,7 @@ export function ModalWhatsAppChatter({
                 </div>
 
                 {textoPlanoPreview.includes('{{') && (
-                  <p className="text-[11px] text-insignia-advertencia flex items-center gap-1">
+                  <p className="text-xs text-insignia-advertencia flex items-center gap-1">
                     <AlertCircle size={12} />
                     Algunas variables no se pudieron resolver
                   </p>

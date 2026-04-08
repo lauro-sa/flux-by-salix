@@ -239,7 +239,7 @@ export function SeccionPlantillasWA({ canalesWhatsApp, onRecargar }: Props) {
           {FILTROS_ESTADO.map(f => (
             <button
               key={f.valor}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
+              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
                 filtroEstado === f.valor
                   ? 'ring-1 ring-[var(--texto-marca)] bg-[var(--superficie-hover)]'
                   : 'hover:bg-[var(--superficie-hover)]'
@@ -316,7 +316,7 @@ export function SeccionPlantillasWA({ canalesWhatsApp, onRecargar }: Props) {
                     </p>
                   )}
                   {p.error_meta && (
-                    <p className="text-[11px] mt-1" style={{ color: 'var(--insignia-peligro)' }}>
+                    <p className="text-xs mt-1" style={{ color: 'var(--insignia-peligro)' }}>
                       {p.error_meta}
                     </p>
                   )}

@@ -238,12 +238,12 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
                           style={{ color: activo ? 'var(--texto-marca)' : 'var(--texto-primario)' }}
                         >
                           <span className="shrink-0 flex">{item.icono}</span>
-                          <span className={`flex-1 text-[15px] ${activo ? 'font-semibold' : 'font-medium'}`}>
+                          <span className={`flex-1 text-md ${activo ? 'font-semibold' : 'font-medium'}`}>
                             {item.etiqueta}
                           </span>
                           {/* Badge */}
                           {item.badge != null && item.badge > 0 && (
-                            <span className="min-w-[20px] h-5 rounded-full bg-insignia-peligro text-white text-[11px] font-bold flex items-center justify-center px-1.5 leading-none shrink-0">
+                            <span className="min-w-[20px] h-5 rounded-full bg-insignia-peligro text-white text-xs font-bold flex items-center justify-center px-1.5 leading-none shrink-0">
                               {item.badge > 99 ? '99+' : item.badge}
                             </span>
                           )}
@@ -278,7 +278,7 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
                     <span className={`absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-superficie-app ${estado === 'online' ? 'bg-insignia-exito' : estado === 'ausente' ? 'bg-insignia-advertencia' : 'bg-insignia-peligro'}`} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[15px] font-semibold text-texto-primario truncate">{nombreUsuario}</div>
+                    <div className="text-md font-semibold text-texto-primario truncate">{nombreUsuario}</div>
                     <div className="text-xs text-texto-terciario capitalize">{estado === 'no_molestar' ? 'No molestar' : estado}</div>
                   </div>
                   <ChevronRight size={16} className="text-texto-terciario/50 shrink-0" />

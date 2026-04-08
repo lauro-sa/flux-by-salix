@@ -412,7 +412,7 @@ export function SeccionSeguridad() {
                     </div>
                     <div className="mt-0.5 space-y-0.5">
                       <div className="text-xs text-texto-secundario">Última vez: {formatearFechaCorta(d.ultimaActividad)}</div>
-                      <div className="text-[11px] text-texto-terciario/70">Primera vez: {formatearFechaCorta(d.creadoEn)}</div>
+                      <div className="text-xs text-texto-terciario/70">Primera vez: {formatearFechaCorta(d.creadoEn)}</div>
                     </div>
                   </div>
                   <Boton

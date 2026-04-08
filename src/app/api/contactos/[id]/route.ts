@@ -209,6 +209,14 @@ export async function PATCH(
 
     if (!data) return NextResponse.json({ error: 'Contacto no encontrado' }, { status: 404 })
 
+    // Propagar cambio de nombre a vínculos de actividades y notificaciones (fire-and-forget)
+    if ('nombre' in campos || 'apellido' in campos) {
+      const nombreCompleto = `${data.nombre || ''} ${data.apellido || ''}`.trim()
+      propagarCambioNombreContacto(admin, empresaId, id, nombreCompleto).catch((err) =>
+        console.error('Error al propagar nombre de contacto:', err)
+      )
+    }
+
     return NextResponse.json(data)
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
@@ -273,6 +281,67 @@ export async function DELETE(
 
     return NextResponse.json({ ok: true })
   } catch {
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+    return NextResponse.json({ error: 'Error interno del DELETE' }, { status: 500 })
   }
+}
+
+/**
+ * Propaga el cambio de nombre de un contacto a todas las tablas que lo desnormalizan:
+ * 1. Vínculos JSONB de actividades
+ * 2. Conversaciones (contacto_nombre)
+ * 3. Presupuestos (contacto_nombre, contacto_apellido)
+ * Se ejecuta fire-and-forget para no bloquear la respuesta del PATCH.
+ */
+async function propagarCambioNombreContacto(
+  admin: ReturnType<typeof crearClienteAdmin>,
+  empresaId: string,
+  contactoId: string,
+  nombreNuevo: string
+) {
+  // Separar nombre y apellido del nombre completo para tablas que los guardan por separado
+  const partes = nombreNuevo.split(' ')
+  const nombre = partes[0] || ''
+  const apellido = partes.slice(1).join(' ') || ''
+
+  // 1. Actualizar vínculos JSONB en actividades
+  const { data: actividades } = await admin
+    .from('actividades')
+    .select('id, vinculos')
+    .eq('empresa_id', empresaId)
+    .contains('vinculo_ids', [contactoId])
+
+  if (actividades && actividades.length > 0) {
+    for (const act of actividades) {
+      const vinculos = (act.vinculos || []) as { tipo: string; id: string; nombre: string }[]
+      let cambio = false
+      for (const v of vinculos) {
+        if (v.id === contactoId && v.nombre !== nombreNuevo) {
+          v.nombre = nombreNuevo
+          cambio = true
+        }
+      }
+      if (cambio) {
+        await admin
+          .from('actividades')
+          .update({ vinculos })
+          .eq('id', act.id)
+      }
+    }
+  }
+
+  // 2. Actualizar conversaciones que referencian este contacto
+  admin
+    .from('conversaciones')
+    .update({ contacto_nombre: nombreNuevo })
+    .eq('empresa_id', empresaId)
+    .eq('contacto_id', contactoId)
+    .then(() => {})
+
+  // 3. Actualizar presupuestos que referencian este contacto
+  admin
+    .from('presupuestos')
+    .update({ contacto_nombre: nombre, contacto_apellido: apellido })
+    .eq('empresa_id', empresaId)
+    .eq('contacto_id', contactoId)
+    .then(() => {})
 }

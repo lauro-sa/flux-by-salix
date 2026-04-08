@@ -941,37 +941,6 @@ function TablaDinamica<T>({
               )}
             </AnimatePresence>
 
-            {/* Pills de filtros activos — se ocultan cuando hay una vista activa para no duplicar info */}
-            <AnimatePresence mode="popLayout">
-              {detector.tipo !== 'vista_activa' && todosLosFiltros
-                .filter((f) => (Array.isArray(f.valor) ? f.valor.length > 0 : f.valor !== ''))
-                .map((f) => {
-                  const valorTexto = Array.isArray(f.valor)
-                    ? f.valor.map(v => f.opciones?.find(o => o.valor === v)?.etiqueta || v).slice(0, 2).join(', ') + (f.valor.length > 2 ? ` +${f.valor.length - 2}` : '')
-                    : f.opciones?.find((o) => o.valor === f.valor)?.etiqueta || f.valor
-                  return (
-                    <motion.span
-                      key={f.id}
-                      initial={{ opacity: 0, x: 12 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 12 }}
-                      transition={{ duration: 0.2 }}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-insignia-primario-fondo text-insignia-primario-texto whitespace-nowrap shrink-0"
-                    >
-                      <span className="text-xs opacity-70">{f.etiqueta}:</span>
-                      <span className="max-w-28 truncate">{valorTexto}</span>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); f.onChange(Array.isArray(f.valor) ? [] : '') }}
-                        className="inline-flex items-center justify-center size-3.5 rounded-full hover:bg-black/10 cursor-pointer border-none bg-transparent text-current p-0"
-                      >
-                        <X size={10} />
-                      </button>
-                    </motion.span>
-                  )
-                })}
-            </AnimatePresence>
-
             {/* Limpiar todo */}
             {hayBusquedaOFiltros && (
               <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={12} />} onClick={limpiarTodo} titulo="Limpiar todo" className="text-insignia-peligro-texto hover:bg-insignia-peligro-fondo" />
@@ -1050,6 +1019,41 @@ function TablaDinamica<T>({
               </div>
             )}
           </div>
+
+          {/* Pills de filtros activos — debajo de la cápsula para no comprimir botones */}
+          {detector.tipo !== 'vista_activa' && (() => {
+            const filtrosActivos = todosLosFiltros.filter((f) => (Array.isArray(f.valor) ? f.valor.length > 0 : f.valor !== ''))
+            if (filtrosActivos.length === 0) return null
+            return (
+              <div className="flex flex-wrap items-center gap-1.5 mt-1.5 px-0.5">
+                {filtrosActivos.map((f) => {
+                  const valorTexto = Array.isArray(f.valor)
+                    ? f.valor.map(v => f.opciones?.find(o => o.valor === v)?.etiqueta || v).slice(0, 3).join(', ') + (f.valor.length > 3 ? ` +${f.valor.length - 3}` : '')
+                    : f.opciones?.find((o) => o.valor === f.valor)?.etiqueta || f.valor
+                  return (
+                    <motion.span
+                      key={f.id}
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.15 }}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-insignia-primario-fondo text-insignia-primario-texto whitespace-nowrap"
+                    >
+                      <span className="text-xxs opacity-70">{f.etiqueta}:</span>
+                      <span>{valorTexto}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); f.onChange(Array.isArray(f.valor) ? [] : '') }}
+                        className="inline-flex items-center justify-center size-3.5 rounded-full hover:bg-black/10 cursor-pointer border-none bg-transparent text-current p-0"
+                      >
+                        <X size={10} />
+                      </button>
+                    </motion.span>
+                  )
+                })}
+              </div>
+            )
+          })()}
 
           {/* Panel de filtros + vistas (desplegable) */}
           <AnimatePresence>

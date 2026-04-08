@@ -1852,7 +1852,7 @@ export default function EditorPresupuesto({
                     {/* Fila Emisión original (arriba, solo si fue re-emitido) */}
                     {presupuesto?.fecha_emision_original && (
                       <>
-                        <span className={`${etiqueta} py-1 text-texto-terciario !text-[10px] !font-normal`}>Emisión original</span>
+                        <span className={`${etiqueta} py-1 text-texto-terciario !text-xxs !font-normal`}>Emisión original</span>
                         <div className="py-1" />
                         <div className="py-1 w-40">
                           <span className="text-xs text-texto-terciario">

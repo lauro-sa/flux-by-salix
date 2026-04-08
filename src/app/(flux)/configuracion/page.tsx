@@ -23,6 +23,7 @@ export default function PaginaConfiguracion() {
   const { esPropietario } = useRol()
   const searchParams = useSearchParams()
   const seccionInicial = searchParams.get('seccion') || 'general'
+  const tabInicial = searchParams.get('tab') || undefined
   const [seccionActiva, setSeccionActiva] = useState(seccionInicial)
 
   const secciones: SeccionConfig[] = [
@@ -49,7 +50,7 @@ export default function PaginaConfiguracion() {
       onCambiarSeccion={setSeccionActiva}
     >
       {seccionActiva === 'general' && <SeccionGeneral />}
-      {seccionActiva === 'estructura' && <SeccionEstructura />}
+      {seccionActiva === 'estructura' && <SeccionEstructura tabInicial={tabInicial} />}
       {seccionActiva === 'regional' && <SeccionRegional />}
       {seccionActiva === 'ia' && <SeccionIA />}
       {seccionActiva === 'peligro' && esPropietario && <SeccionPeligro />}

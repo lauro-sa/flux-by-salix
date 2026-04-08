@@ -493,14 +493,14 @@ export function ListaConversaciones({
                   <div className="flex-1 min-w-0">
                     {/* Nombre + Lead */}
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[13px] font-semibold truncate" style={{
+                      <span className="text-sm font-semibold truncate" style={{
                         color: conv.mensajes_sin_leer !== 0 ? 'var(--texto-primario)' : 'var(--texto-secundario)',
                       }}>
                         {conv.contacto_nombre || conv.identificador_externo || 'Desconocido'}
                       </span>
                       {conv._fijada && <Pin size={11} className="flex-shrink-0" style={{ color: 'var(--texto-terciario)' }} />}
                       {conv.contacto?.es_provisorio && (
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0"
+                        <span className="text-xxs font-semibold px-1.5 py-0.5 rounded flex-shrink-0"
                           style={{ background: 'var(--insignia-advertencia-fondo)', color: 'var(--insignia-advertencia-texto)' }}>
                           Lead
                         </span>
@@ -509,7 +509,7 @@ export function ListaConversaciones({
 
                     {/* Teléfono */}
                     {conv.identificador_externo && conv.contacto_nombre && (
-                      <p className="text-[11px] truncate" style={{ color: 'var(--texto-terciario)' }}>
+                      <p className="text-xs truncate" style={{ color: 'var(--texto-terciario)' }}>
                         {conv.identificador_externo}
                       </p>
                     )}
@@ -525,11 +525,11 @@ export function ListaConversaciones({
                     {/* Badges — etapas, bot e IA solo aplican a WhatsApp */}
                     <div className="flex items-center gap-1 mt-1.5 overflow-x-auto flex-nowrap">
                       {conv.etiquetas?.slice(0, 2).map((et) => (
-                        <span key={et} className="text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap"
+                        <span key={et} className="text-xxs px-1.5 py-0.5 rounded whitespace-nowrap"
                           style={{ background: 'var(--superficie-hover)', color: 'var(--texto-terciario)' }}>{et}</span>
                       ))}
                       {tipoCanal === 'whatsapp' && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap"
+                        <span className="text-xxs px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap"
                           style={{
                             background: conv.etapa_etiqueta ? `${conv.etapa_color || '#6b7280'}18` : 'var(--superficie-hover)',
                             color: conv.etapa_etiqueta ? (conv.etapa_color || '#6b7280') : 'var(--texto-terciario)',
@@ -538,15 +538,15 @@ export function ListaConversaciones({
                         </span>
                       )}
                       {conv.sector_nombre && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap"
+                        <span className="text-xxs px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap"
                           style={{ background: `${conv.sector_color || '#6366f1'}18`, color: conv.sector_color || '#6366f1' }}>
                           {conv.sector_nombre}</span>
                       )}
                       {tipoCanal === 'whatsapp' && botHabilitado && conv.chatbot_activo && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">Bot</span>
+                        <span className="text-xxs px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">Bot</span>
                       )}
                       {tipoCanal === 'whatsapp' && iaHabilitada && conv.agente_ia_activo && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap bg-violet-500/15 text-violet-600 dark:text-violet-400">IA</span>
+                        <span className="text-xxs px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap bg-violet-500/15 text-violet-600 dark:text-violet-400">IA</span>
                       )}
                     </div>
                   </div>
@@ -558,7 +558,7 @@ export function ListaConversaciones({
                         {programadosPorConv[conv.id] && (
                           <AlarmClock size={11} style={{ color: 'var(--texto-marca)' }} />
                         )}
-                        <span className="text-[11px] whitespace-nowrap" style={{
+                        <span className="text-xs whitespace-nowrap" style={{
                           color: conv.mensajes_sin_leer !== 0 ? 'var(--insignia-exito)' : 'var(--texto-terciario)',
                           fontWeight: conv.mensajes_sin_leer !== 0 ? 600 : 400,
                         }}>
@@ -574,7 +574,7 @@ export function ListaConversaciones({
                           {conv.mensajes_sin_leer === -1 ? (
                             <div className="size-3 rounded-full" style={{ background: 'var(--insignia-exito)' }} />
                           ) : (
-                            <span className="min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-[10px] font-bold"
+                            <span className="min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-xxs font-bold"
                               style={{ background: 'var(--insignia-exito)', color: 'var(--texto-inverso)' }}>
                               {conv.mensajes_sin_leer > 99 ? '99+' : conv.mensajes_sin_leer}
                             </span>

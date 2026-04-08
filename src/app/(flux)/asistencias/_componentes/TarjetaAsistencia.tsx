@@ -183,7 +183,7 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
           </div>
           <span className="font-semibold text-texto-primario text-sm truncate">{r.miembro_nombre}</span>
         </div>
-        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border shrink-0 ${cfg.fondo} ${cfg.color}`}>
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border shrink-0 ${cfg.fondo} ${cfg.color}`}>
           {cfg.icono}
           {cfg.etiqueta}
         </span>
@@ -220,7 +220,7 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
                   title={`${seg.tipo === 'trabajo' ? 'Trabajo' : seg.tipo === 'almuerzo' ? 'Almuerzo' : 'Trámite'}: ${fmtDurCorta(seg.minutos)}`}
                 >
                   {pct > 8 && (
-                    <span className="text-[8px] font-semibold text-texto-secundario whitespace-nowrap flex items-center gap-0.5">
+                    <span className="text-xxs font-semibold text-texto-secundario whitespace-nowrap flex items-center gap-0.5">
                       {seg.tipo === 'almuerzo' && <span>🍽</span>}
                       {seg.tipo === 'tramite' && <span>🚶</span>}
                       {seg.tipo === 'trabajo' && <Calendar size={7} />}
