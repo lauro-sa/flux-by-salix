@@ -561,6 +561,7 @@ export default function PaginaCalendario() {
           <MiniCalendario
             fechaActual={fechaActual}
             onSeleccionarDia={(fecha) => setFechaActual(fecha)}
+            eventos={eventos}
           />
         )}
       </div>

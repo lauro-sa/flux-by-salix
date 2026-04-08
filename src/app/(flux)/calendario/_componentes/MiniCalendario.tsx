@@ -121,15 +121,26 @@ function generarCuadriculaMes(anio: number, mes: number): Date[][] {
 
 // --- Props ---
 
+/** Evento mínimo para marcar días en el mini calendario */
+interface EventoMini {
+  fecha_inicio: string
+  fecha_fin: string
+  todo_el_dia: boolean
+  color: string | null
+  tipo_clave: string | null
+}
+
 interface PropiedadesMiniCalendario {
   fechaActual: Date
   onSeleccionarDia: (fecha: Date) => void
   onCambiarMes?: (fecha: Date) => void
+  /** Eventos para marcar días (feriados, eventos todo-el-día, días con eventos) */
+  eventos?: EventoMini[]
 }
 
 // --- Componente ---
 
-function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: PropiedadesMiniCalendario) {
+function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes, eventos = [] }: PropiedadesMiniCalendario) {
   const [visible, setVisible] = useState(true)
 
   const [posicion, setPosicion] = useState<PosicionAnclaje>(() => {
@@ -159,6 +170,36 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: Propied
   useEffect(() => {
     setMesVisible(new Date(fechaActual.getFullYear(), fechaActual.getMonth(), 1))
   }, [fechaActual.getFullYear(), fechaActual.getMonth()]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Mapa de indicadores por día: clave "YYYY-MM-DD" → { colores, esFeriado, cantidad }
+  const indicadoresPorDia = useMemo(() => {
+    const mapa = new Map<string, { colores: string[]; esFeriado: boolean; cantidad: number }>()
+    for (const ev of eventos) {
+      const inicio = new Date(ev.fecha_inicio)
+      const fin = new Date(ev.fecha_fin)
+      // Iterar por cada día que cubre el evento
+      const cursor = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate())
+      const finDia = new Date(fin.getFullYear(), fin.getMonth(), fin.getDate())
+      while (cursor <= finDia) {
+        const clave = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`
+        const existente = mapa.get(clave) || { colores: [], esFeriado: false, cantidad: 0 }
+        existente.cantidad++
+        if (ev.color && !existente.colores.includes(ev.color)) {
+          existente.colores.push(ev.color)
+        }
+        if (ev.todo_el_dia && (ev.tipo_clave === 'bloqueo' || ev.tipo_clave === 'recordatorio')) {
+          existente.esFeriado = true
+        }
+        // Eventos todo-el-día siempre se marcan como especiales
+        if (ev.todo_el_dia) {
+          existente.esFeriado = true
+        }
+        mapa.set(clave, existente)
+        cursor.setDate(cursor.getDate() + 1)
+      }
+    }
+    return mapa
+  }, [eventos])
 
   useEffect(() => { localStorage.setItem(STORAGE_KEY, posicion) }, [posicion])
 
@@ -404,6 +445,8 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: Propied
                   const esDelMes = dia.getMonth() === mes
                   const esDiaHoy = esHoy(dia)
                   const esSeleccionado = mismoDia(dia, fechaActual)
+                  const claveDia = `${dia.getFullYear()}-${String(dia.getMonth() + 1).padStart(2, '0')}-${String(dia.getDate()).padStart(2, '0')}`
+                  const indicador = indicadoresPorDia.get(claveDia)
 
                   return (
                     <button
@@ -411,7 +454,7 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: Propied
                       type="button"
                       onClick={() => onSeleccionarDia(dia)}
                       className={[
-                        'flex items-center justify-center text-[10px] leading-none py-[2.5px] transition-colors',
+                        'relative flex flex-col items-center text-[10px] leading-none py-[2px] transition-colors',
                         !esDelMes ? 'text-texto-terciario/30' : '',
                         esDiaHoy ? 'font-bold' : '',
                         esSeleccionado && !esDiaHoy ? 'font-semibold' : '',
@@ -425,10 +468,27 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes }: Propied
                           esDiaHoy ? 'bg-texto-marca text-white' : '',
                           esSeleccionado && !esDiaHoy ? 'ring-1 ring-texto-marca' : '',
                           !esDiaHoy && !esSeleccionado ? 'hover:bg-superficie-hover' : '',
+                          // Feriados/todo-el-día: fondo sutil
+                          indicador?.esFeriado && !esDiaHoy && !esSeleccionado ? 'bg-insignia-advertencia/15' : '',
                         ].join(' ')}
                       >
                         {dia.getDate()}
                       </span>
+                      {/* Puntos indicadores de eventos */}
+                      {indicador && esDelMes && (
+                        <div className="flex gap-px mt-px">
+                          {indicador.colores.slice(0, 3).map((color, idx) => (
+                            <span
+                              key={idx}
+                              className="size-1 rounded-full"
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                          {indicador.colores.length === 0 && indicador.cantidad > 0 && (
+                            <span className="size-1 rounded-full bg-texto-marca" />
+                          )}
+                        </div>
+                      )}
                     </button>
                   )
                 })}
