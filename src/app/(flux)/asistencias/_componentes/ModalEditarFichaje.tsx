@@ -30,6 +30,8 @@ interface RegistroEditable {
   metodo_registro?: string
   ubicacion_entrada?: Record<string, unknown> | null
   editado_por?: string | null
+  foto_entrada?: string | null
+  foto_salida?: string | null
 }
 
 interface PropiedadesModal {
@@ -348,6 +350,24 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
               <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
                 <p className="text-[10px] uppercase tracking-wider text-texto-terciario mb-1">Notas</p>
                 <p className="text-sm text-texto-secundario">{r.notas}</p>
+              </div>
+            )}
+
+            {/* Fotos de fichaje */}
+            {(r.foto_entrada || r.foto_salida) && (
+              <div className="grid grid-cols-2 gap-3">
+                {r.foto_entrada && (
+                  <div className="bg-superficie-elevada/30 rounded-lg overflow-hidden">
+                    <p className="text-[10px] uppercase tracking-wider text-texto-terciario px-3 pt-2 pb-1">Foto entrada</p>
+                    <img src={r.foto_entrada} alt="Foto entrada" className="w-full h-32 object-cover" />
+                  </div>
+                )}
+                {r.foto_salida && (
+                  <div className="bg-superficie-elevada/30 rounded-lg overflow-hidden">
+                    <p className="text-[10px] uppercase tracking-wider text-texto-terciario px-3 pt-2 pb-1">Foto salida</p>
+                    <img src={r.foto_salida} alt="Foto salida" className="w-full h-32 object-cover" />
+                  </div>
+                )}
               </div>
             )}
 

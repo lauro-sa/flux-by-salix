@@ -112,9 +112,14 @@ export default function PantallaConfirmacion({
   esCumpleanos,
   horasTrabajadas,
   jornadaCompleta,
+  esTardanza,
+  minutosRetraso,
   alDismiss,
 }: PropsPantallaConfirmacion) {
   const [progreso, setProgreso] = useState(100)
+  // Color de la barra: naranja si tardanza, amarillo cumpleaños, verde normal
+  const colorBarra = esTardanza ? 'rgba(251,146,60,0.6)' : esCumpleanos ? 'rgba(234,179,8,0.6)' : 'rgba(74,222,128,0.6)'
+  const colorAccento = esTardanza ? '#fb923c' : esCumpleanos ? '#facc15' : '#4ade80'
   const duracion = esCumpleanos || accion === 'salida' ? 8000 : 4000
 
   // Sonido al montar
@@ -187,7 +192,7 @@ export default function PantallaConfirmacion({
           <div
             className="-mt-9 md:-mt-11 flex items-center justify-center w-12 h-12 md:w-16 md:h-16 rounded-full shadow-lg z-10"
             style={{
-              backgroundColor: esCumpleanos ? 'rgba(234,179,8,0.9)' : 'rgba(74,222,128,0.9)',
+              backgroundColor: esTardanza ? 'rgba(251,146,60,0.9)' : esCumpleanos ? 'rgba(234,179,8,0.9)' : 'rgba(74,222,128,0.9)',
             }}
           >
             <span className="text-white text-2xl md:text-3xl">
@@ -213,6 +218,12 @@ export default function PantallaConfirmacion({
         <p className="font-semibold mt-2 md:mt-3" style={{ fontSize: 'clamp(0.9rem, 2.5vw, 1.125rem)', color: '#d4d4d8' }}>
           {nombre}
         </p>
+        {/* Tardanza sutil */}
+        {esTardanza && minutosRetraso && accion === 'entrada' && (
+          <p className="mt-2 text-sm font-medium" style={{ color: '#fb923c' }}>
+            Llegaste {minutosRetraso}min tarde
+          </p>
+        )}
       </div>
 
       {/* Barra de progreso para auto-dismiss */}
@@ -221,7 +232,7 @@ export default function PantallaConfirmacion({
           className="h-full rounded-full"
           style={{
             width: `${progreso}%`,
-            backgroundColor: esCumpleanos ? 'rgba(234,179,8,0.6)' : 'rgba(74,222,128,0.6)',
+            backgroundColor: colorBarra,
             transition: 'none',
           }}
         />
