@@ -111,9 +111,9 @@ export function SeccionAdjuntos({ adjuntos, adjuntosDocumento = [], forzarExpand
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="px-3 py-2 flex flex-wrap gap-1.5">
+            <div className="px-3 py-2 grid grid-cols-2 gap-2">
               {todos.map((adj, i) => (
-                <ChipAdjunto key={`${adj.url}-${i}`} adjunto={adj} />
+                <TarjetaAdjunto key={`${adj.url}-${i}`} adjunto={adj} />
               ))}
             </div>
           </motion.div>
@@ -123,22 +123,49 @@ export function SeccionAdjuntos({ adjuntos, adjuntosDocumento = [], forzarExpand
   )
 }
 
-// ─── Chip compacto de adjunto ───
-function ChipAdjunto({ adjunto }: { adjunto: AdjuntoConOrigen }) {
+// ─── Tarjeta de adjunto estilo Odoo (miniatura + nombre) ───
+function TarjetaAdjunto({ adjunto }: { adjunto: AdjuntoConOrigen }) {
   const tipo = tipoArchivo(adjunto.tipo || '', adjunto.nombre)
+  const tieneMiniatura = tipo === 'imagen' || !!adjunto.miniatura_url
 
   return (
     <a
       href={adjunto.url}
       target="_blank"
       rel="noopener noreferrer"
-      className={`inline-flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-md border border-borde-sutil hover:border-texto-marca/30 hover:bg-superficie-hover/60 transition-colors max-w-[200px] ${COLORES_TIPO[tipo].split(' ')[0]}`}
-      title={`${adjunto.nombre}${adjunto.origen ? ` · ${adjunto.origen}` : ''}`}
+      className="group block rounded-lg border border-borde-sutil overflow-hidden hover:border-texto-marca/30 transition-colors"
+      title={adjunto.nombre}
     >
-      <div className={`flex items-center justify-center size-5 rounded shrink-0 ${COLORES_TIPO[tipo]}`}>
-        <IconoArchivo tipo={tipo} size={11} />
+      {/* Área de preview */}
+      <div className="relative aspect-[4/3] bg-superficie-app flex items-center justify-center overflow-hidden">
+        {tieneMiniatura ? (
+          <img
+            src={adjunto.miniatura_url || adjunto.url}
+            alt={adjunto.nombre}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+            loading="lazy"
+          />
+        ) : (
+          <div className={`flex flex-col items-center gap-1 ${COLORES_TIPO[tipo].split(' ')[1] || 'text-texto-terciario'}`}>
+            <IconoArchivo tipo={tipo} size={28} />
+            {extension(adjunto.nombre) && (
+              <span className="text-xxs font-bold uppercase opacity-60">{extension(adjunto.nombre)}</span>
+            )}
+          </div>
+        )}
+        {/* Overlay hover */}
+        <div className="absolute inset-0 bg-negro/0 group-hover:bg-negro/10 transition-colors flex items-center justify-center">
+          <ExternalLink size={16} className="text-blanco opacity-0 group-hover:opacity-80 transition-opacity drop-shadow" />
+        </div>
       </div>
-      <span className="text-xs text-texto-primario truncate">{adjunto.nombre}</span>
+
+      {/* Nombre del archivo */}
+      <div className="flex items-center gap-1.5 px-2 py-1.5 bg-superficie-hover/40">
+        <div className={`flex items-center justify-center size-4 shrink-0 ${COLORES_TIPO[tipo].split(' ')[1] || 'text-texto-terciario'}`}>
+          <IconoArchivo tipo={tipo} size={12} />
+        </div>
+        <span className="text-xs text-texto-primario truncate">{adjunto.nombre}</span>
+      </div>
     </a>
   )
 }
