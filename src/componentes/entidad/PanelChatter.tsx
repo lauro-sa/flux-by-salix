@@ -528,6 +528,9 @@ export function PanelChatter({
                   adjuntos={adjuntosChatter}
                   adjuntosDocumento={adjuntosDocumento}
                   forzarExpandido
+                  entidadTipo={entidadTipo}
+                  entidadId={entidadId}
+                  onAdjuntoSubido={cargar}
                 />
               )}
 

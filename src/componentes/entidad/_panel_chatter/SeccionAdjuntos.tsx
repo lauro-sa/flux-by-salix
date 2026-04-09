@@ -1,16 +1,15 @@
 'use client'
 
 /**
- * SeccionAdjuntos — Lista compacta de archivos adjuntos del chatter.
- * Muestra ícono de tipo (PDF, IMG, etc.) + nombre + tamaño en una fila.
- * Sin previews grandes — solo íconos compactos y nombres truncados.
+ * SeccionAdjuntos — Tarjetas compactas de adjuntos del chatter.
+ * Miniaturas alineadas arriba, botón para adjuntar archivos.
  * Se usa en: PanelChatter (controlado desde el header con forzarExpandido).
  */
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import {
   Paperclip, ChevronDown, ChevronUp, FileText, Image as ImageIcon,
-  Film, Music, File, ExternalLink,
+  Film, Music, File, Plus, Loader2,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { AdjuntoChatter } from '@/tipos/chatter'
@@ -25,14 +24,17 @@ interface PropsSeccionAdjuntos {
   adjuntos: AdjuntoConOrigen[]
   adjuntosDocumento?: AdjuntoConOrigen[]
   forzarExpandido?: boolean
+  entidadTipo?: string
+  entidadId?: string
+  onAdjuntoSubido?: () => void
 }
 
 // Detectar tipo de archivo
 function tipoArchivo(mime: string, nombre: string): 'imagen' | 'pdf' | 'video' | 'audio' | 'otro' {
-  if (mime.startsWith('image/')) return 'imagen'
-  if (mime === 'application/pdf' || nombre.endsWith('.pdf')) return 'pdf'
-  if (mime.startsWith('video/')) return 'video'
-  if (mime.startsWith('audio/')) return 'audio'
+  if (mime?.startsWith('image/')) return 'imagen'
+  if (mime === 'application/pdf' || nombre?.endsWith('.pdf')) return 'pdf'
+  if (mime?.startsWith('video/')) return 'video'
+  if (mime?.startsWith('audio/')) return 'audio'
   return 'otro'
 }
 
@@ -71,15 +73,47 @@ function formatearTamano(bytes?: number): string {
   return `${(bytes / 1048576).toFixed(1)} MB`
 }
 
-export function SeccionAdjuntos({ adjuntos, adjuntosDocumento = [], forzarExpandido }: PropsSeccionAdjuntos) {
+export function SeccionAdjuntos({
+  adjuntos,
+  adjuntosDocumento = [],
+  forzarExpandido,
+  entidadTipo,
+  entidadId,
+  onAdjuntoSubido,
+}: PropsSeccionAdjuntos) {
   const [expandido, setExpandido] = useState(false)
+  const [subiendo, setSubiendo] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const todos = [...adjuntosDocumento, ...adjuntos]
   const total = todos.length
+  const puedeAdjuntar = !!entidadTipo && !!entidadId
 
-  if (total === 0) return null
+  if (total === 0 && !puedeAdjuntar) return null
 
   const mostrar = forzarExpandido || expandido
+
+  // Subir archivo al chatter
+  const handleSubirArchivo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const archivo = e.target.files?.[0]
+    if (!archivo || !entidadTipo || !entidadId) return
+
+    setSubiendo(true)
+    try {
+      const formData = new FormData()
+      formData.append('archivo', archivo)
+      formData.append('entidad_tipo', entidadTipo)
+      formData.append('entidad_id', entidadId)
+
+      const res = await fetch('/api/chatter/adjuntar', {
+        method: 'POST',
+        body: formData,
+      })
+      if (res.ok) onAdjuntoSubido?.()
+    } catch { /* silenciar */ }
+    setSubiendo(false)
+    if (inputRef.current) inputRef.current.value = ''
+  }
 
   return (
     <div className="border-b border-borde-sutil">
@@ -101,7 +135,7 @@ export function SeccionAdjuntos({ adjuntos, adjuntosDocumento = [], forzarExpand
         </button>
       )}
 
-      {/* Lista compacta de archivos */}
+      {/* Lista de archivos */}
       <AnimatePresence>
         {mostrar && (
           <motion.div
@@ -116,6 +150,26 @@ export function SeccionAdjuntos({ adjuntos, adjuntosDocumento = [], forzarExpand
                 <TarjetaAdjunto key={`${adj.url}-${i}`} adjunto={adj} />
               ))}
             </div>
+
+            {/* Botón adjuntar archivos */}
+            {puedeAdjuntar && (
+              <div className="px-3 pb-2">
+                <input
+                  ref={inputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={handleSubirArchivo}
+                />
+                <button
+                  onClick={() => inputRef.current?.click()}
+                  disabled={subiendo}
+                  className="flex items-center gap-1.5 text-xs text-texto-marca hover:text-texto-marca/80 transition-colors disabled:opacity-50"
+                >
+                  {subiendo ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                  Adjuntar archivos
+                </button>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -136,13 +190,13 @@ function TarjetaAdjunto({ adjunto }: { adjunto: AdjuntoConOrigen }) {
       className="group block w-[130px] rounded-md border border-borde-sutil overflow-hidden hover:border-texto-marca/30 transition-colors"
       title={adjunto.nombre}
     >
-      {/* Preview compacto */}
+      {/* Preview — object-top para mostrar inicio del documento */}
       <div className="relative h-[80px] bg-superficie-app flex items-center justify-center overflow-hidden">
         {tieneMiniatura ? (
           <img
             src={adjunto.miniatura_url || adjunto.url}
             alt={adjunto.nombre}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover object-top"
             loading="lazy"
           />
         ) : (
