@@ -1,7 +1,5 @@
-import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
-import { SkeletonTabla } from '@/componentes/feedback/SkeletonTabla'
 import ContenidoPresupuestos from './_componentes/ContenidoPresupuestos'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
@@ -11,20 +9,12 @@ import { crearQueryClient } from '@/lib/query'
 /**
  * Página de presupuestos — /presupuestos (Server Component)
  * Hace el fetch inicial en el servidor para que la tabla se renderice instantáneamente.
- * El Client Component toma el control para filtros, paginación y acciones.
+ * Sin Suspense: Next.js mantiene la página anterior visible durante la navegación.
  */
 
 const POR_PAGINA = 50
 
-export default function PaginaPresupuestos() {
-  return (
-    <Suspense fallback={<SkeletonTabla filas={10} columnas={7} />}>
-      <PresupuestosConDatos />
-    </Suspense>
-  )
-}
-
-async function PresupuestosConDatos() {
+export default async function PaginaPresupuestos() {
   const supabase = await crearClienteServidor()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -32,7 +22,6 @@ async function PresupuestosConDatos() {
   const empresaId = user.app_metadata?.empresa_activa_id
   if (!empresaId) redirect('/login')
 
-  // Verificar permisos de visibilidad
   const visibilidad = await verificarVisibilidad(user.id, empresaId, 'presupuestos')
   if (!visibilidad) return <ContenidoPresupuestos />
 
@@ -63,7 +52,6 @@ async function PresupuestosConDatos() {
     .order('numero', { ascending: false })
     .range(0, POR_PAGINA - 1)
 
-  // Construir el JSON con la misma forma que devuelve la API
   const datosInicialesJson = {
     presupuestos: data || [],
     total: count || 0,
@@ -72,8 +60,6 @@ async function PresupuestosConDatos() {
     total_paginas: Math.ceil((count || 0) / POR_PAGINA),
   }
 
-  // Pre-popular el cache de React Query con los datos del servidor
-  // La queryKey coincide con la que genera useListado: ['presupuestos', paramsLimpios]
   const queryClient = crearQueryClient()
   queryClient.setQueryData(
     ['presupuestos', { pagina: '1', por_pagina: '50' }],

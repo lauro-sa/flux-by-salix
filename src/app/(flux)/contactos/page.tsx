@@ -1,7 +1,5 @@
-import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
-import { SkeletonTabla } from '@/componentes/feedback/SkeletonTabla'
 import ContenidoContactos from './_componentes/ContenidoContactos'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
@@ -10,21 +8,12 @@ import { crearQueryClient } from '@/lib/query'
 
 /**
  * Página de contactos — /contactos (Server Component)
- * Hace el fetch inicial en el servidor para que la tabla se renderice instantáneamente.
- * El Client Component toma el control para filtros, paginación y acciones.
+ * Sin Suspense: Next.js mantiene la página anterior visible durante la navegación.
  */
 
 const POR_PAGINA = 50
 
-export default function PaginaContactos() {
-  return (
-    <Suspense fallback={<SkeletonTabla filas={10} columnas={7} />}>
-      <ContactosConDatos />
-    </Suspense>
-  )
-}
-
-async function ContactosConDatos() {
+export default async function PaginaContactos() {
   const supabase = await crearClienteServidor()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -32,7 +21,6 @@ async function ContactosConDatos() {
   const empresaId = user.app_metadata?.empresa_activa_id
   if (!empresaId) redirect('/login')
 
-  // Verificar permisos de visibilidad
   const visibilidad = await verificarVisibilidad(user.id, empresaId, 'contactos')
   if (!visibilidad) return <ContenidoContactos />
 
@@ -56,8 +44,6 @@ async function ContactosConDatos() {
     .eq('empresa_id', empresaId)
     .eq('en_papelera', false)
 
-  // Si solo tiene ver_propio, filtrar por contactos creados por él
-  // (sin la subquery de responsables — React Query la completa en el refetch)
   if (visibilidad.soloPropio) {
     query = query.eq('creado_por', user.id)
   }
@@ -66,8 +52,6 @@ async function ContactosConDatos() {
     .order('codigo', { ascending: false })
     .range(0, POR_PAGINA - 1)
 
-  // Construir el JSON con la misma forma que devuelve la API
-  // ultima_etapa se deja como null — la API la enriquece después y React Query la trae en el refetch
   const contactosConEtapa = (data || []).map(c => ({ ...c, ultima_etapa: null }))
 
   const datosInicialesJson = {
@@ -78,8 +62,6 @@ async function ContactosConDatos() {
     total_paginas: Math.ceil((count || 0) / POR_PAGINA),
   }
 
-  // Pre-popular el cache de React Query con los datos del servidor
-  // La queryKey coincide con la que genera useListado: ['contactos', paramsLimpios]
   const queryClient = crearQueryClient()
   queryClient.setQueryData(
     ['contactos', { pagina: '1', por_pagina: '50' }],

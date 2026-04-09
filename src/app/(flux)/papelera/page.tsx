@@ -1,34 +1,11 @@
-import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
-import { SkeletonLista } from '@/componentes/feedback/SkeletonTabla'
 import ContenidoPapelera, { type ElementoPapelera } from './_componentes/ContenidoPapelera'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { crearQueryClient } from '@/lib/query'
 
-/**
- * Página de papelera — /papelera (Server Component)
- * Hace el fetch inicial en el servidor para renderizar instantáneamente.
- * El Client Component toma el control para interactividad y refetch.
- */
-
-export default function PaginaPapelera() {
-  return (
-    <Suspense fallback={
-      <div className="flex flex-col h-full gap-4 p-4 sm:p-6">
-        <div className="flex items-center gap-2">
-          <div className="h-6 w-32 bg-superficie-hover rounded animate-pulse" />
-        </div>
-        <SkeletonLista filas={6} />
-      </div>
-    }>
-      <PapeleraConDatos />
-    </Suspense>
-  )
-}
-
-async function PapeleraConDatos() {
+export default async function PaginaPapelera() {
   const supabase = await crearClienteServidor()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -38,7 +15,6 @@ async function PapeleraConDatos() {
 
   const admin = crearClienteAdmin()
 
-  // Fetch de las 4 entidades en paralelo — server-side, sin roundtrip al navegador
   const [contactosRes, presupuestosRes, actividadesRes, productosRes] = await Promise.all([
     admin
       .from('contactos')
@@ -62,7 +38,6 @@ async function PapeleraConDatos() {
       .eq('en_papelera', true),
   ])
 
-  // Mapear a formato unificado
   const resultados: ElementoPapelera[] = []
 
   for (const c of (contactosRes.data || [])) {
@@ -113,11 +88,8 @@ async function PapeleraConDatos() {
     })
   }
 
-  // Ordenar por fecha de eliminación (más reciente primero)
   resultados.sort((a, b) => new Date(b.eliminado_en).getTime() - new Date(a.eliminado_en).getTime())
 
-  // Pre-popular el cache de React Query con los datos del servidor
-  // La queryKey ['papelera'] coincide con la que usa ContenidoPapelera en useQuery
   const queryClient = crearQueryClient()
   queryClient.setQueryData(['papelera'], resultados)
 
