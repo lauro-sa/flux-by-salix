@@ -1063,9 +1063,11 @@ export default function EditorPresupuesto({
       const res = await fetch(`/api/presupuestos/${pid}/portal`, { method: 'POST' })
       if (!res.ok) return
       const data = await res.json()
-      if (data.url) {
-        await navigator.clipboard.writeText(data.url).catch(() => {})
-        window.open(data.url, '_blank')
+      if (data.token) {
+        // Clipboard: siempre la URL oficial del backend (dominio de producción)
+        if (data.url) await navigator.clipboard.writeText(data.url).catch(() => {})
+        // Abrir: usar origin del navegador para que funcione en cualquier puerto local
+        window.open(`${window.location.origin}/portal/${data.token}`, '_blank')
       }
     } catch { /* silenciar */ }
   }
