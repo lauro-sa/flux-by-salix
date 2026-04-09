@@ -48,6 +48,7 @@ export interface TipoActividad {
   campo_prioridad: boolean
   campo_checklist: boolean
   campo_calendario: boolean
+  auto_completar: boolean
   orden: number
   activo: boolean
   es_predefinido: boolean

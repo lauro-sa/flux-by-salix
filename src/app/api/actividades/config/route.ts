@@ -93,6 +93,7 @@ export async function PUT(request: NextRequest) {
             campo_prioridad: datos.campo_prioridad ?? false,
             campo_checklist: datos.campo_checklist ?? false,
             campo_calendario: datos.campo_calendario ?? false,
+            auto_completar: datos.auto_completar ?? false,
             orden: (maxOrden?.orden ?? -1) + 1,
             es_predefinido: false,
           })
@@ -120,6 +121,7 @@ export async function PUT(request: NextRequest) {
         if (datos.campo_prioridad !== undefined) campos.campo_prioridad = datos.campo_prioridad
         if (datos.campo_checklist !== undefined) campos.campo_checklist = datos.campo_checklist
         if (datos.campo_calendario !== undefined) campos.campo_calendario = datos.campo_calendario
+        if (datos.auto_completar !== undefined) campos.auto_completar = datos.auto_completar
         if (datos.activo !== undefined) campos.activo = datos.activo
 
         const { data, error } = await admin

@@ -295,11 +295,18 @@ function TablaDinamica<T>({
      ══════════════════════════════════════ */
 
   /* Estado actual de datos — lo que se compara contra vistas guardadas.
-     Incluye filtros internos (auto-generados) + filtros externos (prop). */
+     Incluye filtros internos (auto-generados) + filtros externos (prop).
+     Filtros en su valorDefault se omiten para que el detector los vea como "sin cambios". */
   const estadoActualDatos: EstadoVistaDatos = useMemo(() => {
     const todosLosFiltrosEstado: Record<string, string | string[]> = { ...filtrosInternos }
-    /* Incorporar filtros externos al estado */
+    /* Incorporar filtros externos al estado (solo si difieren de su default) */
     filtros.forEach(f => {
+      if (f.valorDefault !== undefined) {
+        const esDefault = Array.isArray(f.valor) && Array.isArray(f.valorDefault)
+          ? f.valor.length === f.valorDefault.length && f.valorDefault.every(d => (f.valor as string[]).includes(d))
+          : f.valor === f.valorDefault
+        if (esDefault) return // omitir del estado — es el default
+      }
       todosLosFiltrosEstado[f.id] = f.valor
     })
     return {
@@ -771,12 +778,23 @@ function TablaDinamica<T>({
       .filter(Boolean)
   }, [ordenColumnas, columnasVisibles, columnas])
 
-  /* Conteo de filtros activos */
-  /* Conteo de filtros activos (todos: externos + auto-generados) */
-  const numFiltrosActivos = todosLosFiltros.filter((f) => {
+  /* Determina si un filtro tiene un valor distinto a su default */
+  const filtroEstaActivo = useCallback((f: FiltroTabla) => {
+    // Si tiene valorDefault, comparar contra él
+    if (f.valorDefault !== undefined) {
+      if (Array.isArray(f.valor) && Array.isArray(f.valorDefault)) {
+        if (f.valor.length !== f.valorDefault.length) return true
+        return !f.valorDefault.every(d => (f.valor as string[]).includes(d))
+      }
+      return f.valor !== f.valorDefault
+    }
+    // Sin default: activo si tiene valor no vacío
     if (Array.isArray(f.valor)) return f.valor.length > 0
     return f.valor !== ''
-  }).length
+  }, [])
+
+  /* Conteo de filtros activos (todos: externos + auto-generados) */
+  const numFiltrosActivos = todosLosFiltros.filter(filtroEstaActivo).length
 
   const hayBusquedaOFiltros = valorInput.length > 0 || numFiltrosActivos > 0 || ordenamiento.length > 0
 
@@ -1022,7 +1040,7 @@ function TablaDinamica<T>({
 
           {/* Pills de filtros activos — debajo de la cápsula para no comprimir botones */}
           {detector.tipo !== 'vista_activa' && (() => {
-            const filtrosActivos = todosLosFiltros.filter((f) => (Array.isArray(f.valor) ? f.valor.length > 0 : f.valor !== ''))
+            const filtrosActivos = todosLosFiltros.filter(filtroEstaActivo)
             if (filtrosActivos.length === 0) return null
             return (
               <div className="flex flex-wrap items-center gap-1.5 mt-1.5 px-0.5">

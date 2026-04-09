@@ -26,12 +26,22 @@ export default async function PaginaActividades() {
 
   const admin = crearClienteAdmin()
 
+  // Obtener estados del grupo 'activo' para filtrar por defecto (excluir completados y cancelados)
+  const { data: estadosActivos } = await admin
+    .from('estados_actividad')
+    .select('clave')
+    .eq('empresa_id', empresaId)
+    .eq('activo', true)
+    .eq('grupo', 'activo')
+
+  const clavesActivas = estadosActivos?.map(e => e.clave) || ['pendiente', 'vencida']
+
   let query = admin
     .from('actividades')
     .select('*', { count: 'exact' })
     .eq('empresa_id', empresaId)
     .eq('en_papelera', false)
-    .in('estado_clave', ['pendiente', 'vencida'])
+    .in('estado_clave', clavesActivas)
     .eq('asignado_a', user.id)
 
   if (visibilidad.soloPropio) {
@@ -54,7 +64,7 @@ export default async function PaginaActividades() {
 
   const queryClient = crearQueryClient()
   queryClient.setQueryData(
-    ['actividades', { estado: 'pendiente,vencida', vista: 'mias', pagina: '1', por_pagina: '50' }],
+    ['actividades', { estado: clavesActivas.join(','), vista: 'mias', pagina: '1', por_pagina: '50' }],
     datosInicialesJson
   )
 

@@ -70,8 +70,7 @@ function fechaCorta(iso: string | null, locale: string): string {
 
 const POR_PAGINA = 50
 
-/** Estados por defecto del listado (pendiente + vencida, vista mías) */
-const ESTADOS_DEFAULT = ['pendiente', 'vencida']
+/** Vista por defecto: mías */
 const VISTA_DEFAULT = 'mias'
 
 interface Props {
@@ -94,7 +93,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
 
   // Filtros server-side
   const [filtroTipo, setFiltroTipo] = useState('')
-  const [filtroEstado, setFiltroEstado] = useState<string[]>(ESTADOS_DEFAULT)
+  const [filtroEstado, setFiltroEstado] = useState<string[] | null>(null) // null = pendiente de config
   const [filtroPrioridad, setFiltroPrioridad] = useState('')
   const [filtroVista, setFiltroVista] = useState(VISTA_DEFAULT)
 
@@ -107,9 +106,39 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
   // Reset de página al cambiar filtros o búsqueda
   useEffect(() => { setPagina(1) }, [busquedaDebounced, filtroTipo, filtroEstado, filtroPrioridad, filtroVista])
 
+  // ═══════ Configuración (antes del listado para calcular filtros default) ═══════
+
+  /** Configuración de tipos, estados y presets (cache largo) */
+  const { datos: configData } = useConfig<{ tipos: TipoActividad[]; estados: EstadoActividad[]; config: Record<string, unknown> }>(
+    'actividades-config',
+    '/api/actividades/config',
+    (json) => json as { tipos: TipoActividad[]; estados: EstadoActividad[]; config: Record<string, unknown> },
+  )
+
+  const tipos = configData?.tipos || []
+  const estados = configData?.estados || []
+
+  // Estados por defecto: todos los del grupo 'activo' (excluye completados y cancelados)
+  const estadosDefaultCalculados = useMemo(
+    () => estados.filter(e => e.activo && e.grupo === 'activo').map(e => e.clave),
+    [estados],
+  )
+
+  // Inicializar filtro de estado cuando la config carga por primera vez
+  const configInicializada = useRef(false)
+  useEffect(() => {
+    if (estadosDefaultCalculados.length > 0 && !configInicializada.current) {
+      configInicializada.current = true
+      setFiltroEstado(estadosDefaultCalculados)
+    }
+  }, [estadosDefaultCalculados])
+
+  // Filtro efectivo de estado (usa default calculado mientras config carga)
+  const filtroEstadoActual = filtroEstado || estadosDefaultCalculados
+
   // Solo usar datos iniciales cuando no hay filtros activos (primera carga)
-  const estadoEsDefault = filtroEstado.length === ESTADOS_DEFAULT.length &&
-    ESTADOS_DEFAULT.every(e => filtroEstado.includes(e))
+  const estadoEsDefault = filtroEstadoActual.length === estadosDefaultCalculados.length &&
+    estadosDefaultCalculados.every(e => filtroEstadoActual.includes(e))
   const sinFiltros = !busquedaDebounced && !filtroTipo && estadoEsDefault && !filtroPrioridad && filtroVista === VISTA_DEFAULT && pagina === 1
 
   // ═══════ Datos con React Query ═══════
@@ -121,7 +150,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
     parametros: {
       busqueda: busquedaDebounced,
       tipo: filtroTipo || undefined,
-      estado: Array.isArray(filtroEstado) ? filtroEstado.join(',') : filtroEstado || undefined,
+      estado: filtroEstadoActual.length > 0 ? filtroEstadoActual.join(',') : undefined,
       prioridad: filtroPrioridad || undefined,
       vista: filtroVista || undefined,
       pagina,
@@ -131,16 +160,6 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
     extraerTotal: (json) => (json.total || 0) as number,
     datosInicialesJson: sinFiltros ? datosInicialesJson : undefined,
   })
-
-  /** Configuración de tipos, estados y presets (cache largo) */
-  const { datos: configData } = useConfig<{ tipos: TipoActividad[]; estados: EstadoActividad[]; config: Record<string, unknown> }>(
-    'actividades-config',
-    '/api/actividades/config',
-    (json) => json as { tipos: TipoActividad[]; estados: EstadoActividad[]; config: Record<string, unknown> },
-  )
-
-  const tipos = configData?.tipos || []
-  const estados = configData?.estados || []
   const presetsPosposicion = (configData?.config?.presets_posposicion as { id: string; etiqueta: string; dias: number }[] | undefined)?.length
     ? (configData.config.presets_posposicion as { id: string; etiqueta: string; dias: number }[])
     : [
@@ -344,23 +363,25 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
     const tipo = tiposPorId[act.tipo_id]
     if (!tipo) return
     const contacto = (act.vinculos as Vinculo[])?.find(v => v.tipo === 'contacto')
+    // Si el tipo tiene auto_completar, pasar el ID de la actividad para completarla al guardar
+    const paramAuto = tipo.auto_completar ? `&actividad_origen_id=${act.id}` : ''
 
     switch (tipo.clave) {
       case 'presupuestar':
         if (contacto) {
-          router.push(`/presupuestos/nuevo?contacto_id=${contacto.id}&desde=/actividades`)
+          router.push(`/presupuestos/nuevo?contacto_id=${contacto.id}&desde=/actividades${paramAuto}`)
         } else {
-          router.push('/presupuestos/nuevo?desde=/actividades')
+          router.push(`/presupuestos/nuevo?desde=/actividades${paramAuto}`)
         }
         return
       case 'visita':
         if (contacto) {
-          router.push(`/visitas?contacto_id=${contacto.id}&desde=/actividades`)
+          router.push(`/visitas?contacto_id=${contacto.id}&desde=/actividades${paramAuto}`)
         }
         return
       case 'correo':
         if (contacto) {
-          router.push(`/inbox?contacto_id=${contacto.id}&desde=/actividades`)
+          router.push(`/inbox?contacto_id=${contacto.id}&desde=/actividades${paramAuto}`)
         }
         return
     }
@@ -500,7 +521,22 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
         const tieneAccionTipo = esPendiente && tipo && ['presupuestar', 'visita', 'correo'].includes(tipo.clave)
         return (
           <div className="flex items-center gap-0.5 justify-end">
-            {/* Completar / estado */}
+            {/* Acción inteligente según tipo — espacio fijo */}
+            <div className="size-6 shrink-0 flex items-center justify-center">
+              {tieneAccionTipo && (
+                <Tooltip contenido={tipo?.clave === 'presupuestar' ? 'Crear presupuesto' : tipo?.clave === 'visita' ? 'Ir a visitas' : 'Enviar correo'}>
+                  <Boton
+                    variante="fantasma"
+                    tamano="xs"
+                    soloIcono
+                    icono={tipo?.clave === 'presupuestar' ? <FileText size={14} /> : tipo?.clave === 'visita' ? <MapPin size={14} /> : <ClipboardList size={14} />}
+                    onClick={(e) => { e.stopPropagation(); ejecutarAccionTipo(fila) }}
+                    titulo={`Ir a ${tipo?.etiqueta?.toLowerCase()}`}
+                  />
+                </Tooltip>
+              )}
+            </div>
+            {/* Completar / estado — siempre visible */}
             <Tooltip contenido={esPendiente ? 'Completar' : estado?.etiqueta || ''}>
               <button
                 onClick={(e) => { e.stopPropagation(); if (esPendiente) completarActividad(fila.id) }}
@@ -514,46 +550,35 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
                 <CheckCircle size={14} />
               </button>
             </Tooltip>
-            {/* Acción inteligente según tipo */}
-            {tieneAccionTipo && (
-              <Tooltip contenido={tipo?.clave === 'presupuestar' ? 'Crear presupuesto' : tipo?.clave === 'visita' ? 'Ir a visitas' : 'Enviar correo'}>
-                <Boton
-                  variante="fantasma"
-                  tamano="xs"
-                  soloIcono
-                  icono={tipo?.clave === 'presupuestar' ? <FileText size={14} /> : tipo?.clave === 'visita' ? <MapPin size={14} /> : <ClipboardList size={14} />}
-                  onClick={(e) => { e.stopPropagation(); ejecutarAccionTipo(fila) }}
-                  titulo={`Ir a ${tipo?.etiqueta?.toLowerCase()}`}
-                />
-              </Tooltip>
-            )}
-            {/* Posponer con dropdown */}
-            {esPendiente && (
-              <div className="relative group/posponer">
-                <Tooltip contenido="Posponer">
-                  <Boton
-                    variante="fantasma"
-                    tamano="xs"
-                    soloIcono
-                    icono={<Clock size={14} />}
-                    onClick={(e) => { e.stopPropagation(); posponerActividad(fila.id, presetsPosposicion[0]?.dias ?? 1) }}
-                    titulo="Posponer"
-                    className="hover:bg-insignia-advertencia-fondo hover:text-insignia-advertencia-texto"
-                  />
-                </Tooltip>
-                <div className="absolute top-full right-0 mt-0.5 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden z-50 hidden group-hover/posponer:block min-w-[120px]">
-                  {presetsPosposicion.map(op => (
-                    <button
-                      key={op.id}
-                      onClick={(e) => { e.stopPropagation(); posponerActividad(fila.id, op.dias) }}
-                      className="w-full px-3 py-1.5 text-xs text-left text-texto-primario bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors"
-                    >
-                      {op.etiqueta}
-                    </button>
-                  ))}
+            {/* Posponer con dropdown — espacio fijo */}
+            <div className="size-6 shrink-0 flex items-center justify-center">
+              {esPendiente && (
+                <div className="relative group/posponer">
+                  <Tooltip contenido="Posponer">
+                    <Boton
+                      variante="fantasma"
+                      tamano="xs"
+                      soloIcono
+                      icono={<Clock size={14} />}
+                      onClick={(e) => { e.stopPropagation(); posponerActividad(fila.id, presetsPosposicion[0]?.dias ?? 1) }}
+                      titulo="Posponer"
+                      className="hover:bg-insignia-advertencia-fondo hover:text-insignia-advertencia-texto"
+                    />
+                  </Tooltip>
+                  <div className="absolute top-full right-0 mt-0.5 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden z-50 hidden group-hover/posponer:block min-w-[120px]">
+                    {presetsPosposicion.map(op => (
+                      <button
+                        key={op.id}
+                        onClick={(e) => { e.stopPropagation(); posponerActividad(fila.id, op.dias) }}
+                        className="w-full px-3 py-1.5 text-xs text-left text-texto-primario bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors"
+                      >
+                        {op.etiqueta}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )
       },
@@ -744,8 +769,9 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
           },
           {
             id: 'estado', etiqueta: 'Estado', tipo: 'multiple' as const,
-            valor: filtroEstado, onChange: (v) => setFiltroEstado(Array.isArray(v) ? v : (v ? [v] : [])),
+            valor: filtroEstadoActual, onChange: (v) => setFiltroEstado(Array.isArray(v) ? v : (v ? [v] : [])),
             opciones: estados.filter(e => e.activo).map(e => ({ valor: e.clave, etiqueta: e.etiqueta })),
+            valorDefault: estadosDefaultCalculados,
           },
           {
             id: 'prioridad', etiqueta: 'Prioridad', tipo: 'pills' as const,
@@ -763,9 +789,10 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
               { valor: 'mias', etiqueta: 'Asignadas a mí' },
               { valor: 'enviadas', etiqueta: 'Creadas por mí' },
             ],
+            valorDefault: VISTA_DEFAULT,
           },
         ]}
-        onLimpiarFiltros={() => { setFiltroTipo(''); setFiltroEstado([]); setFiltroPrioridad(''); setFiltroVista('') }}
+        onLimpiarFiltros={() => { setFiltroTipo(''); setFiltroEstado(estadosDefaultCalculados); setFiltroPrioridad(''); setFiltroVista('') }}
         opcionesOrden={[
           { etiqueta: 'Más recientes', clave: 'creado_en', direccion: 'desc' },
           { etiqueta: 'Más antiguos', clave: 'creado_en', direccion: 'asc' },

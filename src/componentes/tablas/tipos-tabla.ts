@@ -56,6 +56,8 @@ export interface FiltroTabla {
   valor: string | string[]
   onChange: (valor: string | string[]) => void
   opciones?: { valor: string; etiqueta: string }[]
+  /** Valor por defecto: cuando el valor actual coincide, no se muestra badge de filtro activo */
+  valorDefault?: string | string[]
 }
 
 /** Acción en lote */

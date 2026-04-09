@@ -58,6 +58,7 @@ function ModalTipoActividad({ abierto, tipo, modulosDisponibles, guardando, onGu
     campo_checklist: false,
     campo_calendario: false,
   })
+  const [autoCompletar, setAutoCompletar] = useState(false)
   // Ref para el input color nativo (gotero)
   const colorInputRef = useRef<HTMLInputElement>(null)
 
@@ -79,6 +80,7 @@ function ModalTipoActividad({ abierto, tipo, modulosDisponibles, guardando, onGu
         campo_checklist: tipo.campo_checklist,
         campo_calendario: tipo.campo_calendario ?? false,
       })
+      setAutoCompletar(tipo.auto_completar ?? false)
     } else {
       setEtiqueta('')
       setClave('')
@@ -94,6 +96,7 @@ function ModalTipoActividad({ abierto, tipo, modulosDisponibles, guardando, onGu
         campo_checklist: false,
         campo_calendario: false,
       })
+      setAutoCompletar(false)
     }
   }, [abierto, tipo])
 
@@ -121,6 +124,7 @@ function ModalTipoActividad({ abierto, tipo, modulosDisponibles, guardando, onGu
       color,
       modulos_disponibles: modulos,
       dias_vencimiento: diasVencimiento,
+      auto_completar: autoCompletar,
       ...campos,
     }
     if (esEdicion) datos.id = tipo!.id
@@ -326,6 +330,23 @@ function ModalTipoActividad({ abierto, tipo, modulosDisponibles, guardando, onGu
                 />
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* ── Auto-completar ── */}
+        <div className="border-t border-borde-sutil pt-5">
+          <div className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-superficie-hover/50 transition-colors">
+            <div>
+              <p className="text-sm text-texto-primario font-medium">Auto-completar al ejecutar</p>
+              <p className="text-xs text-texto-terciario mt-0.5">
+                Cuando se crea el documento desde la actividad (ej: presupuesto, visita), la actividad se marca como completada automáticamente.
+                Si se crea por otro lado, no se auto-completa.
+              </p>
+            </div>
+            <Interruptor
+              activo={autoCompletar}
+              onChange={setAutoCompletar}
+            />
           </div>
         </div>
       </div>

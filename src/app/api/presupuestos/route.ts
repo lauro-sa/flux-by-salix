@@ -277,6 +277,44 @@ export async function POST(request: NextRequest) {
       metadata: { accion: 'creado' },
     })
 
+    // Auto-completar actividad origen si se proporcionó
+    if (body.actividad_origen_id) {
+      // Buscar el estado 'completada' de la empresa
+      const { data: estadoCompletada } = await admin
+        .from('estados_actividad')
+        .select('id, clave')
+        .eq('empresa_id', empresaId)
+        .eq('grupo', 'completado')
+        .limit(1)
+        .single()
+
+      if (estadoCompletada) {
+        await admin
+          .from('actividades')
+          .update({
+            estado_id: estadoCompletada.id,
+            estado_clave: estadoCompletada.clave,
+            completado_en: new Date().toISOString(),
+            editado_por: user.id,
+            editado_por_nombre: nombreUsuario,
+            actualizado_en: new Date().toISOString(),
+          })
+          .eq('id', body.actividad_origen_id)
+          .eq('empresa_id', empresaId)
+
+        // Registrar en chatter de la actividad
+        await registrarChatter({
+          empresaId,
+          entidadTipo: 'actividad',
+          entidadId: body.actividad_origen_id,
+          contenido: `Completada automáticamente al crear presupuesto ${presupuesto.numero}`,
+          autorId: user.id,
+          autorNombre: nombreUsuario || 'Usuario',
+          metadata: { accion: 'actividad_completada', detalles: { presupuesto_id: presupuesto.id, presupuesto_numero: presupuesto.numero } },
+        })
+      }
+    }
+
     // Crear líneas iniciales si se proporcionaron
     if (body.lineas?.length) {
       const lineas = body.lineas.map((linea: {

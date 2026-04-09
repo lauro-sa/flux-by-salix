@@ -54,6 +54,8 @@ interface PropsEditorPresupuesto {
   presupuestoId?: string
   /** Contacto a precargar al crear (viene de actividades u otros módulos) */
   contactoIdInicial?: string
+  /** ID de la actividad origen — si se pasa, el backend la auto-completa al crear */
+  actividadOrigenId?: string
   /** Callback cuando se crea el presupuesto (modo crear) */
   onCreado?: (id: string, numero: string) => void
   /** Callback cuando se descarta/elimina */
@@ -66,6 +68,7 @@ export default function EditorPresupuesto({
   modo,
   presupuestoId: presupuestoIdProp,
   contactoIdInicial,
+  actividadOrigenId,
   onCreado,
   onDescartado,
   onTituloCargado,
@@ -431,6 +434,7 @@ export default function EditorPresupuesto({
         notas_html: notasHtmlRef.current || undefined,
         condiciones_html: condicionesHtmlRef.current || undefined,
         columnas_lineas: columnasVisiblesRef.current,
+        actividad_origen_id: actividadOrigenId || undefined,
         lineas: lineasRef.current.filter(l => l.descripcion || l.codigo_producto).map(l => ({
           tipo_linea: l.tipo_linea, orden: l.orden, codigo_producto: l.codigo_producto,
           descripcion: l.descripcion, descripcion_detalle: l.descripcion_detalle,
@@ -538,7 +542,9 @@ export default function EditorPresupuesto({
 
   const cambiarEstado = async (nuevoEstado: EstadoPresupuesto) => {
     if (!idPresupuesto) return
-    setGuardando(true)
+    // Actualización optimista: cambiar UI al instante
+    const estadoAnterior = presupuesto?.estado
+    setPresupuesto(prev => prev ? { ...prev, estado: nuevoEstado } : null)
     try {
       const res = await fetch(`/api/presupuestos/${idPresupuesto}`, {
         method: 'PATCH',
@@ -548,9 +554,12 @@ export default function EditorPresupuesto({
       if (res.ok) {
         const actualizado = await res.json()
         setPresupuesto(prev => prev ? { ...prev, ...actualizado } : null)
+      } else {
+        // Revertir si falló
+        setPresupuesto(prev => prev ? { ...prev, estado: estadoAnterior || prev.estado } : null)
       }
-    } catch { /* silenciar */ } finally {
-      setGuardando(false)
+    } catch {
+      setPresupuesto(prev => prev ? { ...prev, estado: estadoAnterior || prev.estado } : null)
     }
   }
 
