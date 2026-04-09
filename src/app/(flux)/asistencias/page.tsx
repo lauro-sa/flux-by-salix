@@ -1,325 +1,93 @@
-'use client'
+import { Suspense } from 'react'
+import { redirect } from 'next/navigation'
+import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
+import { SkeletonTabla } from '@/componentes/feedback/SkeletonTabla'
+import ContenidoAsistencias from './_componentes/ContenidoAsistencias'
+import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { verificarVisibilidad } from '@/lib/permisos-servidor'
+import { crearQueryClient } from '@/lib/query'
 
-import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
-import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
-import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
-import { Download, Clock, TimerOff, Pencil, Plus } from 'lucide-react'
-import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
-import { Insignia } from '@/componentes/ui/Insignia'
-import { ModalEditarFichaje } from './_componentes/ModalEditarFichaje'
-import { useFormato } from '@/hooks/useFormato'
-import { usePreferencias } from '@/hooks/usePreferencias'
-import { VistaMatriz } from './_componentes/VistaMatriz'
-import { TarjetaAsistencia } from './_componentes/TarjetaAsistencia'
-import { ModalCrearFichaje } from './_componentes/ModalCrearFichaje'
+/**
+ * Página de asistencias — /asistencias (Server Component)
+ * Hace el fetch inicial en el servidor para que la tabla se renderice instantáneamente.
+ * El Client Component (ContenidoAsistencias) toma el control para filtros, paginación y acciones.
+ */
 
-// ─── Constantes ──────────────────────────────────────────────
-
-const ETIQUETA_ESTADO: Record<string, string> = {
-  activo: 'En turno',
-  almuerzo: 'En almuerzo',
-  particular: 'Trámite',
-  cerrado: 'Cerrado',
-  auto_cerrado: 'Sin salida',
-  ausente: 'Ausente',
-  feriado: 'Feriado',
-  presente: 'Presente',
-}
-
-const COLOR_ESTADO: Record<string, string> = {
-  activo: 'exito',
-  almuerzo: 'advertencia',
-  particular: 'info',
-  cerrado: 'neutro',
-  auto_cerrado: 'peligro',
-  ausente: 'peligro',
-  feriado: 'info',
-  presente: 'exito',
-}
-
-const ETIQUETA_METODO: Record<string, string> = {
-  manual: 'Manual',
-  rfid: 'RFID',
-  nfc: 'NFC',
-  pin: 'PIN',
-  automatico: 'Automático',
-  solicitud: 'Solicitud',
-  sistema: 'Sistema',
-}
-
-// ─── Tipos ───────────────────────────────────────────────────
-
-interface RegistroAsistencia {
-  id: string
-  miembro_id: string
-  miembro_nombre: string
-  fecha: string
-  hora_entrada: string | null
-  hora_salida: string | null
-  inicio_almuerzo: string | null
-  fin_almuerzo: string | null
-  estado: string
-  tipo: string
-  metodo_registro: string
-  puntualidad_min: number | null
-  salida_particular: string | null
-  vuelta_particular: string | null
-  editado_por: string | null
-  notas: string | null
-  ubicacion_entrada: Record<string, unknown> | null
-}
-
-// ─── Helpers ─────────────────────────────────────────────────
-
-function formatearHora(iso: string | null, formato: string = '24h'): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  if (formato === '12h') {
-    const h = d.getHours() % 12 || 12
-    const m = String(d.getMinutes()).padStart(2, '0')
-    const ampm = d.getHours() < 12 ? 'AM' : 'PM'
-    return `${h}:${m} ${ampm}`
-  }
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
-
-function calcularDuracion(entrada: string | null, salida: string | null, inicioAlm: string | null, finAlm: string | null): string {
-  if (!entrada) return '—'
-  const fin = salida ? new Date(salida) : new Date()
-  let minutos = Math.round((fin.getTime() - new Date(entrada).getTime()) / 60000)
-
-  // Descontar almuerzo si hay ambos timestamps
-  if (inicioAlm && finAlm) {
-    const almMin = Math.round((new Date(finAlm).getTime() - new Date(inicioAlm).getTime()) / 60000)
-    minutos -= almMin
-  }
-
-  if (minutos < 0) return '—'
-  const h = Math.floor(minutos / 60)
-  const m = minutos % 60
-  if (h === 0) return `${m}min`
-  return m > 0 ? `${h}h ${m}min` : `${h}h`
-}
-
-function formatearFecha(fecha: string, locale: string): string {
-  const d = new Date(fecha + 'T12:00:00')
-  return d.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' })
-}
-
-function formatearUbicacion(ub: Record<string, unknown> | null): string {
-  if (!ub) return '—'
-  if (ub.direccion) return String(ub.direccion)
-  if (ub.lat && ub.lng) return `${Number(ub.lat).toFixed(4)}, ${Number(ub.lng).toFixed(4)}`
-  return '—'
-}
-
-// ─── Página ──────────────────────────────────────────────────
+const POR_PAGINA = 50
 
 export default function PaginaAsistencias() {
-  const router = useRouter()
-  const { formatoHora, locale } = useFormato()
-  const { preferencias, guardar: guardarPrefs } = usePreferencias()
-  const [busqueda, setBusqueda] = useState('')
-  const [registros, setRegistros] = useState<RegistroAsistencia[]>([])
-  const [total, setTotal] = useState(0)
-  const [cargando, setCargando] = useState(true)
-  const [pagina, setPagina] = useState(1)
-  const [editando, setEditando] = useState<RegistroAsistencia | null>(null)
-  const [creando, setCreando] = useState<{ miembroId?: string; miembroNombre?: string; fecha?: string } | null>(null)
-  const [matrizKey, setMatrizKey] = useState(0)
+  return (
+    <Suspense fallback={<SkeletonTabla filas={10} columnas={7} />}>
+      <AsistenciasConDatos />
+    </Suspense>
+  )
+}
 
-  // Vista persistida por usuario+dispositivo
-  const vistaGuardada = (preferencias.config_tablas?.asistencias?.tipoVista as 'lista' | 'tarjetas' | 'matriz') || 'lista'
-  const [vista, setVistaLocal] = useState<'lista' | 'tarjetas' | 'matriz'>(vistaGuardada)
+async function AsistenciasConDatos() {
+  const supabase = await crearClienteServidor()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
-  const setVista = useCallback((v: 'lista' | 'tarjetas' | 'matriz') => {
-    setVistaLocal(v)
-    guardarPrefs({
-      config_tablas: {
-        ...preferencias.config_tablas,
-        asistencias: { ...preferencias.config_tablas?.asistencias, tipoVista: v },
-      },
-    })
-  }, [preferencias.config_tablas, guardarPrefs])
+  const empresaId = user.app_metadata?.empresa_activa_id
+  if (!empresaId) redirect('/login')
 
-  const cargar = useCallback(async () => {
-    setCargando(true)
-    try {
-      const params = new URLSearchParams({ pagina: String(pagina), limite: '50' })
-      const res = await fetch(`/api/asistencias?${params}`)
-      if (!res.ok) return
-      const data = await res.json()
-      setRegistros(data.registros || [])
-      setTotal(data.total || 0)
-    } finally {
-      setCargando(false)
-    }
-  }, [pagina])
+  // Verificar permisos de visibilidad
+  const visibilidad = await verificarVisibilidad(user.id, empresaId, 'asistencias')
+  if (!visibilidad) return <ContenidoAsistencias />
 
-  useEffect(() => { cargar() }, [cargar])
+  const admin = crearClienteAdmin()
 
-  const columnas: ColumnaDinamica<RegistroAsistencia>[] = [
-    {
-      clave: 'miembro_nombre',
-      etiqueta: 'Empleado',
-      ancho: 180,
-      ordenable: true,
-      render: (r) => (
-        <span className="font-medium text-texto-primario">{r.miembro_nombre}</span>
-      ),
-    },
-    {
-      clave: 'fecha',
-      etiqueta: 'Fecha',
-      ancho: 130,
-      ordenable: true,
-      tipo: 'fecha',
-      filtrable: true,
-      render: (r) => (
-        <span className="text-texto-secundario">{formatearFecha(r.fecha, locale)}</span>
-      ),
-    },
-    {
-      clave: 'hora_entrada',
-      etiqueta: 'Entrada',
-      ancho: 80,
-      render: (r) => <span>{formatearHora(r.hora_entrada, formatoHora)}</span>,
-    },
-    {
-      clave: 'hora_salida',
-      etiqueta: 'Salida',
-      ancho: 80,
-      render: (r) => <span>{formatearHora(r.hora_salida, formatoHora)}</span>,
-    },
-    {
-      clave: 'duracion' as keyof RegistroAsistencia,
-      etiqueta: 'Duración',
-      ancho: 90,
-      render: (r) => (
-        <span className="text-texto-secundario font-mono text-xs">
-          {calcularDuracion(r.hora_entrada, r.hora_salida, r.inicio_almuerzo, r.fin_almuerzo)}
-        </span>
-      ),
-    },
-    {
-      clave: 'estado',
-      etiqueta: 'Estado',
-      ancho: 120,
-      ordenable: true,
-      filtrable: true,
-      opcionesFiltro: Object.entries(ETIQUETA_ESTADO).map(([valor, etiqueta]) => ({ valor, etiqueta })),
-      render: (r) => (
-        <Insignia color={COLOR_ESTADO[r.estado] as 'exito' | 'advertencia' | 'info' | 'neutro' | 'peligro' || 'neutro'}>
-          {ETIQUETA_ESTADO[r.estado] || r.estado}
-        </Insignia>
-      ),
-    },
-    {
-      clave: 'metodo_registro',
-      etiqueta: 'Método',
-      ancho: 100,
-      filtrable: true,
-      opcionesFiltro: Object.entries(ETIQUETA_METODO).map(([valor, etiqueta]) => ({ valor, etiqueta })),
-      render: (r) => (
-        <span className="text-xs text-texto-terciario">
-          {ETIQUETA_METODO[r.metodo_registro] || r.metodo_registro}
-        </span>
-      ),
-    },
-    {
-      clave: 'ubicacion_entrada' as keyof RegistroAsistencia,
-      etiqueta: 'Ubicación',
-      ancho: 180,
-      render: (r) => (
-        <span className="text-xs text-texto-terciario truncate">
-          {formatearUbicacion(r.ubicacion_entrada)}
-        </span>
-      ),
-    },
-    {
-      clave: 'editado_por' as keyof RegistroAsistencia,
-      etiqueta: '',
-      ancho: 30,
-      render: (r) => r.editado_por ? (
-        <Pencil size={12} className="text-texto-terciario" />
-      ) : null,
-    },
-  ]
+  // Obtener miembros con nombres para mapear después (misma lógica que la API)
+  const { data: miembrosData } = await admin
+    .from('miembros')
+    .select('id, usuario_id')
+    .eq('empresa_id', empresaId)
+
+  const { data: perfilesData } = await admin
+    .from('perfiles')
+    .select('id, nombre, apellido')
+
+  // Mapeo miembro_id → nombre completo
+  const perfilMap = new Map((perfilesData || []).map((p: Record<string, unknown>) => [p.id, p]))
+  const miembroNombres = new Map((miembrosData || []).map((m: Record<string, unknown>) => {
+    const perfil = perfilMap.get(m.usuario_id) as Record<string, unknown> | undefined
+    return [m.id, perfil ? `${perfil.nombre} ${perfil.apellido}` : 'Sin nombre']
+  }))
+
+  // Query principal de asistencias
+  const { data, count } = await admin
+    .from('asistencias')
+    .select('*', { count: 'exact' })
+    .eq('empresa_id', empresaId)
+    .order('fecha', { ascending: false })
+    .order('hora_entrada', { ascending: false })
+    .range(0, POR_PAGINA - 1)
+
+  // Enriquecer registros con nombres (misma transformación que la API)
+  const registros = (data || []).map((r: Record<string, unknown>) => ({
+    ...r,
+    miembro_nombre: miembroNombres.get(r.miembro_id) || 'Sin nombre',
+    creador_nombre: r.creado_por ? (miembroNombres.get(r.creado_por) || null) : null,
+    editor_nombre: r.editado_por ? (miembroNombres.get(r.editado_por) || null) : null,
+  }))
+
+  // Construir el JSON con la misma forma que devuelve la API
+  const datosInicialesJson = {
+    registros,
+    total: count || 0,
+  }
+
+  // Pre-popular el cache de React Query con los datos del servidor
+  const queryClient = crearQueryClient()
+  queryClient.setQueryData(
+    ['asistencias', { pagina: '1', limite: '50' }],
+    datosInicialesJson
+  )
 
   return (
-    <PlantillaListado
-      titulo="Asistencias"
-      icono={<Clock size={20} />}
-      accionPrincipal={{
-        etiqueta: 'Agregar fichaje',
-        icono: <Plus size={14} />,
-        onClick: () => setCreando({}),
-      }}
-      acciones={[
-        { id: 'exportar', etiqueta: 'Exportar Excel', icono: <Download size={14} />, onClick: () => {
-          window.open('/api/asistencias/exportar', '_blank')
-        } },
-      ]}
-      mostrarConfiguracion
-      onConfiguracion={() => router.push('/asistencias/configuracion')}
-    >
-      <TablaDinamica
-        columnas={columnas}
-        datos={registros}
-        claveFila={(r) => r.id}
-        vistas={['lista', 'tarjetas', 'matriz']}
-        seleccionables
-        busqueda={busqueda}
-        onBusqueda={setBusqueda}
-        placeholder="Buscar empleado..."
-        idModulo="asistencias"
-        totalRegistros={total}
-        registrosPorPagina={50}
-        paginaExterna={pagina}
-        onCambiarPagina={setPagina}
-        onVistaExterna={(v) => setVista(v as 'lista' | 'tarjetas' | 'matriz')}
-        vistaExternaActiva={vista === 'matriz' ? 'matriz' : null}
-        contenidoCustom={vista === 'matriz' ? <VistaMatriz
-          recargarKey={matrizKey}
-          onCrearFichaje={(miembroId, miembroNombre, fecha) => setCreando({ miembroId, miembroNombre, fecha })}
-          onClickAsistencia={async (id) => {
-          // Buscar en registros cargados
-          const encontrado = registros.find(r => r.id === id)
-          if (encontrado) { setEditando(encontrado); return }
-          // Si no está, buscar por ID directo
-          const res = await fetch(`/api/asistencias/detalle?id=${id}`)
-          if (!res.ok) return
-          const reg = await res.json()
-          if (reg?.id) setEditando(reg)
-        }} /> : undefined}
-        renderTarjeta={(r) => <TarjetaAsistencia registro={r} />}
-        onClickFila={(r) => setEditando(r)}
-        estadoVacio={
-          <EstadoVacio
-            icono={<TimerOff size={52} strokeWidth={1} />}
-            titulo="Nadie fichó todavía"
-            descripcion="Cuando tu equipo empiece a registrar entrada y salida, las fichadas van a aparecer acá."
-          />
-        }
-      />
-
-      <ModalEditarFichaje
-        abierto={!!editando}
-        onCerrar={() => setEditando(null)}
-        registro={editando}
-        onGuardado={() => { cargar(); setMatrizKey(k => k + 1) }}
-      />
-
-      <ModalCrearFichaje
-        abierto={!!creando}
-        onCerrar={() => setCreando(null)}
-        onCreado={() => { cargar(); setMatrizKey(k => k + 1) }}
-        miembroId={creando?.miembroId}
-        miembroNombre={creando?.miembroNombre}
-        fecha={creando?.fecha}
-      />
-    </PlantillaListado>
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <ContenidoAsistencias datosInicialesJson={datosInicialesJson} />
+    </HydrationBoundary>
   )
 }

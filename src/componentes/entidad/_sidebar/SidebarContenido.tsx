@@ -180,6 +180,14 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
   )
 
+  // Prefetch de rutas principales para navegación instantánea
+  useEffect(() => {
+    const rutasPrefetch = ['/contactos', '/presupuestos', '/actividades', '/productos', '/dashboard', '/papelera', '/asistencias']
+    rutasPrefetch.forEach(ruta => {
+      if (ruta !== pathname) router.prefetch(ruta)
+    })
+  }, [pathname, router])
+
   const esActivo = (ruta: string) => {
     if (ruta === '/dashboard') return pathname === '/dashboard' || pathname === '/'
     return pathname.startsWith(ruta)
