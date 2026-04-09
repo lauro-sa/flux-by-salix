@@ -10,19 +10,21 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, GripHorizontal, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-
-// --- Constantes ---
-
-const NOMBRES_MESES = [
-  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-]
-
-const CABECERAS_DIAS = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do']
+import { useTraduccion } from '@/lib/i18n'
+import {
+  NOMBRES_MESES,
+  CABECERAS_DIAS,
+  mismoDia,
+  esHoy,
+  generarCuadriculaMes,
+} from './constantes'
 
 const STORAGE_KEY = 'flux_mini_cal_pos'
-const PANEL_W = 230
-const PANEL_H = 270
+/** Ancho del panel — más chico en móvil */
+const PANEL_W_DESKTOP = 230
+const PANEL_W_MOVIL = 190
+const PANEL_H_DESKTOP = 270
+const PANEL_H_MOVIL = 240
 const MARGEN = 8
 /** Offset superior para no tapar el header de días/fechas de la grilla */
 const TOP_MIN = 90
@@ -39,32 +41,17 @@ interface PosicionInfo {
   calcular: (cW: number, cH: number) => { top: number; left: number }
 }
 
-const POSICIONES: PosicionInfo[] = [
-  {
-    id: 'arriba-izquierda',
-    calcular: () => ({ top: TOP_MIN, left: MARGEN }),
-  },
-  {
-    id: 'arriba-derecha',
-    calcular: (cW) => ({ top: TOP_MIN, left: cW - PANEL_W - MARGEN }),
-  },
-  {
-    id: 'centro-izquierda',
-    calcular: (_, cH) => ({ top: TOP_MIN + (cH - TOP_MIN - PANEL_H) / 2, left: MARGEN }),
-  },
-  {
-    id: 'centro-derecha',
-    calcular: (cW, cH) => ({ top: TOP_MIN + (cH - TOP_MIN - PANEL_H) / 2, left: cW - PANEL_W - MARGEN }),
-  },
-  {
-    id: 'abajo-izquierda',
-    calcular: (_, cH) => ({ top: cH - PANEL_H - MARGEN, left: MARGEN }),
-  },
-  {
-    id: 'abajo-derecha',
-    calcular: (cW, cH) => ({ top: cH - PANEL_H - MARGEN, left: cW - PANEL_W - MARGEN }),
-  },
-]
+/** Genera las 6 posiciones de anclaje para un tamaño de panel dado */
+function obtenerPosiciones(panelW: number, panelH: number): PosicionInfo[] {
+  return [
+    { id: 'arriba-izquierda', calcular: () => ({ top: TOP_MIN, left: MARGEN }) },
+    { id: 'arriba-derecha', calcular: (cW) => ({ top: TOP_MIN, left: cW - panelW - MARGEN }) },
+    { id: 'centro-izquierda', calcular: (_, cH) => ({ top: TOP_MIN + (cH - TOP_MIN - panelH) / 2, left: MARGEN }) },
+    { id: 'centro-derecha', calcular: (cW, cH) => ({ top: TOP_MIN + (cH - TOP_MIN - panelH) / 2, left: cW - panelW - MARGEN }) },
+    { id: 'abajo-izquierda', calcular: (_, cH) => ({ top: cH - panelH - MARGEN, left: MARGEN }) },
+    { id: 'abajo-derecha', calcular: (cW, cH) => ({ top: cH - panelH - MARGEN, left: cW - panelW - MARGEN }) },
+  ]
+}
 
 /** Encuentra la posición de anclaje más cercana a un punto */
 function posicionMasCercana(
@@ -72,14 +59,17 @@ function posicionMasCercana(
   mouseY: number,
   cW: number,
   cH: number,
+  panelW: number,
+  panelH: number,
 ): PosicionAnclaje {
   let mejor: PosicionAnclaje = 'abajo-derecha'
   let menorDist = Infinity
+  const posiciones = obtenerPosiciones(panelW, panelH)
 
-  for (const pos of POSICIONES) {
+  for (const pos of posiciones) {
     const { top, left } = pos.calcular(cW, cH)
-    const centroX = left + PANEL_W / 2
-    const centroY = top + PANEL_H / 2
+    const centroX = left + panelW / 2
+    const centroY = top + panelH / 2
     const dist = Math.hypot(mouseX - centroX, mouseY - centroY)
     if (dist < menorDist) {
       menorDist = dist
@@ -88,35 +78,6 @@ function posicionMasCercana(
   }
 
   return mejor
-}
-
-// --- Utilidades de fechas ---
-
-function mismoDia(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
-}
-
-function esHoy(fecha: Date): boolean {
-  return mismoDia(fecha, new Date())
-}
-
-function generarCuadriculaMes(anio: number, mes: number): Date[][] {
-  const primerDia = new Date(anio, mes, 1)
-  const ultimoDia = new Date(anio, mes + 1, 0)
-  const diaInicio = primerDia.getDay()
-  const offsetInicio = diaInicio === 0 ? 6 : diaInicio - 1
-  const dias: Date[] = []
-
-  for (let i = offsetInicio - 1; i >= 0; i--) dias.push(new Date(anio, mes, -i))
-  for (let i = 1; i <= ultimoDia.getDate(); i++) dias.push(new Date(anio, mes, i))
-  const restante = 7 - (dias.length % 7)
-  if (restante < 7) {
-    for (let i = 1; i <= restante; i++) dias.push(new Date(anio, mes + 1, i))
-  }
-
-  const semanas: Date[][] = []
-  for (let i = 0; i < dias.length; i += 7) semanas.push(dias.slice(i, i + 7))
-  return semanas
 }
 
 // --- Props ---
@@ -136,12 +97,68 @@ interface PropiedadesMiniCalendario {
   onCambiarMes?: (fecha: Date) => void
   /** Eventos para marcar días (feriados, eventos todo-el-día, días con eventos) */
   eventos?: EventoMini[]
+  /** Vista activa del calendario — para recordar visibilidad por vista */
+  vistaActiva?: string
+}
+
+/** Clave de localStorage para la visibilidad por vista */
+const STORAGE_KEY_VISIBLE = 'flux_mini_cal_visible'
+
+/** Lee el mapa de visibilidad por vista desde localStorage */
+function leerVisibilidadPorVista(): Record<string, boolean> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_VISIBLE)
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
+
+/** Guarda el mapa de visibilidad por vista en localStorage */
+function guardarVisibilidadPorVista(mapa: Record<string, boolean>): void {
+  localStorage.setItem(STORAGE_KEY_VISIBLE, JSON.stringify(mapa))
 }
 
 // --- Componente ---
 
-function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes, eventos = [] }: PropiedadesMiniCalendario) {
-  const [visible, setVisible] = useState(true)
+function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes, eventos = [], vistaActiva }: PropiedadesMiniCalendario) {
+  const { t } = useTraduccion()
+
+  // Detectar móvil para ajustar tamaño del panel
+  const [esMobile, setEsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768)
+  useEffect(() => {
+    const manejar = () => setEsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', manejar)
+    return () => window.removeEventListener('resize', manejar)
+  }, [])
+  const PANEL_W = esMobile ? PANEL_W_MOVIL : PANEL_W_DESKTOP
+  const PANEL_H = esMobile ? PANEL_H_MOVIL : PANEL_H_DESKTOP
+
+  // Visibilidad por vista — recuerda si el usuario ocultó el mini calendario en cada vista
+  const [visible, setVisibleInterno] = useState(() => {
+    if (!vistaActiva) return true
+    const mapa = leerVisibilidadPorVista()
+    // Si no hay preferencia guardada para esta vista, mostrar por defecto
+    return mapa[vistaActiva] !== false
+  })
+
+  // Cuando cambia la vista activa, leer la preferencia guardada
+  useEffect(() => {
+    if (!vistaActiva) return
+    const mapa = leerVisibilidadPorVista()
+    setVisibleInterno(mapa[vistaActiva] !== false)
+  }, [vistaActiva])
+
+  /** Cambiar visibilidad y persistir por vista */
+  const setVisible = useCallback((nuevoVisible: boolean) => {
+    setVisibleInterno(nuevoVisible)
+    if (vistaActiva) {
+      const mapa = leerVisibilidadPorVista()
+      mapa[vistaActiva] = nuevoVisible
+      guardarVisibilidadPorVista(mapa)
+    }
+  }, [vistaActiva])
 
   const [posicion, setPosicion] = useState<PosicionAnclaje>(() => {
     if (typeof window === 'undefined') return 'abajo-derecha'
@@ -213,7 +230,7 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes, eventos =
     const c = obtenerContenedor()
     if (!c) return { top: MARGEN, left: MARGEN }
     const rect = c.getBoundingClientRect()
-    const info = POSICIONES.find(p => p.id === pos)
+    const info = obtenerPosiciones(PANEL_W, PANEL_H).find(p => p.id === pos)
     if (!info) return { top: MARGEN, left: MARGEN }
     return info.calcular(rect.width, rect.height)
   }, [obtenerContenedor])
@@ -233,12 +250,24 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes, eventos =
 
   useEffect(() => { setTimeout(recalcular, 50) }, [recalcular, visible])
 
-  // --- Arrastre ---
+  // --- Arrastre (mouse + touch) ---
   const iniciarArrastre = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     refInicioArrastre.current = {
       clientX: e.clientX,
       clientY: e.clientY,
+      panelTop: posicionPx.top,
+      panelLeft: posicionPx.left,
+    }
+    setArrastrando(true)
+    setArrastrandoXY({ ...posicionPx })
+  }, [posicionPx])
+
+  const iniciarArrastreTouch = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    refInicioArrastre.current = {
+      clientX: touch.clientX,
+      clientY: touch.clientY,
       panelTop: posicionPx.top,
       panelLeft: posicionPx.left,
     }
@@ -265,7 +294,7 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes, eventos =
         const rect = c.getBoundingClientRect()
         const mouseRelX = e.clientX - rect.left
         const mouseRelY = e.clientY - rect.top
-        const cercana = posicionMasCercana(mouseRelX, mouseRelY, rect.width, rect.height)
+        const cercana = posicionMasCercana(mouseRelX, mouseRelY, rect.width, rect.height, PANEL_W, PANEL_H)
         setPosicionFantasma(cercana)
       }
     }
@@ -282,11 +311,24 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes, eventos =
       setPosicionFantasma(null)
     }
 
+    const manejarTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0]
+      manejarMove({ clientX: touch.clientX, clientY: touch.clientY } as MouseEvent)
+    }
+
+    const manejarTouchEnd = () => {
+      manejarUp()
+    }
+
     document.addEventListener('mousemove', manejarMove)
     document.addEventListener('mouseup', manejarUp)
+    document.addEventListener('touchmove', manejarTouchMove, { passive: false })
+    document.addEventListener('touchend', manejarTouchEnd)
     return () => {
       document.removeEventListener('mousemove', manejarMove)
       document.removeEventListener('mouseup', manejarUp)
+      document.removeEventListener('touchmove', manejarTouchMove)
+      document.removeEventListener('touchend', manejarTouchEnd)
     }
   }, [arrastrando, obtenerContenedor, posicionFantasma])
 
@@ -320,7 +362,7 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes, eventos =
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
         </svg>
-        Mini calendario
+        {t('calendario.mini_calendario')}
       </motion.button>
     )
   }
@@ -334,7 +376,7 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes, eventos =
       <AnimatePresence>
         {arrastrando && (
           <>
-            {POSICIONES.map(pos => {
+            {obtenerPosiciones(PANEL_W, PANEL_H).map(pos => {
               const c = obtenerContenedor()
               if (!c) return null
               const rect = c.getBoundingClientRect()
@@ -363,7 +405,7 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes, eventos =
                 >
                   {esDestino && (
                     <div className="flex items-center justify-center h-full">
-                      <span className="text-xs font-medium text-texto-marca/70">Soltar aquí</span>
+                      <span className="text-xs font-medium text-texto-marca/70">{t('calendario.soltar_aqui')}</span>
                     </div>
                   )}
                 </motion.div>
@@ -392,8 +434,9 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes, eventos =
       >
         {/* Barra arrastrable */}
         <div
-          className="flex items-center justify-between px-2.5 pt-1.5 pb-0.5 cursor-grab active:cursor-grabbing"
+          className="flex items-center justify-between px-2.5 pt-1.5 pb-0.5 cursor-grab active:cursor-grabbing touch-none"
           onMouseDown={iniciarArrastre}
+          onTouchStart={iniciarArrastreTouch}
         >
           <GripHorizontal size={12} className="text-texto-terciario/40" />
           <button
@@ -502,7 +545,7 @@ function MiniCalendario({ fechaActual, onSeleccionarDia, onCambiarMes, eventos =
             onClick={() => onSeleccionarDia(new Date())}
             className="w-full mt-1.5 text-[9px] font-medium text-texto-marca hover:underline"
           >
-            Ir a hoy
+            {t('calendario.ir_a_hoy')}
           </button>
         </div>
       </motion.div>

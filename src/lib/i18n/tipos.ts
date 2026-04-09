@@ -602,16 +602,109 @@ export interface Traducciones {
   calendario: {
     titulo: string
     hoy: string
+    maniana: string
     mes: string
     semana: string
+    quincenal: string
     dia: string
+    anio: string
+    agenda: string
+    equipo: string
     evento_nuevo: string
+    editar_evento: string
     sin_eventos: string
+    todo_el_dia: string
+    // Vistas
+    vistas: {
+      dia_corta: string
+      semana_corta: string
+      quincenal_corta: string
+      mes_corta: string
+      anio_corta: string
+      agenda_corta: string
+      equipo_corta: string
+    }
+    // Filtros
+    todos: string
+    mios: string
+    filtrar: string
+    tipo_evento: string
+    todos_los_tipos: string
+    // Campos del modal
+    titulo_campo: string
+    descripcion: string
+    ubicacion: string
+    notas: string
+    inicio: string
+    fin: string
+    recordatorio: string
+    sin_recordatorio: string
+    minutos_antes: string
+    hora_antes: string
+    dia_antes: string
+    // Visibilidad
+    visibilidad: string
+    publica: string
+    publica_desc: string
+    ocupado: string
+    ocupado_desc: string
+    privada: string
+    privada_desc: string
+    // Acciones
+    completar: string
+    posponer: string
+    guardar_cambios: string
+    crear_evento: string
+    // Asignados y vinculos
+    asignados: string
+    agregar_asignado: string
+    agregar_otro: string
+    vinculaciones: string
+    vincular_contacto: string
+    // Drag
+    arrastra_grilla: string
+    mas_eventos: string
+    // Recurrencia
+    recurrencia: string
+    // Config
     config_titulo: string
     config_desc: string
     sincronizacion: string
     festivos: string
     disponibilidad: string
+    // Equipo
+    cargando_miembros: string
+    // Agenda
+    ir_a_hoy: string
+    // Mini calendario
+    mini_calendario: string
+    soltar_aqui: string
+    ocultar: string
+    // Meses y días (para i18n futuro, por ahora se usan arrays de constantes)
+    meses: {
+      enero: string; febrero: string; marzo: string; abril: string
+      mayo: string; junio: string; julio: string; agosto: string
+      septiembre: string; octubre: string; noviembre: string; diciembre: string
+    }
+    dias: {
+      domingo: string; lunes: string; martes: string; miercoles: string
+      jueves: string; viernes: string; sabado: string
+    }
+    // A11y
+    a11y: {
+      calendario_mensual: string
+      calendario_semanal: string
+      calendario_diario: string
+      calendario_quincenal: string
+      calendario_anual: string
+      calendario_agenda: string
+      calendario_equipo: string
+      ir_dia_anterior: string
+      ir_dia_siguiente: string
+      ir_a_hoy: string
+      vista_calendario: string
+      eventos_en_dia: string
+    }
   }
 
   // Órdenes de trabajo

@@ -8,37 +8,37 @@
 
 import { useMemo } from 'react'
 import { motion } from 'framer-motion'
+import { useFormato } from '@/hooks/useFormato'
+import { useTraduccion } from '@/lib/i18n'
+import {
+  DIAS_ENCABEZADO,
+  mismoDia,
+  esHoy,
+  formatearHoraISO,
+} from './constantes'
 import type { EventoCalendario, OnClickEvento } from './tipos'
-
-/** Nombres cortos de días de la semana (lunes primero) */
-const DIAS_ENCABEZADO = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
 /** Máximo de eventos visibles por celda antes de mostrar "+N más" */
 const MAX_EVENTOS_CELDA = 3
 
-// --- Utilidades de fecha ---
+// --- Utilidades de fecha (locales a este componente) ---
 
-/** Primer día del mes */
 function inicioMes(fecha: Date): Date {
   return new Date(fecha.getFullYear(), fecha.getMonth(), 1)
 }
 
-/** Último día del mes */
 function finMes(fecha: Date): Date {
   return new Date(fecha.getFullYear(), fecha.getMonth() + 1, 0)
 }
 
-/** Inicio de semana (lunes) para una fecha dada */
 function inicioSemana(fecha: Date): Date {
   const d = new Date(fecha)
   const dia = d.getDay()
-  // Ajustar: 0 (domingo) → retroceder 6, otros → retroceder (dia - 1)
   const diff = dia === 0 ? 6 : dia - 1
   d.setDate(d.getDate() - diff)
   return d
 }
 
-/** Fin de semana (domingo) para una fecha dada */
 function finSemana(fecha: Date): Date {
   const d = new Date(fecha)
   const dia = d.getDay()
@@ -47,7 +47,6 @@ function finSemana(fecha: Date): Date {
   return d
 }
 
-/** Genera todos los días del intervalo [inicio, fin] */
 function diasEnIntervalo(inicio: Date, fin: Date): Date[] {
   const dias: Date[] = []
   const actual = new Date(inicio)
@@ -61,30 +60,9 @@ function diasEnIntervalo(inicio: Date, fin: Date): Date[] {
   return dias
 }
 
-/** Compara si dos fechas son el mismo día */
-function mismoDia(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear()
-    && a.getMonth() === b.getMonth()
-    && a.getDate() === b.getDate()
-}
-
-/** Comprueba si la fecha es hoy */
-function esHoy(fecha: Date): boolean {
-  return mismoDia(fecha, new Date())
-}
-
-/** Comprueba si la fecha pertenece al mes dado */
 function esMismoMes(fecha: Date, referencia: Date): boolean {
   return fecha.getFullYear() === referencia.getFullYear()
     && fecha.getMonth() === referencia.getMonth()
-}
-
-/** Formatea hora desde ISO string: "14:30" o "" si todo el día */
-function formatearHora(isoStr: string, todoElDia: boolean): string {
-  if (todoElDia) return ''
-  const fecha = new Date(isoStr)
-  if (isNaN(fecha.getTime())) return ''
-  return fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
 // --- Componente ---
@@ -102,7 +80,10 @@ function VistaCalendarioMes({
   onClickDia,
   onClickEvento,
 }: PropiedadesVistaMes) {
-  /** Calcular los días que se muestran en la cuadrícula (incluyendo días de meses adyacentes) */
+  const { formatoHora } = useFormato()
+  const { t } = useTraduccion()
+  const es24h = formatoHora !== '12h'
+
   const diasCuadricula = useMemo(() => {
     const primerDiaMes = inicioMes(fechaActual)
     const ultimoDiaMes = finMes(fechaActual)
@@ -111,7 +92,6 @@ function VistaCalendarioMes({
     return diasEnIntervalo(inicio, fin)
   }, [fechaActual])
 
-  /** Mapa de eventos por día (clave: YYYY-MM-DD) para búsqueda rápida */
   const eventosPorDia = useMemo(() => {
     const mapa = new Map<string, EventoCalendario[]>()
 
@@ -119,7 +99,6 @@ function VistaCalendarioMes({
       const fechaInicio = new Date(evento.fecha_inicio)
       const fechaFin = new Date(evento.fecha_fin)
 
-      // Para eventos multi-día, agregarlos a cada día del rango
       const inicio = new Date(fechaInicio)
       inicio.setHours(0, 0, 0, 0)
       const fin = new Date(fechaFin)
@@ -143,12 +122,15 @@ function VistaCalendarioMes({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
       className="flex flex-col h-full"
+      role="grid"
+      aria-label={t('calendario.a11y.calendario_mensual')}
     >
       {/* Encabezado de días de la semana */}
-      <div className="grid grid-cols-7 border-b border-borde-sutil">
+      <div className="grid grid-cols-7 border-b border-borde-sutil" role="row">
         {DIAS_ENCABEZADO.map((dia) => (
           <div
             key={dia}
+            role="columnheader"
             className="py-2 text-center text-xs font-medium text-texto-terciario uppercase tracking-wider"
           >
             {dia}
@@ -169,13 +151,12 @@ function VistaCalendarioMes({
           return (
             <div
               key={indice}
+              role="gridcell"
+              aria-label={`${dia.getDate()}, ${eventosDelDia.length} ${t('calendario.a11y.eventos_en_dia')}`}
               className={[
                 'min-h-[80px] sm:min-h-[100px] border-b border-r border-borde-sutil p-1.5 cursor-pointer transition-colors hover:bg-superficie-hover',
-                // Primera columna: borde izquierdo
                 indice % 7 === 0 ? 'border-l' : '',
-                // Primera fila: borde superior
                 indice < 7 ? 'border-t' : '',
-                // Días fuera del mes: fondo sutil
                 !esDelMes ? 'bg-superficie-app/50' : '',
               ].join(' ')}
               onClick={() => onClickDia(dia)}
@@ -195,7 +176,7 @@ function VistaCalendarioMes({
                   <span className="inline-flex items-center gap-1">
                     {dia.getDate()}
                     {esHoyFlag && (
-                      <span className="inline-block size-1.5 rounded-full bg-texto-marca" />
+                      <span className="inline-block size-1.5 rounded-full bg-texto-marca" aria-label={t('calendario.hoy')} />
                     )}
                   </span>
                 </span>
@@ -212,7 +193,8 @@ function VistaCalendarioMes({
                       onClickEvento(evento, { x: e.clientX, y: e.clientY })
                     }}
                     title={evento.titulo}
-                    className="w-full text-left truncate rounded px-1.5 py-0.5 text-[11px] leading-tight transition-opacity hover:opacity-80 block"
+                    aria-label={`${evento.titulo}${!evento.todo_el_dia ? `, ${formatearHoraISO(evento.fecha_inicio, es24h)}` : ''}`}
+                    className="w-full text-left truncate rounded px-1.5 py-1 sm:py-0.5 text-[11px] sm:text-xs leading-tight transition-opacity hover:opacity-80 block min-h-[28px] sm:min-h-0"
                     style={{
                       backgroundColor: evento.color
                         ? `${evento.color}20`
@@ -225,7 +207,7 @@ function VistaCalendarioMes({
                   >
                     {!evento.todo_el_dia && (
                       <span className="opacity-70 mr-1">
-                        {formatearHora(evento.fecha_inicio, evento.todo_el_dia)}
+                        {formatearHoraISO(evento.fecha_inicio, es24h)}
                       </span>
                     )}
                     {evento.titulo}
@@ -234,7 +216,7 @@ function VistaCalendarioMes({
 
                 {eventosRestantes > 0 && (
                   <span className="text-[10px] text-texto-terciario pl-1">
-                    +{eventosRestantes} más
+                    +{eventosRestantes} {t('calendario.mas_eventos')}
                   </span>
                 )}
               </div>

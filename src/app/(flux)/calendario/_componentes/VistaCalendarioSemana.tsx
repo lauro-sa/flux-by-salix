@@ -21,16 +21,31 @@ import {
   type DragStartEvent,
   type DragMoveEvent,
 } from '@dnd-kit/core'
+import { useFormato } from '@/hooks/useFormato'
+import { useTraduccion } from '@/lib/i18n'
 import type { EventoCalendario } from './tipos'
+import {
+  NOMBRES_DIAS_SEMANA,
+  mismoDia,
+  esHoy,
+  claveDelDia,
+  inicioSemana,
+  diasDeLaSemana,
+  indiceDiaSemana,
+  parsearFecha,
+  formatearHoraCorta,
+  formatearDuracion,
+  formatearDuracionDesdeY,
+  formatearEtiquetaHora,
+  ALTURA_FILA,
+} from './constantes'
 
-// --- Constantes ---
+// --- Constantes locales de la vista semanal ---
 
 /** Hora de inicio de la cuadrícula */
 const HORA_INICIO = 6
 /** Hora de fin de la cuadrícula */
 const HORA_FIN = 22
-/** Altura en px de cada fila de 1 hora */
-const ALTURA_FILA = 60
 /** Máximo de eventos todo-el-día visibles antes de "+N más" */
 const MAX_TODO_DIA = 2
 /** Ancho de la columna de horas en px */
@@ -38,10 +53,7 @@ const ANCHO_COLUMNA_HORAS = 56
 /** Umbral mínimo en px antes de iniciar arrastre (evita conflictos con click) */
 const UMBRAL_ARRASTRE = 5
 
-/** Nombres cortos de días (lunes primero) */
-const NOMBRES_DIAS = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom']
-
-// --- Utilidades de fecha ---
+// --- Utilidades locales ---
 
 /** Genera las horas del eje vertical: [6, 7, ..., 22] */
 const HORAS = Array.from({ length: HORA_FIN - HORA_INICIO + 1 }, (_, i) => HORA_INICIO + i)
@@ -49,86 +61,6 @@ const HORAS = Array.from({ length: HORA_FIN - HORA_INICIO + 1 }, (_, i) => HORA_
 /** Convierte hora y minutos a posición Y en píxeles dentro de la cuadrícula */
 function tiempoAPx(horas: number, minutos: number): number {
   return (horas * 60 + minutos - HORA_INICIO * 60) * (ALTURA_FILA / 60)
-}
-
-/** Compara si dos fechas son el mismo día */
-function mismoDia(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  )
-}
-
-/** Comprueba si la fecha es hoy */
-function esHoy(fecha: Date): boolean {
-  return mismoDia(fecha, new Date())
-}
-
-/** Inicio de semana (lunes) para una fecha dada */
-function inicioSemana(fecha: Date): Date {
-  const d = new Date(fecha)
-  d.setHours(0, 0, 0, 0)
-  const dia = d.getDay()
-  const diff = dia === 0 ? 6 : dia - 1
-  d.setDate(d.getDate() - diff)
-  return d
-}
-
-/** Genera los 7 días de la semana que contiene la fecha dada (lun–dom) */
-function diasDeLaSemana(fecha: Date): Date[] {
-  const lunes = inicioSemana(fecha)
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(lunes)
-    d.setDate(lunes.getDate() + i)
-    return d
-  })
-}
-
-/** Formatea fecha como YYYY-MM-DD para usar como clave de mapa */
-function claveDelDia(fecha: Date): string {
-  const anio = fecha.getFullYear()
-  const mes = String(fecha.getMonth() + 1).padStart(2, '0')
-  const dia = String(fecha.getDate()).padStart(2, '0')
-  return `${anio}-${mes}-${dia}`
-}
-
-/** Formatea hora corta desde un Date: "09:30" */
-function formatearHoraCorta(fecha: Date): string {
-  return fecha.toLocaleTimeString('es-ES', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
-}
-
-/** Parsea un string ISO a Date */
-function parsearFecha(iso: string): Date {
-  return new Date(iso)
-}
-
-/** Formatea duración en horas legibles: "1hs", "2.5hs", "30min" */
-function formatearDuracion(inicioStr: string | Date, finStr: string | Date): string {
-  const inicio = typeof inicioStr === 'string' ? new Date(inicioStr) : inicioStr
-  const fin = typeof finStr === 'string' ? new Date(finStr) : finStr
-  const minutos = Math.round((fin.getTime() - inicio.getTime()) / 60000)
-  if (minutos < 60) return `${minutos}min`
-  const horas = minutos / 60
-  return horas % 1 === 0 ? `${horas}hs` : `${horas.toFixed(1)}hs`
-}
-
-/** Formatea duración a partir de dos posiciones Y (px) en la cuadrícula */
-function formatearDuracionDesdeY(y1: number, y2: number): string {
-  const minutos = Math.round(Math.abs(y2 - y1) / ALTURA_FILA * 60)
-  if (minutos < 60) return `${minutos}min`
-  const horas = minutos / 60
-  return horas % 1 === 0 ? `${horas}hs` : `${horas.toFixed(1)}hs`
-}
-
-/** Obtiene índice del día en la semana (0=lun, 6=dom) para obtener nombre */
-function indiceDiaSemana(fecha: Date): number {
-  const dia = fecha.getDay()
-  return dia === 0 ? 6 : dia - 1
 }
 
 // --- Detección de solapamiento ---
@@ -196,6 +128,8 @@ interface PropiedadesEventoArrastrable {
   evento: EventoCalendario
   posicion: EventoPosicionado
   onClickEvento: (evento: EventoCalendario) => void
+  /** Indica si se usa formato de hora 24h (true) o 12h (false) */
+  es24h: boolean
 }
 
 /**
@@ -206,10 +140,11 @@ function BloqueEventoArrastrable({
   evento,
   posicion,
   onClickEvento,
+  es24h,
 }: PropiedadesEventoArrastrable) {
   const { inicioMin, finMin, columna, totalColumnas } = posicion
   const duracionMin = finMin - inicioMin
-  const alturaPx = Math.max(duracionMin * (ALTURA_FILA / 60), 20)
+  const alturaPx = Math.max(duracionMin * (ALTURA_FILA / 60), 28)
   const topPx = inicioMin * (ALTURA_FILA / 60)
   const anchoPorc = 100 / totalColumnas
   const izquierdaPorc = columna * anchoPorc
@@ -296,16 +231,16 @@ function BloqueEventoArrastrable({
           : finDate
 
         return esCorto ? (
-          <span className="text-[11px] leading-tight truncate block font-medium">
+          <span className="text-[11px] sm:text-xs leading-tight truncate block font-medium">
             {evento.titulo}
           </span>
         ) : (
           <>
-            <span className="text-[11px] leading-tight truncate block font-medium">
+            <span className="text-[11px] sm:text-xs leading-tight truncate block font-medium">
               {evento.titulo}
             </span>
-            <span className="text-[10px] leading-tight opacity-70 block">
-              {formatearHoraCorta(inicioDate)} – {formatearHoraCorta(finEnVivo)}
+            <span className="text-[10px] sm:text-[11px] leading-tight opacity-70 block">
+              {formatearHoraCorta(inicioDate, es24h)} – {formatearHoraCorta(finEnVivo, es24h)}
               <span className="opacity-60 ml-1">· {formatearDuracion(inicioDate, finEnVivo)}</span>
             </span>
           </>
@@ -337,6 +272,10 @@ interface PropiedadesVistaSemana {
   onClickEvento: (evento: EventoCalendario) => void
   /** Drag para mover evento */
   onMoverEvento?: (id: string, nuevaInicio: string, nuevaFin: string) => void
+  /** Hora de inicio de la jornada laboral (para sombrear horas no laborales) */
+  horaInicioLaboral?: number
+  /** Hora de fin de la jornada laboral (para sombrear horas no laborales) */
+  horaFinLaboral?: number
 }
 
 /** Estado de la selección por arrastre (drag-to-select) */
@@ -397,7 +336,13 @@ function VistaCalendarioSemana({
   onClickHora,
   onClickEvento,
   onMoverEvento,
+  horaInicioLaboral,
+  horaFinLaboral,
 }: PropiedadesVistaSemana) {
+  const { formatoHora } = useFormato()
+  const { t } = useTraduccion()
+  const es24h = formatoHora !== '12h'
+
   const refCuadricula = useRef<HTMLDivElement>(null)
   const refColumnas = useRef<HTMLDivElement>(null)
   const [minutosAhora, setMinutosAhora] = useState(() => {
@@ -493,7 +438,7 @@ function VistaCalendarioSemana({
   useEffect(() => {
     if (!refCuadricula.current) return
     const ahora = new Date()
-    const horaObjetivo = Math.min(ahora.getHours(), 8)
+    const horaObjetivo = Math.min(ahora.getHours(), horaInicioLaboral ?? 8)
     const scrollY = tiempoAPx(horaObjetivo, 0)
     refCuadricula.current.scrollTop = scrollY
   }, [])
@@ -526,6 +471,45 @@ function VistaCalendarioSemana({
       })
     },
     [],
+  )
+
+  /** Touch: inicia selección */
+  const manejarTouchStart = useCallback(
+    (dia: Date, e: React.TouchEvent<HTMLDivElement>) => {
+      const objetivo = e.target as HTMLElement
+      if (objetivo.closest('[data-evento-bloque]')) return
+      const touch = e.touches[0]
+      const rect = e.currentTarget.getBoundingClientRect()
+      const y = redondearYA15Min(touch.clientY - rect.top)
+      setSeleccion({ dia, inicioY: y, finY: y, activa: true })
+    },
+    [],
+  )
+
+  /** Touch: actualiza selección */
+  const manejarTouchMove = useCallback(
+    (e: React.TouchEvent<HTMLDivElement>) => {
+      if (!refSeleccion.current?.activa) return
+      e.preventDefault() // Prevenir scroll durante drag-to-select
+      const touch = e.touches[0]
+      const claveSeleccion = claveDelDia(refSeleccion.current.dia)
+      const columnaDiv = e.currentTarget.querySelector(
+        `[data-dia-clave="${claveSeleccion}"]`,
+      ) as HTMLElement | null
+      if (!columnaDiv) return
+      const rect = columnaDiv.getBoundingClientRect()
+      const yRelativo = touch.clientY - rect.top
+      const yClamped = Math.max(0, Math.min(yRelativo, alturaTotal))
+      const yRedondeado = redondearYA15Min(yClamped)
+      setSeleccion((prev) => {
+        if (!prev) return null
+        const yMin = Math.min(prev.inicioY, yRedondeado)
+        const yMax = Math.max(prev.inicioY, yRedondeado)
+        setRangoHorasActivo({ horaInicio: horaDecimalDesdeYSemana(yMin), horaFin: horaDecimalDesdeYSemana(yMax) })
+        return { ...prev, finY: yRedondeado }
+      })
+    },
+    [alturaTotal],
   )
 
   /**
@@ -622,7 +606,11 @@ function VistaCalendarioSemana({
     }
 
     document.addEventListener('mouseup', manejarMouseUp)
-    return () => document.removeEventListener('mouseup', manejarMouseUp)
+    document.addEventListener('touchend', manejarMouseUp)
+    return () => {
+      document.removeEventListener('mouseup', manejarMouseUp)
+      document.removeEventListener('touchend', manejarMouseUp)
+    }
   }, [onClickHora])
 
   /**
@@ -768,9 +756,11 @@ function VistaCalendarioSemana({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2 }}
         className="flex flex-col flex-1 min-h-0"
+        role="grid"
+        aria-label={t('calendario.a11y.calendario_semanal')}
       >
         {/* Encabezado: días de la semana */}
-        <div className="flex border-b border-borde-sutil shrink-0">
+        <div className="flex border-b border-borde-sutil shrink-0" role="row">
           {/* Esquina vacía (columna de horas) */}
           <div
             className="shrink-0 border-r border-borde-sutil"
@@ -786,13 +776,14 @@ function VistaCalendarioSemana({
               return (
                 <div
                   key={claveDelDia(dia)}
+                  role="columnheader"
                   className={[
                     'flex flex-col items-center py-2 border-r border-borde-sutil last:border-r-0 transition-colors duration-150',
                     estaHoverDia ? 'bg-texto-marca/5' : '',
                   ].join(' ')}
                 >
-                  <span className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">
-                    {NOMBRES_DIAS[indiceDiaSemana(dia)]}
+                  <span className="text-[11px] sm:text-xs font-medium text-texto-terciario uppercase tracking-wider">
+                    {NOMBRES_DIAS_SEMANA[indiceDiaSemana(dia)]}
                   </span>
                   <span
                     className={[
@@ -815,10 +806,10 @@ function VistaCalendarioSemana({
           <div className="flex border-b border-borde-sutil shrink-0">
             {/* Etiqueta */}
             <div
-              className="shrink-0 flex items-start justify-end pr-2 pt-1 text-[10px] text-texto-terciario border-r border-borde-sutil"
+              className="shrink-0 flex items-start justify-end pr-2 pt-1 text-[10px] sm:text-[11px] text-texto-terciario border-r border-borde-sutil"
               style={{ width: ANCHO_COLUMNA_HORAS }}
             >
-              Todo el día
+              {t('calendario.todo_el_dia')}
             </div>
 
             {/* Píldoras por columna */}
@@ -840,7 +831,7 @@ function VistaCalendarioSemana({
                         type="button"
                         onClick={() => onClickEvento(evento)}
                         title={evento.titulo}
-                        className="w-full text-left truncate rounded px-1.5 py-0.5 text-[11px] leading-tight transition-opacity hover:opacity-80 block"
+                        className="w-full text-left truncate rounded px-1.5 py-0.5 text-[11px] sm:text-xs leading-tight transition-opacity hover:opacity-80 block"
                         style={{
                           backgroundColor: evento.color
                             ? `${evento.color}40`
@@ -852,8 +843,8 @@ function VistaCalendarioSemana({
                       </button>
                     ))}
                     {restantes > 0 && (
-                      <span className="text-[10px] text-texto-terciario pl-1">
-                        +{restantes} más
+                      <span className="text-[10px] sm:text-[11px] text-texto-terciario pl-1">
+                        +{restantes} {t('calendario.mas_eventos')}
                       </span>
                     )}
                   </div>
@@ -909,7 +900,7 @@ function VistaCalendarioSemana({
                             : 'text-texto-terciario',
                       ].join(' ')}
                     >
-                      {String(hora).padStart(2, '0')}:00
+                      {formatearEtiquetaHora(hora, es24h)}
                     </span>
                   </div>
                 )
@@ -917,7 +908,7 @@ function VistaCalendarioSemana({
             </div>
 
             {/* Columnas de días */}
-            <div ref={refColumnas} className="grid grid-cols-7 flex-1 relative" onMouseMove={manejarMouseMove} onMouseLeave={manejarMouseLeaveCuadricula}>
+            <div ref={refColumnas} className="grid grid-cols-7 flex-1 relative" onMouseMove={manejarMouseMove} onMouseLeave={manejarMouseLeaveCuadricula} onTouchMove={manejarTouchMove}>
               {/* Líneas horizontales de horas completas */}
               {HORAS.map((hora) => (
                 <div
@@ -950,11 +941,26 @@ function VistaCalendarioSemana({
                     key={clave}
                     data-dia-clave={clave}
                     className={[
-                      'relative border-r border-borde-sutil last:border-r-0 cursor-crosshair',
+                      'relative border-r border-borde-sutil last:border-r-0 cursor-crosshair touch-none',
                       hoyFlag ? 'bg-texto-marca/[0.03]' : '',
                     ].join(' ')}
                     onMouseDown={(e) => manejarMouseDown(dia, e)}
+                    onTouchStart={(e) => manejarTouchStart(dia, e)}
                   >
+                    {/* Fondo horario no laboral */}
+                    {horaInicioLaboral !== undefined && horaFinLaboral !== undefined && (
+                      <>
+                        <div
+                          className="absolute left-0 right-0 top-0 bg-superficie-app/40 pointer-events-none z-[1]"
+                          style={{ height: tiempoAPx(horaInicioLaboral, 0) }}
+                        />
+                        <div
+                          className="absolute left-0 right-0 bottom-0 bg-superficie-app/40 pointer-events-none z-[1]"
+                          style={{ top: tiempoAPx(horaFinLaboral, 0) }}
+                        />
+                      </>
+                    )}
+
                     {/* Indicador de hora actual (línea roja) */}
                     {hoyFlag && lineaAhoraVisible && (
                       <div
@@ -982,12 +988,12 @@ function VistaCalendarioSemana({
                             borderLeft: '3px solid var(--texto-marca)',
                           }}
                         >
-                          <span className="text-[10px] font-semibold select-none" style={{ color: 'var(--texto-marca)' }}>
+                          <span className="text-[10px] sm:text-[11px] font-semibold select-none" style={{ color: 'var(--texto-marca)' }}>
                             {formatoHoraDesdeY(yMin)} – {formatoHoraDesdeY(yMax)}
-                            <span className="opacity-60 ml-1 font-normal">· {formatearDuracionDesdeY(seleccion.inicioY, seleccion.finY)}</span>
+                            <span className="opacity-60 ml-1 font-normal">· {formatearDuracionDesdeY(seleccion.inicioY, seleccion.finY, ALTURA_FILA)}</span>
                           </span>
                           {alturaBloque > 40 && (
-                            <span className="text-[9px] select-none" style={{ color: 'var(--texto-marca)', opacity: 0.6 }}>
+                            <span className="text-[9px] sm:text-[10px] select-none" style={{ color: 'var(--texto-marca)', opacity: 0.6 }}>
                               {formatoHoraDesdeY(yMax)}
                             </span>
                           )}
@@ -1002,6 +1008,7 @@ function VistaCalendarioSemana({
                         evento={posicion.evento}
                         posicion={posicion}
                         onClickEvento={onClickEvento}
+                        es24h={es24h}
                       />
                     ))}
                   </div>
@@ -1035,8 +1042,6 @@ function VistaCalendarioSemana({
             nuevaFin.setDate(nuevaFin.getDate() + deltaDias)
           }
 
-          const DIAS_CORTOS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
-
           return (
             <div
               className="rounded-md overflow-hidden px-1.5 py-1 shadow-2xl ring-2 ring-texto-marca/30 pointer-events-none"
@@ -1048,10 +1053,10 @@ function VistaCalendarioSemana({
                 color: color,
               }}
             >
-              <span className="text-[11px] font-medium truncate block">{eventoDragActivo.titulo}</span>
-              <span className="text-[10px] opacity-70 block">
-                {deltaDias !== 0 && `${DIAS_CORTOS[nuevaInicio.getDay()]} ${nuevaInicio.getDate()} · `}
-                {formatearHoraCorta(nuevaInicio)} – {formatearHoraCorta(nuevaFin)}
+              <span className="text-[11px] sm:text-xs font-medium truncate block">{eventoDragActivo.titulo}</span>
+              <span className="text-[10px] sm:text-[11px] opacity-70 block">
+                {deltaDias !== 0 && `${NOMBRES_DIAS_SEMANA[indiceDiaSemana(nuevaInicio)]} ${nuevaInicio.getDate()} · `}
+                {formatearHoraCorta(nuevaInicio, es24h)} – {formatearHoraCorta(nuevaFin, es24h)}
                 <span className="opacity-60 ml-1">· {formatearDuracion(nuevaInicio, nuevaFin)}</span>
               </span>
             </div>

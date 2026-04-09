@@ -9,63 +9,32 @@
 
 import { useMemo } from 'react'
 import { motion } from 'framer-motion'
+import { useFormato } from '@/hooks/useFormato'
+import { useTraduccion } from '@/lib/i18n'
+import { useMovimientoReducido } from '@/hooks/useMovimientoReducido'
+import {
+  NOMBRES_DIAS_COMPLETOS,
+  NOMBRES_MESES,
+  mismoDia,
+  esHoy,
+  esManiana,
+  formatearHoraISO,
+} from './constantes'
 import type { EventoCalendario, OnClickEvento } from './tipos'
 
 // --- Constantes ---
 
-/** Cantidad de días a mostrar en la agenda */
 const DIAS_AGENDA = 14
-
-/** Nombres de días de la semana en español */
-const NOMBRES_DIA = [
-  'domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado',
-]
-
-/** Nombres de meses en español */
-const NOMBRES_MES = [
-  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
-]
 
 // --- Utilidades de fecha ---
 
-/** Compara si dos fechas son el mismo día */
-function mismoDia(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  )
-}
-
-/** Comprueba si la fecha es hoy */
-function esHoy(fecha: Date): boolean {
-  return mismoDia(fecha, new Date())
-}
-
-/** Comprueba si la fecha es mañana */
-function esManiana(fecha: Date): boolean {
-  const maniana = new Date()
-  maniana.setDate(maniana.getDate() + 1)
-  return mismoDia(fecha, maniana)
-}
-
-/** Etiqueta relativa del día: "Hoy", "Mañana" o null */
-function etiquetaRelativa(fecha: Date): string | null {
-  if (esHoy(fecha)) return 'Hoy'
-  if (esManiana(fecha)) return 'Mañana'
-  return null
-}
-
-/** Formatea fecha como "martes 8 de abril" */
 function formatearFechaDia(fecha: Date): string {
-  const diaSemana = NOMBRES_DIA[fecha.getDay()]
+  const diaSemana = NOMBRES_DIAS_COMPLETOS[fecha.getDay()].toLowerCase()
   const dia = fecha.getDate()
-  const mes = NOMBRES_MES[fecha.getMonth()]
+  const mes = NOMBRES_MESES[fecha.getMonth()].toLowerCase()
   return `${diaSemana} ${dia} de ${mes}`
 }
 
-/** Genera un array de N días consecutivos desde una fecha */
 function generarDias(desde: Date, cantidad: number): Date[] {
   const dias: Date[] = []
   for (let i = 0; i < cantidad; i++) {
@@ -75,19 +44,6 @@ function generarDias(desde: Date, cantidad: number): Date[] {
     dias.push(d)
   }
   return dias
-}
-
-/** Formatea hora desde ISO string como "09:00" */
-function formatearHoraISO(isoStr: string): string {
-  const fecha = new Date(isoStr)
-  if (isNaN(fecha.getTime())) return ''
-  return fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })
-}
-
-/** Formatea rango de horas: "09:00 - 10:00" o "Todo el día" */
-function formatearRangoHora(evento: EventoCalendario): string {
-  if (evento.todo_el_dia) return 'Todo el día'
-  return `${formatearHoraISO(evento.fecha_inicio)} - ${formatearHoraISO(evento.fecha_fin)}`
 }
 
 // --- Tipos internos ---
@@ -112,12 +68,28 @@ function VistaCalendarioAgenda({
   eventos,
   onClickEvento,
 }: PropiedadesVistaAgenda) {
-  /** Agrupar eventos por día para los próximos 14 días */
+  const { formatoHora } = useFormato()
+  const { t } = useTraduccion()
+  const es24h = formatoHora !== '12h'
+  const reducirMovimiento = useMovimientoReducido()
+
+  /** Formatea rango de horas */
+  function formatearRangoHora(evento: EventoCalendario): string {
+    if (evento.todo_el_dia) return t('calendario.todo_el_dia')
+    return `${formatearHoraISO(evento.fecha_inicio, es24h)} - ${formatearHoraISO(evento.fecha_fin, es24h)}`
+  }
+
+  /** Etiqueta relativa del día */
+  function etiquetaRelativa(fecha: Date): string | null {
+    if (esHoy(fecha)) return t('calendario.hoy')
+    if (esManiana(fecha)) return t('calendario.maniana')
+    return null
+  }
+
   const gruposPorDia = useMemo<GrupoDia[]>(() => {
     const dias = generarDias(fechaActual, DIAS_AGENDA)
 
     return dias.map((dia: Date) => {
-      // Filtrar eventos que caen en este día
       const eventosDelDia = eventos
         .filter((evento) => {
           const inicio = new Date(evento.fecha_inicio)
@@ -128,7 +100,6 @@ function VistaCalendarioAgenda({
           finDia.setHours(23, 59, 59, 999)
           return inicio <= finDia && fin >= inicioDia
         })
-        // Ordenar: todo el día primero, luego por hora de inicio
         .sort((a, b) => {
           if (a.todo_el_dia && !b.todo_el_dia) return -1
           if (!a.todo_el_dia && b.todo_el_dia) return 1
@@ -142,7 +113,8 @@ function VistaCalendarioAgenda({
         eventos: eventosDelDia,
       }
     })
-  }, [fechaActual, eventos])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fechaActual, eventos, es24h])
 
   return (
     <motion.div
@@ -150,16 +122,19 @@ function VistaCalendarioAgenda({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
       className="flex flex-col h-full overflow-y-auto px-2 sm:px-4 py-3 gap-3"
+      role="list"
+      aria-label={t('calendario.a11y.calendario_agenda')}
     >
       {gruposPorDia.map((grupo, indiceGrupo) => (
         <motion.div
           key={grupo.fecha.toISOString()}
-          initial={{ opacity: 0, y: 6 }}
+          initial={reducirMovimiento ? false : { opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.15, delay: indiceGrupo * 0.03 }}
+          transition={reducirMovimiento ? { duration: 0 } : { duration: 0.15, delay: indiceGrupo * 0.03 }}
           className="flex flex-col"
+          role="listitem"
         >
-          {/* Encabezado del día — sticky */}
+          {/* Encabezado del día */}
           <div
             className="sticky top-0 z-10 flex items-baseline gap-2 p-3 rounded-lg mb-1"
             style={{ backgroundColor: 'color-mix(in srgb, var(--superficie-hover) 50%, transparent)' }}
@@ -185,7 +160,7 @@ function VistaCalendarioAgenda({
           {/* Lista de eventos o mensaje vacío */}
           {grupo.eventos.length === 0 ? (
             <div className="pl-4 py-2">
-              <span className="text-sm text-texto-terciario italic">Sin eventos</span>
+              <span className="text-sm text-texto-terciario italic">{t('calendario.sin_eventos')}</span>
             </div>
           ) : (
             <div className="flex flex-col gap-0.5">
@@ -193,11 +168,12 @@ function VistaCalendarioAgenda({
                 <motion.button
                   key={evento.id}
                   type="button"
-                  initial={{ opacity: 0, x: -4 }}
+                  initial={reducirMovimiento ? false : { opacity: 0, x: -4 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.12, delay: indiceGrupo * 0.02 + indiceEvento * 0.02 }}
+                  transition={reducirMovimiento ? { duration: 0 } : { duration: 0.12, delay: indiceGrupo * 0.02 + indiceEvento * 0.02 }}
                   className="flex items-start gap-3 px-3 py-2.5 rounded-lg text-left transition-colors hover:bg-superficie-hover w-full group"
                   onClick={(e) => onClickEvento(evento, { x: e.clientX, y: e.clientY })}
+                  aria-label={`${evento.titulo}, ${formatearRangoHora(evento)}`}
                 >
                   {/* Columna izquierda: hora */}
                   <div className="w-28 shrink-0 pt-0.5">
@@ -214,14 +190,12 @@ function VistaCalendarioAgenda({
                       </span>
                     </div>
 
-                    {/* Descripción (preview truncado) */}
                     {evento.descripcion && (
                       <p className="text-sm text-texto-terciario truncate mt-0.5 leading-tight">
                         {evento.descripcion}
                       </p>
                     )}
 
-                    {/* Asignados como avatares pequeños */}
                     {evento.asignados.length > 0 && (
                       <div className="flex items-center gap-1 mt-1.5">
                         {evento.asignados.slice(0, 4).map((asignado) => (

@@ -243,55 +243,16 @@ export async function DELETE(
 
 /**
  * Recalcula subtotal_neto, total_impuestos y total_final del presupuesto
- * basándose en todas sus líneas.
+ * usando función PL/pgSQL que ejecuta todo en 1 solo roundtrip atómico.
  */
 async function recalcularTotales(
   admin: ReturnType<typeof crearClienteAdmin>,
   presupuestoId: string,
-  empresaId: string,
+  _empresaId: string,
   userId: string,
 ) {
-  // Leer líneas y descuento global en paralelo
-  const [{ data: lineas }, { data: presupuesto }] = await Promise.all([
-    admin
-      .from('lineas_presupuesto')
-      .select('tipo_linea, subtotal, impuesto_monto, monto')
-      .eq('presupuesto_id', presupuestoId),
-    admin
-      .from('presupuestos')
-      .select('descuento_global')
-      .eq('id', presupuestoId)
-      .single(),
-  ])
-
-  if (!lineas) return
-
-  let subtotalNeto = 0
-  let totalImpuestos = 0
-
-  for (const linea of lineas) {
-    if (linea.tipo_linea === 'producto') {
-      subtotalNeto += parseFloat(linea.subtotal || '0')
-      totalImpuestos += parseFloat(linea.impuesto_monto || '0')
-    } else if (linea.tipo_linea === 'descuento') {
-      subtotalNeto += parseFloat(linea.monto || '0')
-    }
-  }
-
-  const descuentoGlobalPct = parseFloat(presupuesto?.descuento_global || '0')
-  const descuentoGlobalMonto = subtotalNeto * descuentoGlobalPct / 100
-  const totalFinal = subtotalNeto - descuentoGlobalMonto + totalImpuestos
-
-  await admin
-    .from('presupuestos')
-    .update({
-      subtotal_neto: subtotalNeto.toString(),
-      total_impuestos: totalImpuestos.toString(),
-      descuento_global_monto: descuentoGlobalMonto.toString(),
-      total_final: totalFinal.toString(),
-      editado_por: userId,
-      actualizado_en: new Date().toISOString(),
-    })
-    .eq('id', presupuestoId)
-    .eq('empresa_id', empresaId)
+  await admin.rpc('recalcular_totales_presupuesto', {
+    p_presupuesto_id: presupuestoId,
+    p_usuario_id: userId,
+  })
 }

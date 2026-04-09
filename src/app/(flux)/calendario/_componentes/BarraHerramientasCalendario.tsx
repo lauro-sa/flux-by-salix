@@ -11,21 +11,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, Filter } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { useTraduccion } from '@/lib/i18n'
+import {
+  NOMBRES_MESES,
+  NOMBRES_MESES_CORTOS,
+  NOMBRES_DIAS_COMPLETOS,
+} from './constantes'
 import type { VistaCalendario } from './tipos'
-
-/* ─── Constantes ─── */
-
-const MESES = [
-  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-]
-
-const MESES_CORTOS = [
-  'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-  'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic',
-]
-
-const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 
 const OPCIONES_VISTA: { valor: VistaCalendario; etiqueta: string; etiquetaCorta: string }[] = [
   { valor: 'dia', etiqueta: 'Día', etiquetaCorta: 'D' },
@@ -42,7 +34,7 @@ const OPCIONES_VISTA: { valor: VistaCalendario; etiqueta: string; etiquetaCorta:
 /** Etiqueta completa para desktop: "Martes 8 de abril", "Marzo 2026", etc. */
 function obtenerEtiqueta(vista: VistaCalendario, fecha: Date): string {
   const anio = fecha.getFullYear()
-  const mes = MESES[fecha.getMonth()]
+  const mes = NOMBRES_MESES[fecha.getMonth()]
 
   switch (vista) {
     case 'mes':
@@ -53,9 +45,9 @@ function obtenerEtiqueta(vista: VistaCalendario, fecha: Date): string {
       return etiquetaRangoSemana(fecha, 13)
     case 'dia':
     case 'equipo': {
-      const diaSemana = DIAS_SEMANA[fecha.getDay()]
+      const diaSemana = NOMBRES_DIAS_COMPLETOS[fecha.getDay()]
       const diaNum = fecha.getDate()
-      const mesNombre = MESES[fecha.getMonth()].toLowerCase()
+      const mesNombre = NOMBRES_MESES[fecha.getMonth()].toLowerCase()
       return `${diaSemana} ${diaNum} de ${mesNombre}`
     }
     case 'anio':
@@ -68,7 +60,7 @@ function obtenerEtiqueta(vista: VistaCalendario, fecha: Date): string {
 /** Etiqueta compacta para móvil: "8 Abr 2026", "Mar 2026", etc. */
 function obtenerEtiquetaCorta(vista: VistaCalendario, fecha: Date): string {
   const anio = fecha.getFullYear()
-  const mesCorto = MESES_CORTOS[fecha.getMonth()]
+  const mesCorto = NOMBRES_MESES_CORTOS[fecha.getMonth()]
 
   switch (vista) {
     case 'mes':
@@ -97,8 +89,8 @@ function etiquetaRangoSemana(fecha: Date, diasOffset: number): string {
   lunes.setDate(fecha.getDate() + diffLunes)
   const fin = new Date(lunes)
   fin.setDate(lunes.getDate() + diasOffset)
-  const mesInicio = MESES[lunes.getMonth()].slice(0, 3)
-  const mesFin = MESES[fin.getMonth()].slice(0, 3)
+  const mesInicio = NOMBRES_MESES[lunes.getMonth()].slice(0, 3)
+  const mesFin = NOMBRES_MESES[fin.getMonth()].slice(0, 3)
   if (lunes.getMonth() === fin.getMonth()) {
     return `${lunes.getDate()} – ${fin.getDate()} ${mesInicio} ${lunes.getFullYear()}`
   }
@@ -113,8 +105,8 @@ function etiquetaRangoSemanaCorta(fecha: Date, diasOffset: number): string {
   lunes.setDate(fecha.getDate() + diffLunes)
   const fin = new Date(lunes)
   fin.setDate(lunes.getDate() + diasOffset)
-  const mesInicio = MESES_CORTOS[lunes.getMonth()]
-  const mesFin = MESES_CORTOS[fin.getMonth()]
+  const mesInicio = NOMBRES_MESES_CORTOS[lunes.getMonth()]
+  const mesFin = NOMBRES_MESES_CORTOS[fin.getMonth()]
   if (lunes.getMonth() === fin.getMonth()) {
     return `${lunes.getDate()}–${fin.getDate()} ${mesInicio}`
   }
@@ -155,6 +147,7 @@ function BarraHerramientasCalendario({
   filtroVista = 'todos',
   onCambiarFiltroVista,
 }: PropiedadesBarraHerramientas) {
+  const { t } = useTraduccion()
   const etiqueta = obtenerEtiqueta(vistaActiva, fechaActual)
   const etiquetaMovil = obtenerEtiquetaCorta(vistaActiva, fechaActual)
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false)
@@ -182,13 +175,14 @@ function BarraHerramientasCalendario({
 
         {/* Navegación: Hoy + flechas + etiqueta */}
         <div className="flex items-center gap-1.5 min-w-0">
-          <Boton variante="secundario" tamano="xs" onClick={() => onNavegar('hoy')}>
-            Hoy
+          <Boton variante="secundario" tamano="xs" onClick={() => onNavegar('hoy')} aria-label={t('calendario.a11y.ir_a_hoy')}>
+            {t('calendario.hoy')}
           </Boton>
           <div className="flex items-center">
             <button
               type="button"
               onClick={() => onNavegar('anterior')}
+              aria-label={t('calendario.a11y.ir_dia_anterior')}
               className="p-1 rounded-md text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover transition-colors"
             >
               <ChevronLeft size={16} />
@@ -196,6 +190,7 @@ function BarraHerramientasCalendario({
             <button
               type="button"
               onClick={() => onNavegar('siguiente')}
+              aria-label={t('calendario.a11y.ir_dia_siguiente')}
               className="p-1 rounded-md text-texto-terciario hover:text-texto-primario hover:bg-superficie-hover transition-colors"
             >
               <ChevronRight size={16} />
@@ -246,11 +241,13 @@ function BarraHerramientasCalendario({
       </div>
 
       {/* ═══ Fila final: Selector de vista — centrado ═══ */}
-      <div className="flex items-center justify-center gap-0.5 py-0.5">
+      <div className="flex items-center justify-center gap-0.5 py-0.5" role="tablist" aria-label={t('calendario.a11y.vista_calendario')}>
         {OPCIONES_VISTA.map((opcion) => (
           <button
             key={opcion.valor}
             type="button"
+            role="tab"
+            aria-selected={vistaActiva === opcion.valor}
             onClick={() => onCambiarVista(opcion.valor)}
             className={[
               'px-2.5 md:px-3 py-1.5 text-xs rounded-md transition-all font-medium whitespace-nowrap',
