@@ -56,31 +56,6 @@ export function SkeletonTabla({ filas = 8, columnas = 5 }: SkeletonTablaProps) {
 }
 
 /**
- * SkeletonListado — Placeholder que simula la PlantillaListado completa (header + tabla).
- * Se usa como fallback de Suspense en Server Components para que la transición sea suave.
- */
-export function SkeletonListado({ filas = 8, columnas = 5 }: SkeletonTablaProps) {
-  return (
-    <div className="flex flex-col h-full">
-      {/* Header — simula PlantillaListado con botón principal + acciones */}
-      <div className="shrink-0 px-2 sm:px-6 pt-5 sm:pt-5 pb-5 sm:pb-5">
-        <div className="flex items-center gap-2">
-          <div className="h-9 w-28 rounded-lg bg-superficie-hover animate-pulse" />
-          <div className="h-9 w-24 rounded-lg bg-superficie-hover animate-pulse" />
-          <div className="flex-1" />
-          <div className="h-9 w-9 rounded-lg bg-superficie-hover animate-pulse" />
-        </div>
-      </div>
-
-      {/* Tabla */}
-      <div className="flex-1 px-2 sm:px-6 pb-2 sm:pb-6">
-        <SkeletonTabla filas={filas} columnas={columnas} />
-      </div>
-    </div>
-  )
-}
-
-/**
  * SkeletonLista — Placeholder para listas tipo papelera (filas con ícono + texto).
  */
 export function SkeletonLista({ filas = 6 }: { filas?: number }) {
