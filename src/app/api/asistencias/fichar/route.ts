@@ -24,7 +24,15 @@ export async function POST(request: NextRequest) {
 
     const admin = crearClienteAdmin()
     const ahora = new Date().toISOString()
-    const fechaHoy = new Date().toISOString().split('T')[0]
+
+    // Obtener zona horaria de la empresa para calcular fecha local correcta
+    const { data: empresaData } = await admin
+      .from('empresas')
+      .select('zona_horaria')
+      .eq('id', empresaId)
+      .single()
+    const zona = (empresaData?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+    const fechaHoy = new Date().toLocaleDateString('en-CA', { timeZone: zona }) // YYYY-MM-DD
 
     // Obtener miembro actual
     const { data: miembro } = await admin
@@ -279,7 +287,15 @@ export async function GET() {
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
     const admin = crearClienteAdmin()
-    const fechaHoy = new Date().toISOString().split('T')[0]
+
+    // Obtener zona horaria de la empresa para calcular fecha local correcta
+    const { data: empresaGetData } = await admin
+      .from('empresas')
+      .select('zona_horaria')
+      .eq('id', empresaId)
+      .single()
+    const zonaGet = (empresaGetData?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+    const fechaHoy = new Date().toLocaleDateString('en-CA', { timeZone: zonaGet }) // YYYY-MM-DD
 
     const { data: miembro } = await admin
       .from('miembros')
@@ -289,6 +305,32 @@ export async function GET() {
       .single()
 
     if (!miembro) return NextResponse.json({ error: 'No sos miembro' }, { status: 403 })
+
+    // Cerrar turno huérfano de día anterior al consultar estado
+    const { data: turnoViejo } = await admin
+      .from('asistencias')
+      .select('id, hora_salida, hora_entrada')
+      .eq('empresa_id', empresaId)
+      .eq('miembro_id', miembro.id)
+      .in('estado', ['activo', 'almuerzo', 'particular'])
+      .neq('fecha', fechaHoy)
+      .limit(1)
+      .maybeSingle()
+
+    if (turnoViejo) {
+      const ahora = new Date().toISOString()
+      const horaSalida = turnoViejo.hora_salida || turnoViejo.hora_entrada
+      await admin
+        .from('asistencias')
+        .update({
+          hora_salida: horaSalida,
+          estado: 'auto_cerrado',
+          cierre_automatico: true,
+          notas: 'Cierre automático — turno de día anterior detectado al consultar estado',
+          actualizado_en: ahora,
+        })
+        .eq('id', turnoViejo.id)
+    }
 
     const [turnoHoyRes, configRes] = await Promise.all([
       admin

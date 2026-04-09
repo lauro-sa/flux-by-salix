@@ -65,6 +65,12 @@ interface Actividad {
   checklist: ItemChecklist[]
   vinculos: Vinculo[]
   seguimientos?: Seguimiento[]
+  creado_por: string | null
+  creado_por_nombre: string | null
+  creado_en: string | null
+  editado_por: string | null
+  editado_por_nombre: string | null
+  actualizado_en: string | null
 }
 
 interface Miembro {

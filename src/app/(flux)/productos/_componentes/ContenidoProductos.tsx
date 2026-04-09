@@ -13,7 +13,7 @@ import {
   PlusCircle, Download, Upload, Package, PackageOpen, Wrench,
   Hash, Tag, DollarSign, Star, Ruler, ToggleLeft, Calendar,
   FileText, StickyNote, Barcode, Box,
-  Trash2, TrendingUp,
+  Trash2, TrendingUp, History,
 } from 'lucide-react'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Boton } from '@/componentes/ui/Boton'
@@ -351,7 +351,7 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
       render: (fila) => <span className="text-texto-terciario text-xs">{formato.fecha(fila.creado_en, { corta: true })}</span>,
     },
     {
-      clave: 'editado_por' as keyof FilaProducto, etiqueta: '', ancho: 44, grupo: 'Metadata',
+      clave: 'editado_por' as keyof FilaProducto, etiqueta: 'Auditoría', ancho: 44, grupo: 'Metadata', icono: <History size={I} />,
       render: (fila) => (fila.editado_por || fila.creado_por) ? (
         <IndicadorEditado
           entidadId={fila.id}

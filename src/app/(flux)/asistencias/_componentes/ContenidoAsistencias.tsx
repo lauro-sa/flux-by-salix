@@ -7,7 +7,7 @@ import { useListado } from '@/hooks/useListado'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
-import { Download, Clock, TimerOff, Plus } from 'lucide-react'
+import { Download, Clock, TimerOff, Plus, History } from 'lucide-react'
 import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Insignia } from '@/componentes/ui/Insignia'
@@ -258,8 +258,9 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
     },
     {
       clave: 'editado_por' as keyof RegistroAsistencia,
-      etiqueta: '',
+      etiqueta: 'Auditoría',
       ancho: 44,
+      icono: <History size={12} />,
       render: (r) => (r.editado_por || r.creado_por) ? (
         <IndicadorEditado
           entidadId={r.id}

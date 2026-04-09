@@ -11,19 +11,25 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 export async function GET() {
   try {
     const admin = crearClienteAdmin()
-    const ahora = new Date()
-    const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes()
-    const fechaHoy = ahora.toISOString().split('T')[0]
     const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
-    const diaHoy = diasSemana[ahora.getDay()]
 
-    // Obtener empresas con sus turnos
-    const { data: empresas } = await admin.from('empresas').select('id')
+    // Obtener empresas con zona horaria
+    const { data: empresas } = await admin.from('empresas').select('id, zona_horaria')
 
     let notificacionesEnviadas = 0
 
     for (const empresa of (empresas || [])) {
       const empresaId = (empresa as Record<string, unknown>).id as string
+      const zona = ((empresa as Record<string, unknown>).zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+
+      // Calcular hora y fecha en la zona horaria de la empresa
+      const ahora = new Date()
+      const horaLocal = ahora.toLocaleTimeString('en-GB', { timeZone: zona, hour12: false })
+      const [hh, mm] = horaLocal.split(':').map(Number)
+      const minutosAhora = hh * 60 + mm
+      const fechaHoy = ahora.toLocaleDateString('en-CA', { timeZone: zona })
+      const diaLocal = new Date(fechaHoy + 'T12:00:00')
+      const diaHoy = diasSemana[diaLocal.getDay()]
 
       // Obtener turnos
       const { data: turnos } = await admin

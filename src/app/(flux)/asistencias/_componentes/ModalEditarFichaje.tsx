@@ -373,9 +373,10 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
 
             {/* Editado */}
             {r.editado_por && (
-              <p className="text-xxs text-texto-terciario flex items-center gap-1">
-                <Pencil size={9} /> Editado manualmente
-              </p>
+              <div className="flex items-center gap-1.5">
+                <Pencil size={9} className="text-texto-terciario" />
+                <span className="text-xxs text-texto-terciario">Editado manualmente</span>
+              </div>
             )}
           </>
         ) : (

@@ -66,7 +66,7 @@ async function autoCheckout(admin: ReturnType<typeof crearClienteAdmin>) {
     // Buscar turnos abiertos que superaron el límite
     const { data: abiertos } = await admin
       .from('asistencias')
-      .select('id, hora_entrada')
+      .select('id, hora_entrada, hora_salida')
       .eq('empresa_id', config.empresa_id)
       .in('estado', ['activo', 'almuerzo', 'particular'])
       .lte('hora_entrada', cutoff)
@@ -75,13 +75,15 @@ async function autoCheckout(admin: ReturnType<typeof crearClienteAdmin>) {
 
     for (const turno of abiertos) {
       const t = turno as Record<string, unknown>
-      const entradaMs = new Date(t.hora_entrada as string).getTime()
-      const salidaCalculada = new Date(entradaMs + maxMs).toISOString()
+      // Respetar hora_salida rolling del heartbeat si existe
+      const horaSalida = t.hora_salida
+        ? (t.hora_salida as string)
+        : new Date(new Date(t.hora_entrada as string).getTime() + maxMs).toISOString()
 
       await admin
         .from('asistencias')
         .update({
-          hora_salida: salidaCalculada,
+          hora_salida: horaSalida,
           estado: 'auto_cerrado',
           cierre_automatico: true,
           notas: `Cierre automático — turno superó ${config.auto_checkout_max_horas}h sin registrar salida`,
@@ -93,13 +95,13 @@ async function autoCheckout(admin: ReturnType<typeof crearClienteAdmin>) {
     }
   }
 
-  // También cerrar turnos sin config (default 12h)
+  // También cerrar turnos sin config (default 12h desde hora_entrada)
   const cutoffDefault = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString()
   const configEmpresaIds = new Set((configs || []).map(c => c.empresa_id))
 
   const { data: abiertosSinConfig } = await admin
     .from('asistencias')
-    .select('id, empresa_id, hora_entrada')
+    .select('id, empresa_id, hora_entrada, hora_salida')
     .in('estado', ['activo', 'almuerzo', 'particular'])
     .lte('hora_entrada', cutoffDefault)
 
@@ -107,16 +109,79 @@ async function autoCheckout(admin: ReturnType<typeof crearClienteAdmin>) {
     const t = turno as Record<string, unknown>
     if (configEmpresaIds.has(t.empresa_id as string)) continue // ya procesado
 
-    const entradaMs = new Date(t.hora_entrada as string).getTime()
-    const salidaCalculada = new Date(entradaMs + 12 * 60 * 60 * 1000).toISOString()
+    // Respetar hora_salida rolling del heartbeat si existe
+    const horaSalida = t.hora_salida
+      ? (t.hora_salida as string)
+      : new Date(new Date(t.hora_entrada as string).getTime() + 12 * 60 * 60 * 1000).toISOString()
 
     await admin
       .from('asistencias')
       .update({
-        hora_salida: salidaCalculada,
+        hora_salida: horaSalida,
         estado: 'auto_cerrado',
         cierre_automatico: true,
         notas: 'Cierre automático — turno superó 12h sin registrar salida',
+        actualizado_en: new Date().toISOString(),
+      })
+      .eq('id', t.id)
+
+    totalCerrados++
+  }
+
+  // Cierre de seguridad: cerrar CUALQUIER turno abierto de días anteriores a hoy.
+  // Esto atrapa turnos que escaparon al cierre por hora_entrada (ej: cron no corrió,
+  // heartbeat actualizó hora_salida pero no cerró, etc.)
+  // Usamos fecha más conservadora (UTC-12) para no cerrar turnos prematuramente
+  const fechaHoyUTC = new Date().toISOString().split('T')[0]
+  // Restar 1 día para ser conservadores con zonas horarias atrasadas (ej: si son 6AM UTC,
+  // en Pacific/Auckland ya es mañana pero en America/Anchorage todavía es ayer)
+  const ayerUTC = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const { data: huerfanos } = await admin
+    .from('asistencias')
+    .select('id, empresa_id, hora_entrada, hora_salida')
+    .in('estado', ['activo', 'almuerzo', 'particular'])
+    .lt('fecha', ayerUTC)
+
+  for (const turno of (huerfanos || [])) {
+    const t = turno as Record<string, unknown>
+    // Usar hora_salida si existe (rolling del heartbeat), si no hora_entrada + 8h
+    const horaSalida = t.hora_salida
+      ? (t.hora_salida as string)
+      : new Date(new Date(t.hora_entrada as string).getTime() + 8 * 60 * 60 * 1000).toISOString()
+
+    await admin
+      .from('asistencias')
+      .update({
+        hora_salida: horaSalida,
+        estado: 'auto_cerrado',
+        cierre_automatico: true,
+        notas: 'Cierre automático — turno de día anterior seguía abierto',
+        actualizado_en: new Date().toISOString(),
+      })
+      .eq('id', t.id)
+
+    totalCerrados++
+  }
+
+  // Cierre por inactividad: turnos del mismo día donde hora_salida (último heartbeat)
+  // fue hace más de 3 horas y siguen "activo". Ej: Olivia dejó de usar la compu a las 13:05,
+  // a las 16:05+ el cron lo cierra con hora_salida 13:05.
+  const cutoffInactividad = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
+  const { data: inactivos } = await admin
+    .from('asistencias')
+    .select('id, hora_salida')
+    .in('estado', ['activo', 'almuerzo', 'particular'])
+    .not('hora_salida', 'is', null)
+    .lte('hora_salida', cutoffInactividad)
+
+  for (const turno of (inactivos || [])) {
+    const t = turno as Record<string, unknown>
+    await admin
+      .from('asistencias')
+      .update({
+        estado: 'auto_cerrado',
+        cierre_automatico: true,
+        notas: 'Cierre automático — sin actividad por más de 3 horas',
         actualizado_en: new Date().toISOString(),
       })
       .eq('id', t.id)
@@ -132,18 +197,12 @@ async function autoCheckout(admin: ReturnType<typeof crearClienteAdmin>) {
  * Se ejecuta a las 00:00 (medianoche).
  */
 async function marcarAusentes(admin: ReturnType<typeof crearClienteAdmin>) {
-  // Fecha de ayer
-  const ayer = new Date()
-  ayer.setDate(ayer.getDate() - 1)
-  const fechaAyer = ayer.toISOString().split('T')[0]
-
   const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
-  const diaAyer = diasSemana[ayer.getDay()]
 
-  // Obtener todas las empresas con sus turnos
+  // Obtener todas las empresas con su zona horaria
   const { data: empresas } = await admin
     .from('empresas')
-    .select('id, pais')
+    .select('id, pais, zona_horaria')
 
   let totalAusencias = 0
   let totalFeriados = 0
@@ -151,6 +210,14 @@ async function marcarAusentes(admin: ReturnType<typeof crearClienteAdmin>) {
   for (const empresa of (empresas || [])) {
     const empresaId = (empresa as Record<string, unknown>).id as string
     const paisEmpresa = ((empresa as Record<string, unknown>).pais as string) || 'AR'
+    const zona = ((empresa as Record<string, unknown>).zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+
+    // Calcular "ayer" en la zona horaria de la empresa
+    const ahoraLocal = new Date().toLocaleDateString('en-CA', { timeZone: zona }) // hoy local
+    const ayerDate = new Date(ahoraLocal + 'T12:00:00')
+    ayerDate.setDate(ayerDate.getDate() - 1)
+    const fechaAyer = ayerDate.toISOString().split('T')[0]
+    const diaAyer = diasSemana[ayerDate.getDay()]
 
     // Detectar si ayer fue feriado
     const hd = new Holidays(paisEmpresa)
@@ -245,7 +312,7 @@ async function marcarAusentes(admin: ReturnType<typeof crearClienteAdmin>) {
     }
   }
 
-  return NextResponse.json({ ok: true, tarea: 'marcar_ausentes', ausencias: totalAusencias, feriados: totalFeriados, fecha: fechaAyer })
+  return NextResponse.json({ ok: true, tarea: 'marcar_ausentes', ausencias: totalAusencias, feriados: totalFeriados })
 }
 
 /**

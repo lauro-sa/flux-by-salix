@@ -16,7 +16,7 @@ import {
   User, Tag, Hash, CreditCard, Link2, Mail, Phone, MessageCircle, Briefcase, Factory,
   Globe, MapPin, Tags, StickyNote, Calendar, Receipt, GraduationCap,
   Languages, Clock, Coins, Landmark, FileText, Star, Compass, ShieldCheck,
-  Trash2, X, UserCheck, Merge, FileDown, KanbanSquare,
+  Trash2, X, UserCheck, Merge, FileDown, KanbanSquare, History,
 } from 'lucide-react'
 import { ModalImportar } from './ModalImportar'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
@@ -565,7 +565,7 @@ export default function ContenidoContactos({ datosInicialesJson }: Props) {
       render: (fila) => <span className="text-texto-terciario text-xs">{formatoFecha(fila.creado_en)}</span>,
     },
     {
-      clave: 'editado_por' as keyof FilaContacto, etiqueta: '', ancho: 44, grupo: t('comun.metadata'),
+      clave: 'editado_por' as keyof FilaContacto, etiqueta: 'Auditoría', ancho: 44, grupo: t('comun.metadata'), icono: <History size={I} />,
       render: (fila) => (fila.editado_por || fila.creado_por) ? (
         <IndicadorEditado
           entidadId={fila.id}

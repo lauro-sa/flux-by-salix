@@ -13,7 +13,7 @@ import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import {
   Plus, FileText, User, Hash, Calendar, DollarSign, Tag,
-  Clock, CircleDot, FilePen, Trash2, X, FileDown, Copy, RefreshCw,
+  Clock, CircleDot, FilePen, Trash2, X, FileDown, Copy, RefreshCw, History,
 } from 'lucide-react'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { SkeletonTabla } from '@/componentes/feedback/SkeletonTabla'
@@ -446,7 +446,7 @@ export default function ContenidoPresupuestos({ datosInicialesJson }: Props) {
       render: (fila) => <span className="text-xs text-texto-terciario">{formatoFecha(fila.creado_en)}</span>,
     },
     {
-      clave: 'editado_por' as keyof FilaPresupuesto, etiqueta: '', ancho: 44, grupo: t('comun.auditoria_grupo'),
+      clave: 'editado_por' as keyof FilaPresupuesto, etiqueta: 'Auditoría', ancho: 44, grupo: t('comun.auditoria_grupo'), icono: <History size={I} />,
       render: (fila) => (fila.editado_por || fila.creado_por) ? (
         <IndicadorEditado
           entidadId={fila.id}

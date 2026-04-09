@@ -9,7 +9,7 @@ import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import {
   PlusCircle, Download, ClipboardList, CalendarClock,
-  CheckCircle, Clock, User, FileText, MapPin, Trash2,
+  CheckCircle, Clock, User, FileText, MapPin, Trash2, History,
 } from 'lucide-react'
 import type { AccionLote } from '@/componentes/tablas/tipos-tabla'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
@@ -556,7 +556,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
       },
     },
     {
-      clave: 'editado_por' as keyof Actividad, etiqueta: '', ancho: 44,
+      clave: 'editado_por' as keyof Actividad, etiqueta: 'Auditoría', ancho: 44, icono: <History size={12} />,
       render: (fila) => (fila.editado_por || fila.creado_por) ? (
         <IndicadorEditado
           entidadId={fila.id}

@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
         limite_credito, plazo_pago_cliente, plazo_pago_proveedor,
         rank_cliente, rank_proveedor, pais_fiscal, zona_horaria,
         notas, web, titulo,
-        creado_por, creado_en, actualizado_en,
+        creado_por, editado_por, creado_en, actualizado_en,
         tipo_contacto:tipos_contacto!tipo_contacto_id(id, clave, etiqueta, icono, color),
         responsables:contacto_responsables(usuario_id),
         direcciones:contacto_direcciones(id, tipo, calle, numero, texto, ciudad, provincia, codigo_postal, es_principal),
@@ -224,9 +224,26 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Resolver nombres de creador/editor
+    const idsUsuarios = [...new Set(
+      (data || []).flatMap(c => [c.creado_por, c.editado_por]).filter(Boolean)
+    )]
+    const nombresMap = new Map<string, string>()
+    if (idsUsuarios.length > 0) {
+      const { data: perfiles } = await admin
+        .from('perfiles')
+        .select('id, nombre, apellido')
+        .in('id', idsUsuarios)
+      for (const p of (perfiles || [])) {
+        nombresMap.set(p.id, `${p.nombre} ${p.apellido || ''}`.trim())
+      }
+    }
+
     let contactosConEtapa = (data || []).map(c => ({
       ...c,
       ultima_etapa: etapasPorContacto[c.id] || null,
+      creador_nombre: c.creado_por ? (nombresMap.get(c.creado_por) || null) : null,
+      editor_nombre: c.editado_por ? (nombresMap.get(c.editado_por) || null) : null,
     }))
 
     // Cuando hay búsqueda, re-ordenar por relevancia:

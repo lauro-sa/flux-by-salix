@@ -62,6 +62,8 @@ export async function GET(request: NextRequest) {
     const registros = (data || []).map((r: Record<string, unknown>) => ({
       ...r,
       miembro_nombre: miembroNombres.get(r.miembro_id) || 'Sin nombre',
+      creador_nombre: r.creado_por ? (miembroNombres.get(r.creado_por) || null) : null,
+      editor_nombre: r.editado_por ? (miembroNombres.get(r.editado_por) || null) : null,
     }))
 
     return NextResponse.json({ registros, total: count || 0 })

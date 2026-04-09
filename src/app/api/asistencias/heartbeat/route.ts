@@ -31,7 +31,15 @@ export async function POST(request: NextRequest) {
 
     const admin = crearClienteAdmin()
     const ahora = new Date().toISOString()
-    const fechaHoy = new Date().toISOString().split('T')[0]
+
+    // Obtener zona horaria de la empresa para calcular fecha local correcta
+    const { data: empresaData } = await admin
+      .from('empresas')
+      .select('zona_horaria')
+      .eq('id', empresaId)
+      .single()
+    const zona = (empresaData?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+    const fechaHoy = new Date().toLocaleDateString('en-CA', { timeZone: zona }) // YYYY-MM-DD
 
     // Obtener miembro
     const { data: miembro } = await admin
@@ -61,6 +69,29 @@ export async function POST(request: NextRequest) {
     const fichajePermitido = miembro.metodo_fichaje === 'automatico' && (!esMovil || miembro.fichaje_auto_movil)
 
     if (fichajePermitido) {
+      // Cerrar turno huérfano de día anterior (misma lógica que /fichar)
+      const { data: turnoViejo } = await admin
+        .from('asistencias')
+        .select('id, fecha')
+        .eq('empresa_id', empresaId)
+        .eq('miembro_id', miembro.id)
+        .in('estado', ['activo', 'almuerzo', 'particular'])
+        .neq('fecha', fechaHoy)
+        .limit(1)
+        .maybeSingle()
+
+      if (turnoViejo) {
+        await admin
+          .from('asistencias')
+          .update({
+            estado: 'auto_cerrado',
+            cierre_automatico: true,
+            notas: 'Cierre automático — heartbeat detectó nueva jornada',
+            actualizado_en: ahora,
+          })
+          .eq('id', turnoViejo.id)
+      }
+
       const { data: turnoHoy } = await admin
         .from('asistencias')
         .select('id, estado, hora_entrada')
@@ -126,6 +157,25 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
           accion: 'salida_actualizada',
+          hora_entrada: turnoHoy.hora_entrada,
+        })
+      }
+
+      // Si el turno fue auto-cerrado pero el usuario sigue activo hoy → reabrir
+      if (turnoHoy && tipo !== 'beforeunload' && turnoHoy.estado === 'auto_cerrado') {
+        await admin
+          .from('asistencias')
+          .update({
+            estado: 'activo',
+            hora_salida: ahora,
+            cierre_automatico: false,
+            notas: null,
+            actualizado_en: ahora,
+          })
+          .eq('id', turnoHoy.id)
+
+        return NextResponse.json({
+          accion: 'turno_reabierto',
           hora_entrada: turnoHoy.hora_entrada,
         })
       }

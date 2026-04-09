@@ -1,0 +1,107 @@
+import { NextResponse, type NextRequest } from 'next/server'
+import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { crearClienteAdmin } from '@/lib/supabase/admin'
+
+/**
+ * GET /api/auditoria — Obtener historial de ediciones de cualquier entidad.
+ *
+ * Query params:
+ *   - tabla: nombre de la tabla de auditoría (ej: 'auditoria_asistencias')
+ *   - campo: nombre del campo FK (ej: 'asistencia_id')
+ *   - id: ID del registro a consultar
+ *
+ * Devuelve los cambios ordenados por fecha descendente, con el nombre del editor.
+ * Reutilizable para cualquier módulo con tabla de auditoría.
+ */
+
+// Tablas de auditoría permitidas (whitelist para evitar inyección)
+const TABLAS_PERMITIDAS = new Set([
+  'auditoria_asistencias',
+  'auditoria_contactos',
+  'auditoria_productos',
+  'auditoria_actividades',
+  'auditoria_presupuestos',
+  'auditoria_ordenes',
+])
+
+// Campos FK permitidos por tabla
+const CAMPOS_PERMITIDOS: Record<string, string[]> = {
+  auditoria_asistencias: ['asistencia_id'],
+  auditoria_contactos: ['contacto_id'],
+  auditoria_productos: ['producto_id'],
+  auditoria_actividades: ['actividad_id'],
+  auditoria_presupuestos: ['presupuesto_id'],
+  auditoria_ordenes: ['orden_id'],
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = await crearClienteServidor()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+    const empresaId = user.app_metadata?.empresa_activa_id
+    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    const { searchParams } = request.nextUrl
+    const tabla = searchParams.get('tabla')
+    const campo = searchParams.get('campo')
+    const id = searchParams.get('id')
+
+    if (!tabla || !campo || !id) {
+      return NextResponse.json({ error: 'Faltan parámetros: tabla, campo, id' }, { status: 400 })
+    }
+
+    // Validar tabla y campo contra whitelist
+    if (!TABLAS_PERMITIDAS.has(tabla)) {
+      return NextResponse.json({ error: 'Tabla no permitida' }, { status: 400 })
+    }
+    if (!CAMPOS_PERMITIDOS[tabla]?.includes(campo)) {
+      return NextResponse.json({ error: 'Campo no permitido para esta tabla' }, { status: 400 })
+    }
+
+    const admin = crearClienteAdmin()
+
+    // Consultar cambios de auditoría
+    const { data: cambios, error } = await admin
+      .from(tabla)
+      .select('id, campo_modificado, valor_anterior, valor_nuevo, motivo, creado_en, editado_por')
+      .eq('empresa_id', empresaId)
+      .eq(campo, id)
+      .order('creado_en', { ascending: false })
+      .limit(50)
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Resolver nombres de editores
+    const editoresIds = [...new Set((cambios || []).map(c => c.editado_por).filter(Boolean))]
+    let nombresMap = new Map<string, string>()
+
+    if (editoresIds.length > 0) {
+      const { data: miembros } = await admin
+        .from('miembros')
+        .select('id, usuario_id')
+        .in('id', editoresIds)
+
+      if (miembros && miembros.length > 0) {
+        const usuarioIds = miembros.map(m => m.usuario_id)
+        const { data: perfiles } = await admin
+          .from('perfiles')
+          .select('id, nombre, apellido')
+          .in('id', usuarioIds)
+
+        const perfilesMap = new Map((perfiles || []).map(p => [p.id, `${p.nombre} ${p.apellido || ''}`.trim()]))
+        nombresMap = new Map(miembros.map(m => [m.id, perfilesMap.get(m.usuario_id) || 'Desconocido']))
+      }
+    }
+
+    const cambiosConNombre = (cambios || []).map(c => ({
+      ...c,
+      editor_nombre: nombresMap.get(c.editado_por) || null,
+    }))
+
+    return NextResponse.json({ cambios: cambiosConNombre })
+  } catch {
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+  }
+}
