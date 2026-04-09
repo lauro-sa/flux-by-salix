@@ -7,6 +7,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { Select } from '@/componentes/ui/Select'
 import { TextArea } from '@/componentes/ui/TextArea'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
+import { SelectorHora } from '@/componentes/ui/SelectorHora'
 import { obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import {
   Plus, Trash2, Search, X, Check, GripVertical,
@@ -255,14 +256,6 @@ function ModalActividad({
       setGuardando(false)
     }
   }
-
-  // Al montar, limpiar datos de navegación fallida si hay
-  useEffect(() => {
-    if (!abierto) return
-    // Limpiar sessionStorage residual
-    sessionStorage.removeItem('flux_actividad_pendiente')
-    sessionStorage.removeItem('flux_bloques_calendario')
-  }, [abierto]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
@@ -1191,21 +1184,17 @@ function SeccionBloquesCalendario({
               />
               <div className="flex gap-2 flex-1">
                 <div className="flex-1">
-                  <label className="text-xs text-texto-terciario mb-1 block">Desde</label>
-                  <input
-                    type="time"
-                    value={nuevaHoraInicio}
-                    onChange={(e) => setNuevaHoraInicio(e.target.value)}
-                    className="w-full px-2 py-1.5 text-sm rounded-md border border-borde-sutil bg-superficie-tarjeta text-texto-primario"
+                  <SelectorHora
+                    etiqueta="Desde"
+                    valor={nuevaHoraInicio}
+                    onChange={(v) => setNuevaHoraInicio(v || '')}
                   />
                 </div>
                 <div className="flex-1">
-                  <label className="text-xs text-texto-terciario mb-1 block">Hasta</label>
-                  <input
-                    type="time"
-                    value={nuevaHoraFin}
-                    onChange={(e) => setNuevaHoraFin(e.target.value)}
-                    className="w-full px-2 py-1.5 text-sm rounded-md border border-borde-sutil bg-superficie-tarjeta text-texto-primario"
+                  <SelectorHora
+                    etiqueta="Hasta"
+                    valor={nuevaHoraFin}
+                    onChange={(v) => setNuevaHoraFin(v || '')}
                   />
                 </div>
               </div>

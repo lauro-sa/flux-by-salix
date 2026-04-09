@@ -13,6 +13,7 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Pencil, Trash2, MapPin, Users, Link2, CalendarDays } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
+import { useFormato } from '@/hooks/useFormato'
 import type { EventoCalendario } from './tipos'
 
 // --- Utilidades de formato ---
@@ -26,11 +27,11 @@ const MESES_CORTOS = [
 /** Nombres de días de la semana (abreviados) */
 const DIAS_CORTOS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
-/** Formatea hora desde ISO: "09:00" */
-function formatearHora(iso: string): string {
+/** Formatea hora desde ISO respetando formato de empresa (12h/24h) */
+function formatearHora(iso: string, formatoHora: string = '24h'): string {
   const fecha = new Date(iso)
   if (isNaN(fecha.getTime())) return ''
-  return fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })
+  return fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: formatoHora === '12h' })
 }
 
 /** Formatea fecha corta: "Mar 8 Abr" */
@@ -44,12 +45,12 @@ function formatearFechaCorta(iso: string): string {
 }
 
 /** Formatea el rango de fecha/hora para mostrar en el popover */
-function formatearRangoEvento(evento: EventoCalendario): string {
+function formatearRangoEvento(evento: EventoCalendario, formatoHora: string = '24h'): string {
   if (evento.todo_el_dia) {
     return `${formatearFechaCorta(evento.fecha_inicio)} · Todo el día`
   }
-  const horaInicio = formatearHora(evento.fecha_inicio)
-  const horaFin = formatearHora(evento.fecha_fin)
+  const horaInicio = formatearHora(evento.fecha_inicio, formatoHora)
+  const horaFin = formatearHora(evento.fecha_fin, formatoHora)
   return `${formatearFechaCorta(evento.fecha_inicio)} · ${horaInicio}–${horaFin}`
 }
 
@@ -78,6 +79,7 @@ function PopoverEvento({
 }: PropiedadesPopoverEvento) {
   const refPanel = useRef<HTMLDivElement>(null)
   const [montado, setMontado] = useState(false)
+  const { formatoHora } = useFormato()
   const [estiloPos, setEstiloPos] = useState<React.CSSProperties>({})
 
   // Montar solo en cliente (necesario para createPortal)
@@ -180,7 +182,7 @@ function PopoverEvento({
           {/* Fecha y hora */}
           <div className="flex items-center gap-2 text-texto-secundario">
             <CalendarDays size={14} className="shrink-0 text-texto-terciario" />
-            <span className="text-xs">{formatearRangoEvento(evento)}</span>
+            <span className="text-xs">{formatearRangoEvento(evento, formatoHora)}</span>
           </div>
 
           {/* Ubicación (si existe) */}

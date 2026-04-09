@@ -8,8 +8,8 @@
  */
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { Calendar, PlusCircle, ArrowLeft, Check } from 'lucide-react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { Calendar, PlusCircle } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { BarraHerramientasCalendario } from './_componentes/BarraHerramientasCalendario'
 import { VistaCalendarioMes } from './_componentes/VistaCalendarioMes'
@@ -20,7 +20,6 @@ import { VistaCalendarioEquipo } from './_componentes/VistaCalendarioEquipo'
 import { VistaCalendarioQuincenal } from './_componentes/VistaCalendarioQuincenal'
 import { MiniCalendario } from './_componentes/MiniCalendario'
 import { ModalEvento } from './_componentes/ModalEvento'
-import { Boton } from '@/componentes/ui/Boton'
 import { PopoverEvento } from './_componentes/PopoverEvento'
 import { useToast } from '@/componentes/feedback/Toast'
 import type { EventoCalendario, TipoEventoCalendario, VistaCalendario } from './_componentes/tipos'
@@ -112,34 +111,10 @@ function formatearFechaISO(fecha: Date): string {
 
 export default function PaginaCalendario() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { mostrar } = useToast()
 
-  // Modo selección: viene de crear actividad para elegir bloques
-  const modoSeleccion = searchParams.get('modo') === 'seleccion'
-  const [bloquesSeleccionados, setBloquesSeleccionados] = useState<{ fecha: string; horaInicio: string; horaFin: string }[]>([])
-
-  // Datos de la actividad pendiente (para mostrar en el banner)
-  const [actividadPendiente, setActividadPendiente] = useState<{ titulo?: string; rutaRetorno?: string } | null>(null)
-
-  useEffect(() => {
-    if (!modoSeleccion) return
-    const datos = sessionStorage.getItem('flux_actividad_pendiente')
-    if (datos) {
-      try { setActividadPendiente(JSON.parse(datos)) } catch { /* ignorar */ }
-    }
-    // Recuperar bloques previos si los hay
-    const bloquesPrev = sessionStorage.getItem('flux_bloques_calendario')
-    if (bloquesPrev) {
-      try {
-        const b = JSON.parse(bloquesPrev)
-        if (Array.isArray(b)) setBloquesSeleccionados(b)
-      } catch { /* ignorar */ }
-    }
-  }, [modoSeleccion])
-
   // Estado principal
-  const [vistaActiva, setVistaActiva] = useState<VistaCalendario>(modoSeleccion ? 'semana' : 'mes')
+  const [vistaActiva, setVistaActiva] = useState<VistaCalendario>('mes')
   const [fechaActual, setFechaActual] = useState<Date>(new Date())
   const [eventos, setEventos] = useState<EventoCalendario[]>([])
   const [tiposEvento, setTiposEvento] = useState<TipoEventoCalendario[]>([])
@@ -172,10 +147,7 @@ export default function PaginaCalendario() {
         if (res.ok) {
           const datos = await res.json()
           setTiposEvento(datos.tipos || [])
-          // En modo selección forzar vista semana; si no, aplicar config
-          if (modoSeleccion) {
-            setVistaActiva('semana')
-          } else if (datos.config?.vista_default) {
+          if (datos.config?.vista_default) {
             setVistaActiva(datos.config.vista_default as VistaCalendario)
           }
         }
@@ -228,7 +200,7 @@ export default function PaginaCalendario() {
           ubicacion: null,
           tipo_id: null,
           tipo_clave: 'feriado',
-          color: '#8B5CF6',
+          color: 'var(--insignia-advertencia)',
           fecha_inicio: `${f.fecha}T00:00:00`,
           fecha_fin: `${f.fecha}T23:59:59`,
           todo_el_dia: true,
@@ -321,50 +293,11 @@ export default function PaginaCalendario() {
       )
     }
 
-    // En modo selección, agregar los bloques seleccionados como pseudo-eventos
-    if (modoSeleccion && bloquesSeleccionados.length > 0) {
-      const pseudoEventos: EventoCalendario[] = bloquesSeleccionados.map((b, i) => ({
-        id: `seleccion-${i}`,
-        titulo: actividadPendiente?.titulo || 'Nuevo bloque',
-        descripcion: null,
-        ubicacion: null,
-        tipo_id: null,
-        tipo_clave: 'tarea',
-        color: 'var(--texto-marca)',
-        fecha_inicio: `${b.fecha}T${b.horaInicio}:00`,
-        fecha_fin: `${b.fecha}T${b.horaFin}:00`,
-        todo_el_dia: false,
-        recurrencia: null,
-        visibilidad: 'publica',
-        asignados: [],
-        asignado_ids: [],
-        vinculos: [],
-        vinculo_ids: [],
-        actividad_id: null,
-        estado: 'confirmado',
-        notas: null,
-        creado_por: '',
-        creado_por_nombre: null,
-        creado_en: new Date().toISOString(),
-      }))
-      return [...filtrados, ...pseudoEventos]
-    }
-
     return filtrados
-  }, [eventos, filtroTipo, filtroVista, usuarioActualId, modoSeleccion, bloquesSeleccionados, actividadPendiente?.titulo])
+  }, [eventos, filtroTipo, filtroVista, usuarioActualId])
 
   // --- Acciones del calendario ---
   const manejarClickDia = useCallback((fecha: Date, fechaFin?: Date) => {
-    // En modo selección: agregar bloque en vez de abrir modal
-    if (modoSeleccion) {
-      const fechaStr = formatearFechaISO(fecha)
-      const horaInicio = `${String(fecha.getHours()).padStart(2, '0')}:${String(fecha.getMinutes()).padStart(2, '0')}`
-      const fin = fechaFin || new Date(fecha.getTime() + 60 * 60000) // 1 hora por defecto
-      const horaFin = `${String(fin.getHours()).padStart(2, '0')}:${String(fin.getMinutes()).padStart(2, '0')}`
-      setBloquesSeleccionados(prev => [...prev, { fecha: fechaStr, horaInicio, horaFin }])
-      return
-    }
-
     // Cerrar popover si está abierto
     setPopoverEvento(null)
     setPopoverPosicion(null)
@@ -372,7 +305,7 @@ export default function PaginaCalendario() {
     setFechaPreseleccionada(fecha)
     setFechaFinPreseleccionada(fechaFin || null)
     setModalAbierto(true)
-  }, [modoSeleccion])
+  }, [])
 
   /** Muestra el popover de resumen al hacer clic en un evento */
   const manejarClickEvento = useCallback((evento: EventoCalendario, posicion?: { x: number; y: number }) => {
@@ -482,22 +415,6 @@ export default function PaginaCalendario() {
 
   // --- Mover evento por drag-and-drop ---
   const moverEvento = useCallback(async (id: string, nuevaInicio: string, nuevaFin: string) => {
-    // Si es un pseudo-evento de selección, actualizar el bloque local
-    if (id.startsWith('seleccion-')) {
-      const indice = parseInt(id.replace('seleccion-', ''), 10)
-      setBloquesSeleccionados(prev => prev.map((b, i) => {
-        if (i !== indice) return b
-        const inicio = new Date(nuevaInicio)
-        const fin = new Date(nuevaFin)
-        return {
-          fecha: formatearFechaISO(inicio),
-          horaInicio: `${String(inicio.getHours()).padStart(2, '0')}:${String(inicio.getMinutes()).padStart(2, '0')}`,
-          horaFin: `${String(fin.getHours()).padStart(2, '0')}:${String(fin.getMinutes()).padStart(2, '0')}`,
-        }
-      }))
-      return
-    }
-
     // Actualización optimista: aplicar cambio inmediatamente en la UI
     setEventos(prev => prev.map(e =>
       e.id === id ? { ...e, fecha_inicio: nuevaInicio, fecha_fin: nuevaFin } : e
@@ -615,90 +532,6 @@ export default function PaginaCalendario() {
     >
       {/* Wrapper con márgenes laterales para la barra y contenido */}
       <div className="flex flex-col h-full px-2 sm:px-6">
-
-      {/* Banner modo selección */}
-      {modoSeleccion && (
-        <div className="mb-3 rounded-xl bg-texto-marca/10 border border-texto-marca/20 overflow-hidden">
-          {/* Fila principal */}
-          <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-            <div className="flex items-center gap-2 min-w-0">
-              <Calendar size={16} className="text-texto-marca shrink-0" />
-              <span className="text-sm font-medium text-texto-marca truncate">
-                {actividadPendiente?.titulo || 'Seleccioná bloques de tiempo'}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Boton
-                variante="fantasma"
-                tamano="xs"
-                onClick={() => {
-                  sessionStorage.removeItem('flux_bloques_calendario')
-                  sessionStorage.removeItem('flux_actividad_pendiente')
-                  const ruta = actividadPendiente?.rutaRetorno || '/actividades'
-                  router.push(ruta)
-                }}
-              >
-                Cancelar
-              </Boton>
-              <Boton
-                tamano="xs"
-                icono={<Check size={14} />}
-                onClick={() => {
-                  console.log('[Calendario] Confirmando bloques:', bloquesSeleccionados)
-                  console.log('[Calendario] Guardando en sessionStorage...')
-                  sessionStorage.setItem('flux_bloques_calendario', JSON.stringify(bloquesSeleccionados))
-                  console.log('[Calendario] sessionStorage guardado. Verificación:', !!sessionStorage.getItem('flux_bloques_calendario'))
-                  const ruta = actividadPendiente?.rutaRetorno || '/actividades'
-                  console.log('[Calendario] Navegando a:', ruta)
-                  router.push(ruta)
-                  // Disparar evento custom después de navegar
-                  setTimeout(() => {
-                    console.log('[Calendario] Disparando evento flux:reabrir-actividad (500ms)')
-                    window.dispatchEvent(new CustomEvent('flux:reabrir-actividad'))
-                  }, 500)
-                  setTimeout(() => {
-                    console.log('[Calendario] Disparando evento flux:reabrir-actividad (1500ms)')
-                    window.dispatchEvent(new CustomEvent('flux:reabrir-actividad'))
-                  }, 1500)
-                  setTimeout(() => {
-                    console.log('[Calendario] Disparando evento flux:reabrir-actividad (3000ms)')
-                    window.dispatchEvent(new CustomEvent('flux:reabrir-actividad'))
-                  }, 3000)
-                }}
-              >
-                Confirmar ({bloquesSeleccionados.length})
-              </Boton>
-            </div>
-          </div>
-
-          {/* Lista de bloques seleccionados */}
-          {bloquesSeleccionados.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 px-3 pb-2.5">
-              {bloquesSeleccionados.map((bloque, i) => (
-                <span
-                  key={i}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-texto-marca/15 text-texto-marca text-xs font-medium"
-                >
-                  {bloque.fecha} · {bloque.horaInicio}–{bloque.horaFin}
-                  <button
-                    type="button"
-                    onClick={() => setBloquesSeleccionados(prev => prev.filter((_, idx) => idx !== i))}
-                    className="hover:text-white transition-colors ml-0.5"
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-
-          {bloquesSeleccionados.length === 0 && (
-            <p className="px-3 pb-2.5 text-xs text-texto-marca/70">
-              Arrastrá en la grilla para seleccionar horarios. Podés agregar varios bloques.
-            </p>
-          )}
-        </div>
-      )}
 
       {/* Barra de herramientas */}
       <BarraHerramientasCalendario

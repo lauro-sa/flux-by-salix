@@ -13,12 +13,11 @@
  * Se usa en: EditorPresupuesto, y cualquier módulo de documentos.
  */
 
-import { useState, useEffect, useRef, useCallback, useMemo, useId } from 'react'
-import { useSearchParams, usePathname } from 'next/navigation'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   MessageSquare, Loader2, Search, Zap,
   ChevronDown, ChevronUp, X, MoreVertical, Paperclip,
-  PanelRightClose, PanelRightOpen, Check,
+  Check,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ModalActividad } from '@/app/(flux)/actividades/_componentes/ModalActividad'
@@ -60,8 +59,6 @@ export function PanelChatter({
 }: PropsPanelChatter) {
   const { usuario } = useAuth()
   const { formatoHora } = useFormato()
-  const searchParams = useSearchParams()
-  const pathname = usePathname()
 
   // ─── Estado principal ───
   const [entradas, setEntradas] = useState<EntradaChatter[]>([])

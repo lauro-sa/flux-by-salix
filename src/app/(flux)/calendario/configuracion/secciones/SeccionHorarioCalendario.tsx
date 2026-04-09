@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Interruptor } from '@/componentes/ui/Interruptor'
+import { SelectorHora } from '@/componentes/ui/SelectorHora'
 import { CargadorSeccion } from '@/componentes/ui/Cargador'
 
 /**
@@ -108,24 +109,16 @@ function SeccionHorarioCalendario({ config, cargando, onAccionAPI }: Propiedades
 
         {/* Hora de inicio y fin */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
-          <div>
-            <label className="text-sm font-medium text-texto-secundario block mb-1.5">Hora de inicio</label>
-            <input
-              type="time"
-              value={horaInicio}
-              onChange={(e) => cambiarHoraInicio(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-borde-sutil bg-superficie-tarjeta text-texto-primario text-sm focus:outline-none focus:ring-2 focus:ring-texto-marca/30 focus:border-texto-marca transition-colors"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-texto-secundario block mb-1.5">Hora de fin</label>
-            <input
-              type="time"
-              value={horaFin}
-              onChange={(e) => cambiarHoraFin(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-borde-sutil bg-superficie-tarjeta text-texto-primario text-sm focus:outline-none focus:ring-2 focus:ring-texto-marca/30 focus:border-texto-marca transition-colors"
-            />
-          </div>
+          <SelectorHora
+            etiqueta="Hora de inicio"
+            valor={horaInicio}
+            onChange={(v) => cambiarHoraInicio(v || '08:00')}
+          />
+          <SelectorHora
+            etiqueta="Hora de fin"
+            valor={horaFin}
+            onChange={(v) => cambiarHoraFin(v || '18:00')}
+          />
         </div>
 
         {/* Días laborales */}
