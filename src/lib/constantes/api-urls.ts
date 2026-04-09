@@ -23,4 +23,4 @@ export const OPENAI_CHAT_URL = 'https://api.openai.com/v1/chat/completions'
 export const OPENSTREETMAP_REVERSE = 'https://nominatim.openstreetmap.org/reverse'
 
 // Chromium (para generación de PDF)
-export const CHROMIUM_DOWNLOAD_URL = 'https://github.com/nichochar/chromium-min-arm64/releases/download/v143.0.4/chromium-v143.0.4-pack.tar'
+export const CHROMIUM_DOWNLOAD_URL = 'https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar'
