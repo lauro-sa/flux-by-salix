@@ -271,8 +271,35 @@ function ModalActividad({
       <SelectorCalendarioBloque
         abierto
         bloques={bloquesNuevos}
-        onCambiar={(nuevos) => {
-          setBloquesNuevos(nuevos)
+        onCambiar={async (nuevos) => {
+          if (esEdicion && actividad) {
+            // En edición: crear los bloques nuevos directamente via API
+            const asignados = asignadoA && asignadoNombre
+              ? [{ id: asignadoA, nombre: asignadoNombre }]
+              : []
+
+            await Promise.all(nuevos.map(bloque =>
+              fetch('/api/calendario', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  titulo: titulo || actividad.titulo,
+                  fecha_inicio: `${bloque.fecha}T${bloque.horaInicio}:00`,
+                  fecha_fin: `${bloque.fecha}T${bloque.horaFin}:00`,
+                  tipo_clave: 'tarea',
+                  actividad_id: actividad.id,
+                  asignados,
+                  vinculos,
+                  estado: 'confirmado',
+                }),
+              })
+            ))
+            // Limpiar y cerrar — SeccionBloquesCalendario se recargará sola
+            setBloquesNuevos([])
+          } else {
+            // En creación: guardar para crear después al confirmar
+            setBloquesNuevos(nuevos)
+          }
           setSelectorCalendarioAbierto(false)
         }}
         onCerrar={() => setSelectorCalendarioAbierto(false)}
@@ -472,15 +499,25 @@ function ModalActividad({
             {/* Separador visual */}
             <div className="hidden md:block border-t border-borde-sutil" />
 
-            {/* Bloques de calendario — edición: componente existente */}
+            {/* Bloques de calendario — edición: lista existente + botón abrir calendario */}
             {esEdicion && actividad && (
-              <SeccionBloquesCalendario
-                actividadId={actividad.id}
-                titulo={actividad.titulo}
-                asignadoA={asignadoA}
-                asignadoNombre={asignadoNombre}
-                vinculos={vinculos}
-              />
+              <>
+                <SeccionBloquesCalendario
+                  actividadId={actividad.id}
+                  titulo={actividad.titulo}
+                  asignadoA={asignadoA}
+                  asignadoNombre={asignadoNombre}
+                  vinculos={vinculos}
+                />
+                <Boton
+                  variante="fantasma"
+                  tamano="xs"
+                  icono={<Calendar size={14} />}
+                  onClick={() => setSelectorCalendarioAbierto(true)}
+                >
+                  Abrir calendario para agregar bloques
+                </Boton>
+              </>
             )}
 
             {/* Bloques de calendario — creación: selector visual */}
