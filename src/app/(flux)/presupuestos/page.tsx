@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
-import { SkeletonTabla } from '@/componentes/feedback/SkeletonTabla'
+import { SkeletonListado } from '@/componentes/feedback/SkeletonTabla'
 import ContenidoPresupuestos from './_componentes/ContenidoPresupuestos'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
@@ -18,7 +18,7 @@ const POR_PAGINA = 50
 
 export default function PaginaPresupuestos() {
   return (
-    <Suspense fallback={<SkeletonTabla filas={10} columnas={7} />}>
+    <Suspense fallback={<SkeletonListado filas={10} columnas={7} />}>
       <PresupuestosConDatos />
     </Suspense>
   )
