@@ -438,6 +438,19 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
       .eq('empresa_id', empresaId)
 
     if (error) return NextResponse.json({ error: 'Error al eliminar' }, { status: 500 })
+
+    // Eliminar entradas del chatter vinculadas a esta actividad
+    await admin.from('chatter')
+      .delete()
+      .eq('empresa_id', empresaId)
+      .contains('metadata', { actividad_id: id })
+
+    // Cancelar eventos de calendario vinculados
+    await admin.from('eventos_calendario')
+      .update({ en_papelera: true, papelera_en: new Date().toISOString() })
+      .eq('empresa_id', empresaId)
+      .eq('actividad_id', id)
+
     return NextResponse.json({ ok: true })
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
