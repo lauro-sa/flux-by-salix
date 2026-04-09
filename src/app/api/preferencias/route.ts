@@ -53,9 +53,22 @@ export async function POST(request: NextRequest) {
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
     const body = await request.json()
-    const { dispositivo_id, ...preferencias } = body
+    const { dispositivo_id } = body
 
     if (!dispositivo_id) return NextResponse.json({ error: 'dispositivo_id requerido' }, { status: 400 })
+
+    // Solo enviar columnas que existen en la tabla (evitar 500 por columnas desconocidas)
+    const COLUMNAS_VALIDAS = [
+      'tema', 'efecto', 'fondo_cristal', 'escala',
+      'sidebar_orden', 'sidebar_ocultos', 'sidebar_deshabilitados',
+      'sidebar_colapsado', 'sidebar_auto_ocultar', 'sidebar_secciones',
+      'config_tablas', 'chatter_sin_lateral', 'recibir_todas_notificaciones',
+    ] as const
+
+    const preferenciasLimpias: Record<string, unknown> = {}
+    for (const col of COLUMNAS_VALIDAS) {
+      if (col in body) preferenciasLimpias[col] = body[col]
+    }
 
     const admin = crearClienteAdmin()
 
@@ -64,7 +77,7 @@ export async function POST(request: NextRequest) {
       .upsert({
         usuario_id: user.id,
         dispositivo_id,
-        ...preferencias,
+        ...preferenciasLimpias,
         actualizado_en: new Date().toISOString(),
       }, {
         onConflict: 'usuario_id,dispositivo_id',

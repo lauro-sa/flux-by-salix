@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavegacion } from '@/hooks/useNavegacion'
@@ -83,17 +83,33 @@ export default function ContenidoPresupuestos({ datosInicialesJson }: Props) {
   const queryClient = useQueryClient()
   const contactoIdFiltro = searchParams.get('contacto_id')
   const origenUrl = searchParams.get('origen')
-  const [busqueda, setBusqueda] = useState('')
-  const [busquedaDebounced, setBusquedaDebounced] = useState('')
-  const [pagina, setPagina] = useState(1)
+
+  // Inicializar estado desde URL para que se restauren al volver atrás
+  const [busqueda, setBusqueda] = useState(searchParams.get('q') || '')
+  const [busquedaDebounced, setBusquedaDebounced] = useState(searchParams.get('q') || '')
+  const [pagina, setPagina] = useState(Number(searchParams.get('pagina')) || 1)
   const [nombreFiltro, setNombreFiltro] = useState<string | null>(null)
 
-  // Filtros server-side
-  const [filtroEstado, setFiltroEstado] = useState('')
-  const [filtroMoneda, setFiltroMoneda] = useState('')
+  // Filtros server-side — restaurar desde URL
+  const [filtroEstado, setFiltroEstado] = useState(searchParams.get('estado') || '')
+  const [filtroMoneda, setFiltroMoneda] = useState(searchParams.get('moneda') || '')
 
   const pathname = usePathname()
   const { setMigajaDinamica } = useNavegacion()
+
+  // Sincronizar filtros activos → URL (sin recargar, solo reemplaza)
+  useEffect(() => {
+    const params = new URLSearchParams()
+    if (busquedaDebounced) params.set('q', busquedaDebounced)
+    if (filtroEstado) params.set('estado', filtroEstado)
+    if (filtroMoneda) params.set('moneda', filtroMoneda)
+    if (pagina > 1) params.set('pagina', String(pagina))
+    if (contactoIdFiltro) params.set('contacto_id', contactoIdFiltro)
+    if (origenUrl) params.set('origen', origenUrl)
+    const qs = params.toString()
+    const nuevaUrl = qs ? `${pathname}?${qs}` : pathname
+    window.history.replaceState(null, '', nuevaUrl)
+  }, [busquedaDebounced, filtroEstado, filtroMoneda, pagina, contactoIdFiltro, origenUrl, pathname])
 
   // Debounce de búsqueda (300ms)
   useEffect(() => {
@@ -101,8 +117,12 @@ export default function ContenidoPresupuestos({ datosInicialesJson }: Props) {
     return () => clearTimeout(timeout)
   }, [busqueda])
 
-  // Reset de página al cambiar filtros/búsqueda
-  useEffect(() => { setPagina(1) }, [busquedaDebounced, filtroEstado, filtroMoneda])
+  // Reset de página al cambiar filtros/búsqueda (skip primer render para no pisar URL restaurada)
+  const primerRenderRef = useRef(true)
+  useEffect(() => {
+    if (primerRenderRef.current) { primerRenderRef.current = false; return }
+    setPagina(1)
+  }, [busquedaDebounced, filtroEstado, filtroMoneda])
 
   // Solo usar datos iniciales cuando no hay filtros activos (primera carga)
   const sinFiltros = !busquedaDebounced && !filtroEstado && !filtroMoneda && !contactoIdFiltro && pagina === 1

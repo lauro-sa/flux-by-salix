@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavegacion } from '@/hooks/useNavegacion'
@@ -97,20 +97,41 @@ export default function ContenidoContactos({ datosInicialesJson }: Props) {
   const queryClient = useQueryClient()
   const vinculadoDe = searchParams.get('vinculado_de')
   const origenUrl = searchParams.get('origen')
-  const [busqueda, setBusqueda] = useState('')
-  const [busquedaDebounced, setBusquedaDebounced] = useState('')
+
+  // Inicializar desde URL para restaurar al volver atrás
+  const [busqueda, setBusqueda] = useState(searchParams.get('q') || '')
+  const [busquedaDebounced, setBusquedaDebounced] = useState(searchParams.get('q') || '')
   const [modalImportar, setModalImportar] = useState(false)
   const [modalPapeleraLote, setModalPapeleraLote] = useState(false)
   const [idsPapeleraPendientes, setIdsPapeleraPendientes] = useState<Set<string>>(new Set())
   const [cargandoPapeleraLote, setCargandoPapeleraLote] = useState(false)
-  const [pagina, setPagina] = useState(1)
+  const [pagina, setPagina] = useState(Number(searchParams.get('pagina')) || 1)
   const [nombreFiltro, setNombreFiltro] = useState<string | null>(null)
 
-  // Filtros server-side
-  const [filtroTipo, setFiltroTipo] = useState('')
-  const [filtroOrigen, setFiltroOrigen] = useState('')
-  const [filtroIva, setFiltroIva] = useState('')
-  const [filtroEtapa, setFiltroEtapa] = useState('')
+  // Filtros server-side — restaurar desde URL
+  const [filtroTipo, setFiltroTipo] = useState(searchParams.get('tipo') || '')
+  const [filtroOrigen, setFiltroOrigen] = useState(searchParams.get('origen_filtro') || '')
+  const [filtroIva, setFiltroIva] = useState(searchParams.get('condicion_iva') || '')
+  const [filtroEtapa, setFiltroEtapa] = useState(searchParams.get('etapa') || '')
+
+  const pathname = usePathname()
+  const { setMigajaDinamica } = useNavegacion()
+
+  // Sincronizar filtros → URL (replaceState para no contaminar historial)
+  useEffect(() => {
+    const params = new URLSearchParams()
+    if (busquedaDebounced) params.set('q', busquedaDebounced)
+    if (filtroTipo) params.set('tipo', filtroTipo)
+    if (filtroOrigen) params.set('origen_filtro', filtroOrigen)
+    if (filtroIva) params.set('condicion_iva', filtroIva)
+    if (filtroEtapa) params.set('etapa', filtroEtapa)
+    if (pagina > 1) params.set('pagina', String(pagina))
+    if (vinculadoDe) params.set('vinculado_de', vinculadoDe)
+    if (origenUrl) params.set('origen', origenUrl)
+    const qs = params.toString()
+    const nuevaUrl = qs ? `${pathname}?${qs}` : pathname
+    window.history.replaceState(null, '', nuevaUrl)
+  }, [busquedaDebounced, filtroTipo, filtroOrigen, filtroIva, filtroEtapa, pagina, vinculadoDe, origenUrl, pathname])
 
   // Debounce de búsqueda (300ms)
   useEffect(() => {
@@ -118,8 +139,10 @@ export default function ContenidoContactos({ datosInicialesJson }: Props) {
     return () => clearTimeout(timeout)
   }, [busqueda])
 
-  // Resetear página al cambiar filtros o búsqueda
+  // Resetear página al cambiar filtros o búsqueda (skip primer render para no pisar URL restaurada)
+  const primerRenderRef = useRef(true)
   useEffect(() => {
+    if (primerRenderRef.current) { primerRenderRef.current = false; return }
     setPagina(1)
   }, [filtroTipo, filtroOrigen, filtroIva, filtroEtapa, busquedaDebounced])
 
@@ -169,9 +192,6 @@ export default function ContenidoContactos({ datosInicialesJson }: Props) {
     const etapas = (etapasCorreoData?.etapas || etapasCorreoData || []) as { id: string; etiqueta: string }[]
     return etapas.map(e => ({ valor: e.id, etiqueta: e.etiqueta }))
   }, [etapasCorreoData])
-
-  const pathname = usePathname()
-  const { setMigajaDinamica } = useNavegacion()
 
   // Resolver nombre del contacto filtrado + migaja
   useEffect(() => {

@@ -112,6 +112,7 @@ export default function EditorPresupuesto({
   const [enviandoCorreo] = useState(false)
   const [urlPortalReal, setUrlPortalReal] = useState<string | null>(null)
   const [snapshotCorreo, setSnapshotCorreo] = useState<import('@/componentes/entidad/ModalEnviarDocumento').SnapshotCorreo | null>(null)
+  const [pdfCongeladoUrl, setPdfCongeladoUrl] = useState<string | null>(null)
 
   // ID efectivo del presupuesto (creado o prop)
   const idPresupuesto = modo === 'editar' ? presupuestoIdProp! : presupuestoIdCreado
@@ -231,45 +232,56 @@ export default function EditorPresupuesto({
 
       onTituloCargado?.(pres.numero || 'Detalle')
 
+      // Cargar contacto, atención y portal EN PARALELO (antes eran seriales)
+      const fetchsSecundarios: Promise<void>[] = []
+
       if (pres.contacto_id) {
-        fetch(`/api/contactos/${pres.contacto_id}`)
-          .then(r => r.json())
-          .then(data => {
-            setVinculaciones(data.vinculaciones || [])
-            if (data?.id) {
-              setContactoSeleccionado({
-                id: data.id, nombre: data.nombre, apellido: data.apellido,
-                correo: data.correo, telefono: data.telefono,
-                whatsapp: data.whatsapp || null, codigo: data.codigo || '',
-                tipo_contacto: data.tipo_contacto || null,
-                numero_identificacion: data.numero_identificacion || null,
-                datos_fiscales: data.datos_fiscales || null,
-                condicion_iva: data.datos_fiscales?.condicion_iva || null,
-                direcciones: data.direcciones || [],
-              })
-            }
-          })
-          .catch(() => {})
+        fetchsSecundarios.push(
+          fetch(`/api/contactos/${pres.contacto_id}`)
+            .then(r => r.json())
+            .then(data => {
+              setVinculaciones(data.vinculaciones || [])
+              if (data?.id) {
+                setContactoSeleccionado({
+                  id: data.id, nombre: data.nombre, apellido: data.apellido,
+                  correo: data.correo, telefono: data.telefono,
+                  whatsapp: data.whatsapp || null, codigo: data.codigo || '',
+                  tipo_contacto: data.tipo_contacto || null,
+                  numero_identificacion: data.numero_identificacion || null,
+                  datos_fiscales: data.datos_fiscales || null,
+                  condicion_iva: data.datos_fiscales?.condicion_iva || null,
+                  direcciones: data.direcciones || [],
+                })
+              }
+            })
+            .catch(() => {})
+        )
       }
       if (pres.atencion_contacto_id) {
         setAtencionId(pres.atencion_contacto_id)
-        fetch(`/api/contactos/${pres.atencion_contacto_id}`)
-          .then(r => r.json())
-          .then(data => {
-            if (data?.id) {
-              setAtencionSeleccionada({
-                id: data.id, nombre: data.nombre, apellido: data.apellido,
-                correo: data.correo, telefono: data.telefono,
-                whatsapp: data.whatsapp || null, tipo_contacto: data.tipo_contacto,
-              })
-            }
-          })
-          .catch(() => {})
+        fetchsSecundarios.push(
+          fetch(`/api/contactos/${pres.atencion_contacto_id}`)
+            .then(r => r.json())
+            .then(data => {
+              if (data?.id) {
+                setAtencionSeleccionada({
+                  id: data.id, nombre: data.nombre, apellido: data.apellido,
+                  correo: data.correo, telefono: data.telefono,
+                  whatsapp: data.whatsapp || null, tipo_contacto: data.tipo_contacto,
+                })
+              }
+            })
+            .catch(() => {})
+        )
       }
-      fetch(`/api/presupuestos/${presupuestoIdProp}/portal`)
-        .then(r => r.ok ? r.json() : null)
-        .then(data => { if (data?.url) setUrlPortalReal(data.url) })
-        .catch(() => {})
+      fetchsSecundarios.push(
+        fetch(`/api/presupuestos/${presupuestoIdProp}/portal`)
+          .then(r => r.ok ? r.json() : null)
+          .then(data => { if (data?.url) setUrlPortalReal(data.url) })
+          .catch(() => {})
+      )
+
+      Promise.all(fetchsSecundarios)
     }).catch(() => setCargando(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modo, presupuestoIdProp])
@@ -830,9 +842,12 @@ export default function EditorPresupuesto({
           fetch(`/api/presupuestos/${idPresupuesto}/pdf`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ forzar: false }),
+            body: JSON.stringify({ congelado: true, forzar: true }),
           }).then(r => r.json()).then(data => {
-            if (data.url) setPresupuesto(prev => prev ? { ...prev, pdf_url: data.url } : null)
+            if (data.url) {
+              setPdfCongeladoUrl(data.url)
+              setPresupuesto(prev => prev ? { ...prev, pdf_url: data.url } : null)
+            }
           }).catch(() => {}),
           fetch(`/api/presupuestos/${idPresupuesto}/portal`, { method: 'POST' })
             .then(r => r.json())
@@ -847,6 +862,37 @@ export default function EditorPresupuesto({
     const estadoActual = presupuesto?.estado || 'borrador'
     if (estadoActual === 'borrador') {
       await cambiarEstado('enviado')
+    }
+
+    // Si nunca se congeló un PDF en el chatter, guardar la versión actual como "versión original"
+    const pid = presupuestoIdRef.current
+    if (pid && pdfCongeladoUrl) {
+      try {
+        const resChatter = await fetch(`/api/chatter?entidad_tipo=presupuesto&entidad_id=${pid}`)
+        if (resChatter.ok) {
+          const dataChatter = await resChatter.json()
+          const tieneAdjuntoPdf = (dataChatter.entradas || []).some(
+            (e: { adjuntos?: { tipo?: string }[] }) => e.adjuntos?.some(a => a.tipo === 'application/pdf')
+          )
+          if (!tieneAdjuntoPdf) {
+            const numPresup = presupuestoRef.current?.numero || ''
+            await fetch('/api/chatter', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                entidad_tipo: 'presupuesto', entidad_id: pid, tipo: 'sistema',
+                contenido: 'Versión original del documento archivada',
+                adjuntos: [{
+                  url: pdfCongeladoUrl,
+                  nombre: numPresup ? `${numPresup}_original.pdf` : 'version_original.pdf',
+                  tipo: 'application/pdf',
+                }],
+                metadata: { accion: 'pdf_generado' },
+              }),
+            })
+          }
+        }
+      } catch { /* silenciar */ }
     }
 
     const nombreContactoCorreo = atencionSeleccionada
@@ -886,8 +932,9 @@ export default function EditorPresupuesto({
           correo_cco: datos.correo_cco.length > 0 ? datos.correo_cco : undefined,
           correo_asunto: datos.asunto, texto: datos.texto, html: htmlFinal,
           adjuntos_ids: datos.adjuntos_ids.length > 0 ? datos.adjuntos_ids : undefined,
-          pdf_url: presupuestoRef.current?.pdf_url || undefined,
+          pdf_url: pdfCongeladoUrl || presupuestoRef.current?.pdf_url || undefined,
           pdf_nombre: presupuestoRef.current?.numero ? `${presupuestoRef.current.numero}.pdf` : undefined,
+          pdf_congelado_url: pdfCongeladoUrl || undefined,
           tipo: 'nuevo', programado_para: datos.programado_para,
           entidad_tipo: 'presupuesto', entidad_id: idPresupuesto,
         }),
@@ -909,8 +956,9 @@ export default function EditorPresupuesto({
           correo_cco: datos.correo_cco.length > 0 ? datos.correo_cco : undefined,
           correo_asunto: datos.asunto, texto: datos.texto, html: htmlFinal,
           adjuntos_ids: datos.adjuntos_ids.length > 0 ? datos.adjuntos_ids : undefined,
-          pdf_url: pres?.pdf_url || undefined,
+          pdf_url: pdfCongeladoUrl || pres?.pdf_url || undefined,
           pdf_nombre: pres?.numero ? `${pres.numero}.pdf` : undefined,
+          pdf_congelado_url: pdfCongeladoUrl || undefined,
           tipo: 'nuevo',
           entidad_tipo: 'presupuesto', entidad_id: idPresupuesto,
         }),
@@ -932,7 +980,7 @@ export default function EditorPresupuesto({
         }
       },
     })
-  }, [presupuesto?.estado, presupuesto?.numero, presupuesto?.contacto_nombre, presupuesto?.contacto_apellido, cambiarEstado, atencionSeleccionada, contactoSeleccionado, numeroPresupuesto, idPresupuesto, empresa?.color_marca, empresa?.nombre, datosEmpresa, t, programarEnvio])
+  }, [presupuesto?.estado, presupuesto?.numero, presupuesto?.contacto_nombre, presupuesto?.contacto_apellido, cambiarEstado, atencionSeleccionada, contactoSeleccionado, numeroPresupuesto, idPresupuesto, empresa?.color_marca, empresa?.nombre, datosEmpresa, t, programarEnvio, pdfCongeladoUrl])
 
   const handleGuardarBorrador = useCallback(async (datos: DatosBorradorCorreo) => {
     if (idPresupuesto) {
@@ -1013,6 +1061,20 @@ export default function EditorPresupuesto({
       }
     } catch { /* silenciar */ }
 
+    // Congelar PDF de la versión anterior antes de cambiar fechas
+    let pdfAnteriorUrl: string | null = null
+    try {
+      const resPdf = await fetch(`/api/presupuestos/${pid}/pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ congelado: true, forzar: true }),
+      })
+      if (resPdf.ok) {
+        const dataPdf = await resPdf.json()
+        if (dataPdf.url) pdfAnteriorUrl = dataPdf.url
+      }
+    } catch { /* silenciar */ }
+
     setFechaEmision(hoyStr)
 
     autoguardar({
@@ -1022,13 +1084,22 @@ export default function EditorPresupuesto({
     })
 
     const fmtFecha = (f: string) => new Date(f).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    const numPresup = presupuestoRef.current?.numero || ''
     try {
+      // Adjuntar PDF congelado de la versión anterior al chatter
+      const adjuntos = pdfAnteriorUrl ? [{
+        url: pdfAnteriorUrl,
+        nombre: numPresup ? `${numPresup}_v${numReEmision - 1 || 'anterior'}.pdf` : 'version_anterior.pdf',
+        tipo: 'application/pdf',
+      }] : undefined
+
       await fetch('/api/chatter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           entidad_tipo: 'presupuesto', entidad_id: pid, tipo: 'sistema',
           contenido: `Re-emisión ${numReEmision} — Emisión anterior: ${fmtFecha(fechaAnterior)} → Nueva: ${fmtFecha(hoyStr)}`,
+          adjuntos,
           metadata: {
             accion: 're_emision', numero_re_emision: numReEmision,
             fecha_emision_anterior: fechaAnterior, fecha_emision_nueva: hoyStr,
