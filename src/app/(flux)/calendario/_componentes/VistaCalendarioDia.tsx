@@ -428,6 +428,9 @@ function VistaCalendarioDia({
   // --- Rango de horas activo para resaltar etiquetas de hora ---
   const [rangoHorasActivo, setRangoHorasActivo] = useState<{ horaInicio: number; horaFin: number } | null>(null)
 
+  // --- Estado de hover crosshair (resaltado sutil de hora al pasar el mouse) ---
+  const [hoverHora, setHoverHora] = useState<number | null>(null)
+
   // --- Estado para DragOverlay (evento activo durante arrastre) ---
   const [eventoDragActivo, setEventoDragActivo] = useState<EventoCalendario | null>(null)
   const [tipoDrag, setTipoDrag] = useState<'mover' | 'redimensionar' | null>(null)
@@ -522,6 +525,18 @@ function VistaCalendarioDia({
    */
   const manejarMouseMoveDia = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
+      // --- Hover crosshair: rastrear posición del mouse para resaltar hora ---
+      if (!refSeleccionDia.current?.activa && !eventoDragActivo) {
+        if (refCuadricula.current) {
+          const rectCuad = refCuadricula.current.getBoundingClientRect()
+          const y = e.clientY - rectCuad.top
+          const horaDecimal = HORA_INICIO + (y / ALTURA_FILA_HORA)
+          setHoverHora(Math.floor(horaDecimal * 2) / 2)
+        }
+      } else {
+        setHoverHora(null)
+      }
+
       if (!refSeleccionDia.current?.activa) return
       if (!refCuadricula.current) return
 
@@ -539,7 +554,7 @@ function VistaCalendarioDia({
         return { ...prev, finY: yRedondeado }
       })
     },
-    [alturaTotalDia],
+    [alturaTotalDia, eventoDragActivo],
   )
 
   /**
@@ -737,6 +752,7 @@ function VistaCalendarioDia({
           ref={refContenedor}
           className="flex-1 overflow-y-auto relative"
           onMouseMove={manejarMouseMoveDia}
+          onMouseLeave={() => setHoverHora(null)}
         >
           <div
             ref={refCuadricula}
@@ -750,19 +766,29 @@ function VistaCalendarioDia({
                 hora >= Math.floor(rangoHorasActivo.horaInicio) &&
                 hora < Math.ceil(rangoHorasActivo.horaFin)
 
+              // Hover crosshair: resaltar hora bajo el cursor (más sutil que el rango activo)
+              const enHover = !enRango && hoverHora !== null && rangoHorasActivo === null &&
+                hoverHora >= hora && hoverHora < hora + 1
+
               return (
                 <div
                   key={hora}
                   className="absolute left-0 right-0 flex pointer-events-none"
                   style={{ top: `${(hora - HORA_INICIO) * ALTURA_FILA_HORA}px`, height: `${ALTURA_FILA_HORA}px` }}
                 >
-                  {/* Etiqueta de hora con resaltado de rango activo */}
+                  {/* Etiqueta de hora con resaltado de rango activo o hover */}
                   <div className="w-16 shrink-0 flex items-start">
-                    {/* Barra vertical indicadora de rango activo */}
+                    {/* Barra vertical indicadora de rango activo o hover */}
                     <div
-                      className="w-[3px] h-4 rounded-full shrink-0 ml-1 -translate-y-1/2 transition-colors duration-150"
+                      className="shrink-0 ml-1 -translate-y-1/2 rounded-full transition-colors duration-150"
                       style={{
-                        backgroundColor: enRango ? 'var(--texto-marca)' : 'transparent',
+                        width: enRango ? 3 : enHover ? 2 : 3,
+                        height: 16,
+                        backgroundColor: enRango
+                          ? 'var(--texto-marca)'
+                          : enHover
+                            ? 'color-mix(in srgb, var(--texto-marca) 50%, transparent)'
+                            : 'transparent',
                       }}
                     />
                     <span
@@ -770,7 +796,9 @@ function VistaCalendarioDia({
                         'text-xs -translate-y-1/2 ml-auto mr-2 transition-colors duration-150',
                         enRango
                           ? 'text-texto-marca font-bold'
-                          : 'text-texto-terciario',
+                          : enHover
+                            ? 'text-texto-marca/70 font-medium'
+                            : 'text-texto-terciario',
                       ].join(' ')}
                     >
                       {formatearHora(hora)}

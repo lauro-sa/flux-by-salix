@@ -358,6 +358,10 @@ function SelectorCalendarioBloque({
   refArrastre.current = arrastre
   // Rango de horas activo para resaltar etiquetas de hora
   const [rangoActivo, setRangoActivo] = useState<RangoHorasActivo | null>(null)
+
+  // --- Estado de hover crosshair (resaltado sutil de hora y día al pasar el mouse) ---
+  const [hoverHora, setHoverHora] = useState<number | null>(null)
+  const [hoverDia, setHoverDia] = useState<number | null>(null)
   // Bloques temporales (copia local que se confirma al cerrar)
   const [bloquesLocal, setBloquesLocal] = useState<BloqueHorario[]>(bloques)
   // Ref a la cuadrícula para calcular posiciones del mouse
@@ -678,6 +682,23 @@ function SelectorCalendarioBloque({
 
   /** Actualiza la posición durante el arrastre nativo de selección */
   const manejarMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    // --- Hover crosshair: rastrear posición del mouse para resaltar hora y día ---
+    if (!refArrastre.current?.activa && !dragBloqueActivo) {
+      const rectContenedor = e.currentTarget.getBoundingClientRect()
+      const y = e.clientY - rectContenedor.top
+      const horaDecimal = HORA_INICIO + (y / ALTURA_FILA)
+      setHoverHora(Math.floor(horaDecimal * 2) / 2)
+
+      const numCols = diasVisibles.length
+      const x = e.clientX - rectContenedor.left
+      const anchoColumna = rectContenedor.width / numCols
+      const indiceDia = Math.min(Math.floor(x / anchoColumna), numCols - 1)
+      setHoverDia(indiceDia)
+    } else {
+      setHoverHora(null)
+      setHoverDia(null)
+    }
+
     if (!refArrastre.current?.activa) return
 
     const columnaDiv = e.currentTarget.querySelector(
@@ -696,7 +717,13 @@ function SelectorCalendarioBloque({
     const yMin = Math.min(refArrastre.current.inicioY, yRedondeado)
     const yMax = Math.max(refArrastre.current.inicioY, yRedondeado)
     setRangoActivo({ horaInicio: horaDecimalDesdeY(yMin), horaFin: horaDecimalDesdeY(yMax) })
-  }, [alturaTotal])
+  }, [alturaTotal, diasVisibles.length, dragBloqueActivo])
+
+  /** Limpia el hover crosshair al salir del área de la cuadrícula */
+  const manejarMouseLeaveCuadricula = useCallback(() => {
+    setHoverHora(null)
+    setHoverDia(null)
+  }, [])
 
   /** Finaliza la selección nativa al soltar el mouse */
   useEffect(() => {
@@ -840,13 +867,18 @@ function SelectorCalendarioBloque({
 
             {/* Nombres y números de días */}
             <div className="flex-1" style={{ display: 'grid', gridTemplateColumns: `repeat(${numColumnas}, 1fr)` }}>
-              {diasVisibles.map((dia: Date) => {
+              {diasVisibles.map((dia: Date, indiceColumna: number) => {
                 const hoyFlag = esHoy(dia)
                 const indiceDia = dia.getDay() === 0 ? 6 : dia.getDay() - 1
+                // Hover crosshair: resaltar el encabezado del día bajo el cursor
+                const estaHoverDia = hoverDia === indiceColumna && rangoActivo === null && !dragBloqueActivo
                 return (
                   <div
                     key={formatoISO(dia)}
-                    className="flex flex-col items-center py-1.5 border-r border-borde-sutil last:border-r-0"
+                    className={[
+                      'flex flex-col items-center py-1.5 border-r border-borde-sutil last:border-r-0 transition-colors duration-150',
+                      estaHoverDia ? 'bg-texto-marca/5' : '',
+                    ].join(' ')}
                   >
                     <span className="text-[10px] font-medium text-texto-terciario uppercase tracking-wider">
                       {NOMBRES_DIAS[indiceDia]}
@@ -887,17 +919,27 @@ function SelectorCalendarioBloque({
                     hora <= Math.ceil(rangoActivo.horaFin) &&
                     hora < Math.ceil(rangoActivo.horaFin)
 
+                  // Hover crosshair: resaltar hora bajo el cursor (más sutil que el rango activo)
+                  const enHover = !enRango && hoverHora !== null && rangoActivo === null &&
+                    hoverHora >= hora && hoverHora < hora + 1
+
                   return (
                     <div
                       key={hora}
                       className="absolute right-0 flex items-center -translate-y-1/2"
                       style={{ top: tiempoAPx(hora, 0), left: 0, right: 0 }}
                     >
-                      {/* Barra vertical indicadora de rango activo */}
+                      {/* Barra vertical indicadora de rango activo o hover */}
                       <div
-                        className="w-[3px] h-4 rounded-full shrink-0 ml-1 transition-colors duration-150"
+                        className="shrink-0 ml-1 rounded-full transition-colors duration-150"
                         style={{
-                          backgroundColor: enRango ? 'var(--texto-marca)' : 'transparent',
+                          width: enRango ? 3 : enHover ? 2 : 3,
+                          height: 16,
+                          backgroundColor: enRango
+                            ? 'var(--texto-marca)'
+                            : enHover
+                              ? 'color-mix(in srgb, var(--texto-marca) 50%, transparent)'
+                              : 'transparent',
                         }}
                       />
                       <span
@@ -905,7 +947,9 @@ function SelectorCalendarioBloque({
                           'text-[10px] leading-none ml-auto mr-2 transition-colors duration-150',
                           enRango
                             ? 'text-texto-marca font-bold'
-                            : 'text-texto-terciario',
+                            : enHover
+                              ? 'text-texto-marca/70 font-medium'
+                              : 'text-texto-terciario',
                         ].join(' ')}
                       >
                         {String(hora).padStart(2, '0')}:00
@@ -921,6 +965,7 @@ function SelectorCalendarioBloque({
                 className="flex-1 relative"
                 style={{ display: 'grid', gridTemplateColumns: `repeat(${numColumnas}, 1fr)` }}
                 onMouseMove={manejarMouseMove}
+                onMouseLeave={manejarMouseLeaveCuadricula}
               >
                 {/* Líneas horizontales de hora completa */}
                 {HORAS.map((hora) => (
