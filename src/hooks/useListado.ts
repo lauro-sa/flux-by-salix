@@ -30,6 +30,8 @@ interface OpcionesListado<T> {
   extraerTotal: (json: Record<string, unknown>) => number
   /** Habilitar/deshabilitar la query */
   habilitado?: boolean
+  /** Datos iniciales del servidor (para Server Components con Suspense) */
+  datosInicialesJson?: Record<string, unknown>
 }
 
 interface ResultadoListado<T> {
@@ -49,6 +51,7 @@ export function useListado<T>({
   extraerDatos,
   extraerTotal,
   habilitado = true,
+  datosInicialesJson,
 }: OpcionesListado<T>): ResultadoListado<T> {
   const queryClient = useQueryClient()
 
@@ -73,6 +76,7 @@ export function useListado<T>({
     enabled: habilitado,
     placeholderData: keepPreviousData,
     staleTime: 20_000,
+    ...(datosInicialesJson ? { initialData: datosInicialesJson } : {}),
   })
 
   const recargar = useCallback(() => {
