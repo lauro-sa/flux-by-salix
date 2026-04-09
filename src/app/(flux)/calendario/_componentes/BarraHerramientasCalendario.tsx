@@ -60,6 +60,8 @@ function obtenerEtiqueta(vista: VistaCalendario, fecha: Date): string {
       const mesNombre = MESES[fecha.getMonth()].toLowerCase()
       return `${diaSemana} ${diaNum} de ${mesNombre}`
     }
+    case 'anio':
+      return `${anio}`
     case 'equipo': {
       const diaSemana = DIAS_SEMANA[fecha.getDay()]
       const diaNum = fecha.getDate()
@@ -72,10 +74,11 @@ function obtenerEtiqueta(vista: VistaCalendario, fecha: Date): string {
 }
 
 const OPCIONES_VISTA: { valor: VistaCalendario; etiqueta: string }[] = [
-  { valor: 'mes', etiqueta: 'Mes' },
+  { valor: 'dia', etiqueta: 'Día' },
   { valor: 'semana', etiqueta: 'Semana' },
   { valor: 'quincenal', etiqueta: 'Quincenal' },
-  { valor: 'dia', etiqueta: 'Día' },
+  { valor: 'mes', etiqueta: 'Mes' },
+  { valor: 'anio', etiqueta: 'Año' },
   { valor: 'agenda', etiqueta: 'Agenda' },
   { valor: 'equipo', etiqueta: 'Equipo' },
 ]

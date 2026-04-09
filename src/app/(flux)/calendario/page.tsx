@@ -16,6 +16,7 @@ import { VistaCalendarioMes } from './_componentes/VistaCalendarioMes'
 import { VistaCalendarioSemana } from './_componentes/VistaCalendarioSemana'
 import { VistaCalendarioDia } from './_componentes/VistaCalendarioDia'
 import { VistaCalendarioAgenda } from './_componentes/VistaCalendarioAgenda'
+import { VistaCalendarioAnio } from './_componentes/VistaCalendarioAnio'
 import { VistaCalendarioEquipo } from './_componentes/VistaCalendarioEquipo'
 import { VistaCalendarioQuincenal } from './_componentes/VistaCalendarioQuincenal'
 import { MiniCalendario } from './_componentes/MiniCalendario'
@@ -86,8 +87,14 @@ function obtenerRangoFechas(vista: VistaCalendario, fecha: Date): { desde: strin
         hasta: formatearFechaISO(fecha),
       }
 
+    case 'anio': {
+      return {
+        desde: `${anio}-01-01`,
+        hasta: `${anio}-12-31`,
+      }
+    }
+
     case 'agenda': {
-      // Agenda muestra 30 días desde la fecha actual
       const hasta = new Date(fecha)
       hasta.setDate(hasta.getDate() + 30)
       return {
@@ -262,6 +269,9 @@ export default function PaginaCalendario() {
           break
         case 'dia':
           nueva.setDate(nueva.getDate() + delta)
+          break
+        case 'anio':
+          nueva.setFullYear(nueva.getFullYear() + delta)
           break
         case 'agenda':
           nueva.setMonth(nueva.getMonth() + delta)
@@ -486,6 +496,16 @@ export default function PaginaCalendario() {
             onClickHora={manejarClickDia}
             onClickEvento={manejarClickEvento}
             onMoverEvento={moverEvento}
+          />
+        )
+
+      case 'anio':
+        return (
+          <VistaCalendarioAnio
+            fechaActual={fechaActual}
+            eventos={eventosFiltrados}
+            onClickDia={manejarClickDia}
+            onClickEvento={manejarClickEvento}
           />
         )
 

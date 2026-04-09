@@ -43,8 +43,8 @@ export interface TipoEventoCalendario {
   activo: boolean
 }
 
-/** Vistas disponibles del calendario */
-export type VistaCalendario = 'mes' | 'semana' | 'quincenal' | 'dia' | 'agenda' | 'equipo'
+/** Vistas disponibles del calendario (orden lógico: menor a mayor rango) */
+export type VistaCalendario = 'dia' | 'semana' | 'quincenal' | 'mes' | 'anio' | 'agenda' | 'equipo'
 
 /** Callback al hacer clic en un evento — incluye posición del clic para el popover */
 export type OnClickEvento = (evento: EventoCalendario, posicion?: { x: number; y: number }) => void
