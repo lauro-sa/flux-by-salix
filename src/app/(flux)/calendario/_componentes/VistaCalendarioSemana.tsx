@@ -867,7 +867,7 @@ function VistaCalendarioSemana({
               {HORAS.map((hora) => {
                 const enRango = rangoHorasActivo !== null &&
                   hora >= Math.floor(rangoHorasActivo.horaInicio) &&
-                  hora < Math.ceil(rangoHorasActivo.horaFin)
+                  hora <= Math.ceil(rangoHorasActivo.horaFin - 0.01)
 
                 // Hover crosshair: resaltar hora bajo el cursor (más sutil que el rango activo)
                 const enHover = !enRango && hoverHora !== null && rangoHorasActivo === null &&

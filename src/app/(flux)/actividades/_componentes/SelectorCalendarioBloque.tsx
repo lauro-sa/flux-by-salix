@@ -916,8 +916,7 @@ function SelectorCalendarioBloque({
                   // Determinar si esta hora cae dentro del rango activo
                   const enRango = rangoActivo !== null &&
                     hora >= Math.floor(rangoActivo.horaInicio) &&
-                    hora <= Math.ceil(rangoActivo.horaFin) &&
-                    hora < Math.ceil(rangoActivo.horaFin)
+                    hora <= Math.ceil(rangoActivo.horaFin - 0.01)
 
                   // Hover crosshair: resaltar hora bajo el cursor (más sutil que el rango activo)
                   const enHover = !enRango && hoverHora !== null && rangoActivo === null &&
