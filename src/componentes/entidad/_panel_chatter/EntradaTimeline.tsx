@@ -7,7 +7,7 @@
  * Se usa en: PanelChatter (timeline unificada).
  */
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
   FileText, Check, X, ChevronDown, ChevronUp,
   StickyNote, Globe, Mail, Paperclip,
@@ -330,10 +330,60 @@ function EntradaSistema({
   )
 }
 
+// ─── Estilos dark mode para inyectar en el iframe de correo ───
+const CSS_DARK_MODE_CORREO = `
+  html, body {
+    background: transparent !important;
+    color: #d1d5db !important;
+  }
+  * {
+    border-color: #374151 !important;
+  }
+  /* Invertir fondos blancos/claros a oscuros */
+  div, td, th, table, section, article, header, footer, main {
+    background-color: transparent !important;
+  }
+  /* Texto: forzar colores legibles */
+  p, span, li, td, th, h1, h2, h3, h4, h5, h6, a, strong, em, b, i, u, label, div {
+    color: #d1d5db !important;
+  }
+  a { color: #60a5fa !important; }
+  blockquote {
+    border-left-color: #4b5563 !important;
+    color: #9ca3af !important;
+  }
+  blockquote * { color: #9ca3af !important; }
+  hr { border-color: #374151 !important; }
+  img { opacity: 0.9; }
+`
+
 // ─── Iframe aislado para renderizar HTML de correo ───
 function IframeCorreo({ html }: { html: string }) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [altura, setAltura] = useState(200)
+  const [esDark, setEsDark] = useState(false)
+
+  // Detectar dark mode del sistema/app
+  useEffect(() => {
+    const verificar = () => setEsDark(document.documentElement.classList.contains('dark')
+      || window.matchMedia('(prefers-color-scheme: dark)').matches)
+    verificar()
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    mq.addEventListener('change', verificar)
+    const observer = new MutationObserver(verificar)
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => { mq.removeEventListener('change', verificar); observer.disconnect() }
+  }, [])
+
+  // Inyectar estilos dark mode dentro del HTML del correo
+  const htmlFinal = useMemo(() => {
+    if (!esDark) return html
+    const styleTag = `<style>${CSS_DARK_MODE_CORREO}</style>`
+    // Insertar antes de </head> si existe, si no antes de </html> o al final
+    if (html.includes('</head>')) return html.replace('</head>', `${styleTag}</head>`)
+    if (html.includes('</html>')) return html.replace('</html>', `${styleTag}</html>`)
+    return styleTag + html
+  }, [html, esDark])
 
   const ajustarAltura = useCallback(() => {
     const iframe = iframeRef.current
@@ -347,7 +397,6 @@ function IframeCorreo({ html }: { html: string }) {
     if (!iframe) return
     const handleLoad = () => {
       ajustarAltura()
-      // Observer para cambios dinámicos (imágenes cargando, etc.)
       const observer = new MutationObserver(ajustarAltura)
       if (iframe.contentDocument?.body) {
         observer.observe(iframe.contentDocument.body, { childList: true, subtree: true, attributes: true })
@@ -361,7 +410,7 @@ function IframeCorreo({ html }: { html: string }) {
   return (
     <iframe
       ref={iframeRef}
-      srcDoc={html}
+      srcDoc={htmlFinal}
       sandbox="allow-same-origin"
       className="w-full border-0"
       style={{ height: `${altura}px`, maxHeight: '500px' }}
