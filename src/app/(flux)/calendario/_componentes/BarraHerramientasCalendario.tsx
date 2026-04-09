@@ -245,27 +245,24 @@ function BarraHerramientasCalendario({
         />
       </div>
 
-      {/* ═══ Fila final: Selector de vista (desktop centrado, móvil abreviado) ═══ */}
-      <div className="overflow-x-auto -mx-1 px-1 py-1">
-        <div className="flex items-center md:justify-center bg-superficie-tarjeta border border-borde-sutil rounded-lg p-0.5 w-fit md:w-full">
-          {OPCIONES_VISTA.map((opcion) => (
-            <button
-              key={opcion.valor}
-              type="button"
-              onClick={() => onCambiarVista(opcion.valor)}
-              className={[
-                'px-2 md:px-3 py-1.5 text-xs rounded-md transition-colors font-medium whitespace-nowrap flex-1 md:flex-initial text-center min-h-[32px] flex items-center justify-center',
-                vistaActiva === opcion.valor
-                  ? 'bg-superficie-elevada text-texto-primario shadow-sm'
-                  : 'text-texto-terciario hover:text-texto-secundario',
-              ].join(' ')}
-            >
-              {/* Etiqueta completa en sm+, abreviada en pantallas chicas */}
-              <span className="hidden sm:inline">{opcion.etiqueta}</span>
-              <span className="sm:hidden">{opcion.etiquetaCorta}</span>
-            </button>
-          ))}
-        </div>
+      {/* ═══ Fila final: Selector de vista ═══ */}
+      <div className="flex items-center gap-1 py-0.5 overflow-x-auto scrollbar-none">
+        {OPCIONES_VISTA.map((opcion) => (
+          <button
+            key={opcion.valor}
+            type="button"
+            onClick={() => onCambiarVista(opcion.valor)}
+            className={[
+              'px-2.5 md:px-3 py-1.5 text-xs rounded-lg transition-all font-medium whitespace-nowrap min-h-[32px]',
+              vistaActiva === opcion.valor
+                ? 'bg-superficie-elevada text-texto-primario shadow-sm border border-borde-sutil'
+                : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover',
+            ].join(' ')}
+          >
+            <span className="hidden sm:inline">{opcion.etiqueta}</span>
+            <span className="sm:hidden">{opcion.etiquetaCorta}</span>
+          </button>
+        ))}
       </div>
     </div>
   )
@@ -346,9 +343,9 @@ function FiltroTipo({
         )}
       </button>
 
-      {/* Dropdown — abre hacia arriba (bottom-full) para no ser cortado */}
+      {/* Dropdown — z-[60] con posición absoluta hacia abajo */}
       {filtrosAbiertos && (
-        <div className="absolute right-0 bottom-full mb-1.5 z-50 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg p-3 min-w-[220px]">
+        <div className="absolute right-0 top-full mt-1.5 z-[60] bg-superficie-elevada border border-borde-sutil rounded-xl shadow-xl p-3 min-w-[220px]">
           <p className="text-xs font-medium text-texto-terciario mb-2">Tipo de evento</p>
           <div className="flex flex-col gap-0.5">
             <button

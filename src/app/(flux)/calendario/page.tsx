@@ -120,8 +120,18 @@ export default function PaginaCalendario() {
   const router = useRouter()
   const { mostrar } = useToast()
 
-  // Estado principal
-  const [vistaActiva, setVistaActiva] = useState<VistaCalendario>('mes')
+  // Estado principal — vista inicial desde localStorage del usuario o 'mes' por defecto
+  const [vistaActiva, setVistaActivaInterno] = useState<VistaCalendario>(() => {
+    if (typeof window === 'undefined') return 'mes'
+    const guardada = localStorage.getItem('flux_calendario_vista_usuario')
+    return (guardada as VistaCalendario) || 'mes'
+  })
+
+  // Wrapper que guarda la vista elegida en localStorage
+  const setVistaActiva = useCallback((vista: VistaCalendario) => {
+    setVistaActivaInterno(vista)
+    localStorage.setItem('flux_calendario_vista_usuario', vista)
+  }, [])
   const [fechaActual, setFechaActual] = useState<Date>(new Date())
   const [eventos, setEventos] = useState<EventoCalendario[]>([])
   const [tiposEvento, setTiposEvento] = useState<TipoEventoCalendario[]>([])
@@ -154,7 +164,9 @@ export default function PaginaCalendario() {
         if (res.ok) {
           const datos = await res.json()
           setTiposEvento(datos.tipos || [])
-          if (datos.config?.vista_default) {
+          // Solo aplicar vista de empresa si el usuario no tiene preferencia guardada
+          const vistaUsuario = localStorage.getItem('flux_calendario_vista_usuario')
+          if (!vistaUsuario && datos.config?.vista_default) {
             setVistaActiva(datos.config.vista_default as VistaCalendario)
           }
         }
