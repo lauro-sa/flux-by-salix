@@ -132,11 +132,20 @@ export function PanelChatter({
 
   // ─── Filtrar entradas (más nuevas primero) ───
   const entradasFiltradas = useMemo(() => {
+    // Calcular actividades resueltas inline (evitar referencia circular)
+    const idsResueltas = new Set<string>()
+    for (const e of entradas) {
+      const acc = e.metadata?.accion
+      if ((acc === 'actividad_completada' || acc === 'actividad_cancelada') && e.metadata?.actividad_id) {
+        idsResueltas.add(e.metadata.actividad_id)
+      }
+    }
+
     // Separar activas de resto, invertir resto (más reciente primero), activas siempre arriba
     const activas = entradas.filter(e =>
       e.metadata?.accion === 'actividad_creada' &&
       e.metadata?.actividad_id &&
-      !actividadesResueltas.has(e.metadata.actividad_id)
+      !idsResueltas.has(e.metadata.actividad_id)
     )
     const activasIds = new Set(activas.map(e => e.id))
     const resto = entradas.filter(e => !activasIds.has(e.id))
