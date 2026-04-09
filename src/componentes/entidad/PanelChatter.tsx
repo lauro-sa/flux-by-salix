@@ -133,12 +133,13 @@ export function PanelChatter({
   // ─── Filtrar entradas (más nuevas primero) ───
   const entradasFiltradas = useMemo(() => {
     // Separar activas de resto, invertir resto (más reciente primero), activas siempre arriba
-    const activas = entradasOrdenadas.filter(e =>
+    const activas = entradas.filter(e =>
       e.metadata?.accion === 'actividad_creada' &&
       e.metadata?.actividad_id &&
       !actividadesResueltas.has(e.metadata.actividad_id)
     )
-    const resto = entradasOrdenadas.filter(e => !activas.includes(e))
+    const activasIds = new Set(activas.map(e => e.id))
+    const resto = entradas.filter(e => !activasIds.has(e.id))
     let resultado = [...activas, ...[...resto].reverse()]
 
     switch (filtro) {
