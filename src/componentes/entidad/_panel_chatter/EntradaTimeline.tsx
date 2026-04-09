@@ -744,24 +744,68 @@ function EntradaMensaje({ entrada, esMensajePortal, formatoHora, locale }: { ent
   )
 }
 
-// ─── Lista de adjuntos reutilizable ───
+// ─── Detectar tipo de archivo ───
+function tipoArchivo(mime: string, nombre: string): 'imagen' | 'pdf' | 'video' | 'audio' | 'otro' {
+  if (mime?.startsWith('image/')) return 'imagen'
+  if (mime === 'application/pdf' || nombre?.endsWith('.pdf')) return 'pdf'
+  if (mime?.startsWith('video/')) return 'video'
+  if (mime?.startsWith('audio/')) return 'audio'
+  return 'otro'
+}
+
+const COLORES_MINI: Record<ReturnType<typeof tipoArchivo>, string> = {
+  imagen: 'text-insignia-info',
+  pdf: 'text-insignia-peligro',
+  video: 'text-texto-marca',
+  audio: 'text-insignia-advertencia',
+  otro: 'text-texto-terciario',
+}
+
+function IconoMini({ tipo }: { tipo: ReturnType<typeof tipoArchivo> }) {
+  switch (tipo) {
+    case 'pdf': return <FileText size={18} />
+    case 'imagen': return <FileText size={18} />
+    default: return <FileText size={18} />
+  }
+}
+
+// ─── Lista de adjuntos reutilizable (mini tarjetas con preview) ───
 function ListaAdjuntos({ adjuntos }: { adjuntos?: { url: string; nombre: string; tipo?: string }[] }) {
   if (!adjuntos?.length) return null
 
   return (
-    <div className="flex flex-wrap gap-1.5 mt-1.5">
-      {adjuntos.map((adj, i) => (
-        <a
-          key={i}
-          href={adj.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1 text-xs text-texto-marca hover:underline bg-superficie-app px-2 py-1 rounded border border-borde-sutil"
-        >
-          <FileText size={11} />
-          <span className="truncate max-w-[150px]">{adj.nombre}</span>
-        </a>
-      ))}
+    <div className="flex flex-wrap gap-2 mt-2">
+      {adjuntos.map((adj, i) => {
+        const tipo = tipoArchivo(adj.tipo || '', adj.nombre)
+        const esImagen = tipo === 'imagen'
+
+        return (
+          <a
+            key={i}
+            href={adj.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group block w-[120px] rounded-md border border-borde-sutil overflow-hidden hover:border-texto-marca/30 transition-colors"
+            title={adj.nombre}
+          >
+            {/* Preview */}
+            <div className="aspect-[4/3] bg-superficie-app flex items-center justify-center overflow-hidden">
+              {esImagen ? (
+                <img src={adj.url} alt={adj.nombre} className="w-full h-full object-cover" loading="lazy" />
+              ) : (
+                <span className={COLORES_MINI[tipo]}>
+                  <IconoMini tipo={tipo} />
+                </span>
+              )}
+            </div>
+            {/* Nombre */}
+            <div className="flex items-center gap-1 px-1.5 py-1 bg-superficie-hover/40">
+              <span className={`shrink-0 ${COLORES_MINI[tipo]}`}><FileText size={10} /></span>
+              <span className="text-xxs text-texto-primario truncate">{adj.nombre}</span>
+            </div>
+          </a>
+        )
+      })}
     </div>
   )
 }
