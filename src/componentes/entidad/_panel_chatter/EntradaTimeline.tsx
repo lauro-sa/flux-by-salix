@@ -183,7 +183,7 @@ function EntradaSistema({
   }, [menuPosponer])
 
   return (
-    <div className="flex items-start gap-2.5 py-1.5 group">
+    <div className="flex items-start gap-2.5 py-2 group">
       <div className={`flex items-center justify-center size-6 rounded-full shrink-0 mt-0.5 ${config?.color || 'bg-superficie-hover text-texto-terciario'}`}>
         {config?.icono || <Clock size={12} />}
       </div>
@@ -382,26 +382,26 @@ function EntradaCorreo({ entrada, formatoHora, locale }: { entrada: PropsEntrada
   const htmlCorreo = entrada.metadata?.correo_html
 
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-1 bg-canal-correo/[0.03] -mx-3 px-3 py-2 rounded-lg my-0.5">
       {/* Línea de sistema: quién ejecutó la acción */}
-      <div className="flex items-center gap-2.5 py-1">
+      <div className="flex items-center gap-2.5">
         <div className="flex items-center justify-center size-6 rounded-full shrink-0 bg-canal-correo/10 text-canal-correo">
           <Mail size={12} />
         </div>
-        <p className="text-xs text-texto-secundario leading-relaxed">
+        <p className="text-xs text-texto-secundario leading-relaxed flex-1 min-w-0">
           <span className="font-medium text-texto-primario">{entrada.autor_nombre}</span>
           {' · '}
           {esRecibido ? 'Correo recibido' : 'Envió correo'}
           {asunto ? `: ${asunto}` : ''}
         </p>
-        <span className="text-xxs text-texto-terciario shrink-0 ml-auto">{fechaRelativa(entrada.creado_en, formatoHora, locale)}</span>
+        <span className="text-xxs text-texto-terciario shrink-0">{fechaRelativa(entrada.creado_en, formatoHora, locale)}</span>
       </div>
 
       {/* Card del correo expandible */}
       <div className={`rounded-lg border overflow-hidden ml-8 ${
         esRecibido
           ? 'border-canal-correo/30 bg-canal-correo/5'
-          : 'border-borde-sutil bg-superficie-app/50'
+          : 'border-borde-sutil bg-superficie-app/60'
       }`}>
         {/* Header del correo */}
         <button
@@ -474,7 +474,7 @@ function EntradaWhatsApp({ entrada, formatoHora, locale }: { entrada: PropsEntra
   const botones = entrada.metadata?.whatsapp_botones
 
   return (
-    <div className="rounded-lg border border-borde-sutil bg-superficie-app/50 overflow-hidden my-1.5">
+    <div className="rounded-lg border border-canal-whatsapp/20 bg-canal-whatsapp/[0.03] overflow-hidden my-1">
       {/* Header: nombre + plantilla badge */}
       <div className="flex items-center gap-2.5 px-3 pt-2.5 pb-1">
         <div className="flex items-center justify-center size-7 rounded-full bg-canal-whatsapp/10 text-canal-whatsapp shrink-0">

@@ -449,7 +449,7 @@ export function PanelChatter({
               animate={{ height: 'auto' }}
               exit={{ height: 0 }}
               transition={{ duration: 0.2 }}
-              className="overflow-hidden"
+              className={`overflow-hidden ${esLateral ? 'flex flex-col min-h-0' : ''}`}
             >
               {/* ─── Barra de acciones ─── */}
               <BarraAcciones
@@ -554,8 +554,8 @@ export function PanelChatter({
               {/* ─── Timeline ─── */}
               <div
                 ref={scrollRef}
-                className={`flex-1 px-3 py-2 space-y-0.5 min-h-[100px] ${
-                  esLateral ? 'overflow-y-auto' : ''
+                className={`px-3 py-2 space-y-1 min-h-[100px] ${
+                  esLateral ? 'flex-1 overflow-y-auto min-h-0' : ''
                 }`}
               >
                 {cargando ? (
