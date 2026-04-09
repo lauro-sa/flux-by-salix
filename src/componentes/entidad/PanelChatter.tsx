@@ -199,10 +199,13 @@ export function PanelChatter({
           resultado.push({
             ...adj,
             origen: e.autor_nombre,
+            fecha: e.creado_en,
           })
         }
       }
     }
+    // Más nuevos primero
+    resultado.sort((a, b) => new Date(b.fecha || 0).getTime() - new Date(a.fecha || 0).getTime())
     return resultado
   }, [entradas])
 

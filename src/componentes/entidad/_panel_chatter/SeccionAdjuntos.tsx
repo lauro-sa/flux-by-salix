@@ -18,6 +18,7 @@ import type { AdjuntoChatter } from '@/tipos/chatter'
 export interface AdjuntoConOrigen extends AdjuntoChatter {
   origen?: string
   miniatura_url?: string
+  fecha?: string
 }
 
 interface PropsSeccionAdjuntos {
@@ -209,12 +210,19 @@ function TarjetaAdjunto({ adjunto }: { adjunto: AdjuntoConOrigen }) {
         )}
       </div>
 
-      {/* Nombre */}
-      <div className="flex items-center gap-1 px-1.5 py-1 bg-superficie-hover/40">
-        <div className={`shrink-0 ${COLORES_TIPO[tipo].split(' ')[1] || 'text-texto-terciario'}`}>
-          <IconoArchivo tipo={tipo} size={10} />
+      {/* Nombre + fecha */}
+      <div className="px-1.5 py-1 bg-superficie-hover/40">
+        <div className="flex items-center gap-1">
+          <div className={`shrink-0 ${COLORES_TIPO[tipo].split(' ')[1] || 'text-texto-terciario'}`}>
+            <IconoArchivo tipo={tipo} size={10} />
+          </div>
+          <span className="text-xxs text-texto-primario truncate">{adjunto.nombre}</span>
         </div>
-        <span className="text-xxs text-texto-primario truncate">{adjunto.nombre}</span>
+        {adjunto.fecha && (
+          <p className="text-xxs text-texto-terciario mt-0.5 pl-3.5">
+            {new Date(adjunto.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
+          </p>
+        )}
       </div>
     </a>
   )
