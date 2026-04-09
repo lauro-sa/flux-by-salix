@@ -289,21 +289,28 @@ function BloqueEventoArrastrable({
           ...(!estaArrastrandoMover ? estiloTransformMover : {}),
         }}
       >
-      {esCorto ? (
-        <span className="text-[11px] leading-tight truncate block font-medium">
-          {evento.titulo}
-        </span>
-      ) : (
-        <>
+      {(() => {
+        // Hora fin ajustada en tiempo real durante resize
+        const finEnVivo = estaRedimensionando && transformRedimensionar
+          ? new Date(finDate.getTime() + Math.round((transformRedimensionar.y / ALTURA_FILA) * 60 / 15) * 15 * 60000)
+          : finDate
+
+        return esCorto ? (
           <span className="text-[11px] leading-tight truncate block font-medium">
             {evento.titulo}
           </span>
-          <span className="text-[10px] leading-tight opacity-70 block">
-            {formatearHoraCorta(inicioDate)} – {formatearHoraCorta(finDate)}
-            <span className="opacity-60 ml-1">· {formatearDuracion(inicioDate, finDate)}</span>
-          </span>
-        </>
-      )}
+        ) : (
+          <>
+            <span className="text-[11px] leading-tight truncate block font-medium">
+              {evento.titulo}
+            </span>
+            <span className="text-[10px] leading-tight opacity-70 block">
+              {formatearHoraCorta(inicioDate)} – {formatearHoraCorta(finEnVivo)}
+              <span className="opacity-60 ml-1">· {formatearDuracion(inicioDate, finEnVivo)}</span>
+            </span>
+          </>
+        )
+      })()}
 
       {/* Asa de redimensionado en la parte inferior */}
       <div

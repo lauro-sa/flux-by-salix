@@ -273,6 +273,16 @@ function BloqueSeleccionadoArrastrable({
     ? Math.max(alturaPx + transformRedimensionar.y, (30 / 60) * ALTURA_FILA)
     : alturaPx
 
+  // Hora fin ajustada en tiempo real durante resize
+  const horaFinEnVivo = useMemo(() => {
+    if (!estaRedimensionando || !transformRedimensionar) return bloque.horaFin
+    const deltaMin = Math.round((transformRedimensionar.y / ALTURA_FILA) * 60 / 30) * 30
+    const [h, m] = bloque.horaFin.split(':').map(Number)
+    const totalMin = h * 60 + m + deltaMin
+    const clampedMin = Math.max(0, Math.min(totalMin, 23 * 60 + 59))
+    return `${String(Math.floor(clampedMin / 60)).padStart(2, '0')}:${String(clampedMin % 60).padStart(2, '0')}`
+  }, [estaRedimensionando, transformRedimensionar, bloque.horaFin])
+
   return (
     <motion.div
       ref={refNodoMover}
@@ -301,8 +311,8 @@ function BloqueSeleccionadoArrastrable({
       }}
     >
       <span className="truncate block font-medium">
-        {bloque.horaInicio} – {bloque.horaFin}
-        <span className="opacity-60 ml-1">· {formatearDuracionDesdeHoras(bloque.horaInicio, bloque.horaFin)}</span>
+        {bloque.horaInicio} – {horaFinEnVivo}
+        <span className="opacity-60 ml-1">· {formatearDuracionDesdeHoras(bloque.horaInicio, horaFinEnVivo)}</span>
       </span>
 
       {/* Botón eliminar (X) */}

@@ -295,10 +295,19 @@ function BloqueEventoDiaArrastrable({
         {ep.evento.titulo}
       </div>
 
-      {/* Hora */}
+      {/* Hora — actualiza en tiempo real durante resize */}
       <div className="text-[11px] opacity-70 leading-tight">
-        {horaDesdeISO(ep.evento.fecha_inicio)} – {horaDesdeISO(ep.evento.fecha_fin)}
-        <span className="opacity-60 ml-1">· {formatearDuracion(ep.evento.fecha_inicio, ep.evento.fecha_fin)}</span>
+        {(() => {
+          const finEnVivo = estaRedimensionando && transformRedimensionar
+            ? new Date(new Date(ep.evento.fecha_fin).getTime() + Math.round((transformRedimensionar.y / ALTURA_FILA_HORA) * 60 / 15) * 15 * 60000)
+            : new Date(ep.evento.fecha_fin)
+          return (
+            <>
+              {horaDesdeISO(ep.evento.fecha_inicio)} – {`${String(finEnVivo.getHours()).padStart(2, '0')}:${String(finEnVivo.getMinutes()).padStart(2, '0')}`}
+              <span className="opacity-60 ml-1">· {formatearDuracion(ep.evento.fecha_inicio, finEnVivo)}</span>
+            </>
+          )
+        })()}
       </div>
 
       {/* Descripción (solo si hay espacio: > 45 min) */}
