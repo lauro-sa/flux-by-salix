@@ -214,9 +214,9 @@ function EntradaSistema({
           </div>
         )}
 
-        {/* Botones de acción para actividades (completar, posponer, cancelar) */}
+        {/* Botones de acción para actividades — siempre visibles mientras la actividad esté activa */}
         {mostrarBotonesActividad && (
-          <div className="flex items-center gap-1.5 mt-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1.5 mt-2">
             {/* Completar */}
             <Boton
               variante="exito"

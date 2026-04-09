@@ -221,9 +221,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Error al crear actividad' }, { status: 500 })
     }
 
-    // Registrar en chatter de cada entidad vinculada
+    // Registrar UNA entrada en el chatter de cada entidad vinculada
+    // Para evitar duplicados, registrar en cada entidad con todos los vínculos como contexto
+    const entidadesRegistradas = new Set<string>()
     for (const vinculo of vinculos) {
-      // Los otros vínculos (para mostrar contexto en el timeline)
+      const clave = `${vinculo.tipo}:${vinculo.id}`
+      if (entidadesRegistradas.has(clave)) continue
+      entidadesRegistradas.add(clave)
+
       const otrosVinculos = vinculos.filter((v: { id: string }) => v.id !== vinculo.id)
 
       registrarChatter({

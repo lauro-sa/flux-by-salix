@@ -132,7 +132,14 @@ export function PanelChatter({
 
   // ─── Filtrar entradas (más nuevas primero) ───
   const entradasFiltradas = useMemo(() => {
-    let resultado = [...entradas].reverse()
+    // Separar activas de resto, invertir resto (más reciente primero), activas siempre arriba
+    const activas = entradasOrdenadas.filter(e =>
+      e.metadata?.accion === 'actividad_creada' &&
+      e.metadata?.actividad_id &&
+      !actividadesResueltas.has(e.metadata.actividad_id)
+    )
+    const resto = entradasOrdenadas.filter(e => !activas.includes(e))
+    let resultado = [...activas, ...[...resto].reverse()]
 
     switch (filtro) {
       case 'correos':
@@ -230,27 +237,11 @@ export function PanelChatter({
       body: JSON.stringify(datos),
     })
     if (!res.ok) throw new Error('Error al crear actividad')
-
-    // Registrar en chatter
+    // La API ya registra en el chatter automáticamente — no duplicar
     const actividad = await res.json()
-    await fetch('/api/chatter', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        entidad_tipo: entidadTipo,
-        entidad_id: entidadId,
-        tipo: 'sistema',
-        contenido: `Creó actividad: ${actividad.titulo || datos.titulo || 'Sin título'}`,
-        metadata: {
-          accion: 'actividad_creada',
-          actividad_id: actividad.id,
-          titulo: actividad.titulo || datos.titulo,
-        },
-      }),
-    })
-
     setModalActividad(false)
     await cargar()
+    return actividad
   }
 
   // Vínculo inicial para el modal de actividad
@@ -295,6 +286,26 @@ export function PanelChatter({
     }
     return ids
   }, [entradas])
+
+  // Entradas ordenadas: actividades activas siempre arriba, el resto por fecha
+  const entradasOrdenadas = useMemo(() => {
+    const activas: EntradaChatter[] = []
+    const resto: EntradaChatter[] = []
+
+    for (const e of entradas) {
+      const esActividadActiva = e.metadata?.accion === 'actividad_creada' &&
+        e.metadata?.actividad_id &&
+        !actividadesResueltas.has(e.metadata.actividad_id)
+
+      if (esActividadActiva) {
+        activas.push(e)
+      } else {
+        resto.push(e)
+      }
+    }
+
+    return [...activas, ...resto]
+  }, [entradas, actividadesResueltas])
 
   // ─── Acciones rápidas de actividad desde el chatter ───
   const completarActividadDesdeChatter = useCallback(async (actividadId: string) => {
