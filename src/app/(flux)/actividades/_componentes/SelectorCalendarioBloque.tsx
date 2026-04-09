@@ -1054,30 +1054,33 @@ function SelectorCalendarioBloque({
                       ))}
 
                       {/* Resaltado del arrastre nativo activo (selección de rango) */}
-                      {arrastrandoAqui && arrastre && (
-                        <div
-                          className="absolute left-1 right-1 rounded z-20 pointer-events-none"
-                          style={{
-                            top: Math.min(arrastre.inicioY, arrastre.finY),
-                            height: Math.max(
-                              Math.abs(arrastre.finY - arrastre.inicioY),
-                              (30 / 60) * ALTURA_FILA,
-                            ),
-                            backgroundColor: 'var(--texto-marca)',
-                            opacity: 0.15,
-                          }}
-                        >
-                          <span
-                            className="text-[10px] font-medium px-1 select-none"
-                            style={{ color: 'var(--texto-marca)', opacity: 1 }}
+                      {arrastrandoAqui && arrastre && (() => {
+                        const yMin = Math.min(arrastre.inicioY, arrastre.finY)
+                        const yMax = Math.max(arrastre.inicioY, arrastre.finY)
+                        const alturaBloque = Math.max(yMax - yMin, (30 / 60) * ALTURA_FILA)
+
+                        return (
+                          <div
+                            className="absolute left-1 right-1 rounded-md z-20 pointer-events-none flex flex-col justify-between p-1.5"
+                            style={{
+                              top: yMin,
+                              height: alturaBloque,
+                              backgroundColor: 'color-mix(in srgb, var(--texto-marca) 15%, transparent)',
+                              borderLeft: '3px solid var(--texto-marca)',
+                            }}
                           >
-                            {horaDesdeY(Math.min(arrastre.inicioY, arrastre.finY))}
-                            {' – '}
-                            {horaDesdeY(Math.max(arrastre.inicioY, arrastre.finY))}
-                            <span className="opacity-60 ml-1">· {formatearDuracionDesdeY(arrastre.inicioY, arrastre.finY)}</span>
-                          </span>
-                        </div>
-                      )}
+                            <span className="text-[10px] font-semibold select-none" style={{ color: 'var(--texto-marca)' }}>
+                              {horaDesdeY(yMin)} – {horaDesdeY(yMax)}
+                              <span className="opacity-60 ml-1 font-normal">· {formatearDuracionDesdeY(arrastre.inicioY, arrastre.finY)}</span>
+                            </span>
+                            {alturaBloque > 30 && (
+                              <span className="text-[9px] select-none" style={{ color: 'var(--texto-marca)', opacity: 0.6 }}>
+                                {horaDesdeY(yMax)}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </div>
                   )
                 })}

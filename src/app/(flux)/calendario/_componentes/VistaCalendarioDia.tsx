@@ -812,30 +812,33 @@ function VistaCalendarioDia({
             })}
 
             {/* Resaltado de selección por arrastre (drag-to-select) */}
-            {seleccionDia?.activa && (
-              <div
-                className="absolute left-16 right-2 rounded-md z-10 pointer-events-none flex items-start p-1"
-                style={{
-                  top: Math.min(seleccionDia.inicioY, seleccionDia.finY),
-                  height: Math.max(
-                    Math.abs(seleccionDia.finY - seleccionDia.inicioY),
-                    (15 / 60) * ALTURA_FILA_HORA,
-                  ),
-                  backgroundColor: 'var(--texto-marca)',
-                  opacity: 0.15,
-                }}
-              >
-                <span
-                  className="text-[10px] font-medium pointer-events-none select-none"
-                  style={{ color: 'var(--texto-marca)', opacity: 1 }}
+            {seleccionDia?.activa && (() => {
+              const yMin = Math.min(seleccionDia.inicioY, seleccionDia.finY)
+              const yMax = Math.max(seleccionDia.inicioY, seleccionDia.finY)
+              const alturaBloque = Math.max(yMax - yMin, (15 / 60) * ALTURA_FILA_HORA)
+
+              return (
+                <div
+                  className="absolute left-16 right-2 rounded-md z-10 pointer-events-none flex flex-col justify-between p-1.5"
+                  style={{
+                    top: yMin,
+                    height: alturaBloque,
+                    backgroundColor: 'color-mix(in srgb, var(--texto-marca) 15%, transparent)',
+                    borderLeft: '3px solid var(--texto-marca)',
+                  }}
                 >
-                  {formatoHoraDesdeYDia(Math.min(seleccionDia.inicioY, seleccionDia.finY))}
-                  {' – '}
-                  {formatoHoraDesdeYDia(Math.max(seleccionDia.inicioY, seleccionDia.finY))}
-                  <span className="opacity-60 ml-1">· {formatearDuracionDesdeY(seleccionDia.inicioY, seleccionDia.finY)}</span>
-                </span>
-              </div>
-            )}
+                  <span className="text-[10px] font-semibold select-none" style={{ color: 'var(--texto-marca)' }}>
+                    {formatoHoraDesdeYDia(yMin)} – {formatoHoraDesdeYDia(yMax)}
+                    <span className="opacity-60 ml-1 font-normal">· {formatearDuracionDesdeY(seleccionDia.inicioY, seleccionDia.finY)}</span>
+                  </span>
+                  {alturaBloque > 40 && (
+                    <span className="text-[9px] select-none" style={{ color: 'var(--texto-marca)', opacity: 0.6 }}>
+                      {formatoHoraDesdeYDia(yMax)}
+                    </span>
+                  )}
+                </div>
+              )
+            })()}
 
             {/* Indicador de hora actual */}
             {posicionIndicadorActual !== null && (

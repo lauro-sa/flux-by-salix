@@ -960,30 +960,33 @@ function VistaCalendarioSemana({
                     )}
 
                     {/* Resaltado de selección por arrastre (drag-to-select) */}
-                    {seleccionEnEsteDia && seleccion && (
-                      <div
-                        className="absolute left-1 right-1 rounded-md z-10 pointer-events-none flex items-start p-1"
-                        style={{
-                          top: Math.min(seleccion.inicioY, seleccion.finY),
-                          height: Math.max(
-                            Math.abs(seleccion.finY - seleccion.inicioY),
-                            (15 / 60) * ALTURA_FILA,
-                          ),
-                          backgroundColor: 'var(--texto-marca)',
-                          opacity: 0.15,
-                        }}
-                      >
-                        <span
-                          className="text-[10px] font-medium pointer-events-none select-none"
-                          style={{ color: 'var(--texto-marca)', opacity: 1 }}
+                    {seleccionEnEsteDia && seleccion && (() => {
+                      const yMin = Math.min(seleccion.inicioY, seleccion.finY)
+                      const yMax = Math.max(seleccion.inicioY, seleccion.finY)
+                      const alturaBloque = Math.max(yMax - yMin, (15 / 60) * ALTURA_FILA)
+
+                      return (
+                        <div
+                          className="absolute left-1 right-1 rounded-md z-10 pointer-events-none flex flex-col justify-between p-1.5"
+                          style={{
+                            top: yMin,
+                            height: alturaBloque,
+                            backgroundColor: 'color-mix(in srgb, var(--texto-marca) 15%, transparent)',
+                            borderLeft: '3px solid var(--texto-marca)',
+                          }}
                         >
-                          {formatoHoraDesdeY(Math.min(seleccion.inicioY, seleccion.finY))}
-                          {' – '}
-                          {formatoHoraDesdeY(Math.max(seleccion.inicioY, seleccion.finY))}
-                          <span className="opacity-60 ml-1">· {formatearDuracionDesdeY(seleccion.inicioY, seleccion.finY)}</span>
-                        </span>
-                      </div>
-                    )}
+                          <span className="text-[10px] font-semibold select-none" style={{ color: 'var(--texto-marca)' }}>
+                            {formatoHoraDesdeY(yMin)} – {formatoHoraDesdeY(yMax)}
+                            <span className="opacity-60 ml-1 font-normal">· {formatearDuracionDesdeY(seleccion.inicioY, seleccion.finY)}</span>
+                          </span>
+                          {alturaBloque > 40 && (
+                            <span className="text-[9px] select-none" style={{ color: 'var(--texto-marca)', opacity: 0.6 }}>
+                              {formatoHoraDesdeY(yMax)}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })()}
 
                     {/* Eventos posicionados como bloques arrastrables */}
                     {posiciones.map((posicion) => (
