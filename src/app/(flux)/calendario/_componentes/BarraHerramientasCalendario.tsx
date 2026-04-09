@@ -245,18 +245,18 @@ function BarraHerramientasCalendario({
         />
       </div>
 
-      {/* ═══ Fila final: Selector de vista ═══ */}
-      <div className="flex items-center gap-1 py-0.5 overflow-x-auto scrollbar-none">
+      {/* ═══ Fila final: Selector de vista — centrado ═══ */}
+      <div className="flex items-center justify-center gap-0.5 py-0.5">
         {OPCIONES_VISTA.map((opcion) => (
           <button
             key={opcion.valor}
             type="button"
             onClick={() => onCambiarVista(opcion.valor)}
             className={[
-              'px-2.5 md:px-3 py-1.5 text-xs rounded-lg transition-all font-medium whitespace-nowrap min-h-[32px]',
+              'px-2.5 md:px-3 py-1.5 text-xs rounded-md transition-all font-medium whitespace-nowrap',
               vistaActiva === opcion.valor
-                ? 'bg-superficie-elevada text-texto-primario shadow-sm border border-borde-sutil'
-                : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover',
+                ? 'bg-superficie-elevada text-texto-primario shadow-sm'
+                : 'text-texto-terciario hover:text-texto-secundario hover:bg-superficie-hover/50',
             ].join(' ')}
           >
             <span className="hidden sm:inline">{opcion.etiqueta}</span>
