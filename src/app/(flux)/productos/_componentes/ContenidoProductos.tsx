@@ -19,6 +19,7 @@ import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia, type ColorInsignia } from '@/componentes/ui/Insignia'
 import { COLOR_TIPO_PRODUCTO } from '@/lib/colores_entidad'
+import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
 import { ModalProducto } from './ModalProducto'
 import type { Producto, TipoProducto, ConfigProductos } from '@/tipos/producto'
 
@@ -52,7 +53,10 @@ interface FilaProducto {
   veces_presupuestado: number
   veces_vendido: number
   origen: string
+  creado_por: string | null
+  creado_por_nombre: string | null
   editado_por: string | null
+  editado_por_nombre: string | null
 }
 
 const POR_PAGINA = 50
@@ -345,6 +349,20 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
     {
       clave: 'creado_en', etiqueta: 'Creacion', ancho: 120, ordenable: true, tipo: 'fecha', grupo: 'Metadata', icono: <Calendar size={I} />,
       render: (fila) => <span className="text-texto-terciario text-xs">{formato.fecha(fila.creado_en, { corta: true })}</span>,
+    },
+    {
+      clave: 'editado_por' as keyof FilaProducto, etiqueta: '', ancho: 44, grupo: 'Metadata',
+      render: (fila) => (fila.editado_por || fila.creado_por) ? (
+        <IndicadorEditado
+          entidadId={fila.id}
+          nombreCreador={fila.creado_por_nombre}
+          fechaCreacion={fila.creado_en}
+          nombreEditor={fila.editado_por_nombre}
+          fechaEdicion={fila.actualizado_en}
+          tablaAuditoria="auditoria_productos"
+          campoReferencia="producto_id"
+        />
+      ) : null,
     },
   ]
 

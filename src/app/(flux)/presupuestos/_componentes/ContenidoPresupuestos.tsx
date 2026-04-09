@@ -21,6 +21,7 @@ import { useToast } from '@/componentes/feedback/Toast'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { COLOR_ESTADO_DOCUMENTO } from '@/lib/colores_entidad'
+import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
 import { ETIQUETAS_ESTADO, type EstadoPresupuesto } from '@/tipos/presupuesto'
 
 /**
@@ -60,6 +61,8 @@ interface FilaPresupuesto {
   creado_por: string
   creado_por_nombre: string | null
   creado_en: string
+  editado_por: string | null
+  editado_por_nombre: string | null
   actualizado_en: string
   notas_html: string | null
 }
@@ -441,6 +444,20 @@ export default function ContenidoPresupuestos({ datosInicialesJson }: Props) {
     {
       clave: 'creado_en', etiqueta: t('comun.creacion'), ancho: 130, ordenable: true, tipo: 'fecha', grupo: t('comun.auditoria_grupo'), icono: <Calendar size={I} />,
       render: (fila) => <span className="text-xs text-texto-terciario">{formatoFecha(fila.creado_en)}</span>,
+    },
+    {
+      clave: 'editado_por' as keyof FilaPresupuesto, etiqueta: '', ancho: 44, grupo: t('comun.auditoria_grupo'),
+      render: (fila) => (fila.editado_por || fila.creado_por) ? (
+        <IndicadorEditado
+          entidadId={fila.id}
+          nombreCreador={fila.creado_por_nombre}
+          fechaCreacion={fila.creado_en}
+          nombreEditor={fila.editado_por_nombre}
+          fechaEdicion={fila.actualizado_en}
+          tablaAuditoria="auditoria_presupuestos"
+          campoReferencia="presupuesto_id"
+        />
+      ) : null,
     },
   ]
 

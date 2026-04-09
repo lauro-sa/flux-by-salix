@@ -18,6 +18,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { obtenerIcono } from '@/componentes/ui/SelectorIcono'
+import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
 import { ModalActividad } from './ModalActividad'
 import type { Actividad, Miembro, Vinculo } from './ModalActividad'
 import type { TipoActividad } from '../configuracion/secciones/SeccionTipos'
@@ -553,6 +554,20 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
           </div>
         )
       },
+    },
+    {
+      clave: 'editado_por' as keyof Actividad, etiqueta: '', ancho: 44,
+      render: (fila) => (fila.editado_por || fila.creado_por) ? (
+        <IndicadorEditado
+          entidadId={fila.id}
+          nombreCreador={fila.creado_por_nombre}
+          fechaCreacion={fila.creado_en}
+          nombreEditor={fila.editado_por_nombre}
+          fechaEdicion={fila.actualizado_en}
+          tablaAuditoria="auditoria_actividades"
+          campoReferencia="actividad_id"
+        />
+      ) : null,
     },
   ]
 

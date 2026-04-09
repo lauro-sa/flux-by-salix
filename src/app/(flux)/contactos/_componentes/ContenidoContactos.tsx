@@ -26,6 +26,7 @@ import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia, type ColorInsignia } from '@/componentes/ui/Insignia'
 import { Avatar } from '@/componentes/ui/Avatar'
+import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
 import { COLOR_TIPO_CONTACTO } from '@/lib/colores_entidad'
 import type { TipoContacto } from '@/tipos'
 import { useFormato } from '@/hooks/useFormato'
@@ -68,7 +69,10 @@ interface FilaContacto {
   es_provisorio?: boolean
   origen: string
   creado_por: string
+  creador_nombre: string | null
   creado_en: string
+  editado_por: string | null
+  editor_nombre: string | null
   actualizado_en: string
   tipo_contacto: Pick<TipoContacto, 'id' | 'clave' | 'etiqueta' | 'icono' | 'color'>
   direcciones: { id: string; calle: string | null; texto: string | null; ciudad: string | null; provincia: string | null; es_principal: boolean }[]
@@ -559,6 +563,20 @@ export default function ContenidoContactos({ datosInicialesJson }: Props) {
     {
       clave: 'creado_en', etiqueta: t('comun.creacion'), ancho: 120, ordenable: true, tipo: 'fecha', grupo: t('comun.metadata'), icono: <Calendar size={I} />,
       render: (fila) => <span className="text-texto-terciario text-xs">{formatoFecha(fila.creado_en)}</span>,
+    },
+    {
+      clave: 'editado_por' as keyof FilaContacto, etiqueta: '', ancho: 44, grupo: t('comun.metadata'),
+      render: (fila) => (fila.editado_por || fila.creado_por) ? (
+        <IndicadorEditado
+          entidadId={fila.id}
+          nombreCreador={fila.creador_nombre}
+          fechaCreacion={fila.creado_en}
+          nombreEditor={fila.editor_nombre}
+          fechaEdicion={fila.actualizado_en}
+          tablaAuditoria="auditoria_contactos"
+          campoReferencia="contacto_id"
+        />
+      ) : null,
     },
   ]
 
