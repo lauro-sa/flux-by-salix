@@ -156,31 +156,41 @@ async function procesarMensajeEntrante(
   msg: MensajeEntranteMeta,
   contactoMeta?: { profile: { name: string }; wa_id: string },
 ) {
-  const telefonoRemitente = msg.from
+  // Normalizar teléfono al formato canónico: solo dígitos, sin +
+  const telefonoRemitente = msg.from.replace(/[^\d]/g, '')
+  const telefonoConPlus = `+${telefonoRemitente}`
   const nombreRemitente = contactoMeta?.profile?.name || telefonoRemitente
 
-  // Buscar conversación existente (abierta o en espera)
+  // Buscar conversación existente (abierta o en espera) — ambos formatos por retrocompatibilidad
   let esConversacionNueva = false
   let { data: conversacion } = await admin
     .from('conversaciones')
-    .select('id, contacto_id, estado')
+    .select('id, contacto_id, estado, identificador_externo')
     .eq('empresa_id', canal.empresa_id)
     .eq('canal_id', canal.id)
-    .eq('identificador_externo', telefonoRemitente)
+    .or(`identificador_externo.eq.${telefonoRemitente},identificador_externo.eq.${telefonoConPlus}`)
     .in('estado', ['abierta', 'en_espera'])
     .order('creado_en', { ascending: false })
     .limit(1)
     .maybeSingle()
+
+  // Migrar al formato canónico si tiene + (retrocompatibilidad)
+  if (conversacion && conversacion.identificador_externo !== telefonoRemitente) {
+    await admin
+      .from('conversaciones')
+      .update({ identificador_externo: telefonoRemitente })
+      .eq('id', conversacion.id)
+  }
 
   // Si no hay abierta, buscar la más reciente resuelta y reabrirla
   if (!conversacion) {
     console.info('[WEBHOOK v2] No hay conversación abierta, buscando resuelta para reabrir...')
     const { data: resuelta, error: errResuelta } = await admin
       .from('conversaciones')
-      .select('id, contacto_id, estado')
+      .select('id, contacto_id, estado, identificador_externo')
       .eq('empresa_id', canal.empresa_id)
       .eq('canal_id', canal.id)
-      .eq('identificador_externo', telefonoRemitente)
+      .or(`identificador_externo.eq.${telefonoRemitente},identificador_externo.eq.${telefonoConPlus}`)
       .eq('estado', 'resuelta')
       .order('creado_en', { ascending: false })
       .limit(1)
@@ -189,29 +199,33 @@ async function procesarMensajeEntrante(
     console.info('[WEBHOOK v2] Resuelta encontrada:', resuelta?.id, 'Error:', errResuelta?.message)
 
     if (resuelta) {
-      // Reabrir la conversación resuelta
+      // Reabrir la conversación resuelta + migrar formato de teléfono si es necesario
+      const updateData: Record<string, unknown> = {
+        estado: 'abierta',
+        cerrado_en: null,
+        cerrado_por: null,
+        chatbot_activo: true,
+        actualizado_en: new Date().toISOString(),
+      }
+      if (resuelta.identificador_externo !== telefonoRemitente) {
+        updateData.identificador_externo = telefonoRemitente
+      }
       await admin
         .from('conversaciones')
-        .update({
-          estado: 'abierta',
-          cerrado_en: null,
-          cerrado_por: null,
-          chatbot_activo: true,
-          actualizado_en: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', resuelta.id)
       conversacion = resuelta
     }
   }
 
   if (!conversacion) {
-    // Intentar vincular con contacto existente por WhatsApp
+    // Intentar vincular con contacto existente por WhatsApp (ambos formatos)
     let { data: contacto } = await admin
       .from('contactos')
       .select('id, nombre, apellido')
       .eq('empresa_id', canal.empresa_id)
       .eq('en_papelera', false)
-      .or(`whatsapp.eq.${telefonoRemitente},telefono.eq.${telefonoRemitente}`)
+      .or(`whatsapp.eq.${telefonoRemitente},whatsapp.eq.${telefonoConPlus},telefono.eq.${telefonoRemitente},telefono.eq.${telefonoConPlus}`)
       .limit(1)
       .single()
 
@@ -235,7 +249,7 @@ async function procesarMensajeEntrante(
         contacto_nombre: contactoNombre,
         estado: 'abierta',
       })
-      .select('id, contacto_id, estado')
+      .select('id, contacto_id, estado, identificador_externo')
       .single()
 
     conversacion = nuevaConv
@@ -253,7 +267,7 @@ async function procesarMensajeEntrante(
       .select('id, nombre, apellido')
       .eq('empresa_id', canal.empresa_id)
       .eq('en_papelera', false)
-      .or(`whatsapp.eq.${telefonoRemitente},telefono.eq.${telefonoRemitente}`)
+      .or(`whatsapp.eq.${telefonoRemitente},whatsapp.eq.${telefonoConPlus},telefono.eq.${telefonoRemitente},telefono.eq.${telefonoConPlus}`)
       .limit(1)
       .single()
 
@@ -289,7 +303,7 @@ async function procesarMensajeEntrante(
         .from('conversaciones')
         .select('id, contacto_id')
         .eq('empresa_id', canal.empresa_id)
-        .eq('identificador_externo', telefonoRemitente)
+        .or(`identificador_externo.eq.${telefonoRemitente},identificador_externo.eq.${telefonoConPlus}`)
 
       const convIds = (todasConvs || []).map(c => c.id)
       const contactoIds = [...new Set((todasConvs || []).map(c => c.contacto_id).filter(Boolean))]

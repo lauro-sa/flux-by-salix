@@ -76,19 +76,20 @@ export async function POST(request: NextRequest) {
     const canal = canales[0]
     const config = canal.config_conexion as unknown as ConfigCuentaWhatsApp
 
-    // 2. Normalizar teléfono (quitar espacios, guiones)
-    const telefonoNormalizado = telefono.replace(/[\s\-()]/g, '')
+    // 2. Normalizar teléfono al formato canónico: solo dígitos, sin +
+    // Meta envía números sin + (ej: "5491136558871"), usamos ese mismo formato
+    const telefonoCanónico = telefono.replace(/[^\d]/g, '')
+    // Para la API de Meta necesitamos el formato con +
+    const telConPlus = `+${telefonoCanónico}`
 
-    // 3. Buscar conversación existente con este número
+    // 3. Buscar conversación existente con este número (ambos formatos por retrocompatibilidad)
     let conversacionId: string | null = null
-    const telSinPlus = telefonoNormalizado.replace(/^\+/, '')
-    const telConPlus = telefonoNormalizado.startsWith('+') ? telefonoNormalizado : `+${telefonoNormalizado}`
     const { data: convExistente, error: errConv } = await admin
       .from('conversaciones')
-      .select('id')
+      .select('id, identificador_externo, contacto_id')
       .eq('empresa_id', empresaId)
       .eq('tipo_canal', 'whatsapp')
-      .or(`identificador_externo.eq.${telSinPlus},identificador_externo.eq.${telConPlus}`)
+      .or(`identificador_externo.eq.${telefonoCanónico},identificador_externo.eq.${telConPlus}`)
       .limit(1)
 
     if (errConv) {
@@ -97,15 +98,30 @@ export async function POST(request: NextRequest) {
 
     if (convExistente?.length) {
       conversacionId = convExistente[0].id
+      // Migrar formato canónico + vincular contacto si no tiene
+      const updates: Record<string, unknown> = {}
+      if (convExistente[0].identificador_externo !== telefonoCanónico) {
+        updates.identificador_externo = telefonoCanónico
+      }
+      if (contacto_id && !convExistente[0].contacto_id) {
+        updates.contacto_id = contacto_id
+        updates.contacto_nombre = contacto_nombre || null
+      }
+      if (Object.keys(updates).length > 0) {
+        await admin
+          .from('conversaciones')
+          .update(updates)
+          .eq('id', convExistente[0].id)
+      }
     } else {
-      // 4. Crear conversación nueva
+      // 4. Crear conversación nueva con formato canónico (sin +)
       const { data: nuevaConv } = await admin
         .from('conversaciones')
         .insert({
           empresa_id: empresaId,
           canal_id: canal.id,
           tipo_canal: 'whatsapp',
-          identificador_externo: telefonoNormalizado,
+          identificador_externo: telefonoCanónico,
           contacto_id: contacto_id || null,
           contacto_nombre: contacto_nombre || null,
           estado: 'abierta',
@@ -201,7 +217,7 @@ export async function POST(request: NextRequest) {
       autorAvatarUrl: perfil?.avatar_url || null,
       metadata: {
         accion: 'whatsapp_enviado',
-        whatsapp_numero: telefonoNormalizado,
+        whatsapp_numero: telefonoCanónico,
         whatsapp_destinatario: contacto_nombre || undefined,
         whatsapp_plantilla: plantilla_nombre_api || undefined,
         whatsapp_botones: plantilla_botones || undefined,
