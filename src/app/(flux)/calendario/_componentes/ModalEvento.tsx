@@ -647,7 +647,7 @@ function ModalEvento({
         <div className="md:col-span-3 space-y-4">
           {/* Titulo */}
           <Input
-            etiqueta="Titulo"
+            etiqueta="Título"
             placeholder="Nombre del evento"
             value={titulo}
             onChange={(e) => setTitulo(e.target.value)}
@@ -655,58 +655,59 @@ function ModalEvento({
             formato={null}
           />
 
-          {/* Fecha inicio + hora inicio en una fila */}
-          <div className="grid grid-cols-2 gap-2">
-            <SelectorFecha
-              etiqueta="Inicio"
-              valor={fechaInicio}
-              onChange={setFechaInicio}
-            />
-            {!todoElDia && (
-              <SelectorHora
-                etiqueta=""
-                valor={horaInicio}
-                onChange={setHoraInicio}
-              />
-            )}
+          {/* Fechas y horas — estructura compacta tipo tabla */}
+          <div className="rounded-lg border border-borde-sutil overflow-hidden">
+            {/* Fila inicio */}
+            <div className="flex items-center gap-2 px-3 py-2">
+              <span className="text-xs font-medium text-texto-terciario w-12 shrink-0">Inicio</span>
+              <div className="flex-1">
+                <SelectorFecha valor={fechaInicio} onChange={setFechaInicio} />
+              </div>
+              {!todoElDia && (
+                <div className="w-28 shrink-0">
+                  <SelectorHora valor={horaInicio} onChange={setHoraInicio} />
+                </div>
+              )}
+            </div>
+
+            {/* Separador */}
+            <div className="border-t border-borde-sutil" />
+
+            {/* Fila fin */}
+            <div className="flex items-center gap-2 px-3 py-2">
+              <span className="text-xs font-medium text-texto-terciario w-12 shrink-0">Fin</span>
+              <div className="flex-1">
+                <SelectorFecha valor={fechaFin} onChange={setFechaFin} />
+              </div>
+              {!todoElDia && (
+                <div className="w-28 shrink-0">
+                  <SelectorHora valor={horaFin} onChange={setHoraFin} />
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Fecha fin + hora fin en una fila */}
-          <div className="grid grid-cols-2 gap-2">
-            <SelectorFecha
-              etiqueta="Fin"
-              valor={fechaFin}
-              onChange={setFechaFin}
-            />
-            {!todoElDia && (
-              <SelectorHora
-                etiqueta=""
-                valor={horaFin}
-                onChange={setHoraFin}
-              />
-            )}
-          </div>
-
-          {/* Todo el dia + recurrencia */}
-          <div className="flex flex-col gap-3">
+          {/* Todo el día + recurrencia — en una fila compacta */}
+          <div className="flex items-center gap-4">
             <Interruptor
               activo={todoElDia}
               onChange={setTodoElDia}
-              etiqueta="Todo el dia"
+              etiqueta="Todo el día"
             />
-
-            <SelectorRecurrencia
-              valor={recurrencia}
-              onChange={setRecurrencia}
-              fechaReferencia={fechaInicio}
-              compacto
-            />
+            <div className="flex-1">
+              <SelectorRecurrencia
+                valor={recurrencia}
+                onChange={setRecurrencia}
+                fechaReferencia={fechaInicio}
+                compacto
+              />
+            </div>
           </div>
 
           {/* Descripcion — siempre visible */}
           <TextArea
-            etiqueta="Descripcion"
-            placeholder="Descripcion del evento (opcional)"
+            etiqueta="Descripción"
+            placeholder="Descripción del evento (opcional)"
             value={descripcion}
             onChange={(e) => setDescripcion(e.target.value)}
             rows={3}
@@ -714,7 +715,7 @@ function ModalEvento({
 
           {/* Ubicacion — siempre visible */}
           <Input
-            etiqueta="Ubicacion"
+            etiqueta="Ubicación"
             placeholder="Lugar del evento (opcional)"
             value={ubicacion}
             onChange={(e) => setUbicacion(e.target.value)}
