@@ -35,6 +35,8 @@ export function EntradaTimeline({
   onCompletarActividad,
   onPosponerActividad,
   onCancelarActividad,
+  onEditarActividad,
+  onEliminarActividad,
 }: PropsEntradaTimeline) {
   const { locale } = useFormato()
   const esSistema = entrada.tipo === 'sistema'
@@ -58,6 +60,8 @@ export function EntradaTimeline({
         onCompletarActividad={onCompletarActividad}
         onPosponerActividad={onPosponerActividad}
         onCancelarActividad={onCancelarActividad}
+        onEditarActividad={onEditarActividad}
+        onEliminarActividad={onEliminarActividad}
       />
     )
   }
@@ -103,6 +107,8 @@ function EntradaSistema({
   onCompletarActividad,
   onPosponerActividad,
   onCancelarActividad,
+  onEditarActividad,
+  onEliminarActividad,
 }: {
   entrada: PropsEntradaTimeline['entrada']
   entidadTipo: string
@@ -113,6 +119,8 @@ function EntradaSistema({
   onCompletarActividad?: (actividadId: string) => Promise<void>
   onPosponerActividad?: (actividadId: string, dias: number) => Promise<void>
   onCancelarActividad?: (actividadId: string) => Promise<void>
+  onEditarActividad?: (actividadId: string) => void
+  onEliminarActividad?: (actividadId: string) => Promise<void>
 }) {
   const [accionando, setAccionando] = useState(false)
   const [menuPosponer, setMenuPosponer] = useState(false)
@@ -216,7 +224,7 @@ function EntradaSistema({
 
         {/* Botones de acción para actividades — siempre visibles mientras la actividad esté activa */}
         {mostrarBotonesActividad && (
-          <div className="flex items-center gap-1.5 mt-2">
+          <div className="flex flex-wrap items-center gap-1.5 mt-2">
             {/* Completar */}
             <Boton
               variante="exito"
@@ -229,7 +237,7 @@ function EntradaSistema({
               Completar
             </Boton>
 
-            {/* Posponer con dropdown */}
+            {/* Posponer con dropdown — z-50 para no quedar cortado */}
             <div className="relative" ref={refMenuPosponer}>
               <Boton
                 variante="secundario"
@@ -242,7 +250,6 @@ function EntradaSistema({
                 Posponer
               </Boton>
 
-              {/* Menú desplegable de opciones de posponer */}
               <AnimatePresence>
                 {menuPosponer && (
                   <motion.div
@@ -250,7 +257,7 @@ function EntradaSistema({
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
                     transition={{ duration: 0.12 }}
-                    className="absolute left-0 top-full mt-1 z-20 bg-superficie-tarjeta border border-borde-sutil rounded-lg shadow-lg py-1 min-w-[120px]"
+                    className="absolute left-0 bottom-full mb-1 z-50 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-xl py-1 min-w-[120px]"
                   >
                     {OPCIONES_POSPONER.map(opcion => (
                       <button
@@ -266,6 +273,19 @@ function EntradaSistema({
               </AnimatePresence>
             </div>
 
+            {/* Editar — reabrir modal para modificar la actividad */}
+            {onEditarActividad && (
+              <Boton
+                variante="fantasma"
+                tamano="xs"
+                icono={<Pencil size={12} />}
+                onClick={() => actividadId && onEditarActividad(actividadId)}
+                disabled={accionando}
+              >
+                Editar
+              </Boton>
+            )}
+
             {/* Cancelar */}
             <Boton
               variante="fantasma"
@@ -277,6 +297,20 @@ function EntradaSistema({
             >
               Cancelar
             </Boton>
+
+            {/* Eliminar */}
+            {onEliminarActividad && (
+              <Boton
+                variante="fantasma"
+                tamano="xs"
+                icono={<Trash2 size={12} />}
+                onClick={() => actividadId && onEliminarActividad(actividadId)}
+                disabled={accionando}
+                className="text-texto-terciario hover:text-insignia-peligro"
+              >
+                Eliminar
+              </Boton>
+            )}
           </div>
         )}
 

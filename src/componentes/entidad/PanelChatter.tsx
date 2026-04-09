@@ -588,6 +588,18 @@ export function PanelChatter({
                       onCompletarActividad={completarActividadDesdeChatter}
                       onPosponerActividad={posponerActividadDesdeChatter}
                       onCancelarActividad={cancelarActividadDesdeChatter}
+                      onEditarActividad={(actividadId) => {
+                        // TODO: abrir modal de edición con la actividad cargada
+                        // Por ahora, abrir el modal de actividad (será implementado)
+                        setModalActividad(true)
+                      }}
+                      onEliminarActividad={async (actividadId) => {
+                        try {
+                          const res = await fetch(`/api/actividades/${actividadId}`, { method: 'DELETE' })
+                          if (!res.ok) throw new Error()
+                          await cargar()
+                        } catch { /* silencioso */ }
+                      }}
                     />
                   ))
                 )}

@@ -81,6 +81,8 @@ export interface PropsEntradaTimeline {
   onCompletarActividad?: (actividadId: string) => Promise<void>
   onPosponerActividad?: (actividadId: string, dias: number) => Promise<void>
   onCancelarActividad?: (actividadId: string) => Promise<void>
+  onEditarActividad?: (actividadId: string) => void
+  onEliminarActividad?: (actividadId: string) => Promise<void>
 }
 
 // ─── Props de EditorNota ───
