@@ -64,10 +64,18 @@ export async function POST(request: NextRequest) {
         metadata: metadata || null,
       })
 
-    // Si tiene fichaje automático, manejar entrada/salida tentativa
-    // Verificar restricción de dispositivo móvil
+    // Verificar si la empresa tiene fichaje automático habilitado
+    const { data: configAsist } = await admin
+      .from('config_asistencias')
+      .select('fichaje_auto_habilitado')
+      .eq('empresa_id', empresaId)
+      .maybeSingle()
+
+    // Fichaje auto requiere: empresa lo habilita + miembro tiene método 'automatico'
     const esMovil = metadata?.es_movil === true
-    const fichajePermitido = miembro.metodo_fichaje === 'automatico' && (!esMovil || miembro.fichaje_auto_movil)
+    const fichajePermitido = (configAsist?.fichaje_auto_habilitado ?? false)
+      && miembro.metodo_fichaje === 'automatico'
+      && (!esMovil || miembro.fichaje_auto_movil)
 
     if (fichajePermitido) {
       // Cerrar turno huérfano de día anterior (misma lógica que /fichar)

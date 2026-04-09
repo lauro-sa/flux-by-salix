@@ -196,9 +196,9 @@ export function TabInformacion({
 
         <div className="mt-5 space-y-3">
           {[
-            { campo: 'horario_flexible', etiqueta: 'Horario flexible', desc: 'No se controla el horario de entrada/salida' },
+            { campo: 'horario_flexible', etiqueta: 'Horario flexible', desc: 'No se evalúa puntualidad ni tardanza. La entrada y salida se registran pero no se comparan contra un turno.' },
             ...(miembro.metodo_fichaje === 'automatico' ? [
-              { campo: 'fichaje_auto_movil', etiqueta: 'Fichaje automático en móvil', desc: 'Permitir que el fichaje automático funcione desde celulares y tablets (PWA)' },
+              { campo: 'fichaje_auto_movil', etiqueta: 'Fichaje automático en móvil', desc: 'Permite que el fichaje automático también funcione cuando usa Flux desde el celular o tablet (PWA). Si está apagado, solo ficha auto desde la PC.' },
             ] : []),
             { campo: 'salix_ia_habilitado', etiqueta: 'Acceso a Salix IA', desc: 'Puede usar el asistente de inteligencia artificial' },
           ].map(toggle => (

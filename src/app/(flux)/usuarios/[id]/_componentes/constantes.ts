@@ -95,9 +95,9 @@ export const OPCIONES_HORARIO = [
 ]
 
 export const OPCIONES_FICHAJE = [
-  { valor: 'kiosco', etiqueta: 'Kiosco (llavero/PIN)' },
-  { valor: 'automatico', etiqueta: 'Automático (PWA)' },
-  { valor: 'manual', etiqueta: 'Manual' },
+  { valor: 'kiosco', etiqueta: 'Kiosco — ficha con llavero RFID, NFC o PIN en una terminal' },
+  { valor: 'automatico', etiqueta: 'Automático — ficha al usar Flux en la PC (requiere habilitarlo en config empresa)' },
+  { valor: 'manual', etiqueta: 'Manual — ficha desde la web cuando quiera' },
 ]
 
 export const OPCIONES_GENERO = [

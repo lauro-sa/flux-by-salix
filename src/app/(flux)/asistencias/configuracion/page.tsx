@@ -202,12 +202,12 @@ export default function PaginaConfiguracionAsistencias() {
 function SeccionGeneral({ config, onGuardar }: { config: ConfigAsistencias; onGuardar: (c: Partial<ConfigAsistencias>) => void }) {
   return (
     <div className="space-y-6">
-      <TarjetaConfig titulo="Almuerzo" descripcion="Cómo se descuenta el tiempo de almuerzo en el cálculo de horas.">
+      <TarjetaConfig titulo="Almuerzo" descripcion="Si tu equipo tiene horario de almuerzo, activá esto para que se descuente del total de horas trabajadas. El empleado puede fichar su almuerzo desde el kiosco o la web.">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-texto-primario">Descontar almuerzo</p>
-              <p className="text-xs text-texto-terciario">Restar tiempo de almuerzo de las horas trabajadas.</p>
+              <p className="text-xs text-texto-terciario">Si está activo, el tiempo de almuerzo se resta de las horas netas del día.</p>
             </div>
             <Interruptor
               activo={config.descontar_almuerzo}
@@ -232,7 +232,7 @@ function SeccionGeneral({ config, onGuardar }: { config: ConfigAsistencias; onGu
         </div>
       </TarjetaConfig>
 
-      <TarjetaConfig titulo="Límites de jornada" descripcion="Horas mínimas y máximas diarias esperadas. Dejar en 0 para desactivar.">
+      <TarjetaConfig titulo="Límites de jornada" descripcion="Definí cuántas horas mínimas y máximas puede tener una jornada. Se usa para alertas y reportes. Dejá en 0 para no aplicar límite.">
         <div className="grid grid-cols-2 gap-4 max-w-[400px]">
           <Input
             tipo="number"
@@ -330,7 +330,7 @@ function SeccionTurnos({ turnos, sectores, horariosEmpresa, onRecargar }: {
             </span>
           </div>
         }
-        descripcion="Este es el horario general configurado en tu empresa. Para modificarlo, ve a Configuración de empresa."
+        descripcion="Este horario aplica a todos los empleados que no tengan un turno personalizado asignado. Se configura en Configuración de empresa → Regional."
       >
         {/* Vista read-only de días */}
         <div className="space-y-1">
@@ -370,7 +370,7 @@ function SeccionTurnos({ turnos, sectores, horariosEmpresa, onRecargar }: {
       </TarjetaConfig>
 
       {/* Crear turno personalizado */}
-      <TarjetaConfig titulo="Turnos personalizados" descripcion="Horarios alternativos que se asignan a sectores o miembros específicos.">
+      <TarjetaConfig titulo="Turnos personalizados" descripcion="Creá turnos con horarios diferentes al predeterminado. Después asignalos a sectores (abajo) o a miembros individuales desde su perfil. Los empleados sin turno asignado usan el horario predeterminado de la empresa.">
         <div className="flex items-end gap-2">
           <div className="flex-1">
             <Input
@@ -434,7 +434,7 @@ function SeccionTurnos({ turnos, sectores, horariosEmpresa, onRecargar }: {
 
       {/* Asignación a sectores */}
       {turnosPersonalizados.length > 0 && sectores.length > 0 && (
-        <TarjetaConfig titulo="Asignar a sectores" descripcion="Cada sector puede tener su propio turno. Si no se asigna, usa el horario predeterminado de la empresa.">
+        <TarjetaConfig titulo="Asignar a sectores" descripcion="Asigná un turno personalizado a cada sector. Todos los empleados de ese sector heredan el horario. Si un miembro tiene turno propio en su perfil, ese tiene prioridad.">
           <div className="space-y-2">
             {sectores.map((sector) => (
               <div key={sector.id} className="flex items-center justify-between py-2 px-1">
@@ -568,12 +568,12 @@ function EditorTurno({ turno, onActualizar, onEliminar, puedeEliminar }: {
 function SeccionKiosco({ config, onGuardar }: { config: ConfigAsistencias; onGuardar: (c: Partial<ConfigAsistencias>) => void }) {
   return (
     <div className="space-y-6">
-      <TarjetaConfig titulo="Kiosco de fichaje" descripcion="Terminal físico para registrar entrada y salida en tablet.">
+      <TarjetaConfig titulo="Kiosco de fichaje" descripcion="Instalá una tablet en la entrada de tu oficina o planta para que los empleados fichen con llavero RFID, NFC o PIN. Después de activar, andá a la sección Terminales para vincular dispositivos.">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-texto-primario">Habilitar kiosco</p>
-              <p className="text-xs text-texto-terciario">Permite configurar terminales de fichaje.</p>
+              <p className="text-xs text-texto-terciario">Activa esto para poder crear y vincular terminales de fichaje presencial.</p>
             </div>
             <Interruptor
               activo={config.kiosco_habilitado}
@@ -621,7 +621,7 @@ function SeccionKiosco({ config, onGuardar }: { config: ConfigAsistencias; onGua
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-texto-primario">Foto silenciosa</p>
-                  <p className="text-xs text-texto-terciario">Capturar foto al fichar (entrada y salida).</p>
+                  <p className="text-xs text-texto-terciario">La tablet saca una foto automática al momento de fichar, sin que el empleado lo note. Útil para auditoría.</p>
                 </div>
                 <Interruptor
                   activo={config.kiosco_capturar_foto}
@@ -717,7 +717,7 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
   return (
     <div className="space-y-6">
       {/* Crear nueva terminal */}
-      <TarjetaConfig titulo="Nueva terminal" descripcion="Creá un terminal y generá el enlace de activación para la tablet.">
+      <TarjetaConfig titulo="Nueva terminal" descripcion="Cada terminal es un dispositivo físico (tablet) donde los empleados fichan. Creá una, escaneá el QR desde la tablet y listo.">
         <div className="flex items-end gap-2">
           <div className="flex-1">
             <Input
@@ -743,7 +743,7 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
 
       {/* Link + QR de activación generado */}
       {linkGenerado && (
-        <TarjetaConfig titulo="Activar terminal" descripcion="Escaneá el QR desde la tablet o copiá el enlace.">
+        <TarjetaConfig titulo="Activar terminal" descripcion="Abrí el navegador en la tablet, escaneá este QR o pegá el enlace. El terminal se vincula automáticamente y queda listo para fichar.">
           <div className="space-y-4">
             <div className="flex justify-center py-4">
               <div className="p-4 bg-white rounded-2xl shadow-lg">
@@ -779,7 +779,7 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
 
       {/* Terminales activas */}
       {terminalesActivas.length > 0 && (
-        <TarjetaConfig titulo="Terminales activas" descripcion="Dispositivos vinculados y funcionando.">
+        <TarjetaConfig titulo="Terminales activas" descripcion="Dispositivos vinculados y funcionando. Podés cambiar la zona horaria si un terminal está en una ubicación con huso horario diferente al de la empresa.">
           <div className="space-y-2">
             {terminalesActivas.map((t) => (
               <div key={t.id} className="flex items-center gap-3 py-3 px-4 rounded-xl border border-borde-sutil">
@@ -904,12 +904,12 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
 function SeccionAutoCheckout({ config, onGuardar }: { config: ConfigAsistencias; onGuardar: (c: Partial<ConfigAsistencias>) => void }) {
   return (
     <div className="space-y-6">
-      <TarjetaConfig titulo="Cierre automático" descripcion="Cierra turnos abiertos que superen el tiempo máximo (se ejecuta a las 03:00 AM).">
+      <TarjetaConfig titulo="Cierre automático" descripcion="Si un empleado se olvida de fichar su salida, el sistema cierra el turno automáticamente después del tiempo máximo. Si el empleado tenía actividad en Flux (heartbeat), la salida queda como 'Cerrado' con la última hora registrada. Si no hubo actividad, queda como 'Sin salida'.">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-texto-primario">Activar cierre automático</p>
-              <p className="text-xs text-texto-terciario">Los turnos que superen el límite se cierran automáticamente.</p>
+              <p className="text-xs text-texto-terciario">Se ejecuta a las 03:00 AM y también cuando se detecta inactividad prolongada.</p>
             </div>
             <Interruptor
               activo={config.auto_checkout_habilitado}
@@ -943,12 +943,12 @@ function SeccionAutoCheckout({ config, onGuardar }: { config: ConfigAsistencias;
 function SeccionFichajeAuto({ config, onGuardar }: { config: ConfigAsistencias; onGuardar: (c: Partial<ConfigAsistencias>) => void }) {
   return (
     <div className="space-y-6">
-      <TarjetaConfig titulo="Fichaje automático" descripcion="Registra entrada y salida automáticamente según la actividad en Flux.">
+      <TarjetaConfig titulo="Fichaje automático" descripcion="Para empleados que trabajan en PC. Flux detecta cuándo empiezan a usar el sistema y registra la entrada automáticamente. La salida se actualiza con cada señal de actividad. Para que funcione, este switch debe estar activo Y el empleado debe tener el método 'Automático' en su perfil de usuario.">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-texto-primario">Habilitar fichaje automático</p>
-              <p className="text-xs text-texto-terciario">Los miembros con método &quot;automático&quot; fichan al usar Flux.</p>
+              <p className="text-xs text-texto-terciario">Switch maestro: si está apagado, ningún empleado ficha automáticamente, sin importar su configuración individual.</p>
             </div>
             <Interruptor
               activo={config.fichaje_auto_habilitado}
@@ -960,7 +960,7 @@ function SeccionFichajeAuto({ config, onGuardar }: { config: ConfigAsistencias; 
             <div className="grid grid-cols-2 gap-4 max-w-[400px]">
               <Input
                 tipo="number"
-                etiqueta="Notificar después de (min)"
+                etiqueta="Notificar entrada después de (min)"
                 value={String(config.fichaje_auto_notif_min)}
                 onChange={() => {}}
                 onBlur={(e) => {
@@ -971,7 +971,7 @@ function SeccionFichajeAuto({ config, onGuardar }: { config: ConfigAsistencias; 
               />
               <Input
                 tipo="number"
-                etiqueta="Umbral de salida (min)"
+                etiqueta="Inactividad para cerrar (min)"
                 value={String(config.fichaje_auto_umbral_salida)}
                 onChange={() => {}}
                 onBlur={(e) => {
