@@ -17,6 +17,7 @@ const PanelAsistenteIA = dynamic(() => import('./PanelAsistenteIA').then(m => m.
 import EditorNotasPresupuesto from './EditorNotasPresupuesto'
 import { useRol } from '@/hooks/useRol'
 import { Boton } from '@/componentes/ui/Boton'
+import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { construirHtmlCorreoDocumento } from '@/lib/plantilla-correo-documento'
 import { useEnvioPendiente } from '@/hooks/useEnvioPendiente'
 import { useEmpresa } from '@/hooks/useEmpresa'
@@ -960,6 +961,8 @@ export default function EditorPresupuesto({
 
   const handleEnviarProforma = () => { /* pendiente: integrar proforma */ }
   const [generandoPdf, setGenerandoPdf] = useState(false)
+  const [deshacerReEmision, setDeshacerReEmision] = useState<(() => Promise<void>) | null>(null)
+  const [confirmarReEmision, setConfirmarReEmision] = useState(false)
   const handleImprimir = async () => {
     if (!idPresupuesto || generandoPdf) return
     setGenerandoPdf(true)
@@ -984,9 +987,10 @@ export default function EditorPresupuesto({
     }
   }
 
-  const handleReEmitir = useCallback(async () => {
+  const ejecutarReEmision = useCallback(async () => {
     const pid = presupuestoIdRef.current
     if (!pid) return
+    setConfirmarReEmision(false)
 
     const hoy = new Date()
     const hoyStr = hoy.toISOString().split('T')[0]
@@ -997,6 +1001,8 @@ export default function EditorPresupuesto({
 
     const fechaOriginal = presupuesto?.fecha_emision_original || presupuesto?.fecha_emision || fechaEmision
     const fechaAnterior = presupuesto?.fecha_emision || fechaEmision
+    const fechaVencAnterior = presupuesto?.fecha_vencimiento || vencStr
+    const esPrimeraReEmision = !presupuesto?.fecha_emision_original
 
     let numReEmision = 1
     try {
@@ -1030,7 +1036,25 @@ export default function EditorPresupuesto({
         }),
       })
     } catch { /* silenciar */ }
-  }, [presupuesto?.fecha_emision_original, presupuesto?.fecha_emision, fechaEmision, autoguardar])
+
+    // Deshacer: restaurar fechas anteriores
+    const deshacer = async () => {
+      setFechaEmision(fechaAnterior)
+      const datosRestaurar: Record<string, unknown> = {
+        fecha_emision: fechaAnterior,
+        fecha_vencimiento: fechaVencAnterior,
+      }
+      if (esPrimeraReEmision) {
+        datosRestaurar.fecha_emision_original = null
+      }
+      autoguardar(datosRestaurar)
+    }
+    setDeshacerReEmision(() => deshacer)
+  }, [presupuesto?.fecha_emision_original, presupuesto?.fecha_emision, presupuesto?.fecha_vencimiento, fechaEmision, autoguardar])
+
+  const handleReEmitir = useCallback(() => {
+    setConfirmarReEmision(true)
+  }, [])
 
   const handleVistaPrevia = async () => {
     const pid = idPresupuesto
@@ -1172,6 +1196,28 @@ export default function EditorPresupuesto({
           onReEmitir={handleReEmitir}
           onCrearPresupuesto={crearPresupuesto}
         />
+
+        {/* ─── Banner deshacer re-emisión ─── */}
+        {deshacerReEmision && (
+          <div className="flex items-center justify-between gap-3 px-6 py-2.5 bg-insignia-advertencia/10 border-b border-insignia-advertencia/20">
+            <p className="text-sm text-insignia-advertencia">Se re-emitió el presupuesto con la fecha de hoy</p>
+            <div className="flex items-center gap-2 shrink-0">
+              <Boton
+                variante="fantasma"
+                tamano="xs"
+                onClick={async () => {
+                  await deshacerReEmision()
+                  setDeshacerReEmision(null)
+                }}
+              >
+                Deshacer
+              </Boton>
+              <Boton variante="fantasma" tamano="xs" onClick={() => setDeshacerReEmision(null)} className="text-texto-terciario">
+                Cerrar
+              </Boton>
+            </div>
+          </div>
+        )}
 
         {/* ─── Banner de bloqueo (solo modo editar, si no es editable) ─── */}
         {modo === 'editar' && !esEditable && (
@@ -1734,6 +1780,17 @@ export default function EditorPresupuesto({
             empresa_nombre: contactoSeleccionado?.nombre || presupuesto?.contacto_nombre || '',
           },
         }}
+      />
+
+      {/* ─── Modal confirmación re-emisión ─── */}
+      <ModalConfirmacion
+        abierto={confirmarReEmision}
+        onCerrar={() => setConfirmarReEmision(false)}
+        onConfirmar={ejecutarReEmision}
+        titulo="Re-emitir presupuesto"
+        descripcion="Se actualizará la fecha de emisión a hoy y se recalculará el vencimiento. Podés deshacer esta acción después."
+        tipo="advertencia"
+        etiquetaConfirmar="Re-emitir"
       />
     </div>
   )
