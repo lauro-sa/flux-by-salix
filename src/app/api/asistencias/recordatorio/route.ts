@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { formatearFechaISO } from '@/lib/formato-fecha'
 
 /**
  * GET /api/asistencias/recordatorio — Recordatorio de fichaje.
@@ -27,7 +28,7 @@ export async function GET() {
       const horaLocal = ahora.toLocaleTimeString('en-GB', { timeZone: zona, hour12: false })
       const [hh, mm] = horaLocal.split(':').map(Number)
       const minutosAhora = hh * 60 + mm
-      const fechaHoy = ahora.toLocaleDateString('en-CA', { timeZone: zona })
+      const fechaHoy = formatearFechaISO(ahora, zona)
       const diaLocal = new Date(fechaHoy + 'T12:00:00')
       const diaHoy = diasSemana[diaLocal.getDay()]
 

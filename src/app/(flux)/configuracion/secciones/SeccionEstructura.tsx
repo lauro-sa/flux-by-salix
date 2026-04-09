@@ -132,6 +132,7 @@ interface PropsNodoSector {
 }
 
 function NodoSector({ sector, nivel, esUltimo, miembrosPorSector, miembros, asignaciones, sectores, onEditar, onEliminar, onAgregarHijo }: PropsNodoSector) {
+  const { t } = useTraduccion()
   const [expandido, setExpandido] = useState(nivel < 2)
   const [mostrarPersonas, setMostrarPersonas] = useState(false)
   const hijos = sector.hijos as unknown as (Sector & { hijos: Sector[] })[]
@@ -228,8 +229,8 @@ function NodoSector({ sector, nivel, esUltimo, miembrosPorSector, miembros, asig
         {/* Acciones (hover) */}
         <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
           <Boton variante="fantasma" tamano="xs" soloIcono titulo="Agregar" icono={<Plus size={12} />} onClick={() => onAgregarHijo(sector.id)} />
-          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Editar" icono={<Pencil size={12} />} onClick={() => onEditar(sector)} />
-          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar" icono={<Trash2 size={12} />} onClick={() => onEliminar(sector)} />
+          <Boton variante="fantasma" tamano="xs" soloIcono titulo={t('comun.editar')} icono={<Pencil size={12} />} onClick={() => onEditar(sector)} />
+          <Boton variante="fantasma" tamano="xs" soloIcono titulo={t('comun.eliminar')} icono={<Trash2 size={12} />} onClick={() => onEliminar(sector)} />
         </div>
       </div>
 
@@ -809,8 +810,8 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
         tamano="sm"
         acciones={
           <div className="flex gap-2">
-            <Boton variante="secundario" onClick={() => { setModalEditar(null); setModalNuevo(null) }}>Cancelar</Boton>
-            <Boton variante="primario" onClick={guardarSector} cargando={guardando}>{modalEditar ? 'Guardar' : 'Crear'}</Boton>
+            <Boton variante="secundario" onClick={() => { setModalEditar(null); setModalNuevo(null) }}>{t('comun.cancelar')}</Boton>
+            <Boton variante="primario" onClick={guardarSector} cargando={guardando}>{modalEditar ? t('comun.guardar') : t('comun.crear')}</Boton>
           </div>
         }
       >

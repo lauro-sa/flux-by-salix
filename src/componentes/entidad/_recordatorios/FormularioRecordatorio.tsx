@@ -109,6 +109,7 @@ function FormularioRecordatorio({ estado }: FormularioRecordatorioProps) {
           variante="fantasma"
           tamano="xs"
           soloIcono
+          titulo="Vista previa"
           icono={<Eye size={13} />}
           onClick={() => {
             setAbierto(false)
@@ -117,7 +118,6 @@ function FormularioRecordatorio({ estado }: FormularioRecordatorioProps) {
               sonidos.notificacion()
             }, 200)
           }}
-          titulo="Vista previa"
         />
       </div>
 

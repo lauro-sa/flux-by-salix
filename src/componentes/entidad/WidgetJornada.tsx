@@ -8,6 +8,7 @@ import {
 import { PopoverAdaptable as Popover } from '@/componentes/ui/PopoverAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
 import { useFormato } from '@/hooks/useFormato'
+import { OPENSTREETMAP_REVERSE } from '@/lib/constantes/api-urls'
 import { motion, AnimatePresence } from 'framer-motion'
 
 // ─── Tipos ───────────────────────────────────────────────────
@@ -296,7 +297,7 @@ async function obtenerUbicacion(): Promise<Record<string, unknown> | null> {
     // Geocoding inverso con Nominatim (gratis, sin API key)
     try {
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1&zoom=17`,
+        `${OPENSTREETMAP_REVERSE}?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1&zoom=17`,
         { headers: { 'Accept-Language': 'es' } }
       )
       if (res.ok) {

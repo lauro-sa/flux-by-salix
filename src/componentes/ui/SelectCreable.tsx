@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, Check, Plus, Pencil, Trash2, X } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { useTema } from '@/hooks/useTema'
+import { useTraduccion } from '@/lib/i18n'
 
 interface Opcion {
   valor: string
@@ -55,6 +56,7 @@ export function SelectCreable({
   className = '',
 }: PropiedadesSelectCreable) {
   const { efecto } = useTema()
+  const { t } = useTraduccion()
   const esCristal = efecto !== 'solido'
   const [abierto, setAbierto] = useState(false)
   const [busqueda, setBusqueda] = useState('')
@@ -200,7 +202,7 @@ export function SelectCreable({
                           className="flex-1 bg-superficie-tarjeta border border-borde-foco rounded px-2 py-1 text-sm text-texto-primario outline-none"
                         />
                         <Boton variante="fantasma" tamano="xs" soloIcono titulo="Confirmar" icono={<Check size={14} />} onClick={confirmarEdicion} disabled={guardandoEdicion} className="text-insignia-exito" />
-                        <Boton variante="fantasma" tamano="xs" soloIcono titulo="Cancelar" icono={<X size={14} />} onClick={() => { setEditandoValor(null); setTextoEdicion('') }} />
+                        <Boton variante="fantasma" tamano="xs" soloIcono titulo={t('comun.cancelar')} icono={<X size={14} />} onClick={() => { setEditandoValor(null); setTextoEdicion('') }} />
                       </div>
                     )
                   }
@@ -223,10 +225,10 @@ export function SelectCreable({
                       {(onEditar || onEliminar) && (
                         <span className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                           {onEditar && (
-                            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Editar" icono={<Pencil size={12} />} onClick={(e) => { e.stopPropagation(); setEditandoValor(opcion.valor); setTextoEdicion(opcion.etiqueta) }} />
+                            <Boton variante="fantasma" tamano="xs" soloIcono titulo={t('comun.editar')} icono={<Pencil size={12} />} onClick={(e) => { e.stopPropagation(); setEditandoValor(opcion.valor); setTextoEdicion(opcion.etiqueta) }} />
                           )}
                           {onEliminar && (
-                            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar" icono={<Trash2 size={12} />} onClick={(e) => { e.stopPropagation(); eliminarOpcion(opcion.valor) }} className="hover:text-insignia-peligro" />
+                            <Boton variante="fantasma" tamano="xs" soloIcono titulo={t('comun.eliminar')} icono={<Trash2 size={12} />} onClick={(e) => { e.stopPropagation(); eliminarOpcion(opcion.valor) }} className="hover:text-insignia-peligro" />
                           )}
                         </span>
                       )}

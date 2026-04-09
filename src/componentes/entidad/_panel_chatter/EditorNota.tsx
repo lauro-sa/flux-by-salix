@@ -11,10 +11,12 @@ import { Send, Paperclip, X, FileText, Loader2, AlertCircle } from 'lucide-react
 import { motion } from 'framer-motion'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import { Boton } from '@/componentes/ui/Boton'
+import { useTraduccion } from '@/lib/i18n'
 import type { AdjuntoChatter } from '@/tipos/chatter'
 import type { PropsEditorNota } from './tipos'
 
 export function EditorNota({ entidadTipo, entidadId, notaEditando, onEnviado, onCancelar }: PropsEditorNota) {
+  const { t } = useTraduccion()
   const esEdicion = !!notaEditando
   const [html, setHtml] = useState(notaEditando?.metadata?.contenido_html || '')
   const [textoPlano, setTextoPlano] = useState(notaEditando?.contenido || '')
@@ -199,7 +201,7 @@ export function EditorNota({ entidadTipo, entidadId, notaEditando, onEnviado, on
 
           <div className="flex items-center gap-2">
             <Boton variante="fantasma" tamano="xs" onClick={onCancelar}>
-              Cancelar
+              {t('comun.cancelar')}
             </Boton>
             <Boton
               variante="primario"
@@ -209,7 +211,7 @@ export function EditorNota({ entidadTipo, entidadId, notaEditando, onEnviado, on
               disabled={!tieneContenido || enviando}
               cargando={enviando}
             >
-              {esEdicion ? 'Guardar' : 'Registrar'}
+              {esEdicion ? t('comun.guardar') : 'Registrar'}
             </Boton>
           </div>
         </div>

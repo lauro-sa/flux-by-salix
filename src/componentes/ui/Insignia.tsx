@@ -36,7 +36,7 @@ function Insignia({ color = 'neutro', children, removible, onRemover, tamano = '
     <span className={`inline-flex items-center gap-1 rounded-full font-medium whitespace-nowrap ${clasesColor[color]} ${tamano === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm'}`}>
       {children}
       {removible && (
-        <button onClick={onRemover} className="inline-flex items-center justify-center size-3.5 rounded-full bg-transparent text-current cursor-pointer opacity-60 hover:opacity-100 border-none p-0 text-xxs" aria-label="Remover">
+        <button onClick={onRemover} className="inline-flex items-center justify-center size-5 rounded-full bg-transparent text-current cursor-pointer opacity-60 hover:opacity-100 border-none p-0.5 text-xxs" aria-label="Remover">
           ×
         </button>
       )}

@@ -7,6 +7,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { PlantillaWhatsApp } from '@/tipos/inbox'
+import { useTraduccion } from '@/lib/i18n'
 
 /**
  * SelectorPlantillasWA — Panel para seleccionar y enviar plantillas de WhatsApp aprobadas.
@@ -130,6 +131,7 @@ export function SelectorPlantillasWA({
   contacto,
   empresaNombre,
 }: PropiedadesSelectorPlantillas) {
+  const { t } = useTraduccion()
   const [plantillas, setPlantillas] = useState<PlantillaWhatsApp[]>([])
   const [cargando, setCargando] = useState(false)
   const [busqueda, setBusqueda] = useState('')
@@ -228,7 +230,7 @@ export function SelectorPlantillasWA({
               <Inbox size={28} style={{ color: 'var(--texto-terciario)', opacity: 0.5 }} />
               <div className="text-center">
                 <p className="text-sm font-medium" style={{ color: 'var(--texto-secundario)' }}>
-                  {plantillas.length === 0 ? 'Sin plantillas aprobadas' : 'Sin resultados'}
+                  {plantillas.length === 0 ? t('inbox.sin_plantillas_aprobadas') : t('comun.sin_resultados')}
                 </p>
                 <p className="text-xs mt-1" style={{ color: 'var(--texto-terciario)' }}>
                   {plantillas.length === 0

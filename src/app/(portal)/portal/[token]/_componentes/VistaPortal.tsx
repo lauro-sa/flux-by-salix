@@ -20,6 +20,7 @@ import SeccionCuotas from './SeccionCuotas'
 import LineaTiempoPortal from './LineaTiempoPortal'
 import MiniChat from './MiniChat'
 import PiePortal from './PiePortal'
+import { DELAY_NOTIFICACION } from '@/lib/constantes/timeouts'
 
 interface Props {
   datos: DatosPortal
@@ -90,7 +91,7 @@ export default function VistaPortal({ datos }: Props) {
   // Limpiar error después de 5s
   useEffect(() => {
     if (error) {
-      const timer = setTimeout(() => setError(null), 5000)
+      const timer = setTimeout(() => setError(null), DELAY_NOTIFICACION)
       return () => clearTimeout(timer)
     }
   }, [error])

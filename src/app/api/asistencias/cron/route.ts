@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import Holidays from 'date-holidays'
+import { formatearFechaISO } from '@/lib/formato-fecha'
 
 /**
  * POST /api/asistencias/cron — Ejecutar tareas programadas de asistencias.
@@ -75,8 +76,10 @@ async function autoCheckout(admin: ReturnType<typeof crearClienteAdmin>) {
 
     for (const turno of abiertos) {
       const t = turno as Record<string, unknown>
-      // Respetar hora_salida rolling del heartbeat si existe
-      const horaSalida = t.hora_salida
+      // Si hora_salida ya existe (heartbeat/kiosco la fue actualizando), la salida está registrada → cerrado normal
+      // Si no existe, el empleado nunca registró salida → auto_cerrado ("Sin salida")
+      const teniaSalida = !!t.hora_salida
+      const horaSalida = teniaSalida
         ? (t.hora_salida as string)
         : new Date(new Date(t.hora_entrada as string).getTime() + maxMs).toISOString()
 
@@ -84,9 +87,12 @@ async function autoCheckout(admin: ReturnType<typeof crearClienteAdmin>) {
         .from('asistencias')
         .update({
           hora_salida: horaSalida,
-          estado: 'auto_cerrado',
+          estado: teniaSalida ? 'cerrado' : 'auto_cerrado',
+          metodo_salida: teniaSalida ? 'automatico' : 'sistema',
           cierre_automatico: true,
-          notas: `Cierre automático — turno superó ${config.auto_checkout_max_horas}h sin registrar salida`,
+          notas: teniaSalida
+            ? `Cierre automático — jornada completada (${config.auto_checkout_max_horas}h)`
+            : `Cierre automático — turno superó ${config.auto_checkout_max_horas}h sin registrar salida`,
           actualizado_en: new Date().toISOString(),
         })
         .eq('id', t.id)
@@ -109,8 +115,8 @@ async function autoCheckout(admin: ReturnType<typeof crearClienteAdmin>) {
     const t = turno as Record<string, unknown>
     if (configEmpresaIds.has(t.empresa_id as string)) continue // ya procesado
 
-    // Respetar hora_salida rolling del heartbeat si existe
-    const horaSalida = t.hora_salida
+    const teniaSalida = !!t.hora_salida
+    const horaSalida = teniaSalida
       ? (t.hora_salida as string)
       : new Date(new Date(t.hora_entrada as string).getTime() + 12 * 60 * 60 * 1000).toISOString()
 
@@ -118,9 +124,12 @@ async function autoCheckout(admin: ReturnType<typeof crearClienteAdmin>) {
       .from('asistencias')
       .update({
         hora_salida: horaSalida,
-        estado: 'auto_cerrado',
+        estado: teniaSalida ? 'cerrado' : 'auto_cerrado',
+        metodo_salida: teniaSalida ? 'automatico' : 'sistema',
         cierre_automatico: true,
-        notas: 'Cierre automático — turno superó 12h sin registrar salida',
+        notas: teniaSalida
+          ? 'Cierre automático — jornada completada'
+          : 'Cierre automático — turno superó 12h sin registrar salida',
         actualizado_en: new Date().toISOString(),
       })
       .eq('id', t.id)
@@ -144,8 +153,8 @@ async function autoCheckout(admin: ReturnType<typeof crearClienteAdmin>) {
 
   for (const turno of (huerfanos || [])) {
     const t = turno as Record<string, unknown>
-    // Usar hora_salida si existe (rolling del heartbeat), si no hora_entrada + 8h
-    const horaSalida = t.hora_salida
+    const teniaSalida = !!t.hora_salida
+    const horaSalida = teniaSalida
       ? (t.hora_salida as string)
       : new Date(new Date(t.hora_entrada as string).getTime() + 8 * 60 * 60 * 1000).toISOString()
 
@@ -153,9 +162,12 @@ async function autoCheckout(admin: ReturnType<typeof crearClienteAdmin>) {
       .from('asistencias')
       .update({
         hora_salida: horaSalida,
-        estado: 'auto_cerrado',
+        estado: teniaSalida ? 'cerrado' : 'auto_cerrado',
+        metodo_salida: teniaSalida ? 'automatico' : 'sistema',
         cierre_automatico: true,
-        notas: 'Cierre automático — turno de día anterior seguía abierto',
+        notas: teniaSalida
+          ? 'Cierre automático — jornada de día anterior completada'
+          : 'Cierre automático — turno de día anterior seguía abierto sin salida',
         actualizado_en: new Date().toISOString(),
       })
       .eq('id', t.id)
@@ -176,12 +188,15 @@ async function autoCheckout(admin: ReturnType<typeof crearClienteAdmin>) {
 
   for (const turno of (inactivos || [])) {
     const t = turno as Record<string, unknown>
+    // Estos turnos SIEMPRE tienen hora_salida (el query lo filtra), así que la salida
+    // fue registrada por heartbeat o kiosco → cierre normal, no "Sin salida"
     await admin
       .from('asistencias')
       .update({
-        estado: 'auto_cerrado',
+        estado: 'cerrado',
+        metodo_salida: 'automatico',
         cierre_automatico: true,
-        notas: 'Cierre automático — sin actividad por más de 3 horas',
+        notas: 'Cierre automático — jornada completada por inactividad',
         actualizado_en: new Date().toISOString(),
       })
       .eq('id', t.id)
@@ -213,7 +228,7 @@ async function marcarAusentes(admin: ReturnType<typeof crearClienteAdmin>) {
     const zona = ((empresa as Record<string, unknown>).zona_horaria as string) || 'America/Argentina/Buenos_Aires'
 
     // Calcular "ayer" en la zona horaria de la empresa
-    const ahoraLocal = new Date().toLocaleDateString('en-CA', { timeZone: zona }) // hoy local
+    const ahoraLocal = formatearFechaISO(new Date(), zona) // hoy local
     const ayerDate = new Date(ahoraLocal + 'T12:00:00')
     ayerDate.setDate(ayerDate.getDate() - 1)
     const fechaAyer = ayerDate.toISOString().split('T')[0]

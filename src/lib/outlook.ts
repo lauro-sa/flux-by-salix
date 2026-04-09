@@ -10,11 +10,12 @@
  */
 
 import type { CorreoParsedo, AdjuntoCorreoParsedo } from './gmail'
+import { MS_AUTH_URL, MS_GRAPH_API } from '@/lib/constantes/api-urls'
 
 // ─── Constantes ───
 
-const MS_AUTHORITY = 'https://login.microsoftonline.com/common'
-const MS_GRAPH_URL = 'https://graph.microsoft.com/v1.0'
+const MS_AUTHORITY = `${MS_AUTH_URL}/common`
+const MS_GRAPH_URL = MS_GRAPH_API
 
 const MS_SCOPES = [
   'openid',

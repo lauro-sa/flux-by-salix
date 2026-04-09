@@ -736,8 +736,8 @@ function TabFlujo({ config, guardar }: TabProps) {
               </div>
             </div>
             <div className="flex items-center gap-1 ml-2">
-              <Boton variante="fantasma" tamano="xs" soloIcono titulo="Editar" icono={<Pencil size={14} />} onClick={() => { setTipoEditando({ ...tipo, indice: i }); setModalTipoAbierto(true) }} />
-              <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar" icono={<Trash2 size={14} />} onClick={() => eliminarTipo(i)} className="text-[var(--insignia-peligro)]" />
+              <Boton variante="fantasma" tamano="xs" soloIcono titulo={t('comun.editar')} icono={<Pencil size={14} />} onClick={() => { setTipoEditando({ ...tipo, indice: i }); setModalTipoAbierto(true) }} />
+              <Boton variante="fantasma" tamano="xs" soloIcono titulo={t('comun.eliminar')} icono={<Trash2 size={14} />} onClick={() => eliminarTipo(i)} className="text-[var(--insignia-peligro)]" />
             </div>
           </div>
         ))}
@@ -1576,8 +1576,8 @@ function TabConocimiento({ config, guardar }: TabProps) {
               <Insignia color={entrada.activo ? 'exito' : 'neutro'}>{entrada.categoria}</Insignia>
             </div>
             <div className="flex items-center gap-1 ml-2">
-              <Boton variante="fantasma" tamano="xs" soloIcono titulo="Editar" icono={<Pencil size={14} />} onClick={() => { setEntradaEditando(entrada); setModalAbierto(true) }} />
-              <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar" icono={<Trash2 size={14} />} onClick={() => eliminarEntrada(entrada.id)} className="text-[var(--insignia-peligro)]" />
+              <Boton variante="fantasma" tamano="xs" soloIcono titulo={t('comun.editar')} icono={<Pencil size={14} />} onClick={() => { setEntradaEditando(entrada); setModalAbierto(true) }} />
+              <Boton variante="fantasma" tamano="xs" soloIcono titulo={t('comun.eliminar')} icono={<Trash2 size={14} />} onClick={() => eliminarEntrada(entrada.id)} className="text-[var(--insignia-peligro)]" />
             </div>
           </div>
         ))}

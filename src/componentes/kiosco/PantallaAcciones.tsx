@@ -44,43 +44,43 @@ const BOTONES = {
     icono: <UtensilsCrossed size={26} />,
     label: 'Salir a almorzar',
     detalle: 'Registrar pausa de almuerzo',
-    bg: 'rgba(245,158,11,0.12)',
+    bg: 'var(--kiosco-accion-salida-bg)',
     border: 'rgba(245,158,11,0.3)',
-    color: '#fcd34d',
+    color: 'var(--kiosco-accion-salida)',
   },
   particular: {
     accion: 'particular' as Accion,
     icono: <Footprints size={26} />,
     label: 'Salgo un momento',
     detalle: 'Trámite o gestión personal',
-    bg: 'rgba(56,189,248,0.12)',
+    bg: 'var(--kiosco-accion-solicitud-bg)',
     border: 'rgba(56,189,248,0.3)',
-    color: '#7dd3fc',
+    color: 'var(--kiosco-accion-solicitud)',
   },
   volver_almuerzo: {
     accion: 'volver_almuerzo' as Accion,
     icono: <ArrowRight size={26} />,
     label: 'Volver del almuerzo',
     detalle: 'Continuar jornada',
-    bg: 'rgba(74,222,128,0.12)',
+    bg: 'var(--kiosco-accion-entrada-bg)',
     border: 'rgba(74,222,128,0.3)',
-    color: '#86efac',
+    color: 'var(--kiosco-accion-entrada)',
   },
   volver_particular: {
     accion: 'volver_particular' as Accion,
     icono: <ArrowRight size={26} />,
     label: 'Ya volví',
     detalle: 'Continuar jornada',
-    bg: 'rgba(74,222,128,0.12)',
+    bg: 'var(--kiosco-accion-entrada-bg)',
     border: 'rgba(74,222,128,0.3)',
-    color: '#86efac',
+    color: 'var(--kiosco-accion-entrada)',
   },
 }
 
 const BADGE_ESTADO: Record<string, { texto: string; bg: string; color: string }> = {
-  activo: { texto: 'En turno', bg: 'rgba(74,222,128,0.15)', color: '#86efac' },
-  almuerzo: { texto: 'En almuerzo', bg: 'rgba(245,158,11,0.15)', color: '#fcd34d' },
-  particular: { texto: 'Fuera — trámite', bg: 'rgba(56,189,248,0.15)', color: '#7dd3fc' },
+  activo: { texto: 'En turno', bg: 'rgba(74,222,128,0.15)', color: 'var(--kiosco-accion-entrada)' },
+  almuerzo: { texto: 'En almuerzo', bg: 'rgba(245,158,11,0.15)', color: 'var(--kiosco-accion-salida)' },
+  particular: { texto: 'Fuera — trámite', bg: 'rgba(56,189,248,0.15)', color: 'var(--kiosco-accion-solicitud)' },
 }
 
 function obtenerBotonesSecundarios(estado: EstadoTurno, yaAlmorzo: boolean) {
@@ -163,7 +163,7 @@ export default function PantallaAcciones({
         )}
 
         <div className="text-center">
-          <p className="text-xl landscape:text-lg md:text-2xl font-black" style={{ color: '#f4f4f5' }}>{nombre}</p>
+          <p className="text-xl landscape:text-lg md:text-2xl font-black" style={{ color: 'var(--kiosco-texto)' }}>{nombre}</p>
         </div>
 
         {/* Badge de estado */}
@@ -211,9 +211,9 @@ export default function PantallaAcciones({
             onClick={() => { resetContador(); alAccionar('salida') }}
             className="relative overflow-hidden w-full flex items-center gap-2 md:gap-3 px-5 py-3.5 landscape:py-3 md:px-6 md:py-5 rounded-xl md:rounded-2xl text-base md:text-lg font-bold justify-center border transition-colors active:scale-[0.98]"
             style={{
-              backgroundColor: 'rgba(239,68,68,0.1)',
+              backgroundColor: 'var(--kiosco-accion-cancelar-bg)',
               borderColor: 'rgba(239,68,68,0.25)',
-              color: '#fca5a5',
+              color: 'var(--kiosco-accion-cancelar)',
             }}
           >
             <div
@@ -240,9 +240,9 @@ export default function PantallaAcciones({
           onClick={() => { resetContador(); alAccionar('entrada') }}
           className="w-full max-w-xl md:max-w-2xl flex items-center gap-2 md:gap-3 px-5 py-4 landscape:py-3 md:px-6 md:py-5 rounded-xl md:rounded-2xl text-base md:text-lg font-bold justify-center border transition-colors active:scale-95"
           style={{
-            backgroundColor: 'rgba(74,222,128,0.12)',
+            backgroundColor: 'var(--kiosco-accion-entrada-bg)',
             borderColor: 'rgba(74,222,128,0.3)',
-            color: '#86efac',
+            color: 'var(--kiosco-accion-entrada)',
           }}
         >
           <LogIn size={28} />
@@ -261,7 +261,7 @@ export default function PantallaAcciones({
           style={{
             backgroundColor: 'rgba(39,39,42,0.6)',
             border: '1px solid rgba(63,63,70,0.4)',
-            color: '#a1a1aa',
+            color: 'var(--kiosco-texto-mut)',
           }}
         >
           <FileText size={18} /> Reportar asistencia
@@ -271,24 +271,24 @@ export default function PantallaAcciones({
       {/* Barra countdown + cancelar */}
       {estadoTurno ? (
         <div className="flex flex-col items-center gap-2 md:gap-3 w-full max-w-xs md:max-w-md mt-6 landscape:mt-4">
-          <div className="w-full h-1 md:h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: '#27272a' }}>
+          <div className="w-full h-1 md:h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--kiosco-border)' }}>
             <div
               className="h-full rounded-full"
               style={{
-                backgroundColor: '#52525b',
+                backgroundColor: 'var(--kiosco-texto-dim)',
                 width: `${(contador / TIMEOUT) * 100}%`,
                 transition: 'width 0.95s linear',
               }}
             />
           </div>
           <div className="flex items-center gap-4 md:gap-6">
-            <p className="text-xs md:text-base" style={{ color: pausado ? '#a1a1aa' : '#52525b' }}>
+            <p className="text-xs md:text-base" style={{ color: pausado ? 'var(--kiosco-texto-mut)' : 'var(--kiosco-texto-dim)' }}>
               {pausado ? 'Pausado — soltá para continuar' : `Salida automática en ${contador}s`}
             </p>
             <button
               onClick={alTimeout}
               className="text-xs md:text-base font-medium flex items-center gap-1 transition-colors"
-              style={{ color: '#52525b' }}
+              style={{ color: 'var(--kiosco-texto-dim)' }}
             >
               <X size={14} /> Cancelar
             </button>
@@ -298,7 +298,7 @@ export default function PantallaAcciones({
         <button
           onClick={alTimeout}
           className="text-xs md:text-base font-medium flex items-center gap-1 transition-colors"
-          style={{ color: '#52525b' }}
+          style={{ color: 'var(--kiosco-texto-dim)' }}
         >
           <X size={14} /> Cancelar
         </button>

@@ -18,25 +18,37 @@ firebase.initializeApp({
 const messaging = firebase.messaging()
 
 // ─── FCM Background Messages ───
-// Cuando llega un push con webpush.notification, Firebase lo muestra automáticamente
-// y NO llama a onBackgroundMessage (evita doble push).
-// Solo entra acá si el payload es data-only (sin notification top-level).
+// Cuando llega un push con webpush.notification, Firebase lo muestra automáticamente.
+// onBackgroundMessage solo debe actuar en mensajes data-only (sin notification).
+// Doble check: si ya hay una notificación visible con el mismo tag, no mostrar otra.
 messaging.onBackgroundMessage((payload) => {
-  if (payload.notification) return // Firebase ya lo mostró
+  // Si Firebase ya mostró la notificación (tiene payload.notification), no duplicar
+  if (payload.notification) return
 
+  // Si el payload FCM original tenía webpush.notification, el browser ya la mostró.
+  // Verificar si ya existe una notificación con este tag para evitar dobles.
   const datos = payload.data || {}
   const titulo = datos.title || datos.titulo || 'Flux'
   const cuerpo = datos.body || datos.cuerpo || ''
   const url = datos.url || '/'
+  const tag = url || 'flux-notificacion'
 
-  return self.registration.showNotification(titulo, {
-    body: cuerpo,
-    icon: '/iconos/icon-192.png',
-    badge: '/iconos/icon-192.png',
-    tag: url || 'flux-notificacion',
-    data: { url },
-    requireInteraction: false,
-    silent: false,
+  // Verificar si ya hay una notificación visible con este tag (anti-duplicación)
+  return self.registration.getNotifications({ tag }).then((existentes) => {
+    if (existentes.length > 0) {
+      // Ya hay una notificación con este tag — no crear otra
+      return
+    }
+    return self.registration.showNotification(titulo, {
+      body: cuerpo,
+      icon: '/iconos/icon-192.png',
+      badge: '/iconos/icon-192.png',
+      tag,
+      renotify: false,
+      data: { url },
+      requireInteraction: false,
+      silent: false,
+    })
   })
 })
 

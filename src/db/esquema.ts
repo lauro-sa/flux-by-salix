@@ -1789,6 +1789,7 @@ export const asistencias = pgTable('asistencias', {
   puntualidad_min: integer('puntualidad_min'), // minutos de desvío vs horario esperado
   // Método de registro
   metodo_registro: text('metodo_registro').notNull().default('manual'), // 'manual' | 'rfid' | 'nfc' | 'pin' | 'automatico' | 'solicitud' | 'sistema'
+  metodo_salida: text('metodo_salida'), // 'manual' | 'rfid' | 'nfc' | 'pin' | 'automatico' | 'sistema' — null si no fichó salida
   terminal_id: uuid('terminal_id'),
   terminal_nombre: text('terminal_nombre'),
   // Ubicación (geocoding inverso: "Av. Directorio 800, Parque Patricios, CABA")
@@ -1859,6 +1860,7 @@ export const terminales_kiosco = pgTable('terminales_kiosco', {
   id: uuid('id').primaryKey().defaultRandom(),
   empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
   nombre: text('nombre').notNull(), // "Entrada Principal", "Planta 2"
+  zona_horaria: text('zona_horaria'), // null = usa la de la empresa. Ej: 'America/Argentina/Buenos_Aires'
   activo: boolean('activo').notNull().default(true),
   ultimo_ping: timestamp('ultimo_ping', { withTimezone: true }),
   token_hash: text('token_hash'), // hash del token de setup

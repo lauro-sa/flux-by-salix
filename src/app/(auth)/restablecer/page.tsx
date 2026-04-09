@@ -9,6 +9,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { EncabezadoAuth } from '@/componentes/ui/EncabezadoAuth'
 import { useAuth } from '@/hooks/useAuth'
 import { useTraduccion } from '@/lib/i18n'
+import { DELAY_CARGA } from '@/lib/constantes/timeouts'
 
 /**
  * Página para restablecer contraseña.
@@ -51,7 +52,7 @@ export default function PaginaRestablecer() {
     }
 
     setExito(true)
-    setTimeout(() => router.push('/login'), 2000)
+    setTimeout(() => router.push('/login'), DELAY_CARGA)
   }
 
   if (exito) {

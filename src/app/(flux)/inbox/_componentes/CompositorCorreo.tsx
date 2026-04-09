@@ -78,6 +78,7 @@ interface PropiedadesCompositorCorreo {
 // ─── Chip de email ───
 
 function ChipEmail({ email, nombre, onRemover }: { email: string; nombre?: string; onRemover: () => void }) {
+  const { t } = useTraduccion()
   return (
     <span
       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs max-w-[220px]"
@@ -87,7 +88,7 @@ function ChipEmail({ email, nombre, onRemover }: { email: string; nombre?: strin
       }}
     >
       <span className="truncate">{nombre ? `${nombre} <${email}>` : email}</span>
-      <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar" icono={<X size={10} />} onClick={onRemover} aria-label={`Eliminar ${email}`} />
+      <Boton variante="fantasma" tamano="xs" soloIcono titulo={t('comun.eliminar')} icono={<X size={10} />} onClick={onRemover} aria-label={`${t('comun.eliminar')} ${email}`} />
     </span>
   )
 }

@@ -4,6 +4,37 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { crearFormato } from '@/lib/formato-regional'
 import ExcelJS from 'exceljs'
 
+// i18n: estos headers deberían respetar el idioma del usuario cuando se implemente i18n server-side
+const ENCABEZADOS_EXCEL = [
+  'Código', 'Tipo', 'Nombre', 'Apellido', 'Título',
+  'Correo', 'Teléfono', 'WhatsApp', 'Web',
+  'Cargo', 'Rubro',
+  'Tipo Identificación', 'Nro Identificación',
+  'Moneda', 'Idioma', 'Zona Horaria',
+  'Límite Crédito', 'Plazo Pago Cliente', 'Plazo Pago Proveedor',
+  'Rank Cliente', 'Rank Proveedor',
+  'Etiquetas', 'Notas', 'Origen', 'Estado',
+  'Vinculado a (Código)', 'Vinculado a (Nombre)', 'Rol Vinculación', 'Puesto Vinculación',
+  'Asignado a',
+  'Dirección Principal', 'Ciudad', 'Provincia', 'Código Postal', 'País',
+  'Fecha Creación', 'Fecha Modificación',
+] as const
+
+const ANCHOS_COLUMNAS = [
+  12, 14, 22, 18, 10,
+  28, 18, 18, 24,
+  18, 18,
+  18, 18,
+  10, 10, 16,
+  16, 18, 20,
+  14, 14,
+  24, 30, 14, 10,
+  18, 22, 18, 18,
+  22,
+  36, 16, 16, 14, 14,
+  18, 18,
+] as const
+
 /**
  * GET /api/contactos/exportar — Exportar contactos como Excel (.xlsx).
  * Genera archivo Excel estilizado con todos los campos, vinculaciones y direcciones.
@@ -73,35 +104,8 @@ export async function GET() {
     // Color de la empresa (azul por defecto)
     const colorEmpresa = '2563EB'
 
-    const encabezados = [
-      'Código', 'Tipo', 'Nombre', 'Apellido', 'Título',
-      'Correo', 'Teléfono', 'WhatsApp', 'Web',
-      'Cargo', 'Rubro',
-      'Tipo Identificación', 'Nro Identificación',
-      'Moneda', 'Idioma', 'Zona Horaria',
-      'Límite Crédito', 'Plazo Pago Cliente', 'Plazo Pago Proveedor',
-      'Rank Cliente', 'Rank Proveedor',
-      'Etiquetas', 'Notas', 'Origen', 'Estado',
-      'Vinculado a (Código)', 'Vinculado a (Nombre)', 'Rol Vinculación', 'Puesto Vinculación',
-      'Asignado a',
-      'Dirección Principal', 'Ciudad', 'Provincia', 'Código Postal', 'País',
-      'Fecha Creación', 'Fecha Modificación',
-    ]
-
-    const anchos = [
-      12, 14, 22, 18, 10,
-      28, 18, 18, 24,
-      18, 18,
-      18, 18,
-      10, 10, 16,
-      16, 18, 20,
-      14, 14,
-      24, 30, 14, 10,
-      18, 22, 18, 18,
-      22,
-      36, 16, 16, 14, 14,
-      18, 18,
-    ]
+    const encabezados = [...ENCABEZADOS_EXCEL]
+    const anchos = [...ANCHOS_COLUMNAS]
 
     // Aplicar anchos de columna
     anchos.forEach((ancho, i) => { hoja.getColumn(i + 1).width = ancho })

@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useFormato } from '@/hooks/useFormato'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useRouter } from 'next/navigation'
+import { DELAY_ACCION } from '@/lib/constantes/timeouts'
 
 /**
  * SeccionSeguridad — cambiar contraseña y dispositivos activos.
@@ -180,7 +181,7 @@ export function SeccionSeguridad() {
       setContrasenaActual('')
       setContrasenaNueva('')
       setContrasenaConfirmar('')
-      setTimeout(() => setExitoContrasena(false), 3000)
+      setTimeout(() => setExitoContrasena(false), DELAY_ACCION)
     }
   }, [contrasenaNueva, contrasenaConfirmar, restablecerContrasena])
 

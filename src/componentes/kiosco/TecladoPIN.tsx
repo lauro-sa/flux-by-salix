@@ -48,7 +48,7 @@ export default function TecladoPIN({
     >
       <h2
         className="font-medium"
-        style={{ fontSize: 'clamp(1.25rem, 4vw, 1.75rem)', color: '#f8fafc' }}
+        style={{ fontSize: 'var(--kiosco-texto-pin)', color: 'var(--kiosco-texto)' }}
       >
         {titulo}
       </h2>
@@ -60,7 +60,7 @@ export default function TecladoPIN({
             key={i}
             className="w-5 h-5 rounded-full transition-all duration-150"
             style={{
-              backgroundColor: i < pin.length ? 'var(--texto-marca)' : '#27272a',
+              backgroundColor: i < pin.length ? 'var(--texto-marca)' : 'var(--kiosco-border)',
               transform: i < pin.length ? 'scale(1.2)' : 'scale(1)',
             }}
           />
@@ -79,7 +79,7 @@ export default function TecladoPIN({
                 onClick={borrar}
                 disabled={pin.length === 0}
                 className="h-16 rounded-2xl text-xl font-medium transition-all active:scale-95 disabled:opacity-30"
-                style={{ backgroundColor: '#18181b', color: '#94a3b8', border: '1px solid #27272a' }}
+                style={{ backgroundColor: 'var(--kiosco-card)', color: 'var(--kiosco-texto-mut)', border: '1px solid var(--kiosco-border)' }}
               >
                 ←
               </button>
@@ -92,7 +92,7 @@ export default function TecladoPIN({
               onClick={() => agregarDigito(tecla)}
               disabled={pin.length >= largoPIN}
               className="h-16 rounded-2xl text-2xl font-medium transition-all active:scale-95 disabled:opacity-50"
-              style={{ backgroundColor: '#18181b', color: '#f8fafc', border: '1px solid #27272a' }}
+              style={{ backgroundColor: 'var(--kiosco-card)', color: 'var(--kiosco-texto)', border: '1px solid var(--kiosco-border)' }}
             >
               {tecla}
             </button>
@@ -105,7 +105,7 @@ export default function TecladoPIN({
         <button
           onClick={alCancelar}
           className="flex-1 py-3.5 rounded-xl text-base font-medium transition-all active:scale-95"
-          style={{ backgroundColor: '#18181b', color: '#94a3b8', border: '1px solid #27272a' }}
+          style={{ backgroundColor: 'var(--kiosco-card)', color: 'var(--kiosco-texto-mut)', border: '1px solid var(--kiosco-border)' }}
         >
           Cancelar
         </button>

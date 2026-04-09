@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
+import { TIMEOUT_AUTOGUARDADO } from '@/lib/constantes/timeouts'
 
 /**
  * Hook para autoguardado inteligente.
@@ -36,7 +37,7 @@ function useAutoguardado({ onGuardar, debounce = 800 }: OpcionesAutoguardado) {
     ocultarRef.current = setTimeout(() => {
       setEstado('idle')
       setPuedeDeshacer(false)
-    }, 4000)
+    }, TIMEOUT_AUTOGUARDADO)
   }, [])
 
   /** Encola un guardado con debounce. Solo guarda si hay cambios reales. */

@@ -19,6 +19,7 @@ import { PLANTILLA_PDF_DEFECTO } from '@/lib/pdf/plantilla-defecto'
 import { useFormato } from '@/hooks/useFormato'
 import { A4_ANCHO, A4_ALTO } from '@/lib/pdf/constantes'
 import { COLOR_MARCA_DEFECTO } from '@/lib/colores_entidad'
+import { DELAY_TRANSICION } from '@/lib/constantes/timeouts'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { Boton } from '@/componentes/ui/Boton'
 import { Select } from '@/componentes/ui/Select'
@@ -275,7 +276,7 @@ export default function EditorPlantillaPdf() {
     setCodigo(nuevoHtml)
     setGuardado(false)
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => guardarPlantilla(nuevoHtml), 1500)
+    debounceRef.current = setTimeout(() => guardarPlantilla(nuevoHtml), DELAY_TRANSICION)
   }, [guardarPlantilla])
 
   // ─── Cargar presupuesto seleccionado ───

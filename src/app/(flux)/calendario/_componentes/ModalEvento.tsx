@@ -22,6 +22,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { SelectorRecurrencia, type ConfigRecurrencia, RECURRENCIA_DEFAULT } from '@/componentes/ui/SelectorRecurrencia'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import type { EventoCalendario, TipoEventoCalendario } from './tipos'
+import { DEBOUNCE_BUSQUEDA } from '@/lib/constantes/timeouts'
 
 interface PropiedadesModalEvento {
   abierto: boolean
@@ -257,7 +258,7 @@ function SelectorVinculaciones({
       } finally {
         setBuscando(false)
       }
-    }, 300)
+    }, DEBOUNCE_BUSQUEDA)
 
     return () => {
       if (refTemporizador.current) clearTimeout(refTemporizador.current)

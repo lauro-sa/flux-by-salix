@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { OPENAI_CHAT_URL } from '@/lib/constantes/api-urls'
 import type { ConfigAgenteIA, ResultadoPipelineAgente, AccionAgente } from '@/tipos/inbox'
 import { obtenerContextoCompleto, construirPrompts } from './contexto'
 import {
@@ -642,7 +643,7 @@ async function llamarOpenAI(
   sistema: string,
   usuario: string,
 ): Promise<{ respuesta: RespuestaLLM; tokensEntrada: number; tokensSalida: number }> {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const res = await fetch(OPENAI_CHAT_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

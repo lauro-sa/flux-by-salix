@@ -11,6 +11,7 @@ import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { Input } from '@/componentes/ui/Input'
 import { CargadorSeccion } from '@/componentes/ui/Cargador'
 import { PALETA_COLORES_ESTADO } from '@/lib/colores_entidad'
+import { useTraduccion } from '@/lib/i18n'
 
 /**
  * SeccionEstados — Lista de estados de actividad con drag-and-drop, toggle, editar.
@@ -45,6 +46,7 @@ const GRUPOS = [
 const COLORES_ESTADO = PALETA_COLORES_ESTADO
 
 function SeccionEstados({ estados, cargando, onActualizar, onAccionAPI }: PropiedadesSeccionEstados) {
+  const { t } = useTraduccion()
   const [orden, setOrden] = useState<EstadoActividad[]>(estados)
   const [modalAbierto, setModalAbierto] = useState(false)
   const [estadoEditando, setEstadoEditando] = useState<EstadoActividad | null>(null)
@@ -189,7 +191,7 @@ function SeccionEstados({ estados, cargando, onActualizar, onAccionAPI }: Propie
                         variante="fantasma"
                         tamano="xs"
                         soloIcono
-                        titulo="Editar"
+                        titulo={t('comun.editar')}
                         icono={<Pencil size={13} />}
                         onClick={() => abrirModal(estado)}
                       />
@@ -238,9 +240,9 @@ function SeccionEstados({ estados, cargando, onActualizar, onAccionAPI }: Propie
         tamano="md"
         acciones={
           <>
-            <Boton variante="secundario" tamano="sm" onClick={() => setModalAbierto(false)}>Cancelar</Boton>
+            <Boton variante="secundario" tamano="sm" onClick={() => setModalAbierto(false)}>{t('comun.cancelar')}</Boton>
             <Boton tamano="sm" onClick={guardar} cargando={guardando} disabled={!etiqueta.trim()}>
-              {estadoEditando ? 'Guardar' : 'Crear estado'}
+              {estadoEditando ? t('comun.guardar') : `${t('comun.crear')} estado`}
             </Boton>
           </>
         }

@@ -115,6 +115,18 @@
   --canal-interno: #7c3aed;
   --canal-interno-fondo: #f5f3ff;
 
+  /* WhatsApp preview */
+  --whatsapp-header: #075e54;
+  --whatsapp-chat-bg: #e5ddd5;
+  --whatsapp-chat-pattern: #d5cec5;
+  --whatsapp-burbuja: #ffffff;
+  --whatsapp-texto: #111111;
+  --whatsapp-enlace: #00a5f4;
+  --whatsapp-pie: #f0f2f5;
+  --whatsapp-meta: #8696a0;
+  --whatsapp-placeholder: #999999;
+  --whatsapp-leido: #53bdeb;
+
   /* Estados de entidades */
   --estado-borrador: #9ca3af;
   --estado-borrador-fondo: #f3f4f6;
@@ -199,9 +211,14 @@
   --texto-codigo: #1e1e2e;
 
   /* Z-Index */
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-header: 20;
   --z-dropdown: 40;
   --z-modal: 50;
+  --z-toast: 60;
   --z-popover: 9999;
+  --z-splash: 9999;
 
   /* Layout */
   --sidebar-ancho: 240px;

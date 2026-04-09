@@ -1,4 +1,5 @@
 import { google } from 'googleapis'
+import { GOOGLE_DRIVE_SCOPE } from '@/lib/constantes/api-urls'
 
 /**
  * Utilidades de Google Drive para Flux by Salix.
@@ -12,7 +13,7 @@ import { google } from 'googleapis'
  */
 
 const SCOPES = [
-  'https://www.googleapis.com/auth/drive.file',        // Crear/editar archivos en Drive
+  GOOGLE_DRIVE_SCOPE,                                  // Crear/editar archivos en Drive
   'https://www.googleapis.com/auth/spreadsheets',       // Leer/escribir hojas de cálculo
   'https://www.googleapis.com/auth/userinfo.email',     // Ver email de la cuenta
 ]

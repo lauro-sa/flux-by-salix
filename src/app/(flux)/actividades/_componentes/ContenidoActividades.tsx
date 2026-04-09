@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useListado, useConfig } from '@/hooks/useListado'
+import { DEBOUNCE_BUSQUEDA } from '@/lib/constantes/timeouts'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -26,6 +27,7 @@ import type { EstadoActividad } from '../configuracion/secciones/SeccionEstados'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useFormato } from '@/hooks/useFormato'
+import { useTraduccion } from '@/lib/i18n'
 
 /**
  * Contenido interactivo de actividades — Client Component.
@@ -81,6 +83,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
   const searchParams = useSearchParams()
   const { mostrar } = useToast()
   const formato = useFormato()
+  const { t } = useTraduccion()
 
   // Estado local de UI
   const [busqueda, setBusqueda] = useState('')
@@ -97,7 +100,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
 
   // Debounce de búsqueda (300ms)
   useEffect(() => {
-    const timeout = setTimeout(() => setBusquedaDebounced(busqueda), 300)
+    const timeout = setTimeout(() => setBusquedaDebounced(busqueda), DEBOUNCE_BUSQUEDA)
     return () => clearTimeout(timeout)
   }, [busqueda])
 
@@ -327,7 +330,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
     },
     {
       id: 'eliminar',
-      etiqueta: 'Eliminar',
+      etiqueta: t('comun.eliminar'),
       icono: <Trash2 size={14} />,
       onClick: (ids) => setConfirmEliminarLote(ids),
       peligro: true,
@@ -807,7 +810,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
         abierto={!!confirmEliminarLote}
         titulo="Eliminar actividades"
         descripcion={`¿Eliminar ${confirmEliminarLote?.size ?? 0} actividad${(confirmEliminarLote?.size ?? 0) > 1 ? 'es' : ''}? Se moverán a la papelera.`}
-        etiquetaConfirmar="Eliminar"
+        etiquetaConfirmar={t('comun.eliminar')}
         tipo="peligro"
         onConfirmar={() => confirmEliminarLote && eliminarLote(confirmEliminarLote)}
         onCerrar={() => setConfirmEliminarLote(null)}

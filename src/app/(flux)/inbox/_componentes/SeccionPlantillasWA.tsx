@@ -342,12 +342,12 @@ export function SeccionPlantillasWA({ canalesWhatsApp, onRecargar }: Props) {
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                   <Boton
-                    variante="fantasma" tamano="xs" soloIcono
+                    variante="fantasma" tamano="xs" soloIcono titulo="Editar"
                     icono={<Pencil size={12} />}
                     onClick={() => { setPlantillaEditando(p); setModalAbierto(true) }}
                   />
                   <Boton
-                    variante="peligro" tamano="xs" soloIcono
+                    variante="peligro" tamano="xs" soloIcono titulo="Eliminar"
                     icono={eliminandoId === p.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
                     onClick={() => setConfirmEliminar(p)}
                     disabled={eliminandoId === p.id}

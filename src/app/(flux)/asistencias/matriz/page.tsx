@@ -149,7 +149,7 @@ export default function PaginaMatrizAsistencias() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-borde-sutil shrink-0">
         <div className="flex items-center gap-3">
-          <Boton variante="fantasma" tamano="xs" soloIcono icono={<ArrowLeft size={16} />} onClick={() => router.push('/asistencias')} />
+          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Volver" icono={<ArrowLeft size={16} />} onClick={() => router.push('/asistencias')} />
           <div className="flex items-center gap-2">
             <CalendarDays size={18} className="text-texto-marca" />
             <h1 className="text-base font-semibold text-texto-primario">Matriz de asistencias</h1>
@@ -183,14 +183,14 @@ export default function PaginaMatrizAsistencias() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronLeft size={16} />} onClick={() => setOffset(o => o - 1)} />
+          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Página anterior" icono={<ChevronLeft size={16} />} onClick={() => setOffset(o => o - 1)} />
           <button
             onClick={() => setOffset(0)}
             className="text-sm font-medium text-texto-primario hover:text-texto-marca transition-colors min-w-[140px] text-center"
           >
             {etiqueta}
           </button>
-          <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronRight size={16} />} onClick={() => setOffset(o => o + 1)} />
+          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Página siguiente" icono={<ChevronRight size={16} />} onClick={() => setOffset(o => o + 1)} />
         </div>
 
         <div className="w-[100px]" /> {/* spacer */}

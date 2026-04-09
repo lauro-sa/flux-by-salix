@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteMiddleware } from '@/lib/supabase/middleware'
 import { extraerSlug } from '@/lib/subdominio'
+import { TIMEOUT_AUTH } from '@/lib/constantes/timeouts'
 
 /**
  * Middleware principal de Flux by Salix.
@@ -51,7 +52,7 @@ export async function middleware(request: NextRequest) {
     const { data: { user: usuarioValidado } } = await Promise.race([
       supabase.auth.getUser(),
       new Promise<{ data: { user: null } }>((resolve) =>
-        setTimeout(() => resolve({ data: { user: null } }), 8000)
+        setTimeout(() => resolve({ data: { user: null } }), TIMEOUT_AUTH)
       ),
     ])
     user = usuarioValidado

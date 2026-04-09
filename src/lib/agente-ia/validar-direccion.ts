@@ -4,6 +4,8 @@
  * Busca la dirección en Google, trae la versión formateada con barrio, ciudad, provincia.
  */
 
+import { GOOGLE_PLACES_API, GOOGLE_PLACES_AUTOCOMPLETE } from '@/lib/constantes/api-urls'
+
 const GOOGLE_API_KEY = process.env.GOOGLE_PLACES_API_KEY
 
 interface DireccionValidada {
@@ -24,7 +26,7 @@ export async function validarDireccion(textoRaw: string): Promise<DireccionValid
 
   try {
     // Paso 1: Autocompletar para encontrar el place
-    const resAuto = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+    const resAuto = await fetch(GOOGLE_PLACES_AUTOCOMPLETE, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -46,7 +48,7 @@ export async function validarDireccion(textoRaw: string): Promise<DireccionValid
     // Paso 2: Detalle del lugar
     const campos = 'addressComponents,location,formattedAddress'
     const resDetalle = await fetch(
-      `https://places.googleapis.com/v1/places/${sugerencia.placeId}?languageCode=es`,
+      `${GOOGLE_PLACES_API}/${sugerencia.placeId}?languageCode=es`,
       {
         headers: {
           'X-Goog-Api-Key': GOOGLE_API_KEY,

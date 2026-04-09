@@ -435,16 +435,25 @@ async function procesarCorreoEntrante(
   adminsCache?: { usuario_id: string }[],
 ): Promise<boolean> {
   // 1. Deduplicar por correo_message_id
-  if (correo.messageId) {
-    const { data: existente } = await admin
-      .from('mensajes')
-      .select('id')
-      .eq('empresa_id', empresaId)
-      .eq('correo_message_id', correo.messageId)
-      .maybeSingle()
-
-    if (existente) return false // Ya procesado
+  // Si messageId está vacío, generar uno determinístico para que el dedup funcione
+  if (!correo.messageId) {
+    const { createHash } = await import('crypto')
+    const contenidoHash = createHash('sha256')
+      .update(`${correo.de}|${correo.fecha}|${correo.asunto}|${correo.para.join(',')}`)
+      .digest('hex')
+      .slice(0, 24)
+    correo.messageId = `<gen_${contenidoHash}@flux>`
+    console.info(`[Sync] Correo sin Message-ID, generado: ${correo.messageId}`)
   }
+
+  const { data: existente } = await admin
+    .from('mensajes')
+    .select('id')
+    .eq('empresa_id', empresaId)
+    .eq('correo_message_id', correo.messageId)
+    .maybeSingle()
+
+  if (existente) return false // Ya procesado
 
   // 2. Determinar dirección (entrante vs saliente)
   const emailRemitente = extraerEmail(correo.de)

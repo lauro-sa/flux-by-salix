@@ -14,6 +14,7 @@ import { Input } from '@/componentes/ui/Input'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { CargadorSeccion } from '@/componentes/ui/Cargador'
 import { PALETA_COLORES_TIPO_ACTIVIDAD, COLOR_MARCA_DEFECTO } from '@/lib/colores_entidad'
+import { useTraduccion } from '@/lib/i18n'
 
 /**
  * SeccionTiposEvento — Lista de tipos de evento del calendario con drag-and-drop, toggle, editar.
@@ -44,6 +45,7 @@ interface PropiedadesSeccionTipos {
 const COLORES_TIPO = PALETA_COLORES_TIPO_ACTIVIDAD
 
 function SeccionTiposEvento({ tipos, cargando, onActualizar, onAccionAPI }: PropiedadesSeccionTipos) {
+  const { t } = useTraduccion()
   const [orden, setOrden] = useState<TipoEventoCalendario[]>(tipos)
   const [modalAbierto, setModalAbierto] = useState(false)
   const [tipoEditando, setTipoEditando] = useState<TipoEventoCalendario | null>(null)
@@ -201,6 +203,7 @@ function FilaTipoEvento({
   onEditar: () => void
   onEliminar?: () => void
 }) {
+  const { t } = useTraduccion()
   const Icono = obtenerIcono(tipo.icono)
 
   // Badge de duración: "Todo el día" o "X min"
@@ -249,7 +252,7 @@ function FilaTipoEvento({
         soloIcono
         icono={<Pencil size={15} />}
         onClick={onEditar}
-        titulo="Editar"
+        titulo={t('comun.editar')}
       />
     </Reorder.Item>
   )
@@ -267,6 +270,7 @@ interface PropiedadesModalTipoEvento {
 }
 
 function ModalTipoEvento({ abierto, tipo, guardando, onGuardar, onCerrar, onEliminar }: PropiedadesModalTipoEvento) {
+  const { t } = useTraduccion()
   const esEdicion = !!tipo
 
   // Estado del formulario
@@ -340,13 +344,13 @@ function ModalTipoEvento({ abierto, tipo, guardando, onGuardar, onCerrar, onElim
               onClick={onEliminar}
               className="text-insignia-peligro-texto mr-auto"
             >
-              Eliminar
+              {t('comun.eliminar')}
             </Boton>
           )}
           <div className="ml-auto flex gap-2">
-            <Boton variante="secundario" tamano="sm" onClick={onCerrar}>Cancelar</Boton>
+            <Boton variante="secundario" tamano="sm" onClick={onCerrar}>{t('comun.cancelar')}</Boton>
             <Boton tamano="sm" onClick={manejarGuardar} cargando={guardando} disabled={!etiqueta.trim()}>
-              {esEdicion ? 'Guardar' : 'Crear tipo'}
+              {esEdicion ? t('comun.guardar') : `${t('comun.crear')} tipo`}
             </Boton>
           </div>
         </div>

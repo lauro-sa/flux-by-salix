@@ -22,6 +22,8 @@ import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { SelectorCalendarioBloque } from './SelectorCalendarioBloque'
 import type { TipoActividad } from '../configuracion/secciones/SeccionTipos'
 import type { EstadoActividad } from '../configuracion/secciones/SeccionEstados'
+import { useTraduccion } from '@/lib/i18n'
+import { DEBOUNCE_BUSQUEDA } from '@/lib/constantes/timeouts'
 
 /**
  * ModalActividad — Modal para crear o editar una actividad.
@@ -113,6 +115,7 @@ function ModalActividad({
   modulo, onGuardar, onCompletar, onPosponer, onCerrar,
 }: PropiedadesModal) {
   const router = useRouter()
+  const { t } = useTraduccion()
   const esEdicion = !!actividad
   // Filtrar tipos: solo activos + disponibles para el módulo actual (si se especifica)
   // modulos_disponibles usa plural (ej: "presupuestos"), entidadTipo puede ser singular (ej: "presupuesto")
@@ -344,9 +347,9 @@ function ModalActividad({
       tamano="3xl"
       acciones={
         <>
-          <Boton variante="secundario" tamano="sm" onClick={onCerrar}>Cancelar</Boton>
+          <Boton variante="secundario" tamano="sm" onClick={onCerrar}>{t('comun.cancelar')}</Boton>
           <Boton tamano="sm" onClick={manejarGuardar} cargando={guardando} disabled={!titulo.trim() || !tipoId}>
-            {esEdicion ? 'Guardar' : (tipoConCalendario && bloquesNuevos.length > 0 ? 'Crear y agendar' : 'Crear actividad')}
+            {esEdicion ? t('comun.guardar') : (tipoConCalendario && bloquesNuevos.length > 0 ? `${t('comun.crear')} y agendar` : `${t('comun.crear')} actividad`)}
           </Boton>
         </>
       }
@@ -742,7 +745,7 @@ function SeccionVinculos({ vinculos, onChange, onNavegar }: { vinculos: Vinculo[
         }
       } catch (err) { console.error('Error en vínculos:', err) }
       finally { setCargando(false) }
-    }, 300)
+    }, DEBOUNCE_BUSQUEDA)
     return () => clearTimeout(timeoutRef.current)
   }, [busqueda, tabActivo])
 
@@ -1361,12 +1364,14 @@ function SeccionSeguimientos({
 
           {/* Input para nuevo seguimiento */}
           <div className="flex gap-2">
-            <input
+            <Input
               value={nota}
               onChange={(e) => setNota(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); registrar() } }}
               placeholder="Ej: El cliente llamó preguntando..."
-              className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-borde-fuerte bg-superficie-tarjeta text-texto-primario placeholder:text-texto-terciario/50 outline-none focus:border-texto-marca transition-colors"
+              compacto
+              formato={null}
+              className="flex-1"
             />
             <Boton
               tamano="xs"

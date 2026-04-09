@@ -1,35 +1,22 @@
 'use client'
 
 /**
- * EditorPresupuesto — Componente unificado para crear y editar presupuestos.
- * Reemplaza la lógica duplicada de nuevo/page.tsx y [id]/page.tsx.
+ * EditorPresupuesto — Componente orquestador para crear y editar presupuestos.
+ * Contiene toda la lógica de estado y delega el render a sub-componentes.
  * Se usa en: presupuestos/nuevo/page.tsx, presupuestos/[id]/page.tsx
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  Cloud, X, Mail, Phone, ExternalLink,
-  Send, Printer, FileCheck, Eye, Receipt, Ban, RotateCcw,
-  Lock, Info, RefreshCw, History, Loader2, CheckCircle2, FileText,
-  Sparkles,
-} from 'lucide-react'
-import { ModalEnviarDocumento, type CanalCorreoEmpresa, type AdjuntoDocumento, type DatosEnvioDocumento, type DatosBorradorCorreo, type DatosPlantillaCorreo } from '@/componentes/entidad/ModalEnviarDocumento'
+import { Sparkles } from 'lucide-react'
+import { ModalEnviarDocumento, type CanalCorreoEmpresa, type DatosEnvioDocumento, type DatosBorradorCorreo, type DatosPlantillaCorreo } from '@/componentes/entidad/ModalEnviarDocumento'
 import { TablaLineas } from './TablaLineas'
 import dynamic from 'next/dynamic'
 import type { LineaPropuestaIA } from './PanelAsistenteIA'
 const PanelAsistenteIA = dynamic(() => import('./PanelAsistenteIA').then(m => m.PanelAsistenteIA), { ssr: false })
 import EditorNotasPresupuesto from './EditorNotasPresupuesto'
-import SelectorContactoPresupuesto from './SelectorContactoPresupuesto'
-import SelectorPlantilla from './SelectorPlantilla'
 import { useRol } from '@/hooks/useRol'
-import BarraEstadoPresupuesto from './BarraEstadoPresupuesto'
 import { Boton } from '@/componentes/ui/Boton'
-import { Input } from '@/componentes/ui/Input'
-import { Insignia } from '@/componentes/ui/Insignia'
-import { Select } from '@/componentes/ui/Select'
-import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
-import { COLOR_ESTADO_DOCUMENTO } from '@/lib/colores_entidad'
 import { construirHtmlCorreoDocumento } from '@/lib/plantilla-correo-documento'
 import { useEnvioPendiente } from '@/hooks/useEnvioPendiente'
 import { useEmpresa } from '@/hooks/useEmpresa'
@@ -44,10 +31,19 @@ import type {
   Impuesto, UnidadMedida, CondicionPago, ConfigPresupuestos,
   EstadoPresupuesto,
 } from '@/tipos/presupuesto'
-import { ETIQUETAS_ESTADO, TRANSICIONES_ESTADO } from '@/tipos/presupuesto'
+import { TRANSICIONES_ESTADO } from '@/tipos/presupuesto'
 import type {
   ContactoResumido, Vinculacion, DatosEmpresa, LineaTemporal,
 } from './tipos-editor'
+
+// ─── Sub-componentes extraídos ──────────────────────────────────────────────
+import CabeceraPresupuesto, { BannerBloqueo } from './CabeceraPresupuesto'
+import SeccionEmisor from './SeccionEmisor'
+import SeccionCliente from './SeccionCliente'
+import SeccionDatosPresupuesto from './SeccionDatosPresupuesto'
+import SeccionTotales from './SeccionTotales'
+import SeccionHistorial from './SeccionHistorial'
+import SeccionCertificado from './SeccionCertificado'
 
 // ─── Props del componente ───────────────────────────────────────────────────
 
@@ -108,11 +104,11 @@ export default function EditorPresupuesto({
 
   // Modal enviar documento por correo
   const [modalEnviarAbierto, setModalEnviarAbierto] = useState(false)
-  const [correoLibre, setCorreoLibre] = useState(false) // true = desde chatter (sin plantilla, sin PDF, sin portal)
+  const [correoLibre, setCorreoLibre] = useState(false)
   const [canalesCorreo, setCanalesCorreo] = useState<CanalCorreoEmpresa[]>([])
   const [plantillasCorreo, setPlantillasCorreo] = useState<import('@/componentes/entidad/ModalEnviarDocumento').PlantillaCorreo[]>([])
   const [plantillaCorreoPredeterminadaId, setPlantillaCorreoPredeterminadaId] = useState<string | null>(null)
-  const [enviandoCorreo, setEnviandoCorreo] = useState(false)
+  const [enviandoCorreo] = useState(false)
   const [urlPortalReal, setUrlPortalReal] = useState<string | null>(null)
   const [snapshotCorreo, setSnapshotCorreo] = useState<import('@/componentes/entidad/ModalEnviarDocumento').SnapshotCorreo | null>(null)
 
@@ -157,7 +153,6 @@ export default function EditorPresupuesto({
         if (data.moneda_predeterminada) setMoneda(data.moneda_predeterminada)
         if (data.notas_predeterminadas) setNotasHtml(data.notas_predeterminadas)
         if (data.condiciones_predeterminadas) setCondicionesHtml(data.condiciones_predeterminadas)
-        // Preferencia del usuario (localStorage) tiene prioridad sobre config de empresa
         const columnasGuardadas = (() => { try { const c = localStorage.getItem('flux_columnas_presupuesto'); return c ? JSON.parse(c) : null } catch { return null } })()
         if (columnasGuardadas?.length) setColumnasVisibles(columnasGuardadas)
         else if (data.columnas_lineas_default) setColumnasVisibles(data.columnas_lineas_default as string[])
@@ -222,7 +217,6 @@ export default function EditorPresupuesto({
       if (pres.fecha_emision) setFechaEmision(pres.fecha_emision.split('T')[0])
       setCargando(false)
 
-      // Inicializar snapshot para dirty tracking
       guardadoRef.current = {
         notas_html: pres.notas_html || '',
         condiciones_html: pres.condiciones_html || '',
@@ -234,10 +228,8 @@ export default function EditorPresupuesto({
         columnas_lineas: (pres.columnas_lineas as string[]) || conf.columnas_lineas_default || [],
       }
 
-      // Notificar título
       onTituloCargado?.(pres.numero || 'Detalle')
 
-      // Cargar datos completos del contacto (whatsapp, direcciones, vinculaciones)
       if (pres.contacto_id) {
         fetch(`/api/contactos/${pres.contacto_id}`)
           .then(r => r.json())
@@ -245,13 +237,9 @@ export default function EditorPresupuesto({
             setVinculaciones(data.vinculaciones || [])
             if (data?.id) {
               setContactoSeleccionado({
-                id: data.id,
-                nombre: data.nombre,
-                apellido: data.apellido,
-                correo: data.correo,
-                telefono: data.telefono,
-                whatsapp: data.whatsapp || null,
-                codigo: data.codigo || '',
+                id: data.id, nombre: data.nombre, apellido: data.apellido,
+                correo: data.correo, telefono: data.telefono,
+                whatsapp: data.whatsapp || null, codigo: data.codigo || '',
                 tipo_contacto: data.tipo_contacto || null,
                 numero_identificacion: data.numero_identificacion || null,
                 datos_fiscales: data.datos_fiscales || null,
@@ -262,7 +250,6 @@ export default function EditorPresupuesto({
           })
           .catch(() => {})
       }
-      // Cargar datos completos del "dirigido a" si existe
       if (pres.atencion_contacto_id) {
         setAtencionId(pres.atencion_contacto_id)
         fetch(`/api/contactos/${pres.atencion_contacto_id}`)
@@ -270,19 +257,14 @@ export default function EditorPresupuesto({
           .then(data => {
             if (data?.id) {
               setAtencionSeleccionada({
-                id: data.id,
-                nombre: data.nombre,
-                apellido: data.apellido,
-                correo: data.correo,
-                telefono: data.telefono,
-                whatsapp: data.whatsapp || null,
-                tipo_contacto: data.tipo_contacto,
+                id: data.id, nombre: data.nombre, apellido: data.apellido,
+                correo: data.correo, telefono: data.telefono,
+                whatsapp: data.whatsapp || null, tipo_contacto: data.tipo_contacto,
               })
             }
           })
           .catch(() => {})
       }
-      // Cargar URL del portal si existe
       fetch(`/api/presupuestos/${presupuestoIdProp}/portal`)
         .then(r => r.ok ? r.json() : null)
         .then(data => { if (data?.url) setUrlPortalReal(data.url) })
@@ -299,20 +281,15 @@ export default function EditorPresupuesto({
       .then(data => {
         setContactoId(data.id)
         setContactoSeleccionado({
-          id: data.id,
-          nombre: data.nombre,
-          apellido: data.apellido,
-          correo: data.correo,
-          telefono: data.telefono,
-          whatsapp: data.whatsapp || null,
-          codigo: data.codigo || '',
+          id: data.id, nombre: data.nombre, apellido: data.apellido,
+          correo: data.correo, telefono: data.telefono,
+          whatsapp: data.whatsapp || null, codigo: data.codigo || '',
           tipo_contacto: data.tipo_contacto || null,
           numero_identificacion: data.numero_identificacion || null,
           datos_fiscales: data.datos_fiscales || null,
           condicion_iva: data.datos_fiscales?.condicion_iva || null,
           direcciones: data.direcciones || [],
         })
-        // Usar vinculaciones que ya vienen del contacto
         setVinculaciones(data.vinculaciones || [])
       })
       .catch(() => {})
@@ -327,12 +304,10 @@ export default function EditorPresupuesto({
         const canales = (data.canales || [])
           .filter((c: { activo: boolean }) => c.activo)
           .map((c: { id: string; nombre: string; proveedor: string; config_conexion: Record<string, string> }) => ({
-            id: c.id,
-            nombre: c.nombre,
+            id: c.id, nombre: c.nombre,
             email: c.config_conexion?.email || c.config_conexion?.usuario || c.nombre,
             predeterminado: false,
           }))
-        // Prioridad: canal marcado por tipo de contacto > canal principal > primero
         const porTipo = canales.find((c: { _predeterminado_tipo?: boolean }) => c._predeterminado_tipo)
         const principal = canales.find((c: { es_principal?: boolean }) => c.es_principal)
         const elegido = porTipo || principal || canales[0]
@@ -341,22 +316,17 @@ export default function EditorPresupuesto({
       })
       .catch(() => {})
 
-    // Cargar plantillas de correo y detectar predeterminada
     fetch('/api/inbox/plantillas?canal=correo')
       .then(r => r.json())
       .then(data => {
         const todas = data.plantillas || []
         const pls = todas.map((p: { id: string; nombre: string; asunto: string; contenido_html: string; canal_id?: string; creado_por?: string; disponible_para?: string }) => ({
-          id: p.id,
-          nombre: p.nombre,
-          asunto: p.asunto || '',
-          contenido_html: p.contenido_html || '',
-          canal_id: p.canal_id || null,
+          id: p.id, nombre: p.nombre, asunto: p.asunto || '',
+          contenido_html: p.contenido_html || '', canal_id: p.canal_id || null,
           creado_por: p.creado_por || '',
           disponible_para: (p.disponible_para || 'todos') as 'todos' | 'roles' | 'usuarios',
         }))
         setPlantillasCorreo(pls)
-        // Detectar plantilla predeterminada (tiene _es_por_defecto en variables y modulo presupuestos)
         const pred = todas.find((p: { variables?: { clave: string }[]; modulos?: string[] }) =>
           (p.variables || []).some(v => v.clave === '_es_por_defecto') &&
           (p.modulos || []).includes('presupuestos')
@@ -373,11 +343,8 @@ export default function EditorPresupuesto({
       .then(data => {
         const todas = data.plantillas || []
         const pls = todas.map((p: { id: string; nombre: string; asunto: string; contenido_html: string; canal_id?: string; creado_por?: string; disponible_para?: string }) => ({
-          id: p.id,
-          nombre: p.nombre,
-          asunto: p.asunto || '',
-          contenido_html: p.contenido_html || '',
-          canal_id: p.canal_id || null,
+          id: p.id, nombre: p.nombre, asunto: p.asunto || '',
+          contenido_html: p.contenido_html || '', canal_id: p.canal_id || null,
           creado_por: p.creado_por || '',
           disponible_para: (p.disponible_para || 'todos') as 'todos' | 'roles' | 'usuarios',
         }))
@@ -427,7 +394,6 @@ export default function EditorPresupuesto({
     if (!cId || creandoRef.current) return
     creandoRef.current = true
 
-    // Generar número optimista al instante
     const cfg = configRef.current
     const sec = (cfg as unknown as Record<string, unknown>)?.secuencia as { prefijo?: string; siguiente?: number; digitos?: number } | undefined
     const prefijo = sec?.prefijo || 'P'
@@ -453,18 +419,11 @@ export default function EditorPresupuesto({
         condiciones_html: condicionesHtmlRef.current || undefined,
         columnas_lineas: columnasVisiblesRef.current,
         lineas: lineasRef.current.filter(l => l.descripcion || l.codigo_producto).map(l => ({
-          tipo_linea: l.tipo_linea,
-          orden: l.orden,
-          codigo_producto: l.codigo_producto,
-          descripcion: l.descripcion,
-          descripcion_detalle: l.descripcion_detalle,
-          cantidad: l.cantidad,
-          unidad: l.unidad,
-          precio_unitario: l.precio_unitario,
-          descuento: l.descuento,
-          impuesto_label: l.impuesto_label,
-          impuesto_porcentaje: l.impuesto_porcentaje,
-          monto: l.monto,
+          tipo_linea: l.tipo_linea, orden: l.orden, codigo_producto: l.codigo_producto,
+          descripcion: l.descripcion, descripcion_detalle: l.descripcion_detalle,
+          cantidad: l.cantidad, unidad: l.unidad, precio_unitario: l.precio_unitario,
+          descuento: l.descuento, impuesto_label: l.impuesto_label,
+          impuesto_porcentaje: l.impuesto_porcentaje, monto: l.monto,
         })),
       }
 
@@ -477,11 +436,9 @@ export default function EditorPresupuesto({
       if (res.ok) {
         const presupuestoCreado = await res.json()
         setPresupuestoIdCreado(presupuestoCreado.id)
-        // Corregir número si el servidor dio uno distinto
         if (presupuestoCreado.numero !== numeroOptimista) {
           setNumeroPresupuesto(presupuestoCreado.numero)
         }
-        // Inicializar snapshot con el estado recién creado
         guardadoRef.current = {
           notas_html: notasHtmlRef.current || '',
           condiciones_html: condicionesHtmlRef.current || '',
@@ -492,8 +449,6 @@ export default function EditorPresupuesto({
           columnas_lineas: columnasVisiblesRef.current,
         }
         setGuardando(false)
-        // Notificar al padre y cambiar URL sin navegar
-        // Confirmar productos provisorios creados por IA
         if (productosProvisionales.length > 0) {
           Promise.all(productosProvisionales.map(id =>
             fetch(`/api/productos/${id}`, {
@@ -504,7 +459,6 @@ export default function EditorPresupuesto({
           )).catch(() => {})
           setProductosProvisionales([])
         }
-
         onCreado?.(presupuestoCreado.id, presupuestoCreado.numero)
         window.history.replaceState(null, '', `/presupuestos/${presupuestoCreado.id}`)
       } else {
@@ -526,7 +480,6 @@ export default function EditorPresupuesto({
 
   // ─── Autoguardado con dirty tracking ────────────────────────────────────
 
-  // Set de promesas pendientes para esperar antes de generar PDF
   const promesasPendientesRef = useRef<Set<Promise<void>>>(new Set())
   const registrarPromesa = useCallback((p: Promise<void>) => {
     promesasPendientesRef.current.add(p)
@@ -540,7 +493,6 @@ export default function EditorPresupuesto({
     const pid = presupuestoIdRef.current
     if (!pid) return
 
-    // Filtrar campos que realmente cambiaron vs último guardado
     const cambios: Record<string, unknown> = {}
     for (const [clave, valor] of Object.entries(campos)) {
       const anterior = guardadoRef.current[clave]
@@ -550,7 +502,6 @@ export default function EditorPresupuesto({
     }
     if (Object.keys(cambios).length === 0) return
 
-    // Actualizar snapshot
     Object.assign(guardadoRef.current, cambios)
 
     setGuardando(true)
@@ -598,22 +549,18 @@ export default function EditorPresupuesto({
       try {
         const res = await fetch(`/api/presupuestos/${pid}`, { method: 'DELETE' })
         const data = await res.json()
-
-        // En modo editar, si no se pudo eliminar se cancela
         if (modo === 'editar' && data.accion === 'cancelado') {
           setPresupuesto(prev => prev ? { ...prev, estado: 'cancelado' } : null)
           return
         }
       } catch { /* silenciar */ }
     }
-    // Eliminar productos provisorios que creó la IA
     if (productosProvisionales.length > 0) {
       Promise.all(productosProvisionales.map(id =>
         fetch(`/api/productos/${id}`, { method: 'DELETE' })
       )).catch(() => {})
       setProductosProvisionales([])
     }
-
     onDescartado?.()
     router.push('/presupuestos')
   }, [modo, router, onDescartado, productosProvisionales])
@@ -625,11 +572,8 @@ export default function EditorPresupuesto({
     setContactoSeleccionado(contacto)
     setAtencionId(null)
     setAtencionSeleccionada(null)
-
-    // Actualizar ref inmediatamente para que crearPresupuesto lo vea
     contactoIdRef.current = contacto.id
 
-    // Cargar vinculaciones del contacto para "Dirigido a"
     try {
       const res = await fetch(`/api/contactos/${contacto.id}`)
       const data = await res.json()
@@ -638,7 +582,6 @@ export default function EditorPresupuesto({
       setVinculaciones([])
     }
 
-    // Pre-crear presupuesto como borrador inmediatamente
     crearPresupuesto()
   }, [crearPresupuesto])
 
@@ -650,7 +593,6 @@ export default function EditorPresupuesto({
     setAtencionSeleccionada(null)
   }, [])
 
-  // Seleccionar "Dirigido a" (modo crear)
   const seleccionarAtencion = useCallback((vinc: Vinculacion) => {
     setAtencionId(vinc.vinculado.id)
     setAtencionSeleccionada(vinc.vinculado)
@@ -664,7 +606,6 @@ export default function EditorPresupuesto({
     const pid = presupuestoIdRef.current
 
     if (pid) {
-      // Presupuesto ya creado — persistir directamente
       try {
         const res = await fetch(`/api/presupuestos/${pid}/lineas`, {
           method: 'POST',
@@ -682,24 +623,15 @@ export default function EditorPresupuesto({
         }
       } catch { /* silenciar */ }
     } else {
-      // Aún no se creó — línea temporal en memoria (solo modo crear)
       const nuevaLinea: LineaTemporal = {
         _temp: true,
         id: `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        tipo_linea: tipo,
-        orden: lineas.length,
-        codigo_producto: null,
-        descripcion: tipo === 'seccion' ? '' : null,
-        descripcion_detalle: null,
-        cantidad: '1',
-        unidad: null,
-        precio_unitario: '0',
-        descuento: '0',
+        tipo_linea: tipo, orden: lineas.length, codigo_producto: null,
+        descripcion: tipo === 'seccion' ? '' : null, descripcion_detalle: null,
+        cantidad: '1', unidad: null, precio_unitario: '0', descuento: '0',
         impuesto_label: tipo === 'producto' && impDefault ? impDefault.label : null,
         impuesto_porcentaje: tipo === 'producto' && impDefault ? String(impDefault.porcentaje) : '0',
-        subtotal: '0',
-        impuesto_monto: '0',
-        total: '0',
+        subtotal: '0', impuesto_monto: '0', total: '0',
         monto: tipo === 'descuento' ? '0' : null,
       }
       setLineas(prev => [...prev, nuevaLinea])
@@ -712,13 +644,11 @@ export default function EditorPresupuesto({
     const pid = presupuestoIdRef.current
 
     for (const lineaIA of lineasIA) {
-      // Buscar impuesto por id
       const imp = lineaIA.impuesto_id ? impuestos.find(i => i.id === lineaIA.impuesto_id) : null
       const impDefault = impuestos.find(i => i.activo && i.predeterminado) || impuestos.find(i => i.activo && i.porcentaje > 0)
       const impFinal = imp || impDefault
 
       if (pid) {
-        // Presupuesto ya creado — persistir directamente
         try {
           const res = await fetch(`/api/presupuestos/${pid}/lineas`, {
             method: 'POST',
@@ -728,9 +658,7 @@ export default function EditorPresupuesto({
               codigo_producto: lineaIA.referencia_interna || lineaIA.codigo || null,
               descripcion: lineaIA.nombre,
               descripcion_detalle: lineaIA.descripcion_editada || lineaIA.descripcion_venta || null,
-              cantidad: '1',
-              unidad: lineaIA.unidad || null,
-              precio_unitario: '0',
+              cantidad: '1', unidad: lineaIA.unidad || null, precio_unitario: '0',
               impuesto_label: impFinal ? impFinal.label : null,
               impuesto_porcentaje: impFinal ? String(impFinal.porcentaje) : '0',
             }),
@@ -741,25 +669,18 @@ export default function EditorPresupuesto({
           }
         } catch { /* silenciar */ }
       } else {
-        // Línea temporal en memoria
         const nuevaLinea: LineaTemporal = {
           _temp: true,
           id: `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          tipo_linea: 'producto',
-          orden: lineas.length,
+          tipo_linea: 'producto', orden: lineas.length,
           codigo_producto: lineaIA.referencia_interna || lineaIA.codigo || null,
           descripcion: lineaIA.nombre,
           descripcion_detalle: lineaIA.descripcion_editada || lineaIA.descripcion_venta || null,
-          cantidad: '1',
-          unidad: lineaIA.unidad || null,
-          precio_unitario: '0',
+          cantidad: '1', unidad: lineaIA.unidad || null, precio_unitario: '0',
           descuento: '0',
           impuesto_label: impFinal ? impFinal.label : null,
           impuesto_porcentaje: impFinal ? String(impFinal.porcentaje) : '0',
-          subtotal: '0',
-          impuesto_monto: '0',
-          total: '0',
-          monto: null,
+          subtotal: '0', impuesto_monto: '0', total: '0', monto: null,
         }
         setLineas(prev => [...prev, nuevaLinea])
       }
@@ -775,15 +696,12 @@ export default function EditorPresupuesto({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          nombre: linea.nombre,
-          tipo: 'servicio',
+          nombre: linea.nombre, tipo: 'servicio',
           categoria: linea.categoria_sugerida || null,
           referencia_interna: linea.codigo || null,
           descripcion_venta: linea.descripcion_editada || linea.descripcion_venta || null,
-          unidad: linea.unidad || 'unidad',
-          puede_venderse: true,
-          origen: 'asistente_salix',
-          es_provisorio: true,
+          unidad: linea.unidad || 'unidad', puede_venderse: true,
+          origen: 'asistente_salix', es_provisorio: true,
         }),
       })
       if (res.ok) {
@@ -813,7 +731,6 @@ export default function EditorPresupuesto({
         return act
       })
 
-      // Persistir la línea actualizada
       const pid = presupuestoIdRef.current
       if (pid) {
         const lineaActualizada = nuevas.find(l => l.id === lineaId)
@@ -859,7 +776,6 @@ export default function EditorPresupuesto({
     }
   }, [])
 
-  // Recargar totales desde el servidor (solo modo editar)
   const recargarTotales = useCallback(async () => {
     if (!presupuestoIdRef.current) return
     try {
@@ -880,17 +796,11 @@ export default function EditorPresupuesto({
   const guardarTodo = useCallback(async () => {
     const pid = presupuestoIdRef.current
     if (!pid) return
-    // Esperar guardados en curso
     await esperarGuardados()
-    // Solo guardar campos que realmente cambiaron vs último guardado
     const camposActuales: Record<string, unknown> = {
-      notas_html: notasHtml,
-      condiciones_html: condicionesHtml,
-      referencia,
-      moneda,
-      condicion_pago_id: condicionPagoId,
-      dias_vencimiento: diasVencimiento,
-      fecha_emision: fechaEmision,
+      notas_html: notasHtml, condiciones_html: condicionesHtml,
+      referencia, moneda, condicion_pago_id: condicionPagoId,
+      dias_vencimiento: diasVencimiento, fecha_emision: fechaEmision,
       columnas_lineas: columnasVisibles,
     }
     const cambios: Record<string, unknown> = {}
@@ -899,7 +809,7 @@ export default function EditorPresupuesto({
         cambios[clave] = valor
       }
     }
-    if (Object.keys(cambios).length === 0) return // Sin cambios reales
+    if (Object.keys(cambios).length === 0) return
     Object.assign(guardadoRef.current, cambios)
     await fetch(`/api/presupuestos/${pid}`, {
       method: 'PATCH',
@@ -911,11 +821,8 @@ export default function EditorPresupuesto({
   // ─── Acciones de estado (modo editar) ───────────────────────────────────
 
   const handleEnviar = () => {
-    // Limpiar snapshot previo (apertura normal, no deshacer)
     setSnapshotCorreo(null)
-    // Abrir modal inmediatamente — sin esperar guardado ni PDF
     setModalEnviarAbierto(true)
-    // Guardar + generar PDF y portal en background para que estén listos al enviar
     if (idPresupuesto) {
       guardarTodo().then(() => {
         Promise.all([
@@ -924,10 +831,7 @@ export default function EditorPresupuesto({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ forzar: false }),
           }).then(r => r.json()).then(data => {
-            // Actualizar pdf_url en el estado para que esté disponible al enviar
-            if (data.url) {
-              setPresupuesto(prev => prev ? { ...prev, pdf_url: data.url } : null)
-            }
+            if (data.url) setPresupuesto(prev => prev ? { ...prev, pdf_url: data.url } : null)
           }).catch(() => {}),
           fetch(`/api/presupuestos/${idPresupuesto}/portal`, { method: 'POST' })
             .then(r => r.json())
@@ -938,15 +842,12 @@ export default function EditorPresupuesto({
     }
   }
 
-  // Callback de envío de correo desde el modal — usa envío diferido con countdown
   const handleEnviarCorreo = useCallback(async (datos: DatosEnvioDocumento) => {
-    // Cambiar estado a enviado si aún no lo está (esto sí es inmediato)
     const estadoActual = presupuesto?.estado || 'borrador'
     if (estadoActual === 'borrador') {
       await cambiarEstado('enviado')
     }
 
-    // Nombre del contacto para el CTA y pie
     const nombreContactoCorreo = atencionSeleccionada
       ? `${atencionSeleccionada.nombre} ${atencionSeleccionada.apellido || ''}`.trim()
       : contactoSeleccionado
@@ -958,13 +859,11 @@ export default function EditorPresupuesto({
     const numDoc = numeroPresupuesto || presupuesto?.numero || ''
     const etiqueta = t('documentos.tipos.presupuesto')
 
-    // Construir HTML final con CTA portal (si tildado) + pie empresa + dark mode
     const htmlFinal = construirHtmlCorreoDocumento({
       htmlCuerpo: datos.html,
       incluirPortal: datos.incluir_enlace_portal,
       portal: urlPortalReal ? {
-        url: urlPortalReal,
-        etiquetaTipo: etiqueta,
+        url: urlPortalReal, etiquetaTipo: etiqueta,
         tituloDocumento: `${etiqueta} ${numDoc}`,
         nombreContacto: nombreContactoCorreo,
       } : undefined,
@@ -976,7 +875,6 @@ export default function EditorPresupuesto({
       },
     })
 
-    // Si es programado, enviar directo (no tiene sentido el countdown)
     if (datos.programado_para) {
       const res = await fetch('/api/inbox/correo/enviar', {
         method: 'POST',
@@ -997,11 +895,8 @@ export default function EditorPresupuesto({
       return
     }
 
-    // Cerrar modal inmediatamente — el toast de countdown toma el control
     setModalEnviarAbierto(false)
 
-    // Función de envío real (se ejecuta cuando termina el countdown o se clickea "Enviar ya")
-    // Usa ref para tener el pdf_url más reciente (puede actualizarse mientras el countdown corre)
     const enviarFn = async () => {
       const pres = presupuestoRef.current
       await fetch('/api/inbox/correo/enviar', {
@@ -1021,52 +916,40 @@ export default function EditorPresupuesto({
       })
     }
 
-    // Guardar snapshot del estado del modal para poder restaurar al deshacer
     const snapshot = datos._snapshot || null
     setSnapshotCorreo(snapshot)
 
-    // Descripción para el toast
     const descripcionToast = `Para: ${datos.correo_para[0]} — ${datos.asunto || '(Sin asunto)'}`
 
-    // Programar con countdown de 30 segundos
     programarEnvio(enviarFn, {
       descripcion: descripcionToast,
       onDeshacer: () => {
-        // Restaurar snapshot y reabrir el modal
         setSnapshotCorreo(snapshot)
         setModalEnviarAbierto(true)
-        // Revertir estado si lo cambiamos
         if (estadoActual === 'borrador') {
           cambiarEstado('borrador').catch(() => {})
         }
       },
     })
   }, [presupuesto?.estado, presupuesto?.numero, presupuesto?.contacto_nombre, presupuesto?.contacto_apellido, cambiarEstado, atencionSeleccionada, contactoSeleccionado, numeroPresupuesto, idPresupuesto, empresa?.color_marca, empresa?.nombre, datosEmpresa, t, programarEnvio])
-  // Guardar borrador de correo (cerrar modal sin enviar)
+
   const handleGuardarBorrador = useCallback(async (datos: DatosBorradorCorreo) => {
-    // Por ahora guardamos en localStorage; a futuro puede ir a la BD
     if (idPresupuesto) {
-      try {
-        localStorage.setItem(`borrador_correo_${idPresupuesto}`, JSON.stringify(datos))
-      } catch { /* silenciar */ }
+      try { localStorage.setItem(`borrador_correo_${idPresupuesto}`, JSON.stringify(datos)) } catch { /* silenciar */ }
     }
     setModalEnviarAbierto(false)
   }, [idPresupuesto])
 
-  // Guardar como plantilla de correo
   const handleGuardarPlantilla = useCallback(async (datos: DatosPlantillaCorreo) => {
     try {
       await fetch('/api/inbox/plantillas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          nombre: datos.nombre,
-          canal: 'correo',
-          asunto: datos.asunto,
+          nombre: datos.nombre, canal: 'correo', asunto: datos.asunto,
           contenido: datos.contenido_html.replace(/<[^>]+>/g, '').trim(),
           contenido_html: datos.contenido_html,
-          modulos: ['presupuestos'],
-          disponible_para: 'usuarios',
+          modulos: ['presupuestos'], disponible_para: 'usuarios',
         }),
       })
       recargarPlantillasCorreo()
@@ -1081,9 +964,7 @@ export default function EditorPresupuesto({
     if (!idPresupuesto || generandoPdf) return
     setGenerandoPdf(true)
     try {
-      // Guardar TODO el estado actual antes de generar PDF
       await guardarTodo()
-      // forzar: false → si no hubo cambios desde la última generación, devuelve el existente
       const res = await fetch(`/api/presupuestos/${idPresupuesto}/pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1102,7 +983,7 @@ export default function EditorPresupuesto({
       setGenerandoPdf(false)
     }
   }
-  // Re-emitir presupuesto con fechas actualizadas
+
   const handleReEmitir = useCallback(async () => {
     const pid = presupuestoIdRef.current
     if (!pid) return
@@ -1114,12 +995,9 @@ export default function EditorPresupuesto({
     venc.setDate(venc.getDate() + dias)
     const vencStr = venc.toISOString()
 
-    // Guardar fecha original solo la primera vez
     const fechaOriginal = presupuesto?.fecha_emision_original || presupuesto?.fecha_emision || fechaEmision
-    // Fecha de emisión anterior (la que se está reemplazando ahora)
     const fechaAnterior = presupuesto?.fecha_emision || fechaEmision
 
-    // Contar re-emisiones previas desde chatter
     let numReEmision = 1
     try {
       const resChatter = await fetch(`/api/chatter?entidad_tipo=presupuesto&entidad_id=${pid}`)
@@ -1129,32 +1007,25 @@ export default function EditorPresupuesto({
       }
     } catch { /* silenciar */ }
 
-    // Actualizar estado local
     setFechaEmision(hoyStr)
 
-    // Guardar en BD
     autoguardar({
       fecha_emision: hoyStr,
       fecha_vencimiento: vencStr,
       ...(!presupuesto?.fecha_emision_original ? { fecha_emision_original: fechaOriginal } : {}),
     })
 
-    // Registrar en chatter con número de re-emisión
     const fmtFecha = (f: string) => new Date(f).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
     try {
       await fetch('/api/chatter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          entidad_tipo: 'presupuesto',
-          entidad_id: pid,
-          tipo: 'sistema',
+          entidad_tipo: 'presupuesto', entidad_id: pid, tipo: 'sistema',
           contenido: `Re-emisión ${numReEmision} — Emisión anterior: ${fmtFecha(fechaAnterior)} → Nueva: ${fmtFecha(hoyStr)}`,
           metadata: {
-            accion: 're_emision',
-            numero_re_emision: numReEmision,
-            fecha_emision_anterior: fechaAnterior,
-            fecha_emision_nueva: hoyStr,
+            accion: 're_emision', numero_re_emision: numReEmision,
+            fecha_emision_anterior: fechaAnterior, fecha_emision_nueva: hoyStr,
           },
         }),
       })
@@ -1175,9 +1046,29 @@ export default function EditorPresupuesto({
     } catch { /* silenciar */ }
   }
 
+  const handleRegenerarPdf = async () => {
+    if (!idPresupuesto || generandoPdf) return
+    setGenerandoPdf(true)
+    try {
+      await guardarTodo()
+      const res = await fetch(`/api/presupuestos/${idPresupuesto}/pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ forzar: true }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        alert(err.error || 'Error al regenerar el PDF')
+      }
+    } catch {
+      alert('Error al regenerar el PDF')
+    } finally {
+      setGenerandoPdf(false)
+    }
+  }
+
   // ─── Cálculos derivados ─────────────────────────────────────────────────
 
-  // Totales: siempre se calculan desde las líneas para reflejar cambios en tiempo real
   const totales = (() => {
     let subtotal = 0
     let impuestos = 0
@@ -1192,15 +1083,12 @@ export default function EditorPresupuesto({
     return { subtotal, impuestos, total: subtotal + impuestos }
   })()
 
-  // Símbolo de moneda del documento (puede diferir de la moneda de la empresa)
   const simbolo = new Intl.NumberFormat(formato.locale, { style: 'currency', currency: moneda || formato.codigoMoneda, currencyDisplay: 'narrowSymbol' }).formatToParts(0).find(p => p.type === 'currency')?.value || '$'
   const fmt = (v: string | number) => {
     const num = typeof v === 'number' ? v : parseFloat(v || '0')
     return new Intl.NumberFormat(formato.locale, {
-      style: 'currency',
-      currency: moneda || formato.codigoMoneda,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      style: 'currency', currency: moneda || formato.codigoMoneda,
+      minimumFractionDigits: 2, maximumFractionDigits: 2,
     }).format(num)
   }
 
@@ -1208,29 +1096,18 @@ export default function EditorPresupuesto({
   const monedas = (config?.monedas || []) as { id: string; label: string; simbolo: string; activo: boolean }[]
   const impuestosList = (config?.impuestos || []) as Impuesto[]
   const unidadesList = (config?.unidades || []) as UnidadMedida[]
-  const condSeleccionada = condiciones.find(c => c.id === condicionPagoId)
 
-  // Modo editar: estado actual y transiciones
   const estadoActual = (presupuesto?.estado || 'borrador') as EstadoPresupuesto
   const esEditable = modo === 'crear' || estadoActual === 'borrador'
   const estadosPosibles = modo === 'editar' ? (TRANSICIONES_ESTADO[estadoActual] || []) : []
   const estaCancelado = modo === 'editar' && estadoActual === 'cancelado'
 
-  // Datos fiscales emisor
-  const datosFiscales = (datosEmpresa?.datos_fiscales || {}) as Record<string, string>
-
-  // Fecha de vencimiento de la oferta — siempre calculada desde emisión + días
   const fechaVenc = (() => {
     const f = new Date(fechaEmision)
     f.setDate(f.getDate() + diasVencimiento)
     return f
   })()
 
-  const formatearFecha = (d: Date | string) => {
-    return formato.fecha(d)
-  }
-
-  // Validez bloqueada
   const bloqueada = !!(config as Record<string, unknown> | null)?.validez_bloqueada
 
   // ─── Loading state (solo modo editar) ───────────────────────────────────
@@ -1270,730 +1147,262 @@ export default function EditorPresupuesto({
       <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil overflow-hidden">
 
         {/* ─── Cabecera ─── */}
-        <div className="px-6 pt-5 pb-4 border-b border-borde-sutil">
-          {/* Fila 1: Título */}
-          <h1 className={`text-2xl sm:text-3xl font-semibold mb-2 ${
-            modo === 'editar' ? 'text-texto-secundario' : 'text-texto-primario'
-          }`}>
-            {titulo}
-          </h1>
-
-          {/* Fila 2: Iconos izquierda + Barra de estados derecha */}
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center gap-1">
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<Cloud size={16} />} onClick={modo === 'crear' && !idPresupuesto ? crearPresupuesto : () => autoguardar({})} disabled={modo === 'crear' && (!contactoId || guardando)} titulo={guardando ? 'Guardando...' : idPresupuesto ? 'Guardado' : modo === 'crear' && contactoId ? 'Guardar presupuesto' : 'Selecciona un cliente primero'} className={guardando ? 'text-texto-marca animate-pulse' : ''} />
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={16} />} onClick={descartarPresupuesto} titulo={idPresupuesto ? 'Eliminar presupuesto' : 'Descartar'} className={idPresupuesto ? 'text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro/10' : ''} />
-              {/* Info y RefreshCw en modo editar o post-creación */}
-              {(modo === 'editar' || presupuestoIdCreado) && (
-                <>
-                  <Boton variante="fantasma" tamano="xs" soloIcono icono={<Info size={16} />} titulo="Informacion del documento" />
-                  <Boton variante="fantasma" tamano="xs" soloIcono icono={<RefreshCw size={16} className={generandoPdf ? 'animate-spin' : ''} />} onClick={async () => {
-                      if (!idPresupuesto || generandoPdf) return
-                      setGenerandoPdf(true)
-                      try {
-                        await guardarTodo()
-                        const res = await fetch(`/api/presupuestos/${idPresupuesto}/pdf`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ forzar: true }),
-                        })
-                        if (!res.ok) {
-                          const err = await res.json().catch(() => ({}))
-                          alert(err.error || 'Error al regenerar el PDF')
-                        }
-                      } catch {
-                        alert('Error al regenerar el PDF')
-                      } finally {
-                        setGenerandoPdf(false)
-                      }
-                    }} disabled={generandoPdf} titulo="Regenerar PDF" />
-                </>
-              )}
-            </div>
-            <div className="ml-auto">
-              <BarraEstadoPresupuesto estadoActual={estadoActual} />
-            </div>
-          </div>
-
-          {/* Fila 3: Botones de acción (modo editar o post-creación) */}
-          {(modo === 'editar' || presupuestoIdCreado) && (
-            <div className="flex items-center gap-2 flex-wrap">
-              {(() => {
-                const BotonAccion = ({ onClick, icono: Icono, label, variante = 'default', disabled = false, animarIcono = false }: {
-                  onClick: () => void; icono: typeof Send; label: string; variante?: string; disabled?: boolean; animarIcono?: boolean
-                }) => (
-                  <Boton
-                    onClick={onClick}
-                    disabled={disabled}
-                    variante={variante === 'primario' ? 'primario' : variante === 'peligro' ? 'peligro' : 'secundario'}
-                    tamano="sm"
-                    icono={<Icono size={15} className={animarIcono ? 'animate-spin' : ''} />}
-                  >
-                    <span className="hidden sm:inline">{label}</span>
-                  </Boton>
-                )
-
-                const esEnviado = estadoActual === 'enviado'
-                // Re-emitir: visible si la fecha de emisión es anterior a hoy
-                const hoyStr = new Date().toISOString().split('T')[0]
-                const emisionStr = (presupuesto?.fecha_emision || fechaEmision || '').slice(0, 10)
-                const puedeReEmitir = emisionStr < hoyStr
-
-                if (estaCancelado) {
-                  return (
-                    <BotonAccion onClick={() => cambiarEstado('borrador')} icono={RotateCcw} label={t('documentos.restablecer_borrador')} />
-                  )
-                }
-
-                const siguienteEstado = estadosPosibles.find(e => e !== 'cancelado' && e !== 'borrador')
-
-                return (
-                  <>
-                    {esEnviado ? (
-                      <>
-                        {siguienteEstado && <BotonAccion onClick={() => cambiarEstado(siguienteEstado)} icono={FileCheck} label={t('comun.confirmar')} variante="primario" />}
-                        <BotonAccion onClick={handleImprimir} icono={generandoPdf ? Loader2 : Printer} label={generandoPdf ? 'Generando...' : t('documentos.imprimir')} disabled={generandoPdf} animarIcono={generandoPdf} />
-                        <BotonAccion onClick={handleEnviarProforma} icono={Receipt} label="Enviar Factura Proforma" />
-                        <BotonAccion onClick={handleEnviar} icono={Send} label={t('documentos.enviar')} />
-                        <BotonAccion onClick={handleVistaPrevia} icono={Eye} label={t('documentos.vista_previa')} />
-                        {puedeReEmitir && <BotonAccion onClick={handleReEmitir} icono={RefreshCw} label="Re-emitir" />}
-                        <BotonAccion onClick={() => cambiarEstado('cancelado')} icono={Ban} label={t('comun.cancelar')} variante="peligro" />
-                      </>
-                    ) : (
-                      <>
-                        <BotonAccion onClick={handleEnviar} icono={Send} label={t('documentos.enviar')} />
-                        <BotonAccion onClick={handleEnviarProforma} icono={Receipt} label="Enviar Factura Proforma" />
-                        <BotonAccion onClick={handleImprimir} icono={generandoPdf ? Loader2 : Printer} label={generandoPdf ? 'Generando...' : t('documentos.imprimir')} disabled={generandoPdf} animarIcono={generandoPdf} />
-                        {siguienteEstado && <BotonAccion onClick={() => cambiarEstado(siguienteEstado)} icono={FileCheck} label={t('comun.confirmar')} variante="primario" />}
-                        <BotonAccion onClick={handleVistaPrevia} icono={Eye} label={t('documentos.vista_previa')} />
-                        {puedeReEmitir && <BotonAccion onClick={handleReEmitir} icono={RefreshCw} label="Re-emitir" />}
-                        {!estaCancelado && estadosPosibles.includes('cancelado') && (
-                          <BotonAccion onClick={() => cambiarEstado('cancelado')} icono={Ban} label={t('comun.cancelar')} variante="peligro" />
-                        )}
-                      </>
-                    )}
-                  </>
-                )
-              })()}
-            </div>
-          )}
-
-          {/* Indicación modo crear sin contacto */}
-          {modo === 'crear' && !contactoId && !idPresupuesto && (
-            <p className="text-sm text-texto-terciario">
-              Selecciona un cliente para crear el presupuesto
-            </p>
-          )}
-        </div>
+        <CabeceraPresupuesto
+          modo={modo}
+          titulo={titulo}
+          estadoActual={estadoActual}
+          esEditable={esEditable}
+          estaCancelado={estaCancelado}
+          estadosPosibles={estadosPosibles}
+          guardando={guardando}
+          generandoPdf={generandoPdf}
+          contactoId={contactoId}
+          idPresupuesto={idPresupuesto}
+          presupuestoIdCreado={presupuestoIdCreado}
+          fechaEmision={fechaEmision}
+          presupuestoFechaEmision={presupuesto?.fecha_emision}
+          onGuardar={() => autoguardar({})}
+          onDescartar={descartarPresupuesto}
+          onRegenerarPdf={handleRegenerarPdf}
+          onCambiarEstado={cambiarEstado}
+          onEnviar={handleEnviar}
+          onEnviarProforma={handleEnviarProforma}
+          onImprimir={handleImprimir}
+          onVistaPrevia={handleVistaPrevia}
+          onReEmitir={handleReEmitir}
+          onCrearPresupuesto={crearPresupuesto}
+        />
 
         {/* ─── Banner de bloqueo (solo modo editar, si no es editable) ─── */}
         {modo === 'editar' && !esEditable && (
-          <div className="px-6 py-3 bg-insignia-advertencia/10 border-b border-insignia-advertencia/20 flex items-center gap-2">
-            <Lock size={14} className="text-insignia-advertencia" />
-            <span className="text-sm text-texto-secundario">
-              Este documento esta en estado <strong>{ETIQUETAS_ESTADO[estadoActual]}</strong> y no se puede editar.
-            </span>
-            {estadosPosibles.includes('borrador') && (
-              <Boton variante="fantasma" tamano="xs" onClick={() => cambiarEstado('borrador')} className="ml-1">Volver a Borrador</Boton>
-            )}
-          </div>
+          <BannerBloqueo
+            estadoActual={estadoActual}
+            estadosPosibles={estadosPosibles}
+            onCambiarEstado={cambiarEstado}
+          />
         )}
 
         {/* ─── EMISOR ─── */}
-        <div className="px-6 py-3">
-          <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider">Emisor</span>
-          <div className="mt-2 space-y-1">
-            <p className="text-base font-semibold text-texto-primario">
-              {datosEmpresa?.nombre || empresa?.nombre || '—'}
-            </p>
-            {(datosFiscales.cuit || datosFiscales.condicion_iva) && (
-              <p className="text-xs text-texto-secundario">
-                {datosFiscales.cuit && `CUIT ${datosFiscales.cuit}`}
-                {datosFiscales.cuit && datosFiscales.condicion_iva && ' · '}
-                {datosFiscales.condicion_iva?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-              </p>
-            )}
-            {(datosEmpresa?.telefono || datosEmpresa?.correo) && (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                {datosEmpresa?.telefono && (
-                  <span className="text-xs text-texto-secundario flex items-center gap-1">
-                    <Phone size={11} className="text-texto-terciario" />
-                    {datosEmpresa.telefono}
-                  </span>
-                )}
-                {datosEmpresa?.correo && (
-                  <span className="text-xs text-texto-secundario flex items-center gap-1">
-                    <Mail size={11} className="text-texto-terciario" />
-                    {datosEmpresa.correo}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+        <SeccionEmisor
+          datosEmpresa={datosEmpresa}
+          nombreEmpresa={empresa?.nombre || ''}
+        />
 
         {/* ─── CLIENTE + DATOS DEL PRESUPUESTO (grid plano) ─── */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-0 px-6 pb-3 border-b border-borde-sutil">
 
           {/* ── Columna izquierda: Cliente + Dirigido a ── */}
-          <div className="space-y-3 py-3">
-            {/* CLIENTE */}
-            <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-lg px-3 py-3 -mx-3">
-              <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider">
-                {t('documentos.cliente')}
-              </span>
-              <div className="mt-1.5">
-                {modo === 'crear' ? (
-                  /* Modo crear: usa SelectorContactoPresupuesto con onChange que pre-crea */
-                  <SelectorContactoPresupuesto
-                    contacto={contactoSeleccionado ? {
-                      id: contactoSeleccionado.id,
-                      nombre: contactoSeleccionado.nombre,
-                      apellido: contactoSeleccionado.apellido,
-                      correo: contactoSeleccionado.correo,
-                      telefono: contactoSeleccionado.telefono,
-                      whatsapp: contactoSeleccionado.whatsapp || null,
-                      tipo_contacto: contactoSeleccionado.tipo_contacto,
-                      numero_identificacion: contactoSeleccionado.numero_identificacion,
-                      condicion_iva: contactoSeleccionado.condicion_iva || null,
-                      direccion: contactoSeleccionado.direcciones?.find(d => d.es_principal)?.texto || null,
-                      direcciones: contactoSeleccionado.direcciones || [],
-                    } : null}
-                    onChange={(c) => {
-                      if (c) {
-                        seleccionarContacto(c)
-                      } else {
-                        limpiarContacto()
-                      }
-                    }}
-                    onSeleccionarConDirigidoA={async (padre, hijoId) => {
-                      await seleccionarContacto(padre)
-                      try {
-                        const res = await fetch(`/api/contactos/${hijoId}`)
-                        const hijo = await res.json()
-                        if (hijo) {
-                          setAtencionId(hijo.id)
-                          setAtencionSeleccionada({
-                            id: hijo.id,
-                            nombre: hijo.nombre,
-                            apellido: hijo.apellido,
-                            correo: hijo.correo,
-                            telefono: hijo.telefono,
-                            whatsapp: hijo.whatsapp || null,
-                            tipo_contacto: hijo.tipo_contacto,
-                          })
-                        }
-                      } catch { /* silenciar */ }
-                    }}
-                  />
-                ) : (
-                  /* Modo editar: usa datos completos del contacto si están cargados, sino fallback al snapshot */
-                  <SelectorContactoPresupuesto
-                    contacto={contactoSeleccionado ? {
-                      id: contactoSeleccionado.id,
-                      nombre: contactoSeleccionado.nombre,
-                      apellido: contactoSeleccionado.apellido,
-                      correo: contactoSeleccionado.correo,
-                      telefono: contactoSeleccionado.telefono,
-                      whatsapp: contactoSeleccionado.whatsapp || null,
-                      tipo_contacto: contactoSeleccionado.tipo_contacto,
-                      numero_identificacion: contactoSeleccionado.numero_identificacion,
-                      condicion_iva: contactoSeleccionado.condicion_iva || null,
-                      direccion: contactoSeleccionado.direcciones?.find(d => d.es_principal)?.texto || presupuesto?.contacto_direccion || null,
-                      direcciones: contactoSeleccionado.direcciones || [],
-                    } : presupuesto?.contacto_nombre ? {
-                      id: presupuesto.contacto_id || '',
-                      nombre: presupuesto.contacto_nombre,
-                      apellido: presupuesto.contacto_apellido || null,
-                      correo: presupuesto.contacto_correo || null,
-                      telefono: presupuesto.contacto_telefono || null,
-                      tipo_contacto: presupuesto.contacto_tipo ? { clave: presupuesto.contacto_tipo, etiqueta: presupuesto.contacto_tipo } : null,
-                      numero_identificacion: presupuesto.contacto_identificacion || null,
-                      condicion_iva: presupuesto.contacto_condicion_iva || null,
-                      direccion: presupuesto.contacto_direccion || null,
-                    } : null}
-                    onChange={async (c) => {
-                      if (c) {
-                        // Cambiar contacto en el presupuesto existente
-                        const res = await fetch(`/api/presupuestos/${idPresupuesto}`, {
-                          method: 'PATCH',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ contacto_id: c.id }),
-                        })
-                        if (res.ok) {
-                          const act = await res.json()
-                          setPresupuesto(prev => prev ? { ...prev, ...act } : null)
-                          // Cargar vinculaciones
-                          fetch(`/api/contactos/${c.id}`)
-                            .then(r => r.json())
-                            .then(data => setVinculaciones(data.vinculaciones || []))
-                            .catch(() => {})
-                        }
-                      } else {
-                        // Limpiar contacto del presupuesto
-                        const res = await fetch(`/api/presupuestos/${idPresupuesto}`, {
-                          method: 'PATCH',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ contacto_id: null }),
-                        })
-                        if (res.ok) {
-                          const act = await res.json()
-                          setPresupuesto(prev => prev ? { ...prev, ...act } : null)
-                          setVinculaciones([])
-                        }
-                      }
-                    }}
-                    soloLectura={!esEditable}
-                  />
-                )}
-              </div>
-            </div>
-
-            {/* DIRIGIDO A */}
-            {modo === 'crear' && contactoSeleccionado && vinculaciones.length > 0 && (
-              <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-lg px-3 py-3 -mx-3">
-                <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider">
-                  Dirigido a
-                </span>
-
-                {atencionSeleccionada ? (
-                  <div className="mt-1.5">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold text-texto-primario">
-                          {atencionSeleccionada.nombre} {atencionSeleccionada.apellido || ''}
-                        </p>
-                        {atencionSeleccionada.correo && (
-                          <p className="text-xs text-texto-terciario flex items-center gap-1.5">
-                            <Mail size={13} className="shrink-0" />
-                            {atencionSeleccionada.correo}
-                          </p>
-                        )}
-                        {(atencionSeleccionada.whatsapp || atencionSeleccionada.telefono) && (
-                          <p className="text-xs text-texto-terciario flex items-center gap-1.5">
-                            <Phone size={13} className="shrink-0" />
-                            {atencionSeleccionada.whatsapp || atencionSeleccionada.telefono}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Boton variante="fantasma" tamano="xs" onClick={() => { setAtencionId(null); setAtencionSeleccionada(null) }}>Cambiar</Boton>
-                        <Boton variante="fantasma" tamano="xs" soloIcono icono={<ExternalLink size={13} />} onClick={() => router.push(`/contactos/${atencionSeleccionada.id}`)} titulo="Ver ficha del contacto" />
-                      </div>
-                    </div>
-                    <p className="text-xxs text-texto-terciario mt-2">
-                      Aparecera como &quot;Atencion:&quot; en el PDF del documento
-                    </p>
-                  </div>
-                ) : (
-                  <div className="mt-1.5 space-y-1">
-                    {vinculaciones.map(v => (
-                      <Boton
-                        key={v.id}
-                        variante="fantasma"
-                        tamano="sm"
-                        onClick={() => seleccionarAtencion(v)}
-                        className="w-full text-left px-2 py-2 h-auto"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm text-texto-primario truncate">
-                            {v.vinculado.nombre} {v.vinculado.apellido || ''}
-                          </div>
-                          <div className="text-xs text-texto-terciario truncate">
-                            {v.puesto || v.vinculado.correo || ''}
-                          </div>
-                        </div>
-                      </Boton>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* DIRIGIDO A — modo editar, con selección previa */}
-            {modo === 'editar' && presupuesto?.atencion_nombre && (
-              <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-lg px-3 py-3 -mx-3">
-                <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider">
-                  Dirigido a
-                </span>
-                <div className="mt-1.5">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold text-texto-primario">{presupuesto.atencion_nombre}</p>
-                      {(atencionSeleccionada?.correo || presupuesto.atencion_correo) && (
-                        <p className="text-xs text-texto-terciario flex items-center gap-1.5">
-                          <Mail size={13} className="shrink-0" />
-                          {atencionSeleccionada?.correo || presupuesto.atencion_correo}
-                        </p>
-                      )}
-                      {(atencionSeleccionada?.whatsapp || atencionSeleccionada?.telefono) && (
-                        <p className="text-xs text-texto-terciario flex items-center gap-1.5">
-                          <Phone size={13} className="shrink-0" />
-                          {atencionSeleccionada.whatsapp || atencionSeleccionada.telefono}
-                        </p>
-                      )}
-                      {presupuesto.atencion_cargo && (
-                        <p className="text-xs text-texto-terciario">{presupuesto.atencion_cargo}</p>
-                      )}
-                    </div>
-                    {esEditable && (
-                      <div className="flex items-center gap-1 shrink-0">
-                        {vinculaciones.length > 0 && (
-                          <Boton variante="fantasma" tamano="xs" onClick={() => {
-                              autoguardar({
-                                atencion_contacto_id: null as unknown as string,
-                                atencion_nombre: '',
-                                atencion_correo: '',
-                              })
-                              setPresupuesto(prev => prev ? {
-                                ...prev,
-                                atencion_contacto_id: null,
-                                atencion_nombre: null,
-                                atencion_correo: null,
-                              } : null)
-                              setAtencionId(null)
-                              setAtencionSeleccionada(null)
-                            }}>Cambiar</Boton>
-                        )}
-                        {presupuesto.atencion_contacto_id && (
-                          <Boton variante="fantasma" tamano="xs" soloIcono icono={<ExternalLink size={13} />} onClick={() => router.push(`/contactos/${presupuesto.atencion_contacto_id}`)} titulo="Ver ficha del contacto" />
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-xxs text-texto-terciario mt-2">Aparecera como &quot;Atencion:&quot; en el PDF del documento</p>
-                </div>
-              </div>
-            )}
-
-            {/* DIRIGIDO A — modo editar, vinculaciones disponibles, sin selección previa */}
-            {modo === 'editar' && !presupuesto?.atencion_nombre && vinculaciones.length > 0 && esEditable && (
-              <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-lg px-3 py-3 -mx-3">
-                <span className="text-xs font-bold text-texto-secundario uppercase tracking-wider">
-                  Dirigido a
-                </span>
-                <p className="text-xxs text-texto-terciario mt-0.5 mb-2">Aparecera como &quot;Atencion:&quot; en el PDF del documento</p>
-                <div className="space-y-1">
-                  {vinculaciones.map(v => (
-                    <Boton
-                      key={v.id}
-                      variante="fantasma"
-                      tamano="sm"
-                      onClick={() => {
-                        autoguardar({
-                          atencion_contacto_id: v.vinculado.id,
-                          atencion_nombre: `${v.vinculado.nombre} ${v.vinculado.apellido || ''}`.trim(),
-                          atencion_correo: v.vinculado.correo,
-                        })
-                        setPresupuesto(prev => prev ? {
-                          ...prev,
-                          atencion_contacto_id: v.vinculado.id,
-                          atencion_nombre: `${v.vinculado.nombre} ${v.vinculado.apellido || ''}`.trim(),
-                          atencion_correo: v.vinculado.correo,
-                        } : null)
-                        setAtencionId(v.vinculado.id)
-                        setAtencionSeleccionada(v.vinculado)
-                      }}
-                      className="w-full text-left px-3 py-2 h-auto border border-transparent hover:border-borde-sutil"
-                    >
-                      <div className="size-7 rounded-full bg-superficie-app text-texto-terciario flex items-center justify-center text-xs font-bold">
-                        {v.vinculado.nombre[0]}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm text-texto-primario truncate">
-                          {v.vinculado.nombre} {v.vinculado.apellido || ''}
-                        </div>
-                        <div className="text-xs text-texto-terciario truncate">
-                          {v.puesto || v.vinculado.correo || ''}
-                        </div>
-                      </div>
-                    </Boton>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          <SeccionCliente
+            modo={modo}
+            esEditable={esEditable}
+            contactoSeleccionado={contactoSeleccionado}
+            vinculaciones={vinculaciones}
+            atencionId={atencionId}
+            atencionSeleccionada={atencionSeleccionada}
+            presupuesto={presupuesto}
+            idPresupuesto={idPresupuesto}
+            onSeleccionarContacto={seleccionarContacto}
+            onLimpiarContacto={limpiarContacto}
+            onSeleccionarAtencion={seleccionarAtencion}
+            onCambiarContactoEditar={async (c) => {
+              if (c) {
+                const res = await fetch(`/api/presupuestos/${idPresupuesto}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ contacto_id: c.id, atencion_contacto_id: null, atencion_nombre: null, atencion_correo: null }),
+                })
+                if (res.ok) {
+                  const act = await res.json()
+                  setPresupuesto(prev => prev ? { ...prev, ...act } : null)
+                  setContactoId(c.id)
+                  setContactoSeleccionado(c as ContactoResumido)
+                  setAtencionId(null)
+                  setAtencionSeleccionada(null)
+                  fetch(`/api/contactos/${c.id}`)
+                    .then(r => r.json())
+                    .then(data => setVinculaciones(data.vinculaciones || []))
+                    .catch(() => {})
+                }
+              } else {
+                const res = await fetch(`/api/presupuestos/${idPresupuesto}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ contacto_id: null, atencion_contacto_id: null, atencion_nombre: null, atencion_correo: null }),
+                })
+                if (res.ok) {
+                  const act = await res.json()
+                  setPresupuesto(prev => prev ? { ...prev, ...act } : null)
+                  setContactoId(null)
+                  setContactoSeleccionado(null)
+                  setVinculaciones([])
+                  setAtencionId(null)
+                  setAtencionSeleccionada(null)
+                }
+              }
+            }}
+            onCambiarAtencionEditar={(vincId, vinculado, datosAutoguardar) => {
+              if (datosAutoguardar) {
+                autoguardar(datosAutoguardar)
+                if (vincId) {
+                  // Seleccionar
+                  setPresupuesto(prev => prev ? {
+                    ...prev,
+                    atencion_contacto_id: vincId,
+                    atencion_nombre: datosAutoguardar.atencion_nombre as string,
+                    atencion_correo: datosAutoguardar.atencion_correo as string,
+                  } : null)
+                } else {
+                  // Limpiar
+                  setPresupuesto(prev => prev ? {
+                    ...prev,
+                    atencion_contacto_id: null,
+                    atencion_nombre: null,
+                    atencion_correo: null,
+                  } : null)
+                }
+              }
+              setAtencionId(vincId)
+              setAtencionSeleccionada(vinculado)
+            }}
+            onSeleccionarConDirigidoA={async (padre, hijoId) => {
+              await seleccionarContacto(padre)
+              try {
+                const res = await fetch(`/api/contactos/${hijoId}`)
+                const hijo = await res.json()
+                if (hijo) {
+                  setAtencionId(hijo.id)
+                  setAtencionSeleccionada({
+                    id: hijo.id, nombre: hijo.nombre, apellido: hijo.apellido,
+                    correo: hijo.correo, telefono: hijo.telefono,
+                    whatsapp: hijo.whatsapp || null, tipo_contacto: hijo.tipo_contacto,
+                  })
+                }
+              } catch { /* silenciar */ }
+            }}
+          />
 
           {/* ── Columna derecha: Datos del presupuesto ── */}
-          <div className="py-3">
-            {/* Fila TIPO + PLANTILLA (solo modo crear) */}
-            <div className={`grid gap-4 py-2 mb-2 ${modo === 'crear' ? 'grid-cols-2' : 'grid-cols-1'}`}>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-texto-secundario uppercase tracking-wide shrink-0">Tipo:</span>
-                <span className="text-sm text-texto-primario">{t('documentos.tipos.presupuesto')}</span>
-              </div>
-              {modo === 'crear' && (
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-xs font-medium text-texto-secundario uppercase tracking-wide shrink-0">Plantilla:</span>
-                  <SelectorPlantilla
-                    plantillas={((config?.plantillas || []) as Array<{ id: string; nombre: string; creado_por: string; [k: string]: unknown }>)}
-                    plantillaActual={plantillaId}
-                    predeterminadaId={((config?.plantillas_predeterminadas || {}) as Record<string, string>)[usuario?.id || ''] || null}
-                    usuarioId={usuario?.id || ''}
-                    puedeEliminarTodas={esPropietario || esAdmin}
-                    onCargar={(tpl) => {
-                      setPlantillaId(tpl.id)
-                      if (tpl.moneda) setMoneda(tpl.moneda)
-                      if (tpl.condicion_pago_id) setCondicionPagoId(tpl.condicion_pago_id)
-                      if (tpl.dias_vencimiento !== undefined) setDiasVencimiento(tpl.dias_vencimiento)
-                      if (tpl.lineas) setLineas(tpl.lineas as LineaTemporal[])
-                      if (tpl.notas_html) setNotasHtml(tpl.notas_html)
-                      if (tpl.condiciones_html) setCondicionesHtml(tpl.condiciones_html)
-                    }}
-                    onGuardarComo={async (nombre) => {
-                      const nuevaPlantilla = {
-                        id: `tpl_${Date.now()}`,
-                        nombre,
-                        creado_por: usuario?.id || '',
-                        moneda,
-                        condicion_pago_id: condicionPagoId,
-                        condicion_pago_label: condiciones.find(c => c.id === condicionPagoId)?.label,
-                        condicion_pago_tipo: condiciones.find(c => c.id === condicionPagoId)?.tipo,
-                        dias_vencimiento: diasVencimiento,
-                        lineas: lineas.map(l => {
-                          const { ...rest } = l as LineaTemporal
-                          const { _temp, ...sinTemp } = rest
-                          return sinTemp
-                        }),
-                        notas_html: notasHtml,
-                        condiciones_html: condicionesHtml,
-                      }
-                      const plantillasActuales = (config?.plantillas || []) as unknown[]
-                      await fetch('/api/presupuestos/config', {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ plantillas: [...plantillasActuales, nuevaPlantilla] }),
-                      })
-                      setConfig(prev => prev ? { ...prev, plantillas: [...plantillasActuales, nuevaPlantilla] } as ConfigPresupuestos : null)
-                      setPlantillaId(nuevaPlantilla.id)
-                    }}
-                    onGuardarCambios={async () => {
-                      const plantillas = ((config?.plantillas || []) as Array<{ id: string; [k: string]: unknown }>).map(p =>
-                        p.id === plantillaId ? {
-                          ...p,
-                          moneda,
-                          condicion_pago_id: condicionPagoId,
-                          dias_vencimiento: diasVencimiento,
-                          lineas: lineas.map(l => {
-                            const { ...rest } = l as LineaTemporal
-                            const { _temp, ...sinTemp } = rest
-                            return sinTemp
-                          }),
-                          notas_html: notasHtml,
-                          condiciones_html: condicionesHtml,
-                        } : p
-                      )
-                      await fetch('/api/presupuestos/config', {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ plantillas }),
-                      })
-                      setConfig(prev => prev ? { ...prev, plantillas } as ConfigPresupuestos : null)
-                    }}
-                    onEliminar={async (tplId) => {
-                      const plantillas = ((config?.plantillas || []) as Array<{ id: string }>).filter(p => p.id !== tplId)
-                      await fetch('/api/presupuestos/config', {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ plantillas }),
-                      })
-                      setConfig(prev => prev ? { ...prev, plantillas } as ConfigPresupuestos : null)
-                      if (plantillaId === tplId) setPlantillaId(null)
-                    }}
-                    onTogglePredeterminada={async (tplId) => {
-                      const preds = (config?.plantillas_predeterminadas || {}) as Record<string, string>
-                      const uid = usuario?.id || ''
-                      const nuevasPreds = preds[uid] === tplId
-                        ? Object.fromEntries(Object.entries(preds).filter(([k]) => k !== uid))
-                        : { ...preds, [uid]: tplId }
-                      await fetch('/api/presupuestos/config', {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ plantillas_predeterminadas: nuevasPreds }),
-                      })
-                      setConfig(prev => prev ? { ...prev, plantillas_predeterminadas: nuevasPreds } as ConfigPresupuestos : null)
-                    }}
-                    onLimpiar={() => setPlantillaId(null)}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Datos del presupuesto — agrupados con divide-y */}
-            {(() => {
-              const fila = "flex items-center justify-between py-2.5"
-              const etiqueta = "text-xs font-medium text-texto-secundario uppercase tracking-wide"
-              const valorAncho = "w-52"
-              return (
-                <div className="bg-superficie-hover/50 border border-borde-sutil/50 rounded-lg -mx-3 divide-y divide-borde-sutil/50">
-                  {/* ── Referencia ── */}
-                  <div className="px-3 py-1">
-                    <div className={fila}>
-                      <span className={etiqueta}>Referencia</span>
-                      {esEditable ? (
-                        <Input
-                          value={referencia}
-                          onChange={(e) => setReferencia(e.target.value)}
-                          onBlur={() => autoguardar({ referencia })}
-                          placeholder="PO, orden de compra..."
-                          formato={null}
-                          variante="plano"
-                          compacto
-                          className={`${valorAncho} text-right pl-3`}
-                        />
-                      ) : (
-                        <span className="text-sm text-texto-primario">{referencia || '—'}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* ── Fechas (grid único de 3 columnas compartido) ── */}
-                  <div className="px-3 py-1 grid grid-cols-[1fr_2.5rem_auto] items-center gap-x-3">
-                    {/* Fila Emisión original (arriba, solo si fue re-emitido) */}
-                    {presupuesto?.fecha_emision_original && (
-                      <>
-                        <span className={`${etiqueta} py-1 text-texto-terciario !text-xxs !font-normal`}>Emisión original</span>
-                        <div className="py-1" />
-                        <div className="py-1 w-40">
-                          <span className="text-xs text-texto-terciario">
-                            {formatearFecha(presupuesto.fecha_emision_original)}
-                          </span>
-                        </div>
-                      </>
-                    )}
-                    {/* Fila Emisión / Re-emisión */}
-                    <span className={`${etiqueta} py-2.5`}>{presupuesto?.fecha_emision_original ? 'Re-emisión' : 'Emisión'}</span>
-                    <div className="py-2.5" />
-                    <div className="py-2.5 w-40">
-                      {esEditable ? (
-                        <SelectorFecha
-                          valor={modo === 'editar' ? (presupuesto?.fecha_emision?.split('T')[0] || '') : fechaEmision}
-                          onChange={(v) => {
-                            if (!v) return
-                            if (modo === 'crear') setFechaEmision(v)
-                            autoguardar({ fecha_emision: v })
-                          }}
-                          limpiable={false}
-                        />
-                      ) : (
-                        <span className="text-sm text-texto-primario">
-                          {presupuesto?.fecha_emision ? formatearFecha(presupuesto.fecha_emision) : '—'}
-                        </span>
-                      )}
-                    </div>
-                    {/* Fila Validez */}
-                    <span className={`${etiqueta} py-2.5`}>Validez</span>
-                    <div className="py-2.5">
-                      {esEditable && !bloqueada ? (
-                        <Input
-                          tipo="number"
-                          min={1}
-                          value={diasVencimiento}
-                          onChange={(e) => setDiasVencimiento(Math.max(1, parseInt(e.target.value) || 1))}
-                          onBlur={() => autoguardar({ dias_vencimiento: diasVencimiento })}
-                          onFocus={(e) => e.target.select()}
-                          formato={null}
-                          compacto
-                          className="!w-10 font-mono text-center text-xs !px-1 !py-1"
-                          title="Dias de validez"
-                        />
-                      ) : (
-                        <span className="text-xs text-texto-terciario font-mono text-center block">{diasVencimiento}d</span>
-                      )}
-                    </div>
-                    <div className="py-2.5 w-40">
-                      {esEditable ? (
-                        <SelectorFecha
-                          valor={fechaVenc.toISOString().split('T')[0]}
-                          onChange={(v) => {
-                            if (!v || bloqueada) return
-                            const emision = new Date(fechaEmision + 'T00:00:00')
-                            const venc = new Date(v + 'T00:00:00')
-                            const diff = Math.round((venc.getTime() - emision.getTime()) / (1000 * 60 * 60 * 24))
-                            setDiasVencimiento(Math.max(1, diff))
-                            autoguardar({ dias_vencimiento: Math.max(1, diff) })
-                          }}
-                          limpiable={false}
-                          disabled={bloqueada}
-                        />
-                      ) : (
-                        <span className={`text-sm ${presupuesto?.fecha_vencimiento && new Date(presupuesto.fecha_vencimiento) < new Date() ? 'text-estado-error font-medium' : 'text-texto-primario'}`}>
-                          {presupuesto?.fecha_vencimiento ? formatearFecha(presupuesto.fecha_vencimiento) : '—'}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* ── Condiciones de pago + Moneda ── */}
-                  <div className="px-3 py-1">
-                    <div className={fila}>
-                      <span className={etiqueta}>{t('documentos.condiciones_pago')}</span>
-                      <div className={valorAncho}>
-                        {esEditable ? (
-                          <Select
-                            valor={condicionPagoId}
-                            onChange={(v) => {
-                              setCondicionPagoId(v)
-                              const cond = condiciones.find(c => c.id === v)
-                              autoguardar({
-                                condicion_pago_id: v || null,
-                                condicion_pago_label: cond?.label || null,
-                                condicion_pago_tipo: cond?.tipo || null,
-                              })
-                            }}
-                            opciones={[
-                              { valor: '', etiqueta: 'Sin condicion' },
-                              ...condiciones.map(c => ({ valor: c.id, etiqueta: c.label })),
-                            ]}
-                            variante="plano"
-                          />
-                        ) : (
-                          <span className="text-sm text-texto-primario">
-                            {condSeleccionada?.label || presupuesto?.condicion_pago_label || 'Sin condicion'}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {/* Desglose cuotas (hitos) inline */}
-                    {condSeleccionada?.tipo === 'hitos' && condSeleccionada.hitos.length > 0 && (
-                      <div className="pb-2 space-y-1">
-                        {condSeleccionada.hitos.map(h => (
-                          <div key={h.id} className="flex items-center justify-between text-xs pl-1">
-                            <span className="text-texto-terciario">{h.descripcion}</span>
-                            <div className="flex items-center gap-3">
-                              <span className="text-texto-terciario tabular-nums w-8 text-right">{h.porcentaje}%</span>
-                              <span className="text-texto-terciario">{simbolo}</span>
-                              <span className="text-texto-primario font-mono tabular-nums text-right w-[9rem]">{formato.numero(totales.total * h.porcentaje / 100, 2)}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <div className={fila}>
-                      <span className={etiqueta}>{t('documentos.moneda')}</span>
-                      <div className={valorAncho}>
-                        {esEditable ? (
-                          <Select
-                            valor={moneda}
-                            onChange={(v) => { setMoneda(v); autoguardar({ moneda: v }) }}
-                            opciones={monedas.filter(m => m.activo).map(m => ({
-                              valor: m.id,
-                              etiqueta: `${m.simbolo} ${m.label}`,
-                            }))}
-                            variante="plano"
-                          />
-                        ) : (
-                          <span className="text-sm text-texto-primario">
-                            {simbolo} {monedas.find(m => m.id === (presupuesto?.moneda || moneda))?.label || moneda}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+          <SeccionDatosPresupuesto
+            modo={modo}
+            esEditable={esEditable}
+            referencia={referencia}
+            fechaEmision={fechaEmision}
+            diasVencimiento={diasVencimiento}
+            condicionPagoId={condicionPagoId}
+            moneda={moneda}
+            plantillaId={plantillaId}
+            config={config}
+            presupuesto={presupuesto}
+            condiciones={condiciones}
+            monedas={monedas}
+            totalDocumento={totales.total}
+            simbolo={simbolo}
+            bloqueada={bloqueada}
+            fechaVenc={fechaVenc}
+            usuarioId={usuario?.id || ''}
+            esPropietario={esPropietario}
+            esAdmin={esAdmin}
+            lineas={lineas}
+            notasHtml={notasHtml}
+            condicionesHtml={condicionesHtml}
+            onReferenciaChange={setReferencia}
+            onReferenciaBlur={() => autoguardar({ referencia })}
+            onFechaEmisionChange={(v) => {
+              if (modo === 'crear') setFechaEmision(v)
+              autoguardar({ fecha_emision: v })
+            }}
+            onDiasVencimientoChange={setDiasVencimiento}
+            onDiasVencimientoBlur={() => autoguardar({ dias_vencimiento: diasVencimiento })}
+            onCondicionPagoChange={(v) => {
+              setCondicionPagoId(v)
+              const cond = condiciones.find(c => c.id === v)
+              autoguardar({
+                condicion_pago_id: v || null,
+                condicion_pago_label: cond?.label || null,
+                condicion_pago_tipo: cond?.tipo || null,
+              })
+            }}
+            onMonedaChange={(v) => { setMoneda(v); autoguardar({ moneda: v }) }}
+            onPlantillaIdChange={setPlantillaId}
+            onCargarPlantilla={(tpl) => {
+              setPlantillaId(tpl.id)
+              if (tpl.moneda) setMoneda(tpl.moneda)
+              if (tpl.condicion_pago_id) setCondicionPagoId(tpl.condicion_pago_id)
+              if (tpl.dias_vencimiento !== undefined) setDiasVencimiento(tpl.dias_vencimiento)
+              if (tpl.lineas) setLineas(tpl.lineas as LineaTemporal[])
+              if (tpl.notas_html) setNotasHtml(tpl.notas_html)
+              if (tpl.condiciones_html) setCondicionesHtml(tpl.condiciones_html)
+            }}
+            onGuardarComoPlantilla={async (nombre) => {
+              const nuevaPlantilla = {
+                id: `tpl_${Date.now()}`, nombre,
+                creado_por: usuario?.id || '', moneda,
+                condicion_pago_id: condicionPagoId,
+                condicion_pago_label: condiciones.find(c => c.id === condicionPagoId)?.label,
+                condicion_pago_tipo: condiciones.find(c => c.id === condicionPagoId)?.tipo,
+                dias_vencimiento: diasVencimiento,
+                lineas: lineas.map(l => {
+                  const { ...rest } = l as LineaTemporal
+                  const { _temp, ...sinTemp } = rest
+                  return sinTemp
+                }),
+                notas_html: notasHtml, condiciones_html: condicionesHtml,
+              }
+              const plantillasActuales = (config?.plantillas || []) as unknown[]
+              await fetch('/api/presupuestos/config', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ plantillas: [...plantillasActuales, nuevaPlantilla] }),
+              })
+              setConfig(prev => prev ? { ...prev, plantillas: [...plantillasActuales, nuevaPlantilla] } as ConfigPresupuestos : null)
+              setPlantillaId(nuevaPlantilla.id)
+            }}
+            onGuardarCambiosPlantilla={async () => {
+              const plantillas = ((config?.plantillas || []) as Array<{ id: string; [k: string]: unknown }>).map(p =>
+                p.id === plantillaId ? {
+                  ...p, moneda, condicion_pago_id: condicionPagoId,
+                  dias_vencimiento: diasVencimiento,
+                  lineas: lineas.map(l => {
+                    const { ...rest } = l as LineaTemporal
+                    const { _temp, ...sinTemp } = rest
+                    return sinTemp
+                  }),
+                  notas_html: notasHtml, condiciones_html: condicionesHtml,
+                } : p
               )
-            })()}
-          </div>
+              await fetch('/api/presupuestos/config', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ plantillas }),
+              })
+              setConfig(prev => prev ? { ...prev, plantillas } as ConfigPresupuestos : null)
+            }}
+            onEliminarPlantilla={async (tplId) => {
+              const plantillas = ((config?.plantillas || []) as Array<{ id: string }>).filter(p => p.id !== tplId)
+              await fetch('/api/presupuestos/config', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ plantillas }),
+              })
+              setConfig(prev => prev ? { ...prev, plantillas } as ConfigPresupuestos : null)
+              if (plantillaId === tplId) setPlantillaId(null)
+            }}
+            onTogglePredeterminada={async (tplId) => {
+              const preds = (config?.plantillas_predeterminadas || {}) as Record<string, string>
+              const uid = usuario?.id || ''
+              const nuevasPreds = preds[uid] === tplId
+                ? Object.fromEntries(Object.entries(preds).filter(([k]) => k !== uid))
+                : { ...preds, [uid]: tplId }
+              await fetch('/api/presupuestos/config', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ plantillas_predeterminadas: nuevasPreds }),
+              })
+              setConfig(prev => prev ? { ...prev, plantillas_predeterminadas: nuevasPreds } as ConfigPresupuestos : null)
+            }}
+            onAutoguardar={autoguardar}
+            onSetConfig={setConfig}
+          />
         </div>
 
         {/* ─── TABLA DE LINEAS ─── */}
@@ -2027,33 +1436,18 @@ export default function EditorPresupuesto({
             onCambiarColumnas={(cols) => {
               setColumnasVisibles(cols)
               autoguardar({ columnas_lineas: cols })
-              // Persistir preferencia del usuario para futuros presupuestos
               try { localStorage.setItem('flux_columnas_presupuesto', JSON.stringify(cols)) } catch {}
             }}
           />
         </div>
 
         {/* ─── TOTALES ─── */}
-        <div className="px-6 py-4 border-t border-borde-sutil">
-          <div className="flex justify-end">
-            <div className="w-full max-w-xs space-y-1.5">
-              <div className="flex justify-between text-sm">
-                <span className="text-texto-secundario">{t('documentos.subtotal')}</span>
-                <span className="font-mono tabular-nums text-texto-primario text-right">{fmt(totales.subtotal)}</span>
-              </div>
-              {totales.impuestos !== 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-texto-secundario">{t('documentos.impuesto')}</span>
-                  <span className="font-mono tabular-nums text-texto-primario text-right">{fmt(totales.impuestos)}</span>
-                </div>
-              )}
-              <div className="border-t border-borde-sutil pt-2 flex justify-between text-base font-bold">
-                <span className="text-texto-primario">{t('documentos.total')}</span>
-                <span className="font-mono tabular-nums text-texto-marca text-right">{fmt(totales.total)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <SeccionTotales
+          subtotal={totales.subtotal}
+          impuestos={totales.impuestos}
+          total={totales.total}
+          fmt={fmt}
+        />
 
         {/* ─── NOTAS ─── */}
         <div className="border-t border-borde-sutil px-6 py-4">
@@ -2081,45 +1475,13 @@ export default function EditorPresupuesto({
 
         {/* ─── HISTORIAL (solo modo editar) ─── */}
         {modo === 'editar' && presupuesto?.historial && presupuesto.historial.length > 0 && (
-          <div className="px-6 py-4 border-t border-borde-sutil">
-            <span className="text-xs text-texto-terciario font-medium uppercase tracking-wider flex items-center gap-1 mb-3">
-              <History size={12} /> Historial
-            </span>
-            <div className="space-y-2">
-              {presupuesto.historial.map((h) => (
-                <div key={h.id} className="flex items-center gap-2 text-xs">
-                  <Insignia color={COLOR_ESTADO_DOCUMENTO[h.estado] || 'neutro'}>
-                    {ETIQUETAS_ESTADO[h.estado as EstadoPresupuesto] || h.estado}
-                  </Insignia>
-                  <span className="text-texto-terciario">
-                    {formato.fecha(h.fecha, { corta: true })} {formato.hora(h.fecha)}
-                  </span>
-                  {h.usuario_nombre && <span className="text-texto-terciario">— {h.usuario_nombre}</span>}
-                </div>
-              ))}
-            </div>
-          </div>
+          <SeccionHistorial historial={presupuesto.historial} />
         )}
       </div>
 
       {/* ─── Certificado de aceptación (si existe) ─── */}
       {modo === 'editar' && presupuesto?.pdf_firmado_url && (
-        <div className="flex items-center gap-3 px-5 py-3.5 bg-insignia-exito/5 border border-insignia-exito/20 rounded-xl">
-          <CheckCircle2 size={18} className="text-insignia-exito shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-texto-primario">Presupuesto aceptado por el cliente</p>
-            <p className="text-xs text-texto-terciario">Certificado de aceptación digital con firma</p>
-          </div>
-          <a
-            href={presupuesto.pdf_firmado_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-xs font-medium text-insignia-exito hover:underline shrink-0"
-          >
-            <FileText size={14} />
-            Ver certificado
-          </a>
-        </div>
+        <SeccionCertificado pdfFirmadoUrl={presupuesto.pdf_firmado_url} />
       )}
 
       {/* Cierre del wrapper de contenido principal (modo lateral) */}
@@ -2138,7 +1500,6 @@ export default function EditorPresupuesto({
             nombre: `${presupuesto.contacto_nombre || ''} ${presupuesto.contacto_apellido || ''}`.trim(),
           } : null}
           contacto={(() => {
-            // Prioridad: dirigido a > contacto principal > snapshot presupuesto
             const atencion = atencionSeleccionada
             const cto = contactoSeleccionado
             return {
@@ -2248,9 +1609,7 @@ export default function EditorPresupuesto({
         snapshotRestaurar={correoLibre ? undefined : snapshotCorreo}
         plantillaPredeterminadaId={correoLibre ? undefined : plantillaCorreoPredeterminadaId}
         onCambiarPredeterminada={(esPropietario || esAdmin) ? async (tplId) => {
-          // Guardar/quitar _es_por_defecto via PATCH a la plantilla
           if (tplId) {
-            // Quitar predeterminada anterior si existe
             if (plantillaCorreoPredeterminadaId && plantillaCorreoPredeterminadaId !== tplId) {
               await fetch(`/api/inbox/plantillas/${plantillaCorreoPredeterminadaId}`, {
                 method: 'PATCH',
@@ -2258,7 +1617,6 @@ export default function EditorPresupuesto({
                 body: JSON.stringify({ variables: [] }),
               })
             }
-            // Marcar nueva predeterminada
             await fetch(`/api/inbox/plantillas/${tplId}`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
@@ -2268,7 +1626,6 @@ export default function EditorPresupuesto({
             })
             setPlantillaCorreoPredeterminadaId(tplId)
           } else {
-            // Quitar predeterminada
             if (plantillaCorreoPredeterminadaId) {
               await fetch(`/api/inbox/plantillas/${plantillaCorreoPredeterminadaId}`, {
                 method: 'PATCH',
@@ -2298,9 +1655,7 @@ export default function EditorPresupuesto({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              nombre,
-              canal: 'correo',
-              asunto: datos.asunto,
+              nombre, canal: 'correo', asunto: datos.asunto,
               contenido: datos.contenido_html.replace(/<[^>]*>/g, ''),
               contenido_html: datos.contenido_html,
               modulos: ['presupuestos'],
@@ -2331,14 +1686,12 @@ export default function EditorPresupuesto({
           },
           presupuesto: (() => {
             const totalFinal = totales.total
-            // Calcular adelanto y restante desde hitos de la condición de pago
+            const condSeleccionada = condiciones.find(c => c.id === condicionPagoId)
             const hitos = condSeleccionada?.tipo === 'hitos' ? condSeleccionada.hitos : []
             const primerHito = hitos[0]
             const porcentajeAdelanto = primerHito?.porcentaje || 0
             const montoAdelanto = totalFinal * porcentajeAdelanto / 100
-            // Monto restante = total - adelanto (lo que falta pagar después del adelanto)
             const montoRestante = totalFinal - montoAdelanto
-            // Saldo pendiente = total - suma de cuotas cobradas
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const cuotasCobradas = (presupuesto as any)?.cuotas_cobradas
             const totalPagado = typeof cuotasCobradas === 'number' ? cuotasCobradas : 0
@@ -2378,7 +1731,6 @@ export default function EditorPresupuesto({
             correo: atencionSeleccionada?.correo || presupuesto?.atencion_correo || '',
             telefono: atencionSeleccionada?.telefono || '',
             cargo: presupuesto?.atencion_cargo || '',
-            // Los demás campos (whatsapp, cuit, dirección) se cargarán si ampliamos Vinculacion
             empresa_nombre: contactoSeleccionado?.nombre || presupuesto?.contacto_nombre || '',
           },
         }}

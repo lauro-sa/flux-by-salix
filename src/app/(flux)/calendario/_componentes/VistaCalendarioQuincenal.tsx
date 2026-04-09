@@ -34,6 +34,7 @@ import {
   ALTURA_FILA,
 } from './constantes'
 import type { EventoCalendario } from './tipos'
+import { INTERVALO_HEARTBEAT } from '@/lib/constantes/timeouts'
 
 // --- Constantes locales ---
 
@@ -362,7 +363,7 @@ function VistaCalendarioQuincenal({
     const intervalo = setInterval(() => {
       const ahora = new Date()
       setMinutosAhora(ahora.getHours() * 60 + ahora.getMinutes())
-    }, 60_000)
+    }, INTERVALO_HEARTBEAT)
     return () => clearInterval(intervalo)
   }, [])
 

@@ -17,6 +17,7 @@ import { usePreferencias } from '@/hooks/usePreferencias'
 import { VistaMatriz } from './VistaMatriz'
 import { TarjetaAsistencia } from './TarjetaAsistencia'
 import { ModalCrearFichaje } from './ModalCrearFichaje'
+import { ETIQUETA_METODO } from '@/lib/constantes/asistencias'
 
 // ─── Constantes ──────────────────────────────────────────────
 
@@ -42,16 +43,6 @@ const COLOR_ESTADO: Record<string, string> = {
   presente: 'exito',
 }
 
-const ETIQUETA_METODO: Record<string, string> = {
-  manual: 'Manual',
-  rfid: 'RFID',
-  nfc: 'NFC',
-  pin: 'PIN',
-  automatico: 'Automático',
-  solicitud: 'Solicitud',
-  sistema: 'Sistema',
-}
-
 // ─── Tipos ───────────────────────────────────────────────────
 
 interface RegistroAsistencia {
@@ -66,7 +57,10 @@ interface RegistroAsistencia {
   estado: string
   tipo: string
   metodo_registro: string
+  metodo_salida?: string | null
   puntualidad_min: number | null
+  terminal_nombre?: string | null
+  cierre_automatico?: boolean
   salida_particular: string | null
   vuelta_particular: string | null
   creado_por: string | null
@@ -77,6 +71,11 @@ interface RegistroAsistencia {
   actualizado_en: string | null
   notas: string | null
   ubicacion_entrada: Record<string, unknown> | null
+  ubicacion_salida?: Record<string, unknown> | null
+  foto_entrada?: string | null
+  foto_salida?: string | null
+  tiempo_activo_min?: number | null
+  total_heartbeats?: number | null
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -235,6 +234,34 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
       ),
     },
     {
+      clave: 'tipo',
+      etiqueta: 'Tipo',
+      ancho: 100,
+      ordenable: true,
+      filtrable: true,
+      opcionesFiltro: [
+        { valor: 'normal', etiqueta: 'Normal' },
+        { valor: 'tardanza', etiqueta: 'Tardanza' },
+        { valor: 'flexible', etiqueta: 'Flexible' },
+        { valor: 'ausencia', etiqueta: 'Ausencia' },
+        { valor: 'feriado', etiqueta: 'Feriado' },
+      ],
+      render: (r) => {
+        const colorTipo: Record<string, string> = {
+          tardanza: 'advertencia',
+          ausencia: 'peligro',
+          feriado: 'info',
+          normal: 'neutro',
+          flexible: 'neutro',
+        }
+        return (
+          <Insignia color={colorTipo[r.tipo] as 'exito' | 'advertencia' | 'info' | 'neutro' | 'peligro' || 'neutro'}>
+            {r.tipo.charAt(0).toUpperCase() + r.tipo.slice(1)}
+          </Insignia>
+        )
+      },
+    },
+    {
       clave: 'metodo_registro',
       etiqueta: 'Método',
       ancho: 100,
@@ -313,17 +340,26 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
           recargarKey={matrizKey}
           onCrearFichaje={(miembroId, miembroNombre, fecha) => setCreando({ miembroId, miembroNombre, fecha })}
           onClickAsistencia={async (id) => {
-          // Buscar en registros cargados
-          const encontrado = registros.find(r => r.id === id)
-          if (encontrado) { setEditando(encontrado); return }
-          // Si no está, buscar por ID directo
+          // Siempre buscar detalle completo (incluye tiempo activo)
           const res = await fetch(`/api/asistencias/detalle?id=${id}`)
-          if (!res.ok) return
-          const reg = await res.json()
-          if (reg?.id) setEditando(reg)
+          if (res.ok) {
+            const reg = await res.json()
+            if (reg?.id) { setEditando(reg); return }
+          }
+          // Fallback: usar registro cargado sin tiempo activo
+          const encontrado = registros.find(r => r.id === id)
+          if (encontrado) setEditando(encontrado)
         }} /> : undefined}
         renderTarjeta={(r) => <TarjetaAsistencia registro={r} />}
-        onClickFila={(r) => setEditando(r)}
+        onClickFila={async (r) => {
+          // Cargar detalle completo con tiempo activo
+          const res = await fetch(`/api/asistencias/detalle?id=${r.id}`)
+          if (res.ok) {
+            const detalle = await res.json()
+            if (detalle?.id) { setEditando(detalle); return }
+          }
+          setEditando(r)
+        }}
         estadoVacio={
           <EstadoVacio
             icono={<TimerOff size={52} strokeWidth={1} />}

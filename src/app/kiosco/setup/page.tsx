@@ -8,6 +8,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
+import { DELAY_CARGA } from '@/lib/constantes/timeouts'
 
 type EstadoSetup = 'validando' | 'exito' | 'error'
 
@@ -60,7 +61,7 @@ export default function PaginaSetupKiosco() {
       setMensaje(`Terminal "${datos.terminal.nombre}" activada correctamente`)
 
       // Redirigir al kiosco en 2 segundos
-      setTimeout(() => router.push('/kiosco'), 2000)
+      setTimeout(() => router.push('/kiosco'), DELAY_CARGA)
     } catch {
       setEstado('error')
       setMensaje('Error de conexión. Verificá la red e intentá de nuevo.')

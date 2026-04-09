@@ -237,6 +237,7 @@ function Header({
           variante="fantasma"
           tamano="sm"
           soloIcono
+          titulo="Menú"
           onClick={() => setMenuAbierto(!menuAbierto)}
           className="rounded-xl !size-10 sm:!w-auto sm:!h-auto sm:!px-3 sm:!py-1.5"
           icono={<IconoSalix tamano={26} hover tap />}

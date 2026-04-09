@@ -6,6 +6,7 @@ import { Modal } from '@/componentes/ui/Modal'
 import { Boton } from '@/componentes/ui/Boton'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { PlantillaWhatsApp } from '@/tipos/inbox'
+import { useTraduccion } from '@/lib/i18n'
 
 /**
  * ModalNuevoWhatsApp — Modal para iniciar una nueva conversación de WhatsApp.
@@ -86,6 +87,7 @@ function validarTelefono(tel: string): { valido: boolean; mensaje?: string } {
 }
 
 export function ModalNuevoWhatsApp({ abierto, onCerrar, canalId, onEnviar }: PropiedadesModalNuevoWA) {
+  const { t } = useTraduccion()
   const [telefono, setTelefono] = useState('')
   const [plantillas, setPlantillas] = useState<PlantillaWhatsApp[]>([])
   const [cargando, setCargando] = useState(false)
@@ -247,7 +249,7 @@ export function ModalNuevoWhatsApp({ abierto, onCerrar, canalId, onEnviar }: Pro
             ) : plantillasFiltradas.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
-                  {plantillas.length === 0 ? 'No hay plantillas aprobadas' : 'Sin resultados'}
+                  {plantillas.length === 0 ? t('inbox.sin_plantillas_aprobadas') : t('comun.sin_resultados')}
                 </p>
               </div>
             ) : (

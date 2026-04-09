@@ -44,7 +44,7 @@ export default function PantallaError({
           height="48"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="#f87171"
+          stroke="var(--kiosco-peligro)"
           strokeWidth="2"
         >
           <circle cx="12" cy="12" r="10" />
@@ -57,13 +57,13 @@ export default function PantallaError({
         className="font-medium text-center max-w-md"
         style={{
           fontSize: 'clamp(1.25rem, 4vw, 2rem)',
-          color: '#f8fafc',
+          color: 'var(--kiosco-texto)',
         }}
       >
         {mensaje}
       </p>
 
-      <p className="text-sm" style={{ color: '#64748b' }}>
+      <p className="text-sm" style={{ color: 'var(--kiosco-texto-dim)' }}>
         Volviendo en unos segundos...
       </p>
     </motion.div>

@@ -721,7 +721,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
                           onChange={(v) => actualizarBoton(idx, { tipo: v as TipoBotonWA })}
                         />
                         {esEditable && (
-                          <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={12} />} onClick={() => eliminarBoton(idx)} />
+                          <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar" icono={<Trash2 size={12} />} onClick={() => eliminarBoton(idx)} />
                         )}
                       </div>
                       <Input
@@ -1016,45 +1016,45 @@ function PreviewWhatsApp({ componentes, datosPreview }: { componentes: Component
 
   return (
     <div className="w-[280px]">
-      <div className="flex items-center gap-2 px-3 py-2 rounded-t-xl" style={{ background: '#075e54' }}>
+      <div className="flex items-center gap-2 px-3 py-2 rounded-t-xl" style={{ background: 'var(--whatsapp-header)' }}>
         <IconoWhatsApp size={16} style={{ color: '#fff' }} />
         <span className="text-xs font-medium text-white">Vista previa</span>
       </div>
       <div
         className="p-3 min-h-[200px]"
-        style={{ background: '#e5ddd5', backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'40\' height=\'40\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M20 0L20 40M0 20L40 20\' stroke=\'%23d5cec5\' stroke-width=\'0.5\'/%3E%3C/svg%3E")' }}
+        style={{ background: 'var(--whatsapp-chat-bg)', backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'40\' height=\'40\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M20 0L20 40M0 20L40 20\' stroke=\'%23d5cec5\' stroke-width=\'0.5\'/%3E%3C/svg%3E")' }}
       >
-        <div className="rounded-lg p-2.5 max-w-[250px] shadow-sm" style={{ background: '#fff' }}>
+        <div className="rounded-lg p-2.5 max-w-[250px] shadow-sm" style={{ background: 'var(--whatsapp-burbuja)' }}>
           {componentes.encabezado?.tipo === 'TEXT' && componentes.encabezado.texto && (
             <p
               className="text-sm font-semibold mb-1"
-              style={{ color: '#111' }}
+              style={{ color: 'var(--whatsapp-texto)' }}
               dangerouslySetInnerHTML={{ __html: encabezadoHtml }}
             />
           )}
           {componentes.encabezado?.tipo && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(componentes.encabezado.tipo) && (
-            <div className="rounded mb-2 flex items-center justify-center text-xs" style={{ background: '#f0f0f0', color: '#999', height: 80 }}>
+            <div className="rounded mb-2 flex items-center justify-center text-xs" style={{ background: 'var(--whatsapp-pie)', color: 'var(--whatsapp-placeholder)', height: 80 }}>
               {componentes.encabezado.tipo === 'IMAGE' ? '🖼️ Imagen' : componentes.encabezado.tipo === 'VIDEO' ? '🎬 Video' : '📄 Documento'}
             </div>
           )}
           {cuerpoHtml ? (
             <p
               className="text-sm whitespace-pre-wrap leading-snug"
-              style={{ color: '#111' }}
+              style={{ color: 'var(--whatsapp-texto)' }}
               dangerouslySetInnerHTML={{ __html: cuerpoHtml }}
             />
           ) : (
-            <p className="text-sm whitespace-pre-wrap leading-snug" style={{ color: '#999' }}>
+            <p className="text-sm whitespace-pre-wrap leading-snug" style={{ color: 'var(--whatsapp-placeholder)' }}>
               Cuerpo del mensaje...
             </p>
           )}
           {componentes.pie_pagina?.texto && (
-            <p className="text-xs mt-1.5" style={{ color: '#8696a0' }}>
+            <p className="text-xs mt-1.5" style={{ color: 'var(--whatsapp-meta)' }}>
               {componentes.pie_pagina.texto}
             </p>
           )}
           <div className="flex justify-end mt-1">
-            <span className="text-xxs" style={{ color: '#8696a0' }}>
+            <span className="text-xxs" style={{ color: 'var(--whatsapp-meta)' }}>
               {new Date().toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: fmtHora === '12h' })}
             </span>
           </div>
@@ -1062,7 +1062,7 @@ function PreviewWhatsApp({ componentes, datosPreview }: { componentes: Component
         {componentes.botones && componentes.botones.length > 0 && (
           <div className="mt-1 space-y-1 max-w-[250px]">
             {componentes.botones.map((b, idx) => (
-              <div key={idx} className="rounded-lg py-2 text-center text-sm font-medium shadow-sm" style={{ background: '#fff', color: '#00a5f4' }}>
+              <div key={idx} className="rounded-lg py-2 text-center text-sm font-medium shadow-sm" style={{ background: 'var(--whatsapp-burbuja)', color: 'var(--whatsapp-enlace)' }}>
                 {b.tipo === 'URL' && '🔗 '}
                 {b.tipo === 'PHONE_NUMBER' && '📞 '}
                 {b.texto || 'Botón'}
@@ -1071,7 +1071,7 @@ function PreviewWhatsApp({ componentes, datosPreview }: { componentes: Component
           </div>
         )}
       </div>
-      <div className="h-3 rounded-b-xl" style={{ background: '#f0f2f5' }} />
+      <div className="h-3 rounded-b-xl" style={{ background: 'var(--whatsapp-pie)' }} />
     </div>
   )
 }

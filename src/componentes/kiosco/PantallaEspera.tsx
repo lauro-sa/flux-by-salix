@@ -60,7 +60,7 @@ export default function PantallaEspera({
         {mostrarNombre && (
           <p
             className="text-2xl md:text-3xl font-semibold tracking-wider uppercase"
-            style={{ color: '#a1a1aa' }}
+            style={{ color: 'var(--kiosco-texto-mut)' }}
           >
             {nombreEmpresa}
           </p>
@@ -74,14 +74,14 @@ export default function PantallaEspera({
       <div className="flex flex-col items-center gap-3 mt-2">
         <div
           className="flex items-center gap-3 px-6 py-3 md:px-8 md:py-4 rounded-2xl md:rounded-3xl"
-          style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}
+          style={{ backgroundColor: 'var(--kiosco-card)', border: '1px solid var(--kiosco-border)' }}
         >
-          <span style={{ color: '#a1a1aa' }}>
+          <span style={{ color: 'var(--kiosco-texto-mut)' }}>
             {metodoLectura === 'nfc' ? <Wifi size={28} /> : <Key size={28} />}
           </span>
           <p
             className="font-medium"
-            style={{ fontSize: 'clamp(1rem, 2.5vw, 1.25rem)', color: '#d4d4d8' }}
+            style={{ fontSize: 'var(--kiosco-texto-cuerpo)', color: 'var(--kiosco-texto-sec)' }}
           >
             {metodoLectura === 'nfc'
               ? 'Acercá tu tarjeta NFC para fichar'
@@ -93,9 +93,9 @@ export default function PantallaEspera({
         <div className="flex items-center gap-2 mt-1">
           <span
             className="size-2 rounded-full animate-pulse"
-            style={{ backgroundColor: '#4ade80' }}
+            style={{ backgroundColor: 'var(--kiosco-exito)' }}
           />
-          <span className="text-sm" style={{ color: '#52525b' }}>
+          <span className="text-sm" style={{ color: 'var(--kiosco-texto-dim)' }}>
             Terminal activa
           </span>
         </div>
@@ -106,7 +106,7 @@ export default function PantallaEspera({
         <button
           onClick={alAbrirPIN}
           className="flex items-center gap-1.5 md:gap-2.5 transition-colors text-sm md:text-lg font-medium"
-          style={{ color: '#52525b' }}
+          style={{ color: 'var(--kiosco-texto-dim)' }}
         >
           <Keyboard size={18} />
           Ingresar con PIN
@@ -115,7 +115,7 @@ export default function PantallaEspera({
           <button
             onClick={alToggleFullscreen}
             className="flex items-center gap-1.5 md:gap-2.5 transition-colors text-sm md:text-lg font-medium"
-            style={{ color: '#52525b' }}
+            style={{ color: 'var(--kiosco-texto-dim)' }}
           >
             <Maximize size={18} />
             Pantalla completa
@@ -127,7 +127,7 @@ export default function PantallaEspera({
       <div className="absolute bottom-3 md:bottom-5 left-0 right-0 flex items-center justify-center pointer-events-none">
         <p
           className="text-[11px] md:text-sm font-bold tracking-[0.25em] uppercase select-none"
-          style={{ color: '#3f3f46' }}
+          style={{ color: 'var(--borde-fuerte)' }}
         >
           Flux · by Salix
         </p>

@@ -73,6 +73,8 @@ export function PanelChatter({
   // ─── Estado de modales internos ───
   const [modalWhatsApp, setModalWhatsApp] = useState(false)
   const [modalActividad, setModalActividad] = useState(false)
+  // Actividad cargada para edición (null = crear nueva)
+  const [actividadEditar, setActividadEditar] = useState<Record<string, unknown> | null>(null)
 
   // Nota: el selector de calendario es fullscreen dentro del ModalActividad,
   // no navega a otra página, así que no necesitamos sessionStorage ni reapertura.
@@ -355,9 +357,6 @@ export function PanelChatter({
     }
   }, [])
 
-  // WhatsApp siempre habilitado — el modal valida si hay número/conversación
-  const tieneWhatsApp = true
-
   const esLateral = modo === 'lateral'
   const totalAdjuntos = adjuntosChatter.length + adjuntosDocumento.length
 
@@ -459,7 +458,7 @@ export function PanelChatter({
                 onNota={() => setModoNota(!modoNota)}
                 onActividad={abrirActividad}
                 tieneCorreo={!!onAbrirCorreo}
-                tieneWhatsApp={tieneWhatsApp}
+                tieneWhatsApp
                 tieneActividad={true}
               />
 
@@ -585,9 +584,16 @@ export function PanelChatter({
                       onCompletarActividad={completarActividadDesdeChatter}
                       onPosponerActividad={posponerActividadDesdeChatter}
                       onCancelarActividad={cancelarActividadDesdeChatter}
-                      onEditarActividad={(actividadId) => {
-                        // TODO: abrir modal de edición con la actividad cargada
-                        // Por ahora, abrir el modal de actividad (será implementado)
+                      onEditarActividad={async (actividadId) => {
+                        // Cargar config y datos de la actividad en paralelo, luego abrir modal en modo edición
+                        await cargarConfig()
+                        try {
+                          const res = await fetch(`/api/actividades/${actividadId}`)
+                          if (res.ok) {
+                            const datos = await res.json()
+                            setActividadEditar(datos)
+                          }
+                        } catch { /* silencioso */ }
                         setModalActividad(true)
                       }}
                       onEliminarActividad={async (actividadId) => {
@@ -619,17 +625,18 @@ export function PanelChatter({
         onEnviado={cargar}
       />
 
-      {/* ─── Modal Actividad (self-contained) ─── */}
+      {/* ─── Modal Actividad (self-contained, soporta creación y edición) ─── */}
       {configActividades && (
         <ModalActividad
           abierto={modalActividad}
+          actividad={actividadEditar as never}
           tipos={configActividades.tipos as never[]}
           estados={configActividades.estados as never[]}
           miembros={configActividades.miembros}
           vinculoInicial={vinculoInicialActividad}
           modulo={entidadTipo}
           onGuardar={crearActividad}
-          onCerrar={() => setModalActividad(false)}
+          onCerrar={() => { setModalActividad(false); setActividadEditar(null) }}
         />
       )}
     </>

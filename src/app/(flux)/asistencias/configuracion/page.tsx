@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Settings2, Clock, CalendarCheck, Monitor, Timer, Zap,
   Plus, Trash2, Star, ChevronDown, ChevronUp, Shield,
-  Link2, Copy, RefreshCw, Ban, ExternalLink,
+  Link2, Copy, RefreshCw, Ban, ExternalLink, Globe,
 } from 'lucide-react'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
@@ -18,6 +18,7 @@ import { useFormato } from '@/hooks/useFormato'
 import { SelectorHora } from '@/componentes/ui/SelectorHora'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { QRCodeSVG } from 'qrcode.react'
+import { DELAY_CARGA } from '@/lib/constantes/timeouts'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -66,6 +67,7 @@ interface ConfigAsistencias {
 interface Terminal {
   id: string
   nombre: string
+  zona_horaria: string | null
   activo: boolean
   ultimo_ping: string | null
   creado_en: string
@@ -643,6 +645,17 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
   const [linkGenerado, setLinkGenerado] = useState<{ terminalId: string; link: string } | null>(null)
   const [copiado, setCopiado] = useState(false)
   const [confirmar, setConfirmar] = useState<{ tipo: 'revocar' | 'eliminar'; id: string; nombre: string } | null>(null)
+  const [editandoZona, setEditandoZona] = useState<string | null>(null)
+
+  const guardarZona = async (terminalId: string, zona: string | null) => {
+    await fetch('/api/kiosco/terminales', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ terminalId, zona_horaria: zona || null }),
+    })
+    setEditandoZona(null)
+    onRecargar()
+  }
 
   const crearTerminal = async () => {
     if (!nombreNueva.trim() || creando) return
@@ -695,7 +708,7 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
     if (!linkGenerado) return
     navigator.clipboard.writeText(linkGenerado.link)
     setCopiado(true)
-    setTimeout(() => setCopiado(false), 2000)
+    setTimeout(() => setCopiado(false), DELAY_CARGA)
   }
 
   const terminalesActivas = terminales.filter((t) => t.activo)
@@ -778,6 +791,40 @@ function SeccionTerminales({ terminales, onRecargar }: { terminales: Terminal[];
                       ? `Último ping: ${formato.fecha(t.ultimo_ping, { conHora: true })}`
                       : 'Nunca conectada'}
                   </p>
+                  {/* Zona horaria */}
+                  {editandoZona === t.id ? (
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <select
+                        className="text-xs bg-superficie-elevada border border-borde-sutil rounded-lg px-2 py-1 text-texto-primario"
+                        defaultValue={t.zona_horaria || ''}
+                        onChange={(e) => guardarZona(t.id, e.target.value || null)}
+                      >
+                        <option value="">Zona de la empresa (predeterminada)</option>
+                        <option value="America/Argentina/Buenos_Aires">Argentina (Buenos Aires)</option>
+                        <option value="America/Argentina/Cordoba">Argentina (Córdoba)</option>
+                        <option value="America/Montevideo">Uruguay</option>
+                        <option value="America/Santiago">Chile</option>
+                        <option value="America/Bogota">Colombia</option>
+                        <option value="America/Lima">Perú</option>
+                        <option value="America/Mexico_City">México (CDMX)</option>
+                        <option value="America/Sao_Paulo">Brasil (São Paulo)</option>
+                        <option value="Europe/Madrid">España</option>
+                        <option value="America/New_York">EE.UU. (Este)</option>
+                        <option value="America/Los_Angeles">EE.UU. (Pacífico)</option>
+                      </select>
+                      <button onClick={() => setEditandoZona(null)} className="text-xs text-texto-terciario hover:text-texto-secundario">
+                        Cancelar
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setEditandoZona(t.id)}
+                      className="text-xxs text-texto-terciario hover:text-texto-secundario mt-0.5 flex items-center gap-1 transition-colors"
+                    >
+                      <Globe size={10} />
+                      {t.zona_horaria || 'Zona de la empresa'}
+                    </button>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button

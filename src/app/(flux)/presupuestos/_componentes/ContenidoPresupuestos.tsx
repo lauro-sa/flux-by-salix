@@ -7,6 +7,7 @@ import { useNavegacion } from '@/hooks/useNavegacion'
 import { useListado } from '@/hooks/useListado'
 import { useRol } from '@/hooks/useRol'
 import { useFormato } from '@/hooks/useFormato'
+import { DEBOUNCE_BUSQUEDA } from '@/lib/constantes/timeouts'
 import { useTraduccion } from '@/lib/i18n'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -96,7 +97,7 @@ export default function ContenidoPresupuestos({ datosInicialesJson }: Props) {
 
   // Debounce de búsqueda (300ms)
   useEffect(() => {
-    const timeout = setTimeout(() => setBusquedaDebounced(busqueda), 300)
+    const timeout = setTimeout(() => setBusquedaDebounced(busqueda), DEBOUNCE_BUSQUEDA)
     return () => clearTimeout(timeout)
   }, [busqueda])
 
@@ -206,7 +207,11 @@ export default function ContenidoPresupuestos({ datosInicialesJson }: Props) {
   // Exportar presupuestos seleccionados a CSV
   const exportarPresupuestosCSV = useCallback(async (ids: Set<string>) => {
     const seleccion = presupuestos.filter(p => ids.has(p.id))
-    const cabeceras = ['Número', 'Estado', 'Cliente', 'Referencia', 'Moneda', 'Total', 'Fecha emisión', 'Fecha vencimiento']
+    const cabeceras = [
+      t('documentos.numero'), t('documentos.estado'), t('documentos.cliente'),
+      t('comun.referencia'), t('documentos.moneda'), t('documentos.total'),
+      t('documentos.fecha_emision'), t('documentos.fecha_vencimiento'),
+    ]
     const filas = seleccion.map(p => [
       p.numero,
       ETIQUETAS_ESTADO[p.estado] || p.estado,

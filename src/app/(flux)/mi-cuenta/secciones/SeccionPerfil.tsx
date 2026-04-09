@@ -14,6 +14,7 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import { Tarjeta } from '@/componentes/ui/Tarjeta'
 import { useFormato } from '@/hooks/useFormato'
 import { useMiCuenta } from '../page'
+import { DELAY_CARGA } from '@/lib/constantes/timeouts'
 
 /**
  * SeccionPerfil — vista rica del perfil personal.
@@ -71,7 +72,7 @@ export function SeccionPerfil() {
     setGuardandoTel(true)
     const ok = await ctx.guardarTelefono(telLocal)
     setGuardandoTel(false)
-    if (ok) { ctx.setTelefono(telLocal); setTelGuardado(true); setTimeout(() => setTelGuardado(false), 2000) }
+    if (ok) { ctx.setTelefono(telLocal); setTelGuardado(true); setTimeout(() => setTelGuardado(false), DELAY_CARGA) }
   }, [telLocal, ctx])
 
   const iniciarEdicionEm = () => { setEmLocal({ ...ctx.emergencia }); setErroresEm({}); setEditandoEm(true) }

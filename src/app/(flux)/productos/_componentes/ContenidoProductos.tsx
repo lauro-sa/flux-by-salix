@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useListado } from '@/hooks/useListado'
 import { useTraduccion } from '@/lib/i18n'
 import { useFormato } from '@/hooks/useFormato'
+import { DEBOUNCE_BUSQUEDA } from '@/lib/constantes/timeouts'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -91,7 +92,7 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
 
   // ---- Debounce de busqueda (300ms) ----
   useEffect(() => {
-    const timeout = setTimeout(() => setBusquedaDebounced(busqueda), 300)
+    const timeout = setTimeout(() => setBusquedaDebounced(busqueda), DEBOUNCE_BUSQUEDA)
     return () => clearTimeout(timeout)
   }, [busqueda])
 

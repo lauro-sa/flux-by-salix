@@ -1,0 +1,592 @@
+'use client'
+
+/**
+ * Tab Información — datos personales, contacto, laborales, kiosco,
+ * emergencia, bancaria, documentos.
+ * Formularios editables con autoguardado.
+ */
+
+import { useState, useRef } from 'react'
+import { motion } from 'framer-motion'
+import {
+  Mail, Phone, CreditCard,
+  Briefcase, FileText, KeyRound,
+  User, Fingerprint,
+  Upload, Eye, EyeOff,
+  AlertCircle, Pencil, Camera,
+  Heart, X, Nfc, Cake,
+} from 'lucide-react'
+import { Input } from '@/componentes/ui/Input'
+import { Select } from '@/componentes/ui/Select'
+import { SelectCreable } from '@/componentes/ui/SelectCreable'
+import { Boton } from '@/componentes/ui/Boton'
+import { Tooltip } from '@/componentes/ui/Tooltip'
+import { Interruptor } from '@/componentes/ui/Interruptor'
+import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
+import { BloqueDireccion, type DatosDireccion } from '@/componentes/ui/BloqueDireccion'
+import { RecortadorImagen } from '@/componentes/ui/RecortadorImagen'
+import type { Rol, Miembro, Perfil, HorarioTipo, MetodoFichaje } from '@/tipos'
+import { SeccionEncabezado } from './ComponentesComunes'
+import {
+  ROLES_OPCIONES, ETIQUETA_ROL, OPCIONES_HORARIO, OPCIONES_FICHAJE,
+  OPCIONES_GENERO, TIPOS_DOCUMENTOS, diasHastaCumple, textoCumple,
+} from './constantes'
+
+interface PropsTabInformacion {
+  perfil: Perfil
+  miembro: Miembro
+  puedeEditar: boolean
+  /* Setters de estado */
+  setPerfil: React.Dispatch<React.SetStateAction<Perfil | null>>
+  setMiembro: React.Dispatch<React.SetStateAction<Miembro | null>>
+  /* Autoguardado */
+  autoGuardarPerfil: (datos: Record<string, unknown>) => void
+  guardarPerfil: (datos: Record<string, unknown>) => Promise<boolean>
+  guardarMiembroInmediato: (datos: Record<string, unknown>) => void
+  guardarMiembro: (datos: Record<string, unknown>) => Promise<boolean>
+  /* Sector y puesto */
+  sectores: { id: string; nombre: string }[]
+  puestos: { id: string; nombre: string }[]
+  sectorActualId: string
+  guardarSector: (sectorId: string) => void
+  guardarPuesto: (puestoId: string) => void
+  /* Info bancaria */
+  infoBancaria: Record<string, unknown> | null
+  setInfoBancaria: React.Dispatch<React.SetStateAction<Record<string, unknown> | null>>
+  guardarInfoBancaria: (campo: string, valor: string) => void
+  bancosEmpresa: { id: string; nombre: string }[]
+  setBancosEmpresa: React.Dispatch<React.SetStateAction<{ id: string; nombre: string }[]>>
+  /* Contacto emergencia */
+  contactoEmergencia: Record<string, unknown> | null
+  setContactoEmergencia: React.Dispatch<React.SetStateAction<Record<string, unknown> | null>>
+  guardarEmergencia: (campo: string, valor: string | Record<string, unknown>) => void
+  /* Documentos */
+  documentosUsuario: Record<string, unknown>[]
+  setDocumentosUsuario: React.Dispatch<React.SetStateAction<Record<string, unknown>[]>>
+  archivosDocLocal: Record<string, { nombre: string; url: string | null; subiendo: boolean; error?: boolean }>
+  setArchivosDocLocal: React.Dispatch<React.SetStateAction<Record<string, { nombre: string; url: string | null; subiendo: boolean; error?: boolean }>>>
+  setDocPreview: (v: { titulo: string; url: string } | null) => void
+  /* Datos derivados */
+  rolActual: Rol
+  edad: number | null
+  /* Empresa */
+  empresa: Record<string, unknown> | null
+  miembroId: string
+  /* Formatter */
+  fmt: { locale: string }
+  t: (key: string) => string
+  /* Supabase */
+  supabase: ReturnType<typeof import('@/lib/supabase/cliente').crearClienteNavegador>
+}
+
+export function TabInformacion({
+  perfil, miembro, puedeEditar,
+  setPerfil, setMiembro,
+  autoGuardarPerfil, guardarPerfil, guardarMiembroInmediato, guardarMiembro,
+  sectores, puestos, sectorActualId, guardarSector, guardarPuesto,
+  infoBancaria, setInfoBancaria, guardarInfoBancaria,
+  bancosEmpresa, setBancosEmpresa,
+  contactoEmergencia, setContactoEmergencia, guardarEmergencia,
+  documentosUsuario, setDocumentosUsuario,
+  archivosDocLocal, setArchivosDocLocal, setDocPreview,
+  rolActual, edad,
+  empresa, miembroId,
+  fmt, t,
+  supabase,
+}: PropsTabInformacion) {
+  /* ── Estado local: kiosco ── */
+  const [pinVisible, setPinVisible] = useState(false)
+  const [capturandoRfid, setCapturandoRfid] = useState(false)
+  const rfidInputRef = useRef<HTMLInputElement>(null)
+  const [recortador, setRecortador] = useState<{ imagen: string; tipo: 'avatar' | 'kiosco' } | null>(null)
+
+  return (
+    <div className="space-y-5 p-4 sm:p-6 [&>section]:bg-superficie-tarjeta/40 [&>section]:rounded-xl [&>section]:p-4 [&>section]:sm:p-5 [&>section]:border [&>section]:border-borde-sutil/40">
+
+      {/* ── 1. DATOS PERSONALES ── */}
+      <section>
+        <SeccionEncabezado icono={<User size={15} />} titulo={t('usuarios.datos_personales')} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Input tipo="text" formato="nombre_persona" etiqueta={t('usuarios.nombre')} value={perfil.nombre || ''} onChange={(e) => setPerfil(p => p ? { ...p, nombre: e.target.value } : null)} onBlur={() => autoGuardarPerfil({ nombre: perfil.nombre })} disabled={!puedeEditar} />
+          <Input tipo="text" formato="nombre_persona" etiqueta={t('usuarios.apellido')} value={perfil.apellido || ''} onChange={(e) => setPerfil(p => p ? { ...p, apellido: e.target.value } : null)} onBlur={() => autoGuardarPerfil({ apellido: perfil.apellido })} disabled={!puedeEditar} />
+          <div>
+            <SelectorFecha
+              etiqueta={t('usuarios.fecha_nacimiento')}
+              valor={perfil.fecha_nacimiento || null}
+              onChange={(v) => {
+                setPerfil(p => p ? { ...p, fecha_nacimiento: v } : null)
+                autoGuardarPerfil({ fecha_nacimiento: v })
+              }}
+              disabled={!puedeEditar}
+              anioMin={1940}
+              anioMax={new Date().getFullYear()}
+            />
+            {edad !== null && (
+              <div className="flex items-center gap-1.5 mt-1">
+                {diasHastaCumple(perfil.fecha_nacimiento) === 0 ? (
+                  <motion.div animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }} className="flex items-center gap-1.5">
+                    <Cake size={12} className="text-insignia-advertencia" />
+                    <span className="text-xs font-medium text-insignia-advertencia">¡Hoy cumple {edad} años!</span>
+                  </motion.div>
+                ) : diasHastaCumple(perfil.fecha_nacimiento) <= 7 ? (
+                  <div className="flex items-center gap-1.5">
+                    <Cake size={12} className="text-insignia-advertencia/50" />
+                    <span className="text-xs text-insignia-advertencia/50">{textoCumple(diasHastaCumple(perfil.fecha_nacimiento), perfil.fecha_nacimiento, fmt.locale)}</span>
+                  </div>
+                ) : (
+                  <p className="text-xs text-texto-terciario">{edad} años</p>
+                )}
+              </div>
+            )}
+          </div>
+          <Select etiqueta="Género" opciones={OPCIONES_GENERO} valor={perfil.genero || ''} onChange={(v) => { setPerfil(p => p ? { ...p, genero: (v || null) as Perfil['genero'] } : null); guardarPerfil({ genero: v || null }) }} />
+          <Input tipo="text" etiqueta="Documento" value={perfil.documento_numero || ''} onChange={(e) => setPerfil(p => p ? { ...p, documento_numero: e.target.value } : null)} onBlur={() => autoGuardarPerfil({ documento_numero: perfil.documento_numero })} icono={<Fingerprint size={15} />} formato={null} disabled={!puedeEditar} />
+          <div className="sm:col-span-2">
+            <BloqueDireccion
+              etiqueta="Domicilio"
+              valorInicial={perfil.direccion as Partial<DatosDireccion> | null}
+              paises={['AR']}
+              alCambiar={(dir) => {
+                setPerfil(p => p ? { ...p, direccion: dir as unknown as Record<string, unknown>, domicilio: dir.textoCompleto } : null)
+                guardarPerfil({ direccion: dir, domicilio: dir.textoCompleto })
+              }}
+              deshabilitado={!puedeEditar}
+              coordenadasReferencia={(empresa?.direccion as { coordenadas?: { lat: number; lng: number } })?.coordenadas ?? null}
+              etiquetaReferencia="la empresa"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ── 2. CONTACTO ── */}
+      <section>
+        <SeccionEncabezado icono={<Mail size={15} />} titulo="Contacto" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Input tipo="email" etiqueta="Correo personal" value={perfil.correo || ''} onChange={(e) => setPerfil(p => p ? { ...p, correo: e.target.value } : null)} onBlur={() => autoGuardarPerfil({ correo: perfil.correo })} icono={<Mail size={15} />} disabled={!puedeEditar} />
+          <Input tipo="email" etiqueta="Correo empresa" value={perfil.correo_empresa || ''} onChange={(e) => setPerfil(p => p ? { ...p, correo_empresa: e.target.value } : null)} onBlur={() => autoGuardarPerfil({ correo_empresa: perfil.correo_empresa })} icono={<Mail size={15} />} disabled={!puedeEditar} />
+          <Input tipo="tel" etiqueta="Teléfono personal" value={perfil.telefono || ''} onChange={(e) => setPerfil(p => p ? { ...p, telefono: e.target.value } : null)} onBlur={() => autoGuardarPerfil({ telefono: perfil.telefono })} icono={<Phone size={15} />} disabled={!puedeEditar} />
+          <Input tipo="tel" etiqueta="Teléfono empresa" value={perfil.telefono_empresa || ''} onChange={(e) => setPerfil(p => p ? { ...p, telefono_empresa: e.target.value } : null)} onBlur={() => autoGuardarPerfil({ telefono_empresa: perfil.telefono_empresa })} icono={<Phone size={15} />} disabled={!puedeEditar} />
+        </div>
+      </section>
+
+      {/* ── 3. DATOS LABORALES + KIOSCO ── */}
+      <section>
+        <SeccionEncabezado icono={<Briefcase size={15} />} titulo={t('usuarios.datos_laborales')} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {puedeEditar ? (
+            <Select etiqueta={t('usuarios.rol')} opciones={ROLES_OPCIONES} valor={rolActual} onChange={(v) => { setMiembro(prev => prev ? { ...prev, rol: v as Rol } : null); guardarMiembroInmediato({ rol: v }) }} />
+          ) : (
+            <Input tipo="text" etiqueta={t('usuarios.rol')} value={ETIQUETA_ROL[rolActual] || rolActual} disabled />
+          )}
+          <Select
+            etiqueta="Sector"
+            opciones={[{ valor: '', etiqueta: 'Sin sector' }, ...sectores.map(s => ({ valor: s.id, etiqueta: s.nombre }))]}
+            valor={sectorActualId}
+            onChange={(v) => guardarSector(v)}
+          />
+          <Select
+            etiqueta={t('usuarios.puesto')}
+            opciones={[{ valor: '', etiqueta: 'Sin puesto' }, ...puestos.map(p => ({ valor: p.id, etiqueta: p.nombre }))]}
+            valor={miembro.puesto_id || ''}
+            onChange={(v) => guardarPuesto(v)}
+          />
+          <Select etiqueta="Horario" opciones={OPCIONES_HORARIO} valor={miembro.horario_tipo || 'lunes_viernes'} onChange={(v) => { setMiembro(p => p ? { ...p, horario_tipo: v as HorarioTipo } : null); guardarMiembroInmediato({ horario_tipo: v }) }} />
+          <Select etiqueta="Método de fichaje" opciones={OPCIONES_FICHAJE} valor={miembro.metodo_fichaje || 'kiosco'} onChange={(v) => { setMiembro(p => p ? { ...p, metodo_fichaje: v as MetodoFichaje } : null); guardarMiembroInmediato({ metodo_fichaje: v }) }} />
+        </div>
+
+        <div className="mt-5 space-y-3">
+          {[
+            { campo: 'horario_flexible', etiqueta: 'Horario flexible', desc: 'No se controla el horario de entrada/salida' },
+            ...(miembro.metodo_fichaje === 'automatico' ? [
+              { campo: 'fichaje_auto_movil', etiqueta: 'Fichaje automático en móvil', desc: 'Permitir que el fichaje automático funcione desde celulares y tablets (PWA)' },
+            ] : []),
+            { campo: 'salix_ia_habilitado', etiqueta: 'Acceso a Salix IA', desc: 'Puede usar el asistente de inteligencia artificial' },
+          ].map(toggle => (
+            <div key={toggle.campo} className="flex items-center justify-between py-2">
+              <div>
+                <span className="text-sm font-medium text-texto-primario">{toggle.etiqueta}</span>
+                <p className="text-xs text-texto-terciario">{toggle.desc}</p>
+              </div>
+              <Interruptor
+                activo={!!((miembro as unknown as Record<string, unknown>)[toggle.campo])}
+                onChange={(v) => {
+                  setMiembro(p => p ? { ...p, [toggle.campo]: v } as Miembro : null)
+                  guardarMiembroInmediato({ [toggle.campo]: v })
+                }}
+                deshabilitado={!puedeEditar}
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Acceso al kiosco */}
+        <div className="mt-6 pt-5 -mx-4 px-4 sm:-mx-5 sm:px-5 border-t border-borde-sutil/40">
+          <p className="text-sm font-medium text-texto-primario flex items-center gap-2 mb-4">
+            <KeyRound size={14} className="text-texto-terciario" />
+            Acceso al kiosco
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Llavero RFID */}
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-texto-primario">Llavero RFID</p>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <Input
+                    tipo="text"
+                    ref={rfidInputRef}
+                    value={miembro.kiosco_rfid || ''}
+                    onChange={(e) => setMiembro(p => p ? { ...p, kiosco_rfid: e.target.value } : null)}
+                    onBlur={() => {
+                      if (capturandoRfid && miembro.kiosco_rfid) {
+                        guardarMiembroInmediato({ kiosco_rfid: miembro.kiosco_rfid })
+                        setCapturandoRfid(false)
+                      } else {
+                        guardarMiembro({ kiosco_rfid: miembro.kiosco_rfid || null })
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        if (miembro.kiosco_rfid) {
+                          guardarMiembroInmediato({ kiosco_rfid: miembro.kiosco_rfid })
+                        }
+                        setCapturandoRfid(false)
+                        rfidInputRef.current?.blur()
+                      }
+                    }}
+                    placeholder={capturandoRfid ? 'Esperando...' : 'Sin asignar'}
+                    formato={null}
+                    disabled={!puedeEditar}
+                    compacto
+                  />
+                </div>
+                {puedeEditar && (
+                  <Boton
+                    variante={capturandoRfid ? 'primario' : 'secundario'}
+                    tamano="sm"
+                    icono={<Nfc size={14} className={capturandoRfid ? 'animate-pulse' : ''} />}
+                    onClick={() => {
+                      if (capturandoRfid) {
+                        setCapturandoRfid(false)
+                        return
+                      }
+                      setCapturandoRfid(true)
+                      setTimeout(() => rfidInputRef.current?.focus(), 50)
+                    }}
+                  >
+                    {capturandoRfid ? 'Capturando...' : 'Capturar'}
+                  </Boton>
+                )}
+              </div>
+              <p className="text-xs text-texto-terciario">
+                {capturandoRfid ? 'Pasá el llavero por el lector USB...' : 'Clic en Capturar y pasá el llavero.'}
+              </p>
+            </div>
+
+            {/* PIN del kiosco */}
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-texto-primario">PIN del kiosco <span className="font-normal text-texto-terciario">(6 dígitos)</span></p>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <Input
+                    tipo={pinVisible ? 'text' : 'password'}
+                    value={miembro.kiosco_pin || ''}
+                    onChange={(e) => setMiembro(p => p ? { ...p, kiosco_pin: e.target.value.replace(/\D/g, '').slice(0, 6) } : null)}
+                    onBlur={() => guardarMiembro({ kiosco_pin: miembro.kiosco_pin || null })}
+                    placeholder="000000"
+                    formato={null}
+                    disabled={!puedeEditar}
+                    compacto
+                    iconoDerecho={
+                      <Boton
+                        variante="fantasma"
+                        tamano="xs"
+                        soloIcono
+                        icono={pinVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+                        titulo={pinVisible ? 'Ocultar' : 'Mostrar'}
+                        onClick={() => setPinVisible(v => !v)}
+                      />
+                    }
+                  />
+                </div>
+                {puedeEditar && (
+                  <Boton
+                    variante="secundario"
+                    tamano="sm"
+                    icono={<KeyRound size={14} />}
+                    onClick={() => {
+                      const pin = String(Math.floor(100000 + Math.random() * 900000))
+                      setMiembro(p => p ? { ...p, kiosco_pin: pin } : null)
+                      guardarMiembroInmediato({ kiosco_pin: pin })
+                      setPinVisible(true)
+                    }}
+                  >
+                    Generar
+                  </Boton>
+                )}
+              </div>
+              <p className="text-xs text-texto-terciario">Alternativa al llavero. Ej: últimos 6 dígitos del DNI.</p>
+            </div>
+          </div>
+
+          {/* Foto para kiosco */}
+          <div className="mt-4 flex items-start gap-4">
+            <input type="file" accept=".jpg,.jpeg,.png,.webp" className="hidden" id="foto-kiosco-upload"
+              onChange={(e) => {
+                const archivo = e.target.files?.[0]
+                if (!archivo) return
+                const url = URL.createObjectURL(archivo)
+                setRecortador({ imagen: url, tipo: 'kiosco' })
+                e.target.value = ''
+              }}
+            />
+            <div className="w-16 shrink-0">
+              {miembro.foto_kiosco_url ? (
+                <div className="relative group">
+                  <img
+                    src={miembro.foto_kiosco_url}
+                    alt="Foto kiosco"
+                    className="w-16 aspect-[3/4] object-cover rounded-lg border border-borde-sutil"
+                  />
+                  <Boton
+                    variante="fantasma"
+                    soloIcono
+                    icono={<Camera size={14} className="text-white" />}
+                    titulo="Editar foto kiosco"
+                    onClick={() => setRecortador({ imagen: miembro.foto_kiosco_url!, tipo: 'kiosco' })}
+                    className="absolute inset-0 !rounded-lg opacity-0 group-hover:opacity-100 !bg-black/40"
+                  />
+                  <Boton
+                    variante="peligro"
+                    tamano="xs"
+                    soloIcono
+                    icono={<X size={10} className="text-white" />}
+                    titulo="Eliminar foto"
+                    onClick={async () => {
+                      setMiembro(p => p ? { ...p, foto_kiosco_url: null } : null)
+                      guardarMiembroInmediato({ foto_kiosco_url: null })
+                    }}
+                    className="absolute -top-1.5 -right-1.5 !size-5 !rounded-full opacity-0 group-hover:opacity-100"
+                  />
+                </div>
+              ) : (
+                <label
+                  htmlFor="foto-kiosco-upload"
+                  className="w-16 aspect-[3/4] rounded-lg border-2 border-dashed border-borde-fuerte flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-superficie-hover/30 hover:border-texto-marca/30 transition-all"
+                >
+                  <Camera size={14} className="text-texto-terciario" />
+                  <span className="text-xxs text-texto-terciario">Subir</span>
+                </label>
+              )}
+            </div>
+            <div className="pt-0.5">
+              <p className="text-sm font-medium text-texto-primario">Foto para kiosco</p>
+              <p className="text-xs text-texto-terciario mt-0.5">Se muestra al fichar. Vertical 3:4, tipo carnet.</p>
+              {!miembro.foto_kiosco_url && puedeEditar && (
+                <label htmlFor="foto-kiosco-upload" className="text-xs text-texto-marca cursor-pointer hover:underline mt-1 inline-block">
+                  Subir foto
+                </label>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Recortador de imagen para foto kiosco */}
+        {recortador && (
+          <RecortadorImagen
+            imagen={recortador.imagen}
+            aspecto={3 / 4}
+            circular={false}
+            titulo="Recortar foto para kiosco"
+            onCambiarImagen={(nuevaUrl) => {
+              if (recortador.imagen.startsWith('blob:')) URL.revokeObjectURL(recortador.imagen)
+              setRecortador({ ...recortador, imagen: nuevaUrl })
+            }}
+            onCancelar={() => {
+              if (recortador.imagen.startsWith('blob:')) URL.revokeObjectURL(recortador.imagen)
+              setRecortador(null)
+            }}
+            onConfirmar={async (blob) => {
+              if (!empresa) return
+              URL.revokeObjectURL(recortador.imagen)
+              setRecortador(null)
+              const ruta = `${(empresa as Record<string, unknown>).id}/${miembroId}/kiosco.jpg`
+              await supabase.storage.from('usuarios').upload(ruta, blob, { upsert: true, contentType: 'image/jpeg' })
+              const { data: urlData } = supabase.storage.from('usuarios').getPublicUrl(ruta)
+              const url = urlData?.publicUrl ? `${urlData.publicUrl}?t=${Date.now()}` : null
+              if (url) {
+                setMiembro(p => p ? { ...p, foto_kiosco_url: url } : null)
+                guardarMiembroInmediato({ foto_kiosco_url: url })
+              }
+            }}
+          />
+        )}
+      </section>
+
+      {/* ── 4. CONTACTO DE EMERGENCIA ── */}
+      <section>
+        <SeccionEncabezado icono={<Heart size={15} />} titulo="Contacto de emergencia" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Input tipo="text" formato="nombre_persona" etiqueta="Nombre" value={(contactoEmergencia?.nombre as string) || ''} onChange={(e) => setContactoEmergencia(p => ({ ...p, nombre: e.target.value }))} onBlur={(e) => guardarEmergencia('nombre', e.target.value)} placeholder="Nombre completo" disabled={!puedeEditar} />
+          <Input tipo="text" etiqueta="Relación" value={(contactoEmergencia?.relacion as string) || ''} onChange={(e) => setContactoEmergencia(p => ({ ...p, relacion: e.target.value }))} onBlur={(e) => guardarEmergencia('relacion', e.target.value)} placeholder="Padre, madre, pareja..." disabled={!puedeEditar} />
+          <Input tipo="tel" etiqueta="Teléfono" value={(contactoEmergencia?.telefono as string) || ''} onChange={(e) => setContactoEmergencia(p => ({ ...p, telefono: e.target.value }))} onBlur={(e) => guardarEmergencia('telefono', e.target.value)} placeholder="+54 11 1234-5678" icono={<Phone size={15} />} disabled={!puedeEditar} />
+          <div className="sm:col-span-2">
+            <BloqueDireccion
+              etiqueta="Dirección"
+              valorInicial={(() => {
+                const dir = contactoEmergencia?.direccion
+                if (!dir) return null
+                if (typeof dir === 'object') return dir as Partial<DatosDireccion>
+                try { return JSON.parse(dir as string) as Partial<DatosDireccion> } catch { return { textoCompleto: dir as string, calle: dir as string } }
+              })()}
+              paises={['AR']}
+              alCambiar={(dir) => {
+                setContactoEmergencia(p => ({ ...p, direccion: dir }))
+                guardarEmergencia('direccion', dir as unknown as Record<string, unknown>)
+              }}
+              deshabilitado={!puedeEditar}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ── 5. INFORMACIÓN BANCARIA ── */}
+      <section>
+        <SeccionEncabezado icono={<CreditCard size={15} />} titulo="Información bancaria" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Select etiqueta="Tipo de cuenta" opciones={[{ valor: '', etiqueta: 'No especificado' }, { valor: 'cbu', etiqueta: 'CBU — Cuenta bancaria' }, { valor: 'cvu', etiqueta: 'CVU — Cuenta virtual' }]} valor={(infoBancaria?.tipo_cuenta as string) || ''} onChange={(v) => guardarInfoBancaria('tipo_cuenta', v)} />
+          <SelectCreable
+            etiqueta={t('usuarios.banco')}
+            placeholder="Buscar banco..."
+            opciones={bancosEmpresa.map(b => ({ valor: b.nombre, etiqueta: b.nombre }))}
+            valor={(infoBancaria?.banco as string) || ''}
+            onChange={(v) => { setInfoBancaria(p => ({ ...p, banco: v })); guardarInfoBancaria('banco', v) }}
+            onCrear={async (nombre) => {
+              try {
+                const res = await fetch('/api/bancos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre }) })
+                if (!res.ok) return false
+                const banco = await res.json()
+                setBancosEmpresa(prev => {
+                  if (prev.some(b => b.id === banco.id)) return prev
+                  return [...prev, banco].sort((a, b) => a.nombre.localeCompare(b.nombre))
+                })
+                return banco.nombre
+              } catch { return false }
+            }}
+            onEditar={async (valorActual, nuevoNombre) => {
+              try {
+                const banco = bancosEmpresa.find(b => b.nombre === valorActual)
+                if (!banco) return false
+                const res = await fetch('/api/bancos', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: banco.id, nombre: nuevoNombre }) })
+                if (!res.ok) return false
+                const actualizado = await res.json()
+                setBancosEmpresa(prev => prev.map(b => b.id === banco.id ? actualizado : b).sort((a, b) => a.nombre.localeCompare(b.nombre)))
+                if ((infoBancaria?.banco as string) === valorActual) setInfoBancaria(p => ({ ...p, banco: actualizado.nombre }))
+                return actualizado.nombre
+              } catch { return false }
+            }}
+            onEliminar={async (valorBanco) => {
+              try {
+                const banco = bancosEmpresa.find(b => b.nombre === valorBanco)
+                if (!banco) return false
+                const res = await fetch('/api/bancos', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: banco.id }) })
+                if (!res.ok) return false
+                setBancosEmpresa(prev => prev.filter(b => b.id !== banco.id))
+                if ((infoBancaria?.banco as string) === valorBanco) setInfoBancaria(p => ({ ...p, banco: null }))
+                return true
+              } catch { return false }
+            }}
+            textoCrear="Crear banco"
+          />
+          <Input tipo="text" etiqueta={t('usuarios.cbu')} value={(infoBancaria?.numero_cuenta as string) || ''} onChange={(e) => setInfoBancaria(p => ({ ...p, numero_cuenta: e.target.value }))} onBlur={(e) => guardarInfoBancaria('numero_cuenta', e.target.value)} placeholder="Número de cuenta" formato={null} disabled={!puedeEditar} />
+          <Input tipo="text" etiqueta={t('usuarios.alias_bancario')} value={(infoBancaria?.alias as string) || ''} onChange={(e) => setInfoBancaria(p => ({ ...p, alias: e.target.value }))} onBlur={(e) => guardarInfoBancaria('alias', e.target.value)} placeholder="mi.alias.mp" formato="minusculas" disabled={!puedeEditar} />
+        </div>
+      </section>
+
+      {/* ── 6. DOCUMENTOS ── */}
+      <section id="seccion-documentos">
+        <SeccionEncabezado icono={<FileText size={15} />} titulo="Documentos" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {TIPOS_DOCUMENTOS.map(doc => {
+            const docExistente = documentosUsuario.find(d => (d.tipo as string) === doc)
+            const previewLocal = archivosDocLocal[doc]
+            const imgUrl = previewLocal?.url || (docExistente?.url as string | undefined) || null
+
+            return (
+              <div key={doc} className={`flex flex-col rounded-xl overflow-hidden border-2 transition-all ${imgUrl ? 'border-insignia-exito/40' : 'border-dashed border-borde-fuerte hover:border-texto-marca/30'}`}>
+
+                {/* Input oculto */}
+                <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" id={`doc-${doc}`}
+                  onChange={async (e) => {
+                    const archivo = e.target.files?.[0]
+                    if (!archivo || !empresa) return
+                    const previewUrl = archivo.type.startsWith('image/') ? URL.createObjectURL(archivo) : null
+                    setArchivosDocLocal(prev => ({ ...prev, [doc]: { nombre: archivo.name, url: previewUrl, subiendo: true } }))
+                    const ext = archivo.name.split('.').pop() || 'jpg'
+                    const ruta = `${(empresa as Record<string, unknown>).id}/${miembroId}/docs/${doc.replace(/\s/g, '_').toLowerCase()}.${ext}`
+                    const { error: upErr } = await supabase.storage.from('documentos-usuario').upload(ruta, archivo, { upsert: true })
+                    if (upErr) { setArchivosDocLocal(prev => ({ ...prev, [doc]: { ...prev[doc], subiendo: false, error: true } })); return }
+                    const { data: urlData } = supabase.storage.from('documentos-usuario').getPublicUrl(ruta)
+                    const url = urlData?.publicUrl || ''
+                    if (docExistente?.id) {
+                      await supabase.from('documentos_usuario').update({ url, nombre_archivo: archivo.name }).eq('id', docExistente.id)
+                    } else {
+                      await supabase.from('documentos_usuario').insert({ miembro_id: miembroId, tipo: doc, url, nombre_archivo: archivo.name })
+                    }
+                    const { data: docsData } = await supabase.from('documentos_usuario').select('*').eq('miembro_id', miembroId)
+                    if (docsData) setDocumentosUsuario(docsData)
+                    setArchivosDocLocal(prev => { const n = { ...prev }; delete n[doc]; return n })
+                  }}
+                />
+
+                {/* Área de imagen / placeholder */}
+                {imgUrl ? (
+                  <div
+                    className="relative aspect-[4/3] cursor-pointer group"
+                    onClick={(e) => { e.preventDefault(); setDocPreview({ titulo: doc, url: imgUrl }) }}
+                  >
+                    <img src={imgUrl} alt={doc} className="w-full h-full object-contain bg-superficie-hover/30" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                      <Eye size={20} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                    {previewLocal?.subiendo && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                        <div className="size-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    )}
+                    {previewLocal?.error && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                        <AlertCircle size={20} className="text-insignia-peligro" />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <label htmlFor={`doc-${doc}`} className="aspect-[4/3] flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-superficie-hover/30 transition-colors">
+                    <Upload size={20} className="text-texto-terciario" />
+                  </label>
+                )}
+
+                {/* Pie: nombre + acción */}
+                <div className="px-2 py-2 flex items-center justify-between gap-1 bg-superficie-tarjeta/50">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-texto-terciario text-center truncate">{doc}</p>
+                    {(previewLocal || docExistente) && (
+                      <p className="text-xxs text-insignia-exito text-center truncate">{previewLocal?.nombre || (docExistente?.nombre_archivo as string)}</p>
+                    )}
+                  </div>
+                  {imgUrl && (
+                    <Tooltip contenido="Reemplazar">
+                    <label htmlFor={`doc-${doc}`} className="shrink-0 cursor-pointer text-texto-terciario hover:text-texto-secundario transition-colors">
+                      <Pencil size={11} />
+                    </label>
+                    </Tooltip>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </section>
+    </div>
+  )
+}

@@ -724,6 +724,22 @@ a:hover { text-decoration: none; }
   --kiosco-advertencia: #fbbf24;
   --kiosco-marca: #7b7bd8;
 
+  /* Tipografía responsiva del kiosco */
+  --kiosco-texto-titulo: clamp(1.5rem, 5vw, 2.5rem);
+  --kiosco-texto-subtitulo: clamp(0.9rem, 2.5vw, 1.25rem);
+  --kiosco-texto-cuerpo: clamp(1rem, 2.5vw, 1.25rem);
+  --kiosco-texto-pin: clamp(1.25rem, 4vw, 1.75rem);
+
+  /* Colores de acciones del kiosco */
+  --kiosco-accion-entrada-bg: rgba(74,222,128,0.12);
+  --kiosco-accion-entrada: #86efac;
+  --kiosco-accion-salida-bg: rgba(245,158,11,0.12);
+  --kiosco-accion-salida: #fcd34d;
+  --kiosco-accion-solicitud-bg: rgba(56,189,248,0.12);
+  --kiosco-accion-solicitud: #7dd3fc;
+  --kiosco-accion-cancelar-bg: rgba(239,68,68,0.1);
+  --kiosco-accion-cancelar: #fca5a5;
+
   /* Override tokens semánticos de Flux para forzar negro */
   --superficie-app: #09090b;
   --superficie-tarjeta: #18181b;
@@ -738,8 +754,8 @@ a:hover { text-decoration: none; }
   --insignia-peligro: #f87171;
   --insignia-advertencia: #fbbf24;
 
-  background-color: #09090b;
-  color: #f8fafc;
+  background-color: var(--kiosco-bg);
+  color: var(--kiosco-texto);
   min-height: 100dvh;
   width: 100%;
   overflow: hidden;

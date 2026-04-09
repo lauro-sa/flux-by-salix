@@ -2,6 +2,10 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import ExcelJS from 'exceljs'
+import { ETIQUETA_METODO } from '@/lib/constantes/asistencias'
+
+// i18n: estos headers deberían respetar el idioma del usuario cuando se implemente i18n server-side
+const ENCABEZADOS_EXCEL = ['Empleado', 'Fecha', 'Entrada', 'Salida', 'Duración', 'Estado', 'Tipo', 'Método', 'Notas'] as const
 
 /**
  * GET /api/asistencias/exportar — Exportar asistencias como Excel (.xlsx).
@@ -77,7 +81,7 @@ export async function GET(request: NextRequest) {
     ws.getRow(1).height = 30
 
     // Headers
-    const headers = ['Empleado', 'Fecha', 'Entrada', 'Salida', 'Duración', 'Estado', 'Tipo', 'Método', 'Notas']
+    const headers = [...ENCABEZADOS_EXCEL]
     const headerRow = ws.addRow(headers)
     headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }
     headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } }
@@ -117,11 +121,6 @@ export async function GET(request: NextRequest) {
     const ETIQUETA_ESTADO: Record<string, string> = {
       activo: 'En turno', cerrado: 'Cerrado', auto_cerrado: 'Sin salida',
       ausente: 'Ausente', almuerzo: 'Almorzando', particular: 'Trámite',
-    }
-
-    const ETIQUETA_METODO: Record<string, string> = {
-      manual: 'Manual', rfid: 'RFID', nfc: 'NFC', pin: 'PIN',
-      automatico: 'Automático', solicitud: 'Solicitud', sistema: 'Sistema',
     }
 
     // Filas

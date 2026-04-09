@@ -27,7 +27,11 @@ interface PropsPantallaConfirmacion {
   alDismiss: () => void
 }
 
-const COLORES_CONFETI = ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#c77dff', '#ff9f43', '#ff85a1', '#00cec9']
+/** Colores decorativos del confeti — valores fijos (no semánticos) */
+const COLORES_CONFETI = [
+  '#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff',
+  '#c77dff', '#ff9f43', '#ff85a1', '#00cec9',
+]
 
 function obtenerMensaje(
   nombre: string,
@@ -119,7 +123,7 @@ export default function PantallaConfirmacion({
   const [progreso, setProgreso] = useState(100)
   // Color de la barra: naranja si tardanza, amarillo cumpleaños, verde normal
   const colorBarra = esTardanza ? 'rgba(251,146,60,0.6)' : esCumpleanos ? 'rgba(234,179,8,0.6)' : 'rgba(74,222,128,0.6)'
-  const colorAccento = esTardanza ? '#fb923c' : esCumpleanos ? '#facc15' : '#4ade80'
+  const colorAccento = esTardanza ? '#fb923c' : esCumpleanos ? '#facc15' : 'var(--kiosco-exito)'
   const duracion = esCumpleanos || accion === 'salida' ? 8000 : 4000
 
   // Sonido al montar
@@ -180,7 +184,7 @@ export default function PantallaConfirmacion({
           >
             <span
               className="text-7xl md:text-8xl"
-              style={{ color: esCumpleanos ? '#facc15' : '#4ade80' }}
+              style={{ color: esCumpleanos ? '#facc15' : 'var(--kiosco-exito)' }}
             >
               {esCumpleanos ? '🎂' : '✓'}
             </span>
@@ -206,28 +210,28 @@ export default function PantallaConfirmacion({
       <div className="text-center">
         <p
           className="font-black"
-          style={{ fontSize: 'clamp(1.5rem, 5vw, 2.5rem)', color: '#f4f4f5' }}
+          style={{ fontSize: 'var(--kiosco-texto-titulo)', color: 'var(--kiosco-texto)' }}
         >
           {mensaje}
         </p>
         {sector && !esCumpleanos && (
-          <p className="mt-1 md:mt-2" style={{ fontSize: 'clamp(0.9rem, 2.5vw, 1.25rem)', color: '#a1a1aa' }}>
+          <p className="mt-1 md:mt-2" style={{ fontSize: 'var(--kiosco-texto-subtitulo)', color: 'var(--kiosco-texto-mut)' }}>
             {sector}
           </p>
         )}
-        <p className="font-semibold mt-2 md:mt-3" style={{ fontSize: 'clamp(0.9rem, 2.5vw, 1.125rem)', color: '#d4d4d8' }}>
+        <p className="font-semibold mt-2 md:mt-3" style={{ fontSize: 'var(--kiosco-texto-subtitulo)', color: 'var(--kiosco-texto-sec)' }}>
           {nombre}
         </p>
         {/* Tardanza sutil */}
         {esTardanza && minutosRetraso && accion === 'entrada' && (
-          <p className="mt-2 text-sm font-medium" style={{ color: '#fb923c' }}>
+          <p className="mt-2 text-sm font-medium" style={{ color: 'var(--kiosco-advertencia)' }}>
             Llegaste {minutosRetraso}min tarde
           </p>
         )}
       </div>
 
       {/* Barra de progreso para auto-dismiss */}
-      <div className="w-64 md:w-80 h-1 md:h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: '#27272a' }}>
+      <div className="w-64 md:w-80 h-1 md:h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--kiosco-border)' }}>
         <div
           className="h-full rounded-full"
           style={{

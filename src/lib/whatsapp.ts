@@ -4,8 +4,9 @@
  * Se usa en: API routes de WhatsApp (webhook, enviar, plantillas, media, calidad).
  */
 
-const META_API_VERSION = 'v19.0'
-const META_BASE_URL = `https://graph.facebook.com/${META_API_VERSION}`
+import { META_GRAPH_API } from '@/lib/constantes/api-urls'
+
+const META_BASE_URL = META_GRAPH_API
 
 // ─── Tipos ───
 

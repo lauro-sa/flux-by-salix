@@ -9,6 +9,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChipEmail } from './ChipEmail'
 import type { ContactoSugerido } from './tipos'
+import { DELAY_CARGA } from '@/lib/constantes/timeouts'
 
 interface PropiedadesInputEmailChips {
   etiqueta: string
@@ -38,7 +39,7 @@ export function InputEmailChips({
     const esValido = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)
     if (!esValido) {
       setEmailInvalido(true)
-      setTimeout(() => setEmailInvalido(false), 2000)
+      setTimeout(() => setEmailInvalido(false), DELAY_CARGA)
       return
     }
     if (!emails.includes(email)) onChange([...emails, email])

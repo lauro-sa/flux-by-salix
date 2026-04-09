@@ -276,6 +276,7 @@ export function ListaConversaciones({
                   variante="fantasma"
                   tamano="xs"
                   soloIcono
+                  titulo="Filtrar"
                   icono={<Filter size={14} />}
                   onClick={() => setMostrarFiltros(!mostrarFiltros)}
                   style={{ color: mostrarFiltros ? 'var(--texto-marca)' : 'var(--texto-terciario)' }}

@@ -20,6 +20,7 @@ import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { PlantillaWhatsApp, ComponentesPlantillaWA } from '@/tipos/inbox'
 import type { ContactoChatter, DatosDocumentoChatter } from './tipos'
 import { formatearTextoWA } from './constantes'
+import { DELAY_TRANSICION } from '@/lib/constantes/timeouts'
 
 interface PropsModalWhatsApp {
   abierto: boolean
@@ -290,7 +291,7 @@ export function ModalWhatsAppChatter({
       if (res.ok) {
         setEnviado(true)
         onEnviado()
-        setTimeout(() => onCerrar(), 1500)
+        setTimeout(() => onCerrar(), DELAY_TRANSICION)
       } else {
         const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
         console.error('WhatsApp chatter error:', data)

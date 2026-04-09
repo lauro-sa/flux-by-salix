@@ -39,7 +39,7 @@ export default function RelojTiempoReal() {
         style={{
           fontSize: 'clamp(3.5rem, 13vw, 8.5rem)',
           lineHeight: 1,
-          color: '#f4f4f5',
+          color: 'var(--kiosco-texto)',
         }}
       >
         {formatearHora(ahora)}
@@ -48,7 +48,7 @@ export default function RelojTiempoReal() {
         className="capitalize mt-3 md:mt-4"
         style={{
           fontSize: 'clamp(0.875rem, 2.2vw, 1.3rem)',
-          color: '#94a3b8',
+          color: 'var(--kiosco-texto-mut)',
         }}
       >
         {formatearFecha(ahora)}

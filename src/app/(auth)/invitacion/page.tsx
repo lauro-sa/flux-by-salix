@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useTraduccion } from '@/lib/i18n'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import Link from 'next/link'
+import { DELAY_TRANSICION } from '@/lib/constantes/timeouts'
 
 /**
  * Página de invitación — aceptar invitación para unirse a una empresa.
@@ -99,7 +100,7 @@ function ContenidoInvitacion() {
     // Refrescar sesión para que el JWT tenga la empresa activa
     const supabaseCliente = crearClienteNavegador()
     await supabaseCliente.auth.refreshSession()
-    setTimeout(() => window.location.href = '/dashboard', 1500)
+    setTimeout(() => window.location.href = '/dashboard', DELAY_TRANSICION)
   }
 
   // Estado de carga

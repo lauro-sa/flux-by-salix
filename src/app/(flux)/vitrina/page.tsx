@@ -31,6 +31,7 @@ import { useColoresEmpresa } from '@/hooks/useColoresEmpresa'
 import { LogoSalix, SplashSalix, IconoSalix } from '@/componentes/marca'
 import type { VarianteIcono } from '@/componentes/marca'
 import { useToast } from '@/componentes/feedback/Toast'
+import { DELAY_TRANSICION, DELAY_ACCION } from '@/lib/constantes/timeouts'
 import { Popover } from '@/componentes/ui/Popover'
 import { PanelNotificaciones, type ItemNotificacion } from '@/componentes/ui/PanelNotificaciones'
 import {
@@ -542,7 +543,7 @@ function SeccionModalEnviarDocumento({ id }: { id?: string }) {
         onCerrar={() => setAbierto(false)}
         onEnviar={async (datos) => {
           console.log('Datos de envío:', datos)
-          await new Promise(r => setTimeout(r, 1500))
+          await new Promise(r => setTimeout(r, DELAY_TRANSICION))
           setAbierto(false)
         }}
         canales={canalesDemo}
@@ -1121,7 +1122,7 @@ function SeccionMarca({ id }: { id?: string }) {
 /** Cierra el splash después de 3 segundos */
 function AutoCerrarSplash({ onCerrar }: { onCerrar: () => void }) {
   useEffect(() => {
-    const t = setTimeout(onCerrar, 3000)
+    const t = setTimeout(onCerrar, DELAY_ACCION)
     return () => clearTimeout(t)
   }, [onCerrar])
   return null

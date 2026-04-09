@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useNavegacion } from '@/hooks/useNavegacion'
 import { useTraduccion } from '@/lib/i18n'
+import { DEBOUNCE_BUSQUEDA, DELAY_NOTIFICACION } from '@/lib/constantes/timeouts'
 import {
   Mail, Phone, Globe, MessageCircle, ChevronLeft,
   Building2, Building, User, Truck, UserPlus, BadgeCheck, Trash2, Plus, X,
@@ -20,7 +21,7 @@ import { Cargador } from '@/componentes/ui/Cargador'
 import { TextArea } from '@/componentes/ui/TextArea'
 import { DireccionesContacto, type DireccionConTipo } from '../_componentes/DireccionesContacto'
 import { VinculacionesContacto } from '../_componentes/VinculacionesContacto'
-import { SeccionActividadesContacto } from '../_componentes/SeccionActividadesContacto'
+import { PanelChatter } from '@/componentes/entidad/PanelChatter'
 import { BannerContacto } from '../_componentes/BannerContacto'
 import { BarraKPIs } from '../_componentes/BarraKPIs'
 import { COLOR_TIPO_CONTACTO } from '@/lib/colores_entidad'
@@ -261,7 +262,7 @@ export default function PaginaContacto() {
         setResultadosVinculo((data.contactos || []).filter((c: ContactoBusqueda) => !idsYa.has(c.id)))
       } catch { setResultadosVinculo([]) }
       finally { setBuscandoVinculo(false) }
-    }, 300)
+    }, DEBOUNCE_BUSQUEDA)
     return () => clearTimeout(timeout)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busquedaVinculo, modalVincular])
@@ -322,11 +323,11 @@ export default function PaginaContacto() {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         setErrorGuardado(data.error || 'Error al guardar')
-        setTimeout(() => setErrorGuardado(''), 5000)
+        setTimeout(() => setErrorGuardado(''), DELAY_NOTIFICACION)
       }
     } catch {
       setErrorGuardado('Error de conexión')
-      setTimeout(() => setErrorGuardado(''), 5000)
+      setTimeout(() => setErrorGuardado(''), DELAY_NOTIFICACION)
     } finally { setGuardando(false) }
   }, [id, esNuevo])
 
@@ -889,11 +890,20 @@ export default function PaginaContacto() {
             />
           )}
 
-          {/* Actividades vinculadas */}
+          {/* Panel de actividad (Chatter) */}
           {!esNuevo && (
-            <SeccionActividadesContacto
-              contactoId={id}
-              contactoNombre={nombreCompleto}
+            <PanelChatter
+              entidadTipo="contacto"
+              entidadId={id}
+              contactoPrincipal={{ id, nombre: nombreCompleto }}
+              contacto={{
+                id,
+                nombre: nombreCompleto,
+                correo: campos.correo || undefined,
+                whatsapp: campos.whatsapp || undefined,
+                telefono: campos.telefono || undefined,
+              }}
+              modo="inferior"
             />
           )}
 

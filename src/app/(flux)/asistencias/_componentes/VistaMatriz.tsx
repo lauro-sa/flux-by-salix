@@ -716,7 +716,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                           <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol} ${ringSeleccion}`}>
                             {esUltra ? (
                               <div className="group/celda relative mx-auto">
-                                <div className="size-5 rounded-md bg-red-500/20 flex items-center justify-center cursor-pointer" onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } }}>
+                                <div className="size-5 rounded-md bg-red-500/20 flex items-center justify-center cursor-pointer" role="gridcell" tabIndex={0} onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } } }}>
                                   <span className="text-red-400 text-[7px] font-bold">A</span>
                                 </div>
                                 <div className="absolute z-[100] top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 scale-95 pointer-events-none group-hover/celda:opacity-100 group-hover/celda:scale-100 transition-all duration-150">
@@ -731,7 +731,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                                 </div>
                               </div>
                             ) : (
-                            <div onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } }} className={`mx-auto rounded-lg ${esCompacto ? 'h-[52px]' : 'h-[60px]'} flex items-center justify-center ${COLORES_CELDA.ausente.fondo} border ${COLORES_CELDA.ausente.borde} cursor-pointer hover:brightness-110 transition-all`}>
+                            <div role="gridcell" tabIndex={0} onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } } }} className={`mx-auto rounded-lg ${esCompacto ? 'h-[52px]' : 'h-[60px]'} flex items-center justify-center ${COLORES_CELDA.ausente.fondo} border ${COLORES_CELDA.ausente.borde} cursor-pointer hover:brightness-110 transition-all`}>
                               <span className={`text-red-400 ${esCompacto ? 'text-xxs' : 'text-xs'} font-semibold uppercase`}>Ausente</span>
                             </div>
                             )}
@@ -742,6 +742,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                           <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol} ${ringSeleccion}`}>
                             <div
                               className={`${esUltra ? 'h-[20px]' : esCompacto ? 'h-[52px]' : 'h-[60px]'} ${!esFinde ? 'cursor-pointer hover:bg-superficie-elevada/30 rounded-lg transition-colors' : ''}`}
+                              {...(!esFinde ? { role: 'gridcell' as const, tabIndex: 0, onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (modoSeleccion) toggleCelda(miembro.id, fecha); else onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } } } : {})}
                               onClick={() => { if (!esFinde) { if (modoSeleccion) toggleCelda(miembro.id, fecha); else onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } }}
                             />
                           </td>

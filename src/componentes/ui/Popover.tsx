@@ -211,7 +211,7 @@ function Popover({
   return (
     <>
       {/* Trigger */}
-      <div ref={triggerRef} onClick={toggle} className={claseTrigger || 'inline-flex'}>
+      <div ref={triggerRef} onClick={toggle} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } }} role="button" tabIndex={0} className={claseTrigger || 'inline-flex'}>
         {children}
       </div>
 

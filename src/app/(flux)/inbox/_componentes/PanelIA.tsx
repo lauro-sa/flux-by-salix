@@ -8,6 +8,7 @@ import {
   Sparkles, MessageSquare, FileText, Heart,
   Copy, Check, ChevronDown, ChevronUp, Loader2, Send,
 } from 'lucide-react'
+import { DELAY_CARGA } from '@/lib/constantes/timeouts'
 
 /**
  * Panel de IA integrado en PanelCorreo.
@@ -111,7 +112,7 @@ export function PanelIA({
   const copiarSugerencia = (texto: string, indice: number) => {
     navigator.clipboard.writeText(texto)
     setCopiado(indice)
-    setTimeout(() => setCopiado(null), 2000)
+    setTimeout(() => setCopiado(null), DELAY_CARGA)
   }
 
   return (

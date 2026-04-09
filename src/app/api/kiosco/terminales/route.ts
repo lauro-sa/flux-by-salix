@@ -154,7 +154,7 @@ export async function PATCH(request: NextRequest) {
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
     const body = await request.json()
-    const { terminalId } = body
+    const { terminalId, zona_horaria } = body
 
     if (!terminalId) {
       return NextResponse.json({ error: 'ID de terminal requerido' }, { status: 400 })
@@ -162,7 +162,21 @@ export async function PATCH(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    // Generar nuevo token de setup
+    // Si viene zona_horaria, actualizar solo eso (no regenerar token)
+    if ('zona_horaria' in body) {
+      const { error } = await admin
+        .from('terminales_kiosco')
+        .update({ zona_horaria: zona_horaria || null })
+        .eq('id', terminalId)
+        .eq('empresa_id', empresaId)
+
+      if (error) {
+        return NextResponse.json({ error: 'Error al actualizar zona horaria' }, { status: 500 })
+      }
+      return NextResponse.json({ ok: true })
+    }
+
+    // Regenerar link de setup
     const tokenSetup = generarTokenSetup()
     const tokenHashSetup = hashToken(tokenSetup)
 

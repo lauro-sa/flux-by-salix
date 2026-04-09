@@ -136,7 +136,7 @@ function TarjetaDraggable({ conversacion, onClick }: { conversacion: Conversacio
   }
 
   return (
-    <div ref={setNodeRef} style={estilo} {...attributes} {...listeners} onClick={onClick}>
+    <div ref={setNodeRef} style={estilo} {...attributes} {...listeners} role="button" tabIndex={0} onClick={onClick} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.() } }}>
       <TarjetaConversacion conversacion={conversacion} />
     </div>
   )

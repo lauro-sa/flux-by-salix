@@ -7,7 +7,8 @@ import { TextArea } from '@/componentes/ui/TextArea'
 import { Boton } from '@/componentes/ui/Boton'
 import {
   CheckCircle2, AlertTriangle, Clock, XCircle, Coffee, Footprints,
-  Calendar, MapPin, Pencil, Trash2, ChevronDown,
+  Calendar, MapPin, Pencil, Trash2, ChevronDown, Monitor, Smartphone,
+  Fingerprint, KeyRound, Wifi, Zap, Settings2, Activity,
 } from 'lucide-react'
 import { useFormato } from '@/hooks/useFormato'
 import { SelectorHora } from '@/componentes/ui/SelectorHora'
@@ -28,10 +29,19 @@ interface RegistroEditable {
   tipo: string
   notas: string | null
   metodo_registro?: string
+  metodo_salida?: string | null
+  terminal_nombre?: string | null
+  puntualidad_min?: number | null
+  cierre_automatico?: boolean
   ubicacion_entrada?: Record<string, unknown> | null
+  ubicacion_salida?: Record<string, unknown> | null
   editado_por?: string | null
   foto_entrada?: string | null
   foto_salida?: string | null
+  tiempo_activo_min?: number | null
+  total_heartbeats?: number | null
+  creado_en?: string | null
+  actualizado_en?: string | null
 }
 
 interface PropiedadesModal {
@@ -48,28 +58,27 @@ function fmtHora(iso: string | null, formato: string = '24h'): string {
   const d = new Date(iso)
   if (formato === '12h') {
     const h = d.getHours() % 12 || 12
-    const m = String(d.getMinutes()).padStart(2, '0')
-    const ampm = d.getHours() < 12 ? 'AM' : 'PM'
-    return `${h}:${m} ${ampm}`
+    const ampm = d.getHours() >= 12 ? 'PM' : 'AM'
+    return `${h}:${d.getMinutes().toString().padStart(2, '0')} ${ampm}`
   }
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
 }
 
-function fmtFechaLarga(fecha: string, locale: string): string {
-  const d = new Date(fecha + 'T12:00:00')
-  return d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-    .replace(/^\w/, c => c.toUpperCase())
+function fmtFechaLarga(fechaStr: string, locale: string): string {
+  const [y, m, d] = fechaStr.split('-').map(Number)
+  const fecha = new Date(y, m - 1, d)
+  return fecha.toLocaleDateString(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 }
 
-function calcMin(entrada: string | null, salida: string | null, inicioAlm: string | null, finAlm: string | null): number {
-  if (!entrada) return 0
-  const fin = salida ? new Date(salida).getTime() : Date.now()
-  let min = Math.round((fin - new Date(entrada).getTime()) / 60000)
-  if (inicioAlm && finAlm) min -= Math.round((new Date(finAlm).getTime() - new Date(inicioAlm).getTime()) / 60000)
-  return Math.max(0, min)
+function calcMin(ent: string | null, sal: string | null, almI: string | null, almF: string | null): number {
+  if (!ent || !sal) return 0
+  let diff = (new Date(sal).getTime() - new Date(ent).getTime()) / 60000
+  if (almI && almF) diff -= (new Date(almF).getTime() - new Date(almI).getTime()) / 60000
+  return Math.max(0, Math.round(diff))
 }
 
 function fmtDuracion(min: number): string {
+  if (min <= 0) return '0min'
   const h = Math.floor(min / 60)
   const m = min % 60
   if (h === 0) return `${m}min`
@@ -79,23 +88,20 @@ function fmtDuracion(min: number): string {
 function aDatetimeLocal(iso: string | null): string {
   if (!iso) return ''
   const d = new Date(iso)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}T${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`
 }
 
-function deDatetimeLocal(val: string): string | null {
-  if (!val) return null
-  return new Date(val).toISOString()
+function deDatetimeLocal(valor: string): string | null {
+  if (!valor) return null
+  return new Date(valor).toISOString()
 }
 
-/** Extraer HH:mm de un datetime-local string "YYYY-MM-DDTHH:mm" */
 function extraerHora(dtLocal: string): string | null {
   if (!dtLocal) return null
-  const partes = dtLocal.split('T')
-  return partes[1] || null
+  const [, hora] = dtLocal.split('T')
+  return hora || null
 }
 
-/** Reconstruir datetime-local desde fecha YYYY-MM-DD + hora HH:mm */
 function reconstruir(fecha: string, hora: string | null): string {
   if (!hora) return ''
   return `${fecha}T${hora}`
@@ -116,9 +122,27 @@ const ESTADO_CFG: Record<string, { etiqueta: string; color: string; fondo: strin
   particular:   { etiqueta: 'Trámite', color: 'text-sky-400', fondo: 'bg-sky-500/15', icono: <Footprints size={13} /> },
 }
 
-const METODO_ETIQUETA: Record<string, string> = {
-  manual: 'Manual', rfid: 'RFID', nfc: 'NFC', pin: 'PIN',
-  automatico: 'Automático', solicitud: 'Solicitud', sistema: 'Sistema',
+const METODO_CFG: Record<string, { etiqueta: string; icono: React.ReactNode }> = {
+  manual:     { etiqueta: 'Manual', icono: <Pencil size={12} /> },
+  rfid:       { etiqueta: 'RFID', icono: <Wifi size={12} /> },
+  nfc:        { etiqueta: 'NFC', icono: <Smartphone size={12} /> },
+  pin:        { etiqueta: 'PIN', icono: <KeyRound size={12} /> },
+  automatico: { etiqueta: 'PC', icono: <Monitor size={12} /> },
+  solicitud:  { etiqueta: 'Solicitud', icono: <Fingerprint size={12} /> },
+  sistema:    { etiqueta: 'Sistema', icono: <Settings2 size={12} /> },
+}
+
+// Determinar si el método es presencial (kiosco) o remoto (PC/web)
+function esPresencial(metodo?: string | null): boolean {
+  return metodo === 'rfid' || metodo === 'nfc' || metodo === 'pin'
+}
+
+function etiquetaOrigen(metodo?: string | null): string {
+  if (!metodo) return ''
+  if (esPresencial(metodo)) return 'Kiosco'
+  if (metodo === 'automatico') return 'PC'
+  if (metodo === 'manual') return 'Web'
+  return ''
 }
 
 const COLORES_AVATAR = [
@@ -174,6 +198,21 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
   const colorAvatar = COLORES_AVATAR[hash % COLORES_AVATAR.length]
   const colorBarra = r.estado === 'ausente' ? 'bg-red-500/25' : r.estado === 'auto_cerrado' ? 'bg-amber-500/25' : 'bg-emerald-500/25'
   const colorDurTxt = r.estado === 'auto_cerrado' || r.tipo === 'tardanza' ? 'text-amber-400' : 'text-emerald-400'
+
+  // Puntualidad
+  const punt = r.puntualidad_min
+  const tienePuntualidad = punt !== null && punt !== undefined && r.estado !== 'ausente'
+
+  // Métodos
+  const metEntrada = METODO_CFG[r.metodo_registro || 'manual'] || METODO_CFG.manual
+  const metSalida = r.metodo_salida ? (METODO_CFG[r.metodo_salida] || null) : null
+  const origenEntrada = etiquetaOrigen(r.metodo_registro)
+  const origenSalida = etiquetaOrigen(r.metodo_salida)
+
+  // Tiempo activo
+  const tiempoActivo = r.tiempo_activo_min
+  const tieneTiempoActivo = tiempoActivo !== null && tiempoActivo !== undefined && tiempoActivo > 0
+  const pctActivo = tieneTiempoActivo && min > 0 ? Math.min(100, Math.round((tiempoActivo / min) * 100)) : 0
 
   const guardar = async () => {
     setGuardando(true)
@@ -296,8 +335,69 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
               </div>
             )}
 
-            {/* Info adicional */}
+            {/* ═══ ENTRADA / SALIDA — métodos ═══ */}
+            {r.estado !== 'ausente' && r.hora_entrada && (
+              <div className="grid grid-cols-2 gap-3">
+                {/* Entrada */}
+                <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
+                  <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1.5">Entrada</p>
+                  <div className="flex items-center gap-2">
+                    <div className="size-7 rounded-md bg-emerald-500/15 flex items-center justify-center text-emerald-400">
+                      {metEntrada.icono}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-texto-primario">{metEntrada.etiqueta}</p>
+                      {origenEntrada && (
+                        <p className="text-xxs text-texto-terciario">{origenEntrada}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Salida */}
+                <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
+                  <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1.5">Salida</p>
+                  {metSalida ? (
+                    <div className="flex items-center gap-2">
+                      <div className={`size-7 rounded-md flex items-center justify-center ${
+                        r.estado === 'auto_cerrado' ? 'bg-amber-500/15 text-amber-400' : 'bg-emerald-500/15 text-emerald-400'
+                      }`}>
+                        {metSalida.icono}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-texto-primario">{metSalida.etiqueta}</p>
+                        {origenSalida && (
+                          <p className="text-xxs text-texto-terciario">{origenSalida}</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-texto-terciario">—</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ═══ INFO ADICIONAL ═══ */}
             <div className="grid grid-cols-2 gap-3">
+              {/* Puntualidad */}
+              {tienePuntualidad && (
+                <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
+                  <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1">Puntualidad</p>
+                  <p className={`text-sm font-medium ${
+                    punt! > 10 ? 'text-amber-400' : punt! < 0 ? 'text-emerald-400' : 'text-texto-primario'
+                  }`}>
+                    {punt! > 0 ? `+${punt} min tarde` : punt! < 0 ? `${Math.abs(punt!)} min antes` : 'Puntual'}
+                  </p>
+                </div>
+              )}
+
+              {/* Tipo */}
+              <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
+                <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1">Tipo</p>
+                <p className="text-sm text-texto-primario capitalize">{r.tipo}</p>
+              </div>
+
               {/* Almuerzo */}
               {(r.inicio_almuerzo || r.fin_almuerzo) && (
                 <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
@@ -318,21 +418,15 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
                 </div>
               )}
 
-              {/* Método */}
-              <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
-                <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1">Método</p>
-                <p className="text-sm text-texto-primario">
-                  {METODO_ETIQUETA[r.metodo_registro || 'manual'] || r.metodo_registro}
-                </p>
-              </div>
+              {/* Terminal */}
+              {r.terminal_nombre && (
+                <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
+                  <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1">Terminal</p>
+                  <p className="text-sm text-texto-primario">{r.terminal_nombre}</p>
+                </div>
+              )}
 
-              {/* Tipo */}
-              <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
-                <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1">Tipo</p>
-                <p className="text-sm text-texto-primario capitalize">{r.tipo}</p>
-              </div>
-
-              {/* Ubicación */}
+              {/* Ubicación entrada */}
               {r.ubicacion_entrada && (r.ubicacion_entrada as Record<string, string>)?.direccion && (
                 <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5 col-span-2">
                   <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1">Ubicación</p>
@@ -344,6 +438,37 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
                 </div>
               )}
             </div>
+
+            {/* ═══ TIEMPO ACTIVO EN PC ═══ */}
+            {tieneTiempoActivo && (
+              <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xxs uppercase tracking-wider text-texto-terciario flex items-center gap-1.5">
+                    <Activity size={10} />
+                    Uso del software
+                  </p>
+                  <span className="text-xxs text-texto-terciario">
+                    {r.total_heartbeats || 0} señales
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-2 rounded-full bg-superficie-elevada/50 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-sky-500/60 transition-all duration-500"
+                      style={{ width: `${Math.max(pctActivo, 5)}%` }}
+                    />
+                  </div>
+                  <span className="text-sm font-medium text-sky-400 whitespace-nowrap">
+                    {fmtDuracion(tiempoActivo)}
+                  </span>
+                </div>
+                {min > 0 && (
+                  <p className="text-xxs text-texto-terciario mt-1">
+                    {pctActivo}% de la jornada ({dur}) con actividad en Flux
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Notas */}
             {r.notas && (
@@ -371,11 +496,21 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
               </div>
             )}
 
-            {/* Editado */}
-            {r.editado_por && (
-              <div className="flex items-center gap-1.5">
-                <Pencil size={9} className="text-texto-terciario" />
-                <span className="text-xxs text-texto-terciario">Editado manualmente</span>
+            {/* Editado / Cierre automático */}
+            {(r.editado_por || r.cierre_automatico) && (
+              <div className="flex items-center gap-3 flex-wrap">
+                {r.editado_por && (
+                  <div className="flex items-center gap-1.5">
+                    <Pencil size={9} className="text-texto-terciario" />
+                    <span className="text-xxs text-texto-terciario">Editado manualmente</span>
+                  </div>
+                )}
+                {r.cierre_automatico && (
+                  <div className="flex items-center gap-1.5">
+                    <Zap size={9} className="text-texto-terciario" />
+                    <span className="text-xxs text-texto-terciario">Cierre automático</span>
+                  </div>
+                )}
               </div>
             )}
           </>

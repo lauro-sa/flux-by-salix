@@ -247,7 +247,7 @@ export function ModalEtiquetas({
                           autoFocus
                         />
                         <Boton variante="fantasma" tamano="xs" soloIcono titulo="Confirmar" icono={<Check size={12} />} onClick={() => handleEditar(et.id)} className="text-insignia-exito" />
-                        <Boton variante="fantasma" tamano="xs" soloIcono titulo="Cancelar" icono={<X size={12} />} onClick={() => { setEditando(null); setNombre('') }} />
+                        <Boton variante="fantasma" tamano="xs" soloIcono titulo={t('comun.cancelar')} icono={<X size={12} />} onClick={() => { setEditando(null); setNombre('') }} />
                       </div>
                     ) : (
                       <>

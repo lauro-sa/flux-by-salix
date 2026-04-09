@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarTokenKiosco } from '@/lib/kiosco/auth'
+import { formatearFechaISO } from '@/lib/formato-fecha'
 
 /**
  * POST /api/kiosco/identificar — Buscar empleado por código RFID/NFC/PIN.
@@ -24,14 +25,23 @@ export async function POST(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    // Obtener zona horaria de la empresa
-    const { data: empresa } = await admin
-      .from('empresas')
+    // Zona horaria: primero la del terminal, si no la de la empresa
+    const { data: terminalData } = await admin
+      .from('terminales_kiosco')
       .select('zona_horaria')
-      .eq('id', empresaId)
+      .eq('id', terminal.id)
       .single()
-    const zonaHoraria = empresa?.zona_horaria || 'America/Argentina/Buenos_Aires'
-    const fechaHoy = new Date().toLocaleDateString('en-CA', { timeZone: zonaHoraria })
+
+    let zonaHoraria = terminalData?.zona_horaria as string | null
+    if (!zonaHoraria) {
+      const { data: empresa } = await admin
+        .from('empresas')
+        .select('zona_horaria')
+        .eq('id', empresaId)
+        .single()
+      zonaHoraria = (empresa?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+    }
+    const fechaHoy = formatearFechaISO(new Date(), zonaHoraria)
 
     // Buscar empleado según método
     let filtro: Record<string, string>
@@ -74,7 +84,7 @@ export async function POST(request: NextRequest) {
     // Cerrar turno de día anterior si quedó abierto
     const { data: turnoAnterior } = await admin
       .from('asistencias')
-      .select('id, fecha')
+      .select('id, fecha, hora_salida')
       .eq('empresa_id', empresaId)
       .eq('miembro_id', miembro.id)
       .not('estado', 'in', '("cerrado","auto_cerrado","ausente")')
@@ -84,12 +94,17 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (turnoAnterior) {
+      const teniaSalida = !!turnoAnterior.hora_salida
       await admin
         .from('asistencias')
         .update({
-          estado: 'auto_cerrado',
+          estado: teniaSalida ? 'cerrado' : 'auto_cerrado',
           cierre_automatico: true,
-          hora_salida: new Date().toISOString(),
+          hora_salida: teniaSalida ? turnoAnterior.hora_salida : new Date().toISOString(),
+          metodo_salida: teniaSalida ? 'automatico' : 'sistema',
+          notas: teniaSalida
+            ? 'Cierre automático — jornada de día anterior completada'
+            : 'Cierre automático — turno de día anterior sin salida registrada',
           actualizado_en: new Date().toISOString(),
         })
         .eq('id', turnoAnterior.id)

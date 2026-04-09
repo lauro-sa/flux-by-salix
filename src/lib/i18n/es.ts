@@ -93,6 +93,7 @@ export const es: Traducciones = {
     identidad: 'Identidad',
     metadata: 'Metadata',
     laboral: 'Laboral',
+    trabajo: 'Trabajo',
     comercial: 'Comercial',
     fiscal: 'Fiscal',
     auditoria_grupo: 'Auditoría',
@@ -523,6 +524,7 @@ export const es: Traducciones = {
     plantillas: 'Plantillas',
     usar_plantilla: 'Usar plantilla',
     sin_plantillas: 'No hay plantillas configuradas.',
+    sin_plantillas_aprobadas: 'No hay plantillas aprobadas',
     // Configuración
     config: {
       titulo: 'Configuración de Inbox',

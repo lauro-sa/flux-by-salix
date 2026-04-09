@@ -39,6 +39,7 @@ import {
   formatearEtiquetaHora,
   ALTURA_FILA,
 } from './constantes'
+import { INTERVALO_HEARTBEAT } from '@/lib/constantes/timeouts'
 
 // --- Constantes locales de la vista semanal ---
 
@@ -382,7 +383,7 @@ function VistaCalendarioSemana({
     const intervalo = setInterval(() => {
       const ahora = new Date()
       setMinutosAhora(ahora.getHours() * 60 + ahora.getMinutes())
-    }, 60_000)
+    }, INTERVALO_HEARTBEAT)
     return () => clearInterval(intervalo)
   }, [])
 

@@ -13,6 +13,7 @@ import { Check, Copy, Upload, FileText, Loader2, CircleDollarSign } from 'lucide
 import { Boton } from '@/componentes/ui/Boton'
 import { formatearNumero } from '@/lib/pdf/renderizar-html'
 import { useTraduccion } from '@/lib/i18n'
+import { DELAY_CARGA } from '@/lib/constantes/timeouts'
 import type { CuotaPago } from '@/tipos/presupuesto'
 import type { ComprobantePortal } from '@/tipos/portal'
 
@@ -68,7 +69,7 @@ export default function SeccionCuotas({
   const copiar = (texto: string, id: string) => {
     navigator.clipboard.writeText(texto)
     setCopiado(id)
-    setTimeout(() => setCopiado(null), 2000)
+    setTimeout(() => setCopiado(null), DELAY_CARGA)
   }
 
   const handleArchivo = (e: React.ChangeEvent<HTMLInputElement>) => {

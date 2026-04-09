@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { OPENAI_EMBEDDINGS_URL } from '@/lib/constantes/api-urls'
 
 /**
  * Embeddings para búsqueda semántica en la base de conocimiento.
@@ -12,7 +13,7 @@ const DIMENSIONES = 1536
 // ─── Generar embedding con OpenAI ───
 
 export async function generarEmbedding(texto: string, apiKey: string): Promise<number[]> {
-  const res = await fetch('https://api.openai.com/v1/embeddings', {
+  const res = await fetch(OPENAI_EMBEDDINGS_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

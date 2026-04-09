@@ -4,6 +4,7 @@ import { type ReactNode } from 'react'
 import { ModalAdaptable as Modal } from './ModalAdaptable'
 import { Boton } from './Boton'
 import { AlertTriangle, Info, AlertCircle, CheckCircle } from 'lucide-react'
+import { useTraduccion } from '@/lib/i18n'
 
 /**
  * ModalConfirmacion — Modal de alerta/confirmación reutilizable.
@@ -47,12 +48,15 @@ function ModalConfirmacion({
   titulo,
   descripcion,
   tipo = 'peligro',
-  etiquetaConfirmar = 'Confirmar',
-  etiquetaCancelar = 'Cancelar',
+  etiquetaConfirmar,
+  etiquetaCancelar,
   cargando = false,
   icono,
 }: PropiedadesModalConfirmacion) {
+  const { t } = useTraduccion()
   const colores = coloresPorTipo[tipo]
+  const textoConfirmar = etiquetaConfirmar ?? t('comun.confirmar')
+  const textoCancelar = etiquetaCancelar ?? t('comun.cancelar')
   const iconoFinal = icono || iconosPorTipo[tipo]
 
   return (
@@ -83,7 +87,7 @@ function ModalConfirmacion({
             onClick={onCerrar}
             disabled={cargando}
           >
-            {etiquetaCancelar}
+            {textoCancelar}
           </Boton>
           <Boton
             variante={colores.variante}
@@ -91,7 +95,7 @@ function ModalConfirmacion({
             onClick={onConfirmar}
             cargando={cargando}
           >
-            {etiquetaConfirmar}
+            {textoConfirmar}
           </Boton>
         </div>
       </div>

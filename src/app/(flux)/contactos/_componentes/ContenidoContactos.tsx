@@ -7,6 +7,7 @@ import { useNavegacion } from '@/hooks/useNavegacion'
 import { useRol } from '@/hooks/useRol'
 import { useTraduccion } from '@/lib/i18n'
 import { useListado, useConfig } from '@/hooks/useListado'
+import { DEBOUNCE_BUSQUEDA } from '@/lib/constantes/timeouts'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -113,7 +114,7 @@ export default function ContenidoContactos({ datosInicialesJson }: Props) {
 
   // Debounce de búsqueda (300ms)
   useEffect(() => {
-    const timeout = setTimeout(() => setBusquedaDebounced(busqueda), 300)
+    const timeout = setTimeout(() => setBusquedaDebounced(busqueda), DEBOUNCE_BUSQUEDA)
     return () => clearTimeout(timeout)
   }, [busqueda])
 
@@ -242,7 +243,11 @@ export default function ContenidoContactos({ datosInicialesJson }: Props) {
   // Exportar contactos seleccionados a CSV
   const exportarContactosCSV = useCallback(async (ids: Set<string>) => {
     const seleccion = contactos.filter(c => ids.has(c.id))
-    const cabeceras = ['Código', 'Nombre', 'Tipo', 'Correo', 'WhatsApp', 'Teléfono', 'Dirección']
+    const cabeceras = [
+      t('comun.codigo'), t('comun.nombre'), t('comun.tipo'),
+      t('contactos.correo'), t('contactos.whatsapp'), t('contactos.telefono'),
+      t('contactos.direccion'),
+    ]
     const filas = seleccion.map(c => [
       c.codigo,
       `${c.nombre}${c.apellido ? ` ${c.apellido}` : ''}`,

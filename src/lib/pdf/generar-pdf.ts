@@ -6,6 +6,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { CHROMIUM_DOWNLOAD_URL } from '@/lib/constantes/api-urls'
 import {
   renderizarHtml,
   generarNombreArchivo,
@@ -75,9 +76,7 @@ async function htmlAPdf(html: string, opciones?: OpcionesPdf): Promise<{ pdf: Bu
     browser = await puppeteer.default.launch({
       args: chromium.args,
       defaultViewport: { width: 1280, height: 720 },
-      executablePath: await chromium.executablePath(
-        'https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar'
-      ),
+      executablePath: await chromium.executablePath(CHROMIUM_DOWNLOAD_URL),
       headless: true,
     })
   } catch (errChromiumMin) {

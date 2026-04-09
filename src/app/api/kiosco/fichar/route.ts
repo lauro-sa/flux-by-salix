@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarTokenKiosco } from '@/lib/kiosco/auth'
+import { formatearFechaISO } from '@/lib/formato-fecha'
 
 /**
  * POST /api/kiosco/fichar — Registrar acción de fichaje desde terminal kiosco.
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { miembroId, accion, empresaId, terminalId, terminalNombre } = body
+    const { miembroId, accion, empresaId, terminalId, terminalNombre, metodo } = body
 
     if (!miembroId || !accion || !empresaId) {
       return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
@@ -25,14 +26,23 @@ export async function POST(request: NextRequest) {
     const admin = crearClienteAdmin()
     const ahora = new Date().toISOString()
 
-    // Obtener zona horaria de la empresa
-    const { data: empresaData } = await admin
-      .from('empresas')
+    // Zona horaria: primero la del terminal, si no la de la empresa
+    const { data: terminalData } = terminalId ? await admin
+      .from('terminales_kiosco')
       .select('zona_horaria')
-      .eq('id', empresaId)
-      .single()
-    const zonaHoraria = empresaData?.zona_horaria || 'America/Argentina/Buenos_Aires'
-    const fechaHoy = new Date().toLocaleDateString('en-CA', { timeZone: zonaHoraria })
+      .eq('id', terminalId)
+      .single() : { data: null }
+
+    let zonaHoraria = terminalData?.zona_horaria as string | null
+    if (!zonaHoraria) {
+      const { data: empresaData } = await admin
+        .from('empresas')
+        .select('zona_horaria')
+        .eq('id', empresaId)
+        .single()
+      zonaHoraria = (empresaData?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+    }
+    const fechaHoy = formatearFechaISO(new Date(), zonaHoraria)
 
     // Obtener datos del miembro para resolución de turno
     const { data: miembro } = await admin
@@ -95,7 +105,7 @@ export async function POST(request: NextRequest) {
       turnoId = turnoDefault?.id || null
     }
 
-    // Calcular puntualidad si es entrada
+    // Calcular puntualidad si es entrada (usar hora local de la empresa, no UTC)
     if (accion === 'entrada' && turnoId) {
       const { data: turnoLaboral } = await admin
         .from('turnos_laborales')
@@ -105,14 +115,16 @@ export async function POST(request: NextRequest) {
 
       if (turnoLaboral && !turnoLaboral.flexible && turnoLaboral.dias) {
         const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
-        const hoy = new Date()
-        const diaKey = diasSemana[hoy.getDay()]
+        // Obtener hora local según zona horaria de la empresa
+        const ahoraLocal = new Date().toLocaleString('en-US', { timeZone: zonaHoraria })
+        const fechaLocal = new Date(ahoraLocal)
+        const diaKey = diasSemana[fechaLocal.getDay()]
         const diaConfig = (turnoLaboral.dias as Record<string, { activo: boolean; desde: string; hasta: string }>)[diaKey]
 
         if (diaConfig?.activo && diaConfig.desde) {
           const [horaEsperada, minEsperado] = diaConfig.desde.split(':').map(Number)
           const minutosEsperado = horaEsperada * 60 + minEsperado
-          const minutosActual = hoy.getHours() * 60 + hoy.getMinutes()
+          const minutosActual = fechaLocal.getHours() * 60 + fechaLocal.getMinutes()
           puntualidadMin = minutosActual - minutosEsperado
 
           const tolerancia = turnoLaboral.tolerancia_min ?? 10
@@ -139,7 +151,7 @@ export async function POST(request: NextRequest) {
             estado: 'activo',
             tipo: tipoRegistro,
             puntualidad_min: puntualidadMin,
-            metodo_registro: 'rfid', // Se actualiza con el método real en identificar
+            metodo_registro: metodo || 'rfid',
             terminal_id: terminalId,
             terminal_nombre: terminalNombre,
             turno_id: turnoId,
@@ -184,6 +196,7 @@ export async function POST(request: NextRequest) {
           .update({
             hora_salida: ahora,
             estado: 'cerrado',
+            metodo_salida: metodo || 'rfid',
             actualizado_en: ahora,
           })
           .eq('id', turnoHoy.id)

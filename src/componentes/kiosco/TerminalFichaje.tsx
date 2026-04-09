@@ -79,6 +79,7 @@ export default function TerminalFichaje({ config }: { config: ConfigTerminal }) 
   const [resultado, setResultado] = useState<ResultadoFichaje | null>(null)
   const [mensajeError, setMensajeError] = useState('')
   const fotoCapturada = useRef<Blob | null>(null)
+  const metodoUsado = useRef<'rfid' | 'nfc' | 'pin'>('rfid')
 
   // La cámara NO se mantiene encendida — se abre solo al momento de fichar
 
@@ -112,6 +113,7 @@ export default function TerminalFichaje({ config }: { config: ConfigTerminal }) 
     if (estado !== 'ESPERA' && estado !== 'TECLADO_PIN') return
 
     setEstado('IDENTIFICANDO')
+    metodoUsado.current = metodo
 
     // Capturar foto ANTES de autenticar: abrir cámara → foto → cerrar (~500ms)
     // La persona aún está frente a la cámara, después se identifica
@@ -177,6 +179,7 @@ export default function TerminalFichaje({ config }: { config: ConfigTerminal }) 
           empresaId: config.empresaId,
           terminalId: config.terminalId,
           terminalNombre: config.terminalNombre,
+          metodo: metodoUsado.current,
         }),
       })
 

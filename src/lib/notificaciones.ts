@@ -44,7 +44,7 @@ export async function crearNotificacion({
   if (referenciaTipo && referenciaId) {
     const { data: existente } = await admin
       .from('notificaciones')
-      .select('id')
+      .select('id, titulo, cuerpo')
       .eq('empresa_id', empresaId)
       .eq('usuario_id', usuarioId)
       .eq('referencia_tipo', referenciaTipo)
@@ -54,14 +54,22 @@ export async function crearNotificacion({
       .maybeSingle()
 
     if (existente) {
-      // Actualizar la notificación existente (nuevo mensaje en misma conversación)
+      // Verificar si el contenido realmente cambió (nuevo mensaje en conversación vs mismo evento re-procesado)
+      const contenidoCambio = existente.titulo !== titulo || existente.cuerpo !== (cuerpo || null)
+
+      // Actualizar la notificación existente
       await admin
         .from('notificaciones')
         .update({ titulo, cuerpo: cuerpo || null, creada_en: new Date().toISOString() })
         .eq('id', existente.id)
-      // IMPORTANTE: enviar push aunque sea duplicado — el usuario necesita saber que hay un mensaje nuevo
-      console.log(`[Push] crearNotificacion (dedup): enviando push a usuario ${usuarioId.slice(0, 8)}...`)
-      enviarPush({ empresaId, usuarioId, titulo, cuerpo, url }).catch((err) => console.error('[Push] Error dedup:', err))
+
+      // Solo enviar push si el contenido cambió (nuevo mensaje real, no el mismo evento re-procesado)
+      if (contenidoCambio) {
+        console.log(`[Push] crearNotificacion (dedup, contenido nuevo): enviando push a usuario ${usuarioId.slice(0, 8)}...`)
+        enviarPush({ empresaId, usuarioId, titulo, cuerpo, url }).catch((err) => console.error('[Push] Error dedup:', err))
+      } else {
+        console.log(`[Push] crearNotificacion (dedup, mismo contenido): omitiendo push para usuario ${usuarioId.slice(0, 8)}`)
+      }
       return
     }
   }
@@ -188,13 +196,14 @@ export async function crearNotificacionesBatch(
     }
   }
 
-  // Push notifications (fire-and-forget, pero con logs de error)
-  const todas = [...paraInsertar, ...paraActualizar]
-  const uniqueUsuarios = [...new Set(todas.map(n => `${n.empresaId}|${n.usuarioId}`))]
-  console.log(`[Push] Batch: enviando push a ${uniqueUsuarios.length} usuario(s)`)
+  // Push notifications: solo para notificaciones NUEVAS (no actualizadas — evita push spam)
+  const uniqueUsuarios = [...new Set(paraInsertar.map(n => `${n.empresaId}|${n.usuarioId}`))]
+  if (uniqueUsuarios.length > 0) {
+    console.log(`[Push] Batch: enviando push a ${uniqueUsuarios.length} usuario(s) (${paraActualizar.length} actualizados sin push)`)
+  }
   for (const key of uniqueUsuarios) {
     const [empresaId, usuarioId] = key.split('|')
-    const primera = todas.find(n => n.empresaId === empresaId && n.usuarioId === usuarioId)
+    const primera = paraInsertar.find(n => n.empresaId === empresaId && n.usuarioId === usuarioId)
     if (primera) {
       enviarPush({
         empresaId,
@@ -274,6 +283,11 @@ async function notificarAdminsObservadores({
   }
 }
 
+// Rate-limit en memoria: evita enviar push al mismo usuario+url más de 1 vez cada 5 minutos.
+// Esto previene spam de push por eventos re-procesados, bugs de cursor, etc.
+const pushRateLimit = new Map<string, number>()
+const PUSH_COOLDOWN_MS = 5 * 60 * 1000 // 5 minutos
+
 /**
  * Envía push notification via Firebase Cloud Messaging (FCM).
  * FCM enruta automáticamente a APNs para iOS — mucho más confiable que web-push directo.
@@ -292,6 +306,23 @@ async function enviarPush({
   cuerpo?: string
   url?: string
 }) {
+  // Rate-limit: no enviar push al mismo usuario+url si ya se envió hace menos de 5 min
+  const rateLimitKey = `${usuarioId}|${url || '/'}`
+  const ultimoEnvio = pushRateLimit.get(rateLimitKey)
+  if (ultimoEnvio && Date.now() - ultimoEnvio < PUSH_COOLDOWN_MS) {
+    console.log(`[Push] Rate-limited: omitiendo push para ${usuarioId.slice(0, 8)}... (url: ${url}, último envío hace ${Math.round((Date.now() - ultimoEnvio) / 1000)}s)`)
+    return
+  }
+  pushRateLimit.set(rateLimitKey, Date.now())
+
+  // Limpiar entradas viejas del rate-limit cada 100 entradas (evitar memory leak)
+  if (pushRateLimit.size > 100) {
+    const ahora = Date.now()
+    for (const [key, tiempo] of pushRateLimit) {
+      if (ahora - tiempo > PUSH_COOLDOWN_MS) pushRateLimit.delete(key)
+    }
+  }
+
   const admin = crearClienteAdmin()
 
   // Buscar tokens FCM activos (guardados en la columna "endpoint")
@@ -333,6 +364,7 @@ async function enviarPush({
         icon: '/iconos/icon-192.png',
         badge: '/iconos/icon-192.png',
         tag: urlDestino,
+        renotify: false,
         requireInteraction: false,
         silent: false,
         data: { url: urlDestino },

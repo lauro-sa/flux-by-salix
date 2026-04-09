@@ -16,7 +16,9 @@ import {
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { SelectorEtapa } from './SelectorEtapa'
 import { useFormato } from '@/hooks/useFormato'
+import { useTraduccion } from '@/lib/i18n'
 import type { Conversacion, MensajeConAdjuntos } from '@/tipos/inbox'
+import { DELAY_ACCION } from '@/lib/constantes/timeouts'
 
 /**
  * Panel derecho colapsable — info del contacto enriquecida.
@@ -159,6 +161,7 @@ function borrarCacheIA(convId: string) {
 
 export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, onAbrirVisor, esMovil }: PropiedadesPanelInfo) {
   const formato = useFormato()
+  const { t } = useTraduccion()
   const [contacto, setContacto] = useState<DatosContacto | null>(null)
   const [historial, setHistorial] = useState<ConversacionHistorial[]>([])
   const [cargandoHistorial, setCargandoHistorial] = useState(false)
@@ -313,7 +316,7 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
         // Guardar snapshot de mensajes entrantes al momento del escaneo
         if (cantEntrantes !== undefined) mensajesAlEscanearRef.current = cantEntrantes
 
-        const filasNuevas = construirFilasDesdeIA(data)
+        const filasNuevas = construirFilasDesdeIA(data, t)
 
         const entrantesActual = cantEntrantes ?? mensajesAlEscanearRef.current
 
@@ -379,7 +382,7 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
     // Pequeño delay para no escanear por cada mensaje en ráfaga
     const timeout = setTimeout(() => {
       ejecutarEscaneoIA(conversacion.id, false, mensajesEntrantes)
-    }, 3000)
+    }, DELAY_ACCION)
 
     return () => clearTimeout(timeout)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1175,26 +1178,26 @@ function DatoContacto({ icono, valor }: { icono: React.ReactNode; valor: string 
 }
 
 /** Construye FilaIA[] desde los datos crudos de la IA (sin fijados) */
-function construirFilasDesdeIA(datos: DatosExtraidosIA): FilaIA[] {
+function construirFilasDesdeIA(datos: DatosExtraidosIA, t: (clave: string) => string): FilaIA[] {
   const filas: FilaIA[] = []
   const agregar = (clave: string, etiqueta: string, valor: string | null | undefined) => {
     if (valor) filas.push({ clave, etiqueta, valor, fijado: false })
   }
-  agregar('nombre', 'Nombre', datos.nombre ? `${datos.nombre}${datos.apellido ? ' ' + datos.apellido : ''}` : null)
-  agregar('telefono', 'Teléfono', datos.telefono)
-  agregar('correo', 'Correo', datos.correo)
-  agregar('empresa', 'Empresa', datos.empresa_nombre)
-  agregar('cargo', 'Cargo', datos.cargo)
-  agregar('rubro', 'Rubro', datos.rubro)
-  agregar('tipo_trabajo', 'Trabajo', datos.tipo_trabajo)
+  agregar('nombre', t('comun.nombre'), datos.nombre ? `${datos.nombre}${datos.apellido ? ' ' + datos.apellido : ''}` : null)
+  agregar('telefono', t('contactos.telefono'), datos.telefono)
+  agregar('correo', t('contactos.correo'), datos.correo)
+  agregar('empresa', t('empresa.titulo'), datos.empresa_nombre)
+  agregar('cargo', t('comun.cargo'), datos.cargo)
+  agregar('rubro', t('comun.rubro'), datos.rubro)
+  agregar('tipo_trabajo', t('comun.trabajo'), datos.tipo_trabajo)
   // Dirección
   if (datos.direccion?.texto_completo) {
-    agregar('direccion', 'Dirección', datos.direccion.texto_completo)
+    agregar('direccion', t('contactos.direccion'), datos.direccion.texto_completo)
   } else {
     const partes = [datos.direccion?.barrio, datos.direccion?.ciudad, datos.direccion?.provincia].filter(Boolean)
-    if (partes.length > 0) agregar('ubicacion', 'Ubicación', partes.join(', '))
+    if (partes.length > 0) agregar('ubicacion', t('comun.ubicacion'), partes.join(', '))
   }
-  agregar('notas', 'Notas', datos.notas)
+  agregar('notas', t('comun.notas'), datos.notas)
   // Datos extra dinámicos
   for (const [clave, valor] of Object.entries(datos.datos_extra || {})) {
     agregar(`extra_${clave}`, capitalizar(clave.replace(/_/g, ' ')), valor)

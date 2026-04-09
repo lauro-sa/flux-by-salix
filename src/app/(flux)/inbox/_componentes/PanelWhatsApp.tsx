@@ -77,8 +77,8 @@ const ICONO_ESTADO: Record<string, React.ReactNode> = {
   sent: <Check size={12} style={{ color: 'var(--texto-terciario)' }} />,
   entregado: <CheckCheck size={12} style={{ color: 'var(--texto-terciario)' }} />,
   delivered: <CheckCheck size={12} style={{ color: 'var(--texto-terciario)' }} />,
-  leido: <CheckCheck size={12} style={{ color: '#53bdeb' }} />,
-  read: <CheckCheck size={12} style={{ color: '#53bdeb' }} />,
+  leido: <CheckCheck size={12} style={{ color: 'var(--whatsapp-leido)' }} />,
+  read: <CheckCheck size={12} style={{ color: 'var(--whatsapp-leido)' }} />,
   fallido: <AlertCircle size={12} style={{ color: 'var(--insignia-peligro)' }} />,
   failed: <AlertCircle size={12} style={{ color: 'var(--insignia-peligro)' }} />,
 }
@@ -1610,7 +1610,7 @@ export function VisorMedia({
                 <motion.img
                   key={actual.url}
                   src={actual.url}
-                  alt=""
+                  alt="Imagen del mensaje"
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
@@ -1678,7 +1678,7 @@ export function VisorMedia({
                       </span>
                     </>
                   ) : (
-                    <img src={media.url} alt="" className="w-full h-full object-cover" />
+                    <img src={media.url} alt="Imagen adjunta" className="w-full h-full object-cover" />
                   )}
                 </Boton>
               ))}
@@ -2031,7 +2031,7 @@ function GrillaImagenes({
             >
               <img
                 src={adj.url}
-                alt=""
+                alt="Imagen adjunta"
                 className="w-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
                 style={{ height: spanFull ? 200 : total === 2 ? 180 : 120 }}
               />

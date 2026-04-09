@@ -17,6 +17,7 @@ import { COLOR_TIPO_CONTACTO } from '@/lib/colores_entidad'
 import { useTraduccion } from '@/lib/i18n'
 import { CargadorInline } from '@/componentes/ui/Cargador'
 import { useToast } from '@/componentes/feedback/Toast'
+import { DEBOUNCE_BUSQUEDA } from '@/lib/constantes/timeouts'
 
 // ─── Tipos ───
 
@@ -224,7 +225,7 @@ export function VinculacionesContacto({
       } finally {
         setBuscando(false)
       }
-    }, 300)
+    }, DEBOUNCE_BUSQUEDA)
 
     return () => clearTimeout(timeout)
   // eslint-disable-next-line react-hooks/exhaustive-deps

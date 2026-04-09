@@ -100,7 +100,7 @@ export default function PaginaKiosco() {
       <div className="h-dvh flex items-center justify-center bg-black">
         <div
           className="w-10 h-10 rounded-full border-4 animate-spin"
-          style={{ borderColor: '#333', borderTopColor: 'var(--texto-marca)' }}
+          style={{ borderColor: 'var(--borde-fuerte)', borderTopColor: 'var(--texto-marca)' }}
         />
       </div>
     )
@@ -193,6 +193,7 @@ function PantallaReactivar({
         <input
           type="text"
           placeholder="Nombre del terminal (ej: Entrada Principal)"
+          aria-label="Nombre del terminal"
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
           className="w-full px-4 py-3.5 rounded-xl text-base bg-neutral-900 text-white border border-neutral-700 placeholder-neutral-500 outline-none focus:border-neutral-500"
@@ -202,6 +203,7 @@ function PantallaReactivar({
           inputMode="numeric"
           maxLength={6}
           placeholder="PIN admin (6 dígitos)"
+          aria-label="Código PIN"
           value={pin}
           onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
           className="w-full px-4 py-3.5 rounded-xl text-base bg-neutral-900 text-white border border-neutral-700 placeholder-neutral-500 outline-none focus:border-neutral-500 tracking-[0.5em] text-center"

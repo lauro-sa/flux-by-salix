@@ -8,6 +8,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { useAuth } from '@/hooks/useAuth'
 import { useTraduccion } from '@/lib/i18n'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { DELAY_NOTIFICACION } from '@/lib/constantes/timeouts'
 
 /**
  * Página de verificación de correo.
@@ -48,7 +49,7 @@ export default function PaginaVerificarCorreo() {
 
     setReenviando(false)
     setReenviado(true)
-    setTimeout(() => setReenviado(false), 5000)
+    setTimeout(() => setReenviado(false), DELAY_NOTIFICACION)
   }
 
   return (

@@ -378,7 +378,7 @@ function PestanaGeneral({
         <TarjetaReciente titulo="Últimos presupuestos" icono={<FileText size={14} />} verTodo={() => router.push('/presupuestos')}>
           {datos?.presupuestos.recientes && datos.presupuestos.recientes.length > 0 ? (
             datos.presupuestos.recientes.map(p => (
-              <div key={p.id} className="flex items-center justify-between py-1.5 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors" onClick={() => router.push(`/presupuestos/${p.id}`)}>
+              <div key={p.id} className="flex items-center justify-between py-1.5 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors" role="button" tabIndex={0} onClick={() => router.push(`/presupuestos/${p.id}`)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/presupuestos/${p.id}`) } }}>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-medium text-texto-primario">{p.numero}</span>
@@ -398,7 +398,7 @@ function PestanaGeneral({
         <TarjetaReciente titulo="Últimos contactos" icono={<Users size={14} />} verTodo={() => router.push('/contactos')}>
           {datos?.contactos.recientes && datos.contactos.recientes.length > 0 ? (
             datos.contactos.recientes.map(c => (
-              <div key={c.id} className="flex items-center justify-between py-1.5 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors" onClick={() => router.push(`/contactos/${c.id}`)}>
+              <div key={c.id} className="flex items-center justify-between py-1.5 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors" role="button" tabIndex={0} onClick={() => router.push(`/contactos/${c.id}`)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/contactos/${c.id}`) } }}>
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="size-6 rounded-full bg-superficie-hover flex items-center justify-center text-xxs font-semibold text-texto-secundario shrink-0">
                     {(c.nombre?.[0] || '').toUpperCase()}{(c.apellido?.[0] || '').toUpperCase()}
@@ -420,7 +420,7 @@ function PestanaGeneral({
         <TarjetaReciente titulo="Próximas actividades" icono={<CheckSquare size={14} />} verTodo={() => router.push('/actividades')}>
           {datos?.actividades_proximas && datos.actividades_proximas.length > 0 ? (
             datos.actividades_proximas.map(act => (
-              <div key={act.id} className="flex items-center justify-between py-1.5 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors" onClick={() => router.push('/actividades')}>
+              <div key={act.id} className="flex items-center justify-between py-1.5 px-1 rounded-md hover:bg-superficie-hover cursor-pointer transition-colors" role="button" tabIndex={0} onClick={() => router.push('/actividades')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/actividades') } }}>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-texto-primario truncate">{act.titulo}</span>

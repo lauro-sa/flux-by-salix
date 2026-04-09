@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { formatearFechaISO } from '@/lib/formato-fecha'
 
 /**
  * POST /api/asistencias/fichar — Registrar acción de fichaje.
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
       .eq('id', empresaId)
       .single()
     const zona = (empresaData?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
-    const fechaHoy = new Date().toLocaleDateString('en-CA', { timeZone: zona }) // YYYY-MM-DD
+    const fechaHoy = formatearFechaISO(new Date(), zona) // YYYY-MM-DD
 
     // Obtener miembro actual
     const { data: miembro } = await admin
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
     // Cerrar turno huérfano de día anterior si existe
     const { data: turnoViejo } = await admin
       .from('asistencias')
-      .select('id, fecha')
+      .select('id, fecha, hora_salida')
       .eq('empresa_id', empresaId)
       .eq('miembro_id', miembro.id)
       .in('estado', ['activo', 'almuerzo', 'particular'])
@@ -65,13 +66,18 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (turnoViejo) {
+      // Si ya tenía hora_salida (heartbeat/kiosco la registró), es cierre normal
+      const teniaSalida = !!turnoViejo.hora_salida
       await admin
         .from('asistencias')
         .update({
-          estado: 'auto_cerrado',
-          hora_salida: ahora,
+          estado: teniaSalida ? 'cerrado' : 'auto_cerrado',
+          hora_salida: teniaSalida ? turnoViejo.hora_salida : ahora,
+          metodo_salida: teniaSalida ? 'automatico' : 'sistema',
           cierre_automatico: true,
-          notas: 'Cierre automático — nueva entrada detectada',
+          notas: teniaSalida
+            ? 'Cierre automático — jornada completada (nueva entrada detectada)'
+            : 'Cierre automático — nueva entrada detectada sin salida previa',
           actualizado_en: ahora,
         })
         .eq('id', turnoViejo.id)
@@ -103,7 +109,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Calcular puntualidad si es entrada
+    // Calcular puntualidad si es entrada (usar hora local de la empresa, no UTC)
     let puntualidadMin: number | null = null
     let tipo = 'normal'
     if (accion === 'entrada' && turnoLaboralId) {
@@ -115,14 +121,14 @@ export async function POST(request: NextRequest) {
 
       if (turnoLaboral && !turnoLaboral.flexible) {
         const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
-        const hoy = diasSemana[new Date().getDay()]
+        const ahoraLocal = new Date(new Date().toLocaleString('en-US', { timeZone: zona }))
+        const hoy = diasSemana[ahoraLocal.getDay()]
         const dias = turnoLaboral.dias as Record<string, { activo: boolean; desde: string; hasta: string }>
         const diaConfig = dias[hoy]
 
         if (diaConfig?.activo && diaConfig.desde) {
           const [hEsperada, mEsperada] = diaConfig.desde.split(':').map(Number)
-          const ahoraDate = new Date()
-          const minutosActual = ahoraDate.getHours() * 60 + ahoraDate.getMinutes()
+          const minutosActual = ahoraLocal.getHours() * 60 + ahoraLocal.getMinutes()
           const minutosEsperado = hEsperada * 60 + mEsperada
           puntualidadMin = minutosActual - minutosEsperado
 
@@ -174,6 +180,7 @@ export async function POST(request: NextRequest) {
           .update({
             hora_salida: ahora,
             estado: 'cerrado',
+            metodo_salida: metodo,
             ubicacion_salida: ubicacion || null,
             actualizado_en: ahora,
           })
@@ -295,7 +302,7 @@ export async function GET() {
       .eq('id', empresaId)
       .single()
     const zonaGet = (empresaGetData?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
-    const fechaHoy = new Date().toLocaleDateString('en-CA', { timeZone: zonaGet }) // YYYY-MM-DD
+    const fechaHoy = formatearFechaISO(new Date(), zonaGet) // YYYY-MM-DD
 
     const { data: miembro } = await admin
       .from('miembros')
@@ -319,14 +326,18 @@ export async function GET() {
 
     if (turnoViejo) {
       const ahora = new Date().toISOString()
+      const teniaSalida = !!turnoViejo.hora_salida
       const horaSalida = turnoViejo.hora_salida || turnoViejo.hora_entrada
       await admin
         .from('asistencias')
         .update({
           hora_salida: horaSalida,
-          estado: 'auto_cerrado',
+          estado: teniaSalida ? 'cerrado' : 'auto_cerrado',
+          metodo_salida: teniaSalida ? 'automatico' : 'sistema',
           cierre_automatico: true,
-          notas: 'Cierre automático — turno de día anterior detectado al consultar estado',
+          notas: teniaSalida
+            ? 'Cierre automático — jornada de día anterior completada'
+            : 'Cierre automático — turno de día anterior sin salida registrada',
           actualizado_en: ahora,
         })
         .eq('id', turnoViejo.id)

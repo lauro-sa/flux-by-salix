@@ -30,7 +30,10 @@ export const CATALOGO_REQUISITOS: Record<
   direccion: {
     nombre: 'Contacto tiene direccion',
     icono: '\u{1F4CD}', // pin
-    // TODO: requiere datos expandidos del contacto con direccion
+    // La interfaz ConversacionConDetalles.contacto no incluye campo direccion.
+    // Para validar realmente, habría que expandir esa interfaz con los datos
+    // de direcciones del contacto (tabla contacto_direcciones).
+    // Por ahora siempre pasa — se valida del lado del servidor al mover etapa.
     validar: () => true,
   },
   email: {

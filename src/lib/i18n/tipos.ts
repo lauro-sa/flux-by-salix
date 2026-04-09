@@ -102,6 +102,7 @@ export interface Traducciones {
     identidad: string
     metadata: string
     laboral: string
+    trabajo: string
     comercial: string
     fiscal: string
     auditoria_grupo: string
@@ -516,6 +517,7 @@ export interface Traducciones {
     plantillas: string
     usar_plantilla: string
     sin_plantillas: string
+    sin_plantillas_aprobadas: string
     config: {
       titulo: string
       general: string

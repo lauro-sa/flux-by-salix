@@ -20,6 +20,7 @@ import { InputMoneda } from '@/componentes/ui/InputMoneda'
 import { PanelChatter } from '@/componentes/entidad/PanelChatter'
 import { COLOR_TIPO_PRODUCTO } from '@/lib/colores_entidad'
 import { useFormato } from '@/hooks/useFormato'
+import { useTraduccion } from '@/lib/i18n'
 import type { Producto, TipoProducto, ConfigProductos, DesgloseCosto } from '@/tipos/producto'
 
 /**
@@ -40,6 +41,7 @@ interface PropsModalProducto {
 
 export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config, impuestos = [] }: PropsModalProducto) {
   const formato = useFormato()
+  const { t } = useTraduccion()
   const esEdicion = !!producto
 
   // ─── Estado del formulario ───
@@ -318,7 +320,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
                   </span>
                 )}
                 <Boton variante="secundario" tamano="sm" onClick={onCerrar} disabled={guardando}>
-                  Cancelar
+                  {t('comun.cancelar')}
                 </Boton>
                 <Boton
                   tamano="sm"
@@ -327,7 +329,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
                   cargando={guardando}
                   disabled={!nombre.trim()}
                 >
-                  {esEdicion ? 'Guardar' : 'Crear'}
+                  {esEdicion ? t('comun.guardar') : t('comun.crear')}
                 </Boton>
               </div>
             </div>

@@ -93,6 +93,7 @@ export const pt: Traducciones = {
     identidad: 'Identidade',
     metadata: 'Metadados',
     laboral: 'Profissional',
+    trabajo: 'Trabalho',
     comercial: 'Comercial',
     fiscal: 'Fiscal',
     auditoria_grupo: 'Auditoria',
@@ -515,6 +516,7 @@ export const pt: Traducciones = {
     plantillas: 'Modelos',
     usar_plantilla: 'Usar modelo',
     sin_plantillas: 'Nenhum modelo configurado.',
+    sin_plantillas_aprobadas: 'Nenhum modelo aprovado',
     config: {
       titulo: 'Configuração do Inbox',
       general: 'Geral',

@@ -10,6 +10,7 @@ import { Input } from '@/componentes/ui/Input'
 import { CargadorSeccion } from '@/componentes/ui/Cargador'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { PAISES_DISPONIBLES } from '@/lib/paises'
+import { DELAY_ACCION, DELAY_NOTIFICACION } from '@/lib/constantes/timeouts'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -140,7 +141,7 @@ function SeccionFeriados({ feriados, cargando, onActualizar, paisEmpresa }: Prop
       setNuevoTipo('empresa')
       setNuevoRecurrente(false)
       setExito('Feriado creado')
-      setTimeout(() => setExito(null), 3000)
+      setTimeout(() => setExito(null), DELAY_ACCION)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al crear')
     } finally {
@@ -170,7 +171,7 @@ function SeccionFeriados({ feriados, cargando, onActualizar, paisEmpresa }: Prop
       if (resultado.feriados) onActualizar(resultado.feriados)
       setModalPais(false)
       setExito(resultado.mensaje)
-      setTimeout(() => setExito(null), 5000)
+      setTimeout(() => setExito(null), DELAY_NOTIFICACION)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar')
     } finally {
@@ -204,7 +205,7 @@ function SeccionFeriados({ feriados, cargando, onActualizar, paisEmpresa }: Prop
       const resultado = await llamarAPI('importar_csv', { filas })
       if (resultado.feriados) onActualizar(resultado.feriados)
       setExito(resultado.mensaje)
-      setTimeout(() => setExito(null), 5000)
+      setTimeout(() => setExito(null), DELAY_NOTIFICACION)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al importar')
     } finally {
@@ -270,7 +271,7 @@ function SeccionFeriados({ feriados, cargando, onActualizar, paisEmpresa }: Prop
       setModalIA(false)
       setSugerenciasIA([])
       setExito(`${resultado.insertados} feriados agregados con Salix IA`)
-      setTimeout(() => setExito(null), 5000)
+      setTimeout(() => setExito(null), DELAY_NOTIFICACION)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al guardar')
     } finally {
@@ -286,7 +287,7 @@ function SeccionFeriados({ feriados, cargando, onActualizar, paisEmpresa }: Prop
       onActualizar(feriados.filter(f => !f.fecha.startsWith(`${anioActivo}-`)))
       setConfirmarLimpiar(false)
       setExito(`Feriados de ${anioActivo} eliminados`)
-      setTimeout(() => setExito(null), 3000)
+      setTimeout(() => setExito(null), DELAY_ACCION)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al limpiar')
     } finally {

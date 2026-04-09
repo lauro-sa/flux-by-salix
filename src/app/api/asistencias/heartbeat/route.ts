@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { crearNotificacion } from '@/lib/notificaciones'
+import { formatearFechaISO } from '@/lib/formato-fecha'
 
 /**
  * POST /api/asistencias/heartbeat — Registrar heartbeat de actividad.
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
       .eq('id', empresaId)
       .single()
     const zona = (empresaData?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
-    const fechaHoy = new Date().toLocaleDateString('en-CA', { timeZone: zona }) // YYYY-MM-DD
+    const fechaHoy = formatearFechaISO(new Date(), zona) // YYYY-MM-DD
 
     // Obtener miembro
     const { data: miembro } = await admin
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
       // Cerrar turno huérfano de día anterior (misma lógica que /fichar)
       const { data: turnoViejo } = await admin
         .from('asistencias')
-        .select('id, fecha')
+        .select('id, fecha, hora_salida')
         .eq('empresa_id', empresaId)
         .eq('miembro_id', miembro.id)
         .in('estado', ['activo', 'almuerzo', 'particular'])
@@ -81,12 +82,17 @@ export async function POST(request: NextRequest) {
         .maybeSingle()
 
       if (turnoViejo) {
+        const teniaSalida = !!turnoViejo.hora_salida
         await admin
           .from('asistencias')
           .update({
-            estado: 'auto_cerrado',
+            estado: teniaSalida ? 'cerrado' : 'auto_cerrado',
+            hora_salida: teniaSalida ? turnoViejo.hora_salida : ahora,
+            metodo_salida: teniaSalida ? 'automatico' : 'sistema',
             cierre_automatico: true,
-            notas: 'Cierre automático — heartbeat detectó nueva jornada',
+            notas: teniaSalida
+              ? 'Cierre automático — jornada de día anterior completada'
+              : 'Cierre automático — heartbeat detectó nueva jornada sin salida previa',
             actualizado_en: ahora,
           })
           .eq('id', turnoViejo.id)

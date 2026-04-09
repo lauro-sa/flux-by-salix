@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ChevronUp, ChevronDown, ExternalLink, MapPin, Mail, Phone, X } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { motion, AnimatePresence } from 'framer-motion'
+import { DEBOUNCE_BUSQUEDA } from '@/lib/constantes/timeouts'
 
 /**
  * SelectorContactoPresupuesto — Buscador de contacto estilo plano.
@@ -113,7 +114,7 @@ export default function SelectorContactoPresupuesto({
       } catch { /* silenciar */ } finally {
         setBuscando(false)
       }
-    }, 300)
+    }, DEBOUNCE_BUSQUEDA)
     return () => clearTimeout(timeout)
   }, [busqueda])
 
