@@ -627,6 +627,7 @@ export function PanelChatter({
           estados={configActividades.estados as never[]}
           miembros={configActividades.miembros}
           vinculoInicial={vinculoInicialActividad}
+          modulo={entidadTipo}
           onGuardar={crearActividad}
           onCerrar={() => setModalActividad(false)}
         />

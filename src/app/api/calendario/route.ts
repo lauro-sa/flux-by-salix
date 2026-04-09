@@ -24,8 +24,29 @@ export async function GET(request: NextRequest) {
     const soloPropio = visibilidad.soloPropio
 
     const params = request.nextUrl.searchParams
+    const actividadId = params.get('actividad_id')
     const desde = params.get('desde')
     const hasta = params.get('hasta')
+
+    const admin = crearClienteAdmin()
+
+    // Modo directo: buscar eventos por actividad_id (usado por SeccionBloquesCalendario)
+    if (actividadId) {
+      const { data, error } = await admin
+        .from('eventos_calendario')
+        .select('*')
+        .eq('empresa_id', empresaId)
+        .eq('actividad_id', actividadId)
+        .eq('en_papelera', false)
+        .order('fecha_inicio', { ascending: true })
+
+      if (error) {
+        console.error('Error al listar eventos por actividad:', error)
+        return NextResponse.json({ error: 'Error al listar eventos' }, { status: 500 })
+      }
+
+      return NextResponse.json({ eventos: data || [] })
+    }
 
     if (!desde || !hasta) {
       return NextResponse.json({ error: 'Parámetros desde y hasta son obligatorios' }, { status: 400 })
@@ -34,8 +55,6 @@ export async function GET(request: NextRequest) {
     const usuarioId = params.get('usuario_id')
     const tipo = params.get('tipo')
     const vista = params.get('vista') || 'todos'
-
-    const admin = crearClienteAdmin()
 
     // Eventos que se solapan con el rango: fecha_inicio < hasta AND fecha_fin > desde
     let query = admin

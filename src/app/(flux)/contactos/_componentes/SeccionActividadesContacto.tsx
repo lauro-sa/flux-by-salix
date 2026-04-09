@@ -182,6 +182,7 @@ function SeccionActividadesContacto({ contactoId, contactoNombre }: PropiedadesS
         estados={estados}
         miembros={miembros}
         vinculoInicial={{ tipo: 'contacto', id: contactoId, nombre: contactoNombre }}
+        modulo="contactos"
         onGuardar={crearActividad}
         onCerrar={() => setModalAbierto(false)}
       />
