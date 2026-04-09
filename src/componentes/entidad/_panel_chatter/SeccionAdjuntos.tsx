@@ -111,9 +111,9 @@ export function SeccionAdjuntos({ adjuntos, adjuntosDocumento = [], forzarExpand
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="px-3 py-1.5 space-y-0.5">
+            <div className="px-3 py-2 flex flex-wrap gap-1.5">
               {todos.map((adj, i) => (
-                <FilaAdjunto key={`${adj.url}-${i}`} adjunto={adj} />
+                <ChipAdjunto key={`${adj.url}-${i}`} adjunto={adj} />
               ))}
             </div>
           </motion.div>
@@ -123,41 +123,22 @@ export function SeccionAdjuntos({ adjuntos, adjuntosDocumento = [], forzarExpand
   )
 }
 
-// ─── Fila compacta de adjunto ───
-function FilaAdjunto({ adjunto }: { adjunto: AdjuntoConOrigen }) {
+// ─── Chip compacto de adjunto ───
+function ChipAdjunto({ adjunto }: { adjunto: AdjuntoConOrigen }) {
   const tipo = tipoArchivo(adjunto.tipo || '', adjunto.nombre)
-  const ext = extension(adjunto.nombre)
 
   return (
     <a
       href={adjunto.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-superficie-hover/60 transition-colors"
+      className={`inline-flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-md border border-borde-sutil hover:border-texto-marca/30 hover:bg-superficie-hover/60 transition-colors max-w-[200px] ${COLORES_TIPO[tipo].split(' ')[0]}`}
+      title={`${adjunto.nombre}${adjunto.origen ? ` · ${adjunto.origen}` : ''}`}
     >
-      {/* Ícono con color por tipo */}
-      <div className={`flex items-center justify-center size-7 rounded-md shrink-0 ${COLORES_TIPO[tipo]}`}>
-        <IconoArchivo tipo={tipo} size={14} />
+      <div className={`flex items-center justify-center size-5 rounded shrink-0 ${COLORES_TIPO[tipo]}`}>
+        <IconoArchivo tipo={tipo} size={11} />
       </div>
-
-      {/* Nombre + metadata */}
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium text-texto-primario truncate">{adjunto.nombre}</p>
-        <div className="flex items-center gap-1.5">
-          {ext && (
-            <span className="text-xxs font-semibold text-texto-terciario uppercase">{ext}</span>
-          )}
-          {adjunto.tamano && (
-            <span className="text-xxs text-texto-terciario">{formatearTamano(adjunto.tamano)}</span>
-          )}
-          {adjunto.origen && (
-            <span className="text-xxs text-texto-terciario truncate">· {adjunto.origen}</span>
-          )}
-        </div>
-      </div>
-
-      {/* Ícono abrir externo en hover */}
-      <ExternalLink size={12} className="text-texto-terciario opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+      <span className="text-xs text-texto-primario truncate">{adjunto.nombre}</span>
     </a>
   )
 }
