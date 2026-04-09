@@ -141,12 +141,11 @@ RETURNS void AS $$
 BEGIN
   INSERT INTO tipos_evento_calendario (empresa_id, clave, etiqueta, icono, color, duracion_default, todo_el_dia_default, es_predefinido, orden)
   VALUES
-    (p_empresa_id, 'reunion',      'Reunión',           'Users',   '#3B82F6', 60,  false, true, 0),
-    (p_empresa_id, 'llamada',      'Llamada',           'Phone',   '#10B981', 30,  false, true, 1),
-    (p_empresa_id, 'tarea',        'Realizar trabajo',  'Wrench',  '#F59E0B', 120, false, true, 2),
-    (p_empresa_id, 'visita',       'Visita',            'MapPin',  '#8B5CF6', 60,  false, true, 3),
-    (p_empresa_id, 'bloqueo',      'Bloqueo de tiempo', 'Clock',   '#6B7280', 60,  false, true, 4),
-    (p_empresa_id, 'recordatorio', 'Recordatorio',      'Bell',    '#EF4444', 15,  false, true, 5)
+    (p_empresa_id, 'reunion',      'Reunión',            'Users',   '#3B82F6', 60,  false, true, 0),
+    (p_empresa_id, 'llamada',      'Llamada',            'Phone',   '#10B981', 30,  false, true, 1),
+    (p_empresa_id, 'tarea',        'Bloque de trabajo',  'Wrench',  '#F59E0B', 120, false, true, 2),
+    (p_empresa_id, 'bloqueo',      'Bloqueo de tiempo',  'Clock',   '#6B7280', 60,  false, true, 3),
+    (p_empresa_id, 'recordatorio', 'Recordatorio',       'Bell',    '#EF4444', 15,  false, true, 4)
   ON CONFLICT DO NOTHING;
 END;
 $$ LANGUAGE plpgsql;
