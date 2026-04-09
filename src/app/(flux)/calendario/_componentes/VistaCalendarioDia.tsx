@@ -80,6 +80,24 @@ function minutosDesdeInicio(fecha: Date): number {
   return (horas - HORA_INICIO) * 60 + minutos
 }
 
+/** Formatea duración en horas legibles: "1hs", "2.5hs", "30min" */
+function formatearDuracion(inicioStr: string | Date, finStr: string | Date): string {
+  const inicio = typeof inicioStr === 'string' ? new Date(inicioStr) : inicioStr
+  const fin = typeof finStr === 'string' ? new Date(finStr) : finStr
+  const minutos = Math.round((fin.getTime() - inicio.getTime()) / 60000)
+  if (minutos < 60) return `${minutos}min`
+  const horas = minutos / 60
+  return horas % 1 === 0 ? `${horas}hs` : `${horas.toFixed(1)}hs`
+}
+
+/** Formatea duración a partir de dos posiciones Y (px) en la cuadrícula */
+function formatearDuracionDesdeY(y1: number, y2: number): string {
+  const minutos = Math.round(Math.abs(y2 - y1) / ALTURA_FILA_HORA * 60)
+  if (minutos < 60) return `${minutos}min`
+  const horas = minutos / 60
+  return horas % 1 === 0 ? `${horas}hs` : `${horas.toFixed(1)}hs`
+}
+
 /** Formatea fecha completa: "Martes 8 de abril de 2026" */
 function formatearFechaCompleta(fecha: Date): string {
   const diaSemana = NOMBRES_DIA[fecha.getDay()]
@@ -280,6 +298,7 @@ function BloqueEventoDiaArrastrable({
       {/* Hora */}
       <div className="text-[11px] opacity-70 leading-tight">
         {horaDesdeISO(ep.evento.fecha_inicio)} – {horaDesdeISO(ep.evento.fecha_fin)}
+        <span className="opacity-60 ml-1">· {formatearDuracion(ep.evento.fecha_inicio, ep.evento.fecha_fin)}</span>
       </div>
 
       {/* Descripción (solo si hay espacio: > 45 min) */}
@@ -785,6 +804,7 @@ function VistaCalendarioDia({
                   {formatoHoraDesdeYDia(Math.min(seleccionDia.inicioY, seleccionDia.finY))}
                   {' – '}
                   {formatoHoraDesdeYDia(Math.max(seleccionDia.inicioY, seleccionDia.finY))}
+                  <span className="opacity-60 ml-1">· {formatearDuracionDesdeY(seleccionDia.inicioY, seleccionDia.finY)}</span>
                 </span>
               </div>
             )}
@@ -843,7 +863,10 @@ function VistaCalendarioDia({
               }}
             >
               <span className="text-sm font-medium truncate block">{eventoDragActivo.titulo}</span>
-              <span className="text-xs opacity-70 block">{hI} – {hF}</span>
+              <span className="text-xs opacity-70 block">
+                {hI} – {hF}
+                <span className="opacity-60 ml-1">· {formatearDuracion(nuevaInicio, nuevaFin)}</span>
+              </span>
             </div>
           )
         })()}

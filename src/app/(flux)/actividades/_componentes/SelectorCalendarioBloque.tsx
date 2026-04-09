@@ -174,6 +174,34 @@ function horaDecimalDesdeY(y: number): number {
   return HORA_INICIO + (y / ALTURA_FILA)
 }
 
+/** Formatea duración en horas legibles: "1hs", "2.5hs", "30min" */
+function formatearDuracion(inicioStr: string | Date, finStr: string | Date): string {
+  const inicio = typeof inicioStr === 'string' ? new Date(inicioStr) : inicioStr
+  const fin = typeof finStr === 'string' ? new Date(finStr) : finStr
+  const minutos = Math.round((fin.getTime() - inicio.getTime()) / 60000)
+  if (minutos < 60) return `${minutos}min`
+  const horas = minutos / 60
+  return horas % 1 === 0 ? `${horas}hs` : `${horas.toFixed(1)}hs`
+}
+
+/** Formatea duración a partir de dos posiciones Y (px) en la cuadrícula */
+function formatearDuracionDesdeY(y1: number, y2: number): string {
+  const minutos = Math.round(Math.abs(y2 - y1) / ALTURA_FILA * 60)
+  if (minutos < 60) return `${minutos}min`
+  const horas = minutos / 60
+  return horas % 1 === 0 ? `${horas}hs` : `${horas.toFixed(1)}hs`
+}
+
+/** Formatea duración entre dos horas string "HH:MM" */
+function formatearDuracionDesdeHoras(horaInicio: string, horaFin: string): string {
+  const [hi, mi] = horaInicio.split(':').map(Number)
+  const [hf, mf] = horaFin.split(':').map(Number)
+  const minutos = (hf * 60 + mf) - (hi * 60 + mi)
+  if (minutos < 60) return `${minutos}min`
+  const horas = minutos / 60
+  return horas % 1 === 0 ? `${horas}hs` : `${horas.toFixed(1)}hs`
+}
+
 /** Convierte hora string "HH:MM" a hora decimal */
 function horaDecimalDesdeStr(hora: string): number {
   const [h, m] = hora.split(':').map(Number)
@@ -274,6 +302,7 @@ function BloqueSeleccionadoArrastrable({
     >
       <span className="truncate block font-medium">
         {bloque.horaInicio} – {bloque.horaFin}
+        <span className="opacity-60 ml-1">· {formatearDuracionDesdeHoras(bloque.horaInicio, bloque.horaFin)}</span>
       </span>
 
       {/* Botón eliminar (X) */}
@@ -1001,6 +1030,7 @@ function SelectorCalendarioBloque({
                             {horaDesdeY(Math.min(arrastre.inicioY, arrastre.finY))}
                             {' – '}
                             {horaDesdeY(Math.max(arrastre.inicioY, arrastre.finY))}
+                            <span className="opacity-60 ml-1">· {formatearDuracionDesdeY(arrastre.inicioY, arrastre.finY)}</span>
                           </span>
                         </div>
                       )}
@@ -1111,6 +1141,7 @@ function SelectorCalendarioBloque({
             >
               <span className="text-[10px] font-medium block">
                 {etiquetaDia}{formatoHoraDecimal(nuevoInicioDec)} – {formatoHoraDecimal(nuevoFinDec)}
+                <span className="opacity-60 ml-1">· {formatearDuracionDesdeHoras(formatoHoraDecimal(nuevoInicioDec), formatoHoraDecimal(nuevoFinDec))}</span>
               </span>
             </div>
           )

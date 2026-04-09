@@ -107,6 +107,24 @@ function parsearFecha(iso: string): Date {
   return new Date(iso)
 }
 
+/** Formatea duración en horas legibles: "1hs", "2.5hs", "30min" */
+function formatearDuracion(inicioStr: string | Date, finStr: string | Date): string {
+  const inicio = typeof inicioStr === 'string' ? new Date(inicioStr) : inicioStr
+  const fin = typeof finStr === 'string' ? new Date(finStr) : finStr
+  const minutos = Math.round((fin.getTime() - inicio.getTime()) / 60000)
+  if (minutos < 60) return `${minutos}min`
+  const horas = minutos / 60
+  return horas % 1 === 0 ? `${horas}hs` : `${horas.toFixed(1)}hs`
+}
+
+/** Formatea duración a partir de dos posiciones Y (px) en la cuadrícula */
+function formatearDuracionDesdeY(y1: number, y2: number): string {
+  const minutos = Math.round(Math.abs(y2 - y1) / ALTURA_FILA * 60)
+  if (minutos < 60) return `${minutos}min`
+  const horas = minutos / 60
+  return horas % 1 === 0 ? `${horas}hs` : `${horas.toFixed(1)}hs`
+}
+
 /** Obtiene índice del día en la semana (0=lun, 6=dom) para obtener nombre */
 function indiceDiaSemana(fecha: Date): number {
   const dia = fecha.getDay()
@@ -282,6 +300,7 @@ function BloqueEventoArrastrable({
           </span>
           <span className="text-[10px] leading-tight opacity-70 block">
             {formatearHoraCorta(inicioDate)} – {formatearHoraCorta(finDate)}
+            <span className="opacity-60 ml-1">· {formatearDuracion(inicioDate, finDate)}</span>
           </span>
         </>
       )}
@@ -915,6 +934,7 @@ function VistaCalendarioSemana({
                           {formatoHoraDesdeY(Math.min(seleccion.inicioY, seleccion.finY))}
                           {' – '}
                           {formatoHoraDesdeY(Math.max(seleccion.inicioY, seleccion.finY))}
+                          <span className="opacity-60 ml-1">· {formatearDuracionDesdeY(seleccion.inicioY, seleccion.finY)}</span>
                         </span>
                       </div>
                     )}
@@ -976,6 +996,7 @@ function VistaCalendarioSemana({
               <span className="text-[10px] opacity-70 block">
                 {deltaDias !== 0 && `${DIAS_CORTOS[nuevaInicio.getDay()]} ${nuevaInicio.getDate()} · `}
                 {formatearHoraCorta(nuevaInicio)} – {formatearHoraCorta(nuevaFin)}
+                <span className="opacity-60 ml-1">· {formatearDuracion(nuevaInicio, nuevaFin)}</span>
               </span>
             </div>
           )
