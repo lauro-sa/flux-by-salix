@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-import { generarPdfPresupuesto } from '@/lib/pdf/generar-pdf'
+import { generarPdfPresupuesto, congelarPdfExistente } from '@/lib/pdf/generar-pdf'
 
 /**
  * POST /api/presupuestos/[id]/pdf — Generar PDF del presupuesto.
@@ -44,11 +44,22 @@ export async function POST(
 
     const admin = crearClienteAdmin()
 
-    // Generar PDF (la función maneja internamente la optimización de no regenerar)
-    const resultado = await generarPdfPresupuesto(admin, presupuestoId, empresaId, {
-      congelado,
-      forzar,
-    })
+    // Si es congelado, copiar el PDF existente a ruta de congelados (sin Puppeteer)
+    // Si no existe PDF previo, generar uno normal primero y luego congelar
+    let resultado
+    if (congelado) {
+      // Intentar congelar el PDF existente (copia rápida, sin regenerar)
+      resultado = await congelarPdfExistente(admin, presupuestoId, empresaId)
+      if (!resultado) {
+        // No hay PDF existente — generar uno normal primero
+        await generarPdfPresupuesto(admin, presupuestoId, empresaId, { congelado: false, forzar: true })
+        // Ahora sí congelar la copia
+        resultado = await congelarPdfExistente(admin, presupuestoId, empresaId)
+        if (!resultado) throw new Error('No se pudo congelar el PDF')
+      }
+    } else {
+      resultado = await generarPdfPresupuesto(admin, presupuestoId, empresaId, { congelado: false, forzar })
+    }
 
     // Si es vista previa, redirigir al PDF
     if (vista_previa && resultado.url) {

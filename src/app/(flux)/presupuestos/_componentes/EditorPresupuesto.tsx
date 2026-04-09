@@ -837,23 +837,37 @@ export default function EditorPresupuesto({
     setSnapshotCorreo(null)
     setModalEnviarAbierto(true)
     if (idPresupuesto) {
-      guardarTodo().then(() => {
-        Promise.all([
-          fetch(`/api/presupuestos/${idPresupuesto}/pdf`, {
+      guardarTodo().then(async () => {
+        // 1. Generar/actualizar PDF normal (con ediciones actuales)
+        try {
+          const resPdf = await fetch(`/api/presupuestos/${idPresupuesto}/pdf`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ congelado: true, forzar: true }),
-          }).then(r => r.json()).then(data => {
-            if (data.url) {
-              setPdfCongeladoUrl(data.url)
-              setPresupuesto(prev => prev ? { ...prev, pdf_url: data.url } : null)
-            }
-          }).catch(() => {}),
-          fetch(`/api/presupuestos/${idPresupuesto}/portal`, { method: 'POST' })
-            .then(r => r.json())
-            .then(data => { if (data.url) setUrlPortalReal(data.url) })
-            .catch(() => {}),
-        ]).catch(() => {})
+            body: JSON.stringify({ forzar: true }),
+          })
+          const dataPdf = await resPdf.json()
+          if (dataPdf.url) {
+            setPresupuesto(prev => prev ? { ...prev, pdf_url: dataPdf.url } : null)
+          }
+        } catch { /* silenciar */ }
+
+        // 2. Congelar copia del PDF actualizado (sin Puppeteer, solo copia en Storage)
+        try {
+          const resCongelado = await fetch(`/api/presupuestos/${idPresupuesto}/pdf`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ congelado: true }),
+          })
+          const dataCongelado = await resCongelado.json()
+          if (dataCongelado.url) setPdfCongeladoUrl(dataCongelado.url)
+        } catch { /* silenciar */ }
+
+        // 3. Generar enlace portal en paralelo
+        try {
+          const resPortal = await fetch(`/api/presupuestos/${idPresupuesto}/portal`, { method: 'POST' })
+          const dataPortal = await resPortal.json()
+          if (dataPortal.url) setUrlPortalReal(dataPortal.url)
+        } catch { /* silenciar */ }
       })
     }
   }
@@ -1131,6 +1145,14 @@ export default function EditorPresupuesto({
     const pid = idPresupuesto
     if (!pid) return
     try {
+      await guardarTodo()
+      // Regenerar PDF solo si hay cambios (forzar: false usa caché inteligente)
+      await fetch(`/api/presupuestos/${pid}/pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ forzar: false }),
+      }).catch(() => {})
+
       const res = await fetch(`/api/presupuestos/${pid}/portal`, { method: 'POST' })
       if (!res.ok) return
       const data = await res.json()

@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
       tipo = 'nuevo', // 'nuevo' | 'responder' | 'responder_todos' | 'reenviar'
       pdf_url,       // URL directa de un PDF a adjuntar (ej: presupuesto)
       pdf_nombre,    // Nombre del archivo PDF
+      pdf_congelado_url, // URL del PDF congelado (snapshot) para guardar en chatter
       entidad_tipo,  // Opcional: tipo de entidad para registrar en chatter (ej: 'presupuesto')
       entidad_id,    // Opcional: ID de entidad para registrar en chatter
     } = body
@@ -440,6 +441,16 @@ export async function POST(request: NextRequest) {
     // ─── Registrar en chatter si hay entidad vinculada ───
     if (entidad_tipo && entidad_id) {
       try {
+        // Construir adjuntos del chatter con el PDF congelado (snapshot de la versión enviada)
+        const adjuntosChatter: import('@/tipos/chatter').AdjuntoChatter[] = []
+        if (pdf_congelado_url || pdf_url) {
+          adjuntosChatter.push({
+            url: (pdf_congelado_url || pdf_url) as string,
+            nombre: (pdf_nombre as string) || 'documento.pdf',
+            tipo: 'application/pdf',
+          })
+        }
+
         await registrarCorreoEnChatter({
           empresaId,
           entidadTipo: entidad_tipo,
@@ -451,6 +462,7 @@ export async function POST(request: NextRequest) {
           remitente: de,
           messageId: correoMessageId || undefined,
           html: html || undefined,
+          adjuntos: adjuntosChatter.length > 0 ? adjuntosChatter : undefined,
           usuarioId: userId,
           usuarioNombre: nombreRealUsuario,
         })

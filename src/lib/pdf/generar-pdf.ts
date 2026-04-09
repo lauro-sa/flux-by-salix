@@ -188,6 +188,48 @@ async function subirAStorage(
   return { url: urlConCacheBuster, storagePath }
 }
 
+// ─── Congelar PDF existente (copia sin regenerar) ───
+
+/**
+ * Copia el PDF existente del presupuesto a la ruta de congelados.
+ * No ejecuta Puppeteer — solo descarga y re-sube a Storage.
+ * Retorna null si no hay PDF existente.
+ */
+export async function congelarPdfExistente(
+  admin: SupabaseClient,
+  presupuestoId: string,
+  empresaId: string,
+): Promise<ResultadoPdf | null> {
+  // Obtener la ruta del PDF actual
+  const { data: presupuesto } = await admin
+    .from('presupuestos')
+    .select('pdf_storage_path, pdf_url, numero')
+    .eq('id', presupuestoId)
+    .eq('empresa_id', empresaId)
+    .single()
+
+  if (!presupuesto?.pdf_storage_path) return null
+
+  // Descargar el PDF existente desde Storage
+  const { data: pdfData, error: dlError } = await admin.storage
+    .from('documentos-pdf')
+    .download(presupuesto.pdf_storage_path)
+
+  if (dlError || !pdfData) return null
+
+  const pdfBuffer = Buffer.from(await pdfData.arrayBuffer())
+
+  // Subir como congelado (ruta con timestamp único)
+  const { url, storagePath } = await subirAStorage(admin, empresaId, presupuestoId, pdfBuffer, true)
+
+  return {
+    url,
+    storage_path: storagePath,
+    nombre_archivo: presupuesto.numero ? `${presupuesto.numero}.pdf` : 'documento.pdf',
+    tamano: pdfBuffer.length,
+  }
+}
+
 // ─── Función principal ───
 
 export async function generarPdfPresupuesto(
