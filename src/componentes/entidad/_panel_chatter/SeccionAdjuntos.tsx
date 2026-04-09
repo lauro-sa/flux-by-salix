@@ -191,17 +191,17 @@ function TarjetaAdjunto({ adjunto }: { adjunto: AdjuntoConOrigen }) {
       className="group block w-[130px] rounded-md border border-borde-sutil overflow-hidden hover:border-texto-marca/30 transition-colors"
       title={adjunto.nombre}
     >
-      {/* Preview — object-top para mostrar inicio del documento */}
-      <div className="relative h-[80px] bg-superficie-app flex items-center justify-center overflow-hidden">
+      {/* Preview — ancho completo, recorte del 40% superior del documento */}
+      <div className="relative h-[70px] bg-superficie-app flex items-start justify-center overflow-hidden">
         {tieneMiniatura ? (
           <img
             src={adjunto.miniatura_url || adjunto.url}
             alt={adjunto.nombre}
-            className="w-full h-full object-cover object-top"
+            className="w-full object-cover object-top"
             loading="lazy"
           />
         ) : (
-          <div className={`flex flex-col items-center gap-0.5 ${COLORES_TIPO[tipo].split(' ')[1] || 'text-texto-terciario'}`}>
+          <div className={`flex flex-col items-center gap-0.5 pt-4 ${COLORES_TIPO[tipo].split(' ')[1] || 'text-texto-terciario'}`}>
             <IconoArchivo tipo={tipo} size={22} />
             {extension(adjunto.nombre) && (
               <span className="text-xxs font-bold uppercase opacity-60">{extension(adjunto.nombre)}</span>

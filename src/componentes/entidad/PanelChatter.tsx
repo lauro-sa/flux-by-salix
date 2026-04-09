@@ -396,7 +396,7 @@ export function PanelChatter({
                 title={`${totalAdjuntos} adjunto${totalAdjuntos > 1 ? 's' : ''}`}
               >
                 <Paperclip size={14} />
-                <span className="absolute -top-0.5 -right-0.5 text-xxs font-bold bg-texto-marca text-blanco size-3.5 rounded-full flex items-center justify-center">
+                <span className="absolute -top-0.5 -right-0.5 text-xxs font-bold bg-texto-marca/80 text-blanco min-w-[14px] h-[14px] px-0.5 rounded-full flex items-center justify-center">
                   {totalAdjuntos}
                 </span>
               </button>
