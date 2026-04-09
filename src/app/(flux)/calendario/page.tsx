@@ -7,7 +7,7 @@
  * Se usa como: /calendario
  */
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Calendar, PlusCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
@@ -153,8 +153,9 @@ export default function PaginaCalendario() {
   const [filtroVista, setFiltroVista] = useState('todos')
   const [usuarioActualId, setUsuarioActualId] = useState<string | null>(null)
 
-  // Ref para evitar doble-fetch en desarrollo (StrictMode)
-  const fetchRef = useRef(false)
+  // Estado de horario laboral desde configuración de empresa
+  const [horaInicioLaboral, setHoraInicioLaboral] = useState<number>(8)
+  const [horaFinLaboral, setHoraFinLaboral] = useState<number>(18)
 
   // --- Carga de config (tipos + vista default) y usuario actual ---
   useEffect(() => {
@@ -164,6 +165,15 @@ export default function PaginaCalendario() {
         if (res.ok) {
           const datos = await res.json()
           setTiposEvento(datos.tipos || [])
+          // Leer horario laboral desde config
+          if (datos.config?.hora_inicio_laboral) {
+            const [h] = datos.config.hora_inicio_laboral.split(':').map(Number)
+            setHoraInicioLaboral(h)
+          }
+          if (datos.config?.hora_fin_laboral) {
+            const [h] = datos.config.hora_fin_laboral.split(':').map(Number)
+            setHoraFinLaboral(h)
+          }
           // Solo aplicar vista de empresa si el usuario no tiene preferencia guardada
           const vistaUsuario = localStorage.getItem('flux_calendario_vista_usuario')
           if (!vistaUsuario && datos.config?.vista_default) {
@@ -249,13 +259,7 @@ export default function PaginaCalendario() {
   }, [vistaActiva, fechaActual])
 
   useEffect(() => {
-    // Evitar doble-fetch en StrictMode
-    if (fetchRef.current) {
-      cargarEventos()
-    }
-    fetchRef.current = true
     cargarEventos()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cargarEventos])
 
   // --- Navegación ---
@@ -465,6 +469,28 @@ export default function PaginaCalendario() {
     }
   }, [cargarEventos, mostrar])
 
+  // --- Swipe para navegar en móvil ---
+  const refSwipe = useRef<{ startX: number; startY: number } | null>(null)
+
+  const manejarTouchStartSwipe = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    refSwipe.current = { startX: touch.clientX, startY: touch.clientY }
+  }, [])
+
+  const manejarTouchEndSwipe = useCallback((e: React.TouchEvent) => {
+    if (!refSwipe.current) return
+    const touch = e.changedTouches[0]
+    const deltaX = touch.clientX - refSwipe.current.startX
+    const deltaY = touch.clientY - refSwipe.current.startY
+    refSwipe.current = null
+
+    // Solo activar swipe si el movimiento horizontal es mayor que el vertical
+    // y mayor que un umbral mínimo (70px)
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 70) {
+      navegar(deltaX > 0 ? 'anterior' : 'siguiente')
+    }
+  }, [navegar])
+
   // --- Renderizado de vista activa ---
   const renderizarVista = () => {
     switch (vistaActiva) {
@@ -486,6 +512,8 @@ export default function PaginaCalendario() {
             onClickHora={manejarClickDia}
             onClickEvento={manejarClickEvento}
             onMoverEvento={moverEvento}
+            horaInicioLaboral={horaInicioLaboral}
+            horaFinLaboral={horaFinLaboral}
           />
         )
 
@@ -497,6 +525,8 @@ export default function PaginaCalendario() {
             onClickHora={manejarClickDia}
             onClickEvento={manejarClickEvento}
             onMoverEvento={moverEvento}
+            horaInicioLaboral={horaInicioLaboral}
+            horaFinLaboral={horaFinLaboral}
           />
         )
 
@@ -508,6 +538,8 @@ export default function PaginaCalendario() {
             onClickHora={manejarClickDia}
             onClickEvento={manejarClickEvento}
             onMoverEvento={moverEvento}
+            horaInicioLaboral={horaInicioLaboral}
+            horaFinLaboral={horaFinLaboral}
           />
         )
 
@@ -538,6 +570,8 @@ export default function PaginaCalendario() {
             miembros={[]}
             onClickHora={manejarClickDia}
             onClickEvento={manejarClickEvento}
+            horaInicioLaboral={horaInicioLaboral}
+            horaFinLaboral={horaFinLaboral}
           />
         )
 
@@ -583,8 +617,12 @@ export default function PaginaCalendario() {
         onCambiarFiltroVista={setFiltroVista}
       />
 
-      {/* Vista activa — contenedor relativo para el mini calendario flotante */}
-      <div className="flex-1 min-h-0 -mx-2 sm:-mx-6 relative">
+      {/* Vista activa — contenedor relativo para el mini calendario flotante + swipe navigation */}
+      <div
+        className="flex-1 min-h-0 -mx-2 sm:-mx-6 relative"
+        onTouchStart={manejarTouchStartSwipe}
+        onTouchEnd={manejarTouchEndSwipe}
+      >
         {renderizarVista()}
 
         {/* Mini calendario flotante (solo en vistas que no son mes/agenda) */}
@@ -593,6 +631,7 @@ export default function PaginaCalendario() {
             fechaActual={fechaActual}
             onSeleccionarDia={(fecha) => setFechaActual(fecha)}
             eventos={eventos}
+            vistaActiva={vistaActiva}
           />
         )}
       </div>

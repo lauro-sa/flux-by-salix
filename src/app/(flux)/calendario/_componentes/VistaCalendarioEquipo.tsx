@@ -11,6 +11,14 @@
 import { useMemo, useRef, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { useFormato } from '@/hooks/useFormato'
+import { useTraduccion } from '@/lib/i18n'
+import {
+  mismoDia,
+  esHoy,
+  formatearHoraISO,
+  formatearEtiquetaHora,
+} from './constantes'
 import type { EventoCalendario } from './tipos'
 
 // --- Constantes ---
@@ -46,23 +54,13 @@ interface PropiedadesVistaEquipo {
   onClickHora: (fecha: Date) => void
   /** Click en evento → editar */
   onClickEvento: (evento: EventoCalendario, posicion?: { x: number; y: number }) => void
+  /** Hora de inicio del horario laboral (para resaltar) */
+  horaInicioLaboral?: number
+  /** Hora de fin del horario laboral */
+  horaFinLaboral?: number
 }
 
 // --- Utilidades ---
-
-/** Compara si dos fechas son el mismo día */
-function mismoDia(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  )
-}
-
-/** Comprueba si la fecha es hoy */
-function esHoy(fecha: Date): boolean {
-  return mismoDia(fecha, new Date())
-}
 
 /** Convierte hora y minutos a posición Y en píxeles */
 function tiempoAPx(horas: number, minutos: number): number {
@@ -72,18 +70,6 @@ function tiempoAPx(horas: number, minutos: number): number {
 /** Obtiene minutos desde HORA_INICIO para un Date */
 function minutosDesdeInicio(fecha: Date): number {
   return (fecha.getHours() - HORA_INICIO) * 60 + fecha.getMinutes()
-}
-
-/** Formatea hora como "08:00" */
-function formatearHora(hora: number): string {
-  return `${hora.toString().padStart(2, '0')}:00`
-}
-
-/** Formatea hora desde ISO string: "09:30" */
-function horaDesdeISO(iso: string): string {
-  const fecha = new Date(iso)
-  if (isNaN(fecha.getTime())) return ''
-  return fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
 /** Inicial del nombre para el avatar */
@@ -187,7 +173,12 @@ function VistaCalendarioEquipo({
   miembros: miembrosExternos,
   onClickHora,
   onClickEvento,
+  horaInicioLaboral,
+  horaFinLaboral,
 }: PropiedadesVistaEquipo) {
+  const { formatoHora } = useFormato()
+  const { t } = useTraduccion()
+  const es24h = formatoHora !== '12h'
   const refCuadricula = useRef<HTMLDivElement>(null)
   const [miembrosInternos, setMiembrosInternos] = useState<MiembroEquipo[]>([])
 
@@ -267,7 +258,7 @@ function VistaCalendarioEquipo({
     if (!refCuadricula.current) return
     const ahora = new Date()
     const horaActual = ahora.getHours()
-    const horaObjetivo = Math.max(horaActual - 1, HORA_INICIO)
+    const horaObjetivo = Math.max(horaActual - 1, horaInicioLaboral ?? HORA_INICIO)
     const pixelesObjetivo = (horaObjetivo - HORA_INICIO) * ALTURA_FILA
     refCuadricula.current.scrollTop = pixelesObjetivo
   }, [])
@@ -301,7 +292,7 @@ function VistaCalendarioEquipo({
         animate={{ opacity: 1 }}
         className="flex items-center justify-center h-full text-texto-terciario text-sm"
       >
-        Cargando miembros del equipo...
+        {t('calendario.cargando_miembros')}
       </motion.div>
     )
   }
@@ -312,6 +303,8 @@ function VistaCalendarioEquipo({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
       className="flex flex-col flex-1 min-h-0"
+      role="grid"
+      aria-label={t('calendario.a11y.calendario_equipo')}
     >
       {/* Encabezado: columnas de miembros */}
       <div className="flex border-b border-borde-sutil shrink-0">
@@ -360,7 +353,7 @@ function VistaCalendarioEquipo({
                 className="absolute right-2 text-xs text-texto-terciario leading-none -translate-y-1/2"
                 style={{ top: tiempoAPx(hora, 0) }}
               >
-                {formatearHora(hora)}
+                {formatearEtiquetaHora(hora, es24h)}
               </div>
             ))}
           </div>
@@ -406,7 +399,7 @@ function VistaCalendarioEquipo({
               return (
                 <div
                   key={miembro.usuario_id}
-                  className="relative border-r border-borde-sutil last:border-r-0"
+                  className="relative border-r border-borde-sutil last:border-r-0 touch-none"
                   onClick={(e) => manejarClickCeldaMiembro(miembro, e)}
                 >
                   {/* Eventos posicionados */}
@@ -440,20 +433,20 @@ function VistaCalendarioEquipo({
                         }}
                       >
                         {/* Título */}
-                        <span className="text-[11px] leading-tight truncate block font-medium">
+                        <span className="text-[11px] sm:text-xs leading-tight truncate block font-medium">
                           {ep.evento.titulo}
                         </span>
 
                         {/* Hora (solo si hay espacio) */}
                         {ep.altoPixeles >= 35 && (
-                          <span className="text-[10px] leading-tight opacity-70 block">
-                            {horaDesdeISO(ep.evento.fecha_inicio)} – {horaDesdeISO(ep.evento.fecha_fin)}
+                          <span className="text-[10px] sm:text-[11px] leading-tight opacity-70 block">
+                            {formatearHoraISO(ep.evento.fecha_inicio, es24h)} – {formatearHoraISO(ep.evento.fecha_fin, es24h)}
                           </span>
                         )}
 
                         {/* Descripción (solo si hay bastante espacio) */}
                         {ep.altoPixeles > 55 && ep.evento.descripcion && (
-                          <span className="text-[10px] leading-tight opacity-60 block truncate mt-0.5">
+                          <span className="text-[10px] sm:text-[11px] leading-tight opacity-60 block truncate mt-0.5">
                             {ep.evento.descripcion}
                           </span>
                         )}

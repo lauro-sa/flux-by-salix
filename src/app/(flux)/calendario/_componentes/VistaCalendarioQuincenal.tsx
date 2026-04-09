@@ -18,16 +18,29 @@ import {
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core'
+import { useFormato } from '@/hooks/useFormato'
+import { useTraduccion } from '@/lib/i18n'
+import {
+  NOMBRES_DIAS_SEMANA,
+  NOMBRES_MESES_CORTOS_MIN,
+  mismoDia,
+  esHoy,
+  inicioSemana,
+  claveDelDia,
+  indiceDiaSemana,
+  parsearFecha,
+  formatearHoraCorta,
+  formatearEtiquetaHora,
+  ALTURA_FILA,
+} from './constantes'
 import type { EventoCalendario } from './tipos'
 
-// --- Constantes ---
+// --- Constantes locales ---
 
 /** Hora de inicio de la cuadricula */
 const HORA_INICIO = 6
 /** Hora de fin de la cuadricula */
 const HORA_FIN = 22
-/** Altura en px de cada fila de 1 hora */
-const ALTURA_FILA = 60
 /** Maximo de eventos todo-el-dia visibles antes de "+N mas" */
 const MAX_TODO_DIA = 2
 /** Ancho de la columna de horas en px */
@@ -36,15 +49,6 @@ const ANCHO_COLUMNA_HORAS = 48
 const UMBRAL_ARRASTRE = 5
 /** Cantidad de dias en la vista quincenal */
 const DIAS_QUINCENA = 14
-
-/** Nombres cortos de dias (lunes primero) */
-const NOMBRES_DIAS = ['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom']
-
-/** Nombres cortos de meses */
-const NOMBRES_MESES_CORTO = [
-  'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-  'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
-]
 
 // --- Utilidades de fecha ---
 
@@ -56,30 +60,6 @@ function tiempoAPx(horas: number, minutos: number): number {
   return (horas * 60 + minutos - HORA_INICIO * 60) * (ALTURA_FILA / 60)
 }
 
-/** Compara si dos fechas son el mismo dia */
-function mismoDia(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  )
-}
-
-/** Comprueba si la fecha es hoy */
-function esHoy(fecha: Date): boolean {
-  return mismoDia(fecha, new Date())
-}
-
-/** Inicio de semana (lunes) para una fecha dada */
-function inicioSemana(fecha: Date): Date {
-  const d = new Date(fecha)
-  d.setHours(0, 0, 0, 0)
-  const dia = d.getDay()
-  const diff = dia === 0 ? 6 : dia - 1
-  d.setDate(d.getDate() - diff)
-  return d
-}
-
 /** Genera los 14 dias de la quincena (2 semanas a partir del lunes de la semana actual) */
 function diasDeLaQuincena(fecha: Date): Date[] {
   const lunes = inicioSemana(fecha)
@@ -88,34 +68,6 @@ function diasDeLaQuincena(fecha: Date): Date[] {
     d.setDate(lunes.getDate() + i)
     return d
   })
-}
-
-/** Formatea fecha como YYYY-MM-DD para usar como clave de mapa */
-function claveDelDia(fecha: Date): string {
-  const anio = fecha.getFullYear()
-  const mes = String(fecha.getMonth() + 1).padStart(2, '0')
-  const dia = String(fecha.getDate()).padStart(2, '0')
-  return `${anio}-${mes}-${dia}`
-}
-
-/** Formatea hora corta desde un Date: "09:30" */
-function formatearHoraCorta(fecha: Date): string {
-  return fecha.toLocaleTimeString('es-ES', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
-}
-
-/** Parsea un string ISO a Date */
-function parsearFecha(iso: string): Date {
-  return new Date(iso)
-}
-
-/** Obtiene indice del dia en la semana (0=lun, 6=dom) */
-function indiceDiaSemana(fecha: Date): number {
-  const dia = fecha.getDay()
-  return dia === 0 ? 6 : dia - 1
 }
 
 // --- Deteccion de solapamiento ---
@@ -183,6 +135,8 @@ interface PropiedadesEventoArrastrable {
   evento: EventoCalendario
   posicion: EventoPosicionado
   onClickEvento: (evento: EventoCalendario) => void
+  /** Si el formato de hora es 24h (true) o 12h (false) */
+  es24h: boolean
 }
 
 /**
@@ -193,10 +147,11 @@ function BloqueEventoArrastrable({
   evento,
   posicion,
   onClickEvento,
+  es24h,
 }: PropiedadesEventoArrastrable) {
   const { inicioMin, finMin, columna, totalColumnas } = posicion
   const duracionMin = finMin - inicioMin
-  const alturaPx = Math.max(duracionMin * (ALTURA_FILA / 60), 18)
+  const alturaPx = Math.max(duracionMin * (ALTURA_FILA / 60), 24)
   const topPx = inicioMin * (ALTURA_FILA / 60)
   const anchoPorc = 100 / totalColumnas
   const izquierdaPorc = columna * anchoPorc
@@ -266,7 +221,7 @@ function BloqueEventoArrastrable({
       }}
     >
       {esCorto ? (
-        <span className="text-[9px] leading-tight truncate block font-medium">
+        <span className="text-[9px] sm:text-[10px] leading-tight truncate block font-medium">
           {evento.titulo}
         </span>
       ) : (
@@ -274,8 +229,8 @@ function BloqueEventoArrastrable({
           <span className="text-[10px] leading-tight truncate block font-medium">
             {evento.titulo}
           </span>
-          <span className="text-[9px] leading-tight opacity-70 block">
-            {formatearHoraCorta(inicioDate)} – {formatearHoraCorta(finDate)}
+          <span className="text-[9px] sm:text-[10px] leading-tight opacity-70 block">
+            {formatearHoraCorta(inicioDate, es24h)} – {formatearHoraCorta(finDate, es24h)}
           </span>
         </>
       )}
@@ -305,6 +260,10 @@ interface PropiedadesVistaQuincenal {
   onClickEvento: (evento: EventoCalendario, posicion?: { x: number; y: number }) => void
   /** Drag para mover evento */
   onMoverEvento?: (id: string, nuevaInicio: string, nuevaFin: string) => void
+  /** Hora de inicio de jornada laboral (para overlay visual) */
+  horaInicioLaboral?: number
+  /** Hora de fin de jornada laboral (para overlay visual) */
+  horaFinLaboral?: number
 }
 
 /** Estado de la seleccion por arrastre (drag-to-select) */
@@ -358,7 +317,27 @@ function VistaCalendarioQuincenal({
   onClickHora,
   onClickEvento,
   onMoverEvento,
+  horaInicioLaboral,
+  horaFinLaboral,
 }: PropiedadesVistaQuincenal) {
+  const { formatoHora } = useFormato()
+  const { t } = useTraduccion()
+  const es24h = formatoHora !== '12h'
+
+  // En movil (<768px), mostrar solo 7 dias en vez de 14
+  const [esMobile, setEsMobile] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.innerWidth < 768
+  })
+
+  useEffect(() => {
+    const manejarResize = () => setEsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', manejarResize)
+    return () => window.removeEventListener('resize', manejarResize)
+  }, [])
+
+  const diasVisibles = esMobile ? 7 : DIAS_QUINCENA
+
   const refCuadricula = useRef<HTMLDivElement>(null)
   const refColumnas = useRef<HTMLDivElement>(null)
   const [minutosAhora, setMinutosAhora] = useState(() => {
@@ -439,10 +418,10 @@ function VistaCalendarioQuincenal({
   useEffect(() => {
     if (!refCuadricula.current) return
     const ahora = new Date()
-    const horaObjetivo = Math.min(ahora.getHours(), 8)
+    const horaObjetivo = Math.min(ahora.getHours(), horaInicioLaboral ?? 8)
     const scrollY = tiempoAPx(horaObjetivo, 0)
     refCuadricula.current.scrollTop = scrollY
-  }, [])
+  }, [horaInicioLaboral])
 
   // Altura total de la cuadricula
   const alturaTotal = (HORA_FIN - HORA_INICIO) * ALTURA_FILA
@@ -466,6 +445,39 @@ function VistaCalendarioQuincenal({
       })
     },
     [],
+  )
+
+  /** Touch: inicia seleccion */
+  const manejarTouchStart = useCallback(
+    (dia: Date, e: React.TouchEvent<HTMLDivElement>) => {
+      const objetivo = e.target as HTMLElement
+      if (objetivo.closest('[data-evento-bloque]')) return
+      const touch = e.touches[0]
+      const rect = e.currentTarget.getBoundingClientRect()
+      const y = redondearYA15Min(touch.clientY - rect.top)
+      setSeleccion({ dia, inicioY: y, finY: y, activa: true })
+    },
+    [],
+  )
+
+  /** Touch: actualiza seleccion */
+  const manejarTouchMove = useCallback(
+    (e: React.TouchEvent<HTMLDivElement>) => {
+      if (!refSeleccion.current?.activa) return
+      e.preventDefault()
+      const touch = e.touches[0]
+      const claveSeleccion = claveDelDia(refSeleccion.current.dia)
+      const columnaDiv = e.currentTarget.querySelector(
+        `[data-dia-clave="${claveSeleccion}"]`,
+      ) as HTMLElement | null
+      if (!columnaDiv) return
+      const rect = columnaDiv.getBoundingClientRect()
+      const yRelativo = touch.clientY - rect.top
+      const yClamped = Math.max(0, Math.min(yRelativo, alturaTotal))
+      const yRedondeado = redondearYA15Min(yClamped)
+      setSeleccion((prev) => prev ? { ...prev, finY: yRedondeado } : null)
+    },
+    [alturaTotal],
   )
 
   const manejarMouseMove = useCallback(
@@ -515,7 +527,11 @@ function VistaCalendarioQuincenal({
     }
 
     document.addEventListener('mouseup', manejarMouseUp)
-    return () => document.removeEventListener('mouseup', manejarMouseUp)
+    document.addEventListener('touchend', manejarMouseUp)
+    return () => {
+      document.removeEventListener('mouseup', manejarMouseUp)
+      document.removeEventListener('touchend', manejarMouseUp)
+    }
   }, [onClickHora])
 
   /**
@@ -551,7 +567,7 @@ function VistaCalendarioQuincenal({
         let deltaDias = 0
         if (refColumnas.current) {
           const anchoCuadricula = refColumnas.current.getBoundingClientRect().width
-          const anchoColumna = anchoCuadricula / DIAS_QUINCENA
+          const anchoColumna = anchoCuadricula / diasVisibles
           deltaDias = Math.round(delta.x / anchoColumna)
         }
 
@@ -566,7 +582,7 @@ function VistaCalendarioQuincenal({
         onMoverEvento(eventoId, nuevaInicio.toISOString(), nuevaFin.toISOString())
       }
     },
-    [eventos, onMoverEvento],
+    [eventos, onMoverEvento, diasVisibles],
   )
 
   // Posicion Y de la linea de hora actual
@@ -587,6 +603,8 @@ function VistaCalendarioQuincenal({
   return (
     <DndContext sensors={sensores} onDragEnd={manejarFinArrastre}>
       <motion.div
+        role="grid"
+        aria-label={t('calendario.a11y.calendario_quincenal')}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2 }}
@@ -601,8 +619,8 @@ function VistaCalendarioQuincenal({
           />
 
           {/* Nombres y numeros de dias */}
-          <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${DIAS_QUINCENA}, 1fr)` }}>
-            {diasQuincena.map((dia: Date, indice: number) => {
+          <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${diasVisibles}, 1fr)` }}>
+            {diasQuincena.slice(0, diasVisibles).map((dia: Date, indice: number) => {
               const hoyFlag = esHoy(dia)
               const mostrarMes = necesitaEtiquetaMes(dia, indice)
               return (
@@ -610,8 +628,8 @@ function VistaCalendarioQuincenal({
                   key={claveDelDia(dia)}
                   className="flex flex-col items-center py-1.5 border-r border-borde-sutil last:border-r-0"
                 >
-                  <span className="text-[9px] font-medium text-texto-terciario uppercase tracking-wider">
-                    {NOMBRES_DIAS[indiceDiaSemana(dia)]}
+                  <span className="text-[9px] sm:text-[10px] font-medium text-texto-terciario uppercase tracking-wider">
+                    {NOMBRES_DIAS_SEMANA[indiceDiaSemana(dia)]}
                   </span>
                   <span
                     className={[
@@ -625,8 +643,8 @@ function VistaCalendarioQuincenal({
                   </span>
                   {/* Mostrar mes abreviado cuando cruza de mes */}
                   {mostrarMes && (
-                    <span className="text-[8px] text-texto-terciario font-medium mt-0.5">
-                      {NOMBRES_MESES_CORTO[dia.getMonth()]}
+                    <span className="text-[8px] sm:text-[9px] text-texto-terciario font-medium mt-0.5">
+                      {NOMBRES_MESES_CORTOS_MIN[dia.getMonth()]}
                     </span>
                   )}
                 </div>
@@ -639,14 +657,14 @@ function VistaCalendarioQuincenal({
         {eventosTodoDiaPorDia.size > 0 && (
           <div className="flex border-b border-borde-sutil shrink-0">
             <div
-              className="shrink-0 flex items-start justify-end pr-1 pt-1 text-[9px] text-texto-terciario border-r border-borde-sutil"
+              className="shrink-0 flex items-start justify-end pr-1 pt-1 text-[9px] sm:text-[10px] text-texto-terciario border-r border-borde-sutil"
               style={{ width: ANCHO_COLUMNA_HORAS }}
             >
-              Todo el dia
+              {t('calendario.todo_el_dia')}
             </div>
 
-            <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${DIAS_QUINCENA}, 1fr)` }}>
-              {diasQuincena.map((dia: Date) => {
+            <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${diasVisibles}, 1fr)` }}>
+              {diasQuincena.slice(0, diasVisibles).map((dia: Date) => {
                 const clave = claveDelDia(dia)
                 const eventosDia = eventosTodoDiaPorDia.get(clave) || []
                 const visibles = eventosDia.slice(0, MAX_TODO_DIA)
@@ -663,7 +681,7 @@ function VistaCalendarioQuincenal({
                         type="button"
                         onClick={() => onClickEvento(evento)}
                         title={evento.titulo}
-                        className="w-full text-left truncate rounded px-1 py-0.5 text-[9px] leading-tight transition-opacity hover:opacity-80 block"
+                        className="w-full text-left truncate rounded px-1 py-0.5 text-[9px] sm:text-[10px] leading-tight transition-opacity hover:opacity-80 block"
                         style={{
                           backgroundColor: evento.color
                             ? `${evento.color}40`
@@ -675,7 +693,7 @@ function VistaCalendarioQuincenal({
                       </button>
                     ))}
                     {restantes > 0 && (
-                      <span className="text-[8px] text-texto-terciario pl-0.5">
+                      <span className="text-[8px] sm:text-[9px] text-texto-terciario pl-0.5">
                         +{restantes}
                       </span>
                     )}
@@ -700,7 +718,7 @@ function VistaCalendarioQuincenal({
                   className="absolute right-1 text-[10px] text-texto-terciario leading-none -translate-y-1/2"
                   style={{ top: tiempoAPx(hora, 0) }}
                 >
-                  {String(hora).padStart(2, '0')}:00
+                  {formatearEtiquetaHora(hora, es24h)}
                 </div>
               ))}
             </div>
@@ -709,8 +727,9 @@ function VistaCalendarioQuincenal({
             <div
               ref={refColumnas}
               className="grid flex-1 relative"
-              style={{ gridTemplateColumns: `repeat(${DIAS_QUINCENA}, 1fr)` }}
+              style={{ gridTemplateColumns: `repeat(${diasVisibles}, 1fr)` }}
               onMouseMove={manejarMouseMove}
+              onTouchMove={manejarTouchMove}
             >
               {/* Lineas horizontales de horas completas */}
               {HORAS.map((hora) => (
@@ -730,14 +749,16 @@ function VistaCalendarioQuincenal({
                 />
               ))}
 
-              {/* Separadores de semana: linea mas gruesa entre dia 7 y 8 */}
-              <div
-                className="absolute top-0 bottom-0 border-l-2 border-borde-fuerte/30 pointer-events-none z-[1]"
-                style={{ left: `${(7 / DIAS_QUINCENA) * 100}%` }}
-              />
+              {/* Separadores de semana: linea mas gruesa entre dia 7 y 8 (solo en desktop) */}
+              {!esMobile && (
+                <div
+                  className="absolute top-0 bottom-0 border-l-2 border-borde-fuerte/30 pointer-events-none z-[1]"
+                  style={{ left: `${(7 / diasVisibles) * 100}%` }}
+                />
+              )}
 
               {/* Columnas individuales de cada dia */}
-              {diasQuincena.map((dia: Date) => {
+              {diasQuincena.slice(0, diasVisibles).map((dia: Date) => {
                 const clave = claveDelDia(dia)
                 const posiciones = posicionesPorDia.get(clave) || []
                 const hoyFlag = esHoy(dia)
@@ -751,12 +772,21 @@ function VistaCalendarioQuincenal({
                     key={clave}
                     data-dia-clave={clave}
                     className={[
-                      'relative border-r border-borde-sutil last:border-r-0 cursor-crosshair',
+                      'relative border-r border-borde-sutil last:border-r-0 cursor-crosshair touch-none',
                       hoyFlag ? 'bg-texto-marca/[0.03]' : '',
                       esFindeSemana && !hoyFlag ? 'bg-superficie-app/50' : '',
                     ].join(' ')}
                     onMouseDown={(e) => manejarMouseDown(dia, e)}
+                    onTouchStart={(e) => manejarTouchStart(dia, e)}
                   >
+                    {/* Overlay de horas fuera de jornada laboral */}
+                    {horaInicioLaboral !== undefined && horaFinLaboral !== undefined && (
+                      <>
+                        <div className="absolute left-0 right-0 top-0 bg-superficie-app/40 pointer-events-none z-[1]" style={{ height: tiempoAPx(horaInicioLaboral, 0) }} />
+                        <div className="absolute left-0 right-0 bg-superficie-app/40 pointer-events-none z-[1]" style={{ top: tiempoAPx(horaFinLaboral, 0), bottom: 0 }} />
+                      </>
+                    )}
+
                     {/* Indicador de hora actual (linea roja) */}
                     {hoyFlag && lineaAhoraVisible && (
                       <div
@@ -783,7 +813,7 @@ function VistaCalendarioQuincenal({
                         }}
                       >
                         <span
-                          className="text-[8px] font-medium pointer-events-none select-none"
+                          className="text-[8px] sm:text-[9px] font-medium pointer-events-none select-none"
                           style={{ color: 'var(--texto-marca)', opacity: 1 }}
                         >
                           {formatoHoraDesdeY(Math.min(seleccion.inicioY, seleccion.finY))}
@@ -800,6 +830,7 @@ function VistaCalendarioQuincenal({
                         evento={posicion.evento}
                         posicion={posicion}
                         onClickEvento={onClickEvento}
+                        es24h={es24h}
                       />
                     ))}
                   </div>

@@ -14,43 +14,33 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Pencil, Trash2, MapPin, Users, Link2, CalendarDays } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { useFormato } from '@/hooks/useFormato'
+import { useTraduccion } from '@/lib/i18n'
+import {
+  NOMBRES_MESES_CORTOS,
+  NOMBRES_DIAS_CORTOS,
+  formatearHoraISO,
+} from './constantes'
 import type { EventoCalendario } from './tipos'
 
 // --- Utilidades de formato ---
-
-/** Nombres de meses en español (abreviados) */
-const MESES_CORTOS = [
-  'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-  'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic',
-]
-
-/** Nombres de días de la semana (abreviados) */
-const DIAS_CORTOS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
-
-/** Formatea hora desde ISO respetando formato de empresa (12h/24h) */
-function formatearHora(iso: string, formatoHora: string = '24h'): string {
-  const fecha = new Date(iso)
-  if (isNaN(fecha.getTime())) return ''
-  return fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: formatoHora === '12h' })
-}
 
 /** Formatea fecha corta: "Mar 8 Abr" */
 function formatearFechaCorta(iso: string): string {
   const fecha = new Date(iso)
   if (isNaN(fecha.getTime())) return ''
-  const dia = DIAS_CORTOS[fecha.getDay()]
+  const dia = NOMBRES_DIAS_CORTOS[fecha.getDay()]
   const num = fecha.getDate()
-  const mes = MESES_CORTOS[fecha.getMonth()]
+  const mes = NOMBRES_MESES_CORTOS[fecha.getMonth()]
   return `${dia} ${num} ${mes}`
 }
 
 /** Formatea el rango de fecha/hora para mostrar en el popover */
-function formatearRangoEvento(evento: EventoCalendario, formatoHora: string = '24h'): string {
+function formatearRangoEvento(evento: EventoCalendario, es24h: boolean, todoElDiaLabel: string): string {
   if (evento.todo_el_dia) {
-    return `${formatearFechaCorta(evento.fecha_inicio)} · Todo el día`
+    return `${formatearFechaCorta(evento.fecha_inicio)} · ${todoElDiaLabel}`
   }
-  const horaInicio = formatearHora(evento.fecha_inicio, formatoHora)
-  const horaFin = formatearHora(evento.fecha_fin, formatoHora)
+  const horaInicio = formatearHoraISO(evento.fecha_inicio, es24h)
+  const horaFin = formatearHoraISO(evento.fecha_fin, es24h)
   return `${formatearFechaCorta(evento.fecha_inicio)} · ${horaInicio}–${horaFin}`
 }
 
@@ -67,8 +57,9 @@ interface PropiedadesPopoverEvento {
 
 /** Margen mínimo desde los bordes del viewport */
 const MARGEN_VIEWPORT = 12
-/** Ancho máximo del popover */
+/** Ancho máximo del popover — limitado en móvil para no tapar la pantalla */
 const ANCHO_POPOVER = 300
+const ANCHO_POPOVER_MOVIL = 260
 
 function PopoverEvento({
   evento,
@@ -80,6 +71,8 @@ function PopoverEvento({
   const refPanel = useRef<HTMLDivElement>(null)
   const [montado, setMontado] = useState(false)
   const { formatoHora } = useFormato()
+  const { t } = useTraduccion()
+  const es24h = formatoHora !== '12h'
   const [estiloPos, setEstiloPos] = useState<React.CSSProperties>({})
 
   // Montar solo en cliente (necesario para createPortal)
@@ -92,7 +85,8 @@ function PopoverEvento({
     // Esperar un frame para que el panel se renderice y poder medir su alto
     requestAnimationFrame(() => {
       const altoPanel = refPanel.current?.offsetHeight || 220
-      const anchoPanel = ANCHO_POPOVER
+      // En móvil usar ancho reducido para no tapar toda la pantalla
+      const anchoPanel = window.innerWidth < 640 ? Math.min(ANCHO_POPOVER_MOVIL, window.innerWidth - MARGEN_VIEWPORT * 2) : ANCHO_POPOVER
 
       let izquierda = posicion.x + 8
       let arriba = posicion.y + 8
@@ -182,7 +176,7 @@ function PopoverEvento({
           {/* Fecha y hora */}
           <div className="flex items-center gap-2 text-texto-secundario">
             <CalendarDays size={14} className="shrink-0 text-texto-terciario" />
-            <span className="text-xs">{formatearRangoEvento(evento, formatoHora)}</span>
+            <span className="text-xs">{formatearRangoEvento(evento, es24h, t('calendario.todo_el_dia'))}</span>
           </div>
 
           {/* Ubicación (si existe) */}
