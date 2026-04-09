@@ -1,10 +1,12 @@
 import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
+import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
 import { SkeletonTabla } from '@/componentes/feedback/SkeletonTabla'
 import ContenidoPresupuestos from './_componentes/ContenidoPresupuestos'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarVisibilidad } from '@/lib/permisos-servidor'
+import { crearQueryClient } from '@/lib/query'
 
 /**
  * Página de presupuestos — /presupuestos (Server Component)
@@ -70,5 +72,17 @@ async function PresupuestosConDatos() {
     total_paginas: Math.ceil((count || 0) / POR_PAGINA),
   }
 
-  return <ContenidoPresupuestos datosInicialesJson={datosInicialesJson} />
+  // Pre-popular el cache de React Query con los datos del servidor
+  // La queryKey coincide con la que genera useListado: ['presupuestos', paramsLimpios]
+  const queryClient = crearQueryClient()
+  queryClient.setQueryData(
+    ['presupuestos', { pagina: '1', por_pagina: '50' }],
+    datosInicialesJson
+  )
+
+  return (
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <ContenidoPresupuestos datosInicialesJson={datosInicialesJson} />
+    </HydrationBoundary>
+  )
 }

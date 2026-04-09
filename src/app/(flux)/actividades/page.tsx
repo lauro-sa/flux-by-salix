@@ -1,10 +1,12 @@
 import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
+import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
 import { SkeletonTabla } from '@/componentes/feedback/SkeletonTabla'
 import ContenidoActividades from './_componentes/ContenidoActividades'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarVisibilidad } from '@/lib/permisos-servidor'
+import { crearQueryClient } from '@/lib/query'
 
 /**
  * Página de actividades — /actividades (Server Component)
@@ -67,5 +69,18 @@ async function ActividadesConDatos() {
     total_paginas: Math.ceil((count || 0) / POR_PAGINA),
   }
 
-  return <ContenidoActividades datosInicialesJson={datosInicialesJson} />
+  // Pre-popular el cache de React Query con los datos del servidor
+  // La queryKey coincide con la que genera useListado: ['actividades', paramsLimpios]
+  // Los params default del Client Component: estado='pendiente,vencida', vista='mias'
+  const queryClient = crearQueryClient()
+  queryClient.setQueryData(
+    ['actividades', { estado: 'pendiente,vencida', vista: 'mias', pagina: '1', por_pagina: '50' }],
+    datosInicialesJson
+  )
+
+  return (
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <ContenidoActividades datosInicialesJson={datosInicialesJson} />
+    </HydrationBoundary>
+  )
 }

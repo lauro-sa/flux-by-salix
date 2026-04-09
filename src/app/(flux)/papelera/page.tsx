@@ -1,9 +1,11 @@
 import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
+import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
 import { SkeletonLista } from '@/componentes/feedback/SkeletonTabla'
 import ContenidoPapelera, { type ElementoPapelera } from './_componentes/ContenidoPapelera'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { crearQueryClient } from '@/lib/query'
 
 /**
  * Página de papelera — /papelera (Server Component)
@@ -114,5 +116,14 @@ async function PapeleraConDatos() {
   // Ordenar por fecha de eliminación (más reciente primero)
   resultados.sort((a, b) => new Date(b.eliminado_en).getTime() - new Date(a.eliminado_en).getTime())
 
-  return <ContenidoPapelera datosIniciales={resultados} />
+  // Pre-popular el cache de React Query con los datos del servidor
+  // La queryKey ['papelera'] coincide con la que usa ContenidoPapelera en useQuery
+  const queryClient = crearQueryClient()
+  queryClient.setQueryData(['papelera'], resultados)
+
+  return (
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <ContenidoPapelera datosIniciales={resultados} />
+    </HydrationBoundary>
+  )
 }
