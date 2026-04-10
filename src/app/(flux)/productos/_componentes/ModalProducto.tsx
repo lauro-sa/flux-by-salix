@@ -150,6 +150,14 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
       setPeso('')
       setVolumen('')
       setCodigoBarras('')
+      setUbicacionDeposito('')
+      setDimensiones('')
+      setProveedorPrincipal('')
+      setStockActual('')
+      setStockMinimo('')
+      setStockMaximo('')
+      setPuntoReorden('')
+      setAlertaStockBajo(false)
     }
   }, [])
 
