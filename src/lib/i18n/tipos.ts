@@ -68,6 +68,10 @@ export interface Traducciones {
     nombre: string
     aplicar: string
     listo: string
+    por_defecto: string
+    sin_elementos: string
+    color_personalizado: string
+    emoji_personalizado: string
     pendiente: string
     nuevo: string
     fecha: string
@@ -340,22 +344,79 @@ export interface Traducciones {
     estado: string
     estados: {
       programada: string
+      en_camino: string
+      en_sitio: string
       en_progreso: string
       completada: string
       cancelada: string
+      reprogramada: string
     }
     fecha_programada: string
     motivo: string
     resultado: string
     direccion: string
     duracion: string
+    duracion_estimada: string
+    duracion_real: string
     notas: string
     fotos: string
     sin_visitas: string
     sin_visitas_desc: string
     vendedor: string
+    asignado: string
+    prioridad: string
+    prioridades: {
+      baja: string
+      normal: string
+      alta: string
+      urgente: string
+    }
+    checklist: string
+    registro_ubicacion: string
     estados_visita: {
       en_curso: string
+    }
+  }
+
+  // Recorrido
+  recorrido: {
+    titulo: string
+    mi_recorrido: string
+    recorrido_del_dia: string
+    sin_recorrido: string
+    sin_recorrido_desc: string
+    paradas: string
+    parada: string
+    agregar_parada: string
+    quitar_parada: string
+    reordenar: string
+    optimizar_ruta: string
+    iniciar_recorrido: string
+    finalizar_recorrido: string
+    siguiente_parada: string
+    abrir_mapa: string
+    abrir_navegacion: string
+    ruta_completa: string
+    una_por_una: string
+    progreso: string
+    completadas: string
+    pendientes: string
+    distancia_total: string
+    tiempo_estimado: string
+    llegue: string
+    en_camino: string
+    registrar_visita: string
+    tomar_foto: string
+    notas: string
+    punto_partida: string
+    mi_ubicacion: string
+    plantillas: string
+    guardar_como_plantilla: string
+    cargar_plantilla: string
+    estados: {
+      pendiente: string
+      en_curso: string
+      completado: string
     }
   }
 

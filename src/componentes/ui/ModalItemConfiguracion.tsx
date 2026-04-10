@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { PickerInline } from './SelectorColor'
 import { ModalAdaptable as Modal } from './ModalAdaptable'
 import { Boton } from './Boton'
+import { useTraduccion } from '@/lib/i18n'
 import { Input } from './Input'
 
 /**
@@ -85,6 +86,7 @@ function ModalItemConfiguracion({
   textoGuardar,
   renderPreview,
 }: PropiedadesModalItemConfiguracion) {
+  const { t } = useTraduccion()
   const [valores, setValores] = useState<Record<string, unknown>>({})
   const esEdicion = !!valoresIniciales
   const [pickerAbierto, setPickerAbierto] = useState(false)
@@ -135,9 +137,9 @@ function ModalItemConfiguracion({
       tamano="sm"
       acciones={
         <>
-          <Boton variante="secundario" tamano="sm" onClick={onCerrar}>Cancelar</Boton>
+          <Boton variante="secundario" tamano="sm" onClick={onCerrar}>{t('comun.cancelar')}</Boton>
           <Boton tamano="sm" onClick={manejarGuardar} cargando={cargando} disabled={!puedeGuardar}>
-            {textoGuardar || (esEdicion ? 'Guardar' : 'Crear')}
+            {textoGuardar || (esEdicion ? t('comun.guardar') : t('comun.crear'))}
           </Boton>
         </>
       }
@@ -238,7 +240,7 @@ function ModalItemConfiguracion({
                         : 'border-borde-fuerte'
                     }`}
                     style={esCustom && esHex ? { backgroundColor: valorActual } : undefined}
-                    title="Elegir color personalizado"
+                    title={t('comun.color_personalizado')}
                   >
                     {esCustom ? (
                       <Check size={11} className="text-white drop-shadow-sm" />
@@ -308,6 +310,7 @@ function ModalItemConfiguracion({
 // ─── Input de emoji aislado (evita conflictos de foco con el modal) ──
 
 function CampoEmoji({ onSeleccionar }: { onSeleccionar: (emoji: string) => void }) {
+  const { t } = useTraduccion()
   const [texto, setTexto] = useState('')
 
   return (
@@ -327,7 +330,7 @@ function CampoEmoji({ onSeleccionar }: { onSeleccionar: (emoji: string) => void 
       }}
       className="size-8 rounded-lg text-base text-center bg-white/[0.04] border-2 border-dashed border-borde-fuerte outline-none cursor-text transition-all focus:border-texto-marca/50 hover:scale-110 hover:bg-superficie-hover"
       placeholder="✏️"
-      title="Escribí o pegá un emoji"
+      title={t('comun.emoji_personalizado')}
     />
   )
 }

@@ -13,6 +13,7 @@ import {
 import { Boton } from './Boton'
 import { Interruptor } from './Interruptor'
 import { Checkbox } from './Checkbox'
+import { useTraduccion } from '@/lib/i18n'
 
 // ─── Tipos ──────────────────────────────────────────────────────────
 
@@ -185,6 +186,7 @@ function ListaConfiguracion({
   nombreRadio,
   className = '',
 }: PropiedadesListaConfiguracion) {
+  const { t } = useTraduccion()
 
   // ─── Estado interno del buscador (si no es controlado) ──────────
   const [busquedaInterna, setBusquedaInterna] = useState('')
@@ -328,11 +330,11 @@ function ListaConfiguracion({
   )
 
   const botonEditar = (item: ItemLista) => onEditar ? (
-    <Boton variante="fantasma" tamano="xs" soloIcono icono={<Pencil size={13} />} onClick={() => onEditar(item)} titulo="Editar" />
+    <Boton variante="fantasma" tamano="xs" soloIcono icono={<Pencil size={13} />} onClick={() => onEditar(item)} titulo={t('comun.editar')} />
   ) : null
 
   const botonEliminar = (item: ItemLista) => onEliminar ? (
-    <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={13} />} onClick={() => onEliminar(item)} titulo="Eliminar"
+    <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={13} />} onClick={() => onEliminar(item)} titulo={t('comun.eliminar')}
       className="text-texto-terciario hover:text-insignia-peligro opacity-0 group-hover:opacity-100 transition-opacity" />
   ) : null
 
@@ -340,12 +342,12 @@ function ListaConfiguracion({
     <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-texto-terciario shrink-0">
       <input type="radio" name={nombreRadio || `default_${titulo}`} checked={!!item.predeterminado}
         onChange={() => onTogglePredeterminado?.(item)} style={{ accentColor: 'var(--texto-marca)' }} className="size-3.5 cursor-pointer" />
-      Default
+      {t('comun.por_defecto')}
     </label>
   )
 
   const checkActivo = (item: ItemLista) => (
-    <Checkbox marcado={item.activo !== false} onChange={() => onToggleActivo?.(item)} etiqueta="Activo" className="text-[11px] text-texto-terciario" />
+    <Checkbox marcado={item.activo !== false} onChange={() => onToggleActivo?.(item)} etiqueta={t('comun.activo')} className="text-[11px] text-texto-terciario" />
   )
 
   // ─── Render de controles según tipo ─────────────────────────────
@@ -461,7 +463,7 @@ function ListaConfiguracion({
                 className="flex items-center gap-1 text-[11px] text-texto-terciario/40 hover:text-texto-terciario bg-transparent border-none cursor-pointer transition-colors"
               >
                 {iconoRestablecer || <RotateCcw size={11} />}
-                {textoRestablecer || 'Restablecer'}
+                {textoRestablecer || t('comun.restablecer')}
               </button>
             )}
             {acciones?.map((accion, i) => (
@@ -527,7 +529,7 @@ function ListaConfiguracion({
       <div>
         {items.length === 0 ? (
           <div className="px-5 py-8 text-center">
-            <p className="text-sm text-texto-terciario/60">No hay elementos</p>
+            <p className="text-sm text-texto-terciario/60">{t('comun.sin_elementos')}</p>
           </div>
         ) : (
           renderItems()
