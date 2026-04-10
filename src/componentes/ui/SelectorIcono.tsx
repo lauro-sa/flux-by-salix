@@ -711,4 +711,4 @@ function SelectorIcono({ valor, onChange, etiqueta, tamano = 18 }: PropiedadesSe
   )
 }
 
-export { SelectorIcono, obtenerIcono }
+export { SelectorIcono, obtenerIcono, obtenerTodosLosIconos }

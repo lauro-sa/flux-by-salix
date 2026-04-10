@@ -6,12 +6,11 @@ import { Input } from '@/componentes/ui/Input'
 import { TextArea } from '@/componentes/ui/TextArea'
 import { Select } from '@/componentes/ui/Select'
 import { Boton } from '@/componentes/ui/Boton'
-import { obtenerIcono } from '@/componentes/ui/SelectorIcono'
+import { obtenerIcono, obtenerTodosLosIconos } from '@/componentes/ui/SelectorIcono'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { Trash2, Check, Pipette, Search } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
-import * as LucideIcons from 'lucide-react'
 import type { TipoActividad } from './SeccionTipos'
 import { PALETA_COLORES_TIPO_ACTIVIDAD } from '@/lib/colores_entidad'
 
@@ -36,13 +35,20 @@ interface PropiedadesModal {
 // Colores predefinidos para tipos de actividad (centralizados en colores_entidad.ts)
 const COLORES_TIPO = PALETA_COLORES_TIPO_ACTIVIDAD
 
-// Iconos populares para el mini selector inline
+// Iconos populares para vista sin búsqueda
 const ICONOS_RAPIDOS = [
-  'Phone', 'Video', 'Mail', 'MessageSquare', 'Calendar', 'Clock',
-  'FileText', 'ClipboardList', 'MapPin', 'Truck', 'Wrench', 'Hammer',
-  'DollarSign', 'CreditCard', 'ShoppingCart', 'Package', 'Send', 'Upload',
-  'Users', 'UserPlus', 'Building2', 'Briefcase', 'Target', 'Flag',
-  'Star', 'Heart', 'Zap', 'AlertCircle', 'CheckCircle', 'Activity',
+  'Phone', 'PhoneCall', 'Video', 'Mail', 'MessageSquare', 'MessageCircle',
+  'Calendar', 'CalendarCheck', 'Clock', 'Timer', 'Bell', 'BellRing',
+  'FileText', 'File', 'ClipboardList', 'ClipboardCheck', 'NotebookPen', 'BookOpen',
+  'MapPin', 'Map', 'Navigation', 'Truck', 'Car', 'Plane',
+  'Wrench', 'Hammer', 'Settings', 'Cog', 'Tool', 'PenTool',
+  'DollarSign', 'CreditCard', 'Wallet', 'Receipt', 'ShoppingCart', 'ShoppingBag',
+  'Package', 'Box', 'Archive', 'FolderOpen', 'Inbox', 'Send',
+  'Users', 'UserPlus', 'UserCheck', 'Building2', 'Briefcase', 'GraduationCap',
+  'Target', 'Flag', 'Award', 'Trophy', 'Star', 'Heart',
+  'Zap', 'Rocket', 'Sparkles', 'Activity', 'TrendingUp', 'BarChart3',
+  'AlertCircle', 'CheckCircle', 'XCircle', 'Info', 'HelpCircle', 'Shield',
+  'Upload', 'Download', 'Link', 'Globe', 'Wifi', 'Camera',
 ]
 
 /** Mini selector de icono — popover compacto con búsqueda */
@@ -52,7 +58,6 @@ function MiniSelectorIcono({ valor, color, onChange }: { valor: string; color: s
   const contenedorRef = useRef<HTMLDivElement>(null)
   const IconoActual = obtenerIcono(valor)
 
-  // Cerrar al click fuera
   useEffect(() => {
     if (!abierto) return
     const handler = (e: MouseEvent) => {
@@ -62,11 +67,9 @@ function MiniSelectorIcono({ valor, color, onChange }: { valor: string; color: s
     return () => document.removeEventListener('mousedown', handler)
   }, [abierto])
 
+  const todosLosIconos = obtenerTodosLosIconos()
   const iconosFiltrados = busqueda.trim()
-    ? Object.keys(LucideIcons).filter(k =>
-        k !== 'default' && k !== 'createLucideIcon' && typeof (LucideIcons as Record<string, unknown>)[k] === 'object' &&
-        k.toLowerCase().includes(busqueda.toLowerCase())
-      ).slice(0, 40)
+    ? todosLosIconos.filter(k => k.toLowerCase().includes(busqueda.toLowerCase())).slice(0, 72)
     : ICONOS_RAPIDOS
 
   return (
@@ -85,9 +88,8 @@ function MiniSelectorIcono({ valor, color, onChange }: { valor: string; color: s
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.97 }}
             transition={{ duration: 0.15 }}
-            className="absolute top-full left-0 mt-1.5 z-50 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg overflow-hidden w-[260px]"
+            className="absolute top-full left-0 mt-1.5 z-50 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg overflow-hidden w-[280px]"
           >
-            {/* Buscador */}
             <div className="flex items-center gap-2 px-3 py-2 border-b border-borde-sutil">
               <Search size={13} className="text-texto-terciario shrink-0" />
               <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
@@ -95,22 +97,28 @@ function MiniSelectorIcono({ valor, color, onChange }: { valor: string; color: s
                 className="flex-1 bg-transparent border-none text-xs text-texto-primario placeholder:text-texto-terciario outline-none"
                 autoFocus />
             </div>
-            {/* Grilla de iconos */}
-            <div className="grid grid-cols-6 gap-0.5 p-2 max-h-[200px] overflow-y-auto">
+            <div className="grid grid-cols-8 gap-0.5 p-1.5 max-h-[240px] overflow-y-auto">
               {iconosFiltrados.map(nombre => {
                 const Ic = obtenerIcono(nombre)
                 if (!Ic) return null
                 const sel = valor === nombre
                 return (
-                  <button key={nombre} onClick={() => { onChange(nombre); setAbierto(false) }}
-                    className={`size-9 rounded-lg flex items-center justify-center cursor-pointer transition-colors border-none ${
-                      sel ? 'bg-texto-marca/15 text-texto-marca' : 'bg-transparent text-texto-terciario hover:bg-superficie-hover hover:text-texto-primario'
-                    }`} title={nombre}>
-                    <Ic size={16} />
-                  </button>
+                  <Tooltip key={nombre} contenido={nombre}>
+                    <button onClick={() => { onChange(nombre); setAbierto(false) }}
+                      className={`size-8 rounded-md flex items-center justify-center cursor-pointer transition-colors border-none ${
+                        sel ? 'bg-texto-marca/15 text-texto-marca' : 'bg-transparent text-texto-terciario hover:bg-superficie-hover hover:text-texto-primario'
+                      }`}>
+                      <Ic size={15} />
+                    </button>
+                  </Tooltip>
                 )
               })}
             </div>
+            {!busqueda.trim() && (
+              <div className="px-3 py-1.5 border-t border-borde-sutil">
+                <p className="text-[10px] text-texto-terciario text-center">Buscá para ver todos los iconos</p>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
