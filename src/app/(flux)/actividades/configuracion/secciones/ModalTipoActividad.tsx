@@ -9,7 +9,8 @@ import { Boton } from '@/componentes/ui/Boton'
 import { obtenerIcono, obtenerTodosLosIconos } from '@/componentes/ui/SelectorIcono'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Tooltip } from '@/componentes/ui/Tooltip'
-import { Trash2, Check, Search } from 'lucide-react'
+import { Trash2, Check, Search, Pipette } from 'lucide-react'
+import { PickerHSL } from '@/componentes/ui/_editor_texto/PickerHSL'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { TipoActividad } from './SeccionTipos'
 import { PALETA_COLORES_TIPO_ACTIVIDAD } from '@/lib/colores_entidad'
@@ -155,6 +156,7 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
     campo_calendario: false,
   })
   const [autoCompletar, setAutoCompletar] = useState(false)
+  const [pickerAbierto, setPickerAbierto] = useState(false)
   const [resumenPredeterminado, setResumenPredeterminado] = useState('')
   const [notaPredeterminada, setNotaPredeterminada] = useState('')
   const [usuarioPredeterminado, setUsuarioPredeterminado] = useState('')
@@ -288,7 +290,7 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
               {COLORES_TIPO.map(preset => {
                 const sel = color.toLowerCase() === preset.color.toLowerCase()
                 return (
-                  <button key={preset.color} onClick={() => setColor(preset.color)}
+                  <button key={preset.color} onClick={() => { setColor(preset.color); setPickerAbierto(false) }}
                     className={`relative size-5 rounded-full transition-all duration-150 cursor-pointer hover:scale-110 ${
                       sel ? 'ring-2 ring-offset-1 ring-white/80 ring-offset-superficie-tarjeta scale-110' : ''
                     }`} style={{ backgroundColor: preset.color }}>
@@ -296,6 +298,37 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
                   </button>
                 )
               })}
+              {/* Gotero — abre picker HSL propio */}
+              <div className="relative">
+                <button onClick={() => setPickerAbierto(!pickerAbierto)}
+                  className={`relative size-5 rounded-full border border-dashed transition-all duration-150 cursor-pointer hover:scale-110 flex items-center justify-center ${
+                    pickerAbierto || !COLORES_TIPO.some(p => p.color.toLowerCase() === color.toLowerCase())
+                      ? 'ring-2 ring-offset-1 ring-white/80 ring-offset-superficie-tarjeta scale-110 border-transparent'
+                      : 'border-borde-fuerte'
+                  }`}
+                  style={!COLORES_TIPO.some(p => p.color.toLowerCase() === color.toLowerCase()) ? { backgroundColor: color } : undefined}
+                  title="Color personalizado">
+                  {!COLORES_TIPO.some(p => p.color.toLowerCase() === color.toLowerCase())
+                    ? <Check size={9} className="text-white drop-shadow-sm" />
+                    : <Pipette size={9} className="text-texto-terciario" />}
+                </button>
+                <AnimatePresence>
+                  {pickerAbierto && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 4, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 4, scale: 0.97 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute top-full left-0 mt-1.5 z-50 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg overflow-hidden"
+                    >
+                      <PickerHSL
+                        valorInicial={color}
+                        onAplicar={(c) => { setColor(c); setPickerAbierto(false) }}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           </div>
         </div>
