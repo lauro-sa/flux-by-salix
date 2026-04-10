@@ -478,7 +478,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
         {/* Contenido */}
         <div className="flex-1 overflow-y-auto">
           {pestana === 'editar' ? (
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_1px_300px] h-full">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_1px_340px] h-full">
               {/* Formulario */}
               <div className="p-6 space-y-5 overflow-y-auto">
                 {/* Nombre y API name */}
@@ -751,7 +751,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
               <div className="hidden lg:block bg-white/[0.07]" />
 
               {/* Preview lateral (solo desktop) */}
-              <div className="hidden lg:flex flex-col items-start p-5 gap-4 overflow-y-auto">
+              <div className="hidden lg:flex flex-col items-start p-6 gap-4 overflow-y-auto">
                 <SelectoresPreviewDatos
                   contactoPreview={contactoPreview}
                   documentoPreview={documentoPreview}
