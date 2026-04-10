@@ -54,9 +54,9 @@ interface Vinculo {
 
 /** Opciones de visibilidad del evento */
 const OPCIONES_VISIBILIDAD = [
-  { valor: 'publica', etiqueta: 'Pública', descripcion: 'Tu equipo ve todos los detalles del evento' },
-  { valor: 'ocupado', etiqueta: 'Ocupado', descripcion: 'Los demás solo ven un bloque "Ocupado" sin detalles' },
-  { valor: 'privada', etiqueta: 'Privada', descripcion: 'Invisible para los demás, solo vos y los asignados' },
+  { valor: 'publica', etiqueta: 'Pública', descripcion: 'Tu equipo ve todos los detalles', color: '#4CAF50' },
+  { valor: 'ocupado', etiqueta: 'Ocupado', descripcion: 'Los demás ven solo un bloque sin detalles', color: '#F0923A' },
+  { valor: 'privada', etiqueta: 'Privada', descripcion: 'Solo vos y los asignados', color: '#90A4AE' },
 ]
 
 /** Convierte Date a formato ISO fecha "YYYY-MM-DD" */
@@ -648,21 +648,22 @@ function ModalEvento({
       <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-0 border-y border-white/[0.07]">
 
         {/* ── COL IZQUIERDA — datos del evento ── */}
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-4">
           {/* Titulo */}
           <div>
-            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Título</p>
-            <Input placeholder="Nombre del evento" value={titulo}
+            <p className="text-[11px] text-texto-terciario mb-1.5">Título</p>
+            <Input placeholder="Nombre del evento..." value={titulo}
               onChange={(e) => setTitulo(e.target.value)} autoFocus formato={null} />
           </div>
+
+          <div className="border-t border-white/[0.07]" />
 
           {/* Fechas y horas */}
           <div>
             <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Fecha y hora</p>
-            <div className="rounded-lg border border-white/[0.06] overflow-hidden">
-              {/* Fila inicio */}
-              <div className="flex items-center gap-2 px-3 py-2">
-                <span className="text-xs font-medium text-texto-terciario w-12 shrink-0">Inicio</span>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2.5">
+                <span className="text-[11px] text-texto-terciario w-8 shrink-0">Inicio</span>
                 <div className="flex-1">
                   <SelectorFecha valor={fechaInicio} onChange={setFechaInicio} />
                 </div>
@@ -672,10 +673,8 @@ function ModalEvento({
                   </div>
                 )}
               </div>
-              <div className="border-t border-white/[0.06]" />
-              {/* Fila fin */}
-              <div className="flex items-center gap-2 px-3 py-2">
-                <span className="text-xs font-medium text-texto-terciario w-12 shrink-0">Fin</span>
+              <div className="flex items-center gap-2.5">
+                <span className="text-[11px] text-texto-terciario w-8 shrink-0">Fin</span>
                 <div className="flex-1">
                   <SelectorFecha valor={fechaFin} onChange={setFechaFin} />
                 </div>
@@ -686,9 +685,9 @@ function ModalEvento({
                 )}
               </div>
             </div>
-            {/* Todo el día + recurrencia */}
-            <div className="flex items-center gap-4 mt-3">
+            <div className="flex items-center gap-3 mt-3">
               <Interruptor activo={todoElDia} onChange={setTodoElDia} etiqueta="Todo el día" />
+              <div className="w-px h-4 bg-white/[0.07]" />
               <div className="flex-1">
                 <SelectorRecurrencia valor={recurrencia} onChange={setRecurrencia}
                   fechaReferencia={fechaInicio} compacto />
@@ -696,25 +695,27 @@ function ModalEvento({
             </div>
           </div>
 
+          <div className="border-t border-white/[0.07]" />
+
           {/* Descripcion */}
           <div>
-            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Descripción</p>
+            <p className="text-[11px] text-texto-terciario mb-1.5">Descripción</p>
             <TextArea placeholder="Descripción del evento (opcional)" value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)} rows={3} />
           </div>
 
-          {/* Ubicacion + Notas */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Ubicación</p>
-              <Input placeholder="Lugar (opcional)" value={ubicacion}
-                onChange={(e) => setUbicacion(e.target.value)} formato={null} />
-            </div>
-            <div>
-              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Notas</p>
-              <Input placeholder="Notas internas (opcional)" value={notas}
-                onChange={(e) => setNotas(e.target.value)} formato={null} />
-            </div>
+          {/* Ubicacion */}
+          <div>
+            <p className="text-[11px] text-texto-terciario mb-1.5">Ubicación</p>
+            <Input placeholder="Lugar del evento (opcional)" value={ubicacion}
+              onChange={(e) => setUbicacion(e.target.value)} formato={null} />
+          </div>
+
+          {/* Notas */}
+          <div>
+            <p className="text-[11px] text-texto-terciario mb-1.5">Notas internas</p>
+            <TextArea placeholder="Notas privadas (opcional)" value={notas}
+              onChange={(e) => setNotas(e.target.value)} rows={2} />
           </div>
         </div>
 
@@ -722,31 +723,36 @@ function ModalEvento({
         <div className="hidden md:block bg-white/[0.07]" />
 
         {/* ── COL DERECHA — config y relaciones ── */}
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-4">
           {/* Tipo de evento */}
           {opcionesTipo.length > 0 && (
             <div>
-              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Tipo</p>
+              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Tipo de evento</p>
               <Select opciones={opcionesTipo} valor={tipoId} onChange={setTipoId}
                 placeholder="Seleccionar tipo..." />
             </div>
           )}
 
-          {/* Visibilidad */}
+          <div className="border-t border-white/[0.07]" />
+
+          {/* Visibilidad con dots de color */}
           <div>
             <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Visibilidad</p>
             <div className="flex flex-col gap-1.5">
               {OPCIONES_VISIBILIDAD.map(op => (
                 <button key={op.valor} type="button" onClick={() => setVisibilidad(op.valor)}
-                  className={`flex flex-col text-left px-3 py-2 rounded-lg border transition-all cursor-pointer ${
+                  className={`flex items-center gap-2.5 text-left px-3 py-2 rounded-lg border transition-all cursor-pointer ${
                     visibilidad === op.valor
-                      ? 'border-texto-marca/40 bg-texto-marca/5'
+                      ? 'border-texto-marca/40 bg-texto-marca/8'
                       : 'border-white/[0.06] hover:border-white/[0.12] bg-white/[0.02]'
                   }`}>
-                  <span className={`text-xs font-medium ${visibilidad === op.valor ? 'text-texto-marca' : 'text-texto-primario'}`}>
-                    {op.etiqueta}
-                  </span>
-                  <span className="text-[11px] text-texto-terciario leading-tight mt-0.5">{op.descripcion}</span>
+                  <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: op.color }} />
+                  <div>
+                    <span className={`text-xs font-medium block ${visibilidad === op.valor ? 'text-texto-marca' : 'text-texto-primario'}`}>
+                      {op.etiqueta}
+                    </span>
+                    <span className="text-[10px] text-texto-terciario leading-tight">{op.descripcion}</span>
+                  </div>
                 </button>
               ))}
             </div>
@@ -755,13 +761,17 @@ function ModalEvento({
           <div className="border-t border-white/[0.07]" />
 
           {/* Asignados */}
-          <SelectorAsignados asignados={asignados} miembrosDisponibles={miembrosDisponibles}
-            onAgregar={agregarAsignado} onRemover={removerAsignado} />
+          <div>
+            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Asignados</p>
+            <SelectorAsignados asignados={asignados} miembrosDisponibles={miembrosDisponibles}
+              onAgregar={agregarAsignado} onRemover={removerAsignado} />
+          </div>
 
           {/* Vinculaciones */}
-          <SelectorVinculaciones vinculos={vinculos} onAgregar={agregarVinculo} onRemover={removerVinculo} />
-
-          <div className="border-t border-white/[0.07]" />
+          <div>
+            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Vincular contacto</p>
+            <SelectorVinculaciones vinculos={vinculos} onAgregar={agregarVinculo} onRemover={removerVinculo} />
+          </div>
 
           {/* Recordatorio */}
           <div>
