@@ -101,88 +101,93 @@ function SeccionHorarioCalendario({ config, cargando, onAccionAPI }: Propiedades
 
   return (
     <div className="space-y-4">
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
-        <h3 className="text-base font-semibold text-texto-primario">Horario laboral</h3>
-        <p className="text-sm text-texto-terciario mt-0.5 mb-5">
-          Define el horario visible en el calendario y los días laborales de tu equipo.
-        </p>
-
-        {/* Hora de inicio y fin */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
-          <SelectorHora
-            etiqueta="Hora de inicio"
-            valor={horaInicio}
-            onChange={(v) => cambiarHoraInicio(v || '08:00')}
-          />
-          <SelectorHora
-            etiqueta="Hora de fin"
-            valor={horaFin}
-            onChange={(v) => cambiarHoraFin(v || '18:00')}
-          />
-        </div>
-
-        {/* Días laborales */}
-        <div className="mb-5">
-          <label className="text-sm font-medium text-texto-secundario block mb-2">Días laborales</label>
-          <div className="flex flex-wrap gap-2">
-            {DIAS_SEMANA.map(dia => {
-              const activo = diasLaborales.includes(dia.valor)
-              return (
-                <button
-                  key={dia.valor}
-                  onClick={() => toggleDia(dia.valor)}
-                  className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer border ${
-                    activo
-                      ? 'bg-texto-marca text-white border-texto-marca'
-                      : 'bg-superficie-tarjeta text-texto-secundario border-borde-sutil hover:bg-superficie-hover'
-                  }`}
-                >
-                  {dia.etiqueta}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Intervalo de slots */}
-        <div className="mb-5">
-          <label className="text-sm font-medium text-texto-secundario block mb-2">Intervalo de slots</label>
-          <div className="flex rounded-lg border border-borde-fuerte overflow-hidden w-fit">
-            {INTERVALOS_SLOT.map(slot => (
-              <button
-                key={slot.valor}
-                onClick={() => cambiarIntervalo(slot.valor)}
-                className={`px-4 py-2 text-sm font-medium transition-colors cursor-pointer border-none ${
-                  intervaloSlot === slot.valor
-                    ? 'bg-texto-marca text-white'
-                    : 'bg-superficie-tarjeta text-texto-secundario hover:bg-superficie-hover'
-                }`}
-              >
-                {slot.etiqueta}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-texto-terciario mt-1.5">
-            Las filas del calendario se dividirán en intervalos de {intervaloSlot} minutos.
+      <div className="border border-white/[0.06] rounded-xl overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-white/[0.07]">
+          <h3 className="text-sm font-medium text-texto-primario">Horario laboral</h3>
+          <p className="text-[11px] text-texto-terciario mt-1">
+            Define el horario visible en el calendario y los días laborales de tu equipo.
           </p>
         </div>
 
-        {/* Mostrar fines de semana */}
-        <div className="flex items-center justify-between py-3 border-t border-borde-sutil">
+        <div className="px-6 py-5 space-y-5">
+          {/* Hora de inicio y fin */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <p className="text-[11px] text-texto-terciario mb-1.5">Hora de inicio</p>
+              <SelectorHora valor={horaInicio} onChange={(v) => cambiarHoraInicio(v || '08:00')} />
+            </div>
+            <div>
+              <p className="text-[11px] text-texto-terciario mb-1.5">Hora de fin</p>
+              <SelectorHora valor={horaFin} onChange={(v) => cambiarHoraFin(v || '18:00')} />
+            </div>
+          </div>
+
+          <div className="border-t border-white/[0.07]" />
+
+          {/* Días laborales */}
           <div>
-            <p className="text-sm font-medium text-texto-primario">Mostrar fines de semana</p>
-            <p className="text-xs text-texto-terciario mt-0.5">
-              Muestra sábado y domingo en las vistas de semana y mes del calendario.
+            <p className="text-[11px] text-texto-terciario mb-2.5">Días laborales</p>
+            <div className="flex gap-1.5">
+              {DIAS_SEMANA.map(dia => {
+                const activo = diasLaborales.includes(dia.valor)
+                return (
+                  <button key={dia.valor} onClick={() => toggleDia(dia.valor)}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer border text-center ${
+                      activo
+                        ? 'bg-texto-marca/15 border-texto-marca/40 text-texto-marca'
+                        : 'bg-white/[0.03] border-white/[0.06] text-texto-terciario hover:border-white/[0.12] hover:text-texto-secundario'
+                    }`}>
+                    {dia.etiqueta}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="border-t border-white/[0.07]" />
+
+          {/* Intervalo de slots */}
+          <div>
+            <p className="text-[11px] text-texto-terciario mb-2.5">Intervalo de slots</p>
+            <div className="flex rounded-lg border border-white/[0.06] overflow-hidden">
+              {INTERVALOS_SLOT.map(slot => (
+                <button key={slot.valor} onClick={() => cambiarIntervalo(slot.valor)}
+                  className={`flex-1 py-2 text-xs font-medium transition-all cursor-pointer border-none ${
+                    intervaloSlot === slot.valor
+                      ? 'bg-texto-marca/15 text-texto-marca'
+                      : 'bg-white/[0.02] text-texto-terciario hover:bg-white/[0.04] hover:text-texto-secundario'
+                  }`}>
+                  {slot.etiqueta}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-texto-terciario mt-1.5">
+              Las filas del calendario se dividirán en intervalos de {intervaloSlot} minutos.
             </p>
           </div>
-          <Interruptor activo={mostrarFinesSemana} onChange={toggleFinesSemana} />
-        </div>
-      </div>
 
-      {/* Indicador de guardado */}
-      {guardando && (
-        <p className="text-xs text-texto-terciario text-right animate-pulse">Guardando...</p>
-      )}
+          <div className="border-t border-white/[0.07]" />
+
+          {/* Mostrar fines de semana */}
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-medium text-texto-secundario">Mostrar fines de semana</p>
+              <p className="text-[11px] text-texto-terciario mt-0.5">
+                Muestra sábado y domingo en las vistas de semana y mes del calendario.
+              </p>
+            </div>
+            <Interruptor activo={mostrarFinesSemana} onChange={toggleFinesSemana} />
+          </div>
+        </div>
+
+        {/* Footer con indicador guardado */}
+        {guardando && (
+          <div className="px-6 py-2 border-t border-white/[0.07]">
+            <p className="text-[10px] text-texto-terciario text-right animate-pulse">Guardando...</p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
