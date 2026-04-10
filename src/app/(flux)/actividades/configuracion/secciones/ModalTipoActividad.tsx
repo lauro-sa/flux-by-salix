@@ -157,6 +157,17 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
   })
   const [autoCompletar, setAutoCompletar] = useState(false)
   const [pickerAbierto, setPickerAbierto] = useState(false)
+  const pickerRef = useRef<HTMLDivElement>(null)
+
+  // Cerrar picker al click fuera
+  useEffect(() => {
+    if (!pickerAbierto) return
+    const handler = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) setPickerAbierto(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [pickerAbierto])
   const [resumenPredeterminado, setResumenPredeterminado] = useState('')
   const [notaPredeterminada, setNotaPredeterminada] = useState('')
   const [usuarioPredeterminado, setUsuarioPredeterminado] = useState('')
@@ -299,7 +310,7 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
                 )
               })}
               {/* Gotero — abre picker HSL propio */}
-              <div className="relative">
+              <div className="relative" ref={pickerRef}>
                 <button onClick={() => setPickerAbierto(!pickerAbierto)}
                   className={`relative size-5 rounded-full border border-dashed transition-all duration-150 cursor-pointer hover:scale-110 flex items-center justify-center ${
                     pickerAbierto || !COLORES_TIPO.some(p => p.color.toLowerCase() === color.toLowerCase())
