@@ -71,8 +71,9 @@ interface DatosDashboard {
   asistencia: {
     hoy: { presentes: number; ausentes: number; tardanzas: number; total: number }
     detalle_hoy: Array<{
-      miembro_id: string; usuario_id: string; nombre: string; estado: string; tipo: string
-      hora_entrada: string | null; hora_salida: string | null; puntualidad_min: number | null; metodo_registro: string
+      id: string; miembro_id: string; usuario_id: string; nombre: string; estado: string; tipo: string
+      hora_entrada: string | null; hora_salida: string | null; puntualidad_min: number | null
+      metodo_registro: string; sector: string | null; puesto: string | null; rol: string | null
     }>
     semana: Record<string, { presentes: number; ausentes: number; tardanzas: number }>
     usuario_id: string
@@ -379,22 +380,22 @@ function PestanaGeneral({
         <BotonRapido etiqueta={t('dashboard.ir_al_inbox')} icono={<MessageSquare size={15} />} onClick={() => router.push('/inbox')} />
       </motion.div>
 
-      {/* Asistencia + Historial reciente */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {datos?.asistencia && (datos.asistencia.hoy.total > 0 || Object.keys(datos.asistencia.semana).length > 0) && (
-          <motion.div variants={itemVariantes}>
-            <WidgetAsistencia
-              hoy={datos.asistencia.hoy}
-              detalle_hoy={datos.asistencia.detalle_hoy || []}
-              semana={datos.asistencia.semana}
-              usuario_id={datos.asistencia.usuario_id || ''}
-            />
-          </motion.div>
-        )}
+      {/* Historial reciente — ancho completo */}
+      <motion.div variants={itemVariantes}>
+        <WidgetRecientes />
+      </motion.div>
+
+      {/* Asistencia — ancho completo */}
+      {datos?.asistencia && (datos.asistencia.hoy.total > 0 || Object.keys(datos.asistencia.semana).length > 0) && (
         <motion.div variants={itemVariantes}>
-          <WidgetRecientes />
+          <WidgetAsistencia
+            hoy={datos.asistencia.hoy}
+            detalle_hoy={datos.asistencia.detalle_hoy || []}
+            semana={datos.asistencia.semana}
+            usuario_id={datos.asistencia.usuario_id || ''}
+          />
         </motion.div>
-      </div>
+      )}
 
       {/* 4 tarjetas recientes */}
       <motion.div variants={itemVariantes} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { useListado } from '@/hooks/useListado'
@@ -170,6 +170,20 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
     extraerTotal: (json) => (json.total || 0) as number,
     datosInicialesJson: sinFiltros ? datosInicialesJson : undefined,
   })
+
+  // Abrir modal de detalle si viene ?detalle=<id> desde el dashboard
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const detalleId = params.get('detalle')
+    if (!detalleId) return
+    // Limpiar el query param de la URL sin recargar
+    window.history.replaceState({}, '', '/asistencias')
+    // Cargar detalle completo y abrir modal
+    fetch(`/api/asistencias/detalle?id=${detalleId}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(reg => { if (reg?.id) setEditando(reg) })
+      .catch(() => {})
+  }, [])
 
   // Callback para refrescar después de editar/crear fichajes
   const alGuardar = useCallback(() => {

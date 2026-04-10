@@ -174,7 +174,7 @@ export async function GET() {
       // ─── Asistencia de hoy (con detalle para widget) ───
       admin
         .from('asistencias')
-        .select('miembro_id, estado, tipo, hora_entrada, hora_salida, puntualidad_min, metodo_registro')
+        .select('id, miembro_id, estado, tipo, hora_entrada, hora_salida, puntualidad_min, metodo_registro')
         .eq('empresa_id', empresaId)
         .eq('fecha', hoyStr),
 
@@ -300,13 +300,16 @@ export async function GET() {
     // ─── Asistencia hoy resumen + detalle por persona ───
     const asistenciaHoy = { presentes: 0, ausentes: 0, tardanzas: 0, total: 0 }
 
-    // Obtener nombres de miembros (miembro_id → { usuario_id, nombre })
+    // Obtener datos de miembros (nombre, sector, puesto, rol)
     const miembroIds = (resAsistenciaHoy.data || []).map(a => a.miembro_id)
-    const mapaMiembros: Record<string, { usuario_id: string; nombre: string }> = {}
+    const mapaMiembros: Record<string, {
+      usuario_id: string; nombre: string; sector: string | null
+      puesto: string | null; rol: string | null
+    }> = {}
     if (miembroIds.length > 0) {
       const { data: miembrosData } = await admin
         .from('miembros')
-        .select('id, usuario_id')
+        .select('id, usuario_id, rol, puesto_nombre, sector')
         .in('id', miembroIds)
       const usuarioIds = (miembrosData || []).map(m => m.usuario_id).filter(Boolean)
       const { data: perfilesData } = await admin
@@ -316,13 +319,20 @@ export async function GET() {
       const mapaPerfil: Record<string, string> = {}
       for (const p of perfilesData || []) mapaPerfil[p.id] = p.nombre || 'Sin nombre'
       for (const m of miembrosData || []) {
-        mapaMiembros[m.id] = { usuario_id: m.usuario_id, nombre: mapaPerfil[m.usuario_id] || 'Sin nombre' }
+        mapaMiembros[m.id] = {
+          usuario_id: m.usuario_id,
+          nombre: mapaPerfil[m.usuario_id] || 'Sin nombre',
+          sector: m.sector || null,
+          puesto: m.puesto_nombre || null,
+          rol: m.rol || null,
+        }
       }
     }
 
     const detalleHoy: Array<{
-      miembro_id: string; usuario_id: string; nombre: string; estado: string; tipo: string
-      hora_entrada: string | null; hora_salida: string | null; puntualidad_min: number | null; metodo_registro: string
+      id: string; miembro_id: string; usuario_id: string; nombre: string; estado: string; tipo: string
+      hora_entrada: string | null; hora_salida: string | null; puntualidad_min: number | null
+      metodo_registro: string; sector: string | null; puesto: string | null; rol: string | null
     }> = []
     for (const a of resAsistenciaHoy.data || []) {
       const info = mapaMiembros[a.miembro_id]
@@ -331,6 +341,7 @@ export async function GET() {
       else if (a.tipo === 'tardanza') asistenciaHoy.tardanzas++
       else asistenciaHoy.presentes++
       detalleHoy.push({
+        id: a.id,
         miembro_id: a.miembro_id,
         usuario_id: info?.usuario_id || '',
         nombre: info?.nombre || 'Sin nombre',
@@ -340,6 +351,9 @@ export async function GET() {
         hora_salida: a.hora_salida,
         puntualidad_min: a.puntualidad_min,
         metodo_registro: a.metodo_registro,
+        sector: info?.sector || null,
+        puesto: info?.puesto || null,
+        rol: info?.rol || null,
       })
     }
 
