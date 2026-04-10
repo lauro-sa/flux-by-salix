@@ -429,12 +429,12 @@ function ModalActividad({
       )}
 
       {/* ══ Grid 2 columnas con divisor 1px ══ */}
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_340px] gap-0">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-0 border-y border-white/[0.07]">
 
         {/* ── COL IZQUIERDA — tipo, título, descripción, checklist ── */}
-        <div className="space-y-5 p-6">
+        <div className="space-y-0">
           {/* Tipo */}
-          <div>
+          <div className="p-6">
             <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Tipo</p>
             <div className="flex flex-wrap gap-1.5">
               {tiposActivos.map(tipo => {
@@ -455,7 +455,7 @@ function ModalActividad({
           </div>
 
           {/* Título */}
-          <div>
+          <div className="p-6">
             <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Título</p>
             <Input tipo="text" value={titulo}
               onChange={(e) => { setTitulo(e.target.value); setTituloManual(true) }}
@@ -464,7 +464,7 @@ function ModalActividad({
 
           {/* Descripción */}
           {tipoSeleccionado?.campo_descripcion && (
-            <div>
+            <div className="p-6">
               <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Descripción</p>
               <TextArea value={descripcion}
                 onChange={(e) => setDescripcion(e.target.value)}
@@ -474,7 +474,9 @@ function ModalActividad({
 
           {/* Checklist */}
           {tipoSeleccionado?.campo_checklist && (
-            <SeccionChecklist checklist={checklist} onChange={setChecklist} />
+            <div className="p-6">
+              <SeccionChecklist checklist={checklist} onChange={setChecklist} />
+            </div>
           )}
         </div>
 
@@ -482,10 +484,10 @@ function ModalActividad({
         <div className="hidden md:block bg-white/[0.07]" />
 
         {/* ── COL DERECHA — metadata y vínculos ── */}
-        <div className="space-y-5 p-6">
+        <div className="space-y-0">
           {/* Responsable */}
           {tipoSeleccionado?.campo_responsable && (
-            <div>
+            <div className="p-6">
               <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Responsable</p>
               <Select valor={asignadoA || ''}
                 onChange={(val) => {
@@ -500,33 +502,37 @@ function ModalActividad({
 
           {/* Prioridad + Fecha */}
           {(tipoSeleccionado?.campo_prioridad || tipoSeleccionado?.campo_fecha) && (
-            <div className={`grid gap-3 ${tipoSeleccionado?.campo_prioridad && tipoSeleccionado?.campo_fecha ? 'grid-cols-2' : 'grid-cols-1'}`}>
-              {tipoSeleccionado?.campo_prioridad && (
-                <div>
-                  <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Prioridad</p>
-                  <Select valor={prioridad} onChange={setPrioridad}
-                    opciones={[
-                      { valor: 'baja', etiqueta: 'Baja' },
-                      { valor: 'normal', etiqueta: 'Normal' },
-                      { valor: 'alta', etiqueta: 'Alta' },
-                    ]} />
-                </div>
-              )}
-              {tipoSeleccionado?.campo_fecha && (
-                <div>
-                  <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Vencimiento</p>
-                  <SelectorFecha valor={fechaVencimiento} onChange={(v) => setFechaVencimiento(v || '')} limpiable />
-                </div>
-              )}
+            <div className="p-6">
+              <div className={`grid gap-3 ${tipoSeleccionado?.campo_prioridad && tipoSeleccionado?.campo_fecha ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                {tipoSeleccionado?.campo_prioridad && (
+                  <div>
+                    <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Prioridad</p>
+                    <Select valor={prioridad} onChange={setPrioridad}
+                      opciones={[
+                        { valor: 'baja', etiqueta: 'Baja' },
+                        { valor: 'normal', etiqueta: 'Normal' },
+                        { valor: 'alta', etiqueta: 'Alta' },
+                      ]} />
+                  </div>
+                )}
+                {tipoSeleccionado?.campo_fecha && (
+                  <div>
+                    <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Vencimiento</p>
+                    <SelectorFecha valor={fechaVencimiento} onChange={(v) => setFechaVencimiento(v || '')} limpiable />
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
           {/* Vínculos */}
-          <SeccionVinculos vinculos={vinculos} onChange={manejarCambioVinculos} onNavegar={(ruta) => { onCerrar(); router.push(ruta) }} />
+          <div className="p-6">
+            <SeccionVinculos vinculos={vinculos} onChange={manejarCambioVinculos} onNavegar={(ruta) => { onCerrar(); router.push(ruta) }} />
+          </div>
 
           {/* Bloques de calendario — edición */}
           {esEdicion && actividad && (
-            <div className="space-y-2">
+            <div className="p-6 space-y-2">
               <SeccionBloquesCalendario actividadId={actividad.id} titulo={actividad.titulo}
                 asignadoA={asignadoA} asignadoNombre={asignadoNombre} vinculos={vinculos} />
               <Boton variante="fantasma" tamano="xs" icono={<Calendar size={14} />}
@@ -538,7 +544,7 @@ function ModalActividad({
 
           {/* Bloques de calendario — creación */}
           {!esEdicion && tipoConCalendario && (
-            <div className="space-y-2">
+            <div className="p-6 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Calendar size={14} className="text-texto-terciario" />
