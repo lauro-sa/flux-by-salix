@@ -570,29 +570,48 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
 
           {/* ════════════════ TAB INVENTARIO (solo productos) ════════════════ */}
           {tabActivo === 'inventario' && tipo === 'producto' && (
-            <div className="space-y-6 p-6">
-              <p className="text-sm text-texto-terciario">Datos logísticos del producto físico.</p>
-              <div className="grid grid-cols-2 gap-5 max-w-md">
-                <Input
-                  etiqueta="Peso (kg)"
-                  tipo="number"
-                  value={peso}
-                  onChange={e => setPeso(e.target.value)}
-                  placeholder="0.00"
-                  step="0.01"
-                  min="0"
-                  formato={null}
-                />
-                <Input
-                  etiqueta="Volumen (m³)"
-                  tipo="number"
-                  value={volumen}
-                  onChange={e => setVolumen(e.target.value)}
-                  placeholder="0.000"
-                  step="0.001"
-                  min="0"
-                  formato={null}
-                />
+            <div className="p-6 space-y-5">
+              {/* Identificación */}
+              <div>
+                <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-3">Identificación</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <Input etiqueta="Código de barras (EAN)" value={codigoBarras}
+                    onChange={e => setCodigoBarras(e.target.value)} placeholder="Ej: 7790001234567" formato={null} />
+                  <Input etiqueta="SKU interno" value={referenciaInterna}
+                    onChange={e => setReferenciaInterna(e.target.value)} placeholder="Ej: PROD-001" formato={null} />
+                  <Input etiqueta="Ubicación en depósito" value="" onChange={() => {}}
+                    placeholder="Próximamente" formato={null} disabled />
+                </div>
+              </div>
+
+              <div className="border-t border-white/[0.07]" />
+
+              {/* Dimensiones físicas */}
+              <div>
+                <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-3">Dimensiones físicas</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <Input etiqueta="Peso (kg)" tipo="number" value={peso}
+                    onChange={e => setPeso(e.target.value)} placeholder="0.00"
+                    step="0.01" min="0" formato={null} />
+                  <Input etiqueta="Volumen (m³)" tipo="number" value={volumen}
+                    onChange={e => setVolumen(e.target.value)} placeholder="0.000"
+                    step="0.001" min="0" formato={null} />
+                  <Input etiqueta="Largo × Ancho × Alto" value="" onChange={() => {}}
+                    placeholder="Próximamente" formato={null} disabled />
+                  <Input etiqueta="Proveedor principal" value="" onChange={() => {}}
+                    placeholder="Próximamente" formato={null} disabled />
+                </div>
+              </div>
+
+              <div className="border-t border-white/[0.07]" />
+
+              {/* Alerta stock */}
+              <div className="flex items-center justify-between py-2.5 px-3 rounded-lg border border-white/[0.06] bg-white/[0.03]">
+                <div>
+                  <p className="text-xs font-medium text-texto-secundario">Alertar cuando el stock esté bajo</p>
+                  <p className="text-[11px] text-texto-terciario mt-0.5">Se notifica al llegar al punto de reorden</p>
+                </div>
+                <Interruptor activo={false} onChange={() => {}} />
               </div>
             </div>
           )}
