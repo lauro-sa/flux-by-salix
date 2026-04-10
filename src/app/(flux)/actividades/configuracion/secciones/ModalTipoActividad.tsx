@@ -6,10 +6,12 @@ import { Input } from '@/componentes/ui/Input'
 import { TextArea } from '@/componentes/ui/TextArea'
 import { Select } from '@/componentes/ui/Select'
 import { Boton } from '@/componentes/ui/Boton'
-import { SelectorIcono, obtenerIcono } from '@/componentes/ui/SelectorIcono'
+import { obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Tooltip } from '@/componentes/ui/Tooltip'
-import { Trash2, Check, Pipette } from 'lucide-react'
+import { Trash2, Check, Pipette, Search } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import * as LucideIcons from 'lucide-react'
 import type { TipoActividad } from './SeccionTipos'
 import { PALETA_COLORES_TIPO_ACTIVIDAD } from '@/lib/colores_entidad'
 
@@ -33,6 +35,88 @@ interface PropiedadesModal {
 
 // Colores predefinidos para tipos de actividad (centralizados en colores_entidad.ts)
 const COLORES_TIPO = PALETA_COLORES_TIPO_ACTIVIDAD
+
+// Iconos populares para el mini selector inline
+const ICONOS_RAPIDOS = [
+  'Phone', 'Video', 'Mail', 'MessageSquare', 'Calendar', 'Clock',
+  'FileText', 'ClipboardList', 'MapPin', 'Truck', 'Wrench', 'Hammer',
+  'DollarSign', 'CreditCard', 'ShoppingCart', 'Package', 'Send', 'Upload',
+  'Users', 'UserPlus', 'Building2', 'Briefcase', 'Target', 'Flag',
+  'Star', 'Heart', 'Zap', 'AlertCircle', 'CheckCircle', 'Activity',
+]
+
+/** Mini selector de icono — popover compacto con búsqueda */
+function MiniSelectorIcono({ valor, color, onChange }: { valor: string; color: string; onChange: (v: string) => void }) {
+  const [abierto, setAbierto] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
+  const contenedorRef = useRef<HTMLDivElement>(null)
+  const IconoActual = obtenerIcono(valor)
+
+  // Cerrar al click fuera
+  useEffect(() => {
+    if (!abierto) return
+    const handler = (e: MouseEvent) => {
+      if (contenedorRef.current && !contenedorRef.current.contains(e.target as Node)) setAbierto(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [abierto])
+
+  const iconosFiltrados = busqueda.trim()
+    ? Object.keys(LucideIcons).filter(k =>
+        k !== 'default' && k !== 'createLucideIcon' && typeof (LucideIcons as Record<string, unknown>)[k] === 'object' &&
+        k.toLowerCase().includes(busqueda.toLowerCase())
+      ).slice(0, 40)
+    : ICONOS_RAPIDOS
+
+  return (
+    <div ref={contenedorRef} className="relative shrink-0">
+      <button onClick={() => { setAbierto(!abierto); setBusqueda('') }}
+        className="size-11 rounded-xl flex items-center justify-center cursor-pointer border border-borde-sutil hover:border-texto-marca/40 transition-colors"
+        style={{ backgroundColor: color + '15', color }}
+        title="Cambiar icono">
+        {IconoActual && <IconoActual size={20} />}
+      </button>
+
+      <AnimatePresence>
+        {abierto && (
+          <motion.div
+            initial={{ opacity: 0, y: 4, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.97 }}
+            transition={{ duration: 0.15 }}
+            className="absolute top-full left-0 mt-1.5 z-50 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg overflow-hidden w-[260px]"
+          >
+            {/* Buscador */}
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-borde-sutil">
+              <Search size={13} className="text-texto-terciario shrink-0" />
+              <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar icono..."
+                className="flex-1 bg-transparent border-none text-xs text-texto-primario placeholder:text-texto-terciario outline-none"
+                autoFocus />
+            </div>
+            {/* Grilla de iconos */}
+            <div className="grid grid-cols-6 gap-0.5 p-2 max-h-[200px] overflow-y-auto">
+              {iconosFiltrados.map(nombre => {
+                const Ic = obtenerIcono(nombre)
+                if (!Ic) return null
+                const sel = valor === nombre
+                return (
+                  <button key={nombre} onClick={() => { onChange(nombre); setAbierto(false) }}
+                    className={`size-9 rounded-lg flex items-center justify-center cursor-pointer transition-colors border-none ${
+                      sel ? 'bg-texto-marca/15 text-texto-marca' : 'bg-transparent text-texto-terciario hover:bg-superficie-hover hover:text-texto-primario'
+                    }`} title={nombre}>
+                    <Ic size={16} />
+                  </button>
+                )
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
 
 // Campos configurables por tipo
 const CAMPOS_DISPONIBLES = [
@@ -181,171 +265,158 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
         </div>
       }
     >
-      <div className="space-y-6">
-        {/* ══ Fila 1: Preview + Nombre + Icono + Color ══ */}
-        <div className="flex items-start gap-5">
-          {/* Preview live */}
-          <div className="size-12 rounded-xl flex items-center justify-center shrink-0"
-            style={{ backgroundColor: color + '18', color }}>
-            {IconoPreview && <IconoPreview size={22} />}
-          </div>
-          <div className="flex-1 min-w-0">
-            <Input tipo="text" etiqueta="Nombre" value={etiqueta}
+      <div className="space-y-5">
+        {/* ══ Identidad: Icono botón + Nombre + Colores debajo ══ */}
+        <div className="flex items-start gap-3">
+          {/* Botón icono con popover compacto */}
+          <MiniSelectorIcono valor={icono} color={color} onChange={setIcono} />
+          <div className="flex-1 min-w-0 space-y-2">
+            <Input tipo="text" value={etiqueta}
               onChange={(e) => manejarEtiqueta(e.target.value)}
-              placeholder="Ej: Llamada, Reunión, Visita..." autoFocus />
-          </div>
-          <div className="shrink-0 w-44">
-            <SelectorIcono valor={icono} onChange={setIcono} etiqueta="Icono" />
+              placeholder="Nombre: Llamada, Reunión, Visita..."
+              autoFocus />
+            {/* Colores inline debajo del nombre */}
+            <div className="flex flex-wrap gap-1.5 items-center">
+              {COLORES_TIPO.map(preset => {
+                const sel = color.toLowerCase() === preset.color.toLowerCase()
+                return (
+                  <button key={preset.color} onClick={() => setColor(preset.color)}
+                    className={`relative size-5 rounded-full transition-all duration-150 cursor-pointer hover:scale-110 ${
+                      sel ? 'ring-2 ring-offset-1 ring-white/80 ring-offset-superficie-tarjeta scale-110' : ''
+                    }`} style={{ backgroundColor: preset.color }}>
+                    {sel && <Check size={10} className="absolute inset-0 m-auto text-white drop-shadow-sm" />}
+                  </button>
+                )
+              })}
+              <button onClick={() => colorInputRef.current?.click()}
+                className={`relative size-5 rounded-full border border-dashed transition-all duration-150 cursor-pointer hover:scale-110 flex items-center justify-center ${
+                  !COLORES_TIPO.some(p => p.color.toLowerCase() === color.toLowerCase())
+                    ? 'ring-2 ring-offset-1 ring-white/80 ring-offset-superficie-tarjeta scale-110 border-transparent' : 'border-borde-fuerte'
+                }`}
+                style={!COLORES_TIPO.some(p => p.color.toLowerCase() === color.toLowerCase()) ? { backgroundColor: color } : undefined}>
+                {COLORES_TIPO.some(p => p.color.toLowerCase() === color.toLowerCase())
+                  ? <Pipette size={9} className="text-texto-terciario" />
+                  : <Check size={9} className="text-white drop-shadow-sm" />}
+              </button>
+              <input ref={colorInputRef} type="color" value={color}
+                onChange={(e) => setColor(e.target.value)} className="sr-only" tabIndex={-1} />
+            </div>
           </div>
         </div>
 
-        {/* Color — compacto, bolitas chicas inline */}
-        <div className="flex items-center gap-3">
-          <label className="text-xs font-medium text-texto-terciario shrink-0">Color</label>
-          <div className="flex flex-wrap gap-1.5 items-center">
-            {COLORES_TIPO.map(preset => {
-              const sel = color.toLowerCase() === preset.color.toLowerCase()
+        {/* ══ Disponible en — tags planos toggleables ══ */}
+        <div className="border-t border-borde-sutil pt-4">
+          <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Disponible en</p>
+          <div className="flex flex-wrap gap-1.5">
+            {modulosDisponibles.map(mod => {
+              const activo = modulos.includes(mod.clave)
               return (
-                <Tooltip key={preset.color} contenido={preset.nombre}>
-                  <button onClick={() => setColor(preset.color)}
-                    className={`relative size-6 rounded-full transition-all duration-150 cursor-pointer hover:scale-110 ${
-                      sel ? 'ring-2 ring-offset-1 ring-texto-marca ring-offset-superficie-tarjeta scale-110' : ''
-                    }`} style={{ backgroundColor: preset.color }}>
-                    {sel && <Check size={11} className="absolute inset-0 m-auto text-white drop-shadow-sm" />}
-                  </button>
-                </Tooltip>
+                <button key={mod.clave} onClick={() => toggleModulo(mod.clave)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer border ${
+                    activo
+                      ? 'bg-texto-marca/15 border-texto-marca/40 text-texto-marca'
+                      : 'bg-superficie-tarjeta/50 border-borde-sutil text-texto-terciario hover:border-borde-fuerte hover:text-texto-secundario'
+                  }`}>
+                  {mod.etiqueta}
+                </button>
               )
             })}
-            <button onClick={() => colorInputRef.current?.click()}
-              className={`relative size-6 rounded-full border border-dashed transition-all duration-150 cursor-pointer hover:scale-110 flex items-center justify-center ${
-                !COLORES_TIPO.some(p => p.color.toLowerCase() === color.toLowerCase())
-                  ? 'ring-2 ring-offset-1 ring-texto-marca ring-offset-superficie-tarjeta scale-110 border-transparent' : 'border-borde-fuerte'
-              }`}
-              style={!COLORES_TIPO.some(p => p.color.toLowerCase() === color.toLowerCase()) ? { backgroundColor: color } : undefined}
-              title="Color personalizado">
-              {COLORES_TIPO.some(p => p.color.toLowerCase() === color.toLowerCase())
-                ? <Pipette size={10} className="text-texto-terciario" />
-                : <Check size={10} className="text-white drop-shadow-sm" />}
-            </button>
-            <input ref={colorInputRef} type="color" value={color}
-              onChange={(e) => setColor(e.target.value)} className="sr-only" tabIndex={-1} />
           </div>
         </div>
 
-        {/* ══ Grid 2 columnas: config izq + comportamiento der ══ */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5 pt-2 border-t border-borde-sutil">
+        {/* ══ Grid 2 columnas con divisor central ══ */}
+        <div className="border-t border-borde-sutil pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-0">
 
-          {/* ── COL IZQUIERDA ── */}
-          <div className="space-y-5">
-            {/* Disponible en — chips seleccionables compactos */}
-            <div>
-              <label className="text-xs font-medium text-texto-terciario block mb-2">Disponible en</label>
-              {/* Seleccionados como badges */}
-              {modulos.length > 0 && (
-                <div className="flex flex-wrap gap-1 mb-2">
-                  {modulos.map(clave => {
-                    const mod = modulosDisponibles.find(m => m.clave === clave)
-                    return (
-                      <span key={clave}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xxs font-medium bg-texto-marca/10 text-texto-marca">
-                        {mod?.etiqueta || clave}
-                        <button onClick={() => toggleModulo(clave)}
-                          className="size-3.5 rounded-full flex items-center justify-center bg-transparent border-none cursor-pointer hover:bg-texto-marca/20 text-current">
-                          <Check size={8} />
-                        </button>
-                      </span>
-                    )
-                  })}
-                </div>
-              )}
-              <div className="flex flex-wrap gap-1">
-                {modulosDisponibles.filter(m => !modulos.includes(m.clave)).map(mod => (
-                  <button key={mod.clave} onClick={() => toggleModulo(mod.clave)}
-                    className="px-2 py-1 rounded-md text-xxs font-medium text-texto-terciario border border-borde-sutil bg-transparent cursor-pointer hover:border-texto-marca/30 hover:text-texto-secundario transition-colors">
-                    {mod.etiqueta}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Vencimiento — inline compacto */}
-            <div className="flex items-center gap-3">
-              <label className="text-xs font-medium text-texto-terciario shrink-0">Vencimiento</label>
-              <div className="flex rounded-md border border-borde-sutil overflow-hidden">
-                {[0, 1, 2, 3, 5, 7].map(d => (
-                  <button key={d} onClick={() => setDiasVencimiento(d)}
-                    className={`px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer border-none ${
-                      diasVencimiento === d ? 'bg-texto-marca text-white' : 'bg-superficie-tarjeta text-texto-terciario hover:bg-superficie-hover'
-                    }`}>
-                    {d === 0 ? 'Sin' : `${d}d`}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Campos habilitados — grilla 2 columnas compacta */}
-            <div>
-              <label className="text-xs font-medium text-texto-terciario block mb-2">Campos</label>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                {CAMPOS_DISPONIBLES.map(campo => (
-                  <label key={campo.clave}
-                    className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-superficie-hover/50 transition-colors cursor-pointer">
-                    <Interruptor activo={campos[campo.clave as keyof typeof campos]}
-                      onChange={(v) => setCampos(prev => ({ ...prev, [campo.clave]: v }))} />
-                    <span className="text-xs text-texto-primario">{campo.etiqueta}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* ── COL DERECHA ── */}
-          <div className="space-y-5 md:border-l md:border-borde-sutil md:pl-8">
-            {/* Auto-completar — switch compacto */}
-            <label className="flex items-center justify-between gap-3 py-1.5 px-2 rounded-md hover:bg-superficie-hover/50 transition-colors cursor-pointer">
+            {/* ── COL IZQUIERDA ── */}
+            <div className="space-y-5 md:pr-7">
+              {/* Vencimiento */}
               <div>
-                <p className="text-xs font-medium text-texto-primario">Auto-completar al ejecutar</p>
-                <p className="text-xxs text-texto-terciario">Se completa al crear el documento desde la actividad</p>
-              </div>
-              <Interruptor activo={autoCompletar} onChange={setAutoCompletar} />
-            </label>
-
-            {/* Siguiente actividad */}
-            <div className="space-y-3">
-              <Select etiqueta="Siguiente actividad" valor={siguienteTipoId} onChange={setSiguienteTipoId}
-                placeholder="Ninguna — no encadenar"
-                opciones={tipos.filter(t => t.activo && t.id !== tipo?.id).map(t => ({ valor: t.id, etiqueta: t.etiqueta }))} />
-              {siguienteTipoId && (
-                <div className="flex gap-1.5">
-                  {(['sugerir', 'activar'] as const).map(modo => (
-                    <button key={modo} onClick={() => setTipoEncadenamiento(modo)}
-                      className={`flex-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer border ${
-                        tipoEncadenamiento === modo
-                          ? 'bg-texto-marca text-white border-texto-marca'
-                          : 'bg-superficie-tarjeta text-texto-terciario border-borde-sutil hover:border-borde-fuerte'
+                <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Vencimiento</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {[{ d: 0, label: 'Sin plazo' }, { d: 1, label: '1 día' }, { d: 2, label: '2 días' }, { d: 5, label: '5 días' }, { d: 7, label: '7 días' }].map(({ d, label }) => (
+                    <button key={d} onClick={() => setDiasVencimiento(d)}
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer border ${
+                        diasVencimiento === d
+                          ? 'bg-texto-marca/15 border-texto-marca/40 text-texto-marca'
+                          : 'bg-superficie-tarjeta/50 border-borde-sutil text-texto-terciario hover:border-borde-fuerte hover:text-texto-secundario'
                       }`}>
-                      {modo === 'sugerir' ? 'Sugerir' : 'Crear auto'}
+                      {label}
                     </button>
                   ))}
                 </div>
-              )}
+              </div>
+
+              {/* Campos visibles */}
+              <div>
+                <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Campos visibles</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {CAMPOS_DISPONIBLES.map(campo => (
+                    <div key={campo.clave}
+                      className="flex items-center justify-between gap-2 py-2 px-2.5 rounded-lg border border-borde-sutil/60 bg-superficie-tarjeta/30">
+                      <span className="text-xs text-texto-secundario">{campo.etiqueta}</span>
+                      <Interruptor activo={campos[campo.clave as keyof typeof campos]}
+                        onChange={(v) => setCampos(prev => ({ ...prev, [campo.clave]: v }))} />
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            {/* Separador visual */}
-            <div className="border-t border-borde-sutil" />
+            {/* Divisor vertical */}
+            <div className="hidden md:block bg-borde-sutil" />
 
-            {/* Defaults */}
-            <div className="space-y-3">
-              <p className="text-xs font-medium text-texto-terciario">Valores al crear</p>
-              <Input tipo="text" etiqueta="Título predeterminado" value={resumenPredeterminado}
-                onChange={(e) => setResumenPredeterminado(e.target.value)}
-                placeholder='Ej: "Hablar sobre la propuesta"' />
-              <TextArea etiqueta="Nota predeterminada" value={notaPredeterminada}
-                onChange={(e) => setNotaPredeterminada(e.target.value)}
-                placeholder='Ej: "Revisar la oferta y hablar sobre los detalles"' rows={2} />
-              <Select etiqueta="Responsable predeterminado" valor={usuarioPredeterminado}
-                onChange={setUsuarioPredeterminado} placeholder="Sin asignar"
-                opciones={miembros.map(m => ({ valor: m.usuario_id, etiqueta: `${m.nombre} ${m.apellido}`.trim() }))} />
+            {/* ── COL DERECHA ── */}
+            <div className="space-y-5 md:pl-7 mt-5 md:mt-0">
+              {/* Comportamiento */}
+              <div>
+                <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Comportamiento</p>
+                <div className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-lg border border-borde-sutil/60 bg-superficie-tarjeta/30">
+                  <div>
+                    <p className="text-xs font-medium text-texto-secundario">Auto-completar al ejecutar</p>
+                    <p className="text-[11px] text-texto-terciario mt-0.5">Se completa al crear el documento</p>
+                  </div>
+                  <Interruptor activo={autoCompletar} onChange={setAutoCompletar} />
+                </div>
+              </div>
+
+              {/* Siguiente actividad */}
+              <div>
+                <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Siguiente actividad</p>
+                <Select valor={siguienteTipoId} onChange={setSiguienteTipoId}
+                  placeholder="Ninguna — no encadenar"
+                  opciones={tipos.filter(t => t.activo && t.id !== tipo?.id).map(t => ({ valor: t.id, etiqueta: t.etiqueta }))} />
+                {siguienteTipoId && (
+                  <div className="flex gap-1.5 mt-2">
+                    {(['sugerir', 'activar'] as const).map(modo => (
+                      <button key={modo} onClick={() => setTipoEncadenamiento(modo)}
+                        className={`flex-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer border ${
+                          tipoEncadenamiento === modo
+                            ? 'bg-texto-marca/15 border-texto-marca/40 text-texto-marca'
+                            : 'bg-superficie-tarjeta/50 border-borde-sutil text-texto-terciario hover:border-borde-fuerte'
+                        }`}>
+                        {modo === 'sugerir' ? 'Sugerir' : 'Crear auto'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Valores por defecto */}
+              <div>
+                <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Valores por defecto</p>
+                <div className="space-y-2">
+                  <Input tipo="text" value={resumenPredeterminado}
+                    onChange={(e) => setResumenPredeterminado(e.target.value)}
+                    placeholder='Título: "Hablar sobre la propuesta"' />
+                  <Input tipo="text" value={notaPredeterminada}
+                    onChange={(e) => setNotaPredeterminada(e.target.value)}
+                    placeholder='Nota: "Revisar la oferta y hablar sobre los detalles"' />
+                  <Select valor={usuarioPredeterminado}
+                    onChange={setUsuarioPredeterminado} placeholder="Responsable: Sin asignar"
+                    opciones={miembros.map(m => ({ valor: m.usuario_id, etiqueta: `${m.nombre} ${m.apellido}`.trim() }))} />
+                </div>
+              </div>
             </div>
           </div>
         </div>
