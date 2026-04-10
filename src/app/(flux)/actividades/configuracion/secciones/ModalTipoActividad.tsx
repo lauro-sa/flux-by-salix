@@ -313,7 +313,7 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
         </div>
 
         {/* ══ Disponible en — tags planos toggleables ══ */}
-        <div className="border-t border-borde-sutil pt-4">
+        <div className="border-t border-white/[0.07] pt-4">
           <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Disponible en</p>
           <div className="flex flex-wrap gap-1.5">
             {modulosDisponibles.map(mod => {
@@ -333,7 +333,7 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
         </div>
 
         {/* ══ Grid 2 columnas con divisor central ══ */}
-        <div className="border-t border-borde-sutil pt-4">
+        <div className="border-t border-white/[0.07] pt-4">
           <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-0">
 
             {/* ── COL IZQUIERDA ── */}
@@ -361,7 +361,7 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
                 <div className="grid grid-cols-2 gap-1.5">
                   {CAMPOS_DISPONIBLES.map(campo => (
                     <div key={campo.clave}
-                      className="flex items-center justify-between gap-2 py-2 px-2.5 rounded-lg border border-borde-sutil/60 bg-superficie-tarjeta/30">
+                      className="flex items-center justify-between gap-2 py-2 px-2.5 rounded-lg border border-white/[0.06] bg-white/[0.03]">
                       <span className="text-xs text-texto-secundario">{campo.etiqueta}</span>
                       <Interruptor activo={campos[campo.clave as keyof typeof campos]}
                         onChange={(v) => setCampos(prev => ({ ...prev, [campo.clave]: v }))} />
@@ -372,14 +372,14 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
             </div>
 
             {/* Divisor vertical */}
-            <div className="hidden md:block bg-borde-sutil" />
+            <div className="hidden md:block bg-white/[0.07]" />
 
             {/* ── COL DERECHA ── */}
             <div className="space-y-5 md:pl-7 mt-5 md:mt-0">
               {/* Comportamiento */}
               <div>
                 <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Comportamiento</p>
-                <div className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-lg border border-borde-sutil/60 bg-superficie-tarjeta/30">
+                <div className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-lg border border-white/[0.06] bg-white/[0.03]">
                   <div>
                     <p className="text-xs font-medium text-texto-secundario">Auto-completar al ejecutar</p>
                     <p className="text-[11px] text-texto-terciario mt-0.5">Se completa al crear el documento</p>
