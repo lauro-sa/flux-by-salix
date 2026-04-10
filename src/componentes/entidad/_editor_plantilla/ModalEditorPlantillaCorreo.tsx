@@ -112,8 +112,8 @@ export function ModalEditorPlantillaCorreo({
         </>
       }
     >
-      {/* ── Selector de contacto + documento (siempre visible arriba) ── */}
-      <div className="px-6 pt-3 pb-3 flex items-start gap-4 border-b border-white/[0.07]">
+      {/* ── Barra de contexto: contacto + documento ── */}
+      <div className="px-6 py-3 grid grid-cols-2 gap-4 border-b border-white/[0.07] bg-white/[0.02]">
         {/* Contacto */}
         <div className="flex-1 min-w-0">
           <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block">Contacto</label>
@@ -127,11 +127,11 @@ export function ModalEditorPlantillaCorreo({
                   {iniciales(String(contactoPreview.nombre || ''), contactoPreview.apellido as string)}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate" style={{ color: 'var(--texto-primario)' }}>
+                  <p className="text-sm font-medium truncate text-texto-primario">
                     {`${contactoPreview.nombre || ''} ${contactoPreview.apellido || ''}`.trim()}
                   </p>
                   {typeof contactoPreview.correo === 'string' && contactoPreview.correo && (
-                    <p className="text-xxs truncate" style={{ color: 'var(--texto-terciario)' }}>{contactoPreview.correo}</p>
+                    <p className="text-xxs truncate text-texto-terciario">{contactoPreview.correo}</p>
                   )}
                 </div>
                 {!contactoBloqueadoPorDoc && (
@@ -145,7 +145,7 @@ export function ModalEditorPlantillaCorreo({
                   </Boton>
                 )}
                 {contactoBloqueadoPorDoc && (
-                  <span className="text-xxs flex-shrink-0" style={{ color: 'var(--texto-terciario)' }}>vía documento</span>
+                  <span className="text-xxs flex-shrink-0 text-texto-terciario">vía documento</span>
                 )}
               </div>
             ) : (
@@ -162,10 +162,10 @@ export function ModalEditorPlantillaCorreo({
           <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block">Documento</label>
           {documentoPreview ? (
             <div className="flex items-center gap-2">
-              <PenLine size={14} style={{ color: 'var(--texto-terciario)' }} className="flex-shrink-0" />
+              <PenLine size={14} className="text-texto-terciario flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate" style={{ color: 'var(--texto-primario)' }}>{documentoPreview.numero}</p>
-                <p className="text-xxs truncate" style={{ color: 'var(--texto-terciario)' }}>{documentoPreview.estado} · {documentoPreview.contacto_nombre || ''}</p>
+                <p className="text-sm font-medium truncate text-texto-primario">{documentoPreview.numero}</p>
+                <p className="text-xxs truncate text-texto-terciario">{documentoPreview.estado} · {documentoPreview.contacto_nombre || ''}</p>
               </div>
               <Boton
                 variante="fantasma"
@@ -258,14 +258,13 @@ export function ModalEditorPlantillaCorreo({
                 <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block">
                   Usuarios asignados ({usuariosSeleccionados.length})
                 </label>
-                <div className="max-h-36 overflow-y-auto rounded-lg" style={{ border: '1px solid var(--borde-sutil)' }}>
+                <div className="max-h-36 overflow-y-auto rounded-lg border border-white/[0.06]">
                   {usuariosEmpresa.length > 0 ? usuariosEmpresa.map(u => {
                     const seleccionado = usuariosSeleccionados.includes(u.id)
                     return (
                       <label
                         key={u.id}
-                        className="flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-colors hover:bg-[var(--superficie-hover)]"
-                        style={seleccionado ? { background: 'var(--insignia-primario-fondo)' } : undefined}
+                        className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-colors hover:bg-white/[0.04] ${seleccionado ? 'bg-texto-marca/8' : ''}`}
                       >
                         <input
                           type="checkbox"
@@ -273,17 +272,16 @@ export function ModalEditorPlantillaCorreo({
                           onChange={() => setUsuariosSeleccionados(prev =>
                             seleccionado ? prev.filter(id => id !== u.id) : [...prev, u.id]
                           )}
-                          className="rounded"
-                          style={{ accentColor: 'var(--texto-marca)' }}
+                          className="rounded accent-texto-marca"
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate" style={{ color: 'var(--texto-primario)' }}>{u.nombre}</p>
-                          <p className="text-xxs truncate" style={{ color: 'var(--texto-terciario)' }}>{u.correo}</p>
+                          <p className="text-sm font-medium truncate text-texto-primario">{u.nombre}</p>
+                          <p className="text-xxs truncate text-texto-terciario">{u.correo}</p>
                         </div>
                       </label>
                     )
                   }) : (
-                    <p className="px-3 py-3 text-xs text-center" style={{ color: 'var(--texto-terciario)' }}>Cargando usuarios...</p>
+                    <p className="px-3 py-3 text-xs text-center text-texto-terciario">Cargando usuarios...</p>
                   )}
                 </div>
               </div>
@@ -313,8 +311,7 @@ export function ModalEditorPlantillaCorreo({
             <Tooltip contenido="Insertar variable">
               <button
                 onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setVariablesCuerpoAbierto(true) }}
-                className="flex items-center justify-center size-6 rounded-md transition-all hover:bg-[var(--superficie-hover)] hover:opacity-100"
-                style={{ color: 'var(--texto-terciario)', opacity: 0.35 }}
+                className="flex items-center justify-center size-6 rounded-md transition-all hover:bg-white/[0.06] hover:opacity-100 text-texto-terciario opacity-35"
                 type="button"
               >
                 <Braces size={13} />
