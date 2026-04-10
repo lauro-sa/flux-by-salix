@@ -60,6 +60,37 @@ src/
 - **Micro-interacciones:** Sutiles con Framer Motion (no exageradas)
 - **Espaciado generoso**, tipografía clara, sin ruido visual
 
+## Patrón de diseño para modales de configuración
+Referencia visual: `ModalTipoActividad` — aplicar este patrón a todos los modales de config/creación.
+
+### Estructura
+```
+┌─────────────────────────────────────────────────────┐
+│ Título modal                                    [X] │
+├─────────────────────────────────────────────────────┤
+│ Identidad: [icono] Nombre + Colores inline          │
+├─────────── border-white/[0.07] ─────────────────────┤
+│ SECCIÓN ANCHO COMPLETO (tags, opciones)             │
+├─────────── border-white/[0.07] ─────────────────────┤
+│ COL IZQUIERDA     │ 1px │ COL DERECHA              │
+│ (campos, config)  │     │ (comportamiento, defaults)│
+├─────────────────────────────────────────────────────┤
+│                              [Cancelar] [Guardar]   │
+└─────────────────────────────────────────────────────┘
+```
+
+### Reglas clave
+- **Tamaño modal:** `5xl` (1080px) para config, usar todo el ancho
+- **Grid 2 columnas:** `grid-cols-1 md:grid-cols-[1fr_1px_1fr]` con divisor `bg-white/[0.07]`
+- **Divisores horizontales:** `border-t border-white/[0.07]` (NO border-borde-sutil que es invisible)
+- **Labels de sección:** `text-[11px] font-medium text-texto-terciario uppercase tracking-wider`
+- **Cards de toggle:** `border-white/[0.06] bg-white/[0.03]` con `rounded-lg py-2 px-2.5`
+- **Tags/pills toggleables:** activo = `bg-texto-marca/15 border-texto-marca/40 text-texto-marca`, inactivo = `border-borde-sutil text-texto-terciario`
+- **Colores:** bolitas `size-5`, seleccionado con `ring-2 ring-white/80`
+- **Icono:** botón clickeable con popover compacto (MiniSelectorIcono), NO el SelectorIcono grande
+- **Mobile:** colapsa a 1 columna, divisor vertical se oculta (`hidden md:block`)
+- **Espaciado:** `space-y-5` entre secciones, `gap-1.5` entre items compactos
+
 ## Reglas de código
 - TypeScript estricto en todo el proyecto (`strict: true`)
 - Componentes reutilizables: si algo se repite, se extrae
