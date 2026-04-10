@@ -264,7 +264,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
             {t('comun.cancelar')}
           </Boton>
           <Boton tamano="sm" onClick={manejarGuardar} cargando={guardando} disabled={!nombre.trim()}>
-            {esEdicion ? t('comun.guardar') : t('comun.crear')}
+            {esEdicion ? `Guardar ${etiquetaTipo}` : `Crear ${etiquetaTipo}`}
           </Boton>
         </>
       }
