@@ -323,98 +323,61 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
           {tabActivo === 'general' && (
             <div>
               <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-0">
-                {/* Columna izquierda — Información */}
+                {/* Columna izquierda — Información general */}
                 <div className="p-6 space-y-4">
                   <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Información</p>
 
-                  <SelectCreable
-                    etiqueta="Categoría"
-                    opciones={opcionesCategorias}
-                    valor={categoria}
-                    onChange={setCategoria}
-                    placeholder="Seleccionar categoría..."
-                    textoCrear="Crear categoría"
-                  />
+                  <SelectCreable etiqueta="Categoría" opciones={opcionesCategorias}
+                    valor={categoria} onChange={setCategoria}
+                    placeholder="Seleccionar categoría..." textoCrear="Crear categoría" />
 
-                  <Input
-                    etiqueta="Referencia"
-                    value={referenciaInterna}
+                  <Input etiqueta="Referencia" value={referenciaInterna}
                     onChange={e => setReferenciaInterna(e.target.value)}
-                    placeholder={tipo === 'servicio' ? 'Código interno' : 'SKU, código interno'}
-                    formato={null}
-                  />
+                    placeholder={tipo === 'servicio' ? 'Código interno' : 'SKU, código interno'} formato={null} />
 
                   {tipo === 'producto' && (
-                    <Input
-                      etiqueta="Código de barras"
-                      value={codigoBarras}
-                      onChange={e => setCodigoBarras(e.target.value)}
-                      placeholder="EAN / UPC"
-                      formato={null}
-                    />
+                    <Input etiqueta="Código de barras" value={codigoBarras}
+                      onChange={e => setCodigoBarras(e.target.value)} placeholder="EAN / UPC" formato={null} />
                   )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Select etiqueta="Moneda"
+                      opciones={[{ valor: '', etiqueta: '$ (empresa)' }, { valor: 'ARS', etiqueta: '$ ARS' }, { valor: 'USD', etiqueta: 'US$ USD' }, { valor: 'EUR', etiqueta: '€ EUR' }]}
+                      valor={moneda} onChange={setMoneda} />
+                    <Select etiqueta="Unidad" opciones={opcionesUnidades} valor={unidad} onChange={setUnidad} />
+                  </div>
                 </div>
 
                 {/* Divisor vertical */}
                 <div className="hidden md:block bg-white/[0.07]" />
 
-                {/* Columna derecha — Precios */}
+                {/* Columna derecha — Precios y costos */}
                 <div className="p-6 space-y-4">
                   <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Precios</p>
 
-                  <InputMoneda
-                    etiqueta="Precio venta"
-                    value={precioUnitario}
-                    onChange={setPrecioUnitario}
-                    moneda={moneda || 'ARS'}
-                  />
-
                   <div className="grid grid-cols-2 gap-3">
-                    <Select
-                      etiqueta="Moneda"
-                      opciones={[{ valor: '', etiqueta: '$ (empresa)' }, { valor: 'ARS', etiqueta: '$ ARS' }, { valor: 'USD', etiqueta: 'US$ USD' }, { valor: 'EUR', etiqueta: '€ EUR' }]}
-                      valor={moneda}
-                      onChange={setMoneda}
-                    />
-                    <Select
-                      etiqueta="Unidad"
-                      opciones={opcionesUnidades}
-                      valor={unidad}
-                      onChange={setUnidad}
-                    />
-                  </div>
-
-                  <div>
-                    <Select
-                      etiqueta="Imp. ventas"
-                      opciones={opcionesImpuestos}
-                      valor={impuestoId}
-                      onChange={setImpuestoId}
-                    />
-                    {precioConImpuesto > 0 && (
-                      <p className="text-xs text-texto-terciario mt-1">
-                        = {formato.numero(precioConImpuesto, 2)} imp. incluidos
-                      </p>
-                    )}
+                    <InputMoneda etiqueta="Precio venta" value={precioUnitario}
+                      onChange={setPrecioUnitario} moneda={moneda || 'ARS'} />
+                    <div>
+                      <Select etiqueta="Imp. ventas" opciones={opcionesImpuestos}
+                        valor={impuestoId} onChange={setImpuestoId} />
+                      {precioConImpuesto > 0 && (
+                        <p className="text-xs text-texto-terciario mt-1">= {formato.numero(precioConImpuesto, 2)} con imp.</p>
+                      )}
+                    </div>
                   </div>
 
                   <div className="border-t border-white/[0.07]" />
 
-                  <InputMoneda
-                    etiqueta={tieneDesglose ? 'Costo (calc.)' : 'Costo'}
-                    value={tieneDesglose ? String(costoDesglose) : costo}
-                    onChange={tieneDesglose ? () => {} : setCosto}
-                    moneda={moneda || 'ARS'}
-                    disabled={tieneDesglose}
-                    ayuda={tieneDesglose ? 'Calculado desde tab Costos' : undefined}
-                  />
-
-                  <Select
-                    etiqueta="Imp. compra"
-                    opciones={opcionesImpuestos}
-                    valor={impuestoCompraId}
-                    onChange={setImpuestoCompraId}
-                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <InputMoneda etiqueta={tieneDesglose ? 'Costo (calc.)' : 'Costo'}
+                      value={tieneDesglose ? String(costoDesglose) : costo}
+                      onChange={tieneDesglose ? () => {} : setCosto} moneda={moneda || 'ARS'}
+                      disabled={tieneDesglose}
+                      ayuda={tieneDesglose ? 'Calculado desde tab Costos' : undefined} />
+                    <Select etiqueta="Imp. compra" opciones={opcionesImpuestos}
+                      valor={impuestoCompraId} onChange={setImpuestoCompraId} />
+                  </div>
 
                   {/* Margen */}
                   <div className="flex items-center justify-between py-2 px-3 rounded-lg border border-white/[0.06] bg-white/[0.03]">
@@ -426,13 +389,12 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
                 </div>
               </div>
 
-              {/* Nota informativa */}
-              <div className="flex items-start gap-2.5 px-6 py-4 border-t border-white/[0.07]">
+              {/* Nota informativa — con espacio adecuado */}
+              <div className="flex items-start gap-2.5 mx-6 my-4 px-4 py-3 rounded-lg border border-white/[0.06] bg-white/[0.02]">
                 <Info size={14} className="text-texto-terciario shrink-0 mt-0.5" />
                 <p className="text-xs leading-relaxed text-texto-terciario">
-                  Las categorías, prefijos de código, unidades de medida y categorías de costo se gestionan
-                  desde <span className="font-semibold text-texto-secundario">Configuración</span> en la página de Productos.
-                  Los impuestos y monedas se configuran desde <span className="font-semibold text-texto-secundario">Configuración</span> en Presupuestos.
+                  Las categorías, unidades y categorías de costo se gestionan desde <span className="font-semibold text-texto-secundario">Configuración</span> en Productos.
+                  Los impuestos y monedas desde <span className="font-semibold text-texto-secundario">Configuración</span> en Presupuestos.
                 </p>
               </div>
             </div>
