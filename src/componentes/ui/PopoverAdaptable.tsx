@@ -93,8 +93,11 @@ function PopoverAdaptable({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ type: 'spring', damping: 28, stiffness: 380, mass: 0.6 }}
-                  className="absolute left-0 right-0 bg-superficie-elevada border-b border-borde-sutil shadow-elevada overflow-hidden"
-                  style={{ top: '3.5rem' }}
+                  className="absolute left-0 right-0 bg-superficie-elevada border-b border-borde-sutil shadow-elevada overflow-hidden overflow-y-auto"
+                  style={{
+                    top: 'calc(3.5rem + env(safe-area-inset-top, 0px))',
+                    maxHeight: 'calc(100dvh - 3.5rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))',
+                  }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   {contenido}
