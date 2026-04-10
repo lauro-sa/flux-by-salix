@@ -275,7 +275,7 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
     >
       <div className="space-y-5">
         {/* ══ Identidad: Icono botón + Nombre + Colores debajo ══ */}
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 pb-1">
           {/* Botón icono con popover compacto */}
           <MiniSelectorIcono valor={icono} color={color} onChange={setIcono} />
           <div className="flex-1 min-w-0 space-y-2">
