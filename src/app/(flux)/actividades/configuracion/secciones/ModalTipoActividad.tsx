@@ -181,194 +181,173 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
         </div>
       }
     >
-      {/* ══ Layout 2 columnas ══ */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-
-        {/* ── COLUMNA IZQUIERDA — Identidad y ajustes del tipo ── */}
-        <div className="space-y-6">
-          <p className="text-xs font-semibold text-texto-terciario uppercase tracking-wider">Ajustes del tipo</p>
-
-          {/* Preview + Nombre */}
-          <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
-              style={{ backgroundColor: color + '18', color }}>
-              {IconoPreview && <IconoPreview size={28} />}
-            </div>
-            <div className="flex-1">
-              <Input tipo="text" etiqueta="Nombre del tipo" value={etiqueta}
-                onChange={(e) => manejarEtiqueta(e.target.value)}
-                placeholder="Ej: Llamada, Reunión, Visita..." autoFocus />
-            </div>
+      <div className="space-y-6">
+        {/* ══ Fila 1: Preview + Nombre + Icono + Color ══ */}
+        <div className="flex items-start gap-5">
+          {/* Preview live */}
+          <div className="size-12 rounded-xl flex items-center justify-center shrink-0"
+            style={{ backgroundColor: color + '18', color }}>
+            {IconoPreview && <IconoPreview size={22} />}
           </div>
-
-          {/* Icono */}
-          <SelectorIcono valor={icono} onChange={setIcono} etiqueta="Icono" />
-
-          {/* Color */}
-          <div>
-            <label className="text-sm font-medium text-texto-secundario block mb-2">Color</label>
-            <div className="flex flex-wrap gap-2.5 items-center">
-              {COLORES_TIPO.map(preset => {
-                const seleccionado = color.toLowerCase() === preset.color.toLowerCase()
-                return (
-                  <Tooltip key={preset.color} contenido={preset.nombre}>
-                    <button onClick={() => setColor(preset.color)}
-                      className={`relative size-8 rounded-full transition-all duration-150 cursor-pointer hover:scale-110 ${
-                        seleccionado ? 'ring-2 ring-offset-2 ring-texto-marca ring-offset-superficie-tarjeta scale-110' : ''
-                      }`} style={{ backgroundColor: preset.color }}>
-                      {seleccionado && <Check size={14} className="absolute inset-0 m-auto text-white drop-shadow-sm" />}
-                    </button>
-                  </Tooltip>
-                )
-              })}
-              <button onClick={() => colorInputRef.current?.click()}
-                className={`relative size-8 rounded-full border-2 border-dashed transition-all duration-150 cursor-pointer hover:scale-110 flex items-center justify-center ${
-                  !COLORES_TIPO.some(p => p.color.toLowerCase() === color.toLowerCase())
-                    ? 'ring-2 ring-offset-2 ring-texto-marca ring-offset-superficie-tarjeta scale-110 border-transparent' : 'border-borde-fuerte'
-                }`}
-                style={!COLORES_TIPO.some(p => p.color.toLowerCase() === color.toLowerCase()) ? { backgroundColor: color } : undefined}
-                title="Elegir color personalizado">
-                {COLORES_TIPO.some(p => p.color.toLowerCase() === color.toLowerCase())
-                  ? <Pipette size={14} className="text-texto-terciario" />
-                  : <Check size={14} className="text-white drop-shadow-sm" />}
-              </button>
-              <input ref={colorInputRef} type="color" value={color}
-                onChange={(e) => setColor(e.target.value)} className="sr-only" tabIndex={-1} />
-            </div>
+          <div className="flex-1 min-w-0">
+            <Input tipo="text" etiqueta="Nombre" value={etiqueta}
+              onChange={(e) => manejarEtiqueta(e.target.value)}
+              placeholder="Ej: Llamada, Reunión, Visita..." autoFocus />
           </div>
+          <div className="shrink-0 w-44">
+            <SelectorIcono valor={icono} onChange={setIcono} etiqueta="Icono" />
+          </div>
+        </div>
 
-          {/* Módulos disponibles */}
-          <div>
-            <label className="text-sm font-medium text-texto-secundario block mb-3">Disponible en</label>
-            {(() => {
-              const grupos = modulosDisponibles.reduce<Record<string, typeof modulosDisponibles>>((acc, mod) => {
-                const g = mod.grupo || 'Otro'
-                if (!acc[g]) acc[g] = []
-                acc[g].push(mod)
-                return acc
-              }, {})
+        {/* Color — compacto, bolitas chicas inline */}
+        <div className="flex items-center gap-3">
+          <label className="text-xs font-medium text-texto-terciario shrink-0">Color</label>
+          <div className="flex flex-wrap gap-1.5 items-center">
+            {COLORES_TIPO.map(preset => {
+              const sel = color.toLowerCase() === preset.color.toLowerCase()
               return (
-                <div className="space-y-3">
-                  {Object.entries(grupos).map(([grupo, mods]) => (
-                    <div key={grupo}>
-                      <p className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-1.5">{grupo}</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {mods.map(mod => (
-                          <Boton key={mod.clave} variante={modulos.includes(mod.clave) ? 'primario' : 'fantasma'}
-                            tamano="sm" redondeado onClick={() => toggleModulo(mod.clave)}>
-                            {mod.etiqueta}
-                          </Boton>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <Tooltip key={preset.color} contenido={preset.nombre}>
+                  <button onClick={() => setColor(preset.color)}
+                    className={`relative size-6 rounded-full transition-all duration-150 cursor-pointer hover:scale-110 ${
+                      sel ? 'ring-2 ring-offset-1 ring-texto-marca ring-offset-superficie-tarjeta scale-110' : ''
+                    }`} style={{ backgroundColor: preset.color }}>
+                    {sel && <Check size={11} className="absolute inset-0 m-auto text-white drop-shadow-sm" />}
+                  </button>
+                </Tooltip>
               )
-            })()}
+            })}
+            <button onClick={() => colorInputRef.current?.click()}
+              className={`relative size-6 rounded-full border border-dashed transition-all duration-150 cursor-pointer hover:scale-110 flex items-center justify-center ${
+                !COLORES_TIPO.some(p => p.color.toLowerCase() === color.toLowerCase())
+                  ? 'ring-2 ring-offset-1 ring-texto-marca ring-offset-superficie-tarjeta scale-110 border-transparent' : 'border-borde-fuerte'
+              }`}
+              style={!COLORES_TIPO.some(p => p.color.toLowerCase() === color.toLowerCase()) ? { backgroundColor: color } : undefined}
+              title="Color personalizado">
+              {COLORES_TIPO.some(p => p.color.toLowerCase() === color.toLowerCase())
+                ? <Pipette size={10} className="text-texto-terciario" />
+                : <Check size={10} className="text-white drop-shadow-sm" />}
+            </button>
+            <input ref={colorInputRef} type="color" value={color}
+              onChange={(e) => setColor(e.target.value)} className="sr-only" tabIndex={-1} />
           </div>
+        </div>
 
-          {/* Vencimiento por defecto */}
-          <div>
-            <label className="text-sm font-medium text-texto-secundario block mb-2">Vencimiento por defecto</label>
-            <div className="flex items-center gap-2">
-              <div className="flex rounded-lg border border-borde-fuerte overflow-hidden">
+        {/* ══ Grid 2 columnas: config izq + comportamiento der ══ */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5 pt-2 border-t border-borde-sutil">
+
+          {/* ── COL IZQUIERDA ── */}
+          <div className="space-y-5">
+            {/* Disponible en — chips seleccionables compactos */}
+            <div>
+              <label className="text-xs font-medium text-texto-terciario block mb-2">Disponible en</label>
+              {/* Seleccionados como badges */}
+              {modulos.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {modulos.map(clave => {
+                    const mod = modulosDisponibles.find(m => m.clave === clave)
+                    return (
+                      <span key={clave}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xxs font-medium bg-texto-marca/10 text-texto-marca">
+                        {mod?.etiqueta || clave}
+                        <button onClick={() => toggleModulo(clave)}
+                          className="size-3.5 rounded-full flex items-center justify-center bg-transparent border-none cursor-pointer hover:bg-texto-marca/20 text-current">
+                          <Check size={8} />
+                        </button>
+                      </span>
+                    )
+                  })}
+                </div>
+              )}
+              <div className="flex flex-wrap gap-1">
+                {modulosDisponibles.filter(m => !modulos.includes(m.clave)).map(mod => (
+                  <button key={mod.clave} onClick={() => toggleModulo(mod.clave)}
+                    className="px-2 py-1 rounded-md text-xxs font-medium text-texto-terciario border border-borde-sutil bg-transparent cursor-pointer hover:border-texto-marca/30 hover:text-texto-secundario transition-colors">
+                    {mod.etiqueta}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Vencimiento — inline compacto */}
+            <div className="flex items-center gap-3">
+              <label className="text-xs font-medium text-texto-terciario shrink-0">Vencimiento</label>
+              <div className="flex rounded-md border border-borde-sutil overflow-hidden">
                 {[0, 1, 2, 3, 5, 7].map(d => (
                   <button key={d} onClick={() => setDiasVencimiento(d)}
-                    className={`px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer border-none ${
-                      diasVencimiento === d ? 'bg-texto-marca text-white' : 'bg-superficie-tarjeta text-texto-secundario hover:bg-superficie-hover'
+                    className={`px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer border-none ${
+                      diasVencimiento === d ? 'bg-texto-marca text-white' : 'bg-superficie-tarjeta text-texto-terciario hover:bg-superficie-hover'
                     }`}>
                     {d === 0 ? 'Sin' : `${d}d`}
                   </button>
                 ))}
               </div>
-              <span className="text-xs text-texto-terciario">
-                {diasVencimiento === 0 ? 'Sin fecha límite' : `${diasVencimiento} día${diasVencimiento > 1 ? 's' : ''}`}
-              </span>
             </div>
-          </div>
 
-          {/* Campos habilitados */}
-          <div>
-            <label className="text-sm font-medium text-texto-secundario block mb-3">Campos habilitados</label>
-            <div className="space-y-1">
-              {CAMPOS_DISPONIBLES.map(campo => (
-                <div key={campo.clave}
-                  className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-superficie-hover/50 transition-colors">
-                  <div>
-                    <p className="text-sm text-texto-primario">{campo.etiqueta}</p>
-                    <p className="text-xs text-texto-terciario">{campo.descripcion}</p>
-                  </div>
-                  <Interruptor activo={campos[campo.clave as keyof typeof campos]}
-                    onChange={(v) => setCampos(prev => ({ ...prev, [campo.clave]: v }))} />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* ── COLUMNA DERECHA — Comportamiento y defaults ── */}
-        <div className="space-y-6 md:border-l md:border-borde-sutil md:pl-8">
-          <p className="text-xs font-semibold text-texto-terciario uppercase tracking-wider">Comportamiento</p>
-
-          {/* Auto-completar */}
-          <div className="flex items-start justify-between gap-4 py-2.5 px-3 rounded-lg hover:bg-superficie-hover/50 transition-colors">
+            {/* Campos habilitados — grilla 2 columnas compacta */}
             <div>
-              <p className="text-sm text-texto-primario font-medium">Auto-completar al ejecutar</p>
-              <p className="text-xs text-texto-terciario mt-0.5">
-                Cuando se crea el documento desde la actividad (ej: presupuesto, visita), la actividad se marca como completada automáticamente.
-              </p>
-            </div>
-            <Interruptor activo={autoCompletar} onChange={setAutoCompletar} />
-          </div>
-
-          {/* Siguiente actividad (encadenamiento) */}
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-texto-secundario block">Siguiente actividad</label>
-              <p className="text-xs text-texto-terciario mt-1">Al completar, puede sugerir o crear automáticamente la siguiente.</p>
-            </div>
-
-            <Select etiqueta="Tipo siguiente" valor={siguienteTipoId} onChange={setSiguienteTipoId}
-              placeholder="Ninguna"
-              opciones={tipos.filter(t => t.activo && t.id !== tipo?.id).map(t => ({ valor: t.id, etiqueta: t.etiqueta }))} />
-
-            {siguienteTipoId && (
-              <div className="flex gap-2">
-                {(['sugerir', 'activar'] as const).map(modo => (
-                  <button key={modo} onClick={() => setTipoEncadenamiento(modo)}
-                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer border ${
-                      tipoEncadenamiento === modo
-                        ? 'bg-texto-marca text-white border-texto-marca'
-                        : 'bg-superficie-tarjeta text-texto-secundario border-borde-sutil hover:border-borde-fuerte'
-                    }`}>
-                    <span className="block">{modo === 'sugerir' ? 'Sugerir' : 'Crear automáticamente'}</span>
-                    <span className="block text-xs opacity-70 mt-0.5 font-normal">
-                      {modo === 'sugerir' ? 'Muestra un aviso para confirmar' : 'Se crea sola al completar'}
-                    </span>
-                  </button>
+              <label className="text-xs font-medium text-texto-terciario block mb-2">Campos</label>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                {CAMPOS_DISPONIBLES.map(campo => (
+                  <label key={campo.clave}
+                    className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-superficie-hover/50 transition-colors cursor-pointer">
+                    <Interruptor activo={campos[campo.clave as keyof typeof campos]}
+                      onChange={(v) => setCampos(prev => ({ ...prev, [campo.clave]: v }))} />
+                    <span className="text-xs text-texto-primario">{campo.etiqueta}</span>
+                  </label>
                 ))}
               </div>
-            )}
+            </div>
           </div>
 
-          {/* Separador */}
-          <div className="border-t border-borde-sutil" />
-          <p className="text-xs font-semibold text-texto-terciario uppercase tracking-wider">Valores predeterminados</p>
+          {/* ── COL DERECHA ── */}
+          <div className="space-y-5 md:border-l md:border-borde-sutil md:pl-8">
+            {/* Auto-completar — switch compacto */}
+            <label className="flex items-center justify-between gap-3 py-1.5 px-2 rounded-md hover:bg-superficie-hover/50 transition-colors cursor-pointer">
+              <div>
+                <p className="text-xs font-medium text-texto-primario">Auto-completar al ejecutar</p>
+                <p className="text-xxs text-texto-terciario">Se completa al crear el documento desde la actividad</p>
+              </div>
+              <Interruptor activo={autoCompletar} onChange={setAutoCompletar} />
+            </label>
 
-          {/* Resumen predeterminado */}
-          <Input tipo="text" etiqueta="Título predeterminado" value={resumenPredeterminado}
-            onChange={(e) => setResumenPredeterminado(e.target.value)}
-            placeholder='Ej: "Hablar sobre la propuesta"' />
+            {/* Siguiente actividad */}
+            <div className="space-y-3">
+              <Select etiqueta="Siguiente actividad" valor={siguienteTipoId} onChange={setSiguienteTipoId}
+                placeholder="Ninguna — no encadenar"
+                opciones={tipos.filter(t => t.activo && t.id !== tipo?.id).map(t => ({ valor: t.id, etiqueta: t.etiqueta }))} />
+              {siguienteTipoId && (
+                <div className="flex gap-1.5">
+                  {(['sugerir', 'activar'] as const).map(modo => (
+                    <button key={modo} onClick={() => setTipoEncadenamiento(modo)}
+                      className={`flex-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer border ${
+                        tipoEncadenamiento === modo
+                          ? 'bg-texto-marca text-white border-texto-marca'
+                          : 'bg-superficie-tarjeta text-texto-terciario border-borde-sutil hover:border-borde-fuerte'
+                      }`}>
+                      {modo === 'sugerir' ? 'Sugerir' : 'Crear auto'}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
-          {/* Nota predeterminada */}
-          <TextArea etiqueta="Nota predeterminada" value={notaPredeterminada}
-            onChange={(e) => setNotaPredeterminada(e.target.value)}
-            placeholder='Ej: "Revisar la oferta y hablar sobre los detalles"' rows={2} />
+            {/* Separador visual */}
+            <div className="border-t border-borde-sutil" />
 
-          {/* Responsable predeterminado */}
-          <Select etiqueta="Responsable predeterminado" valor={usuarioPredeterminado}
-            onChange={setUsuarioPredeterminado} placeholder="Sin asignar (el creador elige)"
-            opciones={miembros.map(m => ({ valor: m.usuario_id, etiqueta: `${m.nombre} ${m.apellido}`.trim() }))} />
+            {/* Defaults */}
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-texto-terciario">Valores al crear</p>
+              <Input tipo="text" etiqueta="Título predeterminado" value={resumenPredeterminado}
+                onChange={(e) => setResumenPredeterminado(e.target.value)}
+                placeholder='Ej: "Hablar sobre la propuesta"' />
+              <TextArea etiqueta="Nota predeterminada" value={notaPredeterminada}
+                onChange={(e) => setNotaPredeterminada(e.target.value)}
+                placeholder='Ej: "Revisar la oferta y hablar sobre los detalles"' rows={2} />
+              <Select etiqueta="Responsable predeterminado" valor={usuarioPredeterminado}
+                onChange={setUsuarioPredeterminado} placeholder="Sin asignar"
+                opciones={miembros.map(m => ({ valor: m.usuario_id, etiqueta: `${m.nombre} ${m.apellido}`.trim() }))} />
+            </div>
+          </div>
         </div>
       </div>
     </Modal>
