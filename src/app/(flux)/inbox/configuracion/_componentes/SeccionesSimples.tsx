@@ -21,10 +21,10 @@ export function SeccionPipeline() {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+        <h3 className="text-sm font-semibold text-texto-primario">
           Pipeline / Etapas
         </h3>
-        <p className="text-xs mt-1 mb-4" style={{ color: 'var(--texto-terciario)' }}>
+        <p className="text-xs mt-1 mb-4 text-texto-terciario">
           Definí las etapas por las que pasan tus conversaciones en cada canal. Podés personalizar nombres, colores e íconos, y ver las conversaciones organizadas en vista pipeline desde el inbox.
         </p>
       </div>
@@ -74,10 +74,10 @@ export function SeccionEtiquetasConfig() {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+        <h3 className="text-sm font-semibold text-texto-primario">
           {t('inbox.etiquetar')}
         </h3>
-        <p className="text-xs mt-1" style={{ color: 'var(--texto-terciario)' }}>
+        <p className="text-xs mt-1 text-texto-terciario">
           Organizá conversaciones con etiquetas de color. Se pueden asignar manualmente desde cada conversación o vía reglas automáticas.
         </p>
       </div>
@@ -100,10 +100,10 @@ export function SeccionReglasConfig() {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold" style={{ color: 'var(--texto-primario)' }}>
+        <h3 className="text-sm font-semibold text-texto-primario">
           Reglas automáticas
         </h3>
-        <p className="text-xs mt-1" style={{ color: 'var(--texto-terciario)' }}>
+        <p className="text-xs mt-1 text-texto-terciario">
           Clasificá correos automáticamente según remitente, asunto o contenido. Las reglas se ejecutan al recibir cada correo nuevo.
         </p>
       </div>
@@ -128,7 +128,7 @@ export function SeccionMetricasConfig() {
     <div className="space-y-4">
       <PanelMetricas />
 
-      <div className="pt-4" style={{ borderTop: '1px solid var(--borde-sutil)' }}>
+      <div className="pt-4 border-t border-white/[0.07]">
         <ListaProgramados />
       </div>
     </div>

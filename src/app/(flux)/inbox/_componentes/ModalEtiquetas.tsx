@@ -186,13 +186,13 @@ export function ModalEtiquetas({
         {/* Lista de etiquetas */}
         {cargando ? (
           <div className="py-8 text-center">
-            <span className="text-xs" style={{ color: 'var(--texto-terciario)' }}>Cargando...</span>
+            <span className="text-xs text-texto-terciario">Cargando...</span>
           </div>
         ) : etiquetas.length === 0 && !creando ? (
           <div className="py-8 text-center">
-            <Tag size={24} className="mx-auto mb-2" style={{ color: 'var(--texto-terciario)' }} />
-            <p className="text-sm" style={{ color: 'var(--texto-secundario)' }}>Sin etiquetas</p>
-            <p className="text-xs mt-1" style={{ color: 'var(--texto-terciario)' }}>
+            <Tag size={24} className="mx-auto mb-2 text-texto-terciario" />
+            <p className="text-sm text-texto-secundario">Sin etiquetas</p>
+            <p className="text-xs mt-1 text-texto-terciario">
               Creá etiquetas para clasificar conversaciones.
             </p>
           </div>
@@ -201,8 +201,7 @@ export function ModalEtiquetas({
             {etiquetas.map((et) => (
               <div
                 key={et.id}
-                className="flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors group"
-                style={{ background: modoAsignar && activas.has(et.nombre) ? 'var(--superficie-seleccionada)' : 'transparent' }}
+                className={`flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors group ${modoAsignar && activas.has(et.nombre) ? 'bg-texto-marca/8' : ''}`}
               >
                 {modoAsignar ? (
                   // Modo asignar: checkbox con cursor pointer y hover
@@ -222,7 +221,7 @@ export function ModalEtiquetas({
                       >
                         {activas.has(et.nombre) && <Check size={8} color="var(--texto-inverso)" />}
                       </span>
-                      <span className="text-sm" style={{ color: 'var(--texto-primario)' }}>
+                      <span className="text-sm text-texto-primario">
                         {et.icono && <span className="mr-1">{et.icono}</span>}{et.nombre}
                       </span>
                     </span>
@@ -251,7 +250,7 @@ export function ModalEtiquetas({
                       </div>
                     ) : (
                       <>
-                        <span className="flex-1 text-sm" style={{ color: 'var(--texto-primario)' }}>
+                        <span className="flex-1 text-sm text-texto-primario">
                           {et.icono && <span className="mr-1">{et.icono}</span>}{et.nombre}
                         </span>
                         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -280,8 +279,7 @@ export function ModalEtiquetas({
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="space-y-2 pt-2"
-              style={{ borderTop: '1px solid var(--borde-sutil)' }}
+              className="space-y-3 pt-3 border-t border-white/[0.07]"
             >
               <div className="flex items-center gap-2">
                 <div
@@ -299,23 +297,14 @@ export function ModalEtiquetas({
                   autoFocus
                 />
               </div>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5 items-center">
                 {PALETA_COLORES_ETIQUETA.map(c => (
-                  <Boton
-                    key={c}
-                    variante="fantasma"
-                    tamano="xs"
-                    soloIcono
-                    redondeado
-                    onClick={() => setColor(c)}
-                    titulo={c}
-                    icono={<span className="w-5 h-5 rounded-full block" style={{ background: c }} />}
-                    style={{
-                      transform: color === c ? 'scale(1.3)' : 'scale(1)',
-                      outline: color === c ? '2px solid var(--texto-marca)' : 'none',
-                      outlineOffset: '2px',
-                    }}
-                  />
+                  <button key={c} onClick={() => setColor(c)}
+                    className={`relative size-5 rounded-full transition-all duration-150 cursor-pointer hover:scale-110 ${
+                      color === c ? 'ring-2 ring-offset-1 ring-white/80 ring-offset-superficie-tarjeta scale-110' : ''
+                    }`} style={{ backgroundColor: c }}>
+                    {color === c && <Check size={10} className="absolute inset-0 m-auto text-white drop-shadow-sm" />}
+                  </button>
                 ))}
               </div>
               <div className="flex items-center gap-2">
