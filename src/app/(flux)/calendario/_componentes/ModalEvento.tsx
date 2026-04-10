@@ -639,178 +639,142 @@ function ModalEvento({
       abierto={abierto}
       onCerrar={onCerrar}
       titulo={esEdicion ? 'Editar evento' : 'Nuevo evento'}
-      tamano="3xl"
+      tamano="5xl"
+      sinPadding
       acciones={acciones}
       alturaMovil="completo"
     >
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-        {/* ── Columna principal (60%) — datos del evento ── */}
-        <div className="md:col-span-3 space-y-4">
+      {/* ══ Grid 2 columnas con divisor 1px ══ */}
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-0 border-y border-white/[0.07]">
+
+        {/* ── COL IZQUIERDA — datos del evento ── */}
+        <div className="p-6 space-y-5">
           {/* Titulo */}
-          <Input
-            etiqueta="Título"
-            placeholder="Nombre del evento"
-            value={titulo}
-            onChange={(e) => setTitulo(e.target.value)}
-            autoFocus
-            formato={null}
-          />
+          <div>
+            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Título</p>
+            <Input placeholder="Nombre del evento" value={titulo}
+              onChange={(e) => setTitulo(e.target.value)} autoFocus formato={null} />
+          </div>
 
-          {/* Fechas y horas — estructura compacta tipo tabla */}
-          <div className="rounded-lg border border-borde-sutil overflow-hidden">
-            {/* Fila inicio */}
-            <div className="flex items-center gap-2 px-3 py-2">
-              <span className="text-xs font-medium text-texto-terciario w-12 shrink-0">Inicio</span>
-              <div className="flex-1">
-                <SelectorFecha valor={fechaInicio} onChange={setFechaInicio} />
-              </div>
-              {!todoElDia && (
-                <div className="w-28 shrink-0">
-                  <SelectorHora valor={horaInicio} onChange={setHoraInicio} />
+          {/* Fechas y horas */}
+          <div>
+            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Fecha y hora</p>
+            <div className="rounded-lg border border-white/[0.06] overflow-hidden">
+              {/* Fila inicio */}
+              <div className="flex items-center gap-2 px-3 py-2">
+                <span className="text-xs font-medium text-texto-terciario w-12 shrink-0">Inicio</span>
+                <div className="flex-1">
+                  <SelectorFecha valor={fechaInicio} onChange={setFechaInicio} />
                 </div>
-              )}
+                {!todoElDia && (
+                  <div className="w-28 shrink-0">
+                    <SelectorHora valor={horaInicio} onChange={setHoraInicio} />
+                  </div>
+                )}
+              </div>
+              <div className="border-t border-white/[0.06]" />
+              {/* Fila fin */}
+              <div className="flex items-center gap-2 px-3 py-2">
+                <span className="text-xs font-medium text-texto-terciario w-12 shrink-0">Fin</span>
+                <div className="flex-1">
+                  <SelectorFecha valor={fechaFin} onChange={setFechaFin} />
+                </div>
+                {!todoElDia && (
+                  <div className="w-28 shrink-0">
+                    <SelectorHora valor={horaFin} onChange={setHoraFin} />
+                  </div>
+                )}
+              </div>
             </div>
-
-            {/* Separador */}
-            <div className="border-t border-borde-sutil" />
-
-            {/* Fila fin */}
-            <div className="flex items-center gap-2 px-3 py-2">
-              <span className="text-xs font-medium text-texto-terciario w-12 shrink-0">Fin</span>
+            {/* Todo el día + recurrencia */}
+            <div className="flex items-center gap-4 mt-3">
+              <Interruptor activo={todoElDia} onChange={setTodoElDia} etiqueta="Todo el día" />
               <div className="flex-1">
-                <SelectorFecha valor={fechaFin} onChange={setFechaFin} />
+                <SelectorRecurrencia valor={recurrencia} onChange={setRecurrencia}
+                  fechaReferencia={fechaInicio} compacto />
               </div>
-              {!todoElDia && (
-                <div className="w-28 shrink-0">
-                  <SelectorHora valor={horaFin} onChange={setHoraFin} />
-                </div>
-              )}
             </div>
           </div>
 
-          {/* Todo el día + recurrencia — en una fila compacta */}
-          <div className="flex items-center gap-4">
-            <Interruptor
-              activo={todoElDia}
-              onChange={setTodoElDia}
-              etiqueta="Todo el día"
-            />
-            <div className="flex-1">
-              <SelectorRecurrencia
-                valor={recurrencia}
-                onChange={setRecurrencia}
-                fechaReferencia={fechaInicio}
-                compacto
-              />
-            </div>
+          {/* Descripcion */}
+          <div>
+            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Descripción</p>
+            <TextArea placeholder="Descripción del evento (opcional)" value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)} rows={3} />
           </div>
 
-          {/* Descripcion — siempre visible */}
-          <TextArea
-            etiqueta="Descripción"
-            placeholder="Descripción del evento (opcional)"
-            value={descripcion}
-            onChange={(e) => setDescripcion(e.target.value)}
-            rows={3}
-          />
-
-          {/* Ubicacion — siempre visible */}
-          <Input
-            etiqueta="Ubicación"
-            placeholder="Lugar del evento (opcional)"
-            value={ubicacion}
-            onChange={(e) => setUbicacion(e.target.value)}
-            formato={null}
-          />
-
-          {/* Notas — siempre visible */}
-          <TextArea
-            etiqueta="Notas"
-            placeholder="Notas internas (opcional)"
-            value={notas}
-            onChange={(e) => setNotas(e.target.value)}
-            rows={2}
-          />
+          {/* Ubicacion + Notas */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Ubicación</p>
+              <Input placeholder="Lugar (opcional)" value={ubicacion}
+                onChange={(e) => setUbicacion(e.target.value)} formato={null} />
+            </div>
+            <div>
+              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Notas</p>
+              <Input placeholder="Notas internas (opcional)" value={notas}
+                onChange={(e) => setNotas(e.target.value)} formato={null} />
+            </div>
+          </div>
         </div>
 
-        {/* ── Columna secundaria (40%) — configuracion y relaciones ── */}
-        <div className="md:col-span-2 space-y-4 md:border-l md:border-borde-sutil md:pl-6">
+        {/* Divisor vertical */}
+        <div className="hidden md:block bg-white/[0.07]" />
+
+        {/* ── COL DERECHA — config y relaciones ── */}
+        <div className="p-6 space-y-5">
           {/* Tipo de evento */}
           {opcionesTipo.length > 0 && (
-            <Select
-              etiqueta="Tipo de evento"
-              opciones={opcionesTipo}
-              valor={tipoId}
-              onChange={setTipoId}
-              placeholder="Seleccionar tipo..."
-            />
+            <div>
+              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Tipo</p>
+              <Select opciones={opcionesTipo} valor={tipoId} onChange={setTipoId}
+                placeholder="Seleccionar tipo..." />
+            </div>
           )}
 
           {/* Visibilidad */}
           <div>
-            <label className="block text-sm font-medium text-texto-secundario mb-1.5">Visibilidad</label>
+            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Visibilidad</p>
             <div className="flex flex-col gap-1.5">
               {OPCIONES_VISIBILIDAD.map(op => (
-                <button
-                  key={op.valor}
-                  type="button"
-                  onClick={() => setVisibilidad(op.valor)}
-                  className={[
-                    'flex flex-col text-left px-3 py-2 rounded-lg border transition-all',
+                <button key={op.valor} type="button" onClick={() => setVisibilidad(op.valor)}
+                  className={`flex flex-col text-left px-3 py-2 rounded-lg border transition-all cursor-pointer ${
                     visibilidad === op.valor
-                      ? 'border-texto-marca bg-texto-marca/5'
-                      : 'border-borde-sutil hover:border-borde-fuerte hover:bg-superficie-hover/50',
-                  ].join(' ')}
-                >
-                  <span className={[
-                    'text-sm font-medium',
-                    visibilidad === op.valor ? 'text-texto-marca' : 'text-texto-primario',
-                  ].join(' ')}>
+                      ? 'border-texto-marca/40 bg-texto-marca/5'
+                      : 'border-white/[0.06] hover:border-white/[0.12] bg-white/[0.02]'
+                  }`}>
+                  <span className={`text-xs font-medium ${visibilidad === op.valor ? 'text-texto-marca' : 'text-texto-primario'}`}>
                     {op.etiqueta}
                   </span>
-                  <span className="text-[11px] text-texto-terciario leading-tight mt-0.5">
-                    {op.descripcion}
-                  </span>
+                  <span className="text-[11px] text-texto-terciario leading-tight mt-0.5">{op.descripcion}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Separador sutil */}
-          <hr className="border-borde-sutil" />
+          <div className="border-t border-white/[0.07]" />
 
           {/* Asignados */}
-          <SelectorAsignados
-            asignados={asignados}
-            miembrosDisponibles={miembrosDisponibles}
-            onAgregar={agregarAsignado}
-            onRemover={removerAsignado}
-          />
+          <SelectorAsignados asignados={asignados} miembrosDisponibles={miembrosDisponibles}
+            onAgregar={agregarAsignado} onRemover={removerAsignado} />
 
           {/* Vinculaciones */}
-          <SelectorVinculaciones
-            vinculos={vinculos}
-            onAgregar={agregarVinculo}
-            onRemover={removerVinculo}
-          />
+          <SelectorVinculaciones vinculos={vinculos} onAgregar={agregarVinculo} onRemover={removerVinculo} />
 
-          {/* Separador sutil */}
-          <hr className="border-borde-sutil" />
+          <div className="border-t border-white/[0.07]" />
 
           {/* Recordatorio */}
-          <Select
-            etiqueta="Recordatorio"
-            opciones={[
+          <div>
+            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Recordatorio</p>
+            <Select opciones={[
               { valor: 'ninguno', etiqueta: 'Sin recordatorio' },
               { valor: '5', etiqueta: '5 minutos antes' },
               { valor: '15', etiqueta: '15 minutos antes' },
               { valor: '30', etiqueta: '30 minutos antes' },
               { valor: '60', etiqueta: '1 hora antes' },
-              { valor: '1440', etiqueta: '1 dia antes' },
-            ]}
-            valor={recordatorio}
-            onChange={setRecordatorio}
-          />
+              { valor: '1440', etiqueta: '1 día antes' },
+            ]} valor={recordatorio} onChange={setRecordatorio} />
+          </div>
         </div>
       </div>
     </ModalAdaptable>
