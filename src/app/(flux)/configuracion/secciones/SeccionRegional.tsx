@@ -134,122 +134,115 @@ export function SeccionRegional() {
         }
       />
 
-      {/* Países donde opera */}
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
-        <div className="flex items-start gap-3 mb-4">
-          <div className="w-9 h-9 rounded-lg bg-insignia-primario/10 flex items-center justify-center shrink-0 mt-0.5">
-            <MapPin size={18} className="text-insignia-primario" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-texto-primario">Países donde opera</h3>
-            <p className="text-xs text-texto-terciario mt-0.5">
-              Define en qué países trabaja tu empresa. Los formularios de contacto mostrarán los campos de identificación y datos fiscales de cada país seleccionado.
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {PAISES_DISPONIBLES.map(p => {
-            const activo = paises.includes(p.codigo)
-            return (
-              <Boton
-                key={p.codigo}
-                type="button"
-                variante={activo ? 'primario' : 'secundario'}
-                tamano="sm"
-                onClick={() => {
-                  const nuevos = activo ? paises.filter(c => c !== p.codigo) : [...paises, p.codigo]
-                  setPaises(nuevos)
-                  guardarInmediato({ paises: nuevos })
-                }}
-                className={
-                  activo
-                    ? '!bg-texto-marca/10 !border-texto-marca/30 !text-texto-primario'
-                    : ''
-                }
-              >
-                <span className="mr-1.5">{p.bandera}</span>
-                {p.nombre}
-              </Boton>
-            )
-          })}
-        </div>
-        {paises.length === 0 && (
-          <p className="text-xs text-insignia-advertencia mt-3">
-            Seleccioná al menos un país para habilitar los campos de identificación y datos fiscales en contactos.
-          </p>
-        )}
-      </div>
+      {/* Panel unificado con secciones separadas por divisores */}
+      <div className="border border-white/[0.06] rounded-xl overflow-hidden divide-y divide-white/[0.07]">
 
-      {/* Moneda */}
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
-        <div className="flex items-start gap-3 mb-4">
-          <div className="w-9 h-9 rounded-lg bg-insignia-exito/10 flex items-center justify-center shrink-0 mt-0.5">
-            <DollarSign size={18} className="text-insignia-exito" />
+        {/* Países donde opera */}
+        <div className="px-6 py-5">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="size-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(74,144,226,0.15)' }}>
+              <Globe size={15} style={{ color: '#4A90E2' }} />
+            </div>
+            <div>
+              <h3 className="text-[13px] font-medium text-texto-primario">Países donde opera</h3>
+              <p className="text-[11px] text-texto-terciario mt-0.5">Define en qué países trabaja tu empresa. Los formularios mostrarán los campos de identificación y datos fiscales de cada país.</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-semibold text-texto-primario">Moneda</h3>
-            <p className="text-xs text-texto-terciario mt-0.5">
-              La moneda principal para presupuestos, facturas y precios de productos.
-            </p>
+          <div className="flex flex-wrap gap-1.5">
+            {PAISES_DISPONIBLES.map(p => {
+              const activo = paises.includes(p.codigo)
+              return (
+                <button key={p.codigo} type="button"
+                  onClick={() => {
+                    const nuevos = activo ? paises.filter(c => c !== p.codigo) : [...paises, p.codigo]
+                    setPaises(nuevos)
+                    guardarInmediato({ paises: nuevos })
+                  }}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer border ${
+                    activo
+                      ? 'bg-texto-marca/15 border-texto-marca/40 text-texto-marca'
+                      : 'bg-white/[0.03] border-white/[0.06] text-texto-terciario hover:border-white/[0.12] hover:text-texto-secundario'
+                  }`}>
+                  <span className="text-sm leading-none">{p.bandera}</span>
+                  {p.nombre}
+                </button>
+              )
+            })}
           </div>
+          {paises.length === 0 && (
+            <p className="text-[11px] text-insignia-advertencia mt-3">Seleccioná al menos un país.</p>
+          )}
         </div>
-        <div className="max-w-sm">
-          <Select opciones={MONEDAS} valor={moneda} onChange={(v) => { setMoneda(v); guardarInmediato({ moneda: v }) }} />
-        </div>
-      </div>
 
-      {/* Zona horaria */}
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
-        <div className="flex items-start gap-3 mb-4">
-          <div className="w-9 h-9 rounded-lg bg-texto-marca/10 flex items-center justify-center shrink-0 mt-0.5">
-            <Globe size={18} className="text-texto-marca" />
+        {/* Moneda principal */}
+        <div className="px-6 py-5">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="size-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(76,175,80,0.15)' }}>
+              <DollarSign size={15} style={{ color: '#4CAF50' }} />
+            </div>
+            <div>
+              <h3 className="text-[13px] font-medium text-texto-primario">Moneda principal</h3>
+              <p className="text-[11px] text-texto-terciario mt-0.5">Se usa en presupuestos, facturas y precios de productos.</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-semibold text-texto-primario">Zona horaria</h3>
-            <p className="text-xs text-texto-terciario mt-0.5">
-              Se usa para calcular horarios de atención, fichaje de asistencias, vencimientos y recordatorios.
-            </p>
+          <div className="max-w-sm">
+            <Select opciones={MONEDAS} valor={moneda} onChange={(v) => { setMoneda(v); guardarInmediato({ moneda: v }) }} />
           </div>
         </div>
-        <div className="max-w-sm">
-          <Select opciones={ZONAS_HORARIAS} valor={zonaHoraria} onChange={(v) => { setZonaHoraria(v); guardarInmediato({ zona_horaria: v }) }} />
-        </div>
-      </div>
 
-      {/* Formato de fecha y hora */}
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
-        <div className="flex items-start gap-3 mb-4">
-          <div className="w-9 h-9 rounded-lg bg-insignia-info/10 flex items-center justify-center shrink-0 mt-0.5">
-            <Calendar size={18} className="text-insignia-info" />
+        {/* Zona horaria */}
+        <div className="px-6 py-5">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="size-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(91,71,224,0.15)' }}>
+              <Clock size={15} style={{ color: '#8B78F0' }} />
+            </div>
+            <div>
+              <h3 className="text-[13px] font-medium text-texto-primario">Zona horaria</h3>
+              <p className="text-[11px] text-texto-terciario mt-0.5">Se usa para calcular horarios de atención, fichaje, vencimientos y recordatorios.</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-semibold text-texto-primario">Formato de fecha y hora</h3>
-            <p className="text-xs text-texto-terciario mt-0.5">
-              Cómo se muestran las fechas y horas en tablas, calendarios, actividades y documentos.
-            </p>
+          <div className="max-w-sm">
+            <Select opciones={ZONAS_HORARIAS} valor={zonaHoraria} onChange={(v) => { setZonaHoraria(v); guardarInmediato({ zona_horaria: v }) }} />
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
-          <Select etiqueta={t('comun.fecha')} opciones={FORMATOS_FECHA} valor={formatoFecha} onChange={(v) => { setFormatoFecha(v); guardarInmediato({ formato_fecha: v }) }} />
-          <Select etiqueta="Hora" opciones={FORMATOS_HORA} valor={formatoHora} onChange={(v) => { setFormatoHora(v); guardarInmediato({ formato_hora: v }) }} />
-        </div>
-      </div>
 
-      {/* Inicio de semana */}
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
-        <div className="flex items-start gap-3 mb-4">
-          <div className="w-9 h-9 rounded-lg bg-insignia-advertencia/10 flex items-center justify-center shrink-0 mt-0.5">
-            <CalendarDays size={18} className="text-insignia-advertencia" />
+        {/* Formato de fecha y hora */}
+        <div className="px-6 py-5">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="size-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(74,144,226,0.15)' }}>
+              <Calendar size={15} style={{ color: '#4A90E2' }} />
+            </div>
+            <div>
+              <h3 className="text-[13px] font-medium text-texto-primario">Formato de fecha y hora</h3>
+              <p className="text-[11px] text-texto-terciario mt-0.5">Cómo se muestran las fechas y horas en tablas, calendarios, actividades y documentos.</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-semibold text-texto-primario">Inicio de semana</h3>
-            <p className="text-xs text-texto-terciario mt-0.5">
-              Define qué día empieza la semana en el calendario, la matriz de asistencias y los reportes semanales.
-            </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg">
+            <div>
+              <p className="text-[11px] text-texto-terciario mb-1.5">Fecha</p>
+              <Select opciones={FORMATOS_FECHA} valor={formatoFecha} onChange={(v) => { setFormatoFecha(v); guardarInmediato({ formato_fecha: v }) }} />
+            </div>
+            <div>
+              <p className="text-[11px] text-texto-terciario mb-1.5">Hora</p>
+              <Select opciones={FORMATOS_HORA} valor={formatoHora} onChange={(v) => { setFormatoHora(v); guardarInmediato({ formato_hora: v }) }} />
+            </div>
           </div>
         </div>
-        <div className="max-w-xs">
-          <Select opciones={DIAS_INICIO} valor={diaInicio} onChange={(v) => { setDiaInicio(v); guardarInmediato({ dia_inicio_semana: v }) }} />
+
+        {/* Inicio de semana */}
+        <div className="px-6 py-5">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="size-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(240,146,58,0.15)' }}>
+              <CalendarDays size={15} style={{ color: '#F0923A' }} />
+            </div>
+            <div>
+              <h3 className="text-[13px] font-medium text-texto-primario">Inicio de semana</h3>
+              <p className="text-[11px] text-texto-terciario mt-0.5">Define qué día empieza la semana en el calendario, la matriz de asistencias y los reportes semanales.</p>
+            </div>
+          </div>
+          <div className="max-w-xs">
+            <Select opciones={DIAS_INICIO} valor={diaInicio} onChange={(v) => { setDiaInicio(v); guardarInmediato({ dia_inicio_semana: v }) }} />
+          </div>
         </div>
       </div>
     </div>
