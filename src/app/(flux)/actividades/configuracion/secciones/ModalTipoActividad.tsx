@@ -278,7 +278,7 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
         <div className="flex items-start gap-3 pb-1">
           {/* Botón icono con popover compacto */}
           <MiniSelectorIcono valor={icono} color={color} onChange={setIcono} />
-          <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex-1 min-w-0 space-y-3">
             <Input tipo="text" value={etiqueta}
               onChange={(e) => manejarEtiqueta(e.target.value)}
               placeholder="Nombre: Llamada, Reunión, Visita..."
