@@ -373,6 +373,7 @@ function ModalActividad({
       onCerrar={onCerrar}
       titulo={esEdicion ? 'Editar actividad' : 'Nueva actividad'}
       tamano="5xl"
+      sinPadding
       acciones={
         <>
           <Boton variante="secundario" tamano="sm" onClick={onCerrar}>{t('comun.cancelar')}</Boton>
@@ -382,117 +383,111 @@ function ModalActividad({
         </>
       }
     >
-      <div className="space-y-5">
-        {/* ── Acciones rápidas (solo en edición, actividad pendiente) ── */}
-        {esEdicion && actividad && actividad.estado_clave !== 'completada' && actividad.estado_clave !== 'cancelada' && (
-          <div className="flex flex-wrap gap-2 pb-4 border-b border-borde-sutil">
-            {onCompletar && (
-              <Boton variante="exito" tamano="sm" redondeado icono={<CheckCircle size={15} />}
-                onClick={async () => { await onCompletar(actividad.id); onCerrar() }}>
-                Completar
+      {/* ── Acciones rápidas (solo en edición, actividad pendiente) ── */}
+      {esEdicion && actividad && actividad.estado_clave !== 'completada' && actividad.estado_clave !== 'cancelada' && (
+        <div className="flex flex-wrap gap-2 px-7 py-3 border-b border-white/[0.07]">
+          {onCompletar && (
+            <Boton variante="exito" tamano="sm" redondeado icono={<CheckCircle size={15} />}
+              onClick={async () => { await onCompletar(actividad.id); onCerrar() }}>
+              Completar
+            </Boton>
+          )}
+          {onPosponer && (
+            <div className="relative group">
+              <Boton variante="advertencia" tamano="sm" redondeado icono={<Clock size={15} />}>Posponer</Boton>
+              <div className="absolute top-full left-0 mt-1 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden z-50 hidden group-hover:block min-w-[140px]">
+                {(presetsPosposicion ?? [
+                  { id: '1d', etiqueta: '1 día', dias: 1 },
+                  { id: '3d', etiqueta: '3 días', dias: 3 },
+                  { id: '1s', etiqueta: '1 semana', dias: 7 },
+                  { id: '2s', etiqueta: '2 semanas', dias: 14 },
+                ]).map(op => (
+                  <button key={op.id}
+                    onClick={async () => { await onPosponer(actividad.id, op.dias); onCerrar() }}
+                    className="w-full px-3 py-2 text-sm text-left text-texto-primario bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors">
+                    {op.etiqueta}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {(() => {
+            const tipoAct = tiposActivos.find(t => t.id === actividad.tipo_id)
+            const accion = tipoAct ? ACCIONES_TIPO[tipoAct.clave] : null
+            if (!accion) return null
+            const contacto = (actividad.vinculos as Vinculo[])?.find(v => v.tipo === 'contacto')
+            const IconoAccion = accion.icono
+            return (
+              <Boton variante="fantasma" tamano="sm" redondeado icono={<IconoAccion size={15} />}
+                onClick={() => { onCerrar(); router.push(accion.ruta(contacto?.id)) }}
+                className="bg-texto-marca/10 text-texto-marca hover:bg-texto-marca/15">
+                {accion.etiqueta}
               </Boton>
-            )}
-            {onPosponer && (
-              <div className="relative group">
-                <Boton variante="advertencia" tamano="sm" redondeado icono={<Clock size={15} />}>Posponer</Boton>
-                <div className="absolute top-full left-0 mt-1 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden z-50 hidden group-hover:block min-w-[140px]">
-                  {(presetsPosposicion ?? [
-                    { id: '1d', etiqueta: '1 día', dias: 1 },
-                    { id: '3d', etiqueta: '3 días', dias: 3 },
-                    { id: '1s', etiqueta: '1 semana', dias: 7 },
-                    { id: '2s', etiqueta: '2 semanas', dias: 14 },
-                  ]).map(op => (
-                    <button key={op.id}
-                      onClick={async () => { await onPosponer(actividad.id, op.dias); onCerrar() }}
-                      className="w-full px-3 py-2 text-sm text-left text-texto-primario bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors">
-                      {op.etiqueta}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {(() => {
-              const tipoAct = tiposActivos.find(t => t.id === actividad.tipo_id)
-              const accion = tipoAct ? ACCIONES_TIPO[tipoAct.clave] : null
-              if (!accion) return null
-              const contacto = (actividad.vinculos as Vinculo[])?.find(v => v.tipo === 'contacto')
-              const IconoAccion = accion.icono
-              return (
-                <Boton variante="fantasma" tamano="sm" redondeado icono={<IconoAccion size={15} />}
-                  onClick={() => { onCerrar(); router.push(accion.ruta(contacto?.id)) }}
-                  className="bg-texto-marca/10 text-texto-marca hover:bg-texto-marca/15">
-                  {accion.etiqueta}
-                </Boton>
-              )
-            })()}
-          </div>
-        )}
+            )
+          })()}
+        </div>
+      )}
 
-        {/* ══ Layout 2 columnas: izquierda (datos) + derecha (metadata) ══ */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+      {/* ══ Grid 2 columnas con divisor 1px ══ */}
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_340px] gap-0">
 
-          {/* ── COLUMNA IZQUIERDA — campos principales ── */}
-          <div className="space-y-4">
-            {/* Tipo de actividad (pills) */}
-            {tiposActivos.length > 1 && (
-              <div>
-                <label className="text-xs font-medium text-texto-terciario block mb-2">Tipo</label>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {tiposActivos.map(tipo => {
-                    const Icono = obtenerIcono(tipo.icono)
-                    const sel = tipoId === tipo.id
-                    return (
-                      <button key={tipo.id} onClick={() => manejarCambioTipo(tipo.id)}
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer border ${
-                          sel ? 'border-transparent text-white shadow-sm' : 'bg-transparent text-texto-terciario border-borde-sutil hover:text-texto-secundario hover:border-borde-fuerte'
-                        }`}
-                        style={sel ? { backgroundColor: tipo.color } : undefined}>
-                        {Icono && <Icono size={13} />}
-                        {tipo.etiqueta}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-
-            {tiposActivos.length === 1 && tipoSeleccionado && (() => {
-              const Icono = obtenerIcono(tipoSeleccionado.icono)
-              return (
-                <div>
-                  <label className="text-xs font-medium text-texto-terciario block mb-2">Tipo</label>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-white"
-                    style={{ backgroundColor: tipoSeleccionado.color }}>
+        {/* ── COL IZQUIERDA — tipo, título, descripción, checklist ── */}
+        <div className="space-y-5 p-6">
+          {/* Tipo */}
+          <div>
+            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Tipo</p>
+            <div className="flex flex-wrap gap-1.5">
+              {tiposActivos.map(tipo => {
+                const Icono = obtenerIcono(tipo.icono)
+                const sel = tipoId === tipo.id
+                return (
+                  <button key={tipo.id} onClick={() => manejarCambioTipo(tipo.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer border ${
+                      sel ? 'border-transparent text-white shadow-sm' : 'bg-white/[0.03] text-texto-terciario border-white/[0.06] hover:text-texto-secundario hover:border-white/[0.12]'
+                    }`}
+                    style={sel ? { backgroundColor: tipo.color } : undefined}>
                     {Icono && <Icono size={13} />}
-                    {tipoSeleccionado.etiqueta}
-                  </span>
-                </div>
-              )
-            })()}
-
-            {/* Título */}
-            <Input tipo="text" etiqueta="Título" value={titulo}
-              onChange={(e) => { setTitulo(e.target.value); setTituloManual(true) }}
-              placeholder="¿Qué hay que hacer?" />
-
-            {/* Descripción */}
-            {tipoSeleccionado?.campo_descripcion && (
-              <TextArea etiqueta="Descripción" value={descripcion}
-                onChange={(e) => setDescripcion(e.target.value)}
-                placeholder="Detalles adicionales..." rows={3} />
-            )}
-
-            {/* Checklist */}
-            {tipoSeleccionado?.campo_checklist && (
-              <SeccionChecklist checklist={checklist} onChange={setChecklist} />
-            )}
+                    {tipo.etiqueta}
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
-          {/* ── COLUMNA DERECHA — metadata y vínculos ── */}
-          <div className="space-y-4 md:border-l md:border-borde-sutil md:pl-8">
-            {/* Responsable */}
-            {tipoSeleccionado?.campo_responsable && (
-              <Select etiqueta="Responsable" valor={asignadoA || ''}
+          {/* Título */}
+          <div>
+            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Título</p>
+            <Input tipo="text" value={titulo}
+              onChange={(e) => { setTitulo(e.target.value); setTituloManual(true) }}
+              placeholder="Título de la actividad..." />
+          </div>
+
+          {/* Descripción */}
+          {tipoSeleccionado?.campo_descripcion && (
+            <div>
+              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Descripción</p>
+              <TextArea value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+                placeholder="Detalles adicionales..." rows={4} />
+            </div>
+          )}
+
+          {/* Checklist */}
+          {tipoSeleccionado?.campo_checklist && (
+            <SeccionChecklist checklist={checklist} onChange={setChecklist} />
+          )}
+        </div>
+
+        {/* Divisor vertical */}
+        <div className="hidden md:block bg-white/[0.07]" />
+
+        {/* ── COL DERECHA — metadata y vínculos ── */}
+        <div className="space-y-5 p-6">
+          {/* Responsable */}
+          {tipoSeleccionado?.campo_responsable && (
+            <div>
+              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Responsable</p>
+              <Select valor={asignadoA || ''}
                 onChange={(val) => {
                   setAsignadoA(val || null)
                   const m = miembros.find(m => m.usuario_id === val)
@@ -500,81 +495,88 @@ function ModalActividad({
                 }}
                 placeholder="Sin asignar"
                 opciones={miembros.map(m => ({ valor: m.usuario_id, etiqueta: `${m.nombre} ${m.apellido}`.trim() }))} />
-            )}
+            </div>
+          )}
 
-            {/* Prioridad + Fecha en fila */}
-            {(tipoSeleccionado?.campo_prioridad || tipoSeleccionado?.campo_fecha) && (
-              <div className={`grid gap-3 ${tipoSeleccionado?.campo_prioridad && tipoSeleccionado?.campo_fecha ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                {tipoSeleccionado?.campo_prioridad && (
-                  <Select etiqueta="Prioridad" valor={prioridad} onChange={setPrioridad}
+          {/* Prioridad + Fecha */}
+          {(tipoSeleccionado?.campo_prioridad || tipoSeleccionado?.campo_fecha) && (
+            <div className={`grid gap-3 ${tipoSeleccionado?.campo_prioridad && tipoSeleccionado?.campo_fecha ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              {tipoSeleccionado?.campo_prioridad && (
+                <div>
+                  <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Prioridad</p>
+                  <Select valor={prioridad} onChange={setPrioridad}
                     opciones={[
                       { valor: 'baja', etiqueta: 'Baja' },
                       { valor: 'normal', etiqueta: 'Normal' },
                       { valor: 'alta', etiqueta: 'Alta' },
                     ]} />
-                )}
-                {tipoSeleccionado?.campo_fecha && (
-                  <SelectorFecha valor={fechaVencimiento} onChange={(v) => setFechaVencimiento(v || '')}
-                    etiqueta="Vencimiento" limpiable />
-                )}
-              </div>
-            )}
-
-            {/* Vínculos */}
-            <SeccionVinculos vinculos={vinculos} onChange={manejarCambioVinculos} onNavegar={(ruta) => { onCerrar(); router.push(ruta) }} />
-
-            {/* Bloques de calendario — edición */}
-            {esEdicion && actividad && (
-              <div className="space-y-2">
-                <SeccionBloquesCalendario actividadId={actividad.id} titulo={actividad.titulo}
-                  asignadoA={asignadoA} asignadoNombre={asignadoNombre} vinculos={vinculos} />
-                <Boton variante="fantasma" tamano="xs" icono={<Calendar size={14} />}
-                  onClick={() => setSelectorCalendarioAbierto(true)}>
-                  Abrir calendario
-                </Boton>
-              </div>
-            )}
-
-            {/* Bloques de calendario — creación */}
-            {!esEdicion && tipoConCalendario && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Calendar size={14} className="text-texto-terciario" />
-                    <span className="text-xs font-medium text-texto-secundario">Agendar en calendario</span>
-                  </div>
-                  <button type="button" onClick={() => setSelectorCalendarioAbierto(true)}
-                    className="text-xxs text-texto-marca font-medium bg-transparent border-none cursor-pointer hover:underline">
-                    Abrir calendario
-                  </button>
                 </div>
-                {bloquesNuevos.length === 0 ? (
-                  <button type="button" onClick={() => setSelectorCalendarioAbierto(true)}
-                    className="w-full p-2.5 rounded-lg border border-dashed border-borde-sutil text-xxs text-texto-terciario hover:border-texto-marca/30 hover:text-texto-marca transition-colors">
-                    Hacé clic para abrir el calendario y ver disponibilidad
-                  </button>
-                ) : (
-                  <div className="space-y-1">
-                    {bloquesNuevos.map((bloque, i) => (
-                      <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-superficie-hover/50 text-xs">
-                        <span className="size-1.5 rounded-full bg-texto-marca shrink-0" />
-                        <span className="text-texto-primario font-medium">{bloque.fecha}</span>
-                        <span className="text-texto-terciario">{bloque.horaInicio} – {bloque.horaFin}</span>
-                        <button type="button" onClick={() => setBloquesNuevos(prev => prev.filter((_, idx) => idx !== i))}
-                          className="ml-auto text-texto-terciario hover:text-estado-error transition-colors">
-                          <X size={13} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+              )}
+              {tipoSeleccionado?.campo_fecha && (
+                <div>
+                  <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Vencimiento</p>
+                  <SelectorFecha valor={fechaVencimiento} onChange={(v) => setFechaVencimiento(v || '')} limpiable />
+                </div>
+              )}
+            </div>
+          )}
 
-        {/* ── Seguimientos (solo edición) — ancho completo ── */}
-        {esEdicion && (
+          {/* Vínculos */}
+          <SeccionVinculos vinculos={vinculos} onChange={manejarCambioVinculos} onNavegar={(ruta) => { onCerrar(); router.push(ruta) }} />
+
+          {/* Bloques de calendario — edición */}
+          {esEdicion && actividad && (
+            <div className="space-y-2">
+              <SeccionBloquesCalendario actividadId={actividad.id} titulo={actividad.titulo}
+                asignadoA={asignadoA} asignadoNombre={asignadoNombre} vinculos={vinculos} />
+              <Boton variante="fantasma" tamano="xs" icono={<Calendar size={14} />}
+                onClick={() => setSelectorCalendarioAbierto(true)}>
+                Abrir calendario
+              </Boton>
+            </div>
+          )}
+
+          {/* Bloques de calendario — creación */}
+          {!esEdicion && tipoConCalendario && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calendar size={14} className="text-texto-terciario" />
+                  <span className="text-xs font-medium text-texto-secundario">Agendar en calendario</span>
+                </div>
+                <button type="button" onClick={() => setSelectorCalendarioAbierto(true)}
+                  className="text-xxs text-texto-marca font-medium bg-transparent border-none cursor-pointer hover:underline">
+                  Abrir calendario
+                </button>
+              </div>
+              {bloquesNuevos.length === 0 ? (
+                <button type="button" onClick={() => setSelectorCalendarioAbierto(true)}
+                  className="w-full p-2.5 rounded-lg border border-dashed border-white/[0.06] text-xxs text-texto-terciario hover:border-texto-marca/30 hover:text-texto-marca transition-colors">
+                  Hacé clic para abrir el calendario y ver disponibilidad
+                </button>
+              ) : (
+                <div className="space-y-1">
+                  {bloquesNuevos.map((bloque, i) => (
+                    <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/[0.03] text-xs">
+                      <span className="size-1.5 rounded-full bg-texto-marca shrink-0" />
+                      <span className="text-texto-primario font-medium">{bloque.fecha}</span>
+                      <span className="text-texto-terciario">{bloque.horaInicio} – {bloque.horaFin}</span>
+                      <button type="button" onClick={() => setBloquesNuevos(prev => prev.filter((_, idx) => idx !== i))}
+                        className="ml-auto text-texto-terciario hover:text-estado-error transition-colors">
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Seguimientos (solo edición) — ancho completo ── */}
+      {esEdicion && (
+        <div className="px-6 pb-2">
           <SeccionSeguimientos
             seguimientos={(actividad?.seguimientos as Seguimiento[]) || []}
             actividadId={actividad!.id}
@@ -582,8 +584,8 @@ function ModalActividad({
               if (actividad) { (actividad as Actividad).seguimientos = nuevos }
             }}
           />
-        )}
-      </div>
+        </div>
+      )}
     </Modal>
     </>
   )
