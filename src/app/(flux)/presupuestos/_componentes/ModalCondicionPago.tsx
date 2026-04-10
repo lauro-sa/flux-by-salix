@@ -134,111 +134,95 @@ export default function ModalCondicionPago({ abierto, onCerrar, onGuardar, condi
     <Modal
       abierto={abierto}
       onCerrar={onCerrar}
-      titulo={titulo}
-      tamano="3xl"
+      titulo={esEdicion ? 'Editar condición de pago' : 'Nueva condición de pago'}
+      tamano="4xl"
+      sinPadding
       acciones={
         <>
-          <Boton variante="fantasma" onClick={onCerrar}>
-            Cancelar
-          </Boton>
+          <Boton variante="fantasma" onClick={onCerrar}>Cancelar</Boton>
           <Boton onClick={guardar} disabled={!puedeGuardar}>
             {esEdicion ? 'Guardar cambios' : 'Agregar'}
           </Boton>
         </>
       }
     >
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_380px] gap-8">
-        {/* ── Formulario ── */}
-        <div className="space-y-5">
+      {/* ══ Grid 2 columnas con divisor 1px ══ */}
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_260px] gap-0 border-y border-white/[0.07]">
+
+        {/* ── COL IZQUIERDA — formulario ── */}
+        <div className="p-6 space-y-4">
           {/* Nombre */}
-          <Input
-            etiqueta="Nombre"
-            value={form.label}
-            onChange={(e) => { setForm(p => ({ ...p, label: e.target.value })); setNombreManual(true) }}
-            placeholder="Se genera automáticamente..."
-            ayuda={nombreManual ? 'Nombre personalizado' : 'Se genera automáticamente según la configuración'}
-            formato={null}
-          />
+          <div>
+            <p className="text-[11px] text-texto-terciario mb-1.5">Nombre</p>
+            <Input value={form.label}
+              onChange={(e) => { setForm(p => ({ ...p, label: e.target.value })); setNombreManual(true) }}
+              placeholder="Se genera automáticamente..." formato={null} disabled={!nombreManual && !esEdicion} />
+            <p className="text-[11px] text-texto-terciario mt-1">Se genera según la configuración elegida</p>
+          </div>
+
+          <div className="border-t border-white/[0.07]" />
 
           {/* Tipo */}
-          <Select
-            etiqueta={t('documentos.tipo_condicion')}
-            valor={form.tipo}
-            onChange={(v) => setForm(p => ({ ...p, tipo: v as 'plazo_fijo' | 'hitos', hitos: v === 'plazo_fijo' ? [] : p.hitos }))}
-            opciones={[
-              { valor: 'plazo_fijo', etiqueta: 'Plazo fijo (días)' },
-              { valor: 'hitos', etiqueta: 'Por hitos (porcentajes)' },
-            ]}
-          />
-          <p className="text-xs text-texto-terciario -mt-3">
-            {form.tipo === 'plazo_fijo'
-              ? 'El total vence X días después de la fecha de emisión'
-              : 'Divide el pago en cuotas con porcentaje y plazo individual'}
-          </p>
+          <div>
+            <p className="text-[11px] text-texto-terciario mb-1.5">Tipo de condición</p>
+            <Select valor={form.tipo}
+              onChange={(v) => setForm(p => ({ ...p, tipo: v as 'plazo_fijo' | 'hitos', hitos: v === 'plazo_fijo' ? [] : p.hitos }))}
+              opciones={[
+                { valor: 'plazo_fijo', etiqueta: 'Plazo fijo (días)' },
+                { valor: 'hitos', etiqueta: 'Por hitos (porcentajes)' },
+              ]} />
+            <div className="flex items-start gap-2 mt-2 px-3 py-2 rounded-lg border border-white/[0.06] bg-white/[0.02]">
+              <span className="text-[11px] text-texto-terciario leading-relaxed">
+                {form.tipo === 'plazo_fijo'
+                  ? 'El total vence X días después de la fecha de emisión.'
+                  : 'Divide el pago en cuotas con porcentaje y plazo individual.'}
+              </span>
+            </div>
+          </div>
 
           {/* Campos según tipo */}
           {form.tipo === 'plazo_fijo' ? (
-            <Input
-              etiqueta="Días de vencimiento"
-              tipo="number"
-              min="0"
-              value={form.diasVencimiento}
-              onChange={(e) => setForm(p => ({ ...p, diasVencimiento: e.target.value }))}
-              placeholder="30"
-              className="w-32"
-            />
+            <div>
+              <p className="text-[11px] text-texto-terciario mb-1.5">Días de vencimiento</p>
+              <Input tipo="number" min="0" value={form.diasVencimiento}
+                onChange={(e) => setForm(p => ({ ...p, diasVencimiento: e.target.value }))}
+                placeholder="30" />
+            </div>
           ) : (
             <>
-              {/* Cuotas de pago */}
               <div>
-                <p className="text-sm font-semibold text-texto-primario mb-0.5">Cuotas de pago</p>
-                <p className="text-xs text-texto-terciario mb-4">Cada cuota define qué porcentaje del total se paga y a cuántos días de la emisión vence</p>
+                <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Cuotas de pago</p>
 
-                {/* Encabezado de columnas */}
                 {form.hitos.length > 0 && (
-                  <div className="grid grid-cols-[1fr_90px_90px_28px] gap-3 px-3 mb-1.5">
-                    <span className="text-xxs text-texto-terciario font-medium uppercase tracking-wider">Descripción</span>
-                    <span className="text-xxs text-texto-terciario font-medium uppercase tracking-wider text-right">%</span>
-                    <span className="text-xxs text-texto-terciario font-medium uppercase tracking-wider text-right">Días</span>
+                  <div className="grid grid-cols-[1fr_80px_80px_28px] gap-2 px-2 mb-1.5">
+                    <span className="text-[10px] text-texto-terciario uppercase tracking-wider">Descripción</span>
+                    <span className="text-[10px] text-texto-terciario uppercase tracking-wider text-right">%</span>
+                    <span className="text-[10px] text-texto-terciario uppercase tracking-wider text-right">Días</span>
                     <span />
                   </div>
                 )}
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {form.hitos.map((h) => (
-                    <div key={h.id} className="grid grid-cols-[1fr_90px_90px_28px] gap-3 items-center">
-                      <Input
-                        compacto
-                        value={h.descripcion}
+                    <div key={h.id} className="grid grid-cols-[1fr_80px_80px_28px] gap-2 items-center">
+                      <Input compacto value={h.descripcion}
                         onChange={(e) => editarHito(h.id, 'descripcion', e.target.value)}
-                        placeholder="Ej: Adelanto"
-                        formato={null}
-                      />
-                      <Input
-                        compacto
-                        tipo="number"
-                        min="1"
-                        max="100"
-                        value={h.porcentaje}
+                        placeholder="Ej: Adelanto" formato={null} />
+                      <Input compacto tipo="number" min="1" max="100" value={h.porcentaje}
                         onChange={(e) => editarHito(h.id, 'porcentaje', parseFloat(e.target.value) || 0)}
-                        className="font-mono text-right"
-                      />
-                      <Input
-                        compacto
-                        tipo="number"
-                        min="0"
-                        value={h.diasDesdeEmision}
+                        className="font-mono text-right" />
+                      <Input compacto tipo="number" min="0" value={h.diasDesdeEmision}
                         onChange={(e) => editarHito(h.id, 'diasDesdeEmision', parseInt(e.target.value) || 0)}
-                        className="font-mono text-right"
-                      />
-                      <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar hito" icono={<Trash2 size={14} />} onClick={() => eliminarHito(h.id)} className="text-texto-terciario hover:text-estado-error" />
+                        className="font-mono text-right" />
+                      <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar"
+                        icono={<Trash2 size={13} />} onClick={() => eliminarHito(h.id)}
+                        className="text-texto-terciario hover:text-estado-error" />
                     </div>
                   ))}
                 </div>
 
-                {/* Total */}
                 {form.hitos.length > 0 && (
-                  <div className="flex items-center gap-2 mt-3">
+                  <div className="flex items-center gap-2 mt-2">
                     <span className="text-xs text-texto-secundario">Total:</span>
                     <span className={`text-sm font-bold ${totalHitos === 100 ? 'text-insignia-exito' : 'text-insignia-advertencia'}`}>
                       {totalHitos}%
@@ -247,82 +231,78 @@ export default function ModalCondicionPago({ abierto, onCerrar, onGuardar, condi
                   </div>
                 )}
 
-                {/* Agregar cuota */}
-                <Boton
-                  variante="secundario"
-                  tamano="sm"
-                  anchoCompleto
-                  icono={<Plus size={16} />}
-                  onClick={agregarHito}
-                  disabled={totalHitos >= 100}
-                  className="mt-3 border-dashed"
-                >
+                <Boton variante="secundario" tamano="sm" anchoCompleto icono={<Plus size={14} />}
+                  onClick={agregarHito} disabled={totalHitos >= 100} className="mt-2 border-dashed">
                   Agregar cuota
                 </Boton>
               </div>
 
-              {/* Nota adicional */}
-              <Input
-                etiqueta="Nota adicional"
-                value={form.notaPlanPago}
+              <Input value={form.notaPlanPago}
                 onChange={(e) => setForm(p => ({ ...p, notaPlanPago: e.target.value }))}
-                placeholder="Ej: recargo 10% con tarjeta, solo transferencia..."
-                ayuda="Aparece debajo del plan de pagos en presupuestos, portal y PDF"
-                formato={null}
-              />
+                placeholder="Nota: recargo 10% tarjeta, solo transferencia..."
+                formato={null} />
             </>
           )}
         </div>
 
-        {/* ── Vista previa ── */}
-        <div className="bg-superficie-app/50 rounded-xl p-5 space-y-4 self-start sticky top-0">
-          <div className="flex items-center gap-2">
-            <Eye size={14} className="text-texto-terciario" />
-            <span className="text-xs font-bold text-texto-terciario uppercase tracking-wider">Vista previa</span>
-          </div>
+        {/* Divisor vertical */}
+        <div className="hidden md:block bg-white/[0.07]" />
 
-          <div className="flex items-baseline gap-2 text-sm">
-            <span className="text-texto-secundario">Ejemplo:</span>
-            <span className="font-medium text-texto-primario">{fmtMonto(EJEMPLO_TOTAL)}</span>
-            <span className="text-texto-terciario">el</span>
-            <span className="font-medium text-texto-primario">{formato.fecha(hoy, { corta: true })}</span>
-          </div>
+        {/* ── COL DERECHA — vista previa ── */}
+        <div className="p-6">
+          <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-3">Vista previa</p>
 
-          {form.tipo === 'plazo_fijo' ? (
-            form.diasVencimiento !== '' ? (
-              <div className="bg-superficie-app rounded-lg p-3">
-                <p className="text-sm text-texto-primario">
-                  Plazo <strong>#1</strong> de <strong>{fmtMonto(EJEMPLO_TOTAL)}</strong> a pagar antes del{' '}
-                  <strong className="text-texto-marca">
+          <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4 space-y-3">
+            <p className="text-sm font-medium text-texto-primario">{form.label || '...'}</p>
+
+            <div className="border-t border-white/[0.06]" />
+
+            {form.tipo === 'plazo_fijo' && form.diasVencimiento !== '' && (
+              <div>
+                <p className="text-[10px] text-texto-terciario uppercase tracking-wider mb-1">Ejemplo para {fmtMonto(EJEMPLO_TOTAL)}</p>
+                <p className="text-xl font-medium text-texto-primario">{fmtMonto(EJEMPLO_TOTAL)}</p>
+                <p className="text-xs text-texto-terciario mt-1">
+                  Vence el{' '}
+                  <span className="text-texto-marca font-medium">
                     {(() => {
                       const f = new Date(hoy)
                       f.setDate(f.getDate() + (parseInt(form.diasVencimiento) || 0))
-                      return formato.fecha(f)
+                      return formato.fecha(f, { corta: true })
                     })()}
-                  </strong>
+                  </span>
                 </p>
               </div>
-            ) : null
-          ) : form.hitos.length > 0 ? (
-            <div className="bg-superficie-app rounded-lg p-3 space-y-2">
-              {form.hitos.map((h, i) => {
-                const monto = (EJEMPLO_TOTAL * h.porcentaje) / 100
-                const fechaVenc = new Date(hoy)
-                fechaVenc.setDate(fechaVenc.getDate() + (h.diasDesdeEmision || 0))
-                return (
-                  <p key={h.id} className="text-sm text-texto-primario">
-                    Plazo <strong>#{i + 1}</strong> de <strong>{fmtMonto(monto)}</strong> a pagar antes del{' '}
-                    <strong className="text-texto-marca">{formato.fecha(fechaVenc)}</strong>
-                  </p>
-                )
-              })}
-              {form.notaPlanPago && (
-                <p className="text-xs text-texto-terciario italic pt-1 border-t border-borde-sutil mt-2">{form.notaPlanPago}</p>
-              )}
-            </div>
-          ) : (
-            <p className="text-xs text-texto-terciario italic">Agregá al menos un hito para ver la vista previa</p>
-          )}
+            )}
+
+            {form.tipo === 'hitos' && form.hitos.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] text-texto-terciario uppercase tracking-wider">Ejemplo para {fmtMonto(EJEMPLO_TOTAL)}</p>
+                {form.hitos.map((h, i) => {
+                  const monto = (EJEMPLO_TOTAL * h.porcentaje) / 100
+                  const fechaVenc = new Date(hoy)
+                  fechaVenc.setDate(fechaVenc.getDate() + (h.diasDesdeEmision || 0))
+                  return (
+                    <div key={h.id} className="flex items-baseline justify-between">
+                      <span className="text-xs text-texto-secundario">#{i + 1} {h.descripcion}</span>
+                      <div className="text-right">
+                        <span className="text-sm font-medium text-texto-primario">{fmtMonto(monto)}</span>
+                        <p className="text-[10px] text-texto-terciario">
+                          <span className="text-texto-marca">{formato.fecha(fechaVenc, { corta: true })}</span>
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })}
+                {form.notaPlanPago && (
+                  <p className="text-[11px] text-texto-terciario italic pt-2 border-t border-white/[0.06]">{form.notaPlanPago}</p>
+                )}
+              </div>
+            )}
+
+            {form.tipo === 'hitos' && form.hitos.length === 0 && (
+              <p className="text-xs text-texto-terciario italic">Agregá cuotas para ver la vista previa</p>
+            )}
+          </div>
         </div>
       </div>
     </Modal>
