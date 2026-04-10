@@ -271,44 +271,47 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
     >
       <div className="flex flex-col">
 
-        {/* ═══════ HEADER — nombre, tipo toggle, favorito, código ═══════ */}
-        <div className="px-6 py-4 border-b border-white/[0.07]">
-          {/* Fila 1: estrella + nombre + código */}
-          <div className="flex items-center gap-2">
-            <Boton variante="fantasma" tamano="sm" soloIcono titulo="Favorito"
-              icono={favorito ? <Star size={18} className="text-insignia-advertencia fill-insignia-advertencia" /> : <StarOff size={18} />}
-              onClick={() => setFavorito(!favorito)} />
-            <Input value={nombre} onChange={e => setNombre(e.target.value)}
-              placeholder={`Nombre del ${etiquetaTipo}`} formato={null} variante="plano"
-              className="flex-1 text-lg font-bold" autoFocus />
-            {esEdicion && (
-              <span className="text-xs font-mono text-texto-terciario bg-white/[0.04] px-2 py-1 rounded-md border border-white/[0.06] shrink-0">
-                {producto!.codigo}
-              </span>
-            )}
+        {/* ═══════ HEADER — todo en una fila: icono + nombre + tipo + switches ═══════ */}
+        <div className="flex items-center gap-3 px-6 py-3 border-b border-white/[0.07]">
+          {/* Icono favorito */}
+          <Boton variante="fantasma" tamano="sm" soloIcono titulo="Favorito"
+            icono={favorito ? <Star size={16} className="text-insignia-advertencia fill-insignia-advertencia" /> : <StarOff size={16} />}
+            onClick={() => setFavorito(!favorito)} />
+
+          {/* Nombre */}
+          <Input value={nombre} onChange={e => setNombre(e.target.value)}
+            placeholder={`Nombre del ${etiquetaTipo}`} formato={null} variante="plano"
+            className="flex-1 min-w-0 text-[15px] font-medium" autoFocus />
+
+          {/* Tipo toggle */}
+          <div className="flex items-center rounded-lg overflow-hidden border border-white/[0.06] shrink-0">
+            {(['servicio', 'producto'] as TipoProducto[]).map(t => {
+              const activo = tipo === t
+              const color = COLOR_TIPO_PRODUCTO[t]
+              return (
+                <Boton key={t} variante="fantasma" tamano="xs"
+                  icono={t === 'servicio' ? <Wrench size={12} /> : <Package size={12} />}
+                  onClick={() => cambiarTipo(t)}
+                  className={!activo ? 'text-texto-terciario' : ''}
+                  style={activo ? { backgroundColor: `var(--insignia-${color}-fondo)`, color: `var(--insignia-${color}-texto)` } : undefined}>
+                  {t === 'servicio' ? 'Servicio' : 'Producto'}
+                </Boton>
+              )
+            })}
           </div>
 
-          {/* Fila 2: tipo toggle + puede venderse/comprarse */}
-          <div className="flex items-center gap-4 mt-3 ml-10 flex-wrap">
-            <div className="flex items-center rounded-lg overflow-hidden border border-white/[0.06]">
-              {(['servicio', 'producto'] as TipoProducto[]).map(t => {
-                const activo = tipo === t
-                const color = COLOR_TIPO_PRODUCTO[t]
-                return (
-                  <Boton key={t} variante="fantasma" tamano="xs"
-                    icono={t === 'servicio' ? <Wrench size={14} /> : <Package size={14} />}
-                    onClick={() => cambiarTipo(t)}
-                    className={!activo ? 'text-texto-terciario' : ''}
-                    style={activo ? { backgroundColor: `var(--insignia-${color}-fondo)`, color: `var(--insignia-${color}-texto)` } : undefined}>
-                    {t === 'servicio' ? 'Servicio' : 'Producto'}
-                  </Boton>
-                )
-              })}
-            </div>
-            <div className="w-px h-4 bg-white/[0.07]" />
-            <Interruptor activo={puedeVenderse} onChange={setPuedeVenderse} etiqueta="Puede venderse" />
-            <Interruptor activo={puedeComprarse} onChange={setPuedeComprarse} etiqueta="Puede comprarse" />
-          </div>
+          <div className="w-px h-4 bg-white/[0.07] shrink-0" />
+
+          {/* Switches */}
+          <Interruptor activo={puedeVenderse} onChange={setPuedeVenderse} etiqueta="Puede venderse" />
+          <Interruptor activo={puedeComprarse} onChange={setPuedeComprarse} etiqueta="Puede comprarse" />
+
+          {/* Código (edición) */}
+          {esEdicion && (
+            <span className="text-xs font-mono text-texto-terciario bg-white/[0.04] px-2 py-1 rounded-md border border-white/[0.06] shrink-0">
+              {producto!.codigo}
+            </span>
+          )}
         </div>
 
         {/* ═══════ TABS ═══════ */}
