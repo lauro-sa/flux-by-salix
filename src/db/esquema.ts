@@ -409,6 +409,7 @@ export const presupuestos = pgTable('presupuestos', {
   // Fechas
   fecha_emision: timestamp('fecha_emision', { withTimezone: true }).defaultNow().notNull(),
   fecha_emision_original: timestamp('fecha_emision_original', { withTimezone: true }), // Se llena al re-emitir
+  fecha_aceptacion: timestamp('fecha_aceptacion', { withTimezone: true }), // Se llena al pasar a confirmado_cliente u orden_venta
   dias_vencimiento: integer('dias_vencimiento').notNull().default(30),
   fecha_vencimiento: timestamp('fecha_vencimiento', { withTimezone: true }),
 
@@ -2066,6 +2067,7 @@ export const preferencias_usuario = pgTable('preferencias_usuario', {
   sidebar_deshabilitados: jsonb('sidebar_deshabilitados'),
   sidebar_colapsado: boolean('sidebar_colapsado').notNull().default(false),
   sidebar_auto_ocultar: boolean('sidebar_auto_ocultar').notNull().default(false),
+  sidebar_auto_colapsar_config: boolean('sidebar_auto_colapsar_config').notNull().default(true),
   sidebar_secciones: jsonb('sidebar_secciones').default(sql`'{}'`),
   // Tablas
   config_tablas: jsonb('config_tablas').default(sql`'{}'`),
@@ -2099,6 +2101,179 @@ export const etiquetas_contacto = pgTable('etiquetas_contacto', {
   index('etiquetas_contacto_empresa_idx').on(tabla.empresa_id),
 ])
 
+// ═══════════════════════════════════════════════════════════════
+// SISTEMA DE VISITAS
+// ═══════════════════════════════════════════════════════════════
+
+// Visitas — registro de visita a un contacto en una dirección
+export const visitas = pgTable('visitas', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+
+  // Relaciones
+  contacto_id: uuid('contacto_id').notNull().references(() => contactos.id, { onDelete: 'cascade' }),
+  contacto_nombre: text('contacto_nombre').notNull(), // snapshot para listados rápidos
+  direccion_id: uuid('direccion_id').references(() => contacto_direcciones.id, { onDelete: 'set null' }),
+  direccion_texto: text('direccion_texto'), // snapshot de la dirección al momento de crear
+  direccion_lat: doublePrecision('direccion_lat'),
+  direccion_lng: doublePrecision('direccion_lng'),
+
+  // Asignación
+  asignado_a: uuid('asignado_a'), // miembro que debe realizar la visita
+  asignado_nombre: text('asignado_nombre'),
+
+  // Programación
+  fecha_programada: timestamp('fecha_programada', { withTimezone: true }).notNull(),
+  fecha_inicio: timestamp('fecha_inicio', { withTimezone: true }), // cuando arrancó (en_camino)
+  fecha_llegada: timestamp('fecha_llegada', { withTimezone: true }), // cuando llegó (en_sitio)
+  fecha_completada: timestamp('fecha_completada', { withTimezone: true }),
+  duracion_estimada_min: integer('duracion_estimada_min').default(30),
+  duracion_real_min: integer('duracion_real_min'),
+
+  // Estado
+  estado: text('estado').notNull().default('programada'), // programada, en_camino, en_sitio, completada, cancelada, reprogramada
+
+  // Contenido
+  motivo: text('motivo'), // por qué se hace la visita
+  resultado: text('resultado'), // qué pasó al completarla
+  notas: text('notas'),
+  prioridad: text('prioridad').notNull().default('normal'), // baja, normal, alta, urgente
+
+  // Checklist configurable (items a verificar durante la visita)
+  checklist: jsonb('checklist').notNull().default(sql`'[]'`), // [{id, texto, completado}]
+
+  // Geolocalización de registro (donde realmente estaba el visitador)
+  registro_lat: doublePrecision('registro_lat'),
+  registro_lng: doublePrecision('registro_lng'),
+  registro_precision_m: integer('registro_precision_m'), // precisión GPS en metros
+
+  // Vinculación con actividades
+  actividad_id: uuid('actividad_id'), // actividad asociada si se creó desde una
+  vinculos: jsonb('vinculos').notNull().default(sql`'[]'`), // [{tipo, id, nombre}]
+
+  // Soft delete
+  en_papelera: boolean('en_papelera').notNull().default(false),
+  papelera_en: timestamp('papelera_en', { withTimezone: true }),
+
+  // Auditoría
+  creado_por: uuid('creado_por').notNull(),
+  creado_por_nombre: text('creado_por_nombre'),
+  editado_por: uuid('editado_por'),
+  editado_por_nombre: text('editado_por_nombre'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('visitas_empresa_idx').on(tabla.empresa_id),
+  index('visitas_contacto_idx').on(tabla.empresa_id, tabla.contacto_id),
+  index('visitas_asignado_idx').on(tabla.empresa_id, tabla.asignado_a),
+  index('visitas_estado_idx').on(tabla.empresa_id, tabla.estado),
+  index('visitas_fecha_idx').on(tabla.empresa_id, tabla.fecha_programada),
+  index('visitas_papelera_idx').on(tabla.empresa_id, tabla.en_papelera),
+])
+
+// ═══════════════════════════════════════════════════════════════
+// SISTEMA DE RECORRIDOS
+// ═══════════════════════════════════════════════════════════════
+
+// Recorridos — agrupación ordenada de visitas para un día
+export const recorridos = pgTable('recorridos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+
+  // Asignación
+  asignado_a: uuid('asignado_a').notNull(), // miembro que recorre
+  asignado_nombre: text('asignado_nombre').notNull(),
+
+  // Fecha
+  fecha: date('fecha').notNull(), // día del recorrido
+
+  // Estado del recorrido
+  estado: text('estado').notNull().default('pendiente'), // pendiente, en_curso, completado
+
+  // Punto de partida (ubicación del visitador)
+  origen_lat: doublePrecision('origen_lat'),
+  origen_lng: doublePrecision('origen_lng'),
+  origen_texto: text('origen_texto'), // "Mi ubicación" o dirección escrita
+
+  // Resumen (se actualiza al completar)
+  total_visitas: integer('total_visitas').notNull().default(0),
+  visitas_completadas: integer('visitas_completadas').notNull().default(0),
+  distancia_total_km: numeric('distancia_total_km'),
+  duracion_total_min: integer('duracion_total_min'),
+
+  // Notas del día
+  notas: text('notas'),
+
+  // Auditoría
+  creado_por: uuid('creado_por').notNull(),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('recorridos_empresa_idx').on(tabla.empresa_id),
+  index('recorridos_asignado_fecha_idx').on(tabla.empresa_id, tabla.asignado_a, tabla.fecha),
+  uniqueIndex('recorridos_unico_idx').on(tabla.empresa_id, tabla.asignado_a, tabla.fecha),
+])
+
+// Paradas del recorrido — cada visita como parada ordenada
+export const recorrido_paradas = pgTable('recorrido_paradas', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  recorrido_id: uuid('recorrido_id').notNull().references(() => recorridos.id, { onDelete: 'cascade' }),
+  visita_id: uuid('visita_id').notNull().references(() => visitas.id, { onDelete: 'cascade' }),
+
+  // Orden de la parada en el recorrido
+  orden: integer('orden').notNull().default(0),
+
+  // Estimaciones de ruta (desde la parada anterior)
+  distancia_km: numeric('distancia_km'),
+  duracion_viaje_min: integer('duracion_viaje_min'),
+  hora_estimada_llegada: timestamp('hora_estimada_llegada', { withTimezone: true }),
+
+  // Notas específicas de esta parada
+  notas: text('notas'),
+
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('recorrido_paradas_recorrido_idx').on(tabla.recorrido_id),
+  uniqueIndex('recorrido_paradas_unico_idx').on(tabla.recorrido_id, tabla.visita_id),
+])
+
+// Plantillas de recorrido — recorridos guardados para reutilizar
+export const plantillas_recorrido = pgTable('plantillas_recorrido', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  nombre: text('nombre').notNull(),
+  descripcion: text('descripcion'),
+  // Paradas predefinidas: [{contacto_id, contacto_nombre, direccion_id, direccion_texto, lat, lng, orden}]
+  paradas: jsonb('paradas').notNull().default(sql`'[]'`),
+  creado_por: uuid('creado_por').notNull(),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('plantillas_recorrido_empresa_idx').on(tabla.empresa_id),
+])
+
+// Configuración del módulo visitas por empresa
+export const config_visitas = pgTable('config_visitas', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  // Checklist por defecto para nuevas visitas
+  checklist_predeterminado: jsonb('checklist_predeterminado').notNull().default(sql`'[]'`),
+  // Requiere geolocalización al registrar llegada
+  requiere_geolocalizacion: boolean('requiere_geolocalizacion').notNull().default(false),
+  // Distancia máxima en metros para validar geolocalización
+  distancia_maxima_m: integer('distancia_maxima_m').notNull().default(500),
+  // Duración estimada por defecto en minutos
+  duracion_estimada_default: integer('duracion_estimada_default').notNull().default(30),
+  // Motivos predefinidos
+  motivos_predefinidos: jsonb('motivos_predefinidos').notNull().default(sql`'[]'`),
+  // Resultados predefinidos
+  resultados_predefinidos: jsonb('resultados_predefinidos').notNull().default(sql`'[]'`),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  uniqueIndex('config_visitas_empresa_idx').on(tabla.empresa_id),
+])
+
 // Configuración de Google Drive — sincronización de datos con Sheets
 export const configuracion_google_drive = pgTable('configuracion_google_drive', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -2120,4 +2295,21 @@ export const configuracion_google_drive = pgTable('configuracion_google_drive', 
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
 }, (tabla) => [
   index('configuracion_google_drive_empresa_idx').on(tabla.empresa_id),
+])
+
+// Historial de entidades recientes por usuario — para acceso rápido desde el dashboard
+export const historial_recientes = pgTable('historial_recientes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  usuario_id: uuid('usuario_id').notNull(),
+  tipo_entidad: text('tipo_entidad').notNull(), // 'contacto', 'presupuesto', 'actividad', 'documento', 'conversacion'
+  entidad_id: uuid('entidad_id').notNull(),
+  titulo: text('titulo').notNull(),
+  subtitulo: text('subtitulo'),
+  icono: text('icono'),
+  accion: text('accion').notNull().default('visto'),
+  accedido_en: timestamp('accedido_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('historial_recientes_usuario_idx').on(tabla.empresa_id, tabla.usuario_id),
+  index('historial_recientes_entidad_idx').on(tabla.tipo_entidad, tabla.entidad_id),
 ])

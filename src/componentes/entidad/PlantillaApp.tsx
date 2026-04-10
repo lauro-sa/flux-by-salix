@@ -37,6 +37,11 @@ function obtenerSeccion(pathname: string): string {
   return partes.length > 0 ? `/${partes[0]}` : '/'
 }
 
+/** Detecta si la ruta actual tiene un menú lateral secundario (PlantillaConfiguracion) */
+function tieneMenuSecundario(pathname: string): boolean {
+  return pathname.includes('/configuracion') || pathname === '/mi-cuenta' || pathname === '/marketing'
+}
+
 function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
   const pathname = usePathname()
   const { efecto } = useTema()
@@ -50,29 +55,33 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
 
   /* Modo auto-ocultar: sidebar colapsado por defecto, se expande al hover */
   const autoOcultar = preferencias.sidebar_auto_ocultar
+  const autoColapsarConfig = preferencias.sidebar_auto_colapsar_config
+  const esRutaConMenuSecundario = tieneMenuSecundario(pathname)
+  /** Auto-ocultar activo: por config global O por estar en ruta con menú secundario */
+  const autoOcultarEfectivo = autoOcultar || (autoColapsarConfig && esRutaConMenuSecundario)
   const [hoverExpandido, setHoverExpandido] = useState(false)
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const onSidebarMouseEnter = useCallback(() => {
-    if (!autoOcultar) return
+    if (!autoOcultarEfectivo) return
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
     setHoverExpandido(true)
-  }, [autoOcultar])
+  }, [autoOcultarEfectivo])
 
   const onSidebarMouseLeave = useCallback(() => {
-    if (!autoOcultar) return
+    if (!autoOcultarEfectivo) return
     // Delay breve para evitar parpadeo al mover entre sidebar y contenido
     hoverTimeoutRef.current = setTimeout(() => setHoverExpandido(false), 300)
-  }, [autoOcultar])
+  }, [autoOcultarEfectivo])
 
   /* Resolver si el sidebar está colapsado para la sección actual */
   const sidebarColapsado = useMemo(() => {
-    // Auto-ocultar anula todo: colapsado salvo hover
-    if (autoOcultar) return !hoverExpandido
+    // Auto-ocultar (global o por menú secundario) anula todo: colapsado salvo hover
+    if (autoOcultarEfectivo) return !hoverExpandido
     const porSeccion = preferencias.sidebar_secciones?.[seccion]
     if (porSeccion !== undefined) return porSeccion
     return preferencias.sidebar_colapsado
-  }, [autoOcultar, hoverExpandido, preferencias.sidebar_secciones, preferencias.sidebar_colapsado, seccion])
+  }, [autoOcultarEfectivo, hoverExpandido, preferencias.sidebar_secciones, preferencias.sidebar_colapsado, seccion])
 
   /* Toggle sidebar: guarda como preferencia de la sección actual */
   const toggleSidebar = useCallback(() => {
@@ -97,6 +106,11 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
     guardar({ sidebar_auto_ocultar: nuevo })
     if (nuevo) setHoverExpandido(false)
   }, [autoOcultar, guardar])
+
+  /* Activar/desactivar auto-colapsar en páginas con menú secundario */
+  const toggleAutoColapsarConfig = useCallback(() => {
+    guardar({ sidebar_auto_colapsar_config: !autoColapsarConfig })
+  }, [autoColapsarConfig, guardar])
 
   /* Colapsar/expandir todas las secciones */
   const aplicarATodas = useCallback((colapsado: boolean) => {
@@ -129,7 +143,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
   const tienePreferenciaSeccion = preferencias.sidebar_secciones?.[seccion] !== undefined
 
   /* En auto-ocultar: margen fijo para la barra minimizada (mismo ancho colapsado) */
-  const anchoSidebarReal = autoOcultar
+  const anchoSidebarReal = autoOcultarEfectivo
     ? 'var(--sidebar-ancho-colapsado)'
     : (sidebarColapsado ? 'var(--sidebar-ancho-colapsado)' : 'var(--sidebar-ancho)')
   const fondoWrapper = efecto !== 'solido' ? 'transparent' : 'var(--superficie-app)'
@@ -175,7 +189,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
         onToggle={toggleSidebar}
         mobilAbierto={false}
         onCerrarMobil={() => {}}
-        autoOcultar={autoOcultar}
+        autoOcultar={autoOcultarEfectivo}
         hoverExpandido={hoverExpandido}
         onMouseEnter={onSidebarMouseEnter}
         onMouseLeave={onSidebarMouseLeave}
@@ -193,6 +207,9 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
           onLimpiarSeccion={limpiarSeccion}
           autoOcultar={autoOcultar}
           onToggleAutoOcultar={toggleAutoOcultar}
+          autoColapsarConfig={autoColapsarConfig}
+          esRutaConMenuSecundario={esRutaConMenuSecundario}
+          onToggleAutoColapsarConfig={toggleAutoColapsarConfig}
           migajasExtras={migajasExtras}
           oculto={necesitaLayoutFijo ? false : headerOculto}
         />

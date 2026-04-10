@@ -195,11 +195,27 @@ export function PanelChatter({
     const resultado: AdjuntoConOrigen[] = []
     for (const e of entradas) {
       if (e.adjuntos?.length) {
-        for (const adj of e.adjuntos) {
+        // Determinar etiqueta contextual según la acción del chatter
+        const accion = e.metadata?.accion
+        let etiqueta: string | undefined
+        if (accion === 're_emision') {
+          const num = (e.metadata as Record<string, unknown>)?.numero_re_emision
+          etiqueta = `Re-emisión ${num || ''}`
+        } else if (accion === 'pdf_generado' && e.contenido?.includes('original')) {
+          etiqueta = 'Versión original'
+        } else if (accion === 'correo_recibido') {
+          etiqueta = 'Recibido'
+        } else if (accion === 'correo_enviado') {
+          etiqueta = 'Enviado'
+        }
+
+        for (let i = 0; i < e.adjuntos.length; i++) {
           resultado.push({
-            ...adj,
-            origen: e.autor_nombre,
+            ...e.adjuntos[i],
+            origen: etiqueta || e.autor_nombre,
             fecha: e.creado_en,
+            chatter_id: e.id,
+            indice_adjunto: i,
           })
         }
       }
@@ -534,6 +550,12 @@ export function PanelChatter({
                   entidadTipo={entidadTipo}
                   entidadId={entidadId}
                   onAdjuntoSubido={cargar}
+                  onEliminarAdjunto={async (chatterId, indice) => {
+                    try {
+                      const res = await fetch(`/api/chatter/adjuntos?chatter_id=${chatterId}&indice=${indice}`, { method: 'DELETE' })
+                      if (res.ok) cargar()
+                    } catch { /* silenciar */ }
+                  }}
                 />
               )}
 

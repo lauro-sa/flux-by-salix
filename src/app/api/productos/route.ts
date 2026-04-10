@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { registrarReciente } from '@/lib/recientes'
 import { registrarChatter } from '@/lib/chatter'
 import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
@@ -219,6 +220,17 @@ export async function POST(request: NextRequest) {
       autorId: user.id,
       autorNombre: nombreCreador,
       metadata: { accion: 'creado' },
+    })
+
+    // Registrar en historial de recientes (fire-and-forget)
+    registrarReciente({
+      empresaId,
+      usuarioId: user.id,
+      tipoEntidad: 'producto',
+      entidadId: data.id,
+      titulo: data.nombre || 'Producto',
+      subtitulo: data.codigo || data.tipo || undefined,
+      accion: 'creado',
     })
 
     return NextResponse.json(data, { status: 201 })

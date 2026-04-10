@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { registrarReciente } from '@/lib/recientes'
 
 const ESTADOS_VALIDOS = ['abierta', 'en_espera', 'resuelta', 'spam'] as const
 
@@ -36,6 +37,19 @@ export async function GET(
     if (error || !data) {
       return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 })
     }
+
+    // Registrar en historial de recientes (fire-and-forget)
+    const canalObj = Array.isArray(data.canal) ? data.canal[0] : data.canal
+    const nombreCanal = canalObj?.tipo === 'whatsapp' ? 'WhatsApp' : canalObj?.tipo === 'correo' ? 'Correo' : 'Chat'
+    registrarReciente({
+      empresaId,
+      usuarioId: user.id,
+      tipoEntidad: 'conversacion',
+      entidadId: id,
+      titulo: data.contacto_nombre || data.remitente_nombre || 'Conversación',
+      subtitulo: nombreCanal,
+      accion: 'visto',
+    })
 
     return NextResponse.json({ conversacion: data })
   } catch (err) {

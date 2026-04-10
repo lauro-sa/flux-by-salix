@@ -31,6 +31,7 @@ import { WidgetComparativa } from './WidgetComparativa'
 import { WidgetClientes } from './WidgetClientes'
 import { ResumenInteligente } from './ResumenInteligente'
 import { ResumenMetricas } from './ResumenMetricas'
+import { WidgetRecientes } from './WidgetRecientes'
 
 /**
  * ContenidoDashboard — Client Component con toda la lógica del dashboard.
@@ -69,7 +70,12 @@ interface DatosDashboard {
   }
   asistencia: {
     hoy: { presentes: number; ausentes: number; tardanzas: number; total: number }
+    detalle_hoy: Array<{
+      miembro_id: string; usuario_id: string; nombre: string; estado: string; tipo: string
+      hora_entrada: string | null; hora_salida: string | null; puntualidad_min: number | null; metodo_registro: string
+    }>
     semana: Record<string, { presentes: number; ausentes: number; tardanzas: number }>
+    usuario_id: string
   }
   ingresos: {
     por_mes: Record<string, { cantidad: number; monto: number; ordenes_cantidad: number; ordenes_monto: number }>
@@ -373,6 +379,23 @@ function PestanaGeneral({
         <BotonRapido etiqueta={t('dashboard.ir_al_inbox')} icono={<MessageSquare size={15} />} onClick={() => router.push('/inbox')} />
       </motion.div>
 
+      {/* Asistencia + Historial reciente */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {datos?.asistencia && (datos.asistencia.hoy.total > 0 || Object.keys(datos.asistencia.semana).length > 0) && (
+          <motion.div variants={itemVariantes}>
+            <WidgetAsistencia
+              hoy={datos.asistencia.hoy}
+              detalle_hoy={datos.asistencia.detalle_hoy || []}
+              semana={datos.asistencia.semana}
+              usuario_id={datos.asistencia.usuario_id || ''}
+            />
+          </motion.div>
+        )}
+        <motion.div variants={itemVariantes}>
+          <WidgetRecientes />
+        </motion.div>
+      </div>
+
       {/* 4 tarjetas recientes */}
       <motion.div variants={itemVariantes} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <TarjetaReciente titulo="Últimos presupuestos" icono={<FileText size={14} />} verTodo={() => router.push('/presupuestos')}>
@@ -544,21 +567,16 @@ function PestanaMetricas({
             <WidgetCrecimientoContactos crecimientoSemanal={datos.contactos.crecimiento_semanal} />
           </motion.div>
         )}
+      </div>
+
+      {/* Productos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {datos?.productos.top && datos.productos.top.length > 0 && (
           <motion.div variants={itemVariantes}>
             <WidgetProductosTop productos={datos.productos.top} formatoMoneda={moneda} />
           </motion.div>
         )}
       </div>
-
-      {/* Asistencia */}
-      {datos?.asistencia && (datos.asistencia.hoy.total > 0 || Object.keys(datos.asistencia.semana).length > 0) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <motion.div variants={itemVariantes}>
-            <WidgetAsistencia hoy={datos.asistencia.hoy} semana={datos.asistencia.semana} />
-          </motion.div>
-        </div>
-      )}
 
       {/* ─── Próximamente ─── */}
       <motion.div variants={itemVariantes}>

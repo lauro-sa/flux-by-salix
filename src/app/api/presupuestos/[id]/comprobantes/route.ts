@@ -129,14 +129,14 @@ export async function PATCH(
         // Verificar que el presupuesto está en confirmado_cliente
         const { data: presupuesto } = await admin
           .from('presupuestos')
-          .select('estado, numero')
+          .select('estado, numero, fecha_aceptacion')
           .eq('id', presupuestoId)
           .single()
 
         if (presupuesto?.estado === 'confirmado_cliente') {
           await admin
             .from('presupuestos')
-            .update({ estado: 'orden_venta' })
+            .update({ estado: 'orden_venta', ...(!presupuesto.fecha_aceptacion ? { fecha_aceptacion: new Date().toISOString() } : {}) })
             .eq('id', presupuestoId)
 
           // Historial

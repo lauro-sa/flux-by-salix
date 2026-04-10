@@ -5,9 +5,9 @@
 
 import {
   Users, MapPin, FileText, Package,
-  Mail, Clock, Calendar, Shield,
+  MessagesSquare, Clock, Calendar, Shield,
   Blocks, Building2,
-  UserCog, Trash2,
+  CircleUserRound, Trash2,
   Route, Wrench,
   Zap, LayoutDashboard,
   Megaphone, FileBarChart,
@@ -16,12 +16,12 @@ import { createElement } from 'react'
 import type { ItemNav } from './tipos'
 
 /** Crea un icono de Lucide con tamaño y grosor estandar del sidebar */
-const icono = (Componente: typeof Mail) => createElement(Componente, { size: 20, strokeWidth: 1.75 })
+const icono = (Componente: typeof MessagesSquare) => createElement(Componente, { size: 20, strokeWidth: 1.75 })
 
 /** Genera items de navegacion traducidos */
 export function crearItemsNav(t: (c: string) => string): ItemNav[] {
   return [
-    { id: 'inbox', etiqueta: t('navegacion.inbox'), icono: icono(Mail), ruta: '/inbox', seccion: 'principal', modulo: 'inbox_interno', moduloCatalogo: 'inbox' },
+    { id: 'inbox', etiqueta: t('navegacion.inbox'), icono: icono(MessagesSquare), ruta: '/inbox', seccion: 'principal', modulo: 'inbox_interno', moduloCatalogo: 'inbox' },
     { id: 'contactos', etiqueta: t('navegacion.contactos'), icono: icono(Users), ruta: '/contactos', seccion: 'principal', modulo: 'contactos', moduloCatalogo: 'contactos' },
     { id: 'actividades', etiqueta: t('navegacion.actividades'), icono: icono(Zap), ruta: '/actividades', seccion: 'principal', modulo: 'actividades', moduloCatalogo: 'actividades' },
     { id: 'calendario', etiqueta: t('navegacion.calendario'), icono: icono(Calendar), ruta: '/calendario', seccion: 'principal', modulo: 'calendario', moduloCatalogo: 'calendario' },
@@ -41,7 +41,7 @@ export function crearItemsNav(t: (c: string) => string): ItemNav[] {
 export function crearItemsEmpresa(t: (c: string) => string): ItemNav[] {
   return [
     { id: 'empresa', etiqueta: t('empresa.titulo'), icono: icono(Building2), ruta: '/configuracion', fijo: true, seccion: 'otros', modulo: 'empresa' },
-    { id: 'usuarios', etiqueta: t('navegacion.usuarios'), icono: icono(UserCog), ruta: '/usuarios', fijo: true, seccion: 'otros', modulo: 'usuarios' },
+    { id: 'usuarios', etiqueta: t('navegacion.usuarios'), icono: icono(CircleUserRound), ruta: '/usuarios', fijo: true, seccion: 'otros', modulo: 'usuarios' },
   ]
 }
 

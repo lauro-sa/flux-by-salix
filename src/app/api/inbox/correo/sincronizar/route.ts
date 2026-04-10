@@ -192,6 +192,7 @@ async function sincronizarGmail(
       )
       nuevoHistoryId = historyIdNuevo
 
+      // Procesar mensajes nuevos
       for (const msgId of cambios.mensajesAgregados) {
         try {
           const correo = await conTimeout(
@@ -203,6 +204,11 @@ async function sincronizarGmail(
         } catch (err) {
           console.error(`Error procesando mensaje ${msgId}:`, err)
         }
+      }
+
+      // Procesar mensajes eliminados en el servidor (borrados desde Gmail/otro cliente)
+      if (cambios.mensajesEliminados.length > 0) {
+        await eliminarMensajesLocales(admin, cambios.mensajesEliminados, empresaId)
       }
     } catch (err) {
       // Si historyId expiró, hacer sync completo
@@ -661,6 +667,19 @@ async function procesarCorreoEntrante(
           .maybeSingle()
 
         if (chatterVinculado) {
+          // Obtener adjuntos del mensaje para vincularlos al chatter del documento
+          const { data: adjuntosMsg } = await admin
+            .from('mensaje_adjuntos')
+            .select('nombre_archivo, tipo_mime, tamano_bytes, url')
+            .eq('mensaje_id', mensaje.id)
+
+          const adjuntosChatter = (adjuntosMsg || []).map(a => ({
+            url: a.url,
+            nombre: a.nombre_archivo,
+            tipo: a.tipo_mime,
+            tamano: a.tamano_bytes,
+          }))
+
           await registrarCorreoRecibidoEnChatter({
             empresaId,
             entidadTipo: chatterVinculado.entidad_tipo,
@@ -669,6 +688,7 @@ async function procesarCorreoEntrante(
             remitente: correo.de,
             messageId: correo.messageId || undefined,
             html: correo.html || undefined,
+            adjuntos: adjuntosChatter,
           })
         }
       }
@@ -993,4 +1013,93 @@ async function ejecutarReglas(
     // Solo ejecutar la primera regla que matchea (no cascadear)
     break
   }
+}
+
+// ─── Eliminar mensajes locales (sync inversa) ───
+
+/**
+ * Elimina mensajes de Flux que fueron eliminados en el servidor (Gmail/otro cliente).
+ * Si una conversación queda sin mensajes, se elimina también.
+ */
+async function eliminarMensajesLocales(
+  admin: ReturnType<typeof crearClienteAdmin>,
+  gmailIds: string[],
+  empresaId: string,
+): Promise<number> {
+  let eliminados = 0
+
+  for (const gmailId of gmailIds) {
+    try {
+      // Buscar mensaje local por gmail_id en metadata
+      const { data: mensaje } = await admin
+        .from('mensajes')
+        .select('id, conversacion_id')
+        .eq('empresa_id', empresaId)
+        .eq('metadata->>gmail_id', gmailId)
+        .maybeSingle()
+
+      if (!mensaje) continue
+
+      const conversacionId = mensaje.conversacion_id
+
+      // Eliminar adjuntos del storage
+      const { data: adjuntos } = await admin
+        .from('mensaje_adjuntos')
+        .select('id, storage_path')
+        .eq('mensaje_id', mensaje.id)
+
+      if (adjuntos?.length) {
+        const paths = adjuntos.map(a => a.storage_path).filter(Boolean)
+        if (paths.length > 0) {
+          await admin.storage.from('adjuntos').remove(paths)
+        }
+        await admin.from('mensaje_adjuntos').delete().eq('mensaje_id', mensaje.id)
+      }
+
+      // Eliminar el mensaje
+      await admin.from('mensajes').delete().eq('id', mensaje.id)
+      eliminados++
+
+      // Verificar si la conversación quedó sin mensajes
+      const { count } = await admin
+        .from('mensajes')
+        .select('id', { count: 'exact', head: true })
+        .eq('conversacion_id', conversacionId)
+
+      if (count === 0) {
+        // Eliminar conversación vacía
+        await admin.from('conversaciones').delete().eq('id', conversacionId)
+        console.info(`[Sync] Conversación ${conversacionId} eliminada (sin mensajes)`)
+      } else {
+        // Actualizar último mensaje de la conversación
+        const { data: ultimoMsg } = await admin
+          .from('mensajes')
+          .select('texto, creado_en, es_entrante, correo_asunto')
+          .eq('conversacion_id', conversacionId)
+          .order('creado_en', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (ultimoMsg) {
+          await admin
+            .from('conversaciones')
+            .update({
+              ultimo_mensaje_texto: (ultimoMsg.texto || ultimoMsg.correo_asunto || '').slice(0, 200),
+              ultimo_mensaje_en: ultimoMsg.creado_en,
+              ultimo_mensaje_es_entrante: ultimoMsg.es_entrante,
+              actualizado_en: new Date().toISOString(),
+            })
+            .eq('id', conversacionId)
+        }
+      }
+    } catch (err) {
+      console.error(`[Sync] Error eliminando mensaje local gmail_id=${gmailId}:`, err)
+    }
+  }
+
+  if (eliminados > 0) {
+    console.info(`[Sync] ${eliminados} mensajes eliminados por sync inversa`)
+  }
+
+  return eliminados
 }

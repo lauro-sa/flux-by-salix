@@ -4,6 +4,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { esEmailValido, esTelefonoValido, esUrlValida, esIdentificacionValida, sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarError } from '@/lib/logger'
+import { registrarReciente } from '@/lib/recientes'
 
 /**
  * GET /api/contactos — Listar contactos de la empresa activa.
@@ -509,6 +510,20 @@ export async function POST(request: NextRequest) {
     }
 
     if (insercionesExtra.length > 0) await Promise.all(insercionesExtra)
+
+    // Registrar en historial de recientes (fire-and-forget)
+    const tipoCtRaw = contacto.tipo_contacto as unknown
+    const tipoCt = Array.isArray(tipoCtRaw) ? tipoCtRaw[0] : tipoCtRaw
+    const tipoCtEtiqueta = tipoCt && typeof tipoCt === 'object' && 'etiqueta' in tipoCt ? (tipoCt as { etiqueta: string }).etiqueta : null
+    registrarReciente({
+      empresaId,
+      usuarioId: user.id,
+      tipoEntidad: 'contacto',
+      entidadId: contacto.id,
+      titulo: [contacto.nombre, contacto.apellido].filter(Boolean).join(' ') || 'Sin nombre',
+      subtitulo: tipoCtEtiqueta || undefined,
+      accion: 'creado',
+    })
 
     return NextResponse.json(contacto, { status: 201 })
   } catch (err) {

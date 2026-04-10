@@ -46,9 +46,9 @@ export const ESTADOS_TERMINALES: EstadoPresupuesto[] = ['cancelado', 'rechazado'
 // Transiciones válidas desde cada estado
 export const TRANSICIONES_ESTADO: Record<EstadoPresupuesto, EstadoPresupuesto[]> = {
   borrador: ['enviado', 'cancelado'],
-  enviado: ['confirmado_cliente', 'orden_venta', 'rechazado', 'cancelado'],
-  confirmado_cliente: ['orden_venta', 'borrador', 'cancelado'],
-  orden_venta: ['borrador', 'cancelado'],
+  enviado: ['confirmado_cliente', 'orden_venta', 'borrador', 'rechazado', 'cancelado'],
+  confirmado_cliente: ['orden_venta', 'enviado', 'borrador', 'cancelado'],
+  orden_venta: ['confirmado_cliente', 'enviado', 'borrador', 'cancelado'],
   rechazado: ['borrador', 'cancelado'],
   vencido: ['borrador', 'cancelado'],
   cancelado: ['borrador'],
@@ -103,6 +103,7 @@ export interface Presupuesto {
   // Fechas
   fecha_emision: string
   fecha_emision_original: string | null
+  fecha_aceptacion: string | null
   dias_vencimiento: number
   fecha_vencimiento: string | null
 

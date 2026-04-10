@@ -48,6 +48,7 @@ export type ModuloConfig =
   | 'config_asistencias'
   | 'config_productos'
   | 'config_inbox'
+  | 'config_recorrido'
 
 // Union de todos los modulos
 export type Modulo =
@@ -72,6 +73,9 @@ export type Accion =
   | 'autoasignar'
   | 'coordinar'
   | 'completar_etapa'
+  | 'registrar'
+  | 'asignar'
+  | 'reordenar'
 
 /** Mapa de permisos: modulo -> lista de acciones permitidas */
 export type PermisosMapa = Partial<Record<Modulo, Accion[]>>
@@ -100,7 +104,7 @@ export const CATEGORIAS_MODULOS: Record<string, { nombre: string; modulos: Modul
       'config_empresa', 'config_contactos', 'config_visitas', 'config_actividades',
       'config_calendario', 'config_presupuestos', 'config_facturas', 'config_informes',
       'config_ordenes_trabajo', 'config_usuarios', 'config_asistencias', 'config_productos',
-      'config_inbox',
+      'config_inbox', 'config_recorrido',
     ],
   },
 }
@@ -110,9 +114,9 @@ export const ACCIONES_POR_MODULO: Record<Modulo, Accion[]> = {
   // Operacionales
   contactos: ['ver_propio', 'ver_todos', 'crear', 'editar', 'eliminar'],
   actividades: ['ver_propio', 'ver_todos', 'crear', 'editar', 'eliminar', 'completar'],
-  visitas: ['ver_propio', 'ver_todos', 'crear', 'editar', 'eliminar', 'completar'],
+  visitas: ['ver_propio', 'ver_todos', 'crear', 'editar', 'eliminar', 'completar', 'asignar'],
   calendario: ['ver_propio', 'ver_todos', 'crear', 'editar', 'eliminar'],
-  recorrido: ['ver_propio', 'ver_todos', 'autoasignar', 'coordinar'],
+  recorrido: ['ver_propio', 'ver_todos', 'registrar', 'reordenar'],
   asistencias: ['ver_propio', 'ver_todos', 'marcar', 'editar', 'eliminar'],
   productos: ['ver', 'crear', 'editar', 'eliminar'],
   // Documentos
@@ -143,6 +147,7 @@ export const ACCIONES_POR_MODULO: Record<Modulo, Accion[]> = {
   config_asistencias: ['ver', 'editar'],
   config_productos: ['ver', 'editar'],
   config_inbox: ['ver', 'editar'],
+  config_recorrido: ['ver', 'editar'],
 }
 
 /** Etiquetas legibles para cada modulo */
@@ -178,6 +183,7 @@ export const ETIQUETAS_MODULO: Record<Modulo, string> = {
   config_asistencias: 'Config asistencias',
   config_productos: 'Config productos',
   config_inbox: 'Config inbox',
+  config_recorrido: 'Config recorrido',
 }
 
 /** Etiquetas legibles para cada accion */
@@ -196,4 +202,7 @@ export const ETIQUETAS_ACCION: Record<Accion, string> = {
   autoasignar: 'Autoasignar',
   coordinar: 'Coordinar',
   completar_etapa: 'Completar etapa',
+  registrar: 'Registrar',
+  asignar: 'Asignar',
+  reordenar: 'Reordenar',
 }

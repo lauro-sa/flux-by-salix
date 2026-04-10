@@ -9,7 +9,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Calendar, PlusCircle } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { BarraHerramientasCalendario } from './_componentes/BarraHerramientasCalendario'
 import { VistaCalendarioMes } from './_componentes/VistaCalendarioMes'
@@ -118,6 +118,7 @@ function formatearFechaISO(fecha: Date): string {
 
 export default function PaginaCalendario() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { mostrar } = useToast()
 
   // Estado principal — vista inicial desde localStorage del usuario o 'mes' por defecto
@@ -200,6 +201,24 @@ export default function PaginaCalendario() {
     }
     cargarUsuario()
   }, [])
+
+  // --- Abrir evento desde ?evento_id= (recientes del dashboard) ---
+  const eventoIdParam = searchParams.get('evento_id')
+  const eventoYaAbiertoRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!eventoIdParam || eventoIdParam === eventoYaAbiertoRef.current) return
+    eventoYaAbiertoRef.current = eventoIdParam
+    fetch(`/api/calendario/${eventoIdParam}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) {
+          setEventoEditando(data)
+          setModalAbierto(true)
+        }
+      })
+      .catch(() => {})
+    router.replace('/calendario', { scroll: false })
+  }, [eventoIdParam, router])
 
   // --- Carga de eventos según vista y fecha ---
   const cargarEventos = useCallback(async () => {

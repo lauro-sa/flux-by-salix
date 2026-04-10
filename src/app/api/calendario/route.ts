@@ -4,6 +4,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { crearNotificacion } from '@/lib/notificaciones'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { COLOR_ETIQUETA_DEFECTO, COLOR_MARCA_DEFECTO } from '@/lib/colores_entidad'
+import { registrarReciente } from '@/lib/recientes'
 
 /**
  * GET /api/calendario — Listar eventos del calendario en un rango de fechas.
@@ -271,6 +272,17 @@ export async function POST(request: NextRequest) {
         await admin.from('recordatorios_calendario').insert(recordatorios)
       }
     }
+
+    // Registrar en historial de recientes (fire-and-forget)
+    registrarReciente({
+      empresaId,
+      usuarioId: user.id,
+      tipoEntidad: 'evento',
+      entidadId: data.id,
+      titulo: data.titulo || 'Evento',
+      subtitulo: data.todo_el_dia ? 'Todo el día' : undefined,
+      accion: 'creado',
+    })
 
     return NextResponse.json(data, { status: 201 })
   } catch {

@@ -171,10 +171,10 @@ export async function GET() {
         .order('fecha_vencimiento', { ascending: true })
         .limit(10),
 
-      // ─── Asistencia de hoy ───
+      // ─── Asistencia de hoy (con detalle para widget) ───
       admin
         .from('asistencias')
-        .select('miembro_id, estado, tipo, hora_entrada, hora_salida')
+        .select('miembro_id, estado, tipo, hora_entrada, hora_salida, puntualidad_min, metodo_registro')
         .eq('empresa_id', empresaId)
         .eq('fecha', hoyStr),
 
@@ -189,7 +189,7 @@ export async function GET() {
       // ─── Ingresos: presupuestos confirmados/orden_venta con fecha y monto ───
       admin
         .from('presupuestos')
-        .select('estado, total_final, fecha_emision, creado_en')
+        .select('estado, total_final, fecha_aceptacion, fecha_emision, creado_en')
         .eq('empresa_id', empresaId)
         .in('estado', ['confirmado_cliente', 'orden_venta']),
 
@@ -297,13 +297,50 @@ export async function GET() {
       .sort((a, b) => b.pendientes - a.pendientes)
       .slice(0, 8)
 
-    // ─── Asistencia hoy resumen ───
+    // ─── Asistencia hoy resumen + detalle por persona ───
     const asistenciaHoy = { presentes: 0, ausentes: 0, tardanzas: 0, total: 0 }
+
+    // Obtener nombres de miembros (miembro_id → { usuario_id, nombre })
+    const miembroIds = (resAsistenciaHoy.data || []).map(a => a.miembro_id)
+    const mapaMiembros: Record<string, { usuario_id: string; nombre: string }> = {}
+    if (miembroIds.length > 0) {
+      const { data: miembrosData } = await admin
+        .from('miembros')
+        .select('id, usuario_id')
+        .in('id', miembroIds)
+      const usuarioIds = (miembrosData || []).map(m => m.usuario_id).filter(Boolean)
+      const { data: perfilesData } = await admin
+        .from('perfiles')
+        .select('id, nombre')
+        .in('id', usuarioIds)
+      const mapaPerfil: Record<string, string> = {}
+      for (const p of perfilesData || []) mapaPerfil[p.id] = p.nombre || 'Sin nombre'
+      for (const m of miembrosData || []) {
+        mapaMiembros[m.id] = { usuario_id: m.usuario_id, nombre: mapaPerfil[m.usuario_id] || 'Sin nombre' }
+      }
+    }
+
+    const detalleHoy: Array<{
+      miembro_id: string; usuario_id: string; nombre: string; estado: string; tipo: string
+      hora_entrada: string | null; hora_salida: string | null; puntualidad_min: number | null; metodo_registro: string
+    }> = []
     for (const a of resAsistenciaHoy.data || []) {
+      const info = mapaMiembros[a.miembro_id]
       asistenciaHoy.total++
       if (a.estado === 'ausente') asistenciaHoy.ausentes++
       else if (a.tipo === 'tardanza') asistenciaHoy.tardanzas++
-      else asistenciaHoy.presentes++ // activo, cerrado, almuerzo, particular, auto_cerrado
+      else asistenciaHoy.presentes++
+      detalleHoy.push({
+        miembro_id: a.miembro_id,
+        usuario_id: info?.usuario_id || '',
+        nombre: info?.nombre || 'Sin nombre',
+        estado: a.estado,
+        tipo: a.tipo,
+        hora_entrada: a.hora_entrada,
+        hora_salida: a.hora_salida,
+        puntualidad_min: a.puntualidad_min,
+        metodo_registro: a.metodo_registro,
+      })
     }
 
     // ─── Asistencia semana por persona ───
@@ -317,9 +354,10 @@ export async function GET() {
     }
 
     // ─── Ingresos por mes — separando orden_venta (100% cerrado) de confirmado_cliente ───
+    // Usa fecha_aceptacion (cuando el cliente aceptó), con fallback a fecha_emision para registros anteriores
     const ingresosPorMes: Record<string, { cantidad: number; monto: number; ordenes_cantidad: number; ordenes_monto: number }> = {}
     for (const p of resIngresosConfirmados.data || []) {
-      const fecha = new Date(p.fecha_emision || p.creado_en)
+      const fecha = new Date(p.fecha_aceptacion || p.fecha_emision || p.creado_en)
       const clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`
       if (!ingresosPorMes[clave]) ingresosPorMes[clave] = { cantidad: 0, monto: 0, ordenes_cantidad: 0, ordenes_monto: 0 }
       const monto = parseFloat(p.total_final) || 0
@@ -334,7 +372,7 @@ export async function GET() {
     // Ingresos por año
     const ingresosPorAnio: Record<string, { cantidad: number; monto: number; ordenes_cantidad: number; ordenes_monto: number }> = {}
     for (const p of resIngresosConfirmados.data || []) {
-      const fecha = new Date(p.fecha_emision || p.creado_en)
+      const fecha = new Date(p.fecha_aceptacion || p.fecha_emision || p.creado_en)
       const anio = String(fecha.getFullYear())
       if (!ingresosPorAnio[anio]) ingresosPorAnio[anio] = { cantidad: 0, monto: 0, ordenes_cantidad: 0, ordenes_monto: 0 }
       const monto = parseFloat(p.total_final) || 0
@@ -454,7 +492,9 @@ export async function GET() {
       },
       asistencia: {
         hoy: asistenciaHoy,
+        detalle_hoy: detalleHoy,
         semana: mapaAsistenciaSemana,
+        usuario_id: user.id,
       },
       ingresos: {
         por_mes: ingresosPorMes,

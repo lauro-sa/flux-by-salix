@@ -111,6 +111,19 @@ export default function PaginaPerfilUsuario() {
       if (perfilData) {
         setPerfil(perfilData)
         setSnapshotPerfilRef.current(perfilData as unknown as Record<string, unknown>)
+
+        // Registrar en historial de recientes (fire-and-forget)
+        fetch('/api/dashboard/recientes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tipoEntidad: 'miembro',
+            entidadId: miembroData.id,
+            titulo: [perfilData.nombre, perfilData.apellido].filter(Boolean).join(' ') || 'Usuario',
+            subtitulo: miembroData.puesto_nombre || miembroData.rol || undefined,
+            accion: 'visto',
+          }),
+        }).catch(() => {})
       }
 
       // Sectores de la empresa

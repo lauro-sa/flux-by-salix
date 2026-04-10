@@ -3,6 +3,7 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarCambioEstado } from '@/lib/chatter'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { registrarReciente } from '@/lib/recientes'
 
 /**
  * GET /api/presupuestos/[id] — Obtener detalle completo de un presupuesto.
@@ -88,6 +89,18 @@ export async function GET(
         }
       }
     }
+
+    // Registrar en historial de recientes (fire-and-forget)
+    const nombreContacto = [presupuesto.contacto_nombre, presupuesto.contacto_apellido].filter(Boolean).join(' ')
+    registrarReciente({
+      empresaId,
+      usuarioId: user.id,
+      tipoEntidad: 'presupuesto',
+      entidadId: id,
+      titulo: `Presupuesto #${presupuesto.numero}${nombreContacto ? ` — ${nombreContacto}` : ''}`,
+      subtitulo: presupuesto.estado,
+      accion: 'visto',
+    })
 
     return NextResponse.json({
       ...presupuesto,
@@ -223,6 +236,11 @@ export async function PATCH(
       estadoAnterior = actual?.estado || null
     }
 
+    // Auto-llenar fecha_aceptacion al pasar a confirmado_cliente u orden_venta
+    if (body.estado && ['confirmado_cliente', 'orden_venta'].includes(body.estado)) {
+      actualizacion.fecha_aceptacion = new Date().toISOString()
+    }
+
     const { data: actualizado, error } = await admin
       .from('presupuestos')
       .update(actualizacion)
@@ -259,6 +277,20 @@ export async function PATCH(
           notas: body.notas_estado,
         })
       }
+    }
+
+    // Registrar en historial de recientes (fire-and-forget)
+    if (actualizado) {
+      const nombreCto = [actualizado.contacto_nombre, actualizado.contacto_apellido].filter(Boolean).join(' ')
+      registrarReciente({
+        empresaId,
+        usuarioId: user.id,
+        tipoEntidad: 'presupuesto',
+        entidadId: id,
+        titulo: `Presupuesto #${actualizado.numero}${nombreCto ? ` — ${nombreCto}` : ''}`,
+        subtitulo: actualizado.estado,
+        accion: body.en_papelera ? 'eliminado' : 'editado',
+      })
     }
 
     return NextResponse.json(actualizado)

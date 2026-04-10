@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
         sidebar_deshabilitados: null,
         sidebar_colapsado: false,
         sidebar_auto_ocultar: false,
+        sidebar_auto_colapsar_config: true,
         config_tablas: {},
       })
     }
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
     const COLUMNAS_VALIDAS = [
       'tema', 'efecto', 'fondo_cristal', 'escala',
       'sidebar_orden', 'sidebar_ocultos', 'sidebar_deshabilitados',
-      'sidebar_colapsado', 'sidebar_auto_ocultar', 'sidebar_secciones',
+      'sidebar_colapsado', 'sidebar_auto_ocultar', 'sidebar_auto_colapsar_config', 'sidebar_secciones',
       'config_tablas', 'chatter_sin_lateral', 'recibir_todas_notificaciones',
     ] as const
 

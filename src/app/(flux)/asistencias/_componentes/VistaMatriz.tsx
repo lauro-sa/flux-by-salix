@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { Tooltip } from '@/componentes/ui/Tooltip'
+import { formatearPuntualidadCorta } from '@/lib/constantes/asistencias'
 import { Checkbox } from '@/componentes/ui/Checkbox'
 import { ModalNomina } from './ModalNomina'
 import { useEsMovil } from '@/hooks/useEsMovil'
@@ -145,7 +146,8 @@ const hoyStrGlobal = new Date().toISOString().split('T')[0]
 
 function estadoCelda(asist: CeldaAsistencia | undefined, fecha?: string, esFinde?: boolean, esFeriado?: boolean): string {
   if (asist) {
-    if (asist.estado === 'feriado') return 'feriado'
+    // Feriado: verificar tanto estado como tipo (el cron marca tipo='feriado' pero el estado puede quedar diferente)
+    if (asist.estado === 'feriado' || asist.tipo === 'feriado') return 'feriado'
     if (asist.tipo === 'tardanza') return 'tardanza'
     if (asist.estado === 'ausente') return 'ausente'
     if (asist.estado === 'auto_cerrado') return 'auto_cerrado'
@@ -276,8 +278,8 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
   }, [fechas])
   const diasLaborales = useMemo(() => todasLasFechas.filter(f => {
     const d = new Date(f + 'T12:00:00').getDay()
-    return d !== 0 && d !== 6
-  }), [todasLasFechas])
+    return d !== 0 && d !== 6 && !feriados.has(f)
+  }), [todasLasFechas, feriados])
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -303,6 +305,8 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
   const esCompacto = ajustarPantalla && !esUltra
   // Quincena+ sin ajustar: celdas intermedias (más angostas que semana)
   const esIntermedio = !ajustarPantalla && fechas.length > 8
+  // Vista semanal: celdas amplias con duración visible
+  const esSemanal = !esUltra && !esCompacto && !esIntermedio
 
   return (
     <div className="flex flex-col h-full">
@@ -367,6 +371,20 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
             </button>
           </Tooltip>
 
+          {/* Hoy — volver al período actual */}
+          {offset !== 0 && (
+            <>
+              <div className="w-px h-5 bg-borde-sutil" />
+              <button
+                onClick={() => setOffset(0)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-texto-marca/10 text-texto-marca hover:bg-texto-marca/20 transition-colors"
+              >
+                <Calendar size={11} />
+                <span className="hidden sm:inline">Hoy</span>
+              </button>
+            </>
+          )}
+
           {/* Spacer */}
           <div className="flex-1" />
 
@@ -424,6 +442,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
             let ausentes = 0
             for (const fecha of diasLaborales) {
               const a = asistMiembro[fecha]
+              if (a && (a.estado === 'feriado' || a.tipo === 'feriado')) continue
               if (a && a.estado !== 'ausente') presentes++
               else if (a && a.estado === 'ausente') ausentes++
             }
@@ -612,16 +631,22 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
             </thead>
             <tbody>
               {miembros.map((miembro, idx) => {
-                // Calcular resumen
+                // Calcular resumen: días laborales + feriados donde sí fichó
                 const asistMiembro = asistencias[miembro.id] || {}
                 let presentes = 0
                 let ausentes = 0
+                let feriadosTrabajados = 0
                 for (const fecha of diasLaborales) {
                   const a = asistMiembro[fecha]
                   if (a && a.estado !== 'ausente') presentes++
                   else if (a && a.estado === 'ausente') ausentes++
                 }
-                const totalLaboral = diasLaborales.length
+                // Contar feriados donde realmente fichó (hora_entrada presente)
+                for (const [fechaFer] of feriados) {
+                  const a = asistMiembro[fechaFer]
+                  if (a && a.hora_entrada) { presentes++; feriadosTrabajados++ }
+                }
+                const totalLaboral = diasLaborales.length + feriadosTrabajados
                 const colorAvatar = COLORES_AVATAR[idx % COLORES_AVATAR.length]
 
                 return (
@@ -779,26 +804,78 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                                 {/* Tooltip rico al hacer hover — aparece abajo */}
                                 <div className="absolute z-[100] top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 scale-95 pointer-events-none group-hover/celda:opacity-100 group-hover/celda:scale-100 transition-all duration-150">
                                   <div className="absolute left-1/2 -translate-x-1/2 bottom-full w-2 h-2 bg-superficie-elevada border-l border-t border-borde-sutil rotate-45 mb-[-5px]" />
-                                  <div className="bg-superficie-elevada border border-borde-sutil rounded-lg shadow-xl px-3 py-2 whitespace-nowrap min-w-[150px]">
-                                    <div className="flex items-center gap-1.5 mb-1">
-                                      <div className={`size-2 rounded-full ${colorPunto}`} />
-                                      <span className="text-xs font-medium text-texto-primario capitalize">{etiquetaEstado}</span>
+                                  <div className="bg-superficie-elevada border border-borde-sutil rounded-xl shadow-xl min-w-[180px] overflow-hidden">
+                                    {/* Estado + fecha */}
+                                    <div className="px-3 py-2 border-b border-white/[0.07]">
+                                      <div className="flex items-center gap-1.5">
+                                        <div className={`size-2 rounded-full ${colorPunto}`} />
+                                        <span className="text-xs font-medium text-texto-primario capitalize">{etiquetaEstado}</span>
+                                      </div>
+                                      <p className="text-[10px] text-texto-terciario/50 mt-0.5">
+                                        {new Date(fecha + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                                      </p>
                                     </div>
-                                    <p className="text-sm font-mono font-semibold text-texto-primario">{horaE} → {horaS || '...'}</p>
-                                    {min > 0 && <p className={`text-xs mt-0.5 ${colorDurTxt}`}>{fmtDur(min)} netos</p>}
+                                    {/* Horarios */}
+                                    <div className="px-3 py-2 border-b border-white/[0.07] text-center">
+                                      <p className="text-sm font-semibold text-texto-primario tracking-tight">{horaE} → {horaS || '...'}</p>
+                                      {min > 0 && (
+                                        <p className={`text-lg font-bold mt-0.5 ${colorDurTxt}`}>{fmtDur(min)}</p>
+                                      )}
+                                    </div>
+                                    {/* Método + detalles */}
+                                    <div className="px-3 py-1.5 flex items-center justify-between text-[10px] text-texto-terciario/60">
+                                      <span>{asist.metodo_registro === 'automatico' ? 'Auto' : asist.metodo_registro === 'manual' ? 'Manual' : asist.metodo_registro}</span>
+                                      {asist.puntualidad_min != null && asist.puntualidad_min !== 0 && (
+                                        <span className={asist.puntualidad_min < 0 ? 'text-emerald-400' : 'text-red-400'}>
+                                          {formatearPuntualidadCorta(asist.puntualidad_min)}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
                             ) : (
-                              /* Normal / compacto */
-                              <div
-                                onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else { onClickAsistencia?.(asist.id) } }}
-                                title={`${etiquetaEstado} · ${fmtDur(min)} netos`}
-                                className={`mx-auto rounded-lg ${esCompacto ? 'h-[52px] gap-0.5 px-0.5' : esIntermedio ? 'h-[62px] gap-1 px-0.5' : 'h-[74px] gap-1.5 pt-1'} flex flex-col items-center justify-center border ${colores.fondo} ${colores.borde} cursor-pointer hover:brightness-110 transition-all`}>
-                                <div className={`${esCompacto || esIntermedio ? 'size-1.5' : 'size-2'} rounded-full ${colorPunto} shrink-0`} />
-                                <span className={`${esCompacto ? 'text-xxs' : esIntermedio ? 'text-xs' : 'text-xs'} font-semibold text-texto-primario leading-none`}>{horaE}</span>
-                                <span className={`${esCompacto || esIntermedio ? 'text-xxs' : 'text-xxs'} text-texto-terciario leading-none`}>{horaS || '...'}</span>
-                                {!esCompacto && !esIntermedio && <span className="text-xxs text-texto-terciario/70 leading-none">{etiquetaEstado}</span>}
+                              /* Normal / compacto — con tooltip rico en hover */
+                              <div className="group/celda relative mx-auto">
+                                <div
+                                  onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else { onClickAsistencia?.(asist.id) } }}
+                                  className={`rounded-lg ${esCompacto ? 'h-[52px] gap-0.5 px-0.5' : esIntermedio ? 'h-[62px] gap-1 px-0.5' : esSemanal ? 'h-[90px] gap-1 pt-1.5' : 'h-[74px] gap-1.5 pt-1'} flex flex-col items-center justify-center border ${colores.fondo} ${colores.borde} cursor-pointer hover:brightness-110 transition-all`}>
+                                  <div className={`${esCompacto || esIntermedio ? 'size-1.5' : 'size-2'} rounded-full ${colorPunto} shrink-0`} />
+                                  <span className={`${esCompacto ? 'text-xxs' : 'text-xs'} font-semibold text-texto-primario leading-none`}>{horaE}</span>
+                                  <span className="text-xxs text-texto-terciario leading-none">{horaS || '...'}</span>
+                                  {esSemanal && min > 0 && (
+                                    <span className={`text-xxs font-semibold leading-none mt-0.5 ${colorDurTxt}`}>{fmtDur(min)}</span>
+                                  )}
+                                </div>
+                                {/* Tooltip rico */}
+                                <div className="absolute z-[100] top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 scale-95 pointer-events-none group-hover/celda:opacity-100 group-hover/celda:scale-100 transition-all duration-150">
+                                  <div className="absolute left-1/2 -translate-x-1/2 bottom-full w-2 h-2 bg-superficie-elevada border-l border-t border-borde-sutil rotate-45 mb-[-5px]" />
+                                  <div className="bg-superficie-elevada border border-borde-sutil rounded-xl shadow-xl min-w-[180px] overflow-hidden">
+                                    <div className="px-3 py-2 border-b border-white/[0.07]">
+                                      <div className="flex items-center gap-1.5">
+                                        <div className={`size-2 rounded-full ${colorPunto}`} />
+                                        <span className="text-xs font-medium text-texto-primario capitalize">{etiquetaEstado}</span>
+                                      </div>
+                                      <p className="text-[10px] text-texto-terciario/50 mt-0.5">
+                                        {new Date(fecha + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                                      </p>
+                                    </div>
+                                    <div className="px-3 py-2 border-b border-white/[0.07] text-center">
+                                      <p className="text-sm font-semibold text-texto-primario tracking-tight">{horaE} → {horaS || '...'}</p>
+                                      {min > 0 && (
+                                        <p className={`text-lg font-bold mt-0.5 ${colorDurTxt}`}>{fmtDur(min)}</p>
+                                      )}
+                                    </div>
+                                    <div className="px-3 py-1.5 flex items-center justify-between text-[10px] text-texto-terciario/60">
+                                      <span>{asist.metodo_registro === 'automatico' ? 'Auto' : asist.metodo_registro === 'manual' ? 'Manual' : asist.metodo_registro}</span>
+                                      {asist.puntualidad_min != null && asist.puntualidad_min !== 0 && (
+                                        <span className={asist.puntualidad_min < 0 ? 'text-emerald-400' : 'text-red-400'}>
+                                          {formatearPuntualidadCorta(asist.puntualidad_min)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
                             )}
                           </td>

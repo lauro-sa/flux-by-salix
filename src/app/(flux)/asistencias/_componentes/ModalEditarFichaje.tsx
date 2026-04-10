@@ -11,7 +11,7 @@ import {
   Fingerprint, KeyRound, Wifi, Zap, Settings2, Activity,
 } from 'lucide-react'
 import { useFormato } from '@/hooks/useFormato'
-import { SelectorHora } from '@/componentes/ui/SelectorHora'
+import { formatearPuntualidad } from '@/lib/constantes/asistencias'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -191,7 +191,9 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
 
   const r = registro
   const cfg = ESTADO_CFG[r.estado] || ESTADO_CFG.cerrado
-  const min = calcMin(r.hora_entrada, r.hora_salida, r.inicio_almuerzo, r.fin_almuerzo)
+  const enCurso = ['activo', 'almuerzo', 'particular'].includes(r.estado)
+  const salidaCalc = r.hora_salida || (enCurso && r.hora_entrada ? new Date().toISOString() : null)
+  const min = calcMin(r.hora_entrada, salidaCalc, r.inicio_almuerzo, r.fin_almuerzo)
   const dur = fmtDuracion(min)
   const pct = Math.min(100, Math.round((min / JORNADA_REF) * 100))
   const hash = r.miembro_nombre.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
@@ -275,22 +277,22 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
         )
       }
     >
-      <div className="space-y-5">
+      <div className="-mx-5 -mt-4">
         {/* ═══ HEADER: Avatar + Nombre + Badge ═══ */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`size-11 rounded-full flex items-center justify-center text-base font-bold shrink-0 ${colorAvatar}`}>
+        <div className="flex items-center justify-between px-5 pt-[18px] pb-3.5 border-b border-white/[0.07]">
+          <div className="flex items-center gap-2.5">
+            <div className={`size-[38px] rounded-full flex items-center justify-center text-[13px] font-semibold shrink-0 ${colorAvatar}`}>
               {inicial(r.miembro_nombre)}
             </div>
             <div>
-              <h3 className="text-base font-semibold text-texto-primario">{r.miembro_nombre}</h3>
-              <p className="text-xs text-texto-terciario flex items-center gap-1.5">
+              <h3 className="text-sm font-medium text-texto-primario">{r.miembro_nombre}</h3>
+              <p className="flex items-center gap-1 text-[11px] text-texto-terciario/50 mt-0.5">
                 <Calendar size={11} />
                 {fmtFechaLarga(r.fecha, locale)}
               </p>
             </div>
           </div>
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border border-current/15 ${cfg.fondo} ${cfg.color}`}>
+          <span className={`inline-flex items-center gap-[5px] px-2.5 py-[5px] rounded-full text-[11px] font-medium border shrink-0 ${cfg.fondo} ${cfg.color}`}>
             {cfg.icono}
             {cfg.etiqueta}
           </span>
@@ -299,171 +301,146 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
         {/* ═══ VISTA DETALLE (no editando) ═══ */}
         {!editando ? (
           <>
-            {/* Horarios */}
+            {/* ── Bloque de tiempo ── */}
             {r.estado !== 'ausente' && r.hora_entrada ? (
-              <div className="space-y-3">
-                {/* Entrada → Salida · Duración */}
-                <div className="flex items-baseline gap-3">
-                  <span className="text-2xl font-mono font-semibold text-texto-primario tracking-tight">
+              <div className="px-5 py-4 border-b border-white/[0.07]">
+                <div className="flex items-baseline gap-2.5 mb-2">
+                  <span className="text-[32px] font-semibold text-texto-primario tracking-tight leading-none">
                     {fmtHora(r.hora_entrada, formatoHora)}
                   </span>
-                  <span className="text-texto-terciario text-lg">→</span>
-                  <span className="text-2xl font-mono font-semibold text-texto-primario tracking-tight">
-                    {r.hora_salida ? fmtHora(r.hora_salida, formatoHora) : '…'}
+                  <span className="text-xl text-texto-terciario/30">→</span>
+                  <span className="text-xl font-medium text-texto-terciario/50 tracking-tight">
+                    {enCurso ? '…' : fmtHora(r.hora_salida, formatoHora)}
                   </span>
-                  <span className={`text-sm font-medium ${colorDurTxt}`}>· {dur}</span>
+                  <span className="text-xs text-texto-terciario/50 ml-1">· {dur}</span>
                 </div>
-
-                {/* Barra de progreso */}
-                <div className="w-full h-5 rounded-full bg-superficie-elevada/30 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${colorBarra} transition-all duration-500 flex items-center justify-center`}
-                    style={{ width: `${Math.max(pct, 15)}%` }}
-                  >
-                    <span className="text-xxs font-semibold whitespace-nowrap flex items-center gap-0.5 text-texto-secundario">
-                      <Calendar size={8} /> {dur}
-                    </span>
+                <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-1 px-2 py-[3px] rounded-[5px] bg-emerald-500/12 border border-emerald-500/25">
+                    <Calendar size={11} className="text-emerald-400" />
+                    <span className="text-[11px] font-medium text-emerald-400">{dur}</span>
                   </div>
+                  <span className={`text-xs font-medium ${colorDurTxt}`}>{dur} netos</span>
                 </div>
-
-                <p className={`text-sm font-medium ${colorDurTxt}`}>{dur} netos</p>
               </div>
             ) : (
-              <div className="py-4 text-center">
+              <div className="px-5 py-6 border-b border-white/[0.07] text-center">
                 <XCircle size={28} className="mx-auto text-red-400/40 mb-2" />
                 <p className="text-sm text-red-400/60">Sin registro de asistencia</p>
               </div>
             )}
 
-            {/* ═══ ENTRADA / SALIDA — métodos ═══ */}
+            {/* ── Grid: Entrada | Salida | Puntualidad | Tipo ── */}
             {r.estado !== 'ausente' && r.hora_entrada && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2">
                 {/* Entrada */}
-                <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
-                  <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1.5">Entrada</p>
+                <div className="px-5 py-3 border-b border-r border-white/[0.07]">
+                  <p className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider mb-1.5">Entrada</p>
                   <div className="flex items-center gap-2">
-                    <div className="size-7 rounded-md bg-emerald-500/15 flex items-center justify-center text-emerald-400">
+                    <div className="size-7 rounded-[7px] bg-emerald-500/15 flex items-center justify-center text-emerald-400">
                       {metEntrada.icono}
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-texto-primario">{metEntrada.etiqueta}</p>
-                      {origenEntrada && (
-                        <p className="text-xxs text-texto-terciario">{origenEntrada}</p>
-                      )}
+                      <p className="text-[13px] text-texto-primario/75">{metEntrada.etiqueta}</p>
+                      {origenEntrada && <p className="text-[10px] text-texto-terciario/40">{origenEntrada}</p>}
                     </div>
                   </div>
                 </div>
 
                 {/* Salida */}
-                <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
-                  <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1.5">Salida</p>
+                <div className="px-5 py-3 border-b border-white/[0.07]">
+                  <p className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider mb-1.5">Salida</p>
                   {metSalida ? (
                     <div className="flex items-center gap-2">
-                      <div className={`size-7 rounded-md flex items-center justify-center ${
+                      <div className={`size-7 rounded-[7px] flex items-center justify-center ${
                         r.estado === 'auto_cerrado' ? 'bg-amber-500/15 text-amber-400' : 'bg-emerald-500/15 text-emerald-400'
                       }`}>
                         {metSalida.icono}
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-texto-primario">{metSalida.etiqueta}</p>
-                        {origenSalida && (
-                          <p className="text-xxs text-texto-terciario">{origenSalida}</p>
-                        )}
+                        <p className="text-[13px] text-texto-primario/75">{metSalida.etiqueta}</p>
+                        {origenSalida && <p className="text-[10px] text-texto-terciario/40">{origenSalida}</p>}
                       </div>
                     </div>
                   ) : (
-                    <p className="text-sm text-texto-terciario">—</p>
+                    <p className="text-[13px] text-texto-terciario/40">— Sin registrar</p>
                   )}
                 </div>
+
+                {/* Puntualidad */}
+                <div className="px-5 py-3 border-b border-r border-white/[0.07]">
+                  <p className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider mb-1.5">Puntualidad</p>
+                  {tienePuntualidad ? (() => {
+                    const p = formatearPuntualidad(punt!)
+                    return p ? <p className={`text-[13px] font-medium ${p.color}`}>{p.texto}</p> : null
+                  })() : (
+                    <p className="text-[13px] text-texto-terciario/40">—</p>
+                  )}
+                </div>
+
+                {/* Tipo */}
+                <div className="px-5 py-3 border-b border-white/[0.07]">
+                  <p className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider mb-1.5">Tipo</p>
+                  <p className="text-[13px] text-texto-primario/75 capitalize">{r.tipo}</p>
+                </div>
+
+                {/* Almuerzo */}
+                {r.inicio_almuerzo && (
+                  <div className="px-5 py-3 border-b border-r border-white/[0.07]">
+                    <p className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider mb-1.5">Almuerzo</p>
+                    <p className="text-[13px] text-texto-primario/75">
+                      {fmtHora(r.inicio_almuerzo, formatoHora)} → {fmtHora(r.fin_almuerzo, formatoHora)}
+                    </p>
+                  </div>
+                )}
+
+                {/* Trámite */}
+                {r.salida_particular && (
+                  <div className="px-5 py-3 border-b border-white/[0.07]">
+                    <p className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider mb-1.5">Trámite</p>
+                    <p className="text-[13px] text-texto-primario/75">
+                      {fmtHora(r.salida_particular, formatoHora)} → {fmtHora(r.vuelta_particular, formatoHora)}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* ═══ INFO ADICIONAL ═══ */}
-            <div className="grid grid-cols-2 gap-3">
-              {/* Puntualidad */}
-              {tienePuntualidad && (
-                <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
-                  <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1">Puntualidad</p>
-                  <p className={`text-sm font-medium ${
-                    punt! > 10 ? 'text-amber-400' : punt! < 0 ? 'text-emerald-400' : 'text-texto-primario'
-                  }`}>
-                    {punt! > 0 ? `+${punt} min tarde` : punt! < 0 ? `${Math.abs(punt!)} min antes` : 'Puntual'}
-                  </p>
-                </div>
-              )}
-
-              {/* Tipo */}
-              <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
-                <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1">Tipo</p>
-                <p className="text-sm text-texto-primario capitalize">{r.tipo}</p>
+            {/* ── Ubicación ── */}
+            {r.ubicacion_entrada && (
+              <div className="px-5 py-3 border-b border-white/[0.07]">
+                <p className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider mb-1.5">Ubicación</p>
+                <p className="flex items-center gap-1.5 text-[13px] text-texto-primario/75">
+                  <MapPin size={13} className="text-texto-terciario/40 shrink-0" />
+                  {(() => {
+                    const ub = r.ubicacion_entrada as Record<string, string>
+                    const partes = [ub?.direccion, ub?.barrio, ub?.ciudad].filter(Boolean)
+                    return partes.length ? partes.join(', ') : ub?.lat ? `${ub.lat}, ${ub.lng}` : 'Ubicación registrada'
+                  })()}
+                </p>
               </div>
+            )}
 
-              {/* Almuerzo */}
-              {(r.inicio_almuerzo || r.fin_almuerzo) && (
-                <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
-                  <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1">Almuerzo</p>
-                  <p className="text-sm text-texto-primario font-mono">
-                    {fmtHora(r.inicio_almuerzo, formatoHora)} → {fmtHora(r.fin_almuerzo, formatoHora)}
-                  </p>
-                </div>
-              )}
-
-              {/* Trámite */}
-              {(r.salida_particular || r.vuelta_particular) && (
-                <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
-                  <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1">Trámite</p>
-                  <p className="text-sm text-texto-primario font-mono">
-                    {fmtHora(r.salida_particular, formatoHora)} → {fmtHora(r.vuelta_particular, formatoHora)}
-                  </p>
-                </div>
-              )}
-
-              {/* Terminal */}
-              {r.terminal_nombre && (
-                <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
-                  <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1">Terminal</p>
-                  <p className="text-sm text-texto-primario">{r.terminal_nombre}</p>
-                </div>
-              )}
-
-              {/* Ubicación entrada */}
-              {r.ubicacion_entrada && (r.ubicacion_entrada as Record<string, string>)?.direccion && (
-                <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5 col-span-2">
-                  <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1">Ubicación</p>
-                  <p className="text-sm text-texto-primario flex items-center gap-1.5">
-                    <MapPin size={12} className="text-texto-terciario shrink-0" />
-                    {(r.ubicacion_entrada as Record<string, string>).direccion}
-                    {(r.ubicacion_entrada as Record<string, string>).barrio && `, ${(r.ubicacion_entrada as Record<string, string>).barrio}`}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* ═══ TIEMPO ACTIVO EN PC ═══ */}
+            {/* ── Uso del software ── */}
             {tieneTiempoActivo && (
-              <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
+              <div className="px-5 py-3 border-b border-white/[0.07]">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xxs uppercase tracking-wider text-texto-terciario flex items-center gap-1.5">
-                    <Activity size={10} />
-                    Uso del software
-                  </p>
-                  <span className="text-xxs text-texto-terciario">
-                    {r.total_heartbeats || 0} señales
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 h-2 rounded-full bg-superficie-elevada/50 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-sky-500/60 transition-all duration-500"
-                      style={{ width: `${Math.max(pctActivo, 5)}%` }}
-                    />
+                  <div className="flex items-center gap-1.5">
+                    <Activity size={12} className="text-texto-terciario/40" />
+                    <span className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider">Uso del software</span>
                   </div>
-                  <span className="text-sm font-medium text-sky-400 whitespace-nowrap">
-                    {fmtDuracion(tiempoActivo)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-texto-terciario/40">{r.total_heartbeats || 0} señales</span>
+                    <span className="text-[13px] font-medium text-blue-400">{fmtDuracion(tiempoActivo!)}</span>
+                  </div>
+                </div>
+                <div className="w-full h-1.5 rounded bg-white/[0.06] overflow-hidden">
+                  <div
+                    className="h-full rounded bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500"
+                    style={{ width: `${Math.max(pctActivo, 5)}%` }}
+                  />
                 </div>
                 {min > 0 && (
-                  <p className="text-xxs text-texto-terciario mt-1">
+                  <p className="text-[11px] text-texto-terciario/40 mt-1.5">
                     {pctActivo}% de la jornada ({dur}) con actividad en Flux
                   </p>
                 )}
@@ -472,25 +449,25 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
 
             {/* Notas */}
             {r.notas && (
-              <div className="bg-superficie-elevada/30 rounded-lg px-3 py-2.5">
-                <p className="text-xxs uppercase tracking-wider text-texto-terciario mb-1">Notas</p>
-                <p className="text-sm text-texto-secundario">{r.notas}</p>
+              <div className="px-5 py-3 border-b border-white/[0.07]">
+                <p className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider mb-1.5">Notas</p>
+                <p className="text-[13px] text-texto-secundario">{r.notas}</p>
               </div>
             )}
 
             {/* Fotos de fichaje */}
             {(r.foto_entrada || r.foto_salida) && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 border-b border-white/[0.07]">
                 {r.foto_entrada && (
-                  <div className="bg-superficie-elevada/30 rounded-lg overflow-hidden">
-                    <p className="text-xxs uppercase tracking-wider text-texto-terciario px-3 pt-2 pb-1">Foto entrada</p>
-                    <img src={r.foto_entrada} alt="Foto entrada" className="w-full h-32 object-cover" />
+                  <div className="px-5 py-3 border-r border-white/[0.07]">
+                    <p className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider mb-1.5">Foto entrada</p>
+                    <img src={r.foto_entrada} alt="Foto entrada" className="w-full h-32 object-cover rounded-lg" />
                   </div>
                 )}
                 {r.foto_salida && (
-                  <div className="bg-superficie-elevada/30 rounded-lg overflow-hidden">
-                    <p className="text-xxs uppercase tracking-wider text-texto-terciario px-3 pt-2 pb-1">Foto salida</p>
-                    <img src={r.foto_salida} alt="Foto salida" className="w-full h-32 object-cover" />
+                  <div className="px-5 py-3">
+                    <p className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider mb-1.5">Foto salida</p>
+                    <img src={r.foto_salida} alt="Foto salida" className="w-full h-32 object-cover rounded-lg" />
                   </div>
                 )}
               </div>
@@ -498,17 +475,17 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
 
             {/* Editado / Cierre automático */}
             {(r.editado_por || r.cierre_automatico) && (
-              <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-3 flex-wrap px-5 py-2.5">
                 {r.editado_por && (
                   <div className="flex items-center gap-1.5">
-                    <Pencil size={9} className="text-texto-terciario" />
-                    <span className="text-xxs text-texto-terciario">Editado manualmente</span>
+                    <Pencil size={9} className="text-texto-terciario/40" />
+                    <span className="text-[10px] text-texto-terciario/40">Editado manualmente</span>
                   </div>
                 )}
                 {r.cierre_automatico && (
                   <div className="flex items-center gap-1.5">
-                    <Zap size={9} className="text-texto-terciario" />
-                    <span className="text-xxs text-texto-terciario">Cierre automático</span>
+                    <Zap size={9} className="text-texto-terciario/40" />
+                    <span className="text-[10px] text-texto-terciario/40">Cierre automático</span>
                   </div>
                 )}
               </div>
@@ -516,9 +493,9 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
           </>
         ) : (
           /* ═══ MODO EDICIÓN ═══ */
-          <div className="space-y-4">
+          <div className="flex flex-col gap-3.5 px-5 py-4">
             {/* Estado y tipo */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2.5">
               <Select
                 etiqueta="Estado"
                 opciones={[
@@ -545,23 +522,29 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
               />
             </div>
 
+            <hr className="border-white/[0.07]" />
+
             {/* Horarios — solo horas, la fecha es fija */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2.5">
               <CampoHoraLimpiable etiqueta="Entrada" valor={extraerHora(entrada)} onChange={(v) => setEntrada(reconstruir(r.fecha, v))} onLimpiar={() => setEntrada('')} />
               <CampoHoraLimpiable etiqueta="Salida" valor={extraerHora(salida)} onChange={(v) => setSalida(reconstruir(r.fecha, v))} onLimpiar={() => setSalida('')} />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2.5">
               <CampoHoraLimpiable etiqueta="Inicio almuerzo" valor={extraerHora(inicioAlm)} onChange={(v) => setInicioAlm(reconstruir(r.fecha, v))} onLimpiar={() => setInicioAlm('')} />
               <CampoHoraLimpiable etiqueta="Fin almuerzo" valor={extraerHora(finAlm)} onChange={(v) => setFinAlm(reconstruir(r.fecha, v))} onLimpiar={() => setFinAlm('')} />
             </div>
 
-            <details className="group">
-              <summary className="text-xs text-texto-terciario cursor-pointer flex items-center gap-1 hover:text-texto-secundario transition-colors">
-                <ChevronDown size={12} className="group-open:rotate-180 transition-transform" />
-                Trámite / particular
+            {/* Trámite colapsable */}
+            <details className="group border border-white/[0.08] rounded-[9px] overflow-hidden">
+              <summary className="flex items-center justify-between px-3.5 py-2.5 cursor-pointer bg-white/[0.02] hover:bg-white/[0.04] transition-colors list-none [&::-webkit-details-marker]:hidden">
+                <span className="flex items-center gap-1.5 text-xs font-medium text-texto-terciario/60">
+                  <Footprints size={12} />
+                  Trámite / particular
+                </span>
+                <ChevronDown size={12} className="text-texto-terciario/30 group-open:rotate-180 transition-transform" />
               </summary>
-              <div className="grid grid-cols-2 gap-3 mt-2">
+              <div className="grid grid-cols-2 gap-2.5 p-3 border-t border-white/[0.07]">
                 <CampoHoraLimpiable etiqueta="Salida trámite" valor={extraerHora(salidaPart)} onChange={(v) => setSalidaPart(reconstruir(r.fecha, v))} onLimpiar={() => setSalidaPart('')} />
                 <CampoHoraLimpiable etiqueta="Vuelta trámite" valor={extraerHora(vueltaPart)} onChange={(v) => setVueltaPart(reconstruir(r.fecha, v))} onLimpiar={() => setVueltaPart('')} />
               </div>
@@ -590,18 +573,28 @@ function CampoHoraLimpiable({ etiqueta, valor, onChange, onLimpiar }: {
   onLimpiar: () => void
 }) {
   return (
-    <div className="relative">
-      <SelectorHora etiqueta={etiqueta} valor={valor} onChange={onChange} pasoMinutos={5} />
-      {valor && (
-        <button
-          type="button"
-          onClick={onLimpiar}
-          className="absolute top-0 right-0 text-xxs text-texto-terciario hover:text-red-400 transition-colors"
-          title="Limpiar"
-        >
-          ✕
-        </button>
-      )}
+    <div className="flex flex-col gap-[5px]">
+      <label className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider">{etiqueta}</label>
+      <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.1] rounded-lg px-2.5 py-2 focus-within:border-indigo-500/50 transition-colors">
+        <Clock size={13} className="text-texto-terciario/30 shrink-0" />
+        <input
+          type="time"
+          value={valor || ''}
+          onChange={(e) => onChange(e.target.value || null)}
+          placeholder="HH:MM"
+          className="flex-1 bg-transparent border-none outline-none text-[13px] text-texto-primario/75 [color-scheme:dark]"
+        />
+        {valor && (
+          <button
+            type="button"
+            onClick={onLimpiar}
+            className="shrink-0 text-texto-terciario/30 hover:text-red-400/70 transition-colors"
+            title="Limpiar"
+          >
+            <XCircle size={13} />
+          </button>
+        )}
+      </div>
     </div>
   )
 }

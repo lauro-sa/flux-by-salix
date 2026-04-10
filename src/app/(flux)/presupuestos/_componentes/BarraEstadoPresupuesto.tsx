@@ -86,14 +86,19 @@ export default function BarraEstadoPresupuesto({ estadoActual, onCambiarEstado }
             const rgb = COLOR_RGB[estado]
             const esClickeable = !!onCambiarEstado && !esActual && transicionesValidas.includes(estado)
             const enHover = hoverIdx === i
-            const mostrarCompleta = esActual || enHover
+
+            // El actual siempre expandido, el hover también se expande, los demás comprimidos
+            const etiqueta = (esActual || enHover)
+              ? (ETIQUETAS_ESTADO[estado] || estado)
+              : (ETIQUETAS_ESTADO_CORTA[estado] || estado.slice(0, 4))
 
             return (
-              <button
+              <div
                 key={estado}
-                type="button"
-                disabled={!esClickeable}
-                onClick={() => handleClick(estado)}
+                role="button"
+                tabIndex={0}
+                onClick={() => esClickeable && handleClick(estado)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && esClickeable) handleClick(estado) }}
                 onMouseEnter={() => setHoverIdx(i)}
                 style={{
                   clipPath: clipPathChevron(esPrimero, esUltimo),
@@ -103,26 +108,30 @@ export default function BarraEstadoPresupuesto({ estadoActual, onCambiarEstado }
                   zIndex: enHover ? FLUJO_ESTADO.length + 1 : FLUJO_ESTADO.length - i,
                   backgroundColor: esActual
                     ? `rgba(${rgb}, 0.75)`
-                    : (esPasado || enHover)
-                      ? `rgba(${rgb}, ${enHover ? 0.18 : 0.10})`
-                      : 'transparent',
+                    : enHover
+                      ? `rgba(${rgb}, ${esClickeable ? 0.30 : 0.15})`
+                      : esPasado
+                        ? `rgba(${rgb}, 0.10)`
+                        : 'transparent',
+                  color: esActual
+                    ? 'white'
+                    : enHover
+                      ? 'var(--texto-primario)'
+                      : undefined,
                 }}
-                className={`relative flex items-center gap-1 py-2 text-xs font-semibold whitespace-nowrap transition-all duration-200 focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
+                className={`relative flex items-center justify-center gap-1 py-2 text-xs font-semibold whitespace-nowrap transition-colors duration-200 select-none focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
                   esActual
-                    ? 'text-white'
-                    : esPasado
-                      ? 'text-texto-secundario'
-                      : 'text-texto-terciario'
+                    ? ''
+                    : enHover
+                      ? ''
+                      : esPasado
+                        ? 'text-texto-secundario'
+                        : 'text-texto-terciario'
                 } ${esClickeable ? 'cursor-pointer' : esActual ? '' : 'cursor-default'}`}
               >
                 {esPasado && !esActual && <Check size={12} />}
-                <span className="transition-all duration-200">
-                  {mostrarCompleta
-                    ? (ETIQUETAS_ESTADO[estado] || estado)
-                    : (ETIQUETAS_ESTADO_CORTA[estado] || estado.slice(0, 4))
-                  }
-                </span>
-              </button>
+                <span>{etiqueta}</span>
+              </div>
             )
           })}
         </div>

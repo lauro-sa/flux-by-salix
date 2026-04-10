@@ -98,10 +98,10 @@ export async function POST(
           return NextResponse.json({ error: 'Error al aceptar' }, { status: 500 })
         }
 
-        // Actualizar estado del presupuesto → confirmado_cliente
+        // Actualizar estado del presupuesto → confirmado_cliente + fecha_aceptacion
         await admin
           .from('presupuestos')
-          .update({ estado: 'confirmado_cliente' })
+          .update({ estado: 'confirmado_cliente', fecha_aceptacion: new Date().toISOString() })
           .eq('id', portalToken.presupuesto_id)
 
         // Registrar en historial de estados

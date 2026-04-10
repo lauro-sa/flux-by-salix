@@ -3,6 +3,7 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { registrarReciente } from '@/lib/recientes'
 
 /**
  * GET /api/productos/[id] — Obtener detalle de un producto/servicio.
@@ -31,6 +32,17 @@ export async function GET(
     if (error || !data) {
       return NextResponse.json({ error: 'Producto no encontrado' }, { status: 404 })
     }
+
+    // Registrar en historial de recientes (fire-and-forget)
+    registrarReciente({
+      empresaId,
+      usuarioId: user.id,
+      tipoEntidad: 'producto',
+      entidadId: id,
+      titulo: data.nombre || 'Producto',
+      subtitulo: data.codigo || data.tipo || undefined,
+      accion: 'visto',
+    })
 
     return NextResponse.json(data)
   } catch {
@@ -118,6 +130,19 @@ export async function PATCH(
         autorId: user.id,
         autorNombre: nombreEditor,
         metadata: { accion: 'campo_editado', detalles: body },
+      })
+    }
+
+    // Registrar edición en recientes (fire-and-forget)
+    if (data && !body.en_papelera) {
+      registrarReciente({
+        empresaId,
+        usuarioId: user.id,
+        tipoEntidad: 'producto',
+        entidadId: id,
+        titulo: data.nombre || 'Producto',
+        subtitulo: data.codigo || data.tipo || undefined,
+        accion: 'editado',
       })
     }
 

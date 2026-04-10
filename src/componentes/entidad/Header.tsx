@@ -48,6 +48,10 @@ interface PropiedadesHeader {
   onLimpiarSeccion: () => void
   autoOcultar: boolean
   onToggleAutoOcultar: () => void
+  /** Auto-colapsar en páginas con menú secundario (configuración, etc.) */
+  autoColapsarConfig: boolean
+  esRutaConMenuSecundario: boolean
+  onToggleAutoColapsarConfig: () => void
   migajasExtras?: Migaja[]
   /** Header oculto al scrollear hacia abajo (mobile) */
   oculto?: boolean
@@ -64,6 +68,9 @@ function Header({
   onLimpiarSeccion,
   autoOcultar,
   onToggleAutoOcultar,
+  autoColapsarConfig,
+  esRutaConMenuSecundario,
+  onToggleAutoColapsarConfig,
   migajasExtras,
   oculto = false,
 }: PropiedadesHeader) {
@@ -188,6 +195,20 @@ function Header({
                 >
                   Auto-ocultar
                 </OpcionMenu>
+
+                {/* ── Comportamiento automático ── */}
+                <div className="h-px bg-borde-sutil my-1 mx-2" />
+
+                <button
+                  type="button"
+                  onClick={() => { onToggleAutoColapsarConfig(); setSidebarMenuAbierto(false) }}
+                  className="flex items-center gap-2.5 w-full px-3 py-2 text-left text-xs text-texto-secundario hover:bg-superficie-hover transition-colors cursor-pointer border-none bg-transparent"
+                >
+                  <div className={`size-4 rounded border flex items-center justify-center shrink-0 transition-colors ${autoColapsarConfig ? 'bg-texto-marca border-texto-marca' : 'border-borde-fuerte'}`}>
+                    {autoColapsarConfig && <Check size={11} className="text-white" strokeWidth={3} />}
+                  </div>
+                  <span>Colapsar en configuración</span>
+                </button>
 
                 {/* ── Ajuste por sección ── */}
                 <div className="h-px bg-borde-sutil my-1 mx-2" />

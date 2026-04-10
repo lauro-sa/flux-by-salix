@@ -191,12 +191,14 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
   const tiposPorId = useMemo(() => Object.fromEntries(tipos.map(t => [t.id, t])), [tipos])
   const estadosPorClave = useMemo(() => Object.fromEntries(estados.map(e => [e.clave, e])), [estados])
 
-  // Abrir modal si viene ?actividad_id=UUID desde notificación
+  // Abrir modal si viene ?actividad_id=UUID (desde notificación o recientes)
   const actividadIdParam = searchParams.get('actividad_id')
   const yaAbiertoRef = useRef<string | null>(null)
+  const vieneDeDeepLinkRef = useRef(false)
   useEffect(() => {
     if (!actividadIdParam || actividadIdParam === yaAbiertoRef.current) return
     yaAbiertoRef.current = actividadIdParam
+    vieneDeDeepLinkRef.current = true
     // Buscar en las actividades cargadas o fetch directo
     const encontrada = actividades.find(a => a.id === actividadIdParam)
     if (encontrada) {
@@ -822,7 +824,22 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
         ]}
         idModulo="actividades"
         renderTarjeta={renderTarjeta}
-        onClickFila={(fila) => { setActividadEditando(fila); setModalAbierto(true) }}
+        onClickFila={(fila) => {
+          setActividadEditando(fila)
+          setModalAbierto(true)
+          // Registrar en historial de recientes (fire-and-forget)
+          fetch('/api/dashboard/recientes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tipoEntidad: 'actividad',
+              entidadId: fila.id,
+              titulo: fila.titulo || 'Actividad',
+              subtitulo: fila.estado_clave || undefined,
+              accion: 'visto',
+            }),
+          }).catch(() => {})
+        }}
         mostrarResumen
         estadoVacio={
           <EstadoVacio
@@ -848,7 +865,15 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
         onGuardar={actividadEditando ? editarActividad : crearActividad}
         onCompletar={async (id) => { await completarActividad(id); setModalAbierto(false); setActividadEditando(null) }}
         onPosponer={async (id, dias) => { await posponerActividad(id, dias); setModalAbierto(false); setActividadEditando(null) }}
-        onCerrar={() => { setModalAbierto(false); setActividadEditando(null) }}
+        onCerrar={() => {
+          setModalAbierto(false)
+          setActividadEditando(null)
+          // Si vino de deep link (recientes/notificación), recargar lista
+          if (vieneDeDeepLinkRef.current) {
+            vieneDeDeepLinkRef.current = false
+            recargarActividades()
+          }
+        }}
       />
 
       {/* Confirmar eliminación en lote */}

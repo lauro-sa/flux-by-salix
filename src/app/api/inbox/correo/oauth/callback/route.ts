@@ -4,6 +4,7 @@ import {
   intercambiarCodigoGmail,
   obtenerEmailGmail,
   obtenerPerfilGmail,
+  registrarWatchGmail,
 } from '@/lib/gmail'
 import {
   intercambiarCodigoOutlook,
@@ -128,6 +129,46 @@ export async function GET(request: NextRequest) {
       if (error) {
         console.error('Error creando canal correo:', error)
         return NextResponse.redirect(new URL('/inbox/configuracion?correo=error', request.url))
+      }
+    }
+
+    // Registrar watch de Gmail para push notifications (Pub/Sub)
+    if (proveedor === 'gmail_oauth') {
+      const topicName = process.env.GMAIL_PUBSUB_TOPIC
+      if (topicName) {
+        try {
+          const refreshToken = (configConexion as { refresh_token: string }).refresh_token
+          const watch = await registrarWatchGmail(refreshToken, topicName)
+          // Guardar expiración del watch en sync_cursor
+          const canalIdActual = canalId || (await admin
+            .from('canales_inbox')
+            .select('id')
+            .eq('empresa_id', empresaId)
+            .eq('tipo', 'correo')
+            .eq('proveedor', 'gmail_oauth')
+            .ilike('config_conexion->>email', email)
+            .single()
+          ).data?.id
+
+          if (canalIdActual) {
+            await admin
+              .from('canales_inbox')
+              .update({
+                sync_cursor: {
+                  ...syncCursor,
+                  historyId: watch.historyId || (syncCursor as Record<string, unknown>).historyId,
+                  watchExpiracion: watch.expiracion,
+                },
+              })
+              .eq('id', canalIdActual)
+          }
+          console.info(`[Gmail Watch] Registrado para ${email}, expira: ${watch.expiracion}`)
+        } catch (err) {
+          console.error(`[Gmail Watch] Error registrando watch para ${email}:`, err)
+          // No bloquear el callback si falla el watch
+        }
+      } else {
+        console.warn('[Gmail Watch] GMAIL_PUBSUB_TOPIC no configurado, push notifications deshabilitadas')
       }
     }
 

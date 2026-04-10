@@ -4,6 +4,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
 import { crearNotificacion } from '@/lib/notificaciones'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
+import { registrarReciente } from '@/lib/recientes'
 
 /**
  * GET /api/actividades — Listar actividades de la empresa activa.
@@ -263,6 +264,17 @@ export async function POST(request: NextRequest) {
         referenciaId: data.id,
       })
     }
+
+    // Registrar en historial de recientes (fire-and-forget)
+    registrarReciente({
+      empresaId,
+      usuarioId: user.id,
+      tipoEntidad: 'actividad',
+      entidadId: data.id,
+      titulo: data.titulo || 'Actividad',
+      subtitulo: data.estado_clave || undefined,
+      accion: 'creado',
+    })
 
     return NextResponse.json(data, { status: 201 })
   } catch {

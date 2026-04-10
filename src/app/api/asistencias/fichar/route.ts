@@ -26,87 +26,53 @@ export async function POST(request: NextRequest) {
     const admin = crearClienteAdmin()
     const ahora = new Date().toISOString()
 
-    // Obtener zona horaria de la empresa para calcular fecha local correcta
-    const { data: empresaData } = await admin
-      .from('empresas')
-      .select('zona_horaria')
-      .eq('id', empresaId)
-      .single()
-    const zona = (empresaData?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
-    const fechaHoy = formatearFechaISO(new Date(), zona) // YYYY-MM-DD
+    // Paso 1: empresa + miembro en paralelo
+    const [empresaRes, miembroRes] = await Promise.all([
+      admin.from('empresas').select('zona_horaria').eq('id', empresaId).single(),
+      admin.from('miembros').select('id, turno_id, metodo_fichaje').eq('usuario_id', user.id).eq('empresa_id', empresaId).single(),
+    ])
 
-    // Obtener miembro actual
-    const { data: miembro } = await admin
-      .from('miembros')
-      .select('id, turno_id, metodo_fichaje')
-      .eq('usuario_id', user.id)
-      .eq('empresa_id', empresaId)
-      .single()
+    const zona = (empresaRes.data?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+    const fechaHoy = formatearFechaISO(new Date(), zona)
+    const miembro = miembroRes.data
 
     if (!miembro) return NextResponse.json({ error: 'No sos miembro de esta empresa' }, { status: 403 })
 
-    // Buscar turno abierto de hoy
-    const { data: turnoHoy } = await admin
-      .from('asistencias')
-      .select('*')
-      .eq('empresa_id', empresaId)
-      .eq('miembro_id', miembro.id)
-      .eq('fecha', fechaHoy)
-      .maybeSingle()
+    // Paso 2: turnoHoy + turnoViejo + sector + turnoDefault — todo en paralelo
+    const [turnoHoyRes, turnoViejoRes, memSectorRes, turnoDefaultRes] = await Promise.all([
+      admin.from('asistencias').select('*').eq('empresa_id', empresaId).eq('miembro_id', miembro.id).eq('fecha', fechaHoy).maybeSingle(),
+      admin.from('asistencias').select('id, fecha, hora_salida').eq('empresa_id', empresaId).eq('miembro_id', miembro.id).in('estado', ['activo', 'almuerzo', 'particular']).neq('fecha', fechaHoy).limit(1).maybeSingle(),
+      !miembro.turno_id
+        ? admin.from('miembros_sectores').select('sector:sectores(turno_id)').eq('miembro_id', miembro.id).eq('es_primario', true).maybeSingle()
+        : Promise.resolve({ data: null }),
+      !miembro.turno_id
+        ? admin.from('turnos_laborales').select('id').eq('empresa_id', empresaId).eq('es_default', true).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ])
 
-    // Cerrar turno huérfano de día anterior si existe
-    const { data: turnoViejo } = await admin
-      .from('asistencias')
-      .select('id, fecha, hora_salida')
-      .eq('empresa_id', empresaId)
-      .eq('miembro_id', miembro.id)
-      .in('estado', ['activo', 'almuerzo', 'particular'])
-      .neq('fecha', fechaHoy)
-      .limit(1)
-      .maybeSingle()
+    const turnoHoy = turnoHoyRes.data
 
+    // Cerrar turno huérfano de día anterior (fire-and-forget)
+    const turnoViejo = turnoViejoRes.data
     if (turnoViejo) {
-      // Si ya tenía hora_salida (heartbeat/kiosco la registró), es cierre normal
       const teniaSalida = !!turnoViejo.hora_salida
-      await admin
-        .from('asistencias')
-        .update({
-          estado: teniaSalida ? 'cerrado' : 'auto_cerrado',
-          hora_salida: teniaSalida ? turnoViejo.hora_salida : ahora,
-          metodo_salida: teniaSalida ? 'automatico' : 'sistema',
-          cierre_automatico: true,
-          notas: teniaSalida
-            ? 'Cierre automático — jornada completada (nueva entrada detectada)'
-            : 'Cierre automático — nueva entrada detectada sin salida previa',
-          actualizado_en: ahora,
-        })
-        .eq('id', turnoViejo.id)
+      admin.from('asistencias').update({
+        estado: teniaSalida ? 'cerrado' : 'auto_cerrado',
+        hora_salida: teniaSalida ? turnoViejo.hora_salida : ahora,
+        metodo_salida: teniaSalida ? 'automatico' : 'sistema',
+        cierre_automatico: true,
+        notas: teniaSalida
+          ? 'Cierre automático — jornada completada (nueva entrada detectada)'
+          : 'Cierre automático — nueva entrada detectada sin salida previa',
+        actualizado_en: ahora,
+      }).eq('id', turnoViejo.id).then(() => {})
     }
 
-    // Resolver turno laboral del miembro (miembro → sector → default)
+    // Resolver turno laboral: miembro → sector → default
     let turnoLaboralId: string | null = miembro.turno_id
     if (!turnoLaboralId) {
-      // Buscar sector primario del miembro
-      const { data: memSector } = await admin
-        .from('miembros_sectores')
-        .select('sector:sectores(turno_id)')
-        .eq('miembro_id', miembro.id)
-        .eq('es_primario', true)
-        .maybeSingle()
-
-      const sector = memSector?.sector as unknown as { turno_id: string | null } | null
-      turnoLaboralId = sector?.turno_id || null
-
-      if (!turnoLaboralId) {
-        // Usar default de la empresa
-        const { data: turnoDefault } = await admin
-          .from('turnos_laborales')
-          .select('id')
-          .eq('empresa_id', empresaId)
-          .eq('es_default', true)
-          .maybeSingle()
-        turnoLaboralId = turnoDefault?.id || null
-      }
+      const sector = memSectorRes.data?.sector as unknown as { turno_id: string | null } | null
+      turnoLaboralId = sector?.turno_id || turnoDefaultRes.data?.id || null
     }
 
     // Calcular puntualidad si es entrada (usar hora local de la empresa, no UTC)
@@ -295,132 +261,93 @@ export async function GET() {
 
     const admin = crearClienteAdmin()
 
-    // Obtener zona horaria de la empresa para calcular fecha local correcta
-    const { data: empresaGetData } = await admin
-      .from('empresas')
-      .select('zona_horaria')
-      .eq('id', empresaId)
-      .single()
-    const zonaGet = (empresaGetData?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
-    const fechaHoy = formatearFechaISO(new Date(), zonaGet) // YYYY-MM-DD
+    // Paso 1: empresa + miembro en paralelo (ambos independientes)
+    const [empresaGetRes, miembroRes] = await Promise.all([
+      admin.from('empresas').select('zona_horaria').eq('id', empresaId).single(),
+      admin.from('miembros').select('id, turno_id, metodo_fichaje').eq('usuario_id', user.id).eq('empresa_id', empresaId).single(),
+    ])
 
-    const { data: miembro } = await admin
-      .from('miembros')
-      .select('id, turno_id, metodo_fichaje')
-      .eq('usuario_id', user.id)
-      .eq('empresa_id', empresaId)
-      .single()
+    const zonaGet = (empresaGetRes.data?.zona_horaria as string) || 'America/Argentina/Buenos_Aires'
+    const fechaHoy = formatearFechaISO(new Date(), zonaGet)
+    const miembro = miembroRes.data
 
     if (!miembro) return NextResponse.json({ error: 'No sos miembro' }, { status: 403 })
 
-    // Cerrar turno huérfano de día anterior al consultar estado
-    const { data: turnoViejo } = await admin
-      .from('asistencias')
-      .select('id, hora_salida, hora_entrada')
-      .eq('empresa_id', empresaId)
-      .eq('miembro_id', miembro.id)
-      .in('estado', ['activo', 'almuerzo', 'particular'])
-      .neq('fecha', fechaHoy)
-      .limit(1)
-      .maybeSingle()
+    // Paso 2: turnoHoy + config + turnoViejo + sector + horarioEmpresa + turnoDefault — todo en paralelo
+    const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
+    const diaSemanaIdx = new Date().getDay()
+    const diaHoy = diasSemana[diaSemanaIdx]
 
+    const [turnoHoyRes, configRes, turnoViejoRes, memSectorRes, horarioEmpresaRes, turnoDefaultRes, turnoMiembroRes] = await Promise.all([
+      admin.from('asistencias').select('*').eq('empresa_id', empresaId).eq('miembro_id', miembro.id).eq('fecha', fechaHoy).maybeSingle(),
+      admin.from('config_asistencias').select('fichaje_auto_habilitado, descontar_almuerzo, duracion_almuerzo_min').eq('empresa_id', empresaId).maybeSingle(),
+      admin.from('asistencias').select('id, hora_salida, hora_entrada').eq('empresa_id', empresaId).eq('miembro_id', miembro.id).in('estado', ['activo', 'almuerzo', 'particular']).neq('fecha', fechaHoy).limit(1).maybeSingle(),
+      // Sector primario (para resolver turno laboral si miembro no tiene uno directo)
+      !miembro.turno_id
+        ? admin.from('miembros_sectores').select('sector:sectores(turno_id)').eq('miembro_id', miembro.id).eq('es_primario', true).maybeSingle()
+        : Promise.resolve({ data: null }),
+      // Horario empresa (fallback 2)
+      admin.from('horarios').select('hora_inicio, hora_fin, activo').eq('empresa_id', empresaId).is('sector_id', null).eq('dia_semana', diaSemanaIdx === 0 ? 6 : diaSemanaIdx - 1).maybeSingle(),
+      // Turno default empresa (fallback 3)
+      admin.from('turnos_laborales').select('id, dias').eq('empresa_id', empresaId).eq('es_default', true).maybeSingle(),
+      // Turno laboral del miembro (si tiene turno_id directo)
+      miembro.turno_id
+        ? admin.from('turnos_laborales').select('dias').eq('id', miembro.turno_id).single()
+        : Promise.resolve({ data: null }),
+    ])
+
+    // Cerrar turno huérfano de día anterior (fire-and-forget, no bloquea respuesta)
+    const turnoViejo = turnoViejoRes.data
     if (turnoViejo) {
       const ahora = new Date().toISOString()
       const teniaSalida = !!turnoViejo.hora_salida
       const horaSalida = turnoViejo.hora_salida || turnoViejo.hora_entrada
-      await admin
-        .from('asistencias')
-        .update({
-          hora_salida: horaSalida,
-          estado: teniaSalida ? 'cerrado' : 'auto_cerrado',
-          metodo_salida: teniaSalida ? 'automatico' : 'sistema',
-          cierre_automatico: true,
-          notas: teniaSalida
-            ? 'Cierre automático — jornada de día anterior completada'
-            : 'Cierre automático — turno de día anterior sin salida registrada',
-          actualizado_en: ahora,
-        })
-        .eq('id', turnoViejo.id)
+      admin.from('asistencias').update({
+        hora_salida: horaSalida,
+        estado: teniaSalida ? 'cerrado' : 'auto_cerrado',
+        metodo_salida: teniaSalida ? 'automatico' : 'sistema',
+        cierre_automatico: true,
+        notas: teniaSalida
+          ? 'Cierre automático — jornada de día anterior completada'
+          : 'Cierre automático — turno de día anterior sin salida registrada',
+        actualizado_en: ahora,
+      }).eq('id', turnoViejo.id).then(() => {})
     }
 
-    const [turnoHoyRes, configRes] = await Promise.all([
-      admin
-        .from('asistencias')
-        .select('*')
-        .eq('empresa_id', empresaId)
-        .eq('miembro_id', miembro.id)
-        .eq('fecha', fechaHoy)
-        .maybeSingle(),
-      admin
-        .from('config_asistencias')
-        .select('fichaje_auto_habilitado, descontar_almuerzo, duracion_almuerzo_min')
-        .eq('empresa_id', empresaId)
-        .maybeSingle(),
-    ])
-
-    // Resolver horario esperado del día: miembro → sector → default turno → horarios empresa
-    const diasSemana = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
-    const diaSemanaIdx = new Date().getDay() // 0=dom ... 6=sab
-    const diaHoy = diasSemana[diaSemanaIdx]
+    // Resolver horario del día: miembro → sector → horarios empresa → turno default
     let horarioHoy: { desde: string; hasta: string } | null = null
 
-    // 1) Buscar turno asignado al miembro o a su sector
-    let turnoLaboralId = miembro.turno_id
-    if (!turnoLaboralId) {
-      const { data: memSector } = await admin
-        .from('miembros_sectores')
-        .select('sector:sectores(turno_id)')
-        .eq('miembro_id', miembro.id)
-        .eq('es_primario', true)
-        .maybeSingle()
-      const sector = memSector?.sector as unknown as { turno_id: string | null } | null
-      turnoLaboralId = sector?.turno_id || null
+    // 1) Turno directo del miembro
+    if (miembro.turno_id && turnoMiembroRes.data) {
+      const dias = turnoMiembroRes.data.dias as Record<string, { activo: boolean; desde: string; hasta: string }>
+      const diaConfig = dias[diaHoy]
+      if (diaConfig?.activo) horarioHoy = { desde: diaConfig.desde, hasta: diaConfig.hasta }
     }
 
-    if (turnoLaboralId) {
-      const { data: turnoLaboral } = await admin
-        .from('turnos_laborales')
-        .select('dias')
-        .eq('id', turnoLaboralId)
-        .single()
-      if (turnoLaboral) {
-        const dias = turnoLaboral.dias as Record<string, { activo: boolean; desde: string; hasta: string }>
-        const diaConfig = dias[diaHoy]
-        if (diaConfig?.activo) {
-          horarioHoy = { desde: diaConfig.desde, hasta: diaConfig.hasta }
+    // 2) Turno del sector primario
+    if (!horarioHoy && !miembro.turno_id) {
+      const sector = memSectorRes.data?.sector as unknown as { turno_id: string | null } | null
+      if (sector?.turno_id) {
+        // Necesitamos una query extra solo si el sector tiene turno
+        const { data: turnoSector } = await admin.from('turnos_laborales').select('dias').eq('id', sector.turno_id).single()
+        if (turnoSector) {
+          const dias = turnoSector.dias as Record<string, { activo: boolean; desde: string; hasta: string }>
+          const diaConfig = dias[diaHoy]
+          if (diaConfig?.activo) horarioHoy = { desde: diaConfig.desde, hasta: diaConfig.hasta }
         }
       }
     }
 
-    // 2) Si no hay turno personalizado, usar horarios de empresa (tabla horarios, sector_id IS NULL)
-    if (!horarioHoy) {
-      const { data: horarioEmpresa } = await admin
-        .from('horarios')
-        .select('hora_inicio, hora_fin, activo')
-        .eq('empresa_id', empresaId)
-        .is('sector_id', null)
-        .eq('dia_semana', diaSemanaIdx === 0 ? 6 : diaSemanaIdx - 1) // tabla usa 0=lun
-        .maybeSingle()
-      if (horarioEmpresa?.activo) {
-        horarioHoy = { desde: horarioEmpresa.hora_inicio, hasta: horarioEmpresa.hora_fin }
-      }
+    // 3) Horario de empresa
+    if (!horarioHoy && horarioEmpresaRes.data?.activo) {
+      horarioHoy = { desde: horarioEmpresaRes.data.hora_inicio, hasta: horarioEmpresaRes.data.hora_fin }
     }
 
-    // 3) Fallback: turno default de la empresa
-    if (!horarioHoy) {
-      const { data: turnoDefault } = await admin
-        .from('turnos_laborales')
-        .select('dias')
-        .eq('empresa_id', empresaId)
-        .eq('es_default', true)
-        .maybeSingle()
-      if (turnoDefault) {
-        const dias = turnoDefault.dias as Record<string, { activo: boolean; desde: string; hasta: string }>
-        const diaConfig = dias[diaHoy]
-        if (diaConfig?.activo) {
-          horarioHoy = { desde: diaConfig.desde, hasta: diaConfig.hasta }
-        }
-      }
+    // 4) Turno default
+    if (!horarioHoy && turnoDefaultRes.data) {
+      const dias = turnoDefaultRes.data.dias as Record<string, { activo: boolean; desde: string; hasta: string }>
+      const diaConfig = dias[diaHoy]
+      if (diaConfig?.activo) horarioHoy = { desde: diaConfig.desde, hasta: diaConfig.hasta }
     }
 
     return NextResponse.json({

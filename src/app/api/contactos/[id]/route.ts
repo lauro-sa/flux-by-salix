@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { registrarReciente } from '@/lib/recientes'
 
 /**
  * GET /api/contactos/[id] — Obtener detalle completo de un contacto.
@@ -81,6 +82,20 @@ export async function GET(
     const inversasFiltradas = (vinculacionesInversas || []).filter(
       (v: { contacto_id: string }) => !idsDirectos.has(v.contacto_id)
     )
+
+    // Registrar en historial de recientes (fire-and-forget)
+    const tipoRaw = contacto.tipo_contacto as unknown
+    const tipo = Array.isArray(tipoRaw) ? tipoRaw[0] : tipoRaw
+    const tipoEtiqueta = tipo && typeof tipo === 'object' && 'etiqueta' in tipo ? (tipo as { etiqueta: string }).etiqueta : null
+    registrarReciente({
+      empresaId,
+      usuarioId: user.id,
+      tipoEntidad: 'contacto',
+      entidadId: id,
+      titulo: [contacto.nombre, contacto.apellido].filter(Boolean).join(' ') || 'Sin nombre',
+      subtitulo: tipoEtiqueta || undefined,
+      accion: 'visto',
+    })
 
     return NextResponse.json({
       ...contacto,
@@ -203,6 +218,22 @@ export async function PATCH(
       propagarCambioNombreContacto(admin, empresaId, id, nombreCompleto).catch((err) =>
         console.error('Error al propagar nombre de contacto:', err)
       )
+    }
+
+    // Registrar en historial de recientes (fire-and-forget)
+    if (data) {
+      const tipoEdRaw = data.tipo_contacto as unknown
+      const tipoEd = Array.isArray(tipoEdRaw) ? tipoEdRaw[0] : tipoEdRaw
+      const tipoEdEtiqueta = tipoEd && typeof tipoEd === 'object' && 'etiqueta' in tipoEd ? (tipoEd as { etiqueta: string }).etiqueta : null
+      registrarReciente({
+        empresaId,
+        usuarioId: user.id,
+        tipoEntidad: 'contacto',
+        entidadId: id,
+        titulo: [data.nombre, data.apellido].filter(Boolean).join(' ') || 'Sin nombre',
+        subtitulo: tipoEdEtiqueta || undefined,
+        accion: campos.en_papelera ? 'eliminado' : 'editado',
+      })
     }
 
     return NextResponse.json(data)

@@ -45,6 +45,8 @@ interface Preferencias {
   recibir_todas_notificaciones: boolean
   /** Secciones donde el chatter NO se ancla al costado. ['*'] = ninguna sección. ['presupuestos'] = solo esa */
   chatter_sin_lateral: string[]
+  /** Auto-colapsar sidebar principal en páginas con menú secundario (configuración, mi-cuenta, etc.) */
+  sidebar_auto_colapsar_config: boolean
 }
 
 interface ContextoPreferencias {
@@ -67,6 +69,7 @@ const DEFAULTS: Preferencias = {
   config_tablas: {},
   recibir_todas_notificaciones: false,
   chatter_sin_lateral: [],
+  sidebar_auto_colapsar_config: true,
 }
 
 const CLAVE_DISPOSITIVO = 'flux_dispositivo_id'
@@ -148,6 +151,7 @@ function ProveedorPreferencias({ children }: { children: ReactNode }) {
               config_tablas: datos.config_tablas || {},
               recibir_todas_notificaciones: datos.recibir_todas_notificaciones ?? false,
               chatter_sin_lateral: datos.chatter_sin_lateral || [],
+              sidebar_auto_colapsar_config: datos.sidebar_auto_colapsar_config ?? true,
             }
             setPreferencias(prefs)
             localStorage.setItem(CLAVE_PREFS_LOCAL, JSON.stringify(prefs))
@@ -193,6 +197,7 @@ function ProveedorPreferencias({ children }: { children: ReactNode }) {
     sidebar_secciones: prefs.sidebar_secciones,
     config_tablas: prefs.config_tablas,
     chatter_sin_lateral: prefs.chatter_sin_lateral,
+    sidebar_auto_colapsar_config: prefs.sidebar_auto_colapsar_config,
   }), [])
 
   /** Envía los cambios pendientes a la BD inmediatamente (sin debounce) */

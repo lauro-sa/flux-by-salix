@@ -4,6 +4,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
 import { crearNotificacion } from '@/lib/notificaciones'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { registrarReciente } from '@/lib/recientes'
 
 /**
  * GET /api/actividades/[id] — Obtener una actividad por ID.
@@ -27,6 +28,18 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       .single()
 
     if (error || !data) return NextResponse.json({ error: 'Actividad no encontrada' }, { status: 404 })
+
+    // Registrar en historial de recientes (fire-and-forget)
+    registrarReciente({
+      empresaId,
+      usuarioId: user.id,
+      tipoEntidad: 'actividad',
+      entidadId: id,
+      titulo: data.titulo || 'Actividad',
+      subtitulo: data.estado_clave || undefined,
+      accion: 'visto',
+    })
+
     return NextResponse.json(data)
   } catch {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
@@ -204,6 +217,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           }
         }
       }
+
+      // Registrar en recientes
+      registrarReciente({
+        empresaId, usuarioId: user.id, tipoEntidad: 'actividad', entidadId: id,
+        titulo: data.titulo || 'Actividad', subtitulo: 'completada', accion: 'editado',
+      })
 
       return NextResponse.json({ ...data, siguiente })
     }
@@ -443,6 +462,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       console.error('Error al editar actividad:', error)
       return NextResponse.json({ error: 'Error al editar' }, { status: 500 })
     }
+
+    // Registrar edición en recientes (fire-and-forget)
+    registrarReciente({
+      empresaId, usuarioId: user.id, tipoEntidad: 'actividad', entidadId: id,
+      titulo: data.titulo || 'Actividad', subtitulo: data.estado_clave, accion: 'editado',
+    })
 
     // Notificar si se reasignó a otro usuario
     if (body.asignado_a && body.asignado_a !== user.id) {

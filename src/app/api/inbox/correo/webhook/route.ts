@@ -72,7 +72,8 @@ export async function POST(request: NextRequest) {
 
       // Importar la lógica de procesamiento
       // En vez de duplicar, llamamos al endpoint de sincronización
-      if (cambios.mensajesAgregados.length > 0) {
+      const hayCambios = cambios.mensajesAgregados.length > 0 || cambios.mensajesEliminados.length > 0
+      if (hayCambios) {
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL
         if (baseUrl) {
           try {

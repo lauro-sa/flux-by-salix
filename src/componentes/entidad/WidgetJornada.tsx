@@ -42,16 +42,28 @@ function formatearHora(iso: string | null, locale: string = 'es-AR', hour12 = fa
 function calcularMinutosTrabajados(turno: TurnoHoy): number {
   if (!turno.hora_entrada) return 0
   const entrada = new Date(turno.hora_entrada).getTime()
-  const fin = turno.hora_salida ? new Date(turno.hora_salida).getTime() : Date.now()
+
+  // Si el turno está abierto, siempre calcular hasta ahora (no usar hora_salida del snapshot)
+  const estaAbierto = ['activo', 'almuerzo', 'particular'].includes(turno.estado)
+  const fin = estaAbierto ? Date.now() : (turno.hora_salida ? new Date(turno.hora_salida).getTime() : Date.now())
   let min = Math.round((fin - entrada) / 60000)
 
+  // Descontar almuerzo
   if (turno.inicio_almuerzo && turno.fin_almuerzo) {
     const almMin = Math.round((new Date(turno.fin_almuerzo).getTime() - new Date(turno.inicio_almuerzo).getTime()) / 60000)
     min -= almMin
   } else if (turno.inicio_almuerzo && !turno.fin_almuerzo && turno.estado === 'almuerzo') {
-    // Está en almuerzo ahora, descontar hasta ahora
     const almMin = Math.round((Date.now() - new Date(turno.inicio_almuerzo).getTime()) / 60000)
     min -= almMin
+  }
+
+  // Descontar trámite (salida particular)
+  if (turno.salida_particular && turno.vuelta_particular) {
+    const partMin = Math.round((new Date(turno.vuelta_particular).getTime() - new Date(turno.salida_particular).getTime()) / 60000)
+    min -= partMin
+  } else if (turno.salida_particular && !turno.vuelta_particular && turno.estado === 'particular') {
+    const partMin = Math.round((Date.now() - new Date(turno.salida_particular).getTime()) / 60000)
+    min -= partMin
   }
 
   return Math.max(0, min)
@@ -85,7 +97,7 @@ const COLOR_ESTADO: Record<string, string> = {
 interface SegmentoTimeline {
   inicio: number // minutos desde medianoche
   fin: number
-  tipo: 'trabajo' | 'almuerzo' | 'particular' | 'inactivo'
+  tipo: 'trabajo' | 'almuerzo' | 'particular' | 'inactivo' | 'extra'
 }
 
 const COLORES_SEGMENTO: Record<string, string> = {
@@ -93,6 +105,7 @@ const COLORES_SEGMENTO: Record<string, string> = {
   almuerzo: 'var(--insignia-advertencia)',
   particular: 'var(--insignia-info)',
   inactivo: 'var(--borde-sutil)',
+  extra: 'var(--insignia-advertencia)',
 }
 
 function minutosDesdeMedianoche(iso: string | null): number {
@@ -101,13 +114,22 @@ function minutosDesdeMedianoche(iso: string | null): number {
   return d.getHours() * 60 + d.getMinutes()
 }
 
-function construirSegmentos(turno: TurnoHoy): SegmentoTimeline[] {
+function construirSegmentos(
+  turno: TurnoHoy,
+  horarioEsperado: { desde: string; hasta: string } | null = null,
+): SegmentoTimeline[] {
   if (!turno.hora_entrada) return []
   const segmentos: SegmentoTimeline[] = []
   const entrada = minutosDesdeMedianoche(turno.hora_entrada)
-  const salida = turno.hora_salida
-    ? minutosDesdeMedianoche(turno.hora_salida)
-    : Math.floor((Date.now() - new Date(new Date().toDateString()).getTime()) / 60000)
+  // Si el turno está abierto, siempre usar hora actual (no el snapshot de hora_salida)
+  const estaAbierto = ['activo', 'almuerzo', 'particular'].includes(turno.estado)
+  const minutosAhora = Math.floor((Date.now() - new Date(new Date().toDateString()).getTime()) / 60000)
+  const salida = estaAbierto
+    ? minutosAhora
+    : (turno.hora_salida ? minutosDesdeMedianoche(turno.hora_salida) : minutosAhora)
+
+  // Límite del horario esperado para marcar extra
+  const limiteHorario = horarioEsperado ? parseHHMM(horarioEsperado.hasta) : null
 
   // Construir segmentos cronológicamente
   let cursor = entrada
@@ -152,6 +174,24 @@ function construirSegmentos(turno: TurnoHoy): SegmentoTimeline[] {
     segmentos.push({ inicio: entrada, fin: salida, tipo: 'trabajo' })
   }
 
+  // Partir segmentos de trabajo en trabajo+extra si se pasa del horario
+  if (limiteHorario !== null) {
+    const segmentosFinales: SegmentoTimeline[] = []
+    for (const seg of segmentos) {
+      if (seg.tipo === 'trabajo' && seg.fin > limiteHorario && seg.inicio < limiteHorario) {
+        // Partir: trabajo hasta el límite, extra después
+        segmentosFinales.push({ inicio: seg.inicio, fin: limiteHorario, tipo: 'trabajo' })
+        segmentosFinales.push({ inicio: limiteHorario, fin: seg.fin, tipo: 'extra' })
+      } else if (seg.tipo === 'trabajo' && seg.inicio >= limiteHorario) {
+        // Todo el segmento es extra
+        segmentosFinales.push({ ...seg, tipo: 'extra' })
+      } else {
+        segmentosFinales.push(seg)
+      }
+    }
+    return segmentosFinales
+  }
+
   return segmentos
 }
 
@@ -159,8 +199,9 @@ function BarraTimeline({ turno, horarioEsperado, hour12 }: {
   turno: TurnoHoy
   horarioEsperado: { desde: string; hasta: string } | null
   hour12: boolean
+  tick?: number // fuerza re-render periódico
 }) {
-  const segmentos = construirSegmentos(turno)
+  const segmentos = construirSegmentos(turno, horarioEsperado)
   if (segmentos.length === 0) return null
 
   // Rango de la barra: usar horario esperado como base, expandir si hay actividad fuera
@@ -212,19 +253,6 @@ function BarraTimeline({ turno, horarioEsperado, hour12 }: {
       <div className="relative">
         {/* La barra */}
         <div className="relative h-4 rounded-full overflow-hidden bg-superficie-hover/60">
-          {/* Divisiones por hora (líneas dentro de la barra) */}
-          {marcadores.map((m) => {
-            const pos = pctPos(m)
-            if (pos <= 1 || pos >= 99) return null
-            return (
-              <div
-                key={m}
-                className="absolute top-0 bottom-0 w-px bg-texto-terciario/15"
-                style={{ left: `${pos}%` }}
-              />
-            )
-          })}
-
           {/* Segmentos de actividad */}
           {segmentos.map((seg, i) => (
             <div
@@ -234,12 +262,25 @@ function BarraTimeline({ turno, horarioEsperado, hour12 }: {
                 left: `${pctPos(seg.inicio)}%`,
                 width: `${Math.max(pctPos(seg.fin) - pctPos(seg.inicio), 1)}%`,
                 backgroundColor: COLORES_SEGMENTO[seg.tipo],
-                opacity: seg.tipo === 'trabajo' ? 1 : 0.75,
+                opacity: seg.tipo === 'trabajo' || seg.tipo === 'extra' ? 1 : 0.75,
                 borderRadius: i === 0 ? '9999px 0 0 9999px' :
                   i === segmentos.length - 1 ? '0 9999px 9999px 0' : '0',
               }}
             />
           ))}
+
+          {/* Divisiones por hora (encima de los segmentos para que siempre se vean) */}
+          {marcadores.map((m) => {
+            const pos = pctPos(m)
+            if (pos <= 1 || pos >= 99) return null
+            return (
+              <div
+                key={m}
+                className="absolute top-0 bottom-0 w-px bg-texto-terciario/30"
+                style={{ left: `${pos}%` }}
+              />
+            )
+          })}
         </div>
 
         {/* Etiquetas de hora debajo — pares con número, impares solo tick */}
@@ -270,6 +311,12 @@ function BarraTimeline({ turno, horarioEsperado, hour12 }: {
           <span className="flex items-center gap-1">
             <span className="size-1.5 rounded-full" style={{ backgroundColor: COLORES_SEGMENTO.particular }} />
             Trámite
+          </span>
+        )}
+        {segmentos.some(s => s.tipo === 'extra') && (
+          <span className="flex items-center gap-1">
+            <span className="size-1.5 rounded-full" style={{ backgroundColor: COLORES_SEGMENTO.extra }} />
+            Extra
           </span>
         )}
       </div>
@@ -336,6 +383,7 @@ function WidgetJornada() {
   const [cargando, setCargando] = useState(true)
   const [ejecutando, setEjecutando] = useState(false)
   const [minutosVivos, setMinutosVivos] = useState(0)
+  const [tick, setTick] = useState(0) // fuerza re-render de la barra cada 30s
   const intervaloRef = useRef<ReturnType<typeof setInterval>>(null)
 
   const cargar = useCallback(async () => {
@@ -354,12 +402,19 @@ function WidgetJornada() {
 
   useEffect(() => { cargar() }, [cargar])
 
+  // Re-cargar datos del turno cada 5 minutos para sincronizar con heartbeats
+  useEffect(() => {
+    const intervalo = setInterval(() => { cargar() }, 5 * 60 * 1000)
+    return () => clearInterval(intervalo)
+  }, [cargar])
+
   // Timer que actualiza duración en vivo
   useEffect(() => {
     if (turno && ['activo', 'almuerzo', 'particular'].includes(turno.estado)) {
       setMinutosVivos(calcularMinutosTrabajados(turno))
       intervaloRef.current = setInterval(() => {
         setMinutosVivos(calcularMinutosTrabajados(turno))
+        setTick(t => t + 1) // fuerza re-render de la barra timeline
       }, 30000) // actualizar cada 30s
       return () => { if (intervaloRef.current) clearInterval(intervaloRef.current) }
     } else if (turno) {
@@ -369,16 +424,61 @@ function WidgetJornada() {
 
   const fichar = useCallback(async (accion: string) => {
     setEjecutando(true)
+
+    // Actualización optimista: cambiar el estado del turno inmediatamente
+    setTurno(prev => {
+      if (!prev) return prev
+      const ahora = new Date().toISOString()
+      switch (accion) {
+        case 'almuerzo':
+          return { ...prev, estado: 'almuerzo', inicio_almuerzo: ahora }
+        case 'volver_almuerzo':
+          return { ...prev, estado: 'activo', fin_almuerzo: ahora }
+        case 'particular':
+          return { ...prev, estado: 'particular', salida_particular: ahora }
+        case 'volver_particular':
+          return { ...prev, estado: 'activo', vuelta_particular: ahora }
+        case 'salida':
+          return { ...prev, estado: 'cerrado', hora_salida: ahora }
+        default:
+          return prev
+      }
+    })
+
     try {
-      const ubicacion = await obtenerUbicacion()
+      // Lanzar geolocalización en paralelo con el POST (no bloquea)
+      const ubicacionPromesa = obtenerUbicacion()
+
       const res = await fetch('/api/asistencias/fichar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accion, ubicacion, metodo: 'manual' }),
+        body: JSON.stringify({ accion, metodo: 'manual' }),
       })
+
       if (res.ok) {
+        // Enviar ubicación en segundo plano si se obtuvo
+        ubicacionPromesa.then(async (ubicacion) => {
+          if (!ubicacion) return
+          const data = await res.clone().json().catch(() => null)
+          const fichajeId = data?.registro?.id
+          if (!fichajeId) return
+          // Actualizar ubicación en el registro ya creado
+          const campoUbicacion = accion === 'salida' ? 'ubicacion_salida' : 'ubicacion_entrada'
+          fetch('/api/asistencias/fichar/ubicacion', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fichaje_id: fichajeId, campo: campoUbicacion, ubicacion }),
+          }).catch(() => {})
+        }).catch(() => {})
+
+        await cargar()
+      } else {
+        // Revertir UI optimista si falló
         await cargar()
       }
+    } catch {
+      // Revertir UI optimista si hubo error
+      await cargar()
     } finally {
       setEjecutando(false)
     }
@@ -391,63 +491,49 @@ function WidgetJornada() {
   // Color del indicador en el botón del header
   const colorIndicador = !turno ? '' : estaAbierto ? COLOR_ESTADO[turno.estado] || '' : ''
 
-  // Contenido del estado (compartido entre modo manual y automático)
-  const contenidoEstado = (
-    <div className="text-center">
-      {!turno && (
-        <p className="text-sm text-texto-terciario mb-1">
-          {esAutomatico ? 'Esperando actividad...' : 'Sin fichaje hoy'}
-        </p>
-      )}
-      {turno && (
-        <>
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <div className={`size-2 rounded-full ${COLOR_ESTADO[turno.estado] || 'bg-texto-terciario'}`} />
-            <span className="text-sm font-medium text-texto-primario">
-              {ETIQUETA_ESTADO[turno.estado] || turno.estado}
-            </span>
-          </div>
-          <p className="text-xs text-texto-terciario">
-            Entrada: {formatearHora(turno.hora_entrada, locale, hour12)}
-            {estaAbierto && horarioHoy
-              ? ` — Fin previsto: ${horarioHoy.hasta}`
-              : estaCerrado && turno.hora_salida
-                ? ` — Salida: ${formatearHora(turno.hora_salida, locale, hour12)}`
-                : ''
-            }
-          </p>
-          {turno.inicio_almuerzo && (
-            <p className="text-xs text-texto-terciario">
-              Almuerzo: {formatearHora(turno.inicio_almuerzo, locale, hour12)}
-              {turno.fin_almuerzo && ` — ${formatearHora(turno.fin_almuerzo, locale, hour12)}`}
-            </p>
-          )}
-          {estaAbierto && (
-            <p className="text-lg font-semibold text-texto-primario mt-2 font-mono">
-              {formatearDuracion(minutosVivos)}
-            </p>
-          )}
-          {estaCerrado && (
-            <p className="text-lg font-semibold text-texto-primario mt-2 font-mono">
-              {formatearDuracion(minutosVivos)} ✓
-            </p>
-          )}
-          {/* Ubicación */}
-          {(() => {
-            const ub = turno.ubicacion_entrada as Record<string, string> | null
-            if (!ub?.direccion) return null
-            const texto = ub.barrio ? `${ub.direccion}, ${ub.barrio}` : ub.direccion
-            return (
-              <p className="text-xs text-texto-terciario mt-1 flex items-center justify-center gap-1">
-                <MapPin size={10} />
-                {texto}
-              </p>
-            )
-          })()}
-        </>
-      )}
-    </div>
-  )
+  // Calcular minutos extra (pasado del horario previsto)
+  const minutosEsperados = horarioHoy
+    ? parseHHMM(horarioHoy.hasta) - parseHHMM(horarioHoy.desde)
+    : null
+  const minutosExtra = minutosEsperados !== null && minutosVivos > minutosEsperados
+    ? minutosVivos - minutosEsperados
+    : 0
+
+  // Duración estilizada grande: "3h 46m"
+  const duracionGrande = (() => {
+    const h = Math.floor(minutosVivos / 60)
+    const m = minutosVivos % 60
+    const colorNum = minutosExtra > 0 ? 'text-insignia-advertencia' : 'text-texto-primario'
+    const colorLetter = minutosExtra > 0 ? 'text-insignia-advertencia/50' : 'text-texto-terciario/50'
+    return (
+      <div className="flex items-baseline justify-center gap-0.5">
+        {h > 0 && (
+          <>
+            <span className={`text-4xl font-bold tabular-nums ${colorNum}`}>{h}</span>
+            <span className={`text-xl font-medium ${colorLetter}`}>h</span>
+          </>
+        )}
+        <span className={`text-4xl font-bold tabular-nums ${colorNum}`}>{String(m).padStart(h > 0 ? 2 : 1, '0')}</span>
+        <span className={`text-xl font-medium ${colorLetter}`}>m</span>
+      </div>
+    )
+  })()
+
+  // Info line compacta
+  const lineaInfo = (() => {
+    if (!turno?.hora_entrada) return null
+    const partes: string[] = []
+    partes.push(`Entrada: ${formatearHora(turno.hora_entrada, locale, hour12)}`)
+    if (estaAbierto && horarioHoy) {
+      partes.push(`Fin previsto: ${horarioHoy.hasta}`)
+    } else if (estaCerrado && turno.hora_salida) {
+      partes.push(`Salida: ${formatearHora(turno.hora_salida, locale, hour12)}`)
+    }
+    if (turno.inicio_almuerzo) {
+      partes.push(`Almuerzo: ${formatearHora(turno.inicio_almuerzo, locale, hour12)}`)
+    }
+    return partes.join('  ·  ')
+  })()
 
   return (
     <Popover
@@ -458,266 +544,210 @@ function WidgetJornada() {
       offset={10}
       tituloMovil="Jornada"
       contenido={
-        <div className="p-4 space-y-4">
+        <div>
           {cargando ? (
-            <div className="flex items-center justify-center py-6">
+            <div className="flex items-center justify-center py-10">
               <Loader2 size={20} className="animate-spin text-texto-terciario" />
             </div>
-          ) : esAutomatico ? (
-            <>
-              {/* Badge de fichaje automático */}
-              <div className="flex items-center justify-center gap-1.5 text-xs font-medium text-texto-marca">
-                <MonitorCheck size={13} />
-                Fichaje automático
-              </div>
-
-              {contenidoEstado}
-
-              {/* Barra de timeline visual */}
-              {turno && turno.hora_entrada && (
-                <BarraTimeline turno={turno} horarioEsperado={horarioHoy} hour12={hour12} />
-              )}
-
-              {/* Acciones para fichaje automático */}
-              {turno?.estado === 'activo' && (
-                <div className="space-y-2">
-                  {/* Fila: almuerzo + trámite */}
-                  <div className="grid grid-cols-2 gap-2">
-                    {!turno.inicio_almuerzo && (
-                      <Boton
-                        variante="secundario"
-                        tamano="sm"
-                        className="w-full"
-                        onClick={() => fichar('almuerzo')}
-                        disabled={ejecutando}
-                      >
-                        <UtensilsCrossed size={13} className="mr-1.5" /> Almorzar
-                      </Boton>
-                    )}
-                    <Boton
-                      variante="secundario"
-                      tamano="sm"
-                      className={`w-full ${turno.inicio_almuerzo ? 'col-span-2' : ''}`}
-                      onClick={() => fichar('particular')}
-                      disabled={ejecutando}
-                    >
-                      <Footprints size={13} className="mr-1.5" /> Trámite
-                    </Boton>
-                  </div>
-                  {/* Terminar jornada */}
-                  <Boton
-                    variante="fantasma"
-                    tamano="sm"
-                    className="w-full !text-insignia-peligro hover:!bg-insignia-peligro/10"
-                    onClick={() => fichar('salida')}
-                    disabled={ejecutando}
-                    cargando={ejecutando}
-                  >
-                    <Square size={13} className="mr-1.5" /> Terminar jornada
-                  </Boton>
-                </div>
-              )}
-
-              {/* En almuerzo */}
-              {turno?.estado === 'almuerzo' && (
-                <div className="space-y-2">
-                  <Boton
-                    variante="primario"
-                    tamano="sm"
-                    className="w-full"
-                    onClick={() => fichar('volver_almuerzo')}
-                    disabled={ejecutando}
-                    cargando={ejecutando}
-                  >
-                    <CornerDownLeft size={13} className="mr-1.5" /> Volver del almuerzo
-                  </Boton>
-                  <Boton
-                    variante="fantasma"
-                    tamano="sm"
-                    className="w-full !text-insignia-peligro hover:!bg-insignia-peligro/10"
-                    onClick={() => fichar('salida')}
-                    disabled={ejecutando}
-                  >
-                    <Square size={13} className="mr-1.5" /> Terminar jornada
-                  </Boton>
-                  <p className="text-xxs text-texto-terciario text-center">
-                    El retorno también se registra automáticamente al volver a usar Flux.
-                  </p>
-                </div>
-              )}
-
-              {/* En trámite */}
-              {turno?.estado === 'particular' && (
-                <div className="space-y-2">
-                  <Boton
-                    variante="primario"
-                    tamano="sm"
-                    className="w-full"
-                    onClick={() => fichar('volver_particular')}
-                    disabled={ejecutando}
-                    cargando={ejecutando}
-                  >
-                    <CornerDownLeft size={13} className="mr-1.5" /> Ya volví
-                  </Boton>
-                  <Boton
-                    variante="fantasma"
-                    tamano="sm"
-                    className="w-full !text-insignia-peligro hover:!bg-insignia-peligro/10"
-                    onClick={() => fichar('salida')}
-                    disabled={ejecutando}
-                  >
-                    <Square size={13} className="mr-1.5" /> Terminar jornada
-                  </Boton>
-                  <p className="text-xxs text-texto-terciario text-center">
-                    El retorno también se registra automáticamente al volver a usar Flux.
-                  </p>
-                </div>
-              )}
-
-              {/* Sin turno aún — puede fichar manualmente o esperar automático */}
-              {!turno && (
-                <div className="space-y-2">
-                  <Boton
-                    variante="primario"
-                    tamano="sm"
-                    className="w-full"
-                    onClick={() => fichar('entrada')}
-                    disabled={ejecutando}
-                    cargando={ejecutando}
-                  >
-                    <Play size={13} className="mr-1.5" /> Marcar entrada
-                  </Boton>
-                  <p className="text-xxs text-texto-terciario text-center">
-                    También se ficha automáticamente al usar Flux.
-                  </p>
-                </div>
-              )}
-
-              {/* Jornada cerrada */}
-              {estaCerrado && (
-                <p className="text-center text-xs text-texto-terciario py-1">
-                  Jornada finalizada. Hasta mañana.
-                </p>
-              )}
-            </>
           ) : (
             <>
-              {contenidoEstado}
+              {/* ── Cabecera: tipo de fichaje ── */}
+              <div className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-medium text-texto-marca border-b border-white/[0.07]">
+                <MonitorCheck size={13} />
+                {esAutomatico ? 'Fichaje automático' : 'Fichaje manual'}
+              </div>
 
-              {/* Barra de timeline visual (manual) */}
-              {turno && turno.hora_entrada && (
-                <BarraTimeline turno={turno} horarioEsperado={horarioHoy} hour12={hour12} />
-              )}
+              {/* ── Estado + info ── */}
+              <div className="text-center px-4 py-3 border-b border-white/[0.07]">
+                {!turno ? (
+                  <p className="text-sm text-texto-terciario">
+                    {esAutomatico ? 'Esperando actividad...' : 'Sin fichaje hoy'}
+                  </p>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      <div className={`size-2 rounded-full ${COLOR_ESTADO[turno.estado] || 'bg-texto-terciario'}`} />
+                      <span className="text-sm font-medium text-texto-primario">
+                        {ETIQUETA_ESTADO[turno.estado] || turno.estado}
+                      </span>
+                    </div>
+                    {lineaInfo && (
+                      <p className="text-[11px] text-texto-terciario leading-relaxed">{lineaInfo}</p>
+                    )}
+                    {/* Ubicación */}
+                    {(() => {
+                      const ub = turno.ubicacion_entrada as Record<string, string> | null
+                      if (!ub?.direccion) return null
+                      const texto = ub.barrio ? `${ub.direccion}, ${ub.barrio}` : ub.direccion
+                      return (
+                        <p className="text-[11px] text-texto-terciario mt-0.5 flex items-center justify-center gap-1">
+                          <MapPin size={10} />
+                          {texto}
+                        </p>
+                      )
+                    })()}
+                  </>
+                )}
+              </div>
 
-              {/* Acciones manuales */}
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={turno?.estado || 'sin_turno'}
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -5 }}
-                  className="space-y-2"
-                >
-                  {/* Sin turno → marcar entrada */}
-                  {!turno && (
-                    <Boton
-                      variante="primario"
-                      className="w-full"
-                      onClick={() => fichar('entrada')}
-                      disabled={ejecutando}
-                      cargando={ejecutando}
-                    >
-                      <Play size={14} className="mr-2" /> Marcar entrada
-                    </Boton>
-                  )}
-
-                  {/* En turno activo */}
-                  {turno?.estado === 'activo' && (
-                    <>
-                      {!turno.inicio_almuerzo && (
-                        <Boton
-                          variante="secundario"
-                          className="w-full"
-                          onClick={() => fichar('almuerzo')}
-                          disabled={ejecutando}
-                        >
-                          <UtensilsCrossed size={14} className="mr-2" /> Salir a almorzar
-                        </Boton>
-                      )}
-                      <Boton
-                        variante="secundario"
-                        className="w-full"
-                        onClick={() => fichar('particular')}
-                        disabled={ejecutando}
-                      >
-                        <Footprints size={14} className="mr-2" /> Salgo un momento
-                      </Boton>
-                      <Boton
-                        variante="peligro"
-                        className="w-full"
-                        onClick={() => fichar('salida')}
-                        disabled={ejecutando}
-                        cargando={ejecutando}
-                      >
-                        <Square size={14} className="mr-2" /> Terminar jornada
-                      </Boton>
-                    </>
-                  )}
-
-                  {/* En almuerzo */}
-                  {turno?.estado === 'almuerzo' && (
-                    <>
-                      <Boton
-                        variante="primario"
-                        className="w-full"
-                        onClick={() => fichar('volver_almuerzo')}
-                        disabled={ejecutando}
-                        cargando={ejecutando}
-                      >
-                        <CornerDownLeft size={14} className="mr-2" /> Volver del almuerzo
-                      </Boton>
-                      <Boton
-                        variante="peligro"
-                        className="w-full"
-                        onClick={() => fichar('salida')}
-                        disabled={ejecutando}
-                      >
-                        <Square size={14} className="mr-2" /> Terminar jornada
-                      </Boton>
-                    </>
-                  )}
-
-                  {/* En trámite */}
-                  {turno?.estado === 'particular' && (
-                    <>
-                      <Boton
-                        variante="primario"
-                        className="w-full"
-                        onClick={() => fichar('volver_particular')}
-                        disabled={ejecutando}
-                        cargando={ejecutando}
-                      >
-                        <CornerDownLeft size={14} className="mr-2" /> Ya volví
-                      </Boton>
-                      <Boton
-                        variante="peligro"
-                        className="w-full"
-                        onClick={() => fichar('salida')}
-                        disabled={ejecutando}
-                      >
-                        <Square size={14} className="mr-2" /> Terminar jornada
-                      </Boton>
-                    </>
-                  )}
-
-                  {/* Jornada cerrada */}
-                  {estaCerrado && (
-                    <p className="text-center text-xs text-texto-terciario py-2">
-                      Jornada finalizada. Hasta mañana.
+              {/* ── Duración grande ── */}
+              {turno && (estaAbierto || estaCerrado) && (
+                <div className="py-4 border-b border-white/[0.07]">
+                  {duracionGrande}
+                  {minutosExtra > 0 && (
+                    <p className="text-xs font-medium text-insignia-advertencia text-center mt-1">
+                      +{formatearDuracion(minutosExtra)} extra
                     </p>
                   )}
-                </motion.div>
-              </AnimatePresence>
+                  {estaCerrado && (
+                    <p className="text-xs text-texto-terciario text-center mt-1">Jornada finalizada</p>
+                  )}
+                </div>
+              )}
+
+              {/* ── Barra de timeline ── */}
+              {turno && turno.hora_entrada && (
+                <div className="px-4 py-3 border-b border-white/[0.07]">
+                  <BarraTimeline turno={turno} horarioEsperado={horarioHoy} hour12={hour12} tick={tick} />
+                </div>
+              )}
+
+              {/* ── Acciones ── */}
+              <div className="px-4 py-3">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={turno?.estado || 'sin_turno'}
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -5 }}
+                    className="space-y-2"
+                  >
+                    {/* Sin turno → marcar entrada */}
+                    {!turno && (
+                      <>
+                        <Boton
+                          variante="primario"
+                          tamano="sm"
+                          className="w-full"
+                          onClick={() => fichar('entrada')}
+                          disabled={ejecutando}
+                          cargando={ejecutando}
+                        >
+                          <Play size={13} className="mr-1.5" /> Marcar entrada
+                        </Boton>
+                        {esAutomatico && (
+                          <p className="text-xxs text-texto-terciario text-center">
+                            También se ficha automáticamente al usar Flux.
+                          </p>
+                        )}
+                      </>
+                    )}
+
+                    {/* En turno activo */}
+                    {turno?.estado === 'activo' && (
+                      <>
+                        {!turno.inicio_almuerzo && (
+                          <Boton
+                            variante="secundario"
+                            tamano="sm"
+                            className="w-full"
+                            onClick={() => fichar('almuerzo')}
+                            disabled={ejecutando}
+                          >
+                            <UtensilsCrossed size={13} className="mr-1.5" /> Almorzar
+                          </Boton>
+                        )}
+                        <Boton
+                          variante="secundario"
+                          tamano="sm"
+                          className="w-full"
+                          onClick={() => fichar('particular')}
+                          disabled={ejecutando}
+                        >
+                          <Footprints size={13} className="mr-1.5" /> Trámite
+                        </Boton>
+                        <Boton
+                          variante="fantasma"
+                          tamano="sm"
+                          className="w-full !text-insignia-peligro hover:!bg-insignia-peligro/10"
+                          onClick={() => fichar('salida')}
+                          disabled={ejecutando}
+                          cargando={ejecutando}
+                        >
+                          <Square size={13} className="mr-1.5" /> Terminar jornada
+                        </Boton>
+                      </>
+                    )}
+
+                    {/* En almuerzo */}
+                    {turno?.estado === 'almuerzo' && (
+                      <>
+                        <Boton
+                          variante="primario"
+                          tamano="sm"
+                          className="w-full"
+                          onClick={() => fichar('volver_almuerzo')}
+                          disabled={ejecutando}
+                          cargando={ejecutando}
+                        >
+                          <CornerDownLeft size={13} className="mr-1.5" /> Volver del almuerzo
+                        </Boton>
+                        <Boton
+                          variante="fantasma"
+                          tamano="sm"
+                          className="w-full !text-insignia-peligro hover:!bg-insignia-peligro/10"
+                          onClick={() => fichar('salida')}
+                          disabled={ejecutando}
+                        >
+                          <Square size={13} className="mr-1.5" /> Terminar jornada
+                        </Boton>
+                        {esAutomatico && (
+                          <p className="text-xxs text-texto-terciario text-center">
+                            El retorno también se registra automáticamente al volver a usar Flux.
+                          </p>
+                        )}
+                      </>
+                    )}
+
+                    {/* En trámite */}
+                    {turno?.estado === 'particular' && (
+                      <>
+                        <Boton
+                          variante="primario"
+                          tamano="sm"
+                          className="w-full"
+                          onClick={() => fichar('volver_particular')}
+                          disabled={ejecutando}
+                          cargando={ejecutando}
+                        >
+                          <CornerDownLeft size={13} className="mr-1.5" /> Ya volví
+                        </Boton>
+                        <Boton
+                          variante="fantasma"
+                          tamano="sm"
+                          className="w-full !text-insignia-peligro hover:!bg-insignia-peligro/10"
+                          onClick={() => fichar('salida')}
+                          disabled={ejecutando}
+                        >
+                          <Square size={13} className="mr-1.5" /> Terminar jornada
+                        </Boton>
+                        {esAutomatico && (
+                          <p className="text-xxs text-texto-terciario text-center">
+                            El retorno también se registra automáticamente al volver a usar Flux.
+                          </p>
+                        )}
+                      </>
+                    )}
+
+                    {/* Jornada cerrada */}
+                    {estaCerrado && (
+                      <p className="text-center text-xs text-texto-terciario py-1">
+                        Hasta mañana.
+                      </p>
+                    )}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
             </>
           )}
         </div>
@@ -734,15 +764,15 @@ function WidgetJornada() {
         {/* Dot de estado (siempre visible) */}
         <span className={[
           'size-2 rounded-full shrink-0 transition-colors',
-          colorIndicador || 'bg-texto-terciario/30',
+          minutosExtra > 0 ? 'bg-insignia-advertencia' : (colorIndicador || 'bg-texto-terciario/30'),
         ].join(' ')} />
         {/* Timer en desktop, oculto en móvil */}
         {estaAbierto ? (
-          <span className="hidden sm:inline text-xs font-medium font-mono tabular-nums text-texto-secundario">
+          <span className={`hidden sm:inline text-xs font-medium font-mono tabular-nums ${minutosExtra > 0 ? 'text-insignia-advertencia' : 'text-texto-secundario'}`}>
             {formatearDuracion(minutosVivos)}
           </span>
         ) : estaCerrado ? (
-          <span className="hidden sm:inline text-xs font-medium font-mono tabular-nums text-texto-terciario">
+          <span className={`hidden sm:inline text-xs font-medium font-mono tabular-nums ${minutosExtra > 0 ? 'text-insignia-advertencia' : 'text-texto-terciario'}`}>
             {formatearDuracion(minutosVivos)} ✓
           </span>
         ) : (

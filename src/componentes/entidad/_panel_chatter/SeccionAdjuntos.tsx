@@ -6,10 +6,10 @@
  * Se usa en: PanelChatter (controlado desde el header con forzarExpandido).
  */
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   Paperclip, ChevronDown, ChevronUp, FileText, Image as ImageIcon,
-  Film, Music, File, Plus, Loader2,
+  Film, Music, File, Plus, Loader2, MoreVertical, Trash2,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { AdjuntoChatter } from '@/tipos/chatter'
@@ -19,6 +19,8 @@ export interface AdjuntoConOrigen extends AdjuntoChatter {
   origen?: string
   miniatura_url?: string
   fecha?: string
+  chatter_id?: string
+  indice_adjunto?: number
 }
 
 interface PropsSeccionAdjuntos {
@@ -28,6 +30,7 @@ interface PropsSeccionAdjuntos {
   entidadTipo?: string
   entidadId?: string
   onAdjuntoSubido?: () => void
+  onEliminarAdjunto?: (chatterId: string, indice: number) => void
 }
 
 // Detectar tipo de archivo
@@ -81,6 +84,7 @@ export function SeccionAdjuntos({
   entidadTipo,
   entidadId,
   onAdjuntoSubido,
+  onEliminarAdjunto,
 }: PropsSeccionAdjuntos) {
   const [expandido, setExpandido] = useState(false)
   const [subiendo, setSubiendo] = useState(false)
@@ -148,7 +152,13 @@ export function SeccionAdjuntos({
           >
             <div className="px-3 py-2 flex flex-wrap gap-2">
               {todos.map((adj, i) => (
-                <TarjetaAdjunto key={`${adj.url}-${i}`} adjunto={adj} />
+                <TarjetaAdjunto
+                  key={`${adj.url}-${i}`}
+                  adjunto={adj}
+                  onEliminar={onEliminarAdjunto && adj.chatter_id != null && adj.indice_adjunto != null
+                    ? () => onEliminarAdjunto(adj.chatter_id!, adj.indice_adjunto!)
+                    : undefined}
+                />
               ))}
             </div>
 
@@ -178,52 +188,119 @@ export function SeccionAdjuntos({
   )
 }
 
-// ─── Tarjeta compacta de adjunto (miniatura + nombre) ───
-function TarjetaAdjunto({ adjunto }: { adjunto: AdjuntoConOrigen }) {
+// ─── Tarjeta compacta de adjunto (miniatura + nombre + menú) ───
+function TarjetaAdjunto({ adjunto, onEliminar }: { adjunto: AdjuntoConOrigen; onEliminar?: () => void }) {
   const tipo = tipoArchivo(adjunto.tipo || '', adjunto.nombre)
   const tieneMiniatura = tipo === 'imagen' || !!adjunto.miniatura_url
+  const [menuAbierto, setMenuAbierto] = useState(false)
+  const [confirmando, setConfirmando] = useState(false)
+  const refMenu = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!menuAbierto) return
+    const cerrar = (e: MouseEvent) => {
+      if (refMenu.current && !refMenu.current.contains(e.target as Node)) {
+        setMenuAbierto(false)
+        setConfirmando(false)
+      }
+    }
+    document.addEventListener('mousedown', cerrar)
+    return () => document.removeEventListener('mousedown', cerrar)
+  }, [menuAbierto])
 
   return (
-    <a
-      href={adjunto.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group block w-[130px] rounded-md border border-borde-sutil overflow-hidden hover:border-texto-marca/30 transition-colors"
-      title={adjunto.nombre}
-    >
-      {/* Preview — ancho completo, recorte del 40% superior del documento */}
-      <div className="relative h-[70px] bg-superficie-app flex items-start justify-center overflow-hidden">
-        {tieneMiniatura ? (
-          <img
-            src={adjunto.miniatura_url || adjunto.url}
-            alt={adjunto.nombre}
-            className="w-full object-cover object-top"
-            loading="lazy"
-          />
-        ) : (
-          <div className={`flex flex-col items-center gap-0.5 pt-4 ${COLORES_TIPO[tipo].split(' ')[1] || 'text-texto-terciario'}`}>
-            <IconoArchivo tipo={tipo} size={22} />
-            {extension(adjunto.nombre) && (
-              <span className="text-xxs font-bold uppercase opacity-60">{extension(adjunto.nombre)}</span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Nombre + fecha */}
-      <div className="px-1.5 py-1 bg-superficie-hover/40">
-        <div className="flex items-center gap-1">
-          <div className={`shrink-0 ${COLORES_TIPO[tipo].split(' ')[1] || 'text-texto-terciario'}`}>
-            <IconoArchivo tipo={tipo} size={10} />
-          </div>
-          <span className="text-xxs text-texto-primario truncate">{adjunto.nombre}</span>
+    <div className="relative group w-[130px] rounded-md border border-borde-sutil overflow-visible hover:border-texto-marca/30 transition-colors">
+      <a
+        href={adjunto.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block"
+        title={adjunto.nombre}
+      >
+        {/* Preview */}
+        <div className="relative h-[70px] bg-superficie-app flex items-start justify-center overflow-hidden rounded-t-md">
+          {tieneMiniatura ? (
+            <img
+              src={adjunto.miniatura_url || adjunto.url}
+              alt={adjunto.nombre}
+              className="w-full object-cover object-top"
+              loading="lazy"
+            />
+          ) : (
+            <div className={`flex flex-col items-center gap-0.5 pt-4 ${COLORES_TIPO[tipo].split(' ')[1] || 'text-texto-terciario'}`}>
+              <IconoArchivo tipo={tipo} size={22} />
+              {extension(adjunto.nombre) && (
+                <span className="text-xxs font-bold uppercase opacity-60">{extension(adjunto.nombre)}</span>
+              )}
+            </div>
+          )}
         </div>
-        {adjunto.fecha && (
-          <p className="text-xxs text-texto-terciario mt-0.5 pl-3.5">
-            {new Date(adjunto.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
-          </p>
-        )}
-      </div>
-    </a>
+
+        {/* Nombre + origen + fecha */}
+        <div className="px-1.5 py-1 bg-superficie-hover/40">
+          <div className="flex items-center gap-1">
+            <div className={`shrink-0 ${COLORES_TIPO[tipo].split(' ')[1] || 'text-texto-terciario'}`}>
+              <IconoArchivo tipo={tipo} size={10} />
+            </div>
+            <span className="text-xxs text-texto-primario truncate">{adjunto.nombre}</span>
+          </div>
+          {(adjunto.origen || adjunto.fecha) && (
+            <p className="text-xxs text-texto-terciario mt-0.5 pl-3.5 truncate">
+              {adjunto.origen && <span className="font-medium">{adjunto.origen}</span>}
+              {adjunto.origen && adjunto.fecha && ' · '}
+              {adjunto.fecha && new Date(adjunto.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </p>
+          )}
+        </div>
+      </a>
+
+      {/* Menú tres puntos — solo si se puede eliminar */}
+      {onEliminar && (
+        <div ref={refMenu} className="absolute top-1 right-1 z-10">
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMenuAbierto(v => !v); setConfirmando(false) }}
+            className="opacity-0 group-hover:opacity-100 p-0.5 rounded bg-black/50 text-white hover:bg-black/70 transition-all"
+          >
+            <MoreVertical size={12} />
+          </button>
+
+          {menuAbierto && (
+            <div className="absolute top-full mt-1 right-0 min-w-32 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden py-1">
+              {confirmando ? (
+                <div className="px-3 py-2">
+                  <p className="text-xs text-texto-secundario mb-2">¿Eliminar este archivo?</p>
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => { onEliminar(); setMenuAbierto(false); setConfirmando(false) }}
+                      className="flex-1 text-xs px-2 py-1 rounded bg-insignia-peligro/15 text-insignia-peligro hover:bg-insignia-peligro/25 transition-colors"
+                    >
+                      Eliminar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setMenuAbierto(false); setConfirmando(false) }}
+                      className="flex-1 text-xs px-2 py-1 rounded bg-superficie-hover text-texto-secundario hover:bg-superficie-hover/80 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmando(true)}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-insignia-peligro hover:bg-insignia-peligro/10 transition-colors"
+                >
+                  <Trash2 size={13} />
+                  Eliminar
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   )
 }

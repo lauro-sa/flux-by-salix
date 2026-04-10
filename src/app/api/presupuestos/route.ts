@@ -5,6 +5,7 @@ import { registrarChatter } from '@/lib/chatter'
 import { sanitizarBusqueda, normalizarAcentos } from '@/lib/validaciones'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarError } from '@/lib/logger'
+import { registrarReciente } from '@/lib/recientes'
 
 /**
  * GET /api/presupuestos — Listar presupuestos de la empresa activa.
@@ -354,6 +355,18 @@ export async function POST(request: NextRequest) {
 
       await admin.from('lineas_presupuesto').insert(lineas)
     }
+
+    // Registrar en historial de recientes (fire-and-forget)
+    const nombreCto = [presupuesto.contacto_nombre, presupuesto.contacto_apellido].filter(Boolean).join(' ')
+    registrarReciente({
+      empresaId,
+      usuarioId: user.id,
+      tipoEntidad: 'presupuesto',
+      entidadId: presupuesto.id as string,
+      titulo: `Presupuesto #${presupuesto.numero}${nombreCto ? ` — ${nombreCto}` : ''}`,
+      subtitulo: 'borrador',
+      accion: 'creado',
+    })
 
     return NextResponse.json(presupuesto, { status: 201 })
   } catch (err) {

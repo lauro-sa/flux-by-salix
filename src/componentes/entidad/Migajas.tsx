@@ -7,10 +7,10 @@ import { useNavegacion, type Migaja } from '@/hooks/useNavegacion'
 import { ChevronRight } from 'lucide-react'
 import {
   Users, MapPin, FileText, Package,
-  Mail, Clock, Calendar, Shield,
+  MessagesSquare, Clock, Calendar, Shield,
   Wrench, Zap, LayoutDashboard,
   Megaphone, FileBarChart, Route,
-  UserCog, Building2, Trash2,
+  CircleUserRound, Building2, Trash2,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -38,13 +38,13 @@ const ICONOS_MODULO: Record<string, LucideIcon> = {
   presupuestos: FileText,
   informes: FileBarChart,
   ordenes: Wrench,
-  inbox: Mail,
+  inbox: MessagesSquare,
   asistencias: Clock,
   calendario: Calendar,
   auditoria: Shield,
   marketing: Megaphone,
   configuracion: Building2,
-  usuarios: UserCog,
+  usuarios: CircleUserRound,
   papelera: Trash2,
 }
 

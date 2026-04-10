@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
         // Crear notificación persistente para el usuario
         const horaFormateada = new Date(ahora).toLocaleTimeString('es-AR', {
           hour: '2-digit', minute: '2-digit', hour12: false,
-          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          timeZone: zona,
         })
 
         crearNotificacion({

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { registrarReciente } from '@/lib/recientes'
 
 type Contexto = { params: Promise<{ id: string }> }
 
@@ -41,6 +42,17 @@ export async function GET(_request: NextRequest, contexto: Contexto) {
         return NextResponse.json({ error: 'Evento privado' }, { status: 403 })
       }
     }
+
+    // Registrar en historial de recientes (fire-and-forget)
+    registrarReciente({
+      empresaId,
+      usuarioId: user.id,
+      tipoEntidad: 'evento',
+      entidadId: id,
+      titulo: data.titulo || 'Evento',
+      subtitulo: data.todo_el_dia ? 'Todo el día' : undefined,
+      accion: 'visto',
+    })
 
     return NextResponse.json(data)
   } catch {
@@ -175,6 +187,19 @@ export async function PUT(request: NextRequest, contexto: Contexto) {
     if (error) {
       console.error('Error al actualizar evento:', error)
       return NextResponse.json({ error: 'Error al actualizar evento' }, { status: 500 })
+    }
+
+    // Registrar edición en recientes (fire-and-forget)
+    if (data) {
+      registrarReciente({
+        empresaId,
+        usuarioId: user.id,
+        tipoEntidad: 'evento',
+        entidadId: id,
+        titulo: data.titulo || 'Evento',
+        subtitulo: data.todo_el_dia ? 'Todo el día' : undefined,
+        accion: 'editado',
+      })
     }
 
     return NextResponse.json(data)

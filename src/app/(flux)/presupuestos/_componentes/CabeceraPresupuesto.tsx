@@ -6,10 +6,11 @@
  * Se usa en: EditorPresupuesto.tsx
  */
 
+import { useState, useRef, useEffect } from 'react'
 import {
   Cloud, X, Info, RefreshCw,
   Send, Printer, FileCheck, Eye, Receipt, Ban, RotateCcw,
-  Loader2,
+  Loader2, MoreHorizontal,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import BarraEstadoPresupuesto from './BarraEstadoPresupuesto'
@@ -95,70 +96,28 @@ export default function CabeceraPresupuesto({
           )}
         </div>
         <div className="ml-auto">
-          <BarraEstadoPresupuesto estadoActual={estadoActual} />
+          <BarraEstadoPresupuesto estadoActual={estadoActual} onCambiarEstado={onCambiarEstado} />
         </div>
       </div>
 
       {/* Fila 3: Botones de acción (modo editar o post-creación) */}
       {(modo === 'editar' || presupuestoIdCreado) && (
         <div className="flex items-center gap-2 flex-wrap">
-          {(() => {
-            const BotonAccion = ({ onClick, icono: Icono, label, variante = 'default', disabled = false, animarIcono = false }: {
-              onClick: () => void; icono: typeof Send; label: string; variante?: string; disabled?: boolean; animarIcono?: boolean
-            }) => (
-              <Boton
-                onClick={onClick}
-                disabled={disabled}
-                variante={variante === 'primario' ? 'primario' : variante === 'peligro' ? 'peligro' : 'secundario'}
-                tamano="sm"
-                icono={<Icono size={15} className={animarIcono ? 'animate-spin' : ''} />}
-              >
-                <span className="hidden sm:inline">{label}</span>
-              </Boton>
-            )
-
-            const esEnviado = estadoActual === 'enviado'
-            // Re-emitir: visible si la fecha de emisión es anterior a hoy
-            const hoyStr = new Date().toISOString().split('T')[0]
-            const emisionStr = (presupuestoFechaEmision || fechaEmision || '').slice(0, 10)
-            const puedeReEmitir = emisionStr < hoyStr
-
-            if (estaCancelado) {
-              return (
-                <BotonAccion onClick={() => onCambiarEstado('borrador')} icono={RotateCcw} label={t('documentos.restablecer_borrador')} />
-              )
-            }
-
-            const siguienteEstado = estadosPosibles.find(e => e !== 'cancelado' && e !== 'borrador')
-
-            return (
-              <>
-                {esEnviado ? (
-                  <>
-                    {siguienteEstado && <BotonAccion onClick={() => onCambiarEstado(siguienteEstado)} icono={FileCheck} label={t('comun.confirmar')} variante="primario" />}
-                    <BotonAccion onClick={onImprimir} icono={generandoPdf ? Loader2 : Printer} label={generandoPdf ? 'Generando...' : t('documentos.imprimir')} disabled={generandoPdf} animarIcono={generandoPdf} />
-                    <BotonAccion onClick={onEnviarProforma} icono={Receipt} label="Enviar Factura Proforma" />
-                    <BotonAccion onClick={onEnviar} icono={Send} label={t('documentos.enviar')} />
-                    <BotonAccion onClick={onVistaPrevia} icono={Eye} label={t('documentos.vista_previa')} />
-                    {puedeReEmitir && <BotonAccion onClick={onReEmitir} icono={RefreshCw} label="Re-emitir" />}
-                    <BotonAccion onClick={() => onCambiarEstado('cancelado')} icono={Ban} label={t('comun.cancelar')} variante="peligro" />
-                  </>
-                ) : (
-                  <>
-                    <BotonAccion onClick={onEnviar} icono={Send} label={t('documentos.enviar')} />
-                    <BotonAccion onClick={onEnviarProforma} icono={Receipt} label="Enviar Factura Proforma" />
-                    <BotonAccion onClick={onImprimir} icono={generandoPdf ? Loader2 : Printer} label={generandoPdf ? 'Generando...' : t('documentos.imprimir')} disabled={generandoPdf} animarIcono={generandoPdf} />
-                    {siguienteEstado && <BotonAccion onClick={() => onCambiarEstado(siguienteEstado)} icono={FileCheck} label={t('comun.confirmar')} variante="primario" />}
-                    <BotonAccion onClick={onVistaPrevia} icono={Eye} label={t('documentos.vista_previa')} />
-                    {puedeReEmitir && <BotonAccion onClick={onReEmitir} icono={RefreshCw} label="Re-emitir" />}
-                    {!estaCancelado && estadosPosibles.includes('cancelado') && (
-                      <BotonAccion onClick={() => onCambiarEstado('cancelado')} icono={Ban} label={t('comun.cancelar')} variante="peligro" />
-                    )}
-                  </>
-                )}
-              </>
-            )
-          })()}
+          <BotonesAccion
+            estadoActual={estadoActual}
+            estaCancelado={estaCancelado}
+            estadosPosibles={estadosPosibles}
+            generandoPdf={generandoPdf}
+            presupuestoFechaEmision={presupuestoFechaEmision}
+            fechaEmision={fechaEmision}
+            onCambiarEstado={onCambiarEstado}
+            onImprimir={onImprimir}
+            onEnviar={onEnviar}
+            onEnviarProforma={onEnviarProforma}
+            onVistaPrevia={onVistaPrevia}
+            onReEmitir={onReEmitir}
+            t={t}
+          />
         </div>
       )}
 
@@ -169,6 +128,125 @@ export default function CabeceraPresupuesto({
         </p>
       )}
     </div>
+  )
+}
+
+/** Botones de acción — principales visibles + secundarios en menú ··· */
+function BotonesAccion({
+  estadoActual, estaCancelado, estadosPosibles, generandoPdf,
+  presupuestoFechaEmision, fechaEmision,
+  onCambiarEstado, onImprimir, onEnviar, onEnviarProforma, onVistaPrevia, onReEmitir, t,
+}: {
+  estadoActual: EstadoPresupuesto
+  estaCancelado: boolean
+  estadosPosibles: EstadoPresupuesto[]
+  generandoPdf: boolean
+  presupuestoFechaEmision?: string | null
+  fechaEmision?: string | null
+  onCambiarEstado: (estado: EstadoPresupuesto) => void
+  onImprimir: () => void
+  onEnviar: () => void
+  onEnviarProforma: () => void
+  onVistaPrevia: () => void
+  onReEmitir: () => void
+  t: (key: string) => string
+}) {
+  const [menuAbierto, setMenuAbierto] = useState(false)
+  const refMenu = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!menuAbierto) return
+    const cerrar = (e: MouseEvent) => {
+      if (refMenu.current && !refMenu.current.contains(e.target as Node)) setMenuAbierto(false)
+    }
+    document.addEventListener('mousedown', cerrar)
+    return () => document.removeEventListener('mousedown', cerrar)
+  }, [menuAbierto])
+
+  const BotonAccion = ({ onClick, icono: Icono, label, variante = 'default', disabled = false, animarIcono = false }: {
+    onClick: () => void; icono: typeof Send; label: string; variante?: string; disabled?: boolean; animarIcono?: boolean
+  }) => (
+    <Boton
+      onClick={onClick}
+      disabled={disabled}
+      variante={variante === 'primario' ? 'primario' : variante === 'peligro' ? 'peligro' : 'secundario'}
+      tamano="sm"
+      icono={<Icono size={15} className={animarIcono ? 'animate-spin' : ''} />}
+    >
+      <span className="hidden sm:inline">{label}</span>
+    </Boton>
+  )
+
+  const esEnviado = estadoActual === 'enviado'
+  const esConfirmadoCliente = estadoActual === 'confirmado_cliente'
+  const hoyStr = new Date().toISOString().split('T')[0]
+  const emisionStr = (presupuestoFechaEmision || fechaEmision || '').slice(0, 10)
+  const puedeReEmitir = emisionStr < hoyStr
+
+  // Solo avanzar: desde enviado → orden_venta, desde confirmado_cliente → orden_venta
+  const siguienteEstado: EstadoPresupuesto | undefined =
+    esEnviado ? 'orden_venta'
+    : esConfirmadoCliente ? 'orden_venta'
+    : undefined
+
+  if (estaCancelado) {
+    return <BotonAccion onClick={() => onCambiarEstado('borrador')} icono={RotateCcw} label={t('documentos.restablecer_borrador')} />
+  }
+
+  // Opciones del menú ···
+  const opcionesMenu: { icono: typeof Send; label: string; onClick: () => void; peligro?: boolean }[] = []
+  opcionesMenu.push({ icono: Receipt, label: 'Enviar Factura Proforma', onClick: onEnviarProforma })
+  if (puedeReEmitir) opcionesMenu.push({ icono: RefreshCw, label: 'Re-emitir', onClick: onReEmitir })
+
+  // Orden fijo: Confirmar/Aprobar OV → Enviar → Imprimir → ··· → Cancelar
+  const labelConfirmar = esConfirmadoCliente ? 'Aprobar Orden de Venta' : t('comun.confirmar')
+
+  return (
+    <>
+      {siguienteEstado && (
+        <BotonAccion
+          onClick={() => onCambiarEstado(siguienteEstado)}
+          icono={FileCheck}
+          label={labelConfirmar}
+          variante="primario"
+        />
+      )}
+      <BotonAccion onClick={onEnviar} icono={Send} label={t('documentos.enviar')} />
+      <BotonAccion onClick={onImprimir} icono={generandoPdf ? Loader2 : Printer} label={generandoPdf ? 'Generando...' : t('documentos.imprimir')} disabled={generandoPdf} animarIcono={generandoPdf} />
+      <BotonAccion onClick={onVistaPrevia} icono={Eye} label={t('documentos.vista_previa')} />
+
+      {/* Menú ··· con acciones secundarias */}
+      <div ref={refMenu} className="relative">
+        <Boton
+          variante="secundario"
+          tamano="sm"
+          soloIcono
+          icono={<MoreHorizontal size={16} />}
+          onClick={() => setMenuAbierto(v => !v)}
+          titulo="Más acciones"
+        />
+        {menuAbierto && (
+          <div className="absolute top-full mt-1 left-0 z-50 min-w-48 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden py-1">
+            {opcionesMenu.map(op => (
+              <button
+                key={op.label}
+                type="button"
+                onClick={() => { op.onClick(); setMenuAbierto(false) }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors hover:bg-superficie-tarjeta ${op.peligro ? 'text-insignia-peligro' : 'text-texto-secundario hover:text-texto-primario'}`}
+              >
+                <op.icono size={15} />
+                {op.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Cancelar siempre visible al final */}
+      {!estaCancelado && estadosPosibles.includes('cancelado') && (
+        <BotonAccion onClick={() => onCambiarEstado('cancelado')} icono={Ban} label={t('comun.cancelar')} variante="peligro" />
+      )}
+    </>
   )
 }
 

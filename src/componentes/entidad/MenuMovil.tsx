@@ -16,10 +16,10 @@ import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import type { Modulo } from '@/tipos'
 import {
-  Users, Zap, Calendar, MapPin, Mail, Clock,
+  Users, Zap, Calendar, MapPin, MessagesSquare, Clock,
   FileText, Package, Shield, Trash2, Route, Wrench,
   FileBarChart, LayoutDashboard, Blocks, Building2,
-  UserCog, X, LogOut, ChevronRight, Check, Plus,
+  CircleUserRound, X, LogOut, ChevronRight, Check, Plus,
   Circle, Megaphone,
 } from 'lucide-react'
 
@@ -49,7 +49,7 @@ interface PropiedadesMenuMovil {
 function crearItemsMovil(t: (c: string) => string): ItemNav[] {
   return [
     { id: 'inicio', etiqueta: t('navegacion.inicio'), icono: <LayoutDashboard size={20} strokeWidth={1.7} />, ruta: '/dashboard', seccion: 'principal' },
-    { id: 'inbox', etiqueta: t('navegacion.inbox'), icono: <Mail size={20} strokeWidth={1.7} />, ruta: '/inbox', seccion: 'principal', modulo: 'inbox_interno', moduloCatalogo: 'inbox' },
+    { id: 'inbox', etiqueta: t('navegacion.inbox'), icono: <MessagesSquare size={20} strokeWidth={1.7} />, ruta: '/inbox', seccion: 'principal', modulo: 'inbox_interno', moduloCatalogo: 'inbox' },
     { id: 'contactos', etiqueta: t('navegacion.contactos'), icono: <Users size={20} strokeWidth={1.7} />, ruta: '/contactos', seccion: 'principal', modulo: 'contactos', moduloCatalogo: 'contactos' },
     { id: 'actividades', etiqueta: t('navegacion.actividades'), icono: <Zap size={20} strokeWidth={1.7} />, ruta: '/actividades', seccion: 'principal', modulo: 'actividades', moduloCatalogo: 'actividades' },
     { id: 'calendario', etiqueta: t('navegacion.calendario'), icono: <Calendar size={20} strokeWidth={1.7} />, ruta: '/calendario', seccion: 'principal', modulo: 'calendario', moduloCatalogo: 'calendario' },
@@ -64,7 +64,7 @@ function crearItemsMovil(t: (c: string) => string): ItemNav[] {
     { id: 'auditoria', etiqueta: t('navegacion.auditoria'), icono: <Shield size={20} strokeWidth={1.7} />, ruta: '/auditoria', seccion: 'admin', modulo: 'auditoria', moduloCatalogo: 'auditoria' },
     { id: 'aplicaciones', etiqueta: t('navegacion.aplicaciones'), icono: <Blocks size={20} strokeWidth={1.7} />, ruta: '/aplicaciones', seccion: 'otros' },
     { id: 'empresa', etiqueta: t('empresa.titulo'), icono: <Building2 size={20} strokeWidth={1.7} />, ruta: '/configuracion', seccion: 'empresa', modulo: 'empresa' },
-    { id: 'usuarios', etiqueta: t('navegacion.usuarios'), icono: <UserCog size={20} strokeWidth={1.7} />, ruta: '/usuarios', seccion: 'empresa', modulo: 'usuarios' },
+    { id: 'usuarios', etiqueta: t('navegacion.usuarios'), icono: <CircleUserRound size={20} strokeWidth={1.7} />, ruta: '/usuarios', seccion: 'empresa', modulo: 'usuarios' },
     { id: 'papelera', etiqueta: t('navegacion.papelera'), icono: <Trash2 size={20} strokeWidth={1.7} />, ruta: '/papelera', seccion: 'otros' },
   ]
 }

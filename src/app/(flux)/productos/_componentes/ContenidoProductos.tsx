@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { useListado } from '@/hooks/useListado'
 import { useTraduccion } from '@/lib/i18n'
@@ -69,6 +69,7 @@ interface Props {
 export default function ContenidoProductos({ datosInicialesJson }: Props) {
   const { t } = useTraduccion()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const formato = useFormato()
   const queryClient = useQueryClient()
 
@@ -173,6 +174,24 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
       maximumFractionDigits: 2,
     }).format(num)
   }, [formato.locale, formato.codigoMoneda])
+
+  // ---- Abrir desde ?producto_id= (recientes del dashboard) ----
+  const productoIdParam = searchParams.get('producto_id')
+  const yaAbiertoRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!productoIdParam || productoIdParam === yaAbiertoRef.current) return
+    yaAbiertoRef.current = productoIdParam
+    fetch(`/api/productos/${productoIdParam}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) {
+          setProductoEditar(data)
+          setModalAbierto(true)
+        }
+      })
+      .catch(() => {})
+    router.replace('/productos', { scroll: false })
+  }, [productoIdParam, router])
 
   // ---- Abrir modal para edicion ----
   const abrirEdicion = useCallback(async (fila: FilaProducto) => {
