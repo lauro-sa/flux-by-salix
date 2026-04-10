@@ -252,87 +252,62 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
   const etiquetaTipo = tipo === 'servicio' ? 'servicio' : 'producto'
 
   return (
-    <Modal abierto={abierto} onCerrar={onCerrar} titulo="" tamano="5xl" sinPadding>
+    <Modal
+      abierto={abierto}
+      onCerrar={onCerrar}
+      titulo={esEdicion ? `Editar ${etiquetaTipo}` : `Nuevo ${etiquetaTipo}`}
+      tamano="5xl"
+      sinPadding
+      acciones={
+        <>
+          <Boton variante="secundario" tamano="sm" onClick={onCerrar} disabled={guardando}>
+            {t('comun.cancelar')}
+          </Boton>
+          <Boton tamano="sm" onClick={manejarGuardar} cargando={guardando} disabled={!nombre.trim()}>
+            {esEdicion ? t('comun.guardar') : t('comun.crear')}
+          </Boton>
+        </>
+      }
+    >
       <div className="flex flex-col">
 
-        {/* ═══════ HEADER — nombre inline, tipo toggle, favorito ═══════ */}
-        <div className="px-6 pt-4 pb-4 border-b border-white/[0.07]">
-          <div className="flex gap-4">
-            {/* Izquierda: estrella + nombre + tipo + toggles */}
-            <div className="flex-1 min-w-0">
-              {/* Fila 1: estrella + nombre grande inline */}
-              <div className="flex items-center gap-2">
-                <Boton
-                  variante="fantasma"
-                  tamano="sm"
-                  soloIcono
-                  titulo="Favorito"
-                  icono={favorito ? <Star size={20} className="text-insignia-advertencia fill-insignia-advertencia" /> : <StarOff size={20} />}
-                  onClick={() => setFavorito(!favorito)}
-                />
-                <Input
-                  value={nombre}
-                  onChange={e => setNombre(e.target.value)}
-                  placeholder={`Nombre del ${etiquetaTipo}`}
-                  formato={null}
-                  variante="plano"
-                  className="flex-1 text-xl font-bold"
-                  autoFocus
-                />
-              </div>
+        {/* ═══════ HEADER — nombre, tipo toggle, favorito, código ═══════ */}
+        <div className="px-6 py-4 border-b border-white/[0.07]">
+          {/* Fila 1: estrella + nombre + código */}
+          <div className="flex items-center gap-2">
+            <Boton variante="fantasma" tamano="sm" soloIcono titulo="Favorito"
+              icono={favorito ? <Star size={18} className="text-insignia-advertencia fill-insignia-advertencia" /> : <StarOff size={18} />}
+              onClick={() => setFavorito(!favorito)} />
+            <Input value={nombre} onChange={e => setNombre(e.target.value)}
+              placeholder={`Nombre del ${etiquetaTipo}`} formato={null} variante="plano"
+              className="flex-1 text-lg font-bold" autoFocus />
+            {esEdicion && (
+              <span className="text-xs font-mono text-texto-terciario bg-white/[0.04] px-2 py-1 rounded-md border border-white/[0.06] shrink-0">
+                {producto!.codigo}
+              </span>
+            )}
+          </div>
 
-              {/* Fila 2: tipo toggle + puede venderse/comprarse */}
-              <div className="flex items-center gap-4 mt-3 ml-10 flex-wrap">
-                {/* Toggle tipo */}
-                <div className="flex items-center rounded-lg overflow-hidden border border-borde-sutil">
-                  {(['servicio', 'producto'] as TipoProducto[]).map(t => {
-                    const activo = tipo === t
-                    const color = COLOR_TIPO_PRODUCTO[t]
-                    return (
-                      <Boton
-                        key={t}
-                        variante="fantasma"
-                        tamano="xs"
-                        icono={t === 'servicio' ? <Wrench size={14} /> : <Package size={14} />}
-                        onClick={() => cambiarTipo(t)}
-                        className={!activo ? 'text-texto-terciario' : ''}
-                        style={activo ? { backgroundColor: `var(--insignia-${color}-fondo)`, color: `var(--insignia-${color}-texto)` } : undefined}
-                      >
-                        {t === 'servicio' ? 'Servicio' : 'Producto'}
-                      </Boton>
-                    )
-                  })}
-                </div>
-
-                <div className="w-px h-4 bg-white/[0.07]" />
-
-                <Interruptor activo={puedeVenderse} onChange={setPuedeVenderse} etiqueta="Puede venderse" />
-                <Interruptor activo={puedeComprarse} onChange={setPuedeComprarse} etiqueta="Puede comprarse" />
-              </div>
+          {/* Fila 2: tipo toggle + puede venderse/comprarse */}
+          <div className="flex items-center gap-4 mt-3 ml-10 flex-wrap">
+            <div className="flex items-center rounded-lg overflow-hidden border border-white/[0.06]">
+              {(['servicio', 'producto'] as TipoProducto[]).map(t => {
+                const activo = tipo === t
+                const color = COLOR_TIPO_PRODUCTO[t]
+                return (
+                  <Boton key={t} variante="fantasma" tamano="xs"
+                    icono={t === 'servicio' ? <Wrench size={14} /> : <Package size={14} />}
+                    onClick={() => cambiarTipo(t)}
+                    className={!activo ? 'text-texto-terciario' : ''}
+                    style={activo ? { backgroundColor: `var(--insignia-${color}-fondo)`, color: `var(--insignia-${color}-texto)` } : undefined}>
+                    {t === 'servicio' ? 'Servicio' : 'Producto'}
+                  </Boton>
+                )
+              })}
             </div>
-
-            {/* Derecha: código + acciones */}
-            <div className="shrink-0 flex flex-col items-end gap-2">
-              <div className="flex items-center gap-2">
-                {esEdicion && (
-                  <span className="text-xs font-mono text-texto-terciario bg-superficie-app px-2 py-1 rounded-md">
-                    {producto!.codigo}
-                  </span>
-                )}
-                <Boton variante="secundario" tamano="sm" onClick={onCerrar} disabled={guardando}>
-                  {t('comun.cancelar')}
-                </Boton>
-                <Boton
-                  tamano="sm"
-                  icono={<Save size={14} />}
-                  onClick={manejarGuardar}
-                  cargando={guardando}
-                  disabled={!nombre.trim()}
-                >
-                  {esEdicion ? t('comun.guardar') : t('comun.crear')}
-                </Boton>
-              </div>
-            </div>
+            <div className="w-px h-4 bg-white/[0.07]" />
+            <Interruptor activo={puedeVenderse} onChange={setPuedeVenderse} etiqueta="Puede venderse" />
+            <Interruptor activo={puedeComprarse} onChange={setPuedeComprarse} etiqueta="Puede comprarse" />
           </div>
         </div>
 
