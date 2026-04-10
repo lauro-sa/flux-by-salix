@@ -92,10 +92,12 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
   const [actividadEditando, setActividadEditando] = useState<Actividad | null>(null)
 
   // Abrir modal de creación si viene ?crear=true desde el dashboard
+  const vieneDeDashboardRef = useRef(false)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('crear') === 'true') {
       window.history.replaceState({}, '', '/actividades')
+      vieneDeDashboardRef.current = true
       setActividadEditando(null)
       setModalAbierto(true)
     }
@@ -878,6 +880,11 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
         onCerrar={() => {
           setModalAbierto(false)
           setActividadEditando(null)
+          if (vieneDeDashboardRef.current) {
+            vieneDeDashboardRef.current = false
+            router.push('/dashboard')
+            return
+          }
           // Si vino de deep link (recientes/notificación), recargar lista
           if (vieneDeDeepLinkRef.current) {
             vieneDeDeepLinkRef.current = false

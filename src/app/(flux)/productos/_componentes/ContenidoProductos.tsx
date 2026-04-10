@@ -87,10 +87,12 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
   const [productoEditar, setProductoEditar] = useState<Producto | null>(null)
 
   // Abrir modal de creación si viene ?crear=true desde el dashboard
+  const vieneDeDashboardRef = useRef(false)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('crear') === 'true') {
       window.history.replaceState({}, '', '/productos')
+      vieneDeDashboardRef.current = true
       setProductoEditar(null)
       setModalAbierto(true)
     }
@@ -525,7 +527,10 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
       {/* Modal de creacion/edicion */}
       <ModalProducto
         abierto={modalAbierto}
-        onCerrar={() => { setModalAbierto(false); setProductoEditar(null) }}
+        onCerrar={() => {
+          setModalAbierto(false); setProductoEditar(null)
+          if (vieneDeDashboardRef.current) { vieneDeDashboardRef.current = false; router.push('/dashboard') }
+        }}
         onGuardado={manejarGuardado}
         producto={productoEditar}
         config={config}

@@ -373,13 +373,13 @@ function PestanaGeneral({
       </motion.div>
 
       {/* Accesos rápidos */}
-      <motion.div variants={itemVariantes} className="flex flex-wrap gap-2">
-        <BotonRapido etiqueta={t('contactos.nuevo')} icono={<Users size={15} />} onClick={() => router.push('/contactos/nuevo')} />
-        <BotonRapido etiqueta={t('documentos.tipos.presupuesto')} icono={<FileText size={15} />} onClick={() => router.push('/presupuestos/nuevo')} />
-        <BotonRapido etiqueta="Actividad" icono={<CheckSquare size={15} />} onClick={() => router.push('/actividades?crear=true')} />
-        <BotonRapido etiqueta="Producto" icono={<ClipboardList size={15} />} onClick={() => router.push('/productos?crear=true')} />
-        <BotonRapido etiqueta="Evento" icono={<Calendar size={15} />} onClick={() => router.push('/calendario?crear=true')} />
-        <BotonRapido etiqueta={t('dashboard.ir_al_inbox')} icono={<MessageSquare size={15} />} onClick={() => router.push('/inbox')} />
+      <motion.div variants={itemVariantes} className="flex flex-wrap justify-center gap-2">
+        <BotonRapido etiqueta={t('contactos.nuevo')} icono={<Users size={14} />} onClick={() => router.push('/contactos/nuevo?desde=dashboard')} />
+        <BotonRapido etiqueta={t('documentos.tipos.presupuesto')} icono={<FileText size={14} />} onClick={() => router.push('/presupuestos/nuevo?desde=dashboard')} />
+        <BotonRapido etiqueta="Actividad" icono={<CheckSquare size={14} />} onClick={() => router.push('/actividades?crear=true')} />
+        <BotonRapido etiqueta="Producto" icono={<ClipboardList size={14} />} onClick={() => router.push('/productos?crear=true')} />
+        <BotonRapido etiqueta="Evento" icono={<Calendar size={14} />} onClick={() => router.push('/calendario?crear=true')} />
+        <BotonRapido etiqueta={t('dashboard.ir_al_inbox')} icono={<MessageSquare size={14} />} onClick={() => router.push('/inbox')} />
       </motion.div>
 
       {/* Historial reciente — ancho completo */}
@@ -739,8 +739,12 @@ function TarjetaMensajesRecientes({ mensajes }: { mensajes: DatosDashboard['mens
 
 function BotonRapido({ etiqueta, icono, onClick }: { etiqueta: string; icono: React.ReactNode; onClick: () => void }) {
   return (
-    <Boton variante="secundario" tamano="sm" icono={<Plus size={13} strokeWidth={2} />} onClick={onClick}>
+    <button
+      onClick={onClick}
+      className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-white/[0.08] bg-white/[0.03] text-xs font-medium text-texto-secundario hover:bg-white/[0.06] hover:border-white/[0.12] hover:text-texto-primario transition-all cursor-pointer"
+    >
+      <span className="text-texto-terciario/50">{icono}</span>
       {etiqueta}
-    </Boton>
+    </button>
   )
 }

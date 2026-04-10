@@ -584,7 +584,9 @@ export default function EditorPresupuesto({
       setProductosProvisionales([])
     }
     onDescartado?.()
-    router.push('/presupuestos')
+    // Si vino desde el dashboard, volver ahí
+    const desde = new URLSearchParams(window.location.search).get('desde')
+    router.push(desde === 'dashboard' ? '/dashboard' : '/presupuestos')
   }, [modo, router, onDescartado, productosProvisionales])
 
   // ─── Contacto: seleccionar y limpiar (modo crear) ──────────────────────

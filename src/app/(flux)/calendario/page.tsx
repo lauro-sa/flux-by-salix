@@ -145,10 +145,12 @@ export default function PaginaCalendario() {
   const [fechaFinPreseleccionada, setFechaFinPreseleccionada] = useState<Date | null>(null)
 
   // Abrir modal de creación si viene ?crear=true desde el dashboard
+  const vieneDeDashboardRef = useRef(false)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('crear') === 'true') {
       window.history.replaceState({}, '', '/calendario')
+      vieneDeDashboardRef.current = true
       setEventoEditando(null)
       setModalAbierto(true)
     }
@@ -415,7 +417,8 @@ export default function PaginaCalendario() {
     setEventoEditando(null)
     setFechaPreseleccionada(null)
     setFechaFinPreseleccionada(null)
-  }, [])
+    if (vieneDeDashboardRef.current) { vieneDeDashboardRef.current = false; router.push('/dashboard') }
+  }, [router])
 
   // --- Guardar evento (crear o editar) ---
   const guardarEvento = useCallback(async (datos: Record<string, unknown>) => {

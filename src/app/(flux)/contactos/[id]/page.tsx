@@ -305,7 +305,10 @@ export default function PaginaContacto() {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ en_papelera: true }),
       })
-      if (res.ok) router.push('/contactos')
+      if (res.ok) {
+        const desde = new URLSearchParams(window.location.search).get('desde')
+        router.push(desde === 'dashboard' ? '/dashboard' : '/contactos')
+      }
     } catch (err) { console.error('Error descartando provisorio:', err) }
     finally { setAccionandoProvisorio(false) }
   }, [id, router])
