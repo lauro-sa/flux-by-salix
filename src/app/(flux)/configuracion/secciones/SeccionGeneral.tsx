@@ -221,160 +221,109 @@ export function SeccionGeneral() {
         }
       />
 
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-6 space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input
-            tipo="text"
-            formato="nombre_empresa"
-            etiqueta={t('empresa.nombre')}
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            onBlur={() => nombre && guardar({ nombre })}
-            icono={<Building2 size={16} />}
-          />
-          <div className="relative">
-            <Input
-              tipo="text"
-              formato="slug"
-              etiqueta={t('empresa.slug')}
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              onBlur={() => { slug && guardar({ slug }); setSlugBloqueado(true) }}
-              readOnly={slugBloqueado}
-              icono={<Globe size={16} />}
-              iconoDerecho={
-                <Boton
-                  variante="fantasma"
-                  tamano="xs"
-                  soloIcono
-                  icono={slugBloqueado ? <Lock size={14} /> : <LockOpen size={14} />}
-                  onClick={() => setSlugBloqueado(prev => !prev)}
-                  titulo={slugBloqueado ? 'Desbloquear para editar' : 'Bloquear subdominio'}
-                />
-              }
-              ayuda={slug ? `${slug}.fluxsalix.com · Próximamente — reservá tu subdominio` : 'Reservá el nombre de tu empresa para tu futuro subdominio'}
-              className={slugBloqueado ? 'opacity-70' : ''}
-            />
+      {/* ══ Panel: Información general ══ */}
+      <div className="border border-white/[0.06] rounded-xl overflow-hidden">
+        <div className="flex items-start gap-3 px-6 py-4 border-b border-white/[0.07]">
+          <div className="size-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(91,71,224,0.15)' }}>
+            <Building2 size={15} style={{ color: '#8B78F0' }} />
+          </div>
+          <div>
+            <h3 className="text-[13px] font-medium text-texto-primario">Información general</h3>
+            <p className="text-[11px] text-texto-terciario mt-0.5">Datos básicos de tu empresa visibles para todos los miembros.</p>
+          </div>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input tipo="text" formato="nombre_empresa" etiqueta={t('empresa.nombre')}
+              value={nombre} onChange={(e) => setNombre(e.target.value)}
+              onBlur={() => nombre && guardar({ nombre })} icono={<Building2 size={16} />} />
+            <div className="relative">
+              <Input tipo="text" formato="slug" etiqueta={t('empresa.slug')}
+                value={slug} onChange={(e) => setSlug(e.target.value)}
+                onBlur={() => { slug && guardar({ slug }); setSlugBloqueado(true) }}
+                readOnly={slugBloqueado} icono={<Globe size={16} />}
+                iconoDerecho={
+                  <Boton variante="fantasma" tamano="xs" soloIcono
+                    icono={slugBloqueado ? <Lock size={14} /> : <LockOpen size={14} />}
+                    onClick={() => setSlugBloqueado(prev => !prev)}
+                    titulo={slugBloqueado ? 'Desbloquear para editar' : 'Bloquear subdominio'} />
+                }
+                ayuda={slug ? `${slug}.fluxsalix.com` : ''}
+                className={slugBloqueado ? 'opacity-70' : ''} />
+            </div>
+          </div>
+
+          <Input tipo="text" etiqueta={t('empresa.descripcion')}
+            value={descripcionEmpresa} onChange={(e) => setDescripcionEmpresa(e.target.value)}
+            onBlur={() => guardar({ descripcion: descripcionEmpresa })}
+            placeholder="Ej: Metalúrgica - herrería de obra" />
+
+          <BloqueDireccion etiqueta={t('comun.ubicacion')}
+            valorInicial={direccionEmpresa as Partial<DatosDireccion> | null}
+            alCambiar={(dir) => {
+              setUbicacion(dir.textoCompleto)
+              setDireccionEmpresa(dir as unknown as Record<string, unknown>)
+              guardarEnServidor({ ubicacion: dir.textoCompleto, direccion: dir })
+            }} mostrarExtras={false} />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input tipo="email" etiqueta={t('empresa.correo_contacto')} placeholder="info@miempresa.com"
+              value={correo} onChange={(e) => setCorreo(e.target.value)}
+              onBlur={() => guardar({ correo })} icono={<Mail size={16} />} />
+            <Input tipo="tel" etiqueta={t('empresa.telefono')} placeholder="+54 11 1234-5678"
+              value={telefono} onChange={(e) => setTelefono(e.target.value)}
+              onBlur={() => guardar({ telefono })} icono={<Phone size={16} />} />
+          </div>
+
+          <Input tipo="url" etiqueta={t('comun.web')} placeholder="https://miempresa.com"
+            value={paginaWeb} onChange={(e) => setPaginaWeb(e.target.value)}
+            onBlur={() => guardar({ pagina_web: paginaWeb })} icono={<LinkIcon size={16} />} />
+        </div>
+      </div>
+
+      {/* ══ Panel: Datos fiscales ══ */}
+      <div className="border border-white/[0.06] rounded-xl overflow-hidden">
+        <div className="flex items-start gap-3 px-6 py-4 border-b border-white/[0.07]">
+          <div className="size-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(240,146,58,0.15)' }}>
+            <Receipt size={15} style={{ color: '#F0923A' }} />
+          </div>
+          <div>
+            <h3 className="text-[13px] font-medium text-texto-primario">Datos fiscales</h3>
+            <p className="text-[11px] text-texto-terciario mt-0.5">
+              {paisesEmpresa.length > 0
+                ? 'Identificación fiscal según los países configurados en Regionalización.'
+                : 'Configurá al menos un país en Regionalización para ver los campos fiscales.'}
+            </p>
           </div>
         </div>
 
-        <Input
-          tipo="text"
-          etiqueta={t('empresa.descripcion')}
-          value={descripcionEmpresa}
-          onChange={(e) => setDescripcionEmpresa(e.target.value)}
-          onBlur={() => guardar({ descripcion: descripcionEmpresa })}
-          placeholder="Ej: Metalúrgica - herrería de obra"
-        />
-
-        <BloqueDireccion
-          etiqueta={t('comun.ubicacion')}
-          valorInicial={direccionEmpresa as Partial<DatosDireccion> | null}
-          alCambiar={(dir) => {
-            setUbicacion(dir.textoCompleto)
-            setDireccionEmpresa(dir as unknown as Record<string, unknown>)
-            guardarEnServidor({ ubicacion: dir.textoCompleto, direccion: dir })
-          }}
-          mostrarExtras={false}
-        />
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input
-            tipo="email"
-            etiqueta={t('empresa.correo_contacto')}
-            placeholder="info@miempresa.com"
-            value={correo}
-            onChange={(e) => setCorreo(e.target.value)}
-            onBlur={() => guardar({ correo })}
-            icono={<Mail size={16} />}
-          />
-          <Input
-            tipo="tel"
-            etiqueta={t('empresa.telefono')}
-            placeholder="+54 11 1234-5678"
-            value={telefono}
-            onChange={(e) => setTelefono(e.target.value)}
-            onBlur={() => guardar({ telefono })}
-            icono={<Phone size={16} />}
-          />
-        </div>
-
-        <Input
-          tipo="url"
-          etiqueta={t('comun.web')}
-          placeholder="https://miempresa.com"
-          value={paginaWeb}
-          onChange={(e) => setPaginaWeb(e.target.value)}
-          onBlur={() => guardar({ pagina_web: paginaWeb })}
-          icono={<LinkIcon size={16} />}
-        />
-      </div>
-
-      {/* Datos fiscales — dinámicos según países configurados en Regionalización */}
-      <div>
-        <div className="mb-4">
-          <EncabezadoSeccion
-            titulo="Datos fiscales"
-            descripcion={
-              paisesEmpresa.length > 0
-                ? `Identificación fiscal de tu empresa según ${paisesEmpresa.length === 1 ? 'el país configurado' : 'los países configurados'} en Regionalización.`
-                : 'Configurá al menos un país en la sección Regionalización para ver los campos fiscales de tu empresa.'
-            }
-          />
-        </div>
-
         {camposFiscalesEmpresa.length > 0 && (
-          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-6 space-y-5">
+          <div className="px-6 py-5 space-y-5">
             {Array.from(camposPorPais.entries()).map(([codigoPais, campos]) => (
-              <div key={codigoPais}>
-                {/* Mostrar separador de país solo si hay más de un país */}
-                {paisesEmpresa.length > 1 && (
-                  <div className="flex items-center gap-2 mb-3">
-                    <Receipt size={14} className="text-texto-terciario" />
-                    <span className="text-xs font-semibold text-texto-terciario uppercase tracking-wider">
-                      {etiquetaPais(codigoPais)}
-                    </span>
-                    <div className="flex-1 h-px bg-borde-sutil" />
-                  </div>
-                )}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div key={codigoPais} className="rounded-lg border border-white/[0.06] overflow-hidden">
+                {/* Header del país */}
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-white/[0.02] border-b border-white/[0.06]">
+                  <span className="text-[10px] font-medium text-texto-terciario uppercase tracking-wider">
+                    {etiquetaPais(codigoPais)}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 px-4 py-3">
                   {campos.map(campo => (
                     <div key={campo.clave}>
                       {campo.tipo_campo === 'select' && campo.opciones ? (
-                        <Select
-                          etiqueta={campo.etiqueta}
-                          opciones={[
-                            { valor: '', etiqueta: 'Seleccionar...' },
-                            ...(campo.opciones as { valor: string; etiqueta: string }[]),
-                          ]}
+                        <Select etiqueta={campo.etiqueta}
+                          opciones={[{ valor: '', etiqueta: 'Seleccionar...' }, ...(campo.opciones as { valor: string; etiqueta: string }[])]}
                           valor={datosFiscales[campo.clave] || ''}
-                          onChange={(v) => {
-                            setDatosFiscales(prev => {
-                              const nuevos = { ...prev, [campo.clave]: v }
-                              guardarEnServidor({ datos_fiscales: nuevos })
-                              return nuevos
-                            })
-                          }}
-                        />
+                          onChange={(v) => { setDatosFiscales(prev => { const n = { ...prev, [campo.clave]: v }; guardarEnServidor({ datos_fiscales: n }); return n }) }} />
                       ) : (
-                        <Input
-                          tipo="text"
-                          etiqueta={campo.etiqueta}
+                        <Input tipo="text" etiqueta={campo.etiqueta}
                           placeholder={campo.mascara?.replace(/#/g, '0') || campo.etiqueta}
                           value={datosFiscales[campo.clave] || ''}
                           onChange={(e) => {
-                            const valorNuevo = campo.mascara
-                              ? aplicarMascara(e.target.value, campo.mascara)
-                              : e.target.value
+                            const valorNuevo = campo.mascara ? aplicarMascara(e.target.value, campo.mascara) : e.target.value
                             setDatosFiscales(prev => ({ ...prev, [campo.clave]: valorNuevo }))
                           }}
-                          onBlur={() => {
-                            setDatosFiscales(prev => {
-                              guardarEnServidor({ datos_fiscales: prev })
-                              return prev
-                            })
-                          }}
-                        />
+                          onBlur={() => { setDatosFiscales(prev => { guardarEnServidor({ datos_fiscales: prev }); return prev }) }} />
                       )}
                     </div>
                   ))}
@@ -385,16 +334,18 @@ export function SeccionGeneral() {
         )}
       </div>
 
-      {/* Datos bancarios */}
-      <div>
-        <div className="mb-4">
-          <EncabezadoSeccion
-            titulo="Datos bancarios"
-            descripcion="Cuenta bancaria principal de tu empresa. Se usa como base en presupuestos y portal de clientes."
-          />
+      {/* ══ Panel: Datos bancarios ══ */}
+      <div className="border border-white/[0.06] rounded-xl overflow-hidden">
+        <div className="flex items-start gap-3 px-6 py-4 border-b border-white/[0.07]">
+          <div className="size-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(76,175,80,0.15)' }}>
+            <Landmark size={15} style={{ color: '#4CAF50' }} />
+          </div>
+          <div>
+            <h3 className="text-[13px] font-medium text-texto-primario">Datos bancarios</h3>
+            <p className="text-[11px] text-texto-terciario mt-0.5">Cuenta bancaria principal. Se usa como base en presupuestos y portal de clientes.</p>
+          </div>
         </div>
-
-        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-6 space-y-4">
+        <div className="px-6 py-5 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               tipo="text"
@@ -443,37 +394,31 @@ export function SeccionGeneral() {
         </div>
       </div>
 
-      {/* Logos */}
-      <div>
-        <div className="mb-4">
-          <EncabezadoSeccion
-            titulo="Identidad visual"
-            descripcion="Subí los logos de tu empresa. Se usan en el sidebar, documentos, membretes y comunicaciones."
-          />
+      {/* ══ Panel: Identidad visual ══ */}
+      <div className="border border-white/[0.06] rounded-xl overflow-hidden">
+        <div className="flex items-start gap-3 px-6 py-4 border-b border-white/[0.07]">
+          <div className="size-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(236,64,122,0.15)' }}>
+            <Globe size={15} style={{ color: '#EC407A' }} />
+          </div>
+          <div>
+            <h3 className="text-[13px] font-medium text-texto-primario">Identidad visual</h3>
+            <p className="text-[11px] text-texto-terciario mt-0.5">Logos y color de marca usados en el sidebar, documentos, membretes y comunicaciones.</p>
+          </div>
         </div>
+        <div className="px-6 py-5 space-y-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <CargadorLogo variante="cuadrado" urlActual={logoCuadrado}
+              onSubir={(blob) => subirLogo(blob, 'cuadrado')} onEliminar={() => eliminarLogo('cuadrado')} />
+            <CargadorLogo variante="apaisado" urlActual={logoApaisado}
+              onSubir={(blob) => subirLogo(blob, 'apaisado')} onEliminar={() => eliminarLogo('apaisado')} />
+          </div>
 
-        <div className="space-y-4">
-          <CargadorLogo
-            variante="cuadrado"
-            urlActual={logoCuadrado}
-            onSubir={(blob) => subirLogo(blob, 'cuadrado')}
-            onEliminar={() => eliminarLogo('cuadrado')}
-          />
-          <CargadorLogo
-            variante="apaisado"
-            urlActual={logoApaisado}
-            onSubir={(blob) => subirLogo(blob, 'apaisado')}
-            onEliminar={() => eliminarLogo('apaisado')}
-          />
+          <div className="border-t border-white/[0.07]" />
+
+          <SelectorColor valor={colorMarca} coloresLogo={coloresLogo}
+            onChange={(c) => { setColorMarca(c); guardar({ color_marca: c }) }} />
         </div>
       </div>
-
-      {/* Color de marca */}
-      <SelectorColor
-        valor={colorMarca}
-        coloresLogo={coloresLogo}
-        onChange={(c) => { setColorMarca(c); guardar({ color_marca: c }) }}
-      />
     </div>
   )
 }
