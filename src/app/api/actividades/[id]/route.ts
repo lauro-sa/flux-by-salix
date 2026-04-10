@@ -147,7 +147,65 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         })
       }
 
-      return NextResponse.json(data)
+      // Encadenamiento: verificar si el tipo tiene siguiente actividad configurada
+      const { data: tipoEncad } = await admin
+        .from('tipos_actividad')
+        .select('siguiente_tipo_id, tipo_encadenamiento')
+        .eq('id', data.tipo_id)
+        .single()
+
+      let siguiente: Record<string, unknown> | null = null
+      if (tipoEncad?.siguiente_tipo_id) {
+        const { data: siguienteTipo } = await admin
+          .from('tipos_actividad')
+          .select('*')
+          .eq('id', tipoEncad.siguiente_tipo_id)
+          .single()
+
+        if (siguienteTipo) {
+          if (tipoEncad.tipo_encadenamiento === 'activar') {
+            // Crear automáticamente la siguiente actividad
+            const fechaVenc = siguienteTipo.dias_vencimiento
+              ? new Date(Date.now() + siguienteTipo.dias_vencimiento * 86400000).toISOString()
+              : null
+            const estadoPendiente = await admin
+              .from('estados_actividad')
+              .select('id, clave')
+              .eq('empresa_id', empresaId)
+              .eq('clave', 'pendiente')
+              .single()
+
+            if (estadoPendiente.data) {
+              const { data: nuevaAct } = await admin.from('actividades').insert({
+                empresa_id: empresaId,
+                titulo: siguienteTipo.resumen_predeterminado || `${siguienteTipo.etiqueta} - ${data.titulo}`,
+                descripcion: siguienteTipo.nota_predeterminada || null,
+                tipo_id: siguienteTipo.id,
+                tipo_clave: siguienteTipo.clave,
+                estado_id: estadoPendiente.data.id,
+                estado_clave: estadoPendiente.data.clave,
+                prioridad: data.prioridad || 'normal',
+                fecha_vencimiento: fechaVenc,
+                asignado_a: siguienteTipo.usuario_predeterminado || data.asignado_a,
+                asignado_nombre: siguienteTipo.usuario_predeterminado
+                  ? null // se resuelve después
+                  : data.asignado_nombre,
+                vinculos: data.vinculos || [],
+                checklist: [],
+                creado_por: user.id,
+                creado_por_nombre: nombreEditor,
+              }).select().single()
+
+              siguiente = { tipo: 'creada', actividad: nuevaAct, tipo_actividad: siguienteTipo }
+            }
+          } else {
+            // Sugerir: devolver info para que el frontend muestre el modal
+            siguiente = { tipo: 'sugerir', tipo_actividad: siguienteTipo, vinculos: data.vinculos }
+          }
+        }
+      }
+
+      return NextResponse.json({ ...data, siguiente })
     }
 
     if (body.accion === 'posponer') {

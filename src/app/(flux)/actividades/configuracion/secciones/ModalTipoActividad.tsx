@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Input } from '@/componentes/ui/Input'
+import { TextArea } from '@/componentes/ui/TextArea'
+import { Select } from '@/componentes/ui/Select'
 import { Boton } from '@/componentes/ui/Boton'
 import { SelectorIcono, obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import { Interruptor } from '@/componentes/ui/Interruptor'
@@ -20,6 +22,8 @@ import { PALETA_COLORES_TIPO_ACTIVIDAD } from '@/lib/colores_entidad'
 interface PropiedadesModal {
   abierto: boolean
   tipo: TipoActividad | null
+  tipos: TipoActividad[]
+  miembros: { usuario_id: string; nombre: string; apellido: string }[]
   modulosDisponibles: { clave: string; etiqueta: string; grupo?: string }[]
   guardando: boolean
   onGuardar: (datos: Record<string, unknown>) => void
@@ -40,7 +44,7 @@ const CAMPOS_DISPONIBLES = [
   { clave: 'campo_calendario', etiqueta: 'Agendar en calendario', descripcion: 'Al crear, permite agendar bloques en el calendario' },
 ]
 
-function ModalTipoActividad({ abierto, tipo, modulosDisponibles, guardando, onGuardar, onCerrar, onEliminar }: PropiedadesModal) {
+function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles, guardando, onGuardar, onCerrar, onEliminar }: PropiedadesModal) {
   const esEdicion = !!tipo
 
   // Estado del formulario
@@ -59,6 +63,11 @@ function ModalTipoActividad({ abierto, tipo, modulosDisponibles, guardando, onGu
     campo_calendario: false,
   })
   const [autoCompletar, setAutoCompletar] = useState(false)
+  const [resumenPredeterminado, setResumenPredeterminado] = useState('')
+  const [notaPredeterminada, setNotaPredeterminada] = useState('')
+  const [usuarioPredeterminado, setUsuarioPredeterminado] = useState('')
+  const [siguienteTipoId, setSiguienteTipoId] = useState('')
+  const [tipoEncadenamiento, setTipoEncadenamiento] = useState<'sugerir' | 'activar'>('sugerir')
   // Ref para el input color nativo (gotero)
   const colorInputRef = useRef<HTMLInputElement>(null)
 
@@ -81,6 +90,11 @@ function ModalTipoActividad({ abierto, tipo, modulosDisponibles, guardando, onGu
         campo_calendario: tipo.campo_calendario ?? false,
       })
       setAutoCompletar(tipo.auto_completar ?? false)
+      setResumenPredeterminado(tipo.resumen_predeterminado || '')
+      setNotaPredeterminada(tipo.nota_predeterminada || '')
+      setUsuarioPredeterminado(tipo.usuario_predeterminado || '')
+      setSiguienteTipoId(tipo.siguiente_tipo_id || '')
+      setTipoEncadenamiento(tipo.tipo_encadenamiento || 'sugerir')
     } else {
       setEtiqueta('')
       setClave('')
@@ -97,6 +111,11 @@ function ModalTipoActividad({ abierto, tipo, modulosDisponibles, guardando, onGu
         campo_calendario: false,
       })
       setAutoCompletar(false)
+      setResumenPredeterminado('')
+      setNotaPredeterminada('')
+      setUsuarioPredeterminado('')
+      setSiguienteTipoId('')
+      setTipoEncadenamiento('sugerir')
     }
   }, [abierto, tipo])
 
@@ -125,6 +144,11 @@ function ModalTipoActividad({ abierto, tipo, modulosDisponibles, guardando, onGu
       modulos_disponibles: modulos,
       dias_vencimiento: diasVencimiento,
       auto_completar: autoCompletar,
+      resumen_predeterminado: resumenPredeterminado.trim() || null,
+      nota_predeterminada: notaPredeterminada.trim() || null,
+      usuario_predeterminado: usuarioPredeterminado || null,
+      siguiente_tipo_id: siguienteTipoId || null,
+      tipo_encadenamiento: tipoEncadenamiento,
       ...campos,
     }
     if (esEdicion) datos.id = tipo!.id
@@ -331,6 +355,76 @@ function ModalTipoActividad({ abierto, tipo, modulosDisponibles, guardando, onGu
               </div>
             ))}
           </div>
+        </div>
+
+        {/* ── Valores predeterminados ── */}
+        <div className="border-t border-borde-sutil pt-5 space-y-4">
+          <label className="text-sm font-medium text-texto-secundario block">Valores predeterminados al crear</label>
+
+          <Input
+            tipo="text"
+            etiqueta="Resumen predeterminado"
+            value={resumenPredeterminado}
+            onChange={(e) => setResumenPredeterminado(e.target.value)}
+            placeholder='Ej: "Hablar sobre la propuesta"'
+          />
+
+          <TextArea
+            etiqueta="Nota predeterminada"
+            value={notaPredeterminada}
+            onChange={(e) => setNotaPredeterminada(e.target.value)}
+            placeholder='Ej: "Revisar la oferta y hablar sobre los detalles"'
+            rows={2}
+          />
+
+          <Select
+            etiqueta="Responsable predeterminado"
+            valor={usuarioPredeterminado}
+            onChange={setUsuarioPredeterminado}
+            placeholder="Sin asignar (el creador elige)"
+            opciones={miembros.map(m => ({
+              valor: m.usuario_id,
+              etiqueta: `${m.nombre} ${m.apellido}`.trim(),
+            }))}
+          />
+        </div>
+
+        {/* ── Siguiente actividad (encadenamiento) ── */}
+        <div className="border-t border-borde-sutil pt-5 space-y-4">
+          <label className="text-sm font-medium text-texto-secundario block">Siguiente actividad</label>
+          <p className="text-xs text-texto-terciario -mt-2">Al completar una actividad de este tipo, puede sugerir o crear automáticamente la siguiente.</p>
+
+          <Select
+            etiqueta="Tipo de actividad siguiente"
+            valor={siguienteTipoId}
+            onChange={setSiguienteTipoId}
+            placeholder="Ninguna"
+            opciones={tipos.filter(t => t.activo && t.id !== tipo?.id).map(t => ({
+              valor: t.id,
+              etiqueta: t.etiqueta,
+            }))}
+          />
+
+          {siguienteTipoId && (
+            <div className="flex gap-2">
+              {(['sugerir', 'activar'] as const).map(modo => (
+                <button
+                  key={modo}
+                  onClick={() => setTipoEncadenamiento(modo)}
+                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer border ${
+                    tipoEncadenamiento === modo
+                      ? 'bg-texto-marca text-white border-texto-marca'
+                      : 'bg-superficie-tarjeta text-texto-secundario border-borde-sutil hover:border-borde-fuerte'
+                  }`}
+                >
+                  <span className="block">{modo === 'sugerir' ? 'Sugerir' : 'Crear automáticamente'}</span>
+                  <span className="block text-xs opacity-70 mt-0.5 font-normal">
+                    {modo === 'sugerir' ? 'Muestra un aviso para confirmar' : 'Se crea sola al completar'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ── Auto-completar ── */}

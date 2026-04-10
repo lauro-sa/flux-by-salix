@@ -248,6 +248,12 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
     }
   }
 
+  // Estado para sugerencia de siguiente actividad
+  const [sugerenciaSiguiente, setSugerenciaSiguiente] = useState<{
+    tipoActividad: TipoActividad
+    vinculos: Vinculo[]
+  } | null>(null)
+
   const completarActividad = async (id: string) => {
     try {
       const res = await fetch(`/api/actividades/${id}`, {
@@ -256,8 +262,21 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
         body: JSON.stringify({ accion: 'completar' }),
       })
       if (!res.ok) throw new Error()
+      const data = await res.json()
       mostrar('exito', 'Actividad completada')
       recargarActividades()
+
+      // Manejar encadenamiento
+      if (data.siguiente) {
+        if (data.siguiente.tipo === 'creada') {
+          mostrar('info', `Se creó automáticamente: ${data.siguiente.actividad?.titulo || 'siguiente actividad'}`)
+        } else if (data.siguiente.tipo === 'sugerir') {
+          setSugerenciaSiguiente({
+            tipoActividad: data.siguiente.tipo_actividad,
+            vinculos: data.siguiente.vinculos || [],
+          })
+        }
+      }
     } catch {
       mostrar('error', 'Error al completar la actividad')
     }
@@ -871,6 +890,24 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
           </div>
         </>
       )}
+      {/* Sugerencia de siguiente actividad (encadenamiento) */}
+      <ModalConfirmacion
+        abierto={!!sugerenciaSiguiente}
+        titulo="Crear siguiente actividad"
+        descripcion={sugerenciaSiguiente ? `La actividad fue completada. ¿Querés crear una actividad de tipo "${sugerenciaSiguiente.tipoActividad.etiqueta}"?` : ''}
+        etiquetaConfirmar="Crear actividad"
+        tipo="info"
+        onConfirmar={() => {
+          if (sugerenciaSiguiente) {
+            // Abrir modal con el tipo y vínculos precargados
+            setActividadEditando(null)
+            // Forzar tipo pre-seleccionado: se setea en el modal via vinculoInicial
+            setModalAbierto(true)
+          }
+          setSugerenciaSiguiente(null)
+        }}
+        onCerrar={() => setSugerenciaSiguiente(null)}
+      />
     </PlantillaListado>
   )
 }

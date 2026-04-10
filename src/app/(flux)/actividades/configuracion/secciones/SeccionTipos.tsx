@@ -49,6 +49,11 @@ export interface TipoActividad {
   campo_checklist: boolean
   campo_calendario: boolean
   auto_completar: boolean
+  resumen_predeterminado: string | null
+  nota_predeterminada: string | null
+  usuario_predeterminado: string | null
+  siguiente_tipo_id: string | null
+  tipo_encadenamiento: 'sugerir' | 'activar'
   orden: number
   activo: boolean
   es_predefinido: boolean
@@ -56,12 +61,13 @@ export interface TipoActividad {
 
 interface PropiedadesSeccionTipos {
   tipos: TipoActividad[]
+  miembros: { usuario_id: string; nombre: string; apellido: string }[]
   cargando: boolean
   onActualizar: (tipos: TipoActividad[]) => void
   onAccionAPI: (accion: string, datos: Record<string, unknown>) => Promise<unknown>
 }
 
-function SeccionTipos({ tipos, cargando, onActualizar, onAccionAPI }: PropiedadesSeccionTipos) {
+function SeccionTipos({ tipos, miembros, cargando, onActualizar, onAccionAPI }: PropiedadesSeccionTipos) {
   const [orden, setOrden] = useState<TipoActividad[]>(tipos)
   const [modalAbierto, setModalAbierto] = useState(false)
   const [tipoEditando, setTipoEditando] = useState<TipoActividad | null>(null)
@@ -185,6 +191,8 @@ function SeccionTipos({ tipos, cargando, onActualizar, onAccionAPI }: Propiedade
       <ModalTipoActividad
         abierto={modalAbierto}
         tipo={tipoEditando}
+        tipos={tipos}
+        miembros={miembros}
         modulosDisponibles={MODULOS_DISPONIBLES}
         guardando={guardando}
         onGuardar={tipoEditando ? editarTipo : crearTipo}

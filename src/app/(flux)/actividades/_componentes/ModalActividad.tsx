@@ -183,13 +183,31 @@ function ModalActividad({
       setTituloManual(false)
       setBloquesNuevos([])
 
-      // Auto-título inteligente
-      setTitulo(generarTituloAuto(primerTipoId, vincsIniciales))
+      // Auto-título inteligente: resumen predeterminado > auto-generado
+      const primerTipo = tiposActivos[0]
+      if (primerTipo?.resumen_predeterminado) {
+        const contacto = vincsIniciales.find(v => v.tipo === 'contacto')
+        setTitulo(primerTipo.resumen_predeterminado.replace('{contacto}', contacto?.nombre || ''))
+      } else {
+        setTitulo(generarTituloAuto(primerTipoId, vincsIniciales))
+      }
+
+      // Nota predeterminada
+      if (primerTipo?.nota_predeterminada) {
+        setDescripcion(primerTipo.nota_predeterminada)
+      }
+
+      // Usuario predeterminado
+      if (primerTipo?.usuario_predeterminado) {
+        setAsignadoA(primerTipo.usuario_predeterminado)
+        const m = miembros.find(m => m.usuario_id === primerTipo.usuario_predeterminado)
+        setAsignadoNombre(m ? `${m.nombre} ${m.apellido}`.trim() : null)
+      }
 
       // Auto-set fecha vencimiento según tipo
-      if (tiposActivos[0]?.dias_vencimiento) {
+      if (primerTipo?.dias_vencimiento) {
         const fecha = new Date()
-        fecha.setDate(fecha.getDate() + tiposActivos[0].dias_vencimiento)
+        fecha.setDate(fecha.getDate() + primerTipo.dias_vencimiento)
         setFechaVencimiento(fecha.toISOString().split('T')[0])
       }
     }
@@ -209,14 +227,24 @@ function ModalActividad({
     // Limpiar campos que el nuevo tipo no usa (evita datos fantasma)
     if (tipo) {
       if (!tipo.campo_descripcion) setDescripcion('')
+      else if (!esEdicion && tipo.nota_predeterminada) setDescripcion(tipo.nota_predeterminada)
       if (!tipo.campo_responsable) { setAsignadoA(null); setAsignadoNombre(null) }
+      else if (!esEdicion && tipo.usuario_predeterminado) {
+        setAsignadoA(tipo.usuario_predeterminado)
+        const m = miembros.find(m => m.usuario_id === tipo.usuario_predeterminado)
+        setAsignadoNombre(m ? `${m.nombre} ${m.apellido}`.trim() : null)
+      }
       if (!tipo.campo_prioridad) setPrioridad('normal')
       if (!tipo.campo_checklist) setChecklist([])
       if (!tipo.campo_fecha) setFechaVencimiento('')
-      // bloquesNuevos NO se limpian — son independientes del tipo
     }
 
     if (!esEdicion) {
+      // Resumen predeterminado al cambiar tipo
+      if (!tituloManual && tipo?.resumen_predeterminado) {
+        const contacto = vinculos.find(v => v.tipo === 'contacto')
+        setTitulo(tipo.resumen_predeterminado.replace('{contacto}', contacto?.nombre || ''))
+      }
       if (tipo?.dias_vencimiento && tipo.campo_fecha) {
         const fecha = new Date()
         fecha.setDate(fecha.getDate() + tipo.dias_vencimiento)
@@ -344,7 +372,7 @@ function ModalActividad({
       abierto={abierto && !selectorCalendarioAbierto}
       onCerrar={onCerrar}
       titulo={esEdicion ? 'Editar actividad' : 'Nueva actividad'}
-      tamano="3xl"
+      tamano="2xl"
       acciones={
         <>
           <Boton variante="secundario" tamano="sm" onClick={onCerrar}>{t('comun.cancelar')}</Boton>
@@ -354,34 +382,19 @@ function ModalActividad({
         </>
       }
     >
-      <div className="space-y-5">
-        {/* ── Acciones rápidas (solo en edición, actividad pendiente) — ancho completo ── */}
+      <div className="space-y-4">
+        {/* ── Acciones rápidas (solo en edición, actividad pendiente) ── */}
         {esEdicion && actividad && actividad.estado_clave !== 'completada' && actividad.estado_clave !== 'cancelada' && (
-          <div className="flex flex-wrap gap-2">
-            {/* Botón Completar */}
+          <div className="flex flex-wrap gap-2 pb-3 border-b border-borde-sutil">
             {onCompletar && (
-              <Boton
-                variante="exito"
-                tamano="sm"
-                redondeado
-                icono={<CheckCircle size={15} />}
-                onClick={async () => { await onCompletar(actividad.id); onCerrar() }}
-              >
+              <Boton variante="exito" tamano="sm" redondeado icono={<CheckCircle size={15} />}
+                onClick={async () => { await onCompletar(actividad.id); onCerrar() }}>
                 Completar
               </Boton>
             )}
-            {/* Botón Posponer */}
             {onPosponer && (
               <div className="relative group">
-                <Boton
-                  variante="advertencia"
-                  tamano="sm"
-                  redondeado
-                  icono={<Clock size={15} />}
-                >
-                  Posponer
-                </Boton>
-                {/* Dropdown de opciones */}
+                <Boton variante="advertencia" tamano="sm" redondeado icono={<Clock size={15} />}>Posponer</Boton>
                 <div className="absolute top-full left-0 mt-1 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden z-50 hidden group-hover:block min-w-[140px]">
                   {(presetsPosposicion ?? [
                     { id: '1d', etiqueta: '1 día', dias: 1 },
@@ -389,18 +402,15 @@ function ModalActividad({
                     { id: '1s', etiqueta: '1 semana', dias: 7 },
                     { id: '2s', etiqueta: '2 semanas', dias: 14 },
                   ]).map(op => (
-                    <button
-                      key={op.id}
+                    <button key={op.id}
                       onClick={async () => { await onPosponer(actividad.id, op.dias); onCerrar() }}
-                      className="w-full px-3 py-2 text-sm text-left text-texto-primario bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
-                    >
+                      className="w-full px-3 py-2 text-sm text-left text-texto-primario bg-transparent border-none cursor-pointer hover:bg-superficie-hover transition-colors">
                       {op.etiqueta}
                     </button>
                   ))}
                 </div>
               </div>
             )}
-            {/* Botón acción inteligente según tipo */}
             {(() => {
               const tipoAct = tiposActivos.find(t => t.id === actividad.tipo_id)
               const accion = tipoAct ? ACCIONES_TIPO[tipoAct.clave] : null
@@ -408,14 +418,9 @@ function ModalActividad({
               const contacto = (actividad.vinculos as Vinculo[])?.find(v => v.tipo === 'contacto')
               const IconoAccion = accion.icono
               return (
-                <Boton
-                  variante="fantasma"
-                  tamano="sm"
-                  redondeado
-                  icono={<IconoAccion size={15} />}
+                <Boton variante="fantasma" tamano="sm" redondeado icono={<IconoAccion size={15} />}
                   onClick={() => { onCerrar(); router.push(accion.ruta(contacto?.id)) }}
-                  className="bg-texto-marca/10 text-texto-marca hover:bg-texto-marca/15"
-                >
+                  className="bg-texto-marca/10 text-texto-marca hover:bg-texto-marca/15">
                   {accion.etiqueta}
                 </Boton>
               )
@@ -423,212 +428,149 @@ function ModalActividad({
           </div>
         )}
 
-        {/* ── Selector de tipo (pills compactas) — ancho completo arriba del grid ── */}
+        {/* ── Tipo de actividad (pills) ── */}
         {tiposActivos.length > 1 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {tiposActivos.map(tipo => {
-              const Icono = obtenerIcono(tipo.icono)
-              const sel = tipoId === tipo.id
-              return (
-                <button
-                  key={tipo.id}
-                  onClick={() => manejarCambioTipo(tipo.id)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer border focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2 ${
-                    sel
-                      ? 'border-transparent text-white shadow-sm'
-                      : 'bg-transparent text-texto-terciario border-borde-sutil hover:text-texto-secundario hover:border-borde-fuerte'
-                  }`}
-                  style={sel ? { backgroundColor: tipo.color } : undefined}
-                >
-                  {Icono && <Icono size={12} />}
-                  {tipo.etiqueta}
-                </button>
-              )
-            })}
+          <div>
+            <label className="text-xs font-medium text-texto-terciario block mb-2">Tipo</label>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {tiposActivos.map(tipo => {
+                const Icono = obtenerIcono(tipo.icono)
+                const sel = tipoId === tipo.id
+                return (
+                  <button key={tipo.id} onClick={() => manejarCambioTipo(tipo.id)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer border ${
+                      sel ? 'border-transparent text-white shadow-sm' : 'bg-transparent text-texto-terciario border-borde-sutil hover:text-texto-secundario hover:border-borde-fuerte'
+                    }`}
+                    style={sel ? { backgroundColor: tipo.color } : undefined}>
+                    {Icono && <Icono size={13} />}
+                    {tipo.etiqueta}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         )}
 
-        {/* Si solo hay 1 tipo, mostrarlo como badge sutil */}
         {tiposActivos.length === 1 && tipoSeleccionado && (() => {
           const Icono = obtenerIcono(tipoSeleccionado.icono)
           return (
-            <div className="flex items-center gap-1.5">
-              <span
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-white"
-                style={{ backgroundColor: tipoSeleccionado.color }}
-              >
-                {Icono && <Icono size={12} />}
+            <div>
+              <label className="text-xs font-medium text-texto-terciario block mb-2">Tipo</label>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-white"
+                style={{ backgroundColor: tipoSeleccionado.color }}>
+                {Icono && <Icono size={13} />}
                 {tipoSeleccionado.etiqueta}
               </span>
             </div>
           )
         })()}
 
-        {/* ── Layout 2 columnas (desktop) / 1 columna (mobile) ── */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-          {/* ── Columna izquierda (60%) — título, descripción, checklist ── */}
-          <div className="md:col-span-3 space-y-4">
-            {/* Título */}
-            <Input
-              tipo="text"
-              etiqueta="Título"
-              value={titulo}
-              onChange={(e) => { setTitulo(e.target.value); setTituloManual(true) }}
-              placeholder="¿Qué hay que hacer?"
-            />
+        {/* ── Formulario en filas limpias ── */}
+        <div className="space-y-3">
+          {/* Título */}
+          <Input tipo="text" etiqueta="Título" value={titulo}
+            onChange={(e) => { setTitulo(e.target.value); setTituloManual(true) }}
+            placeholder="¿Qué hay que hacer?" />
 
-            {/* Descripción (condicional) */}
-            {tipoSeleccionado?.campo_descripcion && (
-              <TextArea
-                etiqueta="Descripción"
-                value={descripcion}
-                onChange={(e) => setDescripcion(e.target.value)}
-                placeholder="Detalles adicionales..."
-                rows={3}
-              />
-            )}
+          {/* Vínculos — justo después del título para contexto */}
+          <SeccionVinculos vinculos={vinculos} onChange={manejarCambioVinculos} onNavegar={(ruta) => { onCerrar(); router.push(ruta) }} />
 
-            {/* Checklist (condicional) */}
-            {tipoSeleccionado?.campo_checklist && (
-              <SeccionChecklist checklist={checklist} onChange={setChecklist} />
-            )}
-          </div>
+          {/* Fila: Responsable + Prioridad + Fecha */}
+          {(tipoSeleccionado?.campo_responsable || tipoSeleccionado?.campo_prioridad || tipoSeleccionado?.campo_fecha) && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {tipoSeleccionado?.campo_responsable && (
+                <Select etiqueta="Responsable" valor={asignadoA || ''}
+                  onChange={(val) => {
+                    setAsignadoA(val || null)
+                    const m = miembros.find(m => m.usuario_id === val)
+                    setAsignadoNombre(m ? `${m.nombre} ${m.apellido}`.trim() : null)
+                  }}
+                  placeholder="Sin asignar"
+                  opciones={miembros.map(m => ({ valor: m.usuario_id, etiqueta: `${m.nombre} ${m.apellido}`.trim() }))} />
+              )}
+              {tipoSeleccionado?.campo_prioridad && (
+                <Select etiqueta="Prioridad" valor={prioridad} onChange={setPrioridad}
+                  opciones={[
+                    { valor: 'baja', etiqueta: 'Baja' },
+                    { valor: 'normal', etiqueta: 'Normal' },
+                    { valor: 'alta', etiqueta: 'Alta' },
+                  ]} />
+              )}
+              {tipoSeleccionado?.campo_fecha && (
+                <SelectorFecha valor={fechaVencimiento} onChange={(v) => setFechaVencimiento(v || '')}
+                  etiqueta="Vencimiento" limpiable />
+              )}
+            </div>
+          )}
 
-          {/* ── Columna derecha (40%) — metadata compacta ── */}
-          <div className="md:col-span-2 space-y-3 md:border-l md:border-borde-sutil md:pl-6">
-            {/* Campos de metadata en bloques compactos */}
-            {(tipoSeleccionado?.campo_responsable || tipoSeleccionado?.campo_prioridad || tipoSeleccionado?.campo_fecha) && (
-              <div className="space-y-3">
-                {/* Responsable */}
-                {tipoSeleccionado?.campo_responsable && (
-                  <Select
-                    etiqueta="Responsable"
-                    valor={asignadoA || ''}
-                    onChange={(val) => {
-                      setAsignadoA(val || null)
-                      const m = miembros.find(m => m.usuario_id === val)
-                      setAsignadoNombre(m ? `${m.nombre} ${m.apellido}`.trim() : null)
-                    }}
-                    placeholder="Sin asignar"
-                    opciones={miembros.map(m => ({
-                      valor: m.usuario_id,
-                      etiqueta: `${m.nombre} ${m.apellido}`.trim(),
-                    }))}
-                  />
-                )}
+          {/* Descripción */}
+          {tipoSeleccionado?.campo_descripcion && (
+            <TextArea etiqueta="Descripción" value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+              placeholder="Detalles adicionales..." rows={3} />
+          )}
 
-                {/* Prioridad + Fecha en fila cuando ambos están */}
-                {(tipoSeleccionado?.campo_prioridad || tipoSeleccionado?.campo_fecha) && (
-                  <div className={`grid gap-3 ${tipoSeleccionado?.campo_prioridad && tipoSeleccionado?.campo_fecha ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                    {tipoSeleccionado?.campo_prioridad && (
-                      <Select
-                        etiqueta="Prioridad"
-                        valor={prioridad}
-                        onChange={setPrioridad}
-                        opciones={[
-                          { valor: 'baja', etiqueta: 'Baja' },
-                          { valor: 'normal', etiqueta: 'Normal' },
-                          { valor: 'alta', etiqueta: 'Alta' },
-                        ]}
-                      />
-                    )}
-                    {tipoSeleccionado?.campo_fecha && (
-                      <SelectorFecha
-                        valor={fechaVencimiento}
-                        onChange={(v) => setFechaVencimiento(v || '')}
-                        etiqueta="Vencimiento"
-                        limpiable
-                      />
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+          {/* Checklist */}
+          {tipoSeleccionado?.campo_checklist && (
+            <SeccionChecklist checklist={checklist} onChange={setChecklist} />
+          )}
 
-            {/* Vínculos */}
-            <SeccionVinculos vinculos={vinculos} onChange={manejarCambioVinculos} onNavegar={(ruta) => { onCerrar(); router.push(ruta) }} />
+          {/* Bloques de calendario — edición */}
+          {esEdicion && actividad && (
+            <div className="space-y-2">
+              <SeccionBloquesCalendario actividadId={actividad.id} titulo={actividad.titulo}
+                asignadoA={asignadoA} asignadoNombre={asignadoNombre} vinculos={vinculos} />
+              <Boton variante="fantasma" tamano="xs" icono={<Calendar size={14} />}
+                onClick={() => setSelectorCalendarioAbierto(true)}>
+                Abrir calendario para agregar bloques
+              </Boton>
+            </div>
+          )}
 
-            {/* Bloques de calendario — edición: lista existente + botón abrir calendario */}
-            {esEdicion && actividad && (
-              <>
-                <SeccionBloquesCalendario
-                  actividadId={actividad.id}
-                  titulo={actividad.titulo}
-                  asignadoA={asignadoA}
-                  asignadoNombre={asignadoNombre}
-                  vinculos={vinculos}
-                />
-                <Boton
-                  variante="fantasma"
-                  tamano="xs"
-                  icono={<Calendar size={14} />}
-                  onClick={() => setSelectorCalendarioAbierto(true)}
-                >
-                  Abrir calendario para agregar bloques
-                </Boton>
-              </>
-            )}
-
-            {/* Bloques de calendario — creación: selector visual */}
-            {!esEdicion && tipoConCalendario && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Calendar size={14} className="text-texto-terciario" />
-                    <span className="text-xs font-medium text-texto-secundario">Agendar en calendario</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setSelectorCalendarioAbierto(true)}
-                    className="text-xxs text-texto-marca font-medium bg-transparent border-none cursor-pointer hover:underline"
-                  >
-                    Abrir calendario
-                  </button>
+          {/* Bloques de calendario — creación */}
+          {!esEdicion && tipoConCalendario && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calendar size={14} className="text-texto-terciario" />
+                  <span className="text-xs font-medium text-texto-secundario">Agendar en calendario</span>
                 </div>
-
-                {bloquesNuevos.length === 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => setSelectorCalendarioAbierto(true)}
-                    className="w-full p-2.5 rounded-lg border border-dashed border-borde-sutil text-xxs text-texto-terciario hover:border-texto-marca/30 hover:text-texto-marca transition-colors"
-                  >
-                    Hacé clic para abrir el calendario y ver disponibilidad
-                  </button>
-                ) : (
-                  <div className="space-y-1">
-                    {bloquesNuevos.map((bloque, i) => (
-                      <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-superficie-hover/50 text-xs">
-                        <span className="size-1.5 rounded-full bg-texto-marca shrink-0" />
-                        <span className="text-texto-primario font-medium">{bloque.fecha}</span>
-                        <span className="text-texto-terciario">
-                          {bloque.horaInicio} – {bloque.horaFin}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setBloquesNuevos(prev => prev.filter((_, idx) => idx !== i))}
-                          className="ml-auto text-texto-terciario hover:text-estado-error transition-colors"
-                        >
-                          <X size={13} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
+                <button type="button" onClick={() => setSelectorCalendarioAbierto(true)}
+                  className="text-xxs text-texto-marca font-medium bg-transparent border-none cursor-pointer hover:underline">
+                  Abrir calendario
+                </button>
               </div>
-            )}
-          </div>
+              {bloquesNuevos.length === 0 ? (
+                <button type="button" onClick={() => setSelectorCalendarioAbierto(true)}
+                  className="w-full p-2.5 rounded-lg border border-dashed border-borde-sutil text-xxs text-texto-terciario hover:border-texto-marca/30 hover:text-texto-marca transition-colors">
+                  Hacé clic para abrir el calendario y ver disponibilidad
+                </button>
+              ) : (
+                <div className="space-y-1">
+                  {bloquesNuevos.map((bloque, i) => (
+                    <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-superficie-hover/50 text-xs">
+                      <span className="size-1.5 rounded-full bg-texto-marca shrink-0" />
+                      <span className="text-texto-primario font-medium">{bloque.fecha}</span>
+                      <span className="text-texto-terciario">{bloque.horaInicio} – {bloque.horaFin}</span>
+                      <button type="button" onClick={() => setBloquesNuevos(prev => prev.filter((_, idx) => idx !== i))}
+                        className="ml-auto text-texto-terciario hover:text-estado-error transition-colors">
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* ── Seguimientos (solo edición) — ancho completo debajo del grid ── */}
+        {/* ── Seguimientos (solo edición) ── */}
         {esEdicion && (
           <SeccionSeguimientos
             seguimientos={(actividad?.seguimientos as Seguimiento[]) || []}
             actividadId={actividad!.id}
             onActualizar={(nuevos) => {
-              if (actividad) {
-                (actividad as Actividad).seguimientos = nuevos
-              }
+              if (actividad) { (actividad as Actividad).seguimientos = nuevos }
             }}
           />
         )}
