@@ -17,7 +17,7 @@ import { Select } from '@/componentes/ui/Select'
 import { Tabs } from '@/componentes/ui/Tabs'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import { SelectorVariables } from '@/componentes/ui/SelectorVariables'
-import { Braces, Eye, Save, Code2, PenLine, Maximize2, Minimize2 } from 'lucide-react'
+import { Braces, Eye, Code2, PenLine, Maximize2, Minimize2 } from 'lucide-react'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { useTraduccion } from '@/lib/i18n'
 
@@ -90,7 +90,7 @@ export function ModalEditorPlantillaCorreo({
       abierto={abierto}
       onCerrar={onCerrar}
       titulo={esEdicion ? `Editar plantilla — ${nombre || plantilla?.nombre || ''}` : 'Nueva plantilla'}
-      tamano="4xl"
+      tamano="5xl"
       sinPadding
       expandido={expandido}
       accionesEncabezado={
@@ -105,18 +105,18 @@ export function ModalEditorPlantillaCorreo({
       }
       acciones={
         <>
-          <Boton variante="primario" tamano="sm" icono={<Save size={14} />} cargando={guardando} onClick={handleGuardar}>
+          <Boton variante="fantasma" tamano="sm" onClick={onCerrar}>Cancelar</Boton>
+          <Boton tamano="sm" cargando={guardando} onClick={handleGuardar}>
             {esEdicion ? 'Guardar cambios' : 'Crear plantilla'}
           </Boton>
-          <Boton variante="fantasma" tamano="sm" onClick={onCerrar}>Cancelar</Boton>
         </>
       }
     >
       {/* ── Selector de contacto + documento (siempre visible arriba) ── */}
-      <div className="px-6 pt-3 pb-2 flex items-start gap-4" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
+      <div className="px-6 pt-3 pb-3 flex items-start gap-4 border-b border-white/[0.07]">
         {/* Contacto */}
         <div className="flex-1 min-w-0">
-          <label className="text-xxs font-semibold uppercase tracking-wider mb-1 block" style={{ color: 'var(--texto-terciario)' }}>Contacto</label>
+          <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block">Contacto</label>
           <div className="flex items-center gap-2">
             {contactoPreview ? (
               <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -159,7 +159,7 @@ export function ModalEditorPlantillaCorreo({
 
         {/* Documento */}
         <div className="flex-1 min-w-0">
-          <label className="text-xxs font-semibold uppercase tracking-wider mb-1 block" style={{ color: 'var(--texto-terciario)' }}>Documento</label>
+          <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block">Documento</label>
           {documentoPreview ? (
             <div className="flex items-center gap-2">
               <PenLine size={14} style={{ color: 'var(--texto-terciario)' }} className="flex-shrink-0" />
@@ -186,7 +186,7 @@ export function ModalEditorPlantillaCorreo({
       </div>
 
       {/* ── Tabs: Editar / Código / Vista previa ── */}
-      <div className="px-6 pt-1 pb-0" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
+      <div className="px-6 pt-1 pb-0 border-b border-white/[0.07]">
         <Tabs tabs={TABS_EDITOR} activo={tabActivo} onChange={handleCambiarTab} />
       </div>
 
@@ -212,7 +212,7 @@ export function ModalEditorPlantillaCorreo({
 
             {/* Fila 2: Disponible para (chips sin padding izquierdo) */}
             <div>
-              <label className="text-xs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>Disponible para</label>
+              <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block">Disponible para</label>
               <div className="flex flex-wrap gap-1.5">
                 {OPCIONES_DISPONIBLE.filter(o => o.valor !== 'todos').map(o => {
                   const activo = modulos.includes(o.valor)
@@ -220,12 +220,11 @@ export function ModalEditorPlantillaCorreo({
                     <button
                       type="button"
                       key={o.valor}
-                      className="text-xs px-2.5 py-1 rounded-full cursor-pointer transition-colors select-none"
-                      style={{
-                        border: `1px solid ${activo ? 'var(--texto-marca)' : 'var(--borde-sutil)'}`,
-                        background: activo ? 'var(--insignia-primario-fondo)' : 'transparent',
-                        color: activo ? 'var(--texto-marca)' : 'var(--texto-secundario)',
-                      }}
+                      className={`text-xs px-2.5 py-1 rounded-md cursor-pointer transition-all select-none border ${
+                        activo
+                          ? 'bg-texto-marca/15 border-texto-marca/40 text-texto-marca'
+                          : 'bg-white/[0.03] border-white/[0.06] text-texto-terciario hover:border-white/[0.12] hover:text-texto-secundario'
+                      }`}
                       onClick={() => setModulos(prev => activo ? prev.filter(m => m !== o.valor) : [...prev, o.valor])}
                     >
                       {o.etiqueta}
@@ -234,13 +233,13 @@ export function ModalEditorPlantillaCorreo({
                 })}
               </div>
               {modulos.length === 0 && (
-                <p className="text-xxs mt-1" style={{ color: 'var(--texto-terciario)' }}>Sin selección = disponible en todos los módulos</p>
+                <p className="text-[11px] text-texto-terciario mt-1">Sin selección = disponible en todos los módulos</p>
               )}
             </div>
 
             {/* Fila 3: Asunto completo */}
             <div>
-              <label className="text-xs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>Asunto</label>
+              <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block">Asunto</label>
               <AsuntoConVariables
                 valor={asunto}
                 onChange={setAsunto}
@@ -256,7 +255,7 @@ export function ModalEditorPlantillaCorreo({
             {/* Selector de usuarios (si visibilidad = usuarios) */}
             {visibilidad === 'usuarios' && (
               <div>
-                <label className="text-xs font-medium mb-1.5 block" style={{ color: 'var(--texto-secundario)' }}>
+                <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block">
                   Usuarios asignados ({usuariosSeleccionados.length})
                 </label>
                 <div className="max-h-36 overflow-y-auto rounded-lg" style={{ border: '1px solid var(--borde-sutil)' }}>
@@ -292,7 +291,7 @@ export function ModalEditorPlantillaCorreo({
 
             {/* Contenido visual — ocupa todo el espacio restante */}
             <div className="flex-1 min-h-0 flex flex-col">
-              <label className="text-xs font-medium mb-1.5 block shrink-0" style={{ color: 'var(--texto-secundario)' }}>Contenido</label>
+              <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block shrink-0">Contenido</label>
               <EditorTexto
                 contenido={esEdicion ? contenidoHtml : ''}
                 onChange={setContenidoHtml}
