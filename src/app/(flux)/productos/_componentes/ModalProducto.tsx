@@ -252,11 +252,11 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
   const etiquetaTipo = tipo === 'servicio' ? 'servicio' : 'producto'
 
   return (
-    <Modal abierto={abierto} onCerrar={onCerrar} titulo="" tamano="4xl">
+    <Modal abierto={abierto} onCerrar={onCerrar} titulo="" tamano="5xl" sinPadding>
       <div className="flex flex-col">
 
-        {/* ═══════ HEADER — nombre inline, tipo toggle, favorito, imagen ═══════ */}
-        <div className="px-6 pt-4 pb-4 border-b border-borde-sutil">
+        {/* ═══════ HEADER — nombre inline, tipo toggle, favorito ═══════ */}
+        <div className="px-6 pt-4 pb-4 border-b border-white/[0.07]">
           <div className="flex gap-4">
             {/* Izquierda: estrella + nombre + tipo + toggles */}
             <div className="flex-1 min-w-0">
@@ -304,7 +304,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
                   })}
                 </div>
 
-                <div className="w-px h-4 bg-borde-sutil" />
+                <div className="w-px h-4 bg-white/[0.07]" />
 
                 <Interruptor activo={puedeVenderse} onChange={setPuedeVenderse} etiqueta="Puede venderse" />
                 <Interruptor activo={puedeComprarse} onChange={setPuedeComprarse} etiqueta="Puede comprarse" />
@@ -337,121 +337,122 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
         </div>
 
         {/* ═══════ TABS ═══════ */}
-        <div className="px-6 pt-4">
+        <div className="px-6 pt-4 border-b border-white/[0.07]">
           <Tabs tabs={tabs} activo={tabActivo} onChange={setTabActivo} />
         </div>
 
         {/* ═══════ CONTENIDO — min-h fijo para que no salte ═══════ */}
-        <div className="overflow-y-auto px-6 py-6" style={{ minHeight: '460px', maxHeight: 'calc(100dvh - 280px)' }}>
+        <div className="overflow-y-auto" style={{ minHeight: '460px', maxHeight: 'calc(100dvh - 280px)' }}>
 
-          {/* ════════════════ TAB GENERAL — layout Odoo 2 columnas ════════════════ */}
+          {/* ════════════════ TAB GENERAL — layout 2 columnas con divisor ════════════════ */}
           {tabActivo === 'general' && (
             <div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-0">
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-0">
                 {/* Columna izquierda — Información */}
-                <div>
-                  <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider">Información</span>
-                  <div className="mt-3 space-y-4">
-                    <SelectCreable
-                      etiqueta="Categoría"
-                      opciones={opcionesCategorias}
-                      valor={categoria}
-                      onChange={setCategoria}
-                      placeholder="Seleccionar categoría..."
-                      textoCrear="Crear categoría"
-                    />
+                <div className="p-6 space-y-4">
+                  <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Información</p>
 
+                  <SelectCreable
+                    etiqueta="Categoría"
+                    opciones={opcionesCategorias}
+                    valor={categoria}
+                    onChange={setCategoria}
+                    placeholder="Seleccionar categoría..."
+                    textoCrear="Crear categoría"
+                  />
+
+                  <Input
+                    etiqueta="Referencia"
+                    value={referenciaInterna}
+                    onChange={e => setReferenciaInterna(e.target.value)}
+                    placeholder={tipo === 'servicio' ? 'Código interno' : 'SKU, código interno'}
+                    formato={null}
+                  />
+
+                  {tipo === 'producto' && (
                     <Input
-                      etiqueta="Referencia"
-                      value={referenciaInterna}
-                      onChange={e => setReferenciaInterna(e.target.value)}
-                      placeholder={tipo === 'servicio' ? 'Código interno' : 'SKU, código interno'}
+                      etiqueta="Código de barras"
+                      value={codigoBarras}
+                      onChange={e => setCodigoBarras(e.target.value)}
+                      placeholder="EAN / UPC"
                       formato={null}
                     />
-
-                    {tipo === 'producto' && (
-                      <Input
-                        etiqueta="Código de barras"
-                        value={codigoBarras}
-                        onChange={e => setCodigoBarras(e.target.value)}
-                        placeholder="EAN / UPC"
-                        formato={null}
-                      />
-                    )}
-                  </div>
+                  )}
                 </div>
 
+                {/* Divisor vertical */}
+                <div className="hidden md:block bg-white/[0.07]" />
+
                 {/* Columna derecha — Precios */}
-                <div>
-                  <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider">Precios</span>
-                  <div className="mt-3 space-y-4">
-                    <InputMoneda
-                      etiqueta="Precio venta"
-                      value={precioUnitario}
-                      onChange={setPrecioUnitario}
-                      moneda={moneda || 'ARS'}
-                    />
+                <div className="p-6 space-y-4">
+                  <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Precios</p>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <Select
-                        etiqueta="Moneda"
-                        opciones={[{ valor: '', etiqueta: '$ (empresa)' }, { valor: 'ARS', etiqueta: '$ ARS' }, { valor: 'USD', etiqueta: 'US$ USD' }, { valor: 'EUR', etiqueta: '€ EUR' }]}
-                        valor={moneda}
-                        onChange={setMoneda}
-                      />
-                      <Select
-                        etiqueta="Unidad"
-                        opciones={opcionesUnidades}
-                        valor={unidad}
-                        onChange={setUnidad}
-                      />
-                    </div>
+                  <InputMoneda
+                    etiqueta="Precio venta"
+                    value={precioUnitario}
+                    onChange={setPrecioUnitario}
+                    moneda={moneda || 'ARS'}
+                  />
 
-                    <div>
-                      <Select
-                        etiqueta="Imp. ventas"
-                        opciones={opcionesImpuestos}
-                        valor={impuestoId}
-                        onChange={setImpuestoId}
-                      />
-                      {precioConImpuesto > 0 && (
-                        <p className="text-xs text-texto-terciario mt-1">
-                          = {formato.numero(precioConImpuesto, 2)} imp. incluidos
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="border-t border-borde-sutil" />
-
-                    <InputMoneda
-                      etiqueta={tieneDesglose ? 'Costo (calc.)' : 'Costo'}
-                      value={tieneDesglose ? String(costoDesglose) : costo}
-                      onChange={tieneDesglose ? () => {} : setCosto}
-                      moneda={moneda || 'ARS'}
-                      disabled={tieneDesglose}
-                      ayuda={tieneDesglose ? 'Calculado desde tab Costos' : undefined}
-                    />
-
+                  <div className="grid grid-cols-2 gap-3">
                     <Select
-                      etiqueta="Imp. compra"
-                      opciones={opcionesImpuestos}
-                      valor={impuestoCompraId}
-                      onChange={setImpuestoCompraId}
+                      etiqueta="Moneda"
+                      opciones={[{ valor: '', etiqueta: '$ (empresa)' }, { valor: 'ARS', etiqueta: '$ ARS' }, { valor: 'USD', etiqueta: 'US$ USD' }, { valor: 'EUR', etiqueta: '€ EUR' }]}
+                      valor={moneda}
+                      onChange={setMoneda}
                     />
+                    <Select
+                      etiqueta="Unidad"
+                      opciones={opcionesUnidades}
+                      valor={unidad}
+                      onChange={setUnidad}
+                    />
+                  </div>
 
-                    {/* Margen */}
-                    <div className="flex items-center justify-between py-2">
-                      <span className="text-xxs font-bold text-texto-terciario uppercase tracking-wider">Margen</span>
-                      <span className={`text-sm font-bold ${precio > 0 && costoEfectivo > 0 ? (margenPositivo ? 'text-insignia-exito' : 'text-insignia-peligro') : 'text-texto-terciario'}`}>
-                        {margenDisplay}
-                      </span>
-                    </div>
+                  <div>
+                    <Select
+                      etiqueta="Imp. ventas"
+                      opciones={opcionesImpuestos}
+                      valor={impuestoId}
+                      onChange={setImpuestoId}
+                    />
+                    {precioConImpuesto > 0 && (
+                      <p className="text-xs text-texto-terciario mt-1">
+                        = {formato.numero(precioConImpuesto, 2)} imp. incluidos
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="border-t border-white/[0.07]" />
+
+                  <InputMoneda
+                    etiqueta={tieneDesglose ? 'Costo (calc.)' : 'Costo'}
+                    value={tieneDesglose ? String(costoDesglose) : costo}
+                    onChange={tieneDesglose ? () => {} : setCosto}
+                    moneda={moneda || 'ARS'}
+                    disabled={tieneDesglose}
+                    ayuda={tieneDesglose ? 'Calculado desde tab Costos' : undefined}
+                  />
+
+                  <Select
+                    etiqueta="Imp. compra"
+                    opciones={opcionesImpuestos}
+                    valor={impuestoCompraId}
+                    onChange={setImpuestoCompraId}
+                  />
+
+                  {/* Margen */}
+                  <div className="flex items-center justify-between py-2 px-3 rounded-lg border border-white/[0.06] bg-white/[0.03]">
+                    <span className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Margen</span>
+                    <span className={`text-sm font-bold ${precio > 0 && costoEfectivo > 0 ? (margenPositivo ? 'text-insignia-exito' : 'text-insignia-peligro') : 'text-texto-terciario'}`}>
+                      {margenDisplay}
+                    </span>
                   </div>
                 </div>
               </div>
 
               {/* Nota informativa */}
-              <div className="flex items-start gap-2.5 mt-6 pt-4 border-t border-borde-sutil">
+              <div className="flex items-start gap-2.5 px-6 py-4 border-t border-white/[0.07]">
                 <Info size={14} className="text-texto-terciario shrink-0 mt-0.5" />
                 <p className="text-xs leading-relaxed text-texto-terciario">
                   Las categorías, prefijos de código, unidades de medida y categorías de costo se gestionan
@@ -464,7 +465,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
 
           {/* ════════════════ TAB DESCRIPCIÓN — editores rich text ════════════════ */}
           {tabActivo === 'descripcion' && (
-            <div className="space-y-6 max-w-3xl">
+            <div className="space-y-6 p-6 max-w-3xl">
               <div>
                 <label className="text-xs font-semibold text-texto-secundario mb-2 flex items-center gap-1.5">
                   <FileText size={14} className="text-texto-terciario" />
@@ -514,7 +515,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
 
           {/* ════════════════ TAB COSTOS ════════════════ */}
           {tabActivo === 'costos' && (
-            <div className="space-y-6">
+            <div className="space-y-6 p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-sm font-semibold text-texto-primario">Desglose de costos</h4>
@@ -634,7 +635,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
 
           {/* ════════════════ TAB INVENTARIO (solo productos) ════════════════ */}
           {tabActivo === 'inventario' && tipo === 'producto' && (
-            <div className="space-y-6">
+            <div className="space-y-6 p-6">
               <p className="text-sm text-texto-terciario">Datos logísticos del producto físico.</p>
               <div className="grid grid-cols-2 gap-5 max-w-md">
                 <Input
@@ -663,7 +664,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
 
           {/* ════════════════ TAB ACTIVIDAD (solo edición) ════════════════ */}
           {tabActivo === 'actividad' && esEdicion && (
-            <div style={{ minHeight: '350px' }}>
+            <div className="p-6" style={{ minHeight: '350px' }}>
               <PanelChatter
                 entidadTipo="producto"
                 entidadId={producto!.id}
