@@ -429,25 +429,25 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
       abierto={abierto}
       onCerrar={onCerrar}
       titulo={plantilla ? 'Editar plantilla WhatsApp' : 'Nueva plantilla WhatsApp'}
-      tamano="4xl"
+      tamano="5xl"
       forzarModal
       sinPadding
     >
       <div className="flex flex-col" style={{ height: 'min(80vh, 720px)' }}>
         {/* Barra de estado */}
         {plantilla && estadoInfo && (
-          <div className="flex items-center gap-3 px-6 py-2.5 border-b" style={{ borderColor: 'var(--borde-sutil)', background: 'var(--superficie-tarjeta)' }}>
+          <div className="flex items-center gap-3 px-6 py-2.5 border-b border-white/[0.07] bg-white/[0.02]">
             {IconoEstado && <IconoEstado size={14} />}
             <Insignia color={estadoInfo.color as 'exito' | 'peligro' | 'advertencia' | 'neutro'} tamano="sm">
               {estadoInfo.etiqueta}
             </Insignia>
             {plantilla.id_template_meta && (
-              <span className="text-xxs font-mono" style={{ color: 'var(--texto-terciario)' }}>
+              <span className="text-xxs font-mono text-texto-terciario">
                 ID: {plantilla.id_template_meta}
               </span>
             )}
             {plantilla.error_meta && (
-              <span className="text-xs" style={{ color: 'var(--insignia-peligro)' }}>
+              <span className="text-xs text-insignia-peligro">
                 {plantilla.error_meta}
               </span>
             )}
@@ -455,20 +455,22 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
         )}
 
         {/* Pestañas */}
-        <div className="flex border-b px-6" style={{ borderColor: 'var(--borde-sutil)' }}>
+        <div className="flex border-b border-white/[0.07] px-6">
           <button
-            className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${pestana === 'editar' ? 'border-[var(--texto-marca)]' : 'border-transparent'}`}
-            style={{ color: pestana === 'editar' ? 'var(--texto-marca)' : 'var(--texto-terciario)' }}
+            className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors cursor-pointer bg-transparent ${
+              pestana === 'editar' ? 'border-texto-marca text-texto-marca' : 'border-transparent text-texto-terciario'
+            }`}
             onClick={() => setPestana('editar')}
           >
             Editar
           </button>
           <button
-            className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${pestana === 'preview' ? 'border-[var(--texto-marca)]' : 'border-transparent'}`}
-            style={{ color: pestana === 'preview' ? 'var(--texto-marca)' : 'var(--texto-terciario)' }}
+            className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors cursor-pointer bg-transparent flex items-center gap-1.5 ${
+              pestana === 'preview' ? 'border-texto-marca text-texto-marca' : 'border-transparent text-texto-terciario'
+            }`}
             onClick={() => setPestana('preview')}
           >
-            <Eye size={12} className="inline mr-1" />
+            <Eye size={12} />
             Vista previa
           </button>
         </div>
@@ -476,9 +478,9 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
         {/* Contenido */}
         <div className="flex-1 overflow-y-auto">
           {pestana === 'editar' ? (
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] h-full">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_1px_300px] h-full">
               {/* Formulario */}
-              <div className="p-6 space-y-5 overflow-y-auto border-r" style={{ borderColor: 'var(--borde-sutil)' }}>
+              <div className="p-6 space-y-5 overflow-y-auto">
                 {/* Nombre y API name */}
                 <div className="grid grid-cols-2 gap-4">
                   <Input
@@ -518,34 +520,25 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
 
                 {/* Disponible en módulos */}
                 <div className="space-y-2">
-                  <label className="text-xs font-medium" style={{ color: 'var(--texto-secundario)' }}>
+                  <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider block">
                     Disponible en
                   </label>
-                  <p className="text-xxs" style={{ color: 'var(--texto-terciario)' }}>
-                    Elegí dónde aparece esta plantilla. Si no seleccionás ninguno, aparece en todos.
+                  <p className="text-[11px] text-texto-terciario">
+                    Sin selección = aparece en todos
                   </p>
-                  <div className="flex flex-wrap gap-2 mt-1">
+                  <div className="flex flex-wrap gap-1.5 mt-1">
                     {MODULOS_DISPONIBLES.map(m => {
                       const activo = modulos.includes(m.valor)
                       return (
                         <button
                           key={m.valor}
                           type="button"
-                          onClick={() => {
-                            setModulos(prev =>
-                              activo ? prev.filter(v => v !== m.valor) : [...prev, m.valor]
-                            )
-                          }}
-                          className="text-xs px-3 py-1.5 rounded-full font-medium transition-all"
-                          style={{
-                            background: activo
-                              ? 'color-mix(in srgb, var(--texto-marca) 15%, transparent)'
-                              : 'color-mix(in srgb, var(--texto-terciario) 8%, transparent)',
-                            color: activo ? 'var(--texto-marca)' : 'var(--texto-terciario)',
-                            border: activo
-                              ? '1px solid color-mix(in srgb, var(--texto-marca) 30%, transparent)'
-                              : '1px solid var(--borde-sutil)',
-                          }}
+                          onClick={() => setModulos(prev => activo ? prev.filter(v => v !== m.valor) : [...prev, m.valor])}
+                          className={`text-xs px-2.5 py-1 rounded-md font-medium transition-all cursor-pointer border ${
+                            activo
+                              ? 'bg-texto-marca/15 border-texto-marca/40 text-texto-marca'
+                              : 'bg-white/[0.03] border-white/[0.06] text-texto-terciario hover:border-white/[0.12] hover:text-texto-secundario'
+                          }`}
                         >
                           {m.etiqueta}
                         </button>
@@ -556,7 +549,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
 
                 {/* Encabezado */}
                 <div className="space-y-2">
-                  <label className="text-xs font-medium" style={{ color: 'var(--texto-secundario)' }}>
+                  <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider block">
                     Encabezado (opcional)
                   </label>
                   <Select
@@ -585,7 +578,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
                     </div>
                   )}
                   {['IMAGE', 'VIDEO', 'DOCUMENT'].includes(componentes.encabezado?.tipo || '') && (
-                    <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
+                    <p className="text-[11px] text-texto-terciario">
                       El archivo se adjuntará al momento de enviar, no al crear la plantilla.
                     </p>
                   )}
@@ -594,10 +587,10 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
                 {/* Cuerpo */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-medium" style={{ color: 'var(--texto-secundario)' }}>
+                    <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">
                       Cuerpo del mensaje *
                     </label>
-                    <span className="text-xxs" style={{ color: (componentes.cuerpo?.texto?.length || 0) > 1024 ? 'var(--insignia-peligro)' : 'var(--texto-terciario)' }}>
+                    <span className={`text-[10px] ${(componentes.cuerpo?.texto?.length || 0) > 1024 ? 'text-insignia-peligro' : 'text-texto-terciario'}`}>
                       {componentes.cuerpo?.texto?.length || 0}/1024
                     </span>
                   </div>
@@ -754,8 +747,11 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
                 </div>
               </div>
 
+              {/* Divisor vertical */}
+              <div className="hidden lg:block bg-white/[0.07]" />
+
               {/* Preview lateral (solo desktop) */}
-              <div className="hidden lg:flex flex-col items-start p-5 gap-4 overflow-y-auto" style={{ background: 'var(--superficie-app)' }}>
+              <div className="hidden lg:flex flex-col items-start p-5 gap-4 overflow-y-auto">
                 <SelectoresPreviewDatos
                   contactoPreview={contactoPreview}
                   documentoPreview={documentoPreview}
@@ -770,7 +766,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center p-8 gap-4" style={{ background: 'var(--superficie-app)', minHeight: 400 }}>
+            <div className="flex flex-col items-center p-8 gap-4" style={{ minHeight: 400 }}>
               <div className="w-full max-w-md">
                 <SelectoresPreviewDatos
                   contactoPreview={contactoPreview}
@@ -800,33 +796,17 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
           <div className="flex items-center gap-2">
             {esEditable ? (
               <>
-                <Boton
-                  variante="secundario"
-                  tamano="sm"
-                  icono={guardando ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                  onClick={guardar}
-                  disabled={tieneErrores || guardando}
-                >
+                <Boton variante="secundario" tamano="sm" onClick={guardar}
+                  cargando={guardando} disabled={tieneErrores || guardando}>
                   Guardar borrador
                 </Boton>
-                <Boton
-                  variante="primario"
-                  tamano="sm"
-                  icono={enviandoAMeta ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                  onClick={enviarAMeta}
-                  disabled={tieneErrores || enviandoAMeta}
-                >
+                <Boton tamano="sm" icono={<Send size={14} />} onClick={enviarAMeta}
+                  cargando={enviandoAMeta} disabled={tieneErrores || enviandoAMeta}>
                   Enviar a Meta
                 </Boton>
               </>
             ) : (
-              <Boton
-                variante="primario"
-                tamano="sm"
-                icono={guardando ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                onClick={guardar}
-                disabled={guardando}
-              >
+              <Boton tamano="sm" onClick={guardar} cargando={guardando} disabled={guardando}>
                 Guardar cambios
               </Boton>
             )}
