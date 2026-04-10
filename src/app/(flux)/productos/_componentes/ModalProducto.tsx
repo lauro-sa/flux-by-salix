@@ -400,52 +400,47 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
             </div>
           )}
 
-          {/* ════════════════ TAB DESCRIPCIÓN — editores rich text ════════════════ */}
+          {/* ════════════════ TAB DESCRIPCIÓN — 2 cols + notas abajo ════════════════ */}
           {tabActivo === 'descripcion' && (
-            <div className="space-y-6 p-6 max-w-3xl">
-              <div>
-                <label className="text-xs font-semibold text-texto-secundario mb-2 flex items-center gap-1.5">
-                  <FileText size={14} className="text-texto-terciario" />
-                  Descripción interna
-                </label>
-                <div className="rounded-xl border border-borde-sutil overflow-hidden">
-                  <EditorTexto
-                    contenido={descripcion}
-                    onChange={setDescripcion}
-                    placeholder="Descripción para uso interno del equipo..."
-                    alturaMinima={120}
-                  />
+            <div className="p-6 space-y-5">
+              {/* Interna + Cotización lado a lado */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="rounded-xl border border-white/[0.06] overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06]">
+                    <label className="text-xs font-medium text-texto-secundario flex items-center gap-1.5">
+                      <FileText size={13} className="text-texto-terciario" />
+                      Descripción interna
+                    </label>
+                    <span className="text-[10px] font-medium text-texto-terciario px-2 py-0.5 rounded-md border border-white/[0.06]">Solo equipo</span>
+                  </div>
+                  <EditorTexto contenido={descripcion} onChange={setDescripcion}
+                    placeholder="Descripción para uso interno del equipo..." alturaMinima={140} />
+                </div>
+
+                <div className="rounded-xl border border-white/[0.06] overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06]">
+                    <label className="text-xs font-medium text-texto-secundario flex items-center gap-1.5">
+                      <FileText size={13} className="text-texto-terciario" />
+                      Descripción para cotización
+                    </label>
+                    <span className="text-[10px] font-medium text-texto-terciario px-2 py-0.5 rounded-md border border-white/[0.06]">Visible en docs</span>
+                  </div>
+                  <EditorTexto contenido={descripcionVenta} onChange={setDescripcionVenta}
+                    placeholder="Texto que aparecerá en presupuestos y facturas..." alturaMinima={140} />
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-texto-secundario mb-2 flex items-center gap-1.5">
-                  <FileText size={14} className="text-texto-terciario" />
-                  Descripción para cotización
-                </label>
-                <div className="rounded-xl border border-borde-sutil overflow-hidden">
-                  <EditorTexto
-                    contenido={descripcionVenta}
-                    onChange={setDescripcionVenta}
-                    placeholder="Texto que aparecerá en presupuestos y facturas..."
-                    alturaMinima={120}
-                  />
+              {/* Notas internas — ancho completo */}
+              <div className="rounded-xl border border-white/[0.06] overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06]">
+                  <label className="text-xs font-medium text-texto-secundario flex items-center gap-1.5">
+                    <FileText size={13} className="text-texto-terciario" />
+                    Notas internas
+                  </label>
+                  <span className="text-[10px] font-medium text-texto-terciario px-2 py-0.5 rounded-md border border-white/[0.06]">Privado</span>
                 </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-texto-secundario mb-2 flex items-center gap-1.5">
-                  <FileText size={14} className="text-texto-terciario" />
-                  Notas internas
-                </label>
-                <div className="rounded-xl border border-borde-sutil overflow-hidden">
-                  <EditorTexto
-                    contenido={notasInternas}
-                    onChange={setNotasInternas}
-                    placeholder="Notas privadas, no visibles para clientes..."
-                    alturaMinima={80}
-                  />
-                </div>
+                <EditorTexto contenido={notasInternas} onChange={setNotasInternas}
+                  placeholder="Notas privadas, no visibles para clientes..." alturaMinima={100} />
               </div>
             </div>
           )}
