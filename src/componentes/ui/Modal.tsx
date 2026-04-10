@@ -131,19 +131,20 @@ function Modal({ abierto, onCerrar, titulo, tamano = 'lg', children, acciones, a
               onClick={(e) => e.stopPropagation()}
             >
             {titulo && (
-              <div className="flex items-center justify-between px-6 py-4 border-b border-borde-sutil shrink-0">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.07] shrink-0">
                 <h2 className="text-lg font-semibold text-texto-primario">{titulo}</h2>
                 <div className="flex items-center gap-1">
                   {accionesEncabezado}
-                  <button onClick={onCerrar} aria-label="Cerrar" className="flex items-center justify-center size-8 rounded-lg bg-transparent border-none text-texto-terciario cursor-pointer hover:bg-superficie-hover transition-colors">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  <button onClick={onCerrar} aria-label="Cerrar"
+                    className="flex items-center justify-center size-7 rounded-lg border border-white/[0.08] bg-transparent text-texto-terciario cursor-pointer hover:bg-white/[0.06] hover:text-texto-secundario transition-colors">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   </button>
                 </div>
               </div>
             )}
             <div className={sinPadding ? 'flex-1 min-h-0 flex flex-col overflow-hidden' : 'px-6 py-6 flex-1 overflow-y-auto'}>{children}</div>
             {acciones && (
-              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-borde-sutil shrink-0">
+              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/[0.07] shrink-0">
                 {acciones}
               </div>
             )}
