@@ -289,8 +289,8 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
               const activo = tipo === t
               const color = COLOR_TIPO_PRODUCTO[t]
               return (
-                <Boton key={t} variante="fantasma" tamano="xs"
-                  icono={t === 'servicio' ? <Wrench size={12} /> : <Package size={12} />}
+                <Boton key={t} variante="fantasma" tamano="sm"
+                  icono={t === 'servicio' ? <Wrench size={14} /> : <Package size={14} />}
                   onClick={() => cambiarTipo(t)}
                   className={!activo ? 'text-texto-terciario' : ''}
                   style={activo ? { backgroundColor: `var(--insignia-${color}-fondo)`, color: `var(--insignia-${color}-texto)` } : undefined}>
