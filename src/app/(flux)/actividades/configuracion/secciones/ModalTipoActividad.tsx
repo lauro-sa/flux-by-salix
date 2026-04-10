@@ -9,7 +9,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { obtenerIcono, obtenerTodosLosIconos } from '@/componentes/ui/SelectorIcono'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Tooltip } from '@/componentes/ui/Tooltip'
-import { Trash2, Check, Pipette, Search } from 'lucide-react'
+import { Trash2, Check, Search } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { TipoActividad } from './SeccionTipos'
 import { PALETA_COLORES_TIPO_ACTIVIDAD } from '@/lib/colores_entidad'
@@ -161,7 +161,7 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
   const [siguienteTipoId, setSiguienteTipoId] = useState('')
   const [tipoEncadenamiento, setTipoEncadenamiento] = useState<'sugerir' | 'activar'>('sugerir')
   // Ref para el input color nativo (gotero)
-  const colorInputRef = useRef<HTMLInputElement>(null)
+
 
   // Inicializar al abrir
   useEffect(() => {
@@ -296,18 +296,6 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
                   </button>
                 )
               })}
-              <button onClick={() => colorInputRef.current?.click()}
-                className={`relative size-5 rounded-full border border-dashed transition-all duration-150 cursor-pointer hover:scale-110 flex items-center justify-center ${
-                  !COLORES_TIPO.some(p => p.color.toLowerCase() === color.toLowerCase())
-                    ? 'ring-2 ring-offset-1 ring-white/80 ring-offset-superficie-tarjeta scale-110 border-transparent' : 'border-borde-fuerte'
-                }`}
-                style={!COLORES_TIPO.some(p => p.color.toLowerCase() === color.toLowerCase()) ? { backgroundColor: color } : undefined}>
-                {COLORES_TIPO.some(p => p.color.toLowerCase() === color.toLowerCase())
-                  ? <Pipette size={9} className="text-texto-terciario" />
-                  : <Check size={9} className="text-white drop-shadow-sm" />}
-              </button>
-              <input ref={colorInputRef} type="color" value={color}
-                onChange={(e) => setColor(e.target.value)} className="sr-only" tabIndex={-1} />
             </div>
           </div>
         </div>
