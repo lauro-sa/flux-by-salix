@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CargadorSeccion } from '@/componentes/ui/Cargador'
 import { EncabezadoSeccion } from '@/componentes/ui/EncabezadoSeccion'
 import {
-  Plus, Pencil, Trash2, X, Check, ChevronRight, ChevronDown, Clock,
+  Plus, Pencil, Trash2, X, Check, ChevronRight, ChevronDown, Clock, Search,
   Building, Briefcase, Users, UserPlus, Crown, AlertTriangle, RotateCcw,
 } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
@@ -15,7 +15,8 @@ import { Avatar } from '@/componentes/ui/Avatar'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
-import { SelectorIcono, obtenerIcono } from '@/componentes/ui/SelectorIcono'
+import { obtenerIcono, obtenerTodosLosIconos } from '@/componentes/ui/SelectorIcono'
+import { Tooltip } from '@/componentes/ui/Tooltip'
 import { SelectorHora } from '@/componentes/ui/SelectorHora'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useTraduccion } from '@/lib/i18n'
@@ -70,6 +71,83 @@ interface MiembroSimple {
 
 // Colores para sectores (centralizados en colores_entidad.ts)
 const COLORES_SECTOR = PALETA_COLORES_SECTOR
+
+// Iconos populares para sectores
+const ICONOS_RAPIDOS_SECTOR = [
+  'Building', 'Building2', 'Briefcase', 'Users', 'UserPlus', 'Crown',
+  'Phone', 'Mail', 'MessageSquare', 'Headphones', 'Shield', 'Target',
+  'TrendingUp', 'BarChart3', 'DollarSign', 'CreditCard', 'ShoppingCart', 'Package',
+  'Wrench', 'Hammer', 'Settings', 'Cog', 'Truck', 'MapPin',
+  'GraduationCap', 'BookOpen', 'Award', 'Star', 'Heart', 'Zap',
+  'Globe', 'Wifi', 'Camera', 'FileText', 'ClipboardList', 'Calendar',
+]
+
+/** Mini selector de icono para sectores */
+function MiniSelectorIconoSector({ valor, color, onChange }: { valor: string; color: string; onChange: (v: string) => void }) {
+  const [abierto, setAbierto] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
+  const contenedorRef = useRef<HTMLDivElement>(null)
+  const IconoActual = obtenerIcono(valor)
+
+  useEffect(() => {
+    if (!abierto) return
+    const handler = (e: MouseEvent) => {
+      if (contenedorRef.current && !contenedorRef.current.contains(e.target as Node)) setAbierto(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [abierto])
+
+  const todosLosIconos = obtenerTodosLosIconos()
+  const iconosFiltrados = busqueda.trim()
+    ? todosLosIconos.filter(k => k.toLowerCase().includes(busqueda.toLowerCase())).slice(0, 48)
+    : ICONOS_RAPIDOS_SECTOR
+
+  return (
+    <div ref={contenedorRef} className="relative shrink-0">
+      <button onClick={() => { setAbierto(!abierto); setBusqueda('') }}
+        className="size-11 rounded-xl flex items-center justify-center cursor-pointer border border-borde-sutil hover:border-texto-marca/40 transition-colors"
+        style={{ backgroundColor: color + '15', color }} title="Cambiar icono">
+        {IconoActual && <IconoActual size={20} />}
+      </button>
+      <AnimatePresence>
+        {abierto && (
+          <motion.div initial={{ opacity: 0, y: 4, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.97 }} transition={{ duration: 0.15 }}
+            className="absolute top-full left-0 mt-1.5 z-50 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg overflow-hidden w-[280px]">
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-borde-sutil">
+              <Search size={13} className="text-texto-terciario shrink-0" />
+              <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar icono..." autoFocus
+                className="flex-1 bg-transparent border-none text-xs text-texto-primario placeholder:text-texto-terciario outline-none" />
+            </div>
+            <div className="grid grid-cols-8 gap-0.5 p-1.5 max-h-[200px] overflow-y-auto">
+              {iconosFiltrados.map(nombre => {
+                const Ic = obtenerIcono(nombre)
+                if (!Ic) return null
+                return (
+                  <Tooltip key={nombre} contenido={nombre}>
+                    <button onClick={() => { onChange(nombre); setAbierto(false) }}
+                      className={`size-8 rounded-md flex items-center justify-center cursor-pointer transition-colors border-none ${
+                        valor === nombre ? 'bg-texto-marca/15 text-texto-marca' : 'bg-transparent text-texto-terciario hover:bg-superficie-hover hover:text-texto-primario'
+                      }`}>
+                      <Ic size={15} />
+                    </button>
+                  </Tooltip>
+                )
+              })}
+            </div>
+            {!busqueda.trim() && (
+              <div className="px-3 py-1.5 border-t border-borde-sutil">
+                <p className="text-[10px] text-texto-terciario text-center">Buscá para ver todos los iconos</p>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
 
 // ==================== UTILIDADES DE ÁRBOL ====================
 
@@ -807,80 +885,50 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
         abierto={!!modalEditar || !!modalNuevo}
         onCerrar={() => { setModalEditar(null); setModalNuevo(null) }}
         titulo={modalEditar ? 'Editar sector' : 'Nuevo sector'}
-        tamano="sm"
+        tamano="lg"
         acciones={
           <div className="flex gap-2">
             <Boton variante="secundario" onClick={() => { setModalEditar(null); setModalNuevo(null) }}>{t('comun.cancelar')}</Boton>
-            <Boton variante="primario" onClick={guardarSector} cargando={guardando}>{modalEditar ? t('comun.guardar') : t('comun.crear')}</Boton>
+            <Boton onClick={guardarSector} cargando={guardando}>
+              {modalEditar ? 'Guardar sector' : 'Crear sector'}
+            </Boton>
           </div>
         }
       >
         <div className="space-y-4">
-          <Input
-            tipo="text"
-            etiqueta={t('configuracion.estructura.nombre_sector')}
-            placeholder="Ej: Ventas, Soporte, RRHH..."
-            value={formNombre}
-            onChange={(e) => setFormNombre(e.target.value)}
-            formato="nombre_empresa"
-            icono={<Building size={16} />}
-          />
-
-          {/* Ícono */}
-          <SelectorIcono
-            etiqueta={t('comun.icono')}
-            valor={formIcono}
-            onChange={setFormIcono}
-          />
-
-          {/* Selector de color */}
-          <div>
-            <label className="text-sm font-medium text-texto-secundario block mb-2">Color</label>
-            <div className="flex flex-wrap items-center gap-2">
-              {COLORES_SECTOR.map(c => (
-                <Boton
-                  key={c}
-                  variante="fantasma"
-                  soloIcono
-                  redondeado
-                  titulo="Elegir color"
-                  icono={formColor === c ? <Check size={14} className="text-white" /> : undefined}
-                  onClick={() => setFormColor(c)}
-                  className="w-7 h-7"
-                  style={{
-                    backgroundColor: c,
-                    borderColor: formColor === c ? 'white' : 'transparent',
-                    boxShadow: formColor === c ? `0 0 0 2px ${c}` : 'none',
-                  }}
-                />
-              ))}
-              {/* Cuentagotas / color custom */}
-              <div className="relative">
-                <input
-                  type="color"
-                  value={formColor}
-                  onChange={(e) => setFormColor(e.target.value)}
-                  className="w-7 h-7 rounded-lg cursor-pointer border-2 border-dashed border-borde-fuerte appearance-none bg-transparent p-0"
-                  style={{ WebkitAppearance: 'none' }}
-                  title="Color personalizado"
-                />
-              </div>
+          {/* Nombre con preview icono */}
+          <div className="flex items-start gap-3">
+            <MiniSelectorIconoSector valor={formIcono} color={formColor} onChange={setFormIcono} />
+            <div className="flex-1">
+              <p className="text-[11px] text-texto-terciario mb-1.5">Nombre del sector</p>
+              <Input tipo="text" placeholder="Ej: Ventas, Soporte, RRHH..."
+                value={formNombre} onChange={(e) => setFormNombre(e.target.value)}
+                formato="nombre_empresa" />
             </div>
           </div>
 
-          <Select
-            etiqueta={t('configuracion.estructura.sector_padre')}
-            opciones={opcionesPadre}
-            valor={formPadreId || '__ninguno__'}
-            onChange={(v) => setFormPadreId(v === '__ninguno__' ? null : v)}
-          />
+          {/* Colores como bolitas */}
+          <div className="flex flex-wrap gap-1.5 items-center">
+            {COLORES_SECTOR.map(c => (
+              <button key={c} onClick={() => setFormColor(c)}
+                className={`relative size-5 rounded-full transition-all duration-150 cursor-pointer hover:scale-110 ${
+                  formColor === c ? 'ring-2 ring-offset-1 ring-white/80 ring-offset-superficie-tarjeta scale-110' : ''
+                }`} style={{ backgroundColor: c }}>
+                {formColor === c && <Check size={10} className="absolute inset-0 m-auto text-white drop-shadow-sm" />}
+              </button>
+            ))}
+          </div>
 
-          <Select
-            etiqueta={t('configuracion.estructura.jefe_sector')}
-            opciones={opcionesJefe}
-            valor={formJefeId || '__ninguno__'}
-            onChange={(v) => setFormJefeId(v === '__ninguno__' ? null : v)}
-          />
+          <div className="border-t border-white/[0.07]" />
+
+          <div className="grid grid-cols-2 gap-3">
+            <Select etiqueta="Sector padre" opciones={opcionesPadre}
+              valor={formPadreId || '__ninguno__'}
+              onChange={(v) => setFormPadreId(v === '__ninguno__' ? null : v)} />
+            <Select etiqueta="Jefe del sector" opciones={opcionesJefe}
+              valor={formJefeId || '__ninguno__'}
+              onChange={(v) => setFormJefeId(v === '__ninguno__' ? null : v)} />
+          </div>
         </div>
       </Modal>
 
@@ -912,50 +960,36 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
         abierto={modalNuevoPuesto}
         onCerrar={() => setModalNuevoPuesto(false)}
         titulo="Nuevo puesto de trabajo"
-        tamano="sm"
+        tamano="md"
         acciones={
           <div className="flex gap-2">
             <Boton variante="secundario" onClick={() => setModalNuevoPuesto(false)}>Cancelar</Boton>
-            <Boton variante="primario" onClick={guardarPuesto} cargando={guardando}>Crear</Boton>
+            <Boton onClick={guardarPuesto} cargando={guardando}>Crear puesto</Boton>
           </div>
         }
       >
         <div className="space-y-4">
-          <Input
-            tipo="text"
-            etiqueta={t('configuracion.estructura.nombre_puesto')}
-            placeholder="Ej: Director comercial, Vendedor, Soporte técnico..."
-            value={puestoNombre}
-            onChange={(e) => setPuestoNombre(e.target.value)}
-            formato="nombre_empresa"
-            icono={<Briefcase size={16} />}
-          />
-          <Input
-            tipo="text"
-            etiqueta={`${t('comun.descripcion')} (${t('comun.opcional')})`}
-            placeholder="Breve descripción del puesto..."
-            value={puestoDescripcion}
-            onChange={(e) => setPuestoDescripcion(e.target.value)}
-          />
           <div>
-            <label className="text-sm font-medium text-texto-secundario block mb-2">Color</label>
-            <div className="flex flex-wrap gap-2">
+            <p className="text-[11px] text-texto-terciario mb-1.5">Nombre del puesto</p>
+            <Input tipo="text" placeholder="Ej: Director comercial, Vendedor..."
+              value={puestoNombre} onChange={(e) => setPuestoNombre(e.target.value)}
+              formato="nombre_empresa" />
+          </div>
+          <div>
+            <p className="text-[11px] text-texto-terciario mb-1.5">Descripción (opcional)</p>
+            <Input tipo="text" placeholder="Breve descripción del puesto..."
+              value={puestoDescripcion} onChange={(e) => setPuestoDescripcion(e.target.value)} />
+          </div>
+          <div>
+            <p className="text-[11px] text-texto-terciario mb-1.5">Color</p>
+            <div className="flex flex-wrap gap-1.5 items-center">
               {COLORES_SECTOR.map(c => (
-                <Boton
-                  key={c}
-                  variante="fantasma"
-                  soloIcono
-                  redondeado
-                  titulo="Elegir color"
-                  icono={puestoColor === c ? <Check size={14} className="text-white" /> : undefined}
-                  onClick={() => setPuestoColor(c)}
-                  className="w-7 h-7"
-                  style={{
-                    backgroundColor: c,
-                    borderColor: puestoColor === c ? 'white' : 'transparent',
-                    boxShadow: puestoColor === c ? `0 0 0 2px ${c}` : 'none',
-                  }}
-                />
+                <button key={c} onClick={() => setPuestoColor(c)}
+                  className={`relative size-5 rounded-full transition-all duration-150 cursor-pointer hover:scale-110 ${
+                    puestoColor === c ? 'ring-2 ring-offset-1 ring-white/80 ring-offset-superficie-tarjeta scale-110' : ''
+                  }`} style={{ backgroundColor: c }}>
+                  {puestoColor === c && <Check size={10} className="absolute inset-0 m-auto text-white drop-shadow-sm" />}
+                </button>
               ))}
             </div>
           </div>
