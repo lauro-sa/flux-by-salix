@@ -115,17 +115,19 @@ async function extraerColoresDeImagen(urlImagen: string, cantidad: number = 3): 
 /** Mini color picker inline — un cuadrado con hue slider */
 function PickerInline({ valor, onChange }: { valor: string; onChange: (c: string) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const hueRef = useRef<HTMLInputElement>(null)
   const [hue, setHue] = useState(0)
   const [sat, setSat] = useState(100)
   const [light, setLight] = useState(40)
+  const [hexInput, setHexInput] = useState(valor || '#6b7280')
   const arrastrando = useRef(false)
 
   // Parsear hex a HSL al montar
   useEffect(() => {
-    const r = parseInt(valor.slice(1, 3), 16) / 255
-    const g = parseInt(valor.slice(3, 5), 16) / 255
-    const b = parseInt(valor.slice(5, 7), 16) / 255
+    const v = valor.startsWith('#') ? valor : '#6b7280'
+    setHexInput(v)
+    const r = parseInt(v.slice(1, 3), 16) / 255
+    const g = parseInt(v.slice(3, 5), 16) / 255
+    const b = parseInt(v.slice(5, 7), 16) / 255
     const max = Math.max(r, g, b), min = Math.min(r, g, b)
     const l = (max + min) / 2
     let h = 0, s = 0
@@ -152,6 +154,11 @@ function PickerInline({ valor, onChange }: { valor: string; onChange: (c: string
     return `#${f(0)}${f(8)}${f(4)}`
   }, [])
 
+  const aplicarColor = (hex: string) => {
+    setHexInput(hex)
+    onChange(hex)
+  }
+
   // Dibujar gradiente de saturación/luminosidad
   useEffect(() => {
     const canvas = canvasRef.current
@@ -177,13 +184,54 @@ function PickerInline({ valor, onChange }: { valor: string; onChange: (c: string
     const newLight = Math.round(100 - y * 100)
     setSat(newSat)
     setLight(newLight)
-    onChange(hslAHex(hue, newSat, newLight))
+    aplicarColor(hslAHex(hue, newSat, newLight))
   }
 
   const manejarMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!arrastrando.current) return
     manejarClickCanvas(e)
   }
+
+  // Gotero — EyeDropper API del navegador
+  const abrirGotero = async () => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const EyeDropper = (window as any).EyeDropper
+      if (!EyeDropper) return
+      const dropper = new EyeDropper()
+      const result = await dropper.open()
+      if (result?.sRGBHex) aplicarColor(result.sRGBHex)
+    } catch { /* usuario canceló */ }
+  }
+
+  const manejarHexInput = (hex: string) => {
+    let limpio = hex.replace(/[^a-fA-F0-9#]/g, '')
+    if (!limpio.startsWith('#')) limpio = '#' + limpio
+    if (limpio.length > 7) limpio = limpio.slice(0, 7)
+    setHexInput(limpio)
+    if (/^#[a-fA-F0-9]{6}$/.test(limpio)) {
+      onChange(limpio)
+      // Actualizar HSL
+      const r = parseInt(limpio.slice(1, 3), 16) / 255
+      const g = parseInt(limpio.slice(3, 5), 16) / 255
+      const b = parseInt(limpio.slice(5, 7), 16) / 255
+      const max = Math.max(r, g, b), min = Math.min(r, g, b)
+      const l = (max + min) / 2
+      let h = 0, s = 0
+      if (max !== min) {
+        const d = max - min
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+        if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6
+        else if (max === g) h = ((b - r) / d + 2) / 6
+        else h = ((r - g) / d + 4) / 6
+      }
+      setHue(Math.round(h * 360))
+      setSat(Math.round(s * 100))
+      setLight(Math.round(l * 100))
+    }
+  }
+
+  const colorActual = hslAHex(hue, sat, light)
 
   return (
     <div className="space-y-3">
@@ -205,14 +253,13 @@ function PickerInline({ valor, onChange }: { valor: string; onChange: (c: string
           style={{
             left: `${sat}%`,
             top: `${100 - light}%`,
-            backgroundColor: hslAHex(hue, sat, light),
+            backgroundColor: colorActual,
           }}
         />
       </div>
 
       {/* Slider de hue */}
       <input
-        ref={hueRef}
         type="range"
         min={0}
         max={360}
@@ -220,13 +267,43 @@ function PickerInline({ valor, onChange }: { valor: string; onChange: (c: string
         onChange={(e) => {
           const h = parseInt(e.target.value)
           setHue(h)
-          onChange(hslAHex(h, sat, light))
+          aplicarColor(hslAHex(h, sat, light))
         }}
         className="w-full h-3 rounded-full appearance-none cursor-pointer"
         style={{
           background: 'linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)',
         }}
       />
+
+      {/* Fila: gotero + preview + hex input */}
+      <div className="flex items-center gap-2">
+        {/* Gotero — solo si el navegador lo soporta */}
+        {'EyeDropper' in window && (
+          <button
+            type="button"
+            onClick={abrirGotero}
+            className="size-8 rounded-lg border border-borde-sutil flex items-center justify-center cursor-pointer hover:bg-superficie-hover transition-colors shrink-0"
+            title="Gotero — elegir color de la pantalla"
+          >
+            <Pipette size={14} className="text-texto-terciario" />
+          </button>
+        )}
+
+        {/* Preview del color */}
+        <div
+          className="size-8 rounded-full border border-borde-sutil shrink-0"
+          style={{ backgroundColor: colorActual }}
+        />
+
+        {/* Input hex */}
+        <input
+          type="text"
+          value={hexInput}
+          onChange={(e) => manejarHexInput(e.target.value)}
+          className="flex-1 bg-white/[0.04] border border-white/[0.1] rounded-lg px-2.5 py-1.5 text-sm text-texto-primario font-mono outline-none focus:border-texto-marca/50"
+          maxLength={7}
+        />
+      </div>
     </div>
   )
 }
@@ -392,4 +469,4 @@ function SelectorColor({ valor, onChange, coloresLogo = [] }: PropiedadesSelecto
   )
 }
 
-export { SelectorColor, extraerColoresDeImagen }
+export { SelectorColor, PickerInline, extraerColoresDeImagen }

@@ -3,11 +3,10 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, Trash2, GripVertical, Receipt, DollarSign,
+  Plus, Receipt, DollarSign,
   Ruler, Clock, Hash, FileText, RotateCcw, Package,
   Image, PanelBottom, Code2, FileType, Landmark,
 } from 'lucide-react'
-import { Reorder } from 'framer-motion'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { A4_ANCHO, A4_ALTO } from '@/lib/pdf/constantes'
 import { useFormato } from '@/hooks/useFormato'
@@ -35,6 +34,8 @@ import { useTraduccion } from '@/lib/i18n'
 import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
 import { Checkbox } from '@/componentes/ui/Checkbox'
+import { ListaConfiguracion } from '@/componentes/ui/ListaConfiguracion'
+import { ModalItemConfiguracion } from '@/componentes/ui/ModalItemConfiguracion'
 import SubirImagenPie from '../_componentes/SubirImagenPie'
 
 /**
@@ -143,6 +144,9 @@ export default function PaginaConfigPresupuestos() {
   // Modal condición de pago
   const [modalCondicionAbierto, setModalCondicionAbierto] = useState(false)
   const [condicionEditando, setCondicionEditando] = useState<CondicionPago | null>(null)
+
+  // Modal genérico para impuestos/monedas/unidades
+  const [modalFinanciero, setModalFinanciero] = useState<{ abierto: boolean; seccion: string; valores?: Record<string, unknown>; editandoId?: string }>({ abierto: false, seccion: '' })
 
   // Datos
   const [impuestos, setImpuestos] = useState<Impuesto[]>([])
@@ -366,245 +370,140 @@ export default function PaginaConfigPresupuestos() {
     >
       {/* ─── IMPUESTOS ─── */}
       {seccionActiva === 'impuestos' && (
-        <div>
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-texto-primario">Impuestos</h3>
-            <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => guardarImpuestos(IMPUESTOS_DEFAULT)}>Restablecer</Boton>
-          </div>
-          <p className="text-base text-texto-terciario mt-1 mb-5">Impuestos disponibles al crear líneas de presupuesto.</p>
-          <Reorder.Group
-            axis="y"
-            values={impuestos.map(i => i.id)}
-            onReorder={(nuevosIds) => {
-              const mapa = new Map(impuestos.map(i => [i.id, i]))
-              guardarImpuestos(nuevosIds.map(id => mapa.get(id)!).filter(Boolean))
-            }}
-            className="space-y-2"
-          >
-            {impuestos.map((imp, idx) => (
-              <Reorder.Item key={imp.id} value={imp.id}>
-              <div className="flex items-center gap-2 p-3 bg-superficie-app rounded-lg group overflow-hidden">
-                <div className="cursor-grab opacity-30 group-hover:opacity-60 transition-opacity shrink-0">
-                  <GripVertical size={14} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <Input
-                    value={imp.label}
-                    onChange={(e) => { const n = [...impuestos]; n[idx] = { ...imp, label: e.target.value }; setImpuestos(n) }}
-                    onBlur={() => guardarImpuestos(impuestos)}
-                    formato={null}
-                    compacto
-                    placeholder="Nombre del impuesto"
-                  />
-                </div>
-                <div className="shrink-0 w-14">
-                  <Input
-                    tipo="number" value={imp.porcentaje}
-                    onChange={(e) => { const n = [...impuestos]; n[idx] = { ...imp, porcentaje: parseFloat(e.target.value) || 0 }; setImpuestos(n) }}
-                    onBlur={() => guardarImpuestos(impuestos)}
-                    formato={null}
-                    compacto
-                    className="text-right font-mono"
-                  />
-                </div>
-                <span className="text-xs text-texto-terciario shrink-0">%</span>
-                <label className="flex items-center gap-1.5 cursor-pointer text-xs text-texto-terciario shrink-0" title="Se aplica automáticamente si el producto no tiene impuesto propio">
-                  <input
-                    type="radio"
-                    name="impuesto_predeterminado"
-                    checked={!!imp.predeterminado}
-                    onChange={() => {
-                      const n = impuestos.map((im, i) => ({ ...im, predeterminado: i === idx }))
-                      guardarImpuestos(n)
-                    }}
-                    style={{ accentColor: 'var(--texto-marca)' }}
-                  />
-                  Default
-                </label>
-                <Checkbox
-                  marcado={imp.activo}
-                  onChange={(v) => { const n = [...impuestos]; n[idx] = { ...imp, activo: v }; guardarImpuestos(n) }}
-                  etiqueta="Activo"
-                  className="text-xs text-texto-terciario"
-                />
-                <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar impuesto" icono={<Trash2 size={14} />} onClick={() => guardarImpuestos(impuestos.filter((_, i) => i !== idx))} className="text-texto-terciario hover:text-estado-error" />
-              </div>
-              </Reorder.Item>
-            ))}
-          </Reorder.Group>
-            <Boton variante="fantasma" tamano="xs" icono={<Plus size={14} />} onClick={() => guardarImpuestos([...impuestos, { id: `imp-${Date.now()}`, label: 'Nuevo impuesto', porcentaje: 0, activo: true }])}>
-              Agregar impuesto
-            </Boton>
-        </div>
+        <ListaConfiguracion
+          titulo="Impuestos"
+          descripcion="Arrastrá para reordenar. Este orden se refleja en los selectores de toda la app."
+          items={impuestos.map(imp => ({
+            id: imp.id, nombre: imp.label,
+            activo: imp.activo, predeterminado: imp.predeterminado,
+          }))}
+          controles="default-activo-borrar"
+          nombreRadio="impuesto_predeterminado"
+          ordenable
+          acciones={[{
+            tipo: 'fantasma', icono: <Plus size={16} />, soloIcono: true, titulo: 'Agregar impuesto',
+            onClick: () => setModalFinanciero({ abierto: true, seccion: 'impuestos' }),
+          }]}
+          onEditar={(item) => {
+            const imp = impuestos.find(i => i.id === item.id)
+            if (imp) setModalFinanciero({ abierto: true, seccion: 'impuestos', valores: { nombre: imp.label, porcentaje: imp.porcentaje }, editandoId: imp.id })
+          }}
+          onToggleActivo={(item) => {
+            const idx = impuestos.findIndex(i => i.id === item.id)
+            if (idx >= 0) { const n = [...impuestos]; n[idx] = { ...n[idx], activo: !n[idx].activo }; guardarImpuestos(n) }
+          }}
+          onTogglePredeterminado={(item) => {
+            guardarImpuestos(impuestos.map(i => ({ ...i, predeterminado: i.id === item.id })))
+          }}
+          onEliminar={(item) => guardarImpuestos(impuestos.filter(i => i.id !== item.id))}
+          onReordenar={(ids) => {
+            const mapa = new Map(impuestos.map(i => [i.id, i]))
+            guardarImpuestos(ids.map(id => mapa.get(id)!).filter(Boolean))
+          }}
+          restaurable
+          onRestaurar={() => guardarImpuestos(IMPUESTOS_DEFAULT)}
+        />
       )}
 
       {/* ─── MONEDAS ─── */}
       {seccionActiva === 'monedas' && (
-        <div>
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-texto-primario">Monedas</h3>
-            <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => guardarMonedas(MONEDAS_DEFAULT, 'ARS')}>Restablecer</Boton>
-          </div>
-          <p className="text-base text-texto-terciario mt-1 mb-5">Monedas disponibles para presupuestos.</p>
-          <Reorder.Group
-            axis="y"
-            values={monedas.map(m => m.id)}
-            onReorder={(nuevosIds) => {
-              const mapa = new Map(monedas.map(m => [m.id, m]))
-              guardarMonedas(nuevosIds.map(id => mapa.get(id)!).filter(Boolean))
-            }}
-            className="space-y-2"
-          >
-            {monedas.map((mon, idx) => (
-              <Reorder.Item key={mon.id} value={mon.id}>
-              <div className="flex items-center gap-3 p-3 bg-superficie-app rounded-lg group">
-                <div className="cursor-grab opacity-30 group-hover:opacity-60 transition-opacity shrink-0">
-                  <GripVertical size={14} />
-                </div>
-                <Input value={mon.id}
-                  onChange={(e) => { const n = [...monedas]; n[idx] = { ...mon, id: e.target.value.toUpperCase() }; setMonedas(n) }}
-                  onBlur={() => guardarMonedas(monedas)}
-                  formato={null}
-                  compacto
-                  className="w-16 font-mono" />
-                <Input value={mon.simbolo}
-                  onChange={(e) => { const n = [...monedas]; n[idx] = { ...mon, simbolo: e.target.value }; setMonedas(n) }}
-                  onBlur={() => guardarMonedas(monedas)}
-                  formato={null}
-                  compacto
-                  className="w-12 text-center" />
-                <Input variante="plano" value={mon.label}
-                  onChange={(e) => { const n = [...monedas]; n[idx] = { ...mon, label: e.target.value }; setMonedas(n) }}
-                  onBlur={() => guardarMonedas(monedas)}
-                  formato={null}
-                  className="flex-1" />
-                <label className="flex items-center gap-1.5 text-xs text-texto-terciario cursor-pointer shrink-0">
-                  <input type="radio" name="moneda_default" checked={monedaPredeterminada === mon.id}
-                    onChange={() => guardarMonedas(monedas, mon.id)}
-                    style={{ accentColor: 'var(--texto-marca)' }} />
-                  Default
-                </label>
-                <Checkbox
-                  marcado={mon.activo}
-                  onChange={(v) => { const n = [...monedas]; n[idx] = { ...mon, activo: v }; guardarMonedas(n) }}
-                  etiqueta="Activo"
-                  className="text-xs text-texto-terciario"
-                />
-                <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar moneda" icono={<Trash2 size={14} />} onClick={() => guardarMonedas(monedas.filter((_, i) => i !== idx))} className="text-texto-terciario hover:text-estado-error" />
-              </div>
-              </Reorder.Item>
-            ))}
-          </Reorder.Group>
-        </div>
+        <ListaConfiguracion
+          titulo="Monedas"
+          descripcion="Arrastrá para reordenar. Este orden se refleja en los selectores de toda la app."
+          items={monedas.map(m => ({
+            id: m.id, nombre: m.label,
+            activo: m.activo, predeterminado: monedaPredeterminada === m.id,
+          }))}
+          controles="default-activo-borrar"
+          nombreRadio="moneda_default"
+          ordenable
+          onEditar={(item) => {
+            const mon = monedas.find(m => m.id === item.id)
+            if (mon) setModalFinanciero({ abierto: true, seccion: 'monedas', valores: { codigo: mon.id, simbolo: mon.simbolo, nombre: mon.label }, editandoId: mon.id })
+          }}
+          onToggleActivo={(item) => {
+            const idx = monedas.findIndex(m => m.id === item.id)
+            if (idx >= 0) { const n = [...monedas]; n[idx] = { ...n[idx], activo: !n[idx].activo }; guardarMonedas(n) }
+          }}
+          onTogglePredeterminado={(item) => guardarMonedas(monedas, item.id)}
+          onEliminar={(item) => guardarMonedas(monedas.filter(m => m.id !== item.id))}
+          onReordenar={(ids) => {
+            const mapa = new Map(monedas.map(m => [m.id, m]))
+            guardarMonedas(ids.map(id => mapa.get(id)!).filter(Boolean))
+          }}
+          restaurable
+          onRestaurar={() => guardarMonedas(MONEDAS_DEFAULT, 'ARS')}
+        />
       )}
 
       {/* ─── UNIDADES ─── */}
       {seccionActiva === 'unidades' && (
-        <div>
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-texto-primario">Unidades de medida</h3>
-            <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => guardarUnidades(UNIDADES_DEFAULT)}>Restablecer</Boton>
-          </div>
-          <p className="text-base text-texto-terciario mt-1 mb-5">Unidades disponibles para las líneas del presupuesto.</p>
-          <div className="space-y-2">
-            {unidades.map((uni, idx) => (
-              <div key={uni.id} className="flex items-center gap-3 p-3 bg-superficie-app rounded-lg">
-                <Input value={uni.abreviatura}
-                  onChange={(e) => { const n = [...unidades]; n[idx] = { ...uni, abreviatura: e.target.value }; setUnidades(n) }}
-                  onBlur={() => guardarUnidades(unidades)}
-                  formato={null}
-                  compacto
-                  className="w-16 font-mono" />
-                <Input variante="plano" value={uni.label}
-                  onChange={(e) => { const n = [...unidades]; n[idx] = { ...uni, label: e.target.value }; setUnidades(n) }}
-                  onBlur={() => guardarUnidades(unidades)}
-                  formato={null}
-                  className="flex-1" />
-                <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar unidad" icono={<Trash2 size={14} />} onClick={() => guardarUnidades(unidades.filter((_, i) => i !== idx))} className="text-texto-terciario hover:text-estado-error" />
-              </div>
-            ))}
-            <Boton variante="fantasma" tamano="xs" icono={<Plus size={14} />} onClick={() => guardarUnidades([...unidades, { id: `u-${Date.now()}`, label: 'Nueva unidad', abreviatura: '' }])}>
-              Agregar unidad
-            </Boton>
-          </div>
-        </div>
+        <ListaConfiguracion
+          titulo="Unidades de medida"
+          descripcion="Arrastrá para reordenar. Este orden se refleja en los selectores de toda la app."
+          items={unidades.map(u => ({ id: u.id, nombre: u.label }))}
+          controles="solo-borrar"
+          ordenable
+          acciones={[{
+            tipo: 'fantasma', icono: <Plus size={16} />, soloIcono: true, titulo: 'Agregar unidad',
+            onClick: () => setModalFinanciero({ abierto: true, seccion: 'unidades' }),
+          }]}
+          onEditar={(item) => {
+            const u = unidades.find(un => un.id === item.id)
+            if (u) setModalFinanciero({ abierto: true, seccion: 'unidades', valores: { nombre: u.label, abreviatura: u.abreviatura }, editandoId: u.id })
+          }}
+          onEliminar={(item) => guardarUnidades(unidades.filter(u => u.id !== item.id))}
+          onReordenar={(ids) => {
+            const mapa = new Map(unidades.map(u => [u.id, u]))
+            guardarUnidades(ids.map(id => mapa.get(id)!).filter(Boolean))
+          }}
+          restaurable
+          onRestaurar={() => guardarUnidades(UNIDADES_DEFAULT)}
+        />
       )}
 
-      {/* ─── CONDICIONES DE PAGO (drag & drop + modal + restablecer) ─── */}
+      {/* ─── CONDICIONES DE PAGO ─── */}
       {seccionActiva === 'condiciones' && (
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <h3 className="text-lg font-semibold text-texto-primario">{t('documentos.condiciones_pago')}</h3>
-            <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => guardarCondiciones(CONDICIONES_PAGO_DEFAULT)} titulo="Restablecer condiciones por defecto">Restablecer</Boton>
-          </div>
-          <p className="text-base text-texto-terciario mt-1 mb-5">Arrastrá para reordenar. Hacé clic para editar.</p>
-
-          <Reorder.Group
-            axis="y"
-            values={condicionesPago.map(c => c.id)}
-            onReorder={(nuevosIds) => {
-              const mapa = new Map(condicionesPago.map(c => [c.id, c]))
-              const reordenadas = nuevosIds.map(id => mapa.get(id)!).filter(Boolean)
-              guardarCondiciones(reordenadas)
+        <div className="space-y-4">
+          <ListaConfiguracion
+            titulo={t('documentos.condiciones_pago')}
+            descripcion="Arrastrá para reordenar. Hacé clic para editar. Este orden se refleja en los selectores."
+            items={condicionesPago.map(c => ({
+              id: c.id, nombre: c.label,
+              badges: [{ texto: c.tipo === 'hitos' ? 'Hitos' : 'Plazo', color: (c.tipo === 'hitos' ? 'violeta' : 'neutro') as 'violeta' | 'neutro' }],
+              subtitulo: c.tipo === 'hitos'
+                ? (c.hitos || []).map(h => `${h.porcentaje}% ${h.descripcion}`).join(' + ')
+                : `${c.diasVencimiento} días`,
+              activo: c.activo !== false,
+              predeterminado: c.predeterminado,
+            }))}
+            controles="default-activo-borrar"
+            nombreRadio="condicion_predeterminada"
+            ordenable
+            acciones={[{
+              tipo: 'fantasma', icono: <Plus size={16} />, soloIcono: true, titulo: 'Agregar condición',
+              onClick: () => { setCondicionEditando(null); setModalCondicionAbierto(true) },
+            }]}
+            onEditar={(item) => {
+              const cond = condicionesPago.find(c => c.id === item.id)
+              if (cond) { setCondicionEditando(cond); setModalCondicionAbierto(true) }
             }}
-            className="space-y-2"
-          >
-            {condicionesPago.map((cond, idx) => (
-              <Reorder.Item key={cond.id} value={cond.id}>
-                <div className="flex items-center gap-3 p-3 bg-superficie-app rounded-lg group">
-                  <div
-                    className="cursor-grab opacity-30 group-hover:opacity-60 transition-opacity shrink-0"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <GripVertical size={14} />
-                  </div>
-                  <div
-                    className="flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => { setCondicionEditando(cond); setModalCondicionAbierto(true) }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-texto-primario truncate">{cond.label}</span>
-                      <span className={`text-xxs px-1.5 py-0.5 rounded shrink-0 ${
-                        cond.tipo === 'hitos'
-                          ? 'bg-[var(--texto-marca)]/10 text-texto-marca'
-                          : 'bg-superficie-tarjeta text-texto-terciario'
-                      }`}>
-                        {cond.tipo === 'hitos' ? 'Hitos' : 'Plazo'}
-                      </span>
-                    </div>
-                    <span className="text-xs text-texto-terciario block">
-                      {cond.tipo === 'hitos'
-                        ? (cond.hitos || []).map(h => `${h.porcentaje}% ${h.descripcion}`).join(' + ')
-                        : `${cond.diasVencimiento} días`}
-                    </span>
-                  </div>
-                  <label className="flex items-center gap-1.5 cursor-pointer text-xs text-texto-terciario shrink-0">
-                    <input
-                      type="radio"
-                      name="condicion_predeterminada"
-                      checked={!!cond.predeterminado}
-                      onChange={() => guardarCondiciones(condicionesPago.map((c, i) => ({ ...c, predeterminado: i === idx })))}
-                      style={{ accentColor: 'var(--texto-marca)' }}
-                    />
-                    Default
-                  </label>
-                  <Checkbox
-                    marcado={cond.activo !== false}
-                    onChange={(v) => { const n = [...condicionesPago]; n[idx] = { ...cond, activo: v }; guardarCondiciones(n) }}
-                    etiqueta="Activo"
-                    className="text-xs text-texto-terciario"
-                  />
-                  <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar condición" icono={<Trash2 size={14} />} onClick={() => guardarCondiciones(condicionesPago.filter((_, i) => i !== idx))} className="text-texto-terciario hover:text-estado-error" />
-                </div>
-              </Reorder.Item>
-            ))}
-          </Reorder.Group>
+            onToggleActivo={(item) => {
+              const idx = condicionesPago.findIndex(c => c.id === item.id)
+              if (idx >= 0) { const n = [...condicionesPago]; n[idx] = { ...n[idx], activo: !n[idx].activo }; guardarCondiciones(n) }
+            }}
+            onTogglePredeterminado={(item) => {
+              guardarCondiciones(condicionesPago.map(c => ({ ...c, predeterminado: c.id === item.id })))
+            }}
+            onEliminar={(item) => guardarCondiciones(condicionesPago.filter(c => c.id !== item.id))}
+            onReordenar={(ids) => {
+              const mapa = new Map(condicionesPago.map(c => [c.id, c]))
+              guardarCondiciones(ids.map(id => mapa.get(id)!).filter(Boolean))
+            }}
+            restaurable
+            onRestaurar={() => guardarCondiciones(CONDICIONES_PAGO_DEFAULT)}
+          />
 
-          <Boton variante="secundario" tamano="sm" anchoCompleto icono={<Plus size={16} />} onClick={() => { setCondicionEditando(null); setModalCondicionAbierto(true) }} className="border-dashed mt-3">
-            Agregar condición
-          </Boton>
-
-          {/* Modal crear/editar condición — key fuerza remount al cambiar de condición */}
           <ModalCondicionPago
             key={condicionEditando?.id || 'nueva'}
             abierto={modalCondicionAbierto}
@@ -1833,6 +1732,66 @@ export default function PaginaConfigPresupuestos() {
           </div>
         </div>
       )}
+      {/* Modal crear/editar impuesto/moneda/unidad */}
+      <ModalItemConfiguracion
+        abierto={modalFinanciero.abierto}
+        onCerrar={() => setModalFinanciero({ abierto: false, seccion: '' })}
+        titulo={
+          modalFinanciero.editandoId
+            ? `Editar ${modalFinanciero.seccion === 'impuestos' ? 'impuesto' : modalFinanciero.seccion === 'monedas' ? 'moneda' : 'unidad'}`
+            : `${modalFinanciero.seccion === 'impuestos' ? 'Nuevo impuesto' : modalFinanciero.seccion === 'monedas' ? 'Nueva moneda' : 'Nueva unidad'}`
+        }
+        campos={
+          modalFinanciero.seccion === 'impuestos'
+            ? [
+                { tipo: 'texto', clave: 'nombre', etiqueta: 'Nombre', placeholder: 'Ej: IVA 21%, Exento...' },
+                { tipo: 'numero', clave: 'porcentaje', etiqueta: 'Porcentaje', placeholder: '21', min: 0, max: 100, sufijo: '% del subtotal' },
+              ]
+            : modalFinanciero.seccion === 'monedas'
+            ? [
+                { tipo: 'texto', clave: 'codigo', etiqueta: 'Código', placeholder: 'Ej: ARS, USD...', formato: 'mayusculas' as const, maxLength: 5 },
+                { tipo: 'texto', clave: 'simbolo', etiqueta: 'Símbolo', placeholder: 'Ej: $, US$, €...', maxLength: 5 },
+                { tipo: 'texto', clave: 'nombre', etiqueta: 'Nombre', placeholder: 'Ej: Peso Argentino, Dólar...' },
+              ]
+            : [
+                { tipo: 'texto', clave: 'nombre', etiqueta: 'Nombre', placeholder: 'Ej: Kilogramo, Metro...' },
+                { tipo: 'texto', clave: 'abreviatura', etiqueta: 'Abreviatura', placeholder: 'Ej: kg, m, hs...', maxLength: 5 },
+              ]
+        }
+        valores={modalFinanciero.valores}
+        onGuardar={(valores) => {
+          const nombre = String(valores.nombre || '').trim()
+
+          if (modalFinanciero.seccion === 'impuestos') {
+            if (!nombre) return
+            const porcentaje = Number(valores.porcentaje) || 0
+            if (modalFinanciero.editandoId) {
+              guardarImpuestos(impuestos.map(i => i.id === modalFinanciero.editandoId ? { ...i, label: nombre, porcentaje } : i))
+            } else {
+              guardarImpuestos([...impuestos, { id: `imp-${Date.now()}`, label: nombre, porcentaje, activo: true }])
+            }
+          } else if (modalFinanciero.seccion === 'monedas') {
+            const codigo = String(valores.codigo || '').trim().toUpperCase()
+            const simbolo = String(valores.simbolo || '').trim()
+            if (!codigo || !nombre) return
+            if (modalFinanciero.editandoId) {
+              guardarMonedas(monedas.map(m => m.id === modalFinanciero.editandoId ? { ...m, id: codigo, label: nombre, simbolo } : m))
+            } else {
+              guardarMonedas([...monedas, { id: codigo, label: nombre, simbolo, activo: true }])
+            }
+          } else if (modalFinanciero.seccion === 'unidades') {
+            if (!nombre) return
+            const abreviatura = String(valores.abreviatura || '').trim()
+            if (modalFinanciero.editandoId) {
+              guardarUnidades(unidades.map(u => u.id === modalFinanciero.editandoId ? { ...u, label: nombre, abreviatura } : u))
+            } else {
+              guardarUnidades([...unidades, { id: `u-${Date.now()}`, label: nombre, abreviatura }])
+            }
+          }
+
+          setModalFinanciero({ abierto: false, seccion: '' })
+        }}
+      />
     </PlantillaConfiguracion>
   )
 }

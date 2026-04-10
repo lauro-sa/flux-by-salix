@@ -2,21 +2,19 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  Tag, Ruler, Hash, DollarSign,
-  Plus, Trash2, GripVertical, RotateCcw, Layers,
-} from 'lucide-react'
-import { Reorder } from 'framer-motion'
+import { Tag, Ruler, Hash, DollarSign, Plus, Layers } from 'lucide-react'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
-import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
+import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
+import { ListaConfiguracion, type ItemLista } from '@/componentes/ui/ListaConfiguracion'
+import { ModalItemConfiguracion } from '@/componentes/ui/ModalItemConfiguracion'
 import type { ConfigProductos, CategoriaProducto, CategoriaCosto, PrefijoProducto } from '@/tipos/producto'
 
 /**
  * Página de configuración de Productos.
  * Secciones: Categorías, Unidades de medida, Prefijos de código, Categorías de costo.
- * Autoguardado al modificar.
+ * Todas usan ListaConfiguracion unificada.
  */
 
 const CATEGORIAS_DEFAULT: CategoriaProducto[] = [
@@ -67,12 +65,14 @@ export default function PaginaConfiguracionProductos() {
   const [prefijos, setPrefijos] = useState<PrefijoProducto[]>(PREFIJOS_DEFAULT)
   const [categoriasCosto, setCategoriasCosto] = useState<CategoriaCosto[]>(CATEGORIAS_COSTO_DEFAULT)
 
+  const [confirmarEliminar, setConfirmarEliminar] = useState<{ id: string; nombre: string; seccion: string } | null>(null)
+  const [modalProducto, setModalProducto] = useState<{ abierto: boolean; seccion: string; valores?: Record<string, unknown>; editandoId?: string }>({ abierto: false, seccion: '' })
+
   // ─── Cargar configuración ───
   const cargadoRef = useRef(false)
   useEffect(() => {
     if (cargadoRef.current) return
     cargadoRef.current = true
-
     fetch('/api/productos/config')
       .then(r => r.json())
       .then(data => {
@@ -100,6 +100,23 @@ export default function PaginaConfiguracionProductos() {
     }
   }, [])
 
+  // ─── Helpers ───
+  const eliminarItem = (seccion: string, id: string) => {
+    if (seccion === 'categorias') {
+      const nuevas = categorias.filter(c => c.id !== id)
+      setCategorias(nuevas)
+      guardar({ categorias: nuevas } as Partial<ConfigProductos>)
+    } else if (seccion === 'unidades') {
+      const nuevas = unidades.filter(u => u.id !== id)
+      setUnidades(nuevas)
+      guardar({ unidades: nuevas } as Partial<ConfigProductos>)
+    } else if (seccion === 'costos') {
+      const nuevas = categoriasCosto.filter(c => c.id !== id)
+      setCategoriasCosto(nuevas)
+      guardar({ categorias_costo: nuevas } as Partial<ConfigProductos>)
+    }
+  }
+
   // ─── Secciones ───
   const secciones: SeccionConfig[] = [
     { id: 'categorias', etiqueta: 'Categorías', icono: <Tag size={16} /> },
@@ -107,6 +124,11 @@ export default function PaginaConfiguracionProductos() {
     { id: 'prefijos', etiqueta: 'Prefijos de código', icono: <Hash size={16} /> },
     { id: 'costos', etiqueta: 'Categorías de costo', icono: <DollarSign size={16} /> },
   ]
+
+  // ─── Items para cada sección ───
+  const itemsCategorias: ItemLista[] = categorias.map(c => ({ id: c.id, nombre: c.label }))
+  const itemsUnidades: ItemLista[] = unidades.map(u => ({ id: u.id, nombre: u.label, datos: { abreviatura: u.abreviatura } }))
+  const itemsCostos: ItemLista[] = categoriasCosto.map(c => ({ id: c.id, nombre: c.label }))
 
   return (
     <PlantillaConfiguracion
@@ -121,297 +143,209 @@ export default function PaginaConfiguracionProductos() {
     >
       {/* ════════════════ CATEGORÍAS ════════════════ */}
       {seccionActiva === 'categorias' && (
-        <div className="space-y-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-texto-primario">Categorías de producto</h3>
-              <p className="text-xs text-texto-terciario mt-0.5">Organizá tus productos y servicios por categoría.</p>
-            </div>
-            <div className="flex gap-2">
-              <Boton
-                variante="fantasma"
-                tamano="sm"
-                icono={<RotateCcw size={14} />}
-                onClick={() => {
-                  setCategorias(CATEGORIAS_DEFAULT)
-                  guardar({ categorias: CATEGORIAS_DEFAULT } as Partial<ConfigProductos>)
-                }}
-              >
-                Restablecer
-              </Boton>
-              <Boton
-                variante="secundario"
-                tamano="sm"
-                icono={<Plus size={14} />}
-                onClick={() => {
-                  const nueva = { id: `cat_${Date.now()}`, label: '' }
-                  setCategorias([...categorias, nueva])
-                }}
-              >
-                Agregar
-              </Boton>
-            </div>
-          </div>
-
-          <Reorder.Group
-            axis="y"
-            values={categorias}
-            onReorder={(nuevas) => {
-              setCategorias(nuevas)
-              guardar({ categorias: nuevas } as Partial<ConfigProductos>)
-            }}
-            className="space-y-2"
-          >
-            {categorias.map((cat) => (
-              <Reorder.Item key={cat.id} value={cat}>
-                <div className="flex items-center gap-2 group">
-                  <GripVertical size={16} className="text-texto-terciario opacity-0 group-hover:opacity-100 cursor-grab shrink-0 transition-opacity" />
-                  <Input
-                    value={cat.label}
-                    onChange={(e) => {
-                      const nuevas = categorias.map(c => c.id === cat.id ? { ...c, label: e.target.value } : c)
-                      setCategorias(nuevas)
-                    }}
-                    onBlur={() => guardar({ categorias } as Partial<ConfigProductos>)}
-                    placeholder="Nombre de la categoría..."
-                    formato={null}
-                  />
-                  <Boton
-                    variante="fantasma"
-                    tamano="sm"
-                    soloIcono
-                    titulo="Eliminar"
-                    icono={<Trash2 size={14} />}
-                    onClick={() => {
-                      const nuevas = categorias.filter(c => c.id !== cat.id)
-                      setCategorias(nuevas)
-                      guardar({ categorias: nuevas } as Partial<ConfigProductos>)
-                    }}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                  />
-                </div>
-              </Reorder.Item>
-            ))}
-          </Reorder.Group>
-        </div>
+        <ListaConfiguracion
+          titulo="Categorías de producto"
+          descripcion="Arrastrá para reordenar. Este orden se refleja en los selectores de toda la app."
+          items={itemsCategorias}
+          controles="solo-borrar"
+          ordenable
+          acciones={[{
+            tipo: 'fantasma', icono: <Plus size={16} />, soloIcono: true, titulo: 'Agregar categoría',
+            onClick: () => setModalProducto({ abierto: true, seccion: 'categorias' }),
+          }]}
+          onEditar={(item) => setModalProducto({ abierto: true, seccion: 'categorias', valores: { nombre: item.nombre }, editandoId: item.id })}
+          onEliminar={(item) => setConfirmarEliminar({ id: item.id, nombre: item.nombre, seccion: 'categorias' })}
+          onReordenar={(ids) => {
+            const mapa = new Map(categorias.map(c => [c.id, c]))
+            const nuevas = ids.map(id => mapa.get(id)!).filter(Boolean)
+            setCategorias(nuevas)
+            guardar({ categorias: nuevas } as Partial<ConfigProductos>)
+          }}
+          restaurable
+          onRestaurar={() => {
+            setCategorias(CATEGORIAS_DEFAULT)
+            guardar({ categorias: CATEGORIAS_DEFAULT } as Partial<ConfigProductos>)
+          }}
+        />
       )}
 
       {/* ════════════════ UNIDADES DE MEDIDA ════════════════ */}
       {seccionActiva === 'unidades' && (
-        <div className="space-y-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-texto-primario">Unidades de medida</h3>
-              <p className="text-xs text-texto-terciario mt-0.5">Unidades disponibles para productos y servicios.</p>
-            </div>
-            <div className="flex gap-2">
-              <Boton
-                variante="fantasma"
-                tamano="sm"
-                icono={<RotateCcw size={14} />}
-                onClick={() => {
-                  setUnidades(UNIDADES_DEFAULT)
-                  guardar({ unidades: UNIDADES_DEFAULT } as Partial<ConfigProductos>)
-                }}
-              >
-                Restablecer
-              </Boton>
-              <Boton
-                variante="secundario"
-                tamano="sm"
-                icono={<Plus size={14} />}
-                onClick={() => setUnidades([...unidades, { id: `u_${Date.now()}`, label: '', abreviatura: '' }])}
-              >
-                Agregar
-              </Boton>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-borde-sutil overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-superficie-app border-b border-borde-sutil">
-                  <th className="px-4 py-3 text-left text-xs font-medium text-texto-terciario w-10" />
-                  <th className="px-4 py-3 text-left text-xs font-medium text-texto-terciario">Nombre</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-texto-terciario w-36">Abreviatura</th>
-                  <th className="px-4 py-3 w-12" />
-                </tr>
-              </thead>
-              <tbody>
-                {unidades.map((u) => (
-                  <tr key={u.id} className="border-b border-borde-sutil last:border-0 group">
-                    <td className="px-2 py-2">
-                      <GripVertical size={16} className="text-texto-terciario opacity-0 group-hover:opacity-100 cursor-grab mx-auto" />
-                    </td>
-                    <td className="px-4 py-2">
-                      <Input
-                        value={u.label}
-                        onChange={(e) => setUnidades(unidades.map(un => un.id === u.id ? { ...un, label: e.target.value } : un))}
-                        onBlur={() => guardar({ unidades } as Partial<ConfigProductos>)}
-                        placeholder="Nombre..."
-                        formato={null}
-                        compacto
-                      />
-                    </td>
-                    <td className="px-4 py-2">
-                      <Input
-                        value={u.abreviatura}
-                        onChange={(e) => setUnidades(unidades.map(un => un.id === u.id ? { ...un, abreviatura: e.target.value } : un))}
-                        onBlur={() => guardar({ unidades } as Partial<ConfigProductos>)}
-                        placeholder="Abrev."
-                        formato={null}
-                        compacto
-                      />
-                    </td>
-                    <td className="px-2 py-2">
-                      <Boton
-                        variante="fantasma"
-                        tamano="xs"
-                        soloIcono
-                        titulo="Eliminar"
-                        icono={<Trash2 size={14} />}
-                        onClick={() => {
-                          const nuevas = unidades.filter(un => un.id !== u.id)
-                          setUnidades(nuevas)
-                          guardar({ unidades: nuevas } as Partial<ConfigProductos>)
-                        }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <ListaConfiguracion
+          titulo="Unidades de medida"
+          descripcion="Arrastrá para reordenar. Este orden se refleja en los selectores de toda la app."
+          items={itemsUnidades}
+          controles="solo-borrar"
+          ordenable
+          acciones={[{
+            tipo: 'fantasma', icono: <Plus size={16} />, soloIcono: true, titulo: 'Agregar unidad',
+            onClick: () => setModalProducto({ abierto: true, seccion: 'unidades' }),
+          }]}
+          onEditar={(item) => {
+            const u = unidades.find(un => un.id === item.id)
+            if (u) setModalProducto({ abierto: true, seccion: 'unidades', valores: { nombre: u.label, abreviatura: u.abreviatura }, editandoId: u.id })
+          }}
+          onEliminar={(item) => setConfirmarEliminar({ id: item.id, nombre: item.nombre, seccion: 'unidades' })}
+          onReordenar={(ids) => {
+            const mapa = new Map(unidades.map(u => [u.id, u]))
+            const nuevas = ids.map(id => mapa.get(id)!).filter(Boolean)
+            setUnidades(nuevas)
+            guardar({ unidades: nuevas } as Partial<ConfigProductos>)
+          }}
+          restaurable
+          onRestaurar={() => {
+            setUnidades(UNIDADES_DEFAULT)
+            guardar({ unidades: UNIDADES_DEFAULT } as Partial<ConfigProductos>)
+          }}
+        />
       )}
 
       {/* ════════════════ PREFIJOS DE CÓDIGO ════════════════ */}
       {seccionActiva === 'prefijos' && (
-        <div className="space-y-5">
-          <div>
-            <h3 className="text-sm font-semibold text-texto-primario">Prefijos de código</h3>
-            <p className="text-xs text-texto-terciario mt-0.5">Cada tipo tiene su propio prefijo y secuencia numérica independiente.</p>
-          </div>
-
-          <div className="rounded-xl border border-borde-sutil overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-superficie-app border-b border-borde-sutil">
-                  <th className="px-4 py-3 text-left text-xs font-medium text-texto-terciario">Tipo</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-texto-terciario w-36">Prefijo</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-texto-terciario w-40">Siguiente número</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-texto-terciario w-40">Ejemplo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {prefijos.map((p) => (
-                  <tr key={p.id} className="border-b border-borde-sutil last:border-0">
-                    <td className="px-4 py-3 text-texto-primario font-medium">{p.label}</td>
-                    <td className="px-4 py-2">
-                      <Input
-                        value={p.prefijo}
-                        onChange={(e) => setPrefijos(prefijos.map(pr => pr.id === p.id ? { ...pr, prefijo: e.target.value.toUpperCase() } : pr))}
-                        onBlur={() => guardar({ prefijos } as Partial<ConfigProductos>)}
-                        maxLength={5}
-                        formato={null}
-                        compacto
-                      />
-                    </td>
-                    <td className="px-4 py-2">
-                      <Input
-                        tipo="number"
-                        value={String(p.siguiente)}
-                        onChange={(e) => setPrefijos(prefijos.map(pr => pr.id === p.id ? { ...pr, siguiente: parseInt(e.target.value) || 1 } : pr))}
-                        onBlur={() => guardar({ prefijos } as Partial<ConfigProductos>)}
-                        min="1"
-                        formato={null}
-                        compacto
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="font-mono text-xs text-texto-terciario bg-superficie-app px-2 py-1 rounded-md">
-                        {p.prefijo}-{String(p.siguiente).padStart(4, '0')}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <ListaConfiguracion
+          titulo="Prefijos de código"
+          descripcion="Cada tipo tiene su propio prefijo y secuencia numérica. Se asignan automáticamente al crear productos o servicios."
+          items={prefijos.map(p => ({ id: p.id, nombre: p.label }))}
+          controles="solo-borrar"
+          ordenable={false}
+          onEliminar={undefined}
+          renderContenido={(item) => {
+            const p = prefijos.find(pr => pr.id === item.id)
+            if (!p) return null
+            return (
+              <div className="flex items-center gap-3 w-full">
+                <span className="text-sm font-medium text-texto-primario shrink-0">{p.label}</span>
+                <div className="flex-1" />
+                <input
+                  type="text"
+                  value={p.prefijo}
+                  onChange={(e) => setPrefijos(prefijos.map(pr => pr.id === p.id ? { ...pr, prefijo: e.target.value.toUpperCase() } : pr))}
+                  onBlur={() => guardar({ prefijos } as Partial<ConfigProductos>)}
+                  maxLength={5}
+                  className="w-20 bg-white/[0.04] border border-white/[0.1] rounded-lg px-3 py-1.5 text-sm text-texto-primario text-center font-mono outline-none focus:border-texto-marca/50"
+                />
+                <input
+                  type="number"
+                  value={p.siguiente}
+                  onChange={(e) => setPrefijos(prefijos.map(pr => pr.id === p.id ? { ...pr, siguiente: parseInt(e.target.value) || 1 } : pr))}
+                  onBlur={() => guardar({ prefijos } as Partial<ConfigProductos>)}
+                  min={1}
+                  className="w-24 bg-white/[0.04] border border-white/[0.1] rounded-lg px-3 py-1.5 text-sm text-texto-primario text-center font-mono outline-none focus:border-texto-marca/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+                <span className="text-xs text-texto-terciario/30 shrink-0">→</span>
+                <span className="font-mono text-xs text-texto-terciario bg-white/[0.04] border border-white/[0.06] px-3 py-1.5 rounded-lg shrink-0">
+                  {p.prefijo}-{String(p.siguiente).padStart(4, '0')}
+                </span>
+              </div>
+            )
+          }}
+        />
       )}
 
       {/* ════════════════ CATEGORÍAS DE COSTO ════════════════ */}
       {seccionActiva === 'costos' && (
-        <div className="space-y-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-texto-primario">Categorías de costo</h3>
-              <p className="text-xs text-texto-terciario mt-0.5">Para organizar el desglose de costos de cada producto.</p>
-            </div>
-            <div className="flex gap-2">
-              <Boton
-                variante="fantasma"
-                tamano="sm"
-                icono={<RotateCcw size={14} />}
-                onClick={() => {
-                  setCategoriasCosto(CATEGORIAS_COSTO_DEFAULT)
-                  guardar({ categorias_costo: CATEGORIAS_COSTO_DEFAULT } as Partial<ConfigProductos>)
-                }}
-              >
-                Restablecer
-              </Boton>
-              <Boton
-                variante="secundario"
-                tamano="sm"
-                icono={<Plus size={14} />}
-                onClick={() => setCategoriasCosto([...categoriasCosto, { id: `cc_${Date.now()}`, label: '' }])}
-              >
-                Agregar
-              </Boton>
-            </div>
-          </div>
+        <ListaConfiguracion
+          titulo="Categorías de costo"
+          descripcion="Arrastrá para reordenar. Este orden se refleja en los selectores de toda la app."
+          items={itemsCostos}
+          controles="solo-borrar"
+          ordenable
+          acciones={[{
+            tipo: 'fantasma', icono: <Plus size={16} />, soloIcono: true, titulo: 'Agregar categoría de costo',
+            onClick: () => setModalProducto({ abierto: true, seccion: 'costos' }),
+          }]}
+          onEditar={(item) => setModalProducto({ abierto: true, seccion: 'costos', valores: { nombre: item.nombre }, editandoId: item.id })}
+          onEliminar={(item) => setConfirmarEliminar({ id: item.id, nombre: item.nombre, seccion: 'costos' })}
+          onReordenar={(ids) => {
+            const mapa = new Map(categoriasCosto.map(c => [c.id, c]))
+            const nuevas = ids.map(id => mapa.get(id)!).filter(Boolean)
+            setCategoriasCosto(nuevas)
+            guardar({ categorias_costo: nuevas } as Partial<ConfigProductos>)
+          }}
+          restaurable
+          onRestaurar={() => {
+            setCategoriasCosto(CATEGORIAS_COSTO_DEFAULT)
+            guardar({ categorias_costo: CATEGORIAS_COSTO_DEFAULT } as Partial<ConfigProductos>)
+          }}
+        />
+      )}
 
-          <Reorder.Group
-            axis="y"
-            values={categoriasCosto}
-            onReorder={(nuevas) => {
+      {/* Confirmar eliminar */}
+      <ModalConfirmacion
+        abierto={!!confirmarEliminar}
+        titulo={`Eliminar ${confirmarEliminar?.seccion === 'categorias' ? 'categoría' : confirmarEliminar?.seccion === 'unidades' ? 'unidad' : 'categoría de costo'}`}
+        descripcion={`Se eliminará "${confirmarEliminar?.nombre || ''}".`}
+        etiquetaConfirmar="Eliminar"
+        tipo="peligro"
+        onConfirmar={() => {
+          if (confirmarEliminar) {
+            eliminarItem(confirmarEliminar.seccion, confirmarEliminar.id)
+            setConfirmarEliminar(null)
+          }
+        }}
+        onCerrar={() => setConfirmarEliminar(null)}
+      />
+
+      {/* Modal crear/editar item */}
+      <ModalItemConfiguracion
+        abierto={modalProducto.abierto}
+        onCerrar={() => setModalProducto({ abierto: false, seccion: '' })}
+        titulo={
+          modalProducto.editandoId
+            ? `Editar ${modalProducto.seccion === 'categorias' ? 'categoría' : modalProducto.seccion === 'unidades' ? 'unidad' : 'categoría de costo'}`
+            : `Nueva ${modalProducto.seccion === 'categorias' ? 'categoría' : modalProducto.seccion === 'unidades' ? 'unidad' : 'categoría de costo'}`
+        }
+        campos={
+          modalProducto.seccion === 'unidades'
+            ? [
+                { tipo: 'texto', clave: 'nombre', etiqueta: 'Nombre', placeholder: 'Ej: Kilogramo, Metro...' },
+                { tipo: 'texto', clave: 'abreviatura', etiqueta: 'Abreviatura', placeholder: 'Ej: kg, m, hs...', maxLength: 5 },
+              ]
+            : [
+                { tipo: 'texto', clave: 'nombre', etiqueta: 'Nombre', placeholder: 'Nombre...' },
+              ]
+        }
+        valores={modalProducto.valores}
+        onGuardar={(valores) => {
+          const nombre = String(valores.nombre || '').trim()
+          if (!nombre) return
+
+          if (modalProducto.seccion === 'categorias') {
+            if (modalProducto.editandoId) {
+              const nuevas = categorias.map(c => c.id === modalProducto.editandoId ? { ...c, label: nombre } : c)
+              setCategorias(nuevas)
+              guardar({ categorias: nuevas } as Partial<ConfigProductos>)
+            } else {
+              const nuevas = [...categorias, { id: `cat_${Date.now()}`, label: nombre }]
+              setCategorias(nuevas)
+              guardar({ categorias: nuevas } as Partial<ConfigProductos>)
+            }
+          } else if (modalProducto.seccion === 'unidades') {
+            const abrev = String(valores.abreviatura || '').trim()
+            if (modalProducto.editandoId) {
+              const nuevas = unidades.map(u => u.id === modalProducto.editandoId ? { ...u, label: nombre, abreviatura: abrev } : u)
+              setUnidades(nuevas)
+              guardar({ unidades: nuevas } as Partial<ConfigProductos>)
+            } else {
+              const nuevas = [...unidades, { id: `u_${Date.now()}`, label: nombre, abreviatura: abrev }]
+              setUnidades(nuevas)
+              guardar({ unidades: nuevas } as Partial<ConfigProductos>)
+            }
+          } else if (modalProducto.seccion === 'costos') {
+            if (modalProducto.editandoId) {
+              const nuevas = categoriasCosto.map(c => c.id === modalProducto.editandoId ? { ...c, label: nombre } : c)
               setCategoriasCosto(nuevas)
               guardar({ categorias_costo: nuevas } as Partial<ConfigProductos>)
-            }}
-            className="space-y-2"
-          >
-            {categoriasCosto.map((cat) => (
-              <Reorder.Item key={cat.id} value={cat}>
-                <div className="flex items-center gap-2 group">
-                  <GripVertical size={16} className="text-texto-terciario opacity-0 group-hover:opacity-100 cursor-grab shrink-0 transition-opacity" />
-                  <Input
-                    value={cat.label}
-                    onChange={(e) => setCategoriasCosto(categoriasCosto.map(c => c.id === cat.id ? { ...c, label: e.target.value } : c))}
-                    onBlur={() => guardar({ categorias_costo: categoriasCosto } as Partial<ConfigProductos>)}
-                    placeholder="Nombre de la categoría de costo..."
-                    formato={null}
-                  />
-                  <Boton
-                    variante="fantasma"
-                    tamano="sm"
-                    soloIcono
-                    titulo="Eliminar"
-                    icono={<Trash2 size={14} />}
-                    onClick={() => {
-                      const nuevas = categoriasCosto.filter(c => c.id !== cat.id)
-                      setCategoriasCosto(nuevas)
-                      guardar({ categorias_costo: nuevas } as Partial<ConfigProductos>)
-                    }}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                  />
-                </div>
-              </Reorder.Item>
-            ))}
-          </Reorder.Group>
-        </div>
-      )}
+            } else {
+              const nuevas = [...categoriasCosto, { id: `cc_${Date.now()}`, label: nombre }]
+              setCategoriasCosto(nuevas)
+              guardar({ categorias_costo: nuevas } as Partial<ConfigProductos>)
+            }
+          }
+
+          setModalProducto({ abierto: false, seccion: '' })
+        }}
+      />
 
       {/* Indicador de guardado */}
       {guardando && (

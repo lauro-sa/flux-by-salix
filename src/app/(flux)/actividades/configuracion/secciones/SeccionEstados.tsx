@@ -1,20 +1,19 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Reorder, AnimatePresence } from 'framer-motion'
-import { Plus, Pencil, GripVertical, Check, RotateCcw, Pipette } from 'lucide-react'
+import { Plus, Check, Pipette } from 'lucide-react'
 import { SelectorIcono, obtenerIcono } from '@/componentes/ui/SelectorIcono'
-import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Boton } from '@/componentes/ui/Boton'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { Input } from '@/componentes/ui/Input'
 import { CargadorSeccion } from '@/componentes/ui/Cargador'
+import { ListaConfiguracion, type ItemLista } from '@/componentes/ui/ListaConfiguracion'
 import { PALETA_COLORES_ESTADO } from '@/lib/colores_entidad'
 import { useTraduccion } from '@/lib/i18n'
 
 /**
- * SeccionEstados — Lista de estados de actividad con drag-and-drop, toggle, editar.
+ * SeccionEstados — Lista de estados de actividad usando ListaConfiguracion unificada.
  * Cada estado tiene un grupo de comportamiento: activo, completado, cancelado.
  */
 
@@ -52,29 +51,26 @@ function SeccionEstados({ estados, cargando, onActualizar, onAccionAPI }: Propie
   const [estadoEditando, setEstadoEditando] = useState<EstadoActividad | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [confirmarRestablecer, setConfirmarRestablecer] = useState(false)
+  const [confirmarEliminar, setConfirmarEliminar] = useState<string | null>(null)
 
   // Form state para modal
   const [etiqueta, setEtiqueta] = useState('')
-  const [clave, setClave] = useState('')
   const [icono, setIcono] = useState('Circle')
   const [color, setColor] = useState('#6b7280')
   const [grupo, setGrupo] = useState<string>('activo')
 
   useEffect(() => { setOrden(estados) }, [estados])
 
-  // Abrir modal
   const abrirModal = (estado?: EstadoActividad) => {
     if (estado) {
       setEstadoEditando(estado)
       setEtiqueta(estado.etiqueta)
-      setClave(estado.clave)
       setIcono(estado.icono)
       setColor(estado.color)
       setGrupo(estado.grupo)
     } else {
       setEstadoEditando(null)
       setEtiqueta('')
-      setClave('')
       setIcono('Circle')
       setColor('#6b7280')
       setGrupo('activo')
@@ -89,11 +85,18 @@ function SeccionEstados({ estados, cargando, onActualizar, onAccionAPI }: Propie
     await onAccionAPI('editar_estado', { id: estado.id, activo: nuevoEstado })
   }, [orden, onActualizar, onAccionAPI])
 
-  const manejarReorden = useCallback(async (nuevos: EstadoActividad[]) => {
+  const manejarReorden = useCallback(async (idsOrdenados: string[]) => {
+    const mapa = new Map(orden.map(e => [e.id, e]))
+    const nuevos = idsOrdenados.map(id => mapa.get(id)!).filter(Boolean)
     setOrden(nuevos)
     onActualizar(nuevos)
-    await onAccionAPI('reordenar_estados', { orden: nuevos.map(e => e.id) })
-  }, [onActualizar, onAccionAPI])
+    await onAccionAPI('reordenar_estados', { orden: idsOrdenados })
+  }, [orden, onActualizar, onAccionAPI])
+
+  const eliminarEstado = useCallback(async (id: string) => {
+    await onAccionAPI('eliminar_estado', { id })
+    onActualizar(orden.filter(e => e.id !== id))
+  }, [orden, onActualizar, onAccionAPI])
 
   const guardar = async () => {
     if (!etiqueta.trim()) return
@@ -119,97 +122,69 @@ function SeccionEstados({ estados, cargando, onActualizar, onAccionAPI }: Propie
 
   if (cargando) return <CargadorSeccion />
 
+  // ─── Mapear EstadoActividad → ItemLista ───────────────────────────
+  const itemsLista: ItemLista[] = orden.map(estado => {
+    const Icono = obtenerIcono(estado.icono)
+    return {
+      id: estado.id,
+      nombre: estado.etiqueta,
+      icono: Icono ? <Icono size={15} /> : undefined,
+      color: estado.color,
+      activo: estado.activo,
+      esPredefinido: estado.es_predefinido,
+      grupo: estado.grupo,
+    }
+  })
+
   return (
     <div className="space-y-4">
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
-        <div className="flex items-start justify-between p-5 pb-3">
-          <div>
-            <h3 className="text-base font-semibold text-texto-primario">Estados de actividad</h3>
-            <p className="text-sm text-texto-terciario mt-0.5">
-              Define los estados posibles y su comportamiento. Cada estado pertenece a un grupo.
-            </p>
-          </div>
-          <Boton
-            variante="fantasma"
-            tamano="sm"
-            soloIcono
-            titulo="Agregar estado"
-            icono={<Plus size={16} />}
-            onClick={() => abrirModal()}
-          />
-        </div>
+      <ListaConfiguracion
+        titulo="Estados de actividad"
+        descripcion="Arrastrá para reordenar. Este orden se refleja en los selectores de toda la app."
+        items={itemsLista}
+        controles="toggle-editar"
+        ordenable
+        acciones={[{
+          tipo: 'fantasma',
+          icono: <Plus size={16} />,
+          soloIcono: true,
+          titulo: 'Agregar estado',
+          onClick: () => abrirModal(),
+        }]}
+        grupos={GRUPOS.map(g => ({
+          clave: g.valor,
+          etiqueta: g.etiqueta,
+          descripcion: g.descripcion,
+        }))}
+        onToggleActivo={(item) => {
+          const estado = orden.find(e => e.id === item.id)
+          if (estado) toggleActivo(estado)
+        }}
+        onEditar={(item) => {
+          const estado = orden.find(e => e.id === item.id)
+          if (estado) abrirModal(estado)
+        }}
+        onEliminar={(item) => setConfirmarEliminar(item.id)}
+        onReordenar={manejarReorden}
+        restaurable
+        onRestaurar={() => setConfirmarRestablecer(true)}
+      />
 
-        {/* Agrupados por grupo */}
-        {GRUPOS.map(g => {
-          const estadosGrupo = orden.filter(e => e.grupo === g.valor)
-          if (estadosGrupo.length === 0) return null
-          return (
-            <div key={g.valor}>
-              <div className="px-5 py-1.5 bg-superficie-hover/40">
-                <span className="text-xs font-semibold text-texto-terciario uppercase tracking-wider">
-                  {g.etiqueta}
-                </span>
-                <span className="text-xxs text-texto-terciario ml-2">— {g.descripcion}</span>
-              </div>
-              <Reorder.Group
-                axis="y"
-                values={estadosGrupo}
-                onReorder={(nuevos) => {
-                  // Reemplazar solo los del grupo
-                  const otros = orden.filter(e => e.grupo !== g.valor)
-                  manejarReorden([...otros, ...nuevos].sort((a, b) => {
-                    const grupoOrden = { activo: 0, completado: 1, cancelado: 2 }
-                    if (a.grupo !== b.grupo) return (grupoOrden[a.grupo] || 0) - (grupoOrden[b.grupo] || 0)
-                    return nuevos.indexOf(a) - nuevos.indexOf(b)
-                  }))
-                }}
-                className="divide-y divide-borde-sutil"
-              >
-                {estadosGrupo.map(estado => {
-                  const Icono = obtenerIcono(estado.icono)
-                  return (
-                    <Reorder.Item
-                      key={estado.id}
-                      value={estado}
-                      className="flex items-center gap-3 px-5 py-3 bg-superficie-tarjeta"
-                      whileDrag={{ scale: 1.01, boxShadow: '0 4px 20px rgba(0,0,0,0.1)', zIndex: 10 }}
-                    >
-                      <div className="text-texto-terciario cursor-grab active:cursor-grabbing shrink-0 touch-none">
-                        <GripVertical size={14} />
-                      </div>
-                      <div
-                        className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: estado.color + '18', color: estado.color }}
-                      >
-                        {Icono && <Icono size={15} />}
-                      </div>
-                      <p className={`flex-1 text-sm font-medium ${estado.activo ? 'text-texto-primario' : 'text-texto-terciario'}`}>
-                        {estado.etiqueta}
-                      </p>
-                      <Interruptor activo={estado.activo} onChange={() => toggleActivo(estado)} />
-                      <Boton
-                        variante="fantasma"
-                        tamano="xs"
-                        soloIcono
-                        titulo={t('comun.editar')}
-                        icono={<Pencil size={13} />}
-                        onClick={() => abrirModal(estado)}
-                      />
-                    </Reorder.Item>
-                  )
-                })}
-              </Reorder.Group>
-            </div>
-          )
-        })}
-
-        {/* Footer: restablecer */}
-        <div className="flex justify-end px-5 py-3 border-t border-borde-sutil bg-superficie-hover/30">
-          <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => setConfirmarRestablecer(true)}>
-            Restablecer
-          </Boton>
-        </div>
-      </div>
+      {/* Confirmar eliminar */}
+      <ModalConfirmacion
+        abierto={!!confirmarEliminar}
+        titulo="Eliminar estado"
+        descripcion={`Se eliminará "${orden.find(e => e.id === confirmarEliminar)?.etiqueta || ''}". Las actividades existentes con este estado no se verán afectadas.`}
+        etiquetaConfirmar="Eliminar"
+        tipo="peligro"
+        onConfirmar={async () => {
+          if (confirmarEliminar) {
+            await eliminarEstado(confirmarEliminar)
+            setConfirmarEliminar(null)
+          }
+        }}
+        onCerrar={() => setConfirmarEliminar(null)}
+      />
 
       {/* Confirmar restablecer */}
       <ModalConfirmacion
@@ -270,12 +245,7 @@ function SeccionEstados({ estados, cargando, onActualizar, onAccionAPI }: Propie
 
           <SelectorIcono valor={icono} onChange={setIcono} etiqueta="Icono" />
 
-          {/* Color */}
-          <SelectorColorDots
-            valor={color}
-            onChange={setColor}
-            colores={COLORES_ESTADO}
-          />
+          <SelectorColorDots valor={color} onChange={setColor} colores={COLORES_ESTADO} />
 
           {/* Grupo de comportamiento */}
           <div>
@@ -334,7 +304,6 @@ function SelectorColorDots({ valor, onChange, colores }: { valor: string; onChan
             </button>
           )
         })}
-        {/* Gotero */}
         <button
           onClick={() => colorInputRef.current?.click()}
           className={`relative size-8 rounded-full border-2 border-dashed transition-all duration-150 cursor-pointer hover:scale-110 flex items-center justify-center ${

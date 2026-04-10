@@ -1,10 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { motion, AnimatePresence, Reorder } from 'framer-motion'
-import {
-  Plus, Pencil, GripVertical, RotateCcw, Trash2, Check, Pipette,
-} from 'lucide-react'
+import { Plus, Trash2, Check, Pipette } from 'lucide-react'
 import { obtenerIcono, SelectorIcono } from '@/componentes/ui/SelectorIcono'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Boton } from '@/componentes/ui/Boton'
@@ -13,12 +10,12 @@ import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Input } from '@/componentes/ui/Input'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { CargadorSeccion } from '@/componentes/ui/Cargador'
+import { ListaConfiguracion, type ItemLista } from '@/componentes/ui/ListaConfiguracion'
 import { PALETA_COLORES_TIPO_ACTIVIDAD, COLOR_MARCA_DEFECTO } from '@/lib/colores_entidad'
 import { useTraduccion } from '@/lib/i18n'
 
 /**
- * SeccionTiposEvento — Lista de tipos de evento del calendario con drag-and-drop, toggle, editar.
- * Muestra icono con fondo de color, nombre, badge de duración, toggle activo y botón editar.
+ * SeccionTiposEvento — Lista de tipos de evento del calendario usando ListaConfiguracion unificada.
  */
 
 export interface TipoEventoCalendario {
@@ -41,37 +38,33 @@ interface PropiedadesSeccionTipos {
   onAccionAPI: (accion: string, datos: Record<string, unknown>) => Promise<unknown>
 }
 
-// Colores predefinidos (reutilizamos la paleta de tipos de actividad)
 const COLORES_TIPO = PALETA_COLORES_TIPO_ACTIVIDAD
 
 function SeccionTiposEvento({ tipos, cargando, onActualizar, onAccionAPI }: PropiedadesSeccionTipos) {
-  const { t } = useTraduccion()
   const [orden, setOrden] = useState<TipoEventoCalendario[]>(tipos)
   const [modalAbierto, setModalAbierto] = useState(false)
   const [tipoEditando, setTipoEditando] = useState<TipoEventoCalendario | null>(null)
   const [confirmarRestablecer, setConfirmarRestablecer] = useState(false)
+  const [confirmarEliminar, setConfirmarEliminar] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
 
-  // Sincronizar orden local con props
   useEffect(() => { setOrden(tipos) }, [tipos])
 
-  // Toggle activo/inactivo
   const toggleActivo = useCallback(async (tipo: TipoEventoCalendario) => {
     const nuevoEstado = !tipo.activo
-    // Actualización optimista
     const nuevos = orden.map(t => t.id === tipo.id ? { ...t, activo: nuevoEstado } : t)
     onActualizar(nuevos)
     await onAccionAPI('editar_tipo_evento', { id: tipo.id, activo: nuevoEstado })
   }, [orden, onActualizar, onAccionAPI])
 
-  // Reordenar con drag-and-drop
-  const manejarReorden = useCallback(async (nuevosItems: TipoEventoCalendario[]) => {
-    setOrden(nuevosItems)
-    onActualizar(nuevosItems)
-    await onAccionAPI('reordenar_tipos_evento', { orden: nuevosItems.map(t => t.id) })
-  }, [onActualizar, onAccionAPI])
+  const manejarReorden = useCallback(async (idsOrdenados: string[]) => {
+    const mapa = new Map(orden.map(t => [t.id, t]))
+    const nuevos = idsOrdenados.map(id => mapa.get(id)!).filter(Boolean)
+    setOrden(nuevos)
+    onActualizar(nuevos)
+    await onAccionAPI('reordenar_tipos_evento', { orden: idsOrdenados })
+  }, [orden, onActualizar, onAccionAPI])
 
-  // Crear tipo nuevo
   const crearTipo = useCallback(async (datos: Record<string, unknown>) => {
     setGuardando(true)
     try {
@@ -83,7 +76,6 @@ function SeccionTiposEvento({ tipos, cargando, onActualizar, onAccionAPI }: Prop
     }
   }, [orden, onActualizar, onAccionAPI])
 
-  // Editar tipo existente
   const editarTipo = useCallback(async (datos: Record<string, unknown>) => {
     setGuardando(true)
     try {
@@ -96,13 +88,11 @@ function SeccionTiposEvento({ tipos, cargando, onActualizar, onAccionAPI }: Prop
     }
   }, [orden, onActualizar, onAccionAPI])
 
-  // Eliminar tipo personalizado
   const eliminarTipo = useCallback(async (id: string) => {
     await onAccionAPI('eliminar_tipo_evento', { id })
     onActualizar(orden.filter(t => t.id !== id))
   }, [orden, onActualizar, onAccionAPI])
 
-  // Restablecer valores de fábrica
   const restablecer = useCallback(async () => {
     setGuardando(true)
     try {
@@ -116,54 +106,49 @@ function SeccionTiposEvento({ tipos, cargando, onActualizar, onAccionAPI }: Prop
 
   if (cargando) return <CargadorSeccion />
 
+  // ─── Mapear TipoEventoCalendario → ItemLista ──────────────────────
+  const itemsLista: ItemLista[] = orden.map(tipo => {
+    const Icono = obtenerIcono(tipo.icono)
+    const etiquetaDuracion = tipo.todo_el_dia_default ? 'Todo el día' : `${tipo.duracion_default} min`
+    return {
+      id: tipo.id,
+      nombre: tipo.etiqueta,
+      icono: Icono ? <Icono size={20} /> : undefined,
+      color: tipo.color,
+      tags: [{ texto: etiquetaDuracion, variante: 'neutro' as const }],
+      activo: tipo.activo,
+      esPredefinido: tipo.es_predefinido,
+    }
+  })
+
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
-        <div className="flex items-start justify-between p-5 pb-3">
-          <div>
-            <h3 className="text-base font-semibold text-texto-primario">Tipos de evento</h3>
-            <p className="text-sm text-texto-terciario mt-0.5">
-              Agrega, edita o desactiva tipos de evento. Solo los tipos activos aparecen en formularios y filtros.
-            </p>
-          </div>
-          <Boton
-            variante="fantasma"
-            tamano="sm"
-            soloIcono
-            titulo="Agregar tipo de evento"
-            icono={<Plus size={16} />}
-            onClick={() => { setTipoEditando(null); setModalAbierto(true) }}
-          />
-        </div>
-
-        {/* Lista con drag-and-drop */}
-        <Reorder.Group
-          axis="y"
-          values={orden}
-          onReorder={manejarReorden}
-          className="divide-y divide-borde-sutil"
-        >
-          <AnimatePresence initial={false}>
-            {orden.map(tipo => (
-              <FilaTipoEvento
-                key={tipo.id}
-                tipo={tipo}
-                onToggle={() => toggleActivo(tipo)}
-                onEditar={() => { setTipoEditando(tipo); setModalAbierto(true) }}
-                onEliminar={!tipo.es_predefinido ? () => eliminarTipo(tipo.id) : undefined}
-              />
-            ))}
-          </AnimatePresence>
-        </Reorder.Group>
-
-        {/* Footer: restablecer */}
-        <div className="flex justify-end px-5 py-3 border-t border-borde-sutil bg-superficie-hover/30">
-          <Boton variante="fantasma" tamano="xs" icono={<RotateCcw size={13} />} onClick={() => setConfirmarRestablecer(true)}>
-            Restablecer
-          </Boton>
-        </div>
-      </div>
+      <ListaConfiguracion
+        titulo="Tipos de evento"
+        descripcion="Arrastrá para reordenar. Este orden se refleja en los selectores de toda la app."
+        items={itemsLista}
+        controles="toggle-editar"
+        ordenable
+        acciones={[{
+          tipo: 'fantasma',
+          icono: <Plus size={16} />,
+          soloIcono: true,
+          titulo: 'Agregar tipo de evento',
+          onClick: () => { setTipoEditando(null); setModalAbierto(true) },
+        }]}
+        onToggleActivo={(item) => {
+          const tipo = orden.find(t => t.id === item.id)
+          if (tipo) toggleActivo(tipo)
+        }}
+        onEditar={(item) => {
+          const tipo = orden.find(t => t.id === item.id)
+          if (tipo) { setTipoEditando(tipo); setModalAbierto(true) }
+        }}
+        onEliminar={(item) => setConfirmarEliminar(item.id)}
+        onReordenar={manejarReorden}
+        restaurable
+        onRestaurar={() => setConfirmarRestablecer(true)}
+      />
 
       {/* Modal crear/editar tipo de evento */}
       <ModalTipoEvento
@@ -173,6 +158,22 @@ function SeccionTiposEvento({ tipos, cargando, onActualizar, onAccionAPI }: Prop
         onGuardar={tipoEditando ? editarTipo : crearTipo}
         onCerrar={() => { setModalAbierto(false); setTipoEditando(null) }}
         onEliminar={tipoEditando && !tipoEditando.es_predefinido ? () => eliminarTipo(tipoEditando.id) : undefined}
+      />
+
+      {/* Confirmar eliminar */}
+      <ModalConfirmacion
+        abierto={!!confirmarEliminar}
+        titulo="Eliminar tipo de evento"
+        descripcion={`Se eliminará "${orden.find(t => t.id === confirmarEliminar)?.etiqueta || ''}". Los eventos existentes no se verán afectados.`}
+        etiquetaConfirmar="Eliminar"
+        tipo="peligro"
+        onConfirmar={async () => {
+          if (confirmarEliminar) {
+            await eliminarTipo(confirmarEliminar)
+            setConfirmarEliminar(null)
+          }
+        }}
+        onCerrar={() => setConfirmarEliminar(null)}
       />
 
       {/* Confirmar restablecer */}
@@ -187,74 +188,6 @@ function SeccionTiposEvento({ tipos, cargando, onActualizar, onAccionAPI }: Prop
         onCerrar={() => setConfirmarRestablecer(false)}
       />
     </div>
-  )
-}
-
-// ── Fila individual de tipo de evento ──
-
-function FilaTipoEvento({
-  tipo,
-  onToggle,
-  onEditar,
-  onEliminar,
-}: {
-  tipo: TipoEventoCalendario
-  onToggle: () => void
-  onEditar: () => void
-  onEliminar?: () => void
-}) {
-  const { t } = useTraduccion()
-  const Icono = obtenerIcono(tipo.icono)
-
-  // Badge de duración: "Todo el día" o "X min"
-  const etiquetaDuracion = tipo.todo_el_dia_default
-    ? 'Todo el día'
-    : `${tipo.duracion_default} min`
-
-  return (
-    <Reorder.Item
-      value={tipo}
-      className="flex items-center gap-3 px-5 py-3.5 bg-superficie-tarjeta cursor-default"
-      whileDrag={{ scale: 1.01, boxShadow: '0 4px 20px rgba(0,0,0,0.1)', zIndex: 10 }}
-    >
-      {/* Handle drag */}
-      <div className="text-texto-terciario cursor-grab active:cursor-grabbing shrink-0 touch-none">
-        <GripVertical size={16} />
-      </div>
-
-      {/* Icono con fondo de color */}
-      <div
-        className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-        style={{ backgroundColor: tipo.color + '18', color: tipo.color }}
-      >
-        {Icono && <Icono size={20} />}
-      </div>
-
-      {/* Nombre y badge de duración */}
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm font-semibold ${tipo.activo ? 'text-texto-primario' : 'text-texto-terciario'}`}>
-          {tipo.etiqueta}
-        </p>
-        <div className="flex flex-wrap gap-1 mt-1">
-          <span className="text-xs px-2 py-0.5 rounded-full bg-superficie-hover text-texto-terciario">
-            {etiquetaDuracion}
-          </span>
-        </div>
-      </div>
-
-      {/* Toggle activo */}
-      <Interruptor activo={tipo.activo} onChange={onToggle} />
-
-      {/* Botón editar */}
-      <Boton
-        variante="fantasma"
-        tamano="xs"
-        soloIcono
-        icono={<Pencil size={15} />}
-        onClick={onEditar}
-        titulo={t('comun.editar')}
-      />
-    </Reorder.Item>
   )
 }
 
@@ -273,17 +206,14 @@ function ModalTipoEvento({ abierto, tipo, guardando, onGuardar, onCerrar, onElim
   const { t } = useTraduccion()
   const esEdicion = !!tipo
 
-  // Estado del formulario
   const [etiqueta, setEtiqueta] = useState('')
   const [clave, setClave] = useState('')
   const [icono, setIcono] = useState('Calendar')
   const [color, setColor] = useState(COLOR_MARCA_DEFECTO)
   const [duracionDefault, setDuracionDefault] = useState(60)
   const [todoElDiaDefault, setTodoElDiaDefault] = useState(false)
-  // Ref para el input color nativo (gotero)
   const colorInputRef = useRef<HTMLInputElement>(null)
 
-  // Inicializar al abrir
   useEffect(() => {
     if (!abierto) return
     if (tipo) {
@@ -303,7 +233,6 @@ function ModalTipoEvento({ abierto, tipo, guardando, onGuardar, onCerrar, onElim
     }
   }, [abierto, tipo])
 
-  // Auto-generar clave desde etiqueta (solo al crear)
   const manejarEtiqueta = (valor: string) => {
     setEtiqueta(valor)
     if (!esEdicion) {
@@ -311,13 +240,11 @@ function ModalTipoEvento({ abierto, tipo, guardando, onGuardar, onCerrar, onElim
     }
   }
 
-  // Guardar
   const manejarGuardar = () => {
     if (!etiqueta.trim()) return
     const datos: Record<string, unknown> = {
       etiqueta: etiqueta.trim(),
-      icono,
-      color,
+      icono, color,
       duracion_default: duracionDefault,
       todo_el_dia_default: todoElDiaDefault,
     }
@@ -357,9 +284,7 @@ function ModalTipoEvento({ abierto, tipo, guardando, onGuardar, onCerrar, onElim
       }
     >
       <div className="space-y-6">
-        {/* ── Preview + Nombre ── */}
         <div className="flex items-start gap-4">
-          {/* Preview del icono con color */}
           <div
             className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
             style={{ backgroundColor: color + '18', color }}
@@ -378,14 +303,8 @@ function ModalTipoEvento({ abierto, tipo, guardando, onGuardar, onCerrar, onElim
           </div>
         </div>
 
-        {/* ── Icono ── */}
-        <SelectorIcono
-          valor={icono}
-          onChange={setIcono}
-          etiqueta="Icono"
-        />
+        <SelectorIcono valor={icono} onChange={setIcono} etiqueta="Icono" />
 
-        {/* ── Color ── */}
         <div>
           <label className="text-sm font-medium text-texto-secundario block mb-2">Color</label>
           <div className="flex flex-wrap gap-2.5 items-center">
@@ -400,15 +319,11 @@ function ModalTipoEvento({ abierto, tipo, guardando, onGuardar, onCerrar, onElim
                     }`}
                     style={{ backgroundColor: preset.color }}
                   >
-                    {seleccionado && (
-                      <Check size={14} className="absolute inset-0 m-auto text-white drop-shadow-sm" />
-                    )}
+                    {seleccionado && <Check size={14} className="absolute inset-0 m-auto text-white drop-shadow-sm" />}
                   </button>
                 </Tooltip>
               )
             })}
-
-            {/* Gotero — abre el color picker nativo del navegador */}
             <button
               onClick={() => colorInputRef.current?.click()}
               className={`relative size-8 rounded-full border-2 border-dashed transition-all duration-150 cursor-pointer hover:scale-110 flex items-center justify-center ${
@@ -418,8 +333,7 @@ function ModalTipoEvento({ abierto, tipo, guardando, onGuardar, onCerrar, onElim
               }`}
               style={
                 !COLORES_TIPO.some(p => p.color.toLowerCase() === color.toLowerCase())
-                  ? { backgroundColor: color }
-                  : undefined
+                  ? { backgroundColor: color } : undefined
               }
               title="Elegir color personalizado"
             >
@@ -440,7 +354,6 @@ function ModalTipoEvento({ abierto, tipo, guardando, onGuardar, onCerrar, onElim
           </div>
         </div>
 
-        {/* ── Duración por defecto ── */}
         <div>
           <label className="text-sm font-medium text-texto-secundario block mb-2">Duración por defecto</label>
           <div className="flex items-center gap-2">
@@ -469,16 +382,12 @@ function ModalTipoEvento({ abierto, tipo, guardando, onGuardar, onCerrar, onElim
           </div>
         </div>
 
-        {/* ── Todo el día por defecto ── */}
         <div className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-superficie-hover/50 transition-colors">
           <div>
             <p className="text-sm text-texto-primario">Todo el día por defecto</p>
             <p className="text-xs text-texto-terciario">Los eventos de este tipo se crearán como eventos de día completo</p>
           </div>
-          <Interruptor
-            activo={todoElDiaDefault}
-            onChange={(v) => setTodoElDiaDefault(v)}
-          />
+          <Interruptor activo={todoElDiaDefault} onChange={(v) => setTodoElDiaDefault(v)} />
         </div>
       </div>
     </Modal>

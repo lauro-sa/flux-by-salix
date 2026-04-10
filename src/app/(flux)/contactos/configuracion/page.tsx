@@ -2,19 +2,22 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Settings2, Tag, Briefcase, UserCheck, Link2, Plus, Trash2, GripVertical, DatabaseBackup, Download, Upload, Check, AlertTriangle, CloudCog, ExternalLink, RefreshCw, Unplug } from 'lucide-react'
+import { Tag, Briefcase, UserCheck, Link2, Plus, DatabaseBackup, Download, Upload, Check, AlertTriangle, CloudCog, ExternalLink, RefreshCw, Unplug } from 'lucide-react'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
 import { useSearchParams } from 'next/navigation'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
+import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Insignia, type ColorInsignia } from '@/componentes/ui/Insignia'
 import { Boton } from '@/componentes/ui/Boton'
 import { CargadorSeccion } from '@/componentes/ui/Cargador'
-import { Interruptor } from '@/componentes/ui/Interruptor'
 import { ModalRestablecer } from '@/componentes/ui/ModalRestablecer'
+import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Tooltip } from '@/componentes/ui/Tooltip'
+import { ListaConfiguracion, type ItemLista } from '@/componentes/ui/ListaConfiguracion'
+import { ModalItemConfiguracion, type CampoConfiguracion } from '@/componentes/ui/ModalItemConfiguracion'
 import { useFormato } from '@/hooks/useFormato'
 
 // Colores disponibles para etiquetas
@@ -111,6 +114,18 @@ export default function PaginaConfiguracionContactos() {
     etiqueta: '',
   })
 
+  // Reordenar items
+  const reordenar = useCallback(async (tipo: string, idsOrdenados: string[]) => {
+    await Promise.all(idsOrdenados.map((id, i) =>
+      fetch('/api/contactos/config', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo, id, orden: i }),
+      })
+    ))
+    cargar()
+  }, [cargar])
+
   const abrirRestablecer = useCallback((tipo: string) => {
     const etiquetas: Record<string, string> = {
       etiqueta: 'etiquetas',
@@ -139,7 +154,7 @@ export default function PaginaConfiguracionContactos() {
           {seccionActiva === 'etiquetas' && (
             <SeccionLista
               titulo="Etiquetas de contactos"
-              descripcion="Etiquetas para clasificar contactos. Se pueden asignar desde la ficha del contacto."
+              descripcion="Arrastrá para reordenar. Este orden se refleja en los selectores de toda la app."
               items={etiquetas}
               tipo="etiqueta"
               conColor
@@ -148,6 +163,7 @@ export default function PaginaConfiguracionContactos() {
               onRename={(id, nombre) => actualizar('etiqueta', id, { nombre })}
               onChangeColor={(id, color) => actualizar('etiqueta', id, { color })}
               onDelete={(id) => eliminar('etiqueta', id)}
+              onReorder={(ids) => reordenar('etiqueta', ids)}
               onRestablecer={() => abrirRestablecer('etiqueta')}
             />
           )}
@@ -155,25 +171,27 @@ export default function PaginaConfiguracionContactos() {
             <div className="space-y-8">
               <SeccionLista
                 titulo="Puestos"
-                descripcion="Puestos y roles sugeridos para vinculaciones entre contactos."
+                descripcion="Arrastrá para reordenar. Este orden se refleja en los selectores de toda la app."
                 items={puestos}
                 tipo="puesto"
                 onCreate={(nombre) => crear('puesto', nombre)}
                 onToggle={(id, activo) => actualizar('puesto', id, { activo })}
                 onRename={(id, nombre) => actualizar('puesto', id, { nombre })}
                 onDelete={(id) => eliminar('puesto', id)}
+                onReorder={(ids) => reordenar('puesto', ids)}
                 onRestablecer={() => abrirRestablecer('puesto')}
               />
               <div className="border-t border-borde-sutil" />
               <SeccionLista
                 titulo="Rubros"
-                descripcion="Rubros de industria/actividad para empresas y proveedores."
+                descripcion="Arrastrá para reordenar. Este orden se refleja en los selectores de toda la app."
                 items={rubros}
                 tipo="rubro"
                 onCreate={(nombre) => crear('rubro', nombre)}
                 onToggle={(id, activo) => actualizar('rubro', id, { activo })}
                 onRename={(id, nombre) => actualizar('rubro', id, { nombre })}
                 onDelete={(id) => eliminar('rubro', id)}
+                onReorder={(ids) => reordenar('rubro', ids)}
                 onRestablecer={() => abrirRestablecer('rubro')}
               />
             </div>
@@ -181,13 +199,14 @@ export default function PaginaConfiguracionContactos() {
           {seccionActiva === 'relaciones' && (
             <SeccionLista
               titulo="Tipos de relación"
-              descripcion="Tipos de relación entre contactos vinculados. Ej: empleado de, administra, provee a."
+              descripcion="Arrastrá para reordenar. Este orden se refleja en los selectores de toda la app."
               items={relaciones}
               tipo="relacion"
               onCreate={(nombre) => crear('relacion', nombre)}
               onToggle={(id, activo) => actualizar('relacion', id, { activo })}
               onRename={(id, nombre) => actualizar('relacion', id, { nombre })}
               onDelete={(id) => eliminar('relacion', id)}
+              onReorder={(ids) => reordenar('relacion', ids)}
               onRestablecer={() => abrirRestablecer('relacion')}
             />
           )}
@@ -210,7 +229,7 @@ export default function PaginaConfiguracionContactos() {
   )
 }
 
-// ─── Componente de lista configurable ───
+// ─── Componente de lista configurable (usa ListaConfiguracion) ───
 
 function SeccionLista({
   titulo,
@@ -223,6 +242,7 @@ function SeccionLista({
   onRename,
   onChangeColor,
   onDelete,
+  onReorder,
   onRestablecer,
 }: {
   titulo: string
@@ -235,128 +255,101 @@ function SeccionLista({
   onRename: (id: string, nombre: string) => void
   onChangeColor?: (id: string, color: string) => void
   onDelete: (id: string) => void
+  onReorder?: (idsOrdenados: string[]) => void
   onRestablecer?: () => void
 }) {
-  const [nuevoNombre, setNuevoNombre] = useState('')
-  const [nuevoColor, setNuevoColor] = useState('neutro')
-  const [editandoId, setEditandoId] = useState<string | null>(null)
-  const [editandoNombre, setEditandoNombre] = useState('')
-  const [creando, setCreando] = useState(false)
+  const [confirmarEliminar, setConfirmarEliminar] = useState<string | null>(null)
+  const [modalAbierto, setModalAbierto] = useState(false)
+  const [editandoItem, setEditandoItem] = useState<ItemConfig | null>(null)
 
-  const crearItem = async () => {
-    if (!nuevoNombre.trim() || creando) return
-    setCreando(true)
-    const ok = await onCreate(nuevoNombre.trim(), conColor ? nuevoColor : undefined)
-    if (ok) { setNuevoNombre(''); setNuevoColor('neutro') }
-    setCreando(false)
-  }
+  // Campos del modal según si tiene color o no
+  const camposModal: CampoConfiguracion[] = [
+    { tipo: 'texto', clave: 'nombre', etiqueta: 'Nombre', placeholder: `Nombre del ${tipo}...` },
+    ...(conColor ? [{
+      tipo: 'color' as const,
+      clave: 'color',
+      etiqueta: 'Color',
+      colores: COLORES_ETIQUETA.map(c => ({ valor: c.valor, etiqueta: c.etiqueta })),
+    }] : []),
+  ]
 
-  const guardarRename = (id: string) => {
-    if (editandoNombre.trim()) onRename(id, editandoNombre.trim())
-    setEditandoId(null)
-  }
+  const itemsLista: ItemLista[] = items.map(item => ({
+    id: item.id,
+    nombre: item.nombre,
+    activo: item.activo,
+    datos: { color: item.color },
+  }))
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-texto-primario">{titulo}</h3>
-          <p className="text-sm text-texto-terciario mt-1">{descripcion}</p>
-        </div>
-        {onRestablecer && (
-          <Boton variante="secundario" tamano="xs" onClick={onRestablecer}>Restablecer predefinidos</Boton>
-        )}
-      </div>
-
-      {/* Formulario para crear */}
-      <div className="flex items-center gap-2 p-3 rounded-lg border border-borde-sutil">
-        {conColor && (
-          <div className="flex items-center gap-1">
-            {COLORES_ETIQUETA.map(c => (
-              <Tooltip contenido={c.etiqueta}>
-              <button key={c.valor} type="button" onClick={() => setNuevoColor(c.valor)}
-                className={`size-5 rounded-full border-2 transition-all cursor-pointer ${nuevoColor === c.valor ? 'border-texto-marca scale-110' : 'border-transparent'}`}
-                style={{ backgroundColor: `var(--insignia-${c.valor})` }}
-              />
-              </Tooltip>
-            ))}
-          </div>
-        )}
-        <div className="flex-1">
-          <Input
-            value={nuevoNombre}
-            onChange={e => setNuevoNombre(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') crearItem() }}
-            placeholder={`Nuevo ${tipo}...`}
-            compacto
-          />
-        </div>
-        <Boton onClick={crearItem} disabled={!nuevoNombre.trim() || creando}>
-          <Plus size={14} />
-        </Boton>
-      </div>
-
-      {/* Lista de items */}
-      <div className="space-y-0.5">
-        {items.map(item => (
-          <div key={item.id} className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-superficie-hover group transition-colors">
-            {/* Color (solo etiquetas) */}
-            {conColor && onChangeColor && (
-              <div className="relative">
-                <Tooltip contenido="Cambiar color">
-                <button type="button"
-                  className="size-4 rounded-full border border-borde-sutil cursor-pointer"
-                  style={{ backgroundColor: `var(--insignia-${item.color || 'neutro'})` }}
-                  onClick={() => {
-                    // Ciclar al siguiente color
-                    const idx = COLORES_ETIQUETA.findIndex(c => c.valor === item.color)
-                    const siguiente = COLORES_ETIQUETA[(idx + 1) % COLORES_ETIQUETA.length]
-                    onChangeColor(item.id, siguiente.valor)
-                  }}
-                />
-                </Tooltip>
-              </div>
-            )}
-
-            {/* Nombre (editable al hacer doble click) */}
-            <div className="flex-1 min-w-0">
-              {editandoId === item.id ? (
-                <Input
-                  value={editandoNombre}
-                  onChange={e => setEditandoNombre(e.target.value)}
-                  onBlur={() => guardarRename(item.id)}
-                  onKeyDown={e => { if (e.key === 'Enter') guardarRename(item.id); if (e.key === 'Escape') setEditandoId(null) }}
-                  autoFocus
-                  variante="plano"
-                  compacto
-                  formato={null}
-                />
-              ) : (
-                <span
-                  className={`text-sm cursor-pointer ${item.activo !== false ? 'text-texto-primario' : 'text-texto-terciario line-through'}`}
-                  onDoubleClick={() => { setEditandoId(item.id); setEditandoNombre(item.nombre) }}
-                >
-                  {conColor && <Insignia color={(item.color || 'neutro') as ColorInsignia}>{item.nombre}</Insignia>}
-                  {!conColor && item.nombre}
-                </span>
-              )}
-            </div>
-
-            {/* Toggle activo */}
-            <Interruptor
-              activo={item.activo !== false}
-              onChange={(v) => onToggle(item.id, v)}
+      <ListaConfiguracion
+        titulo={titulo}
+        descripcion={descripcion}
+        items={itemsLista}
+        controles="toggle-editar"
+        ordenable
+        acciones={[{
+          tipo: 'fantasma',
+          icono: <Plus size={16} />,
+          soloIcono: true,
+          titulo: `Agregar ${tipo}`,
+          onClick: () => { setEditandoItem(null); setModalAbierto(true) },
+        }]}
+        onToggleActivo={(item) => {
+          onToggle(item.id, !(item.activo !== false))
+        }}
+        onEditar={(item) => {
+          const original = items.find(i => i.id === item.id)
+          if (original) { setEditandoItem(original); setModalAbierto(true) }
+        }}
+        onEliminar={(item) => setConfirmarEliminar(item.id)}
+        onReordenar={onReorder}
+        restaurable={!!onRestablecer}
+        onRestaurar={onRestablecer}
+        renderContenido={conColor ? (item) => (
+          <div className="flex items-center gap-2.5">
+            <div
+              className="size-4 rounded-full shrink-0"
+              style={{ backgroundColor: `var(--insignia-${item.datos?.color || 'neutro'})` }}
             />
-
-            {/* Eliminar */}
-            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar" icono={<Trash2 size={14} />} onClick={() => onDelete(item.id)} className="opacity-0 group-hover:opacity-100 text-texto-terciario hover:text-insignia-peligro" />
+            <Insignia color={(item.datos?.color || 'neutro') as ColorInsignia}>{item.nombre}</Insignia>
           </div>
-        ))}
+        ) : undefined}
+      />
 
-        {items.length === 0 && (
-          <EstadoVacio titulo={`No hay ${tipo}s configurados`} descripcion="Creá el primero arriba." />
-        )}
-      </div>
+      {/* Modal crear/editar */}
+      <ModalItemConfiguracion
+        abierto={modalAbierto}
+        onCerrar={() => { setModalAbierto(false); setEditandoItem(null) }}
+        titulo={editandoItem ? `Editar ${tipo}` : `Nuevo ${tipo}`}
+        campos={camposModal}
+        valores={editandoItem ? { nombre: editandoItem.nombre, color: editandoItem.color || 'neutro' } : undefined}
+        onGuardar={async (valores) => {
+          if (editandoItem) {
+            onRename(editandoItem.id, String(valores.nombre))
+            if (conColor && onChangeColor) onChangeColor(editandoItem.id, String(valores.color))
+          } else {
+            await onCreate(String(valores.nombre), conColor ? String(valores.color) : undefined)
+          }
+          setModalAbierto(false)
+          setEditandoItem(null)
+        }}
+      />
+
+      <ModalConfirmacion
+        abierto={!!confirmarEliminar}
+        titulo={`Eliminar ${tipo}`}
+        descripcion={`Se eliminará "${items.find(i => i.id === confirmarEliminar)?.nombre || ''}".`}
+        etiquetaConfirmar="Eliminar"
+        tipo="peligro"
+        onConfirmar={() => {
+          if (confirmarEliminar) {
+            onDelete(confirmarEliminar)
+            setConfirmarEliminar(null)
+          }
+        }}
+        onCerrar={() => setConfirmarEliminar(null)}
+      />
     </div>
   )
 }
