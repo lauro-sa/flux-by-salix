@@ -142,8 +142,17 @@ export default function PaginaCalendario() {
   const [modalAbierto, setModalAbierto] = useState(false)
   const [eventoEditando, setEventoEditando] = useState<EventoCalendario | null>(null)
   const [fechaPreseleccionada, setFechaPreseleccionada] = useState<Date | null>(null)
-  /** Fecha fin preseleccionada al arrastrar un rango horario (drag-to-select) */
   const [fechaFinPreseleccionada, setFechaFinPreseleccionada] = useState<Date | null>(null)
+
+  // Abrir modal de creación si viene ?crear=true desde el dashboard
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('crear') === 'true') {
+      window.history.replaceState({}, '', '/calendario')
+      setEventoEditando(null)
+      setModalAbierto(true)
+    }
+  }, [])
 
   // Estado del popover de evento
   const [popoverEvento, setPopoverEvento] = useState<EventoCalendario | null>(null)

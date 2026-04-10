@@ -376,7 +376,9 @@ function PestanaGeneral({
       <motion.div variants={itemVariantes} className="flex flex-wrap gap-2">
         <BotonRapido etiqueta={t('contactos.nuevo')} icono={<Users size={15} />} onClick={() => router.push('/contactos/nuevo')} />
         <BotonRapido etiqueta={t('documentos.tipos.presupuesto')} icono={<FileText size={15} />} onClick={() => router.push('/presupuestos/nuevo')} />
-        <BotonRapido etiqueta="Actividad" icono={<CheckSquare size={15} />} onClick={() => router.push('/actividades')} />
+        <BotonRapido etiqueta="Actividad" icono={<CheckSquare size={15} />} onClick={() => router.push('/actividades?crear=true')} />
+        <BotonRapido etiqueta="Producto" icono={<ClipboardList size={15} />} onClick={() => router.push('/productos?crear=true')} />
+        <BotonRapido etiqueta="Evento" icono={<Calendar size={15} />} onClick={() => router.push('/calendario?crear=true')} />
         <BotonRapido etiqueta={t('dashboard.ir_al_inbox')} icono={<MessageSquare size={15} />} onClick={() => router.push('/inbox')} />
       </motion.div>
 

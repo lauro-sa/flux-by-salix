@@ -91,6 +91,16 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
   const [modalAbierto, setModalAbierto] = useState(false)
   const [actividadEditando, setActividadEditando] = useState<Actividad | null>(null)
 
+  // Abrir modal de creación si viene ?crear=true desde el dashboard
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('crear') === 'true') {
+      window.history.replaceState({}, '', '/actividades')
+      setActividadEditando(null)
+      setModalAbierto(true)
+    }
+  }, [])
+
   // Filtros server-side
   const [filtroTipo, setFiltroTipo] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<string[] | null>(null) // null = pendiente de config

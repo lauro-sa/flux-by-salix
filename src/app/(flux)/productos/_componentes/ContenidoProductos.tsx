@@ -86,6 +86,16 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
   const [modalAbierto, setModalAbierto] = useState(false)
   const [productoEditar, setProductoEditar] = useState<Producto | null>(null)
 
+  // Abrir modal de creación si viene ?crear=true desde el dashboard
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('crear') === 'true') {
+      window.history.replaceState({}, '', '/productos')
+      setProductoEditar(null)
+      setModalAbierto(true)
+    }
+  }, [])
+
   // Config
   const [config, setConfig] = useState<ConfigProductos | null>(null)
   const [impuestos, setImpuestos] = useState<{ id: string; label: string; porcentaje: number }[]>([])
