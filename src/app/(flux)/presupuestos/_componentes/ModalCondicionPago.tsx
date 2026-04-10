@@ -193,54 +193,72 @@ export default function ModalCondicionPago({ abierto, onCerrar, onGuardar, condi
               <div>
                 <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Cuotas de pago</p>
 
-                {form.hitos.length > 0 && (
-                  <div className="grid grid-cols-[1fr_80px_80px_28px] gap-2 px-2 mb-1.5">
-                    <span className="text-[10px] text-texto-terciario uppercase tracking-wider">Descripción</span>
-                    <span className="text-[10px] text-texto-terciario uppercase tracking-wider text-right">%</span>
-                    <span className="text-[10px] text-texto-terciario uppercase tracking-wider text-right">Días</span>
+                {/* Tabla real con headers */}
+                <div className="rounded-lg border border-white/[0.08] overflow-hidden">
+                  {/* Header */}
+                  <div className="grid grid-cols-[1fr_72px_72px_32px] bg-white/[0.03] border-b border-white/[0.07]">
+                    <span className="px-3 py-2 text-[10px] font-medium text-texto-terciario uppercase tracking-wider">Descripción</span>
+                    <span className="px-3 py-2 text-[10px] font-medium text-texto-terciario uppercase tracking-wider text-right">%</span>
+                    <span className="px-3 py-2 text-[10px] font-medium text-texto-terciario uppercase tracking-wider text-right">Días</span>
                     <span />
                   </div>
-                )}
 
-                <div className="space-y-1.5">
+                  {/* Filas */}
                   {form.hitos.map((h) => (
-                    <div key={h.id} className="grid grid-cols-[1fr_80px_80px_28px] gap-2 items-center">
-                      <Input compacto value={h.descripcion}
-                        onChange={(e) => editarHito(h.id, 'descripcion', e.target.value)}
-                        placeholder="Ej: Adelanto" formato={null} />
-                      <Input compacto tipo="number" min="1" max="100" value={h.porcentaje}
-                        onChange={(e) => editarHito(h.id, 'porcentaje', parseFloat(e.target.value) || 0)}
-                        className="font-mono text-right" />
-                      <Input compacto tipo="number" min="0" value={h.diasDesdeEmision}
-                        onChange={(e) => editarHito(h.id, 'diasDesdeEmision', parseInt(e.target.value) || 0)}
-                        className="font-mono text-right" />
-                      <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar"
-                        icono={<Trash2 size={13} />} onClick={() => eliminarHito(h.id)}
-                        className="text-texto-terciario hover:text-estado-error" />
+                    <div key={h.id} className="grid grid-cols-[1fr_72px_72px_32px] border-b border-white/[0.06] last:border-b-0 items-center group hover:bg-white/[0.02] transition-colors">
+                      <div className="px-2 py-1.5">
+                        <Input compacto value={h.descripcion}
+                          onChange={(e) => editarHito(h.id, 'descripcion', e.target.value)}
+                          placeholder="Descripción..." formato={null} />
+                      </div>
+                      <div className="px-2 py-1.5">
+                        <Input compacto tipo="number" min="1" max="100" value={h.porcentaje}
+                          onChange={(e) => editarHito(h.id, 'porcentaje', parseFloat(e.target.value) || 0)}
+                          className="font-mono text-right" />
+                      </div>
+                      <div className="px-2 py-1.5">
+                        <Input compacto tipo="number" min="0" value={h.diasDesdeEmision}
+                          onChange={(e) => editarHito(h.id, 'diasDesdeEmision', parseInt(e.target.value) || 0)}
+                          className="font-mono text-right" />
+                      </div>
+                      <div className="flex justify-center">
+                        <button onClick={() => eliminarHito(h.id)}
+                          className="size-6 rounded-md flex items-center justify-center bg-transparent border-none cursor-pointer text-texto-terciario/30 hover:text-estado-error hover:bg-estado-error/10 transition-colors opacity-0 group-hover:opacity-100">
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
                     </div>
                   ))}
+
+                  {/* Total bar dentro de la tabla */}
+                  {form.hitos.length > 0 && (
+                    <div className="flex items-center justify-between px-3 py-2 bg-white/[0.02] border-t border-white/[0.07]">
+                      <span className="text-[11px] text-texto-terciario">Total</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-sm font-medium ${totalHitos === 100 ? 'text-insignia-exito' : 'text-insignia-advertencia'}`}>
+                          {totalHitos}%
+                        </span>
+                        {totalHitos === 100 && <Check size={13} className="text-insignia-exito" />}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {form.hitos.length > 0 && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="text-xs text-texto-secundario">Total:</span>
-                    <span className={`text-sm font-bold ${totalHitos === 100 ? 'text-insignia-exito' : 'text-insignia-advertencia'}`}>
-                      {totalHitos}%
-                    </span>
-                    {totalHitos === 100 && <Check size={14} className="text-insignia-exito" />}
-                  </div>
-                )}
-
-                <Boton variante="secundario" tamano="sm" anchoCompleto icono={<Plus size={14} />}
-                  onClick={agregarHito} disabled={totalHitos >= 100} className="mt-2 border-dashed">
+                {/* Agregar cuota — fuera de la tabla */}
+                <button onClick={agregarHito} disabled={totalHitos >= 100}
+                  className="w-full flex items-center justify-center gap-1.5 mt-2 py-2 rounded-lg border border-dashed border-texto-marca/25 bg-transparent text-xs text-texto-marca/60 cursor-pointer hover:bg-texto-marca/5 hover:border-texto-marca/40 hover:text-texto-marca/90 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+                  <Plus size={13} />
                   Agregar cuota
-                </Boton>
+                </button>
               </div>
 
-              <Input value={form.notaPlanPago}
-                onChange={(e) => setForm(p => ({ ...p, notaPlanPago: e.target.value }))}
-                placeholder="Nota: recargo 10% tarjeta, solo transferencia..."
-                formato={null} />
+              <div>
+                <p className="text-[11px] text-texto-terciario mb-1.5">Nota interna</p>
+                <Input value={form.notaPlanPago}
+                  onChange={(e) => setForm(p => ({ ...p, notaPlanPago: e.target.value }))}
+                  placeholder="Ej: recargo 10% tarjeta, solo transferencia..."
+                  formato={null} />
+              </div>
             </>
           )}
         </div>
