@@ -105,6 +105,14 @@ export interface Producto {
   // Logística (solo productos)
   peso: string | null
   volumen: string | null
+  ubicacion_deposito: string | null
+  dimensiones: string | null
+  proveedor_principal: string | null
+  stock_actual: number
+  stock_minimo: number
+  stock_maximo: number
+  punto_reorden: number
+  alerta_stock_bajo: boolean
 
   // Capacidades
   puede_venderse: boolean
@@ -145,6 +153,14 @@ export interface CrearProductoPayload {
   notas_internas?: string
   peso?: string
   volumen?: string
+  ubicacion_deposito?: string
+  dimensiones?: string
+  proveedor_principal?: string
+  stock_actual?: number
+  stock_minimo?: number
+  stock_maximo?: number
+  punto_reorden?: number
+  alerta_stock_bajo?: boolean
   puede_venderse?: boolean
   puede_comprarse?: boolean
 }

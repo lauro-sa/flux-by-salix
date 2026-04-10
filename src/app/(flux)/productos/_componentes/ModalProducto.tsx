@@ -61,6 +61,14 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
   const [notasInternas, setNotasInternas] = useState('')
   const [peso, setPeso] = useState('')
   const [volumen, setVolumen] = useState('')
+  const [ubicacionDeposito, setUbicacionDeposito] = useState('')
+  const [dimensiones, setDimensiones] = useState('')
+  const [proveedorPrincipal, setProveedorPrincipal] = useState('')
+  const [stockActual, setStockActual] = useState('')
+  const [stockMinimo, setStockMinimo] = useState('')
+  const [stockMaximo, setStockMaximo] = useState('')
+  const [puntoReorden, setPuntoReorden] = useState('')
+  const [alertaStockBajo, setAlertaStockBajo] = useState(false)
   const [puedeVenderse, setPuedeVenderse] = useState(true)
   const [puedeComprarse, setPuedeComprarse] = useState(false)
   const [favorito, setFavorito] = useState(false)
@@ -89,6 +97,14 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
       setNotasInternas(producto.notas_internas || '')
       setPeso(producto.peso || '')
       setVolumen(producto.volumen || '')
+      setUbicacionDeposito(producto.ubicacion_deposito || '')
+      setDimensiones(producto.dimensiones || '')
+      setProveedorPrincipal(producto.proveedor_principal || '')
+      setStockActual(producto.stock_actual ? String(producto.stock_actual) : '')
+      setStockMinimo(producto.stock_minimo ? String(producto.stock_minimo) : '')
+      setStockMaximo(producto.stock_maximo ? String(producto.stock_maximo) : '')
+      setPuntoReorden(producto.punto_reorden ? String(producto.punto_reorden) : '')
+      setAlertaStockBajo(producto.alerta_stock_bajo)
       setPuedeVenderse(producto.puede_venderse)
       setPuedeComprarse(producto.puede_comprarse)
       setFavorito(producto.favorito)
@@ -111,6 +127,14 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
       setNotasInternas('')
       setPeso('')
       setVolumen('')
+      setUbicacionDeposito('')
+      setDimensiones('')
+      setProveedorPrincipal('')
+      setStockActual('')
+      setStockMinimo('')
+      setStockMaximo('')
+      setPuntoReorden('')
+      setAlertaStockBajo(false)
       setPuedeVenderse(true)
       setPuedeComprarse(false)
       setFavorito(false)
@@ -194,6 +218,14 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
         notas_internas: notasInternas || null,
         peso: tipo === 'producto' ? (peso || null) : null,
         volumen: tipo === 'producto' ? (volumen || null) : null,
+        ubicacion_deposito: tipo === 'producto' ? (ubicacionDeposito || null) : null,
+        dimensiones: tipo === 'producto' ? (dimensiones || null) : null,
+        proveedor_principal: tipo === 'producto' ? (proveedorPrincipal || null) : null,
+        stock_actual: tipo === 'producto' ? (parseFloat(stockActual) || 0) : 0,
+        stock_minimo: tipo === 'producto' ? (parseFloat(stockMinimo) || 0) : 0,
+        stock_maximo: tipo === 'producto' ? (parseFloat(stockMaximo) || 0) : 0,
+        punto_reorden: tipo === 'producto' ? (parseFloat(puntoReorden) || 0) : 0,
+        alerta_stock_bajo: tipo === 'producto' ? alertaStockBajo : false,
         puede_venderse: puedeVenderse,
         puede_comprarse: puedeComprarse,
         ...(esEdicion && { favorito }),
@@ -579,8 +611,25 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
                     onChange={e => setCodigoBarras(e.target.value)} placeholder="Ej: 7790001234567" formato={null} />
                   <Input etiqueta="SKU interno" value={referenciaInterna}
                     onChange={e => setReferenciaInterna(e.target.value)} placeholder="Ej: PROD-001" formato={null} />
-                  <Input etiqueta="Ubicación en depósito" value="" onChange={() => {}}
-                    placeholder="Próximamente" formato={null} disabled />
+                  <Input etiqueta="Ubicación en depósito" value={ubicacionDeposito}
+                    onChange={e => setUbicacionDeposito(e.target.value)} placeholder="Ej: A3-P2-E4" formato={null} />
+                </div>
+              </div>
+
+              <div className="border-t border-white/[0.07]" />
+
+              {/* Stock */}
+              <div>
+                <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-3">Stock</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <Input etiqueta="Stock actual" tipo="number" value={stockActual}
+                    onChange={e => setStockActual(e.target.value)} placeholder="0" formato={null} />
+                  <Input etiqueta="Stock mínimo" tipo="number" value={stockMinimo}
+                    onChange={e => setStockMinimo(e.target.value)} placeholder="0" formato={null} />
+                  <Input etiqueta="Stock máximo" tipo="number" value={stockMaximo}
+                    onChange={e => setStockMaximo(e.target.value)} placeholder="0" formato={null} />
+                  <Input etiqueta="Punto de reorden" tipo="number" value={puntoReorden}
+                    onChange={e => setPuntoReorden(e.target.value)} placeholder="0" formato={null} />
                 </div>
               </div>
 
@@ -596,10 +645,10 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
                   <Input etiqueta="Volumen (m³)" tipo="number" value={volumen}
                     onChange={e => setVolumen(e.target.value)} placeholder="0.000"
                     step="0.001" min="0" formato={null} />
-                  <Input etiqueta="Largo × Ancho × Alto" value="" onChange={() => {}}
-                    placeholder="Próximamente" formato={null} disabled />
-                  <Input etiqueta="Proveedor principal" value="" onChange={() => {}}
-                    placeholder="Próximamente" formato={null} disabled />
+                  <Input etiqueta="Largo × Ancho × Alto" value={dimensiones}
+                    onChange={e => setDimensiones(e.target.value)} placeholder="Ej: 30 × 20 × 10 cm" formato={null} />
+                  <Input etiqueta="Proveedor principal" value={proveedorPrincipal}
+                    onChange={e => setProveedorPrincipal(e.target.value)} placeholder="Nombre del proveedor" formato={null} />
                 </div>
               </div>
 
@@ -611,7 +660,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
                   <p className="text-xs font-medium text-texto-secundario">Alertar cuando el stock esté bajo</p>
                   <p className="text-[11px] text-texto-terciario mt-0.5">Se notifica al llegar al punto de reorden</p>
                 </div>
-                <Interruptor activo={false} onChange={() => {}} />
+                <Interruptor activo={alertaStockBajo} onChange={setAlertaStockBajo} />
               </div>
             </div>
           )}

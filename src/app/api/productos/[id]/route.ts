@@ -101,6 +101,10 @@ export async function PATCH(
         notas_internas: 'notas internas', activo: 'estado', favorito: 'favorito',
         puede_venderse: 'puede venderse', puede_comprarse: 'puede comprarse',
         impuesto_id: 'impuesto', moneda: 'moneda', peso: 'peso', volumen: 'volumen',
+        ubicacion_deposito: 'ubicación depósito', dimensiones: 'dimensiones',
+        proveedor_principal: 'proveedor', stock_actual: 'stock actual',
+        stock_minimo: 'stock mínimo', stock_maximo: 'stock máximo',
+        punto_reorden: 'punto de reorden', alerta_stock_bajo: 'alerta stock bajo',
         referencia_interna: 'referencia interna', codigo_barras: 'código de barras',
         imagen_url: 'imagen', desglose_costos: 'desglose de costos',
       }
