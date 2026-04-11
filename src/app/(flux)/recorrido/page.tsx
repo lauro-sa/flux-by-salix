@@ -81,7 +81,7 @@ export default function PaginaRecorrido() {
   const [visitaRegistro, setVisitaRegistro] = useState<string>('')
   const [modoRegistro, setModoRegistro] = useState<'llegada' | 'completar' | 'editar'>('llegada')
   const [checklistRegistro, setChecklistRegistro] = useState<{ texto: string; completado: boolean }[]>([])
-  const [registroContacto, setRegistroContacto] = useState<{ nombre: string; direccion: string } | null>(null)
+  const [registroContacto, setRegistroContacto] = useState<{ nombre: string; direccion: string; orden: number } | null>(null)
 
   // Cargar recorrido del día seleccionado
   const cargarRecorrido = useCallback(async (fecha?: string) => {
@@ -235,7 +235,8 @@ export default function PaginaRecorrido() {
     const v = parada.visita
     setVisitaRegistro(visitaId)
     setModoRegistro(v.estado === 'en_camino' ? 'llegada' : 'completar')
-    setRegistroContacto({ nombre: v.contacto_nombre, direccion: v.direccion_texto })
+    const ordenParada = paradas.findIndex(p => p.visita?.id === visitaId) + 1
+    setRegistroContacto({ nombre: v.contacto_nombre, direccion: v.direccion_texto, orden: ordenParada })
     setChecklistRegistro(
       Array.isArray(v.checklist)
         ? (v.checklist as { texto: string; completado: boolean }[])
@@ -523,6 +524,22 @@ export default function PaginaRecorrido() {
           completadas={completadas}
           total={paradas.length}
         />
+
+        {/* Tarjeta flotante del contacto — visible cuando el registro está abierto */}
+        {registroAbierto && registroContacto && (
+          <div className="absolute bottom-4 left-3 right-3 z-10">
+            <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10">
+              <div className="flex items-center justify-center size-8 rounded-full bg-[var(--insignia-info)] text-white text-xs font-bold">
+                {registroContacto.orden}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-white truncate">{registroContacto.nombre}</p>
+                <p className="text-[11px] text-white/60 truncate">{registroContacto.direccion}</p>
+              </div>
+              <span className="text-[11px] text-white/40 shrink-0">{registroContacto.orden}/{paradas.length}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Sheet inferior — colapsable estilo app nativa ── */}

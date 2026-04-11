@@ -278,20 +278,6 @@ function RegistroVisita({
         </div>
       ) : (
         <div className="space-y-5">
-          {/* Datos del contacto */}
-          {contactoNombre && (
-            <div className="flex items-center gap-3 p-3 rounded-xl border border-borde-sutil bg-white/[0.03]">
-              <div className="flex items-center justify-center size-10 rounded-full bg-[var(--insignia-info)]/15 border border-[var(--insignia-info)]/30">
-                <MapPin size={16} className="text-[var(--insignia-info)]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-texto-primario truncate">{contactoNombre}</p>
-                {contactoDireccion && (
-                  <p className="text-xs text-texto-terciario truncate">{contactoDireccion}</p>
-                )}
-              </div>
-            </div>
-          )}
           {/* Ubicación (solo en modo llegada) */}
           {modo === 'llegada' && (
             <div className="flex items-center gap-3 p-3 rounded-lg border border-borde-sutil bg-superficie-elevada/50">
