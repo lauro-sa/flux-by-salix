@@ -123,10 +123,16 @@ export default function PaginaRecorrido() {
     setModoEdicion(false)
   }, [])
 
-  // Cálculos derivados
-  const paradaActualIndice = paradas.findIndex(
-    p => p.visita && p.visita.estado !== 'completada' && p.visita.estado !== 'cancelada'
-  )
+  // Cálculos derivados — prioriza la parada activa (en_camino/en_sitio) sobre programadas
+  const paradaActualIndice = (() => {
+    const enCurso = paradas.findIndex(
+      p => p.visita && (p.visita.estado === 'en_camino' || p.visita.estado === 'en_sitio')
+    )
+    if (enCurso >= 0) return enCurso
+    return paradas.findIndex(
+      p => p.visita && p.visita.estado !== 'completada' && p.visita.estado !== 'cancelada'
+    )
+  })()
 
   // Sincronizar la vista del sheet con la parada activa
   useEffect(() => {
@@ -503,7 +509,7 @@ export default function PaginaRecorrido() {
           <MapaRecorrido
             ruta={rutaMapa}
             paradaActual={paradaActualIndice}
-            onClickParada={(_punto, indice) => setParadaSeleccionada(indice)}
+            onClickParada={(_punto, indice) => { setParadaSeleccionada(indice); setParadaVistaIndice(indice) }}
             className="!rounded-none !h-full"
           />
         </ProveedorMapa>
@@ -550,8 +556,8 @@ export default function PaginaRecorrido() {
         )}
 
         {!sheetExpandido ? (
-          /* ── COLAPSADO: tarjeta deslizable + acciones fijas abajo ── */
-          <div className="flex-1 flex flex-col min-h-0 justify-between">
+          /* ── COLAPSADO: tarjeta + acciones ── */
+          <div className="flex-1 flex flex-col min-h-0">
             {paradas.length > 0 && (() => {
               const idx = Math.min(paradaVistaIndice, paradas.length - 1)
               const parada = paradas[idx]
@@ -579,9 +585,9 @@ export default function PaginaRecorrido() {
 
               return (
                 <>
-                  {/* ── Tarjeta de parada — deslizable ── */}
+                  {/* ── 1. Tarjeta de parada — deslizable, más alta ── */}
                   <div
-                    className="px-4 py-2"
+                    className="px-4 pt-1"
                     onTouchStart={(e) => {
                       const el = e.currentTarget as HTMLElement
                       el.dataset.startX = String(e.touches[0].clientX)
@@ -596,54 +602,37 @@ export default function PaginaRecorrido() {
                     }}
                   >
                     <button
-                      className="w-full flex items-center gap-3 text-left py-2 px-3 rounded-xl border border-borde-sutil/50 bg-white/[0.02]"
+                      className="w-full flex items-center gap-4 text-left py-4 px-4 rounded-2xl border border-borde-sutil/50 bg-white/[0.03] active:bg-white/[0.06] transition-colors"
                       onClick={() => setSheetExpandido(true)}
                     >
-                      <div className="flex items-center justify-center size-10 rounded-full border-2 shrink-0 text-sm font-bold"
+                      <div className="flex items-center justify-center size-12 rounded-full border-2 shrink-0 text-base font-bold"
                         style={{
                           borderColor: colorEstado,
                           backgroundColor: ['completada', 'en_camino', 'en_sitio', 'cancelada'].includes(estado) ? colorEstado : 'transparent',
                           color: ['completada', 'en_camino', 'en_sitio', 'cancelada'].includes(estado) ? 'white' : 'var(--texto-terciario)',
                         }}
                       >
-                        {estado === 'completada' ? <Check size={14} /> : estado === 'cancelada' ? <X size={14} /> : idx + 1}
+                        {estado === 'completada' ? <Check size={16} /> : estado === 'cancelada' ? <X size={16} /> : idx + 1}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className={`text-sm font-semibold text-texto-primario truncate ${estado === 'cancelada' ? 'line-through opacity-50' : ''}`}>
+                        <div className={`text-base font-semibold text-texto-primario truncate ${estado === 'cancelada' ? 'line-through opacity-50' : ''}`}>
                           {v.contacto_nombre}
                         </div>
-                        <div className="text-xs text-texto-terciario truncate">{v.direccion_texto}</div>
+                        <div className="text-sm text-texto-terciario truncate mt-0.5">{v.direccion_texto}</div>
                       </div>
-                      <div className="flex flex-col items-end gap-0.5 shrink-0">
-                        <span className="text-[11px] font-medium text-texto-terciario">{idx + 1}/{paradas.length}</span>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className="text-xs font-medium text-texto-terciario">{idx + 1}/{paradas.length}</span>
                         {estado !== 'programada' && (
-                          <span className="text-[10px] font-medium" style={{ color: colorEstado }}>
+                          <span className="text-[11px] font-medium" style={{ color: colorEstado }}>
                             {estado === 'en_camino' ? 'En camino' : estado === 'en_sitio' ? 'En sitio' : estado === 'completada' ? 'Completada' : estado === 'cancelada' ? 'Cancelada' : ''}
                           </span>
                         )}
                       </div>
                     </button>
-
-                    {/* Indicadores de posición */}
-                    <div className="flex justify-center gap-1 mt-2">
-                      {paradas.map((_, i) => (
-                        <button
-                          key={i}
-                          onClick={() => setParadaVistaIndice(i)}
-                          className={`rounded-full transition-all ${i === idx ? 'w-4 h-1.5' : 'size-1.5'}`}
-                          style={{
-                            backgroundColor: i === idx ? colorEstado
-                              : paradas[i].visita?.estado === 'completada' ? 'var(--insignia-exito)'
-                              : paradas[i].visita?.estado === 'cancelada' ? 'var(--insignia-peligro)'
-                              : 'var(--borde-sutil)',
-                          }}
-                        />
-                      ))}
-                    </div>
                   </div>
 
-                  {/* ── Acciones fijas — siempre en la misma posición, grid 3 cols ── */}
-                  <div className="px-4 pb-2">
+                  {/* ── 2. Acciones — debajo de la tarjeta ── */}
+                  <div className="px-4 py-3 mt-auto">
                     <div className="grid grid-cols-3 gap-2">
                       {/* Columna 1: Navegar (siempre) */}
                       <button
@@ -744,6 +733,22 @@ export default function PaginaRecorrido() {
                       )}
                     </div>
 
+                    {/* 3. Indicadores de posición — al fondo */}
+                    <div className="flex justify-center gap-1.5 pt-3">
+                      {paradas.map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setParadaVistaIndice(i)}
+                          className={`rounded-full transition-all ${i === idx ? 'w-5 h-2' : 'size-2'}`}
+                          style={{
+                            backgroundColor: i === idx ? colorEstado
+                              : paradas[i].visita?.estado === 'completada' ? 'var(--insignia-exito)'
+                              : paradas[i].visita?.estado === 'cancelada' ? 'var(--insignia-peligro)'
+                              : 'var(--borde-sutil)',
+                          }}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </>
               )

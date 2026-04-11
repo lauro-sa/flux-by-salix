@@ -1,11 +1,11 @@
 'use client'
 
 import { Map, useMap } from '@vis.gl/react-google-maps'
-import { MapPin, Zap, Route, ShieldOff, Settings2 } from 'lucide-react'
+import { MapPin, Zap, Route, ShieldOff, Settings2, Plus, Minus, Maximize2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AdvancedMarker } from '@vis.gl/react-google-maps'
 import { MarcadorVisita } from './MarcadorVisita'
-import type { PreferenciaRuta, PropiedadesMapaRecorrido } from './tipos-mapa'
+import type { PuntoMapa, PreferenciaRuta, PropiedadesMapaRecorrido } from './tipos-mapa'
 import { calcularCentro } from './utilidades-mapa'
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''
@@ -33,6 +33,7 @@ export function MapaRecorrido({
   const { puntos, origen, destino } = ruta
   const [preferencia, setPreferencia] = useState<PreferenciaRuta>(preferenciaInicial)
   const [selectorAbierto, setSelectorAbierto] = useState(false)
+  const [enfocado, setEnfocado] = useState(false) // true cuando zoom en una parada específica
 
   const cambiarPreferencia = useCallback((nueva: PreferenciaRuta) => {
     setPreferencia(nueva)
@@ -93,6 +94,9 @@ export function MapaRecorrido({
         colorScheme="DARK"
         className="w-full h-full"
       >
+        {/* FitBounds automático — ajusta zoom para mostrar todas las paradas */}
+        {puntos.length > 0 && <AjustadorBounds puntos={puntos} />}
+
         {/* Ruta real por calles */}
         {puntos.length > 0 && (
           <RutaReal
@@ -117,15 +121,18 @@ export function MapaRecorrido({
           </AdvancedMarker>
         )}
 
-        {/* Marcadores de paradas */}
+        {/* Marcadores de paradas — tocar hace zoom a ese punto */}
         {puntos.map((punto, i) => (
-          <MarcadorVisita
+          <MarcadorParadaConZoom
             key={punto.id}
             punto={punto}
             orden={i + 1}
             esActual={i === paradaActual}
             esCompletada={punto.estado === 'completada'}
-            onClick={onClickParada ? () => onClickParada(punto, i) : undefined}
+            onClick={() => {
+              onClickParada?.(punto, i)
+              setEnfocado(true)
+            }}
           />
         ))}
       </Map>
@@ -135,9 +142,12 @@ export function MapaRecorrido({
         <div className="absolute inset-0 z-10" onClick={() => setSelectorAbierto(false)} />
       )}
 
-      {/* Botón de opciones de ruta — esquina inferior izquierda */}
+      {/* Botones de zoom + ver todo — esquina derecha, subidos */}
+      <BotonesZoom enfocado={enfocado} onVerTodo={() => setEnfocado(false)} puntos={puntos} />
+
+      {/* Opciones de ruta — esquina izquierda, subido */}
       {puntos.length > 0 && (
-        <div className="absolute bottom-3 left-3 z-20">
+        <div className="absolute bottom-14 left-3 z-20">
           {selectorAbierto ? (
             <div className="flex flex-col gap-1 bg-black/80 backdrop-blur-md rounded-xl p-1.5 border border-white/10">
               {OPCIONES_RUTA.map(({ valor, etiqueta, icono: Icono }) => (
@@ -158,7 +168,7 @@ export function MapaRecorrido({
           ) : (
             <button
               onClick={() => setSelectorAbierto(true)}
-              className="flex items-center justify-center size-9 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white/70 hover:text-white transition-colors"
+              className="flex items-center justify-center size-10 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white/70 hover:text-white transition-colors"
               title="Opciones de ruta"
             >
               <Settings2 size={16} />
@@ -211,11 +221,20 @@ function RutaReal({
 
     rendererRef.current.setMap(mapa)
 
-    const puntoOrigen = origen || puntos[0]
+    // Si el origen GPS está muy lejos de las paradas (>500km), ignorarlo
+    // (ej: simulador en San Francisco, paradas en Buenos Aires)
+    const origenCercano = (() => {
+      if (!origen || puntos.length === 0) return null
+      const dLat = Math.abs(origen.lat - puntos[0].lat)
+      const dLng = Math.abs(origen.lng - puntos[0].lng)
+      return (dLat + dLng) < 5 ? origen : null // ~500km umbral
+    })()
+
+    const puntoOrigen = origenCercano || puntos[0]
     const puntoDestino = destino || puntos[puntos.length - 1]
     const paradasWaypoints = destino
       ? puntos
-      : (origen ? puntos.slice(0, -1) : puntos.slice(1, -1))
+      : (origenCercano ? puntos.slice(0, -1) : puntos.slice(1, -1))
     const waypoints = paradasWaypoints.map((p) => ({
       location: new google.maps.LatLng(p.lat, p.lng),
       stopover: true,
@@ -252,4 +271,103 @@ function RutaReal({
   }, [mapa, puntos, origen, destino, preferencia, onInfoRuta])
 
   return null
+}
+
+/**
+ * AjustadorBounds — Ajusta el zoom del mapa para que entren todas las paradas.
+ */
+function AjustadorBounds({ puntos }: { puntos: { lat: number; lng: number }[] }) {
+  const mapa = useMap()
+  const ajustadoRef = useRef(false)
+
+  useEffect(() => {
+    if (!mapa || puntos.length === 0) return
+    // Solo ajustar una vez al cargar (no en cada re-render)
+    if (ajustadoRef.current) return
+    ajustadoRef.current = true
+
+    const bounds = new google.maps.LatLngBounds()
+    puntos.forEach((p) => bounds.extend({ lat: p.lat, lng: p.lng }))
+    mapa.fitBounds(bounds, { top: 60, right: 30, bottom: 30, left: 30 })
+  }, [mapa, puntos])
+
+  return null
+}
+
+/**
+ * MarcadorParadaConZoom — Marcador que al tocarlo hace zoom al punto.
+ */
+function MarcadorParadaConZoom({ punto, orden, esActual, esCompletada, onClick }: {
+  punto: PuntoMapa
+  orden: number
+  esActual: boolean
+  esCompletada: boolean
+  onClick?: () => void
+}) {
+  const mapa = useMap()
+
+  const manejarClick = () => {
+    if (mapa) {
+      mapa.panTo({ lat: punto.lat, lng: punto.lng })
+      mapa.setZoom(17)
+    }
+    onClick?.()
+  }
+
+  return (
+    <MarcadorVisita
+      punto={punto}
+      orden={orden}
+      esActual={esActual}
+      esCompletada={esCompletada}
+      onClick={manejarClick}
+    />
+  )
+}
+
+/**
+ * BotonesZoom — Botones + / - y "ver todo" para zoom del mapa.
+ */
+function BotonesZoom({ enfocado, onVerTodo, puntos }: { enfocado: boolean; onVerTodo: () => void; puntos: { lat: number; lng: number }[] }) {
+  const mapa = useMap()
+
+  const hacerZoom = (delta: number) => {
+    if (!mapa) return
+    const zoomActual = mapa.getZoom() || 13
+    mapa.setZoom(zoomActual + delta)
+  }
+
+  const verTodo = () => {
+    if (!mapa || puntos.length === 0) return
+    const bounds = new google.maps.LatLngBounds()
+    puntos.forEach((p) => bounds.extend({ lat: p.lat, lng: p.lng }))
+    mapa.fitBounds(bounds, { top: 60, right: 30, bottom: 30, left: 30 })
+    onVerTodo()
+  }
+
+  return (
+    <div className="absolute bottom-14 right-3 z-20 flex flex-col gap-1.5">
+      {enfocado && (
+        <button
+          onClick={verTodo}
+          className="flex items-center justify-center size-10 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white/80 hover:text-white active:bg-white/20 transition-colors"
+          title="Ver todo el recorrido"
+        >
+          <Maximize2 size={16} />
+        </button>
+      )}
+      <button
+        onClick={() => hacerZoom(1)}
+        className="flex items-center justify-center size-10 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white/80 hover:text-white active:bg-white/20 transition-colors"
+      >
+        <Plus size={18} />
+      </button>
+      <button
+        onClick={() => hacerZoom(-1)}
+        className="flex items-center justify-center size-10 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white/80 hover:text-white active:bg-white/20 transition-colors"
+      >
+        <Minus size={18} />
+      </button>
+    </div>
+  )
 }

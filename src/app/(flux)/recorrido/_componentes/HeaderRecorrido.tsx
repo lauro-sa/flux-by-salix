@@ -2,12 +2,11 @@
 
 /**
  * HeaderRecorrido — Header flotante sobre el mapa, compacto para mobile.
- * Una sola fila: ← | < Hoy > | ● 1/5
- * Se usa en: PaginaRecorrido, overlay absoluto sobre el mapa.
+ * Una sola fila centrada: < Fecha > · ● 2/5
+ * Sin botón atrás (el header principal de la app tiene la navegación).
  */
 
-import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useFormato } from '@/hooks/useFormato'
 
 interface PropiedadesHeaderRecorrido {
@@ -18,7 +17,6 @@ interface PropiedadesHeaderRecorrido {
 }
 
 function HeaderRecorrido({ fecha, onCambiarFecha, completadas, total }: PropiedadesHeaderRecorrido) {
-  const router = useRouter()
   const formato = useFormato()
 
   const fechaObj = new Date(fecha + 'T12:00:00')
@@ -38,20 +36,8 @@ function HeaderRecorrido({ fecha, onCambiarFecha, completadas, total }: Propieda
   }
 
   return (
-    <header
-      className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-3"
-      style={{ paddingTop: 'calc(env(safe-area-inset-top, 4px) + 6px)' }}
-    >
-      {/* Atrás */}
-      <button
-        onClick={() => router.push('/dashboard')}
-        className="flex items-center justify-center size-9 rounded-full bg-black/50 backdrop-blur-md border border-white/10"
-        aria-label="Volver"
-      >
-        <ArrowLeft size={16} className="text-white" />
-      </button>
-
-      {/* Fecha */}
+    <header className="absolute top-0 left-0 right-0 z-10 flex items-center justify-center gap-2 px-3 pt-2">
+      {/* Fecha + Progreso — una sola pill centrada */}
       <div className="flex items-center rounded-full bg-black/50 backdrop-blur-md border border-white/10">
         <button
           onClick={() => cambiarDia(-1)}
@@ -61,7 +47,7 @@ function HeaderRecorrido({ fecha, onCambiarFecha, completadas, total }: Propieda
         </button>
         <button
           onClick={() => onCambiarFecha(hoyStr)}
-          className="px-1.5 min-w-[44px] text-center"
+          className="px-1 min-w-[44px] text-center"
         >
           <span className="text-xs font-semibold text-white">{fechaTexto}</span>
         </button>
@@ -71,19 +57,20 @@ function HeaderRecorrido({ fecha, onCambiarFecha, completadas, total }: Propieda
         >
           <ChevronRight size={14} className="text-white/60" />
         </button>
-      </div>
 
-      {/* Progreso */}
-      {total > 0 ? (
-        <div className="flex items-center gap-1 rounded-full bg-black/50 backdrop-blur-md border border-white/10 px-2.5 py-1.5">
-          <div className="size-1.5 rounded-full" style={{
-            backgroundColor: completadas >= total ? 'var(--insignia-exito)' : 'var(--insignia-info)',
-          }} />
-          <span className="text-xs font-medium text-white">{completadas}/{total}</span>
-        </div>
-      ) : (
-        <div className="size-9" /> // spacer para mantener centrado
-      )}
+        {/* Separador + progreso dentro de la misma pill */}
+        {total > 0 && (
+          <>
+            <div className="w-px h-4 bg-white/15" />
+            <div className="flex items-center gap-1 px-2.5 py-1.5">
+              <div className="size-1.5 rounded-full" style={{
+                backgroundColor: completadas >= total ? 'var(--insignia-exito)' : 'var(--insignia-info)',
+              }} />
+              <span className="text-xs font-medium text-white">{completadas}/{total}</span>
+            </div>
+          </>
+        )}
+      </div>
     </header>
   )
 }
