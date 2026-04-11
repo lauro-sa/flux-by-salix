@@ -309,8 +309,17 @@ function ControladorZoom({ puntos, paradaActual, enfocado }: {
     // Zoom a parada cuando se enfoca
     if (enfocado && paradaActual >= 0 && paradaActual < puntos.length) {
       const p = puntos[paradaActual]
-      mapa.panTo({ lat: p.lat, lng: p.lng })
-      mapa.setZoom(17)
+      mapa.setZoom(15)
+      setTimeout(() => {
+        const bounds = mapa.getBounds()
+        if (bounds) {
+          const span = bounds.toSpan()
+          // Bajar el centro para que el marcador quede en el tercio superior del mapa
+          mapa.panTo({ lat: p.lat - span.lat() * 0.1, lng: p.lng })
+        } else {
+          mapa.panTo({ lat: p.lat, lng: p.lng })
+        }
+      }, 100)
     }
 
     // Volver a ver todo cuando se desenfoca
