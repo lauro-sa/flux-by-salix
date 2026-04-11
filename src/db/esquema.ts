@@ -2142,6 +2142,7 @@ export const visitas = pgTable('visitas', {
   motivo: text('motivo'), // por qué se hace la visita
   resultado: text('resultado'), // qué pasó al completarla
   notas: text('notas'),
+  temperatura: text('temperatura'), // factibilidad: frio, tibio, caliente
   prioridad: text('prioridad').notNull().default('normal'), // baja, normal, alta, urgente
 
   // Checklist configurable (items a verificar durante la visita)

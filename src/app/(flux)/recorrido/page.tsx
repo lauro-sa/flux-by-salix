@@ -81,6 +81,7 @@ export default function PaginaRecorrido() {
   const [visitaRegistro, setVisitaRegistro] = useState<string>('')
   const [modoRegistro, setModoRegistro] = useState<'llegada' | 'completar' | 'editar'>('llegada')
   const [checklistRegistro, setChecklistRegistro] = useState<{ texto: string; completado: boolean }[]>([])
+  const [registroContacto, setRegistroContacto] = useState<{ nombre: string; direccion: string } | null>(null)
 
   // Cargar recorrido del día seleccionado
   const cargarRecorrido = useCallback(async (fecha?: string) => {
@@ -231,12 +232,13 @@ export default function PaginaRecorrido() {
   const manejarRegistrar = useCallback((visitaId: string) => {
     const parada = paradas.find(p => p.visita?.id === visitaId)
     if (!parada) return
-    const estado = parada.visita.estado
+    const v = parada.visita
     setVisitaRegistro(visitaId)
-    setModoRegistro(estado === 'en_camino' ? 'llegada' : 'completar')
+    setModoRegistro(v.estado === 'en_camino' ? 'llegada' : 'completar')
+    setRegistroContacto({ nombre: v.contacto_nombre, direccion: v.direccion_texto })
     setChecklistRegistro(
-      Array.isArray(parada.visita.checklist)
-        ? (parada.visita.checklist as { texto: string; completado: boolean }[])
+      Array.isArray(v.checklist)
+        ? (v.checklist as { texto: string; completado: boolean }[])
         : []
     )
     setRegistroAbierto(true)
@@ -867,6 +869,8 @@ export default function PaginaRecorrido() {
         modo={modoRegistro}
         checklist={checklistRegistro}
         onExito={manejarRegistroExitoso}
+        contactoNombre={registroContacto?.nombre}
+        contactoDireccion={registroContacto?.direccion}
       />
 
       {/* Modal de llegada — se abre al tocar "Llegué" */}

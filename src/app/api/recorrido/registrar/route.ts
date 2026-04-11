@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
     const visitaId = formData.get('visita_id') as string
     const notas = formData.get('notas') as string | null
     const resultado = formData.get('resultado') as string | null
+    const temperatura = formData.get('temperatura') as string | null
     const checklistJson = formData.get('checklist') as string | null
 
     if (!visitaId) {
@@ -79,6 +80,7 @@ export async function POST(request: NextRequest) {
     const actualizacion: Record<string, unknown> = { actualizado_en: new Date().toISOString() }
     if (notas) actualizacion.notas = notas
     if (resultado) actualizacion.resultado = resultado
+    if (temperatura) actualizacion.temperatura = temperatura
     if (checklistJson) {
       try {
         actualizacion.checklist = JSON.parse(checklistJson)

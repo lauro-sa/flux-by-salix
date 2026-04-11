@@ -40,6 +40,9 @@ interface PropiedadesRegistroVisita {
   modo: 'llegada' | 'completar' | 'editar'
   checklist?: ItemChecklist[]
   onExito: () => void
+  /** Datos del contacto para mostrar en el header */
+  contactoNombre?: string
+  contactoDireccion?: string
 }
 
 function RegistroVisita({
@@ -49,6 +52,8 @@ function RegistroVisita({
   modo,
   checklist: checklistInicial,
   onExito,
+  contactoNombre,
+  contactoDireccion,
 }: PropiedadesRegistroVisita) {
   const { t } = useTraduccion()
   const { mostrar } = useToast()
@@ -273,6 +278,20 @@ function RegistroVisita({
         </div>
       ) : (
         <div className="space-y-5">
+          {/* Datos del contacto */}
+          {contactoNombre && (
+            <div className="flex items-center gap-3 p-3 rounded-xl border border-borde-sutil bg-white/[0.03]">
+              <div className="flex items-center justify-center size-10 rounded-full bg-[var(--insignia-info)]/15 border border-[var(--insignia-info)]/30">
+                <MapPin size={16} className="text-[var(--insignia-info)]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-texto-primario truncate">{contactoNombre}</p>
+                {contactoDireccion && (
+                  <p className="text-xs text-texto-terciario truncate">{contactoDireccion}</p>
+                )}
+              </div>
+            </div>
+          )}
           {/* Ubicación (solo en modo llegada) */}
           {modo === 'llegada' && (
             <div className="flex items-center gap-3 p-3 rounded-lg border border-borde-sutil bg-superficie-elevada/50">
@@ -324,29 +343,28 @@ function RegistroVisita({
             </div>
           )}
 
-          {/* Temperatura del prospecto — 3 estados rápidos */}
+          {/* Factibilidad — qué tan probable es cerrar */}
           <div>
-            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2">Interés del cliente</p>
+            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2">Factibilidad</p>
             <div className="grid grid-cols-3 gap-2">
               {([
-                { valor: 'frio' as const, emoji: '❄️', label: 'Frío', color: 'var(--insignia-info)', bg: 'var(--insignia-info)' },
-                { valor: 'tibio' as const, emoji: '🤔', label: 'Tibio', color: 'var(--insignia-advertencia)', bg: 'var(--insignia-advertencia)' },
-                { valor: 'caliente' as const, emoji: '🔥', label: 'Caliente', color: 'var(--insignia-exito)', bg: 'var(--insignia-exito)' },
-              ]).map(({ valor, emoji, label, color, bg }) => {
+                { valor: 'frio' as const, label: 'Baja', color: 'var(--insignia-peligro)', bg: 'var(--insignia-peligro)' },
+                { valor: 'tibio' as const, label: 'Media', color: 'var(--insignia-advertencia)', bg: 'var(--insignia-advertencia)' },
+                { valor: 'caliente' as const, label: 'Alta', color: 'var(--insignia-exito)', bg: 'var(--insignia-exito)' },
+              ]).map(({ valor, label, color, bg }) => {
                 const activo = temperatura === valor
                 return (
                   <button
                     key={valor}
                     onClick={() => setTemperatura(activo ? null : valor)}
-                    className="flex items-center justify-center gap-1.5 py-3 rounded-xl border text-sm font-medium transition-all"
+                    className="flex items-center justify-center py-2.5 rounded-xl border text-sm font-medium transition-all"
                     style={{
                       borderColor: activo ? color : 'var(--borde-sutil)',
                       backgroundColor: activo ? `color-mix(in srgb, ${bg} 15%, transparent)` : 'transparent',
                       color: activo ? color : 'var(--texto-secundario)',
                     }}
                   >
-                    <span>{emoji}</span>
-                    <span>{label}</span>
+                    {label}
                   </button>
                 )
               })}
