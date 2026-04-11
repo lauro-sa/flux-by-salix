@@ -14,7 +14,8 @@ import { arrayMove } from '@dnd-kit/sortable'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
 import { Boton } from '@/componentes/ui/Boton'
-import { CalendarDays, Users, ChevronLeft, ChevronRight, Inbox } from 'lucide-react'
+import { useFormato } from '@/hooks/useFormato'
+import { CalendarDays, Users, ChevronLeft, ChevronRight, Inbox, MapPin, Calendar, GripVertical } from 'lucide-react'
 import { ProveedorMapa } from '@/componentes/mapa'
 import TarjetaVisitador from './TarjetaVisitador'
 import type { ConfigPermisos } from './ConfigRecorrido'
@@ -38,6 +39,7 @@ interface VisitaPlan {
   motivo: string | null
   asignado_a: string | null
   asignado_nombre: string | null
+  contacto?: { tipo_contacto?: { clave: string; etiqueta: string } | null } | null
 }
 
 interface VisitadorPlan {
@@ -316,6 +318,7 @@ export default function PanelPlanificacion() {
     queryClient.invalidateQueries({ queryKey: ['visitas-planificacion'] })
   }, [queryClient])
 
+  const formato = useFormato()
   const visitaDragging = draggingId ? encontrarVisita(draggingId) : null
 
   // ── Loading ──
@@ -474,20 +477,55 @@ export default function PanelPlanificacion() {
           ))}
         </div>
 
-        {/* Drag overlay */}
-        <DragOverlay>
-          {visitaDragging && (
-            <div className="rounded-lg border border-texto-marca/40 bg-superficie-elevada p-2.5 shadow-lg max-w-[300px]">
-              <p className="text-sm font-medium text-texto-primario truncate">
-                {visitaDragging.contacto_nombre || 'Sin contacto'}
-              </p>
-              {visitaDragging.direccion_texto && (
-                <p className="text-xs text-texto-terciario truncate mt-0.5">
-                  {visitaDragging.direccion_texto}
-                </p>
-              )}
-            </div>
-          )}
+        {/* Drag overlay — replica exacta de la tarjeta */}
+        <DragOverlay dropAnimation={null}>
+          {visitaDragging && (() => {
+            const v = visitaDragging
+            const horaOv = v.fecha_programada ? formato.hora(v.fecha_programada) : null
+            const fechaOv = v.fecha_programada
+              ? new Date(v.fecha_programada).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })
+                  .replace(/^\w/, c => c.toUpperCase())
+              : null
+            const colorBorde = v.prioridad === 'urgente' ? 'border-l-red-400'
+              : v.prioridad === 'alta' ? 'border-l-orange-400'
+              : 'border-l-texto-marca/40'
+
+            return (
+              <div className={`rounded-lg border border-texto-marca/30 border-l-2 ${colorBorde} bg-superficie-elevada shadow-xl w-[280px] cursor-grabbing`}>
+                <div className="flex justify-center py-0.5 opacity-30">
+                  <GripVertical size={12} />
+                </div>
+                <div className="px-2.5 pb-2 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-[13px] font-medium text-texto-primario">
+                      {v.contacto_nombre || 'Sin contacto'}
+                    </span>
+                    {v.contacto?.tipo_contacto?.etiqueta && (
+                      <span className="text-xxs px-1.5 py-0.5 rounded bg-superficie-tarjeta border border-borde-sutil text-texto-terciario shrink-0">
+                        {v.contacto.tipo_contacto.etiqueta}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-texto-terciario flex-wrap">
+                    {fechaOv && (
+                      <span className="flex items-center gap-1">
+                        <Calendar size={9} />
+                        {fechaOv}
+                      </span>
+                    )}
+                    {horaOv && <span>· {horaOv}</span>}
+                    {v.duracion_estimada_min && <span>· {v.duracion_estimada_min}min</span>}
+                  </div>
+                  {v.direccion_texto && (
+                    <div className="flex items-start gap-1">
+                      <MapPin size={9} className="shrink-0 text-texto-terciario mt-0.5" />
+                      <span className="text-[11px] text-texto-terciario leading-tight line-clamp-2">{v.direccion_texto}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
         </DragOverlay>
       </DndContext>
     </div>

@@ -31,6 +31,7 @@ interface VisitaPlanificacion {
   duracion_estimada_min: number | null
   fecha_programada: string | null
   motivo: string | null
+  contacto?: { tipo_contacto?: { clave: string; etiqueta: string } | null } | null
 }
 
 interface RecorridoResumen {
@@ -94,8 +95,10 @@ function ItemVisitaSortable({ visita, indice }: { visita: VisitaPlanificacion; i
   }
 
   const horaFormateada = visita.fecha_programada ? formato.hora(visita.fecha_programada) : null
-  const fechaCorta = visita.fecha_programada
-    ? new Date(visita.fecha_programada).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+  // "Jue 16 abr"
+  const fechaConDia = visita.fecha_programada
+    ? new Date(visita.fecha_programada).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })
+        .replace(/^\w/, c => c.toUpperCase())
     : null
 
   const colorBorde = visita.prioridad === 'urgente' ? 'border-l-red-400'
@@ -116,7 +119,7 @@ function ItemVisitaSortable({ visita, indice }: { visita: VisitaPlanificacion; i
       </div>
 
       <div className="px-2.5 pb-2 space-y-1">
-        {/* Nombre + número */}
+        {/* Nombre + tipo + número */}
         <div className="flex items-center gap-2">
           <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-texto-marca/15 text-[9px] font-bold text-texto-marca">
             {indice + 1}
@@ -124,25 +127,30 @@ function ItemVisitaSortable({ visita, indice }: { visita: VisitaPlanificacion; i
           <span className="truncate text-[13px] font-medium text-texto-primario">
             {visita.contacto_nombre || 'Sin contacto'}
           </span>
-        </div>
-
-        {/* Fecha + hora + duración en una línea */}
-        <div className="flex items-center gap-2 text-[11px] text-texto-terciario">
-          {fechaCorta && (
-            <span className="flex items-center gap-1">
-              <Calendar size={9} className="shrink-0" />
-              {fechaCorta}
+          {visita.contacto?.tipo_contacto?.etiqueta && (
+            <span className="text-xxs px-1.5 py-0.5 rounded bg-superficie-tarjeta border border-borde-sutil text-texto-terciario shrink-0">
+              {visita.contacto.tipo_contacto.etiqueta}
             </span>
           )}
-          {horaFormateada && <span>{horaFormateada}</span>}
+        </div>
+
+        {/* Fecha + hora + duración */}
+        <div className="flex items-center gap-1.5 text-[11px] text-texto-terciario flex-wrap">
+          {fechaConDia && (
+            <span className="flex items-center gap-1">
+              <Calendar size={9} className="shrink-0" />
+              {fechaConDia}
+            </span>
+          )}
+          {horaFormateada && <span>· {horaFormateada}</span>}
           {visita.duracion_estimada_min && <span>· {visita.duracion_estimada_min}min</span>}
         </div>
 
-        {/* Dirección (truncada) */}
+        {/* Dirección completa */}
         {visita.direccion_texto && (
-          <div className="flex items-center gap-1">
-            <MapPin size={9} className="shrink-0 text-texto-terciario" />
-            <span className="truncate text-[11px] text-texto-terciario">{visita.direccion_texto}</span>
+          <div className="flex items-start gap-1">
+            <MapPin size={9} className="shrink-0 text-texto-terciario mt-0.5" />
+            <span className="text-[11px] text-texto-terciario leading-tight line-clamp-2">{visita.direccion_texto}</span>
           </div>
         )}
       </div>

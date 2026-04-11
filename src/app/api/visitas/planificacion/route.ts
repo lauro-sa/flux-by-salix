@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
       // Todas las visitas sin asignar (cualquier fecha, pendientes)
       admin
         .from('visitas')
-        .select('id, contacto_nombre, direccion_texto, direccion_lat, direccion_lng, estado, prioridad, duracion_estimada_min, fecha_programada, motivo, asignado_a, asignado_nombre')
+        .select('id, contacto_id, contacto_nombre, direccion_texto, direccion_lat, direccion_lng, estado, prioridad, duracion_estimada_min, fecha_programada, motivo, asignado_a, asignado_nombre, contacto:contactos!visitas_contacto_id_fkey(tipo_contacto:tipos_contacto(clave, etiqueta))')
         .eq('empresa_id', empresaId)
         .eq('en_papelera', false)
         .is('asignado_a', null)
