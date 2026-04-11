@@ -2143,6 +2143,11 @@ export const visitas = pgTable('visitas', {
   resultado: text('resultado'), // qué pasó al completarla
   notas: text('notas'),
   temperatura: text('temperatura'), // factibilidad: frio, tibio, caliente
+
+  // Contacto de recepción (quien recibe al visitador, puede ser diferente al principal)
+  recibe_contacto_id: uuid('recibe_contacto_id').references(() => contactos.id, { onDelete: 'set null' }),
+  recibe_nombre: text('recibe_nombre'),
+  recibe_telefono: text('recibe_telefono'),
   prioridad: text('prioridad').notNull().default('normal'), // baja, normal, alta, urgente
 
   // Checklist configurable (items a verificar durante la visita)

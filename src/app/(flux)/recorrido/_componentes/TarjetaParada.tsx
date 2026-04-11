@@ -30,6 +30,10 @@ interface Visita {
   notas: string | null
   fecha_programada: string | null
   duracion_estimada_min: number | null
+  // Contacto de recepción
+  recibe_nombre: string | null
+  recibe_telefono: string | null
+  recibe_contacto_id: string | null
 }
 
 interface PropiedadesTarjetaParada {

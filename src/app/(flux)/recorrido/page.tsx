@@ -135,10 +135,25 @@ export default function PaginaRecorrido() {
     )
   })()
 
+  const hayVisitaEnSitio = paradas.some(p => p.visita?.estado === 'en_sitio')
+  const recorridoIniciado = paradas.some(p => ['en_camino', 'en_sitio', 'completada'].includes(p.visita?.estado || ''))
+
   // Sincronizar la vista del sheet con la parada activa
   useEffect(() => {
     if (paradaActualIndice >= 0) setParadaVistaIndice(paradaActualIndice)
   }, [paradaActualIndice])
+
+  // Si hay visita en_sitio y el registro no está abierto, auto-abrir
+  useEffect(() => {
+    if (hayVisitaEnSitio && !registroAbierto && !llegadaAbierta) {
+      const paradaEnSitio = paradas.find(p => p.visita?.estado === 'en_sitio')
+      if (paradaEnSitio) {
+        manejarRegistrar(paradaEnSitio.visita.id)
+      }
+    }
+  // Solo al cambiar hayVisitaEnSitio, no en cada render
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hayVisitaEnSitio])
   const completadas = paradas.filter(p => p.visita?.estado === 'completada').length
   const duracionEstimada = recorrido?.duracion_total_min || paradas.reduce(
     (sum, p) => sum + (p.duracion_viaje_min || 0) + (p.visita?.duracion_estimada_min || 15), 0
@@ -211,16 +226,19 @@ export default function PaginaRecorrido() {
     }
   }, [mostrar, cargarRecorrido])
 
-  // Marcar llegada: cambiar estado a en_sitio + abrir modal con datos del contacto
+  // Marcar llegada: cambiar estado a en_sitio + abrir modal con datos de quien recibe
   const manejarLlegada = useCallback((visitaId: string) => {
     const parada = paradas.find(p => p.visita?.id === visitaId)
     if (!parada) return
     const v = parada.visita
+    // Prioridad: recibe > contacto principal
+    const nombreRecibe = v.recibe_nombre || v.contacto_nombre
+    const telefonoRecibe = v.recibe_telefono || v.contacto_telefono || null
     setVisitaLlegada({
       id: visitaId,
-      nombre: v.contacto_nombre,
+      nombre: nombreRecibe,
       direccion: v.direccion_texto,
-      telefono: v.contacto_telefono || null,
+      telefono: telefonoRecibe,
       lat: v.direccion_lat,
       lng: v.direccion_lng,
     })
@@ -687,9 +705,9 @@ export default function PaginaRecorrido() {
                           onClick={() => {
                             setVisitaLlegada({
                               id: v.id,
-                              nombre: v.contacto_nombre,
+                              nombre: v.recibe_nombre || v.contacto_nombre,
                               direccion: v.direccion_texto,
-                              telefono: v.contacto_telefono || null,
+                              telefono: v.recibe_telefono || v.contacto_telefono || null,
                               lat: v.direccion_lat,
                               lng: v.direccion_lng,
                             })
@@ -807,14 +825,23 @@ export default function PaginaRecorrido() {
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 12px)' }}
         >
           {!sheetExpandido ? (
-            /* ── Colapsado: solo botón Ajustar para expandir ── */
+            /* ── Colapsado: botón según estado del recorrido ── */
             <div className="flex justify-center pt-3 pb-1">
-              <button
-                onClick={() => { setSheetExpandido(true); setModoEdicion(true) }}
-                className="text-[11px] font-medium tracking-wider uppercase text-texto-terciario hover:text-texto-secundario px-4 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06] transition-colors"
-              >
-                Ajustar recorrido
-              </button>
+              {!recorridoIniciado ? (
+                <button
+                  onClick={() => { setSheetExpandido(true); setModoEdicion(true) }}
+                  className="text-[11px] font-medium tracking-wider uppercase text-texto-terciario hover:text-texto-secundario px-4 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06] transition-colors"
+                >
+                  Ajustar recorrido
+                </button>
+              ) : (
+                <button
+                  onClick={() => setSheetExpandido(true)}
+                  className="text-[11px] font-medium tracking-wider uppercase text-texto-terciario hover:text-texto-secundario px-4 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06] transition-colors"
+                >
+                  Ver recorrido
+                </button>
+              )}
             </div>
           ) : modoEdicion ? (
             /* ── Expandido + edición: herramientas + iniciar ── */
