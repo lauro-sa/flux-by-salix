@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Route, Loader2, Clock, MapPin, Pencil, Navigation, Sparkles, Undo2, ArrowUpDown, X, Check } from 'lucide-react'
+import { Route, Loader2, Clock, MapPin, Pencil, Navigation, Sparkles, Undo2, ArrowUpDown, X, Check, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
@@ -19,6 +19,7 @@ import { HeaderRecorrido } from './_componentes/HeaderRecorrido'
 import { ListaParadas, type Parada, type DestinoFinal } from './_componentes/ListaParadas'
 import { RegistroVisita } from './_componentes/RegistroVisita'
 import { ResumenDia } from './_componentes/ResumenDia'
+import { ModalLlegada } from './_componentes/ModalLlegada'
 import type { EstadoVisita } from './_componentes/TarjetaParada'
 
 /** Obtiene la fecha de hoy en formato YYYY-MM-DD usando la zona horaria local del navegador */
@@ -60,6 +61,7 @@ export default function PaginaRecorrido() {
   // UI
   const [paradaSeleccionada, setParadaSeleccionada] = useState<number | null>(null)
   const [sheetExpandido, setSheetExpandido] = useState(false)
+  const [paradaVistaIndice, setParadaVistaIndice] = useState(0) // índice de la parada visible en el sheet colapsado
   const [modoEdicion, setModoEdicion] = useState(false)
   const [optimizando, setOptimizando] = useState(false)
   const [paradasPreOptimizar, setParadasPreOptimizar] = useState<Parada[] | null>(null)
@@ -69,6 +71,10 @@ export default function PaginaRecorrido() {
 
   // Ubicación actual del usuario (para mostrar en el mapa como origen)
   const [ubicacionUsuario, setUbicacionUsuario] = useState<{ lat: number; lng: number } | null>(null)
+
+  // Modal de llegada
+  const [llegadaAbierta, setLlegadaAbierta] = useState(false)
+  const [visitaLlegada, setVisitaLlegada] = useState<{ nombre: string; direccion: string; telefono: string | null; lat: number | null; lng: number | null; id: string } | null>(null)
 
   // BottomSheet de registro
   const [registroAbierto, setRegistroAbierto] = useState(false)
@@ -121,6 +127,11 @@ export default function PaginaRecorrido() {
   const paradaActualIndice = paradas.findIndex(
     p => p.visita && p.visita.estado !== 'completada' && p.visita.estado !== 'cancelada'
   )
+
+  // Sincronizar la vista del sheet con la parada activa
+  useEffect(() => {
+    if (paradaActualIndice >= 0) setParadaVistaIndice(paradaActualIndice)
+  }, [paradaActualIndice])
   const completadas = paradas.filter(p => p.visita?.estado === 'completada').length
   const duracionEstimada = recorrido?.duracion_total_min || paradas.reduce(
     (sum, p) => sum + (p.duracion_viaje_min || 0) + (p.visita?.duracion_estimada_min || 15), 0
@@ -192,6 +203,23 @@ export default function PaginaRecorrido() {
       cargarRecorrido()
     }
   }, [mostrar, cargarRecorrido])
+
+  // Marcar llegada: cambiar estado a en_sitio + abrir modal con datos del contacto
+  const manejarLlegada = useCallback((visitaId: string) => {
+    const parada = paradas.find(p => p.visita?.id === visitaId)
+    if (!parada) return
+    const v = parada.visita
+    setVisitaLlegada({
+      id: visitaId,
+      nombre: v.contacto_nombre,
+      direccion: v.direccion_texto,
+      telefono: v.contacto_telefono || null,
+      lat: v.direccion_lat,
+      lng: v.direccion_lng,
+    })
+    manejarCambiarEstado(visitaId, 'en_sitio')
+    setLlegadaAbierta(true)
+  }, [paradas, manejarCambiarEstado])
 
   // Abrir BottomSheet de registro
   const manejarRegistrar = useCallback((visitaId: string) => {
@@ -416,7 +444,7 @@ export default function PaginaRecorrido() {
           <HeaderRecorrido fecha={fechaSeleccionada} onCambiarFecha={cambiarFecha} completadas={0} total={0} />
         </div>
 
-        <div className="flex-1 bg-superficie-tarjeta rounded-t-2xl -mt-3 relative z-10 flex flex-col">
+        <div className="flex-1 bg-superficie-app rounded-t-2xl -mt-3 relative z-10 flex flex-col">
           <div className="flex justify-center py-2.5">
             <div className="w-9 h-1 rounded-full bg-borde-fuerte/40" />
           </div>
@@ -451,7 +479,7 @@ export default function PaginaRecorrido() {
             total={paradas.length}
           />
         </div>
-        <div className="flex-1 bg-superficie-tarjeta rounded-t-2xl -mt-3 relative z-10">
+        <div className="flex-1 bg-superficie-app rounded-t-2xl -mt-3 relative z-10">
           <div className="flex justify-center py-2.5">
             <div className="w-9 h-1 rounded-full bg-borde-fuerte/40" />
           </div>
@@ -490,7 +518,7 @@ export default function PaginaRecorrido() {
       </div>
 
       {/* ── Sheet inferior — colapsable estilo app nativa ── */}
-      <div className="flex-1 min-h-0 bg-superficie-tarjeta rounded-t-2xl -mt-3 relative z-10 flex flex-col">
+      <div className="flex-1 min-h-0 bg-superficie-app rounded-t-2xl -mt-3 relative z-10 flex flex-col">
         {/* Drag handle — tocar para expandir/colapsar */}
         <button
           className="flex justify-center py-2.5 shrink-0 w-full"
@@ -499,9 +527,10 @@ export default function PaginaRecorrido() {
           <div className="w-9 h-1 rounded-full bg-borde-fuerte/40" />
         </button>
 
-        {/* Barra de progreso segmentada — siempre visible */}
+        {/* Barra de progreso + info — siempre visible */}
         {paradas.length > 0 && (
-          <div className="flex gap-1 px-4 pb-2 shrink-0">
+          <div className="px-4 pb-2 shrink-0 space-y-1.5">
+            <div className="flex gap-1">
             {paradas.map((p, i) => {
               let color = 'bg-borde-sutil'
               if (p.visita?.estado === 'completada') color = 'bg-[var(--insignia-exito)]'
@@ -509,125 +538,204 @@ export default function PaginaRecorrido() {
               else if (i === paradaActualIndice) color = 'bg-[var(--insignia-info)]'
               return <div key={p.id} className={`h-1 rounded-full flex-1 transition-colors duration-300 ${color}`} />
             })}
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1">
+                <Clock size={11} className="text-[var(--insignia-exito)]" />
+                <span className="text-[11px] font-semibold text-[var(--insignia-exito)]">{formatearDuracion(duracionEstimada)}</span>
+              </div>
+              <span className="text-[11px] text-texto-terciario">{completadas}/{paradas.length} completadas</span>
+            </div>
           </div>
         )}
 
         {!sheetExpandido ? (
-          /* ── COLAPSADO: parada actual + acciones rápidas ── */
-          <div className="flex-1 flex flex-col min-h-0">
-            {(() => {
-              const paradaActiva = paradaActualIndice >= 0 ? paradas[paradaActualIndice] : paradas[0]
-              if (!paradaActiva) return null
-              const v = paradaActiva.visita
-              const orden = paradaActualIndice >= 0 ? paradaActualIndice + 1 : 1
+          /* ── COLAPSADO: tarjeta deslizable + acciones fijas abajo ── */
+          <div className="flex-1 flex flex-col min-h-0 justify-between">
+            {paradas.length > 0 && (() => {
+              const idx = Math.min(paradaVistaIndice, paradas.length - 1)
+              const parada = paradas[idx]
+              if (!parada) return null
+              const v = parada.visita
               const estado = v.estado as 'programada' | 'en_camino' | 'en_sitio' | 'completada' | 'cancelada' | 'reprogramada'
               const tieneCoords = v.direccion_lat != null && v.direccion_lng != null
+              const esActiva = idx === paradaActualIndice
+
+              // Determinar color principal del estado
+              const colorEstado = estado === 'completada' ? 'var(--insignia-exito)'
+                : estado === 'cancelada' ? 'var(--insignia-peligro)'
+                : estado === 'en_camino' || estado === 'en_sitio' ? 'var(--insignia-info)'
+                : esActiva ? 'var(--insignia-info)' : 'var(--borde-fuerte)'
+
+              // Swipe handler
+              const manejarSwipe = (e: React.TouchEvent) => {
+                const touch = e.changedTouches[0]
+                const startX = (e.target as HTMLElement).dataset.startX
+                if (!startX) return
+                const diff = touch.clientX - Number(startX)
+                if (diff > 50) setParadaVistaIndice(Math.max(0, idx - 1))
+                else if (diff < -50) setParadaVistaIndice(Math.min(paradas.length - 1, idx + 1))
+              }
 
               return (
-                <div className="px-4 py-2 space-y-2.5">
-                  {/* Parada activa — tocar para expandir */}
-                  <button
-                    className="flex items-center gap-3 text-left w-full"
-                    onClick={() => setSheetExpandido(true)}
+                <>
+                  {/* ── Tarjeta de parada — deslizable ── */}
+                  <div
+                    className="px-4 py-2"
+                    onTouchStart={(e) => {
+                      const el = e.currentTarget as HTMLElement
+                      el.dataset.startX = String(e.touches[0].clientX)
+                    }}
+                    onTouchEnd={(e) => {
+                      const el = e.currentTarget as HTMLElement
+                      const startX = el.dataset.startX
+                      if (!startX) return
+                      const diff = e.changedTouches[0].clientX - Number(startX)
+                      if (diff > 50) setParadaVistaIndice(Math.max(0, idx - 1))
+                      else if (diff < -50) setParadaVistaIndice(Math.min(paradas.length - 1, idx + 1))
+                    }}
                   >
-                    <div className="flex items-center justify-center size-9 rounded-full border-2 shrink-0 text-sm font-bold"
-                      style={{
-                        borderColor: estado === 'completada' ? 'var(--insignia-exito)'
-                          : estado === 'en_camino' || estado === 'en_sitio' ? 'var(--insignia-info)'
-                          : 'var(--borde-fuerte)',
-                        backgroundColor: estado === 'completada' ? 'var(--insignia-exito)'
-                          : estado === 'en_camino' || estado === 'en_sitio' ? 'var(--insignia-info)'
-                          : 'transparent',
-                        color: estado === 'completada' || estado === 'en_camino' || estado === 'en_sitio' ? 'white' : 'var(--texto-terciario)',
-                      }}
+                    <button
+                      className="w-full flex items-center gap-3 text-left py-2 px-3 rounded-xl border border-borde-sutil/50 bg-white/[0.02]"
+                      onClick={() => setSheetExpandido(true)}
                     >
-                      {orden}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-texto-primario truncate">{v.contacto_nombre}</div>
-                      <div className="text-xs text-texto-terciario truncate">{v.direccion_texto}</div>
-                    </div>
-                    <div className="text-xs text-texto-terciario shrink-0">
-                      {completadas}/{paradas.length}
-                    </div>
-                  </button>
+                      <div className="flex items-center justify-center size-10 rounded-full border-2 shrink-0 text-sm font-bold"
+                        style={{
+                          borderColor: colorEstado,
+                          backgroundColor: ['completada', 'en_camino', 'en_sitio', 'cancelada'].includes(estado) ? colorEstado : 'transparent',
+                          color: ['completada', 'en_camino', 'en_sitio', 'cancelada'].includes(estado) ? 'white' : 'var(--texto-terciario)',
+                        }}
+                      >
+                        {estado === 'completada' ? <Check size={14} /> : estado === 'cancelada' ? <X size={14} /> : idx + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className={`text-sm font-semibold text-texto-primario truncate ${estado === 'cancelada' ? 'line-through opacity-50' : ''}`}>
+                          {v.contacto_nombre}
+                        </div>
+                        <div className="text-xs text-texto-terciario truncate">{v.direccion_texto}</div>
+                      </div>
+                      <div className="flex flex-col items-end gap-0.5 shrink-0">
+                        <span className="text-[11px] font-medium text-texto-terciario">{idx + 1}/{paradas.length}</span>
+                        {estado !== 'programada' && (
+                          <span className="text-[10px] font-medium" style={{ color: colorEstado }}>
+                            {estado === 'en_camino' ? 'En camino' : estado === 'en_sitio' ? 'En sitio' : estado === 'completada' ? 'Completada' : estado === 'cancelada' ? 'Cancelada' : ''}
+                          </span>
+                        )}
+                      </div>
+                    </button>
 
-                  {/* ── Acciones rápidas según estado ── */}
-                  {estado === 'programada' && (
+                    {/* Indicadores de posición */}
+                    <div className="flex justify-center gap-1 mt-2">
+                      {paradas.map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setParadaVistaIndice(i)}
+                          className={`rounded-full transition-all ${i === idx ? 'w-4 h-1.5' : 'size-1.5'}`}
+                          style={{
+                            backgroundColor: i === idx ? colorEstado
+                              : paradas[i].visita?.estado === 'completada' ? 'var(--insignia-exito)'
+                              : paradas[i].visita?.estado === 'cancelada' ? 'var(--insignia-peligro)'
+                              : 'var(--borde-sutil)',
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* ── Acciones fijas — siempre en la misma posición, grid 3 cols ── */}
+                  <div className="px-4 pb-2">
                     <div className="grid grid-cols-3 gap-2">
+                      {/* Columna 1: Navegar (siempre) */}
                       <button
                         onClick={() => tieneCoords && abrirRutaCompleta([{ lat: v.direccion_lat!, lng: v.direccion_lng! }])}
-                        disabled={!tieneCoords}
-                        className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-borde-sutil text-texto-secundario hover:bg-superficie-elevada transition-colors disabled:opacity-30"
+                        disabled={!tieneCoords || estado === 'completada'}
+                        className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors disabled:opacity-25"
                       >
-                        <Navigation size={14} className="text-[var(--insignia-info)]" />
-                        <span className="text-xs font-medium">Navegar</span>
+                        <Navigation size={16} className="text-[var(--insignia-info)]" />
+                        <span className="text-[10px] font-medium text-texto-secundario">Navegar</span>
                       </button>
-                      <button
-                        onClick={() => manejarCambiarEstado(v.id, 'cancelada')}
-                        className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-borde-sutil text-texto-secundario hover:bg-superficie-elevada transition-colors"
-                      >
-                        <X size={14} className="text-[var(--insignia-peligro)]" />
-                        <span className="text-xs font-medium">Cancelar</span>
-                      </button>
-                      <button
-                        onClick={() => manejarCambiarEstado(v.id, 'en_camino')}
-                        className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-[var(--insignia-info)]/30 bg-[var(--insignia-info)]/10 text-[var(--insignia-info)] hover:bg-[var(--insignia-info)]/20 transition-colors"
-                      >
-                        <Route size={14} />
-                        <span className="text-xs font-medium">En camino</span>
-                      </button>
-                    </div>
-                  )}
 
-                  {estado === 'en_camino' && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => manejarCambiarEstado(v.id, 'cancelada')}
-                        className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-borde-sutil text-texto-secundario hover:bg-superficie-elevada transition-colors"
-                      >
-                        <X size={14} className="text-[var(--insignia-peligro)]" />
-                        <span className="text-xs font-medium">Cancelar</span>
-                      </button>
-                      <button
-                        onClick={() => manejarRegistrar(v.id)}
-                        className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-[var(--insignia-exito)]/30 bg-[var(--insignia-exito)]/10 text-[var(--insignia-exito)] hover:bg-[var(--insignia-exito)]/20 transition-colors"
-                      >
-                        <MapPin size={14} />
-                        <span className="text-xs font-medium">Llegué</span>
-                      </button>
-                    </div>
-                  )}
+                      {/* Columna 2: acción negativa / secundaria */}
+                      {estado === 'cancelada' ? (
+                        <button
+                          onClick={() => manejarCambiarEstado(v.id, 'programada')}
+                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors"
+                        >
+                          <RotateCcw size={16} className="text-texto-terciario" />
+                          <span className="text-[10px] font-medium text-texto-secundario">Reactivar</span>
+                        </button>
+                      ) : estado === 'completada' ? (
+                        <button
+                          onClick={() => manejarEditar(v.id)}
+                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors"
+                        >
+                          <Pencil size={16} className="text-texto-terciario" />
+                          <span className="text-[10px] font-medium text-texto-secundario">Editar</span>
+                        </button>
+                      ) : estado === 'en_sitio' ? (
+                        <button
+                          onClick={() => manejarEditar(v.id)}
+                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors"
+                        >
+                          <Pencil size={16} className="text-texto-marca" />
+                          <span className="text-[10px] font-medium text-texto-secundario">Info</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => manejarCambiarEstado(v.id, 'cancelada')}
+                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors"
+                        >
+                          <X size={16} className="text-[var(--insignia-peligro)]" />
+                          <span className="text-[10px] font-medium text-texto-secundario">Cancelar</span>
+                        </button>
+                      )}
 
-                  {estado === 'en_sitio' && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => manejarEditar(v.id)}
-                        className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-borde-sutil text-texto-secundario hover:bg-superficie-elevada transition-colors"
-                      >
-                        <Pencil size={14} className="text-texto-marca" />
-                        <span className="text-xs font-medium">Info</span>
-                      </button>
-                      <button
-                        onClick={() => manejarRegistrar(v.id)}
-                        className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-[var(--insignia-exito)]/30 bg-[var(--insignia-exito)]/10 text-[var(--insignia-exito)] hover:bg-[var(--insignia-exito)]/20 transition-colors"
-                      >
-                        <Check size={14} />
-                        <span className="text-xs font-medium">Completar</span>
-                      </button>
+                      {/* Columna 3: acción principal */}
+                      {estado === 'programada' ? (
+                        <button
+                          onClick={() => manejarCambiarEstado(v.id, 'en_camino')}
+                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-[var(--insignia-info)]/30 bg-[var(--insignia-info)]/10 hover:bg-[var(--insignia-info)]/20 transition-colors"
+                        >
+                          <Route size={16} className="text-[var(--insignia-info)]" />
+                          <span className="text-[10px] font-medium text-[var(--insignia-info)]">En camino</span>
+                        </button>
+                      ) : estado === 'en_camino' ? (
+                        <button
+                          onClick={() => manejarLlegada(v.id)}
+                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-[var(--insignia-exito)]/30 bg-[var(--insignia-exito)]/10 hover:bg-[var(--insignia-exito)]/20 transition-colors"
+                        >
+                          <MapPin size={16} className="text-[var(--insignia-exito)]" />
+                          <span className="text-[10px] font-medium text-[var(--insignia-exito)]">Llegué</span>
+                        </button>
+                      ) : estado === 'en_sitio' ? (
+                        <button
+                          onClick={() => manejarRegistrar(v.id)}
+                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-[var(--insignia-exito)]/30 bg-[var(--insignia-exito)]/10 hover:bg-[var(--insignia-exito)]/20 transition-colors"
+                        >
+                          <Check size={16} className="text-[var(--insignia-exito)]" />
+                          <span className="text-[10px] font-medium text-[var(--insignia-exito)]">Completar</span>
+                        </button>
+                      ) : estado === 'completada' ? (
+                        <button
+                          onClick={() => manejarCambiarEstado(v.id, 'programada')}
+                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors"
+                        >
+                          <RotateCcw size={16} className="text-texto-terciario" />
+                          <span className="text-[10px] font-medium text-texto-secundario">Reabrir</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => manejarCambiarEstado(v.id, 'programada')}
+                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors"
+                        >
+                          <RotateCcw size={16} className="text-texto-terciario" />
+                          <span className="text-[10px] font-medium text-texto-secundario">Reactivar</span>
+                        </button>
+                      )}
                     </div>
-                  )}
 
-                  {/* Info compacta */}
-                  <div className="flex items-center justify-center gap-4 text-xs text-texto-terciario">
-                    <div className="flex items-center gap-1">
-                      <Clock size={12} className="text-[var(--insignia-exito)]" />
-                      <span className="font-semibold text-[var(--insignia-exito)]">{formatearDuracion(duracionEstimada)}</span>
-                    </div>
-                    <span>·</span>
-                    <span>{paradas.length} {t('recorrido.paradas').toLowerCase()}</span>
                   </div>
-                </div>
+                </>
               )
             })()}
           </div>
@@ -657,12 +765,23 @@ export default function PaginaRecorrido() {
           </div>
         )}
 
-        {/* ── Bottom bar — siempre visible ── */}
+        {/* ── Bottom bar ── */}
         <div
           className="border-t border-borde-sutil shrink-0 bg-superficie-app"
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 12px)' }}
         >
-          {modoEdicion ? (
+          {!sheetExpandido ? (
+            /* ── Colapsado: solo botón Ajustar para expandir ── */
+            <div className="flex justify-center pt-3 pb-1">
+              <button
+                onClick={() => { setSheetExpandido(true); setModoEdicion(true) }}
+                className="text-[11px] font-medium tracking-wider uppercase text-texto-terciario hover:text-texto-secundario px-4 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06] transition-colors"
+              >
+                Ajustar recorrido
+              </button>
+            </div>
+          ) : modoEdicion ? (
+            /* ── Expandido + edición: herramientas + iniciar ── */
             <div className="px-4 py-3 space-y-2">
               <div className="flex items-center gap-2">
                 <button
@@ -691,7 +810,7 @@ export default function PaginaRecorrido() {
                 )}
               </div>
               <button
-                onClick={() => setModoEdicion(false)}
+                onClick={() => { setModoEdicion(false); setSheetExpandido(false) }}
                 className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-semibold text-white transition-colors"
                 style={{ backgroundColor: 'var(--insignia-info)' }}
               >
@@ -699,7 +818,8 @@ export default function PaginaRecorrido() {
               </button>
             </div>
           ) : (
-            <div className="px-4 py-2.5">
+            /* ── Expandido + vista: iniciar recorrido completo ── */
+            <div className="px-4 py-2.5 space-y-2">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setModoEdicion(true)}
@@ -730,6 +850,21 @@ export default function PaginaRecorrido() {
         modo={modoRegistro}
         checklist={checklistRegistro}
         onExito={manejarRegistroExitoso}
+      />
+
+      {/* Modal de llegada — se abre al tocar "Llegué" */}
+      <ModalLlegada
+        abierto={llegadaAbierta}
+        onCerrar={() => setLlegadaAbierta(false)}
+        contactoNombre={visitaLlegada?.nombre || ''}
+        direccionTexto={visitaLlegada?.direccion || ''}
+        telefono={visitaLlegada?.telefono}
+        direccionLat={visitaLlegada?.lat}
+        direccionLng={visitaLlegada?.lng}
+        onAvisarLlegada={() => {
+          // TODO: automatizar con WhatsApp API / notificación push
+          mostrar('exito', `Aviso de llegada enviado a ${visitaLlegada?.nombre}`)
+        }}
       />
     </div>
   )

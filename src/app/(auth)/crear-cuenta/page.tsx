@@ -1,9 +1,9 @@
 'use client'
 
 import { Suspense, useState, useRef, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react'
+import { Mail, Lock, User, ArrowRight, AlertCircle } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
 import { Boton } from '@/componentes/ui/Boton'
 import { EncabezadoAuth } from '@/componentes/ui/EncabezadoAuth'
@@ -12,24 +12,22 @@ import { useTraduccion } from '@/lib/i18n'
 import Link from 'next/link'
 
 /**
- * Página de inicio de sesión.
- * Email + contraseña juntos para compatibilidad con autofill / Face ID.
- * Si el usuario no tiene cuenta, se le sugiere ir a /crear-cuenta.
+ * Página de registro / crear cuenta.
+ * Email + nombre + apellido + contraseña.
+ * Si el usuario ya tiene cuenta, se le sugiere ir a /login.
  */
 
-function ContenidoLogin() {
+function ContenidoCrearCuenta() {
   const { t } = useTraduccion()
-  const { iniciarSesion } = useAuth()
+  const { registrarse } = useAuth()
   const router = useRouter()
-  const searchParams = useSearchParams()
 
   const [correo, setCorreo] = useState('')
+  const [nombre, setNombre] = useState('')
+  const [apellido, setApellido] = useState('')
   const [contrasena, setContrasena] = useState('')
   const [error, setError] = useState('')
   const [cargando, setCargando] = useState(false)
-
-  const errorCallback = searchParams.get('error')
-  const siguiente = searchParams.get('next')
 
   const refInputCorreo = useRef<HTMLInputElement>(null)
 
@@ -41,10 +39,16 @@ function ContenidoLogin() {
   const manejarSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    if (contrasena.length < 8) {
+      setError(t('auth.error_contrasena_minimo'))
+      return
+    }
+
     setCargando(true)
 
     try {
-      const resultado = await iniciarSesion(correo, contrasena)
+      const resultado = await registrarse({ correo, contrasena, nombre, apellido })
 
       if (resultado.error) {
         setError(resultado.error)
@@ -52,37 +56,22 @@ function ContenidoLogin() {
         return
       }
 
-      if (siguiente) {
-        router.push(siguiente)
-      } else if (resultado.redirigir) {
+      if (resultado.redirigir) {
         router.push(resultado.redirigir)
+      } else {
+        router.push('/verificar-correo')
       }
     } catch {
-      setError('Error al iniciar sesión. Intenta de nuevo.')
+      setError('Error al crear la cuenta. Intenta de nuevo.')
       setCargando(false)
     }
   }
 
   return (
     <div>
-      {/* Error de callback */}
-      <AnimatePresence>
-        {errorCallback && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="mb-4 p-3 rounded-lg bg-insignia-peligro/10 border border-insignia-peligro/20 flex items-center gap-2 text-sm text-insignia-peligro"
-          >
-            <AlertCircle size={16} className="shrink-0" />
-            <span>{t('auth.error_verificacion')}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <EncabezadoAuth
-        titulo={t('auth.iniciar_sesion')}
-        descripcion={t('auth.ingresa_tu_correo_desc')}
+        titulo={t('auth.crear_cuenta')}
+        descripcion={t('auth.crear_cuenta_desc')}
       />
 
       <form onSubmit={manejarSubmit} className="flex flex-col gap-4">
@@ -98,26 +87,39 @@ function ContenidoLogin() {
           autoComplete="email"
         />
 
+        {/* Nombre y apellido en fila */}
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            tipo="text"
+            etiqueta={t('auth.nombre')}
+            placeholder={t('auth.placeholder_nombre')}
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            icono={<User size={18} />}
+            required
+            autoComplete="given-name"
+          />
+          <Input
+            tipo="text"
+            etiqueta={t('auth.apellido')}
+            placeholder={t('auth.placeholder_apellido')}
+            value={apellido}
+            onChange={(e) => setApellido(e.target.value)}
+            required
+            autoComplete="family-name"
+          />
+        </div>
+
         <Input
           tipo="password"
           etiqueta={t('auth.contrasena')}
-          placeholder="••••••••"
+          placeholder={t('auth.placeholder_contrasena_minimo')}
           value={contrasena}
           onChange={(e) => setContrasena(e.target.value)}
           icono={<Lock size={18} />}
           required
-          autoComplete="current-password"
+          autoComplete="new-password"
         />
-
-        {/* Link a recuperar contraseña */}
-        <div className="flex justify-end -mt-2">
-          <Link
-            href="/recuperar"
-            className="text-xs text-texto-marca hover:underline transition-colors"
-          >
-            {t('auth.olvidaste_contrasena')}
-          </Link>
-        </div>
 
         {/* Error */}
         <AnimatePresence>
@@ -141,25 +143,25 @@ function ContenidoLogin() {
           cargando={cargando}
           iconoDerecho={<ArrowRight size={16} />}
         >
-          {t('auth.iniciar_sesion')}
+          {t('auth.crear_cuenta')}
         </Boton>
       </form>
 
-      {/* Link a crear cuenta */}
+      {/* Link a login */}
       <p className="text-center text-sm text-texto-terciario mt-6">
-        {t('auth.no_tenes_cuenta')}{' '}
-        <Link href="/crear-cuenta" className="text-texto-marca hover:underline transition-colors">
-          {t('auth.crear_cuenta')}
+        {t('auth.ya_tenes_cuenta')}{' '}
+        <Link href="/login" className="text-texto-marca hover:underline transition-colors">
+          {t('auth.iniciar_sesion')}
         </Link>
       </p>
     </div>
   )
 }
 
-export default function PaginaLogin() {
+export default function PaginaCrearCuenta() {
   return (
     <Suspense>
-      <ContenidoLogin />
+      <ContenidoCrearCuenta />
     </Suspense>
   )
 }

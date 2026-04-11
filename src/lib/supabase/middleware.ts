@@ -9,9 +9,11 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function crearClienteMiddleware(request: NextRequest) {
   const supabaseResponse = NextResponse.next({ request })
 
-  // En desarrollo, Jetski/IDX preview usa un iframe cross-origin
-  // que bloquea cookies SameSite=Lax. Forzar SameSite=None + Secure.
+  // En desarrollo con iframe cross-origin (Jetski/IDX preview): SameSite=None + Secure.
+  // En localhost directo (sin iframe): no forzar Secure — iOS Safari rechaza
+  // cookies Secure sobre HTTP, lo que impide que se establezca la sesión.
   const esDesarrollo = process.env.NODE_ENV === 'development'
+  const esIframe = Boolean(process.env.CODESPACE_NAME || process.env.IDX_CHANNEL)
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,7 +32,7 @@ export async function crearClienteMiddleware(request: NextRequest) {
           cookiesParaSetear.forEach(({ name, value, options }) => {
             supabaseResponse.cookies.set(name, value, {
               ...options,
-              ...(esDesarrollo && { sameSite: 'none' as const, secure: true }),
+              ...(esDesarrollo && esIframe && { sameSite: 'none' as const, secure: true }),
             })
           })
         },

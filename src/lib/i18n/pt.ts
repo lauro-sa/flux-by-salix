@@ -158,8 +158,10 @@ export const pt: Traducciones = {
     continuar: 'Continuar',
     bienvenido_de_vuelta: 'Bem-vindo de volta',
     completa_tus_datos: 'Complete seus dados',
-    solo_nombre_y_contrasena: 'Só precisamos do seu nome e uma senha',
+    solo_nombre_y_contrasena: 'Só precisamos do seu nome para continuar',
     usar_otro_correo: 'Usar outro e-mail',
+    no_tenes_cuenta: 'Não tem uma conta?',
+    ya_tenes_cuenta: 'Já tem uma conta?',
   },
 
   invitacion: {

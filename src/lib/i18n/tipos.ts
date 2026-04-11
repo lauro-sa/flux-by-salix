@@ -170,6 +170,8 @@ export interface Traducciones {
     completa_tus_datos: string
     solo_nombre_y_contrasena: string
     usar_otro_correo: string
+    no_tenes_cuenta: string
+    ya_tenes_cuenta: string
   }
 
   // Invitación

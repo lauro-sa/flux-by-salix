@@ -19,6 +19,7 @@ type EstadoVisita = 'programada' | 'en_camino' | 'en_sitio' | 'completada' | 'ca
 interface Visita {
   id: string
   contacto_nombre: string
+  contacto_telefono: string | null
   direccion_texto: string
   direccion_lat: number | null
   direccion_lng: number | null
