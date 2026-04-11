@@ -772,21 +772,29 @@ export default function PaginaRecorrido() {
                       )}
                     </div>
 
-                    {/* 3. Indicadores de posición — al fondo */}
-                    <div className="flex justify-center gap-1.5 pt-3">
-                      {paradas.map((_, i) => (
-                        <button
-                          key={i}
-                          onClick={() => setParadaVistaIndice(i)}
-                          className={`rounded-full transition-all ${i === idx ? 'w-5 h-2' : 'size-2'}`}
-                          style={{
-                            backgroundColor: i === idx ? colorEstado
-                              : paradas[i].visita?.estado === 'completada' ? 'var(--insignia-exito)'
-                              : paradas[i].visita?.estado === 'cancelada' ? 'var(--insignia-peligro)'
-                              : 'var(--borde-sutil)',
-                          }}
-                        />
-                      ))}
+                    {/* 3. Indicadores + botón ver recorrido */}
+                    <div className="flex flex-col items-center gap-2.5 pt-3 pb-2">
+                      <div className="flex gap-1.5">
+                        {paradas.map((_, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setParadaVistaIndice(i)}
+                            className={`rounded-full transition-all ${i === idx ? 'w-5 h-2' : 'size-2'}`}
+                            style={{
+                              backgroundColor: i === idx ? colorEstado
+                                : paradas[i].visita?.estado === 'completada' ? 'var(--insignia-exito)'
+                                : paradas[i].visita?.estado === 'cancelada' ? 'var(--insignia-peligro)'
+                                : 'var(--borde-sutil)',
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => { setSheetExpandido(true); if (!recorridoIniciado) setModoEdicion(true) }}
+                        className="text-[11px] font-medium tracking-wider uppercase text-texto-terciario hover:text-texto-secundario px-4 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06] transition-colors"
+                      >
+                        {recorridoIniciado ? 'Ver recorrido' : 'Ajustar recorrido'}
+                      </button>
                     </div>
                   </div>
                 </>
@@ -819,30 +827,12 @@ export default function PaginaRecorrido() {
           </div>
         )}
 
-        {/* ── Bottom bar ── */}
+        {/* ── Bottom bar — solo visible en expandido ── */}
+        {sheetExpandido && (
         <div
           className="border-t border-borde-sutil shrink-0 bg-superficie-app pb-4"
         >
-          {!sheetExpandido ? (
-            /* ── Colapsado: botón según estado del recorrido ── */
-            <div className="flex justify-center pt-3 pb-1">
-              {!recorridoIniciado ? (
-                <button
-                  onClick={() => { setSheetExpandido(true); setModoEdicion(true) }}
-                  className="text-[11px] font-medium tracking-wider uppercase text-texto-terciario hover:text-texto-secundario px-4 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06] transition-colors"
-                >
-                  Ajustar recorrido
-                </button>
-              ) : (
-                <button
-                  onClick={() => setSheetExpandido(true)}
-                  className="text-[11px] font-medium tracking-wider uppercase text-texto-terciario hover:text-texto-secundario px-4 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06] transition-colors"
-                >
-                  Ver recorrido
-                </button>
-              )}
-            </div>
-          ) : modoEdicion ? (
+          {modoEdicion ? (
             /* ── Expandido + edición: herramientas + iniciar ── */
             <div className="px-4 py-3 space-y-2">
               <div className="flex items-center gap-2">
@@ -904,6 +894,7 @@ export default function PaginaRecorrido() {
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* BottomSheet de registro */}
