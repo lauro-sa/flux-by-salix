@@ -822,7 +822,7 @@ export default function PaginaRecorrido() {
         {/* ── Bottom bar ── */}
         <div
           className="border-t border-borde-sutil shrink-0 bg-superficie-app"
-          style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 12px)' }}
+          style={{ paddingBottom: 'env(safe-area-inset-bottom, 8px)' }}
         >
           {!sheetExpandido ? (
             /* ── Colapsado: botón según estado del recorrido ── */
