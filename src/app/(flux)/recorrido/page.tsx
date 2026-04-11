@@ -237,6 +237,7 @@ export default function PaginaRecorrido() {
     setModoRegistro(v.estado === 'en_camino' ? 'llegada' : 'completar')
     const ordenParada = paradas.findIndex(p => p.visita?.id === visitaId) + 1
     setRegistroContacto({ nombre: v.contacto_nombre, direccion: v.direccion_texto, orden: ordenParada })
+    setParadaVistaIndice(ordenParada - 1) // sincroniza el mapa con la parada del registro
     setChecklistRegistro(
       Array.isArray(v.checklist)
         ? (v.checklist as { texto: string; completado: boolean }[])
@@ -511,7 +512,7 @@ export default function PaginaRecorrido() {
         <ProveedorMapa>
           <MapaRecorrido
             ruta={rutaMapa}
-            paradaActual={paradaActualIndice}
+            paradaActual={paradaVistaIndice}
             onClickParada={(_punto, indice) => { setParadaSeleccionada(indice); setParadaVistaIndice(indice) }}
             className="!rounded-none !h-full"
           />
