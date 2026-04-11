@@ -217,6 +217,8 @@ export async function POST(request: NextRequest) {
         notas: body.notas || null,
         prioridad: body.prioridad || 'normal',
         checklist: body.checklist || config?.checklist_predeterminado || [],
+        recibe_nombre: body.recibe_nombre || null,
+        recibe_telefono: body.recibe_telefono || null,
         actividad_id: body.actividad_id || null,
         vinculos,
         creado_por: user.id,

@@ -57,6 +57,9 @@ export interface Visita {
   registro_precision_m: number | null
   actividad_id: string | null
   vinculos: { tipo: string; id: string; nombre: string }[]
+  recibe_nombre: string | null
+  recibe_telefono: string | null
+  recibe_contacto_id: string | null
   en_papelera: boolean
   creado_por: string | null
   creado_por_nombre: string | null
@@ -133,6 +136,8 @@ function ModalVisita({
   const [prioridad, setPrioridad] = useState('normal')
   const [checklist, setChecklist] = useState<ItemChecklist[]>([])
   const [notas, setNotas] = useState('')
+  const [recibeNombre, setRecibeNombre] = useState('')
+  const [recibeTelefono, setRecibeTelefono] = useState('')
   const [guardando, setGuardando] = useState(false)
 
   // ── Estado del contacto seleccionado para SelectorContacto ──
@@ -173,6 +178,8 @@ function ModalVisita({
       setPrioridad(visita.prioridad || 'normal')
       setChecklist(visita.checklist || [])
       setNotas(visita.notas || '')
+      setRecibeNombre(visita.recibe_nombre || '')
+      setRecibeTelefono(visita.recibe_telefono || '')
     } else {
       // Modo creación — limpiar todo
       setContactoId('')
@@ -193,6 +200,8 @@ function ModalVisita({
       setPrioridad('normal')
       setChecklist(config?.checklist_predeterminado || [])
       setNotas('')
+      setRecibeNombre('')
+      setRecibeTelefono('')
     }
   }, [abierto, visita, config])
 
@@ -304,6 +313,8 @@ function ModalVisita({
         prioridad,
         checklist: checklist.filter(c => c.texto.trim()),
         notas: notas || null,
+        recibe_nombre: recibeNombre || null,
+        recibe_telefono: recibeTelefono || null,
       })
       onCerrar()
     } finally {
@@ -480,6 +491,26 @@ function ModalVisita({
                 className="mt-2"
               />
             )}
+          </div>
+
+          {/* Recibe — quien recibe al visitador (opcional) */}
+          <div className="px-6 py-4 border-t border-borde-sutil">
+            <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2 block">
+              Recibe (opcional)
+            </label>
+            <p className="text-xs text-texto-terciario mb-3">Si quien recibe es diferente al contacto principal</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                value={recibeNombre}
+                onChange={(e) => setRecibeNombre(e.target.value)}
+                placeholder="Nombre"
+              />
+              <Input
+                value={recibeTelefono}
+                onChange={(e) => setRecibeTelefono(e.target.value)}
+                placeholder="Teléfono"
+              />
+            </div>
           </div>
 
           {/* Notas */}

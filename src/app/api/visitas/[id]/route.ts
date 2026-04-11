@@ -360,6 +360,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (body.notas !== undefined) campos.notas = body.notas
     if (body.prioridad !== undefined) campos.prioridad = body.prioridad
     if (body.checklist !== undefined) campos.checklist = body.checklist
+    if (body.recibe_nombre !== undefined) campos.recibe_nombre = body.recibe_nombre
+    if (body.recibe_telefono !== undefined) campos.recibe_telefono = body.recibe_telefono
     if (body.vinculos !== undefined) campos.vinculos = body.vinculos
 
     const { data, error } = await admin
