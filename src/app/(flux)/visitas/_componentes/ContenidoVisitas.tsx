@@ -163,17 +163,13 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
         .eq('empresa_id', empresaId)
         .eq('activo', true)
       if (!mRes?.length) return []
-      // Filtrar visitadores: miembros que tienen ver_propio o registrar en recorrido
-      // (ver_todos solo = supervisor, no visitador)
-      const { PERMISOS_POR_ROL } = await import('@/lib/permisos-constantes')
+      // Filtrar visitadores: solo miembros que tienen ver_propio o registrar en recorrido
+      // en sus permisos_custom (NO por defaults del rol — un admin no es visitador automáticamente)
+      const permisosVisitador = ['ver_propio', 'registrar']
       const esVisitador = (m: typeof mRes[0]) => {
-        const permisosVisitador = ['ver_propio', 'registrar']
-        if (m.permisos_custom) {
-          const permisos = m.permisos_custom as Record<string, string[]>
-          return permisos.recorrido?.some((p: string) => permisosVisitador.includes(p)) ?? false
-        }
-        const permisosRol = PERMISOS_POR_ROL[m.rol as keyof typeof PERMISOS_POR_ROL]
-        return permisosRol?.recorrido?.some((p: string) => permisosVisitador.includes(p)) ?? false
+        if (!m.permisos_custom) return false
+        const permisos = m.permisos_custom as Record<string, string[]>
+        return permisos.recorrido?.some((p: string) => permisosVisitador.includes(p)) ?? false
       }
       const visitadores = mRes.filter(esVisitador)
       if (!visitadores.length) return []

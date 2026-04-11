@@ -64,17 +64,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Error al listar visitas' }, { status: 500 })
     }
 
-    // Filtrar solo visitadores (miembros con ver_propio o registrar en recorrido)
-    // ver_todos solo = supervisor, no aparece como visitador
-    const { PERMISOS_POR_ROL } = await import('@/lib/permisos-constantes')
+    // Filtrar solo visitadores: miembros con ver_propio o registrar en recorrido
+    // Solo mira permisos_custom, NO defaults del rol (un admin no es visitador automáticamente)
     const permisosVisitador = ['ver_propio', 'registrar']
     const miembrosVisitadores = (miembros || []).filter(m => {
-      if (m.permisos_custom) {
-        const permisos = m.permisos_custom as Record<string, string[]>
-        return permisos.recorrido?.some((p: string) => permisosVisitador.includes(p)) ?? false
-      }
-      const permisosRol = PERMISOS_POR_ROL[m.rol as keyof typeof PERMISOS_POR_ROL]
-      return permisosRol?.recorrido?.some((p: string) => permisosVisitador.includes(p)) ?? false
+      if (!m.permisos_custom) return false
+      const permisos = m.permisos_custom as Record<string, string[]>
+      return permisos.recorrido?.some((p: string) => permisosVisitador.includes(p)) ?? false
     })
 
     // Obtener perfiles de los visitadores
