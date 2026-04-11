@@ -115,9 +115,7 @@ function Header({
   return (
     <header
       className={[
-        'h-14 sm:h-[var(--header-alto)] flex items-center justify-between px-3 sm:px-4 bg-superficie-app md:bg-superficie-tarjeta/80 md:backdrop-blur-sm border-b-0 md:border-b md:border-borde-sutil sticky top-0 z-40 gap-3 sm:gap-4 md:cristal-panel shrink-0',
-        'transition-transform duration-300 ease-out md:!translate-y-0',
-        oculto ? '-translate-y-full' : 'translate-y-0',
+        'h-14 sm:h-[var(--header-alto)] flex items-center justify-between px-3 sm:px-4 bg-superficie-app md:bg-superficie-tarjeta/80 md:backdrop-blur-sm border-b-0 md:border-b md:border-borde-sutil z-40 gap-3 sm:gap-4 md:cristal-panel shrink-0',
       ].join(' ')}
     >
       {/* Izquierda */}
