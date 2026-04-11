@@ -64,10 +64,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Error al listar visitas' }, { status: 500 })
     }
 
-    // Filtrar solo visitadores: miembros con ver_propio o registrar en recorrido
-    // Solo mira permisos_custom, NO defaults del rol (un admin no es visitador automáticamente)
+    // Filtrar solo visitadores:
+    // - Propietario: siempre puede ser visitador
+    // - Otros: solo si tienen ver_propio o registrar en recorrido en permisos_custom
     const permisosVisitador = ['ver_propio', 'registrar']
     const miembrosVisitadores = (miembros || []).filter(m => {
+      if (m.rol === 'propietario') return true
       if (!m.permisos_custom) return false
       const permisos = m.permisos_custom as Record<string, string[]>
       return permisos.recorrido?.some((p: string) => permisosVisitador.includes(p)) ?? false

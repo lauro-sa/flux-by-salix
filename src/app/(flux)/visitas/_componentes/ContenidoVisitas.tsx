@@ -163,10 +163,12 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
         .eq('empresa_id', empresaId)
         .eq('activo', true)
       if (!mRes?.length) return []
-      // Filtrar visitadores: solo miembros que tienen ver_propio o registrar en recorrido
-      // en sus permisos_custom (NO por defaults del rol — un admin no es visitador automáticamente)
+      // Filtrar visitadores:
+      // - Propietario: siempre puede ser visitador (tiene acceso total)
+      // - Otros: solo si tienen ver_propio o registrar en recorrido en permisos_custom
       const permisosVisitador = ['ver_propio', 'registrar']
       const esVisitador = (m: typeof mRes[0]) => {
+        if (m.rol === 'propietario') return true
         if (!m.permisos_custom) return false
         const permisos = m.permisos_custom as Record<string, string[]>
         return permisos.recorrido?.some((p: string) => permisosVisitador.includes(p)) ?? false
