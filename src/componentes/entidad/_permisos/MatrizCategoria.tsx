@@ -84,12 +84,14 @@ export function MatrizCategoria({
   return (
     <div className="rounded-lg border border-borde-sutil overflow-hidden">
       {/* Cabecera de categoria */}
-      <button
-        type="button"
-        onClick={() => setAbierta(!abierta)}
-        className="flex items-center justify-between w-full px-4 py-3 bg-superficie-tarjeta border-none cursor-pointer text-left rounded-t-lg focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
-      >
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between w-full px-4 py-3 bg-superficie-tarjeta rounded-t-lg">
+        <div
+          className="flex items-center gap-2 cursor-pointer flex-1"
+          onClick={() => setAbierta(!abierta)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setAbierta(!abierta) }}
+        >
           {abierta ? <ChevronDown size={16} className="text-texto-terciario" /> : <ChevronRight size={16} className="text-texto-terciario" />}
           <span className="text-sm font-semibold text-texto-primario">{nombre}</span>
           <Insignia color={activosCategoria === totalCategoria ? 'exito' : activosCategoria > 0 ? 'advertencia' : 'neutro'} tamano="sm">
@@ -97,12 +99,12 @@ export function MatrizCategoria({
           </Insignia>
         </div>
         {/* Presets de categoria */}
-        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+        <div className="flex gap-1">
           <Boton variante="fantasma" tamano="xs" onClick={() => onPresetCategoria(categoriaKey, 'todo')}>Todo</Boton>
           <Boton variante="fantasma" tamano="xs" onClick={() => onPresetCategoria(categoriaKey, 'lectura')}>Lectura</Boton>
           <Boton variante="fantasma" tamano="xs" onClick={() => onPresetCategoria(categoriaKey, 'nada')}>Nada</Boton>
         </div>
-      </button>
+      </div>
 
       {/* Matriz */}
       <AnimatePresence>
