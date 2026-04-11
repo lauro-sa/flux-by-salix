@@ -17,7 +17,7 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
     actividades: ['ver_todos', 'crear', 'editar', 'eliminar', 'completar'],
     visitas: ['ver_todos', 'crear', 'editar', 'eliminar', 'completar'],
     calendario: ['ver_todos', 'crear', 'editar', 'eliminar'],
-    recorrido: ['ver_todos', 'autoasignar', 'coordinar'],
+    recorrido: ['ver_todos', 'registrar', 'reordenar'],
     asistencias: ['ver_todos', 'marcar', 'editar', 'eliminar'],
     productos: ['ver', 'crear', 'editar', 'eliminar'],
     // Documentos — acceso total
@@ -64,7 +64,7 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
     productos: ['ver', 'crear', 'editar'],
     ordenes_trabajo: ['ver_todos', 'crear', 'editar', 'completar', 'completar_etapa'],
     asistencias: ['ver_todos', 'marcar'],
-    recorrido: ['ver_todos', 'autoasignar', 'coordinar'],
+    recorrido: ['ver_todos', 'registrar', 'reordenar'],
   },
 
   vendedor: {
@@ -78,7 +78,7 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
     inbox_interno: ['ver_propio', 'enviar'],
     productos: ['ver'],
     asistencias: ['ver_propio', 'marcar'],
-    recorrido: ['ver_propio', 'autoasignar'],
+    recorrido: ['ver_propio', 'registrar', 'reordenar'],
   },
 
   supervisor: {
@@ -88,7 +88,7 @@ export const PERMISOS_POR_ROL: Record<Rol, PermisosMapa> = {
     calendario: ['ver_todos'],
     asistencias: ['ver_todos'],
     informes: ['ver_todos'],
-    recorrido: ['ver_todos', 'coordinar'],
+    recorrido: ['ver_todos'],
   },
 
   empleado: {

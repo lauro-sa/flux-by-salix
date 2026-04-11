@@ -6,6 +6,7 @@ import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 /**
  * GET /api/visitas/planificacion — Visitas agrupadas por visitador para una fecha.
  * Usado por el coordinador para planificar recorridos del equipo.
+ * SIEMPRE devuelve todos los miembros activos (aunque no tengan visitas).
  * Params: ?fecha=YYYY-MM-DD (default: hoy)
  */
 export async function GET(request: NextRequest) {
@@ -31,35 +32,60 @@ export async function GET(request: NextRequest) {
     const inicioDelDia = `${fecha}T00:00:00.000Z`
     const finDelDia = `${fecha}T23:59:59.999Z`
 
-    // Obtener visitas del día (todas las de la empresa, no solo las propias)
-    const { data: visitas, error: errorVisitas } = await admin
-      .from('visitas')
-      .select('*')
-      .eq('empresa_id', empresaId)
-      .eq('en_papelera', false)
-      .neq('estado', 'cancelada')
-      .gte('fecha_programada', inicioDelDia)
-      .lte('fecha_programada', finDelDia)
-      .order('fecha_programada', { ascending: true })
+    // Queries en paralelo: visitas del día, miembros, recorridos
+    const [
+      { data: visitas, error: errorVisitas },
+      { data: miembros },
+      { data: recorridos },
+    ] = await Promise.all([
+      admin
+        .from('visitas')
+        .select('*')
+        .eq('empresa_id', empresaId)
+        .eq('en_papelera', false)
+        .neq('estado', 'cancelada')
+        .gte('fecha_programada', inicioDelDia)
+        .lte('fecha_programada', finDelDia)
+        .order('fecha_programada', { ascending: true }),
+      admin
+        .from('miembros')
+        .select('usuario_id, rol, permisos_custom')
+        .eq('empresa_id', empresaId)
+        .eq('activo', true),
+      admin
+        .from('recorridos')
+        .select('*, paradas:recorrido_paradas(id, visita_id, orden)')
+        .eq('empresa_id', empresaId)
+        .eq('fecha', fecha),
+    ])
 
     if (errorVisitas) {
       console.error('Error al listar visitas planificación:', errorVisitas)
       return NextResponse.json({ error: 'Error al listar visitas' }, { status: 500 })
     }
 
-    // Obtener miembros activos de la empresa con perfil
-    const { data: miembros } = await admin
-      .from('miembros')
-      .select('usuario_id, rol, perfil:perfiles(nombre, apellido, avatar_url)')
-      .eq('empresa_id', empresaId)
-      .eq('activo', true)
+    // Filtrar solo visitadores (miembros con ver_propio o registrar en recorrido)
+    // ver_todos solo = supervisor, no aparece como visitador
+    const { PERMISOS_POR_ROL } = await import('@/lib/permisos-constantes')
+    const permisosVisitador = ['ver_propio', 'registrar']
+    const miembrosVisitadores = (miembros || []).filter(m => {
+      if (m.permisos_custom) {
+        const permisos = m.permisos_custom as Record<string, string[]>
+        return permisos.recorrido?.some((p: string) => permisosVisitador.includes(p)) ?? false
+      }
+      const permisosRol = PERMISOS_POR_ROL[m.rol as keyof typeof PERMISOS_POR_ROL]
+      return permisosRol?.recorrido?.some((p: string) => permisosVisitador.includes(p)) ?? false
+    })
 
-    // Obtener recorridos del día para todos los visitadores
-    const { data: recorridos } = await admin
-      .from('recorridos')
-      .select('*, paradas:recorrido_paradas(id, visita_id, orden)')
-      .eq('empresa_id', empresaId)
-      .eq('fecha', fecha)
+    // Obtener perfiles de los visitadores
+    const usuarioIds = miembrosVisitadores.map(m => m.usuario_id)
+    const { data: perfiles } = usuarioIds.length > 0
+      ? await admin.from('perfiles').select('id, nombre, apellido, avatar_url').in('id', usuarioIds)
+      : { data: [] as { id: string; nombre: string; apellido: string; avatar_url: string | null }[] }
+
+    const perfilesPorId = new Map(
+      (perfiles || []).map(p => [p.id, p])
+    )
 
     // Agrupar visitas por asignado_a
     const visitasPorUsuario = new Map<string, typeof visitas>()
@@ -75,22 +101,16 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Construir mapa de recorridos por usuario
+    // Mapa de recorridos por usuario
     const recorridosPorUsuario = new Map<string, (typeof recorridos extends (infer T)[] | null ? T : never)>()
     for (const rec of recorridos || []) {
       recorridosPorUsuario.set(rec.asignado_a, rec)
     }
 
-    // Armar respuesta por visitador (solo los que tienen visitas o recorrido)
-    const idsConVisitas = new Set([
-      ...visitasPorUsuario.keys(),
-      ...(recorridos || []).map(r => r.asignado_a),
-    ])
-
-    const visitadores = Array.from(idsConVisitas).map(usuarioId => {
-      const miembro = (miembros || []).find(m => m.usuario_id === usuarioId)
-      const perfilArr = miembro?.perfil as unknown as { nombre: string; apellido: string; avatar_url: string | null }[] | null
-      const perfil = perfilArr?.[0] || null
+    // Armar respuesta por visitadores habilitados
+    const visitadores = miembrosVisitadores.map(miembro => {
+      const usuarioId = miembro.usuario_id
+      const perfil = perfilesPorId.get(usuarioId) || null
       const visitasUsuario = visitasPorUsuario.get(usuarioId) || []
       const recorrido = recorridosPorUsuario.get(usuarioId) || null
 
@@ -112,7 +132,7 @@ export async function GET(request: NextRequest) {
         nombre: perfil?.nombre || '',
         apellido: perfil?.apellido || '',
         avatar_url: perfil?.avatar_url || null,
-        rol: miembro?.rol || null,
+        rol: miembro.rol || null,
         visitas: visitasOrdenadas,
         recorrido: recorrido ? {
           id: recorrido.id,
@@ -127,8 +147,12 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Ordenar visitadores: los que tienen más visitas primero
-    visitadores.sort((a, b) => b.visitas.length - a.visitas.length)
+    // Ordenar: los que tienen visitas primero, después por nombre
+    visitadores.sort((a, b) => {
+      if (a.visitas.length > 0 && b.visitas.length === 0) return -1
+      if (a.visitas.length === 0 && b.visitas.length > 0) return 1
+      return `${a.nombre} ${a.apellido}`.localeCompare(`${b.nombre} ${b.apellido}`)
+    })
 
     return NextResponse.json({
       fecha,

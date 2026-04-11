@@ -11,7 +11,7 @@ import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import {
   PlusCircle, Download, MapPin, MapPinOff,
   CheckCircle, Clock, User, Trash2, History,
-  Navigation, Eye, CalendarClock, AlertTriangle, Route,
+  Navigation, Eye, CalendarClock, AlertTriangle, Route, List,
 } from 'lucide-react'
 import type { AccionLote } from '@/componentes/tablas/tipos-tabla'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
@@ -21,6 +21,7 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
 import { ModalVisita } from './ModalVisita'
 import type { Visita, Miembro } from './ModalVisita'
+import PanelPlanificacion from './PanelPlanificacion'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useFormato } from '@/hooks/useFormato'
@@ -81,6 +82,9 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
   const { mostrar } = useToast()
   const formato = useFormato()
   const { t } = useTraduccion()
+
+  // Tab activo: listado o planificación
+  const [vistaActiva, setVistaActiva] = useState<'listado' | 'planificacion'>('listado')
 
   // Estado UI
   const [busqueda, setBusqueda] = useState('')
@@ -144,18 +148,36 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
     datosInicialesJson: sinFiltros ? datosInicialesJson : undefined,
   })
 
-  // Miembros de la empresa (cache largo)
+  // Miembros visitadores — solo los que tienen permiso en módulo recorrido (cache largo)
   const { data: miembrosData } = useQuery({
-    queryKey: ['miembros-empresa'],
+    queryKey: ['miembros-visitadores'],
     queryFn: async () => {
       const supabase = crearClienteNavegador()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return []
       const empresaId = user.app_metadata?.empresa_activa_id
       if (!empresaId) return []
-      const { data: mRes } = await supabase.from('miembros').select('usuario_id').eq('empresa_id', empresaId).eq('activo', true)
+      const { data: mRes } = await supabase
+        .from('miembros')
+        .select('usuario_id, rol, permisos_custom')
+        .eq('empresa_id', empresaId)
+        .eq('activo', true)
       if (!mRes?.length) return []
-      const { data: perfiles } = await supabase.from('perfiles').select('id, nombre, apellido').in('id', mRes.map(m => m.usuario_id))
+      // Filtrar visitadores: miembros que tienen ver_propio o registrar en recorrido
+      // (ver_todos solo = supervisor, no visitador)
+      const { PERMISOS_POR_ROL } = await import('@/lib/permisos-constantes')
+      const esVisitador = (m: typeof mRes[0]) => {
+        const permisosVisitador = ['ver_propio', 'registrar']
+        if (m.permisos_custom) {
+          const permisos = m.permisos_custom as Record<string, string[]>
+          return permisos.recorrido?.some((p: string) => permisosVisitador.includes(p)) ?? false
+        }
+        const permisosRol = PERMISOS_POR_ROL[m.rol as keyof typeof PERMISOS_POR_ROL]
+        return permisosRol?.recorrido?.some((p: string) => permisosVisitador.includes(p)) ?? false
+      }
+      const visitadores = mRes.filter(esVisitador)
+      if (!visitadores.length) return []
+      const { data: perfiles } = await supabase.from('perfiles').select('id, nombre, apellido').in('id', visitadores.map(m => m.usuario_id))
       return (perfiles || []).map(p => ({ usuario_id: p.id, nombre: p.nombre, apellido: p.apellido }))
     },
     staleTime: 5 * 60_000,
@@ -476,12 +498,40 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
         onClick: () => { setVisitaEditando(null); setModalAbierto(true) },
       }}
       acciones={[
-        { id: 'planificacion', etiqueta: t('visitas.planificacion'), icono: <Route size={14} />, onClick: () => router.push('/visitas/planificacion') },
         { id: 'exportar', etiqueta: t('comun.exportar'), icono: <Download size={14} />, onClick: () => {} },
       ]}
       mostrarConfiguracion
       onConfiguracion={() => router.push('/visitas/configuracion')}
     >
+      {/* Tabs: Listado / Planificación */}
+      <div className="flex items-center gap-1 mb-3 border-b border-borde-sutil pb-2">
+        <button
+          onClick={() => setVistaActiva('listado')}
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+            vistaActiva === 'listado'
+              ? 'bg-texto-marca/15 text-texto-marca'
+              : 'text-texto-terciario hover:bg-white/[0.06] hover:text-texto-secundario'
+          }`}
+        >
+          <List size={14} />
+          {t('visitas.listado')}
+        </button>
+        <button
+          onClick={() => setVistaActiva('planificacion')}
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+            vistaActiva === 'planificacion'
+              ? 'bg-texto-marca/15 text-texto-marca'
+              : 'text-texto-terciario hover:bg-white/[0.06] hover:text-texto-secundario'
+          }`}
+        >
+          <Route size={14} />
+          {t('visitas.planificacion')}
+        </button>
+      </div>
+
+      {vistaActiva === 'planificacion' ? (
+        <PanelPlanificacion />
+      ) : (
       <TablaDinamica
         columnas={columnas}
         columnasVisiblesDefault={['contacto_nombre', 'direccion_texto', 'fecha_programada', 'estado', 'prioridad', 'asignado_nombre', 'acciones']}
@@ -572,6 +622,7 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
           />
         }
       />
+      )}
 
       {/* Modal crear/editar */}
       <ModalVisita
