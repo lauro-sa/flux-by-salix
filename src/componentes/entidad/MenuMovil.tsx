@@ -20,7 +20,7 @@ import {
   FileText, Package, Shield, Trash2, Route, Wrench,
   FileBarChart, LayoutDashboard, Blocks, Building2,
   CircleUserRound, X, LogOut, ChevronRight, Check, Plus,
-  Circle, Megaphone,
+  Circle, Megaphone, Monitor,
 } from 'lucide-react'
 
 /**
@@ -66,6 +66,7 @@ function crearItemsMovil(t: (c: string) => string): ItemNav[] {
     { id: 'empresa', etiqueta: t('empresa.titulo'), icono: <Building2 size={20} strokeWidth={1.7} />, ruta: '/configuracion', seccion: 'empresa', modulo: 'empresa' },
     { id: 'usuarios', etiqueta: t('navegacion.usuarios'), icono: <CircleUserRound size={20} strokeWidth={1.7} />, ruta: '/usuarios', seccion: 'empresa', modulo: 'usuarios' },
     { id: 'papelera', etiqueta: t('navegacion.papelera'), icono: <Trash2 size={20} strokeWidth={1.7} />, ruta: '/papelera', seccion: 'otros' },
+    { id: 'prueba-pantalla', etiqueta: 'Prueba Pantalla', icono: <Monitor size={20} strokeWidth={1.7} />, ruta: '/prueba-pantalla', seccion: 'otros' },
   ]
 }
 

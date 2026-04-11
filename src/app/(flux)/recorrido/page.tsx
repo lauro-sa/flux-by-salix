@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Route, Loader2, Clock, MapPin, Pencil, Navigation, Sparkles, Undo2, ArrowUpDown } from 'lucide-react'
+import { Route, Loader2, Clock, MapPin, Pencil, Navigation, Sparkles, Undo2, ArrowUpDown, X, Check } from 'lucide-react'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
@@ -59,6 +59,7 @@ export default function PaginaRecorrido() {
 
   // UI
   const [paradaSeleccionada, setParadaSeleccionada] = useState<number | null>(null)
+  const [sheetExpandido, setSheetExpandido] = useState(false)
   const [modoEdicion, setModoEdicion] = useState(false)
   const [optimizando, setOptimizando] = useState(false)
   const [paradasPreOptimizar, setParadasPreOptimizar] = useState<Parada[] | null>(null)
@@ -394,7 +395,7 @@ export default function PaginaRecorrido() {
   // Loading
   if (cargando) {
     return (
-      <div className="h-full flex items-center justify-center bg-superficie-app">
+      <div className="flex-1 min-h-0 flex items-center justify-center bg-superficie-app">
         <Loader2 size={32} className="animate-spin text-texto-terciario" />
       </div>
     )
@@ -403,8 +404,8 @@ export default function PaginaRecorrido() {
   // Sin recorrido — mapa con ubicación actual + estado vacío
   if (!recorrido || paradas.length === 0) {
     return (
-      <div className="h-full flex flex-col bg-superficie-app overflow-hidden">
-        <div className="h-[45vh] relative">
+      <div className="flex-1 min-h-0 flex flex-col bg-superficie-app overflow-hidden">
+        <div className="h-[45dvh] relative">
           <ProveedorMapa>
             <MapaRecorrido
               ruta={{ puntos: [], origen: ubicacionUsuario ? { ...ubicacionUsuario, texto: 'Mi ubicación' } : undefined }}
@@ -434,8 +435,8 @@ export default function PaginaRecorrido() {
   // Recorrido completado
   if (estadoRecorrido === 'completado') {
     return (
-      <div className="h-full flex flex-col bg-superficie-app overflow-hidden">
-        <div className="h-[35vh] relative">
+      <div className="flex-1 min-h-0 flex flex-col bg-superficie-app overflow-hidden">
+        <div className="h-[35dvh] relative">
           <ProveedorMapa>
             <MapaRecorrido
               ruta={rutaMapa}
@@ -467,9 +468,9 @@ export default function PaginaRecorrido() {
 
   // ── Recorrido activo — layout Spoke ──
   return (
-    <div className="h-full flex flex-col bg-superficie-app overflow-hidden">
-      {/* ── Mapa superior ── */}
-      <div className="h-[45vh] relative shrink-0">
+    <div className="flex-1 min-h-0 flex flex-col bg-superficie-app overflow-hidden">
+      {/* ── Mapa superior — crece cuando sheet está colapsado ── */}
+      <div className={`relative shrink-0 transition-all duration-300 ease-out ${sheetExpandido ? 'h-[25dvh]' : 'h-[55dvh]'}`}>
         <ProveedorMapa>
           <MapaRecorrido
             ruta={rutaMapa}
@@ -488,73 +489,181 @@ export default function PaginaRecorrido() {
         />
       </div>
 
-      {/* ── Sheet inferior ── */}
-      <div className="flex-1 bg-superficie-tarjeta rounded-t-2xl -mt-3 relative z-10 flex flex-col min-h-0">
-        {/* Drag handle */}
-        <div className="flex justify-center py-2.5 shrink-0">
+      {/* ── Sheet inferior — colapsable estilo app nativa ── */}
+      <div className="flex-1 min-h-0 bg-superficie-tarjeta rounded-t-2xl -mt-3 relative z-10 flex flex-col">
+        {/* Drag handle — tocar para expandir/colapsar */}
+        <button
+          className="flex justify-center py-2.5 shrink-0 w-full"
+          onClick={() => setSheetExpandido(!sheetExpandido)}
+        >
           <div className="w-9 h-1 rounded-full bg-borde-fuerte/40" />
-        </div>
+        </button>
 
-        {/* Resumen — "Finaliza a las X · N paradas · X km" */}
-        <div className="px-4 pb-3 shrink-0">
-          <div className="flex items-center gap-2 text-xs text-texto-terciario mb-1">
-            {distanciaTotal != null && distanciaTotal > 0 && (
-              <>
-                <MapPin size={12} />
-                <span>{paradas.length} {t('recorrido.paradas').toLowerCase()} · {distanciaTotal} km</span>
-              </>
-            )}
-            {!distanciaTotal && (
-              <>
-                <MapPin size={12} />
-                <span>{paradas.length} {t('recorrido.paradas').toLowerCase()}</span>
-              </>
-            )}
+        {/* Barra de progreso segmentada — siempre visible */}
+        {paradas.length > 0 && (
+          <div className="flex gap-1 px-4 pb-2 shrink-0">
+            {paradas.map((p, i) => {
+              let color = 'bg-borde-sutil'
+              if (p.visita?.estado === 'completada') color = 'bg-[var(--insignia-exito)]'
+              else if (p.visita?.estado === 'cancelada') color = 'bg-[var(--insignia-peligro)]'
+              else if (i === paradaActualIndice) color = 'bg-[var(--insignia-info)]'
+              return <div key={p.id} className={`h-1 rounded-full flex-1 transition-colors duration-300 ${color}`} />
+            })}
           </div>
-          <h2 className="text-lg font-bold text-texto-primario">
-            {t('recorrido.recorrido_del_dia')}
-          </h2>
+        )}
 
-          {/* Barra de progreso segmentada */}
-          {paradas.length > 0 && (
-            <div className="flex gap-1 mt-2">
-              {paradas.map((p, i) => {
-                let color = 'bg-borde-sutil'
-                if (p.visita?.estado === 'completada') color = 'bg-[var(--insignia-exito)]'
-                else if (p.visita?.estado === 'cancelada') color = 'bg-[var(--insignia-peligro)]'
-                else if (i === paradaActualIndice) color = 'bg-[var(--insignia-info)]'
-                return <div key={p.id} className={`h-1 rounded-full flex-1 transition-colors duration-300 ${color}`} />
-              })}
+        {!sheetExpandido ? (
+          /* ── COLAPSADO: parada actual + acciones rápidas ── */
+          <div className="flex-1 flex flex-col min-h-0">
+            {(() => {
+              const paradaActiva = paradaActualIndice >= 0 ? paradas[paradaActualIndice] : paradas[0]
+              if (!paradaActiva) return null
+              const v = paradaActiva.visita
+              const orden = paradaActualIndice >= 0 ? paradaActualIndice + 1 : 1
+              const estado = v.estado as 'programada' | 'en_camino' | 'en_sitio' | 'completada' | 'cancelada' | 'reprogramada'
+              const tieneCoords = v.direccion_lat != null && v.direccion_lng != null
+
+              return (
+                <div className="px-4 py-2 space-y-2.5">
+                  {/* Parada activa — tocar para expandir */}
+                  <button
+                    className="flex items-center gap-3 text-left w-full"
+                    onClick={() => setSheetExpandido(true)}
+                  >
+                    <div className="flex items-center justify-center size-9 rounded-full border-2 shrink-0 text-sm font-bold"
+                      style={{
+                        borderColor: estado === 'completada' ? 'var(--insignia-exito)'
+                          : estado === 'en_camino' || estado === 'en_sitio' ? 'var(--insignia-info)'
+                          : 'var(--borde-fuerte)',
+                        backgroundColor: estado === 'completada' ? 'var(--insignia-exito)'
+                          : estado === 'en_camino' || estado === 'en_sitio' ? 'var(--insignia-info)'
+                          : 'transparent',
+                        color: estado === 'completada' || estado === 'en_camino' || estado === 'en_sitio' ? 'white' : 'var(--texto-terciario)',
+                      }}
+                    >
+                      {orden}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-texto-primario truncate">{v.contacto_nombre}</div>
+                      <div className="text-xs text-texto-terciario truncate">{v.direccion_texto}</div>
+                    </div>
+                    <div className="text-xs text-texto-terciario shrink-0">
+                      {completadas}/{paradas.length}
+                    </div>
+                  </button>
+
+                  {/* ── Acciones rápidas según estado ── */}
+                  {estado === 'programada' && (
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => tieneCoords && abrirRutaCompleta([{ lat: v.direccion_lat!, lng: v.direccion_lng! }])}
+                        disabled={!tieneCoords}
+                        className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-borde-sutil text-texto-secundario hover:bg-superficie-elevada transition-colors disabled:opacity-30"
+                      >
+                        <Navigation size={14} className="text-[var(--insignia-info)]" />
+                        <span className="text-xs font-medium">Navegar</span>
+                      </button>
+                      <button
+                        onClick={() => manejarCambiarEstado(v.id, 'cancelada')}
+                        className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-borde-sutil text-texto-secundario hover:bg-superficie-elevada transition-colors"
+                      >
+                        <X size={14} className="text-[var(--insignia-peligro)]" />
+                        <span className="text-xs font-medium">Cancelar</span>
+                      </button>
+                      <button
+                        onClick={() => manejarCambiarEstado(v.id, 'en_camino')}
+                        className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-[var(--insignia-info)]/30 bg-[var(--insignia-info)]/10 text-[var(--insignia-info)] hover:bg-[var(--insignia-info)]/20 transition-colors"
+                      >
+                        <Route size={14} />
+                        <span className="text-xs font-medium">En camino</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {estado === 'en_camino' && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => manejarCambiarEstado(v.id, 'cancelada')}
+                        className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-borde-sutil text-texto-secundario hover:bg-superficie-elevada transition-colors"
+                      >
+                        <X size={14} className="text-[var(--insignia-peligro)]" />
+                        <span className="text-xs font-medium">Cancelar</span>
+                      </button>
+                      <button
+                        onClick={() => manejarRegistrar(v.id)}
+                        className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-[var(--insignia-exito)]/30 bg-[var(--insignia-exito)]/10 text-[var(--insignia-exito)] hover:bg-[var(--insignia-exito)]/20 transition-colors"
+                      >
+                        <MapPin size={14} />
+                        <span className="text-xs font-medium">Llegué</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {estado === 'en_sitio' && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => manejarEditar(v.id)}
+                        className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-borde-sutil text-texto-secundario hover:bg-superficie-elevada transition-colors"
+                      >
+                        <Pencil size={14} className="text-texto-marca" />
+                        <span className="text-xs font-medium">Info</span>
+                      </button>
+                      <button
+                        onClick={() => manejarRegistrar(v.id)}
+                        className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-[var(--insignia-exito)]/30 bg-[var(--insignia-exito)]/10 text-[var(--insignia-exito)] hover:bg-[var(--insignia-exito)]/20 transition-colors"
+                      >
+                        <Check size={14} />
+                        <span className="text-xs font-medium">Completar</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Info compacta */}
+                  <div className="flex items-center justify-center gap-4 text-xs text-texto-terciario">
+                    <div className="flex items-center gap-1">
+                      <Clock size={12} className="text-[var(--insignia-exito)]" />
+                      <span className="font-semibold text-[var(--insignia-exito)]">{formatearDuracion(duracionEstimada)}</span>
+                    </div>
+                    <span>·</span>
+                    <span>{paradas.length} {t('recorrido.paradas').toLowerCase()}</span>
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+        ) : (
+          /* ── EXPANDIDO: lista completa de paradas ── */
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="px-4 pb-2 shrink-0">
+              <h2 className="text-lg font-bold text-texto-primario">
+                {t('recorrido.recorrido_del_dia')}
+              </h2>
             </div>
-          )}
-        </div>
+            <div className="flex-1 overflow-y-auto min-h-0 overscroll-contain">
+              <ListaParadas
+                paradas={paradas}
+                paradaActualIndice={paradaActualIndice}
+                paradaSeleccionada={paradaSeleccionada}
+                onSeleccionarParada={setParadaSeleccionada}
+                onReordenar={manejarReordenar}
+                onCambiarEstado={manejarCambiarEstado}
+                onRegistrar={manejarRegistrar}
+                onEditar={manejarEditar}
+                modoEdicion={modoEdicion}
+                destinoFinal={destinoFinal}
+                onCambiarDestino={modoEdicion ? setDestinoFinal : undefined}
+              />
+            </div>
+          </div>
+        )}
 
-        {/* Lista de paradas scrollable */}
-        <div className="flex-1 overflow-y-auto min-h-0 overscroll-contain">
-          <ListaParadas
-            paradas={paradas}
-            paradaActualIndice={paradaActualIndice}
-            paradaSeleccionada={paradaSeleccionada}
-            onSeleccionarParada={setParadaSeleccionada}
-            onReordenar={manejarReordenar}
-            onCambiarEstado={manejarCambiarEstado}
-            onRegistrar={manejarRegistrar}
-            onEditar={manejarEditar}
-            modoEdicion={modoEdicion}
-            destinoFinal={destinoFinal}
-            onCambiarDestino={modoEdicion ? setDestinoFinal : undefined}
-          />
-        </div>
-
-        {/* ── Bottom bar ── */}
+        {/* ── Bottom bar — siempre visible ── */}
         <div
-          className="border-t border-borde-sutil shrink-0 bg-superficie-tarjeta"
+          className="border-t border-borde-sutil shrink-0 bg-superficie-app"
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 12px)' }}
         >
           {modoEdicion ? (
-            /* ── Modo edición: 2 filas — acciones arriba, confirmar abajo ── */
             <div className="px-4 py-3 space-y-2">
-              {/* Fila 1: acciones */}
               <div className="flex items-center gap-2">
                 <button
                   onClick={invertirRuta}
@@ -563,7 +672,6 @@ export default function PaginaRecorrido() {
                   <ArrowUpDown size={14} />
                   <span>Invertir</span>
                 </button>
-
                 <button
                   onClick={optimizarRuta}
                   disabled={optimizando}
@@ -572,7 +680,6 @@ export default function PaginaRecorrido() {
                   {optimizando ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
                   <span>Optimizar</span>
                 </button>
-
                 {paradasPreOptimizar && (
                   <button
                     onClick={revertirOptimizacion}
@@ -583,8 +690,6 @@ export default function PaginaRecorrido() {
                   </button>
                 )}
               </div>
-
-              {/* Fila 2: confirmar */}
               <button
                 onClick={() => setModoEdicion(false)}
                 className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-semibold text-white transition-colors"
@@ -594,19 +699,7 @@ export default function PaginaRecorrido() {
               </button>
             </div>
           ) : (
-            /* ── Modo normal: 2 filas — info arriba, botones abajo ── */
-            <div className="px-4 py-3 space-y-2">
-              {/* Fila 1: tiempo + paradas */}
-              <div className="flex items-center justify-center gap-4 text-xs text-texto-terciario">
-                <div className="flex items-center gap-1">
-                  <Clock size={12} className="text-[var(--insignia-exito)]" />
-                  <span className="font-semibold text-[var(--insignia-exito)]">{formatearDuracion(duracionEstimada)}</span>
-                </div>
-                <span>·</span>
-                <span>{paradas.length} {t('recorrido.paradas').toLowerCase()}</span>
-              </div>
-
-              {/* Fila 2: botones */}
+            <div className="px-4 py-2.5">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setModoEdicion(true)}
@@ -615,7 +708,6 @@ export default function PaginaRecorrido() {
                   <Pencil size={14} />
                   <span>Ajustar</span>
                 </button>
-
                 <button
                   onClick={iniciarRuta}
                   className="flex-[2] flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-semibold text-white transition-colors"

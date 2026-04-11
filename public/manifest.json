@@ -4,8 +4,8 @@
   "description": "Sistema de gestión multi-empresa para PyMEs",
   "start_url": "/dashboard",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "orientation": "any",
   "categories": ["business", "productivity"],
   "icons": [

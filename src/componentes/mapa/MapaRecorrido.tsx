@@ -1,7 +1,7 @@
 'use client'
 
 import { Map, useMap } from '@vis.gl/react-google-maps'
-import { MapPin, Route, Zap, ShieldOff } from 'lucide-react'
+import { MapPin, Zap, Route, ShieldOff, Settings2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AdvancedMarker } from '@vis.gl/react-google-maps'
 import { MarcadorVisita } from './MarcadorVisita'
@@ -18,8 +18,8 @@ const OPCIONES_RUTA: { valor: PreferenciaRuta; etiqueta: string; icono: typeof Z
 
 /**
  * Mapa para la sección Recorrido (mobile).
- * Dibuja la ruta REAL por calles usando Google Directions API (DirectionsService).
- * Incluye selector de preferencia de ruta.
+ * Dibuja la ruta REAL por calles usando Google Directions API.
+ * Selector de preferencia de ruta colapsable para no ocupar espacio en mobile.
  */
 export function MapaRecorrido({
   ruta,
@@ -32,10 +32,12 @@ export function MapaRecorrido({
 }: PropiedadesMapaRecorrido) {
   const { puntos, origen, destino } = ruta
   const [preferencia, setPreferencia] = useState<PreferenciaRuta>(preferenciaInicial)
+  const [selectorAbierto, setSelectorAbierto] = useState(false)
 
   const cambiarPreferencia = useCallback((nueva: PreferenciaRuta) => {
     setPreferencia(nueva)
     onCambioPreferencia?.(nueva)
+    setSelectorAbierto(false)
   }, [onCambioPreferencia])
 
   // Fallback sin API key
@@ -65,45 +67,57 @@ export function MapaRecorrido({
     )
   }
 
-  const todosPuntos = origen
-    ? [{ lat: origen.lat, lng: origen.lng }, ...puntos]
-    : puntos
-  const centroMapa = calcularCentro(todosPuntos)
+  // Centro del mapa: solo paradas (NO incluir origen GPS que puede estar en otro país/continente)
+  // Si no hay paradas, usar origen GPS o fallback Buenos Aires
+  const centroMapa = calcularCentro(
+    puntos.length > 0
+      ? puntos
+      : origen
+        ? [{ lat: origen.lat, lng: origen.lng }]
+        : [{ lat: -34.6037, lng: -58.3816 }]
+  )
+
+  // Si no hay paradas, usar center controlado para que se actualice cuando llega la ubicación
+  const sinParadas = puntos.length === 0
 
   return (
-    <div className={`relative overflow-hidden h-[50vh] md:h-[400px] ${className}`}>
+    <div className={`relative overflow-hidden h-full ${className}`}>
       <Map
         mapId="RECORRIDO_MAP"
-        defaultCenter={centroMapa}
-        defaultZoom={13}
+        {...(sinParadas
+          ? { center: centroMapa, zoom: 14 }
+          : { defaultCenter: centroMapa, defaultZoom: 13 }
+        )}
         gestureHandling="greedy"
         disableDefaultUI
         colorScheme="DARK"
         className="w-full h-full"
       >
-        {/* Ruta real por calles usando DirectionsService */}
-        <RutaReal
-          puntos={puntos}
-          origen={origen}
-          destino={destino}
-          preferencia={preferencia}
-          onInfoRuta={onInfoRuta}
-        />
+        {/* Ruta real por calles */}
+        {puntos.length > 0 && (
+          <RutaReal
+            puntos={puntos}
+            origen={origen}
+            destino={destino}
+            preferencia={preferencia}
+            onInfoRuta={onInfoRuta}
+          />
+        )}
 
-        {/* Marcador de origen — punto azul como GPS */}
+        {/* Marcador de origen — punto azul GPS */}
         {origen && (
           <AdvancedMarker
             position={{ lat: origen.lat, lng: origen.lng }}
             title={origen.texto || 'Punto de partida'}
           >
             <div className="relative flex items-center justify-center">
-              <div className="absolute size-6 rounded-full bg-blue-500/20" />
-              <div className="size-3 rounded-full bg-blue-500 border-2 border-white shadow-md" />
+              <div className="absolute size-8 rounded-full bg-blue-500/20 animate-pulse" />
+              <div className="size-3.5 rounded-full bg-blue-500 border-2 border-white shadow-lg" />
             </div>
           </AdvancedMarker>
         )}
 
-        {/* Marcadores de paradas numerados */}
+        {/* Marcadores de paradas */}
         {puntos.map((punto, i) => (
           <MarcadorVisita
             key={punto.id}
@@ -116,31 +130,48 @@ export function MapaRecorrido({
         ))}
       </Map>
 
-      {/* Selector de preferencia de ruta — debajo del header flotante */}
-      <div className="absolute left-3 flex gap-1 bg-black/70 backdrop-blur-sm rounded-lg p-1" style={{ top: 'calc(env(safe-area-inset-top, 8px) + 52px)' }}>
-        {OPCIONES_RUTA.map(({ valor, etiqueta, icono: Icono }) => (
-          <button
-            key={valor}
-            onClick={() => cambiarPreferencia(valor)}
-            className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              preferencia === valor
-                ? 'bg-blue-600 text-white'
-                : 'text-white/60 hover:text-white hover:bg-white/10'
-            }`}
-            title={etiqueta}
-          >
-            <Icono size={12} />
-            <span className="hidden sm:inline">{etiqueta}</span>
-          </button>
-        ))}
-      </div>
+      {/* Overlay invisible para cerrar el selector al tocar afuera */}
+      {selectorAbierto && (
+        <div className="absolute inset-0 z-10" onClick={() => setSelectorAbierto(false)} />
+      )}
+
+      {/* Botón de opciones de ruta — esquina inferior izquierda */}
+      {puntos.length > 0 && (
+        <div className="absolute bottom-3 left-3 z-20">
+          {selectorAbierto ? (
+            <div className="flex flex-col gap-1 bg-black/80 backdrop-blur-md rounded-xl p-1.5 border border-white/10">
+              {OPCIONES_RUTA.map(({ valor, etiqueta, icono: Icono }) => (
+                <button
+                  key={valor}
+                  onClick={() => cambiarPreferencia(valor)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                    preferencia === valor
+                      ? 'bg-blue-600 text-white'
+                      : 'text-white/60 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <Icono size={13} />
+                  <span>{etiqueta}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <button
+              onClick={() => setSelectorAbierto(true)}
+              className="flex items-center justify-center size-9 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white/70 hover:text-white transition-colors"
+              title="Opciones de ruta"
+            >
+              <Settings2 size={16} />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
 
 /**
  * Dibuja la ruta REAL por calles usando DirectionsService + DirectionsRenderer.
- * Re-calcula cuando cambian los puntos o la preferencia de ruta.
  */
 function RutaReal({
   puntos,
@@ -162,15 +193,14 @@ function RutaReal({
   useEffect(() => {
     if (!mapa || puntos.length === 0) return
 
-    // Inicializar servicio y renderer una sola vez
     if (!serviceRef.current) {
       serviceRef.current = new google.maps.DirectionsService()
     }
 
     if (!rendererRef.current) {
       rendererRef.current = new google.maps.DirectionsRenderer({
-        suppressMarkers: true, // usamos nuestros propios marcadores
-        preserveViewport: false, // que ajuste el viewport a la ruta
+        suppressMarkers: true,
+        preserveViewport: false,
         polylineOptions: {
           strokeColor: '#4a6cf7',
           strokeOpacity: 0.9,
@@ -181,14 +211,11 @@ function RutaReal({
 
     rendererRef.current.setMap(mapa)
 
-    // Construir request
     const puntoOrigen = origen || puntos[0]
-    // Si hay destino explícito, todas las paradas son waypoints y el destino es el final.
-    // Si no, la última parada es el destino.
     const puntoDestino = destino || puntos[puntos.length - 1]
     const paradasWaypoints = destino
-      ? puntos // todas las paradas son waypoints, el destino es aparte
-      : (origen ? puntos.slice(0, -1) : puntos.slice(1, -1)) // última parada = destino
+      ? puntos
+      : (origen ? puntos.slice(0, -1) : puntos.slice(1, -1))
     const waypoints = paradasWaypoints.map((p) => ({
       location: new google.maps.LatLng(p.lat, p.lng),
       stopover: true,
@@ -207,7 +234,6 @@ function RutaReal({
       if (estado === google.maps.DirectionsStatus.OK && resultado) {
         rendererRef.current?.setDirections(resultado)
 
-        // Calcular distancia y duración total sumando todos los legs
         if (onInfoRuta && resultado.routes[0]?.legs) {
           const legs = resultado.routes[0].legs
           const distanciaTotal = legs.reduce((sum, leg) => sum + (leg.distance?.value || 0), 0)

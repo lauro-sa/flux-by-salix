@@ -16,41 +16,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 const UMBRAL = 10
 
 export function useHeaderAutoOculto(): boolean {
-  const [oculto, setOculto] = useState(false)
-  const ultimoScrollRef = useRef(0)
-  const rafRef = useRef<number>(0)
-
-  const manejarScroll = useCallback(() => {
-    cancelAnimationFrame(rafRef.current)
-    rafRef.current = requestAnimationFrame(() => {
-      const scrollY = window.scrollY
-      const diferencia = scrollY - ultimoScrollRef.current
-
-      if (diferencia > UMBRAL) {
-        // Scrolleando hacia abajo → ocultar
-        setOculto(true)
-        ultimoScrollRef.current = scrollY
-      } else if (diferencia < -UMBRAL) {
-        // Scrolleando hacia arriba → mostrar
-        setOculto(false)
-        ultimoScrollRef.current = scrollY
-      }
-
-      // Si estamos arriba del todo, siempre mostrar
-      if (scrollY <= 0) {
-        setOculto(false)
-        ultimoScrollRef.current = 0
-      }
-    })
-  }, [])
-
-  useEffect(() => {
-    window.addEventListener('scroll', manejarScroll, { passive: true })
-    return () => {
-      window.removeEventListener('scroll', manejarScroll)
-      cancelAnimationFrame(rafRef.current)
-    }
-  }, [manejarScroll])
-
-  return oculto
+  // Desactivado: el header siempre visible en mobile.
+  // El patrón tipo Twitter/Instagram confunde más que ayuda
+  // cuando hay navegación importante en el header.
+  return false
 }

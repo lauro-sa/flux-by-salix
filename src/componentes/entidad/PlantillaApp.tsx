@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo, useRef } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 
 import { usePathname } from 'next/navigation'
 import { Sidebar } from './Sidebar'
@@ -48,8 +48,25 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
   const { preferencias, guardar } = usePreferencias()
   const headerOculto = useHeaderAutoOculto()
   useHeartbeatAsistencia()
+
+  // iOS Safari miente con 100dvh hasta que hacés scroll.
+  // window.innerHeight siempre devuelve el alto visible real.
+  useEffect(() => {
+    const actualizarAltura = () => {
+      const vh = window.innerHeight * 0.01
+      document.documentElement.style.setProperty('--vh', `${vh}px`)
+    }
+    actualizarAltura()
+    window.addEventListener('resize', actualizarAltura)
+    window.visualViewport?.addEventListener('resize', actualizarAltura)
+    return () => {
+      window.removeEventListener('resize', actualizarAltura)
+      window.visualViewport?.removeEventListener('resize', actualizarAltura)
+    }
+  }, [])
   // Ya no se usa drawer lateral — NavegacionMovil maneja la nav en teléfonos
   const [mobilMenuAbierto, setMobilMenuAbierto] = useState(false)
+
 
   const seccion = obtenerSeccion(pathname)
 
@@ -149,28 +166,16 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
   const fondoWrapper = efecto !== 'solido' ? 'transparent' : 'var(--superficie-app)'
 
   // Rutas que se renderizan a pantalla completa (sin sidebar ni header)
-  const esPantallaCompleta = pathname === '/aplicaciones' || pathname.startsWith('/recorrido')
+  const esPantallaCompleta = pathname === '/aplicaciones' || pathname === '/prueba-pantalla'
 
-  // Rutas que necesitan layout fijo (height: 100dvh, overflow: hidden) incluso en móvil.
-  // Inbox y calendario usan paneles con scroll interno que no deben scrollear el documento.
-  const necesitaLayoutFijo = pathname.startsWith('/inbox') || pathname.startsWith('/calendario')
+  // Rutas que necesitan layout fijo (height fijo, overflow: hidden) incluso en móvil.
+  // Paneles con scroll interno que no deben scrollear el documento.
+  const necesitaLayoutFijo = pathname.startsWith('/inbox') || pathname.startsWith('/calendario') || pathname.startsWith('/recorrido')
 
   if (esPantallaCompleta) {
     return (
-      <div style={{ height: '100dvh', backgroundColor: fondoWrapper, overflow: 'hidden' }}>
-        <main
-          className="scrollbar-auto-oculto"
-          style={{
-            height: '100dvh',
-            display: 'flex',
-            flexDirection: 'column',
-            width: '100%',
-            overflowY: 'auto',
-            backgroundColor: 'var(--superficie-app)',
-            paddingTop: 'env(safe-area-inset-top, 0px)',
-            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-          }}
-        >
+      <div className="layout-app layout-app--fijo flex flex-col" suppressHydrationWarning>
+        <main className="flex-1 flex flex-col w-full bg-superficie-app min-h-0" suppressHydrationWarning>
           {children}
         </main>
       </div>
@@ -183,7 +188,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
      - Rutas con paneles (inbox, calendario): siempre fijo via layout-app--fijo */
 
   return (
-    <div className={`layout-app${necesitaLayoutFijo ? ' layout-app--fijo' : ''}`}>
+    <div className={`layout-app safe-area${necesitaLayoutFijo ? ' layout-app--fijo' : ''}`}>
       <Sidebar
         colapsado={sidebarColapsado}
         onToggle={toggleSidebar}

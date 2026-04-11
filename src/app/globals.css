@@ -13,65 +13,47 @@
   }
 }
 
-/* ── PWA: eliminar gap negro con safe-area (solución oficial) ──
-   Ref: https://dev.to/karmasakshi/make-your-pwas-look-handsome-on-ios-1o08
-   min-height: calc(100% + safe-area-inset-top) evita la barra negra inferior.
-   padding en los 4 lados asegura que el contenido no quede detrás del notch. */
-html {
-  min-height: calc(100% + env(safe-area-inset-top));
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-}
+/* ── Layout iOS-proof: sin hacks en html/body ──
+   Safe areas se aplican en el wrapper (.safe-area), NO en html.
+   Altura unificada: 100dvh + -webkit-fill-available.
+   Sin position:fixed global. Sin mutar html con JS. */
 
 /* ── Layout principal ── */
 .layout-app {
   background-color: var(--superficie-app);
-  min-height: 100dvh;
+  min-height: calc(var(--vh, 1vh) * 100);
+  min-height: -webkit-fill-available;
 }
 @media (min-width: 768px) {
   .layout-app {
-    height: 100dvh;
+    height: calc(var(--vh, 1vh) * 100);
     overflow: hidden;
     min-height: auto;
   }
 }
-/* PWA standalone: position fixed para escapar del min-height inflado del html.
-   El html tiene min-height: calc(100% + safe-area-top) + padding para evitar gap negro,
-   pero eso infla el documento. position:fixed ignora el flujo del documento y usa
-   el viewport real, respetando safe-areas con los insets. */
-@media (display-mode: standalone) {
-  .layout-app {
-    position: fixed;
-    top: env(safe-area-inset-top, 0px);
-    left: env(safe-area-inset-left, 0px);
-    right: env(safe-area-inset-right, 0px);
-    bottom: env(safe-area-inset-bottom, 0px);
-    height: auto;
-    min-height: auto;
-    overflow: hidden;
-  }
-}
+
+/* Layout fijo (inbox, calendario, recorrido) — paneles con scroll interno.
+   Usa --vh (window.innerHeight real) para evitar el bug de 100dvh en iOS.
+   overflow: hidden necesario para que el mapa quede fijo y la lista scrollee internamente. */
 .layout-app--fijo {
-  height: 100dvh;
+  height: calc(var(--vh, 1vh) * 100);
   overflow: hidden;
-  min-height: auto;
 }
-/* PWA standalone: mismo position:fixed que el layout normal */
-@media (display-mode: standalone) {
-  .layout-app--fijo {
-    position: fixed;
-    top: env(safe-area-inset-top, 0px);
-    left: env(safe-area-inset-left, 0px);
-    right: env(safe-area-inset-right, 0px);
-    bottom: env(safe-area-inset-bottom, 0px);
-    height: auto;
-  }
+
+/* Safe-area wrapper — se aplica al layout normal, NO al fullscreen */
+.safe-area {
+  padding:
+    env(safe-area-inset-top, 0px)
+    env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px)
+    env(safe-area-inset-left, 0px);
 }
 
 /* Contenido principal */
 .contenido-principal-layout {
   min-height: 100%;
 }
-@media (min-width: 768px), (display-mode: standalone) {
+@media (min-width: 768px) {
   .contenido-principal-layout {
     height: 100%;
     overflow: hidden;
@@ -86,7 +68,6 @@ html {
 
 /* Main content */
 .main-layout {
-  /* Mobile browser: espacio para scrollear más allá de la toolbar */
   padding-bottom: 4rem;
 }
 @media (min-width: 768px) {
@@ -110,14 +91,9 @@ html {
   padding-bottom: 0;
 }
 
-/* Compositor del inbox: safe-area solo en mobile browser (en PWA standalone el html ya lo maneja) */
+/* Compositor del inbox */
 .compositor-safe-area {
   padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-@media (display-mode: standalone) {
-  .compositor-safe-area {
-    padding-bottom: 0;
-  }
 }
 
 /* PWA: eliminar highlight azul/gris al tocar en iOS/Android */
@@ -382,6 +358,9 @@ input:-webkit-autofill:active {
    Estilos globales de Flux by Salix
    ============================================ */
 html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
   font-family: var(--fuente-sans);
   font-feature-settings: 'cv11', 'ss01'; /* Inter alternates — más legible */
   -webkit-font-smoothing: antialiased;
@@ -391,11 +370,13 @@ html {
 }
 
 body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
   background-color: var(--superficie-app);
   color: var(--texto-primario);
   font-size: var(--texto-base);
   line-height: 1.6;
-  min-height: 100dvh;
 }
 
 /* Scrollbar sutil estilo Linear */
