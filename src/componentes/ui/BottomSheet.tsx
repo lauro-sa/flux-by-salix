@@ -36,6 +36,8 @@ interface PropiedadesBottomSheet {
   altura?: AlturaSheet
   /** Quita el padding del contenido para layouts personalizados */
   sinPadding?: boolean
+  /** Fondo personalizado del panel (sobreescribe superficie-elevada) */
+  fondo?: string
 }
 
 /* ─── Alturas como % del viewport ─── */
@@ -63,6 +65,7 @@ function BottomSheet({
   acciones,
   altura = 'auto',
   sinPadding = false,
+  fondo,
 }: PropiedadesBottomSheet) {
   const { efecto } = useTema()
   const esCristal = efecto !== 'solido'
@@ -151,14 +154,15 @@ function BottomSheet({
   if (typeof window === 'undefined') return null
 
   /* ── Estilos del panel según cristal/sólido ── */
-  const estiloPanel = esCristal ? {
+  const colorFondo = fondo || (esCristal ? 'var(--superficie-flotante, var(--superficie-elevada))' : 'var(--superficie-elevada)')
+  const estiloPanel = esCristal && !fondo ? {
     y,
-    backgroundColor: 'var(--superficie-flotante, var(--superficie-elevada))',
+    backgroundColor: colorFondo,
     backdropFilter: 'blur(32px) saturate(1.5)',
     WebkitBackdropFilter: 'blur(32px) saturate(1.5)',
   } : {
     y,
-    backgroundColor: 'var(--superficie-elevada)',
+    backgroundColor: colorFondo,
   }
 
   return createPortal(

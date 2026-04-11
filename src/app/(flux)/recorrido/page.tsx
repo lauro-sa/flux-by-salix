@@ -12,6 +12,7 @@ import { Route, Loader2, Clock, MapPin, Pencil, Navigation, Sparkles, Undo2, Arr
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { Cargador } from '@/componentes/ui/Cargador'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { ProveedorMapa, MapaRecorrido, abrirRutaCompleta } from '@/componentes/mapa'
 import type { PuntoMapa, RutaMapa } from '@/componentes/mapa'
@@ -452,7 +453,7 @@ export default function PaginaRecorrido() {
   if (cargando) {
     return (
       <div className="flex-1 min-h-0 flex items-center justify-center bg-superficie-app">
-        <Loader2 size={32} className="animate-spin text-texto-terciario" />
+        <Cargador tamano="pagina" />
       </div>
     )
   }
@@ -773,7 +774,7 @@ export default function PaginaRecorrido() {
                     </div>
 
                     {/* 3. Indicadores + botón ver recorrido */}
-                    <div className="flex flex-col items-center gap-2.5 pt-3 pb-2">
+                    <div className="flex flex-col items-center gap-2.5 pt-3">
                       <div className="flex gap-1.5">
                         {paradas.map((_, i) => (
                           <button

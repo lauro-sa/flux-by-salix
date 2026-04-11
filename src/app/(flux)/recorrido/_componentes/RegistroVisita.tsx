@@ -2,6 +2,7 @@
 
 /**
  * RegistroVisita — BottomSheet para registrar/editar visita.
+ * Diseño: cards con fondo sutil, secciones bien agrupadas, fondo oscuro uniforme.
  * Funcionalidades:
  * - Captura ubicación GPS automática
  * - Fotos: cámara O galería (2 botones separados)
@@ -15,7 +16,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Camera, Image as ImageIcon, X, Loader2, MapPin, Trash2 } from 'lucide-react'
+import { Camera, ImagePlus, X, Loader2, MapPin, Trash2, Check, Thermometer, FileText, CheckSquare, ImageIcon } from 'lucide-react'
 import { BottomSheet } from '@/componentes/ui/BottomSheet'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
@@ -83,7 +84,6 @@ function RegistroVisita({
         if (!resp.ok) throw new Error()
         const data = await resp.json()
 
-        // Cargar datos de la visita
         if (data.visita) {
           setNotas(data.visita.notas || '')
           setResultado(data.visita.resultado || '')
@@ -93,7 +93,6 @@ function RegistroVisita({
           }
         }
 
-        // Cargar fotos existentes
         if (data.fotos?.length) {
           setFotosExistentes(data.fotos.map((f: FotoExistente) => ({
             chatter_id: f.chatter_id,
@@ -106,8 +105,6 @@ function RegistroVisita({
     }
 
     cargarDatos()
-
-    // Limpiar fotos nuevas al abrir
     setFotosNuevas([])
     setPreviewsNuevas([])
   }, [abierto, visitaId])
@@ -142,7 +139,6 @@ function RegistroVisita({
   // Comprimir imagen: redimensionar a max 1200px y convertir a JPEG 80%
   const comprimirImagen = useCallback((archivo: File): Promise<File> => {
     return new Promise((resolve) => {
-      // Si es menor a 500KB, no comprimir
       if (archivo.size < 500 * 1024) { resolve(archivo); return }
 
       const img = new Image()
@@ -183,7 +179,6 @@ function RegistroVisita({
     const archivosOriginales = Array.from(e.target.files || [])
     if (!archivosOriginales.length) return
 
-    // Comprimir cada imagen
     const archivosComprimidos = await Promise.all(
       archivosOriginales.map(a => comprimirImagen(a))
     )
@@ -194,7 +189,6 @@ function RegistroVisita({
       reader.onloadend = () => setPreviewsNuevas(prev => [...prev, reader.result as string])
       reader.readAsDataURL(archivo)
     })
-    // Reset input para poder seleccionar el mismo archivo
     e.target.value = ''
   }
 
@@ -286,21 +280,37 @@ function RegistroVisita({
   }
 
   const totalFotos = fotosExistentes.length + fotosNuevas.length
+  const checklistCompletados = checklist.filter(i => i.completado).length
+
+  // Títulos según modo
+  const titulosModal: Record<string, string> = {
+    llegada: 'Registrar llegada',
+    completar: 'Completar visita',
+    editar: 'Editar registro',
+  }
 
   return (
     <BottomSheet
       abierto={abierto}
       onCerrar={onCerrar}
-      titulo="Registrar visita"
+      titulo={titulosModal[modo]}
       altura="alto"
+      fondo="var(--superficie-app)"
       acciones={
         <button
           onClick={enviar}
           disabled={enviando}
-          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold text-white transition-colors disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold text-white transition-all active:scale-[0.98] disabled:opacity-50"
           style={{ backgroundColor: 'var(--insignia-exito)' }}
         >
-          {enviando ? <Loader2 size={16} className="animate-spin" /> : <span>Guardar visita →</span>}
+          {enviando ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <>
+              <Check size={16} strokeWidth={2.5} />
+              <span>{modo === 'editar' ? 'Guardar cambios' : 'Guardar visita'}</span>
+            </>
+          )}
         </button>
       }
     >
@@ -309,18 +319,32 @@ function RegistroVisita({
           <Loader2 size={24} className="animate-spin text-texto-terciario" />
         </div>
       ) : (
-        <div className="space-y-0">
-          {/* ── Subtítulo con fecha y parada ── */}
+        <div className="space-y-3">
+          {/* ── Header con info del contacto ── */}
           {contactoNombre && (
-            <p className="text-sm text-texto-terciario pb-4">
-              {contactoNombre} · {contactoDireccion}
-            </p>
+            <div className="flex items-start gap-3 p-3.5 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+              <div className="size-9 rounded-lg bg-white/[0.06] flex items-center justify-center shrink-0 mt-0.5">
+                <MapPin size={16} className="text-texto-terciario" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-texto-primario truncate">{contactoNombre}</p>
+                {contactoDireccion && (
+                  <p className="text-xs text-texto-terciario mt-0.5 line-clamp-2">{contactoDireccion}</p>
+                )}
+              </div>
+              {ubicacion && (
+                <div className="ml-auto flex items-center gap-1 text-[10px] text-[var(--insignia-exito)] shrink-0">
+                  <div className="size-1.5 rounded-full bg-[var(--insignia-exito)] animate-pulse" />
+                  GPS
+                </div>
+              )}
+            </div>
           )}
 
-          {/* ── Factibilidad ── */}
-          <div className="border-t border-borde-sutil pt-4 pb-4">
-            <p className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider mb-3">Factibilidad</p>
-            <div className="grid grid-cols-3 gap-2">
+          {/* ── Factibilidad — pills compactos inline ── */}
+          <div className="flex items-center gap-2">
+            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider shrink-0">Factibilidad</p>
+            <div className="flex flex-1 gap-1.5">
               {([
                 { valor: 'frio' as const, label: 'Baja', color: 'var(--insignia-peligro)' },
                 { valor: 'tibio' as const, label: 'Media', color: 'var(--insignia-advertencia)' },
@@ -331,22 +355,18 @@ function RegistroVisita({
                   <button
                     key={valor}
                     onClick={() => setTemperatura(activo ? null : valor)}
-                    className="flex flex-col items-center justify-center gap-2 py-3.5 rounded-xl border transition-all"
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all active:scale-[0.97]"
                     style={{
-                      borderColor: activo ? color : 'var(--borde-sutil)',
-                      backgroundColor: activo ? `color-mix(in srgb, ${color} 12%, transparent)` : 'transparent',
+                      border: `1px solid ${activo ? color : 'rgba(255,255,255,0.08)'}`,
+                      backgroundColor: activo ? `color-mix(in srgb, ${color} 15%, transparent)` : 'transparent',
+                      color: activo ? color : 'var(--texto-terciario)',
                     }}
                   >
                     <div
-                      className="size-3 rounded-full transition-all"
-                      style={{
-                        backgroundColor: activo ? color : 'var(--borde-fuerte)',
-                        boxShadow: activo ? `0 0 8px ${color}` : 'none',
-                      }}
+                      className="size-1.5 rounded-full"
+                      style={{ backgroundColor: activo ? color : 'var(--borde-fuerte)' }}
                     />
-                    <span className="text-sm font-medium" style={{ color: activo ? color : 'var(--texto-secundario)' }}>
-                      {label}
-                    </span>
+                    {label}
                   </button>
                 )
               })}
@@ -354,34 +374,57 @@ function RegistroVisita({
           </div>
 
           {/* ── Notas ── */}
-          <div className="border-t border-borde-sutil pt-4 pb-4">
-            <p className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider mb-3">Notas</p>
+          <div className="p-3.5 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+            <div className="flex items-center gap-2 mb-3">
+              <FileText size={13} className="text-texto-terciario" />
+              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Notas</p>
+            </div>
             <textarea
               value={notas}
               onChange={(e) => setNotas(e.target.value)}
-              placeholder="Ibivv — descripción del trabajo a realizar"
+              placeholder="Descripción del trabajo realizado..."
               rows={3}
-              className="w-full rounded-xl border border-borde-sutil bg-transparent px-4 py-3 text-sm text-texto-primario placeholder:text-texto-terciario/50 resize-none focus:outline-none focus:border-texto-marca/40"
+              className="w-full rounded-lg border border-white/[0.06] bg-white/[0.03] px-3.5 py-2.5 text-sm text-texto-primario placeholder:text-texto-terciario/40 resize-none focus:outline-none focus:border-texto-marca/40 transition-colors"
             />
           </div>
 
           {/* ── Checklist ── */}
           {checklist.length > 0 && (
-            <div className="border-t border-borde-sutil pt-4 pb-4">
-              <p className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider mb-3">Checklist</p>
+            <div className="p-3.5 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <CheckSquare size={13} className="text-texto-terciario" />
+                  <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Checklist</p>
+                </div>
+                <span
+                  className="text-[11px] font-medium px-2 py-0.5 rounded-full"
+                  style={{
+                    backgroundColor: checklistCompletados === checklist.length
+                      ? 'color-mix(in srgb, var(--insignia-exito) 15%, transparent)'
+                      : 'rgba(255,255,255,0.06)',
+                    color: checklistCompletados === checklist.length
+                      ? 'var(--insignia-exito)'
+                      : 'var(--texto-terciario)',
+                  }}
+                >
+                  {checklistCompletados}/{checklist.length}
+                </span>
+              </div>
               <div className="space-y-1.5">
                 {checklist.map((item, i) => (
                   <button
                     key={i}
                     onClick={() => toggleChecklist(i)}
-                    className="flex items-center gap-3 w-full p-3 rounded-xl border border-borde-sutil hover:bg-white/[0.02] transition-colors text-left"
+                    className="flex items-center gap-3 w-full p-2.5 rounded-lg border border-white/[0.04] hover:bg-white/[0.02] transition-all text-left active:scale-[0.99]"
                   >
-                    <div className={`size-5 rounded-md border-2 flex items-center justify-center transition-colors ${
-                      item.completado
-                        ? 'bg-[var(--insignia-exito)] border-[var(--insignia-exito)]'
-                        : 'border-borde-fuerte'
-                    }`}>
-                      {item.completado && <span className="text-white text-xs font-bold">✓</span>}
+                    <div
+                      className="size-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0"
+                      style={{
+                        borderColor: item.completado ? 'var(--insignia-exito)' : 'var(--borde-fuerte)',
+                        backgroundColor: item.completado ? 'var(--insignia-exito)' : 'transparent',
+                      }}
+                    >
+                      {item.completado && <Check size={12} className="text-white" strokeWidth={3} />}
                     </div>
                     <span className={`text-sm ${item.completado ? 'text-texto-terciario line-through' : 'text-texto-primario'}`}>
                       {item.texto}
@@ -393,15 +436,21 @@ function RegistroVisita({
           )}
 
           {/* ── Fotos ── */}
-          <div className="border-t border-borde-sutil pt-4 pb-2">
-            <p className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider mb-3">
-              Fotos {totalFotos > 0 && <span className="normal-case font-normal ml-1">{totalFotos} adjuntas</span>}
-            </p>
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <ImageIcon size={13} className="text-texto-terciario" />
+                <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Fotos</p>
+              </div>
+              {totalFotos > 0 && (
+                <span className="text-[11px] text-texto-terciario">{totalFotos} adjunta{totalFotos !== 1 ? 's' : ''}</span>
+              )}
+            </div>
 
-            <div className="flex gap-2.5 overflow-x-auto pb-1">
+            <div className="flex items-center gap-2.5 flex-wrap">
               {/* Fotos existentes */}
               {fotosExistentes.map((foto) => (
-                <div key={foto.url} className="relative shrink-0 size-24 rounded-xl overflow-hidden border border-borde-sutil">
+                <div key={foto.url} className="relative shrink-0 size-20 rounded-xl overflow-hidden border border-white/[0.08]">
                   <img src={foto.url} alt={foto.nombre} className="size-full object-cover" />
                   <button
                     onClick={() => eliminarFotoExistente(foto)}
@@ -409,8 +458,8 @@ function RegistroVisita({
                     className="absolute top-1 right-1 size-6 rounded-full bg-black/70 flex items-center justify-center disabled:opacity-50"
                   >
                     {foto.eliminando
-                      ? <Loader2 size={12} className="text-white animate-spin" />
-                      : <Trash2 size={12} className="text-white" />
+                      ? <Loader2 size={11} className="text-white animate-spin" />
+                      : <Trash2 size={11} className="text-white" />
                     }
                   </button>
                 </div>
@@ -418,24 +467,31 @@ function RegistroVisita({
 
               {/* Fotos nuevas */}
               {previewsNuevas.map((src, i) => (
-                <div key={i} className="relative shrink-0 size-24 rounded-xl overflow-hidden border border-texto-marca/30">
+                <div key={i} className="relative shrink-0 size-20 rounded-xl overflow-hidden border border-texto-marca/30">
                   <img src={src} alt={`Nueva ${i + 1}`} className="size-full object-cover" />
                   <button
                     onClick={() => quitarFotoNueva(i)}
                     className="absolute top-1 right-1 size-6 rounded-full bg-black/70 flex items-center justify-center"
                   >
-                    <X size={12} className="text-white" />
+                    <X size={11} className="text-white" />
                   </button>
                 </div>
               ))}
 
-              {/* Botón Agregar */}
+              {/* Botones agregar: cámara y galería */}
+              <button
+                onClick={() => inputCamaraRef.current?.click()}
+                className="shrink-0 size-20 rounded-xl border border-dashed border-white/[0.1] hover:border-white/[0.2] flex flex-col items-center justify-center gap-1 transition-colors active:scale-[0.97]"
+              >
+                <Camera size={18} className="text-texto-terciario" />
+                <span className="text-[10px] text-texto-terciario">Cámara</span>
+              </button>
               <button
                 onClick={() => inputGaleriaRef.current?.click()}
-                className="shrink-0 size-24 rounded-xl border border-dashed border-borde-sutil hover:border-texto-terciario flex flex-col items-center justify-center gap-1.5 transition-colors"
+                className="shrink-0 size-20 rounded-xl border border-dashed border-white/[0.1] hover:border-white/[0.2] flex flex-col items-center justify-center gap-1 transition-colors active:scale-[0.97]"
               >
-                <Camera size={20} className="text-texto-terciario" />
-                <span className="text-[11px] text-texto-terciario">Agregar</span>
+                <ImagePlus size={18} className="text-texto-terciario" />
+                <span className="text-[10px] text-texto-terciario">Galería</span>
               </button>
             </div>
 

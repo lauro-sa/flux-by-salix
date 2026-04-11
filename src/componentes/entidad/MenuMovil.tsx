@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useTransition } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
@@ -101,7 +101,6 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
   // iOS: position:fixed en body para evitar scroll detrás del menú
   useScrollLockiOS(abierto)
 
-  const [isPending, startTransition] = useTransition()
   const [modalCerrarSesion, setModalCerrarSesion] = useState(false)
   const [cerrandoSesion, setCerrandoSesion] = useState(false)
   const [estado, setEstado] = useState<'online' | 'ausente' | 'no_molestar'>('online')
@@ -150,12 +149,19 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
     return pathname.startsWith(ruta)
   }
 
+  // Cerrar el menú cuando la ruta cambie (después de que la navegación termine)
+  const navegando = useRef(false)
+  useEffect(() => {
+    if (navegando.current) {
+      navegando.current = false
+      onCerrar()
+    }
+  }, [pathname, onCerrar])
+
   const navegar = (ruta: string) => {
     vibrar()
-    onCerrar()
-    startTransition(() => {
-      router.push(ruta)
-    })
+    navegando.current = true
+    router.push(ruta)
   }
 
   const manejarCerrarSesion = async () => {

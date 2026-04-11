@@ -213,5 +213,60 @@ function CargadorInline() {
   return <Cargador tamano="sm" />
 }
 
-export { Cargador, CargadorSeccion, CargadorInline }
+/** Mapa de íconos por sección — se resuelve dentro del Client Component */
+import {
+  Users, Zap, MapPin, Route, FileText, Package, MessagesSquare,
+  Calendar, Clock, Wrench, Shield, LayoutDashboard, FileBarChart,
+  Megaphone, Building2, CircleUserRound, Trash2, Blocks,
+} from 'lucide-react'
+
+const ICONOS_SECCION: Record<string, React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>> = {
+  contactos: Users,
+  actividades: Zap,
+  visitas: MapPin,
+  recorrido: Route,
+  presupuestos: FileText,
+  productos: Package,
+  inbox: MessagesSquare,
+  calendario: Calendar,
+  asistencias: Clock,
+  ordenes: Wrench,
+  auditoria: Shield,
+  dashboard: LayoutDashboard,
+  informes: FileBarChart,
+  marketing: Megaphone,
+  configuracion: Building2,
+  usuarios: CircleUserRound,
+  papelera: Trash2,
+  aplicaciones: Blocks,
+}
+
+/**
+ * CargadorPaginaCompleta — Cargador centrado absoluto en el viewport.
+ * Para loading.tsx de rutas — no depende de la altura del padre.
+ * Acepta un nombre de sección para mostrar su ícono dibujándose.
+ */
+function CargadorPaginaCompleta({ seccion }: { seccion?: string } = {}) {
+  const Icono = seccion ? ICONOS_SECCION[seccion] : null
+
+  return (
+    <div className="flex items-center justify-center w-full min-h-[calc(100dvh-var(--header-alto))]">
+      <div className="flex flex-col items-center">
+        <Cargador tamano="pagina" />
+        {Icono && (
+          <motion.div
+            className="mt-6 icono-dibujar"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.4 }}
+            transition={{ delay: 0.5, duration: 0.4 }}
+          >
+            <Icono size={36} strokeWidth={1.2} className="text-texto-terciario" />
+          </motion.div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export { Cargador, CargadorSeccion, CargadorInline, CargadorPaginaCompleta }
 export type { TamanoCargador, PropiedadesCargador }

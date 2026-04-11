@@ -5,7 +5,7 @@
  * Orquesta: SwitcherEmpresa, secciones de navegacion, items fijos, ocultos/deshabilitados y perfil.
  */
 
-import { useState, useEffect, useCallback, useTransition } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
@@ -41,7 +41,6 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
   const { tieneModulo } = useModulos()
   const { noLeidasPorCategoria } = useNotificaciones({ deshabilitado: false })
   const sonido = useSonido()
-  const [, startTransition] = useTransition()
   const vibrar = () => { if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(10) }
 
   // Badges dinamicos basados en notificaciones reales
@@ -194,12 +193,19 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
     return pathname.startsWith(ruta)
   }
 
+  // Cerrar sidebar movil cuando la ruta cambie (no al hacer click)
+  const navegando = useRef(false)
+  useEffect(() => {
+    if (navegando.current) {
+      navegando.current = false
+      onCerrarMobil()
+    }
+  }, [pathname, onCerrarMobil])
+
   const navegar = (ruta: string) => {
-    onCerrarMobil()
     vibrar()
-    startTransition(() => {
-      router.push(ruta)
-    })
+    navegando.current = true
+    router.push(ruta)
   }
 
   return (
