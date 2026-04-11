@@ -114,25 +114,42 @@ export async function PUT(request: NextRequest) {
 
       case 'editar_tipo': {
         if (!datos.id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
+
+        // Verificar si es tipo del sistema
+        const { data: tipoActual } = await admin
+          .from('tipos_actividad')
+          .select('es_sistema')
+          .eq('id', datos.id)
+          .eq('empresa_id', empresaId)
+          .single()
+
         const campos: Record<string, unknown> = {}
-        if (datos.etiqueta !== undefined) campos.etiqueta = datos.etiqueta.trim()
-        if (datos.icono !== undefined) campos.icono = datos.icono
-        if (datos.color !== undefined) campos.color = datos.color
-        if (datos.modulos_disponibles !== undefined) campos.modulos_disponibles = datos.modulos_disponibles
-        if (datos.dias_vencimiento !== undefined) campos.dias_vencimiento = datos.dias_vencimiento
-        if (datos.campo_fecha !== undefined) campos.campo_fecha = datos.campo_fecha
-        if (datos.campo_descripcion !== undefined) campos.campo_descripcion = datos.campo_descripcion
-        if (datos.campo_responsable !== undefined) campos.campo_responsable = datos.campo_responsable
-        if (datos.campo_prioridad !== undefined) campos.campo_prioridad = datos.campo_prioridad
-        if (datos.campo_checklist !== undefined) campos.campo_checklist = datos.campo_checklist
-        if (datos.campo_calendario !== undefined) campos.campo_calendario = datos.campo_calendario
-        if (datos.auto_completar !== undefined) campos.auto_completar = datos.auto_completar
-        if (datos.resumen_predeterminado !== undefined) campos.resumen_predeterminado = datos.resumen_predeterminado
-        if (datos.nota_predeterminada !== undefined) campos.nota_predeterminada = datos.nota_predeterminada
-        if (datos.usuario_predeterminado !== undefined) campos.usuario_predeterminado = datos.usuario_predeterminado
-        if (datos.siguiente_tipo_id !== undefined) campos.siguiente_tipo_id = datos.siguiente_tipo_id
-        if (datos.tipo_encadenamiento !== undefined) campos.tipo_encadenamiento = datos.tipo_encadenamiento
-        if (datos.activo !== undefined) campos.activo = datos.activo
+
+        if (tipoActual?.es_sistema) {
+          // Tipos del sistema: solo se puede cambiar activo, orden y modulos_disponibles
+          if (datos.activo !== undefined) campos.activo = datos.activo
+          if (datos.modulos_disponibles !== undefined) campos.modulos_disponibles = datos.modulos_disponibles
+        } else {
+          // Tipos normales: se puede editar todo
+          if (datos.etiqueta !== undefined) campos.etiqueta = datos.etiqueta.trim()
+          if (datos.icono !== undefined) campos.icono = datos.icono
+          if (datos.color !== undefined) campos.color = datos.color
+          if (datos.modulos_disponibles !== undefined) campos.modulos_disponibles = datos.modulos_disponibles
+          if (datos.dias_vencimiento !== undefined) campos.dias_vencimiento = datos.dias_vencimiento
+          if (datos.campo_fecha !== undefined) campos.campo_fecha = datos.campo_fecha
+          if (datos.campo_descripcion !== undefined) campos.campo_descripcion = datos.campo_descripcion
+          if (datos.campo_responsable !== undefined) campos.campo_responsable = datos.campo_responsable
+          if (datos.campo_prioridad !== undefined) campos.campo_prioridad = datos.campo_prioridad
+          if (datos.campo_checklist !== undefined) campos.campo_checklist = datos.campo_checklist
+          if (datos.campo_calendario !== undefined) campos.campo_calendario = datos.campo_calendario
+          if (datos.auto_completar !== undefined) campos.auto_completar = datos.auto_completar
+          if (datos.resumen_predeterminado !== undefined) campos.resumen_predeterminado = datos.resumen_predeterminado
+          if (datos.nota_predeterminada !== undefined) campos.nota_predeterminada = datos.nota_predeterminada
+          if (datos.usuario_predeterminado !== undefined) campos.usuario_predeterminado = datos.usuario_predeterminado
+          if (datos.siguiente_tipo_id !== undefined) campos.siguiente_tipo_id = datos.siguiente_tipo_id
+          if (datos.tipo_encadenamiento !== undefined) campos.tipo_encadenamiento = datos.tipo_encadenamiento
+          if (datos.activo !== undefined) campos.activo = datos.activo
+        }
 
         const { data, error } = await admin
           .from('tipos_actividad')
@@ -154,6 +171,7 @@ export async function PUT(request: NextRequest) {
           .eq('id', datos.id)
           .eq('empresa_id', empresaId)
           .eq('es_predefinido', false) // No se pueden eliminar predefinidos
+          .eq('es_sistema', false) // No se pueden eliminar tipos del sistema
 
         if (error) return NextResponse.json({ error: 'Error al eliminar tipo' }, { status: 500 })
         return NextResponse.json({ ok: true })

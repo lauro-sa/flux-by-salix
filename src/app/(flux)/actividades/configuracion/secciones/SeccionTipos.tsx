@@ -50,6 +50,7 @@ export interface TipoActividad {
   orden: number
   activo: boolean
   es_predefinido: boolean
+  es_sistema: boolean
 }
 
 interface PropiedadesSeccionTipos {
@@ -143,6 +144,7 @@ function SeccionTipos({ tipos, miembros, cargando, onActualizar, onAccionAPI }: 
       tags: tipo.modulos_disponibles.map(mod => ({ texto: mod, variante: 'neutro' as const })),
       activo: tipo.activo,
       esPredefinido: tipo.es_predefinido,
+      esSistema: tipo.es_sistema,
       datos: { original: tipo },
     }
   })
@@ -168,9 +170,14 @@ function SeccionTipos({ tipos, miembros, cargando, onActualizar, onAccionAPI }: 
         }}
         onEditar={(item) => {
           const tipo = orden.find(t => t.id === item.id)
+          if (tipo?.es_sistema) return // Tipos del sistema no se pueden editar
           if (tipo) { setTipoEditando(tipo); setModalAbierto(true) }
         }}
-        onEliminar={(item) => setConfirmarEliminar(item.id)}
+        onEliminar={(item) => {
+          const tipo = orden.find(t => t.id === item.id)
+          if (tipo?.es_sistema) return // Tipos del sistema no se pueden eliminar
+          setConfirmarEliminar(item.id)
+        }}
         onReordenar={manejarReorden}
         restaurable
         onRestaurar={() => setConfirmarRestablecer(true)}
@@ -186,7 +193,7 @@ function SeccionTipos({ tipos, miembros, cargando, onActualizar, onAccionAPI }: 
         guardando={guardando}
         onGuardar={tipoEditando ? editarTipo : crearTipo}
         onCerrar={() => { setModalAbierto(false); setTipoEditando(null) }}
-        onEliminar={tipoEditando && !tipoEditando.es_predefinido ? () => eliminarTipo(tipoEditando.id) : undefined}
+        onEliminar={tipoEditando && !tipoEditando.es_predefinido && !tipoEditando.es_sistema ? () => eliminarTipo(tipoEditando.id) : undefined}
       />
 
       {/* Confirmar eliminar */}

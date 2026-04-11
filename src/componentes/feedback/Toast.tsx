@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, createContext, useContext, useRef, type ReactNode } from 'react'
+import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, X, AlertTriangle, Info } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
@@ -58,8 +59,13 @@ const CONFIG_TIPO: Record<TipoToast, {
 
 /* ─── Proveedor ─── */
 
+/** Rutas donde los toasts aparecen arriba en vez de abajo (pantallas mobile-first con bottom bar) */
+const RUTAS_TOAST_ARRIBA = ['/recorrido']
+
 function ProveedorToast({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<DatosToast[]>([])
+  const pathname = usePathname()
+  const arriba = RUTAS_TOAST_ARRIBA.some(r => pathname.startsWith(r))
 
   const mostrar = useCallback((tipo: TipoToast, mensaje: string, duracion = 4000) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -77,10 +83,17 @@ function ProveedorToast({ children }: { children: ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
+  const clasesPosicion = arriba
+    ? 'fixed top-4 left-4 right-4 flex flex-col gap-2.5 z-[10001] pointer-events-none md:left-auto md:right-6 md:top-6'
+    : 'fixed bottom-6 right-6 flex flex-col-reverse gap-2.5 z-[10001] pointer-events-none max-sm:bottom-[calc(var(--safe-area-bottom,0px)+16px)] max-sm:right-4 max-sm:left-4'
+
   return (
     <ContextoToastInterno.Provider value={{ mostrar }}>
       {children}
-      <div className="fixed bottom-6 right-6 flex flex-col-reverse gap-2.5 z-[10001] pointer-events-none max-sm:bottom-[calc(var(--safe-area-bottom,0px)+16px)] max-sm:right-4 max-sm:left-4">
+      <div
+        className={clasesPosicion}
+        style={arriba ? { paddingTop: 'env(safe-area-inset-top, 0px)' } : undefined}
+      >
         <AnimatePresence mode="popLayout">
           {toasts.map((toast) => (
             <ToastItem key={toast.id} toast={toast} onRemover={() => remover(toast.id)} />

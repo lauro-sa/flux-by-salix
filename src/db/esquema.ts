@@ -331,6 +331,9 @@ export const contacto_direcciones = pgTable('contacto_direcciones', {
   lng: doublePrecision('lng'),
   texto: text('texto'), // dirección completa formateada
   es_principal: boolean('es_principal').notNull().default(false),
+  // Contadores de visitas (actualizados al completar/cancelar visitas)
+  total_visitas: integer('total_visitas').notNull().default(0),
+  ultima_visita: timestamp('ultima_visita', { withTimezone: true }),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
 }, (tabla) => [
   index('direcciones_contacto_idx').on(tabla.contacto_id),
@@ -782,6 +785,8 @@ export const tipos_actividad = pgTable('tipos_actividad', {
   orden: integer('orden').notNull().default(0),
   activo: boolean('activo').notNull().default(true),
   es_predefinido: boolean('es_predefinido').notNull().default(false),
+  // Tipos del sistema: no se puede editar nombre/clave/icono/color ni eliminar. Solo toggle activo y reordenar.
+  es_sistema: boolean('es_sistema').notNull().default(false),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
 }, (tabla) => [
   uniqueIndex('tipos_actividad_empresa_clave_idx').on(tabla.empresa_id, tabla.clave),
@@ -2203,6 +2208,9 @@ export const recorridos = pgTable('recorridos', {
 
   // Notas del día
   notas: text('notas'),
+
+  // Config de permisos del visitador (qué puede hacer en este recorrido)
+  config: jsonb('config').notNull().default(sql`'{}'`),
 
   // Auditoría
   creado_por: uuid('creado_por').notNull(),

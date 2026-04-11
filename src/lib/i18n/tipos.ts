@@ -376,6 +376,26 @@ export interface Traducciones {
     estados_visita: {
       en_curso: string
     }
+    planificacion: string
+    sin_asignar: string
+    optimizar_ruta: string
+    reasignar: string
+    permisos_recorrido: string
+    puede_reordenar: string
+    puede_cambiar_duracion: string
+    puede_agregar_paradas: string
+    puede_quitar_paradas: string
+    puede_cancelar: string
+    aplicar_a_todos: string
+    visitas_del_dia: string
+    duracion_total: string
+    hoy: string
+    manana: string
+    esta_semana: string
+    proxima_semana: string
+    ruta_optimizada: string
+    visita_reasignada: string
+    listado: string
   }
 
   // Recorrido

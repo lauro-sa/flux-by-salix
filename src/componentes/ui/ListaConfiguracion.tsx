@@ -42,6 +42,7 @@ interface ItemLista {
   activo?: boolean
   predeterminado?: boolean
   esPredefinido?: boolean
+  esSistema?: boolean
   grupo?: string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   datos?: Record<string, any>
@@ -329,11 +330,11 @@ function ListaConfiguracion({
     <Interruptor activo={item.activo !== false} onChange={() => onToggleActivo?.(item)} />
   )
 
-  const botonEditar = (item: ItemLista) => onEditar ? (
+  const botonEditar = (item: ItemLista) => onEditar && !item.esSistema ? (
     <Boton variante="fantasma" tamano="xs" soloIcono icono={<Pencil size={13} />} onClick={() => onEditar(item)} titulo={t('comun.editar')} />
   ) : null
 
-  const botonEliminar = (item: ItemLista) => onEliminar ? (
+  const botonEliminar = (item: ItemLista) => onEliminar && !item.esSistema && !item.esPredefinido ? (
     <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={13} />} onClick={() => onEliminar(item)} titulo={t('comun.eliminar')}
       className="text-texto-terciario hover:text-insignia-peligro opacity-0 group-hover:opacity-100 transition-opacity" />
   ) : null

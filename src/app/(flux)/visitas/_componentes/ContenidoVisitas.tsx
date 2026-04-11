@@ -1,0 +1,613 @@
+'use client'
+
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
+import { useListado, useConfig } from '@/hooks/useListado'
+import { DEBOUNCE_BUSQUEDA } from '@/lib/constantes/timeouts'
+import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
+import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
+import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
+import {
+  PlusCircle, Download, MapPin, MapPinOff,
+  CheckCircle, Clock, User, Trash2, History,
+  Navigation, Eye, CalendarClock, AlertTriangle, Route,
+} from 'lucide-react'
+import type { AccionLote } from '@/componentes/tablas/tipos-tabla'
+import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
+import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { Boton } from '@/componentes/ui/Boton'
+import { Insignia } from '@/componentes/ui/Insignia'
+import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
+import { ModalVisita } from './ModalVisita'
+import type { Visita, Miembro } from './ModalVisita'
+import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { useToast } from '@/componentes/feedback/Toast'
+import { useFormato } from '@/hooks/useFormato'
+import { useTraduccion } from '@/lib/i18n'
+
+/**
+ * ContenidoVisitas — Client Component principal del módulo de visitas.
+ * Tabla con filtros, búsqueda, acciones en lote y modal crear/editar.
+ */
+
+// Colores de estado según tokens CSS del proyecto
+const COLORES_ESTADO: Record<string, { color: string; variable: string; etiqueta: string }> = {
+  programada: { color: 'advertencia', variable: 'var(--estado-pendiente)', etiqueta: 'Programada' },
+  en_camino: { color: 'exito', variable: 'var(--canal-whatsapp)', etiqueta: 'En camino' },
+  en_sitio: { color: 'info', variable: 'var(--insignia-info)', etiqueta: 'En sitio' },
+  completada: { color: 'exito', variable: 'var(--estado-completado)', etiqueta: 'Completada' },
+  cancelada: { color: 'peligro', variable: 'var(--estado-error)', etiqueta: 'Cancelada' },
+  reprogramada: { color: 'advertencia', variable: 'var(--insignia-advertencia)', etiqueta: 'Reprogramada' },
+}
+
+const COLORES_PRIORIDAD: Record<string, { color: string; etiqueta: string }> = {
+  baja: { color: 'info', etiqueta: 'Baja' },
+  normal: { color: 'neutro', etiqueta: 'Normal' },
+  alta: { color: 'peligro', etiqueta: 'Alta' },
+  urgente: { color: 'peligro', etiqueta: 'Urgente' },
+}
+
+/** Formato fecha relativa inteligente */
+function fechaCorta(iso: string | null, locale: string): string {
+  if (!iso) return 'Sin fecha'
+  const fecha = new Date(iso)
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
+  const diff = Math.floor((fecha.getTime() - hoy.getTime()) / 86400000)
+
+  if (diff === 0) return 'Hoy'
+  if (diff === 1) return 'Mañana'
+  if (diff === -1) return 'Ayer'
+  if (diff >= 2 && diff <= 6) {
+    return fecha.toLocaleDateString(locale, { weekday: 'long' }).replace(/^\w/, c => c.toUpperCase())
+  }
+  if (diff <= -2 && diff >= -6) {
+    return fecha.toLocaleDateString(locale, { weekday: 'long' }).replace(/^\w/, c => c.toUpperCase())
+  }
+  return fecha.toLocaleDateString(locale, { day: '2-digit', month: 'short' })
+}
+
+const POR_PAGINA = 50
+const VISTA_DEFAULT = 'mias'
+const ESTADOS_ACTIVOS = ['programada', 'en_camino', 'en_sitio', 'reprogramada']
+
+interface Props {
+  datosInicialesJson?: Record<string, unknown>
+}
+
+export default function ContenidoVisitas({ datosInicialesJson }: Props) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { mostrar } = useToast()
+  const formato = useFormato()
+  const { t } = useTraduccion()
+
+  // Estado UI
+  const [busqueda, setBusqueda] = useState('')
+  const [busquedaDebounced, setBusquedaDebounced] = useState('')
+  const [pagina, setPagina] = useState(1)
+  const [modalAbierto, setModalAbierto] = useState(false)
+  const [visitaEditando, setVisitaEditando] = useState<Visita | null>(null)
+
+  // Abrir modal si viene ?crear=true desde el dashboard
+  const vieneDeDashboardRef = useRef(false)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('crear') === 'true') {
+      window.history.replaceState({}, '', '/visitas')
+      vieneDeDashboardRef.current = true
+      setVisitaEditando(null)
+      setModalAbierto(true)
+    }
+  }, [])
+
+  // Filtros
+  const [filtroEstado, setFiltroEstado] = useState<string[]>(ESTADOS_ACTIVOS)
+  const [filtroPrioridad, setFiltroPrioridad] = useState('')
+  const [filtroVista, setFiltroVista] = useState(VISTA_DEFAULT)
+
+  // Debounce
+  useEffect(() => {
+    const timeout = setTimeout(() => setBusquedaDebounced(busqueda), DEBOUNCE_BUSQUEDA)
+    return () => clearTimeout(timeout)
+  }, [busqueda])
+
+  // Reset página al cambiar filtros
+  useEffect(() => { setPagina(1) }, [busquedaDebounced, filtroEstado, filtroPrioridad, filtroVista])
+
+  // Config de visitas (cache largo)
+  const { datos: configData } = useConfig<Record<string, unknown>>(
+    'visitas-config',
+    '/api/visitas/config',
+    (json) => json as Record<string, unknown>,
+  )
+
+  // Solo usar datos iniciales cuando no hay filtros activos
+  const estadoEsDefault = filtroEstado.length === ESTADOS_ACTIVOS.length &&
+    ESTADOS_ACTIVOS.every(e => filtroEstado.includes(e))
+  const sinFiltros = !busquedaDebounced && estadoEsDefault && !filtroPrioridad && filtroVista === VISTA_DEFAULT && pagina === 1
+
+  // Datos con React Query
+  const { datos: visitas, total, cargando, recargar: recargarVisitas } = useListado<Visita>({
+    clave: 'visitas',
+    url: '/api/visitas',
+    parametros: {
+      busqueda: busquedaDebounced,
+      estado: filtroEstado.length > 0 ? filtroEstado.join(',') : undefined,
+      prioridad: filtroPrioridad || undefined,
+      vista: filtroVista || undefined,
+      pagina,
+      por_pagina: POR_PAGINA,
+    },
+    extraerDatos: (json) => (json.visitas || []) as Visita[],
+    extraerTotal: (json) => (json.total || 0) as number,
+    datosInicialesJson: sinFiltros ? datosInicialesJson : undefined,
+  })
+
+  // Miembros de la empresa (cache largo)
+  const { data: miembrosData } = useQuery({
+    queryKey: ['miembros-empresa'],
+    queryFn: async () => {
+      const supabase = crearClienteNavegador()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return []
+      const empresaId = user.app_metadata?.empresa_activa_id
+      if (!empresaId) return []
+      const { data: mRes } = await supabase.from('miembros').select('usuario_id').eq('empresa_id', empresaId).eq('activo', true)
+      if (!mRes?.length) return []
+      const { data: perfiles } = await supabase.from('perfiles').select('id, nombre, apellido').in('id', mRes.map(m => m.usuario_id))
+      return (perfiles || []).map(p => ({ usuario_id: p.id, nombre: p.nombre, apellido: p.apellido }))
+    },
+    staleTime: 5 * 60_000,
+  })
+  const miembros = (miembrosData || []) as Miembro[]
+
+  // Deep link: ?visita_id=UUID
+  const visitaIdParam = searchParams.get('visita_id')
+  const yaAbiertoRef = useRef<string | null>(null)
+  const vieneDeDeepLinkRef = useRef(false)
+  useEffect(() => {
+    if (!visitaIdParam || visitaIdParam === yaAbiertoRef.current) return
+    yaAbiertoRef.current = visitaIdParam
+    vieneDeDeepLinkRef.current = true
+    const encontrada = visitas.find(v => v.id === visitaIdParam)
+    if (encontrada) {
+      setVisitaEditando(encontrada)
+      setModalAbierto(true)
+    } else {
+      fetch(`/api/visitas/${visitaIdParam}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data) { setVisitaEditando(data); setModalAbierto(true) }
+        })
+    }
+    router.replace('/visitas', { scroll: false })
+  }, [visitaIdParam, visitas, router])
+
+  // ── Acciones ──
+
+  const crearVisita = async (datos: Record<string, unknown>) => {
+    try {
+      const res = await fetch('/api/visitas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos),
+      })
+      if (!res.ok) throw new Error('Error al crear')
+      const resultado = await res.json()
+      mostrar('exito', 'Visita programada')
+      recargarVisitas()
+      return resultado
+    } catch {
+      mostrar('error', 'Error al crear la visita')
+    }
+  }
+
+  const editarVisita = async (datos: Record<string, unknown>) => {
+    try {
+      const { id, ...campos } = datos
+      const res = await fetch(`/api/visitas/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(campos),
+      })
+      if (!res.ok) throw new Error('Error al editar')
+      mostrar('exito', 'Visita actualizada')
+      recargarVisitas()
+    } catch {
+      mostrar('error', 'Error al guardar la visita')
+    }
+  }
+
+  const completarVisita = async (id: string) => {
+    try {
+      const res = await fetch(`/api/visitas/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'completar' }),
+      })
+      if (!res.ok) throw new Error()
+      mostrar('exito', 'Visita completada')
+      recargarVisitas()
+    } catch {
+      mostrar('error', 'Error al completar la visita')
+    }
+  }
+
+  const cancelarVisita = async (id: string) => {
+    try {
+      const res = await fetch(`/api/visitas/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'cancelar' }),
+      })
+      if (!res.ok) throw new Error()
+      mostrar('info', 'Visita cancelada')
+      recargarVisitas()
+    } catch {
+      mostrar('error', 'Error al cancelar la visita')
+    }
+  }
+
+  // ── Acciones en lote ──
+  const [confirmEliminarLote, setConfirmEliminarLote] = useState<Set<string> | null>(null)
+
+  const completarLote = useCallback(async (ids: Set<string>) => {
+    try {
+      await Promise.all([...ids].map(id =>
+        fetch(`/api/visitas/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accion: 'completar' }),
+        })
+      ))
+      mostrar('exito', `${ids.size} visita${ids.size > 1 ? 's' : ''} completada${ids.size > 1 ? 's' : ''}`)
+      recargarVisitas()
+    } catch { mostrar('error', 'Error al completar visitas') }
+  }, [recargarVisitas, mostrar])
+
+  const eliminarLote = useCallback(async (ids: Set<string>) => {
+    try {
+      await Promise.all([...ids].map(id =>
+        fetch(`/api/visitas/${id}`, { method: 'DELETE' })
+      ))
+      mostrar('info', `${ids.size} visita${ids.size > 1 ? 's' : ''} eliminada${ids.size > 1 ? 's' : ''}`)
+      setConfirmEliminarLote(null)
+      recargarVisitas()
+    } catch { mostrar('error', 'Error al eliminar visitas') }
+  }, [recargarVisitas, mostrar])
+
+  const accionesLote: AccionLote[] = useMemo(() => [
+    {
+      id: 'completar',
+      etiqueta: 'Completar',
+      icono: <CheckCircle size={14} />,
+      onClick: completarLote,
+      grupo: 'edicion',
+    },
+    {
+      id: 'eliminar',
+      etiqueta: 'Eliminar',
+      icono: <Trash2 size={14} />,
+      onClick: (ids) => setConfirmEliminarLote(ids),
+      peligro: true,
+      noLimpiarSeleccion: true,
+      grupo: 'peligro',
+    },
+  ], [completarLote])
+
+  // ── Columnas ──
+  const columnas: ColumnaDinamica<Visita>[] = useMemo(() => [
+    {
+      clave: 'contacto_nombre',
+      etiqueta: t('visitas.contacto'),
+      ancho: 200,
+      ordenable: true,
+      render: (fila) => (
+        <div className="flex items-center gap-2 min-w-0">
+          <User size={14} className="text-texto-terciario flex-shrink-0" />
+          <span className="truncate text-texto-primario font-medium">{fila.contacto_nombre}</span>
+        </div>
+      ),
+    },
+    {
+      clave: 'direccion_texto',
+      etiqueta: t('visitas.direccion'),
+      ancho: 220,
+      render: (fila) => (
+        <div className="flex items-center gap-2 min-w-0">
+          <MapPin size={14} className="text-texto-terciario flex-shrink-0" />
+          <span className="truncate text-texto-secundario text-sm">{fila.direccion_texto || '—'}</span>
+        </div>
+      ),
+    },
+    {
+      clave: 'fecha_programada',
+      etiqueta: t('visitas.fecha_programada'),
+      ancho: 130,
+      ordenable: true,
+      render: (fila) => {
+        const fecha = new Date(fila.fecha_programada)
+        const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
+        const vencida = fecha < hoy && !['completada', 'cancelada'].includes(fila.estado)
+        const esHoy = Math.abs(fecha.getTime() - hoy.getTime()) < 86400000
+
+        return (
+          <div className="flex flex-col">
+            <span className={`text-sm ${vencida ? 'text-red-400' : esHoy ? 'text-amber-400' : 'text-texto-primario'}`}>
+              {fechaCorta(fila.fecha_programada, formato.locale)}
+            </span>
+            <span className="text-[11px] text-texto-terciario">
+              {fecha.toLocaleTimeString(formato.locale, { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </div>
+        )
+      },
+    },
+    {
+      clave: 'estado',
+      etiqueta: t('visitas.estado'),
+      ancho: 120,
+      ordenable: true,
+      render: (fila) => {
+        const estado = COLORES_ESTADO[fila.estado]
+        if (!estado) return <span>—</span>
+        return (
+          <Insignia color={estado.color as 'exito' | 'peligro' | 'advertencia' | 'info'}>
+            {t(`visitas.estados.${fila.estado}`)}
+          </Insignia>
+        )
+      },
+    },
+    {
+      clave: 'prioridad',
+      etiqueta: t('visitas.prioridad'),
+      ancho: 90,
+      ordenable: true,
+      render: (fila) => {
+        const p = COLORES_PRIORIDAD[fila.prioridad]
+        if (fila.prioridad === 'normal') return <span className="text-xs text-texto-terciario">{p?.etiqueta}</span>
+        return <Insignia color={p?.color as 'info' | 'peligro'}>{p?.etiqueta}</Insignia>
+      },
+    },
+    {
+      clave: 'asignado_nombre',
+      etiqueta: t('visitas.asignado'),
+      ancho: 140,
+      ordenable: true,
+      render: (fila) => fila.asignado_nombre
+        ? <span className="text-sm text-texto-secundario">{fila.asignado_nombre}</span>
+        : <span className="text-sm text-texto-terciario">—</span>,
+    },
+    {
+      clave: 'motivo',
+      etiqueta: t('visitas.motivo'),
+      ancho: 160,
+      render: (fila) => (
+        <span className="text-sm text-texto-secundario truncate">{fila.motivo || '—'}</span>
+      ),
+    },
+    {
+      clave: 'acciones',
+      etiqueta: '',
+      ancho: 80,
+      render: (fila) => {
+        const esActiva = !['completada', 'cancelada'].includes(fila.estado)
+        return (
+          <div className="flex items-center gap-1">
+            {esActiva && (
+              <button
+                onClick={(e) => { e.stopPropagation(); completarVisita(fila.id) }}
+                className="p-1.5 rounded hover:bg-white/[0.06] text-texto-terciario hover:text-green-400 transition-colors"
+                title="Completar"
+              >
+                <CheckCircle size={14} />
+              </button>
+            )}
+          </div>
+        )
+      },
+    },
+    {
+      clave: 'editado_por',
+      etiqueta: 'Auditoría',
+      ancho: 44,
+      icono: <History size={12} />,
+      render: (fila) => (
+        <IndicadorEditado
+          entidadId={fila.id}
+          nombreCreador={fila.creado_por_nombre}
+          fechaCreacion={fila.creado_en}
+          nombreEditor={fila.editado_por_nombre}
+          fechaEdicion={fila.actualizado_en}
+        />
+      ),
+    },
+  ], [t, formato.locale, completarVisita])
+
+  // ── Render tarjeta (vista tarjetas) ──
+  const renderTarjeta = useCallback((fila: Visita) => {
+    const estado = COLORES_ESTADO[fila.estado]
+    return (
+      <div className="p-4 space-y-2">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-2">
+            <User size={14} className="text-texto-terciario" />
+            <span className="font-medium text-texto-primario">{fila.contacto_nombre}</span>
+          </div>
+          {estado && (
+            <Insignia color={estado.color as 'exito' | 'peligro' | 'advertencia' | 'info'}>
+              {estado.etiqueta}
+            </Insignia>
+          )}
+        </div>
+        {fila.direccion_texto && (
+          <div className="flex items-center gap-2 text-sm text-texto-secundario">
+            <MapPin size={12} className="text-texto-terciario" />
+            <span className="truncate">{fila.direccion_texto}</span>
+          </div>
+        )}
+        <div className="flex items-center gap-3 text-xs text-texto-terciario">
+          <span className="flex items-center gap-1">
+            <CalendarClock size={12} />
+            {fechaCorta(fila.fecha_programada, formato.locale)}
+          </span>
+          {fila.asignado_nombre && (
+            <span className="flex items-center gap-1">
+              <User size={12} />
+              {fila.asignado_nombre}
+            </span>
+          )}
+        </div>
+        {fila.motivo && (
+          <p className="text-sm text-texto-secundario truncate">{fila.motivo}</p>
+        )}
+      </div>
+    )
+  }, [formato.locale])
+
+  return (
+    <PlantillaListado
+      titulo={t('visitas.titulo')}
+      icono={<MapPin size={20} />}
+      accionPrincipal={{
+        etiqueta: t('visitas.nueva'),
+        icono: <PlusCircle size={14} />,
+        onClick: () => { setVisitaEditando(null); setModalAbierto(true) },
+      }}
+      acciones={[
+        { id: 'planificacion', etiqueta: t('visitas.planificacion'), icono: <Route size={14} />, onClick: () => router.push('/visitas/planificacion') },
+        { id: 'exportar', etiqueta: t('comun.exportar'), icono: <Download size={14} />, onClick: () => {} },
+      ]}
+      mostrarConfiguracion
+      onConfiguracion={() => router.push('/visitas/configuracion')}
+    >
+      <TablaDinamica
+        columnas={columnas}
+        columnasVisiblesDefault={['contacto_nombre', 'direccion_texto', 'fecha_programada', 'estado', 'prioridad', 'asignado_nombre', 'acciones']}
+        datos={visitas}
+        claveFila={(r) => r.id}
+        totalRegistros={total}
+        registrosPorPagina={POR_PAGINA}
+        paginaExterna={pagina}
+        onCambiarPagina={setPagina}
+        vistas={['lista', 'tarjetas']}
+        seleccionables
+        accionesLote={accionesLote}
+        busqueda={busqueda}
+        onBusqueda={setBusqueda}
+        placeholder="Buscar visitas..."
+        filtros={[
+          {
+            id: 'estado',
+            etiqueta: 'Estado',
+            tipo: 'multiple',
+            valor: filtroEstado,
+            onChange: (v) => setFiltroEstado(v as string[]),
+            opciones: [
+              { valor: 'programada', etiqueta: t('visitas.estados.programada') },
+              { valor: 'en_camino', etiqueta: t('visitas.estados.en_camino') },
+              { valor: 'en_sitio', etiqueta: t('visitas.estados.en_sitio') },
+              { valor: 'completada', etiqueta: t('visitas.estados.completada') },
+              { valor: 'cancelada', etiqueta: t('visitas.estados.cancelada') },
+              { valor: 'reprogramada', etiqueta: t('visitas.estados.reprogramada') },
+            ],
+            valorDefault: ESTADOS_ACTIVOS,
+          },
+          {
+            id: 'prioridad',
+            etiqueta: 'Prioridad',
+            tipo: 'pills',
+            valor: filtroPrioridad,
+            onChange: (v) => setFiltroPrioridad(v as string),
+            opciones: [
+              { valor: 'baja', etiqueta: t('visitas.prioridades.baja') },
+              { valor: 'normal', etiqueta: t('visitas.prioridades.normal') },
+              { valor: 'alta', etiqueta: t('visitas.prioridades.alta') },
+              { valor: 'urgente', etiqueta: t('visitas.prioridades.urgente') },
+            ],
+          },
+          {
+            id: 'vista',
+            etiqueta: 'Vista',
+            tipo: 'pills',
+            valor: filtroVista,
+            onChange: (v) => setFiltroVista(v as string),
+            opciones: [
+              { valor: 'mias', etiqueta: 'Asignadas a mí' },
+              { valor: 'enviadas', etiqueta: 'Creadas por mí' },
+              { valor: 'todas', etiqueta: 'Todas' },
+            ],
+            valorDefault: VISTA_DEFAULT,
+          },
+        ]}
+        onLimpiarFiltros={() => {
+          setFiltroEstado(ESTADOS_ACTIVOS)
+          setFiltroPrioridad('')
+          setFiltroVista(VISTA_DEFAULT)
+        }}
+        opcionesOrden={[
+          { etiqueta: 'Fecha ↑', clave: 'fecha_programada', direccion: 'asc' },
+          { etiqueta: 'Fecha ↓', clave: 'fecha_programada', direccion: 'desc' },
+          { etiqueta: 'Contacto A-Z', clave: 'contacto_nombre', direccion: 'asc' },
+          { etiqueta: 'Prioridad', clave: 'prioridad', direccion: 'desc' },
+        ]}
+        idModulo="visitas"
+        renderTarjeta={renderTarjeta}
+        onClickFila={(fila) => {
+          setVisitaEditando(fila)
+          setModalAbierto(true)
+        }}
+        mostrarResumen
+        estadoVacio={
+          <EstadoVacio
+            icono={<MapPinOff size={52} strokeWidth={1} />}
+            titulo={t('visitas.sin_visitas')}
+            descripcion={t('visitas.sin_visitas_desc')}
+            accion={
+              <Boton onClick={() => { setVisitaEditando(null); setModalAbierto(true) }}>
+                {t('visitas.nueva')}
+              </Boton>
+            }
+          />
+        }
+      />
+
+      {/* Modal crear/editar */}
+      <ModalVisita
+        abierto={modalAbierto}
+        visita={visitaEditando}
+        miembros={miembros}
+        config={configData as Record<string, unknown> | null}
+        onGuardar={visitaEditando ? editarVisita : crearVisita}
+        onCompletar={async (id) => { await completarVisita(id); setModalAbierto(false); setVisitaEditando(null) }}
+        onCancelar={async (id) => { await cancelarVisita(id); setModalAbierto(false); setVisitaEditando(null) }}
+        onCerrar={() => {
+          setModalAbierto(false)
+          setVisitaEditando(null)
+          if (vieneDeDashboardRef.current) {
+            vieneDeDashboardRef.current = false
+            router.push('/dashboard')
+          }
+          if (vieneDeDeepLinkRef.current) {
+            vieneDeDeepLinkRef.current = false
+            recargarVisitas()
+          }
+        }}
+      />
+
+      {/* Modal confirmación eliminar lote */}
+      {confirmEliminarLote && (
+        <ModalConfirmacion
+          abierto={!!confirmEliminarLote}
+          titulo="Eliminar visitas"
+          descripcion={`¿Eliminar ${confirmEliminarLote.size} visita${confirmEliminarLote.size > 1 ? 's' : ''}? Se moverán a la papelera.`}
+          etiquetaConfirmar="Eliminar"
+          tipo="peligro"
+          onConfirmar={() => eliminarLote(confirmEliminarLote)}
+          onCerrar={() => setConfirmEliminarLote(null)}
+        />
+      )}
+    </PlantillaListado>
+  )
+}

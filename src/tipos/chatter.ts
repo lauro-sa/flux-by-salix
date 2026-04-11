@@ -56,6 +56,9 @@ export interface MetadataChatter {
   firma_modo?: string
   // Para actividades
   actividad_id?: string
+  // Para visitas
+  visita_id?: string
+  estado?: string
   tipo_actividad?: string
   titulo?: string
   vinculos_relacionados?: { tipo: string; id: string; nombre: string }[]

@@ -149,7 +149,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
   const fondoWrapper = efecto !== 'solido' ? 'transparent' : 'var(--superficie-app)'
 
   // Rutas que se renderizan a pantalla completa (sin sidebar ni header)
-  const esPantallaCompleta = pathname === '/aplicaciones'
+  const esPantallaCompleta = pathname === '/aplicaciones' || pathname.startsWith('/recorrido')
 
   // Rutas que necesitan layout fijo (height: 100dvh, overflow: hidden) incluso en móvil.
   // Inbox y calendario usan paneles con scroll interno que no deben scrollear el documento.

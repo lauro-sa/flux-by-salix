@@ -1,0 +1,6 @@
+export { MapaVisitas } from './MapaVisitas'
+export { MapaRecorrido } from './MapaRecorrido'
+export { ProveedorMapa } from './ProveedorMapa'
+export { MarcadorVisita } from './MarcadorVisita'
+export { abrirNavegacion, abrirRutaCompleta, calcularCentro } from './utilidades-mapa'
+export type { PuntoMapa, RutaMapa, ModoNavegacion, PreferenciaRuta, PropiedadesMapaVisitas, PropiedadesMapaRecorrido } from './tipos-mapa'

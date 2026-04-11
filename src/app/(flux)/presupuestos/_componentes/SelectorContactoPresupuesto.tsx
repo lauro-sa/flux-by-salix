@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { ChevronUp, ChevronDown, ExternalLink, MapPin, Mail, Phone, X } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
@@ -90,6 +91,7 @@ export default function SelectorContactoPresupuesto({
   const [expandido, setExpandido] = useState<string | null>(null)
   const refContenedor = useRef<HTMLDivElement>(null)
   const refInput = useRef<HTMLInputElement>(null)
+  const [posDropdown, setPosDropdown] = useState<{ top: number; left: number; width: number } | null>(null)
 
   // Cargar recientes al montar (últimos 8 contactos)
   useEffect(() => {
@@ -118,11 +120,33 @@ export default function SelectorContactoPresupuesto({
     return () => clearTimeout(timeout)
   }, [busqueda])
 
+  // Calcular posición del dropdown (portal)
+  useEffect(() => {
+    if (!abierto || !refContenedor.current) {
+      setPosDropdown(null)
+      return
+    }
+    const calcular = () => {
+      const rect = refContenedor.current?.getBoundingClientRect()
+      if (!rect) return
+      setPosDropdown({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+    }
+    calcular()
+    window.addEventListener('scroll', calcular, true)
+    window.addEventListener('resize', calcular)
+    return () => {
+      window.removeEventListener('scroll', calcular, true)
+      window.removeEventListener('resize', calcular)
+    }
+  }, [abierto])
+
   // Cerrar al click afuera
   useEffect(() => {
     if (!abierto) return
     const cerrar = (e: MouseEvent) => {
       if (refContenedor.current && !refContenedor.current.contains(e.target as Node)) {
+        const portal = document.getElementById('selector-contacto-presupuesto-portal')
+        if (portal && portal.contains(e.target as Node)) return
         setAbierto(false)
         setBusqueda('')
       }
@@ -283,63 +307,53 @@ export default function SelectorContactoPresupuesto({
         />
       </div>
 
-      {/* Dropdown de resultados */}
-      <AnimatePresence>
-        {abierto && listaVisible.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            className="absolute left-0 right-0 top-full mt-1 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-40 max-h-[360px] overflow-y-auto"
-          >
-            {/* Título de sección */}
-            {tituloLista && (
-              <div className="px-4 pt-3 pb-1.5">
-                <span className="text-xs font-bold text-texto-terciario uppercase tracking-wider">
-                  {tituloLista}
-                </span>
-              </div>
-            )}
+      {/* Dropdown — portal para salir del overflow del contenedor */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {abierto && listaVisible.length > 0 && posDropdown && (
+            <motion.div
+              id="selector-contacto-presupuesto-portal"
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              style={{ position: 'fixed', top: posDropdown.top, left: posDropdown.left, width: posDropdown.width }}
+              className="bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-[100] max-h-[360px] overflow-y-auto"
+            >
+              {tituloLista && (
+                <div className="px-4 pt-3 pb-1.5">
+                  <span className="text-xs font-bold text-texto-terciario uppercase tracking-wider">
+                    {tituloLista}
+                  </span>
+                </div>
+              )}
 
-            {/* Resultados */}
-            <div className="py-1">
-              {listaVisible.map(c => {
-                const vinculacionesConPuesto = (c.vinculaciones || []).filter(v => v.vinculado)
-                const tieneHijos = vinculacionesConPuesto.length > 0
-                const estaExpandido = expandido === c.id
+              <div className="py-1">
+                {listaVisible.map(c => {
+                  const vinculacionesConPuesto = (c.vinculaciones || []).filter(v => v.vinculado)
+                  const tieneHijos = vinculacionesConPuesto.length > 0
+                  const estaExpandido = expandido === c.id
 
-                return (
-                  <div key={c.id}>
-                    {/* Fila del contacto */}
-                    <div className="flex items-center hover:bg-superficie-tarjeta transition-colors">
-                      {/* Flechita expandible */}
-                      {tieneHijos ? (
-                        <Boton
-                          variante="fantasma"
-                          tamano="xs"
-                          soloIcono
-                          icono={<ChevronDown size={14} className={`transition-transform duration-200 ${estaExpandido ? 'rotate-180' : ''}`} />}
-                          titulo={estaExpandido ? 'Contraer' : 'Expandir'}
-                          onClick={(e) => { e.stopPropagation(); setExpandido(estaExpandido ? null : c.id) }}
-                          className="px-2 py-3 shrink-0"
-                        />
-                      ) : (
-                        <div className="w-8 shrink-0" />
-                      )}
-
-                      {/* Contenido clickeable */}
-                      <Boton
-                        variante="fantasma"
-                        tamano="sm"
+                  return (
+                    <div key={c.id}>
+                      <button
                         onClick={() => seleccionar(c)}
-                        className="flex-1 text-left pr-4 py-3 h-auto"
+                        className="w-full text-left px-4 py-2.5 hover:bg-superficie-tarjeta transition-colors"
                       >
                         <div className="flex items-center gap-2">
+                          {tieneHijos && (
+                            <span
+                              role="button"
+                              onClick={(e) => { e.stopPropagation(); setExpandido(estaExpandido ? null : c.id) }}
+                              className="text-texto-terciario hover:text-texto-secundario shrink-0 -ml-0.5"
+                            >
+                              <ChevronDown size={14} className={`transition-transform duration-200 ${estaExpandido ? 'rotate-180' : ''}`} />
+                            </span>
+                          )}
                           <span className="text-sm font-semibold text-texto-primario">
                             {c.nombre} {c.apellido || ''}
                           </span>
                           {c.tipo_contacto && (
-                            <span className="text-xxs px-1.5 py-0.5 rounded bg-superficie-app border border-borde-sutil text-texto-terciario">
+                            <span className="text-xxs px-1.5 py-0.5 rounded bg-superficie-app border border-borde-sutil text-texto-terciario shrink-0">
                               {c.tipo_contacto.etiqueta}
                             </span>
                           )}
@@ -347,65 +361,63 @@ export default function SelectorContactoPresupuesto({
                         <div className="mt-0.5">
                           <span className="text-xs text-texto-secundario">
                             {c.codigo && <span className="font-mono text-texto-terciario">{c.codigo}</span>}
-                            {c.codigo && (c.correo || c.telefono) && '  ·  '}
+                            {c.codigo && (c.correo || c.telefono) && ' · '}
                             {c.correo}
-                            {c.correo && c.telefono && '  ·  '}
+                            {c.correo && c.telefono && ' · '}
                             {c.telefono}
                           </span>
                           {!c.correo && (
                             <span className="text-xs text-insignia-advertencia ml-1">Sin correo</span>
                           )}
                         </div>
-                      </Boton>
-                    </div>
+                      </button>
 
-                    {/* Hijos expandidos */}
-                    {estaExpandido && vinculacionesConPuesto.length > 0 && (
-                      <div className="pl-8 border-l-2 border-borde-sutil/50 ml-4 mb-1">
-                        {vinculacionesConPuesto.map(v => (
-                          <Boton
-                            key={v.vinculado.id}
-                            variante="fantasma"
-                            tamano="sm"
-                            onClick={() => {
-                              if (onSeleccionarConDirigidoA) {
-                                onSeleccionarConDirigidoA(c, v.vinculado.id)
-                              } else {
-                                seleccionar(c)
-                              }
-                              setAbierto(false)
-                              setBusqueda('')
-                            }}
-                            className="w-full text-left px-3 py-2 h-auto"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-texto-primario">
-                                {v.vinculado.nombre} {v.vinculado.apellido || ''}
-                              </span>
-                              {v.puesto && (
-                                <span className="text-xxs px-1.5 py-0.5 rounded bg-superficie-app border border-borde-sutil text-texto-terciario">
-                                  {v.puesto}
+                      {estaExpandido && vinculacionesConPuesto.length > 0 && (
+                        <div className="ml-6 border-l-2 border-borde-sutil/40">
+                          {vinculacionesConPuesto.map(v => (
+                            <button
+                              key={v.vinculado.id}
+                              onClick={() => {
+                                if (onSeleccionarConDirigidoA) {
+                                  onSeleccionarConDirigidoA(c, v.vinculado.id)
+                                } else {
+                                  seleccionar(c)
+                                }
+                                setAbierto(false)
+                                setBusqueda('')
+                              }}
+                              className="w-full text-left pl-4 pr-4 py-2 hover:bg-superficie-tarjeta transition-colors"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-texto-primario">
+                                  {v.vinculado.nombre} {v.vinculado.apellido || ''}
                                 </span>
-                              )}
-                            </div>
-                            {(v.vinculado.correo || v.vinculado.telefono) && (
-                              <div className="text-xs text-texto-terciario mt-0.5">
-                                {v.vinculado.correo}
-                                {v.vinculado.correo && v.vinculado.telefono && ' · '}
-                                {v.vinculado.telefono}
+                                {v.puesto && (
+                                  <span className="text-xxs px-1.5 py-0.5 rounded bg-superficie-app border border-borde-sutil text-texto-terciario">
+                                    {v.puesto}
+                                  </span>
+                                )}
                               </div>
-                            )}
-                          </Boton>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                              {(v.vinculado.correo || v.vinculado.telefono) && (
+                                <div className="text-xs text-texto-terciario mt-0.5">
+                                  {v.vinculado.correo}
+                                  {v.vinculado.correo && v.vinculado.telefono && ' · '}
+                                  {v.vinculado.telefono}
+                                </div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   )
 }
