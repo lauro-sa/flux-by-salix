@@ -5,6 +5,7 @@ import { registrarChatter } from '@/lib/chatter'
 import { crearNotificacion } from '@/lib/notificaciones'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
+import { obtenerTiposVisita, sincronizarRegistrosVinculados, eliminarRegistrosVinculados } from '@/lib/visitas-sync'
 
 /**
  * GET /api/visitas/[id] — Obtener una visita por ID.
@@ -214,6 +215,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         .eq('leida', false)
         .then(() => {})
 
+      // Sincronizar actividad + evento
+      const tiposComp = await obtenerTiposVisita(empresaId)
+      if (tiposComp) {
+        sincronizarRegistrosVinculados({
+          id: data.id, empresa_id: empresaId, contacto_id: data.contacto_id,
+          contacto_nombre: data.contacto_nombre, direccion_texto: data.direccion_texto,
+          asignado_a: data.asignado_a, asignado_nombre: data.asignado_nombre,
+          fecha_programada: data.fecha_programada, duracion_estimada_min: data.duracion_estimada_min || 30,
+          estado: 'completada', motivo: data.motivo, prioridad: data.prioridad,
+          actividad_id: data.actividad_id, creado_por: data.creado_por, creado_por_nombre: data.creado_por_nombre,
+        }, tiposComp)
+      }
+
       registrarReciente({
         empresaId, usuarioId: user.id, tipoEntidad: 'visita', entidadId: id,
         titulo: data.contacto_nombre || 'Visita', subtitulo: 'completada', accion: 'editado',
@@ -249,6 +263,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         autorNombre: nombreEditor,
         metadata: { accion: 'estado_cambiado', visita_id: data.id, estado: 'cancelada' },
       })
+
+      // Sincronizar actividad + evento (cancelar)
+      const tiposCanc = await obtenerTiposVisita(empresaId)
+      if (tiposCanc) {
+        sincronizarRegistrosVinculados({
+          id: data.id, empresa_id: empresaId, contacto_id: data.contacto_id,
+          contacto_nombre: data.contacto_nombre, direccion_texto: data.direccion_texto,
+          asignado_a: data.asignado_a, asignado_nombre: data.asignado_nombre,
+          fecha_programada: data.fecha_programada, duracion_estimada_min: data.duracion_estimada_min || 30,
+          estado: 'cancelada', motivo: data.motivo, prioridad: data.prioridad,
+          actividad_id: data.actividad_id, creado_por: data.creado_por, creado_por_nombre: data.creado_por_nombre,
+        }, tiposCanc)
+      }
 
       // Marcar notificaciones como leídas
       admin
@@ -375,6 +402,28 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'Error al editar' }, { status: 500 })
     }
 
+    // Sincronizar actividad + evento calendario
+    const tipos = await obtenerTiposVisita(empresaId)
+    if (tipos) {
+      sincronizarRegistrosVinculados({
+        id: data.id,
+        empresa_id: empresaId,
+        contacto_id: data.contacto_id,
+        contacto_nombre: data.contacto_nombre,
+        direccion_texto: data.direccion_texto,
+        asignado_a: data.asignado_a,
+        asignado_nombre: data.asignado_nombre,
+        fecha_programada: data.fecha_programada,
+        duracion_estimada_min: data.duracion_estimada_min || 30,
+        estado: data.estado,
+        motivo: data.motivo,
+        prioridad: data.prioridad,
+        actividad_id: data.actividad_id,
+        creado_por: data.creado_por,
+        creado_por_nombre: data.creado_por_nombre,
+      }, tipos)
+    }
+
     // Registrar en recientes
     registrarReciente({
       empresaId, usuarioId: user.id, tipoEntidad: 'visita', entidadId: id,
@@ -420,6 +469,14 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
 
     const admin = crearClienteAdmin()
 
+    // Obtener la visita para saber su actividad_id antes de borrar
+    const { data: visita } = await admin
+      .from('visitas')
+      .select('actividad_id')
+      .eq('id', id)
+      .eq('empresa_id', empresaId)
+      .single()
+
     const { error } = await admin
       .from('visitas')
       .update({
@@ -430,6 +487,9 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
       .eq('empresa_id', empresaId)
 
     if (error) return NextResponse.json({ error: 'Error al eliminar' }, { status: 500 })
+
+    // Eliminar actividad + evento calendario vinculados
+    eliminarRegistrosVinculados(id, visita?.actividad_id || null)
 
     // Eliminar entradas del chatter vinculadas
     await admin.from('chatter')

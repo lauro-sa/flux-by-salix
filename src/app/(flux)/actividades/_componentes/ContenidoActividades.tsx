@@ -837,6 +837,22 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
         idModulo="actividades"
         renderTarjeta={renderTarjeta}
         onClickFila={(fila) => {
+          // Si es actividad tipo visita, redirigir al módulo de visitas
+          if (fila.tipo_clave === 'visita') {
+            // Buscar la visita vinculada a esta actividad
+            fetch(`/api/visitas?actividad_id=${fila.id}`)
+              .then(r => r.json())
+              .then(data => {
+                const visitas = data.visitas || []
+                if (visitas.length > 0) {
+                  router.push(`/visitas/${visitas[0].id}`)
+                } else {
+                  router.push('/visitas')
+                }
+              })
+              .catch(() => router.push('/visitas'))
+            return
+          }
           setActividadEditando(fila)
           setModalAbierto(true)
           // Registrar en historial de recientes (fire-and-forget)

@@ -301,7 +301,7 @@ function PopoverEvento({
                 variante="secundario"
                 tamano="sm"
                 icono={<ExternalLink size={14} />}
-                onClick={() => { router.push(`/visitas/${evento.id.replace('visita-', '')}`); onCerrar() }}
+                onClick={() => { router.push(`/visitas/${evento.visita_id || evento.id}`); onCerrar() }}
               >
                 Abrir visita
               </Boton>

@@ -30,7 +30,9 @@ export interface EventoCalendario {
   _es_ocupado?: boolean
   /** Marcador interno para feriados inyectados desde la tabla feriados */
   _es_feriado?: boolean
-  /** Marcador interno para visitas sueltas inyectadas */
+  /** ID de visita vinculada (si el evento viene de una visita) */
+  visita_id?: string | null
+  /** Marcador interno para visitas sueltas */
   _es_visita?: boolean
   /** Marcador interno para recorridos (grupo de visitas) inyectados */
   _es_recorrido?: boolean

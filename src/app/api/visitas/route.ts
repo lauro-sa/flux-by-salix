@@ -5,6 +5,7 @@ import { registrarChatter } from '@/lib/chatter'
 import { crearNotificacion } from '@/lib/notificaciones'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
+import { obtenerTiposVisita, crearRegistrosVinculados } from '@/lib/visitas-sync'
 
 /**
  * GET /api/visitas — Listar visitas de la empresa activa.
@@ -28,6 +29,7 @@ export async function GET(request: NextRequest) {
     const prioridad = params.get('prioridad')
     const asignado_a = params.get('asignado_a')
     const contacto_id = params.get('contacto_id')
+    const actividad_id = params.get('actividad_id')
     const vista = params.get('vista') || 'todas'
     const fecha = params.get('fecha')
     const en_papelera = params.get('en_papelera') === 'true'
@@ -76,6 +78,11 @@ export async function GET(request: NextRequest) {
     // Filtro por contacto
     if (contacto_id) {
       query = query.eq('contacto_id', contacto_id)
+    }
+
+    // Filtro por actividad vinculada
+    if (actividad_id) {
+      query = query.eq('actividad_id', actividad_id)
     }
 
     // Filtro por fecha
@@ -274,6 +281,28 @@ export async function POST(request: NextRequest) {
         referenciaTipo: 'visita',
         referenciaId: data.id,
       })
+    }
+
+    // Crear actividad + evento calendario vinculados
+    const tipos = await obtenerTiposVisita(empresaId)
+    if (tipos) {
+      await crearRegistrosVinculados({
+        id: data.id,
+        empresa_id: empresaId,
+        contacto_id: body.contacto_id,
+        contacto_nombre: contactoNombre,
+        direccion_texto: direccionTexto,
+        asignado_a: body.asignado_a || null,
+        asignado_nombre: body.asignado_nombre || null,
+        fecha_programada: body.fecha_programada,
+        duracion_estimada_min: body.duracion_estimada_min || config?.duracion_estimada_default || 30,
+        estado: 'programada',
+        motivo: body.motivo || null,
+        prioridad: body.prioridad || 'normal',
+        actividad_id: null,
+        creado_por: user.id,
+        creado_por_nombre: nombreCreador,
+      }, tipos)
     }
 
     // Registrar en recientes
