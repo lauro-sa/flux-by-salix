@@ -24,7 +24,8 @@ function HeaderRecorrido({ fecha, onCambiarFecha, completadas, total }: Propieda
   const { t } = useTraduccion()
 
   const fechaObj = new Date(fecha + 'T12:00:00')
-  const hoyStr = new Date().toISOString().split('T')[0]
+  const ahora = new Date()
+  const hoyStr = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`
   const esHoy = fecha === hoyStr
 
   const fechaTexto = esHoy ? 'Hoy' : formato.fecha(fechaObj, { conHora: false })
@@ -32,7 +33,10 @@ function HeaderRecorrido({ fecha, onCambiarFecha, completadas, total }: Propieda
   const cambiarDia = (delta: number) => {
     const nueva = new Date(fechaObj)
     nueva.setDate(nueva.getDate() + delta)
-    onCambiarFecha(nueva.toISOString().split('T')[0])
+    const yyyy = nueva.getFullYear()
+    const mm = String(nueva.getMonth() + 1).padStart(2, '0')
+    const dd = String(nueva.getDate()).padStart(2, '0')
+    onCambiarFecha(`${yyyy}-${mm}-${dd}`)
   }
 
   return (

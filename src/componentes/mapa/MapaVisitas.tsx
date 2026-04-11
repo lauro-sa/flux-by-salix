@@ -54,6 +54,7 @@ export function MapaVisitas({
         defaultZoom={zoom || 12}
         gestureHandling="greedy"
         disableDefaultUI
+        colorScheme="DARK"
         className="w-full h-full"
       >
         <AjustadorBounds puntos={puntos} />

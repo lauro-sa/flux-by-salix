@@ -8,9 +8,9 @@ import { Avatar } from '@/componentes/ui/Avatar'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { useTraduccion } from '@/lib/i18n'
-import { MapPin, GripVertical, Clock, Route, Navigation } from 'lucide-react'
-import { MapaVisitas } from '@/componentes/mapa'
-import type { PuntoMapa } from '@/componentes/mapa'
+import { MapPin, GripVertical, Clock, Route, Navigation, Inbox } from 'lucide-react'
+import { MapaRecorrido } from '@/componentes/mapa'
+import type { PuntoMapa, RutaMapa } from '@/componentes/mapa'
 import ConfigRecorrido, { type ConfigPermisos } from './ConfigRecorrido'
 
 /**
@@ -52,6 +52,7 @@ interface Props {
   onOptimizarRuta: (usuarioId: string) => void
   onGuardarConfig: (recorridoId: string, config: ConfigPermisos) => Promise<void>
   optimizando?: boolean
+  esSinAsignar?: boolean
 }
 
 // Colores por estado
@@ -175,6 +176,7 @@ export default function TarjetaVisitador({
   onOptimizarRuta,
   onGuardarConfig,
   optimizando,
+  esSinAsignar,
 }: Props) {
   const { t } = useTraduccion()
 
@@ -190,9 +192,9 @@ export default function TarjetaVisitador({
 
   const idsVisitas = useMemo(() => visitas.map(v => v.id), [visitas])
 
-  // Puntos para el mapa miniatura (solo visitas con geo)
-  const puntosMapa = useMemo<PuntoMapa[]>(
-    () => visitas
+  // Ruta para el mapa miniatura (visitas con geo, en orden)
+  const rutaMapa = useMemo<RutaMapa | null>(() => {
+    const puntos = visitas
       .filter(v => v.direccion_lat && v.direccion_lng)
       .map(v => ({
         id: v.id,
@@ -201,21 +203,31 @@ export default function TarjetaVisitador({
         titulo: v.contacto_nombre || 'Sin contacto',
         subtitulo: v.direccion_texto || undefined,
         estado: v.estado as PuntoMapa['estado'],
-      })),
-    [visitas]
-  )
+      }))
+    if (puntos.length === 0) return null
+    return {
+      puntos,
+      origen: { lat: puntos[0].lat, lng: puntos[0].lng, texto: 'Inicio' },
+    }
+  }, [visitas])
 
   return (
     <div
       ref={setNodeRef}
       className={`
-        flex flex-col rounded-xl border bg-superficie-tarjeta transition-colors w-full md:min-w-[300px] md:max-w-[380px]
+        flex flex-col rounded-xl border bg-superficie-tarjeta transition-colors w-full md:min-w-[280px] md:max-w-[340px] max-h-[calc(100vh-220px)]
         ${isOver ? 'border-texto-marca/40 bg-texto-marca/5' : 'border-borde-sutil'}
       `}
     >
       {/* Header del visitador */}
       <div className="flex items-center gap-2.5 border-b border-white/[0.07] p-3">
-        <Avatar nombre={nombreCompleto} foto={avatarUrl || undefined} tamano="sm" />
+        {esSinAsignar ? (
+          <div className="flex size-8 items-center justify-center rounded-full bg-insignia-advertencia/15">
+            <Inbox size={14} className="text-insignia-advertencia" />
+          </div>
+        ) : (
+          <Avatar nombre={nombreCompleto} foto={avatarUrl || undefined} tamano="sm" />
+        )}
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-texto-primario">{nombreCompleto}</p>
           <p className="text-[11px] text-texto-terciario">
@@ -224,33 +236,40 @@ export default function TarjetaVisitador({
           </p>
         </div>
 
-        {/* Acciones del header */}
-        <div className="flex items-center gap-1">
-          <Boton
-            variante="fantasma"
-            tamano="sm"
-            soloIcono
-            icono={<Route size={14} />}
-            tooltip={t('visitas.optimizar_ruta')}
-            onClick={() => onOptimizarRuta(usuarioId)}
-            cargando={optimizando}
-            disabled={visitas.length < 2}
-          />
-          <ConfigRecorrido
-            recorridoId={recorrido?.id || null}
-            configActual={recorrido?.config}
-            nombreVisitador={nombreCompleto}
-            onGuardar={(config) => onGuardarConfig(recorrido?.id || '', config)}
-          />
-        </div>
+        {/* Acciones del header — solo para visitadores reales */}
+        {!esSinAsignar && (
+          <div className="flex items-center gap-1">
+            <Boton
+              variante="fantasma"
+              tamano="sm"
+              soloIcono
+              icono={<Route size={14} />}
+              tooltip={t('visitas.optimizar_ruta')}
+              onClick={() => onOptimizarRuta(usuarioId)}
+              cargando={optimizando}
+              disabled={visitas.length < 2}
+            />
+            <ConfigRecorrido
+              recorridoId={recorrido?.id || null}
+              configActual={recorrido?.config}
+              nombreVisitador={nombreCompleto}
+              onGuardar={(config) => onGuardarConfig(recorrido?.id || '', config)}
+            />
+          </div>
+        )}
+        {esSinAsignar && visitas.length > 0 && (
+          <span className="rounded-full bg-insignia-advertencia/15 px-2 py-0.5 text-[11px] font-medium text-insignia-advertencia">
+            {visitas.length}
+          </span>
+        )}
       </div>
 
-      {/* Mapa miniatura */}
-      {puntosMapa.length > 0 && (
-        <div className="px-2 pt-2">
-          <MapaVisitas
-            puntos={puntosMapa}
-            className="h-[120px] rounded-lg overflow-hidden"
+      {/* Mapa miniatura con recorrido real */}
+      {rutaMapa && (
+        <div className="shrink-0 px-2 pt-2">
+          <MapaRecorrido
+            ruta={rutaMapa}
+            className="h-[140px] rounded-lg overflow-hidden"
           />
         </div>
       )}
@@ -273,8 +292,8 @@ export default function TarjetaVisitador({
         </div>
       )}
 
-      {/* Lista de visitas — sortable */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1.5" style={{ maxHeight: '400px' }}>
+      {/* Lista de visitas — sortable con scroll */}
+      <div className="min-h-0 flex-1 overflow-y-auto p-2 space-y-1.5">
         <SortableContext items={idsVisitas} strategy={verticalListSortingStrategy}>
           {visitas.map((visita, indice) => (
             <ItemVisitaSortable key={visita.id} visita={visita} indice={indice} />
@@ -282,8 +301,20 @@ export default function TarjetaVisitador({
         </SortableContext>
 
         {visitas.length === 0 && (
-          <div className="flex items-center justify-center py-8 text-sm text-texto-terciario">
-            {t('visitas.sin_visitas')}
+          <div className="flex flex-col items-center justify-center py-6 text-center">
+            {esSinAsignar ? (
+              <>
+                <Inbox size={24} className="text-texto-terciario/50 mb-1.5" />
+                <p className="text-xs text-texto-terciario">Todas las visitas están asignadas</p>
+              </>
+            ) : (
+              <>
+                <div className="mb-1.5 rounded-lg border-2 border-dashed border-borde-sutil p-3">
+                  <MapPin size={20} className="text-texto-terciario/40" />
+                </div>
+                <p className="text-xs text-texto-terciario">Arrastrá visitas acá</p>
+              </>
+            )}
           </div>
         )}
       </div>

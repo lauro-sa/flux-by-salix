@@ -3,7 +3,7 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
 
-type EstadoVisita = 'en_camino' | 'en_sitio' | 'completada' | 'cancelada'
+type EstadoVisita = 'programada' | 'en_camino' | 'en_sitio' | 'completada' | 'cancelada'
 
 const ETIQUETAS_ESTADO: Record<string, string> = {
   programada: 'Programada',
@@ -64,6 +64,17 @@ export async function PATCH(request: NextRequest) {
       actualizado_en: ahora,
     }
 
+    if (estado === 'programada') {
+      // Reactivar — limpiar timestamps previos
+      actualizacion.fecha_inicio = null
+      actualizacion.fecha_llegada = null
+      actualizacion.fecha_completada = null
+      actualizacion.registro_lat = null
+      actualizacion.registro_lng = null
+      actualizacion.registro_precision_m = null
+      actualizacion.duracion_real_min = null
+    }
+
     if (estado === 'en_camino') {
       actualizacion.fecha_inicio = ahora
     }
@@ -95,15 +106,23 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Error al actualizar visita', detalle: errorVisita.message }, { status: 500 })
     }
 
-    // Obtener el recorrido del día para actualizar contadores
-    const hoy = new Date().toISOString().split('T')[0]
-    const { data: recorrido } = await admin
-      .from('recorridos')
-      .select('id, total_visitas')
-      .eq('empresa_id', empresaId)
-      .eq('asignado_a', user.id)
-      .eq('fecha', hoy)
+    // Obtener el recorrido que contiene esta visita para actualizar contadores
+    const { data: paradaDeVisita } = await admin
+      .from('recorrido_paradas')
+      .select('recorrido_id')
+      .eq('visita_id', visita_id)
+      .limit(1)
       .single()
+
+    const recorridoId = paradaDeVisita?.recorrido_id
+    const { data: recorrido } = recorridoId
+      ? await admin
+          .from('recorridos')
+          .select('id, total_visitas')
+          .eq('id', recorridoId)
+          .eq('empresa_id', empresaId)
+          .single()
+      : { data: null }
 
     if (recorrido) {
       // Contar visitas completadas

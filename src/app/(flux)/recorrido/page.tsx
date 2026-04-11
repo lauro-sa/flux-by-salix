@@ -21,6 +21,12 @@ import { RegistroVisita } from './_componentes/RegistroVisita'
 import { ResumenDia } from './_componentes/ResumenDia'
 import type { EstadoVisita } from './_componentes/TarjetaParada'
 
+/** Obtiene la fecha de hoy en formato YYYY-MM-DD usando la zona horaria local del navegador */
+function fechaHoyLocal(): string {
+  const ahora = new Date()
+  return `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`
+}
+
 type EstadoRecorrido = 'pendiente' | 'en_curso' | 'completado'
 
 interface DatosRecorrido {
@@ -49,7 +55,7 @@ export default function PaginaRecorrido() {
   const [cargando, setCargando] = useState(true)
   const [recorrido, setRecorrido] = useState<DatosRecorrido | null>(null)
   const [paradas, setParadas] = useState<Parada[]>([])
-  const [fechaSeleccionada, setFechaSeleccionada] = useState(() => new Date().toISOString().split('T')[0])
+  const [fechaSeleccionada, setFechaSeleccionada] = useState(fechaHoyLocal)
 
   // UI
   const [paradaSeleccionada, setParadaSeleccionada] = useState<number | null>(null)
@@ -66,7 +72,7 @@ export default function PaginaRecorrido() {
   // BottomSheet de registro
   const [registroAbierto, setRegistroAbierto] = useState(false)
   const [visitaRegistro, setVisitaRegistro] = useState<string>('')
-  const [modoRegistro, setModoRegistro] = useState<'llegada' | 'completar'>('llegada')
+  const [modoRegistro, setModoRegistro] = useState<'llegada' | 'completar' | 'editar'>('llegada')
   const [checklistRegistro, setChecklistRegistro] = useState<{ texto: string; completado: boolean }[]>([])
 
   // Cargar recorrido del día seleccionado
@@ -200,6 +206,14 @@ export default function PaginaRecorrido() {
     )
     setRegistroAbierto(true)
   }, [paradas])
+
+  // Abrir BottomSheet en modo editar (para agregar info, fotos, etc.)
+  const manejarEditar = useCallback((visitaId: string) => {
+    setVisitaRegistro(visitaId)
+    setModoRegistro('editar')
+    setChecklistRegistro([])
+    setRegistroAbierto(true)
+  }, [])
 
   const manejarRegistroExitoso = useCallback(() => {
     setParadaSeleccionada(null)
@@ -525,6 +539,7 @@ export default function PaginaRecorrido() {
             onReordenar={manejarReordenar}
             onCambiarEstado={manejarCambiarEstado}
             onRegistrar={manejarRegistrar}
+            onEditar={manejarEditar}
             modoEdicion={modoEdicion}
             destinoFinal={destinoFinal}
             onCambiarDestino={modoEdicion ? setDestinoFinal : undefined}
@@ -579,36 +594,37 @@ export default function PaginaRecorrido() {
               </button>
             </div>
           ) : (
-            /* ── Modo normal: tiempo + Ajustar + Iniciar ── */
-            <div className="flex items-center gap-3 px-4 py-3">
-              {/* Tiempo estimado */}
-              <div className="flex items-center gap-1.5">
-                <Clock size={14} className="text-[var(--insignia-exito)]" />
-                <span className="text-sm font-bold text-[var(--insignia-exito)]">
-                  {formatearDuracion(duracionEstimada)}
-                </span>
+            /* ── Modo normal: 2 filas — info arriba, botones abajo ── */
+            <div className="px-4 py-3 space-y-2">
+              {/* Fila 1: tiempo + paradas */}
+              <div className="flex items-center justify-center gap-4 text-xs text-texto-terciario">
+                <div className="flex items-center gap-1">
+                  <Clock size={12} className="text-[var(--insignia-exito)]" />
+                  <span className="font-semibold text-[var(--insignia-exito)]">{formatearDuracion(duracionEstimada)}</span>
+                </div>
+                <span>·</span>
+                <span>{paradas.length} {t('recorrido.paradas').toLowerCase()}</span>
               </div>
 
-              <div className="flex-1" />
+              {/* Fila 2: botones */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setModoEdicion(true)}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-medium border border-borde-sutil text-texto-secundario hover:bg-superficie-elevada transition-colors"
+                >
+                  <Pencil size={14} />
+                  <span>Ajustar</span>
+                </button>
 
-              {/* Ajustar */}
-              <button
-                onClick={() => setModoEdicion(true)}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium border border-borde-sutil text-texto-secundario hover:bg-superficie-elevada transition-colors"
-              >
-                <Pencil size={14} />
-                <span>Ajustar</span>
-              </button>
-
-              {/* Iniciar ruta */}
-              <button
-                onClick={iniciarRuta}
-                className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors"
-                style={{ backgroundColor: 'var(--insignia-info)' }}
-              >
-                <Navigation size={14} />
-                <span>{t('recorrido.iniciar_recorrido')}</span>
-              </button>
+                <button
+                  onClick={iniciarRuta}
+                  className="flex-[2] flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-semibold text-white transition-colors"
+                  style={{ backgroundColor: 'var(--insignia-info)' }}
+                >
+                  <Navigation size={14} />
+                  <span>{t('recorrido.iniciar_recorrido')}</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
