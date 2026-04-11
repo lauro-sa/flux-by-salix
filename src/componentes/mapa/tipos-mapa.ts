@@ -40,4 +40,6 @@ export interface PropiedadesMapaRecorrido {
   onCambioPreferencia?: (preferencia: PreferenciaRuta) => void
   /** Info de ruta calculada (distancia, duración) */
   onInfoRuta?: (info: { distancia_km: number; duracion_min: number }) => void
+  /** Forzar zoom a la parada actual desde afuera (ej: al abrir registro) */
+  enfocarParada?: boolean
 }

@@ -515,6 +515,7 @@ export default function PaginaRecorrido() {
             paradaActual={paradaVistaIndice}
             onClickParada={(_punto, indice) => { setParadaSeleccionada(indice); setParadaVistaIndice(indice) }}
             className="!rounded-none !h-full"
+            enfocarParada={registroAbierto}
           />
         </ProveedorMapa>
 
@@ -526,18 +527,18 @@ export default function PaginaRecorrido() {
           total={paradas.length}
         />
 
-        {/* Tarjeta flotante del contacto — visible cuando el registro está abierto */}
+        {/* Tarjeta flotante del contacto — arriba del mapa, debajo del header fecha */}
         {registroAbierto && registroContacto && (
-          <div className="absolute bottom-4 left-3 right-3 z-10">
-            <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10">
-              <div className="flex items-center justify-center size-8 rounded-full bg-[var(--insignia-info)] text-white text-xs font-bold">
+          <div className="absolute top-11 left-3 right-3 z-10">
+            <div className="flex items-center gap-2.5 px-3 py-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10">
+              <div className="flex items-center justify-center size-6 rounded-full bg-[var(--insignia-info)] text-white text-[10px] font-bold shrink-0">
                 {registroContacto.orden}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white truncate">{registroContacto.nombre}</p>
-                <p className="text-[11px] text-white/60 truncate">{registroContacto.direccion}</p>
+                <p className="text-xs font-medium text-white truncate">{registroContacto.nombre}</p>
+                <p className="text-[10px] text-white/50 truncate">{registroContacto.direccion}</p>
               </div>
-              <span className="text-[11px] text-white/40 shrink-0">{registroContacto.orden}/{paradas.length}</span>
+              <span className="text-[10px] text-white/40 shrink-0">parada {registroContacto.orden}</span>
             </div>
           </div>
         )}

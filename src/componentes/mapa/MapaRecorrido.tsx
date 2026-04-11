@@ -30,12 +30,18 @@ export function MapaRecorrido({
   preferenciaInicial = 'rapida',
   onCambioPreferencia,
   onInfoRuta,
+  enfocarParada = false,
 }: PropiedadesMapaRecorrido) {
   const { puntos, origen, destino } = ruta
   const { temaActivo } = useTema()
   const [preferencia, setPreferencia] = useState<PreferenciaRuta>(preferenciaInicial)
   const [selectorAbierto, setSelectorAbierto] = useState(false)
-  const [enfocado, setEnfocado] = useState(false) // true cuando zoom en una parada específica
+  const [enfocado, setEnfocado] = useState(false)
+
+  // Sincronizar enfoque desde prop externa
+  useEffect(() => {
+    setEnfocado(enfocarParada)
+  }, [enfocarParada]) // true cuando zoom en una parada específica
 
   const cambiarPreferencia = useCallback((nueva: PreferenciaRuta) => {
     setPreferencia(nueva)
@@ -96,8 +102,10 @@ export function MapaRecorrido({
         colorScheme={temaActivo === 'claro' ? 'LIGHT' : 'DARK'}
         className="w-full h-full"
       >
-        {/* FitBounds automático — ajusta zoom para mostrar todas las paradas */}
-        {puntos.length > 0 && <AjustadorBounds puntos={puntos} />}
+        {/* FitBounds automático o zoom a parada según estado */}
+        {puntos.length > 0 && (
+          <ControladorZoom puntos={puntos} paradaActual={paradaActual} enfocado={enfocado} />
+        )}
 
         {/* Ruta real por calles */}
         {puntos.length > 0 && (
@@ -276,22 +284,44 @@ function RutaReal({
 }
 
 /**
- * AjustadorBounds — Ajusta el zoom del mapa para que entren todas las paradas.
+ * ControladorZoom — FitBounds al cargar, zoom a parada cuando enfocado.
  */
-function AjustadorBounds({ puntos }: { puntos: { lat: number; lng: number }[] }) {
+function ControladorZoom({ puntos, paradaActual, enfocado }: {
+  puntos: { lat: number; lng: number }[]
+  paradaActual: number
+  enfocado: boolean
+}) {
   const mapa = useMap()
-  const ajustadoRef = useRef(false)
+  const inicializadoRef = useRef(false)
+  const prevEnfocadoRef = useRef(false)
 
   useEffect(() => {
     if (!mapa || puntos.length === 0) return
-    // Solo ajustar una vez al cargar (no en cada re-render)
-    if (ajustadoRef.current) return
-    ajustadoRef.current = true
 
-    const bounds = new google.maps.LatLngBounds()
-    puntos.forEach((p) => bounds.extend({ lat: p.lat, lng: p.lng }))
-    mapa.fitBounds(bounds, { top: 60, right: 30, bottom: 30, left: 30 })
-  }, [mapa, puntos])
+    // FitBounds inicial (solo una vez)
+    if (!inicializadoRef.current) {
+      inicializadoRef.current = true
+      const bounds = new google.maps.LatLngBounds()
+      puntos.forEach((p) => bounds.extend({ lat: p.lat, lng: p.lng }))
+      mapa.fitBounds(bounds, { top: 60, right: 30, bottom: 30, left: 30 })
+    }
+
+    // Zoom a parada cuando se enfoca
+    if (enfocado && paradaActual >= 0 && paradaActual < puntos.length) {
+      const p = puntos[paradaActual]
+      mapa.panTo({ lat: p.lat, lng: p.lng })
+      mapa.setZoom(17)
+    }
+
+    // Volver a ver todo cuando se desenfoca
+    if (prevEnfocadoRef.current && !enfocado) {
+      const bounds = new google.maps.LatLngBounds()
+      puntos.forEach((p) => bounds.extend({ lat: p.lat, lng: p.lng }))
+      mapa.fitBounds(bounds, { top: 60, right: 30, bottom: 30, left: 30 })
+    }
+
+    prevEnfocadoRef.current = enfocado
+  }, [mapa, puntos, paradaActual, enfocado])
 
   return null
 }
