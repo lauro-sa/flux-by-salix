@@ -30,6 +30,25 @@ export interface EventoCalendario {
   _es_ocupado?: boolean
   /** Marcador interno para feriados inyectados desde la tabla feriados */
   _es_feriado?: boolean
+  /** Marcador interno para visitas sueltas inyectadas */
+  _es_visita?: boolean
+  /** Marcador interno para recorridos (grupo de visitas) inyectados */
+  _es_recorrido?: boolean
+  /** Visitas dentro de un recorrido (solo cuando _es_recorrido=true) */
+  _recorrido_visitas?: VisitaResumenCalendario[]
+  /** Metadata del recorrido */
+  _recorrido_meta?: { total_visitas: number; visitas_completadas: number; estado: string }
+}
+
+/** Resumen de una visita dentro de un recorrido, para expandir en el popover */
+export interface VisitaResumenCalendario {
+  id: string
+  contacto_nombre: string
+  direccion_texto: string | null
+  estado: string
+  orden: number
+  hora_programada: string | null
+  duracion_estimada_min: number
 }
 
 export interface TipoEventoCalendario {

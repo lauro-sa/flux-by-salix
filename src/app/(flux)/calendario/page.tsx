@@ -237,10 +237,11 @@ export default function PaginaCalendario() {
     try {
       const { desde, hasta } = obtenerRangoFechas(vistaActiva, fechaActual)
 
-      // Cargar eventos y feriados en paralelo
-      const [eventosRes, feriadosRes] = await Promise.all([
+      // Cargar eventos, feriados y visitas en paralelo
+      const [eventosRes, feriadosRes, visitasRes] = await Promise.all([
         fetch(`/api/calendario?desde=${desde}&hasta=${hasta}`),
         fetch(`/api/calendario/feriados?anio=${new Date(desde).getFullYear()}`),
+        fetch(`/api/calendario/visitas?desde=${desde}&hasta=${hasta}`),
       ])
 
       let eventosData: EventoCalendario[] = []
@@ -278,6 +279,114 @@ export default function PaginaCalendario() {
           _es_feriado: true,
         }))
         eventosData = [...feriadosComoEventos, ...eventosData]
+      }
+
+      // Inyectar visitas sueltas y recorridos
+      if (visitasRes.ok) {
+        const visitasData = await visitasRes.json()
+
+        // Visitas sueltas → EventoCalendario individual
+        const visitasSueltas: EventoCalendario[] = (visitasData.visitas_sueltas || []).map((v: Record<string, unknown>) => {
+          const fechaInicio = v.fecha_programada as string
+          const duracion = (v.duracion_estimada_min as number) || 30
+          const fechaFin = new Date(new Date(fechaInicio).getTime() + duracion * 60000).toISOString()
+          const asignadoA = v.asignado_a as string | null
+          const asignadoNombre = v.asignado_nombre as string | null
+
+          return {
+            id: `visita-${v.id}`,
+            titulo: v.contacto_nombre as string,
+            descripcion: (v.motivo as string) || null,
+            ubicacion: (v.direccion_texto as string) || null,
+            tipo_id: null,
+            tipo_clave: 'visita',
+            color: 'var(--texto-marca)',
+            fecha_inicio: fechaInicio,
+            fecha_fin: fechaFin,
+            todo_el_dia: false,
+            recurrencia: null,
+            visibilidad: 'publica',
+            asignados: asignadoA ? [{ id: asignadoA, nombre: asignadoNombre || '' }] : [],
+            asignado_ids: asignadoA ? [asignadoA] : [],
+            vinculos: [],
+            vinculo_ids: [],
+            actividad_id: null,
+            estado: v.estado as string,
+            notas: null,
+            creado_por: (v.creado_por as string) || '',
+            creado_por_nombre: null,
+            creado_en: '',
+            _es_visita: true,
+          } satisfies EventoCalendario
+        })
+
+        // Recorridos → EventoCalendario agrupado
+        const recorridos: EventoCalendario[] = (visitasData.recorridos || []).map((rec: Record<string, unknown>) => {
+          const visitas = (rec.visitas as Record<string, unknown>[]) || []
+          const totalVisitas = (rec.total_visitas as number) || visitas.length
+          const completadas = (rec.visitas_completadas as number) || 0
+          const asignadoA = rec.asignado_a as string | null
+          const asignadoNombre = rec.asignado_nombre as string | null
+          const fecha = rec.fecha as string
+
+          // Calcular inicio/fin del recorrido basado en las visitas
+          let fechaInicio = `${fecha}T09:00:00`
+          let fechaFin = `${fecha}T18:00:00`
+          if (visitas.length > 0) {
+            const horas = visitas
+              .map(v => v.hora_programada as string)
+              .filter(Boolean)
+              .sort()
+            if (horas.length > 0) {
+              fechaInicio = horas[0]
+              const ultimaVisita = visitas.find(v => v.hora_programada === horas[horas.length - 1])
+              const duracionUltima = (ultimaVisita?.duracion_estimada_min as number) || 30
+              fechaFin = new Date(new Date(horas[horas.length - 1]).getTime() + duracionUltima * 60000).toISOString()
+            }
+          }
+
+          return {
+            id: `recorrido-${rec.id}`,
+            titulo: `${totalVisitas} visitas — Recorrido`,
+            descripcion: visitas.map(v => v.contacto_nombre).join(', '),
+            ubicacion: null,
+            tipo_id: null,
+            tipo_clave: 'recorrido',
+            color: '#8b5cf6',
+            fecha_inicio: fechaInicio,
+            fecha_fin: fechaFin,
+            todo_el_dia: false,
+            recurrencia: null,
+            visibilidad: 'publica',
+            asignados: asignadoA ? [{ id: asignadoA, nombre: asignadoNombre || '' }] : [],
+            asignado_ids: asignadoA ? [asignadoA] : [],
+            vinculos: [],
+            vinculo_ids: [],
+            actividad_id: null,
+            estado: rec.estado as string,
+            notas: null,
+            creado_por: '',
+            creado_por_nombre: asignadoNombre || null,
+            creado_en: '',
+            _es_recorrido: true,
+            _recorrido_visitas: visitas.map(v => ({
+              id: v.id as string,
+              contacto_nombre: v.contacto_nombre as string,
+              direccion_texto: (v.direccion_texto as string) || null,
+              estado: (v.estado as string) || 'programada',
+              orden: (v.orden as number) || 0,
+              hora_programada: (v.hora_programada as string) || null,
+              duracion_estimada_min: (v.duracion_estimada_min as number) || 30,
+            })),
+            _recorrido_meta: {
+              total_visitas: totalVisitas,
+              visitas_completadas: completadas,
+              estado: rec.estado as string,
+            },
+          } satisfies EventoCalendario
+        })
+
+        eventosData = [...eventosData, ...visitasSueltas, ...recorridos]
       }
 
       setEventos(eventosData)

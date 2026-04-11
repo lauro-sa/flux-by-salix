@@ -9,6 +9,7 @@
 
 import { useMemo } from 'react'
 import { motion } from 'framer-motion'
+import { MapPin, Route } from 'lucide-react'
 import { useFormato } from '@/hooks/useFormato'
 import { useTraduccion } from '@/lib/i18n'
 import { useMovimientoReducido } from '@/hooks/useMovimientoReducido'
@@ -185,6 +186,8 @@ function VistaCalendarioAgenda({
                   {/* Columna central: contenido */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
+                      {evento._es_visita && <MapPin size={13} className="shrink-0 text-texto-marca" />}
+                      {evento._es_recorrido && <Route size={13} className="shrink-0 text-[#8b5cf6]" />}
                       <span className="text-sm font-medium text-texto-primario truncate">
                         {evento.titulo}
                       </span>

@@ -10,6 +10,7 @@
 
 import { useMemo, useRef, useEffect, useCallback, useState } from 'react'
 import { motion } from 'framer-motion'
+import { MapPin, Route } from 'lucide-react'
 import {
   DndContext,
   DragOverlay,
@@ -252,7 +253,9 @@ function BloqueEventoDiaArrastrable({
         }}
       >
       {/* Título */}
-      <div className="text-sm font-medium truncate leading-tight">
+      <div className="text-sm font-medium truncate leading-tight flex items-center gap-1">
+        {ep.evento._es_visita && <MapPin size={12} className="shrink-0" />}
+        {ep.evento._es_recorrido && <Route size={12} className="shrink-0" />}
         {ep.evento.titulo}
       </div>
 
@@ -681,6 +684,9 @@ function VistaCalendarioDia({
       const eventoOriginal = eventos.find((e) => e.id === eventoId)
       if (!eventoOriginal) return
 
+      // No permitir mover visitas ni recorridos desde el calendario
+      if (eventoOriginal._es_visita || eventoOriginal._es_recorrido) return
+
       const inicioOriginal = new Date(eventoOriginal.fecha_inicio)
       const finOriginal = new Date(eventoOriginal.fecha_fin)
 
@@ -763,6 +769,8 @@ function VistaCalendarioDia({
                     : '3px solid var(--texto-marca)',
                 }}
               >
+                {evento._es_visita && <MapPin size={10} className="inline-block mr-0.5" />}
+                {evento._es_recorrido && <Route size={10} className="inline-block mr-0.5" />}
                 {evento.titulo}
               </motion.button>
             ))}

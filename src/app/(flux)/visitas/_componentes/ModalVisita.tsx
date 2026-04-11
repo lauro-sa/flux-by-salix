@@ -10,7 +10,7 @@ import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { SelectorHora } from '@/componentes/ui/SelectorHora'
 import {
   Plus, Trash2, X, Check, MapPin, Clock,
-  CheckCircle, Navigation,
+  CheckCircle, Navigation, User, PenLine,
 } from 'lucide-react'
 import { useFormato } from '@/hooks/useFormato'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
@@ -106,6 +106,16 @@ interface Direccion {
   ultima_visita: string | null
 }
 
+interface ContactoVinculado {
+  id: string
+  vinculado_id: string
+  nombre: string
+  apellido: string | null
+  telefono: string | null
+  puesto: string | null
+  tipo_clave: string | null
+}
+
 function ModalVisita({
   abierto,
   visita,
@@ -138,7 +148,14 @@ function ModalVisita({
   const [notas, setNotas] = useState('')
   const [recibeNombre, setRecibeNombre] = useState('')
   const [recibeTelefono, setRecibeTelefono] = useState('')
+  const [recibeContactoId, setRecibeContactoId] = useState<string | null>(null)
+  const [recibeModoManual, setRecibeModoManual] = useState(false)
+  const [recibeContactoSeleccionado, setRecibeContactoSeleccionado] = useState<ContactoSeleccionado | null>(null)
   const [guardando, setGuardando] = useState(false)
+
+  // ── Contactos vinculados al contacto de la visita ──
+  const [vinculados, setVinculados] = useState<ContactoVinculado[]>([])
+  const [cargandoVinculados, setCargandoVinculados] = useState(false)
 
   // ── Estado del contacto seleccionado para SelectorContacto ──
   const [contactoSeleccionado, setContactoSeleccionado] = useState<ContactoSeleccionado | null>(null)
@@ -180,6 +197,24 @@ function ModalVisita({
       setNotas(visita.notas || '')
       setRecibeNombre(visita.recibe_nombre || '')
       setRecibeTelefono(visita.recibe_telefono || '')
+      setRecibeContactoId(visita.recibe_contacto_id || null)
+      setRecibeModoManual(!visita.recibe_contacto_id && !!(visita.recibe_nombre || visita.recibe_telefono))
+      // Si tiene recibe_contacto_id, montar el contacto seleccionado para el SelectorContacto
+      if (visita.recibe_contacto_id && visita.recibe_nombre) {
+        setRecibeContactoSeleccionado({
+          id: visita.recibe_contacto_id,
+          nombre: visita.recibe_nombre,
+          apellido: null,
+          correo: null,
+          telefono: visita.recibe_telefono,
+          tipo_contacto: null,
+          numero_identificacion: null,
+          condicion_iva: null,
+          direccion: null,
+        })
+      } else {
+        setRecibeContactoSeleccionado(null)
+      }
     } else {
       // Modo creación — limpiar todo
       setContactoId('')
@@ -202,6 +237,9 @@ function ModalVisita({
       setNotas('')
       setRecibeNombre('')
       setRecibeTelefono('')
+      setRecibeContactoId(null)
+      setRecibeModoManual(false)
+      setRecibeContactoSeleccionado(null)
     }
   }, [abierto, visita, config])
 
@@ -216,6 +254,8 @@ function ModalVisita({
       setDireccionLat(null)
       setDireccionLng(null)
       setDirecciones([])
+      setVinculados([])
+      limpiarReceptor()
       return
     }
     setContactoId(c.id)
@@ -269,6 +309,108 @@ function ModalVisita({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contactoId])
 
+  // ── Cargar contactos vinculados al contacto seleccionado ──
+  useEffect(() => {
+    if (!contactoId) {
+      setVinculados([])
+      return
+    }
+    setCargandoVinculados(true)
+    const supabase = crearClienteNavegador()
+    // Buscar vinculaciones donde este contacto es el dueño
+    supabase
+      .from('contacto_vinculaciones')
+      .select(`
+        id,
+        vinculado_id,
+        puesto,
+        contacto_vinculado:contactos!contacto_vinculaciones_vinculado_id_fkey (
+          nombre, apellido, telefono,
+          tipo_contacto:tipos_contacto ( clave )
+        )
+      `)
+      .eq('contacto_id', contactoId)
+      .then(({ data }) => {
+        if (data) {
+          const mapeados: ContactoVinculado[] = data
+            .filter((v: Record<string, unknown>) => v.contacto_vinculado)
+            .map((v: Record<string, unknown>) => {
+              const cv = v.contacto_vinculado as Record<string, unknown>
+              const tipo = cv.tipo_contacto as Record<string, unknown> | null
+              return {
+                id: v.id as string,
+                vinculado_id: v.vinculado_id as string,
+                nombre: cv.nombre as string,
+                apellido: (cv.apellido as string) || null,
+                telefono: (cv.telefono as string) || null,
+                puesto: (v.puesto as string) || null,
+                tipo_clave: tipo?.clave as string || null,
+              }
+            })
+          setVinculados(mapeados)
+        } else {
+          setVinculados([])
+        }
+        setCargandoVinculados(false)
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contactoId])
+
+  // ── Manejar selección de contacto como receptor ──
+  const manejarSeleccionReceptor = useCallback((c: ContactoResultado | null) => {
+    if (!c) {
+      setRecibeContactoId(null)
+      setRecibeNombre('')
+      setRecibeTelefono('')
+      setRecibeContactoSeleccionado(null)
+      return
+    }
+    const nombre = `${c.nombre}${c.apellido ? ` ${c.apellido}` : ''}`.trim()
+    setRecibeContactoId(c.id)
+    setRecibeNombre(nombre)
+    setRecibeTelefono(c.telefono || '')
+    setRecibeContactoSeleccionado({
+      id: c.id,
+      nombre: c.nombre,
+      apellido: c.apellido,
+      correo: c.correo,
+      telefono: c.telefono,
+      tipo_contacto: c.tipo_contacto,
+      numero_identificacion: null,
+      condicion_iva: null,
+      direccion: null,
+    })
+    setRecibeModoManual(false)
+  }, [])
+
+  // Seleccionar vinculado directamente (sin pasar por SelectorContacto)
+  const seleccionarReceptorVinculado = (v: ContactoVinculado) => {
+    const nombre = `${v.nombre}${v.apellido ? ` ${v.apellido}` : ''}`.trim()
+    setRecibeContactoId(v.vinculado_id)
+    setRecibeNombre(nombre)
+    setRecibeTelefono(v.telefono || '')
+    setRecibeContactoSeleccionado({
+      id: v.vinculado_id,
+      nombre: v.nombre,
+      apellido: v.apellido,
+      correo: null,
+      telefono: v.telefono,
+      tipo_contacto: null,
+      numero_identificacion: null,
+      condicion_iva: null,
+      direccion: null,
+    })
+    setRecibeModoManual(false)
+  }
+
+  const limpiarReceptor = () => {
+    setRecibeContactoId(null)
+    setRecibeNombre('')
+    setRecibeTelefono('')
+    setRecibeContactoSeleccionado(null)
+    setRecibeModoManual(false)
+  }
+
   // ── Seleccionar dirección ──
   const seleccionarDireccion = (dir: Direccion) => {
     setDireccionId(dir.id)
@@ -315,6 +457,7 @@ function ModalVisita({
         notas: notas || null,
         recibe_nombre: recibeNombre || null,
         recibe_telefono: recibeTelefono || null,
+        recibe_contacto_id: recibeContactoId || null,
       })
       onCerrar()
     } finally {
@@ -494,24 +637,87 @@ function ModalVisita({
           </div>
 
           {/* Recibe — quien recibe al visitador (opcional) */}
-          <div className="px-6 py-4 border-t border-borde-sutil">
-            <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2 block">
-              Recibe (opcional)
-            </label>
-            <p className="text-xs text-texto-terciario mb-3">Si quien recibe es diferente al contacto principal</p>
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                value={recibeNombre}
-                onChange={(e) => setRecibeNombre(e.target.value)}
-                placeholder="Nombre"
-              />
-              <Input
-                value={recibeTelefono}
-                onChange={(e) => setRecibeTelefono(e.target.value)}
-                placeholder="Teléfono"
-              />
+          {contactoId && (
+            <div className="px-6 py-4 border-b border-white/[0.07]">
+              <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2 block">
+                Recibe (opcional)
+              </label>
+              <p className="text-xs text-texto-terciario mb-3">Si quien recibe es diferente al contacto principal</p>
+
+              {recibeModoManual ? (
+                /* ── Modo manual: inputs libres ── */
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      value={recibeNombre}
+                      onChange={(e) => { setRecibeNombre(e.target.value); setRecibeContactoId(null); setRecibeContactoSeleccionado(null) }}
+                      placeholder="Nombre"
+                    />
+                    <Input
+                      value={recibeTelefono}
+                      onChange={(e) => { setRecibeTelefono(e.target.value); setRecibeContactoId(null); setRecibeContactoSeleccionado(null) }}
+                      placeholder="Teléfono"
+                    />
+                  </div>
+                  <button
+                    onClick={() => { limpiarReceptor() }}
+                    className="text-xs text-texto-marca hover:text-texto-marca/80 transition-colors flex items-center gap-1"
+                  >
+                    <User size={12} />
+                    Buscar contacto
+                  </button>
+                </div>
+              ) : (
+                /* ── Modo buscador: vinculados + SelectorContacto ── */
+                <div className="space-y-3">
+                  {/* Sugerencias rápidas: contactos vinculados */}
+                  {!recibeContactoSeleccionado && vinculados.length > 0 && !cargandoVinculados && (
+                    <div>
+                      <span className="text-[10px] font-medium text-texto-terciario uppercase tracking-wider">Vinculados</span>
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        {vinculados.map(v => {
+                          const nombre = `${v.nombre}${v.apellido ? ` ${v.apellido}` : ''}`.trim()
+                          return (
+                            <button
+                              key={v.id}
+                              onClick={() => seleccionarReceptorVinculado(v)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] text-xs text-texto-secundario hover:bg-white/[0.06] hover:border-texto-marca/30 transition-colors"
+                            >
+                              <User size={11} className="text-texto-terciario" />
+                              <span>{nombre}</span>
+                              {v.puesto && (
+                                <span className="text-xxs text-texto-terciario">· {v.puesto}</span>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SelectorContacto para buscar cualquier contacto */}
+                  <SelectorContacto
+                    contacto={recibeContactoSeleccionado}
+                    onChange={manejarSeleccionReceptor}
+                    sinAlertaCorreo
+                    sinDatosFiscales
+                    placeholder="Buscar contacto que recibe..."
+                  />
+
+                  {/* Opción cargar a mano */}
+                  {!recibeContactoSeleccionado && (
+                    <button
+                      onClick={() => { limpiarReceptor(); setRecibeModoManual(true) }}
+                      className="text-xs text-texto-terciario hover:text-texto-secundario transition-colors flex items-center gap-1"
+                    >
+                      <PenLine size={12} />
+                      Cargar a mano
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
           {/* Notas */}
           <div className="px-6 py-4">

@@ -8,6 +8,7 @@
 
 import { useMemo } from 'react'
 import { motion } from 'framer-motion'
+import { MapPin, Route } from 'lucide-react'
 import { useFormato } from '@/hooks/useFormato'
 import { useTraduccion } from '@/lib/i18n'
 import {
@@ -210,6 +211,8 @@ function VistaCalendarioMes({
                         {formatearHoraISO(evento.fecha_inicio, es24h)}
                       </span>
                     )}
+                    {evento._es_visita && <MapPin size={10} className="inline-block mr-0.5 shrink-0" />}
+                    {evento._es_recorrido && <Route size={10} className="inline-block mr-0.5 shrink-0" />}
                     {evento.titulo}
                   </button>
                 ))}

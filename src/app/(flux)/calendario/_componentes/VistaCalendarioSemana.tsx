@@ -10,6 +10,7 @@
 
 import { useMemo, useRef, useEffect, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
+import { MapPin, Route } from 'lucide-react'
 import {
   DndContext,
   DragOverlay,
@@ -233,11 +234,15 @@ function BloqueEventoArrastrable({
 
         return esCorto ? (
           <span className="text-[11px] sm:text-xs leading-tight truncate block font-medium">
+            {evento._es_visita && <MapPin size={10} className="inline-block mr-0.5" />}
+            {evento._es_recorrido && <Route size={10} className="inline-block mr-0.5" />}
             {evento.titulo}
           </span>
         ) : (
           <>
             <span className="text-[11px] sm:text-xs leading-tight truncate block font-medium">
+              {evento._es_visita && <MapPin size={10} className="inline-block mr-0.5" />}
+              {evento._es_recorrido && <Route size={10} className="inline-block mr-0.5" />}
               {evento.titulo}
             </span>
             <span className="text-[10px] sm:text-[11px] leading-tight opacity-70 block">
@@ -694,6 +699,9 @@ function VistaCalendarioSemana({
       const eventoOriginal = eventos.find((e) => e.id === eventoId)
       if (!eventoOriginal) return
 
+      // No permitir mover visitas ni recorridos desde el calendario
+      if (eventoOriginal._es_visita || eventoOriginal._es_recorrido) return
+
       const inicioOriginal = parsearFecha(eventoOriginal.fecha_inicio)
       const finOriginal = parsearFecha(eventoOriginal.fecha_fin)
 
@@ -840,6 +848,8 @@ function VistaCalendarioSemana({
                           color: evento.color || 'var(--texto-primario)',
                         }}
                       >
+                        {evento._es_visita && <MapPin size={10} className="inline-block mr-0.5" />}
+                        {evento._es_recorrido && <Route size={10} className="inline-block mr-0.5" />}
                         {evento.titulo}
                       </button>
                     ))}
