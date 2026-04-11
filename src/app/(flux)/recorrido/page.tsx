@@ -821,7 +821,7 @@ export default function PaginaRecorrido() {
 
         {/* ── Bottom bar ── */}
         <div
-          className="border-t border-borde-sutil shrink-0 bg-superficie-app pb-2"
+          className="border-t border-borde-sutil shrink-0 bg-superficie-app pb-4"
         >
           {!sheetExpandido ? (
             /* ── Colapsado: botón según estado del recorrido ── */

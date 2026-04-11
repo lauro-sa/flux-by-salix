@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useTransition } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
@@ -101,9 +101,18 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
   // iOS: position:fixed en body para evitar scroll detrás del menú
   useScrollLockiOS(abierto)
 
+  const [isPending, startTransition] = useTransition()
   const [modalCerrarSesion, setModalCerrarSesion] = useState(false)
   const [cerrandoSesion, setCerrandoSesion] = useState(false)
   const [estado, setEstado] = useState<'online' | 'ausente' | 'no_molestar'>('online')
+
+  // Prefetch de rutas principales para navegación instantánea
+  useEffect(() => {
+    const rutasPrefetch = ['/contactos', '/presupuestos', '/actividades', '/productos', '/dashboard', '/visitas', '/recorrido', '/inbox', '/calendario', '/asistencias', '/ordenes']
+    rutasPrefetch.forEach(ruta => {
+      if (ruta !== pathname) router.prefetch(ruta)
+    })
+  }, [pathname, router])
 
   const vibrar = () => {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(10)
@@ -143,8 +152,10 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
 
   const navegar = (ruta: string) => {
     vibrar()
-    router.push(ruta)
     onCerrar()
+    startTransition(() => {
+      router.push(ruta)
+    })
   }
 
   const manejarCerrarSesion = async () => {

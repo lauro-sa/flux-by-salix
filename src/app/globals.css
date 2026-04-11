@@ -49,6 +49,14 @@
     env(safe-area-inset-left, 0px);
 }
 
+/* Safe-area solo arriba — para layout fijo (recorrido, inbox, calendario)
+   Necesita padding-top para el notch/status bar, pero NO bottom */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
 /* Contenido principal */
 .contenido-principal-layout {
   min-height: 100%;

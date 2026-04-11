@@ -5,7 +5,7 @@
  * Orquesta: SwitcherEmpresa, secciones de navegacion, items fijos, ocultos/deshabilitados y perfil.
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useTransition } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
@@ -41,6 +41,7 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
   const { tieneModulo } = useModulos()
   const { noLeidasPorCategoria } = useNotificaciones({ deshabilitado: false })
   const sonido = useSonido()
+  const [, startTransition] = useTransition()
   const vibrar = () => { if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(10) }
 
   // Badges dinamicos basados en notificaciones reales
@@ -182,7 +183,7 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
 
   // Prefetch de rutas principales para navegación instantánea
   useEffect(() => {
-    const rutasPrefetch = ['/contactos', '/presupuestos', '/actividades', '/productos', '/dashboard', '/papelera', '/asistencias']
+    const rutasPrefetch = ['/contactos', '/presupuestos', '/actividades', '/productos', '/dashboard', '/papelera', '/asistencias', '/visitas', '/recorrido', '/inbox', '/calendario', '/ordenes']
     rutasPrefetch.forEach(ruta => {
       if (ruta !== pathname) router.prefetch(ruta)
     })
@@ -194,9 +195,11 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
   }
 
   const navegar = (ruta: string) => {
-    router.push(ruta)
     onCerrarMobil()
     vibrar()
+    startTransition(() => {
+      router.push(ruta)
+    })
   }
 
   return (

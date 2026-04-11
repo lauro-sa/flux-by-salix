@@ -188,7 +188,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
      - Rutas con paneles (inbox, calendario): siempre fijo via layout-app--fijo */
 
   return (
-    <div className={`layout-app${necesitaLayoutFijo ? ' layout-app--fijo' : ' safe-area'}`}>
+    <div className={`layout-app${necesitaLayoutFijo ? ' layout-app--fijo safe-area-top' : ' safe-area'}`}>
       <Sidebar
         colapsado={sidebarColapsado}
         onToggle={toggleSidebar}
