@@ -55,6 +55,7 @@ function RegistroVisita({
 
   const [notas, setNotas] = useState('')
   const [resultado, setResultado] = useState('')
+  const [temperatura, setTemperatura] = useState<'frio' | 'tibio' | 'caliente' | null>(null)
   const [checklist, setChecklist] = useState<ItemChecklist[]>(checklistInicial || [])
   const [fotosNuevas, setFotosNuevas] = useState<File[]>([])
   const [previewsNuevas, setPreviewsNuevas] = useState<string[]>([])
@@ -81,6 +82,7 @@ function RegistroVisita({
         if (data.visita) {
           setNotas(data.visita.notas || '')
           setResultado(data.visita.resultado || '')
+          setTemperatura(data.visita.temperatura || null)
           if (data.visita.checklist && Array.isArray(data.visita.checklist)) {
             setChecklist(data.visita.checklist as ItemChecklist[])
           }
@@ -201,12 +203,13 @@ function RegistroVisita({
       }
 
       // 2. Registrar datos (notas, resultado, checklist, fotos nuevas)
-      const tieneNuevosDatos = notas || resultado || fotosNuevas.length > 0 || checklist.length > 0
+      const tieneNuevosDatos = notas || resultado || temperatura || fotosNuevas.length > 0 || checklist.length > 0
       if (tieneNuevosDatos) {
         const formData = new FormData()
         formData.append('visita_id', visitaId)
         if (notas) formData.append('notas', notas)
         if (resultado) formData.append('resultado', resultado)
+        if (temperatura) formData.append('temperatura', temperatura)
         if (checklist.length > 0) formData.append('checklist', JSON.stringify(checklist))
         fotosNuevas.forEach(foto => formData.append('archivos', foto))
 
@@ -320,6 +323,35 @@ function RegistroVisita({
               </div>
             </div>
           )}
+
+          {/* Temperatura del prospecto — 3 estados rápidos */}
+          <div>
+            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2">Interés del cliente</p>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { valor: 'frio' as const, emoji: '❄️', label: 'Frío', color: 'var(--insignia-info)', bg: 'var(--insignia-info)' },
+                { valor: 'tibio' as const, emoji: '🤔', label: 'Tibio', color: 'var(--insignia-advertencia)', bg: 'var(--insignia-advertencia)' },
+                { valor: 'caliente' as const, emoji: '🔥', label: 'Caliente', color: 'var(--insignia-exito)', bg: 'var(--insignia-exito)' },
+              ]).map(({ valor, emoji, label, color, bg }) => {
+                const activo = temperatura === valor
+                return (
+                  <button
+                    key={valor}
+                    onClick={() => setTemperatura(activo ? null : valor)}
+                    className="flex items-center justify-center gap-1.5 py-3 rounded-xl border text-sm font-medium transition-all"
+                    style={{
+                      borderColor: activo ? color : 'var(--borde-sutil)',
+                      backgroundColor: activo ? `color-mix(in srgb, ${bg} 15%, transparent)` : 'transparent',
+                      color: activo ? color : 'var(--texto-secundario)',
+                    }}
+                  >
+                    <span>{emoji}</span>
+                    <span>{label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
 
           {/* Notas */}
           <div>

@@ -833,27 +833,26 @@ export default function PaginaRecorrido() {
               </button>
             </div>
           ) : (
-            /* ── Expandido + vista: acciones discretas ── */
-            <div className="flex items-center justify-center gap-6 py-3">
+            /* ── Expandido + vista: pills sutiles ── */
+            <div className="flex items-center justify-center gap-3 py-3">
               <button
                 onClick={() => setModoEdicion(true)}
-                className="flex items-center gap-1.5 text-xs text-texto-terciario hover:text-texto-secundario transition-colors"
+                className="text-[11px] font-medium text-texto-terciario hover:text-texto-secundario px-3.5 py-2 rounded-full bg-white/[0.04] border border-white/[0.06] transition-colors"
               >
-                <Pencil size={12} />
-                <span>Ajustar</span>
+                Ajustar
               </button>
               <button
                 onClick={iniciarRuta}
-                className="flex items-center gap-1.5 text-xs font-medium text-[var(--insignia-info)] hover:brightness-110 transition-colors"
+                className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--insignia-info)] px-3.5 py-2 rounded-full bg-[var(--insignia-info)]/[0.08] border border-[var(--insignia-info)]/[0.15] hover:bg-[var(--insignia-info)]/[0.15] transition-colors"
               >
-                <Navigation size={12} />
+                <Navigation size={11} />
                 <span>{t('recorrido.iniciar_recorrido')}</span>
               </button>
               <button
                 onClick={() => setSheetExpandido(false)}
-                className="flex items-center gap-1.5 text-xs text-texto-terciario hover:text-texto-secundario transition-colors"
+                className="text-[11px] font-medium text-texto-terciario hover:text-texto-secundario px-3.5 py-2 rounded-full bg-white/[0.04] border border-white/[0.06] transition-colors"
               >
-                <span>Cerrar</span>
+                Cerrar
               </button>
             </div>
           )}
