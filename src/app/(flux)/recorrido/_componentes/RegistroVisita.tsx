@@ -139,12 +139,57 @@ function RegistroVisita({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abierto])
 
-  // Manejar selección de fotos (cámara o galería)
-  const manejarFotos = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const archivos = Array.from(e.target.files || [])
-    if (!archivos.length) return
-    setFotosNuevas(prev => [...prev, ...archivos])
-    archivos.forEach(archivo => {
+  // Comprimir imagen: redimensionar a max 1200px y convertir a JPEG 80%
+  const comprimirImagen = useCallback((archivo: File): Promise<File> => {
+    return new Promise((resolve) => {
+      // Si es menor a 500KB, no comprimir
+      if (archivo.size < 500 * 1024) { resolve(archivo); return }
+
+      const img = new Image()
+      const url = URL.createObjectURL(archivo)
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const MAX = 1200
+        let { width, height } = img
+        if (width > MAX || height > MAX) {
+          if (width > height) { height = Math.round(height * MAX / width); width = MAX }
+          else { width = Math.round(width * MAX / height); height = MAX }
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0, width, height)
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const nombre = archivo.name.replace(/\.(heic|heif|png|webp)$/i, '.jpg') || `foto_${Date.now()}.jpg`
+              resolve(new File([blob], nombre, { type: 'image/jpeg' }))
+            } else {
+              resolve(archivo)
+            }
+          },
+          'image/jpeg',
+          0.8
+        )
+      }
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(archivo) }
+      img.src = url
+    })
+  }, [])
+
+  // Manejar selección de fotos (cámara o galería) — con compresión
+  const manejarFotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const archivosOriginales = Array.from(e.target.files || [])
+    if (!archivosOriginales.length) return
+
+    // Comprimir cada imagen
+    const archivosComprimidos = await Promise.all(
+      archivosOriginales.map(a => comprimirImagen(a))
+    )
+
+    setFotosNuevas(prev => [...prev, ...archivosComprimidos])
+    archivosComprimidos.forEach(archivo => {
       const reader = new FileReader()
       reader.onloadend = () => setPreviewsNuevas(prev => [...prev, reader.result as string])
       reader.readAsDataURL(archivo)
