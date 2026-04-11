@@ -285,35 +285,22 @@ function RegistroVisita({
     }
   }
 
-  const titulos: Record<string, string> = {
-    llegada: t('recorrido.llegue'),
-    completar: t('recorrido.registrar_visita'),
-    editar: 'Editar registro',
-  }
-
-  const labelBoton: Record<string, string> = {
-    llegada: 'Registrar llegada',
-    completar: 'Completar visita',
-    editar: 'Guardar cambios',
-  }
-
   const totalFotos = fotosExistentes.length + fotosNuevas.length
 
   return (
     <BottomSheet
       abierto={abierto}
       onCerrar={onCerrar}
-      titulo={titulos[modo]}
+      titulo="Registrar visita"
       altura="alto"
       acciones={
         <button
           onClick={enviar}
           disabled={enviando}
-          className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white transition-colors disabled:opacity-50"
-          style={{ backgroundColor: modo === 'llegada' ? 'var(--insignia-info)' : 'var(--insignia-exito)' }}
+          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold text-white transition-colors disabled:opacity-50"
+          style={{ backgroundColor: 'var(--insignia-exito)' }}
         >
-          {enviando && <Loader2 size={16} className="animate-spin" />}
-          {labelBoton[modo]}
+          {enviando ? <Loader2 size={16} className="animate-spin" /> : <span>Guardar visita →</span>}
         </button>
       }
     >
@@ -322,48 +309,79 @@ function RegistroVisita({
           <Loader2 size={24} className="animate-spin text-texto-terciario" />
         </div>
       ) : (
-        <div className="space-y-5">
-          {/* Ubicación (solo en modo llegada) */}
-          {modo === 'llegada' && (
-            <div className="flex items-center gap-3 p-3 rounded-lg border border-borde-sutil bg-superficie-elevada/50">
-              <MapPin size={18} className={ubicacion ? 'text-[var(--insignia-exito)]' : 'text-texto-terciario'} />
-              <div className="flex-1 min-w-0">
-                {cargandoUbicacion ? (
-                  <p className="text-sm text-texto-terciario flex items-center gap-2">
-                    <Loader2 size={14} className="animate-spin" />
-                    Obteniendo ubicación...
-                  </p>
-                ) : ubicacion ? (
-                  <>
-                    <p className="text-sm text-texto-secundario">Ubicación registrada</p>
-                    <p className="text-xs text-texto-terciario">Precisión: ±{ubicacion.precision}m</p>
-                  </>
-                ) : (
-                  <button onClick={obtenerUbicacion} className="text-sm text-texto-marca hover:underline">
-                    Obtener ubicación
-                  </button>
-                )}
-              </div>
-            </div>
+        <div className="space-y-0">
+          {/* ── Subtítulo con fecha y parada ── */}
+          {contactoNombre && (
+            <p className="text-sm text-texto-terciario pb-4">
+              {contactoNombre} · {contactoDireccion}
+            </p>
           )}
 
-          {/* Checklist */}
+          {/* ── Factibilidad ── */}
+          <div className="border-t border-borde-sutil pt-4 pb-4">
+            <p className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider mb-3">Factibilidad</p>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { valor: 'frio' as const, label: 'Baja', color: 'var(--insignia-peligro)' },
+                { valor: 'tibio' as const, label: 'Media', color: 'var(--insignia-advertencia)' },
+                { valor: 'caliente' as const, label: 'Alta', color: 'var(--insignia-exito)' },
+              ]).map(({ valor, label, color }) => {
+                const activo = temperatura === valor
+                return (
+                  <button
+                    key={valor}
+                    onClick={() => setTemperatura(activo ? null : valor)}
+                    className="flex flex-col items-center justify-center gap-2 py-3.5 rounded-xl border transition-all"
+                    style={{
+                      borderColor: activo ? color : 'var(--borde-sutil)',
+                      backgroundColor: activo ? `color-mix(in srgb, ${color} 12%, transparent)` : 'transparent',
+                    }}
+                  >
+                    <div
+                      className="size-3 rounded-full transition-all"
+                      style={{
+                        backgroundColor: activo ? color : 'var(--borde-fuerte)',
+                        boxShadow: activo ? `0 0 8px ${color}` : 'none',
+                      }}
+                    />
+                    <span className="text-sm font-medium" style={{ color: activo ? color : 'var(--texto-secundario)' }}>
+                      {label}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* ── Notas ── */}
+          <div className="border-t border-borde-sutil pt-4 pb-4">
+            <p className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider mb-3">Notas</p>
+            <textarea
+              value={notas}
+              onChange={(e) => setNotas(e.target.value)}
+              placeholder="Ibivv — descripción del trabajo a realizar"
+              rows={3}
+              className="w-full rounded-xl border border-borde-sutil bg-transparent px-4 py-3 text-sm text-texto-primario placeholder:text-texto-terciario/50 resize-none focus:outline-none focus:border-texto-marca/40"
+            />
+          </div>
+
+          {/* ── Checklist ── */}
           {checklist.length > 0 && (
-            <div>
-              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2">Checklist</p>
+            <div className="border-t border-borde-sutil pt-4 pb-4">
+              <p className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider mb-3">Checklist</p>
               <div className="space-y-1.5">
                 {checklist.map((item, i) => (
                   <button
                     key={i}
                     onClick={() => toggleChecklist(i)}
-                    className="flex items-center gap-3 w-full p-2.5 rounded-lg border border-borde-sutil hover:bg-superficie-elevada/50 transition-colors text-left"
+                    className="flex items-center gap-3 w-full p-3 rounded-xl border border-borde-sutil hover:bg-white/[0.02] transition-colors text-left"
                   >
-                    <div className={`size-5 rounded border-2 flex items-center justify-center transition-colors ${
+                    <div className={`size-5 rounded-md border-2 flex items-center justify-center transition-colors ${
                       item.completado
                         ? 'bg-[var(--insignia-exito)] border-[var(--insignia-exito)]'
                         : 'border-borde-fuerte'
                     }`}>
-                      {item.completado && <span className="text-white text-xs">✓</span>}
+                      {item.completado && <span className="text-white text-xs font-bold">✓</span>}
                     </div>
                     <span className={`text-sm ${item.completado ? 'text-texto-terciario line-through' : 'text-texto-primario'}`}>
                       {item.texto}
@@ -374,111 +392,54 @@ function RegistroVisita({
             </div>
           )}
 
-          {/* Factibilidad — qué tan probable es cerrar */}
-          <div>
-            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2">Factibilidad</p>
-            <div className="grid grid-cols-3 gap-2">
-              {([
-                { valor: 'frio' as const, label: 'Baja', color: 'var(--insignia-peligro)', bg: 'var(--insignia-peligro)' },
-                { valor: 'tibio' as const, label: 'Media', color: 'var(--insignia-advertencia)', bg: 'var(--insignia-advertencia)' },
-                { valor: 'caliente' as const, label: 'Alta', color: 'var(--insignia-exito)', bg: 'var(--insignia-exito)' },
-              ]).map(({ valor, label, color, bg }) => {
-                const activo = temperatura === valor
-                return (
+          {/* ── Fotos ── */}
+          <div className="border-t border-borde-sutil pt-4 pb-2">
+            <p className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider mb-3">
+              Fotos {totalFotos > 0 && <span className="normal-case font-normal ml-1">{totalFotos} adjuntas</span>}
+            </p>
+
+            <div className="flex gap-2.5 overflow-x-auto pb-1">
+              {/* Fotos existentes */}
+              {fotosExistentes.map((foto) => (
+                <div key={foto.url} className="relative shrink-0 size-24 rounded-xl overflow-hidden border border-borde-sutil">
+                  <img src={foto.url} alt={foto.nombre} className="size-full object-cover" />
                   <button
-                    key={valor}
-                    onClick={() => setTemperatura(activo ? null : valor)}
-                    className="flex items-center justify-center py-2.5 rounded-xl border text-sm font-medium transition-all"
-                    style={{
-                      borderColor: activo ? color : 'var(--borde-sutil)',
-                      backgroundColor: activo ? `color-mix(in srgb, ${bg} 15%, transparent)` : 'transparent',
-                      color: activo ? color : 'var(--texto-secundario)',
-                    }}
+                    onClick={() => eliminarFotoExistente(foto)}
+                    disabled={foto.eliminando}
+                    className="absolute top-1 right-1 size-6 rounded-full bg-black/70 flex items-center justify-center disabled:opacity-50"
                   >
-                    {label}
+                    {foto.eliminando
+                      ? <Loader2 size={12} className="text-white animate-spin" />
+                      : <Trash2 size={12} className="text-white" />
+                    }
                   </button>
-                )
-              })}
-            </div>
-          </div>
+                </div>
+              ))}
 
-          {/* Notas */}
-          <div>
-            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2">{t('recorrido.notas')}</p>
-            <textarea
-              value={notas}
-              onChange={(e) => setNotas(e.target.value)}
-              placeholder="Agregar notas de la visita..."
-              rows={3}
-              className="w-full rounded-lg border border-borde-sutil bg-superficie-elevada/50 px-3 py-2.5 text-sm text-texto-primario placeholder:text-texto-terciario resize-none focus:outline-none focus:ring-1 focus:ring-texto-marca/40"
-            />
-          </div>
+              {/* Fotos nuevas */}
+              {previewsNuevas.map((src, i) => (
+                <div key={i} className="relative shrink-0 size-24 rounded-xl overflow-hidden border border-texto-marca/30">
+                  <img src={src} alt={`Nueva ${i + 1}`} className="size-full object-cover" />
+                  <button
+                    onClick={() => quitarFotoNueva(i)}
+                    className="absolute top-1 right-1 size-6 rounded-full bg-black/70 flex items-center justify-center"
+                  >
+                    <X size={12} className="text-white" />
+                  </button>
+                </div>
+              ))}
 
-          {/* Fotos */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">
-                Fotos {totalFotos > 0 && `(${totalFotos})`}
-              </p>
-            </div>
-
-            {/* Fotos existentes (ya subidas) */}
-            {fotosExistentes.length > 0 && (
-              <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
-                {fotosExistentes.map((foto) => (
-                  <div key={foto.url} className="relative shrink-0 size-20 rounded-lg overflow-hidden border border-borde-sutil">
-                    <img src={foto.url} alt={foto.nombre} className="size-full object-cover" />
-                    <button
-                      onClick={() => eliminarFotoExistente(foto)}
-                      disabled={foto.eliminando}
-                      className="absolute top-0.5 right-0.5 size-5 rounded-full bg-black/60 flex items-center justify-center disabled:opacity-50"
-                    >
-                      {foto.eliminando
-                        ? <Loader2 size={10} className="text-white animate-spin" />
-                        : <Trash2 size={10} className="text-white" />
-                      }
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Fotos nuevas (preview) */}
-            {previewsNuevas.length > 0 && (
-              <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
-                {previewsNuevas.map((src, i) => (
-                  <div key={i} className="relative shrink-0 size-20 rounded-lg overflow-hidden border border-texto-marca/30">
-                    <img src={src} alt={`Nueva ${i + 1}`} className="size-full object-cover" />
-                    <button
-                      onClick={() => quitarFotoNueva(i)}
-                      className="absolute top-0.5 right-0.5 size-5 rounded-full bg-black/60 flex items-center justify-center"
-                    >
-                      <X size={10} className="text-white" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Botones: cámara y galería */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => inputCamaraRef.current?.click()}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-borde-sutil hover:bg-superficie-elevada/50 transition-colors text-sm text-texto-secundario"
-              >
-                <Camera size={16} />
-                <span>Cámara</span>
-              </button>
+              {/* Botón Agregar */}
               <button
                 onClick={() => inputGaleriaRef.current?.click()}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-borde-sutil hover:bg-superficie-elevada/50 transition-colors text-sm text-texto-secundario"
+                className="shrink-0 size-24 rounded-xl border border-dashed border-borde-sutil hover:border-texto-terciario flex flex-col items-center justify-center gap-1.5 transition-colors"
               >
-                <ImageIcon size={16} />
-                <span>Galería</span>
+                <Camera size={20} className="text-texto-terciario" />
+                <span className="text-[11px] text-texto-terciario">Agregar</span>
               </button>
             </div>
 
-            {/* Input cámara (capture=environment abre cámara trasera) */}
+            {/* Inputs ocultos */}
             <input
               ref={inputCamaraRef}
               type="file"
@@ -487,7 +448,6 @@ function RegistroVisita({
               onChange={manejarFotos}
               className="hidden"
             />
-            {/* Input galería (sin capture, abre selector de archivos/galería) */}
             <input
               ref={inputGaleriaRef}
               type="file"

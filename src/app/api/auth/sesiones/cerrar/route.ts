@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { crearClienteServidor, crearClienteAdmin } from '@/lib/supabase'
+import { obtenerUsuarioRuta, crearClienteAdmin } from '@/lib/supabase'
 
 /**
  * POST /api/auth/sesiones/cerrar
@@ -12,8 +12,7 @@ import { crearClienteServidor, crearClienteAdmin } from '@/lib/supabase'
  */
 export async function POST(request: Request) {
   try {
-    const supabase = await crearClienteServidor()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await obtenerUsuarioRuta()
 
     if (!user) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })

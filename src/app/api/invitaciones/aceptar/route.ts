@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { vincularOCrearContactoEquipo } from '@/lib/contactos/contacto-equipo'
 
@@ -10,8 +10,7 @@ import { vincularOCrearContactoEquipo } from '@/lib/contactos/contacto-equipo'
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await crearClienteServidor()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await obtenerUsuarioRuta()
 
     if (!user) {
       return NextResponse.json({ error: 'Debés iniciar sesión primero' }, { status: 401 })

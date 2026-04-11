@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 
 /**
  * GET /api/miembros-sectores — Lista todas las asignaciones miembro↔sector
@@ -9,8 +9,7 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
  */
 
 export async function GET(req: NextRequest) {
-  const supabase = await crearClienteServidor()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user } = await obtenerUsuarioRuta()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
   const admin = crearClienteAdmin()
@@ -34,8 +33,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const supabase = await crearClienteServidor()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user } = await obtenerUsuarioRuta()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
   const admin = crearClienteAdmin()

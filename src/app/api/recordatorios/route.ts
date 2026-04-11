@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
@@ -11,8 +11,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
  */
 
 async function obtenerUsuario() {
-  const supabase = await crearClienteServidor()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user } = await obtenerUsuarioRuta()
   if (!user) return null
   const empresaId = user.app_metadata?.empresa_activa_id
   if (!empresaId) return null

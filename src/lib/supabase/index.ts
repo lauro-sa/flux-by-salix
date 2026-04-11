@@ -7,6 +7,6 @@
  * - crearClienteAdmin: operaciones privilegiadas (solo servidor)
  */
 export { crearClienteNavegador } from './cliente'
-export { crearClienteServidor } from './servidor'
+export { crearClienteServidor, obtenerUsuarioRuta } from './servidor'
 export { crearClienteMiddleware } from './middleware'
 export { crearClienteAdmin } from './admin'

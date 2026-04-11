@@ -1,4 +1,4 @@
-import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { obtenerUsuarioRuta, crearClienteServidor } from '@/lib/supabase/servidor'
 import { NextResponse, type NextRequest } from 'next/server'
 
 /**
@@ -10,9 +10,7 @@ import { NextResponse, type NextRequest } from 'next/server'
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await crearClienteServidor()
-
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await obtenerUsuarioRuta()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
     const empresaId = user.user_metadata?.empresa_id || user.app_metadata?.empresa_id
@@ -45,6 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Actualizar la conversación (RLS filtra por empresa_id automáticamente)
+    const supabase = await crearClienteServidor()
     const { data, error } = await supabase
       .from('conversaciones')
       .update({
@@ -78,9 +77,7 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await crearClienteServidor()
-
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await obtenerUsuarioRuta()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
     const empresaId = user.user_metadata?.empresa_id || user.app_metadata?.empresa_id
@@ -95,6 +92,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Limpiar campos de snooze (RLS filtra por empresa_id automáticamente)
+    const supabase = await crearClienteServidor()
     const { data, error } = await supabase
       .from('conversaciones')
       .update({

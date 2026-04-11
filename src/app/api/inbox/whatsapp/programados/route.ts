@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { obtenerUsuarioRuta, crearClienteServidor } from '@/lib/supabase/servidor'
 
 /**
  * API de mensajes de WhatsApp programados.
@@ -13,8 +13,7 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await crearClienteServidor()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await obtenerUsuarioRuta()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
     const empresaId = user.app_metadata?.empresa_activa_id || user.user_metadata?.empresa_id
@@ -22,6 +21,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const conversacionId = searchParams.get('conversacion_id')
+
+    const supabase = await crearClienteServidor()
 
     // Sin conversacion_id: devolver el próximo programado por conversación
     if (!conversacionId) {
@@ -67,8 +68,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await crearClienteServidor()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await obtenerUsuarioRuta()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
     const empresaId = user.app_metadata?.empresa_activa_id || user.user_metadata?.empresa_id
@@ -121,6 +121,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'plantilla_nombre es requerido para plantillas' }, { status: 400 })
     }
 
+    const supabase = await crearClienteServidor()
     const { data, error } = await supabase
       .from('whatsapp_programados')
       .insert({
@@ -155,8 +156,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await crearClienteServidor()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await obtenerUsuarioRuta()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
     const empresaId = user.app_metadata?.empresa_activa_id || user.user_metadata?.empresa_id
@@ -170,6 +170,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Verificar que existe y está pendiente (RLS filtra por empresa)
+    const supabase = await crearClienteServidor()
     const { data: existente, error: errorBuscar } = await supabase
       .from('whatsapp_programados')
       .select('id, estado')

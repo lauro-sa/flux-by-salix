@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
@@ -12,8 +12,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await crearClienteServidor()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await obtenerUsuarioRuta()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
     const modulo = request.nextUrl.searchParams.get('modulo')
@@ -42,8 +41,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await crearClienteServidor()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await obtenerUsuarioRuta()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
     const { modulo, nombre, estado } = await request.json()
@@ -78,8 +76,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const supabase = await crearClienteServidor()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await obtenerUsuarioRuta()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
     const { id, estado, predefinida, modulo } = await request.json()
@@ -119,8 +116,7 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await crearClienteServidor()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await obtenerUsuarioRuta()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
     const { id } = await request.json()

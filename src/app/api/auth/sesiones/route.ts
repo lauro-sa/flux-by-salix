@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { crearClienteServidor, crearClienteAdmin } from '@/lib/supabase'
+import { obtenerUsuarioRuta, crearClienteAdmin } from '@/lib/supabase'
 
 /**
  * GET /api/auth/sesiones
@@ -8,8 +8,7 @@ import { crearClienteServidor, crearClienteAdmin } from '@/lib/supabase'
  */
 export async function GET() {
   try {
-    const supabase = await crearClienteServidor()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user, session: sesionActual } = await obtenerUsuarioRuta()
 
     if (!user) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
@@ -26,7 +25,6 @@ export async function GET() {
     }
 
     /* Detectar cuál es la sesión actual via el session_id del JWT */
-    const { data: { session: sesionActual } } = await supabase.auth.getSession()
     const idSesionActual = sesionActual?.access_token
       ? extraerSessionId(sesionActual.access_token)
       : null

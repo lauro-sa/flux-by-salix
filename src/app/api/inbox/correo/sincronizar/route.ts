@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import {
   listarMensajesGmail,
@@ -42,8 +42,7 @@ export async function POST(request: NextRequest) {
     if (canal_id) {
       // Validar que el canal pertenezca a la empresa del usuario autenticado
       try {
-        const supabase = await crearClienteServidor()
-        const { data: { user } } = await supabase.auth.getUser()
+        const { user } = await obtenerUsuarioRuta()
         if (user?.app_metadata?.empresa_activa_id) {
           query = query.eq('empresa_id', user.app_metadata.empresa_activa_id)
         }
@@ -52,8 +51,7 @@ export async function POST(request: NextRequest) {
     } else if (empresa_id) {
       // Validar que empresa_id coincida con la empresa del usuario autenticado
       try {
-        const supabase = await crearClienteServidor()
-        const { data: { user } } = await supabase.auth.getUser()
+        const { user } = await obtenerUsuarioRuta()
         if (user?.app_metadata?.empresa_activa_id && empresa_id !== user.app_metadata.empresa_activa_id) {
           return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
         }
@@ -71,8 +69,7 @@ export async function POST(request: NextRequest) {
       } else {
         // Intentar autenticar como usuario
         try {
-          const supabase = await crearClienteServidor()
-          const { data: { user } } = await supabase.auth.getUser()
+          const { user } = await obtenerUsuarioRuta()
           if (user?.app_metadata?.empresa_activa_id) {
             query = query.eq('empresa_id', user.app_metadata.empresa_activa_id)
           } else {

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { obtenerUsuarioRuta, crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /**
@@ -10,13 +10,13 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await crearClienteServidor()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await obtenerUsuarioRuta()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
     const empresaId = user.app_metadata?.empresa_activa_id
     if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
 
+    const supabase = await crearClienteServidor()
     const { data } = await supabase
       .from('reglas_correo')
       .select('*')
@@ -31,8 +31,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await crearClienteServidor()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await obtenerUsuarioRuta()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
     const empresaId = user.app_metadata?.empresa_activa_id
@@ -66,8 +65,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const supabase = await crearClienteServidor()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await obtenerUsuarioRuta()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
     const empresaId = user.app_metadata?.empresa_activa_id
@@ -102,8 +100,7 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await crearClienteServidor()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await obtenerUsuarioRuta()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
     const empresaId = user.app_metadata?.empresa_activa_id

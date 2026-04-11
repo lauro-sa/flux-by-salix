@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 
 /** Datos predefinidos para restablecer */
@@ -40,8 +40,7 @@ const RELACIONES_DEFAULT = [
  */
 export async function POST(request: Request) {
   try {
-    const supabase = await crearClienteServidor()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await obtenerUsuarioRuta()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
     const empresaId = user.app_metadata?.empresa_activa_id

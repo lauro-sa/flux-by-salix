@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { obtenerUsuarioRuta, crearClienteServidor } from '@/lib/supabase/servidor'
 import { normalizarAcentos } from '@/lib/validaciones'
 
 /**
@@ -8,8 +8,7 @@ import { normalizarAcentos } from '@/lib/validaciones'
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await crearClienteServidor()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await obtenerUsuarioRuta()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
     const empresaId = user.app_metadata?.empresa_activa_id
@@ -23,6 +22,7 @@ export async function GET(request: NextRequest) {
     }
 
     const qNorm = normalizarAcentos(q)
+    const supabase = await crearClienteServidor()
     const { data: contactos } = await supabase
       .from('contactos')
       .select('id, nombre, apellido, correo')

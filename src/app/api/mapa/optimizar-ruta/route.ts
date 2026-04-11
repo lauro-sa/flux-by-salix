@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 
 /**
  * POST /api/mapa/optimizar-ruta
@@ -7,8 +7,7 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
  * Body: { origen: {lat, lng}, paradas: [{id, lat, lng}] }
  */
 export async function POST(request: NextRequest) {
-  const supabase = await crearClienteServidor()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user } = await obtenerUsuarioRuta()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
   const empresaId = user.app_metadata?.empresa_activa_id

@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteMiddleware } from '@/lib/supabase/middleware'
 import { extraerSlug } from '@/lib/subdominio'
-import { TIMEOUT_AUTH } from '@/lib/constantes/timeouts'
 
 /**
  * Middleware principal de Flux by Salix.
@@ -9,6 +8,11 @@ import { TIMEOUT_AUTH } from '@/lib/constantes/timeouts'
  *   1. Refrescar tokens de Supabase (mantener sesión)
  *   2. Resolver subdominio → empresa
  *   3. Redirigir según estado de autenticación
+ *
+ * Usa getSession() en vez de getUser() para evitar llamadas de red a Supabase Auth.
+ * getSession() lee el JWT de cookies y refresca tokens expirados localmente via @supabase/ssr.
+ * Esto evita rate limiting de Supabase Auth (el middleware corre en cada navegación + prefetch).
+ * La seguridad la garantiza RLS en PostgreSQL al ejecutar queries reales.
  */
 
 // Rutas de auth (sin sesión)
@@ -30,8 +34,6 @@ export async function middleware(request: NextRequest) {
   const hostSinPuerto = host.split(':')[0]
   const esKiosco = hostSinPuerto.startsWith('kiosco.')
   if (esKiosco) {
-    // El kiosco maneja su propia auth por token de terminal
-    // Solo permitir rutas del kiosco, redirigir cualquier otra al root
     if (!pathname.startsWith('/kiosco')) {
       const url = request.nextUrl.clone()
       url.pathname = '/kiosco'
@@ -43,27 +45,14 @@ export async function middleware(request: NextRequest) {
   // Crear cliente Supabase y refrescar sesión
   const { supabase, response } = await crearClienteMiddleware(request)
 
-  // getUser() valida y refresca el token con Supabase.
-  // Sin esto, las API routes reciben tokens expirados y devuelven 401.
-  // Si falla o tarda demasiado (>8s), usamos getSession() como fallback.
-  // El timeout debe ser generoso para no desloguear en redes lentas (mobile/PWA).
+  // getSession() lee cookies y refresca tokens expirados via @supabase/ssr.
+  // No hace llamada de red a Supabase Auth → no contribuye al rate limit.
   let user = null
   try {
-    const { data: { user: usuarioValidado } } = await Promise.race([
-      supabase.auth.getUser(),
-      new Promise<{ data: { user: null } }>((resolve) =>
-        setTimeout(() => resolve({ data: { user: null } }), TIMEOUT_AUTH)
-      ),
-    ])
-    user = usuarioValidado
+    const { data: { session } } = await supabase.auth.getSession()
+    user = session?.user ?? null
   } catch {
-    // Fallback: leer sesión de cookies (sin validar, pero mejor que nada)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      user = session?.user ?? null
-    } catch {
-      // Sin sesión
-    }
+    // Sin sesión
   }
 
   // Extraer subdominio (reutiliza host ya declarado arriba)

@@ -1,5 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { NextResponse } from 'next/server'
+import type { User } from '@supabase/supabase-js'
 
 /**
  * Cliente Supabase para el servidor (Server Components, Route Handlers).
@@ -39,4 +41,33 @@ export async function crearClienteServidor() {
       },
     }
   )
+}
+
+/** Respuesta estándar 401 para API routes */
+const RESPUESTA_NO_AUTENTICADO = () =>
+  NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+/**
+ * obtenerUsuarioRuta — Helper para API routes que necesitan el usuario autenticado.
+ *
+ * Usa getSession() en vez de getUser() para evitar llamadas de red a Supabase Auth.
+ * getSession() lee el JWT de las cookies localmente (+ refresca si expiró).
+ * La seguridad la garantiza RLS: el JWT se valida en PostgreSQL al ejecutar queries.
+ *
+ * Esto elimina ~10-15 llamadas de red por carga de página, evitando rate limiting.
+ *
+ * Se usa en: todas las API routes que necesitan autenticación.
+ */
+export async function obtenerUsuarioRuta(): Promise<{
+  user: User | null
+  session: import('@supabase/supabase-js').Session | null
+  respuesta401: () => NextResponse
+}> {
+  const supabase = await crearClienteServidor()
+  const { data: { session } } = await supabase.auth.getSession()
+  return {
+    user: session?.user ?? null,
+    session,
+    respuesta401: RESPUESTA_NO_AUTENTICADO,
+  }
 }

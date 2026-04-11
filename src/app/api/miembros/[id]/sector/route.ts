@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
-import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 
 /**
  * GET /api/miembros/[id]/sector — Obtiene el sector primario del miembro
@@ -8,8 +8,7 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
  */
 
 async function verificarAuth() {
-  const supabase = await crearClienteServidor()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user } = await obtenerUsuarioRuta()
   if (!user) return null
   const empresaId = user.app_metadata?.empresa_activa_id
   if (!empresaId) return null

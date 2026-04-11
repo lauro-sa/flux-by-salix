@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import type { PermisosMapa } from '@/tipos'
 import { ACCIONES_POR_MODULO } from '@/tipos'
@@ -17,8 +17,7 @@ export async function PUT(
 ) {
   try {
     const { id: miembroId } = await params
-    const supabase = await crearClienteServidor()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await obtenerUsuarioRuta()
 
     if (!user) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
@@ -128,8 +127,7 @@ export async function GET(
 ) {
   try {
     const { id: miembroId } = await params
-    const supabase = await crearClienteServidor()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await obtenerUsuarioRuta()
 
     if (!user) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
