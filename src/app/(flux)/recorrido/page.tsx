@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Route, Loader2, Clock, MapPin, Pencil, Navigation, Sparkles, Undo2, ArrowUpDown, X, Check, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react'
+import { Route, Loader2, Clock, MapPin, Pencil, Navigation, Sparkles, Undo2, ArrowUpDown, X, Check, ChevronLeft, ChevronRight, RotateCcw, Phone } from 'lucide-react'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
@@ -674,11 +674,21 @@ export default function PaginaRecorrido() {
                         </button>
                       ) : estado === 'en_sitio' ? (
                         <button
-                          onClick={() => manejarEditar(v.id)}
+                          onClick={() => {
+                            setVisitaLlegada({
+                              id: v.id,
+                              nombre: v.contacto_nombre,
+                              direccion: v.direccion_texto,
+                              telefono: v.contacto_telefono || null,
+                              lat: v.direccion_lat,
+                              lng: v.direccion_lng,
+                            })
+                            setLlegadaAbierta(true)
+                          }}
                           className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors"
                         >
-                          <Pencil size={16} className="text-texto-marca" />
-                          <span className="text-[10px] font-medium text-texto-secundario">Info</span>
+                          <Phone size={16} className="text-[var(--insignia-info)]" />
+                          <span className="text-[10px] font-medium text-texto-secundario">Contactar</span>
                         </button>
                       ) : (
                         <button
@@ -712,8 +722,8 @@ export default function PaginaRecorrido() {
                           onClick={() => manejarRegistrar(v.id)}
                           className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-[var(--insignia-exito)]/30 bg-[var(--insignia-exito)]/10 hover:bg-[var(--insignia-exito)]/20 transition-colors"
                         >
-                          <Check size={16} className="text-[var(--insignia-exito)]" />
-                          <span className="text-[10px] font-medium text-[var(--insignia-exito)]">Completar</span>
+                          <Pencil size={16} className="text-[var(--insignia-exito)]" />
+                          <span className="text-[10px] font-medium text-[var(--insignia-exito)]">Registrar</span>
                         </button>
                       ) : estado === 'completada' ? (
                         <button
