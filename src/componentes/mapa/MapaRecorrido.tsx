@@ -3,6 +3,7 @@
 import { Map, useMap } from '@vis.gl/react-google-maps'
 import { MapPin, Zap, Route, ShieldOff, Settings2, Plus, Minus, Maximize2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTema } from '@/hooks/useTema'
 import { AdvancedMarker } from '@vis.gl/react-google-maps'
 import { MarcadorVisita } from './MarcadorVisita'
 import type { PuntoMapa, PreferenciaRuta, PropiedadesMapaRecorrido } from './tipos-mapa'
@@ -31,6 +32,7 @@ export function MapaRecorrido({
   onInfoRuta,
 }: PropiedadesMapaRecorrido) {
   const { puntos, origen, destino } = ruta
+  const { temaActivo } = useTema()
   const [preferencia, setPreferencia] = useState<PreferenciaRuta>(preferenciaInicial)
   const [selectorAbierto, setSelectorAbierto] = useState(false)
   const [enfocado, setEnfocado] = useState(false) // true cuando zoom en una parada específica
@@ -91,7 +93,7 @@ export function MapaRecorrido({
         )}
         gestureHandling="greedy"
         disableDefaultUI
-        colorScheme="DARK"
+        colorScheme={temaActivo === 'claro' ? 'LIGHT' : 'DARK'}
         className="w-full h-full"
       >
         {/* FitBounds automático — ajusta zoom para mostrar todas las paradas */}

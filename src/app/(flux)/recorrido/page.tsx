@@ -833,25 +833,28 @@ export default function PaginaRecorrido() {
               </button>
             </div>
           ) : (
-            /* ── Expandido + vista: iniciar recorrido completo ── */
-            <div className="px-4 py-2.5 space-y-2">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setModoEdicion(true)}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-medium border border-borde-sutil text-texto-secundario hover:bg-superficie-elevada transition-colors"
-                >
-                  <Pencil size={14} />
-                  <span>Ajustar</span>
-                </button>
-                <button
-                  onClick={iniciarRuta}
-                  className="flex-[2] flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-semibold text-white transition-colors"
-                  style={{ backgroundColor: 'var(--insignia-info)' }}
-                >
-                  <Navigation size={14} />
-                  <span>{t('recorrido.iniciar_recorrido')}</span>
-                </button>
-              </div>
+            /* ── Expandido + vista: acciones discretas ── */
+            <div className="flex items-center justify-center gap-6 py-3">
+              <button
+                onClick={() => setModoEdicion(true)}
+                className="flex items-center gap-1.5 text-xs text-texto-terciario hover:text-texto-secundario transition-colors"
+              >
+                <Pencil size={12} />
+                <span>Ajustar</span>
+              </button>
+              <button
+                onClick={iniciarRuta}
+                className="flex items-center gap-1.5 text-xs font-medium text-[var(--insignia-info)] hover:brightness-110 transition-colors"
+              >
+                <Navigation size={12} />
+                <span>{t('recorrido.iniciar_recorrido')}</span>
+              </button>
+              <button
+                onClick={() => setSheetExpandido(false)}
+                className="flex items-center gap-1.5 text-xs text-texto-terciario hover:text-texto-secundario transition-colors"
+              >
+                <span>Cerrar</span>
+              </button>
             </div>
           )}
         </div>
