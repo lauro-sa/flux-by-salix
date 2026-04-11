@@ -14,7 +14,7 @@ import { arrayMove } from '@dnd-kit/sortable'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
 import { Boton } from '@/componentes/ui/Boton'
-import { MapPin, CalendarDays, Users, ChevronLeft, ChevronRight, Inbox, ChevronDown } from 'lucide-react'
+import { CalendarDays, Users, ChevronLeft, ChevronRight, Inbox } from 'lucide-react'
 import { ProveedorMapa } from '@/componentes/mapa'
 import TarjetaVisitador from './TarjetaVisitador'
 import type { ConfigPermisos } from './ConfigRecorrido'
@@ -87,7 +87,6 @@ export default function PanelPlanificacion() {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [optimizandoUsuario, setOptimizandoUsuario] = useState<string | null>(null)
   const [tabMobile, setTabMobile] = useState(0)
-  const [bandejaAbierta, setBandejaAbierta] = useState(true)
 
   // Fetch datos
   const { data: datos, isLoading, refetch } = useQuery<DatosPlanificacion>({
@@ -107,7 +106,8 @@ export default function PanelPlanificacion() {
   useEffect(() => {
     if (datos) {
       setVisitadoresLocal(datos.visitadores)
-      setSinAsignarLocal(datos.sin_asignar)
+      // Sin asignar: usar TODAS las pendientes sin asignar (cualquier fecha)
+      setSinAsignarLocal(datos.pendientes_sin_asignar || datos.sin_asignar)
     }
   }, [datos])
 
@@ -380,59 +380,6 @@ export default function PanelPlanificacion() {
         </button>
         <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronRight size={16} />} onClick={() => cambiarDia(1)} />
       </div>
-
-      {/* ── Bandeja: todas las visitas pendientes sin asignar ── */}
-      {(datos?.pendientes_sin_asignar?.length || 0) > 0 && (
-        <div className="rounded-xl border border-borde-sutil bg-superficie-tarjeta overflow-hidden">
-          <button
-            onClick={() => setBandejaAbierta(!bandejaAbierta)}
-            className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/[0.03] transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <Inbox size={14} className="text-insignia-advertencia" />
-              <span className="text-xs font-medium text-texto-primario">
-                Pendientes sin asignar
-              </span>
-              <span className="text-xxs px-1.5 py-0.5 rounded-full bg-insignia-advertencia/15 text-insignia-advertencia font-medium">
-                {datos!.pendientes_sin_asignar.length}
-              </span>
-            </div>
-            <ChevronDown size={14} className={`text-texto-terciario transition-transform ${bandejaAbierta ? 'rotate-180' : ''}`} />
-          </button>
-
-          {bandejaAbierta && (
-            <div className="px-4 pb-3 flex flex-wrap gap-2">
-              {datos!.pendientes_sin_asignar.map(v => {
-                const fechaVisita = v.fecha_programada ? new Date(v.fecha_programada).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }) : ''
-                return (
-                  <button
-                    key={v.id}
-                    onClick={() => {
-                      // Navegar a la fecha de esta visita
-                      if (v.fecha_programada) {
-                        setFecha(v.fecha_programada.split('T')[0])
-                      }
-                    }}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-white/[0.06] bg-white/[0.03] text-xs text-texto-secundario hover:bg-white/[0.06] hover:border-texto-marca/30 transition-colors"
-                  >
-                    <MapPin size={11} className="text-texto-terciario shrink-0" />
-                    <span className="font-medium truncate max-w-[150px]">{v.contacto_nombre || 'Sin contacto'}</span>
-                    {fechaVisita && (
-                      <span className="text-xxs text-texto-terciario shrink-0">{fechaVisita}</span>
-                    )}
-                    {v.prioridad === 'urgente' && (
-                      <span className="size-1.5 rounded-full bg-red-400 shrink-0" />
-                    )}
-                    {v.prioridad === 'alta' && (
-                      <span className="size-1.5 rounded-full bg-orange-400 shrink-0" />
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ── Kanban ── */}
       <DndContext

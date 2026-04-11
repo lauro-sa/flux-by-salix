@@ -95,6 +95,9 @@ function ItemVisitaSortable({ visita, indice }: { visita: VisitaPlanificacion; i
   const horaEstimada = visita.fecha_programada
     ? new Date(visita.fecha_programada).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
     : null
+  const fechaCorta = visita.fecha_programada
+    ? new Date(visita.fecha_programada).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+    : null
 
   return (
     <div
@@ -135,10 +138,10 @@ function ItemVisitaSortable({ visita, indice }: { visita: VisitaPlanificacion; i
         )}
 
         <div className="flex items-center gap-3 mt-1">
-          {horaEstimada && (
+          {(fechaCorta || horaEstimada) && (
             <span className="flex items-center gap-1 text-[11px] text-texto-terciario">
               <Clock size={10} />
-              {horaEstimada}
+              {fechaCorta}{horaEstimada ? ` · ${horaEstimada}` : ''}
             </span>
           )}
           {visita.duracion_estimada_min && (
