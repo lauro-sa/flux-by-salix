@@ -106,8 +106,14 @@ export default function PanelPlanificacion() {
   useEffect(() => {
     if (datos) {
       setVisitadoresLocal(datos.visitadores)
-      // Sin asignar: usar TODAS las pendientes sin asignar (cualquier fecha)
-      setSinAsignarLocal(datos.pendientes_sin_asignar || datos.sin_asignar)
+      // Sin asignar: usar TODAS las pendientes sin asignar (cualquier fecha), ordenadas por fecha más cercana
+      const pendientes = datos.pendientes_sin_asignar || datos.sin_asignar
+      pendientes.sort((a, b) => {
+        const fa = a.fecha_programada ? new Date(a.fecha_programada).getTime() : Infinity
+        const fb = b.fecha_programada ? new Date(b.fecha_programada).getTime() : Infinity
+        return fa - fb
+      })
+      setSinAsignarLocal(pendientes)
     }
   }, [datos])
 

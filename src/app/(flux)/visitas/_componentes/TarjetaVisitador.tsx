@@ -8,7 +8,8 @@ import { Avatar } from '@/componentes/ui/Avatar'
 import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { useTraduccion } from '@/lib/i18n'
-import { MapPin, GripVertical, Clock, Route, Navigation, Inbox } from 'lucide-react'
+import { useFormato } from '@/hooks/useFormato'
+import { MapPin, GripVertical, Route, Navigation, Inbox, Calendar } from 'lucide-react'
 import { MapaRecorrido } from '@/componentes/mapa'
 import type { PuntoMapa, RutaMapa } from '@/componentes/mapa'
 import ConfigRecorrido, { type ConfigPermisos } from './ConfigRecorrido'
@@ -76,7 +77,7 @@ const COLORES_PRIORIDAD: Record<string, ColorInsignia> = {
 
 // Componente sortable para cada visita dentro de la columna
 function ItemVisitaSortable({ visita, indice }: { visita: VisitaPlanificacion; indice: number }) {
-  const { t } = useTraduccion()
+  const formato = useFormato()
   const {
     attributes,
     listeners,
@@ -89,80 +90,71 @@ function ItemVisitaSortable({ visita, indice }: { visita: VisitaPlanificacion; i
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.4 : 1,
   }
 
-  const horaEstimada = visita.fecha_programada
-    ? new Date(visita.fecha_programada).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
-    : null
+  const horaFormateada = visita.fecha_programada ? formato.hora(visita.fecha_programada) : null
   const fechaCorta = visita.fecha_programada
     ? new Date(visita.fecha_programada).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
     : null
+
+  const colorBorde = visita.prioridad === 'urgente' ? 'border-l-red-400'
+    : visita.prioridad === 'alta' ? 'border-l-orange-400'
+    : 'border-l-texto-marca/40'
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="group flex items-start gap-2 rounded-lg border border-white/[0.06] bg-white/[0.03] p-2.5 hover:bg-white/[0.06] transition-colors"
+      className={`relative rounded-lg border border-white/[0.06] border-l-2 ${colorBorde} bg-white/[0.03] hover:bg-white/[0.06] transition-colors cursor-grab active:cursor-grabbing touch-none`}
+      {...attributes}
+      {...listeners}
     >
-      {/* Handle de drag */}
-      <button
-        className="mt-0.5 cursor-grab text-texto-terciario opacity-0 group-hover:opacity-100 transition-opacity touch-none"
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical size={14} />
-      </button>
-
-      {/* Número de orden */}
-      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-texto-marca/15 text-[10px] font-bold text-texto-marca">
-        {indice + 1}
-      </span>
-
-      {/* Info de la visita */}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <span className="truncate text-sm font-medium text-texto-primario">
-            {visita.contacto_nombre || 'Sin contacto'}
-          </span>
-          <Insignia color={COLORES_PRIORIDAD[visita.prioridad] || 'neutro'} tamano="sm">
-            {visita.prioridad}
-          </Insignia>
-        </div>
-
-        {visita.direccion_texto && (
-          <div className="flex items-center gap-1 mt-0.5">
-            <MapPin size={10} className="shrink-0 text-texto-terciario" />
-            <span className="truncate text-xs text-texto-terciario">{visita.direccion_texto}</span>
-          </div>
-        )}
-
-        <div className="flex items-center gap-3 mt-1">
-          {(fechaCorta || horaEstimada) && (
-            <span className="flex items-center gap-1 text-[11px] text-texto-terciario">
-              <Clock size={10} />
-              {fechaCorta}{horaEstimada ? ` · ${horaEstimada}` : ''}
-            </span>
-          )}
-          {visita.duracion_estimada_min && (
-            <span className="text-[11px] text-texto-terciario">
-              {visita.duracion_estimada_min} min
-            </span>
-          )}
-          <Insignia color={COLORES_ESTADO[visita.estado] || 'neutro'} tamano="sm">
-            {t(`visitas.estados.${visita.estado}` as 'visitas.estados.programada')}
-          </Insignia>
-        </div>
+      {/* Ícono drag centrado arriba */}
+      <div className="flex justify-center py-0.5 opacity-30">
+        <GripVertical size={12} />
       </div>
 
-      {/* Botón navegar */}
+      <div className="px-2.5 pb-2 space-y-1">
+        {/* Nombre + número */}
+        <div className="flex items-center gap-2">
+          <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-texto-marca/15 text-[9px] font-bold text-texto-marca">
+            {indice + 1}
+          </span>
+          <span className="truncate text-[13px] font-medium text-texto-primario">
+            {visita.contacto_nombre || 'Sin contacto'}
+          </span>
+        </div>
+
+        {/* Fecha + hora + duración en una línea */}
+        <div className="flex items-center gap-2 text-[11px] text-texto-terciario">
+          {fechaCorta && (
+            <span className="flex items-center gap-1">
+              <Calendar size={9} className="shrink-0" />
+              {fechaCorta}
+            </span>
+          )}
+          {horaFormateada && <span>{horaFormateada}</span>}
+          {visita.duracion_estimada_min && <span>· {visita.duracion_estimada_min}min</span>}
+        </div>
+
+        {/* Dirección (truncada) */}
+        {visita.direccion_texto && (
+          <div className="flex items-center gap-1">
+            <MapPin size={9} className="shrink-0 text-texto-terciario" />
+            <span className="truncate text-[11px] text-texto-terciario">{visita.direccion_texto}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Navegar */}
       {visita.direccion_lat && visita.direccion_lng && (
         <button
-          className="mt-0.5 shrink-0 rounded p-1 text-texto-terciario hover:bg-white/[0.06] hover:text-texto-primario transition-colors"
-          onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${visita.direccion_lat},${visita.direccion_lng}`, '_blank')}
-          title={t('recorrido.abrir_navegacion')}
+          className="absolute top-1.5 right-1.5 rounded p-1 text-texto-terciario hover:bg-white/[0.08] hover:text-texto-primario transition-colors"
+          onClick={(e) => { e.stopPropagation(); window.open(`https://www.google.com/maps/dir/?api=1&destination=${visita.direccion_lat},${visita.direccion_lng}`, '_blank') }}
+          title="Navegar"
         >
-          <Navigation size={12} />
+          <Navigation size={11} />
         </button>
       )}
     </div>
