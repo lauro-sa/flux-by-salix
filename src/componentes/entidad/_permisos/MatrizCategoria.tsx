@@ -18,6 +18,8 @@ import {
   ACCIONES_POR_MODULO,
   ETIQUETAS_MODULO,
   ETIQUETAS_ACCION,
+  DESCRIPCIONES_MODULO,
+  DESCRIPCIONES_ACCION,
 } from '@/tipos'
 
 interface PropiedadesMatrizCategoria {
@@ -127,7 +129,7 @@ export function MatrizCategoria({
 
                       return (
                         <th key={accion} className="px-1 py-1 text-center whitespace-nowrap min-w-[60px]">
-                          <Tooltip contenido={`${todosActivos ? 'Desmarcar' : 'Marcar'} "${ETIQUETAS_ACCION[accion]}" en todos los modulos`}>
+                          <Tooltip contenido={`${DESCRIPCIONES_ACCION[accion] || ETIQUETAS_ACCION[accion]} — Click: ${todosActivos ? 'desmarcar' : 'marcar'} en todos`}>
                           <button
                             type="button"
                             onClick={() => onToggleColumna(modulos, accion)}
@@ -175,7 +177,13 @@ export function MatrizCategoria({
                         <td className="px-3 py-1.5 sticky left-0 bg-superficie-tarjeta z-10">
                           <div className="flex items-center gap-2">
                             <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${colorIndicador}`} />
-                            <span className="font-medium text-texto-primario whitespace-nowrap">{ETIQUETAS_MODULO[modulo]}</span>
+                            {DESCRIPCIONES_MODULO[modulo] ? (
+                              <Tooltip contenido={DESCRIPCIONES_MODULO[modulo]!} posicion="derecha">
+                                <span className="font-medium text-texto-primario whitespace-nowrap border-b border-dotted border-texto-terciario/30 cursor-help">{ETIQUETAS_MODULO[modulo]}</span>
+                              </Tooltip>
+                            ) : (
+                              <span className="font-medium text-texto-primario whitespace-nowrap">{ETIQUETAS_MODULO[modulo]}</span>
+                            )}
                           </div>
                         </td>
                         {columnas.map((accion) => {

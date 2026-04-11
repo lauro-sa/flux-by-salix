@@ -186,6 +186,46 @@ export const ETIQUETAS_MODULO: Record<Modulo, string> = {
   config_recorrido: 'Config recorrido',
 }
 
+/** Descripciones de ayuda por módulo — se muestran como tooltip en la matriz de permisos */
+export const DESCRIPCIONES_MODULO: Partial<Record<Modulo, string>> = {
+  contactos: 'Gestión de contactos, empresas y vinculaciones.',
+  actividades: 'Tareas, llamadas, reuniones y seguimiento comercial.',
+  visitas: 'Planificación de visitas: crear, asignar a visitadores, organizar recorridos. El que tiene "Asignar" puede gestionar visitas de todo el equipo.',
+  calendario: 'Eventos y bloques de calendario.',
+  recorrido: 'Acceso al recorrido mobile del visitador. "Ver propio" + "Registrar" = es visitador (aparece en "Asignado a" y ve "Mi Recorrido"). Solo "Ver todos" = supervisor, ve recorridos ajenos pero no es visitador.',
+  asistencias: 'Control de asistencia y fichaje.',
+  productos: 'Catálogo de productos y servicios.',
+  presupuestos: 'Creación y envío de cotizaciones.',
+  facturas: 'Facturación y documentos fiscales.',
+  informes: 'Informes técnicos y reportes.',
+  ordenes_trabajo: 'Órdenes con etapas, asignación y seguimiento.',
+  inbox_whatsapp: 'Canal de WhatsApp.',
+  inbox_correo: 'Canal de correo electrónico.',
+  inbox_interno: 'Mensajes internos entre miembros.',
+  usuarios: 'Gestión de miembros del equipo.',
+  empresa: 'Datos generales de la empresa.',
+  auditoria: 'Registro de cambios y acciones.',
+}
+
+/** Descripciones de ayuda por acción — se muestran como tooltip en los headers de columna */
+export const DESCRIPCIONES_ACCION: Partial<Record<Accion, string>> = {
+  ver_propio: 'Ve solo los registros que creó o que le asignaron.',
+  ver_todos: 'Ve todos los registros de la empresa.',
+  ver: 'Acceso de lectura al módulo.',
+  crear: 'Puede crear nuevos registros.',
+  editar: 'Puede modificar registros existentes.',
+  eliminar: 'Puede enviar registros a la papelera.',
+  completar: 'Puede marcar como completado.',
+  enviar: 'Puede enviar documentos por correo/WhatsApp.',
+  asignar: 'Puede asignar registros a otros miembros.',
+  registrar: 'Puede registrar llegada, tomar fotos y completar visitas en campo.',
+  reordenar: 'Puede cambiar el orden de las paradas en su recorrido.',
+  marcar: 'Puede registrar fichaje de entrada/salida.',
+  invitar: 'Puede invitar nuevos miembros.',
+  aprobar: 'Puede aprobar solicitudes pendientes.',
+  completar_etapa: 'Puede completar etapas individuales.',
+}
+
 /** Etiquetas legibles para cada accion */
 export const ETIQUETAS_ACCION: Record<Accion, string> = {
   ver_propio: 'Ver propio',
