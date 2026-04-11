@@ -31,11 +31,12 @@ export async function GET(request: NextRequest) {
     const inicioDelDia = `${fecha}T00:00:00.000Z`
     const finDelDia = `${fecha}T23:59:59.999Z`
 
-    // Queries en paralelo: visitas del día, miembros, recorridos
+    // Queries en paralelo: visitas del día, miembros, recorridos, todas sin asignar
     const [
       { data: visitas, error: errorVisitas },
       { data: miembros },
       { data: recorridos },
+      { data: todasSinAsignar },
     ] = await Promise.all([
       admin
         .from('visitas')
@@ -56,6 +57,16 @@ export async function GET(request: NextRequest) {
         .select('*, paradas:recorrido_paradas(id, visita_id, orden)')
         .eq('empresa_id', empresaId)
         .eq('fecha', fecha),
+      // Todas las visitas sin asignar (cualquier fecha, pendientes)
+      admin
+        .from('visitas')
+        .select('id, contacto_nombre, direccion_texto, direccion_lat, direccion_lng, estado, prioridad, duracion_estimada_min, fecha_programada, motivo, asignado_a, asignado_nombre')
+        .eq('empresa_id', empresaId)
+        .eq('en_papelera', false)
+        .is('asignado_a', null)
+        .in('estado', ['programada', 'reprogramada'])
+        .order('fecha_programada', { ascending: true })
+        .limit(100),
     ])
 
     if (errorVisitas) {
@@ -155,6 +166,7 @@ export async function GET(request: NextRequest) {
       fecha,
       visitadores,
       sin_asignar: sinAsignar,
+      pendientes_sin_asignar: todasSinAsignar || [],
       total_visitas: (visitas || []).length,
     })
   } catch (err) {

@@ -14,8 +14,7 @@ import { arrayMove } from '@dnd-kit/sortable'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
 import { Boton } from '@/componentes/ui/Boton'
-import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
-import { MapPin, CalendarDays, Users, ChevronLeft, ChevronRight, Inbox } from 'lucide-react'
+import { MapPin, CalendarDays, Users, ChevronLeft, ChevronRight, Inbox, ChevronDown } from 'lucide-react'
 import { ProveedorMapa } from '@/componentes/mapa'
 import TarjetaVisitador from './TarjetaVisitador'
 import type { ConfigPermisos } from './ConfigRecorrido'
@@ -63,6 +62,7 @@ interface DatosPlanificacion {
   fecha: string
   visitadores: VisitadorPlan[]
   sin_asignar: VisitaPlan[]
+  pendientes_sin_asignar: VisitaPlan[]
   total_visitas: number
 }
 
@@ -87,6 +87,7 @@ export default function PanelPlanificacion() {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [optimizandoUsuario, setOptimizandoUsuario] = useState<string | null>(null)
   const [tabMobile, setTabMobile] = useState(0)
+  const [bandejaAbierta, setBandejaAbierta] = useState(true)
 
   // Fetch datos
   const { data: datos, isLoading, refetch } = useQuery<DatosPlanificacion>({
@@ -322,72 +323,116 @@ export default function PanelPlanificacion() {
 
   return (
     <ProveedorMapa>
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 px-2 sm:px-6 pb-4">
 
-      {/* ── Barra superior: navegación de fecha + resumen ── */}
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-borde-sutil bg-superficie-tarjeta p-3">
-        {/* Navegador de fecha */}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => cambiarDia(-1)}
-            className="rounded-lg p-1.5 text-texto-terciario hover:bg-white/[0.06] hover:text-texto-primario transition-colors"
-          >
-            <ChevronLeft size={16} />
-          </button>
-
-          <SelectorFecha
-            valor={fecha}
-            onChange={(v) => v && setFecha(v)}
-            className="w-40"
-          />
-
-          <button
-            onClick={() => cambiarDia(1)}
-            className="rounded-lg p-1.5 text-texto-terciario hover:bg-white/[0.06] hover:text-texto-primario transition-colors"
-          >
-            <ChevronRight size={16} />
-          </button>
-        </div>
-
+      {/* ── Barra de controles estilo asistencias ── */}
+      <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-borde-sutil bg-superficie-tarjeta">
         {/* Chips rápidos */}
-        <div className="flex items-center gap-1">
-          {botonesRapidos.map(btn => (
-            <button
-              key={btn.valor}
-              onClick={() => setFecha(btn.valor)}
-              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
-                fecha === btn.valor
-                  ? 'bg-texto-marca/15 text-texto-marca'
-                  : 'text-texto-terciario hover:bg-white/[0.06] hover:text-texto-secundario'
-              }`}
-            >
-              {btn.label}
-            </button>
-          ))}
-        </div>
+        {botonesRapidos.map(btn => (
+          <button
+            key={btn.valor}
+            onClick={() => setFecha(btn.valor)}
+            className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
+              fecha === btn.valor
+                ? 'bg-superficie-elevada text-texto-primario'
+                : 'text-texto-terciario hover:text-texto-secundario'
+            }`}
+          >
+            {btn.label}
+          </button>
+        ))}
+
+        {/* Spacer */}
+        <div className="flex-1" />
 
         {/* Resumen */}
-        <div className="ml-auto flex items-center gap-3 text-xs text-texto-terciario">
+        <div className="hidden sm:flex items-center gap-3 text-xs text-texto-terciario whitespace-nowrap">
           <span className="flex items-center gap-1.5">
-            <CalendarDays size={13} />
+            <CalendarDays size={11} />
             <strong className="text-texto-primario">{totalVisitas}</strong> visitas
           </span>
           <span className="text-borde-fuerte">·</span>
           <span className="flex items-center gap-1.5">
-            <Users size={13} />
+            <Users size={11} />
             <strong className="text-texto-primario">{visitadoresConVisitas}</strong>/{visitadoresLocal.length} con rutas
           </span>
           {sinAsignarLocal.length > 0 && (
             <>
               <span className="text-borde-fuerte">·</span>
               <span className="flex items-center gap-1.5 text-insignia-advertencia">
-                <Inbox size={13} />
+                <Inbox size={11} />
                 <strong>{sinAsignarLocal.length}</strong> sin asignar
               </span>
             </>
           )}
         </div>
       </div>
+
+      {/* ── Navegación de fecha centrada ── */}
+      <div className="flex items-center justify-center gap-3 shrink-0">
+        <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronLeft size={16} />} onClick={() => cambiarDia(-1)} />
+        <button
+          onClick={() => setFecha(botonesRapidos[0].valor)}
+          className="text-center hover:text-texto-marca transition-colors min-w-[120px]"
+        >
+          <p className="text-sm font-semibold text-texto-primario">{formatearFechaCorta(fecha)}</p>
+          <p className="text-[10px] text-texto-terciario">{fecha}</p>
+        </button>
+        <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronRight size={16} />} onClick={() => cambiarDia(1)} />
+      </div>
+
+      {/* ── Bandeja: todas las visitas pendientes sin asignar ── */}
+      {(datos?.pendientes_sin_asignar?.length || 0) > 0 && (
+        <div className="rounded-xl border border-borde-sutil bg-superficie-tarjeta overflow-hidden">
+          <button
+            onClick={() => setBandejaAbierta(!bandejaAbierta)}
+            className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/[0.03] transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <Inbox size={14} className="text-insignia-advertencia" />
+              <span className="text-xs font-medium text-texto-primario">
+                Pendientes sin asignar
+              </span>
+              <span className="text-xxs px-1.5 py-0.5 rounded-full bg-insignia-advertencia/15 text-insignia-advertencia font-medium">
+                {datos!.pendientes_sin_asignar.length}
+              </span>
+            </div>
+            <ChevronDown size={14} className={`text-texto-terciario transition-transform ${bandejaAbierta ? 'rotate-180' : ''}`} />
+          </button>
+
+          {bandejaAbierta && (
+            <div className="px-4 pb-3 flex flex-wrap gap-2">
+              {datos!.pendientes_sin_asignar.map(v => {
+                const fechaVisita = v.fecha_programada ? new Date(v.fecha_programada).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }) : ''
+                return (
+                  <button
+                    key={v.id}
+                    onClick={() => {
+                      // Navegar a la fecha de esta visita
+                      if (v.fecha_programada) {
+                        setFecha(v.fecha_programada.split('T')[0])
+                      }
+                    }}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-white/[0.06] bg-white/[0.03] text-xs text-texto-secundario hover:bg-white/[0.06] hover:border-texto-marca/30 transition-colors"
+                  >
+                    <MapPin size={11} className="text-texto-terciario shrink-0" />
+                    <span className="font-medium truncate max-w-[150px]">{v.contacto_nombre || 'Sin contacto'}</span>
+                    {fechaVisita && (
+                      <span className="text-xxs text-texto-terciario shrink-0">{fechaVisita}</span>
+                    )}
+                    {v.prioridad === 'urgente' && (
+                      <span className="size-1.5 rounded-full bg-red-400 shrink-0" />
+                    )}
+                    {v.prioridad === 'alta' && (
+                      <span className="size-1.5 rounded-full bg-orange-400 shrink-0" />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Kanban ── */}
       <DndContext
