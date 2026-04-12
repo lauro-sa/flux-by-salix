@@ -9,7 +9,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { useTraduccion } from '@/lib/i18n'
 import { useFormato } from '@/hooks/useFormato'
-import { MapPin, GripVertical, Route, Navigation, Inbox, Calendar } from 'lucide-react'
+import { MapPin, GripVertical, Route, Navigation, Inbox, Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
 import { MapaRecorrido } from '@/componentes/mapa'
 import type { PuntoMapa, RutaMapa } from '@/componentes/mapa'
 import ConfigRecorrido, { type ConfigPermisos } from './ConfigRecorrido'
@@ -53,6 +53,7 @@ interface Props {
   recorrido: RecorridoResumen | null
   onOptimizarRuta: (usuarioId: string) => void
   onGuardarConfig: (recorridoId: string, config: ConfigPermisos) => Promise<void>
+  onMoverColumna?: (usuarioId: string, direccion: -1 | 1) => void
   optimizando?: boolean
   esSinAsignar?: boolean
 }
@@ -178,6 +179,7 @@ export default function TarjetaVisitador({
   recorrido,
   onOptimizarRuta,
   onGuardarConfig,
+  onMoverColumna,
   optimizando,
   esSinAsignar,
 }: Props) {
@@ -241,7 +243,17 @@ export default function TarjetaVisitador({
 
         {/* Acciones del header — solo para visitadores reales */}
         {!esSinAsignar && (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
+            {onMoverColumna && (
+              <>
+                <button onClick={() => onMoverColumna(usuarioId, -1)} className="p-1 text-texto-terciario hover:text-texto-secundario transition-colors rounded hover:bg-white/[0.06]" title="Mover izquierda">
+                  <ChevronLeft size={12} />
+                </button>
+                <button onClick={() => onMoverColumna(usuarioId, 1)} className="p-1 text-texto-terciario hover:text-texto-secundario transition-colors rounded hover:bg-white/[0.06]" title="Mover derecha">
+                  <ChevronRight size={12} />
+                </button>
+              </>
+            )}
             <Boton
               variante="fantasma"
               tamano="sm"

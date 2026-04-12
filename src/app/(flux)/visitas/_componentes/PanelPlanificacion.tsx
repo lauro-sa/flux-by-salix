@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   DndContext,
@@ -89,6 +89,9 @@ export default function PanelPlanificacion() {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [optimizandoUsuario, setOptimizandoUsuario] = useState<string | null>(null)
   const [tabMobile, setTabMobile] = useState(0)
+  // Orden de columnas persistido en localStorage
+  const [ordenColumnas, setOrdenColumnas] = useState<string[]>([])
+  const ordenCargado = useRef(false)
 
   // Fetch datos
   const { data: datos, isLoading, refetch } = useQuery<DatosPlanificacion>({
@@ -105,19 +108,59 @@ export default function PanelPlanificacion() {
   const [visitadoresLocal, setVisitadoresLocal] = useState<VisitadorPlan[]>([])
   const [sinAsignarLocal, setSinAsignarLocal] = useState<VisitaPlan[]>([])
 
+  // Ordenar visitas por fecha más cercana primero
+  const ordenarPorFecha = useCallback((arr: VisitaPlan[]) =>
+    [...arr].sort((a, b) => {
+      const fa = a.fecha_programada ? new Date(a.fecha_programada).getTime() : Infinity
+      const fb = b.fecha_programada ? new Date(b.fecha_programada).getTime() : Infinity
+      return fa - fb
+    })
+  , [])
+
   useEffect(() => {
     if (datos) {
-      setVisitadoresLocal(datos.visitadores)
-      // Sin asignar: usar TODAS las pendientes sin asignar (cualquier fecha), ordenadas por fecha más cercana
-      const pendientes = datos.pendientes_sin_asignar || datos.sin_asignar
-      pendientes.sort((a, b) => {
-        const fa = a.fecha_programada ? new Date(a.fecha_programada).getTime() : Infinity
-        const fb = b.fecha_programada ? new Date(b.fecha_programada).getTime() : Infinity
-        return fa - fb
-      })
-      setSinAsignarLocal(pendientes)
+      // Aplicar orden guardado a visitadores
+      let visitadoresOrdenados = datos.visitadores
+      if (!ordenCargado.current) {
+        try {
+          const guardado = localStorage.getItem('flux-orden-columnas-planificacion')
+          if (guardado) setOrdenColumnas(JSON.parse(guardado))
+        } catch { /* ignorar */ }
+        ordenCargado.current = true
+      }
+      if (ordenColumnas.length > 0) {
+        visitadoresOrdenados = [...datos.visitadores].sort((a, b) => {
+          const ia = ordenColumnas.indexOf(a.usuario_id)
+          const ib = ordenColumnas.indexOf(b.usuario_id)
+          if (ia === -1 && ib === -1) return 0
+          if (ia === -1) return 1
+          if (ib === -1) return -1
+          return ia - ib
+        })
+      }
+      setVisitadoresLocal(visitadoresOrdenados)
+      setSinAsignarLocal(ordenarPorFecha(datos.pendientes_sin_asignar || datos.sin_asignar))
     }
-  }, [datos])
+  }, [datos, ordenColumnas, ordenarPorFecha])
+
+  // Mover columna de visitador
+  const moverColumna = useCallback((usuarioId: string, direccion: -1 | 1) => {
+    setVisitadoresLocal(prev => {
+      const idx = prev.findIndex(v => v.usuario_id === usuarioId)
+      if (idx === -1) return prev
+      const nuevoIdx = idx + direccion
+      if (nuevoIdx < 0 || nuevoIdx >= prev.length) return prev
+      const nuevo = [...prev]
+      const temp = nuevo[idx]
+      nuevo[idx] = nuevo[nuevoIdx]
+      nuevo[nuevoIdx] = temp
+      // Persistir orden
+      const nuevoOrden = nuevo.map(v => v.usuario_id)
+      setOrdenColumnas(nuevoOrden)
+      localStorage.setItem('flux-orden-columnas-planificacion', JSON.stringify(nuevoOrden))
+      return nuevo
+    })
+  }, [])
 
   // Helper para formatear fecha local sin UTC
   const fechaLocal = useCallback((d: Date) =>
@@ -195,13 +238,13 @@ export default function PanelPlanificacion() {
       ))
     }
     if (columnaDestino === ID_SIN_ASIGNAR) {
-      setSinAsignarLocal(prev => [...prev, visita])
+      setSinAsignarLocal(prev => ordenarPorFecha([...prev, visita]))
     } else {
       setVisitadoresLocal(prev => prev.map(vis =>
         vis.usuario_id === columnaDestino ? { ...vis, visitas: [...vis.visitas, visita] } : vis
       ))
     }
-  }, [encontrarColumna, encontrarVisita])
+  }, [encontrarColumna, encontrarVisita, ordenarPorFecha])
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event
@@ -472,6 +515,7 @@ export default function PanelPlanificacion() {
               recorrido={visitador.recorrido}
               onOptimizarRuta={optimizarRuta}
               onGuardarConfig={guardarConfig}
+              onMoverColumna={moverColumna}
               optimizando={optimizandoUsuario === visitador.usuario_id}
             />
           ))}
