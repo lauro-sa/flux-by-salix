@@ -430,7 +430,7 @@ export default function PanelPlanificacion() {
         </div>
 
         {/* Desktop kanban */}
-        <div className="hidden md:flex items-stretch gap-3 overflow-x-auto pb-2 -mx-1 px-1 flex-1 min-h-0">
+        <div className="hidden md:flex items-stretch gap-3 overflow-x-auto pb-2 flex-1 min-h-0" style={{ scrollbarWidth: 'none' }}
           {/* Columna sin asignar — siempre visible */}
           <TarjetaVisitador
             usuarioId={ID_SIN_ASIGNAR}
