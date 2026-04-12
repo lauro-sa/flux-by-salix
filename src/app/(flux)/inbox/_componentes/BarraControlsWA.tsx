@@ -63,9 +63,9 @@ function calcularEstado(activo: boolean, pausadoHasta: string | null): EstadoBot
 
 /** Color del indicador según estado */
 function colorIndicador(estado: EstadoBot, tipo: 'bot' | 'ia'): string {
-  if (estado === 'activo') return tipo === 'ia' ? '#8b5cf6' : '#22c55e'
-  if (estado === 'pausado') return '#f59e0b'
-  return '#9ca3af'
+  if (estado === 'activo') return tipo === 'ia' ? 'var(--insignia-violeta)' : 'var(--insignia-exito)'
+  if (estado === 'pausado') return 'var(--insignia-advertencia)'
+  return 'var(--insignia-neutro)'
 }
 
 // ─── Componente principal ───
@@ -246,7 +246,7 @@ export function BarraControlsWA({
     return {
       id: conversacion.etapa_id,
       etiqueta: conversacion.etapa_etiqueta || 'Cargando...',
-      color: conversacion.etapa_color || '#6b7280',
+      color: conversacion.etapa_color || 'var(--insignia-neutro)',
     }
   }, [conversacion.etapa_id, conversacion.etapa_etiqueta, conversacion.etapa_color, etapas])
 
@@ -345,9 +345,9 @@ export function BarraControlsWA({
               className={`${esMovil ? 'size-9' : 'h-7 px-2.5'} rounded-full flex items-center justify-center gap-1.5 text-xs font-medium cursor-pointer transition-colors`}
               style={{
                 background: conversacion.asignado_a
-                  ? 'color-mix(in srgb, #0ea5e9 15%, transparent)'
+                  ? 'color-mix(in srgb, var(--insignia-cyan) 15%, transparent)'
                   : 'var(--superficie-hover)',
-                color: conversacion.asignado_a ? '#0ea5e9' : 'var(--texto-terciario)',
+                color: conversacion.asignado_a ? 'var(--insignia-cyan)' : 'var(--texto-terciario)',
               }}
             >
               <User size={esMovil ? 16 : 12} />
@@ -372,7 +372,7 @@ export function BarraControlsWA({
                 style={{ color: 'var(--texto-secundario)', border: 'none', background: 'transparent' }}
                 onClick={() => patchConversacion({ sector_id: null, sector_nombre: null, sector_color: null })}
               >
-                <div className="size-3 rounded-full" style={{ background: '#9ca3af' }} />
+                <div className="size-3 rounded-full" style={{ background: 'var(--insignia-neutro)' }} />
                 <span>Sin sector</span>
                 {!conversacion.sector_id && <Check size={14} className="ml-auto" style={{ color: 'var(--insignia-exito)' }} />}
               </button>
@@ -403,9 +403,9 @@ export function BarraControlsWA({
               className={`${esMovil ? 'size-9' : 'h-7 px-2.5'} rounded-full flex items-center justify-center gap-1.5 text-xs font-medium cursor-pointer transition-colors`}
               style={{
                 background: conversacion.sector_id
-                  ? `color-mix(in srgb, ${conversacion.sector_color || '#6366f1'} 15%, transparent)`
+                  ? `color-mix(in srgb, ${conversacion.sector_color || 'var(--texto-marca)'} 15%, transparent)`
                   : 'var(--superficie-hover)',
-                color: conversacion.sector_id ? (conversacion.sector_color || '#6366f1') : 'var(--texto-terciario)',
+                color: conversacion.sector_id ? (conversacion.sector_color || 'var(--texto-marca)') : 'var(--texto-terciario)',
               }}
             >
               <Building2 size={esMovil ? 16 : 12} />
@@ -428,7 +428,7 @@ export function BarraControlsWA({
               <button type="button" className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--superficie-hover)] transition-colors cursor-pointer"
                 style={{ color: 'var(--texto-secundario)', border: 'none', background: 'transparent' }}
                 onClick={() => patchConversacion({ etapa_id: null })}>
-                <div className="size-3 rounded-full" style={{ background: '#9ca3af' }} />
+                <div className="size-3 rounded-full" style={{ background: 'var(--insignia-neutro)' }} />
                 <span>Sin etapa</span>
                 {!conversacion.etapa_id && <Check size={14} className="ml-auto" style={{ color: 'var(--insignia-exito)' }} />}
               </button>
@@ -447,7 +447,7 @@ export function BarraControlsWA({
         >
           <motion.button
             className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold cursor-pointer"
-            style={{ background: etapaActual ? etapaActual.color : '#9ca3af', color: '#fff' }}
+            style={{ background: etapaActual ? etapaActual.color : 'var(--insignia-neutro)', color: 'var(--texto-inverso)' }}
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
           >

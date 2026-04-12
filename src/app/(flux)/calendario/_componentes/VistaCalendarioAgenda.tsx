@@ -187,7 +187,7 @@ function VistaCalendarioAgenda({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       {evento._es_visita && <MapPin size={13} className="shrink-0 text-texto-marca" />}
-                      {evento._es_recorrido && <Route size={13} className="shrink-0 text-[#8b5cf6]" />}
+                      {evento._es_recorrido && <Route size={13} className="shrink-0 text-seccion-visitas" />}
                       <span className="text-sm font-medium text-texto-primario truncate">
                         {evento.titulo}
                       </span>

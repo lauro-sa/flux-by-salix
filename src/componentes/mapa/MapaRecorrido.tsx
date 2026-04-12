@@ -83,7 +83,7 @@ export function MapaRecorrido({
             rel="noopener noreferrer"
             className="flex items-center gap-2 py-2 text-sm hover:bg-superficie-elevada rounded px-2"
           >
-            <span className="flex items-center justify-center size-5 rounded bg-blue-600 border border-blue-500 text-white text-xs font-bold">
+            <span className="flex items-center justify-center size-5 rounded bg-insignia-info border border-insignia-info text-texto-inverso text-xs font-bold">
               {i + 1}
             </span>
             <MapPin size={14} />
@@ -109,7 +109,7 @@ export function MapaRecorrido({
 
   const estiloBoton = esClaro
     ? 'bg-white/80 border-black/10 text-black/60 hover:text-black active:bg-black/5 shadow-md'
-    : 'bg-black/60 border-white/10 text-white/80 hover:text-white active:bg-white/20'
+    : 'bg-black/60 border-white/10 text-texto-inverso/80 hover:text-texto-inverso active:bg-white/20'
 
   return (
     <div className={`relative overflow-hidden h-full ${className}`}>
@@ -150,8 +150,8 @@ export function MapaRecorrido({
             title={origen.texto || 'Punto de partida'}
           >
             <div className="relative flex items-center justify-center">
-              <div className="absolute size-8 rounded-full bg-blue-500/20 animate-pulse" />
-              <div className="size-3.5 rounded-full bg-blue-500 border-2 border-white shadow-lg" />
+              <div className="absolute size-8 rounded-full bg-insignia-info/20 animate-pulse" />
+              <div className="size-3.5 rounded-full bg-insignia-info border-2 border-white shadow-lg" />
             </div>
           </AdvancedMarker>
         )}
@@ -217,10 +217,10 @@ export function MapaRecorrido({
                   onClick={() => cambiarPreferencia(valor)}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                     preferencia === valor
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-insignia-info text-texto-inverso'
                       : esClaro
                         ? 'text-black/50 hover:text-black hover:bg-black/5'
-                        : 'text-white/60 hover:text-white hover:bg-white/10'
+                        : 'text-texto-inverso/60 hover:text-texto-inverso hover:bg-white/10'
                   }`}
                 >
                   <Icono size={13} />
@@ -234,7 +234,7 @@ export function MapaRecorrido({
               className={`flex items-center justify-center size-10 rounded-full backdrop-blur-md border transition-colors ${
                 esClaro
                   ? 'bg-white/80 border-black/10 text-black/50 hover:text-black shadow-md'
-                  : 'bg-black/60 border-white/10 text-white/70 hover:text-white'
+                  : 'bg-black/60 border-white/10 text-texto-inverso/70 hover:text-texto-inverso'
               }`}
               title="Opciones de ruta"
             >

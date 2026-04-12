@@ -25,9 +25,9 @@ function fmtMinutos(min: number): string {
 /** Formatea puntualidad: positivo = tarde, negativo = antes, 0 = a tiempo */
 export function formatearPuntualidad(min: number | null | undefined): { texto: string; color: string } | null {
   if (min == null) return null
-  if (min > 0) return { texto: `${fmtMinutos(min)} tarde`, color: 'text-red-400' }
-  if (min < 0) return { texto: `${fmtMinutos(min)} antes`, color: 'text-emerald-400' }
-  return { texto: 'A tiempo', color: 'text-emerald-400' }
+  if (min > 0) return { texto: `${fmtMinutos(min)} tarde`, color: 'text-asistencia-ausente' }
+  if (min < 0) return { texto: `${fmtMinutos(min)} antes`, color: 'text-asistencia-presente' }
+  return { texto: 'A tiempo', color: 'text-asistencia-presente' }
 }
 
 /** Versión corta para tooltips/celdas compactas: "1h 13m antes" */

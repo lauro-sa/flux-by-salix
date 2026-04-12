@@ -90,9 +90,9 @@ export function SeccionApariencia() {
         <Etiqueta>Modo de color</Etiqueta>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
           {([
-            { clave: 'claro' as Tema, etiqueta: 'Claro', fondo: 'bg-white', barra: 'bg-gray-200', lineas: 'bg-gray-100' },
-            { clave: 'oscuro' as Tema, etiqueta: 'Oscuro', fondo: 'bg-zinc-900', barra: 'bg-zinc-700', lineas: 'bg-zinc-800' },
-            { clave: 'sistema' as Tema, etiqueta: 'Automático', fondo: 'bg-gradient-to-r from-white to-zinc-900', barra: 'bg-gray-400', lineas: 'bg-gray-500' },
+            { clave: 'claro' as Tema, etiqueta: 'Claro', fondo: 'bg-superficie-tarjeta', barra: 'bg-borde-sutil', lineas: 'bg-superficie-app' },
+            { clave: 'oscuro' as Tema, etiqueta: 'Oscuro', fondo: 'bg-superficie-sidebar', barra: 'bg-borde-fuerte', lineas: 'bg-superficie-tarjeta' },
+            { clave: 'sistema' as Tema, etiqueta: 'Automático', fondo: 'bg-gradient-to-r from-superficie-tarjeta to-superficie-sidebar', barra: 'bg-texto-terciario', lineas: 'bg-texto-terciario/30' },
           ]).map((t) => (
             <Boton
               key={t.clave}
@@ -136,7 +136,7 @@ export function SeccionApariencia() {
                   efecto === e.clave ? '!border-texto-marca !bg-superficie-seleccionada' : '!border-borde-sutil'
                 }`}
               >
-                <div className="w-full h-20 rounded-md bg-gradient-to-br from-violet-500/20 via-blue-500/15 to-cyan-500/10 p-2 flex flex-col gap-1.5 border border-borde-sutil relative overflow-hidden">
+                <div className="w-full h-20 rounded-md bg-gradient-to-br from-insignia-violeta/20 via-insignia-info/15 to-insignia-cyan/10 p-2 flex flex-col gap-1.5 border border-borde-sutil relative overflow-hidden">
                   <div className={`h-2 w-full rounded-sm bg-superficie-tarjeta ${e.opacidad}`} />
                   <div className={`h-6 w-full rounded-sm bg-superficie-tarjeta ${e.opacidad} mt-auto`} />
                 </div>
@@ -163,9 +163,9 @@ export function SeccionApariencia() {
             <Etiqueta>Fondo de pantalla</Etiqueta>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
               {([
-                { clave: 'aurora' as FondoCristal, etiqueta: 'Aurora', descripcion: 'Colorido', gradiente: 'from-violet-600/40 via-cyan-500/30 to-emerald-500/20' },
-                { clave: 'medianoche' as FondoCristal, etiqueta: 'Medianoche', descripcion: 'Azul profundo', gradiente: 'from-blue-700/40 via-indigo-600/30 to-blue-900/20' },
-                { clave: 'ambar' as FondoCristal, etiqueta: 'Ámbar', descripcion: 'Cálido dorado', gradiente: 'from-amber-500/40 via-orange-500/30 to-red-500/20' },
+                { clave: 'aurora' as FondoCristal, etiqueta: 'Aurora', descripcion: 'Colorido', gradiente: 'from-insignia-violeta/40 via-insignia-cyan/30 to-insignia-exito/20' },
+                { clave: 'medianoche' as FondoCristal, etiqueta: 'Medianoche', descripcion: 'Azul profundo', gradiente: 'from-insignia-info/40 via-texto-marca/30 to-insignia-info/20' },
+                { clave: 'ambar' as FondoCristal, etiqueta: 'Ámbar', descripcion: 'Cálido dorado', gradiente: 'from-insignia-advertencia/40 via-insignia-naranja/30 to-insignia-peligro/20' },
                 { clave: 'ninguno' as FondoCristal, etiqueta: 'Sin fondo', descripcion: 'Solo blur', gradiente: '' },
               ]).map((f) => (
                 <Boton

@@ -255,7 +255,7 @@ export default function TarjetaVisitador({
     <div
       ref={setNodeRef}
       className={`
-        flex flex-col rounded-xl border bg-superficie-tarjeta transition-colors w-full md:min-w-[280px] md:max-w-[340px] md:h-[calc(100vh-200px)]
+        flex flex-col rounded-xl border bg-superficie-tarjeta transition-colors w-full md:min-w-[280px] md:max-w-[340px] md:h-[calc(100dvh-200px)]
         ${isOver ? 'border-texto-marca/40 bg-texto-marca/5' : 'border-borde-sutil'}
       `}
     >

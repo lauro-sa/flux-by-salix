@@ -419,7 +419,7 @@ function MenuConversacion({
                 exit={{ opacity: 0, scale: 0.96, y: 10 }}
                 transition={{ duration: 0.18 }}
                 className="rounded-xl border border-borde-sutil shadow-elevada w-full max-w-[380px] flex flex-col pointer-events-auto"
-                style={{ ...estiloPanel, maxHeight: '70vh' }}
+                style={{ ...estiloPanel, maxHeight: '70dvh' }}
                 onClick={e => e.stopPropagation()}
               >
                 {/* Header */}
@@ -455,7 +455,7 @@ function MenuConversacion({
                 </div>
 
                 {/* Lista de miembros */}
-                <div className="flex-1 overflow-y-auto px-2 py-1" style={{ maxHeight: '40vh' }}>
+                <div className="flex-1 overflow-y-auto px-2 py-1" style={{ maxHeight: '40dvh' }}>
                   {miembrosCargando ? (
                     <div className="flex items-center justify-center py-8">
                       <span className="text-xs" style={{ color: 'var(--texto-terciario)' }}>Cargando...</span>

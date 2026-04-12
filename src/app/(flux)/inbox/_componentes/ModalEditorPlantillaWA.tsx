@@ -434,7 +434,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
       forzarModal
       sinPadding
     >
-      <div className="flex flex-col" style={{ height: 'min(80vh, 720px)' }}>
+      <div className="flex flex-col" style={{ height: 'min(80dvh, 720px)' }}>
         {/* Barra de estado */}
         {plantilla && estadoInfo && (
           <div className="flex items-center gap-3 px-6 py-2.5 border-b border-white/[0.07] bg-white/[0.02]">

@@ -54,7 +54,7 @@ function Popover({
   alineacion = 'fin',
   lado = 'abajo',
   ancho = 380,
-  altoMaximo = '80vh',
+  altoMaximo = '80dvh',
   offset = 8,
   clasePan = '',
   claseTrigger,

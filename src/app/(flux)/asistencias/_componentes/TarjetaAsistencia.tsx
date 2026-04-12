@@ -336,12 +336,12 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[11px] text-texto-terciario/40">{totalHeartbeats} señales</span>
-              <span className="text-[13px] font-medium text-blue-400">{fmtDuracion(tiempoActivo)}</span>
+              <span className="text-[13px] font-medium text-insignia-info">{fmtDuracion(tiempoActivo)}</span>
             </div>
           </div>
           <div className="w-full h-1.5 rounded bg-white/[0.06] overflow-hidden">
             <div
-              className="h-full rounded bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500"
+              className="h-full rounded bg-gradient-to-r from-insignia-info to-texto-marca transition-all duration-500"
               style={{ width: `${pctSoftware}%` }}
             />
           </div>

@@ -169,7 +169,7 @@ function PopoverEvento({
             <>
               {/* Título */}
               <div className="flex items-start gap-2">
-                <Route size={16} className="shrink-0 mt-0.5 text-[#8b5cf6]" />
+                <Route size={16} className="shrink-0 mt-0.5 text-seccion-visitas" />
                 <span className="text-sm font-semibold text-texto-primario leading-tight">
                   {evento.titulo}
                 </span>
@@ -197,7 +197,7 @@ function PopoverEvento({
                   </div>
                   <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-[#8b5cf6] transition-all"
+                      className="h-full rounded-full bg-seccion-visitas transition-all"
                       style={{ width: `${evento._recorrido_meta.total_visitas > 0 ? (evento._recorrido_meta.visitas_completadas / evento._recorrido_meta.total_visitas) * 100 : 0}%` }}
                     />
                   </div>

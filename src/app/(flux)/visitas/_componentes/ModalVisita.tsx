@@ -468,7 +468,7 @@ function ModalVisita({
       )}
 
       {/* Grid 2 columnas */}
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-0 border-y border-white/[0.07] overflow-y-auto max-h-[calc(100vh-200px)]">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-0 border-y border-white/[0.07] overflow-y-auto max-h-[calc(100dvh-200px)]">
         {/* ── COLUMNA IZQUIERDA ── */}
         <div className="space-y-0">
           {/* Contacto — SelectorContacto reutilizable */}

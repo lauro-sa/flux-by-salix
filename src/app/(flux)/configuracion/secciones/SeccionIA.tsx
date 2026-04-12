@@ -768,7 +768,7 @@ function AsistenteGeneral({ config, onActualizar, guardando }: {
           monoespacio
           spellCheck={false}
           autoFocus
-          style={{ height: '70vh' }}
+          style={{ height: '70dvh' }}
         />
       </Modal>
 

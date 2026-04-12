@@ -19,9 +19,9 @@ import { ModalDetalleVisita } from './ModalDetalleVisita'
 
 // ─── Colores de temperatura ───
 const COLORES_TEMPERATURA: Record<string, { bg: string; texto: string; etiqueta: string }> = {
-  frio: { bg: 'bg-blue-500/10', texto: 'text-blue-400', etiqueta: 'Frío' },
-  tibio: { bg: 'bg-amber-500/10', texto: 'text-amber-400', etiqueta: 'Tibio' },
-  caliente: { bg: 'bg-red-500/10', texto: 'text-red-400', etiqueta: 'Caliente' },
+  frio: { bg: 'bg-insignia-info-fondo', texto: 'text-insignia-info', etiqueta: 'Frío' },
+  tibio: { bg: 'bg-insignia-advertencia-fondo', texto: 'text-insignia-advertencia', etiqueta: 'Tibio' },
+  caliente: { bg: 'bg-insignia-peligro-fondo', texto: 'text-insignia-peligro', etiqueta: 'Caliente' },
 }
 
 // ─── Galería compacta de fotos (max 4 thumbnails) ───

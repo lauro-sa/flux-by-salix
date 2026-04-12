@@ -164,7 +164,7 @@ export function ModalNuevoWhatsApp({ abierto, onCerrar, canalId, onEnviar }: Pro
 
   return (
     <Modal abierto={abierto} onCerrar={onCerrar} titulo="Nuevo mensaje WhatsApp" tamano="lg" sinPadding>
-      <div className="flex flex-col" style={{ maxHeight: 'min(70vh, 600px)' }}>
+      <div className="flex flex-col" style={{ maxHeight: 'min(70dvh, 600px)' }}>
         {/* Campo teléfono */}
         <div className="px-5 pt-4 pb-3 space-y-1" style={{ borderBottom: '1px solid var(--borde-sutil)' }}>
           <label className="text-xs font-medium" style={{ color: 'var(--texto-secundario)' }}>
