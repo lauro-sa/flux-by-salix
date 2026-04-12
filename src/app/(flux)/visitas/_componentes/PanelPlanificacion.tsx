@@ -5,7 +5,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   DndContext,
   DragOverlay,
-  closestCorners,
+  pointerWithin,
+  rectIntersection,
   type DragStartEvent,
   type DragEndEvent,
   type DragOverEvent,
@@ -443,7 +444,11 @@ export default function PanelPlanificacion() {
 
       {/* ── Kanban ── */}
       <DndContext
-        collisionDetection={closestCorners}
+        collisionDetection={(args) => {
+          // Primero intentar pointerWithin (preciso), fallback a rectIntersection (permisivo)
+          const pw = pointerWithin(args)
+          return pw.length > 0 ? pw : rectIntersection(args)
+        }}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
