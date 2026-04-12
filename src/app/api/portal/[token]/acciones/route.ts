@@ -3,6 +3,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
 import { crearNotificacion } from '@/lib/notificaciones'
 import { generarPdfFirmado } from '@/lib/pdf/generar-pdf-firmado'
+import { COLOR_MARCA_DEFECTO } from '@/lib/colores_entidad'
 import { verificarRateLimit, obtenerIp } from '@/lib/rate-limit'
 
 /**
@@ -70,6 +71,10 @@ export async function POST(
               .from('documentos')
               .getPublicUrl(storagePath)
             firmaUrl = urlData.publicUrl
+
+            // Registrar uso de storage
+            const { registrarUsoStorage } = await import('@/lib/uso-storage')
+            registrarUsoStorage(portalToken.empresa_id, 'documentos', buffer.length)
           }
         }
 
@@ -131,7 +136,7 @@ export async function POST(
               moneda: presupuesto.moneda,
               empresa_nombre: empresa.nombre,
               empresa_logo_url: empresa.logo_url,
-              color_marca: empresa.color_marca || '#6366f1',
+              color_marca: empresa.color_marca || COLOR_MARCA_DEFECTO,
               firma_url: firmaUrl,
               firma_nombre,
               firma_modo,
@@ -370,6 +375,10 @@ export async function POST(
         const { data: urlData } = admin.storage
           .from('documentos')
           .getPublicUrl(storagePath)
+
+        // Registrar uso de storage
+        const { registrarUsoStorage } = await import('@/lib/uso-storage')
+        registrarUsoStorage(portalToken.empresa_id, 'documentos', buffer.length)
 
         // Agregar al array de comprobantes
         const comprobantesActuales = (portalToken.comprobantes || []) as unknown[]

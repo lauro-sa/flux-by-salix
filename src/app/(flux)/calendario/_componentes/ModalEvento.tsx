@@ -56,9 +56,9 @@ interface Vinculo {
 
 /** Opciones de visibilidad del evento */
 const OPCIONES_VISIBILIDAD = [
-  { valor: 'publica', etiqueta: 'Pública', descripcion: 'Tu equipo ve todos los detalles', color: '#4CAF50' },
-  { valor: 'ocupado', etiqueta: 'Ocupado', descripcion: 'Los demás ven solo un bloque sin detalles', color: '#F0923A' },
-  { valor: 'privada', etiqueta: 'Privada', descripcion: 'Solo vos y los asignados', color: '#90A4AE' },
+  { valor: 'publica', etiqueta: 'Pública', descripcion: 'Tu equipo ve todos los detalles', color: 'var(--insignia-exito)' },
+  { valor: 'ocupado', etiqueta: 'Ocupado', descripcion: 'Los demás ven solo un bloque sin detalles', color: 'var(--insignia-advertencia)' },
+  { valor: 'privada', etiqueta: 'Privada', descripcion: 'Solo vos y los asignados', color: 'var(--insignia-neutro)' },
 ]
 
 /** Convierte Date a formato ISO fecha "YYYY-MM-DD" */

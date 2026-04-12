@@ -18,6 +18,7 @@ import type { Rol, Modulo, Miembro, Perfil } from '@/tipos'
 import { ACCIONES_POR_MODULO } from '@/tipos'
 import { TarjetaStat, MiniCalendario } from './ComponentesComunes'
 import { MODULOS_PREVIEW, ETIQUETA_ROL, type Periodo, type TabPerfil } from './constantes'
+import Image from 'next/image'
 
 interface PropsTabResumen {
   perfil: Perfil
@@ -362,7 +363,9 @@ export function TabResumen({
                     onClick={() => imgUrl && setDocPreview({ titulo: tipo, url: imgUrl })}
                   >
                     {imgUrl ? (
-                      <img src={imgUrl} alt={tipo} className="w-full h-20 object-contain rounded-md bg-superficie-hover/20" />
+                      <div className="relative w-full h-20">
+                        <Image src={imgUrl} alt={tipo} fill sizes="150px" className="object-contain rounded-md bg-superficie-hover/20" />
+                      </div>
                     ) : (
                       <div className="w-full h-20 flex flex-col items-center justify-center gap-1">
                         <Upload size={14} className="text-texto-terciario/25" />

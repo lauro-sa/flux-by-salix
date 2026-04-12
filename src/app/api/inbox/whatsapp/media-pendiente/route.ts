@@ -126,6 +126,10 @@ export async function POST(request: NextRequest) {
         es_animado: metadata.sticker?.animated || false,
       })
 
+      // Registrar uso de storage
+      const { registrarUsoStorage } = await import('@/lib/uso-storage')
+      registrarUsoStorage(canal.empresa_id, 'adjuntos', mediaInfo.file_size || buffer.byteLength)
+
       return NextResponse.json({ procesados: 1, mensaje_id: msg.id })
     } catch (err) {
       console.error('[MEDIA-RETRY] Error:', err)

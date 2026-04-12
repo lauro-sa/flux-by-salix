@@ -72,7 +72,12 @@ export async function PATCH(request: NextRequest) {
         .eq('recorrido_id', recorrido_id)
     })
 
-    await Promise.all(promesas)
+    const resultados = await Promise.all(promesas)
+    const errores = resultados.filter(r => r && r.error)
+    if (errores.length > 0) {
+      console.error('Errores al reordenar paradas:', errores.map(e => e!.error))
+      return NextResponse.json({ error: 'Error parcial al reordenar paradas' }, { status: 500 })
+    }
 
     // Notificar al visitador solo si el recorrido está en curso (ya lo está realizando)
     // Si es borrador o pendiente, el coordinador todavía está organizando — no avisar

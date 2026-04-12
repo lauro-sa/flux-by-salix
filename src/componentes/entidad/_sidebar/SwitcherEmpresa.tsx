@@ -96,12 +96,12 @@ function SwitcherEmpresa({ colapsado, onToggle }: PropiedadesSwitcherEmpresa) {
         typeof document !== 'undefined' && createPortal(
           <AnimatePresence>
             {abierto && menuPos && (
-              <div className="fixed inset-0 z-[9998]" onClick={() => setAbierto(false)}>
+              <div className="fixed inset-0 z-[var(--z-popover)]" onClick={() => setAbierto(false)}>
                 <motion.div
                   initial={{ opacity: 0, x: -4 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -4 }}
-                  className="absolute w-64 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-[9999] py-1"
+                  className="absolute w-64 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-[var(--z-popover)] py-1"
                   style={{ top: menuPos.top, left: menuPos.left }}
                   onClick={e => e.stopPropagation()}
                 >

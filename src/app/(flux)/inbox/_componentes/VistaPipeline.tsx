@@ -68,9 +68,9 @@ function truncar(texto: string, max: number): string {
 }
 
 const COLORES_PRIORIDAD: Record<string, { fondo: string; texto: string; etiqueta: string }> = {
-  urgente: { fondo: 'bg-red-100 dark:bg-red-900/30', texto: 'text-red-700 dark:text-red-300', etiqueta: 'Urgente' },
-  alta: { fondo: 'bg-orange-100 dark:bg-orange-900/30', texto: 'text-orange-700 dark:text-orange-300', etiqueta: 'Alta' },
-  baja: { fondo: 'bg-blue-100 dark:bg-blue-900/30', texto: 'text-blue-700 dark:text-blue-300', etiqueta: 'Baja' },
+  urgente: { fondo: 'bg-prioridad-alta-fondo', texto: 'text-prioridad-alta', etiqueta: 'Urgente' },
+  alta: { fondo: 'bg-prioridad-media-fondo', texto: 'text-prioridad-media', etiqueta: 'Alta' },
+  baja: { fondo: 'bg-prioridad-baja-fondo', texto: 'text-prioridad-baja', etiqueta: 'Baja' },
 }
 
 const ID_SIN_ETAPA = '__sin_etapa__'
@@ -97,7 +97,7 @@ function TarjetaConversacion({ conversacion }: { conversacion: ConversacionConDe
       <div className="flex items-start justify-between gap-2 mb-1.5">
         <span className="text-sm font-medium text-texto-primario truncate">{nombreContacto}</span>
         {conversacion.mensajes_sin_leer > 0 && (
-          <span className="shrink-0 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-semibold bg-blue-500 text-white">
+          <span className="shrink-0 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-semibold bg-texto-marca text-texto-inverso">
             {conversacion.mensajes_sin_leer}
           </span>
         )}
@@ -205,7 +205,7 @@ function ColumnaSortable({
         <div
           className={`flex flex-col gap-2 min-h-[120px] rounded-xl p-1.5 transition-all duration-200 ${
             sobreMi
-              ? 'bg-blue-500/10 border-2 border-dashed border-blue-400/50'
+              ? 'bg-texto-marca/10 border-2 border-dashed border-texto-marca/50'
               : 'border-2 border-transparent'
           }`}
         >
@@ -223,7 +223,7 @@ function ColumnaSortable({
             </div>
           )}
           {sobreMi && items.length === 0 && (
-            <div className="text-xs text-blue-500 text-center py-8 border-2 border-dashed border-blue-400/50 rounded-lg font-medium">
+            <div className="text-xs text-texto-marca text-center py-8 border-2 border-dashed border-texto-marca/50 rounded-lg font-medium">
               Soltar aquí
             </div>
           )}

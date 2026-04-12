@@ -20,6 +20,8 @@ import {
   FileText, X,
 } from 'lucide-react'
 
+import Image from 'next/image'
+
 type EstadoTurno = 'activo' | 'almuerzo' | 'particular' | null
 type Accion = 'entrada' | 'salida' | 'almuerzo' | 'volver_almuerzo' | 'particular' | 'volver_particular'
 
@@ -145,10 +147,10 @@ export default function PantallaAcciones({
       {/* Avatar + nombre + cargo */}
       <div className="flex flex-col items-center gap-3 landscape:gap-2 md:gap-4">
         {fotoUrl ? (
-          <div className="w-44 landscape:w-44 md:w-56 aspect-[3/4] rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl shadow-black/50"
+          <div className="relative w-44 landscape:w-44 md:w-56 aspect-[3/4] rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl shadow-black/50"
             style={{ border: '4px solid rgba(63,63,70,0.6)' }}
           >
-            <img src={fotoUrl} alt={nombre} className="w-full h-full object-cover" draggable={false} />
+            <Image src={fotoUrl} alt={nombre} fill sizes="(max-width: 768px) 176px, 224px" className="object-cover" draggable={false} />
           </div>
         ) : (
           <div

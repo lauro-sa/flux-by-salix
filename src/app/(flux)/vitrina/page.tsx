@@ -40,6 +40,7 @@ import {
 } from 'lucide-react'
 import { useModoConcentracion } from '@/hooks/useModoConcentracion'
 import { useTema, type Tema, type Efecto, type FondoCristal, type EscalaTexto } from '@/hooks/useTema'
+import { useTraduccion } from '@/lib/i18n'
 
 /* Vitrina de Componentes — Flux by Salix */
 
@@ -1129,6 +1130,7 @@ function AutoCerrarSplash({ onCerrar }: { onCerrar: () => void }) {
 }
 
 export default function PaginaVitrina() {
+  const { t } = useTraduccion()
   const { mostrar } = useToast()
   const [modalAbierto, setModalAbierto] = useState(false)
   const [sheetAbierto, setSheetAbierto] = useState(false)
@@ -1643,8 +1645,8 @@ export default function PaginaVitrina() {
           onCerrar={() => setModalAbierto(false)}
           titulo="Nuevo contacto"
           acciones={<>
-            <Boton variante="secundario" onClick={() => setModalAbierto(false)}>Cancelar</Boton>
-            <Boton onClick={() => { setModalAbierto(false); mostrar('exito', 'Contacto guardado') }}>Guardar</Boton>
+            <Boton variante="secundario" onClick={() => setModalAbierto(false)}>{t('comun.cancelar')}</Boton>
+            <Boton onClick={() => { setModalAbierto(false); mostrar('exito', 'Contacto guardado') }}>{t('comun.guardar')}</Boton>
           </>}
         >
           <div className="flex flex-col gap-4">

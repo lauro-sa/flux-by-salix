@@ -483,7 +483,7 @@ export function ListaConversaciones({
                     <div className="flex-shrink-0 relative self-center">
                       <Avatar nombre={conv.contacto_nombre || conv.identificador_externo || '?'} tamano="md" />
                       {tipoCanal === 'whatsapp' && (
-                        <div className="absolute -bottom-0.5 -right-0.5 size-4 rounded-full flex items-center justify-center" style={{ background: '#25D366' }}>
+                        <div className="absolute -bottom-0.5 -right-0.5 size-4 rounded-full flex items-center justify-center" style={{ background: 'var(--marca-whatsapp)' }}>
                           <IconoWhatsApp size={9} className="text-white" />
                         </div>
                       )}
@@ -544,10 +544,10 @@ export function ListaConversaciones({
                           {conv.sector_nombre}</span>
                       )}
                       {tipoCanal === 'whatsapp' && botHabilitado && conv.chatbot_activo && (
-                        <span className="text-xxs px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">Bot</span>
+                        <span className="text-xxs px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap bg-insignia-exito-fondo text-insignia-exito-texto">Bot</span>
                       )}
                       {tipoCanal === 'whatsapp' && iaHabilitada && conv.agente_ia_activo && (
-                        <span className="text-xxs px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap bg-violet-500/15 text-violet-600 dark:text-violet-400">IA</span>
+                        <span className="text-xxs px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap bg-insignia-violeta-fondo text-insignia-violeta-texto">IA</span>
                       )}
                     </div>
                   </div>

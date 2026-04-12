@@ -9,6 +9,7 @@ import { AlertTriangle, Plus } from 'lucide-react'
 import { useFormato } from '@/hooks/useFormato'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { SelectorHora } from '@/componentes/ui/SelectorHora'
+import { useTraduccion } from '@/lib/i18n'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -30,6 +31,7 @@ interface PropiedadesModal {
 // ─── Componente ──────────────────────────────────────────────
 
 export function ModalCrearFichaje({ abierto, onCerrar, onCreado, miembroId, miembroNombre, fecha: fechaProp }: PropiedadesModal) {
+  const { t } = useTraduccion()
   const { formatoHora } = useFormato()
   const [miembros, setMiembros] = useState<Miembro[]>([])
   const [miembroSeleccionado, setMiembroSeleccionado] = useState('')
@@ -119,7 +121,7 @@ export function ModalCrearFichaje({ abierto, onCerrar, onCreado, miembroId, miem
       tamano="md"
       acciones={
         <div className="flex items-center justify-end w-full gap-2">
-          <Boton variante="secundario" tamano="sm" onClick={onCerrar}>Cancelar</Boton>
+          <Boton variante="secundario" tamano="sm" onClick={onCerrar}>{t('comun.cancelar')}</Boton>
           <Boton variante="primario" tamano="sm" onClick={crear} cargando={guardando}>
             <Plus size={13} className="mr-1" /> Crear fichaje
           </Boton>
@@ -129,9 +131,9 @@ export function ModalCrearFichaje({ abierto, onCerrar, onCreado, miembroId, miem
       <div className="space-y-4">
         {/* Error */}
         {error && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">
-            <AlertTriangle size={14} className="text-red-400 shrink-0" />
-            <p className="text-xs text-red-400">{error}</p>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-insignia-peligro-fondo border border-insignia-peligro/20">
+            <AlertTriangle size={14} className="text-insignia-peligro shrink-0" />
+            <p className="text-xs text-insignia-peligro">{error}</p>
           </div>
         )}
 

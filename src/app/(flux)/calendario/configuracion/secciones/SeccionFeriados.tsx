@@ -11,6 +11,7 @@ import { CargadorSeccion } from '@/componentes/ui/Cargador'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { PAISES_DISPONIBLES } from '@/lib/paises'
 import { DELAY_ACCION, DELAY_NOTIFICACION } from '@/lib/constantes/timeouts'
+import { useTraduccion } from '@/lib/i18n'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -42,10 +43,10 @@ interface PropiedadesSeccionFeriados {
 // ─── Colores por tipo de feriado ──────────────────────────────
 
 const COLORES_TIPO: Record<string, { fondo: string; texto: string; borde: string; etiqueta: string }> = {
-  nacional:     { fondo: 'bg-blue-500/10', texto: 'text-blue-500', borde: 'border-blue-500/20', etiqueta: 'Nacional' },
-  puente:       { fondo: 'bg-amber-500/10', texto: 'text-amber-500', borde: 'border-amber-500/20', etiqueta: 'Puente' },
-  no_laborable: { fondo: 'bg-orange-500/10', texto: 'text-orange-400', borde: 'border-orange-500/20', etiqueta: 'No laborable' },
-  empresa:      { fondo: 'bg-purple-500/10', texto: 'text-purple-500', borde: 'border-purple-500/20', etiqueta: 'Empresa' },
+  nacional:     { fondo: 'bg-insignia-info-fondo', texto: 'text-insignia-info', borde: 'border-insignia-info/20', etiqueta: 'Nacional' },
+  puente:       { fondo: 'bg-insignia-advertencia-fondo', texto: 'text-insignia-advertencia', borde: 'border-insignia-advertencia/20', etiqueta: 'Puente' },
+  no_laborable: { fondo: 'bg-insignia-naranja-fondo', texto: 'text-insignia-naranja', borde: 'border-insignia-naranja/20', etiqueta: 'No laborable' },
+  empresa:      { fondo: 'bg-insignia-violeta-fondo', texto: 'text-insignia-violeta', borde: 'border-insignia-violeta/20', etiqueta: 'Empresa' },
   regional:     { fondo: 'bg-teal-500/10', texto: 'text-teal-500', borde: 'border-teal-500/20', etiqueta: 'Regional' },
 }
 
@@ -78,6 +79,7 @@ function diaSemana(fecha: string): string {
 // ─── Componente principal ─────────────────────────────────────
 
 function SeccionFeriados({ feriados, cargando, onActualizar, paisEmpresa }: PropiedadesSeccionFeriados) {
+  const { t } = useTraduccion()
   const [anioActivo, setAnioActivo] = useState(new Date().getFullYear())
   const [procesando, setProcesando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -305,14 +307,14 @@ function SeccionFeriados({ feriados, cargando, onActualizar, paisEmpresa }: Prop
     <div className="space-y-4">
       {/* Mensajes */}
       {error && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-insignia-peligro-fondo border border-insignia-peligro/20 text-insignia-peligro text-sm">
           <AlertCircle size={16} />
           <span>{error}</span>
           <button onClick={() => setError(null)} className="ml-auto"><X size={14} /></button>
         </div>
       )}
       {exito && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">
+        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-insignia-exito-fondo border border-insignia-exito/20 text-insignia-exito text-sm">
           <Check size={16} />
           <span>{exito}</span>
         </div>
@@ -399,7 +401,7 @@ function SeccionFeriados({ feriados, cargando, onActualizar, paisEmpresa }: Prop
               tamano="sm"
               onClick={() => setConfirmarLimpiar(true)}
               icono={<Trash2 size={14} />}
-              className="ml-auto text-texto-terciario hover:text-red-400"
+              className="ml-auto text-texto-terciario hover:text-insignia-peligro"
             >
               Limpiar {anioActivo}
             </Boton>
@@ -456,7 +458,7 @@ function SeccionFeriados({ feriados, cargando, onActualizar, paisEmpresa }: Prop
                     {/* Eliminar */}
                     <button
                       onClick={() => eliminarFeriado(feriado.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-500/10 text-texto-terciario hover:text-red-400 transition-all cursor-pointer"
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-insignia-peligro-fondo text-texto-terciario hover:text-insignia-peligro transition-all cursor-pointer"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -526,7 +528,7 @@ function SeccionFeriados({ feriados, cargando, onActualizar, paisEmpresa }: Prop
             </div>
 
             <div className="flex justify-end gap-2 mt-6">
-              <Boton variante="fantasma" onClick={() => setModalCrear(false)}>Cancelar</Boton>
+              <Boton variante="fantasma" onClick={() => setModalCrear(false)}>{t('comun.cancelar')}</Boton>
               <Boton onClick={crearFeriado} cargando={procesando} disabled={!nuevoNombre.trim() || !nuevaFecha}>
                 Agregar
               </Boton>
@@ -564,7 +566,7 @@ function SeccionFeriados({ feriados, cargando, onActualizar, paisEmpresa }: Prop
             </div>
 
             <div className="flex justify-end gap-2">
-              <Boton variante="fantasma" onClick={() => setModalPais(false)}>Cancelar</Boton>
+              <Boton variante="fantasma" onClick={() => setModalPais(false)}>{t('comun.cancelar')}</Boton>
               <Boton onClick={cargarPorPais} cargando={procesando} icono={<Globe size={14} />}>
                 Cargar feriados
               </Boton>
@@ -576,7 +578,7 @@ function SeccionFeriados({ feriados, cargando, onActualizar, paisEmpresa }: Prop
       {/* ── Modal: Salix IA ── */}
       {modalIA && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setModalIA(false)}>
-          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-2xl w-full max-w-2xl mx-4 max-h-[85dvh] flex flex-col" onClick={e => e.stopPropagation()}>
             {/* Header fijo */}
             <div className="p-6 pb-0">
               <div className="flex items-center gap-2 mb-2">

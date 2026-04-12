@@ -19,6 +19,7 @@ import { useFormato } from '@/hooks/useFormato'
 import { useTraduccion } from '@/lib/i18n'
 import type { Conversacion, MensajeConAdjuntos } from '@/tipos/inbox'
 import { DELAY_ACCION } from '@/lib/constantes/timeouts'
+import NextImage from 'next/image'
 
 /**
  * Panel derecho colapsable — info del contacto enriquecida.
@@ -993,7 +994,7 @@ export function PanelInfoContacto({ conversacion, mensajes, abierto, onCerrar, o
                         </div>
                       </>
                     ) : (
-                      <img src={media.url} alt="" className="w-full h-full object-cover hover:opacity-80 transition-opacity cursor-pointer" />
+                      <NextImage src={media.url} alt="" fill sizes="(max-width: 768px) 33vw, 100px" className="object-cover hover:opacity-80 transition-opacity cursor-pointer" />
                     )}
                   </Boton>
                 ))}

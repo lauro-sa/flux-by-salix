@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { crearNotificacion } from '@/lib/notificaciones'
+import { COLOR_NOTIFICACION } from '@/lib/colores_entidad'
 
 /**
  * GET /api/cron/recordatorios-calendario — Cron que envía recordatorios de eventos.
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
         titulo: `⏰ Recordatorio: ${evento.titulo}`,
         cuerpo: `Tu evento comienza pronto`,
         icono: 'Bell',
-        color: evento.color || '#3B82F6',
+        color: evento.color || COLOR_NOTIFICACION.info,
         url: '/calendario',
         referenciaTipo: 'evento_calendario',
         referenciaId: recordatorio.evento_id,

@@ -255,6 +255,7 @@ function TextareaExpandible({ etiqueta, valor, onChange, placeholder, lineasPrev
   placeholder?: string
   lineasPreview?: number
 }) {
+  const { t } = useTraduccion()
   const [modalAbierto, setModalAbierto] = useState(false)
   const [valorLocal, setValorLocal] = useState(valor)
 
@@ -330,8 +331,8 @@ function TextareaExpandible({ etiqueta, valor, onChange, placeholder, lineasPrev
               {valorLocal.length} caracteres · {valorLocal.split('\n').length} líneas
             </span>
             <div className="flex gap-2">
-              <Boton variante="secundario" tamano="sm" onClick={() => setModalAbierto(false)}>Cancelar</Boton>
-              <Boton variante="primario" tamano="sm" onClick={guardarYCerrar}>Guardar</Boton>
+              <Boton variante="secundario" tamano="sm" onClick={() => setModalAbierto(false)}>{t('comun.cancelar')}</Boton>
+              <Boton variante="primario" tamano="sm" onClick={guardarYCerrar}>{t('comun.guardar')}</Boton>
             </div>
           </div>
         </div>
@@ -819,8 +820,8 @@ function TabFlujo({ config, guardar }: TabProps) {
             </p>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Boton variante="secundario" tamano="sm" onClick={() => setModalTipoAbierto(false)}>Cancelar</Boton>
-            <Boton variante="primario" tamano="sm" onClick={guardarTipo}>Guardar</Boton>
+            <Boton variante="secundario" tamano="sm" onClick={() => setModalTipoAbierto(false)}>{t('comun.cancelar')}</Boton>
+            <Boton variante="primario" tamano="sm" onClick={guardarTipo}>{t('comun.guardar')}</Boton>
           </div>
         </div>
       </Modal>
@@ -967,6 +968,7 @@ function TabRespuestas({ config, guardar }: TabProps) {
 // ═══════════════════════════════════════════════
 
 function SeccionEntrenar({ config, guardar }: TabProps) {
+  const { t } = useTraduccion()
   const formato = useFormato()
   const [analizando, setAnalizando] = useState(false)
   const [periodoDias, setPeriodoDias] = useState(60)
@@ -1199,7 +1201,7 @@ function SeccionEntrenar({ config, guardar }: TabProps) {
           })}
 
           <div className="flex gap-2 pt-2">
-            <Boton variante="secundario" tamano="sm" onClick={() => setResultado(null)}>Cancelar</Boton>
+            <Boton variante="secundario" tamano="sm" onClick={() => setResultado(null)}>{t('comun.cancelar')}</Boton>
             <Boton variante="primario" tamano="sm" onClick={aplicarResultados}>Aplicar seleccionados</Boton>
           </div>
 
@@ -1378,8 +1380,8 @@ function TabEjemplos({ config, guardar }: TabProps) {
             </Boton>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Boton variante="secundario" tamano="sm" onClick={() => setModalAbierto(false)}>Cancelar</Boton>
-            <Boton variante="primario" tamano="sm" onClick={guardarEjemplo}>Guardar</Boton>
+            <Boton variante="secundario" tamano="sm" onClick={() => setModalAbierto(false)}>{t('comun.cancelar')}</Boton>
+            <Boton variante="primario" tamano="sm" onClick={guardarEjemplo}>{t('comun.guardar')}</Boton>
           </div>
         </div>
       </Modal>
@@ -1660,8 +1662,8 @@ function TabConocimiento({ config, guardar }: TabProps) {
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Boton variante="secundario" tamano="sm" onClick={() => setModalAbierto(false)}>Cancelar</Boton>
-            <Boton variante="primario" tamano="sm" onClick={guardarEntrada}>Guardar</Boton>
+            <Boton variante="secundario" tamano="sm" onClick={() => setModalAbierto(false)}>{t('comun.cancelar')}</Boton>
+            <Boton variante="primario" tamano="sm" onClick={guardarEntrada}>{t('comun.guardar')}</Boton>
           </div>
         </div>
       </Modal>
@@ -2001,7 +2003,7 @@ function TabActividad() {
           {cargandoLog ? (
             <p className="text-xs text-center py-4" style={{ color: 'var(--texto-terciario)' }}>Cargando...</p>
           ) : (
-            <div className="space-y-1 max-h-[60vh] overflow-y-auto">
+            <div className="space-y-1 max-h-[60dvh] overflow-y-auto">
               {todosLogs.map(renderFilaLog)}
             </div>
           )}

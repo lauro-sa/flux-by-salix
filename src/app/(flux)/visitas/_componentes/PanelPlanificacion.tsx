@@ -13,6 +13,7 @@ import {
   type DragOverEvent,
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
+import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useFormato } from '@/hooks/useFormato'
@@ -104,6 +105,21 @@ export default function PanelPlanificacion({ onAbrirVisita }: PropsPanelPlanific
     },
     staleTime: 20_000,
   })
+
+  // Realtime: recargar cuando cambian visitas (otro usuario reasigna o completa)
+  useEffect(() => {
+    const supabase = crearClienteNavegador()
+    const canal = supabase
+      .channel('planificacion-realtime')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'visitas',
+      }, () => { refetch() })
+      .subscribe()
+
+    return () => { supabase.removeChannel(canal) }
+  }, [refetch])
 
   // Estado local optimista
   const [visitadoresLocal, setVisitadoresLocal] = useState<VisitadorPlan[]>([])
@@ -524,8 +540,8 @@ export default function PanelPlanificacion({ onAbrirVisita }: PropsPanelPlanific
               ? new Date(v.fecha_programada).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })
                   .replace(/^\w/, c => c.toUpperCase())
               : null
-            const colorBorde = v.prioridad === 'urgente' ? 'border-l-red-400'
-              : v.prioridad === 'alta' ? 'border-l-orange-400'
+            const colorBorde = v.prioridad === 'urgente' ? 'border-l-insignia-peligro'
+              : v.prioridad === 'alta' ? 'border-l-insignia-advertencia'
               : 'border-l-texto-marca/40'
 
             return (

@@ -3,6 +3,7 @@ import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
 import { crearNotificacion } from '@/lib/notificaciones'
+import { COLOR_NOTIFICACION } from '@/lib/colores_entidad'
 import { obtenerYVerificarPermiso, verificarVisibilidad } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
 import { obtenerTiposVisita, crearRegistrosVinculados } from '@/lib/visitas-sync'
@@ -278,7 +279,7 @@ export async function POST(request: NextRequest) {
         titulo: `📍 ${nombreCreador} te asignó una visita`,
         cuerpo: `${contactoNombre} · ${direccionTexto || 'Sin dirección'}`,
         icono: 'MapPin',
-        color: '#3b82f6',
+        color: COLOR_NOTIFICACION.info,
         url: '/visitas',
         referenciaTipo: 'visita',
         referenciaId: data.id,

@@ -20,8 +20,8 @@ interface PropiedadesSeccionEtapas {
 }
 
 const COLORES_ETAPA = [
-  '#6b7280', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444',
-  '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#6366f1',
+  'var(--insignia-neutro)', 'var(--insignia-info)', 'var(--insignia-exito)', 'var(--insignia-advertencia)', 'var(--insignia-peligro)',
+  'var(--insignia-violeta)', 'var(--insignia-rosa)', 'var(--insignia-cyan)', 'var(--insignia-naranja)', 'var(--texto-marca)',
 ]
 
 const EMOJIS_SUGERIDOS = [

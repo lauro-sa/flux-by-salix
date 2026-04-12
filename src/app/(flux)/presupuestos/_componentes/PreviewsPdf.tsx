@@ -13,6 +13,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { motion, AnimatePresence } from 'framer-motion'
 import DOMPurify from 'isomorphic-dompurify'
 import type { ConfigMembrete, ConfigPiePagina } from '@/tipos/presupuesto'
+import Image from 'next/image'
 
 // Opciones de sanitización para HTML del membrete/pie de página
 const OPCIONES_SANITIZACION = {
@@ -68,7 +69,7 @@ function EncabezadoMiniatura({
     mostrarImagen ? (
       // Logo imagen — con ancho controlado
       <div className={esCentro ? '' : 'shrink-0'} style={esCentro ? { width: `${membrete.ancho_logo}%`, margin: '0 auto' } : { width: `${membrete.ancho_logo}%` }}>
-        <img src={logoUrl} alt="" className="w-full h-auto object-contain" />
+        <Image src={logoUrl} alt="" width={400} height={100} sizes="100%" className="w-full h-auto object-contain" />
       </div>
     ) : (
       // Texto como logo — sin ancho fijo, ocupa lo que necesita

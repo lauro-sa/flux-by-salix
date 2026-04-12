@@ -10,6 +10,7 @@ import { PanelFiltros } from './PanelFiltros'
 import { SelectorVistas } from './SelectorVistas'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { useFormato } from '@/hooks/useFormato'
+import { useTraduccion } from '@/lib/i18n'
 
 /**
  * BarraBusqueda — Cápsula de búsqueda avanzada con filtros, pills, vistas y favoritos.
@@ -37,6 +38,7 @@ function BarraBusqueda({
   className = '',
 }: PropiedadesBarraBusqueda) {
   const { locale } = useFormato()
+  const { t } = useTraduccion()
   const [enfocado, setEnfocado] = useState(false)
   const [panelAbierto, setPanelAbierto] = useState(false)
   const [valorInterno, setValorInterno] = useState(busqueda)
@@ -215,7 +217,7 @@ function BarraBusqueda({
 
         {/* Botón limpiar todo */}
         {hayAlgoActivo && (
-          <Tooltip contenido="Limpiar todo">
+          <Tooltip contenido={t('paginacion.limpiar_todo')}>
             <motion.button
               type="button"
               whileTap={{ scale: 0.75, rotate: -90 }}
@@ -256,7 +258,7 @@ function BarraBusqueda({
               onClick={limpiarTodo}
               className="text-xxs text-texto-terciario hover:text-insignia-peligro-texto cursor-pointer border-none bg-transparent transition-colors"
             >
-              Limpiar todo
+              {t('paginacion.limpiar_todo')}
             </motion.button>
           )}
         </div>

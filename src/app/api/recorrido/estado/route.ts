@@ -3,7 +3,7 @@ import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
 
-type EstadoVisita = 'programada' | 'en_camino' | 'en_sitio' | 'completada' | 'cancelada'
+type EstadoVisita = 'programada' | 'en_camino' | 'en_sitio' | 'completada' | 'cancelada' | 'reprogramada'
 
 const ETIQUETAS_ESTADO: Record<string, string> = {
   programada: 'Programada',

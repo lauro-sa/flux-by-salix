@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Upload, Trash2, Image } from 'lucide-react'
+import { Upload, Trash2, Image as ImageIcon } from 'lucide-react'
+import NextImage from 'next/image'
 import { Boton } from '@/componentes/ui/Boton'
 
 /**
@@ -68,8 +69,8 @@ export default function SubirImagenPie({ urlActual, onSubir, onEliminar }: Propi
 
       {tieneImagen ? (
         <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-lg border border-borde-sutil bg-white flex items-center justify-center overflow-hidden">
-            <img src={urlActual} alt="Imagen pie" className="w-full h-full object-contain" />
+          <div className="relative w-14 h-14 rounded-lg border border-borde-sutil bg-white flex items-center justify-center overflow-hidden">
+            <NextImage src={urlActual} alt="Imagen pie" fill sizes="56px" className="object-contain" />
           </div>
           <div className="flex flex-col gap-1.5">
             <Boton variante="fantasma" tamano="xs" icono={<Upload size={13} />} onClick={() => inputRef.current?.click()} disabled={subiendo}>Cambiar</Boton>
@@ -77,7 +78,7 @@ export default function SubirImagenPie({ urlActual, onSubir, onEliminar }: Propi
           </div>
         </div>
       ) : (
-        <Boton variante="secundario" tamano="sm" anchoCompleto icono={<Image size={16} />} onClick={() => inputRef.current?.click()} disabled={subiendo} className="border-dashed">
+        <Boton variante="secundario" tamano="sm" anchoCompleto icono={<ImageIcon size={16} />} onClick={() => inputRef.current?.click()} disabled={subiendo} className="border-dashed">
           {subiendo ? 'Subiendo...' : 'Subir imagen (QR, firma, logo)'}
         </Boton>
       )}

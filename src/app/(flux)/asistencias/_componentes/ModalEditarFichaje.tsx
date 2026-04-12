@@ -12,6 +12,8 @@ import {
 } from 'lucide-react'
 import { useFormato } from '@/hooks/useFormato'
 import { formatearPuntualidad } from '@/lib/constantes/asistencias'
+import Image from 'next/image'
+import { useTraduccion } from '@/lib/i18n'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -114,12 +116,12 @@ function inicial(nombre: string): string {
 // ─── Config estados ──────────────────────────────────────────
 
 const ESTADO_CFG: Record<string, { etiqueta: string; color: string; fondo: string; icono: React.ReactNode }> = {
-  activo:       { etiqueta: 'En turno', color: 'text-emerald-400', fondo: 'bg-emerald-500/15', icono: <Clock size={13} /> },
-  cerrado:      { etiqueta: 'Cerrado', color: 'text-emerald-400/70', fondo: 'bg-emerald-500/10', icono: <CheckCircle2 size={13} /> },
-  auto_cerrado: { etiqueta: 'Sin salida', color: 'text-amber-400', fondo: 'bg-amber-500/15', icono: <AlertTriangle size={13} /> },
-  ausente:      { etiqueta: 'Ausente', color: 'text-red-400', fondo: 'bg-red-500/15', icono: <XCircle size={13} /> },
-  almuerzo:     { etiqueta: 'Almorzando', color: 'text-amber-400', fondo: 'bg-amber-500/15', icono: <Coffee size={13} /> },
-  particular:   { etiqueta: 'Trámite', color: 'text-sky-400', fondo: 'bg-sky-500/15', icono: <Footprints size={13} /> },
+  activo:       { etiqueta: 'En turno', color: 'text-asistencia-presente', fondo: 'bg-asistencia-presente-fondo', icono: <Clock size={13} /> },
+  cerrado:      { etiqueta: 'Cerrado', color: 'text-asistencia-presente/70', fondo: 'bg-asistencia-presente-fondo', icono: <CheckCircle2 size={13} /> },
+  auto_cerrado: { etiqueta: 'Sin salida', color: 'text-asistencia-tarde', fondo: 'bg-asistencia-tarde-fondo', icono: <AlertTriangle size={13} /> },
+  ausente:      { etiqueta: 'Ausente', color: 'text-asistencia-ausente', fondo: 'bg-asistencia-ausente-fondo', icono: <XCircle size={13} /> },
+  almuerzo:     { etiqueta: 'Almorzando', color: 'text-asistencia-almuerzo', fondo: 'bg-asistencia-almuerzo-fondo', icono: <Coffee size={13} /> },
+  particular:   { etiqueta: 'Trámite', color: 'text-asistencia-particular', fondo: 'bg-asistencia-particular-fondo', icono: <Footprints size={13} /> },
 }
 
 const METODO_CFG: Record<string, { etiqueta: string; icono: React.ReactNode }> = {
@@ -146,12 +148,12 @@ function etiquetaOrigen(metodo?: string | null): string {
 }
 
 const COLORES_AVATAR = [
-  'bg-indigo-500/25 text-indigo-400',
-  'bg-emerald-500/25 text-emerald-400',
-  'bg-amber-500/25 text-amber-400',
-  'bg-red-500/25 text-red-400',
-  'bg-purple-500/25 text-purple-400',
-  'bg-cyan-500/25 text-cyan-400',
+  'bg-insignia-primario/25 text-insignia-primario',
+  'bg-insignia-exito/25 text-insignia-exito',
+  'bg-insignia-advertencia/25 text-insignia-advertencia',
+  'bg-insignia-peligro/25 text-insignia-peligro',
+  'bg-insignia-violeta/25 text-insignia-violeta',
+  'bg-insignia-cyan/25 text-insignia-cyan',
 ]
 
 const JORNADA_REF = 8 * 60
@@ -159,6 +161,7 @@ const JORNADA_REF = 8 * 60
 // ─── Componente ──────────────────────────────────────────────
 
 export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: PropiedadesModal) {
+  const { t } = useTraduccion()
   const { formatoHora, locale } = useFormato()
   const [editando, setEditando] = useState(false)
   const [entrada, setEntrada] = useState('')
@@ -198,8 +201,8 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
   const pct = Math.min(100, Math.round((min / JORNADA_REF) * 100))
   const hash = r.miembro_nombre.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
   const colorAvatar = COLORES_AVATAR[hash % COLORES_AVATAR.length]
-  const colorBarra = r.estado === 'ausente' ? 'bg-red-500/25' : r.estado === 'auto_cerrado' ? 'bg-amber-500/25' : 'bg-emerald-500/25'
-  const colorDurTxt = r.estado === 'auto_cerrado' || r.tipo === 'tardanza' ? 'text-amber-400' : 'text-emerald-400'
+  const colorBarra = r.estado === 'ausente' ? 'bg-asistencia-ausente/25' : r.estado === 'auto_cerrado' ? 'bg-asistencia-tarde/25' : 'bg-asistencia-presente/25'
+  const colorDurTxt = r.estado === 'auto_cerrado' || r.tipo === 'tardanza' ? 'text-asistencia-tarde' : 'text-asistencia-presente'
 
   // Puntualidad
   const punt = r.puntualidad_min
@@ -264,8 +267,8 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
               <Trash2 size={13} className="mr-1" /> Eliminar
             </Boton>
             <div className="flex items-center gap-2">
-              <Boton variante="secundario" tamano="sm" onClick={() => setEditando(false)}>Cancelar</Boton>
-              <Boton variante="primario" tamano="sm" onClick={guardar} cargando={guardando}>Guardar</Boton>
+              <Boton variante="secundario" tamano="sm" onClick={() => setEditando(false)}>{t('comun.cancelar')}</Boton>
+              <Boton variante="primario" tamano="sm" onClick={guardar} cargando={guardando}>{t('comun.guardar')}</Boton>
             </div>
           </div>
         ) : (
@@ -292,7 +295,7 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
               </p>
             </div>
           </div>
-          <span className={`inline-flex items-center gap-[5px] px-2.5 py-[5px] rounded-full text-[11px] font-medium border shrink-0 ${cfg.fondo} ${cfg.color}`}>
+          <span className={`inline-flex items-center gap-1 px-2.5 py-[5px] rounded-full text-[11px] font-medium border shrink-0 ${cfg.fondo} ${cfg.color}`}>
             {cfg.icono}
             {cfg.etiqueta}
           </span>
@@ -315,17 +318,17 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
                   <span className="text-xs text-texto-terciario/50 ml-1">· {dur}</span>
                 </div>
                 <div className="flex items-center gap-2.5">
-                  <div className="flex items-center gap-1 px-2 py-[3px] rounded-[5px] bg-emerald-500/12 border border-emerald-500/25">
-                    <Calendar size={11} className="text-emerald-400" />
-                    <span className="text-[11px] font-medium text-emerald-400">{dur}</span>
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-asistencia-presente/12 border border-asistencia-presente/25">
+                    <Calendar size={11} className="text-asistencia-presente" />
+                    <span className="text-[11px] font-medium text-asistencia-presente">{dur}</span>
                   </div>
                   <span className={`text-xs font-medium ${colorDurTxt}`}>{dur} netos</span>
                 </div>
               </div>
             ) : (
               <div className="px-5 py-6 border-b border-white/[0.07] text-center">
-                <XCircle size={28} className="mx-auto text-red-400/40 mb-2" />
-                <p className="text-sm text-red-400/60">Sin registro de asistencia</p>
+                <XCircle size={28} className="mx-auto text-asistencia-ausente/40 mb-2" />
+                <p className="text-sm text-asistencia-ausente/60">Sin registro de asistencia</p>
               </div>
             )}
 
@@ -336,7 +339,7 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
                 <div className="px-5 py-3 border-b border-r border-white/[0.07]">
                   <p className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider mb-1.5">Entrada</p>
                   <div className="flex items-center gap-2">
-                    <div className="size-7 rounded-[7px] bg-emerald-500/15 flex items-center justify-center text-emerald-400">
+                    <div className="size-7 rounded-md bg-asistencia-presente/15 flex items-center justify-center text-asistencia-presente">
                       {metEntrada.icono}
                     </div>
                     <div>
@@ -351,8 +354,8 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
                   <p className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider mb-1.5">Salida</p>
                   {metSalida ? (
                     <div className="flex items-center gap-2">
-                      <div className={`size-7 rounded-[7px] flex items-center justify-center ${
-                        r.estado === 'auto_cerrado' ? 'bg-amber-500/15 text-amber-400' : 'bg-emerald-500/15 text-emerald-400'
+                      <div className={`size-7 rounded-md flex items-center justify-center ${
+                        r.estado === 'auto_cerrado' ? 'bg-asistencia-tarde/15 text-asistencia-tarde' : 'bg-asistencia-presente/15 text-asistencia-presente'
                       }`}>
                         {metSalida.icono}
                       </div>
@@ -430,12 +433,12 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] text-texto-terciario/40">{r.total_heartbeats || 0} señales</span>
-                    <span className="text-[13px] font-medium text-blue-400">{fmtDuracion(tiempoActivo!)}</span>
+                    <span className="text-[13px] font-medium text-insignia-info">{fmtDuracion(tiempoActivo!)}</span>
                   </div>
                 </div>
                 <div className="w-full h-1.5 rounded bg-white/[0.06] overflow-hidden">
                   <div
-                    className="h-full rounded bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500"
+                    className="h-full rounded bg-gradient-to-r from-insignia-info to-texto-marca transition-all duration-500"
                     style={{ width: `${Math.max(pctActivo, 5)}%` }}
                   />
                 </div>
@@ -461,13 +464,17 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
                 {r.foto_entrada && (
                   <div className="px-5 py-3 border-r border-white/[0.07]">
                     <p className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider mb-1.5">Foto entrada</p>
-                    <img src={r.foto_entrada} alt="Foto entrada" className="w-full h-32 object-cover rounded-lg" />
+                    <div className="relative w-full h-32">
+                      <Image src={r.foto_entrada} alt="Foto entrada" fill sizes="(max-width: 768px) 50vw, 300px" className="object-cover rounded-lg" />
+                    </div>
                   </div>
                 )}
                 {r.foto_salida && (
                   <div className="px-5 py-3">
                     <p className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider mb-1.5">Foto salida</p>
-                    <img src={r.foto_salida} alt="Foto salida" className="w-full h-32 object-cover rounded-lg" />
+                    <div className="relative w-full h-32">
+                      <Image src={r.foto_salida} alt="Foto salida" fill sizes="(max-width: 768px) 50vw, 300px" className="object-cover rounded-lg" />
+                    </div>
                   </div>
                 )}
               </div>
@@ -536,7 +543,7 @@ export function ModalEditarFichaje({ abierto, onCerrar, registro, onGuardado }: 
             </div>
 
             {/* Trámite colapsable */}
-            <details className="group border border-white/[0.08] rounded-[9px] overflow-hidden">
+            <details className="group border border-white/[0.08] rounded-lg overflow-hidden">
               <summary className="flex items-center justify-between px-3.5 py-2.5 cursor-pointer bg-white/[0.02] hover:bg-white/[0.04] transition-colors list-none [&::-webkit-details-marker]:hidden">
                 <span className="flex items-center gap-1.5 text-xs font-medium text-texto-terciario/60">
                   <Footprints size={12} />
@@ -573,9 +580,9 @@ function CampoHoraLimpiable({ etiqueta, valor, onChange, onLimpiar }: {
   onLimpiar: () => void
 }) {
   return (
-    <div className="flex flex-col gap-[5px]">
+    <div className="flex flex-col gap-1">
       <label className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider">{etiqueta}</label>
-      <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.1] rounded-lg px-2.5 py-2 focus-within:border-indigo-500/50 transition-colors">
+      <div className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.1] rounded-lg px-2.5 py-2 focus-within:border-texto-marca/50 transition-colors">
         <Clock size={13} className="text-texto-terciario/30 shrink-0" />
         <input
           type="time"
@@ -588,7 +595,7 @@ function CampoHoraLimpiable({ etiqueta, valor, onChange, onLimpiar }: {
           <button
             type="button"
             onClick={onLimpiar}
-            className="shrink-0 text-texto-terciario/30 hover:text-red-400/70 transition-colors"
+            className="shrink-0 text-texto-terciario/30 hover:text-asistencia-ausente/70 transition-colors"
             title="Limpiar"
           >
             <XCircle size={13} />

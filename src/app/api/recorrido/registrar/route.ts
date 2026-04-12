@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { registrarChatter } from '@/lib/chatter'
+import { comprimirImagen, validarArchivo, TAMANO_MAXIMO_BYTES } from '@/lib/comprimir-imagen'
+import { verificarCuotaStorage, registrarUsoStorage } from '@/lib/uso-storage'
 import type { AdjuntoChatter } from '@/tipos/chatter'
 
 /**
@@ -42,36 +44,63 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Visita no encontrada' }, { status: 404 })
     }
 
-    // Subir fotos a Storage
+    // Subir fotos a Storage (con compresión y validación)
     const adjuntos: AdjuntoChatter[] = []
     const archivos = formData.getAll('archivos') as File[]
+
+    // Verificar cuota antes de subir
+    const tamanoTotal = archivos.reduce((sum, a) => sum + a.size, 0)
+    const errorCuota = await verificarCuotaStorage(empresaId, tamanoTotal)
+    if (errorCuota) {
+      return NextResponse.json({ error: errorCuota }, { status: 413 })
+    }
 
     for (const archivo of archivos) {
       if (!archivo.size) continue
 
-      const timestamp = Date.now()
-      const nombreLimpio = archivo.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-      const ruta = `documentos-pdf/${empresaId}/chatter/${visitaId}/${timestamp}_${nombreLimpio}`
+      // Validar tipo y tamaño
+      const errorValidacion = validarArchivo(archivo.type, archivo.size, TAMANO_MAXIMO_BYTES)
+      if (errorValidacion) {
+        console.warn(`Archivo rechazado en visita ${visitaId}: ${errorValidacion}`)
+        continue
+      }
 
-      const buffer = Buffer.from(await archivo.arrayBuffer())
+      const timestamp = Date.now()
+      const bufferOriginal = Buffer.from(await archivo.arrayBuffer())
+
+      // Comprimir imágenes: max 1600px ancho, JPEG 80%
+      const { buffer, tipo } = await comprimirImagen(bufferOriginal, archivo.type, {
+        anchoMaximo: 1600,
+        calidad: 80,
+      })
+
+      // Ajustar extensión si se convirtió a JPEG
+      const nombreBase = archivo.name.replace(/\.[^.]+$/, '')
+      const extension = tipo === 'image/webp' ? '.webp' : tipo === 'image/jpeg' ? '.jpg' : `.${archivo.name.split('.').pop()}`
+      const nombreLimpio = `${nombreBase}${extension}`.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const rutaStorage = `${empresaId}/chatter/${visitaId}/${timestamp}_${nombreLimpio}`
+
       const { error: errorStorage } = await admin.storage
         .from('documentos-pdf')
-        .upload(ruta.replace('documentos-pdf/', ''), buffer, {
-          contentType: archivo.type,
+        .upload(rutaStorage, buffer, {
+          contentType: tipo,
           upsert: false,
         })
 
       if (!errorStorage) {
         const { data: urlData } = admin.storage
           .from('documentos-pdf')
-          .getPublicUrl(ruta.replace('documentos-pdf/', ''))
+          .getPublicUrl(rutaStorage)
 
         adjuntos.push({
           nombre: archivo.name,
           url: urlData.publicUrl,
-          tipo: archivo.type,
-          tamano: archivo.size,
+          tipo,
+          tamano: buffer.length,
         })
+
+        // Registrar uso de storage
+        registrarUsoStorage(empresaId, 'documentos-pdf', buffer.length)
       }
     }
 

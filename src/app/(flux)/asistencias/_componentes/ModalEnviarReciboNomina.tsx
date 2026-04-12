@@ -27,6 +27,8 @@ import {
   Send, Loader2, CheckCircle2, AlertCircle,
   Mail, UserX, Users,
 } from 'lucide-react'
+import HtmlSeguro from '@/componentes/ui/HtmlSeguro'
+import { useTraduccion } from '@/lib/i18n'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -124,6 +126,7 @@ export function ModalEnviarReciboNomina({
   etiquetaPeriodo,
   nombreEmpresa,
 }: PropiedadesModal) {
+  const { t } = useTraduccion()
   // Canales y plantillas de correo
   const [canales, setCanales] = useState<CanalCorreoEmpresa[]>([])
   const [plantillas, setPlantillas] = useState<PlantillaCorreo[]>([])
@@ -328,13 +331,13 @@ export function ModalEnviarReciboNomina({
             <p className="text-xs text-texto-terciario">
               {empleadosConCorreo.length} destinatario{empleadosConCorreo.length !== 1 ? 's' : ''}
               {empleadosSinCorreo.length > 0 && (
-                <span className="text-amber-400 ml-2">
+                <span className="text-insignia-advertencia ml-2">
                   · {empleadosSinCorreo.length} sin correo
                 </span>
               )}
             </p>
             <div className="flex items-center gap-2">
-              <Boton variante="secundario" tamano="sm" onClick={onCerrar}>Cancelar</Boton>
+              <Boton variante="secundario" tamano="sm" onClick={onCerrar}>{t('comun.cancelar')}</Boton>
               <Boton
                 tamano="sm"
                 onClick={enviarEnLote}
@@ -357,7 +360,7 @@ export function ModalEnviarReciboNomina({
           <div className="text-center py-6">
             {resultadoLote.fallidos === 0 ? (
               <>
-                <CheckCircle2 size={40} className="mx-auto text-emerald-400 mb-3" />
+                <CheckCircle2 size={40} className="mx-auto text-insignia-exito mb-3" />
                 <p className="text-lg font-semibold text-texto-primario">
                   {resultadoLote.enviados} recibo{resultadoLote.enviados !== 1 ? 's' : ''} enviado{resultadoLote.enviados !== 1 ? 's' : ''}
                 </p>
@@ -367,7 +370,7 @@ export function ModalEnviarReciboNomina({
               </>
             ) : (
               <>
-                <AlertCircle size={40} className="mx-auto text-amber-400 mb-3" />
+                <AlertCircle size={40} className="mx-auto text-insignia-advertencia mb-3" />
                 <p className="text-lg font-semibold text-texto-primario">
                   {resultadoLote.enviados} enviado{resultadoLote.enviados !== 1 ? 's' : ''}, {resultadoLote.fallidos} fallido{resultadoLote.fallidos !== 1 ? 's' : ''}
                 </p>
@@ -380,7 +383,7 @@ export function ModalEnviarReciboNomina({
             <div className="space-y-1">
               <p className="text-xs font-medium text-texto-terciario mb-2">Errores:</p>
               {resultadoLote.resultados.filter(r => !r.ok).map((r, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 rounded-md px-3 py-2">
+                <div key={i} className="flex items-center gap-2 text-xs text-insignia-peligro bg-insignia-peligro-fondo rounded-md px-3 py-2">
                   <AlertCircle size={12} />
                   <span>{r.correo || 'Sin correo'}: {r.error}</span>
                 </div>
@@ -422,9 +425,9 @@ export function ModalEnviarReciboNomina({
             <label className="text-xs font-medium text-texto-terciario mb-1 block">
               Contenido (preview para {empleadosConCorreo[0]?.nombre || 'empleado'})
             </label>
-            <div
+            <HtmlSeguro
+              html={htmlPreview}
               className="text-sm bg-superficie-elevada/20 border border-borde-sutil rounded-lg px-4 py-3 max-h-[300px] overflow-y-auto prose prose-sm prose-invert"
-              dangerouslySetInnerHTML={{ __html: htmlPreview }}
             />
           </div>
 
@@ -447,7 +450,7 @@ export function ModalEnviarReciboNomina({
                       <p className="text-xs text-texto-terciario">{r.correo}</p>
                     </div>
                   </div>
-                  <span className="text-sm font-semibold text-emerald-400">{fmtMonto(r.monto_pagar)}</span>
+                  <span className="text-sm font-semibold text-insignia-exito">{fmtMonto(r.monto_pagar)}</span>
                 </div>
               ))}
 
@@ -455,13 +458,13 @@ export function ModalEnviarReciboNomina({
               {empleadosSinCorreo.map(r => (
                 <div
                   key={r.miembro_id}
-                  className="flex items-center justify-between bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2"
+                  className="flex items-center justify-between bg-insignia-advertencia-fondo border border-insignia-advertencia/20 rounded-lg px-3 py-2"
                 >
                   <div className="flex items-center gap-2">
-                    <UserX size={12} className="text-amber-400 shrink-0" />
+                    <UserX size={12} className="text-insignia-advertencia shrink-0" />
                     <div>
                       <p className="text-sm font-medium text-texto-primario">{r.nombre}</p>
-                      <p className="text-xs text-amber-400">Sin correo configurado</p>
+                      <p className="text-xs text-insignia-advertencia">Sin correo configurado</p>
                     </div>
                   </div>
                   <span className="text-sm text-texto-terciario">{fmtMonto(r.monto_pagar)}</span>

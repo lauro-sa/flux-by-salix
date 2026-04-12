@@ -37,25 +37,25 @@ type Periodo = 'semana' | 'quincena' | 'mes'
 // ─── Constantes ──────────────────────────────────────────────
 
 const COLORES_CELDA: Record<string, { fondo: string; borde: string }> = {
-  normal:       { fondo: 'bg-emerald-500/10', borde: 'border-emerald-500/20' },
-  cerrado:      { fondo: 'bg-emerald-500/10', borde: 'border-emerald-500/20' },
-  activo:       { fondo: 'bg-sky-500/12', borde: 'border-sky-500/25' },
-  tardanza:     { fondo: 'bg-amber-500/12', borde: 'border-amber-500/25' },
-  almuerzo:     { fondo: 'bg-amber-500/10', borde: 'border-amber-500/20' },
-  particular:   { fondo: 'bg-sky-500/10', borde: 'border-sky-500/20' },
-  auto_cerrado: { fondo: 'bg-red-500/10', borde: 'border-red-500/20' },
-  ausente:      { fondo: 'bg-red-500/8', borde: 'border-red-500/15' },
-  feriado:      { fondo: 'bg-violet-500/10', borde: 'border-violet-500/20' },
+  normal:       { fondo: 'bg-asistencia-presente-fondo', borde: 'border-asistencia-presente/20' },
+  cerrado:      { fondo: 'bg-asistencia-presente-fondo', borde: 'border-asistencia-presente/20' },
+  activo:       { fondo: 'bg-asistencia-particular-fondo', borde: 'border-asistencia-particular/25' },
+  tardanza:     { fondo: 'bg-asistencia-tarde-fondo', borde: 'border-asistencia-tarde/25' },
+  almuerzo:     { fondo: 'bg-asistencia-almuerzo-fondo', borde: 'border-asistencia-almuerzo/20' },
+  particular:   { fondo: 'bg-asistencia-particular-fondo', borde: 'border-asistencia-particular/20' },
+  auto_cerrado: { fondo: 'bg-asistencia-ausente-fondo', borde: 'border-asistencia-ausente/20' },
+  ausente:      { fondo: 'bg-asistencia-ausente-fondo', borde: 'border-asistencia-ausente/15' },
+  feriado:      { fondo: 'bg-asistencia-feriado-fondo', borde: 'border-asistencia-feriado/20' },
 }
 
 const COLOR_PUNTO: Record<string, string> = {
-  normal: 'bg-emerald-400',
-  cerrado: 'bg-emerald-400',
-  activo: 'bg-sky-400',
-  tardanza: 'bg-amber-400',
-  auto_cerrado: 'bg-red-400',
-  ausente: 'bg-red-400',
-  feriado: 'bg-violet-400',
+  normal: 'bg-asistencia-presente',
+  cerrado: 'bg-asistencia-presente',
+  activo: 'bg-asistencia-particular',
+  tardanza: 'bg-asistencia-tarde',
+  auto_cerrado: 'bg-asistencia-ausente',
+  ausente: 'bg-asistencia-ausente',
+  feriado: 'bg-asistencia-feriado',
 }
 
 const DIAS_SEMANA_CORTO = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
@@ -172,8 +172,8 @@ const COLORES_AVATAR = [
   'bg-insignia-exito/20 text-insignia-exito',
   'bg-insignia-advertencia/20 text-insignia-advertencia',
   'bg-[color:var(--insignia-peligro)]/20 text-[color:var(--insignia-peligro)]',
-  'bg-purple-500/20 text-purple-400',
-  'bg-cyan-500/20 text-cyan-400',
+  'bg-insignia-violeta/20 text-insignia-violeta',
+  'bg-insignia-cyan/20 text-insignia-cyan',
 ]
 
 // ─── Componente ──────────────────────────────────────────────
@@ -461,7 +461,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-texto-primario">{presentes}/{totalLaboral}</span>
-                    {ausentes > 0 && <span className="text-xs font-semibold text-red-400">{ausentes}A</span>}
+                    {ausentes > 0 && <span className="text-xs font-semibold text-asistencia-ausente">{ausentes}A</span>}
                   </div>
                 </div>
 
@@ -504,25 +504,25 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                           fondoCelda = 'bg-superficie-elevada/40'
                           textColor = 'text-texto-terciario/30'
                         } else if (estado === 'ausente') {
-                          fondoCelda = 'bg-red-500/12 border border-red-500/20'
+                          fondoCelda = 'bg-asistencia-ausente/12 border border-asistencia-ausente/20'
                           subTexto = 'AUS'
                         } else if (estado === 'tardanza') {
-                          fondoCelda = 'bg-amber-500/12 border border-amber-500/20'
-                          puntoColor = 'bg-amber-400'
+                          fondoCelda = 'bg-asistencia-tarde/12 border border-asistencia-tarde/20'
+                          puntoColor = 'bg-asistencia-tarde'
                         } else if (estado === 'cerrado' || estado === 'normal') {
-                          fondoCelda = 'bg-emerald-500/12 border border-emerald-500/20'
-                          puntoColor = 'bg-emerald-400'
+                          fondoCelda = 'bg-asistencia-presente/12 border border-asistencia-presente/20'
+                          puntoColor = 'bg-asistencia-presente'
                         } else if (estado === 'activo') {
-                          fondoCelda = 'bg-sky-500/12 border border-sky-500/20'
-                          puntoColor = 'bg-sky-400'
+                          fondoCelda = 'bg-asistencia-particular/12 border border-asistencia-particular/20'
+                          puntoColor = 'bg-asistencia-particular'
                         } else if (estado === 'auto_cerrado') {
-                          fondoCelda = 'bg-red-500/8 border border-red-500/15'
-                          puntoColor = 'bg-red-400'
+                          fondoCelda = 'bg-asistencia-ausente/8 border border-asistencia-ausente/15'
+                          puntoColor = 'bg-asistencia-ausente'
                         }
 
                         if (esFeriado && !esFinde) {
-                          fondoCelda = estado !== 'vacio' ? fondoCelda : 'bg-violet-500/10 border border-violet-500/20'
-                          textColor = estado === 'vacio' ? 'text-violet-400' : textColor
+                          fondoCelda = estado !== 'vacio' ? fondoCelda : 'bg-asistencia-feriado/10 border border-asistencia-feriado/20'
+                          textColor = estado === 'vacio' ? 'text-asistencia-feriado' : textColor
                         }
 
                         if (esHoy) textColor = 'text-texto-marca'
@@ -539,7 +539,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                             {esFinde ? (
                               <span className="text-texto-terciario/20 text-xxs leading-none">—</span>
                             ) : subTexto ? (
-                              <span className="text-red-400 text-xxs font-bold leading-none mt-0.5">{subTexto}</span>
+                              <span className="text-asistencia-ausente text-xxs font-bold leading-none mt-0.5">{subTexto}</span>
                             ) : puntoColor ? (
                               <div className={`size-1.5 rounded-full mt-1 ${puntoColor}`} />
                             ) : null}
@@ -590,7 +590,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                     <React.Fragment key={fecha}>
                       {esLunesTrasOculto && (
                         <th className="border-b border-borde-sutil w-[6px] min-w-[6px] max-w-[6px] p-0">
-                          <div className="h-full flex items-center justify-center gap-[2px]">
+                          <div className="h-full flex items-center justify-center gap-0.5">
                             <div className="w-[1px] h-8 bg-texto-terciario/20 rounded-full" />
                             <div className="w-[1px] h-8 bg-texto-terciario/20 rounded-full" />
                           </div>
@@ -598,24 +598,24 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                       )}
                       <th
                         className={`py-2 text-center border-b border-borde-sutil ${esUltra ? 'px-0' : esCompacto ? 'px-0.5' : esIntermedio ? 'px-0.5 min-w-[70px]' : 'px-1 min-w-[90px]'} ${
-                          esHoy ? 'bg-texto-marca/8' : nombreFeriado ? 'bg-violet-500/8' : ''
+                          esHoy ? 'bg-texto-marca/8' : nombreFeriado ? 'bg-asistencia-feriado/8' : ''
                         }`}
                       >
                         <div className={`${esUltra ? 'text-[7px]' : 'text-xxs'} uppercase tracking-wider ${
-                          nombreFeriado ? 'text-violet-400' : esFinde ? 'text-texto-terciario/50' : 'text-texto-terciario'
+                          nombreFeriado ? 'text-asistencia-feriado' : esFinde ? 'text-texto-terciario/50' : 'text-texto-terciario'
                         }`}>
                           {esUltra ? DIAS_SEMANA_CORTO[diaSemana].charAt(0) : DIAS_SEMANA_CORTO[diaSemana]}
                         </div>
                         <div className={`${esUltra ? 'text-xs' : esCompacto ? 'text-sm' : esIntermedio ? 'text-base' : 'text-lg'} font-semibold ${
-                          esHoy ? 'text-texto-marca' : nombreFeriado ? 'text-violet-400' : esFinde ? 'text-texto-terciario/40' : 'text-texto-primario'
+                          esHoy ? 'text-texto-marca' : nombreFeriado ? 'text-asistencia-feriado' : esFinde ? 'text-texto-terciario/40' : 'text-texto-primario'
                         }`}>
                           {d.getDate()}
                         </div>
                         {nombreFeriado && esUltra && (
-                          <div className="size-1 rounded-full bg-violet-400 mx-auto mt-0.5" title={nombreFeriado} />
+                          <div className="size-1 rounded-full bg-asistencia-feriado mx-auto mt-0.5" title={nombreFeriado} />
                         )}
                         {nombreFeriado && !esUltra && (
-                          <div className="text-xxs text-violet-400 leading-tight truncate max-w-[80px] mx-auto" title={nombreFeriado}>
+                          <div className="text-xxs text-asistencia-feriado leading-tight truncate max-w-[80px] mx-auto" title={nombreFeriado}>
                             {nombreFeriado.length > 15 ? nombreFeriado.slice(0, 14) + '…' : nombreFeriado}
                           </div>
                         )}
@@ -679,7 +679,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                       const esFinde = diaSemana === 0 || diaSemana === 6
                       const esFeriado = feriados.has(fecha)
                       const estado = estadoCelda(asist, fecha, esFinde, esFeriado)
-                      const fondoCol = esHoy ? 'bg-texto-marca/5' : esFeriado ? 'bg-violet-500/5' : ''
+                      const fondoCol = esHoy ? 'bg-texto-marca/5' : esFeriado ? 'bg-asistencia-feriado/5' : ''
                       const celdaSel = modoSeleccion && selCeldas.has(celdaKey(miembro.id, fecha))
                       const ringSeleccion = celdaSel ? 'ring-2 ring-texto-marca/50 ring-inset rounded-md' : ''
                       const esLunesTrasOculto = ocultarFindes && diaSemana === 1 && i > 0
@@ -687,7 +687,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                       // Separador de fin de semana
                       const separador = esLunesTrasOculto ? (
                         <td className="border-b border-borde-sutil w-[6px] min-w-[6px] max-w-[6px] p-0">
-                          <div className="h-full flex items-center justify-center gap-[2px]">
+                          <div className="h-full flex items-center justify-center gap-0.5">
                             <div className="w-[1px] h-10 bg-texto-terciario/20 rounded-full" />
                             <div className="w-[1px] h-10 bg-texto-terciario/20 rounded-full" />
                           </div>
@@ -714,15 +714,15 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                           <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol} ${ringSeleccion}`}>
                             {esUltra ? (
                               <div className="group/celda relative mx-auto">
-                                <div className="size-5 rounded-md bg-violet-500/20 flex items-center justify-center">
-                                  <span className="text-violet-400 text-[7px] font-bold">F</span>
+                                <div className="size-5 rounded-md bg-asistencia-feriado/20 flex items-center justify-center">
+                                  <span className="text-asistencia-feriado text-[7px] font-bold">F</span>
                                 </div>
-                                <div className="absolute z-[100] top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 scale-95 pointer-events-none group-hover/celda:opacity-100 group-hover/celda:scale-100 transition-all duration-150">
+                                <div className="absolute z-[var(--z-popover)] top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 scale-95 pointer-events-none group-hover/celda:opacity-100 group-hover/celda:scale-100 transition-all duration-150">
                                   <div className="absolute left-1/2 -translate-x-1/2 bottom-full w-2 h-2 bg-superficie-elevada border-l border-t border-borde-sutil rotate-45 mb-[-5px]" />
                                   <div className="bg-superficie-elevada border border-borde-sutil rounded-lg shadow-xl px-3 py-2 whitespace-nowrap">
                                     <div className="flex items-center gap-1.5">
-                                      <div className="size-2 rounded-full bg-violet-400" />
-                                      <span className="text-xs font-medium text-violet-400">Feriado</span>
+                                      <div className="size-2 rounded-full bg-asistencia-feriado" />
+                                      <span className="text-xs font-medium text-asistencia-feriado">Feriado</span>
                                     </div>
                                     <p className="text-xxs text-texto-terciario mt-0.5">{nombreFer}</p>
                                   </div>
@@ -730,8 +730,8 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                               </div>
                             ) : (
                             <div className={`mx-auto rounded-lg ${esCompacto ? 'h-[52px]' : 'h-[60px]'} flex flex-col items-center justify-center ${COLORES_CELDA.feriado.fondo} border ${COLORES_CELDA.feriado.borde}`}>
-                              <span className={`text-violet-400 ${esCompacto ? 'text-xxs' : 'text-xs'} font-semibold`}>Feriado</span>
-                              {!esCompacto && <span className="text-xxs text-violet-400/60 truncate max-w-[80px]">{nombreFer}</span>}
+                              <span className={`text-asistencia-feriado ${esCompacto ? 'text-xxs' : 'text-xs'} font-semibold`}>Feriado</span>
+                              {!esCompacto && <span className="text-xxs text-asistencia-feriado/60 truncate max-w-[80px]">{nombreFer}</span>}
                             </div>
                             )}
                           </td>
@@ -741,15 +741,15 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                           <td key={fecha} className={`${esUltra ? 'px-0 py-1' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol} ${ringSeleccion}`}>
                             {esUltra ? (
                               <div className="group/celda relative mx-auto">
-                                <div className="size-5 rounded-md bg-red-500/20 flex items-center justify-center cursor-pointer" role="gridcell" tabIndex={0} onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } } }}>
-                                  <span className="text-red-400 text-[7px] font-bold">A</span>
+                                <div className="size-5 rounded-md bg-asistencia-ausente/20 flex items-center justify-center cursor-pointer" role="gridcell" tabIndex={0} onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } } }}>
+                                  <span className="text-asistencia-ausente text-[7px] font-bold">A</span>
                                 </div>
-                                <div className="absolute z-[100] top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 scale-95 pointer-events-none group-hover/celda:opacity-100 group-hover/celda:scale-100 transition-all duration-150">
+                                <div className="absolute z-[var(--z-popover)] top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 scale-95 pointer-events-none group-hover/celda:opacity-100 group-hover/celda:scale-100 transition-all duration-150">
                                   <div className="absolute left-1/2 -translate-x-1/2 bottom-full w-2 h-2 bg-superficie-elevada border-l border-t border-borde-sutil rotate-45 mb-[-5px]" />
                                   <div className="bg-superficie-elevada border border-borde-sutil rounded-lg shadow-xl px-3 py-2 whitespace-nowrap">
                                     <div className="flex items-center gap-1.5">
-                                      <div className="size-2 rounded-full bg-red-400" />
-                                      <span className="text-xs font-medium text-red-400">Ausente</span>
+                                      <div className="size-2 rounded-full bg-asistencia-ausente" />
+                                      <span className="text-xs font-medium text-asistencia-ausente">Ausente</span>
                                     </div>
                                     <p className="text-xxs text-texto-terciario mt-0.5">Sin registro de asistencia</p>
                                   </div>
@@ -757,7 +757,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                               </div>
                             ) : (
                             <div role="gridcell" tabIndex={0} onClick={() => { if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (modoSeleccion) { toggleCelda(miembro.id, fecha) } else if (asist) { onClickAsistencia?.(asist.id) } else { onCrearFichaje?.(miembro.id, miembro.nombre, fecha) } } }} className={`mx-auto rounded-lg ${esCompacto ? 'h-[52px]' : 'h-[60px]'} flex items-center justify-center ${COLORES_CELDA.ausente.fondo} border ${COLORES_CELDA.ausente.borde} cursor-pointer hover:brightness-110 transition-all`}>
-                              <span className={`text-red-400 ${esCompacto ? 'text-xxs' : 'text-xs'} font-semibold uppercase`}>Ausente</span>
+                              <span className={`text-asistencia-ausente ${esCompacto ? 'text-xxs' : 'text-xs'} font-semibold uppercase`}>Ausente</span>
                             </div>
                             )}
                           </td>
@@ -774,7 +774,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                         )
                       } else {
                         const colores = COLORES_CELDA[estado] || COLORES_CELDA.cerrado
-                        const colorPunto = COLOR_PUNTO[estado] || 'bg-emerald-400'
+                        const colorPunto = COLOR_PUNTO[estado] || 'bg-asistencia-presente'
                         const horaE = formatearHora(asist.hora_entrada, formatoHora)
                         const horaS = formatearHora(asist.hora_salida, formatoHora)
                         const etiquetaEstado = estado === 'cerrado' ? 'ok' :
@@ -787,7 +787,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                         const salidaMs = asist.hora_salida ? new Date(asist.hora_salida).getTime() : Date.now()
                         const min = entradaMs ? Math.max(0, Math.round((salidaMs - entradaMs) / 60000)) : 0
                         const fmtDur = (m: number) => { const h = Math.floor(m/60); const mm = m%60; return h === 0 ? `${mm}min` : mm > 0 ? `${h}h ${mm}min` : `${h}h` }
-                        const colorDurTxt = estado === 'auto_cerrado' || estado === 'tardanza' ? 'text-amber-400' : 'text-emerald-400'
+                        const colorDurTxt = estado === 'auto_cerrado' || estado === 'tardanza' ? 'text-asistencia-tarde' : 'text-asistencia-presente'
 
                         celda = (
                           <td key={fecha} className={`${esUltra ? 'px-0 py-1 text-center' : 'px-1 py-1.5'} border-b border-borde-sutil ${fondoCol} ${ringSeleccion}`}>
@@ -802,7 +802,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                                   <div className={`size-1.5 rounded-full ${colorPunto}`} />
                                 </div>
                                 {/* Tooltip rico al hacer hover — aparece abajo */}
-                                <div className="absolute z-[100] top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 scale-95 pointer-events-none group-hover/celda:opacity-100 group-hover/celda:scale-100 transition-all duration-150">
+                                <div className="absolute z-[var(--z-popover)] top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 scale-95 pointer-events-none group-hover/celda:opacity-100 group-hover/celda:scale-100 transition-all duration-150">
                                   <div className="absolute left-1/2 -translate-x-1/2 bottom-full w-2 h-2 bg-superficie-elevada border-l border-t border-borde-sutil rotate-45 mb-[-5px]" />
                                   <div className="bg-superficie-elevada border border-borde-sutil rounded-xl shadow-xl min-w-[180px] overflow-hidden">
                                     {/* Estado + fecha */}
@@ -826,7 +826,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                                     <div className="px-3 py-1.5 flex items-center justify-between text-[10px] text-texto-terciario/60">
                                       <span>{asist.metodo_registro === 'automatico' ? 'Auto' : asist.metodo_registro === 'manual' ? 'Manual' : asist.metodo_registro}</span>
                                       {asist.puntualidad_min != null && asist.puntualidad_min !== 0 && (
-                                        <span className={asist.puntualidad_min < 0 ? 'text-emerald-400' : 'text-red-400'}>
+                                        <span className={asist.puntualidad_min < 0 ? 'text-asistencia-presente' : 'text-asistencia-ausente'}>
                                           {formatearPuntualidadCorta(asist.puntualidad_min)}
                                         </span>
                                       )}
@@ -848,7 +848,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                                   )}
                                 </div>
                                 {/* Tooltip rico */}
-                                <div className="absolute z-[100] top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 scale-95 pointer-events-none group-hover/celda:opacity-100 group-hover/celda:scale-100 transition-all duration-150">
+                                <div className="absolute z-[var(--z-popover)] top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 scale-95 pointer-events-none group-hover/celda:opacity-100 group-hover/celda:scale-100 transition-all duration-150">
                                   <div className="absolute left-1/2 -translate-x-1/2 bottom-full w-2 h-2 bg-superficie-elevada border-l border-t border-borde-sutil rotate-45 mb-[-5px]" />
                                   <div className="bg-superficie-elevada border border-borde-sutil rounded-xl shadow-xl min-w-[180px] overflow-hidden">
                                     <div className="px-3 py-2 border-b border-white/[0.07]">
@@ -869,7 +869,7 @@ export function VistaMatriz({ onClickAsistencia, onCrearFichaje, recargarKey }: 
                                     <div className="px-3 py-1.5 flex items-center justify-between text-[10px] text-texto-terciario/60">
                                       <span>{asist.metodo_registro === 'automatico' ? 'Auto' : asist.metodo_registro === 'manual' ? 'Manual' : asist.metodo_registro}</span>
                                       {asist.puntualidad_min != null && asist.puntualidad_min !== 0 && (
-                                        <span className={asist.puntualidad_min < 0 ? 'text-emerald-400' : 'text-red-400'}>
+                                        <span className={asist.puntualidad_min < 0 ? 'text-asistencia-presente' : 'text-asistencia-ausente'}>
                                           {formatearPuntualidadCorta(asist.puntualidad_min)}
                                         </span>
                                       )}

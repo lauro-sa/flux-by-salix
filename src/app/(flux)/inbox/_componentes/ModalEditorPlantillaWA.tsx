@@ -12,6 +12,7 @@ import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
 import { TextArea } from '@/componentes/ui/TextArea'
+import HtmlSeguro from '@/componentes/ui/HtmlSeguro'
 import { Select } from '@/componentes/ui/Select'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { useToast } from '@/componentes/feedback/Toast'
@@ -1006,11 +1007,7 @@ function PreviewWhatsApp({ componentes, datosPreview }: { componentes: Component
       >
         <div className="rounded-lg p-2.5 max-w-[250px] shadow-sm" style={{ background: 'var(--whatsapp-burbuja)' }}>
           {componentes.encabezado?.tipo === 'TEXT' && componentes.encabezado.texto && (
-            <p
-              className="text-sm font-semibold mb-1"
-              style={{ color: 'var(--whatsapp-texto)' }}
-              dangerouslySetInnerHTML={{ __html: encabezadoHtml }}
-            />
+            <HtmlSeguro html={encabezadoHtml} como="p" className="text-sm font-semibold mb-1" />
           )}
           {componentes.encabezado?.tipo && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(componentes.encabezado.tipo) && (
             <div className="rounded mb-2 flex items-center justify-center text-xs" style={{ background: 'var(--whatsapp-pie)', color: 'var(--whatsapp-placeholder)', height: 80 }}>
@@ -1018,11 +1015,7 @@ function PreviewWhatsApp({ componentes, datosPreview }: { componentes: Component
             </div>
           )}
           {cuerpoHtml ? (
-            <p
-              className="text-sm whitespace-pre-wrap leading-snug"
-              style={{ color: 'var(--whatsapp-texto)' }}
-              dangerouslySetInnerHTML={{ __html: cuerpoHtml }}
-            />
+            <HtmlSeguro html={cuerpoHtml} como="p" className="text-sm whitespace-pre-wrap leading-snug" />
           ) : (
             <p className="text-sm whitespace-pre-wrap leading-snug" style={{ color: 'var(--whatsapp-placeholder)' }}>
               Cuerpo del mensaje...

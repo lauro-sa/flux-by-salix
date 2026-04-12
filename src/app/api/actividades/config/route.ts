@@ -180,7 +180,12 @@ export async function PUT(request: NextRequest) {
         const promesas = datos.orden.map((id: string, i: number) =>
           admin.from('tipos_actividad').update({ orden: i }).eq('id', id).eq('empresa_id', empresaId)
         )
-        await Promise.all(promesas)
+        const resultados = await Promise.all(promesas)
+        const errores = resultados.filter(r => r.error)
+        if (errores.length > 0) {
+          console.error('Errores al reordenar tipos actividad:', errores.map(e => e.error))
+          return NextResponse.json({ error: 'Error parcial al reordenar' }, { status: 500 })
+        }
         return NextResponse.json({ ok: true })
       }
 
@@ -258,7 +263,12 @@ export async function PUT(request: NextRequest) {
         const promesas = datos.orden.map((id: string, i: number) =>
           admin.from('estados_actividad').update({ orden: i }).eq('id', id).eq('empresa_id', empresaId)
         )
-        await Promise.all(promesas)
+        const resultados = await Promise.all(promesas)
+        const errores = resultados.filter(r => r.error)
+        if (errores.length > 0) {
+          console.error('Errores al reordenar estados actividad:', errores.map(e => e.error))
+          return NextResponse.json({ error: 'Error parcial al reordenar' }, { status: 500 })
+        }
         return NextResponse.json({ ok: true })
       }
 

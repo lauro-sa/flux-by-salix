@@ -16,6 +16,7 @@ import { useTraduccion } from '@/lib/i18n'
 import { useFormato } from '@/hooks/useFormato'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { useToast } from '@/componentes/feedback/Toast'
+import Image from 'next/image'
 import type { MensajeConAdjuntos, CanalInterno, Conversacion } from '@/tipos/inbox'
 
 /**
@@ -706,7 +707,7 @@ function MensajeInterno({
             {mensaje.adjuntos.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-1.5">
                 {mensaje.adjuntos.map((adj) => adj.tipo_mime.startsWith('image/')
-                  ? <img key={adj.id} src={adj.url} alt={adj.nombre_archivo} className="rounded-md" style={{ maxWidth: 240, maxHeight: 160 }} />
+                  ? <Image key={adj.id} src={adj.url} alt={adj.nombre_archivo} width={240} height={160} sizes="240px" className="rounded-md object-contain" />
                   : <a key={adj.id} href={adj.url} target="_blank" rel="noopener noreferrer" className="text-xs underline">📎 {adj.nombre_archivo}</a>
                 )}
               </div>
@@ -857,12 +858,14 @@ function MensajeInterno({
             {mensaje.adjuntos.map((adj) => {
               if (adj.tipo_mime.startsWith('image/')) {
                 return (
-                  <img
+                  <Image
                     key={adj.id}
                     src={adj.url}
                     alt={adj.nombre_archivo}
-                    className="rounded-md cursor-pointer"
-                    style={{ maxWidth: 300, maxHeight: 200 }}
+                    width={300}
+                    height={200}
+                    sizes="300px"
+                    className="rounded-md object-contain cursor-pointer"
                   />
                 )
               }

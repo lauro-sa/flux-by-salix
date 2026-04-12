@@ -182,6 +182,10 @@ async function subirAStorage(
 
   if (error) throw new Error(`Error al subir PDF a Storage: ${error.message}`)
 
+  // Registrar uso de storage
+  const { registrarUsoStorage } = await import('@/lib/uso-storage')
+  registrarUsoStorage(empresaId, 'documentos-pdf', pdfBuffer.length)
+
   const { data: urlData } = admin.storage.from('documentos-pdf').getPublicUrl(storagePath)
   // Agregar timestamp para romper caché del navegador/CDN
   const urlConCacheBuster = `${urlData.publicUrl}?t=${Date.now()}`

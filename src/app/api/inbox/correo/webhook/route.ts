@@ -23,8 +23,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true }) // ACK sin procesar
     }
 
-    // Decodificar mensaje
-    const decoded = JSON.parse(Buffer.from(mensajePubSub, 'base64').toString())
+    // Decodificar mensaje (con validación de base64 malformado)
+    let decoded: { emailAddress?: string; historyId?: string }
+    try {
+      decoded = JSON.parse(Buffer.from(mensajePubSub, 'base64').toString())
+    } catch {
+      console.error('Webhook correo: payload base64/JSON inválido')
+      return NextResponse.json({ ok: true })
+    }
     const { emailAddress, historyId } = decoded
 
     if (!emailAddress || !historyId) {

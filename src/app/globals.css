@@ -266,6 +266,37 @@ input:-webkit-autofill:active {
   --color-estado-cancelado: var(--estado-cancelado);
   --color-estado-cancelado-fondo: var(--estado-cancelado-fondo);
 
+  /* Asistencia */
+  --color-asistencia-presente: var(--asistencia-presente);
+  --color-asistencia-presente-fondo: var(--asistencia-presente-fondo);
+  --color-asistencia-ausente: var(--asistencia-ausente);
+  --color-asistencia-ausente-fondo: var(--asistencia-ausente-fondo);
+  --color-asistencia-almuerzo: var(--asistencia-almuerzo);
+  --color-asistencia-almuerzo-fondo: var(--asistencia-almuerzo-fondo);
+  --color-asistencia-tarde: var(--asistencia-tarde);
+  --color-asistencia-tarde-fondo: var(--asistencia-tarde-fondo);
+  --color-asistencia-particular: var(--asistencia-particular);
+  --color-asistencia-particular-fondo: var(--asistencia-particular-fondo);
+  --color-asistencia-feriado: var(--asistencia-feriado);
+  --color-asistencia-feriado-fondo: var(--asistencia-feriado-fondo);
+  --color-asistencia-vacaciones: var(--asistencia-vacaciones);
+  --color-asistencia-vacaciones-fondo: var(--asistencia-vacaciones-fondo);
+  --color-asistencia-descanso: var(--asistencia-descanso);
+  --color-asistencia-descanso-fondo: var(--asistencia-descanso-fondo);
+
+  /* Prioridades */
+  --color-prioridad-alta: var(--prioridad-alta);
+  --color-prioridad-alta-fondo: var(--prioridad-alta-fondo);
+  --color-prioridad-media: var(--prioridad-media);
+  --color-prioridad-media-fondo: var(--prioridad-media-fondo);
+  --color-prioridad-baja: var(--prioridad-baja);
+  --color-prioridad-baja-fondo: var(--prioridad-baja-fondo);
+
+  /* Marcas de terceros */
+  --color-marca-whatsapp: var(--marca-whatsapp);
+  --color-marca-google: var(--marca-google);
+  --color-marca-meta: var(--marca-meta);
+
   /* Secciones */
   --color-seccion-contactos: var(--seccion-contactos);
   --color-seccion-actividades: var(--seccion-actividades);
@@ -799,3 +830,4 @@ a:hover { text-decoration: none; }
   0%   { transform: translate(0, 0) rotate(0deg); opacity: 1; }
   100% { transform: translate(var(--cx), var(--cy)) rotate(720deg); opacity: 0; }
 }
+

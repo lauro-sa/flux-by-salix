@@ -139,7 +139,7 @@ export default function ModalCondicionPago({ abierto, onCerrar, onGuardar, condi
       sinPadding
       acciones={
         <>
-          <Boton variante="fantasma" onClick={onCerrar}>Cancelar</Boton>
+          <Boton variante="fantasma" onClick={onCerrar}>{t('comun.cancelar')}</Boton>
           <Boton onClick={guardar} disabled={!puedeGuardar}>
             {esEdicion ? 'Guardar cambios' : 'Agregar'}
           </Boton>

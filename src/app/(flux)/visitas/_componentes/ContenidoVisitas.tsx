@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useListado, useConfig } from '@/hooks/useListado'
-import { DEBOUNCE_BUSQUEDA } from '@/lib/constantes/timeouts'
+import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -89,9 +89,6 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
   const [vistaActiva, setVistaActiva] = useState<'listado' | 'planificacion'>('listado')
 
   // Estado UI
-  const [busqueda, setBusqueda] = useState('')
-  const [busquedaDebounced, setBusquedaDebounced] = useState('')
-  const [pagina, setPagina] = useState(1)
   const [modalAbierto, setModalAbierto] = useState(false)
   const [visitaEditando, setVisitaEditando] = useState<Visita | null>(null)
   const [mostrarArchivadas, setMostrarArchivadas] = useState(false)
@@ -114,14 +111,8 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
   const [filtroPrioridad, setFiltroPrioridad] = useState('')
   const [filtroVista, setFiltroVista] = useState(VISTA_DEFAULT)
 
-  // Debounce
-  useEffect(() => {
-    const timeout = setTimeout(() => setBusquedaDebounced(busqueda), DEBOUNCE_BUSQUEDA)
-    return () => clearTimeout(timeout)
-  }, [busqueda])
-
-  // Reset página al cambiar filtros
-  useEffect(() => { setPagina(1) }, [busquedaDebounced, filtroEstado, filtroPrioridad, filtroVista, mostrarArchivadas])
+  // Búsqueda con debounce + reset de página automático
+  const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce('', 1, [filtroEstado, filtroPrioridad, filtroVista, mostrarArchivadas])
 
   // Config de visitas (cache largo)
   const { datos: configData } = useConfig<Record<string, unknown>>(
@@ -359,7 +350,7 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
 
         return (
           <div className="flex flex-col">
-            <span className={`text-sm ${vencida ? 'text-red-400' : esHoy ? 'text-amber-400' : 'text-texto-primario'}`}>
+            <span className={`text-sm ${vencida ? 'text-insignia-peligro' : esHoy ? 'text-insignia-advertencia' : 'text-texto-primario'}`}>
               {fechaCorta(fila.fecha_programada, formato.locale)}
             </span>
             <span className="text-[11px] text-texto-terciario">
@@ -423,7 +414,7 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
             {esActiva && (
               <button
                 onClick={(e) => { e.stopPropagation(); completarVisita(fila.id) }}
-                className="p-1.5 rounded hover:bg-white/[0.06] text-texto-terciario hover:text-green-400 transition-colors"
+                className="p-1.5 rounded hover:bg-white/[0.06] text-texto-terciario hover:text-insignia-exito transition-colors"
                 title="Completar"
               >
                 <CheckCircle size={14} />

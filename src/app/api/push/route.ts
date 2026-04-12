@@ -65,12 +65,16 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Token requerido' }, { status: 400 })
     }
 
+    const empresaId = user.app_metadata?.empresa_activa_id
+    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
     const admin = crearClienteAdmin()
 
     await admin
       .from('suscripciones_push')
       .delete()
       .eq('usuario_id', user.id)
+      .eq('empresa_id', empresaId)
       .eq('endpoint', token)
 
     return NextResponse.json({ ok: true })

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import DOMPurify from 'isomorphic-dompurify'
+import HtmlSeguro from '@/componentes/ui/HtmlSeguro'
 import { Boton } from '@/componentes/ui/Boton'
 import { Select } from '@/componentes/ui/Select'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
@@ -662,10 +662,9 @@ export function CompositorCorreo({
               className="px-3 pb-2 text-xs"
               style={{ color: 'var(--texto-terciario)' }}
             >
-              <div
+              <HtmlSeguro
+                html={firma}
                 className="pt-2 mt-1"
-                style={{ borderTop: '1px solid var(--borde-sutil)' }}
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(firma, { FORBID_TAGS: ['script', 'object', 'embed', 'form', 'iframe'], FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus'] }) }}
               />
             </div>
           )}

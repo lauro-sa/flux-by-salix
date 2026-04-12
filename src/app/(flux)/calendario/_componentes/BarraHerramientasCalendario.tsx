@@ -340,9 +340,9 @@ function FiltroTipo({
         )}
       </button>
 
-      {/* Dropdown — z-[60] con posición absoluta hacia abajo */}
+      {/* Dropdown — z-[var(--z-dropdown)] con posición absoluta hacia abajo */}
       {filtrosAbiertos && (
-        <div className="absolute right-0 top-full mt-1.5 z-[60] bg-superficie-elevada border border-borde-sutil rounded-xl shadow-xl p-3 min-w-[220px]">
+        <div className="absolute right-0 top-full mt-1.5 z-[var(--z-dropdown)] bg-superficie-elevada border border-borde-sutil rounded-xl shadow-xl p-3 min-w-[220px]">
           <p className="text-xs font-medium text-texto-terciario mb-2">Tipo de evento</p>
           <div className="flex flex-col gap-0.5">
             <button

@@ -52,7 +52,9 @@ const MAPA_CATEGORIAS: Record<string, CategoriaNotificacion> = {
   actividad_pronto_vence: 'actividades',
   actividad_vencida: 'actividades',
   recordatorio: 'actividades',
+  recordatorio_evento: 'actividades',
   calendario: 'actividades',
+  evento_asignado: 'actividades',
 
   cumpleanios_propio: 'sistema',
   cumpleanios_colega: 'sistema',
@@ -64,6 +66,7 @@ const MAPA_CATEGORIAS: Record<string, CategoriaNotificacion> = {
   documento_estado: 'sistema',
   actualizacion: 'sistema',
   usuario_pendiente: 'sistema',
+  fichaje_automatico: 'sistema',
 }
 
 function categorizarNotificacion(tipo: string): CategoriaNotificacion {
@@ -125,7 +128,9 @@ function useNotificaciones(opciones: OpcionesNotificaciones = {}) {
 
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([])
   const [cargando, setCargando] = useState(false)
+  const [cargandoMas, setCargandoMas] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [totalEnServidor, setTotalEnServidor] = useState(0)
   const [prefs, setPrefs] = useState<PrefsNotificacion>(PREFS_DEFAULT)
   const canalRef = useRef<RealtimeChannel | null>(null)
 
@@ -143,6 +148,10 @@ function useNotificaciones(opciones: OpcionesNotificaciones = {}) {
     contadorInstancia += 1
     instanciaIdRef.current = contadorInstancia
   }
+
+  /* Control de reconexión con backoff exponencial */
+  const intentosReconexionRef = useRef(0)
+  const timerReconexionRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   /* Cargar preferencias */
   useEffect(() => { setPrefs(leerPrefs()) }, [])
@@ -182,6 +191,7 @@ function useNotificaciones(opciones: OpcionesNotificaciones = {}) {
       if (!res.ok) throw new Error('Error al obtener notificaciones')
       const datos = await res.json()
       setNotificaciones(datos.notificaciones || [])
+      setTotalEnServidor(datos.total || 0)
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido')
@@ -189,6 +199,33 @@ function useNotificaciones(opciones: OpcionesNotificaciones = {}) {
       setCargando(false)
     }
   }, [deshabilitado, notificaciones.length])
+
+  /* Cargar más notificaciones (paginación) */
+  const cargarMas = useCallback(async () => {
+    if (deshabilitado || cargandoMas) return
+    try {
+      setCargandoMas(true)
+      const offset = notificaciones.length
+      const res = await fetch(`/api/inbox/notificaciones?limite=50&offset=${offset}`)
+      if (!res.ok) throw new Error('Error al cargar más notificaciones')
+      const datos = await res.json()
+      const nuevas = (datos.notificaciones || []) as Notificacion[]
+      if (nuevas.length > 0) {
+        setNotificaciones((prev) => {
+          const idsExistentes = new Set(prev.map((n) => n.id))
+          const sinDuplicados = nuevas.filter((n) => !idsExistentes.has(n.id))
+          return [...prev, ...sinDuplicados]
+        })
+      }
+      setTotalEnServidor(datos.total || 0)
+    } catch {
+      /* silencioso */
+    } finally {
+      setCargandoMas(false)
+    }
+  }, [deshabilitado, cargandoMas, notificaciones.length])
+
+  const hayMas = notificaciones.length < totalEnServidor
 
   /* Ref persistente para el ID del usuario actual */
   const usuarioIdRef = useRef<string | null>(null)
@@ -278,7 +315,26 @@ function useNotificaciones(opciones: OpcionesNotificaciones = {}) {
             setNotificaciones((prev) => prev.filter((n) => n.id !== eliminadaId))
           }
         )
-        .subscribe()
+        .subscribe((estado) => {
+          if (estado === 'SUBSCRIBED') {
+            /* Conexión exitosa: resetear contador de intentos */
+            intentosReconexionRef.current = 0
+          } else if (estado === 'CHANNEL_ERROR' || estado === 'TIMED_OUT') {
+            /* Reconexión con backoff exponencial: 2s, 4s, 8s, 16s, 30s max */
+            const intento = intentosReconexionRef.current
+            const delay = Math.min(2000 * Math.pow(2, intento), 30000)
+            intentosReconexionRef.current = intento + 1
+
+            if (timerReconexionRef.current) clearTimeout(timerReconexionRef.current)
+            timerReconexionRef.current = setTimeout(() => {
+              canalRef.current?.unsubscribe()
+              canalRef.current = null
+              /* Re-fetch + re-suscribir */
+              obtener()
+              inicializar()
+            }, delay)
+          }
+        })
 
       canalRef.current = canalRT
     }
@@ -286,19 +342,26 @@ function useNotificaciones(opciones: OpcionesNotificaciones = {}) {
     inicializar()
 
     return () => {
+      if (timerReconexionRef.current) clearTimeout(timerReconexionRef.current)
       canalRef.current?.unsubscribe()
       canalRef.current = null
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deshabilitado])
 
-  // Escuchar evento del inbox para marcar notificaciones como leídas en el estado local
+  /* Escuchar evento para sincronizar lectura entre instancias del hook */
   useEffect(() => {
     const handler = (e: Event) => {
-      const { referenciaId } = (e as CustomEvent).detail
+      const detail = (e as CustomEvent).detail || {}
+      const { referenciaId, ids } = detail as { referenciaId?: string; ids?: string[] }
       if (referenciaId) {
         setNotificaciones((prev) =>
           prev.map((n) => n.referencia_id === referenciaId ? { ...n, leida: true } : n)
+        )
+      }
+      if (ids?.length) {
+        setNotificaciones((prev) =>
+          prev.map((n) => ids.includes(n.id) ? { ...n, leida: true } : n)
         )
       }
     }
@@ -317,6 +380,8 @@ function useNotificaciones(opciones: OpcionesNotificaciones = {}) {
       setNotificaciones((prev) =>
         prev.map((n) => ids.includes(n.id) ? { ...n, leida: true } : n)
       )
+      /* Sincronizar otras instancias del hook */
+      window.dispatchEvent(new CustomEvent('flux:notificaciones-leidas', { detail: { ids } }))
     } catch {
       /* silencioso */
     }
@@ -354,6 +419,8 @@ function useNotificaciones(opciones: OpcionesNotificaciones = {}) {
       setNotificaciones((prev) =>
         prev.map((n) => n.referencia_id === referenciaId ? { ...n, leida: true } : n)
       )
+      /* Sincronizar otras instancias del hook (ej. ToastNotificacion) */
+      window.dispatchEvent(new CustomEvent('flux:notificaciones-leidas', { detail: { referenciaId } }))
     } catch {
       /* silencioso */
     }
@@ -382,10 +449,13 @@ function useNotificaciones(opciones: OpcionesNotificaciones = {}) {
   return {
     notificaciones,
     cargando,
+    cargandoMas,
     error,
     prefs,
     actualizarPrefs,
     obtener,
+    cargarMas,
+    hayMas,
     marcarLeidas,
     marcarLeidasPorReferencia,
     marcarTodasLeidas,

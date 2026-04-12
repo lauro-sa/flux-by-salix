@@ -16,74 +16,22 @@ import { useFormato } from '@/hooks/useFormato'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useTraduccion } from '@/lib/i18n'
 import { SelectorContacto, type ContactoResultado, type ContactoSeleccionado } from '@/componentes/entidad/SelectorContacto'
+import { SeccionDirecciones } from './SeccionDirecciones'
 
 /**
  * ModalVisita — Modal para crear o editar una visita.
  * Campos: contacto, dirección, asignado, fecha/hora, motivo, prioridad, checklist, notas.
  */
 
-// ── Tipos exportados ──
+// ── Tipos centralizados — re-exportados para compatibilidad ──
+import type {
+  Visita,
+  MiembroVisitador as Miembro,
+  ConfigVisitas,
+  ItemChecklist,
+} from '@/tipos/visita'
 
-export interface ItemChecklist {
-  id: string
-  texto: string
-  completado: boolean
-}
-
-export interface Visita {
-  id: string
-  contacto_id: string
-  contacto_nombre: string
-  direccion_id: string | null
-  direccion_texto: string | null
-  direccion_lat: number | null
-  direccion_lng: number | null
-  asignado_a: string | null
-  asignado_nombre: string | null
-  fecha_programada: string
-  fecha_inicio: string | null
-  fecha_llegada: string | null
-  fecha_completada: string | null
-  duracion_estimada_min: number
-  duracion_real_min: number | null
-  estado: string
-  motivo: string | null
-  resultado: string | null
-  notas: string | null
-  temperatura: string | null
-  prioridad: string
-  checklist: ItemChecklist[]
-  registro_lat: number | null
-  registro_lng: number | null
-  registro_precision_m: number | null
-  actividad_id: string | null
-  vinculos: { tipo: string; id: string; nombre: string }[]
-  recibe_nombre: string | null
-  recibe_telefono: string | null
-  recibe_contacto_id: string | null
-  archivada: boolean
-  archivada_en: string | null
-  en_papelera: boolean
-  creado_por: string | null
-  creado_por_nombre: string | null
-  editado_por: string | null
-  editado_por_nombre: string | null
-  creado_en: string | null
-  actualizado_en: string | null
-}
-
-export interface Miembro {
-  usuario_id: string
-  nombre: string
-  apellido: string
-}
-
-interface ConfigVisitas {
-  checklist_predeterminado?: ItemChecklist[]
-  motivos_predefinidos?: string[]
-  resultados_predefinidos?: string[]
-  duracion_estimada_default?: number
-}
+export type { Visita, Miembro, ConfigVisitas, ItemChecklist }
 
 interface PropiedadesModal {
   abierto: boolean
@@ -503,7 +451,7 @@ function ModalVisita({
               onClick={() => { onCompletar(visita.id); onCerrar() }}
             >
               <CheckCircle size={14} className="mr-1.5" />
-              Completar
+              {t('visitas.completar')}
             </Boton>
           )}
           {onCancelar && (
@@ -513,7 +461,7 @@ function ModalVisita({
               onClick={() => { onCancelar(visita.id); onCerrar() }}
             >
               <X size={14} className="mr-1.5" />
-              Cancelar visita
+              {t('visitas.cancelar_visita')}
             </Boton>
           )}
         </div>
@@ -534,7 +482,7 @@ function ModalVisita({
               sinAlertaCorreo
               sinDatosFiscales
               soloLectura={esEdicion}
-              placeholder="Buscar contacto..."
+              placeholder={t('visitas.buscar_contacto') + '...'}
             />
           </div>
 
@@ -544,65 +492,12 @@ function ModalVisita({
               <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2 block">
                 {t('visitas.direccion')}
               </label>
-              {direcciones.length > 0 ? (
-                <div className="space-y-1.5">
-                  {direcciones.map(dir => {
-                    const esSeleccionada = dir.id === direccionId
-                    const tieneGps = dir.lat && dir.lng
-                    return (
-                      <button
-                        key={dir.id}
-                        onClick={() => seleccionarDireccion(dir)}
-                        className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm transition-colors ${
-                          esSeleccionada
-                            ? 'border-texto-marca/40 bg-texto-marca/10 text-texto-primario'
-                            : 'border-white/[0.06] bg-white/[0.03] text-texto-secundario hover:bg-white/[0.06]'
-                        }`}
-                      >
-                        <div className="flex items-start gap-2">
-                          <MapPin size={14} className={`mt-0.5 shrink-0 ${esSeleccionada ? 'text-texto-marca' : 'text-texto-terciario'}`} />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="truncate">{dir.texto || 'Sin dirección'}</span>
-                              {dir.tipo && (
-                                <span className="text-xxs px-1.5 py-0.5 rounded bg-superficie-tarjeta border border-borde-sutil text-texto-terciario shrink-0">
-                                  {dir.tipo === 'principal' ? 'Principal' : dir.tipo === 'fiscal' ? 'Fiscal' : dir.tipo === 'entrega' ? 'Entrega' : dir.tipo}
-                                </span>
-                              )}
-                            </div>
-                            {/* Contadores de visitas */}
-                            <div className="flex items-center gap-3 mt-1">
-                              {dir.total_visitas > 0 && (
-                                <span className="text-xs text-texto-terciario">
-                                  {dir.total_visitas} {dir.total_visitas === 1 ? 'visita' : 'visitas'}
-                                </span>
-                              )}
-                              {dir.ultima_visita && (
-                                <span className="text-xs text-texto-terciario">
-                                  Última: {formato.fechaRelativa(dir.ultima_visita)}
-                                </span>
-                              )}
-                              {dir.total_visitas === 0 && (
-                                <span className="text-xs text-texto-terciario italic">Sin visitas previas</span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {tieneGps && (
-                              <Navigation size={12} className="text-texto-terciario" />
-                            )}
-                            {esSeleccionada && <Check size={14} className="text-texto-marca" />}
-                          </div>
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              ) : cargandoDirecciones ? (
-                <p className="text-sm text-texto-terciario">Cargando...</p>
-              ) : (
-                <p className="text-sm text-texto-terciario">Este contacto no tiene direcciones cargadas</p>
-              )}
+              <SeccionDirecciones
+                direcciones={direcciones}
+                direccionId={direccionId}
+                cargando={cargandoDirecciones}
+                onSeleccionar={seleccionarDireccion}
+              />
             </div>
           )}
 
@@ -616,11 +511,11 @@ function ModalVisita({
                 valor={motivo}
                 onChange={setMotivo}
                 opciones={[
-                  { valor: '', etiqueta: 'Seleccionar motivo...' },
+                  { valor: '', etiqueta: t('visitas.seleccionar_motivo') },
                   ...config.motivos_predefinidos.map(m => ({ valor: m, etiqueta: m })),
-                  { valor: '__otro', etiqueta: 'Otro (texto libre)' },
+                  { valor: '__otro', etiqueta: t('visitas.otro_texto_libre') },
                 ]}
-                placeholder="Seleccionar motivo"
+                placeholder={t('visitas.seleccionar_motivo')}
               />
             ) : (
               <Input
@@ -633,7 +528,7 @@ function ModalVisita({
               <Input
                 value=""
                 onChange={(e) => setMotivo(e.target.value)}
-                placeholder="Escribir motivo..."
+                placeholder={t('visitas.escribir_motivo')}
                 className="mt-2"
               />
             )}
@@ -643,9 +538,9 @@ function ModalVisita({
           {contactoId && (
             <div className="px-6 py-4 border-b border-white/[0.07]">
               <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2 block">
-                Recibe (opcional)
+                {t('visitas.recibe_opcional')}
               </label>
-              <p className="text-xs text-texto-terciario mb-3">Si quien recibe es diferente al contacto principal</p>
+              <p className="text-xs text-texto-terciario mb-3">{t('visitas.recibe_desc')}</p>
 
               {recibeModoManual ? (
                 /* ── Modo manual: inputs libres ── */
@@ -667,7 +562,7 @@ function ModalVisita({
                     className="text-xs text-texto-marca hover:text-texto-marca/80 transition-colors flex items-center gap-1"
                   >
                     <User size={12} />
-                    Buscar contacto
+                    {t('visitas.buscar_contacto')}
                   </button>
                 </div>
               ) : (
@@ -676,7 +571,7 @@ function ModalVisita({
                   {/* Sugerencias rápidas: contactos vinculados */}
                   {!recibeContactoSeleccionado && vinculados.length > 0 && !cargandoVinculados && (
                     <div>
-                      <span className="text-[10px] font-medium text-texto-terciario uppercase tracking-wider">Vinculados</span>
+                      <span className="text-[10px] font-medium text-texto-terciario uppercase tracking-wider">{t('visitas.vinculados')}</span>
                       <div className="flex flex-wrap gap-1.5 mt-1.5">
                         {vinculados.map(v => {
                           const nombre = `${v.nombre}${v.apellido ? ` ${v.apellido}` : ''}`.trim()
@@ -704,7 +599,7 @@ function ModalVisita({
                     onChange={manejarSeleccionReceptor}
                     sinAlertaCorreo
                     sinDatosFiscales
-                    placeholder="Buscar contacto que recibe..."
+                    placeholder={t('visitas.buscar_contacto_recibe')}
                   />
 
                   {/* Opción cargar a mano */}
@@ -714,7 +609,7 @@ function ModalVisita({
                       className="text-xs text-texto-terciario hover:text-texto-secundario transition-colors flex items-center gap-1"
                     >
                       <PenLine size={12} />
-                      Cargar a mano
+                      {t('visitas.cargar_a_mano')}
                     </button>
                   )}
                 </div>
@@ -754,7 +649,7 @@ function ModalVisita({
                 setAsignadoNombre(m ? `${m.nombre} ${m.apellido}`.trim() : null)
               }}
               opciones={[
-                { valor: '', etiqueta: 'Sin asignar' },
+                { valor: '', etiqueta: t('visitas.sin_asignar_select') },
                 ...miembros.map(m => ({
                   valor: m.usuario_id,
                   etiqueta: `${m.nombre} ${m.apellido}`.trim(),
@@ -793,7 +688,7 @@ function ModalVisita({
                   max={480}
                   className="w-20 px-2 py-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] text-sm text-texto-primario text-center focus:outline-none focus:ring-1 focus:ring-texto-marca/40"
                 />
-                <span className="text-xs text-texto-terciario">minutos</span>
+                <span className="text-xs text-texto-terciario">{t('visitas.minutos')}</span>
               </div>
             </div>
           </div>
@@ -811,9 +706,9 @@ function ModalVisita({
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                     prioridad === p
                       ? p === 'urgente'
-                        ? 'bg-red-500/15 border-red-500/40 text-red-400'
+                        ? 'bg-insignia-peligro/15 border-insignia-peligro/40 text-insignia-peligro'
                         : p === 'alta'
-                        ? 'bg-orange-500/15 border-orange-500/40 text-orange-400'
+                        ? 'bg-insignia-advertencia/15 border-insignia-advertencia/40 text-insignia-advertencia'
                         : 'bg-texto-marca/15 border-texto-marca/40 text-texto-marca'
                       : 'border-borde-sutil text-texto-terciario hover:bg-white/[0.04]'
                   }`}
@@ -852,14 +747,14 @@ function ModalVisita({
                       type="text"
                       value={item.texto}
                       onChange={(e) => actualizarItemChecklist(item.id, e.target.value)}
-                      placeholder="Nuevo item..."
+                      placeholder={t('visitas.nuevo_item')}
                       className={`flex-1 text-sm bg-transparent border-none outline-none ${
                         item.completado ? 'line-through text-texto-terciario' : 'text-texto-primario'
                       }`}
                     />
                     <button
                       onClick={() => eliminarItemChecklist(item.id)}
-                      className="opacity-0 group-hover:opacity-100 text-texto-terciario hover:text-red-400 transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 text-texto-terciario hover:text-insignia-peligro transition-opacity"
                     >
                       <Trash2 size={12} />
                     </button>
@@ -867,7 +762,7 @@ function ModalVisita({
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-texto-terciario">Sin items. Presioná + para agregar.</p>
+              <p className="text-xs text-texto-terciario">{t('visitas.sin_items')}</p>
             )}
           </div>
         </div>

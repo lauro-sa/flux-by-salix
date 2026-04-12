@@ -27,6 +27,7 @@ import { BloqueDireccion, type DatosDireccion } from '@/componentes/ui/BloqueDir
 import { RecortadorImagen } from '@/componentes/ui/RecortadorImagen'
 import type { Rol, Miembro, Perfil, HorarioTipo, MetodoFichaje } from '@/tipos'
 import { SeccionEncabezado } from './ComponentesComunes'
+import Image from 'next/image'
 import {
   ROLES_OPCIONES, ETIQUETA_ROL, OPCIONES_HORARIO, OPCIONES_FICHAJE,
   OPCIONES_GENERO, TIPOS_DOCUMENTOS, diasHastaCumple, textoCumple,
@@ -343,9 +344,11 @@ export function TabInformacion({
             <div className="w-16 shrink-0">
               {miembro.foto_kiosco_url ? (
                 <div className="relative group">
-                  <img
+                  <Image
                     src={miembro.foto_kiosco_url}
                     alt="Foto kiosco"
+                    width={64}
+                    height={85}
                     className="w-16 aspect-[3/4] object-cover rounded-lg border border-borde-sutil"
                   />
                   <Boton
@@ -545,7 +548,7 @@ export function TabInformacion({
                     className="relative aspect-[4/3] cursor-pointer group"
                     onClick={(e) => { e.preventDefault(); setDocPreview({ titulo: doc, url: imgUrl }) }}
                   >
-                    <img src={imgUrl} alt={doc} className="w-full h-full object-contain bg-superficie-hover/30" />
+                    <Image src={imgUrl} alt={doc} fill sizes="(max-width: 768px) 50vw, 200px" className="object-contain bg-superficie-hover/30" />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
                       <Eye size={20} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>

@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Key, Wifi, Keyboard, Maximize } from 'lucide-react'
 import RelojTiempoReal from './RelojTiempoReal'
+import Image from 'next/image'
 
 interface PropsPantallaEspera {
   nombreEmpresa: string
@@ -50,10 +51,12 @@ export default function PantallaEspera({
       {/* Logo / Nombre empresa */}
       <div className="flex flex-col items-center gap-3 md:gap-4 min-h-[80px] justify-center">
         {mostrarLogo && (
-          <img
+          <Image
             src={logoUrl}
             alt={nombreEmpresa}
-            className="h-20 md:h-24 object-contain opacity-90"
+            width={200}
+            height={96}
+            className="h-20 md:h-24 w-auto object-contain opacity-90"
             draggable={false}
           />
         )}

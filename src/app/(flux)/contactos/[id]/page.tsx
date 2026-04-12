@@ -1219,6 +1219,7 @@ function SelectorEtiquetas({
   onAgregar: (nombre: string, color: string) => void
   onQuitar: (nombre: string) => void
 }) {
+  const { t } = useTraduccion()
   const [abierto, setAbierto] = useState(false)
   const [texto, setTexto] = useState('')
   const [colorNueva, setColorNueva] = useState('neutro')
@@ -1335,7 +1336,7 @@ function SelectorEtiquetas({
                 ))}
               </div>
               <div className="flex gap-2">
-                <Boton variante="secundario" tamano="sm" onClick={() => setCreando(false)} className="flex-1">Cancelar</Boton>
+                <Boton variante="secundario" tamano="sm" onClick={() => setCreando(false)} className="flex-1">{t('comun.cancelar')}</Boton>
                 <Boton variante="primario" tamano="sm" onClick={confirmarCreacion} className="flex-1">Crear</Boton>
               </div>
             </div>

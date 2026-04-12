@@ -49,6 +49,9 @@ export { BarraBusqueda } from './BarraBusqueda'
 export { EditorTexto } from './EditorTexto'
 export { RecortadorImagen } from './RecortadorImagen'
 
+// Renderizado seguro
+export { default as HtmlSeguro } from './HtmlSeguro'
+
 // Indicadores y feedback
 export { Cargador } from './Cargador'
 export { CargadorLogo } from './CargadorLogo'

@@ -107,8 +107,8 @@ function ItemVisitaSortable({ visita, indice, onAbrirVisita }: { visita: VisitaP
   const esActiva = visita.estado === 'en_camino' || visita.estado === 'en_sitio'
 
   const colorBorde = esCompletada ? 'border-l-insignia-exito/40'
-    : visita.prioridad === 'urgente' ? 'border-l-red-400'
-    : visita.prioridad === 'alta' ? 'border-l-orange-400'
+    : visita.prioridad === 'urgente' ? 'border-l-insignia-peligro'
+    : visita.prioridad === 'alta' ? 'border-l-insignia-advertencia'
     : 'border-l-texto-marca/40'
 
   return (

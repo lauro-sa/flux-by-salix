@@ -4,6 +4,7 @@ import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
 import { textoRecurrencia } from '@/componentes/ui/SelectorRecurrencia'
 import type { Recordatorio } from './tipos'
+import { useTraduccion } from '@/lib/i18n'
 
 /**
  * ModalConfirmarEliminar — Modal de confirmación antes de eliminar
@@ -17,6 +18,7 @@ interface ModalConfirmarEliminarProps {
 }
 
 function ModalConfirmarEliminar({ recordatorio, onCerrar, onConfirmar }: ModalConfirmarEliminarProps) {
+  const { t } = useTraduccion()
   return (
     <Modal
       abierto={!!recordatorio}
@@ -25,7 +27,7 @@ function ModalConfirmarEliminar({ recordatorio, onCerrar, onConfirmar }: ModalCo
       tamano="sm"
       acciones={
         <div className="flex items-center gap-2">
-          <Boton variante="secundario" tamano="sm" onClick={onCerrar}>Cancelar</Boton>
+          <Boton variante="secundario" tamano="sm" onClick={onCerrar}>{t('comun.cancelar')}</Boton>
           <Boton variante="peligro" tamano="sm" onClick={() => recordatorio && onConfirmar(recordatorio.id)}>Eliminar</Boton>
         </div>
       }

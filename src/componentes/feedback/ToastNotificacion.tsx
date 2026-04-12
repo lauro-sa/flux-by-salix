@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   X, MessageSquare, AtSign, AlertTriangle, CalendarClock, UserPlus,
   Eye, PartyPopper, Megaphone, FileCheck, Mail, Bell, Zap, ChevronDown, Clock,
+  Calendar, MapPin,
 } from 'lucide-react'
 import {
   useNotificaciones,
@@ -32,7 +33,8 @@ const ICONOS_TIPO: Record<string, typeof Mail> = {
   anuncio: Megaphone, portal_vista: Eye, portal_aceptado: FileCheck,
   portal_rechazado: AlertTriangle, portal_cancelado: AlertTriangle,
   documento_estado: FileCheck, actualizacion: Bell, usuario_pendiente: UserPlus,
-  fichaje_automatico: Clock,
+  fichaje_automatico: Clock, evento_asignado: Calendar, recordatorio_evento: CalendarClock,
+  visita_en_camino: MapPin, visita_cancelada: AlertTriangle, visita_reprogramada: CalendarClock,
 }
 
 const COLORES_TIPO: Record<string, string> = {
@@ -45,8 +47,16 @@ const COLORES_TIPO: Record<string, string> = {
   asignacion: 'var(--texto-marca)', actividad_asignada: 'var(--texto-marca)',
   cumpleanios_propio: 'var(--insignia-rosa-texto)', cumpleanios_colega: 'var(--insignia-rosa-texto)',
   portal_vista: 'var(--insignia-info-texto)', portal_aceptado: 'var(--insignia-exito-texto)',
-  portal_rechazado: 'var(--insignia-peligro-texto)', anuncio: 'var(--insignia-violeta-texto)',
+  portal_rechazado: 'var(--insignia-peligro-texto)', portal_cancelado: 'var(--insignia-advertencia-texto)',
+  anuncio: 'var(--insignia-violeta-texto)',
   recordatorio: 'var(--texto-marca)',
+  documento_estado: 'var(--insignia-info-texto)', actualizacion: 'var(--texto-marca)',
+  usuario_pendiente: 'var(--insignia-advertencia-texto)',
+  evento_asignado: 'var(--texto-marca)',
+  recordatorio_evento: 'var(--insignia-advertencia-texto)',
+  visita_en_camino: 'var(--insignia-info-texto)',
+  visita_cancelada: 'var(--insignia-peligro-texto)',
+  visita_reprogramada: 'var(--insignia-advertencia-texto)',
 }
 
 const ETIQUETAS_TIPO: Record<string, string> = {
@@ -54,8 +64,13 @@ const ETIQUETAS_TIPO: Record<string, string> = {
   mencion: 'Mención', actividad_asignada: 'Actividad', actividad_pronto_vence: 'Vencimiento',
   actividad_vencida: 'Vencida', recordatorio: 'Recordatorio', portal_vista: 'Portal',
   portal_aceptado: 'Aceptado', portal_rechazado: 'Rechazado',
-  fichaje_automatico: 'Fichaje',
+  fichaje_automatico: 'Fichaje', evento_asignado: 'Evento',
+  recordatorio_evento: 'Recordatorio', visita_en_camino: 'En camino',
+  visita_cancelada: 'Cancelada', visita_reprogramada: 'Reprogramada',
   cumpleanios_propio: 'Cumpleaños', cumpleanios_colega: 'Cumpleaños', anuncio: 'Anuncio',
+  nuevo_mensaje: 'Mensaje', sla_vencido: 'SLA vencido', asignacion: 'Asignación',
+  portal_cancelado: 'Cancelado', documento_estado: 'Documento', actualizacion: 'Sistema',
+  usuario_pendiente: 'Usuario',
 }
 
 const MAX_TOASTS = 3
@@ -131,7 +146,7 @@ function ToastItem({ grupo, onDescartar, onVer }: PropsToastItem) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-semibold" style={{ color }}>{etiqueta}</span>
-            <span className="text-xxs text-texto-terciario">Ahora</span>
+            <span className="text-xxs text-texto-terciario">Justo ahora</span>
           </div>
           <p className="text-sm font-medium text-texto-primario mt-0.5 truncate">{ultima.titulo}</p>
           {ultima.cuerpo && (
@@ -263,7 +278,7 @@ function ToastNotificacion() {
 
   return (
     <div
-      className="fixed right-6 z-[10000] flex flex-col gap-3 pointer-events-none"
+      className="fixed right-6 z-[var(--z-toast)] flex flex-col gap-3 pointer-events-none"
       style={{ top: 'calc(var(--header-alto, 56px) + 12px)' }}
     >
       <AnimatePresence mode="popLayout">
@@ -277,7 +292,7 @@ function ToastNotificacion() {
 
 function categorizarTipo(tipo: string): CategoriaNotificacion {
   const INBOX = ['nuevo_mensaje', 'mencion', 'sla_vencido', 'mensaje_whatsapp', 'mensaje_correo', 'mensaje_interno']
-  const ACTIVIDADES = ['actividad', 'asignacion', 'actividad_asignada', 'actividad_pronto_vence', 'actividad_vencida', 'recordatorio', 'calendario']
+  const ACTIVIDADES = ['actividad', 'asignacion', 'actividad_asignada', 'actividad_pronto_vence', 'actividad_vencida', 'recordatorio', 'recordatorio_evento', 'calendario', 'evento_asignado']
   if (INBOX.includes(tipo)) return 'inbox'
   if (ACTIVIDADES.includes(tipo)) return 'actividades'
   return 'sistema'

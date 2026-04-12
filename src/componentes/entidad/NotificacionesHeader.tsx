@@ -6,7 +6,7 @@ import {
   MessagesSquare, Zap, Bell,
   MessageSquare, AtSign, AlertTriangle,
   CalendarClock, UserPlus, Eye, PartyPopper,
-  Megaphone, FileCheck, Mail,
+  Megaphone, FileCheck, Mail, Calendar,
   AlarmClock, Plus, Clock, CheckCircle2,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
@@ -54,7 +54,10 @@ const ICONOS_TIPO: Record<string, typeof Mail> = {
   actividad_pronto_vence: CalendarClock,
   actividad_vencida: AlertTriangle,
   recordatorio: CalendarClock,
+  recordatorio_evento: CalendarClock,
   calendario: CalendarClock,
+  evento_asignado: Calendar,
+  fichaje_automatico: Clock,
 
   cumpleanios_propio: PartyPopper,
   cumpleanios_colega: PartyPopper,
@@ -80,13 +83,21 @@ const COLORES_TIPO: Record<string, string> = {
   actividad_vencida: 'var(--insignia-peligro-texto)',
   asignacion: 'var(--texto-marca)',
   actividad_asignada: 'var(--texto-marca)',
+  evento_asignado: 'var(--texto-marca)',
+  recordatorio_evento: 'var(--insignia-advertencia-texto)',
+  fichaje_automatico: 'var(--insignia-exito-texto)',
 
   cumpleanios_propio: 'var(--insignia-rosa-texto)',
   cumpleanios_colega: 'var(--insignia-rosa-texto)',
   portal_vista: 'var(--insignia-info-texto)',
   portal_aceptado: 'var(--insignia-exito-texto)',
   portal_rechazado: 'var(--insignia-peligro-texto)',
+  portal_cancelado: 'var(--insignia-advertencia-texto)',
   anuncio: 'var(--insignia-violeta-texto)',
+  recordatorio: 'var(--texto-marca)',
+  documento_estado: 'var(--insignia-info-texto)',
+  actualizacion: 'var(--texto-marca)',
+  usuario_pendiente: 'var(--insignia-advertencia-texto)',
 }
 
 /* ─── Helpers ─── */
@@ -501,6 +512,9 @@ function NotificacionesHeader() {
     marcarLeidas,
     descartar,
     cargando,
+    cargarMas,
+    cargandoMas,
+    hayMas,
   } = useNotificaciones({ estaSilenciada })
 
   /* Recordatorios — se activa cuando se abre el popover de actividades en tab recordatorios */
@@ -565,10 +579,8 @@ function NotificacionesHeader() {
             .slice(0, 20)
             .map((g) => notificacionAItem(g, handleClickItem, locale))
 
-          /* Badge: para actividades sumar recordatorios vencidos */
-          const badgeCount = esActividades
-            ? noLeidas + estadoRecordatorios.vencidos
-            : noLeidas
+          /* Badge: solo notificaciones no leídas (recordatorios tienen su propio indicador en la pestaña) */
+          const badgeCount = noLeidas
 
           return (
             <Popover
@@ -616,14 +628,27 @@ function NotificacionesHeader() {
                       textoVacio={config.textoVacio}
                       iconoVacio={<Icono size={32} strokeWidth={1.2} className="text-texto-terciario/40" />}
                       pie={
-                        <Boton
-                          variante="fantasma"
-                          tamano="xs"
-                          onClick={() => { setPopoverAbierto(null); router.push(config.rutaVerTodo) }}
-                          className="w-full"
-                        >
-                          {config.etiquetaVerTodo} →
-                        </Boton>
+                        <div className="flex flex-col">
+                          {hayMas && (
+                            <Boton
+                              variante="fantasma"
+                              tamano="xs"
+                              onClick={cargarMas}
+                              cargando={cargandoMas}
+                              className="w-full border-b border-borde-sutil rounded-none text-texto-terciario"
+                            >
+                              Cargar más
+                            </Boton>
+                          )}
+                          <Boton
+                            variante="fantasma"
+                            tamano="xs"
+                            onClick={() => { setPopoverAbierto(null); router.push(config.rutaVerTodo) }}
+                            className="w-full"
+                          >
+                            {config.etiquetaVerTodo} →
+                          </Boton>
+                        </div>
                       }
                     />
                   )}
@@ -653,6 +678,10 @@ function NotificacionesHeader() {
                   ].join(' ')}>
                     {badgeCount > 99 ? '99+' : badgeCount}
                   </span>
+                )}
+                {/* Indicador de recordatorios vencidos (puntito naranja) */}
+                {esActividades && estadoRecordatorios.vencidos > 0 && badgeCount === 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-insignia-advertencia-texto pointer-events-none" />
                 )}
                 {silenciada && (
                   <span className="absolute inset-0 flex items-center justify-center pointer-events-none">

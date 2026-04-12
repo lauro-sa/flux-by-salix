@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState, useCallback, useMemo, type CSSProperties } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar } from '@/componentes/ui/Avatar'
+import HtmlSeguro from '@/componentes/ui/HtmlSeguro'
 import {
   Check, CheckCheck, Clock, AlertCircle, Play, Pause,
   Download, FileText, MapPin, User, X, ChevronLeft, ChevronRight,
@@ -28,6 +29,7 @@ import { BarraControlsWA } from './BarraControlsWA'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import type { FormatoNombreRemitente } from '@/lib/nombre-remitente'
 import { useToast } from '@/componentes/feedback/Toast'
+import NextImage from 'next/image'
 import type { MensajeConAdjuntos, MensajeAdjunto, Conversacion, ConversacionConDetalles } from '@/tipos/inbox'
 
 /**
@@ -1064,27 +1066,25 @@ export function PanelWhatsApp({
                                   color: 'var(--texto-primario)',
                                 }}
                               >
-                                <span
-                                  dangerouslySetInnerHTML={{ __html: formatoWhatsApp(trimmed) }}
-                                />
+                                <HtmlSeguro html={formatoWhatsApp(trimmed)} como="span" />
                               </div>
                             )
                           }
                           return (
-                            <p
+                            <HtmlSeguro
                               key={li}
+                              html={formatoWhatsApp(trimmed)}
+                              como="p"
                               className="text-sm whitespace-pre-wrap"
-                              style={{ color: 'var(--texto-primario)' }}
-                              dangerouslySetInnerHTML={{ __html: formatoWhatsApp(trimmed) }}
                             />
                           )
                         })}
                       </div>
                     ) : (
-                      <p
+                      <HtmlSeguro
+                        html={formatoWhatsApp(msg.texto || '')}
+                        como="p"
                         className="text-sm whitespace-pre-wrap"
-                        style={{ color: 'var(--texto-primario)' }}
-                        dangerouslySetInnerHTML={{ __html: formatoWhatsApp(msg.texto || '') }}
                       />
                     )}
 
@@ -1163,7 +1163,7 @@ export function PanelWhatsApp({
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="block rounded-lg py-2 text-center text-sm font-medium no-underline hover:opacity-80 transition-opacity"
-                                style={{ background: 'var(--superficie-tarjeta)', color: '#00a5f4', boxShadow: 'var(--sombra-sm)' }}
+                                style={{ background: 'var(--superficie-tarjeta)', color: 'var(--whatsapp-enlace)', boxShadow: 'var(--sombra-sm)' }}
                               >
                                 🔗 {btn.texto}
                               </a>
@@ -1173,7 +1173,7 @@ export function PanelWhatsApp({
                             <div
                               key={idx}
                               className="rounded-lg py-2 text-center text-sm font-medium"
-                              style={{ background: 'var(--superficie-tarjeta)', color: '#00a5f4', boxShadow: 'var(--sombra-sm)' }}
+                              style={{ background: 'var(--superficie-tarjeta)', color: 'var(--whatsapp-enlace)', boxShadow: 'var(--sombra-sm)' }}
                             >
                               {btn.tipo === 'PHONE_NUMBER' && '📞 '}
                               {btn.texto}
@@ -1678,7 +1678,7 @@ export function VisorMedia({
                       </span>
                     </>
                   ) : (
-                    <img src={media.url} alt="Imagen adjunta" className="w-full h-full object-cover" />
+                    <NextImage src={media.url} alt="Imagen adjunta" fill sizes="100px" className="object-cover" />
                   )}
                 </Boton>
               ))}
@@ -2029,12 +2029,15 @@ function GrillaImagenes({
               onClick={() => onAbrirVisor(adj.url)}
               className={`relative block overflow-hidden p-0 ${spanFull ? 'col-span-2' : ''}`}
             >
-              <img
-                src={adj.url}
-                alt="Imagen adjunta"
-                className="w-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                style={{ height: spanFull ? 200 : total === 2 ? 180 : 120 }}
-              />
+              <div className="relative w-full" style={{ height: spanFull ? 200 : total === 2 ? 180 : 120 }}>
+                <NextImage
+                  src={adj.url}
+                  alt="Imagen adjunta"
+                  fill
+                  sizes="(max-width: 768px) 50vw, 300px"
+                  className="object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                />
+              </div>
               {i === 3 && total > 4 && (
                 <span className="absolute inset-0 flex items-center justify-center bg-black/40">
                   <span className="text-white text-lg font-bold">+{total - 4}</span>
@@ -2100,19 +2103,23 @@ function ContenidoMensaje({
         <div className="space-y-1">
           {adjuntos.map((adj) => (
             <Boton key={adj.id} variante="fantasma" tamano="sm" onClick={() => onAbrirVisor(adj.url)} className="block p-0">
-              <img
-                src={adj.url}
-                alt={caption || ''}
-                className="rounded-md max-w-full cursor-pointer hover:opacity-90 transition-opacity"
-                style={{ maxHeight: 300 }}
-              />
+              <div className="relative" style={{ maxHeight: 300, overflow: 'hidden' }}>
+                <NextImage
+                  src={adj.url}
+                  alt={caption || ''}
+                  width={400}
+                  height={300}
+                  sizes="(max-width: 768px) 80vw, 400px"
+                  className="rounded-md object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                />
+              </div>
             </Boton>
           ))}
           {caption && (
-            <p
+            <HtmlSeguro
+              html={formatoWhatsApp(caption)}
+              como="p"
               className="text-sm whitespace-pre-wrap"
-              style={{ color: 'var(--texto-primario)' }}
-              dangerouslySetInnerHTML={{ __html: formatoWhatsApp(caption) }}
             />
           )}
         </div>
@@ -2192,7 +2199,7 @@ function ContenidoMensaje({
       return adjuntos.length > 0 ? (
         <div>
           {adjuntos.map((adj) => (
-            <img key={adj.id} src={adj.url} alt="sticker" className="w-32 h-32 object-contain" />
+            <NextImage key={adj.id} src={adj.url} alt="sticker" width={128} height={128} sizes="128px" className="object-contain" />
           ))}
         </div>
       ) : <MediaCargando tipo="sticker" />
@@ -2219,10 +2226,10 @@ function ContenidoMensaje({
 
     default:
       return texto ? (
-        <p
+        <HtmlSeguro
+          html={formatoWhatsApp(texto)}
+          como="p"
           className="text-sm whitespace-pre-wrap break-words"
-          style={{ color: 'var(--texto-primario)' }}
-          dangerouslySetInnerHTML={{ __html: formatoWhatsApp(texto) }}
         />
       ) : null
   }

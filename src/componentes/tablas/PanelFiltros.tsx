@@ -17,6 +17,7 @@ import type { VistaGuardada, EstadoDetector } from '@/hooks/useVistasGuardadas'
 
 /** Dropdown individual de un filtro — se posiciona debajo de su botón trigger */
 export function DropdownFiltro({ filtro, onCerrar }: { filtro: FiltroTabla; onCerrar: () => void }) {
+  const { t } = useTraduccion()
   const [busqueda, setBusqueda] = useState('')
   const ref = useRef<HTMLDivElement>(null)
 
@@ -106,7 +107,7 @@ export function DropdownFiltro({ filtro, onCerrar }: { filtro: FiltroTabla; onCe
                 onClick={() => { filtro.onChange([]); onCerrar() }}
                 anchoCompleto
               >
-                Limpiar selección
+                {t('paginacion.limpiar_seleccion')}
               </Boton>
             </div>
           )}
@@ -142,6 +143,7 @@ export function DropdownFiltro({ filtro, onCerrar }: { filtro: FiltroTabla; onCe
 
 /** Sección de filtro dentro del panel — adapta UI según tipo (pills, seleccion, multiple, fecha) */
 export function SeccionFiltroPanel({ filtro }: { filtro: FiltroTabla }) {
+  const { t } = useTraduccion()
   // Pills: botones horizontales con "Todos" al inicio
   if (filtro.tipo === 'pills' && filtro.opciones) {
     const valorActual = typeof filtro.valor === 'string' ? filtro.valor : ''
@@ -240,7 +242,7 @@ export function SeccionFiltroPanel({ filtro }: { filtro: FiltroTabla }) {
               variante="fantasma"
               tamano="xs"
               soloIcono
-              titulo="Limpiar filtro"
+              titulo={t('paginacion.limpiar_filtro')}
               icono={<X size={13} />}
               onClick={() => filtro.onChange('')}
             />

@@ -919,6 +919,10 @@ async function procesarAdjuntos(
         storage_path: storagePath,
         miniatura_url: miniaturaUrl,
       })
+
+      // Registrar uso de storage
+      const { registrarUsoStorage } = await import('@/lib/uso-storage')
+      registrarUsoStorage(empresaId, 'adjuntos', buffer.length)
     } catch (err) {
       console.error(`Error procesando adjunto ${adj.nombre}:`, err)
     }

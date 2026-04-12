@@ -7,7 +7,7 @@
  * Se usa en: VistaPortal
  */
 
-import DOMPurify from 'isomorphic-dompurify'
+import HtmlSeguro from '@/componentes/ui/HtmlSeguro'
 import { useTraduccion } from '@/lib/i18n'
 
 interface Props {
@@ -47,10 +47,10 @@ export default function SeccionNotas({ notasHtml, condicionesHtml }: Props) {
           </h3>
           <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil px-5 py-4 space-y-2">
             {notas.map((html, i) => (
-              <div
+              <HtmlSeguro
                 key={i}
+                html={html}
                 className="text-sm text-texto-secundario leading-relaxed portal-html"
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html, { FORBID_TAGS: ['script', 'object', 'embed', 'form', 'input', 'textarea', 'button', 'iframe'], FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus'] }) }}
               />
             ))}
           </div>
@@ -65,10 +65,10 @@ export default function SeccionNotas({ notasHtml, condicionesHtml }: Props) {
           </h3>
           <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil px-5 py-4 space-y-2">
             {condiciones.map((html, i) => (
-              <div
+              <HtmlSeguro
                 key={i}
+                html={html}
                 className="text-sm text-texto-secundario leading-relaxed portal-html"
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html, { FORBID_TAGS: ['script', 'object', 'embed', 'form', 'input', 'textarea', 'button', 'iframe'], FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus'] }) }}
               />
             ))}
           </div>

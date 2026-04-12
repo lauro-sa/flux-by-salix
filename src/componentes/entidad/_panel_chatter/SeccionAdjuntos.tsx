@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { AdjuntoChatter } from '@/tipos/chatter'
+import Image from 'next/image'
 
 // ─── Adjunto extendido con origen ───
 export interface AdjuntoConOrigen extends AdjuntoChatter {
@@ -220,11 +221,12 @@ function TarjetaAdjunto({ adjunto, onEliminar }: { adjunto: AdjuntoConOrigen; on
         {/* Preview */}
         <div className="relative h-[70px] bg-superficie-app flex items-start justify-center overflow-hidden rounded-t-md">
           {tieneMiniatura ? (
-            <img
+            <Image
               src={adjunto.miniatura_url || adjunto.url}
               alt={adjunto.nombre}
-              className="w-full object-cover object-top"
-              loading="lazy"
+              fill
+              sizes="(max-width: 768px) 33vw, 150px"
+              className="object-cover object-top"
             />
           ) : (
             <div className={`flex flex-col items-center gap-0.5 pt-4 ${COLORES_TIPO[tipo].split(' ')[1] || 'text-texto-terciario'}`}>

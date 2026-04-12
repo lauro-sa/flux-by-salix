@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { comprimirImagen } from '@/lib/comprimir-imagen'
+import { verificarCuotaStorage, registrarUsoStorage } from '@/lib/uso-storage'
 
 /**
  * POST /api/inbox/correo/adjuntos — Sube archivos adjuntos para correos.
@@ -28,6 +30,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Los adjuntos superan el límite de 25 MB' }, { status: 400 })
     }
 
+    // Verificar cuota de storage
+    const errorCuota = await verificarCuotaStorage(empresaId, totalBytes)
+    if (errorCuota) {
+      return NextResponse.json({ error: errorCuota }, { status: 413 })
+    }
+
     const admin = crearClienteAdmin()
     const timestamp = Date.now()
     const adjuntosSubidos: {
@@ -41,7 +49,14 @@ export async function POST(request: NextRequest) {
     }[] = []
 
     for (const archivo of archivos) {
-      const buffer = Buffer.from(await archivo.arrayBuffer())
+      const bufferOriginal = Buffer.from(await archivo.arrayBuffer())
+
+      // Comprimir imágenes (JPEG para compatibilidad con clientes de email)
+      const { buffer, tipo: tipoComprimido } = await comprimirImagen(bufferOriginal, archivo.type, {
+        anchoMaximo: 1600,
+        calidad: 80,
+        forzarJpeg: true, // emails necesitan JPEG para compatibilidad universal
+      })
 
       // Sanitizar nombre
       const nombreLimpio = archivo.name
@@ -51,11 +66,11 @@ export async function POST(request: NextRequest) {
 
       const storagePath = `inbox/${empresaId}/correo/borrador_${timestamp}/${nombreLimpio}`
 
-      // Subir a Storage
+      // Subir a Storage (usa buffer comprimido si es imagen)
       const { error: errorStorage } = await admin.storage
         .from('adjuntos')
         .upload(storagePath, buffer, {
-          contentType: archivo.type || 'application/octet-stream',
+          contentType: tipoComprimido || 'application/octet-stream',
           upsert: true,
         })
 
@@ -104,8 +119,8 @@ export async function POST(request: NextRequest) {
           mensaje_id: null, // Se linkea al enviar el correo
           empresa_id: empresaId,
           nombre_archivo: archivo.name,
-          tipo_mime: archivo.type || 'application/octet-stream',
-          tamano_bytes: archivo.size,
+          tipo_mime: tipoComprimido || 'application/octet-stream',
+          tamano_bytes: buffer.length,
           url: urlData.publicUrl,
           storage_path: storagePath,
           miniatura_url: miniaturaUrl,
@@ -115,6 +130,7 @@ export async function POST(request: NextRequest) {
 
       if (!errorInsert && adjunto) {
         adjuntosSubidos.push(adjunto)
+        registrarUsoStorage(empresaId, 'adjuntos', buffer.length)
       }
     }
 

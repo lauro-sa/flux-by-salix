@@ -152,7 +152,7 @@ function ItemSortable({
 
       {/* Menu contextual como portal — overlay cierra, menu con acciones */}
       {menuAbierto && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[9998]" onClick={onCerrarMenu}>
+        <div className="fixed inset-0 z-[var(--z-popover)]" onClick={onCerrarMenu}>
           <div
             className="absolute bg-superficie-elevada border border-borde-sutil rounded-md shadow-lg py-1 w-44"
             style={{ top: menuPos.top, left: menuPos.left }}

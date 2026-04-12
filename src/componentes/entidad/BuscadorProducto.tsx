@@ -227,7 +227,7 @@ export function BuscadorProducto({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: posDropdown.haciaArriba ? 4 : -4 }}
               transition={{ duration: 0.15 }}
-              className="fixed z-[9999] bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg overflow-hidden"
+              className="fixed z-[var(--z-popover)] bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg overflow-hidden"
               style={{
                 top: posDropdown.haciaArriba ? undefined : posDropdown.top,
                 bottom: posDropdown.haciaArriba ? window.innerHeight - posDropdown.top + 4 : undefined,

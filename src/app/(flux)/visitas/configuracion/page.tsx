@@ -276,7 +276,7 @@ function SeccionLista({
           <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-white/[0.06] bg-white/[0.03]">
             <span className="flex-1 text-sm text-texto-primario">{item}</span>
             {puedeEditar && (
-              <button onClick={() => eliminar(i)} className="text-texto-terciario hover:text-red-400">
+              <button onClick={() => eliminar(i)} className="text-texto-terciario hover:text-insignia-peligro">
                 <Trash2 size={14} />
               </button>
             )}
@@ -359,7 +359,7 @@ function SeccionChecklist({
               className="flex-1 px-3 py-2 rounded-lg border border-white/[0.06] bg-white/[0.03] text-sm text-texto-primario placeholder:text-texto-terciario focus:outline-none focus:ring-1 focus:ring-texto-marca/40"
             />
             {puedeEditar && (
-              <button onClick={() => eliminar(item.id)} className="opacity-0 group-hover:opacity-100 text-texto-terciario hover:text-red-400">
+              <button onClick={() => eliminar(item.id)} className="opacity-0 group-hover:opacity-100 text-texto-terciario hover:text-insignia-peligro">
                 <Trash2 size={14} />
               </button>
             )}

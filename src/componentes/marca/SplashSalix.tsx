@@ -42,7 +42,7 @@ export default function SplashSalix({
 
   const claseBase = inline
     ? 'flex items-center justify-center py-16'
-    : 'fixed inset-0 z-[9999] flex items-center justify-center'
+    : 'fixed inset-0 z-[var(--z-splash)] flex items-center justify-center'
 
   return (
     <motion.div

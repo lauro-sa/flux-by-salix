@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { descontarUsoStorage } from '@/lib/uso-storage'
 
 /**
  * GET /api/cron/limpiar-adjuntos — Limpia adjuntos huérfanos (borradores no enviados).
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
     // Buscar adjuntos huérfanos
     const { data: huerfanos } = await admin
       .from('mensaje_adjuntos')
-      .select('id, storage_path')
+      .select('id, storage_path, empresa_id, tamano_bytes')
       .is('mensaje_id', null)
       .lt('creado_en', hace24h)
       .limit(100)
@@ -42,6 +43,13 @@ export async function GET(request: NextRequest) {
       .from('mensaje_adjuntos')
       .delete()
       .in('id', ids)
+
+    // Descontar uso de storage por empresa
+    for (const h of huerfanos) {
+      if (h.empresa_id && h.tamano_bytes) {
+        descontarUsoStorage(h.empresa_id, 'adjuntos', h.tamano_bytes)
+      }
+    }
 
     return NextResponse.json({
       eliminados: ids.length,

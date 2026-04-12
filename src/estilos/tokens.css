@@ -210,15 +210,48 @@
   --superficie-codigo: #f8f9fa;
   --texto-codigo: #1e1e2e;
 
-  /* Z-Index */
+  /* Z-Index — escala ordenada, sin valores arbitrarios en componentes */
   --z-base: 0;
   --z-sticky: 10;
   --z-header: 20;
+  --z-sidebar: 30;
   --z-dropdown: 40;
   --z-modal: 50;
+  --z-overlay: 55;
   --z-toast: 60;
-  --z-popover: 9999;
+  --z-popover: 70;
   --z-splash: 9999;
+
+  /* Asistencia — colores semánticos para fichajes y jornada */
+  --asistencia-presente: #34d399;
+  --asistencia-presente-fondo: rgba(52, 211, 153, 0.12);
+  --asistencia-ausente: #f87171;
+  --asistencia-ausente-fondo: rgba(248, 113, 113, 0.12);
+  --asistencia-almuerzo: #fbbf24;
+  --asistencia-almuerzo-fondo: rgba(251, 191, 36, 0.12);
+  --asistencia-tarde: #fb923c;
+  --asistencia-tarde-fondo: rgba(251, 146, 60, 0.12);
+  --asistencia-particular: #38bdf8;
+  --asistencia-particular-fondo: rgba(56, 189, 248, 0.12);
+  --asistencia-feriado: #a78bfa;
+  --asistencia-feriado-fondo: rgba(167, 139, 250, 0.12);
+  --asistencia-vacaciones: #818cf8;
+  --asistencia-vacaciones-fondo: rgba(129, 140, 248, 0.12);
+  --asistencia-descanso: #06b6d4;
+  --asistencia-descanso-fondo: rgba(6, 182, 212, 0.12);
+
+  /* Prioridades */
+  --prioridad-alta: #ef4444;
+  --prioridad-alta-fondo: rgba(239, 68, 68, 0.10);
+  --prioridad-media: #f97316;
+  --prioridad-media-fondo: rgba(249, 115, 22, 0.10);
+  --prioridad-baja: #3b82f6;
+  --prioridad-baja-fondo: rgba(59, 130, 246, 0.10);
+
+  /* Marcas de terceros */
+  --marca-whatsapp: #25d366;
+  --marca-google: #4285f4;
+  --marca-meta: #0084ff;
 
   /* Layout */
   --sidebar-ancho: 240px;
@@ -294,6 +327,32 @@
     --overlay-oscuro: rgba(0, 0, 0, 0.6);
     --superficie-codigo: #1e1e2e;
     --texto-codigo: #cdd6f4;
+
+    /* Asistencia dark */
+    --asistencia-presente: #6ee7b7;
+    --asistencia-presente-fondo: rgba(110, 231, 183, 0.15);
+    --asistencia-ausente: #fca5a5;
+    --asistencia-ausente-fondo: rgba(252, 165, 165, 0.15);
+    --asistencia-almuerzo: #fcd34d;
+    --asistencia-almuerzo-fondo: rgba(252, 211, 77, 0.15);
+    --asistencia-tarde: #fdba74;
+    --asistencia-tarde-fondo: rgba(253, 186, 116, 0.15);
+    --asistencia-particular: #7dd3fc;
+    --asistencia-particular-fondo: rgba(125, 211, 252, 0.15);
+    --asistencia-feriado: #c4b5fd;
+    --asistencia-feriado-fondo: rgba(196, 181, 253, 0.15);
+    --asistencia-vacaciones: #a5b4fc;
+    --asistencia-vacaciones-fondo: rgba(165, 180, 252, 0.15);
+    --asistencia-descanso: #22d3ee;
+    --asistencia-descanso-fondo: rgba(34, 211, 238, 0.15);
+
+    /* Prioridades dark */
+    --prioridad-alta: #fca5a5;
+    --prioridad-alta-fondo: rgba(252, 165, 165, 0.15);
+    --prioridad-media: #fdba74;
+    --prioridad-media-fondo: rgba(253, 186, 116, 0.15);
+    --prioridad-baja: #93c5fd;
+    --prioridad-baja-fondo: rgba(147, 197, 253, 0.15);
   }
 }
 
@@ -362,6 +421,32 @@
   --overlay-oscuro: rgba(0, 0, 0, 0.6);
   --superficie-codigo: #1e1e2e;
   --texto-codigo: #cdd6f4;
+
+  /* Asistencia dark */
+  --asistencia-presente: #6ee7b7;
+  --asistencia-presente-fondo: rgba(110, 231, 183, 0.15);
+  --asistencia-ausente: #fca5a5;
+  --asistencia-ausente-fondo: rgba(252, 165, 165, 0.15);
+  --asistencia-almuerzo: #fcd34d;
+  --asistencia-almuerzo-fondo: rgba(252, 211, 77, 0.15);
+  --asistencia-tarde: #fdba74;
+  --asistencia-tarde-fondo: rgba(253, 186, 116, 0.15);
+  --asistencia-particular: #7dd3fc;
+  --asistencia-particular-fondo: rgba(125, 211, 252, 0.15);
+  --asistencia-feriado: #c4b5fd;
+  --asistencia-feriado-fondo: rgba(196, 181, 253, 0.15);
+  --asistencia-vacaciones: #a5b4fc;
+  --asistencia-vacaciones-fondo: rgba(165, 180, 252, 0.15);
+  --asistencia-descanso: #22d3ee;
+  --asistencia-descanso-fondo: rgba(34, 211, 238, 0.15);
+
+  /* Prioridades dark */
+  --prioridad-alta: #fca5a5;
+  --prioridad-alta-fondo: rgba(252, 165, 165, 0.15);
+  --prioridad-media: #fdba74;
+  --prioridad-media-fondo: rgba(253, 186, 116, 0.15);
+  --prioridad-baja: #93c5fd;
+  --prioridad-baja-fondo: rgba(147, 197, 253, 0.15);
 }
 
 /* ---------- ESCALA DE TEXTO ---------- */

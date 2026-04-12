@@ -3,6 +3,7 @@ import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
+import { COLOR_NOTIFICACION } from '@/lib/colores_entidad'
 
 const ESTADOS_VALIDOS = ['abierta', 'en_espera', 'resuelta', 'spam'] as const
 
@@ -188,7 +189,7 @@ export async function PATCH(
           titulo: 'Te asignaron una conversación',
           cuerpo: `${nombreCompleto} te asignó la conversación de ${contacto}`,
           icono: '👤',
-          color: '#0ea5e9',
+          color: COLOR_NOTIFICACION.cyan,
           url: `/inbox?conv=${id}&tab=whatsapp`,
           referenciaTipo: 'conversacion',
           referenciaId: id,

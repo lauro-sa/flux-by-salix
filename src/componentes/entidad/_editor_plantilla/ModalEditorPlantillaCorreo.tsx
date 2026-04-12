@@ -105,7 +105,7 @@ export function ModalEditorPlantillaCorreo({
       }
       acciones={
         <>
-          <Boton variante="fantasma" tamano="sm" onClick={onCerrar}>Cancelar</Boton>
+          <Boton variante="fantasma" tamano="sm" onClick={onCerrar}>{t('comun.cancelar')}</Boton>
           <Boton tamano="sm" cargando={guardando} onClick={handleGuardar}>
             {esEdicion ? 'Guardar cambios' : 'Crear plantilla'}
           </Boton>

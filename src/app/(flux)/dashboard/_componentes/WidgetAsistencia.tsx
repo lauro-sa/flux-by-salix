@@ -122,11 +122,11 @@ export function WidgetAsistencia({ hoy, detalle_hoy, semana, usuario_id }: Props
           {miFichaje ? (
             <>
               <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-[7px]">
+                <div className="flex items-center gap-1.5">
                   <div className={`size-[7px] rounded-full ${
-                    miFichaje.estado === 'activo' ? 'bg-emerald-400 shadow-[0_0_5px_rgba(38,166,154,.6)]' :
-                    miFichaje.estado === 'almuerzo' ? 'bg-amber-400' :
-                    miFichaje.estado === 'cerrado' ? 'bg-texto-terciario' : 'bg-red-400'
+                    miFichaje.estado === 'activo' ? 'bg-asistencia-presente shadow-[0_0_5px_var(--asistencia-presente-fondo)]' :
+                    miFichaje.estado === 'almuerzo' ? 'bg-asistencia-almuerzo' :
+                    miFichaje.estado === 'cerrado' ? 'bg-texto-terciario' : 'bg-asistencia-ausente'
                   }`} />
                   <span className="text-xs font-medium text-texto-secundario">
                     {miFichaje.estado === 'activo' ? 'En turno' : miFichaje.estado === 'almuerzo' ? 'Almorzando' :
@@ -149,8 +149,8 @@ export function WidgetAsistencia({ hoy, detalle_hoy, semana, usuario_id }: Props
               </div>
 
               <div className="mt-2.5">
-                <div className="h-[5px] rounded-[3px] bg-white/[0.07] overflow-hidden">
-                  <div className="h-full rounded-[3px] bg-emerald-400 transition-all duration-500" style={{ width: `${miPct}%` }} />
+                <div className="h-[5px] rounded-sm bg-white/[0.07] overflow-hidden">
+                  <div className="h-full rounded-sm bg-asistencia-presente transition-all duration-500" style={{ width: `${miPct}%` }} />
                 </div>
                 <div className="flex justify-between mt-1">
                   {[9, 11, 13, 15, 17].map(h => (
@@ -164,7 +164,7 @@ export function WidgetAsistencia({ hoy, detalle_hoy, semana, usuario_id }: Props
                 const p = formatearPuntualidad(miFichaje.puntualidad_min)
                 return p ? (
                   <span className={`inline-block text-[10px] font-medium px-1.5 py-px rounded mt-2 ${
-                    miFichaje.puntualidad_min! > 0 ? 'bg-amber-400/10 text-amber-400' : 'bg-emerald-400/10 text-emerald-400'
+                    miFichaje.puntualidad_min! > 0 ? 'bg-asistencia-tarde-fondo text-asistencia-tarde' : 'bg-asistencia-presente-fondo text-asistencia-presente'
                   }`}>{p.texto}</span>
                 ) : null
               })()}
@@ -186,20 +186,20 @@ export function WidgetAsistencia({ hoy, detalle_hoy, semana, usuario_id }: Props
                 </span>
                 <span className="text-xs font-medium text-texto-terciario/70">{pctSemana}%</span>
               </div>
-              <div className="h-1.5 rounded-[3px] bg-white/[0.07] flex overflow-hidden">
-                <div className="h-full bg-emerald-400 transition-all" style={{ width: `${(totalSemana.presentes / totalReg) * 100}%` }} />
-                <div className="h-full bg-amber-400 transition-all" style={{ width: `${(totalSemana.tardanzas / totalReg) * 100}%` }} />
-                <div className="h-full bg-red-400 transition-all" style={{ width: `${(totalSemana.ausentes / totalReg) * 100}%` }} />
+              <div className="h-1.5 rounded-sm bg-white/[0.07] flex overflow-hidden">
+                <div className="h-full bg-asistencia-presente transition-all" style={{ width: `${(totalSemana.presentes / totalReg) * 100}%` }} />
+                <div className="h-full bg-asistencia-tarde transition-all" style={{ width: `${(totalSemana.tardanzas / totalReg) * 100}%` }} />
+                <div className="h-full bg-asistencia-ausente transition-all" style={{ width: `${(totalSemana.ausentes / totalReg) * 100}%` }} />
               </div>
               <div className="flex items-center gap-3 mt-1.5">
-                <span className="flex items-center gap-[5px] text-[10px] text-texto-terciario/40">
-                  <span className="size-[6px] rounded-full bg-emerald-400" />{totalSemana.presentes}
+                <span className="flex items-center gap-1 text-[10px] text-texto-terciario/40">
+                  <span className="size-[6px] rounded-full bg-asistencia-presente" />{totalSemana.presentes}
                 </span>
-                <span className="flex items-center gap-[5px] text-[10px] text-texto-terciario/40">
-                  <span className="size-[6px] rounded-full bg-amber-400" />{totalSemana.tardanzas}
+                <span className="flex items-center gap-1 text-[10px] text-texto-terciario/40">
+                  <span className="size-[6px] rounded-full bg-asistencia-tarde" />{totalSemana.tardanzas}
                 </span>
-                <span className="flex items-center gap-[5px] text-[10px] text-texto-terciario/40">
-                  <span className="size-[6px] rounded-full bg-red-400" />{totalSemana.ausentes}
+                <span className="flex items-center gap-1 text-[10px] text-texto-terciario/40">
+                  <span className="size-[6px] rounded-full bg-asistencia-ausente" />{totalSemana.ausentes}
                 </span>
               </div>
             </div>
@@ -221,17 +221,17 @@ export function WidgetAsistencia({ hoy, detalle_hoy, semana, usuario_id }: Props
             {/* Stats grid */}
             <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] items-center px-4 pb-2">
               <div className="text-center py-1">
-                <div className="text-base font-semibold tabular-nums text-emerald-400">{hoy.presentes}</div>
+                <div className="text-base font-semibold tabular-nums text-asistencia-presente">{hoy.presentes}</div>
                 <div className="text-[10px] text-texto-terciario/40">Ok</div>
               </div>
               <div className="w-px h-7 bg-white/[0.07]" />
               <div className="text-center py-1">
-                <div className="text-base font-semibold tabular-nums text-amber-400">{hoy.tardanzas}</div>
+                <div className="text-base font-semibold tabular-nums text-asistencia-tarde">{hoy.tardanzas}</div>
                 <div className="text-[10px] text-texto-terciario/40">Tarde</div>
               </div>
               <div className="w-px h-7 bg-white/[0.07]" />
               <div className="text-center py-1">
-                <div className="text-base font-semibold tabular-nums text-red-400">{hoy.ausentes}</div>
+                <div className="text-base font-semibold tabular-nums text-asistencia-ausente">{hoy.ausentes}</div>
                 <div className="text-[10px] text-texto-terciario/40">Ausente</div>
               </div>
               <div className="w-px h-7 bg-white/[0.07]" />
@@ -253,17 +253,17 @@ export function WidgetAsistencia({ hoy, detalle_hoy, semana, usuario_id }: Props
                 let badgeColor = ''
                 if (d.estado === 'ausente') {
                   badgeTxt = 'Ausente'
-                  badgeColor = 'bg-red-400/10 text-red-400'
+                  badgeColor = 'bg-asistencia-ausente-fondo text-asistencia-ausente'
                 } else if (d.puntualidad_min != null && d.puntualidad_min !== 0 && punt) {
                   badgeTxt = punt.texto
-                  badgeColor = d.puntualidad_min > 0 ? 'bg-amber-400/10 text-amber-400' : 'bg-emerald-400/10 text-emerald-400'
+                  badgeColor = d.puntualidad_min > 0 ? 'bg-asistencia-tarde-fondo text-asistencia-tarde' : 'bg-asistencia-presente-fondo text-asistencia-presente'
                 } else if (d.puntualidad_min === 0) {
                   badgeTxt = 'Puntual'
-                  badgeColor = 'bg-emerald-400/10 text-emerald-400'
+                  badgeColor = 'bg-asistencia-presente-fondo text-asistencia-presente'
                 }
 
-                const barColor = d.estado === 'ausente' ? 'bg-red-400/40' :
-                  d.tipo === 'tardanza' ? 'bg-amber-400' : 'bg-emerald-400'
+                const barColor = d.estado === 'ausente' ? 'bg-asistencia-ausente/40' :
+                  d.tipo === 'tardanza' ? 'bg-asistencia-tarde' : 'bg-asistencia-presente'
 
                 return (
                   <div
@@ -282,7 +282,7 @@ export function WidgetAsistencia({ hoy, detalle_hoy, semana, usuario_id }: Props
                         <span className="text-xs font-medium text-texto-primario/75">{d.nombre}</span>
                         {d.puesto && <span className="text-[10px] text-texto-terciario/30 truncate hidden sm:inline">· {d.puesto}</span>}
                       </div>
-                      <div className="flex items-center gap-[5px] mt-0.5">
+                      <div className="flex items-center gap-1 mt-0.5">
                         <span className="text-[11px] text-texto-terciario/40 tabular-nums">
                           {d.estado === 'ausente' ? '—' : fmtHora(d.hora_entrada)}
                         </span>

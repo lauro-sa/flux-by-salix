@@ -84,8 +84,8 @@ function ProveedorToast({ children }: { children: ReactNode }) {
   }, [])
 
   const clasesPosicion = arriba
-    ? 'fixed top-4 left-4 right-4 flex flex-col gap-2.5 z-[10001] pointer-events-none md:left-auto md:right-6 md:top-6'
-    : 'fixed bottom-6 right-6 flex flex-col-reverse gap-2.5 z-[10001] pointer-events-none max-sm:bottom-[calc(var(--safe-area-bottom,0px)+16px)] max-sm:right-4 max-sm:left-4'
+    ? 'fixed top-4 left-4 right-4 flex flex-col gap-2.5 z-[var(--z-toast)] pointer-events-none md:left-auto md:right-6 md:top-6'
+    : 'fixed bottom-6 right-6 flex flex-col-reverse gap-2.5 z-[var(--z-toast)] pointer-events-none max-sm:bottom-[calc(var(--safe-area-bottom,0px)+16px)] max-sm:right-4 max-sm:left-4'
 
   return (
     <ContextoToastInterno.Provider value={{ mostrar }}>

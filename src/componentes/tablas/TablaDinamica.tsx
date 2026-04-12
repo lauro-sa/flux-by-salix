@@ -850,7 +850,7 @@ function TablaDinamica<T>({
         tamano="xs"
         soloIcono
         icono={<ChevronLeft size={14} />}
-        titulo="Página anterior"
+        titulo={t('paginacion.pagina_anterior')}
         onClick={() => setPaginaActual(Math.max(1, paginaActual - 1))}
         disabled={paginaActual === 1}
       />
@@ -871,7 +871,7 @@ function TablaDinamica<T>({
         tamano="xs"
         soloIcono
         icono={<ChevronRight size={14} />}
-        titulo="Página siguiente"
+        titulo={t('paginacion.pagina_siguiente')}
         onClick={() => setPaginaActual(Math.min(totalPaginas, paginaActual + 1))}
         disabled={paginaActual === totalPaginas}
       />
@@ -961,7 +961,7 @@ function TablaDinamica<T>({
 
             {/* Limpiar todo */}
             {hayBusquedaOFiltros && (
-              <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={12} />} onClick={limpiarTodo} titulo="Limpiar todo" className="text-insignia-peligro-texto hover:bg-insignia-peligro-fondo" />
+              <Boton variante="fantasma" tamano="xs" soloIcono icono={<X size={12} />} onClick={limpiarTodo} titulo={t('paginacion.limpiar_todo')} className="text-insignia-peligro-texto hover:bg-insignia-peligro-fondo" />
             )}
 
             {/* Botón filtros + vistas */}

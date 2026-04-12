@@ -6,6 +6,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { Select } from '@/componentes/ui/Select'
 import { CargadorSeccion } from '@/componentes/ui/Cargador'
 import { AlertTriangle, ChevronDown, ChevronRight, RefreshCw, User } from 'lucide-react'
+import { useTraduccion } from '@/lib/i18n'
 
 interface ContactoAfectado {
   id: string
@@ -39,6 +40,7 @@ interface PropiedadesModalRestablecer {
  * Muestra los items con contactos asignados y permite reasignarlos antes de restablecer.
  */
 export function ModalRestablecer({ abierto, onCerrar, tipo, etiquetaTipo, onRestablecido }: PropiedadesModalRestablecer) {
+  const { t } = useTraduccion()
   const [cargando, setCargando] = useState(true)
   const [aplicando, setAplicando] = useState(false)
   const [preview, setPreview] = useState<DatosPreview | null>(null)
@@ -179,7 +181,7 @@ export function ModalRestablecer({ abierto, onCerrar, tipo, etiquetaTipo, onRest
             Ningún contacto tiene {etiquetaTipo} asignados. Se puede restablecer sin afectar datos.
           </p>
           <div className="flex justify-end gap-2">
-            <Boton variante="secundario" onClick={onCerrar}>Cancelar</Boton>
+            <Boton variante="secundario" onClick={onCerrar}>{t('comun.cancelar')}</Boton>
             <Boton onClick={aplicar} cargando={aplicando} icono={<RefreshCw size={14} />}>
               Restablecer
             </Boton>
@@ -284,7 +286,7 @@ export function ModalRestablecer({ abierto, onCerrar, tipo, etiquetaTipo, onRest
               )}
             </div>
             <div className="flex gap-2">
-              <Boton variante="secundario" onClick={onCerrar}>Cancelar</Boton>
+              <Boton variante="secundario" onClick={onCerrar}>{t('comun.cancelar')}</Boton>
               <Boton
                 onClick={aplicar}
                 cargando={aplicando}

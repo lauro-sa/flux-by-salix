@@ -398,6 +398,76 @@ export interface Traducciones {
     ruta_optimizada: string
     visita_reasignada: string
     listado: string
+    archivadas: string
+    completar: string
+    cancelar_visita: string
+    en_camino: string
+    llegue: string
+    reactivar: string
+    navegar: string
+    ver: string
+    sin_direccion: string
+    principal: string
+    fiscal: string
+    entrega: string
+    recibe_opcional: string
+    recibe_desc: string
+    buscar_contacto_recibe: string
+    cargar_a_mano: string
+    buscar_contacto: string
+    nuevo_item: string
+    sin_items: string
+    sin_asignar_select: string
+    seleccionar_motivo: string
+    otro_texto_libre: string
+    escribir_motivo: string
+    cargando: string
+    sin_direcciones: string
+    sin_visitas_previas: string
+    visita: string
+    visitas_label: string
+    ultima: string
+    minutos: string
+    eliminar_visitas: string
+    eliminar: string
+    buscar_visitas: string
+    asignadas_a_mi: string
+    creadas_por_mi: string
+    todas: string
+    ver_archivadas: string
+    borrador_desc: string
+    en_curso_desc: string
+    publicado_desc: string
+    cerrar: string
+    publicar_recorrido: string
+    despublicar: string
+    notificar_cambios: string
+    sin_visitas_programadas: string
+    recorrido_en_curso: string
+    recorrido_en_curso_desc: string
+    si_editar: string
+    detalle_visita: string
+    completada_por: string
+    sin_checklist_ni_archivos: string
+    archivos: string
+    informacion: string
+    vinculados: string
+    llegaste: string
+    llamar: string
+    whatsapp: string
+    ver_en_mapa: string
+    avisar_que_llegue: string
+    sin_telefono: string
+    salida_y_regreso: string
+    salir_desde_empresa: string
+    volver_a_empresa: string
+    sin_recorrido_config: string
+    invertir: string
+    optimizar: string
+    revertir: string
+    confirmar_ruta: string
+    completadas: string
+    en_sitio: string
   }
 
   // Recorrido
@@ -1286,5 +1356,62 @@ export interface Traducciones {
       justificado: string
     }
     ubicacion: string
+  }
+
+  // Editor de texto (toolbar)
+  editor: {
+    negrita: string
+    italica: string
+    subrayado: string
+    tachado: string
+    izquierda: string
+    centro: string
+    derecha: string
+    vinetas: string
+    numerada: string
+    enlace: string
+    quitar_enlace: string
+    limpiar_formato: string
+    normal: string
+  }
+
+  // Paginación y tablas
+  paginacion: {
+    pagina_anterior: string
+    pagina_siguiente: string
+    primera_pagina: string
+    ultima_pagina: string
+    limpiar_todo: string
+    limpiar_filtro: string
+    limpiar_seleccion: string
+  }
+
+  // Estados de carga
+  estados_carga: {
+    cargando_imagen: string
+    cargando_audio: string
+    cargando_video: string
+    cargando_documento: string
+    cargando_datos: string
+    sin_datos_contacto: string
+    sin_fotos_videos: string
+    sin_documentos: string
+    sin_reglas: string
+  }
+
+  // Acciones comunes de UI
+  ui: {
+    expandir: string
+    contraer: string
+    cambiar: string
+    rotar_imagen: string
+    acercar: string
+    alejar: string
+    restablecer_zoom: string
+    sin_logo: string
+    arrastar_zoom: string
+    escribir_mensaje: string
+    reaccionar: string
+    quitar_etiqueta: string
   }
 }

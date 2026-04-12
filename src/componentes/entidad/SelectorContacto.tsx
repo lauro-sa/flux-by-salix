@@ -320,7 +320,7 @@ function SelectorContacto({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               style={{ position: 'fixed', top: posDropdown.top, left: posDropdown.left, width: posDropdown.width }}
-              className="bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-[100] max-h-[360px] overflow-y-auto"
+              className="bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-[var(--z-popover)] max-h-[360px] overflow-y-auto"
             >
             {tituloLista && (
               <div className="px-4 pt-3 pb-1.5">

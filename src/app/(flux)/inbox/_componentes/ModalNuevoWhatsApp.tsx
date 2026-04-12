@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Send, Loader2, Search, Phone, Check, AlertCircle } from 'lucide-react'
 import { Modal } from '@/componentes/ui/Modal'
+import HtmlSeguro from '@/componentes/ui/HtmlSeguro'
 import { Boton } from '@/componentes/ui/Boton'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { PlantillaWhatsApp } from '@/tipos/inbox'
@@ -301,17 +302,16 @@ export function ModalNuevoWhatsApp({ abierto, onCerrar, canalId, onEnviar }: Pro
                         </p>
                       )}
                       {cuerpo?.texto && (
-                        <p
+                        <HtmlSeguro
+                          html={formatoWhatsApp(
+                            previewCuerpoConValores(
+                              cuerpo.texto,
+                              seleccionada ? valoresVariables : [],
+                              cuerpo.ejemplos,
+                            )
+                          )}
+                          como="p"
                           className="whitespace-pre-wrap"
-                          dangerouslySetInnerHTML={{
-                            __html: formatoWhatsApp(
-                              previewCuerpoConValores(
-                                cuerpo.texto,
-                                seleccionada ? valoresVariables : [],
-                                cuerpo.ejemplos,
-                              )
-                            ),
-                          }}
                         />
                       )}
                       {piePagina?.texto && (

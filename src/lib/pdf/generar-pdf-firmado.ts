@@ -93,6 +93,10 @@ export async function generarPdfFirmado(
 
   if (error) throw new Error(`Error al subir PDF firmado: ${error.message}`)
 
+  // Registrar uso de storage
+  const { registrarUsoStorage } = await import('@/lib/uso-storage')
+  registrarUsoStorage(datos.empresaId, 'documentos-pdf', pdfBuffer.length)
+
   const { data: urlData } = admin.storage.from('documentos-pdf').getPublicUrl(storagePath)
   const url = `${urlData.publicUrl}?t=${Date.now()}`
 

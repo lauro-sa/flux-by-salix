@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { descontarUsoStorage } from '@/lib/uso-storage'
 
 /**
  * GET /api/recorrido/registro?visita_id=xxx — Obtener datos del registro previo de una visita.
@@ -115,7 +116,16 @@ export async function DELETE(request: NextRequest) {
     try {
       const ruta = adjunto_url.split('/storage/v1/object/public/')[1]
       if (ruta) {
-        await admin.storage.from(ruta.split('/')[0]).remove([ruta.split('/').slice(1).join('/')])
+        const bucket = ruta.split('/')[0]
+        const rutaArchivo = ruta.split('/').slice(1).join('/')
+        await admin.storage.from(bucket).remove([rutaArchivo])
+
+        // Descontar del tracking — estimar tamaño del adjunto eliminado
+        const adjEliminado = ((entrada.adjuntos || []) as { url: string; tamano?: number }[])
+          .find(a => a.url === adjunto_url)
+        if (adjEliminado?.tamano) {
+          descontarUsoStorage(empresaId, bucket, adjEliminado.tamano)
+        }
       }
     } catch { /* ignorar error de storage */ }
 

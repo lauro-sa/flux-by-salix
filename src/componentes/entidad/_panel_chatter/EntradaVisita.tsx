@@ -8,6 +8,7 @@
  */
 
 import { useState } from 'react'
+import Image from 'next/image'
 import {
   MapPin, Clock, Thermometer, CheckSquare, Square,
   ImageIcon, ChevronRight, Navigation, CalendarClock,
@@ -41,11 +42,12 @@ function GaleriaCompacta({ adjuntos }: { adjuntos: AdjuntoChatter[] }) {
           rel="noopener noreferrer"
           className="relative size-14 rounded-md overflow-hidden border border-white/[0.06] hover:border-texto-marca/40 transition-colors"
         >
-          <img
+          <Image
             src={foto.url}
             alt={foto.nombre}
-            className="w-full h-full object-cover"
-            loading="lazy"
+            fill
+            sizes="56px"
+            className="object-cover"
           />
           {/* Mostrar "+N más" sobre la última miniatura visible */}
           {i === 3 && restantes > 0 && (

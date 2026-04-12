@@ -14,6 +14,7 @@ import { Plus, Trash2, Zap, Pencil } from 'lucide-react'
 import type { PlantillaRespuesta } from '@/tipos/inbox'
 import { useTraduccion } from '@/lib/i18n'
 import { formatoWhatsAppAHtml } from './EditorWhatsApp'
+import HtmlSeguro from '@/componentes/ui/HtmlSeguro'
 
 /**
  * Sección de respuestas rápidas — atajos de texto con formato que el agente inserta con `/` en el compositor.
@@ -129,10 +130,9 @@ export function SeccionRespuestasRapidas({
                 </div>
                 {/* Preview del contenido con formato */}
                 {p.contenido_html ? (
-                  <div
+                  <HtmlSeguro
+                    html={p.contenido_html}
                     className="text-xs mt-1 line-clamp-2 prose-sm"
-                    style={{ color: 'var(--texto-terciario)' }}
-                    dangerouslySetInnerHTML={{ __html: p.contenido_html }}
                   />
                 ) : (
                   <p className="text-xs mt-1 line-clamp-2" style={{ color: 'var(--texto-terciario)' }}>
@@ -317,10 +317,9 @@ function ModalRespuestaRapida({
                 }}
               >
                 {contenido ? (
-                  <div
+                  <HtmlSeguro
+                    html={formatoWhatsAppAHtml(contenido)}
                     className="text-sm leading-relaxed"
-                    style={{ color: 'var(--texto-primario)' }}
-                    dangerouslySetInnerHTML={{ __html: formatoWhatsAppAHtml(contenido) }}
                   />
                 ) : (
                   <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>

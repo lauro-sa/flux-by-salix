@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     const params = request.nextUrl.searchParams
     const solo_no_leidas = params.get('solo_no_leidas') === 'true'
     const limite = Math.min(parseInt(params.get('limite') || '50'), 100)
+    const offset = Math.max(parseInt(params.get('offset') || '0'), 0)
 
     const admin = crearClienteAdmin()
 
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
     const [resultado, conteoNoLeidas] = await Promise.all([
       query
         .order('creada_en', { ascending: false })
-        .limit(limite),
+        .range(offset, offset + limite - 1),
       admin
         .from('notificaciones')
         .select('*', { count: 'exact', head: true })
@@ -46,6 +47,7 @@ export async function GET(request: NextRequest) {
     const noLeidas = conteoNoLeidas.count
 
     // Enriquecer notificaciones de actividades con tipo (etiqueta + color)
+    // Usa foreign key join para resolver en 1 sola query en vez de 3 secuenciales
     const notificacionesEnriquecidas = data || []
     const refsActividad = notificacionesEnriquecidas
       .filter(n => n.referencia_tipo === 'actividad' && n.referencia_id)
@@ -55,18 +57,16 @@ export async function GET(request: NextRequest) {
       const idsUnicos = [...new Set(refsActividad)]
       const { data: actividades } = await admin
         .from('actividades')
-        .select('id, tipo_id')
+        .select('id, tipo_id, tipos_actividad:tipo_id(etiqueta, color)')
         .in('id', idsUnicos)
 
       if (actividades && actividades.length > 0) {
-        const tipoIds = [...new Set(actividades.map(a => a.tipo_id))]
-        const { data: tipos } = await admin
-          .from('tipos_actividad')
-          .select('id, etiqueta, color')
-          .in('id', tipoIds)
-
-        const tiposPorId = new Map((tipos || []).map(t => [t.id, t]))
-        const tipoPorActividad = new Map(actividades.map(a => [a.id, tiposPorId.get(a.tipo_id)]))
+        const tipoPorActividad = new Map(
+          actividades.map(a => {
+            const t = a.tipos_actividad as unknown as { etiqueta: string; color: string } | null
+            return [a.id, t] as const
+          })
+        )
 
         for (const n of notificacionesEnriquecidas) {
           if (n.referencia_tipo === 'actividad' && n.referencia_id) {

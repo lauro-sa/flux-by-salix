@@ -5,6 +5,7 @@ import { registrarChatter } from '@/lib/chatter'
 import { crearNotificacion } from '@/lib/notificaciones'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
+import { COLORES_HEX_ESTADO_ACTIVIDAD, COLOR_TIPO_ACTIVIDAD_DEFECTO } from '@/lib/colores_entidad'
 
 /**
  * GET /api/actividades/[id] — Obtener una actividad por ID.
@@ -151,7 +152,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           titulo: `✅ ${nombreEditor} completó`,
           cuerpo: `${tipoComp?.etiqueta || 'Actividad'} · ${data.titulo}`,
           icono: 'CheckCircle',
-          color: tipoComp?.color || '#46a758',
+          color: tipoComp?.color || COLORES_HEX_ESTADO_ACTIVIDAD.completada,
           url: '/actividades',
           referenciaTipo: 'actividad',
           referenciaId: data.id,
@@ -403,6 +404,24 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         .single()
 
       if (error) return NextResponse.json({ error: 'Error al reactivar' }, { status: 500 })
+
+      // Notificar al asignado que la actividad fue reactivada
+      if (data.asignado_a && data.asignado_a !== user.id) {
+        const { data: tipoReact } = await admin.from('tipos_actividad').select('etiqueta, color').eq('id', data.tipo_id).single()
+        crearNotificacion({
+          empresaId,
+          usuarioId: data.asignado_a,
+          tipo: 'actividad_asignada',
+          titulo: `🔄 ${nombreEditor} reactivó`,
+          cuerpo: `${tipoReact?.etiqueta || 'Actividad'} · ${data.titulo}`,
+          icono: 'RefreshCw',
+          color: tipoReact?.color || COLORES_HEX_ESTADO_ACTIVIDAD.pendiente,
+          url: '/actividades',
+          referenciaTipo: 'actividad',
+          referenciaId: data.id,
+        })
+      }
+
       return NextResponse.json(data)
     }
 
@@ -478,7 +497,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         titulo: `📋 ${nombreEditor} te asignó`,
         cuerpo: `${tipoAct?.etiqueta || 'Actividad'} · ${data.titulo}`,
         icono: 'ClipboardList',
-        color: tipoAct?.color || '#3b82f6',
+        color: tipoAct?.color || COLOR_TIPO_ACTIVIDAD_DEFECTO,
         url: '/actividades',
         referenciaTipo: 'actividad',
         referenciaId: data.id,

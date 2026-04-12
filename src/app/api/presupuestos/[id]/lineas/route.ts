@@ -46,16 +46,22 @@ export async function POST(
 
     const lineasInput = Array.isArray(body) ? body : [body]
 
+    /** parseFloat seguro: devuelve fallback si el valor es NaN */
+    const parseNumero = (valor: string | undefined, fallback: number) => {
+      const n = parseFloat(valor || String(fallback))
+      return Number.isNaN(n) ? fallback : n
+    }
+
     const lineas = lineasInput.map((linea: {
       tipo_linea?: string; codigo_producto?: string; descripcion?: string;
       descripcion_detalle?: string; cantidad?: string; unidad?: string;
       precio_unitario?: string; descuento?: string; impuesto_label?: string;
       impuesto_porcentaje?: string; monto?: string; orden?: number
     }) => {
-      const cantidad = parseFloat(linea.cantidad || '1')
-      const precioUnitario = parseFloat(linea.precio_unitario || '0')
-      const descuentoPct = parseFloat(linea.descuento || '0')
-      const impuestoPct = parseFloat(linea.impuesto_porcentaje || '0')
+      const cantidad = parseNumero(linea.cantidad, 1)
+      const precioUnitario = parseNumero(linea.precio_unitario, 0)
+      const descuentoPct = parseNumero(linea.descuento, 0)
+      const impuestoPct = parseNumero(linea.impuesto_porcentaje, 0)
 
       const subtotal = linea.tipo_linea === 'producto'
         ? cantidad * precioUnitario * (1 - descuentoPct / 100)
@@ -133,7 +139,12 @@ export async function PATCH(
             .eq('id', lineaId)
             .eq('presupuesto_id', id)
       )
-      await Promise.all(actualizaciones)
+      const resultados = await Promise.all(actualizaciones)
+      const errores = resultados.filter(r => r.error)
+      if (errores.length > 0) {
+        console.error('Errores al reordenar líneas:', errores.map(e => e.error))
+        return NextResponse.json({ error: 'Error parcial al reordenar' }, { status: 500 })
+      }
       return NextResponse.json({ ok: true })
     }
 
@@ -154,11 +165,12 @@ export async function PATCH(
         }
       }
 
-      // Recalcular subtotales de la línea
-      const cantidad = parseFloat(body.cantidad ?? '1')
-      const precioUnitario = parseFloat(body.precio_unitario ?? '0')
-      const descuentoPct = parseFloat(body.descuento ?? '0')
-      const impuestoPct = parseFloat(body.impuesto_porcentaje ?? '0')
+      // Recalcular subtotales de la línea (con validación NaN)
+      const parseNum = (v: string | undefined, fb: number) => { const n = parseFloat(v || String(fb)); return Number.isNaN(n) ? fb : n }
+      const cantidad = parseNum(body.cantidad, 1)
+      const precioUnitario = parseNum(body.precio_unitario, 0)
+      const descuentoPct = parseNum(body.descuento, 0)
+      const impuestoPct = parseNum(body.impuesto_porcentaje, 0)
 
       if (body.tipo_linea !== 'seccion' && body.tipo_linea !== 'nota') {
         const subtotal = cantidad * precioUnitario * (1 - descuentoPct / 100)

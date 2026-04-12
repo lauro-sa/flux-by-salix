@@ -23,6 +23,7 @@ import { MiniCalendario } from './_componentes/MiniCalendario'
 import { ModalEvento } from './_componentes/ModalEvento'
 import { PopoverEvento } from './_componentes/PopoverEvento'
 import { useToast } from '@/componentes/feedback/Toast'
+import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useModalVisita } from '@/hooks/useModalVisita'
 import { ModalVisita } from '@/app/(flux)/visitas/_componentes/ModalVisita'
 import type { EventoCalendario, TipoEventoCalendario, VistaCalendario } from './_componentes/tipos'
@@ -300,6 +301,26 @@ export default function PaginaCalendario() {
 
   useEffect(() => {
     cargarEventos()
+  }, [cargarEventos])
+
+  // --- Realtime: recargar cuando cambian eventos o visitas ---
+  useEffect(() => {
+    const supabase = crearClienteNavegador()
+    const canal = supabase
+      .channel('calendario-realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'eventos_calendario',
+      }, () => { cargarEventos() })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'visitas',
+      }, () => { cargarEventos() })
+      .subscribe()
+
+    return () => { supabase.removeChannel(canal) }
   }, [cargarEventos])
 
   // --- Navegación ---

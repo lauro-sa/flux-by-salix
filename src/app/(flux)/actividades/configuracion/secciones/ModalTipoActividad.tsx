@@ -14,6 +14,7 @@ import { PickerHSL } from '@/componentes/ui/_editor_texto/PickerHSL'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { TipoActividad } from './SeccionTipos'
 import { PALETA_COLORES_TIPO_ACTIVIDAD } from '@/lib/colores_entidad'
+import { useTraduccion } from '@/lib/i18n'
 
 /**
  * ModalTipoActividad — Modal para crear o editar un tipo de actividad.
@@ -138,6 +139,7 @@ const CAMPOS_DISPONIBLES = [
 ]
 
 function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles, guardando, onGuardar, onCerrar, onEliminar }: PropiedadesModal) {
+  const { t } = useTraduccion()
   const esEdicion = !!tipo
 
   // Estado del formulario
@@ -278,7 +280,7 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
             </Boton>
           )}
           <div className="ml-auto flex gap-2">
-            <Boton variante="secundario" tamano="sm" onClick={onCerrar}>Cancelar</Boton>
+            <Boton variante="secundario" tamano="sm" onClick={onCerrar}>{t('comun.cancelar')}</Boton>
             <Boton tamano="sm" onClick={manejarGuardar} cargando={guardando} disabled={!etiqueta.trim()}>
               {esEdicion ? 'Guardar' : 'Crear tipo'}
             </Boton>

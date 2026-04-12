@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { ModalAdaptable as Modal } from './ModalAdaptable'
 import { Boton } from './Boton'
 import { Upload, Trash2, Square, RectangleHorizontal, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
+import NextImage from 'next/image'
 
 /**
  * CargadorLogo — Subir y encuadrar logos de empresa.
@@ -241,12 +242,12 @@ function CargadorLogo({ variante, urlActual, onSubir, onEliminar }: PropiedadesC
       <div className="flex items-center gap-4">
         <div
           className={[
-            'border-2 border-dashed border-borde-fuerte rounded-xl flex items-center justify-center overflow-hidden bg-superficie-hover',
+            'relative border-2 border-dashed border-borde-fuerte rounded-xl flex items-center justify-center overflow-hidden bg-superficie-hover',
             variante === 'cuadrado' ? 'w-20 h-20' : 'w-48 h-16',
           ].join(' ')}
         >
           {urlActual ? (
-            <img src={urlActual} alt={info.titulo} className="w-full h-full object-contain" />
+            <NextImage src={urlActual} alt={info.titulo} fill sizes="200px" className="object-contain" />
           ) : (
             <span className="text-texto-terciario text-xs text-center px-2">Sin logo</span>
           )}

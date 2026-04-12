@@ -38,16 +38,35 @@ export function MapaRecorrido({
   const [selectorAbierto, setSelectorAbierto] = useState(false)
   const [enfocado, setEnfocado] = useState(false)
 
+  // Instancia del mapa — capturada por CapturadorMapa (hijo de <Map>)
+  // y usada por los botones de zoom (fuera de <Map>)
+  const [instanciaMapa, setInstanciaMapa] = useState<google.maps.Map | null>(null)
+
   // Sincronizar enfoque desde prop externa
   useEffect(() => {
     setEnfocado(enfocarParada)
-  }, [enfocarParada]) // true cuando zoom en una parada específica
+  }, [enfocarParada])
 
   const cambiarPreferencia = useCallback((nueva: PreferenciaRuta) => {
     setPreferencia(nueva)
     onCambioPreferencia?.(nueva)
     setSelectorAbierto(false)
   }, [onCambioPreferencia])
+
+  // Callbacks de zoom — usan instanciaMapa (state, no ref)
+  const hacerZoom = useCallback((delta: number) => {
+    if (!instanciaMapa) return
+    const zoomActual = instanciaMapa.getZoom() || 13
+    instanciaMapa.setZoom(zoomActual + delta)
+  }, [instanciaMapa])
+
+  const verTodo = useCallback(() => {
+    if (!instanciaMapa || puntos.length === 0) return
+    const bounds = new google.maps.LatLngBounds()
+    puntos.forEach((p) => bounds.extend({ lat: p.lat, lng: p.lng }))
+    instanciaMapa.fitBounds(bounds, { top: 60, right: 30, bottom: 30, left: 30 })
+    setEnfocado(false)
+  }, [instanciaMapa, puntos])
 
   // Fallback sin API key
   if (!API_KEY) {
@@ -64,7 +83,7 @@ export function MapaRecorrido({
             rel="noopener noreferrer"
             className="flex items-center gap-2 py-2 text-sm hover:bg-superficie-elevada rounded px-2"
           >
-            <span className="flex items-center justify-center size-5 rounded bg-[#1a1a2e] border border-[#4a6cf7] text-white text-xs font-bold">
+            <span className="flex items-center justify-center size-5 rounded bg-blue-600 border border-blue-500 text-white text-xs font-bold">
               {i + 1}
             </span>
             <MapPin size={14} />
@@ -77,7 +96,6 @@ export function MapaRecorrido({
   }
 
   // Centro del mapa: solo paradas (NO incluir origen GPS que puede estar en otro país/continente)
-  // Si no hay paradas, usar origen GPS o fallback Buenos Aires
   const centroMapa = calcularCentro(
     puntos.length > 0
       ? puntos
@@ -86,8 +104,12 @@ export function MapaRecorrido({
         : [{ lat: -34.6037, lng: -58.3816 }]
   )
 
-  // Si no hay paradas, usar center controlado para que se actualice cuando llega la ubicación
   const sinParadas = puntos.length === 0
+  const esClaro = temaActivo === 'claro'
+
+  const estiloBoton = esClaro
+    ? 'bg-white/80 border-black/10 text-black/60 hover:text-black active:bg-black/5 shadow-md'
+    : 'bg-black/60 border-white/10 text-white/80 hover:text-white active:bg-white/20'
 
   return (
     <div className={`relative overflow-hidden h-full ${className}`}>
@@ -99,9 +121,12 @@ export function MapaRecorrido({
         )}
         gestureHandling="greedy"
         disableDefaultUI
-        colorScheme={temaActivo === 'claro' ? 'LIGHT' : 'DARK'}
+        colorScheme={esClaro ? 'LIGHT' : 'DARK'}
         className="w-full h-full"
       >
+        {/* Captura la instancia del mapa para los controles externos */}
+        <CapturadorMapa onMapa={setInstanciaMapa} />
+
         {/* FitBounds automático o zoom a parada según estado */}
         {puntos.length > 0 && (
           <ControladorZoom puntos={puntos} paradaActual={paradaActual} enfocado={enfocado} />
@@ -131,7 +156,7 @@ export function MapaRecorrido({
           </AdvancedMarker>
         )}
 
-        {/* Marcadores de paradas — tocar hace zoom a ese punto */}
+        {/* Marcadores de paradas */}
         {puntos.map((punto, i) => (
           <MarcadorParadaConZoom
             key={punto.id}
@@ -153,13 +178,39 @@ export function MapaRecorrido({
       )}
 
       {/* Botones de zoom + ver todo — esquina derecha, subidos */}
-      <BotonesZoom enfocado={enfocado} onVerTodo={() => setEnfocado(false)} puntos={puntos} />
+      <div className="absolute bottom-14 right-3 z-20 flex flex-col gap-1.5">
+        {enfocado && (
+          <button
+            onClick={verTodo}
+            className={`flex items-center justify-center size-10 rounded-full backdrop-blur-md border transition-colors ${estiloBoton}`}
+            title="Ver todo el recorrido"
+          >
+            <Maximize2 size={16} />
+          </button>
+        )}
+        <button
+          onClick={() => hacerZoom(1)}
+          className={`flex items-center justify-center size-10 rounded-full backdrop-blur-md border transition-colors ${estiloBoton}`}
+        >
+          <Plus size={18} />
+        </button>
+        <button
+          onClick={() => hacerZoom(-1)}
+          className={`flex items-center justify-center size-10 rounded-full backdrop-blur-md border transition-colors ${estiloBoton}`}
+        >
+          <Minus size={18} />
+        </button>
+      </div>
 
-      {/* Opciones de ruta — esquina izquierda, subido */}
+      {/* Opciones de ruta — esquina izquierda */}
       {puntos.length > 0 && (
         <div className="absolute bottom-14 left-3 z-20">
           {selectorAbierto ? (
-            <div className="flex flex-col gap-1 bg-black/80 backdrop-blur-md rounded-xl p-1.5 border border-white/10">
+            <div className={`flex flex-col gap-1 backdrop-blur-md rounded-xl p-1.5 border ${
+              esClaro
+                ? 'bg-white/90 border-black/10 shadow-lg'
+                : 'bg-black/80 border-white/10'
+            }`}>
               {OPCIONES_RUTA.map(({ valor, etiqueta, icono: Icono }) => (
                 <button
                   key={valor}
@@ -167,7 +218,9 @@ export function MapaRecorrido({
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                     preferencia === valor
                       ? 'bg-blue-600 text-white'
-                      : 'text-white/60 hover:text-white hover:bg-white/10'
+                      : esClaro
+                        ? 'text-black/50 hover:text-black hover:bg-black/5'
+                        : 'text-white/60 hover:text-white hover:bg-white/10'
                   }`}
                 >
                   <Icono size={13} />
@@ -178,7 +231,11 @@ export function MapaRecorrido({
           ) : (
             <button
               onClick={() => setSelectorAbierto(true)}
-              className="flex items-center justify-center size-10 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white/70 hover:text-white transition-colors"
+              className={`flex items-center justify-center size-10 rounded-full backdrop-blur-md border transition-colors ${
+                esClaro
+                  ? 'bg-white/80 border-black/10 text-black/50 hover:text-black shadow-md'
+                  : 'bg-black/60 border-white/10 text-white/70 hover:text-white'
+              }`}
               title="Opciones de ruta"
             >
               <Settings2 size={16} />
@@ -188,6 +245,23 @@ export function MapaRecorrido({
       )}
     </div>
   )
+}
+
+/**
+ * Componente invisible dentro de <Map> que captura la instancia del mapa
+ * via useMap() y la pasa al padre via callback.
+ * Usa state (no ref) para que el padre re-renderice cuando el mapa está listo.
+ */
+function CapturadorMapa({ onMapa }: { onMapa: (mapa: google.maps.Map | null) => void }) {
+  const mapa = useMap()
+  const callbackRef = useRef(onMapa)
+  callbackRef.current = onMapa
+
+  useEffect(() => {
+    callbackRef.current(mapa)
+  }, [mapa])
+
+  return null
 }
 
 /**
@@ -232,12 +306,11 @@ function RutaReal({
     rendererRef.current.setMap(mapa)
 
     // Si el origen GPS está muy lejos de las paradas (>500km), ignorarlo
-    // (ej: simulador en San Francisco, paradas en Buenos Aires)
     const origenCercano = (() => {
       if (!origen || puntos.length === 0) return null
       const dLat = Math.abs(origen.lat - puntos[0].lat)
       const dLng = Math.abs(origen.lng - puntos[0].lng)
-      return (dLat + dLng) < 5 ? origen : null // ~500km umbral
+      return (dLat + dLng) < 5 ? origen : null
     })()
 
     const puntoOrigen = origenCercano || puntos[0]
@@ -314,7 +387,6 @@ function ControladorZoom({ puntos, paradaActual, enfocado }: {
         const bounds = mapa.getBounds()
         if (bounds) {
           const span = bounds.toSpan()
-          // Bajar el centro para que el marcador quede en el tercio superior del mapa
           mapa.panTo({ lat: p.lat - span.lat() * 0.1, lng: p.lng })
         } else {
           mapa.panTo({ lat: p.lat, lng: p.lng })
@@ -363,52 +435,5 @@ function MarcadorParadaConZoom({ punto, orden, esActual, esCompletada, onClick }
       esCompletada={esCompletada}
       onClick={manejarClick}
     />
-  )
-}
-
-/**
- * BotonesZoom — Botones + / - y "ver todo" para zoom del mapa.
- */
-function BotonesZoom({ enfocado, onVerTodo, puntos }: { enfocado: boolean; onVerTodo: () => void; puntos: { lat: number; lng: number }[] }) {
-  const mapa = useMap()
-
-  const hacerZoom = (delta: number) => {
-    if (!mapa) return
-    const zoomActual = mapa.getZoom() || 13
-    mapa.setZoom(zoomActual + delta)
-  }
-
-  const verTodo = () => {
-    if (!mapa || puntos.length === 0) return
-    const bounds = new google.maps.LatLngBounds()
-    puntos.forEach((p) => bounds.extend({ lat: p.lat, lng: p.lng }))
-    mapa.fitBounds(bounds, { top: 60, right: 30, bottom: 30, left: 30 })
-    onVerTodo()
-  }
-
-  return (
-    <div className="absolute bottom-14 right-3 z-20 flex flex-col gap-1.5">
-      {enfocado && (
-        <button
-          onClick={verTodo}
-          className="flex items-center justify-center size-10 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white/80 hover:text-white active:bg-white/20 transition-colors"
-          title="Ver todo el recorrido"
-        >
-          <Maximize2 size={16} />
-        </button>
-      )}
-      <button
-        onClick={() => hacerZoom(1)}
-        className="flex items-center justify-center size-10 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white/80 hover:text-white active:bg-white/20 transition-colors"
-      >
-        <Plus size={18} />
-      </button>
-      <button
-        onClick={() => hacerZoom(-1)}
-        className="flex items-center justify-center size-10 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white/80 hover:text-white active:bg-white/20 transition-colors"
-      >
-        <Minus size={18} />
-      </button>
-    </div>
   )
 }

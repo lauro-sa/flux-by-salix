@@ -963,7 +963,7 @@ export function SeccionEstructura({ tabInicial }: { tabInicial?: string } = {}) 
         tamano="md"
         acciones={
           <div className="flex gap-2">
-            <Boton variante="secundario" onClick={() => setModalNuevoPuesto(false)}>Cancelar</Boton>
+            <Boton variante="secundario" onClick={() => setModalNuevoPuesto(false)}>{t('comun.cancelar')}</Boton>
             <Boton onClick={guardarPuesto} cargando={guardando}>Crear puesto</Boton>
           </div>
         }

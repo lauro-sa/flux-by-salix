@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { comprimirImagen, validarArchivo, TAMANO_MAXIMO_BYTES } from '@/lib/comprimir-imagen'
+import { verificarCuotaStorage, registrarUsoStorage } from '@/lib/uso-storage'
 
 /**
  * POST /api/chatter/adjuntar — Subir un archivo y registrarlo en el chatter.
@@ -23,17 +25,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Faltan campos requeridos' }, { status: 400 })
     }
 
+    // Validar tipo y tamaño
+    const errorValidacion = validarArchivo(archivo.type, archivo.size, TAMANO_MAXIMO_BYTES)
+    if (errorValidacion) {
+      return NextResponse.json({ error: errorValidacion }, { status: 400 })
+    }
+
+    // Verificar cuota de storage
+    const errorCuota = await verificarCuotaStorage(empresaId, archivo.size)
+    if (errorCuota) {
+      return NextResponse.json({ error: errorCuota }, { status: 413 })
+    }
+
     const admin = crearClienteAdmin()
 
-    // Subir archivo a Storage
-    const ext = archivo.name.split('.').pop() || 'bin'
-    const storagePath = `${empresaId}/chatter/${entidadId}/${Date.now()}_${archivo.name}`
-    const buffer = Buffer.from(await archivo.arrayBuffer())
+    // Subir archivo a Storage (comprimir si es imagen)
+    const bufferOriginal = Buffer.from(await archivo.arrayBuffer())
+    const { buffer, tipo } = await comprimirImagen(bufferOriginal, archivo.type, {
+      anchoMaximo: 1600,
+      calidad: 80,
+    })
+
+    const nombreBase = archivo.name.replace(/\.[^.]+$/, '')
+    const extension = tipo === 'image/webp' ? '.webp'
+      : tipo === 'image/jpeg' && archivo.type !== 'image/jpeg' ? '.jpg'
+      : `.${archivo.name.split('.').pop()}`
+    const nombreFinal = `${nombreBase}${extension}`.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const storagePath = `${empresaId}/chatter/${entidadId}/${Date.now()}_${nombreFinal}`
 
     const { error: uploadError } = await admin.storage
       .from('documentos-pdf')
       .upload(storagePath, buffer, {
-        contentType: archivo.type,
+        contentType: tipo,
         upsert: false,
       })
 
@@ -70,8 +93,8 @@ export async function POST(request: NextRequest) {
         adjuntos: [{
           url,
           nombre: archivo.name,
-          tipo: archivo.type,
-          tamano: archivo.size,
+          tipo,
+          tamano: buffer.length,
         }],
         metadata: { accion: 'campo_editado' },
       })
@@ -79,6 +102,9 @@ export async function POST(request: NextRequest) {
     if (chatterError) {
       return NextResponse.json({ error: 'Error al registrar en chatter' }, { status: 500 })
     }
+
+    // Registrar uso de storage
+    registrarUsoStorage(empresaId, 'documentos-pdf', buffer.length)
 
     return NextResponse.json({ url, nombre: archivo.name }, { status: 201 })
   } catch (err) {

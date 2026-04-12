@@ -20,6 +20,7 @@ import { useFormato } from '@/hooks/useFormato'
 import { A4_ANCHO, A4_ALTO } from '@/lib/pdf/constantes'
 import { COLOR_MARCA_DEFECTO } from '@/lib/colores_entidad'
 import { DELAY_TRANSICION } from '@/lib/constantes/timeouts'
+import { useTraduccion } from '@/lib/i18n'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { Boton } from '@/componentes/ui/Boton'
 import { Select } from '@/componentes/ui/Select'
@@ -125,6 +126,7 @@ interface PresupuestoResumen {
 
 export default function EditorPlantillaPdf() {
   const router = useRouter()
+  const { t } = useTraduccion()
   const { locale } = useFormato()
   const editorRef = useRef<HTMLTextAreaElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -449,7 +451,7 @@ export default function EditorPlantillaPdf() {
 
           <Boton variante="secundario" tamano="xs" icono={<RotateCcw size={13} />} onClick={restaurarDefecto}>Default</Boton>
 
-          <Boton variante="primario" tamano="xs" icono={<Save size={13} />} onClick={() => { if (debounceRef.current) clearTimeout(debounceRef.current); guardarPlantilla(codigo) }} disabled={guardando || guardado}>Guardar</Boton>
+          <Boton variante="primario" tamano="xs" icono={<Save size={13} />} onClick={() => { if (debounceRef.current) clearTimeout(debounceRef.current); guardarPlantilla(codigo) }} disabled={guardando || guardado}>{t('comun.guardar')}</Boton>
 
           <Boton variante="fantasma" tamano="xs" soloIcono icono={<Minimize2 size={15} />} onClick={() => router.push('/presupuestos/configuracion')} titulo="Cerrar editor" className="hidden sm:flex" />
         </div>

@@ -31,6 +31,14 @@ function fechaHoyLocal(): string {
 
 type EstadoRecorrido = 'pendiente' | 'en_curso' | 'completado'
 
+interface ConfigRecorrido {
+  puede_reordenar?: boolean
+  puede_cambiar_duracion?: boolean
+  puede_agregar_paradas?: boolean
+  puede_quitar_paradas?: boolean
+  puede_cancelar?: boolean
+}
+
 interface DatosRecorrido {
   id: string
   estado: EstadoRecorrido
@@ -38,6 +46,7 @@ interface DatosRecorrido {
   visitas_completadas: number
   duracion_total_min: number | null
   distancia_total_km: number | null
+  config?: ConfigRecorrido | null
 }
 
 export default function PaginaRecorrido() {
@@ -155,6 +164,11 @@ export default function PaginaRecorrido() {
   // Solo al cambiar hayVisitaEnSitio, no en cada render
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hayVisitaEnSitio])
+  // Permisos del recorrido (por default todo permitido si no hay config)
+  const cfg = recorrido?.config
+  const puedeReordenar = cfg?.puede_reordenar !== false
+  const puedeCancelar = cfg?.puede_cancelar !== false
+
   const completadas = paradas.filter(p => p.visita?.estado === 'completada').length
   const duracionEstimada = recorrido?.duracion_total_min || paradas.reduce(
     (sum, p) => sum + (p.duracion_viaje_min || 0) + (p.visita?.duracion_estimada_min || 15), 0
@@ -473,7 +487,7 @@ export default function PaginaRecorrido() {
           <HeaderRecorrido fecha={fechaSeleccionada} onCambiarFecha={cambiarFecha} completadas={0} total={0} />
         </div>
 
-        <div className="flex-1 bg-superficie-app rounded-t-2xl -mt-3 relative z-10 flex flex-col">
+        <div className="flex-1 bg-superficie-app rounded-t-2xl relative z-10 shadow-[0_-4px_16px_rgba(0,0,0,0.3)] flex flex-col">
           <div className="flex justify-center py-2.5">
             <div className="w-9 h-1 rounded-full bg-borde-fuerte/40" />
           </div>
@@ -508,7 +522,7 @@ export default function PaginaRecorrido() {
             total={paradas.length}
           />
         </div>
-        <div className="flex-1 bg-superficie-app rounded-t-2xl -mt-3 relative z-10">
+        <div className="flex-1 bg-superficie-app rounded-t-2xl relative z-10 shadow-[0_-4px_16px_rgba(0,0,0,0.3)]">
           <div className="flex justify-center py-2.5">
             <div className="w-9 h-1 rounded-full bg-borde-fuerte/40" />
           </div>
@@ -564,7 +578,7 @@ export default function PaginaRecorrido() {
       </div>
 
       {/* ── Sheet inferior — colapsable estilo app nativa ── */}
-      <div className="flex-1 min-h-0 bg-superficie-app rounded-t-2xl -mt-3 relative z-10 flex flex-col">
+      <div className="flex-1 min-h-0 bg-superficie-app rounded-t-2xl relative z-10 shadow-[0_-4px_16px_rgba(0,0,0,0.3)] flex flex-col">
         {/* Drag handle — tocar para expandir/colapsar */}
         <button
           className="flex justify-center py-2.5 shrink-0 w-full"
@@ -725,7 +739,7 @@ export default function PaginaRecorrido() {
                           className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors"
                         >
                           <X size={16} className="text-[var(--insignia-peligro)]" />
-                          <span className="text-[10px] font-medium text-texto-secundario">Cancelar</span>
+                          <span className="text-[10px] font-medium text-texto-secundario">{t('comun.cancelar')}</span>
                         </button>
                       )}
 
@@ -842,7 +856,7 @@ export default function PaginaRecorrido() {
                   className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium border border-borde-sutil text-texto-secundario hover:bg-superficie-elevada transition-colors"
                 >
                   <ArrowUpDown size={14} />
-                  <span>Invertir</span>
+                  <span>{t('visitas.invertir')}</span>
                 </button>
                 <button
                   onClick={optimizarRuta}
@@ -850,35 +864,36 @@ export default function PaginaRecorrido() {
                   className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium border border-borde-sutil text-texto-secundario hover:bg-superficie-elevada transition-colors disabled:opacity-50"
                 >
                   {optimizando ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                  <span>Optimizar</span>
+                  <span>{t('visitas.optimizar')}</span>
                 </button>
                 {paradasPreOptimizar && (
                   <button
                     onClick={revertirOptimizacion}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium border border-[var(--insignia-advertencia)]/40 text-[var(--insignia-advertencia)] hover:bg-[var(--insignia-advertencia)]/10 transition-colors"
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium border border-insignia-advertencia/40 text-insignia-advertencia hover:bg-insignia-advertencia/10 transition-colors"
                   >
                     <Undo2 size={14} />
-                    <span>Revertir</span>
+                    <span>{t('visitas.revertir')}</span>
                   </button>
                 )}
               </div>
               <button
                 onClick={() => { setModoEdicion(false); setSheetExpandido(false) }}
-                className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-semibold text-white transition-colors"
-                style={{ backgroundColor: 'var(--insignia-info)' }}
+                className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-semibold text-white bg-insignia-info transition-colors"
               >
-                <span>Confirmar ruta</span>
+                <span>{t('visitas.confirmar_ruta')}</span>
               </button>
             </div>
           ) : (
             /* ── Expandido + vista: pills sutiles ── */
             <div className="flex items-center justify-center gap-3 py-3">
+              {puedeReordenar && (
               <button
                 onClick={() => setModoEdicion(true)}
                 className="text-[11px] font-medium text-texto-terciario hover:text-texto-secundario px-3.5 py-2 rounded-full bg-white/[0.04] border border-white/[0.06] transition-colors"
               >
                 Ajustar
               </button>
+              )}
               <button
                 onClick={iniciarRuta}
                 className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--insignia-info)] px-3.5 py-2 rounded-full bg-[var(--insignia-info)]/[0.08] border border-[var(--insignia-info)]/[0.15] hover:bg-[var(--insignia-info)]/[0.15] transition-colors"

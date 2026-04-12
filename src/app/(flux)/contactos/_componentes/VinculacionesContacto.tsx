@@ -725,7 +725,7 @@ export function VinculacionesContacto({
               </div>
 
               <div className="flex justify-end gap-2 pt-1">
-                <Boton variante="fantasma" onClick={() => { setSeleccionado(null); setBusqueda('') }}>Cancelar</Boton>
+                <Boton variante="fantasma" onClick={() => { setSeleccionado(null); setBusqueda('') }}>{t('comun.cancelar')}</Boton>
                 <Boton variante="primario" onClick={vincular} cargando={vinculando}>Vincular</Boton>
               </div>
             </>

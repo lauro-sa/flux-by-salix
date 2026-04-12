@@ -43,10 +43,10 @@ interface PropiedadesBottomSheet {
 /* ─── Alturas como % del viewport ─── */
 
 const ALTURAS_VP: Record<AlturaSheet, string> = {
-  auto: 'min(max(75vh, auto), 92vh)',
-  medio: '75vh',
-  alto: '85vh',
-  completo: '92vh',
+  auto: 'min(max(75dvh, auto), 92dvh)',
+  medio: '75dvh',
+  alto: '85dvh',
+  completo: '92dvh',
 }
 
 /** Distancia mínima de drag para cerrar (px) */

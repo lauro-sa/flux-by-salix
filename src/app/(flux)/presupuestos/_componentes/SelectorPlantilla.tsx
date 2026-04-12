@@ -5,6 +5,7 @@ import { ChevronDown, Star, Plus, Save, Trash2, Check } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { OpcionMenu } from '@/componentes/ui/OpcionMenu'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTraduccion } from '@/lib/i18n'
 
 /**
  * SelectorPlantilla — Menú para gestionar plantillas de presupuesto.
@@ -53,6 +54,7 @@ export default function SelectorPlantilla({
   onTogglePredeterminada,
   onLimpiar,
 }: PropiedadesSelectorPlantilla) {
+  const { t } = useTraduccion()
   const [abierto, setAbierto] = useState(false)
   const [creando, setCreando] = useState(false)
   const [nombreNueva, setNombreNueva] = useState('')
@@ -239,7 +241,7 @@ export default function SelectorPlantilla({
                   </div>
                 </div>
                 <div className="flex justify-end gap-2">
-                  <Boton variante="secundario" tamano="sm" onClick={() => setEliminando(null)}>Cancelar</Boton>
+                  <Boton variante="secundario" tamano="sm" onClick={() => setEliminando(null)}>{t('comun.cancelar')}</Boton>
                   <Boton variante="peligro" tamano="sm" onClick={async () => { await onEliminar(eliminando); setEliminando(null) }}>Eliminar</Boton>
                 </div>
               </motion.div>

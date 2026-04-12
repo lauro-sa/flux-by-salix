@@ -68,36 +68,47 @@ export async function GET(request: NextRequest) {
     await crearNotificacionesBatch(notificaciones)
 
     // Procesar recurrentes: calcular próxima fecha y actualizar
-    // No recurrentes: marcar como completados
-    let completados = 0
-    let reprogramados = 0
+    // Agrupar por tipo de operación para hacer batch updates
+    const idsCompletar: string[] = []
+    const reprogramaciones: { id: string; fecha: string }[] = []
 
     for (const r of paraNotificar) {
       if (r.repetir === 'ninguno') {
-        // Marcar como completado
-        await admin
-          .from('recordatorios')
-          .update({ completado: true, completado_en: ahora.toISOString() })
-          .eq('id', r.id)
-        completados++
+        idsCompletar.push(r.id)
       } else {
-        // Calcular próxima fecha
         const proximaFecha = calcularProximaFecha(r.fecha, r.repetir, r.recurrencia)
         if (proximaFecha) {
-          await admin
-            .from('recordatorios')
-            .update({ fecha: proximaFecha })
-            .eq('id', r.id)
-          reprogramados++
+          reprogramaciones.push({ id: r.id, fecha: proximaFecha })
         } else {
-          await admin
-            .from('recordatorios')
-            .update({ completado: true, completado_en: ahora.toISOString() })
-            .eq('id', r.id)
-          completados++
+          idsCompletar.push(r.id)
         }
       }
     }
+
+    // Batch: marcar como completados en 1 query
+    if (idsCompletar.length > 0) {
+      await admin
+        .from('recordatorios')
+        .update({ completado: true, completado_en: ahora.toISOString() })
+        .in('id', idsCompletar)
+    }
+
+    // Reprogramaciones: agrupar por fecha para reducir queries
+    const porFecha = new Map<string, string[]>()
+    for (const r of reprogramaciones) {
+      const ids = porFecha.get(r.fecha) || []
+      ids.push(r.id)
+      porFecha.set(r.fecha, ids)
+    }
+    for (const [fecha, ids] of porFecha) {
+      await admin
+        .from('recordatorios')
+        .update({ fecha })
+        .in('id', ids)
+    }
+
+    const completados = idsCompletar.length
+    const reprogramados = reprogramaciones.length
 
     return NextResponse.json({
       procesados: paraNotificar.length,

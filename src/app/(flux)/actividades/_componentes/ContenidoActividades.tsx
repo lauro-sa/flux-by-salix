@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useListado, useConfig } from '@/hooks/useListado'
-import { DEBOUNCE_BUSQUEDA } from '@/lib/constantes/timeouts'
+import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -88,9 +88,6 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
   const modalVisitaHook = useModalVisita()
 
   // Estado local de UI
-  const [busqueda, setBusqueda] = useState('')
-  const [busquedaDebounced, setBusquedaDebounced] = useState('')
-  const [pagina, setPagina] = useState(1)
   const [modalAbierto, setModalAbierto] = useState(false)
   const [actividadEditando, setActividadEditando] = useState<Actividad | null>(null)
 
@@ -112,14 +109,8 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
   const [filtroPrioridad, setFiltroPrioridad] = useState('')
   const [filtroVista, setFiltroVista] = useState(VISTA_DEFAULT)
 
-  // Debounce de búsqueda (300ms)
-  useEffect(() => {
-    const timeout = setTimeout(() => setBusquedaDebounced(busqueda), DEBOUNCE_BUSQUEDA)
-    return () => clearTimeout(timeout)
-  }, [busqueda])
-
-  // Reset de página al cambiar filtros o búsqueda
-  useEffect(() => { setPagina(1) }, [busquedaDebounced, filtroTipo, filtroEstado, filtroPrioridad, filtroVista])
+  // Búsqueda con debounce + reset de página automático
+  const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce('', 1, [filtroTipo, filtroEstado, filtroPrioridad, filtroVista])
 
   // ═══════ Configuración (antes del listado para calcular filtros default) ═══════
 
@@ -937,9 +928,9 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
       {/* Menú de posponer en lote — popover pegado al botón de la barra */}
       {menuPosponerLote && posMenuPosponer && (
         <>
-          <div className="fixed inset-0 z-[101]" onClick={() => { setMenuPosponerLote(null); setPosMenuPosponer(null) }} />
+          <div className="fixed inset-0 z-[var(--z-overlay)]" onClick={() => { setMenuPosponerLote(null); setPosMenuPosponer(null) }} />
           <div
-            className="fixed z-[102] bg-superficie-elevada border border-borde-sutil rounded-xl p-1.5 min-w-[160px]"
+            className="fixed z-[var(--z-popover)] bg-superficie-elevada border border-borde-sutil rounded-xl p-1.5 min-w-[160px]"
             style={{
               left: posMenuPosponer.x,
               transform: 'translateX(-50%)',

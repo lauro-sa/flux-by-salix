@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { crearNotificacionesBatch } from '@/lib/notificaciones'
+import { COLORES_HEX_ESTADO_ACTIVIDAD } from '@/lib/colores_entidad'
 
 /**
  * GET /api/cron/actividades-vencimientos — Cron de vencimientos de actividades.
@@ -123,7 +124,7 @@ export async function GET(request: NextRequest) {
           titulo: '⏰ Vence hoy',
           cuerpo: `${tipo?.etiqueta || 'Actividad'} · ${act.titulo}`,
           icono: 'Clock',
-          color: tipo?.color || '#f5a623',
+          color: tipo?.color || COLORES_HEX_ESTADO_ACTIVIDAD.pendiente,
           url: '/actividades',
           referenciaTipo: 'actividad',
           referenciaId: act.id,
@@ -143,7 +144,7 @@ export async function GET(request: NextRequest) {
           titulo: '🚨 Venció ayer',
           cuerpo: `${tipo?.etiqueta || 'Actividad'} · ${act.titulo}`,
           icono: 'AlertCircle',
-          color: tipo?.color || '#e5484d',
+          color: tipo?.color || COLORES_HEX_ESTADO_ACTIVIDAD.vencida,
           url: '/actividades',
           referenciaTipo: 'actividad',
           referenciaId: act.id,
@@ -164,7 +165,7 @@ export async function GET(request: NextRequest) {
         titulo: `🚨 Vencida hace ${diasVencida} día${diasVencida > 1 ? 's' : ''}`,
         cuerpo: `${tipo?.etiqueta || 'Actividad'} · ${act.titulo}`,
         icono: 'AlertCircle',
-        color: tipo?.color || '#e5484d',
+        color: tipo?.color || COLORES_HEX_ESTADO_ACTIVIDAD.vencida,
         url: '/actividades',
         referenciaTipo: 'actividad',
         referenciaId: act.id,

@@ -11,60 +11,13 @@ import { useToast } from '@/componentes/feedback/Toast'
  * Se usa en: calendario, actividades, chatter, o cualquier lugar que necesite crear/editar visitas.
  */
 
-export interface MiembroVisita {
-  usuario_id: string
-  nombre: string
-  apellido: string
-}
+import type {
+  MiembroVisitador as MiembroVisita,
+  ConfigVisitas as ConfigVisita,
+  Visita as VisitaExistente,
+} from '@/tipos/visita'
 
-export interface ConfigVisita {
-  checklist_predeterminado?: { id: string; texto: string; completado: boolean }[]
-  motivos_predefinidos?: string[]
-  resultados_predefinidos?: string[]
-  duracion_estimada_default?: number
-}
-
-export interface VisitaExistente {
-  id: string
-  contacto_id: string
-  contacto_nombre: string
-  direccion_id: string | null
-  direccion_texto: string | null
-  direccion_lat: number | null
-  direccion_lng: number | null
-  asignado_a: string | null
-  asignado_nombre: string | null
-  fecha_programada: string
-  fecha_inicio: string | null
-  fecha_llegada: string | null
-  fecha_completada: string | null
-  duracion_estimada_min: number
-  duracion_real_min: number | null
-  estado: string
-  motivo: string | null
-  resultado: string | null
-  notas: string | null
-  temperatura: string | null
-  prioridad: string
-  checklist: { id: string; texto: string; completado: boolean }[]
-  registro_lat: number | null
-  registro_lng: number | null
-  registro_precision_m: number | null
-  actividad_id: string | null
-  vinculos: { tipo: string; id: string; nombre: string }[]
-  recibe_nombre: string | null
-  recibe_telefono: string | null
-  recibe_contacto_id: string | null
-  archivada: boolean
-  archivada_en: string | null
-  en_papelera: boolean
-  creado_por: string | null
-  creado_por_nombre: string | null
-  editado_por: string | null
-  editado_por_nombre: string | null
-  creado_en: string | null
-  actualizado_en: string | null
-}
+export type { MiembroVisita, ConfigVisita, VisitaExistente }
 
 export function useModalVisita() {
   const { mostrar } = useToast()

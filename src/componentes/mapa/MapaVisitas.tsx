@@ -3,6 +3,7 @@
 import { Map, useMap } from '@vis.gl/react-google-maps'
 import { MapPin } from 'lucide-react'
 import { useEffect } from 'react'
+import { useTema } from '@/hooks/useTema'
 import { MarcadorVisita } from './MarcadorVisita'
 import type { PropiedadesMapaVisitas } from './tipos-mapa'
 import { calcularCentro } from './utilidades-mapa'
@@ -20,6 +21,8 @@ export function MapaVisitas({
   zoom,
   centro,
 }: PropiedadesMapaVisitas) {
+  const { temaActivo } = useTema()
+
   // Fallback sin API key — lista de direcciones con links a Google Maps
   if (!API_KEY) {
     return (
@@ -54,7 +57,7 @@ export function MapaVisitas({
         defaultZoom={zoom || 12}
         gestureHandling="greedy"
         disableDefaultUI
-        colorScheme="DARK"
+        colorScheme={temaActivo === 'claro' ? 'LIGHT' : 'DARK'}
         className="w-full h-full"
       >
         <AjustadorBounds puntos={puntos} />

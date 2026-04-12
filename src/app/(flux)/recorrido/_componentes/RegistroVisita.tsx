@@ -20,6 +20,7 @@ import { Camera, ImagePlus, X, Loader2, MapPin, Trash2, Check, Thermometer, File
 import { BottomSheet } from '@/componentes/ui/BottomSheet'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
+import NextImage from 'next/image'
 
 interface ItemChecklist {
   texto: string
@@ -451,7 +452,7 @@ function RegistroVisita({
               {/* Fotos existentes */}
               {fotosExistentes.map((foto) => (
                 <div key={foto.url} className="relative shrink-0 size-20 rounded-xl overflow-hidden border border-white/[0.08]">
-                  <img src={foto.url} alt={foto.nombre} className="size-full object-cover" />
+                  <NextImage src={foto.url} alt={foto.nombre} fill sizes="80px" className="object-cover" />
                   <button
                     onClick={() => eliminarFotoExistente(foto)}
                     disabled={foto.eliminando}

@@ -185,7 +185,7 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
     <>
       {abierto && (
           <div
-            className="md:hidden fixed inset-0 z-[60] bg-superficie-app flex flex-col"
+            className="md:hidden fixed inset-0 z-[var(--z-modal)] bg-superficie-app flex flex-col"
             style={{
               paddingTop: 'var(--safe-area-top)',
               paddingBottom: 'var(--safe-area-bottom)',

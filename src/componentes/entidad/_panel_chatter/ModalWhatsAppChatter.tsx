@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Modal } from '@/componentes/ui/Modal'
+import HtmlSeguro from '@/componentes/ui/HtmlSeguro'
 import { Boton } from '@/componentes/ui/Boton'
 import { useFormato } from '@/hooks/useFormato'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
@@ -21,6 +22,7 @@ import type { PlantillaWhatsApp, ComponentesPlantillaWA } from '@/tipos/inbox'
 import type { ContactoChatter, DatosDocumentoChatter } from './tipos'
 import { formatearTextoWA } from './constantes'
 import { DELAY_TRANSICION } from '@/lib/constantes/timeouts'
+import { useTraduccion } from '@/lib/i18n'
 
 interface PropsModalWhatsApp {
   abierto: boolean
@@ -43,6 +45,7 @@ export function ModalWhatsAppChatter({
   datosDocumento,
   onEnviado,
 }: PropsModalWhatsApp) {
+  const { t } = useTraduccion()
   const { locale, formatoHora: fmtHora } = useFormato()
   const [plantillas, setPlantillas] = useState<PlantillaWhatsApp[]>([])
   const [cargandoPlantillas, setCargandoPlantillas] = useState(false)
@@ -313,7 +316,7 @@ export function ModalWhatsAppChatter({
       acciones={
         numero && plantillas.length > 0 && !enviado ? (
           <>
-            <Boton variante="fantasma" tamano="sm" onClick={onCerrar}>Cancelar</Boton>
+            <Boton variante="fantasma" tamano="sm" onClick={onCerrar}>{t('comun.cancelar')}</Boton>
             <Boton
               variante="primario"
               tamano="sm"
@@ -397,7 +400,7 @@ export function ModalWhatsAppChatter({
               {typeof window !== 'undefined' && selectorAbierto && createPortal(
                 <div
                   ref={dropdownRef}
-                  className="fixed z-[9999]"
+                  className="fixed z-[var(--z-popover)]"
                   style={{ top: posDropdown.top, left: posDropdown.left, width: posDropdown.width }}
                 >
                   <motion.div
@@ -456,11 +459,7 @@ export function ModalWhatsAppChatter({
                     <div className="rounded-lg p-3 max-w-full shadow-sm" style={{ background: '#fff' }}>
                       {/* Encabezado */}
                       {plantillaSeleccionada.componentes?.encabezado?.tipo === 'TEXT' && encabezadoHtml && (
-                        <p
-                          className="text-sm font-semibold mb-1"
-                          style={{ color: '#111' }}
-                          dangerouslySetInnerHTML={{ __html: encabezadoHtml }}
-                        />
+                        <HtmlSeguro html={encabezadoHtml} como="p" className="text-sm font-semibold mb-1" />
                       )}
                       {plantillaSeleccionada.componentes?.encabezado?.tipo && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(plantillaSeleccionada.componentes.encabezado.tipo) && (
                         <div className="rounded mb-2 flex items-center justify-center text-xs" style={{ background: '#f0f0f0', color: '#999', height: 80 }}>
@@ -470,11 +469,7 @@ export function ModalWhatsAppChatter({
 
                       {/* Cuerpo */}
                       {cuerpoHtml ? (
-                        <p
-                          className="text-sm whitespace-pre-wrap leading-snug"
-                          style={{ color: '#111' }}
-                          dangerouslySetInnerHTML={{ __html: cuerpoHtml }}
-                        />
+                        <HtmlSeguro html={cuerpoHtml} como="p" className="text-sm whitespace-pre-wrap leading-snug" />
                       ) : (
                         <p className="text-sm" style={{ color: '#999' }}>Cuerpo del mensaje...</p>
                       )}

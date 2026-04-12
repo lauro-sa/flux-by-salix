@@ -77,7 +77,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const rawBody = await request.text()
-    const payload: WebhookPayloadMeta = JSON.parse(rawBody)
+    let payload: WebhookPayloadMeta
+    try {
+      payload = JSON.parse(rawBody)
+    } catch {
+      console.error('Webhook WhatsApp: JSON inválido en body')
+      return NextResponse.json({ error: 'JSON inválido' }, { status: 400 })
+    }
 
     if (payload.object !== 'whatsapp_business_account') {
       return NextResponse.json({ error: 'Objeto no soportado' }, { status: 400 })
@@ -107,15 +113,17 @@ export async function POST(request: NextRequest) {
             continue
           }
 
-          // Verificar firma HMAC si hay secreto configurado
+          // Verificar firma HMAC — obligatorio si hay secreto, advertir si no hay
           const secreto = (canal.config_conexion as Record<string, string>)?.secretoWebhook
+          const firma = request.headers.get('x-hub-signature-256') || ''
           if (secreto) {
-            const firma = request.headers.get('x-hub-signature-256') || ''
             const valida = await verificarFirmaWebhook(secreto, rawBody, firma)
             if (!valida) {
               console.warn('Firma de webhook inválida')
               return NextResponse.json({ error: 'Firma inválida' }, { status: 403 })
             }
+          } else {
+            console.warn(`Canal ${canal.id} no tiene secretoWebhook configurado — webhook sin verificación HMAC`)
           }
 
           // Procesar mensajes entrantes
@@ -857,6 +865,10 @@ async function descargarYGuardarMedia(
       es_sticker: msg.type === 'sticker',
       es_animado: msg.sticker?.animated || false,
     })
+
+    // Registrar uso de storage
+    const { registrarUsoStorage } = await import('@/lib/uso-storage')
+    registrarUsoStorage(canal.empresa_id, 'adjuntos', mediaInfo.file_size || buffer.byteLength)
   } catch (err) {
     console.error('Error procesando media:', err)
   }

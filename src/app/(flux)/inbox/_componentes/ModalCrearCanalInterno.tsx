@@ -9,6 +9,7 @@ import { Hash, Lock, Users, X, Building2, Search, MessageCircle } from 'lucide-r
 import { useToast } from '@/componentes/feedback/Toast'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import type { TipoCanalInterno } from '@/tipos/inbox'
+import { useTraduccion } from '@/lib/i18n'
 
 /**
  * Modal para crear canal, grupo o DM interno.
@@ -44,6 +45,7 @@ const TIPOS_CANAL: { clave: TipoCanalInterno; etiqueta: string; icono: React.Rea
 ]
 
 export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: PropiedadesModal) {
+  const { t } = useTraduccion()
   const { mostrar } = useToast()
   const supabase = useMemo(() => crearClienteNavegador(), [])
   const [tipo, setTipo] = useState<TipoCanalInterno>('directo')
@@ -382,7 +384,7 @@ export function ModalCrearCanalInterno({ abierto, onCerrar, onCreado }: Propieda
 
         {/* Botón crear */}
         <div className="flex justify-end gap-2 pt-2">
-          <Boton variante="fantasma" tamano="sm" onClick={onCerrar}>Cancelar</Boton>
+          <Boton variante="fantasma" tamano="sm" onClick={onCerrar}>{t('comun.cancelar')}</Boton>
           <Boton variante="primario" tamano="sm" onClick={crear} cargando={creando}>
             {esDM ? 'Iniciar conversación' : `Crear ${tipo === 'grupo' ? 'grupo' : 'canal'}`}
           </Boton>

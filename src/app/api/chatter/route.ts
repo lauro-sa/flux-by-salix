@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { crearNotificacionesBatch } from '@/lib/notificaciones'
+import { COLOR_NOTIFICACION } from '@/lib/colores_entidad'
 
 /**
  * GET /api/chatter?entidad_tipo=presupuesto&entidad_id=xxx
@@ -103,6 +105,31 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Error al crear entrada chatter:', error)
       return NextResponse.json({ error: 'Error al crear entrada' }, { status: 500 })
+    }
+
+    // Notificar a usuarios mencionados (@menciones)
+    const menciones = (metadata?.menciones || []) as string[]
+    const mencionadosFiltrados = menciones.filter((id: string) => id !== user.id)
+    if (mencionadosFiltrados.length > 0) {
+      const preview = contenido.length > 80 ? contenido.slice(0, 80) + '…' : contenido
+      const urlEntidad = entidad_tipo === 'contacto' ? `/contactos/${entidad_id}`
+        : entidad_tipo === 'presupuesto' ? `/presupuestos/${entidad_id}`
+        : `/${entidad_tipo}s/${entidad_id}`
+
+      crearNotificacionesBatch(
+        mencionadosFiltrados.map((uid: string) => ({
+          empresaId,
+          usuarioId: uid,
+          tipo: 'mencion',
+          titulo: `💬 ${autorNombre} te mencionó`,
+          cuerpo: preview,
+          icono: 'AtSign',
+          color: COLOR_NOTIFICACION.violeta,
+          url: urlEntidad,
+          referenciaTipo: entidad_tipo,
+          referenciaId: entidad_id,
+        }))
+      ).catch(() => { /* fire-and-forget */ })
     }
 
     return NextResponse.json(data, { status: 201 })

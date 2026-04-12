@@ -12,13 +12,15 @@ import {
   ImageIcon, X,
 } from 'lucide-react'
 import { ModalAdaptable } from '@/componentes/ui/ModalAdaptable'
+import { useTraduccion } from '@/lib/i18n'
 import type { EntradaChatter, AdjuntoChatter, MetadataChatter } from '@/tipos/chatter'
+import Image from 'next/image'
 
 // ─── Colores de temperatura ───
 const COLORES_TEMPERATURA: Record<string, { bg: string; texto: string; etiqueta: string; icono: string }> = {
-  frio: { bg: 'bg-blue-500/10', texto: 'text-blue-400', etiqueta: 'Frío', icono: '❄️' },
-  tibio: { bg: 'bg-amber-500/10', texto: 'text-amber-400', etiqueta: 'Tibio', icono: '🌤️' },
-  caliente: { bg: 'bg-red-500/10', texto: 'text-red-400', etiqueta: 'Caliente', icono: '🔥' },
+  frio: { bg: 'bg-insignia-info/10', texto: 'text-insignia-info', etiqueta: 'Frío', icono: '❄️' },
+  tibio: { bg: 'bg-insignia-advertencia/10', texto: 'text-insignia-advertencia', etiqueta: 'Tibio', icono: '🌤️' },
+  caliente: { bg: 'bg-insignia-peligro/10', texto: 'text-insignia-peligro', etiqueta: 'Caliente', icono: '🔥' },
 }
 
 // ─── Props para uso desde visita archivada (sin entrada de chatter) ───
@@ -94,6 +96,7 @@ function FilaInfo({ icono, etiqueta, valor }: { icono: React.ReactNode; etiqueta
 }
 
 export function ModalDetalleVisita({ abierto, onCerrar, entrada, datosVisita }: Props) {
+  const { t } = useTraduccion()
   // Extraer datos — priorizar datosVisita si viene, sino extraer de metadata de la entrada
   const m = entrada?.metadata
   const resultado = datosVisita?.resultado ?? m?.visita_resultado
@@ -126,7 +129,7 @@ export function ModalDetalleVisita({ abierto, onCerrar, entrada, datosVisita }: 
     <ModalAdaptable
       abierto={abierto}
       onCerrar={onCerrar}
-      titulo="Detalle de visita"
+      titulo={t('visitas.detalle_visita')}
       tamano="4xl"
     >
       <div className="space-y-5">
@@ -136,9 +139,9 @@ export function ModalDetalleVisita({ abierto, onCerrar, entrada, datosVisita }: 
             <MapPin size={20} />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-base font-semibold text-texto-primario">{contactoNombre || 'Visita'}</h3>
+            <h3 className="text-base font-semibold text-texto-primario">{contactoNombre || t('visitas.visita')}</h3>
             <p className="text-xs text-texto-terciario">
-              Completada por {visitador}
+              {t('visitas.completada_por')} {visitador}
               {fechaCompletada && <> · {formatearFecha(fechaCompletada)}</>}
             </p>
           </div>
@@ -154,37 +157,37 @@ export function ModalDetalleVisita({ abierto, onCerrar, entrada, datosVisita }: 
           {/* Columna izquierda — Resultado y datos */}
           <div className="space-y-4">
             {resultado && (
-              <Seccion etiqueta="Resultado">
+              <Seccion etiqueta={t('visitas.resultado')}>
                 <p className="text-sm text-texto-primario leading-relaxed">{resultado}</p>
               </Seccion>
             )}
 
             {notas && notas !== resultado && (
-              <Seccion etiqueta="Notas">
+              <Seccion etiqueta={t('visitas.notas')}>
                 <p className="text-sm text-texto-secundario leading-relaxed whitespace-pre-wrap">{notas}</p>
               </Seccion>
             )}
 
-            <Seccion etiqueta="Información">
+            <Seccion etiqueta={t('visitas.informacion')}>
               <div className="space-y-0.5">
                 <FilaInfo
                   icono={<Target size={14} />}
-                  etiqueta="Motivo"
+                  etiqueta={t('visitas.motivo')}
                   valor={motivo}
                 />
                 <FilaInfo
                   icono={<Navigation size={14} />}
-                  etiqueta="Dirección"
+                  etiqueta={t('visitas.direccion')}
                   valor={direccion}
                 />
                 <FilaInfo
                   icono={<CalendarClock size={14} />}
-                  etiqueta="Fecha programada"
+                  etiqueta={t('visitas.fecha_programada')}
                   valor={fechaProgramada ? formatearFecha(fechaProgramada) : null}
                 />
                 <FilaInfo
                   icono={<Clock size={14} />}
-                  etiqueta="Duración"
+                  etiqueta={t('visitas.duracion')}
                   valor={duracionReal != null ? (
                     <span>
                       {duracionReal} min
@@ -197,14 +200,14 @@ export function ModalDetalleVisita({ abierto, onCerrar, entrada, datosVisita }: 
                 {recibe && (
                   <FilaInfo
                     icono={<User size={14} />}
-                    etiqueta="Recibió"
+                    etiqueta={t('visitas.recibe_opcional')}
                     valor={<span>{recibe}{recibeTel && <span className="text-texto-terciario"> · {recibeTel}</span>}</span>}
                   />
                 )}
                 {registroLat != null && registroLng != null && (
                   <FilaInfo
                     icono={<MapPin size={14} />}
-                    etiqueta="Ubicación GPS"
+                    etiqueta={t('visitas.registro_ubicacion')}
                     valor={
                       <span className="text-xs">
                         {registroLat.toFixed(5)}, {registroLng.toFixed(5)}
@@ -260,13 +263,14 @@ export function ModalDetalleVisita({ abierto, onCerrar, entrada, datosVisita }: 
                       href={foto.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="aspect-square rounded-lg overflow-hidden border border-white/[0.06] hover:border-texto-marca/40 transition-colors"
+                      className="relative aspect-square rounded-lg overflow-hidden border border-white/[0.06] hover:border-texto-marca/40 transition-colors"
                     >
-                      <img
+                      <Image
                         src={foto.url}
                         alt={foto.nombre}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
+                        fill
+                        sizes="(max-width: 768px) 50vw, 200px"
+                        className="object-cover"
                       />
                     </a>
                   ))}
@@ -276,7 +280,7 @@ export function ModalDetalleVisita({ abierto, onCerrar, entrada, datosVisita }: 
 
             {/* Otros archivos */}
             {otrosArchivos.length > 0 && (
-              <Seccion etiqueta="Archivos">
+              <Seccion etiqueta={t('visitas.archivos')}>
                 <div className="space-y-1">
                   {otrosArchivos.map((archivo, i) => (
                     <a
@@ -302,7 +306,7 @@ export function ModalDetalleVisita({ abierto, onCerrar, entrada, datosVisita }: 
             {/* Sin datos en la columna derecha */}
             {totalChecklist === 0 && fotos.length === 0 && otrosArchivos.length === 0 && (
               <div className="flex items-center justify-center py-8 text-texto-terciario text-sm">
-                Sin checklist ni archivos adjuntos
+                {t('visitas.sin_checklist_ni_archivos')}
               </div>
             )}
           </div>

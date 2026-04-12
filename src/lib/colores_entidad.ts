@@ -160,6 +160,17 @@ export const COLORES_HEX_ESTADO_ACTIVIDAD: Record<string, string> = {
 /** Color hex por defecto para tipos de actividad */
 export const COLOR_TIPO_ACTIVIDAD_DEFECTO = '#5b5bd6'
 
+/** Colores hex para notificaciones server-side (se guardan en BD) */
+export const COLOR_NOTIFICACION = {
+  info: '#3b82f6',
+  exito: '#46a758',
+  peligro: '#e5484d',
+  advertencia: '#f59e0b',
+  marca: '#5b5bd6',
+  cyan: '#0ea5e9',
+  violeta: '#6e56cf',
+} as const
+
 // ─── Paletas hex para selectores de color (pickers) ───
 
 /** Paleta de colores para estados de actividad (config) */

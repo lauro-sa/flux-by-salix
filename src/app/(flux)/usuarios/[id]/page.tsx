@@ -26,6 +26,7 @@ import { useFormato } from '@/hooks/useFormato'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import type { Rol, Miembro, Perfil, PermisosMapa } from '@/tipos'
 import { SeccionPermisos } from '@/componentes/entidad/SeccionPermisos'
+import Image from 'next/image'
 
 /* Sub-componentes extraídos */
 import { type TabPerfil, type Periodo, obtenerPeriodo } from './_componentes/constantes'
@@ -804,7 +805,9 @@ export default function PaginaPerfilUsuario() {
       >
         {docPreview && (
           <div className="flex flex-col items-center gap-4">
-            <img src={docPreview.url} alt={docPreview.titulo} className="w-full max-h-[60vh] object-contain rounded-lg" />
+            <div className="relative w-full" style={{ height: '60dvh' }}>
+              <Image src={docPreview.url} alt={docPreview.titulo} fill sizes="(max-width: 768px) 100vw, 600px" className="object-contain rounded-lg" />
+            </div>
             <a
               href={docPreview.url}
               download={docPreview.titulo}

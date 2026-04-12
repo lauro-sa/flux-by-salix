@@ -121,7 +121,7 @@ export function BarraAccionesLote({
           exit={{ opacity: 0, y: esArriba ? -12 : 12, scale: 0.95 }}
           transition={arrastrando ? { duration: 0 } : { type: 'spring', damping: 28, stiffness: 350 }}
           className={[
-            'fixed z-[100] flex items-center gap-1 px-1.5 py-1.5 rounded-2xl select-none group/barra',
+            'fixed z-[var(--z-modal)] flex items-center gap-1 px-1.5 py-1.5 rounded-2xl select-none group/barra',
             esArriba ? 'top-20' : 'bottom-6',
           ].join(' ')}
           style={{

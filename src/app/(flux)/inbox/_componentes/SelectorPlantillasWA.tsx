@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Search, Send, Loader2, Inbox } from 'lucide-react'
+import HtmlSeguro from '@/componentes/ui/HtmlSeguro'
 import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
@@ -102,12 +103,12 @@ function formatoWhatsApp(texto: string): string {
 function colorCategoria(categoria: string): { bg: string; fg: string } {
   switch (categoria) {
     case 'MARKETING':
-      return { bg: 'color-mix(in srgb, #8b5cf6 12%, transparent)', fg: '#8b5cf6' }
+      return { bg: 'var(--insignia-violeta-fondo)', fg: 'var(--insignia-violeta)' }
     case 'AUTHENTICATION':
-      return { bg: 'color-mix(in srgb, #f59e0b 12%, transparent)', fg: '#f59e0b' }
+      return { bg: 'var(--insignia-advertencia-fondo)', fg: 'var(--insignia-advertencia)' }
     case 'UTILITY':
     default:
-      return { bg: 'color-mix(in srgb, #3b82f6 12%, transparent)', fg: '#3b82f6' }
+      return { bg: 'var(--insignia-info-fondo)', fg: 'var(--insignia-info)' }
   }
 }
 
@@ -296,26 +297,26 @@ export function SelectorPlantillasWA({
                     >
                       {/* Encabezado de plantilla */}
                       {encabezado?.texto && (
-                        <p
+                        <HtmlSeguro
+                          html={formatoWhatsApp(encabezado.texto)}
+                          como="p"
                           className="font-semibold text-sm mb-1"
-                          style={{ color: 'var(--texto-primario)' }}
-                          dangerouslySetInnerHTML={{ __html: formatoWhatsApp(encabezado.texto) }}
                         />
                       )}
 
                       {/* Cuerpo */}
-                      <p
+                      <HtmlSeguro
+                        html={formatoWhatsApp(cuerpoPreview)}
+                        como="p"
                         className="text-sm whitespace-pre-wrap leading-relaxed"
-                        style={{ color: 'var(--texto-primario)' }}
-                        dangerouslySetInnerHTML={{ __html: formatoWhatsApp(cuerpoPreview) }}
                       />
 
                       {/* Pie de página */}
                       {piePagina && (
-                        <p
-                          className="text-xs mt-1.5"
-                          style={{ color: 'var(--texto-terciario)' }}
-                          dangerouslySetInnerHTML={{ __html: formatoWhatsApp(piePagina) }}
+                        <HtmlSeguro
+                          html={formatoWhatsApp(piePagina)}
+                          como="p"
+                          className="text-xs mt-1.5 text-texto-terciario"
                         />
                       )}
 

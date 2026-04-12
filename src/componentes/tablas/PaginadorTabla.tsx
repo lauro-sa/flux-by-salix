@@ -69,7 +69,7 @@ export function Paginador({
           icono={<ChevronsLeft size={14} />}
           onClick={() => { onCambiarPagina(1); setUltimoClickCentro(false) }}
           disabled={paginaActual === 1}
-          titulo="Primera página"
+          titulo={t('paginacion.primera_pagina')}
         />
 
         {/* Anterior */}
@@ -112,7 +112,7 @@ export function Paginador({
           icono={<ChevronsRight size={14} />}
           onClick={() => { onCambiarPagina(totalPaginas); setUltimoClickCentro(true) }}
           disabled={paginaActual === totalPaginas}
-          titulo="Última página"
+          titulo={t('paginacion.ultima_pagina')}
         />
       </div>
     </div>

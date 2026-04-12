@@ -19,6 +19,7 @@ export const empresas = pgTable('empresas', {
   descripcion: text('descripcion'),
   datos_fiscales: jsonb('datos_fiscales').notNull().default(sql`'{}'`), // datos fiscales dinámicos según país (cuit, condicion_iva, etc.)
   datos_bancarios: jsonb('datos_bancarios').notNull().default(sql`'{}'`), // {banco, titular, numero_cuenta, cbu, alias}
+  cuota_storage_bytes: bigint('cuota_storage_bytes', { mode: 'number' }).notNull().default(2147483648), // 2 GB por defecto
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
 })
@@ -2331,4 +2332,21 @@ export const historial_recientes = pgTable('historial_recientes', {
 }, (tabla) => [
   index('historial_recientes_usuario_idx').on(tabla.empresa_id, tabla.usuario_id),
   index('historial_recientes_entidad_idx').on(tabla.tipo_entidad, tabla.entidad_id),
+])
+
+// ═══════════════════════════════════════════════════════════════
+// USO DE STORAGE
+// ═══════════════════════════════════════════════════════════════
+
+// Uso de storage por empresa — tracking de bytes usados por bucket
+export const uso_storage = pgTable('uso_storage', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  bucket: text('bucket').notNull(), // 'documentos-pdf', 'adjuntos', 'fotos', 'logos', 'usuarios', etc.
+  bytes_usados: bigint('bytes_usados', { mode: 'number' }).notNull().default(0),
+  cantidad_archivos: integer('cantidad_archivos').notNull().default(0),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  uniqueIndex('uso_storage_empresa_bucket_idx').on(tabla.empresa_id, tabla.bucket),
+  index('uso_storage_empresa_idx').on(tabla.empresa_id),
 ])

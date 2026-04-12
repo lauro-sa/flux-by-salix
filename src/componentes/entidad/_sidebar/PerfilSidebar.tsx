@@ -85,12 +85,12 @@ function PerfilSidebar({ colapsado }: PropiedadesPerfilSidebar) {
           typeof document !== 'undefined' && createPortal(
             <AnimatePresence>
               {perfilAbierto && menuPos && (
-                <div className="fixed inset-0 z-[9998]" onClick={() => setPerfilAbierto(false)}>
+                <div className="fixed inset-0 z-[var(--z-popover)]" onClick={() => setPerfilAbierto(false)}>
                   <motion.div
                     initial={{ opacity: 0, x: -4 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -4 }}
-                    className="absolute w-56 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-[9999] py-1"
+                    className="absolute w-56 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg z-[var(--z-popover)] py-1"
                     style={{ bottom: menuPos.bottom, left: menuPos.left }}
                     onClick={e => e.stopPropagation()}
                   >

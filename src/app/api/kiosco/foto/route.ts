@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarTokenKiosco } from '@/lib/kiosco/auth'
+import { comprimirImagen } from '@/lib/comprimir-imagen'
+import { registrarUsoStorage, verificarCuotaStorage } from '@/lib/uso-storage'
 
 /**
  * POST /api/kiosco/foto — Subir foto silenciosa del fichaje.
@@ -24,18 +26,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
     }
 
+    // Verificar cuota de storage
+    const errorCuota = await verificarCuotaStorage(empresaId, foto.size)
+    if (errorCuota) {
+      return NextResponse.json({ error: errorCuota }, { status: 413 })
+    }
+
     const admin = crearClienteAdmin()
     const fechaHoy = new Date().toISOString().split('T')[0]
-    const rutaArchivo = `asistencias/${empresaId}/${fechaHoy}/${asistenciaId}_${tipo}.jpg`
+    const rutaArchivo = `asistencias/${empresaId}/${fechaHoy}/${asistenciaId}_${tipo}.webp`
 
-    // Convertir Blob a Buffer
-    const buffer = Buffer.from(await foto.arrayBuffer())
+    // Convertir Blob a Buffer y comprimir (max 800px, WebP, calidad 75)
+    const bufferOriginal = Buffer.from(await foto.arrayBuffer())
+    const { buffer, tipo: tipoComprimido } = await comprimirImagen(bufferOriginal, 'image/jpeg', {
+      anchoMaximo: 800,
+      calidad: 75,
+    })
 
     // Subir a Supabase Storage
     const { error: errorStorage } = await admin.storage
       .from('fotos')
       .upload(rutaArchivo, buffer, {
-        contentType: 'image/jpeg',
+        contentType: tipoComprimido,
         upsert: true,
       })
 
@@ -55,6 +67,9 @@ export async function POST(request: NextRequest) {
       .from('asistencias')
       .update({ [campo]: urlData.publicUrl })
       .eq('id', asistenciaId)
+
+    // Registrar uso de storage
+    registrarUsoStorage(empresaId, 'fotos', buffer.length)
 
     return NextResponse.json({ ok: true, url: urlData.publicUrl })
   } catch (error) {

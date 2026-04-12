@@ -104,14 +104,14 @@ export default function ConfigRecorrido({ recorridoId, configActual, nombreVisit
         <>
           <div className="h-px bg-white/[0.07]" />
           <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">
-            Salida y regreso
+            {t('visitas.salida_y_regreso')}
           </p>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.03] py-2 px-2.5">
               <div className="flex items-center gap-2 min-w-0">
                 <Building2 size={12} className="shrink-0 text-texto-terciario" />
                 <div className="min-w-0">
-                  <p className="text-[12px] text-texto-primario">Salir desde la empresa</p>
+                  <p className="text-[12px] text-texto-primario">{t('visitas.salir_desde_empresa')}</p>
                   <p className="text-[10px] text-texto-terciario truncate">{origenDestino.coordsEmpresa.texto}</p>
                 </div>
               </div>
@@ -124,7 +124,7 @@ export default function ConfigRecorrido({ recorridoId, configActual, nombreVisit
               <div className="flex items-center gap-2 min-w-0">
                 <RotateCcw size={12} className="shrink-0 text-texto-terciario" />
                 <div className="min-w-0">
-                  <p className="text-[12px] text-texto-primario">Volver a la empresa</p>
+                  <p className="text-[12px] text-texto-primario">{t('visitas.volver_a_empresa')}</p>
                   <p className="text-[10px] text-texto-terciario truncate">{origenDestino.coordsEmpresa.texto}</p>
                 </div>
               </div>
@@ -145,7 +145,7 @@ export default function ConfigRecorrido({ recorridoId, configActual, nombreVisit
         onClick={guardar}
         disabled={!recorridoId}
       >
-        {recorridoId ? t('visitas.aplicar_a_todos') : 'Sin recorrido'}
+        {recorridoId ? t('visitas.aplicar_a_todos') : t('visitas.sin_recorrido_config')}
       </Boton>
     </div>
   )

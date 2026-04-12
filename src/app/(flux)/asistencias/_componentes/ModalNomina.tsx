@@ -55,12 +55,12 @@ const fmtMonto = (n: number) => `$${n.toLocaleString('es-AR', { minimumFractionD
 const fmtHoras = (h: number) => { const hrs = Math.floor(h); const min = Math.round((h - hrs) * 60); return min > 0 ? `${hrs}h ${min}m` : `${hrs}h` }
 
 const COLORES_AVATAR = [
-  'bg-indigo-500/25 text-indigo-400',
-  'bg-emerald-500/25 text-emerald-400',
-  'bg-amber-500/25 text-amber-400',
-  'bg-red-500/25 text-red-400',
-  'bg-purple-500/25 text-purple-400',
-  'bg-cyan-500/25 text-cyan-400',
+  'bg-insignia-primario/25 text-insignia-primario',
+  'bg-insignia-exito/25 text-insignia-exito',
+  'bg-insignia-advertencia/25 text-insignia-advertencia',
+  'bg-insignia-peligro/25 text-insignia-peligro',
+  'bg-insignia-violeta/25 text-insignia-violeta',
+  'bg-insignia-cyan/25 text-insignia-cyan',
 ]
 
 function inicial(nombre: string): string {
@@ -106,7 +106,7 @@ export function ModalNomina({ abierto, onCerrar, desde, hasta, etiquetaPeriodo, 
         <div className="flex items-center justify-between w-full">
           <div className="text-sm">
             <span className="text-texto-terciario">Total a pagar: </span>
-            <span className="text-lg font-bold text-emerald-400">{fmtMonto(totalPagar)}</span>
+            <span className="text-lg font-bold text-asistencia-presente">{fmtMonto(totalPagar)}</span>
           </div>
           <div className="flex items-center gap-2">
             <Boton variante="secundario" tamano="sm" onClick={() => {
@@ -135,17 +135,17 @@ export function ModalNomina({ abierto, onCerrar, desde, hasta, etiquetaPeriodo, 
           {/* Resumen general */}
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-superficie-elevada/30 rounded-lg px-3 py-3 text-center">
-              <DollarSign size={16} className="mx-auto text-emerald-400 mb-1" />
+              <DollarSign size={16} className="mx-auto text-asistencia-presente mb-1" />
               <p className="text-lg font-bold text-texto-primario">{fmtMonto(totalPagar)}</p>
               <p className="text-xxs text-texto-terciario">Total a pagar</p>
             </div>
             <div className="bg-superficie-elevada/30 rounded-lg px-3 py-3 text-center">
-              <Clock size={16} className="mx-auto text-sky-400 mb-1" />
+              <Clock size={16} className="mx-auto text-asistencia-particular mb-1" />
               <p className="text-lg font-bold text-texto-primario">{fmtHoras(totalHoras)}</p>
               <p className="text-xxs text-texto-terciario">Horas totales</p>
             </div>
             <div className="bg-superficie-elevada/30 rounded-lg px-3 py-3 text-center">
-              <UserCheck size={16} className="mx-auto text-emerald-400 mb-1" />
+              <UserCheck size={16} className="mx-auto text-asistencia-presente mb-1" />
               <p className="text-lg font-bold text-texto-primario">{diasLaborales}</p>
               <p className="text-xxs text-texto-terciario">Días laborales</p>
             </div>
@@ -169,29 +169,29 @@ export function ModalNomina({ abierto, onCerrar, desde, hasta, etiquetaPeriodo, 
                         <p className="text-xxs text-texto-terciario">{r.monto_detalle}</p>
                       </div>
                     </div>
-                    <span className="text-base font-bold text-emerald-400">{fmtMonto(r.monto_pagar)}</span>
+                    <span className="text-base font-bold text-asistencia-presente">{fmtMonto(r.monto_pagar)}</span>
                   </div>
 
                   {/* Métricas */}
                   <div className="flex items-center gap-4 text-xs flex-wrap">
                     <span className="flex items-center gap-1 text-texto-secundario">
-                      <UserCheck size={11} className="text-emerald-400" />
+                      <UserCheck size={11} className="text-asistencia-presente" />
                       {r.dias_trabajados}/{r.dias_laborales} días
                     </span>
                     {r.dias_ausentes > 0 && (
-                      <span className="flex items-center gap-1 text-red-400">
+                      <span className="flex items-center gap-1 text-asistencia-ausente">
                         <UserX size={11} />
                         {r.dias_ausentes} ausencia{r.dias_ausentes !== 1 ? 's' : ''}
                       </span>
                     )}
                     {r.dias_tardanza > 0 && (
-                      <span className="flex items-center gap-1 text-amber-400">
+                      <span className="flex items-center gap-1 text-asistencia-tarde">
                         <AlertTriangle size={11} />
                         {r.dias_tardanza} tardanza{r.dias_tardanza !== 1 ? 's' : ''}
                       </span>
                     )}
                     {r.dias_feriados > 0 && (
-                      <span className="flex items-center gap-1 text-violet-400">
+                      <span className="flex items-center gap-1 text-asistencia-feriado">
                         {r.dias_feriados} feriado{r.dias_feriados !== 1 ? 's' : ''}
                       </span>
                     )}

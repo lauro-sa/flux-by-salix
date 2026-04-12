@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavegacion } from '@/hooks/useNavegacion'
 import { useRol } from '@/hooks/useRol'
 import { useTraduccion } from '@/lib/i18n'
 import { useListado, useConfig } from '@/hooks/useListado'
-import { DEBOUNCE_BUSQUEDA } from '@/lib/constantes/timeouts'
+import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -98,21 +98,25 @@ export default function ContenidoContactos({ datosInicialesJson }: Props) {
   const vinculadoDe = searchParams.get('vinculado_de')
   const origenUrl = searchParams.get('origen')
 
-  // Inicializar desde URL para restaurar al volver atrás
-  const [busqueda, setBusqueda] = useState(searchParams.get('q') || '')
-  const [busquedaDebounced, setBusquedaDebounced] = useState(searchParams.get('q') || '')
-  const [modalImportar, setModalImportar] = useState(false)
-  const [modalPapeleraLote, setModalPapeleraLote] = useState(false)
-  const [idsPapeleraPendientes, setIdsPapeleraPendientes] = useState<Set<string>>(new Set())
-  const [cargandoPapeleraLote, setCargandoPapeleraLote] = useState(false)
-  const [pagina, setPagina] = useState(Number(searchParams.get('pagina')) || 1)
-  const [nombreFiltro, setNombreFiltro] = useState<string | null>(null)
-
   // Filtros server-side — restaurar desde URL
   const [filtroTipo, setFiltroTipo] = useState(searchParams.get('tipo') || '')
   const [filtroOrigen, setFiltroOrigen] = useState(searchParams.get('origen_filtro') || '')
   const [filtroIva, setFiltroIva] = useState(searchParams.get('condicion_iva') || '')
   const [filtroEtapa, setFiltroEtapa] = useState(searchParams.get('etapa') || '')
+
+  // Búsqueda con debounce + reset de página automático (restaura desde URL, salta primer reset)
+  const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce(
+    searchParams.get('q') || '',
+    Number(searchParams.get('pagina')) || 1,
+    [filtroTipo, filtroOrigen, filtroIva, filtroEtapa],
+    true,
+  )
+
+  const [modalImportar, setModalImportar] = useState(false)
+  const [modalPapeleraLote, setModalPapeleraLote] = useState(false)
+  const [idsPapeleraPendientes, setIdsPapeleraPendientes] = useState<Set<string>>(new Set())
+  const [cargandoPapeleraLote, setCargandoPapeleraLote] = useState(false)
+  const [nombreFiltro, setNombreFiltro] = useState<string | null>(null)
 
   const pathname = usePathname()
   const { setMigajaDinamica } = useNavegacion()
@@ -132,19 +136,6 @@ export default function ContenidoContactos({ datosInicialesJson }: Props) {
     const nuevaUrl = qs ? `${pathname}?${qs}` : pathname
     window.history.replaceState(null, '', nuevaUrl)
   }, [busquedaDebounced, filtroTipo, filtroOrigen, filtroIva, filtroEtapa, pagina, vinculadoDe, origenUrl, pathname])
-
-  // Debounce de búsqueda (300ms)
-  useEffect(() => {
-    const timeout = setTimeout(() => setBusquedaDebounced(busqueda), DEBOUNCE_BUSQUEDA)
-    return () => clearTimeout(timeout)
-  }, [busqueda])
-
-  // Resetear página al cambiar filtros o búsqueda (skip primer render para no pisar URL restaurada)
-  const primerRenderRef = useRef(true)
-  useEffect(() => {
-    if (primerRenderRef.current) { primerRenderRef.current = false; return }
-    setPagina(1)
-  }, [filtroTipo, filtroOrigen, filtroIva, filtroEtapa, busquedaDebounced])
 
   // Solo usar datos iniciales cuando no hay filtros activos (primera carga)
   const sinFiltros = !busquedaDebounced && !filtroTipo && !filtroOrigen && !filtroIva && !filtroEtapa && !vinculadoDe && pagina === 1

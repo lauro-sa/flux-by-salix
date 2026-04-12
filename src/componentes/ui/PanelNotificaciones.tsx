@@ -63,7 +63,7 @@ interface PropiedadesPanelNotificaciones {
 
 /* ─── Componente de fila con expansión por hover sostenido ─── */
 
-const HOVER_DELAY_MS = 1500
+const HOVER_DELAY_MS = 500
 
 function FilaNotificacion({ item, onDescartar, expandido }: {
   item: ItemNotificacion
@@ -77,6 +77,10 @@ function FilaNotificacion({ item, onDescartar, expandido }: {
       {/* Fila principal */}
       <div
         onClick={item.onClick}
+        role={item.onClick ? 'button' : undefined}
+        tabIndex={item.onClick ? 0 : undefined}
+        aria-label={`${!item.leida ? 'No leída: ' : ''}${item.titulo}${item.descripcion ? ` — ${item.descripcion}` : ''}`}
+        onKeyDown={item.onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); item.onClick?.() } } : undefined}
         className={[
           'group flex items-start gap-3 px-4 py-3 border-b border-borde-sutil/50 transition-colors relative',
           item.onClick ? 'cursor-pointer hover:bg-superficie-hover' : '',
@@ -204,7 +208,7 @@ function PanelNotificaciones({
 }: PropiedadesPanelNotificaciones) {
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col" role="region" aria-label={`Notificaciones: ${titulo}`}>
       {/* ── Cabecera ── */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-borde-sutil shrink-0">
         <div className="flex items-center gap-2">
@@ -233,6 +237,9 @@ function PanelNotificaciones({
       <div
         className="overflow-y-auto overflow-x-hidden"
         style={{ maxHeight: altoMaximoLista }}
+        role="list"
+        aria-live="polite"
+        aria-label={`Lista de notificaciones de ${titulo}`}
       >
         {cargando ? (
           <div className="flex items-center justify-center py-12">

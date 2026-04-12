@@ -4,3 +4,5 @@ export type { TipoToast } from './Toast'
 
 export { EstadoVacio } from './EstadoVacio'
 export type { PropiedadesEstadoVacio } from './EstadoVacio'
+
+export { ContenedorConEstado } from './ContenedorConEstado'

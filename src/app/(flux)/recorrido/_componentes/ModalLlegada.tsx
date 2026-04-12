@@ -8,6 +8,7 @@
 
 import { Phone, MessageCircle, Bell, X, MapPin, Navigation } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTraduccion } from '@/lib/i18n'
 
 interface PropiedadesModalLlegada {
   abierto: boolean
@@ -30,6 +31,7 @@ function ModalLlegada({
   direccionLng,
   onAvisarLlegada,
 }: PropiedadesModalLlegada) {
+  const { t } = useTraduccion()
 
   const llamar = () => {
     if (telefono) window.open(`tel:${telefono}`, '_self')
@@ -75,9 +77,9 @@ function ModalLlegada({
             <div className="flex items-start justify-between p-4 pb-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="size-2 rounded-full bg-[var(--insignia-exito)] animate-pulse" />
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--insignia-exito)]">
-                    Llegaste
+                  <div className="size-2 rounded-full bg-insignia-exito animate-pulse" />
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-insignia-exito">
+                    {t('visitas.llegaste')}
                   </span>
                 </div>
                 <h3 className="text-lg font-bold text-texto-primario truncate">{contactoNombre}</h3>
@@ -103,16 +105,16 @@ function ModalLlegada({
                   disabled={!telefono}
                   className="flex items-center justify-center gap-2 py-3 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors disabled:opacity-30"
                 >
-                  <Phone size={16} className="text-[var(--insignia-info)]" />
-                  <span className="text-sm font-medium text-texto-primario">Llamar</span>
+                  <Phone size={16} className="text-insignia-info" />
+                  <span className="text-sm font-medium text-texto-primario">{t('visitas.llamar')}</span>
                 </button>
                 <button
                   onClick={abrirWhatsApp}
                   disabled={!telefono}
                   className="flex items-center justify-center gap-2 py-3 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors disabled:opacity-30"
                 >
-                  <MessageCircle size={16} className="text-[var(--canal-whatsapp)]" />
-                  <span className="text-sm font-medium text-texto-primario">WhatsApp</span>
+                  <MessageCircle size={16} className="text-canal-whatsapp" />
+                  <span className="text-sm font-medium text-texto-primario">{t('visitas.whatsapp')}</span>
                 </button>
               </div>
 
@@ -123,23 +125,22 @@ function ModalLlegada({
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors"
                 >
                   <Navigation size={16} className="text-texto-terciario" />
-                  <span className="text-sm font-medium text-texto-secundario">Ver en mapa</span>
+                  <span className="text-sm font-medium text-texto-secundario">{t('visitas.ver_en_mapa')}</span>
                 </button>
               )}
 
               {/* Avisar que llegué — acción principal */}
               <button
                 onClick={() => { onAvisarLlegada(); onCerrar() }}
-                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold text-white transition-colors"
-                style={{ backgroundColor: 'var(--insignia-exito)' }}
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold text-white bg-insignia-exito transition-colors"
               >
                 <Bell size={16} />
-                <span>Avisar que llegué</span>
+                <span>{t('visitas.avisar_que_llegue')}</span>
               </button>
 
               {!telefono && (
                 <p className="text-center text-[11px] text-texto-terciario">
-                  Sin teléfono registrado para este contacto
+                  {t('visitas.sin_telefono')}
                 </p>
               )}
             </div>

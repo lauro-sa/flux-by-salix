@@ -137,6 +137,7 @@ export async function sincronizarRegistrosVinculados(visita: DatosVisita, tipos:
   const fechaFin = new Date(fechaInicio.getTime() + (visita.duracion_estimada_min || 30) * 60000)
   const esCompletada = visita.estado === 'completada'
   const esCancelada = visita.estado === 'cancelada'
+  const esReprogramada = visita.estado === 'reprogramada'
 
   // Actualizar actividad vinculada
   if (visita.actividad_id) {
@@ -176,7 +177,7 @@ export async function sincronizarRegistrosVinculados(visita: DatosVisita, tipos:
       asignado_ids: visita.asignado_a ? [visita.asignado_a] : [],
       vinculos: [{ tipo: 'contacto', id: visita.contacto_id, nombre: visita.contacto_nombre }],
       vinculo_ids: [visita.contacto_id],
-      estado: esCancelada ? 'cancelado' : esCompletada ? 'cancelado' : 'confirmado',
+      estado: (esCancelada || esCompletada) ? 'cancelado' : 'confirmado',
       actualizado_en: new Date().toISOString(),
     })
     .eq('visita_id', visita.id)

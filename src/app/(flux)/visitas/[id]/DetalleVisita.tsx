@@ -79,7 +79,7 @@ export default function DetalleVisita({ visita: visitaInicial }: Props) {
             {visita.contacto_nombre}
           </h1>
           <p className="text-sm text-texto-terciario">
-            {visita.direccion_texto || 'Sin dirección'}
+            {visita.direccion_texto || t('visitas.sin_direccion')}
           </p>
         </div>
         <Insignia color={estadoColor?.color as 'exito' | 'peligro' | 'advertencia' | 'info'}>
@@ -98,7 +98,7 @@ export default function DetalleVisita({ visita: visitaInicial }: Props) {
               onClick={() => ejecutarAccion('en_camino')}
             >
               <Navigation size={14} className="mr-1.5" />
-              En camino
+              {t('visitas.en_camino')}
             </Boton>
           )}
           {(visita.estado === 'en_camino' || visita.estado === 'programada') && (
@@ -109,7 +109,7 @@ export default function DetalleVisita({ visita: visitaInicial }: Props) {
               onClick={() => ejecutarAccion('en_sitio')}
             >
               <MapPin size={14} className="mr-1.5" />
-              Llegué
+              {t('visitas.llegue')}
             </Boton>
           )}
           {visita.estado === 'en_sitio' && (
@@ -119,7 +119,7 @@ export default function DetalleVisita({ visita: visitaInicial }: Props) {
               onClick={() => ejecutarAccion('completar')}
             >
               <CheckCircle size={14} className="mr-1.5" />
-              Completar
+              {t('visitas.completar')}
             </Boton>
           )}
           <Boton
@@ -129,7 +129,7 @@ export default function DetalleVisita({ visita: visitaInicial }: Props) {
             onClick={() => ejecutarAccion('cancelar')}
           >
             <X size={14} className="mr-1.5" />
-            Cancelar
+            {t('comun.cancelar')}
           </Boton>
         </div>
       )}
@@ -142,7 +142,7 @@ export default function DetalleVisita({ visita: visitaInicial }: Props) {
             onClick={() => ejecutarAccion('reactivar')}
           >
             <RotateCcw size={14} className="mr-1.5" />
-            Reactivar
+            {t('visitas.reactivar')}
           </Boton>
         </div>
       )}
@@ -231,7 +231,7 @@ export default function DetalleVisita({ visita: visitaInicial }: Props) {
                     className="text-texto-marca hover:text-texto-marca/80 flex items-center gap-1 text-xs"
                   >
                     <Navigation size={12} />
-                    Navegar
+                    {t('visitas.navegar')}
                   </a>
                 )}
               </div>
@@ -298,7 +298,7 @@ export default function DetalleVisita({ visita: visitaInicial }: Props) {
                 {t('visitas.registro_ubicacion')}
               </label>
               <div className="flex items-center gap-2 p-3 rounded-lg border border-white/[0.06] bg-white/[0.03]">
-                <MapPin size={14} className="text-green-400" />
+                <MapPin size={14} className="text-insignia-exito" />
                 <span className="text-sm text-texto-primario">
                   {visita.registro_lat.toFixed(6)}, {visita.registro_lng.toFixed(6)}
                 </span>
@@ -312,7 +312,7 @@ export default function DetalleVisita({ visita: visitaInicial }: Props) {
                   className="text-texto-marca text-xs flex items-center gap-1 ml-auto"
                 >
                   <ExternalLink size={12} />
-                  Ver
+                  {t('visitas.ver')}
                 </a>
               </div>
             </div>

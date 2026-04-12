@@ -166,7 +166,7 @@ export function ModalReglas({ abierto, onCerrar }: PropiedadesModalReglas) {
       acciones={
         editando ? (
           <div className="flex items-center gap-2">
-            <Boton variante="secundario" tamano="sm" onClick={cancelarEdicion}>Cancelar</Boton>
+            <Boton variante="secundario" tamano="sm" onClick={cancelarEdicion}>{t('comun.cancelar')}</Boton>
             <Boton variante="primario" tamano="sm" onClick={guardar} disabled={!nombre.trim()}>
               {editando.id ? 'Guardar cambios' : 'Crear regla'}
             </Boton>

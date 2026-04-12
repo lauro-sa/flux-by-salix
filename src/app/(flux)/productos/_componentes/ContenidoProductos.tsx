@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useListado } from '@/hooks/useListado'
 import { useTraduccion } from '@/lib/i18n'
 import { useFormato } from '@/hooks/useFormato'
-import { DEBOUNCE_BUSQUEDA } from '@/lib/constantes/timeouts'
+import { useBusquedaDebounce } from '@/hooks/useBusquedaDebounce'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
@@ -74,13 +74,12 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
   const queryClient = useQueryClient()
 
   // ---- Estado ----
-  const [busqueda, setBusqueda] = useState('')
-  const [busquedaDebounced, setBusquedaDebounced] = useState('')
-  const [pagina, setPagina] = useState(1)
-
   // Filtros server-side
   const [filtroTipo, setFiltroTipo] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState('')
+
+  // Búsqueda con debounce + reset de página automático
+  const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce('', 1, [filtroTipo, filtroCategoria])
 
   // Modal
   const [modalAbierto, setModalAbierto] = useState(false)
@@ -102,15 +101,6 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
   const [config, setConfig] = useState<ConfigProductos | null>(null)
   const [impuestos, setImpuestos] = useState<{ id: string; label: string; porcentaje: number }[]>([])
   const [categoriasDisponibles, setCategoriasDisponibles] = useState<{ valor: string; etiqueta: string }[]>([])
-
-  // ---- Debounce de busqueda (300ms) ----
-  useEffect(() => {
-    const timeout = setTimeout(() => setBusquedaDebounced(busqueda), DEBOUNCE_BUSQUEDA)
-    return () => clearTimeout(timeout)
-  }, [busqueda])
-
-  // ---- Reset de pagina al cambiar filtros/busqueda ----
-  useEffect(() => { setPagina(1) }, [busquedaDebounced, filtroTipo, filtroCategoria])
 
   // Solo usar datos iniciales cuando no hay filtros activos (primera carga)
   const sinFiltros = !busquedaDebounced && !filtroTipo && !filtroCategoria && pagina === 1

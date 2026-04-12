@@ -6,6 +6,7 @@ import { TextArea } from '@/componentes/ui/TextArea'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { useFormato } from '@/hooks/useFormato'
 import { useTraduccion } from '@/lib/i18n'
+import HtmlSeguro from '@/componentes/ui/HtmlSeguro'
 
 /**
  * Convierte formato WhatsApp (*negrita*, _cursiva_, ~tachado~) a HTML para preview.
@@ -51,10 +52,9 @@ export function EditorWhatsApp({
         onClick={() => setModalAbierto(true)}
       >
         {valor ? (
-          <div
+          <HtmlSeguro
+            html={formatoWhatsAppAHtml(valor)}
             className="text-sm line-clamp-3"
-            style={{ color: 'var(--texto-primario)' }}
-            dangerouslySetInnerHTML={{ __html: formatoWhatsAppAHtml(valor) }}
           />
         ) : (
           <p className="text-sm" style={{ color: 'var(--texto-terciario)' }}>
@@ -139,10 +139,9 @@ export function EditorWhatsApp({
                         borderTopRightRadius: '4px',
                       }}
                     >
-                      <div
+                      <HtmlSeguro
+                        html={formatoWhatsAppAHtml(valor)}
                         className="text-sm leading-relaxed whitespace-pre-wrap"
-                        style={{ color: '#e9edef' }}
-                        dangerouslySetInnerHTML={{ __html: formatoWhatsAppAHtml(valor) }}
                       />
                       <div className="flex items-center justify-end gap-1 mt-0.5">
                         <span className="text-xxs" style={{ color: '#ffffff99' }}>

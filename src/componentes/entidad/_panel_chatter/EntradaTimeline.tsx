@@ -13,7 +13,6 @@ import {
   StickyNote, Globe, Mail, Paperclip,
   Clock, Pencil, Trash2, CheckCircle2, CalendarClock, Ban, Link,
 } from 'lucide-react'
-import DOMPurify from 'isomorphic-dompurify'
 import { useFormato } from '@/hooks/useFormato'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -21,8 +20,10 @@ import { Avatar } from '@/componentes/ui/Avatar'
 import { Boton } from '@/componentes/ui/Boton'
 import type { AccionSistema } from '@/tipos/chatter'
 import { ICONOS_ACCION, fechaRelativa, fechaCompleta, formatearTextoWA } from './constantes'
+import HtmlSeguro from '@/componentes/ui/HtmlSeguro'
 import type { PropsEntradaTimeline } from './tipos'
 import { EntradaVisita } from './EntradaVisita'
+import Image from 'next/image'
 
 export function EntradaTimeline({
   entrada,
@@ -549,9 +550,10 @@ function EntradaWhatsApp({ entrada, formatoHora, locale }: { entrada: PropsEntra
 
       {/* Contenido del mensaje */}
       <div className="px-3 pl-[52px] pb-1.5">
-        <p
+        <HtmlSeguro
+          html={formatearTextoWA(entrada.contenido)}
+          como="p"
           className="text-xs text-texto-secundario whitespace-pre-wrap leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: formatearTextoWA(entrada.contenido) }}
         />
       </div>
 
@@ -710,9 +712,9 @@ function EntradaNotaInterna({
           </div>
         </div>
         {htmlContenido ? (
-          <div
+          <HtmlSeguro
+            html={htmlContenido}
             className="text-sm text-texto-secundario mt-1 prose prose-sm max-w-none [&_p]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0"
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(htmlContenido) }}
           />
         ) : (
           <p className="text-sm text-texto-secundario mt-0.5 whitespace-pre-wrap">{entrada.contenido}</p>
@@ -794,9 +796,9 @@ function ListaAdjuntos({ adjuntos }: { adjuntos?: { url: string; nombre: string;
             title={adj.nombre}
           >
             {/* Preview */}
-            <div className="aspect-[4/3] bg-superficie-app flex items-center justify-center overflow-hidden">
+            <div className="relative aspect-[4/3] bg-superficie-app flex items-center justify-center overflow-hidden">
               {esImagen ? (
-                <img src={adj.url} alt={adj.nombre} className="w-full h-full object-cover" loading="lazy" />
+                <Image src={adj.url} alt={adj.nombre} fill sizes="120px" className="object-cover" />
               ) : (
                 <span className={COLORES_MINI[tipo]}>
                   <IconoMini tipo={tipo} />

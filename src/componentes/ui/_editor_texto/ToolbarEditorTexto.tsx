@@ -24,6 +24,7 @@ import {
   TAMANOS_TEXTO, GRILLA_COLORES, PX_POR_TAMANO,
   type TipoPanel,
 } from '@/componentes/ui/_editor_texto/tipos'
+import { useTraduccion } from '@/lib/i18n'
 
 // ── Props ───────────────────────────────────────────────────────────────────
 
@@ -68,6 +69,7 @@ export function ToolbarEditorTexto({
   coloresMarca,
   accionesExtra,
 }: PropiedadesToolbar) {
+  const { t } = useTraduccion()
   const [panelAbierto, setPanelAbierto] = useState<TipoPanel>(null)
   const panelAbiertoRef = useRef(panelAbierto)
   panelAbiertoRef.current = panelAbierto
@@ -411,28 +413,28 @@ export function ToolbarEditorTexto({
                 panelAbierto === 'tamano' ? 'bg-texto-marca/15 text-texto-marca' : 'text-texto-secundario hover:text-texto-primario hover:bg-superficie-hover',
               ].join(' ')}
             >
-              <span className="truncate">{tamanoActivo?.etiqueta ?? 'Normal'}</span>
+              <span className="truncate">{tamanoActivo?.etiqueta ?? t('editor.normal')}</span>
               <ChevronDown size={12} className="shrink-0" />
             </button>
           </Tooltip>
 
           <Sep />
 
-          <Btn activo={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()} titulo="Negrita"><Bold size={14} /></Btn>
-          <Btn activo={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()} titulo="Italica"><Italic size={14} /></Btn>
-          <Btn activo={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()} titulo="Subrayado"><UnderlineIcon size={14} /></Btn>
-          <Btn activo={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()} titulo="Tachado"><Strikethrough size={14} /></Btn>
+          <Btn activo={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()} titulo={t('editor.negrita')}><Bold size={14} /></Btn>
+          <Btn activo={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()} titulo={t('editor.italica')}><Italic size={14} /></Btn>
+          <Btn activo={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()} titulo={t('editor.subrayado')}><UnderlineIcon size={14} /></Btn>
+          <Btn activo={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()} titulo={t('editor.tachado')}><Strikethrough size={14} /></Btn>
 
           <Sep />
 
-          <Btn activo={editor.isActive({ textAlign: 'left' })} onClick={() => editor.chain().focus().setTextAlign('left').run()} titulo="Izquierda"><AlignLeft size={14} /></Btn>
-          <Btn activo={editor.isActive({ textAlign: 'center' })} onClick={() => editor.chain().focus().setTextAlign('center').run()} titulo="Centro"><AlignCenter size={14} /></Btn>
-          <Btn activo={editor.isActive({ textAlign: 'right' })} onClick={() => editor.chain().focus().setTextAlign('right').run()} titulo="Derecha"><AlignRight size={14} /></Btn>
+          <Btn activo={editor.isActive({ textAlign: 'left' })} onClick={() => editor.chain().focus().setTextAlign('left').run()} titulo={t('editor.izquierda')}><AlignLeft size={14} /></Btn>
+          <Btn activo={editor.isActive({ textAlign: 'center' })} onClick={() => editor.chain().focus().setTextAlign('center').run()} titulo={t('editor.centro')}><AlignCenter size={14} /></Btn>
+          <Btn activo={editor.isActive({ textAlign: 'right' })} onClick={() => editor.chain().focus().setTextAlign('right').run()} titulo={t('editor.derecha')}><AlignRight size={14} /></Btn>
 
           <Sep />
 
-          <Btn activo={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()} titulo="Vinetas"><List size={14} /></Btn>
-          <Btn activo={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()} titulo="Numerada"><ListOrdered size={14} /></Btn>
+          <Btn activo={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()} titulo={t('editor.vinetas')}><List size={14} /></Btn>
+          <Btn activo={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()} titulo={t('editor.numerada')}><ListOrdered size={14} /></Btn>
 
           <Sep />
 
@@ -453,11 +455,11 @@ export function ToolbarEditorTexto({
           <Sep />
 
           {editor.isActive('link')
-            ? <Btn onClick={quitarLink} titulo="Quitar enlace"><Unlink size={14} /></Btn>
-            : <Btn onClick={() => abrirPanel('link')} activo={panelAbierto === 'link'} titulo="Enlace"><LinkIcon size={14} /></Btn>
+            ? <Btn onClick={quitarLink} titulo={t('editor.quitar_enlace')}><Unlink size={14} /></Btn>
+            : <Btn onClick={() => abrirPanel('link')} activo={panelAbierto === 'link'} titulo={t('editor.enlace')}><LinkIcon size={14} /></Btn>
           }
 
-          <Btn onClick={() => { editor.chain().focus().clearNodes().unsetAllMarks().run(); cerrarPaneles() }} titulo="Limpiar formato"><Type size={14} /></Btn>
+          <Btn onClick={() => { editor.chain().focus().clearNodes().unsetAllMarks().run(); cerrarPaneles() }} titulo={t('editor.limpiar_formato')}><Type size={14} /></Btn>
 
           {accionesExtra && <><Sep />{accionesExtra}</>}
         </div>
@@ -476,7 +478,7 @@ export function ToolbarEditorTexto({
             exit={{ opacity: 0, y: panelAbajo ? -4 : 4 }}
             transition={{ duration: 0.1 }}
             data-panel-editor="true"
-            className="fixed rounded-lg shadow-elevada border border-borde-sutil overflow-hidden max-h-[80vh] overflow-y-auto"
+            className="fixed rounded-lg shadow-elevada border border-borde-sutil overflow-hidden max-h-[80dvh] overflow-y-auto"
             style={{
               ...(panelAbajo
                 ? { top: toolbarPos.top + alturaToolbarPx + 4 }

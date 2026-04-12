@@ -315,8 +315,8 @@ async function enviarPush({
   }
   pushRateLimit.set(rateLimitKey, Date.now())
 
-  // Limpiar entradas viejas del rate-limit cada 100 entradas (evitar memory leak)
-  if (pushRateLimit.size > 100) {
+  // Limpiar entradas viejas del rate-limit cada 20 entradas (evitar memory leak)
+  if (pushRateLimit.size > 20) {
     const ahora = Date.now()
     for (const [key, tiempo] of pushRateLimit) {
       if (ahora - tiempo > PUSH_COOLDOWN_MS) pushRateLimit.delete(key)

@@ -6,6 +6,17 @@ import { crearNotificacion } from '@/lib/notificaciones'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import { registrarReciente } from '@/lib/recientes'
 import { obtenerTiposVisita, sincronizarRegistrosVinculados, eliminarRegistrosVinculados } from '@/lib/visitas-sync'
+import { COLOR_NOTIFICACION, COLORES_HEX_ESTADO_ACTIVIDAD } from '@/lib/colores_entidad'
+
+/** Calcula distancia en metros entre dos coordenadas (fórmula de Haversine) */
+function calcularDistanciaMetros(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000
+  const toRad = (deg: number) => deg * (Math.PI / 180)
+  const dLat = toRad(lat2 - lat1)
+  const dLng = toRad(lng2 - lng1)
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
 
 /**
  * GET /api/visitas/[id] — Obtener una visita por ID.
@@ -103,6 +114,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         metadata: { accion: 'estado_cambiado', visita_id: data.id, estado: 'en_camino' },
       })
 
+      // Notificar al creador/supervisor que el visitador salió
+      if (data.creado_por && data.creado_por !== user.id) {
+        crearNotificacion({
+          empresaId,
+          usuarioId: data.creado_por,
+          tipo: 'actividad_asignada',
+          titulo: `🚗 ${nombreEditor} está en camino`,
+          cuerpo: data.contacto_nombre,
+          icono: 'MapPin',
+          color: COLOR_NOTIFICACION.info,
+          url: '/visitas',
+          referenciaTipo: 'visita',
+          referenciaId: data.id,
+        })
+      }
+
       return NextResponse.json(data)
     }
 
@@ -133,17 +160,35 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
       if (error) return NextResponse.json({ error: 'Error al registrar llegada' }, { status: 500 })
 
+      // Validar proximidad GPS: comparar ubicación registrada vs dirección programada
+      let advertenciaProximidad: string | null = null
+      if (body.registro_lat != null && data.direccion_lat != null) {
+        const distanciaM = calcularDistanciaMetros(
+          body.registro_lat, body.registro_lng,
+          data.direccion_lat, data.direccion_lng
+        )
+        const UMBRAL_PROXIMIDAD_M = 500
+        if (distanciaM > UMBRAL_PROXIMIDAD_M) {
+          advertenciaProximidad = `El visitador registró llegada a ${Math.round(distanciaM)}m de la dirección programada`
+        }
+      }
+
       registrarChatter({
         empresaId,
         entidadTipo: 'contacto',
         entidadId: data.contacto_id,
-        contenido: `${nombreEditor} llegó al sitio`,
+        contenido: advertenciaProximidad
+          ? `${nombreEditor} llegó al sitio (⚠ ${advertenciaProximidad})`
+          : `${nombreEditor} llegó al sitio`,
         autorId: user.id,
         autorNombre: nombreEditor,
-        metadata: { accion: 'estado_cambiado', visita_id: data.id, estado: 'en_sitio' },
+        metadata: {
+          accion: 'estado_cambiado', visita_id: data.id, estado: 'en_sitio',
+          ...(advertenciaProximidad ? { advertencia_proximidad: true } : {}),
+        },
       })
 
-      return NextResponse.json(data)
+      return NextResponse.json({ ...data, advertencia_proximidad: advertenciaProximidad })
     }
 
     // ── Acción: completar ──
@@ -198,7 +243,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           titulo: `✅ ${nombreEditor} completó la visita`,
           cuerpo: `${data.contacto_nombre}`,
           icono: 'CheckCircle',
-          color: '#46a758',
+          color: COLOR_NOTIFICACION.exito,
           url: '/visitas',
           referenciaTipo: 'visita',
           referenciaId: data.id,
@@ -218,7 +263,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       // Sincronizar actividad + evento
       const tiposComp = await obtenerTiposVisita(empresaId)
       if (tiposComp) {
-        sincronizarRegistrosVinculados({
+        await sincronizarRegistrosVinculados({
           id: data.id, empresa_id: empresaId, contacto_id: data.contacto_id,
           contacto_nombre: data.contacto_nombre, direccion_texto: data.direccion_texto,
           asignado_a: data.asignado_a, asignado_nombre: data.asignado_nombre,
@@ -264,10 +309,41 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         metadata: { accion: 'estado_cambiado', visita_id: data.id, estado: 'cancelada' },
       })
 
+      // Notificar al asignado si fue otro quien canceló
+      if (data.asignado_a && data.asignado_a !== user.id) {
+        crearNotificacion({
+          empresaId,
+          usuarioId: data.asignado_a,
+          tipo: 'actividad_asignada',
+          titulo: `❌ ${nombreEditor} canceló tu visita`,
+          cuerpo: `${data.contacto_nombre}${body.resultado ? ` · ${body.resultado}` : ''}`,
+          icono: 'XCircle',
+          color: COLOR_NOTIFICACION.peligro,
+          url: '/visitas',
+          referenciaTipo: 'visita',
+          referenciaId: data.id,
+        })
+      }
+      // Notificar al creador si fue otro quien canceló
+      if (data.creado_por && data.creado_por !== user.id && data.creado_por !== data.asignado_a) {
+        crearNotificacion({
+          empresaId,
+          usuarioId: data.creado_por,
+          tipo: 'actividad_asignada',
+          titulo: `❌ ${nombreEditor} canceló la visita`,
+          cuerpo: `${data.contacto_nombre}`,
+          icono: 'XCircle',
+          color: COLOR_NOTIFICACION.peligro,
+          url: '/visitas',
+          referenciaTipo: 'visita',
+          referenciaId: data.id,
+        })
+      }
+
       // Sincronizar actividad + evento (cancelar)
       const tiposCanc = await obtenerTiposVisita(empresaId)
       if (tiposCanc) {
-        sincronizarRegistrosVinculados({
+        await sincronizarRegistrosVinculados({
           id: data.id, empresa_id: empresaId, contacto_id: data.contacto_id,
           contacto_nombre: data.contacto_nombre, direccion_texto: data.direccion_texto,
           asignado_a: data.asignado_a, asignado_nombre: data.asignado_nombre,
@@ -324,6 +400,36 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         metadata: { accion: 'estado_cambiado', visita_id: data.id, estado: 'reprogramada' },
       })
 
+      // Notificar al asignado si fue otro quien reprogramó
+      const fechaFormateada = new Date(body.fecha_programada).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+      if (data.asignado_a && data.asignado_a !== user.id) {
+        crearNotificacion({
+          empresaId,
+          usuarioId: data.asignado_a,
+          tipo: 'actividad_asignada',
+          titulo: `📅 ${nombreEditor} reprogramó tu visita`,
+          cuerpo: `${data.contacto_nombre} · Nueva fecha: ${fechaFormateada}`,
+          icono: 'CalendarClock',
+          color: COLOR_NOTIFICACION.advertencia,
+          url: '/visitas',
+          referenciaTipo: 'visita',
+          referenciaId: data.id,
+        })
+      }
+
+      // Sincronizar actividad + evento calendario (nueva fecha)
+      const tiposRepr = await obtenerTiposVisita(empresaId)
+      if (tiposRepr) {
+        await sincronizarRegistrosVinculados({
+          id: data.id, empresa_id: empresaId, contacto_id: data.contacto_id,
+          contacto_nombre: data.contacto_nombre, direccion_texto: data.direccion_texto,
+          asignado_a: data.asignado_a, asignado_nombre: data.asignado_nombre,
+          fecha_programada: data.fecha_programada, duracion_estimada_min: data.duracion_estimada_min || 30,
+          estado: 'programada', motivo: data.motivo, prioridad: data.prioridad,
+          actividad_id: data.actividad_id, creado_por: data.creado_por, creado_por_nombre: data.creado_por_nombre,
+        }, tiposRepr)
+      }
+
       return NextResponse.json(data)
     }
 
@@ -348,6 +454,30 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         .single()
 
       if (error) return NextResponse.json({ error: 'Error al reactivar' }, { status: 500 })
+
+      registrarChatter({
+        empresaId,
+        entidadTipo: 'contacto',
+        entidadId: data.contacto_id,
+        contenido: `${nombreEditor} reactivó la visita`,
+        autorId: user.id,
+        autorNombre: nombreEditor,
+        metadata: { accion: 'estado_cambiado', visita_id: data.id, estado: 'programada' },
+      })
+
+      // Sincronizar actividad + evento calendario (reactivar)
+      const tiposReact = await obtenerTiposVisita(empresaId)
+      if (tiposReact) {
+        await sincronizarRegistrosVinculados({
+          id: data.id, empresa_id: empresaId, contacto_id: data.contacto_id,
+          contacto_nombre: data.contacto_nombre, direccion_texto: data.direccion_texto,
+          asignado_a: data.asignado_a, asignado_nombre: data.asignado_nombre,
+          fecha_programada: data.fecha_programada, duracion_estimada_min: data.duracion_estimada_min || 30,
+          estado: 'programada', motivo: data.motivo, prioridad: data.prioridad,
+          actividad_id: data.actividad_id, creado_por: data.creado_por, creado_por_nombre: data.creado_por_nombre,
+        }, tiposReact)
+      }
+
       return NextResponse.json(data)
     }
 
@@ -405,7 +535,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     // Sincronizar actividad + evento calendario
     const tipos = await obtenerTiposVisita(empresaId)
     if (tipos) {
-      sincronizarRegistrosVinculados({
+      await sincronizarRegistrosVinculados({
         id: data.id,
         empresa_id: empresaId,
         contacto_id: data.contacto_id,
@@ -439,7 +569,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         titulo: `📍 ${nombreEditor} te asignó una visita`,
         cuerpo: `${data.contacto_nombre} · ${data.direccion_texto || 'Sin dirección'}`,
         icono: 'MapPin',
-        color: '#3b82f6',
+        color: COLOR_NOTIFICACION.info,
         url: '/visitas',
         referenciaTipo: 'visita',
         referenciaId: data.id,
@@ -489,7 +619,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
     if (error) return NextResponse.json({ error: 'Error al eliminar' }, { status: 500 })
 
     // Eliminar actividad + evento calendario vinculados
-    eliminarRegistrosVinculados(id, visita?.actividad_id || null)
+    await eliminarRegistrosVinculados(id, visita?.actividad_id || null)
 
     // Eliminar entradas del chatter vinculadas
     await admin.from('chatter')

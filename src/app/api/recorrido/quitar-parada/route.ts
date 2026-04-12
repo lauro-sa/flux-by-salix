@@ -57,11 +57,15 @@ export async function DELETE(request: NextRequest) {
 
     // Renumerar
     if (restantes) {
-      await Promise.all(
+      const reordenamientos = await Promise.all(
         restantes.map((p, i) =>
           admin.from('recorrido_paradas').update({ orden: i + 1 }).eq('id', p.id)
         )
       )
+      const erroresReorden = reordenamientos.filter(r => r.error)
+      if (erroresReorden.length > 0) {
+        console.error('Errores al renumerar paradas:', erroresReorden.map(e => e.error))
+      }
     }
 
     await admin

@@ -86,22 +86,22 @@ function formatearUbicacion(ub: Record<string, unknown> | null | undefined): str
 // ─── Config estados ──────────────────────────────────────────
 
 const ESTADO_CFG: Record<string, { etiqueta: string; color: string; fondo: string; icono: React.ReactNode }> = {
-  activo:       { etiqueta: 'En turno', color: 'text-emerald-400', fondo: 'bg-emerald-500/15 border-emerald-500/30', icono: <Clock size={11} /> },
-  cerrado:      { etiqueta: 'Cerrado', color: 'text-emerald-400/70', fondo: 'bg-emerald-500/10 border-emerald-500/20', icono: <CheckCircle2 size={11} /> },
-  auto_cerrado: { etiqueta: 'Sin salida', color: 'text-amber-400', fondo: 'bg-amber-500/15 border-amber-500/30', icono: <AlertTriangle size={11} /> },
-  ausente:      { etiqueta: 'Ausente', color: 'text-red-400', fondo: 'bg-red-500/15 border-red-500/30', icono: <XCircle size={11} /> },
-  feriado:      { etiqueta: 'Feriado', color: 'text-violet-400', fondo: 'bg-violet-500/15 border-violet-500/30', icono: <Palmtree size={11} /> },
-  almuerzo:     { etiqueta: 'Almorzando', color: 'text-amber-400', fondo: 'bg-amber-500/15 border-amber-500/30', icono: <Coffee size={11} /> },
-  particular:   { etiqueta: 'Trámite', color: 'text-sky-400', fondo: 'bg-sky-500/15 border-sky-500/30', icono: <Footprints size={11} /> },
+  activo:       { etiqueta: 'En turno', color: 'text-asistencia-presente', fondo: 'bg-asistencia-presente-fondo border-asistencia-presente/30', icono: <Clock size={11} /> },
+  cerrado:      { etiqueta: 'Cerrado', color: 'text-asistencia-presente/70', fondo: 'bg-asistencia-presente-fondo border-asistencia-presente/20', icono: <CheckCircle2 size={11} /> },
+  auto_cerrado: { etiqueta: 'Sin salida', color: 'text-asistencia-tarde', fondo: 'bg-asistencia-tarde-fondo border-asistencia-tarde/30', icono: <AlertTriangle size={11} /> },
+  ausente:      { etiqueta: 'Ausente', color: 'text-asistencia-ausente', fondo: 'bg-asistencia-ausente-fondo border-asistencia-ausente/30', icono: <XCircle size={11} /> },
+  feriado:      { etiqueta: 'Feriado', color: 'text-asistencia-feriado', fondo: 'bg-asistencia-feriado-fondo border-asistencia-feriado/30', icono: <Palmtree size={11} /> },
+  almuerzo:     { etiqueta: 'Almorzando', color: 'text-asistencia-almuerzo', fondo: 'bg-asistencia-almuerzo-fondo border-asistencia-almuerzo/30', icono: <Coffee size={11} /> },
+  particular:   { etiqueta: 'Trámite', color: 'text-asistencia-particular', fondo: 'bg-asistencia-particular-fondo border-asistencia-particular/30', icono: <Footprints size={11} /> },
 }
 
 const COLORES_AVATAR = [
-  'bg-indigo-500/25 text-indigo-400',
-  'bg-emerald-500/25 text-emerald-400',
-  'bg-amber-500/25 text-amber-400',
-  'bg-red-500/25 text-red-400',
-  'bg-purple-500/25 text-purple-400',
-  'bg-cyan-500/25 text-cyan-400',
+  'bg-insignia-primario/25 text-insignia-primario',
+  'bg-insignia-exito/25 text-insignia-exito',
+  'bg-insignia-advertencia/25 text-insignia-advertencia',
+  'bg-insignia-peligro/25 text-insignia-peligro',
+  'bg-insignia-violeta/25 text-insignia-violeta',
+  'bg-insignia-cyan/25 text-insignia-cyan',
 ]
 
 const ICONO_METODO: Record<string, React.ReactNode> = {
@@ -141,7 +141,7 @@ function calcularSegmentos(r: RegistroAsistencia): Segmento[] {
   }
   if (cursor < salida) segmentos.push({ inicio: cursor, fin: salida, tipo: 'trabajo' })
 
-  const colores = { trabajo: 'bg-emerald-500/30', almuerzo: 'bg-amber-500/40', tramite: 'bg-sky-500/40' }
+  const colores = { trabajo: 'bg-asistencia-presente/30', almuerzo: 'bg-asistencia-almuerzo/40', tramite: 'bg-asistencia-particular/40' }
   return segmentos.map(s => ({
     tipo: s.tipo,
     minutos: Math.max(1, Math.round((s.fin - s.inicio) / 60000)),
@@ -175,7 +175,7 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
 
   const hash = r.miembro_nombre.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
   const colorAvatar = COLORES_AVATAR[hash % COLORES_AVATAR.length]
-  const colorDurTxt = r.estado === 'auto_cerrado' || r.tipo === 'tardanza' ? 'text-amber-400' : 'text-emerald-400'
+  const colorDurTxt = r.estado === 'auto_cerrado' || r.tipo === 'tardanza' ? 'text-asistencia-tarde' : 'text-asistencia-presente'
 
   // Segmentos de la barra
   const segmentos = calcularSegmentos(r)
@@ -209,7 +209,7 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
             </p>
           </div>
         </div>
-        <span className={`inline-flex items-center gap-[5px] px-2.5 py-[5px] rounded-full text-[11px] font-medium border shrink-0 ${cfg.fondo} ${cfg.color}`}>
+        <span className={`inline-flex items-center gap-1 px-2.5 py-[5px] rounded-full text-[11px] font-medium border shrink-0 ${cfg.fondo} ${cfg.color}`}>
           {cfg.icono}
           {cfg.etiqueta}
         </span>
@@ -232,20 +232,20 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
 
           {/* Barra segmentada + tags de duración */}
           <div className="flex items-center gap-2.5">
-            <div className="flex items-center gap-1 px-2 py-[3px] rounded-[5px] bg-emerald-500/12 border border-emerald-500/25">
-              <Calendar size={11} className="text-emerald-400" />
-              <span className="text-[11px] font-medium text-emerald-400">{dur}</span>
+            <div className="flex items-center gap-1 px-2 py-[3px] rounded-md bg-asistencia-presente-fondo border border-asistencia-presente/25">
+              <Calendar size={11} className="text-asistencia-presente" />
+              <span className="text-[11px] font-medium text-asistencia-presente">{dur}</span>
             </div>
             <span className={`text-xs font-medium ${colorDurTxt}`}>{dur} netos</span>
 
             {minAlmuerzo > 0 && (
-              <span className="flex items-center gap-1 text-xs text-amber-400/80">
+              <span className="flex items-center gap-1 text-xs text-asistencia-tarde/80">
                 <UtensilsCrossed size={11} />
                 {fmtDurCorta(minAlmuerzo)}
               </span>
             )}
             {minTramite > 0 && (
-              <span className="flex items-center gap-1 text-xs text-sky-400/80">
+              <span className="flex items-center gap-1 text-xs text-asistencia-particular/80">
                 <Footprints size={11} />
                 {fmtDurCorta(minTramite)}
               </span>
@@ -254,11 +254,11 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
         </div>
       ) : r.estado === 'feriado' ? (
         <div className="px-5 py-4 border-b border-white/[0.07]">
-          <p className="text-xs text-violet-400/80">{r.notas || 'Feriado'}</p>
+          <p className="text-xs text-asistencia-feriado/80">{r.notas || 'Feriado'}</p>
         </div>
       ) : r.estado === 'ausente' ? (
         <div className="px-5 py-4 border-b border-white/[0.07]">
-          <p className="text-xs text-red-400/60">Sin registro de asistencia</p>
+          <p className="text-xs text-asistencia-ausente/60">Sin registro de asistencia</p>
         </div>
       ) : null}
 
@@ -269,7 +269,7 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
           <div className="px-5 py-3 border-b border-r border-white/[0.07]">
             <p className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider mb-1.5">Entrada</p>
             <div className="flex items-center gap-2">
-              <div className="size-7 rounded-[7px] bg-emerald-500/15 flex items-center justify-center shrink-0">
+              <div className="size-7 rounded-md bg-asistencia-presente-fondo flex items-center justify-center shrink-0">
                 {ICONO_METODO[r.metodo_registro] || <Pencil size={13} />}
               </div>
               <div>
@@ -284,7 +284,7 @@ export function TarjetaAsistencia({ registro }: { registro: RegistroAsistencia }
             <p className="text-[10px] font-medium text-texto-terciario/40 uppercase tracking-wider mb-1.5">Salida</p>
             {r.hora_salida && !enCurso ? (
               <div className="flex items-center gap-2">
-                <div className="size-7 rounded-[7px] bg-emerald-500/15 flex items-center justify-center shrink-0">
+                <div className="size-7 rounded-md bg-asistencia-presente-fondo flex items-center justify-center shrink-0">
                   {ICONO_METODO[r.metodo_salida || 'manual'] || <Pencil size={13} />}
                 </div>
                 <div>

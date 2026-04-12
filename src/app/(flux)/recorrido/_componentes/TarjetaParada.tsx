@@ -184,7 +184,7 @@ function TarjetaParada({
                     className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-lg border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all"
                   >
                     <X size={16} className="text-[var(--insignia-peligro)]" />
-                    <span className="text-[10px] font-medium text-texto-secundario">Cancelar</span>
+                    <span className="text-[10px] font-medium text-texto-secundario">{t('comun.cancelar')}</span>
                   </button>
                   <button
                     onClick={() => onCambiarEstado(visita.id, 'en_camino')}
@@ -222,7 +222,7 @@ function TarjetaParada({
                     className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-lg border border-borde-sutil bg-superficie-elevada hover:brightness-110 transition-all"
                   >
                     <X size={16} className="text-[var(--insignia-peligro)]" />
-                    <span className="text-[10px] font-medium text-texto-secundario">Cancelar</span>
+                    <span className="text-[10px] font-medium text-texto-secundario">{t('comun.cancelar')}</span>
                   </button>
                   <button
                     onClick={() => onRegistrar(visita.id)}
@@ -266,7 +266,7 @@ function TarjetaParada({
                       className="flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-medium text-texto-terciario hover:bg-superficie-elevada transition-colors"
                     >
                       <X size={12} />
-                      <span>Cancelar</span>
+                      <span>{t('comun.cancelar')}</span>
                     </button>
                   </div>
                 </div>
