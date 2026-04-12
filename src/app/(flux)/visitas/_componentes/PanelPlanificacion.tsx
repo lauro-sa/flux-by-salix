@@ -345,7 +345,7 @@ export default function PanelPlanificacion() {
 
   return (
     <ProveedorMapa>
-    <div className="flex flex-col gap-3 px-2 sm:px-6 pb-4">
+    <div className="flex flex-col gap-3 px-2 sm:px-6 pb-4 flex-1 min-h-0">
 
       {/* ── Resumen compacto ── */}
       <div className="flex items-center gap-3 text-xs text-texto-terciario px-1">
@@ -430,7 +430,7 @@ export default function PanelPlanificacion() {
         </div>
 
         {/* Desktop kanban */}
-        <div className="hidden md:flex items-stretch gap-3 overflow-x-auto pb-2 -mx-1 px-1 min-h-[calc(100vh-280px)]">
+        <div className="hidden md:flex items-stretch gap-3 overflow-x-auto pb-2 -mx-1 px-1 flex-1 min-h-0">
           {/* Columna sin asignar — siempre visible */}
           <TarjetaVisitador
             usuarioId={ID_SIN_ASIGNAR}
