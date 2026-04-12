@@ -297,14 +297,24 @@ function PopoverEvento({
               </div>
 
               <div className="border-t border-borde-sutil" />
-              <Boton
-                variante="secundario"
-                tamano="sm"
-                icono={<ExternalLink size={14} />}
-                onClick={() => { router.push(`/visitas/${evento.visita_id || evento.id}`); onCerrar() }}
-              >
-                Abrir visita
-              </Boton>
+              <div className="flex items-center gap-2">
+                <Boton
+                  variante="secundario"
+                  tamano="sm"
+                  icono={<Pencil size={14} />}
+                  onClick={onEditar}
+                >
+                  Editar visita
+                </Boton>
+                <Boton
+                  variante="fantasma"
+                  tamano="sm"
+                  icono={<ExternalLink size={14} />}
+                  onClick={() => { router.push(`/visitas/${evento.visita_id || evento.id}`); onCerrar() }}
+                >
+                  Ir a visitas
+                </Boton>
+              </div>
             </>
           ) : (
             /* ── Popover de EVENTO NORMAL ── */

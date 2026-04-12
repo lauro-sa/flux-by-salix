@@ -645,7 +645,7 @@ function ModalEvento({
       alturaMovil="completo"
     >
       {/* ══ Grid 2 columnas con divisor 1px ══ */}
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-0 border-y border-white/[0.07]">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-0 border-y border-white/[0.07] overflow-y-auto max-h-[calc(100vh-200px)]">
 
         {/* ── COL IZQUIERDA — datos del evento ── */}
         <div className="p-6 space-y-4">
