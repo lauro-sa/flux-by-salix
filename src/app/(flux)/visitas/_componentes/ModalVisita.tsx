@@ -50,6 +50,7 @@ export interface Visita {
   motivo: string | null
   resultado: string | null
   notas: string | null
+  temperatura: string | null
   prioridad: string
   checklist: ItemChecklist[]
   registro_lat: number | null
@@ -60,6 +61,8 @@ export interface Visita {
   recibe_nombre: string | null
   recibe_telefono: string | null
   recibe_contacto_id: string | null
+  archivada: boolean
+  archivada_en: string | null
   en_papelera: boolean
   creado_por: string | null
   creado_por_nombre: string | null
@@ -737,7 +740,7 @@ function ModalVisita({
         <div className="hidden md:block bg-white/[0.07]" />
 
         {/* ── COLUMNA DERECHA ── */}
-        <div className="space-y-0">
+        <div className="space-y-0 md:min-w-[280px]">
           {/* Asignado a */}
           <div className="px-6 py-4 border-b border-white/[0.07]">
             <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2 block">

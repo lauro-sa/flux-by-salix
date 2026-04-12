@@ -158,13 +158,14 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    // Obtener nombre del usuario para el chatter
-    const { data: miembro } = await admin
-      .from('miembros')
-      .select('nombre_completo')
-      .eq('usuario_id', user.id)
-      .eq('empresa_id', empresaId)
+    // Obtener nombre del usuario desde perfiles
+    const { data: perfil } = await admin
+      .from('perfiles')
+      .select('nombre, apellido')
+      .eq('id', user.id)
       .single()
+
+    const nombreAutor = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : (user.email || 'Usuario')
 
     // Registrar cambio de estado en chatter
     await registrarChatter({
@@ -173,7 +174,7 @@ export async function PATCH(request: NextRequest) {
       entidadId: visita_id,
       contenido: `Estado cambiado de ${ETIQUETAS_ESTADO[estadoAnterior] || estadoAnterior} a ${ETIQUETAS_ESTADO[estado] || estado}`,
       autorId: user.id,
-      autorNombre: miembro?.nombre_completo || user.email || 'Usuario',
+      autorNombre: nombreAutor,
       metadata: {
         accion: 'estado_cambiado',
         estado_anterior: estadoAnterior,

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
+import { crearNotificacion } from '@/lib/notificaciones'
 
 /**
  * PATCH /api/recorrido/reordenar — Reordenar paradas del recorrido.
@@ -32,7 +33,7 @@ export async function PATCH(request: NextRequest) {
     // Verificar que el recorrido pertenece a la empresa
     const { data: recorrido } = await admin
       .from('recorridos')
-      .select('id, asignado_a')
+      .select('id, asignado_a, estado')
       .eq('id', recorrido_id)
       .eq('empresa_id', empresaId)
       .single()
@@ -72,6 +73,22 @@ export async function PATCH(request: NextRequest) {
     })
 
     await Promise.all(promesas)
+
+    // Notificar al visitador solo si el recorrido está en curso (ya lo está realizando)
+    // Si es borrador o pendiente, el coordinador todavía está organizando — no avisar
+    if (recorrido.asignado_a !== user.id && recorrido.estado === 'en_curso') {
+      crearNotificacion({
+        empresaId,
+        usuarioId: recorrido.asignado_a,
+        tipo: 'sistema',
+        titulo: 'Tu recorrido fue modificado',
+        cuerpo: 'Se reordenaron las paradas de tu recorrido. Revisá el nuevo orden.',
+        icono: 'route',
+        url: '/recorrido',
+        referenciaTipo: 'recorrido',
+        referenciaId: recorrido_id,
+      }).catch(() => { /* no bloquear la respuesta */ })
+    }
 
     return NextResponse.json({ ok: true })
   } catch (err) {

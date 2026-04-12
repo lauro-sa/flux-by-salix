@@ -365,7 +365,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         campos.contacto_nombre = body.contacto_nombre
       } else {
         const { data: c } = await admin.from('contactos').select('nombre, empresa_nombre').eq('id', body.contacto_id).single()
-        campos.contacto_nombre = c?.nombre || c?.empresa_nombre || 'Contacto'
+        campos.contacto_nombre = c?.nombre || c?.empresa_nombre || 'Sin nombre'
       }
     }
     if (body.direccion_id !== undefined) {

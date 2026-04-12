@@ -72,7 +72,11 @@ interface DatosPlanificacion {
 
 const ID_SIN_ASIGNAR = '__sin_asignar__'
 
-export default function PanelPlanificacion() {
+interface PropsPanelPlanificacion {
+  onAbrirVisita?: (visitaId: string) => void
+}
+
+export default function PanelPlanificacion({ onAbrirVisita }: PropsPanelPlanificacion) {
   const { t } = useTraduccion()
   const { mostrar } = useToast()
   const queryClient = useQueryClient()
@@ -105,14 +109,31 @@ export default function PanelPlanificacion() {
   const [visitadoresLocal, setVisitadoresLocal] = useState<VisitadorPlan[]>([])
   const [sinAsignarLocal, setSinAsignarLocal] = useState<VisitaPlan[]>([])
 
-  // Ordenar visitas por fecha más cercana primero
+  // Peso por estado: activas arriba, pendientes en medio, completadas abajo
+  const pesoEstado = useCallback((estado: string) => {
+    if (estado === 'en_camino' || estado === 'en_sitio') return 0
+    if (estado === 'completada') return 2
+    if (estado === 'cancelada') return 3
+    return 1 // programada, reprogramada
+  }, [])
+
+  // Ordenar visitas: agrupar por día, dentro de cada día ordenar por estado (activas arriba, completadas abajo)
   const ordenarPorFecha = useCallback((arr: VisitaPlan[]) =>
     [...arr].sort((a, b) => {
+      // Primero agrupar por día (sin hora)
+      const diaA = a.fecha_programada?.split('T')[0] || '9999'
+      const diaB = b.fecha_programada?.split('T')[0] || '9999'
+      if (diaA !== diaB) return diaA.localeCompare(diaB)
+      // Dentro del mismo día, por estado: activas → pendientes → completadas
+      const pa = pesoEstado(a.estado)
+      const pb = pesoEstado(b.estado)
+      if (pa !== pb) return pa - pb
+      // Mismo estado, por hora
       const fa = a.fecha_programada ? new Date(a.fecha_programada).getTime() : Infinity
       const fb = b.fecha_programada ? new Date(b.fecha_programada).getTime() : Infinity
       return fa - fb
     })
-  , [])
+  , [pesoEstado])
 
   useEffect(() => {
     if (datos) {
@@ -135,7 +156,11 @@ export default function PanelPlanificacion() {
           return ia - ib
         })
       }
-      setVisitadoresLocal(visitadoresOrdenados)
+      // Ordenar visitas dentro de cada visitador por fecha+estado
+      setVisitadoresLocal(visitadoresOrdenados.map(v => ({
+        ...v,
+        visitas: ordenarPorFecha(v.visitas),
+      })))
       setSinAsignarLocal(ordenarPorFecha(datos.pendientes_sin_asignar || datos.sin_asignar))
     }
   }, [datos, ordenColumnas, ordenarPorFecha])
@@ -434,6 +459,7 @@ export default function PanelPlanificacion() {
               usuarioId={ID_SIN_ASIGNAR} nombre={t('visitas.sin_asignar')} apellido="" avatarUrl={null}
               visitas={sinAsignarLocal} recorrido={null}
               onOptimizarRuta={() => {}} onGuardarConfig={async () => {}}
+              onAbrirVisita={onAbrirVisita}
             />
           )}
           {tabMobile >= 0 && visitadoresLocal[tabMobile] && (
@@ -447,6 +473,7 @@ export default function PanelPlanificacion() {
               recorrido={visitadoresLocal[tabMobile].recorrido}
               onOptimizarRuta={optimizarRuta} onGuardarConfig={guardarConfig}
               onAbrirRecorrido={abrirRecorrido}
+              onAbrirVisita={onAbrirVisita}
               optimizando={optimizandoUsuario === visitadoresLocal[tabMobile].usuario_id}
             />
           )}
@@ -464,6 +491,7 @@ export default function PanelPlanificacion() {
             recorrido={null}
             onOptimizarRuta={() => {}}
             onGuardarConfig={async () => {}}
+            onAbrirVisita={onAbrirVisita}
             esSinAsignar
           />
 
@@ -481,6 +509,7 @@ export default function PanelPlanificacion() {
               onGuardarConfig={guardarConfig}
               onMoverColumna={moverColumna}
               onAbrirRecorrido={abrirRecorrido}
+              onAbrirVisita={onAbrirVisita}
               optimizando={optimizandoUsuario === visitador.usuario_id}
             />
           ))}
@@ -504,13 +533,13 @@ export default function PanelPlanificacion() {
                 <div className="flex justify-center py-0.5 opacity-30">
                   <GripVertical size={12} />
                 </div>
-                <div className="px-2.5 pb-2 space-y-1">
+                <div className="px-3 pb-2.5 space-y-1.5">
                   <div className="flex items-center gap-2">
-                    <span className="truncate text-[13px] font-medium text-texto-primario">
+                    <span className="truncate text-[13px] font-medium text-texto-primario flex-1">
                       {v.contacto_nombre || 'Sin contacto'}
                     </span>
                     {v.contacto?.tipo_contacto?.etiqueta && (
-                      <span className="text-xxs px-1.5 py-0.5 rounded bg-superficie-tarjeta border border-borde-sutil text-texto-terciario shrink-0">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-superficie-tarjeta border border-borde-sutil text-texto-terciario shrink-0">
                         {v.contacto.tipo_contacto.etiqueta}
                       </span>
                     )}
@@ -526,8 +555,8 @@ export default function PanelPlanificacion() {
                     {v.duracion_estimada_min && <span>· {v.duracion_estimada_min}min</span>}
                   </div>
                   {v.direccion_texto && (
-                    <div className="flex items-start gap-1">
-                      <MapPin size={9} className="shrink-0 text-texto-terciario mt-0.5" />
+                    <div className="flex items-start gap-1.5">
+                      <MapPin size={10} className="shrink-0 text-texto-terciario mt-0.5" />
                       <span className="text-[11px] text-texto-terciario leading-tight line-clamp-2">{v.direccion_texto}</span>
                     </div>
                   )}

@@ -5,7 +5,7 @@
  */
 
 // ─── Tipos de entrada ───
-export type TipoChatter = 'mensaje' | 'sistema' | 'nota_interna' | 'correo' | 'whatsapp'
+export type TipoChatter = 'mensaje' | 'sistema' | 'nota_interna' | 'correo' | 'whatsapp' | 'visita'
 
 // ─── Acciones de sistema predefinidas ───
 export type AccionSistema =
@@ -32,6 +32,8 @@ export type AccionSistema =
   | 'whatsapp_enviado'
   // Re-emisión
   | 're_emision'
+  // Visitas
+  | 'visita_completada'
 
 // ─── Adjunto ───
 export interface AdjuntoChatter {
@@ -81,6 +83,22 @@ export interface MetadataChatter {
   whatsapp_botones?: { tipo: string; texto: string; url?: string }[]
   wa_message_id?: string
   wa_status?: 'sent' | 'delivered' | 'read' | 'failed'
+  // Para visitas completadas
+  visita_resultado?: string
+  visita_temperatura?: string
+  visita_notas?: string
+  visita_checklist?: { id: string; texto: string; completado: boolean }[]
+  visita_direccion?: string
+  visita_duracion_real?: number
+  visita_duracion_estimada?: number
+  visita_fecha_completada?: string
+  visita_fecha_programada?: string
+  visita_motivo?: string
+  visita_contacto_nombre?: string
+  visita_contacto_id?: string
+  visita_registro_lat?: number
+  visita_registro_lng?: number
+  visita_registro_precision?: number
   // Para notas ricas
   contenido_html?: string
   // Para menciones
@@ -115,4 +133,4 @@ export interface CrearEntradaChatterPayload {
 }
 
 // ─── Filtros del chatter ───
-export type FiltroChatter = 'todo' | 'correos' | 'whatsapp' | 'notas' | 'sistema'
+export type FiltroChatter = 'todo' | 'correos' | 'whatsapp' | 'notas' | 'visitas' | 'sistema'

@@ -6,7 +6,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { Popover } from '@/componentes/ui/Popover'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
-import { Settings2 } from 'lucide-react'
+import { Settings2, Building2, RotateCcw } from 'lucide-react'
 
 /**
  * ConfigRecorrido — Popover con permisos del recorrido para un visitador.
@@ -29,14 +29,24 @@ const PERMISOS_DEFAULT: ConfigPermisos = {
   puede_cancelar: false,
 }
 
+interface OrigenDestinoProps {
+  coordsEmpresa: { lat: number; lng: number; texto: string } | null
+  origenEmpresa: boolean
+  destinoEmpresa: boolean
+  onToggleOrigen: (activo: boolean) => void
+  onToggleDestino: (activo: boolean) => void
+}
+
 interface Props {
   recorridoId: string | null
   configActual?: ConfigPermisos | null
   nombreVisitador: string
   onGuardar: (config: ConfigPermisos) => Promise<void>
+  /** Props opcionales para salida/regreso — solo en ModalRecorrido */
+  origenDestino?: OrigenDestinoProps
 }
 
-export default function ConfigRecorrido({ recorridoId, configActual, nombreVisitador, onGuardar }: Props) {
+export default function ConfigRecorrido({ recorridoId, configActual, nombreVisitador, onGuardar, origenDestino }: Props) {
   const { t } = useTraduccion()
   const { mostrar } = useToast()
   const [config, setConfig] = useState<ConfigPermisos>(configActual || PERMISOS_DEFAULT)
@@ -88,6 +98,44 @@ export default function ConfigRecorrido({ recorridoId, configActual, nombreVisit
           </div>
         ))}
       </div>
+
+      {/* Salida y regreso — solo en ModalRecorrido */}
+      {origenDestino?.coordsEmpresa && (
+        <>
+          <div className="h-px bg-white/[0.07]" />
+          <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">
+            Salida y regreso
+          </p>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.03] py-2 px-2.5">
+              <div className="flex items-center gap-2 min-w-0">
+                <Building2 size={12} className="shrink-0 text-texto-terciario" />
+                <div className="min-w-0">
+                  <p className="text-[12px] text-texto-primario">Salir desde la empresa</p>
+                  <p className="text-[10px] text-texto-terciario truncate">{origenDestino.coordsEmpresa.texto}</p>
+                </div>
+              </div>
+              <Interruptor
+                activo={origenDestino.origenEmpresa}
+                onChange={() => origenDestino.onToggleOrigen(!origenDestino.origenEmpresa)}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.03] py-2 px-2.5">
+              <div className="flex items-center gap-2 min-w-0">
+                <RotateCcw size={12} className="shrink-0 text-texto-terciario" />
+                <div className="min-w-0">
+                  <p className="text-[12px] text-texto-primario">Volver a la empresa</p>
+                  <p className="text-[10px] text-texto-terciario truncate">{origenDestino.coordsEmpresa.texto}</p>
+                </div>
+              </div>
+              <Interruptor
+                activo={origenDestino.destinoEmpresa}
+                onChange={() => origenDestino.onToggleDestino(!origenDestino.destinoEmpresa)}
+              />
+            </div>
+          </div>
+        </>
+      )}
 
       <Boton
         variante="primario"

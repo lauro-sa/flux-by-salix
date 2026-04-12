@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
     const vista = params.get('vista') || 'todas'
     const fecha = params.get('fecha')
     const en_papelera = params.get('en_papelera') === 'true'
+    const archivadas = params.get('archivadas') === 'true'
     const orden_campo = params.get('orden_campo') || 'fecha_programada'
     const orden_dir = params.get('orden_dir') ? params.get('orden_dir') === 'asc' : true
     const pagina = parseInt(params.get('pagina') || '1')
@@ -46,6 +47,7 @@ export async function GET(request: NextRequest) {
       .select('*', { count: 'exact' })
       .eq('empresa_id', empresaId)
       .eq('en_papelera', en_papelera)
+      .eq('archivada', archivadas)
 
     // Si solo tiene ver_propio, forzar filtro
     if (soloPropio) {
@@ -180,7 +182,7 @@ export async function POST(request: NextRequest) {
     ])
 
     const nombreCreador = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : 'Usuario'
-    const contactoNombre = contacto?.nombre || contacto?.empresa_nombre || 'Contacto'
+    const contactoNombre = contacto?.nombre || contacto?.empresa_nombre || body.contacto_nombre || 'Sin nombre'
 
     // Snapshot de dirección si se proporcionó
     let direccionTexto = body.direccion_texto || null

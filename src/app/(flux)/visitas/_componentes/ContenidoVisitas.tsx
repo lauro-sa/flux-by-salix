@@ -11,8 +11,9 @@ import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import {
   PlusCircle, Download, MapPin, MapPinOff,
   CheckCircle, Clock, User, Trash2, History,
-  Navigation, Eye, CalendarClock, AlertTriangle, Route, List,
+  Navigation, Eye, CalendarClock, AlertTriangle, Route, List, Archive,
 } from 'lucide-react'
+import { Tabs } from '@/componentes/ui/Tabs'
 import type { AccionLote } from '@/componentes/tablas/tipos-tabla'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
@@ -22,6 +23,7 @@ import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
 import { ModalVisita } from './ModalVisita'
 import type { Visita, Miembro } from './ModalVisita'
 import PanelPlanificacion from './PanelPlanificacion'
+import { ModalDetalleVisita, type DatosVisitaDetalle } from '@/componentes/entidad/_panel_chatter/ModalDetalleVisita'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useFormato } from '@/hooks/useFormato'
@@ -92,6 +94,8 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
   const [pagina, setPagina] = useState(1)
   const [modalAbierto, setModalAbierto] = useState(false)
   const [visitaEditando, setVisitaEditando] = useState<Visita | null>(null)
+  const [mostrarArchivadas, setMostrarArchivadas] = useState(false)
+  const [visitaArchivedaDetalle, setVisitaArchivedaDetalle] = useState<Visita | null>(null)
 
   // Abrir modal si viene ?crear=true desde el dashboard
   const vieneDeDashboardRef = useRef(false)
@@ -117,7 +121,7 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
   }, [busqueda])
 
   // Reset página al cambiar filtros
-  useEffect(() => { setPagina(1) }, [busquedaDebounced, filtroEstado, filtroPrioridad, filtroVista])
+  useEffect(() => { setPagina(1) }, [busquedaDebounced, filtroEstado, filtroPrioridad, filtroVista, mostrarArchivadas])
 
   // Config de visitas (cache largo)
   const { datos: configData } = useConfig<Record<string, unknown>>(
@@ -137,9 +141,10 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
     url: '/api/visitas',
     parametros: {
       busqueda: busquedaDebounced,
-      estado: filtroEstado.length > 0 ? filtroEstado.join(',') : undefined,
+      estado: mostrarArchivadas ? 'completada' : (filtroEstado.length > 0 ? filtroEstado.join(',') : undefined),
       prioridad: filtroPrioridad || undefined,
       vista: filtroVista || undefined,
+      archivadas: mostrarArchivadas ? 'true' : undefined,
       pagina,
       por_pagina: POR_PAGINA,
     },
@@ -501,34 +506,48 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
       mostrarConfiguracion
       onConfiguracion={() => router.push('/visitas/configuracion')}
     >
-      {/* Tabs: Listado / Planificación */}
-      <div className="flex items-center gap-1 mb-3 border-b border-borde-sutil pb-2">
+      {/* Tabs: Listado / Planificación + toggle archivadas */}
+      <div className="flex items-center gap-2 mb-3">
+        <Tabs
+          tabs={[
+            { clave: 'listado', etiqueta: t('visitas.listado'), icono: <List size={14} /> },
+            { clave: 'planificacion', etiqueta: t('visitas.planificacion'), icono: <Route size={14} /> },
+          ]}
+          activo={vistaActiva}
+          onChange={(clave) => { setVistaActiva(clave as 'listado' | 'planificacion'); if (mostrarArchivadas) setMostrarArchivadas(false) }}
+          className="flex-1"
+          layoutId="tabs-visitas"
+        />
         <button
-          onClick={() => setVistaActiva('listado')}
-          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-            vistaActiva === 'listado'
-              ? 'bg-texto-marca/15 text-texto-marca'
-              : 'text-texto-terciario hover:bg-white/[0.06] hover:text-texto-secundario'
+          onClick={() => {
+            setMostrarArchivadas(!mostrarArchivadas)
+            if (!mostrarArchivadas) setVistaActiva('listado')
+          }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            mostrarArchivadas
+              ? 'bg-texto-marca/15 text-texto-marca border border-texto-marca/30'
+              : 'bg-superficie-hover text-texto-terciario hover:text-texto-secundario border border-borde-sutil'
           }`}
+          title="Ver visitas archivadas"
         >
-          <List size={14} />
-          {t('visitas.listado')}
-        </button>
-        <button
-          onClick={() => setVistaActiva('planificacion')}
-          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-            vistaActiva === 'planificacion'
-              ? 'bg-texto-marca/15 text-texto-marca'
-              : 'text-texto-terciario hover:bg-white/[0.06] hover:text-texto-secundario'
-          }`}
-        >
-          <Route size={14} />
-          {t('visitas.planificacion')}
+          <Archive size={14} />
+          Archivadas
         </button>
       </div>
 
       {vistaActiva === 'planificacion' ? (
-        <PanelPlanificacion />
+        <PanelPlanificacion onAbrirVisita={(visitaId) => {
+          // Buscar en las visitas ya cargadas o cargar por API
+          const encontrada = visitas.find(v => v.id === visitaId)
+          if (encontrada) {
+            setVisitaEditando(encontrada)
+            setModalAbierto(true)
+          } else {
+            fetch(`/api/visitas/${visitaId}`)
+              .then(r => r.ok ? r.json() : null)
+              .then(data => { if (data) { setVisitaEditando(data); setModalAbierto(true) } })
+          }
+        }} />
       ) : (
       <TablaDinamica
         columnas={columnas}
@@ -603,8 +622,12 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
         idModulo="visitas"
         renderTarjeta={renderTarjeta}
         onClickFila={(fila) => {
-          setVisitaEditando(fila)
-          setModalAbierto(true)
+          if (mostrarArchivadas) {
+            setVisitaArchivedaDetalle(fila)
+          } else {
+            setVisitaEditando(fila)
+            setModalAbierto(true)
+          }
         }}
         mostrarResumen
         estadoVacio={
@@ -655,6 +678,36 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
           tipo="peligro"
           onConfirmar={() => eliminarLote(confirmEliminarLote)}
           onCerrar={() => setConfirmEliminarLote(null)}
+        />
+      )}
+
+      {/* Modal detalle visita archivada (solo lectura) */}
+      {visitaArchivedaDetalle && (
+        <ModalDetalleVisita
+          abierto={!!visitaArchivedaDetalle}
+          onCerrar={() => setVisitaArchivedaDetalle(null)}
+          datosVisita={{
+            resultado: visitaArchivedaDetalle.resultado,
+            notas: visitaArchivedaDetalle.notas,
+            temperatura: visitaArchivedaDetalle.temperatura,
+            checklist: visitaArchivedaDetalle.checklist,
+            direccion_texto: visitaArchivedaDetalle.direccion_texto,
+            duracion_real_min: visitaArchivedaDetalle.duracion_real_min,
+            duracion_estimada_min: visitaArchivedaDetalle.duracion_estimada_min,
+            fecha_completada: visitaArchivedaDetalle.fecha_completada,
+            fecha_programada: visitaArchivedaDetalle.fecha_programada,
+            motivo: visitaArchivedaDetalle.motivo,
+            contacto_nombre: visitaArchivedaDetalle.contacto_nombre,
+            contacto_id: visitaArchivedaDetalle.contacto_id,
+            asignado_nombre: visitaArchivedaDetalle.asignado_nombre,
+            editado_por_nombre: visitaArchivedaDetalle.editado_por_nombre,
+            registro_lat: visitaArchivedaDetalle.registro_lat,
+            registro_lng: visitaArchivedaDetalle.registro_lng,
+            registro_precision_m: visitaArchivedaDetalle.registro_precision_m,
+            prioridad: visitaArchivedaDetalle.prioridad,
+            recibe_nombre: visitaArchivedaDetalle.recibe_nombre,
+            recibe_telefono: visitaArchivedaDetalle.recibe_telefono,
+          }}
         />
       )}
     </PlantillaListado>

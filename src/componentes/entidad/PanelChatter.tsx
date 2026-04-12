@@ -41,6 +41,7 @@ const FILTROS: { clave: FiltroChatter; etiqueta: string }[] = [
   { clave: 'correos', etiqueta: 'Correos' },
   { clave: 'whatsapp', etiqueta: 'WhatsApp' },
   { clave: 'notas', etiqueta: 'Notas' },
+  { clave: 'visitas', etiqueta: 'Visitas' },
   { clave: 'sistema', etiqueta: 'Sistema' },
 ]
 
@@ -163,6 +164,9 @@ export function PanelChatter({
       case 'notas':
         resultado = resultado.filter(e => e.tipo === 'nota_interna' || e.tipo === 'mensaje')
         break
+      case 'visitas':
+        resultado = resultado.filter(e => e.tipo === 'visita' || e.metadata?.accion === 'visita_completada')
+        break
       case 'sistema':
         resultado = resultado.filter(e => e.tipo === 'sistema')
         break
@@ -182,12 +186,13 @@ export function PanelChatter({
 
   // ─── Contadores por filtro ───
   const contadores = useMemo(() => {
-    const c: Record<FiltroChatter, number> = { todo: 0, correos: 0, whatsapp: 0, notas: 0, sistema: 0 }
+    const c: Record<FiltroChatter, number> = { todo: 0, correos: 0, whatsapp: 0, notas: 0, visitas: 0, sistema: 0 }
     for (const e of entradas) {
       c.todo++
       if (e.tipo === 'correo' || e.metadata?.accion === 'correo_enviado' || e.metadata?.accion === 'correo_recibido') c.correos++
       if (e.tipo === 'whatsapp' || e.metadata?.accion === 'whatsapp_enviado') c.whatsapp++
       if (e.tipo === 'nota_interna' || e.tipo === 'mensaje') c.notas++
+      if (e.tipo === 'visita' || e.metadata?.accion === 'visita_completada') c.visitas++
       if (e.tipo === 'sistema') c.sistema++
     }
     return c

@@ -61,7 +61,7 @@ function ProveedorEmpresa({ children }: { children: ReactNode }) {
         const empresaIds = membresias.map(m => m.empresa_id)
         const { data: empresasData } = await supabase
           .from('empresas')
-          .select('id, nombre, slug, logo_url, pais, color_marca, creado_en')
+          .select('id, nombre, slug, logo_url, pais, color_marca, creado_en, direccion')
           .in('id', empresaIds)
 
         const empresasMapa = new Map(

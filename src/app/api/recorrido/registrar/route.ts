@@ -30,10 +30,10 @@ export async function POST(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    // Verificar que la visita existe y pertenece a la empresa
+    // Verificar que la visita existe y pertenece a la empresa — traer datos completos para el chatter
     const { data: visita } = await admin
       .from('visitas')
-      .select('id, empresa_id')
+      .select('id, empresa_id, contacto_id, contacto_nombre, direccion_texto, direccion_lat, direccion_lng, fecha_programada, fecha_completada, fecha_llegada, duracion_estimada_min, duracion_real_min, motivo, estado, asignado_nombre, registro_lat, registro_lng, registro_precision_m')
       .eq('id', visitaId)
       .eq('empresa_id', empresaId)
       .single()
@@ -91,36 +91,63 @@ export async function POST(request: NextRequest) {
       .update(actualizacion)
       .eq('id', visitaId)
 
-    // Obtener nombre del usuario
-    const { data: miembro } = await admin
-      .from('miembros')
-      .select('nombre_completo')
-      .eq('usuario_id', user.id)
-      .eq('empresa_id', empresaId)
+    // Obtener nombre del usuario desde perfiles
+    const { data: perfil } = await admin
+      .from('perfiles')
+      .select('nombre, apellido')
+      .eq('id', user.id)
       .single()
 
-    // Crear entrada en chatter con fotos y notas
-    const contenidoChatter = notas
-      ? `Registro de visita: ${notas}`
-      : 'Registro de visita completado'
+    // Metadata compartida para las entradas de chatter
+    const nombreAutor = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : (user.email || 'Usuario')
+    const checklistParseado = checklistJson ? (() => { try { return JSON.parse(checklistJson) } catch { return [] } })() : []
+    const metadataVisita = {
+      accion: 'visita_completada' as const,
+      visita_id: visitaId,
+      visita_resultado: resultado || undefined,
+      visita_notas: notas || undefined,
+      visita_temperatura: temperatura || undefined,
+      visita_checklist: checklistParseado,
+      visita_direccion: visita.direccion_texto || undefined,
+      visita_duracion_real: visita.duracion_real_min || undefined,
+      visita_duracion_estimada: visita.duracion_estimada_min || undefined,
+      visita_fecha_completada: visita.fecha_completada || new Date().toISOString(),
+      visita_fecha_programada: visita.fecha_programada || undefined,
+      visita_motivo: visita.motivo || undefined,
+      visita_contacto_nombre: visita.contacto_nombre || undefined,
+      visita_contacto_id: visita.contacto_id || undefined,
+      visita_registro_lat: visita.registro_lat || undefined,
+      visita_registro_lng: visita.registro_lng || undefined,
+      visita_registro_precision: visita.registro_precision_m || undefined,
+    }
 
+    // Entrada en el chatter de la visita
     await registrarChatter({
       empresaId,
       entidadTipo: 'visita',
       entidadId: visitaId,
-      tipo: 'nota_interna',
-      contenido: contenidoChatter,
+      tipo: 'visita',
+      contenido: resultado || 'Visita completada',
       autorId: user.id,
-      autorNombre: miembro?.nombre_completo || user.email || 'Usuario',
+      autorNombre: nombreAutor,
       adjuntos,
-      metadata: {
-        accion: 'estado_cambiado',
-        detalles: {
-          resultado: resultado || undefined,
-          fotos: adjuntos.length,
-        },
-      },
+      metadata: metadataVisita,
     })
+
+    // Entrada en el chatter del contacto — bloque visual de visita completada
+    if (visita.contacto_id) {
+      await registrarChatter({
+        empresaId,
+        entidadTipo: 'contacto',
+        entidadId: visita.contacto_id,
+        tipo: 'visita',
+        contenido: resultado || 'Visita completada',
+        autorId: user.id,
+        autorNombre: nombreAutor,
+        adjuntos,
+        metadata: metadataVisita,
+      })
+    }
 
     return NextResponse.json({ ok: true, adjuntos: adjuntos.length })
   } catch (err) {

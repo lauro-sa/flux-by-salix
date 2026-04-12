@@ -22,6 +22,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import type { AccionSistema } from '@/tipos/chatter'
 import { ICONOS_ACCION, fechaRelativa, fechaCompleta, formatearTextoWA } from './constantes'
 import type { PropsEntradaTimeline } from './tipos'
+import { EntradaVisita } from './EntradaVisita'
 
 export function EntradaTimeline({
   entrada,
@@ -42,12 +43,16 @@ export function EntradaTimeline({
   const esSistema = entrada.tipo === 'sistema'
   const esCorreo = entrada.tipo === 'correo'
   const esWhatsApp = entrada.tipo === 'whatsapp'
+  const esVisita = entrada.tipo === 'visita'
   const esNotaInterna = entrada.tipo === 'nota_interna'
   const esMensaje = entrada.tipo === 'mensaje'
   const esMensajePortal = esMensaje && entrada.metadata?.portal && entrada.autor_id === 'portal'
 
   const fh = formatoHora
 
+  if (esVisita) {
+    return <EntradaVisita entrada={entrada} formatoHora={fh} locale={locale} />
+  }
   if (esSistema) {
     return (
       <EntradaSistema

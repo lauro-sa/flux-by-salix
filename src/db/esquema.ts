@@ -2162,6 +2162,10 @@ export const visitas = pgTable('visitas', {
   actividad_id: uuid('actividad_id'), // actividad asociada si se creó desde una
   vinculos: jsonb('vinculos').notNull().default(sql`'[]'`), // [{tipo, id, nombre}]
 
+  // Archivo automático (visitas completadas > 30 días)
+  archivada: boolean('archivada').notNull().default(false),
+  archivada_en: timestamp('archivada_en', { withTimezone: true }),
+
   // Soft delete
   en_papelera: boolean('en_papelera').notNull().default(false),
   papelera_en: timestamp('papelera_en', { withTimezone: true }),
@@ -2180,6 +2184,7 @@ export const visitas = pgTable('visitas', {
   index('visitas_estado_idx').on(tabla.empresa_id, tabla.estado),
   index('visitas_fecha_idx').on(tabla.empresa_id, tabla.fecha_programada),
   index('visitas_papelera_idx').on(tabla.empresa_id, tabla.en_papelera),
+  index('visitas_archivada_idx').on(tabla.empresa_id, tabla.archivada),
 ])
 
 // ═══════════════════════════════════════════════════════════════

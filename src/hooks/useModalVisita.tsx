@@ -44,6 +44,7 @@ export interface VisitaExistente {
   motivo: string | null
   resultado: string | null
   notas: string | null
+  temperatura: string | null
   prioridad: string
   checklist: { id: string; texto: string; completado: boolean }[]
   registro_lat: number | null
@@ -54,6 +55,8 @@ export interface VisitaExistente {
   recibe_nombre: string | null
   recibe_telefono: string | null
   recibe_contacto_id: string | null
+  archivada: boolean
+  archivada_en: string | null
   en_papelera: boolean
   creado_por: string | null
   creado_por_nombre: string | null

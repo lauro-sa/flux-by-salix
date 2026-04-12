@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
         .select('id, contacto_id, contacto_nombre, direccion_texto, direccion_lat, direccion_lng, estado, prioridad, duracion_estimada_min, fecha_programada, motivo, asignado_a, asignado_nombre, contacto:contactos!visitas_contacto_id_fkey(tipo_contacto:tipos_contacto(clave, etiqueta))')
         .eq('empresa_id', empresaId)
         .eq('en_papelera', false)
-        .in('estado', ['programada', 'reprogramada', 'en_camino', 'en_sitio'])
+        .in('estado', ['programada', 'reprogramada', 'en_camino', 'en_sitio', 'completada'])
         .order('fecha_programada', { ascending: true })
         .limit(200),
       admin
