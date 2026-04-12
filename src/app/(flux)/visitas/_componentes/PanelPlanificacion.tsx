@@ -19,6 +19,7 @@ import { useFormato } from '@/hooks/useFormato'
 import { CalendarDays, Users, Inbox, MapPin, Calendar, GripVertical } from 'lucide-react'
 import { ProveedorMapa } from '@/componentes/mapa'
 import TarjetaVisitador from './TarjetaVisitador'
+import ModalRecorrido from './ModalRecorrido'
 import type { ConfigPermisos } from './ConfigRecorrido'
 
 /**
@@ -80,6 +81,11 @@ export default function PanelPlanificacion() {
   const columnaOrigenRef = useRef<string | null>(null)
   const [optimizandoUsuario, setOptimizandoUsuario] = useState<string | null>(null)
   const [tabMobile, setTabMobile] = useState(0)
+  // Modal de recorrido
+  const [modalRecorrido, setModalRecorrido] = useState<{ abierto: boolean; usuarioId: string; nombreVisitador: string; fecha: string }>({
+    abierto: false, usuarioId: '', nombreVisitador: '', fecha: '',
+  })
+
   // Orden de columnas persistido en localStorage
   const [ordenColumnas, setOrdenColumnas] = useState<string[]>([])
   const ordenCargado = useRef(false)
@@ -206,7 +212,7 @@ export default function PanelPlanificacion() {
       setSinAsignarLocal(prev => ordenarPorFecha([...prev, visita]))
     } else {
       setVisitadoresLocal(prev => prev.map(vis =>
-        vis.usuario_id === columnaDestino ? { ...vis, visitas: [...vis.visitas, visita] } : vis
+        vis.usuario_id === columnaDestino ? { ...vis, visitas: ordenarPorFecha([...vis.visitas, visita]) } : vis
       ))
     }
   }, [encontrarColumna, encontrarVisita, ordenarPorFecha])
@@ -249,13 +255,18 @@ export default function PanelPlanificacion() {
       return
     }
 
-    // Reordenar dentro de la misma columna
+    // Reordenar dentro de la misma columna — respetando grupos de fecha
     if (columnaActual === ID_SIN_ASIGNAR) return
     const visitador = visitadoresLocal.find(v => v.usuario_id === columnaActual)
     if (!visitador) return
     const oldIndex = visitador.visitas.findIndex(v => v.id === activeId)
     const newIndex = visitador.visitas.findIndex(v => v.id === overId)
     if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return
+
+    // Solo permitir reorden dentro del mismo grupo de fecha
+    const fechaActiva = visitador.visitas[oldIndex].fecha_programada?.split('T')[0] || ''
+    const fechaOver = visitador.visitas[newIndex].fecha_programada?.split('T')[0] || ''
+    if (fechaActiva !== fechaOver) return // no mover entre fechas distintas
 
     const nuevasVisitas = arrayMove(visitador.visitas, oldIndex, newIndex)
     setVisitadoresLocal(prev => prev.map(v =>
@@ -330,6 +341,17 @@ export default function PanelPlanificacion() {
     if (!res.ok) throw new Error()
     queryClient.invalidateQueries({ queryKey: ['visitas-planificacion'] })
   }, [queryClient])
+
+  // Abrir modal de recorrido
+  const abrirRecorrido = useCallback((usuarioId: string, fecha: string) => {
+    const visitador = visitadoresLocal.find(v => v.usuario_id === usuarioId)
+    const nombre = visitador ? `${visitador.nombre} ${visitador.apellido}`.trim() : 'Visitador'
+    setModalRecorrido({ abierto: true, usuarioId, nombreVisitador: nombre, fecha })
+  }, [visitadoresLocal])
+
+  const cerrarRecorrido = useCallback(() => {
+    setModalRecorrido(prev => ({ ...prev, abierto: false }))
+  }, [])
 
   const formato = useFormato()
   const visitaDragging = draggingId ? encontrarVisita(draggingId) : null
@@ -424,6 +446,7 @@ export default function PanelPlanificacion() {
               visitas={visitadoresLocal[tabMobile].visitas}
               recorrido={visitadoresLocal[tabMobile].recorrido}
               onOptimizarRuta={optimizarRuta} onGuardarConfig={guardarConfig}
+              onAbrirRecorrido={abrirRecorrido}
               optimizando={optimizandoUsuario === visitadoresLocal[tabMobile].usuario_id}
             />
           )}
@@ -457,6 +480,7 @@ export default function PanelPlanificacion() {
               onOptimizarRuta={optimizarRuta}
               onGuardarConfig={guardarConfig}
               onMoverColumna={moverColumna}
+              onAbrirRecorrido={abrirRecorrido}
               optimizando={optimizandoUsuario === visitador.usuario_id}
             />
           ))}
@@ -513,6 +537,16 @@ export default function PanelPlanificacion() {
           })()}
         </DragOverlay>
       </DndContext>
+
+      {/* Modal de recorrido para organizar paradas de un visitador en una fecha */}
+      <ModalRecorrido
+        abierto={modalRecorrido.abierto}
+        onCerrar={cerrarRecorrido}
+        usuarioId={modalRecorrido.usuarioId}
+        nombreVisitador={modalRecorrido.nombreVisitador}
+        fecha={modalRecorrido.fecha}
+        onActualizar={refetch}
+      />
     </div>
     </ProveedorMapa>
   )
