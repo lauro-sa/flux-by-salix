@@ -21,6 +21,8 @@ import {
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ModalActividad } from '@/app/(flux)/actividades/_componentes/ModalActividad'
+import { ModalVisita } from '@/app/(flux)/visitas/_componentes/ModalVisita'
+import { useModalVisita } from '@/hooks/useModalVisita'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useAuth } from '@/hooks/useAuth'
 import { useFormato } from '@/hooks/useFormato'
@@ -73,6 +75,7 @@ export function PanelChatter({
   // ─── Estado de modales internos ───
   const [modalWhatsApp, setModalWhatsApp] = useState(false)
   const [modalActividad, setModalActividad] = useState(false)
+  const modalVisitaHook = useModalVisita()
   // Actividad cargada para edición (null = crear nueva)
   const [actividadEditar, setActividadEditar] = useState<Record<string, unknown> | null>(null)
 
@@ -476,9 +479,11 @@ export function PanelChatter({
                 onWhatsApp={() => setModalWhatsApp(true)}
                 onNota={() => setModoNota(!modoNota)}
                 onActividad={abrirActividad}
+                onVisita={() => modalVisitaHook.abrir()}
                 tieneCorreo={!!onAbrirCorreo}
                 tieneWhatsApp
                 tieneActividad={true}
+                tieneVisita={entidadTipo === 'contacto'}
               />
 
               {/* ─── Búsqueda ─── */}
@@ -667,6 +672,18 @@ export function PanelChatter({
           onCerrar={() => { setModalActividad(false); setActividadEditar(null) }}
         />
       )}
+
+      {/* Modal de visita — abierto desde el botón Visita del chatter */}
+      <ModalVisita
+        abierto={modalVisitaHook.abierto}
+        visita={modalVisitaHook.visitaEditando}
+        miembros={modalVisitaHook.miembros}
+        config={modalVisitaHook.config}
+        onGuardar={modalVisitaHook.guardar}
+        onCompletar={modalVisitaHook.completarVisita}
+        onCancelar={modalVisitaHook.cancelarVisita}
+        onCerrar={modalVisitaHook.cerrar}
+      />
     </>
   )
 }

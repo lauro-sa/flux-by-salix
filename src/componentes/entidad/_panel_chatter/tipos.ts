@@ -101,9 +101,11 @@ export interface PropsBarraAcciones {
   onWhatsApp?: () => void
   onNota: () => void
   onActividad?: () => void
+  onVisita?: () => void
   tieneCorreo: boolean
   tieneWhatsApp: boolean
   tieneActividad: boolean
+  tieneVisita?: boolean
 }
 
 // ─── Props de FiltrosChatter ───

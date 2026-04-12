@@ -23,6 +23,8 @@ import { MiniCalendario } from './_componentes/MiniCalendario'
 import { ModalEvento } from './_componentes/ModalEvento'
 import { PopoverEvento } from './_componentes/PopoverEvento'
 import { useToast } from '@/componentes/feedback/Toast'
+import { useModalVisita } from '@/hooks/useModalVisita'
+import { ModalVisita } from '@/app/(flux)/visitas/_componentes/ModalVisita'
 import type { EventoCalendario, TipoEventoCalendario, VistaCalendario } from './_componentes/tipos'
 
 // --- Utilidades de rango de fechas ---
@@ -120,6 +122,7 @@ export default function PaginaCalendario() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { mostrar } = useToast()
+  const modalVisita = useModalVisita()
 
   // Estado principal — vista inicial desde localStorage del usuario o 'mes' por defecto
   const [vistaActiva, setVistaActivaInterno] = useState<VistaCalendario>(() => {
@@ -392,12 +395,20 @@ export default function PaginaCalendario() {
   /** Abre el modal de edición desde el popover */
   const editarDesdePopover = useCallback(() => {
     if (popoverEvento) {
+      // Si es evento de visita, abrir ModalVisita buscando la visita por visita_id
+      if (popoverEvento._es_visita && popoverEvento.visita_id) {
+        fetch(`/api/visitas/${popoverEvento.visita_id}`)
+          .then(r => r.ok ? r.json() : null)
+          .then(visita => { if (visita) modalVisita.abrir(visita) })
+        cerrarPopover()
+        return
+      }
       setEventoEditando(popoverEvento)
       setFechaPreseleccionada(null)
       setModalAbierto(true)
     }
     cerrarPopover()
-  }, [popoverEvento, cerrarPopover])
+  }, [popoverEvento, cerrarPopover, modalVisita])
 
   /** Elimina el evento mostrado en el popover */
   const eliminarDesdePopover = useCallback(async () => {
@@ -694,6 +705,18 @@ export default function PaginaCalendario() {
         onGuardar={guardarEvento}
         onEliminar={eventoEditando ? eliminarEvento : undefined}
         onCerrar={cerrarModal}
+      />
+
+      {/* Modal de visita — abierto desde eventos tipo visita */}
+      <ModalVisita
+        abierto={modalVisita.abierto}
+        visita={modalVisita.visitaEditando}
+        miembros={modalVisita.miembros}
+        config={modalVisita.config}
+        onGuardar={async (datos) => { await modalVisita.guardar(datos); cargarEventos() }}
+        onCompletar={async (id) => { await modalVisita.completarVisita(id); cargarEventos() }}
+        onCancelar={async (id) => { await modalVisita.cancelarVisita(id); cargarEventos() }}
+        onCerrar={modalVisita.cerrar}
       />
     </PlantillaListado>
   )

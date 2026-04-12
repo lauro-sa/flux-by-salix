@@ -7,7 +7,7 @@
  * Se usa en: PanelChatter (parte superior, debajo del header).
  */
 
-import { Mail, StickyNote, Zap } from 'lucide-react'
+import { Mail, StickyNote, Zap, MapPin } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { PropsBarraAcciones } from './tipos'
 
@@ -16,6 +16,7 @@ const ICONOS: Record<string, React.ReactNode> = {
   whatsapp: <IconoWhatsApp size={14} />,
   nota: <StickyNote size={14} />,
   actividad: <Zap size={14} />,
+  visita: <MapPin size={14} />,
 }
 
 interface ConfigAccion {
@@ -31,15 +32,18 @@ export function BarraAcciones({
   onWhatsApp,
   onNota,
   onActividad,
+  onVisita,
   tieneCorreo,
   tieneWhatsApp,
   tieneActividad,
+  tieneVisita = false,
 }: PropsBarraAcciones) {
   const acciones: ConfigAccion[] = [
     { clave: 'correo', etiqueta: 'Correo', colorVar: '--canal-correo', onClick: onCorreo, disponible: tieneCorreo },
     { clave: 'whatsapp', etiqueta: 'WhatsApp', colorVar: '--canal-whatsapp', onClick: onWhatsApp, disponible: tieneWhatsApp },
     { clave: 'nota', etiqueta: 'Nota', colorVar: '--insignia-advertencia', onClick: onNota, disponible: true },
     { clave: 'actividad', etiqueta: 'Actividad', colorVar: '--insignia-info', onClick: onActividad, disponible: tieneActividad },
+    ...(tieneVisita ? [{ clave: 'visita', etiqueta: 'Visita', colorVar: '--texto-marca', onClick: onVisita, disponible: true }] : []),
   ]
 
   return (

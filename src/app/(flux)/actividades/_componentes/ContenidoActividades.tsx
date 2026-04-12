@@ -28,6 +28,8 @@ import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useFormato } from '@/hooks/useFormato'
 import { useTraduccion } from '@/lib/i18n'
+import { useModalVisita } from '@/hooks/useModalVisita'
+import { ModalVisita } from '@/app/(flux)/visitas/_componentes/ModalVisita'
 
 /**
  * Contenido interactivo de actividades — Client Component.
@@ -83,6 +85,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
   const { mostrar } = useToast()
   const formato = useFormato()
   const { t } = useTraduccion()
+  const modalVisitaHook = useModalVisita()
 
   // Estado local de UI
   const [busqueda, setBusqueda] = useState('')
@@ -837,20 +840,19 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
         idModulo="actividades"
         renderTarjeta={renderTarjeta}
         onClickFila={(fila) => {
-          // Si es actividad tipo visita, redirigir al módulo de visitas
+          // Si es actividad tipo visita, abrir ModalVisita
           if (fila.tipo_clave === 'visita') {
-            // Buscar la visita vinculada a esta actividad
             fetch(`/api/visitas?actividad_id=${fila.id}`)
               .then(r => r.json())
               .then(data => {
                 const visitas = data.visitas || []
                 if (visitas.length > 0) {
-                  router.push(`/visitas/${visitas[0].id}`)
+                  modalVisitaHook.abrir(visitas[0])
                 } else {
-                  router.push('/visitas')
+                  modalVisitaHook.abrir()
                 }
               })
-              .catch(() => router.push('/visitas'))
+              .catch(() => modalVisitaHook.abrir())
             return
           }
           setActividadEditando(fila)
@@ -907,6 +909,18 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
             recargarActividades()
           }
         }}
+      />
+
+      {/* Modal de visita — abierto desde actividades tipo visita */}
+      <ModalVisita
+        abierto={modalVisitaHook.abierto}
+        visita={modalVisitaHook.visitaEditando}
+        miembros={modalVisitaHook.miembros}
+        config={modalVisitaHook.config}
+        onGuardar={async (datos) => { await modalVisitaHook.guardar(datos); recargarActividades() }}
+        onCompletar={async (id) => { await modalVisitaHook.completarVisita(id); recargarActividades() }}
+        onCancelar={async (id) => { await modalVisitaHook.cancelarVisita(id); recargarActividades() }}
+        onCerrar={modalVisitaHook.cerrar}
       />
 
       {/* Confirmar eliminación en lote */}
