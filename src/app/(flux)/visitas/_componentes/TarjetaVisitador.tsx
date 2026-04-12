@@ -307,12 +307,33 @@ export default function TarjetaVisitador({
         </div>
       )}
 
-      {/* Lista de visitas — sortable con scroll */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-2 space-y-1.5">
+      {/* Lista de visitas — agrupadas por fecha con separadores */}
+      <div className="min-h-0 flex-1 overflow-y-auto p-2 space-y-1">
         <SortableContext items={idsVisitas} strategy={verticalListSortingStrategy}>
-          {visitas.map((visita, indice) => (
-            <ItemVisitaSortable key={visita.id} visita={visita} indice={indice} />
-          ))}
+          {(() => {
+            let ultimaFecha = ''
+            let contadorGlobal = 0
+            return visitas.map((visita) => {
+              const fechaVisita = visita.fecha_programada
+                ? new Date(visita.fecha_programada).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })
+                    .replace(/^\w/, c => c.toUpperCase())
+                : 'Sin fecha'
+              const mostrarSeparador = fechaVisita !== ultimaFecha
+              ultimaFecha = fechaVisita
+              contadorGlobal++
+              return (
+                <div key={visita.id}>
+                  {mostrarSeparador && (
+                    <div className="flex items-center gap-2 pt-2 pb-1 first:pt-0">
+                      <span className="text-[10px] font-semibold text-texto-terciario uppercase tracking-wider">{fechaVisita}</span>
+                      <div className="flex-1 h-px bg-white/[0.06]" />
+                    </div>
+                  )}
+                  <ItemVisitaSortable visita={visita} indice={contadorGlobal - 1} />
+                </div>
+              )
+            })
+          })()}
         </SortableContext>
 
         {visitas.length === 0 && (

@@ -22,51 +22,25 @@ export async function GET(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    const { searchParams } = new URL(request.url)
-    const fechaParam = searchParams.get('fecha')
-    const fecha = fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam)
-      ? fechaParam
-      : new Date().toISOString().split('T')[0]
-
-    const inicioDelDia = `${fecha}T00:00:00.000Z`
-    const finDelDia = `${fecha}T23:59:59.999Z`
-
-    // Queries en paralelo: visitas del día, miembros, recorridos, todas sin asignar
+    // Queries en paralelo: TODAS las visitas pendientes, miembros
     const [
       { data: visitas, error: errorVisitas },
       { data: miembros },
-      { data: recorridos },
-      { data: todasSinAsignar },
     ] = await Promise.all([
-      admin
-        .from('visitas')
-        .select('*')
-        .eq('empresa_id', empresaId)
-        .eq('en_papelera', false)
-        .neq('estado', 'cancelada')
-        .gte('fecha_programada', inicioDelDia)
-        .lte('fecha_programada', finDelDia)
-        .order('fecha_programada', { ascending: true }),
-      admin
-        .from('miembros')
-        .select('usuario_id, rol, permisos_custom')
-        .eq('empresa_id', empresaId)
-        .eq('activo', true),
-      admin
-        .from('recorridos')
-        .select('*, paradas:recorrido_paradas(id, visita_id, orden)')
-        .eq('empresa_id', empresaId)
-        .eq('fecha', fecha),
-      // Todas las visitas sin asignar (cualquier fecha, pendientes)
+      // Todas las visitas activas (cualquier fecha)
       admin
         .from('visitas')
         .select('id, contacto_id, contacto_nombre, direccion_texto, direccion_lat, direccion_lng, estado, prioridad, duracion_estimada_min, fecha_programada, motivo, asignado_a, asignado_nombre, contacto:contactos!visitas_contacto_id_fkey(tipo_contacto:tipos_contacto(clave, etiqueta))')
         .eq('empresa_id', empresaId)
         .eq('en_papelera', false)
-        .is('asignado_a', null)
-        .in('estado', ['programada', 'reprogramada'])
+        .in('estado', ['programada', 'reprogramada', 'en_camino', 'en_sitio'])
         .order('fecha_programada', { ascending: true })
-        .limit(100),
+        .limit(200),
+      admin
+        .from('miembros')
+        .select('usuario_id, rol, permisos_custom')
+        .eq('empresa_id', empresaId)
+        .eq('activo', true),
     ])
 
     if (errorVisitas) {
@@ -109,31 +83,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Mapa de recorridos por usuario
-    const recorridosPorUsuario = new Map<string, (typeof recorridos extends (infer T)[] | null ? T : never)>()
-    for (const rec of recorridos || []) {
-      recorridosPorUsuario.set(rec.asignado_a, rec)
-    }
-
     // Armar respuesta por visitadores habilitados
     const visitadores = miembrosVisitadores.map(miembro => {
       const usuarioId = miembro.usuario_id
       const perfil = perfilesPorId.get(usuarioId) || null
       const visitasUsuario = visitasPorUsuario.get(usuarioId) || []
-      const recorrido = recorridosPorUsuario.get(usuarioId) || null
-
-      // Ordenar visitas según orden de paradas del recorrido si existe
-      let visitasOrdenadas = visitasUsuario
-      if (recorrido?.paradas?.length) {
-        const ordenParadas = new Map(
-          (recorrido.paradas as { visita_id: string; orden: number }[]).map(p => [p.visita_id, p.orden])
-        )
-        visitasOrdenadas = [...visitasUsuario].sort((a, b) => {
-          const ordenA = ordenParadas.get(a.id) ?? 999
-          const ordenB = ordenParadas.get(b.id) ?? 999
-          return ordenA - ordenB
-        })
-      }
 
       return {
         usuario_id: usuarioId,
@@ -141,17 +95,8 @@ export async function GET(request: NextRequest) {
         apellido: perfil?.apellido || '',
         avatar_url: perfil?.avatar_url || null,
         rol: miembro.rol || null,
-        visitas: visitasOrdenadas,
-        recorrido: recorrido ? {
-          id: recorrido.id,
-          estado: recorrido.estado,
-          total_visitas: recorrido.total_visitas,
-          visitas_completadas: recorrido.visitas_completadas,
-          distancia_total_km: recorrido.distancia_total_km,
-          duracion_total_min: recorrido.duracion_total_min,
-          config: recorrido.config || null,
-          paradas: recorrido.paradas || [],
-        } : null,
+        visitas: visitasUsuario,
+        recorrido: null,
       }
     })
 
@@ -163,10 +108,9 @@ export async function GET(request: NextRequest) {
     })
 
     return NextResponse.json({
-      fecha,
       visitadores,
       sin_asignar: sinAsignar,
-      pendientes_sin_asignar: todasSinAsignar || [],
+      pendientes_sin_asignar: sinAsignar,
       total_visitas: (visitas || []).length,
     })
   } catch (err) {

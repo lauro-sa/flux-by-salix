@@ -15,9 +15,8 @@ import {
 import { arrayMove } from '@dnd-kit/sortable'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
-import { Boton } from '@/componentes/ui/Boton'
 import { useFormato } from '@/hooks/useFormato'
-import { CalendarDays, Users, ChevronLeft, ChevronRight, Inbox, MapPin, Calendar, GripVertical } from 'lucide-react'
+import { CalendarDays, Users, Inbox, MapPin, Calendar, GripVertical } from 'lucide-react'
 import { ProveedorMapa } from '@/componentes/mapa'
 import TarjetaVisitador from './TarjetaVisitador'
 import type { ConfigPermisos } from './ConfigRecorrido'
@@ -72,22 +71,11 @@ interface DatosPlanificacion {
 
 const ID_SIN_ASIGNAR = '__sin_asignar__'
 
-/** Formatea fecha como "Lun 10 Abr" */
-function formatearFechaCorta(iso: string): string {
-  const fecha = new Date(iso + 'T12:00:00')
-  return fecha.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })
-    .replace(/^\w/, c => c.toUpperCase())
-}
-
 export default function PanelPlanificacion() {
   const { t } = useTraduccion()
   const { mostrar } = useToast()
   const queryClient = useQueryClient()
 
-  const [fecha, setFecha] = useState(() => {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  })
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const columnaOrigenRef = useRef<string | null>(null)
   const [optimizandoUsuario, setOptimizandoUsuario] = useState<string | null>(null)
@@ -96,11 +84,11 @@ export default function PanelPlanificacion() {
   const [ordenColumnas, setOrdenColumnas] = useState<string[]>([])
   const ordenCargado = useRef(false)
 
-  // Fetch datos
+  // Fetch datos — todas las visitas pendientes sin filtro de fecha
   const { data: datos, isLoading, refetch } = useQuery<DatosPlanificacion>({
-    queryKey: ['visitas-planificacion', fecha],
+    queryKey: ['visitas-planificacion'],
     queryFn: async () => {
-      const res = await fetch(`/api/visitas/planificacion?fecha=${fecha}`)
+      const res = await fetch('/api/visitas/planificacion')
       if (!res.ok) throw new Error('Error al cargar planificación')
       return res.json()
     },
@@ -164,34 +152,6 @@ export default function PanelPlanificacion() {
       return nuevo
     })
   }, [])
-
-  // Helper para formatear fecha local sin UTC
-  const fechaLocal = useCallback((d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  , [])
-
-  // Navegación de fecha: día anterior / siguiente
-  const cambiarDia = useCallback((delta: number) => {
-    setFecha(prev => {
-      const d = new Date(prev + 'T12:00:00')
-      d.setDate(d.getDate() + delta)
-      return fechaLocal(d)
-    })
-  }, [fechaLocal])
-
-  const botonesRapidos = useMemo(() => {
-    const hoy = new Date()
-    const manana = new Date(hoy); manana.setDate(manana.getDate() + 1)
-    const diaSemana = hoy.getDay()
-    const lunesEsta = new Date(hoy); lunesEsta.setDate(hoy.getDate() - (diaSemana === 0 ? 6 : diaSemana - 1))
-    const lunesProx = new Date(lunesEsta); lunesProx.setDate(lunesEsta.getDate() + 7)
-    return [
-      { label: t('visitas.hoy'), valor: fechaLocal(hoy) },
-      { label: t('visitas.manana'), valor: fechaLocal(manana) },
-      { label: t('visitas.esta_semana'), valor: fechaLocal(lunesEsta) },
-      { label: t('visitas.proxima_semana'), valor: fechaLocal(lunesProx) },
-    ]
-  }, [t, fechaLocal])
 
   // Resumen
   const totalVisitas = (datos?.total_visitas || 0)
@@ -387,60 +347,26 @@ export default function PanelPlanificacion() {
     <ProveedorMapa>
     <div className="flex flex-col gap-3 px-2 sm:px-6 pb-4">
 
-      {/* ── Barra de controles estilo asistencias ── */}
-      <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-borde-sutil bg-superficie-tarjeta">
-        {/* Chips rápidos */}
-        {botonesRapidos.map(btn => (
-          <button
-            key={btn.valor}
-            onClick={() => setFecha(btn.valor)}
-            className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
-              fecha === btn.valor
-                ? 'bg-superficie-elevada text-texto-primario'
-                : 'text-texto-terciario hover:text-texto-secundario'
-            }`}
-          >
-            {btn.label}
-          </button>
-        ))}
-
-        {/* Spacer */}
-        <div className="flex-1" />
-
-        {/* Resumen */}
-        <div className="hidden sm:flex items-center gap-3 text-xs text-texto-terciario whitespace-nowrap">
-          <span className="flex items-center gap-1.5">
-            <CalendarDays size={11} />
-            <strong className="text-texto-primario">{totalVisitas}</strong> visitas
-          </span>
-          <span className="text-borde-fuerte">·</span>
-          <span className="flex items-center gap-1.5">
-            <Users size={11} />
-            <strong className="text-texto-primario">{visitadoresConVisitas}</strong>/{visitadoresLocal.length} con rutas
-          </span>
-          {sinAsignarLocal.length > 0 && (
-            <>
-              <span className="text-borde-fuerte">·</span>
-              <span className="flex items-center gap-1.5 text-insignia-advertencia">
-                <Inbox size={11} />
-                <strong>{sinAsignarLocal.length}</strong> sin asignar
-              </span>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* ── Navegación de fecha centrada ── */}
-      <div className="flex items-center justify-center gap-3 shrink-0">
-        <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronLeft size={16} />} onClick={() => cambiarDia(-1)} />
-        <button
-          onClick={() => setFecha(botonesRapidos[0].valor)}
-          className="text-center hover:text-texto-marca transition-colors min-w-[120px]"
-        >
-          <p className="text-sm font-semibold text-texto-primario">{formatearFechaCorta(fecha)}</p>
-          <p className="text-[10px] text-texto-terciario">{fecha}</p>
-        </button>
-        <Boton variante="fantasma" tamano="xs" soloIcono icono={<ChevronRight size={16} />} onClick={() => cambiarDia(1)} />
+      {/* ── Resumen compacto ── */}
+      <div className="flex items-center gap-3 text-xs text-texto-terciario px-1">
+        <span className="flex items-center gap-1.5">
+          <CalendarDays size={11} />
+          <strong className="text-texto-primario">{totalVisitas}</strong> visitas pendientes
+        </span>
+        <span className="text-borde-fuerte">·</span>
+        <span className="flex items-center gap-1.5">
+          <Users size={11} />
+          <strong className="text-texto-primario">{visitadoresConVisitas}</strong>/{visitadoresLocal.length} con visitas
+        </span>
+        {sinAsignarLocal.length > 0 && (
+          <>
+            <span className="text-borde-fuerte">·</span>
+            <span className="flex items-center gap-1.5 text-insignia-advertencia">
+              <Inbox size={11} />
+              <strong>{sinAsignarLocal.length}</strong> sin asignar
+            </span>
+          </>
+        )}
       </div>
 
       {/* ── Kanban ── */}
