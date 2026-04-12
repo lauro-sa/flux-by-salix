@@ -87,6 +87,7 @@ export default function PanelPlanificacion() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   })
   const [draggingId, setDraggingId] = useState<string | null>(null)
+  const columnaOrigenRef = useRef<string | null>(null)
   const [optimizandoUsuario, setOptimizandoUsuario] = useState<string | null>(null)
   const [tabMobile, setTabMobile] = useState(0)
   // Orden de columnas persistido en localStorage
@@ -214,8 +215,10 @@ export default function PanelPlanificacion() {
   }, [visitadoresLocal, sinAsignarLocal])
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
-    setDraggingId(event.active.id as string)
-  }, [])
+    const id = event.active.id as string
+    setDraggingId(id)
+    columnaOrigenRef.current = encontrarColumna(id)
+  }, [encontrarColumna])
 
   const handleDragOver = useCallback((event: DragOverEvent) => {
     const { active, over } = event
@@ -249,61 +252,66 @@ export default function PanelPlanificacion() {
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event
     setDraggingId(null)
-    if (!over) return
+    if (!over) { columnaOrigenRef.current = null; return }
 
     const activeId = active.id as string
     const overId = over.id as string
+    const columnaOrigen = columnaOrigenRef.current
     const columnaActual = encontrarColumna(activeId)
+    columnaOrigenRef.current = null
     if (!columnaActual) return
 
-    // Reordenar dentro de la misma columna
-    if (columnaActual === encontrarColumna(overId) || columnaActual === overId) {
-      if (columnaActual === ID_SIN_ASIGNAR) return
-      const visitador = visitadoresLocal.find(v => v.usuario_id === columnaActual)
-      if (!visitador) return
-      const oldIndex = visitador.visitas.findIndex(v => v.id === activeId)
-      const newIndex = visitador.visitas.findIndex(v => v.id === overId)
-      if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return
+    // ¿Cambió de columna? (comparar con origen guardado en dragStart)
+    const cambioColumna = columnaOrigen !== null && columnaOrigen !== columnaActual
 
-      const nuevasVisitas = arrayMove(visitador.visitas, oldIndex, newIndex)
-      setVisitadoresLocal(prev => prev.map(v =>
-        v.usuario_id === columnaActual ? { ...v, visitas: nuevasVisitas } : v
-      ))
-      if (visitador.recorrido) {
-        try {
-          await fetch('/api/recorrido/reordenar', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              recorrido_id: visitador.recorrido.id,
-              paradas: nuevasVisitas.map((v, i) => ({ id: v.id, orden: i + 1 })),
-            }),
-          })
-        } catch { refetch() }
+    if (cambioColumna) {
+      // Reasignar entre columnas — la UI ya se actualizó en handleDragOver
+      const visitadorDestino = columnaActual === ID_SIN_ASIGNAR
+        ? null : visitadoresLocal.find(v => v.usuario_id === columnaActual)
+      try {
+        const res = await fetch('/api/visitas/planificacion/reasignar', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            visita_id: activeId,
+            asignado_a: columnaActual === ID_SIN_ASIGNAR ? null : columnaActual,
+            asignado_nombre: visitadorDestino ? `${visitadorDestino.nombre} ${visitadorDestino.apellido}`.trim() : null,
+          }),
+        })
+        if (!res.ok) throw new Error()
+        mostrar('exito', t('visitas.visita_reasignada'))
+      } catch {
+        mostrar('error', 'Error al reasignar')
+        refetch()
       }
       return
     }
 
-    // Reasignar entre columnas
-    const visitadorDestino = columnaActual === ID_SIN_ASIGNAR
-      ? null : visitadoresLocal.find(v => v.usuario_id === columnaActual)
-    try {
-      const res = await fetch('/api/visitas/planificacion/reasignar', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          visita_id: activeId,
-          asignado_a: columnaActual === ID_SIN_ASIGNAR ? null : columnaActual,
-          asignado_nombre: visitadorDestino ? `${visitadorDestino.nombre} ${visitadorDestino.apellido}`.trim() : null,
-        }),
-      })
-      if (!res.ok) throw new Error()
-      mostrar('exito', t('visitas.visita_reasignada'))
-    } catch {
-      mostrar('error', 'Error al reasignar')
-      refetch()
+    // Reordenar dentro de la misma columna
+    if (columnaActual === ID_SIN_ASIGNAR) return
+    const visitador = visitadoresLocal.find(v => v.usuario_id === columnaActual)
+    if (!visitador) return
+    const oldIndex = visitador.visitas.findIndex(v => v.id === activeId)
+    const newIndex = visitador.visitas.findIndex(v => v.id === overId)
+    if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return
+
+    const nuevasVisitas = arrayMove(visitador.visitas, oldIndex, newIndex)
+    setVisitadoresLocal(prev => prev.map(v =>
+      v.usuario_id === columnaActual ? { ...v, visitas: nuevasVisitas } : v
+    ))
+    if (visitador.recorrido) {
+      try {
+        await fetch('/api/recorrido/reordenar', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recorrido_id: visitador.recorrido.id,
+            paradas: nuevasVisitas.map((v, i) => ({ id: v.id, orden: i + 1 })),
+          }),
+        })
+      } catch { refetch() }
     }
-  }, [encontrarColumna, encontrarVisita, visitadoresLocal, refetch, mostrar, t])
+  }, [encontrarColumna, visitadoresLocal, refetch, mostrar, t])
 
   // Optimizar ruta
   const optimizarRuta = useCallback(async (usuarioId: string) => {
