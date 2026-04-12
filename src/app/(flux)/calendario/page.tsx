@@ -123,6 +123,7 @@ export default function PaginaCalendario() {
   const searchParams = useSearchParams()
   const { mostrar } = useToast()
   const modalVisita = useModalVisita()
+  const eventoAlVolverRef = useRef<EventoCalendario | null>(null)
 
   // Estado principal — vista inicial desde localStorage del usuario o 'mes' por defecto
   const [vistaActiva, setVistaActivaInterno] = useState<VistaCalendario>(() => {
@@ -706,10 +707,18 @@ export default function PaginaCalendario() {
         onEliminar={eventoEditando ? eliminarEvento : undefined}
         onCerrar={cerrarModal}
         onAbrirVisita={(visitaId) => {
+          // Guardar evento actual para reabrirlo al cerrar ModalVisita
+          const eventoActual = eventoEditando
           cerrarModal()
           fetch(`/api/visitas/${visitaId}`)
             .then(r => r.ok ? r.json() : null)
-            .then(visita => { if (visita) modalVisita.abrir(visita) })
+            .then(visita => {
+              if (visita) {
+                // Guardar referencia al evento para volver
+                eventoAlVolverRef.current = eventoActual
+                modalVisita.abrir(visita)
+              }
+            })
         }}
       />
 
@@ -722,7 +731,15 @@ export default function PaginaCalendario() {
         onGuardar={async (datos) => { await modalVisita.guardar(datos); cargarEventos() }}
         onCompletar={async (id) => { await modalVisita.completarVisita(id); cargarEventos() }}
         onCancelar={async (id) => { await modalVisita.cancelarVisita(id); cargarEventos() }}
-        onCerrar={modalVisita.cerrar}
+        onCerrar={() => {
+          modalVisita.cerrar()
+          // Reabrir ModalEvento si se vino de ahí
+          if (eventoAlVolverRef.current) {
+            setEventoEditando(eventoAlVolverRef.current)
+            setModalAbierto(true)
+            eventoAlVolverRef.current = null
+          }
+        }}
       />
     </PlantillaListado>
   )
