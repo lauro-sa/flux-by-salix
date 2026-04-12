@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Trash2, X, Search, UserPlus, Link2, Users } from 'lucide-react'
+import { Trash2, X, Search, UserPlus, Link2, Users, MapPin } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ModalAdaptable } from '@/componentes/ui/ModalAdaptable'
 import { Input } from '@/componentes/ui/Input'
@@ -36,6 +36,8 @@ interface PropiedadesModalEvento {
   onGuardar: (datos: Record<string, unknown>) => Promise<void>
   onEliminar?: () => Promise<void>
   onCerrar: () => void
+  /** Callback para abrir ModalVisita cuando es un evento vinculado a visita */
+  onAbrirVisita?: (visitaId: string) => void
 }
 
 /** Tipo interno para miembros del equipo */
@@ -370,8 +372,10 @@ function ModalEvento({
   onGuardar,
   onEliminar,
   onCerrar,
+  onAbrirVisita,
 }: PropiedadesModalEvento) {
   const esEdicion = !!evento
+  const esVisita = evento?.tipo_clave === 'visita' || !!evento?.visita_id
 
   // Estado del formulario — campos basicos
   const [titulo, setTitulo] = useState('')
@@ -644,6 +648,24 @@ function ModalEvento({
       acciones={acciones}
       alturaMovil="completo"
     >
+      {/* Banner para eventos vinculados a visita */}
+      {esVisita && onAbrirVisita && evento?.visita_id && (
+        <div className="flex items-center justify-between px-6 py-2.5 bg-texto-marca/5 border-b border-texto-marca/10">
+          <div className="flex items-center gap-2 text-xs text-texto-marca">
+            <MapPin size={14} />
+            <span>Este evento está vinculado a una visita</span>
+          </div>
+          <Boton
+            variante="secundario"
+            tamano="sm"
+            icono={<MapPin size={13} />}
+            onClick={() => { onAbrirVisita(evento.visita_id!); onCerrar() }}
+          >
+            Editar visita
+          </Boton>
+        </div>
+      )}
+
       {/* ══ Grid 2 columnas con divisor 1px ══ */}
       <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-0 border-y border-white/[0.07] overflow-y-auto max-h-[calc(100vh-200px)]">
 

@@ -705,6 +705,12 @@ export default function PaginaCalendario() {
         onGuardar={guardarEvento}
         onEliminar={eventoEditando ? eliminarEvento : undefined}
         onCerrar={cerrarModal}
+        onAbrirVisita={(visitaId) => {
+          cerrarModal()
+          fetch(`/api/visitas/${visitaId}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(visita => { if (visita) modalVisita.abrir(visita) })
+        }}
       />
 
       {/* Modal de visita — abierto desde eventos tipo visita */}
