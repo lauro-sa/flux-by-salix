@@ -10,6 +10,7 @@ import { EncabezadoAuth } from '@/componentes/ui/EncabezadoAuth'
 import { useAuth } from '@/hooks/useAuth'
 import { useTraduccion } from '@/lib/i18n'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { refrescarSesionSegura } from '@/lib/supabase/refrescar-sesion'
 
 /**
  * Página de onboarding — después de verificar email.
@@ -100,8 +101,7 @@ export default function PaginaOnboarding() {
       return
     }
 
-    const supabase = crearClienteNavegador()
-    await supabase.auth.refreshSession()
+    await refrescarSesionSegura()
     window.location.href = '/dashboard'
   }
 
@@ -141,8 +141,7 @@ export default function PaginaOnboarding() {
       return
     }
 
-    const supabase = crearClienteNavegador()
-    await supabase.auth.refreshSession()
+    await refrescarSesionSegura()
     window.location.href = '/dashboard'
   }
 

@@ -7,6 +7,7 @@ import { Clock, LogOut } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { useAuth } from '@/hooks/useAuth'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { refrescarSesionSegura } from '@/lib/supabase/refrescar-sesion'
 
 /**
  * Página de espera de activación.
@@ -34,10 +35,10 @@ export default function PaginaEsperandoActivacion() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ empresa_id: miembros[0].empresa_id }),
         })
-        await supabase.auth.refreshSession()
+        await refrescarSesionSegura()
         router.push('/dashboard')
       }
-    }, 10000)
+    }, 30000)
 
     return () => clearInterval(intervalo)
   }, [usuario, router])

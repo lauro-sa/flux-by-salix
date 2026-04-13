@@ -9,6 +9,7 @@ import { CargadorSeccion } from '@/componentes/ui/Cargador'
 import { useAuth } from '@/hooks/useAuth'
 import { useTraduccion } from '@/lib/i18n'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { refrescarSesionSegura } from '@/lib/supabase/refrescar-sesion'
 import Link from 'next/link'
 import { DELAY_TRANSICION } from '@/lib/constantes/timeouts'
 
@@ -98,8 +99,7 @@ function ContenidoInvitacion() {
 
     setAceptada(true)
     // Refrescar sesión para que el JWT tenga la empresa activa
-    const supabaseCliente = crearClienteNavegador()
-    await supabaseCliente.auth.refreshSession()
+    await refrescarSesionSegura()
     setTimeout(() => window.location.href = '/dashboard', DELAY_TRANSICION)
   }
 

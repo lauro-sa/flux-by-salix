@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { refrescarSesionSegura } from '@/lib/supabase/refrescar-sesion'
 import type { User, Session } from '@supabase/supabase-js'
 
 /**
@@ -82,7 +83,7 @@ function ProveedorAuth({ children }: { children: ReactNode }) {
     // Si el middleware lee el JWT viejo (sin empresa_activa_id), redirige a /onboarding → loop.
     // Reintentamos el refresh hasta que el claim se propague o se agoten los intentos.
     for (let i = 0; i < 3; i++) {
-      const { data: sesionRefrescada } = await supabase.auth.refreshSession()
+      const { data: sesionRefrescada } = await refrescarSesionSegura()
       if (sesionRefrescada?.user?.app_metadata?.empresa_activa_id || datos.empresas_activas !== 1) break
       await new Promise(r => setTimeout(r, 200))
     }

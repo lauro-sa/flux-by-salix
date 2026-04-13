@@ -106,7 +106,8 @@ function ProveedorEmpresa({ children }: { children: ReactNode }) {
     }
 
     // Refrescar sesión para obtener nuevo JWT con la empresa actualizada
-    await supabase.auth.refreshSession()
+    const { refrescarSesionSegura } = await import('@/lib/supabase/refrescar-sesion')
+    await refrescarSesionSegura()
 
     // Actualizar estado local
     const nueva = empresas.find(e => e.id === empresaId)
