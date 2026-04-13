@@ -60,7 +60,7 @@ interface DatosDashboard {
     sin_leer: number
   }
   actividades: {
-    pendientes: Array<{ id: string; titulo: string; tipo_clave: string; estado_clave: string; prioridad: string; fecha_vencimiento: string | null; asignado_nombre: string | null }>
+    pendientes: Array<{ id: string; titulo: string; tipo_clave: string; estado_clave: string; prioridad: string; fecha_vencimiento: string | null; asignados: { id: string; nombre: string }[] }>
     total_pendientes: number
     completadas_hoy: number
     por_persona: Array<{ nombre: string; pendientes: number; completadas: number }>
@@ -99,7 +99,7 @@ interface DatosDashboard {
   }>
   actividades_proximas: Array<{
     id: string; titulo: string; tipo_clave: string; estado_clave: string
-    prioridad: string; fecha_vencimiento: string; asignado_nombre: string | null
+    prioridad: string; fecha_vencimiento: string; asignados: { id: string; nombre: string }[]
   }>
 }
 
@@ -452,7 +452,11 @@ function PestanaGeneral({
                     <span className="text-xs text-texto-primario truncate">{act.titulo}</span>
                     {act.prioridad === 'alta' && <Insignia color="peligro">!</Insignia>}
                   </div>
-                  {act.asignado_nombre && <p className="text-xxs text-texto-terciario truncate">{act.asignado_nombre}</p>}
+                  {Array.isArray(act.asignados) && act.asignados.length > 0 && (
+                    <p className="text-xxs text-texto-terciario truncate">
+                      {act.asignados.length === 1 ? act.asignados[0].nombre : `${act.asignados.map(a => a.nombre).join(', ')}`}
+                    </p>
+                  )}
                 </div>
                 <span className="text-xxs text-texto-terciario shrink-0 ml-2">
                   {formatoFecha(act.fecha_vencimiento, { corta: true })}

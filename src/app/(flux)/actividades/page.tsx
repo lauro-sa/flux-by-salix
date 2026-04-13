@@ -42,10 +42,10 @@ export default async function PaginaActividades() {
     .eq('empresa_id', empresaId)
     .eq('en_papelera', false)
     .in('estado_clave', clavesActivas)
-    .eq('asignado_a', user.id)
+    .contains('asignados_ids', [user.id])
 
   if (visibilidad.soloPropio) {
-    query = query.or(`creado_por.eq.${user.id},asignado_a.eq.${user.id}`)
+    query = query.or(`creado_por.eq.${user.id},asignados_ids.cs.{${user.id}}`)
   }
 
   const { data, count } = await query

@@ -29,10 +29,10 @@ export async function GET(request: NextRequest) {
     const hoyFin = new Date(hoyInicio); hoyFin.setDate(hoyFin.getDate() + 1)
     const ayerInicio = new Date(hoyInicio); ayerInicio.setDate(ayerInicio.getDate() - 1)
 
-    // 1. Actividades que vencen HOY (pendientes, con asignado o creador)
+    // 1. Actividades que vencen HOY (pendientes, con asignados o creador)
     const { data: vencenHoy } = await admin
       .from('actividades')
-      .select('id, titulo, empresa_id, asignado_a, creado_por, tipo_id')
+      .select('id, titulo, empresa_id, asignados, creado_por, tipo_id')
       .gte('fecha_vencimiento', hoyInicio.toISOString())
       .lt('fecha_vencimiento', hoyFin.toISOString())
       .in('estado_clave', ['pendiente'])
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     // 2. Actividades que vencieron AYER (pendientes)
     const { data: vencieronAyer } = await admin
       .from('actividades')
-      .select('id, titulo, empresa_id, asignado_a, creado_por, tipo_id')
+      .select('id, titulo, empresa_id, asignados, creado_por, tipo_id')
       .gte('fecha_vencimiento', ayerInicio.toISOString())
       .lt('fecha_vencimiento', hoyInicio.toISOString())
       .in('estado_clave', ['pendiente'])
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
     // 4. Actividades vencidas hace más de 1 día que siguen sin completar (recordatorio recurrente)
     const { data: vencidasPendientes } = await admin
       .from('actividades')
-      .select('id, titulo, empresa_id, asignado_a, creado_por, fecha_vencimiento, tipo_id')
+      .select('id, titulo, empresa_id, asignados, creado_por, fecha_vencimiento, tipo_id')
       .lt('fecha_vencimiento', ayerInicio.toISOString())
       .in('estado_clave', ['pendiente', 'vencida'])
       .eq('en_papelera', false)
@@ -112,11 +112,16 @@ export async function GET(request: NextRequest) {
     // Generar notificaciones
     const notificaciones: Parameters<typeof crearNotificacionesBatch>[0] = []
 
+    // Helper: obtener destinatarios de una actividad (todos los asignados, o el creador como fallback)
+    const obtenerDestinatarios = (act: { asignados: unknown; creado_por: string }) => {
+      const lista = Array.isArray(act.asignados) ? (act.asignados as { id: string }[]).map(a => a.id) : []
+      return lista.length > 0 ? lista : [act.creado_por].filter(Boolean)
+    }
+
     // Vencen hoy
     for (const act of vencenHoy || []) {
-      const destinatario = act.asignado_a || act.creado_por
-      if (destinatario) {
-        const tipo = tiposPorId.get(act.tipo_id)
+      const tipo = tiposPorId.get(act.tipo_id)
+      for (const destinatario of obtenerDestinatarios(act)) {
         notificaciones.push({
           empresaId: act.empresa_id,
           usuarioId: destinatario,
@@ -134,9 +139,8 @@ export async function GET(request: NextRequest) {
 
     // Vencieron ayer
     for (const act of vencieronAyer || []) {
-      const destinatario = act.asignado_a || act.creado_por
-      if (destinatario) {
-        const tipo = tiposPorId.get(act.tipo_id)
+      const tipo = tiposPorId.get(act.tipo_id)
+      for (const destinatario of obtenerDestinatarios(act)) {
         notificaciones.push({
           empresaId: act.empresa_id,
           usuarioId: destinatario,
@@ -154,22 +158,22 @@ export async function GET(request: NextRequest) {
 
     // Recordatorio recurrente de vencidas (más de 1 día)
     for (const act of vencidasPendientes || []) {
-      const destinatario = act.asignado_a || act.creado_por
-      if (!destinatario) continue
       const diasVencida = Math.floor((hoyInicio.getTime() - new Date(act.fecha_vencimiento).getTime()) / 86400000)
       const tipo = tiposPorId.get(act.tipo_id)
-      notificaciones.push({
-        empresaId: act.empresa_id,
-        usuarioId: destinatario,
-        tipo: 'actividad_vencida',
-        titulo: `🚨 Vencida hace ${diasVencida} día${diasVencida > 1 ? 's' : ''}`,
-        cuerpo: `${tipo?.etiqueta || 'Actividad'} · ${act.titulo}`,
-        icono: 'AlertCircle',
-        color: tipo?.color || COLORES_HEX_ESTADO_ACTIVIDAD.vencida,
-        url: '/actividades',
-        referenciaTipo: 'actividad',
-        referenciaId: act.id,
-      })
+      for (const destinatario of obtenerDestinatarios(act)) {
+        notificaciones.push({
+          empresaId: act.empresa_id,
+          usuarioId: destinatario,
+          tipo: 'actividad_vencida',
+          titulo: `🚨 Vencida hace ${diasVencida} día${diasVencida > 1 ? 's' : ''}`,
+          cuerpo: `${tipo?.etiqueta || 'Actividad'} · ${act.titulo}`,
+          icono: 'AlertCircle',
+          color: tipo?.color || COLORES_HEX_ESTADO_ACTIVIDAD.vencida,
+          url: '/actividades',
+          referenciaTipo: 'actividad',
+          referenciaId: act.id,
+        })
+      }
     }
 
     // Insertar notificaciones en batch

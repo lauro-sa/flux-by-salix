@@ -843,9 +843,10 @@ export const actividades = pgTable('actividades', {
   fecha_vencimiento: timestamp('fecha_vencimiento', { withTimezone: true }),
   fecha_completada: timestamp('fecha_completada', { withTimezone: true }),
 
-  // Responsable (miembro del equipo asignado)
-  asignado_a: uuid('asignado_a'), // usuario_id
-  asignado_nombre: text('asignado_nombre'),
+  // Responsables (miembros del equipo asignados) [{id, nombre}]
+  asignados: jsonb('asignados').notNull().default(sql`'[]'`),
+  // Array de IDs para queries con array-contains
+  asignados_ids: text('asignados_ids').array().notNull().default(sql`'{}'`),
 
   // Checklist [{id, texto, completado}]
   checklist: jsonb('checklist').notNull().default(sql`'[]'`),
@@ -873,7 +874,7 @@ export const actividades = pgTable('actividades', {
   index('actividades_empresa_idx').on(tabla.empresa_id),
   index('actividades_tipo_idx').on(tabla.empresa_id, tabla.tipo_clave),
   index('actividades_estado_idx').on(tabla.empresa_id, tabla.estado_clave),
-  index('actividades_asignado_idx').on(tabla.empresa_id, tabla.asignado_a),
+  index('actividades_asignados_ids_idx').using('gin', tabla.asignados_ids),
   index('actividades_vencimiento_idx').on(tabla.empresa_id, tabla.fecha_vencimiento),
   index('actividades_creado_por_idx').on(tabla.empresa_id, tabla.creado_por),
   index('actividades_papelera_idx').on(tabla.empresa_id, tabla.en_papelera),

@@ -303,7 +303,7 @@ registrarEntidad({
     { clave: 'fecha_vencimiento', etiqueta: 'Fecha de vencimiento', tipo_dato: 'fecha', origen: 'columna', grupo: 'fechas' },
     { clave: 'fecha_completada', etiqueta: 'Fecha completada', tipo_dato: 'fecha', origen: 'columna', grupo: 'fechas' },
 
-    { clave: 'asignado_nombre', etiqueta: 'Nombre del asignado', tipo_dato: 'texto', origen: 'relacion', grupo: 'relacion' },
+    { clave: 'asignados', etiqueta: 'Responsables', tipo_dato: 'texto', origen: 'relacion', grupo: 'relacion' },
     { clave: 'contacto_nombre', etiqueta: 'Contacto vinculado', tipo_dato: 'texto', origen: 'relacion', grupo: 'relacion' },
   ],
 })

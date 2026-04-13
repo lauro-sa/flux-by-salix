@@ -491,13 +491,21 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
       },
     },
     {
-      clave: 'asignado_nombre',
-      etiqueta: 'Responsable',
-      ancho: 140,
-      ordenable: true,
-      render: (fila) => fila.asignado_nombre ? (
-        <span className="text-xs text-texto-secundario">{fila.asignado_nombre}</span>
-      ) : <span className="text-xs text-texto-terciario/50">—</span>,
+      clave: 'asignados',
+      etiqueta: 'Responsables',
+      ancho: 160,
+      ordenable: false,
+      render: (fila) => {
+        const lista = Array.isArray(fila.asignados) ? fila.asignados as { id: string; nombre: string }[] : []
+        if (lista.length === 0) return <span className="text-xs text-texto-terciario/50">—</span>
+        if (lista.length === 1) return <span className="text-xs text-texto-secundario">{lista[0].nombre}</span>
+        return (
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-texto-secundario">{lista[0].nombre}</span>
+            <span className="text-[10px] text-texto-terciario bg-superficie-hover rounded-full px-1.5 py-0.5">+{lista.length - 1}</span>
+          </div>
+        )
+      },
     },
     {
       clave: 'fecha_vencimiento',
@@ -684,14 +692,22 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
         {/* Footer: responsable + fecha + prioridad + acciones */}
         <div className="pt-3 mt-auto border-t border-borde-sutil space-y-2">
           {/* Responsable */}
-          {fila.asignado_nombre && (
-            <div className="flex items-center gap-1.5">
-              <div className="size-5 rounded-full bg-superficie-hover flex items-center justify-center text-xxs font-bold text-texto-terciario shrink-0">
-                {fila.asignado_nombre.charAt(0).toUpperCase()}
+          {(() => {
+            const listaAsig = Array.isArray(fila.asignados) ? fila.asignados as { id: string; nombre: string }[] : []
+            if (listaAsig.length === 0) return null
+            return (
+              <div className="flex items-center gap-1">
+                {listaAsig.slice(0, 3).map((a, i) => (
+                  <div key={a.id} className="size-5 rounded-full bg-superficie-hover flex items-center justify-center text-xxs font-bold text-texto-terciario shrink-0" title={a.nombre} style={i > 0 ? { marginLeft: -4 } : undefined}>
+                    {a.nombre.charAt(0).toUpperCase()}
+                  </div>
+                ))}
+                <span className="text-xs text-texto-terciario ml-1">
+                  {listaAsig.length === 1 ? listaAsig[0].nombre : `${listaAsig.length} personas`}
+                </span>
               </div>
-              <span className="text-xs text-texto-terciario">{fila.asignado_nombre}</span>
-            </div>
-          )}
+            )
+          })()}
 
           {/* Fecha + prioridad + botones */}
           <div className="flex items-center justify-between">
@@ -775,7 +791,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
     >
       <TablaDinamica
         columnas={columnas}
-        columnasVisiblesDefault={['estado_clave', 'titulo', 'tipo_clave', 'prioridad', 'asignado_nombre', 'fecha_vencimiento', 'acciones']}
+        columnasVisiblesDefault={['estado_clave', 'titulo', 'tipo_clave', 'prioridad', 'asignados', 'fecha_vencimiento', 'acciones']}
         datos={actividades}
         claveFila={(r) => r.id}
         totalRegistros={total}

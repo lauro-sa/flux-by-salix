@@ -20,7 +20,7 @@ interface Actividad {
   estado_clave: string
   prioridad: string
   fecha_vencimiento: string | null
-  asignado_nombre: string | null
+  asignados: { id: string; nombre: string }[]
 }
 
 interface PersonaActividades {
@@ -78,8 +78,10 @@ export function WidgetActividades({ pendientes, totalPendientes, completadasHoy,
                     <span className="text-sm text-texto-primario truncate">{act.titulo}</span>
                     {act.prioridad === 'alta' && <Insignia color="peligro">Alta</Insignia>}
                   </div>
-                  {act.asignado_nombre && (
-                    <p className="text-xs text-texto-terciario truncate mt-0.5">{act.asignado_nombre}</p>
+                  {Array.isArray(act.asignados) && act.asignados.length > 0 && (
+                    <p className="text-xs text-texto-terciario truncate mt-0.5">
+                      {act.asignados.length === 1 ? act.asignados[0].nombre : `${act.asignados.length} personas`}
+                    </p>
                   )}
                 </div>
                 {act.fecha_vencimiento && (

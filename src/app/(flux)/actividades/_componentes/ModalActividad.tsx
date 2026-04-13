@@ -25,6 +25,13 @@ import type { EstadoActividad } from '../configuracion/secciones/SeccionEstados'
 import { useTraduccion } from '@/lib/i18n'
 import { DEBOUNCE_BUSQUEDA } from '@/lib/constantes/timeouts'
 
+/** Convierte fecha YYYY-MM-DD + hora HH:MM a ISO string respetando timezone local del navegador */
+function fechaLocalAISO(fecha: string, hora: string): string {
+  const [anio, mes, dia] = fecha.split('-').map(Number)
+  const [h, m] = hora.split(':').map(Number)
+  return new Date(anio, mes - 1, dia, h, m, 0).toISOString()
+}
+
 /**
  * ModalActividad — Modal para crear o editar una actividad.
  * Campos condicionales según el tipo seleccionado.
@@ -62,8 +69,8 @@ interface Actividad {
   estado_clave: string
   prioridad: string
   fecha_vencimiento: string | null
-  asignado_a: string | null
-  asignado_nombre: string | null
+  asignados: { id: string; nombre: string }[]
+  asignados_ids: string[]
   checklist: ItemChecklist[]
   vinculos: Vinculo[]
   seguimientos?: Seguimiento[]
@@ -134,12 +141,13 @@ function ModalActividad({
   const [tipoId, setTipoId] = useState('')
   const [prioridad, setPrioridad] = useState('normal')
   const [fechaVencimiento, setFechaVencimiento] = useState('')
-  const [asignadoA, setAsignadoA] = useState<string | null>(null)
-  const [asignadoNombre, setAsignadoNombre] = useState<string | null>(null)
+  const [asignados, setAsignados] = useState<{ id: string; nombre: string }[]>([])
   const [checklist, setChecklist] = useState<ItemChecklist[]>([])
   const [vinculos, setVinculos] = useState<Vinculo[]>([])
   const [guardando, setGuardando] = useState(false)
   const [tituloManual, setTituloManual] = useState(false)
+  // Contador para forzar recarga de SeccionBloquesCalendario después de crear bloques
+  const [recargaBloques, setRecargaBloques] = useState(0)
 
   // Tipo seleccionado (para campos condicionales)
   const tipoSeleccionado = tiposActivos.find(t => t.id === tipoId)
@@ -162,8 +170,7 @@ function ModalActividad({
       setTipoId(actividad.tipo_id)
       setPrioridad(actividad.prioridad)
       setFechaVencimiento(actividad.fecha_vencimiento ? actividad.fecha_vencimiento.split('T')[0] : '')
-      setAsignadoA(actividad.asignado_a)
-      setAsignadoNombre(actividad.asignado_nombre)
+      setAsignados(Array.isArray(actividad.asignados) ? actividad.asignados : [])
       setChecklist(actividad.checklist || [])
       setVinculos(actividad.vinculos || [])
       setBloquesNuevos([])
@@ -176,8 +183,7 @@ function ModalActividad({
       setDescripcion('')
       setPrioridad('normal')
       setFechaVencimiento('')
-      setAsignadoA(null)
-      setAsignadoNombre(null)
+      setAsignados([])
       setChecklist([])
       setVinculos(vincsIniciales)
       setTituloManual(false)
@@ -199,9 +205,8 @@ function ModalActividad({
 
       // Usuario predeterminado
       if (primerTipo?.usuario_predeterminado) {
-        setAsignadoA(primerTipo.usuario_predeterminado)
         const m = miembros.find(m => m.usuario_id === primerTipo.usuario_predeterminado)
-        setAsignadoNombre(m ? `${m.nombre} ${m.apellido}`.trim() : null)
+        if (m) setAsignados([{ id: m.usuario_id, nombre: `${m.nombre} ${m.apellido}`.trim() }])
       }
 
       // Auto-set fecha vencimiento según tipo
@@ -228,11 +233,10 @@ function ModalActividad({
     if (tipo) {
       if (!tipo.campo_descripcion) setDescripcion('')
       else if (!esEdicion && tipo.nota_predeterminada) setDescripcion(tipo.nota_predeterminada)
-      if (!tipo.campo_responsable) { setAsignadoA(null); setAsignadoNombre(null) }
+      if (!tipo.campo_responsable) { setAsignados([]) }
       else if (!esEdicion && tipo.usuario_predeterminado) {
-        setAsignadoA(tipo.usuario_predeterminado)
         const m = miembros.find(m => m.usuario_id === tipo.usuario_predeterminado)
-        setAsignadoNombre(m ? `${m.nombre} ${m.apellido}`.trim() : null)
+        if (m) setAsignados([{ id: m.usuario_id, nombre: `${m.nombre} ${m.apellido}`.trim() }])
       }
       if (!tipo.campo_prioridad) setPrioridad('normal')
       if (!tipo.campo_checklist) setChecklist([])
@@ -281,8 +285,8 @@ function ModalActividad({
         tipo_id: tipoId,
         prioridad,
         fecha_vencimiento: fechaVencimiento ? new Date(fechaVencimiento + 'T12:00:00').toISOString() : null,
-        asignado_a: asignadoA,
-        asignado_nombre: asignadoNombre,
+        asignados,
+        asignados_ids: asignados.map(a => a.id),
         checklist,
         vinculos,
       })
@@ -290,10 +294,6 @@ function ModalActividad({
       // Si es creación con bloques de calendario, crearlos después de la actividad
       if (!esEdicion && tipoConCalendario && bloquesNuevos.length > 0 && resultado && typeof resultado === 'object' && 'id' in resultado) {
         const actividadId = (resultado as { id: string }).id
-        const asignados = asignadoA && asignadoNombre
-          ? [{ id: asignadoA, nombre: asignadoNombre }]
-          : []
-
         // Crear todos los bloques en paralelo — si alguno falla, los demás se crean igual
         const resultadosBloques = await Promise.allSettled(bloquesNuevos.map(bloque =>
           fetch('/api/calendario', {
@@ -301,8 +301,8 @@ function ModalActividad({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               titulo: titulo.trim(),
-              fecha_inicio: `${bloque.fecha}T${bloque.horaInicio}:00`,
-              fecha_fin: `${bloque.fecha}T${bloque.horaFin}:00`,
+              fecha_inicio: fechaLocalAISO(bloque.fecha, bloque.horaInicio),
+              fecha_fin: fechaLocalAISO(bloque.fecha, bloque.horaFin),
               tipo_clave: 'tarea',
               actividad_id: actividadId,
               asignados,
@@ -333,18 +333,14 @@ function ModalActividad({
         onCambiar={async (nuevos) => {
           if (esEdicion && actividad) {
             // En edición: crear los bloques nuevos directamente via API
-            const asignados = asignadoA && asignadoNombre
-              ? [{ id: asignadoA, nombre: asignadoNombre }]
-              : []
-
             const resultados = await Promise.allSettled(nuevos.map(bloque =>
               fetch('/api/calendario', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   titulo: titulo || actividad.titulo,
-                  fecha_inicio: `${bloque.fecha}T${bloque.horaInicio}:00`,
-                  fecha_fin: `${bloque.fecha}T${bloque.horaFin}:00`,
+                  fecha_inicio: fechaLocalAISO(bloque.fecha, bloque.horaInicio),
+                  fecha_fin: fechaLocalAISO(bloque.fecha, bloque.horaFin),
                   tipo_clave: 'tarea',
                   actividad_id: actividad.id,
                   asignados,
@@ -355,8 +351,9 @@ function ModalActividad({
             ))
             const fallos = resultados.filter(r => r.status === 'rejected')
             if (fallos.length > 0) console.error(`Error al crear ${fallos.length} bloque(s):`, fallos)
-            // Limpiar y cerrar — SeccionBloquesCalendario se recargará sola
+            // Forzar recarga de SeccionBloquesCalendario
             setBloquesNuevos([])
+            setRecargaBloques(c => c + 1)
           } else {
             // En creación: guardar para crear después al confirmar
             setBloquesNuevos(nuevos)
@@ -485,18 +482,40 @@ function ModalActividad({
 
         {/* ── COL DERECHA — metadata y vínculos ── */}
         <div className="space-y-0">
-          {/* Responsable */}
+          {/* Responsables (multi-select con chips) */}
           {tipoSeleccionado?.campo_responsable && (
             <div className="p-6">
-              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Responsable</p>
-              <Select valor={asignadoA || ''}
+              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">
+                Responsable{asignados.length > 1 ? 's' : ''}
+              </p>
+              {/* Chips de asignados */}
+              {asignados.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {asignados.map(a => (
+                    <span key={a.id} className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-md text-xs bg-texto-marca/10 text-texto-marca border border-texto-marca/20">
+                      <span className="size-4 rounded-full bg-texto-marca/20 flex items-center justify-center text-[10px] font-bold shrink-0">
+                        {a.nombre.charAt(0).toUpperCase()}
+                      </span>
+                      {a.nombre}
+                      <button type="button" onClick={() => setAsignados(prev => prev.filter(x => x.id !== a.id))}
+                        className="ml-0.5 p-0.5 rounded hover:bg-texto-marca/20 transition-colors">
+                        <X className="size-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {/* Selector para agregar más */}
+              <Select valor=""
                 onChange={(val) => {
-                  setAsignadoA(val || null)
+                  if (!val || asignados.some(a => a.id === val)) return
                   const m = miembros.find(m => m.usuario_id === val)
-                  setAsignadoNombre(m ? `${m.nombre} ${m.apellido}`.trim() : null)
+                  if (m) setAsignados(prev => [...prev, { id: m.usuario_id, nombre: `${m.nombre} ${m.apellido}`.trim() }])
                 }}
-                placeholder="Sin asignar"
-                opciones={miembros.map(m => ({ valor: m.usuario_id, etiqueta: `${m.nombre} ${m.apellido}`.trim() }))} />
+                placeholder={asignados.length === 0 ? 'Sin asignar' : 'Agregar responsable...'}
+                opciones={miembros
+                  .filter(m => !asignados.some(a => a.id === m.usuario_id))
+                  .map(m => ({ valor: m.usuario_id, etiqueta: `${m.nombre} ${m.apellido}`.trim() }))} />
             </div>
           )}
 
@@ -534,7 +553,7 @@ function ModalActividad({
           {esEdicion && actividad && (
             <div className="p-6 space-y-2">
               <SeccionBloquesCalendario actividadId={actividad.id} titulo={actividad.titulo}
-                asignadoA={asignadoA} asignadoNombre={asignadoNombre} vinculos={vinculos} />
+                asignados={asignados} vinculos={vinculos} recarga={recargaBloques} />
               <Boton variante="fantasma" tamano="xs" icono={<Calendar size={14} />}
                 onClick={() => setSelectorCalendarioAbierto(true)}>
                 Abrir calendario
@@ -1017,15 +1036,15 @@ interface BloqueCalendario {
 function SeccionBloquesCalendario({
   actividadId,
   titulo,
-  asignadoA,
-  asignadoNombre,
+  asignados: asignadosProp,
   vinculos,
+  recarga = 0,
 }: {
   actividadId: string
   titulo: string
-  asignadoA: string | null
-  asignadoNombre: string | null
+  asignados: { id: string; nombre: string }[]
   vinculos: Vinculo[]
+  recarga?: number
 }) {
   const [bloques, setBloques] = useState<BloqueCalendario[]>([])
   const [cargando, setCargando] = useState(true)
@@ -1054,20 +1073,15 @@ function SeccionBloquesCalendario({
       }
     }
     cargar()
-  }, [actividadId])
+  }, [actividadId, recarga])
 
   // Crear un bloque nuevo
   const crearBloque = async () => {
     if (!nuevaFechaInicio || !nuevaHoraInicio || !nuevaHoraFin) return
     setCreando(true)
     try {
-      const fechaInicio = `${nuevaFechaInicio}T${nuevaHoraInicio}:00`
-      const fechaFin = `${nuevaFechaInicio}T${nuevaHoraFin}:00`
-
-      // Preparar asignados
-      const asignados = asignadoA && asignadoNombre
-        ? [{ id: asignadoA, nombre: asignadoNombre }]
-        : []
+      const fechaInicio = fechaLocalAISO(nuevaFechaInicio, nuevaHoraInicio)
+      const fechaFin = fechaLocalAISO(nuevaFechaInicio, nuevaHoraFin)
 
       const res = await fetch('/api/calendario', {
         method: 'POST',
@@ -1078,7 +1092,7 @@ function SeccionBloquesCalendario({
           fecha_fin: fechaFin,
           tipo_clave: 'tarea',
           actividad_id: actividadId,
-          asignados,
+          asignados: asignadosProp,
           vinculos,
           estado: 'confirmado',
         }),

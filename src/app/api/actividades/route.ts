@@ -49,12 +49,12 @@ export async function GET(request: NextRequest) {
 
     // Si solo tiene ver_propio, forzar filtro por creador o asignado a él
     if (soloPropio) {
-      query = query.or(`creado_por.eq.${user.id},asignado_a.eq.${user.id}`)
+      query = query.or(`creado_por.eq.${user.id},asignados_ids.cs.{${user.id}}`)
     }
 
     // Vista: mias = asignadas a mí, enviadas = creadas por mí
     if (vista === 'mias') {
-      query = query.eq('asignado_a', user.id)
+      query = query.contains('asignados_ids', [user.id])
     } else if (vista === 'enviadas') {
       query = query.eq('creado_por', user.id)
     }
@@ -76,9 +76,9 @@ export async function GET(request: NextRequest) {
       query = query.eq('prioridad', prioridad)
     }
 
-    // Filtro por asignado
+    // Filtro por asignado (busca dentro del array de IDs)
     if (asignado_a) {
-      query = query.eq('asignado_a', asignado_a)
+      query = query.contains('asignados_ids', [asignado_a])
     }
 
     // Filtro por contacto vinculado
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
 
     // Búsqueda
     if (busqueda.trim()) {
-      query = query.or(`titulo.ilike.%${busqueda}%,asignado_nombre.ilike.%${busqueda}%`)
+      query = query.ilike('titulo', `%${busqueda}%`)
     }
 
     // Ordenamiento y paginación — multi-criterio en SQL para evitar sort en memoria
@@ -204,8 +204,8 @@ export async function POST(request: NextRequest) {
         estado_clave: body.estado_clave || estadoDefault.clave,
         prioridad: body.prioridad || 'normal',
         fecha_vencimiento: body.fecha_vencimiento || null,
-        asignado_a: body.asignado_a || null,
-        asignado_nombre: body.asignado_nombre || null,
+        asignados: Array.isArray(body.asignados) ? body.asignados : [],
+        asignados_ids: Array.isArray(body.asignados_ids) ? body.asignados_ids : [],
         checklist: body.checklist || [],
         vinculos,
         vinculo_ids: vinculoIds,
@@ -247,20 +247,23 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Notificar al asignado (si es otro usuario)
-    if (data.asignado_a && data.asignado_a !== user.id) {
-      crearNotificacion({
-        empresaId,
-        usuarioId: data.asignado_a,
-        tipo: 'actividad_asignada',
-        titulo: `📋 ${nombreCreador} te asignó`,
-        cuerpo: `${tipo.etiqueta} · ${data.titulo}`,
-        icono: 'ClipboardList',
-        color: tipo.color,
-        url: '/actividades',
-        referenciaTipo: 'actividad',
-        referenciaId: data.id,
-      })
+    // Notificar a todos los asignados (excepto al creador)
+    const listaAsignados = Array.isArray(data.asignados) ? data.asignados as { id: string; nombre: string }[] : []
+    for (const asignado of listaAsignados) {
+      if (asignado.id !== user.id) {
+        crearNotificacion({
+          empresaId,
+          usuarioId: asignado.id,
+          tipo: 'actividad_asignada',
+          titulo: `📋 ${nombreCreador} te asignó`,
+          cuerpo: `${tipo.etiqueta} · ${data.titulo}`,
+          icono: 'ClipboardList',
+          color: tipo.color,
+          url: '/actividades',
+          referenciaTipo: 'actividad',
+          referenciaId: data.id,
+        })
+      }
     }
 
     // Registrar en historial de recientes (fire-and-forget)

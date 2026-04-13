@@ -104,7 +104,7 @@ export async function GET() {
       // Actividades pendientes
       admin
         .from('actividades')
-        .select('id, titulo, tipo_clave, estado_clave, prioridad, fecha_vencimiento, asignado_nombre')
+        .select('id, titulo, tipo_clave, estado_clave, prioridad, fecha_vencimiento, asignados')
         .eq('empresa_id', empresaId)
         .eq('en_papelera', false)
         .in('estado_clave', ['pendiente', 'vencida'])
@@ -144,7 +144,7 @@ export async function GET() {
       // ─── Actividades por persona (pendientes + completadas recientes) ───
       admin
         .from('actividades')
-        .select('asignado_nombre, estado_clave')
+        .select('asignados, estado_clave')
         .eq('empresa_id', empresaId)
         .eq('en_papelera', false)
         .in('estado_clave', ['pendiente', 'vencida', 'completada']),
@@ -229,7 +229,7 @@ export async function GET() {
       // ─── Actividades próximas (ordenadas por vencimiento más cercano) ───
       admin
         .from('actividades')
-        .select('id, titulo, tipo_clave, estado_clave, prioridad, fecha_vencimiento, asignado_nombre')
+        .select('id, titulo, tipo_clave, estado_clave, prioridad, fecha_vencimiento, asignados')
         .eq('empresa_id', empresaId)
         .eq('en_papelera', false)
         .in('estado_clave', ['pendiente'])
@@ -283,12 +283,15 @@ export async function GET() {
     // ─── Actividades por persona ───
     const mapaPersonas: Record<string, { pendientes: number; completadas: number }> = {}
     for (const a of resActividadesPorPersona.data || []) {
-      const nombre = a.asignado_nombre || 'Sin asignar'
-      if (!mapaPersonas[nombre]) mapaPersonas[nombre] = { pendientes: 0, completadas: 0 }
-      if (a.estado_clave === 'completada') {
-        mapaPersonas[nombre].completadas++
-      } else {
-        mapaPersonas[nombre].pendientes++
+      const listaAsig = Array.isArray(a.asignados) ? a.asignados as { id: string; nombre: string }[] : []
+      const nombres = listaAsig.length > 0 ? listaAsig.map(x => x.nombre) : ['Sin asignar']
+      for (const nombre of nombres) {
+        if (!mapaPersonas[nombre]) mapaPersonas[nombre] = { pendientes: 0, completadas: 0 }
+        if (a.estado_clave === 'completada') {
+          mapaPersonas[nombre].completadas++
+        } else {
+          mapaPersonas[nombre].pendientes++
+        }
       }
     }
     const actividadesPorPersona = Object.entries(mapaPersonas)

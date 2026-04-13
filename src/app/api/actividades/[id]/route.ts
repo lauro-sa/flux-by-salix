@@ -198,10 +198,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
                 estado_clave: estadoPendiente.data.clave,
                 prioridad: data.prioridad || 'normal',
                 fecha_vencimiento: fechaVenc,
-                asignado_a: siguienteTipo.usuario_predeterminado || data.asignado_a,
-                asignado_nombre: siguienteTipo.usuario_predeterminado
-                  ? null // se resuelve después
-                  : data.asignado_nombre,
+                asignados: data.asignados || [],
+                asignados_ids: data.asignados_ids || [],
                 vinculos: data.vinculos || [],
                 checklist: [],
                 creado_por: user.id,
@@ -405,21 +403,26 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
       if (error) return NextResponse.json({ error: 'Error al reactivar' }, { status: 500 })
 
-      // Notificar al asignado que la actividad fue reactivada
-      if (data.asignado_a && data.asignado_a !== user.id) {
+      // Notificar a todos los asignados que la actividad fue reactivada
+      const asignadosReact = Array.isArray(data.asignados) ? data.asignados as { id: string }[] : []
+      if (asignadosReact.length > 0) {
         const { data: tipoReact } = await admin.from('tipos_actividad').select('etiqueta, color').eq('id', data.tipo_id).single()
-        crearNotificacion({
-          empresaId,
-          usuarioId: data.asignado_a,
-          tipo: 'actividad_asignada',
-          titulo: `🔄 ${nombreEditor} reactivó`,
-          cuerpo: `${tipoReact?.etiqueta || 'Actividad'} · ${data.titulo}`,
-          icono: 'RefreshCw',
-          color: tipoReact?.color || COLORES_HEX_ESTADO_ACTIVIDAD.pendiente,
-          url: '/actividades',
-          referenciaTipo: 'actividad',
-          referenciaId: data.id,
-        })
+        for (const asignado of asignadosReact) {
+          if (asignado.id !== user.id) {
+            crearNotificacion({
+              empresaId,
+              usuarioId: asignado.id,
+              tipo: 'actividad_asignada',
+              titulo: `🔄 ${nombreEditor} reactivó`,
+              cuerpo: `${tipoReact?.etiqueta || 'Actividad'} · ${data.titulo}`,
+              icono: 'RefreshCw',
+              color: tipoReact?.color || COLORES_HEX_ESTADO_ACTIVIDAD.pendiente,
+              url: '/actividades',
+              referenciaTipo: 'actividad',
+              referenciaId: data.id,
+            })
+          }
+        }
       }
 
       return NextResponse.json(data)
@@ -436,9 +439,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (body.descripcion !== undefined) campos.descripcion = body.descripcion
     if (body.prioridad !== undefined) campos.prioridad = body.prioridad
     if (body.fecha_vencimiento !== undefined) campos.fecha_vencimiento = body.fecha_vencimiento
-    if (body.asignado_a !== undefined) {
-      campos.asignado_a = body.asignado_a
-      campos.asignado_nombre = body.asignado_nombre || null
+    if (body.asignados !== undefined) {
+      campos.asignados = body.asignados
+      campos.asignados_ids = Array.isArray(body.asignados) ? body.asignados.map((a: { id: string }) => a.id) : []
     }
     if (body.checklist !== undefined) campos.checklist = body.checklist
     if (body.vinculos !== undefined) {
@@ -486,22 +489,25 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       titulo: data.titulo || 'Actividad', subtitulo: data.estado_clave, accion: 'editado',
     })
 
-    // Notificar si se reasignó a otro usuario
-    if (body.asignado_a && body.asignado_a !== user.id) {
-      // Obtener tipo para la píldora en la notificación
+    // Notificar a los asignados (si se reasignó)
+    if (body.asignados && Array.isArray(body.asignados) && body.asignados.length > 0) {
       const { data: tipoAct } = await admin.from('tipos_actividad').select('etiqueta, color').eq('id', data.tipo_id).single()
-      crearNotificacion({
-        empresaId,
-        usuarioId: body.asignado_a,
-        tipo: 'actividad_asignada',
-        titulo: `📋 ${nombreEditor} te asignó`,
-        cuerpo: `${tipoAct?.etiqueta || 'Actividad'} · ${data.titulo}`,
-        icono: 'ClipboardList',
-        color: tipoAct?.color || COLOR_TIPO_ACTIVIDAD_DEFECTO,
-        url: '/actividades',
-        referenciaTipo: 'actividad',
-        referenciaId: data.id,
-      })
+      for (const asignado of body.asignados as { id: string }[]) {
+        if (asignado.id !== user.id) {
+          crearNotificacion({
+            empresaId,
+            usuarioId: asignado.id,
+            tipo: 'actividad_asignada',
+            titulo: `📋 ${nombreEditor} te asignó`,
+            cuerpo: `${tipoAct?.etiqueta || 'Actividad'} · ${data.titulo}`,
+            icono: 'ClipboardList',
+            color: tipoAct?.color || COLOR_TIPO_ACTIVIDAD_DEFECTO,
+            url: '/actividades',
+            referenciaTipo: 'actividad',
+            referenciaId: data.id,
+          })
+        }
+      }
     }
 
     return NextResponse.json(data)
