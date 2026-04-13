@@ -2,9 +2,6 @@ import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
 import './globals.css'
 
-// Toda la app depende de auth y contextos client-side,
-// forzar renderizado dinámico para evitar errores de pre-render
-export const dynamic = 'force-dynamic'
 import { RegistroSW } from '@/componentes/pwa/RegistroSW'
 
 export const metadata: Metadata = {
