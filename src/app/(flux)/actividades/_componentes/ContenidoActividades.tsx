@@ -859,7 +859,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
         busqueda={busqueda}
         onBusqueda={setBusqueda}
         placeholder="Buscar actividades..."
-        filtros={[
+        filtros={configData ? [
           {
             id: 'tipo', etiqueta: 'Tipo', tipo: 'pills' as const,
             valor: filtroTipo, onChange: (v) => setFiltroTipo(v as string),
@@ -880,7 +880,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
               { valor: 'alta', etiqueta: 'Alta' },
             ],
           },
-        ]}
+        ] : []}
         onLimpiarFiltros={() => { setFiltroTipo(''); setFiltroEstado(estadosDefaultCalculados); setFiltroPrioridad(''); setFiltroVista('') }}
         opcionesOrden={[
           { etiqueta: 'Más recientes', clave: 'creado_en', direccion: 'desc' },
