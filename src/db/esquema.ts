@@ -771,6 +771,7 @@ export const tipos_actividad = pgTable('tipos_actividad', {
   etiqueta: text('etiqueta').notNull(), // 'Llamada', 'Reunión', etc.
   icono: text('icono').notNull().default('Activity'), // nombre del ícono Lucide
   color: text('color').notNull().default('#5b5bd6'), // hex color
+  abreviacion: text('abreviacion'), // abreviación corta para mostrar en tablas (ej: "RTD")
   // Módulos donde está disponible este tipo de actividad
   modulos_disponibles: text('modulos_disponibles').array().notNull().default(sql`'{"contactos"}'`),
   // Vencimiento por defecto en días (0 = sin vencimiento)

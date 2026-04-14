@@ -31,6 +31,7 @@ export interface TipoActividad {
   id: string
   clave: string
   etiqueta: string
+  abreviacion: string | null
   icono: string
   color: string
   modulos_disponibles: string[]

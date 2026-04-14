@@ -527,8 +527,12 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
       render: (fila) => {
         const tipo = tiposPorId[fila.tipo_id]
         return tipo ? (
-          <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: tipo.color + '12', color: tipo.color }}>
-            {tipo.etiqueta}
+          <span
+            className="text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
+            style={{ backgroundColor: tipo.color + '12', color: tipo.color }}
+            title={tipo.etiqueta}
+          >
+            {tipo.abreviacion || tipo.etiqueta}
           </span>
         ) : null
       },

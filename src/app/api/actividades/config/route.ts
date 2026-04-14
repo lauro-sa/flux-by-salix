@@ -4,6 +4,18 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerYVerificarPermiso } from '@/lib/permisos-servidor'
 import { COLOR_TIPO_ACTIVIDAD_DEFECTO, COLOR_ETIQUETA_DEFECTO } from '@/lib/colores_entidad'
 
+/** Genera abreviación automática: iniciales de palabras significativas, o primeras 4 letras si es una sola palabra */
+function generarAbreviacion(etiqueta: string): string {
+  const stopWords = ['en', 'de', 'del', 'la', 'el', 'a', 'y', 'o', 'por', 'para', 'con', 'sin', 'al', 'los', 'las', 'un', 'una']
+  const palabras = etiqueta.split(/\s+/).filter(p => p.length > 0 && !stopWords.includes(p.toLowerCase()))
+  if (palabras.length >= 2) {
+    return palabras.map(p => p[0].toUpperCase()).join('')
+  }
+  // Una sola palabra: primeras 4-5 letras
+  const palabra = palabras[0] || etiqueta
+  return palabra.slice(0, palabra.length <= 5 ? palabra.length : 4).toUpperCase()
+}
+
 /**
  * GET /api/actividades/config — Obtener configuración completa de actividades.
  * Devuelve tipos, estados y config general de la empresa.
@@ -75,12 +87,16 @@ export async function PUT(request: NextRequest) {
           .limit(1)
           .single()
 
+        // Auto-generar abreviación si no se provee
+        const abreviacionAuto = datos.abreviacion?.trim() || generarAbreviacion(datos.etiqueta.trim())
+
         const { data, error } = await admin
           .from('tipos_actividad')
           .insert({
             empresa_id: empresaId,
             clave: datos.clave.toLowerCase().trim().replace(/\s+/g, '_'),
             etiqueta: datos.etiqueta.trim(),
+            abreviacion: abreviacionAuto || null,
             icono: datos.icono || 'Activity',
             color: datos.color || COLOR_TIPO_ACTIVIDAD_DEFECTO,
             modulos_disponibles: datos.modulos_disponibles || ['contactos'],
@@ -130,6 +146,7 @@ export async function PUT(request: NextRequest) {
         } else {
           // Tipos normales: se puede editar todo
           if (datos.etiqueta !== undefined) campos.etiqueta = datos.etiqueta.trim()
+          if (datos.abreviacion !== undefined) campos.abreviacion = datos.abreviacion?.trim() || null
           if (datos.icono !== undefined) campos.icono = datos.icono
           if (datos.color !== undefined) campos.color = datos.color
           if (datos.modulos_disponibles !== undefined) campos.modulos_disponibles = datos.modulos_disponibles

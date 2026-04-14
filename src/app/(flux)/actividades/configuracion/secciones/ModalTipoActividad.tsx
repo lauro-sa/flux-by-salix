@@ -178,6 +178,7 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
 
   // Estado del formulario
   const [etiqueta, setEtiqueta] = useState('')
+  const [abreviacion, setAbreviacion] = useState('')
   const [clave, setClave] = useState('')
   const [icono, setIcono] = useState('Activity')
   const [color, setColor] = useState('#5b5bd6')
@@ -244,6 +245,7 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
     if (!abierto) return
     if (tipo) {
       setEtiqueta(tipo.etiqueta)
+      setAbreviacion(tipo.abreviacion || '')
       setClave(tipo.clave)
       setIcono(tipo.icono)
       setColor(tipo.color)
@@ -265,6 +267,7 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
       setTipoEncadenamiento(tipo.tipo_encadenamiento || 'sugerir')
     } else {
       setEtiqueta('')
+      setAbreviacion('')
       setClave('')
       setIcono('Activity')
       setColor('#5b5bd6')
@@ -307,6 +310,7 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
     if (!etiqueta.trim()) return
     const datos: Record<string, unknown> = {
       etiqueta: etiqueta.trim(),
+      abreviacion: abreviacion.trim() || null,
       icono,
       color,
       modulos_disponibles: modulos,
@@ -355,10 +359,18 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
           {/* Botón icono con popover compacto */}
           <MiniSelectorIcono valor={icono} color={color} onChange={setIcono} />
           <div className="flex-1 min-w-0 space-y-3">
-            <Input tipo="text" value={etiqueta}
-              onChange={(e) => manejarEtiqueta(e.target.value)}
-              placeholder="Nombre: Llamada, Reunión, Visita..."
-              autoFocus />
+            <div className="flex gap-2">
+              <Input tipo="text" value={etiqueta}
+                onChange={(e) => manejarEtiqueta(e.target.value)}
+                placeholder="Nombre: Llamada, Reunión, Visita..."
+                autoFocus
+                className="flex-1" />
+              <Input tipo="text" value={abreviacion}
+                onChange={(e) => setAbreviacion(e.target.value.toUpperCase().slice(0, 6))}
+                placeholder="Abrev."
+                className="w-20 text-center"
+                etiqueta="" />
+            </div>
             {/* Colores inline debajo del nombre */}
             <div className="flex flex-wrap gap-1.5 items-center">
               {COLORES_TIPO.map(preset => {
