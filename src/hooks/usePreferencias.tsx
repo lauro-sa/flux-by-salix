@@ -31,7 +31,7 @@ interface Preferencias {
   efecto: string
   fondo_cristal: string
   escala: string
-  sidebar_orden: string[] | null
+  sidebar_orden: Record<string, string[]> | null
   sidebar_ocultos: string[] | null
   sidebar_deshabilitados: string[] | null
   sidebar_colapsado: boolean

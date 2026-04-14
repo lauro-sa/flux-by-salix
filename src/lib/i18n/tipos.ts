@@ -1074,6 +1074,9 @@ export interface Traducciones {
     documentos: string
     productos: string
     inbox: string
+    whatsapp: string
+    correo: string
+    interno: string
     asistencias: string
     calendario: string
     ordenes: string

@@ -51,7 +51,7 @@ export function CanalCard({ canal, onRecargar, onHacerPrincipal }: { canal: Cana
   const consultarCalidad = async () => {
     setCargandoCalidad(true)
     try {
-      const res = await fetch(`/api/inbox/whatsapp/calidad?canal_id=${canal.id}`)
+      const res = await fetch(`/api/whatsapp/calidad?canal_id=${canal.id}`)
       const data = await res.json()
       if (data.calidad) setCalidad({
         rating: data.calidad.quality_rating,
@@ -268,7 +268,7 @@ export function CanalCard({ canal, onRecargar, onHacerPrincipal }: { canal: Cana
                       wordBreak: 'break-all',
                     }}
                   >
-                    {typeof window !== 'undefined' ? `${window.location.origin}/api/inbox/whatsapp/webhook` : '/api/inbox/whatsapp/webhook'}
+                    {typeof window !== 'undefined' ? `${window.location.origin}/api/whatsapp/webhook` : '/api/whatsapp/webhook'}
                   </code>
                 </div>
               )}

@@ -8,37 +8,30 @@ import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import { Interruptor } from '@/componentes/ui/Interruptor'
-import SeccionAgenteIA from '@/app/(flux)/inbox/_componentes/SeccionAgenteIA'
 import {
   Settings2, Mail, Hash, FileText, Users,
-  Clock, Bell, Sparkles, Bot, MessageCircle, KanbanSquare,
+  Clock, Bell, MessageCircle,
   Zap, TrendingUp, Tag,
 } from 'lucide-react'
 import type { CanalInbox, PlantillaRespuesta, ConfigInbox, TipoCanal } from '@/tipos/inbox'
-import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { ModalAgregarCanal } from '../_componentes/ModalAgregarCanal'
-import { SeccionWhatsApp } from '../_componentes/SeccionWhatsApp'
-import { SeccionPlantillasWA } from '../_componentes/SeccionPlantillasWA'
 import { useRol } from '@/hooks/useRol'
 import { useTraduccion } from '@/lib/i18n'
 
 // Sub-componentes extraídos
 import { ModuloToggle } from './_componentes/ModuloToggle'
 import { SeccionCorreo } from './_componentes/SeccionCorreo'
-import { SeccionChatbot } from './_componentes/SeccionChatbot'
 import { SeccionRespuestasRapidas } from './_componentes/SeccionRespuestasRapidas'
 import { SeccionPlantillasCorreo } from './_componentes/SeccionPlantillasCorreo'
 import {
-  SeccionPipeline,
   SeccionEtiquetasConfig,
   SeccionReglasConfig,
   SeccionMetricasConfig,
 } from './_componentes/SeccionesSimples'
 
 /**
- * Configuración del Inbox — orquestador principal.
- * Secciones: General, WhatsApp, Correo, Interno, Plantillas, SLA, etc.
- * Cada sección se renderiza desde un sub-componente en _componentes/.
+ * Configuración del Inbox — Correo e Interno.
+ * WhatsApp se configurá desde su propia sección (/whatsapp/configuracion).
  */
 
 export default function PaginaConfiguracionInbox() {
@@ -51,14 +44,13 @@ export default function PaginaConfiguracionInbox() {
   const [cargando, setCargando] = useState(true)
 
   // Modal agregar canal
-  const [modalCanal, setModalCanal] = useState<{ abierto: boolean; tipo: TipoCanal }>({ abierto: false, tipo: 'whatsapp' })
+  const [modalCanal, setModalCanal] = useState<{ abierto: boolean; tipo: TipoCanal }>({ abierto: false, tipo: 'correo' })
 
   // Datos
   const [config, setConfig] = useState<ConfigInbox | null>(null)
   const [canales, setCanales] = useState<CanalInbox[]>([])
   const [plantillas, setPlantillas] = useState<PlantillaRespuesta[]>([])
   const [modulos, setModulos] = useState<Record<string, boolean>>({
-    inbox_whatsapp: true,
     inbox_correo: true,
     inbox_interno: true,
   })
@@ -130,14 +122,9 @@ export default function PaginaConfiguracionInbox() {
 
   const secciones: SeccionConfig[] = [
     { id: 'general', etiqueta: t('inbox.config.general'), icono: <Settings2 size={16} /> },
-    { id: 'whatsapp', etiqueta: t('inbox.canales.whatsapp'), icono: <IconoWhatsApp size={16} /> },
     { id: 'correo', etiqueta: t('inbox.config.correo'), icono: <Mail size={16} /> },
     { id: 'interno', etiqueta: t('inbox.config.interno'), icono: <Hash size={16} /> },
-    { id: 'pipeline', etiqueta: 'Pipeline / Etapas', icono: <KanbanSquare size={16} /> },
-    { id: 'chatbot', etiqueta: 'Chatbot', icono: <Bot size={16} />, grupo: 'Automatización' },
-    { id: 'agente_ia', etiqueta: 'Agente IA', icono: <Sparkles size={16} />, grupo: 'Automatización' },
     { id: 'respuestas_rapidas', etiqueta: 'Respuestas rápidas', icono: <Zap size={16} />, grupo: t('inbox.plantillas') },
-    { id: 'plantillas_wa', etiqueta: t('inbox.config.plantillas_whatsapp'), icono: <FileText size={16} />, grupo: t('inbox.plantillas') },
     { id: 'plantillas_correo', etiqueta: t('inbox.config.plantillas_correo'), icono: <FileText size={16} />, grupo: t('inbox.plantillas') },
     { id: 'etiquetas', etiqueta: t('inbox.etiquetar'), icono: <Tag size={16} />, grupo: 'Correo avanzado' },
     { id: 'reglas', etiqueta: 'Reglas automáticas', icono: <Zap size={16} />, grupo: 'Correo avanzado' },
@@ -147,7 +134,6 @@ export default function PaginaConfiguracionInbox() {
     { id: 'notificaciones', etiqueta: t('inbox.config.notificaciones'), icono: <Bell size={16} />, grupo: 'Avanzado' },
   ]
 
-  const canalesWhatsApp = canales.filter(c => c.tipo === 'whatsapp')
   const canalesCorreo = canales.filter(c => c.tipo === 'correo')
 
   return (
@@ -173,13 +159,6 @@ export default function PaginaConfiguracionInbox() {
             </p>
             <div className="space-y-3">
               <ModuloToggle
-                icono={<IconoWhatsApp size={18} style={{ color: 'var(--canal-whatsapp)' }} />}
-                nombre={t('inbox.canales.whatsapp')}
-                descripcion="Chat en tiempo real con clientes vía WhatsApp Business"
-                activo={modulos.inbox_whatsapp}
-                onChange={(v) => toggleModulo('inbox_whatsapp', v)}
-              />
-              <ModuloToggle
                 icono={<Mail size={18} style={{ color: 'var(--canal-correo)' }} />}
                 nombre={t('inbox.config.correo')}
                 descripcion="Bandejas compartidas y personales con soporte IMAP/Gmail"
@@ -196,75 +175,7 @@ export default function PaginaConfiguracionInbox() {
             </div>
           </div>
 
-          {/* IA en el inbox */}
-          <div>
-            <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--texto-primario)' }}>
-              Inteligencia Artificial
-            </h3>
-            <div
-              className="flex items-center gap-3 p-4 rounded-lg"
-              style={{ border: '1px solid var(--borde-sutil)' }}
-            >
-              <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ background: 'color-mix(in srgb, var(--texto-marca) 10%, transparent)' }}
-              >
-                <Sparkles size={18} style={{ color: 'var(--texto-marca)' }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium" style={{ color: 'var(--texto-primario)' }}>
-                  Asistente IA en el inbox
-                </p>
-                <p className="text-xs" style={{ color: 'var(--texto-terciario)' }}>
-                  Sugerencias de respuesta, resúmenes y análisis de sentimiento en conversaciones.
-                </p>
-              </div>
-              <Interruptor
-                activo={config?.ia_habilitada || false}
-                onChange={(v) => guardarConfig({ ia_habilitada: v })}
-              />
-            </div>
-            <div
-              className="flex items-start gap-2 mt-3 px-3 py-2.5 rounded-lg text-xs"
-              style={{
-                background: 'color-mix(in srgb, var(--insignia-info) 8%, transparent)',
-                color: 'var(--texto-terciario)',
-              }}
-            >
-              <Sparkles size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--insignia-info)' }} />
-              <span>
-                El proveedor y la API key de IA se configuran desde{' '}
-                {puedeConfigEmpresa ? (
-                  <a
-                    href="/configuracion?seccion=ia"
-                    className="font-medium underline underline-offset-2"
-                    style={{ color: 'var(--texto-marca)' }}
-                  >
-                    Configuración de la empresa &gt; IA
-                  </a>
-                ) : (
-                  <strong>Configuración de la empresa &gt; IA</strong>
-                )}
-                . Este switch solo activa o desactiva el uso de IA dentro del inbox.
-                {!puedeConfigEmpresa && (
-                  <span className="block mt-1" style={{ color: 'var(--insignia-advertencia)' }}>
-                    No tenés permisos para acceder a esa configuración. Pedile a un administrador que configure la API key.
-                  </span>
-                )}
-              </span>
-            </div>
-            {config?.ia_habilitada && (
-              <p className="text-xs mt-2 px-1" style={{ color: 'var(--texto-terciario)' }}>
-                Los agentes verán el panel "Asistente IA" en cada conversación para pedir sugerencias, resúmenes y análisis de sentimiento.
-              </p>
-            )}
-          </div>
         </div>
-      )}
-
-      {/* WhatsApp */}
-      {seccionActiva === 'whatsapp' && (
-        <SeccionWhatsApp canales={canales} onRecargar={cargar} />
       )}
 
       {/* Correo */}
@@ -330,34 +241,12 @@ export default function PaginaConfiguracionInbox() {
         <SeccionMetricasConfig />
       )}
 
-      {/* Pipeline / Etapas */}
-      {seccionActiva === 'pipeline' && (
-        <SeccionPipeline />
-      )}
-
-      {/* Chatbot */}
-      {seccionActiva === 'chatbot' && (
-        <SeccionChatbot />
-      )}
-
-      {/* Agente IA */}
-      {seccionActiva === 'agente_ia' && (
-        <SeccionAgenteIA />
-      )}
-
       {/* Respuestas rápidas */}
       {seccionActiva === 'respuestas_rapidas' && (
         <SeccionRespuestasRapidas
-          plantillas={plantillas}
+          plantillas={plantillas.filter(p => p.canal === 'correo' || p.canal === 'todos')}
           onRecargar={cargar}
-        />
-      )}
-
-      {/* Plantillas Meta (WhatsApp) */}
-      {seccionActiva === 'plantillas_wa' && (
-        <SeccionPlantillasWA
-          canalesWhatsApp={canalesWhatsApp}
-          onRecargar={cargar}
+          canalesPermitidos={['correo', 'todos']}
         />
       )}
 

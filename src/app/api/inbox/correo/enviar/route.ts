@@ -14,7 +14,7 @@ import { registrarCorreoEnChatter } from '@/lib/chatter'
 /**
  * POST /api/inbox/correo/enviar — Enviar correo electrónico.
  * Soporta: nuevo, responder, responder a todos, reenviar.
- * Patrón similar a /api/inbox/whatsapp/enviar.
+ * Patrón similar a /api/whatsapp/enviar.
  */
 export async function POST(request: NextRequest) {
   try {

@@ -4,7 +4,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { obtenerCalidadNumero, type ConfigCuentaWhatsApp } from '@/lib/whatsapp'
 
 /**
- * GET /api/inbox/whatsapp/calidad — Obtener calidad del número de WhatsApp.
+ * GET /api/whatsapp/calidad — Obtener calidad del número de WhatsApp.
  * Devuelve: rating (GREEN/YELLOW/RED), tier, status.
  */
 export async function GET(request: NextRequest) {

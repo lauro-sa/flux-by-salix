@@ -22,6 +22,7 @@ import {
   CircleUserRound, X, LogOut, ChevronRight, Check, Plus,
   Circle, Megaphone, Monitor,
 } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 
 /**
  * MenuMovil — Menú de navegación fullscreen para teléfonos.
@@ -49,7 +50,8 @@ interface PropiedadesMenuMovil {
 function crearItemsMovil(t: (c: string) => string): ItemNav[] {
   return [
     { id: 'inicio', etiqueta: t('navegacion.inicio'), icono: <LayoutDashboard size={20} strokeWidth={1.7} />, ruta: '/dashboard', seccion: 'principal' },
-    { id: 'inbox', etiqueta: t('navegacion.inbox'), icono: <MessagesSquare size={20} strokeWidth={1.7} />, ruta: '/inbox', seccion: 'principal', modulo: 'inbox_interno', moduloCatalogo: 'inbox' },
+    { id: 'whatsapp', etiqueta: t('navegacion.whatsapp'), icono: <IconoWhatsApp size={20} />, ruta: '/whatsapp', seccion: 'principal', modulo: 'inbox_whatsapp', moduloCatalogo: 'inbox_whatsapp' },
+    { id: 'inbox', etiqueta: t('navegacion.inbox'), icono: <MessagesSquare size={20} strokeWidth={1.7} />, ruta: '/inbox', seccion: 'principal', modulo: 'inbox_correo', moduloCatalogo: 'inbox_correo' },
     { id: 'contactos', etiqueta: t('navegacion.contactos'), icono: <Users size={20} strokeWidth={1.7} />, ruta: '/contactos', seccion: 'principal', modulo: 'contactos', moduloCatalogo: 'contactos' },
     { id: 'actividades', etiqueta: t('navegacion.actividades'), icono: <Zap size={20} strokeWidth={1.7} />, ruta: '/actividades', seccion: 'principal', modulo: 'actividades', moduloCatalogo: 'actividades' },
     { id: 'calendario', etiqueta: t('navegacion.calendario'), icono: <Calendar size={20} strokeWidth={1.7} />, ruta: '/calendario', seccion: 'principal', modulo: 'calendario', moduloCatalogo: 'calendario' },
@@ -107,7 +109,7 @@ function MenuMovil({ abierto, onCerrar }: PropiedadesMenuMovil) {
 
   // Prefetch de rutas principales para navegación instantánea
   useEffect(() => {
-    const rutasPrefetch = ['/contactos', '/presupuestos', '/actividades', '/productos', '/dashboard', '/visitas', '/recorrido', '/inbox', '/calendario', '/asistencias', '/ordenes']
+    const rutasPrefetch = ['/contactos', '/presupuestos', '/actividades', '/productos', '/dashboard', '/visitas', '/recorrido', '/whatsapp', '/inbox', '/calendario', '/asistencias', '/ordenes']
     rutasPrefetch.forEach(ruta => {
       if (ruta !== pathname) router.prefetch(ruta)
     })

@@ -4,7 +4,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { enviarReaccionWhatsApp, type ConfigCuentaWhatsApp } from '@/lib/whatsapp'
 
 /**
- * POST /api/inbox/whatsapp/reaccion — Enviar reacción emoji a un mensaje.
+ * POST /api/whatsapp/reaccion — Enviar reacción emoji a un mensaje.
  * Body: { conversacion_id, mensaje_id, emoji }
  * Si emoji es "" se quita la reacción.
  */

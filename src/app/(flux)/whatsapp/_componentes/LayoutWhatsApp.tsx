@@ -2,13 +2,13 @@
 
 import React, { useRef } from 'react'
 import { ErrorBoundary } from '@/componentes/feedback/ErrorBoundary'
-import { ListaConversaciones } from './ListaConversaciones'
+import { ListaConversaciones } from '@/app/(flux)/inbox/_componentes/ListaConversaciones'
 import { PanelWhatsApp } from './PanelWhatsApp'
-import { PanelInfoContacto } from './PanelInfoContacto'
-import VistaPipeline from './VistaPipeline'
+import { PanelInfoContacto } from '@/app/(flux)/inbox/_componentes/PanelInfoContacto'
+import VistaPipeline from '@/app/(flux)/inbox/_componentes/VistaPipeline'
 import type { ConversacionConDetalles, MensajeConAdjuntos, EstadoConversacion } from '@/tipos/inbox'
-import type { DatosMensaje } from './CompositorMensaje'
-import type { VistaMovilWA } from './useEstadoInbox'
+import type { DatosMensaje } from '@/app/(flux)/inbox/_componentes/CompositorMensaje'
+import type { VistaMovilWA } from '@/tipos/inbox'
 
 /**
  * Layout del tab de WhatsApp — lista de conversaciones + panel de chat + info contacto.

@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
               plantilla: 'plantilla',
             }
 
-            const res = await fetch(`${baseUrl}/api/inbox/whatsapp/enviar`, {
+            const res = await fetch(`${baseUrl}/api/whatsapp/enviar`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

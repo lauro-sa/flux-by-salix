@@ -17,11 +17,12 @@ import { COLOR_ETIQUETA_DEFECTO, PALETA_COLORES_ETIQUETA } from '@/lib/colores_e
 import type { EtiquetaInbox } from '@/tipos/inbox'
 
 /**
- * Sección Pipeline — tabs de WhatsApp y Correo con etapas drag-and-drop.
- * Se usa en la configuración del inbox cuando la sección activa es "pipeline".
+ * Sección Pipeline — etapas drag-and-drop.
+ * Acepta canales opcionales para filtrar qué tabs mostrar.
+ * Si solo tiene un canal, no muestra tabs.
  */
-export function SeccionPipeline() {
-  const [tabCanal, setTabCanal] = useState<'whatsapp' | 'correo'>('whatsapp')
+export function SeccionPipeline({ canales = ['whatsapp', 'correo'] }: { canales?: ('whatsapp' | 'correo')[] }) {
+  const [tabCanal, setTabCanal] = useState<'whatsapp' | 'correo'>(canales[0])
 
   return (
     <div className="space-y-5">
@@ -34,36 +35,42 @@ export function SeccionPipeline() {
         </p>
       </div>
 
-      {/* Tabs WhatsApp / Correo */}
-      <div
-        className="flex gap-1 p-1 rounded-lg w-fit"
-        style={{ background: 'var(--superficie-hover)' }}
-      >
-        <button
-          onClick={() => setTabCanal('whatsapp')}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all"
-          style={{
-            background: tabCanal === 'whatsapp' ? 'var(--superficie-tarjeta)' : 'transparent',
-            color: tabCanal === 'whatsapp' ? 'var(--texto-primario)' : 'var(--texto-terciario)',
-            boxShadow: tabCanal === 'whatsapp' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
-          }}
+      {/* Tabs — solo si hay más de un canal */}
+      {canales.length > 1 && (
+        <div
+          className="flex gap-1 p-1 rounded-lg w-fit"
+          style={{ background: 'var(--superficie-hover)' }}
         >
-          <IconoWhatsApp size={14} />
-          WhatsApp
-        </button>
-        <button
-          onClick={() => setTabCanal('correo')}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all"
-          style={{
-            background: tabCanal === 'correo' ? 'var(--superficie-tarjeta)' : 'transparent',
-            color: tabCanal === 'correo' ? 'var(--texto-primario)' : 'var(--texto-terciario)',
-            boxShadow: tabCanal === 'correo' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
-          }}
-        >
-          <Mail size={14} />
-          Correo
-        </button>
-      </div>
+          {canales.includes('whatsapp') && (
+            <button
+              onClick={() => setTabCanal('whatsapp')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+              style={{
+                background: tabCanal === 'whatsapp' ? 'var(--superficie-tarjeta)' : 'transparent',
+                color: tabCanal === 'whatsapp' ? 'var(--texto-primario)' : 'var(--texto-terciario)',
+                boxShadow: tabCanal === 'whatsapp' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+              }}
+            >
+              <IconoWhatsApp size={14} />
+              WhatsApp
+            </button>
+          )}
+          {canales.includes('correo') && (
+            <button
+              onClick={() => setTabCanal('correo')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+              style={{
+                background: tabCanal === 'correo' ? 'var(--superficie-tarjeta)' : 'transparent',
+                color: tabCanal === 'correo' ? 'var(--texto-primario)' : 'var(--texto-terciario)',
+                boxShadow: tabCanal === 'correo' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+              }}
+            >
+              <Mail size={14} />
+              Correo
+            </button>
+          )}
+        </div>
+      )}
 
       <SeccionEtapas tipoCanal={tabCanal} key={tabCanal} />
     </div>

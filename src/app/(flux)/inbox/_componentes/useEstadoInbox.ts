@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useEsMovil } from '@/hooks/useEsMovil'
-import { sonidos } from '@/hooks/useSonido'
 import type {
   TipoCanal, EstadoConversacion, ConversacionConDetalles,
   MensajeConAdjuntos, CanalInterno, CanalInbox, ModuloEmpresa,
@@ -13,21 +12,15 @@ import type {
 import type { DatosMensaje } from './CompositorMensaje'
 import type { DatosCorreo } from './CompositorCorreo'
 import type { CarpetaCorreo } from './SidebarCorreo'
-import type { MediaVisor } from './PanelWhatsApp'
 import { useTraduccion } from '@/lib/i18n'
 import { DEBOUNCE_BUSQUEDA, INTERVALO_HEARTBEAT, INTERVALO_POLLING } from '@/lib/constantes/timeouts'
 
 /**
- * Hook principal del Inbox — centraliza todo el estado,
- * data fetching, realtime, polling y acciones.
- * Usado por PaginaInbox como orquestador.
+ * Hook principal del Inbox — centraliza estado de Correo e Interno.
+ * WhatsApp se separó a su propio hook (useEstadoWhatsApp) en /whatsapp.
  */
 
-// Tipo auxiliar para el modo de vista del correo
 export type ModoVista = 'columna' | 'fila'
-
-// Vistas móviles por canal
-export type VistaMovilWA = 'lista' | 'chat' | 'info'
 export type VistaMovilCorreo = 'sidebar' | 'lista' | 'correo'
 export type VistaMovilInterno = 'canales' | 'chat'
 
@@ -41,11 +34,10 @@ export function useEstadoInbox() {
   // ─── Estado global del inbox ───
   const abriendoDesdeUrlRef = useRef(false)
   const tabCambiadoManualRef = useRef(false)
-  const [tabActivo, setTabActivo] = useState<TipoCanal>('whatsapp')
-  const [vistaWA, setVistaWA] = useState<'conversaciones' | 'pipeline'>('conversaciones')
+  const [tabActivo, setTabActivo] = useState<TipoCanal>('correo')
   const [configCargada, setConfigCargada] = useState(false)
   const [modulosActivos, setModulosActivos] = useState<Set<string>>(
-    new Set(['inbox_whatsapp', 'inbox_correo', 'inbox_interno'])
+    new Set(['inbox_correo', 'inbox_interno'])
   )
 
   // Conversaciones
@@ -53,7 +45,6 @@ export function useEstadoInbox() {
   const [conversacionSeleccionada, setConversacionSeleccionada] = useState<ConversacionConDetalles | null>(null)
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<EstadoConversacion | 'todas'>('todas')
-  const [filtroEtiqueta, setFiltroEtiqueta] = useState('')
   const [soloNoLeidos, setSoloNoLeidos] = useState(false)
   const [cargandoConversaciones, setCargandoConversaciones] = useState(false)
 
@@ -61,8 +52,6 @@ export function useEstadoInbox() {
   const [mensajes, setMensajes] = useState<MensajeConAdjuntos[]>([])
   const [cargandoMensajes, setCargandoMensajes] = useState(false)
   const [enviando, setEnviando] = useState(false)
-  const [hayMasAnteriores, setHayMasAnteriores] = useState(false)
-  const [cargandoAnteriores, setCargandoAnteriores] = useState(false)
   const paginaMensajesRef = useRef(1)
 
   // Canales internos
@@ -73,13 +62,6 @@ export function useEstadoInbox() {
   const [modalCrearInterno, setModalCrearInterno] = useState(false)
   const [usuarioId, setUsuarioId] = useState<string>('')
 
-  // Panel info contacto
-  const [panelInfoAbierto, setPanelInfoAbierto] = useState(false)
-
-  // Bot/IA habilitados
-  const [iaHabilitada, setIaHabilitada] = useState(false)
-  const [botHabilitado, setBotHabilitado] = useState(false)
-
   // Correo
   const [redactandoNuevo, setRedactandoNuevo] = useState(false)
   const [canalesCorreo, setCanalesCorreo] = useState<CanalInbox[]>([])
@@ -88,10 +70,6 @@ export function useEstadoInbox() {
   const [canalTodas, setCanalTodas] = useState(false)
   const [contadoresCorreo, setContadoresCorreo] = useState<Record<string, { entrada: number; spam: number }>>({})
   const [sincronizando, setSincronizando] = useState(false)
-
-  // WhatsApp: modal nuevo mensaje + canal WA
-  const [modalNuevoWA, setModalNuevoWA] = useState(false)
-  const [canalWAId, setCanalWAId] = useState<string>('')
 
   // Modo de vista correo
   const [modoVista, setModoVista] = useState<ModoVista>(() => {
@@ -102,14 +80,6 @@ export function useEstadoInbox() {
   const cambiarModoVista = useCallback((modo: ModoVista) => {
     setModoVista(modo)
     localStorage.setItem('flux_inbox_modo_vista', modo)
-  }, [])
-
-  // Ancho de la lista de conversaciones (redimensionable, persistido)
-  const [anchoLista, setAnchoLista] = useState(340)
-  const redimensionandoRef = useRef(false)
-  useEffect(() => {
-    const guardado = localStorage.getItem('flux_inbox_ancho_lista')
-    if (guardado) setAnchoLista(parseInt(guardado))
   }, [])
 
   // Layout colapsable del correo
@@ -140,44 +110,13 @@ export function useEstadoInbox() {
 
   // ─── Responsive ───
   const esMovil = useEsMovil()
-
-  const [vistaMovilWA, setVistaMovilWA] = useState<VistaMovilWA>('lista')
   const [vistaMovilCorreo, setVistaMovilCorreo] = useState<VistaMovilCorreo>('sidebar')
   const [vistaMovilInterno, setVistaMovilInterno] = useState<VistaMovilInterno>('canales')
 
-  // Reset de vistas móviles cuando cambia de tab
   useEffect(() => {
-    setVistaMovilWA('lista')
     setVistaMovilCorreo('sidebar')
     setVistaMovilInterno('canales')
   }, [tabActivo])
-
-  // Visor de media fullscreen
-  const [visorAbierto, setVisorAbierto] = useState(false)
-  const [visorIndice, setVisorIndice] = useState(0)
-
-  const todosLosMedias = useMemo<MediaVisor[]>(() => {
-    const medias: MediaVisor[] = []
-    for (const msg of mensajes) {
-      if (msg.tipo_contenido === 'imagen' || msg.tipo_contenido === 'video') {
-        for (const adj of msg.adjuntos) {
-          medias.push({
-            url: adj.url,
-            tipo: msg.tipo_contenido === 'video' ? 'video' : 'imagen',
-            caption: msg.texto && !/^\[(Imagen|Video|Audio|Sticker|Documento|Ubicación|Contacto)/.test(msg.texto) ? msg.texto : null,
-            fecha: msg.creado_en,
-          })
-        }
-      }
-    }
-    return medias
-  }, [mensajes])
-
-  const abrirVisor = useCallback((url: string) => {
-    const idx = todosLosMedias.findIndex(m => m.url === url)
-    setVisorIndice(idx >= 0 ? idx : 0)
-    setVisorAbierto(true)
-  }, [todosLosMedias])
 
   const busquedaRef = useRef(busqueda)
   busquedaRef.current = busqueda
@@ -188,14 +127,6 @@ export function useEstadoInbox() {
       try {
         const res = await fetch('/api/inbox/config')
         const data = await res.json()
-        try {
-          const [resChatbot, resAgente] = await Promise.all([
-            fetch('/api/inbox/chatbot').then(r => r.json()).catch(() => ({ config: null })),
-            fetch('/api/inbox/agente-ia/config').then(r => r.json()).catch(() => ({ config: null })),
-          ])
-          setBotHabilitado(resChatbot.config?.activo ?? false)
-          setIaHabilitada(resAgente.config?.activo ?? false)
-        } catch { /* Si falla, quedan en false */ }
 
         if (data.modulos) {
           const activos = new Set<string>(
@@ -207,32 +138,19 @@ export function useEstadoInbox() {
             setModulosActivos(activos)
             const urlParams = new URLSearchParams(window.location.search)
             if (!urlParams.has('conv') && !urlParams.has('tab') && !tabCambiadoManualRef.current) {
-              if (activos.has('inbox_whatsapp')) setTabActivo('whatsapp')
-              else if (activos.has('inbox_correo')) setTabActivo('correo')
+              if (activos.has('inbox_correo')) setTabActivo('correo')
               else if (activos.has('inbox_interno')) setTabActivo('interno')
             }
           }
         }
       } catch {
-        // Si falla, mantener todos activos por defecto
+        // Si falla, mantener defaults
       } finally {
         setConfigCargada(true)
       }
     }
     cargarConfig()
   }, [])
-
-  // Cargar canal WhatsApp activo
-  useEffect(() => {
-    if (!configCargada || !modulosActivos.has('inbox_whatsapp')) return
-    fetch('/api/inbox/canales?tipo=whatsapp')
-      .then(r => r.json())
-      .then(data => {
-        const canales = data.canales || []
-        if (canales.length > 0) setCanalWAId(canales[0].id)
-      })
-      .catch(() => {})
-  }, [configCargada, modulosActivos])
 
   // ─── Params de filtro para conversaciones ───
   const construirParamsConversaciones = useCallback(() => {
@@ -254,10 +172,9 @@ export function useEstadoInbox() {
     }
 
     if (busquedaRef.current) params.set('busqueda', busquedaRef.current)
-    if (filtroEtiqueta) params.set('etiqueta', filtroEtiqueta)
     if (soloNoLeidos) params.set('no_leidos', 'true')
     return params
-  }, [tabActivo, filtroEstado, filtroEtiqueta, soloNoLeidos, carpetaCorreo, canalCorreoActivo, canalTodas])
+  }, [tabActivo, filtroEstado, soloNoLeidos, carpetaCorreo, canalCorreoActivo, canalTodas])
 
   // ─── Cargar conversaciones ───
   const cargarConversaciones = useCallback(async () => {
@@ -289,7 +206,7 @@ export function useEstadoInbox() {
     const tabParam = searchParams.get('tab')
 
     if (tabParam && !convId) {
-      if (tabParam === 'interno' || tabParam === 'correo' || tabParam === 'whatsapp') {
+      if (tabParam === 'interno' || tabParam === 'correo') {
         setTabActivo(tabParam as TipoCanal)
       }
       window.history.replaceState({}, '', window.location.pathname)
@@ -303,7 +220,7 @@ export function useEstadoInbox() {
 
     const abrirDesdeUrl = async () => {
       try {
-        if (tabParam === 'interno' || tabParam === 'correo' || tabParam === 'whatsapp') {
+        if (tabParam === 'interno' || tabParam === 'correo') {
           setTabActivo(tabParam as TipoCanal)
         }
 
@@ -325,7 +242,7 @@ export function useEstadoInbox() {
 
         if (!tabParam) {
           const tipoCanal = (conv.tipo_canal || conv.canal?.tipo) as TipoCanal | undefined
-          if (tipoCanal) setTabActivo(tipoCanal)
+          if (tipoCanal && tipoCanal !== 'whatsapp') setTabActivo(tipoCanal)
 
           if (tipoCanal === 'interno' && conv.canal_interno_id) {
             try {
@@ -359,7 +276,6 @@ export function useEstadoInbox() {
         const msgs = dataMsgs.mensajes || []
         setConversacionSeleccionada(conv)
         setMensajes(msgs)
-        setHayMasAnteriores((dataMsgs.total || 0) > msgs.length)
         setCargandoMensajes(false)
 
         marcarNotificacionesLeidasDeConversacion(convId)
@@ -369,7 +285,7 @@ export function useEstadoInbox() {
 
         abriendoDesdeUrlRef.current = false
         const tabFinal = tabParam || (conv.tipo_canal || conv.canal?.tipo) as string
-        if (tabFinal && tabFinal !== 'correo') {
+        if (tabFinal && tabFinal !== 'whatsapp') {
           const params = new URLSearchParams()
           params.set('tipo_canal', tabFinal)
           try {
@@ -519,7 +435,6 @@ export function useEstadoInbox() {
           const dataMsgs = await resMsgs.json()
           const msgs = dataMsgs.mensajes || []
           setMensajes(msgs)
-          setHayMasAnteriores((dataMsgs.total || 0) > msgs.length)
         }
       } catch {
         setMensajes([])
@@ -548,8 +463,7 @@ export function useEstadoInbox() {
     if (!conv) return
 
     if (esMovil) {
-      if (tabActivo === 'whatsapp') setVistaMovilWA('chat')
-      else if (tabActivo === 'correo') setVistaMovilCorreo('correo')
+      if (tabActivo === 'correo') setVistaMovilCorreo('correo')
     }
 
     marcarNotificacionesLeidasDeConversacion(id)
@@ -572,10 +486,8 @@ export function useEstadoInbox() {
       const data = await res.json()
       const msgs = data.mensajes || []
       setMensajes(msgs)
-      setHayMasAnteriores((data.total || 0) > msgs.length)
     } catch {
       setMensajes([])
-      setHayMasAnteriores(false)
     } finally {
       setCargandoMensajes(false)
     }
@@ -622,19 +534,6 @@ export function useEstadoInbox() {
           }).catch(() => {})
         }
       })
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'mensajes',
-        filter: `conversacion_id=eq.${convId}`,
-      }, (payload) => {
-        const actualizado = payload.new as MensajeConAdjuntos
-        setMensajes(prev => prev.map(m =>
-          m.id === actualizado.id
-            ? { ...m, wa_status: actualizado.wa_status, estado: actualizado.estado }
-            : m
-        ))
-      })
       .subscribe()
 
     return () => {
@@ -642,40 +541,7 @@ export function useEstadoInbox() {
     }
   }, [conversacionSeleccionada?.id, supabase])
 
-  // ─── Cargar mensajes anteriores ───
-  const conversacionIdRef = useRef<string | null>(null)
-  conversacionIdRef.current = conversacionSeleccionada?.id || null
-
-  const cargarMensajesAnteriores = useCallback(async () => {
-    const convId = conversacionSeleccionada?.id
-    if (!convId || cargandoAnteriores || !hayMasAnteriores) return
-
-    setCargandoAnteriores(true)
-    try {
-      const POR_PAGINA = 200
-      const pagina = paginaMensajesRef.current + 1
-      const res = await fetch(`/api/inbox/mensajes?conversacion_id=${convId}&por_pagina=${POR_PAGINA}&pagina=${pagina}`)
-      const data = await res.json()
-      if (conversacionIdRef.current !== convId) return
-
-      const anteriores = (data.mensajes || []) as MensajeConAdjuntos[]
-      if (anteriores.length > 0) {
-        paginaMensajesRef.current = pagina
-        setMensajes(prev => {
-          const idsExistentes = new Set(prev.map(m => m.id))
-          const nuevos = anteriores.filter(m => !idsExistentes.has(m.id))
-          return [...nuevos, ...prev]
-        })
-      }
-      setHayMasAnteriores(anteriores.length >= POR_PAGINA)
-    } catch {
-      // silenciar
-    } finally {
-      setCargandoAnteriores(false)
-    }
-  }, [conversacionSeleccionada?.id, cargandoAnteriores, hayMasAnteriores])
-
-  // ─── Enviar mensaje (optimistic update) ───
+  // ─── Enviar mensaje (interno) ───
   const enviarMensaje = useCallback(async (datos: DatosMensaje) => {
     if (!conversacionSeleccionada) return
     setEnviando(true)
@@ -695,9 +561,7 @@ export function useEstadoInbox() {
       es_nota_interna: datos.es_nota_interna || false,
       correo_de: null, correo_para: null, correo_cc: null, correo_cco: null,
       correo_asunto: null, correo_message_id: null, correo_in_reply_to: null, correo_references: null,
-      wa_message_id: null,
-      wa_status: 'sending' as string,
-      wa_tipo_mensaje: null,
+      wa_message_id: null, wa_status: null, wa_tipo_mensaje: null,
       respuesta_a_id: null, hilo_raiz_id: null, cantidad_respuestas: 0,
       reacciones: {},
       metadata: {},
@@ -706,205 +570,36 @@ export function useEstadoInbox() {
       plantilla_id: null,
       creado_en: new Date().toISOString(),
       editado_en: null, eliminado_en: null,
-      adjuntos: datos.archivo ? [{
-        id: `temp-adj-${Date.now()}`,
-        mensaje_id: tempId,
-        empresa_id: '',
-        nombre_archivo: datos.archivo.name,
-        tipo_mime: datos.archivo.type,
-        tamano_bytes: datos.archivo.size,
-        url: URL.createObjectURL(datos.archivo),
-        storage_path: '',
-        miniatura_url: null,
-        duracion_segundos: null,
-        es_sticker: false,
-        es_animado: false,
-        creado_en: new Date().toISOString(),
-      }] : [],
+      adjuntos: [],
     }
 
     setMensajes(prev => [...prev, mensajeOptimista])
 
     try {
-      let mediaUrl: string | undefined
-      let mediaFilename: string | undefined
-
-      if (datos.archivo) {
-        const nombreArchivo = datos.archivo.name
-          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-          .replace(/[^a-zA-Z0-9._-]/g, '_')
-          .slice(0, 100)
-        const path = `inbox/enviados/${conversacionSeleccionada.id}/${Date.now()}_${nombreArchivo}`
-
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('adjuntos')
-          .upload(path, datos.archivo, {
-            contentType: datos.archivo.type,
-            upsert: true,
-          })
-
-        if (uploadError) {
-          setMensajes(prev => prev.map(m =>
-            m.id === tempId ? { ...m, wa_status: 'failed', estado: 'fallido' as const } : m
-          ))
-          return
-        }
-
-        const { data: urlData } = supabase.storage
-          .from('adjuntos')
-          .getPublicUrl(uploadData.path)
-
-        mediaUrl = urlData.publicUrl
-        mediaFilename = datos.archivo.name
-      }
-
-      if (datos.es_nota_interna) {
-        const res = await fetch('/api/inbox/mensajes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            conversacion_id: conversacionSeleccionada.id,
-            texto: datos.texto,
-            tipo_contenido: 'texto',
-            es_nota_interna: true,
-          }),
-        })
-        const data = await res.json()
-        if (data.mensaje) {
-          setMensajes(prev => prev.map(m =>
-            m.id === tempId ? { ...data.mensaje, adjuntos: [] } : m
-          ))
-        }
-        return
-      }
-
-      if (conversacionSeleccionada.tipo_canal === 'whatsapp') {
-        const tipoMeta: Record<string, string> = {
-          texto: 'text', imagen: 'image', video: 'video',
-          audio: 'audio', documento: 'document',
-        }
-
-        const res = await fetch('/api/inbox/whatsapp/enviar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            conversacion_id: conversacionSeleccionada.id,
-            tipo: tipoMeta[datos.tipo_contenido] || 'text',
-            texto: datos.texto || undefined,
-            media_url: mediaUrl,
-            media_caption: datos.tipo_contenido !== 'texto' && datos.tipo_contenido !== 'audio' ? datos.texto : undefined,
-            media_filename: mediaFilename,
-          }),
-        })
-
-        if (!res.ok) {
-          setMensajes(prev => prev.map(m =>
-            m.id === tempId ? { ...m, wa_status: 'failed', estado: 'fallido' as const } : m
-          ))
-          return
-        }
-
-        const data = await res.json()
-        if (data.mensaje) {
-          setMensajes(prev => prev.map(m =>
-            m.id === tempId ? {
-              ...data.mensaje,
-              adjuntos: data.mensaje.adjuntos?.length > 0 ? data.mensaje.adjuntos : mensajeOptimista.adjuntos,
-            } : m
-          ))
-        }
-      } else {
-        const res = await fetch('/api/inbox/mensajes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            conversacion_id: conversacionSeleccionada.id,
-            texto: datos.texto,
-            tipo_contenido: datos.tipo_contenido,
-          }),
-        })
-        const data = await res.json()
-        if (data.mensaje) {
-          setMensajes(prev => prev.map(m =>
-            m.id === tempId ? { ...data.mensaje, adjuntos: [] } : m
-          ))
-        }
+      const res = await fetch('/api/inbox/mensajes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversacion_id: conversacionSeleccionada.id,
+          texto: datos.texto,
+          tipo_contenido: datos.tipo_contenido,
+          es_nota_interna: datos.es_nota_interna || false,
+        }),
+      })
+      const data = await res.json()
+      if (data.mensaje) {
+        setMensajes(prev => prev.map(m =>
+          m.id === tempId ? { ...data.mensaje, adjuntos: [] } : m
+        ))
       }
     } catch {
-      setMensajes(prev => prev.map(m =>
-        m.id === tempId ? { ...m, wa_status: 'failed', estado: 'fallido' as const } : m
-      ))
+      setMensajes(prev => prev.filter(m => m.id !== tempId))
     } finally {
       setEnviando(false)
     }
-  }, [conversacionSeleccionada, supabase])
+  }, [conversacionSeleccionada, usuarioId])
 
-  // ─── Enviar nuevo WhatsApp ───
-  const enviarNuevoWhatsApp = useCallback(async (telefono: string, plantilla: import('@/tipos/inbox').PlantillaWhatsApp, valoresVariables: string[]) => {
-    if (!canalWAId) throw new Error('No hay canal WhatsApp configurado')
-
-    const resConv = await fetch('/api/inbox/conversaciones', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        canal_id: canalWAId,
-        tipo_canal: 'whatsapp',
-        identificador_externo: telefono,
-      }),
-    })
-    if (!resConv.ok) {
-      const data = await resConv.json().catch(() => ({ error: 'Error desconocido' }))
-      mostrar('error', data.error || 'Error al crear conversación')
-      throw new Error(data.error)
-    }
-    const { conversacion } = await resConv.json()
-
-    const componentesMeta: Record<string, unknown>[] = []
-    const cuerpo = plantilla.componentes?.cuerpo
-    if (cuerpo?.texto) {
-      const matches = cuerpo.texto.match(/\{\{\d+\}\}/g)
-      if (matches && matches.length > 0) {
-        const parametros = matches.map((_, i) => {
-          const valor = valoresVariables[i]?.trim() || '\u200B'
-          return { type: 'text', text: valor }
-        })
-        componentesMeta.push({ type: 'body', parameters: parametros })
-      }
-    }
-    const encabezado = plantilla.componentes?.encabezado
-    if (encabezado?.tipo === 'TEXT' && encabezado.texto?.includes('{{1}}')) {
-      componentesMeta.push({
-        type: 'header',
-        parameters: [{ type: 'text', text: encabezado.ejemplo || '' }],
-      })
-    }
-
-    const resEnvio = await fetch('/api/inbox/whatsapp/enviar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        conversacion_id: conversacion.id,
-        canal_id: canalWAId,
-        tipo: 'plantilla',
-        plantilla_nombre_api: plantilla.nombre_api,
-        plantilla_idioma: plantilla.idioma,
-        plantilla_componentes: componentesMeta,
-      }),
-    })
-    if (!resEnvio.ok) {
-      const data = await resEnvio.json().catch(() => ({ error: 'Error desconocido' }))
-      mostrar('error', data.error || 'Error al enviar plantilla')
-      throw new Error(data.error)
-    }
-
-    mostrar('exito', `Plantilla enviada a ${telefono}`)
-
-    await cargarConversaciones()
-    seleccionarConversacion(conversacion.id)
-    if (esMovil) setVistaMovilWA('chat')
-  }, [canalWAId, mostrar, cargarConversaciones, seleccionarConversacion, esMovil])
-
-  // ─── Reaccionar a mensaje ───
+  // ─── Reaccionar a mensaje (interno) ───
   const reaccionarMensaje = useCallback(async (mensajeId: string, emoji: string) => {
     setMensajes(prev => prev.map(m => {
       if (m.id !== mensajeId) return m
@@ -927,26 +622,13 @@ export function useEstadoInbox() {
     }))
 
     try {
-      const esWhatsApp = conversacionSeleccionada?.tipo_canal === 'whatsapp'
-      if (esWhatsApp) {
-        await fetch('/api/inbox/whatsapp/reaccion', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            conversacion_id: conversacionSeleccionada.id,
-            mensaje_id: mensajeId,
-            emoji: emoji,
-          }),
-        })
-      } else {
-        await fetch(`/api/inbox/mensajes/${mensajeId}/reaccion`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ emoji }),
-        })
-      }
+      await fetch(`/api/inbox/mensajes/${mensajeId}/reaccion`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emoji }),
+      })
     } catch { /* silenciar */ }
-  }, [usuarioId, conversacionSeleccionada])
+  }, [usuarioId])
 
   // ─── Enviar correo ───
   const enviarCorreo = useCallback(async (datos: DatosCorreo) => {
@@ -1125,79 +807,6 @@ export function useEstadoInbox() {
     }
   }, [conversacionSeleccionada, mostrar])
 
-  // ─── Polling de mensajes ───
-  const ultimoMensajeRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    const convId = conversacionSeleccionada?.id
-    if (!convId) return
-
-    let cancelado = false
-    const abortController = new AbortController()
-
-    const poll = async () => {
-      if (document.hidden || cancelado) return
-      try {
-        const res = await fetch(
-          `/api/inbox/mensajes?conversacion_id=${convId}&por_pagina=200`,
-          { signal: abortController.signal }
-        )
-        const data = await res.json()
-        if (cancelado || conversacionIdRef.current !== convId) return
-        if (data.mensajes) {
-          const nuevos = data.mensajes as MensajeConAdjuntos[]
-          setMensajes(prev => {
-            const idsServer = new Set(nuevos.map(m => m.id))
-            const temporales = prev.filter(m => {
-              if (!m.id.startsWith('temp-')) return false
-              if (idsServer.has(m.id)) return false
-              const duplicadoEnServer = nuevos.some(n =>
-                n.texto === m.texto &&
-                n.remitente_id === m.remitente_id &&
-                Math.abs(new Date(n.creado_en).getTime() - new Date(m.creado_en).getTime()) < 15000
-              )
-              return !duplicadoEnServer
-            })
-            const merged = [...nuevos, ...temporales]
-            if (merged.length === prev.length && merged.every((m, i) =>
-              m.id === prev[i]?.id && m.adjuntos.length === prev[i]?.adjuntos?.length
-            )) return prev
-            const ultimoAnterior = ultimoMensajeRef.current
-            const ultimoNuevo = nuevos[nuevos.length - 1]?.id
-            if (ultimoAnterior && ultimoNuevo && ultimoAnterior !== ultimoNuevo) {
-              const mensajeNuevo = nuevos[nuevos.length - 1]
-              if (mensajeNuevo?.es_entrante || (mensajeNuevo?.remitente_id && !mensajeNuevo.id.startsWith('temp-'))) {
-                sonidos.notificacion()
-              }
-              marcarNotificacionesLeidasDeConversacion(convId)
-            }
-            ultimoMensajeRef.current = ultimoNuevo
-            return merged
-          })
-
-          const mediaSinAdjunto = nuevos.some(
-            m => ['imagen', 'audio', 'video', 'documento', 'sticker'].includes(m.tipo_contenido)
-              && m.adjuntos.length === 0
-          )
-          if (mediaSinAdjunto) {
-            fetch('/api/inbox/whatsapp/media-pendiente', { method: 'POST' }).catch(() => {})
-          }
-        }
-      } catch {
-        // Ignorar errores de abort
-      }
-    }
-
-    poll()
-    const intervalo = setInterval(poll, INTERVALO_POLLING)
-
-    return () => {
-      cancelado = true
-      abortController.abort()
-      clearInterval(intervalo)
-    }
-  }, [conversacionSeleccionada?.id])
-
   // ─── Polling de lista de conversaciones ───
   useEffect(() => {
     if (!configCargada) return
@@ -1251,7 +860,6 @@ export function useEstadoInbox() {
   const totalNoLeidos = conversaciones.reduce((sum, c) => sum + c.mensajes_sin_leer, 0)
 
   return {
-    // Traducciones y navegación
     t,
     router,
 
@@ -1259,8 +867,6 @@ export function useEstadoInbox() {
     tabActivo,
     setTabActivo,
     tabCambiadoManualRef,
-    vistaWA,
-    setVistaWA,
     modulosActivos,
     esMovil,
 
@@ -1273,8 +879,6 @@ export function useEstadoInbox() {
     setBusqueda,
     filtroEstado,
     setFiltroEstado,
-    filtroEtiqueta,
-    setFiltroEtiqueta,
     soloNoLeidos,
     setSoloNoLeidos,
     cargandoConversaciones,
@@ -1287,11 +891,8 @@ export function useEstadoInbox() {
     setMensajes,
     cargandoMensajes,
     enviando,
-    hayMasAnteriores,
-    cargandoAnteriores,
     paginaMensajesRef,
     enviarMensaje,
-    cargarMensajesAnteriores,
     reaccionarMensaje,
 
     // Canales internos
@@ -1307,14 +908,6 @@ export function useEstadoInbox() {
     setModalCrearInterno,
     usuarioId,
     cargarCanalesInternos,
-
-    // Panel info
-    panelInfoAbierto,
-    setPanelInfoAbierto,
-
-    // Bot/IA
-    iaHabilitada,
-    botHabilitado,
 
     // Correo
     redactandoNuevo,
@@ -1340,12 +933,6 @@ export function useEstadoInbox() {
     firmaCorreo,
     emailCanalActivo,
 
-    // WhatsApp
-    modalNuevoWA,
-    setModalNuevoWA,
-    canalWAId,
-    enviarNuevoWhatsApp,
-
     // Acciones conversación
     marcarSpam,
     desmarcarSpam,
@@ -1354,28 +941,12 @@ export function useEstadoInbox() {
     eliminarConversacion,
     archivarConversacion,
 
-    // Visor media
-    todosLosMedias,
-    visorAbierto,
-    setVisorAbierto,
-    visorIndice,
-    setVisorIndice,
-    abrirVisor,
-
     // Vistas móviles
-    vistaMovilWA,
-    setVistaMovilWA,
     vistaMovilCorreo,
     setVistaMovilCorreo,
     vistaMovilInterno,
     setVistaMovilInterno,
-
-    // Redimensionado
-    anchoLista,
-    setAnchoLista,
-    redimensionandoRef,
   }
 }
 
-/** Tipo de retorno del hook, útil para tipado de sub-componentes */
 export type EstadoInbox = ReturnType<typeof useEstadoInbox>

@@ -1,6 +1,6 @@
 {
   "functions": {
-    "src/app/api/inbox/whatsapp/webhook/route.ts": {
+    "src/app/api/whatsapp/webhook/route.ts": {
       "maxDuration": 120
     },
     "src/app/api/inbox/correo/sincronizar/route.ts": {

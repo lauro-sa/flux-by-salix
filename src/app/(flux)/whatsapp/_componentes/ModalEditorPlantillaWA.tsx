@@ -235,7 +235,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
     if (tieneErrores) return
     setGuardando(true)
     try {
-      const res = await fetch('/api/inbox/whatsapp/plantillas', {
+      const res = await fetch('/api/whatsapp/plantillas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -263,7 +263,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
     setEnviandoAMeta(true)
     try {
       // Guardar primero
-      const resGuardar = await fetch('/api/inbox/whatsapp/plantillas', {
+      const resGuardar = await fetch('/api/whatsapp/plantillas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -281,7 +281,7 @@ export function ModalEditorPlantillaWA({ abierto, onCerrar, plantilla, canalId, 
       if (!idPlantilla) throw new Error('No se pudo obtener ID de la plantilla')
 
       // Enviar a Meta
-      const res = await fetch('/api/inbox/whatsapp/plantillas', {
+      const res = await fetch('/api/whatsapp/plantillas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

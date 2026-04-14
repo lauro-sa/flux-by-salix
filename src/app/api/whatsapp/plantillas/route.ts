@@ -8,7 +8,7 @@ import {
 import type { ComponentesPlantillaWA, EstadoMeta } from '@/tipos/inbox'
 
 /**
- * GET /api/inbox/whatsapp/plantillas — Listar plantillas locales.
+ * GET /api/whatsapp/plantillas — Listar plantillas locales.
  * Query params: canal_id (opcional, filtra por cuenta WA)
  */
 export async function GET(request: NextRequest) {
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/inbox/whatsapp/plantillas — Acciones: guardar, enviar_a_meta, eliminar, sincronizar.
+ * POST /api/whatsapp/plantillas — Acciones: guardar, enviar_a_meta, eliminar, sincronizar.
  */
 export async function POST(request: NextRequest) {
   try {

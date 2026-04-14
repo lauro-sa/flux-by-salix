@@ -95,7 +95,7 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
 
   const guardarOrden = (nuevoOrden: Record<string, string[]>) => {
     setOrden(nuevoOrden)
-    guardarPreferencia({ sidebar_orden: Object.values(nuevoOrden).flat() })
+    guardarPreferencia({ sidebar_orden: nuevoOrden })
   }
 
   // Filtrar items visibles (ni ocultos ni deshabilitados)
@@ -182,7 +182,7 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
 
   // Prefetch de rutas principales para navegación instantánea
   useEffect(() => {
-    const rutasPrefetch = ['/contactos', '/presupuestos', '/actividades', '/productos', '/dashboard', '/papelera', '/asistencias', '/visitas', '/recorrido', '/inbox', '/calendario', '/ordenes']
+    const rutasPrefetch = ['/contactos', '/presupuestos', '/actividades', '/productos', '/dashboard', '/papelera', '/asistencias', '/visitas', '/recorrido', '/whatsapp', '/inbox', '/calendario', '/ordenes']
     rutasPrefetch.forEach(ruta => {
       if (ruta !== pathname) router.prefetch(ruta)
     })

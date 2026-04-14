@@ -178,10 +178,13 @@ export async function PATCH(
         const { crearNotificacion } = await import('@/lib/notificaciones')
         const { data: conv } = await admin
           .from('conversaciones')
-          .select('contacto_nombre, identificador_externo')
+          .select('contacto_nombre, identificador_externo, tipo_canal')
           .eq('id', id)
           .single()
         const contacto = conv?.contacto_nombre || conv?.identificador_externo || 'una conversación'
+        const urlConv = conv?.tipo_canal === 'whatsapp'
+          ? `/whatsapp?conv=${id}`
+          : `/inbox?conv=${id}&tab=${conv?.tipo_canal || 'correo'}`
         await crearNotificacion({
           empresaId,
           usuarioId: body.asignado_a,
@@ -190,7 +193,7 @@ export async function PATCH(
           cuerpo: `${nombreCompleto} te asignó la conversación de ${contacto}`,
           icono: '👤',
           color: COLOR_NOTIFICACION.cyan,
-          url: `/inbox?conv=${id}&tab=whatsapp`,
+          url: urlConv,
           referenciaTipo: 'conversacion',
           referenciaId: id,
         })

@@ -14,15 +14,17 @@ import {
   Monitor,
 } from 'lucide-react'
 import { createElement } from 'react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { ItemNav } from './tipos'
 
 /** Crea un icono de Lucide con tamaño y grosor estandar del sidebar */
-const icono = (Componente: typeof MessagesSquare) => createElement(Componente, { size: 20, strokeWidth: 1.75 })
+const icono = (Componente: typeof MessagesSquare) => createElement(Componente, { size: 18, strokeWidth: 1.5 })
 
 /** Genera items de navegacion traducidos */
 export function crearItemsNav(t: (c: string) => string): ItemNav[] {
   return [
-    { id: 'inbox', etiqueta: t('navegacion.inbox'), icono: icono(MessagesSquare), ruta: '/inbox', seccion: 'principal', modulo: 'inbox_interno', moduloCatalogo: 'inbox' },
+    { id: 'inbox', etiqueta: t('navegacion.inbox'), icono: icono(MessagesSquare), ruta: '/inbox', seccion: 'principal', modulo: 'inbox_correo', moduloCatalogo: 'inbox_correo' },
+    { id: 'whatsapp', etiqueta: t('navegacion.whatsapp'), icono: createElement(IconoWhatsApp, { size: 16 }), ruta: '/whatsapp', seccion: 'principal', modulo: 'inbox_whatsapp', moduloCatalogo: 'inbox_whatsapp' },
     { id: 'contactos', etiqueta: t('navegacion.contactos'), icono: icono(Users), ruta: '/contactos', seccion: 'principal', modulo: 'contactos', moduloCatalogo: 'contactos' },
     { id: 'actividades', etiqueta: t('navegacion.actividades'), icono: icono(Zap), ruta: '/actividades', seccion: 'principal', modulo: 'actividades', moduloCatalogo: 'actividades' },
     { id: 'calendario', etiqueta: t('navegacion.calendario'), icono: icono(Calendar), ruta: '/calendario', seccion: 'principal', modulo: 'calendario', moduloCatalogo: 'calendario' },

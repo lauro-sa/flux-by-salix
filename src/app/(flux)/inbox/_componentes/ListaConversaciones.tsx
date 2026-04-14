@@ -144,7 +144,7 @@ export function ListaConversaciones({
   const [programadosPorConv, setProgramadosPorConv] = useState<Record<string, string>>({})
   useEffect(() => {
     if (tipoCanal !== 'whatsapp') { setProgramadosPorConv({}); return }
-    fetch('/api/inbox/whatsapp/programados')
+    fetch('/api/whatsapp/programados')
       .then(r => r.json())
       .then(d => setProgramadosPorConv(d.programados_por_conversacion || {}))
       .catch(() => setProgramadosPorConv({}))

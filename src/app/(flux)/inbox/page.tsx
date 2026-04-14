@@ -7,25 +7,17 @@ import { Boton } from '@/componentes/ui/Boton'
 import { useEstadoInbox } from './_componentes/useEstadoInbox'
 import { BarraSuperiorInbox } from './_componentes/BarraSuperiorInbox'
 import { LayoutCorreo } from './_componentes/LayoutCorreo'
-import { LayoutWhatsApp } from './_componentes/LayoutWhatsApp'
 import { LayoutInterno } from './_componentes/LayoutInterno'
-import { VisorMedia } from './_componentes/PanelWhatsApp'
-import { ModalNuevoWhatsApp } from './_componentes/ModalNuevoWhatsApp'
 import type { TipoCanal, CanalInterno } from '@/tipos/inbox'
 
 /**
- * Página principal del Inbox — 3 tabs (WhatsApp, Correo, Interno).
- * Layout 3 paneles: lista conversaciones | chat | info contacto.
- * Se adapta según módulos activos de la empresa.
- *
- * Este archivo es el orquestador: el estado vive en useEstadoInbox
- * y cada tab tiene su propio componente de layout.
+ * Página principal del Inbox — 2 tabs (Correo, Interno).
+ * WhatsApp se separó a su propia sección (/whatsapp).
+ * Layout adaptado a cada canal.
  */
 
-// Generar tabs según módulos activos (para verificar si hay alguno)
 function hayModulosActivos(modulosActivos: Set<string>) {
-  return modulosActivos.has('inbox_whatsapp') ||
-    modulosActivos.has('inbox_correo') ||
+  return modulosActivos.has('inbox_correo') ||
     modulosActivos.has('inbox_interno')
 }
 
@@ -41,13 +33,11 @@ function PaginaInbox() {
   const estado = useEstadoInbox()
   const router = useRouter()
 
-  // Limpiar selección de correo (helper reutilizado en varios callbacks)
   const limpiarSeleccionCorreo = useCallback(() => {
     estado.setConversacionSeleccionada(null)
     estado.setMensajes([])
   }, [])
 
-  // Handler para cambiar de tab: limpia estado asociado
   const handleCambiarTab = useCallback((tab: TipoCanal) => {
     estado.tabCambiadoManualRef.current = true
     estado.setTabActivo(tab)
@@ -57,7 +47,6 @@ function PaginaInbox() {
     estado.paginaMensajesRef.current = 1
   }, [])
 
-  // Si no hay módulos activos
   if (!hayModulosActivos(estado.modulosActivos)) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -72,7 +61,7 @@ function PaginaInbox() {
             Inbox no activado
           </h2>
           <p className="text-sm mb-4" style={{ color: 'var(--texto-secundario)' }}>
-            Activá los módulos de WhatsApp, Correo o Mensajería interna desde la configuración de tu empresa.
+            Activá los módulos de Correo o Mensajería interna desde la configuración de tu empresa.
           </p>
           <Boton
             variante="primario"
@@ -94,14 +83,10 @@ function PaginaInbox() {
         onCambiarTab={handleCambiarTab}
         modulosActivos={estado.modulosActivos}
         t={estado.t}
-        vistaWA={estado.vistaWA}
-        onCambiarVistaWA={estado.setVistaWA}
-        panelInfoAbierto={estado.panelInfoAbierto}
-        onTogglePanelInfo={() => estado.setPanelInfoAbierto(!estado.panelInfoAbierto)}
-        esMovil={estado.esMovil}
         sincronizando={estado.sincronizando}
         onSincronizarCorreos={estado.sincronizarCorreos}
         onIrConfiguracion={() => router.push('/inbox/configuracion')}
+        esMovil={estado.esMovil}
       />
 
       {/* Contenido principal */}
@@ -158,52 +143,6 @@ function PaginaInbox() {
           />
         )}
 
-        {/* Tab WhatsApp */}
-        {estado.tabActivo === 'whatsapp' && (
-          <LayoutWhatsApp
-            vistaWA={estado.vistaWA}
-            esMovil={estado.esMovil}
-            vistaMovil={estado.vistaMovilWA}
-            onCambiarVistaMovil={estado.setVistaMovilWA}
-            conversaciones={estado.conversaciones}
-            conversacionSeleccionada={estado.conversacionSeleccionada}
-            setConversacionSeleccionada={estado.setConversacionSeleccionada}
-            setConversaciones={estado.setConversaciones}
-            onSeleccionar={estado.seleccionarConversacion}
-            busqueda={estado.busqueda}
-            onBusqueda={estado.setBusqueda}
-            filtroEstado={estado.filtroEstado}
-            onFiltroEstado={estado.setFiltroEstado}
-            filtroEtiqueta={estado.filtroEtiqueta}
-            onFiltroEtiqueta={estado.setFiltroEtiqueta}
-            cargandoConversaciones={estado.cargandoConversaciones}
-            totalNoLeidos={estado.totalNoLeidos}
-            soloNoLeidos={estado.soloNoLeidos}
-            onToggleNoLeidos={() => estado.setSoloNoLeidos(prev => !prev)}
-            onEliminarSeleccion={estado.eliminarMultiples}
-            cargarConversaciones={estado.cargarConversaciones}
-            botHabilitado={estado.botHabilitado}
-            iaHabilitada={estado.iaHabilitada}
-            canalWAId={estado.canalWAId}
-            onNuevoWA={() => estado.setModalNuevoWA(true)}
-            mensajes={estado.mensajes}
-            setMensajes={estado.setMensajes}
-            cargandoMensajes={estado.cargandoMensajes}
-            enviando={estado.enviando}
-            hayMasAnteriores={estado.hayMasAnteriores}
-            cargandoAnteriores={estado.cargandoAnteriores}
-            onEnviar={estado.enviarMensaje}
-            onCargarAnteriores={estado.cargarMensajesAnteriores}
-            onReaccionar={estado.reaccionarMensaje}
-            onAbrirVisor={estado.abrirVisor}
-            panelInfoAbierto={estado.panelInfoAbierto}
-            onCerrarPanelInfo={() => estado.setPanelInfoAbierto(false)}
-            anchoLista={estado.anchoLista}
-            setAnchoLista={estado.setAnchoLista}
-            redimensionandoRef={estado.redimensionandoRef}
-          />
-        )}
-
         {/* Tab Interno */}
         {estado.tabActivo === 'interno' && (
           <LayoutInterno
@@ -251,29 +190,7 @@ function PaginaInbox() {
             }}
           />
         )}
-
-        {/* Panel derecho: info contacto (solo WhatsApp desktop, vista conversaciones) */}
-        {/* Nota: ahora vive dentro de LayoutWhatsApp */}
       </div>
-
-      {/* Visor de media fullscreen (compartido) */}
-      <VisorMedia
-        medias={estado.todosLosMedias}
-        indice={estado.visorIndice}
-        abierto={estado.visorAbierto}
-        onCerrar={() => estado.setVisorAbierto(false)}
-        onCambiarIndice={estado.setVisorIndice}
-      />
-
-      {/* Modal nuevo WhatsApp */}
-      {estado.canalWAId && (
-        <ModalNuevoWhatsApp
-          abierto={estado.modalNuevoWA}
-          onCerrar={() => estado.setModalNuevoWA(false)}
-          canalId={estado.canalWAId}
-          onEnviar={estado.enviarNuevoWhatsApp}
-        />
-      )}
     </div>
   )
 }

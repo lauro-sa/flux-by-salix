@@ -22,7 +22,7 @@ function crearAdmin() {
 }
 
 /**
- * GET /api/inbox/whatsapp/webhook — Verificación del webhook de Meta.
+ * GET /api/whatsapp/webhook — Verificación del webhook de Meta.
  * Meta envía un GET con hub.challenge para verificar el endpoint.
  */
 export async function GET(request: NextRequest) {
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/inbox/whatsapp/webhook — Recibir mensajes entrantes y actualizaciones de estado.
+ * POST /api/whatsapp/webhook — Recibir mensajes entrantes y actualizaciones de estado.
  * Meta envía mensajes, estados de entrega y actualizaciones de plantillas.
  */
 export async function POST(request: NextRequest) {
@@ -478,7 +478,7 @@ async function procesarMensajeEntrante(
       cuerpo: (canalNombre ? `WhatsApp · ${canalNombre} · ` : 'WhatsApp · ') + preview.slice(0, 120),
       icono: 'MessageSquare',
       color: 'var(--canal-whatsapp)',
-      url: `/inbox?conv=${conversacion.id}&tab=whatsapp`,
+      url: `/whatsapp?conv=${conversacion.id}`,
       referenciaTipo: 'conversacion',
       referenciaId: conversacion.id,
     }

@@ -76,7 +76,7 @@ export function ModalWhatsAppChatter({
   const cargarPlantillas = useCallback(async () => {
     setCargandoPlantillas(true)
     try {
-      const res = await fetch('/api/inbox/whatsapp/plantillas')
+      const res = await fetch('/api/whatsapp/plantillas')
       if (res.ok) {
         const data = await res.json()
         const aprobadas = (data.plantillas || []).filter(

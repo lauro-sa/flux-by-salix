@@ -12,11 +12,11 @@ import {
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { TextArea } from '@/componentes/ui/TextArea'
-import { ModalEtiquetas } from './ModalEtiquetas'
+import { ModalEtiquetas } from '@/app/(flux)/inbox/_componentes/ModalEtiquetas'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
-import { CompositorMensaje, type DatosMensaje } from './CompositorMensaje'
-import { PanelIA } from './PanelIA'
-import { PopoverSnooze } from './PopoverSnooze'
+import { CompositorMensaje, type DatosMensaje } from '@/app/(flux)/inbox/_componentes/CompositorMensaje'
+import { PanelIA } from '@/app/(flux)/inbox/_componentes/PanelIA'
+import { PopoverSnooze } from '@/app/(flux)/inbox/_componentes/PopoverSnooze'
 import { SelectorPlantillasWA } from './SelectorPlantillasWA'
 import type { PlantillaWhatsApp } from '@/tipos/inbox'
 // PopoverProgramar ahora vive dentro de CompositorMensaje
@@ -291,7 +291,7 @@ export function PanelWhatsApp({
   useEffect(() => {
     if (!conversacion?.id) { setProgramados([]); setFechaProgramada(null); return }
     setFechaProgramada(null)
-    fetch(`/api/inbox/whatsapp/programados?conversacion_id=${conversacion.id}`)
+    fetch(`/api/whatsapp/programados?conversacion_id=${conversacion.id}`)
       .then(res => res.json())
       .then(data => {
         const pendientes = (data.programados || [])
@@ -449,7 +449,7 @@ export function PanelWhatsApp({
         })
       }
 
-      const res = await fetch('/api/inbox/whatsapp/enviar', {
+      const res = await fetch('/api/whatsapp/enviar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1306,7 +1306,7 @@ export function PanelWhatsApp({
                     <button
                       onClick={async () => {
                         try {
-                          const res = await fetch(`/api/inbox/whatsapp/programados?id=${prog.id}`, { method: 'DELETE' })
+                          const res = await fetch(`/api/whatsapp/programados?id=${prog.id}`, { method: 'DELETE' })
                           if (res.ok) {
                             setProgramados(prev => prev.filter(p => p.id !== prog.id))
                             mostrarToast('info', 'Envío programado cancelado')
@@ -1400,7 +1400,7 @@ export function PanelWhatsApp({
               // Si hay fecha programada, guardar en BD en vez de enviar inmediatamente
               if (fechaProgramada && conversacion) {
                 try {
-                  const res = await fetch('/api/inbox/whatsapp/programados', {
+                  const res = await fetch('/api/whatsapp/programados', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1456,7 +1456,7 @@ export function PanelWhatsApp({
               const primero = programados[0]
               if (!primero) return
               try {
-                await fetch(`/api/inbox/whatsapp/programados?id=${primero.id}`, { method: 'DELETE' })
+                await fetch(`/api/whatsapp/programados?id=${primero.id}`, { method: 'DELETE' })
                 setProgramados(prev => prev.filter(p => p.id !== primero.id))
                 mostrarToast('info', 'Envío programado cancelado')
               } catch {

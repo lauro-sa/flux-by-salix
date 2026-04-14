@@ -88,7 +88,7 @@ export function SeccionPlantillasWA({ canalesWhatsApp, onRecargar }: Props) {
     if (!canalSeleccionado) return
     setCargando(true)
     try {
-      const res = await fetch(`/api/inbox/whatsapp/plantillas?canal_id=${canalSeleccionado}`)
+      const res = await fetch(`/api/whatsapp/plantillas?canal_id=${canalSeleccionado}`)
       const data = await res.json()
       setPlantillas(data.plantillas || [])
     } catch { setPlantillas([]) }
@@ -101,7 +101,7 @@ export function SeccionPlantillasWA({ canalesWhatsApp, onRecargar }: Props) {
     if (!canalSeleccionado) return
     setSincronizando(true)
     try {
-      const res = await fetch('/api/inbox/whatsapp/plantillas', {
+      const res = await fetch('/api/whatsapp/plantillas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accion: 'sincronizar', canal_id: canalSeleccionado }),
@@ -118,7 +118,7 @@ export function SeccionPlantillasWA({ canalesWhatsApp, onRecargar }: Props) {
   const eliminar = useCallback(async (plantilla: PlantillaWhatsApp) => {
     setEliminandoId(plantilla.id)
     try {
-      const res = await fetch('/api/inbox/whatsapp/plantillas', {
+      const res = await fetch('/api/whatsapp/plantillas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accion: 'eliminar', id: plantilla.id, canal_id: canalSeleccionado }),

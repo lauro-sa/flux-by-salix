@@ -4,7 +4,7 @@ import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { enviarTypingWhatsApp, type ConfigCuentaWhatsApp } from '@/lib/whatsapp'
 
 /**
- * POST /api/inbox/whatsapp/typing — Enviar indicador "escribiendo..." al cliente.
+ * POST /api/whatsapp/typing — Enviar indicador "escribiendo..." al cliente.
  * Body: { conversacion_id }
  */
 export async function POST(request: NextRequest) {

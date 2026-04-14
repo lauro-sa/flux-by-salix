@@ -2,25 +2,17 @@
 
 import { Tabs } from '@/componentes/ui/Tabs'
 import { Boton } from '@/componentes/ui/Boton'
-import {
-  Settings, PanelRightOpen, PanelRightClose,
-  RefreshCw, Rows2, KanbanSquare,
-} from 'lucide-react'
-import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
+import { Settings, RefreshCw } from 'lucide-react'
 import { Mail, Hash } from 'lucide-react'
 import type { TipoCanal } from '@/tipos/inbox'
 
 /**
- * Barra superior del Inbox — tabs de canales + botones de acción.
- * Se usa en la página principal para navegar entre WhatsApp, Correo e Interno.
+ * Barra superior del Inbox — tabs de canales (Correo, Interno) + botones de acción.
+ * WhatsApp se separó a su propia sección.
  */
 
-// Tabs del inbox según módulos activos
 function generarTabs(modulosActivos: Set<string>, t: (clave: string) => string) {
   const tabs = []
-  if (modulosActivos.has('inbox_whatsapp')) {
-    tabs.push({ clave: 'whatsapp', etiqueta: t('inbox.canales.whatsapp'), icono: <IconoWhatsApp size={14} /> })
-  }
   if (modulosActivos.has('inbox_correo')) {
     tabs.push({ clave: 'correo', etiqueta: t('inbox.canales.correo'), icono: <Mail size={14} /> })
   }
@@ -35,16 +27,9 @@ interface PropsBarraSuperiorInbox {
   onCambiarTab: (tab: TipoCanal) => void
   modulosActivos: Set<string>
   t: (clave: string) => string
-  // WhatsApp
-  vistaWA: 'conversaciones' | 'pipeline'
-  onCambiarVistaWA: (vista: 'conversaciones' | 'pipeline') => void
-  panelInfoAbierto: boolean
-  onTogglePanelInfo: () => void
   esMovil: boolean
-  // Correo
   sincronizando: boolean
   onSincronizarCorreos: () => void
-  // Navegación
   onIrConfiguracion: () => void
 }
 
@@ -53,10 +38,6 @@ export function BarraSuperiorInbox({
   onCambiarTab,
   modulosActivos,
   t,
-  vistaWA,
-  onCambiarVistaWA,
-  panelInfoAbierto,
-  onTogglePanelInfo,
   esMovil,
   sincronizando,
   onSincronizarCorreos,
@@ -83,40 +64,6 @@ export function BarraSuperiorInbox({
       />
 
       <div className="flex items-center gap-1">
-        {/* Toggle vista WhatsApp: conversaciones / pipeline (solo desktop) */}
-        {tabActivo === 'whatsapp' && !esMovil && (
-          <div className="flex items-center border border-borde-sutil rounded-lg overflow-hidden mr-1">
-            <Boton
-              variante={vistaWA === 'conversaciones' ? 'primario' : 'fantasma'}
-              tamano="xs"
-              soloIcono
-              titulo="Vista conversaciones"
-              icono={<Rows2 size={14} />}
-              onClick={() => onCambiarVistaWA('conversaciones')}
-              className="!rounded-none !rounded-l-lg"
-            />
-            <Boton
-              variante={vistaWA === 'pipeline' ? 'primario' : 'fantasma'}
-              tamano="xs"
-              soloIcono
-              titulo="Vista pipeline"
-              icono={<KanbanSquare size={14} />}
-              onClick={() => onCambiarVistaWA('pipeline')}
-              className="!rounded-none !rounded-r-lg"
-            />
-          </div>
-        )}
-        {/* Toggle panel info (solo WhatsApp tiene panel lateral de info) */}
-        {tabActivo === 'whatsapp' && (
-          <Boton
-            variante="fantasma"
-            tamano="xs"
-            soloIcono
-            titulo="Alternar panel de info"
-            icono={panelInfoAbierto ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
-            onClick={onTogglePanelInfo}
-          />
-        )}
         {/* Sincronizar correos manualmente */}
         {tabActivo === 'correo' && (
           <Boton

@@ -107,12 +107,17 @@ export async function PATCH(request: NextRequest) {
     const admin = crearClienteAdmin()
 
     if (body.todas) {
-      await admin
+      const query = admin
         .from('notificaciones')
         .update({ leida: true })
         .eq('empresa_id', empresaId)
         .eq('usuario_id', user.id)
         .eq('leida', false)
+      // Filtrar por categoría si se especifica (ej: solo actividades)
+      if (body.tipos && Array.isArray(body.tipos) && body.tipos.length > 0) {
+        query.in('tipo', body.tipos)
+      }
+      await query
     } else if (body.referencia_id) {
       // Marcar como leídas todas las notificaciones de una referencia (ej. conversación)
       await admin

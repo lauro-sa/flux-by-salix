@@ -142,7 +142,7 @@ export function SelectorPlantillasWA({
     if (!abierto || !canalId) return
     setCargando(true)
     setBusqueda('')
-    fetch(`/api/inbox/whatsapp/plantillas?canal_id=${canalId}`)
+    fetch(`/api/whatsapp/plantillas?canal_id=${canalId}`)
       .then(res => res.json())
       .then(data => {
         const aprobadas = (data.plantillas || []).filter(

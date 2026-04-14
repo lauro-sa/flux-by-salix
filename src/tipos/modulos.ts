@@ -71,10 +71,12 @@ export interface Suscripcion {
 /** Mapeo de slug de módulo → rutas que protege */
 export const RUTAS_POR_MODULO: Record<string, string[]> = {
   inbox: ['/inbox'],
+  inbox_whatsapp: ['/whatsapp'],
+  inbox_correo: ['/inbox'],
+  inbox_interno: ['/inbox'],
   contactos: ['/contactos'],
   actividades: ['/actividades'],
   calendario: ['/calendario'],
-  whatsapp: ['/inbox'], // whatsapp se valida dentro del inbox
   visitas: ['/visitas'],
   recorrido: ['/recorrido'],
   productos: ['/productos'],

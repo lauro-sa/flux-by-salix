@@ -42,8 +42,14 @@ export function SelectorRespuestasRapidas({
       .finally(() => setCargando(false))
   }, [visible, canal])
 
+  // Ordenar: por campo orden, luego alfabéticamente
+  const plantillasOrdenadas = [...plantillas].sort((a, b) => {
+    if (a.orden !== b.orden) return a.orden - b.orden
+    return a.nombre.toLowerCase().localeCompare(b.nombre.toLowerCase())
+  })
+
   // Filtrar plantillas por nombre o contenido según lo que escribió el usuario después de `/`
-  const plantillasFiltradas = plantillas.filter(p => {
+  const plantillasFiltradas = plantillasOrdenadas.filter(p => {
     if (!filtro) return true
     const texto = filtro.toLowerCase()
     return (

@@ -10,7 +10,7 @@ import {
 export const dynamic = 'force-dynamic'
 
 /**
- * POST /api/inbox/whatsapp/media-pendiente
+ * POST /api/whatsapp/media-pendiente
  * Reintenta descargar media de mensajes que no tienen adjunto.
  * Se llama desde el cliente cuando detecta mensajes sin adjuntos.
  * Procesa UN mensaje por llamada para no exceder el timeout de 10s.

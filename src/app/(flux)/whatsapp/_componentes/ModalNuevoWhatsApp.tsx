@@ -107,7 +107,7 @@ export function ModalNuevoWhatsApp({ abierto, onCerrar, canalId, onEnviar }: Pro
     setBusquedaPlantilla('')
     setPlantillaSeleccionada(null)
     setValoresVariables([])
-    fetch(`/api/inbox/whatsapp/plantillas?canal_id=${canalId}`)
+    fetch(`/api/whatsapp/plantillas?canal_id=${canalId}`)
       .then(res => res.json())
       .then(data => {
         const aprobadas = (data.plantillas || []).filter(

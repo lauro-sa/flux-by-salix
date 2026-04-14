@@ -213,7 +213,7 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
   const consultarCalidad = async () => {
     setCargandoCalidad(true)
     try {
-      const res = await fetch(`/api/inbox/whatsapp/calidad?canal_id=${canal.id}`)
+      const res = await fetch(`/api/whatsapp/calidad?canal_id=${canal.id}`)
       const data = await res.json()
       if (data.calidad) setCalidad({
         rating: data.calidad.quality_rating,
@@ -242,8 +242,8 @@ function DetalleCuenta({ canal, onRecargar }: { canal: CanalInbox; onRecargar: (
   }
 
   const webhookUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/api/inbox/whatsapp/webhook`
-    : '/api/inbox/whatsapp/webhook'
+    ? `${window.location.origin}/api/whatsapp/webhook`
+    : '/api/whatsapp/webhook'
 
   return (
     <div className="space-y-5 p-5">

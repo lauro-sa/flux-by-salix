@@ -9,7 +9,7 @@ import {
 import { generarNombreRemitente } from '@/lib/nombre-remitente'
 
 /**
- * POST /api/inbox/whatsapp/enviar — Enviar mensaje de WhatsApp.
+ * POST /api/whatsapp/enviar — Enviar mensaje de WhatsApp.
  * Soporta: texto, media (imagen/video/audio/doc), plantilla.
  */
 export async function POST(request: NextRequest) {

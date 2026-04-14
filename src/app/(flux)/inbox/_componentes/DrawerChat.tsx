@@ -96,7 +96,7 @@ export function DrawerChat({ conversacion, tipoCanal, abierto, onCerrar, onEtapa
     setEnviando(true)
 
     try {
-      const res = await fetch('/api/inbox/whatsapp/enviar', {
+      const res = await fetch('/api/whatsapp/enviar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

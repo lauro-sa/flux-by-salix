@@ -17,6 +17,11 @@ export interface ModuloEmpresa {
 
 export type ModuloInbox = 'inbox_whatsapp' | 'inbox_correo' | 'inbox_interno'
 
+// ─── Vistas móviles por canal ───
+export type VistaMovilWA = 'lista' | 'chat' | 'info'
+export type VistaMovilCorreo = 'sidebar' | 'lista' | 'correo'
+export type VistaMovilInterno = 'canales' | 'chat'
+
 // ─── Canales de inbox ───
 
 export type TipoCanal = 'whatsapp' | 'correo' | 'interno'
