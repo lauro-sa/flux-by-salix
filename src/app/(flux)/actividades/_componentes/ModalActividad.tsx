@@ -537,7 +537,7 @@ function ModalActividad({
                 )}
                 {tipoSeleccionado?.campo_fecha && (
                   <div>
-                    <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Vencimiento</p>
+                    <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Fecha</p>
                     <SelectorFecha valor={fechaVencimiento} onChange={(v) => setFechaVencimiento(v || '')} limpiable />
                   </div>
                 )}
