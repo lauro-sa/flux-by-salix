@@ -60,11 +60,48 @@ export async function POST(request: NextRequest) {
     if (!destino.cargo && provisorio.cargo) camposActualizar.cargo = provisorio.cargo
     if (!destino.web && provisorio.web) camposActualizar.web = provisorio.web
 
-    // Migrar todas las relaciones del provisorio al destino en paralelo
+    const nombreDestino = `${destino.nombre || ''} ${destino.apellido || ''}`.trim()
+
+    // ── Paso 1: Eliminar vinculaciones que generarían duplicados o auto-vinculaciones ──
+    // Vinculaciones donde provisorio→destino o destino→provisorio (se eliminan, no tiene sentido)
+    await admin.from('contacto_vinculaciones')
+      .delete()
+      .or(`and(contacto_id.eq.${provisorio_id},vinculado_id.eq.${destino_id}),and(contacto_id.eq.${destino_id},vinculado_id.eq.${provisorio_id})`)
+
+    // Buscar vinculaciones del destino para evitar duplicar unique constraints
+    const [vincDirectasDest, vincInversasDest] = await Promise.all([
+      admin.from('contacto_vinculaciones').select('vinculado_id').eq('contacto_id', destino_id),
+      admin.from('contacto_vinculaciones').select('contacto_id').eq('vinculado_id', destino_id),
+    ])
+    const idsYaVinculadosDesde = new Set((vincDirectasDest.data || []).map(v => v.vinculado_id))
+    const idsYaVinculadosHacia = new Set((vincInversasDest.data || []).map(v => v.contacto_id))
+
+    // Eliminar vinculaciones del provisorio que ya existen en el destino (evitar conflictos unique)
+    const [vincDirectasProv, vincInversasProv] = await Promise.all([
+      admin.from('contacto_vinculaciones').select('id, vinculado_id').eq('contacto_id', provisorio_id),
+      admin.from('contacto_vinculaciones').select('id, contacto_id').eq('vinculado_id', provisorio_id),
+    ])
+
+    const idsEliminar: string[] = []
+    for (const v of vincDirectasProv.data || []) {
+      if (idsYaVinculadosDesde.has(v.vinculado_id) || v.vinculado_id === destino_id) {
+        idsEliminar.push(v.id)
+      }
+    }
+    for (const v of vincInversasProv.data || []) {
+      if (idsYaVinculadosHacia.has(v.contacto_id) || v.contacto_id === destino_id) {
+        idsEliminar.push(v.id)
+      }
+    }
+    if (idsEliminar.length > 0) {
+      await admin.from('contacto_vinculaciones').delete().in('id', idsEliminar)
+    }
+
+    // ── Paso 2: Migrar todas las relaciones del provisorio al destino ──
     const migraciones = [
-      // Conversaciones de WhatsApp/inbox
+      // Conversaciones de WhatsApp/inbox — actualizar contacto_id Y el nombre cacheado
       admin.from('conversaciones')
-        .update({ contacto_id: destino_id })
+        .update({ contacto_id: destino_id, contacto_nombre: nombreDestino })
         .eq('contacto_id', provisorio_id)
         .eq('empresa_id', empresaId),
 
@@ -91,17 +128,16 @@ export async function POST(request: NextRequest) {
         .eq('atencion_contacto_id', provisorio_id)
         .eq('empresa_id', empresaId),
 
-      // Vinculaciones (como contacto principal)
+      // Vinculaciones restantes (sin duplicados, ya limpiamos arriba)
       admin.from('contacto_vinculaciones')
         .update({ contacto_id: destino_id })
         .eq('contacto_id', provisorio_id),
 
-      // Vinculaciones (como vinculado)
       admin.from('contacto_vinculaciones')
         .update({ vinculado_id: destino_id })
         .eq('vinculado_id', provisorio_id),
 
-      // Direcciones — mover las que no dupliquen
+      // Direcciones
       admin.from('contacto_direcciones')
         .update({ contacto_id: destino_id })
         .eq('contacto_id', provisorio_id),
@@ -126,7 +162,7 @@ export async function POST(request: NextRequest) {
 
     await Promise.all(migraciones)
 
-    // Eliminar el contacto provisorio (hard delete — ya migró todo)
+    // ── Paso 3: Eliminar el contacto provisorio (hard delete — ya migró todo) ──
     await admin
       .from('contactos')
       .delete()
@@ -137,7 +173,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       destino_id: destino_id,
       destino_codigo: destino.codigo,
-      destino_nombre: `${destino.nombre || ''} ${destino.apellido || ''}`.trim(),
+      destino_nombre: nombreDestino,
       campos_actualizados: Object.keys(camposActualizar).filter(k => k !== 'actualizado_en' && k !== 'editado_por'),
     })
   } catch (err) {
