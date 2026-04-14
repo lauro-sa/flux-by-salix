@@ -2,10 +2,11 @@
 
 import { Suspense, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Settings, Rows2, KanbanSquare, PanelRightOpen, PanelRightClose } from 'lucide-react'
+import { Settings } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { ErrorBoundary } from '@/componentes/feedback/ErrorBoundary'
 import { useEstadoWhatsApp } from './_componentes/useEstadoWhatsApp'
+import { BarraSuperiorWhatsApp } from './_componentes/BarraSuperiorWhatsApp'
 import { ListaConversaciones } from '@/app/(flux)/inbox/_componentes/ListaConversaciones'
 import { PanelWhatsApp, VisorMedia } from './_componentes/PanelWhatsApp'
 import { PanelInfoContacto } from '@/app/(flux)/inbox/_componentes/PanelInfoContacto'
@@ -15,7 +16,7 @@ import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 
 /**
  * Página principal de WhatsApp — sección independiente del sidebar.
- * Layout 3 paneles: lista conversaciones | chat | info contacto.
+ * Layout: barra superior (siempre visible) + contenido (3 paneles o pipeline).
  * Usa su propio hook de estado (useEstadoWhatsApp) separado del inbox.
  */
 
@@ -62,8 +63,19 @@ function PaginaWhatsApp() {
   }
 
   return (
-    <>
-    <div className="flex flex-1 min-h-0 overflow-hidden">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+      {/* Barra superior — siempre visible */}
+      <BarraSuperiorWhatsApp
+        vistaWA={estado.vistaWA}
+        onCambiarVistaWA={estado.setVistaWA}
+        panelInfoAbierto={estado.panelInfoAbierto}
+        onTogglePanelInfo={() => estado.setPanelInfoAbierto(!estado.panelInfoAbierto)}
+        esMovil={estado.esMovil}
+        onIrConfiguracion={() => router.push('/whatsapp/configuracion')}
+      />
+
+      {/* Contenido principal */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Vista pipeline (solo desktop) */}
         {estado.vistaWA === 'pipeline' && !estado.esMovil ? (
           <div className="flex-1 overflow-auto p-4">
@@ -90,48 +102,6 @@ function PaginaWhatsApp() {
                   tipoCanal="whatsapp"
                   cargando={estado.cargandoConversaciones}
                   totalNoLeidos={estado.totalNoLeidos}
-                  accionesHeader={
-                    <div className="flex items-center gap-0.5">
-                      {!estado.esMovil && (
-                        <div className="flex items-center border border-borde-sutil rounded-lg overflow-hidden">
-                          <Boton
-                            variante={estado.vistaWA === 'conversaciones' ? 'primario' : 'fantasma'}
-                            tamano="xs"
-                            soloIcono
-                            titulo="Vista conversaciones"
-                            icono={<Rows2 size={14} />}
-                            onClick={() => estado.setVistaWA('conversaciones')}
-                            className="!rounded-none !rounded-l-lg"
-                          />
-                          <Boton
-                            variante={estado.vistaWA === 'pipeline' ? 'primario' : 'fantasma'}
-                            tamano="xs"
-                            soloIcono
-                            titulo="Vista pipeline"
-                            icono={<KanbanSquare size={14} />}
-                            onClick={() => estado.setVistaWA('pipeline')}
-                            className="!rounded-none !rounded-r-lg"
-                          />
-                        </div>
-                      )}
-                      <Boton
-                        variante="fantasma"
-                        tamano="xs"
-                        soloIcono
-                        titulo="Alternar panel de info"
-                        icono={estado.panelInfoAbierto ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
-                        onClick={() => estado.setPanelInfoAbierto(!estado.panelInfoAbierto)}
-                      />
-                      <Boton
-                        variante="fantasma"
-                        tamano="xs"
-                        soloIcono
-                        titulo="Configuración"
-                        icono={<Settings size={16} />}
-                        onClick={() => router.push('/whatsapp/configuracion')}
-                      />
-                    </div>
-                  }
                   botHabilitado={estado.botHabilitado}
                   iaHabilitada={estado.iaHabilitada}
                   onNuevoMensaje={estado.canalWAId ? () => estado.setModalNuevoWA(true) : undefined}
@@ -232,29 +202,31 @@ function PaginaWhatsApp() {
                   esAdmin={true}
                 />
                 {/* Drag handle para redimensionar */}
-                <div
-                  className="absolute top-0 -right-px w-[3px] h-full cursor-col-resize z-10 hidden md:block opacity-0 hover:opacity-100 active:opacity-100 transition-opacity"
-                  style={{ backgroundColor: 'var(--texto-marca)' }}
-                  onMouseDown={(e) => {
-                    e.preventDefault()
-                    estado.redimensionandoRef.current = true
-                    const inicio = e.clientX
-                    anchoInicialRef.current = estado.anchoLista
-                    const onMove = (ev: MouseEvent) => {
-                      if (!estado.redimensionandoRef.current) return
-                      const nuevoAncho = Math.max(280, Math.min(500, anchoInicialRef.current + (ev.clientX - inicio)))
-                      estado.setAnchoLista(nuevoAncho)
-                    }
-                    const onUp = () => {
-                      estado.redimensionandoRef.current = false
-                      localStorage.setItem('flux_wa_ancho_lista', String(estado.anchoLista))
-                      document.removeEventListener('mousemove', onMove)
-                      document.removeEventListener('mouseup', onUp)
-                    }
-                    document.addEventListener('mousemove', onMove)
-                    document.addEventListener('mouseup', onUp)
-                  }}
-                />
+                {!estado.esMovil && (
+                  <div
+                    className="absolute top-0 -right-px w-[3px] h-full cursor-col-resize z-10 hidden md:block opacity-0 hover:opacity-100 active:opacity-100 transition-opacity"
+                    style={{ backgroundColor: 'var(--texto-marca)' }}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      estado.redimensionandoRef.current = true
+                      const inicio = e.clientX
+                      anchoInicialRef.current = estado.anchoLista
+                      const onMove = (ev: MouseEvent) => {
+                        if (!estado.redimensionandoRef.current) return
+                        const nuevoAncho = Math.max(280, Math.min(500, anchoInicialRef.current + (ev.clientX - inicio)))
+                        estado.setAnchoLista(nuevoAncho)
+                      }
+                      const onUp = () => {
+                        estado.redimensionandoRef.current = false
+                        localStorage.setItem('flux_wa_ancho_lista', String(estado.anchoLista))
+                        document.removeEventListener('mousemove', onMove)
+                        document.removeEventListener('mouseup', onUp)
+                      }
+                      document.addEventListener('mousemove', onMove)
+                      document.addEventListener('mouseup', onUp)
+                    }}
+                  />
+                )}
               </div>
             )}
 
@@ -337,26 +309,26 @@ function PaginaWhatsApp() {
             )}
           </>
         )}
-    </div>
+      </div>
 
-    {/* Visor de media fullscreen */}
-    <VisorMedia
-      medias={estado.todosLosMedias}
-      indice={estado.visorIndice}
-      abierto={estado.visorAbierto}
-      onCerrar={() => estado.setVisorAbierto(false)}
-      onCambiarIndice={estado.setVisorIndice}
-    />
-
-    {/* Modal nuevo WhatsApp */}
-    {estado.canalWAId && (
-      <ModalNuevoWhatsApp
-        abierto={estado.modalNuevoWA}
-        onCerrar={() => estado.setModalNuevoWA(false)}
-        canalId={estado.canalWAId}
-        onEnviar={estado.enviarNuevoWhatsApp}
+      {/* Visor de media fullscreen */}
+      <VisorMedia
+        medias={estado.todosLosMedias}
+        indice={estado.visorIndice}
+        abierto={estado.visorAbierto}
+        onCerrar={() => estado.setVisorAbierto(false)}
+        onCambiarIndice={estado.setVisorIndice}
       />
-    )}
-    </>
+
+      {/* Modal nuevo WhatsApp */}
+      {estado.canalWAId && (
+        <ModalNuevoWhatsApp
+          abierto={estado.modalNuevoWA}
+          onCerrar={() => estado.setModalNuevoWA(false)}
+          canalId={estado.canalWAId}
+          onEnviar={estado.enviarNuevoWhatsApp}
+        />
+      )}
+    </div>
   )
 }

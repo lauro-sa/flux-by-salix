@@ -295,7 +295,7 @@ export function ListaConversaciones({
         <Buscador
           valor={busqueda}
           onChange={onBusqueda}
-          placeholder={`Buscar entre ${conversaciones.length} correo${conversaciones.length !== 1 ? 's' : ''}...`}
+          placeholder={`Buscar entre ${conversaciones.length} ${tipoCanal === 'correo' ? 'correo' : 'conversacion'}${conversaciones.length !== 1 ? (tipoCanal === 'correo' ? 's' : 'es') : ''}...`}
           accionDerecha={onNuevoMensaje ? (
             <button
               onClick={onNuevoMensaje}
