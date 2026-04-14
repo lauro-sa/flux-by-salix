@@ -2,11 +2,10 @@
 
 import { Suspense, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { MessageCircle, Settings } from 'lucide-react'
+import { Settings, Rows2, KanbanSquare, PanelRightOpen, PanelRightClose } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { ErrorBoundary } from '@/componentes/feedback/ErrorBoundary'
 import { useEstadoWhatsApp } from './_componentes/useEstadoWhatsApp'
-import { BarraSuperiorWhatsApp } from './_componentes/BarraSuperiorWhatsApp'
 import { ListaConversaciones } from '@/app/(flux)/inbox/_componentes/ListaConversaciones'
 import { PanelWhatsApp, VisorMedia } from './_componentes/PanelWhatsApp'
 import { PanelInfoContacto } from '@/app/(flux)/inbox/_componentes/PanelInfoContacto'
@@ -63,19 +62,8 @@ function PaginaWhatsApp() {
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-      {/* Barra superior */}
-      <BarraSuperiorWhatsApp
-        vistaWA={estado.vistaWA}
-        onCambiarVistaWA={estado.setVistaWA}
-        panelInfoAbierto={estado.panelInfoAbierto}
-        onTogglePanelInfo={() => estado.setPanelInfoAbierto(!estado.panelInfoAbierto)}
-        esMovil={estado.esMovil}
-        onIrConfiguracion={() => router.push('/whatsapp/configuracion')}
-      />
-
-      {/* Contenido principal */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+    <>
+    <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Vista pipeline (solo desktop) */}
         {estado.vistaWA === 'pipeline' && !estado.esMovil ? (
           <div className="flex-1 overflow-auto p-4">
@@ -102,6 +90,48 @@ function PaginaWhatsApp() {
                   tipoCanal="whatsapp"
                   cargando={estado.cargandoConversaciones}
                   totalNoLeidos={estado.totalNoLeidos}
+                  accionesHeader={
+                    <div className="flex items-center gap-0.5">
+                      {!estado.esMovil && (
+                        <div className="flex items-center border border-borde-sutil rounded-lg overflow-hidden">
+                          <Boton
+                            variante={estado.vistaWA === 'conversaciones' ? 'primario' : 'fantasma'}
+                            tamano="xs"
+                            soloIcono
+                            titulo="Vista conversaciones"
+                            icono={<Rows2 size={14} />}
+                            onClick={() => estado.setVistaWA('conversaciones')}
+                            className="!rounded-none !rounded-l-lg"
+                          />
+                          <Boton
+                            variante={estado.vistaWA === 'pipeline' ? 'primario' : 'fantasma'}
+                            tamano="xs"
+                            soloIcono
+                            titulo="Vista pipeline"
+                            icono={<KanbanSquare size={14} />}
+                            onClick={() => estado.setVistaWA('pipeline')}
+                            className="!rounded-none !rounded-r-lg"
+                          />
+                        </div>
+                      )}
+                      <Boton
+                        variante="fantasma"
+                        tamano="xs"
+                        soloIcono
+                        titulo="Alternar panel de info"
+                        icono={estado.panelInfoAbierto ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
+                        onClick={() => estado.setPanelInfoAbierto(!estado.panelInfoAbierto)}
+                      />
+                      <Boton
+                        variante="fantasma"
+                        tamano="xs"
+                        soloIcono
+                        titulo="Configuración"
+                        icono={<Settings size={16} />}
+                        onClick={() => router.push('/whatsapp/configuracion')}
+                      />
+                    </div>
+                  }
                   botHabilitado={estado.botHabilitado}
                   iaHabilitada={estado.iaHabilitada}
                   onNuevoMensaje={estado.canalWAId ? () => estado.setModalNuevoWA(true) : undefined}
@@ -307,26 +337,26 @@ function PaginaWhatsApp() {
             )}
           </>
         )}
-      </div>
-
-      {/* Visor de media fullscreen */}
-      <VisorMedia
-        medias={estado.todosLosMedias}
-        indice={estado.visorIndice}
-        abierto={estado.visorAbierto}
-        onCerrar={() => estado.setVisorAbierto(false)}
-        onCambiarIndice={estado.setVisorIndice}
-      />
-
-      {/* Modal nuevo WhatsApp */}
-      {estado.canalWAId && (
-        <ModalNuevoWhatsApp
-          abierto={estado.modalNuevoWA}
-          onCerrar={() => estado.setModalNuevoWA(false)}
-          canalId={estado.canalWAId}
-          onEnviar={estado.enviarNuevoWhatsApp}
-        />
-      )}
     </div>
+
+    {/* Visor de media fullscreen */}
+    <VisorMedia
+      medias={estado.todosLosMedias}
+      indice={estado.visorIndice}
+      abierto={estado.visorAbierto}
+      onCerrar={() => estado.setVisorAbierto(false)}
+      onCambiarIndice={estado.setVisorIndice}
+    />
+
+    {/* Modal nuevo WhatsApp */}
+    {estado.canalWAId && (
+      <ModalNuevoWhatsApp
+        abierto={estado.modalNuevoWA}
+        onCerrar={() => estado.setModalNuevoWA(false)}
+        canalId={estado.canalWAId}
+        onEnviar={estado.enviarNuevoWhatsApp}
+      />
+    )}
+    </>
   )
 }
