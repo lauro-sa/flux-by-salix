@@ -126,16 +126,11 @@ export async function GET(request: NextRequest) {
       query = query.ilike('titulo', `%${busqueda}%`)
     }
 
-    // Ordenamiento y paginación — multi-criterio en SQL para evitar sort en memoria
-    if (orden_campo === 'fecha_vencimiento') {
-      query = query
-        .order('fecha_vencimiento', { ascending: orden_dir, nullsFirst: false })
-        .order('prioridad', { ascending: true }) // alta < normal < baja alfabéticamente
-        .order('creado_en', { ascending: true })
-    } else {
+    // Ordenamiento y paginación
+    if (orden_campo !== 'fecha_vencimiento') {
       query = query
         .order(orden_campo, { ascending: orden_dir, nullsFirst: false })
-        .order('creado_en', { ascending: true })
+        .order('creado_en', { ascending: false })
     }
     query = query.range(desde, desde + por_pagina - 1)
 
@@ -146,8 +141,48 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Error al listar actividades' }, { status: 500 })
     }
 
+    // Orden inteligente por fecha: Hoy → Vencidas → Futuras → Sin fecha
+    // Con prioridad como desempate dentro de cada grupo
+    let actividades = data || []
+    if (orden_campo === 'fecha_vencimiento') {
+      const ahora = new Date()
+      const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())
+      const manana = new Date(hoy); manana.setDate(manana.getDate() + 1)
+
+      const pesoGrupo = (fecha: string | null): number => {
+        if (!fecha) return 4 // sin fecha al final
+        const f = new Date(fecha)
+        if (f >= hoy && f < manana) return 1 // hoy primero
+        if (f < hoy) return 2 // vencidas después
+        return 3 // futuras
+      }
+
+      const pesoPrioridad: Record<string, number> = { alta: 1, normal: 2, baja: 3 }
+
+      actividades = actividades.sort((a, b) => {
+        const ga = pesoGrupo(a.fecha_vencimiento)
+        const gb = pesoGrupo(b.fecha_vencimiento)
+        if (ga !== gb) return ga - gb
+
+        // Dentro del mismo grupo: por prioridad (alta primero)
+        const pa = pesoPrioridad[a.prioridad] || 2
+        const pb = pesoPrioridad[b.prioridad] || 2
+        if (pa !== pb) return pa - pb
+
+        // Dentro de misma prioridad: por fecha (más próxima primero para futuras, más reciente para vencidas)
+        if (a.fecha_vencimiento && b.fecha_vencimiento) {
+          const fa = new Date(a.fecha_vencimiento).getTime()
+          const fb = new Date(b.fecha_vencimiento).getTime()
+          if (ga === 2) return fb - fa // vencidas: más reciente primero
+          return fa - fb // futuras: más próxima primero
+        }
+
+        return 0
+      })
+    }
+
     return NextResponse.json({
-      actividades: data || [],
+      actividades,
       total: count || 0,
       pagina,
       por_pagina,

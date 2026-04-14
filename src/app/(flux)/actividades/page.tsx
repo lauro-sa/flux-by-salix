@@ -49,13 +49,39 @@ export default async function PaginaActividades() {
   }
 
   const { data, count } = await query
-    .order('fecha_vencimiento', { ascending: true, nullsFirst: false })
-    .order('prioridad', { ascending: true })
-    .order('creado_en', { ascending: true })
+    .order('creado_en', { ascending: false })
     .range(0, POR_PAGINA - 1)
 
+  // Orden inteligente: Hoy → Vencidas → Futuras → Sin fecha
+  const ahora = new Date()
+  const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())
+  const mananaInicio = new Date(hoyInicio); mananaInicio.setDate(mananaInicio.getDate() + 1)
+  const pesoGrupo = (fecha: string | null): number => {
+    if (!fecha) return 4
+    const f = new Date(fecha)
+    if (f >= hoyInicio && f < mananaInicio) return 1
+    if (f < hoyInicio) return 2
+    return 3
+  }
+  const pesoPrioridad: Record<string, number> = { alta: 1, normal: 2, baja: 3 }
+  const actividades = (data || []).sort((a, b) => {
+    const ga = pesoGrupo(a.fecha_vencimiento)
+    const gb = pesoGrupo(b.fecha_vencimiento)
+    if (ga !== gb) return ga - gb
+    const pa = pesoPrioridad[a.prioridad] || 2
+    const pb = pesoPrioridad[b.prioridad] || 2
+    if (pa !== pb) return pa - pb
+    if (a.fecha_vencimiento && b.fecha_vencimiento) {
+      const fa = new Date(a.fecha_vencimiento).getTime()
+      const fb = new Date(b.fecha_vencimiento).getTime()
+      if (ga === 2) return fb - fa
+      return fa - fb
+    }
+    return 0
+  })
+
   const datosInicialesJson = {
-    actividades: data || [],
+    actividades,
     total: count || 0,
     pagina: 1,
     por_pagina: POR_PAGINA,
