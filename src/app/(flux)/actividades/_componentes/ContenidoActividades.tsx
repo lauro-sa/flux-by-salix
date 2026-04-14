@@ -893,7 +893,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
         idModulo="actividades"
         renderTarjeta={renderTarjeta}
         onClickFila={(fila) => {
-          // Si es actividad tipo visita, abrir ModalVisita
+          // Si es actividad tipo visita, intentar abrir ModalVisita con la visita vinculada
           if (fila.tipo_clave === 'visita') {
             fetch(`/api/visitas?actividad_id=${fila.id}`)
               .then(r => r.json())
@@ -902,10 +902,15 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
                 if (visitas.length > 0) {
                   modalVisitaHook.abrir(visitas[0])
                 } else {
-                  modalVisitaHook.abrir()
+                  // Sin visita vinculada: abrir como actividad normal
+                  setActividadEditando(fila)
+                  setModalAbierto(true)
                 }
               })
-              .catch(() => modalVisitaHook.abrir())
+              .catch(() => {
+                setActividadEditando(fila)
+                setModalAbierto(true)
+              })
             return
           }
           setActividadEditando(fila)
