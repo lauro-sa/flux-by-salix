@@ -10,7 +10,7 @@
  * y renderiza sub-componentes extraídos en _enviar_documento/.
  */
 
-import { useState } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
@@ -78,6 +78,9 @@ export function ModalEnviarDocumento({
   portalDesactivadoInicial,
 }: PropiedadesModalEnviarDocumento) {
   const [expandido, setExpandido] = useState(false)
+  const refBotonCanal = useRef<HTMLButtonElement>(null)
+  const refDropdownCanal = useRef<HTMLDivElement>(null)
+  const [posCanalDropdown, setPosCanalDropdown] = useState({ top: 0, left: 0, width: 0 })
 
   const estado = useEnvioDocumento({
     abierto,
@@ -98,6 +101,41 @@ export function ModalEnviarDocumento({
     onGuardarBorrador,
     onGuardarPlantilla,
   })
+
+  // Posición del dropdown de canales
+  useLayoutEffect(() => {
+    if (!estado.mostrarCanales || !refBotonCanal.current) return
+    const rect = refBotonCanal.current.getBoundingClientRect()
+    setPosCanalDropdown({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 280) })
+  }, [estado.mostrarCanales])
+
+  useEffect(() => {
+    if (!estado.mostrarCanales) return
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (refBotonCanal.current?.contains(target)) return
+      if (refDropdownCanal.current?.contains(target)) return
+      estado.setMostrarCanales(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [estado.mostrarCanales, estado])
+
+  useEffect(() => {
+    if (!estado.mostrarCanales) return
+    const handler = () => {
+      if (refBotonCanal.current) {
+        const rect = refBotonCanal.current.getBoundingClientRect()
+        setPosCanalDropdown({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 280) })
+      }
+    }
+    window.addEventListener('scroll', handler, true)
+    window.addEventListener('resize', handler)
+    return () => {
+      window.removeEventListener('scroll', handler, true)
+      window.removeEventListener('resize', handler)
+    }
+  }, [estado.mostrarCanales])
 
   // Detectar si hay cambios respecto a la plantilla cargada
   const tieneModificaciones = !!(estado.plantillaId && (
@@ -162,8 +200,9 @@ export function ModalEnviarDocumento({
                       {estado.canalActivo?.nombre} &lt;{estado.canalActivo?.email}&gt;
                     </span>
                   ) : (
-                    <div className="relative">
+                    <div>
                       <button
+                        ref={refBotonCanal}
                         className="flex items-center gap-1.5 text-sm py-1 transition-colors hover:opacity-80 rounded focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
                         style={{ color: 'var(--texto-primario)' }}
                         onClick={() => estado.setMostrarCanales(!estado.mostrarCanales)}
@@ -172,14 +211,23 @@ export function ModalEnviarDocumento({
                         {estado.canalActivo?.nombre} &lt;{estado.canalActivo?.email}&gt;
                         <ChevronDown size={14} style={{ color: 'var(--texto-terciario)' }} />
                       </button>
+                      {typeof window !== 'undefined' && createPortal(
                       <AnimatePresence>
                         {estado.mostrarCanales && (
                           <motion.div
+                            ref={refDropdownCanal}
                             initial={{ opacity: 0, y: -4 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -4 }}
-                            className="absolute left-0 top-full z-50 mt-1 py-1 rounded-lg shadow-lg min-w-[200px] sm:min-w-[280px] max-w-[calc(100vw-2rem)]"
-                            style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)' }}
+                            className="fixed py-1 rounded-lg shadow-lg"
+                            style={{
+                              top: posCanalDropdown.top,
+                              left: posCanalDropdown.left,
+                              width: posCanalDropdown.width,
+                              zIndex: 'var(--z-popover)' as unknown as number,
+                              background: 'var(--superficie-elevada)',
+                              border: '1px solid var(--borde-sutil)',
+                            }}
                           >
                             {canales.map(c => (
                               <button
@@ -193,7 +241,9 @@ export function ModalEnviarDocumento({
                             ))}
                           </motion.div>
                         )}
-                      </AnimatePresence>
+                      </AnimatePresence>,
+                      document.body
+                      )}
                     </div>
                   )}
                 </div>

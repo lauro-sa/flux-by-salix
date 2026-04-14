@@ -7,7 +7,8 @@
  * Se usa en: ModalEnviarDocumento.tsx
  */
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronDown, Star, Plus, Save, Trash2, Check, FileText, Building2, User, Loader2, BookmarkPlus } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Boton } from '@/componentes/ui/Boton'
@@ -65,7 +66,10 @@ export function SelectorPlantillaCorreo({
   const [guardando, setGuardando] = useState(false)
   const [eliminando, setEliminando] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const botonRef = useRef<HTMLButtonElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [posMenu, setPosMenu] = useState({ top: 0, left: 0 })
 
   const plantillaCargada = plantillaActualId
     ? plantillas.find(p => p.id === plantillaActualId)
@@ -78,18 +82,41 @@ export function SelectorPlantillaCorreo({
   const plantillasEmpresa = plantillas.filter(p => p.disponible_para === 'todos' || (!p.disponible_para && p.creado_por !== usuarioId))
   const plantillasPersonales = plantillas.filter(p => p.disponible_para !== 'todos' && p.disponible_para !== undefined && p.creado_por === usuarioId)
 
+  useLayoutEffect(() => {
+    if (!abierto || !botonRef.current) return
+    const rect = botonRef.current.getBoundingClientRect()
+    setPosMenu({ top: rect.bottom + 6, left: rect.left })
+  }, [abierto])
+
   // Cerrar al click fuera
   useEffect(() => {
     if (!abierto) return
     const cerrar = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setAbierto(false)
-        setCreando(false)
-        setEliminando(null)
-      }
+      const target = e.target as Node
+      if (ref.current?.contains(target)) return
+      if (dropdownRef.current?.contains(target)) return
+      setAbierto(false)
+      setCreando(false)
+      setEliminando(null)
     }
     document.addEventListener('mousedown', cerrar)
     return () => document.removeEventListener('mousedown', cerrar)
+  }, [abierto])
+
+  useEffect(() => {
+    if (!abierto) return
+    const handler = () => {
+      if (botonRef.current) {
+        const rect = botonRef.current.getBoundingClientRect()
+        setPosMenu({ top: rect.bottom + 6, left: rect.left })
+      }
+    }
+    window.addEventListener('scroll', handler, true)
+    window.addEventListener('resize', handler)
+    return () => {
+      window.removeEventListener('scroll', handler, true)
+      window.removeEventListener('resize', handler)
+    }
   }, [abierto])
 
   useEffect(() => {
@@ -166,6 +193,7 @@ export function SelectorPlantillaCorreo({
     <div ref={ref} className="relative inline-flex items-center gap-1">
       {/* Trigger */}
       <button
+        ref={botonRef}
         onClick={() => { setAbierto(!abierto); setCreando(false); setEliminando(null) }}
         className="flex items-center gap-1.5 text-sm transition-colors cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2"
         style={{ color: plantillaCargada ? 'var(--texto-primario)' : 'var(--texto-terciario)' }}
@@ -206,15 +234,18 @@ export function SelectorPlantillaCorreo({
         </Tooltip>
       )}
 
-      {/* Menú desplegable */}
+      {/* Menú desplegable — portal para evitar clipping */}
+      {typeof window !== 'undefined' && createPortal(
       <AnimatePresence>
         {abierto && (
           <motion.div
+            ref={dropdownRef}
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15 }}
-            className="absolute left-0 top-full mt-1.5 w-80 rounded-xl shadow-lg z-50 py-1.5 bg-superficie-elevada border border-borde-sutil"
+            className="fixed w-80 rounded-xl shadow-lg py-1.5 bg-superficie-elevada border border-borde-sutil"
+            style={{ top: posMenu.top, left: posMenu.left, zIndex: 'var(--z-popover)' as unknown as number }}
           >
             {plantillas.length === 0 ? (
               <div className="px-4 py-6 text-center">
@@ -348,7 +379,9 @@ export function SelectorPlantillaCorreo({
             </div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+      )}
 
       {/* Modal confirmación eliminar */}
       <AnimatePresence>

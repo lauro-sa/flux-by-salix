@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Link2, Search, X, UserPlus, FileCheck, Phone, Mail, ExternalLink,
@@ -971,23 +972,48 @@ function SelectorPuesto({
   const [texto, setTexto] = useState(valor)
   const [puestosLocales, setPuestosLocales] = useState(puestos)
   const ref = useRef<HTMLDivElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const [posicion, setPosicion] = useState({ top: 0, left: 0, width: 0 })
 
   // Sincronizar puestos externos
   useEffect(() => { setPuestosLocales(puestos) }, [puestos])
   useEffect(() => { setTexto(valor) }, [valor])
 
+  useLayoutEffect(() => {
+    if (!abierto || !ref.current) return
+    const rect = ref.current.getBoundingClientRect()
+    setPosicion({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+  }, [abierto])
+
   // Cerrar al click fuera
   useEffect(() => {
     if (!abierto) return
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setAbierto(false)
-        if (texto !== valor) onChange(texto)
-      }
+      const target = e.target as Node
+      if (ref.current?.contains(target)) return
+      if (dropdownRef.current?.contains(target)) return
+      setAbierto(false)
+      if (texto !== valor) onChange(texto)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [abierto, texto, valor, onChange])
+
+  useEffect(() => {
+    if (!abierto) return
+    const handler = () => {
+      if (ref.current) {
+        const rect = ref.current.getBoundingClientRect()
+        setPosicion({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+      }
+    }
+    window.addEventListener('scroll', handler, true)
+    window.addEventListener('resize', handler)
+    return () => {
+      window.removeEventListener('scroll', handler, true)
+      window.removeEventListener('resize', handler)
+    }
+  }, [abierto])
 
   const filtrados = texto
     ? puestosLocales.filter(p => p.toLowerCase().includes(texto.toLowerCase()) && p !== valor)
@@ -1036,10 +1062,11 @@ function SelectorPuesto({
         placeholder="Buscar o crear puesto..."
       />
 
-      {abierto && (filtrados.length > 0 || mostrarCrear) && (
+      {typeof window !== 'undefined' && abierto && (filtrados.length > 0 || mostrarCrear) && createPortal(
         <div
-          className="absolute z-20 top-full left-0 right-0 mt-1 rounded-lg border border-borde-sutil shadow-elevada max-h-44 overflow-y-auto"
-          style={{ backgroundColor: 'var(--superficie-elevada)' }}
+          ref={dropdownRef}
+          className="fixed rounded-lg border border-borde-sutil shadow-elevada max-h-44 overflow-y-auto"
+          style={{ backgroundColor: 'var(--superficie-elevada)', top: posicion.top, left: posicion.left, width: posicion.width, zIndex: 'var(--z-popover)' as unknown as number }}
           onMouseDown={e => e.preventDefault()}
         >
           {filtrados.map(p => (
@@ -1057,7 +1084,8 @@ function SelectorPuesto({
               Crear &quot;{texto.trim()}&quot;
             </button>
           )}
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Valor seleccionado como pill (si hay) */}
@@ -1091,6 +1119,8 @@ function SelectorRelacion({
   const [texto, setTexto] = useState('')
   const [locales, setLocales] = useState(tiposRelacion)
   const ref = useRef<HTMLDivElement>(null)
+  const dropdownRelRef = useRef<HTMLDivElement>(null)
+  const [posRel, setPosRel] = useState({ top: 0, left: 0, width: 0 })
 
   useEffect(() => { setLocales(tiposRelacion) }, [tiposRelacion])
 
@@ -1100,13 +1130,38 @@ function SelectorRelacion({
     setTexto(sel ? sel.etiqueta : '')
   }, [valor, locales])
 
+  useLayoutEffect(() => {
+    if (!abierto || !ref.current) return
+    const rect = ref.current.getBoundingClientRect()
+    setPosRel({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+  }, [abierto])
+
   useEffect(() => {
     if (!abierto) return
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setAbierto(false)
+      const target = e.target as Node
+      if (ref.current?.contains(target)) return
+      if (dropdownRelRef.current?.contains(target)) return
+      setAbierto(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
+  }, [abierto])
+
+  useEffect(() => {
+    if (!abierto) return
+    const handler = () => {
+      if (ref.current) {
+        const rect = ref.current.getBoundingClientRect()
+        setPosRel({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+      }
+    }
+    window.addEventListener('scroll', handler, true)
+    window.addEventListener('resize', handler)
+    return () => {
+      window.removeEventListener('scroll', handler, true)
+      window.removeEventListener('resize', handler)
+    }
   }, [abierto])
 
   const filtrados = texto
@@ -1178,10 +1233,11 @@ function SelectorRelacion({
         placeholder="Buscar o crear relación..."
       />
 
-      {abierto && (filtrados.length > 0 || mostrarCrear) && (
+      {typeof window !== 'undefined' && abierto && (filtrados.length > 0 || mostrarCrear) && createPortal(
         <div
-          className="absolute z-20 top-full left-0 right-0 mt-1 rounded-lg border border-borde-sutil shadow-elevada max-h-44 overflow-y-auto"
-          style={{ backgroundColor: 'var(--superficie-elevada)' }}
+          ref={dropdownRelRef}
+          className="fixed rounded-lg border border-borde-sutil shadow-elevada max-h-44 overflow-y-auto"
+          style={{ backgroundColor: 'var(--superficie-elevada)', top: posRel.top, left: posRel.left, width: posRel.width, zIndex: 'var(--z-popover)' as unknown as number }}
           onMouseDown={e => e.preventDefault()}
         >
           {/* Opción para limpiar */}
@@ -1207,7 +1263,8 @@ function SelectorRelacion({
               Crear &quot;{texto.trim()}&quot;
             </button>
           )}
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Pill del valor seleccionado */}

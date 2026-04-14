@@ -353,7 +353,12 @@ function useNotificaciones(opciones: OpcionesNotificaciones = {}) {
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail || {}
-      const { referenciaId, ids } = detail as { referenciaId?: string; ids?: string[] }
+      const { referenciaId, ids, categoria } = detail as { referenciaId?: string; ids?: string[]; categoria?: CategoriaNotificacion }
+      if (categoria) {
+        setNotificaciones((prev) =>
+          prev.map((n) => categorizarNotificacion(n.tipo) === categoria ? { ...n, leida: true } : n)
+        )
+      }
       if (referenciaId) {
         setNotificaciones((prev) =>
           prev.map((n) => n.referencia_id === referenciaId ? { ...n, leida: true } : n)

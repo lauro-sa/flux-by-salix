@@ -76,9 +76,14 @@ export function ModalCrearFichaje({ abierto, onCerrar, onCreado, miembroId, miem
     setGuardando(true)
 
     try {
-      // Construir timestamps
-      const horaEntrada = `${fecha}T${entrada}:00`
-      const horaSalida = salida ? `${fecha}T${salida}:00` : null
+      // Construir timestamps respetando timezone local
+      const construirTS = (f: string, h: string) => {
+        const [a, m, d] = f.split('-').map(Number)
+        const [hr, mn] = h.split(':').map(Number)
+        return new Date(a, m - 1, d, hr, mn, 0).toISOString()
+      }
+      const horaEntrada = construirTS(fecha, entrada)
+      const horaSalida = salida ? construirTS(fecha, salida) : null
 
       const res = await fetch('/api/asistencias', {
         method: 'POST',

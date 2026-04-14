@@ -173,6 +173,19 @@ export async function crearNotificacionesBatch(
       .eq('leida', false)
   }
 
+  // Limpiar notificaciones leídas viejas de las mismas referencias (evita acumular basura)
+  if (conReferencia.length > 0) {
+    const referenciaIds = [...new Set(conReferencia.map(n => n.referenciaId!))]
+    const empresaIds = [...new Set(conReferencia.map(n => n.empresaId))]
+    admin
+      .from('notificaciones')
+      .delete()
+      .in('referencia_id', referenciaIds)
+      .in('empresa_id', empresaIds)
+      .eq('leida', true)
+      .then(() => {})
+  }
+
   // Insertar nuevas
   if (paraInsertar.length > 0) {
     const filas = paraInsertar.map(n => ({

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, Check, Plus, Pencil, Trash2, X } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
@@ -62,7 +63,10 @@ export function SelectCreable({
   const [busqueda, setBusqueda] = useState('')
   const [creando, setCreando] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const botonRef = useRef<HTMLButtonElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
   const refInput = useRef<HTMLInputElement>(null)
+  const [posicion, setPosicion] = useState({ top: 0, left: 0, width: 0 })
 
   // Estado para edición inline
   const [editandoValor, setEditandoValor] = useState<string | null>(null)
@@ -80,14 +84,41 @@ export function SelectCreable({
   // ¿El texto buscado no existe como opción?
   const puedeCrear = onCrear && busqueda.trim() && !opciones.some(o => o.etiqueta.toLowerCase() === busqueda.toLowerCase().trim())
 
+  // Calcular posición del dropdown relativa al viewport
+  useLayoutEffect(() => {
+    if (!abierto || !botonRef.current) return
+    const rect = botonRef.current.getBoundingClientRect()
+    setPosicion({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+  }, [abierto])
+
   // Cerrar al click fuera
   useEffect(() => {
     if (!abierto) return
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) { setAbierto(false); setBusqueda(''); setEditandoValor(null) }
+      const target = e.target as Node
+      if (ref.current?.contains(target)) return
+      if (dropdownRef.current?.contains(target)) return
+      setAbierto(false); setBusqueda(''); setEditandoValor(null)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
+  }, [abierto])
+
+  // Reposicionar al hacer scroll o resize
+  useEffect(() => {
+    if (!abierto) return
+    const handler = () => {
+      if (botonRef.current) {
+        const rect = botonRef.current.getBoundingClientRect()
+        setPosicion({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+      }
+    }
+    window.addEventListener('scroll', handler, true)
+    window.addEventListener('resize', handler)
+    return () => {
+      window.removeEventListener('scroll', handler, true)
+      window.removeEventListener('resize', handler)
+    }
   }, [abierto])
 
   // Focus input al abrir
@@ -141,7 +172,7 @@ export function SelectCreable({
         <label className="text-sm font-medium mb-1 text-texto-secundario">{etiqueta}</label>
       )}
       <div className="relative">
-        <button type="button" onClick={() => setAbierto(!abierto)}
+        <button ref={botonRef} type="button" onClick={() => setAbierto(!abierto)}
           className={[
             'flex items-center justify-between gap-2 text-sm cursor-pointer transition-all duration-150 w-full text-left outline-none',
             esPlano
@@ -154,20 +185,28 @@ export function SelectCreable({
           <ChevronDown size={14} className={`shrink-0 text-texto-terciario transition-transform duration-150 ${abierto ? 'rotate-180' : ''}`} />
         </button>
 
+        {typeof window !== 'undefined' && createPortal(
         <AnimatePresence>
           {abierto && (
             <motion.div
+              ref={dropdownRef}
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.12 }}
-              className="absolute top-full left-0 right-0 mt-1 border border-borde-sutil rounded-md shadow-lg z-50 overflow-hidden"
-              style={esCristal ? {
-                backgroundColor: 'var(--superficie-flotante)',
-                backdropFilter: 'blur(32px) saturate(1.5)',
-                WebkitBackdropFilter: 'blur(32px) saturate(1.5)',
-              } : {
-                backgroundColor: 'var(--superficie-elevada)',
+              className="fixed border border-borde-sutil rounded-md shadow-lg overflow-hidden"
+              style={{
+                top: posicion.top,
+                left: posicion.left,
+                width: posicion.width,
+                zIndex: 'var(--z-popover)' as unknown as number,
+                ...(esCristal ? {
+                  backgroundColor: 'var(--superficie-flotante)',
+                  backdropFilter: 'blur(32px) saturate(1.5)',
+                  WebkitBackdropFilter: 'blur(32px) saturate(1.5)',
+                } : {
+                  backgroundColor: 'var(--superficie-elevada)',
+                }),
               }}>
 
               {/* Buscador */}
@@ -253,7 +292,9 @@ export function SelectCreable({
               )}
             </motion.div>
           )}
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
       </div>
     </div>
   )

@@ -18,7 +18,6 @@ import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { Cargador } from '@/componentes/ui/Cargador'
-import { TextArea } from '@/componentes/ui/TextArea'
 import { DireccionesContacto, type DireccionConTipo } from '../_componentes/DireccionesContacto'
 import { VinculacionesContacto } from '../_componentes/VinculacionesContacto'
 import { PanelChatter } from '@/componentes/entidad/PanelChatter'
@@ -910,17 +909,6 @@ export default function PaginaContacto() {
             />
           )}
 
-          {/* Notas */}
-          <section>
-            <h3 className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-3">Notas</h3>
-            <TextArea
-              value={campos.notas || ''}
-              onChange={e => setCampos(p => ({ ...p, notas: e.target.value }))}
-              placeholder="Notas internas sobre este contacto..."
-              rows={3}
-              onBlur={() => onBlurCampo('notas')}
-            />
-          </section>
 
           {/* Indicadores de estado (solo creación) */}
           {esNuevo && !guardando && tieneNombre && !tieneDatoContacto && (

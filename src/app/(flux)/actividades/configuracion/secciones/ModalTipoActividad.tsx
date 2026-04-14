@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Input } from '@/componentes/ui/Input'
 import { TextArea } from '@/componentes/ui/TextArea'
@@ -58,15 +59,43 @@ function MiniSelectorIcono({ valor, color, onChange }: { valor: string; color: s
   const [abierto, setAbierto] = useState(false)
   const [busqueda, setBusqueda] = useState('')
   const contenedorRef = useRef<HTMLDivElement>(null)
+  const botonRef = useRef<HTMLButtonElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const [posicion, setPosicion] = useState({ top: 0, left: 0 })
   const IconoActual = obtenerIcono(valor)
+
+  useLayoutEffect(() => {
+    if (!abierto || !botonRef.current) return
+    const rect = botonRef.current.getBoundingClientRect()
+    setPosicion({ top: rect.bottom + 6, left: rect.left })
+  }, [abierto])
 
   useEffect(() => {
     if (!abierto) return
     const handler = (e: MouseEvent) => {
-      if (contenedorRef.current && !contenedorRef.current.contains(e.target as Node)) setAbierto(false)
+      const target = e.target as Node
+      if (contenedorRef.current?.contains(target)) return
+      if (dropdownRef.current?.contains(target)) return
+      setAbierto(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
+  }, [abierto])
+
+  useEffect(() => {
+    if (!abierto) return
+    const handler = () => {
+      if (botonRef.current) {
+        const rect = botonRef.current.getBoundingClientRect()
+        setPosicion({ top: rect.bottom + 6, left: rect.left })
+      }
+    }
+    window.addEventListener('scroll', handler, true)
+    window.addEventListener('resize', handler)
+    return () => {
+      window.removeEventListener('scroll', handler, true)
+      window.removeEventListener('resize', handler)
+    }
   }, [abierto])
 
   const todosLosIconos = obtenerTodosLosIconos()
@@ -76,21 +105,24 @@ function MiniSelectorIcono({ valor, color, onChange }: { valor: string; color: s
 
   return (
     <div ref={contenedorRef} className="relative shrink-0">
-      <button onClick={() => { setAbierto(!abierto); setBusqueda('') }}
+      <button ref={botonRef} onClick={() => { setAbierto(!abierto); setBusqueda('') }}
         className="size-11 rounded-xl flex items-center justify-center cursor-pointer border border-borde-sutil hover:border-texto-marca/40 transition-colors"
         style={{ backgroundColor: color + '15', color }}
         title="Cambiar icono">
         {IconoActual && <IconoActual size={20} />}
       </button>
 
+      {typeof window !== 'undefined' && createPortal(
       <AnimatePresence>
         {abierto && (
           <motion.div
+            ref={dropdownRef}
             initial={{ opacity: 0, y: 4, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.97 }}
             transition={{ duration: 0.15 }}
-            className="absolute top-full left-0 mt-1.5 z-50 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg overflow-hidden w-[280px]"
+            className="fixed bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg overflow-hidden w-[280px]"
+            style={{ top: posicion.top, left: posicion.left, zIndex: 'var(--z-popover)' as unknown as number }}
           >
             <div className="flex items-center gap-2 px-3 py-2 border-b border-borde-sutil">
               <Search size={13} className="text-texto-terciario shrink-0" />
@@ -123,7 +155,9 @@ function MiniSelectorIcono({ valor, color, onChange }: { valor: string; color: s
             )}
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+      )}
     </div>
   )
 }
@@ -159,16 +193,43 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
   })
   const [autoCompletar, setAutoCompletar] = useState(false)
   const [pickerAbierto, setPickerAbierto] = useState(false)
-  const pickerRef = useRef<HTMLDivElement>(null)
+  const pickerBotonRef = useRef<HTMLButtonElement>(null)
+  const pickerDropdownRef = useRef<HTMLDivElement>(null)
+  const [pickerPos, setPickerPos] = useState({ top: 0, left: 0 })
+
+  useLayoutEffect(() => {
+    if (!pickerAbierto || !pickerBotonRef.current) return
+    const rect = pickerBotonRef.current.getBoundingClientRect()
+    setPickerPos({ top: rect.bottom + 6, left: rect.left })
+  }, [pickerAbierto])
 
   // Cerrar picker al click fuera
   useEffect(() => {
     if (!pickerAbierto) return
     const handler = (e: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) setPickerAbierto(false)
+      const target = e.target as Node
+      if (pickerBotonRef.current?.contains(target)) return
+      if (pickerDropdownRef.current?.contains(target)) return
+      setPickerAbierto(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
+  }, [pickerAbierto])
+
+  useEffect(() => {
+    if (!pickerAbierto) return
+    const handler = () => {
+      if (pickerBotonRef.current) {
+        const rect = pickerBotonRef.current.getBoundingClientRect()
+        setPickerPos({ top: rect.bottom + 6, left: rect.left })
+      }
+    }
+    window.addEventListener('scroll', handler, true)
+    window.addEventListener('resize', handler)
+    return () => {
+      window.removeEventListener('scroll', handler, true)
+      window.removeEventListener('resize', handler)
+    }
   }, [pickerAbierto])
   const [resumenPredeterminado, setResumenPredeterminado] = useState('')
   const [notaPredeterminada, setNotaPredeterminada] = useState('')
@@ -312,8 +373,8 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
                 )
               })}
               {/* Gotero — abre picker HSL propio */}
-              <div className="relative" ref={pickerRef}>
-                <button onClick={() => setPickerAbierto(!pickerAbierto)}
+              <div className="relative">
+                <button ref={pickerBotonRef} onClick={() => setPickerAbierto(!pickerAbierto)}
                   className={`relative size-5 rounded-full border border-dashed transition-all duration-150 cursor-pointer hover:scale-110 flex items-center justify-center ${
                     pickerAbierto || !COLORES_TIPO.some(p => p.color.toLowerCase() === color.toLowerCase())
                       ? 'ring-2 ring-offset-1 ring-white/80 ring-offset-superficie-tarjeta scale-110 border-transparent'
@@ -325,14 +386,17 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
                     ? <Check size={9} className="text-white drop-shadow-sm" />
                     : <Pipette size={9} className="text-texto-terciario" />}
                 </button>
+                {typeof window !== 'undefined' && createPortal(
                 <AnimatePresence>
                   {pickerAbierto && (
                     <motion.div
+                      ref={pickerDropdownRef}
                       initial={{ opacity: 0, y: 4, scale: 0.97 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 4, scale: 0.97 }}
                       transition={{ duration: 0.15 }}
-                      className="absolute top-full left-0 mt-1.5 z-50 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg overflow-hidden"
+                      className="fixed bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg overflow-hidden"
+                      style={{ top: pickerPos.top, left: pickerPos.left, zIndex: 'var(--z-popover)' as unknown as number }}
                     >
                       <PickerHSL
                         valorInicial={color}
@@ -340,7 +404,9 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
                       />
                     </motion.div>
                   )}
-                </AnimatePresence>
+                </AnimatePresence>,
+                document.body
+                )}
               </div>
             </div>
           </div>

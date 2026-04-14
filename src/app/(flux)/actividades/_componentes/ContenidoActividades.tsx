@@ -86,6 +86,25 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
   const formato = useFormato()
   const { t } = useTraduccion()
   const modalVisitaHook = useModalVisita()
+  // Marcar notificaciones de actividades como leídas al entrar a la página
+  const notificacionesMarcadasRef = useRef(false)
+  useEffect(() => {
+    if (notificacionesMarcadasRef.current) return
+    notificacionesMarcadasRef.current = true
+    const tipos = [
+      'actividad', 'asignacion', 'actividad_asignada',
+      'actividad_pronto_vence', 'actividad_vencida',
+      'recordatorio', 'recordatorio_evento', 'calendario', 'evento_asignado',
+    ]
+    fetch('/api/inbox/notificaciones', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ todas: true, tipos }),
+    }).then(() => {
+      // Sincronizar el estado del header
+      window.dispatchEvent(new CustomEvent('flux:notificaciones-leidas', { detail: { categoria: 'actividades' } }))
+    }).catch(() => {})
+  }, [])
 
   // Estado local de UI
   const [modalAbierto, setModalAbierto] = useState(false)

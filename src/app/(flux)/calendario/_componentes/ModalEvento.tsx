@@ -8,7 +8,8 @@
  * Se usa en: pagina principal del calendario.
  */
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { Trash2, X, Search, UserPlus, Link2, Users, MapPin } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ModalAdaptable } from '@/componentes/ui/ModalAdaptable'
@@ -131,6 +132,9 @@ function SelectorAsignados({
 }) {
   const [abierto, setAbierto] = useState(false)
   const refContenedor = useRef<HTMLDivElement>(null)
+  const refBotonAsignado = useRef<HTMLButtonElement>(null)
+  const refDropdownAsignado = useRef<HTMLDivElement>(null)
+  const [posAsignado, setPosAsignado] = useState({ top: 0, left: 0, width: 0 })
 
   /** Miembros que aun no estan asignados */
   const disponibles = useMemo(
@@ -138,16 +142,41 @@ function SelectorAsignados({
     [miembrosDisponibles, asignados],
   )
 
+  /* Calcular posición del dropdown */
+  useLayoutEffect(() => {
+    if (!abierto || !refBotonAsignado.current) return
+    const rect = refBotonAsignado.current.getBoundingClientRect()
+    setPosAsignado({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 224) })
+  }, [abierto])
+
   /* Cerrar dropdown al hacer clic fuera */
   useEffect(() => {
     if (!abierto) return
     const manejarClicFuera = (e: MouseEvent) => {
-      if (refContenedor.current && !refContenedor.current.contains(e.target as Node)) {
-        setAbierto(false)
-      }
+      const target = e.target as Node
+      if (refContenedor.current?.contains(target)) return
+      if (refDropdownAsignado.current?.contains(target)) return
+      setAbierto(false)
     }
     document.addEventListener('mousedown', manejarClicFuera)
     return () => document.removeEventListener('mousedown', manejarClicFuera)
+  }, [abierto])
+
+  /* Reposicionar al scroll/resize */
+  useEffect(() => {
+    if (!abierto) return
+    const handler = () => {
+      if (refBotonAsignado.current) {
+        const rect = refBotonAsignado.current.getBoundingClientRect()
+        setPosAsignado({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 224) })
+      }
+    }
+    window.addEventListener('scroll', handler, true)
+    window.addEventListener('resize', handler)
+    return () => {
+      window.removeEventListener('scroll', handler, true)
+      window.removeEventListener('resize', handler)
+    }
   }, [abierto])
 
   return (
@@ -173,6 +202,7 @@ function SelectorAsignados({
       {/* Boton para agregar + dropdown */}
       <div className="relative">
         <button
+          ref={refBotonAsignado}
           type="button"
           onClick={() => setAbierto(!abierto)}
           disabled={disponibles.length === 0}
@@ -182,14 +212,22 @@ function SelectorAsignados({
           {asignados.length === 0 ? 'Agregar asignado' : 'Agregar otro'}
         </button>
 
+        {typeof window !== 'undefined' && createPortal(
         <AnimatePresence>
           {abierto && disponibles.length > 0 && (
             <motion.div
+              ref={refDropdownAsignado}
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.15 }}
-              className="absolute z-50 top-full left-0 mt-1 w-56 max-h-40 overflow-y-auto rounded-lg border border-borde-sutil bg-superficie-tarjeta shadow-lg"
+              className="fixed max-h-40 overflow-y-auto rounded-lg border border-borde-sutil bg-superficie-tarjeta shadow-lg"
+              style={{
+                top: posAsignado.top,
+                left: posAsignado.left,
+                width: posAsignado.width,
+                zIndex: 'var(--z-popover)' as unknown as number,
+              }}
             >
               {disponibles.map((m) => (
                 <button
@@ -206,7 +244,9 @@ function SelectorAsignados({
               ))}
             </motion.div>
           )}
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+        )}
       </div>
     </div>
   )
@@ -228,7 +268,34 @@ function SelectorVinculaciones({
   const [buscando, setBuscando] = useState(false)
   const [mostrarBuscador, setMostrarBuscador] = useState(false)
   const refContenedor = useRef<HTMLDivElement>(null)
+  const refInputWrapper = useRef<HTMLDivElement>(null)
+  const refDropdown = useRef<HTMLDivElement>(null)
   const refTemporizador = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [posicion, setPosicion] = useState({ top: 0, left: 0, width: 0 })
+
+  /* Calcular posición del dropdown relativa al viewport */
+  useLayoutEffect(() => {
+    if (!mostrarBuscador || !refInputWrapper.current) return
+    const rect = refInputWrapper.current.getBoundingClientRect()
+    setPosicion({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+  }, [mostrarBuscador])
+
+  /* Reposicionar al scroll/resize */
+  useEffect(() => {
+    if (!mostrarBuscador) return
+    const handler = () => {
+      if (refInputWrapper.current) {
+        const rect = refInputWrapper.current.getBoundingClientRect()
+        setPosicion({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+      }
+    }
+    window.addEventListener('scroll', handler, true)
+    window.addEventListener('resize', handler)
+    return () => {
+      window.removeEventListener('scroll', handler, true)
+      window.removeEventListener('resize', handler)
+    }
+  }, [mostrarBuscador])
 
   /* Buscar contactos con debounce */
   useEffect(() => {
@@ -271,11 +338,12 @@ function SelectorVinculaciones({
   useEffect(() => {
     if (!mostrarBuscador) return
     const manejarClicFuera = (e: MouseEvent) => {
-      if (refContenedor.current && !refContenedor.current.contains(e.target as Node)) {
-        setMostrarBuscador(false)
-        setBusqueda('')
-        setResultados([])
-      }
+      const target = e.target as Node
+      if (refContenedor.current?.contains(target)) return
+      if (refDropdown.current?.contains(target)) return
+      setMostrarBuscador(false)
+      setBusqueda('')
+      setResultados([])
     }
     document.addEventListener('mousedown', manejarClicFuera)
     return () => document.removeEventListener('mousedown', manejarClicFuera)
@@ -302,7 +370,7 @@ function SelectorVinculaciones({
       )}
 
       {/* Buscador de contactos */}
-      <div className="relative">
+      <div className="relative" ref={refInputWrapper}>
         {!mostrarBuscador ? (
           <button
             type="button"
@@ -329,15 +397,23 @@ function SelectorVinculaciones({
           </div>
         )}
 
-        {/* Resultados de busqueda */}
+        {/* Resultados de busqueda — portal para evitar clipping en modales */}
+        {typeof window !== 'undefined' && createPortal(
         <AnimatePresence>
           {resultados.length > 0 && mostrarBuscador && (
             <motion.div
+              ref={refDropdown}
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.15 }}
-              className="absolute z-50 top-full left-0 mt-1 w-full max-h-36 overflow-y-auto rounded-lg border border-borde-sutil bg-superficie-tarjeta shadow-lg"
+              className="fixed max-h-36 overflow-y-auto rounded-lg border border-borde-sutil bg-superficie-tarjeta shadow-lg"
+              style={{
+                top: posicion.top,
+                left: posicion.left,
+                width: posicion.width,
+                zIndex: 'var(--z-popover)' as unknown as number,
+              }}
             >
               {resultados.map((r) => (
                 <button
@@ -355,7 +431,9 @@ function SelectorVinculaciones({
               ))}
             </motion.div>
           )}
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+        )}
       </div>
     </div>
   )
@@ -519,7 +597,8 @@ function ModalEvento({
     // Recalcular hora fin basandose en la duracion del tipo
     if (fechaInicio && horaInicio) {
       const [h, m] = horaInicio.split(':').map(Number)
-      const inicio = new Date(`${fechaInicio}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`)
+      const [ai, mi2, di] = fechaInicio.split('-').map(Number)
+      const inicio = new Date(ai, mi2 - 1, di, h, m, 0)
       const fin = sumarMinutos(inicio, tipoSeleccionado.duracion_default)
       setFechaFin(fechaAISO(fin))
       setHoraFin(fechaAHora(fin))
@@ -554,13 +633,18 @@ function ModalEvento({
 
     setGuardando(true)
     try {
-      // Construir fecha/hora de inicio y fin completas
+      // Construir fecha/hora de inicio y fin como Date local → ISO (respeta timezone)
+      const construirISO = (f: string, h: string) => {
+        const [a, m, d] = f.split('-').map(Number)
+        const [hr, mn] = h.split(':').map(Number)
+        return new Date(a, m - 1, d, hr, mn, 0).toISOString()
+      }
       const inicioISO = todoElDia
-        ? `${fechaInicio}T00:00:00`
-        : `${fechaInicio}T${horaInicio || '00:00'}:00`
+        ? construirISO(fechaInicio, '00:00')
+        : construirISO(fechaInicio, horaInicio || '00:00')
       const finISO = todoElDia
-        ? `${fechaFin || fechaInicio}T23:59:59`
-        : `${fechaFin || fechaInicio}T${horaFin || '23:59'}:00`
+        ? construirISO(fechaFin || fechaInicio, '23:59')
+        : construirISO(fechaFin || fechaInicio, horaFin || '23:59')
 
       await onGuardar({
         ...(evento ? { id: evento.id } : {}),

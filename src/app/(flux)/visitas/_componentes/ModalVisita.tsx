@@ -389,7 +389,9 @@ function ModalVisita({
     if (!contactoId || !fechaProgramada) return
     setGuardando(true)
     try {
-      const fechaCompleta = new Date(`${fechaProgramada}T${horaProgramada || '09:00'}:00`).toISOString()
+      const [_a, _m, _d] = fechaProgramada.split('-').map(Number)
+      const [_h, _mn] = (horaProgramada || '09:00').split(':').map(Number)
+      const fechaCompleta = new Date(_a, _m - 1, _d, _h, _mn, 0).toISOString()
       await onGuardar({
         ...(esEdicion ? { id: visita!.id } : {}),
         contacto_id: contactoId,
@@ -468,9 +470,9 @@ function ModalVisita({
       )}
 
       {/* Grid 2 columnas */}
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-0 border-y border-white/[0.07] overflow-y-auto max-h-[calc(100dvh-200px)]">
+      <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1px_1fr] gap-0 border-y border-white/[0.07] overflow-y-auto max-h-[calc(100dvh-200px)]">
         {/* ── COLUMNA IZQUIERDA ── */}
-        <div className="space-y-0">
+        <div className="space-y-0 min-w-0">
           {/* Contacto — SelectorContacto reutilizable */}
           <div className="px-6 py-4 border-b border-white/[0.07]">
             <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2 block">
@@ -542,7 +544,30 @@ function ModalVisita({
               </label>
               <p className="text-xs text-texto-terciario mb-3">{t('visitas.recibe_desc')}</p>
 
-              {recibeModoManual ? (
+              {/* Receptor ya seleccionado — pill estilo marca */}
+              {(recibeContactoSeleccionado || (recibeModoManual && recibeNombre)) ? (
+                <div className="space-y-2">
+                  <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-texto-marca/40 bg-texto-marca/10">
+                    <User size={13} className="text-texto-marca shrink-0" />
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium text-texto-primario">
+                        {recibeNombre}
+                      </span>
+                      {recibeTelefono && (
+                        <span className="text-xs text-texto-terciario ml-2">
+                          {recibeTelefono}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={limpiarReceptor}
+                      className="text-texto-terciario hover:text-estado-error transition-colors shrink-0"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                </div>
+              ) : recibeModoManual ? (
                 /* ── Modo manual: inputs libres ── */
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
@@ -569,7 +594,7 @@ function ModalVisita({
                 /* ── Modo buscador: vinculados + SelectorContacto ── */
                 <div className="space-y-3">
                   {/* Sugerencias rápidas: contactos vinculados */}
-                  {!recibeContactoSeleccionado && vinculados.length > 0 && !cargandoVinculados && (
+                  {vinculados.length > 0 && !cargandoVinculados && (
                     <div>
                       <span className="text-[10px] font-medium text-texto-terciario uppercase tracking-wider">{t('visitas.vinculados')}</span>
                       <div className="flex flex-wrap gap-1.5 mt-1.5">
@@ -579,7 +604,7 @@ function ModalVisita({
                             <button
                               key={v.id}
                               onClick={() => seleccionarReceptorVinculado(v)}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] text-xs text-texto-secundario hover:bg-white/[0.06] hover:border-texto-marca/30 transition-colors"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] text-xs text-texto-secundario hover:bg-texto-marca/10 hover:border-texto-marca/30 transition-colors"
                             >
                               <User size={11} className="text-texto-terciario" />
                               <span>{nombre}</span>
@@ -595,7 +620,7 @@ function ModalVisita({
 
                   {/* SelectorContacto para buscar cualquier contacto */}
                   <SelectorContacto
-                    contacto={recibeContactoSeleccionado}
+                    contacto={null}
                     onChange={manejarSeleccionReceptor}
                     sinAlertaCorreo
                     sinDatosFiscales
@@ -603,39 +628,25 @@ function ModalVisita({
                   />
 
                   {/* Opción cargar a mano */}
-                  {!recibeContactoSeleccionado && (
-                    <button
-                      onClick={() => { limpiarReceptor(); setRecibeModoManual(true) }}
-                      className="text-xs text-texto-terciario hover:text-texto-secundario transition-colors flex items-center gap-1"
-                    >
-                      <PenLine size={12} />
-                      {t('visitas.cargar_a_mano')}
-                    </button>
-                  )}
+                  <button
+                    onClick={() => { limpiarReceptor(); setRecibeModoManual(true) }}
+                    className="text-xs text-texto-terciario hover:text-texto-secundario transition-colors flex items-center gap-1"
+                  >
+                    <PenLine size={12} />
+                    {t('visitas.cargar_a_mano')}
+                  </button>
                 </div>
               )}
             </div>
           )}
 
-          {/* Notas */}
-          <div className="px-6 py-4">
-            <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2 block">
-              {t('visitas.notas')}
-            </label>
-            <TextArea
-              value={notas}
-              onChange={(e) => setNotas(e.target.value)}
-              placeholder="Notas adicionales..."
-              rows={3}
-            />
-          </div>
         </div>
 
         {/* DIVISOR */}
         <div className="hidden md:block bg-white/[0.07]" />
 
         {/* ── COLUMNA DERECHA ── */}
-        <div className="space-y-0 md:min-w-[280px]">
+        <div className="space-y-0 min-w-0">
           {/* Asignado a */}
           <div className="px-6 py-4 border-b border-white/[0.07]">
             <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2 block">
@@ -720,7 +731,7 @@ function ModalVisita({
           </div>
 
           {/* Checklist */}
-          <div className="px-6 py-4">
+          <div className="px-6 py-4 border-b border-white/[0.07]">
             <div className="flex items-center justify-between mb-2">
               <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">
                 {t('visitas.checklist')}
@@ -764,6 +775,19 @@ function ModalVisita({
             ) : (
               <p className="text-xs text-texto-terciario">{t('visitas.sin_items')}</p>
             )}
+          </div>
+
+          {/* Notas */}
+          <div className="px-6 py-4">
+            <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2 block">
+              {t('visitas.notas')}
+            </label>
+            <TextArea
+              value={notas}
+              onChange={(e) => setNotas(e.target.value)}
+              placeholder="Notas adicionales..."
+              rows={3}
+            />
           </div>
         </div>
       </div>

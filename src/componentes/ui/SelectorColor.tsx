@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, Pipette, Palette, Sparkles, RotateCcw } from 'lucide-react'
 import { Boton } from './Boton'
@@ -311,18 +312,48 @@ function PickerInline({ valor, onChange }: { valor: string; onChange: (c: string
 function SelectorColor({ valor, onChange, coloresLogo = [] }: PropiedadesSelectorColor) {
   const [pickerAbierto, setPickerAbierto] = useState(false)
   const [inputHex, setInputHex] = useState(valor)
+  const pickerBotonRef = useRef<HTMLButtonElement>(null)
   const pickerRef = useRef<HTMLDivElement>(null)
+  const [pickerPos, setPickerPos] = useState({ top: 0, left: 0 })
 
   useEffect(() => { setInputHex(valor) }, [valor])
+
+  // Calcular posición del picker relativa al viewport (se abre arriba del botón)
+  useLayoutEffect(() => {
+    if (!pickerAbierto || !pickerBotonRef.current) return
+    const rect = pickerBotonRef.current.getBoundingClientRect()
+    // Posicionar arriba del botón, alineado a la derecha
+    setPickerPos({ top: rect.top - 8, left: rect.right - 224 }) // 224px = w-56
+  }, [pickerAbierto])
 
   // Cerrar picker al hacer click afuera
   useEffect(() => {
     if (!pickerAbierto) return
     const handler = (e: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) setPickerAbierto(false)
+      const target = e.target as Node
+      if (pickerBotonRef.current?.contains(target)) return
+      if (pickerRef.current?.contains(target)) return
+      setPickerAbierto(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
+  }, [pickerAbierto])
+
+  // Reposicionar al hacer scroll o resize
+  useEffect(() => {
+    if (!pickerAbierto) return
+    const handler = () => {
+      if (pickerBotonRef.current) {
+        const rect = pickerBotonRef.current.getBoundingClientRect()
+        setPickerPos({ top: rect.top - 8, left: rect.right - 224 })
+      }
+    }
+    window.addEventListener('scroll', handler, true)
+    window.addEventListener('resize', handler)
+    return () => {
+      window.removeEventListener('scroll', handler, true)
+      window.removeEventListener('resize', handler)
+    }
   }, [pickerAbierto])
 
   const esSeleccionado = (color: string) => valor.toLowerCase() === color.toLowerCase()
@@ -438,8 +469,9 @@ function SelectorColor({ valor, onChange, coloresLogo = [] }: PropiedadesSelecto
             />
           </div>
 
-          <div ref={pickerRef} className="relative">
+          <div>
             <Boton
+              ref={pickerBotonRef}
               variante="secundario"
               tamano="sm"
               soloIcono
@@ -448,20 +480,30 @@ function SelectorColor({ valor, onChange, coloresLogo = [] }: PropiedadesSelecto
               onClick={() => setPickerAbierto(!pickerAbierto)}
             />
 
-            {/* Picker inline en popover */}
-            <AnimatePresence>
-              {pickerAbierto && (
-                <motion.div
-                  initial={{ opacity: 0, y: 4, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 4, scale: 0.95 }}
-                  transition={{ duration: 0.15 }}
-                  className="absolute bottom-full mb-2 right-0 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg p-3 z-50 w-56"
-                >
-                  <PickerInline valor={valor} onChange={onChange} />
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {/* Picker inline en popover — portal para evitar clipping */}
+            {typeof window !== 'undefined' && createPortal(
+              <AnimatePresence>
+                {pickerAbierto && (
+                  <motion.div
+                    ref={pickerRef}
+                    initial={{ opacity: 0, y: 4, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 4, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className="fixed bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg p-3 w-56"
+                    style={{
+                      top: pickerPos.top,
+                      left: pickerPos.left,
+                      transform: 'translateY(-100%)',
+                      zIndex: 'var(--z-popover)' as unknown as number,
+                    }}
+                  >
+                    <PickerInline valor={valor} onChange={onChange} />
+                  </motion.div>
+                )}
+              </AnimatePresence>,
+              document.body
+            )}
           </div>
         </div>
       </div>

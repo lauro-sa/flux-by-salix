@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Input } from '@/componentes/ui/Input'
 import { Boton } from '@/componentes/ui/Boton'
@@ -649,18 +650,45 @@ function SeccionVinculos({ vinculos, onChange, onNavegar }: { vinculos: Vinculo[
   const [cargando, setCargando] = useState(false)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const contenedorRef = useRef<HTMLDivElement>(null)
+  const inputWrapperRef = useRef<HTMLDivElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const [posicion, setPosicion] = useState({ top: 0, left: 0, width: 0 })
 
-  // Cerrar dropdown al hacer click fuera (con delay para no comer el click del destino)
+  // Calcular posición del dropdown relativa al viewport
+  useLayoutEffect(() => {
+    if (!foco || !inputWrapperRef.current) return
+    const rect = inputWrapperRef.current.getBoundingClientRect()
+    setPosicion({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+  }, [foco])
+
+  // Cerrar dropdown al hacer click fuera
   useEffect(() => {
     if (!foco) return
     const handler = (e: MouseEvent) => {
-      if (contenedorRef.current && !contenedorRef.current.contains(e.target as Node)) {
-        // Delay para que el click en el destino se procese primero
-        requestAnimationFrame(() => setFoco(false))
-      }
+      const target = e.target as Node
+      if (contenedorRef.current?.contains(target)) return
+      if (dropdownRef.current?.contains(target)) return
+      requestAnimationFrame(() => setFoco(false))
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
+  }, [foco])
+
+  // Reposicionar al hacer scroll o resize
+  useEffect(() => {
+    if (!foco) return
+    const handler = () => {
+      if (inputWrapperRef.current) {
+        const rect = inputWrapperRef.current.getBoundingClientRect()
+        setPosicion({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+      }
+    }
+    window.addEventListener('scroll', handler, true)
+    window.addEventListener('resize', handler)
+    return () => {
+      window.removeEventListener('scroll', handler, true)
+      window.removeEventListener('resize', handler)
+    }
   }, [foco])
 
   // Cargar recientes al abrir dropdown o cambiar tab
@@ -785,7 +813,7 @@ function SeccionVinculos({ vinculos, onChange, onNavegar }: { vinculos: Vinculo[
       )}
 
       {/* Input de búsqueda — siempre visible */}
-      <div className="relative">
+      <div className="relative" ref={inputWrapperRef}>
         <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-borde-sutil bg-superficie-tarjeta">
           <Search size={13} className="text-texto-terciario/50 shrink-0" />
           <Input
@@ -800,15 +828,23 @@ function SeccionVinculos({ vinculos, onChange, onNavegar }: { vinculos: Vinculo[
           />
         </div>
 
-        {/* Dropdown flotante — absolute, no empuja el modal */}
+        {/* Dropdown flotante — portal para evitar clipping en modales */}
+        {typeof window !== 'undefined' && createPortal(
         <AnimatePresence>
           {foco && (
             <motion.div
+              ref={dropdownRef}
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 4 }}
               transition={{ duration: 0.12 }}
-              className="absolute z-50 left-0 right-0 top-full mt-1 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden"
+              className="fixed bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden"
+              style={{
+                top: posicion.top,
+                left: posicion.left,
+                width: posicion.width,
+                zIndex: 'var(--z-popover)' as unknown as number,
+              }}
             >
               {/* Tabs */}
               <div className="flex gap-0.5 p-1.5 border-b border-borde-sutil">
@@ -876,7 +912,9 @@ function SeccionVinculos({ vinculos, onChange, onNavegar }: { vinculos: Vinculo[
               </div>
             </motion.div>
           )}
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+        )}
       </div>
     </div>
   )

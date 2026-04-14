@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search, ChevronDown } from 'lucide-react'
 import { Tooltip } from '@/componentes/ui/Tooltip'
@@ -558,19 +559,47 @@ function SelectorIcono({ valor, onChange, etiqueta, tamano = 18 }: PropiedadesSe
   const [abierto, setAbierto] = useState(false)
   const [busqueda, setBusqueda] = useState('')
   const contenedorRef = useRef<HTMLDivElement>(null)
+  const botonRef = useRef<HTMLButtonElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [posicion, setPosicion] = useState({ top: 0, left: 0, width: 0 })
+
+  // Calcular posición del dropdown relativa al viewport
+  useLayoutEffect(() => {
+    if (!abierto || !botonRef.current) return
+    const rect = botonRef.current.getBoundingClientRect()
+    setPosicion({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+  }, [abierto])
 
   // Cerrar al hacer click afuera
   useEffect(() => {
     if (!abierto) return
     const handler = (e: MouseEvent) => {
-      if (contenedorRef.current && !contenedorRef.current.contains(e.target as Node)) {
-        setAbierto(false)
-        setBusqueda('')
-      }
+      const target = e.target as Node
+      if (contenedorRef.current?.contains(target)) return
+      if (dropdownRef.current?.contains(target)) return
+      setAbierto(false)
+      setBusqueda('')
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
+  }, [abierto])
+
+  // Reposicionar al hacer scroll o resize
+  useEffect(() => {
+    if (!abierto) return
+    const handler = () => {
+      if (botonRef.current) {
+        const rect = botonRef.current.getBoundingClientRect()
+        setPosicion({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+      }
+    }
+    window.addEventListener('scroll', handler, true)
+    window.addEventListener('resize', handler)
+    return () => {
+      window.removeEventListener('scroll', handler, true)
+      window.removeEventListener('resize', handler)
+    }
   }, [abierto])
 
   // Auto-focus buscador al abrir
@@ -645,6 +674,7 @@ function SelectorIcono({ valor, onChange, etiqueta, tamano = 18 }: PropiedadesSe
 
       {/* Botón que muestra el ícono actual */}
       <button
+        ref={botonRef}
         onClick={() => setAbierto(!abierto)}
         className="flex items-center gap-2 px-3 py-2 rounded-md border border-borde-fuerte bg-superficie-tarjeta hover:bg-superficie-hover transition-colors cursor-pointer text-sm text-texto-primario w-full"
       >
@@ -655,16 +685,23 @@ function SelectorIcono({ valor, onChange, etiqueta, tamano = 18 }: PropiedadesSe
         <ChevronDown size={14} className={`text-texto-terciario transition-transform ${abierto ? 'rotate-180' : ''}`} />
       </button>
 
-      {/* Dropdown */}
+      {/* Dropdown — portal para evitar clipping en modales */}
+      {typeof window !== 'undefined' && createPortal(
       <AnimatePresence>
         {abierto && (
           <motion.div
+            ref={dropdownRef}
             initial={{ opacity: 0, y: 4, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.97 }}
             transition={{ duration: 0.12 }}
-            className="absolute z-50 left-0 right-0 top-full mt-1 bg-superficie-elevada border border-borde-sutil rounded-xl shadow-lg overflow-hidden"
-            style={{ width: 'max(100%, 340px)' }}
+            className="fixed border border-borde-sutil rounded-xl shadow-lg overflow-hidden bg-superficie-elevada"
+            style={{
+              top: posicion.top,
+              left: posicion.left,
+              width: Math.max(posicion.width, 340),
+              zIndex: 'var(--z-popover)' as unknown as number,
+            }}
           >
             {/* Buscador — siempre visible */}
             <div className="p-2 border-b border-borde-sutil">
@@ -706,7 +743,9 @@ function SelectorIcono({ valor, onChange, etiqueta, tamano = 18 }: PropiedadesSe
             </div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+      )}
     </div>
   )
 }

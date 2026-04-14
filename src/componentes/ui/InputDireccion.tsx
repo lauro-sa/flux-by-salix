@@ -6,7 +6,8 @@
 
 'use client'
 
-import { useRef, useEffect, useCallback, type KeyboardEvent } from 'react'
+import { useRef, useEffect, useLayoutEffect, useState, useCallback, type KeyboardEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { MapPin, Loader2, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useBuscadorDirecciones } from '@/hooks/useBuscadorDirecciones'
@@ -54,9 +55,11 @@ export function InputDireccion({
   ocultarDetalle = false,
 }: PropiedadesInputDireccion) {
   const contenedorRef = useRef<HTMLDivElement>(null)
+  const inputWrapperRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const indiceActivo = useRef(-1)
+  const [posicion, setPosicion] = useState({ top: 0, left: 0, width: 0 })
 
   const {
     texto,
@@ -80,16 +83,41 @@ export function InputDireccion({
     if (valorInicial) establecerTexto(valorInicial)
   }, [valorInicial, establecerTexto])
 
+  // Calcular posición del dropdown relativa al viewport
+  useLayoutEffect(() => {
+    if (!abierto || !inputWrapperRef.current) return
+    const rect = inputWrapperRef.current.getBoundingClientRect()
+    setPosicion({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+  }, [abierto])
+
   // Cerrar al hacer clic fuera
   useEffect(() => {
     function manejarClicFuera(e: MouseEvent) {
-      if (contenedorRef.current && !contenedorRef.current.contains(e.target as Node)) {
-        cerrar()
-      }
+      const target = e.target as Node
+      if (contenedorRef.current?.contains(target)) return
+      if (dropdownRef.current?.contains(target)) return
+      cerrar()
     }
     document.addEventListener('mousedown', manejarClicFuera)
     return () => document.removeEventListener('mousedown', manejarClicFuera)
   }, [cerrar])
+
+  // Reposicionar al hacer scroll o resize
+  useEffect(() => {
+    if (!abierto) return
+    const handler = () => {
+      if (inputWrapperRef.current) {
+        const rect = inputWrapperRef.current.getBoundingClientRect()
+        setPosicion({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+      }
+    }
+    window.addEventListener('scroll', handler, true)
+    window.addEventListener('resize', handler)
+    return () => {
+      window.removeEventListener('scroll', handler, true)
+      window.removeEventListener('resize', handler)
+    }
+  }, [abierto])
 
   // Navegación con teclado en el dropdown
   const manejarTeclado = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
@@ -148,6 +176,7 @@ export function InputDireccion({
 
       {/* Input */}
       <div
+        ref={inputWrapperRef}
         className={[
           'flex items-center gap-2 rounded-md border bg-superficie-tarjeta transition-all duration-150',
           compacto ? 'px-2 py-1' : 'px-3 py-2',
@@ -209,54 +238,65 @@ export function InputDireccion({
         </div>
       )}
 
-      {/* Dropdown de sugerencias */}
-      <AnimatePresence>
-        {abierto && sugerencias.length > 0 && (
-          <motion.div
-            ref={dropdownRef}
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.15 }}
-            className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border border-borde-fuerte bg-superficie-tarjeta shadow-lg overflow-hidden max-h-[360px] overflow-y-auto"
-          >
-            {sugerencias.map((sugerencia: SugerenciaDireccion) => (
-              <button
-                key={sugerencia.placeId}
-                data-sugerencia
-                type="button"
-                onClick={() => seleccionar(sugerencia)}
-                className="w-full text-left px-3 py-2.5 hover:bg-superficie-elevada transition-colors cursor-pointer border-none bg-transparent flex items-start gap-2.5"
-              >
-                <MapPin size={16} className="text-texto-terciario shrink-0 mt-0.5" />
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-texto-primario truncate">
-                    {sugerencia.textoPrincipal}
+      {/* Dropdown de sugerencias — portal para evitar clipping en modales */}
+      {typeof window !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {abierto && sugerencias.length > 0 && (
+            <motion.div
+              ref={dropdownRef}
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.15 }}
+              className="fixed rounded-md border border-borde-fuerte bg-superficie-tarjeta shadow-lg overflow-hidden max-h-[360px] overflow-y-auto"
+              style={{
+                top: posicion.top,
+                left: posicion.left,
+                width: posicion.width,
+                zIndex: 'var(--z-popover)' as unknown as number,
+              }}
+            >
+              {sugerencias.map((sugerencia: SugerenciaDireccion) => (
+                <button
+                  key={sugerencia.placeId}
+                  data-sugerencia
+                  type="button"
+                  onClick={() => seleccionar(sugerencia)}
+                  className="w-full text-left px-3 py-2.5 hover:bg-superficie-elevada transition-colors cursor-pointer border-none bg-transparent flex items-start gap-2.5"
+                >
+                  <MapPin size={16} className="text-texto-terciario shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-texto-primario truncate">
+                      {sugerencia.textoPrincipal}
+                    </div>
+                    <div className="text-xs text-texto-terciario truncate">
+                      {sugerencia.textoSecundario}
+                    </div>
                   </div>
-                  <div className="text-xs text-texto-terciario truncate">
-                    {sugerencia.textoSecundario}
-                  </div>
-                </div>
-              </button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Sin resultados */}
-      <AnimatePresence>
-        {abierto && sugerencias.length === 0 && !cargando && texto.length >= 3 && (
-          <motion.div
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.15 }}
-            className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border border-borde-fuerte bg-superficie-tarjeta shadow-lg px-3 py-3 text-sm text-texto-terciario text-center"
-          >
-            No se encontraron direcciones
-          </motion.div>
-        )}
-      </AnimatePresence>
+                </button>
+              ))}
+            </motion.div>
+          )}
+          {abierto && sugerencias.length === 0 && !cargando && texto.length >= 3 && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.15 }}
+              className="fixed rounded-md border border-borde-fuerte bg-superficie-tarjeta shadow-lg px-3 py-3 text-sm text-texto-terciario text-center"
+              style={{
+                top: posicion.top,
+                left: posicion.left,
+                width: posicion.width,
+                zIndex: 'var(--z-popover)' as unknown as number,
+              }}
+            >
+              No se encontraron direcciones
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* Error o ayuda */}
       {(errorMostrar || ayuda) && (
