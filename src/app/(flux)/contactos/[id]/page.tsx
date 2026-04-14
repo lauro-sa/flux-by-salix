@@ -142,6 +142,7 @@ export default function PaginaContacto() {
   const claveTipo = tipoActivo?.clave || 'persona'
   const esPersona = TIPOS_PERSONA.includes(claveTipo)
   const esEdificio = claveTipo === 'edificio'
+  const esEntidadSinContacto = ['edificio', 'empresa', 'proveedor'].includes(claveTipo)
 
   const camposIdentificacion = useMemo(
     () => camposFiscalesPais.filter(c => c.es_identificacion && c.aplica_a.includes(claveTipo) && (!paisContacto || c.pais === paisContacto)),
@@ -412,10 +413,10 @@ export default function PaginaContacto() {
     setDatosFiscales({})
   }, [camposFiscalesPais, claveTipo])
 
-  // Validación y auto-crear (edificios necesitan nombre + dirección)
+  // Validación y auto-crear (edificios/empresas/proveedores pueden tener solo nombre + dirección)
   const tieneNombre = nombreCompleto.trim().length > 0
   const tieneDireccion = direcciones.some(d => d.datos.calle.trim())
-  const tieneDatoContacto = (esEdificio && tieneDireccion) || !!(
+  const tieneDatoContacto = (esEntidadSinContacto && tieneDireccion) || !!(
     campos.correo?.trim() || campos.telefono?.trim() || campos.whatsapp?.trim() ||
     tieneDireccion
   )
@@ -554,12 +555,12 @@ export default function PaginaContacto() {
     }
   }, [esNuevo, esEdificio, nombreCompleto, id])
 
-  // Auto-crear edificios cuando se carga la dirección (nombre se genera automáticamente)
+  // Auto-crear edificios/empresas/proveedores cuando se carga la dirección
   useEffect(() => {
-    if (esNuevo && esEdificio && puedeGuardar) {
+    if (esNuevo && esEntidadSinContacto && puedeGuardar) {
       intentarCrear()
     }
-  }, [esNuevo, esEdificio, puedeGuardar, intentarCrear])
+  }, [esNuevo, esEntidadSinContacto, puedeGuardar, intentarCrear])
 
   // País fiscal
   const onCambiarPais = useCallback((valor: string) => {
