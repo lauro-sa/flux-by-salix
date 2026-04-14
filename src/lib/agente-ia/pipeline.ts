@@ -229,6 +229,13 @@ export async function ejecutarPipelineAgente(params: {
     tokensSalida = resultado.tokensSalida
   } catch (err) {
     console.error('[AGENTE_IA] Error LLM:', err)
+
+    // Notificar a admins si es un error crítico (créditos, key inválida, etc.)
+    try {
+      const { notificarErrorIA } = await import('@/lib/salix-ia/notificar-error-ia')
+      await notificarErrorIA(admin, { empresa_id, origen: 'agente_ia', mensajeError: String(err) })
+    } catch { /* no fallar si la notificación falla */ }
+
     await loggear(admin, {
       empresa_id, conversacion_id, mensaje_id,
       accion: 'responder', entrada: { prompt_usuario: usuario.slice(0, 500) },

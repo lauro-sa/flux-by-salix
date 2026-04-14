@@ -2337,6 +2337,77 @@ export const historial_recientes = pgTable('historial_recientes', {
 ])
 
 // ═══════════════════════════════════════════════════════════════
+// SALIX IA — COPILOT INTERNO
+// ═══════════════════════════════════════════════════════════════
+
+// Configuración de Salix IA por empresa
+export const config_salix_ia = pgTable('config_salix_ia', {
+  empresa_id: uuid('empresa_id').primaryKey().references(() => empresas.id, { onDelete: 'cascade' }),
+  habilitado: boolean('habilitado').notNull().default(false),
+  nombre: text('nombre').notNull().default('Salix IA'),
+  personalidad: text('personalidad').default(''),
+  herramientas_habilitadas: text('herramientas_habilitadas').array().notNull().default(sql`ARRAY['buscar_contactos','obtener_contacto','crear_contacto','crear_actividad','crear_recordatorio','crear_visita','consultar_asistencias','consultar_calendario','consultar_actividades','consultar_visitas','buscar_presupuestos','modificar_actividad','modificar_visita','modificar_presupuesto','modificar_evento']`),
+  whatsapp_copilot_habilitado: boolean('whatsapp_copilot_habilitado').notNull().default(false),
+  max_iteraciones_herramientas: integer('max_iteraciones_herramientas').notNull().default(5),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+})
+
+// Conversaciones de Salix IA (historial de chats del copilot)
+export const conversaciones_salix_ia = pgTable('conversaciones_salix_ia', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  usuario_id: uuid('usuario_id').notNull(),
+  canal: text('canal').notNull().default('app'),
+  titulo: text('titulo').default(''),
+  mensajes: jsonb('mensajes').notNull().default(sql`'[]'::jsonb`),
+  resumen: text('resumen').default(''),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('conversaciones_salix_ia_usuario_idx').on(tabla.empresa_id, tabla.usuario_id),
+  index('conversaciones_salix_ia_canal_idx').on(tabla.empresa_id, tabla.canal),
+])
+
+// Log de interacciones de Salix IA (auditoría y métricas)
+export const log_salix_ia = pgTable('log_salix_ia', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  usuario_id: uuid('usuario_id').notNull(),
+  conversacion_id: uuid('conversacion_id').references(() => conversaciones_salix_ia.id, { onDelete: 'set null' }),
+  canal: text('canal').notNull().default('app'),
+  mensaje_usuario: text('mensaje_usuario').default(''),
+  respuesta: text('respuesta').default(''),
+  herramientas_usadas: text('herramientas_usadas').array().default(sql`'{}'`),
+  tokens_entrada: integer('tokens_entrada').default(0),
+  tokens_salida: integer('tokens_salida').default(0),
+  latencia_ms: integer('latencia_ms').default(0),
+  proveedor: text('proveedor').default('anthropic'),
+  modelo: text('modelo').default(''),
+  exito: boolean('exito').notNull().default(true),
+  error: text('error').default(''),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('log_salix_ia_empresa_idx').on(tabla.empresa_id),
+  index('log_salix_ia_usuario_idx').on(tabla.empresa_id, tabla.usuario_id),
+  index('log_salix_ia_fecha_idx').on(tabla.creado_en),
+])
+
+// Cargas de crédito de IA — historial de recargas por proveedor
+export const cargas_credito_ia = pgTable('cargas_credito_ia', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  proveedor: text('proveedor').notNull().default('anthropic'),
+  tipo: text('tipo').notNull().default('carga'), // 'carga' = recarga, 'ajuste' = saldo real actual
+  monto: numeric('monto', { precision: 10, scale: 2 }).notNull().default('0'),
+  nota: text('nota').default(''),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('cargas_credito_ia_empresa_idx').on(tabla.empresa_id),
+  index('cargas_credito_ia_empresa_proveedor_idx').on(tabla.empresa_id, tabla.proveedor),
+])
+
+// ═══════════════════════════════════════════════════════════════
 // USO DE STORAGE
 // ═══════════════════════════════════════════════════════════════
 

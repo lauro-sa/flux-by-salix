@@ -8,6 +8,7 @@ import { Header } from './Header'
 import { MenuMovil } from './MenuMovil'
 import { ToastNotificacion } from '@/componentes/feedback/ToastNotificacion'
 import { BannerInstalacion } from '@/componentes/pwa/BannerInstalacion'
+import { BotonFlotanteSalixIA } from '@/componentes/entidad/SalixIA/BotonFlotante'
 import { useTema } from '@/hooks/useTema'
 import { usePreferencias } from '@/hooks/usePreferencias'
 import { useHeaderAutoOculto } from '@/hooks/useHeaderAutoOculto'
@@ -236,6 +237,9 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
 
       {/* Banner de instalación PWA (solo si no está instalada) */}
       <BannerInstalacion />
+
+      {/* Botón flotante de Salix IA */}
+      <BotonFlotanteSalixIA />
 
       <style suppressHydrationWarning>{`
         @media (min-width: 768px) {

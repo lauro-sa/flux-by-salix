@@ -2,10 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { CargadorSeccion } from '@/componentes/ui/Cargador'
-import { EncabezadoSeccion } from '@/componentes/ui/EncabezadoSeccion'
 import {
   Sparkles, MessageSquare, Wand2, Eye, EyeOff, RotateCcw, Maximize2, Minimize2,
-  Check, Shield, Zap, CheckCircle,
+  Check, Shield, Zap, ExternalLink, Settings2, BarChart3, ChevronRight,
 } from 'lucide-react'
 import { LogoAnthropic, LogoOpenAI, LogoGoogle, LogoXAI } from '@/componentes/ui/LogosIA'
 import { Input } from '@/componentes/ui/Input'
@@ -19,14 +18,10 @@ import { useModulos } from '@/hooks/useModulos'
 import { useAutoguardado } from '@/hooks/useAutoguardado'
 import { useTraduccion } from '@/lib/i18n'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { PanelUsoIA } from '@/componentes/ia/PanelUsoIA'
+import { ENLACES_FACTURACION } from '@/lib/ia/precios'
 
-/**
- * SeccionIA — Configuración de inteligencia artificial.
- * Diseño: selector de proveedor con logos arriba, al elegir uno se muestra su config abajo.
- * El toggle habilita/deshabilita pero NO oculta el contenido.
- */
-
-// ==================== PROVEEDORES ====================
+// ==================== CONSTANTES ====================
 
 const PROVEEDORES = [
   {
@@ -90,6 +85,8 @@ const MODULOS_DISPONIBLES = [
   { id: 'calendario', nombre: 'Calendario', desc: 'Eventos y agenda' },
 ]
 
+// ==================== TIPOS ====================
+
 interface ConfigIA {
   habilitado: boolean
   proveedor_defecto: string
@@ -104,6 +101,7 @@ interface ConfigIA {
   temperatura: number
   max_tokens: number
   modulos_accesibles: string[]
+  prompt_asistente?: string
   prompt_asistente_presupuestos: string
 }
 
@@ -124,9 +122,11 @@ const DEFAULTS: ConfigIA = {
   prompt_asistente_presupuestos: '',
 }
 
-type SubSeccion = 'salix-ia' | 'asistente-general' | 'asistente-creacion'
+type SubSeccion = 'panel' | 'configuracion' | 'asistentes'
 
 const SLUGS_IA = ['agente_ia', 'salix_ia', 'chatbot_inbox', 'automatizaciones']
+
+// ==================== COMPONENTE PRINCIPAL ====================
 
 export function SeccionIA() {
   const { t } = useTraduccion()
@@ -134,12 +134,11 @@ export function SeccionIA() {
   const { modulos, cargando: cargandoModulos, tieneModulo } = useModulos()
   const supabase = crearClienteNavegador()
 
-  // Verificar si hay al menos un módulo de IA instalado
   const tieneAlgunModuloIA = SLUGS_IA.some(slug => tieneModulo(slug))
 
   const [config, setConfig] = useState<ConfigIA>(DEFAULTS)
   const [cargando, setCargando] = useState(true)
-  const [subSeccion, setSubSeccion] = useState<SubSeccion>('salix-ia')
+  const [subSeccion, setSubSeccion] = useState<SubSeccion>('panel')
   const [keyVisible, setKeyVisible] = useState(false)
 
   const guardarEnServidor = useCallback(async (datos: Record<string, unknown>) => {
@@ -186,15 +185,10 @@ export function SeccionIA() {
 
   if (cargando || cargandoModulos) return <CargadorSeccion />
 
-  // Si no tiene ningún módulo de IA → mostrar estado bloqueado
+  // Sin módulos de IA → estado bloqueado
   if (!tieneAlgunModuloIA) {
     return (
       <div className="space-y-6">
-        <EncabezadoSeccion
-          titulo="Inteligencia Artificial"
-          descripcion="Configurá los proveedores de IA y los asistentes de tu empresa."
-        />
-
         <div className="flex flex-col items-center text-center py-12 px-6 bg-superficie-tarjeta border border-borde-sutil rounded-xl">
           <div className="w-16 h-16 rounded-2xl bg-superficie-elevada flex items-center justify-center mb-4">
             <Sparkles size={28} strokeWidth={1.5} className="text-texto-terciario" />
@@ -203,7 +197,7 @@ export function SeccionIA() {
             No tenés módulos de IA instalados
           </h3>
           <p className="text-base text-texto-secundario max-w-md mb-6">
-            Para configurar la inteligencia artificial, primero instalá al menos un módulo de IA desde la tienda de aplicaciones: Salix IA, Agente IA, Chatbot Inbox o Automatizaciones.
+            Para configurar la inteligencia artificial, primero instalá al menos un módulo de IA desde la tienda de aplicaciones.
           </p>
           <a
             href="/aplicaciones"
@@ -220,6 +214,7 @@ export function SeccionIA() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2.5 mb-1">
@@ -229,17 +224,19 @@ export function SeccionIA() {
               Salix IA
             </span>
           </div>
-          <p className="text-base text-texto-terciario">Configurá los proveedores de IA y los asistentes de tu empresa.</p>
+          <p className="text-sm text-texto-terciario">
+            Gestioná tu proveedor de IA, controlá el consumo y personalizá los asistentes.
+          </p>
         </div>
         <IndicadorGuardado estado={estado} />
       </div>
 
-      {/* Sub-tabs */}
+      {/* Tabs */}
       <div className="flex gap-1 bg-superficie-hover/50 rounded-lg p-1">
         {([
-          { id: 'salix-ia' as const, icono: <Sparkles size={15} />, etiqueta: 'Salix IA' },
-          { id: 'asistente-general' as const, icono: <MessageSquare size={15} />, etiqueta: 'Asistente General' },
-          { id: 'asistente-creacion' as const, icono: <Wand2 size={15} />, etiqueta: 'Asistente de Creación' },
+          { id: 'panel' as const, icono: <BarChart3 size={15} />, etiqueta: 'Panel' },
+          { id: 'configuracion' as const, icono: <Settings2 size={15} />, etiqueta: 'Configuración' },
+          { id: 'asistentes' as const, icono: <MessageSquare size={15} />, etiqueta: 'Asistentes' },
         ]).map(s => (
           <Boton
             key={s.id}
@@ -256,24 +253,62 @@ export function SeccionIA() {
         ))}
       </div>
 
-      {/* ==================== SALIX IA ==================== */}
-      {subSeccion === 'salix-ia' && (
+      {/* ==================== TAB: PANEL ==================== */}
+      {subSeccion === 'panel' && (
         <div className="space-y-5">
-
-          {/* Toggle + estado */}
+          {/* Tarjeta de estado actual */}
           <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-texto-marca/10 flex items-center justify-center">
-                  <Zap size={20} className="text-texto-marca" />
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-texto-marca/10 flex items-center justify-center shrink-0">
+                  <proveedorActivo.Logo size={22} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-texto-primario">Salix IA</h3>
-                  <p className="text-xs text-texto-terciario">
-                    {config.habilitado ? 'Habilitada para toda la empresa' : 'Deshabilitada — los usuarios no pueden usar IA'}
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-texto-primario">{proveedorActivo.nombre}</h3>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                      config.habilitado
+                        ? 'bg-insignia-exito/10 text-insignia-exito'
+                        : 'bg-superficie-hover text-texto-terciario'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${config.habilitado ? 'bg-insignia-exito' : 'bg-texto-terciario'}`} />
+                      {config.habilitado ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-texto-terciario mt-0.5">
+                    Modelo: {proveedorActivo.modelos.find(m => m.id === modeloActual)?.nombre || modeloActual}
+                    {apiKey ? '' : ' · Sin API Key configurada'}
                   </p>
                 </div>
               </div>
+              <Boton
+                variante="secundario"
+                tamano="xs"
+                icono={<ChevronRight size={14} />}
+                onClick={() => setSubSeccion('configuracion')}
+              >
+                Configurar
+              </Boton>
+            </div>
+          </div>
+
+          {/* Dashboard de uso (incluye TarjetaSaldoIA + métricas) */}
+          <PanelUsoIA proveedorActivo={config.proveedor_defecto} nombreProveedor={proveedorActivo.nombre} />
+        </div>
+      )}
+
+      {/* ==================== TAB: CONFIGURACIÓN ==================== */}
+      {subSeccion === 'configuracion' && (
+        <div className="space-y-0">
+
+          {/* ── SECCIÓN: PROVEEDOR Y ACCESO ── */}
+          <SeccionConfig titulo="Proveedor y acceso" descripcion="Configurá el proveedor de IA y el acceso para tu empresa.">
+
+            {/* Toggle habilitado */}
+            <FilaConfig
+              titulo="Salix IA"
+              descripcion="Habilitá o deshabilitá la inteligencia artificial para toda la empresa. Cuando está deshabilitada, ningún usuario puede usar IA."
+            >
               <Boton
                 variante="fantasma"
                 onClick={() => act({ habilitado: !config.habilitado })}
@@ -285,79 +320,76 @@ export function SeccionIA() {
                   config.habilitado ? 'left-5.5' : 'left-0.5'
                 }`} />
               </Boton>
-            </div>
-          </div>
+            </FilaConfig>
 
-          {/* Elegí tu proveedor — siempre visible, se atenúa si está deshabilitado */}
-          <div className={!config.habilitado ? 'opacity-40 pointer-events-none select-none' : ''}>
-            <div className="flex items-center gap-2 mb-3">
-              <CheckCircle size={16} className="text-insignia-exito" />
-              <h3 className="text-sm font-semibold text-texto-primario">Elegí tu {t('configuracion.ia.proveedor').toLowerCase()} de IA</h3>
-            </div>
+            <Separador />
 
-            <div className="grid grid-cols-2 gap-3">
-              {PROVEEDORES.map(p => {
-                const seleccionado = config.proveedor_defecto === p.id
-                const tieneKey = !!(config[`api_key_${p.id}` as keyof ConfigIA])
+            {/* Proveedor */}
+            <FilaConfig
+              titulo="Proveedor de IA"
+              descripcion="Elegí qué proveedor procesa las consultas de tu equipo. Cada proveedor tiene diferentes modelos, precios y capacidades."
+              vertical
+            >
+              <div className="grid grid-cols-2 gap-2.5 w-full">
+                {PROVEEDORES.map(p => {
+                  const seleccionado = config.proveedor_defecto === p.id
+                  const tieneKey = !!(config[`api_key_${p.id}` as keyof ConfigIA])
 
-                return (
-                  <Boton
-                    key={p.id}
-                    variante={seleccionado ? 'secundario' : 'fantasma'}
-                    onClick={() => act({ proveedor_defecto: p.id })}
-                    className={`relative !justify-start !text-left ${
-                      seleccionado ? '!border-insignia-exito !shadow-sm' : '!border-borde-sutil'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 w-full">
-                      {/* Logo SVG oficial */}
-                      <div className="w-10 h-10 rounded-xl bg-superficie-hover flex items-center justify-center shrink-0">
-                        <p.Logo size={22} />
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => act({ proveedor_defecto: p.id })}
+                      className={`relative flex items-center gap-3 p-3 rounded-xl border transition-all text-left bg-transparent cursor-pointer ${
+                        seleccionado
+                          ? 'border-texto-marca bg-texto-marca/5 shadow-sm'
+                          : 'border-borde-sutil hover:border-borde-fuerte'
+                      }`}
+                    >
+                      <div className="w-9 h-9 rounded-lg bg-superficie-hover flex items-center justify-center shrink-0">
+                        <p.Logo size={20} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <span className={`text-sm font-semibold block ${seleccionado ? 'text-insignia-exito' : 'text-texto-primario'}`}>
+                        <span className={`text-sm font-semibold block ${seleccionado ? 'text-texto-marca' : 'text-texto-primario'}`}>
                           {p.nombre}
                         </span>
                         <span className="text-xs text-texto-terciario block truncate">{p.descripcion}</span>
                       </div>
-                    </div>
-                    {tieneKey && (
-                      <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-insignia-exito" />
-                    )}
-                  </Boton>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Config del proveedor seleccionado */}
-          <div className={!config.habilitado ? 'opacity-40 pointer-events-none select-none' : ''}>
-            <div className="flex items-center gap-2 mb-3">
-              <CheckCircle size={16} className="text-insignia-exito" />
-              <h3 className="text-sm font-semibold text-texto-primario">
-                Configurá tu {t('configuracion.ia.api_key')} de {proveedorActivo.nombre}
-              </h3>
-            </div>
-
-            {/* Key actual si existe */}
-            {apiKey && (
-              <div className="bg-superficie-tarjeta border border-insignia-exito/20 rounded-xl p-4 mb-3 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-insignia-exito/10 flex items-center justify-center shrink-0">
-                  <Shield size={16} className="text-insignia-exito" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-texto-primario block">{t('configuracion.ia.api_key')} configurada</span>
-                  <span className="text-xs text-texto-terciario font-mono">{enmascararKey(apiKey)}</span>
-                </div>
+                      <div className="absolute top-2 right-2">
+                        {tieneKey ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-insignia-exito/10 text-insignia-exito">
+                            <Check size={10} />
+                          </span>
+                        ) : (
+                          <span className="w-2 h-2 rounded-full bg-borde-fuerte block" />
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
-            )}
+            </FilaConfig>
 
-            {/* Input para poner/reemplazar key */}
-            <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-4">
-              <label className="text-xs font-medium text-texto-secundario block mb-2">
-                {apiKey ? `Reemplazar ${t('configuracion.ia.api_key')}` : `Ingresá tu ${t('configuracion.ia.api_key')}`}
-              </label>
-              <div className="flex gap-2">
+            <Separador />
+
+            {/* API Key */}
+            <FilaConfig
+              titulo={`API Key de ${proveedorActivo.nombre}`}
+              descripcion="Tu clave se almacena cifrada y nunca es visible completa. Necesitás una API key para que Salix IA pueda funcionar."
+              vertical
+            >
+              {/* Key actual */}
+              {apiKey && (
+                <div className="flex items-center gap-3 p-3 rounded-lg border border-insignia-exito/20 bg-insignia-exito/5 mb-3 w-full">
+                  <Shield size={16} className="text-insignia-exito shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium text-texto-primario">API Key configurada</span>
+                    <span className="text-xs text-texto-terciario font-mono ml-2">{enmascararKey(apiKey)}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Input */}
+              <div className="flex gap-2 w-full">
                 <div className="flex-1">
                   <Input
                     tipo={keyVisible ? 'text' : 'password'}
@@ -378,61 +410,66 @@ export function SeccionIA() {
                     }
                   />
                 </div>
-                <Boton
-                  variante="primario"
-                  tamano="sm"
-                  onClick={() => act({ [keyField]: config[keyField] })}
-                >
-                  {t('comun.guardar')} key
+                <Boton variante="primario" tamano="sm" onClick={() => act({ [keyField]: config[keyField] })}>
+                  Guardar key
                 </Boton>
               </div>
-              <p className="text-xs text-texto-terciario mt-2">
-                La API key se almacena cifrada y nunca es visible completa. Cada proveedor tiene su propia consola para ver el consumo.
-              </p>
-            </div>
-          </div>
 
-          {/* Modelo */}
-          <div className={!config.habilitado ? 'opacity-40 pointer-events-none select-none' : ''}>
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircle size={16} className="text-insignia-exito" />
-              <h3 className="text-sm font-semibold text-texto-primario">Elegí el {t('configuracion.ia.modelo').toLowerCase()}</h3>
-            </div>
-            <p className="text-xs text-texto-terciario mb-3">
-              Para consultas de Salix recomendamos el modelo más rápido y económico — la diferencia en calidad de respuesta es mínima.
-            </p>
+              {/* Link a consola */}
+              {ENLACES_FACTURACION[proveedorActivo.id] && (
+                <a
+                  href={ENLACES_FACTURACION[proveedorActivo.id].url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-texto-marca hover:underline no-underline mt-2"
+                >
+                  <ExternalLink size={12} />
+                  Obtener API Key en {ENLACES_FACTURACION[proveedorActivo.id].etiqueta}
+                </a>
+              )}
+            </FilaConfig>
+          </SeccionConfig>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {proveedorActivo.modelos.map(m => {
-                const seleccionado = modeloActual === m.id
-                return (
-                  <Boton
-                    key={m.id}
-                    variante={seleccionado ? 'primario' : 'secundario'}
-                    onClick={() => act({ [modeloField]: m.id })}
-                    className={`!text-left !justify-start ${
-                      seleccionado ? '!border-texto-marca' : ''
-                    }`}
-                  >
-                    <div>
-                      <span className={`text-sm font-semibold block ${seleccionado ? 'text-texto-marca' : 'text-texto-primario'}`}>
+          {/* ── SECCIÓN: MODELO Y PARÁMETROS ── */}
+          <SeccionConfig titulo="Modelo y parámetros" descripcion="Ajustá el modelo y los parámetros de generación de texto.">
+
+            {/* Modelo */}
+            <FilaConfig
+              titulo="Modelo"
+              descripcion="Para consultas de Salix IA recomendamos el modelo más rápido y económico — la diferencia en calidad de respuesta es mínima."
+              vertical
+            >
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 w-full">
+                {proveedorActivo.modelos.map(m => {
+                  const seleccionado = modeloActual === m.id
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => act({ [modeloField]: m.id })}
+                      className={`flex flex-col p-3 rounded-xl border transition-all text-left bg-transparent cursor-pointer ${
+                        seleccionado
+                          ? 'border-texto-marca bg-texto-marca/5'
+                          : 'border-borde-sutil hover:border-borde-fuerte'
+                      }`}
+                    >
+                      <span className={`text-sm font-semibold ${seleccionado ? 'text-texto-marca' : 'text-texto-primario'}`}>
                         {m.nombre}
                       </span>
                       <span className="text-xs text-texto-terciario">{m.desc}</span>
-                    </div>
-                  </Boton>
-                )
-              })}
-            </div>
-          </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </FilaConfig>
 
-          {/* Temperatura y tokens */}
-          <div className={`bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5 ${!config.habilitado ? 'opacity-40 pointer-events-none select-none' : ''}`}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div>
-                <label className="text-xs font-semibold text-texto-secundario uppercase tracking-wider block mb-2">
-                  Temperatura ({config.temperatura})
-                </label>
+            <Separador />
+
+            {/* Temperatura */}
+            <FilaConfig
+              titulo={`Temperatura (${config.temperatura})`}
+              descripcion="Controla la creatividad de las respuestas. Más bajo = respuestas precisas y consistentes. Más alto = respuestas más variadas y creativas. Para un asistente recomendamos 0.2 — 0.3."
+            >
+              <div className="w-full max-w-xs">
                 <input
                   type="range"
                   min={0}
@@ -446,15 +483,17 @@ export function SeccionIA() {
                   <span>Preciso</span>
                   <span>Creativo</span>
                 </div>
-                <p className="text-xs text-texto-terciario mt-2">
-                  Para un asistente recomendamos <strong>0.2 — 0.3</strong>: respuestas directas y consistentes.
-                </p>
               </div>
+            </FilaConfig>
 
-              <div>
-                <label className="text-xs font-semibold text-texto-secundario uppercase tracking-wider block mb-2">
-                  Máx. Tokens
-                </label>
+            <Separador />
+
+            {/* Máx tokens */}
+            <FilaConfig
+              titulo="Máx. tokens por respuesta"
+              descripcion="Largo máximo de cada respuesta. 1024 es suficiente para la mayoría de consultas. Aumentalo solo si las respuestas se cortan."
+            >
+              <div className="w-32">
                 <Input
                   tipo="number"
                   value={config.max_tokens.toString()}
@@ -462,133 +501,125 @@ export function SeccionIA() {
                   compacto
                   formato={null}
                 />
-                <p className="text-xs text-texto-terciario mt-2">
-                  Largo máximo de cada respuesta. <strong>1024</strong> es suficiente para la mayoría. Aumentalo solo si las respuestas se cortan.
-                </p>
               </div>
-            </div>
-          </div>
+            </FilaConfig>
+          </SeccionConfig>
 
-          {/* Módulos accesibles */}
-          <div className={!config.habilitado ? 'opacity-40 pointer-events-none select-none' : ''}>
-            <div className="flex items-center gap-2 mb-2">
-              <Shield size={16} className="text-insignia-exito" />
-              <h3 className="text-sm font-semibold text-texto-primario">Módulos accesibles</h3>
-            </div>
-            <p className="text-xs text-texto-terciario mb-3">
-              Qué datos puede consultar la IA. Siempre se filtran por los permisos del usuario que consulta.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {/* ── SECCIÓN: ACCESO A DATOS ── */}
+          <SeccionConfig titulo="Acceso a datos" descripcion="Controlá qué módulos puede consultar la IA. Los datos siempre se filtran por los permisos individuales de cada usuario.">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
               {MODULOS_DISPONIBLES.map(mod => {
                 const activo = config.modulos_accesibles.includes(mod.id)
                 return (
-                  <Boton
+                  <button
                     key={mod.id}
-                    variante={activo ? 'primario' : 'secundario'}
                     onClick={() => {
                       const nuevos = activo
                         ? config.modulos_accesibles.filter(m => m !== mod.id)
                         : [...config.modulos_accesibles, mod.id]
                       act({ modulos_accesibles: nuevos })
                     }}
-                    className={`!justify-start !text-left ${
-                      activo ? '!border-texto-marca/30 !bg-texto-marca/5' : ''
+                    className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left bg-transparent cursor-pointer ${
+                      activo ? 'border-texto-marca/30 bg-texto-marca/5' : 'border-borde-sutil hover:border-borde-fuerte'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
-                        activo ? 'bg-texto-marca border-texto-marca' : 'bg-transparent border-borde-fuerte'
-                      }`}>
-                        {activo && <Check size={12} className="text-white" />}
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium text-texto-primario block">{mod.nombre}</span>
-                        <span className="text-xs text-texto-terciario">{mod.desc}</span>
-                      </div>
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+                      activo ? 'bg-texto-marca border-texto-marca' : 'bg-transparent border-borde-fuerte'
+                    }`}>
+                      {activo && <Check size={12} className="text-white" />}
                     </div>
-                  </Boton>
+                    <div>
+                      <span className="text-sm font-medium text-texto-primario block">{mod.nombre}</span>
+                      <span className="text-xs text-texto-terciario">{mod.desc}</span>
+                    </div>
+                  </button>
                 )
               })}
             </div>
-          </div>
+          </SeccionConfig>
         </div>
       )}
 
-      {/* ==================== ASISTENTE GENERAL ==================== */}
-      {subSeccion === 'asistente-general' && (
-        <AsistenteGeneral config={config} onActualizar={act} guardando={estado} />
-      )}
+      {/* ==================== TAB: ASISTENTES ==================== */}
+      {subSeccion === 'asistentes' && (
+        <div className="space-y-8">
+          {/* Intro */}
+          <p className="text-sm text-texto-terciario">
+            Personalizá el comportamiento de los asistentes de IA. Cada sección configura un contexto diferente en el que Salix IA opera.
+          </p>
 
-      {/* ==================== ASISTENTE DE CREACIÓN (PRESUPUESTOS) ==================== */}
-      {subSeccion === 'asistente-creacion' && (
-        <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-6">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 rounded-xl bg-insignia-info/10 flex items-center justify-center">
-              <Wand2 size={20} className="text-insignia-info" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-texto-primario">Salix IA — Presupuestos</h3>
-              <p className="text-xs text-texto-terciario">Configurá cómo Salix IA analiza descripciones de trabajo y propone líneas de presupuesto.</p>
-            </div>
-          </div>
+          {/* Asistente General */}
+          <AsistenteGeneral config={config} onActualizar={act} guardando={estado} />
 
-          {/* Instrucciones generales (solo lectura) */}
-          <div className="rounded-xl bg-superficie-hover/50 border border-borde-sutil p-4 mb-5">
-            <p className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-2">Comportamiento general (automático)</p>
-            <ul className="text-xs text-texto-terciario space-y-1.5 list-disc pl-4">
-              <li>Lee la descripción del trabajo y la desglosa en servicios/productos individuales</li>
-              <li>Busca coincidencias exactas en el catálogo de productos de tu empresa</li>
-              <li>Si no encuentra match exacto, propone crear un servicio nuevo con código y categoría</li>
-              <li>Muestra sugerencias del catálogo que podrían coincidir para que elijas manualmente</li>
-              <li>Redacta cada descripción de forma profesional, clara y técnica</li>
-              <li>Respeta la nomenclatura de códigos existente de tu empresa</li>
-            </ul>
-          </div>
+          {/* Separador visual */}
+          <div className="border-t border-white/[0.07]" />
 
-          {/* Prompt personalizado */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <label className="text-sm font-medium text-texto-secundario">Instrucciones personalizadas</label>
-                <p className="text-xs text-texto-terciario mt-0.5">
-                  Agregá contexto de tu empresa: rubro, tipos de trabajo, terminología, aclaraciones.
-                </p>
-              </div>
-              <Boton
-                variante="fantasma"
-                tamano="xs"
-                icono={<RotateCcw size={12} />}
-                onClick={() => {
-                  act({ prompt_asistente_presupuestos: PROMPT_PRESUPUESTOS_DEFAULT })
-                }}
-              >
-                Restablecer
-              </Boton>
-            </div>
-            <TextArea
-              value={config.prompt_asistente_presupuestos || PROMPT_PRESUPUESTOS_DEFAULT}
-              onChange={(e) => setConfig(prev => ({ ...prev, prompt_asistente_presupuestos: e.target.value }))}
-              onBlur={() => act({ prompt_asistente_presupuestos: config.prompt_asistente_presupuestos })}
-              rows={10}
-              placeholder="Ej: Somos una empresa de herrería y reparación de portones. Un portón NO es lo mismo que una puerta peatonal..."
-              monoespacio
-            />
-            <p className="text-xxs text-texto-terciario mt-1.5">
-              Este texto se envía junto con la descripción del trabajo. Usalo para aclarar terminología, reglas de tu negocio, o cualquier instrucción que la IA deba tener en cuenta.
-            </p>
-          </div>
+          {/* Asistente de Presupuestos */}
+          <AsistentePresupuestos config={config} onActualizar={act} />
         </div>
       )}
     </div>
   )
 }
 
-// ==================== PROMPT DEFAULT ASISTENTE PRESUPUESTOS ====================
+// ==================== LAYOUT HELPERS ====================
 
-const PROMPT_PRESUPUESTOS_DEFAULT = ''
+/** Sección con título y descripción, agrupa filas de configuración */
+function SeccionConfig({ titulo, descripcion, children }: {
+  titulo: string
+  descripcion: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="border-b border-white/[0.07] pb-8 mb-8 last:border-b-0 last:mb-0 last:pb-0">
+      <div className="mb-6">
+        <h3 className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider mb-1">{titulo}</h3>
+        <p className="text-sm text-texto-terciario">{descripcion}</p>
+      </div>
+      <div className="space-y-6">
+        {children}
+      </div>
+    </div>
+  )
+}
 
-// ==================== PROMPT DEFAULT ====================
+/** Fila de configuración: label+desc a la izquierda, control a la derecha. O vertical si se indica. */
+function FilaConfig({ titulo, descripcion, children, vertical = false }: {
+  titulo: string
+  descripcion: string
+  children: React.ReactNode
+  vertical?: boolean
+}) {
+  if (vertical) {
+    return (
+      <div className="space-y-3">
+        <div>
+          <h4 className="text-sm font-medium text-texto-primario">{titulo}</h4>
+          <p className="text-xs text-texto-terciario mt-0.5">{descripcion}</p>
+        </div>
+        {children}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-8">
+      <div className="sm:w-1/2 sm:max-w-xs shrink-0">
+        <h4 className="text-sm font-medium text-texto-primario">{titulo}</h4>
+        <p className="text-xs text-texto-terciario mt-0.5">{descripcion}</p>
+      </div>
+      <div className="flex-1 flex items-center sm:justify-end">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function Separador() {
+  return <div className="border-t border-white/[0.05]" />
+}
+
+// ==================== PROMPTS DEFAULTS ====================
 
 const PROMPT_DEFAULT = `Sos Salix IA, el asistente inteligente integrado en Flux by Salix.
 
@@ -615,7 +646,9 @@ Sos un asistente de negocio para el equipo de trabajo. Ayudás a consultar datos
 ## Contexto
 Tenés acceso a los módulos que el administrador habilitó. Siempre verificá que el usuario tenga permisos antes de mostrar información.`
 
-// ==================== COMPONENTE ASISTENTE GENERAL ====================
+const PROMPT_PRESUPUESTOS_DEFAULT = ''
+
+// ==================== ASISTENTE GENERAL ====================
 
 function AsistenteGeneral({ config, onActualizar, guardando }: {
   config: ConfigIA & { prompt_asistente?: string }
@@ -629,7 +662,6 @@ function AsistenteGeneral({ config, onActualizar, guardando }: {
   const esDefault = prompt === PROMPT_DEFAULT
   const modificado = prompt !== (config.prompt_asistente || PROMPT_DEFAULT)
 
-  // Sincronizar al cargar
   useEffect(() => {
     setPrompt(config.prompt_asistente || PROMPT_DEFAULT)
   }, [config.prompt_asistente])
@@ -647,26 +679,21 @@ function AsistenteGeneral({ config, onActualizar, guardando }: {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-texto-marca/10 flex items-center justify-center shrink-0">
-            <MessageSquare size={20} className="text-texto-marca" />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-sm font-semibold text-texto-primario">{t('configuracion.ia.prompt_sistema')} del chat flotante</h3>
-            <p className="text-base text-texto-terciario mt-1">
-              Este prompt configura el <strong>chat flotante interno de Salix IA</strong> — el asistente que aparece dentro de Flux para el equipo de trabajo. Se usa cuando un usuario hace preguntas, pide datos o necesita ayuda desde la app.
-            </p>
-            <p className="text-xs text-texto-terciario mt-2">
-              No afecta al bot de WhatsApp, ni a los asistentes de creación, ni a otras integraciones externas. Dejalo vacío para usar el comportamiento por defecto.
-            </p>
-          </div>
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl bg-texto-marca/10 flex items-center justify-center shrink-0">
+          <MessageSquare size={20} className="text-texto-marca" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-sm font-semibold text-texto-primario">Asistente General</h3>
+          <p className="text-xs text-texto-terciario mt-1">
+            Configurá el comportamiento del <strong>chat flotante interno</strong> de Salix IA — el asistente que tu equipo usa dentro de Flux para consultar datos, resolver dudas y obtener información rápida.
+          </p>
         </div>
       </div>
 
       {/* Editor de prompt */}
       <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-borde-sutil flex items-center justify-between">
+        <div className="px-4 py-3 border-b border-white/[0.07] flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-texto-primario">Instrucciones del asistente</span>
             {!esDefault && (
@@ -695,49 +722,48 @@ function AsistenteGeneral({ config, onActualizar, guardando }: {
           </div>
         </div>
 
-        <TextArea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          onBlur={guardar}
-          placeholder="Escribí las instrucciones para el asistente..."
-          variante="transparente"
-          monoespacio
-          spellCheck={false}
-          style={{ minHeight: '400px' }}
-        />
+        <div className="p-4">
+          <TextArea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onBlur={guardar}
+            placeholder="Escribí las instrucciones para el asistente..."
+            variante="transparente"
+            monoespacio
+            compacto
+            spellCheck={false}
+            className="!text-xs !leading-relaxed"
+            style={{ minHeight: '220px' }}
+          />
+        </div>
 
-        <div className="px-4 py-2.5 border-t border-borde-sutil flex items-center justify-between bg-superficie-hover/30">
+        <div className="px-4 py-2.5 border-t border-white/[0.07] flex items-center justify-between bg-superficie-hover/30">
           <span className="text-xs text-texto-terciario">
             {prompt.length} caracteres · Soporta Markdown
           </span>
           {modificado && (
             <Boton variante="primario" tamano="sm" onClick={guardar}>
-              {t('comun.guardar')} prompt
+              Guardar prompt
             </Boton>
           )}
         </div>
       </div>
 
       {/* Tips */}
-      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5">
-        <h4 className="text-sm font-semibold text-texto-primario mb-3">Tips para un buen prompt</h4>
+      <div className="rounded-xl bg-superficie-hover/40 p-4">
+        <h4 className="text-xs font-semibold text-texto-terciario uppercase tracking-wider mb-2.5">Tips para un buen prompt</h4>
         <ul className="space-y-2 text-xs text-texto-terciario">
-          <li className="flex items-start gap-2">
-            <Check size={14} className="text-insignia-exito shrink-0 mt-0.5" />
-            <span>Definí el <strong>rol</strong> del asistente: qué es, para quién trabaja, en qué contexto</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <Check size={14} className="text-insignia-exito shrink-0 mt-0.5" />
-            <span>Indicá el <strong>formato de respuesta</strong>: corto, con saltos de línea, con emojis o sin ellos</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <Check size={14} className="text-insignia-exito shrink-0 mt-0.5" />
-            <span>Establecé <strong>límites claros</strong>: qué NO debe responder (temas fuera del negocio)</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <Check size={14} className="text-insignia-exito shrink-0 mt-0.5" />
-            <span>Agregá <strong>contexto de tu empresa</strong>: rubro, productos, forma de atención, tono de comunicación</span>
-          </li>
+          {[
+            'Definí el **rol** del asistente: qué es, para quién trabaja, en qué contexto.',
+            'Indicá el **formato de respuesta**: corto, con saltos de línea, con emojis o sin ellos.',
+            'Establecé **límites claros**: qué NO debe responder (temas fuera del negocio).',
+            'Agregá **contexto de tu empresa**: rubro, productos, forma de atención, tono.',
+          ].map((tip, i) => (
+            <li key={i} className="flex items-start gap-2">
+              <Check size={14} className="text-insignia-exito shrink-0 mt-0.5" />
+              <span dangerouslySetInnerHTML={{ __html: tip.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+            </li>
+          ))}
         </ul>
       </div>
 
@@ -755,7 +781,7 @@ function AsistenteGeneral({ config, onActualizar, guardando }: {
             </Boton>
             {modificado && (
               <Boton variante="primario" tamano="sm" onClick={() => { guardar(); setExpandido(false) }}>
-                {t('comun.guardar')} prompt
+                Guardar prompt
               </Boton>
             )}
           </div>
@@ -772,7 +798,6 @@ function AsistenteGeneral({ config, onActualizar, guardando }: {
         />
       </Modal>
 
-      {/* Modal restablecer */}
       {modalReset && (
         <ModalConfirmacion
           abierto={true}
@@ -784,6 +809,92 @@ function AsistenteGeneral({ config, onActualizar, guardando }: {
           etiquetaConfirmar="Restablecer"
         />
       )}
+    </div>
+  )
+}
+
+// ==================== ASISTENTE DE PRESUPUESTOS ====================
+
+function AsistentePresupuestos({ config, onActualizar }: {
+  config: ConfigIA
+  onActualizar: (cambios: Partial<ConfigIA>) => void
+}) {
+  const [prompt, setPrompt] = useState(config.prompt_asistente_presupuestos || PROMPT_PRESUPUESTOS_DEFAULT)
+  const [detalle, setDetalle] = useState(false)
+
+  useEffect(() => {
+    setPrompt(config.prompt_asistente_presupuestos || PROMPT_PRESUPUESTOS_DEFAULT)
+  }, [config.prompt_asistente_presupuestos])
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl bg-insignia-info/10 flex items-center justify-center shrink-0">
+          <Wand2 size={20} className="text-insignia-info" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-sm font-semibold text-texto-primario">Asistente de Presupuestos</h3>
+          <p className="text-xs text-texto-terciario mt-1">
+            Configurá cómo Salix IA analiza descripciones de trabajo y propone líneas de presupuesto. Esto se usa cuando creás un presupuesto y activás el asistente.
+          </p>
+        </div>
+      </div>
+
+      {/* Comportamiento automático */}
+      <div className="rounded-xl bg-superficie-hover/40 p-4">
+        <button
+          onClick={() => setDetalle(!detalle)}
+          className="flex items-center gap-2 text-xs font-semibold text-texto-terciario uppercase tracking-wider bg-transparent border-none cursor-pointer p-0 hover:text-texto-secundario transition-colors w-full text-left"
+        >
+          Comportamiento automático
+          <ChevronRight size={12} className={`transition-transform ${detalle ? 'rotate-90' : ''}`} />
+        </button>
+        {detalle && (
+          <ul className="text-xs text-texto-terciario space-y-1.5 list-disc pl-4 mt-2.5">
+            <li>Lee la descripción del trabajo y la desglosa en servicios/productos individuales</li>
+            <li>Busca coincidencias exactas en el catálogo de productos de tu empresa</li>
+            <li>Si no encuentra match exacto, propone crear un servicio nuevo con código y categoría</li>
+            <li>Muestra sugerencias del catálogo que podrían coincidir para que elijas manualmente</li>
+            <li>Redacta cada descripción de forma profesional, clara y técnica</li>
+            <li>Respeta la nomenclatura de códigos existente de tu empresa</li>
+          </ul>
+        )}
+      </div>
+
+      {/* Prompt personalizado */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h4 className="text-sm font-medium text-texto-secundario">Instrucciones personalizadas</h4>
+            <p className="text-xs text-texto-terciario mt-0.5">
+              Agregá contexto de tu empresa: rubro, tipos de trabajo, terminología, aclaraciones.
+            </p>
+          </div>
+          <Boton
+            variante="fantasma"
+            tamano="xs"
+            icono={<RotateCcw size={12} />}
+            onClick={() => {
+              setPrompt(PROMPT_PRESUPUESTOS_DEFAULT)
+              onActualizar({ prompt_asistente_presupuestos: PROMPT_PRESUPUESTOS_DEFAULT })
+            }}
+          >
+            Restablecer
+          </Boton>
+        </div>
+        <TextArea
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          onBlur={() => onActualizar({ prompt_asistente_presupuestos: prompt })}
+          rows={8}
+          placeholder="Ej: Somos una empresa de herrería y reparación de portones. Un portón NO es lo mismo que una puerta peatonal..."
+          monoespacio
+        />
+        <p className="text-[11px] text-texto-terciario mt-1.5">
+          Este texto se envía junto con la descripción del trabajo. Usalo para aclarar terminología o reglas de tu negocio.
+        </p>
+      </div>
     </div>
   )
 }
