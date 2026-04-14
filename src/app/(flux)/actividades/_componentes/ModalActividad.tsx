@@ -285,7 +285,9 @@ function ModalActividad({
         descripcion: descripcion || null,
         tipo_id: tipoId,
         prioridad,
-        fecha_vencimiento: fechaVencimiento ? new Date(fechaVencimiento + 'T12:00:00').toISOString() : null,
+        fecha_vencimiento: fechaVencimiento
+          ? new Date(fechaVencimiento + 'T12:00:00').toISOString()
+          : (bloquesNuevos.length > 0 ? new Date(bloquesNuevos[0].fecha + 'T12:00:00').toISOString() : null),
         asignados,
         asignados_ids: asignados.map(a => a.id),
         checklist,
@@ -352,6 +354,15 @@ function ModalActividad({
             ))
             const fallos = resultados.filter(r => r.status === 'rejected')
             if (fallos.length > 0) console.error(`Error al crear ${fallos.length} bloque(s):`, fallos)
+            // Si no tiene fecha de vencimiento, usar la fecha del primer bloque
+            if (!fechaVencimiento && nuevos.length > 0) {
+              const fechaBloque = nuevos[0].fecha
+              setFechaVencimiento(fechaBloque)
+              onGuardar({
+                id: actividad.id,
+                fecha_vencimiento: new Date(fechaBloque + 'T12:00:00').toISOString(),
+              }).catch(() => {})
+            }
             // Forzar recarga de SeccionBloquesCalendario
             setBloquesNuevos([])
             setRecargaBloques(c => c + 1)
@@ -537,7 +548,7 @@ function ModalActividad({
                 )}
                 {tipoSeleccionado?.campo_fecha && (
                   <div>
-                    <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Fecha</p>
+                    <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Vencimiento</p>
                     <SelectorFecha valor={fechaVencimiento} onChange={(v) => setFechaVencimiento(v || '')} limpiable />
                   </div>
                 )}

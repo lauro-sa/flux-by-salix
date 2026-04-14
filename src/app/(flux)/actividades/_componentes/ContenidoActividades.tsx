@@ -564,7 +564,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
     },
     {
       clave: 'fecha_vencimiento',
-      etiqueta: 'Fecha',
+      etiqueta: 'Vencimiento',
       ancho: 110,
       ordenable: true,
       render: (fila) => {
@@ -885,8 +885,8 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
         opcionesOrden={[
           { etiqueta: 'Más recientes', clave: 'creado_en', direccion: 'desc' },
           { etiqueta: 'Más antiguos', clave: 'creado_en', direccion: 'asc' },
-          { etiqueta: 'Fecha ↑', clave: 'fecha_vencimiento', direccion: 'asc' },
-          { etiqueta: 'Fecha ↓', clave: 'fecha_vencimiento', direccion: 'desc' },
+          { etiqueta: 'Vencimiento ↑', clave: 'fecha_vencimiento', direccion: 'asc' },
+          { etiqueta: 'Vencimiento ↓', clave: 'fecha_vencimiento', direccion: 'desc' },
           { etiqueta: 'Título A-Z', clave: 'titulo', direccion: 'asc' },
           { etiqueta: 'Título Z-A', clave: 'titulo', direccion: 'desc' },
         ]}
