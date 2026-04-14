@@ -26,14 +26,14 @@ export async function GET(
       resPresupuestos,
       resConversaciones,
     ] = await Promise.all([
-      // Vinculaciones (directas + inversas)
+      // Vinculaciones (directas + inversas) — obtener IDs para deduplicar contactos únicos
       Promise.all([
         admin.from('contacto_vinculaciones')
-          .select('id', { count: 'exact', head: true })
+          .select('vinculado_id')
           .eq('empresa_id', empresaId)
           .eq('contacto_id', id),
         admin.from('contacto_vinculaciones')
-          .select('id', { count: 'exact', head: true })
+          .select('contacto_id')
           .eq('empresa_id', empresaId)
           .eq('vinculado_id', id),
       ]),
@@ -52,10 +52,11 @@ export async function GET(
         .eq('contacto_id', id),
     ])
 
-    // Procesar vinculaciones
-    const vinculacionesDirectas = resVinculaciones[0].count || 0
-    const vinculacionesInversas = resVinculaciones[1].count || 0
-    const totalVinculaciones = vinculacionesDirectas + vinculacionesInversas
+    // Procesar vinculaciones — contar contactos únicos (no filas, ya que bidireccional duplica)
+    const idsDirectos = (resVinculaciones[0].data || []).map(v => v.vinculado_id)
+    const idsInversos = (resVinculaciones[1].data || []).map(v => v.contacto_id)
+    const contactosUnicos = new Set([...idsDirectos, ...idsInversos])
+    const totalVinculaciones = contactosUnicos.size
 
     // Procesar presupuestos
     const presupuestos = resPresupuestos.data || []
