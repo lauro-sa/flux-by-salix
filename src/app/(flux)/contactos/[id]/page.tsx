@@ -22,6 +22,7 @@ import { DireccionesContacto, type DireccionConTipo } from '../_componentes/Dire
 import { VinculacionesContacto } from '../_componentes/VinculacionesContacto'
 import { PanelChatter } from '@/componentes/entidad/PanelChatter'
 import { BannerContacto } from '../_componentes/BannerContacto'
+import { ModalAceptarProvisorio } from '../_componentes/ModalAceptarProvisorio'
 import { BarraKPIs } from '../_componentes/BarraKPIs'
 import { COLOR_TIPO_CONTACTO } from '@/lib/colores_entidad'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
@@ -124,6 +125,7 @@ export default function PaginaContacto() {
   const [modalEliminar, setModalEliminar] = useState(false)
   const [esProvisorio, setEsProvisorio] = useState(false)
   const [accionandoProvisorio, setAccionandoProvisorio] = useState(false)
+  const [modalAceptarProvisorio, setModalAceptarProvisorio] = useState(false)
 
   // ─── Estado solo creación ───
   const [errores, setErrores] = useState<ErroresContacto>({})
@@ -662,7 +664,7 @@ export default function PaginaContacto() {
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <Boton variante="exito" tamano="sm" icono={<UserCheck size={14} />} onClick={aceptarProvisorio} disabled={accionandoProvisorio}>Aceptar</Boton>
+                <Boton variante="exito" tamano="sm" icono={<UserCheck size={14} />} onClick={() => setModalAceptarProvisorio(true)} disabled={accionandoProvisorio}>Aceptar</Boton>
                 <Boton variante="peligro" tamano="sm" icono={<Trash2 size={14} />} onClick={descartarProvisorio} disabled={accionandoProvisorio}>Descartar</Boton>
               </div>
             </div>
@@ -998,6 +1000,20 @@ export default function PaginaContacto() {
           descripcion={`¿Estás seguro de que querés eliminar a ${nombreCompleto || 'este contacto'}? Se moverá a la papelera.`}
           tipo="peligro"
           etiquetaConfirmar={t('comun.eliminar')}
+        />
+      )}
+
+      {/* Modal aceptar provisorio: nuevo contacto o unificar con existente */}
+      {!esNuevo && esProvisorio && (
+        <ModalAceptarProvisorio
+          abierto={modalAceptarProvisorio}
+          onCerrar={() => setModalAceptarProvisorio(false)}
+          contactoId={id as string}
+          nombreContacto={nombreCompleto}
+          onAceptarNuevo={(cod) => {
+            setEsProvisorio(false)
+            if (cod) setCodigo(cod)
+          }}
         />
       )}
     </div>
