@@ -114,6 +114,12 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Filtro por rango de fecha (actualizado_en) — usado para "finalizadas hoy"
+    const fecha_desde = params.get('fecha_desde')
+    const fecha_hasta = params.get('fecha_hasta')
+    if (fecha_desde) query = query.gte('actualizado_en', fecha_desde)
+    if (fecha_hasta) query = query.lt('actualizado_en', fecha_hasta)
+
     // Búsqueda
     if (busqueda.trim()) {
       query = query.or(`contacto_nombre.ilike.%${busqueda}%,asignado_nombre.ilike.%${busqueda}%,motivo.ilike.%${busqueda}%,direccion_texto.ilike.%${busqueda}%`)

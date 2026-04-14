@@ -11,6 +11,7 @@ import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import {
   PlusCircle, Download, ClipboardList, CalendarClock,
   CheckCircle, Clock, User, FileText, MapPin, Trash2, History,
+  RotateCcw, ChevronDown, ChevronUp, XCircle,
 } from 'lucide-react'
 import type { AccionLote } from '@/componentes/tablas/tipos-tabla'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
@@ -281,6 +282,40 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
     vinculos: Vinculo[]
   } | null>(null)
 
+  // ── Finalizadas hoy (completadas + canceladas del día) ──
+  const [seccionHoyAbierta, setSeccionHoyAbierta] = useState(true)
+  const { data: finalizadasHoyData, refetch: recargarFinalizadasHoy } = useQuery({
+    queryKey: ['actividades-finalizadas-hoy', filtroVista],
+    queryFn: async () => {
+      const hoy = new Date()
+      hoy.setHours(0, 0, 0, 0)
+      const inicio = hoy.toISOString()
+      const fin = new Date(hoy.getTime() + 86400000).toISOString()
+      const res = await fetch(`/api/actividades?estado=completada,cancelada&vista=${filtroVista}&por_pagina=50&orden_campo=actualizado_en&orden_dir=desc&fecha_desde=${encodeURIComponent(inicio)}&fecha_hasta=${encodeURIComponent(fin)}`)
+      if (!res.ok) return []
+      const data = await res.json()
+      return (data.actividades || []) as Actividad[]
+    },
+    staleTime: 30_000,
+  })
+  const finalizadasHoy = finalizadasHoyData || []
+
+  const reactivarActividad = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`/api/actividades/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'reactivar' }),
+      })
+      if (!res.ok) throw new Error()
+      mostrar('exito', 'Actividad reactivada')
+      recargarActividades()
+      recargarFinalizadasHoy()
+    } catch {
+      mostrar('error', 'Error al reactivar la actividad')
+    }
+  }, [recargarActividades, recargarFinalizadasHoy, mostrar])
+
   const completarActividad = async (id: string) => {
     try {
       const res = await fetch(`/api/actividades/${id}`, {
@@ -292,6 +327,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
       const data = await res.json()
       mostrar('exito', 'Actividad completada')
       recargarActividades()
+      recargarFinalizadasHoy()
 
       // Manejar encadenamiento
       if (data.siguiente) {
@@ -901,6 +937,71 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
           />
         }
       />
+
+      {/* Sección: finalizadas hoy */}
+      {finalizadasHoy.length > 0 && (
+        <div className="mt-4 border border-borde-sutil rounded-lg overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setSeccionHoyAbierta(!seccionHoyAbierta)}
+            className="w-full flex items-center justify-between px-4 py-2.5 bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+          >
+            <span className="flex items-center gap-2 text-xs font-medium text-texto-terciario uppercase tracking-wider">
+              <CheckCircle size={13} />
+              Finalizadas hoy ({finalizadasHoy.length})
+            </span>
+            {seccionHoyAbierta ? <ChevronUp size={14} className="text-texto-terciario" /> : <ChevronDown size={14} className="text-texto-terciario" />}
+          </button>
+          {seccionHoyAbierta && (
+            <div className="divide-y divide-white/[0.05]">
+              {finalizadasHoy.map(a => {
+                const tipo = tiposPorId[a.tipo_id]
+                const estado = estadosPorClave[a.estado_clave]
+                return (
+                  <div key={a.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.02] transition-colors">
+                    <div className="flex-shrink-0">
+                      {a.estado_clave === 'completada'
+                        ? <CheckCircle size={15} className="text-insignia-exito" />
+                        : <XCircle size={15} className="text-insignia-peligro" />
+                      }
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-texto-secundario truncate">{a.titulo}</span>
+                        {tipo && (
+                          <Insignia color={(tipo.color || 'neutro') as 'exito' | 'peligro' | 'info' | 'advertencia' | 'neutro'} tamano="sm">
+                            {tipo.etiqueta}
+                          </Insignia>
+                        )}
+                        <Insignia color={a.estado_clave === 'completada' ? 'exito' : 'peligro'} tamano="sm">
+                          {estado?.etiqueta || a.estado_clave}
+                        </Insignia>
+                      </div>
+                      {a.vinculos?.length > 0 && (
+                        <span className="text-xs text-texto-terciario truncate block">
+                          {a.vinculos.map(v => v.nombre).join(', ')}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-texto-terciario flex-shrink-0">
+                      {a.actualizado_en ? new Date(a.actualizado_en).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : ''}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => reactivarActividad(a.id)}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors flex-shrink-0"
+                      title="Reactivar actividad"
+                    >
+                      <RotateCcw size={12} />
+                      Reactivar
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       <ModalActividad
         abierto={modalAbierto}

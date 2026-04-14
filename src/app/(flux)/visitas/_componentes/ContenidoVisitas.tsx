@@ -12,6 +12,7 @@ import {
   PlusCircle, Download, MapPin, MapPinOff,
   CheckCircle, Clock, User, Trash2, History,
   Navigation, Eye, CalendarClock, AlertTriangle, Route, List, Archive,
+  RotateCcw, ChevronDown, ChevronUp, XCircle,
 } from 'lucide-react'
 import { Tabs } from '@/componentes/ui/Tabs'
 import type { AccionLote } from '@/componentes/tablas/tipos-tabla'
@@ -200,6 +201,40 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
     router.replace('/visitas', { scroll: false })
   }, [visitaIdParam, visitas, router])
 
+  // ── Finalizadas hoy (completadas + canceladas del día) ──
+  const [seccionHoyAbierta, setSeccionHoyAbierta] = useState(true)
+  const { data: finalizadasHoyData, refetch: recargarFinalizadasHoy } = useQuery({
+    queryKey: ['visitas-finalizadas-hoy', filtroVista],
+    queryFn: async () => {
+      const hoy = new Date()
+      hoy.setHours(0, 0, 0, 0)
+      const inicio = hoy.toISOString()
+      const fin = new Date(hoy.getTime() + 86400000).toISOString()
+      const res = await fetch(`/api/visitas?estado=completada,cancelada&vista=${filtroVista}&por_pagina=50&orden_campo=actualizado_en&orden_dir=desc&fecha_desde=${encodeURIComponent(inicio)}&fecha_hasta=${encodeURIComponent(fin)}`)
+      if (!res.ok) return []
+      const data = await res.json()
+      return (data.visitas || []) as Visita[]
+    },
+    staleTime: 30_000,
+  })
+  const finalizadasHoy = finalizadasHoyData || []
+
+  const reactivarVisita = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`/api/visitas/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'reactivar' }),
+      })
+      if (!res.ok) throw new Error()
+      mostrar('exito', 'Visita reactivada')
+      recargarVisitas()
+      recargarFinalizadasHoy()
+    } catch {
+      mostrar('error', 'Error al reactivar la visita')
+    }
+  }, [recargarVisitas, recargarFinalizadasHoy, mostrar])
+
   // ── Acciones ──
 
   const crearVisita = async (datos: Record<string, unknown>) => {
@@ -245,6 +280,7 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
       if (!res.ok) throw new Error()
       mostrar('exito', 'Visita completada')
       recargarVisitas()
+      recargarFinalizadasHoy()
     } catch {
       mostrar('error', 'Error al completar la visita')
     }
@@ -260,6 +296,7 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
       if (!res.ok) throw new Error()
       mostrar('info', 'Visita cancelada')
       recargarVisitas()
+      recargarFinalizadasHoy()
     } catch {
       mostrar('error', 'Error al cancelar la visita')
     }
@@ -540,6 +577,7 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
           }
         }} />
       ) : (
+      <>
       <TablaDinamica
         columnas={columnas}
         columnasVisiblesDefault={['contacto_nombre', 'direccion_texto', 'fecha_programada', 'estado', 'prioridad', 'asignado_nombre', 'acciones']}
@@ -621,6 +659,61 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
           />
         }
       />
+
+      {/* Sección: finalizadas hoy */}
+      {!mostrarArchivadas && finalizadasHoy.length > 0 && (
+        <div className="mt-4 border border-borde-sutil rounded-lg overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setSeccionHoyAbierta(!seccionHoyAbierta)}
+            className="w-full flex items-center justify-between px-4 py-2.5 bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+          >
+            <span className="flex items-center gap-2 text-xs font-medium text-texto-terciario uppercase tracking-wider">
+              <CheckCircle size={13} />
+              Finalizadas hoy ({finalizadasHoy.length})
+            </span>
+            {seccionHoyAbierta ? <ChevronUp size={14} className="text-texto-terciario" /> : <ChevronDown size={14} className="text-texto-terciario" />}
+          </button>
+          {seccionHoyAbierta && (
+            <div className="divide-y divide-white/[0.05]">
+              {finalizadasHoy.map(v => (
+                <div key={v.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.02] transition-colors">
+                  <div className="flex-shrink-0">
+                    {v.estado === 'completada'
+                      ? <CheckCircle size={15} className="text-insignia-exito" />
+                      : <XCircle size={15} className="text-insignia-peligro" />
+                    }
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-texto-secundario truncate">{v.contacto_nombre}</span>
+                      <Insignia color={v.estado === 'completada' ? 'exito' : 'peligro'} tamano="sm">
+                        {v.estado === 'completada' ? 'Completada' : 'Cancelada'}
+                      </Insignia>
+                    </div>
+                    {v.direccion_texto && (
+                      <span className="text-xs text-texto-terciario truncate block">{v.direccion_texto}</span>
+                    )}
+                  </div>
+                  <span className="text-xs text-texto-terciario flex-shrink-0">
+                    {v.actualizado_en ? new Date(v.actualizado_en).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : ''}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => reactivarVisita(v.id)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors flex-shrink-0"
+                    title="Reactivar visita"
+                  >
+                    <RotateCcw size={12} />
+                    Reactivar
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      </>
       )}
 
       {/* Modal crear/editar */}
