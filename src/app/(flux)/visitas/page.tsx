@@ -35,7 +35,7 @@ export default async function PaginaVisitas() {
     .eq('empresa_id', empresaId)
     .eq('en_papelera', false)
     .in('estado', estadosActivos)
-    .eq('asignado_a', user.id)
+    .or(`creado_por.eq.${user.id},asignado_a.eq.${user.id}`)
 
   if (visibilidad.soloPropio) {
     query = query.or(`creado_por.eq.${user.id},asignado_a.eq.${user.id}`)
@@ -56,7 +56,7 @@ export default async function PaginaVisitas() {
 
   const queryClient = crearQueryClient()
   queryClient.setQueryData(
-    ['visitas', { estado: estadosActivos.join(','), vista: 'mias', pagina: '1', por_pagina: '50' }],
+    ['visitas', { estado: estadosActivos.join(','), vista: 'propias', pagina: '1', por_pagina: '50' }],
     datosInicialesJson
   )
 

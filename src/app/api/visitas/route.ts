@@ -55,8 +55,11 @@ export async function GET(request: NextRequest) {
       query = query.or(`creado_por.eq.${user.id},asignado_a.eq.${user.id}`)
     }
 
-    // Vista: mias = asignadas a mí, enviadas = creadas por mí
-    if (vista === 'mias') {
+    // Vista: propias = creadas por mí O asignadas a mí (default del sistema)
+    // mias = solo asignadas a mí, enviadas = solo creadas por mí
+    if (vista === 'propias') {
+      query = query.or(`creado_por.eq.${user.id},asignado_a.eq.${user.id}`)
+    } else if (vista === 'mias') {
       query = query.eq('asignado_a', user.id)
     } else if (vista === 'enviadas') {
       query = query.eq('creado_por', user.id)

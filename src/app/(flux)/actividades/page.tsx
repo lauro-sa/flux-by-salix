@@ -42,7 +42,7 @@ export default async function PaginaActividades() {
     .eq('empresa_id', empresaId)
     .eq('en_papelera', false)
     .in('estado_clave', clavesActivas)
-    .contains('asignados_ids', [user.id])
+    .or(`creado_por.eq.${user.id},asignados_ids.cs.{${user.id}}`)
 
   if (visibilidad.soloPropio) {
     query = query.or(`creado_por.eq.${user.id},asignados_ids.cs.{${user.id}}`)
@@ -64,7 +64,7 @@ export default async function PaginaActividades() {
 
   const queryClient = crearQueryClient()
   queryClient.setQueryData(
-    ['actividades', { estado: clavesActivas.join(','), vista: 'mias', pagina: '1', por_pagina: '50' }],
+    ['actividades', { estado: clavesActivas.join(','), vista: 'propias', pagina: '1', por_pagina: '50' }],
     datosInicialesJson
   )
 

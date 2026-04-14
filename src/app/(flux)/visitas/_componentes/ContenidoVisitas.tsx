@@ -71,7 +71,7 @@ function fechaCorta(iso: string | null, locale: string): string {
 }
 
 const POR_PAGINA = 50
-const VISTA_DEFAULT = 'mias'
+const VISTA_DEFAULT = 'propias'
 const ESTADOS_ACTIVOS = ['programada', 'en_camino', 'en_sitio', 'reprogramada']
 
 interface Props {
@@ -584,19 +584,6 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
               { valor: 'alta', etiqueta: t('visitas.prioridades.alta') },
               { valor: 'urgente', etiqueta: t('visitas.prioridades.urgente') },
             ],
-          },
-          {
-            id: 'vista',
-            etiqueta: 'Vista',
-            tipo: 'pills',
-            valor: filtroVista,
-            onChange: (v) => setFiltroVista(v as string),
-            opciones: [
-              { valor: 'mias', etiqueta: 'Asignadas a mí' },
-              { valor: 'enviadas', etiqueta: 'Creadas por mí' },
-              { valor: 'todas', etiqueta: 'Todas' },
-            ],
-            valorDefault: VISTA_DEFAULT,
           },
         ]}
         onLimpiarFiltros={() => {
