@@ -97,14 +97,18 @@ export async function construirContexto(
 export function construirSystemPrompt(
   ctx: ContextoSalixIA,
   config: ConfigSalixIA,
-  herramientasDisponibles: string[]
+  herramientasDisponibles: string[],
+  zonaHoraria?: string
 ): string {
+  const tz = zonaHoraria || 'America/Argentina/Buenos_Aires'
   const ahora = new Date()
   const fechaFormateada = ahora.toLocaleDateString('es', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    timeZone: tz,
   })
   const horaFormateada = ahora.toLocaleTimeString('es', {
     hour: '2-digit', minute: '2-digit',
+    timeZone: tz,
   })
 
   const rolTraducido: Record<string, string> = {

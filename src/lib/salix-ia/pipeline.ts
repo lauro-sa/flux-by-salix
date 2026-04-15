@@ -51,9 +51,17 @@ export async function ejecutarSalixIA(params: ParamsPipeline): Promise<Resultado
     configSalix
   )
 
-  // 3. Construir system prompt
+  // 3. Cargar timezone de la empresa
+  const { data: configInbox } = await admin
+    .from('config_inbox')
+    .select('zona_horaria')
+    .eq('empresa_id', empresa_id)
+    .maybeSingle()
+  const zonaHoraria = configInbox?.zona_horaria || 'America/Argentina/Buenos_Aires'
+
+  // 4. Construir system prompt con timezone correcta
   const nombresHerramientas = herramientasPermitidas.map((h) => h.nombre)
-  const systemPrompt = construirSystemPrompt(ctx, configSalix, nombresHerramientas)
+  const systemPrompt = construirSystemPrompt(ctx, configSalix, nombresHerramientas, zonaHoraria)
 
   // 4. Preparar tools para Anthropic
   const tools = herramientasPermitidas.map((h) => h.definicion)
