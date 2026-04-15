@@ -9,9 +9,27 @@ export async function ejecutarModificarActividad(
   ctx: ContextoSalixIA,
   params: Record<string, unknown>
 ): Promise<ResultadoHerramienta> {
-  const actividad_id = params.actividad_id as string
+  let actividad_id = params.actividad_id as string
+
+  // Si no hay ID, buscar por título
+  if (!actividad_id && params.busqueda) {
+    const busq = params.busqueda as string
+    const { data: encontradas } = await ctx.admin
+      .from('actividades')
+      .select('id, titulo')
+      .eq('empresa_id', ctx.empresa_id)
+      .eq('en_papelera', false)
+      .ilike('titulo', `%${busq}%`)
+      .order('creado_en', { ascending: false })
+      .limit(1)
+
+    if (encontradas && encontradas.length > 0) {
+      actividad_id = encontradas[0].id
+    }
+  }
+
   if (!actividad_id) {
-    return { exito: false, error: 'Se requiere el ID de la actividad' }
+    return { exito: false, error: 'Se requiere el ID o un texto de búsqueda para encontrar la actividad' }
   }
 
   // Verificar que la actividad existe y pertenece a la empresa

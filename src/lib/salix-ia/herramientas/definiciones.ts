@@ -351,11 +351,12 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
     nombre: 'modificar_actividad',
     definicion: {
       name: 'modificar_actividad',
-      description: 'Modifica una actividad: cambiar estado (completar, cancelar, etc.), prioridad, fecha de vencimiento o reasignar. Primero consultá la actividad para obtener su ID.',
+      description: 'Modifica una actividad: cambiar estado (completar, cancelar, etc.), prioridad, fecha de vencimiento o reasignar. Podés pasar el ID o buscar por título.',
       input_schema: {
         type: 'object',
         properties: {
-          actividad_id: { type: 'string', description: 'ID de la actividad a modificar' },
+          actividad_id: { type: 'string', description: 'ID de la actividad a modificar (opcional si usás busqueda)' },
+          busqueda: { type: 'string', description: 'Buscar la actividad por título (ej: "Nora", "llamada Pérez"). Se usa si no tenés el ID.' },
           estado_clave: {
             type: 'string',
             description: 'Nuevo estado (ej: "completada", "cancelada", "pendiente"). Si no sabés los disponibles, la herramienta te los muestra.',
@@ -364,7 +365,7 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
           fecha_vencimiento: { type: 'string', description: 'Nueva fecha en formato ISO 8601' },
           asignado_a_id: { type: 'string', description: 'ID del nuevo asignado' },
         },
-        required: ['actividad_id'],
+        required: [],
       },
     },
     modulo: 'actividades',
