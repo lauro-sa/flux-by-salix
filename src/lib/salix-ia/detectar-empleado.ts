@@ -92,16 +92,10 @@ export async function detectarEmpleado(
     return { es_empleado: false }
   }
 
-  // Obtener miembros activos con sus perfiles
+  // Obtener miembros activos (query separada de perfiles porque el join falla en este proyecto)
   const { data: miembros } = await admin
     .from('miembros')
-    .select(`
-      id, usuario_id, rol, permisos_custom, salix_ia_habilitado,
-      puesto_nombre, sector,
-      perfil:perfiles!usuario_id(
-        nombre, apellido, telefono, telefono_empresa
-      )
-    `)
+    .select('id, usuario_id, rol, permisos_custom, salix_ia_habilitado, puesto_nombre, sector')
     .eq('empresa_id', empresa_id)
     .eq('activo', true)
 
@@ -109,18 +103,24 @@ export async function detectarEmpleado(
     return { es_empleado: false }
   }
 
-  console.info(`[DETECTAR] ${miembros.length} miembros activos encontrados`)
+  // Obtener perfiles de todos los miembros
+  const usuarioIds = miembros.map((m: { usuario_id: string }) => m.usuario_id)
+  const { data: perfiles } = await admin
+    .from('perfiles')
+    .select('id, nombre, apellido, telefono, telefono_empresa')
+    .in('id', usuarioIds)
+
+  // Crear mapa de perfiles por usuario_id
+  const perfilesMap = new Map<string, { nombre: string; apellido: string; telefono: string | null; telefono_empresa: string | null }>()
+  for (const p of (perfiles || [])) {
+    perfilesMap.set(p.id, p)
+  }
+
+  console.info(`[DETECTAR] ${miembros.length} miembros, ${perfilesMap.size} perfiles cargados`)
 
   // Buscar coincidencia con prioridad: telefono_empresa > telefono
   for (const m of miembros) {
-    // Supabase puede retornar el perfil como objeto o como array de 1 elemento
-    const perfilRaw = m.perfil
-    const perfil = (Array.isArray(perfilRaw) ? perfilRaw[0] : perfilRaw) as {
-      nombre: string
-      apellido: string
-      telefono: string | null
-      telefono_empresa: string | null
-    } | null
+    const perfil = perfilesMap.get(m.usuario_id)
 
     if (!perfil) {
       console.info(`[DETECTAR] Miembro ${m.id} sin perfil, saltando`)
