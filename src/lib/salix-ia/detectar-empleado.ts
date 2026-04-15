@@ -109,19 +109,28 @@ export async function detectarEmpleado(
     return { es_empleado: false }
   }
 
+  console.info(`[DETECTAR] ${miembros.length} miembros activos encontrados`)
+
   // Buscar coincidencia con prioridad: telefono_empresa > telefono
   for (const m of miembros) {
-    const perfil = m.perfil as {
+    // Supabase puede retornar el perfil como objeto o como array de 1 elemento
+    const perfilRaw = m.perfil
+    const perfil = (Array.isArray(perfilRaw) ? perfilRaw[0] : perfilRaw) as {
       nombre: string
       apellido: string
       telefono: string | null
       telefono_empresa: string | null
     } | null
 
-    if (!perfil) continue
+    if (!perfil) {
+      console.info(`[DETECTAR] Miembro ${m.id} sin perfil, saltando`)
+      continue
+    }
 
     const telEmpresa = normalizarTelefono(perfil.telefono_empresa)
     const telPersonal = normalizarTelefono(perfil.telefono)
+    console.info(`[DETECTAR] ${perfil.nombre}: telEmpresa="${telEmpresa}", telPersonal="${telPersonal}", comparando con "${telefonoNormalizado}"`)
+
 
     let coincide = false
 
