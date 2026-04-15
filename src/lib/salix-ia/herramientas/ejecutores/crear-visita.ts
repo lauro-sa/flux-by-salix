@@ -68,6 +68,8 @@ export async function ejecutarCrearVisita(
   }
 
   // Crear actividad + evento calendario vinculados (misma lógica que POST /api/visitas)
+  // Si falla, la visita ya se creó — no revertir, solo loguear
+  try {
   const tiposVisita = await obtenerTiposVisita(ctx.empresa_id)
   if (tiposVisita) {
     await crearRegistrosVinculados({
@@ -87,6 +89,9 @@ export async function ejecutarCrearVisita(
       creado_por: ctx.usuario_id,
       creado_por_nombre: ctx.nombre_usuario,
     }, tiposVisita)
+  }
+  } catch (err) {
+    console.error('[Salix IA] Error creando registros vinculados de visita:', err)
   }
 
   const fechaFormateada = new Date(fecha_programada).toLocaleDateString('es', {

@@ -24,24 +24,29 @@ export async function ejecutarAnotarNota(
   let compartir_nombre_completo = ''
 
   if (compartir_con_nombre) {
+    // Queries separadas — los joins con perfiles son inestables en Supabase
     const { data: miembros } = await ctx.admin
       .from('miembros')
-      .select('usuario_id, perfiles(nombre, apellido)')
+      .select('id, usuario_id')
       .eq('empresa_id', ctx.empresa_id)
       .eq('activo', true)
 
-    if (miembros) {
+    if (miembros && miembros.length > 0) {
+      const usuarioIds = miembros.map((m: { usuario_id: string }) => m.usuario_id)
+      const { data: perfiles } = await ctx.admin
+        .from('perfiles')
+        .select('id, nombre, apellido')
+        .in('id', usuarioIds)
+
       const busqueda = compartir_con_nombre.toLowerCase()
-      const encontrado = miembros.find((m: { perfiles: { nombre: string; apellido: string } | null }) => {
-        if (!m.perfiles) return false
-        const nombre = `${m.perfiles.nombre} ${m.perfiles.apellido}`.toLowerCase()
-        return nombre.includes(busqueda) || m.perfiles.nombre.toLowerCase().includes(busqueda)
+      const perfilEncontrado = (perfiles || []).find((p: { nombre: string; apellido: string }) => {
+        const nombre = `${p.nombre} ${p.apellido || ''}`.toLowerCase()
+        return nombre.includes(busqueda) || p.nombre.toLowerCase().includes(busqueda)
       })
 
-      if (encontrado) {
-        compartir_usuario_id = encontrado.usuario_id
-        const p = encontrado.perfiles as { nombre: string; apellido: string }
-        compartir_nombre_completo = `${p.nombre} ${p.apellido}`
+      if (perfilEncontrado) {
+        compartir_usuario_id = perfilEncontrado.id
+        compartir_nombre_completo = `${perfilEncontrado.nombre} ${perfilEncontrado.apellido || ''}`.trim()
       } else {
         return {
           exito: false,

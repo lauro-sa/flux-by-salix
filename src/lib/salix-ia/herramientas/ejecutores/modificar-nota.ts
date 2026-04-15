@@ -25,17 +25,30 @@ export async function ejecutarModificarNota(
       .ilike('titulo', `%${busqueda}%`)
       .limit(5)
 
-    // Buscar en compartidas conmigo
-    const { data: compartidas } = await ctx.admin
+    // Buscar en compartidas conmigo — queries separadas para evitar joins inestables
+    const { data: relaciones } = await ctx.admin
       .from('notas_rapidas_compartidas')
-      .select('nota_id, puede_editar, nota:notas_rapidas(id, titulo, contenido)')
+      .select('nota_id, puede_editar')
       .eq('usuario_id', ctx.usuario_id)
+      .eq('puede_editar', true)
 
-    const notasCompartidas = (compartidas || [])
-      .filter((c: { nota: { titulo: string } | null; puede_editar: boolean }) =>
-        c.nota && c.puede_editar && c.nota.titulo.toLowerCase().includes(busqueda.toLowerCase())
-      )
-      .map((c: { nota: { id: string; titulo: string; contenido: string } }) => c.nota)
+    let notasCompartidas: Array<{ id: string; titulo: string; contenido: string }> = []
+    const notaIdsEditables = (relaciones || []).map((r: { nota_id: string }) => r.nota_id)
+
+    if (notaIdsEditables.length > 0) {
+      const { data: notasComp } = await ctx.admin
+        .from('notas_rapidas')
+        .select('id, titulo, contenido')
+        .in('id', notaIdsEditables)
+        .eq('archivada', false)
+        .ilike('titulo', `%${busqueda}%`)
+
+      notasCompartidas = (notasComp || []).map((n: { id: string; titulo: string; contenido: string }) => ({
+        id: n.id,
+        titulo: n.titulo || '',
+        contenido: n.contenido || '',
+      }))
+    }
 
     const todas = [...(propias || []), ...notasCompartidas]
 
@@ -85,10 +98,14 @@ export async function ejecutarModificarNota(
 
   // Eliminar (archivar)
   if (params.eliminar === true) {
-    await ctx.admin
+    const { error: errorEliminar } = await ctx.admin
       .from('notas_rapidas')
       .update({ archivada: true, actualizado_en: new Date().toISOString(), actualizado_por: ctx.usuario_id })
       .eq('id', nota_id)
+
+    if (errorEliminar) {
+      return { exito: false, error: `Error eliminando nota: ${errorEliminar.message}` }
+    }
 
     return {
       exito: true,

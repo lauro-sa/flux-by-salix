@@ -33,29 +33,35 @@ export async function ejecutarConsultarNotas(
     propias = data ?? []
   }
 
-  // Notas compartidas conmigo
+  // Notas compartidas conmigo — queries separadas para evitar joins inestables
   let compartidas: Array<{ id: string; titulo: string; contenido: string; actualizado_en: string }> = []
   if (tipo === 'todas' || tipo === 'compartidas') {
-    const { data: compartidas_raw } = await ctx.admin
+    const { data: relaciones } = await ctx.admin
       .from('notas_rapidas_compartidas')
-      .select('nota:notas_rapidas(id, titulo, contenido, actualizado_en)')
+      .select('nota_id')
       .eq('usuario_id', ctx.usuario_id)
 
-    if (compartidas_raw) {
-      compartidas = compartidas_raw
-        .filter((c: { nota: unknown }) => c.nota && typeof c.nota === 'object')
-        .map((c: { nota: { id: string; titulo: string; contenido: string; actualizado_en: string } }) => ({
-          ...c.nota,
-          titulo: c.nota.titulo || '',
-          contenido: c.nota.contenido || '',
-        }))
+    if (relaciones && relaciones.length > 0) {
+      const notaIds = relaciones.map((r: { nota_id: string }) => r.nota_id)
+
+      let queryComp = ctx.admin
+        .from('notas_rapidas')
+        .select('id, titulo, contenido, actualizado_en')
+        .in('id', notaIds)
+        .eq('archivada', false)
 
       if (busqueda) {
-        const b = busqueda.toLowerCase()
-        compartidas = compartidas.filter(
-          (n) => (n.titulo || '').toLowerCase().includes(b) || (n.contenido || '').toLowerCase().includes(b)
-        )
+        queryComp = queryComp.or(`titulo.ilike.%${busqueda}%,contenido.ilike.%${busqueda}%`)
       }
+
+      const { data: notasComp } = await queryComp
+
+      compartidas = (notasComp || []).map((n: { id: string; titulo: string; contenido: string; actualizado_en: string }) => ({
+        id: n.id,
+        titulo: n.titulo || '',
+        contenido: n.contenido || '',
+        actualizado_en: n.actualizado_en,
+      }))
     }
   }
 
