@@ -97,6 +97,28 @@ describe('detectarEmpleado', () => {
     expect(result.es_empleado).toBe(true)
   })
 
+  it('matchea número argentino SIN 9 en BD con 9 de WhatsApp', async () => {
+    // BD tiene +54 11 3235 4334 (sin 9), WhatsApp manda 5491132354334 (con 9)
+    const admin = crearMockAdmin([{
+      ...miembroBase,
+      perfil: { nombre: 'Sebastian', apellido: 'Lauro', telefono: '+54 11 3235 4334', telefono_empresa: null },
+    }])
+
+    const result = await detectarEmpleado(admin, 'empresa-1', '5491132354334')
+    expect(result.es_empleado).toBe(true)
+    expect(result.perfil?.nombre).toBe('Sebastian')
+  })
+
+  it('matchea número argentino CON 9 en BD sin 9 entrante', async () => {
+    const admin = crearMockAdmin([{
+      ...miembroBase,
+      perfil: { nombre: 'Test', apellido: 'AR', telefono: '+54 9 11 5566 7788', telefono_empresa: null },
+    }])
+
+    const result = await detectarEmpleado(admin, 'empresa-1', '541155667788')
+    expect(result.es_empleado).toBe(true)
+  })
+
   it('no matchea teléfono de otra persona', async () => {
     const admin = crearMockAdmin([{
       ...miembroBase,

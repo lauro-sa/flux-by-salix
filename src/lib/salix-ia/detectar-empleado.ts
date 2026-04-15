@@ -20,21 +20,59 @@ function normalizarTelefono(tel: string | null | undefined): string {
 }
 
 /**
+ * Normaliza variantes de números argentinos.
+ * Argentina tiene un problema: el 9 después del 54 es opcional.
+ * - WhatsApp siempre manda: 5491132354334 (con 9)
+ * - La gente guarda: +54 11 3235 4334 (sin 9) o +54 9 11 3235 4334 (con 9)
+ * Esta función retorna todas las variantes posibles para comparar.
+ */
+function variantesTelefono(tel: string): string[] {
+  const variantes = [tel]
+
+  // Si empieza con 549 (argentina con 9) → agregar variante sin 9
+  if (tel.startsWith('549') && tel.length >= 12) {
+    variantes.push('54' + tel.slice(3)) // 5491132354334 → 541132354334
+  }
+
+  // Si empieza con 54 pero NO 549 (argentina sin 9) → agregar variante con 9
+  if (tel.startsWith('54') && !tel.startsWith('549') && tel.length >= 11) {
+    variantes.push('549' + tel.slice(2)) // 541132354334 → 5491132354334
+  }
+
+  return variantes
+}
+
+/**
  * Compara dos teléfonos normalizados.
- * Maneja el caso donde uno es más corto (sin código de país).
- * Ej: "1160990312" matchea con "5491160990312" porque es un sufijo.
+ * Maneja: variantes argentinas (con/sin 9), sufijos sin código de país.
  */
 function telefonosCoinciden(telBD: string, telEntrante: string): boolean {
   if (!telBD || !telEntrante) return false
 
-  // Match exacto
-  if (telBD === telEntrante) return true
+  // Generar variantes de ambos números
+  const variantesBD = variantesTelefono(telBD)
+  const variantesEntrante = variantesTelefono(telEntrante)
+
+  // Match exacto con cualquier variante
+  for (const vBD of variantesBD) {
+    for (const vE of variantesEntrante) {
+      if (vBD === vE) return true
+    }
+  }
 
   // El de BD es más corto (sin código país) → verificar si es sufijo del entrante
-  if (telBD.length >= 8 && telEntrante.endsWith(telBD)) return true
+  if (telBD.length >= 8) {
+    for (const vE of variantesEntrante) {
+      if (vE.endsWith(telBD)) return true
+    }
+  }
 
-  // El entrante es más corto (raro, pero por si acaso)
-  if (telEntrante.length >= 8 && telBD.endsWith(telEntrante)) return true
+  // El entrante es más corto → verificar sufijo en BD
+  if (telEntrante.length >= 8) {
+    for (const vBD of variantesBD) {
+      if (vBD.endsWith(telEntrante)) return true
+    }
+  }
 
   return false
 }
