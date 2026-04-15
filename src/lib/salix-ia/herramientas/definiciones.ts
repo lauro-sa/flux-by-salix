@@ -442,4 +442,102 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
     accion_requerida: 'editar',
     soporta_visibilidad: false,
   },
+
+  // ─── NOTAS RÁPIDAS ───
+  {
+    nombre: 'anotar_nota',
+    definicion: {
+      name: 'anotar_nota',
+      description: 'Crea o agrega contenido a una nota rápida. IMPORTANTE: Si el usuario pide compartir con alguien y ya existe una nota compartida con esa persona, primero usá consultar_notas para encontrarla y pasá el nota_id para AGREGAR contenido a la existente (no crear otra nueva). Solo creá nueva si no existe una compartida con esa persona. Si el usuario dice "anotame", "apuntá", "guardame", "haceme una nota" o similar, usá SIEMPRE esta herramienta (nunca crear_actividad).',
+      input_schema: {
+        type: 'object',
+        properties: {
+          contenido: {
+            type: 'string',
+            description: 'Contenido de la nota. Formateá el texto con saltos de línea para que sea legible.',
+          },
+          titulo: {
+            type: 'string',
+            description: 'Título breve de la nota (opcional, se genera uno si no se da)',
+          },
+          compartir_con: {
+            type: 'string',
+            description: 'Nombre del miembro del equipo con quien compartir (ej: "Olivia", "Juan Pérez"). Si no se indica, la nota es personal.',
+          },
+          nota_id: {
+            type: 'string',
+            description: 'ID de nota existente para AGREGAR contenido sin borrar lo anterior. Usalo cuando ya existe una nota compartida con esa persona (buscala primero con consultar_notas). Si no se indica, crea una nueva.',
+          },
+        },
+        required: ['contenido'],
+      },
+    },
+    modulo: 'contactos',
+    accion_requerida: 'ver_propio',
+    soporta_visibilidad: false,
+  },
+  {
+    nombre: 'consultar_notas',
+    definicion: {
+      name: 'consultar_notas',
+      description: 'Consulta las notas rápidas del usuario (propias y/o compartidas). Puede buscar por texto dentro de las notas.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          tipo: {
+            type: 'string',
+            enum: ['todas', 'propias', 'compartidas'],
+            description: 'Tipo de notas a consultar (default: todas)',
+          },
+          busqueda: {
+            type: 'string',
+            description: 'Texto a buscar dentro del título o contenido de las notas',
+          },
+        },
+      },
+    },
+    modulo: 'contactos',
+    accion_requerida: 'ver_propio',
+    soporta_visibilidad: false,
+  },
+  {
+    nombre: 'modificar_nota',
+    definicion: {
+      name: 'modificar_nota',
+      description: 'Modifica o elimina una nota rápida: cambiar título, contenido, fijar/desfijar o eliminar. Puede buscar la nota por título si no se tiene el ID.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          nota_id: {
+            type: 'string',
+            description: 'ID de la nota a modificar (opcional si usás busqueda)',
+          },
+          busqueda: {
+            type: 'string',
+            description: 'Buscar la nota por título (ej: "lista de compras", "reunión"). Se usa si no tenés el ID.',
+          },
+          titulo: {
+            type: 'string',
+            description: 'Nuevo título de la nota',
+          },
+          contenido: {
+            type: 'string',
+            description: 'Nuevo contenido completo de la nota (reemplaza el anterior)',
+          },
+          fijada: {
+            type: 'boolean',
+            description: 'true para fijar la nota, false para desfijar',
+          },
+          eliminar: {
+            type: 'boolean',
+            description: 'true para eliminar (archivar) la nota',
+          },
+        },
+        required: [],
+      },
+    },
+    modulo: 'contactos',
+    accion_requerida: 'ver_propio',
+    soporta_visibilidad: false,
+  },
 ]

@@ -11,7 +11,7 @@
 
 import { useRef, useEffect, useState, useCallback, type KeyboardEvent, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Send, Plus, Sparkles, Loader2, Wrench, Mic, ExternalLink } from 'lucide-react'
+import { X, Send, Plus, Sparkles, Loader2, Wrench, Mic, ExternalLink, History, MessageSquare, ChevronLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useSalixIA } from '@/hooks/useSalixIA'
 import { useEsMovil } from '@/hooks/useEsMovil'
@@ -97,9 +97,15 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
     mensajes,
     cargando,
     error,
+    conversaciones,
+    conversacion_id,
     enviarMensaje,
     nuevaConversacion,
+    cargarConversacion,
+    cargarConversaciones,
   } = useSalixIA()
+
+  const [vistaHistorial, setVistaHistorial] = useState(false)
 
   // Navegar a una ruta interna — cierra el panel primero
   const navegarDesdeChat = useCallback((ruta: string) => {
@@ -177,27 +183,68 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
     setGrabando(false)
   }, [])
 
+  // Cargar conversaciones al abrir el historial
+  const abrirHistorial = useCallback(() => {
+    setVistaHistorial(true)
+    cargarConversaciones()
+  }, [cargarConversaciones])
+
+  const seleccionarConversacion = useCallback((id: string) => {
+    cargarConversacion(id)
+    setVistaHistorial(false)
+  }, [cargarConversacion])
+
+  const iniciarNueva = useCallback(() => {
+    nuevaConversacion()
+    setVistaHistorial(false)
+  }, [nuevaConversacion])
+
   const contenido = (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.07]">
         <div className="flex items-center gap-2">
-          <div className="size-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
-            <Sparkles className="size-4 text-white" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-texto-primario">Salix IA</h3>
-            <p className="text-[11px] text-texto-terciario">Tu copiloto en Flux</p>
-          </div>
+          {vistaHistorial ? (
+            <>
+              <button
+                onClick={() => setVistaHistorial(false)}
+                className="p-1 rounded-lg text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+              <h3 className="text-sm font-semibold text-texto-primario">Conversaciones</h3>
+            </>
+          ) : (
+            <>
+              <div className="size-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
+                <Sparkles className="size-4 text-white" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-texto-primario">Salix IA</h3>
+                <p className="text-[11px] text-texto-terciario">Tu copiloto en Flux</p>
+              </div>
+            </>
+          )}
         </div>
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => nuevaConversacion()}
-            className="p-1.5 rounded-lg text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
-            title="Nueva conversación"
-          >
-            <Plus className="size-4" />
-          </button>
+          {!vistaHistorial && (
+            <>
+              <button
+                onClick={abrirHistorial}
+                className="p-1.5 rounded-lg text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
+                title="Conversaciones anteriores"
+              >
+                <History className="size-4" />
+              </button>
+              <button
+                onClick={iniciarNueva}
+                className="p-1.5 rounded-lg text-texto-terciario hover:text-texto-primario hover:bg-white/[0.06] transition-colors"
+                title="Nueva conversación"
+              >
+                <Plus className="size-4" />
+              </button>
+            </>
+          )}
           {!esMovil && (
             <button
               onClick={onCerrar}
@@ -209,6 +256,51 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
         </div>
       </div>
 
+      {/* Vista de historial de conversaciones */}
+      {vistaHistorial ? (
+        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1 scrollbar-auto-oculto">
+          {/* Botón nueva conversación */}
+          <button
+            onClick={iniciarNueva}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-texto-marca/5 border border-texto-marca/20 text-left transition-colors hover:bg-texto-marca/10 mb-2"
+          >
+            <Plus className="size-4 text-texto-marca shrink-0" />
+            <span className="text-sm font-medium text-texto-marca">Nueva conversación</span>
+          </button>
+
+          {conversaciones.length === 0 ? (
+            <div className="text-center py-8">
+              <MessageSquare className="size-8 text-texto-terciario/40 mx-auto mb-2" />
+              <p className="text-xs text-texto-terciario">No hay conversaciones anteriores</p>
+            </div>
+          ) : (
+            conversaciones.map((conv) => (
+              <button
+                key={conv.id}
+                onClick={() => seleccionarConversacion(conv.id)}
+                className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-xl text-left transition-colors hover:bg-white/[0.04] border border-transparent ${
+                  conversacion_id === conv.id ? 'bg-white/[0.06] border-white/[0.08]' : ''
+                }`}
+              >
+                <MessageSquare className="size-4 text-texto-terciario shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-texto-primario truncate">{conv.titulo}</p>
+                  <p className="text-[11px] text-texto-terciario mt-0.5">
+                    {new Date(conv.actualizado_en).toLocaleDateString('es', {
+                      day: 'numeric',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                    {conv.canal === 'whatsapp' && ' · WhatsApp'}
+                  </p>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      ) : (
+        <>
       {/* Mensajes */}
       <div
         ref={scrollRef}
@@ -325,6 +417,8 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
           </div>
         )}
       </div>
+        </>
+      )}
     </div>
   )
 

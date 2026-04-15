@@ -20,6 +20,9 @@ import { ejecutarModificarActividad } from './ejecutores/modificar-actividad'
 import { ejecutarModificarVisita } from './ejecutores/modificar-visita'
 import { ejecutarModificarPresupuesto } from './ejecutores/modificar-presupuesto'
 import { ejecutarModificarEvento } from './ejecutores/modificar-evento'
+import { ejecutarAnotarNota } from './ejecutores/anotar-nota'
+import { ejecutarConsultarNotas } from './ejecutores/consultar-notas'
+import { ejecutarModificarNota } from './ejecutores/modificar-nota'
 
 /** Mapa de nombre → función ejecutora */
 export const REGISTRO_EJECUTORES: Record<NombreHerramienta, EjecutorHerramienta> = {
@@ -38,6 +41,9 @@ export const REGISTRO_EJECUTORES: Record<NombreHerramienta, EjecutorHerramienta>
   modificar_visita: ejecutarModificarVisita,
   modificar_presupuesto: ejecutarModificarPresupuesto,
   modificar_evento: ejecutarModificarEvento,
+  anotar_nota: ejecutarAnotarNota,
+  consultar_notas: ejecutarConsultarNotas,
+  modificar_nota: ejecutarModificarNota,
 }
 
 /**

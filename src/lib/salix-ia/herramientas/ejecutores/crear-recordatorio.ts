@@ -25,6 +25,10 @@ export async function ejecutarCrearRecordatorio(
   const tipoRecordatorio = tipos?.find((t: { clave: string }) => t.clave === 'recordatorio')
     || tipos?.[0]
 
+  if (!tipoRecordatorio) {
+    return { exito: false, error: 'No hay tipos de evento configurados en la empresa. Contactá al administrador.' }
+  }
+
   // Crear el evento en el calendario
   const fechaInicio = new Date(fecha)
   const fechaFin = new Date(fechaInicio.getTime() + 30 * 60 * 1000) // 30 min por defecto
@@ -46,7 +50,7 @@ export async function ejecutarCrearRecordatorio(
       asignado_ids: [ctx.usuario_id],
       estado: 'confirmado',
     })
-    .select('id, titulo, fecha_inicio')
+    .select('id, titulo, descripcion, fecha_inicio, fecha_fin, tipo_clave, estado')
     .single()
 
   if (errorEvento) {

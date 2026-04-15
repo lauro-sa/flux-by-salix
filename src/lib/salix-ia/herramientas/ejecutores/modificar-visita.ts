@@ -66,6 +66,7 @@ export async function ejecutarModificarVisita(
   }
 
   cambios.actualizado_en = new Date().toISOString()
+  cambios.editado_por = ctx.usuario_id
 
   const { error } = await ctx.admin
     .from('visitas')

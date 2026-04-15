@@ -2,7 +2,8 @@
 
 /**
  * useSalixIA — Hook para gestionar el estado del chat con Salix IA.
- * Maneja: streaming SSE, mensajes, loading, conversación actual.
+ * Maneja: streaming SSE, mensajes, loading, conversación actual, historial.
+ * Incluye retry automático en errores transitorios (rate limit, timeout, red).
  */
 
 import { useState, useCallback, useRef } from 'react'
@@ -16,12 +17,47 @@ interface MensajeChat {
   cargando?: boolean
 }
 
+interface ConversacionResumen {
+  id: string
+  titulo: string
+  canal: 'app' | 'whatsapp'
+  actualizado_en: string
+}
+
 interface EstadoSalixIA {
   mensajes: MensajeChat[]
   cargando: boolean
   conversacion_id: string | null
   error: string | null
+  conversaciones: ConversacionResumen[]
 }
+
+/** Errores transitorios que justifican un retry automático */
+function esErrorTransitorio(mensaje: string): boolean {
+  const lower = mensaje.toLowerCase()
+  return (
+    lower.includes('rate limit') ||
+    lower.includes('too many requests') ||
+    lower.includes('429') ||
+    lower.includes('overloaded') ||
+    lower.includes('503') ||
+    lower.includes('timeout') ||
+    lower.includes('network') ||
+    lower.includes('fetch failed') ||
+    lower.includes('failed to fetch') ||
+    lower.includes('econnreset') ||
+    lower.includes('temporarily') ||
+    lower.includes('saturado')
+  )
+}
+
+/** Delay con backoff exponencial: 2s, 4s, 8s */
+function delayRetry(intento: number): Promise<void> {
+  const ms = Math.min(2000 * Math.pow(2, intento), 8000)
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+const MAX_REINTENTOS = 2
 
 export function useSalixIA() {
   const [estado, setEstado] = useState<EstadoSalixIA>({
@@ -29,9 +65,55 @@ export function useSalixIA() {
     cargando: false,
     conversacion_id: null,
     error: null,
+    conversaciones: [],
   })
 
   const abortControllerRef = useRef<AbortController | null>(null)
+
+  /** Ejecuta el fetch con retry automático en errores transitorios */
+  const fetchConRetry = async (
+    texto: string,
+    conversacion_id: string | null,
+    signal: AbortSignal
+  ): Promise<Response> => {
+    let ultimoError: Error | null = null
+
+    for (let intento = 0; intento <= MAX_REINTENTOS; intento++) {
+      try {
+        const res = await fetch('/api/salix-ia/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mensaje: texto, conversacion_id }),
+          signal,
+        })
+
+        if (res.ok) return res
+
+        // Verificar si el error HTTP es transitorio
+        if (res.status === 429 || res.status === 503 || res.status === 504) {
+          if (intento < MAX_REINTENTOS) {
+            await delayRetry(intento)
+            continue
+          }
+        }
+
+        // Error no transitorio — lanzar inmediatamente
+        const errorData = await res.json().catch(() => ({ error: `Error ${res.status}` }))
+        throw new Error(errorData.error || `Error al comunicarse con Salix IA`)
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') throw err
+
+        ultimoError = err as Error
+        if (esErrorTransitorio(ultimoError.message) && intento < MAX_REINTENTOS) {
+          await delayRetry(intento)
+          continue
+        }
+        throw ultimoError
+      }
+    }
+
+    throw ultimoError || new Error('Error inesperado')
+  }
 
   /** Enviar un mensaje a Salix IA */
   const enviarMensaje = useCallback(async (texto: string) => {
@@ -72,20 +154,7 @@ export function useSalixIA() {
     }))
 
     try {
-      const res = await fetch('/api/salix-ia/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mensaje: texto,
-          conversacion_id: estado.conversacion_id,
-        }),
-        signal: controller.signal,
-      })
-
-      if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.error || 'Error al comunicarse con Salix IA')
-      }
+      const res = await fetchConRetry(texto, estado.conversacion_id, controller.signal)
 
       const reader = res.body?.getReader()
       if (!reader) throw new Error('Sin stream de respuesta')
@@ -114,7 +183,7 @@ export function useSalixIA() {
 
             switch (evento.tipo) {
               case 'texto':
-                textoAcumulado = evento.datos.contenido
+                textoAcumulado += evento.datos.contenido
                 setEstado((prev) => ({
                   ...prev,
                   mensajes: prev.mensajes.map((m) =>
@@ -175,16 +244,18 @@ export function useSalixIA() {
         mensajes: prev.mensajes.filter((m) => m.id !== idMensajeAsistente),
       }))
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado.cargando, estado.conversacion_id])
 
   /** Iniciar nueva conversación */
   const nuevaConversacion = useCallback(() => {
-    setEstado({
+    setEstado((prev) => ({
+      ...prev,
       mensajes: [],
       cargando: false,
       conversacion_id: null,
       error: null,
-    })
+    }))
   }, [])
 
   /** Cargar conversación existente */
@@ -194,23 +265,79 @@ export function useSalixIA() {
       if (!res.ok) return
 
       const data = await res.json()
-      const mensajes: MensajeChat[] = (data.mensajes || []).map(
-        (m: { role: string; content: string; timestamp?: string }, i: number) => ({
-          id: `hist-${i}`,
-          rol: m.role === 'user' ? 'usuario' : 'asistente',
-          contenido: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
-          timestamp: m.timestamp || data.creado_en,
-        })
-      )
 
-      setEstado({
+      // Filtrar mensajes: solo mostrar texto del usuario y texto del asistente.
+      // Los bloques tool_use/tool_result se persisten para contexto de Claude
+      // pero no se muestran al usuario en el panel.
+      const mensajes: MensajeChat[] = []
+      for (const [i, m] of (data.mensajes || []).entries()) {
+        const msg = m as { role: string; content: string | Array<{ type: string; text?: string; name?: string }>; timestamp?: string }
+
+        if (typeof msg.content === 'string') {
+          // Mensaje de texto simple — siempre mostrar
+          if (msg.content.trim()) {
+            mensajes.push({
+              id: `hist-${i}`,
+              rol: msg.role === 'user' ? 'usuario' : 'asistente',
+              contenido: msg.content,
+              timestamp: msg.timestamp || data.creado_en,
+            })
+          }
+        } else if (Array.isArray(msg.content)) {
+          // Bloques mixtos — extraer solo texto visible, ignorar tool_use/tool_result
+          const textos = msg.content
+            .filter((b: { type: string }) => b.type === 'text')
+            .map((b: { text?: string }) => b.text || '')
+            .join('\n')
+            .trim()
+
+          // Extraer nombres de herramientas usadas para mostrar badge
+          const herramientas = msg.content
+            .filter((b: { type: string }) => b.type === 'tool_use')
+            .map((b: { name?: string }) => b.name || '')
+
+          if (textos || herramientas.length > 0) {
+            mensajes.push({
+              id: `hist-${i}`,
+              rol: msg.role === 'user' ? 'usuario' : 'asistente',
+              contenido: textos || '_(procesando herramientas)_',
+              timestamp: msg.timestamp || data.creado_en,
+              herramientas: herramientas.length > 0 ? herramientas : undefined,
+            })
+          }
+        }
+      }
+
+      setEstado((prev) => ({
+        ...prev,
         mensajes,
         cargando: false,
         conversacion_id: id,
         error: null,
-      })
+      }))
     } catch {
       // Si falla, simplemente no carga
+    }
+  }, [])
+
+  /** Cargar listado de conversaciones anteriores */
+  const cargarConversaciones = useCallback(async () => {
+    try {
+      const res = await fetch('/api/salix-ia/conversaciones')
+      if (!res.ok) return
+
+      const data = await res.json()
+      setEstado((prev) => ({
+        ...prev,
+        conversaciones: (data || []).map((c: { id: string; titulo: string; canal: string; actualizado_en: string }) => ({
+          id: c.id,
+          titulo: c.titulo || 'Sin título',
+          canal: c.canal as 'app' | 'whatsapp',
+          actualizado_en: c.actualizado_en,
+        })),
+      }))
+    } catch {
+      // Silencioso
     }
   }, [])
 
@@ -219,5 +346,6 @@ export function useSalixIA() {
     enviarMensaje,
     nuevaConversacion,
     cargarConversacion,
+    cargarConversaciones,
   }
 }

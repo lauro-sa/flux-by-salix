@@ -122,9 +122,40 @@ const DEFAULTS: ConfigIA = {
   prompt_asistente_presupuestos: '',
 }
 
-type SubSeccion = 'panel' | 'configuracion' | 'asistentes'
+type SubSeccion = 'panel' | 'configuracion' | 'asistentes' | 'copiloto'
 
 const SLUGS_IA = ['agente_ia', 'salix_ia', 'chatbot_inbox', 'automatizaciones']
+
+/** Herramientas disponibles para Salix IA Copiloto con nombres legibles */
+const HERRAMIENTAS_COPILOTO = [
+  { id: 'buscar_contactos', nombre: 'Buscar contactos', grupo: 'Contactos' },
+  { id: 'obtener_contacto', nombre: 'Ver detalle de contacto', grupo: 'Contactos' },
+  { id: 'crear_contacto', nombre: 'Crear contacto', grupo: 'Contactos' },
+  { id: 'crear_actividad', nombre: 'Crear actividad', grupo: 'Actividades' },
+  { id: 'modificar_actividad', nombre: 'Modificar/eliminar actividad', grupo: 'Actividades' },
+  { id: 'consultar_actividades', nombre: 'Consultar actividades', grupo: 'Actividades' },
+  { id: 'crear_visita', nombre: 'Agendar visita', grupo: 'Visitas' },
+  { id: 'modificar_visita', nombre: 'Modificar visita', grupo: 'Visitas' },
+  { id: 'consultar_visitas', nombre: 'Consultar visitas', grupo: 'Visitas' },
+  { id: 'crear_recordatorio', nombre: 'Crear recordatorio', grupo: 'Calendario' },
+  { id: 'consultar_calendario', nombre: 'Consultar calendario', grupo: 'Calendario' },
+  { id: 'modificar_evento', nombre: 'Modificar evento', grupo: 'Calendario' },
+  { id: 'consultar_asistencias', nombre: 'Consultar asistencias', grupo: 'Asistencias' },
+  { id: 'buscar_presupuestos', nombre: 'Buscar presupuestos', grupo: 'Presupuestos' },
+  { id: 'modificar_presupuesto', nombre: 'Cambiar estado presupuesto', grupo: 'Presupuestos' },
+  { id: 'anotar_nota', nombre: 'Crear nota', grupo: 'Notas' },
+  { id: 'consultar_notas', nombre: 'Consultar notas', grupo: 'Notas' },
+  { id: 'modificar_nota', nombre: 'Modificar/eliminar nota', grupo: 'Notas' },
+]
+
+interface ConfigCopiloto {
+  habilitado: boolean
+  nombre: string
+  personalidad: string
+  herramientas_habilitadas: string[]
+  whatsapp_copilot_habilitado: boolean
+  max_iteraciones_herramientas: number
+}
 
 // ==================== COMPONENTE PRINCIPAL ====================
 
@@ -237,6 +268,7 @@ export function SeccionIA() {
           { id: 'panel' as const, icono: <BarChart3 size={15} />, etiqueta: 'Panel' },
           { id: 'configuracion' as const, icono: <Settings2 size={15} />, etiqueta: 'Configuración' },
           { id: 'asistentes' as const, icono: <MessageSquare size={15} />, etiqueta: 'Asistentes' },
+          { id: 'copiloto' as const, icono: <Zap size={15} />, etiqueta: 'Copiloto' },
         ]).map(s => (
           <Boton
             key={s.id}
@@ -558,6 +590,262 @@ export function SeccionIA() {
           <AsistentePresupuestos config={config} onActualizar={act} />
         </div>
       )}
+
+      {/* ==================== TAB: COPILOTO ==================== */}
+      {subSeccion === 'copiloto' && (
+        <TabCopiloto empresaId={empresa?.id} supabase={supabase} />
+      )}
+    </div>
+  )
+}
+
+// ==================== TAB COPILOTO ====================
+
+/** Tab de configuración de Salix IA Copiloto (chat flotante + WhatsApp) */
+function TabCopiloto({ empresaId, supabase }: {
+  empresaId?: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any
+}) {
+  const DEFAULTS_COPILOTO: ConfigCopiloto = {
+    habilitado: false,
+    nombre: 'Salix IA',
+    personalidad: '',
+    herramientas_habilitadas: HERRAMIENTAS_COPILOTO.map(h => h.id),
+    whatsapp_copilot_habilitado: false,
+    max_iteraciones_herramientas: 5,
+  }
+
+  const [copiloto, setCopiloto] = useState<ConfigCopiloto>(DEFAULTS_COPILOTO)
+  const [cargando, setCargando] = useState(true)
+
+  const guardarCopiloto = useCallback(async (datos: Record<string, unknown>) => {
+    if (!empresaId) return false
+    const { error } = await supabase
+      .from('config_salix_ia')
+      .upsert(
+        { empresa_id: empresaId, ...datos, actualizado_en: new Date().toISOString() },
+        { onConflict: 'empresa_id' }
+      )
+    return !error
+  }, [empresaId, supabase])
+
+  const { estado: estadoCopiloto, guardarInmediato: guardarCopilotoInm } = useAutoguardado({ onGuardar: guardarCopiloto })
+
+  useEffect(() => {
+    if (!empresaId) return
+    const cargar = async () => {
+      setCargando(true)
+      const { data } = await supabase
+        .from('config_salix_ia')
+        .select('*')
+        .eq('empresa_id', empresaId)
+        .single()
+      if (data) {
+        setCopiloto({ ...DEFAULTS_COPILOTO, ...data })
+      }
+      setCargando(false)
+    }
+    cargar()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresaId, supabase])
+
+  const actCop = (cambios: Partial<ConfigCopiloto>) => {
+    setCopiloto(prev => ({ ...prev, ...cambios }))
+    guardarCopilotoInm(cambios as Record<string, unknown>)
+  }
+
+  if (cargando) return <CargadorSeccion />
+
+  // Agrupar herramientas por grupo
+  const grupos = HERRAMIENTAS_COPILOTO.reduce<Record<string, typeof HERRAMIENTAS_COPILOTO>>((acc, h) => {
+    if (!acc[h.grupo]) acc[h.grupo] = []
+    acc[h.grupo].push(h)
+    return acc
+  }, {})
+
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-texto-terciario">
+            Configurá el copiloto interno de Salix IA: el asistente que los miembros del equipo usan desde el chat flotante y por WhatsApp.
+          </p>
+        </div>
+        <IndicadorGuardado estado={estadoCopiloto} />
+      </div>
+
+      {/* ── SECCIÓN: ESTADO GENERAL ── */}
+      <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-5 space-y-5">
+        {/* Toggle habilitado */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-texto-marca/10 flex items-center justify-center shrink-0">
+              <Zap size={20} className="text-texto-marca" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-texto-primario">Copiloto Salix IA</h3>
+              <p className="text-xs text-texto-terciario mt-0.5">
+                Permite que los miembros usen el chat flotante dentro de Flux
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => actCop({ habilitado: !copiloto.habilitado })}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer border-0 ${
+              copiloto.habilitado ? 'bg-texto-marca' : 'bg-borde-fuerte'
+            }`}
+          >
+            <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+              copiloto.habilitado ? 'translate-x-6' : 'translate-x-1'
+            }`} />
+          </button>
+        </div>
+
+        {/* Toggle WhatsApp copilot */}
+        <div className="flex items-center justify-between pt-4 border-t border-white/[0.07]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--canal-whatsapp)', opacity: 0.15 }}>
+              <MessageSquare size={20} style={{ color: 'var(--canal-whatsapp)' }} />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-texto-primario">Copiloto por WhatsApp</h3>
+              <p className="text-xs text-texto-terciario mt-0.5">
+                Los miembros del equipo pueden enviar mensajes al número de WhatsApp de la empresa y son atendidos por Salix IA
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => actCop({ whatsapp_copilot_habilitado: !copiloto.whatsapp_copilot_habilitado })}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer border-0 ${
+              copiloto.whatsapp_copilot_habilitado ? 'bg-texto-marca' : 'bg-borde-fuerte'
+            }`}
+          >
+            <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+              copiloto.whatsapp_copilot_habilitado ? 'translate-x-6' : 'translate-x-1'
+            }`} />
+          </button>
+        </div>
+      </div>
+
+      {/* ── SECCIÓN: NOMBRE Y PERSONALIDAD ── */}
+      <SeccionConfig titulo="Identidad del copiloto" descripcion="Personalizá el nombre y la personalidad de Salix IA para tu empresa.">
+        <FilaConfig titulo="Nombre" descripcion="Cómo se presenta el copiloto al responder mensajes.">
+          <div className="w-48">
+            <Input
+              value={copiloto.nombre}
+              onChange={(e) => setCopiloto(prev => ({ ...prev, nombre: e.target.value }))}
+              onBlur={() => actCop({ nombre: copiloto.nombre })}
+              compacto
+              formato={null}
+            />
+          </div>
+        </FilaConfig>
+
+        <Separador />
+
+        <FilaConfig
+          titulo="Personalidad"
+          descripcion="Instrucciones adicionales sobre cómo debe responder: tono, estilo, restricciones específicas de tu empresa."
+          vertical
+        >
+          <TextArea
+            value={copiloto.personalidad}
+            onChange={(e) => setCopiloto(prev => ({ ...prev, personalidad: e.target.value }))}
+            onBlur={() => actCop({ personalidad: copiloto.personalidad })}
+            rows={4}
+            placeholder="Ej: Respondé siempre de manera formal. Cuando alguien pregunte por precios, aclará que son sin IVA..."
+            compacto
+          />
+        </FilaConfig>
+
+        <Separador />
+
+        <FilaConfig
+          titulo="Máx. iteraciones de herramientas"
+          descripcion="Cuántas herramientas puede ejecutar en cadena antes de responder. Más = más preciso pero más lento y costoso."
+        >
+          <div className="w-20">
+            <Input
+              tipo="number"
+              value={copiloto.max_iteraciones_herramientas.toString()}
+              onChange={(e) => actCop({ max_iteraciones_herramientas: parseInt(e.target.value) || 5 })}
+              compacto
+              formato={null}
+            />
+          </div>
+        </FilaConfig>
+      </SeccionConfig>
+
+      {/* ── SECCIÓN: HERRAMIENTAS ── */}
+      <SeccionConfig titulo="Herramientas habilitadas" descripcion="Controlá qué acciones puede realizar el copiloto. Los permisos individuales de cada usuario siguen aplicando.">
+        <div className="space-y-4">
+          {/* Botones seleccionar/deseleccionar todo */}
+          <div className="flex gap-2">
+            <Boton
+              variante="fantasma"
+              tamano="xs"
+              onClick={() => actCop({ herramientas_habilitadas: HERRAMIENTAS_COPILOTO.map(h => h.id) })}
+            >
+              Seleccionar todas
+            </Boton>
+            <Boton
+              variante="fantasma"
+              tamano="xs"
+              onClick={() => actCop({ herramientas_habilitadas: [] })}
+            >
+              Deseleccionar todas
+            </Boton>
+          </div>
+
+          {/* Herramientas agrupadas */}
+          {Object.entries(grupos).map(([grupo, herramientas]) => (
+            <div key={grupo}>
+              <h4 className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider mb-2">{grupo}</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                {herramientas.map(h => {
+                  const activo = copiloto.herramientas_habilitadas.includes(h.id)
+                  return (
+                    <button
+                      key={h.id}
+                      onClick={() => {
+                        const nuevas = activo
+                          ? copiloto.herramientas_habilitadas.filter(id => id !== h.id)
+                          : [...copiloto.herramientas_habilitadas, h.id]
+                        actCop({ herramientas_habilitadas: nuevas })
+                      }}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-all text-left bg-transparent cursor-pointer text-sm ${
+                        activo
+                          ? 'border-texto-marca/30 bg-texto-marca/5 text-texto-primario'
+                          : 'border-borde-sutil text-texto-terciario hover:border-borde-fuerte'
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+                        activo ? 'bg-texto-marca border-texto-marca' : 'bg-transparent border-borde-fuerte'
+                      }`}>
+                        {activo && <Check size={10} className="text-white" />}
+                      </div>
+                      {h.nombre}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </SeccionConfig>
+
+      {/* Info */}
+      <div className="rounded-xl bg-superficie-hover/40 p-4">
+        <div className="flex items-start gap-2">
+          <Shield size={14} className="text-texto-terciario shrink-0 mt-0.5" />
+          <div className="text-xs text-texto-terciario space-y-1">
+            <p><strong>Permisos individuales:</strong> Aunque una herramienta esté habilitada acá, cada usuario solo puede usarla si su rol tiene permiso para esa acción.</p>
+            <p><strong>WhatsApp:</strong> Para que funcione el copiloto por WhatsApp, cada miembro debe tener su teléfono registrado en su perfil y Salix IA habilitado en su cuenta.</p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

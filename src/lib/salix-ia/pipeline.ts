@@ -14,6 +14,9 @@ import type {
   ParamsPipeline,
   ResultadoPipeline,
   MensajeSalixIA,
+  BloqueTexto,
+  BloqueToolUse,
+  BloqueToolResult,
   ConfigSalixIA,
   ConfigIA,
   ContextoSalixIA,
@@ -66,8 +69,9 @@ export async function ejecutarSalixIA(params: ParamsPipeline): Promise<Resultado
   // 4. Preparar tools para Anthropic
   const tools = herramientasPermitidas.map((h) => h.definicion)
 
-  // 5. Construir mensajes para la API
-  const mensajesAPI = construirMensajesAPI(historial, mensaje)
+  // 5. Construir mensajes para la API (con ventana deslizante para limitar tokens)
+  const historialRecortado = recortarHistorial(historial)
+  const mensajesAPI = construirMensajesAPI(historialRecortado, mensaje)
 
   // 6. Loop de tool_use
   const maxIteraciones = configSalix.max_iteraciones_herramientas || 5
@@ -139,10 +143,17 @@ export async function ejecutarSalixIA(params: ParamsPipeline): Promise<Resultado
     }
 
     // Hay tool_use — ejecutar herramientas
-    // Agregar respuesta del assistant a los mensajes
+    // Agregar respuesta del assistant a los mensajes API y al historial persistido
     mensajesAPI.push({
       role: 'assistant',
       content: respuesta.content,
+    })
+
+    // Persistir el tool_use del assistant en mensajes_nuevos (para contexto futuro)
+    mensajesNuevos.push({
+      role: 'assistant',
+      content: respuesta.content as (BloqueTexto | BloqueToolUse)[],
+      timestamp: new Date().toISOString(),
     })
 
     // Ejecutar cada herramienta y acumular resultados
@@ -180,6 +191,13 @@ export async function ejecutarSalixIA(params: ParamsPipeline): Promise<Resultado
     mensajesAPI.push({
       role: 'user',
       content: toolResults,
+    })
+
+    // Persistir los tool_results en mensajes_nuevos (para contexto futuro)
+    mensajesNuevos.push({
+      role: 'user',
+      content: toolResults as BloqueToolResult[],
+      timestamp: new Date().toISOString(),
     })
   }
 
@@ -242,6 +260,28 @@ export async function ejecutarSalixIA(params: ParamsPipeline): Promise<Resultado
   }
 }
 
+/**
+ * Recorta el historial para no exceder el límite de tokens.
+ * Mantiene los últimos N mensajes (ventana deslizante).
+ * Prioriza mantener los mensajes más recientes que tienen contexto relevante.
+ * MAX_MENSAJES_HISTORIAL controla cuántos mensajes se envían a Claude.
+ */
+const MAX_MENSAJES_HISTORIAL = 40
+
+function recortarHistorial(historial: MensajeSalixIA[]): MensajeSalixIA[] {
+  if (historial.length <= MAX_MENSAJES_HISTORIAL) return historial
+
+  // Tomar los últimos N mensajes
+  const recortado = historial.slice(-MAX_MENSAJES_HISTORIAL)
+
+  // Asegurar que el primer mensaje sea del usuario (Anthropic lo requiere)
+  while (recortado.length > 0 && recortado[0].role !== 'user') {
+    recortado.shift()
+  }
+
+  return recortado
+}
+
 /** Construye el array de mensajes para la API de Anthropic a partir del historial */
 function construirMensajesAPI(
   historial: MensajeSalixIA[],
@@ -249,7 +289,7 @@ function construirMensajesAPI(
 ): { role: string; content: unknown }[] {
   const mensajes: { role: string; content: unknown }[] = []
 
-  // Agregar historial previo
+  // Agregar historial previo — incluye texto, tool_use y tool_result
   for (const msg of historial) {
     mensajes.push({
       role: msg.role,
@@ -263,7 +303,39 @@ function construirMensajesAPI(
     content: mensajeNuevo,
   })
 
-  return mensajes
+  // Sanitizar: fusionar mensajes consecutivos del mismo rol (Anthropic lo requiere)
+  return fusionarMensajesConsecutivos(mensajes)
+}
+
+/**
+ * Fusiona mensajes consecutivos del mismo rol para cumplir con la API de Anthropic.
+ * Anthropic requiere que los mensajes alternen entre user y assistant.
+ * Esto puede pasar cuando el historial tiene tool_result (role: user) seguido del nuevo mensaje (role: user).
+ */
+function fusionarMensajesConsecutivos(
+  mensajes: { role: string; content: unknown }[]
+): { role: string; content: unknown }[] {
+  const resultado: { role: string; content: unknown }[] = []
+
+  for (const msg of mensajes) {
+    const ultimo = resultado[resultado.length - 1]
+
+    if (ultimo && ultimo.role === msg.role) {
+      // Fusionar: convertir ambos a arrays de bloques y concatenar
+      const bloquesExistentes = Array.isArray(ultimo.content)
+        ? ultimo.content
+        : [{ type: 'text', text: ultimo.content as string }]
+      const bloquesNuevos = Array.isArray(msg.content)
+        ? msg.content
+        : [{ type: 'text', text: msg.content as string }]
+
+      ultimo.content = [...bloquesExistentes, ...bloquesNuevos]
+    } else {
+      resultado.push({ ...msg })
+    }
+  }
+
+  return resultado
 }
 
 /** Crea un resultado de error sin llamar al LLM */

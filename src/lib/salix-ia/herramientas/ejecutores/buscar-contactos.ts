@@ -68,9 +68,13 @@ export async function ejecutarBuscarContactos(
   }))
 
   // Post-filtro para multi-palabra: verificar que TODAS las palabras aparezcan
+  // Incluye teléfono, cargo y whatsapp para no perder matches por campos null
   if (palabras.length >= 2) {
-    contactos = contactos.filter((c: { nombre: string; correo: string | null; empresa: string | null }) => {
-      const textoCompleto = [c.nombre, c.correo, c.empresa].filter(Boolean).join(' ').toLowerCase()
+    contactos = contactos.filter((c: { nombre: string; correo: string | null; empresa: string | null; telefono: string | null; cargo: string | null; whatsapp: string | null }) => {
+      const textoCompleto = [c.nombre, c.correo, c.empresa, c.telefono, c.cargo, c.whatsapp]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
       return palabras.every(p => textoCompleto.includes(p.toLowerCase()))
     })
   }

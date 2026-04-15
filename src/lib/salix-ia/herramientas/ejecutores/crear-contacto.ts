@@ -40,15 +40,44 @@ export async function ejecutarCrearContacto(
     ? [perfil.nombre, perfil.apellido].filter(Boolean).join(' ')
     : 'Salix IA'
 
+  const correo = (params.correo as string)?.trim()?.toLowerCase() || null
+  const telefono = (params.telefono as string)?.trim() || null
+
+  // Verificar duplicados por correo o teléfono
+  if (correo || telefono) {
+    let queryDup = ctx.admin
+      .from('contactos')
+      .select('id, nombre, apellido, correo, telefono')
+      .eq('empresa_id', ctx.empresa_id)
+      .eq('en_papelera', false)
+
+    const filtros: string[] = []
+    if (correo) filtros.push(`correo.eq.${correo}`)
+    if (telefono) filtros.push(`telefono.eq.${telefono}`)
+    queryDup = queryDup.or(filtros.join(','))
+
+    const { data: duplicados } = await queryDup.limit(3)
+    if (duplicados && duplicados.length > 0) {
+      const nombres = duplicados.map((d: { nombre: string; apellido: string; correo: string; telefono: string }) =>
+        `${d.nombre} ${d.apellido || ''}`.trim() + (d.correo ? ` (${d.correo})` : '') + (d.telefono ? ` — ${d.telefono}` : '')
+      )
+      return {
+        exito: false,
+        error: `Ya existe un contacto con ese ${correo ? 'correo' : 'teléfono'}:\n${nombres.join('\n')}\n¿Querés crear uno nuevo igual o usar el existente?`,
+        datos: { duplicados },
+      }
+    }
+  }
+
   const { data, error } = await ctx.admin
     .from('contactos')
     .insert({
       empresa_id: ctx.empresa_id,
       nombre,
       apellido: (params.apellido as string)?.trim() || '',
-      telefono: (params.telefono as string)?.trim() || null,
-      whatsapp: (params.whatsapp as string)?.trim() || (params.telefono as string)?.trim() || null,
-      correo: (params.correo as string)?.trim()?.toLowerCase() || null,
+      telefono,
+      whatsapp: (params.whatsapp as string)?.trim() || telefono,
+      correo,
       rubro: (params.empresa as string)?.trim() || null,
       cargo: (params.cargo as string)?.trim() || null,
       notas: (params.notas as string)?.trim() || null,
@@ -56,6 +85,7 @@ export async function ejecutarCrearContacto(
       origen: 'salix_ia',
       creado_por: ctx.usuario_id,
       creado_por_nombre: nombreCreador,
+      actualizado_por: ctx.usuario_id,
       activo: true,
       es_provisorio: false,
     })

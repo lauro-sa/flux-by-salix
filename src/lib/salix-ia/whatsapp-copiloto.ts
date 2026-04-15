@@ -65,13 +65,19 @@ export async function procesarMensajeCopiloto(
     return true // Retornar true para que no caiga a Valentina
   }
 
-  // Buscar o crear conversación de Salix IA para este empleado via WhatsApp
+  // Buscar conversación del día de hoy para este empleado vía WhatsApp.
+  // Cada día se crea una conversación nueva — el contexto se mantiene durante todo el día.
+  // Si necesita info de días anteriores, las herramientas de consulta la encuentran.
+  const hoyInicio = new Date()
+  hoyInicio.setHours(0, 0, 0, 0)
+
   let { data: conversacion } = await admin
     .from('conversaciones_salix_ia')
-    .select('id, mensajes')
+    .select('id, mensajes, actualizado_en')
     .eq('empresa_id', canal.empresa_id)
     .eq('usuario_id', empleado.miembro.usuario_id)
     .eq('canal', 'whatsapp')
+    .gte('actualizado_en', hoyInicio.toISOString())
     .order('actualizado_en', { ascending: false })
     .limit(1)
     .maybeSingle()

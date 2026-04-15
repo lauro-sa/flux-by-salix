@@ -70,9 +70,14 @@ export async function ejecutarCrearVisita(
     weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
   })
 
+  let mensaje = `Visita a ${contactoNombre} programada para ${fechaFormateada}.`
+  if (!direccion) {
+    mensaje += '\n⚠ _El contacto no tiene dirección registrada. Podés agregarla desde su ficha._'
+  }
+
   return {
     exito: true,
     datos: visita,
-    mensaje_usuario: `Visita a ${contactoNombre} programada para ${fechaFormateada}.`,
+    mensaje_usuario: mensaje,
   }
 }

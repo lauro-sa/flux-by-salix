@@ -26,6 +26,9 @@ export type NombreHerramienta =
   | 'modificar_visita'
   | 'modificar_presupuesto'
   | 'modificar_evento'
+  | 'anotar_nota'
+  | 'consultar_notas'
+  | 'modificar_nota'
 
 /** Definición de una herramienta con su schema Anthropic y metadata de permisos */
 export interface DefinicionHerramienta {
