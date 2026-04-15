@@ -238,10 +238,14 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
     nombre: 'consultar_actividades',
     definicion: {
       name: 'consultar_actividades',
-      description: 'Consulta actividades pendientes, vencidas o completadas. Puede filtrar por tipo, estado, fecha y asignado.',
+      description: 'Consulta actividades pendientes, vencidas o completadas. Puede buscar por nombre/título, filtrar por tipo, estado, fecha y asignado.',
       input_schema: {
         type: 'object',
         properties: {
+          busqueda: {
+            type: 'string',
+            description: 'Buscar actividades por título o nombre del contacto vinculado (ej: "Nora", "llamada Pérez")',
+          },
           estado: {
             type: 'string',
             enum: ['pendiente', 'completada', 'cancelada', 'todas'],

@@ -27,8 +27,14 @@ export async function ejecutarConsultarActividades(
     .order('fecha_vencimiento', { ascending: true, nullsFirst: false })
     .limit(limite)
 
+  // Buscar por texto en título o vinculado
+  if (params.busqueda) {
+    const busq = params.busqueda as string
+    query = query.or(`titulo.ilike.%${busq}%,vinculos::text.ilike.%${busq}%`)
+  }
+
   // Filtrar por estado
-  if (estado !== 'todas') {
+  if (estado !== 'todas' && !params.busqueda) {
     query = query.eq('estado_clave', estado)
   }
 
