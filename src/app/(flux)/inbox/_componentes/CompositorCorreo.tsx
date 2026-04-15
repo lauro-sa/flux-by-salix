@@ -12,6 +12,8 @@ import {
 } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
 import { useTraduccion } from '@/lib/i18n'
+import { SelectorRespuestasRapidas } from './SelectorRespuestasRapidas'
+import type { Editor } from '@tiptap/react'
 
 /**
  * Compositor de correo rico — UI dedicada para redactar emails.
@@ -293,6 +295,11 @@ export function CompositorCorreo({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const inputArchivosRef = useRef<HTMLInputElement>(null)
+
+  // Respuestas rápidas con "/"
+  const [rrVisible, setRrVisible] = useState(false)
+  const [rrFiltro, setRrFiltro] = useState('')
+  const editorRef = useRef<Editor | null>(null)
 
   // Actualizar si cambian los props
   useEffect(() => {
@@ -595,12 +602,59 @@ export function CompositorCorreo({
             </div>
           </div>
 
-          {/* Cuerpo del correo (TipTap) */}
-          <div className="px-3 py-2" style={{ minHeight: compacto ? 120 : 200 }}>
+          {/* Cuerpo del correo (TipTap) + respuestas rápidas */}
+          <div className="px-3 py-2 relative" style={{ minHeight: compacto ? 120 : 200 }}>
+            <SelectorRespuestasRapidas
+              visible={rrVisible}
+              canal="correo"
+              filtro={rrFiltro}
+              onSeleccionar={(_texto, htmlRR) => {
+                if (editorRef.current && htmlRR) {
+                  // Borrar el "/" y filtro del editor, luego insertar HTML
+                  const editor = editorRef.current
+                  const { from } = editor.state.selection
+                  // Buscar la posición del "/" hacia atrás
+                  const doc = editor.state.doc.textContent
+                  const textoBefore = doc.slice(0, from)
+                  const slashPos = textoBefore.lastIndexOf('/')
+                  if (slashPos >= 0) {
+                    editor.chain().focus()
+                      .deleteRange({ from: slashPos + 1, to: from })
+                      .insertContent(htmlRR)
+                      .run()
+                  } else {
+                    editor.commands.insertContent(htmlRR)
+                  }
+                }
+                setRrVisible(false)
+                setRrFiltro('')
+              }}
+              onCerrar={() => { setRrVisible(false); setRrFiltro('') }}
+            />
             <EditorTexto
               contenido={htmlInicial}
-              onChange={setHtml}
-              placeholder="Escribí tu mensaje..."
+              onChange={(nuevoHtml) => {
+                setHtml(nuevoHtml)
+                // Detectar "/" para abrir selector de respuestas rápidas
+                if (editorRef.current) {
+                  const { from } = editorRef.current.state.selection
+                  const textContent = editorRef.current.state.doc.textContent
+                  const textoBefore = textContent.slice(0, from)
+                  const slashIdx = textoBefore.lastIndexOf('/')
+                  if (slashIdx >= 0 && from - slashIdx <= 30) {
+                    const filtro = textoBefore.slice(slashIdx + 1)
+                    if (!filtro.includes(' ') || filtro.length < 20) {
+                      setRrVisible(true)
+                      setRrFiltro(filtro)
+                      return
+                    }
+                  }
+                }
+                setRrVisible(false)
+                setRrFiltro('')
+              }}
+              onEditorListo={(editor) => { editorRef.current = editor }}
+              placeholder="Escribí tu mensaje... (/ para respuestas rápidas)"
               alturaMinima={compacto ? 100 : 180}
               accionesExtra={
                 <Boton variante="fantasma" tamano="xs" soloIcono titulo="Adjuntar archivo" icono={<Paperclip size={14} />} onClick={() => inputArchivosRef.current?.click()} />

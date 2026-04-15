@@ -9,6 +9,8 @@ export interface ItemNav {
   icono: React.ReactNode
   ruta: string
   badge?: number
+  /** Indicador persistente (dot) — hay items pendientes aunque no haya notificaciones */
+  indicador?: boolean
   fijo?: boolean
   seccion: 'principal' | 'documentos' | 'admin' | 'otros'
   /** Modulo del sistema de permisos — si no tiene, siempre visible */

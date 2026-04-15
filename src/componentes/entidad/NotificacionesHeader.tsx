@@ -21,6 +21,7 @@ import {
 import { useModoConcentracion } from '@/hooks/useModoConcentracion'
 import { WidgetJornada } from './WidgetJornada'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
+import { usePendientes, type ActividadPendiente } from '@/hooks/usePendientes'
 import { useRecordatorios } from './_recordatorios/useRecordatorios'
 import { FormularioRecordatorio } from './_recordatorios/FormularioRecordatorio'
 import { ListaRecordatorios } from './_recordatorios/ListaRecordatorios'
@@ -288,8 +289,8 @@ const POPOVERS: ConfigPopover[] = [
     titulo: 'Notificaciones',
     icono: Bell,
     textoVacio: 'Sin notificaciones',
-    rutaVerTodo: '/configuracion',
-    etiquetaVerTodo: 'Ver configuración',
+    rutaVerTodo: '/mi-cuenta?seccion=notificaciones',
+    etiquetaVerTodo: 'Configurar notificaciones',
   },
 ]
 
@@ -495,6 +496,128 @@ function ContenidoRecordatorios({ estado }: { estado: ReturnType<typeof useRecor
   )
 }
 
+/* ─── Contenido de actividades pendientes (reemplaza PanelNotificaciones cuando no hay notificaciones) ─── */
+
+function tiempoRelativoCorto(fecha: string): string {
+  const ahora = Date.now()
+  const target = new Date(fecha).getTime()
+  const diff = ahora - target
+  const dias = Math.floor(diff / 86400000)
+  if (dias <= 0) return 'Hoy'
+  if (dias === 1) return 'Ayer'
+  return `Hace ${dias} días`
+}
+
+function FilaActividad({ item, onClick }: { item: ActividadPendiente; onClick: () => void }) {
+  const esVencida = item.estado_clave === 'vencida' || new Date(item.fecha_vencimiento) < new Date(new Date().toDateString())
+  const color = esVencida ? 'var(--insignia-peligro-texto)' : 'var(--insignia-advertencia-texto)'
+
+  return (
+    <div
+      onClick={onClick}
+      className="flex items-center gap-3 px-4 py-2.5 border-b border-borde-sutil/50 cursor-pointer hover:bg-superficie-hover transition-colors"
+    >
+      <div
+        className="size-7 rounded-md flex items-center justify-center shrink-0"
+        style={{ backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)` }}
+      >
+        {esVencida
+          ? <AlertTriangle size={14} style={{ color }} />
+          : <CalendarClock size={14} style={{ color }} />
+        }
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-texto-primario truncate">{item.titulo}</p>
+        <p className="text-xs text-texto-terciario">{tiempoRelativoCorto(item.fecha_vencimiento)}</p>
+      </div>
+    </div>
+  )
+}
+
+function ContenidoActividadesPendientes({
+  hoyItems,
+  hoyTotal,
+  vencidasItems,
+  vencidasTotal,
+  onClickActividad,
+  onVerTodas,
+}: {
+  hoyItems: ActividadPendiente[]
+  hoyTotal: number
+  vencidasItems: ActividadPendiente[]
+  vencidasTotal: number
+  onClickActividad: (id: string) => void
+  onVerTodas: () => void
+}) {
+  return (
+    <div className="flex flex-col">
+      {/* Header del panel */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-borde-sutil shrink-0">
+        <div className="flex items-center gap-2">
+          <Zap size={15} strokeWidth={1.75} className="text-texto-terciario" />
+          <h3 className="text-sm font-semibold text-texto-primario">Actividades</h3>
+          <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xxs font-bold bg-texto-marca text-white">
+            {hoyTotal + vencidasTotal}
+          </span>
+        </div>
+      </div>
+
+      {/* Lista con scroll */}
+      <div className="overflow-y-auto" style={{ maxHeight: '380px' }}>
+        {/* Sección: Para hoy */}
+        {hoyTotal > 0 && (
+          <>
+            <div className="px-4 pt-3 pb-1.5">
+              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">
+                Para hoy ({hoyTotal})
+              </p>
+            </div>
+            {hoyItems.map(item => (
+              <FilaActividad key={item.id} item={item} onClick={() => onClickActividad(item.id)} />
+            ))}
+            {hoyTotal > hoyItems.length && (
+              <p className="text-xs text-texto-terciario px-4 py-1.5">
+                +{hoyTotal - hoyItems.length} más
+              </p>
+            )}
+          </>
+        )}
+
+        {/* Sección: Vencidas */}
+        {vencidasTotal > 0 && (
+          <>
+            <div className="px-4 pt-3 pb-1.5">
+              <p className="text-[11px] font-medium text-insignia-peligro-texto uppercase tracking-wider">
+                Vencidas ({vencidasTotal})
+              </p>
+            </div>
+            {vencidasItems.map(item => (
+              <FilaActividad key={item.id} item={item} onClick={() => onClickActividad(item.id)} />
+            ))}
+            {vencidasTotal > vencidasItems.length && (
+              <p className="text-xs text-texto-terciario px-4 py-1.5">
+                +{vencidasTotal - vencidasItems.length} más
+              </p>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Pie */}
+      <div className="border-t border-borde-sutil px-4 py-2.5 shrink-0">
+        <Boton
+          variante="fantasma"
+          tamano="xs"
+          onClick={onVerTodas}
+          className="w-full"
+        >
+          Ver todas las actividades →
+        </Boton>
+      </div>
+    </div>
+  )
+}
+
 /* ─── Componente principal ─── */
 
 function NotificacionesHeader() {
@@ -516,6 +639,8 @@ function NotificacionesHeader() {
     cargandoMas,
     hayMas,
   } = useNotificaciones({ estaSilenciada })
+
+  const pendientes = usePendientes()
 
   /* Recordatorios — se activa cuando se abre el popover de actividades en tab recordatorios */
   const estadoRecordatorios = useRecordatorios()
@@ -616,6 +741,16 @@ function NotificacionesHeader() {
                   )}
                   {esActividades && tabActividades === 'recordatorios' ? (
                     <ContenidoRecordatorios estado={estadoRecordatorios} />
+                  ) : esActividades && itemsMapeados.length === 0 && pendientes.totalActividades > 0 ? (
+                    /* Sin notificaciones pero con actividades pendientes → mostrar lista real */
+                    <ContenidoActividadesPendientes
+                      hoyItems={pendientes.actividades_hoy_items}
+                      hoyTotal={pendientes.actividades_hoy}
+                      vencidasItems={pendientes.actividades_vencidas_items}
+                      vencidasTotal={pendientes.actividades_vencidas}
+                      onClickActividad={(id) => { setPopoverAbierto(null); router.push(`/actividades?actividad_id=${id}`) }}
+                      onVerTodas={() => { setPopoverAbierto(null); router.push('/actividades') }}
+                    />
                   ) : (
                     <PanelNotificaciones
                       titulo={config.titulo}
@@ -682,6 +817,13 @@ function NotificacionesHeader() {
                 {/* Indicador de recordatorios vencidos (puntito naranja) */}
                 {esActividades && estadoRecordatorios.vencidos > 0 && badgeCount === 0 && (
                   <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-insignia-advertencia-texto pointer-events-none" />
+                )}
+                {/* Indicador de pendientes (dot marca) — cuando no hay badge ni dot de recordatorios */}
+                {badgeCount === 0
+                  && !(esActividades && estadoRecordatorios.vencidos > 0)
+                  && pendientes.hayPendientes(config.categoria)
+                  && (
+                  <span className="absolute top-0 right-0 size-2 rounded-full bg-texto-marca pointer-events-none" />
                 )}
                 {silenciada && (
                   <span className="absolute inset-0 flex items-center justify-center pointer-events-none">

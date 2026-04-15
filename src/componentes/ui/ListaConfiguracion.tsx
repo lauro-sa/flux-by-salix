@@ -198,16 +198,23 @@ function ListaConfiguracion({
   }, [onBuscar])
 
   // ─── Render de una fila ─────────────────────────────────────────
-  const renderFila = (item: ItemLista) => {
+  const renderFila = (item: ItemLista, indice?: number) => {
     const contenidoFila = (
-      <div className="flex items-center gap-2.5 px-5 py-3 transition-colors hover:bg-white/[0.02] group cursor-default">
-        {/* Drag handle */}
+      <div className={`flex items-center gap-2.5 ${ordenable ? 'pl-2 pr-5' : 'px-5'} py-3 transition-colors hover:bg-white/[0.02] group cursor-default`}>
+        {/* Número de orden / drag handle */}
         {ordenable && (
           <div
-            className="text-texto-terciario/40 cursor-grab active:cursor-grabbing shrink-0 touch-none opacity-0 group-hover:opacity-100 transition-opacity"
+            className="w-8 flex items-center justify-center shrink-0 cursor-grab active:cursor-grabbing touch-none"
             onClick={(e) => e.stopPropagation()}
           >
-            <GripVertical size={14} />
+            {/* Número visible por defecto, oculto en hover */}
+            <span className="text-xs font-bold text-texto-terciario/25 tabular-nums group-hover:hidden select-none">
+              {String((indice ?? 0) + 1).padStart(2, '0')}
+            </span>
+            {/* Ícono de arrastre visible solo en hover */}
+            <span className="hidden group-hover:flex text-texto-terciario/40">
+              <GripVertical size={16} />
+            </span>
           </div>
         )}
 

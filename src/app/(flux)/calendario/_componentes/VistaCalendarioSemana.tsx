@@ -44,26 +44,16 @@ import { INTERVALO_HEARTBEAT } from '@/lib/constantes/timeouts'
 
 // --- Constantes locales de la vista semanal ---
 
-/** Hora de inicio de la cuadrícula */
-const HORA_INICIO = 6
-/** Hora de fin de la cuadrícula */
-const HORA_FIN = 22
+/** Hora de inicio por defecto si no hay config */
+const HORA_INICIO_DEFAULT = 6
+/** Hora de fin por defecto si no hay config */
+const HORA_FIN_DEFAULT = 22
 /** Máximo de eventos todo-el-día visibles antes de "+N más" */
 const MAX_TODO_DIA = 2
 /** Ancho de la columna de horas en px */
 const ANCHO_COLUMNA_HORAS = 56
 /** Umbral mínimo en px antes de iniciar arrastre (evita conflictos con click) */
 const UMBRAL_ARRASTRE = 5
-
-// --- Utilidades locales ---
-
-/** Genera las horas del eje vertical: [6, 7, ..., 22] */
-const HORAS = Array.from({ length: HORA_FIN - HORA_INICIO + 1 }, (_, i) => HORA_INICIO + i)
-
-/** Convierte hora y minutos a posición Y en píxeles dentro de la cuadrícula */
-function tiempoAPx(horas: number, minutos: number): number {
-  return (horas * 60 + minutos - HORA_INICIO * 60) * (ALTURA_FILA / 60)
-}
 
 // --- Detección de solapamiento ---
 
@@ -83,14 +73,14 @@ interface EventoPosicionado {
  * Algoritmo: ordenar por inicio, agrupar en clusters solapados,
  * asignar columna incremental dentro de cada cluster.
  */
-function calcularPosiciones(eventosDelDia: EventoCalendario[]): EventoPosicionado[] {
+function calcularPosiciones(eventosDelDia: EventoCalendario[], horaInicio: number): EventoPosicionado[] {
   const conHora = eventosDelDia
     .filter((e) => !e.todo_el_dia)
     .map((evento) => {
       const inicio = parsearFecha(evento.fecha_inicio)
       const fin = parsearFecha(evento.fecha_fin)
-      const inicioMin = inicio.getHours() * 60 + inicio.getMinutes() - HORA_INICIO * 60
-      const finMin = fin.getHours() * 60 + fin.getMinutes() - HORA_INICIO * 60
+      const inicioMin = inicio.getHours() * 60 + inicio.getMinutes() - horaInicio * 60
+      const finMin = fin.getHours() * 60 + fin.getMinutes() - horaInicio * 60
       return { evento, inicioMin, finMin: Math.max(finMin, inicioMin + 15) }
     })
     .sort((a, b) => a.inicioMin - b.inicioMin || a.finMin - b.finMin)
@@ -278,10 +268,12 @@ interface PropiedadesVistaSemana {
   onClickEvento: (evento: EventoCalendario) => void
   /** Drag para mover evento */
   onMoverEvento?: (id: string, nuevaInicio: string, nuevaFin: string) => void
-  /** Hora de inicio de la jornada laboral (para sombrear horas no laborales) */
+  /** Hora de inicio de la jornada laboral (define el rango visible de la cuadrícula) */
   horaInicioLaboral?: number
-  /** Hora de fin de la jornada laboral (para sombrear horas no laborales) */
+  /** Hora de fin de la jornada laboral (define el rango visible de la cuadrícula) */
   horaFinLaboral?: number
+  /** Si se muestran sábado y domingo en la cuadrícula */
+  mostrarFinesSemana?: boolean
 }
 
 /** Estado de la selección por arrastre (drag-to-select) */
@@ -306,36 +298,6 @@ function redondearYA15Min(y: number): number {
   return (minutosRedondeados / 60) * ALTURA_FILA
 }
 
-/** Convierte una posición Y (px) a hora decimal (ej: 8.5 = 08:30) */
-function horaDecimalDesdeYSemana(y: number): number {
-  return HORA_INICIO + (y / ALTURA_FILA)
-}
-
-/**
- * Convierte una posición Y (px) a hora formateada "HH:MM".
- * Se usa para mostrar etiquetas durante la selección por arrastre.
- */
-function formatoHoraDesdeY(y: number): string {
-  const minutosDesdeInicio = (y / ALTURA_FILA) * 60
-  const horaTotal = HORA_INICIO * 60 + minutosDesdeInicio
-  const horas = Math.floor(horaTotal / 60)
-  const minutos = Math.round(horaTotal % 60)
-  return `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}`
-}
-
-/**
- * Convierte una posición Y (px) y un día a un objeto Date con hora correspondiente.
- */
-function fechaDesdeY(dia: Date, y: number): Date {
-  const minutosDesdeInicio = (y / ALTURA_FILA) * 60
-  const horaTotal = HORA_INICIO * 60 + minutosDesdeInicio
-  const horas = Math.floor(horaTotal / 60)
-  const minutos = Math.round(horaTotal % 60)
-  const fecha = new Date(dia)
-  fecha.setHours(horas, minutos, 0, 0)
-  return fecha
-}
-
 function VistaCalendarioSemana({
   fechaActual,
   eventos,
@@ -344,7 +306,45 @@ function VistaCalendarioSemana({
   onMoverEvento,
   horaInicioLaboral,
   horaFinLaboral,
+  mostrarFinesSemana = true,
 }: PropiedadesVistaSemana) {
+  // --- Rango horario de la cuadrícula (desde config o defaults) ---
+  const HORA_INICIO = horaInicioLaboral ?? HORA_INICIO_DEFAULT
+  const HORA_FIN = horaFinLaboral ?? HORA_FIN_DEFAULT
+  const HORAS = useMemo(
+    () => Array.from({ length: HORA_FIN - HORA_INICIO + 1 }, (_, i) => HORA_INICIO + i),
+    [HORA_INICIO, HORA_FIN],
+  )
+
+  /** Convierte hora y minutos a posición Y en píxeles dentro de la cuadrícula */
+  function tiempoAPx(horas: number, minutos: number): number {
+    return (horas * 60 + minutos - HORA_INICIO * 60) * (ALTURA_FILA / 60)
+  }
+
+  /** Convierte una posición Y (px) a hora decimal (ej: 8.5 = 08:30) */
+  function horaDecimalDesdeYSemana(y: number): number {
+    return HORA_INICIO + (y / ALTURA_FILA)
+  }
+
+  /** Convierte una posición Y (px) a hora formateada "HH:MM" */
+  function formatoHoraDesdeY(y: number): string {
+    const minutosDesdeInicio = (y / ALTURA_FILA) * 60
+    const horaTotal = HORA_INICIO * 60 + minutosDesdeInicio
+    const h = Math.floor(horaTotal / 60)
+    const m = Math.round(horaTotal % 60)
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  }
+
+  /** Convierte una posición Y (px) y un día a un objeto Date con hora correspondiente */
+  function fechaDesdeY(dia: Date, y: number): Date {
+    const minutosDesdeInicio = (y / ALTURA_FILA) * 60
+    const horaTotal = HORA_INICIO * 60 + minutosDesdeInicio
+    const h = Math.floor(horaTotal / 60)
+    const m = Math.round(horaTotal % 60)
+    const fecha = new Date(dia)
+    fecha.setHours(h, m, 0, 0)
+    return fecha
+  }
   const { formatoHora } = useFormato()
   const { t } = useTraduccion()
   const es24h = formatoHora !== '12h'
@@ -392,8 +392,14 @@ function VistaCalendarioSemana({
     return () => clearInterval(intervalo)
   }, [])
 
-  // --- Días de la semana (lunes a domingo) ---
-  const diasSemana = useMemo(() => diasDeLaSemana(fechaActual), [fechaActual])
+  // --- Días de la semana (filtrados según config) ---
+  const diasSemana = useMemo(() => {
+    const todos = diasDeLaSemana(fechaActual)
+    if (mostrarFinesSemana) return todos
+    // Filtrar sábado (6) y domingo (0)
+    return todos.filter(d => d.getDay() !== 0 && d.getDay() !== 6)
+  }, [fechaActual, mostrarFinesSemana])
+  const totalDias = diasSemana.length
 
   // --- Eventos agrupados por día ---
   const eventosPorDia = useMemo(() => {
@@ -434,20 +440,20 @@ function VistaCalendarioSemana({
   const posicionesPorDia = useMemo(() => {
     const mapa = new Map<string, EventoPosicionado[]>()
     for (const [clave, evs] of eventosPorDia) {
-      const posiciones = calcularPosiciones(evs)
+      const posiciones = calcularPosiciones(evs, HORA_INICIO)
       if (posiciones.length > 0) mapa.set(clave, posiciones)
     }
     return mapa
-  }, [eventosPorDia])
+  }, [eventosPorDia, HORA_INICIO])
 
   // --- Auto-scroll al montar: ir a la hora actual o 08:00 (la menor) ---
   useEffect(() => {
     if (!refCuadricula.current) return
     const ahora = new Date()
-    const horaObjetivo = Math.min(ahora.getHours(), horaInicioLaboral ?? 8)
+    const horaObjetivo = Math.min(ahora.getHours(), HORA_INICIO)
     const scrollY = tiempoAPx(horaObjetivo, 0)
     refCuadricula.current.scrollTop = scrollY
-  }, [])
+  }, [HORA_INICIO])
 
   // --- Altura total de la cuadrícula ---
   const alturaTotal = (HORA_FIN - HORA_INICIO) * ALTURA_FILA
@@ -534,8 +540,8 @@ function VistaCalendarioSemana({
 
         // Calcular qué columna de día está bajo el cursor
         const x = e.clientX - rectContenedor.left
-        const anchoColumna = rectContenedor.width / 7
-        const indiceDia = Math.min(Math.floor(x / anchoColumna), 6)
+        const anchoColumna = rectContenedor.width / totalDias
+        const indiceDia = Math.min(Math.floor(x / anchoColumna), totalDias - 1)
         setHoverDia(indiceDia)
       } else {
         // Limpiar hover durante arrastre
@@ -777,7 +783,7 @@ function VistaCalendarioSemana({
           />
 
           {/* Nombres y números de días */}
-          <div className="grid grid-cols-7 flex-1">
+          <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${totalDias}, 1fr)` }}>
             {diasSemana.map((dia: Date, indiceDia: number) => {
               const hoyFlag = esHoy(dia)
               // Hover crosshair: resaltar el encabezado del día bajo el cursor
@@ -822,7 +828,7 @@ function VistaCalendarioSemana({
             </div>
 
             {/* Píldoras por columna */}
-            <div className="grid grid-cols-7 flex-1">
+            <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${totalDias}, 1fr)` }}>
               {diasSemana.map((dia: Date) => {
                 const clave = claveDelDia(dia)
                 const eventosDia = eventosTodoDiaPorDia.get(clave) || []
@@ -867,6 +873,8 @@ function VistaCalendarioSemana({
 
         {/* Cuadrícula horaria (scrollable) */}
         <div ref={refCuadricula} className="flex-1 overflow-y-auto min-h-0">
+          {/* Spacer para que la primera etiqueta de hora (-translate-y-1/2) sea visible */}
+          <div className="shrink-0" style={{ height: 10 }} />
           <div className="flex relative" style={{ height: alturaTotal }}>
             {/* Columna de etiquetas de hora con resaltado de rango activo */}
             <div
@@ -919,7 +927,7 @@ function VistaCalendarioSemana({
             </div>
 
             {/* Columnas de días */}
-            <div ref={refColumnas} className="grid grid-cols-7 flex-1 relative" onMouseMove={manejarMouseMove} onMouseLeave={manejarMouseLeaveCuadricula} onTouchMove={manejarTouchMove}>
+            <div ref={refColumnas} className="grid flex-1 relative" style={{ gridTemplateColumns: `repeat(${totalDias}, 1fr)` }} onMouseMove={manejarMouseMove} onMouseLeave={manejarMouseLeaveCuadricula} onTouchMove={manejarTouchMove}>
               {/* Líneas horizontales de horas completas */}
               {HORAS.map((hora) => (
                 <div
@@ -958,20 +966,6 @@ function VistaCalendarioSemana({
                     onMouseDown={(e) => manejarMouseDown(dia, e)}
                     onTouchStart={(e) => manejarTouchStart(dia, e)}
                   >
-                    {/* Fondo horario no laboral */}
-                    {horaInicioLaboral !== undefined && horaFinLaboral !== undefined && (
-                      <>
-                        <div
-                          className="absolute left-0 right-0 top-0 bg-superficie-app/40 pointer-events-none z-[1]"
-                          style={{ height: tiempoAPx(horaInicioLaboral, 0) }}
-                        />
-                        <div
-                          className="absolute left-0 right-0 bottom-0 bg-superficie-app/40 pointer-events-none z-[1]"
-                          style={{ top: tiempoAPx(horaFinLaboral, 0) }}
-                        />
-                      </>
-                    )}
-
                     {/* Indicador de hora actual (línea roja) */}
                     {hoyFlag && lineaAhoraVisible && (
                       <div
@@ -1045,7 +1039,7 @@ function VistaCalendarioSemana({
           // Calcular nuevo día
           let deltaDias = 0
           if (refColumnas.current) {
-            const anchoColumna = refColumnas.current.getBoundingClientRect().width / 7
+            const anchoColumna = refColumnas.current.getBoundingClientRect().width / totalDias
             deltaDias = Math.round(dragDeltaX / anchoColumna)
           }
           if (deltaDias !== 0) {

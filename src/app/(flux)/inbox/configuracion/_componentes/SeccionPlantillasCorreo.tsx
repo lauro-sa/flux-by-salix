@@ -28,7 +28,7 @@ export function SeccionPlantillasCorreo({
   const handleEliminar = async (p: PlantillaRespuesta) => {
     setEliminando(true)
     try {
-      await fetch(`/api/inbox/plantillas/${p.id}`, { method: 'DELETE' })
+      await fetch(`/api/correo/plantillas/${p.id}`, { method: 'DELETE' })
       onRecargar()
     } catch { /* silenciar */ }
     finally {

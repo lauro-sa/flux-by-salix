@@ -113,12 +113,15 @@ function ItemSortable({
           activo ? 'font-semibold bg-superficie-activa' : 'font-normal hover:bg-superficie-hover hover:opacity-90!',
         ].join(' ')}
       >
-        {/* Zona izquierda: badge / grip */}
+        {/* Zona izquierda: badge / indicador / grip */}
         {esSortable && !colapsado && (
           <span className="shrink-0 w-5 h-5 flex items-center justify-center mr-1.5 rounded-full" {...attributes} {...listeners} onClick={(e) => e.stopPropagation()}>
             {item.badge != null && item.badge > 0 ? (<>
               <span className="group-hover:hidden flex items-center justify-center"><span className="size-2 rounded-full bg-texto-marca" /></span>
               <span className="hidden group-hover:flex items-center justify-center cursor-grab text-texto-terciario/50"><GripIcon /></span>
+            </>) : item.indicador ? (<>
+              <span className="group-hover:hidden flex items-center justify-center"><span className="size-1.5 rounded-full bg-texto-marca" /></span>
+              <span className="hidden group-hover:flex items-center justify-center cursor-grab text-texto-terciario/40"><GripIcon /></span>
             </>) : (
               <span className="hidden group-hover:flex items-center justify-center cursor-grab text-texto-terciario/40"><GripIcon /></span>
             )}
@@ -130,6 +133,9 @@ function ItemSortable({
 
         {colapsado && item.badge != null && item.badge > 0 && (
           <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-texto-marca" />
+        )}
+        {colapsado && !(item.badge != null && item.badge > 0) && item.indicador && (
+          <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-texto-marca" />
         )}
         {colapsado && (
           <div className="absolute left-full ml-2 px-2.5 py-1.5 rounded-md bg-superficie-elevada border border-borde-sutil shadow-md text-sm text-texto-primario whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">{item.etiqueta}</div>

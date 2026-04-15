@@ -132,24 +132,9 @@ export async function POST(request: NextRequest) {
           .select('id, hora_entrada')
           .single()
 
-        // Crear notificación persistente para el usuario
-        const horaFormateada = new Date(ahora).toLocaleTimeString('es-AR', {
-          hour: '2-digit', minute: '2-digit', hour12: false,
-          timeZone: zona,
-        })
-
-        crearNotificacion({
-          empresaId,
-          usuarioId: user.id,
-          tipo: 'fichaje_automatico',
-          titulo: `Entrada fichada a las ${horaFormateada}`,
-          cuerpo: 'Tu jornada fue registrada automáticamente al detectar actividad.',
-          icono: 'clock',
-          color: 'var(--insignia-exito)',
-          url: '/asistencias',
-          referenciaTipo: 'asistencia',
-          referenciaId: nuevoFichaje?.id,
-        }).catch(() => {})
+        // NO crear notificación aquí — se crea en el siguiente heartbeat (~5 min)
+        // para que el usuario vea "Tu entrada fue fichada a las X" después de un momento,
+        // no instantáneamente al entrar.
 
         return NextResponse.json({
           accion: 'entrada_creada',
@@ -167,6 +152,38 @@ export async function POST(request: NextRequest) {
             actualizado_en: ahora,
           })
           .eq('id', turnoHoy.id)
+
+        // Notificación diferida: si el turno se creó hace ≥3 min y aún no se notificó, crear ahora
+        const minutosDesdeEntrada = (Date.now() - new Date(turnoHoy.hora_entrada).getTime()) / 60000
+        if (minutosDesdeEntrada >= 3 && turnoHoy.hora_entrada) {
+          // Verificar si ya existe notificación para este fichaje
+          const { count } = await admin
+            .from('notificaciones')
+            .select('*', { count: 'exact', head: true })
+            .eq('usuario_id', user.id)
+            .eq('tipo', 'fichaje_automatico')
+            .eq('referencia_id', turnoHoy.id)
+
+          if (!count || count === 0) {
+            const horaFormateada = new Date(turnoHoy.hora_entrada).toLocaleTimeString('es-AR', {
+              hour: '2-digit', minute: '2-digit', hour12: false,
+              timeZone: zona,
+            })
+
+            crearNotificacion({
+              empresaId,
+              usuarioId: user.id,
+              tipo: 'fichaje_automatico',
+              titulo: `Entrada fichada a las ${horaFormateada}`,
+              cuerpo: 'Tu jornada fue registrada automáticamente al detectar actividad.',
+              icono: 'clock',
+              color: 'var(--insignia-exito)',
+              url: '/asistencias',
+              referenciaTipo: 'asistencia',
+              referenciaId: turnoHoy.id,
+            }).catch(() => {})
+          }
+        }
 
         return NextResponse.json({
           accion: 'salida_actualizada',

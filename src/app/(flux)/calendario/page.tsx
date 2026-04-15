@@ -173,6 +173,9 @@ export default function PaginaCalendario() {
   // Estado de horario laboral desde configuración de empresa
   const [horaInicioLaboral, setHoraInicioLaboral] = useState<number>(8)
   const [horaFinLaboral, setHoraFinLaboral] = useState<number>(18)
+  const [mostrarFinesSemana, setMostrarFinesSemana] = useState<boolean>(true)
+  const [diasLaborales, setDiasLaborales] = useState<number[]>([1, 2, 3, 4, 5])
+  const [intervaloSlot, setIntervaloSlot] = useState<number>(30)
 
   // --- Carga de config (tipos + vista default) y usuario actual ---
   useEffect(() => {
@@ -190,6 +193,15 @@ export default function PaginaCalendario() {
           if (datos.config?.hora_fin_laboral) {
             const [h] = datos.config.hora_fin_laboral.split(':').map(Number)
             setHoraFinLaboral(h)
+          }
+          if (datos.config?.mostrar_fines_semana !== undefined) {
+            setMostrarFinesSemana(datos.config.mostrar_fines_semana)
+          }
+          if (datos.config?.dias_laborales) {
+            setDiasLaborales(datos.config.dias_laborales)
+          }
+          if (datos.config?.intervalo_slot) {
+            setIntervaloSlot(datos.config.intervalo_slot)
           }
           // Solo aplicar vista de empresa si el usuario no tiene preferencia guardada
           const vistaUsuario = localStorage.getItem('flux_calendario_vista_usuario')
@@ -584,6 +596,7 @@ export default function PaginaCalendario() {
             onMoverEvento={moverEvento}
             horaInicioLaboral={horaInicioLaboral}
             horaFinLaboral={horaFinLaboral}
+            mostrarFinesSemana={mostrarFinesSemana}
           />
         )
 
@@ -597,6 +610,7 @@ export default function PaginaCalendario() {
             onMoverEvento={moverEvento}
             horaInicioLaboral={horaInicioLaboral}
             horaFinLaboral={horaFinLaboral}
+            mostrarFinesSemana={mostrarFinesSemana}
           />
         )
 
@@ -689,7 +703,7 @@ export default function PaginaCalendario() {
 
       {/* Vista activa — contenedor relativo para el mini calendario flotante + swipe navigation */}
       <div
-        className="flex-1 min-h-0 -mx-2 sm:-mx-6 relative"
+        className="flex flex-col flex-1 min-h-0 -mx-2 sm:-mx-6 relative"
         onTouchStart={manejarTouchStartSwipe}
         onTouchEnd={manejarTouchEndSwipe}
       >

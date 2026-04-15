@@ -23,17 +23,14 @@ import type { EventoCalendario } from './tipos'
 
 // --- Constantes ---
 
-/** Hora de inicio de la cuadrícula */
-const HORA_INICIO = 6
-/** Hora de fin de la cuadrícula */
-const HORA_FIN = 22
+/** Hora de inicio por defecto si no hay config */
+const HORA_INICIO_DEFAULT = 6
+/** Hora de fin por defecto si no hay config */
+const HORA_FIN_DEFAULT = 22
 /** Altura en píxeles de cada fila de hora */
 const ALTURA_FILA = 60
 /** Ancho de la columna de etiquetas de hora */
 const ANCHO_COLUMNA_HORAS = 56
-
-/** Genera las horas del eje vertical */
-const HORAS = Array.from({ length: HORA_FIN - HORA_INICIO + 1 }, (_, i) => HORA_INICIO + i)
 
 // --- Tipos ---
 
@@ -54,22 +51,10 @@ interface PropiedadesVistaEquipo {
   onClickHora: (fecha: Date) => void
   /** Click en evento → editar */
   onClickEvento: (evento: EventoCalendario, posicion?: { x: number; y: number }) => void
-  /** Hora de inicio del horario laboral (para resaltar) */
+  /** Hora de inicio del horario laboral (define rango visible de la cuadrícula) */
   horaInicioLaboral?: number
-  /** Hora de fin del horario laboral */
+  /** Hora de fin del horario laboral (define rango visible de la cuadrícula) */
   horaFinLaboral?: number
-}
-
-// --- Utilidades ---
-
-/** Convierte hora y minutos a posición Y en píxeles */
-function tiempoAPx(horas: number, minutos: number): number {
-  return (horas * 60 + minutos - HORA_INICIO * 60) * (ALTURA_FILA / 60)
-}
-
-/** Obtiene minutos desde HORA_INICIO para un Date */
-function minutosDesdeInicio(fecha: Date): number {
-  return (fecha.getHours() - HORA_INICIO) * 60 + fecha.getMinutes()
 }
 
 /** Inicial del nombre para el avatar */
@@ -93,7 +78,14 @@ interface EventoPosicionado {
 function calcularPosicionesMiembro(
   eventos: EventoCalendario[],
   fechaReferencia: Date,
+  horaInicio: number,
+  horaFin: number,
 ): EventoPosicionado[] {
+  /** Obtiene minutos desde horaInicio para un Date */
+  function minutosDesdeInicio(fecha: Date): number {
+    return (fecha.getHours() - horaInicio) * 60 + fecha.getMinutes()
+  }
+
   const eventosConHora = eventos
     .filter((e) => !e.todo_el_dia)
     .map((evento) => {
@@ -102,9 +94,9 @@ function calcularPosicionesMiembro(
 
       // Recortar al rango visible
       const inicioDia = new Date(fechaReferencia)
-      inicioDia.setHours(HORA_INICIO, 0, 0, 0)
+      inicioDia.setHours(horaInicio, 0, 0, 0)
       const finDia = new Date(fechaReferencia)
-      finDia.setHours(HORA_FIN, 0, 0, 0)
+      finDia.setHours(horaFin, 0, 0, 0)
 
       const inicioEfectivo = inicio < inicioDia ? inicioDia : inicio
       const finEfectivo = fin > finDia ? finDia : fin
@@ -176,6 +168,24 @@ function VistaCalendarioEquipo({
   horaInicioLaboral,
   horaFinLaboral,
 }: PropiedadesVistaEquipo) {
+  // --- Rango horario de la cuadrícula (desde config o defaults) ---
+  const HORA_INICIO = horaInicioLaboral ?? HORA_INICIO_DEFAULT
+  const HORA_FIN = horaFinLaboral ?? HORA_FIN_DEFAULT
+  const HORAS = useMemo(
+    () => Array.from({ length: HORA_FIN - HORA_INICIO + 1 }, (_, i) => HORA_INICIO + i),
+    [HORA_INICIO, HORA_FIN],
+  )
+
+  /** Convierte hora y minutos a posición Y en píxeles */
+  function tiempoAPx(horas: number, minutos: number): number {
+    return (horas * 60 + minutos - HORA_INICIO * 60) * (ALTURA_FILA / 60)
+  }
+
+  /** Obtiene minutos desde HORA_INICIO para un Date */
+  function minutosDesdeInicio(fecha: Date): number {
+    return (fecha.getHours() - HORA_INICIO) * 60 + fecha.getMinutes()
+  }
+
   const { formatoHora } = useFormato()
   const { t } = useTraduccion()
   const es24h = formatoHora !== '12h'
@@ -237,12 +247,12 @@ function VistaCalendarioEquipo({
       const eventosMiembro = eventosDelDia.filter(
         (e) => e.asignado_ids.includes(miembro.usuario_id),
       )
-      const posiciones = calcularPosicionesMiembro(eventosMiembro, fechaActual)
+      const posiciones = calcularPosicionesMiembro(eventosMiembro, fechaActual, HORA_INICIO, HORA_FIN)
       mapa.set(miembro.usuario_id, posiciones)
     }
 
     return mapa
-  }, [eventosDelDia, miembros, fechaActual])
+  }, [eventosDelDia, miembros, fechaActual, HORA_INICIO, HORA_FIN])
 
   // Posición del indicador de hora actual
   const posicionIndicadorActual = useMemo(() => {
@@ -258,10 +268,10 @@ function VistaCalendarioEquipo({
     if (!refCuadricula.current) return
     const ahora = new Date()
     const horaActual = ahora.getHours()
-    const horaObjetivo = Math.max(horaActual - 1, horaInicioLaboral ?? HORA_INICIO)
+    const horaObjetivo = Math.max(horaActual - 1, HORA_INICIO)
     const pixelesObjetivo = (horaObjetivo - HORA_INICIO) * ALTURA_FILA
     refCuadricula.current.scrollTop = pixelesObjetivo
-  }, [])
+  }, [HORA_INICIO])
 
   const alturaTotal = (HORA_FIN - HORA_INICIO) * ALTURA_FILA
   const totalColumnas = Math.max(miembros.length, 1)
@@ -341,6 +351,8 @@ function VistaCalendarioEquipo({
 
       {/* Cuadrícula horaria (scrollable) */}
       <div ref={refCuadricula} className="flex-1 overflow-y-auto min-h-0">
+        {/* Spacer para que la primera etiqueta de hora sea visible */}
+        <div className="shrink-0" style={{ height: 10 }} />
         <div className="flex relative" style={{ height: alturaTotal }}>
           {/* Columna de etiquetas de hora */}
           <div

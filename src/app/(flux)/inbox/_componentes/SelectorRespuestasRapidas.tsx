@@ -15,7 +15,7 @@ interface PropiedadesSelectorRR {
   visible: boolean
   canal: TipoCanal
   filtro: string
-  onSeleccionar: (contenido: string) => void
+  onSeleccionar: (contenido: string, contenidoHtml?: string) => void
   onCerrar: () => void
 }
 
@@ -54,8 +54,7 @@ export function SelectorRespuestasRapidas({
     const texto = filtro.toLowerCase()
     return (
       p.nombre.toLowerCase().includes(texto) ||
-      p.contenido.toLowerCase().includes(texto) ||
-      (p.categoria || '').toLowerCase().includes(texto)
+      p.contenido.toLowerCase().includes(texto)
     )
   })
 
@@ -83,7 +82,8 @@ export function SelectorRespuestasRapidas({
       setIndiceActivo(i => Math.max(i - 1, 0))
     } else if (e.key === 'Enter' && plantillasFiltradas.length > 0) {
       e.preventDefault()
-      onSeleccionar(plantillasFiltradas[indiceActivo].contenido)
+      const p = plantillasFiltradas[indiceActivo]
+      onSeleccionar(p.contenido, p.contenido_html || undefined)
     } else if (e.key === 'Escape') {
       e.preventDefault()
       onCerrar()
@@ -153,24 +153,13 @@ export function SelectorRespuestasRapidas({
                   style={{
                     background: i === indiceActivo ? 'var(--superficie-hover)' : 'transparent',
                   }}
-                  onClick={() => onSeleccionar(plantilla.contenido)}
+                  onClick={() => onSeleccionar(plantilla.contenido, plantilla.contenido_html || undefined)}
                   onMouseEnter={() => setIndiceActivo(i)}
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium" style={{ color: 'var(--texto-primario)' }}>
                       {plantilla.nombre}
                     </span>
-                    {plantilla.categoria && (
-                      <span
-                        className="text-xxs px-1.5 py-0.5 rounded"
-                        style={{
-                          background: 'var(--superficie-hover)',
-                          color: 'var(--texto-terciario)',
-                        }}
-                      >
-                        {plantilla.categoria}
-                      </span>
-                    )}
                   </div>
                   <p
                     className="text-xxs mt-0.5 line-clamp-1"

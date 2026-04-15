@@ -104,7 +104,7 @@ function FilaNotificacion({ item, onDescartar, expandido }: {
             <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
               {item.insignia}
               {item.descripcion && (
-                <p className="text-xs text-texto-terciario line-clamp-1 min-w-0">{item.descripcion}</p>
+                <p className="text-xs text-texto-terciario line-clamp-3 min-w-0">{item.descripcion}</p>
               )}
             </div>
           )}

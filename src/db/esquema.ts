@@ -1501,7 +1501,31 @@ export const correos_programados = pgTable('correos_programados', {
   index('correos_programados_estado_idx').on(tabla.estado, tabla.enviar_en),
 ])
 
-// Plantillas de respuesta rápida
+// Plantillas de correo electrónico (separadas de respuestas rápidas WhatsApp)
+export const plantillas_correo = pgTable('plantillas_correo', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  nombre: text('nombre').notNull(),
+  categoria: text('categoria'),
+  asunto: text('asunto').notNull().default(''),
+  contenido: text('contenido').notNull(), // texto plano (fallback)
+  contenido_html: text('contenido_html').notNull().default(''),
+  variables: jsonb('variables').default(sql`'[]'`),
+  modulos: text('modulos').array().default(sql`'{}'`),
+  // Permisos de acceso
+  disponible_para: text('disponible_para').notNull().default('todos'), // 'todos', 'roles', 'usuarios'
+  roles_permitidos: text('roles_permitidos').array().default(sql`'{}'`),
+  usuarios_permitidos: uuid('usuarios_permitidos').array().default(sql`'{}'`),
+  activo: boolean('activo').notNull().default(true),
+  orden: integer('orden').notNull().default(0),
+  creado_por: uuid('creado_por').notNull(),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('plantillas_correo_empresa_idx').on(tabla.empresa_id),
+])
+
+// Plantillas de respuesta rápida (WhatsApp / inbox)
 export const plantillas_respuesta = pgTable('plantillas_respuesta', {
   id: uuid('id').primaryKey().defaultRandom(),
   empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
@@ -2346,7 +2370,7 @@ export const config_salix_ia = pgTable('config_salix_ia', {
   habilitado: boolean('habilitado').notNull().default(false),
   nombre: text('nombre').notNull().default('Salix IA'),
   personalidad: text('personalidad').default(''),
-  herramientas_habilitadas: text('herramientas_habilitadas').array().notNull().default(sql`ARRAY['buscar_contactos','obtener_contacto','crear_contacto','crear_actividad','crear_recordatorio','crear_visita','consultar_asistencias','consultar_calendario','consultar_actividades','consultar_visitas','buscar_presupuestos','modificar_actividad','modificar_visita','modificar_presupuesto','modificar_evento']`),
+  herramientas_habilitadas: text('herramientas_habilitadas').array().notNull().default(sql`ARRAY['buscar_contactos','obtener_contacto','crear_contacto','crear_actividad','crear_recordatorio','crear_visita','consultar_asistencias','consultar_calendario','consultar_actividades','consultar_visitas','buscar_presupuestos','modificar_actividad','modificar_visita','modificar_presupuesto','modificar_evento','anotar_nota','consultar_notas']`),
   whatsapp_copilot_habilitado: boolean('whatsapp_copilot_habilitado').notNull().default(false),
   max_iteraciones_herramientas: integer('max_iteraciones_herramientas').notNull().default(5),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
@@ -2422,4 +2446,39 @@ export const uso_storage = pgTable('uso_storage', {
 }, (tabla) => [
   uniqueIndex('uso_storage_empresa_bucket_idx').on(tabla.empresa_id, tabla.bucket),
   index('uso_storage_empresa_idx').on(tabla.empresa_id),
+])
+
+// ═══════════════════════════════════════════════════════════════
+// NOTAS RÁPIDAS
+// ═══════════════════════════════════════════════════════════════
+
+// Notas rápidas — personales y compartidas, acceso rápido desde botón flotante
+export const notas_rapidas = pgTable('notas_rapidas', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  creador_id: uuid('creador_id').notNull(),
+  titulo: text('titulo').notNull().default(''),
+  contenido: text('contenido').notNull().default(''),
+  color: text('color').notNull().default('amarillo'), // amarillo, azul, verde, rosa, morado
+  fijada: boolean('fijada').notNull().default(false),
+  archivada: boolean('archivada').notNull().default(false),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_por: uuid('actualizado_por'),
+}, (tabla) => [
+  index('notas_rapidas_empresa_creador_idx').on(tabla.empresa_id, tabla.creador_id),
+  index('notas_rapidas_empresa_idx').on(tabla.empresa_id),
+])
+
+// Compartidos — relación nota↔usuario con permisos y tracking de lectura
+export const notas_rapidas_compartidas = pgTable('notas_rapidas_compartidas', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  nota_id: uuid('nota_id').notNull().references(() => notas_rapidas.id, { onDelete: 'cascade' }),
+  usuario_id: uuid('usuario_id').notNull(),
+  puede_editar: boolean('puede_editar').notNull().default(true),
+  leido_en: timestamp('leido_en', { withTimezone: true }),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  uniqueIndex('notas_compartidas_nota_usuario_idx').on(tabla.nota_id, tabla.usuario_id),
+  index('notas_compartidas_usuario_idx').on(tabla.usuario_id),
 ])

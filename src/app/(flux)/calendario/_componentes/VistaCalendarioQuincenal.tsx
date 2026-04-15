@@ -39,10 +39,10 @@ import { INTERVALO_HEARTBEAT } from '@/lib/constantes/timeouts'
 
 // --- Constantes locales ---
 
-/** Hora de inicio de la cuadricula */
-const HORA_INICIO = 6
-/** Hora de fin de la cuadricula */
-const HORA_FIN = 22
+/** Hora de inicio por defecto si no hay config */
+const HORA_INICIO_DEFAULT = 6
+/** Hora de fin por defecto si no hay config */
+const HORA_FIN_DEFAULT = 22
 /** Maximo de eventos todo-el-dia visibles antes de "+N mas" */
 const MAX_TODO_DIA = 2
 /** Ancho de la columna de horas en px */
@@ -51,16 +51,6 @@ const ANCHO_COLUMNA_HORAS = 48
 const UMBRAL_ARRASTRE = 5
 /** Cantidad de dias en la vista quincenal */
 const DIAS_QUINCENA = 14
-
-// --- Utilidades de fecha ---
-
-/** Genera las horas del eje vertical: [6, 7, ..., 22] */
-const HORAS = Array.from({ length: HORA_FIN - HORA_INICIO + 1 }, (_, i) => HORA_INICIO + i)
-
-/** Convierte hora y minutos a posicion Y en pixeles dentro de la cuadricula */
-function tiempoAPx(horas: number, minutos: number): number {
-  return (horas * 60 + minutos - HORA_INICIO * 60) * (ALTURA_FILA / 60)
-}
 
 /** Genera los 14 dias de la quincena (2 semanas a partir del lunes de la semana actual) */
 function diasDeLaQuincena(fecha: Date): Date[] {
@@ -90,14 +80,14 @@ interface EventoPosicionado {
  * Algoritmo: ordenar por inicio, agrupar en clusters solapados,
  * asignar columna incremental dentro de cada cluster.
  */
-function calcularPosiciones(eventosDelDia: EventoCalendario[]): EventoPosicionado[] {
+function calcularPosiciones(eventosDelDia: EventoCalendario[], horaInicio: number): EventoPosicionado[] {
   const conHora = eventosDelDia
     .filter((e) => !e.todo_el_dia)
     .map((evento) => {
       const inicio = parsearFecha(evento.fecha_inicio)
       const fin = parsearFecha(evento.fecha_fin)
-      const inicioMin = inicio.getHours() * 60 + inicio.getMinutes() - HORA_INICIO * 60
-      const finMin = fin.getHours() * 60 + fin.getMinutes() - HORA_INICIO * 60
+      const inicioMin = inicio.getHours() * 60 + inicio.getMinutes() - horaInicio * 60
+      const finMin = fin.getHours() * 60 + fin.getMinutes() - horaInicio * 60
       return { evento, inicioMin, finMin: Math.max(finMin, inicioMin + 15) }
     })
     .sort((a, b) => a.inicioMin - b.inicioMin || a.finMin - b.finMin)
@@ -266,10 +256,12 @@ interface PropiedadesVistaQuincenal {
   onClickEvento: (evento: EventoCalendario, posicion?: { x: number; y: number }) => void
   /** Drag para mover evento */
   onMoverEvento?: (id: string, nuevaInicio: string, nuevaFin: string) => void
-  /** Hora de inicio de jornada laboral (para overlay visual) */
+  /** Hora de inicio de jornada laboral (define rango visible de la cuadrícula) */
   horaInicioLaboral?: number
-  /** Hora de fin de jornada laboral (para overlay visual) */
+  /** Hora de fin de jornada laboral (define rango visible de la cuadrícula) */
   horaFinLaboral?: number
+  /** Si se muestran sábado y domingo */
+  mostrarFinesSemana?: boolean
 }
 
 /** Estado de la seleccion por arrastre (drag-to-select) */
@@ -293,30 +285,6 @@ function redondearYA15Min(y: number): number {
   return (minutosRedondeados / 60) * ALTURA_FILA
 }
 
-/**
- * Convierte una posicion Y (px) a hora formateada "HH:MM".
- */
-function formatoHoraDesdeY(y: number): string {
-  const minutosDesdeInicio = (y / ALTURA_FILA) * 60
-  const horaTotal = HORA_INICIO * 60 + minutosDesdeInicio
-  const horas = Math.floor(horaTotal / 60)
-  const minutos = Math.round(horaTotal % 60)
-  return `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}`
-}
-
-/**
- * Convierte una posicion Y (px) y un dia a un objeto Date con hora correspondiente.
- */
-function fechaDesdeY(dia: Date, y: number): Date {
-  const minutosDesdeInicio = (y / ALTURA_FILA) * 60
-  const horaTotal = HORA_INICIO * 60 + minutosDesdeInicio
-  const horas = Math.floor(horaTotal / 60)
-  const minutos = Math.round(horaTotal % 60)
-  const fecha = new Date(dia)
-  fecha.setHours(horas, minutos, 0, 0)
-  return fecha
-}
-
 function VistaCalendarioQuincenal({
   fechaActual,
   eventos,
@@ -325,7 +293,40 @@ function VistaCalendarioQuincenal({
   onMoverEvento,
   horaInicioLaboral,
   horaFinLaboral,
+  mostrarFinesSemana = true,
 }: PropiedadesVistaQuincenal) {
+  // --- Rango horario de la cuadrícula (desde config o defaults) ---
+  const HORA_INICIO = horaInicioLaboral ?? HORA_INICIO_DEFAULT
+  const HORA_FIN = horaFinLaboral ?? HORA_FIN_DEFAULT
+  const HORAS = useMemo(
+    () => Array.from({ length: HORA_FIN - HORA_INICIO + 1 }, (_, i) => HORA_INICIO + i),
+    [HORA_INICIO, HORA_FIN],
+  )
+
+  /** Convierte hora y minutos a posicion Y en pixeles dentro de la cuadricula */
+  function tiempoAPx(horas: number, minutos: number): number {
+    return (horas * 60 + minutos - HORA_INICIO * 60) * (ALTURA_FILA / 60)
+  }
+
+  /** Convierte una posicion Y (px) a hora formateada "HH:MM" */
+  function formatoHoraDesdeY(y: number): string {
+    const mdi = (y / ALTURA_FILA) * 60
+    const horaTotal = HORA_INICIO * 60 + mdi
+    const h = Math.floor(horaTotal / 60)
+    const m = Math.round(horaTotal % 60)
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  }
+
+  /** Convierte una posicion Y (px) y un dia a un objeto Date con hora correspondiente */
+  function fechaDesdeY(dia: Date, y: number): Date {
+    const mdi = (y / ALTURA_FILA) * 60
+    const horaTotal = HORA_INICIO * 60 + mdi
+    const h = Math.floor(horaTotal / 60)
+    const m = Math.round(horaTotal % 60)
+    const fecha = new Date(dia)
+    fecha.setHours(h, m, 0, 0)
+    return fecha
+  }
   const { formatoHora } = useFormato()
   const { t } = useTraduccion()
   const es24h = formatoHora !== '12h'
@@ -341,8 +342,6 @@ function VistaCalendarioQuincenal({
     window.addEventListener('resize', manejarResize)
     return () => window.removeEventListener('resize', manejarResize)
   }, [])
-
-  const diasVisibles = esMobile ? 7 : DIAS_QUINCENA
 
   const refCuadricula = useRef<HTMLDivElement>(null)
   const refColumnas = useRef<HTMLDivElement>(null)
@@ -372,8 +371,14 @@ function VistaCalendarioQuincenal({
     return () => clearInterval(intervalo)
   }, [])
 
-  // 14 dias de la quincena (lunes de la semana actual + 13 dias)
-  const diasQuincena = useMemo(() => diasDeLaQuincena(fechaActual), [fechaActual])
+  // 14 dias de la quincena (filtrados según config)
+  const diasQuincena = useMemo(() => {
+    const todos = diasDeLaQuincena(fechaActual)
+    if (mostrarFinesSemana) return todos
+    return todos.filter(d => d.getDay() !== 0 && d.getDay() !== 6)
+  }, [fechaActual, mostrarFinesSemana])
+
+  const diasVisibles = esMobile ? Math.min(7, diasQuincena.length) : diasQuincena.length
 
   // Eventos agrupados por dia
   const eventosPorDia = useMemo(() => {
@@ -414,20 +419,20 @@ function VistaCalendarioQuincenal({
   const posicionesPorDia = useMemo(() => {
     const mapa = new Map<string, EventoPosicionado[]>()
     for (const [clave, evs] of eventosPorDia) {
-      const posiciones = calcularPosiciones(evs)
+      const posiciones = calcularPosiciones(evs, HORA_INICIO)
       if (posiciones.length > 0) mapa.set(clave, posiciones)
     }
     return mapa
-  }, [eventosPorDia])
+  }, [eventosPorDia, HORA_INICIO])
 
-  // Auto-scroll al montar: ir a la hora actual o 08:00
+  // Auto-scroll al montar: ir a la hora actual o inicio laboral
   useEffect(() => {
     if (!refCuadricula.current) return
     const ahora = new Date()
-    const horaObjetivo = Math.min(ahora.getHours(), horaInicioLaboral ?? 8)
+    const horaObjetivo = Math.min(ahora.getHours(), HORA_INICIO)
     const scrollY = tiempoAPx(horaObjetivo, 0)
     refCuadricula.current.scrollTop = scrollY
-  }, [horaInicioLaboral])
+  }, [HORA_INICIO])
 
   // Altura total de la cuadricula
   const alturaTotal = (HORA_FIN - HORA_INICIO) * ALTURA_FILA
@@ -717,6 +722,8 @@ function VistaCalendarioQuincenal({
 
         {/* Cuadricula horaria (scrollable) */}
         <div ref={refCuadricula} className="flex-1 overflow-y-auto min-h-0">
+          {/* Spacer para que la primera etiqueta de hora sea visible */}
+          <div className="shrink-0" style={{ height: 10 }} />
           <div className="flex relative" style={{ height: alturaTotal }}>
             {/* Columna de etiquetas de hora */}
             <div
@@ -790,14 +797,6 @@ function VistaCalendarioQuincenal({
                     onMouseDown={(e) => manejarMouseDown(dia, e)}
                     onTouchStart={(e) => manejarTouchStart(dia, e)}
                   >
-                    {/* Overlay de horas fuera de jornada laboral */}
-                    {horaInicioLaboral !== undefined && horaFinLaboral !== undefined && (
-                      <>
-                        <div className="absolute left-0 right-0 top-0 bg-superficie-app/40 pointer-events-none z-[1]" style={{ height: tiempoAPx(horaInicioLaboral, 0) }} />
-                        <div className="absolute left-0 right-0 bg-superficie-app/40 pointer-events-none z-[1]" style={{ top: tiempoAPx(horaFinLaboral, 0), bottom: 0 }} />
-                      </>
-                    )}
-
                     {/* Indicador de hora actual (linea roja) */}
                     {hoyFlag && lineaAhoraVisible && (
                       <div

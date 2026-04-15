@@ -58,7 +58,7 @@ export default function PaginaConfiguracionWhatsApp() {
       const [resConfig, resCanales, resPlantillas] = await Promise.all([
         fetch('/api/inbox/config'),
         fetch('/api/inbox/canales?tipo=whatsapp'),
-        fetch('/api/inbox/plantillas'),
+        fetch('/api/inbox/plantillas?canal=whatsapp'),
       ])
       const [dataConfig, dataCanales, dataPlantillas] = await Promise.all([
         resConfig.json(),
@@ -139,9 +139,9 @@ export default function PaginaConfiguracionWhatsApp() {
       {/* Respuestas rápidas */}
       {seccionActiva === 'respuestas_rapidas' && (
         <SeccionRespuestasRapidas
-          plantillas={plantillas.filter(p => p.canal === 'whatsapp' || p.canal === 'todos')}
+          plantillas={plantillas}
           onRecargar={cargar}
-          canalesPermitidos={['whatsapp', 'todos']}
+          canalesPermitidos={['whatsapp']}
         />
       )}
 

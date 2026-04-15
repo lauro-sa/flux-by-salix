@@ -21,6 +21,10 @@ export async function GET(request: NextRequest) {
     const admin = crearClienteAdmin()
     const ahora = new Date()
 
+    // Hace 48 horas — para notificaciones efímeras (fichaje, recordatorios de fichaje)
+    const hace48h = new Date(ahora)
+    hace48h.setHours(hace48h.getHours() - 48)
+
     // Hace 90 días
     const hace90 = new Date(ahora)
     hace90.setDate(hace90.getDate() - 90)
@@ -28,6 +32,21 @@ export async function GET(request: NextRequest) {
     // Hace 180 días
     const hace180 = new Date(ahora)
     hace180.setDate(hace180.getDate() - 180)
+
+    // Borrar notificaciones efímeras de fichaje > 48h (ya no son relevantes)
+    // Incluye: fichaje_automatico y notificaciones de sistema con título de fichaje
+    const { count: efimerasBorradas } = await admin
+      .from('notificaciones')
+      .delete({ count: 'exact' })
+      .eq('tipo', 'fichaje_automatico')
+      .lt('creada_en', hace48h.toISOString())
+
+    const { count: recordatoriosFichajeBorrados } = await admin
+      .from('notificaciones')
+      .delete({ count: 'exact' })
+      .eq('tipo', 'sistema')
+      .in('titulo', ['Recordatorio de fichaje', 'Recordatorio de salida'])
+      .lt('creada_en', hace48h.toISOString())
 
     // Borrar leídas > 90 días
     const { count: borradasLeidas } = await admin
@@ -50,6 +69,7 @@ export async function GET(request: NextRequest) {
       .lt('completado_en', hace90.toISOString())
 
     return NextResponse.json({
+      efimeras_fichaje_borradas: (efimerasBorradas || 0) + (recordatoriosFichajeBorrados || 0),
       notificaciones_leidas_borradas: borradasLeidas || 0,
       notificaciones_viejas_borradas: borradasViejas || 0,
       recordatorios_borrados: recordatoriosBorrados || 0,

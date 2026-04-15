@@ -170,8 +170,8 @@ export function ModalEnviarReciboNomina({
       })
       .catch(() => {})
 
-    // Cargar plantillas de correo (canal=correo)
-    fetch('/api/inbox/plantillas?canal=correo')
+    // Cargar plantillas de correo
+    fetch('/api/correo/plantillas')
       .then(r => r.json())
       .then(data => setPlantillas(data.plantillas || []))
       .catch(() => {})

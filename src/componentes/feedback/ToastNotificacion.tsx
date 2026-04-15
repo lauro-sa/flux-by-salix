@@ -75,6 +75,9 @@ const ETIQUETAS_TIPO: Record<string, string> = {
 
 const MAX_TOASTS = 3
 const DURACION_AUTO_MS = 8000
+/** Tipos que merecen más tiempo en pantalla (el usuario necesita verlos) */
+const TIPOS_DURACION_LARGA = new Set(['fichaje_automatico', 'actividad_vencida', 'actividad_pronto_vence'])
+const DURACION_LARGA_MS = 15000
 
 interface GrupoToast {
   clave: string
@@ -101,24 +104,25 @@ function ToastItem({ grupo, onDescartar, onVer }: PropsToastItem) {
   const Icono = ICONOS_TIPO[ultima.tipo] || Bell
   const etiqueta = ETIQUETAS_TIPO[ultima.tipo] || 'Notificación'
 
-  /* Auto-descartar en 8s (pausar cuando está expandido) */
+  /* Auto-descartar (pausar cuando está expandido) */
+  const duracion = TIPOS_DURACION_LARGA.has(ultima.tipo) ? DURACION_LARGA_MS : DURACION_AUTO_MS
   useEffect(() => {
     if (expandido) {
       if (timerRef.current) clearTimeout(timerRef.current)
       return
     }
-    timerRef.current = setTimeout(() => onDescartar(grupo.clave), DURACION_AUTO_MS)
+    timerRef.current = setTimeout(() => onDescartar(grupo.clave), duracion)
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }
-  }, [expandido, grupo.clave, onDescartar, cantidad])
+  }, [expandido, grupo.clave, onDescartar, cantidad, duracion])
 
   const esGrupo = cantidad > 1
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -20, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -20, scale: 0.95 }}
-      transition={{ duration: 0.25, ease: 'easeOut' }}
+      initial={{ opacity: 0, x: 80, scale: 0.95 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      exit={{ opacity: 0, x: 80, scale: 0.95 }}
+      transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
       onMouseEnter={() => esGrupo && setExpandido(true)}
       onMouseLeave={() => setExpandido(false)}
       className="w-full sm:w-[360px] max-w-[calc(100vw-2rem)] border border-borde-sutil rounded-2xl shadow-elevada overflow-hidden pointer-events-auto"

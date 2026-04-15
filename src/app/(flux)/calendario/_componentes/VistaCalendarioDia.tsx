@@ -39,23 +39,14 @@ import {
 
 // --- Constantes ---
 
-/** Hora de inicio de la cuadrícula */
-const HORA_INICIO = 6
-/** Hora de fin de la cuadrícula */
-const HORA_FIN = 22
+/** Hora de inicio por defecto si no hay config */
+const HORA_INICIO_DEFAULT = 6
+/** Hora de fin por defecto si no hay config */
+const HORA_FIN_DEFAULT = 22
 /** Altura en píxeles de cada fila de hora */
 const ALTURA_FILA_HORA = 60
 /** Umbral mínimo en px antes de iniciar arrastre (evita conflictos con click) */
 const UMBRAL_ARRASTRE = 5
-
-// --- Utilidades de fecha ---
-
-/** Obtiene la posición en minutos desde HORA_INICIO */
-function minutosDesdeInicio(fecha: Date): number {
-  const horas = fecha.getHours()
-  const minutos = fecha.getMinutes()
-  return (horas - HORA_INICIO) * 60 + minutos
-}
 
 /** Formatea fecha completa: "Martes 8 de abril de 2026" */
 function formatearFechaCompleta(fecha: Date): string {
@@ -83,7 +74,14 @@ interface EventoPosicionado {
 function calcularPosiciones(
   eventos: EventoCalendario[],
   fechaReferencia: Date,
+  horaInicio: number,
+  horaFin: number,
 ): EventoPosicionado[] {
+  /** Obtiene la posición en minutos desde horaInicio */
+  function minutosDesdeInicio(fecha: Date): number {
+    return (fecha.getHours() - horaInicio) * 60 + fecha.getMinutes()
+  }
+
   const eventosConHora = eventos
     .filter((e) => !e.todo_el_dia)
     .map((evento) => {
@@ -92,9 +90,9 @@ function calcularPosiciones(
 
       // Recortar al día visible
       const inicioDia = new Date(fechaReferencia)
-      inicioDia.setHours(HORA_INICIO, 0, 0, 0)
+      inicioDia.setHours(horaInicio, 0, 0, 0)
       const finDia = new Date(fechaReferencia)
-      finDia.setHours(HORA_FIN, 0, 0, 0)
+      finDia.setHours(horaFin, 0, 0, 0)
 
       const inicioEfectivo = inicio < inicioDia ? inicioDia : inicio
       const finEfectivo = fin > finDia ? finDia : fin
@@ -332,9 +330,9 @@ interface PropiedadesVistaDia {
   onClickEvento: (evento: EventoCalendario) => void
   /** Drag para mover evento (solo vertical/tiempo en vista día) */
   onMoverEvento?: (id: string, nuevaInicio: string, nuevaFin: string) => void
-  /** Hora de inicio laboral (para sombrear horas no laborales) */
+  /** Hora de inicio laboral (define el rango visible de la cuadrícula) */
   horaInicioLaboral?: number
-  /** Hora de fin laboral (para sombrear horas no laborales) */
+  /** Hora de fin laboral (define el rango visible de la cuadrícula) */
   horaFinLaboral?: number
 }
 
@@ -348,11 +346,6 @@ interface EstadoSeleccionRangoDia {
   activa: boolean
 }
 
-/** Convierte una posición Y (px) a hora decimal (ej: 8.5 = 08:30) */
-function horaDecimalDesdeYDia(y: number): number {
-  return HORA_INICIO + (y / ALTURA_FILA_HORA)
-}
-
 /**
  * Redondea una posición Y a intervalos de 15 minutos.
  */
@@ -360,30 +353,6 @@ function redondearYA15MinDia(y: number): number {
   const minutos = (y / ALTURA_FILA_HORA) * 60
   const minutosRedondeados = Math.round(minutos / 15) * 15
   return (minutosRedondeados / 60) * ALTURA_FILA_HORA
-}
-
-/**
- * Convierte una posición Y (px) a hora formateada "HH:MM" para vista día.
- */
-function formatoHoraDesdeYDia(y: number): string {
-  const minutosDesdeInicio = (y / ALTURA_FILA_HORA) * 60
-  const horaTotal = HORA_INICIO * 60 + minutosDesdeInicio
-  const horas = Math.floor(horaTotal / 60)
-  const minutos = Math.round(horaTotal % 60)
-  return `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}`
-}
-
-/**
- * Convierte una posición Y (px) y una fecha a un objeto Date con hora correspondiente.
- */
-function fechaDesdeYDia(dia: Date, y: number): Date {
-  const minutosDesdeInicioVal = (y / ALTURA_FILA_HORA) * 60
-  const horaTotal = HORA_INICIO * 60 + minutosDesdeInicioVal
-  const horas = Math.floor(horaTotal / 60)
-  const minutos = Math.round(horaTotal % 60)
-  const fecha = new Date(dia)
-  fecha.setHours(horas, minutos, 0, 0)
-  return fecha
 }
 
 function VistaCalendarioDia({
@@ -395,6 +364,39 @@ function VistaCalendarioDia({
   horaInicioLaboral,
   horaFinLaboral,
 }: PropiedadesVistaDia) {
+  // --- Rango horario de la cuadrícula (desde config o defaults) ---
+  const HORA_INICIO = horaInicioLaboral ?? HORA_INICIO_DEFAULT
+  const HORA_FIN = horaFinLaboral ?? HORA_FIN_DEFAULT
+
+  /** Obtiene la posición en minutos desde HORA_INICIO */
+  function minutosDesdeInicio(fecha: Date): number {
+    return (fecha.getHours() - HORA_INICIO) * 60 + fecha.getMinutes()
+  }
+
+  /** Convierte una posición Y (px) a hora decimal (ej: 8.5 = 08:30) */
+  function horaDecimalDesdeYDia(y: number): number {
+    return HORA_INICIO + (y / ALTURA_FILA_HORA)
+  }
+
+  /** Convierte una posición Y (px) a hora formateada "HH:MM" para vista día */
+  function formatoHoraDesdeYDia(y: number): string {
+    const mdi = (y / ALTURA_FILA_HORA) * 60
+    const horaTotal = HORA_INICIO * 60 + mdi
+    const h = Math.floor(horaTotal / 60)
+    const m = Math.round(horaTotal % 60)
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  }
+
+  /** Convierte una posición Y (px) y una fecha a un objeto Date con hora correspondiente */
+  function fechaDesdeYDia(dia: Date, y: number): Date {
+    const mdi = (y / ALTURA_FILA_HORA) * 60
+    const horaTotal = HORA_INICIO * 60 + mdi
+    const h = Math.floor(horaTotal / 60)
+    const m = Math.round(horaTotal % 60)
+    const fecha = new Date(dia)
+    fecha.setHours(h, m, 0, 0)
+    return fecha
+  }
   const { formatoHora } = useFormato()
   const { t } = useTraduccion()
   const es24h = formatoHora !== '12h'
@@ -446,15 +448,15 @@ function VistaCalendarioDia({
 
   /** Eventos con hora posicionados */
   const eventosPositionados = useMemo(() => {
-    return calcularPosiciones(eventosDelDia, fechaActual)
-  }, [eventosDelDia, fechaActual])
+    return calcularPosiciones(eventosDelDia, fechaActual, HORA_INICIO, HORA_FIN)
+  }, [eventosDelDia, fechaActual, HORA_INICIO, HORA_FIN])
 
   /** Filas de horas */
   const filasHoras = useMemo(() => {
     const filas: number[] = []
     for (let h = HORA_INICIO; h <= HORA_FIN; h++) filas.push(h)
     return filas
-  }, [])
+  }, [HORA_INICIO, HORA_FIN])
 
   /** Posición del indicador de hora actual en píxeles */
   const posicionIndicadorActual = useMemo(() => {
@@ -470,10 +472,10 @@ function VistaCalendarioDia({
     if (!refContenedor.current) return
     const ahora = new Date()
     const horaActual = ahora.getHours()
-    const horaObjetivo = Math.max(horaActual - 1, horaInicioLaboral ?? HORA_INICIO)
+    const horaObjetivo = Math.max(horaActual - 1, HORA_INICIO)
     const pixelesObjetivo = (horaObjetivo - HORA_INICIO) * ALTURA_FILA_HORA
     refContenedor.current.scrollTop = pixelesObjetivo
-  }, [])
+  }, [HORA_INICIO])
 
   // --- Handlers de selección por arrastre (drag-to-select) en vista día ---
 
@@ -785,6 +787,8 @@ function VistaCalendarioDia({
           onTouchMove={manejarTouchMoveDia}
           onMouseLeave={() => setHoverHora(null)}
         >
+          {/* Spacer para que la primera etiqueta de hora (-translate-y-1/2) sea visible */}
+          <div className="shrink-0" style={{ height: 10 }} />
           <div
             ref={refCuadricula}
             className="relative cursor-crosshair touch-none"
@@ -792,20 +796,6 @@ function VistaCalendarioDia({
             onMouseDown={manejarMouseDownDia}
             onTouchStart={manejarTouchStartDia}
           >
-            {/* Fondo horario no laboral */}
-            {horaInicioLaboral !== undefined && horaFinLaboral !== undefined && (
-              <>
-                <div
-                  className="absolute left-16 right-0 top-0 bg-superficie-app/40 pointer-events-none z-[1]"
-                  style={{ height: `${(horaInicioLaboral - HORA_INICIO) * ALTURA_FILA_HORA}px` }}
-                />
-                <div
-                  className="absolute left-16 right-0 bg-superficie-app/40 pointer-events-none z-[1]"
-                  style={{ top: `${(horaFinLaboral - HORA_INICIO) * ALTURA_FILA_HORA}px`, bottom: 0 }}
-                />
-              </>
-            )}
-
             {/* Filas de horas */}
             {filasHoras.map((hora) => {
               const enRango = rangoHorasActivo !== null &&

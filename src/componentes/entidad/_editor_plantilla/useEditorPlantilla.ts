@@ -407,7 +407,6 @@ export function useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar }:
 
       const datos = {
         nombre: nombre.trim(),
-        canal: 'correo' as const,
         asunto: asuntoParaGuardar,
         contenido: textoPlano,
         contenido_html: htmlParaGuardar,
@@ -419,14 +418,14 @@ export function useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar }:
       }
 
       if (esEdicion && plantilla) {
-        await fetch(`/api/inbox/plantillas/${plantilla.id}`, {
+        await fetch(`/api/correo/plantillas/${plantilla.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(datos),
         })
         mostrar('exito', 'Plantilla actualizada')
       } else {
-        await fetch('/api/inbox/plantillas', {
+        await fetch('/api/correo/plantillas', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(datos),

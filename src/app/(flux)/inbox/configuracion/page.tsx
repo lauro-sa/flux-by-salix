@@ -50,6 +50,7 @@ export default function PaginaConfiguracionInbox() {
   const [config, setConfig] = useState<ConfigInbox | null>(null)
   const [canales, setCanales] = useState<CanalInbox[]>([])
   const [plantillas, setPlantillas] = useState<PlantillaRespuesta[]>([])
+  const [plantillasCorreo, setPlantillasCorreo] = useState<PlantillaRespuesta[]>([])
   const [modulos, setModulos] = useState<Record<string, boolean>>({
     inbox_correo: true,
     inbox_interno: true,
@@ -59,20 +60,23 @@ export default function PaginaConfiguracionInbox() {
   const cargar = useCallback(async () => {
     setCargando(true)
     try {
-      const [resConfig, resCanales, resPlantillas] = await Promise.all([
+      const [resConfig, resCanales, resPlantillas, resPlantillasCorreo] = await Promise.all([
         fetch('/api/inbox/config'),
         fetch('/api/inbox/canales'),
-        fetch('/api/inbox/plantillas'),
+        fetch('/api/inbox/plantillas?canal=correo'),
+        fetch('/api/correo/plantillas'),
       ])
-      const [dataConfig, dataCanales, dataPlantillas] = await Promise.all([
+      const [dataConfig, dataCanales, dataPlantillas, dataPlantillasCorreo] = await Promise.all([
         resConfig.json(),
         resCanales.json(),
         resPlantillas.json(),
+        resPlantillasCorreo.json(),
       ])
 
       setConfig(dataConfig.config)
       setCanales(dataCanales.canales || [])
       setPlantillas(dataPlantillas.plantillas || [])
+      setPlantillasCorreo(dataPlantillasCorreo.plantillas || [])
 
       // Cargar estado de módulos
       if (dataConfig.modulos) {
@@ -241,20 +245,20 @@ export default function PaginaConfiguracionInbox() {
         <SeccionMetricasConfig />
       )}
 
-      {/* Respuestas rápidas */}
+      {/* Respuestas rápidas de correo */}
       {seccionActiva === 'respuestas_rapidas' && (
         <SeccionRespuestasRapidas
-          plantillas={plantillas.filter(p => p.canal === 'correo' || p.canal === 'todos')}
+          plantillas={plantillas}
           onRecargar={cargar}
-          canalesPermitidos={['correo', 'todos']}
+          canalesPermitidos={['correo']}
         />
       )}
 
-      {/* Plantillas Correo */}
+      {/* Plantillas Correo — tabla independiente */}
       {seccionActiva === 'plantillas_correo' && (
         <SeccionPlantillasCorreo
           canal="correo"
-          plantillas={plantillas.filter(p => p.canal === 'correo' || p.canal === 'todos')}
+          plantillas={plantillasCorreo}
           onRecargar={cargar}
         />
       )}

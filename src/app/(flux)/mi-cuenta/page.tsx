@@ -68,8 +68,13 @@ export function useMiCuenta() {
 export default function PaginaMiCuenta() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const seccionInicial = searchParams.get('seccion') || 'perfil'
-  const [seccionActiva, setSeccionActiva] = useState(seccionInicial)
+  const seccionParam = searchParams.get('seccion') || 'perfil'
+  const [seccionActiva, setSeccionActiva] = useState(seccionParam)
+
+  // Sincronizar cuando cambia el query param (ej: navegación desde header)
+  useEffect(() => {
+    setSeccionActiva(seccionParam)
+  }, [seccionParam])
 
   const { usuario } = useAuth()
   const { empresa } = useEmpresa()

@@ -17,6 +17,7 @@ import { usePreferencias } from '@/hooks/usePreferencias'
 import { useRol } from '@/hooks/useRol'
 import { useModulos } from '@/hooks/useModulos'
 import { useNotificaciones } from '@/hooks/useNotificaciones'
+import { usePendientes } from '@/hooks/usePendientes'
 import type { Modulo } from '@/tipos'
 import type { ItemNav } from './tipos'
 import { crearItemsNav, crearItemsEmpresa, crearItemAplicaciones, crearSecciones, crearItemInicio } from './itemsNav'
@@ -40,6 +41,7 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
   const { esPropietario, tienePermiso } = useRol()
   const { tieneModulo } = useModulos()
   const { noLeidasPorCategoria } = useNotificaciones({ deshabilitado: false })
+  const { hayPendientes } = usePendientes()
   const sonido = useSonido()
   const vibrar = () => { if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(10) }
 
@@ -47,6 +49,12 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
   const badgesReales: Record<string, number> = {
     inbox: noLeidasPorCategoria('inbox'),
     actividades: noLeidasPorCategoria('actividades'),
+  }
+
+  // Indicadores de pendientes (dot sutil cuando no hay notificaciones pero sí items sin resolver)
+  const indicadoresReales: Record<string, boolean> = {
+    actividades: hayPendientes('actividades'),
+    visitas: hayPendientes('visitas'),
   }
 
   // Filtrar items por permisos Y modulos instalados
@@ -61,9 +69,11 @@ function SidebarContenido({ colapsado, onToggle, onCerrarMobil }: PropiedadesSid
     })
   }
 
-  const ITEMS_NAV = filtrarItems(crearItemsNav(t)).map(item =>
-    badgesReales[item.id] !== undefined ? { ...item, badge: badgesReales[item.id] } : item
-  )
+  const ITEMS_NAV = filtrarItems(crearItemsNav(t)).map(item => ({
+    ...item,
+    ...(badgesReales[item.id] !== undefined ? { badge: badgesReales[item.id] } : {}),
+    ...(indicadoresReales[item.id] !== undefined ? { indicador: indicadoresReales[item.id] } : {}),
+  }))
   const ITEMS_EMPRESA = filtrarItems(crearItemsEmpresa(t))
   const ITEM_APLICACIONES = crearItemAplicaciones(t)
   const ITEM_INICIO = crearItemInicio(t)

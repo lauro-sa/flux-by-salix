@@ -9,6 +9,8 @@ import { MenuMovil } from './MenuMovil'
 import { ToastNotificacion } from '@/componentes/feedback/ToastNotificacion'
 import { BannerInstalacion } from '@/componentes/pwa/BannerInstalacion'
 import { BotonFlotanteSalixIA } from '@/componentes/entidad/SalixIA/BotonFlotante'
+import { BotonFlotanteNotas } from '@/componentes/entidad/NotasRapidas/BotonFlotanteNotas'
+import { useNotasRapidas } from '@/hooks/useNotasRapidas'
 import { useTema } from '@/hooks/useTema'
 import { usePreferencias } from '@/hooks/usePreferencias'
 import { useHeaderAutoOculto } from '@/hooks/useHeaderAutoOculto'
@@ -67,6 +69,20 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
   }, [])
   // Ya no se usa drawer lateral — NavegacionMovil maneja la nav en teléfonos
   const [mobilMenuAbierto, setMobilMenuAbierto] = useState(false)
+
+  // Botones flotantes: se esconden a la derecha, aparecen al acercar el mouse
+  const [botonesVisibles, setBotonesVisibles] = useState(true)
+  const [botonesMontados, setBotonesMontados] = useState(false)
+  const timerBotonesRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const notasRapidas = useNotasRapidas()
+  const tieneAlertasNotas = notasRapidas.tiene_cambios_sin_leer
+
+  // Montar solo en cliente para evitar hydration mismatch + ocultar después de unos segundos
+  useEffect(() => {
+    setBotonesMontados(true)
+    const timerOcultar = setTimeout(() => setBotonesVisibles(false), 4000)
+    return () => { clearTimeout(timerOcultar) }
+  }, [])
 
 
   const seccion = obtenerSeccion(pathname)
@@ -238,8 +254,40 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
       {/* Banner de instalación PWA (solo si no está instalada) */}
       <BannerInstalacion />
 
-      {/* Botón flotante de Salix IA */}
-      <BotonFlotanteSalixIA />
+      {/* Botones flotantes — se montan solo en cliente para evitar hydration mismatch */}
+      {botonesMontados && (
+        <>
+          {/* Zona de detección invisible — borde derecho inferior */}
+          <div
+            className="fixed right-0 bottom-0 w-[30px] h-40 z-[69] hidden md:block"
+            onMouseEnter={() => {
+              setBotonesVisibles(true)
+              if (timerBotonesRef.current) clearTimeout(timerBotonesRef.current)
+            }}
+          />
+
+          {/* Botones: notas arriba, IA abajo — se esconden a la derecha (salvo con alertas) */}
+          <div
+            className="fixed right-4 bottom-20 md:bottom-6 z-[70] flex flex-col items-center gap-1 transition-all duration-300 ease-in-out"
+            style={{
+              transform: (botonesVisibles || tieneAlertasNotas) ? 'translateX(0)' : 'translateX(calc(100% + 2rem))',
+              opacity: (botonesVisibles || tieneAlertasNotas) ? 1 : 0,
+            }}
+            onMouseEnter={() => {
+              setBotonesVisibles(true)
+              if (timerBotonesRef.current) clearTimeout(timerBotonesRef.current)
+            }}
+            onMouseLeave={() => {
+              if (!tieneAlertasNotas) {
+                timerBotonesRef.current = setTimeout(() => setBotonesVisibles(false), 3000)
+              }
+            }}
+          >
+            <BotonFlotanteNotas notasRapidas={notasRapidas} />
+            <BotonFlotanteSalixIA />
+          </div>
+        </>
+      )}
 
       <style suppressHydrationWarning>{`
         @media (min-width: 768px) {

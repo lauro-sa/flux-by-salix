@@ -332,7 +332,7 @@ export default function EditorPresupuesto({
       })
       .catch(() => {})
 
-    fetch('/api/inbox/plantillas?canal=correo')
+    fetch('/api/correo/plantillas')
       .then(r => r.json())
       .then(data => {
         const todas = data.plantillas || []
@@ -354,7 +354,7 @@ export default function EditorPresupuesto({
 
   // ─── Recargar plantillas de correo ───────────────────────────────────────
   const recargarPlantillasCorreo = useCallback(() => {
-    fetch('/api/inbox/plantillas?canal=correo')
+    fetch('/api/correo/plantillas')
       .then(r => r.json())
       .then(data => {
         const todas = data.plantillas || []
@@ -1016,11 +1016,11 @@ export default function EditorPresupuesto({
 
   const handleGuardarPlantilla = useCallback(async (datos: DatosPlantillaCorreo) => {
     try {
-      await fetch('/api/inbox/plantillas', {
+      await fetch('/api/correo/plantillas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          nombre: datos.nombre, canal: 'correo', asunto: datos.asunto,
+          nombre: datos.nombre, asunto: datos.asunto,
           contenido: datos.contenido_html.replace(/<[^>]+>/g, '').trim(),
           contenido_html: datos.contenido_html,
           modulos: ['presupuestos'], disponible_para: 'usuarios',
@@ -1770,13 +1770,13 @@ export default function EditorPresupuesto({
         onCambiarPredeterminada={(esPropietario || esAdmin) ? async (tplId) => {
           if (tplId) {
             if (plantillaCorreoPredeterminadaId && plantillaCorreoPredeterminadaId !== tplId) {
-              await fetch(`/api/inbox/plantillas/${plantillaCorreoPredeterminadaId}`, {
+              await fetch(`/api/correo/plantillas/${plantillaCorreoPredeterminadaId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ variables: [] }),
               })
             }
-            await fetch(`/api/inbox/plantillas/${tplId}`, {
+            await fetch(`/api/correo/plantillas/${tplId}`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -1786,7 +1786,7 @@ export default function EditorPresupuesto({
             setPlantillaCorreoPredeterminadaId(tplId)
           } else {
             if (plantillaCorreoPredeterminadaId) {
-              await fetch(`/api/inbox/plantillas/${plantillaCorreoPredeterminadaId}`, {
+              await fetch(`/api/correo/plantillas/${plantillaCorreoPredeterminadaId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ variables: [] }),
@@ -1798,7 +1798,7 @@ export default function EditorPresupuesto({
         usuarioId={usuario?.id || ''}
         esAdmin={esPropietario || esAdmin}
         onGuardarCambiosPlantilla={async (id, datos) => {
-          await fetch(`/api/inbox/plantillas/${id}`, {
+          await fetch(`/api/correo/plantillas/${id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1810,11 +1810,11 @@ export default function EditorPresupuesto({
           recargarPlantillasCorreo()
         }}
         onCrearPlantilla={async (nombre, datos) => {
-          await fetch('/api/inbox/plantillas', {
+          await fetch('/api/correo/plantillas', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              nombre, canal: 'correo', asunto: datos.asunto,
+              nombre, asunto: datos.asunto,
               contenido: datos.contenido_html.replace(/<[^>]*>/g, ''),
               contenido_html: datos.contenido_html,
               modulos: ['presupuestos'],
@@ -1824,7 +1824,7 @@ export default function EditorPresupuesto({
           recargarPlantillasCorreo()
         }}
         onEliminarPlantilla={async (id) => {
-          await fetch(`/api/inbox/plantillas/${id}`, { method: 'DELETE' })
+          await fetch(`/api/correo/plantillas/${id}`, { method: 'DELETE' })
           recargarPlantillasCorreo()
         }}
         contextoVariables={{
