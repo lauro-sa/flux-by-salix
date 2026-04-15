@@ -124,13 +124,11 @@ export function useNotasRapidas() {
     }
   }, [])
 
-  // Eliminar nota (archivar — soft delete, se puede restaurar)
+  // Eliminar nota — envía a papelera (soft delete via DELETE endpoint)
   const eliminar = useCallback(async (id: string) => {
     try {
       const res = await fetch(`/api/notas-rapidas/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ archivada: true }),
+        method: 'DELETE',
       })
       if (!res.ok) throw new Error('Error al eliminar')
       setEstado((prev) => ({

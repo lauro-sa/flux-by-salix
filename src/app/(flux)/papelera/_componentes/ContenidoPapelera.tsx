@@ -177,7 +177,8 @@ export default function ContenidoPapelera({ datosIniciales }: Props) {
       return resultados
     },
     initialData: datosIniciales,
-    staleTime: 20_000,
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
 
   // Mapeo de tipo a ruta API
