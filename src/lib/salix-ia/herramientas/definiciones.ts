@@ -81,7 +81,7 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
     nombre: 'crear_actividad',
     definicion: {
       name: 'crear_actividad',
-      description: 'Crea una nueva actividad (tarea, llamada, reunión, etc.) usando los tipos existentes en el sistema. Puede vincularla a un contacto.',
+      description: 'Crea una nueva actividad (tarea, llamada, reunión, seguimiento, etc.) usando los tipos existentes en el sistema. Puede vincularla a un contacto. IMPORTANTE: Para visitas usá crear_visita, NO esta herramienta.',
       input_schema: {
         type: 'object',
         properties: {
@@ -89,7 +89,7 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
           descripcion: { type: 'string', description: 'Descripción o detalle' },
           tipo_clave: {
             type: 'string',
-            description: 'Clave del tipo de actividad (ej: "llamada", "reunion", "tarea", "visita", "seguimiento"). Debe ser un tipo que ya exista en la empresa.',
+            description: 'Clave del tipo de actividad (ej: "llamada", "reunion", "tarea", "seguimiento"). Para visitas usá crear_visita. Debe ser un tipo que ya exista en la empresa.',
           },
           prioridad: {
             type: 'string',

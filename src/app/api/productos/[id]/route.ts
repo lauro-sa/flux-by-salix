@@ -170,6 +170,22 @@ export async function DELETE(
 
     const admin = crearClienteAdmin()
 
+    // Verificar si ya está en papelera → hard delete definitivo
+    const { data: producto } = await admin
+      .from('productos')
+      .select('en_papelera')
+      .eq('id', id)
+      .eq('empresa_id', empresaId)
+      .single()
+
+    if (!producto) return NextResponse.json({ error: 'Producto no encontrado' }, { status: 404 })
+
+    if (producto.en_papelera) {
+      await admin.from('productos').delete().eq('id', id).eq('empresa_id', empresaId)
+      return NextResponse.json({ success: true })
+    }
+
+    // Soft delete: enviar a papelera
     const { error } = await admin
       .from('productos')
       .update({

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Trash2, RotateCcw, Clock, User, FileText, Package, Zap, Search, X } from 'lucide-react'
+import { Trash2, RotateCcw, Clock, User, FileText, Package, Zap, Search, X, MapPin, StickyNote } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
@@ -20,7 +20,7 @@ import { useTraduccion } from '@/lib/i18n'
  * React Query toma el control para refetch, invalidación y actualizaciones optimistas.
  */
 
-type TipoEntidad = 'contactos' | 'presupuestos' | 'actividades' | 'productos'
+type TipoEntidad = 'contactos' | 'presupuestos' | 'actividades' | 'productos' | 'visitas' | 'notas'
 
 export interface ElementoPapelera {
   id: string
@@ -38,6 +38,8 @@ const TABS_ENTIDAD = [
   { id: 'presupuestos', etiqueta: 'Presupuestos', icono: <FileText size={14} /> },
   { id: 'actividades', etiqueta: 'Actividades', icono: <Zap size={14} /> },
   { id: 'productos', etiqueta: 'Productos', icono: <Package size={14} /> },
+  { id: 'visitas', etiqueta: 'Visitas', icono: <MapPin size={14} /> },
+  { id: 'notas', etiqueta: 'Notas', icono: <StickyNote size={14} /> },
 ]
 
 const ICONO_ENTIDAD: Record<TipoEntidad, typeof User> = {
@@ -45,6 +47,8 @@ const ICONO_ENTIDAD: Record<TipoEntidad, typeof User> = {
   presupuestos: FileText,
   actividades: Zap,
   productos: Package,
+  visitas: MapPin,
+  notas: StickyNote,
 }
 
 const ETIQUETA_ENTIDAD: Record<TipoEntidad, string> = {
@@ -52,6 +56,8 @@ const ETIQUETA_ENTIDAD: Record<TipoEntidad, string> = {
   presupuestos: 'Presupuesto',
   actividades: 'Actividad',
   productos: 'Producto',
+  visitas: 'Visita',
+  notas: 'Nota',
 }
 
 /** Calcula días desde una fecha */
@@ -82,11 +88,13 @@ export default function ContenidoPapelera({ datosIniciales }: Props) {
   const { data: elementos = [], isLoading: cargando } = useQuery({
     queryKey: ['papelera'],
     queryFn: async () => {
-      const [contactosRes, presupuestosRes, actividadesRes, productosRes] = await Promise.all([
+      const [contactosRes, presupuestosRes, actividadesRes, productosRes, visitasRes, notasRes] = await Promise.all([
         fetch('/api/contactos?en_papelera=true').then(r => r.ok ? r.json() : { contactos: [] }),
         fetch('/api/presupuestos?en_papelera=true').then(r => r.ok ? r.json() : { presupuestos: [] }),
         fetch('/api/actividades?en_papelera=true').then(r => r.ok ? r.json() : { actividades: [] }),
         fetch('/api/productos?en_papelera=true').then(r => r.ok ? r.json() : { productos: [] }),
+        fetch('/api/visitas?en_papelera=true').then(r => r.ok ? r.json() : { visitas: [] }),
+        fetch('/api/notas-rapidas?en_papelera=true').then(r => r.ok ? r.json() : { notas: [] }),
       ])
 
       const resultados: ElementoPapelera[] = []
@@ -139,6 +147,31 @@ export default function ContenidoPapelera({ datosIniciales }: Props) {
         })
       }
 
+      for (const v of (visitasRes?.visitas || [])) {
+        resultados.push({
+          id: v.id,
+          nombre: v.titulo || 'Sin título',
+          tipo: 'visitas',
+          eliminado_en: v.papelera_en || v.actualizado_en,
+          eliminado_por: v.editado_por,
+          eliminado_por_nombre: v.editado_por_nombre,
+          subtitulo: v.contacto_nombre || v.estado,
+        })
+      }
+
+      for (const n of (notasRes?.notas || [])) {
+        const preview = n.contenido ? n.contenido.slice(0, 60) : ''
+        resultados.push({
+          id: n.id,
+          nombre: n.titulo || preview || 'Sin título',
+          tipo: 'notas',
+          eliminado_en: n.papelera_en || n.actualizado_en,
+          eliminado_por: n.actualizado_por || n.creador_id,
+          eliminado_por_nombre: null,
+          subtitulo: n.titulo ? preview : undefined,
+        })
+      }
+
       resultados.sort((a, b) => new Date(b.eliminado_en).getTime() - new Date(a.eliminado_en).getTime())
 
       return resultados
@@ -147,11 +180,17 @@ export default function ContenidoPapelera({ datosIniciales }: Props) {
     staleTime: 20_000,
   })
 
+  // Mapeo de tipo a ruta API
+  const rutaApi = (tipo: TipoEntidad) => {
+    if (tipo === 'notas') return 'notas-rapidas'
+    return tipo
+  }
+
   /** Restaurar un elemento */
   const restaurar = useCallback(async (elem: ElementoPapelera) => {
     setRestaurando(elem.id)
     try {
-      const url = `/api/${elem.tipo}/${elem.id}`
+      const url = `/api/${rutaApi(elem.tipo)}/${elem.id}`
       const res = await fetch(url, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -170,13 +209,12 @@ export default function ContenidoPapelera({ datosIniciales }: Props) {
   const eliminarDefinitivo = useCallback(async (elem: ElementoPapelera) => {
     setEliminando(true)
     try {
-      if (elem.tipo === 'contactos') {
-        const res = await fetch(`/api/contactos/${elem.id}`, { method: 'DELETE' })
-        if (res.ok) {
-          queryClient.setQueryData(['papelera'], (prev: ElementoPapelera[] | undefined) =>
-            (prev || []).filter(e => e.id !== elem.id)
-          )
-        }
+      const url = `/api/${rutaApi(elem.tipo)}/${elem.id}`
+      const res = await fetch(url, { method: 'DELETE' })
+      if (res.ok) {
+        queryClient.setQueryData(['papelera'], (prev: ElementoPapelera[] | undefined) =>
+          (prev || []).filter(e => e.id !== elem.id)
+        )
       }
     } catch { /* silenciar */ }
     setEliminando(false)
@@ -205,6 +243,8 @@ export default function ContenidoPapelera({ datosIniciales }: Props) {
     presupuestos: elementosVisibles.filter(e => e.tipo === 'presupuestos').length,
     actividades: elementosVisibles.filter(e => e.tipo === 'actividades').length,
     productos: elementosVisibles.filter(e => e.tipo === 'productos').length,
+    visitas: elementosVisibles.filter(e => e.tipo === 'visitas').length,
+    notas: elementosVisibles.filter(e => e.tipo === 'notas').length,
   }
 
   return (
@@ -330,7 +370,7 @@ export default function ContenidoPapelera({ datosIniciales }: Props) {
                       >
                         Restaurar
                       </Boton>
-                      {puedeVerTodos && elem.tipo === 'contactos' && (
+                      {puedeVerTodos && (
                         <Boton
                           variante="fantasma"
                           tamano="xs"

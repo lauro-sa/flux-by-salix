@@ -2368,7 +2368,7 @@ export const historial_recientes = pgTable('historial_recientes', {
 export const config_salix_ia = pgTable('config_salix_ia', {
   empresa_id: uuid('empresa_id').primaryKey().references(() => empresas.id, { onDelete: 'cascade' }),
   habilitado: boolean('habilitado').notNull().default(false),
-  nombre: text('nombre').notNull().default('Salix IA'),
+  nombre: text('nombre').notNull().default('Salix'),
   personalidad: text('personalidad').default(''),
   herramientas_habilitadas: text('herramientas_habilitadas').array().notNull().default(sql`ARRAY['buscar_contactos','obtener_contacto','crear_contacto','crear_actividad','crear_recordatorio','crear_visita','consultar_asistencias','consultar_calendario','consultar_actividades','consultar_visitas','buscar_presupuestos','modificar_actividad','modificar_visita','modificar_presupuesto','modificar_evento','anotar_nota','consultar_notas']`),
   whatsapp_copilot_habilitado: boolean('whatsapp_copilot_habilitado').notNull().default(false),
@@ -2462,12 +2462,15 @@ export const notas_rapidas = pgTable('notas_rapidas', {
   color: text('color').notNull().default('amarillo'), // amarillo, azul, verde, rosa, morado
   fijada: boolean('fijada').notNull().default(false),
   archivada: boolean('archivada').notNull().default(false),
+  en_papelera: boolean('en_papelera').notNull().default(false),
+  papelera_en: timestamp('papelera_en', { withTimezone: true }),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
   actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
   actualizado_por: uuid('actualizado_por'),
 }, (tabla) => [
   index('notas_rapidas_empresa_creador_idx').on(tabla.empresa_id, tabla.creador_id),
   index('notas_rapidas_empresa_idx').on(tabla.empresa_id),
+  index('notas_rapidas_papelera_idx').on(tabla.empresa_id, tabla.en_papelera),
 ])
 
 // Compartidos — relación nota↔usuario con permisos y tracking de lectura

@@ -117,11 +117,13 @@ interface PropiedadesModal {
   onCompletar?: (id: string) => Promise<void>
   onPosponer?: (id: string, dias: number) => Promise<void>
   onCerrar: () => void
+  /** Callback para redirigir a ModalVisita cuando se selecciona tipo "visita" en creación */
+  onCambiarAVisita?: (contacto?: { id: string; nombre: string }) => void
 }
 
 function ModalActividad({
   abierto, actividad, tipos, estados, miembros, presetsPosposicion, vinculoInicial,
-  modulo, onGuardar, onCompletar, onPosponer, onCerrar,
+  modulo, onGuardar, onCompletar, onPosponer, onCerrar, onCambiarAVisita,
 }: PropiedadesModal) {
   const router = useRouter()
   const { t } = useTraduccion()
@@ -239,13 +241,22 @@ function ModalActividad({
 
   // Al cambiar tipo, actualizar título + fecha vencimiento + limpiar campos condicionales
   const manejarCambioTipo = (nuevoTipoId: string) => {
+    // Si es creación y selecciona tipo "visita", redirigir al ModalVisita
+    const tipoNuevo = tiposActivos.find(t => t.id === nuevoTipoId)
+    if (!esEdicion && tipoNuevo?.clave === 'visita' && onCambiarAVisita) {
+      const contacto = vinculos.find(v => v.tipo === 'contacto')
+      onCerrar()
+      onCambiarAVisita(contacto ? { id: contacto.id, nombre: contacto.nombre } : undefined)
+      return
+    }
+
     setTipoId(nuevoTipoId)
     // Auto-título si no editó manualmente
     if (!tituloManual) {
       setTitulo(generarTituloAuto(nuevoTipoId, vinculos))
     }
 
-    const tipo = tiposActivos.find(t => t.id === nuevoTipoId)
+    const tipo = tipoNuevo
 
     // Limpiar campos que el nuevo tipo no usa (evita datos fantasma)
     if (tipo) {
@@ -676,7 +687,6 @@ function ModalActividad({
 const TIPOS_VINCULO = [
   { clave: 'contacto', etiqueta: 'Contacto', icono: User, placeholder: 'Buscar contacto...' },
   { clave: 'documento', etiqueta: 'Documento', icono: FileText, placeholder: 'Buscar presupuesto, factura...' },
-  { clave: 'visita', etiqueta: 'Visita', icono: MapPin, placeholder: 'Buscar visita...' },
 ]
 
 const ICONOS_VINCULO: Record<string, typeof User> = {
@@ -916,12 +926,10 @@ function SeccionVinculos({ vinculos, onChange, onNavegar }: { vinculos: Vinculo[
 
               {/* Lista */}
               <div className="max-h-52 overflow-y-auto">
-                {tabActivo === 'visita' ? (
-                  <p className="text-xs text-texto-terciario text-center py-6 px-4">El módulo de visitas aún no está disponible para vincular.</p>
-                ) : esRecientes && listaVisible.length > 0 && (
+                {esRecientes && listaVisible.length > 0 && (
                   <p className="px-4 py-1.5 text-xxs font-semibold text-texto-terciario uppercase tracking-wider">Recientes</p>
                 )}
-                {tabActivo !== 'visita' && (cargando && listaVisible.length === 0 ? (
+                {(cargando && listaVisible.length === 0 ? (
                   <p className="text-xs text-texto-terciario text-center py-4">Buscando...</p>
                 ) : listaVisible.length === 0 && busqueda.length >= 2 ? (
                   <p className="text-xs text-texto-terciario text-center py-4">Sin resultados</p>

@@ -11,6 +11,8 @@ import type { TipoActividad } from '../../actividades/configuracion/secciones/Se
 import type { EstadoActividad } from '../../actividades/configuracion/secciones/SeccionEstados'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useFormato } from '@/hooks/useFormato'
+import { useModalVisita } from '@/hooks/useModalVisita'
+import { ModalVisita } from '@/app/(flux)/visitas/_componentes/ModalVisita'
 
 /**
  * SeccionActividadesContacto — Sección de actividades dentro de la ficha del contacto.
@@ -31,6 +33,7 @@ function SeccionActividadesContacto({ contactoId, contactoNombre }: PropiedadesS
   const [cargando, setCargando] = useState(true)
   const [modalAbierto, setModalAbierto] = useState(false)
   const [verCompletadas, setVerCompletadas] = useState(false)
+  const modalVisitaHook = useModalVisita()
 
   // Cargar datos
   const cargar = useCallback(async () => {
@@ -185,6 +188,19 @@ function SeccionActividadesContacto({ contactoId, contactoNombre }: PropiedadesS
         modulo="contactos"
         onGuardar={crearActividad}
         onCerrar={() => setModalAbierto(false)}
+        onCambiarAVisita={() => { setModalAbierto(false); modalVisitaHook.abrir() }}
+      />
+
+      {/* Modal de visita — abierto cuando se selecciona tipo "visita" en actividades */}
+      <ModalVisita
+        abierto={modalVisitaHook.abierto}
+        visita={modalVisitaHook.visitaEditando}
+        miembros={modalVisitaHook.miembros}
+        config={modalVisitaHook.config}
+        onGuardar={async (datos) => { await modalVisitaHook.guardar(datos); cargar() }}
+        onCompletar={async (id) => { await modalVisitaHook.completarVisita(id); cargar() }}
+        onCancelar={async (id) => { await modalVisitaHook.cancelarVisita(id); cargar() }}
+        onCerrar={modalVisitaHook.cerrar}
       />
     </section>
   )

@@ -50,6 +50,24 @@ export async function PATCH(
       }
     }
 
+    // Restaurar desde papelera
+    if ('en_papelera' in body && body.en_papelera === false) {
+      const { data, error } = await admin
+        .from('notas_rapidas')
+        .update({
+          en_papelera: false,
+          papelera_en: null,
+          actualizado_en: new Date().toISOString(),
+          actualizado_por: user.id,
+        })
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) return NextResponse.json({ error: 'Error al restaurar' }, { status: 500 })
+      return NextResponse.json(data)
+    }
+
     // Campos permitidos para actualizar
     const campos_validos = ['titulo', 'contenido', 'color', 'fijada', 'archivada'] as const
     const actualizacion: Record<string, unknown> = {
@@ -142,7 +160,7 @@ export async function DELETE(
     // Solo el creador puede eliminar
     const { data: nota } = await admin
       .from('notas_rapidas')
-      .select('id, creador_id')
+      .select('id, creador_id, en_papelera')
       .eq('id', id)
       .eq('empresa_id', empresaId)
       .single()
@@ -152,7 +170,21 @@ export async function DELETE(
       return NextResponse.json({ error: 'Solo el creador puede eliminar' }, { status: 403 })
     }
 
-    await admin.from('notas_rapidas').delete().eq('id', id)
+    // Si ya está en papelera, eliminar definitivamente (hard delete)
+    if (nota.en_papelera) {
+      await admin.from('notas_rapidas').delete().eq('id', id)
+      return NextResponse.json({ ok: true })
+    }
+
+    // Soft delete: enviar a papelera
+    await admin
+      .from('notas_rapidas')
+      .update({
+        en_papelera: true,
+        papelera_en: new Date().toISOString(),
+        actualizado_por: user.id,
+      })
+      .eq('id', id)
 
     return NextResponse.json({ ok: true })
   } catch {

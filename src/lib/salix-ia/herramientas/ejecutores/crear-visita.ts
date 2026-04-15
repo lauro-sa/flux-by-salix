@@ -4,6 +4,7 @@
  */
 
 import type { ContextoSalixIA, ResultadoHerramienta } from '@/tipos/salix-ia'
+import { obtenerTiposVisita, crearRegistrosVinculados } from '@/lib/visitas-sync'
 
 export async function ejecutarCrearVisita(
   ctx: ContextoSalixIA,
@@ -64,6 +65,28 @@ export async function ejecutarCrearVisita(
 
   if (error) {
     return { exito: false, error: `Error creando visita: ${error.message}` }
+  }
+
+  // Crear actividad + evento calendario vinculados (misma lógica que POST /api/visitas)
+  const tiposVisita = await obtenerTiposVisita(ctx.empresa_id)
+  if (tiposVisita) {
+    await crearRegistrosVinculados({
+      id: visita.id,
+      empresa_id: ctx.empresa_id,
+      contacto_id,
+      contacto_nombre: contactoNombre,
+      direccion_texto: direccion ? [direccion.direccion, direccion.localidad, direccion.provincia].filter(Boolean).join(', ') : null,
+      asignado_a: ctx.usuario_id,
+      asignado_nombre: ctx.nombre_usuario,
+      fecha_programada,
+      duracion_estimada_min: (params.duracion_estimada_min as number) || 60,
+      estado: 'programada',
+      motivo: (params.motivo as string)?.trim() || null,
+      prioridad: (params.prioridad as string) || 'normal',
+      actividad_id: null,
+      creado_por: ctx.usuario_id,
+      creado_por_nombre: ctx.nombre_usuario,
+    }, tiposVisita)
   }
 
   const fechaFormateada = new Date(fecha_programada).toLocaleDateString('es', {

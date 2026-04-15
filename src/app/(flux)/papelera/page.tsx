@@ -15,7 +15,7 @@ export default async function PaginaPapelera() {
 
   const admin = crearClienteAdmin()
 
-  const [contactosRes, presupuestosRes, actividadesRes, productosRes] = await Promise.all([
+  const [contactosRes, presupuestosRes, actividadesRes, productosRes, visitasRes, notasRes] = await Promise.all([
     admin
       .from('contactos')
       .select('id, nombre, apellido, correo, telefono, codigo, papelera_en, actualizado_en, editado_por')
@@ -34,6 +34,16 @@ export default async function PaginaPapelera() {
     admin
       .from('productos')
       .select('id, nombre, codigo, sku, papelera_en, actualizado_en, editado_por')
+      .eq('empresa_id', empresaId)
+      .eq('en_papelera', true),
+    admin
+      .from('visitas')
+      .select('id, titulo, contacto_nombre, estado, papelera_en, actualizado_en, editado_por')
+      .eq('empresa_id', empresaId)
+      .eq('en_papelera', true),
+    admin
+      .from('notas_rapidas')
+      .select('id, titulo, contenido, creador_id, papelera_en, actualizado_en, actualizado_por')
       .eq('empresa_id', empresaId)
       .eq('en_papelera', true),
   ])
@@ -85,6 +95,31 @@ export default async function PaginaPapelera() {
       eliminado_por: p.editado_por,
       eliminado_por_nombre: null,
       subtitulo: p.codigo || p.sku,
+    })
+  }
+
+  for (const v of (visitasRes.data || [])) {
+    resultados.push({
+      id: v.id,
+      nombre: v.titulo || 'Sin título',
+      tipo: 'visitas',
+      eliminado_en: v.papelera_en || v.actualizado_en,
+      eliminado_por: v.editado_por,
+      eliminado_por_nombre: null,
+      subtitulo: v.contacto_nombre || v.estado,
+    })
+  }
+
+  for (const n of (notasRes.data || [])) {
+    const preview = n.contenido ? n.contenido.slice(0, 60) : ''
+    resultados.push({
+      id: n.id,
+      nombre: n.titulo || preview || 'Sin título',
+      tipo: 'notas',
+      eliminado_en: n.papelera_en || n.actualizado_en,
+      eliminado_por: n.actualizado_por || n.creador_id,
+      eliminado_por_nombre: null,
+      subtitulo: n.titulo ? preview : undefined,
     })
   }
 

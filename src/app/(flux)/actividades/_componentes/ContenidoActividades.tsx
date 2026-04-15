@@ -1036,6 +1036,7 @@ export default function ContenidoActividades({ datosInicialesJson }: Props) {
             recargarActividades()
           }
         }}
+        onCambiarAVisita={() => modalVisitaHook.abrir()}
       />
 
       {/* Modal de visita — abierto desde actividades tipo visita */}

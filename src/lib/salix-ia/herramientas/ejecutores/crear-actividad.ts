@@ -17,6 +17,14 @@ export async function ejecutarCrearActividad(
   // Buscar tipo de actividad
   const tipoClave = (params.tipo_clave as string)?.trim()?.toLowerCase() || 'tarea'
 
+  // Si piden crear actividad de tipo "visita", redirigir a crear_visita
+  if (tipoClave === 'visita') {
+    return {
+      exito: false,
+      error: 'Para crear una visita usá la herramienta crear_visita en vez de crear_actividad. Eso crea la visita con su actividad y evento de calendario vinculados.',
+    }
+  }
+
   const { data: tipos } = await ctx.admin
     .from('tipos_actividad')
     .select('id, clave, etiqueta')

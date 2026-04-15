@@ -675,6 +675,7 @@ export function PanelChatter({
           modulo={entidadTipo}
           onGuardar={crearActividad}
           onCerrar={() => { setModalActividad(false); setActividadEditar(null) }}
+          onCambiarAVisita={() => { setModalActividad(false); setActividadEditar(null); modalVisitaHook.abrir() }}
         />
       )}
 

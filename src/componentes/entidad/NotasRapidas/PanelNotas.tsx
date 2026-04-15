@@ -21,6 +21,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   X, Plus, StickyNote, Pin, PinOff, Trash2, Mic,
@@ -974,8 +975,8 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
     )
   }
 
-  // Desktop: Panel lateral derecho
-  return (
+  // Desktop: Panel lateral derecho — portal para escapar del transform del contenedor flotante
+  return createPortal(
     <AnimatePresence>
       {abierto && (
         <>
@@ -997,7 +998,8 @@ function PanelNotas({ abierto, onCerrar, notas }: PropiedadesPanelNotas) {
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }
 

@@ -86,6 +86,26 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const ahora = new Date().toISOString()
 
+    // ── Restaurar desde papelera ──
+    if ('en_papelera' in body && body.en_papelera === false) {
+      const { data, error } = await admin
+        .from('visitas')
+        .update({
+          en_papelera: false,
+          papelera_en: null,
+          editado_por: user.id,
+          editado_por_nombre: nombreEditor,
+          actualizado_en: ahora,
+        })
+        .eq('id', id)
+        .eq('empresa_id', empresaId)
+        .select()
+        .single()
+
+      if (error) return NextResponse.json({ error: 'Error al restaurar' }, { status: 500 })
+      return NextResponse.json(data)
+    }
+
     // ── Acción: en_camino ──
     if (body.accion === 'en_camino') {
       const { data, error } = await admin
@@ -599,14 +619,27 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
 
     const admin = crearClienteAdmin()
 
-    // Obtener la visita para saber su actividad_id antes de borrar
+    // Obtener la visita para saber su estado y actividad_id
     const { data: visita } = await admin
       .from('visitas')
-      .select('actividad_id')
+      .select('actividad_id, en_papelera')
       .eq('id', id)
       .eq('empresa_id', empresaId)
       .single()
 
+    if (!visita) return NextResponse.json({ error: 'Visita no encontrada' }, { status: 404 })
+
+    // Si ya está en papelera → hard delete definitivo
+    if (visita.en_papelera) {
+      await admin.from('chatter').delete().eq('empresa_id', empresaId).contains('metadata', { visita_id: id })
+      if (visita.actividad_id) {
+        await eliminarRegistrosVinculados(id, visita.actividad_id)
+      }
+      await admin.from('visitas').delete().eq('id', id).eq('empresa_id', empresaId)
+      return NextResponse.json({ ok: true })
+    }
+
+    // Soft delete: enviar a papelera
     const { error } = await admin
       .from('visitas')
       .update({

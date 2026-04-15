@@ -533,6 +533,25 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
 
     const admin = crearClienteAdmin()
 
+    // Verificar si ya está en papelera → hard delete definitivo
+    const { data: actividad } = await admin
+      .from('actividades')
+      .select('en_papelera')
+      .eq('id', id)
+      .eq('empresa_id', empresaId)
+      .single()
+
+    if (!actividad) return NextResponse.json({ error: 'Actividad no encontrada' }, { status: 404 })
+
+    if (actividad.en_papelera) {
+      // Hard delete definitivo
+      await admin.from('chatter').delete().eq('empresa_id', empresaId).contains('metadata', { actividad_id: id })
+      await admin.from('eventos_calendario').delete().eq('empresa_id', empresaId).eq('actividad_id', id)
+      await admin.from('actividades').delete().eq('id', id).eq('empresa_id', empresaId)
+      return NextResponse.json({ ok: true })
+    }
+
+    // Soft delete: enviar a papelera
     const { error } = await admin
       .from('actividades')
       .update({

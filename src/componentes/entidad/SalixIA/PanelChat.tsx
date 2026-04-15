@@ -10,6 +10,7 @@
  */
 
 import { useRef, useEffect, useState, useCallback, type KeyboardEvent, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Send, Plus, Sparkles, Loader2, Wrench, Mic, ExternalLink, History, MessageSquare, ChevronLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -436,8 +437,8 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
     )
   }
 
-  // Desktop: Panel lateral derecho
-  return (
+  // Desktop: Panel lateral derecho — portal para escapar del transform del contenedor flotante
+  return createPortal(
     <AnimatePresence>
       {abierto && (
         <>
@@ -462,7 +463,8 @@ function PanelChat({ abierto, onCerrar }: PropiedadesPanelChat) {
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }
 

@@ -19,13 +19,29 @@ export async function GET(request: NextRequest) {
 
     const admin = crearClienteAdmin()
 
-    // Notas propias (no archivadas)
+    const params = request.nextUrl.searchParams
+    const enPapelera = params.get('en_papelera') === 'true'
+
+    // Modo papelera: devolver solo notas eliminadas de toda la empresa
+    if (enPapelera) {
+      const { data: notas } = await admin
+        .from('notas_rapidas')
+        .select('id, titulo, contenido, creador_id, papelera_en, actualizado_en, actualizado_por')
+        .eq('empresa_id', empresaId)
+        .eq('en_papelera', true)
+        .order('papelera_en', { ascending: false })
+
+      return NextResponse.json({ notas: notas || [] })
+    }
+
+    // Notas propias (no archivadas, no en papelera)
     const { data: propias } = await admin
       .from('notas_rapidas')
       .select('*')
       .eq('empresa_id', empresaId)
       .eq('creador_id', user.id)
       .eq('archivada', false)
+      .eq('en_papelera', false)
       .order('fijada', { ascending: false })
       .order('actualizado_en', { ascending: false })
 
@@ -35,9 +51,9 @@ export async function GET(request: NextRequest) {
       .select('*, nota:notas_rapidas(*)')
       .eq('usuario_id', user.id)
 
-    // Filtrar compartidas no archivadas y agregar info de compartido
+    // Filtrar compartidas no archivadas, no en papelera, y agregar info de compartido
     const compartidas = (compartidas_raw ?? [])
-      .filter((c) => c.nota && !c.nota.archivada)
+      .filter((c) => c.nota && !c.nota.archivada && !c.nota.en_papelera)
       .map((c) => ({
         ...c.nota,
         _compartida: true,

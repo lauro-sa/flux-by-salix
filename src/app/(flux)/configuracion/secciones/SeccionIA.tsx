@@ -609,7 +609,7 @@ function TabCopiloto({ empresaId, supabase }: {
 }) {
   const DEFAULTS_COPILOTO: ConfigCopiloto = {
     habilitado: false,
-    nombre: 'Salix IA',
+    nombre: 'Salix',
     personalidad: '',
     herramientas_habilitadas: HERRAMIENTAS_COPILOTO.map(h => h.id),
     whatsapp_copilot_habilitado: false,
@@ -755,7 +755,7 @@ function TabCopiloto({ empresaId, supabase }: {
             onChange={(e) => setCopiloto(prev => ({ ...prev, personalidad: e.target.value }))}
             onBlur={() => actCop({ personalidad: copiloto.personalidad })}
             rows={4}
-            placeholder="Ej: Respondé siempre de manera formal. Cuando alguien pregunte por precios, aclará que son sin IVA..."
+            placeholder="Ej: Respondé directo y sin formalidades. Usá vos. Si agendan sin hora, poné 9:00. Los presupuestos son sin IVA..."
             compacto
           />
         </FilaConfig>
