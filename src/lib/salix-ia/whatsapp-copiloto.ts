@@ -70,66 +70,82 @@ export async function procesarMensajeCopiloto(
   let convId = conversacion?.id
   const historial = (conversacion?.mensajes as MensajeSalixIA[] || [])
 
-  // Ejecutar pipeline
-  const resultado = await ejecutarSalixIA({
-    admin,
-    empresa_id: canal.empresa_id,
-    usuario_id: empleado.miembro.usuario_id,
-    mensaje: texto,
-    historial,
-    conversacion_id: convId,
-    canal: 'whatsapp',
-  })
+  // Ejecutar pipeline — SIEMPRE retornar true para que no caiga a Valentina
+  try {
+    const resultado = await ejecutarSalixIA({
+      admin,
+      empresa_id: canal.empresa_id,
+      usuario_id: empleado.miembro.usuario_id,
+      mensaje: texto,
+      historial,
+      conversacion_id: convId,
+      canal: 'whatsapp',
+    })
 
-  // Persistir conversación
-  const nuevoHistorial = [...historial, ...resultado.mensajes_nuevos]
+    // Persistir conversación
+    const nuevoHistorial = [...historial, ...resultado.mensajes_nuevos]
 
-  if (convId) {
-    await admin
-      .from('conversaciones_salix_ia')
-      .update({
-        mensajes: nuevoHistorial,
-        actualizado_en: new Date().toISOString(),
-      })
-      .eq('id', convId)
-  } else {
-    const { data: nueva } = await admin
-      .from('conversaciones_salix_ia')
-      .insert({
-        empresa_id: canal.empresa_id,
-        usuario_id: empleado.miembro.usuario_id,
-        canal: 'whatsapp',
-        titulo: texto.substring(0, 80),
-        mensajes: nuevoHistorial,
-      })
-      .select('id')
-      .single()
+    if (convId) {
+      await admin
+        .from('conversaciones_salix_ia')
+        .update({
+          mensajes: nuevoHistorial,
+          actualizado_en: new Date().toISOString(),
+        })
+        .eq('id', convId)
+    } else {
+      const { data: nueva } = await admin
+        .from('conversaciones_salix_ia')
+        .insert({
+          empresa_id: canal.empresa_id,
+          usuario_id: empleado.miembro.usuario_id,
+          canal: 'whatsapp',
+          titulo: texto.substring(0, 80),
+          mensajes: nuevoHistorial,
+        })
+        .select('id')
+        .single()
 
-    convId = nueva?.id
-  }
-
-  // Enviar respuesta por WhatsApp
-  if (resultado.respuesta) {
-    const configConexion = canal.config_conexion as {
-      tokenAcceso?: string
-      phoneNumberId?: string
+      convId = nueva?.id
     }
 
-    if (configConexion?.tokenAcceso && configConexion?.phoneNumberId) {
-      try {
-        await enviarTextoWhatsApp(
-          configConexion.tokenAcceso,
-          configConexion.phoneNumberId,
-          msg.from,
-          resultado.respuesta
-        )
-      } catch (err) {
-        console.error('[Salix IA WA] Error enviando respuesta:', err)
-      }
+    // Enviar respuesta por WhatsApp
+    if (resultado.respuesta) {
+      await enviarRespuestaWA(canal, msg.from, resultado.respuesta)
     }
+  } catch (err) {
+    // Si el pipeline falla, enviar mensaje de error al empleado por WA — NUNCA caer a Valentina
+    console.error('[Salix IA WA] Error en pipeline:', err)
+    const mensajeError = '⚠ _Salix IA no pudo procesar tu mensaje. Puede que no haya créditos en la API. Avisale al administrador._'
+    await enviarRespuestaWA(canal, msg.from, mensajeError)
   }
 
-  return true
+  return true // Siempre true — este número es un empleado, no un cliente
+}
+
+/** Helper para enviar respuesta por WhatsApp usando los datos del canal */
+async function enviarRespuestaWA(
+  canal: DatosCanal,
+  destinatario: string,
+  texto: string
+): Promise<void> {
+  const configConexion = canal.config_conexion as {
+    tokenAcceso?: string
+    phoneNumberId?: string
+  }
+
+  if (configConexion?.tokenAcceso && configConexion?.phoneNumberId) {
+    try {
+      await enviarTextoWhatsApp(
+        configConexion.tokenAcceso,
+        configConexion.phoneNumberId,
+        destinatario,
+        texto
+      )
+    } catch (err) {
+      console.error('[Salix IA WA] Error enviando mensaje:', err)
+    }
+  }
 }
 
 /** Envía un mensaje de texto simple por la API de Meta */
