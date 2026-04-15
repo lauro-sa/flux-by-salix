@@ -48,6 +48,29 @@ export default async function PaginaPapelera() {
       .eq('en_papelera', true),
   ])
 
+  // Resolver nombres de quienes eliminaron
+  const idsUsuarios = new Set<string>()
+  const recolectarIds = (items: Record<string, unknown>[] | null, campo: string) => {
+    for (const item of (items || [])) { if (item[campo]) idsUsuarios.add(item[campo] as string) }
+  }
+  recolectarIds(contactosRes.data, 'editado_por')
+  recolectarIds(presupuestosRes.data, 'editado_por')
+  recolectarIds(actividadesRes.data, 'editado_por')
+  recolectarIds(productosRes.data, 'editado_por')
+  recolectarIds(visitasRes.data, 'editado_por')
+  recolectarIds(notasRes.data, 'actualizado_por')
+
+  const nombresUsuarios: Record<string, string> = {}
+  if (idsUsuarios.size > 0) {
+    const { data: perfiles } = await admin
+      .from('perfiles')
+      .select('id, nombre, apellido')
+      .in('id', Array.from(idsUsuarios))
+    for (const p of (perfiles || [])) {
+      nombresUsuarios[p.id] = [p.nombre, p.apellido].filter(Boolean).join(' ') || 'Usuario'
+    }
+  }
+
   const resultados: ElementoPapelera[] = []
 
   for (const c of (contactosRes.data || [])) {
@@ -57,7 +80,7 @@ export default async function PaginaPapelera() {
       tipo: 'contactos',
       eliminado_en: c.papelera_en || c.actualizado_en,
       eliminado_por: c.editado_por,
-      eliminado_por_nombre: null,
+      eliminado_por_nombre: nombresUsuarios[c.editado_por] || null,
       subtitulo: c.correo || c.telefono || c.codigo,
     })
   }
@@ -69,7 +92,7 @@ export default async function PaginaPapelera() {
       tipo: 'presupuestos',
       eliminado_en: p.papelera_en || p.actualizado_en,
       eliminado_por: p.editado_por,
-      eliminado_por_nombre: null,
+      eliminado_por_nombre: nombresUsuarios[p.editado_por] || null,
       subtitulo: p.codigo,
     })
   }
@@ -81,7 +104,7 @@ export default async function PaginaPapelera() {
       tipo: 'actividades',
       eliminado_en: a.papelera_en || a.actualizado_en,
       eliminado_por: a.editado_por,
-      eliminado_por_nombre: null,
+      eliminado_por_nombre: nombresUsuarios[a.editado_por] || null,
       subtitulo: a.tipo,
     })
   }
@@ -93,7 +116,7 @@ export default async function PaginaPapelera() {
       tipo: 'productos',
       eliminado_en: p.papelera_en || p.actualizado_en,
       eliminado_por: p.editado_por,
-      eliminado_por_nombre: null,
+      eliminado_por_nombre: nombresUsuarios[p.editado_por] || null,
       subtitulo: p.codigo || p.sku,
     })
   }
@@ -105,20 +128,21 @@ export default async function PaginaPapelera() {
       tipo: 'visitas',
       eliminado_en: v.papelera_en || v.actualizado_en,
       eliminado_por: v.editado_por,
-      eliminado_por_nombre: null,
+      eliminado_por_nombre: nombresUsuarios[v.editado_por] || null,
       subtitulo: v.contacto_nombre || v.estado,
     })
   }
 
   for (const n of (notasRes.data || [])) {
+    const uid = n.actualizado_por || n.creador_id
     const preview = n.contenido ? n.contenido.slice(0, 60) : ''
     resultados.push({
       id: n.id,
       nombre: n.titulo || preview || 'Sin título',
       tipo: 'notas',
       eliminado_en: n.papelera_en || n.actualizado_en,
-      eliminado_por: n.actualizado_por || n.creador_id,
-      eliminado_por_nombre: null,
+      eliminado_por: uid,
+      eliminado_por_nombre: nombresUsuarios[uid] || null,
       subtitulo: n.titulo ? preview : undefined,
     })
   }
