@@ -170,14 +170,15 @@ async function procesarMensajeEntrante(
   const nombreRemitente = contactoMeta?.profile?.name || telefonoRemitente
 
   // ─── Salix IA: detectar si es empleado para modo copilot ───
+  console.info(`[WEBHOOK SALIX] Iniciando detección empleado para tel: ${telefonoRemitente}, empresa: ${canal.empresa_id}`)
   try {
     const { detectarEmpleado } = await import('@/lib/salix-ia/detectar-empleado')
     const { procesarMensajeCopiloto } = await import('@/lib/salix-ia/whatsapp-copiloto')
 
     const deteccion = await detectarEmpleado(admin, canal.empresa_id, telefonoRemitente)
+    console.info(`[WEBHOOK SALIX] Resultado detección: es_empleado=${deteccion.es_empleado}, nombre=${deteccion.perfil?.nombre || 'N/A'}`)
 
     if (deteccion.es_empleado && deteccion.miembro && deteccion.perfil) {
-      // Extraer texto (transcribir audio si es necesario después)
       const textoMensaje = msg.text?.body || ''
 
       const procesado = await procesarMensajeCopiloto(
@@ -188,14 +189,14 @@ async function procesarMensajeEntrante(
         textoMensaje || undefined
       )
 
+      console.info(`[WEBHOOK SALIX] Copiloto procesado: ${procesado}`)
       if (procesado) {
-        console.info(`[WEBHOOK] Mensaje de empleado procesado por Salix IA copilot: ${deteccion.perfil.nombre}`)
-        return // Salir del flujo normal — Salix IA manejó el mensaje
+        console.info(`[WEBHOOK SALIX] ✅ Mensaje de empleado procesado por Salix IA: ${deteccion.perfil.nombre}`)
+        return
       }
     }
   } catch (err) {
-    // Si Salix IA falla, continuar con el flujo normal de clientes
-    console.warn('[WEBHOOK] Error en detección Salix IA, continuando flujo normal:', err)
+    console.error('[WEBHOOK SALIX] ❌ Error en detección/copilot:', err)
   }
 
   // Buscar conversación existente (abierta o en espera) — ambos formatos por retrocompatibilidad
