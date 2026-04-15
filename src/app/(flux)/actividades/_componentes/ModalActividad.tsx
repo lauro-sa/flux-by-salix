@@ -13,9 +13,10 @@ import { obtenerIcono } from '@/componentes/ui/SelectorIcono'
 import {
   Plus, Trash2, Search, X, Check, GripVertical,
   ChevronDown, User, Link2, CheckCircle, FileText,
-  MapPin, Mail as MailIcon, Clock, ExternalLink,
+  MapPin, Mail as MailIcon, Clock,
   Calendar,
 } from 'lucide-react'
+import { PildoraEntidad } from '@/componentes/ui/PildoraEntidad'
 import { useFormato } from '@/hooks/useFormato'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -147,6 +148,20 @@ function ModalActividad({
   const [vinculos, setVinculos] = useState<Vinculo[]>([])
   const [guardando, setGuardando] = useState(false)
   const [tituloManual, setTituloManual] = useState(false)
+  const [tiposExpandidos, setTiposExpandidos] = useState(false)
+  const refTipos = useRef<HTMLDivElement>(null)
+
+  // Cerrar selector de tipos al hacer click fuera
+  useEffect(() => {
+    if (!tiposExpandidos) return
+    const handler = (e: MouseEvent) => {
+      if (refTipos.current && !refTipos.current.contains(e.target as Node)) {
+        setTiposExpandidos(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [tiposExpandidos])
   // Contador para forzar recarga de SeccionBloquesCalendario después de crear bloques
   const [recargaBloques, setRecargaBloques] = useState(0)
 
@@ -175,6 +190,7 @@ function ModalActividad({
       setChecklist(actividad.checklist || [])
       setVinculos(actividad.vinculos || [])
       setBloquesNuevos([])
+      setTiposExpandidos(false)
     } else {
       const vincsIniciales = vinculoInicial
         ? Array.isArray(vinculoInicial) ? vinculoInicial : [vinculoInicial]
@@ -189,6 +205,7 @@ function ModalActividad({
       setVinculos(vincsIniciales)
       setTituloManual(false)
       setBloquesNuevos([])
+      setTiposExpandidos(true)
 
       // Auto-título inteligente: resumen predeterminado > auto-generado
       const primerTipo = tiposActivos[0]
@@ -442,25 +459,54 @@ function ModalActividad({
 
         {/* ── COL IZQUIERDA — tipo, título, descripción, checklist ── */}
         <div className="space-y-0">
-          {/* Tipo */}
+          {/* Tipo — colapsado muestra solo el seleccionado, expandido muestra todos */}
           <div className="p-6">
-            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Tipo</p>
-            <div className="flex flex-wrap gap-1.5">
-              {tiposActivos.map(tipo => {
-                const Icono = obtenerIcono(tipo.icono)
-                const sel = tipoId === tipo.id
-                return (
-                  <button key={tipo.id} onClick={() => manejarCambioTipo(tipo.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer border ${
-                      sel ? 'border-transparent text-white shadow-sm' : 'bg-white/[0.03] text-texto-terciario border-white/[0.06] hover:text-texto-secundario hover:border-white/[0.12]'
-                    }`}
-                    style={sel ? { backgroundColor: tipo.color } : undefined}>
-                    {Icono && <Icono size={13} />}
-                    {tipo.etiqueta}
-                  </button>
-                )
-              })}
+            <div className="flex items-center justify-between mb-2.5">
+              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Tipo</p>
+              {tipoSeleccionado && !tiposExpandidos && (
+                <button
+                  onClick={() => setTiposExpandidos(true)}
+                  className="text-xxs text-texto-terciario hover:text-texto-marca bg-transparent border-none cursor-pointer transition-colors"
+                >
+                  Cambiar
+                </button>
+              )}
             </div>
+
+            {/* Tipo seleccionado — pill solo */}
+            {tipoSeleccionado && !tiposExpandidos && (() => {
+              const IconoSel = obtenerIcono(tipoSeleccionado.icono)
+              return (
+                <button
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border-transparent text-white shadow-sm cursor-pointer border hover:opacity-85 transition-opacity"
+                  style={{ backgroundColor: tipoSeleccionado.color }}
+                  onClick={() => setTiposExpandidos(true)}
+                >
+                  {IconoSel && <IconoSel size={13} />}
+                  {tipoSeleccionado.etiqueta}
+                </button>
+              )
+            })()}
+
+            {/* Todos los tipos — expandidos, se cierra con click fuera */}
+            {tiposExpandidos && (
+              <div className="flex flex-wrap gap-1.5" ref={refTipos}>
+                {tiposActivos.map(tipo => {
+                  const Icono = obtenerIcono(tipo.icono)
+                  const sel = tipoId === tipo.id
+                  return (
+                    <button key={tipo.id} onClick={() => { manejarCambioTipo(tipo.id); setTiposExpandidos(false) }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer border ${
+                        sel ? 'border-transparent text-white shadow-sm' : 'bg-white/[0.03] text-texto-terciario border-white/[0.06] hover:text-texto-secundario hover:border-white/[0.12]'
+                      }`}
+                      style={sel ? { backgroundColor: tipo.color } : undefined}>
+                      {Icono && <Icono size={13} />}
+                      {tipo.etiqueta}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {/* Título */}
@@ -487,6 +533,19 @@ function ModalActividad({
               <SeccionChecklist checklist={checklist} onChange={setChecklist} />
             </div>
           )}
+
+          {/* Seguimientos (solo edición) */}
+          {esEdicion && (
+            <div className="p-6">
+              <SeccionSeguimientos
+                seguimientos={(actividad?.seguimientos as Seguimiento[]) || []}
+                actividadId={actividad!.id}
+                onActualizar={(nuevos) => {
+                  if (actividad) { (actividad as Actividad).seguimientos = nuevos }
+                }}
+              />
+            </div>
+          )}
         </div>
 
         {/* Divisor vertical */}
@@ -504,16 +563,12 @@ function ModalActividad({
               {asignados.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-2">
                   {asignados.map(a => (
-                    <span key={a.id} className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-md text-xs bg-texto-marca/10 text-texto-marca border border-texto-marca/20">
-                      <span className="size-4 rounded-full bg-texto-marca/20 flex items-center justify-center text-[10px] font-bold shrink-0">
-                        {a.nombre.charAt(0).toUpperCase()}
-                      </span>
-                      {a.nombre}
-                      <button type="button" onClick={() => setAsignados(prev => prev.filter(x => x.id !== a.id))}
-                        className="ml-0.5 p-0.5 rounded hover:bg-texto-marca/20 transition-colors">
-                        <X className="size-3" />
-                      </button>
-                    </span>
+                    <PildoraEntidad
+                      key={a.id}
+                      nombre={a.nombre}
+                      avatar={a.nombre}
+                      onRemover={() => setAsignados(prev => prev.filter(x => x.id !== a.id))}
+                    />
                   ))}
                 </div>
               )}
@@ -547,7 +602,7 @@ function ModalActividad({
                   </div>
                 )}
                 {tipoSeleccionado?.campo_fecha && (
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2.5">Vencimiento</p>
                     <SelectorFecha valor={fechaVencimiento} onChange={(v) => setFechaVencimiento(v || '')} limpiable />
                   </div>
@@ -563,20 +618,17 @@ function ModalActividad({
 
           {/* Bloques de calendario — edición */}
           {esEdicion && actividad && (
-            <div className="p-6 space-y-2">
+            <div className="p-6">
               <SeccionBloquesCalendario actividadId={actividad.id} titulo={actividad.titulo}
-                asignados={asignados} vinculos={vinculos} recarga={recargaBloques} />
-              <Boton variante="fantasma" tamano="xs" icono={<Calendar size={14} />}
-                onClick={() => setSelectorCalendarioAbierto(true)}>
-                Abrir calendario
-              </Boton>
+                asignados={asignados} vinculos={vinculos} recarga={recargaBloques}
+                onAbrirCalendario={() => setSelectorCalendarioAbierto(true)} />
             </div>
           )}
 
           {/* Bloques de calendario — creación */}
           {!esEdicion && tipoConCalendario && (
-            <div className="p-6 space-y-2">
-              <div className="flex items-center justify-between">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Calendar size={14} className="text-texto-terciario" />
                   <span className="text-xs font-medium text-texto-secundario">Agendar en calendario</span>
@@ -588,8 +640,8 @@ function ModalActividad({
               </div>
               {bloquesNuevos.length === 0 ? (
                 <button type="button" onClick={() => setSelectorCalendarioAbierto(true)}
-                  className="w-full p-2.5 rounded-lg border border-dashed border-white/[0.06] text-xxs text-texto-terciario hover:border-texto-marca/30 hover:text-texto-marca transition-colors">
-                  Hacé clic para abrir el calendario y ver disponibilidad
+                  className="w-full py-4 px-3 rounded-lg border border-dashed border-white/[0.08] text-xs text-texto-terciario hover:border-texto-marca/30 hover:text-texto-marca transition-colors bg-transparent cursor-pointer">
+                  Sin bloques — tocá para abrir el calendario
                 </button>
               ) : (
                 <div className="space-y-1">
@@ -611,18 +663,6 @@ function ModalActividad({
         </div>
       </div>
 
-      {/* ── Seguimientos (solo edición) — ancho completo ── */}
-      {esEdicion && (
-        <div className="px-6 pb-2">
-          <SeccionSeguimientos
-            seguimientos={(actividad?.seguimientos as Seguimiento[]) || []}
-            actividadId={actividad!.id}
-            onActualizar={(nuevos) => {
-              if (actividad) { (actividad as Actividad).seguimientos = nuevos }
-            }}
-          />
-        </div>
-      )}
     </Modal>
     </>
   )
@@ -642,6 +682,10 @@ const TIPOS_VINCULO = [
 const ICONOS_VINCULO: Record<string, typeof User> = {
   contacto: User,
   documento: FileText,
+  presupuesto: FileText,
+  factura: FileText,
+  orden: FileText,
+  informe: FileText,
   visita: MapPin,
 }
 
@@ -649,6 +693,10 @@ const ICONOS_VINCULO: Record<string, typeof User> = {
 const RUTAS_VINCULO: Record<string, (id: string) => string> = {
   contacto: (id) => `/contactos/${id}?desde=/actividades`,
   documento: (id) => `/presupuestos/${id}?desde=/actividades`,
+  presupuesto: (id) => `/presupuestos/${id}?desde=/actividades`,
+  factura: (id) => `/presupuestos/${id}?desde=/actividades`,
+  orden: (id) => `/ordenes/${id}?desde=/actividades`,
+  informe: (id) => `/presupuestos/${id}?desde=/actividades`,
   visita: (id) => `/visitas/${id}?desde=/actividades`,
 }
 
@@ -797,27 +845,14 @@ function SeccionVinculos({ vinculos, onChange, onNavegar }: { vinculos: Vinculo[
             const IconoV = ICONOS_VINCULO[v.tipo] || Link2
             const rutaVinculo = RUTAS_VINCULO[v.tipo]
             return (
-              <span
+              <PildoraEntidad
                 key={v.id}
-                className="inline-flex items-center gap-1.5 pl-2 pr-1 py-1 rounded-md text-xxs font-medium border border-borde-sutil bg-superficie-tarjeta text-texto-secundario"
-              >
-                <IconoV size={11} className="text-texto-terciario shrink-0" />
-                {rutaVinculo ? (
-                  <button
-                    onClick={() => onNavegar?.(rutaVinculo(v.id))}
-                    className="bg-transparent border-none cursor-pointer text-texto-secundario hover:text-texto-marca transition-colors inline-flex items-center gap-1 p-0 text-xxs font-medium"
-                  >
-                    {v.nombre}
-                    <ExternalLink size={9} className="opacity-40" />
-                  </button>
-                ) : v.nombre}
-                <button
-                  onClick={() => removerVinculo(v.id)}
-                  className="size-4 rounded flex items-center justify-center bg-transparent border-none cursor-pointer text-texto-terciario/50 hover:text-estado-error hover:bg-estado-error/10 transition-colors"
-                >
-                  <X size={10} />
-                </button>
-              </span>
+                nombre={v.nombre}
+                icono={<IconoV size={11} />}
+                onNavegar={rutaVinculo ? () => onNavegar?.(rutaVinculo(v.id)) : undefined}
+                onRemover={() => removerVinculo(v.id)}
+                compacto
+              />
             )
           })}
         </div>
@@ -1088,12 +1123,14 @@ function SeccionBloquesCalendario({
   asignados: asignadosProp,
   vinculos,
   recarga = 0,
+  onAbrirCalendario,
 }: {
   actividadId: string
   titulo: string
   asignados: { id: string; nombre: string }[]
   vinculos: Vinculo[]
   recarga?: number
+  onAbrirCalendario?: () => void
 }) {
   const [bloques, setBloques] = useState<BloqueCalendario[]>([])
   const [cargando, setCargando] = useState(true)
@@ -1182,25 +1219,34 @@ function SeccionBloquesCalendario({
   }, 0)
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      {/* Encabezado */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Calendar size={15} className="text-texto-terciario" />
-          <span className="text-sm font-medium text-texto-primario">Bloques de calendario</span>
+          <Calendar size={14} className="text-texto-terciario" />
+          <span className="text-xs font-medium text-texto-secundario">Bloques de calendario</span>
           {bloques.length > 0 && (
-            <span className="text-xs text-texto-terciario">
+            <span className="text-xxs text-texto-terciario">
               {bloques.length} bloque{bloques.length !== 1 ? 's' : ''} · {horasTotales.toFixed(1)} hs
             </span>
           )}
         </div>
-        <Boton
-          variante="fantasma"
-          tamano="xs"
-          icono={<Plus size={14} />}
-          onClick={() => setMostrarFormulario(!mostrarFormulario)}
-        >
-          Agendar
-        </Boton>
+        <div className="flex items-center gap-2">
+          {onAbrirCalendario && (
+            <button type="button" onClick={onAbrirCalendario}
+              className="text-xxs text-texto-marca font-medium bg-transparent border-none cursor-pointer hover:underline">
+              Abrir calendario
+            </button>
+          )}
+          <Boton
+            variante="fantasma"
+            tamano="xs"
+            icono={<Plus size={14} />}
+            onClick={() => setMostrarFormulario(!mostrarFormulario)}
+          >
+            Agendar
+          </Boton>
+        </div>
       </div>
 
       {/* Lista de bloques existentes */}
@@ -1216,26 +1262,26 @@ function SeccionBloquesCalendario({
               return (
                 <div
                   key={bloque.id}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-superficie-hover/50 group"
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/[0.03] group"
                 >
                   <div
-                    className="w-2 h-2 rounded-full shrink-0"
+                    className="size-1.5 rounded-full shrink-0"
                     style={{ backgroundColor: bloque.color || '#F59E0B' }}
                   />
-                  <span className="text-sm text-texto-primario font-medium">
+                  <span className="text-xs text-texto-primario font-medium">
                     {formato.fecha(bloque.fecha_inicio, { corta: true })}
                   </span>
-                  <span className="text-xs text-texto-terciario">
+                  <span className="text-xxs text-texto-terciario">
                     {formato.hora(bloque.fecha_inicio)} – {formato.hora(bloque.fecha_fin)}
                   </span>
-                  <span className="text-xs text-texto-terciario">
+                  <span className="text-xxs text-texto-terciario">
                     ({duracionHs.toFixed(1)} hs)
                   </span>
                   <button
-                    className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-texto-terciario hover:text-estado-error"
+                    className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-texto-terciario hover:text-estado-error bg-transparent border-none cursor-pointer"
                     onClick={() => eliminarBloque(bloque.id)}
                   >
-                    <X size={14} />
+                    <X size={13} />
                   </button>
                 </div>
               )
@@ -1244,13 +1290,15 @@ function SeccionBloquesCalendario({
       )}
 
       {cargando && (
-        <p className="text-xs text-texto-terciario italic px-3">Cargando bloques...</p>
+        <p className="text-xxs text-texto-terciario italic">Cargando bloques...</p>
       )}
 
+      {/* Estado vacío */}
       {!cargando && bloques.length === 0 && !mostrarFormulario && (
-        <p className="text-xs text-texto-terciario italic px-3">
-          Sin bloques agendados. Usa "Agendar" para planificar cuándo se realizará este trabajo.
-        </p>
+        <button type="button" onClick={onAbrirCalendario || (() => setMostrarFormulario(true))}
+          className="w-full py-4 px-3 rounded-lg border border-dashed border-white/[0.08] text-xs text-texto-terciario hover:border-texto-marca/30 hover:text-texto-marca transition-colors bg-transparent cursor-pointer">
+          Sin bloques — tocá para agendar
+        </button>
       )}
 
       {/* Formulario inline para crear bloque */}

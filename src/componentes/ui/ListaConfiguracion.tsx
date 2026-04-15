@@ -330,14 +330,23 @@ function ListaConfiguracion({
     <Interruptor activo={item.activo !== false} onChange={() => onToggleActivo?.(item)} />
   )
 
+  // Placeholder invisible para mantener alineación cuando un botón no aplica
+  const placeholderBoton = <span className="size-7 shrink-0" />
+
   const botonEditar = (item: ItemLista) => onEditar && !item.esSistema ? (
     <Boton variante="fantasma" tamano="xs" soloIcono icono={<Pencil size={13} />} onClick={() => onEditar(item)} titulo={t('comun.editar')} />
-  ) : null
+  ) : onEditar ? placeholderBoton : null
 
   const botonEliminar = (item: ItemLista) => onEliminar && !item.esSistema && !item.esPredefinido ? (
-    <Boton variante="fantasma" tamano="xs" soloIcono icono={<Trash2 size={13} />} onClick={() => onEliminar(item)} titulo={t('comun.eliminar')}
-      className="text-texto-terciario hover:text-insignia-peligro opacity-0 group-hover:opacity-100 transition-opacity" />
-  ) : null
+    <button
+      type="button"
+      onClick={() => onEliminar(item)}
+      title={t('comun.eliminar')}
+      className="size-7 inline-flex items-center justify-center rounded-md text-texto-terciario hover:text-insignia-peligro hover:bg-insignia-peligro/10 transition-colors cursor-pointer bg-transparent border-none"
+    >
+      <Trash2 size={13} />
+    </button>
+  ) : onEliminar ? placeholderBoton : null
 
   const radioDefault = (item: ItemLista) => (
     <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-texto-terciario shrink-0">

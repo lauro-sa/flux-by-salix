@@ -1102,6 +1102,9 @@ export default function EditorPresupuesto({
 
     setFechaEmision(hoyStr)
 
+    // Cambiar estado a borrador para permitir edición
+    await cambiarEstado('borrador')
+
     autoguardar({
       fecha_emision: hoyStr,
       fecha_vencimiento: vencStr,
@@ -1133,9 +1136,13 @@ export default function EditorPresupuesto({
       })
     } catch { /* silenciar */ }
 
-    // Deshacer: restaurar fechas anteriores
+    // Deshacer: restaurar fechas y estado anteriores
+    const estadoPrevio = presupuesto?.estado || 'borrador'
     const deshacer = async () => {
       setFechaEmision(fechaAnterior)
+      if (estadoPrevio !== 'borrador') {
+        await cambiarEstado(estadoPrevio)
+      }
       const datosRestaurar: Record<string, unknown> = {
         fecha_emision: fechaAnterior,
         fecha_vencimiento: fechaVencAnterior,
@@ -1146,7 +1153,7 @@ export default function EditorPresupuesto({
       autoguardar(datosRestaurar)
     }
     setDeshacerReEmision(() => deshacer)
-  }, [presupuesto?.fecha_emision_original, presupuesto?.fecha_emision, presupuesto?.fecha_vencimiento, fechaEmision, autoguardar])
+  }, [presupuesto?.fecha_emision_original, presupuesto?.fecha_emision, presupuesto?.fecha_vencimiento, presupuesto?.estado, fechaEmision, autoguardar, cambiarEstado])
 
   const handleReEmitir = useCallback(() => {
     setConfirmarReEmision(true)

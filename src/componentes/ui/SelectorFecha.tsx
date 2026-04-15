@@ -320,7 +320,7 @@ function SelectorFecha({
       <div
         ref={triggerRef}
         className={[
-          'flex items-center gap-2 px-3 py-2 rounded-md border text-sm transition-all w-full',
+          'flex items-center gap-2 px-3 py-2 rounded-md border text-sm transition-all w-full min-w-0',
           'bg-superficie-tarjeta',
           disabled ? 'opacity-50 cursor-not-allowed' : '',
           error ? 'border-insignia-peligro' : abierto ? 'border-borde-foco shadow-foco' : 'border-borde-fuerte hover:border-borde-foco',
@@ -346,7 +346,7 @@ function SelectorFecha({
           onFocus={manejarFocoInput}
           onBlur={manejarBlurInput}
           onKeyDown={manejarTeclaInput}
-          className="flex-1 bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-terciario tabular-nums"
+          className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm text-texto-primario placeholder:text-texto-terciario tabular-nums"
         />
         {limpiable && valor && !disabled && (
           <span
