@@ -184,7 +184,7 @@ async function procesarMensajeEntrante(
       const procesado = await procesarMensajeCopiloto(
         admin,
         { id: canal.id, empresa_id: canal.empresa_id, config_conexion: canal.config_conexion as Record<string, unknown> },
-        { from: msg.from, id: msg.id, type: msg.type, text: msg.text },
+        { from: msg.from, id: msg.id, type: msg.type, text: msg.text, audio: msg.audio },
         { miembro: deteccion.miembro, perfil: deteccion.perfil },
         textoMensaje || undefined
       )

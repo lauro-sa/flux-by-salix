@@ -25,6 +25,7 @@ interface MensajeWA {
   id: string
   type: string
   text?: { body: string }
+  audio?: { id: string; mime_type?: string }
   timestamp?: string
 }
 
@@ -50,10 +51,18 @@ export async function procesarMensajeCopiloto(
     return false
   }
 
-  // Extraer texto del mensaje (puede venir ya transcrito si es audio)
-  const texto = textoMensaje || msg.text?.body || ''
+  // Extraer texto del mensaje — transcribir audio si es necesario
+  let texto = textoMensaje || msg.text?.body || ''
+
+  if (!texto.trim() && msg.type === 'audio' && msg.audio?.id) {
+    // Transcribir audio con Whisper
+    texto = await transcribirAudioWA(admin, canal, msg.audio.id) || ''
+    console.info(`[SALIX WA] Audio transcrito: "${texto.slice(0, 100)}"`)
+  }
+
   if (!texto.trim()) {
-    return false // No procesar mensajes sin texto (stickers, ubicaciones, etc.)
+    // Mensajes sin texto que no son audio (stickers, ubicaciones, etc.) — ignorar silenciosamente
+    return true // Retornar true para que no caiga a Valentina
   }
 
   // Buscar o crear conversación de Salix IA para este empleado via WhatsApp
@@ -145,6 +154,65 @@ async function enviarRespuestaWA(
     } catch (err) {
       console.error('[Salix IA WA] Error enviando mensaje:', err)
     }
+  }
+}
+
+/** Transcribe un audio de WhatsApp usando Whisper (OpenAI) */
+async function transcribirAudioWA(
+  admin: SupabaseAdmin,
+  canal: DatosCanal,
+  mediaId: string
+): Promise<string | null> {
+  try {
+    const configConexion = canal.config_conexion as { tokenAcceso?: string }
+    const token = configConexion?.tokenAcceso
+    if (!token) return null
+
+    // 1. Obtener URL del audio desde Meta
+    const mediaRes = await fetch(`https://graph.facebook.com/v21.0/${mediaId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!mediaRes.ok) return null
+    const mediaInfo = await mediaRes.json() as { url: string }
+
+    // 2. Descargar el audio
+    const audioRes = await fetch(mediaInfo.url, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!audioRes.ok) return null
+    const buffer = await audioRes.arrayBuffer()
+
+    // 3. Obtener API key de OpenAI
+    let apiKey = process.env.OPENAI_API_KEY || ''
+    if (!apiKey) {
+      const { data: configIA } = await admin
+        .from('config_ia')
+        .select('api_key_openai')
+        .eq('empresa_id', canal.empresa_id)
+        .single()
+      apiKey = configIA?.api_key_openai || ''
+    }
+    if (!apiKey) return null
+
+    // 4. Transcribir con Whisper
+    const blob = new Blob([buffer], { type: 'audio/ogg' })
+    const formData = new FormData()
+    formData.append('file', blob, 'audio.ogg')
+    formData.append('model', 'whisper-1')
+    formData.append('language', 'es')
+
+    const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: formData,
+    })
+
+    if (!whisperRes.ok) return null
+    const data = await whisperRes.json() as { text: string }
+    return data.text?.trim() || null
+  } catch (err) {
+    console.error('[SALIX WA] Error transcribiendo audio:', err)
+    return null
   }
 }
 
