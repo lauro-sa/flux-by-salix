@@ -364,6 +364,7 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
           prioridad: { type: 'string', enum: ['baja', 'normal', 'alta', 'urgente'] },
           fecha_vencimiento: { type: 'string', description: 'Nueva fecha en formato ISO 8601' },
           asignado_a_id: { type: 'string', description: 'ID del nuevo asignado' },
+          eliminar: { type: 'boolean', description: 'true para eliminar la actividad (moverla a papelera)' },
         },
         required: [],
       },

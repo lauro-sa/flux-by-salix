@@ -80,6 +80,29 @@ export async function ejecutarModificarActividad(
     }
   }
 
+  // Eliminar (mover a papelera)
+  if (params.eliminar === true) {
+    cambios.en_papelera = true
+    cambios.papelera_en = new Date().toISOString()
+    cambios.editado_por = ctx.usuario_id
+    cambios.actualizado_en = new Date().toISOString()
+
+    const { error } = await ctx.admin
+      .from('actividades')
+      .update(cambios)
+      .eq('id', actividad_id)
+
+    if (error) {
+      return { exito: false, error: `Error eliminando actividad: ${error.message}` }
+    }
+
+    return {
+      exito: true,
+      datos: { id: actividad_id, eliminada: true },
+      mensaje_usuario: `Actividad "${actividad.titulo}" eliminada.`,
+    }
+  }
+
   // Cambiar prioridad
   if (params.prioridad) {
     cambios.prioridad = params.prioridad
