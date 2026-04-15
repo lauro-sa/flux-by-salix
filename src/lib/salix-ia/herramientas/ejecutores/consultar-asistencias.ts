@@ -1,11 +1,40 @@
 /**
  * Ejecutor: consultar_asistencias
- * Consulta asistencia de empleados: presentes, ausentes, tardanzas.
+ * Consulta asistencia de empleados: presentes, ausentes, tardanzas, horas trabajadas.
  * Respeta visibilidad ver_propio vs ver_todos.
+ * Devuelve: hora entrada, hora salida, estado de jornada, horas trabajadas.
  */
 
 import type { ContextoSalixIA, ResultadoHerramienta } from '@/tipos/salix-ia'
 import { determinarVisibilidad } from '@/lib/salix-ia/permisos'
+
+/** Formatea un timestamp a hora legible (ej: "08:32") */
+function formatearHora(timestamp: string | null): string | null {
+  if (!timestamp) return null
+  return new Date(timestamp).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
+/** Calcula horas trabajadas entre entrada y salida */
+function calcularHorasTrabajadas(entrada: string | null, salida: string | null): string | null {
+  if (!entrada || !salida) return null
+  const diff = new Date(salida).getTime() - new Date(entrada).getTime()
+  const horas = Math.floor(diff / 3600000)
+  const minutos = Math.floor((diff % 3600000) / 60000)
+  return `${horas}h ${minutos}m`
+}
+
+/** Traduce el estado de jornada a texto legible */
+function traducirEstado(estado: string): string {
+  const estados: Record<string, string> = {
+    activo: 'Trabajando',
+    almuerzo: 'En almuerzo',
+    particular: 'Salida particular',
+    cerrado: 'Jornada cerrada',
+    auto_cerrado: 'Cerrado automático',
+    ausente: 'Ausente',
+  }
+  return estados[estado] || estado
+}
 
 export async function ejecutarConsultarAsistencias(
   ctx: ContextoSalixIA,
@@ -18,46 +47,68 @@ export async function ejecutarConsultarAsistencias(
 
   const fecha = (params.fecha as string) || new Date().toISOString().split('T')[0]
 
-  // Obtener miembro_id del usuario actual para filtro ver_propio
-  let miembroIdActual: string | null = null
-  if (visibilidad === 'propio') {
-    const { data: miembro } = await ctx.admin
-      .from('miembros')
-      .select('id')
-      .eq('usuario_id', ctx.usuario_id)
-      .eq('empresa_id', ctx.empresa_id)
-      .single()
-    miembroIdActual = miembro?.id || null
-  }
+  // Obtener miembro_id del usuario actual
+  const { data: miembroActual } = await ctx.admin
+    .from('miembros')
+    .select('id')
+    .eq('usuario_id', ctx.usuario_id)
+    .eq('empresa_id', ctx.empresa_id)
+    .eq('activo', true)
+    .single()
 
-  // Query asistencias del día
+  // Query asistencias del día — sin joins complejos
   let query = ctx.admin
     .from('asistencias')
-    .select(`
-      id, miembro_id, fecha, hora_entrada, hora_salida,
-      estado, tipo, puntualidad_min,
-      miembro:miembros!miembro_id(
-        id, puesto_nombre,
-        perfil:perfiles!usuario_id(nombre, apellido)
-      )
-    `)
+    .select('id, miembro_id, fecha, hora_entrada, hora_salida, estado, tipo, puntualidad_min, metodo_registro, notas')
     .eq('empresa_id', ctx.empresa_id)
     .eq('fecha', fecha)
 
-  // Filtrar si un miembro específico o solo el propio
+  // Filtrar por miembro específico o visibilidad
   if (params.miembro_id) {
     query = query.eq('miembro_id', params.miembro_id)
-  } else if (visibilidad === 'propio' && miembroIdActual) {
-    query = query.eq('miembro_id', miembroIdActual)
+  } else if (visibilidad === 'propio' && miembroActual) {
+    query = query.eq('miembro_id', miembroActual.id)
   }
 
-  const { data: asistencias, error } = await query
+  const { data: asistencias, error } = await query.order('hora_entrada', { ascending: true })
 
   if (error) {
     return { exito: false, error: `Error consultando asistencias: ${error.message}` }
   }
 
-  // Obtener total de empleados activos para calcular ausentes
+  // Obtener nombres de los miembros — queries separadas para evitar joins problemáticos
+  const miembroIds = [...new Set((asistencias || []).map((a: { miembro_id: string }) => a.miembro_id))]
+
+  let nombresMap = new Map<string, { nombre: string; puesto: string | null }>()
+
+  if (miembroIds.length > 0) {
+    const { data: miembros } = await ctx.admin
+      .from('miembros')
+      .select('id, usuario_id, puesto_nombre')
+      .in('id', miembroIds)
+
+    if (miembros) {
+      const usuarioIds = miembros.map((m: { usuario_id: string }) => m.usuario_id)
+      const { data: perfiles } = await ctx.admin
+        .from('perfiles')
+        .select('id, nombre, apellido')
+        .in('id', usuarioIds)
+
+      const perfilesMap = new Map<string, string>()
+      for (const p of (perfiles || [])) {
+        perfilesMap.set(p.id, [p.nombre, p.apellido].filter(Boolean).join(' '))
+      }
+
+      for (const m of miembros) {
+        nombresMap.set(m.id, {
+          nombre: perfilesMap.get(m.usuario_id) || 'Sin nombre',
+          puesto: m.puesto_nombre,
+        })
+      }
+    }
+  }
+
+  // Total de empleados activos (para calcular ausentes)
   let totalEmpleados = 0
   if (visibilidad === 'todos' && !params.miembro_id) {
     const { count } = await ctx.admin
@@ -65,37 +116,97 @@ export async function ejecutarConsultarAsistencias(
       .select('id', { count: 'exact', head: true })
       .eq('empresa_id', ctx.empresa_id)
       .eq('activo', true)
-
     totalEmpleados = count || 0
   }
 
-  // Clasificar asistencias
-  const presentes: { nombre: string; hora_entrada: string; tipo: string }[] = []
-  const tardanzas: { nombre: string; hora_entrada: string; minutos_tarde: number }[] = []
-
-  for (const a of (asistencias || [])) {
-    const miembro = a.miembro as { perfil: { nombre: string; apellido: string } } | null
-    const nombre = miembro?.perfil
-      ? [miembro.perfil.nombre, miembro.perfil.apellido].filter(Boolean).join(' ')
-      : 'Sin nombre'
-
-    if (a.tipo === 'tardanza' || (a.puntualidad_min && a.puntualidad_min > 0)) {
-      tardanzas.push({
-        nombre,
-        hora_entrada: a.hora_entrada || '',
-        minutos_tarde: a.puntualidad_min || 0,
-      })
-    } else {
-      presentes.push({
-        nombre,
-        hora_entrada: a.hora_entrada || '',
-        tipo: a.tipo || 'normal',
-      })
-    }
+  // Construir datos enriquecidos
+  interface AsistenciaEnriquecida {
+    nombre: string
+    puesto: string | null
+    hora_entrada: string | null
+    hora_salida: string | null
+    estado: string
+    estado_texto: string
+    tipo: string
+    horas_trabajadas: string | null
+    minutos_tarde: number | null
   }
 
-  const totalPresentes = (asistencias || []).length
+  const registros: AsistenciaEnriquecida[] = (asistencias || []).map((a: {
+    miembro_id: string
+    hora_entrada: string | null
+    hora_salida: string | null
+    estado: string
+    tipo: string
+    puntualidad_min: number | null
+  }) => {
+    const info = nombresMap.get(a.miembro_id)
+    return {
+      nombre: info?.nombre || 'Sin nombre',
+      puesto: info?.puesto || null,
+      hora_entrada: formatearHora(a.hora_entrada),
+      hora_salida: formatearHora(a.hora_salida),
+      estado: a.estado,
+      estado_texto: traducirEstado(a.estado),
+      tipo: a.tipo,
+      horas_trabajadas: calcularHorasTrabajadas(a.hora_entrada, a.hora_salida),
+      minutos_tarde: a.puntualidad_min,
+    }
+  })
+
+  const totalPresentes = registros.length
+  const tardanzas = registros.filter(r => r.tipo === 'tardanza' || (r.minutos_tarde && r.minutos_tarde > 0))
   const totalAusentes = totalEmpleados > 0 ? totalEmpleados - totalPresentes : 0
+
+  // Formatear mensaje según contexto
+  let mensaje: string
+
+  if (visibilidad === 'propio' || (params.miembro_id && params.miembro_id === miembroActual?.id)) {
+    // Consulta propia
+    if (registros.length === 0) {
+      mensaje = `No tenés asistencia registrada para el ${fecha}.`
+    } else {
+      const r = registros[0]
+      const partes = [`📅 *Tu asistencia del ${fecha}*`]
+      partes.push(`⏰ Entrada: ${r.hora_entrada || 'sin registro'}`)
+      if (r.hora_salida) {
+        partes.push(`🏁 Salida: ${r.hora_salida}`)
+      } else {
+        partes.push(`🔄 Estado: ${r.estado_texto}`)
+      }
+      if (r.horas_trabajadas) {
+        partes.push(`⏱ Horas trabajadas: ${r.horas_trabajadas}`)
+      }
+      if (r.minutos_tarde && r.minutos_tarde > 0) {
+        partes.push(`⚠ Tardanza: ${r.minutos_tarde} min`)
+      }
+      mensaje = partes.join('\n')
+    }
+  } else {
+    // Consulta de todos (admin)
+    if (registros.length === 0) {
+      mensaje = `No hay asistencias registradas para el ${fecha}.`
+    } else {
+      const partes = [`📅 *Asistencia del ${fecha}*`]
+      partes.push(`✅ ${totalPresentes} presentes · ⚠ ${tardanzas.length} tardanzas · ❌ ${totalAusentes} ausentes`)
+      partes.push('')
+
+      for (const r of registros) {
+        let linea = `• *${r.nombre}*`
+        if (r.hora_entrada) linea += ` — entrada ${r.hora_entrada}`
+        if (r.hora_salida) {
+          linea += `, salida ${r.hora_salida}`
+        } else {
+          linea += ` _(${r.estado_texto})_`
+        }
+        if (r.horas_trabajadas) linea += ` · ${r.horas_trabajadas}`
+        if (r.minutos_tarde && r.minutos_tarde > 0) linea += ` ⚠ +${r.minutos_tarde}min`
+        partes.push(linea)
+      }
+
+      mensaje = partes.join('\n')
+    }
+  }
 
   return {
     exito: true,
@@ -105,11 +216,8 @@ export async function ejecutarConsultarAsistencias(
       total_presentes: totalPresentes,
       total_tardanzas: tardanzas.length,
       total_ausentes: totalAusentes,
-      presentes,
-      tardanzas,
+      registros,
     },
-    mensaje_usuario: visibilidad === 'propio'
-      ? `Tu asistencia del ${fecha}: ${totalPresentes > 0 ? 'registrada' : 'sin registro'}.`
-      : `Asistencia del ${fecha}: ${totalPresentes} presentes, ${tardanzas.length} tardanzas, ${totalAusentes} ausentes.`,
+    mensaje_usuario: mensaje,
   }
 }
