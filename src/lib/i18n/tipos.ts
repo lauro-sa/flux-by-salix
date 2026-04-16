@@ -889,6 +889,29 @@ export interface Traducciones {
     }
     asignado: string
     fecha: string
+    descripcion: string
+    notas: string
+    presupuesto_origen: string
+    fecha_inicio: string
+    fecha_fin_estimada: string
+    fecha_fin_real: string
+    generar_ot: string
+    ot_generada: string
+    progreso_actividades: string
+    sin_actividades: string
+    agregar_actividad: string
+    contacto_seccion: string
+    detalle_trabajo: string
+    sin_lineas: string
+    llamar: string
+    whatsapp: string
+    ver_mapa: string
+    completar: string
+    reabrir: string
+    cancelar_orden: string
+    reactivar: string
+    historial: string
+    ver_presupuesto: string
   }
 
   // Auditoría
