@@ -1,6 +1,6 @@
 'use client'
 
-import { AlarmClock, CheckCircle2, Plus } from 'lucide-react'
+import { AlarmClock, CheckCircle2 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { AnimatePresence } from 'framer-motion'
 import { type Recordatorio } from './tipos'
@@ -41,7 +41,6 @@ function ListaRecordatorios({ tipo, recordatorios, cargando, onToggleCompletar, 
             <p className="text-sm">Sin recordatorios activos</p>
             {onIrACrear && (
               <Boton tamano="sm" variante="fantasma" onClick={onIrACrear}>
-                <Plus size={14} />
                 Crear uno
               </Boton>
             )}
