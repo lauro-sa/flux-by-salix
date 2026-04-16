@@ -282,8 +282,9 @@ export async function PATCH(
 }
 
 /**
- * DELETE /api/inbox/conversaciones/[id] — Eliminar conversación y sus mensajes.
- * Elimina de la BD (mensajes + conversación). No toca servidores externos (IMAP/Gmail).
+ * DELETE /api/inbox/conversaciones/[id] — Eliminar conversación (two-phase).
+ * Primera vez: soft delete (en_papelera = true).
+ * Si ya está en papelera: hard delete (mensajes + conversación). No toca servidores externos.
  */
 export async function DELETE(
   request: NextRequest,
@@ -305,10 +306,10 @@ export async function DELETE(
 
     const admin = crearClienteAdmin()
 
-    // Verificar que la conversación pertenece a la empresa
+    // Verificar que la conversación pertenece a la empresa y su estado de papelera
     const { data: conv } = await admin
       .from('conversaciones')
-      .select('id')
+      .select('id, en_papelera')
       .eq('id', id)
       .eq('empresa_id', empresaId)
       .single()
@@ -317,16 +318,30 @@ export async function DELETE(
       return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 })
     }
 
-    // Eliminar mensajes de la conversación
-    await admin
-      .from('mensajes')
-      .delete()
-      .eq('conversacion_id', id)
+    if (conv.en_papelera) {
+      // Ya en papelera → eliminar definitivamente (mensajes + conversación)
+      await admin
+        .from('mensajes')
+        .delete()
+        .eq('conversacion_id', id)
 
-    // Eliminar la conversación
+      const { error } = await admin
+        .from('conversaciones')
+        .delete()
+        .eq('id', id)
+        .eq('empresa_id', empresaId)
+
+      if (error) throw error
+      return NextResponse.json({ ok: true, accion: 'eliminado_definitivo' })
+    }
+
+    // Primera vez → soft delete
     const { error } = await admin
       .from('conversaciones')
-      .delete()
+      .update({
+        en_papelera: true,
+        papelera_en: new Date().toISOString(),
+      })
       .eq('id', id)
       .eq('empresa_id', empresaId)
 

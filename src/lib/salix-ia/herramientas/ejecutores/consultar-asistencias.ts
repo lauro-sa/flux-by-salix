@@ -108,15 +108,42 @@ export async function ejecutarConsultarAsistencias(
     }
   }
 
-  // Total de empleados activos (para calcular ausentes)
+  // Obtener todos los empleados activos (para calcular ausentes con nombres)
   let totalEmpleados = 0
+  let ausentes: { nombre: string; puesto: string | null }[] = []
+
   if (visibilidad === 'todos' && !params.miembro_id) {
-    const { count } = await ctx.admin
+    const { data: todosLosMiembros } = await ctx.admin
       .from('miembros')
-      .select('id', { count: 'exact', head: true })
+      .select('id, usuario_id, puesto_nombre')
       .eq('empresa_id', ctx.empresa_id)
       .eq('activo', true)
-    totalEmpleados = count || 0
+
+    totalEmpleados = todosLosMiembros?.length || 0
+
+    // Identificar miembros que NO tienen registro de asistencia hoy
+    const miembrosConRegistro = new Set(miembroIds)
+    const miembrosSinRegistro = (todosLosMiembros || []).filter(
+      (m: { id: string }) => !miembrosConRegistro.has(m.id)
+    )
+
+    if (miembrosSinRegistro.length > 0) {
+      const usuarioIdsAusentes = miembrosSinRegistro.map((m: { usuario_id: string }) => m.usuario_id)
+      const { data: perfilesAusentes } = await ctx.admin
+        .from('perfiles')
+        .select('id, nombre, apellido')
+        .in('id', usuarioIdsAusentes)
+
+      const perfilesAusentesMap = new Map<string, string>()
+      for (const p of (perfilesAusentes || [])) {
+        perfilesAusentesMap.set(p.id, [p.nombre, p.apellido].filter(Boolean).join(' '))
+      }
+
+      ausentes = miembrosSinRegistro.map((m: { usuario_id: string; puesto_nombre: string | null }) => ({
+        nombre: perfilesAusentesMap.get(m.usuario_id) || 'Sin nombre',
+        puesto: m.puesto_nombre,
+      }))
+    }
   }
 
   // Construir datos enriquecidos
@@ -204,6 +231,15 @@ export async function ejecutarConsultarAsistencias(
         partes.push(linea)
       }
 
+      // Agregar lista de ausentes con nombres
+      if (ausentes.length > 0) {
+        partes.push('')
+        partes.push(`❌ *Ausentes (${ausentes.length}):*`)
+        for (const a of ausentes) {
+          partes.push(`• ${a.nombre}${a.puesto ? ` _(${a.puesto})_` : ''}`)
+        }
+      }
+
       mensaje = partes.join('\n')
     }
   }
@@ -217,6 +253,7 @@ export async function ejecutarConsultarAsistencias(
       total_tardanzas: tardanzas.length,
       total_ausentes: totalAusentes,
       registros,
+      ausentes,
     },
     mensaje_usuario: mensaje,
   }

@@ -7,6 +7,8 @@ interface Props {
   html: string
   /** Clase CSS del contenedor */
   className?: string
+  /** Estilos inline del contenedor */
+  style?: React.CSSProperties
   /** Elemento wrapper (default: div) */
   como?: 'div' | 'span' | 'p' | 'article'
   /** Configuración extra de DOMPurify */
@@ -18,7 +20,7 @@ interface Props {
  * Reemplaza uso directo de dangerouslySetInnerHTML en toda la app.
  * Se usa en: previews de correo, plantillas WhatsApp, notas del portal, recibos de nómina.
  */
-export default function HtmlSeguro({ html, className, como: Wrapper = 'div', opciones }: Props) {
+export default function HtmlSeguro({ html, className, style, como: Wrapper = 'div', opciones }: Props) {
   const htmlLimpio = DOMPurify.sanitize(html, {
     ADD_TAGS: ['style'],
     ADD_ATTR: ['target', 'rel', 'style'],
@@ -28,6 +30,7 @@ export default function HtmlSeguro({ html, className, como: Wrapper = 'div', opc
   return (
     <Wrapper
       className={className}
+      style={style}
       dangerouslySetInnerHTML={{ __html: htmlLimpio }}
     />
   )

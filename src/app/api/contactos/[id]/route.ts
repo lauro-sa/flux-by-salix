@@ -264,7 +264,7 @@ export async function DELETE(
     // Verificar que está en papelera antes de borrar definitivamente
     const { data: contacto } = await admin
       .from('contactos')
-      .select('id, en_papelera')
+      .select('id, en_papelera, codigo, creado_en')
       .eq('id', id)
       .eq('empresa_id', empresaId)
       .single()
@@ -275,6 +275,40 @@ export async function DELETE(
       return NextResponse.json({
         error: 'El contacto debe estar en la papelera antes de eliminarse definitivamente',
       }, { status: 400 })
+    }
+
+    // Retroceder contador secuencial si es el último contacto (mismo patrón que presupuestos)
+    const codigoContacto = contacto.codigo
+    if (codigoContacto) {
+      const match = codigoContacto.match(/(\d+)$/)
+      if (match) {
+        const numActual = parseInt(match[1], 10)
+        // Verificar si hay contactos con código mayor (creados después)
+        const { count: posteriores } = await admin
+          .from('contactos')
+          .select('id', { count: 'exact', head: true })
+          .eq('empresa_id', empresaId)
+          .eq('en_papelera', false)
+          .gt('creado_en', contacto.creado_en)
+
+        // Solo retroceder si no hay contactos posteriores y coincide con siguiente - 1
+        if (!posteriores || posteriores === 0) {
+          const { data: secuencia } = await admin
+            .from('secuencias')
+            .select('siguiente')
+            .eq('empresa_id', empresaId)
+            .eq('entidad', 'contacto')
+            .single()
+
+          if (secuencia && secuencia.siguiente === numActual + 1) {
+            await admin
+              .from('secuencias')
+              .update({ siguiente: numActual })
+              .eq('empresa_id', empresaId)
+              .eq('entidad', 'contacto')
+          }
+        }
+      }
     }
 
     // Eliminar vinculaciones bidireccionales primero

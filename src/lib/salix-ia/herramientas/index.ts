@@ -16,6 +16,9 @@ import { ejecutarConsultarCalendario } from './ejecutores/consultar-calendario'
 import { ejecutarConsultarActividades } from './ejecutores/consultar-actividades'
 import { ejecutarConsultarVisitas } from './ejecutores/consultar-visitas'
 import { ejecutarBuscarPresupuestos } from './ejecutores/buscar-presupuestos'
+import { ejecutarObtenerPresupuesto } from './ejecutores/obtener-presupuesto'
+import { ejecutarConsultarEquipo } from './ejecutores/consultar-equipo'
+import { ejecutarConsultarProductos } from './ejecutores/consultar-productos'
 import { ejecutarModificarActividad } from './ejecutores/modificar-actividad'
 import { ejecutarModificarVisita } from './ejecutores/modificar-visita'
 import { ejecutarModificarPresupuesto } from './ejecutores/modificar-presupuesto'
@@ -37,6 +40,9 @@ export const REGISTRO_EJECUTORES: Record<NombreHerramienta, EjecutorHerramienta>
   consultar_actividades: ejecutarConsultarActividades,
   consultar_visitas: ejecutarConsultarVisitas,
   buscar_presupuestos: ejecutarBuscarPresupuestos,
+  obtener_presupuesto: ejecutarObtenerPresupuesto,
+  consultar_equipo: ejecutarConsultarEquipo,
+  consultar_productos: ejecutarConsultarProductos,
   modificar_actividad: ejecutarModificarActividad,
   modificar_visita: ejecutarModificarVisita,
   modificar_presupuesto: ejecutarModificarPresupuesto,

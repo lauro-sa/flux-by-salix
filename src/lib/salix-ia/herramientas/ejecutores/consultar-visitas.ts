@@ -21,11 +21,17 @@ export async function ejecutarConsultarVisitas(
 
   let query = ctx.admin
     .from('visitas')
-    .select('id, contacto_nombre, direccion_texto, asignado_nombre, fecha_programada, fecha_completada, estado, motivo, prioridad, duracion_estimada_min')
+    .select('id, contacto_nombre, contacto_id, direccion_texto, asignado_nombre, fecha_programada, fecha_completada, estado, motivo, prioridad, duracion_estimada_min, notas, resultado')
     .eq('empresa_id', ctx.empresa_id)
     .eq('en_papelera', false)
     .order('fecha_programada', { ascending: true })
     .limit(limite)
+
+  // Búsqueda por texto (contacto, dirección, motivo)
+  if (params.busqueda) {
+    const busq = params.busqueda as string
+    query = query.or(`contacto_nombre.ilike.%${busq}%,direccion_texto.ilike.%${busq}%,motivo.ilike.%${busq}%`)
+  }
 
   // Filtrar por estado
   if (estado !== 'todas') {
@@ -56,13 +62,17 @@ export async function ejecutarConsultarVisitas(
   const visitas = (data || []).map((v: Record<string, unknown>) => ({
     id: v.id,
     contacto: v.contacto_nombre,
+    contacto_id: v.contacto_id,
     direccion: v.direccion_texto || null,
     asignado: v.asignado_nombre,
-    fecha: v.fecha_programada,
+    fecha_programada: v.fecha_programada,
+    fecha_completada: v.fecha_completada || null,
     estado: v.estado,
     motivo: v.motivo || null,
     prioridad: v.prioridad,
     duracion_min: v.duracion_estimada_min,
+    notas: v.notas || null,
+    resultado: v.resultado || null,
   }))
 
   return {

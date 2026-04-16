@@ -10,6 +10,11 @@ import { ToastNotificacion } from '@/componentes/feedback/ToastNotificacion'
 import { BannerInstalacion } from '@/componentes/pwa/BannerInstalacion'
 import { BotonFlotanteSalixIA } from '@/componentes/entidad/SalixIA/BotonFlotante'
 import { BotonFlotanteNotas } from '@/componentes/entidad/NotasRapidas/BotonFlotanteNotas'
+import IconoSalix from '@/componentes/marca/IconoSalix'
+import { motion, AnimatePresence } from 'framer-motion'
+import { PanelNotas } from '@/componentes/entidad/NotasRapidas/PanelNotas'
+import { PanelChat } from '@/componentes/entidad/SalixIA/PanelChat'
+import { useAuth } from '@/hooks/useAuth'
 import { useNotasRapidas } from '@/hooks/useNotasRapidas'
 import { useTema } from '@/hooks/useTema'
 import { usePreferencias } from '@/hooks/usePreferencias'
@@ -257,7 +262,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
       {/* Botones flotantes — se montan solo en cliente para evitar hydration mismatch */}
       {botonesMontados && (
         <>
-          {/* Zona de detección invisible — borde derecho inferior */}
+          {/* ── Desktop: zona de detección + botones individuales ── */}
           <div
             className="fixed right-0 bottom-0 w-[30px] h-40 z-[69] hidden md:block"
             onMouseEnter={() => {
@@ -265,10 +270,8 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
               if (timerBotonesRef.current) clearTimeout(timerBotonesRef.current)
             }}
           />
-
-          {/* Botones: notas arriba, IA abajo — se esconden a la derecha (salvo con alertas) */}
           <div
-            className="fixed right-4 bottom-20 md:bottom-6 z-[70] flex flex-col items-center gap-1 transition-all duration-300 ease-in-out"
+            className="fixed right-4 bottom-6 z-[70] hidden md:flex flex-col items-center gap-1 transition-all duration-300 ease-in-out"
             style={{
               transform: (botonesVisibles || tieneAlertasNotas) ? 'translateX(0)' : 'translateX(calc(100% + 2rem))',
               opacity: (botonesVisibles || tieneAlertasNotas) ? 1 : 0,
@@ -286,6 +289,9 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
             <BotonFlotanteNotas notasRapidas={notasRapidas} />
             <BotonFlotanteSalixIA />
           </div>
+
+          {/* ── Móvil: botón Flux unificado que expande notas + IA ── */}
+          <BotonesFlotantesMovil notasRapidas={notasRapidas} />
         </>
       )}
 
@@ -300,5 +306,183 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
     </div>
   )
 }
+
+/* ════════════════════════════════════════════
+   BotonesFlotantesMovil — Botón Flux unificado para móvil.
+   Un solo botón con el logo Flux. Al tocar, se expanden Notas e IA hacia arriba.
+   Si hay alertas de notas, muestra badge pulsante sobre el botón principal.
+   Solo se renderiza en < md (mobile).
+   ════════════════════════════════════════════ */
+
+function BotonesFlotantesMovil({ notasRapidas }: { notasRapidas: ReturnType<typeof useNotasRapidas> }) {
+  const [expandido, setExpandido] = useState(false)
+  const [panelNotas, setPanelNotas] = useState(false)
+  const [panelIA, setPanelIA] = useState(false)
+  const [iaHabilitado, setIaHabilitado] = useState(false)
+  const { usuario, cargando } = useAuth()
+  const { temaActivo } = useTema()
+
+  const fondoCristal = temaActivo === 'claro'
+    ? 'rgba(255, 255, 255, 0.4)'
+    : 'rgba(30, 30, 30, 0.35)'
+
+  const cantidadSinLeer = notasRapidas.compartidas.filter((n) => n._tiene_cambios).length
+
+  // Verificar si Salix IA está habilitado
+  useEffect(() => {
+    if (cargando || !usuario) return
+    const verificar = async () => {
+      try {
+        const res = await fetch('/api/salix-ia/estado')
+        if (res.ok) {
+          const data = await res.json()
+          setIaHabilitado(data.habilitado)
+        }
+      } catch { /* no mostrar */ }
+    }
+    verificar()
+  }, [usuario, cargando])
+
+  // Cerrar el menú expandido cuando se abre un panel
+  useEffect(() => {
+    if (panelNotas || panelIA) setExpandido(false)
+  }, [panelNotas, panelIA])
+
+  // Cerrar al tocar fuera
+  useEffect(() => {
+    if (!expandido) return
+    const cerrar = () => setExpandido(false)
+    // Timeout para no cerrar por el mismo tap que abrió
+    const timer = setTimeout(() => document.addEventListener('click', cerrar), 10)
+    return () => { clearTimeout(timer); document.removeEventListener('click', cerrar) }
+  }, [expandido])
+
+  return (
+    <div className="fixed right-4 z-[70] flex flex-col-reverse items-center gap-2 md:hidden"
+      style={{ bottom: 'max(calc(env(safe-area-inset-bottom, 0px) + 76px), 76px)' }}
+    >
+      {/* Botón principal — logo Flux */}
+      <motion.button
+        whileTap={{ scale: 0.9 }}
+        onClick={(e) => { e.stopPropagation(); setExpandido(!expandido) }}
+        className="size-12 rounded-full flex items-center justify-center text-texto-marca relative cursor-pointer"
+        style={{
+          backgroundColor: 'color-mix(in srgb, var(--superficie-elevada) 65%, transparent)',
+          backdropFilter: 'blur(16px) saturate(1.4)',
+          WebkitBackdropFilter: 'blur(16px) saturate(1.4)',
+          border: '1px solid var(--borde-sutil)',
+          boxShadow: 'var(--sombra-md)',
+        }}
+      >
+        <motion.div
+          animate={{ rotate: expandido ? 45 : 0 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+        >
+          <IconoSalix tamano={24} variante="estatico" />
+        </motion.div>
+
+        {/* Badge de alertas de notas */}
+        {cantidadSinLeer > 0 && !expandido && (
+          <motion.span
+            initial={{ scale: 0 }}
+            animate={{
+              scale: [1, 1.15, 1],
+              opacity: [1, 0.85, 1],
+            }}
+            transition={{
+              scale: { repeat: Infinity, duration: 2, ease: 'easeInOut' },
+              opacity: { repeat: Infinity, duration: 2, ease: 'easeInOut' },
+            }}
+            className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-insignia-peligro border-2 border-superficie-app flex items-center justify-center px-1 shadow-md shadow-insignia-peligro/40"
+          >
+            <span className="text-[10px] font-bold text-white leading-none">
+              {cantidadSinLeer > 9 ? '9+' : cantidadSinLeer}
+            </span>
+          </motion.span>
+        )}
+      </motion.button>
+
+      {/* Botones expandidos — Notas e IA */}
+      <AnimatePresence>
+        {expandido && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.8 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+            className="flex flex-col items-center gap-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Botón Notas */}
+            <motion.button
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.03 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setPanelNotas(true)}
+              className="size-11 rounded-full flex items-center justify-center text-amber-400/70 relative cursor-pointer"
+              style={{
+                backgroundColor: fondoCristal,
+                backdropFilter: 'blur(24px) saturate(1.5)',
+                WebkitBackdropFilter: 'blur(24px) saturate(1.5)',
+                border: '1px solid var(--borde-sutil)',
+                boxShadow: 'var(--sombra-sm)',
+              }}
+              title="Notas rápidas"
+            >
+              <svg viewBox="0 0 24 24" fill="none" className="size-5" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8l6-6V5a2 2 0 0 0-2-2H6z" fill="currentColor" fillOpacity="0.12" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+                <path d="M14 21v-4a2 2 0 0 1 2-2h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <line x1="8" y1="8" x2="16" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                <line x1="8" y1="12" x2="13" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              {cantidadSinLeer > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full bg-insignia-peligro border-2 border-superficie-app flex items-center justify-center px-0.5">
+                  <span className="text-[9px] font-bold text-white leading-none">
+                    {cantidadSinLeer > 9 ? '9+' : cantidadSinLeer}
+                  </span>
+                </span>
+              )}
+            </motion.button>
+
+            {/* Botón Salix IA */}
+            {iaHabilitado && (
+              <motion.button
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.06 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setPanelIA(true)}
+                className="size-11 rounded-full flex items-center justify-center text-texto-marca cursor-pointer"
+                style={{
+                  backgroundColor: 'color-mix(in srgb, var(--superficie-elevada) 65%, transparent)',
+                  backdropFilter: 'blur(16px) saturate(1.4)',
+                  WebkitBackdropFilter: 'blur(16px) saturate(1.4)',
+                  border: '1px solid var(--borde-sutil)',
+                  boxShadow: 'var(--sombra-sm)',
+                }}
+                title="Salix IA"
+              >
+                <IconoSalix tamano={20} variante="estatico" />
+              </motion.button>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Paneles — se abren desde los botones expandidos */}
+      <PanelNotas
+        abierto={panelNotas}
+        onCerrar={() => setPanelNotas(false)}
+        notas={notasRapidas}
+      />
+      <PanelChat
+        abierto={panelIA}
+        onCerrar={() => setPanelIA(false)}
+      />
+    </div>
+  )
+}
+
 
 export { PlantillaApp }

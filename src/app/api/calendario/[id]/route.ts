@@ -207,7 +207,42 @@ export async function PUT(request: NextRequest, contexto: Contexto) {
 }
 
 /**
- * DELETE /api/calendario/[id] — Eliminar evento (soft delete).
+ * PATCH /api/calendario/[id] — Restaurar evento desde papelera.
+ */
+export async function PATCH(request: NextRequest, contexto: Contexto) {
+  try {
+    const { id } = await contexto.params
+    const { user } = await obtenerUsuarioRuta()
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+    const empresaId = user.app_metadata?.empresa_activa_id
+    if (!empresaId) return NextResponse.json({ error: 'Sin empresa activa' }, { status: 403 })
+
+    const body = await request.json()
+
+    // Solo soportamos restaurar desde papelera por ahora
+    if (body.en_papelera === false) {
+      const admin = crearClienteAdmin()
+      const { error } = await admin
+        .from('eventos_calendario')
+        .update({ en_papelera: false, papelera_en: null })
+        .eq('id', id)
+        .eq('empresa_id', empresaId)
+
+      if (error) return NextResponse.json({ error: 'Error al restaurar evento' }, { status: 500 })
+      return NextResponse.json({ ok: true })
+    }
+
+    return NextResponse.json({ error: 'Operación no soportada' }, { status: 400 })
+  } catch {
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+  }
+}
+
+/**
+ * DELETE /api/calendario/[id] — Eliminar evento (two-phase).
+ * Primera vez: soft delete (en_papelera = true).
+ * Si ya está en papelera: hard delete definitivo.
  */
 export async function DELETE(_request: NextRequest, contexto: Contexto) {
   try {
@@ -223,6 +258,29 @@ export async function DELETE(_request: NextRequest, contexto: Contexto) {
 
     const admin = crearClienteAdmin()
 
+    // Verificar si ya está en papelera
+    const { data: evento } = await admin
+      .from('eventos_calendario')
+      .select('id, en_papelera')
+      .eq('id', id)
+      .eq('empresa_id', empresaId)
+      .single()
+
+    if (!evento) return NextResponse.json({ error: 'Evento no encontrado' }, { status: 404 })
+
+    if (evento.en_papelera) {
+      // Ya en papelera → eliminar definitivamente
+      const { error } = await admin
+        .from('eventos_calendario')
+        .delete()
+        .eq('id', id)
+        .eq('empresa_id', empresaId)
+
+      if (error) return NextResponse.json({ error: 'Error al eliminar evento definitivamente' }, { status: 500 })
+      return NextResponse.json({ ok: true, accion: 'eliminado_definitivo' })
+    }
+
+    // Primera vez → soft delete
     const { error } = await admin
       .from('eventos_calendario')
       .update({

@@ -1074,6 +1074,7 @@ export const recordatorios = pgTable('recordatorios', {
   repetir: text('repetir').notNull().default('ninguno'), // 'ninguno' | 'diario' | 'semanal' | 'mensual' | 'anual' | 'personalizado'
   recurrencia: jsonb('recurrencia'), // Config avanzada: { diasSemana?: number[], diaMes?: number, semanaDelMes?: number, cadaMeses?: number }
   alerta_modal: boolean('alerta_modal').notNull().default(false), // true = abre modal al momento, false = solo notificación en campana
+  notificar_whatsapp: boolean('notificar_whatsapp').notNull().default(true), // true = enviar recordatorio también por WhatsApp
   completado: boolean('completado').notNull().default(false),
   completado_en: timestamp('completado_en', { withTimezone: true }),
   creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),

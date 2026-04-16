@@ -68,6 +68,10 @@ export async function ejecutarConsultarActividades(
     const vencimiento = a.fecha_vencimiento as string | null
     const estaVencida = vencimiento && new Date(vencimiento) < new Date() && a.estado_clave === 'pendiente'
 
+    // Extraer nombres de asignados
+    const asignadosList = a.asignados as { id: string; nombre: string }[] | null
+    const nombresAsignados = asignadosList?.map(x => x.nombre).join(', ') || null
+
     return {
       id: a.id,
       titulo: a.titulo,
@@ -76,8 +80,11 @@ export async function ejecutarConsultarActividades(
       prioridad: a.prioridad,
       fecha_vencimiento: vencimiento,
       vencida: estaVencida,
+      asignado_a: nombresAsignados,
       contacto_vinculado: (a.vinculos as { tipo: string; nombre: string }[] | null)
         ?.find((v) => v.tipo === 'contacto')?.nombre || null,
+      presupuesto_vinculado: (a.vinculos as { tipo: string; nombre: string }[] | null)
+        ?.find((v) => v.tipo === 'presupuesto')?.nombre || null,
     }
   })
 

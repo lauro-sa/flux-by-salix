@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
       .eq('asignado_a', user.id)
       .eq('fecha', hoy)
       .neq('estado', 'borrador')
+      .eq('en_papelera', false)
       .single()
 
     if (recorrido) {
@@ -53,6 +54,7 @@ export async function GET(request: NextRequest) {
       .eq('asignado_a', user.id)
       .eq('fecha', hoy)
       .eq('estado', 'borrador')
+      .eq('en_papelera', false)
       .single()
 
     if (borrador) {

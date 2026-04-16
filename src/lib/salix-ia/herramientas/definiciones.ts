@@ -126,19 +126,24 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
     nombre: 'crear_recordatorio',
     definicion: {
       name: 'crear_recordatorio',
-      description: 'Crea un recordatorio en el calendario. Se crea como evento con una alerta.',
+      description: 'Crea un recordatorio personal con notificación. Soporta recurrencia (diario, semanal, mensual, anual). El usuario recibirá notificación in-app, push y por WhatsApp cuando llegue la hora. También aparece en el calendario.',
       input_schema: {
         type: 'object',
         properties: {
-          titulo: { type: 'string', description: 'Título del recordatorio' },
-          descripcion: { type: 'string', description: 'Descripción o detalle' },
+          titulo: { type: 'string', description: 'Título del recordatorio (ej: "Llamar a Pérez", "Revisar presupuesto")' },
+          descripcion: { type: 'string', description: 'Descripción o detalle adicional' },
           fecha: {
             type: 'string',
-            description: 'Fecha y hora del recordatorio en formato ISO 8601 (ej: "2026-04-15T10:00:00")',
+            description: 'Fecha y hora del recordatorio en formato ISO 8601 (ej: "2026-04-16T10:00:00")',
           },
-          minutos_antes: {
-            type: 'number',
-            description: 'Minutos antes para la alerta (default: 15). Usa 0 para alerta en el momento exacto.',
+          repetir: {
+            type: 'string',
+            enum: ['ninguno', 'diario', 'semanal', 'mensual', 'anual'],
+            description: 'Frecuencia de repetición (default: ninguno). Ejemplos: "recordame todos los lunes" → semanal, "todos los días a las 9" → diario, "cada mes" → mensual.',
+          },
+          notificar_whatsapp: {
+            type: 'boolean',
+            description: 'Enviar recordatorio también por WhatsApp (default: true)',
           },
         },
         required: ['titulo', 'fecha'],
@@ -180,6 +185,65 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
     },
     modulo: 'visitas',
     accion_requerida: 'crear',
+    soporta_visibilidad: false,
+  },
+
+  // ─── EQUIPO ───
+  {
+    nombre: 'consultar_equipo',
+    definicion: {
+      name: 'consultar_equipo',
+      description: 'Consulta los miembros del equipo: nombres, roles, puestos, sector, contacto, horarios. Útil para saber quiénes trabajan en la empresa, buscar un empleado por nombre, ver su rol o datos de contacto.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          busqueda: {
+            type: 'string',
+            description: 'Buscar miembro por nombre, rol, puesto o sector (opcional — sin búsqueda devuelve todos)',
+          },
+        },
+      },
+    },
+    modulo: 'asistencias',
+    accion_requerida: 'ver_propio',
+    soporta_visibilidad: true,
+  },
+
+  // ─── PRODUCTOS ───
+  {
+    nombre: 'consultar_productos',
+    definicion: {
+      name: 'consultar_productos',
+      description: 'Consulta el catálogo de productos y servicios: buscar por nombre/código, ver precios, categorías, unidades. Útil para responder "qué productos tenemos", "cuánto cuesta X", "productos de categoría Y".',
+      input_schema: {
+        type: 'object',
+        properties: {
+          busqueda: {
+            type: 'string',
+            description: 'Buscar por nombre, código o descripción del producto (opcional — sin búsqueda devuelve todos)',
+          },
+          tipo: {
+            type: 'string',
+            enum: ['producto', 'servicio'],
+            description: 'Filtrar por tipo: producto o servicio',
+          },
+          categoria: {
+            type: 'string',
+            description: 'Filtrar por categoría',
+          },
+          solo_favoritos: {
+            type: 'boolean',
+            description: 'Solo mostrar productos favoritos',
+          },
+          limite: {
+            type: 'number',
+            description: 'Cantidad máxima de resultados (default: 20)',
+          },
+        },
+      },
+    },
+    modulo: 'presupuestos',
+    accion_requerida: 'ver_propio',
     soporta_visibilidad: false,
   },
 
@@ -282,10 +346,14 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
     nombre: 'consultar_visitas',
     definicion: {
       name: 'consultar_visitas',
-      description: 'Consulta las visitas programadas, completadas o canceladas.',
+      description: 'Consulta las visitas programadas, completadas o canceladas. Puede buscar por nombre de contacto, dirección o motivo.',
       input_schema: {
         type: 'object',
         properties: {
+          busqueda: {
+            type: 'string',
+            description: 'Buscar visitas por nombre del contacto, dirección o motivo (ej: "Pérez", "zona norte")',
+          },
           estado: {
             type: 'string',
             enum: ['programada', 'en_camino', 'en_sitio', 'completada', 'cancelada', 'todas'],
@@ -317,16 +385,39 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
 
   // ─── PRESUPUESTOS ───
   {
+    nombre: 'obtener_presupuesto',
+    definicion: {
+      name: 'obtener_presupuesto',
+      description: 'Obtiene los datos COMPLETOS de un presupuesto: encabezado, líneas con productos/servicios y cantidades, totales, impuestos, descuentos, plan de pago con cuotas, fechas. Usá esta herramienta cuando el usuario pida ver el detalle de un presupuesto específico. Podés pasar el ID o el número.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          presupuesto_id: {
+            type: 'string',
+            description: 'ID (UUID) del presupuesto',
+          },
+          numero: {
+            type: 'string',
+            description: 'Número del presupuesto (ej: "P-0042", "25-109"). Se usa si no tenés el ID.',
+          },
+        },
+      },
+    },
+    modulo: 'presupuestos',
+    accion_requerida: 'ver_propio',
+    soporta_visibilidad: true,
+  },
+  {
     nombre: 'buscar_presupuestos',
     definicion: {
       name: 'buscar_presupuestos',
-      description: 'Busca presupuestos por número (ej: "25-109"), nombre del contacto, dirección/calle o referencia.',
+      description: 'Busca y lista presupuestos. Puede buscar por número, nombre del contacto, dirección o referencia. También puede listar todos los presupuestos de un estado sin búsqueda (ej: "todos los pendientes", "presupuestos enviados", "cuántos presupuestos hay").',
       input_schema: {
         type: 'object',
         properties: {
           busqueda: {
             type: 'string',
-            description: 'Texto a buscar: número de presupuesto, nombre del contacto, dirección o referencia',
+            description: 'Texto a buscar: número de presupuesto, nombre del contacto, dirección o referencia (opcional — sin búsqueda lista todos)',
           },
           estado: {
             type: 'string',
@@ -338,7 +429,6 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
             description: 'Cantidad máxima de resultados (default: 10)',
           },
         },
-        required: ['busqueda'],
       },
     },
     modulo: 'presupuestos',

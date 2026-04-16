@@ -15,7 +15,7 @@ export default async function PaginaPapelera() {
 
   const admin = crearClienteAdmin()
 
-  const [contactosRes, presupuestosRes, actividadesRes, productosRes, visitasRes, notasRes] = await Promise.all([
+  const [contactosRes, presupuestosRes, actividadesRes, productosRes, visitasRes, notasRes, conversacionesRes, eventosRes, recorridosRes] = await Promise.all([
     admin
       .from('contactos')
       .select('id, nombre, apellido, correo, telefono, codigo, papelera_en, actualizado_en, editado_por')
@@ -46,6 +46,21 @@ export default async function PaginaPapelera() {
       .select('id, titulo, contenido, creador_id, papelera_en, actualizado_en, actualizado_por')
       .eq('empresa_id', empresaId)
       .eq('en_papelera', true),
+    admin
+      .from('conversaciones')
+      .select('id, contacto_nombre, remitente_nombre, asunto, tipo_canal, papelera_en, actualizado_en, actualizado_por')
+      .eq('empresa_id', empresaId)
+      .eq('en_papelera', true),
+    admin
+      .from('eventos_calendario')
+      .select('id, titulo, fecha_inicio, tipo_clave, papelera_en, actualizado_en, editado_por')
+      .eq('empresa_id', empresaId)
+      .eq('en_papelera', true),
+    admin
+      .from('recorridos')
+      .select('id, asignado_nombre, fecha, estado, papelera_en, actualizado_en, creado_por')
+      .eq('empresa_id', empresaId)
+      .eq('en_papelera', true),
   ])
 
   // Resolver nombres de quienes eliminaron
@@ -59,6 +74,9 @@ export default async function PaginaPapelera() {
   recolectarIds(productosRes.data, 'editado_por')
   recolectarIds(visitasRes.data, 'editado_por')
   recolectarIds(notasRes.data, 'actualizado_por')
+  recolectarIds(conversacionesRes.data, 'actualizado_por')
+  recolectarIds(eventosRes.data, 'editado_por')
+  recolectarIds(recorridosRes.data, 'creado_por')
 
   const nombresUsuarios: Record<string, string> = {}
   if (idsUsuarios.size > 0) {
@@ -144,6 +162,44 @@ export default async function PaginaPapelera() {
       eliminado_por: uid,
       eliminado_por_nombre: nombresUsuarios[uid] || null,
       subtitulo: n.titulo ? preview : undefined,
+    })
+  }
+
+  for (const c of (conversacionesRes.data || [])) {
+    const uid = c.actualizado_por
+    const canal = c.tipo_canal === 'whatsapp' ? 'WhatsApp' : c.tipo_canal === 'correo' ? 'Correo' : 'Chat'
+    resultados.push({
+      id: c.id,
+      nombre: c.contacto_nombre || c.remitente_nombre || c.asunto || 'Sin nombre',
+      tipo: 'conversaciones',
+      eliminado_en: c.papelera_en || c.actualizado_en,
+      eliminado_por: uid,
+      eliminado_por_nombre: nombresUsuarios[uid] || null,
+      subtitulo: canal,
+    })
+  }
+
+  for (const e of (eventosRes.data || [])) {
+    resultados.push({
+      id: e.id,
+      nombre: e.titulo || 'Sin título',
+      tipo: 'eventos',
+      eliminado_en: e.papelera_en || e.actualizado_en,
+      eliminado_por: e.editado_por,
+      eliminado_por_nombre: nombresUsuarios[e.editado_por] || null,
+      subtitulo: e.tipo_clave || undefined,
+    })
+  }
+
+  for (const r of (recorridosRes.data || [])) {
+    resultados.push({
+      id: r.id,
+      nombre: `Recorrido ${r.fecha}`,
+      tipo: 'recorridos',
+      eliminado_en: r.papelera_en || r.actualizado_en,
+      eliminado_por: r.creado_por,
+      eliminado_por_nombre: nombresUsuarios[r.creado_por] || null,
+      subtitulo: r.asignado_nombre,
     })
   }
 

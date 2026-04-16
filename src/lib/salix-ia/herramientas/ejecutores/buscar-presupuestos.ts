@@ -12,9 +12,6 @@ export async function ejecutarBuscarPresupuestos(
   params: Record<string, unknown>
 ): Promise<ResultadoHerramienta> {
   const busqueda = (params.busqueda as string)?.trim()
-  if (!busqueda) {
-    return { exito: false, error: 'Se requiere un texto de búsqueda' }
-  }
 
   const visibilidad = determinarVisibilidad(ctx.miembro, 'presupuestos')
   if (!visibilidad) {
@@ -25,11 +22,16 @@ export async function ejecutarBuscarPresupuestos(
 
   let query = ctx.admin
     .from('presupuestos')
-    .select('id, numero, estado, contacto_id, contacto_nombre, contacto_apellido, contacto_direccion, total_final, moneda, fecha_emision, fecha_vencimiento, referencia')
+    .select('id, numero, estado, contacto_id, contacto_nombre, contacto_apellido, contacto_direccion, total_final, moneda, fecha_emision, fecha_vencimiento, referencia, creado_por_nombre')
     .eq('empresa_id', ctx.empresa_id)
-    .or(`numero.ilike.%${busqueda}%,contacto_nombre.ilike.%${busqueda}%,contacto_apellido.ilike.%${busqueda}%,contacto_direccion.ilike.%${busqueda}%,referencia.ilike.%${busqueda}%`)
+    .eq('en_papelera', false)
     .order('creado_en', { ascending: false })
     .limit(limite)
+
+  // Búsqueda por texto (ahora opcional)
+  if (busqueda) {
+    query = query.or(`numero.ilike.%${busqueda}%,contacto_nombre.ilike.%${busqueda}%,contacto_apellido.ilike.%${busqueda}%,contacto_direccion.ilike.%${busqueda}%,referencia.ilike.%${busqueda}%`)
+  }
 
   // Si solo puede ver los propios, filtrar por creado_por
   if (visibilidad === 'propio') {
@@ -57,7 +59,9 @@ export async function ejecutarBuscarPresupuestos(
     total: p.total_final,
     moneda: p.moneda,
     fecha_emision: p.fecha_emision,
+    fecha_vencimiento: p.fecha_vencimiento || null,
     referencia: p.referencia || null,
+    creado_por: p.creado_por_nombre || null,
   }))
 
   return {

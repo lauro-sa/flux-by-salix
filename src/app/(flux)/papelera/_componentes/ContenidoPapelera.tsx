@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Trash2, RotateCcw, Clock, User, FileText, Package,
   Zap, Search, X, MapPin, StickyNote, AlertTriangle,
+  MessageCircle, CalendarDays, Route,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Boton } from '@/componentes/ui/Boton'
@@ -35,7 +36,7 @@ import { usePreferencias } from '@/hooks/usePreferencias'
 /** Días antes de purga automática */
 const DIAS_RETENCION = 30
 
-type TipoEntidad = 'contactos' | 'presupuestos' | 'actividades' | 'productos' | 'visitas' | 'notas'
+type TipoEntidad = 'contactos' | 'presupuestos' | 'actividades' | 'productos' | 'visitas' | 'notas' | 'conversaciones' | 'eventos' | 'recorridos'
 
 export interface ElementoPapelera {
   id: string
@@ -56,6 +57,9 @@ const TABS_ENTIDAD: { id: string; etiqueta: string; icono?: React.ReactNode }[] 
   { id: 'productos', etiqueta: 'Productos', icono: <Package size={13} /> },
   { id: 'presupuestos', etiqueta: 'Presupuestos', icono: <FileText size={13} /> },
   { id: 'notas', etiqueta: 'Notas', icono: <StickyNote size={13} /> },
+  { id: 'conversaciones', etiqueta: 'Conversaciones', icono: <MessageCircle size={13} /> },
+  { id: 'eventos', etiqueta: 'Eventos', icono: <CalendarDays size={13} /> },
+  { id: 'recorridos', etiqueta: 'Recorridos', icono: <Route size={13} /> },
 ]
 
 const ICONO_ENTIDAD: Record<TipoEntidad, typeof User> = {
@@ -65,6 +69,9 @@ const ICONO_ENTIDAD: Record<TipoEntidad, typeof User> = {
   productos: Package,
   visitas: MapPin,
   notas: StickyNote,
+  conversaciones: MessageCircle,
+  eventos: CalendarDays,
+  recorridos: Route,
 }
 
 const COLOR_TIPO: Record<TipoEntidad, string> = {
@@ -74,6 +81,9 @@ const COLOR_TIPO: Record<TipoEntidad, string> = {
   productos: 'cyan',
   visitas: 'naranja',
   notas: 'advertencia',
+  conversaciones: 'exito',
+  eventos: 'primario',
+  recorridos: 'rosa',
 }
 
 const ETIQUETA_ENTIDAD: Record<TipoEntidad, string> = {
@@ -83,6 +93,9 @@ const ETIQUETA_ENTIDAD: Record<TipoEntidad, string> = {
   productos: 'Producto',
   visitas: 'Visita',
   notas: 'Nota',
+  conversaciones: 'Conversación',
+  eventos: 'Evento',
+  recorridos: 'Recorrido',
 }
 
 /** Calcula días desde una fecha */
@@ -133,13 +146,16 @@ export default function ContenidoPapelera({ datosIniciales }: Props) {
   const { data: elementos = [], isLoading: cargando } = useQuery({
     queryKey: ['papelera'],
     queryFn: async () => {
-      const [contactosRes, presupuestosRes, actividadesRes, productosRes, visitasRes, notasRes] = await Promise.all([
+      const [contactosRes, presupuestosRes, actividadesRes, productosRes, visitasRes, notasRes, conversacionesRes, eventosRes, recorridosRes] = await Promise.all([
         fetch('/api/contactos?en_papelera=true').then(r => r.ok ? r.json() : { contactos: [] }),
         fetch('/api/presupuestos?en_papelera=true').then(r => r.ok ? r.json() : { presupuestos: [] }),
         fetch('/api/actividades?en_papelera=true').then(r => r.ok ? r.json() : { actividades: [] }),
         fetch('/api/productos?en_papelera=true').then(r => r.ok ? r.json() : { productos: [] }),
         fetch('/api/visitas?en_papelera=true').then(r => r.ok ? r.json() : { visitas: [] }),
         fetch('/api/notas-rapidas?en_papelera=true').then(r => r.ok ? r.json() : { notas: [] }),
+        fetch('/api/inbox/conversaciones?papelera=true').then(r => r.ok ? r.json() : { conversaciones: [] }),
+        fetch('/api/calendario/papelera').then(r => r.ok ? r.json() : { eventos: [] }),
+        fetch('/api/recorrido/papelera').then(r => r.ok ? r.json() : { recorridos: [] }),
       ])
 
       const resultados: ElementoPapelera[] = []
@@ -155,6 +171,9 @@ export default function ContenidoPapelera({ datosIniciales }: Props) {
       recolectar(productosRes?.productos || [], 'editado_por')
       recolectar(visitasRes?.visitas || [], 'editado_por')
       recolectar(notasRes?.notas || [], 'actualizado_por')
+      recolectar(conversacionesRes?.conversaciones || [], 'actualizado_por')
+      recolectar(eventosRes?.eventos || [], 'editado_por')
+      recolectar(recorridosRes?.recorridos || [], 'creado_por')
 
       // Resolver nombres de quienes eliminaron
       const nombresUsuarios: Record<string, string> = {}
@@ -250,6 +269,44 @@ export default function ContenidoPapelera({ datosIniciales }: Props) {
         })
       }
 
+      for (const c of (conversacionesRes?.conversaciones || [])) {
+        const uid = c.actualizado_por
+        const canal = c.tipo_canal === 'whatsapp' ? 'WhatsApp' : c.tipo_canal === 'correo' ? 'Correo' : 'Chat'
+        resultados.push({
+          id: c.id,
+          nombre: c.contacto_nombre || c.remitente_nombre || c.asunto || 'Sin nombre',
+          tipo: 'conversaciones',
+          eliminado_en: c.papelera_en || c.actualizado_en,
+          eliminado_por: uid,
+          eliminado_por_nombre: nombresUsuarios[uid] || null,
+          subtitulo: canal,
+        })
+      }
+
+      for (const e of (eventosRes?.eventos || [])) {
+        resultados.push({
+          id: e.id,
+          nombre: e.titulo || 'Sin título',
+          tipo: 'eventos',
+          eliminado_en: e.papelera_en || e.actualizado_en,
+          eliminado_por: e.editado_por,
+          eliminado_por_nombre: nombresUsuarios[e.editado_por] || null,
+          subtitulo: e.tipo_clave || undefined,
+        })
+      }
+
+      for (const r of (recorridosRes?.recorridos || [])) {
+        resultados.push({
+          id: r.id,
+          nombre: `Recorrido ${r.fecha}`,
+          tipo: 'recorridos',
+          eliminado_en: r.papelera_en || r.actualizado_en,
+          eliminado_por: r.creado_por,
+          eliminado_por_nombre: nombresUsuarios[r.creado_por] || null,
+          subtitulo: r.asignado_nombre,
+        })
+      }
+
       resultados.sort((a, b) => new Date(b.eliminado_en).getTime() - new Date(a.eliminado_en).getTime())
 
       return resultados
@@ -262,6 +319,9 @@ export default function ContenidoPapelera({ datosIniciales }: Props) {
   // Mapeo de tipo a ruta API
   const rutaApi = (tipo: TipoEntidad) => {
     if (tipo === 'notas') return 'notas-rapidas'
+    if (tipo === 'conversaciones') return 'inbox/conversaciones'
+    if (tipo === 'eventos') return 'calendario'
+    if (tipo === 'recorridos') return 'recorrido'
     return tipo
   }
 
@@ -437,7 +497,7 @@ export default function ContenidoPapelera({ datosIniciales }: Props) {
                 const dias = diasDesde(elem.eliminado_en)
                 const diasRestantes = Math.max(0, DIAS_RETENCION - dias)
                 const urgente = diasRestantes <= 5
-                const colorTipo = COLOR_TIPO[elem.tipo] as 'neutro' | 'info' | 'violeta' | 'cyan' | 'naranja' | 'advertencia'
+                const colorTipo = COLOR_TIPO[elem.tipo] as 'neutro' | 'info' | 'violeta' | 'cyan' | 'naranja' | 'advertencia' | 'exito' | 'primario' | 'rosa'
 
                 const nombreEliminador = elem.eliminado_por_nombre || ''
 

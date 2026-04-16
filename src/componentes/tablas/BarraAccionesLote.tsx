@@ -8,8 +8,8 @@ import { Tooltip } from '@/componentes/ui/Tooltip'
 
 /* ════════════════════════════════════════════
    Barra flotante de acciones masivas
-   Superficie elevada + tokens (coherente claro/oscuro), atajos en <kbd>
-   Arrastrable arriba/abajo, centrada en el área de contenido
+   Desktop: superficie elevada centrada, arrastrable arriba/abajo, atajos en <kbd>
+   Móvil: barra full-width fija abajo, solo íconos, respeta safe areas
    ════════════════════════════════════════════ */
 
 export function BarraAccionesLote({
@@ -29,7 +29,17 @@ export function BarraAccionesLote({
   const [posicion, setPosicion] = useState<'arriba' | 'abajo'>(posGuardada)
   const [arrastrando, setArrastrando] = useState(false)
   const [sidebarAncho, setSidebarAncho] = useState(0)
+  const [esMobil, setEsMobil] = useState(false)
   const barraRef = useRef<HTMLDivElement>(null)
+
+  // Detectar móvil con matchMedia (< 640px = sm breakpoint)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)')
+    setEsMobil(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setEsMobil(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
 
   // Detectar ancho real del sidebar (dinámico: expandido/colapsado/mobile)
   useEffect(() => {
@@ -101,6 +111,71 @@ export function BarraAccionesLote({
   // Agrupar acciones con separadores entre grupos
   const accionesAgrupadas = agruparAcciones(accionesLote)
 
+  /* ── Versión móvil: píldora flotante compacta, solo íconos, centrada abajo ── */
+  if (esMobil) {
+    return (
+      <AnimatePresence>
+        {visible && (
+          <motion.div
+            key="barra-acciones-lote-mobil"
+            initial={{ opacity: 0, y: 20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+            className="fixed z-[var(--z-modal)] flex items-center gap-1.5 px-2 py-1.5 rounded-2xl select-none"
+            style={{
+              backgroundColor: 'var(--superficie-elevada)',
+              border: '1px solid var(--borde-sutil)',
+              boxShadow: 'var(--sombra-md), var(--sombra-sm)',
+              backdropFilter: 'blur(10px)',
+              left: 0,
+              right: 0,
+              width: 'fit-content',
+              margin: '0 auto',
+              bottom: 'max(env(safe-area-inset-bottom, 12px), 12px)',
+            }}
+          >
+            {/* Conteo */}
+            <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-sm font-semibold tabular-nums shrink-0"
+              style={{ color: 'var(--texto-primario)' }}
+            >
+              <CheckSquare size={14} className="opacity-60" />
+              <span>{seleccionados.size}</span>
+            </div>
+
+            <Separador />
+
+            {/* Acciones — solo ícono con touch target grande */}
+            {accionesAgrupadas.map((item, i) => {
+              if (item.tipo === 'separador') return <Separador key={`sep-${i}`} />
+              const accion = item.accion!
+              return (
+                <BotonAccionMovil
+                  key={accion.id}
+                  accion={accion}
+                  seleccionados={seleccionados}
+                  onClick={() => { accion.onClick(seleccionados); if (!accion.peligro && !accion.noLimpiarSeleccion) onLimpiarSeleccion() }}
+                />
+              )
+            })}
+
+            <Separador />
+
+            {/* Deseleccionar */}
+            <button
+              onClick={onLimpiarSeleccion}
+              className="flex items-center justify-center size-9 rounded-xl transition-colors shrink-0 cursor-pointer active:scale-90"
+              style={{ color: 'var(--texto-terciario)' }}
+            >
+              <X size={16} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    )
+  }
+
+  /* ── Versión desktop: barra flotante centrada, arrastrable ── */
   return (
     <AnimatePresence>
       {visible && (
@@ -194,7 +269,7 @@ export function BarraAccionesLote({
   )
 }
 
-/* ── Botón de acción individual ── */
+/* ── Botón de acción individual (desktop — con texto y atajo) ── */
 function BotonAccion({
   accion,
   seleccionados,
@@ -234,7 +309,36 @@ function BotonAccion({
   )
 }
 
-/* ── Separador vertical ── */
+/* ── Botón de acción móvil (solo ícono, touch target 36px) ── */
+function BotonAccionMovil({
+  accion,
+  seleccionados,
+  onClick,
+}: {
+  accion: AccionLote
+  seleccionados: Set<string>
+  onClick: () => void
+}) {
+  const esPeligro = accion.peligro
+  const textoEtiqueta = typeof accion.etiqueta === 'function' ? accion.etiqueta(seleccionados) : accion.etiqueta
+
+  return (
+    <Tooltip contenido={textoEtiqueta}>
+      <button
+        data-accion-lote={accion.id}
+        onClick={onClick}
+        className="flex items-center justify-center size-9 rounded-xl transition-colors shrink-0 cursor-pointer active:scale-90"
+        style={{
+          color: esPeligro ? 'var(--insignia-peligro)' : 'var(--texto-primario)',
+        }}
+      >
+        {accion.icono && <span className="[&_svg]:size-4">{accion.icono}</span>}
+      </button>
+    </Tooltip>
+  )
+}
+
+/* ── Separador vertical (desktop) ── */
 function Separador() {
   return <div className="w-px h-4 shrink-0" style={{ backgroundColor: 'var(--borde-fuerte)' }} />
 }

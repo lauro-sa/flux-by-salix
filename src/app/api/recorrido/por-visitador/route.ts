@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
       .eq('empresa_id', empresaId)
       .eq('asignado_a', usuarioId)
       .eq('fecha', fechaParam)
+      .eq('en_papelera', false)
       .single()
 
     if (recorrido) {

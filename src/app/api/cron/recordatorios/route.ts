@@ -4,9 +4,11 @@ import { crearNotificacionesBatch } from '@/lib/notificaciones'
 
 /**
  * GET /api/cron/recordatorios — Cron que revisa recordatorios vencidos.
- * Ejecutado por Vercel Cron cada 5 minutos.
+ * Ejecutado por Vercel Cron cada 15 minutos.
  *
- * Busca recordatorios activos cuya fecha+hora ya pasaron y crea notificaciones.
+ * Busca recordatorios activos cuya fecha+hora ya pasaron y:
+ * 1. Crea notificaciones in-app + push
+ * 2. Envía WhatsApp al usuario si notificar_whatsapp=true y tiene teléfono
  * Si el recordatorio es recurrente, calcula la próxima fecha y actualiza.
  */
 export async function GET(request: NextRequest) {
@@ -67,6 +69,134 @@ export async function GET(request: NextRequest) {
 
     await crearNotificacionesBatch(notificaciones)
 
+    // Enviar WhatsApp a los que tienen notificar_whatsapp=true
+    const paraWhatsApp = paraNotificar.filter((r) => r.notificar_whatsapp === true)
+    let whatsappEnviados = 0
+
+    if (paraWhatsApp.length > 0) {
+      // Agrupar por empresa para cargar configs de WhatsApp una sola vez por empresa
+      const porEmpresa = new Map<string, typeof paraWhatsApp>()
+      for (const r of paraWhatsApp) {
+        const lista = porEmpresa.get(r.empresa_id) || []
+        lista.push(r)
+        porEmpresa.set(r.empresa_id, lista)
+      }
+
+      for (const [empresaId, recordatorios] of porEmpresa) {
+        try {
+          // Obtener canal WhatsApp de la empresa
+          const { data: canal } = await admin
+            .from('canales_inbox')
+            .select('id, config_conexion')
+            .eq('empresa_id', empresaId)
+            .eq('tipo', 'whatsapp')
+            .eq('activo', true)
+            .limit(1)
+            .single()
+
+          if (!canal) continue
+
+          const config = canal.config_conexion as {
+            tokenAcceso?: string
+            phoneNumberId?: string
+          }
+          if (!config?.tokenAcceso || !config?.phoneNumberId) continue
+
+          // Obtener teléfonos de los usuarios
+          const usuarioIds = recordatorios.map((r) => r.asignado_a as string)
+          const { data: perfiles } = await admin
+            .from('perfiles')
+            .select('id, telefono, telefono_empresa')
+            .in('id', usuarioIds)
+
+          const telefonoMap = new Map<string, string>()
+          for (const p of (perfiles || [])) {
+            // Priorizar teléfono empresa, luego personal
+            const tel = p.telefono_empresa || p.telefono
+            if (tel) {
+              // Normalizar: solo dígitos
+              const normalizado = tel.replace(/[^\d]/g, '')
+              if (normalizado.length >= 8) telefonoMap.set(p.id, normalizado)
+            }
+          }
+
+          // Verificar ventana de 24h: buscar último mensaje del empleado en conversaciones del copilot
+          const hace24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+
+          // Enviar WhatsApp a cada usuario
+          for (const r of recordatorios) {
+            const telefono = telefonoMap.get(r.asignado_a as string)
+            if (!telefono) continue
+
+            // Verificar si el empleado escribió en las últimas 24h (ventana abierta)
+            const { data: convReciente } = await admin
+              .from('conversaciones_salix_ia')
+              .select('id')
+              .eq('empresa_id', empresaId)
+              .eq('usuario_id', r.asignado_a as string)
+              .eq('canal', 'whatsapp')
+              .gte('actualizado_en', hace24h)
+              .limit(1)
+
+            const ventanaAbierta = convReciente && convReciente.length > 0
+            const horaTexto = r.hora ? `Programado para las ${r.hora}` : 'Recordatorio del día'
+            const titulo = r.titulo as string
+            const detalle = r.descripcion ? `${r.descripcion as string} — ${horaTexto}` : horaTexto
+
+            try {
+              if (ventanaAbierta) {
+                // Ventana 24h abierta → texto libre (más personalizado)
+                const texto = `🔔 *Recordatorio:* ${titulo}${r.descripcion ? `\n${r.descripcion as string}` : ''}\n${horaTexto}`
+                await fetch(`https://graph.facebook.com/v21.0/${config.phoneNumberId}/messages`, {
+                  method: 'POST',
+                  headers: {
+                    Authorization: `Bearer ${config.tokenAcceso}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    messaging_product: 'whatsapp',
+                    to: telefono,
+                    type: 'text',
+                    text: { body: texto },
+                  }),
+                })
+              } else {
+                // Ventana cerrada → plantilla aprobada (siempre funciona)
+                await fetch(`https://graph.facebook.com/v21.0/${config.phoneNumberId}/messages`, {
+                  method: 'POST',
+                  headers: {
+                    Authorization: `Bearer ${config.tokenAcceso}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    messaging_product: 'whatsapp',
+                    to: telefono,
+                    type: 'template',
+                    template: {
+                      name: 'flux_recordatorio',
+                      language: { code: 'es' },
+                      components: [{
+                        type: 'body',
+                        parameters: [
+                          { type: 'text', text: titulo },
+                          { type: 'text', text: detalle },
+                        ],
+                      }],
+                    },
+                  }),
+                })
+              }
+              whatsappEnviados++
+            } catch (err) {
+              console.error(`[Cron Recordatorios] Error enviando WA a ${telefono}:`, err)
+            }
+          }
+        } catch (err) {
+          console.error(`[Cron Recordatorios] Error procesando empresa ${empresaId}:`, err)
+        }
+      }
+    }
+
     // Procesar recurrentes: calcular próxima fecha y actualizar
     // Agrupar por tipo de operación para hacer batch updates
     const idsCompletar: string[] = []
@@ -113,6 +243,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       procesados: paraNotificar.length,
       notificaciones_creadas: notificaciones.length,
+      whatsapp_enviados: whatsappEnviados,
       completados,
       reprogramados,
       timestamp: ahora.toISOString(),
