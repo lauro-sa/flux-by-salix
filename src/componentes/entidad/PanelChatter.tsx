@@ -296,10 +296,12 @@ export function PanelChatter({
     }
 
     // Vincular el documento (presupuesto, orden, factura, etc.)
-    const esDocumento = ['presupuesto', 'factura', 'orden', 'informe'].includes(entidadTipo)
+    const esDocumento = ['presupuesto', 'factura', 'orden', 'orden_trabajo', 'informe'].includes(entidadTipo)
     if (esDocumento && entidadId && datosDocumento?.numero) {
+      // Normalizar tipo: orden_trabajo → orden (consistente con ICONOS_VINCULO/RUTAS_VINCULO en ModalActividad)
+      const tipoVinculo = entidadTipo === 'orden_trabajo' ? 'orden' : entidadTipo
       vinculos.push({
-        tipo: entidadTipo,
+        tipo: tipoVinculo,
         id: entidadId,
         nombre: `${tipoDocumento || entidadTipo} #${datosDocumento.numero}`,
       })
@@ -485,8 +487,8 @@ export function PanelChatter({
                 onNota={() => setModoNota(!modoNota)}
                 onActividad={abrirActividad}
                 onVisita={() => modalVisitaHook.abrir()}
-                tieneCorreo={!!onAbrirCorreo}
-                tieneWhatsApp
+                tieneCorreo={entidadTipo !== 'orden_trabajo' && !!onAbrirCorreo}
+                tieneWhatsApp={entidadTipo !== 'orden_trabajo'}
                 tieneActividad={true}
                 tieneVisita={entidadTipo === 'contacto'}
               />
@@ -672,7 +674,7 @@ export function PanelChatter({
           estados={configActividades.estados as never[]}
           miembros={configActividades.miembros}
           vinculoInicial={vinculoInicialActividad}
-          modulo={entidadTipo}
+          modulo={entidadTipo === 'orden_trabajo' ? 'ordenes' : entidadTipo}
           onGuardar={crearActividad}
           onCerrar={() => { setModalActividad(false); setActividadEditar(null) }}
           onCambiarAVisita={() => { setModalActividad(false); setActividadEditar(null); modalVisitaHook.abrir() }}

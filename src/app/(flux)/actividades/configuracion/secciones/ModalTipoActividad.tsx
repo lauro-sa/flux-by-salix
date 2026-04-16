@@ -360,16 +360,19 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
           <MiniSelectorIcono valor={icono} color={color} onChange={setIcono} />
           <div className="flex-1 min-w-0 space-y-3">
             <div className="flex gap-2">
-              <Input tipo="text" value={etiqueta}
-                onChange={(e) => manejarEtiqueta(e.target.value)}
-                placeholder="Nombre: Llamada, Reunión, Visita..."
-                autoFocus
-                className="flex-1" />
-              <Input tipo="text" value={abreviacion}
-                onChange={(e) => setAbreviacion(e.target.value.toUpperCase().slice(0, 6))}
-                placeholder="Abrev."
-                className="w-20 text-center"
-                etiqueta="" />
+              <div className="flex-1 min-w-0">
+                <Input tipo="text" value={etiqueta}
+                  onChange={(e) => manejarEtiqueta(e.target.value)}
+                  placeholder="Nombre: Llamada, Reunión, Visita..."
+                  autoFocus />
+              </div>
+              <div className="w-20 shrink-0">
+                <Input tipo="text" value={abreviacion}
+                  onChange={(e) => setAbreviacion(e.target.value.toUpperCase().slice(0, 6))}
+                  placeholder="Abrev."
+                  className="text-center"
+                  etiqueta="" />
+              </div>
             </div>
             {/* Colores inline debajo del nombre */}
             <div className="flex flex-wrap gap-1.5 items-center">

@@ -10,7 +10,7 @@ import { useState, useRef, useEffect } from 'react'
 import {
   Cloud, X, Info, RefreshCw,
   Send, Printer, FileCheck, Eye, Receipt, Ban, RotateCcw,
-  Loader2, MoreHorizontal,
+  Loader2, MoreHorizontal, Wrench,
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import BarraEstadoPresupuesto from './BarraEstadoPresupuesto'
@@ -44,6 +44,8 @@ interface PropsCabeceraPresupuesto {
   onVistaPrevia: () => Promise<void>
   onReEmitir: () => void
   onCrearPresupuesto: () => void
+  onGenerarOT?: () => void
+  generandoOT?: boolean
 }
 
 export default function CabeceraPresupuesto({
@@ -70,6 +72,8 @@ export default function CabeceraPresupuesto({
   onVistaPrevia,
   onReEmitir,
   onCrearPresupuesto,
+  onGenerarOT,
+  generandoOT,
 }: PropsCabeceraPresupuesto) {
   const { t } = useTraduccion()
 
@@ -116,6 +120,8 @@ export default function CabeceraPresupuesto({
             onEnviarProforma={onEnviarProforma}
             onVistaPrevia={onVistaPrevia}
             onReEmitir={onReEmitir}
+            onGenerarOT={onGenerarOT}
+            generandoOT={generandoOT}
             t={t}
           />
         </div>
@@ -135,7 +141,8 @@ export default function CabeceraPresupuesto({
 function BotonesAccion({
   estadoActual, estaCancelado, estadosPosibles, generandoPdf,
   presupuestoFechaEmision, fechaEmision,
-  onCambiarEstado, onImprimir, onEnviar, onEnviarProforma, onVistaPrevia, onReEmitir, t,
+  onCambiarEstado, onImprimir, onEnviar, onEnviarProforma, onVistaPrevia, onReEmitir,
+  onGenerarOT, generandoOT, t,
 }: {
   estadoActual: EstadoPresupuesto
   estaCancelado: boolean
@@ -149,6 +156,8 @@ function BotonesAccion({
   onEnviarProforma: () => void
   onVistaPrevia: () => void
   onReEmitir: () => void
+  onGenerarOT?: () => void
+  generandoOT?: boolean
   t: (key: string) => string
 }) {
   const [menuAbierto, setMenuAbierto] = useState(false)
@@ -209,6 +218,16 @@ function BotonesAccion({
           icono={FileCheck}
           label={labelConfirmar}
           variante="primario"
+        />
+      )}
+      {/* Generar Orden de Trabajo — visible solo en estado orden_venta */}
+      {estadoActual === 'orden_venta' && onGenerarOT && (
+        <BotonAccion
+          onClick={onGenerarOT}
+          icono={generandoOT ? Loader2 : Wrench}
+          label={generandoOT ? 'Generando...' : 'Generar OT'}
+          disabled={generandoOT}
+          animarIcono={generandoOT}
         />
       )}
       <BotonAccion onClick={onEnviar} icono={Send} label={t('documentos.enviar')} />

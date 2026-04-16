@@ -14,7 +14,7 @@ import {
   Plus, Trash2, Search, X, Check, GripVertical,
   ChevronDown, User, Link2, CheckCircle, FileText,
   MapPin, Mail as MailIcon, Clock,
-  Calendar,
+  Calendar, Wrench,
 } from 'lucide-react'
 import { PildoraEntidad } from '@/componentes/ui/PildoraEntidad'
 import { useFormato } from '@/hooks/useFormato'
@@ -687,6 +687,7 @@ function ModalActividad({
 const TIPOS_VINCULO = [
   { clave: 'contacto', etiqueta: 'Contacto', icono: User, placeholder: 'Buscar contacto...' },
   { clave: 'documento', etiqueta: 'Documento', icono: FileText, placeholder: 'Buscar presupuesto, factura...' },
+  { clave: 'orden', etiqueta: 'Orden', icono: Wrench, placeholder: 'Buscar orden de trabajo...' },
 ]
 
 const ICONOS_VINCULO: Record<string, typeof User> = {
@@ -694,7 +695,7 @@ const ICONOS_VINCULO: Record<string, typeof User> = {
   documento: FileText,
   presupuesto: FileText,
   factura: FileText,
-  orden: FileText,
+  orden: Wrench,
   informe: FileText,
   visita: MapPin,
 }
@@ -782,6 +783,16 @@ function SeccionVinculos({ vinculos, onChange, onNavegar }: { vinculos: Vinculo[
               apellido: p.contacto_nombre || '',
             })))
           }
+        } else if (tabActivo === 'orden') {
+          const res = await fetch('/api/ordenes?por_pagina=5')
+          if (res.ok) {
+            const data = await res.json()
+            setRecientes((data.ordenes || []).map((o: { id: string; numero: string; titulo?: string }) => ({
+              id: o.id,
+              nombre: o.numero,
+              apellido: o.titulo || '',
+            })))
+          }
         } else {
           setRecientes([])
         }
@@ -815,6 +826,16 @@ function SeccionVinculos({ vinculos, onChange, onNavegar }: { vinculos: Vinculo[
               id: p.id,
               nombre: p.numero,
               apellido: p.contacto_nombre || '',
+            })))
+          }
+        } else if (tabActivo === 'orden') {
+          const res = await fetch(`/api/ordenes?busqueda=${encodeURIComponent(busqueda)}&por_pagina=8`)
+          if (res.ok) {
+            const data = await res.json()
+            setResultados((data.ordenes || []).map((o: { id: string; numero: string; titulo?: string }) => ({
+              id: o.id,
+              nombre: o.numero,
+              apellido: o.titulo || '',
             })))
           }
         }

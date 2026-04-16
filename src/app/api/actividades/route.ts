@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
     const vista = params.get('vista') || 'todas' // 'todas' | 'mias' | 'enviadas'
     const fecha = params.get('fecha') // 'hoy' | 'semana' | 'vencidas' | 'sin_fecha' | 'futuras'
     const contacto_id = params.get('contacto_id') // filtrar por vínculo a contacto
+    const orden_trabajo_id = params.get('orden_trabajo_id') // filtrar por vínculo a orden de trabajo
     const en_papelera = params.get('en_papelera') === 'true'
     const orden_campo = params.get('orden_campo') || 'fecha_vencimiento'
     const orden_dir = params.get('orden_dir') ? params.get('orden_dir') === 'asc' : true
@@ -87,6 +88,11 @@ export async function GET(request: NextRequest) {
     // Filtro por contacto vinculado
     if (contacto_id) {
       query = query.contains('vinculo_ids', [contacto_id])
+    }
+
+    // Filtro por orden de trabajo vinculada
+    if (orden_trabajo_id) {
+      query = query.contains('vinculo_ids', [orden_trabajo_id])
     }
 
     // Filtro por fecha

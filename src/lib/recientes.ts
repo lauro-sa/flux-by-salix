@@ -16,7 +16,7 @@ export function registrarReciente({
 }: {
   empresaId: string
   usuarioId: string
-  tipoEntidad: 'contacto' | 'presupuesto' | 'actividad' | 'producto' | 'documento' | 'conversacion' | 'evento' | 'miembro' | 'visita'
+  tipoEntidad: 'contacto' | 'presupuesto' | 'actividad' | 'producto' | 'documento' | 'conversacion' | 'evento' | 'miembro' | 'visita' | 'orden_trabajo'
   entidadId: string
   titulo: string
   subtitulo?: string

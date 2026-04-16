@@ -563,6 +563,100 @@ export const config_presupuestos = pgTable('config_presupuestos', {
 })
 
 // ═══════════════════════════════════════════════════════════════
+// ÓRDENES DE TRABAJO
+// ═══════════════════════════════════════════════════════════════
+
+// Órdenes de trabajo — ficha operativa generada desde presupuestos confirmados
+export const ordenes_trabajo = pgTable('ordenes_trabajo', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  numero: text('numero').notNull(),
+  estado: text('estado').notNull().default('abierta'), // abierta, en_progreso, esperando, completada, cancelada
+  prioridad: text('prioridad').notNull().default('media'), // baja, media, alta, urgente
+  titulo: text('titulo').notNull(),
+  descripcion: text('descripcion'),
+  notas: text('notas'),
+
+  // Contacto operativo (snapshot sin datos fiscales)
+  contacto_id: uuid('contacto_id').references(() => contactos.id, { onDelete: 'set null' }),
+  contacto_nombre: text('contacto_nombre'),
+  contacto_telefono: text('contacto_telefono'),
+  contacto_correo: text('contacto_correo'),
+  contacto_direccion: text('contacto_direccion'),
+  contacto_whatsapp: text('contacto_whatsapp'),
+
+  // Vínculo con presupuesto origen
+  presupuesto_id: uuid('presupuesto_id').references(() => presupuestos.id, { onDelete: 'set null' }),
+  presupuesto_numero: text('presupuesto_numero'),
+
+  // Responsable principal
+  asignado_a: uuid('asignado_a'),
+  asignado_nombre: text('asignado_nombre'),
+
+  // Fechas operativas
+  fecha_inicio: timestamp('fecha_inicio', { withTimezone: true }),
+  fecha_fin_estimada: timestamp('fecha_fin_estimada', { withTimezone: true }),
+  fecha_fin_real: timestamp('fecha_fin_real', { withTimezone: true }),
+
+  // Auditoría
+  creado_por: uuid('creado_por').notNull(),
+  creado_por_nombre: text('creado_por_nombre'),
+  editado_por: uuid('editado_por'),
+  editado_por_nombre: text('editado_por_nombre'),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+
+  // Soft delete
+  en_papelera: boolean('en_papelera').notNull().default(false),
+  papelera_en: timestamp('papelera_en', { withTimezone: true }),
+}, (tabla) => [
+  uniqueIndex('ordenes_trabajo_empresa_numero_idx').on(tabla.empresa_id, tabla.numero),
+  index('ordenes_trabajo_empresa_idx').on(tabla.empresa_id),
+  index('ordenes_trabajo_contacto_idx').on(tabla.contacto_id),
+  index('ordenes_trabajo_estado_idx').on(tabla.empresa_id, tabla.estado),
+  index('ordenes_trabajo_presupuesto_idx').on(tabla.presupuesto_id),
+  index('ordenes_trabajo_asignado_idx').on(tabla.asignado_a),
+  index('ordenes_trabajo_papelera_idx').on(tabla.empresa_id, tabla.en_papelera),
+])
+
+// Líneas de orden de trabajo — detalle operativo SIN precios
+export const lineas_orden_trabajo = pgTable('lineas_orden_trabajo', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orden_trabajo_id: uuid('orden_trabajo_id').notNull().references(() => ordenes_trabajo.id, { onDelete: 'cascade' }),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+
+  tipo_linea: text('tipo_linea').notNull().default('producto'), // producto, seccion, nota
+  orden: integer('orden').notNull().default(0),
+
+  // Datos del producto/servicio (solo descripción operativa, sin precios)
+  codigo_producto: text('codigo_producto'),
+  descripcion: text('descripcion'),
+  descripcion_detalle: text('descripcion_detalle'),
+  cantidad: numeric('cantidad').default('1'),
+  unidad: text('unidad'),
+
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('lineas_ot_orden_trabajo_idx').on(tabla.orden_trabajo_id),
+  index('lineas_ot_empresa_idx').on(tabla.empresa_id),
+  index('lineas_ot_orden_idx').on(tabla.orden_trabajo_id, tabla.orden),
+])
+
+// Historial de estados de órdenes de trabajo
+export const orden_trabajo_historial = pgTable('orden_trabajo_historial', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orden_trabajo_id: uuid('orden_trabajo_id').notNull().references(() => ordenes_trabajo.id, { onDelete: 'cascade' }),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  estado: text('estado').notNull(),
+  usuario_id: uuid('usuario_id').notNull(),
+  usuario_nombre: text('usuario_nombre'),
+  fecha: timestamp('fecha', { withTimezone: true }).defaultNow().notNull(),
+  notas: text('notas'),
+}, (tabla) => [
+  index('ot_historial_orden_trabajo_idx').on(tabla.orden_trabajo_id),
+])
+
+// ═══════════════════════════════════════════════════════════════
 // SISTEMA DE MÓDULOS / APLICACIONES
 // ═══════════════════════════════════════════════════════════════
 
@@ -867,6 +961,9 @@ export const actividades = pgTable('actividades', {
 
   // Seguimientos (reclamos/follow-ups del cliente)
   seguimientos: jsonb('seguimientos').default([]),
+
+  // Tarea auto-generada desde orden de trabajo (diferencia tareas OT de actividades manuales)
+  es_tarea_ot: boolean('es_tarea_ot').notNull().default(false),
 
   // Soft delete
   en_papelera: boolean('en_papelera').notNull().default(false),

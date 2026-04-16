@@ -20,6 +20,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
 import { construirHtmlCorreoDocumento } from '@/lib/plantilla-correo-documento'
 import { useEnvioPendiente } from '@/hooks/useEnvioPendiente'
+import { useToast } from '@/componentes/feedback/Toast'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useAuth } from '@/hooks/useAuth'
 import { useTraduccion } from '@/lib/i18n'
@@ -80,6 +81,7 @@ export default function EditorPresupuesto({
   const { usuario } = useAuth()
   const { esPropietario, esAdmin } = useRol()
   const { programarEnvio } = useEnvioPendiente()
+  const { mostrar: mostrarToast } = useToast()
   const esPantallaAncha = useEsPantallaAncha()
   const { preferencias, guardar: guardarPreferencia } = usePreferencias()
   const sinLateral = preferencias.chatter_sin_lateral
@@ -1159,6 +1161,32 @@ export default function EditorPresupuesto({
     setConfirmarReEmision(true)
   }, [])
 
+  // Generar orden de trabajo desde este presupuesto
+  const [generandoOT, setGenerandoOT] = useState(false)
+  const handleGenerarOT = useCallback(async () => {
+    if (!idPresupuesto || generandoOT) return
+    setGenerandoOT(true)
+    try {
+      const res = await fetch('/api/ordenes/generar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ presupuesto_id: idPresupuesto }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        mostrarToast('error', err.error || 'Error al generar orden de trabajo')
+        return
+      }
+      const data = await res.json()
+      mostrarToast('exito', `Orden de trabajo ${data.orden?.numero} generada`)
+      router.push(`/ordenes/${data.orden?.id}`)
+    } catch {
+      mostrarToast('error', 'Error al generar orden de trabajo')
+    } finally {
+      setGenerandoOT(false)
+    }
+  }, [idPresupuesto, generandoOT, mostrarToast, router])
+
   const handleVistaPrevia = async () => {
     const pid = idPresupuesto
     if (!pid) return
@@ -1308,6 +1336,8 @@ export default function EditorPresupuesto({
           onVistaPrevia={handleVistaPrevia}
           onReEmitir={handleReEmitir}
           onCrearPresupuesto={crearPresupuesto}
+          onGenerarOT={handleGenerarOT}
+          generandoOT={generandoOT}
         />
 
         {/* ─── Banner deshacer re-emisión ─── */}

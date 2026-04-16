@@ -25,6 +25,9 @@ export type AccionSistema =
   | 'actividad_pospuesta'
   | 'actividad_cancelada'
   | 'actividad_reactivada'
+  // Órdenes de trabajo
+  | 'cambio_estado'
+  | 'orden_trabajo_generada'
   // Correo
   | 'correo_enviado'
   | 'correo_recibido'
@@ -58,6 +61,11 @@ export interface MetadataChatter {
   firma_modo?: string
   // Para actividades
   actividad_id?: string
+  // Para órdenes de trabajo
+  presupuesto_id?: string
+  presupuesto_numero?: string
+  orden_trabajo_id?: string
+  orden_trabajo_numero?: string
   // Para visitas
   visita_id?: string
   estado?: string
