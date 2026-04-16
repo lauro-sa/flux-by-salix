@@ -172,8 +172,8 @@ export default function SeccionActividadesOrden({ ordenId, ordenNumero, onProgre
   const completadas = actividades.filter(a => a.estado_clave === 'completada' || a.estado_clave === 'cancelada')
 
   // Separar tareas OT (auto-generadas) de actividades manuales
-  const tareasOT = pendientes.filter(a => (a as Record<string, unknown>).es_tarea_ot === true)
-  const actividadesManuales = pendientes.filter(a => (a as Record<string, unknown>).es_tarea_ot !== true)
+  const tareasOT = pendientes.filter(a => a.es_tarea_ot === true)
+  const actividadesManuales = pendientes.filter(a => !a.es_tarea_ot)
 
   const totalActs = actividades.length
   const completadasCount = actividades.filter(a => a.estado_clave === 'completada').length

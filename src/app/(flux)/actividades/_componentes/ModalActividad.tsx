@@ -82,6 +82,7 @@ interface Actividad {
   editado_por: string | null
   editado_por_nombre: string | null
   actualizado_en: string | null
+  es_tarea_ot?: boolean
 }
 
 interface Miembro {
