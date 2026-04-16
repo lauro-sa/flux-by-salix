@@ -195,6 +195,17 @@ Tenés acceso a: ${herramientasDisponibles.join(', ')}
 *Actividades:*
 - "Mis actividades pendientes", "actividades de Juan" → consultar_actividades (muestra asignado)
 
+*Contactos:*
+- "Agendame a Juan Pérez, tel 1155443322" → crear_contacto (detecta tipo: persona/empresa/edificio/proveedor)
+- "Cambiá el teléfono de Pérez" → buscar_contactos + modificar_contacto (muestra antes/después)
+- "Cambiá la dirección de Herreelec" → modificar_contacto con dirección (valida con Google Places)
+- "Dame los datos de Pérez" → obtener_contacto (muestra datos + visitas + presupuestos del contacto)
+- "Esta dirección tiene visitas?" → obtener_contacto muestra historial de visitas/presupuestos
+
+*Direcciones:*
+- "Buscá la dirección Av Corrientes 1234" → buscar_direccion (valida con Google, devuelve barrio/ciudad/coordenadas)
+- Cuando creás o editás un contacto con dirección, se valida automáticamente con Google Places
+
 *Recordatorios:*
 - "Recordame mañana a las 10 llamar a Pérez" → crear_recordatorio (notifica in-app + push + WhatsApp)
 - "Recordame todos los lunes revisar stock" → crear_recordatorio con repetir="semanal"

@@ -55,7 +55,7 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
     nombre: 'crear_contacto',
     definicion: {
       name: 'crear_contacto',
-      description: 'Crea un nuevo contacto en el sistema. Requiere al menos nombre.',
+      description: 'Crea un nuevo contacto en el sistema. Puede ser persona, empresa, edificio, proveedor o lead. Si se indica dirección, la valida con Google Places y la guarda con coordenadas.',
       input_schema: {
         type: 'object',
         properties: {
@@ -66,6 +66,15 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
           correo: { type: 'string', description: 'Correo electrónico' },
           empresa: { type: 'string', description: 'Nombre de la empresa del contacto' },
           cargo: { type: 'string', description: 'Cargo o puesto' },
+          tipo_clave: {
+            type: 'string',
+            enum: ['persona', 'empresa', 'edificio', 'proveedor', 'lead'],
+            description: 'Tipo de contacto. Default: persona. Elegí según contexto: "es un proveedor" → proveedor, "empresa Herreelec" → empresa, "edificio Torres del Sol" → edificio.',
+          },
+          direccion: {
+            type: 'string',
+            description: 'Dirección del contacto (se valida con Google Places). Ej: "Av. Corrientes 1234, Buenos Aires"',
+          },
           notas: { type: 'string', description: 'Notas adicionales' },
         },
         required: ['nombre'],
@@ -73,6 +82,60 @@ export const HERRAMIENTAS_SALIX_IA: DefinicionHerramienta[] = [
     },
     modulo: 'contactos',
     accion_requerida: 'crear',
+    soporta_visibilidad: false,
+  },
+
+  // ─── MODIFICAR CONTACTO ───
+  {
+    nombre: 'modificar_contacto',
+    definicion: {
+      name: 'modificar_contacto',
+      description: 'Modifica datos de un contacto existente: nombre, apellido, teléfono, correo, cargo, empresa, tipo, notas o dirección. Para direcciones, valida automáticamente con Google Places. Siempre muestra el antes y después de cada cambio.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          contacto_id: { type: 'string', description: 'ID del contacto a modificar. Buscalo primero con buscar_contactos.' },
+          nombre: { type: 'string', description: 'Nuevo nombre' },
+          apellido: { type: 'string', description: 'Nuevo apellido' },
+          telefono: { type: 'string', description: 'Nuevo teléfono (también actualiza WhatsApp)' },
+          correo: { type: 'string', description: 'Nuevo correo electrónico' },
+          cargo: { type: 'string', description: 'Nuevo cargo/puesto' },
+          empresa: { type: 'string', description: 'Nueva empresa/rubro' },
+          tipo_clave: {
+            type: 'string',
+            enum: ['persona', 'empresa', 'edificio', 'proveedor', 'lead'],
+            description: 'Cambiar tipo de contacto',
+          },
+          direccion: { type: 'string', description: 'Nueva dirección (se valida con Google Places). Ej: "Av. Corrientes 1234, Buenos Aires"' },
+          notas: { type: 'string', description: 'Nuevas notas' },
+        },
+        required: ['contacto_id'],
+      },
+    },
+    modulo: 'contactos',
+    accion_requerida: 'editar',
+    soporta_visibilidad: false,
+  },
+
+  // ─── BUSCAR DIRECCIÓN ───
+  {
+    nombre: 'buscar_direccion',
+    definicion: {
+      name: 'buscar_direccion',
+      description: 'Busca y valida una dirección usando Google Places. Devuelve la dirección formateada con calle, barrio, ciudad, provincia y coordenadas. Usá esta herramienta ANTES de guardar una dirección en un contacto para validarla, o cuando el usuario pregunte por una dirección.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          texto: {
+            type: 'string',
+            description: 'Dirección a buscar (ej: "Av Corrientes 1234 Buenos Aires", "directorio 1835 flores")',
+          },
+        },
+        required: ['texto'],
+      },
+    },
+    modulo: 'contactos',
+    accion_requerida: 'ver_propio',
     soporta_visibilidad: false,
   },
 

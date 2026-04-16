@@ -25,6 +25,8 @@ export type NombreHerramienta =
   | 'obtener_presupuesto'
   | 'consultar_equipo'
   | 'consultar_productos'
+  | 'modificar_contacto'
+  | 'buscar_direccion'
   | 'modificar_actividad'
   | 'modificar_visita'
   | 'modificar_presupuesto'

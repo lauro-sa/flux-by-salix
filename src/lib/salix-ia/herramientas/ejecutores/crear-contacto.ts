@@ -1,9 +1,12 @@
 /**
  * Ejecutor: crear_contacto
  * Crea un nuevo contacto en el sistema.
+ * Soporta: elegir tipo (persona, empresa, edificio, proveedor, lead),
+ * validar dirección con Google Places, y guardarla.
  */
 
 import type { ContextoSalixIA, ResultadoHerramienta } from '@/tipos/salix-ia'
+import { validarDireccion } from '@/lib/agente-ia/validar-direccion'
 
 export async function ejecutarCrearContacto(
   ctx: ContextoSalixIA,
@@ -14,18 +17,26 @@ export async function ejecutarCrearContacto(
     return { exito: false, error: 'Se requiere al menos el nombre del contacto' }
   }
 
-  // Buscar tipo_contacto por defecto (Persona o Lead)
+  // Buscar tipo de contacto — por clave si se especifica, o persona por defecto
+  const tipoClave = (params.tipo_clave as string)?.trim()?.toLowerCase()
+
   const { data: tipos } = await ctx.admin
     .from('tipos_contacto')
-    .select('id, clave')
+    .select('id, clave, etiqueta')
     .eq('empresa_id', ctx.empresa_id)
-    .in('clave', ['persona', 'lead'])
-    .limit(2)
+    .eq('activo', true)
 
-  const tipoDefault = tipos?.find((t: { clave: string }) => t.clave === 'persona')
-    || tipos?.[0]
+  let tipoElegido = tipoClave
+    ? tipos?.find((t: { clave: string }) => t.clave === tipoClave)
+    : null
 
-  if (!tipoDefault) {
+  // Si no se especificó o no se encontró, usar persona como default
+  if (!tipoElegido) {
+    tipoElegido = tipos?.find((t: { clave: string }) => t.clave === 'persona')
+      || tipos?.[0]
+  }
+
+  if (!tipoElegido) {
     return { exito: false, error: 'No se encontró un tipo de contacto configurado en la empresa' }
   }
 
@@ -81,7 +92,7 @@ export async function ejecutarCrearContacto(
       rubro: (params.empresa as string)?.trim() || null,
       cargo: (params.cargo as string)?.trim() || null,
       notas: (params.notas as string)?.trim() || null,
-      tipo_contacto_id: tipoDefault.id,
+      tipo_contacto_id: tipoElegido.id,
       origen: 'salix_ia',
       creado_por: ctx.usuario_id,
       creado_por_nombre: nombreCreador,
@@ -96,9 +107,40 @@ export async function ejecutarCrearContacto(
     return { exito: false, error: `Error creando contacto: ${error.message}` }
   }
 
+  // Si hay dirección, validar con Google Places y guardar
+  let direccionMsg = ''
+  if (params.direccion) {
+    const textoDir = (params.direccion as string).trim()
+    const direccionValidada = await validarDireccion(textoDir)
+
+    if (direccionValidada) {
+      await ctx.admin
+        .from('contacto_direcciones')
+        .insert({
+          contacto_id: data.id,
+          tipo: 'principal',
+          calle: direccionValidada.calle,
+          barrio: direccionValidada.barrio,
+          ciudad: direccionValidada.ciudad,
+          provincia: direccionValidada.provincia,
+          lat: direccionValidada.coordenadas?.lat || null,
+          lng: direccionValidada.coordenadas?.lng || null,
+          texto: direccionValidada.textoCompleto,
+          es_principal: true,
+        })
+
+      direccionMsg = `\n📍 Dirección: ${direccionValidada.textoCompleto}`
+      if (direccionValidada.barrio) direccionMsg += ` _(${direccionValidada.barrio})_`
+    } else {
+      direccionMsg = `\n⚠ No se encontró la dirección "${textoDir}" en Google. Podés agregarla desde la ficha.`
+    }
+  }
+
+  const tipoTexto = tipoElegido.clave !== 'persona' ? ` (${(tipoElegido as { etiqueta: string }).etiqueta})` : ''
+
   return {
     exito: true,
     datos: data,
-    mensaje_usuario: `Contacto "${nombre}${params.apellido ? ' ' + params.apellido : ''}" creado correctamente.`,
+    mensaje_usuario: `Contacto "${nombre}${params.apellido ? ' ' + params.apellido : ''}"${tipoTexto} creado correctamente.${direccionMsg}`,
   }
 }

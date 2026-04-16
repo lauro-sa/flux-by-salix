@@ -1,6 +1,7 @@
 'use client'
 
-import { Plus, Clock, Bell, Eye, X, MessageCircle } from 'lucide-react'
+import { Plus, Clock, Bell, Eye, X } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
 import { TextArea } from '@/componentes/ui/TextArea'
@@ -124,7 +125,7 @@ function FormularioRecordatorio({ estado }: FormularioRecordatorioProps) {
 
       {/* 5. WhatsApp — toggle inline */}
       <div className="flex items-center gap-2 px-1">
-        <MessageCircle size={14} className="text-canal-whatsapp shrink-0" />
+        <IconoWhatsApp size={14} className="text-canal-whatsapp shrink-0" />
         <span className="text-xs text-texto-secundario flex-1">
           Avisar por WhatsApp
         </span>
