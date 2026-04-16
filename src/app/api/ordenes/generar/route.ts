@@ -227,8 +227,8 @@ export async function POST(request: NextRequest) {
         autorNombre: nombreUsuario || 'Usuario',
         metadata: {
           accion: 'orden_trabajo_generada',
-          orden_trabajo_id: orden.id,
-          orden_trabajo_numero: orden.numero,
+          orden_trabajo_id: orden.id as string,
+          orden_trabajo_numero: orden.numero as string,
         },
       }),
     ])
