@@ -102,15 +102,17 @@ export async function GET(request: NextRequest) {
           }
           if (!config?.tokenAcceso || !config?.phoneNumberId) continue
 
-          // Obtener teléfonos de los usuarios
+          // Obtener teléfonos y nombres de los usuarios
           const usuarioIds = recordatorios.map((r) => r.asignado_a as string)
           const { data: perfiles } = await admin
             .from('perfiles')
-            .select('id, telefono, telefono_empresa')
+            .select('id, nombre, telefono, telefono_empresa')
             .in('id', usuarioIds)
 
           const telefonoMap = new Map<string, string>()
+          const perfilesMap = new Map<string, { nombre: string }>()
           for (const p of (perfiles || [])) {
+            perfilesMap.set(p.id, { nombre: p.nombre || '' })
             // Priorizar teléfono empresa, luego personal
             const tel = p.telefono_empresa || p.telefono
             if (tel) {
@@ -139,14 +141,23 @@ export async function GET(request: NextRequest) {
               .limit(1)
 
             const ventanaAbierta = convReciente && convReciente.length > 0
-            const horaTexto = r.hora ? `Programado para las ${r.hora}` : 'Recordatorio del día'
             const titulo = r.titulo as string
-            const detalle = r.descripcion ? `${r.descripcion as string} — ${horaTexto}` : horaTexto
+            const horaTexto = r.hora ? `para las ${r.hora}` : 'para hoy'
+
+            // Obtener nombre del usuario
+            const perfilUsuario = perfilesMap.get(r.asignado_a as string)
+            const nombreCorto = perfilUsuario?.nombre?.split(' ')[0] || ''
+
+            // Mensaje personalizado guardado por el copilot, o generar uno natural
+            const textoLibre = (r.mensaje_whatsapp as string) || generarMensajeNatural(nombreCorto, titulo, r.descripcion as string | null, horaTexto)
+
+            // Variables para la plantilla (fuera de ventana 24h)
+            const detallePlantilla = r.descripcion ? `${r.descripcion as string} — ${r.hora ? `A las ${r.hora}` : 'Hoy'}` : (r.hora ? `A las ${r.hora}` : 'Recordatorio del día')
 
             try {
               if (ventanaAbierta) {
-                // Ventana 24h abierta → texto libre (más personalizado)
-                const texto = `🔔 *Recordatorio:* ${titulo}${r.descripcion ? `\n${r.descripcion as string}` : ''}\n${horaTexto}`
+                // Ventana 24h abierta → texto libre natural
+                const texto = textoLibre
                 await fetch(`https://graph.facebook.com/v21.0/${config.phoneNumberId}/messages`, {
                   method: 'POST',
                   headers: {
@@ -179,7 +190,7 @@ export async function GET(request: NextRequest) {
                         type: 'body',
                         parameters: [
                           { type: 'text', text: titulo },
-                          { type: 'text', text: detalle },
+                          { type: 'text', text: detallePlantilla },
                         ],
                       }],
                     },
@@ -252,6 +263,28 @@ export async function GET(request: NextRequest) {
     console.error('Error en cron recordatorios:', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
+}
+
+/**
+ * Genera un mensaje de WhatsApp natural/humano para un recordatorio.
+ * Varía el tono aleatoriamente para que no se sienta repetitivo.
+ */
+function generarMensajeNatural(nombre: string, titulo: string, descripcion: string | null, horaTexto: string): string {
+  const saludos = [
+    `Ey ${nombre}, te recuerdo que tenés pendiente:`,
+    `${nombre}, acordate:`,
+    `Hola ${nombre} 👋 Te dejo tu recordatorio:`,
+    `${nombre}, no te olvides:`,
+    `Te aviso ${nombre}:`,
+  ]
+
+  const saludo = saludos[Math.floor(Math.random() * saludos.length)]
+  const partes = [saludo, '', `*${titulo}*`]
+
+  if (descripcion) partes.push(descripcion)
+  partes.push(`⏰ ${horaTexto}`)
+
+  return partes.join('\n')
 }
 
 /**

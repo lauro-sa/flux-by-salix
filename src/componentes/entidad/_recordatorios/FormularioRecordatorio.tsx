@@ -1,6 +1,6 @@
 'use client'
 
-import { Plus, Clock, Bell, Eye, X } from 'lucide-react'
+import { Plus, Clock, Bell, Eye, X, MessageCircle } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
 import { TextArea } from '@/componentes/ui/TextArea'
@@ -31,6 +31,7 @@ function FormularioRecordatorio({ estado }: FormularioRecordatorioProps) {
     hora, setHora,
     recurrencia, setRecurrencia,
     alertaModal, setAlertaModal,
+    notificarWhatsApp, setNotificarWhatsApp,
     mostrarNota, setMostrarNota,
     setAbierto, setPreviewModal, setPreviewToast,
     crear,
@@ -121,7 +122,16 @@ function FormularioRecordatorio({ estado }: FormularioRecordatorioProps) {
         />
       </div>
 
-      {/* 5. + Agregar nota — colapsado */}
+      {/* 5. WhatsApp — toggle inline */}
+      <div className="flex items-center gap-2 px-1">
+        <MessageCircle size={14} className="text-canal-whatsapp shrink-0" />
+        <span className="text-xs text-texto-secundario flex-1">
+          Avisar por WhatsApp
+        </span>
+        <Interruptor activo={notificarWhatsApp} onChange={setNotificarWhatsApp} />
+      </div>
+
+      {/* 6. + Agregar nota — colapsado */}
       <AnimatePresence>
         {!mostrarNota ? (
           <Boton

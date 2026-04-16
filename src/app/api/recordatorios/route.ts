@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     if (!auth) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
     const body = await request.json()
-    const { titulo, descripcion, fecha, hora, repetir, recurrencia, alerta_modal, asignado_a } = body
+    const { titulo, descripcion, fecha, hora, repetir, recurrencia, alerta_modal, notificar_whatsapp, asignado_a } = body
 
     if (!titulo || !fecha) {
       return NextResponse.json({ error: 'Título y fecha son requeridos' }, { status: 400 })
@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
         repetir: repetir || 'ninguno',
         recurrencia: recurrencia || null,
         alerta_modal: alerta_modal || false,
+        notificar_whatsapp: notificar_whatsapp !== false,
       })
       .select()
       .single()

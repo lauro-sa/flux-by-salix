@@ -17,9 +17,10 @@ interface ItemRecordatorioProps {
   indice: number
   onToggleCompletar: (id: string, completado: boolean) => void
   onEliminar: (r: Recordatorio) => void
+  onEditar?: (r: Recordatorio) => void
 }
 
-function ItemRecordatorio({ recordatorio: r, indice, onToggleCompletar, onEliminar }: ItemRecordatorioProps) {
+function ItemRecordatorio({ recordatorio: r, indice, onToggleCompletar, onEliminar, onEditar }: ItemRecordatorioProps) {
   const { locale } = useFormato()
   const esCompletado = r.completado
 
@@ -43,8 +44,11 @@ function ItemRecordatorio({ recordatorio: r, indice, onToggleCompletar, onElimin
         className={`shrink-0 mt-0.5 ${esCompletado ? 'text-insignia-exito hover:text-texto-marca' : 'text-texto-terciario hover:text-texto-marca'}`}
       />
 
-      {/* Contenido */}
-      <div className="flex-1 min-w-0">
+      {/* Contenido — clickeable para editar */}
+      <div
+        className={`flex-1 min-w-0 ${!esCompletado && onEditar ? 'cursor-pointer' : ''}`}
+        onClick={() => !esCompletado && onEditar?.(r)}
+      >
         {esCompletado ? (
           <>
             <p className="text-sm text-texto-terciario line-through truncate">{r.titulo}</p>

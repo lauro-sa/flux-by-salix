@@ -25,8 +25,12 @@ export function useRecordatorios() {
   const [hora, setHora] = useState<string | null>('09:00')
   const [recurrencia, setRecurrencia] = useState<ConfigRecurrencia>(RECURRENCIA_DEFAULT)
   const [alertaModal, setAlertaModal] = useState(false)
+  const [notificarWhatsApp, setNotificarWhatsApp] = useState(true)
   const [creando, setCreando] = useState(false)
   const [mostrarNota, setMostrarNota] = useState(false)
+
+  /* ─── Modo edición ─── */
+  const [editandoId, setEditandoId] = useState<string | null>(null)
 
   /* ─── Previews ─── */
   const [previewModal, setPreviewModal] = useState(false)
@@ -59,38 +63,87 @@ export function useRecordatorios() {
     if (abierto) cargar()
   }, [abierto, cargar])
 
+  /* ─── Limpiar formulario ─── */
+  const limpiarFormulario = () => {
+    setTitulo('')
+    setDescripcion('')
+    setFecha(mañanaISO())
+    setUsarHora(false)
+    setHora('09:00')
+    setRecurrencia(RECURRENCIA_DEFAULT)
+    setAlertaModal(false)
+    setNotificarWhatsApp(true)
+    setMostrarNota(false)
+    setEditandoId(null)
+  }
+
+  /* ─── Abrir recordatorio existente para editar ─── */
+  const editarRecordatorio = (r: Recordatorio) => {
+    setEditandoId(r.id)
+    setTitulo(r.titulo)
+    setDescripcion(r.descripcion || '')
+    setFecha(r.fecha)
+    setUsarHora(!!r.hora)
+    setHora(r.hora || '09:00')
+    setRecurrencia(r.recurrencia || { frecuencia: r.repetir as ConfigRecurrencia['frecuencia'] })
+    setAlertaModal(r.alerta_modal || false)
+    setNotificarWhatsApp(r.notificar_whatsapp !== false)
+    setMostrarNota(!!r.descripcion)
+    setTab('crear')
+  }
+
   /* ─── Crear recordatorio ─── */
   const crear = async () => {
     if (!titulo.trim() || !fecha) return
     setCreando(true)
     try {
-      const res = await fetch('/api/recordatorios', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          titulo: titulo.trim(),
-          descripcion: descripcion.trim() || null,
-          fecha,
-          hora: usarHora ? hora : null,
-          repetir: recurrencia.frecuencia,
-          recurrencia: recurrencia.frecuencia !== 'ninguno' ? recurrencia : null,
-          alerta_modal: alertaModal,
-        }),
-      })
-      if (res.ok) {
-        setTitulo('')
-        setDescripcion('')
-        setFecha(mañanaISO())
-        setUsarHora(false)
-        setHora('09:00')
-        setRecurrencia(RECURRENCIA_DEFAULT)
-        setAlertaModal(false)
-        setMostrarNota(false)
-        setTab('activos')
-        cargar()
-        mostrar('exito', 'Recordatorio creado')
+      if (editandoId) {
+        // Modo edición → PATCH
+        const res = await fetch('/api/recordatorios', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: editandoId,
+            titulo: titulo.trim(),
+            descripcion: descripcion.trim() || null,
+            fecha,
+            hora: usarHora ? hora : null,
+            repetir: recurrencia.frecuencia,
+            recurrencia: recurrencia.frecuencia !== 'ninguno' ? recurrencia : null,
+            alerta_modal: alertaModal,
+            notificar_whatsapp: notificarWhatsApp,
+          }),
+        })
+        if (res.ok) {
+          limpiarFormulario()
+          setTab('activos')
+          cargar()
+          mostrar('exito', 'Recordatorio actualizado')
+        }
+      } else {
+        // Modo crear → POST
+        const res = await fetch('/api/recordatorios', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            titulo: titulo.trim(),
+            descripcion: descripcion.trim() || null,
+            fecha,
+            hora: usarHora ? hora : null,
+            repetir: recurrencia.frecuencia,
+            recurrencia: recurrencia.frecuencia !== 'ninguno' ? recurrencia : null,
+            alerta_modal: alertaModal,
+            notificar_whatsapp: notificarWhatsApp,
+          }),
+        })
+        if (res.ok) {
+          limpiarFormulario()
+          setTab('activos')
+          cargar()
+          mostrar('exito', 'Recordatorio creado')
+        }
       }
-    } catch { mostrar('error', 'Error al crear recordatorio') }
+    } catch { mostrar('error', 'Error al procesar recordatorio') }
     setCreando(false)
   }
 
@@ -148,7 +201,9 @@ export function useRecordatorios() {
     hora, setHora,
     recurrencia, setRecurrencia,
     alertaModal, setAlertaModal,
+    notificarWhatsApp, setNotificarWhatsApp,
     creando, mostrarNota, setMostrarNota,
+    editandoId, limpiarFormulario,
 
     /* Previews */
     previewModal, setPreviewModal,
@@ -158,7 +213,7 @@ export function useRecordatorios() {
     confirmarEliminar, setConfirmarEliminar,
 
     /* Acciones */
-    crear, toggleCompletar, intentarEliminar, eliminarDirecto,
+    crear, toggleCompletar, intentarEliminar, eliminarDirecto, editarRecordatorio,
   }
 }
 

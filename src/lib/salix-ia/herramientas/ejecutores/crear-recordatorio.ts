@@ -35,6 +35,17 @@ export async function ejecutarCrearRecordatorio(
     return { exito: false, error: `Tipo de repetición "${repetir}" no válido. Opciones: ${repetirValidos.join(', ')}` }
   }
 
+  // Generar mensaje WhatsApp personalizado y natural
+  const nombreCorto = ctx.nombre_usuario.split(' ')[0]
+  const mensajesNaturales = [
+    `Ey ${nombreCorto}, te recuerdo que tenés pendiente:\n\n*${titulo}*`,
+    `${nombreCorto}, acordate:\n\n*${titulo}*`,
+    `Hola ${nombreCorto} 👋 Te dejo tu recordatorio:\n\n*${titulo}*`,
+    `${nombreCorto}, no te olvides:\n\n*${titulo}*`,
+  ]
+  const mensajeWA = mensajesNaturales[Math.floor(Math.random() * mensajesNaturales.length)]
+    + (params.descripcion ? `\n${(params.descripcion as string).trim()}` : '')
+
   // Crear recordatorio en la tabla de recordatorios (con recurrencia)
   const { data: recordatorio, error: errorRecordatorio } = await ctx.admin
     .from('recordatorios')
@@ -48,7 +59,8 @@ export async function ejecutarCrearRecordatorio(
       hora: horaUTC,
       repetir,
       alerta_modal: true,
-      notificar_whatsapp: params.notificar_whatsapp !== false, // default: true
+      notificar_whatsapp: params.notificar_whatsapp !== false,
+      mensaje_whatsapp: mensajeWA,
       completado: false,
     })
     .select('id, titulo, fecha, hora, repetir')

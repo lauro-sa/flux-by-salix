@@ -11,6 +11,7 @@ export interface Recordatorio {
   repetir: string
   recurrencia?: ConfigRecurrencia | null
   alerta_modal?: boolean
+  notificar_whatsapp?: boolean
   completado: boolean
   completado_en?: string | null
   creado_en: string

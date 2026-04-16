@@ -26,8 +26,8 @@ function RecordatoriosHeader() {
     tab, setTab,
     activos, completados, cargando, vencidos,
     titulo, setTitulo, descripcion, setDescripcion,
-    fecha, creando, crear,
-    toggleCompletar, intentarEliminar, eliminarDirecto,
+    fecha, creando, crear, editandoId, limpiarFormulario,
+    toggleCompletar, intentarEliminar, eliminarDirecto, editarRecordatorio,
     previewModal, setPreviewModal,
     previewToast, setPreviewToast,
     confirmarEliminar, setConfirmarEliminar,
@@ -52,12 +52,12 @@ function RecordatoriosHeader() {
       <div className="px-3 pt-2 shrink-0">
         <Tabs
           tabs={[
-            { clave: 'crear', etiqueta: 'Crear', icono: <Plus size={13} /> },
+            { clave: 'crear', etiqueta: editandoId ? 'Editar' : 'Crear', icono: <Plus size={13} /> },
             { clave: 'activos', etiqueta: 'Activos', contador: activos.length, icono: <Clock size={13} /> },
             { clave: 'completados', etiqueta: 'Completados', icono: <CheckCircle2 size={13} /> },
           ]}
           activo={tab}
-          onChange={setTab}
+          onChange={(t) => { if (t !== 'crear') limpiarFormulario(); setTab(t) }}
         />
       </div>
 
@@ -72,6 +72,7 @@ function RecordatoriosHeader() {
             cargando={cargando}
             onToggleCompletar={toggleCompletar}
             onEliminar={intentarEliminar}
+            onEditar={editarRecordatorio}
             onIrACrear={() => setTab('crear')}
           />
         )}
@@ -96,12 +97,12 @@ function RecordatoriosHeader() {
             disabled={!titulo.trim() || !fecha}
             tamano="sm"
           >
-            Crear recordatorio
+            {editandoId ? 'Guardar cambios' : 'Crear recordatorio'}
           </Boton>
           <Boton
             variante="fantasma"
             tamano="sm"
-            onClick={() => { setTitulo(''); setDescripcion(''); setAbierto(false) }}
+            onClick={() => { limpiarFormulario(); if (editandoId) setTab('activos'); else setAbierto(false) }}
           >
             Cancelar
           </Boton>

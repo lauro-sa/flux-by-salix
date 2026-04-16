@@ -17,10 +17,11 @@ interface ListaRecordatoriosProps {
   cargando: boolean
   onToggleCompletar: (id: string, completado: boolean) => void
   onEliminar: (r: Recordatorio) => void
+  onEditar?: (r: Recordatorio) => void
   onIrACrear?: () => void
 }
 
-function ListaRecordatorios({ tipo, recordatorios, cargando, onToggleCompletar, onEliminar, onIrACrear }: ListaRecordatoriosProps) {
+function ListaRecordatorios({ tipo, recordatorios, cargando, onToggleCompletar, onEliminar, onEditar, onIrACrear }: ListaRecordatoriosProps) {
   /* Spinner de carga */
   if (cargando) {
     return (
@@ -66,6 +67,7 @@ function ListaRecordatorios({ tipo, recordatorios, cargando, onToggleCompletar, 
             indice={idx}
             onToggleCompletar={onToggleCompletar}
             onEliminar={onEliminar}
+            onEditar={onEditar}
           />
         ))}
       </AnimatePresence>
