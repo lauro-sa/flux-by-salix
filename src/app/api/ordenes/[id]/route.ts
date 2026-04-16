@@ -25,8 +25,8 @@ export async function GET(
 
     const admin = crearClienteAdmin()
 
-    // Orden + lineas + historial + actividades vinculadas en paralelo
-    const [ordenRes, lineasRes, historialRes, actividadesRes] = await Promise.all([
+    // Orden + lineas + historial + asignados + actividades en paralelo
+    const [ordenRes, lineasRes, historialRes, asignadosRes, actividadesRes] = await Promise.all([
       admin
         .from('ordenes_trabajo')
         .select('*')
@@ -43,10 +43,15 @@ export async function GET(
         .select('*')
         .eq('orden_trabajo_id', id)
         .order('fecha', { ascending: true }),
+      admin
+        .from('asignados_orden_trabajo')
+        .select('*')
+        .eq('orden_trabajo_id', id)
+        .order('es_cabecilla', { ascending: false }),
       // Actividades vinculadas a esta OT (por vinculo_ids)
       admin
         .from('actividades')
-        .select('id, estado_clave')
+        .select('id, estado_clave, fecha_vencimiento')
         .eq('empresa_id', empresaId)
         .contains('vinculo_ids', [id])
         .eq('en_papelera', false),
@@ -60,6 +65,37 @@ export async function GET(
     const actividades = actividadesRes.data || []
     const totalActividades = actividades.length
     const completadas = actividades.filter(a => a.estado_clave === 'completada').length
+
+    // Calcular fechas desde actividades con fecha
+    const fechasActividades = actividades
+      .map(a => a.fecha_vencimiento)
+      .filter(Boolean)
+      .sort() as string[]
+
+    const fechaInicioCalculada = fechasActividades[0] || null
+    // Fecha fin estimada: solo si hay 2+ actividades con fechas DIFERENTES
+    const fechasUnicas = [...new Set(fechasActividades.map(f => f.slice(0, 10)))]
+    const fechaFinCalculada = fechasUnicas.length > 1
+      ? fechasActividades[fechasActividades.length - 1]
+      : null
+
+    // Auto-actualizar fechas si cambiaron (fire-and-forget)
+    const actualizarFechas: Record<string, unknown> = {}
+    if (fechaInicioCalculada && fechaInicioCalculada !== ordenRes.data.fecha_inicio) {
+      actualizarFechas.fecha_inicio = fechaInicioCalculada
+      ordenRes.data.fecha_inicio = fechaInicioCalculada
+    }
+    if (fechaFinCalculada && fechaFinCalculada !== ordenRes.data.fecha_fin_estimada) {
+      actualizarFechas.fecha_fin_estimada = fechaFinCalculada
+      ordenRes.data.fecha_fin_estimada = fechaFinCalculada
+    }
+    if (Object.keys(actualizarFechas).length > 0) {
+      admin
+        .from('ordenes_trabajo')
+        .update({ ...actualizarFechas, actualizado_en: new Date().toISOString() })
+        .eq('id', id)
+        .then(() => {})
+    }
 
     // Registrar en recientes (fire-and-forget)
     registrarReciente({
@@ -76,6 +112,7 @@ export async function GET(
       orden: ordenRes.data,
       lineas: lineasRes.data || [],
       historial: historialRes.data || [],
+      asignados: asignadosRes.data || [],
       progreso: {
         total_actividades: totalActividades,
         completadas,
@@ -105,21 +142,38 @@ export async function PATCH(
     const body = await request.json()
     const admin = crearClienteAdmin()
 
-    // Verificar que la orden existe
-    const { data: ordenActual } = await admin
-      .from('ordenes_trabajo')
-      .select('id, estado, numero, titulo')
-      .eq('id', id)
-      .eq('empresa_id', empresaId)
-      .single()
+    // Verificar que la orden existe + obtener asignados actuales
+    const [{ data: ordenActual }, { data: asignadosActuales }] = await Promise.all([
+      admin
+        .from('ordenes_trabajo')
+        .select('id, estado, numero, titulo, publicada, creado_por')
+        .eq('id', id)
+        .eq('empresa_id', empresaId)
+        .single(),
+      admin
+        .from('asignados_orden_trabajo')
+        .select('usuario_id, es_cabecilla')
+        .eq('orden_trabajo_id', id),
+    ])
 
     if (!ordenActual) return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 })
 
     const { data: perfil } = await admin.from('perfiles').select('nombre, apellido').eq('id', user.id).single()
     const nombreUsuario = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : null
 
-    // Si hay cambio de estado, validar transición
+    // Verificar si es cabecilla, admin o creador para cambios de estado
+    const esCabecilla = (asignadosActuales || []).some(a => a.usuario_id === user.id && a.es_cabecilla)
+    const rol = user.app_metadata?.rol
+    const esAdmin = ['propietario', 'administrador', 'gerente'].includes(rol) || user.app_metadata?.es_superadmin
+
+    const esCreador = ordenActual.creado_por === user.id
+    const puedeGestionar = esAdmin || esCabecilla || esCreador
+
+    // Si hay cambio de estado, validar transición + permisos
     if (body.estado && body.estado !== ordenActual.estado) {
+      if (!puedeGestionar) {
+        return NextResponse.json({ error: 'Solo un responsable, creador o administrador puede cambiar el estado' }, { status: 403 })
+      }
       const estadoActual = ordenActual.estado as EstadoOrdenTrabajo
       const nuevoEstado = body.estado as EstadoOrdenTrabajo
       const transicionesValidas = TRANSICIONES_ESTADO_OT[estadoActual]
@@ -173,11 +227,12 @@ export async function PATCH(
 
     // Campos actualizables
     const camposPermitidos = [
-      'estado', 'prioridad', 'titulo', 'descripcion', 'notas',
+      'estado', 'prioridad', 'titulo', 'descripcion', 'notas', 'publicada',
       'asignado_a', 'asignado_nombre',
       'fecha_inicio', 'fecha_fin_estimada', 'fecha_fin_real',
       'contacto_id', 'contacto_nombre', 'contacto_telefono',
       'contacto_correo', 'contacto_direccion', 'contacto_whatsapp',
+      'atencion_contacto_id', 'atencion_nombre', 'atencion_telefono', 'atencion_correo',
     ]
 
     const actualizacion: Record<string, unknown> = {
@@ -188,6 +243,47 @@ export async function PATCH(
 
     for (const campo of camposPermitidos) {
       if (campo in body) actualizacion[campo] = body[campo]
+    }
+
+    // Si se envían asignados, reemplazar la tabla de asignados
+    const asignadosNuevos: { usuario_id: string; usuario_nombre: string; es_cabecilla: boolean }[] | undefined = body.asignados
+
+    // Publicar/despublicar: registrar en chatter
+    if ('publicada' in body && body.publicada !== ordenActual.publicada) {
+      if (!puedeGestionar) {
+        return NextResponse.json({ error: 'Solo un responsable, creador o administrador puede publicar/despublicar' }, { status: 403 })
+      }
+      await registrarChatter({
+        empresaId,
+        entidadTipo: 'orden_trabajo',
+        entidadId: id,
+        contenido: body.publicada ? 'Publicó la orden de trabajo' : 'Despublicó la orden de trabajo (modo borrador)',
+        autorId: user.id,
+        autorNombre: nombreUsuario || 'Usuario',
+        metadata: { accion: body.publicada ? 'publicar' : 'despublicar' },
+      })
+    }
+
+    // Actualizar asignados si se enviaron
+    if (asignadosNuevos !== undefined) {
+      // Denormalizar cabecilla en la tabla principal
+      const cabecilla = asignadosNuevos.find(a => a.es_cabecilla) || asignadosNuevos[0] || null
+      actualizacion.asignado_a = cabecilla?.usuario_id || null
+      actualizacion.asignado_nombre = cabecilla?.usuario_nombre || null
+
+      // Reemplazar asignados: borrar existentes e insertar nuevos
+      await admin.from('asignados_orden_trabajo').delete().eq('orden_trabajo_id', id)
+      if (asignadosNuevos.length > 0) {
+        await admin.from('asignados_orden_trabajo').insert(
+          asignadosNuevos.map(a => ({
+            orden_trabajo_id: id,
+            empresa_id: empresaId,
+            usuario_id: a.usuario_id,
+            usuario_nombre: a.usuario_nombre,
+            es_cabecilla: a.es_cabecilla,
+          }))
+        )
+      }
     }
 
     const { data: ordenActualizada, error } = await admin

@@ -91,7 +91,16 @@ export interface OrdenTrabajo {
   presupuesto_id: string | null
   presupuesto_numero: string | null
 
-  // Responsable
+  // Dirigido a (atención) — para avisos de llegada
+  atencion_contacto_id: string | null
+  atencion_nombre: string | null
+  atencion_telefono: string | null
+  atencion_correo: string | null
+
+  // Publicación (borrador vs visible para asignados)
+  publicada: boolean
+
+  // Responsable legacy (cabecilla denormalizado para queries rápidas)
   asignado_a: string | null
   asignado_nombre: string | null
 
@@ -138,9 +147,22 @@ export interface HistorialOrdenTrabajo {
   notas: string | null
 }
 
+// ─── Asignados a la OT ───
+
+export interface AsignadoOrdenTrabajo {
+  id: string
+  orden_trabajo_id: string
+  empresa_id: string
+  usuario_id: string
+  usuario_nombre: string
+  es_cabecilla: boolean
+  creado_en: string
+}
+
 export interface OrdenTrabajoConDetalle extends OrdenTrabajo {
   lineas: LineaOrdenTrabajo[]
   historial: HistorialOrdenTrabajo[]
+  asignados: AsignadoOrdenTrabajo[]
   progreso: {
     total_actividades: number
     completadas: number

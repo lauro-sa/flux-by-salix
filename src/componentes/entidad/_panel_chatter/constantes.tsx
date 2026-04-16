@@ -6,7 +6,7 @@
 import {
   FileText, ArrowRightLeft, Globe, Eye, CheckCircle2, XCircle,
   CreditCard, Clock, Zap, RotateCcw, Mail, MailOpen,
-  Pencil, RefreshCw, CalendarClock, Ban, MapPin, Wrench,
+  Pencil, RefreshCw, CalendarClock, Ban, MapPin, Wrench, Send, Pause,
 } from 'lucide-react'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import type { AccionSistema } from '@/tipos/chatter'
@@ -127,6 +127,16 @@ export const ICONOS_ACCION: Record<AccionSistema, ConfigIconoAccion> = {
     icono: <Wrench size={14} />,
     color: 'bg-texto-marca/10 text-texto-marca',
     etiqueta: 'Orden de trabajo generada',
+  },
+  publicar: {
+    icono: <Send size={14} />,
+    color: 'bg-insignia-exito/10 text-insignia-exito',
+    etiqueta: 'Publicada',
+  },
+  despublicar: {
+    icono: <Pause size={14} />,
+    color: 'bg-insignia-advertencia-fondo text-insignia-advertencia-texto',
+    etiqueta: 'Despublicada',
   },
 }
 

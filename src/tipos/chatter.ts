@@ -28,6 +28,8 @@ export type AccionSistema =
   // Órdenes de trabajo
   | 'cambio_estado'
   | 'orden_trabajo_generada'
+  | 'publicar'
+  | 'despublicar'
   // Correo
   | 'correo_enviado'
   | 'correo_recibido'

@@ -29,14 +29,17 @@ export default async function PaginaVisitas() {
   // Estados por defecto: programada + reprogramada (excluir completadas/canceladas)
   const estadosActivos = ['programada', 'en_camino', 'en_sitio', 'reprogramada']
 
+  // Vista por defecto: admins ven todas, usuarios con soloPropio ven propias
+  const vistaDefault = visibilidad.soloPropio ? 'propias' : 'todas'
+
   let query = admin
     .from('visitas')
     .select('*', { count: 'exact' })
     .eq('empresa_id', empresaId)
     .eq('en_papelera', false)
     .in('estado', estadosActivos)
-    .or(`creado_por.eq.${user.id},asignado_a.eq.${user.id}`)
 
+  // Solo filtrar por propiedad si el usuario tiene visibilidad restringida
   if (visibilidad.soloPropio) {
     query = query.or(`creado_por.eq.${user.id},asignado_a.eq.${user.id}`)
   }
@@ -56,13 +59,13 @@ export default async function PaginaVisitas() {
 
   const queryClient = crearQueryClient()
   queryClient.setQueryData(
-    ['visitas', { estado: estadosActivos.join(','), vista: 'propias', pagina: '1', por_pagina: '50' }],
+    ['visitas', { estado: estadosActivos.join(','), vista: vistaDefault, pagina: '1', por_pagina: '50' }],
     datosInicialesJson
   )
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <ContenidoVisitas datosInicialesJson={datosInicialesJson} />
+      <ContenidoVisitas datosInicialesJson={datosInicialesJson} soloPropio={visibilidad.soloPropio} />
     </HydrationBoundary>
   )
 }

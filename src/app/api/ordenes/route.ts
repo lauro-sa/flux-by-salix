@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     let query = admin
       .from('ordenes_trabajo')
       .select(`
-        id, numero, estado, prioridad, titulo, descripcion,
+        id, numero, estado, prioridad, titulo, descripcion, publicada,
         contacto_id, contacto_nombre, contacto_telefono, contacto_direccion,
         presupuesto_id, presupuesto_numero,
         asignado_a, asignado_nombre,
@@ -53,7 +53,22 @@ export async function GET(request: NextRequest) {
       .eq('en_papelera', en_papelera)
 
     if (soloPropio) {
-      query = query.or(`creado_por.eq.${user.id},asignado_a.eq.${user.id}`)
+      // Obtener IDs de OTs donde el usuario es asignado
+      const { data: misAsignaciones } = await admin
+        .from('asignados_orden_trabajo')
+        .select('orden_trabajo_id')
+        .eq('empresa_id', empresaId)
+        .eq('usuario_id', user.id)
+      const idsAsignado = (misAsignaciones || []).map(a => a.orden_trabajo_id)
+
+      if (idsAsignado.length > 0) {
+        query = query.or(`creado_por.eq.${user.id},id.in.(${idsAsignado.join(',')})`)
+      } else {
+        query = query.eq('creado_por', user.id)
+      }
+
+      // Si no es admin, solo ver publicadas (excepto las que creó)
+      // Esto se filtra después o en el frontend
     }
 
     // Filtro por estado
@@ -153,21 +168,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Snapshot del asignado
-    let asignadoNombre: string | null = null
-    if (body.asignado_a) {
-      const { data: asignado } = await admin
-        .from('perfiles')
-        .select('nombre, apellido')
-        .eq('id', body.asignado_a)
-        .single()
-      if (asignado) asignadoNombre = `${asignado.nombre} ${asignado.apellido}`.trim()
-    }
+    // Asignados: array de { usuario_id, usuario_nombre, es_cabecilla }
+    const asignados: { usuario_id: string; usuario_nombre: string; es_cabecilla: boolean }[] = body.asignados || []
+
+    // Cabecilla denormalizado para queries rápidas
+    const cabecilla = asignados.find(a => a.es_cabecilla) || asignados[0] || null
 
     const nuevaOrden = {
       empresa_id: empresaId,
       numero: numero as string,
       estado: 'abierta',
+      publicada: false,
       prioridad: body.prioridad || 'media',
       titulo: body.titulo,
       descripcion: body.descripcion || null,
@@ -176,8 +187,8 @@ export async function POST(request: NextRequest) {
       ...snapshotContacto,
       presupuesto_id: body.presupuesto_id || null,
       presupuesto_numero: body.presupuesto_numero || null,
-      asignado_a: body.asignado_a || null,
-      asignado_nombre: asignadoNombre,
+      asignado_a: cabecilla?.usuario_id || null,
+      asignado_nombre: cabecilla?.usuario_nombre || null,
       fecha_inicio: body.fecha_inicio || null,
       fecha_fin_estimada: body.fecha_fin_estimada || null,
       creado_por: user.id,
@@ -208,7 +219,7 @@ export async function POST(request: NextRequest) {
 
     if (!orden) return NextResponse.json({ error: 'No se pudo crear la orden' }, { status: 500 })
 
-    // Historial + chatter en paralelo
+    // Historial + chatter + asignados en paralelo
     await Promise.all([
       admin.from('orden_trabajo_historial').insert({
         orden_trabajo_id: orden.id as string,
@@ -226,6 +237,18 @@ export async function POST(request: NextRequest) {
         autorNombre: nombreUsuario || 'Usuario',
         metadata: { accion: 'creado' },
       }),
+      // Insertar asignados
+      asignados.length > 0
+        ? admin.from('asignados_orden_trabajo').insert(
+            asignados.map(a => ({
+              orden_trabajo_id: orden!.id as string,
+              empresa_id: empresaId,
+              usuario_id: a.usuario_id,
+              usuario_nombre: a.usuario_nombre,
+              es_cabecilla: a.es_cabecilla,
+            }))
+          )
+        : Promise.resolve(),
     ])
 
     // Registrar en recientes

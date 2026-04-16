@@ -10,6 +10,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Route, Loader2, Clock, MapPin, Pencil, Navigation, Sparkles, Undo2, ArrowUpDown, X, Check, ChevronLeft, ChevronRight, RotateCcw, Phone } from 'lucide-react'
 import { useTraduccion } from '@/lib/i18n'
+import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useToast } from '@/componentes/feedback/Toast'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Cargador } from '@/componentes/ui/Cargador'
@@ -127,6 +128,32 @@ export default function PaginaRecorrido() {
   useEffect(() => {
     cargarRecorrido(fechaSeleccionada)
   }, [fechaSeleccionada]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Realtime: recargar cuando la admin cambia visitas (cancelar, reasignar, crear, etc.)
+  useEffect(() => {
+    const supabase = crearClienteNavegador()
+    const canal = supabase
+      .channel('recorrido-realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'visitas',
+      }, () => {
+        // Recargar sin mostrar spinner para no interrumpir la experiencia
+        fetch(`/api/recorrido/hoy?fecha=${fechaSeleccionada}`)
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            if (data) {
+              setRecorrido(data.recorrido)
+              setParadas(data.paradas || [])
+            }
+          })
+          .catch(() => {})
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(canal) }
+  }, [fechaSeleccionada])
 
   const cambiarFecha = useCallback((nuevaFecha: string) => {
     setFechaSeleccionada(nuevaFecha)

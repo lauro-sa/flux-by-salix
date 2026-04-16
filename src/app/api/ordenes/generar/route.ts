@@ -66,11 +66,34 @@ export async function POST(request: NextRequest) {
     const nombreUsuario = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : null
     const nombreContacto = [presupuesto.contacto_nombre, presupuesto.contacto_apellido].filter(Boolean).join(' ')
 
+    // Obtener datos del contacto de atención ("Dirigido a") si existe
+    let atencionSnapshot: Record<string, string | null> = {}
+    if (presupuesto.atencion_contacto_id) {
+      const { data: atencionContacto } = await admin
+        .from('contactos')
+        .select('nombre, apellido, telefono, whatsapp, correo')
+        .eq('id', presupuesto.atencion_contacto_id)
+        .single()
+      if (atencionContacto) {
+        atencionSnapshot = {
+          atencion_contacto_id: presupuesto.atencion_contacto_id,
+          atencion_nombre: presupuesto.atencion_nombre || [atencionContacto.nombre, atencionContacto.apellido].filter(Boolean).join(' '),
+          atencion_telefono: atencionContacto.whatsapp || atencionContacto.telefono,
+          atencion_correo: atencionContacto.correo,
+        }
+      }
+    }
+
+    // Asignados: array de { usuario_id, usuario_nombre, es_cabecilla }
+    const asignados: { usuario_id: string; usuario_nombre: string; es_cabecilla: boolean }[] = body.asignados || []
+    const cabecilla = asignados.find(a => a.es_cabecilla) || asignados[0] || null
+
     // Crear la orden de trabajo
     const nuevaOrden = {
       empresa_id: empresaId,
       numero: numero as string,
       estado: 'abierta',
+      publicada: false,
       prioridad: body.prioridad || 'media',
       titulo: body.titulo || `${nombreContacto || 'Cliente'} — ${presupuesto.numero}`,
       descripcion: body.descripcion || null,
@@ -81,13 +104,15 @@ export async function POST(request: NextRequest) {
       contacto_telefono: presupuesto.contacto_telefono,
       contacto_correo: presupuesto.contacto_correo,
       contacto_direccion: presupuesto.contacto_direccion,
-      contacto_whatsapp: presupuesto.contacto_telefono, // usar teléfono como WhatsApp por defecto
+      contacto_whatsapp: presupuesto.contacto_telefono,
+      // Dirigido a (atención)
+      ...atencionSnapshot,
       // Link al presupuesto
       presupuesto_id: presupuesto.id,
       presupuesto_numero: presupuesto.numero,
-      // Asignado (opcional desde body)
-      asignado_a: body.asignado_a || null,
-      asignado_nombre: body.asignado_nombre || null,
+      // Cabecilla denormalizado
+      asignado_a: cabecilla?.usuario_id || null,
+      asignado_nombre: cabecilla?.usuario_nombre || null,
       // Fechas
       fecha_inicio: body.fecha_inicio || null,
       fecha_fin_estimada: body.fecha_fin_estimada || null,
@@ -191,10 +216,21 @@ export async function POST(request: NextRequest) {
       }
     }) : []
 
-    // Insertar líneas + actividades + historial + chatter en paralelo
+    // Insertar líneas + actividades + historial + chatter + asignados en paralelo
     await Promise.all([
       lineasOT.length > 0 ? admin.from('lineas_orden_trabajo').insert(lineasOT) : Promise.resolve(),
       actividadesAutoGeneradas.length > 0 ? admin.from('actividades').insert(actividadesAutoGeneradas) : Promise.resolve(),
+      asignados.length > 0
+        ? admin.from('asignados_orden_trabajo').insert(
+            asignados.map(a => ({
+              orden_trabajo_id: orden!.id as string,
+              empresa_id: empresaId,
+              usuario_id: a.usuario_id,
+              usuario_nombre: a.usuario_nombre,
+              es_cabecilla: a.es_cabecilla,
+            }))
+          )
+        : Promise.resolve(),
       admin.from('orden_trabajo_historial').insert({
         orden_trabajo_id: orden.id as string,
         empresa_id: empresaId,

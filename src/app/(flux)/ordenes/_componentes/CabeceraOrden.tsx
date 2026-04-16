@@ -2,9 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, ChevronDown, CheckCircle2, Ban, RotateCcw, Play, Pause } from 'lucide-react'
+import { ArrowLeft, ChevronDown, CheckCircle2, Ban, RotateCcw, Play, Pause, Send, PenLine } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
-// Badge de prioridad se renderiza con <span> y clases dinámicas
 import { useTraduccion } from '@/lib/i18n'
 import {
   ETIQUETAS_ESTADO_OT, COLORES_ESTADO_OT,
@@ -15,7 +14,8 @@ import {
 
 /**
  * CabeceraOrden — Header del detalle de orden de trabajo.
- * Muestra numero, estado (con dropdown de transiciones), prioridad, botones de acción.
+ * Muestra numero, estado (con dropdown de transiciones), prioridad,
+ * botón publicar/despublicar, y botones de acción según permisos.
  */
 
 interface Props {
@@ -23,11 +23,20 @@ interface Props {
   titulo: string
   estado: EstadoOrdenTrabajo
   prioridad: PrioridadOrdenTrabajo
+  publicada: boolean
+  puedeEditarEstado: boolean
   onCambiarEstado: (estado: EstadoOrdenTrabajo) => void
+  onPublicar: () => void
+  onDespublicar: () => void
   guardando?: boolean
 }
 
-export default function CabeceraOrden({ numero, titulo, estado, prioridad, onCambiarEstado, guardando }: Props) {
+export default function CabeceraOrden({
+  numero, titulo, estado, prioridad,
+  publicada, puedeEditarEstado,
+  onCambiarEstado, onPublicar, onDespublicar,
+  guardando,
+}: Props) {
   const { t } = useTraduccion()
   const router = useRouter()
   const [menuEstadoAbierto, setMenuEstadoAbierto] = useState(false)
@@ -46,8 +55,9 @@ export default function CabeceraOrden({ numero, titulo, estado, prioridad, onCam
   const coloresEstado = COLORES_ESTADO_OT[estado]
   const coloresPrioridad = COLORES_PRIORIDAD_OT[prioridad]
 
-  // Determinar botón de acción principal según estado actual
+  // Botón de acción principal según estado
   const accionPrincipal = (() => {
+    if (!puedeEditarEstado) return null
     switch (estado) {
       case 'abierta':
         return { label: 'Iniciar', estado: 'en_progreso' as EstadoOrdenTrabajo, icono: Play, variante: 'primario' as const }
@@ -64,11 +74,11 @@ export default function CabeceraOrden({ numero, titulo, estado, prioridad, onCam
     }
   })()
 
-  const puedeCancelar = transicionesValidas.includes('cancelada')
+  const puedeCancelar = puedeEditarEstado && transicionesValidas.includes('cancelada')
 
   return (
     <div className="px-4 sm:px-6 pt-4 pb-4 border-b border-borde-sutil">
-      {/* Fila 1: Volver + Numero */}
+      {/* Fila 1: Volver + Numero + Badge borrador */}
       <div className="flex items-center gap-3 mb-2">
         <Boton
           variante="fantasma"
@@ -79,25 +89,31 @@ export default function CabeceraOrden({ numero, titulo, estado, prioridad, onCam
           titulo="Volver al listado"
         />
         <h1 className="text-xl sm:text-2xl font-semibold text-texto-secundario">{numero}</h1>
+        {!publicada && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-insignia-advertencia-fondo text-insignia-advertencia-texto">
+            <PenLine size={11} />
+            Borrador
+          </span>
+        )}
       </div>
 
       {/* Fila 2: Titulo */}
       <p className="text-base sm:text-lg text-texto-primario font-medium mb-3 pl-0 sm:pl-9">{titulo}</p>
 
-      {/* Fila 3: Estado + Prioridad + Acciones */}
+      {/* Fila 3: Estado + Prioridad + Publicar + Acciones */}
       <div className="flex items-center gap-2 flex-wrap pl-0 sm:pl-9">
-        {/* Estado con dropdown */}
+        {/* Estado con dropdown (solo si puede editar) */}
         <div ref={refMenu} className="relative">
           <button
             type="button"
-            onClick={() => setMenuEstadoAbierto(v => !v)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${coloresEstado.fondo} ${coloresEstado.texto}`}
+            onClick={() => puedeEditarEstado && transicionesValidas.length > 0 && setMenuEstadoAbierto(v => !v)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${coloresEstado.fondo} ${coloresEstado.texto} ${!puedeEditarEstado ? 'cursor-default' : ''}`}
           >
             {ETIQUETAS_ESTADO_OT[estado]}
-            {transicionesValidas.length > 0 && <ChevronDown size={14} />}
+            {puedeEditarEstado && transicionesValidas.length > 0 && <ChevronDown size={14} />}
           </button>
 
-          {menuEstadoAbierto && transicionesValidas.length > 0 && (
+          {menuEstadoAbierto && puedeEditarEstado && transicionesValidas.length > 0 && (
             <div className="absolute top-full mt-1 left-0 z-50 min-w-44 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-lg overflow-hidden py-1">
               {transicionesValidas.map(nuevoEstado => {
                 const colores = COLORES_ESTADO_OT[nuevoEstado]
@@ -124,6 +140,31 @@ export default function CabeceraOrden({ numero, titulo, estado, prioridad, onCam
 
         {/* Spacer */}
         <div className="flex-1" />
+
+        {/* Botón Publicar / Despublicar (solo admin/cabecilla) */}
+        {puedeEditarEstado && (
+          publicada ? (
+            <Boton
+              variante="secundario"
+              tamano="sm"
+              icono={<Pause size={15} />}
+              onClick={onDespublicar}
+              disabled={guardando}
+            >
+              <span className="hidden sm:inline">Despublicar</span>
+            </Boton>
+          ) : (
+            <Boton
+              variante="primario"
+              tamano="sm"
+              icono={<Send size={15} />}
+              onClick={onPublicar}
+              disabled={guardando}
+            >
+              <span className="hidden sm:inline">Publicar</span>
+            </Boton>
+          )
+        )}
 
         {/* Botón acción principal */}
         {accionPrincipal && (

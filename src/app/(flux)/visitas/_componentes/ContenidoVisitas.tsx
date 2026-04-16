@@ -72,14 +72,15 @@ function fechaCorta(iso: string | null, locale: string): string {
 }
 
 const POR_PAGINA = 50
-const VISTA_DEFAULT = 'propias'
 const ESTADOS_ACTIVOS = ['programada', 'en_camino', 'en_sitio', 'reprogramada']
 
 interface Props {
   datosInicialesJson?: Record<string, unknown>
+  /** Si el usuario solo tiene visibilidad propia (viene de permisos del server) */
+  soloPropio?: boolean
 }
 
-export default function ContenidoVisitas({ datosInicialesJson }: Props) {
+export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { mostrar } = useToast()
@@ -110,7 +111,9 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
   // Filtros
   const [filtroEstado, setFiltroEstado] = useState<string[]>(ESTADOS_ACTIVOS)
   const [filtroPrioridad, setFiltroPrioridad] = useState('')
-  const [filtroVista, setFiltroVista] = useState(VISTA_DEFAULT)
+  // Admins ven todas las visitas por defecto; usuarios con permisos restringidos ven solo propias
+  const vistaDefault = soloPropio ? 'propias' : 'todas'
+  const [filtroVista, setFiltroVista] = useState(vistaDefault)
 
   // Búsqueda con debounce + reset de página automático
   const { busqueda, setBusqueda, busquedaDebounced, pagina, setPagina } = useBusquedaDebounce('', 1, [filtroEstado, filtroPrioridad, filtroVista, mostrarArchivadas])
@@ -125,7 +128,7 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
   // Solo usar datos iniciales cuando no hay filtros activos
   const estadoEsDefault = filtroEstado.length === ESTADOS_ACTIVOS.length &&
     ESTADOS_ACTIVOS.every(e => filtroEstado.includes(e))
-  const sinFiltros = !busquedaDebounced && estadoEsDefault && !filtroPrioridad && filtroVista === VISTA_DEFAULT && pagina === 1
+  const sinFiltros = !busquedaDebounced && estadoEsDefault && !filtroPrioridad && filtroVista === vistaDefault && pagina === 1
 
   // Datos con React Query
   const { datos: visitas, total, cargando, recargar: recargarVisitas } = useListado<Visita>({
@@ -627,7 +630,7 @@ export default function ContenidoVisitas({ datosInicialesJson }: Props) {
         onLimpiarFiltros={() => {
           setFiltroEstado(ESTADOS_ACTIVOS)
           setFiltroPrioridad('')
-          setFiltroVista(VISTA_DEFAULT)
+          setFiltroVista(vistaDefault)
         }}
         opcionesOrden={[
           { etiqueta: 'Fecha ↑', clave: 'fecha_programada', direccion: 'asc' },

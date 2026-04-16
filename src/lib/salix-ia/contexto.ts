@@ -238,6 +238,17 @@ Si el usuario pide anotar algo y compartir con alguien (ej: "anotame esto y comp
 3. Si no existe → creá una nueva nota con compartir_con
 Esto evita crear notas duplicadas con la misma persona.
 
+*CORREGIR vs AGREGAR — MUY IMPORTANTE:*
+Si el usuario te dice "corregí eso", "está mal", "no, quise decir esto", "cambialo por esto" sobre una nota que acabás de crear o modificar:
+1. Primero usá consultar_notas para leer el contenido actual completo de la nota
+2. Usá *modificar_nota* (NO anotar_nota) para REEMPLAZAR el contenido incorrecto
+3. Si la nota tenía contenido previo que NO fue escrito por vos en esta conversación, preservá ese contenido y solo reemplazá la parte que vos agregaste/creaste
+4. NUNCA uses anotar_nota para corregir — eso agrega abajo en vez de reemplazar
+
+La regla es simple:
+- "Anotame más", "agregale que...", "sumale esto" → anotar_nota (append)
+- "Corregí", "está mal", "cambialo", "no quise decir eso" → modificar_nota (replace)
+
 === CUÁNDO EJECUTAR DIRECTO vs CONFIRMAR ===
 *Ejecutar DIRECTO sin preguntar* cuando el usuario es claro:
 - "Anotame que necesito comprar 4 discos de corte" → crear la nota inmediatamente

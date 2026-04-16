@@ -36,11 +36,76 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (recorrido) {
+      // Obtener paradas existentes
       const { data: paradas } = await admin
         .from('recorrido_paradas')
         .select('*, visita:visitas(*)')
         .eq('recorrido_id', recorrido.id)
         .order('orden', { ascending: true })
+
+      // ── Sincronización bidireccional ──
+      // 1. Eliminar paradas cuya visita fue cancelada, en papelera, o reasignada a otro
+      const paradasAEliminar = (paradas || []).filter(p =>
+        !p.visita ||
+        p.visita.estado === 'cancelada' ||
+        p.visita.en_papelera === true ||
+        p.visita.asignado_a !== usuarioId
+      )
+
+      if (paradasAEliminar.length > 0) {
+        await admin
+          .from('recorrido_paradas')
+          .delete()
+          .in('id', paradasAEliminar.map(p => p.id))
+      }
+
+      // 2. Buscar visitas activas del día que no tienen parada
+      const inicioDelDia = `${fechaParam}T00:00:00.000Z`
+      const finDelDia = `${fechaParam}T23:59:59.999Z`
+
+      const { data: visitasDelDia } = await admin
+        .from('visitas')
+        .select('id')
+        .eq('empresa_id', empresaId)
+        .eq('asignado_a', usuarioId)
+        .gte('fecha_programada', inicioDelDia)
+        .lte('fecha_programada', finDelDia)
+        .eq('en_papelera', false)
+        .neq('estado', 'cancelada')
+
+      const paradasActivas = (paradas || []).filter(p => !paradasAEliminar.some(pe => pe.id === p.id))
+      const idsEnParadas = new Set(paradasActivas.map(p => p.visita_id))
+      const visitasFaltantes = (visitasDelDia || []).filter(v => !idsEnParadas.has(v.id))
+
+      if (visitasFaltantes.length > 0) {
+        const ordenMax = paradasActivas.reduce((max, p) => Math.max(max, p.orden || 0), 0)
+        const nuevasParadas = visitasFaltantes.map((v, i) => ({
+          recorrido_id: recorrido.id,
+          visita_id: v.id,
+          orden: ordenMax + i + 1,
+        }))
+        await admin.from('recorrido_paradas').insert(nuevasParadas)
+      }
+
+      // Si hubo cambios, re-obtener y actualizar total
+      if (paradasAEliminar.length > 0 || visitasFaltantes.length > 0) {
+        const { data: paradasActualizadas } = await admin
+          .from('recorrido_paradas')
+          .select('*, visita:visitas(*)')
+          .eq('recorrido_id', recorrido.id)
+          .order('orden', { ascending: true })
+
+        const nuevoTotal = paradasActualizadas?.length || 0
+        await admin
+          .from('recorridos')
+          .update({ total_visitas: nuevoTotal })
+          .eq('id', recorrido.id)
+
+        return NextResponse.json({
+          recorrido: { ...recorrido, total_visitas: nuevoTotal },
+          paradas: paradasActualizadas || [],
+        })
+      }
 
       return NextResponse.json({ recorrido, paradas: paradas || [] })
     }
