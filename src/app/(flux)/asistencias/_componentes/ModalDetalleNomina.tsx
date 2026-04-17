@@ -128,9 +128,14 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
   const [editAdelantoNotas, setEditAdelantoNotas] = useState('')
   const [guardandoEditAdelanto, setGuardandoEditAdelanto] = useState(false)
 
-  // Sincronizar período y datos al abrir
+  // Sincronizar período y datos al abrir o cambiar de empleado
   useEffect(() => {
     if (!abierto || !empleado) return
+
+    // Limpiar datos del empleado anterior
+    setAdelantos([])
+    setPagos([])
+
     setPeriodoInterno(periodo)
     setDatosEmpleado(empleado)
 
@@ -437,6 +442,22 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
     ? (parseFloat(compMonto) || 0) * compDias * 4.33
     : parseFloat(compMonto) || 0
 
+  // Info de cuotas de adelantos en este período (para el desglose)
+  const cuotasInfoPeriodo = adelantos.map(a => {
+    const cuotas = (a.cuotas || []) as Record<string, unknown>[]
+    const cuotaDelPeriodo = cuotas.find(c =>
+      (c.fecha_programada as string) >= periodoInterno.desde &&
+      (c.fecha_programada as string) <= periodoInterno.hasta
+    )
+    if (!cuotaDelPeriodo) return null
+    return {
+      numeroCuota: cuotaDelPeriodo.numero_cuota as number,
+      cuotasTotales: a.cuotas_totales as number,
+      monto: parseFloat(cuotaDelPeriodo.monto_cuota as string),
+      notas: a.notas as string,
+    }
+  }).filter(Boolean) as { numeroCuota: number; cuotasTotales: number; monto: number; notas: string }[]
+
   return (
     <>
       <Modal
@@ -719,9 +740,23 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
                 </div>
               </div>
 
-              {emp.dias_ausentes > 0 && (
-                <p className="text-xs text-insignia-peligro">{emp.dias_ausentes} ausencia{emp.dias_ausentes !== 1 ? 's' : ''}</p>
-              )}
+              <div className="flex items-center gap-2 flex-wrap">
+                {emp.dias_ausentes > 0 && (
+                  <p className="text-xs text-insignia-peligro">{emp.dias_ausentes} ausencia{emp.dias_ausentes !== 1 ? 's' : ''}</p>
+                )}
+                {emp.dias_feriados > 0 && (
+                  <>
+                    {emp.dias_ausentes > 0 && <span className="text-xxs text-texto-terciario">·</span>}
+                    <p className="text-xs text-insignia-info">
+                      {emp.dias_feriados} feriado{emp.dias_feriados !== 1 ? 's' : ''}
+                      {emp.dias_trabajados_feriado > 0
+                        ? ` (vino ${emp.dias_trabajados_feriado})`
+                        : ''
+                      }
+                    </p>
+                  </>
+                )}
+              </div>
 
               {(() => {
                 // Calcular si hay un pago en este período para mostrar desglose completo
@@ -740,12 +775,14 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
                       <span className="text-texto-terciario">Bruto</span>
                       <span className="text-texto-primario font-medium">{fmtMonto(emp.monto_pagar)}</span>
                     </div>
-                    {emp.descuento_adelanto > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-insignia-advertencia">Adelanto</span>
-                        <span className="text-insignia-advertencia">-{fmtMonto(emp.descuento_adelanto)}</span>
+                    {cuotasInfoPeriodo.map((ci, idx) => (
+                      <div key={idx} className="flex justify-between text-sm">
+                        <span className="text-insignia-advertencia">
+                          Adelanto (cuota {ci.numeroCuota}/{ci.cuotasTotales})
+                        </span>
+                        <span className="text-insignia-advertencia">-{fmtMonto(ci.monto)}</span>
                       </div>
-                    )}
+                    ))}
                     {emp.saldo_anterior !== 0 && (
                       <div className="flex justify-between text-sm">
                         <span className={emp.saldo_anterior > 0 ? 'text-insignia-info' : 'text-insignia-peligro'}>
@@ -889,7 +926,10 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
                           Total: {fmtMonto(total)} · Saldo: {fmtMonto(saldo)}
                         </span>
                       </div>
-                      {(a.notas as string) ? <p className="text-xxs text-texto-terciario mt-0.5">{String(a.notas)}</p> : null}
+                      <p className="text-xxs text-texto-terciario mt-0.5">
+                        {fmtFecha(a.fecha_solicitud as string)}
+                        {(a.notas as string) ? ` · ${String(a.notas)}` : ''}
+                      </p>
                     </div>
                     <Boton variante="fantasma" tamano="xs" soloIcono titulo="Editar"
                       icono={<Pencil size={11} />} onClick={() => {
