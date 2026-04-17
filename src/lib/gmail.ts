@@ -623,11 +623,23 @@ export function normalizarAsunto(asunto: string): string {
 
 /** Genera texto de preview para lista de conversaciones */
 export function textoPreviewCorreo(correo: CorreoParsedo): string {
+  let texto = ''
   if (correo.textoPlano) {
-    return correo.textoPlano.slice(0, 100).replace(/\s+/g, ' ').trim()
+    texto = correo.textoPlano.slice(0, 100).replace(/\s+/g, ' ').trim()
+  } else if (correo.html) {
+    texto = correo.html.replace(/<[^>]+>/g, '').slice(0, 100).replace(/\s+/g, ' ').trim()
   }
-  if (correo.html) {
-    return correo.html.replace(/<[^>]+>/g, '').slice(0, 100).replace(/\s+/g, ' ').trim()
+
+  // Si no hay texto pero sí adjuntos, mostrar indicador
+  if (!texto && correo.adjuntos.length > 0) {
+    const nombres = correo.adjuntos.slice(0, 2).map(a => a.nombre).join(', ')
+    return `📎 ${nombres}${correo.adjuntos.length > 2 ? ` (+${correo.adjuntos.length - 2})` : ''}`
   }
-  return ''
+
+  // Si hay texto y adjuntos, prefijar con clip
+  if (texto && correo.adjuntos.length > 0) {
+    return `📎 ${texto}`
+  }
+
+  return texto
 }

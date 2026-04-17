@@ -21,3 +21,4 @@ export const TIMEOUT_ACCION = 5000
 // Intervalos
 export const INTERVALO_HEARTBEAT = 60000
 export const INTERVALO_POLLING = 5000
+export const INTERVALO_SYNC_CORREO_BACKGROUND = 180000 // 3 min — sync de correos desde cualquier página

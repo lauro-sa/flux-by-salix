@@ -21,6 +21,7 @@ import { useTema } from '@/hooks/useTema'
 import { usePreferencias } from '@/hooks/usePreferencias'
 import { useHeaderAutoOculto } from '@/hooks/useHeaderAutoOculto'
 import { useHeartbeatAsistencia } from '@/hooks/useHeartbeatAsistencia'
+import { useSyncCorreoBackground } from '@/hooks/useSyncCorreoBackground'
 import type { Migaja } from '@/hooks/useNavegacion'
 import type { ReactNode } from 'react'
 
@@ -57,6 +58,7 @@ function PlantillaApp({ children, migajasExtras }: PropiedadesPlantilla) {
   const { preferencias, guardar } = usePreferencias()
   const headerOculto = useHeaderAutoOculto()
   useHeartbeatAsistencia()
+  useSyncCorreoBackground()
 
   // iOS Safari miente con 100dvh hasta que hacés scroll.
   // window.innerHeight siempre devuelve el alto visible real.

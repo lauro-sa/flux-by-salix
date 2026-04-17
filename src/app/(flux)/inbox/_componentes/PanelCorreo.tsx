@@ -68,7 +68,8 @@ function formatoFechaCorreo(fecha: string, locale: string, hour12 = false): stri
  */
 function VisorCorreoHTML({ html }: { html: string }) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
-  const [altura, setAltura] = useState(300)
+  const [altura, setAltura] = useState(0)
+  const [listo, setListo] = useState(false)
 
   // Sanitizar: permitir style tags pero bloquear scripts
   const htmlSeguro = DOMPurify.sanitize(html, {
@@ -137,10 +138,10 @@ pre { white-space: pre-wrap; }
 
     const handleLoad = () => {
       ajustarAltura()
+      setListo(true)
       // Re-check por imágenes que cargan después
-      setTimeout(ajustarAltura, 300)
-      setTimeout(ajustarAltura, 1000)
-      setTimeout(ajustarAltura, 3000)
+      setTimeout(ajustarAltura, 500)
+      setTimeout(ajustarAltura, 2000)
     }
 
     iframe.addEventListener('load', handleLoad)
@@ -149,8 +150,11 @@ pre { white-space: pre-wrap; }
 
   return (
     <div
-      className="rounded-lg overflow-hidden"
-      style={{ border: '1px solid var(--borde-sutil)' }}
+      className="rounded-lg overflow-hidden transition-opacity duration-200"
+      style={{
+        border: '1px solid var(--borde-sutil)',
+        opacity: listo ? 1 : 0.3,
+      }}
     >
       <iframe
         ref={iframeRef}
@@ -158,10 +162,10 @@ pre { white-space: pre-wrap; }
         sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
         className="w-full border-0 block"
         style={{
-          height: altura,
-          minHeight: 100,
+          height: listo ? altura : 80,
           maxHeight: 2000,
           background: 'var(--superficie-tarjeta, #ffffff)',
+          transition: 'height 0.2s ease',
         }}
         title="Contenido del correo"
       />
@@ -328,39 +332,11 @@ export function PanelCorreo({
             </div>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
-            {/* Acciones principales — siempre visibles */}
+            {/* Acciones principales — responder y reenviar */}
             <Boton variante="fantasma" tamano="xs" soloIcono titulo="Responder" icono={<Reply size={14} />} onClick={() => handleResponder('responder')} />
-            <Boton variante="fantasma" tamano="xs" soloIcono titulo="Responder a todos" icono={<ReplyAll size={14} />} onClick={() => handleResponder('responder_todos')} />
             <Boton variante="fantasma" tamano="xs" soloIcono titulo="Reenviar" icono={<Forward size={14} />} onClick={() => handleResponder('reenviar')} />
-            {/* Acciones secundarias — visibles en desktop, ocultas en móvil */}
-            <div className="hidden sm:flex items-center gap-1">
-              <Boton variante="fantasma" tamano="xs" soloIcono titulo="Etiquetar" icono={<Tag size={14} />} onClick={() => setModalEtiquetas(true)} />
-              {onToggleLeido && (
-                <Boton
-                  variante="fantasma"
-                  tamano="xs"
-                  soloIcono
-                  titulo="Alternar leído"
-                  icono={conversacion.mensajes_sin_leer > 0 ? <MailOpen size={14} /> : <MailIcon size={14} />}
-                  onClick={() => onToggleLeido(conversacion.id, conversacion.mensajes_sin_leer)}
-                />
-              )}
-              {conversacion.estado === 'spam' && onDesmarcarSpam ? (
-                <Boton variante="fantasma" tamano="xs" icono={<ShieldCheck size={14} />} onClick={() => onDesmarcarSpam(conversacion.id)}>
-                  {t('inbox.no_es_spam')}
-                </Boton>
-              ) : onMarcarSpam && (
-                <Boton variante="fantasma" tamano="xs" soloIcono titulo="Marcar como spam" icono={<ShieldBan size={14} />} onClick={() => onMarcarSpam(conversacion.id)} />
-              )}
-              {onArchivar && (
-                <Boton variante="fantasma" tamano="xs" soloIcono titulo="Archivar" icono={<Archive size={14} />} onClick={() => onArchivar(conversacion.id)} />
-              )}
-              {onEliminar && (
-                <Boton variante="fantasma" tamano="xs" soloIcono titulo="Eliminar" icono={<Trash2 size={14} />} onClick={() => onEliminar(conversacion.id)} />
-              )}
-            </div>
-            {/* Menú overflow en móvil */}
-            <div className="relative sm:hidden">
+            {/* Menú overflow — todas las acciones secundarias */}
+            <div className="relative">
               <Boton variante="fantasma" tamano="xs" soloIcono titulo="Más opciones" icono={<MoreHorizontal size={14} />} onClick={() => setMenuOverflow(prev => !prev)} />
               <AnimatePresence>
                 {menuOverflow && (
@@ -368,24 +344,28 @@ export function PanelCorreo({
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="absolute right-0 top-full mt-1 z-50 rounded-lg py-1 min-w-[160px] bg-superficie-elevada border border-borde-sutil shadow-md"
+                    className="absolute right-0 top-full mt-1 z-50 rounded-lg py-1 min-w-[180px]"
+                    style={{ background: 'var(--superficie-elevada)', border: '1px solid var(--borde-sutil)', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
                   >
-                    <OpcionMenu icono={<Tag size={12} />} onClick={() => { setModalEtiquetas(true); setMenuOverflow(false) }}>{t('inbox.etiquetar')}</OpcionMenu>
+                    <OpcionMenu icono={<ReplyAll size={14} />} onClick={() => { handleResponder('responder_todos'); setMenuOverflow(false) }}>{t('inbox.responder_todos')}</OpcionMenu>
+                    <OpcionMenu icono={<Tag size={14} />} onClick={() => { setModalEtiquetas(true); setMenuOverflow(false) }}>{t('inbox.etiquetar')}</OpcionMenu>
                     {onToggleLeido && (
-                      <OpcionMenu icono={conversacion.mensajes_sin_leer > 0 ? <MailOpen size={12} /> : <MailIcon size={12} />} onClick={() => { onToggleLeido(conversacion.id, conversacion.mensajes_sin_leer); setMenuOverflow(false) }}>
+                      <OpcionMenu icono={conversacion.mensajes_sin_leer > 0 ? <MailOpen size={14} /> : <MailIcon size={14} />} onClick={() => { onToggleLeido(conversacion.id, conversacion.mensajes_sin_leer); setMenuOverflow(false) }}>
                         {conversacion.mensajes_sin_leer > 0 ? t('inbox.marcar_leido') : t('inbox.marcar_no_leido')}
                       </OpcionMenu>
                     )}
                     {conversacion.estado === 'spam' && onDesmarcarSpam ? (
-                      <OpcionMenu icono={<ShieldCheck size={12} />} onClick={() => { onDesmarcarSpam(conversacion.id); setMenuOverflow(false) }}>{t('inbox.no_es_spam')}</OpcionMenu>
+                      <OpcionMenu icono={<ShieldCheck size={14} />} onClick={() => { onDesmarcarSpam(conversacion.id); setMenuOverflow(false) }}>{t('inbox.no_es_spam')}</OpcionMenu>
                     ) : onMarcarSpam && (
-                      <OpcionMenu icono={<ShieldBan size={12} />} onClick={() => { onMarcarSpam(conversacion.id); setMenuOverflow(false) }}>Spam</OpcionMenu>
+                      <OpcionMenu icono={<ShieldBan size={14} />} onClick={() => { onMarcarSpam(conversacion.id); setMenuOverflow(false) }}>Spam</OpcionMenu>
                     )}
                     {onArchivar && (
-                      <OpcionMenu icono={<Archive size={12} />} onClick={() => { onArchivar(conversacion.id); setMenuOverflow(false) }}>{t('inbox.archivar')}</OpcionMenu>
+                      <OpcionMenu icono={<Archive size={14} />} onClick={() => { onArchivar(conversacion.id); setMenuOverflow(false) }}>{t('inbox.archivar')}</OpcionMenu>
                     )}
                     {onEliminar && (
-                      <OpcionMenu icono={<Trash2 size={12} />} peligro onClick={() => { onEliminar(conversacion.id); setMenuOverflow(false) }}>{t('comun.eliminar')}</OpcionMenu>
+                      <div style={{ borderTop: '1px solid var(--borde-sutil)', marginTop: 4, paddingTop: 4 }}>
+                        <OpcionMenu icono={<Trash2 size={14} />} peligro onClick={() => { onEliminar(conversacion.id); setMenuOverflow(false) }}>{t('comun.eliminar')}</OpcionMenu>
+                      </div>
                     )}
                   </motion.div>
                 )}
@@ -414,17 +394,18 @@ export function PanelCorreo({
         ) : (
           <div className="divide-y" style={{ borderColor: 'var(--borde-sutil)' }}>
             {mensajes.map((msg) => {
-              const expandido = mensajesExpandidos.has(msg.id)
+              const esSoloMensaje = mensajes.length === 1
+              const expandido = esSoloMensaje || mensajesExpandidos.has(msg.id)
 
               return (
                 <div key={msg.id} className="px-4">
-                  {/* Cabecera del mensaje (siempre visible) */}
+                  {/* Cabecera del mensaje (clickeable solo si hay múltiples mensajes en el hilo) */}
                   <Boton
                     variante="fantasma"
                     tamano="sm"
                     anchoCompleto
-                    onClick={() => toggleExpandido(msg.id)}
-                    className="py-3"
+                    onClick={esSoloMensaje ? undefined : () => toggleExpandido(msg.id)}
+                    className={`py-3 ${esSoloMensaje ? 'cursor-default' : ''}`}
                   >
                     <span className="w-full flex items-center gap-3">
                       <Avatar
@@ -456,11 +437,11 @@ export function PanelCorreo({
                             {msg.adjuntos.length}
                           </span>
                         )}
-                        {expandido ? (
+                        {!esSoloMensaje && (expandido ? (
                           <ChevronUp size={14} style={{ color: 'var(--texto-terciario)' }} />
                         ) : (
                           <ChevronDown size={14} style={{ color: 'var(--texto-terciario)' }} />
-                        )}
+                        ))}
                       </span>
                     </span>
                   </Boton>

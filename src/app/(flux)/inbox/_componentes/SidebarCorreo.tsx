@@ -246,6 +246,24 @@ export function SidebarCorreo({
           </div>
         ) : (
           <>
+            {/* Estado vacío: sin cuentas conectadas */}
+            {canales.length === 0 && (
+              <div className={`${esMovil ? 'p-4' : 'p-3'} text-center`}>
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2"
+                  style={{ background: 'var(--superficie-hover)' }}
+                >
+                  <Mail size={18} style={{ color: 'var(--texto-terciario)' }} />
+                </div>
+                <p className="text-xs mb-1" style={{ color: 'var(--texto-secundario)' }}>
+                  Sin cuentas conectadas
+                </p>
+                <p className="text-xxs mb-3" style={{ color: 'var(--texto-terciario)' }}>
+                  Conectá tu correo desde configuración para empezar a recibir y enviar emails.
+                </p>
+              </div>
+            )}
+
             {/* Todas las cuentas */}
             {mostrarTodas && canales.length > 1 && (
               <div className={esMovil ? 'mb-3' : 'mb-2'}>
@@ -298,7 +316,7 @@ export function SidebarCorreo({
                       ) : (
                         <ChevronRight size={esMovil ? 14 : 10} style={{ color: 'var(--texto-terciario)' }} />
                       )}
-                      <span className={`flex-1 text-left font-semibold truncate ${esMovil ? 'text-xs' : 'text-xxs'} uppercase tracking-wider`} style={{ color: 'var(--texto-terciario)' }}>
+                      <span className={`flex-1 text-left font-semibold truncate ${esMovil ? 'text-xs' : 'text-xxs'} tracking-wide`} style={{ color: 'var(--texto-secundario)' }}>
                         {canal.nombre}
                       </span>
                     </span>

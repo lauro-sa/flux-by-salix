@@ -503,33 +503,32 @@ export function CompositorCorreo({
         )}
       </AnimatePresence>
 
-      {/* Banner de deshacer envío */}
+      {/* Toast flotante de deshacer envío (no bloquea el compositor) */}
       <AnimatePresence>
         {envioPendiente && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="flex items-center justify-between px-4 py-2.5"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="absolute bottom-14 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2.5 rounded-lg shadow-lg"
             style={{ background: 'var(--texto-marca)', color: 'var(--texto-inverso)' }}
           >
-            <span className="text-sm">
-              {t('inbox.enviar')} {timerDeshacer}s...
+            <span className="text-sm whitespace-nowrap">
+              Enviando en {timerDeshacer}s...
             </span>
-            <Boton
-              variante="fantasma"
-              tamano="sm"
+            <button
               onClick={deshacerEnvio}
+              className="text-sm font-semibold underline underline-offset-2 cursor-pointer bg-transparent border-none"
               style={{ color: 'var(--texto-inverso)' }}
             >
-              {t('inbox.deshacer_envio')}
-            </Boton>
+              Deshacer
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Header con campos de email */}
-      {!envioPendiente && (
+      {(
         <>
           <div
             className="px-3 pt-3 pb-1 space-y-1"

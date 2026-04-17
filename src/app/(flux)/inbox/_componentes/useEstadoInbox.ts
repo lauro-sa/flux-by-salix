@@ -70,6 +70,7 @@ export function useEstadoInbox() {
   const [canalTodas, setCanalTodas] = useState(false)
   const [contadoresCorreo, setContadoresCorreo] = useState<Record<string, { entrada: number; spam: number }>>({})
   const [sincronizando, setSincronizando] = useState(false)
+  const [ultimoSync, setUltimoSync] = useState<Date | null>(null)
 
   // Modo de vista correo
   const [modoVista, setModoVista] = useState<ModoVista>(() => {
@@ -362,6 +363,7 @@ export function useEstadoInbox() {
       const res = await fetch('/api/inbox/correo/sincronizar', { method: 'POST' })
       const data = await res.json()
       await Promise.all([cargarConversaciones(), cargarContadores()])
+      setUltimoSync(new Date())
       return data
     } catch {
       // silenciar
@@ -922,6 +924,7 @@ export function useEstadoInbox() {
     contadoresCorreo,
     sincronizando,
     sincronizarCorreos,
+    ultimoSync,
     modoVista,
     cambiarModoVista,
     sidebarCorreoColapsado,

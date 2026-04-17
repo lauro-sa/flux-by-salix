@@ -560,7 +560,7 @@ export function ListaConversaciones({
                           <AlarmClock size={11} style={{ color: 'var(--texto-marca)' }} />
                         )}
                         <span className="text-xs whitespace-nowrap" style={{
-                          color: conv.mensajes_sin_leer !== 0 ? 'var(--insignia-exito)' : 'var(--texto-terciario)',
+                          color: conv.mensajes_sin_leer !== 0 ? 'var(--texto-marca)' : 'var(--texto-terciario)',
                           fontWeight: conv.mensajes_sin_leer !== 0 ? 600 : 400,
                         }}>
                           {tiempoRelativo(conv.ultimo_mensaje_en, formato.locale, formato.formatoHora === '12h')}
@@ -573,10 +573,10 @@ export function ListaConversaciones({
                         {/* Badge visible, se oculta en hover */}
                         <div className="group-hover:hidden">
                           {conv.mensajes_sin_leer === -1 ? (
-                            <div className="size-3 rounded-full" style={{ background: 'var(--insignia-exito)' }} />
+                            <div className="size-3 rounded-full" style={{ background: 'var(--texto-marca)' }} />
                           ) : (
                             <span className="min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-xxs font-bold"
-                              style={{ background: 'var(--insignia-exito)', color: 'var(--texto-inverso)' }}>
+                              style={{ background: 'var(--texto-marca)', color: 'var(--texto-inverso)' }}>
                               {conv.mensajes_sin_leer > 99 ? '99+' : conv.mensajes_sin_leer}
                             </span>
                           )}

@@ -84,6 +84,7 @@ function PaginaInbox() {
         modulosActivos={estado.modulosActivos}
         t={estado.t}
         sincronizando={estado.sincronizando}
+        ultimoSync={estado.ultimoSync}
         onSincronizarCorreos={estado.sincronizarCorreos}
         onIrConfiguracion={() => router.push('/inbox/configuracion')}
         esMovil={estado.esMovil}
