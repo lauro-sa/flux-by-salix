@@ -3,10 +3,25 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
-import { ChevronUp, ChevronDown, ExternalLink, MapPin, Mail, Phone, X } from 'lucide-react'
+import { ChevronUp, ChevronDown, ExternalLink, MapPin, Mail, Phone, X, Copy, Check } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { motion, AnimatePresence } from 'framer-motion'
 import { DEBOUNCE_BUSQUEDA } from '@/lib/constantes/timeouts'
+
+/** Botoncito de copiar al portapapeles */
+function BotonCopiar({ valor }: { valor: string }) {
+  const [copiado, setCopiado] = useState(false)
+  const copiar = () => {
+    navigator.clipboard.writeText(valor)
+    setCopiado(true)
+    setTimeout(() => setCopiado(false), 1500)
+  }
+  return (
+    <button type="button" onClick={copiar} className="text-texto-terciario hover:text-texto-primario transition-colors p-0.5 -m-0.5 rounded" title="Copiar">
+      {copiado ? <Check size={11} className="text-insignia-exito" /> : <Copy size={11} />}
+    </button>
+  )
+}
 
 /**
  * SelectorContactoPresupuesto — Buscador de contacto estilo plano.
@@ -218,10 +233,17 @@ export default function SelectorContactoPresupuesto({
               )}
             </div>
             {contacto.numero_identificacion && (
-              <p className="text-xs text-texto-secundario">
-                {contacto.numero_identificacion}
-                {contacto.condicion_iva && ` · ${contacto.condicion_iva.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`}
-              </p>
+              <div className="space-y-0.5">
+                <p className="text-xs text-texto-secundario flex items-center gap-1.5">
+                  {contacto.numero_identificacion}
+                  <BotonCopiar valor={contacto.numero_identificacion.replace(/-/g, '')} />
+                </p>
+                {contacto.condicion_iva && (
+                  <p className="text-xxs text-texto-terciario">
+                    {contacto.condicion_iva.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </p>
+                )}
+              </div>
             )}
             {direccionTexto && (
               <div className="flex items-start gap-1.5">
@@ -256,12 +278,14 @@ export default function SelectorContactoPresupuesto({
               <p className="text-xs text-texto-terciario flex items-center gap-1.5">
                 <Mail size={12} className="shrink-0" />
                 {contacto.correo}
+                <BotonCopiar valor={contacto.correo} />
               </p>
             )}
             {telefonoMostrar && (
               <p className="text-xs text-texto-terciario flex items-center gap-1.5">
                 <Phone size={12} className="shrink-0" />
                 {telefonoMostrar}
+                <BotonCopiar valor={telefonoMostrar} />
               </p>
             )}
           </div>

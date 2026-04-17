@@ -217,6 +217,10 @@ export function ModalEnviarReciboNomina({
 
   const esIndividualCorreo = resultados.length === 1 && empleadosConCorreo.length === 1
 
+  // Plantilla de nómina de BD (si existe, sobreescribe las constantes)
+  const [asuntoNomina, setAsuntoNomina] = useState(ASUNTO_RECIBO_NOMINA)
+  const [htmlNomina, setHtmlNomina] = useState(HTML_RECIBO_NOMINA)
+
   // Cargar canales al abrir
   useEffect(() => {
     if (!abierto) return
@@ -266,10 +270,17 @@ export function ModalEnviarReciboNomina({
       })
       .catch(() => {})
 
-    // Plantillas de correo
+    // Plantillas de correo — buscar plantilla de nómina de sistema
     fetch('/api/correo/plantillas')
       .then(r => r.json())
-      .then(data => setPlantillasCorreo(data.plantillas || []))
+      .then(data => {
+        const todas = (data.plantillas || []) as (PlantillaCorreo & { clave_sistema?: string })[]
+        setPlantillasCorreo(todas)
+        // Buscar plantilla de nómina de sistema en BD
+        const nominaBD = todas.find(p => p.clave_sistema?.endsWith('_recibo_nomina'))
+        if (nominaBD?.asunto) setAsuntoNomina(nominaBD.asunto)
+        if (nominaBD?.contenido_html) setHtmlNomina(nominaBD.contenido_html)
+      })
       .catch(() => {})
   }, [abierto])
 
@@ -282,8 +293,8 @@ export function ModalEnviarReciboNomina({
     return construirContextoNomina(datos, nombreEmpresa)
   }, [empleadosConCorreo, etiquetaPeriodo, nombreEmpresa])
 
-  const htmlPreview = useMemo(() => resolverVariables(HTML_RECIBO_NOMINA, contextoPrimerEmpleado), [contextoPrimerEmpleado])
-  const asuntoPreview = useMemo(() => resolverVariables(ASUNTO_RECIBO_NOMINA, contextoPrimerEmpleado), [contextoPrimerEmpleado])
+  const htmlPreview = useMemo(() => resolverVariables(htmlNomina, contextoPrimerEmpleado), [htmlNomina, contextoPrimerEmpleado])
+  const asuntoPreview = useMemo(() => resolverVariables(asuntoNomina, contextoPrimerEmpleado), [asuntoNomina, contextoPrimerEmpleado])
 
   // ─── Preview WhatsApp ───
   const previewWA = useMemo(() => {
@@ -304,8 +315,8 @@ export function ModalEnviarReciboNomina({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           canal_id: canalCorreoSeleccionado,
-          asunto_plantilla: ASUNTO_RECIBO_NOMINA,
-          html_plantilla: HTML_RECIBO_NOMINA,
+          asunto_plantilla: asuntoNomina,
+          html_plantilla: htmlNomina,
           empleados: empleadosData,
           nombre_empresa: nombreEmpresa,
         }),
@@ -317,7 +328,7 @@ export function ModalEnviarReciboNomina({
       setEstadoEnvio('completado')
       setResultadoLote({ enviados: 0, fallidos: empleadosConCorreo.length, total: empleadosConCorreo.length, resultados: [] })
     }
-  }, [canalCorreoSeleccionado, empleadosConCorreo, etiquetaPeriodo, nombreEmpresa])
+  }, [canalCorreoSeleccionado, empleadosConCorreo, etiquetaPeriodo, nombreEmpresa, asuntoNomina, htmlNomina])
 
   // ─── Enviar WhatsApp en lote ───
   const enviarWAEnLote = useCallback(async () => {
@@ -404,13 +415,13 @@ export function ModalEnviarReciboNomina({
 
   const htmlResueltoIndividual = useMemo(() => {
     if (!esIndividualCorreo || !empleadosConCorreo.length) return ''
-    return resolverVariables(HTML_RECIBO_NOMINA, contextoPrimerEmpleado)
-  }, [esIndividualCorreo, empleadosConCorreo.length, contextoPrimerEmpleado])
+    return resolverVariables(htmlNomina, contextoPrimerEmpleado)
+  }, [esIndividualCorreo, empleadosConCorreo.length, contextoPrimerEmpleado, htmlNomina])
 
   const asuntoResueltoIndividual = useMemo(() => {
     if (!esIndividualCorreo || !empleadosConCorreo.length) return ''
-    return resolverVariables(ASUNTO_RECIBO_NOMINA, contextoPrimerEmpleado)
-  }, [esIndividualCorreo, empleadosConCorreo.length, contextoPrimerEmpleado])
+    return resolverVariables(asuntoNomina, contextoPrimerEmpleado)
+  }, [esIndividualCorreo, empleadosConCorreo.length, contextoPrimerEmpleado, asuntoNomina])
 
   // ─── Validaciones WhatsApp ───
   const plantillaWAAprobada = plantillaWA?.estado_meta === 'APPROVED'

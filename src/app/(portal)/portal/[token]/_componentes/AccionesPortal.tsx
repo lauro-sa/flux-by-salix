@@ -28,6 +28,8 @@ interface Props {
   onRechazar: (motivo: string) => void
   onCancelar: () => void
   cargando: boolean
+  /** Fecha de vencimiento del presupuesto (ISO) */
+  fechaVencimiento?: string | null
 }
 
 export default function AccionesPortal({
@@ -44,11 +46,15 @@ export default function AccionesPortal({
   onRechazar,
   onCancelar,
   cargando,
+  fechaVencimiento,
 }: Props) {
   const { t } = useTraduccion()
   const [mostrarRechazo, setMostrarRechazo] = useState(false)
   const [motivo, setMotivo] = useState('')
   const [mostrarCancelar, setMostrarCancelar] = useState(false)
+
+  // Verificar si el presupuesto está vencido
+  const estaVencido = fechaVencimiento ? new Date(fechaVencimiento) < new Date(new Date().toISOString().split('T')[0] + 'T00:00:00') : false
 
   // Mensaje pre-armado para WhatsApp
   const mensajeWa = encodeURIComponent(
@@ -135,14 +141,31 @@ export default function AccionesPortal({
       {/* Ver PDF (prominente, con color empresa) */}
       <BotonesContacto pdfUrl={pdfUrl} linkWa={linkWa} empresaTelefono={empresaTelefono} colorMarca={colorMarca} t={t} />
 
+      {/* Aviso de presupuesto vencido */}
+      {estaVencido && (
+        <div className="rounded-xl bg-estado-error/10 border border-estado-error/20 p-4">
+          <div className="flex items-start gap-3">
+            <div className="size-8 rounded-full bg-estado-error/20 flex items-center justify-center shrink-0 mt-0.5">
+              <X size={16} className="text-estado-error" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-estado-error">Presupuesto vencido</p>
+              <p className="text-xs text-texto-secundario mt-1">
+                Este presupuesto venció y ya no puede ser aceptado. Contactá a la empresa para solicitar una actualización.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Aceptar y firmar / Rechazar — dentro de tarjeta */}
       {!mostrarRechazo ? (
-        <div className="bg-superficie-tarjeta rounded-xl border border-borde-sutil p-4">
+        <div className={`bg-superficie-tarjeta rounded-xl border border-borde-sutil p-4 ${estaVencido ? 'opacity-50 pointer-events-none' : ''}`}>
           <div className="flex items-center justify-between">
-            <Boton variante="exito" tamano="md" icono={<Check size={16} />} onClick={onAceptar} disabled={cargando} cargando={cargando}>
+            <Boton variante="exito" tamano="md" icono={<Check size={16} />} onClick={onAceptar} disabled={cargando || estaVencido} cargando={cargando}>
               Aceptar y firmar
             </Boton>
-            <Boton variante="fantasma" tamano="sm" icono={<X size={15} />} onClick={() => setMostrarRechazo(true)} className="text-estado-error hover:text-estado-error/80">
+            <Boton variante="fantasma" tamano="sm" icono={<X size={15} />} onClick={() => setMostrarRechazo(true)} disabled={estaVencido} className="text-estado-error hover:text-estado-error/80">
               {t('portal.rechazar')}
             </Boton>
           </div>

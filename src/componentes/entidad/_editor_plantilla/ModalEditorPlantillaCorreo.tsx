@@ -17,7 +17,7 @@ import { Select } from '@/componentes/ui/Select'
 import { Tabs } from '@/componentes/ui/Tabs'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import { SelectorVariables } from '@/componentes/ui/SelectorVariables'
-import { Braces, Eye, Code2, PenLine, Maximize2, Minimize2 } from 'lucide-react'
+import { Braces, Eye, Code2, PenLine, Maximize2, Minimize2, RotateCcw } from 'lucide-react'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { useTraduccion } from '@/lib/i18n'
 
@@ -49,8 +49,26 @@ export function ModalEditorPlantillaCorreo({
 }: PropiedadesModalEditorPlantilla) {
   const { t } = useTraduccion()
   const [expandido, setExpandido] = useState(false)
+  const [restaurando, setRestaurando] = useState(false)
 
   const estado = useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar })
+
+  // Plantilla de sistema: verificar si fue modificada
+  const esSistema = plantilla?.es_sistema ?? false
+  const fueModificada = esSistema && plantilla?.contenido_original_html && plantilla?.asunto_original
+    ? (plantilla.contenido_html !== plantilla.contenido_original_html || plantilla.asunto !== plantilla.asunto_original)
+    : false
+
+  const handleRestaurar = async () => {
+    if (!plantilla?.id) return
+    setRestaurando(true)
+    try {
+      await fetch(`/api/correo/plantillas/${plantilla.id}/restaurar`, { method: 'POST' })
+      onGuardado()
+      onCerrar()
+    } catch { /* silenciar */ }
+    finally { setRestaurando(false) }
+  }
 
   const {
     esEdicion,
@@ -89,7 +107,7 @@ export function ModalEditorPlantillaCorreo({
     <Modal
       abierto={abierto}
       onCerrar={onCerrar}
-      titulo={esEdicion ? `Editar plantilla — ${nombre || plantilla?.nombre || ''}` : 'Nueva plantilla'}
+      titulo={esEdicion ? `Editar plantilla — ${nombre || plantilla?.nombre || ''}${esSistema ? ' (Sistema)' : ''}` : 'Nueva plantilla'}
       tamano="5xl"
       sinPadding
       expandido={expandido}
@@ -105,6 +123,19 @@ export function ModalEditorPlantillaCorreo({
       }
       acciones={
         <>
+          {esSistema && (
+            <Boton
+              variante="secundario"
+              tamano="sm"
+              icono={<RotateCcw size={14} />}
+              cargando={restaurando}
+              onClick={handleRestaurar}
+              disabled={!fueModificada}
+              className="mr-auto"
+            >
+              Restaurar original
+            </Boton>
+          )}
           <Boton variante="fantasma" tamano="sm" onClick={onCerrar}>{t('comun.cancelar')}</Boton>
           <Boton tamano="sm" cargando={guardando} onClick={handleGuardar}>
             {esEdicion ? 'Guardar cambios' : 'Crear plantilla'}
@@ -113,7 +144,7 @@ export function ModalEditorPlantillaCorreo({
       }
     >
       {/* ── Barra de contexto: contacto + documento ── */}
-      <div className="px-6 py-3 grid grid-cols-2 gap-4 border-b border-white/[0.07] bg-white/[0.02]">
+      <div className="px-6 py-3 grid grid-cols-2 gap-4 border-b border-white/[0.07] bg-white/[0.02] shrink-0">
         {/* Contacto */}
         <div className="flex-1 min-w-0">
           <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block">Contacto</label>
@@ -186,14 +217,16 @@ export function ModalEditorPlantillaCorreo({
       </div>
 
       {/* ── Tabs: Editar / Código / Vista previa ── */}
-      <div className="px-6 pt-1 pb-0 border-b border-white/[0.07]">
+      <div className="px-6 pt-1 pb-0 border-b border-white/[0.07] shrink-0">
         <Tabs tabs={TABS_EDITOR} activo={tabActivo} onChange={handleCambiarTab} />
       </div>
 
-      <div className="px-6 py-4 flex-1 min-h-0 flex flex-col overflow-hidden">
+      {/* Contenedor del tab — altura limitada para generar scroll.
+           Resta: header(57) + contexto(~76) + tabs(~41) + footer(~65) + paddings(~32) ≈ 271px */}
+      <div className="px-6 py-4" style={{ maxHeight: expandido ? 'calc(100dvh - 271px)' : 'calc(90dvh - 271px)', overflowY: 'auto' }}>
 
         {/* ═══════════ TAB EDITAR (visual) — se oculta con display:none para no desmontar el editor ═══════════ */}
-        <div className="flex flex-col flex-1 min-h-0 gap-3 overflow-y-auto" style={{ display: tabActivo === 'editar' ? undefined : 'none' }}>
+        <div className="flex flex-col gap-3" style={{ display: tabActivo === 'editar' ? undefined : 'none' }}>
             {/* Fila 1: Nombre + Quién la puede usar */}
             <div className="grid grid-cols-2 gap-4">
               <Input
@@ -345,32 +378,36 @@ export function ModalEditorPlantillaCorreo({
 
         {/* ═══════════ TAB CÓDIGO (HTML) ═══════════ */}
         {tabActivo === 'codigo' && (
-          <EditorCodigoHtml
-            nombre={nombre}
-            onNombreChange={setNombre}
-            asunto={asunto}
-            onAsuntoChange={setAsunto}
-            visibilidad={visibilidad}
-            onVisibilidadChange={setVisibilidad}
-            htmlCrudo={htmlCrudo}
-            onHtmlCrudoChange={setHtmlCrudo}
-            variablesHtmlAbierto={variablesHtmlAbierto}
-            onToggleVariablesHtml={() => setVariablesHtmlAbierto(!variablesHtmlAbierto)}
-            onCerrarVariablesHtml={() => setVariablesHtmlAbierto(false)}
-            onInsertarVariableHtml={insertarVariableHtml}
-            contextoVariables={contextoVariables}
-          />
+          <div className="flex flex-col">
+            <EditorCodigoHtml
+              nombre={nombre}
+              onNombreChange={setNombre}
+              asunto={asunto}
+              onAsuntoChange={setAsunto}
+              visibilidad={visibilidad}
+              onVisibilidadChange={setVisibilidad}
+              htmlCrudo={htmlCrudo}
+              onHtmlCrudoChange={setHtmlCrudo}
+              variablesHtmlAbierto={variablesHtmlAbierto}
+              onToggleVariablesHtml={() => setVariablesHtmlAbierto(!variablesHtmlAbierto)}
+              onCerrarVariablesHtml={() => setVariablesHtmlAbierto(false)}
+              onInsertarVariableHtml={insertarVariableHtml}
+              contextoVariables={contextoVariables}
+            />
+          </div>
         )}
 
         {/* ═══════════ TAB VISTA PREVIA ═══════════ */}
         {tabActivo === 'preview' && (
-          <PrevisualizacionPlantilla
-            asunto={asunto}
-            contenidoHtml={contenidoHtml}
-            contactoPreview={contactoPreview}
-            documentoPreview={documentoPreview}
-            resolverPreview={resolverPreview}
-          />
+          <div>
+            <PrevisualizacionPlantilla
+              asunto={asunto}
+              contenidoHtml={contenidoHtml}
+              contactoPreview={contactoPreview}
+              documentoPreview={documentoPreview}
+              resolverPreview={resolverPreview}
+            />
+          </div>
         )}
 
       </div>

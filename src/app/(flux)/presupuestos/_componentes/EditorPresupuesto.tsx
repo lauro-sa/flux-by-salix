@@ -8,7 +8,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, AlertTriangle } from 'lucide-react'
 import { ModalEnviarDocumento, type CanalCorreoEmpresa, type DatosEnvioDocumento, type DatosBorradorCorreo, type DatosPlantillaCorreo } from '@/componentes/entidad/ModalEnviarDocumento'
 import { TablaLineas, type OriginalCatalogo } from './TablaLineas'
 import dynamic from 'next/dynamic'
@@ -18,6 +18,8 @@ import EditorNotasPresupuesto from './EditorNotasPresupuesto'
 import { useRol } from '@/hooks/useRol'
 import { Boton } from '@/componentes/ui/Boton'
 import { ModalConfirmacion } from '@/componentes/ui/ModalConfirmacion'
+import { Modal } from '@/componentes/ui/Modal'
+import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { construirHtmlCorreoDocumento } from '@/lib/plantilla-correo-documento'
 import { useEnvioPendiente } from '@/hooks/useEnvioPendiente'
 import { useToast } from '@/componentes/feedback/Toast'
@@ -594,6 +596,40 @@ export default function EditorPresupuesto({
     }
   }
 
+  // ─── Wrapper: interceptar cambio de estado si el presupuesto está vencido ──
+  const estadosDeAvance: EstadoPresupuesto[] = ['enviado', 'confirmado_cliente', 'orden_venta']
+
+  const cambiarEstadoConValidacion = (nuevoEstado: EstadoPresupuesto) => {
+    // Solo validar vencimiento en estados de avance, no al volver a borrador o cancelar
+    if (estadosDeAvance.includes(nuevoEstado)) {
+      const fVenc = presupuesto?.fecha_vencimiento || fechaVenc.toISOString()
+      const vencida = new Date(fVenc) < new Date(new Date().toISOString().split('T')[0] + 'T00:00:00')
+      if (vencida) {
+        // Proponer nueva fecha: hoy + días de validez actuales
+        const hoy = new Date()
+        const nueva = new Date(hoy)
+        nueva.setDate(nueva.getDate() + diasVencimiento)
+        setModalVencimiento({
+          estadoPendiente: nuevoEstado,
+          nuevaFecha: nueva.toISOString().split('T')[0],
+        })
+        return
+      }
+    }
+    cambiarEstado(nuevoEstado)
+  }
+
+  const confirmarVencimientoYCambiarEstado = async () => {
+    if (!modalVencimiento) return
+    const { estadoPendiente, nuevaFecha } = modalVencimiento
+    // Actualizar la fecha de vencimiento primero
+    autoguardar({ fecha_vencimiento: nuevaFecha + 'T00:00:00.000Z' })
+    setPresupuesto(prev => prev ? { ...prev, fecha_vencimiento: nuevaFecha + 'T00:00:00.000Z' } : null)
+    setModalVencimiento(null)
+    // Luego cambiar estado
+    await cambiarEstado(estadoPendiente)
+  }
+
   // ─── Descartar/eliminar presupuesto ─────────────────────────────────────
 
   const descartarPresupuesto = useCallback(async () => {
@@ -990,7 +1026,7 @@ export default function EditorPresupuesto({
   const handleEnviarCorreo = useCallback(async (datos: DatosEnvioDocumento) => {
     const estadoActual = presupuesto?.estado || 'borrador'
     if (estadoActual === 'borrador') {
-      await cambiarEstado('enviado')
+      await cambiarEstado('enviado') // El envío no bloquea por vencimiento — el correo siempre debe salir
     }
 
     // Si nunca se congeló un PDF en el chatter, guardar la versión actual como "versión original"
@@ -1062,7 +1098,7 @@ export default function EditorPresupuesto({
           correo_asunto: datos.asunto, texto: datos.texto, html: htmlFinal,
           adjuntos_ids: datos.adjuntos_ids.length > 0 ? datos.adjuntos_ids : undefined,
           pdf_url: pdfCongeladoUrl || presupuestoRef.current?.pdf_url || undefined,
-          pdf_nombre: presupuestoRef.current?.numero ? `${presupuestoRef.current.numero}.pdf` : undefined,
+          pdf_nombre: presupuestoRef.current?.pdf_nombre_archivo || (presupuestoRef.current?.numero ? `${presupuestoRef.current.numero}.pdf` : undefined),
           pdf_congelado_url: pdfCongeladoUrl || undefined,
           tipo: 'nuevo', programado_para: datos.programado_para,
           entidad_tipo: 'presupuesto', entidad_id: idPresupuesto,
@@ -1141,11 +1177,13 @@ export default function EditorPresupuesto({
   const [deshacerReEmision, setDeshacerReEmision] = useState<(() => Promise<void>) | null>(null)
   const [confirmarReEmision, setConfirmarReEmision] = useState(false)
   const [cantidadReEmisiones, setCantidadReEmisiones] = useState(0)
+  const [modalVencimiento, setModalVencimiento] = useState<{ estadoPendiente: EstadoPresupuesto; nuevaFecha: string } | null>(null)
   const handleImprimir = async () => {
     if (!idPresupuesto || generandoPdf) return
     setGenerandoPdf(true)
     try {
       await guardarTodo()
+      // Generar/actualizar el PDF
       const res = await fetch(`/api/presupuestos/${idPresupuesto}/pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1156,8 +1194,11 @@ export default function EditorPresupuesto({
         alert(err.error || 'Error al generar el PDF')
         return
       }
-      const { url } = await res.json()
-      if (url) window.open(url, '_blank')
+      const { nombre_archivo } = await res.json()
+      // Abrir el PDF vía proxy — el nombre del archivo va como último segmento de la URL
+      // para que Chrome lo use en el diálogo de impresión y "Guardar como"
+      const nombreUrl = encodeURIComponent(nombre_archivo || `${presupuesto?.numero || 'Presupuesto'}.pdf`)
+      window.open(`/api/presupuestos/${idPresupuesto}/pdf/archivo/${nombreUrl}`, '_blank')
     } catch {
       alert('Error al generar el PDF')
     } finally {
@@ -1451,7 +1492,7 @@ export default function EditorPresupuesto({
           onGuardar={() => autoguardar({})}
           onDescartar={descartarPresupuesto}
           onRegenerarPdf={handleRegenerarPdf}
-          onCambiarEstado={cambiarEstado}
+          onCambiarEstado={cambiarEstadoConValidacion}
           onEnviar={handleEnviar}
           onEnviarProforma={handleEnviarProforma}
           onImprimir={handleImprimir}
@@ -1607,6 +1648,7 @@ export default function EditorPresupuesto({
             condiciones={condiciones}
             monedas={monedas}
             totalDocumento={totales.total}
+            subtotalNeto={totales.subtotal}
             simbolo={simbolo}
             bloqueada={bloqueada}
             fechaVenc={fechaVenc}
@@ -1847,7 +1889,7 @@ export default function EditorPresupuesto({
           onAbrirCorreo={() => { setCorreoLibre(true); setModalEnviarAbierto(true) }}
           adjuntosDocumento={presupuesto?.pdf_url ? [{
             url: presupuesto.pdf_url,
-            nombre: `${presupuesto.numero || 'Presupuesto'}.pdf`,
+            nombre: presupuesto.pdf_nombre_archivo || `${presupuesto.numero || 'Presupuesto'}.pdf`,
             tipo: 'application/pdf',
             miniatura_url: presupuesto.pdf_miniatura_url || undefined,
             origen: 'PDF del presupuesto',
@@ -1911,7 +1953,7 @@ export default function EditorPresupuesto({
         adjuntoDocumento={
           presupuesto?.pdf_url ? {
             id: presupuesto.id,
-            nombre_archivo: `${presupuesto.numero || 'Presupuesto'}.pdf`,
+            nombre_archivo: presupuesto.pdf_nombre_archivo || `${presupuesto.numero || 'Presupuesto'}.pdf`,
             tipo_mime: 'application/pdf',
             tamano_bytes: 0,
             url: presupuesto.pdf_url,
@@ -1997,48 +2039,65 @@ export default function EditorPresupuesto({
             tipo: contactoSeleccionado?.tipo_contacto?.etiqueta || presupuesto?.contacto_tipo || '',
             numero_identificacion: contactoSeleccionado?.numero_identificacion || presupuesto?.contacto_identificacion || '',
             condicion_iva: contactoSeleccionado?.condicion_iva || presupuesto?.contacto_condicion_iva || '',
-            direccion_completa: contactoSeleccionado?.direcciones?.find(d => d.es_principal)?.texto || contactoSeleccionado?.direcciones?.[0]?.texto || presupuesto?.contacto_direccion || '',
-            calle: (() => { const d = contactoSeleccionado?.direcciones?.find(d => d.es_principal) || contactoSeleccionado?.direcciones?.[0]; return d ? [d.calle, d.numero].filter(Boolean).join(' ') : '' })(),
-            ciudad: (contactoSeleccionado?.direcciones?.find(d => d.es_principal) || contactoSeleccionado?.direcciones?.[0])?.ciudad || '',
-            provincia: (contactoSeleccionado?.direcciones?.find(d => d.es_principal) || contactoSeleccionado?.direcciones?.[0])?.provincia || '',
-            codigo_postal: (contactoSeleccionado?.direcciones?.find(d => d.es_principal) || contactoSeleccionado?.direcciones?.[0])?.codigo_postal || '',
+            ...(() => {
+              const d = contactoSeleccionado?.direcciones?.find(d => d.es_principal) || contactoSeleccionado?.direcciones?.[0]
+              return {
+                direccion: d?.texto || presupuesto?.contacto_direccion || '',
+                calle: d?.calle || '', numero_calle: d?.numero || '',
+                piso: d?.piso || '', barrio: d?.barrio || '',
+                ciudad: d?.ciudad || '', provincia: d?.provincia || '',
+                pais: d?.pais || '', codigo_postal: d?.codigo_postal || '',
+                timbre: d?.timbre || '',
+              }
+            })(),
           },
           presupuesto: (() => {
             const totalFinal = totales.total
             const condSeleccionada = condiciones.find(c => c.id === condicionPagoId)
-            const hitos = condSeleccionada?.tipo === 'hitos' ? condSeleccionada.hitos : []
-            const primerHito = hitos[0]
-            const porcentajeAdelanto = primerHito?.porcentaje || 0
-            const montoAdelanto = totalFinal * porcentajeAdelanto / 100
-            const montoRestante = totalFinal - montoAdelanto
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const cuotasCobradas = (presupuesto as any)?.cuotas_cobradas
-            const totalPagado = typeof cuotasCobradas === 'number' ? cuotasCobradas : 0
-            const saldoPendiente = totalFinal - totalPagado
+            const hitos = condSeleccionada?.tipo === 'hitos' ? (condSeleccionada.hitos || []) : []
+
+            // Construir contexto de cuotas desde hitos
+            const cuotasCtx: Record<string, unknown> = { cantidad_cuotas: hitos.length }
+            hitos.slice(0, 3).forEach((h: { porcentaje?: number; descripcion?: string }, i: number) => {
+              const pct = h.porcentaje || 0
+              const monto = totalFinal * pct / 100
+              cuotasCtx[`cuota_${i + 1}_descripcion`] = h.descripcion || `Cuota ${i + 1}`
+              cuotasCtx[`cuota_${i + 1}_porcentaje`] = pct
+              cuotasCtx[`cuota_${i + 1}_monto`] = monto
+            })
+            if (hitos.length > 0) {
+              const primera = hitos[0] as { porcentaje?: number; descripcion?: string }
+              const ultima = hitos[hitos.length - 1] as { porcentaje?: number; descripcion?: string }
+              cuotasCtx.adelanto_porcentaje = primera.porcentaje || 0
+              cuotasCtx.adelanto_monto = totalFinal * ((primera.porcentaje || 0) / 100)
+              cuotasCtx.adelanto_descripcion = primera.descripcion || 'Adelanto'
+              cuotasCtx.pago_final_porcentaje = ultima.porcentaje || 0
+              cuotasCtx.pago_final_monto = totalFinal * ((ultima.porcentaje || 0) / 100)
+              cuotasCtx.pago_final_descripcion = ultima.descripcion || 'Pago final'
+              cuotasCtx.cuotas_intermedias = Math.max(0, hitos.length - 2)
+            }
 
             return {
               numero: presupuesto?.numero || numeroPresupuesto || '',
               estado: presupuesto?.estado || 'borrador',
               moneda: presupuesto?.moneda || moneda,
-              total_neto: presupuesto?.subtotal_neto || totales.subtotal,
+              subtotal_neto: presupuesto?.subtotal_neto || totales.subtotal,
               total_impuestos: presupuesto?.total_impuestos || totales.impuestos,
-              total_con_iva: presupuesto?.total_final || totalFinal,
+              total_final: presupuesto?.total_final || totalFinal,
+              descuento_global: presupuesto?.descuento_global || 0,
+              descuento_global_monto: presupuesto?.descuento_global_monto || 0,
               condicion_pago_label: presupuesto?.condicion_pago_label || condSeleccionada?.label || '',
-              porcentaje_adelanto: porcentajeAdelanto,
-              monto_adelanto: montoAdelanto,
-              monto_restante: montoRestante,
-              saldo_pendiente: saldoPendiente,
-              pagado: totalPagado,
               fecha_emision: presupuesto?.fecha_emision || fechaEmision,
               fecha_vencimiento: presupuesto?.fecha_vencimiento || '',
               referencia: presupuesto?.referencia || referencia,
               contacto_nombre: contactoSeleccionado?.nombre || presupuesto?.contacto_nombre || '',
               contacto_correo: contactoSeleccionado?.correo || presupuesto?.contacto_correo || '',
+              ...cuotasCtx,
             }
           })(),
           empresa: {
             nombre: datosEmpresa?.nombre || '',
-            correo_contacto: datosEmpresa?.correo || '',
+            correo: datosEmpresa?.correo || '',
             telefono: datosEmpresa?.telefono || '',
           },
           dirigido_a: {
@@ -2065,6 +2124,47 @@ export default function EditorPresupuesto({
         tipo="advertencia"
         etiquetaConfirmar="Re-emitir"
       />
+
+      {/* ─── Modal presupuesto vencido ─── */}
+      <Modal
+        abierto={!!modalVencimiento}
+        onCerrar={() => setModalVencimiento(null)}
+        titulo="Presupuesto vencido"
+        tamano="sm"
+        acciones={
+          <div className="flex items-center gap-2 justify-end">
+            <Boton variante="secundario" tamano="sm" onClick={() => setModalVencimiento(null)}>
+              Cancelar
+            </Boton>
+            <Boton variante="primario" tamano="sm" onClick={confirmarVencimientoYCambiarEstado}>
+              Actualizar y continuar
+            </Boton>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-insignia-advertencia/10 border border-insignia-advertencia/20">
+            <AlertTriangle size={20} className="text-insignia-advertencia shrink-0 mt-0.5" />
+            <p className="text-sm text-texto-secundario">
+              Este presupuesto está vencido. Para continuar, actualizá la fecha de vencimiento.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-texto-secundario uppercase tracking-wide">
+              Nueva fecha de vencimiento
+            </label>
+            <SelectorFecha
+              valor={modalVencimiento?.nuevaFecha || ''}
+              onChange={(v) => {
+                if (v && modalVencimiento) {
+                  setModalVencimiento({ ...modalVencimiento, nuevaFecha: v })
+                }
+              }}
+              limpiable={false}
+            />
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

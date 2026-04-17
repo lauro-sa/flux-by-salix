@@ -22,6 +22,10 @@ export interface PlantillaCorreo {
   canal_id?: string | null
   /** UUID del creador (para separar sistema vs personales) */
   creado_por?: string
+  /** Indica si es una plantilla precargada del sistema */
+  es_sistema?: boolean
+  /** Clave identificadora de la plantilla de sistema */
+  clave_sistema?: string | null
 }
 
 /** Adjunto del documento (PDF generado automáticamente) */

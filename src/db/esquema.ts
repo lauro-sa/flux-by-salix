@@ -1736,6 +1736,11 @@ export const plantillas_correo = pgTable('plantillas_correo', {
   contenido_html: text('contenido_html').notNull().default(''),
   variables: jsonb('variables').default(sql`'[]'`),
   modulos: text('modulos').array().default(sql`'{}'`),
+  // Plantillas de sistema
+  es_sistema: boolean('es_sistema').notNull().default(false),
+  clave_sistema: text('clave_sistema').unique(),
+  contenido_original_html: text('contenido_original_html'),
+  asunto_original: text('asunto_original'),
   // Permisos de acceso
   disponible_para: text('disponible_para').notNull().default('todos'), // 'todos', 'roles', 'usuarios'
   roles_permitidos: text('roles_permitidos').array().default(sql`'{}'`),

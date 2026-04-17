@@ -9,7 +9,7 @@
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronDown, Star, Plus, Save, Trash2, Check, FileText, Building2, User, Loader2, BookmarkPlus } from 'lucide-react'
+import { ChevronDown, Star, Plus, Save, Trash2, Check, FileText, Building2, User, Loader2, BookmarkPlus, Shield } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Boton } from '@/componentes/ui/Boton'
 import { Tooltip } from '@/componentes/ui/Tooltip'
@@ -23,6 +23,7 @@ export interface PlantillaCorreoCompleta {
   canal_id?: string | null
   creado_por: string
   disponible_para?: 'todos' | 'roles' | 'usuarios'
+  es_sistema?: boolean
 }
 
 interface PropiedadesSelectorPlantillaCorreo {
@@ -78,9 +79,9 @@ export function SelectorPlantillaCorreo({
   // Verificar si hay cambios y el usuario puede guardar
   const puedeGuardarCambios = !!(tieneModificaciones && plantillaCargada && onGuardarCambios && (plantillaCargada.creado_por === usuarioId || esAdmin))
 
-  // Separar plantillas: empresa (disponibles para todos) vs personales
-  const plantillasEmpresa = plantillas.filter(p => p.disponible_para === 'todos' || (!p.disponible_para && p.creado_por !== usuarioId))
-  const plantillasPersonales = plantillas.filter(p => p.disponible_para !== 'todos' && p.disponible_para !== undefined && p.creado_por === usuarioId)
+  // Separar plantillas: empresa (sistema + disponibles para todos) vs personales
+  const plantillasEmpresa = plantillas.filter(p => p.es_sistema || p.disponible_para === 'todos' || (!p.disponible_para && p.creado_por !== usuarioId))
+  const plantillasPersonales = plantillas.filter(p => !p.es_sistema && p.disponible_para !== 'todos' && p.disponible_para !== undefined && p.creado_por === usuarioId)
 
   useLayoutEffect(() => {
     if (!abierto || !botonRef.current) return
@@ -140,7 +141,7 @@ export function SelectorPlantillaCorreo({
     const esPredeterminada = p.id === predeterminadaId
     const esDeEmpresa = p.disponible_para === 'todos'
     const puedeEditar = p.creado_por === usuarioId || esAdmin
-    const puedeEliminar = p.creado_por === usuarioId || esAdmin
+    const puedeEliminar = !p.es_sistema && (p.creado_por === usuarioId || esAdmin)
 
     return (
       <div key={p.id} className="group flex items-center">
@@ -156,6 +157,9 @@ export function SelectorPlantillaCorreo({
             <span className="w-3.5 shrink-0" />
           )}
           <span className="truncate">{p.nombre}</span>
+          {p.es_sistema && (
+            <Shield size={10} className="shrink-0 text-texto-terciario/50" />
+          )}
         </button>
 
         <div className="shrink-0 flex items-center gap-0.5 pr-1.5">

@@ -16,7 +16,7 @@ export const ASUNTO_RECIBO_NOMINA = 'Recibo de haberes — {{nomina.periodo}}'
 
 export const HTML_RECIBO_NOMINA = `<p>Hola <strong>{{nomina.nombre_empleado}}</strong>,</p>
 
-<p>Te compartimos el detalle de tu recibo de haberes correspondiente al período <strong>{{nomina.periodo}}</strong>.</p>
+<p>Te compartimos el detalle de tu recibo de haberes correspondiente al período <strong>{{nomina.concepto}}</strong>.</p>
 
 <br/>
 
@@ -26,7 +26,7 @@ export const HTML_RECIBO_NOMINA = `<p>Hola <strong>{{nomina.nombre_empleado}}</s
   <tr>
     <td style="padding:14px 16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px 8px 0 0;">
       <p style="margin:0;font-size:11px;color:#15803d;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Monto a pagar</p>
-      <p style="margin:6px 0 0;font-size:26px;font-weight:800;color:#166534;">{{nomina.monto_bruto}}</p>
+      <p style="margin:6px 0 0;font-size:26px;font-weight:800;color:#166534;">{{nomina.monto_abonado}}</p>
       <p style="margin:4px 0 0;font-size:12px;color:#16a34a;">{{nomina.compensacion_tipo}} · {{nomina.compensacion_detalle}}</p>
     </td>
   </tr>
@@ -211,15 +211,16 @@ export function construirContextoNomina(
 
   return {
     nomina: {
+      // Claves alineadas con entidades.ts
       nombre_empleado: datos.nombre_empleado,
       correo_empleado: datos.correo_empleado,
-      periodo: datos.periodo,
+      concepto: datos.periodo,
       dias_trabajados: datos.dias_trabajados,
-      dias_laborales: datos.dias_laborales,
+      dias_habiles: datos.dias_laborales,
       dias_ausentes: datos.dias_ausentes,
-      dias_tardanza: datos.dias_tardanza,
+      tardanzas: datos.dias_tardanza,
+      // Extras para la plantilla HTML (no están en entidades.ts pero se usan en el correo)
       porcentaje_asistencia: datos.porcentaje_asistencia,
-      // Horas (disponibles como variables individuales también)
       horas_brutas: datos.horas_brutas,
       horas_netas: datos.horas_netas,
       horas_almuerzo: datos.horas_almuerzo,
@@ -235,7 +236,8 @@ export function construirContextoNomina(
       // Compensación
       compensacion_tipo: etiquetaTipo,
       compensacion_detalle: datos.compensacion_detalle,
-      monto_bruto: datos.monto_bruto,
+      monto_abonado: datos.monto_bruto,
+      monto_sugerido: datos.monto_bruto,
     },
     empresa: {
       nombre: nombreEmpresa,

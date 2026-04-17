@@ -76,8 +76,10 @@ export function useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar }:
         nombre_completo: `${contactoPreview.nombre || ''} ${contactoPreview.apellido || ''}`.trim(),
         correo: contactoPreview.correo || '',
         telefono: contactoPreview.telefono || '',
-        direccion_completa: dirPrincipal?.texto || '',
-        calle: [dirPrincipal?.calle, dirPrincipal?.numero].filter(Boolean).join(' ') || '',
+        direccion: dirPrincipal?.texto || '',
+        calle: dirPrincipal?.calle || '',
+        numero_calle: dirPrincipal?.numero || '',
+        calle_altura: [dirPrincipal?.calle, dirPrincipal?.numero].filter(Boolean).join(' ') || '',
         ciudad: dirPrincipal?.ciudad || '',
         provincia: dirPrincipal?.provincia || '',
         codigo_postal: dirPrincipal?.codigo_postal || '',
@@ -88,38 +90,44 @@ export function useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar }:
       const neto = Number(documentoPreview.subtotal_neto) || 0
       const impuestos = Number(documentoPreview.total_impuestos) || 0
       const m = documentoPreview.moneda
+      // Cuotas ordenadas
+      const cuotasOrdenadas = [...cuotasPreview].sort((a, b) => a.numero - b.numero)
+      const cuotasCtx: Record<string, unknown> = {
+        cantidad_cuotas: cuotasOrdenadas.length,
+      }
+      cuotasOrdenadas.slice(0, 3).forEach((c, i) => {
+        cuotasCtx[`cuota_${i + 1}_descripcion`] = c.descripcion || `Cuota ${i + 1}`
+        cuotasCtx[`cuota_${i + 1}_porcentaje`] = c.porcentaje
+        cuotasCtx[`cuota_${i + 1}_monto`] = c.monto
+      })
+      // Semánticas
+      if (cuotasOrdenadas.length > 0) {
+        const primera = cuotasOrdenadas[0]
+        const ultima = cuotasOrdenadas[cuotasOrdenadas.length - 1]
+        cuotasCtx.adelanto_porcentaje = primera.porcentaje
+        cuotasCtx.adelanto_monto = primera.monto
+        cuotasCtx.adelanto_descripcion = primera.descripcion || 'Adelanto'
+        cuotasCtx.pago_final_porcentaje = ultima.porcentaje
+        cuotasCtx.pago_final_monto = ultima.monto
+        cuotasCtx.pago_final_descripcion = ultima.descripcion || 'Pago final'
+        cuotasCtx.cuotas_intermedias = Math.max(0, cuotasOrdenadas.length - 2)
+      }
+
       return {
         numero: documentoPreview.numero,
         estado: documentoPreview.estado,
-        total_neto: formatoMoneda(String(neto), m),
+        referencia: documentoPreview.referencia || '',
+        subtotal_neto: formatoMoneda(String(neto), m),
         total_impuestos: formatoMoneda(String(impuestos), m),
-        total_con_iva: formatoMoneda(String(total), m),
+        total_final: formatoMoneda(String(total), m),
         moneda: m,
-        descuento_total: formatoMoneda(documentoPreview.descuento_global_monto, m),
+        descuento_global_monto: formatoMoneda(documentoPreview.descuento_global_monto, m),
+        condicion_pago_label: documentoPreview.condicion_pago_label || '',
         fecha_emision: formatoFecha(documentoPreview.fecha_emision),
         fecha_vencimiento: formatoFecha(documentoPreview.fecha_vencimiento),
-        condicion_pago_label: documentoPreview.condicion_pago_label || '',
-        referencia: documentoPreview.referencia || '',
         contacto_nombre: documentoPreview.contacto_nombre || '',
         contacto_correo: '',
-        ...(() => {
-          const primeraCuota = cuotasPreview[0]
-          const cuotasPagadas = cuotasPreview.filter(c => c.estado === 'cobrada')
-          const montoPagado = cuotasPagadas.reduce((sum, c) => sum + (Number(c.monto) || 0), 0)
-          // Calcular adelanto: usar monto de cuota si existe, sino calcular con porcentaje
-          const porcentajeAdelanto = primeraCuota ? Number(primeraCuota.porcentaje) || 0 : 0
-          const montoAdelanto = primeraCuota
-            ? (Number(primeraCuota.monto) || (total * porcentajeAdelanto / 100))
-            : 0
-          return {
-            porcentaje_adelanto: `${porcentajeAdelanto}%`,
-            monto_adelanto: formatoMoneda(String(montoAdelanto), m),
-            monto_restante: formatoMoneda(String(total - montoAdelanto), m),
-            pagado: formatoMoneda(String(montoPagado), m),
-            saldo_pendiente: formatoMoneda(String(total - montoPagado), m),
-            cantidad_hitos: String(cuotasPreview.length),
-          }
-        })(),
+        ...cuotasCtx,
       }
     })() : DATOS_EJEMPLO.presupuesto,
     empresa: datosEmpresaReal || DATOS_EJEMPLO.empresa,
@@ -219,8 +227,10 @@ export function useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar }:
       if (empData.empresa) {
         setDatosEmpresaReal({
           nombre: empData.empresa.nombre || '',
-          correo_contacto: empData.empresa.correo || '',
+          correo: empData.empresa.correo || '',
           telefono: empData.empresa.telefono || '',
+          pagina_web: empData.empresa.pagina_web || '',
+          ubicacion: empData.empresa.ubicacion || '',
         })
       }
     })

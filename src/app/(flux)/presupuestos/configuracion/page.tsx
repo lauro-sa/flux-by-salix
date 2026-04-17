@@ -6,6 +6,7 @@ import {
   Plus, Receipt, DollarSign,
   Ruler, Clock, Hash, FileText, RotateCcw, Package,
   Image, PanelBottom, Code2, FileType, Landmark,
+  X,
 } from 'lucide-react'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { A4_ANCHO, A4_ALTO } from '@/lib/pdf/constantes'
@@ -21,9 +22,12 @@ import type {
   ConfigMembrete, ConfigPiePagina, ConfigDatosEmpresaPdf,
   TipoColumnaPie,
 } from '@/tipos/presupuesto'
-import { VARIABLES_NOMBRE_PDF } from '@/tipos/presupuesto'
+import { SelectorVariables } from '@/componentes/ui/SelectorVariables'
+import { obtenerEntidad } from '@/lib/variables/registro'
+import '@/lib/variables/entidades'
 import {
   renderizarHtml,
+  generarNombreArchivo,
   DATOS_MUESTRA,
   EMPRESA_MUESTRA,
   type DatosEmpresa,
@@ -32,6 +36,7 @@ import {
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useTraduccion } from '@/lib/i18n'
 import { Boton } from '@/componentes/ui/Boton'
+import { Select } from '@/componentes/ui/Select'
 import { Input } from '@/componentes/ui/Input'
 import { Checkbox } from '@/componentes/ui/Checkbox'
 import { ListaConfiguracion } from '@/componentes/ui/ListaConfiguracion'
@@ -133,6 +138,91 @@ const DATOS_EMPRESA_PDF_DEFAULT: ConfigDatosEmpresaPdf = {
   usar_datos_empresa: true,
 }
 
+// ─── Segmentos para el nombre del archivo PDF ───
+// Cada segmento es una variable con un separador previo (el primero no tiene separador)
+interface SegmentoNombrePdf {
+  variable: string  // 'presupuesto.numero', 'contacto.nombre_completo', etc.
+  separador: string // ' – ', ', ', ' - ', etc. (vacío para el primero)
+}
+
+const SEPARADORES_DISPONIBLES = [' – ', ', ', ' - ', ' _ ', ' · ', ' | ']
+
+// Mapeo de variables legacy {var} → {{entidad.campo}}
+const MAPA_LEGACY: Record<string, string> = {
+  numero: 'presupuesto.numero',
+  contacto_nombre: 'contacto.nombre_completo',
+  fecha: 'presupuesto.fecha_emision',
+  referencia: 'presupuesto.referencia',
+  atencion_nombre: 'dirigido_a.nombre_completo',
+  atencion_cargo: 'dirigido_a.cargo',
+  tipo: 'presupuesto.estado',
+}
+
+// Parsea un patrón string en segmentos visuales
+function parsearPatronASegmentos(patron: string): SegmentoNombrePdf[] {
+  if (!patron) return [{ variable: 'presupuesto.numero', separador: '' }]
+
+  let plantilla = patron
+
+  // Convertir formato legacy {var} → {{entidad.campo}}
+  if (!plantilla.includes('{{') && plantilla.includes('{')) {
+    for (const [legacy, nuevo] of Object.entries(MAPA_LEGACY)) {
+      plantilla = plantilla.replace(new RegExp(`\\{${legacy}\\}`, 'g'), `{{${nuevo}}}`)
+    }
+  }
+
+  const segmentos: SegmentoNombrePdf[] = []
+
+  // Extraer primera variable suelta (sin corchetes condicionales)
+  const matchPrimera = plantilla.match(/^([^\[]*?)\{\{([a-z_]+\.[a-z_]+)\}\}/)
+  if (matchPrimera) {
+    segmentos.push({ variable: matchPrimera[2], separador: '' })
+    plantilla = plantilla.slice(matchPrimera[0].length)
+  }
+
+  // Extraer bloques condicionales [separador{{entidad.campo}}]
+  const regexBloque = /\[([^\{]*?)\{\{([a-z_]+\.[a-z_]+)\}\}[^\]]*?\]/g
+  let match
+  while ((match = regexBloque.exec(plantilla)) !== null) {
+    segmentos.push({ variable: match[2], separador: match[1] || ' – ' })
+  }
+
+  // Si no se parseó nada, extraer variables sueltas separadas por texto
+  if (segmentos.length === 0) {
+    const regexSueltas = /\{\{([a-z_]+\.[a-z_]+)\}\}/g
+    let idx = 0
+    while ((match = regexSueltas.exec(plantilla)) !== null) {
+      const sep = idx === 0 ? '' : ' – '
+      segmentos.push({ variable: match[1], separador: sep })
+      idx++
+    }
+  }
+
+  return segmentos.length ? segmentos : [{ variable: 'presupuesto.numero', separador: '' }]
+}
+
+// Serializa segmentos a patrón string para guardar en BD
+function serializarSegmentos(segmentos: SegmentoNombrePdf[]): string {
+  return segmentos.map((s, i) => {
+    const variable = `{{${s.variable}}}`
+    if (i === 0) return variable
+    return `[${s.separador}${variable}]`
+  }).join('')
+}
+
+// Obtiene la etiqueta legible de una variable desde el registro
+function obtenerInfoVariable(claveCompleta: string): { entidadEtiqueta: string; campoEtiqueta: string; color?: string } {
+  const [entClave, campoClave] = claveCompleta.split('.')
+  const entidad = obtenerEntidad(entClave)
+  if (!entidad) return { entidadEtiqueta: entClave, campoEtiqueta: campoClave }
+  const variable = entidad.variables.find(v => v.clave === campoClave)
+  return {
+    entidadEtiqueta: entidad.etiqueta,
+    campoEtiqueta: variable?.etiqueta || campoClave,
+    color: entidad.color,
+  }
+}
+
 export default function PaginaConfigPresupuestos() {
   const router = useRouter()
   const { t } = useTraduccion()
@@ -187,7 +277,12 @@ export default function PaginaConfigPresupuestos() {
   const [piePagina, setPiePagina] = useState<ConfigPiePagina>(PIE_PAGINA_DEFAULT)
   const [plantillaHtml, setPlantillaHtml] = useState('')
   const [patronNombrePdf, setPatronNombrePdf] = useState('{numero} - {contacto_nombre}')
+  const [segmentosNombre, setSegmentosNombre] = useState<SegmentoNombrePdf[]>([])
   const [datosEmpresaPdf, setDatosEmpresaPdf] = useState<ConfigDatosEmpresaPdf>(DATOS_EMPRESA_PDF_DEFAULT)
+
+  // Selector de presupuesto para preview del nombre
+  const [presupuestosNombrePdf, setPresupuestosNombrePdf] = useState<{ id: string; numero: string; contacto_nombre: string | null; contacto_apellido: string | null; atencion_nombre: string | null; atencion_cargo: string | null; fecha_emision: string; referencia: string | null; contacto_direccion: string | null }[]>([])
+  const [previewNombrePdfId, setPreviewNombrePdfId] = useState('')
 
   // Datos de empresa para preview del membrete
   const [empresaPreview, setEmpresaPreview] = useState<DatosEmpresa>(EMPRESA_MUESTRA)
@@ -239,9 +334,32 @@ export default function PaginaConfigPresupuestos() {
         if (data.membrete) setMembrete({ ...MEMBRETE_DEFAULT, ...data.membrete })
         if (data.pie_pagina) setPiePagina({ ...PIE_PAGINA_DEFAULT, ...data.pie_pagina })
         if (data.plantilla_html) setPlantillaHtml(data.plantilla_html)
-        if (data.patron_nombre_pdf) setPatronNombrePdf(data.patron_nombre_pdf)
+        if (data.patron_nombre_pdf) {
+          setPatronNombrePdf(data.patron_nombre_pdf)
+          setSegmentosNombre(parsearPatronASegmentos(data.patron_nombre_pdf))
+        } else {
+          setSegmentosNombre(parsearPatronASegmentos('{numero} - {contacto_nombre}'))
+        }
         if (data.datos_empresa_pdf) setDatosEmpresaPdf({ ...DATOS_EMPRESA_PDF_DEFAULT, ...data.datos_empresa_pdf })
         setCargando(false)
+
+        // Cargar presupuestos recientes para preview del nombre PDF
+        fetch('/api/presupuestos?por_pagina=15&orden_dir=desc')
+          .then(r => r.ok ? r.json() : null)
+          .then(dataPres => {
+            if (!dataPres) return
+            setPresupuestosNombrePdf((dataPres.presupuestos || []).map((p: Record<string, unknown>) => ({
+              id: p.id as string, numero: p.numero as string,
+              contacto_nombre: p.contacto_nombre as string | null,
+              contacto_apellido: p.contacto_apellido as string | null,
+              atencion_nombre: p.atencion_nombre as string | null,
+              atencion_cargo: p.atencion_cargo as string | null,
+              fecha_emision: p.fecha_emision as string,
+              referencia: p.referencia as string | null,
+              contacto_direccion: p.contacto_direccion as string | null,
+            })))
+          })
+          .catch(() => { /* Sin presupuestos */ })
 
         // Cargar empresa + logo para preview
         const cargarEmpresa = async () => {
@@ -324,6 +442,12 @@ export default function PaginaConfigPresupuestos() {
   const guardarPiePagina = (nuevo: ConfigPiePagina) => { setPiePagina(nuevo); autoguardar({ pie_pagina: nuevo }) }
   const guardarPlantillaHtml = (html: string) => { setPlantillaHtml(html); autoguardar({ plantilla_html: html || null }) }
   const guardarPatronNombre = (patron: string) => { setPatronNombrePdf(patron); autoguardar({ patron_nombre_pdf: patron }) }
+  const actualizarSegmentosNombre = (nuevos: SegmentoNombrePdf[]) => {
+    setSegmentosNombre(nuevos)
+    const patron = serializarSegmentos(nuevos)
+    setPatronNombrePdf(patron)
+    guardarPatronNombre(patron)
+  }
   const guardarDatosEmpresaPdf = (datos: ConfigDatosEmpresaPdf) => { setDatosEmpresaPdf(datos); autoguardar({ datos_empresa_pdf: datos }) }
 
   // Preview HTML real de la plantilla para membrete y pie de página
@@ -1466,64 +1590,188 @@ export default function PaginaConfigPresupuestos() {
       )}
 
       {/* ─── NOMBRE DEL ARCHIVO PDF ─── */}
-      {seccionActiva === 'nombre_pdf' && (
+      {seccionActiva === 'nombre_pdf' && (() => {
+        // Variables frecuentes para acceso rápido (un click para agregar)
+        // Variables frecuentes para acceso rápido
+        // La etiqueta se genera del registro real: "Entidad — Campo"
+        const listaFrecuentes = [
+          'presupuesto.numero',
+          'contacto.nombre_completo',
+          'dirigido_a.nombre_completo',
+          'contacto.direccion',
+          'empresa.nombre',
+          'presupuesto.referencia',
+          'presupuesto.fecha_emision',
+          'presupuesto.estado',
+          'dirigido_a.cargo',
+          'contacto.ciudad',
+          'contacto.provincia',
+          'presupuesto.moneda',
+        ]
+        const variablesFrecuentes = listaFrecuentes.map(variable => {
+          const info = obtenerInfoVariable(variable)
+          return { variable, etiqueta: `${info.entidadEtiqueta} — ${info.campoEtiqueta}` }
+        })
+        const variablesUsadas = new Set(segmentosNombre.map(s => s.variable))
+        const separadorGlobal = segmentosNombre.length > 1 ? segmentosNombre[1].separador : ' – '
+
+        return (
         <div>
           <h3 className="text-lg font-semibold text-texto-primario">Nombre del archivo PDF</h3>
-          <p className="text-base text-texto-terciario mt-1 mb-5">Definí el patrón para el nombre del archivo al descargar el PDF.</p>
+          <p className="text-base text-texto-terciario mt-1 mb-5">Elegí qué datos incluir en el nombre del archivo. Si un dato está vacío, se omite automáticamente.</p>
 
           <div className="space-y-5">
-            {/* Input del patrón */}
-            <div>
-              <Input
-                etiqueta="Patrón del nombre"
-                value={patronNombrePdf}
-                onChange={(e) => setPatronNombrePdf(e.target.value)}
-                onBlur={() => guardarPatronNombre(patronNombrePdf)}
-                formato={null}
-                className="font-mono"
-              />
-            </div>
-
-            {/* Vista previa */}
-            <div className="p-4 rounded-xl bg-superficie-app">
-              <span className="text-xs text-texto-terciario font-medium block mb-2">{t('documentos.vista_previa')}</span>
-              <p className="text-sm font-mono text-texto-primario">
-                {patronNombrePdf
-                  .replace('{numero}', previewNumero)
-                  .replace('{contacto_nombre}', 'Juan Pérez')
-                  .replace('{fecha}', formato.fecha(new Date()).replace(/\//g, '-'))
-                  .replace('{tipo}', 'Presupuesto')
-                  .replace('{referencia}', 'REF-001')
-                }.pdf
-              </p>
-            </div>
-
-            {/* Variables disponibles */}
-            <div className="p-4 rounded-xl border border-borde-sutil space-y-2">
-              <span className="text-xs text-texto-terciario font-medium uppercase tracking-wide">Variables disponibles</span>
-              <div className="space-y-1.5">
-                {VARIABLES_NOMBRE_PDF.map(({ variable, descripcion }) => (
-                  <div key={variable} className="flex items-center gap-3">
-                    <Boton
-                      variante="secundario"
-                      tamano="xs"
-                      onClick={() => {
-                        const nuevo = patronNombrePdf + variable
-                        setPatronNombrePdf(nuevo)
-                        guardarPatronNombre(nuevo)
-                      }}
-                      className="font-mono text-texto-marca bg-[var(--texto-marca)]/5 border-marca-500/20"
-                    >
-                      {variable}
-                    </Boton>
-                    <span className="text-xs text-texto-terciario">{descripcion}</span>
-                  </div>
-                ))}
+            {/* ── Vista previa ── */}
+            <div className="p-4 rounded-xl border border-borde-sutil bg-superficie-app">
+              <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-white/[0.04]">
+                <FileType className="size-4 text-texto-terciario shrink-0" />
+                <p className="text-[13px] font-mono text-texto-primario break-all leading-relaxed">
+                  {(() => {
+                    const pSel = presupuestosNombrePdf.find(p => p.id === previewNombrePdfId)
+                    return generarNombreArchivo(patronNombrePdf, {
+                      numero: pSel?.numero || previewNumero,
+                      contacto_nombre: pSel?.contacto_nombre ?? 'Constructora',
+                      contacto_apellido: pSel?.contacto_apellido ?? 'ABC',
+                      fecha_emision: pSel?.fecha_emision || new Date().toISOString(),
+                      referencia: pSel?.referencia ?? 'REF-001',
+                      atencion_nombre: pSel ? pSel.atencion_nombre : 'María García',
+                      atencion_cargo: pSel ? pSel.atencion_cargo : 'Gerente de Compras',
+                      contacto_direccion: pSel ? pSel.contacto_direccion : 'Av. Corrientes 1234',
+                    })
+                  })()}
+                </p>
+              </div>
+              <div className="flex items-center justify-end mt-2">
+                <Select
+                  valor={previewNombrePdfId}
+                  onChange={(v) => setPreviewNombrePdfId(v)}
+                  placeholder="Datos de muestra"
+                  opciones={[
+                    { valor: '', etiqueta: 'Datos de muestra' },
+                    ...presupuestosNombrePdf.map(p => ({
+                      valor: p.id,
+                      etiqueta: `${p.numero} — ${[p.contacto_nombre, p.contacto_apellido].filter(Boolean).join(' ') || 'Sin contacto'}`,
+                    })),
+                  ]}
+                  className="max-w-[220px]"
+                />
               </div>
             </div>
+
+            {/* ── Composición del nombre: pills inline ── */}
+            <div className="space-y-3">
+              {/* Separador global */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-texto-terciario">Separar con:</span>
+                <div className="flex items-center gap-1">
+                  {SEPARADORES_DISPONIBLES.map(sep => (
+                    <button
+                      key={sep}
+                      onClick={() => {
+                        const nuevos = segmentosNombre.map((s, i) =>
+                          i === 0 ? s : { ...s, separador: sep }
+                        )
+                        actualizarSegmentosNombre(nuevos)
+                      }}
+                      className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
+                        separadorGlobal === sep
+                          ? 'bg-texto-marca/15 text-texto-marca border border-texto-marca/30'
+                          : 'bg-white/[0.04] text-texto-terciario border border-white/[0.06] hover:border-white/[0.12]'
+                      }`}
+                    >
+                      {sep.trim()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pills del nombre — flujo inline horizontal */}
+              <div className="flex flex-wrap items-center gap-1.5 p-3 rounded-xl border border-white/[0.07] bg-white/[0.02] min-h-[48px]">
+                {segmentosNombre.map((seg, idx) => {
+                  const infoPill = obtenerInfoVariable(seg.variable)
+                  const etiquetaPill = `${infoPill.entidadEtiqueta} — ${infoPill.campoEtiqueta}`
+                  return (
+                    <div key={`${seg.variable}-${idx}`} className="contents">
+                      {/* Separador visual entre pills */}
+                      {idx > 0 && (
+                        <span className="text-xs font-mono text-texto-terciario/40 select-none px-0.5">{seg.separador.trim()}</span>
+                      )}
+                      {/* Pill de la variable */}
+                      <span className="group inline-flex items-center gap-1 px-2 py-1 rounded-md bg-texto-marca/10 border border-texto-marca/20 text-xs text-texto-marca transition-colors hover:bg-texto-marca/15">
+                        <span className="font-medium">{etiquetaPill}</span>
+                        <button
+                          onClick={() => {
+                            const nuevos = segmentosNombre.filter((_, i) => i !== idx)
+                            if (nuevos.length > 0) nuevos[0] = { ...nuevos[0], separador: '' }
+                            actualizarSegmentosNombre(nuevos)
+                          }}
+                          className="ml-0.5 p-0.5 rounded-sm text-texto-marca/40 hover:text-red-400 hover:bg-red-400/15 transition-colors"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </span>
+                    </div>
+                  )
+                })}
+
+                {segmentosNombre.length === 0 && (
+                  <span className="text-xs text-texto-terciario/40 italic">Hacé click en un campo para agregarlo</span>
+                )}
+              </div>
+
+              {/* Variables frecuentes — chips clickeables */}
+              <div>
+                <span className="text-[11px] text-texto-terciario/60 block mb-2">Click para agregar:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {variablesFrecuentes.map(vf => {
+                    const yaUsada = variablesUsadas.has(vf.variable)
+                    return (
+                      <button
+                        key={vf.variable}
+                        disabled={yaUsada}
+                        onClick={() => {
+                          const nuevos = [...segmentosNombre, {
+                            variable: vf.variable,
+                            separador: segmentosNombre.length === 0 ? '' : separadorGlobal,
+                          }]
+                          actualizarSegmentosNombre(nuevos)
+                        }}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs transition-all ${
+                          yaUsada
+                            ? 'bg-white/[0.02] text-texto-terciario/25 border border-white/[0.04] cursor-default line-through'
+                            : 'bg-white/[0.04] text-texto-secundario border border-white/[0.08] hover:border-texto-marca/30 hover:bg-texto-marca/8 hover:text-texto-marca cursor-pointer'
+                        }`}
+                      >
+                        <Plus className="size-3" />
+                        {vf.etiqueta}
+                      </button>
+                    )
+                  })}
+
+                  {/* Botón para abrir el selector completo */}
+                  <SelectorVariables
+                    onSeleccionar={(variable) => {
+                      const match = variable.match(/\{\{([a-z_]+\.[a-z_]+)\}\}/)
+                      if (!match) return
+                      const nuevos = [...segmentosNombre, {
+                        variable: match[1],
+                        separador: segmentosNombre.length === 0 ? '' : separadorGlobal,
+                      }]
+                      actualizarSegmentosNombre(nuevos)
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* ── Tip ── */}
+            <p className="text-[11px] text-texto-terciario/50 leading-relaxed">
+              Si un dato no tiene valor (ej: no hay dirigido a), esa parte y su separador se omiten automáticamente del nombre.
+            </p>
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* ─── DATOS BANCARIOS (PORTAL) ─── */}
       {seccionActiva === 'datos_bancarios' && (

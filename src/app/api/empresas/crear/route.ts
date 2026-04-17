@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { obtenerUsuarioRuta } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { vincularOCrearContactoEquipo } from '@/lib/contactos/contacto-equipo'
+import { crearPlantillasSistema } from '@/lib/plantillas-sistema/seed'
 
 /**
  * Defaults regionales por país — se aplican al crear empresa nueva.
@@ -116,6 +117,9 @@ export async function POST(request: NextRequest) {
       nombre: user.user_metadata?.nombre_completo || user.email?.split('@')[0] || '',
       usuarioId: user.id,
     })
+
+    // Crear plantillas de correo de sistema para la nueva empresa
+    await crearPlantillasSistema(admin, empresa.id, user.id)
 
     // Setear empresa activa en app_metadata para que el JWT hook la use
     await admin.auth.admin.updateUserById(user.id, {

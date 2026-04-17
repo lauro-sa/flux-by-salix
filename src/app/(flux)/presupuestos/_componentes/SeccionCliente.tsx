@@ -5,8 +5,9 @@
  * Se usa en: EditorPresupuesto.tsx
  */
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Mail, Phone, ExternalLink } from 'lucide-react'
+import { Mail, Phone, ExternalLink, Copy, Check } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import SelectorContactoPresupuesto from './SelectorContactoPresupuesto'
 import { useTraduccion } from '@/lib/i18n'
@@ -167,6 +168,21 @@ export default function SeccionCliente({
   )
 }
 
+/** Botoncito de copiar al portapapeles */
+function BotonCopiar({ valor }: { valor: string }) {
+  const [copiado, setCopiado] = useState(false)
+  const copiar = () => {
+    navigator.clipboard.writeText(valor)
+    setCopiado(true)
+    setTimeout(() => setCopiado(false), 1500)
+  }
+  return (
+    <button type="button" onClick={copiar} className="text-texto-terciario hover:text-texto-primario transition-colors p-0.5 -m-0.5 rounded" title="Copiar">
+      {copiado ? <Check size={11} className="text-insignia-exito" /> : <Copy size={11} />}
+    </button>
+  )
+}
+
 // ─── Sub-componentes internos de "Dirigido a" ──────────────────────────────
 
 function DirigidoACrear({
@@ -199,12 +215,14 @@ function DirigidoACrear({
                 <p className="text-xs text-texto-terciario flex items-center gap-1.5">
                   <Mail size={13} className="shrink-0" />
                   {atencionSeleccionada.correo}
+                  <BotonCopiar valor={atencionSeleccionada.correo} />
                 </p>
               )}
               {(atencionSeleccionada.whatsapp || atencionSeleccionada.telefono) && (
                 <p className="text-xs text-texto-terciario flex items-center gap-1.5">
                   <Phone size={13} className="shrink-0" />
                   {atencionSeleccionada.whatsapp || atencionSeleccionada.telefono}
+                  <BotonCopiar valor={atencionSeleccionada.whatsapp || atencionSeleccionada.telefono || ''} />
                 </p>
               )}
             </div>
@@ -271,12 +289,14 @@ function DirigidoAEditarExistente({
               <p className="text-xs text-texto-terciario flex items-center gap-1.5">
                 <Mail size={13} className="shrink-0" />
                 {atencionSeleccionada?.correo || presupuesto.atencion_correo}
+                <BotonCopiar valor={atencionSeleccionada?.correo || presupuesto.atencion_correo || ''} />
               </p>
             )}
             {(atencionSeleccionada?.whatsapp || atencionSeleccionada?.telefono) && (
               <p className="text-xs text-texto-terciario flex items-center gap-1.5">
                 <Phone size={13} className="shrink-0" />
                 {atencionSeleccionada.whatsapp || atencionSeleccionada.telefono}
+                <BotonCopiar valor={atencionSeleccionada.whatsapp || atencionSeleccionada.telefono || ''} />
               </p>
             )}
             {presupuesto.atencion_cargo && (

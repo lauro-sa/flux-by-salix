@@ -23,7 +23,7 @@ export interface ContactoResumido {
   numero_identificacion: string | null
   datos_fiscales: Record<string, string> | null
   condicion_iva: string | null
-  direcciones: { id?: string; texto: string | null; tipo?: string; calle?: string | null; numero?: string | null; ciudad?: string | null; provincia?: string | null; codigo_postal?: string | null; es_principal: boolean }[]
+  direcciones: { id?: string; texto: string | null; tipo?: string; calle?: string | null; numero?: string | null; piso?: string | null; departamento?: string | null; barrio?: string | null; ciudad?: string | null; provincia?: string | null; pais?: string | null; codigo_postal?: string | null; timbre?: string | null; es_principal: boolean }[]
 }
 
 // Vinculacion de un contacto (persona vinculada a una empresa)

@@ -64,6 +64,7 @@ function formatearValor(valor: unknown, definicion?: DefinicionVariable, moneda?
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
+        hour12: false,
       }).format(fecha)
     }
 
@@ -189,7 +190,7 @@ export function validarVariables(texto: string): Array<{ entidad: string; campo:
 /**
  * Formatea un valor individual de una variable según su tipo de dato.
  * Útil para formatear previews de chips de variable en el editor.
- *   formatearVariable('presupuesto', 'total_con_iva', 586850, 'ARS') → '$586.850,00'
+ *   formatearVariable('presupuesto', 'total_final', 586850, 'ARS') → '$586.850,00'
  */
 export function formatearVariable(
   claveEntidad: string,

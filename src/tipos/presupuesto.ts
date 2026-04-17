@@ -127,6 +127,7 @@ export interface Presupuesto {
   pdf_miniatura_url: string | null
   pdf_storage_path: string | null
   pdf_generado_en: string | null
+  pdf_nombre_archivo: string | null
   // PDF firmado (certificado de aceptación)
   pdf_firmado_url: string | null
   pdf_firmado_storage_path: string | null
@@ -444,6 +445,8 @@ export const VARIABLES_PLANTILLA_PDF = [
 export const VARIABLES_NOMBRE_PDF = [
   { variable: '{numero}', descripcion: 'Número del documento' },
   { variable: '{contacto_nombre}', descripcion: 'Nombre del contacto' },
+  { variable: '{atencion_nombre}', descripcion: 'Nombre del dirigido a (atención)' },
+  { variable: '{atencion_cargo}', descripcion: 'Cargo del dirigido a' },
   { variable: '{fecha}', descripcion: 'Fecha de emisión (dd-mm-yyyy)' },
   { variable: '{tipo}', descripcion: 'Tipo de documento (Presupuesto)' },
   { variable: '{referencia}', descripcion: 'Referencia interna' },

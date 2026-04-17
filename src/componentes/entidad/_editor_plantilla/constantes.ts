@@ -31,16 +31,17 @@ export const DATOS_EJEMPLO: Record<string, Record<string, unknown>> = {
   contacto: {
     nombre: 'Juan', apellido: 'García', nombre_completo: 'Juan García',
     correo: 'juan@ejemplo.com', telefono: '+54 11 1234-5678',
-    calle: 'Av. Corrientes', numero: '1234', piso: '3°A',
-    barrio: 'San Nicolás', ciudad: 'CABA', provincia: 'Buenos Aires',
-    codigo_postal: 'C1043AAZ',
-    direccion_completa: 'Av. Corrientes 1234, 3°A, San Nicolás, CABA, Buenos Aires, C1043AAZ',
+    direccion: 'Av. Corrientes 1234, 3°A, San Nicolás, CABA, Buenos Aires',
+    calle: 'Av. Corrientes', numero_calle: '1234', calle_altura: 'Av. Corrientes 1234',
+    piso: '3°A', barrio: 'San Nicolás', ciudad: 'CABA', provincia: 'Buenos Aires',
+    pais: 'Argentina', codigo_postal: 'C1043AAZ',
   },
   presupuesto: {
-    numero: 'P-0001', estado: 'Confirmado', total_con_iva: '$150.000,00',
+    numero: 'P-0001', estado: 'Confirmado', total_final: '$150.000,00',
+    subtotal_neto: '$123.966,94', total_impuestos: '$26.033,06',
     fecha_emision: '07/03/2026', moneda: 'ARS',
   },
-  empresa: { nombre: 'Mi Empresa S.A.', correo_contacto: 'info@miempresa.com' },
+  empresa: { nombre: 'Mi Empresa S.A.', correo: 'info@miempresa.com', telefono: '+54 11 5050-1234' },
   dirigido_a: {
     nombre: 'María', apellido: 'López', nombre_completo: 'María López',
     correo: 'maria@ejemplo.com', cargo: 'Gerente Comercial',

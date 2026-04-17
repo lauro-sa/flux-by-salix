@@ -384,6 +384,7 @@ function Header({
               <div className="px-4 py-2.5 flex items-center gap-4">
                 <Link href="/documentacion" onClick={() => setMenuAbierto(false)} className="text-xs text-texto-terciario hover:text-texto-secundario no-underline transition-colors">{t('navegacion.documentacion')}</Link>
                 <Link href="/vitrina" onClick={() => setMenuAbierto(false)} className="text-xs text-texto-terciario hover:text-texto-secundario no-underline transition-colors">{t('navegacion.vitrina')}</Link>
+                <Link href="/vitrina/variables" onClick={() => setMenuAbierto(false)} className="text-xs text-texto-terciario hover:text-texto-secundario no-underline transition-colors">Variables</Link>
               </div>
             </motion.div>
           )}

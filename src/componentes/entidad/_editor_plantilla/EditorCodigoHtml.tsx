@@ -131,17 +131,16 @@ export function EditorCodigoHtml({
             />
           </div>
         </div>
-        <div className="flex-1 min-h-0">
-          <textarea
-            ref={htmlTextareaRef}
-            value={htmlCrudo}
-            onChange={(e) => onHtmlCrudoChange(e.target.value)}
-            placeholder={"<p>Hola {{contacto.nombre}},</p>\n<p>Adjuntamos el {{presupuesto.numero}}.</p>"}
-            spellCheck={false}
-            className="w-full h-full rounded-md border border-borde-fuerte bg-superficie-tarjeta px-3 py-2 text-xs font-mono text-texto-primario placeholder:text-texto-placeholder resize-none outline-none focus:border-borde-foco focus:shadow-foco transition-all"
-            style={{ tabSize: 2 }}
-          />
-        </div>
+        <textarea
+          ref={htmlTextareaRef}
+          value={htmlCrudo}
+          onChange={(e) => onHtmlCrudoChange(e.target.value)}
+          placeholder={"<p>Hola {{contacto.nombre}},</p>\n<p>Adjuntamos el {{presupuesto.numero}}.</p>"}
+          spellCheck={false}
+          rows={12}
+          className="w-full rounded-md border border-borde-fuerte bg-superficie-tarjeta px-3 py-2 text-xs font-mono text-texto-primario placeholder:text-texto-placeholder resize-y outline-none focus:border-borde-foco focus:shadow-foco transition-all"
+          style={{ tabSize: 2, minHeight: 220 }}
+        />
       </div>
 
       {/* Referencia rapida HTML — botones con etiqueta visible */}

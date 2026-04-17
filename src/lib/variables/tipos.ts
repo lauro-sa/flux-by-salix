@@ -2,7 +2,7 @@
  * Tipos del sistema de variables dinámicas de Flux.
  * Las variables se auto-generan desde el registro de entidades y se usan
  * en plantillas de documentos, emails, WhatsApp, etc.
- * Sintaxis: {{entidad.campo}} — ej: {{contacto.nombre}}, {{presupuesto.total_con_iva}}
+ * Sintaxis: {{entidad.campo}} — ej: {{contacto.nombre}}, {{presupuesto.total_final}}
  */
 
 import type { ReactNode } from 'react'

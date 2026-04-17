@@ -259,7 +259,22 @@ export async function generarPdfPresupuesto(
       // Agregar cache buster a la URL existente
       const urlBase = presupuesto.pdf_url.split('?')[0]
       const urlFresca = `${urlBase}?t=${Date.now()}`
-      return { url: urlFresca, storage_path: presupuesto.pdf_storage_path || '', nombre_archivo: '', tamano: 0 }
+      // Devolver el nombre guardado, o calcularlo si no existe
+      const nombreExistente = presupuesto.pdf_nombre_archivo
+      if (nombreExistente) {
+        return { url: urlFresca, storage_path: presupuesto.pdf_storage_path || '', nombre_archivo: nombreExistente, tamano: 0 }
+      }
+      // Calcular nombre si no se guardó antes (presupuestos generados antes del campo nuevo)
+      const { data: configNombre } = await admin.from('config_presupuestos').select('patron_nombre_pdf').eq('empresa_id', empresaId).single()
+      const nombre = generarNombreArchivo(configNombre?.patron_nombre_pdf, {
+        numero: presupuesto.numero, contacto_nombre: presupuesto.contacto_nombre,
+        contacto_apellido: presupuesto.contacto_apellido, fecha_emision: presupuesto.fecha_emision,
+        referencia: presupuesto.referencia, atencion_nombre: presupuesto.atencion_nombre,
+        atencion_cargo: presupuesto.atencion_cargo, contacto_direccion: presupuesto.contacto_direccion,
+      })
+      // Guardar para la próxima vez
+      await admin.from('presupuestos').update({ pdf_nombre_archivo: nombre }).eq('id', presupuestoId)
+      return { url: urlFresca, storage_path: presupuesto.pdf_storage_path || '', nombre_archivo: nombre, tamano: 0 }
     }
   }
 
@@ -401,6 +416,22 @@ export async function generarPdfPresupuesto(
     numero: presupuesto.numero, contacto_nombre: presupuesto.contacto_nombre,
     contacto_apellido: presupuesto.contacto_apellido, fecha_emision: presupuesto.fecha_emision,
     referencia: presupuesto.referencia,
+    atencion_nombre: presupuesto.atencion_nombre,
+    atencion_cargo: presupuesto.atencion_cargo,
+    atencion_correo: presupuesto.atencion_correo,
+    contacto_direccion: presupuesto.contacto_direccion,
+    contacto_correo: presupuesto.contacto_correo,
+    contacto_telefono: presupuesto.contacto_telefono,
+    contacto_identificacion: presupuesto.contacto_identificacion,
+    contacto_condicion_iva: presupuesto.contacto_condicion_iva,
+    estado: presupuesto.estado,
+    moneda: presupuesto.moneda,
+    total_final: presupuesto.total_final,
+  }, {
+    nombre: empresa?.nombre,
+    ubicacion: empresa?.ubicacion,
+    correo: empresa?.correo,
+    telefono: empresa?.telefono,
   })
 
   const { url, storagePath } = await subirAStorage(admin, empresaId, presupuestoId, pdfBuffer, congelado)
@@ -430,6 +461,7 @@ export async function generarPdfPresupuesto(
     }
     const actualizacion: Record<string, unknown> = {
       pdf_url: url, pdf_storage_path: storagePath, pdf_generado_en: new Date().toISOString(),
+      pdf_nombre_archivo: nombreArchivo,
     }
     if (miniaturaUrl) actualizacion.pdf_miniatura_url = miniaturaUrl
     await admin.from('presupuestos').update(actualizacion).eq('id', presupuestoId)

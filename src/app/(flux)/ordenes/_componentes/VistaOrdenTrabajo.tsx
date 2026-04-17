@@ -37,6 +37,12 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
   const router = useRouter()
   const { mostrar: mostrarToast } = useToast()
 
+  // Restaurar título de pestaña al salir
+  useEffect(() => {
+    const tituloOriginal = document.title
+    return () => { document.title = tituloOriginal }
+  }, [])
+
   const [orden, setOrden] = useState<OrdenTrabajo | null>(null)
   const [asignados, setAsignados] = useState<AsignadoOrdenTrabajo[]>([])
   const [progreso, setProgreso] = useState({ total_actividades: 0, completadas: 0, porcentaje: 0 })
@@ -87,6 +93,7 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
       setOrden(data.orden)
       setAsignados(data.asignados || [])
       setProgreso(data.progreso || { total_actividades: 0, completadas: 0, porcentaje: 0 })
+      if (data.orden?.numero) document.title = `${data.orden.numero} — Flux`
     } catch {
       mostrarToast('error', 'Error al cargar la orden')
     } finally {

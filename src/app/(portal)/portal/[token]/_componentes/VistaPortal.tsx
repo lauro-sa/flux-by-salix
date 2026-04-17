@@ -233,6 +233,7 @@ export default function VistaPortal({ datos }: Props) {
           onRechazar={handleRechazar}
           onCancelar={handleCancelar}
           cargando={cargando}
+          fechaVencimiento={presupuesto.fecha_vencimiento}
         />
 
         {/* Panel de firma (se despliega al aceptar, con scroll automático) */}

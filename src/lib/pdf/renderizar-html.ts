@@ -426,25 +426,120 @@ export function renderizarHtml(
 
 // ─── Nombre del archivo ───
 
+/**
+ * Genera el nombre del archivo PDF a partir de un patrón.
+ * Soporta dos formatos de variables:
+ * - Legacy: {numero}, {contacto_nombre}, {fecha}, {tipo}, {referencia}, {atencion_nombre}, {atencion_cargo}
+ * - Nuevo:  {{entidad.campo}} — usa el sistema de variables de Flux
+ *
+ * Secciones condicionales con corchetes:
+ *   [texto {{variable}}] → se elimina todo el bloque si la variable queda vacía
+ *   Ejemplo: {{presupuesto.numero}}[ – {{dirigido_a.nombre}}]
+ *   Si no hay dirigido_a, el " – " también desaparece.
+ */
 export function generarNombreArchivo(
   patron: string | null,
-  presupuesto: { numero: string; contacto_nombre: string | null; contacto_apellido: string | null; fecha_emision: string; referencia: string | null },
+  presupuesto: {
+    numero: string; contacto_nombre: string | null; contacto_apellido: string | null;
+    fecha_emision: string; referencia: string | null;
+    atencion_nombre?: string | null; atencion_cargo?: string | null;
+    atencion_correo?: string | null;
+    contacto_direccion?: string | null; contacto_correo?: string | null;
+    contacto_telefono?: string | null; contacto_identificacion?: string | null;
+    contacto_condicion_iva?: string | null;
+    estado?: string; moneda?: string; total_final?: number;
+  },
+  empresa?: { nombre?: string; ubicacion?: string; correo?: string; telefono?: string } | null,
   locale = 'es-AR',
 ): string {
-  const template = patron || '{numero} - {contacto_nombre}'
+  let template = patron || '{numero} - {contacto_nombre}'
+
   const nombreContacto = [presupuesto.contacto_nombre, presupuesto.contacto_apellido]
     .filter(Boolean)
     .join(' ') || 'Sin contacto'
 
+  // ─── Resolver variables legacy {variable} ───
+  template = template
+    .replace(/\{numero\}/g, presupuesto.numero || '')
+    .replace(/\{contacto_nombre\}/g, nombreContacto)
+    .replace(/\{atencion_nombre\}/g, presupuesto.atencion_nombre || '')
+    .replace(/\{atencion_cargo\}/g, presupuesto.atencion_cargo || '')
+    .replace(/\{fecha\}/g, formatearFecha(presupuesto.fecha_emision, locale).replace(/\//g, '-'))
+    .replace(/\{tipo\}/g, 'Presupuesto')
+    .replace(/\{referencia\}/g, presupuesto.referencia || '')
+
+  // ─── Resolver variables nuevas {{entidad.campo}} ───
+  const contexto: Record<string, Record<string, unknown>> = {
+    presupuesto: {
+      numero: presupuesto.numero,
+      fecha_emision: presupuesto.fecha_emision,
+      referencia: presupuesto.referencia,
+      estado: presupuesto.estado,
+      moneda: presupuesto.moneda,
+      total_final: presupuesto.total_final,
+      contacto_nombre: presupuesto.contacto_nombre,
+      contacto_correo: presupuesto.contacto_correo,
+      contacto_telefono: presupuesto.contacto_telefono,
+      contacto_direccion: presupuesto.contacto_direccion,
+      contacto_identificacion: presupuesto.contacto_identificacion,
+    },
+    contacto: {
+      nombre: presupuesto.contacto_nombre,
+      apellido: presupuesto.contacto_apellido,
+      nombre_completo: nombreContacto,
+      direccion: presupuesto.contacto_direccion,
+      correo: presupuesto.contacto_correo,
+      telefono: presupuesto.contacto_telefono,
+      numero_identificacion: presupuesto.contacto_identificacion,
+    },
+    dirigido_a: {
+      nombre: presupuesto.atencion_nombre,
+      cargo: presupuesto.atencion_cargo,
+      nombre_completo: presupuesto.atencion_nombre,
+      correo: presupuesto.atencion_correo,
+    },
+    empresa: {
+      nombre: empresa?.nombre,
+      ubicacion: empresa?.ubicacion,
+      correo: empresa?.correo,
+      telefono: empresa?.telefono,
+    },
+    fecha: {
+      hoy: new Date().toISOString(),
+      anio: new Date().getFullYear().toString(),
+    },
+  }
+
+  // Primero resolver secciones condicionales: [contenido con {{var}}]
+  // Si alguna variable dentro queda vacía, eliminar todo el bloque (incluido separadores)
+  template = template.replace(/\[([^\]]*\{\{[^\]]*)\]/g, (_match, contenido: string) => {
+    let hayVacio = false
+    const resuelto = contenido.replace(/\{\{([a-z_]+)\.([a-z_]+)\}\}/g, (_m: string, ent: string, campo: string) => {
+      const val = contexto[ent]?.[campo]
+      if (val === null || val === undefined || val === '') { hayVacio = true; return '' }
+      if (campo.includes('fecha')) return formatearFecha(String(val), locale).replace(/\//g, '-')
+      return String(val)
+    })
+    return hayVacio ? '' : resuelto
+  })
+
+  // Resolver variables {{entidad.campo}} sueltas (sin corchetes)
+  template = template.replace(/\{\{([a-z_]+)\.([a-z_]+)\}\}/g, (_m, ent: string, campo: string) => {
+    const val = contexto[ent]?.[campo]
+    if (val === null || val === undefined || val === '') return ''
+    if (campo.includes('fecha')) return formatearFecha(String(val), locale).replace(/\//g, '-')
+    return String(val)
+  })
+
+  // Limpiar separadores huérfanos (dobles espacios, guiones colgando, etc.)
   const nombre = template
-    .replace('{numero}', presupuesto.numero || '')
-    .replace('{contacto_nombre}', nombreContacto)
-    .replace('{fecha}', formatearFecha(presupuesto.fecha_emision, locale).replace(/\//g, '-'))
-    .replace('{tipo}', 'Presupuesto')
-    .replace('{referencia}', presupuesto.referencia || '')
+    .replace(/\s*[–\-]\s*$/g, '')  // separador al final
+    .replace(/^\s*[–\-]\s*/g, '')  // separador al inicio
+    .replace(/\s*[–\-]\s*[–\-]\s*/g, ' – ') // dobles separadores
+    .replace(/\s{2,}/g, ' ')       // espacios múltiples
     .trim()
 
-  return nombre.replace(/[<>:"/\\|?*]/g, '_') + '.pdf'
+  return (nombre || 'documento').replace(/[<>:"/\\|?*]/g, '_') + '.pdf'
 }
 
 // ─── Datos de muestra para la vista previa ───

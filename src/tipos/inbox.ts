@@ -377,6 +377,11 @@ export interface PlantillaRespuesta {
   creado_por: string
   creado_en: string
   actualizado_en: string
+  // Plantillas de sistema
+  es_sistema?: boolean
+  clave_sistema?: string | null
+  contenido_original_html?: string | null
+  asunto_original?: string | null
 }
 
 // ─── Asignaciones ───

@@ -6,6 +6,8 @@
  * Se usa en: EditorPresupuesto.tsx
  */
 
+import { useState } from 'react'
+import { Copy, Check } from 'lucide-react'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
@@ -14,6 +16,21 @@ import { useTraduccion } from '@/lib/i18n'
 import { useFormato } from '@/hooks/useFormato'
 import type { CondicionPago, ConfigPresupuestos, PresupuestoConLineas } from '@/tipos/presupuesto'
 import type { LineaTemporal } from './tipos-editor'
+
+/** Botoncito de copiar al portapapeles */
+function BotonCopiar({ valor }: { valor: string }) {
+  const [copiado, setCopiado] = useState(false)
+  const copiar = () => {
+    navigator.clipboard.writeText(valor)
+    setCopiado(true)
+    setTimeout(() => setCopiado(false), 1500)
+  }
+  return (
+    <button type="button" onClick={copiar} className="text-texto-terciario hover:text-texto-primario transition-colors p-0.5 -m-0.5 rounded" title="Copiar">
+      {copiado ? <Check size={11} className="text-insignia-exito" /> : <Copy size={11} />}
+    </button>
+  )
+}
 
 interface PropsSeccionDatosPresupuesto {
   modo: 'crear' | 'editar'
@@ -33,6 +50,7 @@ interface PropsSeccionDatosPresupuesto {
   monedas: { id: string; label: string; simbolo: string; activo: boolean }[]
   // Totales para hitos
   totalDocumento: number
+  subtotalNeto: number
   simbolo: string
   // Bloqueada
   bloqueada: boolean
@@ -80,6 +98,7 @@ export default function SeccionDatosPresupuesto({
   condiciones,
   monedas,
   totalDocumento,
+  subtotalNeto,
   simbolo,
   bloqueada,
   fechaVenc,
@@ -266,21 +285,46 @@ export default function SeccionDatosPresupuesto({
               )}
             </div>
           </div>
-          {/* Desglose cuotas (hitos) inline */}
-          {condSeleccionada?.tipo === 'hitos' && condSeleccionada.hitos.length > 0 && (
-            <div className="pb-2 space-y-1">
-              {condSeleccionada.hitos.map(h => (
-                <div key={h.id} className="flex items-center justify-between text-xs pl-1">
-                  <span className="text-texto-terciario">{h.descripcion}</span>
-                  <div className="flex items-center gap-3">
-                    <span className="text-texto-terciario tabular-nums w-8 text-right">{h.porcentaje}%</span>
-                    <span className="text-texto-terciario">{simbolo}</span>
-                    <span className="text-texto-primario font-mono tabular-nums text-right w-[9rem]">{formato.numero(totalDocumento * h.porcentaje / 100, 2)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          {/* Desglose cuotas (hitos) */}
+          {condSeleccionada?.tipo === 'hitos' && condSeleccionada.hitos.length > 0 && (() => {
+            const tieneImpuestos = totalDocumento !== subtotalNeto
+            return (
+              <div className="pb-2 pt-1 space-y-1.5">
+                {condSeleccionada.hitos.map(h => {
+                  const montoTotal = totalDocumento * h.porcentaje / 100
+                  const montoNeto = subtotalNeto * h.porcentaje / 100
+                  return (
+                    <div key={h.id} className="rounded-md border border-white/[0.06] bg-white/[0.02] px-2.5 py-2">
+                      {/* Encabezado: descripción + porcentaje */}
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-medium text-texto-secundario">{h.descripcion}</span>
+                        <span className="text-xxs font-medium text-texto-terciario bg-white/[0.06] px-1.5 py-0.5 rounded">{h.porcentaje}%</span>
+                      </div>
+                      {/* Montos */}
+                      <div className="space-y-1">
+                        {tieneImpuestos && (
+                          <div className="flex items-center justify-between text-xxs">
+                            <span className="text-texto-terciario">Neto</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-texto-terciario font-mono tabular-nums">{simbolo} {formato.numero(montoNeto, 2)}</span>
+                              <BotonCopiar valor={montoNeto.toFixed(2)} />
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-texto-secundario font-medium">{tieneImpuestos ? 'Con impuestos' : 'Total'}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-texto-primario font-mono font-semibold tabular-nums">{simbolo} {formato.numero(montoTotal, 2)}</span>
+                            <BotonCopiar valor={montoTotal.toFixed(2)} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
           <div className={fila}>
             <span className={etiqueta}>{t('documentos.moneda')}</span>
             <div className={valorAncho}>

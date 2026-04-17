@@ -340,9 +340,9 @@ function ListaConfiguracion({
   // Placeholder invisible para mantener alineación cuando un botón no aplica
   const placeholderBoton = <span className="size-7 shrink-0" />
 
-  const botonEditar = (item: ItemLista) => onEditar && !item.esSistema ? (
+  const botonEditar = (item: ItemLista) => onEditar ? (
     <Boton variante="fantasma" tamano="xs" soloIcono icono={<Pencil size={13} />} onClick={() => onEditar(item)} titulo={t('comun.editar')} />
-  ) : onEditar ? placeholderBoton : null
+  ) : null
 
   const botonEliminar = (item: ItemLista) => onEliminar && !item.esSistema && !item.esPredefinido ? (
     <button
