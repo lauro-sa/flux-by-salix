@@ -291,7 +291,13 @@ export async function POST(request: NextRequest) {
           accion: 'actividad_creada',
           actividad_id: data.id,
           tipo_actividad: tipo.clave,
+          tipo_etiqueta: tipo.etiqueta,
+          tipo_color: tipo.color,
           titulo: body.titulo.trim(),
+          descripcion: body.descripcion || null,
+          prioridad: body.prioridad || 'normal',
+          fecha_vencimiento: body.fecha_vencimiento || null,
+          asignados: Array.isArray(body.asignados) ? body.asignados : [],
           vinculos_relacionados: otrosVinculos,
         },
       })

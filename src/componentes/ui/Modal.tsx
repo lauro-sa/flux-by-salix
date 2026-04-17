@@ -67,16 +67,22 @@ function Modal({ abierto, onCerrar, titulo, tamano = 'lg', children, acciones, a
     }
   }, [onCerrar])
 
+  // Auto-focus al primer elemento focusable solo al ABRIR el modal
   useEffect(() => {
     if (abierto) {
-      document.addEventListener('keydown', manejarTecla)
-      // Auto-focus al primer elemento focusable del modal
       requestAnimationFrame(() => {
         const primero = panelRef.current?.querySelector<HTMLElement>(
-          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
         )
         primero?.focus()
       })
+    }
+  }, [abierto])
+
+  // Listener de teclado separado para no re-disparar el auto-focus
+  useEffect(() => {
+    if (abierto) {
+      document.addEventListener('keydown', manejarTecla)
     }
     return () => {
       document.removeEventListener('keydown', manejarTecla)

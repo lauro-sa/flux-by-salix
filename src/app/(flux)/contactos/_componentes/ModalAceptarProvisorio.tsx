@@ -14,8 +14,9 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Search, UserPlus, Users, ArrowRight, Check,
-  Phone, Mail, MessageCircle, MapPin,
+  Phone, Mail, MapPin,
 } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Boton } from '@/componentes/ui/Boton'
 import { Input } from '@/componentes/ui/Input'
@@ -224,7 +225,7 @@ export function ModalAceptarProvisorio({
               )}
               {contacto.whatsapp && (
                 <span className="flex items-center gap-1 text-xs text-texto-terciario">
-                  <MessageCircle size={11} /> {contacto.whatsapp}
+                  <IconoWhatsApp size={11} /> {contacto.whatsapp}
                 </span>
               )}
               {contacto.cargo && (

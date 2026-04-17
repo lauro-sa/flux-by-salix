@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { ArrowRight, Inbox as InboxIcon, Send, CheckCircle2, Clock } from 'lucide-react'
+import { ArrowRight, MessagesSquare, Send, CheckCircle2, Clock } from 'lucide-react'
 import { TarjetaConPestanas } from '@/componentes/ui/TarjetaConPestanas'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { Boton } from '@/componentes/ui/Boton'
@@ -54,7 +54,7 @@ export function WidgetInbox({ resumen, porAgente }: Props) {
   const contenidoVolumen = (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        <MiniMetrica etiqueta="Recibidos" valor={resumen.mensajes_recibidos} icono={<InboxIcon size={14} />} />
+        <MiniMetrica etiqueta="Recibidos" valor={resumen.mensajes_recibidos} icono={<MessagesSquare size={14} />} />
         <MiniMetrica etiqueta="Enviados" valor={resumen.mensajes_enviados} icono={<Send size={14} />} />
         <MiniMetrica etiqueta="Resueltas" valor={resumen.conversaciones_resueltas} icono={<CheckCircle2 size={14} />} />
         <MiniMetrica etiqueta="Tiempo resp." valor={`${resumen.tiempo_respuesta_promedio_min}m`} icono={<Clock size={14} />} />

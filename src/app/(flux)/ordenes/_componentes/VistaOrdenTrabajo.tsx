@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FileText, User, ExternalLink, Loader2, X, Phone, MessageCircle, MapPin, Crown, Plus, Bell } from 'lucide-react'
+import { FileText, User, ExternalLink, Loader2, X, Phone, MapPin, Crown, Plus, Bell } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useFormato } from '@/hooks/useFormato'
@@ -353,7 +354,7 @@ export default function VistaOrdenTrabajo({ ordenId }: Props) {
                 {(orden.contacto_whatsapp || orden.contacto_telefono) && (
                   <a href={`https://wa.me/${(orden.contacto_whatsapp || orden.contacto_telefono || '').replace(/[^+\d]/g, '')}`} target="_blank" rel="noopener noreferrer">
                     <button type="button" className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer border border-borde-sutil bg-transparent hover:bg-superficie-hover/50 active:scale-95" style={{ color: 'var(--canal-whatsapp)' }}>
-                      <MessageCircle size={14} />
+                      <IconoWhatsApp size={14} />
                       {t('ordenes.whatsapp')}
                     </button>
                   </a>

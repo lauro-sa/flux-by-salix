@@ -91,10 +91,10 @@ interface Miembro {
 }
 
 /** Mapeo tipo → acción inteligente */
-const ACCIONES_TIPO: Record<string, { etiqueta: string; icono: typeof FileText; ruta: (contactoId?: string) => string }> = {
-  presupuestar: { etiqueta: 'Crear presupuesto', icono: FileText, ruta: (cId) => cId ? `/presupuestos/nuevo?contacto_id=${cId}&desde=/actividades` : '/presupuestos/nuevo?desde=/actividades' },
-  visita: { etiqueta: 'Ir a visitas', icono: MapPin, ruta: (cId) => cId ? `/visitas?contacto_id=${cId}&desde=/actividades` : '/visitas?desde=/actividades' },
-  correo: { etiqueta: 'Enviar correo', icono: MailIcon, ruta: (cId) => cId ? `/inbox?contacto_id=${cId}&desde=/actividades` : '/inbox?desde=/actividades' },
+const ACCIONES_TIPO: Record<string, { etiqueta: string; icono: typeof FileText; ruta: (contactoId?: string, actividadOrigenId?: string) => string }> = {
+  presupuestar: { etiqueta: 'Crear presupuesto', icono: FileText, ruta: (cId, aId) => { const params = new URLSearchParams({ desde: '/actividades' }); if (cId) params.set('contacto_id', cId); if (aId) params.set('actividad_origen_id', aId); return `/presupuestos/nuevo?${params}` } },
+  visita: { etiqueta: 'Ir a visitas', icono: MapPin, ruta: (cId, aId) => { const params = new URLSearchParams({ desde: '/actividades' }); if (cId) params.set('contacto_id', cId); if (aId) params.set('actividad_origen_id', aId); return `/visitas?${params}` } },
+  correo: { etiqueta: 'Enviar correo', icono: MailIcon, ruta: (cId, aId) => { const params = new URLSearchParams({ desde: '/actividades' }); if (cId) params.set('contacto_id', cId); if (aId) params.set('actividad_origen_id', aId); return `/inbox?${params}` } },
 }
 
 interface PresetPosposicion {
@@ -451,12 +451,13 @@ function ModalActividad({
           {(() => {
             const tipoAct = tiposActivos.find(t => t.id === actividad.tipo_id)
             const accion = tipoAct ? ACCIONES_TIPO[tipoAct.clave] : null
-            if (!accion) return null
+            if (!accion || !tipoAct) return null
             const contacto = (actividad.vinculos as Vinculo[])?.find(v => v.tipo === 'contacto')
             const IconoAccion = accion.icono
+            const actOrigenId = tipoAct.auto_completar ? actividad.id : undefined
             return (
               <Boton variante="fantasma" tamano="sm" redondeado icono={<IconoAccion size={15} />}
-                onClick={() => { onCerrar(); router.push(accion.ruta(contacto?.id)) }}
+                onClick={() => { onCerrar(); router.push(accion.ruta(contacto?.id, actOrigenId)) }}
                 className="bg-texto-marca/10 text-texto-marca hover:bg-texto-marca/15">
                 {accion.etiqueta}
               </Boton>

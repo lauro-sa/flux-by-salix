@@ -66,6 +66,7 @@ export default function PaginaConfiguracionProductos() {
   const [categoriasCosto, setCategoriasCosto] = useState<CategoriaCosto[]>(CATEGORIAS_COSTO_DEFAULT)
 
   const [confirmarEliminar, setConfirmarEliminar] = useState<{ id: string; nombre: string; seccion: string } | null>(null)
+  const [confirmarRestaurar, setConfirmarRestaurar] = useState<string | null>(null)
   const [modalProducto, setModalProducto] = useState<{ abierto: boolean; seccion: string; valores?: Record<string, unknown>; editandoId?: string }>({ abierto: false, seccion: '' })
 
   // ─── Cargar configuración ───
@@ -162,10 +163,7 @@ export default function PaginaConfiguracionProductos() {
             guardar({ categorias: nuevas } as Partial<ConfigProductos>)
           }}
           restaurable
-          onRestaurar={() => {
-            setCategorias(CATEGORIAS_DEFAULT)
-            guardar({ categorias: CATEGORIAS_DEFAULT } as Partial<ConfigProductos>)
-          }}
+          onRestaurar={() => setConfirmarRestaurar('categorias')}
         />
       )}
 
@@ -193,10 +191,7 @@ export default function PaginaConfiguracionProductos() {
             guardar({ unidades: nuevas } as Partial<ConfigProductos>)
           }}
           restaurable
-          onRestaurar={() => {
-            setUnidades(UNIDADES_DEFAULT)
-            guardar({ unidades: UNIDADES_DEFAULT } as Partial<ConfigProductos>)
-          }}
+          onRestaurar={() => setConfirmarRestaurar('unidades')}
         />
       )}
 
@@ -263,12 +258,32 @@ export default function PaginaConfiguracionProductos() {
             guardar({ categorias_costo: nuevas } as Partial<ConfigProductos>)
           }}
           restaurable
-          onRestaurar={() => {
-            setCategoriasCosto(CATEGORIAS_COSTO_DEFAULT)
-            guardar({ categorias_costo: CATEGORIAS_COSTO_DEFAULT } as Partial<ConfigProductos>)
-          }}
+          onRestaurar={() => setConfirmarRestaurar('costos')}
         />
       )}
+
+      {/* Confirmar restaurar predefinidos */}
+      <ModalConfirmacion
+        abierto={!!confirmarRestaurar}
+        titulo="Restaurar predefinidos"
+        descripcion="Se reemplazarán todos los valores personalizados por los predefinidos del sistema. Esta acción no se puede deshacer."
+        etiquetaConfirmar="Restaurar"
+        tipo="peligro"
+        onConfirmar={() => {
+          if (confirmarRestaurar === 'categorias') {
+            setCategorias(CATEGORIAS_DEFAULT)
+            guardar({ categorias: CATEGORIAS_DEFAULT } as Partial<ConfigProductos>)
+          } else if (confirmarRestaurar === 'unidades') {
+            setUnidades(UNIDADES_DEFAULT)
+            guardar({ unidades: UNIDADES_DEFAULT } as Partial<ConfigProductos>)
+          } else if (confirmarRestaurar === 'costos') {
+            setCategoriasCosto(CATEGORIAS_COSTO_DEFAULT)
+            guardar({ categorias_costo: CATEGORIAS_COSTO_DEFAULT } as Partial<ConfigProductos>)
+          }
+          setConfirmarRestaurar(null)
+        }}
+        onCerrar={() => setConfirmarRestaurar(null)}
+      />
 
       {/* Confirmar eliminar */}
       <ModalConfirmacion
@@ -316,7 +331,7 @@ export default function PaginaConfiguracionProductos() {
               setCategorias(nuevas)
               guardar({ categorias: nuevas } as Partial<ConfigProductos>)
             } else {
-              const nuevas = [...categorias, { id: `cat_${Date.now()}`, label: nombre }]
+              const nuevas = [...categorias, { id: `cat_${crypto.randomUUID().slice(0, 8)}`, label: nombre }]
               setCategorias(nuevas)
               guardar({ categorias: nuevas } as Partial<ConfigProductos>)
             }
@@ -327,7 +342,7 @@ export default function PaginaConfiguracionProductos() {
               setUnidades(nuevas)
               guardar({ unidades: nuevas } as Partial<ConfigProductos>)
             } else {
-              const nuevas = [...unidades, { id: `u_${Date.now()}`, label: nombre, abreviatura: abrev }]
+              const nuevas = [...unidades, { id: `u_${crypto.randomUUID().slice(0, 8)}`, label: nombre, abreviatura: abrev }]
               setUnidades(nuevas)
               guardar({ unidades: nuevas } as Partial<ConfigProductos>)
             }
@@ -337,7 +352,7 @@ export default function PaginaConfiguracionProductos() {
               setCategoriasCosto(nuevas)
               guardar({ categorias_costo: nuevas } as Partial<ConfigProductos>)
             } else {
-              const nuevas = [...categoriasCosto, { id: `cc_${Date.now()}`, label: nombre }]
+              const nuevas = [...categoriasCosto, { id: `cc_${crypto.randomUUID().slice(0, 8)}`, label: nombre }]
               setCategoriasCosto(nuevas)
               guardar({ categorias_costo: nuevas } as Partial<ConfigProductos>)
             }

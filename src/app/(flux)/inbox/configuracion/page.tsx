@@ -10,7 +10,7 @@ import { Select } from '@/componentes/ui/Select'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import {
   Settings2, Mail, Hash, FileText, Users,
-  Clock, Bell, MessageCircle,
+  Clock, Bell, MessagesSquare,
   Zap, TrendingUp, Tag,
 } from 'lucide-react'
 import type { CanalInbox, PlantillaRespuesta, ConfigInbox, TipoCanal } from '@/tipos/inbox'
@@ -144,7 +144,7 @@ export default function PaginaConfiguracionInbox() {
     <PlantillaConfiguracion
       titulo={t('inbox.config.titulo')}
       descripcion="Canales de comunicación, plantillas, automatización y reglas de tu bandeja de entrada."
-      iconoHeader={<MessageCircle size={22} style={{ color: 'var(--texto-marca)' }} />}
+      iconoHeader={<MessagesSquare size={22} style={{ color: 'var(--texto-marca)' }} />}
       volverTexto={t('inbox.titulo')}
       onVolver={() => router.push('/inbox')}
       secciones={secciones}

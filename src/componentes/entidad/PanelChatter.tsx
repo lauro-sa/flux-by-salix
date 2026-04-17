@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ModalActividad } from '@/app/(flux)/actividades/_componentes/ModalActividad'
+import { ModalVistaActividad } from '@/componentes/entidad/ModalVistaActividad'
 import { ModalVisita } from '@/app/(flux)/visitas/_componentes/ModalVisita'
 import { useModalVisita } from '@/hooks/useModalVisita'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
@@ -79,6 +80,8 @@ export function PanelChatter({
   const modalVisitaHook = useModalVisita()
   // Actividad cargada para edición (null = crear nueva)
   const [actividadEditar, setActividadEditar] = useState<Record<string, unknown> | null>(null)
+  // Modal de vista de actividad (solo lectura)
+  const [vistaActividadId, setVistaActividadId] = useState<string | null>(null)
 
   // Nota: el selector de calendario es fullscreen dentro del ModalActividad,
   // no navega a otra página, así que no necesitamos sessionStorage ni reapertura.
@@ -643,6 +646,9 @@ export function PanelChatter({
                           await cargar()
                         } catch { /* silencioso */ }
                       }}
+                      onVerActividad={(actividadId) => {
+                        setVistaActividadId(actividadId)
+                      }}
                     />
                   ))
                 )}
@@ -680,6 +686,25 @@ export function PanelChatter({
           onCambiarAVisita={() => { setModalActividad(false); setActividadEditar(null); modalVisitaHook.abrir() }}
         />
       )}
+
+      {/* Modal de vista de actividad (solo lectura) */}
+      <ModalVistaActividad
+        abierto={!!vistaActividadId}
+        onCerrar={() => setVistaActividadId(null)}
+        actividadId={vistaActividadId}
+        onEditar={async (actividadId) => {
+          setVistaActividadId(null)
+          await cargarConfig()
+          try {
+            const res = await fetch(`/api/actividades/${actividadId}`)
+            if (res.ok) {
+              const datos = await res.json()
+              setActividadEditar(datos)
+            }
+          } catch { /* silencioso */ }
+          setModalActividad(true)
+        }}
+      />
 
       {/* Modal de visita — abierto desde el botón Visita del chatter */}
       <ModalVisita

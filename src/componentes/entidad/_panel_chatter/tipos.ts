@@ -83,6 +83,8 @@ export interface PropsEntradaTimeline {
   onCancelarActividad?: (actividadId: string) => Promise<void>
   onEditarActividad?: (actividadId: string) => void
   onEliminarActividad?: (actividadId: string) => Promise<void>
+  /** Callback para abrir modal de visualización de actividad */
+  onVerActividad?: (actividadId: string, metadata: Record<string, unknown>) => void
 }
 
 // ─── Props de EditorNota ───

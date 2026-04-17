@@ -12,6 +12,7 @@ import {
   FileText, Check, X, ChevronDown, ChevronUp,
   StickyNote, Globe, Mail, Paperclip,
   Clock, Pencil, Trash2, CheckCircle2, CalendarClock, Ban, Link,
+  Calendar, Users, AlertTriangle, Eye,
 } from 'lucide-react'
 import { useFormato } from '@/hooks/useFormato'
 import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
@@ -39,6 +40,7 @@ export function EntradaTimeline({
   onCancelarActividad,
   onEditarActividad,
   onEliminarActividad,
+  onVerActividad,
 }: PropsEntradaTimeline) {
   const { locale } = useFormato()
   const esSistema = entrada.tipo === 'sistema'
@@ -68,6 +70,7 @@ export function EntradaTimeline({
         onCancelarActividad={onCancelarActividad}
         onEditarActividad={onEditarActividad}
         onEliminarActividad={onEliminarActividad}
+        onVerActividad={onVerActividad}
       />
     )
   }
@@ -115,6 +118,7 @@ function EntradaSistema({
   onCancelarActividad,
   onEditarActividad,
   onEliminarActividad,
+  onVerActividad,
 }: {
   entrada: PropsEntradaTimeline['entrada']
   entidadTipo: string
@@ -127,6 +131,7 @@ function EntradaSistema({
   onCancelarActividad?: (actividadId: string) => Promise<void>
   onEditarActividad?: (actividadId: string) => void
   onEliminarActividad?: (actividadId: string) => Promise<void>
+  onVerActividad?: (actividadId: string, metadata: Record<string, unknown>) => void
 }) {
   const [accionando, setAccionando] = useState(false)
   const [menuPosponer, setMenuPosponer] = useState(false)
@@ -188,149 +193,224 @@ function EntradaSistema({
     return () => document.removeEventListener('mousedown', handleClickFuera)
   }, [menuPosponer])
 
+  // Datos enriquecidos: desde metadata o fetch
+  interface DatosActividad {
+    tipo_etiqueta?: string
+    tipo_color?: string
+    prioridad?: string
+    fecha_vencimiento?: string | null
+    asignados?: { id: string; nombre: string }[]
+    descripcion?: string | null
+  }
+  const [datosAct, setDatosAct] = useState<DatosActividad | null>(null)
+
+  // Fetch datos de la actividad si la metadata no tiene la info enriquecida
+  useEffect(() => {
+    if (!esActividadCreada || !actividadId) return
+    if (entrada.metadata?.tipo_etiqueta) return // Ya tiene datos enriquecidos
+    let cancelado = false
+    fetch(`/api/actividades/${actividadId}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (cancelado || !data) return
+        // Buscar etiqueta del tipo (el API devuelve tipo_id, no la etiqueta directamente)
+        setDatosAct({
+          prioridad: data.prioridad,
+          fecha_vencimiento: data.fecha_vencimiento,
+          asignados: data.asignados,
+          descripcion: data.descripcion,
+        })
+      })
+      .catch(() => {})
+    return () => { cancelado = true }
+  }, [esActividadCreada, actividadId, entrada.metadata?.tipo_etiqueta])
+
+  const tipoEtiqueta = entrada.metadata?.tipo_etiqueta as string | undefined
+  const tipoColor = (entrada.metadata?.tipo_color as string) || '#5b5bd6'
+  const actPrioridad = (entrada.metadata?.prioridad ?? datosAct?.prioridad) as string | undefined
+  const actFechaVenc = (entrada.metadata?.fecha_vencimiento ?? datosAct?.fecha_vencimiento) as string | undefined
+  const actAsignados = (entrada.metadata?.asignados ?? datosAct?.asignados) as { id: string; nombre: string }[] | undefined
+  const actDescripcion = (entrada.metadata?.descripcion ?? datosAct?.descripcion) as string | undefined
+  const actVencida = actFechaVenc && !actividadResuelta && new Date(actFechaVenc) < new Date()
+
   return (
     <div className="flex items-start gap-2.5 py-2 group">
       <div className={`flex items-center justify-center size-6 rounded-full shrink-0 mt-0.5 ${config?.color || 'bg-superficie-hover text-texto-terciario'}`}>
         {config?.icono || <Clock size={12} />}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-xs text-texto-secundario leading-relaxed">
-          <span className="font-medium text-texto-primario">{entrada.autor_nombre}</span>
-          {' · '}
-          {entrada.contenido}
-        </p>
 
-        {/* Vínculos relacionados (ej: documentos y contactos vinculados a la actividad) */}
-        {vinculosRelacionados && vinculosRelacionados.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 mt-1">
-            <Link size={10} className="text-texto-terciario shrink-0" />
-            {vinculosRelacionados.map((v, i) => (
-              <span key={v.id} className="text-xxs text-texto-marca">
-                {v.nombre}
-                {i < vinculosRelacionados.length - 1 && <span className="text-texto-terciario ml-1.5">·</span>}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Adjuntos */}
-        <ListaAdjuntos adjuntos={entrada.adjuntos} />
-
-        {/* Botones confirmar/rechazar comprobante */}
-        {esComprobante && entidadTipo === 'presupuesto' && comprobanteId && (
-          <div className="flex items-center gap-2 mt-2">
-            <Boton variante="exito" tamano="xs" icono={<Check size={12} />} onClick={() => handleAccion('confirmar')} disabled={accionando} cargando={accionando}>
-              Confirmar pago
-            </Boton>
-            <Boton variante="peligro" tamano="xs" icono={<X size={12} />} onClick={() => handleAccion('rechazar')} disabled={accionando}>
-              Rechazar
-            </Boton>
-          </div>
-        )}
-
-        {/* Botones de acción para actividades — siempre visibles mientras la actividad esté activa */}
-        {mostrarBotonesActividad && (
-          <div className="flex flex-wrap items-center gap-1.5 mt-2">
-            {/* Completar */}
-            <Boton
-              variante="exito"
-              tamano="xs"
-              icono={<CheckCircle2 size={12} />}
-              onClick={handleCompletar}
-              disabled={accionando}
-              cargando={accionando}
+        {/* ── Actividad creada — card rica ── */}
+        {esActividadCreada ? (
+          <>
+            <p className="text-xs text-texto-terciario mb-1.5">
+              <span className="font-medium text-texto-secundario">{entrada.autor_nombre}</span>
+              {' · creó actividad'}
+            </p>
+            <div
+              className={`rounded-lg border p-3 space-y-2 transition-colors ${
+                actividadResuelta
+                  ? 'border-white/[0.05] bg-white/[0.01] opacity-60'
+                  : 'border-white/[0.08] bg-white/[0.03] hover:border-white/[0.12] cursor-pointer'
+              }`}
+              onClick={() => {
+                if (actividadId && onVerActividad) {
+                  onVerActividad(actividadId, (entrada.metadata || {}) as Record<string, unknown>)
+                }
+              }}
             >
-              Completar
-            </Boton>
-
-            {/* Posponer con dropdown — z-50 para no quedar cortado */}
-            <div className="relative" ref={refMenuPosponer}>
-              <Boton
-                variante="secundario"
-                tamano="xs"
-                icono={<CalendarClock size={12} />}
-                iconoDerecho={<ChevronDown size={10} />}
-                onClick={() => setMenuPosponer(!menuPosponer)}
-                disabled={accionando}
-              >
-                Posponer
-              </Boton>
-
-              <AnimatePresence>
-                {menuPosponer && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    transition={{ duration: 0.12 }}
-                    className="absolute left-0 bottom-full mb-1 z-50 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-xl py-1 min-w-[120px]"
+              {/* Header: tipo pill + título */}
+              <div className="flex items-start gap-2">
+                {tipoEtiqueta && (
+                  <span
+                    className="inline-flex items-center shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium mt-0.5"
+                    style={{
+                      border: `1px solid ${tipoColor}50`,
+                      backgroundColor: `color-mix(in srgb, ${tipoColor} 10%, transparent)`,
+                      color: tipoColor,
+                    }}
                   >
-                    {OPCIONES_POSPONER.map(opcion => (
-                      <button
-                        key={opcion.dias}
-                        onClick={() => handlePosponer(opcion.dias)}
-                        className="w-full text-left px-3 py-1.5 text-xs text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario transition-colors"
-                      >
-                        {opcion.etiqueta}
-                      </button>
-                    ))}
-                  </motion.div>
+                    {tipoEtiqueta}
+                  </span>
                 )}
-              </AnimatePresence>
+                <span className="text-sm font-medium text-texto-primario leading-snug flex-1 min-w-0">
+                  {entrada.metadata?.titulo as string || entrada.contenido}
+                </span>
+              </div>
+
+              {/* Descripción (truncada) */}
+              {actDescripcion && (
+                <p className="text-xs text-texto-terciario line-clamp-2 leading-relaxed">{actDescripcion}</p>
+              )}
+
+              {/* Meta: fecha + prioridad + asignados */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+                {actFechaVenc && (
+                  <span className={`inline-flex items-center gap-1 ${actVencida ? 'text-insignia-peligro font-medium' : 'text-texto-terciario'}`}>
+                    {actVencida ? <AlertTriangle size={10} /> : <Calendar size={10} />}
+                    {new Date(actFechaVenc).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
+                  </span>
+                )}
+                {actPrioridad && actPrioridad !== 'normal' && (
+                  <span className={`inline-flex items-center gap-1 ${actPrioridad === 'alta' ? 'text-insignia-peligro' : 'text-insignia-info'}`}>
+                    <AlertTriangle size={10} />
+                    {actPrioridad === 'alta' ? 'Alta' : 'Baja'}
+                  </span>
+                )}
+                {actAsignados && actAsignados.length > 0 && (
+                  <span className="inline-flex items-center gap-1 text-texto-terciario">
+                    <Users size={10} />
+                    {actAsignados.map(a => a.nombre).join(', ')}
+                  </span>
+                )}
+              </div>
+
+              {/* Vínculos relacionados */}
+              {vinculosRelacionados && vinculosRelacionados.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Link size={9} className="text-texto-terciario shrink-0" />
+                  {vinculosRelacionados.map((v, i) => (
+                    <span key={v.id} className="text-[10px] text-texto-marca">
+                      {v.nombre}
+                      {i < vinculosRelacionados.length - 1 && <span className="text-texto-terciario ml-1">·</span>}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Resuelta badge */}
+              {actividadResuelta && (
+                <span className="inline-flex items-center gap-1 text-[10px] text-insignia-exito bg-insignia-exito/10 px-2 py-0.5 rounded-full font-medium">
+                  <CheckCircle2 size={9} />
+                  Resuelta
+                </span>
+              )}
             </div>
 
-            {/* Editar — reabrir modal para modificar la actividad */}
-            {onEditarActividad && (
-              <Boton
-                variante="fantasma"
-                tamano="xs"
-                icono={<Pencil size={12} />}
-                onClick={() => actividadId && onEditarActividad(actividadId)}
-                disabled={accionando}
-              >
-                Editar
-              </Boton>
+            {/* Botones de acción — debajo de la card */}
+            {mostrarBotonesActividad && (
+              <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                <Boton variante="exito" tamano="xs" icono={<CheckCircle2 size={12} />} onClick={handleCompletar} disabled={accionando} cargando={accionando}>
+                  Completar
+                </Boton>
+                <div className="relative" ref={refMenuPosponer}>
+                  <Boton variante="secundario" tamano="xs" icono={<CalendarClock size={12} />} iconoDerecho={<ChevronDown size={10} />} onClick={() => setMenuPosponer(!menuPosponer)} disabled={accionando}>
+                    Posponer
+                  </Boton>
+                  <AnimatePresence>
+                    {menuPosponer && (
+                      <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.12 }}
+                        className="absolute left-0 bottom-full mb-1 z-50 bg-superficie-elevada border border-borde-sutil rounded-lg shadow-xl py-1 min-w-[120px]">
+                        {OPCIONES_POSPONER.map(opcion => (
+                          <button key={opcion.dias} onClick={() => handlePosponer(opcion.dias)}
+                            className="w-full text-left px-3 py-1.5 text-xs text-texto-secundario hover:bg-superficie-hover hover:text-texto-primario transition-colors">
+                            {opcion.etiqueta}
+                          </button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+                {onEditarActividad && (
+                  <Boton variante="fantasma" tamano="xs" icono={<Pencil size={12} />} onClick={() => actividadId && onEditarActividad(actividadId)} disabled={accionando}>
+                    Editar
+                  </Boton>
+                )}
+                <Boton variante="fantasma" tamano="xs" icono={<Ban size={12} />} onClick={handleCancelar} disabled={accionando} className="text-texto-terciario hover:text-insignia-peligro">
+                  Cancelar
+                </Boton>
+                {onEliminarActividad && (
+                  <Boton variante="fantasma" tamano="xs" icono={<Trash2 size={12} />} onClick={() => actividadId && onEliminarActividad(actividadId)} disabled={accionando} className="text-texto-terciario hover:text-insignia-peligro">
+                    Eliminar
+                  </Boton>
+                )}
+              </div>
             )}
 
-            {/* Cancelar */}
-            <Boton
-              variante="fantasma"
-              tamano="xs"
-              icono={<Ban size={12} />}
-              onClick={handleCancelar}
-              disabled={accionando}
-              className="text-texto-terciario hover:text-insignia-peligro"
-            >
-              Cancelar
-            </Boton>
+            <span className="text-xxs text-texto-terciario opacity-0 group-hover:opacity-100 transition-opacity mt-1" title={fechaCompleta(entrada.creado_en, formatoHora, locale)}>
+              {fechaRelativa(entrada.creado_en, formatoHora, locale)}
+            </span>
+          </>
+        ) : (
+          /* ── Resto de entradas de sistema (no actividad) — renderizado original ── */
+          <>
+            <p className="text-xs text-texto-secundario leading-relaxed">
+              <span className="font-medium text-texto-primario">{entrada.autor_nombre}</span>
+              {' · '}
+              {entrada.contenido}
+            </p>
 
-            {/* Eliminar */}
-            {onEliminarActividad && (
-              <Boton
-                variante="fantasma"
-                tamano="xs"
-                icono={<Trash2 size={12} />}
-                onClick={() => actividadId && onEliminarActividad(actividadId)}
-                disabled={accionando}
-                className="text-texto-terciario hover:text-insignia-peligro"
-              >
-                Eliminar
-              </Boton>
+            {vinculosRelacionados && vinculosRelacionados.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                <Link size={10} className="text-texto-terciario shrink-0" />
+                {vinculosRelacionados.map((v, i) => (
+                  <span key={v.id} className="text-xxs text-texto-marca">
+                    {v.nombre}
+                    {i < vinculosRelacionados.length - 1 && <span className="text-texto-terciario ml-1.5">·</span>}
+                  </span>
+                ))}
+              </div>
             )}
-          </div>
+
+            <ListaAdjuntos adjuntos={entrada.adjuntos} />
+
+            {esComprobante && entidadTipo === 'presupuesto' && comprobanteId && (
+              <div className="flex items-center gap-2 mt-2">
+                <Boton variante="exito" tamano="xs" icono={<Check size={12} />} onClick={() => handleAccion('confirmar')} disabled={accionando} cargando={accionando}>
+                  Confirmar pago
+                </Boton>
+                <Boton variante="peligro" tamano="xs" icono={<X size={12} />} onClick={() => handleAccion('rechazar')} disabled={accionando}>
+                  Rechazar
+                </Boton>
+              </div>
+            )}
+
+            <span className="text-xxs text-texto-terciario opacity-0 group-hover:opacity-100 transition-opacity" title={fechaCompleta(entrada.creado_en, formatoHora, locale)}>
+              {fechaRelativa(entrada.creado_en, formatoHora, locale)}
+            </span>
+          </>
         )}
 
-        {/* Indicador de actividad ya resuelta */}
-        {esActividadCreada && actividadId && actividadResuelta && (
-          <span className="inline-flex items-center gap-1 mt-1.5 text-xxs text-insignia-exito bg-insignia-exito/10 px-2 py-0.5 rounded-full font-medium">
-            <CheckCircle2 size={10} />
-            Resuelta
-          </span>
-        )}
-
-        <span className="text-xxs text-texto-terciario opacity-0 group-hover:opacity-100 transition-opacity" title={fechaCompleta(entrada.creado_en, formatoHora, locale)}>
-          {fechaRelativa(entrada.creado_en, formatoHora, locale)}
-        </span>
       </div>
     </div>
   )

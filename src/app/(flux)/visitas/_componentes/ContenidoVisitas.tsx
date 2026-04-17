@@ -95,11 +95,16 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
   const [visitaEditando, setVisitaEditando] = useState<Visita | null>(null)
   const [visitaArchivedaDetalle, setVisitaArchivedaDetalle] = useState<Visita | null>(null)
 
-  // Abrir modal si viene ?crear=true desde el dashboard
+  // Abrir modal si viene ?crear=true desde el dashboard o desde actividades
   const vieneDeDashboardRef = useRef(false)
+  const actividadOrigenIdRef = useRef<string | null>(null)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    if (params.get('crear') === 'true') {
+    // Guardar actividad_origen_id si viene de una actividad con auto_completar
+    if (params.get('actividad_origen_id')) {
+      actividadOrigenIdRef.current = params.get('actividad_origen_id')
+    }
+    if (params.get('crear') === 'true' || params.get('contacto_id')) {
       window.history.replaceState({}, '', '/visitas')
       vieneDeDashboardRef.current = true
       setVisitaEditando(null)
@@ -241,13 +246,19 @@ export default function ContenidoVisitas({ datosInicialesJson, soloPropio }: Pro
 
   const crearVisita = async (datos: Record<string, unknown>) => {
     try {
+      // Incluir actividad_origen_id si viene de una actividad con auto_completar
+      const payload = actividadOrigenIdRef.current
+        ? { ...datos, actividad_origen_id: actividadOrigenIdRef.current }
+        : datos
       const res = await fetch('/api/visitas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(datos),
+        body: JSON.stringify(payload),
       })
       if (!res.ok) throw new Error('Error al crear')
       const resultado = await res.json()
+      // Limpiar ref después de usar
+      actividadOrigenIdRef.current = null
       mostrar('exito', 'Visita programada')
       recargarVisitas()
       return resultado

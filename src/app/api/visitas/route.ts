@@ -316,6 +316,42 @@ export async function POST(request: NextRequest) {
       }, tipos)
     }
 
+    // Auto-completar actividad origen si se proporcionó
+    if (body.actividad_origen_id) {
+      const { data: estadoCompletada } = await admin
+        .from('estados_actividad')
+        .select('id, clave')
+        .eq('empresa_id', empresaId)
+        .eq('grupo', 'completado')
+        .limit(1)
+        .single()
+
+      if (estadoCompletada) {
+        await admin
+          .from('actividades')
+          .update({
+            estado_id: estadoCompletada.id,
+            estado_clave: estadoCompletada.clave,
+            completado_en: new Date().toISOString(),
+            editado_por: user.id,
+            editado_por_nombre: nombreCreador,
+            actualizado_en: new Date().toISOString(),
+          })
+          .eq('id', body.actividad_origen_id)
+          .eq('empresa_id', empresaId)
+
+        registrarChatter({
+          empresaId,
+          entidadTipo: 'actividad',
+          entidadId: body.actividad_origen_id,
+          contenido: `Completada automáticamente al programar visita a ${contactoNombre}`,
+          autorId: user.id,
+          autorNombre: nombreCreador,
+          metadata: { accion: 'actividad_completada', detalles: { visita_id: data.id } },
+        })
+      }
+    }
+
     // Registrar en recientes
     registrarReciente({
       empresaId,

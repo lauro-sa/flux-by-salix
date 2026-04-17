@@ -65,6 +65,12 @@ export interface MetadataChatter {
   firma_modo?: string
   // Para actividades
   actividad_id?: string
+  tipo_etiqueta?: string
+  tipo_color?: string
+  prioridad?: string
+  fecha_vencimiento?: string | null
+  asignados?: { id: string; nombre: string }[]
+  descripcion?: string | null
   // Para tareas de órdenes de trabajo
   tarea_id?: string
   // Para órdenes de trabajo

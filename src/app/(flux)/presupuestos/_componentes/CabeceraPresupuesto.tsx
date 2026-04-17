@@ -33,6 +33,8 @@ interface PropsCabeceraPresupuesto {
   presupuestoIdCreado: string | null
   fechaEmision: string
   presupuestoFechaEmision?: string | null
+  /** Cantidad de re-emisiones (0 = nunca re-emitido) */
+  cantidadReEmisiones?: number
   // Callbacks
   onGuardar: () => void
   onDescartar: () => void
@@ -62,6 +64,7 @@ export default function CabeceraPresupuesto({
   presupuestoIdCreado,
   fechaEmision,
   presupuestoFechaEmision,
+  cantidadReEmisiones = 0,
   onGuardar,
   onDescartar,
   onRegenerarPdf,
@@ -79,12 +82,20 @@ export default function CabeceraPresupuesto({
 
   return (
     <div className="px-6 pt-5 pb-4 border-b border-borde-sutil">
-      {/* Fila 1: Título */}
-      <h1 className={`text-2xl sm:text-3xl font-semibold mb-2 ${
-        modo === 'editar' ? 'text-texto-secundario' : 'text-texto-primario'
-      }`}>
-        {titulo}
-      </h1>
+      {/* Fila 1: Título + badge re-emisión */}
+      <div className="flex items-center gap-3 mb-2">
+        <h1 className={`text-2xl sm:text-3xl font-semibold ${
+          modo === 'editar' ? 'text-texto-secundario' : 'text-texto-primario'
+        }`}>
+          {titulo}
+        </h1>
+        {cantidadReEmisiones > 0 && (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-insignia-advertencia/15 text-insignia-advertencia border border-insignia-advertencia/30">
+            <RefreshCw size={12} />
+            Re-emitido{cantidadReEmisiones > 1 ? ` ×${cantidadReEmisiones}` : ''}
+          </span>
+        )}
+      </div>
 
       {/* Fila 2: Iconos izquierda + Barra de estados derecha */}
       <div className="flex items-center gap-3 mb-4">

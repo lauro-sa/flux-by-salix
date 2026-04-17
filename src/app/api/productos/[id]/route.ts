@@ -44,7 +44,8 @@ export async function GET(
     })
 
     return NextResponse.json(data)
-  } catch {
+  } catch (err) {
+    console.error('[api/productos/[id]] error no controlado:', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }
@@ -145,7 +146,8 @@ export async function PATCH(
     }
 
     return NextResponse.json(data)
-  } catch {
+  } catch (err) {
+    console.error('[api/productos/[id]] error no controlado:', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }
@@ -220,7 +222,8 @@ export async function DELETE(
     })
 
     return NextResponse.json({ success: true })
-  } catch {
+  } catch (err) {
+    console.error('[api/productos/[id]] error no controlado:', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }

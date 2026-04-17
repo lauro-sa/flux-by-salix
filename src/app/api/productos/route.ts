@@ -33,8 +33,8 @@ export async function GET(request: NextRequest) {
     const en_papelera = params.get('en_papelera') === 'true'
     const orden_campo = params.get('orden_campo') || 'creado_en'
     const orden_dir = params.get('orden_dir') === 'asc'
-    const pagina = parseInt(params.get('pagina') || '1')
-    const por_pagina = Math.min(parseInt(params.get('por_pagina') || '50'), 100)
+    const pagina = Math.max(1, parseInt(params.get('pagina') || '1') || 1)
+    const por_pagina = Math.min(Math.max(1, parseInt(params.get('por_pagina') || '50') || 50), 100)
     const desde = (pagina - 1) * por_pagina
 
     const admin = crearClienteAdmin()
@@ -84,7 +84,8 @@ export async function GET(request: NextRequest) {
       por_pagina,
       total_paginas: Math.ceil((count || 0) / por_pagina),
     })
-  } catch {
+  } catch (err) {
+    console.error('GET /api/productos — error no controlado:', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }
@@ -232,7 +233,8 @@ export async function POST(request: NextRequest) {
     })
 
     return NextResponse.json(data, { status: 201 })
-  } catch {
+  } catch (err) {
+    console.error('POST /api/productos — error no controlado:', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }

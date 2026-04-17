@@ -6,10 +6,11 @@ import { useNavegacion } from '@/hooks/useNavegacion'
 import { useTraduccion } from '@/lib/i18n'
 import { DEBOUNCE_BUSQUEDA, DELAY_NOTIFICACION } from '@/lib/constantes/timeouts'
 import {
-  Mail, Phone, Globe, MessageCircle, ChevronLeft,
+  Mail, Phone, Globe, ChevronLeft,
   Building2, Building, User, Truck, UserPlus, BadgeCheck, Trash2, Plus, X,
   UserCheck, Clock, Link2, Search,
 } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { Input } from '@/componentes/ui/Input'
 import { Select } from '@/componentes/ui/Select'
 import { Avatar } from '@/componentes/ui/Avatar'
@@ -720,7 +721,7 @@ export default function PaginaContacto() {
                 value={campos.correo || ''}
                 onChange={e => { setCampos(p => ({ ...p, correo: e.target.value })); if (esNuevo) setErrores(p => ({ ...p, correo: undefined })) }}
                 onBlur={() => onBlurCampo('correo')} placeholder={t('contactos.correo')} formato="email" error={esNuevo ? errores.correo : undefined} />
-              <Input variante="plano" tipo="tel" icono={<MessageCircle size={16} />}
+              <Input variante="plano" tipo="tel" icono={<IconoWhatsApp size={16} />}
                 value={campos.whatsapp || ''}
                 onChange={e => { setCampos(p => ({ ...p, whatsapp: e.target.value })); if (esNuevo) setErrores(p => ({ ...p, whatsapp: undefined })) }}
                 onBlur={() => onBlurCampo('whatsapp')} placeholder={t('contactos.whatsapp')} formato="telefono" error={esNuevo ? errores.whatsapp : undefined} />

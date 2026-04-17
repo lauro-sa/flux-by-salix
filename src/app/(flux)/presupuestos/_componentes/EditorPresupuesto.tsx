@@ -290,6 +290,22 @@ export default function EditorPresupuesto({
           .catch(() => {})
       )
 
+      // Contar re-emisiones desde chatter si el presupuesto fue re-emitido
+      if (pres.fecha_emision_original) {
+        fetchsSecundarios.push(
+          fetch(`/api/chatter?entidad_tipo=presupuesto&entidad_id=${presupuestoIdProp}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+              if (data?.entradas) {
+                const count = (data.entradas as { metadata?: { accion?: string } }[])
+                  .filter(e => e.metadata?.accion === 're_emision').length
+                setCantidadReEmisiones(count)
+              }
+            })
+            .catch(() => {})
+        )
+      }
+
       Promise.all(fetchsSecundarios)
     }).catch(() => setCargando(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1124,6 +1140,7 @@ export default function EditorPresupuesto({
   const [generandoPdf, setGenerandoPdf] = useState(false)
   const [deshacerReEmision, setDeshacerReEmision] = useState<(() => Promise<void>) | null>(null)
   const [confirmarReEmision, setConfirmarReEmision] = useState(false)
+  const [cantidadReEmisiones, setCantidadReEmisiones] = useState(0)
   const handleImprimir = async () => {
     if (!idPresupuesto || generandoPdf) return
     setGenerandoPdf(true)
@@ -1223,6 +1240,9 @@ export default function EditorPresupuesto({
         }),
       })
     } catch { /* silenciar */ }
+
+    // Actualizar el conteo visible de re-emisiones
+    setCantidadReEmisiones(numReEmision)
 
     // Deshacer: restaurar fechas y estado anteriores
     const estadoPrevio = presupuesto?.estado || 'borrador'
@@ -1427,6 +1447,7 @@ export default function EditorPresupuesto({
           presupuestoIdCreado={presupuestoIdCreado}
           fechaEmision={fechaEmision}
           presupuestoFechaEmision={presupuesto?.fecha_emision}
+          cantidadReEmisiones={cantidadReEmisiones}
           onGuardar={() => autoguardar({})}
           onDescartar={descartarPresupuesto}
           onRegenerarPdf={handleRegenerarPdf}

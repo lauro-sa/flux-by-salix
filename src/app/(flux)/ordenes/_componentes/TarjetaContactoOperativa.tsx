@@ -1,6 +1,7 @@
 'use client'
 
-import { Phone, MessageCircle, MapPin, Mail } from 'lucide-react'
+import { Phone, MapPin, Mail } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { Boton } from '@/componentes/ui/Boton'
 import { useTraduccion } from '@/lib/i18n'
 
@@ -48,7 +49,7 @@ export default function TarjetaContactoOperativa({ nombre, telefono, whatsapp, d
         )}
         {waLimpio && (
           <a href={`https://wa.me/${waLimpio}`} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-[120px]">
-            <Boton variante="secundario" tamano="sm" icono={<MessageCircle size={15} />} className="w-full justify-center" style={{ borderColor: 'var(--canal-whatsapp)', color: 'var(--canal-whatsapp)' }}>
+            <Boton variante="secundario" tamano="sm" icono={<IconoWhatsApp size={15} />} className="w-full justify-center" style={{ borderColor: 'var(--canal-whatsapp)', color: 'var(--canal-whatsapp)' }}>
               {t('ordenes.whatsapp')}
             </Boton>
           </a>

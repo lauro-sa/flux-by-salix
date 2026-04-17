@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Mail, MessageCircle, Code, Megaphone } from 'lucide-react'
+import { Mail, Code, Megaphone } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { PlantillaConfiguracion } from '@/componentes/entidad/PlantillaConfiguracion'
 import type { SeccionConfig } from '@/componentes/entidad/PlantillaConfiguracion'
 import { SeccionCampanasCorreo } from './_componentes/SeccionCampanasCorreo'
@@ -22,7 +23,7 @@ export default function PaginaMarketing() {
 
   const secciones: SeccionConfig[] = [
     { id: 'correo', etiqueta: 'Campañas de correo', icono: <Mail size={16} />, grupo: 'Campañas' },
-    { id: 'whatsapp', etiqueta: 'Campañas de WhatsApp', icono: <MessageCircle size={16} />, grupo: 'Campañas' },
+    { id: 'whatsapp', etiqueta: 'Campañas de WhatsApp', icono: <IconoWhatsApp size={16} />, grupo: 'Campañas' },
     { id: 'tracking', etiqueta: 'Tracking web', icono: <Code size={16} />, grupo: 'Analíticas' },
   ]
 

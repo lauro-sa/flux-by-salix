@@ -166,6 +166,10 @@ export async function GET(request: NextRequest) {
 
       const idsDirecciones = [...new Set((dirMatches || []).map(d => d.contacto_id))]
 
+      // Detectar si la búsqueda contiene dígitos (posible teléfono)
+      const soloDigitos = busquedaNorm.replace(/\D/g, '')
+      const pareceNumero = soloDigitos.length >= 3
+
       if (busqueda.length <= 2) {
         const filtroTexto = `nombre.ilike.%${busquedaNorm}%,apellido.ilike.%${busquedaNorm}%,correo.ilike.%${busquedaNorm}%,codigo.ilike.%${busquedaNorm}%,telefono.ilike.%${busquedaNorm}%`
         if (idsDirecciones.length > 0) {
@@ -175,10 +179,14 @@ export async function GET(request: NextRequest) {
         }
       } else {
         const terminos = busquedaNorm.trim().split(/\s+/).map(t => `${t}:*`).join(' & ')
+        // Fallback ILIKE para teléfonos: FTS no maneja bien búsquedas parciales de números
+        const fallbackTelefono = pareceNumero
+          ? `,telefono.ilike.%${soloDigitos}%,whatsapp.ilike.%${soloDigitos}%`
+          : ''
         if (idsDirecciones.length > 0) {
-          query = query.or(`busqueda.fts(spanish_unaccent).${terminos},id.in.(${idsDirecciones.join(',')})`)
+          query = query.or(`busqueda.fts(spanish_unaccent).${terminos}${fallbackTelefono},id.in.(${idsDirecciones.join(',')})`)
         } else {
-          query = query.textSearch('busqueda', terminos, { config: 'spanish_unaccent' })
+          query = query.or(`busqueda.fts(spanish_unaccent).${terminos}${fallbackTelefono}`)
         }
       }
     }

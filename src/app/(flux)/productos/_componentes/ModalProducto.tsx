@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
-  Package, Wrench, Star, StarOff, Save,
+  Package, Wrench, Star, StarOff,
   FileText, DollarSign, Scale, MessageSquare,
-  Plus, Trash2, BarChart3, Info,
+  Plus, Trash2, BarChart3, Info, AlertTriangle,
 } from 'lucide-react'
 import { ModalAdaptable as Modal } from '@/componentes/ui/ModalAdaptable'
 import { Tabs } from '@/componentes/ui/Tabs'
@@ -15,12 +15,16 @@ import { SelectCreable } from '@/componentes/ui/SelectCreable'
 import { Interruptor } from '@/componentes/ui/Interruptor'
 import { Insignia } from '@/componentes/ui/Insignia'
 import dynamic from 'next/dynamic'
-const EditorTexto = dynamic(() => import('@/componentes/ui/EditorTexto').then(m => m.EditorTexto), { ssr: false })
+const EditorTexto = dynamic(
+  () => import('@/componentes/ui/EditorTexto').then(m => m.EditorTexto),
+  { ssr: false, loading: () => <div className="h-[140px] animate-pulse rounded-lg bg-white/[0.04]" /> }
+)
 import { InputMoneda } from '@/componentes/ui/InputMoneda'
 import { PanelChatter } from '@/componentes/entidad/PanelChatter'
 import { COLOR_TIPO_PRODUCTO } from '@/lib/colores_entidad'
 import { useFormato } from '@/hooks/useFormato'
 import { useTraduccion } from '@/lib/i18n'
+import { useToast } from '@/componentes/feedback/Toast'
 import type { Producto, TipoProducto, ConfigProductos, DesgloseCosto } from '@/tipos/producto'
 
 /**
@@ -42,6 +46,7 @@ interface PropsModalProducto {
 export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config, impuestos = [] }: PropsModalProducto) {
   const formato = useFormato()
   const { t } = useTraduccion()
+  const { mostrar: mostrarToast } = useToast()
   const esEdicion = !!producto
 
   // ─── Estado del formulario ───
@@ -185,8 +190,8 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
   , [config])
 
   // ─── Cálculos automáticos ───
-  const tieneDesglose = desgloseCostos.length > 0
   const costoDesglose = desgloseCostos.reduce((acc, item) => acc + (item.monto || 0), 0)
+  const tieneDesglose = desgloseCostos.length > 0 && costoDesglose > 0
   const costoEfectivo = tieneDesglose ? costoDesglose : (parseFloat(costo) || 0)
 
   const precio = parseFloat(precioUnitario) || 0
@@ -243,17 +248,22 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
       const method = esEdicion ? 'PATCH' : 'POST'
 
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos) })
-      if (!res.ok) return
+      if (!res.ok) {
+        const detalle = await res.json().catch(() => null)
+        mostrarToast('error', detalle?.error || 'Error al guardar el producto')
+        return
+      }
 
       const resultado = await res.json()
       onGuardado(resultado)
       onCerrar()
-    } catch (err) {
-      console.error('Error al guardar:', err)
+      mostrarToast('exito', esEdicion ? 'Producto actualizado' : 'Producto creado')
+    } catch {
+      mostrarToast('error', 'Error de conexión al guardar')
     } finally {
       setGuardando(false)
     }
-  }, [nombre, tipo, categoria, referenciaInterna, codigoBarras, precioUnitario, moneda, costo, costoDesglose, tieneDesglose, desgloseCostos, impuestoId, impuestoCompraId, unidad, descripcion, descripcionVenta, notasInternas, peso, volumen, puedeVenderse, puedeComprarse, favorito, esEdicion, producto, onGuardado, onCerrar])
+  }, [nombre, tipo, categoria, referenciaInterna, codigoBarras, precioUnitario, moneda, costo, costoDesglose, tieneDesglose, desgloseCostos, impuestoId, impuestoCompraId, unidad, descripcion, descripcionVenta, notasInternas, peso, volumen, puedeVenderse, puedeComprarse, favorito, esEdicion, producto, onGuardado, onCerrar, mostrarToast])
 
   // ─── Desglose de costos ───
   const agregarLineaCosto = useCallback(() => {
@@ -609,18 +619,25 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
           )}
 
           {/* ════════════════ TAB INVENTARIO (solo productos) ════════════════ */}
-          {tabActivo === 'inventario' && tipo === 'producto' && (
+          {tabActivo === 'inventario' && tipo === 'producto' && (() => {
+            const sMin = parseFloat(stockMinimo) || 0
+            const sMax = parseFloat(stockMaximo) || 0
+            const sReorden = parseFloat(puntoReorden) || 0
+            const avisos: string[] = []
+            if (sMax > 0 && sMin > sMax) avisos.push('Stock mínimo es mayor al máximo')
+            if (sMax > 0 && sReorden > sMax) avisos.push('Punto de reorden supera el stock máximo')
+            if (sMin > 0 && sReorden > 0 && sReorden < sMin) avisos.push('Punto de reorden está por debajo del stock mínimo')
+
+            return (
             <div className="p-6 space-y-5">
-              {/* Identificación */}
+              {/* Ubicación */}
               <div>
-                <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-3">Identificación</p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <Input etiqueta="Código de barras (EAN)" value={codigoBarras}
-                    onChange={e => setCodigoBarras(e.target.value)} placeholder="Ej: 7790001234567" formato={null} />
-                  <Input etiqueta="SKU interno" value={referenciaInterna}
-                    onChange={e => setReferenciaInterna(e.target.value)} placeholder="Ej: PROD-001" formato={null} />
+                <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-3">Ubicación y logística</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Input etiqueta="Ubicación en depósito" value={ubicacionDeposito}
                     onChange={e => setUbicacionDeposito(e.target.value)} placeholder="Ej: A3-P2-E4" formato={null} />
+                  <Input etiqueta="Proveedor principal" value={proveedorPrincipal}
+                    onChange={e => setProveedorPrincipal(e.target.value)} placeholder="Nombre del proveedor" formato={null} />
                 </div>
               </div>
 
@@ -639,6 +656,16 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
                   <Input etiqueta="Punto de reorden" tipo="number" value={puntoReorden}
                     onChange={e => setPuntoReorden(e.target.value)} placeholder="0" formato={null} />
                 </div>
+                {avisos.length > 0 && (
+                  <div className="mt-2 flex flex-col gap-1">
+                    {avisos.map((aviso) => (
+                      <div key={aviso} className="flex items-center gap-1.5 text-xs text-insignia-advertencia">
+                        <AlertTriangle size={12} className="shrink-0" />
+                        {aviso}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="border-t border-white/[0.07]" />
@@ -646,7 +673,7 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
               {/* Dimensiones físicas */}
               <div>
                 <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-3">Dimensiones físicas</p>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <Input etiqueta="Peso (kg)" tipo="number" value={peso}
                     onChange={e => setPeso(e.target.value)} placeholder="0.00"
                     step="0.01" min="0" formato={null} />
@@ -655,8 +682,6 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
                     step="0.001" min="0" formato={null} />
                   <Input etiqueta="Largo × Ancho × Alto" value={dimensiones}
                     onChange={e => setDimensiones(e.target.value)} placeholder="Ej: 30 × 20 × 10 cm" formato={null} />
-                  <Input etiqueta="Proveedor principal" value={proveedorPrincipal}
-                    onChange={e => setProveedorPrincipal(e.target.value)} placeholder="Nombre del proveedor" formato={null} />
                 </div>
               </div>
 
@@ -671,7 +696,8 @@ export function ModalProducto({ abierto, onCerrar, onGuardado, producto, config,
                 <Interruptor activo={alertaStockBajo} onChange={setAlertaStockBajo} />
               </div>
             </div>
-          )}
+            )
+          })()}
 
           {/* ════════════════ TAB ACTIVIDAD (solo edición) ════════════════ */}
           {tabActivo === 'actividad' && esEdicion && (

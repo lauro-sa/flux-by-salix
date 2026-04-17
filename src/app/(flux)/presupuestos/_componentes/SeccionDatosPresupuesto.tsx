@@ -169,11 +169,11 @@ export default function SeccionDatosPresupuesto({
         </div>
 
         {/* Fechas (grid único de 3 columnas compartido) */}
-        <div className="px-3 py-1 grid grid-cols-[1fr_2.5rem_auto] items-center gap-x-3">
+        <div className={`px-3 py-1 grid grid-cols-[1fr_2.5rem_auto] items-center gap-x-3 ${presupuesto?.fecha_emision_original ? 'border-l-2 border-l-insignia-advertencia/60' : ''}`}>
           {/* Fila Emisión original (arriba, solo si fue re-emitido) */}
           {presupuesto?.fecha_emision_original && (
             <>
-              <span className={`${etiqueta} py-1 text-texto-terciario !text-xxs !font-normal`}>Emisión original</span>
+              <span className={`${etiqueta} py-1 text-texto-terciario`}>Emisión original</span>
               <div className="py-1" />
               <div className="py-1 w-40">
                 <span className="text-xs text-texto-terciario">
@@ -183,7 +183,7 @@ export default function SeccionDatosPresupuesto({
             </>
           )}
           {/* Fila Emisión / Re-emisión */}
-          <span className={`${etiqueta} py-2.5`}>{presupuesto?.fecha_emision_original ? 'Re-emisión' : 'Emisión'}</span>
+          <span className={`${etiqueta} py-2.5 ${presupuesto?.fecha_emision_original ? 'text-insignia-advertencia' : ''}`}>{presupuesto?.fecha_emision_original ? 'Re-emisión' : 'Emisión'}</span>
           <div className="py-2.5" />
           <div className="py-2.5 w-40">
             {esEditable ? (

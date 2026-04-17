@@ -162,6 +162,17 @@ function MiniSelectorIcono({ valor, color, onChange }: { valor: string; color: s
   )
 }
 
+/** Genera abreviación automática: iniciales de palabras significativas, o primeras 4 letras si es una sola palabra */
+function generarAbreviacion(etiqueta: string): string {
+  const stopWords = ['en', 'de', 'del', 'la', 'el', 'a', 'y', 'o', 'por', 'para', 'con', 'sin', 'al', 'los', 'las', 'un', 'una']
+  const palabras = etiqueta.split(/\s+/).filter(p => p.length > 0 && !stopWords.includes(p.toLowerCase()))
+  if (palabras.length >= 2) {
+    return palabras.map(p => p[0].toUpperCase()).join('')
+  }
+  const palabra = palabras[0] || etiqueta
+  return palabra.slice(0, palabra.length <= 5 ? palabra.length : 4).toUpperCase()
+}
+
 // Campos configurables por tipo
 const CAMPOS_DISPONIBLES = [
   { clave: 'campo_fecha', etiqueta: 'Fecha de vencimiento', descripcion: 'Permite asignar una fecha límite' },
@@ -179,6 +190,7 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
   // Estado del formulario
   const [etiqueta, setEtiqueta] = useState('')
   const [abreviacion, setAbreviacion] = useState('')
+  const [abreviacionManual, setAbreviacionManual] = useState(false)
   const [clave, setClave] = useState('')
   const [icono, setIcono] = useState('Activity')
   const [color, setColor] = useState('#5b5bd6')
@@ -246,6 +258,7 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
     if (tipo) {
       setEtiqueta(tipo.etiqueta)
       setAbreviacion(tipo.abreviacion || '')
+      setAbreviacionManual(!!tipo.abreviacion)
       setClave(tipo.clave)
       setIcono(tipo.icono)
       setColor(tipo.color)
@@ -268,6 +281,7 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
     } else {
       setEtiqueta('')
       setAbreviacion('')
+      setAbreviacionManual(false)
       setClave('')
       setIcono('Activity')
       setColor('#5b5bd6')
@@ -290,11 +304,16 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
     }
   }, [abierto, tipo])
 
-  // Auto-generar clave desde etiqueta (solo al crear)
+  // Auto-generar clave + abreviación desde etiqueta
   const manejarEtiqueta = (valor: string) => {
     setEtiqueta(valor)
     if (!esEdicion) {
       setClave(valor.toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''))
+    }
+    if (!abreviacionManual && valor.trim()) {
+      setAbreviacion(generarAbreviacion(valor.trim()))
+    } else if (!valor.trim()) {
+      setAbreviacion('')
     }
   }
 
@@ -366,11 +385,11 @@ function ModalTipoActividad({ abierto, tipo, tipos, miembros, modulosDisponibles
                   placeholder="Nombre: Llamada, Reunión, Visita..."
                   autoFocus />
               </div>
-              <div className="w-20 shrink-0">
+              <div className="w-16 shrink-0">
                 <Input tipo="text" value={abreviacion}
-                  onChange={(e) => setAbreviacion(e.target.value.toUpperCase().slice(0, 6))}
-                  placeholder="Abrev."
-                  className="text-center"
+                  onChange={(e) => { setAbreviacion(e.target.value.toUpperCase().slice(0, 6)); setAbreviacionManual(true) }}
+                  placeholder="AUTO"
+                  className="text-center text-[13px] tracking-wider"
                   etiqueta="" />
               </div>
             </div>

@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Mail, Settings } from 'lucide-react'
+import { MessagesSquare, Settings } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { useEstadoInbox } from './_componentes/useEstadoInbox'
 import { useAtajosInbox } from './_componentes/useAtajosInbox'
@@ -76,7 +76,7 @@ function PaginaInbox() {
             className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
             style={{ background: 'var(--superficie-hover)' }}
           >
-            <Mail size={32} style={{ color: 'var(--texto-terciario)' }} />
+            <MessagesSquare size={32} style={{ color: 'var(--texto-terciario)' }} />
           </div>
           <h2 className="text-base font-semibold mb-2" style={{ color: 'var(--texto-primario)' }}>
             Inbox no activado

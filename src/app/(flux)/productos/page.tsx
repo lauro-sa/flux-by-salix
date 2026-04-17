@@ -5,6 +5,8 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { verificarVisibilidad } from '@/lib/permisos-servidor'
 import { crearQueryClient } from '@/lib/query'
+import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
+import { ShieldX } from 'lucide-react'
 
 const POR_PAGINA = 50
 
@@ -17,7 +19,15 @@ export default async function PaginaProductos() {
   if (!empresaId) redirect('/login')
 
   const visibilidad = await verificarVisibilidad(user.id, empresaId, 'productos')
-  if (!visibilidad) return <ContenidoProductos />
+  if (!visibilidad) return (
+    <div className="flex-1 flex items-center justify-center p-8">
+      <EstadoVacio
+        icono={<ShieldX size={52} strokeWidth={1} />}
+        titulo="Sin acceso a Productos"
+        descripcion="No tenés permisos para ver esta sección. Contactá a un administrador si creés que es un error."
+      />
+    </div>
+  )
 
   const admin = crearClienteAdmin()
 

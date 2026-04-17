@@ -11,9 +11,9 @@ import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import {
-  PlusCircle, Download, Upload, Package, PackageOpen, Wrench,
+  PlusCircle, Package, PackageOpen, Wrench,
   Hash, Tag, DollarSign, Star, Ruler, ToggleLeft, Calendar,
-  FileText, StickyNote, Barcode, Box,
+  FileText, Barcode, Box,
   Trash2, TrendingUp, History,
 } from 'lucide-react'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
@@ -21,6 +21,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { Insignia, type ColorInsignia } from '@/componentes/ui/Insignia'
 import { COLOR_TIPO_PRODUCTO } from '@/lib/colores_entidad'
 import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
+import { useToast } from '@/componentes/feedback/Toast'
 import { ModalProducto } from './ModalProducto'
 import type { Producto, TipoProducto, ConfigProductos } from '@/tipos/producto'
 
@@ -30,34 +31,18 @@ import type { Producto, TipoProducto, ConfigProductos } from '@/tipos/producto'
  * React Query (useListado) maneja cache, filtros, paginación y refetch.
  */
 
-interface FilaProducto {
-  id: string
-  codigo: string
-  nombre: string
-  tipo: TipoProducto
-  categoria: string | null
-  favorito: boolean
-  referencia_interna: string | null
-  codigo_barras: string | null
-  precio_unitario: string | null
-  moneda: string | null
-  costo: string | null
-  unidad: string
-  descripcion: string | null
-  descripcion_venta: string | null
-  puede_venderse: boolean
-  puede_comprarse: boolean
-  activo: boolean
-  creado_en: string
-  actualizado_en: string
-  imagen_url: string | null
+type FilaProducto = Pick<Producto,
+  | 'id' | 'codigo' | 'nombre' | 'tipo' | 'categoria' | 'favorito'
+  | 'referencia_interna' | 'codigo_barras' | 'precio_unitario' | 'moneda'
+  | 'costo' | 'unidad' | 'descripcion' | 'descripcion_venta'
+  | 'puede_venderse' | 'puede_comprarse' | 'activo'
+  | 'creado_en' | 'actualizado_en' | 'imagen_url'
+  | 'creado_por' | 'creado_por_nombre' | 'editado_por' | 'editado_por_nombre'
+> & {
+  /** Campos calculados por la API (views/generated columns) */
   veces_presupuestado: number
   veces_vendido: number
   origen: string
-  creado_por: string | null
-  creado_por_nombre: string | null
-  editado_por: string | null
-  editado_por_nombre: string | null
 }
 
 const POR_PAGINA = 50
@@ -72,6 +57,7 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
   const searchParams = useSearchParams()
   const formato = useFormato()
   const queryClient = useQueryClient()
+  const { mostrar: mostrarToast } = useToast()
 
   // ---- Estado ----
   // Filtros server-side
@@ -122,24 +108,24 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
   })
 
   // ---- Cargar configuracion ----
-  const configCargadaRef = useState(false)
+  const configCargadaRef = useRef(false)
   useEffect(() => {
-    if (configCargadaRef[0]) return
-    configCargadaRef[1](true)
+    if (configCargadaRef.current) return
+    configCargadaRef.current = true
 
     // Config de productos
     fetch('/api/productos/config')
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error(); return r.json() })
       .then(data => {
         setConfig(data)
         const cats = (data.categorias || []) as { id: string; label: string }[]
         setCategoriasDisponibles(cats.map(c => ({ valor: c.id, etiqueta: c.label })))
       })
-      .catch(() => {})
+      .catch(() => mostrarToast('error', 'No se pudo cargar la configuración de productos'))
 
     // Impuestos (de config presupuestos)
     fetch('/api/presupuestos/config')
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error(); return r.json() })
       .then(data => {
         if (data.impuestos) {
           setImpuestos(data.impuestos.filter((i: { activo: boolean }) => i.activo))
@@ -158,10 +144,11 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
         )
       )
       queryClient.invalidateQueries({ queryKey: ['productos'] })
-    } catch (err) {
-      console.error('Error al eliminar productos:', err)
+      mostrarToast('exito', `${ids.size} producto${ids.size !== 1 ? 's' : ''} enviado${ids.size !== 1 ? 's' : ''} a papelera`)
+    } catch {
+      mostrarToast('error', 'Error al eliminar productos')
     }
-  }, [queryClient])
+  }, [queryClient, mostrarToast])
 
   // ---- Helpers ----
   const formatoMonedaLocal = useCallback((valor: string | null, monedaCodigo?: string | null, mostrarCero = false) => {
@@ -389,12 +376,16 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
   ]
 
   // ---- Renderizar tarjeta (compacta) ----
-  const renderizarTarjeta = (fila: FilaProducto) => {
+  const renderizarTarjeta = useCallback((fila: FilaProducto) => {
     const color = (COLOR_TIPO_PRODUCTO[fila.tipo] || 'neutro') as ColorInsignia
-    const precioStr = formatoMonedaLocal(fila.precio_unitario, fila.moneda, true)
+    const num = Number(fila.precio_unitario || 0)
+    const codigoFinal = fila.moneda || formato.codigoMoneda
+    const precioStr = new Intl.NumberFormat(formato.locale, {
+      style: 'currency', currency: codigoFinal, minimumFractionDigits: 2, maximumFractionDigits: 2,
+    }).format(num)
 
     return (
-      <div className="px-2.5 py-2 flex flex-col gap-1.5">
+      <div className="px-2.5 py-2 pr-7 flex flex-col gap-1.5">
         <div className="flex items-center gap-2">
           <div className="size-7 rounded-md flex items-center justify-center shrink-0"
             style={{ backgroundColor: `var(--insignia-${color}-fondo)`, color: `var(--insignia-${color}-texto)` }}>
@@ -415,7 +406,7 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
         </div>
       </div>
     )
-  }
+  }, [formato.locale, formato.codigoMoneda])
 
   // ---- Agrupación por categoría ----
   const obtenerGrupoCategoria = useCallback((fila: FilaProducto) => {
@@ -437,10 +428,7 @@ export default function ContenidoProductos({ datosInicialesJson }: Props) {
           icono: <PlusCircle size={14} />,
           onClick: abrirNuevo,
         }}
-        acciones={[
-          { id: 'importar', etiqueta: t('comun.importar'), icono: <Upload size={14} />, onClick: () => {} },
-          { id: 'exportar', etiqueta: t('comun.exportar'), icono: <Download size={14} />, onClick: () => {} },
-        ]}
+        acciones={[]}
         mostrarConfiguracion
         onConfiguracion={() => router.push('/productos/configuracion')}
       >

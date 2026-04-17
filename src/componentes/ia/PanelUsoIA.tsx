@@ -12,6 +12,7 @@ import {
   BarChart3, MessageSquare, Wrench, ExternalLink,
   Smartphone, Globe, Bot, Sparkles,
 } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import {
   calcularCostoEstimado,
@@ -65,7 +66,7 @@ interface MetricasIA {
 
 const ICONOS_CANAL: Record<string, typeof Smartphone> = {
   app: Smartphone,
-  whatsapp: MessageSquare,
+  whatsapp: IconoWhatsApp as unknown as typeof Smartphone,
   web: Globe,
   api: Bot,
 }

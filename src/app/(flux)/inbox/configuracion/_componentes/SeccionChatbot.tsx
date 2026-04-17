@@ -9,6 +9,7 @@ import { CargadorSeccion } from '@/componentes/ui/Cargador'
 import {
   Plus, Trash2, Bot, MessageCircle, Hash, FileText,
 } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { useTraduccion } from '@/lib/i18n'
 import { EditorWhatsApp } from './EditorWhatsApp'
 
@@ -199,7 +200,7 @@ export function SeccionChatbot() {
         <div className="p-4 rounded-xl space-y-3" style={estiloSeccion}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <MessageCircle size={14} style={{ color: 'var(--canal-whatsapp)' }} />
+              <IconoWhatsApp size={14} style={{ color: 'var(--canal-whatsapp)' }} />
               <span className="text-xs font-semibold" style={{ color: 'var(--texto-primario)' }}>Mensaje de bienvenida</span>
             </div>
             <Interruptor activo={config.bienvenida_activa} onChange={(v) => guardar({ bienvenida_activa: v })} />

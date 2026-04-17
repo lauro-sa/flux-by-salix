@@ -6,7 +6,8 @@
  * Se usa en: PaginaRecorrido, cuando el visitador llega a una parada.
  */
 
-import { Phone, MessageCircle, Bell, X, MapPin, Navigation } from 'lucide-react'
+import { Phone, Bell, X, MapPin, Navigation } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTraduccion } from '@/lib/i18n'
 
@@ -113,7 +114,7 @@ function ModalLlegada({
                   disabled={!telefono}
                   className="flex items-center justify-center gap-2 py-3 rounded-xl border border-borde-sutil hover:bg-superficie-elevada transition-colors disabled:opacity-30"
                 >
-                  <MessageCircle size={16} className="text-canal-whatsapp" />
+                  <IconoWhatsApp size={16} className="text-canal-whatsapp" />
                   <span className="text-sm font-medium text-texto-primario">{t('visitas.whatsapp')}</span>
                 </button>
               </div>

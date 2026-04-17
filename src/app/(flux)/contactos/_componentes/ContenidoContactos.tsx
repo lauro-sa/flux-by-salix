@@ -14,11 +14,12 @@ import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { AccionLote } from '@/componentes/tablas/tipos-tabla'
 import {
   UserPlus, Download, Upload, Users, UserRoundSearch, Building2, Building, Truck,
-  User, Tag, Hash, CreditCard, Link2, Mail, Phone, MessageCircle, Briefcase, Factory,
+  User, Tag, Hash, CreditCard, Link2, Mail, Phone, Briefcase, Factory,
   Globe, MapPin, Tags, StickyNote, Calendar, Receipt, GraduationCap,
   Languages, Clock, Coins, Landmark, FileText, Star, Compass, ShieldCheck,
   Trash2, X, UserCheck, Merge, FileDown, KanbanSquare, History,
 } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { ModalImportar } from './ModalImportar'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { SkeletonTabla } from '@/componentes/feedback/SkeletonTabla'
@@ -416,7 +417,7 @@ export default function ContenidoContactos({ datosInicialesJson }: Props) {
       render: (fila) => fila.telefono ? <span className="text-texto-secundario">{fila.telefono}</span> : null,
     },
     {
-      clave: 'whatsapp', etiqueta: t('contactos.whatsapp'), ancho: 150, grupo: t('comun.contacto'), icono: <MessageCircle size={I} />,
+      clave: 'whatsapp', etiqueta: t('contactos.whatsapp'), ancho: 150, grupo: t('comun.contacto'), icono: <IconoWhatsApp size={I} />,
       render: (fila) => fila.whatsapp ? <span className="text-texto-secundario">{fila.whatsapp}</span> : null,
     },
     {
@@ -554,7 +555,7 @@ export default function ContenidoContactos({ datosInicialesJson }: Props) {
               {etapa_etiqueta}
             </span>
             {tipo_canal === 'whatsapp'
-              ? <MessageCircle size={11} className="text-texto-terciario shrink-0" />
+              ? <IconoWhatsApp size={11} className="text-texto-terciario shrink-0" />
               : <Mail size={11} className="text-texto-terciario shrink-0" />
             }
           </div>

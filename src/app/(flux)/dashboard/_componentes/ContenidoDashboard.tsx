@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
   Users, FileText, MessageSquare, CheckSquare,
-  Plus, ArrowRight, Mail, MessageCircle,
+  Plus, ArrowRight, Mail,
   Image, Mic, File, Video,
   BarChart3, LayoutDashboard,
   Receipt, ClipboardList, Calendar, Megaphone, ShieldCheck,
 } from 'lucide-react'
+import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { useAuth } from '@/hooks/useAuth'
 import { useEmpresa } from '@/hooks/useEmpresa'
 import { useFormato } from '@/hooks/useFormato'
@@ -708,7 +709,7 @@ function TarjetaMensajesRecientes({ mensajes }: { mensajes: DatosDashboard['mens
                   : m.tipo_canal === 'correo' ? 'bg-canal-correo/15 text-canal-correo'
                   : 'bg-canal-interno/15 text-canal-interno'
                 }`}>
-                  {m.tipo_canal === 'whatsapp' ? <MessageCircle size={10} /> : m.tipo_canal === 'correo' ? <Mail size={10} /> : <MessageSquare size={10} />}
+                  {m.tipo_canal === 'whatsapp' ? <IconoWhatsApp size={10} /> : m.tipo_canal === 'correo' ? <Mail size={10} /> : <MessageSquare size={10} />}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
