@@ -16,6 +16,7 @@ import { Insignia } from '@/componentes/ui/Insignia'
 import { SelectorFecha } from '@/componentes/ui/SelectorFecha'
 import { ModalEnviarReciboNomina } from './ModalEnviarReciboNomina'
 import { crearClienteNavegador } from '@/lib/supabase/cliente'
+import { useFormato } from '@/hooks/useFormato'
 import {
   Banknote, CalendarDays, Plus, X, Pencil, Trash2,
   Receipt, Send, Landmark, Check, ChevronLeft, ChevronRight,
@@ -77,6 +78,13 @@ const fmtHoras = (h: number) => {
 
 export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombreEmpresa, onActualizado }: Props) {
   const supabase = crearClienteNavegador()
+  const { locale } = useFormato()
+
+  /** Formatea fecha según config de la empresa */
+  const fmtFecha = (fecha: string) => {
+    const d = new Date(fecha + 'T12:00:00')
+    return d.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })
+  }
 
   // Período interno (navegable dentro del modal)
   const [periodoInterno, setPeriodoInterno] = useState(periodo)
@@ -469,7 +477,7 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
             <div className="text-center flex-1">
               <p className="text-sm font-semibold text-texto-primario">{periodoInterno.etiqueta}</p>
               <div className="flex items-center justify-center gap-2">
-                <p className="text-xxs text-texto-terciario">{periodoInterno.desde} — {periodoInterno.hasta}</p>
+                <p className="text-xxs text-texto-terciario">{fmtFecha(periodoInterno.desde)} — {fmtFecha(periodoInterno.hasta)}</p>
                 {(periodoInterno.desde !== periodo.desde || periodoInterno.hasta !== periodo.hasta) && (
                   <button
                     onClick={() => { setPeriodoInterno(periodo); setDatosEmpleado(empleado); cargarPagosYAdelantos(empleado!.miembro_id, periodo.desde, periodo.hasta) }}
@@ -715,36 +723,66 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
                 <p className="text-xs text-insignia-peligro">{emp.dias_ausentes} ausencia{emp.dias_ausentes !== 1 ? 's' : ''}</p>
               )}
 
-              <div className="border-t border-white/[0.07] pt-3 space-y-1.5">
-                <div className="flex justify-between text-sm">
-                  <span className="text-texto-terciario">Horas netas</span>
-                  <span className="text-texto-primario">{fmtHoras(emp.horas_netas)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-texto-terciario">Bruto</span>
-                  <span className="text-texto-primario font-medium">{fmtMonto(emp.monto_pagar)}</span>
-                </div>
-                {emp.descuento_adelanto > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-insignia-advertencia">Adelanto</span>
-                    <span className="text-insignia-advertencia">-{fmtMonto(emp.descuento_adelanto)}</span>
+              {(() => {
+                // Calcular si hay un pago en este período para mostrar desglose completo
+                const pagoDelPeriodo = pagos.length > 0 ? pagos[0] : null
+                const montoAbonado = pagoDelPeriodo ? parseFloat(pagoDelPeriodo.monto_abonado as string) : 0
+                const hayPago = pagoDelPeriodo != null
+                const diferenciaPago = hayPago ? montoAbonado - emp.monto_neto : 0
+
+                return (
+                  <div className="border-t border-white/[0.07] pt-3 space-y-1.5">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-texto-terciario">Horas netas</span>
+                      <span className="text-texto-primario">{fmtHoras(emp.horas_netas)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-texto-terciario">Bruto</span>
+                      <span className="text-texto-primario font-medium">{fmtMonto(emp.monto_pagar)}</span>
+                    </div>
+                    {emp.descuento_adelanto > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-insignia-advertencia">Adelanto</span>
+                        <span className="text-insignia-advertencia">-{fmtMonto(emp.descuento_adelanto)}</span>
+                      </div>
+                    )}
+                    {emp.saldo_anterior !== 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className={emp.saldo_anterior > 0 ? 'text-insignia-info' : 'text-insignia-peligro'}>
+                          {emp.saldo_anterior > 0 ? 'A favor (período ant.)' : 'Debe (período ant.)'}
+                        </span>
+                        <span className={emp.saldo_anterior > 0 ? 'text-insignia-info' : 'text-insignia-peligro'}>
+                          {emp.saldo_anterior > 0 ? '-' : '+'}{fmtMonto(Math.abs(emp.saldo_anterior))}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-sm border-t border-white/[0.07] pt-1.5">
+                      <span className="text-texto-primario font-semibold">Neto a pagar</span>
+                      <span className="text-insignia-exito font-bold text-base">{fmtMonto(emp.monto_neto)}</span>
+                    </div>
+
+                    {/* Si ya hay un pago, mostrar qué se pagó y la diferencia */}
+                    {hayPago && (
+                      <>
+                        <div className="flex justify-between text-sm border-t border-white/[0.07] pt-1.5 mt-1.5">
+                          <span className="text-texto-terciario">Se pagó</span>
+                          <span className="text-texto-primario font-semibold">{fmtMonto(montoAbonado)}</span>
+                        </div>
+                        {diferenciaPago !== 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className={diferenciaPago > 0 ? 'text-insignia-info' : 'text-insignia-peligro'}>
+                              {diferenciaPago > 0 ? 'A favor del empleado' : 'Quedó debiendo'}
+                            </span>
+                            <span className={`font-semibold ${diferenciaPago > 0 ? 'text-insignia-info' : 'text-insignia-peligro'}`}>
+                              {diferenciaPago > 0 ? '+' : ''}{fmtMonto(diferenciaPago)}
+                            </span>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
-                )}
-                {emp.saldo_anterior !== 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className={emp.saldo_anterior > 0 ? 'text-insignia-info' : 'text-insignia-peligro'}>
-                      {emp.saldo_anterior > 0 ? 'A favor (período ant.)' : 'Debe (período ant.)'}
-                    </span>
-                    <span className={emp.saldo_anterior > 0 ? 'text-insignia-info' : 'text-insignia-peligro'}>
-                      {emp.saldo_anterior > 0 ? '-' : '+'}{fmtMonto(Math.abs(emp.saldo_anterior))}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between text-sm border-t border-white/[0.07] pt-1.5">
-                  <span className="text-texto-primario font-semibold">Neto a pagar</span>
-                  <span className="text-insignia-exito font-bold text-base">{fmtMonto(emp.monto_neto)}</span>
-                </div>
-              </div>
+                )
+              })()}
 
               <p className="text-xxs text-texto-terciario">{emp.monto_detalle} · {pctAsistencia}% asistencia</p>
             </div>
@@ -752,18 +790,44 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
             {/* Divisor */}
             <div className="hidden md:block bg-white/[0.07]" />
 
-            {/* Derecha: Adelantos */}
+            {/* Derecha: Adelantos y descuentos */}
             <div className="px-6 py-4 space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Adelantos</p>
+                <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Descuentos</p>
                 {!mostrarFormAdelanto && (
                   <Boton variante="fantasma" tamano="xs" icono={<Plus size={12} />}
-                    onClick={() => setMostrarFormAdelanto(true)}>Nuevo</Boton>
+                    onClick={() => setMostrarFormAdelanto(true)}>Nuevo adelanto</Boton>
                 )}
               </div>
 
-              {adelantos.length === 0 && !mostrarFormAdelanto && (
-                <p className="text-xs text-texto-terciario py-2">Sin adelantos activos</p>
+              {/* Saldo a favor del período anterior */}
+              {emp.saldo_anterior > 0 && (
+                <div className="flex items-center gap-3 py-2 px-3 rounded-lg bg-insignia-info/10 border border-insignia-info/20">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-insignia-info">A favor período anterior</span>
+                    </div>
+                    <p className="text-xxs text-texto-terciario mt-0.5">Se pagó de más, se descuenta este período</p>
+                  </div>
+                  <span className="text-sm font-bold text-insignia-info">-{fmtMonto(emp.saldo_anterior)}</span>
+                </div>
+              )}
+
+              {/* Saldo en contra del período anterior */}
+              {emp.saldo_anterior < 0 && (
+                <div className="flex items-center gap-3 py-2 px-3 rounded-lg bg-insignia-peligro/10 border border-insignia-peligro/20">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-insignia-peligro">Debe del período anterior</span>
+                    </div>
+                    <p className="text-xxs text-texto-terciario mt-0.5">Se pagó de menos, se suma a este período</p>
+                  </div>
+                  <span className="text-sm font-bold text-insignia-peligro">+{fmtMonto(Math.abs(emp.saldo_anterior))}</span>
+                </div>
+              )}
+
+              {adelantos.length === 0 && !mostrarFormAdelanto && emp.saldo_anterior === 0 && (
+                <p className="text-xs text-texto-terciario py-2">Sin descuentos en este período</p>
               )}
 
               {adelantos.map(a => {
@@ -774,6 +838,15 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
                 const total = parseFloat(a.monto_total as string)
                 const progreso = cuotasT > 0 ? (cuotasD / cuotasT) * 100 : 0
                 const esEditando = editandoAdelanto === aid
+
+                // Encontrar la cuota específica de ESTE período
+                const cuotas = (a.cuotas || []) as Record<string, unknown>[]
+                const cuotaDelPeriodo = cuotas.find(c =>
+                  (c.fecha_programada as string) >= periodoInterno.desde &&
+                  (c.fecha_programada as string) <= periodoInterno.hasta
+                )
+                const numeroCuotaPeriodo = cuotaDelPeriodo ? (cuotaDelPeriodo.numero_cuota as number) : null
+                const montoCuotaPeriodo = cuotaDelPeriodo ? parseFloat(cuotaDelPeriodo.monto_cuota as string) : 0
 
                 if (esEditando) {
                   return (
@@ -801,14 +874,20 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
                   <div key={aid} className="flex items-center gap-3 py-2 border-b border-white/[0.05] last:border-0">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-texto-primario">{fmtMonto(total)}</span>
-                        <Insignia color="advertencia" tamano="sm">{cuotasD}/{cuotasT}</Insignia>
+                        <span className="text-sm font-medium text-texto-primario">{fmtMonto(montoCuotaPeriodo || total)}</span>
+                        {numeroCuotaPeriodo ? (
+                          <Insignia color="advertencia" tamano="sm">Cuota {numeroCuotaPeriodo}/{cuotasT}</Insignia>
+                        ) : (
+                          <Insignia color="neutro" tamano="sm">{cuotasD}/{cuotasT} pagadas</Insignia>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 mt-1">
                         <div className="flex-1 h-1 bg-superficie-hover rounded-full overflow-hidden max-w-[80px]">
                           <div className="h-full bg-insignia-advertencia rounded-full" style={{ width: `${progreso}%` }} />
                         </div>
-                        <span className="text-xxs text-texto-terciario">Saldo: {fmtMonto(saldo)}</span>
+                        <span className="text-xxs text-texto-terciario">
+                          Total: {fmtMonto(total)} · Saldo: {fmtMonto(saldo)}
+                        </span>
                       </div>
                       {(a.notas as string) ? <p className="text-xxs text-texto-terciario mt-0.5">{String(a.notas)}</p> : null}
                     </div>
@@ -868,7 +947,7 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-texto-secundario truncate">{p.concepto as string}</p>
                         <p className="text-xxs text-texto-terciario">
-                          {new Date(p.creado_en as string).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          {new Date(p.creado_en as string).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })}
                           {p.creado_por_nombre ? <> · {String(p.creado_por_nombre)}</> : null}
                         </p>
                         {p.notas ? <p className="text-xxs text-texto-terciario truncate mt-0.5">{String(p.notas)}</p> : null}
@@ -887,8 +966,11 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
                           <div className="text-right">
                             <span className="text-sm font-semibold text-insignia-exito">{fmtMonto(montoAbonado)}</span>
                             {montoSugerido && montoAbonado !== montoSugerido && (
-                              <p className="text-xxs text-texto-terciario">
-                                {montoAbonado > montoSugerido ? '+' : ''}{fmtMonto(montoAbonado - montoSugerido)} vs sugerido
+                              <p className={`text-xxs ${montoAbonado > montoSugerido ? 'text-insignia-info' : 'text-insignia-peligro'}`}>
+                                {montoAbonado > montoSugerido
+                                  ? `+${fmtMonto(montoAbonado - montoSugerido)} a favor → se descuenta`
+                                  : `${fmtMonto(montoAbonado - montoSugerido)} quedó debiendo`
+                                }
                               </p>
                             )}
                           </div>

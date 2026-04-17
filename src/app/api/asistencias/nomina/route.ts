@@ -161,19 +161,22 @@ export async function GET(request: NextRequest) {
     }
 
     // ─── Adelantos: cuotas pendientes por miembro ───
-    const { data: cuotasPendientesData } = await admin
+    // Cuotas del período: pendientes Y descontadas (para mostrar desglose completo)
+    const { data: cuotasDelPeriodoData } = await admin
       .from('adelantos_cuotas')
-      .select('miembro_id, monto_cuota, adelanto_id, numero_cuota')
+      .select('miembro_id, monto_cuota, adelanto_id, numero_cuota, estado, fecha_programada')
       .eq('empresa_id', empresaId)
-      .eq('estado', 'pendiente')
+      .in('estado', ['pendiente', 'descontada'])
+      .gte('fecha_programada', desde)
       .lte('fecha_programada', hasta)
 
-    // Agrupar cuotas pendientes por miembro
+    // Agrupar cuotas por miembro (solo pendientes afectan el monto neto)
     const cuotasPorMiembro = new Map<string, { monto: number; cantidad: number; detalle: Record<string, unknown>[] }>()
-    for (const c of (cuotasPendientesData || []) as Record<string, unknown>[]) {
+    for (const c of (cuotasDelPeriodoData || []) as Record<string, unknown>[]) {
       const mid = c.miembro_id as string
       if (!cuotasPorMiembro.has(mid)) cuotasPorMiembro.set(mid, { monto: 0, cantidad: 0, detalle: [] })
       const entry = cuotasPorMiembro.get(mid)!
+      // Todas las cuotas del período se descuentan (pendientes y ya descontadas)
       entry.monto += parseFloat(c.monto_cuota as string)
       entry.cantidad++
       entry.detalle.push(c)
