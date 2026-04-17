@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Mail, Settings } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { useEstadoInbox } from './_componentes/useEstadoInbox'
+import { useAtajosInbox } from './_componentes/useAtajosInbox'
 import { BarraSuperiorInbox } from './_componentes/BarraSuperiorInbox'
 import { LayoutCorreo } from './_componentes/LayoutCorreo'
 import { LayoutInterno } from './_componentes/LayoutInterno'
@@ -46,6 +47,26 @@ function PaginaInbox() {
     estado.setSoloNoLeidos(false)
     estado.paginaMensajesRef.current = 1
   }, [])
+
+  // Atajos de teclado para correo (solo desktop, solo tab correo)
+  useAtajosInbox({
+    conversaciones: estado.conversaciones,
+    conversacionSeleccionadaId: estado.conversacionSeleccionada?.id || null,
+    onSeleccionar: estado.seleccionarConversacion,
+    onResponder: () => {
+      // Dispara click en el botón de responder del PanelCorreo
+      // Usamos un evento custom que el PanelCorreo escucha
+      window.dispatchEvent(new CustomEvent('flux:inbox-responder'))
+    },
+    onArchivar: estado.archivarConversacion,
+    onEliminar: estado.eliminarConversacion,
+    onToggleLeido: estado.toggleLeido,
+    onMarcarSpam: estado.marcarSpam,
+    onLimpiarSeleccion: limpiarSeleccionCorreo,
+    respondiendo: estado.redactandoNuevo,
+    mensajesSinLeer: estado.conversacionSeleccionada?.mensajes_sin_leer || 0,
+    habilitado: estado.tabActivo === 'correo' && !estado.esMovil,
+  })
 
   if (!hayModulosActivos(estado.modulosActivos)) {
     return (
@@ -140,6 +161,7 @@ function PaginaInbox() {
             vistaMovil={estado.vistaMovilCorreo}
             onCambiarVistaMovil={estado.setVistaMovilCorreo}
             onLimpiarSeleccion={limpiarSeleccionCorreo}
+            onRefresh={estado.sincronizarCorreos}
             t={estado.t}
           />
         )}

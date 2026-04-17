@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { Boton } from '@/componentes/ui/Boton'
-import { ArrowLeft, PanelLeftOpen, PanelLeftClose, Columns2, Rows2 } from 'lucide-react'
+import { ArrowLeft, PanelLeftOpen, PanelLeftClose, Columns2, Rows2, Pen } from 'lucide-react'
 import { ErrorBoundary } from '@/componentes/feedback/ErrorBoundary'
 import { ListaConversaciones } from './ListaConversaciones'
 import { PanelCorreo } from './PanelCorreo'
@@ -78,6 +78,9 @@ interface PropsLayoutCorreo {
   // Limpiar estado al volver
   onLimpiarSeleccion: () => void
 
+  // Pull to refresh
+  onRefresh?: () => Promise<void>
+
   // Traducciones
   t: (clave: string) => string
 }
@@ -128,6 +131,7 @@ export function LayoutCorreo({
   vistaMovil,
   onCambiarVistaMovil,
   onLimpiarSeleccion,
+  onRefresh,
   t,
 }: PropsLayoutCorreo) {
   // Props comunes para el compositor de correo nuevo
@@ -205,7 +209,7 @@ export function LayoutCorreo({
 
         {/* Vista 2: Lista de correos */}
         {vistaMovil === 'lista' && (
-          <div className="flex-1 flex flex-col h-full overflow-hidden">
+          <div className="flex-1 flex flex-col h-full overflow-hidden relative">
             <div className="flex items-center gap-2 px-2 min-h-[44px] flex-shrink-0" style={{ borderBottom: '1px solid var(--borde-sutil)', background: 'var(--superficie-tarjeta)' }}>
               <Boton
                 variante="fantasma"
@@ -234,8 +238,22 @@ export function LayoutCorreo({
                 onEliminarSeleccion={onEliminarSeleccion}
                 soloNoLeidos={soloNoLeidos}
                 onToggleNoLeidos={onToggleNoLeidos}
+                onRefresh={onRefresh}
               />
             </div>
+            {/* FAB redactar */}
+            <button
+              onClick={() => {
+                onLimpiarSeleccion()
+                onRedactarNuevo()
+                onCambiarVistaMovil('correo')
+              }}
+              className="absolute bottom-5 right-5 size-14 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+              style={{ background: 'var(--texto-marca)', color: 'var(--texto-inverso)', border: 'none' }}
+              aria-label="Redactar correo"
+            >
+              <Pen size={22} />
+            </button>
           </div>
         )}
 

@@ -18,6 +18,7 @@ import { IconoWhatsApp } from '@/componentes/iconos/IconoWhatsApp'
 import { MenuConversacion } from './MenuConversacion'
 import { useTraduccion } from '@/lib/i18n'
 import { useFormato } from '@/hooks/useFormato'
+import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import type { ConversacionConDetalles, EstadoConversacion, TipoCanal } from '@/tipos/inbox'
 
 /**
@@ -60,6 +61,8 @@ interface PropiedadesListaConversaciones {
   iaHabilitada?: boolean
   /** Callback para abrir modal de nuevo mensaje (botón "+" en barra de búsqueda) */
   onNuevoMensaje?: () => void
+  /** Callback para pull-to-refresh en mobile */
+  onRefresh?: () => Promise<void>
 }
 
 // Iconos de canal
@@ -122,6 +125,7 @@ export function ListaConversaciones({
   botHabilitado = true,
   iaHabilitada = true,
   onNuevoMensaje,
+  onRefresh,
 }: PropiedadesListaConversaciones) {
   const { t } = useTraduccion()
   const formato = useFormato()
@@ -136,6 +140,11 @@ export function ListaConversaciones({
   const [modoSeleccion, setModoSeleccion] = useState(false)
   const [pagina, setPagina] = useState(1)
   const POR_PAGINA = 50
+
+  // Pull to refresh
+  const { pullDistance, refrescando, handlers: pullHandlers } = usePullToRefresh({
+    onRefresh: onRefresh || (async () => {}),
+  })
 
   // Resetear página cuando cambian las conversaciones
   useEffect(() => { setPagina(1) }, [conversaciones.length])
@@ -419,7 +428,25 @@ export function ListaConversaciones({
       </AnimatePresence>
 
       {/* Lista de conversaciones */}
-      <div className="flex-1 overflow-y-auto" style={{ overscrollBehaviorY: 'contain', WebkitOverflowScrolling: 'touch' }}>
+      <div
+        className="flex-1 overflow-y-auto"
+        style={{ overscrollBehaviorY: 'contain', WebkitOverflowScrolling: 'touch' }}
+        {...(onRefresh ? pullHandlers : {})}
+      >
+        {/* Indicador de pull-to-refresh */}
+        {(pullDistance > 0 || refrescando) && (
+          <div
+            className="flex items-center justify-center overflow-hidden transition-all"
+            style={{ height: refrescando ? 40 : pullDistance }}
+          >
+            <motion.div
+              className="size-5 rounded-full border-2 border-t-transparent"
+              style={{ borderColor: 'var(--texto-terciario)', borderTopColor: 'transparent' }}
+              animate={refrescando ? { rotate: 360 } : { rotate: pullDistance * 3 }}
+              transition={refrescando ? { duration: 0.8, repeat: Infinity, ease: 'linear' } : { duration: 0 }}
+            />
+          </div>
+        )}
         {cargando ? (
           <div className="flex items-center justify-center py-12">
             <div className="flex gap-1">

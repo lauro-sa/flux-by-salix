@@ -208,6 +208,7 @@ export function PanelCorreo({
     return () => document.removeEventListener('mousedown', cerrar)
   }, [menuOverflow])
 
+
   const [textoIA, setTextoIA] = useState('')
   const [mensajesExpandidos, setMensajesExpandidos] = useState<Set<string>>(new Set())
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -242,6 +243,15 @@ export function PanelCorreo({
     onEnviarCorreo(datos)
     setRespondiendo(false)
   }
+
+  // Escuchar atajo de teclado para responder (evento custom desde useAtajosInbox)
+  useEffect(() => {
+    const handler = () => {
+      if (conversacion && !respondiendo) handleResponder('responder')
+    }
+    window.addEventListener('flux:inbox-responder', handler)
+    return () => window.removeEventListener('flux:inbox-responder', handler)
+  }, [conversacion, respondiendo])
 
   // Calcular contexto de respuesta basado en el último mensaje
   const contextoRespuesta = useMemo(() => {
