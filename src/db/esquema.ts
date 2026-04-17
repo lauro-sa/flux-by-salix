@@ -169,6 +169,30 @@ export const pagos_nomina = pgTable('pagos_nomina', {
   index('pagos_nomina_periodo_idx').on(tabla.empresa_id, tabla.miembro_id, tabla.fecha_inicio_periodo),
 ])
 
+// ─── Historial de compensación ─────────────────────────────────
+// Registra cada cambio de sueldo/compensación de un miembro.
+// Para auditoría y contaduría: saber cuánto cobraba en cada período.
+
+export const historial_compensacion = pgTable('historial_compensacion', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  miembro_id: uuid('miembro_id').notNull().references(() => miembros.id, { onDelete: 'cascade' }),
+  // Qué cambió
+  campo: text('campo').notNull(), // 'compensacion_tipo' | 'compensacion_monto' | 'compensacion_frecuencia' | 'dias_trabajo'
+  valor_anterior: text('valor_anterior'),
+  valor_nuevo: text('valor_nuevo').notNull(),
+  // Contexto
+  motivo: text('motivo'), // 'aumento', 'ajuste', 'cambio_modalidad', etc.
+  porcentaje_cambio: numeric('porcentaje_cambio'), // ej: 15.5 para +15.5%
+  // Auditoría
+  creado_por: uuid('creado_por').notNull(),
+  creado_por_nombre: text('creado_por_nombre').notNull(),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('historial_comp_empresa_idx').on(tabla.empresa_id),
+  index('historial_comp_miembro_idx').on(tabla.empresa_id, tabla.miembro_id),
+])
+
 // ─── Adelantos de nómina ───────────────────────────────────────
 // Adelantos de sueldo que se descuentan en cuotas de los pagos futuros.
 // Preparado para módulo de contaduría: cada cuota es un movimiento financiero.

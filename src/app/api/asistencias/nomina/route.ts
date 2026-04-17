@@ -278,22 +278,16 @@ export async function GET(request: NextRequest) {
       let montoDetalle = ''
 
       if (compTipo === 'fijo') {
-        // Empleados fijos: los feriados en días laborales se pagan aunque no hayan venido
-        const diasPagos = diasTrabajadosNormales + diasFeriadoCount
-        const feriadoNota = feriadosNOTrabajados > 0 ? ` (incl. ${feriadosNOTrabajados} feriado${feriadosNOTrabajados > 1 ? 's' : ''})` : ''
+        // Sueldo fijo: se paga el monto completo según frecuencia.
+        // Si el empleador quiere descontar por ausencias, lo ajusta manualmente al pagar.
+        montoPagar = compMonto
 
         if (compFrecuencia === 'mensual') {
-          const diasMes = 22
-          montoPagar = (compMonto / diasMes) * diasPagos
-          montoDetalle = `$${compMonto.toLocaleString('es-AR')} mensual × ${diasPagos}/${diasMes} días${feriadoNota}`
+          montoDetalle = `Sueldo fijo mensual`
         } else if (compFrecuencia === 'quincenal') {
-          const diasQuincena = 11
-          montoPagar = (compMonto / diasQuincena) * diasPagos
-          montoDetalle = `$${compMonto.toLocaleString('es-AR')} quincenal × ${diasPagos}/${diasQuincena} días${feriadoNota}`
+          montoDetalle = `Sueldo fijo quincenal`
         } else if (compFrecuencia === 'semanal') {
-          const diasSemana = diasEsperados
-          montoPagar = (compMonto / diasSemana) * diasPagos
-          montoDetalle = `$${compMonto.toLocaleString('es-AR')} semanal × ${diasPagos}/${diasSemana} días${feriadoNota}`
+          montoDetalle = `Sueldo fijo semanal`
         }
       } else if (compTipo === 'por_dia') {
         // Por día: solo se pagan los días efectivamente trabajados (feriados no, a menos que hayan venido)

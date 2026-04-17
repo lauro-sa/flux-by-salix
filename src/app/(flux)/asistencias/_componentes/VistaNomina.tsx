@@ -16,6 +16,7 @@ import { Boton } from '@/componentes/ui/Boton'
 import { Insignia } from '@/componentes/ui/Insignia'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { ModalEnviarReciboNomina } from './ModalEnviarReciboNomina'
+import { ModalDetalleNomina } from './ModalDetalleNomina'
 import { useFormato } from '@/hooks/useFormato'
 
 // ─── Tipos ───
@@ -135,6 +136,7 @@ export function VistaNomina() {
   const [resultados, setResultados] = useState<ResultadoNomina[]>([])
   const [nombreEmpresa, setNombreEmpresa] = useState('')
   const [modalEnvio, setModalEnvio] = useState(false)
+  const [empleadoSeleccionado, setEmpleadoSeleccionado] = useState<ResultadoNomina | null>(null)
 
   const periodo = useMemo(() => calcularPeriodo(fechaRef, tipoPeriodo), [fechaRef, tipoPeriodo])
 
@@ -270,7 +272,8 @@ export function VistaNomina() {
             {resultados.map(r => (
               <div
                 key={r.miembro_id}
-                className="grid grid-cols-[1fr_80px_80px_100px_100px_100px] gap-2 px-4 py-3 items-center hover:bg-white/[0.02] transition-colors"
+                onClick={() => setEmpleadoSeleccionado(r)}
+                className="grid grid-cols-[1fr_80px_80px_100px_100px_100px] gap-2 px-4 py-3 items-center hover:bg-white/[0.04] transition-colors cursor-pointer"
               >
                 {/* Nombre */}
                 <div>
@@ -322,6 +325,16 @@ export function VistaNomina() {
           </div>
         </div>
       )}
+
+      {/* Modal detalle de empleado */}
+      <ModalDetalleNomina
+        abierto={!!empleadoSeleccionado}
+        onCerrar={() => setEmpleadoSeleccionado(null)}
+        empleado={empleadoSeleccionado}
+        periodo={periodo}
+        nombreEmpresa={nombreEmpresa}
+        onActualizado={cargarNomina}
+      />
 
       {/* Modal envío de recibos */}
       <ModalEnviarReciboNomina
