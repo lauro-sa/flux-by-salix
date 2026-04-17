@@ -81,15 +81,18 @@ function VisorCorreoHTML({ html }: { html: string }) {
     FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onmouseout', 'onfocus'],
   })
 
-  // Construir documento completo — NO forzar colores, dejar el diseño original del correo
-  // Sin scripts (sandbox no permite allow-scripts por seguridad)
+  // Construir documento completo — respeta dark/light mode del sistema.
+  // Correos con estilos inline (fondo blanco, colores fijos) se ven con su diseño original.
+  // Correos sin estilos (texto plano, HTML básico) heredan el tema del sistema.
   const documentoCompleto = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <base target="_blank">
 <style>
+:root { color-scheme: light dark; }
 body {
   margin: 0;
   padding: 12px;
@@ -99,15 +102,14 @@ body {
   overflow-x: hidden;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  background-color: #ffffff;
-  color: #1a1a1a;
-  color-scheme: light;
+  background-color: transparent;
+  color: light-dark(#1a1a1a, #e0e0e0);
 }
+a { color: light-dark(#2563eb, #60a5fa); }
 img {
   max-width: 100% !important;
   height: auto !important;
 }
-/* Ocultar imágenes rotas o sin src (evitar espacios blancos) */
 img[src=""] { display: none !important; }
 img:not([src]) { display: none !important; }
 table { max-width: 100% !important; }
@@ -164,7 +166,7 @@ pre { white-space: pre-wrap; }
         style={{
           height: listo ? altura : 80,
           maxHeight: 2000,
-          background: 'var(--superficie-tarjeta, #ffffff)',
+          background: 'transparent',
           transition: 'height 0.2s ease',
         }}
         title="Contenido del correo"
