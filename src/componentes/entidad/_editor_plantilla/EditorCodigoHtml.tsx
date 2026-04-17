@@ -8,19 +8,10 @@
 
 import { useRef, useCallback } from 'react'
 import { Braces } from 'lucide-react'
-import { Input } from '@/componentes/ui/Input'
-import { Select } from '@/componentes/ui/Select'
 import { SelectorVariables } from '@/componentes/ui/SelectorVariables'
 import { Tooltip } from '@/componentes/ui/Tooltip'
-import { OPCIONES_VISIBILIDAD } from './constantes'
 
 interface PropiedadesEditorCodigoHtml {
-  nombre: string
-  onNombreChange: (v: string) => void
-  asunto: string
-  onAsuntoChange: (v: string) => void
-  visibilidad: string
-  onVisibilidadChange: (v: string) => void
   htmlCrudo: string
   onHtmlCrudoChange: (v: string) => void
   variablesHtmlAbierto: boolean
@@ -48,12 +39,6 @@ const ETIQUETAS_HTML = [
 ]
 
 export function EditorCodigoHtml({
-  nombre,
-  onNombreChange,
-  asunto,
-  onAsuntoChange,
-  visibilidad,
-  onVisibilidadChange,
   htmlCrudo,
   onHtmlCrudoChange,
   variablesHtmlAbierto,
@@ -83,31 +68,7 @@ export function EditorCodigoHtml({
 
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-4">
-      {/* Fila 1: Nombre + Quién la puede usar */}
-      <div className="grid grid-cols-2 gap-4">
-        <Input
-          etiqueta="Nombre *"
-          value={nombre}
-          onChange={(e) => onNombreChange(e.target.value)}
-          placeholder="Nombre de la plantilla"
-        />
-        <Select
-          etiqueta="Quién la puede usar"
-          opciones={OPCIONES_VISIBILIDAD.map(o => ({ valor: o.valor, etiqueta: o.etiqueta }))}
-          valor={visibilidad}
-          onChange={onVisibilidadChange}
-        />
-      </div>
-
-      {/* Fila 2: Asunto completo */}
-      <Input
-        etiqueta="Asunto"
-        value={asunto}
-        onChange={(e) => onAsuntoChange(e.target.value)}
-        placeholder="Asunto del correo con {{variables}}"
-      />
-
-      {/* Textarea HTML crudo — ocupa todo el espacio restante */}
+      {/* Textarea HTML crudo — ocupa todo el espacio */}
       <div className="flex-1 min-h-0 flex flex-col">
         <div className="flex items-center justify-between mb-1.5 shrink-0">
           <label className="text-xs font-medium" style={{ color: 'var(--texto-secundario)' }}>HTML del correo</label>

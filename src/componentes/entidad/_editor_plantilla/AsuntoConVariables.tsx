@@ -20,6 +20,7 @@ interface PropiedadesAsuntoConVariables {
   onToggleVariables: () => void
   onCerrarVariables: () => void
   onInsertarVariable: (v: string) => void
+  etiqueta?: string
 }
 
 export function AsuntoConVariables({
@@ -31,6 +32,7 @@ export function AsuntoConVariables({
   onToggleVariables,
   onCerrarVariables,
   onInsertarVariable,
+  etiqueta,
 }: PropiedadesAsuntoConVariables) {
   const editableRef = useRef<HTMLDivElement>(null)
   const skipUpdateRef = useRef(false)
@@ -108,6 +110,10 @@ export function AsuntoConVariables({
   const vacio = !valor
 
   return (
+    <div>
+      {etiqueta && (
+        <label className="text-xs font-medium text-texto-secundario mb-1.5 block">{etiqueta}</label>
+      )}
     <div className="relative rounded-lg transition-shadow focus-within:ring-2 focus-within:ring-texto-marca/20" style={{ border: '1px solid var(--borde-fuerte)' }}>
       <div
         ref={editableRef}
@@ -145,6 +151,7 @@ export function AsuntoConVariables({
           contexto={contexto}
         />
       </div>
+    </div>
     </div>
   )
 }

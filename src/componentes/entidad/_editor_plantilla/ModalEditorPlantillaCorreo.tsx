@@ -2,9 +2,7 @@
 
 /**
  * ModalEditorPlantillaCorreo — Editor completo de plantillas de correo.
- * Componente orquestador que delega en sub-componentes y hook de logica.
- * Incluye: nombre, asunto con variables, disponible para (modulo), visibilidad,
- * editor rico con variables integradas, vista previa con datos reales.
+ * Diseño limpio inspirado en Odoo: foco en el contenido, config secundaria colapsada.
  * Se usa en: inbox/configuracion (SeccionPlantillas).
  */
 
@@ -17,7 +15,7 @@ import { Select } from '@/componentes/ui/Select'
 import { Tabs } from '@/componentes/ui/Tabs'
 import { EditorTexto } from '@/componentes/ui/EditorTexto'
 import { SelectorVariables } from '@/componentes/ui/SelectorVariables'
-import { Braces, Eye, Code2, PenLine, Maximize2, Minimize2, RotateCcw } from 'lucide-react'
+import { Braces, Eye, Code2, PenLine, Maximize2, Minimize2, RotateCcw, ChevronRight, Settings2 } from 'lucide-react'
 import { Tooltip } from '@/componentes/ui/Tooltip'
 import { useTraduccion } from '@/lib/i18n'
 
@@ -50,6 +48,7 @@ export function ModalEditorPlantillaCorreo({
   const { t } = useTraduccion()
   const [expandido, setExpandido] = useState(false)
   const [restaurando, setRestaurando] = useState(false)
+  const [configAbierta, setConfigAbierta] = useState(false)
 
   const estado = useEditorPlantilla({ abierto, plantilla, onGuardado, onCerrar })
 
@@ -103,6 +102,12 @@ export function ModalEditorPlantillaCorreo({
     handleGuardar,
   } = estado
 
+  // Resumen de config avanzada para mostrar inline
+  const resumenConfig = [
+    modulos.length > 0 ? `${modulos.length} módulo${modulos.length > 1 ? 's' : ''}` : null,
+    visibilidad !== 'todos' ? OPCIONES_VISIBILIDAD.find(o => o.valor === visibilidad)?.etiqueta : null,
+  ].filter(Boolean).join(' · ')
+
   return (
     <Modal
       abierto={abierto}
@@ -143,77 +148,27 @@ export function ModalEditorPlantillaCorreo({
         </>
       }
     >
-      {/* ── Barra de contexto: contacto + documento ── */}
-      <div className="px-6 py-3 grid grid-cols-2 gap-4 border-b border-white/[0.07] bg-white/[0.02] shrink-0">
-        {/* Contacto */}
-        <div className="flex-1 min-w-0">
-          <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block">Contacto</label>
-          <div className="flex items-center gap-2">
-            {contactoPreview ? (
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <span
-                  className="size-7 rounded-full flex items-center justify-center text-xxs font-bold flex-shrink-0"
-                  style={{ background: colorAvatar(`${contactoPreview.nombre || ''}`), color: 'white' }}
-                >
-                  {iniciales(String(contactoPreview.nombre || ''), contactoPreview.apellido as string)}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate text-texto-primario">
-                    {`${contactoPreview.nombre || ''} ${contactoPreview.apellido || ''}`.trim()}
-                  </p>
-                  {typeof contactoPreview.correo === 'string' && contactoPreview.correo && (
-                    <p className="text-xxs truncate text-texto-terciario">{contactoPreview.correo}</p>
-                  )}
-                </div>
-                {!contactoBloqueadoPorDoc && (
-                  <Boton
-                    variante="fantasma"
-                    tamano="xs"
-                    onClick={() => setContactoPreview(null)}
-                    className="flex-shrink-0 text-xxs"
-                  >
-                    Cambiar
-                  </Boton>
-                )}
-                {contactoBloqueadoPorDoc && (
-                  <span className="text-xxs flex-shrink-0 text-texto-terciario">vía documento</span>
-                )}
-              </div>
-            ) : (
-              <BuscadorContactoPreview
-                onSeleccionar={seleccionarContactoPreview}
-                cargando={cargandoContacto}
-              />
-            )}
-          </div>
-        </div>
-
-        {/* Documento */}
-        <div className="flex-1 min-w-0">
-          <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block">Documento</label>
-          {documentoPreview ? (
-            <div className="flex items-center gap-2">
-              <PenLine size={14} className="text-texto-terciario flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate text-texto-primario">{documentoPreview.numero}</p>
-                <p className="text-xxs truncate text-texto-terciario">{documentoPreview.estado} · {documentoPreview.contacto_nombre || ''}</p>
-              </div>
-              <Boton
-                variante="fantasma"
-                tamano="xs"
-                onClick={() => { setDocumentoPreview(null) }}
-                className="flex-shrink-0 text-xxs"
-              >
-                Cambiar
-              </Boton>
-            </div>
-          ) : (
-            <BuscadorDocumentoPreview
-              contactoId={contactoPreview ? String(contactoPreview.id || '') : null}
-              onSeleccionar={seleccionarDocumentoPreview}
-            />
-          )}
-        </div>
+      {/* ── Nombre + Asunto: siempre visibles arriba ── */}
+      <div className="px-6 pt-4 pb-3 space-y-3 border-b border-white/[0.07] shrink-0">
+        {/* Nombre */}
+        <Input
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          placeholder="Nombre de la plantilla"
+          className="!text-base !font-semibold"
+        />
+        {/* Asunto con variables */}
+        <AsuntoConVariables
+          valor={asunto}
+          onChange={setAsunto}
+          placeholder="Asunto del correo — usa {{ }} para variables"
+          contexto={contextoVariables}
+          variablesAbierto={variablesAsuntoAbierto}
+          onToggleVariables={() => setVariablesAsuntoAbierto(!variablesAsuntoAbierto)}
+          onCerrarVariables={() => setVariablesAsuntoAbierto(false)}
+          onInsertarVariable={insertarVariableAsunto}
+          etiqueta="Asunto"
+        />
       </div>
 
       {/* ── Tabs: Editar / Código / Vista previa ── */}
@@ -221,118 +176,22 @@ export function ModalEditorPlantillaCorreo({
         <Tabs tabs={TABS_EDITOR} activo={tabActivo} onChange={handleCambiarTab} />
       </div>
 
-      {/* Contenedor del tab — altura limitada para generar scroll.
-           Resta: header(57) + contexto(~76) + tabs(~41) + footer(~65) + paddings(~32) ≈ 271px */}
-      <div className="px-6 py-4" style={{ maxHeight: expandido ? 'calc(100dvh - 271px)' : 'calc(90dvh - 271px)', overflowY: 'auto' }}>
+      {/* Contenedor del tab — altura limitada. Sin context bar = más espacio.
+           Resta: header(57) + nombre+asunto(~110) + tabs(~41) + footer(~65) + paddings(~24) ≈ 297px */}
+      <div className="px-6 py-4 flex flex-col" style={{ maxHeight: expandido ? 'calc(100dvh - 297px)' : 'calc(90dvh - 297px)', overflowY: 'auto' }}>
 
         {/* ═══════════ TAB EDITAR (visual) — se oculta con display:none para no desmontar el editor ═══════════ */}
-        <div className="flex flex-col gap-3" style={{ display: tabActivo === 'editar' ? undefined : 'none' }}>
-            {/* Fila 1: Nombre + Quién la puede usar */}
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                etiqueta="Nombre *"
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                placeholder="Ej: Envío presupuesto, Seguimiento factura..."
-              />
-              <Select
-                etiqueta="Quién la puede usar"
-                opciones={OPCIONES_VISIBILIDAD.map(o => ({ valor: o.valor, etiqueta: o.etiqueta }))}
-                valor={visibilidad}
-                onChange={setVisibilidad}
-              />
-            </div>
-
-            {/* Fila 2: Disponible para (chips sin padding izquierdo) */}
-            <div>
-              <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block">Disponible para</label>
-              <div className="flex flex-wrap gap-1.5">
-                {OPCIONES_DISPONIBLE.filter(o => o.valor !== 'todos').map(o => {
-                  const activo = modulos.includes(o.valor)
-                  return (
-                    <button
-                      type="button"
-                      key={o.valor}
-                      className={`text-xs px-2.5 py-1 rounded-md cursor-pointer transition-all select-none border ${
-                        activo
-                          ? 'bg-texto-marca/15 border-texto-marca/40 text-texto-marca'
-                          : 'bg-white/[0.03] border-white/[0.06] text-texto-terciario hover:border-white/[0.12] hover:text-texto-secundario'
-                      }`}
-                      onClick={() => setModulos(prev => activo ? prev.filter(m => m !== o.valor) : [...prev, o.valor])}
-                    >
-                      {o.etiqueta}
-                    </button>
-                  )
-                })}
-              </div>
-              {modulos.length === 0 && (
-                <p className="text-[11px] text-texto-terciario mt-1">Sin selección = disponible en todos los módulos</p>
-              )}
-            </div>
-
-            {/* Fila 3: Asunto completo */}
-            <div>
-              <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block">Asunto</label>
-              <AsuntoConVariables
-                valor={asunto}
-                onChange={setAsunto}
-                placeholder="Ej: Presupuesto {{presupuesto.numero}} — {{contacto.nombre_completo}}"
-                contexto={contextoVariables}
-                variablesAbierto={variablesAsuntoAbierto}
-                onToggleVariables={() => setVariablesAsuntoAbierto(!variablesAsuntoAbierto)}
-                onCerrarVariables={() => setVariablesAsuntoAbierto(false)}
-                onInsertarVariable={insertarVariableAsunto}
-              />
-            </div>
-
-            {/* Selector de usuarios (si visibilidad = usuarios) */}
-            {visibilidad === 'usuarios' && (
-              <div>
-                <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block">
-                  Usuarios asignados ({usuariosSeleccionados.length})
-                </label>
-                <div className="max-h-36 overflow-y-auto rounded-lg border border-white/[0.06]">
-                  {usuariosEmpresa.length > 0 ? usuariosEmpresa.map(u => {
-                    const seleccionado = usuariosSeleccionados.includes(u.id)
-                    return (
-                      <label
-                        key={u.id}
-                        className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-colors hover:bg-white/[0.04] ${seleccionado ? 'bg-texto-marca/8' : ''}`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={seleccionado}
-                          onChange={() => setUsuariosSeleccionados(prev =>
-                            seleccionado ? prev.filter(id => id !== u.id) : [...prev, u.id]
-                          )}
-                          className="rounded accent-texto-marca"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate text-texto-primario">{u.nombre}</p>
-                          <p className="text-xxs truncate text-texto-terciario">{u.correo}</p>
-                        </div>
-                      </label>
-                    )
-                  }) : (
-                    <p className="px-3 py-3 text-xs text-center text-texto-terciario">Cargando usuarios...</p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Contenido visual — ocupa todo el espacio restante */}
-            <div className="flex-1 min-h-0 flex flex-col">
-              <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block shrink-0">Contenido</label>
-              <EditorTexto
-                contenido={esEdicion ? contenidoHtml : ''}
-                onChange={setContenidoHtml}
-                placeholder="Hola {{contacto.nombre}}, adjuntamos el presupuesto..."
-                alturaMinima={180}
-                habilitarVariables
-                onEditorListo={(editor) => { editorRef.current = editor; setEditorListo(true) }}
-                className="flex-1"
-              />
-            </div>
+        <div className="flex flex-col flex-1 min-h-0" style={{ display: tabActivo === 'editar' ? undefined : 'none' }}>
+            {/* Editor de contenido — ocupa todo el espacio */}
+            <EditorTexto
+              contenido={esEdicion ? contenidoHtml : ''}
+              onChange={setContenidoHtml}
+              placeholder="Escribí el contenido del correo... Usá {{ }} para insertar variables."
+              alturaMinima={250}
+              habilitarVariables
+              onEditorListo={(editor) => { editorRef.current = editor; setEditorListo(true) }}
+              className="flex-1"
+            />
           </div>
 
         {/* Boton { } flotante que sigue al cursor del editor */}
@@ -380,12 +239,6 @@ export function ModalEditorPlantillaCorreo({
         {tabActivo === 'codigo' && (
           <div className="flex flex-col">
             <EditorCodigoHtml
-              nombre={nombre}
-              onNombreChange={setNombre}
-              asunto={asunto}
-              onAsuntoChange={setAsunto}
-              visibilidad={visibilidad}
-              onVisibilidadChange={setVisibilidad}
               htmlCrudo={htmlCrudo}
               onHtmlCrudoChange={setHtmlCrudo}
               variablesHtmlAbierto={variablesHtmlAbierto}
@@ -399,7 +252,81 @@ export function ModalEditorPlantillaCorreo({
 
         {/* ═══════════ TAB VISTA PREVIA ═══════════ */}
         {tabActivo === 'preview' && (
-          <div>
+          <div className="space-y-4">
+            {/* Selectores de contexto para preview — antes estaban arriba del modal */}
+            <div className="grid grid-cols-2 gap-4 p-3 rounded-lg bg-white/[0.02] border border-white/[0.07]">
+              {/* Contacto */}
+              <div className="min-w-0">
+                <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block">Registro de prueba</label>
+                <div className="flex items-center gap-2">
+                  {contactoPreview ? (
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <span
+                        className="size-7 rounded-full flex items-center justify-center text-xxs font-bold flex-shrink-0"
+                        style={{ background: colorAvatar(`${contactoPreview.nombre || ''}`), color: 'white' }}
+                      >
+                        {iniciales(String(contactoPreview.nombre || ''), contactoPreview.apellido as string)}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate text-texto-primario">
+                          {`${contactoPreview.nombre || ''} ${contactoPreview.apellido || ''}`.trim()}
+                        </p>
+                        {typeof contactoPreview.correo === 'string' && contactoPreview.correo && (
+                          <p className="text-xxs truncate text-texto-terciario">{contactoPreview.correo}</p>
+                        )}
+                      </div>
+                      {!contactoBloqueadoPorDoc && (
+                        <Boton
+                          variante="fantasma"
+                          tamano="xs"
+                          onClick={() => setContactoPreview(null)}
+                          className="flex-shrink-0 text-xxs"
+                        >
+                          Cambiar
+                        </Boton>
+                      )}
+                      {contactoBloqueadoPorDoc && (
+                        <span className="text-xxs flex-shrink-0 text-texto-terciario">vía documento</span>
+                      )}
+                    </div>
+                  ) : (
+                    <BuscadorContactoPreview
+                      onSeleccionar={seleccionarContactoPreview}
+                      cargando={cargandoContacto}
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Documento */}
+              <div className="min-w-0">
+                <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block">Documento</label>
+                {documentoPreview ? (
+                  <div className="flex items-center gap-2">
+                    <PenLine size={14} className="text-texto-terciario flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate text-texto-primario">{documentoPreview.numero}</p>
+                      <p className="text-xxs truncate text-texto-terciario">{documentoPreview.estado} · {documentoPreview.contacto_nombre || ''}</p>
+                    </div>
+                    <Boton
+                      variante="fantasma"
+                      tamano="xs"
+                      onClick={() => { setDocumentoPreview(null) }}
+                      className="flex-shrink-0 text-xxs"
+                    >
+                      Cambiar
+                    </Boton>
+                  </div>
+                ) : (
+                  <BuscadorDocumentoPreview
+                    contactoId={contactoPreview ? String(contactoPreview.id || '') : null}
+                    onSeleccionar={seleccionarDocumentoPreview}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Vista previa renderizada */}
             <PrevisualizacionPlantilla
               asunto={asunto}
               contenidoHtml={contenidoHtml}
@@ -407,6 +334,101 @@ export function ModalEditorPlantillaCorreo({
               documentoPreview={documentoPreview}
               resolverPreview={resolverPreview}
             />
+          </div>
+        )}
+
+        {/* ═══════════ CONFIG AVANZADA (colapsable) — debajo del contenido ═══════════ */}
+        {tabActivo !== 'preview' && (
+          <div className="mt-3 border-t border-white/[0.07] pt-3 shrink-0">
+            <button
+              type="button"
+              onClick={() => setConfigAbierta(!configAbierta)}
+              className="flex items-center gap-2 w-full text-left group cursor-pointer"
+            >
+              <ChevronRight
+                size={14}
+                className={`text-texto-terciario transition-transform ${configAbierta ? 'rotate-90' : ''}`}
+              />
+              <Settings2 size={14} className="text-texto-terciario" />
+              <span className="text-xs font-medium text-texto-secundario">Configuración avanzada</span>
+              {resumenConfig && !configAbierta && (
+                <span className="text-xxs text-texto-terciario ml-1">— {resumenConfig}</span>
+              )}
+            </button>
+
+            {configAbierta && (
+              <div className="mt-3 space-y-3 pl-7">
+                {/* Visibilidad */}
+                <Select
+                  etiqueta="Quién la puede usar"
+                  opciones={OPCIONES_VISIBILIDAD.map(o => ({ valor: o.valor, etiqueta: o.etiqueta }))}
+                  valor={visibilidad}
+                  onChange={setVisibilidad}
+                />
+
+                {/* Selector de usuarios (si visibilidad = usuarios) */}
+                {visibilidad === 'usuarios' && (
+                  <div>
+                    <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block">
+                      Usuarios asignados ({usuariosSeleccionados.length})
+                    </label>
+                    <div className="max-h-36 overflow-y-auto rounded-lg border border-white/[0.06]">
+                      {usuariosEmpresa.length > 0 ? usuariosEmpresa.map(u => {
+                        const seleccionado = usuariosSeleccionados.includes(u.id)
+                        return (
+                          <label
+                            key={u.id}
+                            className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-colors hover:bg-white/[0.04] ${seleccionado ? 'bg-texto-marca/8' : ''}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={seleccionado}
+                              onChange={() => setUsuariosSeleccionados(prev =>
+                                seleccionado ? prev.filter(id => id !== u.id) : [...prev, u.id]
+                              )}
+                              className="rounded accent-texto-marca"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate text-texto-primario">{u.nombre}</p>
+                              <p className="text-xxs truncate text-texto-terciario">{u.correo}</p>
+                            </div>
+                          </label>
+                        )
+                      }) : (
+                        <p className="px-3 py-3 text-xs text-center text-texto-terciario">Cargando usuarios...</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Disponible para (módulos) */}
+                <div>
+                  <label className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-1.5 block">Disponible para</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {OPCIONES_DISPONIBLE.filter(o => o.valor !== 'todos').map(o => {
+                      const activo = modulos.includes(o.valor)
+                      return (
+                        <button
+                          type="button"
+                          key={o.valor}
+                          className={`text-xs px-2.5 py-1 rounded-md cursor-pointer transition-all select-none border ${
+                            activo
+                              ? 'bg-texto-marca/15 border-texto-marca/40 text-texto-marca'
+                              : 'bg-white/[0.03] border-white/[0.06] text-texto-terciario hover:border-white/[0.12] hover:text-texto-secundario'
+                          }`}
+                          onClick={() => setModulos(prev => activo ? prev.filter(m => m !== o.valor) : [...prev, o.valor])}
+                        >
+                          {o.etiqueta}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {modulos.length === 0 && (
+                    <p className="text-[11px] text-texto-terciario mt-1">Sin selección = disponible en todos los módulos</p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
