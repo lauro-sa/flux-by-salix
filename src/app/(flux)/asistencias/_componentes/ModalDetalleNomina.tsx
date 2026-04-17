@@ -136,19 +136,78 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
     setAdelantos([])
     setPagos([])
 
-    setPeriodoInterno(periodo)
+    // Ajustar período según la frecuencia de pago del empleado
+    const frecuencia = empleado.compensacion_frecuencia || 'mensual'
+    const fechaRef = new Date(periodo.desde + 'T12:00:00')
+    let periodoAjustado = periodo
+
+    if (frecuencia === 'mensual') {
+      // Expandir a mes completo
+      const mes = fechaRef.getMonth()
+      const anio = fechaRef.getFullYear()
+      const ultimo = new Date(anio, mes + 1, 0).getDate()
+      periodoAjustado = {
+        desde: `${anio}-${String(mes + 1).padStart(2, '0')}-01`,
+        hasta: `${anio}-${String(mes + 1).padStart(2, '0')}-${ultimo}`,
+        etiqueta: fechaRef.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase()),
+      }
+    } else if (frecuencia === 'semanal') {
+      // Ajustar a semana
+      const dia = fechaRef.getDay()
+      const lunes = new Date(fechaRef)
+      lunes.setDate(fechaRef.getDate() - (dia === 0 ? 6 : dia - 1))
+      const domingo = new Date(lunes)
+      domingo.setDate(lunes.getDate() + 6)
+      periodoAjustado = {
+        desde: lunes.toISOString().split('T')[0],
+        hasta: domingo.toISOString().split('T')[0],
+        etiqueta: `Semana ${lunes.getDate()}-${domingo.getDate()} de ${lunes.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}`,
+      }
+    } else if (frecuencia === 'quincenal') {
+      // Ajustar a quincena
+      const dia = fechaRef.getDate()
+      const mes = fechaRef.getMonth()
+      const anio = fechaRef.getFullYear()
+      if (dia <= 15) {
+        periodoAjustado = {
+          desde: `${anio}-${String(mes + 1).padStart(2, '0')}-01`,
+          hasta: `${anio}-${String(mes + 1).padStart(2, '0')}-15`,
+          etiqueta: `Quincena 1-15 de ${fechaRef.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}`,
+        }
+      } else {
+        const ultimo = new Date(anio, mes + 1, 0).getDate()
+        periodoAjustado = {
+          desde: `${anio}-${String(mes + 1).padStart(2, '0')}-16`,
+          hasta: `${anio}-${String(mes + 1).padStart(2, '0')}-${ultimo}`,
+          etiqueta: `Quincena 16-${ultimo} de ${fechaRef.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}`,
+        }
+      }
+    }
+
+    setPeriodoInterno(periodoAjustado)
     setDatosEmpleado(empleado)
 
     setCompTipo(empleado.compensacion_tipo)
     setCompMonto(String(empleado.compensacion_monto))
-    setCompFrecuencia(empleado.compensacion_frecuencia || 'mensual')
+    setCompFrecuencia(frecuencia)
     setCompEditando(false)
     setMostrarFormAdelanto(false)
     setConfirmandoPago(false)
     setEditandoPago(null)
 
-    // Cargar pagos y adelantos filtrados por período
-    cargarPagosYAdelantos(empleado.miembro_id, periodo.desde, periodo.hasta)
+    // Si el período cambió, recalcular nómina para el período correcto
+    if (periodoAjustado.desde !== periodo.desde || periodoAjustado.hasta !== periodo.hasta) {
+      fetch(`/api/asistencias/nomina?desde=${periodoAjustado.desde}&hasta=${periodoAjustado.hasta}&empleados=${empleado.miembro_id}`)
+        .then(r => r.json())
+        .then(data => {
+          const resultado = (data.resultados || []).find((r: ResultadoNomina) => r.miembro_id === empleado.miembro_id)
+          if (resultado) setDatosEmpleado(resultado)
+        })
+        .catch(() => {})
+    }
+
+    // Cargar pagos y adelantos filtrados por período ajustado
+    cargarPagosYAdelantos(empleado.miembro_id, periodoAjustado.desde, periodoAjustado.hasta)
 
     // Cargar dias_trabajo
     supabase.from('miembros').select('dias_trabajo').eq('id', empleado.miembro_id).single()
@@ -161,9 +220,10 @@ export function ModalDetalleNomina({ abierto, onCerrar, empleado, periodo, nombr
     if (!empleado) return
     setRecalculando(true)
 
-    // Detectar tipo de período por duración
-    const duracion = (new Date(periodoInterno.hasta + 'T12:00:00').getTime() - new Date(periodoInterno.desde + 'T12:00:00').getTime()) / 86400000
+    // Usar la frecuencia del empleado para navegar (no la duración del período)
+    const frecuencia = compFrecuencia || 'mensual'
     const diaInicio = parseInt(periodoInterno.desde.split('-')[2])
+    const duracion = frecuencia === 'semanal' ? 7 : frecuencia === 'quincenal' ? 15 : 30
 
     let desde: string, hasta: string, etiqueta: string
 
