@@ -227,7 +227,7 @@ export function VistaNomina() {
           {totalDescuento > 0 && (
             <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-insignia-advertencia">-{fmtMonto(totalDescuento)}</p>
-              <p className="text-xxs text-texto-terciario uppercase mt-1">Ya entregado</p>
+              <p className="text-xxs text-texto-terciario uppercase mt-1">Adelantos</p>
             </div>
           )}
           <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-4 text-center">
@@ -275,70 +275,70 @@ export function VistaNomina() {
       ) : (
         <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl overflow-hidden">
           {/* Header */}
-          <div className="grid grid-cols-[1fr_80px_80px_100px_100px_100px] gap-2 px-4 py-2.5 border-b border-borde-sutil text-xxs text-texto-terciario uppercase tracking-wider font-semibold">
-            <span>Empleado</span>
-            <span className="text-right">Días</span>
-            <span className="text-right">Horas</span>
-            <span className="text-right">Bruto</span>
-            <span className="text-right">Adelanto</span>
-            <span className="text-right">Neto</span>
+          <div className="grid grid-cols-[1fr_70px_80px_110px_100px_110px] gap-3 px-5 py-3 border-b border-white/[0.07]">
+            <span className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider">Empleado</span>
+            <span className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider text-center">Días</span>
+            <span className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider text-right">Horas</span>
+            <span className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider text-right">Bruto</span>
+            <span className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider text-right">Adelanto</span>
+            <span className="text-[11px] font-semibold text-texto-terciario uppercase tracking-wider text-right">Neto</span>
           </div>
 
           {/* Filas */}
-          <div className="divide-y divide-borde-sutil">
+          <div className="divide-y divide-white/[0.04]">
             {resultados.map(r => (
               <div
                 key={r.miembro_id}
                 onClick={() => setEmpleadoSeleccionado(r)}
-                className="grid grid-cols-[1fr_80px_80px_100px_100px_100px] gap-2 px-4 py-3 items-center hover:bg-white/[0.04] transition-colors cursor-pointer"
+                className="grid grid-cols-[1fr_70px_80px_110px_100px_110px] gap-3 px-5 py-3.5 items-center hover:bg-white/[0.03] transition-colors cursor-pointer group"
               >
                 {/* Nombre */}
                 <div>
-                  <p className="text-sm font-medium text-texto-primario">{r.nombre}</p>
-                  <p className="text-xxs text-texto-terciario">{r.monto_detalle}</p>
+                  <p className="text-[13px] font-semibold text-texto-primario group-hover:text-texto-marca transition-colors">{r.nombre}</p>
+                  <p className="text-[11px] text-texto-terciario mt-0.5">{r.monto_detalle}</p>
                 </div>
 
                 {/* Días */}
-                <div className="text-right">
-                  <p className="text-sm text-texto-primario">{r.dias_trabajados}/{r.dias_laborales}</p>
+                <div className="text-center">
+                  <p className="text-[13px] font-medium text-texto-primario">
+                    {r.dias_trabajados}<span className="text-texto-terciario font-normal">/{r.dias_laborales}</span>
+                  </p>
                   {r.dias_tardanza > 0 && (
-                    <p className="text-xxs text-insignia-advertencia">{r.dias_tardanza} tard.</p>
+                    <p className="text-[10px] text-insignia-advertencia mt-0.5">{r.dias_tardanza} tard.</p>
                   )}
                 </div>
 
                 {/* Horas */}
-                <p className="text-sm text-texto-secundario text-right">{fmtHoras(r.horas_netas)}</p>
+                <p className="text-[13px] text-texto-terciario text-right">{fmtHoras(r.horas_netas)}</p>
 
                 {/* Bruto */}
-                <p className="text-sm font-medium text-texto-primario text-right">{fmtMonto(r.monto_pagar)}</p>
+                <p className="text-[13px] text-texto-secundario text-right">{fmtMonto(r.monto_pagar)}</p>
 
                 {/* Adelanto */}
                 <div className="text-right">
                   {r.descuento_adelanto > 0 ? (
-                    <Insignia color="advertencia" tamano="sm">
-                      -{fmtMonto(r.descuento_adelanto)}
-                    </Insignia>
+                    <span className="text-[12px] font-medium text-insignia-advertencia">-{fmtMonto(r.descuento_adelanto)}</span>
                   ) : (
-                    <span className="text-xxs text-texto-terciario">—</span>
+                    <span className="text-[11px] text-texto-terciario/40">—</span>
                   )}
                 </div>
 
                 {/* Neto */}
-                <p className="text-sm font-bold text-insignia-exito text-right">{fmtMonto(r.monto_neto)}</p>
+                <p className="text-[14px] font-bold text-insignia-exito text-right">{fmtMonto(r.monto_neto)}</p>
               </div>
             ))}
           </div>
 
           {/* Footer totales */}
-          <div className="grid grid-cols-[1fr_80px_80px_100px_100px_100px] gap-2 px-4 py-3 border-t border-borde-sutil bg-white/[0.02]">
-            <p className="text-sm font-semibold text-texto-primario">Total</p>
+          <div className="grid grid-cols-[1fr_70px_80px_110px_100px_110px] gap-3 px-5 py-3.5 border-t border-white/[0.1] bg-white/[0.02]">
+            <p className="text-[13px] font-bold text-texto-primario">Total</p>
             <span />
-            <p className="text-sm text-texto-secundario text-right">{fmtHoras(totalHoras)}</p>
-            <p className="text-sm font-medium text-texto-primario text-right">{fmtMonto(totalBruto)}</p>
-            <p className="text-sm text-insignia-advertencia text-right">
+            <p className="text-[12px] text-texto-terciario text-right">{fmtHoras(totalHoras)}</p>
+            <p className="text-[13px] font-semibold text-texto-primario text-right">{fmtMonto(totalBruto)}</p>
+            <p className="text-[12px] font-medium text-insignia-advertencia text-right">
               {totalDescuento > 0 ? `-${fmtMonto(totalDescuento)}` : '—'}
             </p>
-            <p className="text-sm font-bold text-insignia-exito text-right">{fmtMonto(totalNeto)}</p>
+            <p className="text-[15px] font-bold text-insignia-exito text-right">{fmtMonto(totalNeto)}</p>
           </div>
         </div>
       )}
