@@ -131,7 +131,7 @@ const fmtHoras = (h: number) => {
 export function VistaNomina() {
   const { locale } = useFormato()
 
-  const [tipoPeriodo, setTipoPeriodo] = useState<TipoPeriodo>('quincena')
+  const [tipoPeriodo, setTipoPeriodo] = useState<TipoPeriodo>('mes')
   const [fechaRef, setFechaRef] = useState(new Date())
   const [cargando, setCargando] = useState(false)
   const [resultados, setResultados] = useState<ResultadoNomina[]>([])
@@ -166,7 +166,7 @@ export function VistaNomina() {
       {/* ── Header: tipo de período + navegación ── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          {(['semana', 'quincena', 'mes'] as TipoPeriodo[]).map(t => (
+          {(['mes', 'quincena', 'semana'] as TipoPeriodo[]).map(t => (
             <button
               key={t}
               onClick={() => setTipoPeriodo(t)}
@@ -205,19 +205,19 @@ export function VistaNomina() {
           className="grid grid-cols-2 md:grid-cols-4 gap-3"
         >
           <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-4 text-center">
-            <p className="text-2xl font-bold text-insignia-exito">{fmtMonto(totalNeto)}</p>
-            <p className="text-xxs text-texto-terciario uppercase mt-1">Neto a pagar</p>
-          </div>
-          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-4 text-center">
             <p className="text-2xl font-bold text-texto-primario">{fmtMonto(totalBruto)}</p>
-            <p className="text-xxs text-texto-terciario uppercase mt-1">Bruto</p>
+            <p className="text-xxs text-texto-terciario uppercase mt-1">Costo empresa</p>
           </div>
           {totalDescuento > 0 && (
             <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-insignia-advertencia">-{fmtMonto(totalDescuento)}</p>
-              <p className="text-xxs text-texto-terciario uppercase mt-1">Adelantos</p>
+              <p className="text-xxs text-texto-terciario uppercase mt-1">Ya entregado</p>
             </div>
           )}
+          <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-4 text-center">
+            <p className="text-2xl font-bold text-insignia-exito">{fmtMonto(totalNeto)}</p>
+            <p className="text-xxs text-texto-terciario uppercase mt-1">A transferir</p>
+          </div>
           <div className="bg-superficie-tarjeta border border-borde-sutil rounded-xl p-4 text-center">
             <p className="text-2xl font-bold text-texto-secundario">{fmtHoras(totalHoras)}</p>
             <p className="text-xxs text-texto-terciario uppercase mt-1">Horas totales</p>
