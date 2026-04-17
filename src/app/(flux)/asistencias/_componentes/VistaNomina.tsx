@@ -6,7 +6,7 @@
  * Se usa en: ContenidoAsistencias.tsx (tab "Nómina")
  */
 
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import {
   ChevronLeft, ChevronRight, Users, Download, Send,
@@ -141,14 +141,30 @@ export function VistaNomina() {
 
   const periodo = useMemo(() => calcularPeriodo(fechaRef, tipoPeriodo), [fechaRef, tipoPeriodo])
 
-  // Cargar nómina
+  // Cache de resultados por período
+  const cacheRef = useRef<Map<string, { resultados: ResultadoNomina[]; nombreEmpresa: string }>>(new Map())
+  const cacheKey = `${periodo.desde}_${periodo.hasta}`
+
+  // Cargar nómina (con cache)
   const cargarNomina = useCallback(async () => {
+    // Si ya tenemos cache para este período, usar directo
+    const cached = cacheRef.current.get(cacheKey)
+    if (cached) {
+      setResultados(cached.resultados)
+      setNombreEmpresa(cached.nombreEmpresa)
+      return
+    }
+
     setCargando(true)
     try {
       const res = await fetch(`/api/asistencias/nomina?desde=${periodo.desde}&hasta=${periodo.hasta}`)
       const data = await res.json()
-      setResultados(data.resultados || [])
-      setNombreEmpresa(data.nombre_empresa || '')
+      const r = data.resultados || []
+      const n = data.nombre_empresa || ''
+      setResultados(r)
+      setNombreEmpresa(n)
+      // Guardar en cache
+      cacheRef.current.set(cacheKey, { resultados: r, nombreEmpresa: n })
     } catch { /* silenciar */ }
     setCargando(false)
   }, [periodo.desde, periodo.hasta])
@@ -334,7 +350,7 @@ export function VistaNomina() {
         empleado={empleadoSeleccionado}
         periodo={periodo}
         nombreEmpresa={nombreEmpresa}
-        onActualizado={cargarNomina}
+        onActualizado={() => { cacheRef.current.clear(); cargarNomina() }}
       />
 
       {/* Modal envío de recibos */}
