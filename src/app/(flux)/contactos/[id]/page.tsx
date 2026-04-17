@@ -619,7 +619,7 @@ export default function PaginaContacto() {
           </div>
         ) : (
           <div className="px-4 sm:px-6 pb-3">
-            <BarraKPIs contactoId={id} />
+            <BarraKPIs contactoId={id} contactoNombre={nombreCompleto || 'Contacto'} />
           </div>
         )}
       </div>

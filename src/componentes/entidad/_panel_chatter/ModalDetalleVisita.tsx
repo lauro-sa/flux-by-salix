@@ -1,32 +1,33 @@
 'use client'
 
 /**
- * ModalDetalleVisita — Modal de solo lectura con toda la info de una visita completada.
- * Reutilizable desde: EntradaVisita (chatter) y listado de visitas archivadas.
- * Se usa en: EntradaVisita, ContenidoVisitas (archivo).
+ * ModalDetalleVisita — Modal de solo lectura con toda la info de una visita.
+ * Jerarquía clara: contacto → fecha/visitador → notas → fotos → detalles.
+ * Reutilizable desde: EntradaVisita (chatter), BarraKPIs, visitas archivadas.
  */
 
 import {
-  MapPin, Clock, Thermometer, CheckSquare, Square,
-  Navigation, CalendarClock, User, FileText, Target,
-  ImageIcon, X,
+  MapPin, Clock, CheckSquare, Square,
+  Navigation, CalendarClock, User,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { ModalAdaptable } from '@/componentes/ui/ModalAdaptable'
 import { useTraduccion } from '@/lib/i18n'
-import type { EntradaChatter, AdjuntoChatter, MetadataChatter } from '@/tipos/chatter'
+import type { EntradaChatter, AdjuntoChatter } from '@/tipos/chatter'
 import Image from 'next/image'
 
-// ─── Colores de temperatura ───
-const COLORES_TEMPERATURA: Record<string, { bg: string; texto: string; etiqueta: string; icono: string }> = {
-  frio: { bg: 'bg-insignia-info/10', texto: 'text-insignia-info', etiqueta: 'Frío', icono: '❄️' },
-  tibio: { bg: 'bg-insignia-advertencia/10', texto: 'text-insignia-advertencia', etiqueta: 'Tibio', icono: '🌤️' },
-  caliente: { bg: 'bg-insignia-peligro/10', texto: 'text-insignia-peligro', etiqueta: 'Caliente', icono: '🔥' },
+// ─── Temperatura ───
+const TEMP: Record<string, { etiqueta: string; color: string }> = {
+  frio: { etiqueta: 'Baja', color: 'var(--insignia-peligro)' },
+  tibio: { etiqueta: 'Media', color: 'var(--insignia-advertencia)' },
+  caliente: { etiqueta: 'Alta', color: 'var(--insignia-exito)' },
 }
 
-// ─── Props para uso desde visita archivada (sin entrada de chatter) ───
+// ─── Props ───
 export interface DatosVisitaDetalle {
   resultado?: string | null
   notas?: string | null
+  notas_registro?: string | null
   temperatura?: string | null
   checklist?: { id: string; texto: string; completado: boolean }[]
   direccion_texto?: string | null
@@ -48,59 +49,41 @@ export interface DatosVisitaDetalle {
   adjuntos?: AdjuntoChatter[]
 }
 
+interface PropsNavegacion {
+  indice: number
+  total: number
+  onAnterior?: () => void
+  onSiguiente?: () => void
+}
+
 interface Props {
   abierto: boolean
   onCerrar: () => void
-  /** Desde chatter: usa la entrada para extraer metadata */
   entrada?: EntradaChatter
-  /** Desde archivo: datos directos de la visita */
   datosVisita?: DatosVisitaDetalle
+  navegacion?: PropsNavegacion
 }
 
-// ─── Formatear fecha legible ───
-function formatearFecha(iso?: string | null): string {
+// ─── Helpers ───
+function fechaCorta(iso?: string | null): string {
   if (!iso) return '—'
   const d = new Date(iso)
-  return d.toLocaleDateString('es-AR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-// ─── Sección con etiqueta ───
-function Seccion({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <h4 className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">{etiqueta}</h4>
-      {children}
-    </div>
-  )
+function fechaLarga(iso?: string | null): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-// ─── Fila info ───
-function FilaInfo({ icono, etiqueta, valor }: { icono: React.ReactNode; etiqueta: string; valor: React.ReactNode }) {
-  if (!valor) return null
-  return (
-    <div className="flex items-start gap-2 py-1">
-      <span className="text-texto-terciario shrink-0 mt-0.5">{icono}</span>
-      <div className="min-w-0">
-        <p className="text-xxs text-texto-terciario">{etiqueta}</p>
-        <div className="text-sm text-texto-primario">{valor}</div>
-      </div>
-    </div>
-  )
-}
-
-export function ModalDetalleVisita({ abierto, onCerrar, entrada, datosVisita }: Props) {
+// ─── Componente ───
+export function ModalDetalleVisita({ abierto, onCerrar, entrada, datosVisita, navegacion }: Props) {
   const { t } = useTraduccion()
-  // Extraer datos — priorizar datosVisita si viene, sino extraer de metadata de la entrada
+
   const m = entrada?.metadata
-  const resultado = datosVisita?.resultado ?? m?.visita_resultado
-  const notas = datosVisita?.notas ?? m?.visita_notas
+  const notasRegistro = datosVisita?.notas_registro ?? datosVisita?.notas ?? m?.visita_notas
+  const notasAdmin = datosVisita?.notas_registro ? (datosVisita?.notas || null) : null
   const temperatura = datosVisita?.temperatura ?? m?.visita_temperatura
   const checklist = datosVisita?.checklist ?? m?.visita_checklist ?? []
   const direccion = datosVisita?.direccion_texto ?? m?.visita_direccion
@@ -113,204 +96,182 @@ export function ModalDetalleVisita({ abierto, onCerrar, entrada, datosVisita }: 
   const visitador = datosVisita?.editado_por_nombre ?? datosVisita?.asignado_nombre ?? entrada?.autor_nombre
   const recibe = datosVisita?.recibe_nombre
   const recibeTel = datosVisita?.recibe_telefono
-  const registroLat = datosVisita?.registro_lat ?? m?.visita_registro_lat
-  const registroLng = datosVisita?.registro_lng ?? m?.visita_registro_lng
-  const registroPrecision = datosVisita?.registro_precision_m ?? m?.visita_registro_precision
 
   const adjuntos = datosVisita?.adjuntos ?? entrada?.adjuntos ?? []
   const fotos = adjuntos.filter(a => a.tipo?.startsWith('image/'))
-  const otrosArchivos = adjuntos.filter(a => !a.tipo?.startsWith('image/'))
-
   const completados = checklist.filter(i => i.completado).length
   const totalChecklist = checklist.length
-  const tempConfig = temperatura ? COLORES_TEMPERATURA[temperatura] : null
+  const temp = temperatura ? TEMP[temperatura] : null
 
   return (
     <ModalAdaptable
       abierto={abierto}
       onCerrar={onCerrar}
       titulo={t('visitas.detalle_visita')}
-      tamano="4xl"
+      tamano="3xl"
     >
       <div className="space-y-5">
-        {/* Header: contacto + estado */}
-        <div className="flex items-center gap-3 pb-3 border-b border-white/[0.07]">
-          <div className="flex items-center justify-center size-10 rounded-full bg-texto-marca/10 text-texto-marca">
-            <MapPin size={20} />
+
+        {/* ── 1. Navegación entre visitas ── */}
+        {navegacion && (
+          <div className="flex items-center justify-between py-1">
+            <button
+              onClick={navegacion.onAnterior}
+              disabled={!navegacion.onAnterior}
+              className="flex items-center gap-1 text-xs font-medium text-texto-secundario hover:text-texto-primario disabled:opacity-25 transition-colors"
+            >
+              <ChevronLeft size={14} />
+              Visita anterior
+            </button>
+            <span className="text-[11px] text-texto-terciario">{navegacion.indice + 1} de {navegacion.total}</span>
+            <button
+              onClick={navegacion.onSiguiente}
+              disabled={!navegacion.onSiguiente}
+              className="flex items-center gap-1 text-xs font-medium text-texto-secundario hover:text-texto-primario disabled:opacity-25 transition-colors"
+            >
+              Siguiente visita
+              <ChevronRight size={14} />
+            </button>
           </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-base font-semibold text-texto-primario">{contactoNombre || t('visitas.visita')}</h3>
-            <p className="text-xs text-texto-terciario">
-              {t('visitas.completada_por')} {visitador}
-              {fechaCompletada && <> · {formatearFecha(fechaCompletada)}</>}
-            </p>
+        )}
+
+        {/* ── 2. Header: contacto + meta ── */}
+        <div className="space-y-2">
+          <h3 className="text-xl font-bold text-texto-primario">{contactoNombre || t('visitas.visita')}</h3>
+
+          {/* Fecha y visitador */}
+          <p className="text-sm text-texto-terciario">
+            {fechaCorta(fechaCompletada || fechaProgramada)}
+            {visitador && <> · {visitador}</>}
+          </p>
+
+          {/* Pills: factibilidad + duración */}
+          <div className="flex items-center gap-2">
+            {temp && (
+              <span
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+                style={{
+                  border: `1px solid ${temp.color}`,
+                  backgroundColor: `color-mix(in srgb, ${temp.color} 12%, transparent)`,
+                  color: temp.color,
+                }}
+              >
+                <span className="size-1.5 rounded-full" style={{ backgroundColor: temp.color }} />
+                Factibilidad {temp.etiqueta}
+              </span>
+            )}
+            {duracionReal != null && (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-white/[0.04] border border-white/[0.06] text-texto-secundario">
+                <Clock size={11} />
+                {duracionReal} min en sitio
+                {duracionEstimada != null && <span className="text-texto-terciario"> / {duracionEstimada} est.</span>}
+              </span>
+            )}
           </div>
-          {tempConfig && (
-            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${tempConfig.bg} ${tempConfig.texto}`}>
-              {tempConfig.icono} {tempConfig.etiqueta}
-            </span>
+        </div>
+
+        <div className="h-px bg-white/[0.07]" />
+
+        {/* ── 3. Notas + Fotos — lado a lado ── */}
+        <div className="flex gap-5">
+          {/* Notas a la izquierda */}
+          <div className="flex-1 min-w-0 space-y-3">
+            {notasRegistro && (
+              <p className="text-sm text-texto-primario leading-relaxed whitespace-pre-wrap">{notasRegistro}</p>
+            )}
+            {notasAdmin && (
+              <div className="p-2.5 rounded-lg bg-[var(--insignia-info)]/[0.06] border border-[var(--insignia-info)]/15">
+                <p className="text-[10px] font-medium text-[var(--insignia-info)] uppercase tracking-wider mb-1">Indicaciones</p>
+                <p className="text-xs text-texto-terciario whitespace-pre-wrap">{notasAdmin}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Fotos a la derecha — miniaturas compactas */}
+          {fotos.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 shrink-0 content-start" style={{ maxWidth: '140px' }}>
+              {fotos.map((foto, i) => (
+                <a
+                  key={i}
+                  href={foto.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="relative size-16 rounded-lg overflow-hidden border border-white/[0.06] hover:border-texto-marca/40 transition-colors"
+                >
+                  <Image
+                    src={foto.url}
+                    alt={foto.nombre}
+                    fill
+                    sizes="64px"
+                    className="object-cover"
+                  />
+                </a>
+              ))}
+            </div>
           )}
         </div>
 
-        {/* Grid 2 columnas */}
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-5">
-          {/* Columna izquierda — Resultado y datos */}
-          <div className="space-y-4">
-            {resultado && (
-              <Seccion etiqueta={t('visitas.resultado')}>
-                <p className="text-sm text-texto-primario leading-relaxed">{resultado}</p>
-              </Seccion>
-            )}
-
-            {notas && notas !== resultado && (
-              <Seccion etiqueta={t('visitas.notas')}>
-                <p className="text-sm text-texto-secundario leading-relaxed whitespace-pre-wrap">{notas}</p>
-              </Seccion>
-            )}
-
-            <Seccion etiqueta={t('visitas.informacion')}>
-              <div className="space-y-0.5">
-                <FilaInfo
-                  icono={<Target size={14} />}
-                  etiqueta={t('visitas.motivo')}
-                  valor={motivo}
-                />
-                <FilaInfo
-                  icono={<Navigation size={14} />}
-                  etiqueta={t('visitas.direccion')}
-                  valor={direccion}
-                />
-                <FilaInfo
-                  icono={<CalendarClock size={14} />}
-                  etiqueta={t('visitas.fecha_programada')}
-                  valor={fechaProgramada ? formatearFecha(fechaProgramada) : null}
-                />
-                <FilaInfo
-                  icono={<Clock size={14} />}
-                  etiqueta={t('visitas.duracion')}
-                  valor={duracionReal != null ? (
-                    <span>
-                      {duracionReal} min
-                      {duracionEstimada != null && (
-                        <span className="text-texto-terciario"> (estimada: {duracionEstimada} min)</span>
-                      )}
-                    </span>
-                  ) : null}
-                />
-                {recibe && (
-                  <FilaInfo
-                    icono={<User size={14} />}
-                    etiqueta={t('visitas.recibe_opcional')}
-                    valor={<span>{recibe}{recibeTel && <span className="text-texto-terciario"> · {recibeTel}</span>}</span>}
-                  />
-                )}
-                {registroLat != null && registroLng != null && (
-                  <FilaInfo
-                    icono={<MapPin size={14} />}
-                    etiqueta={t('visitas.registro_ubicacion')}
-                    valor={
-                      <span className="text-xs">
-                        {registroLat.toFixed(5)}, {registroLng.toFixed(5)}
-                        {registroPrecision != null && (
-                          <span className="text-texto-terciario"> (±{registroPrecision}m)</span>
-                        )}
-                      </span>
-                    }
-                  />
-                )}
-              </div>
-            </Seccion>
+        {/* ── 5. Checklist ── */}
+        {totalChecklist > 0 && (
+          <div>
+            <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider mb-2">
+              Checklist ({completados}/{totalChecklist})
+            </p>
+            <div className="space-y-1">
+              {checklist.map(item => (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-2.5 py-1.5 px-2.5 rounded-lg bg-white/[0.02]"
+                >
+                  {item.completado
+                    ? <CheckSquare size={14} className="text-[var(--insignia-exito)] shrink-0" />
+                    : <Square size={14} className="text-texto-terciario shrink-0" />
+                  }
+                  <span className={`text-sm ${item.completado ? 'text-texto-terciario line-through' : 'text-texto-primario'}`}>
+                    {item.texto}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
+        )}
 
-          {/* Divisor vertical */}
-          <div className="hidden md:block bg-white/[0.07]" />
+        {/* ── 6. Detalles — info secundaria compacta ── */}
+        <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] p-4 space-y-2.5">
+          <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Detalles</p>
 
-          {/* Columna derecha — Checklist y fotos */}
-          <div className="space-y-4">
-            {/* Checklist completo */}
-            {totalChecklist > 0 && (
-              <Seccion etiqueta={`Checklist (${completados}/${totalChecklist})`}>
-                <div className="space-y-1">
-                  {checklist.map(item => (
-                    <div
-                      key={item.id}
-                      className={`flex items-center gap-2 py-1 px-2 rounded ${
-                        item.completado ? 'bg-insignia-exito/5' : 'bg-superficie-hover/30'
-                      }`}
-                    >
-                      {item.completado
-                        ? <CheckSquare size={14} className="text-insignia-exito shrink-0" />
-                        : <Square size={14} className="text-texto-terciario shrink-0" />
-                      }
-                      <span className={`text-sm ${
-                        item.completado ? 'text-texto-secundario line-through' : 'text-texto-primario'
-                      }`}>
-                        {item.texto}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </Seccion>
-            )}
+          {motivo && (
+            <div className="flex items-center gap-2.5">
+              <Navigation size={13} className="text-texto-terciario shrink-0" />
+              <span className="text-xs text-texto-terciario">Motivo:</span>
+              <span className="text-xs text-texto-secundario">{motivo}</span>
+            </div>
+          )}
 
-            {/* Galería completa de fotos */}
-            {fotos.length > 0 && (
-              <Seccion etiqueta={`Fotos (${fotos.length})`}>
-                <div className="grid grid-cols-3 gap-2">
-                  {fotos.map((foto, i) => (
-                    <a
-                      key={i}
-                      href={foto.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="relative aspect-square rounded-lg overflow-hidden border border-white/[0.06] hover:border-texto-marca/40 transition-colors"
-                    >
-                      <Image
-                        src={foto.url}
-                        alt={foto.nombre}
-                        fill
-                        sizes="(max-width: 768px) 50vw, 200px"
-                        className="object-cover"
-                      />
-                    </a>
-                  ))}
-                </div>
-              </Seccion>
-            )}
+          {direccion && (
+            <div className="flex items-start gap-2.5">
+              <MapPin size={13} className="text-texto-terciario shrink-0 mt-0.5" />
+              <span className="text-xs text-texto-secundario">{direccion}</span>
+            </div>
+          )}
 
-            {/* Otros archivos */}
-            {otrosArchivos.length > 0 && (
-              <Seccion etiqueta={t('visitas.archivos')}>
-                <div className="space-y-1">
-                  {otrosArchivos.map((archivo, i) => (
-                    <a
-                      key={i}
-                      href={archivo.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-superficie-hover transition-colors"
-                    >
-                      <FileText size={14} className="text-texto-terciario shrink-0" />
-                      <span className="text-sm text-texto-primario truncate">{archivo.nombre}</span>
-                      {archivo.tamano != null && (
-                        <span className="text-xxs text-texto-terciario shrink-0 ml-auto">
-                          {(archivo.tamano / 1024).toFixed(0)} KB
-                        </span>
-                      )}
-                    </a>
-                  ))}
-                </div>
-              </Seccion>
-            )}
+          {fechaProgramada && (
+            <div className="flex items-center gap-2.5">
+              <CalendarClock size={13} className="text-texto-terciario shrink-0" />
+              <span className="text-xs text-texto-terciario">Programada:</span>
+              <span className="text-xs text-texto-secundario">{fechaLarga(fechaProgramada)}</span>
+            </div>
+          )}
 
-            {/* Sin datos en la columna derecha */}
-            {totalChecklist === 0 && fotos.length === 0 && otrosArchivos.length === 0 && (
-              <div className="flex items-center justify-center py-8 text-texto-terciario text-sm">
-                {t('visitas.sin_checklist_ni_archivos')}
-              </div>
-            )}
-          </div>
+          {recibe && (
+            <div className="flex items-center gap-2.5">
+              <User size={13} className="text-texto-terciario shrink-0" />
+              <span className="text-xs text-texto-terciario">Recibió:</span>
+              <span className="text-xs text-texto-secundario">{recibe}{recibeTel && ` · ${recibeTel}`}</span>
+            </div>
+          )}
         </div>
+
       </div>
     </ModalAdaptable>
   )

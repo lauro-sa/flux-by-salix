@@ -25,6 +25,9 @@ export async function GET(
       resVinculaciones,
       resPresupuestos,
       resConversaciones,
+      resVisitas,
+      resActividades,
+      resOrdenes,
     ] = await Promise.all([
       // Vinculaciones (directas + inversas) — obtener IDs para deduplicar contactos únicos
       Promise.all([
@@ -50,6 +53,27 @@ export async function GET(
         .select('id', { count: 'exact', head: true })
         .eq('empresa_id', empresaId)
         .eq('contacto_id', id),
+
+      // Visitas
+      admin.from('visitas')
+        .select('id', { count: 'exact', head: true })
+        .eq('empresa_id', empresaId)
+        .eq('contacto_id', id)
+        .eq('en_papelera', false),
+
+      // Actividades
+      admin.from('actividades')
+        .select('id', { count: 'exact', head: true })
+        .eq('empresa_id', empresaId)
+        .eq('contacto_id', id)
+        .eq('en_papelera', false),
+
+      // Órdenes de trabajo
+      admin.from('ordenes_trabajo')
+        .select('id', { count: 'exact', head: true })
+        .eq('empresa_id', empresaId)
+        .eq('contacto_id', id)
+        .eq('en_papelera', false),
     ])
 
     // Procesar vinculaciones — contar contactos únicos (no filas, ya que bidireccional duplica)
@@ -70,11 +94,10 @@ export async function GET(
       vinculaciones: totalVinculaciones,
       presupuestos: { total: totalPresupuestos, monto: montoPresupuestos },
       conversaciones: totalConversaciones,
-      // Placeholders para módulos futuros
-      visitas: 0,
-      actividades: 0,
+      visitas: resVisitas.count || 0,
+      actividades: resActividades.count || 0,
       facturas: { total: 0, monto: 0 },
-      ordenes: 0,
+      ordenes: resOrdenes.count || 0,
     })
   } catch (error) {
     console.error('Error en KPIs contacto:', error)

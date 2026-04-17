@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     // Obtener visita
     const { data: visita } = await admin
       .from('visitas')
-      .select('id, notas, resultado, checklist, estado')
+      .select('id, notas, notas_registro, resultado, checklist, estado')
       .eq('id', visitaId)
       .eq('empresa_id', empresaId)
       .single()
@@ -60,7 +60,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       visita: {
-        notas: visita.notas,
+        notas: visita.notas_registro,
+        notas_admin: visita.notas,
         resultado: visita.resultado,
         checklist: visita.checklist,
         estado: visita.estado,

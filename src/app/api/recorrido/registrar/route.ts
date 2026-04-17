@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
 
     // Actualizar visita con resultado, notas y checklist
     const actualizacion: Record<string, unknown> = { actualizado_en: new Date().toISOString() }
-    if (notas) actualizacion.notas = notas
+    if (notas) actualizacion.notas_registro = notas
     if (resultado) actualizacion.resultado = resultado
     if (temperatura) actualizacion.temperatura = temperatura
     if (checklistJson) {
@@ -127,15 +127,25 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
+    // Re-leer la visita actualizada para tener los datos más frescos
+    const { data: visitaActualizada } = await admin
+      .from('visitas')
+      .select('notas, notas_registro, resultado, temperatura')
+      .eq('id', visitaId)
+      .single()
+
     // Metadata compartida para las entradas de chatter
     const nombreAutor = perfil ? `${perfil.nombre} ${perfil.apellido}`.trim() : (user.email || 'Usuario')
     const checklistParseado = checklistJson ? (() => { try { return JSON.parse(checklistJson) } catch { return [] } })() : []
+    const tempFinal = temperatura || visitaActualizada?.temperatura || null
+    const notasFinal = notas || visitaActualizada?.notas_registro || null
+    const resultadoFinal = resultado || visitaActualizada?.resultado || null
     const metadataVisita = {
       accion: 'visita_completada' as const,
       visita_id: visitaId,
-      visita_resultado: resultado || undefined,
-      visita_notas: notas || undefined,
-      visita_temperatura: temperatura || undefined,
+      visita_resultado: resultadoFinal || undefined,
+      visita_notas: notasFinal || undefined,
+      visita_temperatura: tempFinal || undefined,
       visita_checklist: checklistParseado,
       visita_direccion: visita.direccion_texto || undefined,
       visita_duracion_real: visita.duracion_real_min || undefined,
@@ -150,32 +160,85 @@ export async function POST(request: NextRequest) {
       visita_registro_precision: visita.registro_precision_m || undefined,
     }
 
-    // Entrada en el chatter de la visita
-    await registrarChatter({
-      empresaId,
-      entidadTipo: 'visita',
-      entidadId: visitaId,
-      tipo: 'visita',
-      contenido: resultado || 'Visita completada',
-      autorId: user.id,
-      autorNombre: nombreAutor,
-      adjuntos,
-      metadata: metadataVisita,
-    })
+    // Buscar si ya existe una entrada de chatter de visita para esta visita (evitar duplicados)
+    const { data: chatterExistenteVisita } = await admin
+      .from('chatter')
+      .select('id, adjuntos')
+      .eq('entidad_tipo', 'visita')
+      .eq('entidad_id', visitaId)
+      .eq('tipo', 'visita')
+      .order('creado_en', { ascending: false })
+      .limit(1)
+      .single()
 
-    // Entrada en el chatter del contacto — bloque visual de visita completada
-    if (visita.contacto_id) {
+    const { data: chatterExistenteContacto } = visita.contacto_id
+      ? await admin
+          .from('chatter')
+          .select('id, adjuntos')
+          .eq('entidad_tipo', 'contacto')
+          .eq('entidad_id', visita.contacto_id)
+          .eq('tipo', 'visita')
+          .eq('metadata->>visita_id', visitaId)
+          .order('creado_en', { ascending: false })
+          .limit(1)
+          .single()
+      : { data: null }
+
+    // Combinar adjuntos existentes con los nuevos
+    const adjuntosExistentes = (chatterExistenteVisita?.adjuntos as AdjuntoChatter[] || [])
+    const todosAdjuntos = [...adjuntosExistentes, ...adjuntos]
+
+    if (chatterExistenteVisita) {
+      // Actualizar entrada existente en chatter de la visita
+      await admin
+        .from('chatter')
+        .update({
+          contenido: resultado || 'Visita completada',
+          adjuntos: todosAdjuntos,
+          metadata: metadataVisita,
+          actualizado_en: new Date().toISOString(),
+        })
+        .eq('id', chatterExistenteVisita.id)
+    } else {
+      // Primera vez — crear entrada en chatter de la visita
       await registrarChatter({
         empresaId,
-        entidadTipo: 'contacto',
-        entidadId: visita.contacto_id,
+        entidadTipo: 'visita',
+        entidadId: visitaId,
         tipo: 'visita',
         contenido: resultado || 'Visita completada',
         autorId: user.id,
         autorNombre: nombreAutor,
-        adjuntos,
+        adjuntos: todosAdjuntos,
         metadata: metadataVisita,
       })
+    }
+
+    // Chatter del contacto — actualizar o crear
+    if (visita.contacto_id) {
+      if (chatterExistenteContacto) {
+        await admin
+          .from('chatter')
+          .update({
+            contenido: resultado || 'Visita completada',
+            adjuntos: todosAdjuntos,
+            metadata: metadataVisita,
+            actualizado_en: new Date().toISOString(),
+          })
+          .eq('id', chatterExistenteContacto.id)
+      } else {
+        await registrarChatter({
+          empresaId,
+          entidadTipo: 'contacto',
+          entidadId: visita.contacto_id,
+          tipo: 'visita',
+          contenido: resultado || 'Visita completada',
+          autorId: user.id,
+          autorNombre: nombreAutor,
+          adjuntos: todosAdjuntos,
+          metadata: metadataVisita,
+        })
+      }
     }
 
     return NextResponse.json({ ok: true, adjuntos: adjuntos.length })

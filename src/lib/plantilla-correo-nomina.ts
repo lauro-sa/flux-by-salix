@@ -89,15 +89,19 @@ function construirSeccionAsistencia(datos: DatosNominaCorreo): string {
   const filas: string[] = []
 
   filas.push(FILA('Días trabajados', `${datos.dias_trabajados} de ${datos.dias_laborales}`))
-  filas.push(FILA('Porcentaje de asistencia', datos.porcentaje_asistencia))
+
+  // Días a horario y tardanzas
+  const diasAHorario = Math.max(0, datos.dias_trabajados - datos.dias_tardanza)
+  if (datos.dias_tardanza > 0) {
+    filas.push(FILA('A horario', `${diasAHorario} día${diasAHorario !== 1 ? 's' : ''}`))
+    filas.push(FILA('Tardanzas', `${datos.dias_tardanza} día${datos.dias_tardanza !== 1 ? 's' : ''}`))
+  }
 
   if (datos.dias_ausentes > 0) {
     filas.push(FILA('Ausencias', `${datos.dias_ausentes} día${datos.dias_ausentes !== 1 ? 's' : ''}`))
   }
 
-  if (datos.dias_tardanza > 0) {
-    filas.push(FILA('Tardanzas', `${datos.dias_tardanza} día${datos.dias_tardanza !== 1 ? 's' : ''}`))
-  }
+  filas.push(FILA('Asistencia', datos.porcentaje_asistencia))
 
   // Feriados
   if (datos.dias_feriados > 0) {

@@ -12,6 +12,7 @@ interface ResultadoNomina {
   miembro_id: string
   nombre: string
   correo: string
+  telefono: string
   compensacion_tipo: string
   compensacion_monto: number
   compensacion_frecuencia?: string

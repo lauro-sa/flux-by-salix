@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { Boton } from '@/componentes/ui/Boton'
 import { useTraduccion } from '@/lib/i18n'
+import { ModalVisitasContacto } from './ModalVisitasContacto'
 
 // ─── Tipos ───
 
@@ -31,10 +32,11 @@ interface ItemKPI {
 
 // ─── Componente ───
 
-export function BarraKPIs({ contactoId }: { contactoId: string }) {
+export function BarraKPIs({ contactoId, contactoNombre }: { contactoId: string; contactoNombre: string }) {
   const { t } = useTraduccion()
   const router = useRouter()
   const [kpis, setKpis] = useState<KPIs | null>(null)
+  const [modalVisitas, setModalVisitas] = useState(false)
 
   // Navegación anterior/siguiente — usa la lista de IDs guardada en sessionStorage
   const vecinos = useMemo(() => {
@@ -69,7 +71,7 @@ export function BarraKPIs({ contactoId }: { contactoId: string }) {
     { clave: 'presupuestos', etiqueta: t('navegacion.presupuestos'), icono: FileText, total: k.presupuestos.total, ruta: `/presupuestos?contacto_id=${contactoId}&origen=${encodeURIComponent(`/contactos/${contactoId}`)}` },
     { clave: 'conversaciones', etiqueta: 'Mensajes', icono: MessageSquare, total: k.conversaciones, ruta: `/inbox?contacto_id=${contactoId}` },
     { clave: 'facturas', etiqueta: 'Facturas', icono: Receipt, total: k.facturas.total, ruta: '' },
-    { clave: 'visitas', etiqueta: t('visitas.titulo'), icono: CalendarCheck, total: k.visitas, ruta: '' },
+    { clave: 'visitas', etiqueta: t('visitas.titulo'), icono: CalendarCheck, total: k.visitas, ruta: '__modal_visitas__' },
     { clave: 'actividades', etiqueta: t('actividades.titulo'), icono: ClipboardList, total: k.actividades, ruta: '' },
     { clave: 'ordenes', etiqueta: 'Órdenes', icono: ClipboardList, total: k.ordenes, ruta: '' },
   ]
@@ -97,7 +99,10 @@ export function BarraKPIs({ contactoId }: { contactoId: string }) {
             <button
               key={item.clave}
               type="button"
-              onClick={() => tieneRuta && router.push(item.ruta)}
+              onClick={() => {
+                if (item.ruta === '__modal_visitas__') { setModalVisitas(true); return }
+                if (tieneRuta) router.push(item.ruta)
+              }}
               disabled={!tieneRuta}
               className={[
                 'flex flex-col items-center justify-center gap-1 px-4 py-2 transition-colors focus-visible:outline-2 focus-visible:outline-texto-marca focus-visible:-outline-offset-2',
@@ -126,6 +131,14 @@ export function BarraKPIs({ contactoId }: { contactoId: string }) {
         onClick={() => vecinos.siguiente && router.push(`/contactos/${vecinos.siguiente}?nav=1`)}
         disabled={!vecinos.siguiente}
         titulo={vecinos.siguiente ? 'Contacto siguiente' : undefined}
+      />
+
+      {/* Modal de visitas del contacto */}
+      <ModalVisitasContacto
+        abierto={modalVisitas}
+        onCerrar={() => setModalVisitas(false)}
+        contactoId={contactoId}
+        contactoNombre={contactoNombre}
       />
     </div>
   )

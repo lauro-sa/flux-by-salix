@@ -48,7 +48,6 @@ export async function GET(request: NextRequest) {
       .select('*', { count: 'exact' })
       .eq('empresa_id', empresaId)
       .eq('en_papelera', en_papelera)
-      .eq('archivada', archivadas)
 
     // Si solo tiene ver_propio, forzar filtro
     if (soloPropio) {

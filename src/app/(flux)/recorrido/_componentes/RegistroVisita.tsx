@@ -61,6 +61,7 @@ function RegistroVisita({
   const { mostrar } = useToast()
 
   const [notas, setNotas] = useState('')
+  const [notasAdmin, setNotasAdmin] = useState('')
   const [resultado, setResultado] = useState('')
   const [temperatura, setTemperatura] = useState<'frio' | 'tibio' | 'caliente' | null>(null)
   const [checklist, setChecklist] = useState<ItemChecklist[]>(checklistInicial || [])
@@ -87,6 +88,7 @@ function RegistroVisita({
 
         if (data.visita) {
           setNotas(data.visita.notas || '')
+          setNotasAdmin(data.visita.notas_admin || '')
           setResultado(data.visita.resultado || '')
           setTemperatura(data.visita.temperatura || null)
           if (data.visita.checklist && Array.isArray(data.visita.checklist)) {
@@ -374,11 +376,19 @@ function RegistroVisita({
             </div>
           </div>
 
-          {/* ── Notas ── */}
+          {/* ── Indicaciones de la admin (solo lectura) ── */}
+          {notasAdmin && (
+            <div className="p-3 rounded-xl bg-[var(--insignia-info)]/[0.06] border border-[var(--insignia-info)]/15">
+              <p className="text-[11px] font-medium text-[var(--insignia-info)] uppercase tracking-wider mb-1.5">Indicaciones</p>
+              <p className="text-sm text-texto-secundario whitespace-pre-wrap">{notasAdmin}</p>
+            </div>
+          )}
+
+          {/* ── Notas del visitador ── */}
           <div className="p-3.5 rounded-xl bg-white/[0.04] border border-white/[0.06]">
             <div className="flex items-center gap-2 mb-3">
               <FileText size={13} className="text-texto-terciario" />
-              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Notas</p>
+              <p className="text-[11px] font-medium text-texto-terciario uppercase tracking-wider">Registro de visita</p>
             </div>
             <textarea
               value={notas}

@@ -486,9 +486,11 @@ export default function PaginaRecorrido() {
     return `${min} min`
   }
 
-  // Calcular estado del recorrido
+  // Calcular estado del recorrido — completado cuando todas son completadas o canceladas
+  const canceladasTotal = paradas.filter(p => p.visita?.estado === 'cancelada').length
+  const finalizadas = completadas + canceladasTotal
   const estadoRecorrido: EstadoRecorrido = recorrido?.estado as EstadoRecorrido ||
-    (completadas >= paradas.length && paradas.length > 0 ? 'completado' : completadas > 0 ? 'en_curso' : 'pendiente')
+    (finalizadas >= paradas.length && paradas.length > 0 ? 'completado' : completadas > 0 ? 'en_curso' : 'pendiente')
 
   // Loading
   if (cargando) {
@@ -532,12 +534,38 @@ export default function PaginaRecorrido() {
 
   // Recorrido completado
   if (estadoRecorrido === 'completado') {
+    const canceladasCount = paradas.filter(p => p.visita?.estado === 'cancelada').length
+
+    // Reactivar: reabre TODAS las visitas completadas a programada → el recorrido vuelve a en_curso
+    const reactivarRecorrido = async () => {
+      const visitasCompletadas = paradas.filter(p => p.visita?.estado === 'completada')
+      if (visitasCompletadas.length === 0) return
+      try {
+        // Reabrir todas en paralelo
+        const resultados = await Promise.all(
+          visitasCompletadas.map(p =>
+            fetch('/api/recorrido/estado', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ visita_id: p.visita.id, estado: 'programada' }),
+            })
+          )
+        )
+        if (resultados.some(r => !r.ok)) throw new Error()
+        mostrar('exito', 'Recorrido reabierto — podés editar y volver a completar')
+        await cargarRecorrido()
+      } catch {
+        mostrar('error', 'Error al reactivar el recorrido')
+      }
+    }
+
     return (
       <div className="flex-1 min-h-0 flex flex-col bg-superficie-app overflow-hidden">
-        <div className="h-[35dvh] relative">
+        {/* Mapa compacto — solo puntos de destino, sin ubicación del usuario */}
+        <div className="h-[18dvh] relative shrink-0">
           <ProveedorMapa>
             <MapaRecorrido
-              ruta={rutaMapa}
+              ruta={{ ...rutaMapa, origen: undefined }}
               paradaActual={-1}
               className="!rounded-none !h-full"
             />
@@ -549,17 +577,38 @@ export default function PaginaRecorrido() {
             total={paradas.length}
           />
         </div>
-        <div className="flex-1 bg-superficie-app rounded-t-2xl relative z-10 shadow-[0_-4px_16px_rgba(0,0,0,0.3)]">
-          <div className="flex justify-center py-2.5">
+        {/* Resumen — ocupa la mayor parte de la pantalla */}
+        <div className="flex-1 min-h-0 bg-superficie-app rounded-t-2xl relative z-10 shadow-[0_-4px_16px_rgba(0,0,0,0.3)] flex flex-col overflow-hidden -mt-3">
+          <div className="flex justify-center py-2 shrink-0">
             <div className="w-9 h-1 rounded-full bg-borde-fuerte/40" />
           </div>
           <ResumenDia
             totalVisitas={paradas.length}
             completadas={completadas}
+            canceladas={canceladasCount}
             duracionTotalMin={recorrido.duracion_total_min}
             distanciaTotalKm={recorrido.distancia_total_km}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            paradas={paradas as any}
+            fechaRecorrido={fechaSeleccionada}
+            onEditarVisita={(visitaId) => {
+              setVisitaRegistro(visitaId)
+              setModoRegistro('editar')
+              setChecklistRegistro([])
+              setRegistroAbierto(true)
+            }}
+            onReactivar={reactivarRecorrido}
           />
         </div>
+
+        {/* BottomSheet de edición — reutiliza RegistroVisita */}
+        <RegistroVisita
+          abierto={registroAbierto}
+          onCerrar={() => setRegistroAbierto(false)}
+          visitaId={visitaRegistro}
+          modo="editar"
+          onExito={() => { setRegistroAbierto(false); cargarRecorrido() }}
+        />
       </div>
     )
   }

@@ -44,10 +44,10 @@ export async function GET(request: NextRequest) {
         .order('orden', { ascending: true })
 
       // ── Sincronización bidireccional ──
-      // 1. Eliminar paradas cuya visita fue cancelada, enviada a papelera, o reasignada a otro usuario
+      // 1. Eliminar paradas cuya visita fue enviada a papelera o reasignada a otro usuario
+      // Las canceladas se mantienen como parte del historial del recorrido
       const paradasAEliminar = (paradas || []).filter(p =>
         !p.visita ||
-        p.visita.estado === 'cancelada' ||
         p.visita.en_papelera === true ||
         p.visita.asignado_a !== user.id
       )

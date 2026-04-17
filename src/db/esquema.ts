@@ -169,6 +169,68 @@ export const pagos_nomina = pgTable('pagos_nomina', {
   index('pagos_nomina_periodo_idx').on(tabla.empresa_id, tabla.miembro_id, tabla.fecha_inicio_periodo),
 ])
 
+// ─── Adelantos de nómina ───────────────────────────────────────
+// Adelantos de sueldo que se descuentan en cuotas de los pagos futuros.
+// Preparado para módulo de contaduría: cada cuota es un movimiento financiero.
+
+export const adelantos_nomina = pgTable('adelantos_nomina', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  miembro_id: uuid('miembro_id').notNull().references(() => miembros.id, { onDelete: 'cascade' }),
+  // Monto y cuotas
+  monto_total: numeric('monto_total').notNull(),
+  cuotas_totales: integer('cuotas_totales').notNull().default(1),
+  cuotas_descontadas: integer('cuotas_descontadas').notNull().default(0),
+  saldo_pendiente: numeric('saldo_pendiente').notNull(),
+  frecuencia_descuento: text('frecuencia_descuento').notNull(), // 'semanal' | 'quincenal' | 'mensual'
+  // Fechas
+  fecha_solicitud: date('fecha_solicitud').notNull(),
+  fecha_inicio_descuento: date('fecha_inicio_descuento').notNull(),
+  // Estado
+  estado: text('estado').notNull().default('activo'), // 'activo' | 'pagado' | 'cancelado'
+  notas: text('notas'),
+  referencia_contable: text('referencia_contable'),
+  // Auditoría
+  creado_por: uuid('creado_por').notNull(),
+  creado_por_nombre: text('creado_por_nombre').notNull(),
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  editado_por: uuid('editado_por'),
+  editado_en: timestamp('editado_en', { withTimezone: true }),
+  eliminado: boolean('eliminado').notNull().default(false),
+  eliminado_en: timestamp('eliminado_en', { withTimezone: true }),
+  eliminado_por: uuid('eliminado_por'),
+}, (tabla) => [
+  index('adelantos_nomina_empresa_idx').on(tabla.empresa_id),
+  index('adelantos_nomina_miembro_idx').on(tabla.miembro_id),
+  index('adelantos_nomina_estado_idx').on(tabla.empresa_id, tabla.miembro_id, tabla.estado),
+])
+
+export const adelantos_cuotas = pgTable('adelantos_cuotas', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  adelanto_id: uuid('adelanto_id').notNull().references(() => adelantos_nomina.id, { onDelete: 'cascade' }),
+  empresa_id: uuid('empresa_id').notNull().references(() => empresas.id, { onDelete: 'cascade' }),
+  miembro_id: uuid('miembro_id').notNull().references(() => miembros.id, { onDelete: 'cascade' }),
+  // Datos de la cuota
+  numero_cuota: integer('numero_cuota').notNull(),
+  monto_cuota: numeric('monto_cuota').notNull(),
+  fecha_programada: date('fecha_programada').notNull(),
+  fecha_descontada: date('fecha_descontada'),
+  // Vínculo con pago de nómina
+  pago_nomina_id: uuid('pago_nomina_id').references(() => pagos_nomina.id, { onDelete: 'set null' }),
+  // Estado
+  estado: text('estado').notNull().default('pendiente'), // 'pendiente' | 'descontada' | 'cancelada'
+  referencia_contable: text('referencia_contable'),
+  // Timestamps
+  creado_en: timestamp('creado_en', { withTimezone: true }).defaultNow().notNull(),
+  actualizado_en: timestamp('actualizado_en', { withTimezone: true }).defaultNow().notNull(),
+}, (tabla) => [
+  index('adelantos_cuotas_adelanto_idx').on(tabla.adelanto_id),
+  index('adelantos_cuotas_empresa_idx').on(tabla.empresa_id),
+  index('adelantos_cuotas_miembro_idx').on(tabla.miembro_id),
+  index('adelantos_cuotas_pendientes_idx').on(tabla.empresa_id, tabla.miembro_id, tabla.estado),
+  index('adelantos_cuotas_pago_idx').on(tabla.pago_nomina_id),
+])
+
 // ═══════════════════════════════════════════════════════════════
 // SISTEMA DE CONTACTOS
 // ═══════════════════════════════════════════════════════════════

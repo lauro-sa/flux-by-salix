@@ -17,7 +17,7 @@ import { crearClienteNavegador } from '@/lib/supabase/cliente'
 import { useTraduccion } from '@/lib/i18n'
 import { useToast } from '@/componentes/feedback/Toast'
 import { useFormato } from '@/hooks/useFormato'
-import { CalendarDays, Users, Inbox, MapPin, Calendar, GripVertical } from 'lucide-react'
+import { CalendarDays, Users, Inbox, MapPin, Calendar, GripVertical, ChevronLeft, ChevronRight } from 'lucide-react'
 import { ProveedorMapa } from '@/componentes/mapa'
 import TarjetaVisitador from './TarjetaVisitador'
 import ModalRecorrido from './ModalRecorrido'
@@ -77,10 +77,33 @@ interface PropsPanelPlanificacion {
   onAbrirVisita?: (visitaId: string) => void
 }
 
+/** Genera YYYY-MM para un Date */
+function formatoMes(fecha: Date): string {
+  return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`
+}
+
+/** Nombre del mes en español */
+function nombreMes(mesStr: string, locale: string): string {
+  const [anio, mes] = mesStr.split('-').map(Number)
+  const fecha = new Date(anio, mes - 1, 1)
+  return fecha.toLocaleDateString(locale, { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())
+}
+
 export default function PanelPlanificacion({ onAbrirVisita }: PropsPanelPlanificacion) {
   const { t } = useTraduccion()
   const { mostrar } = useToast()
   const queryClient = useQueryClient()
+
+  // Selector de mes
+  const [mesSeleccionado, setMesSeleccionado] = useState(() => formatoMes(new Date()))
+
+  const cambiarMes = useCallback((dir: -1 | 1) => {
+    setMesSeleccionado(prev => {
+      const [a, m] = prev.split('-').map(Number)
+      const nueva = new Date(a, m - 1 + dir, 1)
+      return formatoMes(nueva)
+    })
+  }, [])
 
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const columnaOrigenRef = useRef<string | null>(null)
@@ -95,11 +118,11 @@ export default function PanelPlanificacion({ onAbrirVisita }: PropsPanelPlanific
   const [ordenColumnas, setOrdenColumnas] = useState<string[]>([])
   const ordenCargado = useRef(false)
 
-  // Fetch datos — todas las visitas pendientes sin filtro de fecha
+  // Fetch datos — visitas del mes seleccionado
   const { data: datos, isLoading, refetch } = useQuery<DatosPlanificacion>({
-    queryKey: ['visitas-planificacion'],
+    queryKey: ['visitas-planificacion', mesSeleccionado],
     queryFn: async () => {
-      const res = await fetch('/api/visitas/planificacion')
+      const res = await fetch(`/api/visitas/planificacion?mes=${mesSeleccionado}`)
       if (!res.ok) throw new Error('Error al cargar planificación')
       return res.json()
     },
@@ -410,11 +433,34 @@ export default function PanelPlanificacion({ onAbrirVisita }: PropsPanelPlanific
     <ProveedorMapa>
     <div className="flex flex-col gap-3 px-2 sm:px-6 pb-4 flex-1 min-h-0">
 
-      {/* ── Resumen compacto ── */}
+      {/* ── Selector de mes + resumen ── */}
       <div className="flex items-center gap-3 text-xs text-texto-terciario px-1">
+        {/* Selector de mes */}
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => cambiarMes(-1)}
+            className="p-1 rounded-md hover:bg-superficie-elevada transition-colors"
+          >
+            <ChevronLeft size={14} className="text-texto-secundario" />
+          </button>
+          <button
+            onClick={() => setMesSeleccionado(formatoMes(new Date()))}
+            className="px-2 py-0.5 rounded-md text-xs font-medium text-texto-primario hover:bg-superficie-elevada transition-colors min-w-[120px] text-center"
+          >
+            {nombreMes(mesSeleccionado, 'es')}
+          </button>
+          <button
+            onClick={() => cambiarMes(1)}
+            className="p-1 rounded-md hover:bg-superficie-elevada transition-colors"
+          >
+            <ChevronRight size={14} className="text-texto-secundario" />
+          </button>
+        </div>
+
+        <span className="text-borde-fuerte">·</span>
         <span className="flex items-center gap-1.5">
           <CalendarDays size={11} />
-          <strong className="text-texto-primario">{totalVisitas}</strong> visitas pendientes
+          <strong className="text-texto-primario">{totalVisitas}</strong> visitas
         </span>
         <span className="text-borde-fuerte">·</span>
         <span className="flex items-center gap-1.5">

@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
 
     const { data: perfilesData } = await admin
       .from('perfiles')
-      .select('id, nombre, apellido, correo_empresa, correo')
+      .select('id, nombre, apellido, correo_empresa, correo, telefono')
 
     const perfilMap = new Map((perfilesData || []).map((p: Record<string, unknown>) => [p.id, p]))
 
@@ -149,15 +149,34 @@ export async function GET(request: NextRequest) {
         const diaNombre = diasSemanaStr[d.getDay()]
         const esActivo = diasConfig[diaNombre]?.activo !== false
 
-        if (feriadosSet.has(f)) {
-          // Es feriado — no cuenta como laboral, pero si fichó se suma aparte
+        if (feriadosSet.has(f) && esActivo) {
+          // Es feriado en día laboral — no cuenta como laboral, pero se suma aparte
           fechasFer.push(f)
-        } else if (esActivo) {
+        } else if (!feriadosSet.has(f) && esActivo) {
           fechasLab.push(f)
         }
       }
 
       return { fechasLaborales: fechasLab, fechasFeriado: fechasFer }
+    }
+
+    // ─── Adelantos: cuotas pendientes por miembro ───
+    const { data: cuotasPendientesData } = await admin
+      .from('adelantos_cuotas')
+      .select('miembro_id, monto_cuota, adelanto_id, numero_cuota')
+      .eq('empresa_id', empresaId)
+      .eq('estado', 'pendiente')
+      .lte('fecha_programada', hasta)
+
+    // Agrupar cuotas pendientes por miembro
+    const cuotasPorMiembro = new Map<string, { monto: number; cantidad: number; detalle: Record<string, unknown>[] }>()
+    for (const c of (cuotasPendientesData || []) as Record<string, unknown>[]) {
+      const mid = c.miembro_id as string
+      if (!cuotasPorMiembro.has(mid)) cuotasPorMiembro.set(mid, { monto: 0, cantidad: 0, detalle: [] })
+      const entry = cuotasPorMiembro.get(mid)!
+      entry.monto += parseFloat(c.monto_cuota as string)
+      entry.cantidad++
+      entry.detalle.push(c)
     }
 
     // ─── Calcular por cada miembro ───
@@ -166,6 +185,7 @@ export async function GET(request: NextRequest) {
       const perfil = perfilMap.get(m.usuario_id) as Record<string, unknown> | undefined
       const nombre = perfil ? `${perfil.nombre} ${perfil.apellido}` : 'Sin nombre'
       const correo = (perfil?.correo_empresa as string) || (perfil?.correo as string) || ''
+      const telefono = (perfil?.telefono as string) || ''
 
       // Resolver turno: miembro → sector → default
       let turnoId = m.turno_id as string | null
@@ -179,9 +199,9 @@ export async function GET(request: NextRequest) {
 
       const registros = asistPorMiembro.get(m.id as string) || []
 
-      // Separar registros de presencia
+      // Presencia real = tiene hora_entrada (exclye ausentes, feriados sin fichaje, auto_cerrado sin entrada)
       const fechasConPresencia = new Set(
-        registros.filter(r => r.estado !== 'ausente').map(r => r.fecha as string)
+        registros.filter(r => r.hora_entrada != null).map(r => r.fecha as string)
       )
 
       // Días trabajados en días laborales normales
@@ -199,8 +219,11 @@ export async function GET(request: NextRequest) {
       // Ausencias = días laborales donde no fichó (feriados no generan ausencia)
       const diasAusentes = Math.max(0, diasLaborales - diasTrabajadosNormales)
 
-      // Feriados en el período (no trabajados)
+      // Feriados en el período (solo los que caen en días activos del turno)
       const diasFeriadoCount = diasPeriodo.fechasFeriado.length
+
+      // Feriados no trabajados (para empleados fijos, estos se pagan igual)
+      const feriadosNOTrabajados = diasFeriadoCount - diasTrabajadosEnFeriado
 
       const diasTardanza = registros.filter(r => r.tipo === 'tardanza').length
 
@@ -255,23 +278,29 @@ export async function GET(request: NextRequest) {
       let montoDetalle = ''
 
       if (compTipo === 'fijo') {
+        // Empleados fijos: los feriados en días laborales se pagan aunque no hayan venido
+        const diasPagos = diasTrabajadosNormales + diasFeriadoCount
+        const feriadoNota = feriadosNOTrabajados > 0 ? ` (incl. ${feriadosNOTrabajados} feriado${feriadosNOTrabajados > 1 ? 's' : ''})` : ''
+
         if (compFrecuencia === 'mensual') {
           const diasMes = 22
-          montoPagar = (compMonto / diasMes) * diasTrabajados
-          montoDetalle = `$${compMonto.toLocaleString('es-AR')} mensual × ${diasTrabajados}/${diasMes} días`
+          montoPagar = (compMonto / diasMes) * diasPagos
+          montoDetalle = `$${compMonto.toLocaleString('es-AR')} mensual × ${diasPagos}/${diasMes} días${feriadoNota}`
         } else if (compFrecuencia === 'quincenal') {
           const diasQuincena = 11
-          montoPagar = (compMonto / diasQuincena) * diasTrabajados
-          montoDetalle = `$${compMonto.toLocaleString('es-AR')} quincenal × ${diasTrabajados}/${diasQuincena} días`
+          montoPagar = (compMonto / diasQuincena) * diasPagos
+          montoDetalle = `$${compMonto.toLocaleString('es-AR')} quincenal × ${diasPagos}/${diasQuincena} días${feriadoNota}`
         } else if (compFrecuencia === 'semanal') {
           const diasSemana = diasEsperados
-          montoPagar = (compMonto / diasSemana) * diasTrabajados
-          montoDetalle = `$${compMonto.toLocaleString('es-AR')} semanal × ${diasTrabajados}/${diasSemana} días`
+          montoPagar = (compMonto / diasSemana) * diasPagos
+          montoDetalle = `$${compMonto.toLocaleString('es-AR')} semanal × ${diasPagos}/${diasSemana} días${feriadoNota}`
         }
       } else if (compTipo === 'por_dia') {
+        // Por día: solo se pagan los días efectivamente trabajados (feriados no, a menos que hayan venido)
         montoPagar = compMonto * diasTrabajados
         montoDetalle = `$${compMonto.toLocaleString('es-AR')} × ${diasTrabajados} días`
       } else if (compTipo === 'por_hora') {
+        // Por hora: solo horas efectivamente trabajadas
         montoPagar = compMonto * horasTotales
         montoDetalle = `$${compMonto.toLocaleString('es-AR')} × ${horasTotales}h`
       }
@@ -280,6 +309,7 @@ export async function GET(request: NextRequest) {
         miembro_id: m.id,
         nombre,
         correo,
+        telefono,
         compensacion_tipo: compTipo,
         compensacion_monto: compMonto,
         compensacion_frecuencia: compFrecuencia,
@@ -300,9 +330,13 @@ export async function GET(request: NextRequest) {
         dias_con_salida_particular: diasConSalidaParticular,
         descuenta_almuerzo: descontarAlmuerzo,
         duracion_almuerzo_config: duracionAlmuerzoMin,
-        // Pago
+        // Pago (bruto)
         monto_pagar: Math.round(montoPagar * 100) / 100,
         monto_detalle: montoDetalle,
+        // Adelantos
+        descuento_adelanto: Math.round((cuotasPorMiembro.get(m.id as string)?.monto || 0) * 100) / 100,
+        cuotas_adelanto: cuotasPorMiembro.get(m.id as string)?.cantidad || 0,
+        monto_neto: Math.round((montoPagar - (cuotasPorMiembro.get(m.id as string)?.monto || 0)) * 100) / 100,
       }
     })
 

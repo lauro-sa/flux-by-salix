@@ -77,6 +77,10 @@ export default function PaginaPerfilUsuario() {
   const [pagos, setPagos] = useState<Record<string, unknown>[]>([])
   const [cargandoPagos, setCargandoPagos] = useState(false)
 
+  /* ── Estado adelantos ── */
+  const [adelantos, setAdelantos] = useState<Record<string, unknown>[]>([])
+  const [cargandoAdelantos, setCargandoAdelantos] = useState(false)
+
   /* ── Asistencias ── */
   const [asistenciasPeriodo, setAsistenciasPeriodo] = useState<Record<string, unknown>[]>([])
   const [cargandoAsistencias, setCargandoAsistencias] = useState(false)
@@ -345,6 +349,53 @@ export default function PaginaPerfilUsuario() {
 
   useEffect(() => { cargarPagos() }, [cargarPagos])
 
+  /* ── Cargar adelantos ── */
+  const cargarAdelantos = useCallback(async () => {
+    if (!miembroId) return
+    setCargandoAdelantos(true)
+    try {
+      const res = await fetch(`/api/adelantos?miembro_id=${miembroId}`)
+      const data = await res.json()
+      setAdelantos(data.adelantos || [])
+    } catch { /* silenciar */ }
+    setCargandoAdelantos(false)
+  }, [miembroId])
+
+  useEffect(() => { cargarAdelantos() }, [cargarAdelantos])
+
+  const crearAdelanto = useCallback(async (datos: {
+    monto_total: number
+    cuotas_totales: number
+    notas: string
+    fecha_inicio_descuento: string
+  }) => {
+    if (!miembro) return
+    const frecuencia = (miembro.compensacion_frecuencia as string) || 'mensual'
+    await fetch('/api/adelantos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        miembro_id: miembroId,
+        monto_total: datos.monto_total,
+        cuotas_totales: datos.cuotas_totales,
+        fecha_solicitud: new Date().toISOString().split('T')[0],
+        fecha_inicio_descuento: datos.fecha_inicio_descuento,
+        frecuencia_descuento: frecuencia === 'eventual' ? 'mensual' : frecuencia,
+        notas: datos.notas || null,
+      }),
+    })
+    cargarAdelantos()
+  }, [miembroId, miembro, cargarAdelantos])
+
+  const cancelarAdelanto = useCallback(async (adelantoId: string) => {
+    await fetch(`/api/adelantos/${adelantoId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ estado: 'cancelado' }),
+    })
+    cargarAdelantos()
+  }, [cargarAdelantos])
+
   /* ── Cargar asistencias reales de un período ── */
   const cargarAsistenciasPeriodo = useCallback(async (inicio: Date, fin: Date) => {
     if (!empresa || !miembroId) return
@@ -394,11 +445,13 @@ export default function PaginaPerfilUsuario() {
       comprobanteUrl = await subirComprobante(datos.comprobante)
     }
 
-    const { error } = await supabase.from('pagos_nomina').insert({
+    const fechaFinPeriodo = datos.periodo.fin.toISOString().split('T')[0]
+
+    const { data: pagoInsertado, error } = await supabase.from('pagos_nomina').insert({
       empresa_id: empresa.id,
       miembro_id: miembroId,
       fecha_inicio_periodo: datos.periodo.inicio.toISOString().split('T')[0],
-      fecha_fin_periodo: datos.periodo.fin.toISOString().split('T')[0],
+      fecha_fin_periodo: fechaFinPeriodo,
       concepto: datos.concepto || datos.periodo.etiqueta,
       monto_sugerido: montoPagar,
       monto_abonado: parseFloat(datos.monto) || montoPagar,
@@ -410,13 +463,24 @@ export default function PaginaPerfilUsuario() {
       notas: datos.notas || null,
       creado_por: usuarioActual.id,
       creado_por_nombre: `${perfil.nombre} ${perfil.apellido}`,
-    })
+    }).select('id').single()
 
-    if (!error) {
+    if (!error && pagoInsertado) {
+      // Descontar cuotas de adelantos pendientes
+      await fetch('/api/adelantos/descontar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pago_nomina_id: pagoInsertado.id,
+          miembro_id: miembroId,
+          fecha_fin_periodo: fechaFinPeriodo,
+        }),
+      }).catch(() => {})
       cargarPagos()
+      cargarAdelantos()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [empresa, miembro, miembroId, usuarioActual, perfil, subirComprobante, cargarPagos])
+  }, [empresa, miembro, miembroId, usuarioActual, perfil, subirComprobante, cargarPagos, cargarAdelantos])
 
   /* ── Eliminar pago ── */
   const eliminarPago = useCallback(async (pagoId: string) => {
@@ -730,6 +794,10 @@ export default function PaginaPerfilUsuario() {
               cargarAsistenciasPeriodo={cargarAsistenciasPeriodo}
               eliminarPago={eliminarPago}
               registrarPago={registrarPago}
+              adelantos={adelantos}
+              cargandoAdelantos={cargandoAdelantos}
+              crearAdelanto={crearAdelanto}
+              cancelarAdelanto={cancelarAdelanto}
               fmt={fmt}
               t={t}
             />

@@ -104,9 +104,12 @@ function ItemVisitaSortable({ visita, indice, onAbrirVisita }: { visita: VisitaP
     : null
 
   const esCompletada = visita.estado === 'completada'
+  const esCancelada = visita.estado === 'cancelada'
+  const esInactiva = esCompletada || esCancelada
   const esActiva = visita.estado === 'en_camino' || visita.estado === 'en_sitio'
 
-  const colorBorde = esCompletada ? 'border-l-insignia-exito/40'
+  const colorBorde = esCancelada ? 'border-l-insignia-peligro/40'
+    : esCompletada ? 'border-l-insignia-exito/40'
     : visita.prioridad === 'urgente' ? 'border-l-insignia-peligro'
     : visita.prioridad === 'alta' ? 'border-l-insignia-advertencia'
     : 'border-l-texto-marca/40'
@@ -116,13 +119,13 @@ function ItemVisitaSortable({ visita, indice, onAbrirVisita }: { visita: VisitaP
       ref={setNodeRef}
       style={style}
       className={`relative rounded-lg border border-l-2 ${colorBorde} transition-colors ${
-        esCompletada ? 'border-white/[0.04] bg-white/[0.01] opacity-50' :
+        esInactiva ? 'border-white/[0.04] bg-white/[0.01] opacity-50' :
         esActiva ? 'border-texto-marca/30 bg-texto-marca/5' :
         'border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.06]'
       }`}
     >
       {/* Drag handle — solo si no está completada */}
-      {!esCompletada ? (
+      {!esInactiva ? (
         <div
           className="flex justify-center py-0.5 opacity-30 cursor-grab active:cursor-grabbing touch-none"
           {...attributes}
@@ -138,13 +141,14 @@ function ItemVisitaSortable({ visita, indice, onAbrirVisita }: { visita: VisitaP
         {/* Fila 1: Número + Nombre ... Estado/Tipo + Abrir */}
         <div className="flex items-center gap-2">
           <span className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+            esCancelada ? 'bg-insignia-peligro/20 text-insignia-peligro' :
             esCompletada ? 'bg-insignia-exito/20 text-insignia-exito' :
             esActiva ? 'bg-texto-marca text-white' :
             'bg-texto-marca/15 text-texto-marca'
           }`}>
-            {esCompletada ? '✓' : indice + 1}
+            {esCancelada ? '✕' : esCompletada ? '✓' : indice + 1}
           </span>
-          <span className={`truncate text-[13px] font-medium flex-1 ${esCompletada ? 'text-texto-terciario line-through' : 'text-texto-primario'}`}>
+          <span className={`truncate text-[13px] font-medium flex-1 ${esInactiva ? 'text-texto-terciario line-through' : 'text-texto-primario'}`}>
             {visita.contacto_nombre || 'Sin contacto'}
           </span>
           {visita.contacto?.tipo_contacto?.etiqueta && (

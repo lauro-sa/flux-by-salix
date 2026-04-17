@@ -132,20 +132,30 @@ export async function PATCH(request: NextRequest) {
 
       if (paradasRecorrido) {
         const idsVisitas = paradasRecorrido.map(p => p.visita_id)
-        const { count } = await admin
-          .from('visitas')
-          .select('id', { count: 'exact', head: true })
-          .in('id', idsVisitas)
-          .eq('estado', 'completada')
 
-        const completadas = count || 0
+        // Contar completadas y canceladas en paralelo
+        const [{ count: countCompletadas }, { count: countFinalizadas }] = await Promise.all([
+          admin
+            .from('visitas')
+            .select('id', { count: 'exact', head: true })
+            .in('id', idsVisitas)
+            .eq('estado', 'completada'),
+          admin
+            .from('visitas')
+            .select('id', { count: 'exact', head: true })
+            .in('id', idsVisitas)
+            .in('estado', ['completada', 'cancelada']),
+        ])
+
+        const completadas = countCompletadas || 0
+        const finalizadas = countFinalizadas || 0
 
         const actualizacionRecorrido: Record<string, unknown> = {
           visitas_completadas: completadas,
         }
 
-        // Si todas completadas, marcar recorrido como completado
-        if (completadas >= recorrido.total_visitas) {
+        // Recorrido completo cuando todas las visitas están completadas o canceladas
+        if (finalizadas >= recorrido.total_visitas) {
           actualizacionRecorrido.estado = 'completado'
         } else if (estado === 'en_camino' || estado === 'en_sitio') {
           actualizacionRecorrido.estado = 'en_curso'

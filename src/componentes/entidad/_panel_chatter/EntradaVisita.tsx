@@ -19,9 +19,9 @@ import { ModalDetalleVisita } from './ModalDetalleVisita'
 
 // ─── Colores de temperatura ───
 const COLORES_TEMPERATURA: Record<string, { bg: string; texto: string; etiqueta: string }> = {
-  frio: { bg: 'bg-insignia-info-fondo', texto: 'text-insignia-info', etiqueta: 'Frío' },
-  tibio: { bg: 'bg-insignia-advertencia-fondo', texto: 'text-insignia-advertencia', etiqueta: 'Tibio' },
-  caliente: { bg: 'bg-insignia-peligro-fondo', texto: 'text-insignia-peligro', etiqueta: 'Caliente' },
+  frio: { bg: 'bg-insignia-info-fondo', texto: 'text-insignia-info', etiqueta: 'Baja' },
+  tibio: { bg: 'bg-insignia-advertencia-fondo', texto: 'text-insignia-advertencia', etiqueta: 'Media' },
+  caliente: { bg: 'bg-insignia-peligro-fondo', texto: 'text-insignia-peligro', etiqueta: 'Alta' },
 }
 
 // ─── Galería compacta de fotos (max 4 thumbnails) ───
@@ -102,7 +102,7 @@ export function EntradaVisita({
               <span className="text-xs font-semibold text-texto-primario">Visita completada</span>
               {tempConfig && (
                 <span className={`text-xxs px-1.5 py-px rounded-full font-medium ${tempConfig.bg} ${tempConfig.texto}`}>
-                  {tempConfig.etiqueta}
+                  Factibilidad {tempConfig.etiqueta}
                 </span>
               )}
             </div>

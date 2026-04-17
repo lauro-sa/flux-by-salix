@@ -7,7 +7,7 @@ import { useListado } from '@/hooks/useListado'
 import { PlantillaListado } from '@/componentes/entidad/PlantillaListado'
 import { TablaDinamica } from '@/componentes/tablas/TablaDinamica'
 import type { ColumnaDinamica } from '@/componentes/tablas/TablaDinamica'
-import { Download, Clock, TimerOff, Plus, History } from 'lucide-react'
+import { Download, Clock, TimerOff, Plus, History, Banknote } from 'lucide-react'
 import { IndicadorEditado } from '@/componentes/ui/IndicadorEditado'
 import { EstadoVacio } from '@/componentes/feedback/EstadoVacio'
 import { Insignia } from '@/componentes/ui/Insignia'
@@ -17,6 +17,8 @@ import { usePreferencias } from '@/hooks/usePreferencias'
 import { VistaMatriz } from './VistaMatriz'
 import { TarjetaAsistencia } from './TarjetaAsistencia'
 import { ModalCrearFichaje } from './ModalCrearFichaje'
+import { VistaNomina } from './VistaNomina'
+import { Tabs } from '@/componentes/ui/Tabs'
 import { ETIQUETA_METODO } from '@/lib/constantes/asistencias'
 
 // ─── Constantes ──────────────────────────────────────────────
@@ -140,6 +142,7 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
   const [editando, setEditando] = useState<RegistroAsistencia | null>(null)
   const [creando, setCreando] = useState<{ miembroId?: string; miembroNombre?: string; fecha?: string } | null>(null)
   const [matrizKey, setMatrizKey] = useState(0)
+  const [seccion, setSeccion] = useState<'fichajes' | 'nomina'>('fichajes')
 
   // Vista persistida por usuario+dispositivo
   const vistaGuardada = (preferencias.config_tablas?.asistencias?.tipoVista as 'lista' | 'tarjetas' | 'matriz') || 'lista'
@@ -317,6 +320,27 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
     },
   ]
 
+  const tabsSeccion = [
+    { clave: 'fichajes', etiqueta: 'Fichajes', icono: <Clock size={15} /> },
+    { clave: 'nomina', etiqueta: 'Nómina', icono: <Banknote size={15} /> },
+  ]
+
+  if (seccion === 'nomina') {
+    return (
+      <PlantillaListado
+        titulo="Asistencias"
+        icono={<Clock size={20} />}
+        mostrarConfiguracion
+        onConfiguracion={() => router.push('/asistencias/configuracion')}
+      >
+        <div className="px-4 pt-2 md:px-6">
+          <Tabs tabs={tabsSeccion} activo={seccion} onChange={(c) => setSeccion(c as 'fichajes' | 'nomina')} />
+        </div>
+        <VistaNomina />
+      </PlantillaListado>
+    )
+  }
+
   return (
     <PlantillaListado
       titulo="Asistencias"
@@ -334,6 +358,10 @@ export default function ContenidoAsistencias({ datosInicialesJson }: Props) {
       mostrarConfiguracion
       onConfiguracion={() => router.push('/asistencias/configuracion')}
     >
+      <div className="px-4 pt-2 md:px-6">
+        <Tabs tabs={tabsSeccion} activo={seccion} onChange={(c) => setSeccion(c as 'fichajes' | 'nomina')} />
+      </div>
+
       <TablaDinamica
         columnas={columnas}
         datos={registros}
